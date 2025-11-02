@@ -262,14 +262,20 @@ Expected Max DD    Position Size
 -40%               25%
 ```
 
-#### 2. Risk Budget by Bubble Stage
+#### 2. Risk Budget by Bubble Stage (REVISED v2.1)
 
-| Bubble Stage | Total Risk Budget | New Entry | Stop Coefficient |
-|-------------|------------------|-----------|-----------------|
-| Normal | 100% | Normal | 2.0 ATR |
-| Caution | 70% | 50% reduced | 1.8 ATR |
-| Euphoria | 40% | Stop | 1.5 ATR |
-| Critical | ≤20% | Stop | 1.2 ATR |
+| Bubble Stage | Score | Total Risk Budget | New Entry | Stop Coefficient |
+|-------------|-------|------------------|-----------|-----------------|
+| Normal | 0-4 | 100% | Normal | 2.0 ATR |
+| Caution | 5-7 | 70-80% | 50% reduced | 1.8 ATR |
+| Elevated Risk | 8-9 | 50-70% | Selective | 1.6 ATR |
+| Euphoria | 10-12 | 40-50% | Stop | 1.5 ATR |
+| Critical | 13-15 | 20-30% | Stop | 1.2 ATR |
+
+**Key Changes in v2.1:**
+- Added "Elevated Risk" phase (8-9 points) for more granular risk management
+- Adjusted risk budgets to be less extreme at 9-point level
+- Maximum score reduced to 15 (Phase 2: 12 max, Phase 3: 3 max with strict criteria)
 
 #### 3. Short-Selling Timing (Critical)
 

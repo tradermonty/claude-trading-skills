@@ -42,14 +42,17 @@ When uncertain about investment decisions, answer these 3 questions:
 
 ---
 
-## Action Matrix by Bubble Stage
+## Action Matrix by Bubble Stage (REVISED v2.1)
 
 | Phase | Score | Risk Budget | Entry | Profit-Taking | Stop | Shorts |
 |-------|-------|------------|-------|--------------|------|--------|
 | **Normal** | 0-4 | 100% | Normal | At target | 2.0 ATR | No |
-| **Caution** | 5-8 | 70% | 50% reduced | 25% at +20% | 1.8 ATR | No |
-| **Euphoria** | 9-12 | 40% | Stop | 50% at +20% | 1.5 ATR | After conditions |
-| **Critical** | 13-16 | 20% | Stop | 75-100% immediate | 1.2 ATR | Recommended |
+| **Caution** | 5-7 | 70-80% | 50% reduced | 25% at +20% | 1.8 ATR | No |
+| **Elevated Risk** | 8-9 | 50-70% | Selective | 40% at +20% | 1.6 ATR | Consider |
+| **Euphoria** | 10-12 | 40-50% | Stop | 50% at +20% | 1.5 ATR | After conditions |
+| **Critical** | 13-15 | 20-30% | Stop | 75-100% immediate | 1.2 ATR | Recommended |
+
+**Note**: Maximum score reduced from 16 to 15 points (Phase 2: max 12, Phase 3: max 3)
 
 ---
 

@@ -107,24 +107,104 @@ Indicator 6: Price Acceleration (requires calculation)
 Phase 2 Total: 0 points
 ```
 
-### Step 5: Qualitative Adjustment (Upper limit +5 points)
+### Step 5: Qualitative Adjustment (Upper limit +3 points, STRICT CRITERIA)
 
-**Only count direct user-reported evidence:**
+**⚠️ CRITICAL: Qualitative adjustments require MEASURABLE evidence. Subjective impressions are NOT allowed.**
 
+**Confirmation Bias Prevention Checklist:**
 ```
-A. Social Penetration:
-  User Report: None
-  → +0 points
+Before adding any qualitative points, verify:
+□ Do you have concrete, measurable data? (not impressions)
+□ Would an independent observer reach the same conclusion?
+□ Are you avoiding double-counting with Phase 2 quantitative scores?
+□ Have you documented the specific evidence?
+```
 
-B. Media/Search:
-  Google Trends Verification: 1.8x year-over-year
-  → Less than 3x → +0 points
+**A. Social Penetration (0-1 points):**
+```
+REQUIRED EVIDENCE (all three must be present for +1 point):
+✓ Direct user report: "Non-investor asked me about [asset]"
+✓ Specific examples: Names, dates, conversations
+✓ Multiple independent sources (minimum 3)
 
-C. Valuation:
-  S&P 500 P/E = 21x + AI revolution narrative
-  → Below 25x but strong narrative → +0 points (pending)
+Scoring:
++1 point: All three criteria met (taxi driver/barber investment advice)
++0 points: Any criteria missing
 
-Phase 3 Adjustment: +0 points
+Example of VALID evidence:
+"User reported: 'My barber asked me about NVDA stock on Nov 1.
+My dentist mentioned AI stocks on Nov 2.
+My Uber driver discussed crypto on Nov 3.'"
+
+Example of INVALID evidence:
+"AI narrative is prevalent" (too vague, unmeasurable)
+```
+
+**B. Media/Search Trends (0-1 points):**
+```
+REQUIRED EVIDENCE (measurable data only):
+✓ Google Trends data showing 5x+ increase YoY
+✓ Mainstream media coverage count (Time/Newsweek covers, TV specials)
+✓ Web search data from multiple sources confirming saturation
+
+Scoring:
++1 point: Search trends 5x+ baseline AND mainstream coverage confirmed
++0 points: Search trends <5x OR no mainstream coverage confirmation
+
+⚠️ CRITICAL: "Elevated narrative" without data = +0 points
+
+How to verify:
+1. Use Google Trends API or web search for "[topic] search volume 2025"
+2. Search for "[topic] Time magazine cover" or "[topic] CNBC special"
+3. Document specific numbers and dates
+
+Example of VALID evidence:
+"Google Trends shows 'AI stocks' at 780 (baseline 150 = 5.2x).
+Time Magazine cover 'The AI Revolution' (Oct 15, 2025).
+CNBC aired 'AI Investment Special' (3 episodes in Oct 2025)."
+
+Example of INVALID evidence:
+"AI/technology narrative seems elevated" (unmeasurable)
+```
+
+**C. Valuation Disconnect (0-1 points):**
+```
+⚠️ WARNING: Avoid double-counting with Phase 2 quantitative scores
+
+REQUIRED EVIDENCE:
+✓ P/E ratio >25 (if not already counted in Phase 2)
+✓ Narrative explicitly ignores fundamentals
+✓ "This time is different" reasoning documented in mainstream media
+
+Scoring:
++1 point: P/E >25 AND fundamentals actively ignored in public discourse
++0 points: High P/E but fundamentals support valuation
+
+Self-check questions:
+- Is this already captured in Phase 2 quantitative scoring? If yes, +0 points
+- Do companies have real earnings supporting valuations? If yes, +0 points
+- Is the narrative backed by fundamental improvements? If yes, +0 points
+
+Example of VALID evidence for +1 point:
+"S&P 500 P/E = 35x (vs. historical 18x).
+Mainstream articles: 'Earnings don't matter in AI era' (CNBC, Oct 2025).
+'Traditional valuation metrics obsolete' (Bloomberg, Nov 2025)."
+
+Example of INVALID evidence:
+"P/E 30.8 but AI has fundamental backing" (fundamentals support valuation = +0)
+```
+
+**Phase 3 Adjustment Calculation:**
+```
+Maximum possible: +3 points (1+1+1)
+
+Common mistakes to avoid:
+❌ Adding points based on "feeling" or "sense"
+❌ Double-counting valuation already in Phase 2
+❌ Accepting narrative claims without measuring data
+✅ Require concrete, independently verifiable evidence
+✅ Document specific sources and dates
+✅ Apply strict interpretation standards
 ```
 
 ### Step 6: Final Judgment and Report

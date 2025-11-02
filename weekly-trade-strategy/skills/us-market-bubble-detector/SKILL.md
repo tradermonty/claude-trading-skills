@@ -1,17 +1,19 @@
 ---
 name: us-market-bubble-detector
-description: Evaluates market bubble risk through quantitative data-driven analysis using the revised Minsky/Kindleberger framework v2.0. Prioritizes objective metrics (Put/Call, VIX, margin debt, breadth, IPO data) over subjective impressions. Supports practical investment decisions with mandatory data collection and mechanical scoring. Use when user asks about bubble risk, valuation concerns, or profit-taking timing.
+description: Evaluates market bubble risk through quantitative data-driven analysis using the revised Minsky/Kindleberger framework v2.1. Prioritizes objective metrics (Put/Call, VIX, margin debt, breadth, IPO data) over subjective impressions. Features strict qualitative adjustment criteria with confirmation bias prevention. Supports practical investment decisions with mandatory data collection and mechanical scoring. Use when user asks about bubble risk, valuation concerns, or profit-taking timing.
 ---
 
-# US Market Bubble Detection Skill (Revised v2.0)
+# US Market Bubble Detection Skill (Revised v2.1)
 
-## Key Revisions
+## Key Revisions in v2.1
 
-**Critical Changes:**
+**Critical Changes from v2.0:**
 1. ✅ **Mandatory Quantitative Data Collection** - Use measured values, not impressions or speculation
 2. ✅ **Clear Threshold Settings** - Specific numerical criteria for each indicator
 3. ✅ **Two-Phase Evaluation Process** - Quantitative evaluation → Qualitative adjustment (strict order)
-4. ✅ **Reduced Weight on Subjective Indicators** - Media coverage as reference only
+4. ✅ **Stricter Qualitative Criteria** - Max +3 points (reduced from +5), requires measurable evidence
+5. ✅ **Confirmation Bias Prevention** - Explicit checklist to avoid over-scoring
+6. ✅ **Granular Risk Phases** - Added "Elevated Risk" phase (8-9 points) for nuanced risk management
 
 ---
 
@@ -144,52 +146,109 @@ Rationale: Rapid price acceleration is unsustainable
 
 ---
 
-### Phase 3: Qualitative Adjustment
+### Phase 3: Qualitative Adjustment (REVISED v2.1)
 
-**Limit: ±2 points maximum**
+**Limit: +3 points maximum (REDUCED from +5 in v2.0)**
 
-Adjust quantitative score based on the following observations (upper limit set to eliminate subjectivity):
-
-#### Adjustment A: Social Penetration (+0 to +2 points)
+**⚠️ CONFIRMATION BIAS PREVENTION CHECKLIST:**
 ```
-+2 points: Direct recommendation from non-investors (family, taxi drivers, etc.)
-+1 point: Observation report of non-investor excitement at workplace
-+0 points: No such observations
-
-Important: Only count direct user reports. Do NOT add points based on news articles alone
+Before adding ANY qualitative points:
+□ Do I have concrete, measurable data? (not impressions)
+□ Would an independent observer reach the same conclusion?
+□ Am I avoiding double-counting with Phase 2 scores?
+□ Have I documented specific evidence with sources?
 ```
 
-#### Adjustment B: Media & Narrative (+0 to +1 point)
+#### Adjustment A: Social Penetration (0-1 points, STRICT CRITERIA)
 ```
-+1 point: Google Trends search volume 3x+ year-over-year (verify with actual measurement)
-+0 points: Less than 3x
++1 point: ALL THREE criteria must be met:
+  ✓ Direct user report of non-investor recommendations
+  ✓ Specific examples with names/dates/conversations
+  ✓ Multiple independent sources (minimum 3)
 
-Important: Do not use "many news reports" impressions. Always verify search trend numbers
++0 points: Any criteria missing
+
+⚠️ INVALID EXAMPLES:
+- "AI narrative is prevalent" (unmeasurable)
+- "I saw articles about retail investors" (not direct report)
+- "Everyone is talking about stocks" (vague, unverified)
+
+✅ VALID EXAMPLE:
+"My barber asked about NVDA (Nov 1), dentist mentioned AI stocks (Nov 2),
+Uber driver discussed crypto (Nov 3)"
 ```
 
-#### Adjustment C: Valuation (-1 to +1 point)
+#### Adjustment B: Media/Search Trends (0-1 points, REQUIRES MEASUREMENT)
 ```
-+1 point: S&P 500 P/E > 25 AND "this time is different" narrative dominant
- 0 points: S&P 500 P/E 18-25
--1 point: S&P 500 P/E < 18
++1 point: BOTH criteria must be met:
+  ✓ Google Trends showing 5x+ YoY increase (measured)
+  ✓ Mainstream coverage confirmed (Time covers, TV specials with dates)
 
-Important: Do not judge based on P/E alone. Combine with narrative dependence
++0 points: Search trends <5x OR no mainstream coverage
+
+⚠️ CRITICAL: "Elevated narrative" without data = +0 points
+
+HOW TO VERIFY:
+1. Search "[topic] Google Trends 2025" and document numbers
+2. Search "[topic] Time magazine cover" for specific dates
+3. Search "[topic] CNBC special" for episode confirmation
+
+✅ VALID EXAMPLE:
+"Google Trends: 'AI stocks' at 780 (baseline 150 = 5.2x).
+Time cover 'AI Revolution' (Oct 15, 2025).
+CNBC 'AI Investment Special' (3 episodes Oct 2025)."
+
+⚠️ INVALID EXAMPLE:
+"AI/technology narrative seems elevated" (unmeasurable)
 ```
+
+#### Adjustment C: Valuation Disconnect (0-1 points, AVOID DOUBLE-COUNTING)
+```
++1 point: ALL criteria must be met:
+  ✓ P/E >25 (if NOT already counted in Phase 2 quantitative)
+  ✓ Fundamentals explicitly ignored in mainstream discourse
+  ✓ "This time is different" documented in major media
+
++0 points: P/E <25 OR fundamentals support valuations
+
+⚠️ SELF-CHECK QUESTIONS (if ANY is YES, score = 0):
+- Is P/E already in Phase 2 quantitative scoring?
+- Do companies have real earnings supporting valuations?
+- Is the narrative backed by fundamental improvements?
+
+✅ VALID EXAMPLE for +1:
+"S&P P/E = 35x (vs historical 18x).
+CNBC article: 'Earnings don't matter in AI era' (Oct 2025).
+Bloomberg: 'Traditional metrics obsolete' (Nov 2025)."
+
+⚠️ INVALID EXAMPLE:
+"P/E 30.8 but companies have real earnings and AI has fundamental backing"
+(fundamentals support = +0 points)
+```
+
+**Phase 3 Total: Maximum +3 points**
 
 ---
 
-### Phase 4: Final Judgment
+### Phase 4: Final Judgment (REVISED v2.1)
 
 ```
-Final Score = Phase 2 Total (0-12 points) + Phase 3 Adjustment (-1 to +5 points)
-Range: -1 to 17 points (practically converges to 0-16 points)
+Final Score = Phase 2 Total (0-12 points) + Phase 3 Adjustment (0 to +3 points)
+Range: 0 to 15 points
 
-Judgment Criteria:
-- 0-4 points: Normal
-- 5-8 points: Caution
-- 9-12 points: Euphoria
-- 13-16 points: Critical
+Judgment Criteria (with Risk Budget):
+- 0-4 points: Normal (Risk Budget: 100%)
+- 5-7 points: Caution (Risk Budget: 70-80%)
+- 8-9 points: Elevated Risk (Risk Budget: 50-70%) ⚠️ NEW in v2.1
+- 10-12 points: Euphoria (Risk Budget: 40-50%)
+- 13-15 points: Critical (Risk Budget: 20-30%)
 ```
+
+**Key Change in v2.1:**
+- Added "Elevated Risk" phase (8-9 points) for more nuanced positioning
+- 9 points is no longer extreme defensive zone (was 40% risk budget)
+- Now allows 50-70% risk budget at 8-9 point level
+- More gradual transition from Caution to Euphoria phases
 
 ---
 
@@ -261,7 +320,7 @@ Do not readily acknowledge mass penetration without direct recommendations from 
 
 ---
 
-## Recommended Actions by Bubble Stage
+## Recommended Actions by Bubble Stage (REVISED v2.1)
 
 ### Normal (0-4 points)
 **Risk Budget: 100%**
@@ -272,35 +331,54 @@ Do not readily acknowledge mass penetration without direct recommendations from 
 **Short-Selling: Not Allowed**
 - Composite conditions not met (0/7 items)
 
-### Caution (5-8 points)
-**Risk Budget: 70%**
-- Begin partial profit-taking (30% reduction)
+### Caution (5-7 points)
+**Risk Budget: 70-80%**
+- Begin partial profit-taking (20-30% reduction)
 - Tighten ATR to 1.8×
-- Reduce new position sizing
+- Reduce new position sizing by 50%
 
 **Short-Selling: Not Recommended**
 - Wait for clearer reversal signals
 
-### Euphoria (9-12 points)
-**Risk Budget: 40%**
-- Accelerate stair-step profit-taking (60% reduction)
+### Elevated Risk (8-9 points) ⚠️ NEW in v2.1
+**Risk Budget: 50-70%**
+- Increase profit-taking (30-50% reduction)
+- Tighten ATR to 1.6×
+- New positions: highly selective, quality only
+- Begin building cash reserves for future opportunities
+
+**Short-Selling: Consider Cautiously**
+- Only after confirming at least 2/7 composite conditions
+- Small exploratory positions (10-15% of normal size)
+- Strict stop-loss (ATR 2.0×)
+
+**Rationale for NEW phase:**
+This zone represents heightened caution without extreme defensiveness.
+Market shows warning signs but not imminent collapse.
+Maintain exposure to quality positions while building flexibility.
+
+### Euphoria (10-12 points)
+**Risk Budget: 40-50%**
+- Accelerate stair-step profit-taking (50-60% reduction)
 - Tighten ATR to 1.5×
-- No new long positions
-
-**Short-Selling: Cautious Entry**
-- After confirming at least 3/7 composite conditions
-- Small position (25% of normal size)
-
-### Critical (13-16 points)
-**Risk Budget: 20% or less**
-- Major profit-taking or full hedge
-- ATR 1.2× or fixed stop-loss
-- Consider cash preservation
+- No new long positions except on major pullbacks
 
 **Short-Selling: Active Consideration**
+- After confirming at least 3/7 composite conditions
+- Small positions (20-25% of normal size)
+- Defined risk only (options, tight stops)
+
+### Critical (13-15 points)
+**Risk Budget: 20-30%**
+- Major profit-taking or full hedge implementation
+- ATR 1.2× or fixed stop-loss
+- Cash preservation mode - prepare for major dislocation
+
+**Short-Selling: Recommended**
 - After confirming at least 5/7 composite conditions
-- Scale in with small positions
+- Scale in with small positions, pyramid on confirmation
 - Tight stop-loss (ATR 1.5× or higher)
+- Consider put options for defined risk
 
 ---
 
@@ -322,15 +400,15 @@ Only consider shorts after confirming at least 3 of the following:
 
 ## Output Format
 
-### Evaluation Report Structure
+### Evaluation Report Structure (v2.1)
 
 ```markdown
-# [Market Name] Bubble Evaluation Report (Revised v2.0)
+# [Market Name] Bubble Evaluation Report (Revised v2.1)
 
 ## Overall Assessment
-- Final Score: X/16 points
-- Phase: [Normal/Caution/Euphoria/Critical]
-- Risk Level: [Low/Medium/High/Extremely High]
+- Final Score: X/15 points (v2.1: max reduced from 16)
+- Phase: [Normal/Caution/Elevated Risk/Euphoria/Critical]
+- Risk Level: [Low/Medium/Medium-High/High/Extremely High]
 - Evaluation Date: YYYY-MM-DD
 
 ## Quantitative Evaluation (Phase 2)
@@ -344,25 +422,51 @@ Only consider shorts after confirming at least 3 of the following:
 | Breadth | [value] | [0-2] | [reason] |
 | Price Accel | [value] | [0-2] | [reason] |
 
-**Phase 2 Total: X points**
+**Phase 2 Total: X/12 points**
 
-## Qualitative Adjustment (Phase 3)
+## Qualitative Adjustment (Phase 3) - STRICT CRITERIA
 
-- Social Penetration: [details] (+X points)
-- Media: [details] (+X points)
-- Valuation: [details] (+X points)
+**⚠️ Confirmation Bias Check:**
+- [ ] All qualitative points have measurable evidence
+- [ ] No double-counting with Phase 2
+- [ ] Independent observer would agree
 
-**Phase 3 Adjustment: +X points**
+### A. Social Penetration (0-1 points)
+- Evidence: [REQUIRED: Direct user reports with dates/names]
+- Score: [+0 or +1]
+- Justification: [Must meet ALL three criteria]
+
+### B. Media/Search Trends (0-1 points)
+- Google Trends Data: [REQUIRED: Measured numbers, YoY multiplier]
+- Mainstream Coverage: [REQUIRED: Specific Time covers, TV specials with dates]
+- Score: [+0 or +1]
+- Justification: [Must have 5x+ search AND mainstream confirmation]
+
+### C. Valuation Disconnect (0-1 points)
+- P/E Ratio: [Current value]
+- Fundamental Backing: [Yes/No - if Yes, score = 0]
+- Narrative Analysis: [REQUIRED: Specific media quotes ignoring fundamentals]
+- Score: [+0 or +1]
+- Justification: [Must show fundamentals actively ignored]
+
+**Phase 3 Total: +X/3 points (max reduced from +5 in v2.0)**
 
 ## Recommended Actions
 
-**Risk Budget: X%**
+**Risk Budget: X%** (Phase: [Normal/Caution/Elevated Risk/Euphoria/Critical])
 - [Specific action 1]
 - [Specific action 2]
 - [Specific action 3]
 
-**Short-Selling: [Allowed/Not Allowed]**
+**Short-Selling: [Not Allowed/Consider Cautiously/Active/Recommended]**
 - Composite conditions: X/7 met
+- Minimum required: [0/2/3/5] for current phase
+
+## Key Changes in v2.1
+- Stricter qualitative criteria (max +3, down from +5)
+- Added "Elevated Risk" phase for 8-9 points
+- Confirmation bias prevention checklist
+- All qualitative points require measurable evidence
 ```
 
 ---
@@ -401,25 +505,41 @@ Only consider shorts after confirming at least 3 of the following:
 
 ---
 
-## Summary: Essence of Revision
+## Summary: Essence of v2.1 Revision
 
-**Old Version Problem:**
-- "Many media reports" → 2 points (impression)
-- "Experts are cautious" → 1 point (hearsay)
-- **Result: 10/16 points (overestimation)**
+**v2.0 Problem (Identified Nov 2025):**
+- Qualitative adjustment too loose (+5 max)
+- "AI narrative elevated" → +1 point (no data)
+- "P/E 30.8" → +1 point (double-counting with quantitative)
+- **Result: 11/16 points - overly bearish without evidence**
 
-**Revised Version:**
-- Put/Call 1.54 → 0 points (measured)
-- JNIVE 25.44 → 0 points (measured)
-- Margin YoY -2% → 0 points (measured)
-- **Result: 3/16 points (objective evaluation)**
+**v2.1 Solution:**
+- Qualitative adjustment stricter (+3 max)
+- "AI narrative elevated" → 0 points (unmeasured)
+- "P/E 30.8 but AI has fundamental backing" → 0 points (fundamentals support)
+- **Result: 9/15 points - balanced, data-driven assessment**
 
-**Lesson:**
+**Key Improvements:**
+1. **Confirmation Bias Prevention**: Explicit checklist before adding qualitative points
+2. **Measurable Evidence Required**: No points without concrete data (Google Trends, media coverage)
+3. **Double-Counting Prevention**: Valuation must not duplicate Phase 2 quantitative
+4. **Granular Risk Phases**: Added "Elevated Risk" (8-9 points) for nuanced positioning
+5. **Balanced Risk Budgets**: 9 points = 50-70% (not 40% extreme defensive)
+
+**Core Principle:**
 > "In God we trust; all others must bring data." - W. Edwards Deming
 
-Evaluation without data is no different from fortune-telling.
+**2025 Lesson:**
+Even data-driven frameworks can be undermined by subjective qualitative adjustments.
+v2.1 requires MEASURABLE evidence for ALL qualitative points.
+Independent observers must be able to verify each adjustment.
 
 ---
 
-**Last Updated:** October 27, 2025 (Revised v2.0)
-**Reason for Revision:** Improved objectivity through mandatory quantitative data collection
+**Version History:**
+- **v2.0** (Oct 27, 2025): Mandatory quantitative data collection
+- **v2.1** (Nov 3, 2025): Stricter qualitative criteria, confirmation bias prevention, granular risk phases
+
+**Reason for v2.1 Revision:**
+Prevent over-scoring through unmeasured "narrative" assessments and double-counting.
+Ensure all bubble risk evaluations are independently verifiable and free from confirmation bias.
