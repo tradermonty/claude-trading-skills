@@ -89,11 +89,13 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Reference pack provides philosophy deep dives, market analysis workflows, and historical case studies (content in Japanese and English).
   - Emphasizes macro theme identification, technical confirmation, and position sizing strategies.
 
-- **US Market Bubble Detector** (`us-market-bubble-detector`)
-  - Minsky/Kindleberger bubble framework with quantitative eight-factor "Bubble-O-Meter" scoring system.
-  - Identifies bubble stages: Displacement → Boom → Euphoria → Profit Taking → Panic.
-  - Provides actionable playbooks for each stage including profit-taking strategies, hedging tactics, and cash deployment timing.
-  - Supplemented by historical case files (Dot-com 2000, Housing 2008, COVID 2020), quick-reference checklists (JP/EN), and interactive scorer script `scripts/bubble_scorer.py`.
+- **US Market Bubble Detector** (`us-market-bubble-detector`) - **v2.1 Updated**
+  - Data-driven bubble risk assessment using revised Minsky/Kindleberger framework with mandatory quantitative metrics (Put/Call, VIX, margin debt, breadth, IPO data).
+  - Two-phase evaluation: Quantitative scoring (0-12 points) → Strict qualitative adjustment (0-3 points, reduced from +5 in v2.0).
+  - Confirmation bias prevention with measurable evidence requirements for all qualitative adjustments.
+  - Granular risk phases: Normal (0-4) → Caution (5-7) → Elevated Risk (8-9) → Euphoria (10-12) → Critical (13-15).
+  - Actionable risk budgets and profit-taking strategies for each phase with specific short-selling criteria.
+  - Supplemented by historical case files, quick-reference checklists (JP/EN), and implementation guide with strict scoring criteria.
 
 ## Workflow Examples
 
