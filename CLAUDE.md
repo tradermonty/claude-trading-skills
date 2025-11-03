@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains Claude Skills for equity investors and traders. Each skill packages domain-specific prompts, knowledge bases, and helper scripts to assist with market analysis, technical charting, economic calendar monitoring, and trading strategy development. Skills are designed to work in both Claude's web app and Claude Code environments.
 
+⚠️ **Important:** Some skills require paid API subscriptions (FMP API and/or FINVIZ Elite) to function. See the [API Key Management](#api-key-management) section for detailed requirements by skill.
+
 ## Repository Architecture
 
 ### Skill Structure
@@ -94,9 +96,26 @@ Skills are tested by invoking them in Claude Code conversations:
 
 ### API Key Management
 
-Several skills require Financial Modeling Prep (FMP) API keys:
+⚠️ **IMPORTANT:** Several skills require paid API subscriptions to function. Review the requirements below before using these skills.
 
-**Economic Calendar Fetcher & Earnings Calendar:**
+#### API Requirements by Skill
+
+| Skill | FMP API | FINVIZ Elite | Notes |
+|-------|---------|--------------|-------|
+| **Economic Calendar Fetcher** | ✅ Required | ❌ Not used | Fetches economic events from FMP |
+| **Earnings Calendar** | ✅ Required | ❌ Not used | Fetches earnings dates from FMP |
+| **Value Dividend Screener** | ✅ Required | 🟡 Optional (Recommended) | FMP for analysis; FINVIZ reduces execution time by 70-80% |
+| Sector Analyst | ❌ Not required | ❌ Not used | Image-based chart analysis |
+| Technical Analyst | ❌ Not required | ❌ Not used | Image-based chart analysis |
+| Breadth Chart Analyst | ❌ Not required | ❌ Not used | Image-based chart analysis |
+| Market News Analyst | ❌ Not required | ❌ Not used | Uses WebSearch/WebFetch |
+| US Stock Analysis | ❌ Not required | ❌ Not used | User provides data |
+| Backtest Expert | ❌ Not required | ❌ Not used | User provides strategy parameters |
+| US Market Bubble Detector | ❌ Not required | ❌ Not used | User provides indicators |
+
+#### API Key Setup
+
+**Financial Modeling Prep (FMP) API:**
 ```bash
 # Set environment variable (preferred method)
 export FMP_API_KEY=your_key_here
@@ -105,16 +124,48 @@ export FMP_API_KEY=your_key_here
 python3 scripts/get_economic_calendar.py --api-key YOUR_KEY
 ```
 
-**API Script Pattern:**
+**FINVIZ Elite API:**
+```bash
+# Set environment variable
+export FINVIZ_API_KEY=your_key_here
+
+# Or provide via command-line argument
+python3 value-dividend-screener/scripts/screen_dividend_stocks.py \
+  --use-finviz \
+  --finviz-api-key YOUR_KEY
+```
+
+#### API Pricing and Access
+
+**Financial Modeling Prep (FMP):**
+- **Free Tier:** 250 API calls/day (sufficient for occasional use)
+- **Starter Tier:** $29.99/month - 750 calls/day
+- **Professional Tier:** $79.99/month - 2,000 calls/day
+- **Sign up:** https://site.financialmodelingprep.com/developer/docs
+
+**FINVIZ Elite:**
+- **Elite Subscription:** $39.99/month or $329.99/year (~$27.50/month)
+- Provides advanced screeners, real-time data, and API access
+- **Sign up:** https://elite.finviz.com/
+- **Note:** FINVIZ Elite is optional for Value Dividend Screener but reduces execution time from 10-15 minutes to 2-3 minutes
+
+**Recommendation for Value Dividend Screener:**
+- **Budget Option:** FMP free tier only (run screening every few days)
+- **Optimal Option:** FINVIZ Elite ($330/year) + FMP free tier (complete solution, fast execution)
+- **Power User:** FMP paid tier only (if you need daily screening without FINVIZ)
+
+#### API Script Pattern
+
 All API scripts follow this pattern:
 1. Check for environment variable first
 2. Fall back to command-line argument
 3. Provide clear error messages if key missing
 4. Support both methods for CLI, Desktop, and Web environments
+5. Handle rate limits gracefully with retry logic
 
 ### Running Helper Scripts
 
-**Economic Calendar Fetcher:**
+**Economic Calendar Fetcher:** ⚠️ Requires FMP API key
 ```bash
 # Default: next 7 days
 python3 economic-calendar-fetcher/scripts/get_economic_calendar.py --api-key YOUR_KEY
@@ -126,7 +177,7 @@ python3 economic-calendar-fetcher/scripts/get_economic_calendar.py \
   --format json
 ```
 
-**Earnings Calendar:**
+**Earnings Calendar:** ⚠️ Requires FMP API key
 ```bash
 # Default: next 7 days, market cap > $2B
 python3 earnings-calendar/scripts/fetch_earnings_fmp.py --api-key YOUR_KEY
@@ -135,6 +186,21 @@ python3 earnings-calendar/scripts/fetch_earnings_fmp.py --api-key YOUR_KEY
 python3 earnings-calendar/scripts/fetch_earnings_fmp.py \
   --from 2025-11-01 --to 2025-11-07 \
   --api-key YOUR_KEY
+```
+
+**Value Dividend Screener:** ⚠️ Requires FMP API key; FINVIZ Elite optional but recommended
+```bash
+# Two-stage screening (RECOMMENDED - 70-80% faster)
+python3 value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz
+
+# FMP-only screening (no FINVIZ required)
+python3 value-dividend-screener/scripts/screen_dividend_stocks.py
+
+# Custom parameters
+python3 value-dividend-screener/scripts/screen_dividend_stocks.py \
+  --use-finviz \
+  --top 50 \
+  --output custom_results.json
 ```
 
 ## Skill Interaction Patterns
@@ -168,11 +234,14 @@ This skill uses automated data collection:
 
 ### Calendar Skills (Economic Calendar Fetcher, Earnings Calendar)
 
+⚠️ **API Requirement:** These skills require FMP API key to function.
+
 These skills fetch future events via FMP API:
-- Execute Python scripts to call API
+- Execute Python scripts to call FMP API endpoints
 - Parse JSON responses
 - Generate chronological markdown reports
 - Include impact assessment (High/Medium/Low)
+- Free tier (250 calls/day) is sufficient for most users
 
 **Output Pattern:**
 ```markdown
@@ -262,6 +331,15 @@ When skills are ready for distribution:
 2. Package skill using skill-creator packaging script
 3. Move .zip file to `zip-packages/`
 4. Update README.md and README.ja.md with skill description
+   - **Important:** Clearly indicate if the skill requires API subscriptions (FMP, FINVIZ Elite)
+   - Include pricing information and sign-up links for required APIs
+   - Specify if APIs are required, optional, or not needed
 5. Commit changes with descriptive message
 
 ZIP packages allow Claude web app users to upload and use skills without cloning the repository.
+
+⚠️ **API Key Requirements in Distribution:**
+- When distributing skills that require API keys, clearly document the requirements in the skill's SKILL.md
+- Include setup instructions for both environment variables and command-line arguments
+- Provide links to API registration and pricing pages
+- Distinguish between required APIs (skill won't work without) and optional APIs (enhances performance)
