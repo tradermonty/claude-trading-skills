@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Value Dividend Stock Screener using Financial Modeling Prep API
+Value Dividend Stock Screener using FINVIZ + Financial Modeling Prep API
+
+Two-stage screening approach:
+1. FINVIZ Elite API: Pre-screen stocks with basic criteria (fast, cost-effective)
+2. FMP API: Detailed analysis of pre-screened candidates (comprehensive)
 
 Screens US stocks based on:
 - Dividend yield >= 3.5%
@@ -15,10 +19,12 @@ Outputs top 20 stocks ranked by composite score.
 """
 
 import argparse
+import csv
+import io
 import json
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from datetime import datetime
 import time
 
@@ -29,6 +35,74 @@ except ImportError:
     sys.exit(1)
 
 
+class FINVIZClient:
+    """Client for FINVIZ Elite API"""
+
+    BASE_URL = "https://elite.finviz.com/export.ashx"
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.session = requests.Session()
+
+    def screen_stocks(self) -> Set[str]:
+        """
+        Screen stocks using FINVIZ Elite API with predefined criteria
+
+        Criteria:
+        - Market cap: Mid-cap or higher
+        - Dividend yield: 3%+
+        - Dividend growth (3Y): 5%+
+        - EPS growth (3Y): Positive
+        - P/B: Under 2
+        - P/E: Under 20
+        - Sales growth (3Y): Positive
+        - Geography: USA
+
+        Returns:
+            Set of stock symbols
+        """
+        # Build filter string in FINVIZ format: key_value,key_value,...
+        filters = 'cap_midover,fa_div_o3,fa_divgrowth_3yo5,fa_eps3years_pos,fa_pb_u2,fa_pe_u20,fa_sales3years_pos,geo_usa'
+
+        params = {
+            'v': '151',  # View type
+            'f': filters,  # Filter conditions
+            'ft': '4',   # File type: CSV export
+            'auth': self.api_key
+        }
+
+        try:
+            print(f"Fetching pre-screened stocks from FINVIZ Elite API...", file=sys.stderr)
+            response = self.session.get(self.BASE_URL, params=params, timeout=30)
+
+            if response.status_code == 200:
+                # Parse CSV response
+                csv_content = response.content.decode('utf-8')
+                reader = csv.DictReader(io.StringIO(csv_content))
+
+                symbols = set()
+                for row in reader:
+                    # FINVIZ CSV has 'Ticker' column
+                    ticker = row.get('Ticker', '').strip()
+                    if ticker:
+                        symbols.add(ticker)
+
+                print(f"✅ FINVIZ returned {len(symbols)} pre-screened stocks", file=sys.stderr)
+                return symbols
+
+            elif response.status_code == 401 or response.status_code == 403:
+                print(f"ERROR: FINVIZ API authentication failed. Check your API key.", file=sys.stderr)
+                print(f"Status code: {response.status_code}", file=sys.stderr)
+                return set()
+            else:
+                print(f"ERROR: FINVIZ API request failed: {response.status_code}", file=sys.stderr)
+                return set()
+
+        except requests.exceptions.RequestException as e:
+            print(f"ERROR: FINVIZ request exception: {e}", file=sys.stderr)
+            return set()
+
+
 class FMPClient:
     """Client for Financial Modeling Prep API"""
 
@@ -37,9 +111,14 @@ class FMPClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.session = requests.Session()
+        self.rate_limit_reached = False
+        self.retry_count = 0
 
     def _get(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
         """Make GET request with rate limiting and error handling"""
+        if self.rate_limit_reached:
+            return None
+
         if params is None:
             params = {}
         params['apikey'] = self.api_key
@@ -51,11 +130,18 @@ class FMPClient:
             time.sleep(0.3)  # Rate limiting: ~3 requests/second
 
             if response.status_code == 200:
+                self.retry_count = 0  # Reset retry count on success
                 return response.json()
             elif response.status_code == 429:
-                print(f"WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
-                time.sleep(60)
-                return self._get(endpoint, params)
+                self.retry_count += 1
+                if self.retry_count <= 1:  # Only retry once
+                    print(f"WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
+                    time.sleep(60)
+                    return self._get(endpoint, params)
+                else:
+                    print(f"ERROR: Daily API rate limit reached. Stopping analysis.", file=sys.stderr)
+                    self.rate_limit_reached = True
+                    return None
             else:
                 print(f"ERROR: API request failed: {response.status_code} - {response.text}", file=sys.stderr)
                 return None
@@ -124,14 +210,14 @@ class StockAnalyzer:
         return dips <= 1
 
     @staticmethod
-    def analyze_dividend_growth(dividend_history: List[Dict]) -> Tuple[Optional[float], bool]:
-        """Analyze dividend growth rate (3-year CAGR and consistency)"""
+    def analyze_dividend_growth(dividend_history: List[Dict]) -> Tuple[Optional[float], bool, Optional[float]]:
+        """Analyze dividend growth rate (3-year CAGR and consistency) and return latest annual dividend"""
         if not dividend_history or 'historical' not in dividend_history:
-            return None, False
+            return None, False, None
 
         dividends = dividend_history['historical']
         if len(dividends) < 4:  # Need at least 4 years
-            return None, False
+            return None, False, None
 
         # Sort by date
         dividends = sorted(dividends, key=lambda x: x['date'])
@@ -143,7 +229,7 @@ class StockAnalyzer:
             annual_dividends[year] = annual_dividends.get(year, 0) + div.get('dividend', 0)
 
         if len(annual_dividends) < 4:
-            return None, False
+            return None, False, None
 
         years = sorted(annual_dividends.keys())[-4:]
         div_values = [annual_dividends[y] for y in years]
@@ -154,7 +240,10 @@ class StockAnalyzer:
         # Check for consistency (no dividend cuts)
         consistent = all(div_values[i] >= div_values[i-1] * 0.95 for i in range(1, len(div_values)))
 
-        return cagr, consistent
+        # Get latest annual dividend (most recent year)
+        latest_annual_dividend = div_values[-1]
+
+        return cagr, consistent, latest_annual_dividend
 
     @staticmethod
     def analyze_revenue_growth(income_statements: List[Dict]) -> Tuple[bool, Optional[float]]:
@@ -292,14 +381,45 @@ class StockAnalyzer:
         return result
 
 
-def screen_value_dividend_stocks(api_key: str, top_n: int = 20) -> List[Dict]:
-    """Main screening function"""
-    client = FMPClient(api_key)
+def screen_value_dividend_stocks(fmp_api_key: str, top_n: int = 20,
+                                finviz_symbols: Optional[Set[str]] = None) -> List[Dict]:
+    """
+    Main screening function
+
+    Args:
+        fmp_api_key: Financial Modeling Prep API key
+        top_n: Number of top stocks to return
+        finviz_symbols: Optional set of symbols from FINVIZ pre-screening
+
+    Returns:
+        List of stocks with detailed analysis, sorted by composite score
+    """
+    client = FMPClient(fmp_api_key)
     analyzer = StockAnalyzer()
 
-    print("Step 1: Initial screening (Dividend Yield >= 3.5%, P/E <= 20, P/B <= 2)...", file=sys.stderr)
-    candidates = client.screen_stocks(dividend_yield_min=3.5, pe_max=20, pb_max=2)
-    print(f"Found {len(candidates)} initial candidates", file=sys.stderr)
+    # Step 1: Get candidate list
+    if finviz_symbols:
+        print(f"Step 1: Using FINVIZ pre-screened symbols ({len(finviz_symbols)} stocks)...", file=sys.stderr)
+        # Convert FINVIZ symbols to candidate format for FMP analysis
+        # We'll fetch basic quote data for each symbol from FMP
+        candidates = []
+        print("Fetching basic quote data from FMP for FINVIZ symbols...", file=sys.stderr)
+        for symbol in finviz_symbols:
+            quote = client._get(f'quote/{symbol}')
+            if quote and isinstance(quote, list) and len(quote) > 0:
+                candidates.append(quote[0])
+            time.sleep(0.3)  # Rate limiting
+
+            if client.rate_limit_reached:
+                print(f"⚠️  FMP rate limit reached while fetching quotes. Using {len(candidates)} symbols.", file=sys.stderr)
+                break
+
+        print(f"Retrieved quote data for {len(candidates)} symbols from FMP", file=sys.stderr)
+    else:
+        print("Step 1: Initial screening using FMP Stock Screener (Dividend Yield >= 3.0%, P/E <= 20, P/B <= 2)...", file=sys.stderr)
+        print("Criteria: Div Yield >= 3.0%, Div Growth >= 4.0% CAGR", file=sys.stderr)
+        candidates = client.screen_stocks(dividend_yield_min=3.0, pe_max=20, pb_max=2)
+        print(f"Found {len(candidates)} initial candidates", file=sys.stderr)
 
     if not candidates:
         print("No stocks found matching initial criteria", file=sys.stderr)
@@ -308,28 +428,63 @@ def screen_value_dividend_stocks(api_key: str, top_n: int = 20) -> List[Dict]:
     results = []
 
     print(f"\nStep 2: Detailed analysis of candidates...", file=sys.stderr)
-    for i, stock in enumerate(candidates[:100], 1):  # Limit to first 100 to avoid rate limits
-        symbol = stock.get('symbol', '')
-        company_name = stock.get('companyName', '')
+    print(f"Note: Analysis will continue until API rate limit is reached", file=sys.stderr)
 
-        print(f"[{i}/100] Analyzing {symbol} - {company_name}...", file=sys.stderr)
+    for i, stock in enumerate(candidates, 1):  # Analyze all candidates until rate limit
+        symbol = stock.get('symbol', '')
+        company_name = stock.get('name', stock.get('companyName', ''))
+
+        print(f"[{i}/{len(candidates)}] Analyzing {symbol} - {company_name}...", file=sys.stderr)
+
+        # Check if rate limit reached
+        if client.rate_limit_reached:
+            print(f"\n⚠️  API rate limit reached after analyzing {i-1} stocks.", file=sys.stderr)
+            print(f"Returning results collected so far: {len(results)} qualified stocks", file=sys.stderr)
+            break
 
         # Fetch detailed data
         income_stmts = client.get_income_statement(symbol, limit=5)
+        if client.rate_limit_reached:
+            break
+
         balance_sheets = client.get_balance_sheet(symbol, limit=5)
+        if client.rate_limit_reached:
+            break
+
         cash_flows = client.get_cash_flow(symbol, limit=5)
+        if client.rate_limit_reached:
+            break
+
         key_metrics = client.get_key_metrics(symbol, limit=5)
+        if client.rate_limit_reached:
+            break
+
         dividend_history = client.get_dividend_history(symbol)
+        if client.rate_limit_reached:
+            break
 
         # Skip if insufficient data
         if len(income_stmts) < 4:
             print(f"  ⚠️  Insufficient income statement data", file=sys.stderr)
             continue
 
-        # Analyze dividend growth
-        div_cagr, div_consistent = analyzer.analyze_dividend_growth(dividend_history)
-        if not div_cagr or div_cagr < 5.0:
-            print(f"  ⚠️  Dividend CAGR < 5% (or no data)", file=sys.stderr)
+        # Analyze dividend growth and get latest annual dividend
+        div_cagr, div_consistent, annual_dividend = analyzer.analyze_dividend_growth(dividend_history)
+        if not div_cagr or div_cagr < 4.0:
+            print(f"  ⚠️  Dividend CAGR < 4% (or no data)", file=sys.stderr)
+            continue
+
+        # Calculate actual dividend yield
+        current_price = stock.get('price', 0)
+        if current_price <= 0 or not annual_dividend:
+            print(f"  ⚠️  Cannot calculate dividend yield (price or dividend data missing)", file=sys.stderr)
+            continue
+
+        actual_dividend_yield = (annual_dividend / current_price) * 100
+
+        # Verify dividend yield >= 3.0%
+        if actual_dividend_yield < 3.0:
+            print(f"  ⚠️  Dividend yield {actual_dividend_yield:.2f}% < 3.0%", file=sys.stderr)
             continue
 
         # Analyze revenue growth
@@ -364,7 +519,8 @@ def screen_value_dividend_stocks(api_key: str, top_n: int = 20) -> List[Dict]:
             'sector': stock.get('sector', 'N/A'),
             'market_cap': stock.get('marketCap', 0),
             'price': stock.get('price', 0),
-            'dividend_yield': stock.get('dividendYield', 0),
+            'dividend_yield': round(actual_dividend_yield, 2),
+            'annual_dividend': round(annual_dividend, 2),
             'pe_ratio': stock.get('pe', 0),
             'pb_ratio': stock.get('priceToBook', 0),
             'dividend_cagr_3y': round(div_cagr, 2),
@@ -395,28 +551,47 @@ def screen_value_dividend_stocks(api_key: str, top_n: int = 20) -> List[Dict]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Screen value dividend stocks using FMP API',
+        description='Screen value dividend stocks using FINVIZ + FMP API (two-stage approach)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
-  # Use API key from environment variable
+  # Two-stage screening: FINVIZ pre-screen + FMP detailed analysis (RECOMMENDED)
+  python3 screen_dividend_stocks.py --use-finviz
+
+  # FMP-only screening (original method)
   python3 screen_dividend_stocks.py
 
-  # Provide API key as argument
-  python3 screen_dividend_stocks.py --api-key YOUR_KEY
+  # Provide API keys as arguments
+  python3 screen_dividend_stocks.py --use-finviz --fmp-api-key YOUR_FMP_KEY --finviz-api-key YOUR_FINVIZ_KEY
 
   # Custom output location
-  python3 screen_dividend_stocks.py --output /path/to/results.json
+  python3 screen_dividend_stocks.py --use-finviz --output /path/to/results.json
 
   # Get top 50 stocks
-  python3 screen_dividend_stocks.py --top 50
+  python3 screen_dividend_stocks.py --use-finviz --top 50
+
+Environment Variables:
+  FMP_API_KEY       - Financial Modeling Prep API key
+  FINVIZ_API_KEY    - FINVIZ Elite API key (required for --use-finviz)
         '''
     )
 
     parser.add_argument(
-        '--api-key',
+        '--fmp-api-key',
         type=str,
         help='FMP API key (or set FMP_API_KEY environment variable)'
+    )
+
+    parser.add_argument(
+        '--finviz-api-key',
+        type=str,
+        help='FINVIZ Elite API key (or set FINVIZ_API_KEY environment variable)'
+    )
+
+    parser.add_argument(
+        '--use-finviz',
+        action='store_true',
+        help='Use FINVIZ Elite API for pre-screening (recommended to reduce FMP API calls)'
     )
 
     parser.add_argument(
@@ -435,18 +610,37 @@ Examples:
 
     args = parser.parse_args()
 
-    # Get API key
-    api_key = args.api_key or os.environ.get('FMP_API_KEY')
-    if not api_key:
-        print("ERROR: FMP API key required. Provide via --api-key or FMP_API_KEY environment variable", file=sys.stderr)
+    # Get FMP API key
+    fmp_api_key = args.fmp_api_key or os.environ.get('FMP_API_KEY')
+    if not fmp_api_key:
+        print("ERROR: FMP API key required. Provide via --fmp-api-key or FMP_API_KEY environment variable", file=sys.stderr)
         sys.exit(1)
 
-    # Run screening
-    print(f"\n{'='*60}", file=sys.stderr)
-    print("VALUE DIVIDEND STOCK SCREENER", file=sys.stderr)
-    print(f"{'='*60}\n", file=sys.stderr)
+    # FINVIZ pre-screening (optional)
+    finviz_symbols = None
+    if args.use_finviz:
+        finviz_api_key = args.finviz_api_key or os.environ.get('FINVIZ_API_KEY')
+        if not finviz_api_key:
+            print("ERROR: FINVIZ API key required when using --use-finviz. Provide via --finviz-api-key or FINVIZ_API_KEY environment variable", file=sys.stderr)
+            sys.exit(1)
 
-    results = screen_value_dividend_stocks(api_key, top_n=args.top)
+        print(f"\n{'='*60}", file=sys.stderr)
+        print("VALUE DIVIDEND STOCK SCREENER (TWO-STAGE)", file=sys.stderr)
+        print(f"{'='*60}\n", file=sys.stderr)
+
+        finviz_client = FINVIZClient(finviz_api_key)
+        finviz_symbols = finviz_client.screen_stocks()
+
+        if not finviz_symbols:
+            print("ERROR: FINVIZ pre-screening failed or returned no results", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"\n{'='*60}", file=sys.stderr)
+        print("VALUE DIVIDEND STOCK SCREENER (FMP ONLY)", file=sys.stderr)
+        print(f"{'='*60}\n", file=sys.stderr)
+
+    # Run detailed screening
+    results = screen_value_dividend_stocks(fmp_api_key, top_n=args.top, finviz_symbols=finviz_symbols)
 
     if not results:
         print("\nNo stocks found matching all criteria.", file=sys.stderr)
@@ -457,10 +651,10 @@ Examples:
         'metadata': {
             'generated_at': datetime.utcnow().isoformat() + 'Z',
             'criteria': {
-                'dividend_yield_min': 3.5,
+                'dividend_yield_min': 3.0,
                 'pe_ratio_max': 20,
                 'pb_ratio_max': 2,
-                'dividend_cagr_min': 5.0,
+                'dividend_cagr_min': 4.0,
                 'revenue_trend': 'positive over 3 years',
                 'eps_trend': 'positive over 3 years'
             },

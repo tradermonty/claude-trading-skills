@@ -1,13 +1,20 @@
 ---
 name: value-dividend-screener
-description: Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E ratio under 20, P/B ratio under 2), attractive yields (3.5% or higher), and consistent growth (dividend/revenue/EPS trending up over 3 years). Use when user requests dividend stock screening, income portfolio ideas, or quality value stocks with strong fundamentals using FMP API.
+description: Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E ratio under 20, P/B ratio under 2), attractive yields (3% or higher), and consistent growth (dividend/revenue/EPS trending up over 3 years). Supports two-stage screening using FINVIZ Elite API for efficient pre-filtering followed by FMP API for detailed analysis. Use when user requests dividend stock screening, income portfolio ideas, or quality value stocks with strong fundamentals.
 ---
 
 # Value Dividend Screener
 
 ## Overview
 
-This skill identifies high-quality dividend stocks that combine value characteristics, attractive income generation, and consistent growth. Screen US equities using Financial Modeling Prep (FMP) API based on quantitative criteria including valuation ratios, dividend metrics, financial health, and profitability. Generate comprehensive reports ranking stocks by composite quality scores with detailed fundamental analysis.
+This skill identifies high-quality dividend stocks that combine value characteristics, attractive income generation, and consistent growth using a **two-stage screening approach**:
+
+1. **FINVIZ Elite API (Optional but Recommended)**: Pre-screen stocks with basic criteria (fast, cost-effective)
+2. **Financial Modeling Prep (FMP) API**: Detailed fundamental analysis of candidates
+
+Screen US equities based on quantitative criteria including valuation ratios, dividend metrics, financial health, and profitability. Generate comprehensive reports ranking stocks by composite quality scores with detailed fundamental analysis.
+
+**Efficiency Advantage**: Using FINVIZ pre-screening can reduce FMP API calls by 90%, making this approach ideal for free-tier API users.
 
 ## When to Use
 
@@ -23,6 +30,24 @@ Invoke this skill when the user requests:
 
 ### Step 1: Verify API Key Availability
 
+**For Two-Stage Screening (Recommended):**
+
+Check if both API keys are available:
+
+```python
+import os
+fmp_api_key = os.environ.get('FMP_API_KEY')
+finviz_api_key = os.environ.get('FINVIZ_API_KEY')
+```
+
+If not available, ask user to provide API keys or set environment variables:
+```bash
+export FMP_API_KEY=your_fmp_key_here
+export FINVIZ_API_KEY=your_finviz_key_here
+```
+
+**For FMP-Only Screening:**
+
 Check if FMP API key is available:
 
 ```python
@@ -35,30 +60,54 @@ If not available, ask user to provide API key or set environment variable:
 export FMP_API_KEY=your_key_here
 ```
 
+**FINVIZ Elite API Key:**
+- Requires FINVIZ Elite subscription (~$40/month or ~$330/year)
+- Provides access to CSV export of pre-screened results
+- Highly recommended for reducing FMP API usage
+
 Provide instructions from `references/fmp_api_guide.md` if needed.
 
 ### Step 2: Execute Screening Script
 
 Run the screening script with appropriate parameters:
 
+#### **Two-Stage Screening (RECOMMENDED)**
+
+Uses FINVIZ for pre-screening, then FMP for detailed analysis:
+
 **Default execution (Top 20 stocks):**
 ```bash
-python3 scripts/screen_dividend_stocks.py --api-key $FMP_API_KEY
+python3 scripts/screen_dividend_stocks.py --use-finviz
+```
+
+**With explicit API keys:**
+```bash
+python3 scripts/screen_dividend_stocks.py --use-finviz \
+  --fmp-api-key $FMP_API_KEY \
+  --finviz-api-key $FINVIZ_API_KEY
 ```
 
 **Custom top N:**
 ```bash
-python3 scripts/screen_dividend_stocks.py --top 50
+python3 scripts/screen_dividend_stocks.py --use-finviz --top 50
 ```
 
 **Custom output location:**
 ```bash
-python3 scripts/screen_dividend_stocks.py --output /path/to/results.json
+python3 scripts/screen_dividend_stocks.py --use-finviz --output /path/to/results.json
 ```
 
-**Script behavior:**
-1. Initial screening using Stock Screener API (dividend yield >=3.5%, P/E <=20, P/B <=2)
-2. Detailed analysis of candidates:
+**Script behavior (Two-Stage):**
+1. FINVIZ Elite pre-screening:
+   - Market cap: Mid-cap or higher
+   - Dividend yield: 3%+
+   - Dividend growth (3Y): 5%+
+   - EPS growth (3Y): Positive
+   - P/B: Under 2
+   - P/E: Under 20
+   - Sales growth (3Y): Positive
+   - Geography: USA
+2. FMP detailed analysis of FINVIZ results (typically 20-50 stocks):
    - Dividend growth rate calculation (3-year CAGR)
    - Revenue and EPS trend analysis
    - Dividend sustainability assessment (payout ratios, FCF coverage)
@@ -67,7 +116,34 @@ python3 scripts/screen_dividend_stocks.py --output /path/to/results.json
 3. Composite scoring and ranking
 4. Output top N stocks to JSON file
 
-**Expected runtime:** 3-5 minutes for 100 candidates (rate limiting applies)
+**Expected runtime (Two-Stage):** 2-3 minutes for 30-50 FINVIZ candidates (much faster than FMP-only)
+
+#### **FMP-Only Screening (Original Method)**
+
+Uses only FMP Stock Screener API (higher API usage):
+
+**Default execution:**
+```bash
+python3 scripts/screen_dividend_stocks.py
+```
+
+**With explicit API key:**
+```bash
+python3 scripts/screen_dividend_stocks.py --fmp-api-key $FMP_API_KEY
+```
+
+**Script behavior (FMP-Only):**
+1. Initial screening using FMP Stock Screener API (dividend yield >=3.0%, P/E <=20, P/B <=2)
+2. Detailed analysis of candidates (typically 100-300 stocks):
+   - Same detailed analysis as two-stage approach
+3. Composite scoring and ranking
+4. Output top N stocks to JSON file
+
+**Expected runtime (FMP-Only):** 5-15 minutes for 100-300 candidates (rate limiting applies)
+
+**API Usage Comparison:**
+- Two-Stage: ~50-100 FMP API calls (FINVIZ pre-filters to ~30 stocks)
+- FMP-Only: ~500-1500 FMP API calls (analyzes all screener results)
 
 ### Step 3: Parse and Analyze Results
 
@@ -389,8 +465,44 @@ pip install requests
 ```bash
 export FMP_API_KEY=your_key_here
 # OR
-python3 scripts/screen_dividend_stocks.py --api-key your_key_here
+python3 scripts/screen_dividend_stocks.py --fmp-api-key your_key_here
 ```
+
+### "ERROR: FINVIZ API key required when using --use-finviz"
+**Solution:** Set environment variable or provide via command-line
+```bash
+export FINVIZ_API_KEY=your_key_here
+# OR
+python3 scripts/screen_dividend_stocks.py --use-finviz --finviz-api-key your_key_here
+```
+
+**Note:** FINVIZ Elite subscription required (~$40/month or ~$330/year)
+
+### "ERROR: FINVIZ API authentication failed"
+**Possible causes:**
+1. Invalid FINVIZ API key
+2. FINVIZ Elite subscription expired
+3. API key format incorrect
+
+**Solution:**
+- Verify FINVIZ Elite subscription is active
+- Check API key for typos (should be alphanumeric string)
+- Log into FINVIZ Elite account and verify API key in settings
+- Try accessing FINVIZ Elite screener manually to confirm subscription
+
+### "ERROR: FINVIZ pre-screening failed or returned no results"
+**Possible causes:**
+1. FINVIZ API connection issue
+2. Screening criteria too restrictive (no stocks match)
+3. Market conditions (bear market may yield fewer results)
+
+**Solution:**
+- Check internet connection
+- Verify FINVIZ Elite website is accessible
+- Try FMP-only method as fallback:
+  ```bash
+  python3 scripts/screen_dividend_stocks.py
+  ```
 
 ### "WARNING: Rate limit exceeded"
 **Solution:** Script automatically retries after 60 seconds. If persistent:
@@ -410,6 +522,41 @@ python3 scripts/screen_dividend_stocks.py --api-key your_key_here
 - 100 stocks analyzed = ~8-10 minutes
 - First 20-30 qualifying stocks usually found within first 50-70 analyzed
 
+## Performance & Cost Optimization
+
+### API Call Comparison
+
+**Two-Stage Screening (FINVIZ + FMP):**
+- FINVIZ: 1 API call
+- FMP Quote API: ~30-50 calls (one per pre-screened symbol)
+- FMP Financial Data: ~150-250 calls (5 endpoints × 30-50 symbols)
+- **Total FMP calls: ~180-300**
+
+**FMP-Only Screening:**
+- FMP Stock Screener: 1 call (returns 100-1000 stocks)
+- FMP Financial Data: ~500-5000 calls (5 endpoints × 100-1000 symbols)
+- **Total FMP calls: ~500-5000**
+
+**Savings: 60-94% reduction in FMP API usage**
+
+### Cost Analysis
+
+**FINVIZ Elite:**
+- Monthly: $39.99
+- Annual: $329.99 (~$27.50/month)
+
+**FMP API:**
+- Free tier: 250 calls/day (sufficient for two-stage screening)
+- Starter tier: $29.99/month for 750 calls/day
+- Professional tier: $79.99/month for 2000 calls/day
+
+**Recommendation:**
+- **For free FMP tier users**: Use two-stage screening (FINVIZ + FMP free tier)
+- **For paid FMP tier users**: Either approach works; two-stage is faster
+- **Budget option**: FMP-only with free tier (run screening every few days)
+- **Optimal option**: FINVIZ Elite ($330/year) + FMP free tier = Complete solution
+
 ## Version History
 
+- **v1.1** (November 2025): Added FINVIZ Elite integration for two-stage screening
 - **v1.0** (November 2025): Initial release with comprehensive multi-phase screening
