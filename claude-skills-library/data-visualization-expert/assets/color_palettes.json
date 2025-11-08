@@ -1,0 +1,216 @@
+{
+  "qualitative": {
+    "okabe_ito": {
+      "description": "Colorblind-safe palette by Okabe and Ito (2008)",
+      "use_case": "Categorical data, scientific publications",
+      "colors": ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000"],
+      "names": ["Orange", "Sky Blue", "Bluish Green", "Yellow", "Blue", "Vermillion", "Reddish Purple", "Black"]
+    },
+    "tableau10": {
+      "description": "Tableau's default 10-color palette",
+      "use_case": "Business dashboards, general purpose",
+      "colors": ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC"],
+      "names": ["Blue", "Orange", "Red", "Teal", "Green", "Yellow", "Purple", "Pink", "Brown", "Gray"]
+    },
+    "set2": {
+      "description": "ColorBrewer Set2 palette",
+      "use_case": "Soft, professional look",
+      "colors": ["#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3"]
+    },
+    "corporate_blue": {
+      "description": "Professional corporate palette with blue theme",
+      "use_case": "Corporate presentations, business reports",
+      "colors": ["#003f5c", "#2f4b7c", "#665191", "#a05195", "#d45087", "#f95d6a", "#ff7c43", "#ffa600"],
+      "names": ["Dark Blue", "Blue", "Purple", "Pink", "Rose", "Red", "Orange Red", "Orange"]
+    },
+    "vibrant": {
+      "description": "Bright, high-contrast palette",
+      "use_case": "Presentations, infographics",
+      "colors": ["#EE3424", "#F78200", "#FCD806", "#79C82E", "#00A651", "#00AAE7", "#0077C0", "#732D93"]
+    }
+  },
+  "sequential": {
+    "blues": {
+      "description": "Sequential blue palette (light to dark)",
+      "use_case": "Heatmaps, choropleth maps",
+      "colors": ["#f7fbff", "#deebf7", "#c6dbef", "#9ecae1", "#6baed6", "#4292c6", "#2171b5", "#08519c", "#08306b"]
+    },
+    "greens": {
+      "description": "Sequential green palette (light to dark)",
+      "use_case": "Environmental data, growth metrics",
+      "colors": ["#f7fcf5", "#e5f5e0", "#c7e9c0", "#a1d99b", "#74c476", "#41ab5d", "#238b45", "#006d2c", "#00441b"]
+    },
+    "oranges": {
+      "description": "Sequential orange palette (light to dark)",
+      "use_case": "Temperature, energy data",
+      "colors": ["#fff5eb", "#fee6ce", "#fdd0a2", "#fdae6b", "#fd8d3c", "#f16913", "#d94801", "#a63603", "#7f2704"]
+    },
+    "reds": {
+      "description": "Sequential red palette (light to dark)",
+      "use_case": "Alert levels, heat intensity",
+      "colors": ["#fff5f0", "#fee0d2", "#fcbba1", "#fc9272", "#fb6a4a", "#ef3b2c", "#cb181d", "#a50f15", "#67000d"]
+    },
+    "purples": {
+      "description": "Sequential purple palette (light to dark)",
+      "use_case": "Premium metrics, special categories",
+      "colors": ["#fcfbfd", "#efedf5", "#dadaeb", "#bcbddc", "#9e9ac8", "#807dba", "#6a51a3", "#54278f", "#3f007d"]
+    },
+    "yellow_green": {
+      "description": "Yellow to green gradient",
+      "use_case": "Growth indicators, positive metrics",
+      "colors": ["#ffffe5", "#f7fcb9", "#d9f0a3", "#addd8e", "#78c679", "#41ab5d", "#238443", "#006837", "#004529"]
+    },
+    "yellow_orange_red": {
+      "description": "Yellow to orange to red gradient",
+      "use_case": "Temperature, intensity, risk levels",
+      "colors": ["#ffffcc", "#ffeda0", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#bd0026", "#800026"]
+    }
+  },
+  "diverging": {
+    "red_blue": {
+      "description": "Red to blue diverging through white",
+      "use_case": "Correlation matrices, temperature anomalies",
+      "colors": ["#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#f7f7f7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac"]
+    },
+    "red_yellow_blue": {
+      "description": "Red to yellow to blue diverging",
+      "use_case": "Temperature, political data",
+      "colors": ["#d73027", "#f46d43", "#fdae61", "#fee090", "#ffffbf", "#e0f3f8", "#abd9e9", "#74add1", "#4575b4"]
+    },
+    "brown_teal": {
+      "description": "Brown to teal diverging (colorblind-safe)",
+      "use_case": "General purpose, colorblind-friendly",
+      "colors": ["#8c510a", "#bf812d", "#dfc27d", "#f6e8c3", "#f5f5f5", "#c7eae5", "#80cdc1", "#35978f", "#01665e"]
+    },
+    "purple_green": {
+      "description": "Purple to green diverging",
+      "use_case": "Contrast comparisons, survey data",
+      "colors": ["#762a83", "#9970ab", "#c2a5cf", "#e7d4e8", "#f7f7f7", "#d9f0d3", "#a6dba0", "#5aae61", "#1b7837"]
+    },
+    "pink_green": {
+      "description": "Pink to green diverging",
+      "use_case": "Gender data, contrast comparisons",
+      "colors": ["#c51b7d", "#de77ae", "#f1b6da", "#fde0ef", "#f7f7f7", "#e6f5d0", "#b8e186", "#7fbc41", "#4d9221"]
+    }
+  },
+  "business": {
+    "traffic_light": {
+      "description": "Traffic light system (Green/Yellow/Red)",
+      "use_case": "Status indicators, KPI dashboards",
+      "colors": ["#2E7D32", "#FFA726", "#C62828"],
+      "names": ["Success/On Track", "Warning/At Risk", "Error/Critical"]
+    },
+    "profit_loss": {
+      "description": "Financial profit and loss",
+      "use_case": "Financial reports, P&L statements",
+      "colors": ["#2E7D32", "#757575", "#C62828"],
+      "names": ["Profit/Positive", "Neutral/Break-even", "Loss/Negative"]
+    },
+    "comparison": {
+      "description": "Comparison palette (Current vs Previous vs Target)",
+      "use_case": "Comparing metrics across periods",
+      "colors": ["#1976D2", "#757575", "#FFA726"],
+      "names": ["Current", "Previous", "Target"]
+    },
+    "sales_regions": {
+      "description": "Regional sales comparison",
+      "use_case": "Geographic comparisons",
+      "colors": ["#1976D2", "#388E3C", "#F57C00", "#D32F2F", "#7B1FA2"],
+      "names": ["North", "East", "South", "West", "International"]
+    }
+  },
+  "accessible": {
+    "high_contrast": {
+      "description": "High contrast palette for accessibility",
+      "use_case": "Presentations with projectors, accessibility requirements",
+      "colors": ["#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#CC79A7"],
+      "accessibility_note": "WCAG AAA compliant for normal text on white background"
+    },
+    "deuteranopia_safe": {
+      "description": "Optimized for red-green colorblindness",
+      "use_case": "Publications, inclusive design",
+      "colors": ["#0173B2", "#DE8F05", "#CC78BC", "#CA9161", "#949494", "#ECE133"],
+      "accessibility_note": "Safe for most common type of colorblindness"
+    },
+    "monochrome": {
+      "description": "Grayscale palette",
+      "use_case": "Print publications, when color is not available",
+      "colors": ["#000000", "#3E3E3E", "#5E5E5E", "#7E7E7E", "#9E9E9E", "#BEBEBE", "#DEDEDE", "#F5F5F5"]
+    }
+  },
+  "industry_specific": {
+    "healthcare": {
+      "description": "Healthcare and medical palette",
+      "use_case": "Hospital dashboards, medical reports",
+      "colors": ["#00695C", "#1976D2", "#7B1FA2", "#C62828", "#F57C00"],
+      "names": ["Primary Care", "Diagnostics", "Specialty", "Emergency", "Pharmacy"]
+    },
+    "finance": {
+      "description": "Financial services palette",
+      "use_case": "Banking, investment reports",
+      "colors": ["#004D40", "#1565C0", "#2E7D32", "#C62828", "#F57C00"],
+      "names": ["Assets", "Equity", "Growth", "Risk", "Opportunity"]
+    },
+    "technology": {
+      "description": "Technology and software palette",
+      "use_case": "Tech dashboards, developer tools",
+      "colors": ["#1A237E", "#00838F", "#2E7D32", "#F57C00", "#C62828"],
+      "names": ["System", "Data", "Success", "Warning", "Error"]
+    },
+    "education": {
+      "description": "Education and learning palette",
+      "use_case": "Educational dashboards, student analytics",
+      "colors": ["#1976D2", "#388E3C", "#FFA726", "#7B1FA2", "#D32F2F"],
+      "names": ["Primary", "Excellence", "Progress", "Creative", "NeedsAttention"]
+    },
+    "retail": {
+      "description": "Retail and e-commerce palette",
+      "use_case": "Sales dashboards, customer analytics",
+      "colors": ["#E91E63", "#9C27B0", "#3F51B5", "#00BCD4", "#4CAF50"],
+      "names": ["Premium", "Luxury", "Standard", "Value", "Clearance"]
+    }
+  },
+  "seasonal": {
+    "spring": {
+      "description": "Spring season palette",
+      "colors": ["#FFCDD2", "#F8BBD0", "#E1BEE7", "#C5CAE9", "#B2DFDB", "#C8E6C9", "#DCEDC8"]
+    },
+    "summer": {
+      "description": "Summer season palette",
+      "colors": ["#FFD54F", "#FFB74D", "#FF8A65", "#4FC3F7", "#4DD0E1", "#81C784", "#AED581"]
+    },
+    "autumn": {
+      "description": "Autumn season palette",
+      "colors": ["#D84315", "#E64A19", "#FF6F00", "#F57C00", "#FFA726", "#8D6E63", "#6D4C41"]
+    },
+    "winter": {
+      "description": "Winter season palette",
+      "colors": ["#B0BEC5", "#90A4AE", "#78909C", "#607D8B", "#546E7A", "#455A64", "#37474F"]
+    }
+  },
+  "usage_guidelines": {
+    "qualitative": "Use for categorical data with no inherent order (product categories, regions). Limit to 8-10 colors.",
+    "sequential": "Use for ordered data from low to high (population density, temperature). Single hue progression.",
+    "diverging": "Use for data with a meaningful midpoint (positive/negative, above/below average). Two hues meeting at neutral center.",
+    "accessibility": "Always consider colorblind users (~8% of males). Test with simulators. Don't rely on color alone.",
+    "contrast": "Ensure sufficient contrast ratios: 4.5:1 for text, 3:1 for graphics (WCAG 2.1).",
+    "cultural": "Be aware of cultural color associations (red=danger in West, luck in East)."
+  },
+  "tools": {
+    "generators": [
+      "https://coolors.co/ - Color scheme generator",
+      "https://color.adobe.com/ - Adobe Color wheel",
+      "https://colorbrewer2.org/ - ColorBrewer palettes"
+    ],
+    "accessibility_checkers": [
+      "https://webaim.org/resources/contrastchecker/ - Contrast checker",
+      "https://www.color-blindness.com/coblis-color-blindness-simulator/ - Colorblind simulator",
+      "Color Oracle - Free colorblindness simulator app"
+    ],
+    "python_libraries": [
+      "seaborn.color_palette() - Built-in palettes",
+      "matplotlib.colors - Color manipulation",
+      "colorspacious - Perceptually uniform colors"
+    ]
+  }
+}

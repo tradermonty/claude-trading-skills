@@ -1,0 +1,2113 @@
+# Claude Skills Library
+
+A collection of professional Claude Code skills for various domains and use cases.
+
+## Overview
+
+This repository contains custom skills designed to extend Claude's capabilities with specialized knowledge, workflows, and tools. Each skill is self-contained and follows best practices for skill development.
+
+## Available Skills
+
+### 📊 Data Scientist
+
+**File:** `zip-packages/data-scientist.zip`
+
+A comprehensive data science workflow skill for analyzing tabular and time series data.
+
+**When to use:**
+- Conducting exploratory data analysis (EDA)
+- Building predictive models (classification, regression)
+- Performing feature engineering and selection
+- Time series analysis and forecasting
+- Generating data-driven insights and reports
+
+**Core Capabilities:**
+- ✅ Automated EDA with quality assessment and visualizations
+- ✅ Feature engineering strategies (10+ technique categories)
+- ✅ Model comparison across multiple algorithms
+- ✅ Time series analysis with stationarity tests and forecasting
+- ✅ Professional visualization templates
+- ✅ Statistical rigor and industry best practices
+
+**Key Features:**
+
+*Automated Scripts:*
+- `auto_eda.py` - Comprehensive automated exploratory data analysis
+- `model_comparison.py` - Train and compare 7-9 ML algorithms
+- `timeseries_analysis.py` - Specialized time series analysis and forecasting
+
+*Reference Guides:*
+- `analysis_methodology.md` - 7-phase data science workflow
+- `feature_engineering.md` - 10 categories of feature engineering techniques
+- `evaluation_metrics.md` - Complete guide to model evaluation metrics
+- `visualization_guide.md` - Data visualization patterns and best practices
+
+*Templates:*
+- `visualization_template.py` - Professional chart and graph functions
+- `analysis_report_template.md` - Comprehensive analysis report structure
+
+**Supported Problem Types:**
+- Classification (binary and multi-class)
+- Regression
+- Time series forecasting
+- Clustering analysis
+
+**Example Use Cases:**
+- "Analyze this sales data and find key drivers"
+- "Build a model to predict customer churn"
+- "Forecast next quarter's revenue based on historical data"
+- "Compare different machine learning models for this classification problem"
+- "Help me understand what features are most important"
+
+**Domain-Specific Features:**
+- Financial data analysis (technical indicators, ratios)
+- E-commerce analytics (RFM, CLV, conversion metrics)
+- Healthcare metrics (BMI, risk scores)
+
+---
+
+### 📋 Project Manager
+
+**File:** `zip-packages/project-manager.zip`
+
+A comprehensive PMBOK®-aligned project management skill for professional project delivery.
+
+**When to use:**
+- Defining project requirements (ISO/IEC/IEEE 29148 compliant)
+- Reviewing project plans against PMBOK best practices
+- Generating progress reports with Earned Value Management (EVM)
+- Conducting comprehensive risk assessments
+- Estimating project costs using industry-standard methods
+- Assessing project health and recommending corrective actions
+
+**Core Capabilities:**
+- ✅ Requirements engineering with traceability matrix
+- ✅ Earned Value Management (SPI, CPI, EAC, ETC, VAC, TCPI)
+- ✅ Three-phase risk management framework (14 categories, 9 risk types)
+- ✅ Cost estimation (analogous, parametric, bottom-up, three-point)
+- ✅ Project plan reviews across 10 PMBOK knowledge areas
+- ✅ Stakeholder management and communication planning
+
+**Key Features:**
+
+*Automated Scripts:*
+- `project_health_check.py` - Automated project health assessment with scoring
+
+*Reference Guides:*
+- `pmbok_knowledge_areas.md` - Comprehensive guide to all 10 PMBOK knowledge areas
+- `risk_management_guide.md` - Three-phase risk management methodology
+
+*Templates:*
+- `requirements_definition_template.md` - ISO/IEC/IEEE 29148 compliant requirements documentation
+- `progress_report_template.md` - EVM-based progress reporting with comprehensive metrics
+- `risk_analysis_template.md` - Structured risk analysis with probability/impact assessment
+
+**PMBOK Framework Coverage:**
+
+*10 Knowledge Areas:*
+1. Integration Management
+2. Scope Management
+3. Schedule Management
+4. Cost Management
+5. Quality Management
+6. Resource Management
+7. Communications Management
+8. Risk Management
+9. Procurement Management
+10. Stakeholder Management
+
+*5 Process Groups:*
+1. Initiating
+2. Planning
+3. Executing
+4. Monitoring & Controlling
+5. Closing
+
+**Example Use Cases:**
+- "Create a requirements definition document for our CRM implementation"
+- "Review this project plan and identify gaps and risks"
+- "Generate a progress report with EVM analysis - our SPI is 0.85"
+- "Conduct a comprehensive risk assessment for this legacy migration project"
+- "Estimate project costs using bottom-up estimation"
+- "Analyze our project health based on current metrics"
+
+**Supported Methodologies:**
+- Traditional (Waterfall) project management
+- Agile project management with PMBOK
+- Hybrid approaches
+
+---
+
+### 💼 Business Analyst
+
+**File:** `zip-packages/business-analyst.zip`
+
+A comprehensive BABOK®-aligned business analysis skill for professional requirements engineering and business process improvement.
+
+**When to use:**
+- Eliciting and documenting business requirements
+- Conducting stakeholder analysis and engagement planning
+- Analyzing and optimizing business processes
+- Developing business cases with ROI/NPV analysis
+- Performing gap analysis between current and future state
+- Creating Business Requirements Documents (BRD)
+
+**Core Capabilities:**
+- ✅ Requirements elicitation with 6+ techniques (interviews, workshops, surveys, observation)
+- ✅ Business process analysis with BPMN and value stream mapping
+- ✅ Stakeholder analysis with Power/Interest matrix and RACI
+- ✅ Business case development with financial analysis (ROI, NPV, IRR, Payback)
+- ✅ Gap analysis with as-is/to-be process mapping
+- ✅ Data quality assessment and profiling
+
+**Key Features:**
+
+*Automated Scripts:*
+- `business_analysis.py` - Financial analysis, data profiling, and comparative analysis toolkit
+
+*Reference Guides:*
+- `babok_framework.md` - Complete BABOK® Guide v3 reference with 6 knowledge areas
+- `process_data_analysis.md` - Process analysis and data assessment methodologies
+
+*Templates:*
+- `business_requirements_document_template.md` - ISO/IEC/IEEE 29148 compliant BRD
+- `business_case_template.md` - Professional business case with financial analysis
+- `stakeholder_analysis_template.md` - Comprehensive stakeholder management framework
+
+**BABOK Framework Coverage:**
+
+*6 Knowledge Areas:*
+1. Business Analysis Planning & Monitoring
+2. Elicitation & Collaboration
+3. Requirements Life Cycle Management
+4. Strategy Analysis
+5. Requirements Analysis & Design Definition
+6. Solution Evaluation
+
+**Example Use Cases:**
+- "Conduct stakeholder analysis for our digital transformation initiative"
+- "Create a business case for automating our order processing system"
+- "Document business requirements for the new customer portal"
+- "Analyze our current sales process and identify optimization opportunities"
+- "Perform gap analysis between current state and target operating model"
+- "Profile this dataset to assess data quality for our analytics project"
+
+**Supported Methodologies:**
+- BABOK® Guide v3 standards
+- Lean Six Sigma process improvement
+- BPMN process modeling
+- Value stream mapping
+- MoSCoW prioritization
+
+---
+
+### 📊 Data Visualization Expert
+
+**File:** `zip-packages/data-visualization-expert.zip`
+
+A professional data visualization skill specialized in creating reader-friendly, accessible, and aesthetically pleasing charts and dashboards.
+
+**When to use:**
+- Creating any type of chart or graph
+- Choosing the right visualization for your data
+- Designing color schemes that work for everyone (including colorblind viewers)
+- Creating executive dashboards or operational monitors
+- Improving readability and aesthetic appeal of visualizations
+- Preparing visualizations for presentations or reports
+- Ensuring accessibility and WCAG compliance
+
+**Core Capabilities:**
+- ✅ Chart selection guidance (30+ chart types with decision trees)
+- ✅ Colorblind-safe palettes (Okabe-Ito, Viridis, custom palettes)
+- ✅ Professional dashboard design (Strategic, Operational, Analytical)
+- ✅ Accessibility compliance (WCAG 2.1 standards)
+- ✅ Story-driven visualization techniques
+- ✅ Typography and layout principles
+- ✅ Color theory and psychology
+
+**Key Features:**
+
+*Automated Scripts:*
+- `create_visualization.py` - Command-line tool for creating professional charts (6 types: bar, line, scatter, heatmap, distribution, dashboard)
+
+*Reference Guides:*
+- `visualization_principles.md` - Design principles, color theory, typography, storytelling
+- `chart_selection_guide.md` - Comprehensive guide to 30+ chart types with decision trees
+- `dashboard_design.md` - Dashboard layout, KPI cards, interactivity patterns
+
+*Templates & Assets:*
+- `visualization_templates.py` - Ready-to-use Python templates (KPI cards, executive summaries, waterfall charts, etc.)
+- `color_palettes.json` - 50+ professional color palettes (qualitative, sequential, diverging, business-specific, accessible)
+
+**Visualization Workflows:**
+1. Choosing the Right Chart Type
+2. Applying Color Best Practices
+3. Designing Professional Dashboards
+4. Creating Story-Driven Visualizations
+5. Ensuring Accessibility and Readability
+
+**Example Use Cases:**
+- "Create a bar chart comparing sales by region"
+- "What's the best way to visualize this time series data?"
+- "Design a dashboard showing our key metrics"
+- "Choose colors that work for colorblind people"
+- "Make this chart more readable for a presentation"
+- "Create visualizations that tell a compelling story"
+
+**Supported Chart Types:**
+- Comparison: Bar, Lollipop, Bullet
+- Distribution: Histogram, Box Plot, Violin Plot
+- Relationship: Scatter, Line, Heatmap
+- Composition: Stacked Bar, Tree Map, Waterfall
+- Time Series: Line, Area, Sparkline
+- Geographic: Choropleth, Symbol Map
+- Hierarchy: Tree Map, Sunburst
+
+**Accessibility Features:**
+- Colorblind-safe palettes (red-green colorblindness)
+- WCAG 2.1 contrast ratios (4.5:1 text, 3:1 graphics)
+- Alternative text patterns
+- Responsive design for mobile/tablet/desktop
+
+---
+
+### 🔍 Vendor Estimate Reviewer
+
+**File:** `zip-packages/vendor-estimate-reviewer.zip`
+
+A comprehensive skill for evaluating vendor estimates for software development projects, from the client's perspective. This skill helps you determine if a vendor's cost estimate, timeline, and approach are reasonable and whether the project is likely to succeed.
+
+**When to use:**
+- You've received a vendor estimate/quotation for software development
+- You need to compare multiple vendor estimates
+- You want to validate if an estimate is reasonable before contract signing
+- You need to prepare negotiation points with a vendor
+- You want to identify potential project risks early
+- You need documentation for stakeholder approval
+
+**Core Capabilities:**
+- ✅ Scope completeness analysis (identify gaps and missing items)
+- ✅ Cost reasonableness validation (compare against market standards)
+- ✅ Risk identification (14+ critical red flags, 60+ risk factors)
+- ✅ Project feasibility assessment (timeline, team composition)
+- ✅ Contract terms review (payment terms, warranties, IP ownership)
+- ✅ Automated analysis script (Excel, CSV, PDF parsing)
+- ✅ Comprehensive Markdown reports with recommendations
+
+**Key Features:**
+
+**5 Integrated Workflows:**
+1. Initial Review and Triage (quick red flag check)
+2. Detailed Analysis and Assessment (12 dimensions)
+3. Vendor Clarification Preparation (structured questions)
+4. Final Review and Recommendation (go/no-go decision)
+5. Decision Support and Follow-Up (stakeholder presentation)
+
+**Industry Benchmarks:**
+- Labor rate standards by role and region (North America, Europe, Asia Pacific)
+- Phase distribution percentages (Requirements 10-15%, Design 15-20%, Development 40-50%, Testing 15-25%)
+- Project size benchmarks by type (web app, mobile, e-commerce, ERP, API, data migration)
+- Team composition standards (senior 20-30%, mid 40-50%, junior 20-30%)
+- Contingency recommendations (10-20% typical, 15-25% high-risk)
+
+**Automated Analysis Script:**
+```bash
+python scripts/analyze_estimate.py vendor_estimate.xlsx \
+  --vendor "Acme Corp" \
+  --project "CRM System" \
+  --budget 500000 \
+  --output review_report.md
+```
+
+**Critical Red Flags Detected:**
+- Testing <10% of effort (critical quality risk)
+- No contingency buffer (cost overrun risk)
+- All resources at 100% allocation (unrealistic)
+- Vague task descriptions
+- Missing critical phases
+- Rates 30%+ below market (hidden costs or low quality)
+- Large upfront payment >30% (financial risk)
+- >60% junior resources (quality risk)
+- No change management process
+
+**Risk Assessment:**
+- 10 risk categories (scope, estimation, resources, technical, process, PM, contract, organizational, domain-specific)
+- 60+ specific risk factors with probability, impact, and mitigation strategies
+- Risk scoring framework (high/medium/low prioritization)
+- Contingency recommendations based on risk profile
+
+**Deliverables:**
+- Executive summary (1-2 pages) with go/no-go recommendation
+- Comprehensive review report (15-25 pages Markdown)
+- Interactive checklist (10-section scoring with approval workflow)
+- Clarification request document (structured vendor questions)
+- Negotiation strategy memo (cost reduction and value-add opportunities)
+
+**Supported Formats:**
+- Excel (.xlsx, .xls)
+- CSV
+- PDF
+- Structured text descriptions
+
+**What You Get:**
+- 3 comprehensive reference documents (350+ pages equivalent):
+  - Review checklist (12 sections, 200+ items)
+  - Cost estimation standards (11 sections with data tables)
+  - Risk factors guide (60+ risks with mitigations)
+- 1 Python analysis script (automated parsing and reporting)
+- 2 Markdown templates (comprehensive report + interactive checklist)
+
+**Use Cases:**
+- Pre-contract vendor estimate evaluation
+- Multi-vendor comparison and selection
+- RFP/RFQ response analysis
+- Contract negotiation preparation
+- Project risk assessment
+- Stakeholder approval documentation
+- Budget validation and planning
+
+**Best For:**
+- Project managers evaluating vendor proposals
+- Technical leads reviewing architecture and effort estimates
+- Procurement teams comparing multiple bids
+- Finance teams validating budgets
+- Business analysts assessing scope completeness
+- CTO/CTOs making vendor selection decisions
+
+---
+
+### 📝 Vendor RFQ Creator（ベンダー見積依頼書作成）
+
+**File:** `zip-packages/vendor-rfq-creator.zip`
+
+顧客の曖昧な要望を構造化し、ベンダーに対する明確な見積もり依頼書（RFQ）を作成するスキル。システム開発プロジェクトのRFQ作成に特化し、日本語をデフォルトとして英語にも対応。
+
+A skill that transforms vague client requirements into comprehensive RFQ (Request for Quotation) documents for software development projects. Specializes in creating clear, complete RFQs that enable vendors to provide accurate estimates.
+
+**When to use:**
+- 顧客から曖昧または不完全な要件を受け取ったとき
+- ベンダーに送付する正式なRFQを作成する必要があるとき
+- 正確な見積もりに必要なすべての情報を確実に含めたいとき
+- 組織全体でRFQ作成を標準化したいとき
+
+**Core Capabilities:**
+- ✅ 要件引き出し（5W1Hフレームワークを使用した体系的な質問）
+- ✅ 要件の明確化と構造化（曖昧な要望を明確な仕様に変換）
+- ✅ RFQ文書作成（マークダウン形式で専門的な見積依頼書を生成）
+- ✅ 品質レビュー（完全性、明確性、一貫性の検証）
+- ✅ 日本語・英語対応（日本語がデフォルト、英語にも対応可能）
+
+**Key Features:**
+
+**4つの統合ワークフロー**:
+1. Requirements Elicitation（要件引き出し）: 構造化された質問を通じて顧客ニーズを抽出
+2. Requirements Structuring（要件構造化）: 曖昧な要件を明確な仕様に変換
+3. RFQ Document Creation（RFQ文書作成）: 専門的で包括的なRFQ文書を生成
+4. Quality Review（品質レビュー）: ベンダーへの送付前に完全性を検証
+
+**包括的なチェックリスト** (`rfq_checklist_ja.md` - 150+項目):
+- プロジェクト概要（基本情報、スコープ、成果物）
+- 機能要件（ユーザー要件、システム機能、統合要件）
+- 非機能要件（性能、可用性、セキュリティ、拡張性、運用、UX）
+- 技術要件（技術スタック、開発環境、標準、ライセンス）
+- プロジェクト管理要件（スケジュール、予算、体制、品質、リスク、変更管理）
+- 契約・法務要件（契約形態、IP、守秘義務、保証）
+- 見積依頼特有の要件（見積書形式、評価基準、提出手続き）
+- 品質チェック（明確性、完全性、実現可能性、検証可能性）
+
+**RFQテンプレート** (`rfq_template_ja.md` - 400+行):
+完全な9セクション構成の見積依頼書テンプレート:
+1. プロジェクト概要
+2. 要件詳細（機能・非機能・技術）
+3. プロジェクト管理要件
+4. 契約・法務要件
+5. 見積依頼内容（標準化された見積書フォーマット付き）
+6. 評価・選定基準
+7. 提出要項
+8. 注意事項
+9. 問い合わせ先
+
+**要件引き出し手法**:
+- **5W1Hフレームワーク**: Who, What, Where, When, Why, How
+- **MoSCoW優先順位付け**: Must have, Should have, Could have, Won't have
+- **構造化された質問**: カテゴリー別、目的明確、選択肢付き
+- **前提条件の文書化**: 合理的な前提、根拠、影響を記載
+
+**見積書フォーマットの標準化**:
+- WBS（作業分解構造）テンプレート
+- 必須フェーズ: 要件定義、設計、実装、テスト、デプロイメント、PM、品質保証
+- 必須カラム: タスク名、詳細、役割、工数（人日）、単価、小計
+- コンティンジェンシー（10-20%）
+- 前提条件・制約条件セクション
+
+**品質チェック機能**:
+- **明確性チェック**: 曖昧な表現の検出と修正提案
+- **完全性チェック**: 必須項目の網羅確認
+- **一貫性チェック**: 数値の整合性、用語の統一
+- **実現可能性チェック**: 技術的実現可能性、予算・スケジュールの現実性
+
+**プロジェクトタイプ別ガイダンス**:
+- **Webアプリケーション**: レスポンシブデザイン、SSL/TLS、3秒応答、100同時接続
+- **モバイルアプリ**: iOS/Android対応、オフライン動作、プッシュ通知、2秒応答
+- **基幹システム**: 99.9%可用性、バックアップ、監査ログ、権限管理
+- **データ基盤**: ETL、TB級処理、BI連携、バッチ・リアルタイム処理
+
+**ベストプラクティス**:
+1. ビジネス価値から始める（WHYを明確に）
+2. 数値で具体的に表現（「多くのユーザー」→「初期1,000名、3年後10,000名」）
+3. MoSCoWで優先順位付け
+4. 文脈を提供（現状、課題、目指す姿）
+5. 見積フォーマットを標準化
+6. ベンダーの提案を促す
+7. 現実的な期待値を設定
+8. Q&Aプロセスを計画
+
+**よくある落とし穴を回避**:
+- ❌ 過去のRFQをカスタマイズせずにコピー
+- ❌ 技術的に過度に規定
+- ❌ スコープ境界が曖昧
+- ❌ 非機能要件の欠落
+- ❌ 非現実的な予算・スケジュール
+- ❌ 評価基準の欠如
+
+**Use Cases:**
+- ベンダー選定プロセスの準備
+- 複数ベンダーからの見積取得（相見積）
+- RFP/RFQ作成の標準化
+- プロジェクト予算承認のための文書化
+- 要件の明確化とステークホルダー合意形成
+
+**Best For:**
+- プロジェクトマネージャー（ベンダー選定を担当）
+- 調達・購買部門（システム開発の発注）
+- ビジネスアナリスト（要件定義サポート）
+- IT部門マネージャー（外部委託管理）
+- プロダクトオーナー（開発ベンダーへの要件伝達）
+
+**Output Format:**
+- Markdown形式のRFQ文書（すぐにベンダーに送付可能）
+- 構造化された見積書フォーマットテンプレート
+- チェックリストベースの品質確認レポート
+
+---
+
+### 💰 Vendor Estimate Creator（ベンダー見積書作成）
+
+**File:** `zip-packages/vendor-estimate-creator.zip`
+
+RFQや要件を分析し、WBS作成、工数見積、コスト計算、ROI分析を行い、プロフェッショナルな見積書を生成するスキル。システム開発プロジェクトの見積作成に特化し、日本語をデフォルトとして英語にも対応。
+
+A skill that transforms RFQs or project requirements into comprehensive cost estimates and quotations for software development projects. Specializes in creating accurate estimates with WBS, effort calculations, cost breakdowns, and ROI analysis to justify investments.
+
+**When to use:**
+- RFQや要件書を受け取り、見積書を作成する必要があるとき
+- プロジェクトの工数とコストを高精度で算出したいとき
+- 投資対効果（ROI）分析を提供し、投資を正当化したいとき
+- 組織全体で見積作成を標準化したいとき
+- クライアントのRFQに対してプロフェッショナルな見積書で応答するとき
+
+**Core Capabilities:**
+- ✅ RFQ分析と要件抽出（プロジェクト規模、複雑度、リスク評価）
+- ✅ WBS作成とタスク特定（7フェーズ、タスク分解、完全性検証）
+- ✅ 工数見積もり（4手法、標準工数適用、調整係数、検証）
+- ✅ コスト計算と積み上げ（役割別単価、コスト集計、運用保守費算出）
+- ✅ ROI分析とビジネスケース（As-Is/To-Be、ROI/NPV/IRR/回収期間、感度分析）
+- ✅ 見積書生成（マークダウン形式、12セクション、品質チェック）
+
+**Key Features:**
+
+**6つの統合ワークフロー**:
+1. RFQ Analysis and Understanding（RFQ分析と理解）: 要件抽出、規模測定、リスク評価
+2. Work Breakdown and Task Identification（作業分解とタスク特定）: WBS作成、フェーズ定義、完全性検証
+3. Effort Estimation（工数見積もり）: 手法選択、標準工数適用、調整係数、検証
+4. Cost Calculation and Aggregation（コスト計算と積み上げ）: 役割別単価、コスト算出、集計
+5. ROI Analysis and Business Case（ROI分析とビジネスケース）: 現状分析、期待効果、財務指標、感度分析
+6. Estimate Document Generation（見積書生成）: テンプレート活用、全セクション記入、品質チェック
+
+**見積手法ガイド** (`estimation_methodology.md`):
+- 4つの見積手法（類推法、パラメトリック法、ボトムアップ法、三点見積もり）
+- 見積精度とプロジェクトフェーズ
+- プロジェクトタイプ別工数配分比率（Web、モバイル、基幹、API、データ基盤）
+- 工数調整係数（複雑度、習熟度、技術リスク）
+- コンティンジェンシー設定（5-40%、リスクレベル別）
+- 人材リソース工数単価（役割別、経験年数別）
+- 見積ベストプラクティスと注意事項
+
+**工数見積基準ガイド** (`effort_estimation_standards.md`):
+- 役割別生産性指標（LOC、FP）
+- タスク別標準工数（要件定義、設計、実装、テスト、デプロイ、PM、QA）
+- プロジェクトタイプ別標準工数（小規模、中規模、大規模）
+- 調整係数の適用方法
+- 工数見積の検証手法（生産性チェック、類似PJ比較、フェーズ比率チェック）
+
+**ROI分析ガイド** (`roi_analysis_guide.md`):
+- 主要財務指標（ROI、NPV、IRR、投資回収期間）の計算式と解釈
+- ベネフィット分類（定量的：コスト削減、売上増加、生産性向上 / 定性的：顧客満足度、従業員満足度）
+- ビジネスケース作成手順（As-Is分析、To-Be定義、投資額算出、キャッシュフロー分析、感度分析）
+- ビジネスケース文書テンプレート
+- ROI分析ベストプラクティス（保守的見積、定量化、複数シナリオ）
+
+**見積書テンプレート** (`estimate_template_ja.md` - 400+行、12セクション):
+完全な12セクション構成の見積書テンプレート:
+1. エグゼクティブサマリー（プロジェクト概要、見積総額、ROI概要）
+2. 前提条件（スコープ、技術前提、プロジェクト前提、納品物）
+3. 見積詳細（フェーズ別見積、WBS詳細、役割別工数・単価）
+4. プロジェクトスケジュール（マイルストーン、ガントチャート）
+5. ROI分析（現状分析、期待効果、財務指標、感度分析）
+6. チーム体制（体制図、主要メンバースキルセット）
+7. リスクと対策（主要リスク、リスク軽減策）
+8. 運用保守費用（保守内容、SLA）
+9. 支払条件（開発費支払スケジュール、運用保守費支払）
+10. 契約条件（知的財産権、守秘義務、瑕疵担保、変更管理）
+11. その他（前提条件、除外事項、有効期限）
+12. 承認（顧客・ベンダー署名欄）
+
+**見積手法**:
+- **類推法**: 過去の類似プロジェクトベース（精度±25〜50%、構想段階）
+- **パラメトリック法**: 画面数・API数等のパラメータベース（精度±15〜30%、企画段階）
+- **ボトムアップ法**: WBSベースの積み上げ（精度±5〜15%、要件定義後）
+- **三点見積もり**: 楽観値・最頻値・悲観値による確率的見積（精度±10〜20%）
+
+**工数配分比率**（Webアプリケーション標準）:
+- 要件定義: 10-15%
+- 設計: 15-20%
+- 実装: 40-50%
+- テスト: 20-25%
+- デプロイ・運用準備: 5-10%
+- プロジェクト管理: 10-15%
+- 品質保証: 7-11%
+- コンティンジェンシー: 10-25%
+
+**役割別標準単価**（日本・2025年基準）:
+- プロジェクトマネージャー: 100,000〜150,000円/人日
+- アーキテクト: 90,000〜140,000円/人日
+- シニアエンジニア: 80,000〜120,000円/人日
+- ミドルエンジニア: 60,000〜90,000円/人日
+- ジュニアエンジニア: 40,000〜65,000円/人日
+
+**ROI財務指標**:
+- **ROI**: (総利益 - 総投資額) / 総投資額 × 100
+- **NPV**: 将来キャッシュフローの現在価値合計
+- **IRR**: NPVをゼロにする割引率
+- **投資回収期間**: 初期投資を回収するまでの期間
+
+**ベストプラクティス**:
+1. 複数手法で見積を検証（ボトムアップ、パラメトリック、類似PJ比較）
+2. 保守的に見積もり（便益は控えめ、コストは余裕を持って）
+3. 前提条件を明記（すべての前提を文書化）
+4. リスクを早期特定（技術、要件、統合、チーム、PM）
+5. ROI分析を提供（ROI、NPV、IRR、回収期間、感度分析）
+6. PM・QA工数を必ず計上（PM 10-15%、QA 7-11%）
+
+**よくある落とし穴を回避**:
+- ❌ コンティンジェンシーを含めない
+- ❌ プロジェクト管理工数を忘れる
+- ❌ データ移行を見落とす
+- ❌ 非機能要件（性能、セキュリティ）を軽視
+- ❌ 統合テスト工数を過小評価
+- ❌ ROI分析で楽観的すぎる便益見積もり
+
+**Use Cases:**
+- RFQ応答のための見積書作成
+- 社内プロジェクトの予算承認申請
+- 複数提案の中から最適案選定（ROI比較）
+- 投資判断のための財務分析
+- ベンダー選定プロセスでの自社見積提出
+
+**Best For:**
+- ベンダー営業（RFQ応答、提案書作成）
+- プロジェクトマネージャー（プロジェクト計画、予算申請）
+- アカウントマネージャー（顧客提案、価格交渉）
+- 経営企画部門（投資判断、ROI分析）
+- 財務部門（予算承認、投資対効果評価）
+
+**Output Format:**
+- Markdown形式の見積書（12セクション、WBS詳細、ROI分析含む）
+- 標準化されたWBS構造（タスクID、役割、工数、単価、小計）
+- 財務指標付きROI分析（ROI、NPV、IRR、回収期間、感度分析）
+
+---
+
+### 📋 Project Plan Creator（プロジェクト計画作成）
+
+**File:** `zip-packages/project-plan-creator.zip`
+
+システム開発・導入プロジェクトの包括的なプロジェクト計画を作成する専門スキル。Project Charter、WBS、Ganttチャート、RACI matrix、リスク分析等をMarkdown + Mermaidで文書化し、PMBOK準拠のプロジェクト管理成果物を生成。
+
+A specialist skill for creating comprehensive project plans for system development or implementation projects. Generates PMBOK-aligned project management artifacts including Project Charters, WBS, Gantt Charts, RACI matrices, and Risk analysis using Markdown + Mermaid visualizations.
+
+**When to use:**
+- 新規プロジェクトを開始し、プロジェクト計画を作成する必要があるとき
+- Project Charterでプロジェクトを正式に承認・権限付与したいとき
+- WBS、スケジュール、リソース配分を含む包括的なプロジェクト計画が必要なとき
+- Mermaidダイアグラム（Gantt、WBS、ワークフロー）でプロジェクト構造を可視化したいとき
+- PMBOK準拠のプロジェクト文書が必要なとき
+- knowledge/pm-knowledgeフォルダのPM知識を活用したいとき
+
+**Core Capabilities:**
+- ✅ プロジェクトチャーター作成（12セクション、PMBOK準拠、正式承認文書）
+- ✅ スコープ定義と管理（In/Out定義、WBS、スコープ変更管理プロセス）
+- ✅ スケジュール作成（Mermaid Ganttチャート、依存関係、クリティカルパス）
+- ✅ リソース計画とRACI Matrix（体制図、役割定義、責任明確化）
+- ✅ リスク管理計画（リスク識別、分析、対応計画、監視プロセス）
+- ✅ コミュニケーション・品質計画（コミュニケーションマトリックス、品質基準、QAプロセス）
+- ✅ 統合と文書生成（すべての計画成果物を包括的プロジェクト計画に統合）
+
+**Key Features:**
+
+**7つの統合ワークフロー**:
+1. Project Charter Creation（プロジェクトチャーター作成）: インプット収集、目的定義、スコープ、成果物、予算、ステークホルダー、リスク、成功基準
+2. Scope Definition and Management（スコープ定義と管理）: スコープステートメント、スコープ境界可視化、WBS作成、スコープベースライン、変更管理プロセス
+3. Schedule Development with Gantt Charts（Ganttチャートでスケジュール作成）: アクティビティ定義、シーケンス、期間見積、Mermaid Gantt作成、クリティカルパス特定、スケジュール最適化
+4. Resource Planning and RACI Matrix（リソース計画とRACI Matrix）: プロジェクト役割定義、RACI Matrix作成、コミュニケーションプロトコル、チーム構造可視化
+5. Risk Management Planning（リスク管理計画）: リスク識別（5カテゴリ）、定性的分析、対応計画、監視プロセス確立
+6. Communication and Quality Planning（コミュニケーション・品質計画）: ステークホルダー分析、コミュニケーションマトリックス、品質基準、QAプロセス、受け入れ基準
+7. Integration and Document Generation（統合と文書生成）: テンプレート活用、全セクション記入、Mermaidダイアグラム生成、品質チェック、承認取得
+
+**プロジェクトチャーターガイド** (`project_charter_guide.md`):
+- PMBOK準拠のチャーター作成ガイド（12セクション）
+- プロジェクト基本情報、エグゼクティブサマリー、背景と目的
+- スコープ（In/Out）、主要成果物、マイルストーン
+- 概算予算（開発、インフラ、間接費）
+- 前提条件と制約、主要リスク
+- ステークホルダー、成功基準、承認
+- システム開発プロジェクトの実例
+- ベストプラクティスとよくある落とし穴
+
+**プロジェクト計画テンプレート** (`project_plan_template.md` - 400+行、12セクション):
+Mermaidダイアグラム5つを含む完全なプロジェクト計画テンプレート:
+1. プロジェクト基本情報（名称、コード、PM、期間、予算）
+2. エグゼクティブサマリー（概要、目的、スコープ、成果物、期間、予算）
+3. プロジェクトスコープ（スコープ記述、スコープ境界Mermaid図）
+4. WBS（WBS階層Mermaid図、詳細WBS表）
+5. プロジェクトスケジュール（Mermaid Ganttチャート、マイルストーン、クリティカルパス）
+6. 成果物一覧（成果物、説明、納期、承認者、受け入れ基準）
+7. チーム体制とRACI（体制図Mermaid、RACI Matrix）
+8. リスク管理計画（リスク登録簿、対応計画、監視プロセスMermaid図）
+9. コミュニケーション計画（コミュニケーションマトリックス、会議体、報告）
+10. 品質管理計画（品質基準、QAプロセスMermaid図、レビュー体制）
+11. 変更管理計画（変更管理プロセスMermaid図、CCB、影響評価）
+12. 承認（PM、PO、Sponsor署名欄）
+
+**Mermaid可視化**（5つのダイアグラム）:
+- **Scope Boundary Diagram**: In Scope vs Out of Scope可視化（graph TB）
+- **WBS Hierarchy**: 作業分解構成の階層図（graph TD）
+- **Gantt Chart**: プロジェクトスケジュールとマイルストーン（gantt）
+- **Risk Monitoring Process**: リスク監視プロセスフロー（graph LR）
+- **Change Management Process**: 変更管理プロセスフロー（graph TD）
+
+**PMBOK知識エリア統合**:
+- Project Integration Management（統合管理）
+- Project Scope Management（スコープ管理）
+- Project Schedule Management（スケジュール管理）
+- Project Cost Management（コスト管理）
+- Project Quality Management（品質管理）
+- Project Resource Management（リソース管理）
+- Project Communications Management（コミュニケーション管理）
+- Project Risk Management（リスク管理）
+- Project Procurement Management（調達管理）
+- Project Stakeholder Management（ステークホルダー管理）
+
+**リスク管理フレームワーク**:
+- **技術リスク**: 新技術習得、性能要件、外部API変更
+- **要件リスク**: 要件変更頻発、ステークホルダー間認識相違、スコープクリープ
+- **リソースリスク**: キーメンバー離脱、スキル不足、リソース競合
+- **統合リスク**: 既存システム連携困難、データ移行複雑、第三者システム互換性
+- **外部リスク**: ベンダー納期遅延、法規制変更、市場環境変化
+
+**RACI Matrix定義**:
+- **R (Responsible)**: 実行責任者（作業を実施する人）
+- **A (Accountable)**: 説明責任者（最終意思決定者、各タスク1名のみ）
+- **C (Consulted)**: 相談先（事前に意見を聞く人）
+- **I (Informed)**: 報告先（結果を報告する人）
+
+**スケジュール見積手法**:
+- **PERT三点見積もり**: (楽観値 + 4×最頻値 + 悲観値) / 6
+- **依存関係**: FS（Finish-to-Start）、SS（Start-to-Start）、FF（Finish-to-Finish）、SF（Start-to-Finish）
+- **クリティカルパス**: 最長パスの特定と管理集中
+- **スケジュール短縮**: Crashing（リソース追加）、Fast Tracking（並行実施）
+
+**品質基準例**:
+- **コード品質**: カバレッジ80%以上、複雑度10以下、コードレビュー、静的解析
+- **テスト品質**: 単体テスト80%、統合テスト全API、システムテスト全機能、UAT全ビジネスシナリオ
+- **ドキュメント品質**: 全設計書レビュー・承認、API仕様自動生成、運用マニュアルユーザーレビュー
+
+**ベストプラクティス**:
+1. チャーターから開始（プロジェクト正式承認、PM権限付与）
+2. ビジュアル図を活用（MermaidでWBS、Gantt、プロセスフロー可視化）
+3. RACIを早期定義（役割と責任の明確化、混乱回避）
+4. プロアクティブなリスク管理（早期識別、継続監視）
+5. すべてベースライン化（スコープ、スケジュール、コストのベースライン確立）
+6. バージョン管理（文書バージョンと変更履歴維持）
+7. ステークホルダーエンゲージメント（定期的コミュニケーション、期待値管理）
+8. PMBOK準拠（一貫性とプロフェッショナリズム）
+
+**よくある落とし穴を回避**:
+- ❌ プロジェクトチャーター作成をスキップ
+- ❌ 曖昧なスコープ定義（スコープクリープ発生）
+- ❌ バッファなしの非現実的スケジュール
+- ❌ RACI Matrixなし（役割混乱）
+- ❌ 問題発生まで リスク管理を無視
+- ❌ 変更管理プロセスの欠如
+- ❌ ステークホルダーコミュニケーション不足
+- ❌ 品質基準を事前に設定しない
+
+**Use Cases:**
+- 新規システム開発プロジェクト立ち上げ
+- システム導入プロジェクトの計画策定
+- 大規模リプレースプロジェクトの計画
+- マルチベンダープロジェクトの統合計画
+- PMO標準プロジェクト計画テンプレート作成
+- プロジェクト提案書のプロジェクト計画セクション
+
+**Best For:**
+- プロジェクトマネージャー（プロジェクト計画作成、承認取得）
+- PMO（標準テンプレート、プロセス確立）
+- プロダクトオーナー（スコープ定義、優先順位）
+- エンタープライズアーキテクト（技術計画、統合設計）
+- ステアリングコミッティ（計画レビュー、承認）
+
+**Output Format:**
+- Markdown + Mermaid形式のプロジェクト計画（12セクション）
+- 5つのMermaidダイアグラム（Scope、WBS、Gantt、Risk Process、Change Management）
+- RACI Matrix（全タスク・成果物の責任明確化）
+- リスク登録簿（リスク識別、分析、対応策）
+- コミュニケーション・品質計画（マトリックス、基準、プロセス）
+
+**Framework Alignment:**
+- PMBOK® Guide 6th Edition準拠
+- PMBOK® Guide 7th Edition principles対応
+- ISO 21500プロジェクトマネジメント標準
+- Prince2® compatible processes
+
+---
+
+### 🐛 Bug Ticket Creator（不具合チケット作成）
+
+**File:** `zip-packages/bug-ticket-creator.zip`
+
+システムテスト中に発見した不具合を包括的なバグチケットに変換する対話型スキル。ユーザーと対話しながら再現手順、環境情報、重要度判定など必要な情報を収集し、プロフェッショナルなマークダウン形式の不具合報告書を生成。
+
+An interactive skill that transforms bug discoveries during system testing into comprehensive bug tickets. Guides users through systematic questioning to collect reproduction steps, environment details, severity assessment, and generates professional Markdown bug reports.
+
+**When to use:**
+- テスト中に不具合を発見し、バグチケットを作成する必要があるとき
+- 再現手順を体系的に整理したいとき
+- 適切な重要度・優先度を判定したいとき
+- 標準化されたプロフェッショナルなバグ報告フォーマットが必要なとき
+- 開発チームが迅速に理解・修正できる高品質なバグチケットを作成したいとき
+
+**Core Capabilities:**
+- ✅ 対話型の情報収集（6つのワークフロー、体系的な質問）
+- ✅ 初期発見（何が、どこで、いつ発生したか）
+- ✅ 再現手順収集（CLEAR原則準拠、事前条件、ステップバイステップ、再現率）
+- ✅ 期待値vs実際の動作（仕様との差異明確化）
+- ✅ 環境情報収集（OS、ブラウザ、デバイス、解像度、ネットワーク等）
+- ✅ 重要度・優先度判定（Severity: Critical/High/Medium/Low、Priority: P0/P1/P2/P3）
+- ✅ バグチケット生成（マークダウンファイル出力、日本語/英語対応）
+
+**Key Features:**
+
+**6つの統合ワークフロー**:
+1. Initial Bug Discovery（初期発見）: 何が起きたか、どこで起きたか、いつ起きたか、バグタイプ分類、初期重要度評価
+2. Reproduction Steps Collection（再現手順収集）: 事前条件確立、ステップバイステップ収集、失敗ポイント特定、再現率確認
+3. Expected vs Actual Behavior（期待vs実際）: 期待される動作明確化、実際の動作記録、ギャップ分析、証拠収集（スクリーンショット、ログ）
+4. Environment Information Collection（環境情報収集）: 基本環境情報（OS、ブラウザ、デバイス）、追加詳細（解像度、ネットワーク、拡張機能）、環境依存性確認
+5. Severity and Priority Assessment（重要度・優先度判定）: Severity判定（技術的影響）、Priority判定（ビジネス緊急性）、組み合わせ説明
+6. Bug Ticket Generation（バグチケット生成）: 残情報収集、テンプレート選択、情報入力、レビュー、マークダウンファイル生成
+
+**不具合分類ガイド** (`defect_classification_guide.md`):
+- 7つの不具合タイプ分類:
+  - 機能不具合（Functional Defect）: 機能欠如、機能誤動作、余分な機能
+  - UI/UX不具合（UI/UX Defect）: 表示崩れ、デザイン不一致、操作性問題、アクセシビリティ問題
+  - パフォーマンス不具合（Performance Defect）: 応答速度問題、リソース消費問題、スケーラビリティ問題
+  - データ不具合（Data Defect）: データ損失、データ不整合、データ破損
+  - セキュリティ不具合（Security Defect）: 認証・認可問題、データ漏洩、インジェクション、セッション管理問題
+  - 統合・連携不具合（Integration Defect）: API連携エラー、データ連携エラー、認証連携エラー
+  - 環境依存不具合（Environment-Specific Defect）: ブラウザ依存、OS依存、デバイス依存、環境設定依存
+- 発生フェーズ分類（要件定義、設計、実装、テスト、デプロイ）
+- 原因分類（仕様理解不足、設計ミス、コーディングエラー、環境問題、データ問題、第三者システム問題）
+- 影響範囲分類（全体影響、機能影響、局所影響、視覚的影響）
+
+**重要度・優先度判定ガイド** (`severity_priority_guide.md`):
+- **重要度（Severity）** - 技術的影響（QAチームが判定）:
+  - Critical: システム使用不可、データ損失、セキュリティリスク
+  - High: 主要機能使用不可、回避策なし
+  - Medium: 機能に問題あるが回避策あり
+  - Low: 視覚的問題のみ、影響軽微
+- **優先度（Priority）** - ビジネス緊急性（PO/PMが判定）:
+  - P0（最優先）: 本番環境で発生中、即座対応（数時間以内）
+  - P1（高優先）: 1-3営業日以内の対応が必要
+  - P2（中優先）: 次回リリースで対応（1-2週間）
+  - P3（低優先）: バックログ追加、時間がある時に対応
+- 重要度×優先度マトリックス（判定ガイド）
+- 判定フローチャート
+- 実際の判定例5例（ログイン不可、管理画面レポート不具合、スマホ表示崩れ、ヘルプ誤字、管理者機能バグ）
+- 特殊ケース判定（セキュリティ、パフォーマンス、UI/UX、環境依存、顧客影響）
+
+**再現手順の書き方ガイド** (`reproduction_steps_guide.md`):
+- **CLEAR原則**:
+  - **C**omplete（完全）: すべての必要な情報
+  - **L**ogical（論理的）: 論理的な順序
+  - **E**xplicit（明示的）: 曖昧な表現なし
+  - **A**ctionable（実行可能）: 誰でも同じ手順を実行可能
+  - **R**eproducible（再現可能）: 何度でも同じ結果
+- 再現手順の基本構成（事前条件、再現手順、期待結果、実際結果、環境情報）
+- 事前条件の書き方（ログイン状態、データ状態、システム状態）
+- 再現手順の書き方（番号付け、一つの手順に一つの操作、具体的記述、操作対象明示、入力値記載）
+- 期待結果・実際結果の書き方（具体的、観測可能、仕様書参照）
+- 環境情報の書き方（OS、ブラウザ、デバイス、解像度、ネットワーク、言語設定、タイムゾーン）
+- スクリーンショット・動画・ログの添付ガイド
+- 良い例と悪い例の比較（実例2例: ログイン失敗、スマホ表示崩れ）
+
+**バグチケットテンプレート** (日本語・英語):
+完全な12セクション構成:
+1. ヘッダー（タイトル、作成日、報告者、ステータス、Severity、Priority）
+2. 不具合概要（Summary）
+3. 不具合分類（Classification）: タイプ、サブカテゴリ、影響範囲、発生フェーズ、影響ユーザー数
+4. 事前条件（Preconditions）
+5. 再現手順（Steps to Reproduce）: ステップバイステップ
+6. 期待される結果（Expected Result）
+7. 実際の結果（Actual Result）
+8. 再現頻度（Reproduction Rate）
+9. 環境情報（Environment）: OS、ブラウザ、デバイス、解像度等
+10. 添付ファイル（Attachments）: スクリーンショット、動画、ログ
+11. 追加情報（Additional Information）: エラーメッセージ全文、コンソールログ、ネットワークログ、サーバーログ
+12. 関連情報（Related Information）: 関連チケット、仕様書、デザインモック、PR
+13. 暫定回避策（Workaround）
+14. 備考・コメント（Notes/Comments）
+15. 影響分析（Impact Analysis）: ビジネス影響、セキュリティ影響、ユーザー影響
+16. 対応方針推奨（Recommended Action）: 推奨優先度、推奨対応方法
+17. 更新履歴（Update History）
+18. チェックリスト（Quality Check）: 報告者確認、開発チーム確認
+
+**対話の流れ（インタラクティブ質問）**:
+```
+1. 初期発見フェーズ:
+   - 何が起きましたか？
+   - どこで起きましたか？
+   - 問題のタイプは？（7つの選択肢）
+   - 影響の大きさは？
+
+2. 再現手順フェーズ:
+   - 事前条件は？（ログイン状態、データ、開始画面）
+   - 操作を一つずつ教えてください
+   - どの時点で問題が発生しましたか？
+   - 毎回発生しますか？（再現率）
+
+3. 期待vs実際フェーズ:
+   - 本来どうあるべきですか？
+   - 実際に何が起きましたか？
+   - スクリーンショットはありますか？
+
+4. 環境情報フェーズ:
+   - OS、ブラウザ、デバイスは？
+   - 追加の環境詳細は？
+   - 他の環境でも発生しますか？
+
+5. 重要度・優先度フェーズ:
+   - システム全体が使えませんか？
+   - データ損失はありますか？
+   - 本番環境で発生していますか？
+   - リリース予定日は近いですか？
+
+6. チケット生成フェーズ:
+   - チケットタイトルを考えてください
+   - 回避策はありますか？
+   - 添付ファイルは？
+   - 日本語？英語？
+```
+
+**ベストプラクティス**:
+1. 一度に一つの質問（ユーザーを圧倒しない）
+2. 明確化と確認（曖昧な回答にフォローアップ質問）
+3. 技術知識を仮定しない（用語説明、例示）
+4. 体系的な収集（ワークフロー順守、ステップスキップしない）
+5. プロフェッショナルな出力（整形されたMarkdown、テンプレート厳守）
+6. 証拠を奨励（スクリーンショット、動画、ログ依頼）
+
+**よくある落とし穴を回避**:
+- ❌ 曖昧な説明を受け入れる（「エラーが出る」で終わらせない）
+- ❌ 再現頻度をスキップ（毎回？何回中何回？を確認）
+- ❌ 不完全な環境情報（「Chrome」だけでなくバージョンまで）
+- ❌ 複数操作を一つにまとめる（ステップを分解）
+- ❌ 証拠を求めない（スクリーンショット・ログを依頼）
+
+**Use Cases:**
+- システムテスト中の不具合発見
+- 結合テスト、システムテスト、受け入れテストでのバグ報告
+- 本番環境でのインシデント報告
+- QAチームによる不具合文書化
+- テスト担当者のバグ報告スキル向上
+- チーム内でのバグ報告標準化
+
+**Best For:**
+- QAエンジニア（不具合発見・報告）
+- テスター（テスト実行・バグチケット作成）
+- 開発者（自己テスト時のバグ記録）
+- プロジェクトマネージャー（バグ管理品質向上）
+- ビジネスアナリスト（UAT時のバグ報告）
+
+**Output Format:**
+- Markdown形式の不具合チケット（.md file）
+- ファイル名形式: BUG-[NUMBER]_[short-description]_[YYYY-MM-DD].md
+- 完全な12セクション構成
+- プロフェッショナルなフォーマット
+- JIRAやRedmine、GitHub Issues等のチケット管理システムにそのまま利用可能
+
+**Framework Alignment:**
+- ISTQB（International Software Testing Qualifications Board）準拠のバグ報告
+- IEEE 829テスト文書化標準
+- ISO/IEC/IEEE 29119ソフトウェアテスト標準
+
+**Bilingual Support:**
+- 日本語（デフォルト）: 対話、テンプレート、ガイド全て日本語対応
+- English: Full English template and workflow support
+
+---
+
+### 🎯 ITIL 4 Consultant
+
+**File:** `itil4-consultant/`
+
+Expert ITIL 4 consultant providing context-aware recommendations for IT service management improvement.
+
+**When to use:**
+- Implementing or improving ITIL 4 practices in your organization
+- Assessing IT service management maturity
+- Optimizing IT operations and service delivery
+- Aligning IT services with business objectives
+- Designing processes based on ITIL 4 best practices
+- Integrating DevOps/Agile with ITIL 4 framework
+
+**Core Capabilities:**
+- ✅ Comprehensive ITIL 4 knowledge (34 practices across 3 categories)
+- ✅ Context-aware consulting (department, scenario, industry-specific)
+- ✅ Maturity assessment framework (5 levels)
+- ✅ Tailored improvement roadmaps
+- ✅ Integration with DevOps, Agile, and other frameworks
+- ✅ Best practices from extensive knowledge base
+
+**Knowledge Base:**
+- ITIL 4 Foundation concepts (SVS, SVC, 4 Dimensions, 7 Guiding Principles)
+- 14 General Management Practices (Architecture, Security, Risk, etc.)
+- 17 Service Management Practices (Incident, Change, Release, etc.)
+- 3 Technical Management Practices (Deployment, Infrastructure, Development)
+
+**Core Workflows:**
+1. **Context Analysis & Scoping** - Understand organizational context and needs
+2. **Current State Assessment** - Maturity evaluation with gap analysis
+3. **Recommendation Development** - Tailored, actionable recommendations
+4. **Roadmap Creation** - Phased implementation plan
+5. **Department/Scenario-Specific Consulting** - Context-aware guidance
+
+**Scenario Support:**
+- IT Operations (high incident volume, MTTR improvement)
+- Development Teams (change failure reduction, DevOps integration)
+- Security Teams (compliance, risk management)
+- PMO (portfolio optimization, resource management)
+- Infrastructure Teams (cloud migration, platform management)
+
+**Deliverables:**
+- Maturity Assessment Reports
+- Gap Analysis with prioritization
+- Implementation Roadmaps (phased approach)
+- Practice-specific improvement plans with KPIs
+- Integration strategies with DevOps/Agile
+
+**Key Features:**
+- **7 Guiding Principles** application to all recommendations
+- **4 Dimensions** holistic consideration
+- **Quick Wins → Medium-term → Strategic** phased approach
+- **Value-focused** consulting (ITIL 4 core principle)
+- **Best practices** from comprehensive knowledge base
+- **Bilingual**: Japanese and English support
+
+
+## Installation
+
+### Installing a Skill
+
+1. Download the desired skill `.zip` file from this repository
+2. In Claude Code, use the command to install the skill:
+   ```
+   /skills install path/to/skill.zip
+   ```
+3. The skill will be available for use immediately
+
+### Skill Structure
+
+Each skill follows this standard structure:
+
+```
+skill-name/
+├── SKILL.md              # Main skill documentation and workflow
+├── scripts/              # Automated tools and utilities
+├── references/           # Methodology guides and best practices
+└── assets/               # Templates and boilerplate files
+```
+
+## Development
+
+### Creating New Skills
+
+This repository uses the `skill-creator` tool from Anthropic's agent-skills marketplace.
+
+**Prerequisites:**
+- Claude Code installed
+- `example-skills:skill-creator` plugin available
+
+**Steps to create a new skill:**
+
+1. Initialize skill structure:
+   ```bash
+   python /path/to/skill-creator/scripts/init_skill.py <skill-name> --path ./
+   ```
+
+2. Develop skill contents:
+   - Edit `SKILL.md` with workflow and instructions
+   - Add executable scripts to `scripts/`
+   - Add reference documentation to `references/`
+   - Add templates to `assets/`
+
+3. Package the skill:
+   ```bash
+   python /path/to/skill-creator/scripts/package_skill.py ./skill-name ./
+   ```
+
+### Skill Development Best Practices
+
+**SKILL.md Guidelines:**
+- Use imperative/infinitive form (verb-first instructions)
+- Include clear "When to Use" section with specific scenarios
+- Provide concrete examples and workflows
+- Reference bundled resources appropriately
+
+**Resource Organization:**
+- `scripts/` - Executable code that can run without loading to context
+- `references/` - Documentation loaded on-demand to inform decisions
+- `assets/` - Files used in output (templates, boilerplate)
+
+**Quality Standards:**
+- Follow progressive disclosure (metadata → SKILL.md → resources)
+- Document domain knowledge and procedural steps
+- Provide decision trees for complex workflows
+- Include troubleshooting sections
+
+## Contributing
+
+Contributions are welcome! To contribute a new skill:
+
+1. Fork this repository
+2. Create your skill following the structure above
+3. Test thoroughly with various use cases
+4. Submit a pull request with:
+   - Skill `.zip` file
+   - Update to this README
+   - Example usage scenarios
+
+## Skill Catalog
+
+| Skill Name | Version | Problem Types | Key Features |
+|------------|---------|---------------|--------------|
+| data-scientist | 1.0 | Classification, Regression, Time Series | Auto EDA, Model Comparison, Feature Engineering |
+| project-manager | 1.0 | All Project Types | Requirements Definition, EVM, Risk Management, Cost Estimation |
+| business-analyst | 1.0 | Requirements, Process Analysis, Business Cases | Stakeholder Analysis, BABOK Framework, Financial Analysis, BRD Templates |
+| data-visualization-expert | 1.0 | All Chart Types, Dashboards | 30+ Chart Types, Colorblind-Safe Palettes, Accessibility, Dashboard Design |
+| vendor-estimate-reviewer | 1.0 | Vendor Estimate Evaluation | 12 Review Dimensions, 60+ Risk Factors, Industry Benchmarks, Automated Analysis, Markdown Reports |
+| vendor-rfq-creator | 1.0 | RFQ Creation, Requirements Elicitation | 4 Workflows, 150+ Checklist Items, Japanese/English, Markdown Output |
+| vendor-estimate-creator | 1.0 | Cost Estimation, Quotation Creation | 6 Workflows, WBS, 4 Estimation Methods, ROI Analysis, Japanese/English, Markdown Output |
+| project-plan-creator | 1.0 | Project Planning, PMBOK Artifacts | 7 Workflows, Project Charter, WBS, Gantt Charts, RACI Matrix, 5 Mermaid Diagrams, Japanese/English |
+| bug-ticket-creator | 1.0 | Bug Reporting, QA Testing | 6 Interactive Workflows, Defect Classification, Severity/Priority Assessment, CLEAR Principles, Markdown Output, Japanese/English |
+| itil4-consultant | 1.0 | IT Service Management, ITIL 4 Implementation | 34 Practices, Maturity Assessment, 5 Workflows, Department-Specific Consulting, DevOps Integration, Roadmap Creation |
+
+## License
+
+[Specify your license here]
+
+## Contact
+
+For questions or suggestions, please open an issue in this repository.
+
+---
+
+## Detailed Skill Descriptions
+
+### Data Scientist Skill - Deep Dive
+
+#### Analysis Workflow
+
+The data-scientist skill follows a systematic 7-step approach:
+
+1. **Problem Definition & Scoping**
+   - Translate business problems into data science problems
+   - Define success criteria and constraints
+
+2. **Data Understanding (EDA)**
+   - Automated quality assessment
+   - Distribution and relationship analysis
+   - Correlation exploration
+
+3. **Data Preparation & Feature Engineering**
+   - Mathematical transformations
+   - Categorical encoding
+   - Interaction features
+   - Time-based features
+   - Domain-specific features
+
+4. **Model Selection & Training**
+   - Automated model comparison
+   - Hyperparameter tuning
+   - Cross-validation
+
+5. **Model Evaluation & Interpretation**
+   - Multiple metrics assessment
+   - Feature importance analysis
+   - SHAP value interpretation
+   - Residual analysis
+
+6. **Time Series Analysis** (when applicable)
+   - Stationarity testing
+   - Seasonal decomposition
+   - Forecasting with confidence intervals
+
+7. **Insights & Recommendations**
+   - Translate findings to business impact
+   - Generate professional reports
+   - Provide actionable recommendations
+
+#### Quick Start Examples
+
+**Example 1: Customer Churn Prediction**
+
+```bash
+# Step 1: Automated EDA
+python scripts/auto_eda.py customer_data.csv --target churned --output eda_results/
+
+# Step 2: Model Comparison
+python scripts/model_comparison.py customer_data.csv churned --problem-type classification --output models/
+
+# Step 3: Review results and generate insights
+```
+
+**Example 2: Sales Forecasting**
+
+```bash
+# Time series analysis and forecasting
+python scripts/timeseries_analysis.py sales.csv revenue --date-col date --forecast-periods 30 --output forecast/
+```
+
+**Example 3: Regression Analysis**
+
+```bash
+# Step 1: EDA
+python scripts/auto_eda.py housing_data.csv --target price --output eda/
+
+# Step 2: Model comparison
+python scripts/model_comparison.py housing_data.csv price --problem-type regression --output models/
+```
+
+#### Advanced Features
+
+**Handling Imbalanced Data:**
+- SMOTE oversampling
+- Class weight adjustment
+- Appropriate metric selection (PR-AUC, F1, MCC)
+
+**Feature Engineering Techniques:**
+- Mathematical: Log, Box-Cox, polynomial
+- Encoding: One-hot, target, frequency
+- Interactions: Ratios, products
+- Time: Lags, rolling stats, cyclical encoding
+- Aggregations: Group statistics, rankings
+
+**Model Interpretation:**
+- Global: Feature importance, SHAP summary plots
+- Local: SHAP values, LIME, counterfactuals
+- Visualization: Comprehensive chart templates
+
+#### Best Practices Built-In
+
+✓ Proper train/test splits to avoid data leakage
+✓ Cross-validation for robust evaluation
+✓ Multiple metrics for comprehensive assessment
+✓ Feature importance and model interpretation
+✓ Documentation for reproducibility
+✓ Business context integration
+✓ Deployment considerations
+
+✗ Common pitfalls actively prevented:
+- Using accuracy on imbalanced data
+- Test data leakage
+- Ignoring outliers
+- Over-engineering features
+- Correlation-causation confusion
+
+---
+
+### Project Manager Skill - Deep Dive
+
+#### Core Workflows
+
+The project-manager skill provides 5 comprehensive workflows aligned with PMBOK® standards:
+
+1. **Requirements Definition Workflow**
+   - Systematic requirements gathering across stakeholders
+   - Functional and non-functional requirements documentation
+   - MoSCoW prioritization (Must/Should/Could/Won't Have)
+   - Requirements traceability matrix
+   - Change control process establishment
+   - ISO/IEC/IEEE 29148 compliant templates
+
+2. **Project Plan Review Workflow**
+   - 10 PMBOK knowledge area checklist
+   - 5 stakeholder perspective reviews
+   - Gap identification and risk flagging
+   - Red flag detection (e.g., no contingency, inadequate testing)
+   - Comprehensive review report generation
+
+3. **Progress Reporting with EVM Workflow**
+   - Earned Value Management calculations (SPI, CPI, SV, CV)
+   - Forecast metrics (EAC, ETC, VAC, TCPI)
+   - Recovery action recommendations
+   - Trend analysis and variance reporting
+   - Professional progress report generation
+
+4. **Risk Management Workflow**
+   - Information gathering across 14 categories
+   - Risk identification across 9 risk types
+   - Probability × Impact scoring
+   - Four response strategies (Avoid, Mitigate, Transfer, Accept)
+   - Detailed response planning with preventive/detective/contingent actions
+   - Risk monitoring and escalation triggers
+
+5. **Cost Estimation Workflow**
+   - Four estimation methods (Analogous, Parametric, Bottom-Up, Three-Point)
+   - Component-based cost breakdown
+   - Validation against benchmarks and historical data
+   - Confidence range presentation (P10, P50, P90)
+   - Contingency and management reserve allocation
+
+#### Quick Start Examples
+
+**Example 1: Requirements Definition**
+
+```
+User: "I need to create a requirements document for our new CRM system"
+
+Claude (using project-manager skill):
+1. Gathers project context through structured questions
+2. Uses requirements_definition_template.md as foundation
+3. Guides through functional and non-functional requirements
+4. Applies MoSCoW prioritization
+5. Creates traceability matrix
+6. Generates comprehensive ISO-compliant requirements document
+```
+
+**Example 2: EVM Progress Analysis**
+
+```
+User: "Our project has these metrics: BAC=¥50M, PV=¥30M, EV=¥25M, AC=¥28M"
+
+Claude (using project-manager skill):
+1. Calculates SPI = 0.83 (17% behind schedule) 🔴
+2. Calculates CPI = 0.89 (11% over budget) 🔴
+3. Forecasts EAC = ¥56.2M (¥6.2M overrun)
+4. Calculates TCPI = 1.14 (needs 14% efficiency improvement)
+5. Status: CRITICAL (both schedule and cost issues)
+6. Recommends recovery actions:
+   - Fast-track activities on critical path
+   - Value engineering to reduce costs
+   - Immediate escalation to sponsor
+7. Generates comprehensive progress report
+```
+
+**Example 3: Risk Assessment**
+
+```bash
+# Automated project health check
+python scripts/project_health_check.py project_metrics.json --output report/
+
+# Input: metrics.json with schedule, cost, quality, risk data
+# Output:
+# - Overall health score (0-100)
+# - Status: Healthy 🟢 / At Risk 🟡 / Critical 🔴
+# - Issue identification and recommendations
+```
+
+**Example 4: Project Plan Review**
+
+```
+User: "Review our project plan for a legacy system migration"
+
+Claude (using project-manager skill):
+1. Reviews across 10 PMBOK knowledge areas
+2. Identifies gaps:
+   - ❌ No knowledge transfer plan (high risk - tribal knowledge)
+   - ❌ Testing only 10% of schedule (should be 25-30%)
+   - ❌ No rollback plan for cutover
+   - ❌ Insufficient contingency (5% vs 20% recommended)
+3. Reviews from 5 stakeholder perspectives
+4. Provides red flag warnings
+5. Generates detailed review report with recommendations
+```
+
+#### Advanced Features
+
+**Earned Value Management (EVM):**
+- Complete EVM metric suite: PV, EV, AC, BAC, SV, CV, SPI, CPI, EAC, ETC, VAC, TCPI
+- Three EAC calculation methods for different scenarios
+- Performance index trending
+- Integration with Agile (story point-based EVM)
+
+**Risk Management:**
+- 14 information gathering categories (scope, stakeholders, team, vendors, schedule, budget, etc.)
+- 9 risk categorization types (scope, schedule, cost, quality, resource, stakeholder, technology, vendor, external)
+- Quantitative risk scoring (probability × impact)
+- Risk heat map visualization
+- Preventive, detective, and contingent response planning
+- Risk monitoring dashboard with trend indicators
+
+**Cost Estimation Methods:**
+- **Analogous:** Quick estimates based on historical projects
+- **Parametric:** Statistical relationships (e.g., cost per story point)
+- **Bottom-Up:** Detailed work package estimation
+- **Three-Point:** PERT estimation with optimistic/most likely/pessimistic scenarios
+
+**Stakeholder Management:**
+- Stakeholder register with interest/influence matrix
+- Tailored communication plans
+- Engagement strategies for different stakeholder types
+- Escalation paths and decision-making frameworks
+
+#### PMBOK Knowledge Area Coverage
+
+**Integration Management:**
+- Project charter creation
+- Integrated project plan development
+- Change control process
+- Lessons learned capture
+
+**Scope Management:**
+- WBS development
+- Scope definition (in-scope/out-of-scope)
+- Acceptance criteria definition
+- Scope change management
+
+**Schedule Management:**
+- Activity sequencing
+- Critical path analysis
+- Schedule buffer allocation
+- SPI tracking and recovery actions
+
+**Cost Management:**
+- Cost estimation (multiple methods)
+- Budget baseline creation
+- CPI tracking and EAC forecasting
+- Contingency management
+
+**Quality Management:**
+- Quality standards definition
+- Testing strategy (20-30% of schedule)
+- Defect tracking and metrics
+- Quality audits and reviews
+
+**Resource Management:**
+- RACI matrix creation
+- Resource allocation and leveling
+- Skill gap analysis
+- Team development planning
+
+**Communications Management:**
+- Communication plan with frequency/format
+- Stakeholder-specific reporting
+- Escalation procedures
+- Status reporting (🟢🟡🔴 indicators)
+
+**Risk Management:**
+- Three-phase approach (Information → Analysis → Response)
+- Risk register maintenance
+- Mitigation strategy development
+- Risk monitoring and control
+
+**Procurement Management:**
+- Contract type selection (Fixed-price, T&M, Cost-plus)
+- Vendor evaluation and management
+- SLA definition and monitoring
+- Contract administration
+
+**Stakeholder Management:**
+- Stakeholder identification and analysis
+- Engagement strategy development
+- Expectation management
+- Conflict resolution
+
+#### Best Practices Built-In
+
+✓ Requirements signed off before design
+✓ 15-20% schedule contingency buffer
+✓ 10-20% cost contingency reserve
+✓ Testing allocated 20-30% of schedule
+✓ Weekly SPI/CPI tracking
+✓ Risk register updated weekly
+✓ C-level executive sponsor required
+✓ Change control process mandatory
+✓ Documentation and traceability maintained
+
+✗ Common pitfalls actively prevented:
+- Starting development without signed-off requirements
+- No contingency reserves (schedule or cost)
+- Inadequate testing time (<20%)
+- Fixed-price contracts with unclear scope
+- Ignoring critical path dependencies
+- Weak executive sponsorship
+- Missing change control process
+- Risk management as afterthought
+
+#### Real-World Examples
+
+**Example 1: Enterprise CRM Implementation (¥50M, 12 months)**
+- 247 requirements documented with MoSCoW prioritization
+- 27 risks identified and managed (3 critical, 8 high, 16 medium/low)
+- Monthly EVM tracking (SPI, CPI)
+- Delivered 92% of Must Have requirements
+- Finished 5% under budget
+- CSAT increased from 7.2 to 8.9
+
+**Example 2: Legacy System Migration (¥95M, 20 months)**
+- Comprehensive risk assessment (34 risks)
+- Critical mitigation: Hired retired developers for tribal knowledge
+- Zero-downtime cutover with blue-green deployment
+- Delivered 2 months late but within revised budget
+- System performance exceeded targets (250K TPS vs 200K target)
+- Stakeholder satisfaction: 9.2/10
+
+---
+
+### Business Analyst Skill - Deep Dive
+
+#### Core Workflows
+
+The business-analyst skill provides 5 comprehensive workflows aligned with BABOK® Guide v3 standards:
+
+1. **Requirements Elicitation Workflow**
+   - Stakeholder identification and engagement planning
+   - Elicitation technique selection (6+ techniques)
+   - Structured requirements gathering sessions
+   - MoSCoW prioritization (Must/Should/Could/Won't Have)
+   - Requirements documentation and review
+   - Requirements validation and sign-off
+
+2. **Business Process Analysis Workflow**
+   - As-is process documentation with BPMN
+   - Process metrics collection (cycle time, efficiency, error rate, cost)
+   - Value stream mapping and waste identification (TIMWOOD)
+   - Root cause analysis (5 Whys, Fishbone diagrams)
+   - To-be process design with improvement opportunities
+   - Process optimization recommendations
+
+3. **Stakeholder Analysis and Engagement Workflow**
+   - Stakeholder register creation
+   - Power/Interest matrix analysis (4 quadrants)
+   - Engagement strategy development per quadrant
+   - RACI matrix for decision-making clarity
+   - Communication plan with frequency and format
+
+4. **Business Case Development Workflow**
+   - Problem/opportunity definition with quantified impact
+   - Options analysis with weighted scoring
+   - Financial analysis (ROI, NPV, IRR, Payback Period)
+   - Benefit realization planning
+   - Professional business case document generation
+
+5. **Gap Analysis Workflow**
+   - Current state assessment (processes, systems, capabilities)
+   - Future state vision definition
+   - Gap identification with priority scoring
+   - Roadmap development for closing gaps
+   - Change impact assessment
+
+#### Quick Start Examples
+
+**Example 1: Requirements Elicitation**
+
+```
+User: "I need to gather requirements for our new employee portal"
+
+Claude (using business-analyst skill):
+1. Identifies stakeholders: HR team, employees, IT, managers
+2. Creates Power/Interest matrix for engagement planning
+3. Recommends elicitation techniques:
+   - Workshops with HR (high interest/influence)
+   - Surveys for employees (high volume)
+   - 1:1 interviews with IT (technical validation)
+4. Guides through structured requirements gathering:
+   - User stories with acceptance criteria
+   - Non-functional requirements (performance, security)
+   - Business rules documentation
+5. Applies MoSCoW prioritization
+6. Generates comprehensive BRD using template
+```
+
+**Example 2: Business Process Analysis**
+
+```
+User: "Analyze our current order processing workflow - it's taking too long and has errors"
+
+Claude (using business-analyst skill):
+1. Documents as-is process with BPMN notation
+   - 8 steps, 45 minutes avg processing time
+   - 3 manual handoffs, 2 system switches
+   - 15% error rate requiring rework
+
+2. Identifies waste using TIMWOOD framework:
+   - Waiting: 20 minutes between handoffs
+   - Over-processing: Duplicate data entry in 3 systems
+   - Defects: 15% error rate (data entry mistakes)
+
+3. Performs root cause analysis:
+   - Primary cause: No integration between systems
+   - Secondary: Manual validation prone to errors
+
+4. Designs to-be process:
+   - Automated data integration (reduce to 2 systems)
+   - Real-time validation at point of entry
+   - Elimination of manual handoffs
+   - Target: 10 minutes, <2% error rate
+
+5. Quantifies improvement:
+   - Time savings: 78% reduction (35 min per order)
+   - Cost savings: ¥15M annually
+   - Customer satisfaction: Expected +25%
+
+6. Generates comprehensive process analysis report
+```
+
+**Example 3: Business Case Development**
+
+```bash
+# Financial analysis with sensitivity
+python scripts/business_analysis.py financial \
+  --investment 10000000 \
+  --annual-benefit 3500000 \
+  --annual-cost 500000 \
+  --years 5 \
+  --discount-rate 0.10 \
+  --sensitivity
+
+# Output:
+# Net Annual Benefit: ¥3,000,000
+# Payback Period: 3.3 years
+# ROI (5 years): 50%
+# NPV (5 years, 10%): ¥1,372,867
+# IRR: 15.2%
+#
+# Sensitivity Analysis:
+# Best Case (benefit +20%, cost -10%):  NPV ¥4,127,340
+# Likely Case (base):                   NPV ¥1,372,867
+# Worst Case (benefit -20%, cost +10%): NPV -¥1,381,606
+#
+# Recommendation: APPROVE - Positive NPV in likely case, acceptable risk profile
+```
+
+**Example 4: Stakeholder Analysis**
+
+```
+User: "Create a stakeholder analysis for our CRM implementation"
+
+Claude (using business-analyst skill):
+1. Creates stakeholder register:
+   - CEO (High Power, High Interest) → Manage Closely
+   - Sales Team - 50 users (High Interest, Medium Power) → Keep Informed
+   - IT Ops (Medium Interest, High Power) → Keep Satisfied
+   - Finance Director (Medium Interest, High Power) → Keep Satisfied
+
+2. Analyzes attitudes:
+   - CEO: Champion (actively promotes)
+   - Sales Team: Neutral (wait and see)
+   - IT Ops: Skeptical (concerned about support burden)
+   - Finance: Supporter (sees cost benefits)
+
+3. Develops engagement strategies:
+   - CEO: Monthly 1:1 briefings, involve in key decisions
+   - Sales: Bi-weekly demos, involve in UAT, address "WIIFM"
+   - IT: Early technical collaboration, address concerns
+   - Finance: Monthly cost reports, ROI tracking
+
+4. Creates RACI matrix for key activities
+5. Generates communication plan with frequency/format
+6. Produces comprehensive stakeholder analysis document
+```
+
+**Example 5: Data Quality Profiling**
+
+```bash
+# Profile dataset for quality assessment
+python scripts/business_analysis.py profile customer_data.csv --output quality_report.json
+
+# Output:
+# Data Quality Assessment
+# =======================
+# Overall Score: 67/100 (Needs Improvement)
+#
+# Completeness: 75% (25% missing values in email, phone)
+# Accuracy: 60% (40% invalid email formats detected)
+# Consistency: 80% (name formatting inconsistent)
+# Timeliness: 50% (50% of records >2 years old)
+# Validity: 85% (15% values outside expected ranges)
+# Uniqueness: 90% (10% duplicate records found)
+#
+# Recommendations:
+# 1. HIGH: Implement email validation at entry point
+# 2. HIGH: Create data cleanup process for missing values
+# 3. MEDIUM: Standardize name formatting
+# 4. MEDIUM: Archive/purge records >2 years old
+```
+
+#### Advanced Features
+
+**BABOK® Knowledge Area Coverage:**
+
+**1. Business Analysis Planning & Monitoring:**
+- Stakeholder analysis with engagement strategies
+- Requirements management approach definition
+- Change control process establishment
+- Performance metrics tracking
+
+**2. Elicitation & Collaboration:**
+- 6+ elicitation techniques (interviews, workshops, surveys, observation, document analysis, prototyping)
+- Facilitation best practices
+- Conflict resolution approaches
+- Collaborative decision-making frameworks
+
+**3. Requirements Life Cycle Management:**
+- Requirements traceability (Business Need → Business Req → Functional Req → Test Case)
+- Change management and version control
+- Requirements approval and sign-off processes
+- Requirements reuse and templates
+
+**4. Strategy Analysis:**
+- SWOT analysis
+- Porter's Five Forces
+- Value chain analysis
+- Business model canvas
+- Strategic roadmap development
+
+**5. Requirements Analysis & Design Definition:**
+- Requirements specification and modeling
+- MoSCoW prioritization
+- Gap analysis techniques
+- Business rules definition
+- Data flow and entity relationship modeling
+
+**6. Solution Evaluation:**
+- Benefits realization tracking
+- Performance measurement (KPIs)
+- Solution validation and acceptance criteria
+- Post-implementation review
+
+**Financial Analysis Capabilities:**
+
+The `business_analysis.py` script provides comprehensive financial analysis:
+
+```python
+# Calculate ROI
+roi = ((total_benefit - total_cost) / total_cost) × 100
+
+# Calculate NPV (Net Present Value)
+npv = Σ(cash_flow / (1 + discount_rate)^year)
+
+# Calculate IRR (Internal Rate of Return)
+# NPV = 0, solve for discount rate
+
+# Calculate Payback Period
+payback = investment / annual_net_benefit
+
+# Perform Sensitivity Analysis
+# Best: benefit +20%, cost -10%
+# Likely: base case
+# Worst: benefit -20%, cost +10%
+```
+
+**Process Analysis Techniques:**
+
+**BPMN Notation:**
+- Swimlane diagrams with roles and handoffs
+- Process flow with decision points
+- System integration points
+- Exception handling flows
+
+**Value Stream Mapping:**
+- Value-added time vs. total lead time
+- Process efficiency calculation
+- Waste identification (TIMWOOD framework)
+- Bottleneck analysis
+
+**TIMWOOD Waste Framework:**
+- **T**ransportation: Unnecessary movement of data/materials
+- **I**nventory: Work-in-progress backlogs
+- **M**otion: Unnecessary user actions
+- **W**aiting: Idle time between steps
+- **O**ver-production: Creating outputs before needed
+- **O**ver-processing: Unnecessary complexity
+- **D**efects: Errors requiring rework
+
+**Root Cause Analysis:**
+- **5 Whys:** Iterative questioning to find root cause
+- **Fishbone (Ishikawa) Diagram:** 6M categories (Man, Machine, Method, Material, Measurement, Mother Nature)
+
+**Data Quality Framework:**
+
+6 Dimensions of Data Quality:
+1. **Accuracy:** Correctness of data values
+2. **Completeness:** No missing critical values
+3. **Consistency:** Uniformity across datasets
+4. **Timeliness:** Data currency and relevance
+5. **Validity:** Values within expected ranges
+6. **Uniqueness:** No unintended duplicates
+
+#### Requirements Engineering Best Practices
+
+**Effective Requirements Characteristics (SMART):**
+- **S**pecific: Clear and unambiguous
+- **M**easurable: Success criteria defined
+- **A**chievable: Technically and organizationally feasible
+- **R**elevant: Aligned with business objectives
+- **T**ime-bound: Delivery expectations clear
+
+**Requirements Format:**
+```
+FR-001: Automated Order Validation
+Priority: Must Have
+User Story: As a sales rep, I want the system to automatically validate
+           customer credit limits so that I can process orders faster and
+           avoid bad debt
+
+Acceptance Criteria:
+- Given an order with total > customer credit limit
+- When the order is submitted
+- Then the system displays credit limit warning within 2 seconds
+- And requires manager approval before proceeding
+
+Business Value: Reduce bad debt by 80% (from ¥5M to ¥1M annually)
+Dependencies: BR-003 (Credit check API integration)
+Source: VP Sales, CFO
+```
+
+**MoSCoW Prioritization:**
+- **Must Have:** Critical for go-live, non-negotiable
+- **Should Have:** Important but not critical, defer if needed
+- **Could Have:** Desirable, include if capacity allows
+- **Won't Have:** Out of scope for this release
+
+**Requirements Traceability Matrix:**
+```
+| Business Need | Business Req | Functional Req | Design Element | Test Case | Status |
+|---------------|-------------|----------------|----------------|-----------|--------|
+| Reduce bad debt | BR-001 | FR-005, FR-006 | Credit API | TC-025 | Approved |
+```
+
+#### Stakeholder Management Best Practices
+
+**Power/Interest Matrix:**
+```
+           High Interest
+                │
+                │
+ Keep Informed  │   Manage Closely
+  (Bi-weekly    │   (Weekly 1:1,
+   updates)     │    Key decisions)
+                │
+Low ────────────┼──────────── High
+Power           │            Power
+                │
+    Monitor     │   Keep Satisfied
+  (Monthly      │   (Monthly reports,
+   summaries)   │    Avoid surprises)
+                │
+           Low Interest
+```
+
+**RACI Matrix Example:**
+```
+| Activity | Executive | Business Owner | BA | Project Manager | Dev Team |
+|----------|-----------|----------------|-----|-----------------|----------|
+| Approve scope | A | C | I | R | I |
+| Gather requirements | I | C | R | C | I |
+| Review design | I | C | A | C | R |
+| UAT | I | R | C | A | I |
+| Go-live decision | A | R | C | C | I |
+```
+
+Legend: R=Responsible, A=Accountable, C=Consulted, I=Informed
+
+**Communication Plan Considerations:**
+- Executive Sponsor: Strategic alignment, ROI, decisions needed (Monthly)
+- End Users: "What's in it for me?", training, support (Bi-weekly)
+- IT Teams: Technical approach, integration, support model (Weekly)
+- Finance: Cost tracking, benefit realization (Monthly)
+
+#### Business Case Components
+
+**Problem/Opportunity Statement:**
+- Quantified current state impact
+- Qualitative impacts (morale, reputation)
+- Cost of inaction
+
+**Options Analysis:**
+```
+| Option | Weighted Score | Investment | NPV (5yr) | Risk |
+|--------|---------------|-----------|----------|------|
+| Option 1: COTS | 85/100 | ¥10M | ¥5.2M | Medium |
+| Option 2: Custom | 78/100 | ¥15M | ¥6.8M | High |
+| Option 3: Hybrid | 92/100 | ¥12M | ¥7.1M | Low |
+```
+
+**Benefit Realization Plan:**
+- Quantitative benefits with measurement approach
+- Qualitative benefits
+- Benefit timeline (quick wins vs. long-term)
+- Baseline and target metrics
+
+**Risk Assessment:**
+- Probability × Impact scoring
+- Mitigation strategies
+- Contingency reserves
+
+#### Best Practices Built-In
+
+✓ Stakeholder identification early and comprehensive
+✓ Requirements elicited from multiple perspectives
+✓ MoSCoW prioritization for scope management
+✓ Requirements traceability maintained
+✓ Financial analysis with sensitivity testing
+✓ Process analysis with quantified improvements
+✓ Data quality assessment before analysis
+✓ Documentation following BABOK standards
+✓ Change management approach integrated
+
+✗ Common pitfalls actively prevented:
+- Starting solution design before understanding problem
+- Missing key stakeholders (discovering late)
+- Assuming requirements without validation
+- No requirements prioritization (everything is critical)
+- Business cases without financial rigor
+- Process analysis without data/metrics
+- Ignoring change management and adoption
+- Poor requirements documentation and traceability
+
+#### Real-World Examples
+
+**Example 1: Order Processing Automation (¥8M investment)**
+- Problem: 45 min/order, 15% error rate, ¥25M annual cost
+- Solution: Automated workflow with system integration
+- Results:
+  - Processing time: 10 min (78% reduction)
+  - Error rate: <2% (87% reduction)
+  - Annual savings: ¥15M
+  - Payback: 6.4 months
+  - ROI: 187% (3 years)
+  - Customer CSAT: 7.1 → 8.8
+
+**Example 2: CRM Implementation (¥12M investment)**
+- 127 requirements documented (MoSCoW: 45/52/30/0)
+- 23 stakeholders identified, engagement strategies per quadrant
+- Financial analysis: NPV ¥18.2M (5 years), IRR 24.1%
+- Process improvements: Sales cycle reduced 30%
+- Delivered 94% of Must Have + Should Have requirements
+- User adoption: 89% within 60 days
+- Benefit realization: 112% of projected (over-achieved)
+
+**Example 3: Data Quality Initiative**
+- Problem: 40% of customer data incomplete/inaccurate
+- Data profiling revealed: Completeness 60%, Accuracy 55%
+- Root causes: No validation at entry, multiple legacy systems
+- Solution: Data quality rules, stewardship program, consolidation
+- Results:
+  - Data quality score: 60 → 92 (over 12 months)
+  - Marketing campaign effectiveness: +45%
+  - Duplicate account reduction: 85%
+  - Annual savings: ¥3.2M
+
+---
+
+## Roadmap
+
+Future skills planned for this library:
+
+- [x] **Business Analyst** - Requirements analysis, process mapping, business case development (COMPLETED)
+- [ ] **NLP Specialist** - Text analysis, sentiment, topic modeling
+- [ ] **Computer Vision Analyst** - Image classification, object detection
+- [ ] **Deep Learning Engineer** - Neural networks, transfer learning
+- [ ] **AB Testing Statistician** - Experimental design, statistical testing
+- [ ] **Business Intelligence Analyst** - Dashboard creation, KPI tracking
+- [ ] **Data Engineer** - ETL pipelines, data quality monitoring
+- [ ] **Salesforce Consultant** - CRM configuration, workflow automation, requirement gathering
+
+## Version History
+
+### project-plan-creator v1.0 (2025-11-07)
+- Initial release
+- 7 core workflows: Project Charter Creation, Scope Definition and Management, Schedule Development, Resource Planning and RACI Matrix, Risk Management Planning, Communication and Quality Planning, Integration and Document Generation
+- Comprehensive project charter guide (PMBOK-compliant, 12 sections)
+- Complete project plan template (400+ lines, 12 sections) with 5 Mermaid diagrams
+- Project charter creation:
+  - Business case and benefits management
+  - Project purpose and objectives definition
+  - High-level scope (In/Out of Scope)
+  - Key deliverables and milestones
+  - Budget and resource estimation
+  - Stakeholder identification
+  - Risk assessment and success criteria
+- Scope management features:
+  - Detailed scope statement (product scope and project scope)
+  - Scope boundary visualization (Mermaid graph)
+  - WBS hierarchy with visual diagram (Mermaid graph)
+  - Scope baseline establishment
+  - Change control process (Mermaid flowchart)
+- Schedule development:
+  - Activity definition and sequencing (FS, SS, FF, SF dependencies)
+  - PERT three-point estimation ((O + 4M + P) / 6)
+  - Mermaid Gantt chart with milestones
+  - Critical path identification
+  - Schedule compression techniques (Crashing, Fast Tracking)
+- Resource planning:
+  - Project roles and team structure definition
+  - RACI Matrix creation (Responsible, Accountable, Consulted, Informed)
+  - Communication protocols and meeting schedules
+  - Team structure visualization (Mermaid org chart)
+- Risk management:
+  - Risk identification (5 categories: technical, requirements, resources, integration, external)
+  - Qualitative risk analysis (probability, impact, risk level)
+  - Risk response strategies (Avoid, Mitigate, Transfer, Accept)
+  - Risk monitoring process (Mermaid flowchart)
+- Communication and quality planning:
+  - Stakeholder communication needs analysis
+  - Communication matrix (information, sender, receiver, frequency, method)
+  - Quality standards (code, testing, documentation)
+  - QA process workflow (Mermaid flowchart)
+  - Acceptance criteria definition
+- Mermaid visualizations (5 diagrams):
+  - Scope Boundary Diagram (In/Out of Scope)
+  - WBS Hierarchy (project decomposition)
+  - Gantt Chart (schedule with milestones)
+  - Risk Monitoring Process (continuous improvement loop)
+  - Change Management Process (CCB approval workflow)
+- PMBOK knowledge areas integration:
+  - Integration, Scope, Schedule, Cost, Quality, Resource, Communications, Risk, Procurement, Stakeholder Management
+- Framework alignment: PMBOK® Guide 6th/7th editions, ISO 21500, Prince2® compatible
+- Best practices: Charter-first approach, visual diagrams, early RACI definition, proactive risk management, baseline establishment, version control, stakeholder engagement
+- Bilingual support: Japanese (default), English
+- Output format: Markdown + Mermaid diagrams for professional project plans
+- Integration with knowledge/pm-knowledge folder for PMBOK standards
+
+### vendor-estimate-creator v1.0 (2025-01-07)
+- Initial release
+- 6 core workflows: RFQ Analysis, Work Breakdown, Effort Estimation, Cost Calculation, ROI Analysis, Estimate Document Generation
+- Comprehensive Japanese estimate template (400+ lines, 12 sections)
+- 3 reference guides:
+  - Estimation methodology (4 methods: analogous, parametric, bottom-up, three-point)
+  - Effort estimation standards (role-based productivity, task-level standards, project type benchmarks)
+  - ROI analysis guide (ROI, NPV, IRR, payback period calculations with examples)
+- Estimation methodology features:
+  - Accuracy by phase (±50% → ±5% as project progresses)
+  - Project type-specific effort distribution (Web, Mobile, Enterprise, API, Data)
+  - Adjustment factors (complexity, team proficiency, technical risk)
+  - Contingency recommendations (5-40% based on risk level)
+- Effort estimation standards:
+  - Role-based productivity (LOC, Function Points)
+  - Task-level standard effort (requirements, design, implementation, testing, deployment)
+  - Project size benchmarks (small, medium, large by project type)
+  - Validation methods (productivity check, similar project comparison, phase ratio check)
+- ROI analysis capabilities:
+  - Financial metrics (ROI, NPV, IRR, payback period)
+  - Benefit classification (quantitative and qualitative)
+  - Business case creation (As-Is analysis, To-Be definition, cash flow analysis, sensitivity analysis)
+  - Scenario analysis (best, standard, pessimistic cases)
+- Estimate template sections: Executive Summary, Assumptions, Detailed Estimate (WBS), Schedule, ROI Analysis, Team Structure, Risks, O&M Costs, Payment Terms, Contract Terms
+- Best practices: Multiple estimation methods, conservative estimates, documented assumptions, early risk identification, ROI justification
+- Bilingual support: Japanese (default), English
+- Output format: Professional Markdown estimate documents
+
+### vendor-rfq-creator v1.0 (2025-01-07)
+- Initial release
+- 4 core workflows: Requirements Elicitation, Requirements Structuring, RFQ Document Creation, Quality Review
+- Comprehensive Japanese RFQ template (400+ lines, 9 sections) in Markdown format
+- Complete checklist (150+ items across 9 sections):
+  - プロジェクト概要、機能要件、非機能要件、技術要件、PM要件、契約要件、見積依頼要件、品質チェック
+- Requirements elicitation framework:
+  - 5W1H questioning methodology (Who, What, Where, When, Why, How)
+  - MoSCoW prioritization (Must/Should/Could/Won't have)
+  - Structured clarification questions with templates
+  - Assumption documentation with rationale
+- Standardized estimate submission format:
+  - WBS template with required phases (要件定義、設計、実装、テスト、デプロイメント、PM、品質保証)
+  - Required columns (タスク名、詳細、役割、工数、単価、小計)
+  - Contingency recommendations (10-20%)
+- Quality assurance features:
+  - Completeness check (必須項目の網羅確認)
+  - Clarity check (曖昧な表現の検出と修正提案)
+  - Consistency check (数値整合性、用語統一)
+  - Feasibility check (実現可能性評価)
+- Project type-specific guidance (Web, Mobile, Enterprise, Data Infrastructure)
+- Best practices and common pitfalls documented
+- Examples: E-Commerce, Mobile SFA, Data Migration
+- Bilingual support: Japanese (default), English
+- Output format: Professional Markdown RFQ documents
+
+### vendor-estimate-reviewer v1.0 (2025-01-07)
+- Initial release
+- 5 integrated workflows: Initial Review & Triage, Detailed Analysis & Assessment, Vendor Clarification Preparation, Final Review & Recommendation, Decision Support & Follow-Up
+- Comprehensive evaluation across 12 dimensions (scope, WBS, effort, cost, resources, timeline, QA, risk, contract, vendor capability, comparison, red flags)
+- 3 reference documents (350+ pages equivalent):
+  - Review checklist (12 sections, 200+ checklist items)
+  - Cost estimation standards (labor rates, effort distribution, project benchmarks by type)
+  - Risk factors guide (60+ risks with probability, impact, and mitigation strategies)
+- Automated analysis script (Excel, CSV, PDF parsing with pandas/openpyxl/PyPDF2)
+- 2 Markdown templates (comprehensive report 15+ sections, interactive checklist with scoring)
+- Industry benchmarks (North America, Europe, Asia Pacific labor rates by role and seniority)
+- 14 critical red flags detection
+- Risk scoring framework (high/medium/low prioritization)
+- Go/no-go decision framework with weighted scoring
+- Support for multi-vendor comparison
+- Negotiation strategy guidance (cost reduction and value-add opportunities)
+
+### data-visualization-expert v1.0 (2025-01-07)
+- Initial release
+- 5 core workflows: Chart Selection, Color Best Practices, Dashboard Design, Story-Driven Visualization, Accessibility
+- Comprehensive reference guides (30+ chart types, color theory, dashboard design)
+- Command-line visualization tool (6 chart types: bar, line, scatter, heatmap, distribution, dashboard)
+- Professional templates (KPI cards, executive summaries, waterfall charts, correlation heatmaps)
+- 50+ color palettes (qualitative, sequential, diverging, business-specific, colorblind-safe)
+- WCAG 2.1 accessibility compliance
+- Support for colorblind-safe visualizations (Okabe-Ito, Viridis palettes)
+
+### business-analyst v1.0 (2025-01-07)
+- Initial release
+- BABOK® Guide v3 alignment
+- 5 core workflows: Requirements Elicitation, Business Process Analysis, Stakeholder Analysis, Business Case Development, Gap Analysis
+- Comprehensive templates (ISO/IEC/IEEE 29148 compliant BRD, Business Case, Stakeholder Analysis)
+- Automated business analysis toolkit with financial calculations
+- Coverage of all 6 BABOK knowledge areas
+- Support for MoSCoW prioritization, BPMN process modeling, value stream mapping
+- Data quality profiling and assessment capabilities
+
+### project-manager v1.0 (2025-01-07)
+- Initial release
+- PMBOK® 6th/7th Edition alignment
+- 5 core workflows: Requirements Definition, Project Plan Review, Progress Reporting with EVM, Risk Management, Cost Estimation
+- Comprehensive templates (ISO/IEC/IEEE 29148 compliant)
+- Automated project health check script
+- Coverage of all 10 PMBOK knowledge areas and 5 process groups
+- Support for traditional, agile, and hybrid methodologies
+
+### data-scientist v1.0 (2025-01-07)
+- Initial release
+- Auto EDA, model comparison, time series analysis
+- Comprehensive reference guides
+- Professional templates
+- Support for classification, regression, time series
+
+---
+
+*This library is designed to enhance Claude Code's capabilities with professional-grade workflows and best practices across data science, project management, business analysis, data visualization, and vendor estimate evaluation domains.*

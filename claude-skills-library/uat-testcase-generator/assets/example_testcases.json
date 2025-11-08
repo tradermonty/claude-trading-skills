@@ -1,0 +1,167 @@
+[
+  {
+    "id": "DATA-001",
+    "priority": "High",
+    "category": "データ移行検証",
+    "sub_category": "移行データ件数照合",
+    "scenario": "Account件数照合",
+    "precondition": "既存CRMからデータ移行済み",
+    "steps": "1. 既存CRMのAccount総件数を確認\n2. Salesforce UAT環境のAccount総件数を確認\n3. 件数を比較",
+    "expected": "移行元と移行先のAccount件数が一致すること",
+    "criteria": "件数差異0件"
+  },
+  {
+    "id": "DATA-002",
+    "priority": "High",
+    "category": "データ移行検証",
+    "sub_category": "移行データ件数照合",
+    "scenario": "Contact件数照合",
+    "precondition": "既存CRMからデータ移行済み",
+    "steps": "1. 既存CRMのContact総件数を確認\n2. Salesforce UAT環境のContact総件数を確認\n3. 件数を比較",
+    "expected": "移行元と移行先のContact件数が一致すること",
+    "criteria": "件数差異0件"
+  },
+  {
+    "id": "DATA-003",
+    "priority": "High",
+    "category": "データ移行検証",
+    "sub_category": "移行データ件数照合",
+    "scenario": "Opportunity件数照合",
+    "precondition": "既存CRMからデータ移行済み",
+    "steps": "1. 既存CRMのOpportunity総件数を確認\n2. Salesforce UAT環境のOpportunity総件数を確認\n3. 件数を比較",
+    "expected": "移行元と移行先のOpportunity件数が一致すること",
+    "criteria": "件数差異0件"
+  },
+  {
+    "id": "DATA-004",
+    "priority": "High",
+    "category": "データ移行検証",
+    "sub_category": "データ品質検証",
+    "scenario": "Account必須項目入力確認",
+    "precondition": "Account移行データが存在",
+    "steps": "1. Salesforce UAT環境でAccountリストビューを開く\n2. 「すべての取引先」を表示\n3. 必須項目（取引先名、業種、従業員数）が空白のレコードを検索\n4. 検索結果件数を確認",
+    "expected": "必須項目が空白のレコードが0件であること",
+    "criteria": "空白レコード0件"
+  },
+  {
+    "id": "DATA-005",
+    "priority": "Medium",
+    "category": "データ移行検証",
+    "sub_category": "データ品質検証",
+    "scenario": "特殊文字・日本語文字の正常表示",
+    "precondition": "特殊文字を含むテストデータが移行済み",
+    "steps": "1. 特殊文字テスト用Accountレコードを開く\n2. 取引先名フィールドの表示を確認\n3. 住所フィールドの表示を確認\n4. 備考フィールドの表示を確認",
+    "expected": "すべての特殊文字（①、㈱、髙など）が正しく表示されること",
+    "criteria": "文字化け0件"
+  },
+  {
+    "id": "BIZ-001",
+    "priority": "High",
+    "category": "業務シナリオテスト",
+    "sub_category": "商談管理",
+    "scenario": "商談新規作成",
+    "precondition": "営業部門ユーザーでログイン済み、Accountレコードが存在",
+    "steps": "1. 「商談」タブをクリック\n2. 「新規」ボタンをクリック\n3. 必須項目を入力（商談名、取引先、完了予定日、フェーズ、金額）\n4. 「保存」ボタンをクリック\n5. 商談詳細画面が表示されることを確認",
+    "expected": "商談レコードが正常に作成され、詳細画面に入力内容が表示されること",
+    "criteria": "レコード作成成功、入力値の完全一致"
+  },
+  {
+    "id": "BIZ-002",
+    "priority": "High",
+    "category": "業務シナリオテスト",
+    "sub_category": "商談管理",
+    "scenario": "商談フェーズ更新",
+    "precondition": "フェーズ「提案中」の商談レコードが存在",
+    "steps": "1. 対象の商談レコードを開く\n2. 「編集」ボタンをクリック\n3. フェーズを「交渉中」に変更\n4. 「保存」ボタンをクリック\n5. 更新されたフェーズを確認",
+    "expected": "商談フェーズが「交渉中」に更新されること",
+    "criteria": "フェーズ更新成功"
+  },
+  {
+    "id": "BIZ-003",
+    "priority": "Medium",
+    "category": "業務シナリオテスト",
+    "sub_category": "タスク/活動管理",
+    "scenario": "タスク新規作成",
+    "precondition": "営業部門ユーザーでログイン済み",
+    "steps": "1. 「タスク」タブをクリック\n2. 「新規タスク」ボタンをクリック\n3. 件名、期限日、優先度を入力\n4. 「保存」ボタンをクリック\n5. タスクリストに新規タスクが表示されることを確認",
+    "expected": "タスクが正常に作成され、タスクリストに表示されること",
+    "criteria": "タスク作成成功、リスト表示確認"
+  },
+  {
+    "id": "SEC-001",
+    "priority": "High",
+    "category": "認証・セキュリティテスト",
+    "sub_category": "ユーザー認証",
+    "scenario": "正常なログイン",
+    "precondition": "有効なユーザーアカウントが存在",
+    "steps": "1. Salesforceログイン画面にアクセス\n2. ユーザー名とパスワードを入力\n3. 「ログイン」ボタンをクリック\n4. ホーム画面が表示されることを確認",
+    "expected": "ログインが成功し、ホーム画面が3秒以内に表示されること",
+    "criteria": "ログイン成功、レスポンスタイム3秒以内"
+  },
+  {
+    "id": "SEC-002",
+    "priority": "High",
+    "category": "認証・セキュリティテスト",
+    "sub_category": "権限管理",
+    "scenario": "営業部門ユーザーのAccount編集権限確認",
+    "precondition": "営業部門ユーザーでログイン済み、Accountレコードが存在",
+    "steps": "1. Accountレコードを開く\n2. 「編集」ボタンの表示を確認\n3. 「編集」ボタンをクリック\n4. 編集画面が表示されることを確認",
+    "expected": "営業部門ユーザーがAccountレコードを編集できること",
+    "criteria": "編集ボタン表示、編集画面アクセス可能"
+  },
+  {
+    "id": "SEC-003",
+    "priority": "High",
+    "category": "認証・セキュリティテスト",
+    "sub_category": "データ可視性",
+    "scenario": "閲覧専用ユーザーのAccount編集制限",
+    "precondition": "閲覧専用ユーザーでログイン済み、Accountレコードが存在",
+    "steps": "1. Accountレコードを開く\n2. 「編集」ボタンの表示有無を確認\n3. 編集を試みる",
+    "expected": "閲覧専用ユーザーには編集ボタンが表示されず、編集できないこと",
+    "criteria": "編集ボタン非表示、編集不可"
+  },
+  {
+    "id": "RPT-001",
+    "priority": "Medium",
+    "category": "レポート・ダッシュボードテスト",
+    "sub_category": "レポート表示",
+    "scenario": "月次商談レポート表示",
+    "precondition": "営業部門ユーザーでログイン済み、当月の商談データが存在",
+    "steps": "1. 「レポート」タブをクリック\n2. 「月次商談サマリー」レポートを開く\n3. レポートが表示されることを確認\n4. データ件数を確認",
+    "expected": "月次商談レポートが5秒以内に表示され、当月の商談データが含まれること",
+    "criteria": "レポート表示成功、レスポンスタイム5秒以内、データ表示確認"
+  },
+  {
+    "id": "RPT-002",
+    "priority": "Medium",
+    "category": "レポート・ダッシュボードテスト",
+    "sub_category": "ダッシュボード表示",
+    "scenario": "営業ダッシュボード表示",
+    "precondition": "営業部門ユーザーでログイン済み",
+    "steps": "1. 「ダッシュボード」タブをクリック\n2. 「営業部門ダッシュボード」を開く\n3. すべてのコンポーネントが表示されることを確認",
+    "expected": "ダッシュボードが10秒以内に表示され、すべてのグラフとチャートが正常に表示されること",
+    "criteria": "ダッシュボード表示成功、レスポンスタイム10秒以内"
+  },
+  {
+    "id": "EXT-001",
+    "priority": "High",
+    "category": "外部連携テスト",
+    "sub_category": "バッチ処理",
+    "scenario": "日次データ同期バッチ実行",
+    "precondition": "バッチジョブが設定済み",
+    "steps": "1. 設定画面からApex ジョブを開く\n2. 日次データ同期バッチの実行状況を確認\n3. ジョブログを確認\n4. 処理結果を確認",
+    "expected": "バッチジョブが正常に完了し、エラーログが0件であること",
+    "criteria": "ジョブ完了、エラー0件"
+  },
+  {
+    "id": "PERF-001",
+    "priority": "Medium",
+    "category": "性能テスト",
+    "sub_category": "レスポンスタイム",
+    "scenario": "Account検索レスポンスタイム",
+    "precondition": "Account10,000件以上が存在",
+    "steps": "1. Accountタブを開く\n2. リストビューで「すべての取引先」を選択\n3. レスポンスタイムを測定\n4. 3回繰り返して平均値を算出",
+    "expected": "Accountリストビューの表示が5秒以内に完了すること",
+    "criteria": "平均レスポンスタイム5秒以内"
+  }
+]
