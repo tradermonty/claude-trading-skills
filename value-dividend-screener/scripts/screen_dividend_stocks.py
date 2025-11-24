@@ -191,6 +191,58 @@ class FMPClient:
             return result[0]
         return None
 
+    def get_historical_prices(self, symbol: str, days: int = 30) -> List[Dict]:
+        """Get historical daily prices for RSI calculation."""
+        result = self._get(f'historical-price-full/{symbol}', {'serietype': 'line'})
+        if result and 'historical' in result:
+            # Return most recent 'days' entries
+            return result['historical'][:days]
+        return []
+
+
+class RSICalculator:
+    """Calculate RSI (Relative Strength Index)"""
+
+    @staticmethod
+    def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
+        """
+        Calculate RSI from price data.
+
+        Args:
+            prices: List of closing prices (oldest to newest)
+            period: RSI period (default 14)
+
+        Returns:
+            RSI value (0-100) or None if insufficient data
+        """
+        if len(prices) < period + 1:
+            return None
+
+        # Calculate price changes
+        changes = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
+
+        # Separate gains and losses
+        gains = [max(0, change) for change in changes]
+        losses = [abs(min(0, change)) for change in changes]
+
+        # Calculate initial average gain/loss
+        avg_gain = sum(gains[:period]) / period
+        avg_loss = sum(losses[:period]) / period
+
+        # Smooth using Wilder's method for remaining periods
+        for i in range(period, len(changes)):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+        # Calculate RSI
+        if avg_loss == 0:
+            return 100.0
+
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+
+        return round(rsi, 1)
+
 
 class StockAnalyzer:
     """Analyzes stock data and calculates scores"""
@@ -712,6 +764,7 @@ def screen_value_dividend_stocks(fmp_api_key: str, top_n: int = 20,
     """
     client = FMPClient(fmp_api_key)
     analyzer = StockAnalyzer()
+    rsi_calc = RSICalculator()
 
     # Step 1: Get candidate list
     if finviz_symbols:
@@ -784,6 +837,25 @@ def screen_value_dividend_stocks(fmp_api_key: str, top_n: int = 20,
         dividend_history = client.get_dividend_history(symbol)
         if client.rate_limit_reached:
             break
+
+        # Fetch historical prices for RSI calculation
+        historical_prices = client.get_historical_prices(symbol, days=30)
+        if client.rate_limit_reached:
+            break
+
+        # Calculate RSI for technical analysis
+        rsi = None
+        if historical_prices and len(historical_prices) >= 20:
+            # Prices come newest first, reverse for RSI calculation
+            prices = [p.get('close', 0) for p in reversed(historical_prices)]
+            rsi = rsi_calc.calculate_rsi(prices, period=14)
+
+        if rsi is None:
+            print(f"  ⚠️  RSI calculation failed (insufficient price data)", file=sys.stderr)
+            continue
+
+        # Store RSI for later filtering
+        stock['_rsi'] = rsi
 
         # Fetch profile for sector information if not already present
         if not stock.get('sector') or stock.get('sector') == 'N/A':
@@ -873,6 +945,7 @@ def screen_value_dividend_stocks(fmp_api_key: str, top_n: int = 20,
             'annual_dividend': round(annual_dividend, 2),
             'pe_ratio': stock.get('pe', 0),
             'pb_ratio': stock.get('priceToBook', 0),
+            'rsi': rsi,
             'dividend_cagr_3y': round(div_cagr, 2),
             'dividend_consistent': div_consistent,
             'dividend_stable': dividend_stability['is_stable'],
@@ -899,13 +972,24 @@ def screen_value_dividend_stocks(fmp_api_key: str, top_n: int = 20,
         }
 
         results.append(result)
-        print(f"  ✅ Passed all criteria (Score: {result['composite_score']})", file=sys.stderr)
+        print(f"  ✅ Passed all criteria (RSI: {rsi:.1f}, Score: {result['composite_score']})", file=sys.stderr)
 
-    # Sort by composite score
-    results.sort(key=lambda x: x['composite_score'], reverse=True)
+    # Step 3: Filter by RSI
+    # Prefer RSI <= 40 (oversold), but if none found, return lowest RSI stocks
+    oversold_results = [r for r in results if r['rsi'] <= 40]
 
-    print(f"\nStep 3: Ranking complete. Top {top_n} stocks selected.", file=sys.stderr)
-    return results[:top_n]
+    if oversold_results:
+        print(f"\nStep 3: Found {len(oversold_results)} oversold stocks (RSI <= 40)", file=sys.stderr)
+        # Sort oversold stocks by composite score
+        oversold_results.sort(key=lambda x: x['composite_score'], reverse=True)
+        results = oversold_results[:top_n]
+    else:
+        print(f"\nStep 3: No oversold stocks found (RSI <= 40). Returning lowest RSI stocks.", file=sys.stderr)
+        # Sort by RSI (lowest first), then by composite score
+        results.sort(key=lambda x: (x['rsi'], -x['composite_score']))
+        results = results[:top_n]
+
+    return results
 
 
 def main():
@@ -953,11 +1037,18 @@ Environment Variables:
         help='Use FINVIZ Elite API for pre-screening (recommended to reduce FMP API calls)'
     )
 
+    # Determine default output directory (project root logs/ folder)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Navigate from .claude/skills/value-dividend-screener/scripts to project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))))
+    logs_dir = os.path.join(project_root, 'logs')
+    default_output = os.path.join(logs_dir, 'dividend_screener_results.json')
+
     parser.add_argument(
         '--output',
         type=str,
-        default='dividend_screener_results.json',
-        help='Output JSON file path (default: dividend_screener_results.json)'
+        default=default_output,
+        help=f'Output JSON file path (default: {default_output})'
     )
 
     parser.add_argument(
@@ -1033,6 +1124,7 @@ Environment Variables:
     }
 
     # Write to file
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
 
