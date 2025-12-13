@@ -1,5 +1,8 @@
 # Claude Trading Skills
 
+[![Run in Smithery](https://smithery.ai/badge/skills/tradermonty)](https://smithery.ai/skills?ns=tradermonty&utm_source=github&utm_medium=badge)
+
+
 Curated Claude skills for equity investors and traders. Each skill bundles prompts, knowledge, and optional helper scripts so Claude can assist with systematic backtesting, market analysis, technical charting, economic calendar monitoring, and US stock research. The repository packages skills for both Claude's web app and Claude Code workflows.
 
 日本語版READMEは[`README.ja.md`](README.ja.md)をご覧ください。
