@@ -125,6 +125,19 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 
 ### Stock Screening & Selection
 
+- **CANSLIM Stock Screener** (`canslim-screener`) - **Phase 2**
+  - Screens US stocks using William O'Neil's proven CANSLIM growth stock methodology for identifying multi-bagger candidates.
+  - **Phase 2** implements 6 of 7 components (80% coverage): C (Current Earnings), A (Annual Growth), N (Newness/New Highs), **S (Supply/Demand)**, **I (Institutional Sponsorship)**, M (Market Direction).
+  - Composite scoring (0-100) with weighted components: C 19%, A 25%, N 19%, **S 19%**, **I 13%**, M 6% (renormalized for 6 components).
+  - **NEW**: Volume-based accumulation/distribution analysis (S component) - detects institutional buying patterns via up-day vs down-day volume ratios.
+  - **NEW**: Institutional ownership tracking (I component) - analyzes holder count + ownership % with **automatic Finviz fallback** when FMP data incomplete.
+  - **Finviz integration**: Free web scraping for institutional data (beautifulsoup4), improves I component accuracy from 35/100 to 60-100/100.
+  - Interpretation bands: Exceptional+ (90-100), Exceptional (80-89), Strong (70-79), Above Average (60-69).
+  - Bear market protection: M component gates all buy recommendations (M=0 triggers "raise cash" warning).
+  - FMP API + Finviz integration: Free tier sufficient for 40 stocks (~1 minute 40 seconds execution time).
+  - Comprehensive knowledge base: O'Neil's methodology (now includes S and I), scoring formulas, interpretation guide, portfolio construction rules.
+  - Future Phase 3 will add L (Leadership/RS Rank) component for full 7-component CANSLIM (100% coverage).
+
 - **Value Dividend Screener** (`value-dividend-screener`)
   - Screens US stocks for high-quality dividend opportunities using Financial Modeling Prep (FMP) API.
   - Multi-phase filtering: Value characteristics (P/E ≤20, P/B ≤2) + Income (Yield ≥3.5%) + Growth (3-year dividend/revenue/EPS uptrends).
@@ -225,6 +238,7 @@ Several skills require API keys for data access:
 | **Pair Trade Screener** | ✅ Required | ❌ Not used | ❌ Not used | Statistical arbitrage analysis |
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | FMP for stock data; theoretical pricing works without |
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Real-time holdings via Alpaca MCP |
+| **CANSLIM Stock Screener** | ✅ Required | ❌ Not used | ❌ Not used | Phase 2 (6 components); free tier sufficient; Finviz web scraping for institutional data |
 
 ### API Setup
 
