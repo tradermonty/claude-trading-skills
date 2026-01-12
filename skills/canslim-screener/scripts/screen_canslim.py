@@ -140,10 +140,10 @@ def analyze_stock(symbol: str, client: FMPClient, market_data: Dict) -> Optional
             "score": 0, "error": "No price history data"
         }
 
-        # I Component: Institutional Sponsorship
+        # I Component: Institutional Sponsorship (with Finviz fallback)
         institutional_holders = client.get_institutional_holders(symbol)
         i_result = calculate_institutional_sponsorship(
-            institutional_holders, profile[0]
+            institutional_holders, profile[0], symbol=symbol, use_finviz_fallback=True
         ) if institutional_holders else {
             "score": 0, "error": "No institutional holder data"
         }

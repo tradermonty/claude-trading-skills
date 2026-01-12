@@ -26,6 +26,18 @@ Scoring:
 """
 
 from typing import Dict, List, Optional
+import sys
+import os
+
+# Optional: Import Finviz client for fallback data (requires finviz library)
+try:
+    # Add parent directory to path to import finviz_stock_client
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from finviz_stock_client import FinvizStockClient
+    FINVIZ_AVAILABLE = True
+except ImportError:
+    FINVIZ_AVAILABLE = False
+    print("INFO: finviz library not available. Install with 'pip install finviz' for improved institutional data.", file=sys.stderr)
 
 
 # List of superinvestors (legendary value investors whose presence signals quality)
@@ -45,15 +57,19 @@ SUPERINVESTORS = [
 
 def calculate_institutional_sponsorship(
     institutional_holders: List[Dict],
-    profile: Optional[Dict] = None
+    profile: Optional[Dict] = None,
+    symbol: Optional[str] = None,
+    use_finviz_fallback: bool = True
 ) -> Dict:
     """
-    Calculate institutional sponsorship score (Full Implementation)
+    Calculate institutional sponsorship score (Full Implementation with Finviz fallback)
 
     Args:
         institutional_holders: List of institutional holders from FMP API
                               Each entry: {"holder": str, "shares": int, "dateReported": str, "change": int}
         profile: Company profile dict (optional, for shares outstanding)
+        symbol: Stock ticker symbol (optional, required for Finviz fallback)
+        use_finviz_fallback: If True, use Finviz data when FMP ownership % unavailable (default: True)
 
     Returns:
         Dict with:
@@ -111,6 +127,7 @@ def calculate_institutional_sponsorship(
     ownership_pct = None
     shares_outstanding = None
     quality_warning = None
+    data_source = "FMP"  # Track data source
 
     if profile:
         # Try to get shares outstanding (different field names possible)
@@ -126,9 +143,33 @@ def calculate_institutional_sponsorship(
         if shares_outstanding and shares_outstanding > 0:
             ownership_pct = (total_shares_held / shares_outstanding) * 100
         else:
-            quality_warning = "Shares outstanding unavailable - ownership % cannot be calculated. Score reduced by 50%."
+            quality_warning = "Shares outstanding unavailable from FMP."
     else:
-        quality_warning = "Company profile not provided - ownership % cannot be calculated. Score reduced by 50%."
+        quality_warning = "Company profile not provided."
+
+    # Finviz fallback: If ownership % still unavailable, try Finviz
+    if ownership_pct is None and use_finviz_fallback and FINVIZ_AVAILABLE and symbol:
+        try:
+            finviz_client = FinvizStockClient(rate_limit_seconds=1.0)
+            finviz_data = finviz_client.get_institutional_ownership(symbol)
+
+            if finviz_data and finviz_data.get('inst_own_pct') is not None:
+                ownership_pct = finviz_data['inst_own_pct']
+                data_source = "Finviz"
+                quality_warning = f"Using Finviz institutional ownership data ({ownership_pct:.1f}%) - FMP shares outstanding unavailable."
+                print(f"✅ Using Finviz institutional ownership for {symbol}: {ownership_pct:.1f}%", file=sys.stderr)
+            else:
+                quality_warning += " Finviz fallback also unavailable. Score reduced by 50%."
+        except Exception as e:
+            print(f"WARNING: Finviz fallback failed for {symbol}: {e}", file=sys.stderr)
+            quality_warning += " Finviz fallback failed. Score reduced by 50%."
+
+    # Final warning if ownership % still unavailable
+    if ownership_pct is None:
+        if not quality_warning:
+            quality_warning = "Ownership % unavailable from all sources. Score reduced by 50%."
+        else:
+            quality_warning += " Score reduced by 50%."
 
     # Score institutional sponsorship
     score = score_institutional_sponsorship(
@@ -149,7 +190,8 @@ def calculate_institutional_sponsorship(
         "total_shares_held": total_shares_held,
         "shares_outstanding": shares_outstanding,
         "interpretation": interpretation,
-        "quality_warning": quality_warning
+        "quality_warning": quality_warning,
+        "data_source": data_source  # "FMP" or "Finviz"
     }
 
 
