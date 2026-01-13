@@ -42,6 +42,17 @@ WEIGHTS_PHASE2 = {
     "M": 0.06   # Market Direction (5% / 0.80 = 0.0625 ≈ 0.06)
 }
 
+# Phase 3 component weights (7 components, FULL CANSLIM - Original O'Neil weights)
+WEIGHTS_PHASE3 = {
+    "C": 0.15,  # Current Earnings - 15%
+    "A": 0.20,  # Annual Growth - 20%
+    "N": 0.15,  # Newness - 15%
+    "S": 0.15,  # Supply/Demand - 15%
+    "L": 0.20,  # Leadership/RS Rank - 20% (LARGEST component!)
+    "I": 0.10,  # Institutional - 10%
+    "M": 0.05   # Market Direction - 5%
+}
+
 
 def calculate_composite_score(c_score: float,
                               a_score: float,
@@ -338,6 +349,168 @@ def check_minimum_thresholds_phase2(c_score: float,
             "failed_components": [],
             "recommendation": "buy",
             "reason": "All minimum thresholds met"
+        }
+    elif len(failed) == 1:
+        return {
+            "passes_all": False,
+            "failed_components": failed,
+            "recommendation": "watchlist",
+            "reason": f"One component below threshold: {failed[0]}"
+        }
+    else:
+        return {
+            "passes_all": False,
+            "failed_components": failed,
+            "recommendation": "avoid",
+            "reason": f"Multiple components below threshold: {', '.join(failed)}"
+        }
+
+
+def calculate_composite_score_phase3(c_score: float,
+                                     a_score: float,
+                                     n_score: float,
+                                     s_score: float,
+                                     l_score: float,
+                                     i_score: float,
+                                     m_score: float) -> Dict:
+    """
+    Calculate weighted composite CANSLIM score for Phase 3 (FULL 7 components)
+
+    This is the complete CANSLIM implementation with O'Neil's original weights.
+
+    Args:
+        c_score: Current Earnings component score (0-100)
+        a_score: Annual Growth component score (0-100)
+        n_score: Newness component score (0-100)
+        s_score: Supply/Demand component score (0-100)
+        l_score: Leadership/RS Rank component score (0-100)
+        i_score: Institutional component score (0-100)
+        m_score: Market Direction component score (0-100)
+
+    Returns:
+        Dict with:
+            - composite_score: Weighted average (0-100)
+            - rating: "Exceptional+", "Exceptional", "Strong", etc.
+            - rating_description: What the rating means
+            - guidance: Recommended action
+            - weakest_component: Component with lowest score
+            - weakest_score: Score of weakest component
+
+    Example:
+        >>> result = calculate_composite_score_phase3(
+        ...     c_score=95, a_score=90, n_score=88, s_score=85,
+        ...     l_score=92, i_score=80, m_score=100
+        ... )
+        >>> print(f"{result['composite_score']:.1f} - {result['rating']}")
+        89.7 - Exceptional
+    """
+    # Calculate weighted composite using FULL CANSLIM weights
+    composite = (
+        c_score * WEIGHTS_PHASE3["C"] +
+        a_score * WEIGHTS_PHASE3["A"] +
+        n_score * WEIGHTS_PHASE3["N"] +
+        s_score * WEIGHTS_PHASE3["S"] +
+        l_score * WEIGHTS_PHASE3["L"] +
+        i_score * WEIGHTS_PHASE3["I"] +
+        m_score * WEIGHTS_PHASE3["M"]
+    )
+
+    # Identify weakest component
+    components = {
+        "C": c_score, "A": a_score, "N": n_score,
+        "S": s_score, "L": l_score, "I": i_score, "M": m_score
+    }
+    weakest_component = min(components, key=components.get)
+    weakest_score = components[weakest_component]
+
+    # Get rating and interpretation
+    rating_info = interpret_composite_score(composite)
+
+    return {
+        "composite_score": round(composite, 1),
+        "rating": rating_info["rating"],
+        "rating_description": rating_info["description"],
+        "guidance": rating_info["guidance"],
+        "weakest_component": weakest_component,
+        "weakest_score": weakest_score,
+        "component_scores": {
+            "C": c_score,
+            "A": a_score,
+            "N": n_score,
+            "S": s_score,
+            "L": l_score,
+            "I": i_score,
+            "M": m_score
+        }
+    }
+
+
+def check_minimum_thresholds_phase3(c_score: float,
+                                    a_score: float,
+                                    n_score: float,
+                                    s_score: float,
+                                    l_score: float,
+                                    i_score: float,
+                                    m_score: float) -> Dict:
+    """
+    Check if stock meets minimum CANSLIM thresholds (Phase 3: FULL 7 components)
+
+    Minimum thresholds for "buy" consideration:
+    - C >= 60 (18%+ quarterly EPS growth)
+    - A >= 50 (25%+ annual EPS CAGR)
+    - N >= 40 (within 25% of 52-week high)
+    - S >= 40 (accumulation pattern, ratio >= 1.0)
+    - L >= 50 (RS Rank 60+, outperforming market)
+    - I >= 40 (30+ holders or 20%+ ownership)
+    - M >= 40 (market not in downtrend)
+
+    Args:
+        c_score, a_score, n_score, s_score, l_score, i_score, m_score: Component scores
+
+    Returns:
+        Dict with:
+            - passes_all: Boolean - True if all thresholds met
+            - failed_components: List of components below threshold
+            - recommendation: "buy", "watchlist", or "avoid"
+    """
+    thresholds = {
+        "C": 60, "A": 50, "N": 40,
+        "S": 40, "L": 50, "I": 40, "M": 40
+    }
+    scores = {
+        "C": c_score, "A": a_score, "N": n_score,
+        "S": s_score, "L": l_score, "I": i_score, "M": m_score
+    }
+
+    failed = [comp for comp, threshold in thresholds.items()
+             if scores[comp] < threshold]
+
+    # Special case: M score = 0 (bear market) overrides everything
+    if m_score == 0:
+        return {
+            "passes_all": False,
+            "failed_components": ["M"],
+            "recommendation": "avoid",
+            "reason": "Bear market - M component = 0. Do NOT buy regardless of other scores."
+        }
+
+    # Special case: L score < 40 (major laggard) - strong warning
+    if l_score < 40:
+        if "L" not in failed:
+            failed.append("L")
+        return {
+            "passes_all": False,
+            "failed_components": failed,
+            "recommendation": "avoid",
+            "reason": f"Stock significantly underperforming market (L={l_score}). CANSLIM requires market leaders."
+        }
+
+    if not failed:
+        return {
+            "passes_all": True,
+            "failed_components": [],
+            "recommendation": "buy",
+            "reason": "All 7 CANSLIM thresholds met - Full methodology validation"
         }
     elif len(failed) == 1:
         return {

@@ -95,6 +95,18 @@ English README is available at [`README.md`](README.md).
   - 各ステージの実行可能なプレイブックを提供：利益確定戦略、ヘッジ戦術、現金展開タイミング。
   - 歴史的ケースファイル（ドットコム2000、住宅2008、COVID 2020）、クイックリファレンスチェックリスト（日英）、対話型スコアラースクリプト`scripts/bubble_scorer.py`を補足。
 
+### 株式スクリーニング・選定
+
+- **CANSLIM株式スクリーナー** (`canslim-screener`) - **Phase 1 MVP**
+  - William O'NeilのCANSLIM成長株手法を用いて米国株をスクリーニング。マルチバガー候補の発見に特化。
+  - Phase 1では7コンポーネントのうち4つを実装：C (四半期決算)、A (年次成長)、N (新高値)、M (市場方向)。
+  - 複合スコアリング（0-100スケール）と重み付け：C 27%、A 36%、N 27%、M 10%（Phase 1向けに再配分）。
+  - 評価バンド：Exceptional+ (90-100)、Exceptional (80-89)、Strong (70-79)、Above Average (60-69)。
+  - ベアマーケット保護：Mコンポーネントが全ての買い推奨をゲート（M=0で「現金化」警告）。
+  - FMP API統合。無料ティア（250 calls/日）で40銘柄分析可能（実行時間5-10分）。
+  - 包括的な知識ベース：O'Neil手法、スコア計算式、解釈ガイド、ポートフォリオ構築ルール。
+  - 将来のPhaseでS (需給)、L (リーダーシップ/RS Rank)、I (機関投資家) コンポーネントを追加予定。
+
 ## ワークフロー例
 
 ### 日次マーケット監視
@@ -130,8 +142,8 @@ English README is available at [`README.md`](README.md).
 
 いくつかのスキルはデータアクセスのためにAPIキーが必要です：
 
-- **経済カレンダー取得** & **決算カレンダー**: [Financial Modeling Prep (FMP) API](https://financialmodelingprep.com)キーが必要
-  - 無料ティア: 250リクエスト/日
+- **経済カレンダー取得**、**決算カレンダー**、**CANSLIM株式スクリーナー**: [Financial Modeling Prep (FMP) API](https://financialmodelingprep.com)キーが必要
+  - 無料ティア: 250リクエスト/日（CANSLIM Screenerは40銘柄分析に十分）
   - 環境変数を設定: `export FMP_API_KEY=your_key_here`
   - または、プロンプト時にコマンドライン引数でキーを提供
 

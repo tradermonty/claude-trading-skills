@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-CANSLIM Stock Screener - Phase 1 MVP
+CANSLIM Stock Screener - Phase 3 (Full CANSLIM)
 
 Screens US stocks using William O'Neil's CANSLIM methodology.
-Phase 1 implements 4 of 7 components: C, A, N, M
+Phase 3 implements all 7 components: C, A, N, S, L, I, M (100% coverage)
 
 Usage:
     python3 screen_canslim.py --api-key YOUR_KEY --max-candidates 40
@@ -28,11 +28,13 @@ from calculators.earnings_calculator import calculate_quarterly_growth
 from calculators.growth_calculator import calculate_annual_growth
 from calculators.new_highs_calculator import calculate_newness
 from calculators.supply_demand_calculator import calculate_supply_demand
+from calculators.leadership_calculator import calculate_leadership
 from calculators.institutional_calculator import calculate_institutional_sponsorship
 from calculators.market_calculator import calculate_market_direction
 from scorer import (
     calculate_composite_score, check_minimum_thresholds,
-    calculate_composite_score_phase2, check_minimum_thresholds_phase2
+    calculate_composite_score_phase2, check_minimum_thresholds_phase2,
+    calculate_composite_score_phase3, check_minimum_thresholds_phase3
 )
 from report_generator import generate_json_report, generate_markdown_report
 
@@ -86,14 +88,15 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def analyze_stock(symbol: str, client: FMPClient, market_data: Dict) -> Optional[Dict]:
+def analyze_stock(symbol: str, client: FMPClient, market_data: Dict, sp500_historical: List[Dict] = None) -> Optional[Dict]:
     """
-    Analyze a single stock using CANSLIM Phase 2 components (6 components: C, A, N, S, I, M)
+    Analyze a single stock using CANSLIM Phase 3 components (7 components: C, A, N, S, L, I, M)
 
     Args:
         symbol: Stock ticker
         client: FMP API client
         market_data: Pre-calculated market direction data
+        sp500_historical: S&P 500 historical prices for L component RS calculation
 
     Returns:
         Dict with analysis results, or None if analysis failed
@@ -140,6 +143,20 @@ def analyze_stock(symbol: str, client: FMPClient, market_data: Dict) -> Optional
             "score": 0, "error": "No price history data"
         }
 
+        # L Component: Leadership / Relative Strength (52-week performance vs S&P 500)
+        # Use 365-day historical data for full year comparison
+        historical_prices_52w_data = client.get_historical_prices(symbol, days=365)
+        # Extract 'historical' list from FMP response format
+        historical_prices_52w = historical_prices_52w_data.get("historical", []) if historical_prices_52w_data else []
+        # Prepare S&P 500 historical list (extract from FMP response format)
+        sp500_historical_list = sp500_historical.get("historical", []) if sp500_historical else None
+        l_result = calculate_leadership(
+            historical_prices_52w,
+            sp500_historical=sp500_historical_list
+        ) if historical_prices_52w else {
+            "score": 0, "error": "No 52-week price history"
+        }
+
         # I Component: Institutional Sponsorship (with Finviz fallback)
         institutional_holders = client.get_institutional_holders(symbol)
         i_result = calculate_institutional_sponsorship(
@@ -151,22 +168,24 @@ def analyze_stock(symbol: str, client: FMPClient, market_data: Dict) -> Optional
         # M Component: Market Direction (use pre-calculated)
         m_result = market_data
 
-        # Calculate composite score (Phase 2: 6 components)
-        composite = calculate_composite_score_phase2(
+        # Calculate composite score (Phase 3: 7 components - FULL CANSLIM)
+        composite = calculate_composite_score_phase3(
             c_score=c_result.get("score", 0),
             a_score=a_result.get("score", 50),
             n_score=n_result.get("score", 0),
             s_score=s_result.get("score", 0),
+            l_score=l_result.get("score", 0),
             i_score=i_result.get("score", 0),
             m_score=m_result.get("score", 50)
         )
 
-        # Check minimum thresholds (Phase 2)
-        threshold_check = check_minimum_thresholds_phase2(
+        # Check minimum thresholds (Phase 3)
+        threshold_check = check_minimum_thresholds_phase3(
             c_score=c_result.get("score", 0),
             a_score=a_result.get("score", 50),
             n_score=n_result.get("score", 0),
             s_score=s_result.get("score", 0),
+            l_score=l_result.get("score", 0),
             i_score=i_result.get("score", 0),
             m_score=m_result.get("score", 50)
         )
@@ -188,8 +207,9 @@ def analyze_stock(symbol: str, client: FMPClient, market_data: Dict) -> Optional
             "c_component": c_result,
             "a_component": a_result,
             "n_component": n_result,
-            "s_component": s_result,  # NEW: Phase 2
-            "i_component": i_result,  # NEW: Phase 2
+            "s_component": s_result,
+            "l_component": l_result,  # NEW: Phase 3
+            "i_component": i_result,
             "m_component": m_result,
             "threshold_check": threshold_check
         }
@@ -204,8 +224,8 @@ def main():
     args = parse_arguments()
 
     print("=" * 60)
-    print("CANSLIM Stock Screener - Phase 2")
-    print("Components: C (Earnings), A (Growth), N (Newness), S (Supply/Demand), I (Institutional), M (Market)")
+    print("CANSLIM Stock Screener - Phase 3 (Full CANSLIM)")
+    print("Components: C (Earnings), A (Growth), N (Newness), S (Supply/Demand), L (Leadership), I (Institutional), M (Market)")
     print("=" * 60)
     print()
 
@@ -256,13 +276,23 @@ def main():
 
     print()
 
+    # Fetch S&P 500 historical prices for L component (Relative Strength calculation)
+    print("Fetching S&P 500 52-week data for Leadership (L) component...")
+    sp500_historical = client.get_historical_prices("SPY", days=365)  # Use SPY as S&P 500 proxy
+    if sp500_historical and sp500_historical.get("historical"):
+        sp500_days = len(sp500_historical.get("historical", []))
+        print(f"✓ S&P 500 historical data: {sp500_days} days")
+    else:
+        print("⚠️  S&P 500 historical data unavailable - L component will use absolute performance")
+    print()
+
     # Step 2: Progressive filtering and analysis
     print(f"Step 2: Analyzing {len(universe)} Stocks")
     print("-" * 60)
 
     results = []
     for symbol in universe:
-        analysis = analyze_stock(symbol, client, market_data)
+        analysis = analyze_stock(symbol, client, market_data, sp500_historical)
         if analysis:
             results.append(analysis)
 
@@ -293,8 +323,8 @@ def main():
 
     metadata = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "phase": "2 (6 components)",
-        "components_included": ["C", "A", "N", "S", "I", "M"],
+        "phase": "3 (7 components - FULL CANSLIM)",
+        "components_included": ["C", "A", "N", "S", "L", "I", "M"],
         "candidates_analyzed": len(results),
         "universe_size": len(universe),
         "market_condition": {
@@ -322,8 +352,8 @@ def main():
     api_stats = client.get_api_stats()
     print(f"API Usage:")
     print(f"  Cache entries: {api_stats['cache_entries']}")
-    print(f"  Estimated calls: ~{len(universe) * 5 + 3} (market data + {len(universe)} stocks × 5 components)")
-    print(f"  Phase 2 includes S (volume) and I (institutional) data")
+    print(f"  Estimated calls: ~{len(universe) * 6 + 4} (market data + S&P 500 history + {len(universe)} stocks × 6 API calls)")
+    print(f"  Phase 3 includes all 7 CANSLIM components (C, A, N, S, L, I, M)")
     print()
 
 
