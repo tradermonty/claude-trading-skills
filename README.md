@@ -106,6 +106,12 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 
 ### Strategy & Risk Management
 
+- **Scenario Analyzer** (`scenario-analyzer`)
+  - Analyzes news headlines to build 18-month scenario projections with sector impacts and stock picks.
+  - Dual-agent architecture: scenario-analyst for primary analysis, strategy-reviewer for second opinion.
+  - Generates comprehensive reports including 1st/2nd/3rd order effects, recommended tickers, and critical review.
+  - No API key required - uses WebSearch for news gathering.
+
 - **Backtest Expert** (`backtest-expert`)
   - Framework for professional-grade strategy validation with hypothesis definition, parameter robustness checks, and walk-forward testing.
   - Emphasizes realistic assumptions: slippage modeling, transaction costs, survivorship bias elimination, and out-of-sample validation.
