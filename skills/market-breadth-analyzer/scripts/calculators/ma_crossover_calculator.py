@@ -104,12 +104,12 @@ def _generate_signal(gap: float, direction: str, modifier: int, score: int) -> s
         mod_str = " (deterioration signal)"
 
     if score >= 80:
-        return f"BULLISH: 8MA well above 200MA (gap={gap:+.3f}, {direction}){mod_str}"
+        return f"BULLISH: 8MA well above 200MA (gap={gap:+.3f}, 8MA {direction}){mod_str}"
     elif score >= 60:
-        return f"POSITIVE: 8MA above 200MA (gap={gap:+.3f}, {direction}){mod_str}"
+        return f"POSITIVE: 8MA above 200MA (gap={gap:+.3f}, 8MA {direction}){mod_str}"
     elif score >= 40:
-        return f"NEUTRAL: Near crossover (gap={gap:+.3f}, {direction}){mod_str}"
+        return f"NEUTRAL: Near crossover (gap={gap:+.3f}, 8MA {direction}){mod_str}"
     elif score >= 20:
-        return f"NEGATIVE: 8MA below 200MA (gap={gap:+.3f}, {direction}){mod_str}"
+        return f"NEGATIVE: 8MA below 200MA (gap={gap:+.3f}, 8MA {direction}){mod_str}"
     else:
-        return f"BEARISH: 8MA far below 200MA (gap={gap:+.3f}, {direction}){mod_str}"
+        return f"BEARISH: 8MA far below 200MA (gap={gap:+.3f}, 8MA {direction}){mod_str}"

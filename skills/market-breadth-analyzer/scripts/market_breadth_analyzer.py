@@ -249,7 +249,8 @@ def _compute_key_levels(rows, summary):
         "value": f"{ma200:.4f}",
         "significance": (
             "Key support/resistance for 8MA. "
-            "8MA crossing above = bullish, below = bearish."
+            "8MA crossing below is an early warning of deterioration, "
+            "not a standalone bearish signal."
         ),
     }
 
