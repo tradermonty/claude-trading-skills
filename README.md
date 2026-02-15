@@ -61,6 +61,25 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Includes indicator cheat sheets (`references/indicators.md`) and analysis patterns.
   - Helper script `scripts/market_utils.py` assists with report formatting and data visualization.
 
+- **Market Breadth Analyzer** (`market-breadth-analyzer`)
+  - Quantifies market breadth health using TraderMonty's public CSV data with a data-driven 6-component scoring system (0-100).
+  - Components: Overall Breadth, Sector Participation, Sector Rotation, Momentum, Mean Reversion Risk, and Historical Context.
+  - Measures how broadly the market is participating in a rally or decline (100 = maximum health, 0 = critical weakness).
+  - No API key required - uses freely available CSV data from GitHub.
+
+- **Uptrend Analyzer** (`uptrend-analyzer`)
+  - Diagnoses market breadth health using Monty's Uptrend Ratio Dashboard, tracking ~2,800 US stocks across 11 sectors.
+  - 5-component composite scoring (0-100): Market Breadth, Sector Participation, Sector Rotation, Momentum, Historical Context.
+  - Warning overlay system: Late Cycle and High Selectivity flags tighten exposure guidance and add cautionary actions.
+  - Sector-level fallback: automatically constructs sector summary from timeseries data when sector_summary.csv is unavailable.
+  - No API key required - uses free GitHub CSV data.
+
+- **Macro Regime Detector** (`macro-regime-detector`)
+  - Detects structural macro regime transitions (1-2 year horizon) using cross-asset ratio analysis.
+  - 6-component analysis: RSP/SPY concentration, yield curve, credit conditions, size factor, equity-bond relationship, and sector rotation.
+  - Identifies regimes: Concentration, Broadening, Contraction, Inflationary, and Transitional states.
+  - FMP API required for cross-asset ETF data (RSP, SPY, IWM, HYG, LQD, TLT, XLE, XLU, etc.).
+
 - **Institutional Flow Tracker** (`institutional-flow-tracker`)
   - Tracks institutional investor ownership changes using 13F SEC filings data to identify "smart money" accumulation and distribution patterns.
   - Screens stocks with significant institutional ownership changes (>10-15% QoQ) and analyzes multi-quarter trends.
@@ -123,7 +142,26 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Supports model portfolios (Conservative/Moderate/Growth/Aggressive) for benchmark comparison.
   - Requires Alpaca brokerage account (paper or live) and configured Alpaca MCP Server; manual data entry also supported.
 
+### Market Timing & Bottom Detection
+
+- **Market Top Detector** (`market-top-detector`)
+  - Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Rotation.
+  - 6-component tactical timing system for identifying distribution and topping patterns.
+
+- **FTD Detector** (`ftd-detector`)
+  - Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's methodology.
+  - Dual-index tracking (S&P 500 + NASDAQ) with state machine for rally attempt, FTD qualification, and post-FTD health monitoring.
+  - Complementary to Market Top Detector: this skill is offensive (bottom confirmation) while Market Top Detector is defensive (distribution detection).
+  - Generates quality score (0-100) with exposure guidance for re-entering the market after corrections.
+  - FMP API required for index price data.
+
 ### Stock Screening & Selection
+
+- **VCP Screener** (`vcp-screener`)
+  - Screens S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP).
+  - Identifies Stage 2 uptrend stocks forming tight bases with contracting volatility near breakout pivot points.
+  - Multi-stage filtering: Trend Template → VCP Base Detection → Contraction Analysis → Pivot Point Calculation.
+  - FMP API required (free tier sufficient for default screening of top 100 candidates).
 
 - **CANSLIM Stock Screener** (`canslim-screener`) - **Phase 2**
   - Screens US stocks using William O'Neil's proven CANSLIM growth stock methodology for identifying multi-bagger candidates.
@@ -239,6 +277,11 @@ Several skills require API keys for data access:
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | FMP for stock data; theoretical pricing works without |
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Real-time holdings via Alpaca MCP |
 | **CANSLIM Stock Screener** | ✅ Required | ❌ Not used | ❌ Not used | Phase 2 (6 components); free tier sufficient; Finviz web scraping for institutional data |
+| **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | Stage 2 + VCP pattern screening; free tier sufficient |
+| **FTD Detector** | ✅ Required | ❌ Not used | ❌ Not used | Index price data for rally/FTD detection |
+| **Macro Regime Detector** | ✅ Required | ❌ Not used | ❌ Not used | Cross-asset ETF ratio analysis |
+| **Market Breadth Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
+| **Uptrend Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
 
 ### API Setup
 

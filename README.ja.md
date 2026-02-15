@@ -61,6 +61,23 @@ English README is available at [`README.md`](README.md).
   - インジケータ解説（`references/indicators.md`）と分析パターンを含む。
   - レポート整形とデータ可視化を支援する補助スクリプト`scripts/market_utils.py`を同梱。
 
+- **マーケットブレッド アナライザー** (`market-breadth-analyzer`)
+  - TraderMontyの公開CSVデータを使用し、データ駆動型6コンポーネントスコアリングシステム（0-100）で市場幅の健全性を定量化。
+  - コンポーネント: 全体ブレッド、セクター参加、セクターローテーション、モメンタム、平均回帰リスク、ヒストリカルコンテキスト。
+  - APIキー不要 - GitHubの無料CSVデータを使用。
+
+- **アップトレンドアナライザー** (`uptrend-analyzer`)
+  - Monty's Uptrend Ratio Dashboardを使用して、約2,800の米国株を11セクターにわたり追跡し、市場幅の健全性を診断。
+  - 5コンポーネント複合スコアリング（0-100）: マーケットブレッド、セクター参加、セクターローテーション、モメンタム、ヒストリカルコンテキスト。
+  - 警告オーバーレイシステム: Late CycleとHigh Selectivityフラグがエクスポージャーガイダンスを引き締め、注意アクションを追加。
+  - APIキー不要 - GitHubの無料CSVデータを使用。
+
+- **マクロレジーム検出器** (`macro-regime-detector`)
+  - クロスアセット比率分析を用いて構造的なマクロレジーム転換（1-2年ホライズン）を検出。
+  - 6コンポーネント分析: RSP/SPY集中度、イールドカーブ、クレジット環境、サイズファクター、株式-債券関係、セクターローテーション。
+  - レジーム識別: Concentration、Broadening、Contraction、Inflationary、Transitional。
+  - FMP APIキーが必要。
+
 ### 経済・決算カレンダー
 
 - **経済カレンダー取得** (`economic-calendar-fetcher`)
@@ -95,17 +112,35 @@ English README is available at [`README.md`](README.md).
   - 各ステージの実行可能なプレイブックを提供：利益確定戦略、ヘッジ戦術、現金展開タイミング。
   - 歴史的ケースファイル（ドットコム2000、住宅2008、COVID 2020）、クイックリファレンスチェックリスト（日英）、対話型スコアラースクリプト`scripts/bubble_scorer.py`を補足。
 
+### マーケットタイミング・底打ち検出
+
+- **マーケットトップ検出器** (`market-top-detector`)
+  - O'NeilのDistribution Days、MinerviniのLeading Stock Deterioration、MontyのDefensive Rotationを使用してマーケットトップの確率を検出。
+  - 分配と天井形成パターンを識別する6コンポーネント戦術的タイミングシステム。
+
+- **FTD検出器** (`ftd-detector`)
+  - William O'Neilの手法を用いて、市場底打ち確認のためのFollow-Through Day (FTD) シグナルを検出。
+  - デュアルインデックス追跡（S&P 500 + NASDAQ）と状態マシンによるラリー試行、FTD適格、FTD後の健全性監視。
+  - Market Top Detectorの補完スキル: Market Top Detector = ディフェンシブ（分配検出）、FTD Detector = オフェンシブ（底打ち確認）。
+  - 修正後の市場再参入のためのエクスポージャーガイダンス付きクオリティスコア（0-100）を生成。
+  - FMP APIキーが必要。
+
 ### 株式スクリーニング・選定
 
-- **CANSLIM株式スクリーナー** (`canslim-screener`) - **Phase 1 MVP**
+- **VCPスクリーナー** (`vcp-screener`)
+  - S&P 500銘柄からMark MinerviniのVolatility Contraction Pattern (VCP) をスクリーニング。
+  - ブレイクアウトピボットポイント近辺でボラティリティが収縮しているStage 2上昇トレンド銘柄を識別。
+  - 多段階フィルタリング: トレンドテンプレート → VCPベース検出 → 収縮分析 → ピボットポイント計算。
+  - FMP APIキーが必要（無料ティアで上位100候補のデフォルトスクリーニングに十分）。
+
+- **CANSLIM株式スクリーナー** (`canslim-screener`) - **Phase 2**
   - William O'NeilのCANSLIM成長株手法を用いて米国株をスクリーニング。マルチバガー候補の発見に特化。
-  - Phase 1では7コンポーネントのうち4つを実装：C (四半期決算)、A (年次成長)、N (新高値)、M (市場方向)。
-  - 複合スコアリング（0-100スケール）と重み付け：C 27%、A 36%、N 27%、M 10%（Phase 1向けに再配分）。
-  - 評価バンド：Exceptional+ (90-100)、Exceptional (80-89)、Strong (70-79)、Above Average (60-69)。
+  - Phase 2では7コンポーネントのうち6つを実装（80%カバレッジ）：C (四半期決算)、A (年次成長)、N (新高値)、S (需給)、I (機関投資家)、M (市場方向)。
+  - 複合スコアリング（0-100）と重み付け：C 19%、A 25%、N 19%、S 19%、I 13%、M 6%。
+  - ボリュームベースの蓄積/分配分析（Sコンポーネント）とFinvizフォールバック付き機関投資家所有率追跡（Iコンポーネント）。
   - ベアマーケット保護：Mコンポーネントが全ての買い推奨をゲート（M=0で「現金化」警告）。
-  - FMP API統合。無料ティア（250 calls/日）で40銘柄分析可能（実行時間5-10分）。
-  - 包括的な知識ベース：O'Neil手法、スコア計算式、解釈ガイド、ポートフォリオ構築ルール。
-  - 将来のPhaseでS (需給)、L (リーダーシップ/RS Rank)、I (機関投資家) コンポーネントを追加予定。
+  - FMP API統合。無料ティア（250 calls/日）で40銘柄分析可能。
+  - 将来のPhase 3でL (リーダーシップ/RS Rank) コンポーネントを追加して全7コンポーネント完成予定。
 
 ## ワークフロー例
 
@@ -142,10 +177,11 @@ English README is available at [`README.md`](README.md).
 
 いくつかのスキルはデータアクセスのためにAPIキーが必要です：
 
-- **経済カレンダー取得**、**決算カレンダー**、**CANSLIM株式スクリーナー**: [Financial Modeling Prep (FMP) API](https://financialmodelingprep.com)キーが必要
-  - 無料ティア: 250リクエスト/日（CANSLIM Screenerは40銘柄分析に十分）
+- **経済カレンダー取得**、**決算カレンダー**、**CANSLIM株式スクリーナー**、**VCPスクリーナー**、**FTD検出器**、**マクロレジーム検出器**: [Financial Modeling Prep (FMP) API](https://financialmodelingprep.com)キーが必要
+  - 無料ティア: 250リクエスト/日（ほとんどのスキルに十分）
   - 環境変数を設定: `export FMP_API_KEY=your_key_here`
   - または、プロンプト時にコマンドライン引数でキーを提供
+- **マーケットブレッドアナライザー**、**アップトレンドアナライザー**: APIキー不要（GitHubの無料CSVデータを使用）
 
 ## 参考リンク
 - Claude Skillsローンチ概要: https://www.anthropic.com/news/skills
