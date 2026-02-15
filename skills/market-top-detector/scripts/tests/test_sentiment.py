@@ -1,6 +1,5 @@
 """Tests for Sentiment Calculator"""
 
-import pytest
 from calculators.sentiment_calculator import calculate_sentiment
 
 

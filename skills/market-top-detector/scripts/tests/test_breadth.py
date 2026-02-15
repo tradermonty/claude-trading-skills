@@ -1,9 +1,8 @@
 """Tests for Breadth Calculator"""
 
-import pytest
 from calculators.breadth_calculator import (
-    calculate_breadth_divergence,
     _score_200dma_breadth,
+    calculate_breadth_divergence,
 )
 
 

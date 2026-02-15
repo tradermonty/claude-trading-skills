@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ruff
+        run: pip install ruff codespell
+
+      - name: Ruff check
+        run: ruff check skills/
+
+      - name: Ruff format check
+        run: ruff format --check skills/
+
+      - name: Codespell
+        run: codespell skills/ --skip "*.json,*.csv"
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # Run each skill's tests in isolation to avoid module name collisions
+      # (each skill has its own scorer.py, calculators/, helpers.py)
+      - name: Test market-top-detector
+        run: >
+          python -m pytest skills/market-top-detector/scripts/tests/ -v
+          --cov=skills/market-top-detector/scripts
+          --cov-report=term-missing
+
+      - name: Test ftd-detector
+        run: >
+          python -m pytest skills/ftd-detector/scripts/tests/ -v
+          --cov=skills/ftd-detector/scripts
+          --cov-report=term-missing
+          --cov-append
+
+      - name: Test vcp-screener
+        run: >
+          python -m pytest skills/vcp-screener/scripts/tests/ -v
+          --cov=skills/vcp-screener/scripts
+          --cov-report=term-missing
+          --cov-append
+
+      - name: Test macro-regime-detector
+        run: >
+          python -m pytest skills/macro-regime-detector/scripts/tests/ -v
+          --cov=skills/macro-regime-detector/scripts
+          --cov-report=term-missing
+          --cov-append
+
+      - name: Coverage summary
+        if: always()
+        run: python -m coverage report
+
+      - name: Upload coverage report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install security tools
+        run: pip install "bandit[toml]>=1.9.0" "detect-secrets>=1.5.0"
+
+      - name: Bandit SAST scan
+        run: bandit -c pyproject.toml -r skills/ --exclude "*/tests/*"
+
+      - name: Detect secrets scan
+        run: >
+          detect-secrets scan
+          --exclude-files '\.env$|\.json$|\.csv$|\.md$|\.zip$|\.baseline$'
+          --exclude-lines 'FMP_API_KEY|FINVIZ_API_KEY|ALPACA_API_KEY|ALPACA_SECRET_KEY'

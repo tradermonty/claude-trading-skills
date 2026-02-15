@@ -1,9 +1,8 @@
 """Tests for Defensive Rotation Calculator"""
 
-import pytest
 from calculators.defensive_rotation_calculator import (
-    calculate_defensive_rotation,
     _score_rotation,
+    calculate_defensive_rotation,
 )
 
 
@@ -52,7 +51,6 @@ class TestCalculateDefensiveRotation:
             historical[sym] = [{"close": 50, "volume": 500000} for _ in range(25)]
         for sym in ["XLK", "XLC", "XLY", "QQQ"]:
             # Offensive: +5% over 20 days
-            historical[sym] = [{"close": 105 - i * 0.25, "volume": 2000000}
-                               for i in range(25)]
+            historical[sym] = [{"close": 105 - i * 0.25, "volume": 2000000} for i in range(25)]
         result = calculate_defensive_rotation(historical)
         assert result["score"] <= 20

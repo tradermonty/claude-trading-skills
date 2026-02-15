@@ -1,10 +1,9 @@
 """Tests for Composite Scorer and FTD Detection"""
 
-import pytest
 from scorer import (
+    COMPONENT_WEIGHTS,
     calculate_composite_score,
     detect_follow_through_day,
-    COMPONENT_WEIGHTS,
 )
 
 
@@ -109,8 +108,7 @@ class TestFollowThroughDay:
 
     def test_no_swing_low(self):
         """Flat market → no swing low found."""
-        history = [{"close": 100, "volume": 1000000, "date": f"day-{i}"}
-                   for i in range(30)]
+        history = [{"close": 100, "volume": 1000000, "date": f"day-{i}"} for i in range(30)]
         result = detect_follow_through_day(history, 50.0)
         assert result["ftd_detected"] is False
 
@@ -130,12 +128,12 @@ class TestFollowThroughDay:
         # Build chronologically, then reverse
         # Days 0-9: uptrend
         for i in range(10):
-            bars.append({"close": 100 + i, "volume": 1000000, "date": f"2026-01-{i+1:02d}"})
+            bars.append({"close": 100 + i, "volume": 1000000, "date": f"2026-01-{i + 1:02d}"})
 
         # Days 10-14: decline (5 down days from 109)
         decline_prices = [107, 105, 103, 101, 100]
         for i, p in enumerate(decline_prices):
-            bars.append({"close": p, "volume": 1100000, "date": f"2026-01-{11+i:02d}"})
+            bars.append({"close": p, "volume": 1100000, "date": f"2026-01-{11 + i:02d}"})
 
         # Day 15: swing low
         bars.append({"close": 99.5, "volume": 1200000, "date": "2026-01-16"})
@@ -165,7 +163,7 @@ class TestFollowThroughDay:
             bars.append({"close": 100 + i, "volume": 1000000, "date": f"d-{i}"})
         # Decline
         for i, p in enumerate([107, 105, 103, 101, 100]):
-            bars.append({"close": p, "volume": 1100000, "date": f"d-{10+i}"})
+            bars.append({"close": p, "volume": 1100000, "date": f"d-{10 + i}"})
         # Swing low
         bars.append({"close": 99, "volume": 1200000, "date": "d-15"})
         # Brief rally

@@ -28,3 +28,8 @@ env/
 
 # Generated reports
 reports/
+
+# CI artifacts
+htmlcov/
+.coverage
+.secrets.baseline

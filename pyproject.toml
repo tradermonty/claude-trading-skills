@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# This is a scripts-only project, not a Python package
+packages = []
+
+[project]
+name = "claude-trading-skills"
+version = "0.1.0"
+description = "Claude Skills for equity investors and traders"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.9.0",
+    "bandit[toml]>=1.7.0",
+    "detect-secrets>=1.5.0",
+    "codespell>=2.3.0",
+    "pre-commit>=3.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = [
+    "E501",  # line-too-long (handled by formatter)
+    "E402",  # module-level import not at top (sys.path manipulation in conftest)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/conftest.py" = ["E402"]
+"**/test_*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+# Tests must be run per-skill to avoid module name collisions
+# (each skill has its own scorer.py, calculators/, helpers.py).
+# Use the run_tests.py script or CI workflow for proper execution.
+testpaths = [
+    "skills/market-top-detector/scripts/tests",
+    "skills/ftd-detector/scripts/tests",
+    "skills/vcp-screener/scripts/tests",
+    "skills/macro-regime-detector/scripts/tests",
+]
+
+[tool.bandit]
+targets = ["skills"]
+skips = ["B101", "B110"]
+
+[tool.codespell]
+skip = ".venv,*.json,*.csv,*.baseline,zip-packages,*.pyc,__pycache__"
+ignore-words-list = "trough,ore"
+
+[tool.coverage.run]
+source = ["skills"]
+
+[tool.coverage.report]
+fail_under = 40
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+]

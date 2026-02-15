@@ -1,11 +1,10 @@
 """Tests for Index Technical Calculator"""
 
-import pytest
-from conftest import make_history
 from calculators.index_technical_calculator import (
-    calculate_index_technical,
     _evaluate_index,
+    calculate_index_technical,
 )
+from helpers import make_history
 
 
 class TestEvaluateIndex:
@@ -49,7 +48,7 @@ class TestCalculateIndexTechnical:
         sp = make_history([100 - i * 0.1 for i in range(50)])
         nq_short = [{"close": 200}] * 5  # Too short
 
-        result_both = calculate_index_technical(sp, sp)  # Both = S&P
+        calculate_index_technical(sp, sp)  # Both = S&P (warm up)
         result_sp_only = calculate_index_technical(sp, nq_short)
 
         # S&P-only score should equal S&P's raw_score (not halved)

@@ -47,6 +47,7 @@ def calculate_composite_score(
     volume_score: float,
     pivot_score: float,
     rs_score: float,
+    valid_vcp: bool = True,
 ) -> Dict:
     """
     Calculate weighted composite VCP score.
@@ -57,6 +58,7 @@ def calculate_composite_score(
         volume_score: Volume dry-up pattern score (0-100)
         pivot_score: Pivot proximity score (0-100)
         rs_score: Relative Strength score (0-100)
+        valid_vcp: Whether VCP pattern passed validation (contraction ratios)
 
     Returns:
         Dict with composite_score, rating, guidance, component breakdown
@@ -83,11 +85,20 @@ def calculate_composite_score(
     # Rating
     rating_info = _get_rating(composite)
 
+    # Override rating when VCP pattern is not validated (e.g. expanding contractions)
+    if not valid_vcp and composite >= 70:
+        rating_info = {
+            "rating": "Developing VCP",
+            "description": "VCP pattern not confirmed - contractions do not meet criteria",
+            "guidance": "Watchlist only - VCP pattern not validated, do not buy",
+        }
+
     return {
         "composite_score": composite,
         "rating": rating_info["rating"],
         "rating_description": rating_info["description"],
         "guidance": rating_info["guidance"],
+        "valid_vcp": valid_vcp,
         "weakest_component": COMPONENT_LABELS[weakest_key],
         "weakest_score": component_scores[weakest_key],
         "strongest_component": COMPONENT_LABELS[strongest_key],

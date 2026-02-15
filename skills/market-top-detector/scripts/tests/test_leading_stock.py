@@ -1,9 +1,8 @@
 """Tests for Leading Stock Calculator"""
 
-import pytest
 from calculators.leading_stock_calculator import (
-    calculate_leading_stock_health,
     _evaluate_etf,
+    calculate_leading_stock_health,
 )
 
 
@@ -38,8 +37,7 @@ class TestCalculateLeadingStockHealth:
         historical = {}
         for sym in ["ARKK", "WCLD", "IGV"]:
             quotes[sym] = {"price": 100, "yearHigh": 102, "yearLow": 80}
-            historical[sym] = [{"close": 100 - i * 0.05, "volume": 1000000}
-                               for i in range(60)]
+            historical[sym] = [{"close": 100 - i * 0.05, "volume": 1000000} for i in range(60)]
         result = calculate_leading_stock_health(quotes, historical)
         assert result["score"] <= 30  # Healthy
         assert result["data_available"] is True
@@ -52,8 +50,8 @@ class TestCalculateLeadingStockHealth:
         for sym in ["ARKK", "WCLD", "IGV", "XBI", "SOXX", "SMH", "KWEB", "TAN"]:
             quotes[sym] = {"price": 70, "yearHigh": 100, "yearLow": 60}
             # Create declining history so price is well below MAs
-            historical[sym] = [{"close": 70 + i * 0.5, "high": 72 + i * 0.5,
-                                "volume": 1000000}
-                               for i in range(60)]
+            historical[sym] = [
+                {"close": 70 + i * 0.5, "high": 72 + i * 0.5, "volume": 1000000} for i in range(60)
+            ]
         result = calculate_leading_stock_health(quotes, historical)
         assert result["amplified"] is True
