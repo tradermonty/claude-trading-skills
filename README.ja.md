@@ -78,6 +78,15 @@ English README is available at [`README.md`](README.md).
   - レジーム識別: Concentration、Broadening、Contraction、Inflationary、Transitional。
   - FMP APIキーが必要。
 
+- **テーマ検出器** (`theme-detector`)
+  - FINVIZの業種・セクターパフォーマンスデータを複数タイムフレームで分析し、上昇・下落両方のトレンドテーマを検出。
+  - 3次元スコアリング: Theme Heat (0-100: モメンタム/ボリューム/アップトレンド/ブレッド)、Lifecycle Maturity (0-100: 持続期間/RSI極端度/価格極端度/バリュエーション/ETF本数)、Confidence (Low/Medium/High)。
+  - Direction-aware分析: ベアテーマもブルテーマと同等の感度でスコアリング（反転指標使用）。
+  - クロスセクターテーマ検出（AI/半導体、クリーンエネルギー、ゴールド、サイバーセキュリティ等）とセクター内垂直集中検出。
+  - ライフサイクルステージ: Emerging, Accelerating, Trending, Mature, Exhausting — テーマごとに代表銘柄とプロキシETFを表示。
+  - Monty's Uptrend Ratio Dashboardを補助ブレッドシグナルとして統合（3点評価: ratio + MA10 + slope）。
+  - コア機能にAPIキー不要（FINVIZパブリック + yfinance）。FMP/FINVIZ Eliteはオプションで銘柄選定を強化。
+
 ### 経済・決算カレンダー
 
 - **経済カレンダー取得** (`economic-calendar-fetcher`)
@@ -218,6 +227,7 @@ English README is available at [`README.md`](README.md).
   - 環境変数を設定: `export FMP_API_KEY=your_key_here`
   - または、プロンプト時にコマンドライン引数でキーを提供
 - **マーケットブレッドアナライザー**、**アップトレンドアナライザー**: APIキー不要（GitHubの無料CSVデータを使用）
+- **テーマ検出器**: コア機能にAPIキー不要（FINVIZパブリック + yfinance）。FMP APIは銘柄選定強化用（オプション）、FINVIZ Eliteは銘柄リスト取得用（オプション）
 
 ## 参考リンク
 - Claude Skillsローンチ概要: https://www.anthropic.com/news/skills

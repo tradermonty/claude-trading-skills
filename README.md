@@ -90,6 +90,15 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Follow specific institutions like Warren Buffett (Berkshire), Cathie Wood (ARK), Bill Ackman (Pershing Square).
   - Comprehensive reference guides: 13F filings, institutional investor types, interpretation framework with signal strength matrix.
 
+- **Theme Detector** (`theme-detector`)
+  - Detects trending market themes (bullish and bearish) by analyzing FINVIZ industry/sector performance across multiple timeframes.
+  - 3-dimensional scoring: Theme Heat (0-100, momentum/volume/uptrend/breadth), Lifecycle Maturity (0-100, duration/RSI extremity/price extremes/valuation/ETF proliferation), and Confidence (Low/Medium/High).
+  - Direction-aware analysis: bearish themes scored with equal sensitivity as bullish themes using inverted indicators.
+  - Cross-sector theme detection (AI/Semis, Clean Energy, Gold, Cybersecurity, etc.) and vertical sector concentration identification.
+  - Lifecycle stages: Emerging, Accelerating, Trending, Mature, Exhausting — with representative stocks and proxy ETFs per theme.
+  - Integrates Monty's Uptrend Ratio Dashboard as supplementary breadth signal (3-point evaluation: ratio + MA10 + slope).
+  - No API key required for core functionality (FINVIZ public + yfinance). FMP/FINVIZ Elite optional for enhanced stock selection.
+
 ### Economic & Earnings Calendars
 
 - **Economic Calendar Fetcher** (`economic-calendar-fetcher`)
@@ -288,6 +297,7 @@ Several skills require API keys for data access:
 | **Macro Regime Detector** | ✅ Required | ❌ Not used | ❌ Not used | Cross-asset ETF ratio analysis |
 | **Market Breadth Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
 | **Uptrend Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
+| **Theme Detector** | 🟡 Optional | 🟡 Optional | ❌ Not used | Core: FINVIZ public + yfinance (free). FMP for ETF holdings, FINVIZ Elite for stock lists |
 
 ### API Setup
 
