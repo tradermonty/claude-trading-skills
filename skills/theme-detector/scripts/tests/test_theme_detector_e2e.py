@@ -398,3 +398,70 @@ class TestThemeDetectorE2E:
         md_report = generate_markdown_report(json_report, top_n_detail=3)
         assert "NVDA[Fp]" in md_report
         assert "AVGO[Fp]" in md_report
+
+
+class TestE2EFMPPath:
+    """E2E tests for FMP backend integration in theme_detector."""
+
+    def test_scanner_receives_fmp_key(self):
+        """ETFScanner constructed with fmp_api_key stores it."""
+        from etf_scanner import ETFScanner
+        scanner = ETFScanner(fmp_api_key="test_key_123")
+        assert scanner._fmp_api_key == "test_key_123"
+        scanner_no_key = ETFScanner()
+        assert scanner_no_key._fmp_api_key is None
+
+    def test_metadata_contains_scanner_stats(self):
+        """After batch_stock_metrics, backend_stats is populated."""
+        from unittest.mock import patch, MagicMock
+        from etf_scanner import ETFScanner
+
+        scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
+
+        with patch("etf_scanner._requests_lib") as mock_req:
+            quote_resp = MagicMock()
+            quote_resp.status_code = 200
+            quote_resp.json.return_value = [
+                {"symbol": "NVDA", "pe": 60, "price": 800,
+                 "yearHigh": 950, "yearLow": 400},
+            ]
+            hist_resp = MagicMock()
+            hist_resp.status_code = 200
+            hist_resp.json.return_value = {
+                "historicalStockList": [
+                    {"symbol": "NVDA", "historical": [
+                        {"close": float(800 - i)} for i in range(20)
+                    ]},
+                ]
+            }
+            mock_req.get.side_effect = [quote_resp, hist_resp]
+            scanner.batch_stock_metrics(["NVDA"])
+
+        stats = scanner.backend_stats()
+        assert "fmp_calls" in stats
+        assert "fmp_failures" in stats
+        assert "yf_calls" in stats
+        assert "yf_fallbacks" in stats
+        assert stats["fmp_calls"] > 0
+
+    def test_metadata_still_has_yfinance_stocks_key(self):
+        """yfinance_stocks key is preserved for backward compatibility.
+
+        Simulates the metadata construction in theme_detector.main().
+        """
+        from etf_scanner import ETFScanner
+
+        scanner = ETFScanner(fmp_api_key="test_key")
+        metadata = {"data_sources": {}}
+
+        # Simulate what theme_detector does
+        all_metrics = [{"symbol": "NVDA"}, {"symbol": "AVGO"}]
+        metadata["data_sources"]["yfinance_stocks"] = len(all_metrics)
+        scanner_stats = scanner.backend_stats()
+        metadata["data_sources"]["scanner_backend"] = scanner_stats
+
+        # Both keys exist
+        assert "yfinance_stocks" in metadata["data_sources"]
+        assert "scanner_backend" in metadata["data_sources"]
+        assert metadata["data_sources"]["yfinance_stocks"] == 2
+        assert isinstance(metadata["data_sources"]["scanner_backend"], dict)

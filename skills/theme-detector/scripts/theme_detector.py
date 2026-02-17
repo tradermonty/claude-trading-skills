@@ -568,15 +568,24 @@ def main():
     # Step 5: Batch fetch stock metrics (yfinance)
     # -----------------------------------------------------------------------
     stock_metrics_map: Dict[str, Dict] = {}
-    scanner = ETFScanner()
+    scanner = ETFScanner(fmp_api_key=args.fmp_api_key)
 
     if all_symbols_list:
         print(f"Batch downloading {len(all_symbols_list)} stocks...", file=sys.stderr)
         all_metrics = scanner.batch_stock_metrics(all_symbols_list)
         for m in all_metrics:
             stock_metrics_map[m["symbol"]] = m
+        # Backward compatible key (1 release coexistence)
         metadata["data_sources"]["yfinance_stocks"] = len(all_metrics)
+        # New: actual backend usage statistics
+        scanner_stats = scanner.backend_stats()
+        metadata["data_sources"]["scanner_backend"] = scanner_stats
         print(f"  Got metrics for {len(all_metrics)} stocks", file=sys.stderr)
+        print(f"  Scanner: FMP {scanner_stats['fmp_calls']} calls "
+              f"({scanner_stats['fmp_failures']} failures), "
+              f"yfinance: {scanner_stats['yf_calls']} calls "
+              f"({scanner_stats['yf_fallbacks']} fallbacks)",
+              file=sys.stderr)
 
     # -----------------------------------------------------------------------
     # Step 6: Fetch ETF volume ratios for each theme's proxy ETFs
@@ -588,9 +597,7 @@ def main():
         for etf in theme.get("proxy_etfs", []):
             all_etfs.add(etf)
 
-    for etf in sorted(all_etfs):
-        vol_data = scanner.get_etf_volume_ratio(etf)
-        etf_volume_map[etf] = vol_data
+    etf_volume_map = scanner.batch_etf_volume_ratios(sorted(all_etfs))
 
     metadata["data_sources"]["etf_volume"] = len(etf_volume_map)
 
