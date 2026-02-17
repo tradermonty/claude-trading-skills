@@ -22,7 +22,7 @@ themes_config format:
 """
 
 from collections import Counter
-from typing import Dict, List
+from typing import Dict, List, Set
 
 
 def classify_themes(
@@ -83,6 +83,8 @@ def classify_themes(
                 "sector_weights": sector_weights,
                 "proxy_etfs": theme_def.get("proxy_etfs", []),
                 "static_stocks": theme_def.get("static_stocks", []),
+                "theme_origin": "seed",
+                "name_confidence": "high",
             })
 
     # 2. Vertical (single-sector) theme detection
@@ -111,6 +113,8 @@ def classify_themes(
                 "sector_weights": sector_weights,
                 "proxy_etfs": [],
                 "static_stocks": [],
+                "theme_origin": "vertical",
+                "name_confidence": "high",
             })
 
     # Bottom N sector groups (excluding industries already in top N)
@@ -136,9 +140,29 @@ def classify_themes(
                 "sector_weights": sector_weights,
                 "proxy_etfs": [],
                 "static_stocks": [],
+                "theme_origin": "vertical",
+                "name_confidence": "high",
             })
 
     return themes
+
+
+def get_matched_industry_names(themes: List[Dict]) -> Set[str]:
+    """Return the set of all matched industry names across classified themes.
+
+    Args:
+        themes: Output of classify_themes().
+
+    Returns:
+        Set of industry name strings.
+    """
+    names: Set[str] = set()
+    for theme in themes:
+        for ind in theme.get("matching_industries", []):
+            name = ind.get("name", "")
+            if name:
+                names.add(name)
+    return names
 
 
 def get_theme_sector_weights(theme: Dict) -> Dict[str, float]:

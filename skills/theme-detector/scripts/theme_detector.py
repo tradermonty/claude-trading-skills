@@ -218,256 +218,10 @@ INDUSTRY_TO_SECTOR: Dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Default cross-sector themes configuration
+# Theme configuration is loaded from YAML / inline fallback via config_loader.
+# DEFAULT_THEMES_CONFIG and ETF_CATALOG live in default_theme_config.py
+# to avoid circular imports.
 # ---------------------------------------------------------------------------
-DEFAULT_THEMES_CONFIG: Dict = {
-    "cross_sector_min_matches": 2,
-    "vertical_min_industries": 3,
-    "cross_sector": [
-        {
-            "theme_name": "AI & Semiconductors",
-            "matching_keywords": [
-                "Semiconductors",
-                "Semiconductor Equipment & Materials",
-                "Software - Application",
-                "Software - Infrastructure",
-                "Information Technology Services",
-                "Computer Hardware",
-                "Electronic Components",
-            ],
-            "proxy_etfs": ["SMH", "SOXX", "AIQ", "BOTZ"],
-            "static_stocks": [
-                "NVDA", "AVGO", "AMD", "INTC", "QCOM",
-                "MRVL", "AMAT", "LRCX", "KLAC", "TSM",
-            ],
-        },
-        {
-            "theme_name": "Clean Energy & EV",
-            "matching_keywords": [
-                "Solar",
-                "Utilities - Renewable",
-                "Auto Manufacturers",
-                "Electrical Equipment & Parts",
-                "Specialty Chemicals",
-            ],
-            "proxy_etfs": ["ICLN", "QCLN", "TAN", "LIT"],
-            "static_stocks": [
-                "ENPH", "SEDG", "FSLR", "RUN", "TSLA",
-                "RIVN", "ALB", "PLUG", "BE", "NEE",
-            ],
-        },
-        {
-            "theme_name": "Cybersecurity",
-            "matching_keywords": [
-                "Software - Infrastructure",
-                "Software - Application",
-                "Information Technology Services",
-            ],
-            "proxy_etfs": ["CIBR", "HACK", "BUG"],
-            "static_stocks": [
-                "CRWD", "PANW", "FTNT", "ZS", "S",
-                "OKTA", "NET", "CYBR", "QLYS", "RPD",
-            ],
-        },
-        {
-            "theme_name": "Cloud Computing & SaaS",
-            "matching_keywords": [
-                "Software - Application",
-                "Software - Infrastructure",
-                "Information Technology Services",
-            ],
-            "proxy_etfs": ["SKYY", "WCLD", "CLOU"],
-            "static_stocks": [
-                "CRM", "NOW", "SNOW", "DDOG", "MDB",
-                "NET", "ZS", "HUBS", "WDAY", "TEAM",
-            ],
-        },
-        {
-            "theme_name": "Biotech & Genomics",
-            "matching_keywords": [
-                "Biotechnology",
-                "Drug Manufacturers - General",
-                "Drug Manufacturers - Specialty & Generic",
-                "Diagnostics & Research",
-            ],
-            "proxy_etfs": ["XBI", "IBB", "ARKG"],
-            "static_stocks": [
-                "AMGN", "GILD", "VRTX", "REGN", "MRNA",
-                "BIIB", "ILMN", "SGEN", "ALNY", "BMRN",
-            ],
-        },
-        {
-            "theme_name": "Infrastructure & Construction",
-            "matching_keywords": [
-                "Engineering & Construction",
-                "Building Products & Equipment",
-                "Building Materials",
-                "Specialty Industrial Machinery",
-                "Farm & Heavy Construction Machinery",
-                "Infrastructure Operations",
-            ],
-            "proxy_etfs": ["PAVE", "IFRA"],
-            "static_stocks": [
-                "CAT", "DE", "VMC", "MLM", "URI",
-                "PWR", "EME", "J", "ACM", "FAST",
-            ],
-        },
-        {
-            "theme_name": "Gold & Precious Metals",
-            "matching_keywords": [
-                "Gold",
-                "Silver",
-                "Other Precious Metals & Mining",
-            ],
-            "proxy_etfs": ["GDX", "GDXJ", "SLV", "GLD"],
-            "static_stocks": [
-                "NEM", "GOLD", "AEM", "FNV", "WPM",
-                "RGLD", "KGC", "AGI", "HL", "PAAS",
-            ],
-        },
-        {
-            "theme_name": "Oil & Gas (Energy)",
-            "matching_keywords": [
-                "Oil & Gas E&P",
-                "Oil & Gas Equipment & Services",
-                "Oil & Gas Integrated",
-                "Oil & Gas Midstream",
-                "Oil & Gas Refining & Marketing",
-                "Oil & Gas Drilling",
-            ],
-            "proxy_etfs": ["XLE", "XOP", "OIH"],
-            "static_stocks": [
-                "XOM", "CVX", "COP", "EOG", "SLB",
-                "PXD", "MPC", "PSX", "OXY", "DVN",
-            ],
-        },
-        {
-            "theme_name": "Financial Services & Banks",
-            "matching_keywords": [
-                "Banks - Diversified",
-                "Banks - Regional",
-                "Capital Markets",
-                "Insurance - Diversified",
-                "Financial Data & Stock Exchanges",
-                "Asset Management",
-            ],
-            "proxy_etfs": ["XLF", "KBE", "KRE"],
-            "static_stocks": [
-                "JPM", "BAC", "GS", "MS", "WFC",
-                "C", "BLK", "SCHW", "ICE", "CME",
-            ],
-        },
-        {
-            "theme_name": "Healthcare & Pharma",
-            "matching_keywords": [
-                "Drug Manufacturers - General",
-                "Medical Devices",
-                "Medical Instruments & Supplies",
-                "Healthcare Plans",
-                "Medical Care Facilities",
-            ],
-            "proxy_etfs": ["XLV", "IHI", "XBI"],
-            "static_stocks": [
-                "UNH", "JNJ", "LLY", "PFE", "ABT",
-                "TMO", "DHR", "SYK", "ISRG", "MDT",
-            ],
-        },
-        {
-            "theme_name": "Defense & Aerospace",
-            "matching_keywords": [
-                "Aerospace & Defense",
-                "Communication Equipment",
-                "Scientific & Technical Instruments",
-            ],
-            "proxy_etfs": ["ITA", "PPA", "XAR"],
-            "static_stocks": [
-                "LMT", "RTX", "NOC", "GD", "BA",
-                "LHX", "HII", "TDG", "HWM", "AXON",
-            ],
-        },
-        {
-            "theme_name": "Real Estate & REITs",
-            "matching_keywords": [
-                "REIT - Diversified",
-                "REIT - Industrial",
-                "REIT - Residential",
-                "REIT - Retail",
-                "REIT - Specialty",
-                "REIT - Office",
-                "Real Estate - Development",
-                "Real Estate Services",
-            ],
-            "proxy_etfs": ["VNQ", "IYR", "XLRE"],
-            "static_stocks": [
-                "PLD", "AMT", "EQIX", "CCI", "SPG",
-                "O", "WELL", "DLR", "PSA", "AVB",
-            ],
-        },
-        {
-            "theme_name": "Retail & Consumer",
-            "matching_keywords": [
-                "Internet Retail",
-                "Specialty Retail",
-                "Apparel Retail",
-                "Discount Stores",
-                "Home Improvement Retail",
-                "Department Stores",
-            ],
-            "proxy_etfs": ["XRT", "XLY"],
-            "static_stocks": [
-                "AMZN", "HD", "LOW", "TJX", "COST",
-                "WMT", "TGT", "ROST", "BURL", "LULU",
-            ],
-        },
-        {
-            "theme_name": "Crypto & Blockchain",
-            "matching_keywords": [
-                "Capital Markets",
-                "Software - Infrastructure",
-                "Financial Data & Stock Exchanges",
-            ],
-            "proxy_etfs": ["BITO", "BLOK", "BITQ"],
-            "static_stocks": [
-                "COIN", "MSTR", "MARA", "RIOT", "CLSK",
-                "HUT", "BITF", "HIVE", "SQ", "PYPL",
-            ],
-        },
-        {
-            "theme_name": "Nuclear & Uranium",
-            "matching_keywords": [
-                "Uranium",
-                "Utilities - Independent Power Producers",
-                "Utilities - Regulated Electric",
-            ],
-            "proxy_etfs": ["URA", "URNM", "NLR"],
-            "static_stocks": [
-                "CCJ", "UEC", "NXE", "DNN", "LEU",
-                "SMR", "UUUU", "URG", "OKLO", "VST",
-            ],
-        },
-    ],
-}
-
-# ---------------------------------------------------------------------------
-# ETF catalog for proliferation scoring (theme_name -> count)
-# ---------------------------------------------------------------------------
-ETF_CATALOG: Dict[str, int] = {
-    "AI & Semiconductors": 8,
-    "Clean Energy & EV": 7,
-    "Cybersecurity": 4,
-    "Cloud Computing & SaaS": 4,
-    "Biotech & Genomics": 5,
-    "Infrastructure & Construction": 3,
-    "Gold & Precious Metals": 4,
-    "Oil & Gas (Energy)": 5,
-    "Financial Services & Banks": 5,
-    "Healthcare & Pharma": 5,
-    "Defense & Aerospace": 5,
-    "Real Estate & REITs": 4,
-    "Retail & Consumer": 3,
-    "Crypto & Blockchain": 4,
-    "Nuclear & Uranium": 3,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -515,6 +269,17 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=10,
         help="Maximum stocks per theme (default: 10)",
+    )
+    parser.add_argument(
+        "--themes-config",
+        default=None,
+        help="Path to custom themes.yaml (default: bundled)",
+    )
+    parser.add_argument(
+        "--discover-themes",
+        action="store_true",
+        default=False,
+        help="Enable automatic theme discovery for unmatched industries",
     )
     parser.add_argument(
         "--dynamic-stocks",
@@ -657,8 +422,14 @@ def main():
     from finviz_performance_client import get_sector_performance, get_industry_performance
     from etf_scanner import ETFScanner
     from uptrend_client import fetch_sector_uptrend_data, is_data_stale
+    from config_loader import load_themes_config
 
     args = parse_args()
+
+    # -----------------------------------------------------------------------
+    # Step 0: Load theme configuration (YAML or inline fallback)
+    # -----------------------------------------------------------------------
+    themes_config, etf_catalog = load_themes_config(args.themes_config)
     start_time = time.time()
 
     # Determine data mode
@@ -715,15 +486,35 @@ def main():
     # Step 3: Classify themes
     # -----------------------------------------------------------------------
     print("Classifying themes...", file=sys.stderr)
-    themes = classify_themes(ranked, DEFAULT_THEMES_CONFIG)
-    print(f"  Detected {len(themes)} themes", file=sys.stderr)
+    themes = classify_themes(ranked, themes_config)
+    print(f"  Detected {len(themes)} themes (seed + vertical)", file=sys.stderr)
 
     if not themes:
         print("WARNING: No themes detected. Generating empty report.",
               file=sys.stderr)
 
-    # Limit to max_themes (sort by number of matching industries, descending)
-    themes.sort(key=lambda t: len(t.get("matching_industries", [])), reverse=True)
+    # Step 3.5: Discover new themes from unmatched industries
+    if args.discover_themes:
+        from calculators.theme_classifier import get_matched_industry_names
+        from calculators.theme_discoverer import discover_themes
+        matched_names = get_matched_industry_names(themes)
+        discovered = discover_themes(ranked, matched_names, themes, top_n=30)
+        themes.extend(discovered)
+        metadata["data_sources"]["discovered_themes"] = len(discovered)
+        print(f"  Discovered {len(discovered)} new themes", file=sys.stderr)
+
+    # Step 3.9: Limit to max_themes using composite priority (size + strength)
+    def _theme_priority(t):
+        inds = t.get("matching_industries", [])
+        n_industries = len(inds)
+        avg_strength = (
+            sum(abs(ind.get("weighted_return", 0)) for ind in inds) / max(len(inds), 1)
+        )
+        size_norm = min(n_industries / 10.0, 1.0)
+        strength_norm = min(avg_strength / 30.0, 1.0)
+        return size_norm * 0.5 + strength_norm * 0.5
+
+    themes.sort(key=_theme_priority, reverse=True)
     themes = themes[:args.max_themes]
 
     # -----------------------------------------------------------------------
@@ -904,7 +695,7 @@ def main():
         valuation = valuation_premium_score(theme_stock_metrics)
 
         # ETF proliferation
-        etf_count = ETF_CATALOG.get(theme_name, 0)
+        etf_count = etf_catalog.get(theme_name, 0)
         etf_prolif = etf_proliferation_score(etf_count)
 
         maturity = calculate_lifecycle_maturity(
@@ -958,6 +749,8 @@ def main():
             "stock_data": "available" if theme_stock_metrics else "unavailable",
             "data_mode": data_mode,
             "stale_data_penalty": stale_data,
+            "theme_origin": theme.get("theme_origin", "seed"),
+            "name_confidence": theme.get("name_confidence", "high"),
         }
         scored_themes.append(scored_theme)
 

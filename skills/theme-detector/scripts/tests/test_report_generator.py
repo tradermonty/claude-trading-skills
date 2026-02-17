@@ -13,6 +13,7 @@ from report_generator import (
     save_reports,
     _fmt_pct,
     _format_stock_list,
+    _origin_label,
 )
 
 
@@ -514,3 +515,110 @@ class TestMarkdownWithStockDetails:
         assert "AAPL, MSFT" in md
         assert "[Fp]" not in md
         assert "[S]" not in md
+
+
+# --- Tests for theme origin display ---
+
+class TestOriginLabel:
+
+    def test_seed_label(self):
+        assert _origin_label("seed") == "Seed"
+
+    def test_vertical_label(self):
+        assert _origin_label("vertical") == "Vertical"
+
+    def test_discovered_label(self):
+        assert _origin_label("discovered") == "*NEW*"
+
+    def test_none_defaults_to_seed(self):
+        assert _origin_label(None) == "Seed"
+
+    def test_unknown_defaults_to_seed(self):
+        assert _origin_label("unknown") == "Seed"
+
+
+class TestOriginInDashboard:
+
+    def test_dashboard_shows_origin_column(self):
+        themes = [
+            {
+                "name": "Seed Theme",
+                "direction": "bullish",
+                "heat": 70.0,
+                "maturity": 40.0,
+                "stage": "growth",
+                "confidence": "Medium",
+                "industries": ["Tech"],
+                "heat_breakdown": {},
+                "maturity_breakdown": {},
+                "representative_stocks": ["AAPL"],
+                "proxy_etfs": [],
+                "theme_origin": "seed",
+            },
+            {
+                "name": "New Theme",
+                "direction": "bullish",
+                "heat": 60.0,
+                "maturity": 30.0,
+                "stage": "early",
+                "confidence": "Low",
+                "industries": ["Mining"],
+                "heat_breakdown": {},
+                "maturity_breakdown": {},
+                "representative_stocks": ["NEM"],
+                "proxy_etfs": [],
+                "theme_origin": "discovered",
+                "name_confidence": "medium",
+            },
+        ]
+        metadata = {"generated_at": "2026-02-16", "data_sources": {}}
+        report = generate_json_report(themes, {"top": [], "bottom": []}, {}, metadata)
+        md = generate_markdown_report(report)
+        assert "| Origin |" in md
+        assert "| Seed |" in md
+        assert "| *NEW* |" in md
+
+    def test_discovered_detail_shows_origin_line(self):
+        themes = [
+            {
+                "name": "Discovered Theme",
+                "direction": "bullish",
+                "heat": 65.0,
+                "maturity": 35.0,
+                "stage": "early",
+                "confidence": "Low",
+                "industries": ["X"],
+                "heat_breakdown": {},
+                "maturity_breakdown": {},
+                "representative_stocks": ["XYZ"],
+                "proxy_etfs": [],
+                "theme_origin": "discovered",
+                "name_confidence": "medium",
+            },
+        ]
+        metadata = {"generated_at": "2026-02-16", "data_sources": {}}
+        report = generate_json_report(themes, {"top": [], "bottom": []}, {}, metadata)
+        md = generate_markdown_report(report)
+        assert "**Origin:** Discovered (name confidence: medium)" in md
+
+    def test_seed_detail_no_origin_line(self):
+        themes = [
+            {
+                "name": "Seed Theme",
+                "direction": "bullish",
+                "heat": 70.0,
+                "maturity": 40.0,
+                "stage": "growth",
+                "confidence": "Medium",
+                "industries": ["Tech"],
+                "heat_breakdown": {},
+                "maturity_breakdown": {},
+                "representative_stocks": ["AAPL"],
+                "proxy_etfs": [],
+                "theme_origin": "seed",
+            },
+        ]
+        metadata = {"generated_at": "2026-02-16", "data_sources": {}}
+        report = generate_json_report(themes, {"top": [], "bottom": []}, {}, metadata)
+        md = generate_markdown_report(report)
+        assert "**Origin:**" not in md

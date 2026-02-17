@@ -11,6 +11,9 @@ name = "claude-trading-skills"
 version = "0.1.0"
 description = "Claude Skills for equity investors and traders"
 requires-python = ">=3.9"
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [project.optional-dependencies]
 dev = [

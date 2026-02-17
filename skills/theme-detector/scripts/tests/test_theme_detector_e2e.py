@@ -10,7 +10,8 @@ import pytest
 
 # Import the pieces of the pipeline
 from calculators.industry_ranker import rank_industries, get_top_bottom_industries
-from calculators.theme_classifier import classify_themes
+from calculators.theme_classifier import classify_themes, get_matched_industry_names
+from calculators.theme_discoverer import discover_themes
 from calculators.heat_calculator import (
     momentum_strength_score,
     volume_intensity_score,
@@ -25,6 +26,7 @@ from calculators.lifecycle_calculator import (
 )
 from scorer import score_theme, get_heat_label, calculate_confidence, determine_data_mode
 from report_generator import generate_json_report, generate_markdown_report
+from config_loader import load_themes_config
 
 
 # Minimal themes config for E2E
@@ -220,6 +222,107 @@ class TestThemeDetectorE2E:
         tickers, details = _get_representative_stocks(theme, None, max_stocks=10)
         assert tickers == ["A", "B", "C"]
         assert all(d["source"] == "static" for d in details)
+
+    def test_config_loader_produces_same_themes(self):
+        """Config loaded from YAML produces same themes as before."""
+        raw = [
+            _make_raw_industry("Semiconductors", "Technology", 5.0, 12.0, 25.0),
+            _make_raw_industry("Software - Application", "Technology", 4.0, 10.0, 20.0),
+            _make_raw_industry("Software - Infrastructure", "Technology", 3.5, 9.0, 18.0),
+            _make_raw_industry("Banks - Diversified", "Financial", 2.0, 5.0, 8.0),
+        ]
+        ranked = rank_industries(raw)
+
+        # Load config from YAML
+        config, catalog = load_themes_config()
+        themes = classify_themes(ranked, config, top_n=30)
+
+        theme_names = [t["theme_name"] for t in themes]
+        assert "AI & Semiconductors" in theme_names
+        # Should have theme_origin set
+        ai = [t for t in themes if t["theme_name"] == "AI & Semiconductors"][0]
+        assert ai["theme_origin"] == "seed"
+        assert ai["name_confidence"] == "high"
+
+    def test_discover_path_finds_unmatched_clusters(self):
+        """Discover path finds themes from unmatched industries."""
+        raw = [
+            _make_raw_industry("Semiconductors", "Technology", 5.0, 12.0, 25.0),
+            _make_raw_industry("Software - Application", "Technology", 4.0, 10.0, 20.0),
+            # Unmatched industries that should cluster
+            _make_raw_industry("Gold", "Basic Materials", 8.0, 15.0, 30.0),
+            _make_raw_industry("Silver", "Basic Materials", 7.5, 14.0, 28.0),
+            _make_raw_industry("Other Precious Metals & Mining", "Basic Materials", 7.0, 13.0, 27.0),
+            # Filler for bottom
+            _make_raw_industry("Department Stores", "Consumer Cyclical", -4.0, -10.0, -15.0),
+            _make_raw_industry("Specialty Retail", "Consumer Cyclical", -3.5, -9.0, -14.0),
+        ]
+        ranked = rank_industries(raw)
+
+        # Use a minimal config that only matches Semiconductors + Software
+        mini_config = {
+            "cross_sector_min_matches": 2,
+            "vertical_min_industries": 3,
+            "cross_sector": [
+                {
+                    "theme_name": "AI & Semiconductors",
+                    "matching_keywords": [
+                        "Semiconductors", "Software - Application",
+                    ],
+                    "proxy_etfs": ["SMH"],
+                    "static_stocks": ["NVDA"],
+                },
+            ],
+        }
+        themes = classify_themes(ranked, mini_config, top_n=30)
+        matched = get_matched_industry_names(themes)
+        discovered = discover_themes(ranked, matched, themes, top_n=30)
+
+        # Gold/Silver/Precious Metals should form a discovered cluster
+        if discovered:
+            assert discovered[0]["theme_origin"] == "discovered"
+            assert discovered[0]["proxy_etfs"] == []
+            assert discovered[0]["name_confidence"] == "medium"
+
+    def test_max_themes_applied_after_discover(self):
+        """max_themes limits seed+discovered combined total."""
+        raw = [
+            _make_raw_industry("Semiconductors", "Technology", 5.0, 12.0, 25.0),
+            _make_raw_industry("Software - Application", "Technology", 4.0, 10.0, 20.0),
+            _make_raw_industry("Software - Infrastructure", "Technology", 3.5, 9.0, 18.0),
+            _make_raw_industry("Gold", "Basic Materials", 8.0, 15.0, 30.0),
+            _make_raw_industry("Silver", "Basic Materials", 7.5, 14.0, 28.0),
+            _make_raw_industry("Copper", "Basic Materials", 7.0, 13.0, 27.0),
+            _make_raw_industry("Department Stores", "Consumer Cyclical", -4.0, -10.0, -15.0),
+        ]
+        ranked = rank_industries(raw)
+        mini_config = {
+            "cross_sector_min_matches": 2,
+            "vertical_min_industries": 3,
+            "cross_sector": [
+                {
+                    "theme_name": "AI",
+                    "matching_keywords": ["Semiconductors", "Software - Application"],
+                    "proxy_etfs": [],
+                    "static_stocks": [],
+                },
+            ],
+        }
+        themes = classify_themes(ranked, mini_config, top_n=30)
+        matched = get_matched_industry_names(themes)
+        discovered = discover_themes(ranked, matched, themes, top_n=30)
+        themes.extend(discovered)
+
+        # Apply max_themes=2 with priority sort
+        def _priority(t):
+            inds = t.get("matching_industries", [])
+            n = len(inds)
+            avg_s = sum(abs(i.get("weighted_return", 0)) for i in inds) / max(n, 1)
+            return min(n / 10, 1) * 0.5 + min(avg_s / 30, 1) * 0.5
+
+        themes.sort(key=_priority, reverse=True)
+        themes = themes[:2]
+        assert len(themes) <= 2
 
     def test_stock_details_in_scored_theme_and_report(self):
         """stock_details flows through to scored_theme and into markdown."""

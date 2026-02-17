@@ -10,6 +10,7 @@ from calculators.industry_ranker import rank_industries
 from calculators.theme_classifier import (
     classify_themes,
     get_theme_sector_weights,
+    get_matched_industry_names,
 )
 
 # ---------------------------------------------------------------------------
@@ -455,3 +456,79 @@ class TestTopNFiltering:
         vertical_names = [t["theme_name"] for t in themes if "Sector" in t["theme_name"]]
         # Technology industries are in middle -> no Technology vertical theme
         assert not any("Technology" in n for n in vertical_names)
+
+
+# ---------------------------------------------------------------------------
+# get_matched_industry_names
+# ---------------------------------------------------------------------------
+
+
+class TestGetMatchedIndustryNames:
+    """Test extraction of matched industry names from classified themes."""
+
+    def test_returns_matched_names(self):
+        themes = [
+            {
+                "theme_name": "AI",
+                "matching_industries": [
+                    {"name": "Semiconductors"},
+                    {"name": "Software - Application"},
+                ],
+            },
+        ]
+        names = get_matched_industry_names(themes)
+        assert names == {"Semiconductors", "Software - Application"}
+
+    def test_multiple_themes_combined(self):
+        themes = [
+            {"theme_name": "A", "matching_industries": [{"name": "X"}]},
+            {"theme_name": "B", "matching_industries": [{"name": "Y"}, {"name": "Z"}]},
+        ]
+        names = get_matched_industry_names(themes)
+        assert names == {"X", "Y", "Z"}
+
+    def test_empty_themes_returns_empty_set(self):
+        assert get_matched_industry_names([]) == set()
+
+    def test_no_matching_industries_key(self):
+        themes = [{"theme_name": "A"}]
+        assert get_matched_industry_names(themes) == set()
+
+    def test_deduplicates_across_themes(self):
+        themes = [
+            {"theme_name": "A", "matching_industries": [{"name": "X"}, {"name": "Y"}]},
+            {"theme_name": "B", "matching_industries": [{"name": "Y"}, {"name": "Z"}]},
+        ]
+        names = get_matched_industry_names(themes)
+        assert names == {"X", "Y", "Z"}
+
+
+# ---------------------------------------------------------------------------
+# theme_origin and name_confidence
+# ---------------------------------------------------------------------------
+
+
+class TestThemeOrigin:
+    """Test that theme_origin and name_confidence are set correctly."""
+
+    def test_cross_sector_has_seed_origin(self):
+        ranked = [
+            _make_ranked_industry("Semiconductor", 15.0, 82.0, "bullish", 1, "Technology"),
+            _make_ranked_industry("Software - Application", 12.0, 75.0, "bullish", 2, "Technology"),
+        ]
+        themes = classify_themes(ranked, SAMPLE_THEMES_CONFIG)
+        ai_theme = [t for t in themes if t["theme_name"] == "AI & Automation"][0]
+        assert ai_theme["theme_origin"] == "seed"
+        assert ai_theme["name_confidence"] == "high"
+
+    def test_vertical_has_vertical_origin(self):
+        ranked = [
+            _make_ranked_industry("Semiconductor", 20.0, 90.0, "bullish", 1, "Technology"),
+            _make_ranked_industry("Software - Application", 18.0, 85.0, "bullish", 2, "Technology"),
+            _make_ranked_industry("IT Services", 15.0, 82.0, "bullish", 3, "Technology"),
+        ]
+        themes = classify_themes(ranked, SAMPLE_THEMES_CONFIG)
+        vertical = [t for t in themes if "Sector" in t["theme_name"]]
+        assert len(vertical) >= 1
+        assert vertical[0]["theme_origin"] == "vertical"
+        assert vertical[0]["name_confidence"] == "high"

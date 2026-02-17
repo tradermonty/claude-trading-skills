@@ -109,12 +109,14 @@ def generate_markdown_report(json_data: Dict,
         lines.append("**WARNING:** No themes detected. Check data sources.")
         lines.append("")
     else:
-        lines.append("| Theme | Direction | Heat | Maturity | Stage | Confidence |")
-        lines.append("|-------|-----------|------|----------|-------|------------|")
+        lines.append("| Theme | Origin | Direction | Heat | Maturity | Stage | Confidence |")
+        lines.append("|-------|--------|-----------|------|----------|-------|------------|")
         for t in all_themes:
             heat_bar = _heat_bar(t.get("heat", 0))
+            origin = _origin_label(t.get("theme_origin", "seed"))
             lines.append(
                 f"| {t.get('name', 'N/A')} "
+                f"| {origin} "
                 f"| {_direction_label(t.get('direction'))} "
                 f"| {heat_bar} {t.get('heat', 0):.1f} "
                 f"| {t.get('maturity', 0):.1f} "
@@ -370,6 +372,14 @@ def _heat_bar(heat: float) -> str:
         return "░░░░"
 
 
+_ORIGIN_LABELS = {"seed": "Seed", "vertical": "Vertical", "discovered": "*NEW*"}
+
+
+def _origin_label(origin: Optional[str]) -> str:
+    """Format theme origin for display."""
+    return _ORIGIN_LABELS.get(origin or "seed", "Seed")
+
+
 def _direction_label(direction: Optional[str]) -> str:
     """Format direction for display."""
     if direction == "bullish":
@@ -432,6 +442,11 @@ def _add_theme_details(lines: List[str], themes: List[Dict]) -> None:
     for t in themes:
         lines.append(f"### {t.get('name', 'Unknown Theme')}")
         lines.append("")
+        # Show origin line for discovered themes (seed/vertical are self-evident)
+        t_origin = t.get("theme_origin", "seed")
+        if t_origin == "discovered":
+            name_conf = t.get("name_confidence", "medium")
+            lines.append(f"- **Origin:** Discovered (name confidence: {name_conf})")
         lines.append(f"- **Direction:** {_direction_label(t.get('direction'))}")
         lines.append(f"- **Heat:** {t.get('heat', 0):.1f}/100 ({t.get('heat_label', 'N/A')})")
         lines.append(f"- **Maturity:** {t.get('maturity', 0):.1f}/100")
