@@ -88,6 +88,10 @@ def parse_arguments():
         "--min-atr-pct", type=float, default=1.0,
         help="Min avg daily range %% to exclude stale/acquired stocks (default: 1.0)"
     )
+    parser.add_argument(
+        "--ext-threshold", type=float, default=8.0,
+        help="SMA50 distance %% where extended penalty starts (default: 8.0)"
+    )
 
     return parser.parse_args()
 
@@ -143,6 +147,7 @@ def analyze_stock(
     sp500_history: List[Dict],
     sector: str = "Unknown",
     company_name: str = "",
+    ext_threshold: float = 8.0,
 ) -> Optional[Dict]:
     """
     Full VCP analysis for a single stock (Phase 3).
@@ -156,7 +161,9 @@ def analyze_stock(
     rs_rank = rs_result.get("rs_rank_estimate", 0)
 
     # 2. Trend Template
-    tt_result = calculate_trend_template(historical, quote, rs_rank=rs_rank)
+    tt_result = calculate_trend_template(
+        historical, quote, rs_rank=rs_rank, ext_threshold=ext_threshold
+    )
 
     # 3. VCP Pattern Detection
     vcp_result = calculate_vcp_pattern(historical, lookback_days=120)
@@ -282,6 +289,11 @@ def compute_entry_ready(
 def main():
     args = parse_arguments()
 
+    if not (0 < args.ext_threshold < 50):
+        print("ERROR: --ext-threshold must be between 0 and 50 (exclusive)",
+              file=sys.stderr)
+        sys.exit(1)
+
     print("=" * 70)
     print("VCP Stock Screener")
     print("Mark Minervini's Volatility Contraction Pattern")
@@ -391,7 +403,9 @@ def main():
         rs_result = calculate_relative_strength(hist, sp500_history)
         rs_rank = rs_result.get("rs_rank_estimate", 0)
 
-        tt_result = calculate_trend_template(hist, quote, rs_rank=rs_rank)
+        tt_result = calculate_trend_template(
+            hist, quote, rs_rank=rs_rank, ext_threshold=args.ext_threshold
+        )
         if tt_result.get("passed"):
             trend_passed.append((sym, quote))
 
@@ -422,7 +436,10 @@ def main():
             continue
 
         print(f"  Analyzing {sym}...", end=" ", flush=True)
-        analysis = analyze_stock(sym, hist, quote, sp500_history, sector, name)
+        analysis = analyze_stock(
+            sym, hist, quote, sp500_history, sector, name,
+            ext_threshold=args.ext_threshold,
+        )
 
         if analysis:
             score = analysis["composite_score"]
@@ -469,6 +486,7 @@ def main():
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "universe_description": universe_desc,
         "max_candidates": max_candidates,
+        "ext_threshold": args.ext_threshold,
         "funnel": {
             "universe": len(symbols),
             "pre_filter_passed": len(pre_filtered),

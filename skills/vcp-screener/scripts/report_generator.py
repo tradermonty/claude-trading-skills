@@ -190,6 +190,10 @@ def _format_stock_entry(rank: int, stock: Dict) -> List[str]:
     tt = stock.get("trend_template", {})
     tt_score = tt.get("score", 0)
     tt_pass = f"{tt.get('criteria_passed', 0)}/7 criteria"
+    ext_penalty = tt.get("extended_penalty", 0)
+    if ext_penalty < 0:
+        raw = tt.get("raw_score", tt_score)
+        tt_pass += f" (raw {raw:.0f}, ext {ext_penalty:+d})"
     lines.append(f"| Trend Template | {tt_score:.0f}/100 | {tt_pass} |")
 
     # Contraction Quality

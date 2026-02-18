@@ -24,7 +24,8 @@ from typing import Dict, List, Optional
 def calculate_trend_template(
     historical_prices: List[Dict],
     quote_data: Dict,
-    rs_rank: Optional[int] = None
+    rs_rank: Optional[int] = None,
+    ext_threshold: float = 8.0,
 ) -> Dict:
     """
     Evaluate stock against Minervini's 7-point Trend Template.
@@ -157,17 +158,26 @@ def calculate_trend_template(
             "detail": "RS Rank not yet calculated",
         }
 
-    # Calculate score
+    # Raw score from 7 criteria (gate判定用)
     passed_count = sum(1 for c in criteria.values() if c["passed"])
-    score = round(passed_count * points_per_criterion, 1)
-    score = min(100, score)
+    raw_score = round(passed_count * points_per_criterion, 1)
+    raw_score = min(100, raw_score)
 
-    # Pass threshold: 85+ (6/7 criteria)
-    passed = score >= 85
+    # Pass threshold: 85+ (6/7 criteria) - uses RAW score only
+    passed = raw_score >= 85
+
+    # Extended penalty: deduct for price too far above SMA50 (ranking用)
+    extended_penalty, sma50_distance_pct = _calculate_extended_penalty(
+        price, sma50, base_threshold=ext_threshold
+    )
+    score = max(0, raw_score + extended_penalty)
 
     return {
         "score": score,
+        "raw_score": raw_score,
         "passed": passed,
+        "extended_penalty": extended_penalty,
+        "sma50_distance_pct": round(sma50_distance_pct, 2) if sma50_distance_pct is not None else None,
         "criteria_passed": passed_count,
         "criteria_total": 7,
         "criteria": criteria,
@@ -176,6 +186,39 @@ def calculate_trend_template(
         "sma200": round(sma200, 2) if sma200 else None,
         "error": None,
     }
+
+
+def _calculate_extended_penalty(
+    price: float, sma50: Optional[float], base_threshold: float = 8.0
+) -> tuple:
+    """Calculate penalty for price extended too far above SMA 50.
+
+    Args:
+        price: Current stock price
+        sma50: 50-day simple moving average
+        base_threshold: Distance % where penalty starts (default 8.0)
+
+    Returns:
+        (penalty: int, distance_pct: float or None)
+        penalty is 0 or negative.
+    """
+    if sma50 is None or sma50 <= 0:
+        return 0, None
+
+    distance_pct = (price - sma50) / sma50 * 100
+
+    if distance_pct < base_threshold:
+        return 0, distance_pct
+
+    excess = distance_pct - base_threshold
+    if excess >= 17:       # base+17% (default: 25%+)
+        return -20, distance_pct
+    elif excess >= 10:     # base+10% (default: 18%+)
+        return -15, distance_pct
+    elif excess >= 4:      # base+4%  (default: 12%+)
+        return -10, distance_pct
+    else:                  # base+0%  (default: 8%+)
+        return -5, distance_pct
 
 
 def _sma(prices: List[float], period: int) -> Optional[float]:

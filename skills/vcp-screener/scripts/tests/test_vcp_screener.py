@@ -17,7 +17,7 @@ from calculators.vcp_pattern_calculator import _validate_vcp
 from calculators.volume_pattern_calculator import calculate_volume_pattern
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
-from screen_vcp import compute_entry_ready, is_stale_price
+from screen_vcp import analyze_stock, compute_entry_ready, is_stale_price
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -614,3 +614,221 @@ class TestReportGenerator:
         assert summary["weak"] == 1       # WEAK1
         assert summary["textbook"] == 0
         assert summary["strong"] == 0
+
+
+# ===========================================================================
+# SMA50 Extended Penalty Tests
+# ===========================================================================
+
+
+class TestSMA50ExtendedPenalty:
+    """Test extended penalty applied to trend template score."""
+
+    def _make_stage2_prices(self, n=250, sma50_target=100.0, price=None):
+        """Build synthetic prices where SMA50 ≈ sma50_target.
+
+        All prices are constant at sma50_target so SMA50 = sma50_target exactly.
+        The quote price is set separately to control distance.
+        """
+        prices = []
+        for i in range(n):
+            prices.append({
+                "date": f"2025-{(i // 22) + 1:02d}-{(i % 22) + 1:02d}",
+                "open": sma50_target,
+                "high": sma50_target * 1.005,
+                "low": sma50_target * 0.995,
+                "close": sma50_target,
+                "adjClose": sma50_target,
+                "volume": 1000000,
+            })
+        return prices
+
+    def _run_tt(self, distance_pct, ext_threshold=8.0):
+        """Run calculate_trend_template with a given SMA50 distance %.
+
+        Returns the result dict.
+        """
+        sma50_target = 100.0
+        price = sma50_target * (1 + distance_pct / 100)
+        prices = self._make_stage2_prices(n=250, sma50_target=sma50_target)
+        quote = {
+            "price": price,
+            "yearHigh": price * 1.05,
+            "yearLow": sma50_target * 0.6,
+        }
+        return calculate_trend_template(
+            prices, quote, rs_rank=85, ext_threshold=ext_threshold,
+        )
+
+    # --- Penalty calculation ---
+
+    def test_no_penalty_within_8pct(self):
+        result = self._run_tt(5.0)
+        assert result["extended_penalty"] == 0
+
+    def test_penalty_at_10pct_distance(self):
+        result = self._run_tt(10.0)
+        assert result["extended_penalty"] == -5
+
+    def test_penalty_at_15pct_distance(self):
+        result = self._run_tt(15.0)
+        assert result["extended_penalty"] == -10
+
+    def test_penalty_at_20pct_distance(self):
+        result = self._run_tt(20.0)
+        assert result["extended_penalty"] == -15
+
+    def test_penalty_at_30pct_distance(self):
+        result = self._run_tt(30.0)
+        assert result["extended_penalty"] == -20
+
+    def test_penalty_floor_at_zero(self):
+        """Penalty cannot make score negative (max(0, raw + penalty))."""
+        # Recent 50 at 80, older 200 at 120 → SMA50=80, SMA150≈107, SMA200≈110
+        # Price=105: above SMA50 by ~31% (penalty=-20) but below SMA150 (C1 fail)
+        # Only C4 passes → raw_score=14.3, 14.3+(-20)=-5.7 → floor to 0
+        n = 250
+        prices = []
+        for i in range(n):
+            close = 80.0 if i < 50 else 120.0
+            prices.append({
+                "date": f"2025-{(i // 22) + 1:02d}-{(i % 22) + 1:02d}",
+                "open": close, "high": close * 1.005,
+                "low": close * 0.995, "close": close,
+                "adjClose": close, "volume": 1000000,
+            })
+        quote = {"price": 105.0, "yearHigh": 200.0, "yearLow": 100.0}
+        result = calculate_trend_template(prices, quote, rs_rank=10)
+        assert result["extended_penalty"] == -20
+        assert result["raw_score"] <= 14.3
+        assert result["score"] == 0
+
+    def test_price_below_sma50_no_penalty(self):
+        result = self._run_tt(-5.0)
+        assert result["extended_penalty"] == 0
+
+    # --- Boundary tests (R1-4) ---
+
+    def test_boundary_exactly_8pct(self):
+        result = self._run_tt(8.0)
+        assert result["extended_penalty"] == -5
+
+    def test_boundary_exactly_12pct(self):
+        result = self._run_tt(12.0)
+        assert result["extended_penalty"] == -10
+
+    def test_boundary_exactly_18pct(self):
+        result = self._run_tt(18.0)
+        assert result["extended_penalty"] == -15
+
+    def test_boundary_exactly_25pct(self):
+        result = self._run_tt(25.0)
+        assert result["extended_penalty"] == -20
+
+    # --- Gate separation (R1-1: most important) ---
+
+    def test_passed_uses_raw_score_not_adjusted(self):
+        """raw >= 85, ext < 0 -> passed=True (raw >= 85), score < raw."""
+        # Build uptrending data (most-recent-first) so most criteria pass
+        n = 250
+        prices = []
+        for i in range(n):
+            # index 0 = newest (highest), index 249 = oldest (lowest)
+            base = 120 - 40 * i / (n - 1)  # 120 → 80
+            prices.append({
+                "date": f"2025-{(i // 22) + 1:02d}-{(i % 22) + 1:02d}",
+                "open": base, "high": base * 1.005,
+                "low": base * 0.995, "close": base,
+                "adjClose": base, "volume": 1000000,
+            })
+        # SMA50 ≈ avg of newest 50 prices (120 down to ~112)
+        sma50_approx = sum(p["close"] for p in prices[:50]) / 50
+        price = sma50_approx * 1.20  # 20% above SMA50
+        quote = {
+            "price": price,
+            "yearHigh": price * 1.02,
+            "yearLow": 60.0,
+        }
+        result = calculate_trend_template(prices, quote, rs_rank=85)
+        assert result["raw_score"] >= 85
+        assert result["passed"] is True
+        assert result["extended_penalty"] < 0
+        assert result["score"] < result["raw_score"]
+
+    def test_raw_score_in_result(self):
+        result = self._run_tt(10.0)
+        assert "raw_score" in result
+
+    def test_score_is_adjusted(self):
+        result = self._run_tt(15.0)
+        assert result["score"] == max(0, result["raw_score"] + result["extended_penalty"])
+
+    # --- Output fields ---
+
+    def test_sma50_distance_in_result(self):
+        result = self._run_tt(10.0)
+        assert "sma50_distance_pct" in result
+        assert result["sma50_distance_pct"] is not None
+        assert abs(result["sma50_distance_pct"] - 10.0) < 0.5
+
+    def test_extended_penalty_in_result(self):
+        result = self._run_tt(10.0)
+        assert "extended_penalty" in result
+
+    # --- Custom threshold (R1-3) ---
+
+    def test_custom_threshold_5pct(self):
+        result = self._run_tt(6.0, ext_threshold=5.0)
+        assert result["extended_penalty"] == -5
+
+    def test_custom_threshold_15pct(self):
+        result = self._run_tt(10.0, ext_threshold=15.0)
+        assert result["extended_penalty"] == 0
+
+
+# ===========================================================================
+# E2E Threshold Passthrough Test (R2-7)
+# ===========================================================================
+
+
+class TestExtThresholdE2E:
+    """Test that ext_threshold passes through analyze_stock to trend_template."""
+
+    def test_ext_threshold_passes_through_to_trend_template(self):
+        """analyze_stock(ext_threshold=15) uses 15% threshold for penalty."""
+        sma50_target = 100.0
+        n = 250
+        prices = []
+        for i in range(n):
+            prices.append({
+                "date": f"2025-{(i // 22) + 1:02d}-{(i % 22) + 1:02d}",
+                "open": sma50_target,
+                "high": sma50_target * 1.005,
+                "low": sma50_target * 0.995,
+                "close": sma50_target,
+                "adjClose": sma50_target,
+                "volume": 1000000,
+            })
+        # Price is 12% above SMA50
+        price = sma50_target * 1.12
+        quote = {
+            "price": price,
+            "yearHigh": price * 1.05,
+            "yearLow": sma50_target * 0.6,
+        }
+        sp500 = _make_prices(n, start=95, daily_change=0.0005)
+
+        # Default threshold=8 -> 12% distance -> penalty=-10
+        result_default = analyze_stock(
+            "TEST", prices, quote, sp500, "Tech", "Test Corp",
+        )
+        tt_default = result_default["trend_template"]
+        assert tt_default["extended_penalty"] == -10
+
+        # Custom threshold=15 -> 12% distance -> no penalty
+        result_custom = analyze_stock(
+            "TEST", prices, quote, sp500, "Tech", "Test Corp",
+            ext_threshold=15.0,
+        )
+        tt_custom = result_custom["trend_template"]
+        assert tt_custom["extended_penalty"] == 0
