@@ -1126,3 +1126,111 @@ class TestRSPercentileRanking:
             with open(md_file) as f:
                 content = f.read()
             assert "RS Percentile: 92" in content
+
+
+# ===========================================================================
+# ATR and ZigZag Swing Detection Tests (Commit 2)
+# ===========================================================================
+
+
+class TestATRCalculation:
+    """Test _calculate_atr function."""
+
+    def test_atr_basic(self):
+        """ATR for constant range bars should equal the range."""
+        from calculators.vcp_pattern_calculator import _calculate_atr
+        n = 20
+        highs = [105.0] * n
+        lows = [95.0] * n
+        closes = [100.0] * n
+        atr = _calculate_atr(highs, lows, closes, period=14)
+        assert abs(atr - 10.0) < 0.5
+
+    def test_atr_insufficient_data(self):
+        """ATR with < period+1 data returns 0."""
+        from calculators.vcp_pattern_calculator import _calculate_atr
+        highs = [105.0] * 5
+        lows = [95.0] * 5
+        closes = [100.0] * 5
+        atr = _calculate_atr(highs, lows, closes, period=14)
+        assert atr == 0.0
+
+
+class TestZigZagSwingDetection:
+    """Test ATR-based ZigZag swing detection."""
+
+    def test_zigzag_finds_known_pattern(self):
+        """A clear up-down-up-down pattern should find swing points."""
+        from calculators.vcp_pattern_calculator import _zigzag_swing_points
+        # Build: 20 bars up, 20 bars down, 20 bars up, 20 bars down
+        n = 80
+        highs, lows, closes, dates = [], [], [], []
+        for i in range(n):
+            if i < 20:
+                base = 100 + i * 2  # 100 -> 138
+            elif i < 40:
+                base = 138 - (i - 20) * 2  # 138 -> 100
+            elif i < 60:
+                base = 100 + (i - 40) * 2  # 100 -> 138
+            else:
+                base = 138 - (i - 60) * 2  # 138 -> 100
+            highs.append(base + 1)
+            lows.append(base - 1)
+            closes.append(float(base))
+            dates.append(f"day-{i}")
+        swing_highs, swing_lows = _zigzag_swing_points(
+            highs, lows, closes, dates, atr_multiplier=1.5
+        )
+        assert len(swing_highs) >= 1
+        assert len(swing_lows) >= 1
+
+    def test_smooth_uptrend_fewer_swings(self):
+        """Smooth uptrend should produce fewer swings than choppy market."""
+        from calculators.vcp_pattern_calculator import _zigzag_swing_points
+        n = 100
+        # Smooth uptrend
+        smooth_highs = [100 + i * 0.5 + 1 for i in range(n)]
+        smooth_lows = [100 + i * 0.5 - 1 for i in range(n)]
+        smooth_closes = [100 + i * 0.5 for i in range(n)]
+        dates = [f"day-{i}" for i in range(n)]
+        sh, sl = _zigzag_swing_points(smooth_highs, smooth_lows, smooth_closes, dates)
+        # Should produce very few swings (smooth trend)
+        assert len(sh) + len(sl) <= 4
+
+    def test_atr_multiplier_sensitivity(self):
+        """Higher multiplier = fewer swing points detected."""
+        from calculators.vcp_pattern_calculator import _zigzag_swing_points
+        n = 80
+        highs, lows, closes, dates = [], [], [], []
+        for i in range(n):
+            if i < 20:
+                base = 100 + i * 2
+            elif i < 40:
+                base = 138 - (i - 20) * 2
+            elif i < 60:
+                base = 100 + (i - 40) * 2
+            else:
+                base = 138 - (i - 60) * 2
+            highs.append(base + 1)
+            lows.append(base - 1)
+            closes.append(float(base))
+            dates.append(f"day-{i}")
+        sh_low, sl_low = _zigzag_swing_points(
+            highs, lows, closes, dates, atr_multiplier=0.5
+        )
+        sh_high, sl_high = _zigzag_swing_points(
+            highs, lows, closes, dates, atr_multiplier=3.0
+        )
+        # Lower multiplier should find at least as many swings
+        assert len(sh_low) + len(sl_low) >= len(sh_high) + len(sl_high)
+
+    def test_insufficient_data(self):
+        """< 15 bars of data should return empty."""
+        from calculators.vcp_pattern_calculator import _zigzag_swing_points
+        highs = [105.0] * 10
+        lows = [95.0] * 10
+        closes = [100.0] * 10
+        dates = [f"day-{i}" for i in range(10)]
+        sh, sl = _zigzag_swing_points(highs, lows, closes, dates)
+        assert sh == []
+        assert sl == []

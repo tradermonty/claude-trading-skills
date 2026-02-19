@@ -118,8 +118,123 @@ def calculate_vcp_pattern(
     }
 
 
+def _calculate_atr(
+    highs: List[float],
+    lows: List[float],
+    closes: List[float],
+    period: int = 14,
+) -> float:
+    """Calculate Average True Range.
+
+    Args:
+        highs: High prices in chronological order (oldest first)
+        lows: Low prices in chronological order
+        closes: Close prices in chronological order
+        period: ATR period (default 14)
+
+    Returns:
+        ATR value, or 0.0 if insufficient data
+    """
+    n = len(highs)
+    if n < period + 1:
+        return 0.0
+
+    true_ranges = []
+    for i in range(1, n):
+        tr = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        )
+        true_ranges.append(tr)
+
+    if len(true_ranges) < period:
+        return 0.0
+
+    # Simple moving average of true ranges for the last `period` values
+    return sum(true_ranges[-period:]) / period
+
+
+def _zigzag_swing_points(
+    highs: List[float],
+    lows: List[float],
+    closes: List[float],
+    dates: List[str],
+    atr_multiplier: float = 1.5,
+    atr_period: int = 14,
+) -> tuple:
+    """ATR-based ZigZag swing detection.
+
+    Reversal is recognized only when price moves ATR * multiplier from
+    the current extreme. This filters out noise while adapting to volatility.
+
+    Args:
+        highs: High prices (chronological, oldest first)
+        lows: Low prices (chronological, oldest first)
+        closes: Close prices (chronological, oldest first)
+        dates: Date strings (chronological, oldest first)
+        atr_multiplier: Multiplier for ATR threshold
+        atr_period: ATR calculation period
+
+    Returns:
+        (swing_highs: [(idx, val)], swing_lows: [(idx, val)])
+    """
+    n = len(highs)
+    if n < atr_period + 1:
+        return [], []
+
+    atr = _calculate_atr(highs, lows, closes, atr_period)
+    if atr <= 0:
+        return [], []
+
+    threshold = atr * atr_multiplier
+
+    swing_highs = []
+    swing_lows = []
+
+    # Start by finding initial direction from first few bars
+    direction = 1  # 1 = looking for high, -1 = looking for low
+    extreme_idx = 0
+    extreme_val = highs[0]
+
+    # Find initial extreme
+    for i in range(min(atr_period, n)):
+        if highs[i] > extreme_val:
+            extreme_val = highs[i]
+            extreme_idx = i
+
+    direction = 1  # Start looking for a swing high
+    extreme_val = highs[extreme_idx]
+
+    for i in range(extreme_idx + 1, n):
+        if direction == 1:  # Looking for swing high
+            if highs[i] > extreme_val:
+                extreme_val = highs[i]
+                extreme_idx = i
+            elif extreme_val - lows[i] >= threshold:
+                # Swing high confirmed at extreme_idx
+                swing_highs.append((extreme_idx, extreme_val))
+                # Start looking for swing low
+                direction = -1
+                extreme_val = lows[i]
+                extreme_idx = i
+        else:  # direction == -1, looking for swing low
+            if lows[i] < extreme_val:
+                extreme_val = lows[i]
+                extreme_idx = i
+            elif highs[i] - extreme_val >= threshold:
+                # Swing low confirmed at extreme_idx
+                swing_lows.append((extreme_idx, extreme_val))
+                # Start looking for swing high
+                direction = 1
+                extreme_val = highs[i]
+                extreme_idx = i
+
+    return swing_highs, swing_lows
+
+
 def _find_swing_highs(highs: List[float], window: int = 5) -> List[Tuple[int, float]]:
-    """Find swing high points. Returns list of (index, value)."""
+    """Find swing high points using fixed window. Returns list of (index, value)."""
     swing_highs = []
     for i in range(window, len(highs) - window):
         is_high = True
@@ -133,7 +248,7 @@ def _find_swing_highs(highs: List[float], window: int = 5) -> List[Tuple[int, fl
 
 
 def _find_swing_lows(lows: List[float], window: int = 5) -> List[Tuple[int, float]]:
-    """Find swing low points. Returns list of (index, value)."""
+    """Find swing low points using fixed window. Returns list of (index, value)."""
     swing_lows = []
     for i in range(window, len(lows) - window):
         is_low = True
