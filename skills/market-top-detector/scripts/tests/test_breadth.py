@@ -60,3 +60,12 @@ class TestCalculateBreadthDivergence:
         base = calculate_breadth_divergence(55.0, 80.0, -2.0)
         boosted = calculate_breadth_divergence(55.0, 25.0, -2.0)
         assert boosted["score"] > base["score"]
+
+    def test_auto_fetched_breadth_source_marker(self):
+        """breadth_source can be set on comp4 result after calculate."""
+        result = calculate_breadth_divergence(64.81, None, -1.0)
+        result["breadth_source"] = "auto"
+        result["breadth_auto_date"] = "2026-02-18"
+        assert result["breadth_source"] == "auto"
+        assert result["breadth_auto_date"] == "2026-02-18"
+        assert result["data_available"] is True

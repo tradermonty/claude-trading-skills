@@ -25,6 +25,8 @@ Output:
 """
 
 import argparse
+import glob
+import json
 import os
 import sys
 from datetime import datetime
@@ -33,9 +35,12 @@ from typing import Dict, List, Optional
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
+from breadth_csv_client import fetch_breadth_200dma
 from fmp_client import FMPClient
 from calculators.distribution_day_calculator import calculate_distribution_days
-from calculators.leading_stock_calculator import calculate_leading_stock_health, LEADING_ETFS
+from calculators.leading_stock_calculator import (
+    calculate_leading_stock_health, LEADING_ETFS, CANDIDATE_POOL, select_dynamic_basket,
+)
 from calculators.defensive_rotation_calculator import (
     calculate_defensive_rotation, DEFENSIVE_ETFS, OFFENSIVE_ETFS
 )
@@ -43,6 +48,8 @@ from calculators.breadth_calculator import calculate_breadth_divergence
 from calculators.index_technical_calculator import calculate_index_technical
 from calculators.sentiment_calculator import calculate_sentiment
 from scorer import calculate_composite_score, detect_follow_through_day
+from historical_comparator import compare_to_historical
+from scenario_engine import generate_scenarios
 from report_generator import generate_json_report, generate_markdown_report
 
 
@@ -80,10 +87,28 @@ def parse_arguments():
         help="Margin debt year-over-year change percent (e.g., 36.0)"
     )
 
+    # Data freshness dates
+    parser.add_argument("--breadth-200dma-date", default=None, help="Date of breadth 200DMA data (YYYY-MM-DD)")
+    parser.add_argument("--breadth-50dma-date", default=None, help="Date of breadth 50DMA data (YYYY-MM-DD)")
+    parser.add_argument("--put-call-date", default=None, help="Date of put/call ratio data (YYYY-MM-DD)")
+    parser.add_argument("--margin-debt-date", default=None, help="Date of margin debt data (YYYY-MM-DD)")
+
     # Additional context (not scored, but included in report)
     parser.add_argument(
         "--context", nargs="*", default=[],
         help="Additional context items in 'key=value' format (e.g., 'Consumer Confidence=57.3')"
+    )
+
+    # Breadth auto-fetch control
+    parser.add_argument(
+        "--no-auto-breadth", action="store_true",
+        help="Disable auto-fetch of 200DMA breadth from TraderMonty CSV"
+    )
+
+    # Leading stock basket mode
+    parser.add_argument(
+        "--static-basket", action="store_true",
+        help="Use static default ETF basket instead of dynamic selection"
     )
 
     # Output
@@ -93,6 +118,127 @@ def parse_arguments():
     )
 
     return parser.parse_args()
+
+
+def compute_data_freshness(date_args: dict) -> dict:
+    """
+    Compute data freshness factors for CLI input dates.
+
+    Args:
+        date_args: Dict with keys like 'breadth_200dma_date', 'breadth_50dma_date',
+                   'put_call_date', 'margin_debt_date' -> YYYY-MM-DD strings.
+
+    Returns:
+        Dict with per-input freshness info and overall_confidence (min of all factors).
+    """
+    from datetime import date as dateclass
+
+    freshness_map = {
+        "breadth_200dma_date": "breadth_200dma",
+        "breadth_50dma_date": "breadth_50dma",
+        "put_call_date": "put_call",
+        "margin_debt_date": "margin_debt",
+    }
+
+    result = {}
+    factors = []
+    today = dateclass.today()
+
+    for arg_key, label in freshness_map.items():
+        date_str = date_args.get(arg_key)
+        if not date_str:
+            continue
+        try:
+            d = dateclass.fromisoformat(date_str)
+            age_days = (today - d).days
+        except (ValueError, TypeError):
+            result[label] = {"date": date_str, "age_days": None, "factor": 0.70}
+            factors.append(0.70)
+            continue
+
+        if age_days <= 1:
+            factor = 1.0
+        elif age_days <= 3:
+            factor = 0.95
+        elif age_days <= 7:
+            factor = 0.85
+        else:
+            factor = 0.70
+
+        result[label] = {"date": date_str, "age_days": age_days, "factor": factor}
+        factors.append(factor)
+
+    result["overall_confidence"] = min(factors) if factors else 1.0
+    return result
+
+
+def _load_previous_report(output_dir: str) -> Optional[Dict]:
+    """
+    Load the most recent market_top_*.json from output_dir.
+
+    Files are named market_top_YYYY-MM-DD_HHMMSS.json, so lexicographic
+    sorting gives chronological order.
+    """
+    pattern = os.path.join(output_dir, "market_top_*.json")
+    files = sorted(glob.glob(pattern))
+    if not files:
+        return None
+    try:
+        with open(files[-1], 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _compute_deltas(current_scores: Dict[str, float],
+                    previous_report: Optional[Dict]) -> Dict:
+    """
+    Compute delta between current and previous component scores.
+
+    Returns:
+        Dict with per-component delta info and composite delta.
+        If no previous report, direction is 'first_run' for all.
+    """
+    component_keys = [
+        "distribution_days", "leading_stocks", "defensive_rotation",
+        "breadth_divergence", "index_technical", "sentiment",
+    ]
+    deltas = {}
+
+    if previous_report is None:
+        for key in component_keys:
+            deltas[key] = {"delta": 0, "direction": "first_run"}
+        return {
+            "components": deltas,
+            "composite_delta": 0,
+            "composite_direction": "first_run",
+            "previous_date": None,
+        }
+
+    prev_components = previous_report.get("components", {})
+    prev_composite = previous_report.get("composite", {}).get("composite_score", 0)
+
+    for key in component_keys:
+        prev_score = prev_components.get(key, {}).get("score", 0)
+        curr_score = current_scores.get(key, 0)
+        delta = curr_score - prev_score
+        if abs(delta) <= 3:
+            direction = "stable"
+        elif delta > 0:
+            direction = "worsening"
+        else:
+            direction = "improving"
+        deltas[key] = {"delta": round(delta, 1), "direction": direction, "previous": prev_score}
+
+    prev_date = previous_report.get("metadata", {}).get("generated_at", None)
+
+    return {
+        "components": deltas,
+        "composite_delta": 0,  # Will be filled after composite calc
+        "composite_direction": "first_run",
+        "previous_date": prev_date,
+        "previous_composite": prev_composite,
+    }
 
 
 def main():
@@ -153,10 +299,35 @@ def main():
     else:
         print("WARN - VIX unavailable")
 
-    # Leading ETFs
-    print("  Fetching Leading ETFs...", end=" ", flush=True)
-    leading_quotes = client.get_batch_quotes(LEADING_ETFS)
-    leading_historical = client.get_batch_historical(LEADING_ETFS, days=60)
+    # VIX Term Structure auto-detection
+    effective_vix_term = args.vix_term  # CLI override takes priority
+    vix_term_auto = None
+    if effective_vix_term is None:
+        print("  Auto-detecting VIX term structure...", end=" ", flush=True)
+        vix_term_auto = client.get_vix_term_structure()
+        if vix_term_auto:
+            effective_vix_term = vix_term_auto["classification"]
+            print(f"OK ({effective_vix_term}, ratio={vix_term_auto['ratio']})")
+        else:
+            print("WARN - VIX3M unavailable, manual --vix-term needed")
+
+    # Leading ETFs (dynamic or static basket)
+    if args.static_basket:
+        selected_basket = list(LEADING_ETFS)
+        basket_mode = "static"
+        print("  Fetching Leading ETFs (static basket)...", end=" ", flush=True)
+        leading_quotes = client.get_batch_quotes(selected_basket)
+        leading_historical = client.get_batch_historical(selected_basket, days=60)
+    else:
+        print("  Fetching candidate pool quotes for dynamic basket...", end=" ", flush=True)
+        candidate_quotes = client.get_batch_quotes(CANDIDATE_POOL)
+        print(f"OK ({len(candidate_quotes)} candidates)")
+        selected_basket = select_dynamic_basket(candidate_quotes)
+        basket_mode = "dynamic"
+        print(f"  Selected dynamic basket: {selected_basket}")
+        print("  Fetching Leading ETFs (dynamic basket)...", end=" ", flush=True)
+        leading_quotes = {s: candidate_quotes[s] for s in selected_basket if s in candidate_quotes}
+        leading_historical = client.get_batch_historical(selected_basket, days=60)
     print(f"OK ({len(leading_quotes)} quotes, {len(leading_historical)} histories)")
 
     # Sector ETFs
@@ -164,10 +335,10 @@ def main():
     # Remove QQQ from sector fetching if already fetched
     sector_etfs_to_fetch = [e for e in all_sector_etfs if e != "QQQ"]
     print("  Fetching Sector ETFs...", end=" ", flush=True)
-    sector_historical = client.get_batch_historical(sector_etfs_to_fetch, days=30)
+    sector_historical = client.get_batch_historical(sector_etfs_to_fetch, days=50)
     # Add QQQ history if available
     if qqq_history:
-        sector_historical["QQQ"] = qqq_history[:30]
+        sector_historical["QQQ"] = qqq_history[:50]
     print(f"OK ({len(sector_historical)} ETFs)")
 
     print()
@@ -185,13 +356,32 @@ def main():
 
     # Component 2: Leading Stock Health (20%)
     print("  [2/6] Leading Stock Health...", end=" ", flush=True)
-    comp2 = calculate_leading_stock_health(leading_quotes, leading_historical)
+    comp2 = calculate_leading_stock_health(leading_quotes, leading_historical, etf_list=selected_basket)
     print(f"Score: {comp2['score']} ({comp2['signal']})")
 
     # Component 3: Defensive Rotation (15%)
     print("  [3/6] Defensive Sector Rotation...", end=" ", flush=True)
     comp3 = calculate_defensive_rotation(sector_historical)
     print(f"Score: {comp3['score']} ({comp3['signal']})")
+
+    # Auto-fetch 200DMA breadth if not provided via CLI
+    effective_breadth_200dma = args.breadth_200dma
+    breadth_source = "cli"
+    breadth_auto_date = None
+
+    if effective_breadth_200dma is None and not args.no_auto_breadth:
+        print("  Fetching 200DMA breadth from TraderMonty CSV...", end=" ", flush=True)
+        auto_result = fetch_breadth_200dma()
+        if auto_result is not None:
+            effective_breadth_200dma = auto_result["value"]
+            breadth_source = "auto"
+            breadth_auto_date = auto_result["date"]
+            fresh_str = "fresh" if auto_result["is_fresh"] else f"STALE ({auto_result['days_old']}d old)"
+            print(f"OK ({effective_breadth_200dma}%, {auto_result['date']}, {fresh_str})")
+            if not auto_result["is_fresh"]:
+                print(f"  WARNING: Breadth data is {auto_result['days_old']} days old")
+        else:
+            print("FAILED (will use neutral default)")
 
     # Component 4: Breadth Divergence (15%)
     print("  [4/6] Market Breadth Divergence...", end=" ", flush=True)
@@ -204,10 +394,13 @@ def main():
         index_dist = 0
 
     comp4 = calculate_breadth_divergence(
-        breadth_200dma=args.breadth_200dma,
+        breadth_200dma=effective_breadth_200dma,
         breadth_50dma=args.breadth_50dma,
         index_distance_from_high_pct=index_dist
     )
+    comp4["breadth_source"] = breadth_source
+    if breadth_auto_date:
+        comp4["breadth_auto_date"] = breadth_auto_date
     print(f"Score: {comp4['score']} ({comp4['signal']})")
 
     # Component 5: Index Technical (15%)
@@ -223,12 +416,21 @@ def main():
     comp6 = calculate_sentiment(
         vix_level=vix_level,
         put_call_ratio=args.put_call,
-        vix_term_structure=args.vix_term,
+        vix_term_structure=effective_vix_term,
         margin_debt_yoy_pct=args.margin_debt_yoy
     )
     print(f"Score: {comp6['score']} ({comp6['signal']})")
 
     print()
+
+    # Compute data freshness
+    freshness_args = {
+        "breadth_200dma_date": breadth_auto_date if breadth_source == "auto" else args.breadth_200dma_date,
+        "breadth_50dma_date": args.breadth_50dma_date,
+        "put_call_date": args.put_call_date,
+        "margin_debt_date": args.margin_debt_date,
+    }
+    data_freshness = compute_data_freshness(freshness_args)
 
     # ========================================================================
     # Step 3: Composite Score
@@ -261,6 +463,25 @@ def main():
     print(f"  Risk Budget: {composite['risk_budget']}")
     print(f"  Strongest Warning: {composite['strongest_warning']['label']} "
           f"({composite['strongest_warning']['score']})")
+
+    # Delta tracking vs previous run
+    previous_report = _load_previous_report(args.output_dir)
+    delta_info = _compute_deltas(component_scores, previous_report)
+    # Update composite delta now that we have the composite score
+    if previous_report is not None:
+        prev_composite = delta_info.get("previous_composite", 0)
+        comp_delta = composite['composite_score'] - prev_composite
+        delta_info["composite_delta"] = round(comp_delta, 1)
+        if abs(comp_delta) <= 3:
+            delta_info["composite_direction"] = "stable"
+        elif comp_delta > 0:
+            delta_info["composite_direction"] = "worsening"
+        else:
+            delta_info["composite_direction"] = "improving"
+        print(f"  vs Previous: {prev_composite} -> {composite['composite_score']} "
+              f"({delta_info['composite_delta']:+.1f})")
+    else:
+        print("  (First run - no comparison available)")
     print()
 
     # ========================================================================
@@ -274,9 +495,22 @@ def main():
         print()
 
     # ========================================================================
-    # Step 5: Generate Reports
+    # Step 5: Historical Comparison & Scenarios
     # ========================================================================
-    print("Step 5: Generating Reports")
+    print("Step 5: Historical Comparison & Scenarios")
+    print("-" * 70)
+
+    historical_comparison = compare_to_historical(component_scores)
+    print(f"  Closest historical pattern: {historical_comparison['closest_match']}")
+
+    scenarios = generate_scenarios(component_scores, data_availability)
+    print(f"  Generated {len(scenarios)} what-if scenarios")
+    print()
+
+    # ========================================================================
+    # Step 6: Generate Reports
+    # ========================================================================
+    print("Step 6: Generating Reports")
     print("-" * 70)
 
     # Parse additional context
@@ -293,12 +527,15 @@ def main():
             "data_mode": "FMP API + CLI inputs",
             "api_calls": client.get_api_stats(),
             "cli_inputs": {
-                "breadth_200dma": args.breadth_200dma,
+                "breadth_200dma": effective_breadth_200dma,
+                "breadth_200dma_source": breadth_source,
+                "breadth_200dma_auto_date": breadth_auto_date,
                 "breadth_50dma": args.breadth_50dma,
                 "put_call_ratio": args.put_call,
                 "vix_term_structure": args.vix_term,
                 "margin_debt_yoy_pct": args.margin_debt_yoy,
             },
+            "vix_term_auto": vix_term_auto,
             "index_data": {
                 "sp500_price": sp500_price,
                 "sp500_year_high": sp500_year_high,
@@ -306,6 +543,7 @@ def main():
                 "qqq_price": qqq_quote.get("price", 0) if qqq_quote else None,
                 "vix_level": vix_level,
             },
+            "data_freshness": data_freshness,
         },
         "composite": composite,
         "components": {
@@ -317,6 +555,9 @@ def main():
             "sentiment": comp6,
         },
         "follow_through_day": ftd,
+        "historical_comparison": historical_comparison,
+        "scenarios": scenarios,
+        "delta": delta_info,
         "additional_context": additional_context,
     }
 

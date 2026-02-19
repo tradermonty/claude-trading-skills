@@ -49,25 +49,40 @@ Unlike the Bubble Detector (macro/multi-month evaluation), this skill focuses on
 
 ### Phase 1: Data Collection via WebSearch
 
-Before running the Python script, collect the following data using WebSearch:
+Before running the Python script, collect the following data using WebSearch.
+**Data Freshness Requirement:** All data must be from the most recent 3 business days. Stale data degrades analysis quality.
 
 ```
-1. S&P 500 Breadth (200DMA above %):
-   Search: "S&P 500 stocks above 200 day moving average percent"
-   Source: Barchart, MarketInOut, or StockCharts
+1. S&P 500 Breadth (200DMA above %)
+   AUTO-FETCHED from TraderMonty CSV (no WebSearch needed)
+   The script fetches this automatically from GitHub Pages CSV data.
+   Override: --breadth-200dma [VALUE] to use a manual value instead.
+   Disable: --no-auto-breadth to skip auto-fetch entirely.
 
-2. S&P 500 Breadth (50DMA above %):
-   Search: "S&P 500 stocks above 50 day moving average percent"
+2. [REQUIRED] S&P 500 Breadth (50DMA above %)
+   Valid range: 20-100
+   Primary search: "S&P 500 percent stocks above 50 day moving average"
+   Fallback: "market breadth 50dma site:barchart.com"
+   Record the data date
 
-3. CBOE Equity Put/Call Ratio:
-   Search: "CBOE equity put call ratio current"
+3. [REQUIRED] CBOE Equity Put/Call Ratio
+   Valid range: 0.30-1.50
+   Primary search: "CBOE equity put call ratio today"
+   Fallback: "CBOE total put call ratio current"
+   Fallback: "put call ratio site:cboe.com"
+   Record the data date
 
-4. VIX Term Structure:
-   Search: "VIX term structure contango backwardation"
-   Classify as: steep_contango / contango / flat / backwardation
+4. [OPTIONAL] VIX Term Structure
+   Values: steep_contango / contango / flat / backwardation
+   Primary search: "VIX VIX3M ratio term structure today"
+   Fallback: "VIX futures term structure contango backwardation"
+   Note: Auto-detected from FMP API if VIX3M quote available.
+   CLI --vix-term overrides auto-detection.
 
-5. (Optional) Margin Debt:
-   Search: "FINRA margin debt latest year over year"
+5. [OPTIONAL] Margin Debt YoY %
+   Primary search: "FINRA margin debt latest year over year percent"
+   Fallback: "NYSE margin debt monthly"
+   Note: Typically 1-2 months lagged. Record the reporting month.
 ```
 
 ### Phase 2: Execute Python Script
@@ -77,12 +92,15 @@ Run the script with collected data as CLI arguments:
 ```bash
 python3 skills/market-top-detector/scripts/market_top_detector.py \
   --api-key $FMP_API_KEY \
-  --breadth-200dma [VALUE] \
-  --breadth-50dma [VALUE] \
-  --put-call [VALUE] \
+  --breadth-50dma [VALUE] --breadth-50dma-date [YYYY-MM-DD] \
+  --put-call [VALUE] --put-call-date [YYYY-MM-DD] \
   --vix-term [steep_contango|contango|flat|backwardation] \
-  --margin-debt-yoy [VALUE] \
+  --margin-debt-yoy [VALUE] --margin-debt-date [YYYY-MM-DD] \
+  --output-dir reports/ \
   --context "Consumer Confidence=[VALUE]" "Gold Price=[VALUE]"
+# 200DMA breadth is auto-fetched from TraderMonty CSV.
+# Override with --breadth-200dma [VALUE] if needed.
+# Disable with --no-auto-breadth to skip auto-fetch.
 ```
 
 The script will:
@@ -96,9 +114,13 @@ The script will:
 
 Present the generated Markdown report to the user, highlighting:
 - Composite score and risk zone
+- Data freshness warnings (if any data older than 3 days)
 - Strongest warning signal (highest component score)
+- Historical comparison (closest past top pattern)
+- What-if scenarios (sensitivity to key changes)
 - Recommended actions based on risk zone
 - Follow-Through Day status (if applicable)
+- Delta vs previous run (if prior report exists)
 
 ---
 
@@ -109,7 +131,7 @@ Present the generated Markdown report to the user, highlighting:
 | 1 | Distribution Day Count | **25%** | FMP API | Institutional selling in last 25 trading days |
 | 2 | Leading Stock Health | **20%** | FMP API | Growth ETF basket deterioration |
 | 3 | Defensive Sector Rotation | **15%** | FMP API | Defensive vs Growth relative performance |
-| 4 | Market Breadth Divergence | **15%** | WebSearch | 200DMA/50DMA breadth vs index level |
+| 4 | Market Breadth Divergence | **15%** | Auto (CSV) + WebSearch | 200DMA (auto) / 50DMA (WebSearch) breadth vs index level |
 | 5 | Index Technical Condition | **15%** | FMP API | MA structure, failed rallies, lower highs |
 | 6 | Sentiment & Speculation | **10%** | FMP + WebSearch | VIX, Put/Call, term structure |
 

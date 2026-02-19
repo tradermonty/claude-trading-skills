@@ -17,6 +17,22 @@ def generate_json_report(analysis: Dict, output_file: str):
     print(f"JSON report saved to: {output_file}")
 
 
+def _delta_arrow(delta_info: Optional[Dict]) -> str:
+    """Convert delta info to direction arrow."""
+    if delta_info is None:
+        return "---"
+    direction = delta_info.get("direction", "first_run")
+    delta = delta_info.get("delta", 0)
+    if direction == "first_run":
+        return "---"
+    elif direction == "worsening":
+        return f"+{delta:.0f} ↑"
+    elif direction == "improving":
+        return f"{delta:.0f} ↓"
+    else:
+        return "→"
+
+
 def generate_markdown_report(analysis: Dict, output_file: str):
     """Generate comprehensive Markdown report"""
     lines = []
@@ -24,6 +40,7 @@ def generate_markdown_report(analysis: Dict, output_file: str):
     components = analysis.get("components", {})
     metadata = analysis.get("metadata", {})
     ftd = analysis.get("follow_through_day", {})
+    delta = analysis.get("delta", {})
 
     score = composite.get("composite_score", 0)
     zone = composite.get("zone", "Unknown")
@@ -65,8 +82,19 @@ def generate_markdown_report(analysis: Dict, output_file: str):
     lines.append("")
     lines.append("## Component Scores")
     lines.append("")
-    lines.append("| # | Component | Weight | Score | Contribution | Signal |")
-    lines.append("|---|-----------|--------|-------|--------------|--------|")
+    lines.append("> **Reading Guide:** Higher score = higher market top risk. "
+                 "A low score (e.g., Leading Stocks 20/100) means that component "
+                 "is **healthy** and not signaling danger.")
+    lines.append("")
+    delta_components = delta.get("components", {}) if delta else {}
+    has_delta = delta and delta.get("composite_direction") != "first_run"
+
+    if has_delta:
+        lines.append("| # | Component | Weight | Score | Δ | Contribution | Signal |")
+        lines.append("|---|-----------|--------|-------|---|--------------|--------|")
+    else:
+        lines.append("| # | Component | Weight | Score | Contribution | Signal |")
+        lines.append("|---|-----------|--------|-------|--------------|--------|")
 
     component_order = [
         "distribution_days", "leading_stocks", "defensive_rotation",
@@ -82,10 +110,30 @@ def generate_markdown_report(analysis: Dict, output_file: str):
         contribution = comp.get("weighted_contribution", 0)
         bar = _score_bar(score_val)
 
-        lines.append(f"| {i} | **{comp.get('label', key)}** | {weight_pct} | "
-                     f"{bar} {score_val} | {contribution:.1f} | {signal} |")
+        if has_delta:
+            d_info = delta_components.get(key)
+            arrow = _delta_arrow(d_info)
+            lines.append(f"| {i} | **{comp.get('label', key)}** | {weight_pct} | "
+                         f"{bar} {score_val} | {arrow} | {contribution:.1f} | {signal} |")
+        else:
+            lines.append(f"| {i} | **{comp.get('label', key)}** | {weight_pct} | "
+                         f"{bar} {score_val} | {contribution:.1f} | {signal} |")
 
     lines.append("")
+
+    # Delta summary
+    if has_delta:
+        prev_date = delta.get("previous_date", "N/A")
+        prev_composite = delta.get("previous_composite", 0)
+        comp_delta = delta.get("composite_delta", 0)
+        comp_dir = delta.get("composite_direction", "stable")
+        dir_arrow = "↑" if comp_dir == "worsening" else "↓" if comp_dir == "improving" else "→"
+        lines.append(f"**vs. Previous Run ({prev_date}):** Score {prev_composite} → "
+                     f"{score} ({comp_delta:+.1f} {dir_arrow})")
+        lines.append("")
+    elif delta and delta.get("composite_direction") == "first_run":
+        lines.append("*First run - no comparison available.*")
+        lines.append("")
 
     # Detailed Component Breakdowns
     lines.append("---")
@@ -173,7 +221,13 @@ def generate_markdown_report(analysis: Dict, output_file: str):
     lines.append("### 4. Market Breadth Divergence")
     lines.append("")
     if brd:
-        lines.append(f"- **200DMA Breadth:** {brd.get('breadth_200dma', 'N/A')}%")
+        breadth_source = brd.get("breadth_source", "cli")
+        if breadth_source == "auto":
+            auto_date = brd.get("breadth_auto_date", "N/A")
+            source_label = f"auto (TraderMonty CSV, {auto_date})"
+        else:
+            source_label = "manual (CLI input)"
+        lines.append(f"- **200DMA Breadth:** {brd.get('breadth_200dma', 'N/A')}% — {source_label}")
         lines.append(f"- **50DMA Breadth:** {brd.get('breadth_50dma', 'N/A')}%")
         lines.append(f"- **Index Near Highs:** {'Yes' if brd.get('index_near_highs') else 'No'} "
                      f"({brd.get('index_distance_from_high_pct', 0):+.1f}% from 52wk high)")
@@ -218,7 +272,7 @@ def generate_markdown_report(analysis: Dict, output_file: str):
                      f"({vts.get('points', 0):+d}pt) - {vts.get('interpretation', '')}")
         if md:
             lines.append(f"- **Margin Debt YoY:** {md.get('yoy_pct', 'N/A')}% "
-                         f"- {md.get('interpretation', '')} *(context only, not scored)*")
+                         f"({md.get('points', 0):+d}pt) - {md.get('interpretation', '')}")
     lines.append("")
 
     # Follow-Through Day Monitor
@@ -245,6 +299,42 @@ def generate_markdown_report(analysis: Dict, output_file: str):
     for action in composite.get("actions", []):
         lines.append(f"- {action}")
     lines.append("")
+
+    # Historical Comparison
+    hist_comp = analysis.get("historical_comparison", {})
+    if hist_comp:
+        lines.append("---")
+        lines.append("")
+        lines.append("## Historical Comparison")
+        lines.append("")
+        lines.append(f"**Closest Pattern:** {hist_comp.get('closest_match', 'N/A')} "
+                     f"(SSD: {hist_comp.get('closest_ssd', 'N/A')})")
+        lines.append("")
+        lines.append(f"> {hist_comp.get('narrative', '')}")
+        lines.append("")
+
+        comparisons = hist_comp.get("comparisons", [])
+        if comparisons:
+            lines.append("| Historical Top | SSD (lower = closer) |")
+            lines.append("|---------------|---------------------|")
+            for c in comparisons:
+                lines.append(f"| {c['name']} | {c['ssd']} |")
+            lines.append("")
+
+    # What-If Scenarios
+    scenarios = analysis.get("scenarios", [])
+    if scenarios:
+        lines.append("---")
+        lines.append("")
+        lines.append("## What-If Scenarios")
+        lines.append("")
+        lines.append("| Scenario | Description | New Score | Zone | Delta |")
+        lines.append("|----------|-------------|-----------|------|-------|")
+        for s in scenarios:
+            delta_str = f"{s['delta']:+.1f}" if s['delta'] != 0 else "0.0"
+            lines.append(f"| **{s['name']}** | {s['description']} | "
+                         f"{s['new_score']} | {s['new_zone']} | {delta_str} |")
+        lines.append("")
 
     # Additional Context
     extra = analysis.get("additional_context", {})
