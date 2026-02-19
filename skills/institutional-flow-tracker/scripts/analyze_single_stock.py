@@ -5,17 +5,19 @@ Institutional Flow Tracker - Single Stock Deep Dive
 Provides detailed analysis of institutional ownership for a specific stock,
 including historical trends, top holders, and position changes.
 
+Uses data_quality module for holder classification and reliability grading
+to prevent misleading signals from asymmetric 13F data.
+
 Usage:
     python3 analyze_single_stock.py AAPL
     python3 analyze_single_stock.py MSFT --quarters 12 --api-key YOUR_KEY
-    python3 analyze_single_stock.py TSLA --compare-to GM
+    python3 analyze_single_stock.py TSLA --output-dir reports/
 
 Requirements:
     - FMP API key (set FMP_API_KEY environment variable or pass --api-key)
 """
 
 import argparse
-import json
 import os
 import sys
 from datetime import datetime
@@ -27,6 +29,16 @@ try:
 except ImportError:
     print("Error: 'requests' library not installed. Install with: pip install requests")
     sys.exit(1)
+
+# Add scripts directory to path for data_quality import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from data_quality import (
+    classify_holder,
+    calculate_coverage_ratio,
+    calculate_match_ratio,
+    calculate_filtered_metrics,
+    reliability_grade,
+)
 
 
 class SingleStockAnalyzer:
@@ -65,7 +77,12 @@ class SingleStockAnalyzer:
             return {}
 
     def analyze_stock(self, symbol: str, quarters: int = 8) -> Dict:
-        """Perform comprehensive institutional analysis on a stock"""
+        """Perform comprehensive institutional analysis on a stock.
+
+        Uses classify_holder() to separate genuine position changes from
+        new-full entries and exits, avoiding inflated metrics from
+        asymmetric holder counts across quarters.
+        """
 
         print(f"Analyzing institutional ownership for {symbol}...")
 
@@ -100,89 +117,117 @@ class SingleStockAnalyzer:
             print(f"Insufficient data (need at least 2 quarters, found {len(sorted_quarters)})")
             return {}
 
-        # Calculate quarterly metrics
+        # Calculate quarterly metrics using correct FMP v3 field names
         quarterly_metrics = []
+        all_holders_by_quarter = {}
         for q in sorted_quarters:
             holders_q = quarters_data[q]
-            total_shares = sum(h.get('totalShares', 0) for h in holders_q)
-            total_value = sum(h.get('totalInvested', 0) for h in holders_q)
+            all_holders_by_quarter[q] = holders_q
+            total_shares = sum(h.get('shares', 0) for h in holders_q)
             num_holders = len(holders_q)
 
             quarterly_metrics.append({
                 'quarter': q,
                 'total_shares': total_shares,
-                'total_value': total_value,
                 'num_holders': num_holders,
-                'top_holders': sorted(holders_q, key=lambda x: x.get('totalShares', 0), reverse=True)[:20]
+                'top_holders': sorted(
+                    holders_q,
+                    key=lambda x: x.get('shares', 0),
+                    reverse=True
+                )[:20],
             })
 
-        # Calculate trends
+        # Data quality assessment for most recent quarter
+        current_all = all_holders_by_quarter[sorted_quarters[0]]
+        previous_all = all_holders_by_quarter[sorted_quarters[1]] if len(sorted_quarters) >= 2 else []
+        filtered_metrics = calculate_filtered_metrics(current_all)
+        total_holder_count = len(current_all)
+        genuine_ratio = (
+            filtered_metrics["genuine_count"] / total_holder_count
+            if total_holder_count > 0 else 0
+        )
+        coverage_ratio = calculate_coverage_ratio(current_all, previous_all)
+        match_ratio = calculate_match_ratio(current_all, previous_all)
+        grade = reliability_grade(coverage_ratio, match_ratio, genuine_ratio)
+
+        data_quality = {
+            "grade": grade,
+            "genuine_ratio": round(genuine_ratio, 4),
+            "coverage_ratio": round(coverage_ratio, 2),
+            "match_ratio": round(match_ratio, 4),
+            "genuine_count": filtered_metrics["genuine_count"],
+            "total_holders": total_holder_count,
+        }
+
+        # Calculate trends - only if both endpoints have reliable data
         most_recent = quarterly_metrics[0]
         oldest = quarterly_metrics[-1]
 
-        shares_trend = ((most_recent['total_shares'] - oldest['total_shares']) / oldest['total_shares'] * 100) if oldest['total_shares'] > 0 else 0
+        # Check genuine_ratio for both endpoints
+        oldest_all = all_holders_by_quarter[sorted_quarters[-1]]
+        oldest_metrics = calculate_filtered_metrics(oldest_all)
+        oldest_total = len(oldest_all)
+        oldest_genuine_ratio = (
+            oldest_metrics["genuine_count"] / oldest_total
+            if oldest_total > 0 else 0
+        )
+
+        if genuine_ratio >= 0.7 and oldest_genuine_ratio >= 0.7:
+            shares_trend = (
+                (most_recent['total_shares'] - oldest['total_shares'])
+                / oldest['total_shares'] * 100
+            ) if oldest['total_shares'] > 0 else 0
+        else:
+            shares_trend = None
+
         holders_trend = most_recent['num_holders'] - oldest['num_holders']
 
-        # Analyze position changes (recent quarter vs previous)
+        # Analyze position changes using classify_holder (all holders, not top 20)
+        new_positions = []
+        increased_positions = []
+        decreased_positions = []
+
         if len(quarterly_metrics) >= 2:
-            current_q = quarterly_metrics[0]
-            previous_q = quarterly_metrics[1]
+            for holder in current_all:
+                classification = classify_holder(holder)
+                name = holder.get('holder', '')
+                shares = holder.get('shares', 0)
+                change = holder.get('change', 0)
 
-            # Create holder dictionaries for comparison
-            current_holders_map = {h.get('holder', ''): h for h in current_q['top_holders']}
-            previous_holders_map = {h.get('holder', ''): h for h in previous_q['top_holders']}
-
-            # Categorize changes
-            new_positions = []
-            increased_positions = []
-            decreased_positions = []
-            closed_positions = []
-
-            # Check current holders
-            for name, holder in current_holders_map.items():
-                current_shares = holder.get('totalShares', 0)
-                if name in previous_holders_map:
-                    previous_shares = previous_holders_map[name].get('totalShares', 0)
-                    change = current_shares - previous_shares
-                    pct_change = (change / previous_shares * 100) if previous_shares > 0 else 0
-
-                    if change > 0:
-                        increased_positions.append({
-                            'name': name,
-                            'current_shares': current_shares,
-                            'change': change,
-                            'pct_change': pct_change
-                        })
-                    elif change < 0:
-                        decreased_positions.append({
-                            'name': name,
-                            'current_shares': current_shares,
-                            'change': change,
-                            'pct_change': pct_change
-                        })
-                else:
+                if classification == "new_full":
                     new_positions.append({
                         'name': name,
-                        'shares': current_shares
+                        'shares': shares,
                     })
-
-            # Check for closed positions
-            for name, holder in previous_holders_map.items():
-                if name not in current_holders_map:
-                    closed_positions.append({
-                        'name': name,
-                        'previous_shares': holder.get('totalShares', 0)
-                    })
+                elif classification == "genuine":
+                    if change > 0:
+                        previous_shares = shares - change
+                        pct_change = (
+                            (change / previous_shares * 100)
+                            if previous_shares > 0 else 0
+                        )
+                        increased_positions.append({
+                            'name': name,
+                            'current_shares': shares,
+                            'change': change,
+                            'pct_change': pct_change,
+                        })
+                    elif change < 0:
+                        previous_shares = shares - change
+                        pct_change = (
+                            (change / previous_shares * 100)
+                            if previous_shares > 0 else 0
+                        )
+                        decreased_positions.append({
+                            'name': name,
+                            'current_shares': shares,
+                            'change': change,
+                            'pct_change': pct_change,
+                        })
 
             # Sort by magnitude
             increased_positions.sort(key=lambda x: x['change'], reverse=True)
             decreased_positions.sort(key=lambda x: x['change'])
-
-        else:
-            new_positions = []
-            increased_positions = []
-            decreased_positions = []
-            closed_positions = []
 
         return {
             'symbol': symbol,
@@ -195,10 +240,11 @@ class SingleStockAnalyzer:
             'new_positions': new_positions,
             'increased_positions': increased_positions,
             'decreased_positions': decreased_positions,
-            'closed_positions': closed_positions
+            'data_quality': data_quality,
         }
 
-    def generate_report(self, analysis: Dict, output_file: Optional[str] = None):
+    def generate_report(self, analysis: Dict, output_file: Optional[str] = None,
+                        output_dir: Optional[str] = None):
         """Generate detailed markdown report"""
 
         if not analysis:
@@ -207,6 +253,8 @@ class SingleStockAnalyzer:
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         symbol = analysis['symbol']
+        data_quality = analysis.get('data_quality', {})
+        grade = data_quality.get('grade', 'N/A')
 
         report = f"""# Institutional Ownership Analysis: {symbol}
 
@@ -214,43 +262,77 @@ class SingleStockAnalyzer:
 **Sector:** {analysis['sector']}
 **Market Cap:** ${analysis['market_cap']:,}
 **Analysis Date:** {timestamp}
-
-## Executive Summary
+**Data Reliability:** Grade {grade}
 
 """
+
+        # Data quality warning
+        if grade == "C":
+            report += """**WARNING: UNRELIABLE DATA**
+This stock has highly asymmetric holder data across quarters (genuine ratio < 30%).
+Metrics below may be misleading. Do NOT use for investment decisions.
+
+"""
+        elif grade == "B":
+            report += """**CAUTION: Reference Only**
+This stock has moderate data quality (genuine ratio 30-70%).
+Use metrics as reference only, with additional verification.
+
+"""
+
+        report += "## Executive Summary\n\n"
 
         # Determine overall signal
         shares_trend = analysis['shares_trend']
         holders_trend = analysis['holders_trend']
 
-        if shares_trend > 15 and holders_trend > 5:
-            signal = "🟢 **STRONG ACCUMULATION**"
-            interpretation = "Strong institutional buying with increasing participation. Positive signal."
-        elif shares_trend > 7 and holders_trend > 0:
-            signal = "🟢 **MODERATE ACCUMULATION**"
-            interpretation = "Steady institutional buying. Moderately positive signal."
-        elif shares_trend < -15 or holders_trend < -5:
-            signal = "🔴 **STRONG DISTRIBUTION**"
-            interpretation = "Significant institutional selling. Warning sign - investigate further."
-        elif shares_trend < -7:
-            signal = "🔴 **MODERATE DISTRIBUTION**"
-            interpretation = "Institutional selling detected. Monitor closely."
+        if shares_trend is None:
+            signal = "**DATA QUALITY INSUFFICIENT**"
+            interpretation = (
+                "Shares trend cannot be reliably calculated due to low genuine holder ratio "
+                "in one or both endpoint quarters."
+            )
+            trend_str = "N/A (insufficient data quality)"
         else:
-            signal = "⚪ **NEUTRAL**"
-            interpretation = "No significant institutional flow changes. Stable ownership."
+            if shares_trend > 15 and holders_trend > 5:
+                signal = "**STRONG ACCUMULATION**"
+                interpretation = "Strong institutional buying with increasing participation. Positive signal."
+            elif shares_trend > 7 and holders_trend > 0:
+                signal = "**MODERATE ACCUMULATION**"
+                interpretation = "Steady institutional buying. Moderately positive signal."
+            elif shares_trend < -15 or holders_trend < -5:
+                signal = "**STRONG DISTRIBUTION**"
+                interpretation = "Significant institutional selling. Warning sign - investigate further."
+            elif shares_trend < -7:
+                signal = "**MODERATE DISTRIBUTION**"
+                interpretation = "Institutional selling detected. Monitor closely."
+            else:
+                signal = "**NEUTRAL**"
+                interpretation = "No significant institutional flow changes. Stable ownership."
+            trend_str = f"{shares_trend:+.2f}%"
 
         report += f"""**Signal:** {signal}
 
 **Interpretation:** {interpretation}
 
 **Trend ({len(analysis['quarterly_metrics'])} Quarters):**
-- Institutional Shares: {shares_trend:+.2f}%
+- Institutional Shares: {trend_str}
 - Number of Institutions: {holders_trend:+d}
+
+## Data Quality Assessment
+
+| Metric | Value |
+|--------|-------|
+| Reliability Grade | **{grade}** |
+| Genuine Holder Ratio | {data_quality.get('genuine_ratio', 0):.1%} |
+| Coverage Ratio (Current/Previous) | {data_quality.get('coverage_ratio', 0):.1f}x |
+| Name Match Ratio | {data_quality.get('match_ratio', 0):.1%} |
+| Genuine Holders | {data_quality.get('genuine_count', 0)} / {data_quality.get('total_holders', 0)} |
 
 ## Historical Institutional Ownership Trend
 
-| Quarter | Total Shares Held | Total Value | Number of Institutions | QoQ Change |
-|---------|-------------------|-------------|----------------------|------------|
+| Quarter | Total Shares Held | Number of Institutions | QoQ Change |
+|---------|-------------------|----------------------|------------|
 """
 
         # Add quarterly data
@@ -263,7 +345,7 @@ class SingleStockAnalyzer:
             else:
                 qoq_str = "N/A"
 
-            report += f"| {q['quarter']} | {q['total_shares']:,} | ${q['total_value']:,} | {q['num_holders']} | {qoq_str} |\n"
+            report += f"| {q['quarter']} | {q['total_shares']:,} | {q['num_holders']} | {qoq_str} |\n"
 
         # Recent changes
         report += f"""
@@ -277,6 +359,8 @@ class SingleStockAnalyzer:
             report += "|-------------|----------------|\n"
             for pos in analysis['new_positions'][:10]:
                 report += f"| {pos['name']} | {pos['shares']:,} |\n"
+            if len(analysis['new_positions']) > 10:
+                report += f"\n*...and {len(analysis['new_positions']) - 10} more new positions*\n"
         else:
             report += "No new institutional positions detected.\n"
 
@@ -298,15 +382,6 @@ class SingleStockAnalyzer:
         else:
             report += "No significant position decreases detected.\n"
 
-        report += "\n### Closed Positions (Institutions that exited)\n\n"
-        if analysis['closed_positions']:
-            report += "| Institution | Previous Shares |\n"
-            report += "|-------------|-----------------|\n"
-            for pos in analysis['closed_positions'][:10]:
-                report += f"| {pos['name']} | {pos['previous_shares']:,} |\n"
-        else:
-            report += "No institutional exits detected.\n"
-
         # Top current holders
         report += f"\n## Top 20 Current Institutional Holders ({metrics[0]['quarter']})\n\n"
         report += "| Rank | Institution | Shares Held | % of Institutional | Latest Change |\n"
@@ -314,14 +389,14 @@ class SingleStockAnalyzer:
 
         total_inst_shares = metrics[0]['total_shares']
         for i, holder in enumerate(metrics[0]['top_holders'], 1):
-            shares = holder.get('totalShares', 0)
+            shares = holder.get('shares', 0)
             pct_of_inst = (shares / total_inst_shares * 100) if total_inst_shares > 0 else 0
             change = holder.get('change', 0)
             report += f"| {i} | {holder.get('holder', 'Unknown')} | {shares:,} | {pct_of_inst:.2f}% | {change:+,} |\n"
 
         # Concentration analysis
         if len(metrics[0]['top_holders']) >= 10:
-            top_10_shares = sum(h.get('totalShares', 0) for h in metrics[0]['top_holders'][:10])
+            top_10_shares = sum(h.get('shares', 0) for h in metrics[0]['top_holders'][:10])
             concentration = (top_10_shares / total_inst_shares * 100) if total_inst_shares > 0 else 0
 
             report += f"""
@@ -343,6 +418,16 @@ class SingleStockAnalyzer:
                 report += "- **Risk:** Lower concentration risk, more stable ownership\n"
 
         report += """
+## Methodology Note
+
+This analysis uses holder classification to filter unreliable data:
+- **Genuine holders:** Institutions present in both current and prior quarters (change != shares, i.e., partial position change)
+- **New-full entries:** Institutions appearing for the first time (change == shares)
+- **Exited holders:** Institutions that fully sold their position (shares == 0)
+
+Only genuine holders are used for percent-change calculations to prevent
+inflated metrics from asymmetric holder counts across quarters.
+
 ## Interpretation Guide
 
 **For detailed interpretation framework, see:**
@@ -361,16 +446,21 @@ class SingleStockAnalyzer:
 **Note:** Use as confirming indicator alongside fundamental and technical analysis
 """
 
-        # Save report
+        # Determine output path
         if output_file:
             output_path = output_file if output_file.endswith('.md') else f"{output_file}.md"
         else:
-            output_path = f"institutional_analysis_{symbol}_{datetime.now().strftime('%Y%m%d')}.md"
+            filename = f"institutional_analysis_{symbol}_{datetime.now().strftime('%Y%m%d')}.md"
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+                output_path = os.path.join(output_dir, filename)
+            else:
+                output_path = filename
 
         with open(output_path, 'w') as f:
             f.write(report)
 
-        print(f"\n✅ Report saved to: {output_path}")
+        print(f"\nReport saved to: {output_path}")
         return report
 
 
@@ -386,8 +476,8 @@ Examples:
   # Extended history (12 quarters)
   python3 analyze_single_stock.py MSFT --quarters 12
 
-  # With custom output
-  python3 analyze_single_stock.py TSLA --output tesla_analysis.md
+  # With custom output directory
+  python3 analyze_single_stock.py TSLA --output-dir reports/
         """
     )
 
@@ -412,6 +502,12 @@ Examples:
         '--output',
         type=str,
         help='Output file path for markdown report'
+    )
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default='reports/',
+        help='Output directory for reports (default: reports/)'
     )
     parser.add_argument(
         '--compare-to',
@@ -439,18 +535,24 @@ Examples:
         sys.exit(1)
 
     # Generate report
-    analyzer.generate_report(analysis, output_file=args.output)
+    analyzer.generate_report(analysis, output_file=args.output, output_dir=args.output_dir)
 
     # Print summary
+    dq = analysis.get('data_quality', {})
+    trend = analysis['shares_trend']
+    trend_str = f"{trend:+.2f}%" if trend is not None else "N/A"
+
     print("\n" + "="*80)
     print(f"INSTITUTIONAL OWNERSHIP SUMMARY: {args.symbol}")
     print("="*80)
-    print(f"Trend ({args.quarters} quarters): {analysis['shares_trend']:+.2f}% shares, {analysis['holders_trend']:+d} institutions")
+    print(f"Data Reliability: Grade {dq.get('grade', 'N/A')} "
+          f"(genuine ratio: {dq.get('genuine_ratio', 0):.1%})")
+    print(f"Trend ({args.quarters} quarters): {trend_str} shares, "
+          f"{analysis['holders_trend']:+d} institutions")
     print(f"Recent Activity:")
     print(f"  - New Positions: {len(analysis['new_positions'])}")
     print(f"  - Increased: {len(analysis['increased_positions'])}")
     print(f"  - Decreased: {len(analysis['decreased_positions'])}")
-    print(f"  - Exited: {len(analysis['closed_positions'])}")
 
 
 if __name__ == '__main__':

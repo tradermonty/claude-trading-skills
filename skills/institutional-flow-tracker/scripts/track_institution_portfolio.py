@@ -18,12 +18,18 @@ import os
 import sys
 from datetime import datetime
 
+print(
+    "ERROR: This script is not yet functional. "
+    "See below for alternative resources.",
+    file=sys.stderr,
+)
+
 print("""
 ================================================================================
-TRACK INSTITUTION PORTFOLIO - SIMPLIFIED VERSION
+TRACK INSTITUTION PORTFOLIO - NOT YET IMPLEMENTED
 ================================================================================
 
-This is a placeholder script. For comprehensive institution portfolio tracking:
+This script is a placeholder and does not provide functional portfolio tracking.
 
 1. Use WhaleWisdom (free tier available): https://whalewisdom.com
 2. Use SEC EDGAR directly: https://www.sec.gov/cgi-bin/browse-edgar
@@ -101,7 +107,7 @@ def main():
     print(f"3. DataRoma: https://www.dataroma.com (if superinvestor)")
     print()
 
-    return 0
+    return 1
 
 
 if __name__ == '__main__':

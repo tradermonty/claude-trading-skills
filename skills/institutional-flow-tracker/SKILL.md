@@ -88,7 +88,6 @@ python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
 - Number of institutions holding
 - Change in number of institutions (new buyers vs sellers)
 - Top institutional holders
-- Aggregate dollar value change
 
 ### Step 2: Deep Dive on Specific Stocks
 
@@ -102,9 +101,8 @@ python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 - Historical institutional ownership trend (8 quarters)
 - List of all institutional holders with position changes
 - Concentration analysis (top 10 holders' % of total institutional ownership)
-- New positions vs increased vs decreased vs closed positions
-- Quarterly flow chart (net shares added/removed)
-- Comparison to sector average institutional ownership
+- New positions vs increased vs decreased positions
+- Data quality assessment with reliability grade
 
 **Key metrics to evaluate:**
 - **Ownership %:** Higher institutional ownership (>70%) = more stability but limited upside
@@ -114,31 +112,21 @@ python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 
 ### Step 3: Track Specific Institutional Investors
 
-Follow the portfolio moves of specific hedge funds or investment firms:
+> **Note:** `track_institution_portfolio.py` is **not yet implemented**. FMP API organizes
+> institutional holder data by stock (not by institution), making full portfolio reconstruction
+> impractical via this API alone.
 
+**Alternative approach — use `analyze_single_stock.py` to check if a specific institution holds a stock:**
 ```bash
-# Track Warren Buffett's Berkshire Hathaway
-python3 institutional-flow-tracker/scripts/track_institution_portfolio.py \
-  --cik 0001067983 \
-  --name "Berkshire Hathaway"
-
-# Track Cathie Wood's ARK Investment Management
-python3 institutional-flow-tracker/scripts/track_institution_portfolio.py \
-  --cik 0001579982 \
-  --name "ARK Investment Management"
+# Analyze a stock and look for a specific institution in the output
+python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+# Then search the report for "Berkshire" or "ARK" in the Top 20 holders table
 ```
 
-**CIK (Central Index Key) lookup:**
-- Search at: https://www.sec.gov/cgi-bin/browse-edgar
-- Or use FMP API institutional search
-
-**Analysis output:**
-- Current portfolio holdings (top 50 positions)
-- New positions added this quarter
-- Positions completely sold
-- Largest increases/decreases in existing positions
-- Portfolio concentration and sector allocation changes
-- Historical performance of their top picks
+**For full institution-level portfolio tracking, use these external resources:**
+1. **WhaleWisdom:** https://whalewisdom.com (free tier available, 13F portfolio viewer)
+2. **SEC EDGAR:** https://www.sec.gov/cgi-bin/browse-edgar (official 13F filings)
+3. **DataRoma:** https://www.dataroma.com (superinvestor portfolio tracker)
 
 ### Step 4: Interpretation and Action
 
@@ -213,6 +201,22 @@ All analysis generates structured markdown reports saved to repository root:
 6. Interpretation and Recommendations
 7. Data Sources and Timestamp
 
+## Data Reliability Grades
+
+All analysis now includes a **reliability grade** based on data quality:
+
+- **Grade A:** Coverage ratio < 3x, match ratio >= 50%, genuine holder ratio >= 70%. Safe for investment decisions.
+- **Grade B:** Genuine holder ratio >= 30%. Reference only - use with caution.
+- **Grade C:** Genuine holder ratio < 30%. UNRELIABLE - excluded from screening results.
+
+The screening script (`track_institutional_flow.py`) automatically excludes Grade C stocks.
+The single stock analysis (`analyze_single_stock.py`) displays the grade with appropriate warnings.
+
+**Why this matters:** FMP returns different numbers of holders per quarter. A stock may show
+5,415 holders in Q4 but only 201 in Q3. Without filtering, aggregate metrics produce
+misleading percent changes (e.g., +400%). The data quality module filters to "genuine" holders
+(present in both quarters) to produce reliable metrics.
+
 ## Limitations and Caveats
 
 **Data Lag:**
@@ -276,8 +280,10 @@ Main screening script for finding stocks with significant institutional changes.
 - `--min-market-cap X`: Minimum market cap in dollars (default: 1B)
 - `--sector NAME`: Filter by specific sector
 - `--min-institutions N`: Minimum number of institutional holders (default: 10)
-- `--output FILE`: Output JSON file path (default: institutional_flow_results.json)
-- `--sort-by FIELD`: Sort by 'ownership_change', 'institution_count_change', 'dollar_value_change'
+- `--limit N`: Number of stocks to fetch from screener (default: 100). Lower values save API calls.
+- `--output FILE`: Output JSON file path
+- `--output-dir DIR`: Output directory for reports (default: reports/)
+- `--sort-by FIELD`: Sort by 'ownership_change' or 'institution_count_change'
 
 ### analyze_single_stock.py
 
@@ -290,21 +296,29 @@ Deep dive analysis on a specific stock's institutional ownership.
 **Optional:**
 - `--quarters N`: Number of quarters to analyze (default: 8, i.e., 2 years)
 - `--output FILE`: Output markdown report path
-- `--compare-to TICKER`: Compare institutional ownership to another stock
+- `--output-dir DIR`: Output directory for reports (default: reports/)
+- `--compare-to TICKER`: Compare institutional ownership to another stock (future feature)
 
 ### track_institution_portfolio.py
 
-Track a specific institutional investor's portfolio changes.
+**Status: NOT YET IMPLEMENTED**
 
-**Required:**
-- `--cik CIK`: Central Index Key of the institution
-- `--name NAME`: Institution name for report
-- `--api-key`: FMP API key (or set FMP_API_KEY environment variable)
+This script is a placeholder. It prints alternative resources (WhaleWisdom, SEC EDGAR, DataRoma) and exits with error code 1. FMP API organizes institutional holder data by stock (not by institution), making full portfolio reconstruction impractical.
 
-**Optional:**
-- `--top N`: Show top N holdings (default: 50)
-- `--min-position-value X`: Minimum position value to include (default: 10M)
-- `--output FILE`: Output markdown report path
+For institution-specific portfolio tracking, use:
+1. WhaleWisdom: https://whalewisdom.com (free tier available)
+2. SEC EDGAR: https://www.sec.gov/cgi-bin/browse-edgar
+3. DataRoma: https://www.dataroma.com
+
+### Data Quality Module (data_quality.py)
+
+Shared utility module used by both `track_institutional_flow.py` and `analyze_single_stock.py`:
+
+- **classify_holder():** Classifies holders as genuine/new_full/exited/unknown
+- **calculate_filtered_metrics():** Computes metrics using genuine holders only
+- **reliability_grade():** Assigns A/B/C grade based on data quality
+- **is_tradable_stock():** Filters out ETFs, funds, and inactive stocks
+- **deduplicate_share_classes():** Removes BRK-A/B, GOOG/GOOGL duplicates
 
 ## Integration with Other Skills
 
