@@ -59,6 +59,38 @@
 - インフレ/デフレ圧力
 - 地政学リスク
 
+## From Data to Decision (シグナル→アクション変換)
+
+The Strategy Synthesizer uses the following rules to convert multi-skill signals into actionable decisions. See `references/conviction_matrix.md` for the full cross-reference tables.
+
+### Green Light Conditions (Aggressive Posture)
+- Breadth composite >= 60 **AND** Uptrend zone = Bull/Strong Bull
+- Market Top score < 40 (low distribution risk)
+- Macro Regime = broadening **AND** confidence = high
+- FTD state = FTD_CONFIRMED (if applicable)
+- **Action:** 80-100% equity, concentrated positions, standard stops
+
+### Yellow Light Conditions (Cautious Posture)
+- Breadth composite 40-59 **OR** Uptrend zone = Neutral
+- Market Top score 40-60 (moderate risk)
+- Macro Regime = transitional
+- Mixed signal convergence (convergence score 40-60)
+- **Action:** 50-70% equity, reduced sizing, tighter stops
+
+### Red Light Conditions (Defensive Posture)
+- Breadth composite < 40 **OR** Uptrend zone = Bear
+- Market Top score >= 60 (elevated/high risk)
+- Macro Regime = contraction
+- FTD state = RALLY_FAILED
+- **Action:** 0-30% equity, high cash, no new entries
+
+### Pattern-Specific Overrides
+- **Policy Pivot detected:** Overweight bonds + equity even if signals are mixed (anticipate regime shift)
+- **Unsustainable Distortion detected:** Override green light → reduce to yellow light minimum
+- **Extreme Contrarian detected:** Override red light → allow pilot equity entries (FTD confirmation)
+
+---
+
 ## ポジション構築の実践
 
 ### 確信度の評価基準

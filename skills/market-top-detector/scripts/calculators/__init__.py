@@ -6,6 +6,7 @@ from .defensive_rotation_calculator import calculate_defensive_rotation
 from .breadth_calculator import calculate_breadth_divergence
 from .index_technical_calculator import calculate_index_technical
 from .sentiment_calculator import calculate_sentiment
+from .math_utils import calc_ema, calc_sma
 
 __all__ = [
     'calculate_distribution_days',
@@ -14,4 +15,6 @@ __all__ = [
     'calculate_breadth_divergence',
     'calculate_index_technical',
     'calculate_sentiment',
+    'calc_ema',
+    'calc_sma',
 ]

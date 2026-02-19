@@ -1,91 +1,182 @@
 ---
 name: stanley-druckenmiller-investment
-description: スタンレー・ドラッケンミラーの投資哲学と戦略に基づいた投資アドバイスを提供。30年間無敗、年率30%近いリターンを達成した伝説的投資家の思考法を活用し、マクロ経済分析、リスク管理、ポジション構築、市場サイクルの読み方などについて実践的な指導を行う。投資判断、市場分析、リスク管理、ポートフォリオ構築などの相談時に使用。
+description: Druckenmiller Strategy Synthesizer - Integrates 8 upstream skill outputs (Market Breadth, Uptrend Analysis, Market Top, Macro Regime, FTD Detector, VCP Screener, Theme Detector, CANSLIM Screener) into a unified conviction score (0-100), pattern classification, and allocation recommendation. Use when user asks about overall market conviction, portfolio positioning, asset allocation, strategy synthesis, or Druckenmiller-style analysis. Triggers on queries like "What is my conviction level?", "How should I position?", "Run the strategy synthesizer", "Druckenmiller analysis", "総合的な市場判断", "確信度スコア", "ポートフォリオ配分", "ドラッケンミラー分析".
 ---
 
-# スタンレー・ドラッケンミラーの投資アドバイザー
+# Druckenmiller Strategy Synthesizer
 
-スタンレー・ドラッケンミラーの投資哲学と30年にわたる実績に基づいて、投資に関する実践的なアドバイスを提供します。
+## Purpose
 
-## 概要
+Synthesize outputs from 8 upstream analysis skills (5 required + 3 optional) into a single composite conviction score (0-100), classify the market into one of 4 Druckenmiller patterns, and generate actionable allocation recommendations. This is a **meta-skill** that consumes structured JSON outputs from other skills — it requires no API keys of its own.
 
-このスキルは、以下のようなドラッケンミラーの核心的な投資原則に基づいてアドバイスを行います：
+## When to Use This Skill
 
-- **集中投資と忍耐**: 年に1-2回の絶好の機会を待ち、確信がある時に大きく張る
-- **資本保全**: 「50%の損失を取り戻すには100%の利益が必要」- 大きな損失を避ける
-- **未来志向**: 「現在に投資するな、18か月先の未来に投資せよ」
-- **流動性重視**: 「市場を動かすのは企業収益ではなく中央銀行と流動性」
-- **柔軟性**: 間違いに気づいたら即座に方向転換する
+**English:**
+- User asks "What's my overall conviction?" or "How should I be positioned?"
+- User wants a unified view synthesizing breadth, uptrend, top risk, macro, and FTD signals
+- User asks about Druckenmiller-style portfolio positioning
+- User requests strategy synthesis after running individual analysis skills
+- User asks "Should I increase or decrease exposure?"
+- User wants pattern classification (policy pivot, distortion, contrarian, wait)
 
-## 使用方法
+**Japanese:**
+- 「総合的な市場判断は？」「今のポジショニングは？」
+- ブレッドス、アップトレンド、天井リスク、マクロの統合判断
+- 「エクスポージャーを増やすべき？減らすべき？」
+- 「ドラッケンミラー分析を実行して」
+- 個別スキル実行後の戦略統合レポート
 
-### 基本的な質問への対応
+---
 
-ユーザーからの質問に対して、ドラッケンミラーの思考法を適用して回答します：
+## Input Requirements
 
-1. **市場分析の相談**
-   - 現在の市場環境の評価
-   - 18か月先の予測
-   - 投資機会の識別
+### Required Skills (5)
 
-2. **リスク管理の相談**
-   - ポジションサイズの決定
-   - 損切りポイントの設定
-   - ポートフォリオの防御策
+| # | Skill | JSON Prefix | Role |
+|---|-------|-------------|------|
+| 1 | Market Breadth Analyzer | `market_breadth_` | Market participation breadth |
+| 2 | Uptrend Analyzer | `uptrend_analysis_` | Sector uptrend ratios |
+| 3 | Market Top Detector | `market_top_` | Distribution / top risk (defense) |
+| 4 | Macro Regime Detector | `macro_regime_` | Macro regime transition (1-2Y structure) |
+| 5 | FTD Detector | `ftd_detector_` | Bottom confirmation / re-entry (offense) |
 
-3. **投資戦略の相談**
-   - エントリータイミング
-   - 資産配分の提案
-   - 市場サイクルの判断
+### Optional Skills (3)
 
-### リファレンスの活用
+| # | Skill | JSON Prefix | Role |
+|---|-------|-------------|------|
+| 6 | VCP Screener | `vcp_screener_` | Momentum stock setups (VCP) |
+| 7 | Theme Detector | `theme_detector_` | Theme / sector momentum |
+| 8 | CANSLIM Screener | `canslim_screener_` | Growth stock setups + M(Market Direction) |
 
-詳細な分析や具体的な手法については、以下のリファレンスファイルを参照します：
+Run the required skills first. The synthesizer reads their JSON output from `reports/`.
 
-- **投資哲学の詳細**: `references/investment-philosophy.md` を参照
-  - ポジション構築、リスク管理、ベアマーケット戦略など
+---
 
-- **市場分析手法**: `references/market-analysis-guide.md` を参照
-  - マクロ経済分析、中央銀行政策の評価、資産配分決定など
+## Execution Workflow
 
-- **実例と応用**: `references/case-studies.md` を参照
-  - 歴史的成功事例、投資判断パターン、実践的応用方法など
+### Phase 1: Verify Prerequisites
 
-## アドバイスの提供方法
+Check that the 5 required skill JSON reports exist in `reports/` and are recent (< 72 hours). If any are missing, run the corresponding skill first.
 
-### 1. 現状分析から始める
-- ユーザーの投資目的と制約を理解
-- 現在の市場環境を評価
-- リスク許容度を確認
+### Phase 2: Execute Strategy Synthesizer
 
-### 2. ドラッケンミラー流の視点を提供
-- 18か月先を見据えた分析
-- 中央銀行政策と流動性の影響
-- 市場のコンセンサスとの乖離を指摘
+```bash
+python3 skills/stanley-druckenmiller-investment/scripts/strategy_synthesizer.py \
+  --reports-dir reports/ \
+  --output-dir reports/ \
+  --max-age 72
+```
 
-### 3. 具体的な行動指針を示す
-- 確信度に基づくポジションサイズ
-- エントリーとエグジットの条件
-- リスク管理の具体策
+The script will:
+1. Load and validate all upstream skill JSON reports
+2. Extract normalized signals from each skill
+3. Calculate 7 component scores (weighted 0-100)
+4. Compute composite conviction score
+5. Classify into one of 4 Druckenmiller patterns
+6. Generate target allocation and position sizing
+7. Output JSON and Markdown reports
 
-### 4. 重要な警告を含める
-- 「見えない時は振るな」の原則
-- 大きな損失を避ける重要性
-- 柔軟性を保つ必要性
+### Phase 3: Present Results
 
-## 回答スタイル
+Present the generated Markdown report, highlighting:
+- Conviction score and zone
+- Detected pattern and match strength
+- Strongest and weakest components
+- Target allocation (equity/bonds/alternatives/cash)
+- Position sizing parameters
+- Relevant Druckenmiller principle
 
-- **明確で実践的**: 理論だけでなく具体的な行動指針を提供
-- **リスク意識**: 常にダウンサイドリスクを考慮
-- **謙虚さ**: 市場に対する謙虚さを忘れない
-- **柔軟性**: 状況変化に応じた修正の必要性を強調
+### Phase 4: Provide Druckenmiller Context
 
-## 注意事項
+Load appropriate reference documents to provide philosophical context:
+- **High conviction:** Emphasize concentration and "fat pitch" principles
+- **Low conviction:** Emphasize capital preservation and patience
+- **Pattern-specific:** Apply relevant case study from `references/case-studies.md`
 
-1. **投資は自己責任**: このアドバイスは教育目的であり、投資判断は各自の責任で行うことを明確にする
+---
 
-2. **個別銘柄の推奨は避ける**: 投資の考え方や分析手法の提供に焦点を当てる
+## 7-Component Scoring System
 
-3. **リスクの強調**: ドラッケンミラー自身も強調する「資本保全」の重要性を常に伝える
+| # | Component | Weight | Source Skill(s) | Key Signal |
+|---|-----------|--------|----------------|------------|
+| 1 | Market Structure | **18%** | Breadth + Uptrend | Market participation health |
+| 2 | Distribution Risk | **18%** | Market Top (inverted) | Institutional selling risk |
+| 3 | Bottom Confirmation | **12%** | FTD Detector | Re-entry signal after correction |
+| 4 | Macro Alignment | **18%** | Macro Regime | Regime favorability |
+| 5 | Theme Quality | **12%** | Theme Detector | Sector momentum health |
+| 6 | Setup Availability | **10%** | VCP + CANSLIM | Quality stock setups |
+| 7 | Signal Convergence | **12%** | All 5 required | Cross-skill agreement |
 
-4. **時代背景の考慮**: 過去の成功事例を現代の文脈で解釈する必要性を認識する
+## 4 Pattern Classifications
+
+| Pattern | Trigger Conditions | Druckenmiller Principle |
+|---------|-------------------|----------------------|
+| Policy Pivot Anticipation | Transitional regime + high transition probability | "Focus on central banks and liquidity" |
+| Unsustainable Distortion | Top risk >= 60 + contraction/inflationary regime | "How much you lose when wrong matters most" |
+| Extreme Sentiment Contrarian | FTD confirmed + high top risk + bearish breadth | "Most money made in bear markets" |
+| Wait & Observe | Low conviction + mixed signals (default) | "When you don't see it, don't swing" |
+
+## Conviction Zone Mapping
+
+| Score | Zone | Exposure | Guidance |
+|-------|------|----------|----------|
+| 80-100 | Maximum Conviction | 90-100% | Fat pitch - swing hard |
+| 60-79 | High Conviction | 70-90% | Standard risk management |
+| 40-59 | Moderate Conviction | 50-70% | Reduce position sizes |
+| 20-39 | Low Conviction | 20-50% | Preserve capital, minimal risk |
+| 0-19 | Capital Preservation | 0-20% | Maximum defense |
+
+---
+
+## Output Files
+
+- `druckenmiller_strategy_YYYY-MM-DD_HHMMSS.json` — Structured analysis data
+- `druckenmiller_strategy_YYYY-MM-DD_HHMMSS.md` — Human-readable report
+
+## API Requirements
+
+**None.** This skill reads JSON outputs from other skills. No API keys required.
+
+## Reference Documents
+
+### `references/investment-philosophy.md`
+- Core Druckenmiller principles: concentration, capital preservation, 18-month horizon
+- Quantitative rules: daily vol targets, max position sizing
+- Load when providing philosophical context for conviction assessment
+
+### `references/market-analysis-guide.md`
+- Signal-to-action mapping framework
+- Macro regime interpretation for allocation decisions
+- Load when explaining component scores or allocation rationale
+
+### `references/case-studies.md`
+- Historical examples: 1992 GBP, 2000 tech bubble, 2008 crisis
+- Pattern classification examples with actual market conditions
+- Load when user asks about historical parallels
+
+### `references/conviction_matrix.md`
+- Quantitative signal-to-action mapping tables
+- Market Top Zone x Macro Regime matrix
+- Load when user needs precise exposure numbers for specific signal combinations
+
+### When to Load References
+- **First use:** Load `investment-philosophy.md` for framework understanding
+- **Allocation questions:** Load `market-analysis-guide.md` + `conviction_matrix.md`
+- **Historical context:** Load `case-studies.md`
+- **Regular execution:** References not needed — script handles scoring
+
+---
+
+## Relationship to Other Skills
+
+| Skill | Relationship | Time Horizon |
+|-------|-------------|-------------|
+| Market Breadth Analyzer | Input (required) | Current snapshot |
+| Uptrend Analyzer | Input (required) | Current snapshot |
+| Market Top Detector | Input (required) | 2-8 weeks tactical |
+| Macro Regime Detector | Input (required) | 1-2 years structural |
+| FTD Detector | Input (required) | Days-weeks event |
+| VCP Screener | Input (optional) | Setup-specific |
+| Theme Detector | Input (optional) | Weeks-months thematic |
+| CANSLIM Screener | Input (optional) | Setup-specific |
+| **This Skill** | **Synthesizer** | **Unified conviction** |

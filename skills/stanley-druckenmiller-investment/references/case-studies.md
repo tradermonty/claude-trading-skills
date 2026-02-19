@@ -3,6 +3,10 @@
 ## 歴史的な成功事例
 
 ### 1. 1981年 ボルカー議長の金融引き締め
+**Pattern Classification:** Policy Pivot Anticipation
+**Conviction Level:** Maximum Conviction (estimated 90+)
+**Source:** *The New Market Wizards* (Jack Schwager, 1992), Chapter on Druckenmiller
+
 **状況**: インフレ率が二桁に達し、FRB議長ポール・ボルカーが強力な金融引き締めを実施
 
 **ドラッケンミラーの分析**:
@@ -14,7 +18,7 @@
 - ファンド資金の50%を年利14%の長期国債に集中投資
 - 市場が予想するインフレ継続シナリオに逆張り
 
-**結果**: 
+**結果**:
 - インフレ率は急速に低下
 - 長期国債価格は大幅上昇
 - 巨額のリターンを獲得
@@ -22,6 +26,10 @@
 **教訓**: 中央銀行の政策決意を正しく評価し、市場コンセンサスと逆の大胆な賭けをする
 
 ### 2. 1992年 ポンド危機（ブラック・ウェンズデー）
+**Pattern Classification:** Unsustainable Distortion
+**Conviction Level:** Maximum Conviction (estimated 95+)
+**Source:** *Soros on Soros* (George Soros, 1995); Bloomberg profile (Sep 1992)
+
 **状況**: 英国が欧州為替相場メカニズム（ERM）で無理なポンド高を維持
 
 **ドラッケンミラーの分析**:
@@ -41,6 +49,10 @@
 **教訓**: 持続不可能な政策は必ず破綻する。確信があれば巨大なポジションも正当化される
 
 ### 3. 2007-2008年 金融危機
+**Pattern Classification:** Unsustainable Distortion → Extreme Sentiment Contrarian (Phase 2: bottom re-entry)
+**Conviction Level:** High Conviction (defense) → Maximum Conviction (post-crash re-entry)
+**Source:** Duquesne Capital performance records; Bloomberg interviews (2008-2009)
+
 **状況**: 2003-2004年のFRB低金利政策が住宅バブルを生成
 
 **ドラッケンミラーの分析**:
@@ -60,6 +72,10 @@
 **教訓**: 中央銀行の政策ミスは数年後に大きな危機をもたらす。早期に察知し準備することが重要
 
 ### 4. 2023年 慎重姿勢の維持
+**Pattern Classification:** Wait & Observe
+**Conviction Level:** Low Conviction (estimated 25-35)
+**Source:** Bloomberg interview (Jun 2023); CNBC Delivering Alpha (Sep 2023)
+
 **状況**: インフレ、金利上昇、地政学リスクなど不確実性が高い環境
 
 **ドラッケンミラーの分析**:

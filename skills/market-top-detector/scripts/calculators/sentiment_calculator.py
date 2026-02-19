@@ -5,25 +5,32 @@ Component 6: Sentiment & Speculation (Weight: 10%)
 Data sources:
 - VIX: FMP API quote
 - Put/Call ratio: CLI argument (from WebSearch)
-- VIX term structure: CLI argument (from WebSearch)
+- VIX term structure: CLI argument (from WebSearch) or auto-detected
+- Margin Debt YoY: CLI argument (from WebSearch)
 
 Scoring (additive, max 100):
-  Put/Call < 0.60 -> +40pt (extreme call buying = complacency)
-  Put/Call < 0.70 -> +30pt
-  Put/Call < 0.80 -> +15pt
+  Put/Call < 0.60 -> +35pt (extreme call buying = complacency)
+  Put/Call < 0.70 -> +25pt
+  Put/Call < 0.80 -> +12pt
   Put/Call >= 0.80 -> +0pt (healthy caution)
 
-  VIX < 12       -> +30pt (extreme low fear)
-  VIX < 14       -> +20pt
-  VIX < 16       -> +10pt
+  VIX < 12       -> +25pt (extreme low fear)
+  VIX < 14       -> +17pt
+  VIX < 16       -> +8pt
   VIX 16-20      -> +0pt (normal)
-  VIX > 25       -> -10pt (fear already present, top less likely)
+  VIX > 25       -> -8pt (fear already present, top less likely)
 
   VIX term structure:
-    Steep contango (normal) -> +30pt (complacency)
-    Normal contango        -> +15pt
+    Steep contango (normal) -> +25pt (complacency)
+    Normal contango        -> +12pt
     Flat                   -> +0pt
-    Backwardation          -> -10pt (hedging demand = fear)
+    Backwardation          -> -8pt (hedging demand = fear)
+
+  Margin Debt YoY:
+    > 30%  -> +15pt (extreme leverage)
+    > 20%  -> +10pt
+    > 10%  -> +5pt
+    <= 10% -> +0pt
 """
 
 from typing import Dict, Optional
@@ -65,15 +72,15 @@ def calculate_sentiment(vix_level: Optional[float] = None,
     total_points = 0
     details = {}
 
-    # 1. Put/Call Ratio scoring
+    # 1. Put/Call Ratio scoring (max 35pt)
     pc_points = 0
     if put_call_ratio is not None:
         if put_call_ratio < 0.60:
-            pc_points = 40
+            pc_points = 35
         elif put_call_ratio < 0.70:
-            pc_points = 30
+            pc_points = 25
         elif put_call_ratio < 0.80:
-            pc_points = 15
+            pc_points = 12
         else:
             pc_points = 0
         details["put_call_ratio"] = {
@@ -86,19 +93,19 @@ def calculate_sentiment(vix_level: Optional[float] = None,
 
     total_points += pc_points
 
-    # 2. VIX Level scoring
+    # 2. VIX Level scoring (max 25pt)
     vix_points = 0
     if vix_level is not None:
         if vix_level < 12:
-            vix_points = 30
+            vix_points = 25
         elif vix_level < 14:
-            vix_points = 20
+            vix_points = 17
         elif vix_level < 16:
-            vix_points = 10
+            vix_points = 8
         elif vix_level <= 25:
             vix_points = 0
         else:
-            vix_points = -10  # High fear = top less likely
+            vix_points = -8  # High fear = top less likely
         details["vix_level"] = {
             "value": round(vix_level, 2),
             "points": vix_points,
@@ -109,17 +116,17 @@ def calculate_sentiment(vix_level: Optional[float] = None,
 
     total_points += vix_points
 
-    # 3. VIX Term Structure scoring
+    # 3. VIX Term Structure scoring (max 25pt)
     vts_points = 0
     if vix_term_structure:
         if vix_term_structure == STEEP_CONTANGO:
-            vts_points = 30
+            vts_points = 25
         elif vix_term_structure == NORMAL_CONTANGO:
-            vts_points = 15
+            vts_points = 12
         elif vix_term_structure == FLAT:
             vts_points = 0
         elif vix_term_structure == BACKWARDATION:
-            vts_points = -10
+            vts_points = -8
         details["vix_term_structure"] = {
             "value": vix_term_structure,
             "points": vts_points,
@@ -130,16 +137,27 @@ def calculate_sentiment(vix_level: Optional[float] = None,
 
     total_points += vts_points
 
-    # Clamp to 0-100
-    score = max(0, min(100, total_points))
-
-    # Margin debt as additional context (not scored but reported)
+    # 4. Margin Debt YoY scoring (max 15pt)
+    md_points = 0
     if margin_debt_yoy_pct is not None:
+        if margin_debt_yoy_pct > 30:
+            md_points = 15
+        elif margin_debt_yoy_pct > 20:
+            md_points = 10
+        elif margin_debt_yoy_pct > 10:
+            md_points = 5
+        else:
+            md_points = 0
         details["margin_debt"] = {
             "yoy_pct": margin_debt_yoy_pct,
+            "points": md_points,
             "interpretation": _interpret_margin_debt(margin_debt_yoy_pct),
-            "note": "Not included in score - additional context only",
         }
+
+    total_points += md_points
+
+    # Clamp to 0-100
+    score = max(0, min(100, total_points))
 
     # Signal
     if score >= 70:

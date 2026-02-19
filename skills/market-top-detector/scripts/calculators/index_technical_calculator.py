@@ -19,11 +19,8 @@ Final: average of both indices, scaled to 0-100
 """
 
 from typing import Dict, List, Optional
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from fmp_client import FMPClient
+from calculators.math_utils import calc_ema
 
 
 def calculate_index_technical(sp500_history: List[Dict],
@@ -109,11 +106,11 @@ def _evaluate_index(name: str, history: List[Dict],
     mas = {}
 
     # Calculate moving averages
-    ema21 = _calc_ema(closes, 21)
+    ema21 = calc_ema(closes, 21)
     mas["ema21"] = round(ema21, 2)
 
     if len(closes) >= 50:
-        ema50 = _calc_ema(closes, 50)
+        ema50 = calc_ema(closes, 50)
         mas["ema50"] = round(ema50, 2)
     else:
         ema50 = None
@@ -169,20 +166,6 @@ def _evaluate_index(name: str, history: List[Dict],
         "mas": mas,
         "data_available": True,
     }
-
-
-def _calc_ema(prices: List[float], period: int) -> float:
-    """Calculate EMA from prices (most recent first)"""
-    if len(prices) < period:
-        return sum(prices) / len(prices)
-
-    prices_rev = prices[::-1]
-    sma = sum(prices_rev[:period]) / period
-    ema = sma
-    k = 2 / (period + 1)
-    for p in prices_rev[period:]:
-        ema = p * k + ema * (1 - k)
-    return ema
 
 
 def _detect_failed_rally(closes: List[float], volumes: List[int],

@@ -5,7 +5,8 @@ Component 2: Leading Stock Health (Weight: 20%)
 Evaluates health of leading/growth ETFs as proxy for market leadership.
 Uses ETF baskets instead of individual stocks for API efficiency.
 
-ETF Basket: ARKK, WCLD, IGV, XBI, SOXX, SMH, KWEB, TAN
+Default ETF Basket: ARKK, WCLD, IGV, XBI, SOXX, SMH, KWEB, TAN
+Dynamic mode: Selects top-N ETFs from a 20-ETF candidate pool by 52-week high proximity.
 
 Evaluation per ETF:
 - Distance from 52-week high
@@ -19,35 +20,97 @@ If 60%+ ETFs are deteriorating, apply 1.3x amplification.
 from typing import Dict, List, Optional
 import sys
 
-# Leading/Growth ETF basket
-LEADING_ETFS = ["ARKK", "WCLD", "IGV", "XBI", "SOXX", "SMH", "KWEB", "TAN"]
+# Default Leading/Growth ETF basket
+DEFAULT_LEADING_ETFS = ["ARKK", "WCLD", "IGV", "XBI", "SOXX", "SMH", "KWEB", "TAN"]
+LEADING_ETFS = DEFAULT_LEADING_ETFS  # backward compat
+
+# Expanded candidate pool for dynamic basket selection
+CANDIDATE_POOL = [
+    "SMH", "SOXX", "PSI", "SOXQ",   # Semiconductors
+    "IGV", "WCLD", "CLOU", "BUG",    # Software / Cloud / Cyber
+    "XBI", "ARKG",                    # Biotech / Genomics
+    "ARKK", "ARKW", "KOMP",          # Innovation / Disruptive
+    "TAN", "ICLN",                    # Clean Energy
+    "KWEB", "FDN",                    # Internet / China Tech
+    "FINX", "IPAY",                   # Fintech / Payments
+    "BOTZ",                           # Robotics / AI
+]
+
+
+def select_dynamic_basket(quotes: Dict[str, Dict], top_n: int = 10) -> List[str]:
+    """
+    Select top-N ETFs from candidate pool by proximity to 52-week high.
+
+    Args:
+        quotes: Dict of symbol -> quote data with 'price' and 'yearHigh'
+        top_n: Number of ETFs to select (default 10)
+
+    Returns:
+        List of selected symbols, sorted by proximity to high (closest first).
+        Falls back to DEFAULT_LEADING_ETFS if fewer than 5 valid candidates.
+    """
+    scored = []
+    for symbol in CANDIDATE_POOL:
+        q = quotes.get(symbol)
+        if not q:
+            continue
+        price = q.get("price", 0)
+        year_high = q.get("yearHigh", 0)
+        if year_high <= 0 or price <= 0:
+            continue
+        proximity = price / year_high  # 1.0 = at high, 0.5 = 50% below
+        scored.append((symbol, proximity))
+
+    if len(scored) < 5:
+        return list(DEFAULT_LEADING_ETFS)
+
+    # Sort by proximity descending (closest to high = strongest leader)
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [s[0] for s in scored[:top_n]]
 
 
 def calculate_leading_stock_health(quotes: Dict[str, Dict],
-                                   historical: Dict[str, List[Dict]]) -> Dict:
+                                   historical: Dict[str, List[Dict]],
+                                   etf_list: Optional[List[str]] = None) -> Dict:
     """
     Calculate leading stock health score.
 
     Args:
         quotes: Dict of symbol -> quote data (from FMP batch quote)
         historical: Dict of symbol -> list of daily OHLCV (most recent first, ~60 days)
+        etf_list: Optional explicit list of ETF symbols to evaluate.
+                  If None, uses quotes.keys() or DEFAULT_LEADING_ETFS.
 
     Returns:
-        Dict with score (0-100), etf_details, signal
+        Dict with score (0-100), etf_details, signal, basket_mode, basket
     """
     etf_scores = []
     etf_details = {}
+    if etf_list is not None:
+        basket_mode = "dynamic" if etf_list != list(DEFAULT_LEADING_ETFS) else "static"
+        eval_list = list(etf_list)
+    elif quotes:
+        basket_mode = "static"
+        eval_list = list(quotes.keys())
+    else:
+        basket_mode = "static"
+        eval_list = list(DEFAULT_LEADING_ETFS)
+    total_attempted = len(eval_list)
+    fetch_successes = 0
 
-    for symbol in LEADING_ETFS:
+    for symbol in eval_list:
         quote = quotes.get(symbol)
         hist = historical.get(symbol, [])
 
         if not quote:
             continue
 
+        fetch_successes += 1
         detail = _evaluate_etf(symbol, quote, hist)
         etf_scores.append(detail["deterioration_score"])
         etf_details[symbol] = detail
+
+    fetch_success_rate = fetch_successes / total_attempted if total_attempted > 0 else 0.0
 
     if not etf_scores:
         return {
@@ -57,7 +120,13 @@ def calculate_leading_stock_health(quotes: Dict[str, Dict],
             "etfs_evaluated": 0,
             "etfs_deteriorating": 0,
             "data_available": False,
+            "fetch_success_rate": fetch_success_rate,
+            "basket_mode": basket_mode,
+            "basket": eval_list,
         }
+
+    # Mark data as unavailable if fetch success rate is below 75%
+    data_available = fetch_success_rate >= 0.75
 
     avg_deterioration = sum(etf_scores) / len(etf_scores)
 
@@ -92,7 +161,10 @@ def calculate_leading_stock_health(quotes: Dict[str, Dict],
         "deteriorating_pct": round(deteriorating_pct * 100, 1),
         "amplified": deteriorating_pct >= 0.60,
         "etf_details": etf_details,
-        "data_available": True,
+        "data_available": data_available,
+        "fetch_success_rate": round(fetch_success_rate, 2),
+        "basket_mode": basket_mode,
+        "basket": eval_list,
     }
 
 

@@ -42,6 +42,49 @@ COMPONENT_LABELS = {
     "sentiment": "Sentiment & Speculation",
 }
 
+# Correlated component pairs: when both are extreme, discount the lower-weight one
+CORRELATION_PAIRS = [("distribution_days", "defensive_rotation")]
+CORRELATION_THRESHOLD = 80
+CORRELATION_DISCOUNT = 0.8
+
+
+def _apply_correlation_adjustment(component_scores: Dict[str, float]) -> Dict:
+    """
+    Discount correlated components when both are extreme.
+
+    When both components in a CORRELATION_PAIR are >= CORRELATION_THRESHOLD,
+    the lower-weight component gets multiplied by CORRELATION_DISCOUNT.
+
+    Returns:
+        Dict with 'adjusted_scores' and 'adjustments' details.
+    """
+    adjusted = dict(component_scores)
+    adjustments = []
+
+    for comp_a, comp_b in CORRELATION_PAIRS:
+        score_a = component_scores.get(comp_a, 0)
+        score_b = component_scores.get(comp_b, 0)
+        if score_a >= CORRELATION_THRESHOLD and score_b >= CORRELATION_THRESHOLD:
+            # Discount the lower-weight component
+            weight_a = COMPONENT_WEIGHTS.get(comp_a, 0)
+            weight_b = COMPONENT_WEIGHTS.get(comp_b, 0)
+            if weight_a >= weight_b:
+                discounted = comp_b
+                original = score_b
+            else:
+                discounted = comp_a
+                original = score_a
+            adjusted[discounted] = original * CORRELATION_DISCOUNT
+            adjustments.append({
+                "pair": [comp_a, comp_b],
+                "discounted_component": discounted,
+                "original_score": original,
+                "adjusted_score": adjusted[discounted],
+                "discount_factor": CORRELATION_DISCOUNT,
+            })
+
+    return {"adjusted_scores": adjusted, "adjustments": adjustments}
+
 
 def calculate_composite_score(component_scores: Dict[str, float],
                               data_availability: Optional[Dict[str, bool]] = None) -> Dict:
@@ -61,15 +104,31 @@ def calculate_composite_score(component_scores: Dict[str, float],
     if data_availability is None:
         data_availability = {}
 
-    # Calculate weighted composite
+    # Apply correlation adjustment
+    corr_result = _apply_correlation_adjustment(component_scores)
+    adjusted_scores = corr_result["adjusted_scores"]
+    correlation_adjustment = corr_result["adjustments"]
+
+    # Calculate weighted composite using adjusted scores
+    # Redistribute weight from unavailable components to available ones
+    available_weight = 0.0
+    for key, weight in COMPONENT_WEIGHTS.items():
+        if data_availability.get(key, True):
+            available_weight += weight
+
     composite = 0.0
     for key, weight in COMPONENT_WEIGHTS.items():
-        score = component_scores.get(key, 0)
-        composite += score * weight
+        if not data_availability.get(key, True):
+            continue
+        score = adjusted_scores.get(key, 0)
+        if available_weight > 0:
+            composite += score * (weight / available_weight)
+        else:
+            composite += score * weight
 
     composite = round(composite, 1)
 
-    # Identify strongest and weakest warning signals
+    # Identify strongest and weakest warning signals (use original scores)
     valid_scores = {k: v for k, v in component_scores.items()
                     if k in COMPONENT_WEIGHTS}
 
@@ -128,11 +187,13 @@ def calculate_composite_score(component_scores: Dict[str, float],
             "score": valid_scores.get(weakest_warning, 0),
         },
         "data_quality": data_quality,
+        "correlation_adjustment": correlation_adjustment,
         "component_scores": {
             k: {
                 "score": component_scores.get(k, 0),
+                "adjusted_score": adjusted_scores.get(k, component_scores.get(k, 0)),
                 "weight": w,
-                "weighted_contribution": round(component_scores.get(k, 0) * w, 1),
+                "weighted_contribution": round(adjusted_scores.get(k, 0) * w, 1),
                 "label": COMPONENT_LABELS[k],
             }
             for k, w in COMPONENT_WEIGHTS.items()

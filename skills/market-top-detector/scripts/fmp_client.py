@@ -132,23 +132,51 @@ class FMPClient:
         return results
 
     def calculate_ema(self, prices: List[float], period: int) -> float:
-        """Calculate Exponential Moving Average from a list of prices (most recent first)"""
-        if len(prices) < period:
-            return sum(prices) / len(prices)
-
-        prices_reversed = prices[::-1]
-        sma = sum(prices_reversed[:period]) / period
-        ema = sma
-        k = 2 / (period + 1)
-        for price in prices_reversed[period:]:
-            ema = price * k + ema * (1 - k)
-        return ema
+        """Calculate EMA (thin wrapper around math_utils for backward compat)."""
+        from calculators.math_utils import calc_ema
+        return calc_ema(prices, period)
 
     def calculate_sma(self, prices: List[float], period: int) -> float:
-        """Calculate Simple Moving Average from a list of prices (most recent first)"""
-        if len(prices) < period:
-            return sum(prices) / len(prices)
-        return sum(prices[:period]) / period
+        """Calculate SMA (thin wrapper around math_utils for backward compat)."""
+        from calculators.math_utils import calc_sma
+        return calc_sma(prices, period)
+
+    def get_vix_term_structure(self) -> Optional[Dict]:
+        """
+        Auto-detect VIX term structure by comparing VIX to VIX3M.
+
+        Returns:
+            Dict with ratio, classification, or None if VIX3M unavailable.
+        """
+        vix_quotes = self.get_quote("^VIX")
+        vix3m_quotes = self.get_quote("^VIX3M")
+
+        if not vix_quotes or not vix3m_quotes:
+            return None
+
+        vix_price = vix_quotes[0].get("price", 0)
+        vix3m_price = vix3m_quotes[0].get("price", 0)
+
+        if vix3m_price <= 0:
+            return None
+
+        ratio = vix_price / vix3m_price
+
+        if ratio < 0.85:
+            classification = "steep_contango"
+        elif ratio < 0.95:
+            classification = "contango"
+        elif ratio <= 1.05:
+            classification = "flat"
+        else:
+            classification = "backwardation"
+
+        return {
+            "vix": round(vix_price, 2),
+            "vix3m": round(vix3m_price, 2),
+            "ratio": round(ratio, 3),
+            "classification": classification,
+        }
 
     def get_api_stats(self) -> Dict:
         return {

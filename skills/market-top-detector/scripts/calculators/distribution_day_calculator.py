@@ -52,7 +52,16 @@ def calculate_distribution_days(sp500_history: List[Dict],
         secondary_name = "S&P 500"
 
     effective_count = max(sp500_effective, nasdaq_effective)
-    score = _score_distribution_days(effective_count)
+    raw_score = _score_distribution_days(effective_count)
+
+    # Clustering analysis: check if distribution days are concentrated recently
+    primary_details = primary["details"]
+    clustering = _calculate_clustering_factor(primary_details)
+    clustering_applied = (effective_count >= 2 and clustering["factor"] > 0.5)
+    if clustering_applied:
+        score = min(100, round(raw_score * 1.15))
+    else:
+        score = raw_score
 
     # Build signal description
     if effective_count >= 5:
@@ -68,8 +77,11 @@ def calculate_distribution_days(sp500_history: List[Dict],
 
     return {
         "score": score,
+        "raw_score": raw_score,
         "effective_count": effective_count,
         "signal": signal,
+        "clustering": clustering,
+        "clustering_applied": clustering_applied,
         "primary_index": primary_name,
         "sp500": {
             "distribution_days": sp500_result["distribution_days"],
@@ -124,6 +136,7 @@ def _count_distribution_days(history: List[Dict], index_name: str) -> Dict:
                 "type": "distribution",
                 "pct_change": round(pct_change, 2),
                 "volume_change": round((today_volume / yesterday_volume - 1) * 100, 1),
+                "window_index": i,
             })
 
         # Stalling day: volume increases but price gain < 0.1%
@@ -134,12 +147,34 @@ def _count_distribution_days(history: List[Dict], index_name: str) -> Dict:
                 "type": "stalling",
                 "pct_change": round(pct_change, 2),
                 "volume_change": round((today_volume / yesterday_volume - 1) * 100, 1),
+                "window_index": i,
             })
 
     return {
         "distribution_days": distribution_days,
         "stalling_days": stalling_days,
         "details": details,
+    }
+
+
+def _calculate_clustering_factor(details: list) -> dict:
+    """
+    Calculate how clustered distribution/stalling events are in recent days.
+
+    Looks at window_index of events: index 0-4 = most recent 5 days.
+    Returns factor = recent_count / total_count (0.0-1.0).
+    """
+    if not details:
+        return {"factor": 0.0, "recent_count": 0, "total_count": 0}
+
+    total_count = len(details)
+    recent_count = sum(1 for d in details if d.get("window_index", 99) < 5)
+    factor = recent_count / total_count if total_count > 0 else 0.0
+
+    return {
+        "factor": round(factor, 2),
+        "recent_count": recent_count,
+        "total_count": total_count,
     }
 
 

@@ -3,9 +3,9 @@
 ## 1. ポジション構築とリスク管理の原則
 
 ### 集中投資の哲学
-- **"ブタ（pig）になる"**: 確信度の高い機会には大胆に集中投資する
-- **分散投資の否定**: 「分散投資はビジネススクールで教える最も誤った概念」
-- **待つ戦略**: 年に1-2回の絶好の機会を待ち、その時に大きく張る
+- **"ブタ（pig）になる"**: 確信度の高い機会には大胆に集中投資する (Source: *The New Market Wizards*, Jack Schwager, 1992)
+- **分散投資の否定**: 「分散投資はビジネススクールで教える最も誤った概念」 (Source: Lost Tree Club lecture, Jan 2015)
+- **待つ戦略**: 年に1-2回の絶好の機会を待ち、その時に大きく張る (Source: Bloomberg interview, Jun 2023)
 - **格言**: 「卵を一つのかごに入れ、そのかごを注意深く見張れ」
 
 ### 資金管理の鉄則
@@ -25,8 +25,8 @@
 ## 2. 相場観形成のプロセス
 
 ### マクロ経済分析の視点
-- **18か月先を見る**: 「現在に投資するな、未来に投資せよ」
-- **流動性重視**: 「市場を動かすのは企業収益ではなく中央銀行と流動性」
+- **18か月先を見る**: 「現在に投資するな、未来に投資せよ」 (Source: Duquesne Capital Annual Letters)
+- **流動性重視**: 「市場を動かすのは企業収益ではなく中央銀行と流動性」 (Source: Lost Tree Club lecture, Jan 2015)
 - **期待の重要性**: 「大事なのは人々がその企業についてこれから何を期待しているか」
 
 ### 中央銀行の政策分析
@@ -61,7 +61,31 @@
 3. **逆張りの勇気**: 過剰反応による歪みに賭ける
 4. **生存最優先**: 大損を避け、次の機会まで生き残る
 
-## 4. 投資判断の心構え
+## 4. Quantitative Rules (定量ルール)
+
+### Position Sizing
+- **Maximum single position:** 25% of portfolio (Maximum Conviction only)
+- **Normal conviction:** 10-15% per position
+- **Pilot positions:** 3-5% per position when testing a thesis
+
+### Volatility Management
+- **Daily portfolio volatility target:** 0.3-0.4% (standard mode)
+- **Reduced mode (unclear signals):** 0.1-0.2% daily vol
+- **Maximum concentration:** 40% in any single asset class tilt vs benchmark
+
+### Capital Preservation Thresholds
+- **Maximum drawdown tolerance:** -5% triggers defensive mode
+- **Annual target structure:** 0% in bad years, +30-60% in good years
+- **"Two-strike rule":** Two consecutive losing months → cut all risk to minimum
+
+### Entry/Exit Quantitative Criteria
+- **Minimum risk/reward ratio:** 3:1 for standard entries, 5:1 for concentrated bets
+- **Stop-loss framework:** Time-based (thesis timeframe) + Price-based (technical invalidation)
+- **Profit target:** Let winners run; only exit on thesis change, NOT price targets
+
+> See `references/conviction_matrix.md` for signal-to-action mapping tables.
+
+## 5. 投資判断の心構え
 
 ### オープンマインドと柔軟性
 - **市場の声を聴く**: 自分の予測に固執しない

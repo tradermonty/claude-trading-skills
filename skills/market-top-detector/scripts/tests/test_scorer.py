@@ -2,6 +2,9 @@
 
 from scorer import (
     COMPONENT_WEIGHTS,
+    CORRELATION_THRESHOLD,
+    CORRELATION_DISCOUNT,
+    _apply_correlation_adjustment,
     calculate_composite_score,
     detect_follow_through_day,
 )
@@ -17,9 +20,10 @@ class TestCompositeScore:
         assert "Green" in result["zone"]
 
     def test_all_100(self):
+        """All 100 with correlation discount: 100 - 0.15*(100-80) = 97.0."""
         scores = {k: 100 for k in COMPONENT_WEIGHTS}
         result = calculate_composite_score(scores)
-        assert result["composite_score"] == 100.0
+        assert result["composite_score"] == 97.0
         assert "Critical" in result["zone"]
 
     def test_moderate_risk(self):
@@ -93,6 +97,76 @@ class TestDataQuality:
         dq = result["data_quality"]
         assert dq["available_count"] == 6
         assert "Complete" in dq["label"]
+
+    def test_weight_redistribution_when_missing(self):
+        """Missing components' weight should be redistributed, not use neutral 50."""
+        scores_all_80 = {k: 80 for k in COMPONENT_WEIGHTS}
+        # All available: composite ~ 80 (minus correlation discount)
+        result_full = calculate_composite_score(scores_all_80)
+
+        # Mark sentiment as unavailable: should still be ~80 from remaining
+        avail = {k: True for k in COMPONENT_WEIGHTS}
+        avail["sentiment"] = False
+        result_partial = calculate_composite_score(scores_all_80, avail)
+
+        # With redistribution, score should be similar (both driven by 80s)
+        assert abs(result_full["composite_score"] - result_partial["composite_score"]) <= 3.0
+
+    def test_weight_redistribution_excludes_unavailable(self):
+        """Unavailable component with score 0 should not drag composite down."""
+        scores = {k: 80 for k in COMPONENT_WEIGHTS}
+        scores["breadth_divergence"] = 0  # Would drag down if included
+        avail = {k: True for k in COMPONENT_WEIGHTS}
+        avail["breadth_divergence"] = False  # But it's unavailable
+
+        result = calculate_composite_score(scores, avail)
+        # Without breadth (score=0), composite should be purely from 80-scored components
+        # All remaining are 80, so composite ~ 80 (minus correlation discount)
+        assert result["composite_score"] >= 75
+
+
+class TestCorrelationAdjustment:
+    """Test correlation adjustment between distribution_days and defensive_rotation."""
+
+    def test_both_extreme_applies_discount(self):
+        """Both >= 80 -> defensive_rotation discounted by 0.8x."""
+        scores = {k: 50 for k in COMPONENT_WEIGHTS}
+        scores["distribution_days"] = 90
+        scores["defensive_rotation"] = 85
+        result = _apply_correlation_adjustment(scores)
+        adj = result["adjusted_scores"]
+        assert adj["defensive_rotation"] == 85 * CORRELATION_DISCOUNT
+        assert adj["distribution_days"] == 90  # Higher weight, not discounted
+        assert len(result["adjustments"]) == 1
+
+    def test_one_below_threshold_no_discount(self):
+        """One below threshold -> no adjustment."""
+        scores = {k: 50 for k in COMPONENT_WEIGHTS}
+        scores["distribution_days"] = 90
+        scores["defensive_rotation"] = 70  # Below 80
+        result = _apply_correlation_adjustment(scores)
+        assert result["adjusted_scores"]["defensive_rotation"] == 70
+        assert len(result["adjustments"]) == 0
+
+    def test_zone_unchanged_for_moderate(self):
+        """Moderate scores should not trigger correlation adjustment."""
+        scores = {k: 40 for k in COMPONENT_WEIGHTS}
+        result = _apply_correlation_adjustment(scores)
+        assert len(result["adjustments"]) == 0
+        assert result["adjusted_scores"] == scores
+
+    def test_adjustment_details_present(self):
+        """Adjustment details should include pair, original, adjusted, discount."""
+        scores = {k: 80 for k in COMPONENT_WEIGHTS}
+        result = _apply_correlation_adjustment(scores)
+        assert len(result["adjustments"]) == 1
+        adj = result["adjustments"][0]
+        assert "distribution_days" in adj["pair"]
+        assert "defensive_rotation" in adj["pair"]
+        assert adj["discounted_component"] == "defensive_rotation"
+        assert adj["original_score"] == 80
+        assert adj["adjusted_score"] == 80 * CORRELATION_DISCOUNT
+        assert adj["discount_factor"] == CORRELATION_DISCOUNT
 
 
 class TestFollowThroughDay:
