@@ -130,6 +130,18 @@ def etf_proliferation_score(etf_count: int) -> float:
         return 100.0
 
 
+def has_sufficient_lifecycle_data(extremity: Optional[float],
+                                  price_extreme: Optional[float],
+                                  valuation: Optional[float]) -> bool:
+    """Check whether stock-derived lifecycle sub-scores have real data.
+
+    Returns False if all three stock-based sub-scores are None (indicating
+    no stock metrics were available). Duration and etf_proliferation are
+    industry-level scores and always available.
+    """
+    return not (extremity is None and price_extreme is None and valuation is None)
+
+
 def classify_stage(maturity: float) -> str:
     """Classify lifecycle stage from maturity score.
 

@@ -42,6 +42,7 @@ from calculators.lifecycle_calculator import (
     etf_proliferation_score,
     classify_stage,
     calculate_lifecycle_maturity,
+    has_sufficient_lifecycle_data,
 )
 from scorer import (
     score_theme,
@@ -418,10 +419,11 @@ def _get_theme_weighted_return(theme: Dict) -> float:
 def main():
     # Lazy imports: these modules depend on pandas/numpy/yfinance/finvizfinance
     # and are only needed at runtime, not when importing helpers for testing.
-    from finviz_performance_client import get_industry_performance
+    from finviz_performance_client import get_industry_performance, cap_outlier_performances
     from etf_scanner import ETFScanner
     from uptrend_client import fetch_sector_uptrend_data, is_data_stale
     from config_loader import load_themes_config
+    from calculators.theme_classifier import enrich_vertical_themes, deduplicate_themes
 
     args = parse_args()
 
@@ -468,8 +470,9 @@ def main():
     metadata["data_sources"]["finviz_industries"] = len(raw_industries)
     print(f"  Got {len(raw_industries)} industries", file=sys.stderr)
 
-    # Convert decimal to percentage and add sector info
+    # Convert decimal to percentage, filter outliers, and add sector info
     industries = _convert_perf_to_pct(raw_industries)
+    industries = cap_outlier_performances(industries)
     industries = _add_sector_info(industries)
 
     # -----------------------------------------------------------------------
@@ -491,6 +494,11 @@ def main():
     if not themes:
         print("WARNING: No themes detected. Generating empty report.",
               file=sys.stderr)
+
+    # Step 3.3: Enrich vertical themes with ETFs + deduplicate
+    enrich_vertical_themes(themes)
+    themes = deduplicate_themes(themes)
+    print(f"  After enrich/dedup: {len(themes)} themes", file=sys.stderr)
 
     # Step 3.5: Discover new themes from unmatched industries
     if args.discover_themes:
@@ -596,10 +604,17 @@ def main():
     # Capture backend stats after all scanner calls (stock + ETF)
     scanner_stats = scanner.backend_stats()
     metadata["data_sources"]["scanner_backend"] = scanner_stats
-    print(f"  Scanner: FMP {scanner_stats['fmp_calls']} calls "
-          f"({scanner_stats['fmp_failures']} failures), "
-          f"yfinance: {scanner_stats['yf_calls']} calls "
-          f"({scanner_stats['yf_fallbacks']} fallbacks)",
+    stock_s = scanner_stats.get("stock", {})
+    etf_s = scanner_stats.get("etf", {})
+    print(f"  Scanner (stock): FMP {stock_s.get('fmp_calls', 0)} calls "
+          f"({stock_s.get('fmp_failures', 0)} failures), "
+          f"yfinance: {stock_s.get('yf_calls', 0)} calls "
+          f"({stock_s.get('yf_fallbacks', 0)} fallbacks)",
+          file=sys.stderr)
+    print(f"  Scanner (ETF):   FMP {etf_s.get('fmp_calls', 0)} calls "
+          f"({etf_s.get('fmp_failures', 0)} failures), "
+          f"yfinance: {etf_s.get('yf_calls', 0)} calls "
+          f"({etf_s.get('yf_fallbacks', 0)} fallbacks)",
           file=sys.stderr)
 
     # -----------------------------------------------------------------------
@@ -663,7 +678,8 @@ def main():
 
         # Breadth signal
         breadth_ratio = _calculate_breadth_ratio(theme)
-        breadth = breadth_signal_score(breadth_ratio)
+        n_industries = len(theme.get("matching_industries", []))
+        breadth = breadth_signal_score(breadth_ratio, industry_count=n_industries)
 
         heat = calculate_theme_heat(momentum, volume, uptrend, breadth)
 
@@ -739,6 +755,11 @@ def main():
             data_mode,
         )
 
+        # Lifecycle data quality flag
+        lifecycle_quality = (
+            "sufficient" if theme_stock_metrics else "insufficient"
+        )
+
         # Build full theme result
         scored_theme = {
             "name": theme_name,
@@ -750,6 +771,7 @@ def main():
             "heat_label": score["heat_label"],
             "heat_breakdown": heat_breakdown,
             "maturity_breakdown": maturity_breakdown,
+            "lifecycle_data_quality": lifecycle_quality,
             "representative_stocks": stocks,
             "stock_details": theme_stock_details.get(idx, []),
             "proxy_etfs": theme.get("proxy_etfs", []),

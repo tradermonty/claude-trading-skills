@@ -3,6 +3,13 @@ Theme Detector - Scoring, Labeling & Confidence
 
 Combines theme heat and lifecycle maturity into a final theme score dict.
 Follows the pattern from macro-regime-detector/scripts/scorer.py.
+
+Design Note on Confidence Levels:
+    narrative_confirmed is intentionally set to False in the script output.
+    This is by design: Claude performs WebSearch-based narrative confirmation
+    as a post-processing step. Script-only output therefore has a maximum
+    confidence of "Medium" (quant_confirmed + breadth_confirmed = 2 layers).
+    After Claude confirms narrative alignment, confidence can reach "High".
 """
 
 from typing import Dict

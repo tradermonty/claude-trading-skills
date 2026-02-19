@@ -188,8 +188,154 @@ def get_theme_sector_weights(theme: Dict) -> Dict[str, float]:
     return {sector: count / total for sector, count in counts.items()}
 
 
+# Sector-to-representative-stocks mapping for vertical theme enrichment
+SECTOR_REPRESENTATIVE_STOCKS: Dict[str, List[str]] = {
+    "Technology": ["AAPL", "MSFT", "NVDA", "AVGO", "CRM"],
+    "Consumer Cyclical": ["AMZN", "TSLA", "HD", "MCD", "NKE"],
+    "Consumer Defensive": ["PG", "KO", "PEP", "WMT", "COST"],
+    "Industrials": ["CAT", "HON", "UPS", "GE", "RTX"],
+    "Healthcare": ["UNH", "JNJ", "LLY", "PFE", "ABBV"],
+    "Financial": ["JPM", "BAC", "GS", "V", "MA"],
+    "Energy": ["XOM", "CVX", "COP", "SLB", "EOG"],
+    "Basic Materials": ["LIN", "APD", "NEM", "FCX", "NUE"],
+    "Communication Services": ["META", "GOOGL", "NFLX", "DIS", "TMUS"],
+    "Real Estate": ["PLD", "AMT", "EQIX", "SPG", "O"],
+    "Utilities": ["NEE", "DUK", "SO", "D", "AEP"],
+}
+
+# Sector-to-ETF mapping for vertical theme enrichment
+SECTOR_ETFS: Dict[str, List[str]] = {
+    "Energy": ["XLE"],
+    "Technology": ["XLK"],
+    "Basic Materials": ["XLB"],
+    "Industrials": ["XLI"],
+    "Consumer Cyclical": ["XLY"],
+    "Consumer Defensive": ["XLP"],
+    "Healthcare": ["XLV"],
+    "Financial": ["XLF"],
+    "Communication Services": ["XLC"],
+    "Real Estate": ["XLRE"],
+    "Utilities": ["XLU"],
+}
+
+
+def _industry_overlap_ratio(theme_a: Dict, theme_b: Dict) -> float:
+    """Calculate industry name overlap ratio between two themes.
+
+    Returns the Jaccard-like ratio: |intersection| / |smaller set|.
+    """
+    names_a = {ind.get("name") for ind in theme_a.get("matching_industries", [])}
+    names_b = {ind.get("name") for ind in theme_b.get("matching_industries", [])}
+    if not names_a or not names_b:
+        return 0.0
+    intersection = names_a & names_b
+    smaller = min(len(names_a), len(names_b))
+    return len(intersection) / smaller if smaller > 0 else 0.0
+
+
+def enrich_vertical_themes(themes: List[Dict]) -> None:
+    """Add ETFs and stocks to vertical themes from overlapping seeds or sector mapping.
+
+    Mutates vertical themes in place:
+    1. If a seed theme shares >= 50% industry overlap, inherit its ETFs/stocks.
+    2. Otherwise, assign sector ETF from SECTOR_ETFS mapping.
+    """
+    seed_themes = [t for t in themes if t.get("theme_origin") == "seed"]
+
+    for theme in themes:
+        if theme.get("theme_origin") != "vertical":
+            continue
+        if theme.get("proxy_etfs"):
+            continue  # already has ETFs
+
+        # Try inheriting from overlapping seed theme
+        best_seed = None
+        best_overlap = 0.0
+        for seed in seed_themes:
+            overlap = _industry_overlap_ratio(theme, seed)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_seed = seed
+
+        if best_seed and best_overlap >= 0.5:
+            theme["proxy_etfs"] = list(best_seed.get("proxy_etfs", []))
+            theme["static_stocks"] = list(best_seed.get("static_stocks", []))
+            continue
+
+        # Sector ETF fallback
+        sector_weights = theme.get("sector_weights", {})
+        if sector_weights:
+            primary_sector = max(sector_weights, key=sector_weights.get)
+            etfs = SECTOR_ETFS.get(primary_sector, [])
+            if etfs:
+                theme["proxy_etfs"] = list(etfs)
+        else:
+            # Infer sector from matching industries
+            sectors = [ind.get("sector") for ind in theme.get("matching_industries", [])
+                       if ind.get("sector")]
+            if sectors:
+                primary = max(set(sectors), key=sectors.count)
+                etfs = SECTOR_ETFS.get(primary, [])
+                if etfs:
+                    theme["proxy_etfs"] = list(etfs)
+
+    # Fill empty static_stocks for vertical themes from sector mapping
+    for theme in themes:
+        if theme.get("theme_origin") != "vertical":
+            continue
+        if theme.get("static_stocks"):
+            continue  # already has stocks
+
+        sector_weights = theme.get("sector_weights", {})
+        if sector_weights:
+            primary_sector = max(sector_weights, key=sector_weights.get)
+        else:
+            sectors = [ind.get("sector") for ind in theme.get("matching_industries", [])
+                       if ind.get("sector")]
+            primary_sector = max(set(sectors), key=sectors.count) if sectors else None
+
+        if primary_sector:
+            stocks = SECTOR_REPRESENTATIVE_STOCKS.get(primary_sector, [])
+            if stocks:
+                theme["static_stocks"] = list(stocks)
+
+
+def deduplicate_themes(themes: List[Dict], overlap_threshold: float = 0.5) -> List[Dict]:
+    """Remove vertical themes that duplicate seed themes.
+
+    A vertical theme is removed if:
+    - Same direction as a seed theme
+    - Industry overlap ratio >= overlap_threshold
+
+    Seed themes are always kept. Returns a new list.
+    """
+    seed_themes = [t for t in themes if t.get("theme_origin") == "seed"]
+    result = list(seed_themes)
+
+    for theme in themes:
+        if theme.get("theme_origin") == "seed":
+            continue
+
+        is_duplicate = False
+        for seed in seed_themes:
+            if theme.get("direction") != seed.get("direction"):
+                continue
+            overlap = _industry_overlap_ratio(theme, seed)
+            if overlap >= overlap_threshold:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            result.append(theme)
+
+    return result
+
+
 def _majority_direction(industries: List[Dict]) -> str:
-    """Determine majority direction from a list of industries."""
-    bullish = sum(1 for ind in industries if ind.get("direction") == "bullish")
+    """Determine majority direction from rank_direction (falls back to direction)."""
+    bullish = sum(
+        1 for ind in industries
+        if ind.get("rank_direction", ind.get("direction")) == "bullish"
+    )
     bearish = len(industries) - bullish
     return "bullish" if bullish > bearish else "bearish"

@@ -258,6 +258,10 @@ def generate_markdown_report(json_data: Dict,
     lines.append("5. **Uptrend Overlay:** Monty's sector uptrend ratios "
                  "provide breadth context")
     lines.append("")
+    lines.append("**Note on Confidence:** Script output confidence is capped at "
+                 "Medium. Claude's WebSearch narrative confirmation can elevate "
+                 "confidence to High.")
+    lines.append("")
 
     data_quality = json_data.get("data_quality", {})
     flags = data_quality.get("flags", [])
@@ -317,7 +321,11 @@ def _assess_data_quality(themes: List[Dict],
                           industry_rankings: Dict,
                           sector_uptrend: Dict,
                           metadata: Dict) -> Dict:
-    """Assess data quality and return flags."""
+    """Assess data quality and return flags.
+
+    Checks FINVIZ connectivity, uptrend data freshness, and scanner
+    backend statistics (FMP failure rate, yfinance fallback usage).
+    """
     flags = []
 
     if not themes:
@@ -350,6 +358,34 @@ def _assess_data_quality(themes: List[Dict],
         flags.append(f"FINVIZ error: {sources['finviz_error']}")
     if sources.get("uptrend_error"):
         flags.append(f"Uptrend error: {sources['uptrend_error']}")
+
+    # Scanner backend statistics (support both flat and nested formats)
+    scanner = sources.get("scanner_backend", {})
+    for ctx_label, ctx_key in [("Stock", "stock"), ("ETF", "etf")]:
+        ctx_stats = scanner.get(ctx_key, {})
+        ctx_fmp_calls = ctx_stats.get("fmp_calls", 0)
+        ctx_fmp_failures = ctx_stats.get("fmp_failures", 0)
+        if ctx_fmp_calls > 0 and ctx_fmp_failures / ctx_fmp_calls > 0.2:
+            pct = ctx_fmp_failures / ctx_fmp_calls
+            flags.append(
+                f"FMP API ({ctx_label}): {ctx_fmp_failures}/{ctx_fmp_calls} "
+                f"calls failed ({pct:.0%})"
+            )
+
+    # Flat fallback for backward compat (if nested not available)
+    fmp_calls = scanner.get("fmp_calls", 0)
+    fmp_failures = scanner.get("fmp_failures", 0)
+    if fmp_calls > 0 and fmp_failures / fmp_calls > 0.2 and "stock" not in scanner:
+        pct = fmp_failures / fmp_calls
+        flags.append(
+            f"FMP API: {fmp_failures}/{fmp_calls} calls failed ({pct:.0%})"
+        )
+
+    yf_fallbacks = scanner.get("yf_fallbacks", 0)
+    if yf_fallbacks > 0:
+        flags.append(
+            f"yfinance fallback used {yf_fallbacks} time(s) for missing FMP data"
+        )
 
     return {
         "status": "warning" if flags else "ok",
@@ -404,6 +440,26 @@ def _fmt_pct(value: Optional[float]) -> str:
     return f"{value:+.1f}%"
 
 
+def _heat_subscore_interpretation(key: str, value: float) -> str:
+    """Provide a brief interpretation of a heat sub-score value."""
+    if value >= 75:
+        strength = "strong"
+    elif value >= 50:
+        strength = "moderate"
+    elif value >= 25:
+        strength = "weak"
+    else:
+        strength = "very weak"
+
+    descriptions = {
+        "momentum_strength": f"{strength} theme momentum",
+        "volume_intensity": f"{strength} volume confirmation",
+        "uptrend_signal": f"{strength} breadth alignment",
+        "breadth_signal": f"{strength} directional consensus",
+    }
+    return descriptions.get(key, strength)
+
+
 _SOURCE_LABELS = {
     "finviz_elite": "Fe",
     "finviz_public": "Fp",
@@ -453,7 +509,7 @@ def _add_theme_details(lines: List[str], themes: List[Dict]) -> None:
         lines.append(f"- **Confidence:** {t.get('confidence', 'N/A')}")
         lines.append("")
 
-        # Heat breakdown
+        # Heat breakdown with interpretive labels
         heat_bd = t.get("heat_breakdown", {})
         if heat_bd:
             lines.append("**Heat Breakdown:**")
@@ -461,7 +517,8 @@ def _add_theme_details(lines: List[str], themes: List[Dict]) -> None:
             for key, val in heat_bd.items():
                 label = key.replace("_", " ").title()
                 if isinstance(val, float):
-                    lines.append(f"- {label}: {val:.2f}")
+                    interp = _heat_subscore_interpretation(key, val)
+                    lines.append(f"- {label}: {val:.2f} ({interp})")
                 else:
                     lines.append(f"- {label}: {val}")
             lines.append("")
@@ -471,6 +528,10 @@ def _add_theme_details(lines: List[str], themes: List[Dict]) -> None:
         if mat_bd:
             lines.append("**Maturity Breakdown:**")
             lines.append("")
+            if t.get("lifecycle_data_quality") == "insufficient":
+                lines.append("- *Note: Maturity based on defaults (no stock "
+                             "metrics available). Values may not reflect "
+                             "actual lifecycle stage.*")
             for key, val in mat_bd.items():
                 label = key.replace("_", " ").title()
                 if isinstance(val, float):

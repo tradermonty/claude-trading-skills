@@ -87,16 +87,26 @@ class ETFScanner:
         self._rate_limit_sec = rate_limit_sec
         self._last_request_time = 0.0
         self._fmp_quote_cache: Dict[str, Dict] = {}  # normalized_symbol -> quote dict
-        self._stats = {
-            "fmp_calls": 0,
-            "fmp_failures": 0,
-            "yf_calls": 0,
-            "yf_fallbacks": 0,
+        self._stats: Dict[str, Dict[str, int]] = {
+            "stock": {"fmp_calls": 0, "fmp_failures": 0, "yf_calls": 0, "yf_fallbacks": 0},
+            "etf": {"fmp_calls": 0, "fmp_failures": 0, "yf_calls": 0, "yf_fallbacks": 0},
         }
+        self._current_stats_context: str = "stock"
 
-    def backend_stats(self) -> Dict[str, int]:
-        """Return a copy of backend usage statistics."""
-        return dict(self._stats)
+    def backend_stats(self) -> Dict[str, Any]:
+        """Return backend usage statistics with both flat and nested formats.
+
+        Flat keys (backward compatible): fmp_calls, fmp_failures, yf_calls, yf_fallbacks
+        Nested keys: stock.{...}, etf.{...}
+        """
+        flat: Dict[str, int] = {}
+        for key in ["fmp_calls", "fmp_failures", "yf_calls", "yf_fallbacks"]:
+            flat[key] = self._stats["stock"][key] + self._stats["etf"][key]
+        return {
+            **flat,
+            "stock": dict(self._stats["stock"]),
+            "etf": dict(self._stats["etf"]),
+        }
 
     # -------------------------------------------------------------------
     # Symbol normalization (R2-4)
@@ -136,10 +146,11 @@ class ETFScanner:
         if extra_params:
             params.update(extra_params)
 
+        ctx = self._current_stats_context
         for base_url, url_builder in _FMP_ENDPOINTS[endpoint_key]:
             url, final_params = url_builder(base_url, symbols_str, dict(params))
             self._fmp_rate_limit()
-            self._stats["fmp_calls"] += 1
+            self._stats[ctx]["fmp_calls"] += 1
             try:
                 resp = _requests_lib.get(url, params=final_params, timeout=15)
                 if resp.status_code == 200:
@@ -148,7 +159,7 @@ class ETFScanner:
                         return data
             except Exception:
                 pass
-            self._stats["fmp_failures"] += 1
+            self._stats[ctx]["fmp_failures"] += 1
         return None
 
     # -------------------------------------------------------------------
@@ -447,6 +458,7 @@ class ETFScanner:
         if not symbols:
             return {}
 
+        self._current_stats_context = "etf"
         # Phase 1: Try FMP batch
         fmp_results: Dict[str, Dict] = {}
         fmp_attempted = self._fmp_api_key and HAS_REQUESTS
@@ -465,9 +477,9 @@ class ETFScanner:
 
         if missing_for_yf:
             if fmp_attempted:
-                self._stats["yf_fallbacks"] += 1
+                self._stats["etf"]["yf_fallbacks"] += 1
             for sym in missing_for_yf:
-                self._stats["yf_calls"] += 1
+                self._stats["etf"]["yf_calls"] += 1
                 result[sym] = self._get_etf_volume_ratio_yfinance(sym)
 
         return result
@@ -485,26 +497,39 @@ class ETFScanner:
         if not symbols:
             return []
 
-        # Phase 1: Try FMP
+        self._current_stats_context = "stock"
+        # Phase 1: FMP results (accept any non-empty result)
         fmp_results: Dict[str, Dict] = {}
         fmp_attempted = self._fmp_api_key and HAS_REQUESTS
+        metric_keys = ["pe_ratio", "rsi_14", "dist_from_52w_high", "dist_from_52w_low"]
         if fmp_attempted:
             fmp_list = self._batch_stock_metrics_fmp(symbols)
             for m in fmp_list:
                 sym = m["symbol"]
-                if m.get("pe_ratio") is not None or m.get("rsi_14") is not None:
+                has_any = any(m.get(k) is not None for k in metric_keys)
+                if has_any:
                     fmp_results[sym] = m
 
-        # Phase 2: yfinance for missing symbols only
-        missing = [s for s in symbols if s not in fmp_results]
+        # Phase 2: yfinance for symbols missing RSI (not just missing entirely)
+        missing_rsi = [
+            s for s in symbols
+            if s not in fmp_results or fmp_results[s].get("rsi_14") is None
+        ]
         yf_results: Dict[str, Dict] = {}
-        if missing:
+        if missing_rsi:
             if fmp_attempted:
-                self._stats["yf_fallbacks"] += 1
-            yf_list = self._batch_stock_metrics_yfinance(missing)
-            self._stats["yf_calls"] += 1
+                self._stats["stock"]["yf_fallbacks"] += 1
+            yf_list = self._batch_stock_metrics_yfinance(missing_rsi)
+            self._stats["stock"]["yf_calls"] += 1
             for m in yf_list:
-                yf_results[m["symbol"]] = m
+                sym = m["symbol"]
+                if sym in fmp_results:
+                    # Field-level merge: fill only None fields from yfinance
+                    for k, v in m.items():
+                        if k != "symbol" and fmp_results[sym].get(k) is None and v is not None:
+                            fmp_results[sym][k] = v
+                else:
+                    yf_results[sym] = m
 
         # Merge: FMP takes priority, yfinance fills gaps
         results = []

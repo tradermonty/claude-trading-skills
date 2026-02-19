@@ -72,8 +72,10 @@ def rank_industries(industries: List[Dict]) -> List[Dict]:
 
     scored.sort(key=lambda x: x["momentum_score"], reverse=True)
 
+    mid = len(scored) // 2
     for i, entry in enumerate(scored, start=1):
         entry["rank"] = i
+        entry["rank_direction"] = "bullish" if i <= mid else "bearish"
 
     return scored
 

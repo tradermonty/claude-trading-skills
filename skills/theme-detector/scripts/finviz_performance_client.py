@@ -8,6 +8,7 @@ finvizfinance library. No API key required (public data).
 Data Source: finvizfinance.group.performance
 """
 
+import math
 import sys
 from typing import Dict, List, Optional
 
@@ -17,6 +18,19 @@ try:
     HAS_FINVIZFINANCE = True
 except ImportError:
     HAS_FINVIZFINANCE = False
+
+
+# Hard caps for performance values (absolute %).
+# Applied before z-score winsorization to handle corrupted FINVIZ data
+# (e.g., Luxury Goods: -100%, Biotechnology: +87% in perf_1w).
+HARD_CAPS = {
+    "perf_1w": 30.0,
+    "perf_1m": 60.0,
+    "perf_3m": 100.0,
+    "perf_6m": 100.0,
+    "perf_1y": 200.0,
+    "perf_ytd": 200.0,
+}
 
 
 # Mapping from finvizfinance DataFrame columns to standardized keys
@@ -84,6 +98,86 @@ def _dataframe_to_dicts(df) -> List[Dict]:
         if entry.get("name"):
             rows.append(entry)
     return rows
+
+
+def _apply_hard_caps(industries: List[Dict]) -> List[Dict]:
+    """Apply absolute hard caps to performance values.
+
+    Caps each perf_* field to ±HARD_CAPS[key]. Original values are saved in
+    raw_perf_* only if raw_perf_* does not already exist (preserves the
+    two-stage pipeline: hard cap -> z-score winsorization).
+
+    Args:
+        industries: List of industry dicts with perf_* fields.
+
+    Returns:
+        Same list, mutated in place.
+    """
+    for ind in industries:
+        for key, cap in HARD_CAPS.items():
+            val = ind.get(key)
+            if val is None:
+                continue
+            if abs(val) > cap:
+                raw_key = f"raw_{key}"
+                if raw_key not in ind:
+                    ind[raw_key] = val
+                ind[key] = cap if val > 0 else -cap
+    return industries
+
+
+def cap_outlier_performances(industries: List[Dict],
+                              z_threshold: float = 3.0) -> List[Dict]:
+    """Winsorize performance values exceeding z_threshold standard deviations.
+
+    For each perf_* field, computes mean and std across all industries,
+    then caps values exceeding |z| > z_threshold to the boundary value.
+    Original values are preserved in raw_perf_* fields.
+
+    Skips winsorization if fewer than 5 industries (insufficient for z-score).
+
+    Args:
+        industries: List of industry dicts with perf_* fields.
+        z_threshold: Z-score threshold for outlier detection (default 3.0).
+
+    Returns:
+        Modified list (same objects, mutated in place).
+    """
+    # Stage 1: Apply hard caps before z-score calculation
+    _apply_hard_caps(industries)
+
+    if len(industries) < 5:
+        return industries
+
+    perf_keys = ["perf_1w", "perf_1m", "perf_3m", "perf_6m", "perf_1y", "perf_ytd"]
+
+    for key in perf_keys:
+        values = [ind[key] for ind in industries if ind.get(key) is not None]
+        if len(values) < 5:
+            continue
+
+        mean = sum(values) / len(values)
+        variance = sum((v - mean) ** 2 for v in values) / len(values)
+        std = math.sqrt(variance) if variance > 0 else 0
+
+        if std == 0:
+            continue
+
+        cap_high = mean + z_threshold * std
+        cap_low = mean - z_threshold * std
+
+        for ind in industries:
+            val = ind.get(key)
+            if val is None:
+                continue
+            z = (val - mean) / std
+            if abs(z) > z_threshold:
+                raw_key = f"raw_{key}"
+                if raw_key not in ind:
+                    ind[raw_key] = val
+                ind[key] = cap_high if val > mean else cap_low
+
+    return industries
 
 
 def get_sector_performance() -> List[Dict]:

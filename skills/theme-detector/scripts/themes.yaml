@@ -55,7 +55,7 @@ cross_sector:
       - Drug Manufacturers - Specialty & Generic
       - Diagnostics & Research
     proxy_etfs: [XBI, IBB, ARKG]
-    static_stocks: [AMGN, GILD, VRTX, REGN, MRNA, BIIB, ILMN, SGEN, ALNY, BMRN]
+    static_stocks: [AMGN, GILD, VRTX, REGN, MRNA, BIIB, ILMN, SRPT, ALNY, BMRN]
     etf_count: 5
 
   - theme_name: "Infrastructure & Construction"
@@ -88,7 +88,7 @@ cross_sector:
       - Oil & Gas Refining & Marketing
       - Oil & Gas Drilling
     proxy_etfs: [XLE, XOP, OIH]
-    static_stocks: [XOM, CVX, COP, EOG, SLB, PXD, MPC, PSX, OXY, DVN]
+    static_stocks: [XOM, CVX, COP, EOG, SLB, FANG, MPC, PSX, OXY, DVN]
     etf_count: 5
 
   - theme_name: "Financial Services & Banks"
