@@ -137,6 +137,69 @@ def _period_return(closes: List[float], period: int) -> float:
     return ((closes[0] - closes[period]) / closes[period]) * 100
 
 
+def rank_relative_strength_universe(rs_results: Dict[str, Dict]) -> Dict[str, Dict]:
+    """Rank all candidates by weighted_rs and assign percentile-based scores.
+
+    Args:
+        rs_results: {symbol: {score, weighted_rs, ...}} for each candidate
+
+    Returns:
+        Updated dict with rs_percentile and recalculated score for each symbol
+    """
+    if not rs_results:
+        return {}
+
+    # Sort by weighted_rs (None treated as -inf)
+    symbols = list(rs_results.keys())
+    symbols.sort(key=lambda s: rs_results[s].get("weighted_rs") if rs_results[s].get("weighted_rs") is not None else -999)
+
+    n = len(symbols)
+    # Assign percentiles (handle ties by giving same percentile)
+    percentiles = {}
+    i = 0
+    while i < n:
+        # Find all symbols with the same weighted_rs
+        current_val = rs_results[symbols[i]].get("weighted_rs")
+        j = i + 1
+        while j < n and rs_results[symbols[j]].get("weighted_rs") == current_val:
+            j += 1
+        # Assign percentile as the upper rank of the tie group
+        pct = int(round(j / n * 100))
+        for k in range(i, j):
+            percentiles[symbols[k]] = pct
+        i = j
+
+    # Update results with percentile and recalculated score
+    result = {}
+    for sym, data in rs_results.items():
+        updated = dict(data)
+        updated["rs_percentile"] = percentiles[sym]
+        updated["score"] = _percentile_to_score(percentiles[sym])
+        result[sym] = updated
+
+    return result
+
+
+def _percentile_to_score(percentile: int) -> int:
+    """Map percentile rank to RS score."""
+    if percentile >= 95:
+        return 100
+    elif percentile >= 85:
+        return 90
+    elif percentile >= 75:
+        return 80
+    elif percentile >= 60:
+        return 70
+    elif percentile >= 45:
+        return 60
+    elif percentile >= 30:
+        return 50
+    elif percentile >= 15:
+        return 40
+    else:
+        return 20
+
+
 def _score_rs(weighted_rs: float) -> tuple:
     """Score based on weighted relative strength."""
     if weighted_rs >= 50:

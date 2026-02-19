@@ -24,10 +24,17 @@ def generate_json_report(results: List[Dict], metadata: Dict, output_file: str,
         output_file: Output file path
         all_results: Full candidate list for summary stats (defaults to results)
     """
+    summary_source = all_results if all_results is not None else results
+    sector_counts = {}
+    for stock in summary_source:
+        s = stock.get("sector", "Unknown")
+        sector_counts[s] = sector_counts.get(s, 0) + 1
+
     report = {
         "metadata": metadata,
         "results": results,
-        "summary": _generate_summary(all_results if all_results is not None else results),
+        "summary": _generate_summary(summary_source),
+        "sector_distribution": sector_counts,
     }
 
     with open(output_file, 'w') as f:
@@ -67,6 +74,14 @@ def generate_markdown_report(results: List[Dict], metadata: Dict, output_file: s
     lines.append(f"| Trend Template passed | {funnel.get('trend_template_passed', 'N/A')} |")
     lines.append(f"| VCP candidates | {funnel.get('vcp_candidates', len(results))} |")
     lines.append("")
+
+    # Show "top X of Y" when not all results are displayed
+    total_candidates = len(all_results) if all_results is not None else len(results)
+    showing_count = len(results)
+    if showing_count < total_candidates:
+        lines.append(f"**Showing top {showing_count} of {total_candidates} candidates** (sorted by composite score)")
+        lines.append("")
+
     lines.append("---")
     lines.append("")
 
@@ -75,7 +90,8 @@ def generate_markdown_report(results: List[Dict], metadata: Dict, output_file: s
     section_b = [s for s in results if not s.get("entry_ready", False)]
 
     # Section A: Pre-Breakout Watchlist
-    lines.append("## Section A: Pre-Breakout Watchlist")
+    count_label_a = f"{len(section_a)} stock{'s' if len(section_a) != 1 else ''}"
+    lines.append(f"## Section A: Pre-Breakout Watchlist ({count_label_a})")
     lines.append("")
     if section_a:
         for i, stock in enumerate(section_a, 1):
@@ -85,7 +101,8 @@ def generate_markdown_report(results: List[Dict], metadata: Dict, output_file: s
         lines.append("")
 
     # Section B: Extended / Quality VCP
-    lines.append("## Section B: Extended / Quality VCP")
+    count_label_b = f"{len(section_b)} stock{'s' if len(section_b) != 1 else ''}"
+    lines.append(f"## Section B: Extended / Quality VCP ({count_label_b})")
     lines.append("")
     if section_b:
         for i, stock in enumerate(section_b, 1):
@@ -108,9 +125,9 @@ def generate_markdown_report(results: List[Dict], metadata: Dict, output_file: s
     lines.append(f"- **Weak/No VCP (<60):** {summary['weak']}")
     lines.append("")
 
-    # Sector distribution
+    # Sector distribution (use all_results for full picture)
     sectors = {}
-    for stock in results:
+    for stock in summary_source:
         s = stock.get("sector", "Unknown")
         sectors[s] = sectors.get(s, 0) + 1
 
@@ -144,7 +161,7 @@ def generate_markdown_report(results: List[Dict], metadata: Dict, output_file: s
     lines.append("4. **Pivot Proximity** (15%) - Distance from breakout level")
     lines.append("5. **Relative Strength** (15%) - Minervini-weighted RS vs S&P 500")
     lines.append("")
-    lines.append("For detailed methodology, see `references/vcp_methodology.md`.")
+    lines.append("For detailed methodology, see the VCP methodology reference in the vcp-screener skill directory.")
     lines.append("")
 
     # Disclaimer
@@ -223,8 +240,14 @@ def _format_stock_entry(rank: int, stock: Dict) -> List[str]:
     rs = stock.get("relative_strength", {})
     rs_score = rs.get("score", 0)
     rs_rank = rs.get("rs_rank_estimate", "N/A")
+    rs_percentile = rs.get("rs_percentile")
     weighted_rs = rs.get("weighted_rs")
-    rs_str = f"RS Rank ~{rs_rank}" + (f", Weighted RS: {weighted_rs:+.1f}%" if weighted_rs is not None else "")
+    if rs_percentile is not None:
+        rs_str = f"RS Percentile: {rs_percentile}"
+    else:
+        rs_str = f"RS Rank ~{rs_rank}"
+    if weighted_rs is not None:
+        rs_str += f", Weighted RS: {weighted_rs:+.1f}%"
     lines.append(f"| Relative Strength | {rs_score:.0f}/100 | {rs_str} |")
 
     lines.append("")

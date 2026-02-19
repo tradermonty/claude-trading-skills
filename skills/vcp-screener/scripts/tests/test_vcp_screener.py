@@ -832,3 +832,297 @@ class TestExtThresholdE2E:
         )
         tt_custom = result_custom["trend_template"]
         assert tt_custom["extended_penalty"] == 0
+
+
+# ===========================================================================
+# Sector Distribution Bug Fix Tests (Commit 1A)
+# ===========================================================================
+
+
+class TestSectorDistribution:
+    """Test that sector distribution uses all_results, not just top N."""
+
+    def _make_stock(self, symbol, sector="Technology", score=75.0, rating=None):
+        if rating is None:
+            if score >= 90:
+                rating = "Textbook VCP"
+            elif score >= 80:
+                rating = "Strong VCP"
+            elif score >= 70:
+                rating = "Good VCP"
+            elif score >= 60:
+                rating = "Developing VCP"
+            elif score >= 50:
+                rating = "Weak VCP"
+            else:
+                rating = "No VCP"
+        return {
+            "symbol": symbol,
+            "company_name": f"{symbol} Corp",
+            "sector": sector,
+            "price": 150.0,
+            "market_cap": 50e9,
+            "composite_score": score,
+            "rating": rating,
+            "rating_description": "Test",
+            "guidance": "Test guidance",
+            "weakest_component": "Volume",
+            "weakest_score": 40,
+            "strongest_component": "Trend",
+            "strongest_score": 100,
+            "valid_vcp": True,
+            "entry_ready": False,
+            "trend_template": {"score": 100, "criteria_passed": 7},
+            "vcp_pattern": {
+                "score": 70,
+                "num_contractions": 2,
+                "contractions": [],
+                "pivot_price": 145.0,
+            },
+            "volume_pattern": {"score": 40, "dry_up_ratio": 0.8},
+            "pivot_proximity": {
+                "score": 75,
+                "distance_from_pivot_pct": -3.0,
+                "stop_loss_price": 140.0,
+                "risk_pct": 7.0,
+                "trade_status": "NEAR PIVOT",
+            },
+            "relative_strength": {"score": 80, "rs_rank_estimate": 80, "weighted_rs": 15.0},
+        }
+
+    def test_sector_distribution_uses_all_results(self):
+        """Sector distribution should count all candidates, not just top N."""
+        all_results = [
+            self._make_stock("A1", "Technology"),
+            self._make_stock("A2", "Technology"),
+            self._make_stock("A3", "Healthcare"),
+            self._make_stock("A4", "Financials"),
+            self._make_stock("A5", "Financials"),
+            self._make_stock("A6", "Financials"),
+        ]
+        top_results = all_results[:2]  # Only Technology stocks
+
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {"vcp_candidates": 6},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(top_results, metadata, md_file,
+                                     all_results=all_results)
+            with open(md_file) as f:
+                content = f.read()
+            # Should contain Healthcare and Financials from all_results
+            assert "Healthcare" in content
+            assert "Financials" in content
+
+    def test_report_header_shows_top_count(self):
+        """When top N < total, report should show 'Showing top X of Y'."""
+        all_results = [self._make_stock(f"S{i}") for i in range(10)]
+        top_results = all_results[:3]
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {"vcp_candidates": 10},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(top_results, metadata, md_file,
+                                     all_results=all_results)
+            with open(md_file) as f:
+                content = f.read()
+            assert "Showing top 3 of 10 candidates" in content
+
+    def test_no_top_count_when_all_shown(self):
+        """When showing all results, no 'Showing top X of Y' message."""
+        results = [self._make_stock(f"S{i}") for i in range(5)]
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {"vcp_candidates": 5},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(results, metadata, md_file,
+                                     all_results=results)
+            with open(md_file) as f:
+                content = f.read()
+            assert "Showing top" not in content
+
+    def test_methodology_link_text(self):
+        """Methodology link should not reference a nonexistent file path."""
+        results = [self._make_stock("S0")]
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(results, metadata, md_file)
+            with open(md_file) as f:
+                content = f.read()
+            assert "`references/vcp_methodology.md`" not in content
+            assert "VCP methodology reference" in content
+
+    def test_json_report_has_sector_distribution(self):
+        """JSON report should include sector_distribution field."""
+        all_results = [
+            self._make_stock("A1", "Technology"),
+            self._make_stock("A2", "Healthcare"),
+        ]
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_file = os.path.join(tmpdir, "test.json")
+            generate_json_report(all_results[:1], metadata, json_file,
+                                 all_results=all_results)
+            with open(json_file) as f:
+                data = json.load(f)
+            assert "sector_distribution" in data
+            assert data["sector_distribution"]["Technology"] == 1
+            assert data["sector_distribution"]["Healthcare"] == 1
+
+    def test_section_headers_show_counts(self):
+        """Section headers should show stock counts."""
+        entry_ready = self._make_stock("READY", score=85.0, rating="Strong VCP")
+        entry_ready["entry_ready"] = True
+        extended = self._make_stock("EXT", score=75.0, rating="Good VCP")
+        extended["entry_ready"] = False
+        results = [entry_ready, extended]
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(results, metadata, md_file)
+            with open(md_file) as f:
+                content = f.read()
+            assert "Pre-Breakout Watchlist (1 stock" in content
+            assert "Extended / Quality VCP (1 stock" in content
+
+
+# ===========================================================================
+# RS Percentile Ranking Tests (Commit 1D)
+# ===========================================================================
+
+
+class TestRSPercentileRanking:
+    """Test universe-relative RS percentile ranking."""
+
+    def test_rank_ordering(self):
+        """Higher weighted_rs gets higher percentile."""
+        from calculators.relative_strength_calculator import rank_relative_strength_universe
+        rs_map = {
+            "AAPL": {"score": 80, "weighted_rs": 30.0},
+            "MSFT": {"score": 70, "weighted_rs": 20.0},
+            "GOOG": {"score": 60, "weighted_rs": 10.0},
+            "AMZN": {"score": 50, "weighted_rs": 5.0},
+        }
+        ranked = rank_relative_strength_universe(rs_map)
+        assert ranked["AAPL"]["rs_percentile"] > ranked["AMZN"]["rs_percentile"]
+        assert ranked["AAPL"]["score"] >= ranked["MSFT"]["score"]
+
+    def test_score_mapping(self):
+        """Top percentile gets top score."""
+        from calculators.relative_strength_calculator import rank_relative_strength_universe
+        rs_map = {f"S{i}": {"score": 50, "weighted_rs": float(i)} for i in range(100)}
+        ranked = rank_relative_strength_universe(rs_map)
+        # S99 has highest weighted_rs -> highest percentile -> highest score
+        assert ranked["S99"]["score"] >= 90
+        # S0 has lowest -> lowest score
+        assert ranked["S0"]["score"] <= 30
+
+    def test_single_stock(self):
+        """Single stock gets percentile 100."""
+        from calculators.relative_strength_calculator import rank_relative_strength_universe
+        rs_map = {"ONLY": {"score": 50, "weighted_rs": 10.0}}
+        ranked = rank_relative_strength_universe(rs_map)
+        assert ranked["ONLY"]["rs_percentile"] == 100
+
+    def test_handles_none_weighted_rs(self):
+        """Stocks with None weighted_rs get lowest ranking."""
+        from calculators.relative_strength_calculator import rank_relative_strength_universe
+        rs_map = {
+            "GOOD": {"score": 80, "weighted_rs": 20.0},
+            "BAD": {"score": 0, "weighted_rs": None},
+        }
+        ranked = rank_relative_strength_universe(rs_map)
+        assert ranked["GOOD"]["rs_percentile"] > ranked["BAD"]["rs_percentile"]
+
+    def test_empty_dict(self):
+        """Empty input returns empty dict."""
+        from calculators.relative_strength_calculator import rank_relative_strength_universe
+        ranked = rank_relative_strength_universe({})
+        assert ranked == {}
+
+    def test_tied_values(self):
+        """Tied weighted_rs values should get same percentile."""
+        from calculators.relative_strength_calculator import rank_relative_strength_universe
+        rs_map = {
+            "A": {"score": 50, "weighted_rs": 10.0},
+            "B": {"score": 50, "weighted_rs": 10.0},
+            "C": {"score": 50, "weighted_rs": 5.0},
+        }
+        ranked = rank_relative_strength_universe(rs_map)
+        assert ranked["A"]["rs_percentile"] == ranked["B"]["rs_percentile"]
+        assert ranked["A"]["rs_percentile"] > ranked["C"]["rs_percentile"]
+
+    def test_rs_percentile_in_report(self):
+        """Report should show RS Percentile when available."""
+        stock = {
+            "symbol": "TEST",
+            "company_name": "Test Corp",
+            "sector": "Technology",
+            "price": 150.0,
+            "market_cap": 50e9,
+            "composite_score": 75.0,
+            "rating": "Good VCP",
+            "rating_description": "Test",
+            "guidance": "Test",
+            "weakest_component": "Volume",
+            "weakest_score": 40,
+            "strongest_component": "Trend",
+            "strongest_score": 100,
+            "valid_vcp": True,
+            "entry_ready": False,
+            "trend_template": {"score": 100, "criteria_passed": 7},
+            "vcp_pattern": {
+                "score": 70, "num_contractions": 2, "contractions": [],
+                "pivot_price": 145.0,
+            },
+            "volume_pattern": {"score": 40, "dry_up_ratio": 0.8},
+            "pivot_proximity": {
+                "score": 75, "distance_from_pivot_pct": -3.0,
+                "stop_loss_price": 140.0, "risk_pct": 7.0,
+                "trade_status": "NEAR PIVOT",
+            },
+            "relative_strength": {
+                "score": 85, "rs_rank_estimate": 80,
+                "weighted_rs": 15.0, "rs_percentile": 92,
+            },
+        }
+        metadata = {
+            "generated_at": "2026-01-01",
+            "universe_description": "Test",
+            "funnel": {},
+            "api_stats": {},
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report([stock], metadata, md_file)
+            with open(md_file) as f:
+                content = f.read()
+            assert "RS Percentile: 92" in content

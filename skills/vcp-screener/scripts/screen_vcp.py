@@ -34,7 +34,10 @@ from calculators.trend_template_calculator import calculate_trend_template
 from calculators.vcp_pattern_calculator import calculate_vcp_pattern
 from calculators.volume_pattern_calculator import calculate_volume_pattern
 from calculators.pivot_proximity_calculator import calculate_pivot_proximity
-from calculators.relative_strength_calculator import calculate_relative_strength
+from calculators.relative_strength_calculator import (
+    calculate_relative_strength,
+    rank_relative_strength_universe,
+)
 from scorer import calculate_composite_score
 from report_generator import generate_json_report, generate_markdown_report
 
@@ -449,6 +452,26 @@ def main():
             print("FAILED")
 
     print()
+
+    # Re-rank RS across the universe for percentile-based scoring
+    if results:
+        rs_map = {r["symbol"]: r["relative_strength"] for r in results}
+        ranked_rs = rank_relative_strength_universe(rs_map)
+        for r in results:
+            r["relative_strength"] = ranked_rs[r["symbol"]]
+            # Recalculate composite score with updated RS
+            composite = calculate_composite_score(
+                trend_score=r["trend_template"].get("score", 0),
+                contraction_score=r["vcp_pattern"].get("score", 0),
+                volume_score=r["volume_pattern"].get("score", 0),
+                pivot_score=r["pivot_proximity"].get("score", 0),
+                rs_score=r["relative_strength"].get("score", 0),
+                valid_vcp=r.get("valid_vcp", False),
+            )
+            r["composite_score"] = composite["composite_score"]
+            r["rating"] = composite["rating"]
+            r["rating_description"] = composite["rating_description"]
+            r["guidance"] = composite["guidance"]
 
     # Compute entry_ready using CLI thresholds
     require_vcp = not args.no_require_valid_vcp
