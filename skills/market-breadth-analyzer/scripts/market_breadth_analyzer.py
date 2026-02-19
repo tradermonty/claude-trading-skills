@@ -45,6 +45,7 @@ from calculators.bearish_signal_calculator import calculate_bearish_signal
 from calculators.historical_context_calculator import calculate_historical_percentile
 from calculators.divergence_calculator import calculate_divergence
 from scorer import calculate_composite_score
+from history_tracker import append_history, load_history, get_trend_summary
 from report_generator import generate_json_report, generate_markdown_report
 
 
@@ -183,6 +184,24 @@ def main():
     print()
 
     # ========================================================================
+    # Step 3.5: Score History & Trend
+    # ========================================================================
+    data_date = detail_rows[-1]["Date"]
+    history_file = os.path.join(args.output_dir, "market_breadth_history.json")
+    updated_history = append_history(
+        history_file,
+        composite["composite_score"],
+        component_scores,
+        data_date,
+    )
+    trend_summary = get_trend_summary(updated_history)
+    if trend_summary["direction"] != "stable" and len(trend_summary["entries"]) >= 2:
+        print(f"  Score Trend: {trend_summary['direction']} "
+              f"(delta {trend_summary['delta']:+.1f} over "
+              f"{len(trend_summary['entries'])} observations)")
+    print()
+
+    # ========================================================================
     # Step 4: Key Levels
     # ========================================================================
     key_levels = _compute_key_levels(detail_rows, summary)
@@ -211,6 +230,7 @@ def main():
             "historical_percentile": comp5,
             "divergence": comp6,
         },
+        "trend_summary": trend_summary,
         "key_levels": key_levels,
     }
 

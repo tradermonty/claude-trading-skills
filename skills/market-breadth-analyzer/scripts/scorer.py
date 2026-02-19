@@ -14,6 +14,9 @@ Component Weights:
 6. S&P 500 vs Breadth Divergence: 10%
 Total: 100%
 
+When a component has data_available=False, its weight is proportionally
+redistributed among the remaining available components.
+
 Health Zone Mapping (100 = Healthy):
   80-100: Strong    - Full equity exposure
   60-79:  Healthy   - Normal operations
@@ -54,6 +57,7 @@ def calculate_composite_score(
     Args:
         component_scores: Dict with keys matching COMPONENT_WEIGHTS, each 0-100.
         data_availability: Optional dict mapping component key -> bool.
+            When a component is False, its weight is redistributed proportionally.
 
     Returns:
         Dict with composite_score, zone, exposure_guidance, guidance,
@@ -62,17 +66,55 @@ def calculate_composite_score(
     if data_availability is None:
         data_availability = {}
 
-    # Weighted composite
-    composite = 0.0
+    # Determine which components are available
+    available = {
+        k: data_availability.get(k, True) for k in COMPONENT_WEIGHTS
+    }
+
+    # Calculate sum of available weights for redistribution
+    available_total_weight = sum(
+        w for k, w in COMPONENT_WEIGHTS.items() if available[k]
+    )
+
+    # Build effective weights
+    effective_weights = {}
     for key, weight in COMPONENT_WEIGHTS.items():
-        score = component_scores.get(key, 50)
-        composite += score * weight
+        if not available[key]:
+            effective_weights[key] = 0.0
+        elif available_total_weight > 0:
+            effective_weights[key] = weight / available_total_weight
+        else:
+            effective_weights[key] = 0.0
 
-    composite = round(composite, 1)
+    # Excluded components
+    excluded_components = [
+        COMPONENT_LABELS[k] for k in COMPONENT_WEIGHTS if not available[k]
+    ]
 
-    # Identify strongest and weakest health signals
+    # Zero-division guard: all components unavailable
+    if available_total_weight == 0:
+        composite = 50.0
+        zone_info = _interpret_zone(composite)
+        # Override zone to Neutral with warning
+        zone_info["zone"] = "Neutral"
+        zone_info["guidance"] = (
+            "All component data is unavailable. "
+            "Score is a reference value only."
+        )
+    else:
+        # Weighted composite using effective weights
+        composite = 0.0
+        for key in COMPONENT_WEIGHTS:
+            score = component_scores.get(key, 50)
+            composite += score * effective_weights[key]
+        composite = round(composite, 1)
+        zone_info = _interpret_zone(composite)
+
+    # Identify strongest and weakest among AVAILABLE components only
     valid_scores = {
-        k: v for k, v in component_scores.items() if k in COMPONENT_WEIGHTS
+        k: v
+        for k, v in component_scores.items()
+        if k in COMPONENT_WEIGHTS and available.get(k, True)
     }
 
     if valid_scores:
@@ -82,18 +124,13 @@ def calculate_composite_score(
         strongest_health = "N/A"
         weakest_health = "N/A"
 
-    # Zone interpretation
-    zone_info = _interpret_zone(composite)
-
     # Data quality
-    available_count = sum(
-        1 for k in COMPONENT_WEIGHTS if data_availability.get(k, True)
-    )
+    available_count = sum(1 for k in COMPONENT_WEIGHTS if available[k])
     total_components = len(COMPONENT_WEIGHTS)
     missing_components = [
         COMPONENT_LABELS[k]
         for k in COMPONENT_WEIGHTS
-        if not data_availability.get(k, True)
+        if not available[k]
     ]
 
     if available_count == total_components:
@@ -133,12 +170,17 @@ def calculate_composite_score(
             "label": COMPONENT_LABELS.get(weakest_health, weakest_health),
             "score": valid_scores.get(weakest_health, 0),
         },
+        "excluded_components": excluded_components,
         "data_quality": data_quality,
         "component_scores": {
             k: {
                 "score": component_scores.get(k, 50),
                 "weight": w,
-                "weighted_contribution": round(component_scores.get(k, 50) * w, 1),
+                "effective_weight": round(effective_weights[k], 6),
+                "weighted_contribution": round(
+                    component_scores.get(k, 50) * effective_weights[k], 1
+                ),
+                "data_available": available[k],
                 "label": COMPONENT_LABELS[k],
             }
             for k, w in COMPONENT_WEIGHTS.items()
@@ -226,46 +268,3 @@ def _interpret_zone(composite: float) -> Dict:
                 "Prepare watchlist for recovery: quality stocks near support",
             ],
         }
-
-
-# Testing
-if __name__ == "__main__":
-    print("Testing Market Breadth Scorer...\n")
-
-    # Test 1: Strong market
-    strong = {
-        "breadth_level_trend": 85,
-        "ma_crossover": 80,
-        "cycle_position": 75,
-        "bearish_signal": 85,
-        "historical_percentile": 70,
-        "divergence": 70,
-    }
-    r1 = calculate_composite_score(strong)
-    print(f"Test 1 - Strong: {r1['composite_score']}/100 -> {r1['zone']}")
-
-    # Test 2: Neutral
-    neutral = {
-        "breadth_level_trend": 50,
-        "ma_crossover": 50,
-        "cycle_position": 50,
-        "bearish_signal": 50,
-        "historical_percentile": 50,
-        "divergence": 50,
-    }
-    r2 = calculate_composite_score(neutral)
-    print(f"Test 2 - Neutral: {r2['composite_score']}/100 -> {r2['zone']}")
-
-    # Test 3: Critical
-    crisis = {
-        "breadth_level_trend": 10,
-        "ma_crossover": 5,
-        "cycle_position": 15,
-        "bearish_signal": 10,
-        "historical_percentile": 10,
-        "divergence": 30,
-    }
-    r3 = calculate_composite_score(crisis)
-    print(f"Test 3 - Critical: {r3['composite_score']}/100 -> {r3['zone']}")
-
-    print("\nAll tests completed.")

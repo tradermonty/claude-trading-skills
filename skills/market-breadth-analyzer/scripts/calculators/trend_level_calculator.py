@@ -4,7 +4,7 @@ Component 1: Current Breadth Level & Trend (Weight: 25%)
 
 The most direct indicator of market health.
 
-Input: Breadth_Index_8MA, Breadth_200MA_Trend (latest row)
+Input: Breadth_Index_8MA, Breadth_200MA_Trend (latest row + 5-day lookback)
 
 Scoring (100 = healthy):
   8MA Level (70% of component):
@@ -16,7 +16,13 @@ Scoring (100 = healthy):
     Trend == 1  -> 80 (uptrend)
     Trend == -1 -> 20 (downtrend)
 
-  Score = 0.70 * level_score + 0.30 * trend_score
+  8MA Direction Modifier (5-day direction):
+    Falling & level > 0.60 -> -10 (deceleration from high level)
+    Falling & level < 0.40 -> +5  (limited downside near bottom)
+    Rising  & level < 0.60 -> +5  (early recovery bonus)
+    Otherwise              ->  0
+
+  Score = clamp(0.70 * level_score + 0.30 * trend_score + modifier, 0, 100)
 """
 
 from typing import Dict, List
@@ -49,14 +55,17 @@ def calculate_breadth_level_trend(rows: List[Dict]) -> Dict:
     # Trend score
     trend_score = 80 if trend == 1 else 20
 
+    # 8MA direction modifier
+    ma8_direction, direction_modifier = _direction_modifier(rows, ma8)
+
     # Combined
-    score = round(0.70 * level_score + 0.30 * trend_score)
-    score = max(0, min(100, score))
+    base = round(0.70 * level_score + 0.30 * trend_score)
+    score = max(0, min(100, base + direction_modifier))
 
     # Signal
     signal = _generate_signal(ma8, trend, score)
 
-    return {
+    result = {
         "score": score,
         "signal": signal,
         "data_available": True,
@@ -67,6 +76,39 @@ def calculate_breadth_level_trend(rows: List[Dict]) -> Dict:
         "trend_score": trend_score,
         "date": latest["Date"],
     }
+
+    if ma8_direction is not None:
+        result["ma8_direction"] = ma8_direction
+        result["direction_modifier"] = direction_modifier
+
+    return result
+
+
+def _direction_modifier(rows: List[Dict], current_8ma: float):
+    """Calculate 8MA direction modifier based on 5-day movement.
+
+    Returns (direction_str_or_None, modifier_int).
+    """
+    if len(rows) < 6:
+        return None, 0
+
+    ma8_5d_ago = rows[-6]["Breadth_Index_8MA"]
+
+    if current_8ma > ma8_5d_ago:
+        direction = "rising"
+    elif current_8ma < ma8_5d_ago:
+        direction = "falling"
+    else:
+        return "flat", 0
+
+    if direction == "falling" and current_8ma > 0.60:
+        return direction, -10
+    if direction == "falling" and current_8ma < 0.40:
+        return direction, 5
+    if direction == "rising" and current_8ma < 0.60:
+        return direction, 5
+
+    return direction, 0
 
 
 def _score_8ma_level(ma8: float) -> int:

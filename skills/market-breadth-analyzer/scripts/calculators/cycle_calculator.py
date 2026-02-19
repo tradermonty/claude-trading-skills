@@ -70,10 +70,12 @@ def calculate_cycle_position(rows: List[Dict]) -> Dict:
 
     signal = _generate_signal(marker_type, days_since, ma8_trend, score)
 
+    marker_found = marker_type is not None
+
     return {
         "score": score,
         "signal": signal,
-        "data_available": True,
+        "data_available": marker_found,
         "latest_marker_type": marker_type,
         "days_since_marker": days_since,
         "ma8_trend": ma8_trend,

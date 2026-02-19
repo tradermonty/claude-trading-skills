@@ -76,6 +76,14 @@ def generate_markdown_report(analysis: Dict, output_file: str):
 
     # Guidance
     lines.append(f"> **Guidance:** {composite.get('guidance', '')}")
+    c1_mod = components.get("breadth_level_trend", {}).get("direction_modifier", 0)
+    c2_mod = components.get("ma_crossover", {}).get("direction_modifier", 0)
+    if c1_mod < 0 or c2_mod < 0:
+        lines.append(
+            f"> **Caution:** 8MA is falling "
+            f"(C1 modifier: {c1_mod:+d}, C2 modifier: {c2_mod:+d}). "
+            f"Monitor for further deterioration."
+        )
     lines.append("")
 
     # Component Scores Table
@@ -83,8 +91,12 @@ def generate_markdown_report(analysis: Dict, output_file: str):
     lines.append("")
     lines.append("## Component Scores")
     lines.append("")
-    lines.append("| # | Component | Weight | Score | Contribution | Signal |")
-    lines.append("|---|-----------|--------|-------|--------------|--------|")
+    lines.append(
+        "| # | Component | Weight | Eff. Weight | Score | Contribution | Signal |"
+    )
+    lines.append(
+        "|---|-----------|--------|-------------|-------|--------------|--------|"
+    )
 
     component_order = [
         "breadth_level_trend",
@@ -95,21 +107,38 @@ def generate_markdown_report(analysis: Dict, output_file: str):
         "divergence",
     ]
 
+    excluded_components = composite.get("excluded_components", [])
+
     for i, key in enumerate(component_order, 1):
         comp = composite.get("component_scores", {}).get(key, {})
         detail = components.get(key, {})
         signal = detail.get("signal", "N/A")
         score_val = comp.get("score", 0)
         weight_pct = f"{comp.get('weight', 0) * 100:.0f}%"
+        eff_weight = comp.get("effective_weight", comp.get("weight", 0))
+        eff_weight_pct = f"{eff_weight * 100:.0f}%"
         contribution = comp.get("weighted_contribution", 0)
+        is_excluded = not comp.get("data_available", True)
         bar = _score_bar(score_val)
 
+        label = comp.get("label", key)
+        if is_excluded:
+            label += " (excluded)"
+
         lines.append(
-            f"| {i} | **{comp.get('label', key)}** | {weight_pct} | "
+            f"| {i} | **{label}** | {weight_pct} | {eff_weight_pct} | "
             f"{bar} {score_val} | {contribution:.1f} | {signal} |"
         )
 
     lines.append("")
+
+    if excluded_components:
+        lines.append(
+            f"> **Note:** {len(excluded_components)} component(s) excluded due to "
+            f"insufficient data: {', '.join(excluded_components)}. "
+            f"Weights have been redistributed among available components."
+        )
+        lines.append("")
 
     # Component Details
     lines.append("---")
@@ -129,6 +158,13 @@ def generate_markdown_report(analysis: Dict, output_file: str):
         )
         lines.append(f"- **Level Score:** {c1.get('level_score', 'N/A')}")
         lines.append(f"- **Trend Score:** {c1.get('trend_score', 'N/A')}")
+        if c1.get("ma8_direction"):
+            lines.append(
+                f"- **8MA Direction (5d):** {c1['ma8_direction']}"
+            )
+            modifier = c1.get("direction_modifier", 0)
+            if modifier != 0:
+                lines.append(f"- **Direction Modifier:** {modifier:+d}")
     lines.append("")
 
     # C2: MA Crossover
@@ -217,7 +253,60 @@ def generate_markdown_report(analysis: Dict, output_file: str):
             f"- **Breadth 8MA 60d Change:** {c6.get('breadth_change', 0):+.4f}"
         )
         lines.append(f"- **Divergence Type:** {c6.get('divergence_type', 'N/A')}")
+
+        # Dual-window details (new)
+        w60 = c6.get("window_60d")
+        w20 = c6.get("window_20d")
+        if w60 and w20:
+            lines.append("")
+            lines.append(
+                f"- **60-Day Window:** Score {w60['score']}, "
+                f"{w60['divergence_type']} "
+                f"(lookback: {w60.get('lookback_days', 60)}d)"
+            )
+            lines.append(
+                f"- **20-Day Window:** Score {w20['score']}, "
+                f"{w20['divergence_type']} "
+                f"(lookback: {w20.get('lookback_days', 20)}d)"
+            )
+
+        if c6.get("early_warning"):
+            lines.append("")
+            lines.append(
+                "> **Early Warning:** Short-term (20d) bearish divergence "
+                "detected while long-term (60d) trend remains healthy. "
+                "Monitor for potential deterioration."
+            )
     lines.append("")
+
+    # Score Trend (show N/A for single entry, full table for 2+)
+    trend_summary = analysis.get("trend_summary")
+    if trend_summary and len(trend_summary.get("entries", [])) >= 1:
+        entries = trend_summary["entries"]
+        lines.append("---")
+        lines.append("")
+        lines.append("## Score Trend")
+        lines.append("")
+        if len(entries) == 1:
+            lines.append(
+                "**Direction:** N/A (single observation "
+                "— trend requires 2+ data points)"
+            )
+        else:
+            direction = trend_summary["direction"].capitalize()
+            delta = trend_summary["delta"]
+            lines.append(
+                f"**Direction:** {direction} ({delta:+.1f} over "
+                f"{len(entries)} observations)"
+            )
+            lines.append("")
+            lines.append("| Date | Score |")
+            lines.append("|------|-------|")
+            for entry in entries:
+                lines.append(
+                    f"| {entry['data_date']} | {entry['composite_score']:.1f} |"
+                )
+        lines.append("")
 
     # Key Levels to Watch
     lines.append("---")

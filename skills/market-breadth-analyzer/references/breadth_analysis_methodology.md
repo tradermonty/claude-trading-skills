@@ -55,7 +55,16 @@ This means the long-term trend is declining AND the short-term breadth has falle
 - 8MA Level: 70% - immediate health snapshot
 - 200MA Trend: 30% - longer-term regime confirmation
 
-**Key insight:** An 8MA of 0.65 in an uptrend (score ~80) is healthier than 0.65 in a downtrend (score ~62), because the downtrend context suggests the level may be transient.
+**8MA Direction Modifier:** A 5-day lookback on the 8MA itself adjusts the score based on the short-term direction of breadth. This ensures C1 considers not just the level, but whether breadth is accelerating or decelerating:
+
+| Condition | Modifier | Rationale |
+|-----------|----------|-----------|
+| 8MA falling & level > 0.60 | -10 | Deceleration from a high level — early warning of potential peak |
+| 8MA falling & level < 0.40 | +5 | Near-bottom with limited further downside — less penalty |
+| 8MA rising & level < 0.60 | +5 | Early recovery bonus — breadth improving from a weak base |
+| Otherwise | 0 | No adjustment needed |
+
+**Key insight:** An 8MA of 0.65 in an uptrend (score ~80) is healthier than 0.65 in a downtrend (score ~62), because the downtrend context suggests the level may be transient. The direction modifier further differentiates: a falling 8MA at 0.65 signals emerging weakness (-10), while a rising 8MA at the same level confirms strength.
 
 ### C2: 8MA vs 200MA Crossover Dynamics (20%)
 
@@ -105,11 +114,40 @@ This means the long-term trend is declining AND the short-term breadth has falle
 
 **Rationale:** The most dangerous market condition is when the index makes new highs but breadth is declining (fewer stocks participating). This divergence preceded major tops in 2000, 2007, and 2021.
 
-**Key patterns:**
+**Multi-Window Analysis (20d + 60d):** Divergence is measured at two time scales and combined:
+- **60-day window (weight 60%):** Captures structural, medium-term divergence
+- **20-day window (weight 40%):** Detects short-term emerging divergence
+
+Composite score = 60d_score x 0.6 + 20d_score x 0.4
+
+**Early Warning flag:** When the 20-day window shows bearish divergence (score <= 25) while the 60-day window is still healthy (score >= 50), an Early Warning is triggered. This signals that short-term breadth deterioration has begun before it becomes visible in the structural window.
+
+**Key patterns (per window):**
 - **S&P up + Breadth up:** Healthy, sustainable rally (70)
 - **S&P up + Breadth down:** Dangerous narrow market (10-25)
 - **S&P down + Breadth up:** Bullish divergence, potential bottom (65-80)
 - **S&P down + Breadth down:** Consistent decline, wait for stabilization (30)
+
+### Weight Redistribution
+
+When a component has `data_available: False` (e.g., insufficient rows for divergence analysis), its weight is excluded and the remaining weights are proportionally redistributed:
+
+```
+effective_weight[i] = base_weight[i] / sum(base_weight[j] for all available j)
+```
+
+**Example:** If C6 (10%) is unavailable, the remaining 90% is redistributed:
+- C1: 25/90 = 27.8%, C2: 20/90 = 22.2%, C3: 20/90 = 22.2%, C4: 15/90 = 16.7%, C5: 10/90 = 11.1%
+
+**Zero-division guard:** If all components are unavailable, the composite score defaults to 50 with zone "Neutral" and a warning that the score is a reference value only.
+
+**Data Quality Labels:**
+
+| Available Components | Label | Interpretation |
+|---------------------|-------|----------------|
+| 6/6 | Complete | Full confidence |
+| 4-5/6 | Partial | Interpret with caution |
+| 0-3/6 | Limited | Low confidence |
 
 ---
 
@@ -130,6 +168,30 @@ This means the long-term trend is declining AND the short-term breadth has falle
 - **Market Top Detector:** If breadth is Weakening (20-39) AND top detector is Orange/Red, this is strong confirmation of topping conditions.
 - **CANSLIM Screener:** In Strong/Healthy zones, CANSLIM stock selections have higher success rates.
 - **Sector Analyst:** Weakening breadth often coincides with rotation from offensive to defensive sectors.
+
+### Score History & Trend
+
+The analyzer maintains a rolling history of composite scores to detect trend direction.
+
+**Storage format:** JSON file (`market_breadth_history.json`) in the output directory, structured as an array of objects:
+
+```json
+[
+  {"data_date": "2025-06-10", "composite_score": 72.3, "component_scores": {"breadth_level_trend": 80, "ma_crossover": 70, "...": "..."}, "recorded_at": "2025-06-10 14:30:00"},
+  {"data_date": "2025-06-11", "composite_score": 68.1, "component_scores": {"breadth_level_trend": 75, "ma_crossover": 65, "...": "..."}, "recorded_at": "2025-06-11 09:15:00"}
+]
+```
+
+**Key rules:**
+- **Keyed by data date:** Each entry uses the latest data row's date, not the analysis run date.
+- **Duplicate prevention:** If an entry with the same date already exists, it is overwritten (no duplicates).
+- **Rolling window:** Maximum 20 entries retained. When the limit is reached, the oldest entry is pruned first.
+- **Trend detection:** The delta between the first and last score in the most recent N entries (default N=5) determines the trend label:
+  - `delta > 2` → "Improving"
+  - `delta < -2` → "Deteriorating"
+  - `-2 <= delta <= 2` → "Stable"
+
+**Usage in reports:** The trend summary (`direction`, `delta`, `entries`) is included in both JSON and Markdown outputs, giving analysts a quick read on whether market breadth is accelerating or decelerating.
 
 ---
 

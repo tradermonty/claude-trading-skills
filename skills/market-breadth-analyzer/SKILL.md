@@ -55,9 +55,10 @@ python3 skills/market-breadth-analyzer/scripts/market_breadth_analyzer.py \
 The script will:
 1. Fetch detail CSV (~2,500 rows, 2016-present) and summary CSV (8 metrics)
 2. Validate data freshness (warn if > 5 days old)
-3. Calculate all 6 component scores
+3. Calculate all 6 component scores (with automatic weight redistribution if any component lacks data)
 4. Generate composite score with zone classification
-5. Output JSON and Markdown reports
+5. Track score history and compute trend (improving/deteriorating/stable)
+6. Output JSON and Markdown reports
 
 ### Phase 2: Present Results
 
@@ -74,12 +75,16 @@ Present the generated Markdown report to the user, highlighting:
 
 | # | Component | Weight | Key Signal |
 |---|-----------|--------|------------|
-| 1 | Breadth Level & Trend | **25%** | Current 8MA level + 200MA trend direction |
+| 1 | Breadth Level & Trend | **25%** | Current 8MA level + 200MA trend direction + 8MA direction modifier |
 | 2 | 8MA vs 200MA Crossover | **20%** | Momentum via MA gap and direction |
 | 3 | Peak/Trough Cycle | **20%** | Position in breadth cycle |
 | 4 | Bearish Signal | **15%** | Backtested bearish signal flag |
 | 5 | Historical Percentile | **10%** | Current vs full history distribution |
-| 6 | S&P 500 Divergence | **10%** | Price vs breadth directional agreement |
+| 6 | S&P 500 Divergence | **10%** | Multi-window (20d + 60d) price vs breadth divergence |
+
+**Weight Redistribution:** If any component lacks sufficient data (e.g., no peak/trough markers detected), it is excluded and its weight is proportionally redistributed among the remaining components. The report shows both original and effective weights.
+
+**Score History:** Composite scores are persisted across runs (keyed by data date). The report includes a trend summary (improving/deteriorating/stable) when multiple observations are available.
 
 ## Health Zone Mapping (100 = Healthy)
 
@@ -108,6 +113,7 @@ Both are publicly hosted on GitHub Pages - no authentication required.
 
 - JSON: `market_breadth_YYYY-MM-DD_HHMMSS.json`
 - Markdown: `market_breadth_YYYY-MM-DD_HHMMSS.md`
+- History: `market_breadth_history.json` (persists across runs, max 20 entries)
 
 ## Reference Documents
 
