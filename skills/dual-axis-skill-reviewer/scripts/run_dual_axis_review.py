@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Dual-axis skill reviewer: auto checks + optional LLM score merge."""
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["pyyaml>=6.0"]
+# ///
+"""Dual-axis skill reviewer: auto checks + optional LLM score merge.
+
+Cross-project usage:
+    uv run ~/.claude/skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py \\
+        --project-root /path/to/target/project
+"""
 
 from __future__ import annotations
 

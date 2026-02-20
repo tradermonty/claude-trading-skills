@@ -1,7 +1,0 @@
-interface:
-  display_name: "Dual Axis Skill Reviewer"
-  short_description: "Score skills with auto checks + LLM review"
-  default_prompt: "Use $dual-axis-skill-reviewer to review one random skill and report final score plus improvement items."
-
-policy:
-  allow_implicit_invocation: true

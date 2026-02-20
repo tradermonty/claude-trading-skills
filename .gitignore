@@ -20,6 +20,7 @@ env/
 .vscode/
 
 # Logs & temp
+logs/
 *.log
 *.tmp
 

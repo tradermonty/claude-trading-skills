@@ -24,7 +24,13 @@ Use this skill when:
 - Assessing parameter sensitivity and regime dependence
 - Setting realistic expectations for slippage and execution costs
 
-## Backtesting Workflow
+## Prerequisites
+
+- Python 3.9+ (for evaluation script)
+- No API keys required
+- No external data dependencies — metrics are user-provided
+
+## Workflow
 
 ### 1. State the Hypothesis
 
@@ -108,6 +114,23 @@ This is where 80% of testing time should be spent.
 - 🔄 **Refine**: Core logic sound but needs parameter adjustment
 - ❌ **Abandon**: Fails stress tests or relies on fragile assumptions
 
+Use the evaluation script for a structured, quantitative assessment:
+
+```bash
+python3 skills/backtest-expert/scripts/evaluate_backtest.py \
+  --total-trades 150 \
+  --win-rate 62 \
+  --avg-win-pct 1.8 \
+  --avg-loss-pct 1.2 \
+  --max-drawdown-pct 15 \
+  --years-tested 8 \
+  --num-parameters 3 \
+  --slippage-tested \
+  --output-dir reports/
+```
+
+The script scores across 5 dimensions (Sample Size, Expectancy, Risk Management, Robustness, Execution Realism), detects red flags, and outputs a Deploy/Refine/Abandon verdict.
+
 ## Key Testing Principles
 
 ### Punish the Strategy
@@ -155,12 +178,17 @@ Recognize these patterns early to save time:
 5. **Look-ahead bias**: "Too good to be true" results
 6. **Over-optimization**: Many parameters, poor out-of-sample results
 
-See `references/failed_tests.md` for detailed examples and diagnostic framework.
+See `skills/backtest-expert/references/failed_tests.md` for detailed examples and diagnostic framework.
 
-## Available Reference Documentation
+## Output
+
+- `reports/backtest_eval_<timestamp>.json` — structured evaluation with per-dimension scores, red flags, and verdict
+- `reports/backtest_eval_<timestamp>.md` — human-readable report with dimension table, key metrics, and red flag details
+
+## Resources
 
 ### Methodology Reference
-**File**: `references/methodology.md`
+**File**: `skills/backtest-expert/references/methodology.md`
 
 **When to read**: For detailed guidance on specific testing techniques.
 
@@ -173,7 +201,7 @@ See `references/failed_tests.md` for detailed examples and diagnostic framework.
 - Common biases and pitfalls (survivorship, look-ahead, curve-fitting, etc.)
 
 ### Failed Tests Reference
-**File**: `references/failed_tests.md`
+**File**: `skills/backtest-expert/references/failed_tests.md`
 
 **When to read**: When strategy fails tests, or learning from past mistakes.
 
