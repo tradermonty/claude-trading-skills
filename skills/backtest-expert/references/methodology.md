@@ -92,6 +92,16 @@ Create 2D heat maps varying two parameters simultaneously:
 - Frequent need to re-optimize parameters
 - Parameters that change dramatically between periods
 
+### Profit Factor Scoring in Evaluation Script
+
+The evaluation script scores profit factor (PF) as one component of the Risk Management dimension (0-8 points out of 20). The mapping uses continuous linear interpolation with integer truncation:
+
+- PF < 1.0 → 0 points (unprofitable)
+- PF 1.0 to 3.0 → linear 0 to 8 points: `int((PF - 1.0) / 2.0 * 8)`
+- PF >= 3.0 → 8 points (capped)
+
+The `int()` truncation creates discrete 1-point steps (e.g., PF 1.25→1 pt, PF 1.50→2 pt). This is intentional — integer scoring avoids false precision from fractional differences in profit factor.
+
 ## 4. Slippage and Friction Modeling
 
 ### Realistic Slippage Assumptions
@@ -186,7 +196,7 @@ Use 1.5-2x typical slippage estimates for stress testing:
 ### Curve-Fitting (Over-Optimization)
 
 **Warning signs**:
-- Too many parameters (>5-7)
+- Too many parameters (>=7 triggers over-optimization flag; <=4 is ideal, 5-6 acceptable)
 - Highly specific parameter values (e.g., RSI = 37.3)
 - Perfect backtest results
 - Large performance drop in validation period
