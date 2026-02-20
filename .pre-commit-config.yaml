@@ -1,3 +1,7 @@
+# Install both pre-commit and pre-push hooks:
+#   pre-commit install && pre-commit install --hook-type pre-push
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -18,7 +22,8 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: [--skip, ".venv,*.json,*.csv,*.baseline,zip-packages"]
+        args: [--skip, ".venv,*.json,*.csv,*.baseline,zip-packages,*.pyc,__pycache__",
+               --ignore-words-list, "trough,ore,cna,acn,blok,hims,pont,claus"]
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
@@ -29,13 +34,13 @@ repos:
           - .secrets.baseline
         exclude: '\.env$|\.json$|\.csv$|\.md$|\.zip$'
 
-  # Pre-push hook: run unit tests before pushing
-  # Tests run per-skill to avoid module name collisions
+  # Pre-push hook: run all skill-level tests before pushing
+  # Tests run per-skill to avoid module name collisions (scorer.py, helpers.py, etc.)
   - repo: local
     hooks:
       - id: pytest-pre-push
-        name: Run unit tests
-        entry: bash -c 'python3 -m pytest skills/market-top-detector/scripts/tests/ --tb=short -q && python3 -m pytest skills/ftd-detector/scripts/tests/ --tb=short -q && python3 -m pytest skills/vcp-screener/scripts/tests/ --tb=short -q && python3 -m pytest skills/macro-regime-detector/scripts/tests/ --tb=short -q'
+        name: Run all skill tests
+        entry: bash scripts/run_all_tests.sh
         language: system
         stages: [pre-push]
         pass_filenames: false

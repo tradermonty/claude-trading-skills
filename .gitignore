@@ -34,4 +34,4 @@ reports/
 # CI artifacts
 htmlcov/
 .coverage
-.secrets.baseline
+# .secrets.baseline is tracked — needed by detect-secrets pre-commit hook

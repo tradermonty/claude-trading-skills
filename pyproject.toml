@@ -35,6 +35,9 @@ select = ["E", "F", "I", "W", "UP", "B"]
 ignore = [
     "E501",  # line-too-long (handled by formatter)
     "E402",  # module-level import not at top (sys.path manipulation in conftest)
+    "B904",  # raise-without-from-inside-except (fix incrementally)
+    "B007",  # unused-loop-control-variable (fix incrementally)
+    "B017",  # assert-raises-exception (fix incrementally)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -44,13 +47,22 @@ ignore = [
 [tool.pytest.ini_options]
 # Tests must be run per-skill to avoid module name collisions
 # (each skill has its own scorer.py, calculators/, helpers.py).
-# Use the run_tests.py script or CI workflow for proper execution.
+# Use scripts/run_all_tests.sh for safe per-skill execution.
+# The testpaths below are used by `pytest` for quick single-invocation runs.
 testpaths = [
-    "skills/market-top-detector/scripts/tests",
+    "skills/backtest-expert/scripts/tests",
+    "skills/canslim-screener/tests",
+    "skills/dual-axis-skill-reviewer/scripts/tests",
     "skills/ftd-detector/scripts/tests",
-    "skills/vcp-screener/scripts/tests",
+    "skills/institutional-flow-tracker/scripts/tests",
     "skills/macro-regime-detector/scripts/tests",
+    "skills/market-breadth-analyzer/scripts/tests",
+    "skills/market-top-detector/scripts/tests",
+    "skills/stanley-druckenmiller-investment/scripts/tests",
     "skills/theme-detector/scripts/tests",
+    "skills/theme-detector/tests",
+    "skills/uptrend-analyzer/scripts/tests",
+    "skills/vcp-screener/scripts/tests",
 ]
 
 [tool.bandit]
@@ -59,7 +71,7 @@ skips = ["B101", "B110"]
 
 [tool.codespell]
 skip = ".venv,*.json,*.csv,*.baseline,zip-packages,*.pyc,__pycache__"
-ignore-words-list = "trough,ore"
+ignore-words-list = "trough,ore,cna,acn,blok,hims,pont,claus"
 
 [tool.coverage.run]
 source = ["skills"]
