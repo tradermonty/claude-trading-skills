@@ -18,6 +18,7 @@ env/
 # Tool configurations
 .idea/
 .vscode/
+.envrc
 
 # Logs & temp
 logs/

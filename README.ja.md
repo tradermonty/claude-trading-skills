@@ -213,6 +213,69 @@ English README is available at [`README.md`](README.md).
 3. **ブレッドチャートアナリスト**と**テクニカルアナリスト**を使用して、確認シグナルを取得
 4. **米国市場バブル検出器**を使用して、リスク管理と利益確定ガイダンスを取得
 
+### スキル品質・自動化
+
+- **デュアルアクシス・スキルレビュアー** (`dual-axis-skill-reviewer`)
+  - デュアルアクシス方式でスキル品質をレビュー: 決定論的オートスコアリング（構造、ワークフロー、実行安全性、成果物、テスト健全性）とオプションのLLMディープレビュー。
+  - 5カテゴリ・オートアクシス（0-100）: メタデータ＆ユースケース (20)、ワークフローカバレッジ (25)、実行安全性＆再現性 (25)、サポート成果物 (10)、テスト健全性 (20)。
+  - `knowledge_only`スキル（スクリプトなし、リファレンスのみ）を検出し、不公平なペナルティを回避するためにスコアリング基準を調整。
+  - オプションのLLMアクシスで定性的レビュー（正確性、リスク、欠落ロジック、保守性）を実施。重み付けブレンドが可能。
+  - `--all`で全スキル一括レビュー、`--skip-tests`でクイックトリアージ、`--project-root`で他プロジェクトのレビューに対応。
+  - APIキー不要。
+
+## スキル自己改善ループ
+
+スキル品質を継続的にレビュー・改善する自動パイプライン。毎日の`launchd`ジョブが1つのスキルを選択し、デュアルアクシスレビュアーでスコアリングし、スコアが90/100未満の場合は`claude -p`で改善を適用してPRを作成します。
+
+### 仕組み
+
+1. **ラウンドロビン選択** — レビュアー自身を除く全スキルを順番に巡回。状態は`logs/.skill_improvement_state.json`に永続化。
+2. **オートスコアリング** — `run_dual_axis_review.py`を実行して決定論的スコア（0-100）を取得。
+3. **改善ゲート** — `auto_review.score < 90`の場合、Claude CLIがSKILL.mdとリファレンスを修正。
+4. **品質ゲート** — 改善後に再スコアリング（テスト有効）。スコアが改善されなかった場合はロールバック。
+5. **PR作成** — 変更をフィーチャーブランチにコミットし、人間レビュー用にGitHub PRを作成。
+6. **日次サマリー** — 結果を`reports/skill-improvement-log/YYYY-MM-DD_summary.md`に出力。
+
+### 手動実行
+
+```bash
+# ドライラン: 改善やPR作成なしでスコアリングのみ
+python3 scripts/run_skill_improvement_loop.py --dry-run
+
+# 全スキルをドライランでレビュー
+python3 scripts/run_skill_improvement_loop.py --dry-run --all
+
+# フルラン: スコアリング、必要に応じて改善、PR作成
+python3 scripts/run_skill_improvement_loop.py
+```
+
+### launchd設定 (macOS)
+
+毎日05:00にmacOS `launchd`で自動実行:
+
+```bash
+# エージェントをインストール
+cp launchd/com.trade-analysis.skill-improvement.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-improvement.plist
+
+# 確認
+launchctl list | grep skill-improvement
+
+# 手動トリガー
+launchctl start com.trade-analysis.skill-improvement
+```
+
+### 主要ファイル
+
+| ファイル | 用途 |
+|---------|------|
+| `scripts/run_skill_improvement_loop.py` | オーケストレーションスクリプト（選択、スコアリング、改善、PR） |
+| `scripts/run_skill_improvement.sh` | launchd用シェルラッパー |
+| `launchd/com.trade-analysis.skill-improvement.plist` | macOS launchdエージェント設定 |
+| `skills/dual-axis-skill-reviewer/` | レビュアースキル（スコアリングエンジン） |
+| `logs/.skill_improvement_state.json` | ラウンドロビン状態と履歴 |
+| `reports/skill-improvement-log/` | 日次サマリーレポート |
+
 ## カスタマイズと貢献
 - トリガー説明や機能メモを調整する場合は、各フォルダ内の`SKILL.md`を更新してください。ZIP化する際はフロントマター`name`がフォルダ名と一致しているか確認してください。
 - 参照資料の追記や新規スクリプト追加でワークフローを拡張できます。

@@ -270,6 +270,69 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 4. Monitor entry/exit signals based on z-score thresholds
 5. Track spread convergence and manage market-neutral positions
 
+### Skill Quality & Automation
+
+- **Dual-Axis Skill Reviewer** (`dual-axis-skill-reviewer`)
+  - Reviews skill quality using a dual-axis method: deterministic auto scoring (structure, workflow, execution safety, artifacts, tests) and optional LLM deep review.
+  - 5-category auto axis (0-100): Metadata & Use Case (20), Workflow Coverage (25), Execution Safety & Reproducibility (25), Supporting Artifacts (10), Test Health (20).
+  - Detects `knowledge_only` skills (no scripts, references only) and adjusts scoring expectations to avoid unfair penalties.
+  - Optional LLM axis for qualitative review (correctness, risk, missing logic, maintainability) with configurable weight blending.
+  - Supports `--all` flag to review every skill at once, `--skip-tests` for quick triage, and `--project-root` for cross-project review.
+  - No API key required.
+
+## Skill Self-Improvement Loop
+
+An automated pipeline that continuously reviews and improves skill quality. A daily `launchd` job picks one skill, scores it with the dual-axis reviewer, and if the score is below 90/100, invokes `claude -p` to apply improvements and open a PR.
+
+### How It Works
+
+1. **Round-robin selection** — cycles through all skills (excluding the reviewer itself), persisted in `logs/.skill_improvement_state.json`.
+2. **Auto scoring** — runs `run_dual_axis_review.py` to get a deterministic score (0-100).
+3. **Improvement gate** — if `auto_review.score < 90`, Claude CLI applies fixes to SKILL.md and references.
+4. **Quality gate** — re-scores after improvement (with tests enabled); rolls back if the score didn't improve.
+5. **PR creation** — commits changes to a feature branch and opens a GitHub PR for human review.
+6. **Daily summary** — writes results to `reports/skill-improvement-log/YYYY-MM-DD_summary.md`.
+
+### Manual Execution
+
+```bash
+# Dry-run: score one skill without applying improvements or creating PRs
+python3 scripts/run_skill_improvement_loop.py --dry-run
+
+# Review all skills in dry-run mode
+python3 scripts/run_skill_improvement_loop.py --dry-run --all
+
+# Full run: score, improve if needed, and open PR
+python3 scripts/run_skill_improvement_loop.py
+```
+
+### launchd Setup (macOS)
+
+The loop runs daily at 05:00 local time via macOS `launchd`:
+
+```bash
+# Install the agent
+cp launchd/com.trade-analysis.skill-improvement.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-improvement.plist
+
+# Verify
+launchctl list | grep skill-improvement
+
+# Manual trigger
+launchctl start com.trade-analysis.skill-improvement
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `scripts/run_skill_improvement_loop.py` | Orchestration script (selection, scoring, improvement, PR) |
+| `scripts/run_skill_improvement.sh` | Thin shell wrapper for launchd |
+| `launchd/com.trade-analysis.skill-improvement.plist` | macOS launchd agent configuration |
+| `skills/dual-axis-skill-reviewer/` | Reviewer skill (scoring engine) |
+| `logs/.skill_improvement_state.json` | Round-robin state and history |
+| `reports/skill-improvement-log/` | Daily summary reports |
+
 ## Customization & Contribution
 - Update `SKILL.md` files to tweak trigger descriptions or capability notes; ensure the frontmatter name matches the folder name when zipping.
 - Extend reference documents or add scripts inside each skill folder to support new workflows.
@@ -298,6 +361,7 @@ Several skills require API keys for data access:
 | **Market Breadth Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
 | **Uptrend Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
 | **Theme Detector** | 🟡 Optional | 🟡 Optional | ❌ Not used | Core: FINVIZ public + yfinance (free). FMP for ETF holdings, FINVIZ Elite for stock lists |
+| Dual-Axis Skill Reviewer | ❌ Not used | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 
 ### API Setup
 
