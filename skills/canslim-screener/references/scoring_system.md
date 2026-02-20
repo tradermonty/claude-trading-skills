@@ -1,41 +1,30 @@
-# CANSLIM Scoring System - Phase 1 MVP
+# CANSLIM Scoring System - Phase 3 (Full CANSLIM)
 
 ## Overview
 
-This document specifies the composite scoring system for the CANSLIM screener. Phase 1 MVP implements **4 of 7** components (C, A, N, M), representing 55% of the full CANSLIM methodology weight. Component weights are renormalized to 100% for Phase 1 to provide meaningful composite scores.
-
-**Full CANSLIM (Phases 2-3)** will restore original weights once S, L, I components are added.
+This document specifies the composite scoring system for the CANSLIM screener. Phase 3 implements all **7 of 7** components (C, A, N, S, L, I, M), representing 100% of the full CANSLIM methodology weight using O'Neil's original component weights.
 
 ---
 
 ## Component Weights
 
-### Phase 1 MVP Weights (4 Components)
+### Phase 3 Weights (Full CANSLIM - 7 Components)
 
-| Component | Original Weight | Phase 1 Weight | Rationale |
-|-----------|----------------|----------------|-----------|
-| **C** - Current Earnings | 15% | **27%** | Most predictive single factor (O'Neil's #1) |
-| **A** - Annual Growth | 20% | **36%** | Highest weight - validates sustainability |
-| **N** - Newness | 15% | **27%** | Momentum confirmation critical |
-| **M** - Market Direction | 5% | **10%** | Gating filter - affects all stocks |
-| **Total (Phase 1)** | **55%** | **100%** | Renormalized |
+| Component | Weight | Rationale |
+|-----------|--------|-----------|
+| **C** - Current Earnings | **15%** | Most predictive single factor (O'Neil's #1) |
+| **A** - Annual Growth | **20%** | Validates sustainability of earnings growth |
+| **N** - Newness | **15%** | Momentum confirmation critical |
+| **S** - Supply/Demand | **15%** | Volume accumulation/distribution analysis |
+| **L** - Leadership/RS Rank | **20%** | Largest weight (tied with A) - identifies sector leaders |
+| **I** - Institutional Sponsorship | **10%** | Smart money confirmation |
+| **M** - Market Direction | **5%** | Gating filter - affects all stocks |
+| **Total** | **100%** | Original O'Neil weights |
 
-**Missing in Phase 1** (to be added in Phases 2-3):
-- **S** - Supply/Demand (15% original weight)
-- **L** - Leadership (20% original weight)
-- **I** - Institutional Sponsorship (10% original weight)
+### Legacy Phase Weights (Reference Only)
 
-### Future Phase Weights
-
-**Phase 2** (6 components - C, A, N, S, I, M):
-- Restore S (15%) and I (10%)
-- Total weight: 75% (L still missing)
-- Renormalize to 100% temporarily
-
-**Phase 3** (7 components - Complete CANSLIM):
-- Add L (20%)
-- Total weight: 100% (original weights restored)
-- C 15%, A 20%, N 15%, S 15%, L 20%, I 10%, M 5%
+**Phase 1 MVP** (4 components - C, A, N, M): Renormalized to C 27%, A 36%, N 27%, M 10%
+**Phase 2** (6 components - C, A, N, S, I, M): Renormalized to C 19%, A 25%, N 19%, S 19%, I 13%, M 6%
 
 ---
 
@@ -265,37 +254,85 @@ m_score = min(max(base_score, 0), 100)  # Cap between 0-100
 - **10-29 points**: Downtrend - Defensive posture, minimal positions
 - **0 points**: Bear market - Raise 80-100% cash, do not buy
 
-**Critical Rule**: If M score = 0, **do not buy any stocks** regardless of C, A, N scores. Market direction trumps stock selection.
+**Critical Rule**: If M score = 0, **do not buy any stocks** regardless of other component scores. Market direction trumps stock selection.
+
+---
+
+### L - Leadership / Relative Strength (0-100 Points)
+
+**Input Data Required:**
+- Stock 52-week historical prices
+- S&P 500 52-week historical prices (benchmark)
+
+**Calculation:**
+```python
+# 52-week stock performance
+stock_perf = ((current_price / price_52w_ago) - 1) * 100
+
+# 52-week S&P 500 performance
+sp500_perf = ((sp500_current / sp500_52w_ago) - 1) * 100
+
+# Relative performance
+relative_perf = stock_perf - sp500_perf
+
+# RS Rank estimate (1-99 scale)
+rs_rank = calculate_rs_rank(relative_perf)
+```
+
+**Scoring Logic:**
+```python
+if rs_rank >= 90:
+    base_score = 100  # Top decile leader
+elif rs_rank >= 80:
+    base_score = 80   # Strong leader
+elif rs_rank >= 70:
+    base_score = 60   # Above average
+elif rs_rank >= 60:
+    base_score = 40   # Average
+else:
+    base_score = 20   # Laggard
+```
+
+**Interpretation:**
+- **90-100 points**: Top RS leader - stock significantly outperforming market
+- **70-89 points**: Strong relative strength - outperforming market
+- **50-69 points**: Average relative strength
+- **30-49 points**: Below average - underperforming market
+- **0-29 points**: Laggard - significantly underperforming, avoid per CANSLIM
+
+**O'Neil's Rule**: "Buy stocks with an RS rating of 80 or higher. Avoid laggards below 70."
 
 ---
 
 ## Composite Score Calculation
 
-### Formula (Phase 1 MVP)
+### Formula (Phase 3 - Full CANSLIM)
 
 ```python
 composite_score = (
-    c_score * 0.27 +  # Current Earnings: 27% weight
-    a_score * 0.36 +  # Annual Growth: 36% weight
-    n_score * 0.27 +  # Newness: 27% weight
-    m_score * 0.10    # Market Direction: 10% weight
+    c_score * 0.15 +  # Current Earnings: 15% weight
+    a_score * 0.20 +  # Annual Growth: 20% weight
+    n_score * 0.15 +  # Newness: 15% weight
+    s_score * 0.15 +  # Supply/Demand: 15% weight
+    l_score * 0.20 +  # Leadership/RS Rank: 20% weight
+    i_score * 0.10 +  # Institutional: 10% weight
+    m_score * 0.05    # Market Direction: 5% weight
 )
 
 # Result: 0-100 composite score
 ```
 
-### Interpretation Bands (Phase 1)
+### Interpretation Bands (Phase 3)
 
 | Score Range | Rating | Percentile | Meaning | Action |
 |-------------|--------|------------|---------|--------|
-| **80-100** | **Exceptional** | Top 5-10% | Rare setup - all components aligned | Strong buy, aggressive sizing (15-20% position) |
-| **70-79** | **Strong** | Top 15-20% | Most components strong | Buy, standard sizing (10-15% position) |
-| **60-69** | **Above Average** | Top 30% | Solid candidate, minor weaknesses | Buy on pullback, smaller sizing (5-10%) |
+| **90-100** | **Exceptional+** | Top 1-2% | Rare multi-bagger setup with full institutional backing | Immediate buy, aggressive sizing (15-20% position) |
+| **80-89** | **Exceptional** | Top 5-10% | Outstanding fundamentals + accumulation | Strong buy, standard sizing (10-15% position) |
+| **70-79** | **Strong** | Top 15-20% | High-quality CANSLIM stock | Buy on pullback, standard sizing (10-15%) |
+| **60-69** | **Above Average** | Top 30% | Solid candidate, minor weaknesses | Watchlist, smaller sizing (5-10%) on pullback |
 | **50-59** | **Average** | Top 50% | Meets minimums, lacks conviction | Watchlist, wait for improvement |
 | **40-49** | **Below Average** | Bottom 50% | One or more components weak | Monitor only, do not buy |
 | **<40** | **Weak** | Bottom 30% | Fails CANSLIM criteria | Avoid |
-
-**Note**: Phase 1 scores are not directly comparable to full CANSLIM scores. An 80-point Phase 1 stock may score 140-160 with full 7 components (S, L, I added).
 
 ### Weakest Component Identification
 
@@ -306,6 +343,9 @@ components = {
     'C': c_score,
     'A': a_score,
     'N': n_score,
+    'S': s_score,
+    'L': l_score,
+    'I': i_score,
     'M': m_score
 }
 
@@ -317,6 +357,9 @@ weakest_score = components[weakest_component]
 - Weakest = C → Earnings deceleration risk
 - Weakest = A → Lack of sustained growth history
 - Weakest = N → Lacks momentum, far from highs
+- Weakest = S → Distribution pattern, institutions selling
+- Weakest = L → Lagging market, not a sector leader
+- Weakest = I → Underowned or overcrowded, investigate further
 - Weakest = M → Poor market timing, consider waiting
 
 ### Formula (Phase 2 - 6 Components)
@@ -486,47 +529,13 @@ composite = (100 * 0.27) + (90 * 0.36) + (95 * 0.27) + (0 * 0.10)
 
 ---
 
-## Phase 2-3 Scoring Evolution
+## Scoring Evolution History
 
-### Phase 2 (6 Components: C, A, N, S, I, M)
+Phase 3 (current) uses the original O'Neil weights across all 7 components. Previous phases used renormalized weights to compensate for missing components:
 
-**New Weights** (renormalized, L still missing):
-- C: 19% (15% / 0.80)
-- A: 25% (20% / 0.80)
-- N: 19% (15% / 0.80)
-- S: 19% (15% / 0.80) - NEW
-- I: 13% (10% / 0.80) - NEW
-- M: 6% (5% / 0.80)
-- Total: 100%
-
-**Expected Impact**:
-- S component (volume/supply-demand) will further validate institutional accumulation
-- I component (institutional sponsorship) will identify "smart money" confirmation
-- Composite scores expected to shift ±5-10 points with S, I added
-
-### Phase 3 (7 Components: Complete CANSLIM)
-
-**Final Weights** (original O'Neil methodology):
-- C: 15%
-- A: 20%
-- N: 15%
-- S: 15%
-- L: 20% - NEW (largest single component!)
-- I: 10%
-- M: 5%
-- Total: 100%
-
-**Expected Impact**:
-- L component (relative strength leadership) will identify sector leaders and laggards
-- Stocks in top quartile of their sector will score significantly higher
-- Final scores will range 0-200 points (double Phase 1 range due to 0-100 per component)
-
-**Interpretation Bands (Phase 3 Full CANSLIM)**:
-- **160-200 points**: Exceptional (top 1-2% of stocks)
-- **140-159 points**: Strong (top 5-10%)
-- **120-139 points**: Above Average (top 20%)
-- **100-119 points**: Average (meets minimums)
-- **<100 points**: Below standard
+- **Phase 1 MVP** (4 components): C 27%, A 36%, N 27%, M 10%
+- **Phase 2** (6 components): C 19%, A 25%, N 19%, S 19%, I 13%, M 6%
+- **Phase 3** (7 components): C 15%, A 20%, N 15%, S 15%, L 20%, I 10%, M 5% (original O'Neil weights)
 
 ---
 
@@ -534,8 +543,8 @@ composite = (100 * 0.27) + (90 * 0.36) + (95 * 0.27) + (0 * 0.10)
 
 ### For Screener Implementation
 
-1. **Calculate all 4 component scores** (C, A, N, M) for each stock
-2. **Apply composite formula** with Phase 1 weights
+1. **Calculate all 7 component scores** (C, A, N, S, L, I, M) for each stock
+2. **Apply composite formula** with Phase 3 weights
 3. **Identify weakest component** for each stock
 4. **Rank stocks** by composite score (highest to lowest)
 5. **Apply market filter** FIRST: If M score < 40, warn user to reduce exposure
@@ -545,7 +554,7 @@ composite = (100 * 0.27) + (90 * 0.36) + (95 * 0.27) + (0 * 0.10)
 **Include in output**:
 - Composite score (0-100)
 - Rating (Exceptional / Strong / Above Average / Average / Below Average / Weak)
-- Individual component scores (C, A, N, M)
+- Individual component scores (C, A, N, S, L, I, M)
 - Weakest component identification
 - Interpretation guidance
 - Recommended action (buy / watchlist / avoid)
@@ -553,15 +562,18 @@ composite = (100 * 0.27) + (90 * 0.36) + (95 * 0.27) + (0 * 0.10)
 **Format Example**:
 ```
 NVDA - NVIDIA Corporation
-Composite Score: 97.7 / 100 (Exceptional)
+Composite Score: 95.2 / 100 (Exceptional+)
 
 Component Breakdown:
 C (Current Earnings): 100 / 100 - Explosive growth (EPS +429% YoY)
 A (Annual Growth): 95 / 100 - Exceptional 3yr CAGR (89%)
 N (Newness): 98 / 100 - At new highs with AI catalyst
+S (Supply/Demand): 85 / 100 - Strong accumulation pattern
+L (Leadership): 92 / 100 - RS Rank 95, sector leader
+I (Institutional): 90 / 100 - 6199 holders, 68% ownership
 M (Market Direction): 100 / 100 - Strong bull market
 
-Weakest Component: A (95) - Still exceptional
+Weakest Component: S (85) - Strong accumulation
 Recommendation: Strong buy - Rare multi-bagger setup
 ```
 
@@ -594,4 +606,4 @@ Validate scoring system with known CANSLIM winners:
 
 ---
 
-This scoring system provides a quantitative, objective framework for implementing O'Neil's CANSLIM methodology. Phase 1 captures the most predictive components (earnings and growth) while setting the foundation for full implementation in Phases 2-3.
+This scoring system provides a quantitative, objective framework for implementing O'Neil's complete CANSLIM methodology. Phase 3 implements all 7 components with original O'Neil weights, providing comprehensive growth stock screening.

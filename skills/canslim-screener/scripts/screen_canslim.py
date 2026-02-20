@@ -51,7 +51,7 @@ DEFAULT_UNIVERSE = [
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="CANSLIM Stock Screener - Phase 1 MVP (C, A, N, M components)"
+        description="CANSLIM Stock Screener - Phase 3 (Full CANSLIM: C, A, N, S, L, I, M)"
     )
 
     parser.add_argument(
@@ -63,7 +63,7 @@ def parse_arguments():
         "--max-candidates",
         type=int,
         default=40,
-        help="Maximum number of stocks to analyze (default: 40, stays within free tier)"
+        help="Maximum number of stocks to analyze (default: 40; use 35 for free tier's 250 calls/day limit)"
     )
 
     parser.add_argument(
@@ -258,8 +258,20 @@ def main():
         print("ERROR: Unable to fetch S&P 500 data", file=sys.stderr)
         sys.exit(1)
 
+    # Fetch S&P 500 historical prices (used by both M and L components)
+    print("Fetching S&P 500 52-week data for M (EMA) and L (Relative Strength) components...")
+    sp500_historical = client.get_historical_prices("^GSPC", days=365)  # Must match ^GSPC quote for M component EMA
+    if sp500_historical and sp500_historical.get("historical"):
+        sp500_days = len(sp500_historical.get("historical", []))
+        print(f"✓ S&P 500 historical data: {sp500_days} days")
+    else:
+        print("⚠️  S&P 500 historical data unavailable - M component will use EMA fallback, L component will use absolute performance")
+
+    # Calculate M component using real historical prices for accurate EMA
+    sp500_historical_list = sp500_historical.get("historical", []) if sp500_historical else []
     market_data = calculate_market_direction(
         sp500_quote=sp500_quote[0],
+        sp500_prices=sp500_historical_list if sp500_historical_list else None,
         vix_quote=vix_quote[0] if vix_quote else None
     )
 
@@ -274,16 +286,6 @@ def main():
         print(f"⚠️  WARNING: {market_data['warning']}")
         print("    Consider raising cash allocation. CANSLIM doesn't work in bear markets.")
 
-    print()
-
-    # Fetch S&P 500 historical prices for L component (Relative Strength calculation)
-    print("Fetching S&P 500 52-week data for Leadership (L) component...")
-    sp500_historical = client.get_historical_prices("SPY", days=365)  # Use SPY as S&P 500 proxy
-    if sp500_historical and sp500_historical.get("historical"):
-        sp500_days = len(sp500_historical.get("historical", []))
-        print(f"✓ S&P 500 historical data: {sp500_days} days")
-    else:
-        print("⚠️  S&P 500 historical data unavailable - L component will use absolute performance")
     print()
 
     # Step 2: Progressive filtering and analysis
@@ -352,7 +354,7 @@ def main():
     api_stats = client.get_api_stats()
     print(f"API Usage:")
     print(f"  Cache entries: {api_stats['cache_entries']}")
-    print(f"  Estimated calls: ~{len(universe) * 6 + 4} (market data + S&P 500 history + {len(universe)} stocks × 6 API calls)")
+    print(f"  Estimated calls: ~{len(universe) * 7 + 3} (3 market data calls + {len(universe)} stocks × 7 API calls each)")
     print(f"  Phase 3 includes all 7 CANSLIM components (C, A, N, S, L, I, M)")
     print()
 

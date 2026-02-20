@@ -60,7 +60,7 @@ def calculate_leadership(
 
     Example:
         >>> prices = client.get_historical_prices("NVDA", days=365)
-        >>> sp500 = client.get_historical_prices("SPY", days=365)
+        >>> sp500 = client.get_historical_prices("^GSPC", days=365)
         >>> result = calculate_leadership(prices, sp500)
         >>> print(f"L Score: {result['score']}, RS Estimate: {result['rs_rank_estimate']}")
     """

@@ -1,8 +1,8 @@
-# FMP API Endpoints - CANSLIM Screener Phase 1 MVP
+# FMP API Endpoints - CANSLIM Screener Phase 3 (Full CANSLIM)
 
 ## Overview
 
-This document specifies the Financial Modeling Prep (FMP) API endpoints required for the CANSLIM screener Phase 1 MVP implementation (C, A, N, M components).
+This document specifies the Financial Modeling Prep (FMP) API endpoints required for the CANSLIM screener Phase 3 implementation (all 7 components: C, A, N, S, L, I, M).
 
 **Base URL**: `https://financialmodelingprep.com/api/v3`
 
@@ -356,7 +356,55 @@ curl "https://financialmodelingprep.com/api/v3/quote/%5EVIX?apikey=YOUR_KEY"
 
 ---
 
-## S Component - Supply and Demand (Phase 2)
+## L Component - Leadership / Relative Strength (Phase 3)
+
+### Endpoint: Historical Prices (52-Week)
+
+**URL**: `/v3/historical-price-full/{symbol}?timeseries=365`
+
+**Purpose**: Calculate 52-week stock performance vs S&P 500 benchmark for RS Rank estimation
+
+**Request**:
+```bash
+curl "https://financialmodelingprep.com/api/v3/historical-price-full/NVDA?timeseries=365&apikey=YOUR_KEY"
+```
+
+**Response Structure**:
+```json
+{
+  "symbol": "NVDA",
+  "historical": [
+    {
+      "date": "2025-01-10",
+      "close": 148.50,
+      "open": 146.20,
+      "high": 149.80,
+      "low": 145.90,
+      "volume": 250000000
+    }
+    // ... 364 more days
+  ]
+}
+```
+
+**Usage**:
+```python
+# Stock 52-week performance
+current_price = historical[0]['close']
+price_52w_ago = historical[-1]['close']  # ~252 trading days
+stock_perf = ((current_price / price_52w_ago) - 1) * 100
+
+# Compare vs S&P 500 (^GSPC) for RS calculation
+relative_perf = stock_perf - sp500_perf
+```
+
+**S&P 500 Benchmark Data**: S&P 500 52-week historical prices are fetched once using `^GSPC` (same endpoint, shared for both M component EMA and L component RS calculation). Both quote and historical use `^GSPC` to ensure price scale consistency.
+
+**API Calls**: 1 per stock (52-week data) + 1 shared S&P 500 call
+
+---
+
+## S Component - Supply and Demand
 
 ### Endpoint: Historical Prices (Already Fetched for N Component)
 
@@ -492,63 +540,41 @@ superinvestor_present = any(
 
 ## API Call Summary (Per Stock)
 
-### Phase 1 MVP (C, A, N, M Components)
-
-**Per-Stock Calls**:
-1. Income Statement (Quarterly): 1 call
-2. Income Statement (Annual): 1 call
-3. Historical Prices (365 days): 1 call OR Quote: 1 call
-4. Stock News (Optional): 1 call
-
-**Per-Stock Total**: 3-4 calls
-
-**Market Data Calls** (One-Time per Session):
-1. S&P 500 Quote: 1 call (shared)
-2. S&P 500 Historical (60 days): 1 call (shared)
-3. VIX Quote: 1 call (shared)
-
-**Market Data Total**: 3 calls
-
-**Total for 40 Stocks**:
-- Per-stock: 40 stocks × 3 calls = 120 calls
-- Market data: 3 calls
-- **Grand Total: 123 calls** (well within 250 free tier limit)
-
-**With Optional News**:
-- Per-stock: 40 stocks × 4 calls = 160 calls
-- Market data: 3 calls
-- **Grand Total: 163 calls** (still within free tier)
-
-### Phase 2 (C, A, N, S, I, M Components)
+### Phase 3 (Full CANSLIM: C, A, N, S, L, I, M)
 
 **Per-Stock Calls**:
 1. Profile (for company info): 1 call
 2. Quote (for current price): 1 call
 3. Income Statement (Quarterly): 1 call
-4. Income Statement (Annual): 1 call (after filtering)
+4. Income Statement (Annual): 1 call
 5. Historical Prices (90 days): 1 call (reused for N and S)
-6. Institutional Holders: 1 call (NEW in Phase 2)
+6. Historical Prices (365 days): 1 call (for L component RS calculation)
+7. Institutional Holders: 1 call
 
-**Per-Stock Total**: 5-6 calls (depending on filtering)
+**Per-Stock Total**: 7 calls (profile, quote, income×2, historical_90d, historical_365d, institutional)
 
 **Market Data Calls** (One-Time per Session):
-1. S&P 500 Quote: 1 call (shared)
-2. S&P 500 Historical (60 days): 1 call (shared)
-3. VIX Quote: 1 call (shared)
+1. S&P 500 Quote (`^GSPC`): 1 call (shared)
+2. S&P 500 Historical (`^GSPC`, 365 days): 1 call (shared, used for both M component EMA and L component RS benchmark)
+3. VIX Quote (`^VIX`): 1 call (shared)
 
 **Market Data Total**: 3 calls
 
+**Important**: Both the quote and historical data use `^GSPC` (S&P 500 index) to ensure price scale consistency for M component EMA calculation. Using SPY (ETF, ~500) for historical while ^GSPC (~5000) for quote would cause a ~10× scale mismatch.
+
 **Total for 40 Stocks**:
-- Per-stock: 40 stocks × 5 calls (avg) = 200 calls
+- Per-stock: 40 stocks × 7 calls = 280 calls
 - Market data: 3 calls
-- **Grand Total: ~203 calls (81% of 250 free tier limit)** ✅
+- **Grand Total: ~283 calls (exceeds 250 free tier limit)** ⚠️
 
 **Key Efficiency**:
-- S component: 0 extra calls (reuses historical_prices from N component)
-- I component: +1 call per stock (institutional-holder endpoint)
-- **Phase 2 adds only ~70 calls over Phase 1 (140 calls)**
+- S component: 0 extra calls (reuses historical_prices from N component's 90-day fetch)
+- L component: +1 call per stock (365-day historical prices, separate cache key from 90-day)
+- S&P 500 historical data: shared between M (EMA) and L (RS benchmark)
 
-**Free Tier Status**: ✅ Comfortably within limits (47 calls headroom)
+**Free Tier Workaround**: Use `--max-candidates 35` (35 × 7 + 3 = 248 calls, within 250 limit). For full 40-stock screening, upgrade to FMP Starter tier ($29.99/mo, 750 calls/day).
+
+**Note on `mktCap` field**: FMP profile API returns `mktCap` (not `marketCap`). The screener handles both field names for compatibility.
 
 ---
 
@@ -586,7 +612,7 @@ def handle_rate_limit(response):
 1. **Batch calls where possible**: Use comma-separated symbols in quote endpoint
 2. **Cache market data**: Fetch S&P 500/VIX once, reuse for all stocks
 3. **Skip optional calls**: News endpoint can be omitted to save 40 calls
-4. **Limit universe**: Analyze top 40 stocks by volume/market cap (Phase 1 default)
+4. **Limit universe**: Analyze top 35 stocks for free tier, or 40 with Starter tier
 5. **Progressive filtering**: Apply cheap filters first (market cap, sector) before expensive API calls
 
 ---
@@ -681,7 +707,7 @@ curl "https://financialmodelingprep.com/api/v3/historical-price-full/%5EGSPC?tim
 curl "https://financialmodelingprep.com/api/v3/quote/%5EVIX&apikey=YOUR_KEY"
 ```
 
-**Total**: 6 calls (3 for NVDA, 3 for market - market calls reused for all stocks)
+**Total**: 7 calls per stock (profile, quote, income×2, historical_90d, historical_365d, institutional) + 3 market calls (reused for all stocks)
 
 ---
 
@@ -689,19 +715,18 @@ curl "https://financialmodelingprep.com/api/v3/quote/%5EVIX&apikey=YOUR_KEY"
 
 ### Free Tier (250 requests/day)
 
-- **40 stocks × 3 calls = 120 calls**
+- **40 stocks × 7 calls = 280 calls**
 - **Market data: 3 calls**
-- **Total: 123 calls (49% of quota)**
-- **Remaining: 127 calls** (available for re-runs or additional stocks)
+- **Total: ~283 calls (exceeds 250 quota)** ⚠️
+- **Workaround**: Use `--max-candidates 35` (35 × 7 + 3 = 248 calls)
 
 ### Paid Tiers
 
-- **Starter ($14/month)**: 500 requests/day → ~165 stocks per day
-- **Professional ($29/month)**: 1000 requests/day → ~330 stocks per day
-- **Enterprise ($399/month)**: 10000 requests/day → ~3330 stocks per day
+- **Starter ($29.99/month)**: 750 requests/day → ~106 stocks/run ((750 - 3) / 7)
+- **Professional ($79.99/month)**: 2000 requests/day → ~285 stocks/run ((2000 - 3) / 7)
 
-**Recommendation for Phase 1**: Free tier sufficient for 40-stock universe
+**Recommendation for Phase 3**: Free tier supports up to 35 stocks (`--max-candidates 35`). For the default 40-stock universe, upgrade to Starter tier ($29.99/mo).
 
 ---
 
-This API reference provides complete documentation for implementing Phase 1 MVP CANSLIM screening within FMP free tier constraints.
+This API reference provides complete documentation for implementing Phase 3 (Full CANSLIM) screening. Free tier users should use `--max-candidates 35` to stay within the 250 calls/day limit.

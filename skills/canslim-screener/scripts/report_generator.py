@@ -74,10 +74,10 @@ def generate_markdown_report(results: List[Dict], metadata: Dict, output_file: s
         lines.append("")
 
     # Top candidates
-    lines.append(f"## Top {min(len(results), 20)} CANSLIM Candidates")
+    lines.append(f"## Top {len(results)} CANSLIM Candidates")
     lines.append("")
 
-    for i, stock in enumerate(results[:20], 1):
+    for i, stock in enumerate(results, 1):
         lines.extend(format_stock_entry(i, stock))
 
     # Summary statistics

@@ -135,7 +135,7 @@ def calculate_institutional_sponsorship(
 
         # Fallback: calculate from market cap and price
         if not shares_outstanding:
-            market_cap = profile.get("marketCap")
+            market_cap = profile.get("mktCap") or profile.get("marketCap")
             price = profile.get("price")
             if market_cap and price and price > 0:
                 shares_outstanding = market_cap / price
@@ -249,12 +249,12 @@ def score_institutional_sponsorship(
     elif (20 <= num_holders < 30 and 20 <= ownership_pct <= 50) or \
          (50 <= num_holders <= 150 and 20 <= ownership_pct <= 70):
         base_score = 60
+    # Extreme ownership (check narrower range first)
+    elif ownership_pct < 10 or ownership_pct > 90:
+        base_score = 20
     # Suboptimal ownership
     elif ownership_pct < 20 or ownership_pct > 80:
         base_score = 40
-    # Extreme ownership
-    elif ownership_pct < 10 or ownership_pct > 90:
-        base_score = 20
     else:
         base_score = 50  # Default for other combinations
 

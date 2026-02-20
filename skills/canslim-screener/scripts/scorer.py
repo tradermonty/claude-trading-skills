@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
-CANSLIM Composite Scoring Engine - Phase 1 MVP
+CANSLIM Composite Scoring Engine - Phase 3 (Full CANSLIM)
 
-Combines individual component scores (C, A, N, M) into weighted composite score.
+Combines individual component scores into weighted composite score.
+Supports Phase 1 (4 components), Phase 2 (6 components), and Phase 3 (7 components).
 
-Phase 1 MVP Weights:
-- C (Current Earnings): 27%
-- A (Annual Growth): 36%
-- N (Newness): 27%
-- M (Market Direction): 10%
+Phase 3 Weights (Full CANSLIM - Original O'Neil weights):
+- C (Current Earnings): 15%
+- A (Annual Growth): 20%
+- N (Newness): 15%
+- S (Supply/Demand): 15%
+- L (Leadership/RS Rank): 20%
+- I (Institutional): 10%
+- M (Market Direction): 5%
 Total: 100%
 
 Interpretation Bands:

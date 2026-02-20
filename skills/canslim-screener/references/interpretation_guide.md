@@ -1,10 +1,8 @@
-# CANSLIM Score Interpretation Guide - Phase 1 MVP
+# CANSLIM Score Interpretation Guide - Phase 3 (Full CANSLIM)
 
 ## Overview
 
-This guide helps users interpret CANSLIM screening results and translate composite scores into actionable investment decisions. Phase 1 MVP scores (C, A, N, M components only) are presented on a 0-100 scale.
-
-**Important**: Phase 1 scores are **not directly comparable** to full 7-component CANSLIM scores. See comparison table below.
+This guide helps users interpret CANSLIM screening results and translate composite scores into actionable investment decisions. Phase 3 implements all 7 components (C, A, N, S, L, I, M) with original O'Neil weights, presented on a 0-100 scale.
 
 ---
 
@@ -24,37 +22,26 @@ This guide helps users interpret CANSLIM screening results and translate composi
 
 ---
 
-## Phase 1 vs Full CANSLIM Score Comparison
-
-Since Phase 1 implements only 4 of 7 components (55% of methodology), scores will be compressed:
-
-| Phase 1 Score | Equivalent Full CANSLIM Score | Rating |
-|---------------|------------------------------|--------|
-| 95-100 | 160-200 | Exceptional - Multi-bagger candidate |
-| 85-94 | 140-159 | Strong - High-quality growth stock |
-| 75-84 | 120-139 | Above Average - Solid candidate |
-| 65-74 | 105-119 | Average - Meets minimums |
-| 55-64 | 90-104 | Below Average - One or more weak components |
-| <55 | <90 | Weak - Fails CANSLIM criteria |
-
-**Key Insight**: A stock scoring 85+ in Phase 1 MVP is likely to score 140-160+ with full CANSLIM (Phase 3). This represents top-tier growth stock quality.
-
----
-
 ## Component-Level Analysis
 
 ### How to Read Individual Component Scores
 
 Each component contributes to the composite score with different weights:
-- **C (Current Earnings)**: 27% weight - Quarterly EPS acceleration
-- **A (Annual Growth)**: 36% weight - Multi-year consistency (highest weight!)
-- **N (Newness)**: 27% weight - Momentum and price action
-- **M (Market Direction)**: 10% weight - Macro environment filter
+- **C (Current Earnings)**: 15% weight - Quarterly EPS acceleration
+- **A (Annual Growth)**: 20% weight - Multi-year consistency
+- **N (Newness)**: 15% weight - Momentum and price action
+- **S (Supply/Demand)**: 15% weight - Volume accumulation/distribution
+- **L (Leadership/RS Rank)**: 20% weight - Relative strength vs market (highest weight, tied with A!)
+- **I (Institutional)**: 10% weight - Smart money confirmation
+- **M (Market Direction)**: 5% weight - Macro environment filter
 
 **Minimum Thresholds** (all must be met for "buy" rating):
 - C >= 60 (18%+ quarterly EPS growth)
 - A >= 50 (25%+ annual EPS CAGR)
 - N >= 40 (within 25% of 52-week high)
+- S >= 40 (accumulation pattern, ratio >= 1.0)
+- L >= 50 (RS Rank 60+, outperforming market)
+- I >= 40 (30+ holders or 20%+ ownership)
 - M >= 40 (market not in downtrend)
 
 ### Component Score Interpretation
@@ -75,10 +62,13 @@ Each component contributes to the composite score with different weights:
 ### 90-100 Points (Exceptional+)
 
 **Characteristics**:
-- All 4 components aligned (C, A, N, M all 80+)
+- All 7 components aligned (C, A, N, S, L, I, M all 80+)
 - Explosive earnings growth (C: 90-100)
 - Multi-year growth validation (A: 90-100)
 - At or near new highs with catalyst (N: 90-100)
+- Strong volume accumulation (S: 80+)
+- Relative strength leader (L: 90+)
+- Strong institutional backing (I: 80+)
 - Strong bull market environment (M: 90-100)
 
 **Historical Examples**:
@@ -501,6 +491,9 @@ Before buying any stock, verify:
 - [ ] **C component >= 60** (Meets earnings minimum)
 - [ ] **A component >= 50** (Meets growth minimum)
 - [ ] **N component >= 40** (Not too far from highs)
+- [ ] **S component >= 40** (Accumulation pattern present)
+- [ ] **L component >= 50** (Outperforming market, RS leader)
+- [ ] **I component >= 40** (Institutional backing present)
 - [ ] **Weakest component identified** and understood
 - [ ] **Stop loss set at 7-8% below entry**
 - [ ] **Position size appropriate** (based on score tier)
