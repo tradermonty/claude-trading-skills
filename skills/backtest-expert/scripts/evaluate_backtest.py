@@ -276,6 +276,8 @@ def validate_inputs(
     avg_win_pct: float,
     avg_loss_pct: float,
     max_drawdown_pct: float,
+    years_tested: int,
+    num_parameters: int,
 ) -> None:
     """Validate evaluation inputs at system boundary. Raises ValueError."""
     if total_trades < 0:
@@ -288,6 +290,10 @@ def validate_inputs(
         raise ValueError("avg_loss_pct must be >= 0")
     if max_drawdown_pct < 0:
         raise ValueError("max_drawdown_pct must be >= 0")
+    if years_tested < 0:
+        raise ValueError("years_tested must be >= 0")
+    if num_parameters < 0:
+        raise ValueError("num_parameters must be >= 0")
 
 
 def evaluate(
@@ -301,7 +307,7 @@ def evaluate(
     slippage_tested: bool,
 ) -> dict:
     """Run full 5-dimension evaluation and return structured result."""
-    validate_inputs(total_trades, win_rate, avg_win_pct, avg_loss_pct, max_drawdown_pct)
+    validate_inputs(total_trades, win_rate, avg_win_pct, avg_loss_pct, max_drawdown_pct, years_tested, num_parameters)
     d1 = score_sample_size(total_trades)
     d2 = score_expectancy(win_rate, avg_win_pct, avg_loss_pct)
     d3 = score_risk_management(max_drawdown_pct, win_rate, avg_win_pct, avg_loss_pct)

@@ -67,6 +67,24 @@ class TestInputValidation:
                 num_parameters=3, slippage_tested=True,
             )
 
+    def test_negative_years_tested(self, evaluator_module):
+        """Negative years_tested raises ValueError."""
+        with pytest.raises(ValueError, match="years_tested"):
+            evaluator_module.evaluate(
+                total_trades=100, win_rate=60, avg_win_pct=2.0,
+                avg_loss_pct=1.0, max_drawdown_pct=15, years_tested=-1,
+                num_parameters=3, slippage_tested=True,
+            )
+
+    def test_negative_num_parameters(self, evaluator_module):
+        """Negative num_parameters raises ValueError."""
+        with pytest.raises(ValueError, match="num_parameters"):
+            evaluator_module.evaluate(
+                total_trades=100, win_rate=60, avg_win_pct=2.0,
+                avg_loss_pct=1.0, max_drawdown_pct=15, years_tested=5,
+                num_parameters=-2, slippage_tested=True,
+            )
+
     def test_boundary_win_rate_zero(self, evaluator_module):
         """win_rate=0 is valid (all losses)."""
         result = evaluator_module.evaluate(
