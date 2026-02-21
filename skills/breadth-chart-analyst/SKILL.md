@@ -9,6 +9,38 @@ description: This skill should be used when analyzing market breadth charts, spe
 
 This skill enables specialized analysis of two complementary market breadth charts that provide strategic (medium to long-term) and tactical (short-term) market perspectives. Analyze breadth chart images to assess market health, identify trading signals based on backtested strategies, and develop positioning recommendations. All thinking and output are conducted exclusively in English.
 
+## When to Use
+
+Use this skill when:
+- User provides S&P 500 Breadth Index (200-Day MA based) chart images for analysis
+- User provides US Stock Market Uptrend Stock Ratio chart images for analysis
+- User requests market breadth assessment or market health evaluation
+- User asks about medium-term strategic positioning based on breadth indicators
+- User needs short-term tactical timing signals for swing trading
+- User wants combined strategic and tactical market outlook
+
+Do NOT use this skill when:
+- User asks about individual stock analysis (use `us-stock-analysis` skill instead)
+- User needs sector rotation analysis without breadth charts (use `sector-analyst` skill instead)
+- User wants news-based market analysis (use `market-news-analyst` skill instead)
+
+## Prerequisites
+
+- **Chart Images Required**: User must provide one or both breadth chart images:
+  - Chart 1: S&P 500 Breadth Index (200-Day MA based)
+  - Chart 2: US Stock Market Uptrend Stock Ratio
+- **No API Keys Required**: This skill analyzes user-provided images; no external data sources needed
+- **Language**: All analysis and output conducted in English
+
+## Output
+
+This skill generates markdown analysis reports saved to the `reports/` directory:
+- Chart 1 only: `breadth_200ma_analysis_[YYYY-MM-DD].md`
+- Chart 2 only: `uptrend_ratio_analysis_[YYYY-MM-DD].md`
+- Both charts: `breadth_combined_analysis_[YYYY-MM-DD].md`
+
+Reports include executive summaries, current readings, signal identification, scenario analysis with probabilities, and actionable positioning recommendations for different trader types.
+
 ## Core Principles
 
 1. **Dual-Timeframe Analysis**: Combine strategic (Chart 1: 200MA Breadth) and tactical (Chart 2: Uptrend Ratio) perspectives
@@ -76,7 +108,7 @@ When the user provides breadth chart images for analysis:
 Before beginning analysis, read the comprehensive breadth chart methodology:
 
 ```
-Read: references/breadth_chart_methodology.md
+Read: skills/breadth-chart-analyst/references/breadth_chart_methodology.md
 ```
 
 This reference contains detailed guidance on:
@@ -92,8 +124,8 @@ This reference contains detailed guidance on:
 To understand the chart format and visual elements, review the sample charts included in this skill:
 
 ```
-View: assets/SP500_Breadth_Index_200MA_8MA.jpeg
-View: assets/US_Stock_Market_Uptrend_Ratio.jpeg
+View: skills/breadth-chart-analyst/assets/SP500_Breadth_Index_200MA_8MA.jpeg
+View: skills/breadth-chart-analyst/assets/US_Stock_Market_Uptrend_Ratio.jpeg
 ```
 
 These samples demonstrate:
@@ -334,7 +366,7 @@ Address any conflicts between charts and explain resolution.
 Create a comprehensive markdown report using the template structure:
 
 ```
-Read and use as template: assets/breadth_analysis_template.md
+Read and use as template: skills/breadth-chart-analyst/assets/breadth_analysis_template.md
 ```
 
 **IMPORTANT**: All analysis and output must be in English.
