@@ -17,8 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ruff
-        run: pip install ruff codespell
+      # Pin ruff version to match .pre-commit-config.yaml (v0.9.6)
+      - name: Install linters
+        run: pip install "ruff==0.9.6" codespell
 
       - name: Ruff check
         run: ruff check skills/ scripts/
@@ -160,6 +161,11 @@ jobs:
       - name: Bandit SAST scan
         run: bandit -c pyproject.toml -r skills/ --exclude "*/tests/*"
 
-      # Compare against committed baseline to avoid false positives
-      - name: Detect secrets audit
-        run: detect-secrets audit --report .secrets.baseline
+      # Scan and compare against committed baseline to catch new secrets
+      - name: Detect secrets check
+        run: |
+          detect-secrets scan \
+            --baseline .secrets.baseline \
+            --exclude-files '\.env$|\.json$|\.csv$|\.md$|\.zip$'
+          # Fails if new secrets are found (not in baseline)
+          git diff --exit-code .secrets.baseline

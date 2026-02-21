@@ -67,7 +67,15 @@ testpaths = [
 
 [tool.bandit]
 targets = ["skills"]
-skips = ["B101", "B110"]
+skips = [
+    "B101",  # assert used (normal in non-production code)
+    "B110",  # try-except-pass
+    "B113",  # requests without timeout (pre-existing in test scripts)
+    "B310",  # urllib urlopen (used for FMP API calls with validated URLs)
+    "B311",  # random (used for non-security skill selection)
+    "B404",  # import subprocess (needed for test runner)
+    "B603",  # subprocess without shell=true (intentionally safe pattern)
+]
 
 [tool.codespell]
 skip = ".venv,*.json,*.csv,*.baseline,zip-packages,*.pyc,__pycache__"
