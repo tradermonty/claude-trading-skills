@@ -161,11 +161,25 @@ jobs:
       - name: Bandit SAST scan
         run: bandit -c pyproject.toml -r skills/ --exclude "*/tests/*"
 
-      # Scan and compare against committed baseline to catch new secrets
+      # Compare a fresh scan against committed baseline (results only, ignore metadata)
       - name: Detect secrets check
         run: |
           detect-secrets scan \
-            --baseline .secrets.baseline \
-            --exclude-files '\.env$|\.json$|\.csv$|\.md$|\.zip$'
-          # Fails if new secrets are found (not in baseline)
-          git diff --exit-code .secrets.baseline
+            --exclude-files '\.env$|\.json$|\.csv$|\.md$|\.zip$' \
+            > /tmp/new_scan.json
+          python3 -c "
+          import json, sys
+          with open('.secrets.baseline') as f: old = json.load(f)
+          with open('/tmp/new_scan.json') as f: new = json.load(f)
+          old_set = {(p, i['hashed_secret'], i['line_number'])
+                     for p, items in old.get('results', {}).items() for i in items}
+          new_set = {(p, i['hashed_secret'], i['line_number'])
+                     for p, items in new.get('results', {}).items() for i in items}
+          diff = new_set - old_set
+          if diff:
+              print(f'ERROR: {len(diff)} new secret(s) not in baseline:')
+              for p, h, ln in sorted(diff):
+                  print(f'  {p}:{ln}')
+              sys.exit(1)
+          print(f'OK: {len(new_set)} known, 0 new')
+          "
