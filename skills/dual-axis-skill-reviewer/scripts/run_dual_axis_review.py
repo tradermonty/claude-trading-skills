@@ -654,8 +654,7 @@ def score_skill(
                     line=find_line(lines, r"references/"),
                     message="Reference paths are mostly relative and may be ambiguous from project root.",
                     improvement=(
-                        f"Prefer explicit paths like `skills/{skill_name}/references/...` "
-                        "in operator instructions."
+                        f"Prefer explicit paths like `skills/{skill_name}/references/...` in operator instructions."
                     ),
                 )
             )
