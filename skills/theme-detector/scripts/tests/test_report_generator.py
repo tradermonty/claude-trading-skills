@@ -125,20 +125,23 @@ def sample_industry_rankings():
 @pytest.fixture
 def sample_sector_uptrend():
     """Sample sector uptrend data."""
+    from datetime import datetime, timedelta
+
+    recent_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     return {
         "Technology": {
             "ratio": 0.35,
             "ma_10": 0.32,
             "slope": 0.0025,
             "trend": "up",
-            "latest_date": "2026-02-14",
+            "latest_date": recent_date,
         },
         "Healthcare": {
             "ratio": 0.22,
             "ma_10": 0.24,
             "slope": -0.0015,
             "trend": "down",
-            "latest_date": "2026-02-14",
+            "latest_date": recent_date,
         },
     }
 
@@ -245,8 +248,8 @@ class TestGenerateMarkdownReport:
         """Markdown contains all 7 required sections."""
         md = generate_markdown_report(sample_json_report)
         assert "## 1. Theme Dashboard" in md
-        assert "## 2. Bullish Themes (Top 3)" in md
-        assert "## 3. Bearish Themes (Top 3)" in md
+        assert "## 2. Leading Themes (Top 3)" in md
+        assert "## 3. Lagging Themes (Top 3)" in md
         assert "## 4. All Themes Summary" in md
         assert "## 5. Industry Rankings" in md
         assert "## 6. Sector Uptrend Ratios" in md
@@ -260,8 +263,8 @@ class TestGenerateMarkdownReport:
     def test_theme_dashboard_table(self, sample_json_report):
         md = generate_markdown_report(sample_json_report)
         assert "AI / Semiconductors" in md
-        assert "BULL" in md
-        assert "BEAR" in md
+        assert "LEAD" in md
+        assert "LAG" in md
 
     def test_bullish_detail_stocks(self, sample_json_report):
         md = generate_markdown_report(sample_json_report)
@@ -314,19 +317,19 @@ class TestGenerateMarkdownReport:
     def test_top_n_detail_default_3(self, sample_json_report):
         """Default top_n_detail=3 shows 'Top 3' in section headers."""
         md = generate_markdown_report(sample_json_report)
-        assert "## 2. Bullish Themes (Top 3)" in md
-        assert "## 3. Bearish Themes (Top 3)" in md
+        assert "## 2. Leading Themes (Top 3)" in md
+        assert "## 3. Lagging Themes (Top 3)" in md
 
     def test_top_n_detail_custom(self, sample_json_report):
         """Custom top_n_detail changes section headers and limits themes."""
         md = generate_markdown_report(sample_json_report, top_n_detail=5)
-        assert "## 2. Bullish Themes (Top 5)" in md
-        assert "## 3. Bearish Themes (Top 5)" in md
+        assert "## 2. Leading Themes (Top 5)" in md
+        assert "## 3. Lagging Themes (Top 5)" in md
 
     def test_top_n_detail_1(self, sample_json_report):
         """top_n_detail=1 only shows 1 theme per direction."""
         md = generate_markdown_report(sample_json_report, top_n_detail=1)
-        assert "## 2. Bullish Themes (Top 1)" in md
+        assert "## 2. Leading Themes (Top 1)" in md
         # Only the top bullish theme detail section should appear
         # AI / Semiconductors (heat 85) should appear, Energy Transition (heat 63) should not
         assert "### AI / Semiconductors" in md

@@ -12,18 +12,19 @@ Theme Heat measures the **direction-neutral strength** of a theme. A high heat s
 
 ### Components
 
-#### 1.1 Momentum Score (weight: 30%)
+#### 1.1 Momentum Score (weight: 35%)
 
-Measures the average performance of constituent industries.
+Measures the direction-neutral momentum strength of constituent industries using a log-sigmoid function on multi-timeframe weighted returns (1W 10%, 1M 25%, 3M 35%, 6M 30%).
 
 **Formula:**
 ```
-momentum_score = normalize(weighted_avg_change_pct, scale=[-5%, +5%] -> [0, 100])
-
-weighted_avg_change_pct = SUM(industry_change_pct * industry_market_cap) / SUM(industry_market_cap)
+weighted_return = perf_1w * 0.10 + perf_1m * 0.25 + perf_3m * 0.35 + perf_6m * 0.30
+momentum_score = 100 / (1 + exp(-2.0 * (ln(1 + |weighted_return|) - ln(16))))
 ```
 
-**Data Source:** FINVIZ industry performance (1-week change %)
+Midpoint at |15%| weighted return. Log transform compresses extreme values for better mid-range separation.
+
+**Data Source:** FINVIZ industry performance (1W, 1M, 3M, 6M change %)
 
 **Scoring Scale:**
 | Absolute Change % | Score |
@@ -36,7 +37,7 @@ weighted_avg_change_pct = SUM(industry_change_pct * industry_market_cap) / SUM(i
 
 Note: Absolute value is used so both strong bullish and strong bearish moves generate high heat.
 
-#### 1.2 Volume Score (weight: 25%)
+#### 1.2 Volume Score (weight: 20%)
 
 Measures abnormal volume activity across the theme.
 
@@ -109,14 +110,14 @@ participation_rate = count(stocks_moving_in_direction > 1%) / count(total_stocks
 ### Theme Heat Composite
 
 ```
-theme_heat = (momentum_score * 0.30) + (volume_score * 0.25) + (uptrend_score * 0.25) + (breadth_score * 0.20)
+theme_heat = (momentum_score * 0.35) + (volume_score * 0.20) + (uptrend_score * 0.25) + (breadth_score * 0.20)
 ```
 
 ---
 
 ## Dimension 2: Lifecycle Maturity
 
-Lifecycle assessment classifies a theme into one of four stages: **Early**, **Mid**, **Late**, or **Exhaustion**. This is critical for distinguishing emerging opportunities from crowded trades.
+Lifecycle assessment classifies a theme into one of five stages: **Emerging**, **Accelerating**, **Trending**, **Mature**, or **Exhausting**. This is critical for distinguishing emerging opportunities from crowded trades.
 
 ### Components
 
@@ -135,7 +136,7 @@ How long the theme has been active (consecutive weeks of elevated heat).
 
 **Limitation:** Duration tracking requires historical data. On first run, duration defaults to "Unknown" and lifecycle uses other factors only.
 
-#### 2.2 Extremity Clustering Score (weight: 20%)
+#### 2.2 Extremity Clustering Score (weight: 25%)
 
 Percentage of stocks in the theme near 52-week highs or lows.
 
@@ -153,7 +154,18 @@ extremity_pct = count(within_5pct_of_52wk_high_or_low) / count(total_stocks)
 
 **Data Source:** FINVIZ 52-week high/low data
 
-#### 2.3 Valuation Score (weight: 20%)
+#### 2.3 Price Extreme Saturation Score (weight: 25%)
+
+Proportion of stocks near 52-week extremes (within 5%).
+
+**Formula:**
+```
+bullish: pct = count(dist_from_52w_high <= 0.05) / total
+bearish: pct = count(dist_from_52w_low <= 0.05) / total
+score = min(100, pct * 200)
+```
+
+#### 2.4 Valuation Score (weight: 15%)
 
 Average P/E ratio of theme constituents relative to S&P 500 P/E.
 
@@ -171,7 +183,7 @@ relative_pe = avg_theme_pe / sp500_pe
 
 **Data Source:** FMP API for P/E ratios (optional; uses FINVIZ forward P/E as fallback)
 
-#### 2.4 ETF Proliferation Score (weight: 20%)
+#### 2.5 ETF Proliferation Score (weight: 10%)
 
 Number of thematic ETFs tracking the theme. More ETFs indicate greater retail/institutional attention.
 
@@ -186,27 +198,25 @@ Number of thematic ETFs tracking the theme. More ETFs indicate greater retail/in
 | 7-10      | 80    | Late |
 | > 10      | 100   | Exhaustion |
 
-#### 2.5 Media/Narrative Saturation (weight: 15%)
+### Lifecycle Maturity Composite
 
-Assessed via WebSearch during narrative confirmation step.
-
-| Signal | Stage Signal |
-|--------|-------------|
-| No major media coverage | Early |
-| Specialist/financial media only | Mid |
-| Mainstream media coverage | Late |
-| Magazine covers, viral social media | Exhaustion |
+```
+maturity = (duration * 0.25) + (extremity * 0.25) + (price_extreme * 0.25) + (valuation * 0.15) + (etf_proliferation * 0.10)
+```
 
 ### Lifecycle Stage Classification
 
-The final lifecycle stage is determined by majority vote across the five component signals:
+The lifecycle stage is classified from the maturity score:
 
-```
-stage_votes = [duration_signal, extremity_signal, valuation_signal, etf_signal, media_signal]
-lifecycle_stage = mode(stage_votes)  # most frequent stage
-```
+| Maturity Score | Stage |
+|----------------|-------|
+| 0-20 | Emerging |
+| 20-40 | Accelerating |
+| 40-60 | Trending |
+| 60-80 | Mature |
+| 80-100 | Exhausting |
 
-If tied, use the more mature stage (conservative approach to protect against crowded trade risk).
+**Note:** Media/Narrative Saturation is not included in the automated maturity calculation. Claude's WebSearch narrative confirmation can be used to qualitatively adjust the lifecycle assessment.
 
 ---
 
@@ -257,30 +267,26 @@ confidence = clamp(confidence, Low, High)
 
 ## Direction Detection
 
-Theme direction (bullish vs. bearish) is determined separately from heat:
+Theme direction (**leading** vs. **lagging**) is determined by relative rank, not absolute price change:
 
 ### Algorithm
 
-```python
-weighted_perf = sum(industry_change_pct * industry_mcap) / sum(industry_mcap)
-uptrend_ratio = count(uptrend_stocks) / count(total_stocks)  # if available
+1. Each industry gets a `rank_direction` based on its position in the momentum-ranked list: top half = "bullish" (leading), bottom half = "bearish" (lagging).
+2. Theme direction is the majority vote of its constituent industries' `rank_direction`.
 
-if weighted_perf > 0.5 and (uptrend_ratio > 0.5 or uptrend_data_unavailable):
-    direction = "Bullish"
-elif weighted_perf < -0.5 and (uptrend_ratio < 0.5 or uptrend_data_unavailable):
-    direction = "Bearish"
-else:
-    direction = "Neutral"
+```python
+# Industry-level (industry_ranker.py)
+rank_direction = "bullish" if rank <= len(industries) // 2 else "bearish"
+
+# Theme-level (theme_classifier.py)
+direction = majority_vote([ind.rank_direction for ind in theme.industries])
 ```
 
-### Direction Strength
+### Important: Relative, Not Absolute
 
-| Absolute Weighted Performance | Strength |
-|-------------------------------|----------|
-| > 3%                          | Strong   |
-| 1-3%                          | Moderate |
-| 0.5-1%                        | Weak     |
-| < 0.5%                        | Neutral  |
+**LEAD/LAG direction is relative.** A "lagging" theme may still have positive absolute returns — it simply underperforms relative to other themes. This means:
+- **LEAD** themes: Suitable for overweight / new positions
+- **LAG** themes: Candidates for underweight reduction, **not** short signals
 
 ---
 

@@ -151,7 +151,7 @@ class TestThemeDetectorE2E:
         md_report = generate_markdown_report(json_report, top_n_detail=3)
         assert "# Theme Detector Report" in md_report
         assert "AI & Semiconductors" in md_report
-        assert "BULL" in md_report
+        assert "LEAD" in md_report
         assert "NVDA" in md_report
         assert "## 1. Theme Dashboard" in md_report
         assert "## 7. Methodology & Data Quality" in md_report

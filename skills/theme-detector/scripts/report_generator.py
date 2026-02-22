@@ -91,8 +91,8 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
     lines.append(f"**Generated:** {json_data.get('generated_at', 'N/A')}")
     lines.append(
         f"**Themes Detected:** {summary.get('total_themes', 0)} "
-        f"({summary.get('bullish_count', 0)} bullish, "
-        f"{summary.get('bearish_count', 0)} bearish)"
+        f"({summary.get('bullish_count', 0)} leading, "
+        f"{summary.get('bearish_count', 0)} lagging)"
     )
     lines.append("")
 
@@ -125,14 +125,14 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
     # Section 2: Bullish Themes Detail
     lines.append("---")
     lines.append("")
-    lines.append(f"## 2. Bullish Themes (Top {top_n_detail})")
+    lines.append(f"## 2. Leading Themes (Top {top_n_detail})")
     lines.append("")
     _add_theme_details(lines, bullish[:top_n_detail])
 
     # Section 3: Bearish Themes Detail
     lines.append("---")
     lines.append("")
-    lines.append(f"## 3. Bearish Themes (Top {top_n_detail})")
+    lines.append(f"## 3. Lagging Themes (Top {top_n_detail})")
     lines.append("")
     _add_theme_details(lines, bearish[:top_n_detail])
 
@@ -247,7 +247,7 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
     lines.append("")
     lines.append(
         "1. **Industry Ranking:** FINVIZ performance data ranked by "
-        "multi-timeframe composite score (1W, 1M, 3M weighted)"
+        "multi-timeframe composite score (1W 10%, 1M 25%, 3M 35%, 6M 30%)"
     )
     lines.append(
         "2. **Theme Classification:** Industries grouped into "
@@ -267,6 +267,13 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
         "**Note on Confidence:** Script output confidence is capped at "
         "Medium. Claude's WebSearch narrative confirmation can elevate "
         "confidence to High."
+    )
+    lines.append("")
+    lines.append(
+        "**Note on Direction:** Theme direction (LEAD/LAG) is based on "
+        "**relative industry rank** (top-half vs bottom-half), not absolute "
+        "price change. A LAG theme may still have positive returns — it "
+        "indicates relative underperformance, not a short signal."
     )
     lines.append("")
 
@@ -377,6 +384,16 @@ def _assess_data_quality(
                 f"FMP API ({ctx_label}): {ctx_fmp_failures}/{ctx_fmp_calls} "
                 f"calls failed ({pct:.0%})"
             )
+            # FMP uses dual-endpoint fallback (stable → v3); a ~50% failure
+            # rate typically means one endpoint is consistently unavailable
+            # while the other succeeds. Actual data loss is lower than the
+            # failure count suggests.
+            if pct >= 0.4:
+                flags.append(
+                    f"  Note: FMP uses dual-endpoint fallback; "
+                    f"~{pct:.0%} failure rate likely reflects one endpoint "
+                    f"being unavailable, not {pct:.0%} data loss"
+                )
 
     # Flat fallback for backward compat (if nested not available)
     fmp_calls = scanner.get("fmp_calls", 0)
@@ -418,11 +435,16 @@ def _origin_label(origin: Optional[str]) -> str:
 
 
 def _direction_label(direction: Optional[str]) -> str:
-    """Format direction for display."""
+    """Format direction for display.
+
+    Uses LEAD/LAG instead of BULL/BEAR because direction is determined
+    by relative rank (top-half vs bottom-half of industries), not by
+    absolute price change. A 'LAG' theme may still have positive returns.
+    """
     if direction == "bullish":
-        return "BULL"
+        return "LEAD"
     elif direction == "bearish":
-        return "BEAR"
+        return "LAG"
     return "N/A"
 
 
