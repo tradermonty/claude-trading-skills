@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edge Concept Synthesizer"
+  short_description: "Cluster tickets into abstract edge concepts"
+  default_prompt: "Synthesize detector tickets and hints into abstract edge concepts with thesis and invalidation conditions."

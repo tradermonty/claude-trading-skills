@@ -9,6 +9,7 @@ description: Generate and prioritize US equity long-side edge research tickets f
 
 Convert daily market observations into reproducible research tickets and Phase I-compatible candidate specs.
 Prioritize signal quality and interface compatibility over aggressive strategy proliferation.
+This skill can run end-to-end standalone, but in the split workflow it primarily serves the final export/validation stage.
 
 ## When to Use
 
@@ -35,6 +36,15 @@ Prioritize signal quality and interface compatibility over aggressive strategy p
   - `watchlist.csv`
   - `tickets/exportable/*.yaml`
   - `tickets/research_only/*.yaml`
+
+## Position in Split Workflow
+
+Recommended split workflow:
+
+1. `skills/edge-hint-extractor`: observations/news -> `hints.yaml`
+2. `skills/edge-concept-synthesizer`: tickets/hints -> `edge_concepts.yaml`
+3. `skills/edge-strategy-designer`: concepts -> `strategy_drafts` + exportable ticket YAML
+4. `skills/edge-candidate-agent` (this skill): export + validate for pipeline handoff
 
 ## Workflow
 

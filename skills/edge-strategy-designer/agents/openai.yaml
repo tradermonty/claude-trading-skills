@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edge Strategy Designer"
+  short_description: "Convert abstract concepts into strategy drafts"
+  default_prompt: "Design concrete strategy draft variants from edge concepts and emit exportable tickets when v1-compatible."

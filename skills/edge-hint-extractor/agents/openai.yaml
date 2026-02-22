@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edge Hint Extractor"
+  short_description: "Convert observations/news into canonical hints.yaml"
+  default_prompt: "Extract structured edge hints from daily market observations and optional LLM ideation output."

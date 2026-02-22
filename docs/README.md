@@ -7,9 +7,12 @@ This directory contains project-wide documentation, revision histories, and impr
 ```
 docs/
 ├── README.md (this file)
+├── edge_candidate_agent_design.md
+├── edge-institutionalization-process.md
 ├── kanchi-dividend-skills-runbook.md
 └── revisions/
-    └── bubble-detector-v2.0-revision.md
+    ├── bubble-detector-v2.0-revision.md
+    └── Breadth Chart Analyst Skill_IMPROVEMENTS_v2.0.md
 ```
 
 ## `revisions/`
@@ -48,3 +51,7 @@ When making significant improvements to a skill:
   - 3スキルの実行順序 (`SOP -> 監視 -> 税務/口座配置`)
   - 日次/週次/月次/四半期/年次の運用リズム
   - スキル間の入力/出力受け渡し
+- **`edge-institutionalization-process.md`** - エッジのインスティチューション化手順
+  - `観察 -> 抽象化 -> 戦略化 -> パイプライン` の分業フロー
+  - 進級ステート（Hint/Ticket/Concept/Draft/Candidate/Live）
+  - Concept/Draft/Pipeline/Promotion のゲート基準
