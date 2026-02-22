@@ -10,6 +10,25 @@ description: Monitor dividend portfolios with Kanchi-style forced-review trigger
 Detect abnormal dividend-risk signals and route them into a human review queue.
 Treat automation as anomaly detection, not automated trade execution.
 
+## When to Use
+
+Use this skill when the user needs:
+- Daily/weekly/quarterly anomaly detection for dividend holdings.
+- Forced review queueing for T1-T5 risk triggers.
+- 8-K/governance keyword scans tied to portfolio tickers.
+- Deterministic `OK/WARN/REVIEW` output before manual decision making.
+
+## Prerequisites
+
+Provide normalized input JSON that follows:
+- `skills/kanchi-dividend-review-monitor/references/input-schema.md`
+
+If upstream data is unavailable, provide at least:
+- `ticker`
+- `instrument_type`
+- `dividend.latest_regular`
+- `dividend.prior_regular`
+
 ## Non-Negotiable Rule
 
 Never auto-sell based only on machine triggers.
@@ -21,7 +40,7 @@ Always create `WARN` or `REVIEW` evidence for human confirmation first.
 - `WARN`: add to next check cycle and pause optional adds.
 - `REVIEW`: immediate human review ticket + pause adds.
 
-Use `references/trigger-matrix.md` for trigger thresholds and actions.
+Use `skills/kanchi-dividend-review-monitor/references/trigger-matrix.md` for trigger thresholds and actions.
 
 ## Monitoring Cadence
 
@@ -44,7 +63,8 @@ Collect per ticker fields in one JSON document:
 - Filing text snippets (especially recent 8-K or equivalent alert text).
 - Operations trend fields (revenue CAGR, margin trend, guidance trend).
 
-Use `references/input-schema.md` for field definitions and sample payload.
+Use `skills/kanchi-dividend-review-monitor/references/input-schema.md` for field definitions
+and sample payload.
 
 ### 2) Run the rule engine
 
@@ -73,7 +93,7 @@ For each `REVIEW` ticker, include:
 - Suspected failure mode.
 - Required manual checks for next decision.
 
-Use `references/review-ticket-template.md` output format.
+Use `skills/kanchi-dividend-review-monitor/references/review-ticket-template.md` output format.
 
 ## SEC Filing Guardrail
 
@@ -99,6 +119,6 @@ Always return:
 
 - `scripts/build_review_queue.py`: local rule engine for T1-T5.
 - `scripts/tests/test_build_review_queue.py`: unit tests for T1-T5 and report rendering.
-- `references/trigger-matrix.md`: trigger definitions, cadence, and actions.
-- `references/input-schema.md`: normalized input schema and sample JSON.
-- `references/review-ticket-template.md`: standardized manual-review ticket layout.
+- `skills/kanchi-dividend-review-monitor/references/trigger-matrix.md`: trigger definitions, cadence, and actions.
+- `skills/kanchi-dividend-review-monitor/references/input-schema.md`: normalized input schema and sample JSON.
+- `skills/kanchi-dividend-review-monitor/references/review-ticket-template.md`: standardized manual-review ticket layout.
