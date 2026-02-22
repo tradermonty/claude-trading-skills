@@ -59,6 +59,50 @@ This skill screens US stocks using William O'Neil's proven CANSLIM methodology, 
 
 ---
 
+## Prerequisites
+
+**API Requirements:**
+- **FMP API key** (free tier: 250 calls/day, sufficient for 35 stocks; Starter tier $29.99/mo for 40+ stocks)
+  - Sign up: https://site.financialmodelingprep.com/developer/docs
+  - Set via environment variable: `export FMP_API_KEY=your_key_here`
+
+**Python Dependencies:**
+- Python 3.7+
+- `requests` (FMP API calls)
+- `beautifulsoup4` (Finviz web scraping)
+- `lxml` (HTML parsing)
+
+**Installation:**
+```bash
+pip install requests beautifulsoup4 lxml
+```
+
+---
+
+## Output
+
+**Output Directory:** `reports/` (default) or custom via `--output-dir`
+
+**Generated Files:**
+- `canslim_screener_YYYY-MM-DD_HHMMSS.json` - Structured data for programmatic use
+- `canslim_screener_YYYY-MM-DD_HHMMSS.md` - Human-readable report
+
+**Report Contents:**
+- Market Condition Summary (trend, M score, warnings)
+- Top N CANSLIM Candidates (ranked by composite score)
+- Component Breakdown for each stock (C, A, N, S, L, I, M scores with details)
+- Rating interpretation (Exceptional+/Exceptional/Strong/Above Average)
+- Quality warnings and data source notes
+- Summary statistics (rating distribution)
+
+**Rating Bands:**
+- **Exceptional+ (90-100):** All components near-perfect, aggressive buy
+- **Exceptional (80-89):** Outstanding fundamentals + momentum, strong buy
+- **Strong (70-79):** Solid across components, standard buy
+- **Above Average (60-69):** Meets thresholds with minor weaknesses, buy on pullback
+
+---
+
 ## Workflow
 
 ### Step 1: Verify API Access and Requirements
@@ -198,9 +242,9 @@ cat canslim_screener_YYYY-MM-DD_HHMMSS.md
 Review the top-ranked stocks and cross-reference with knowledge bases:
 
 **Reference Documents to Consult:**
-1. `references/interpretation_guide.md` - Understand rating bands and portfolio sizing
-2. `references/canslim_methodology.md` - Deep dive into component meanings (now includes S and I)
-3. `references/scoring_system.md` - Understand scoring formulas (Phase 3 weights)
+1. `skills/canslim-screener/references/interpretation_guide.md` - Understand rating bands and portfolio sizing
+2. `skills/canslim-screener/references/canslim_methodology.md` - Deep dive into component meanings (now includes S and I)
+3. `skills/canslim-screener/references/scoring_system.md` - Understand scoring formulas (Phase 3 weights)
 
 **Analysis Framework:**
 
@@ -368,23 +412,23 @@ Create a concise, actionable summary for the user:
   - Phase 3 component breakdown tables (all 7 components)
   - Summary statistics calculation
 
-### References Directory (`references/`)
+### References Directory (`skills/canslim-screener/references/`)
 
 **Knowledge Bases:**
-- `canslim_methodology.md` (27KB) - Complete CANSLIM explanation
+- `skills/canslim-screener/references/canslim_methodology.md` (27KB) - Complete CANSLIM explanation
   - All 7 components with O'Neil's original thresholds
   - S component (Volume accumulation/distribution) detailed explanation
   - L component (Leadership/Relative Strength) detailed explanation
   - I component (Institutional sponsorship) detailed explanation
   - Historical examples (AAPL 2009, NFLX 2013, TSLA 2019, NVDA 2023)
 
-- `scoring_system.md` (21KB) - Technical scoring specification (Phase 3)
+- `skills/canslim-screener/references/scoring_system.md` (21KB) - Technical scoring specification (Phase 3)
   - Phase 3 component weights and formulas (all 7 components)
   - Interpretation bands (90-100, 80-89, etc.)
   - Minimum thresholds for all 7 components
   - Composite score calculation examples
 
-- `fmp_api_endpoints.md` (18KB) - API integration guide (Phase 3)
+- `skills/canslim-screener/references/fmp_api_endpoints.md` (18KB) - API integration guide (Phase 3)
   - Required endpoints for all 7 components
   - L component: 52-week historical prices endpoint
   - Institutional holder endpoint documentation
@@ -392,17 +436,17 @@ Create a concise, actionable summary for the user:
   - Rate limiting strategy
   - Cost analysis (Phase 3: ~283 FMP calls for 40 stocks, exceeds 250 free tier)
 
-- `interpretation_guide.md` (18KB) - User guidance
+- `skills/canslim-screener/references/interpretation_guide.md` (18KB) - User guidance
   - Portfolio construction rules
   - Position sizing by rating
   - Entry/exit strategies
   - Bear market protection rules
 
 **How to Use References:**
-- Read `canslim_methodology.md` first to understand O'Neil's system (now includes S and I)
-- Consult `interpretation_guide.md` when analyzing results
-- Reference `scoring_system.md` if scores seem unexpected
-- Check `fmp_api_endpoints.md` for API troubleshooting or Finviz fallback issues
+- Read `skills/canslim-screener/references/canslim_methodology.md` first to understand O'Neil's system (now includes S and I)
+- Consult `skills/canslim-screener/references/interpretation_guide.md` when analyzing results
+- Reference `skills/canslim-screener/references/scoring_system.md` if scores seem unexpected
+- Check `skills/canslim-screener/references/fmp_api_endpoints.md` for API troubleshooting or Finviz fallback issues
 
 ---
 
