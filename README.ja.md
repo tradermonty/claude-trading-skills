@@ -137,6 +137,13 @@ English README is available at [`README.md`](README.md).
   - HOLD/ADD/TRIM/SELLのポジションレベル推奨とリバランス計画を生成。
   - Alpaca証券口座（ペーパーまたはライブ）とAlpaca MCP Serverの設定が必要。
 
+- **エッジ候補エージェント** (`edge-candidate-agent`)
+  - 日次マーケット観察を再現可能なリサーチチケットに変換し、`trade-strategy-pipeline` Phase I互換の候補スペックをエクスポート。
+  - 構造化リサーチチケットから`strategy.yaml` + `metadata.json`アーティファクトを生成。インターフェース契約（`edge-finder-candidate/v1`）のバリデーション付き。
+  - 2つのエントリーファミリーをサポート: `pivot_breakout`（VCP検出付き）、`gap_up_continuation`（ギャップ検出付き）。
+  - パイプラインスキーマに対する事前検証と`uv run`サブプロセスフォールバックによるクロス環境互換性を提供。
+  - APIキー不要 — ローカルYAMLファイルで動作し、ローカルパイプラインリポジトリに対して検証。
+
 ### マーケットタイミング・底打ち検出
 
 - **マーケットトップ検出器** (`market-top-detector`)
@@ -340,6 +347,7 @@ launchctl start com.trade-analysis.skill-improvement
 - **マーケットブレッドアナライザー**、**アップトレンドアナライザー**: APIキー不要（GitHubの無料CSVデータを使用）
 - **テーマ検出器**: コア機能にAPIキー不要（FINVIZパブリック + yfinance）。FMP APIは銘柄選定強化用（オプション）、FINVIZ Eliteは銘柄リスト取得用（オプション）
 - **かんち式配当3スキル**（`kanchi-dividend-sop` / `kanchi-dividend-review-monitor` / `kanchi-dividend-us-tax-accounting`）: APIキー不要（上流データは他スキル出力または手動入力を利用）
+- **エッジ候補エージェント** (`edge-candidate-agent`): APIキー不要（ローカルYAML生成、ローカルパイプラインリポジトリに対して検証）
 
 ## 参考リンク
 - Claude Skillsローンチ概要: https://www.anthropic.com/news/skills

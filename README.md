@@ -157,6 +157,14 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Supports model portfolios (Conservative/Moderate/Growth/Aggressive) for benchmark comparison.
   - Requires Alpaca brokerage account (paper or live) and configured Alpaca MCP Server; manual data entry also supported.
 
+- **Edge Candidate Agent** (`edge-candidate-agent`)
+  - Converts daily market observations into reproducible research tickets and exports Phase I-compatible candidate specs for `trade-strategy-pipeline`.
+  - Generates `strategy.yaml` + `metadata.json` artifacts from structured research tickets with interface contract validation (`edge-finder-candidate/v1`).
+  - Supports two entry families: `pivot_breakout` (with VCP detection) and `gap_up_continuation` (with gap detection).
+  - Includes preflight validation against pipeline schema with `uv run` subprocess fallback for cross-environment compatibility.
+  - Guardrails enforce schema bounds (risk limits, exit rules, non-empty conditions) and deterministic metadata with interface versioning.
+  - No API key required — operates on local YAML files and validates against local pipeline repository.
+
 ### Market Timing & Bottom Detection
 
 - **Market Top Detector** (`market-top-detector`)
@@ -416,6 +424,7 @@ Several skills require API keys for data access:
 | **Market Breadth Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
 | **Uptrend Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Uses free GitHub CSV data |
 | **Theme Detector** | 🟡 Optional | 🟡 Optional | ❌ Not used | Core: FINVIZ public + yfinance (free). FMP for ETF holdings, FINVIZ Elite for stock lists |
+| **Edge Candidate Agent** | ❌ Not used | ❌ Not used | ❌ Not used | Local YAML generation; validates against local pipeline repo |
 | Dual-Axis Skill Reviewer | ❌ Not used | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 
 ### API Setup
