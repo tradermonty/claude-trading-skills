@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edge Candidate Agent"
+  short_description: "Generate edge candidates and Phase I pipeline strategy specs"
+  default_prompt: "Generate reproducible edge research tickets and export Phase I-compatible strategy.yaml candidates for trade-strategy-pipeline."
