@@ -51,7 +51,7 @@ def validate_with_pipeline_uv(
         ]
     )
 
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B607 - uv is a known local tool
         ["uv", "run", "python", "-c", snippet],
         cwd=str(pipeline_root),
         env=_uv_env(),
@@ -81,7 +81,7 @@ def validate_with_pipeline_uv(
 def _uv_env() -> dict[str, str]:
     """Return subprocess environment with writable uv cache."""
     env = os.environ.copy()
-    env.setdefault("UV_CACHE_DIR", "/tmp/uv-cache-edge-candidate-agent")
+    env.setdefault("UV_CACHE_DIR", "/tmp/uv-cache-edge-candidate-agent")  # nosec B108
     return env
 
 
