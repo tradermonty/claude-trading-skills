@@ -508,6 +508,12 @@ Skills are designed to be combined for comprehensive analysis:
 3. US Stock Analysis → Deep-dive analysis
 4. Portfolio Manager → Monitor and rebalance holdings
 
+**Kanchi Dividend Workflow (US stocks):**
+1. kanchi-dividend-sop → Run Kanchi 5-step screening and pullback entry planning
+2. kanchi-dividend-review-monitor → Execute T1-T5 anomaly detection and review queueing
+3. kanchi-dividend-us-tax-accounting → Validate qualified/ordinary assumptions and account location
+4. Feed REVIEW findings back to kanchi-dividend-sop before any additional buys
+
 ## Important Conventions
 
 ### SKILL.md Writing Style

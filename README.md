@@ -228,6 +228,24 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Optimized for long-term dividend growth investors seeking entry opportunities during short-term market weakness.
   - Generates ranked lists of quality dividend growers at attractive technical entry points.
 
+- **Kanchi Dividend SOP** (`kanchi-dividend-sop`)
+  - Converts Kanchi-style 5-step dividend investing into a repeatable US-stock workflow.
+  - Covers screening, deep-dive quality checks, valuation mapping, one-off profit filters, and pullback entry planning.
+  - Includes reusable defaults for safety thresholds, valuation interpretation, and one-page stock memo output.
+  - Designed as the first step in the Kanchi dividend workflow stack.
+
+- **Kanchi Dividend Review Monitor** (`kanchi-dividend-review-monitor`)
+  - Implements forced-review anomaly detection for T1-T5 triggers with deterministic `OK/WARN/REVIEW` outputs.
+  - Focuses on alerting and review-ticket generation, never auto-selling.
+  - Includes a local rule-engine script (`build_review_queue.py`) and unit tests for trigger boundaries.
+  - Designed as the ongoing monitoring layer after candidate selection.
+
+- **Kanchi Dividend US Tax Accounting** (`kanchi-dividend-us-tax-accounting`)
+  - Provides US dividend tax classification and account-location workflow for income portfolios.
+  - Covers qualified vs ordinary assumptions, holding-period checks, and account placement tradeoffs.
+  - Includes templates for annual planning memos and unresolved tax-assumption tracking.
+  - Designed as the portfolio-implementation layer after screening and monitoring.
+
 - **Pair Trade Screener** (`pair-trade-screener`)
   - Statistical arbitrage tool for identifying and analyzing pair trading opportunities using cointegration testing.
   - Tests for long-term equilibrium relationships between stock pairs within same sector or industry.
@@ -276,6 +294,12 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 4. Use **Earnings Calendar** to track upcoming earnings for portfolio holdings
 5. Use **Market Environment Analysis** to assess macro conditions for dividend strategies
 6. Use **Backtest Expert** to validate dividend capture or growth strategies
+
+### Kanchi Dividend Workflow (US Stocks)
+1. Use **Kanchi Dividend SOP** to run Kanchi's 5-step process and create buy plans with invalidation conditions
+2. Use **Kanchi Dividend Review Monitor** on a daily/weekly/quarterly cadence to generate `OK/WARN/REVIEW` queues
+3. Use **Kanchi Dividend US Tax Accounting** to align holdings with qualified-dividend assumptions and account location
+4. Feed `REVIEW` findings back into **Kanchi Dividend SOP** before adding to positions
 
 ### Options Strategy Development
 1. Use **Options Strategy Advisor** to simulate and compare options strategies using Black-Scholes pricing
@@ -379,6 +403,9 @@ Several skills require API keys for data access:
 | **Institutional Flow Tracker** | ✅ Required | ❌ Not used | ❌ Not used | 13F filings analysis, free tier sufficient |
 | **Value Dividend Screener** | ✅ Required | 🟡 Optional | ❌ Not used | FINVIZ reduces execution time 70-80% |
 | **Dividend Growth Pullback Screener** | ✅ Required | 🟡 Optional | ❌ Not used | FINVIZ for RSI pre-screening |
+| **Kanchi Dividend SOP** | ❌ Not used | ❌ Not used | ❌ Not used | Knowledge workflow; uses outputs from other skills or manual lists |
+| **Kanchi Dividend Review Monitor** | ❌ Not used | ❌ Not used | ❌ Not used | Local rule engine; consumes normalized input JSON |
+| **Kanchi Dividend US Tax Accounting** | ❌ Not used | ❌ Not used | ❌ Not used | Knowledge workflow for classification/account location |
 | **Pair Trade Screener** | ✅ Required | ❌ Not used | ❌ Not used | Statistical arbitrage analysis |
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | FMP for stock data; theoretical pricing works without |
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Real-time holdings via Alpaca MCP |

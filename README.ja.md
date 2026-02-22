@@ -197,6 +197,21 @@ English README is available at [`README.md`](README.md).
   - ファンダメンタルの配当分析とテクニカルタイミング指標（RSI≤40のオーバーソールド）を組み合わせ。
   - FMP APIキーが必要。FINVIZエリートは任意（RSIプリスクリーニング用）。
 
+- **かんち式配当SOP** (`kanchi-dividend-sop`)
+  - かんち式5ステップを米国株向けの再現可能なワークフローに変換。
+  - スクリーニング、安全性精査、バリュエーション判定、一過性要因除外、押し目買い条件を標準化。
+  - 閾値表、評価基準、1ページ銘柄メモテンプレを含む運用基盤スキル。
+
+- **かんち式配当レビュー監視** (`kanchi-dividend-review-monitor`)
+  - T1-T5トリガーで異常検知を行い、`OK/WARN/REVIEW`に機械判定。
+  - 自動売却は行わず、強制点検キューとレビュー票を生成。
+  - `build_review_queue.py` と境界値テストを含む監視運用スキル。
+
+- **かんち式配当 米国税務・口座配置** (`kanchi-dividend-us-tax-accounting`)
+  - qualified/ordinaryの前提整理、保有期間チェック、口座配置の意思決定を支援。
+  - 年次税務メモテンプレと未確定前提の管理を標準化。
+  - スクリーニング後の実装・保守フェーズに使う税務運用スキル。
+
 - **機関投資家フロートラッカー** (`institutional-flow-tracker`)
   - 13F SEC提出書類データを使用して機関投資家の所有変動を追跡し、「スマートマネー」の蓄積・分配パターンを識別。
   - ティアベース品質フレームワーク: スーパーインベスター（Berkshire、Baupost）を3.0-3.5倍、インデックスファンドを0.0-0.5倍で重み付け。
@@ -239,6 +254,12 @@ English README is available at [`README.md`](README.md).
 3. **テクニカルアナリスト**を使用して、週足チャートパターンとサポート/レジスタンスレベルを確認
 4. PEADスクリーナーの流動性フィルタでポジションサイジングの実現可能性を確認
 5. SIGNAL_READY銘柄を監視し、明確なストップロス（赤キャンドル安値）と2Rターゲットでブレイクアウトエントリー
+
+### かんち式配当ワークフロー（米国株）
+1. **かんち式配当SOP**で5ステップ選定と買い条件を作成
+2. **かんち式配当レビュー監視**で日次/週次/四半期の異常検知キューを運用
+3. **かんち式配当 米国税務・口座配置**で口座配置と税務前提を固定
+4. `REVIEW`判定は再度**かんち式配当SOP**へ戻して前提再評価
 
 ### スキル品質・自動化
 
@@ -318,6 +339,7 @@ launchctl start com.trade-analysis.skill-improvement
   - または、プロンプト時にコマンドライン引数でキーを提供
 - **マーケットブレッドアナライザー**、**アップトレンドアナライザー**: APIキー不要（GitHubの無料CSVデータを使用）
 - **テーマ検出器**: コア機能にAPIキー不要（FINVIZパブリック + yfinance）。FMP APIは銘柄選定強化用（オプション）、FINVIZ Eliteは銘柄リスト取得用（オプション）
+- **かんち式配当3スキル**（`kanchi-dividend-sop` / `kanchi-dividend-review-monitor` / `kanchi-dividend-us-tax-accounting`）: APIキー不要（上流データは他スキル出力または手動入力を利用）
 
 ## 参考リンク
 - Claude Skillsローンチ概要: https://www.anthropic.com/news/skills
