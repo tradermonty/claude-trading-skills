@@ -196,6 +196,13 @@ def generate_markdown_report(analysis: dict, output_file: str):
                 lines.append(f"- **2Y Rate:** {comp['current_2y']}%")
             if comp.get("data_source"):
                 lines.append(f"- **Data Source:** {comp['data_source']}")
+            if comp.get("data_source") == "shy_tlt_proxy":
+                lines.append("")
+                lines.append(
+                    "> **Warning:** Yield curve analysis uses SHY/TLT price ratio as proxy "
+                    "(Treasury API 10Y-2Y spread unavailable). This has reduced resolution "
+                    "for interest rate cycle detection. Interpret with caution."
+                )
 
         if key == "equity_bond":
             if comp.get("correlation_6m") is not None:
@@ -262,6 +269,26 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(f"**Current Regime:** {regime_label}")
     lines.append(f"**Recommended Posture:** {regime.get('portfolio_posture', 'N/A')}")
     lines.append("")
+
+    # Competing regime posture (when ambiguous)
+    tied = regime.get("tied_regimes")
+    if tied and len(tied) >= 2:
+        from scorer import REGIME_DESCRIPTIONS
+
+        other_regime = tied[1] if tied[0] == regime.get("current_regime") else tied[0]
+        other_info = REGIME_DESCRIPTIONS.get(other_regime, {})
+        other_posture = other_info.get("portfolio_posture", "")
+        if other_posture:
+            lines.append(
+                f"**Competing Regime ({other_regime.capitalize()}) Posture:** {other_posture}"
+            )
+            lines.append("")
+            lines.append(
+                "> **Note:** Regime classification is ambiguous. The recommended posture above "
+                "may conflict with the competing regime's posture. Consider a blended approach "
+                "(e.g., barbell strategy) that hedges against both scenarios."
+            )
+            lines.append("")
 
     # Actions from zone
     actions = composite.get("actions", [])

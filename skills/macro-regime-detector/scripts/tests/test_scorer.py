@@ -436,3 +436,71 @@ class TestClassifyRegime:
         result = check_regime_consistency("transitional", components)
         for v in result.values():
             assert v == "neutral"
+
+    # --- Improvement: Ambiguous regime downgrades confidence ---
+
+    def test_ambiguous_regime_downgrades_confidence_from_high(self):
+        """When regime is ambiguous (tied), confidence should be moderate at most."""
+        # Contraction: credit tightening(+2) + sector risk_off(+2) + eb risk_off(+1) = 5
+        # Inflationary: corr positive(+3) + eb risk_off(+1) = 4
+        # Difference = 1 → ambiguous
+        components = {
+            "concentration": self._make_component(40, "concentrating"),
+            "yield_curve": self._make_component(60, "flattening"),
+            "credit_conditions": self._make_component(50, "tightening"),
+            "size_factor": self._make_component(80, "small_cap_leading"),
+            "equity_bond": self._make_component(10, "risk_off", correlation_regime="positive"),
+            "sector_rotation": self._make_component(80, "risk_off"),
+        }
+        result = classify_regime(components)
+        tp = result["transition_probability"]
+        assert tp["ambiguous"] is True
+        # Confidence should be capped at moderate when ambiguous
+        assert result["confidence"] in ("moderate", "low", "very_low")
+
+    def test_non_ambiguous_regime_keeps_high_confidence(self):
+        """When regime is NOT ambiguous, high confidence is preserved."""
+        # Concentration: conc concentrating(+2) + size large_cap(+2) + credit stable(+1) = 5
+        # Broadening: 0, Contraction: 0, Inflationary: 0
+        components = {
+            "concentration": self._make_component(60, "concentrating"),
+            "yield_curve": self._make_component(10, "stable"),
+            "credit_conditions": self._make_component(10, "stable"),
+            "size_factor": self._make_component(50, "large_cap_leading"),
+            "equity_bond": self._make_component(10, "neutral"),
+            "sector_rotation": self._make_component(10, "neutral"),
+        }
+        result = classify_regime(components)
+        assert result["confidence"] == "high"
+
+    # --- Improvement: Contraction regime with size factor contradiction ---
+
+    def test_contraction_reduced_by_small_cap_leading(self):
+        """Small-cap leadership should reduce contraction evidence score."""
+        # Without size factor: credit tightening(+2) + sector risk_off(+2) = 4
+        # With small_cap_leading contradiction: should be less than 4
+        components = {
+            "concentration": self._make_component(40, "concentrating"),
+            "yield_curve": self._make_component(60, "flattening"),
+            "credit_conditions": self._make_component(50, "tightening"),
+            "size_factor": self._make_component(80, "small_cap_leading"),
+            "equity_bond": self._make_component(10, "risk_on"),
+            "sector_rotation": self._make_component(80, "risk_off"),
+        }
+        result = classify_regime(components)
+        # Contraction score should be reduced by size factor contradiction
+        assert result["regime_scores"]["contraction"] < 4
+
+    def test_contraction_not_reduced_by_large_cap(self):
+        """Large-cap leadership should not reduce contraction score."""
+        components = {
+            "concentration": self._make_component(10, "unknown"),
+            "yield_curve": self._make_component(10, "flattening"),
+            "credit_conditions": self._make_component(60, "tightening"),
+            "size_factor": self._make_component(10, "large_cap_leading"),
+            "equity_bond": self._make_component(50, "risk_off"),
+            "sector_rotation": self._make_component(60, "risk_off"),
+        }
+        result = classify_regime(components)
+        # credit(+2) + sector(+2) + eb(+1) = 5, no reduction
+        assert result["regime_scores"]["contraction"] == 5

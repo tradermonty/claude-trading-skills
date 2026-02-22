@@ -183,7 +183,7 @@ def classify_regime(component_results: dict[str, dict]) -> dict:
     regime_scores = {
         "concentration": _score_concentration_regime(conc_dir, size_dir, credit_dir),
         "broadening": _score_broadening_regime(conc_dir, size_dir, credit_dir, sector_dir),
-        "contraction": _score_contraction_regime(credit_dir, sector_dir, eb_dir),
+        "contraction": _score_contraction_regime(credit_dir, sector_dir, eb_dir, size_dir),
         "inflationary": _score_inflationary_regime(corr_regime, eb_dir),
         "transitional": 0,  # Computed below
     }
@@ -238,6 +238,10 @@ def classify_regime(component_results: dict[str, dict]) -> dict:
         confidence = "low"
     else:
         confidence = "very_low"
+
+    # Cap confidence when regime classification is ambiguous
+    if is_tied and confidence == "high":
+        confidence = "moderate"
 
     # Cap confidence when data is limited
     if available_count <= 3:
@@ -341,8 +345,14 @@ def _score_broadening_regime(conc_dir: str, size_dir: str, credit_dir: str, sect
     return score
 
 
-def _score_contraction_regime(credit_dir: str, sector_dir: str, eb_dir: str) -> int:
-    """Score evidence for Contraction regime."""
+def _score_contraction_regime(
+    credit_dir: str, sector_dir: str, eb_dir: str, size_dir: str = "unknown"
+) -> int:
+    """Score evidence for Contraction regime.
+
+    Small-cap leadership (size_dir='small_cap_leading') is a contradiction:
+    broad small-cap strength is inconsistent with economic contraction.
+    """
     score = 0
     if credit_dir == "tightening":
         score += 2
@@ -350,7 +360,10 @@ def _score_contraction_regime(credit_dir: str, sector_dir: str, eb_dir: str) -> 
         score += 2
     if eb_dir == "risk_off":
         score += 1
-    return score
+    # Contradiction: small-cap outperformance is inconsistent with contraction
+    if size_dir == "small_cap_leading":
+        score -= 1
+    return max(0, score)
 
 
 def _score_inflationary_regime(corr_regime: str, eb_dir: str) -> int:
