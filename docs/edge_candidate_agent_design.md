@@ -95,7 +95,7 @@ flowchart LR
 ### 5.3 Strategy Draft 契約 (`strategy_drafts/*.yaml`)
 - `variant`: `core` / `conservative` / `research_probe`
 - `entry_family`: exportable なら `pivot_breakout` or `gap_up_continuation`、非対応は `research_only`
-- `risk_profile`: `conservative|balanced|aggressive` でリスクを調整
+- `risk_profile`: `conservative|balanced|aggressive` を保持（トレーサビリティ用）
 - `validation_plan` を全draftに付与
 
 ### 5.4 Export Ticket 契約（candidate-agent投入用）
@@ -241,8 +241,14 @@ flowchart TD
 4. `edge-strategy-designer` で `strategy_drafts` と `exportable_tickets` 作成
 5. `edge-candidate-agent` export/validateで手前ゲートを通す
 
+注記（運用方針）：
+- 日次運用は **1パス**（hintsは概念化入力として使用）
+- 同日中に `auto_detect_candidates.py` を `--hints` で再実行しない
+
 ### 9.2 代表コマンド
 ```bash
+# 1-pass運用: detectorは先に1回のみ実行（hints反映のための再実行はしない）
+
 # 1) detector
 python3 skills/edge-candidate-agent/scripts/auto_detect_candidates.py \
   --ohlcv data/us_ohlcv.parquet \

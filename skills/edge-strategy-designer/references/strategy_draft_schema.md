@@ -7,6 +7,7 @@ id: draft_edge_concept_breakout_behavior_riskon_core
 as_of: "2026-02-20"
 concept_id: edge_concept_breakout_behavior_riskon
 variant: core
+risk_profile: balanced
 name: Participation-backed trend breakout (core)
 hypothesis_type: breakout
 mechanism_tag: behavior
@@ -33,6 +34,8 @@ validation_plan:
   success_criteria:
     - expected_value_after_costs > 0
 ```
+
+`risk_profile` is persisted in each draft for traceability of sizing/limits decisions.
 
 ## Export Ticket Output (Optional)
 

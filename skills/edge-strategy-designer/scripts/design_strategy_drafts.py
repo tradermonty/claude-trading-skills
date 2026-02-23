@@ -182,6 +182,7 @@ def build_draft(
         "as_of": as_of,
         "concept_id": concept_id,
         "variant": variant,
+        "risk_profile": risk_profile,
         "name": f"{concept.get('title', concept_id)} ({variant})",
         "hypothesis_type": hypothesis_type,
         "mechanism_tag": mechanism_tag,

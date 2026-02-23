@@ -32,6 +32,7 @@ def test_build_draft_export_ready_breakout() -> None:
 
     assert draft["export_ready_v1"] is True
     assert draft["entry_family"] == "pivot_breakout"
+    assert draft["risk_profile"] == "balanced"
     assert draft["risk"]["risk_per_trade"] == 0.01
 
     ticket = dsd.build_export_ticket(draft)
@@ -63,3 +64,4 @@ def test_build_draft_research_probe_for_non_exportable_concept() -> None:
 
     assert draft["entry_family"] == "research_only"
     assert draft["export_ready_v1"] is False
+    assert draft["risk_profile"] == "conservative"
