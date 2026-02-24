@@ -41,7 +41,7 @@ This skill is the first stage in the split workflow: `observe -> abstract -> des
 
 ## Quick Commands
 
-Rule-based only:
+Rule-based only (default output to `reports/edge_hint_extractor/hints.yaml`):
 
 ```bash
 python3 skills/edge-hint-extractor/scripts/build_hints.py \
@@ -49,7 +49,7 @@ python3 skills/edge-hint-extractor/scripts/build_hints.py \
   --anomalies /tmp/edge-auto/anomalies.json \
   --news-reactions /tmp/news_reactions.csv \
   --as-of 2026-02-20 \
-  --output /tmp/edge-hints/hints.yaml
+  --output-dir reports/
 ```
 
 Rule + LLM augmentation:
@@ -59,7 +59,7 @@ python3 skills/edge-hint-extractor/scripts/build_hints.py \
   --market-summary /tmp/edge-auto/market_summary.json \
   --anomalies /tmp/edge-auto/anomalies.json \
   --llm-ideas-cmd "python3 /path/to/llm_ideas_cli.py" \
-  --output /tmp/edge-hints/hints.yaml
+  --output-dir reports/
 ```
 
 ## Resources

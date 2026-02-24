@@ -403,9 +403,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--max-total-hints", type=int, default=25, help="Max total hints to output")
     parser.add_argument(
+        "--output-dir",
+        default="reports/",
+        help="Output directory (default: reports/)",
+    )
+    parser.add_argument(
         "--output",
-        default="reports/edge_hint_extractor/hints.yaml",
-        help="Output hints YAML path",
+        default=None,
+        help="Output hints YAML path (overrides --output-dir if specified)",
     )
     return parser.parse_args()
 
@@ -417,8 +422,13 @@ def main() -> int:
     market_summary_path = Path(args.market_summary).resolve() if args.market_summary else None
     anomalies_path = Path(args.anomalies).resolve() if args.anomalies else None
     news_path = Path(args.news_reactions).resolve() if args.news_reactions else None
-    output_path = Path(args.output).resolve()
     as_of = parse_as_of(args.as_of)
+
+    if args.output:
+        output_path = Path(args.output).resolve()
+    else:
+        output_dir = Path(args.output_dir).resolve()
+        output_path = output_dir / "edge_hint_extractor" / "hints.yaml"
 
     for path in [market_summary_path, anomalies_path, news_path]:
         if path is not None and not path.exists():
