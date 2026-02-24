@@ -165,6 +165,14 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Guardrails enforce schema bounds (risk limits, exit rules, non-empty conditions) and deterministic metadata with interface versioning.
   - No API key required — operates on local YAML files and validates against local pipeline repository.
 
+- **Strategy Pivot Designer** (`strategy-pivot-designer`)
+  - Detects backtest iteration stagnation and generates structurally different strategy pivot proposals when parameter tuning reaches a local optimum.
+  - Four deterministic triggers: improvement plateau, overfitting proxy, cost defeat, and tail risk — mapped from `evaluate_backtest.py` output.
+  - Three pivot techniques: assumption inversion, archetype switch, and objective reframe across 8 canonical strategy archetypes.
+  - Novelty scoring via Jaccard distance with deterministic tiebreaks ensures reproducible proposal ranking.
+  - Outputs `strategy_draft`-compatible YAML with `pivot_metadata` extension; exportable drafts include candidate-agent ticket YAML.
+  - No API key required — operates on local JSON/YAML files from backtest-expert and edge-strategy-designer.
+
 ### Market Timing & Bottom Detection
 
 - **Market Top Detector** (`market-top-detector`)

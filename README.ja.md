@@ -144,6 +144,14 @@ English README is available at [`README.md`](README.md).
   - パイプラインスキーマに対する事前検証と`uv run`サブプロセスフォールバックによるクロス環境互換性を提供。
   - APIキー不要 — ローカルYAMLファイルで動作し、ローカルパイプラインリポジトリに対して検証。
 
+- **戦略ピボットデザイナー** (`strategy-pivot-designer`)
+  - バックテスト反復ループの停滞を検知し、パラメータ調整が局所最適に陥った際に構造的に異なる戦略ピボット案を生成。
+  - 4つの決定論的トリガー: 改善停滞、過学習プロキシ、コスト敗北、テールリスク — `evaluate_backtest.py`出力からマッピング。
+  - 3つのピボット手法: 前提反転、アーキタイプ置換、目的関数リフレーム。8つの正規戦略アーキタイプをカバー。
+  - Jaccard距離によるノベルティスコアリングと決定論的タイブレークで再現可能な提案ランキングを保証。
+  - `strategy_draft`互換YAMLと`pivot_metadata`拡張を出力。エクスポート可能なドラフトにはcandidate-agentチケットYAMLも同梱。
+  - APIキー不要 — backtest-expertとedge-strategy-designerのローカルJSON/YAMLファイルで動作。
+
 ### マーケットタイミング・底打ち検出
 
 - **マーケットトップ検出器** (`market-top-detector`)
