@@ -660,6 +660,56 @@ def test_apply_improvement_precommit_not_installed(
     assert len(commit_calls) == 1
 
 
+def test_apply_improvement_noop_commit_rolls_back_without_error(
+    loop_module,
+    tmp_path: Path,
+    monkeypatch,
+):
+    """No-op commit output (nothing to commit) should not be treated as hard failure."""
+    from subprocess import CompletedProcess
+
+    re_report = {
+        "auto_review": {"score": 85},
+        "final_review": {"score": 85, "findings": [], "improvement_items": []},
+    }
+
+    call_log = []
+
+    def fake_run(cmd, **kwargs):
+        cmd_list = list(cmd)
+        call_log.append(cmd_list)
+        if cmd_list[:2] == ["git", "commit"]:
+            return CompletedProcess(
+                cmd,
+                1,
+                "trim trailing whitespace...(no files to check)Skipped\n"
+                "On branch skill-improvement/test\n"
+                "nothing to commit, working tree clean\n",
+                "",
+            )
+        return CompletedProcess(cmd, 0, "", "")
+
+    def fake_which(name):
+        if name == "pre-commit":
+            return None
+        return f"/usr/bin/{name}"
+
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", fake_which)
+    monkeypatch.setattr(loop_module, "check_existing_pr", lambda *a, **kw: False)
+    monkeypatch.setattr(loop_module, "run_auto_score", lambda *a, **kw: re_report)
+
+    report = {
+        "auto_review": {"score": 70},
+        "final_review": {"score": 70, "improvement_items": ["fix X"], "findings": []},
+    }
+    result = loop_module.apply_improvement(tmp_path, "test-skill", report, dry_run=False)
+
+    assert result is None
+    push_calls = [c for c in call_log if c[:2] == ["git", "push"]]
+    assert len(push_calls) == 0
+
+
 def test_apply_improvement_precommit_unfixable_failure(
     loop_module,
     tmp_path: Path,
