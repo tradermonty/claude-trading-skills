@@ -11,6 +11,12 @@ This skill tracks institutional investor activity through 13F SEC filings to ide
 
 **Key Insight:** Institutional investors (hedge funds, pension funds, mutual funds) manage trillions of dollars and conduct extensive research. Their collective buying/selling patterns often precede significant price movements by 1-3 quarters.
 
+## Prerequisites
+
+- **FMP API Key:** Set `FMP_API_KEY` environment variable or pass `--api-key` to scripts
+- **Python 3.8+:** Required for running analysis scripts
+- **Dependencies:** `pip install requests` (scripts handle missing dependencies gracefully)
+
 ## When to Use This Skill
 
 Use this skill when:
@@ -38,7 +44,7 @@ This skill uses Financial Modeling Prep (FMP) API to access 13F filing data:
 export FMP_API_KEY=your_key_here
 
 # Or provide when running scripts
-python3 scripts/track_institutional_flow.py --api-key YOUR_KEY
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py --api-key YOUR_KEY
 ```
 
 **API Tier Requirements:**
@@ -60,21 +66,21 @@ Execute the main screening script to find stocks with notable institutional acti
 
 **Quick scan (top 50 stocks by institutional change):**
 ```bash
-python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --top 50 \
   --min-change-percent 10
 ```
 
 **Sector-focused scan:**
 ```bash
-python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --sector Technology \
   --min-institutions 20
 ```
 
 **Custom screening:**
 ```bash
-python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --min-market-cap 2000000000 \
   --min-change-percent 15 \
   --top 100 \
@@ -94,7 +100,7 @@ python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
 For detailed analysis of a specific stock's institutional ownership:
 
 ```bash
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 ```
 
 **This generates:**
@@ -119,7 +125,7 @@ python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 **Alternative approach — use `analyze_single_stock.py` to check if a specific institution holds a stock:**
 ```bash
 # Analyze a stock and look for a specific institution in the output
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 # Then search the report for "Berkshire" or "ARK" in the Top 20 holders table
 ```
 
@@ -131,9 +137,9 @@ python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 ### Step 4: Interpretation and Action
 
 Read the references for interpretation guidance:
-- `references/13f_filings_guide.md` - Understanding 13F data and limitations
-- `references/institutional_investor_types.md` - Different investor types and their strategies
-- `references/interpretation_framework.md` - How to interpret institutional flow signals
+- `skills/institutional-flow-tracker/references/13f_filings_guide.md` - Understanding 13F data and limitations
+- `skills/institutional-flow-tracker/references/institutional_investor_types.md` - Different investor types and their strategies
+- `skills/institutional-flow-tracker/references/interpretation_framework.md` - How to interpret institutional flow signals
 
 **Signal Strength Framework:**
 
@@ -259,11 +265,11 @@ misleading percent changes (e.g., +400%). The data quality module filters to "ge
 
 ## References
 
-The `references/` folder contains detailed guides:
+The `skills/institutional-flow-tracker/references/` folder contains detailed guides:
 
-- **13f_filings_guide.md** - Comprehensive guide to 13F SEC filings, what they include, reporting requirements, and data quality considerations
-- **institutional_investor_types.md** - Different types of institutional investors (hedge funds, mutual funds, pension funds, etc.), their typical strategies, and how to interpret their moves
-- **interpretation_framework.md** - Detailed framework for interpreting institutional ownership changes, signal quality assessment, and integration with other analysis
+- **skills/institutional-flow-tracker/references/13f_filings_guide.md** - Comprehensive guide to 13F SEC filings, what they include, reporting requirements, and data quality considerations
+- **skills/institutional-flow-tracker/references/institutional_investor_types.md** - Different types of institutional investors (hedge funds, mutual funds, pension funds, etc.), their typical strategies, and how to interpret their moves
+- **skills/institutional-flow-tracker/references/interpretation_framework.md** - Detailed framework for interpreting institutional ownership changes, signal quality assessment, and integration with other analysis
 
 ## Script Parameters
 
