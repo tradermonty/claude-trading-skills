@@ -108,7 +108,7 @@ When the user provides breadth chart images for analysis:
 Before beginning analysis, read the comprehensive breadth chart methodology:
 
 ```
-Read: skills/breadth-chart-analyst/references/breadth_chart_methodology.md
+Read: references/breadth_chart_methodology.md
 ```
 
 This reference contains detailed guidance on:

@@ -52,4 +52,4 @@ python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
 ## Resources
 
 - `skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py`
-- `skills/edge-concept-synthesizer/references/concept_schema.md`
+- `references/concept_schema.md`

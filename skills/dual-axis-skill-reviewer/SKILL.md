@@ -114,5 +114,5 @@ After this, Claude Code will discover the skill in all projects, and the script 
 - Final score is weighted average.
 - If final score is below 90, improvement items are required and listed in the markdown report.
 - Script: `skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py`
-- LLM schema: `skills/dual-axis-skill-reviewer/references/llm_review_schema.md`
-- Rubric detail: `skills/dual-axis-skill-reviewer/references/scoring_rubric.md`
+- LLM schema: `references/llm_review_schema.md`
+- Rubric detail: `references/scoring_rubric.md`

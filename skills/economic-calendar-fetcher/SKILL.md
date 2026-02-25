@@ -337,7 +337,7 @@ economic_calendar_high_impact_2025-01.md  (with filters)
 - `skills/economic-calendar-fetcher/scripts/get_economic_calendar.py`: Main API fetch script with CLI interface
 
 **Reference Documentation:**
-- `skills/economic-calendar-fetcher/references/fmp_api_documentation.md`: Complete FMP Economic Calendar API reference
+- `references/fmp_api_documentation.md`: Complete FMP Economic Calendar API reference
   - Authentication and API key management
   - Request parameters and date formats
   - Response field definitions

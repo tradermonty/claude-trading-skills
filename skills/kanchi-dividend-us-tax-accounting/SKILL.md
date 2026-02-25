@@ -48,7 +48,7 @@ For each holding, classify expected cash flow into:
 - Ordinary dividend/non-qualified distribution.
 - REIT/BDC-specific distribution components where applicable.
 
-Use `skills/kanchi-dividend-us-tax-accounting/references/qualified-dividend-checklist.md`
+Use `references/qualified-dividend-checklist.md`
 for holding-period and classification checks.
 
 ### 2) Validate holding-period eligibility assumptions
@@ -71,7 +71,7 @@ Use form terminology consistently so year-end reconciliation is straightforward.
 
 ### 4) Build account-location recommendation
 
-Use `skills/kanchi-dividend-us-tax-accounting/references/account-location-matrix.md` to place
+Use `references/account-location-matrix.md` to place
 assets by tax profile:
 - Taxable account for holdings likely to remain qualified-focused.
 - Tax-advantaged account for higher ordinary-income style distributions.
@@ -80,7 +80,7 @@ When constraints conflict (liquidity, strategy, concentration), explain the trad
 
 ### 5) Produce annual planning memo
 
-Use `skills/kanchi-dividend-us-tax-accounting/references/annual-tax-memo-template.md` and include:
+Use `references/annual-tax-memo-template.md` and include:
 - Assumptions used.
 - Distribution classification summary.
 - Placement actions taken.
@@ -105,6 +105,6 @@ Always output:
 
 - `skills/kanchi-dividend-us-tax-accounting/scripts/build_tax_planning_sheet.py`: tax planning sheet generator.
 - `skills/kanchi-dividend-us-tax-accounting/scripts/tests/test_build_tax_planning_sheet.py`: tests for tax planning outputs.
-- `skills/kanchi-dividend-us-tax-accounting/references/qualified-dividend-checklist.md`: classification and holding-period checks.
-- `skills/kanchi-dividend-us-tax-accounting/references/account-location-matrix.md`: placement matrix by account type and instrument.
-- `skills/kanchi-dividend-us-tax-accounting/references/annual-tax-memo-template.md`: reusable memo structure.
+- `references/qualified-dividend-checklist.md`: classification and holding-period checks.
+- `references/account-location-matrix.md`: placement matrix by account type and instrument.
+- `references/annual-tax-memo-template.md`: reusable memo structure.

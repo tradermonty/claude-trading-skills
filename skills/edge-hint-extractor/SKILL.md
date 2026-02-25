@@ -65,4 +65,4 @@ python3 skills/edge-hint-extractor/scripts/build_hints.py \
 ## Resources
 
 - `skills/edge-hint-extractor/scripts/build_hints.py`
-- `skills/edge-hint-extractor/references/hints_schema.md`
+- `references/hints_schema.md`

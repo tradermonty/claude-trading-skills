@@ -76,9 +76,9 @@ python3 skills/strategy-pivot-designer/scripts/generate_pivots.py \
 
 - `skills/strategy-pivot-designer/scripts/detect_stagnation.py`
 - `skills/strategy-pivot-designer/scripts/generate_pivots.py`
-- `skills/strategy-pivot-designer/references/stagnation_triggers.md`
-- `skills/strategy-pivot-designer/references/strategy_archetypes.md`
-- `skills/strategy-pivot-designer/references/pivot_techniques.md`
-- `skills/strategy-pivot-designer/references/pivot_proposal_schema.md`
+- `references/stagnation_triggers.md`
+- `references/strategy_archetypes.md`
+- `references/pivot_techniques.md`
+- `references/pivot_proposal_schema.md`
 - `skills/backtest-expert/scripts/evaluate_backtest.py`
 - `skills/edge-strategy-designer/scripts/design_strategy_drafts.py`

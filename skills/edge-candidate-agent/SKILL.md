@@ -53,11 +53,11 @@ Recommended split workflow:
    - Optional: `--hints` for human ideation input
    - Optional: `--llm-ideas-cmd` for external LLM ideation loop
 2. Load the contract and mapping references:
-   - `skills/edge-candidate-agent/references/pipeline_if_v1.md`
-   - `skills/edge-candidate-agent/references/signal_mapping.md`
-   - `skills/edge-candidate-agent/references/research_ticket_schema.md`
-   - `skills/edge-candidate-agent/references/ideation_loop.md`
-3. Build or update a research ticket using `skills/edge-candidate-agent/references/research_ticket_schema.md`.
+   - `references/pipeline_if_v1.md`
+   - `references/signal_mapping.md`
+   - `references/research_ticket_schema.md`
+   - `references/ideation_loop.md`
+3. Build or update a research ticket using `references/research_ticket_schema.md`.
 4. Export candidate artifacts with `skills/edge-candidate-agent/scripts/export_candidate.py`.
 5. Validate interface and Phase I constraints with `skills/edge-candidate-agent/scripts/validate_candidate.py`.
 6. Hand off candidate directory to `trade-strategy-pipeline` and run dry-run first.
@@ -127,14 +127,14 @@ Run interface checks and optional `StrategySpec`/`validate_spec` checks against 
 ### `skills/edge-candidate-agent/scripts/auto_detect_candidates.py`
 Auto-detect edge ideas from EOD OHLCV, generate exportable/research tickets, and optionally export/validate automatically.
 
-### `skills/edge-candidate-agent/references/pipeline_if_v1.md`
+### `references/pipeline_if_v1.md`
 Condensed integration contract for `edge-finder-candidate/v1`.
 
-### `skills/edge-candidate-agent/references/signal_mapping.md`
+### `references/signal_mapping.md`
 Map hypothesis families to currently exportable signal families.
 
-### `skills/edge-candidate-agent/references/research_ticket_schema.md`
+### `references/research_ticket_schema.md`
 Ticket schema used by `export_candidate.py`.
 
-### `skills/edge-candidate-agent/references/ideation_loop.md`
+### `references/ideation_loop.md`
 Hint schema and external LLM ideation command contract.

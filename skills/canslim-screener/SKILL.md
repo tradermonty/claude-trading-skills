@@ -242,9 +242,9 @@ cat canslim_screener_YYYY-MM-DD_HHMMSS.md
 Review the top-ranked stocks and cross-reference with knowledge bases:
 
 **Reference Documents to Consult:**
-1. `skills/canslim-screener/references/interpretation_guide.md` - Understand rating bands and portfolio sizing
-2. `skills/canslim-screener/references/canslim_methodology.md` - Deep dive into component meanings (now includes S and I)
-3. `skills/canslim-screener/references/scoring_system.md` - Understand scoring formulas (Phase 3 weights)
+1. `references/interpretation_guide.md` - Understand rating bands and portfolio sizing
+2. `references/canslim_methodology.md` - Deep dive into component meanings (now includes S and I)
+3. `references/scoring_system.md` - Understand scoring formulas (Phase 3 weights)
 
 **Analysis Framework:**
 
@@ -412,23 +412,23 @@ Create a concise, actionable summary for the user:
   - Phase 3 component breakdown tables (all 7 components)
   - Summary statistics calculation
 
-### References Directory (`skills/canslim-screener/references/`)
+### References Directory (`references/`)
 
 **Knowledge Bases:**
-- `skills/canslim-screener/references/canslim_methodology.md` (27KB) - Complete CANSLIM explanation
+- `references/canslim_methodology.md` (27KB) - Complete CANSLIM explanation
   - All 7 components with O'Neil's original thresholds
   - S component (Volume accumulation/distribution) detailed explanation
   - L component (Leadership/Relative Strength) detailed explanation
   - I component (Institutional sponsorship) detailed explanation
   - Historical examples (AAPL 2009, NFLX 2013, TSLA 2019, NVDA 2023)
 
-- `skills/canslim-screener/references/scoring_system.md` (21KB) - Technical scoring specification (Phase 3)
+- `references/scoring_system.md` (21KB) - Technical scoring specification (Phase 3)
   - Phase 3 component weights and formulas (all 7 components)
   - Interpretation bands (90-100, 80-89, etc.)
   - Minimum thresholds for all 7 components
   - Composite score calculation examples
 
-- `skills/canslim-screener/references/fmp_api_endpoints.md` (18KB) - API integration guide (Phase 3)
+- `references/fmp_api_endpoints.md` (18KB) - API integration guide (Phase 3)
   - Required endpoints for all 7 components
   - L component: 52-week historical prices endpoint
   - Institutional holder endpoint documentation
@@ -436,17 +436,17 @@ Create a concise, actionable summary for the user:
   - Rate limiting strategy
   - Cost analysis (Phase 3: ~283 FMP calls for 40 stocks, exceeds 250 free tier)
 
-- `skills/canslim-screener/references/interpretation_guide.md` (18KB) - User guidance
+- `references/interpretation_guide.md` (18KB) - User guidance
   - Portfolio construction rules
   - Position sizing by rating
   - Entry/exit strategies
   - Bear market protection rules
 
 **How to Use References:**
-- Read `skills/canslim-screener/references/canslim_methodology.md` first to understand O'Neil's system (now includes S and I)
-- Consult `skills/canslim-screener/references/interpretation_guide.md` when analyzing results
-- Reference `skills/canslim-screener/references/scoring_system.md` if scores seem unexpected
-- Check `skills/canslim-screener/references/fmp_api_endpoints.md` for API troubleshooting or Finviz fallback issues
+- Read `references/canslim_methodology.md` first to understand O'Neil's system (now includes S and I)
+- Consult `references/interpretation_guide.md` when analyzing results
+- Reference `references/scoring_system.md` if scores seem unexpected
+- Check `references/fmp_api_endpoints.md` for API troubleshooting or Finviz fallback issues
 
 ---
 

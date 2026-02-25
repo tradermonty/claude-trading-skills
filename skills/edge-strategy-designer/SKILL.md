@@ -60,5 +60,5 @@ python3 skills/edge-strategy-designer/scripts/design_strategy_drafts.py \
 ## Resources
 
 - `skills/edge-strategy-designer/scripts/design_strategy_drafts.py`
-- `skills/edge-strategy-designer/references/strategy_draft_schema.md`
+- `references/strategy_draft_schema.md`
 - `skills/edge-candidate-agent/scripts/export_candidate.py`

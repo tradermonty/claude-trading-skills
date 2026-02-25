@@ -21,7 +21,7 @@ Use this skill when the user needs:
 ## Prerequisites
 
 Provide normalized input JSON that follows:
-- `skills/kanchi-dividend-review-monitor/references/input-schema.md`
+- `references/input-schema.md`
 
 If upstream data is unavailable, provide at least:
 - `ticker`
@@ -40,7 +40,7 @@ Always create `WARN` or `REVIEW` evidence for human confirmation first.
 - `WARN`: add to next check cycle and pause optional adds.
 - `REVIEW`: immediate human review ticket + pause adds.
 
-Use `skills/kanchi-dividend-review-monitor/references/trigger-matrix.md` for trigger thresholds and actions.
+Use `references/trigger-matrix.md` for trigger thresholds and actions.
 
 ## Monitoring Cadence
 
@@ -63,7 +63,7 @@ Collect per ticker fields in one JSON document:
 - Filing text snippets (especially recent 8-K or equivalent alert text).
 - Operations trend fields (revenue CAGR, margin trend, guidance trend).
 
-Use `skills/kanchi-dividend-review-monitor/references/input-schema.md` for field definitions
+Use `references/input-schema.md` for field definitions
 and sample payload.
 
 ### 2) Run the rule engine
@@ -93,7 +93,7 @@ For each `REVIEW` ticker, include:
 - Suspected failure mode.
 - Required manual checks for next decision.
 
-Use `skills/kanchi-dividend-review-monitor/references/review-ticket-template.md` output format.
+Use `references/review-ticket-template.md` output format.
 
 ## SEC Filing Guardrail
 
@@ -119,6 +119,6 @@ Always return:
 
 - `scripts/build_review_queue.py`: local rule engine for T1-T5.
 - `scripts/tests/test_build_review_queue.py`: unit tests for T1-T5 and report rendering.
-- `skills/kanchi-dividend-review-monitor/references/trigger-matrix.md`: trigger definitions, cadence, and actions.
-- `skills/kanchi-dividend-review-monitor/references/input-schema.md`: normalized input schema and sample JSON.
-- `skills/kanchi-dividend-review-monitor/references/review-ticket-template.md`: standardized manual-review ticket layout.
+- `references/trigger-matrix.md`: trigger definitions, cadence, and actions.
+- `references/input-schema.md`: normalized input schema and sample JSON.
+- `references/review-ticket-template.md`: standardized manual-review ticket layout.

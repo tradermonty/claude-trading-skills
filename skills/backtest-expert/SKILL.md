@@ -178,7 +178,7 @@ Recognize these patterns early to save time:
 5. **Look-ahead bias**: "Too good to be true" results
 6. **Over-optimization**: Many parameters, poor out-of-sample results
 
-See `skills/backtest-expert/references/failed_tests.md` for detailed examples and diagnostic framework.
+See `references/failed_tests.md` for detailed examples and diagnostic framework.
 
 ## Output
 
@@ -188,7 +188,7 @@ See `skills/backtest-expert/references/failed_tests.md` for detailed examples an
 ## Resources
 
 ### Methodology Reference
-**File**: `skills/backtest-expert/references/methodology.md`
+**File**: `references/methodology.md`
 
 **When to read**: For detailed guidance on specific testing techniques.
 
@@ -201,7 +201,7 @@ See `skills/backtest-expert/references/failed_tests.md` for detailed examples an
 - Common biases and pitfalls (survivorship, look-ahead, curve-fitting, etc.)
 
 ### Failed Tests Reference
-**File**: `skills/backtest-expert/references/failed_tests.md`
+**File**: `references/failed_tests.md`
 
 **When to read**: When strategy fails tests, or learning from past mistakes.
 
