@@ -120,9 +120,11 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 
 ---
 
-## API Requirements
+## Prerequisites
 
-**Required:** FMP API key (free tier sufficient: 4 calls per execution)
+- **FMP API Key:** Required. Set `FMP_API_KEY` environment variable or pass via `--api-key` flag.
+- **Python 3.8+:** With `requests` library installed.
+- **API Budget:** 4 calls per execution (well within FMP free tier of 250/day).
 
 ## Output Files
 
@@ -131,17 +133,17 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 
 ## Reference Documents
 
-### `references/ftd_methodology.md`
+### `skills/ftd-detector/references/ftd_methodology.md`
 - O'Neil's FTD rules in detail
 - Rally attempt mechanics and day counting
 - Historical FTD examples (2020 March, 2022 October)
 
-### `references/post_ftd_guide.md`
+### `skills/ftd-detector/references/post_ftd_guide.md`
 - Post-FTD distribution day failure rates
 - Power Trend definition and conditions
 - Success vs failure pattern comparison
 
 ### When to Load References
-- **First use:** Load `ftd_methodology.md` for full understanding
-- **Post-FTD questions:** Load `post_ftd_guide.md`
+- **First use:** Load `skills/ftd-detector/references/ftd_methodology.md` for full understanding
+- **Post-FTD questions:** Load `skills/ftd-detector/references/post_ftd_guide.md`
 - **Regular execution:** References not needed - script handles analysis

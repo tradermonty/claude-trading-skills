@@ -336,6 +336,16 @@ def _extract_json_from_claude(output: str) -> dict | None:
     return None
 
 
+def _is_nothing_to_commit_output(output: str) -> bool:
+    """Return True when git commit output indicates no staged changes."""
+    text = output.lower()
+    return (
+        "nothing to commit" in text
+        or "no changes added to commit" in text
+        or "nothing added to commit" in text
+    )
+
+
 # ── Improvement ──
 
 
@@ -528,7 +538,17 @@ def apply_improvement(
             check=False,
         )
         if commit.returncode != 0:
-            logger.error("git commit failed: %s", commit.stderr.strip()[:500])
+            commit_output = ((commit.stderr or "") + "\n" + (commit.stdout or "")).strip()
+            if _is_nothing_to_commit_output(commit_output):
+                logger.info(
+                    "No staged changes to commit for %s; rolling back no-op improvement branch.",
+                    skill_name,
+                )
+                _rollback(project_root, skill_name, branch_name)
+                return None
+            logger.error(
+                "git commit failed: %s", commit_output[:500] if commit_output else "(empty)"
+            )
             _rollback(project_root, skill_name, branch_name)
             return None
 
