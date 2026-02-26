@@ -551,8 +551,10 @@ def score_skill(
     if bash_blocks:
         exec_score += 6
 
-        skill_script_prefix = f"skills/{skill_name}/scripts/"
-        if any(skill_script_prefix in block for block in bash_blocks):
+        # Relative paths (e.g. `scripts/run.py`) are preferred because SKILL.md
+        # is read in the context of the skill directory.  Full paths like
+        # `skills/{skill}/scripts/...` are redundant and break portability.
+        if any("scripts/" in block for block in bash_blocks):
             exec_score += 5
         else:
             findings.append(
@@ -560,8 +562,8 @@ def score_skill(
                     severity="low",
                     path=rel_skill_file,
                     line=None,
-                    message="Examples do not clearly anchor script paths from repository root.",
-                    improvement=f"Use repo-root paths like `{skill_script_prefix}...` in commands.",
+                    message="No script path references found in bash examples.",
+                    improvement="Use relative paths like `scripts/...` in commands.",
                 )
             )
 
