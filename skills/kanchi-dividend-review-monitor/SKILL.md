@@ -73,11 +73,11 @@ Run:
 ```bash
 python3 skills/kanchi-dividend-review-monitor/scripts/build_review_queue.py \
   --input /path/to/monitor_input.json \
-  --output /path/to/review_queue.json \
-  --markdown /path/to/review_queue.md
+  --output-dir reports/
 ```
 
 The script maps each ticker to `OK/WARN/REVIEW` based on T1-T5.
+Output files are saved to the specified directory with dated filenames (e.g., `review_queue_20260227.json` and `.md`).
 
 ### 3) Prioritize and deduplicate
 

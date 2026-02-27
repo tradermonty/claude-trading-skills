@@ -165,3 +165,50 @@ def test_build_report_counts_states() -> None:
     report = build_report(payload)
     assert report["summary"]["REVIEW"] == 1
     assert report["summary"]["OK"] == 1
+
+
+def test_main_with_output_dir(tmp_path) -> None:
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    input_data = {
+        "as_of": "2026-02-27",
+        "holdings": [
+            {
+                "ticker": "TEST",
+                "instrument_type": "stock",
+                "dividend": {"latest_regular": 0.5, "prior_regular": 0.5, "is_missing": False},
+            },
+        ],
+    }
+    input_file = tmp_path / "input.json"
+    input_file.write_text(json.dumps(input_data))
+
+    output_dir = tmp_path / "output"
+
+    script_path = Path(__file__).parent.parent / "build_review_queue.py"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--input",
+            str(input_file),
+            "--output-dir",
+            str(output_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f"Script failed: {result.stderr}"
+    assert output_dir.exists()
+
+    json_files = list(output_dir.glob("review_queue_*.json"))
+    md_files = list(output_dir.glob("review_queue_*.md"))
+    assert len(json_files) == 1, f"Expected 1 JSON file, found {len(json_files)}"
+    assert len(md_files) == 1, f"Expected 1 MD file, found {len(md_files)}"
+
+    report = json.loads(json_files[0].read_text())
+    assert report["summary"]["OK"] == 1

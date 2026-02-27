@@ -420,10 +420,15 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build Kanchi dividend review queue.")
     parser.add_argument("--input", required=True, help="Path to normalized input JSON.")
-    parser.add_argument("--output", required=True, help="Path to output JSON report.")
+    parser.add_argument("--output", help="Path to output JSON report (overrides --output-dir).")
     parser.add_argument(
         "--markdown",
-        help="Optional path to markdown report output.",
+        help="Path to markdown report (overrides --output-dir).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="reports",
+        help="Directory for output files (default: reports). Creates dated filenames.",
     )
     return parser.parse_args()
 
@@ -431,22 +436,34 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     input_path = Path(args.input)
-    output_path = Path(args.output)
 
     payload = json.loads(input_path.read_text())
     report = build_report(payload)
+
+    as_of = report.get("as_of", datetime.now(timezone.utc).date().isoformat())
+    date_suffix = as_of.replace("-", "")
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = output_dir / f"review_queue_{date_suffix}.json"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2, ensure_ascii=True) + "\n")
 
     if args.markdown:
         markdown_path = Path(args.markdown)
-        markdown_path.parent.mkdir(parents=True, exist_ok=True)
-        markdown_path.write_text(render_markdown(report) + "\n")
+    else:
+        markdown_path = output_dir / f"review_queue_{date_suffix}.md"
+
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    markdown_path.write_text(render_markdown(report) + "\n")
 
     print(f"Wrote JSON report: {output_path}")
-    if args.markdown:
-        print(f"Wrote markdown report: {args.markdown}")
+    print(f"Wrote markdown report: {markdown_path}")
     return 0
 
 
