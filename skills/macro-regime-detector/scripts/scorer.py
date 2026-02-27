@@ -296,8 +296,10 @@ REGIME_DESCRIPTIONS = {
         "label": "Contraction",
         "description": "Credit tightening, defensive rotation, equity-bond shift to risk-off. "
         "Classic late-cycle deterioration.",
-        "portfolio_posture": "Raise cash. Increase Treasury allocation. "
-        "Defensive sectors (Staples, Utilities, Healthcare).",
+        "portfolio_posture": "Raise cash. Duration management: short-duration Treasuries as base; "
+        "add TIPS if inflation signals present; extend duration only when "
+        "stock-bond correlation turns negative. "
+        "Defensive sectors: prioritize Staples and Healthcare.",
     },
     "inflationary": {
         "label": "Inflationary",

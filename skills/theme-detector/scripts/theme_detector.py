@@ -357,6 +357,32 @@ def _get_representative_stocks(
     return static, details
 
 
+def detect_divergence(heat_breakdown: dict, direction: str) -> dict | None:
+    """Detect divergence between price momentum and breadth signals."""
+    momentum = heat_breakdown.get("momentum_strength", 50)
+    uptrend = heat_breakdown.get("uptrend_signal", 50)
+    gap = momentum - uptrend
+    if abs(gap) < 25:
+        return None
+    if gap > 0:
+        return {
+            "type": "narrow_rally",
+            "gap": round(gap, 1),
+            "description": "Price momentum strong but breadth weak — concentrated/fragile move",
+        }
+    else:
+        desc = (
+            "Breadth improving ahead of price — potential reversal candidate"
+            if direction == "bearish"
+            else "Breadth improving ahead of price — potential acceleration candidate"
+        )
+        return {
+            "type": "internal_recovery",
+            "gap": round(abs(gap), 1),
+            "description": desc,
+        }
+
+
 def _calculate_breadth_ratio(theme: dict) -> Optional[float]:
     """Estimate breadth ratio from theme's matching industries.
 
@@ -692,6 +718,9 @@ def main():
             "breadth_signal": round(breadth, 2),
         }
 
+        # --- Divergence detection ---
+        divergence = detect_divergence(heat_breakdown, direction)
+
         # --- Lifecycle Maturity ---
         # Get stock-level metrics for this theme
         theme_stock_metrics = [stock_metrics_map[s] for s in stocks if s in stock_metrics_map]
@@ -780,6 +809,7 @@ def main():
             "stale_data_penalty": stale_data,
             "theme_origin": theme.get("theme_origin", "seed"),
             "name_confidence": theme.get("name_confidence", "high"),
+            "divergence": divergence,
         }
         scored_themes.append(scored_theme)
 

@@ -112,6 +112,8 @@ def calculate_sector_participation(
                 "trend": s.get("Trend", ""),
                 "slope": s.get("Slope"),
                 "status": s.get("Status", ""),
+                "count": s.get("Count"),
+                "total": s.get("Total"),
             }
         )
 

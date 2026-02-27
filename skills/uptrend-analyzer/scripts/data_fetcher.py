@@ -77,6 +77,8 @@ def build_summary_from_timeseries(sector_timeseries: dict[str, dict]) -> list[di
                 "Trend": (row.get("trend") or "").capitalize(),
                 "Slope": row.get("slope"),
                 "Status": status,
+                "Count": row.get("count"),
+                "Total": row.get("total"),
             }
         )
     return rows

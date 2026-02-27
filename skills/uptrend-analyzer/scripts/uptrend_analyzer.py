@@ -34,7 +34,7 @@ from calculators.market_breadth_calculator import calculate_market_breadth
 from calculators.momentum_calculator import calculate_momentum
 from calculators.sector_participation_calculator import calculate_sector_participation
 from calculators.sector_rotation_calculator import calculate_sector_rotation
-from data_fetcher import UptrendDataFetcher
+from data_fetcher import WORKSHEET_TO_DISPLAY, UptrendDataFetcher
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
 
@@ -86,6 +86,17 @@ def main():
     all_timeseries = fetcher.get_all_timeseries()
     latest_all = fetcher.get_latest_all()
     sector_latest = fetcher.get_all_sector_latest()
+
+    # Build sector -> (count, total) mapping from timeseries latest rows
+    count_total_map = {}
+    for ws_name, row in sector_latest.items():
+        display_name = WORKSHEET_TO_DISPLAY.get(ws_name, ws_name)
+        count_total_map[display_name] = (row.get("count"), row.get("total"))
+    # Add count/total to each sector summary row
+    for s in sector_summary:
+        ct = count_total_map.get(s["Sector"], (None, None))
+        s["Count"] = ct[0]
+        s["Total"] = ct[1]
 
     if latest_all:
         ratio_pct = (

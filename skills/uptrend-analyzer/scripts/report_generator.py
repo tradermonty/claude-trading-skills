@@ -347,18 +347,51 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("")
         lines.append("## Sector Heatmap")
         lines.append("")
-        lines.append("| Rank | Sector | Ratio | 10MA | Trend | Slope | Status |")
-        lines.append("|------|--------|-------|------|-------|-------|--------|")
+        lines.append("| Rank | Sector | Ratio | Count/Total | 10MA | Trend | Slope | Status |")
+        lines.append("|------|--------|-------|-------------|------|-------|-------|--------|")
         for i, s in enumerate(sector_details, 1):
+            count_val = s.get("count")
+            total_val = s.get("total")
+            if count_val is not None and total_val is not None:
+                count_total_str = f"{count_val}/{total_val}"
+            else:
+                count_total_str = "N/A"
             lines.append(
                 f"| {i} | {s.get('sector', '')} | "
                 f"{s.get('ratio_pct', 'N/A')}% | "
+                f"{count_total_str} | "
                 f"{round(s['ma_10'] * 100, 1) if s.get('ma_10') is not None else 'N/A'}% | "
                 f"{s.get('trend', '')} | "
                 f"{_format_slope(s.get('slope'))} | "
                 f"{s.get('status', '')} |"
             )
         lines.append("")
+
+        # Divergent Status-Trend note
+        divergent = [
+            s
+            for s in sector_details
+            if (s.get("status") == "Overbought" and s.get("trend", "").lower() == "down")
+            or (s.get("status") == "Oversold" and s.get("trend", "").lower() == "up")
+        ]
+        if divergent:
+            lines.append("> **Note on Status vs Trend:**")
+            lines.append(
+                "> Status (Overbought/Normal/Oversold) reflects the ratio *level* relative to thresholds."
+            )
+            lines.append("> Trend (Up/Down) reflects the *direction* of the 10-day MA slope.")
+            lines.append("> These can diverge:")
+            lines.append(
+                "> - **Overbought + Down** = high level but momentum rolling over (warning)"
+            )
+            lines.append(
+                "> - **Oversold + Up** = low level but momentum improving (potential recovery)"
+            )
+            for s in divergent:
+                lines.append(
+                    f"> - **{s['sector']}**: {s['status']} ({s['ratio_pct']}%) / Trend {s['trend']}"
+                )
+            lines.append("")
 
     # Recommended Actions
     lines.append("---")

@@ -109,6 +109,12 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
     # Crossover detection
     crossover = detect_crossover(spread_values, short_period=6, long_period=12)
 
+    # Individual yield ROCs for steepening type classification
+    y10_values = [s["year10"] for s in spread_series]
+    y2_values = [s["year2"] for s in spread_series]
+    roc_3m_10y = compute_roc(y10_values, 3)
+    roc_3m_2y = compute_roc(y2_values, 3)
+
     # Momentum
     roc_3m = compute_roc(spread_values, 3)
     roc_12m = compute_roc(spread_values, 12)
@@ -136,6 +142,16 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
     else:
         direction = "stable"
 
+    # Steepening type classification
+    steepening_type = None
+    if direction == "steepening":
+        if roc_3m_2y is not None and roc_3m_2y < 0:
+            steepening_type = "bull_steepener"
+        elif roc_3m_10y is not None and roc_3m_10y > 0:
+            steepening_type = "bear_steepener"
+        else:
+            steepening_type = "mixed_steepener"
+
     signal = _describe_signal(score, curve_state, current_spread, direction)
 
     return {
@@ -145,6 +161,7 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
         "data_source": "treasury_api",
         "direction": direction,
         "curve_state": curve_state,
+        "steepening_type": steepening_type,
         "current_spread": round(current_spread, 3),
         "current_10y": current_10y,
         "current_2y": current_2y,
@@ -153,6 +170,8 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
         "sma_12m": round(sma_12m, 3) if sma_12m is not None else None,
         "roc_3m": round(roc_3m, 2) if roc_3m is not None else None,
         "roc_12m": round(roc_12m, 2) if roc_12m is not None else None,
+        "roc_3m_10y": round(roc_3m_10y, 2) if roc_3m_10y is not None else None,
+        "roc_3m_2y": round(roc_3m_2y, 2) if roc_3m_2y is not None else None,
         "percentile": round(percentile, 1) if percentile is not None else None,
         "crossover": crossover,
         "monthly_points": len(spread_series),
@@ -208,6 +227,7 @@ def _analyze_shy_tlt_proxy(shy_history: list[dict], tlt_history: list[dict]) -> 
         "data_source": "shy_tlt_proxy",
         "direction": direction,
         "curve_state": "proxy_only",
+        "steepening_type": None,
         "current_spread": None,
         "current_10y": None,
         "current_2y": None,

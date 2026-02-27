@@ -533,6 +533,21 @@ def _add_theme_details(lines: list[str], themes: list[dict]) -> None:
         lines.append(f"- **Confidence:** {t.get('confidence', 'N/A')}")
         lines.append("")
 
+        # Divergence alert (shown before heat breakdown for visibility)
+        div = t.get("divergence")
+        if div:
+            mom_val = t.get("heat_breakdown", {}).get("momentum_strength", "N/A")
+            upt_val = t.get("heat_breakdown", {}).get("uptrend_signal", "N/A")
+            if isinstance(mom_val, float):
+                mom_val = f"{mom_val:.1f}"
+            if isinstance(upt_val, float):
+                upt_val = f"{upt_val:.1f}"
+            lines.append(
+                f"> **Divergence Alert:** {div['description']}. "
+                f"Momentum: {mom_val}, Uptrend: {upt_val}."
+            )
+            lines.append("")
+
         # Heat breakdown with interpretive labels
         heat_bd = t.get("heat_breakdown", {})
         if heat_bd:

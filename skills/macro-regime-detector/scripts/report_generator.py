@@ -52,7 +52,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("| Metric | Value |")
     lines.append("|--------|-------|")
     lines.append(f"| **Current Regime** | **{regime_label}** |")
-    lines.append(f"| **Confidence** | {confidence.upper()} |")
+    lines.append(f"| **Transition Confidence** | {confidence.upper()} |")
     lines.append(f"| **Transition Score** | {zone_emoji} **{score}/100** |")
     lines.append(f"| **Signal Zone** | {zone} |")
     lines.append(
@@ -64,11 +64,16 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append(f"| **Data Quality** | {dq.get('label', 'N/A')} |")
     if transition.get("ambiguous"):
         lines.append(
-            "| **Regime Clarity** | **AMBIGUOUS** - Multiple regimes show similar evidence |"
+            "| **Destination Clarity** | **AMBIGUOUS** - Multiple regimes show similar evidence |"
         )
     tied = regime.get("tied_regimes")
     if tied:
         lines.append(f"| **Competing Regimes** | {' vs '.join(r.capitalize() for r in tied)} |")
+    lines.append("")
+
+    lines.append("> *Transition Confidence* measures how certain we are that a regime")
+    lines.append("> transition is underway. *Destination Clarity* (shown when ambiguous)")
+    lines.append("> indicates how clear the landing regime is.")
     lines.append("")
 
     # Regime description
@@ -188,6 +193,14 @@ def generate_markdown_report(analysis: dict, output_file: str):
 
         # Component-specific fields
         if key == "yield_curve":
+            if comp.get("steepening_type"):
+                steep_labels = {
+                    "bull_steepener": "Bull (short-end led: 2Y rates declining)",
+                    "bear_steepener": "Bear (long-end led: 10Y rates rising)",
+                    "mixed_steepener": "Mixed (both ends moving)",
+                }
+                steep_label = steep_labels.get(comp["steepening_type"], comp["steepening_type"])
+                lines.append(f"- **Steepening Type:** {steep_label}")
             if comp.get("curve_state"):
                 lines.append(f"- **Curve State:** {comp['curve_state']}")
             if comp.get("current_10y") is not None:
@@ -290,6 +303,44 @@ def generate_markdown_report(analysis: dict, output_file: str):
             )
             lines.append("")
 
+    # Duration warning when contraction + inflationary signals co-exist
+    tied = regime.get("tied_regimes")
+    if tied and "inflationary" in tied:
+        lines.append("> **Duration Warning:** Contraction and Inflationary signals are both")
+        lines.append("> present. Long-duration Treasuries may not provide effective hedging")
+        lines.append("> when stock-bond correlation is positive. Prefer short-duration")
+        lines.append("> Treasuries + TIPS until correlation regime shifts to negative.")
+        lines.append("")
+
+        eb = components.get("equity_bond", {})
+        corr_regime = eb.get("correlation_regime", "unknown")
+        yc = components.get("yield_curve", {})
+        steep_type = yc.get("steepening_type")
+
+        lines.append("**Duration Conditional Recommendations:**")
+        lines.append("")
+        if corr_regime == "positive":
+            lines.append("- Correlation regime is **positive** -> short-duration Treasuries + TIPS")
+        elif corr_regime == "negative":
+            if steep_type == "bull_steepener":
+                lines.append(
+                    "- Correlation regime is **negative** and steepening is **bull steepener** "
+                    "(short-end led) -> duration extension OK"
+                )
+            elif steep_type == "bear_steepener":
+                lines.append(
+                    "- Correlation regime is **negative** and steepening is **bear steepener** "
+                    "(long-end led) -> cautious, TIPS preferred"
+                )
+            else:
+                lines.append(
+                    "- Correlation regime is **negative** -> duration extension possible, "
+                    "monitor steepening type"
+                )
+        else:
+            lines.append("- Correlation regime is **unknown** -> default to short-duration + TIPS")
+        lines.append("")
+
     # Actions from zone
     actions = composite.get("actions", [])
     if actions:
@@ -313,6 +364,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("- Composite score dropping below 20 (return to stable)")
     lines.append("- Credit conditions sharply contradicting regime thesis")
     lines.append("")
+
+    # Transition triggers (only when ambiguous/transitional/tied)
+    _add_transition_triggers(lines, regime, components)
 
     # ================================================================
     # Methodology
@@ -390,3 +444,48 @@ def _score_bar(score: int) -> str:
         return "█░░░"
     else:
         return "░░░░"
+
+
+def _add_transition_triggers(lines, regime, components):
+    """Generate regime-specific trigger conditions from current component state."""
+    tied = regime.get("tied_regimes")
+    if not tied and regime.get("current_regime") != "transitional":
+        return
+
+    lines.append("### Regime Transition Triggers")
+    lines.append("")
+
+    credit_dir = components.get("credit_conditions", {}).get("direction", "unknown")
+    sector_dir = components.get("sector_rotation", {}).get("direction", "unknown")
+    yc = components.get("yield_curve", {})
+    steep_type = yc.get("steepening_type")
+
+    lines.append("**Contraction strengthens if:**")
+    if credit_dir != "tightening":
+        lines.append("- Credit (HYG/LQD) shifts to tightening")
+    else:
+        lines.append("- Credit (HYG/LQD) tightening continues")
+    if sector_dir != "risk_off":
+        lines.append("- Sector rotation (XLY/XLP) turns risk-off")
+    else:
+        lines.append("- Sector rotation (XLY/XLP) risk-off accelerates")
+    lines.append("")
+
+    lines.append("**Recovery (Broadening) signal if:**")
+    lines.append("- Credit (HYG/LQD) turns to easing")
+    lines.append("- Sector rotation (XLY/XLP) turns risk-on")
+    lines.append("- Concentration (RSP/SPY) shifts to broadening")
+    lines.append("")
+
+    lines.append("**Inflationary regime confirms if:**")
+    lines.append("- Stock-bond correlation stays positive")
+    if steep_type:
+        lines.append("- Yield curve steepening remains bear-type (long-end led)")
+    else:
+        lines.append("- Long-term yields continue rising")
+    lines.append("")
+
+    lines.append("**Duration extension OK when:**")
+    lines.append("- Stock-bond correlation turns negative")
+    lines.append("- Yield curve shows bull steepener (short-end led)")
+    lines.append("")
