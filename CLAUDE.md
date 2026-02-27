@@ -69,7 +69,7 @@ The skill-creator will:
 2. Create the directory structure
 3. Generate SKILL.md template
 4. Set up references and scripts directories
-5. Package the skill into a .zip file
+5. Package the skill into a .skill file
 
 **MANDATORY: After creating or committing a new skill, update both READMEs:**
 1. Add skill description to the appropriate category in `README.md` (English)
@@ -86,7 +86,7 @@ Skills are packaged as ZIP files for Claude web app users:
 python3 ~/.claude/plugins/marketplaces/anthropic-agent-skills/skill-creator/scripts/package_skill.py <skill-name>
 ```
 
-The packaged .zip files are stored in `zip-packages/` and should be regenerated after any skill modifications.
+The packaged .skill files are stored in `skill-packages/` and should be regenerated after any skill modifications.
 
 ### Testing Skills
 
@@ -564,7 +564,7 @@ When skills are ready for distribution:
 
 1. Test skill thoroughly in Claude Code
 2. Package skill using skill-creator packaging script
-3. Move .zip file to `zip-packages/`
+3. Move .skill file to `skill-packages/`
 4. Update README.md and README.ja.md with skill description
    - **Important:** Clearly indicate if the skill requires API subscriptions (FMP, FINVIZ Elite)
    - Include pricing information and sign-up links for required APIs

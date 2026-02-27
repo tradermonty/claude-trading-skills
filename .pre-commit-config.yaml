@@ -22,7 +22,7 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: [--skip, ".venv,*.json,*.csv,*.baseline,zip-packages,*.pyc,__pycache__",
+        args: [--skip, ".venv,*.json,*.csv,*.baseline,skill-packages,*.pyc,__pycache__",
                --ignore-words-list, "trough,ore,cna,acn,blok,hims,pont,claus"]
 
   - repo: https://github.com/Yelp/detect-secrets

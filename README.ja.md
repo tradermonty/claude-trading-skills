@@ -6,11 +6,11 @@ English README is available at [`README.md`](README.md).
 
 ## リポジトリ構成
 - `<skill-name>/` – 各スキルのソースフォルダ。`SKILL.md`、参照資料、補助スクリプトが含まれます。
-- `zip-packages/` – Claudeウェブアプリの**Skills**タブへそのままアップロードできるZIPパッケージ置き場。
+- `skill-packages/` – Claudeウェブアプリの**Skills**タブへそのままアップロードできる`.skill`パッケージ置き場。
 
 ## はじめに
 ### Claudeウェブアプリで使う場合
-1. 利用したいスキルに対応するZIPを`zip-packages/`からダウンロードします。
+1. 利用したいスキルに対応する`.skill`ファイルを`skill-packages/`からダウンロードします。
 2. ブラウザでClaudeを開き、**Settings → Skills**に進んでZIPをアップロードします（詳しくはAnthropicの[Skillsローンチ記事](https://www.anthropic.com/news/skills)を参照）。
 3. 必要な会話内でスキルを有効化します。
 
@@ -349,7 +349,7 @@ launchctl start com.trade-analysis.skill-improvement
 ## カスタマイズと貢献
 - トリガー説明や機能メモを調整する場合は、各フォルダ内の`SKILL.md`を更新してください。ZIP化する際はフロントマター`name`がフォルダ名と一致しているか確認してください。
 - 参照資料の追記や新規スクリプト追加でワークフローを拡張できます。
-- 変更を配布する場合は、最新の内容を反映したZIPを`zip-packages/`に再生成してください。
+- 変更を配布する場合は、最新の内容を反映した`.skill`ファイルを`skill-packages/`に再生成してください。
 
 ## API要件
 

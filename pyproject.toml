@@ -80,7 +80,7 @@ skips = [
 ]
 
 [tool.codespell]
-skip = ".venv,*.json,*.csv,*.baseline,zip-packages,*.pyc,__pycache__"
+skip = ".venv,*.json,*.csv,*.baseline,skill-packages,*.pyc,__pycache__"
 ignore-words-list = "trough,ore,cna,acn,blok,hims,pont,claus"
 
 [tool.coverage.run]

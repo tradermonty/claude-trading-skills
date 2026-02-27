@@ -6,11 +6,11 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 
 ## Repository Layout
 - `<skill-name>/` – Source folder for each trading skill. Contains `SKILL.md`, reference material, and any helper scripts.
-- `zip-packages/` – Pre-built ZIP archives ready to upload to Claude's web app **Skills** tab.
+- `skill-packages/` – Pre-built `.skill` archives ready to upload to Claude's web app **Skills** tab.
 
 ## Getting Started
 ### Use with Claude Web App
-1. Download the ZIP that matches the skill you want from `zip-packages/`.
+1. Download the `.skill` file that matches the skill you want from `skill-packages/`.
 2. Open Claude in your browser, go to **Settings → Skills**, and upload the ZIP (see Anthropic's [Skills launch post](https://www.anthropic.com/news/skills) for feature overview).
 3. Enable the skill inside the conversation where you need it.
 
@@ -411,7 +411,7 @@ launchctl start com.trade-analysis.skill-improvement
 ## Customization & Contribution
 - Update `SKILL.md` files to tweak trigger descriptions or capability notes; ensure the frontmatter name matches the folder name when zipping.
 - Extend reference documents or add scripts inside each skill folder to support new workflows.
-- When distributing updates, regenerate the matching ZIP in `zip-packages/` so web-app users get the latest version.
+- When distributing updates, regenerate the matching `.skill` file in `skill-packages/` so web-app users get the latest version.
 
 ## API Requirements
 

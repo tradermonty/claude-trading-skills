@@ -71,13 +71,13 @@ MSFT,50,280.00,310.25
 
 ### For Claude Web App Users
 
-1. **Download ZIP package:**
-   - `zip-packages/portfolio-manager.zip`
+1. **Download skill package:**
+   - `skill-packages/portfolio-manager.skill`
 
 2. **Upload to Claude:**
    - Click "+" in Claude web interface
    - Select "Upload Skill"
-   - Choose `portfolio-manager.zip`
+   - Choose `portfolio-manager.skill`
 
 3. **Note:** Alpaca MCP Server may not be available in web version; use manual CSV data entry
 
