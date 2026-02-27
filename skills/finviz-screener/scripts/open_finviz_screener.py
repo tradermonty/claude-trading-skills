@@ -172,7 +172,7 @@ def open_browser(url: str) -> None:
     if sys.platform == "darwin":
         # Try Chrome first
         try:
-            subprocess.run(
+            subprocess.run(  # nosec B607 — macOS open is a known local tool
                 ["open", "-a", "Google Chrome", url],
                 check=True,
                 capture_output=True,
@@ -182,7 +182,7 @@ def open_browser(url: str) -> None:
             pass
         # Fallback to default browser on macOS
         try:
-            subprocess.run(["open", url], check=True, capture_output=True)
+            subprocess.run(["open", url], check=True, capture_output=True)  # nosec B607
             return
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
