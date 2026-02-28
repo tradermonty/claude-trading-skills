@@ -91,6 +91,8 @@ Map the user's natural-language request to FinViz filter codes. Use the Common C
 | Momentum | モメンタム | `ta_perf_13wup,ta_sma50_pa,ta_sma200_pa` |
 | Defensive | ディフェンシブ | `ta_beta_u0.5` or `sec_utilities,sec_consumerdefensive` |
 | Liquid / high volume | 高出来高 | `sh_avgvol_o500` or `sh_avgvol_o1000` |
+| Pullback from high | 高値からの押し目 | `ta_highlow52w_10to30-bhx` |
+| Near 52W low reversal | 安値圏リバーサル | `ta_highlow52w_10to30-alx` |
 | Fallen angel | 急落後反発 | `ta_highlow52w_b20to30h,ta_rsi_os40` |
 | AI theme | AIテーマ | `theme_artificialintelligence` |
 | Cybersecurity theme | サイバーセキュリティ | `theme_cybersecurity` |

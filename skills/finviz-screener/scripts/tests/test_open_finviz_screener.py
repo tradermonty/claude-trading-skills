@@ -145,6 +145,16 @@ class TestValidateFilters:
         result = validate_filters("ta_beta_0.5to1.5")
         assert result == ["ta_beta_0.5to1.5"]
 
+    def test_filter_with_custom_highlow_below_high(self):
+        """Custom 52-week below-high range like ta_highlow52w_10to30-bhx should pass."""
+        result = validate_filters("ta_highlow52w_10to30-bhx")
+        assert result == ["ta_highlow52w_10to30-bhx"]
+
+    def test_filter_with_custom_highlow_above_low(self):
+        """Custom 52-week above-low range like ta_highlow52w_10to30-alx should pass."""
+        result = validate_filters("ta_highlow52w_10to30-alx")
+        assert result == ["ta_highlow52w_10to30-alx"]
+
     # --- Rejected tokens (URL injection) ---
     def test_reject_ampersand(self):
         with pytest.raises(SystemExit):
