@@ -36,6 +36,16 @@ https://elite.finviz.com/screener.ashx?v={view}&f={filters}&o={order}&s={signal}
 
 - `o` — Sort order (optional; prefix `-` for descending, e.g., `-marketcap`)
 
+**Range Filter Pattern `{from}to{to}`:**
+
+Many filters support a range syntax: `{prefix}_{from}to{to}`. This creates a single filter that means "between {from} and {to}".
+
+- Example: `fa_div_3to8` = Dividend Yield 3% to 8%
+- Example: `fa_pe_10to20` = P/E 10 to 20
+- Example: `ta_beta_0.5to1.5` = Beta 0.5 to 1.5
+
+This range syntax is supported on the FinViz website but is **not registered in the finviz Python library**. Use range codes directly in the URL `f=` parameter. Range filters are more precise than combining two separate `_o` / `_u` filters, and they work as a single filter token.
+
 - `t` — Ticker symbols (optional; comma-separated, e.g., `AAPL,MSFT`)
 
 - `s` — Signal filter (optional; see Signal Filters below)
@@ -280,7 +290,7 @@ Additional countries: Argentina, Bahamas, Belgium, BeNeLux, Bermuda, Cayman Isla
 ### P/E Ratio (`fa_pe_`)
 
 
-Pattern: `fa_pe_u{N}` (under N), `fa_pe_o{N}` (over N)
+Pattern: `fa_pe_u{N}` (under N), `fa_pe_o{N}` (over N), `fa_pe_{from}to{to}` (range, e.g., `fa_pe_10to20`)
 
 
 | Code | Meaning | Natural Language Keywords |
@@ -312,7 +322,7 @@ Pattern: `fa_pe_u{N}` (under N), `fa_pe_o{N}` (over N)
 ### Forward P/E (`fa_fpe_`)
 
 
-Pattern: `fa_fpe_u{N}` (under N), `fa_fpe_o{N}` (over N). Same thresholds as P/E (5–50).
+Pattern: `fa_fpe_u{N}` (under N), `fa_fpe_o{N}` (over N), `fa_fpe_{from}to{to}` (range, e.g., `fa_fpe_10to20`). Same thresholds as P/E (5–50).
 
 Special: `fa_fpe_low` (Low <15), `fa_fpe_profitable` (>0), `fa_fpe_high` (>50)
 
@@ -334,7 +344,7 @@ Special: `fa_fpe_low` (Low <15), `fa_fpe_profitable` (>0), `fa_fpe_high` (>50)
 ### P/S Ratio (`fa_ps_`)
 
 
-Pattern: `fa_ps_u{N}` (under N), `fa_ps_o{N}` (over N). Range: 1–10.
+Pattern: `fa_ps_u{N}` (under N), `fa_ps_o{N}` (over N), `fa_ps_{from}to{to}` (range, e.g., `fa_ps_1to5`). Range: 1–10.
 
 Special: `fa_ps_low` (Low <1), `fa_ps_high` (High >10)
 
@@ -342,7 +352,7 @@ Special: `fa_ps_low` (Low <1), `fa_ps_high` (High >10)
 ### P/B Ratio (`fa_pb_`)
 
 
-Pattern: `fa_pb_u{N}` (under N), `fa_pb_o{N}` (over N). Range: 1–10.
+Pattern: `fa_pb_u{N}` (under N), `fa_pb_o{N}` (over N), `fa_pb_{from}to{to}` (range, e.g., `fa_pb_1to3`). Range: 1–10.
 
 Special: `fa_pb_low` (Low <1, 簿価割れ), `fa_pb_high` (High >5)
 
@@ -350,7 +360,7 @@ Special: `fa_pb_low` (Low <1, 簿価割れ), `fa_pb_high` (High >5)
 ### P/Cash (`fa_pc_`)
 
 
-Pattern: `fa_pc_u{N}` (under N), `fa_pc_o{N}` (over N). Range: 1–50.
+Pattern: `fa_pc_u{N}` (under N), `fa_pc_o{N}` (over N), `fa_pc_{from}to{to}` (range, e.g., `fa_pc_3to10`). Range: 1–50.
 
 Special: `fa_pc_low` (Low <3), `fa_pc_high` (High >50)
 
@@ -358,7 +368,7 @@ Special: `fa_pc_low` (Low <3), `fa_pc_high` (High >50)
 ### P/Free Cash Flow (`fa_pfcf_`)
 
 
-Pattern: `fa_pfcf_u{N}` (under N), `fa_pfcf_o{N}` (over N). Range: 5–100.
+Pattern: `fa_pfcf_u{N}` (under N), `fa_pfcf_o{N}` (over N), `fa_pfcf_{from}to{to}` (range, e.g., `fa_pfcf_10to30`). Range: 5–100.
 
 Special: `fa_pfcf_low` (Low <15, FCF割安), `fa_pfcf_high` (High >50)
 
@@ -366,7 +376,7 @@ Special: `fa_pfcf_low` (Low <15, FCF割安), `fa_pfcf_high` (High >50)
 ### EV/EBITDA (`fa_evebitda_`)
 
 
-Pattern: `fa_evebitda_u{N}` (under N), `fa_evebitda_o{N}` (over N). Range: 5–50.
+Pattern: `fa_evebitda_u{N}` (under N), `fa_evebitda_o{N}` (over N), `fa_evebitda_{from}to{to}` (range, e.g., `fa_evebitda_5to15`). Range: 5–50.
 
 
 | Code | Meaning | Natural Language Keywords |
@@ -422,6 +432,9 @@ Pattern: `fa_evsales_u{N}` (under N), `fa_evsales_o{N}` (over N). Range: 1–10.
 ### Dividend Yield (`fa_div_`)
 
 
+Pattern: `fa_div_o{N}` (over N%), `fa_div_{from}to{to}` (range, e.g., `fa_div_3to8` = 3% to 8%)
+
+
 | Code | Meaning | Natural Language Keywords |
 |------|---------|---------------------------|
 | `fa_div_none` | None (0%) | no dividend, 無配 |
@@ -465,7 +478,7 @@ Positive: `fa_divgrowth_{period}pos`. Growing streak: `fa_divgrowth_cy{N}` (N = 
 ### Payout Ratio (`fa_payoutratio_`)
 
 
-Pattern: `fa_payoutratio_u{N}` (under N%), `fa_payoutratio_o{N}` (over N%). Range: 0–100.
+Pattern: `fa_payoutratio_u{N}` (under N%), `fa_payoutratio_o{N}` (over N%), `fa_payoutratio_{from}to{to}` (range, e.g., `fa_payoutratio_20to60`). Range: 0–100.
 
 Special: `fa_payoutratio_none` (0%), `fa_payoutratio_pos` (>0%), `fa_payoutratio_low` (<20%), `fa_payoutratio_high` (>50%)
 

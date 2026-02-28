@@ -134,6 +134,17 @@ class TestValidateFilters:
         result = validate_filters(",".join(tokens))
         assert len(result) == len(tokens)
 
+    # --- Range pattern tokens ---
+    def test_filter_with_range_pattern(self):
+        """Range filter like fa_div_3to8 should pass validation."""
+        result = validate_filters("fa_div_3to8")
+        assert result == ["fa_div_3to8"]
+
+    def test_filter_with_decimal_range(self):
+        """Decimal range filter like ta_beta_0.5to1.5 should pass validation."""
+        result = validate_filters("ta_beta_0.5to1.5")
+        assert result == ["ta_beta_0.5to1.5"]
+
     # --- Rejected tokens (URL injection) ---
     def test_reject_ampersand(self):
         with pytest.raises(SystemExit):

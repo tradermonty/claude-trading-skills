@@ -56,6 +56,8 @@ cat references/finviz_screener_filters.md
 
 Map the user's natural-language request to FinViz filter codes. Use the Common Concept Mapping table below for quick translation, and reference the full filter list for precise code selection.
 
+**Note:** For range criteria (e.g., "dividend 3-8%", "P/E between 10 and 20"), use the `{from}to{to}` range syntax as a single filter token (e.g., `fa_div_3to8`, `fa_pe_10to20`) instead of combining separate `_o` and `_u` filters.
+
 **Common Concept Mapping:**
 
 | User Concept (EN) | User Concept (JP) | Filter Codes |
@@ -92,6 +94,8 @@ Map the user's natural-language request to FinViz filter codes. Use the Common C
 | Fallen angel | 急落後反発 | `ta_highlow52w_b20to30h,ta_rsi_os40` |
 | AI theme | AIテーマ | `theme_artificialintelligence` |
 | Cybersecurity theme | サイバーセキュリティ | `theme_cybersecurity` |
+| Yield 3-8% (trap excluded) | 配当3-8%（トラップ除外）| `fa_div_3to8` |
+| Mid-range P/E | 適正PER帯 | `fa_pe_10to20` |
 | EV undervalued | EV割安 | `fa_evebitda_u10` |
 | Earnings next week | 来週決算 | `earningsdate_nextweek` |
 | IPO recent | 直近IPO | `ipodate_thismonth` |
