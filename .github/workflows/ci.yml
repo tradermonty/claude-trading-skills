@@ -54,6 +54,13 @@ jobs:
           --cov=skills/backtest-expert/scripts
           --cov-report=term-missing
 
+      - name: Test data-quality-checker
+        run: >
+          python -m pytest skills/data-quality-checker/scripts/tests/ -v
+          --cov=skills/data-quality-checker/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test dual-axis-skill-reviewer
         run: >
           python -m pytest skills/dual-axis-skill-reviewer/scripts/tests/ -v
@@ -114,6 +121,13 @@ jobs:
         run: >
           python -m pytest skills/vcp-screener/scripts/tests/ -v
           --cov=skills/vcp-screener/scripts
+          --cov-report=term-missing
+          --cov-append
+
+      - name: Test position-sizer
+        run: >
+          python -m pytest skills/position-sizer/scripts/tests/ -v
+          --cov=skills/position-sizer/scripts
           --cov-report=term-missing
           --cov-append
 

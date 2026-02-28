@@ -65,6 +65,8 @@ testpaths = [
     "skills/vcp-screener/scripts/tests",
     "skills/earnings-trade-analyzer/scripts/tests",
     "skills/pead-screener/scripts/tests",
+    "skills/position-sizer/scripts/tests",
+    "skills/data-quality-checker/scripts/tests",
 ]
 
 [tool.bandit]

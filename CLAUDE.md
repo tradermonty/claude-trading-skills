@@ -139,6 +139,8 @@ If no test exists for the changed behavior, add one whenever practical.
 | US Market Bubble Detector | ❌ Not required | ❌ Not used | ❌ Not used | User provides indicators |
 | **Theme Detector** | 🟡 Optional | 🟡 Optional (Recommended) | ❌ Not used | FINVIZ for dynamic stocks; FMP for ETF holdings fallback |
 | **FinViz Screener** | ❌ Not required | 🟡 Optional | ❌ Not used | Public screener free; Elite auto-detected from env var |
+| **Position Sizer** | ❌ Not required | ❌ Not used | ❌ Not used | Pure calculation; works offline |
+| **Data Quality Checker** | ❌ Not required | ❌ Not used | ❌ Not used | Local markdown validation; works offline |
 | Dual-Axis Skill Reviewer | ❌ Not required | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 
 #### API Key Setup
@@ -344,6 +346,46 @@ python3 portfolio-manager/scripts/test_alpaca_connection.py
 # See portfolio-manager/references/alpaca-mcp-setup.md for setup
 ```
 
+**Position Sizer:** No API key required
+```bash
+# Basic: stop-loss based sizing
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --entry 155.00 --stop 148.50 \
+  --account-size 100000 --risk-pct 1.0
+
+# ATR-based sizing
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --entry 155.00 --atr 3.20 --atr-multiplier 2.0 \
+  --account-size 100000 --risk-pct 1.0
+
+# Kelly Criterion (budget mode: no --entry)
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --win-rate 0.55 --avg-win 2.5 --avg-loss 1.0 \
+  --account-size 100000
+
+# With portfolio constraints
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --entry 155.00 --stop 148.50 \
+  --account-size 100000 --risk-pct 1.0 \
+  --max-position-pct 10 --max-sector-pct 30 \
+  --sector Technology --current-sector-exposure 22
+```
+
+**Data Quality Checker:** No API key required
+```bash
+# Check a markdown file
+python3 skills/data-quality-checker/scripts/check_data_quality.py \
+  --file reports/weekly_strategy.md
+
+# Run specific checks only
+python3 skills/data-quality-checker/scripts/check_data_quality.py \
+  --file report.md --checks price_scale,dates,allocations
+
+# With reference date for year inference
+python3 skills/data-quality-checker/scripts/check_data_quality.py \
+  --file report.md --as-of 2026-02-28 --output-dir reports/
+```
+
 ### Skill Self-Improvement Loop
 
 An automated pipeline reviews and improves skill quality on a daily cadence.
@@ -508,6 +550,12 @@ Skills are designed to be combined for comprehensive analysis:
 2. Dividend Growth Pullback Screener → Growth stocks at pullbacks
 3. US Stock Analysis → Deep-dive analysis
 4. Portfolio Manager → Monitor and rebalance holdings
+
+**Trade Execution Planning:**
+1. Screener skills (VCP, CANSLIM, Dividend, Earnings) → Identify candidates
+2. Position Sizer → Calculate risk-based share count with portfolio constraints
+3. Data Quality Checker → Validate analysis document before publishing
+4. Portfolio Manager → Execute and monitor positions
 
 **Kanchi Dividend Workflow (US stocks):**
 1. kanchi-dividend-sop → Run Kanchi 5-step screening and pullback entry planning

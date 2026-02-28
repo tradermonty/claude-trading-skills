@@ -157,6 +157,13 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Supports model portfolios (Conservative/Moderate/Growth/Aggressive) for benchmark comparison.
   - Requires Alpaca brokerage account (paper or live) and configured Alpaca MCP Server; manual data entry also supported.
 
+- **Position Sizer** (`position-sizer`)
+  - Calculates risk-based position sizes for long stock trades using Fixed Fractional, ATR-based, and Kelly Criterion methods.
+  - Applies portfolio constraints (max position %, max sector %) and identifies binding constraints.
+  - Two output modes: "shares" mode (with entry/stop) returns final recommended share count; "budget" mode (Kelly only) returns recommended risk budget.
+  - Generates JSON + markdown reports with calculation details, constraint analysis, and final recommendations.
+  - No API key required — pure calculation, works offline.
+
 - **Edge Candidate Agent** (`edge-candidate-agent`)
   - Converts daily market observations into reproducible research tickets and exports Phase I-compatible candidate specs for `trade-strategy-pipeline`.
   - Generates `strategy.yaml` + `metadata.json` artifacts from structured research tickets with interface contract validation (`edge-finder-candidate/v1`).
@@ -346,6 +353,13 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 5. Track spread convergence and manage market-neutral positions
 
 ### Skill Quality & Automation
+
+- **Data Quality Checker** (`data-quality-checker`)
+  - Validates data quality in market analysis documents and blog articles before publication.
+  - 5 check categories: price scale inconsistencies (ETF vs futures digit hints), instrument notation consistency, date/weekday mismatches (English + Japanese), allocation total errors (section-limited), and unit mismatches.
+  - Advisory mode — flags issues as warnings for human review, exit 0 even with findings.
+  - Supports full-width Japanese characters (％, 〜), range notation (50-55%), and year inference for dates without explicit year.
+  - No API key required — works offline on local markdown files.
 
 - **Dual-Axis Skill Reviewer** (`dual-axis-skill-reviewer`)
   - Reviews skill quality using a dual-axis method: deterministic auto scoring (structure, workflow, execution safety, artifacts, tests) and optional LLM deep review.
