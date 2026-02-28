@@ -20,6 +20,16 @@ Use this skill when the user needs:
 
 ## Prerequisites
 
+### API Key Setup
+
+The entry signal script requires FMP API access:
+
+```bash
+export FMP_API_KEY=your_api_key_here
+```
+
+### Input Sources
+
 Prepare one of the following inputs before running the workflow:
 1. Output from `skills/value-dividend-screener/scripts/screen_dividend_stocks.py`.
 2. Output from `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py`.
