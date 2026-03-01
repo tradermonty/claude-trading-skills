@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!--
+  SETUP: Replace $HOME and $PROJECT_DIR before installing.
+    sed "s|\$HOME|$HOME|g; s|\$PROJECT_DIR|$(pwd)|g" \
+      launchd/com.trade-analysis.skill-improvement.plist > ~/Library/LaunchAgents/com.trade-analysis.skill-improvement.plist
+    launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-improvement.plist
+-->
 <dict>
 	<key>Label</key>
 	<string>com.trade-analysis.skill-improvement</string>
@@ -8,11 +14,11 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/bash</string>
-		<string>/Users/takueisaotome/PycharmProjects/claude-trading-skills/scripts/run_skill_improvement.sh</string>
+		<string>$PROJECT_DIR/scripts/run_skill_improvement.sh</string>
 	</array>
 
 	<key>WorkingDirectory</key>
-	<string>/Users/takueisaotome/PycharmProjects/claude-trading-skills</string>
+	<string>$PROJECT_DIR</string>
 
 	<key>StartCalendarInterval</key>
 	<dict>
@@ -25,16 +31,16 @@
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
-		<string>/opt/homebrew/bin:/opt/homebrew/sbin:/Users/takueisaotome/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<string>/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
 		<key>HOME</key>
-		<string>/Users/takueisaotome</string>
+		<string>$HOME</string>
 	</dict>
 
 	<key>StandardOutPath</key>
-	<string>/Users/takueisaotome/PycharmProjects/claude-trading-skills/logs/launchd_skill_improvement.log</string>
+	<string>$PROJECT_DIR/logs/launchd_skill_improvement.log</string>
 
 	<key>StandardErrorPath</key>
-	<string>/Users/takueisaotome/PycharmProjects/claude-trading-skills/logs/launchd_skill_improvement_error.log</string>
+	<string>$PROJECT_DIR/logs/launchd_skill_improvement_error.log</string>
 
 	<key>RunAtLoad</key>
 	<false/>
