@@ -406,4 +406,4 @@ Version 2.0 of the Breadth Chart Analyst skill addresses a critical flaw in tren
 
 **Skill Version**: 2.0
 **Package Date**: 2025-11-02
-**Package Location**: `/Users/takueisaotome/PycharmProjects/claude-trading-skills/breadth-chart-analyst.zip`
+**Package Location**: `skill-packages/breadth-chart-analyst.skill`

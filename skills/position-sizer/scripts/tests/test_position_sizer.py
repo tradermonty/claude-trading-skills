@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 from position_sizer import (
@@ -390,7 +391,7 @@ class TestValidation:
             ],
             capture_output=True,
             text=True,
-            cwd="/Users/takueisaotome/PycharmProjects/claude-trading-skills",
+            cwd=str(Path(__file__).resolve().parents[4]),
         )
         assert result.returncode != 0
 
@@ -453,7 +454,7 @@ class TestOutput:
             ],
             capture_output=True,
             text=True,
-            cwd="/Users/takueisaotome/PycharmProjects/claude-trading-skills",
+            cwd=str(Path(__file__).resolve().parents[4]),
         )
         assert result.returncode == 0
         assert "153 shares" in result.stdout
@@ -474,6 +475,6 @@ class TestOutput:
             ],
             capture_output=True,
             text=True,
-            cwd="/Users/takueisaotome/PycharmProjects/claude-trading-skills",
+            cwd=str(Path(__file__).resolve().parents[4]),
         )
         assert result.returncode != 0

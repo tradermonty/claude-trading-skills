@@ -166,7 +166,7 @@ User can provide sector-focused list (Technology, Healthcare, etc.)
 Run the main screening script with appropriate parameters:
 
 ```bash
-cd /Users/takueisaotome/PycharmProjects/claude-trading-skills/skills/canslim-screener/scripts
+cd skills/canslim-screener/scripts
 
 # Basic run (40 stocks, top 20 in report)
 python3 screen_canslim.py --api-key $FMP_API_KEY

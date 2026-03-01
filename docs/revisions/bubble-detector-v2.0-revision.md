@@ -289,7 +289,7 @@ Narrative fallacy: Oversimplifying causal relationships with stories
 1. **Update skill file**
    ```bash
    # Current skill file
-   /Users/takueisaotome/PycharmProjects/claude-trading-skills/us-market-bubble-detector/SKILL.md
+   us-market-bubble-detector/SKILL.md
 
    # ✅ Already updated with revised version
    ```
