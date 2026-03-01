@@ -644,6 +644,15 @@ Scripts should:
 - Return proper exit codes (0 for success, 1 for errors)
 - Support retry logic with exponential backoff for rate limits
 
+### No Personal Information in Committed Files
+
+This is a **public repository**. Never hardcode personal information:
+- **Absolute paths** containing usernames (e.g., `/Users/username/...`) — use relative paths or dynamic resolution like `Path(__file__).resolve().parents[N]`
+- **API keys / secrets** — use environment variables (`$FMP_API_KEY`, `$FINVIZ_API_KEY`) or `.gitignore`-listed config files (`.mcp.json`, `.envrc`)
+- **Usernames, email addresses, or other PII**
+
+Files that contain secrets (`.mcp.json`, `.envrc`) must be listed in `.gitignore` and never committed.
+
 ## Language Considerations
 
 - All SKILL.md files are in English
