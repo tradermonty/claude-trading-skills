@@ -58,6 +58,19 @@ DOMAIN_TERMS = {
     "base",
 }
 
+MECHANISM_KEYWORDS = {
+    "participation",
+    "drift",
+    "overreaction",
+    "accumulation",
+    "exhaustion",
+    "imbalance",
+    "herding",
+    "continuation",
+    "underreaction",
+    "institutional",
+}
+
 _PRECISE_THRESHOLD_RE = re.compile(r"(?:\b\d{2,}\.\d+\b|\b\d+\.\d{2,}\b)")
 
 
@@ -124,9 +137,20 @@ def evaluate_c1(draft: dict) -> ReviewFinding:
             reason="Thesis is generic with no domain-specific causal reasoning.",
             revision_instruction="Add specific causal mechanism (e.g., institutional participation, earnings drift).",
         )
+    # Continuous scoring for the pass path
+    domain_count = sum(1 for term in DOMAIN_TERMS if term in lower)
+    score = 50 + min(domain_count * 10, 30)
+    if len(words) >= 10:
+        score += 10
+    if len(words) > 20:
+        score += 10
+    has_mechanism = any(kw in lower for kw in MECHANISM_KEYWORDS)
+    if has_mechanism:
+        score += 10
+    score = min(score, 95)
     return ReviewFinding(
         criterion="C1_edge_plausibility",
-        score=80,
+        score=score,
         severity="pass",
         reason="Thesis contains specific causal reasoning.",
     )
@@ -141,12 +165,16 @@ def evaluate_c2(draft: dict) -> ReviewFinding:
     )
     total = len(conditions) + len(trend_filter)
 
-    if total > 12:
+    if total >= 13:
         score = 10
-    elif total > 10:
+    elif total >= 11:
         score = 40
-    else:
+    elif total >= 8:
+        score = 60
+    elif total >= 5:
         score = 80
+    else:
+        score = 90
 
     # Precise threshold penalty
     precise_count = 0
@@ -203,15 +231,29 @@ def estimate_annual_opportunities(draft: dict) -> int:
     return max(base, 1)
 
 
+def _c3_score_from_estimate(est: int) -> int:
+    """Map estimated annual opportunities to a continuous score."""
+    if est < 10:
+        return 10
+    if est <= 29:
+        # Linear interpolation 30..59 over est 10..29
+        return 30 + int(round((est - 10) / (29 - 10) * (59 - 30)))
+    if est <= 49:
+        # Linear interpolation 65..74 over est 30..49
+        return 65 + int(round((est - 30) / (49 - 30) * (74 - 65)))
+    if est <= 99:
+        # Linear interpolation 75..85 over est 50..99
+        return 75 + int(round((est - 50) / (99 - 50) * (85 - 75)))
+    # est >= 100: linear interpolation 85..95 capped at 95 for est>=200
+    capped = min(est, 200)
+    return 85 + int(round((capped - 100) / (200 - 100) * (95 - 85)))
+
+
 def evaluate_c3(draft: dict) -> ReviewFinding:
     """C3: Sample Adequacy."""
     est = estimate_annual_opportunities(draft)
-    if est < 10:
-        score, severity = 10, "fail"
-    elif est < 30:
-        score, severity = 40, "warn"
-    else:
-        score, severity = 80, "pass"
+    score = _c3_score_from_estimate(est)
+    severity = _severity_from_score(score)
 
     reason = f"Estimated {est} annual opportunities."
     instruction = None

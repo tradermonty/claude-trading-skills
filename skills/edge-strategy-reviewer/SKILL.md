@@ -35,9 +35,9 @@ Deterministic quality gate for strategy drafts produced by `edge-strategy-design
 
 | # | Criterion | Weight | Key Checks |
 |---|-----------|--------|------------|
-| C1 | Edge Plausibility | 20 | Thesis quality, causal reasoning |
-| C2 | Overfitting Risk | 20 | Condition count, precise thresholds |
-| C3 | Sample Adequacy | 15 | Estimated annual opportunities |
+| C1 | Edge Plausibility | 20 | Thesis quality, domain terms, mechanism keywords (continuous 50-95) |
+| C2 | Overfitting Risk | 20 | 5-tier filter count scoring (90/80/60/40/10), precise threshold penalty |
+| C3 | Sample Adequacy | 15 | Continuous scoring from estimated annual opportunities (10-95) |
 | C4 | Regime Dependency | 10 | Cross-regime validation |
 | C5 | Exit Calibration | 10 | Stop-loss, reward-to-risk |
 | C6 | Risk Concentration | 10 | Position sizing limits |

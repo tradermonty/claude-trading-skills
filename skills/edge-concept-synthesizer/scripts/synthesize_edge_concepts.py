@@ -474,6 +474,181 @@ def build_concept(
     }
 
 
+# ---------------------------------------------------------------------------
+# Concept deduplication
+# ---------------------------------------------------------------------------
+
+
+def condition_overlap_ratio(conds_a: list[str], conds_b: list[str]) -> float:
+    """Compute containment overlap: |A ∩ B| / min(|A|, |B|).
+
+    Returns 0.0 when either list is empty.
+    """
+    if not conds_a or not conds_b:
+        return 0.0
+    set_a = {c.strip().lower() for c in conds_a}
+    set_b = {c.strip().lower() for c in conds_b}
+    intersection = len(set_a & set_b)
+    return intersection / min(len(set_a), len(set_b))
+
+
+def merge_concepts(primary: dict[str, Any], secondary: dict[str, Any]) -> dict[str, Any]:
+    """Merge two concepts.  The one with more tickets becomes *primary*.
+
+    Returns a new concept dict with combined support and evidence.
+    """
+    p_count = primary.get("support", {}).get("ticket_count", 0)
+    s_count = secondary.get("support", {}).get("ticket_count", 0)
+    if s_count > p_count:
+        primary, secondary = secondary, primary
+        p_count, s_count = s_count, p_count
+
+    total_count = p_count + s_count
+    p_priority = primary.get("support", {}).get("avg_priority_score", 0.0)
+    s_priority = secondary.get("support", {}).get("avg_priority_score", 0.0)
+    avg_priority = round(
+        (p_priority * p_count + s_priority * s_count) / total_count if total_count else 0.0,
+        2,
+    )
+
+    # Symbols: union preserving order
+    p_symbols = list(primary.get("support", {}).get("symbols", []))
+    s_symbols = secondary.get("support", {}).get("symbols", [])
+    seen = set(p_symbols)
+    for sym in s_symbols:
+        if sym not in seen:
+            p_symbols.append(sym)
+            seen.add(sym)
+
+    # Mechanism tag
+    p_mech = str(primary.get("mechanism_tag", "uncertain"))
+    s_mech = str(secondary.get("mechanism_tag", "uncertain"))
+    if p_mech != s_mech:
+        merged_mechanism = "+".join(sorted([p_mech, s_mech]))
+    else:
+        merged_mechanism = p_mech
+
+    # Entry family distribution (Counter merge)
+    p_dist = dict(primary.get("support", {}).get("entry_family_distribution", {}))
+    for k, v in secondary.get("support", {}).get("entry_family_distribution", {}).items():
+        p_dist[k] = p_dist.get(k, 0) + v
+
+    # Representative conditions: union, cap at 6
+    p_conds = list(primary.get("support", {}).get("representative_conditions", []))
+    s_conds = secondary.get("support", {}).get("representative_conditions", [])
+    conds_lower_seen = {c.strip().lower() for c in p_conds}
+    for c in s_conds:
+        if c.strip().lower() not in conds_lower_seen:
+            p_conds.append(c)
+            conds_lower_seen.add(c.strip().lower())
+    p_conds = p_conds[:6]
+
+    # Entry family: primary preferred, fallback to secondary
+    p_family = primary.get("strategy_design", {}).get("recommended_entry_family")
+    s_family = secondary.get("strategy_design", {}).get("recommended_entry_family")
+    recommended = p_family if p_family is not None else s_family
+    export_ready = recommended in EXPORTABLE_FAMILIES if recommended else False
+
+    # Evidence: ticket_ids union
+    p_ticket_ids = list(primary.get("evidence", {}).get("ticket_ids", []))
+    s_ticket_ids = secondary.get("evidence", {}).get("ticket_ids", [])
+    all_ticket_ids = p_ticket_ids + [t for t in s_ticket_ids if t not in set(p_ticket_ids)]
+
+    # Evidence: hint titles union
+    p_hints = set(primary.get("evidence", {}).get("matched_hint_titles", []))
+    s_hints = set(secondary.get("evidence", {}).get("matched_hint_titles", []))
+    all_hints = sorted(p_hints | s_hints)
+
+    # ID regeneration
+    hypothesis = str(primary.get("hypothesis_type", "unknown"))
+    regime = str(primary.get("regime", "Unknown"))
+    concept_id = sanitize_identifier(f"edge_concept_{hypothesis}_{merged_mechanism}_{regime}")
+
+    # Build support block
+    support_block: dict[str, Any] = {
+        "ticket_count": total_count,
+        "avg_priority_score": avg_priority,
+        "symbols": p_symbols,
+        "entry_family_distribution": p_dist,
+        "representative_conditions": p_conds,
+    }
+
+    # Synthetic fields
+    p_real = primary.get("support", {}).get("real_ticket_count")
+    s_real = secondary.get("support", {}).get("real_ticket_count")
+    p_synth = primary.get("support", {}).get("synthetic_ticket_count")
+    s_synth = secondary.get("support", {}).get("synthetic_ticket_count")
+    if p_real is not None or s_real is not None:
+        support_block["real_ticket_count"] = (p_real or 0) + (s_real or 0)
+    if p_synth is not None or s_synth is not None:
+        support_block["synthetic_ticket_count"] = (p_synth or 0) + (s_synth or 0)
+
+    evidence_block: dict[str, Any] = {
+        "ticket_ids": all_ticket_ids,
+        "matched_hint_titles": all_hints,
+    }
+    p_synth_ids = primary.get("evidence", {}).get("synthetic_ticket_ids", [])
+    s_synth_ids = secondary.get("evidence", {}).get("synthetic_ticket_ids", [])
+    if p_synth_ids or s_synth_ids:
+        evidence_block["synthetic_ticket_ids"] = list(p_synth_ids) + [
+            t for t in s_synth_ids if t not in set(p_synth_ids)
+        ]
+
+    merged = {
+        "id": concept_id,
+        "title": primary.get("title", ""),
+        "hypothesis_type": hypothesis,
+        "mechanism_tag": merged_mechanism,
+        "regime": regime,
+        "support": support_block,
+        "abstraction": dict(primary.get("abstraction", {})),
+        "strategy_design": {
+            "playbooks": list(primary.get("strategy_design", {}).get("playbooks", [])),
+            "recommended_entry_family": recommended,
+            "export_ready_v1": bool(export_ready),
+        },
+        "evidence": evidence_block,
+        "merged_from": [secondary.get("id", "unknown")],
+    }
+    return merged
+
+
+def deduplicate_concepts(
+    concepts: list[dict[str, Any]],
+    overlap_threshold: float = 0.75,
+) -> tuple[list[dict[str, Any]], int]:
+    """Greedy pairwise deduplication within same hypothesis_type.
+
+    Returns ``(deduplicated_list, merge_count)``.
+    """
+    if len(concepts) <= 1:
+        return list(concepts), 0
+
+    merged_indices: set[int] = set()
+    result: list[dict[str, Any]] = []
+    merge_count = 0
+
+    for i in range(len(concepts)):
+        if i in merged_indices:
+            continue
+        current = concepts[i]
+        for j in range(i + 1, len(concepts)):
+            if j in merged_indices:
+                continue
+            candidate = concepts[j]
+            if current.get("hypothesis_type") != candidate.get("hypothesis_type"):
+                continue
+            conds_a = current.get("support", {}).get("representative_conditions", [])
+            conds_b = candidate.get("support", {}).get("representative_conditions", [])
+            if condition_overlap_ratio(conds_a, conds_b) > overlap_threshold:
+                current = merge_concepts(current, candidate)
+                merged_indices.add(j)
+                merge_count += 1
+        result.append(current)
+
+    return result, merge_count
+
+
 def parse_args() -> argparse.Namespace:
     """Parse CLI args."""
     parser = argparse.ArgumentParser(
@@ -511,6 +686,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=None,
         help="Max synthetic/real ticket ratio (e.g. 1.5); uncapped when omitted",
+    )
+    parser.add_argument(
+        "--overlap-threshold",
+        type=float,
+        default=0.75,
+        help="Condition overlap threshold for concept deduplication (default: 0.75)",
+    )
+    parser.add_argument(
+        "--no-dedup",
+        action="store_true",
+        default=False,
+        help="Disable concept deduplication",
     )
     return parser.parse_args()
 
@@ -566,6 +753,12 @@ def main() -> int:
                 continue
             concepts.append(build_concept(key=key, tickets=cluster_tickets, hints=hints))
 
+        # Deduplication
+        if not args.no_dedup:
+            concepts, dedup_merged_count = deduplicate_concepts(concepts, args.overlap_threshold)
+        else:
+            dedup_merged_count = 0
+
         concepts.sort(
             key=lambda item: (
                 safe_float(item.get("support", {}).get("avg_priority_score")),
@@ -590,6 +783,10 @@ def main() -> int:
             source_block["promote_hints"] = True
             source_block["real_ticket_count"] = len(tickets) - len(synthetic_tickets)
             source_block["synthetic_ticket_count"] = len(synthetic_tickets)
+
+        source_block["dedup_enabled"] = not args.no_dedup
+        source_block["overlap_threshold"] = args.overlap_threshold
+        source_block["dedup_merged_count"] = dedup_merged_count
 
         payload = {
             "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),

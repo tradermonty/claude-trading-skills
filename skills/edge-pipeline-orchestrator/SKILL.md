@@ -116,6 +116,8 @@ python3 scripts/orchestrate_edge_pipeline.py \
 - `--as-of YYYY-MM-DD` — forwarded to hints stage for date filtering
 - `--strict-export` — export-eligible drafts with any warn finding get REVISE instead of PASS
 - `--max-synthetic-ratio N` — cap synthetic tickets to N × real ticket count (floor: 3)
+- `--overlap-threshold F` — condition overlap threshold for concept deduplication (default: 0.75)
+- `--no-dedup` — disable concept deduplication
 
 Note: `--llm-ideas-file` and `--promote-hints` are effective only during full pipeline runs.
 `--resume-from drafts` and `--review-only` skip hints/concepts stages, so these flags are ignored.

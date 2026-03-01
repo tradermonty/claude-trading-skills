@@ -37,7 +37,8 @@ This skill clusters ticket evidence, summarizes recurring conditions, and output
 1. Collect ticket YAML files from auto-detection output.
 2. Optionally provide `hints.yaml` for context matching.
 3. Run `scripts/synthesize_edge_concepts.py`.
-4. Review concepts and promote only high-support concepts into strategy drafting.
+4. Deduplicate concepts: merge same-hypothesis concepts with overlapping conditions (containment > threshold).
+5. Review concepts and promote only high-support concepts into strategy drafting.
 
 ## Quick Commands
 
@@ -55,6 +56,17 @@ python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
   --output /tmp/edge-concepts/edge_concepts.yaml \
   --promote-hints \
   --max-synthetic-ratio 1.5
+
+# With custom dedup threshold (or disable dedup)
+python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
+  --tickets-dir /tmp/edge-auto/tickets \
+  --output /tmp/edge-concepts/edge_concepts.yaml \
+  --overlap-threshold 0.6
+
+python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
+  --tickets-dir /tmp/edge-auto/tickets \
+  --output /tmp/edge-concepts/edge_concepts.yaml \
+  --no-dedup
 ```
 
 ## Resources

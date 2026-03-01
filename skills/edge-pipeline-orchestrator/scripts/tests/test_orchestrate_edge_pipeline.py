@@ -1343,6 +1343,159 @@ class TestMaxSyntheticRatioForwarding:
 
 
 # ---------------------------------------------------------------------------
+# --overlap-threshold / --no-dedup forwarding tests
+# ---------------------------------------------------------------------------
+class TestDedupForwarding:
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_overlap_threshold_forwarded_to_concepts(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--overlap-threshold should be forwarded to concepts stage."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--overlap-threshold",
+                "0.6",
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--overlap-threshold" in concepts_args
+        assert "0.6" in concepts_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_no_dedup_forwarded_to_concepts(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--no-dedup should be forwarded to concepts stage."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--no-dedup",
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--no-dedup" in concepts_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_overlap_threshold_not_forwarded_when_none(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """When --overlap-threshold not specified, don't forward."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--overlap-threshold" not in concepts_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_no_dedup_not_forwarded_by_default(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """When --no-dedup not specified, don't forward."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--no-dedup" not in concepts_args
+
+
+# ---------------------------------------------------------------------------
 # --as-of forwarding tests
 # ---------------------------------------------------------------------------
 class TestAsOfForwarding:

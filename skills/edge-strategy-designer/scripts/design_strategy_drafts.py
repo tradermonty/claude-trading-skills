@@ -61,6 +61,59 @@ RISK_PROFILES = {
     },
 }
 
+HYPOTHESIS_EXIT_OVERRIDES: dict[str, dict[str, Any]] = {
+    "breakout": {
+        "stop_loss_multiplier": 0.85,
+        "rr_adjustment": 0.0,
+        "time_stop_days": 20,
+        "trailing_stop_hint": "ATR trailing recommended",
+    },
+    "futures_trigger": {
+        "stop_loss_multiplier": 0.85,
+        "rr_adjustment": 0.0,
+        "time_stop_days": 20,
+        "trailing_stop_hint": "ATR trailing recommended",
+    },
+    "earnings_drift": {
+        "stop_loss_multiplier": 1.15,
+        "rr_adjustment": -0.5,
+        "time_stop_days": 10,
+        "trailing_stop_hint": None,
+    },
+    "panic_reversal": {
+        "stop_loss_multiplier": 0.70,
+        "rr_adjustment": -0.7,
+        "time_stop_days": 5,
+        "trailing_stop_hint": None,
+    },
+    "news_reaction": {
+        "stop_loss_multiplier": 0.85,
+        "rr_adjustment": -0.5,
+        "time_stop_days": 7,
+        "trailing_stop_hint": None,
+    },
+    "regime_shift": {
+        "stop_loss_multiplier": 1.0,
+        "rr_adjustment": 0.0,
+        "time_stop_days": 15,
+        "trailing_stop_hint": None,
+    },
+    "sector_x_stock": {
+        "stop_loss_multiplier": 1.0,
+        "rr_adjustment": 0.0,
+        "time_stop_days": 15,
+        "trailing_stop_hint": None,
+    },
+    "calendar_anomaly": {
+        "stop_loss_multiplier": 0.85,
+        "rr_adjustment": -0.5,
+        "time_stop_days": 7,
+        "trailing_stop_hint": None,
+    },
+}
+
+RR_FLOOR = 1.5
+
 VARIANT_OVERRIDES = {
     "core": {
         "entry_filter_note": "Use baseline confirmation and trend filter.",
@@ -94,6 +147,34 @@ def safe_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def apply_hypothesis_exit_overrides(
+    base_stop: float,
+    base_rr: float,
+    hypothesis_type: str,
+) -> dict[str, Any]:
+    """Apply hypothesis-type-specific exit calibration."""
+    fallback: dict[str, Any] = {
+        "stop_loss_multiplier": 1.0,
+        "rr_adjustment": 0.0,
+        "time_stop_days": 10,
+        "trailing_stop_hint": None,
+    }
+    overrides = HYPOTHESIS_EXIT_OVERRIDES.get(hypothesis_type, fallback)
+
+    stop_loss_pct = round(base_stop * overrides["stop_loss_multiplier"], 4)
+    take_profit_rr = round(max(RR_FLOOR, base_rr + overrides["rr_adjustment"]), 2)
+
+    result: dict[str, Any] = {
+        "stop_loss_pct": stop_loss_pct,
+        "take_profit_rr": take_profit_rr,
+        "time_stop_days": overrides["time_stop_days"],
+    }
+    if overrides.get("trailing_stop_hint"):
+        result["trailing_stop_hint"] = overrides["trailing_stop_hint"]
+
+    return result
 
 
 def load_concepts(path: Path) -> list[dict[str, Any]]:
@@ -172,8 +253,12 @@ def build_draft(
 
     risk_per_trade = round(risk_base["risk_per_trade"] * multiplier, 4)
     max_positions = max(int(round(risk_base["max_positions"] * multiplier)), 1)
-    stop_loss_pct = risk_base["stop_loss_pct"]
-    take_profit_rr = risk_base["take_profit_rr"]
+
+    exit_overrides = apply_hypothesis_exit_overrides(
+        base_stop=risk_base["stop_loss_pct"],
+        base_rr=risk_base["take_profit_rr"],
+        hypothesis_type=hypothesis_type,
+    )
 
     draft_id = sanitize_identifier(f"draft_{concept_id}_{variant}")
 
@@ -194,11 +279,7 @@ def build_draft(
             "trend_filter": trend_filter,
             "note": variant_override["entry_filter_note"],
         },
-        "exit": {
-            "stop_loss_pct": stop_loss_pct,
-            "take_profit_rr": take_profit_rr,
-            "time_stop_days": 20 if hypothesis_type in {"breakout", "futures_trigger"} else 10,
-        },
+        "exit": exit_overrides,
         "risk": {
             "position_sizing": "fixed_risk",
             "risk_per_trade": risk_per_trade,

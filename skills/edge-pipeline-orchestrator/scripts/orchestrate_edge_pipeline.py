@@ -445,6 +445,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Forward --max-synthetic-ratio to concepts stage (cap synthetic tickets)",
     )
+    parser.add_argument(
+        "--overlap-threshold",
+        type=float,
+        default=None,
+        help="Forward --overlap-threshold to concepts stage (dedup threshold)",
+    )
+    parser.add_argument(
+        "--no-dedup",
+        action="store_true",
+        default=False,
+        help="Forward --no-dedup to concepts stage (disable deduplication)",
+    )
     return parser.parse_args()
 
 
@@ -546,6 +558,10 @@ def main() -> int:
                 concepts_args += ["--promote-hints"]
             if args.max_synthetic_ratio is not None:
                 concepts_args += ["--max-synthetic-ratio", str(args.max_synthetic_ratio)]
+            if args.overlap_threshold is not None:
+                concepts_args += ["--overlap-threshold", str(args.overlap_threshold)]
+            if args.no_dedup:
+                concepts_args += ["--no-dedup"]
             run_stage("concepts", concepts_args)
             concepts_output = concepts_output_path
             manifest["stages"]["concepts"] = {

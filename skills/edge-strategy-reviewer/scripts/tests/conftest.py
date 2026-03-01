@@ -304,6 +304,111 @@ def insufficient_invalidation_draft(well_formed_breakout_draft: dict) -> dict:
 
 
 @pytest.fixture()
+def minimal_thesis_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with domain terms but short thesis (~7 words, no mechanism keywords)."""
+    d = dict(well_formed_breakout_draft)
+    d["thesis"] = "Breakout with strong volume confirms trend"
+    return d
+
+
+@pytest.fixture()
+def moderate_thesis_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with domain terms, 12+ words, no mechanism keywords."""
+    d = dict(well_formed_breakout_draft)
+    d["thesis"] = (
+        "Price breakouts above 20-day highs with strong volume and momentum signal trend expansion"
+    )
+    return d
+
+
+@pytest.fixture()
+def rich_thesis_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with domain terms, 20+ words, AND mechanism keywords."""
+    d = dict(well_formed_breakout_draft)
+    d["thesis"] = (
+        "Price breakouts above 20-day highs with above-average volume indicate "
+        "institutional participation and momentum continuation, driven by "
+        "accumulation and drift dynamics across sessions"
+    )
+    return d
+
+
+@pytest.fixture()
+def lean_conditions_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with only 3 conditions + 1 trend filter = 4 total filters."""
+    d = dict(well_formed_breakout_draft)
+    d["entry"] = {
+        "conditions": [
+            "close > high20_prev",
+            "rel_volume >= 2",
+            "close > ma50",
+        ],
+        "trend_filter": [
+            "price > sma_200",
+        ],
+    }
+    return d
+
+
+@pytest.fixture()
+def moderate_conditions_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with 5 conditions + 2 trend filters = 7 total filters."""
+    d = dict(well_formed_breakout_draft)
+    d["entry"] = {
+        "conditions": [
+            "close > high20_prev",
+            "rel_volume >= 2",
+            "close > ma50",
+            "close > ma200",
+            "RSI > 50",
+        ],
+        "trend_filter": [
+            "price > sma_200",
+            "price > sma_50",
+        ],
+    }
+    return d
+
+
+@pytest.fixture()
+def high_opportunity_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with minimal restrictions -> high est opportunities (~80+)."""
+    d = dict(well_formed_breakout_draft)
+    d["regime"] = "Neutral"
+    d["entry"] = {
+        "conditions": [
+            "close > high20_prev",
+            "rel_volume >= 2",
+        ],
+        "trend_filter": [
+            "price > sma_200",
+        ],
+    }
+    return d
+
+
+@pytest.fixture()
+def low_opportunity_draft(well_formed_breakout_draft: dict) -> dict:
+    """Draft with sector filter + regime + many conditions -> est ~20."""
+    d = dict(well_formed_breakout_draft)
+    d["regime"] = "RiskOn"
+    d["entry"] = {
+        "conditions": [
+            "sector == Technology",
+            "close > high20_prev",
+            "rel_volume >= 2",
+            "close > ma50",
+        ],
+        "trend_filter": [
+            "price > sma_200",
+            "price > sma_50",
+            "sma_50 > sma_200",
+        ],
+    }
+    return d
+
+
+@pytest.fixture()
 def research_probe_draft() -> dict:
     """A research probe draft that should PASS but not be export eligible."""
     return {

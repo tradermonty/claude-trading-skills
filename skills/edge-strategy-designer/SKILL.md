@@ -32,9 +32,11 @@ This skill sits after concept synthesis and before pipeline export validation.
 
 1. Load `edge_concepts.yaml`.
 2. Choose risk profile (`conservative`, `balanced`, `aggressive`).
-3. Generate per-concept variants.
-4. Export v1-ready ticket YAML when applicable.
-5. Hand off exportable tickets to `skills/edge-candidate-agent/scripts/export_candidate.py`.
+3. Generate per-concept variants with hypothesis-type exit calibration.
+4. Apply `HYPOTHESIS_EXIT_OVERRIDES` to adjust stop-loss, reward-to-risk, time-stop, and trailing-stop per hypothesis type (breakout, earnings_drift, panic_reversal, etc.).
+5. Clamp reward-to-risk at `RR_FLOOR=1.5` to prevent C5 review failures.
+6. Export v1-ready ticket YAML when applicable.
+7. Hand off exportable tickets to `skills/edge-candidate-agent/scripts/export_candidate.py`.
 
 ## Quick Commands
 

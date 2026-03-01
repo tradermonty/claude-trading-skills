@@ -491,3 +491,375 @@ def test_main_promote_hints_zero_promotions(tmp_path: Path, monkeypatch) -> None
     assert result["source"]["promote_hints"] is True
     assert result["source"]["real_ticket_count"] == 1
     assert result["source"]["synthetic_ticket_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers for merge / dedup tests
+# ---------------------------------------------------------------------------
+
+
+def _make_merge_concept(
+    concept_id: str,
+    hypothesis_type: str,
+    mechanism_tag: str,
+    ticket_count: int = 2,
+    avg_priority: float = 70.0,
+    symbols: list[str] | None = None,
+    conditions: list[str] | None = None,
+    entry_family: str | None = "pivot_breakout",
+    real_ticket_count: int | None = None,
+    synthetic_ticket_count: int | None = None,
+    synthetic_ticket_ids: list[str] | None = None,
+) -> dict:
+    """Create a concept dict for merge/dedup tests."""
+    if symbols is None:
+        symbols = ["XP"]
+    if conditions is None:
+        conditions = ["close > high20_prev", "rel_volume >= 1.5"]
+
+    support: dict = {
+        "ticket_count": ticket_count,
+        "avg_priority_score": avg_priority,
+        "symbols": symbols,
+        "entry_family_distribution": {entry_family: ticket_count} if entry_family else {},
+        "representative_conditions": conditions,
+    }
+    if real_ticket_count is not None:
+        support["real_ticket_count"] = real_ticket_count
+    if synthetic_ticket_count is not None:
+        support["synthetic_ticket_count"] = synthetic_ticket_count
+
+    evidence: dict = {
+        "ticket_ids": [f"ticket_{i}" for i in range(ticket_count)],
+        "matched_hint_titles": [],
+    }
+    if synthetic_ticket_ids:
+        evidence["synthetic_ticket_ids"] = synthetic_ticket_ids
+
+    concept = {
+        "id": concept_id,
+        "title": f"Test {hypothesis_type}",
+        "hypothesis_type": hypothesis_type,
+        "mechanism_tag": mechanism_tag,
+        "regime": "RiskOn",
+        "support": support,
+        "abstraction": {
+            "thesis": f"Test thesis for {hypothesis_type}",
+            "invalidation_signals": ["Signal 1", "Signal 2"],
+        },
+        "strategy_design": {
+            "playbooks": ["test_playbook"],
+            "recommended_entry_family": entry_family,
+            "export_ready_v1": entry_family in sec.EXPORTABLE_FAMILIES if entry_family else False,
+        },
+        "evidence": evidence,
+    }
+    return concept
+
+
+# ---------------------------------------------------------------------------
+# condition_overlap_ratio tests
+# ---------------------------------------------------------------------------
+
+
+def test_overlap_ratio_identical():
+    """Identical conditions should return 1.0."""
+    assert sec.condition_overlap_ratio(["A > 1", "B < 2"], ["A > 1", "B < 2"]) == 1.0
+
+
+def test_overlap_ratio_disjoint():
+    """Completely different conditions should return 0.0."""
+    assert sec.condition_overlap_ratio(["A > 1"], ["B < 2"]) == 0.0
+
+
+def test_overlap_ratio_partial():
+    """Partial overlap should return correct ratio."""
+    # |{a,b} ∩ {b,c}| / min(2,2) = 1/2 = 0.5
+    assert sec.condition_overlap_ratio(["A > 1", "B < 2"], ["B < 2", "C == 3"]) == 0.5
+
+
+def test_overlap_ratio_empty():
+    """Both empty should return 0.0."""
+    assert sec.condition_overlap_ratio([], []) == 0.0
+
+
+def test_overlap_ratio_one_empty():
+    """One empty should return 0.0."""
+    assert sec.condition_overlap_ratio(["A > 1"], []) == 0.0
+    assert sec.condition_overlap_ratio([], ["B < 2"]) == 0.0
+
+
+def test_overlap_ratio_case_insensitive():
+    """Comparison should be case-insensitive."""
+    assert sec.condition_overlap_ratio(["Close > MA50"], ["close > ma50"]) == 1.0
+
+
+def test_overlap_ratio_asymmetric_containment():
+    """Containment uses min(|A|,|B|): small set fully in large set -> 1.0."""
+    # A={a,b,c,d}, B={a,b,c} -> |A∩B|/min(4,3) = 3/3 = 1.0
+    assert (
+        sec.condition_overlap_ratio(
+            ["A > 1", "B < 2", "C == 3", "D != 4"],
+            ["A > 1", "B < 2", "C == 3"],
+        )
+        == 1.0
+    )
+
+
+# ---------------------------------------------------------------------------
+# merge_concepts tests
+# ---------------------------------------------------------------------------
+
+
+def test_merge_concepts_basic():
+    """Merge two concepts with different mechanism_tag."""
+    primary = _make_merge_concept(
+        "c1",
+        "breakout",
+        "behavior",
+        ticket_count=3,
+        avg_priority=70.0,
+        symbols=["XP", "NOK"],
+        conditions=["close > high20_prev", "rel_volume >= 1.5"],
+    )
+    secondary = _make_merge_concept(
+        "c2",
+        "breakout",
+        "flow",
+        ticket_count=2,
+        avg_priority=60.0,
+        symbols=["NOK", "AAPL"],
+        conditions=["close > high20_prev", "volume > 2x"],
+    )
+    merged = sec.merge_concepts(primary, secondary)
+    assert merged["mechanism_tag"] == "behavior+flow"
+    assert merged["support"]["ticket_count"] == 5
+    assert "XP" in merged["support"]["symbols"]
+    assert "AAPL" in merged["support"]["symbols"]
+    assert "c2" in merged.get("merged_from", [])
+
+
+def test_merge_concepts_entry_family_adoption():
+    """If primary has no entry_family, adopt secondary's."""
+    primary = _make_merge_concept(
+        "c1",
+        "breakout",
+        "behavior",
+        ticket_count=3,
+        entry_family=None,
+    )
+    secondary = _make_merge_concept(
+        "c2",
+        "breakout",
+        "flow",
+        ticket_count=2,
+        entry_family="pivot_breakout",
+    )
+    merged = sec.merge_concepts(primary, secondary)
+    assert merged["strategy_design"]["recommended_entry_family"] == "pivot_breakout"
+
+
+def test_merge_concepts_keeps_primary():
+    """Primary's title, thesis, invalidation_signals should be preserved."""
+    primary = _make_merge_concept("c1", "breakout", "behavior", ticket_count=3)
+    secondary = _make_merge_concept("c2", "breakout", "flow", ticket_count=2)
+    merged = sec.merge_concepts(primary, secondary)
+    assert merged["abstraction"]["thesis"] == primary["abstraction"]["thesis"]
+
+
+def test_merge_concepts_synthetic_fields():
+    """If both have synthetic ticket counts, they should be summed."""
+    primary = _make_merge_concept(
+        "c1",
+        "breakout",
+        "behavior",
+        ticket_count=3,
+        real_ticket_count=2,
+        synthetic_ticket_count=1,
+        synthetic_ticket_ids=["hint_promo_1"],
+    )
+    secondary = _make_merge_concept(
+        "c2",
+        "breakout",
+        "flow",
+        ticket_count=2,
+        real_ticket_count=1,
+        synthetic_ticket_count=1,
+        synthetic_ticket_ids=["hint_promo_2"],
+    )
+    merged = sec.merge_concepts(primary, secondary)
+    assert merged["support"].get("real_ticket_count") == 3
+    assert merged["support"].get("synthetic_ticket_count") == 2
+    assert "hint_promo_1" in merged["evidence"].get("synthetic_ticket_ids", [])
+    assert "hint_promo_2" in merged["evidence"].get("synthetic_ticket_ids", [])
+
+
+def test_merge_concepts_id_regeneration():
+    """Merged concept should have regenerated id."""
+    primary = _make_merge_concept("old_id_1", "breakout", "behavior", ticket_count=3)
+    secondary = _make_merge_concept("old_id_2", "breakout", "flow", ticket_count=2)
+    merged = sec.merge_concepts(primary, secondary)
+    # mechanism_tag becomes "behavior+flow"
+    expected_id = sec.sanitize_identifier("edge_concept_breakout_behavior_flow_RiskOn")
+    assert merged["id"] == expected_id
+
+
+# ---------------------------------------------------------------------------
+# deduplicate_concepts tests
+# ---------------------------------------------------------------------------
+
+
+def test_dedup_high_overlap_merge():
+    """Two concepts with high overlap should be merged."""
+    c1 = _make_merge_concept(
+        "c1",
+        "breakout",
+        "behavior",
+        ticket_count=3,
+        conditions=["close > high20", "volume > 2x", "RSI > 50"],
+    )
+    c2 = _make_merge_concept(
+        "c2",
+        "breakout",
+        "flow",
+        ticket_count=2,
+        conditions=["close > high20", "volume > 2x"],
+    )
+    result, count = sec.deduplicate_concepts([c1, c2], overlap_threshold=0.75)
+    assert len(result) == 1
+    assert count == 1
+
+
+def test_dedup_keeps_distinct():
+    """Two concepts with low overlap should NOT be merged."""
+    c1 = _make_merge_concept(
+        "c1",
+        "breakout",
+        "behavior",
+        ticket_count=3,
+        conditions=["close > high20", "volume > 2x"],
+    )
+    c2 = _make_merge_concept(
+        "c2",
+        "breakout",
+        "flow",
+        ticket_count=2,
+        conditions=["RSI < 30", "price < SMA200"],
+    )
+    result, count = sec.deduplicate_concepts([c1, c2], overlap_threshold=0.75)
+    assert len(result) == 2
+    assert count == 0
+
+
+def test_dedup_different_hypothesis_never_merge():
+    """Concepts with different hypothesis_type should never be merged."""
+    c1 = _make_merge_concept(
+        "c1",
+        "breakout",
+        "behavior",
+        ticket_count=3,
+        conditions=["close > high20", "volume > 2x"],
+    )
+    c2 = _make_merge_concept(
+        "c2",
+        "panic_reversal",
+        "behavior",
+        ticket_count=2,
+        conditions=["close > high20", "volume > 2x"],
+    )
+    result, count = sec.deduplicate_concepts([c1, c2], overlap_threshold=0.5)
+    assert len(result) == 2
+    assert count == 0
+
+
+def test_dedup_single_concept():
+    """Single concept should pass through unchanged."""
+    c1 = _make_merge_concept("c1", "breakout", "behavior", ticket_count=3)
+    result, count = sec.deduplicate_concepts([c1], overlap_threshold=0.75)
+    assert len(result) == 1
+    assert count == 0
+
+
+def test_dedup_empty_list():
+    """Empty list should return empty."""
+    result, count = sec.deduplicate_concepts([], overlap_threshold=0.75)
+    assert len(result) == 0
+    assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# main() integration tests for dedup
+# ---------------------------------------------------------------------------
+
+
+def test_main_no_dedup_flag(tmp_path: Path, monkeypatch) -> None:
+    """--no-dedup should disable deduplication."""
+    tickets_dir, hints_path = _setup_main_fixtures(tmp_path)
+    # Add a second ticket to create potential duplicate
+    ticket2 = {
+        "id": "edge_auto_test_2",
+        "hypothesis_type": "breakout",
+        "mechanism_tag": "flow",
+        "regime": "RiskOn",
+        "priority_score": 65.0,
+        "entry_family": "pivot_breakout",
+        "observation": {"symbol": "XP"},
+        "signal_definition": {"conditions": ["close > high20_prev", "rel_volume >= 1.5"]},
+        "date": "2026-02-20",
+    }
+    (tickets_dir / "ticket_2.yaml").write_text(yaml.safe_dump(ticket2))
+    output_path = tmp_path / "concepts.yaml"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "synthesize_edge_concepts.py",
+            "--tickets-dir",
+            str(tickets_dir),
+            "--output",
+            str(output_path),
+            "--no-dedup",
+        ],
+    )
+    assert sec.main() == 0
+    result = yaml.safe_load(output_path.read_text())
+    assert result["source"]["dedup_enabled"] is False
+    assert result["source"]["dedup_merged_count"] == 0
+
+
+def test_main_overlap_threshold_effect(tmp_path: Path, monkeypatch) -> None:
+    """--overlap-threshold should affect merge behavior."""
+    tickets_dir, _ = _setup_main_fixtures(tmp_path)
+    # Create two tickets in different mechanism groups with same conditions
+    for i, mech in enumerate(["behavior", "flow"]):
+        ticket = {
+            "id": f"edge_auto_dup_{i}",
+            "hypothesis_type": "breakout",
+            "mechanism_tag": mech,
+            "regime": "RiskOn",
+            "priority_score": 70.0,
+            "entry_family": "pivot_breakout",
+            "observation": {"symbol": "XP"},
+            "signal_definition": {"conditions": ["close > high20_prev", "rel_volume >= 1.5"]},
+            "date": "2026-02-20",
+        }
+        (tickets_dir / f"ticket_dup_{i}.yaml").write_text(yaml.safe_dump(ticket))
+    output_path = tmp_path / "concepts.yaml"
+
+    # With low threshold -> should merge
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "synthesize_edge_concepts.py",
+            "--tickets-dir",
+            str(tickets_dir),
+            "--output",
+            str(output_path),
+            "--overlap-threshold",
+            "0.5",
+        ],
+    )
+    assert sec.main() == 0
+    result = yaml.safe_load(output_path.read_text())
+    assert result["source"]["dedup_enabled"] is True
+    assert result["source"]["overlap_threshold"] == 0.5
