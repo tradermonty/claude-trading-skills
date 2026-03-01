@@ -141,6 +141,8 @@ If no test exists for the changed behavior, add one whenever practical.
 | **FinViz Screener** | ❌ Not required | 🟡 Optional | ❌ Not used | Public screener free; Elite auto-detected from env var |
 | **Position Sizer** | ❌ Not required | ❌ Not used | ❌ Not used | Pure calculation; works offline |
 | **Data Quality Checker** | ❌ Not required | ❌ Not used | ❌ Not used | Local markdown validation; works offline |
+| **Edge Strategy Reviewer** | ❌ Not required | ❌ Not used | ❌ Not used | Deterministic scoring on local YAML drafts |
+| **Edge Pipeline Orchestrator** | ❌ Not required | ❌ Not used | ❌ Not used | Orchestrates local edge skills via subprocess |
 | Dual-Axis Skill Reviewer | ❌ Not required | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 
 #### API Key Setup
@@ -386,6 +388,40 @@ python3 skills/data-quality-checker/scripts/check_data_quality.py \
   --file report.md --as-of 2026-02-28 --output-dir reports/
 ```
 
+**Edge Strategy Reviewer:** No API key required
+```bash
+# Review all drafts in a directory
+python3 skills/edge-strategy-reviewer/scripts/review_strategy_drafts.py \
+  --drafts-dir reports/edge_strategy_drafts/ \
+  --output-dir reports/
+
+# Single draft review with JSON output and markdown summary
+python3 skills/edge-strategy-reviewer/scripts/review_strategy_drafts.py \
+  --draft reports/edge_strategy_drafts/draft_xxx.yaml \
+  --output-dir reports/ --format json --markdown-summary
+```
+
+**Edge Pipeline Orchestrator:** No API key required
+```bash
+# Full pipeline from tickets
+python3 skills/edge-pipeline-orchestrator/scripts/orchestrate_edge_pipeline.py \
+  --tickets-dir /path/to/tickets/ \
+  --market-summary /path/to/market_summary.json \
+  --anomalies /path/to/anomalies.json \
+  --output-dir reports/edge_pipeline/
+
+# Review-only mode with existing drafts
+python3 skills/edge-pipeline-orchestrator/scripts/orchestrate_edge_pipeline.py \
+  --review-only \
+  --drafts-dir reports/edge_strategy_drafts/ \
+  --output-dir reports/edge_pipeline/
+
+# Dry-run (no export)
+python3 skills/edge-pipeline-orchestrator/scripts/orchestrate_edge_pipeline.py \
+  --tickets-dir /path/to/tickets/ \
+  --output-dir reports/edge_pipeline/ --dry-run
+```
+
 ### Skill Self-Improvement Loop
 
 An automated pipeline reviews and improves skill quality on a daily cadence.
@@ -562,6 +598,16 @@ Skills are designed to be combined for comprehensive analysis:
 2. kanchi-dividend-review-monitor → Execute T1-T5 anomaly detection and review queueing
 3. kanchi-dividend-us-tax-accounting → Validate qualified/ordinary assumptions and account location
 4. Feed REVIEW findings back to kanchi-dividend-sop before any additional buys
+
+**Edge Research Pipeline (end-to-end):**
+1. edge-candidate-agent (--ohlcv) → market_summary.json + anomalies.json + tickets/
+2. edge-hint-extractor (--market-summary, --anomalies) → hints.yaml
+3. edge-concept-synthesizer (--tickets-dir, --hints) → edge_concepts.yaml
+4. edge-strategy-designer (--concepts) → strategy_drafts/*.yaml
+5. edge-strategy-reviewer (--drafts-dir) → review.yaml (PASS/REVISE/REJECT)
+6. [REVISE] → revision → re-review (max 2 cycles)
+7. [PASS + export eligible] → edge-candidate-agent export → strategy.yaml + metadata.json
+- **Orchestrated mode:** edge-pipeline-orchestrator runs all stages automatically with feedback loop
 
 ## Important Conventions
 

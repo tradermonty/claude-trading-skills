@@ -180,6 +180,22 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Outputs `strategy_draft`-compatible YAML with `pivot_metadata` extension; exportable drafts include candidate-agent ticket YAML.
   - No API key required — operates on local JSON/YAML files from backtest-expert and edge-strategy-designer.
 
+- **Edge Strategy Reviewer** (`edge-strategy-reviewer`)
+  - Deterministic quality gate for strategy drafts produced by `edge-strategy-designer`.
+  - Evaluates 8 criteria (C1-C8): edge plausibility, overfitting risk, sample adequacy, regime dependency, exit calibration, risk concentration, execution realism, and invalidation quality.
+  - Weighted scoring (0-100) with PASS/REVISE/REJECT verdicts and export eligibility determination.
+  - Precise threshold detection penalizes curve-fitted conditions; annual opportunity estimation flags overly restrictive strategies.
+  - REVISE verdicts include concrete revision instructions for the feedback loop.
+  - No API key required — operates on local YAML files from edge-strategy-designer.
+
+- **Edge Pipeline Orchestrator** (`edge-pipeline-orchestrator`)
+  - Orchestrates the full edge research pipeline end-to-end: auto-detection, hints, concept synthesis, strategy design, critical review, and export.
+  - Review-revision feedback loop (max 2 iterations): PASS/REJECT accumulated across iterations, REVISE drafts revised and re-reviewed, remaining REVISE downgraded to research_probe.
+  - Export eligibility gate: only PASS + export_ready_v1 + exportable entry family drafts proceed to candidate export.
+  - All upstream skills called via subprocess (no cross-skill imports) with pipeline manifest tracking full execution trace.
+  - Supports resume-from-drafts, review-only, and dry-run modes.
+  - No API key required — orchestrates local YAML/JSON files across edge skills.
+
 ### Market Timing & Bottom Detection
 
 - **Market Top Detector** (`market-top-detector`)
@@ -455,6 +471,8 @@ Several skills require API keys for data access:
 | **Theme Detector** | 🟡 Optional | 🟡 Optional | ❌ Not used | Core: FINVIZ public + yfinance (free). FMP for ETF holdings, FINVIZ Elite for stock lists |
 | **FinViz Screener** | ❌ Not used | 🟡 Optional | ❌ Not used | Public screener free; FINVIZ Elite auto-detected from `$FINVIZ_API_KEY` |
 | **Edge Candidate Agent** | ❌ Not used | ❌ Not used | ❌ Not used | Local YAML generation; validates against local pipeline repo |
+| **Edge Strategy Reviewer** | ❌ Not used | ❌ Not used | ❌ Not used | Deterministic scoring on local YAML drafts |
+| **Edge Pipeline Orchestrator** | ❌ Not used | ❌ Not used | ❌ Not used | Orchestrates local edge skills via subprocess |
 | Dual-Axis Skill Reviewer | ❌ Not used | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 
 ### API Setup

@@ -67,6 +67,8 @@ testpaths = [
     "skills/pead-screener/scripts/tests",
     "skills/position-sizer/scripts/tests",
     "skills/data-quality-checker/scripts/tests",
+    "skills/edge-strategy-reviewer/scripts/tests",
+    "skills/edge-pipeline-orchestrator/scripts/tests",
 ]
 
 [tool.bandit]

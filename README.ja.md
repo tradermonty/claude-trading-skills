@@ -158,6 +158,22 @@ English README is available at [`README.md`](README.md).
   - `strategy_draft`互換YAMLと`pivot_metadata`拡張を出力。エクスポート可能なドラフトにはcandidate-agentチケットYAMLも同梱。
   - APIキー不要 — backtest-expertとedge-strategy-designerのローカルJSON/YAMLファイルで動作。
 
+- **エッジ戦略レビュアー** (`edge-strategy-reviewer`)
+  - `edge-strategy-designer`が出力する戦略ドラフトの決定論的品質ゲート。
+  - 8基準（C1-C8）で評価: エッジの妥当性、過学習リスク、サンプル充足度、レジーム依存性、イグジット校正、リスク集中度、執行現実性、無効化シグナル品質。
+  - 加重スコアリング（0-100）によるPASS/REVISE/REJECT判定とエクスポート適格性の判定。
+  - 精密閾値検出がカーブフィッティングされた条件をペナルティ化。年間機会推定が制約過多な戦略をフラグ。
+  - REVISE判定にはフィードバックループ用の具体的な修正指示を付与。
+  - APIキー不要 — edge-strategy-designerのローカルYAMLファイルで動作。
+
+- **エッジパイプラインオーケストレータ** (`edge-pipeline-orchestrator`)
+  - エッジ研究パイプライン全体をエンドツーエンドでオーケストレーション: 自動検出、ヒント、コンセプト統合、戦略設計、クリティカルレビュー、エクスポート。
+  - レビュー→修正フィードバックループ（最大2回）: PASS/REJECTはイテレーション間で蓄積、REVISEドラフトは修正後に再レビュー、残りのREVISEはresearch_probeにダウングレード。
+  - エクスポート適格性ゲート: PASS + export_ready_v1 + エクスポート可能エントリーファミリーのドラフトのみ候補エクスポートに進行。
+  - 全upstreamスキルをsubprocess経由で呼び出し（スキル間の直接importなし）。パイプラインマニフェストで実行トレース全体を記録。
+  - resume-from-drafts、review-only、dry-runモードをサポート。
+  - APIキー不要 — エッジスキル間のローカルYAML/JSONファイルをオーケストレーション。
+
 ### マーケットタイミング・底打ち検出
 
 - **マーケットトップ検出器** (`market-top-detector`)
@@ -377,6 +393,8 @@ launchctl start com.trade-analysis.skill-improvement
 - **FinVizスクリーナー**: APIキー不要（パブリックFinVizスクリーナー）。FINVIZ Eliteは`$FINVIZ_API_KEY`環境変数から自動検出（オプション）
 - **かんち式配当3スキル**（`kanchi-dividend-sop` / `kanchi-dividend-review-monitor` / `kanchi-dividend-us-tax-accounting`）: APIキー不要（上流データは他スキル出力または手動入力を利用）
 - **エッジ候補エージェント** (`edge-candidate-agent`): APIキー不要（ローカルYAML生成、ローカルパイプラインリポジトリに対して検証）
+- **エッジ戦略レビュアー** (`edge-strategy-reviewer`): APIキー不要（ローカルYAMLドラフトの決定論的スコアリング）
+- **エッジパイプラインオーケストレータ** (`edge-pipeline-orchestrator`): APIキー不要（ローカルエッジスキルをsubprocess経由でオーケストレーション）
 
 ## 参考リンク
 - Claude Skillsローンチ概要: https://www.anthropic.com/news/skills

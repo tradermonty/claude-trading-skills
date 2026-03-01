@@ -131,6 +131,20 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test edge-strategy-reviewer
+        run: >
+          python -m pytest skills/edge-strategy-reviewer/scripts/tests/ -v
+          --cov=skills/edge-strategy-reviewer/scripts
+          --cov-report=term-missing
+          --cov-append
+
+      - name: Test edge-pipeline-orchestrator
+        run: >
+          python -m pytest skills/edge-pipeline-orchestrator/scripts/tests/ -v
+          --cov=skills/edge-pipeline-orchestrator/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test repo-level scripts
         run: >
           python -m pytest scripts/tests/ -v
