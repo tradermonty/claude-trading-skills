@@ -1,6 +1,7 @@
 """Unit tests for build_hints.py."""
 
 from datetime import date
+from pathlib import Path
 from subprocess import CompletedProcess
 
 import build_hints as bh
@@ -269,6 +270,79 @@ def test_dedupe_hints_distinguishes_hypothesis_type() -> None:
     ]
     result = bh.dedupe_hints(hints, max_total=10)
     assert len(result) == 2
+
+
+def test_load_llm_hints_from_file_bare_list(tmp_path: Path) -> None:
+    """Test loading a bare YAML list from file."""
+    yaml_content = (
+        "- title: Sector rotation into industrials\n"
+        "  observation: Tech underperforming\n"
+        "  symbols: [CAT, DE]\n"
+        "  regime_bias: Neutral\n"
+        "  mechanism_tag: flow\n"
+    )
+    f = tmp_path / "hints.yaml"
+    f.write_text(yaml_content)
+    result = bh.load_llm_hints_from_file(f)
+    assert len(result) == 1
+    assert result[0]["title"] == "Sector rotation into industrials"
+    assert result[0]["symbols"] == ["CAT", "DE"]
+
+
+def test_load_llm_hints_from_file_dict_wrapper(tmp_path: Path) -> None:
+    """Test loading hints wrapped in {hints: [...]} format."""
+    yaml_content = (
+        "hints:\n"
+        "  - title: Momentum breakout\n"
+        "    observation: Leaders pushing highs\n"
+        "    symbols: [NVDA]\n"
+    )
+    f = tmp_path / "hints.yaml"
+    f.write_text(yaml_content)
+    result = bh.load_llm_hints_from_file(f)
+    assert len(result) == 1
+    assert result[0]["symbols"] == ["NVDA"]
+
+
+def test_load_llm_hints_from_file_empty(tmp_path: Path) -> None:
+    """Test that empty file returns empty list."""
+    f = tmp_path / "empty.yaml"
+    f.write_text("")
+    result = bh.load_llm_hints_from_file(f)
+    assert result == []
+
+
+def test_load_llm_hints_from_file_invalid_yaml(tmp_path: Path) -> None:
+    """Test that invalid YAML raises HintExtractionError."""
+    f = tmp_path / "bad.yaml"
+    f.write_text(":\n  - [invalid\n")
+    with pytest.raises(bh.HintExtractionError, match="invalid YAML"):
+        bh.load_llm_hints_from_file(f)
+
+
+def test_main_llm_ideas_file_not_found(tmp_path: Path, monkeypatch) -> None:
+    """Test that main() returns 1 when --llm-ideas-file does not exist."""
+    monkeypatch.setattr(
+        "sys.argv",
+        ["build_hints.py", "--llm-ideas-file", str(tmp_path / "missing.yaml")],
+    )
+    assert bh.main() == 1
+
+
+def test_llm_ideas_file_and_cmd_mutual_exclusion(monkeypatch) -> None:
+    """Test that --llm-ideas-file and --llm-ideas-cmd cannot be used together."""
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "build_hints.py",
+            "--llm-ideas-cmd",
+            "echo hi",
+            "--llm-ideas-file",
+            "/tmp/hints.yaml",
+        ],
+    )
+    with pytest.raises(SystemExit):
+        bh.parse_args()
 
 
 def test_parse_timestamp_to_date_handles_formats() -> None:

@@ -133,6 +133,48 @@ class TestReviewLoop:
         assert result.passed[0].draft_id == sample_draft_pass["id"]
 
     @patch("orchestrate_edge_pipeline.run_stage")
+    def test_review_loop_forwards_strict_export_to_review_stage(
+        self,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        sample_draft_pass: dict,
+    ) -> None:
+        """strict_export=True adds --strict-export to review stage args."""
+        drafts_dir = tmp_path / "drafts"
+        drafts_dir.mkdir()
+        (drafts_dir / f"{sample_draft_pass['id']}.yaml").write_text(
+            yaml.safe_dump(sample_draft_pass, sort_keys=False)
+        )
+        review_dir = tmp_path / "reviews_iter_0"
+        review_dir.mkdir()
+        review = {
+            "draft_id": sample_draft_pass["id"],
+            "verdict": "PASS",
+            "confidence_score": 85,
+            "revision_instructions": [],
+        }
+        (review_dir / f"{sample_draft_pass['id']}_review.yaml").write_text(
+            yaml.safe_dump(review, sort_keys=False)
+        )
+
+        def side_effect(stage: str, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
+            return subprocess.CompletedProcess(args=[], returncode=0, stdout="[OK]", stderr="")
+
+        mock_run_stage.side_effect = side_effect
+
+        run_review_loop(
+            drafts_dir=drafts_dir,
+            review_output_base=tmp_path,
+            max_iterations=2,
+            strict_export=True,
+        )
+
+        review_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "review"]
+        assert len(review_calls) >= 1
+        review_args = review_calls[0][0][1]
+        assert "--strict-export" in review_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
     def test_review_loop_max_iterations(
         self,
         mock_run_stage: MagicMock,
@@ -1140,3 +1182,361 @@ class TestLoadHelpers:
         assert len(reviews) == 2
         assert reviews[0]["draft_id"] == "draft_a"
         assert reviews[1]["draft_id"] == "draft_b"
+
+
+# ---------------------------------------------------------------------------
+# --strict-export forwarding tests
+# ---------------------------------------------------------------------------
+class TestStrictExportForwarding:
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_strict_export_forwarded_to_review_loop(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--strict-export is forwarded to run_review_loop."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--strict-export",
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        mock_review_loop.assert_called_once()
+        call_kwargs = mock_review_loop.call_args
+        assert call_kwargs.kwargs.get("strict_export") is True or (
+            len(call_kwargs.args) >= 4 and call_kwargs.args[3] is True
+        )
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_strict_export_not_forwarded_when_absent(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """strict_export defaults to False when not specified."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        mock_review_loop.assert_called_once()
+        call_kwargs = mock_review_loop.call_args
+        assert call_kwargs.kwargs.get("strict_export") is False or (len(call_kwargs.args) < 4)
+
+
+# ---------------------------------------------------------------------------
+# --max-synthetic-ratio forwarding tests
+# ---------------------------------------------------------------------------
+class TestMaxSyntheticRatioForwarding:
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_max_synthetic_ratio_forwarded_to_concepts_stage(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--max-synthetic-ratio is forwarded to the concepts stage."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--max-synthetic-ratio",
+                "1.5",
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--max-synthetic-ratio" in concepts_args
+        assert "1.5" in concepts_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_max_synthetic_ratio_absent_when_not_specified(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--max-synthetic-ratio should not appear in concepts args when not specified."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--max-synthetic-ratio" not in concepts_args
+
+
+# ---------------------------------------------------------------------------
+# --as-of forwarding tests
+# ---------------------------------------------------------------------------
+class TestAsOfForwarding:
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_as_of_forwarded_to_hints_stage(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--as-of is forwarded to the hints stage."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--as-of",
+                "2026-02-28",
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        hints_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "hints"]
+        assert len(hints_calls) == 1
+        hints_args = hints_calls[0][0][1]
+        assert "--as-of" in hints_args
+        assert "2026-02-28" in hints_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_as_of_not_forwarded_when_absent(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--as-of should not appear in hints args when not specified."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        hints_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "hints"]
+        assert len(hints_calls) == 1
+        hints_args = hints_calls[0][0][1]
+        assert "--as-of" not in hints_args
+
+
+# ---------------------------------------------------------------------------
+# LLM ideas file threading tests
+# ---------------------------------------------------------------------------
+class TestLLMIdeasFileThreading:
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_orchestrator_threads_llm_ideas_file(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--llm-ideas-file is forwarded to the hints stage."""
+        from orchestrate_edge_pipeline import main
+
+        llm_file = tmp_path / "llm_hints.yaml"
+        llm_file.write_text("- title: Test hint\n  observation: obs\n")
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--llm-ideas-file",
+                str(llm_file),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        hints_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "hints"]
+        assert len(hints_calls) == 1
+        hints_args = hints_calls[0][0][1]
+        assert "--llm-ideas-file" in hints_args
+        assert str(llm_file.resolve()) in hints_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_orchestrator_threads_promote_hints(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """--promote-hints is forwarded to the concepts stage."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--promote-hints",
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        concepts_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "concepts"]
+        assert len(concepts_calls) == 1
+        concepts_args = concepts_calls[0][0][1]
+        assert "--promote-hints" in concepts_args
+
+    @patch("orchestrate_edge_pipeline.run_stage")
+    @patch("orchestrate_edge_pipeline.run_review_loop")
+    def test_orchestrator_llm_ideas_file_absent(
+        self,
+        mock_review_loop: MagicMock,
+        mock_run_stage: MagicMock,
+        tmp_path: Path,
+        tickets_dir: Path,
+    ) -> None:
+        """When --llm-ideas-file is not specified, hints args should not contain it."""
+        from orchestrate_edge_pipeline import main
+
+        mock_run_stage.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="[OK]", stderr=""
+        )
+        mock_review_loop.return_value = ReviewLoopResult(passed=[], rejected=[], downgraded=[])
+
+        output_dir = tmp_path / "output"
+        with patch(
+            "sys.argv",
+            [
+                "orchestrate_edge_pipeline.py",
+                "--tickets-dir",
+                str(tickets_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        hints_calls = [c for c in mock_run_stage.call_args_list if c[0][0] == "hints"]
+        assert len(hints_calls) == 1
+        hints_args = hints_calls[0][0][1]
+        assert "--llm-ideas-file" not in hints_args

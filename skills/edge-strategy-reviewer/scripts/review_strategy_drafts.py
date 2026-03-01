@@ -439,13 +439,25 @@ def is_export_eligible(draft: dict, verdict: str) -> bool:
     )
 
 
-def review_draft(draft: dict) -> DraftReview:
-    """Review a single strategy draft."""
+def review_draft(draft: dict, *, strict_export: bool = False) -> DraftReview:
+    """Review a single strategy draft.
+
+    When *strict_export* is True, export-eligible drafts that have any
+    warn-level findings are downgraded from PASS to REVISE so that the
+    warnings must be resolved before export.
+    """
     draft_id = str(draft.get("id", "unknown"))
     findings = [ev(draft) for ev in ALL_EVALUATORS]
     confidence = compute_confidence_score(findings)
     verdict = determine_verdict(findings, confidence)
     export_ok = is_export_eligible(draft, verdict)
+
+    # Strict export: export-eligible PASS with any warn → REVISE
+    if strict_export and verdict == "PASS" and export_ok:
+        has_warn = any(f.severity == "warn" for f in findings)
+        if has_warn:
+            verdict = "REVISE"
+            export_ok = False
 
     instructions: list[str] = []
     if verdict == "REVISE":
@@ -591,6 +603,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Generate additional markdown summary file",
     )
+    parser.add_argument(
+        "--strict-export",
+        action="store_true",
+        default=False,
+        help="Export-eligible drafts with any warn finding get REVISE instead of PASS",
+    )
     return parser.parse_args(argv)
 
 
@@ -616,7 +634,7 @@ def main(argv: list[str] | None = None) -> int:
         if not drafts:
             raise ReviewError("No valid drafts to review.")
 
-        reviews = [review_draft(d) for d in drafts]
+        reviews = [review_draft(d, strict_export=args.strict_export) for d in drafts]
         output = build_output(source, len(drafts), reviews)
 
         output_dir.mkdir(parents=True, exist_ok=True)

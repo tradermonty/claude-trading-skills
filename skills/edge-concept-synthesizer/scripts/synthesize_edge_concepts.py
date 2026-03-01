@@ -210,6 +210,29 @@ def promote_hints_to_tickets(
     return tickets
 
 
+def cap_synthetic_tickets(
+    real_tickets: list[dict[str, Any]],
+    synthetic_tickets: list[dict[str, Any]],
+    max_ratio: float,
+    floor: int = 3,
+) -> list[dict[str, Any]]:
+    """Cap synthetic ticket count relative to real ticket count.
+
+    The allowed number of synthetic tickets is
+    ``max(ceil(len(real_tickets) * max_ratio), floor)``.
+    When the synthetic list exceeds this limit the highest-priority entries
+    are kept.
+    """
+    import math
+
+    limit = max(math.ceil(len(real_tickets) * max_ratio), floor)
+    if len(synthetic_tickets) <= limit:
+        return synthetic_tickets
+    # Keep highest priority first
+    ranked = sorted(synthetic_tickets, key=lambda t: t.get("priority_score", 0), reverse=True)
+    return ranked[:limit]
+
+
 def sanitize_identifier(value: str) -> str:
     """Create a safe identifier from free text."""
     lowered = "".join(ch.lower() if ch.isalnum() else "_" for ch in value)
@@ -483,6 +506,12 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_SYNTHETIC_PRIORITY,
         help="Priority score for synthetic tickets (default: 30.0)",
     )
+    parser.add_argument(
+        "--max-synthetic-ratio",
+        type=float,
+        default=None,
+        help="Max synthetic/real ticket ratio (e.g. 1.5); uncapped when omitted",
+    )
     return parser.parse_args()
 
 
@@ -516,6 +545,12 @@ def main() -> int:
                 hints=hints,
                 synthetic_priority=args.synthetic_priority,
             )
+            if args.max_synthetic_ratio is not None:
+                synthetic_tickets = cap_synthetic_tickets(
+                    real_tickets=tickets,
+                    synthetic_tickets=synthetic_tickets,
+                    max_ratio=args.max_synthetic_ratio,
+                )
             tickets = tickets + synthetic_tickets
 
         if not tickets:

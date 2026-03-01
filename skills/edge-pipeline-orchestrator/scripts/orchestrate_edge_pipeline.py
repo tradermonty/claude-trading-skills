@@ -259,6 +259,7 @@ def run_review_loop(
     drafts_dir: Path,
     review_output_base: Path,
     max_iterations: int = MAX_REVIEW_ITERATIONS,
+    strict_export: bool = False,
 ) -> ReviewLoopResult:
     """Run the review-revision feedback loop."""
     result = ReviewLoopResult()
@@ -289,6 +290,8 @@ def run_review_loop(
             "--output-dir",
             str(review_dir),
         ]
+        if strict_export:
+            review_args.append("--strict-export")
         run_stage("review", review_args)
 
         # Load reviews
@@ -413,6 +416,35 @@ def parse_args() -> argparse.Namespace:
         default=MAX_REVIEW_ITERATIONS,
         help="Maximum review-revision iterations",
     )
+    parser.add_argument(
+        "--llm-ideas-file",
+        default=None,
+        metavar="PATH",
+        help="YAML file of LLM hints, forwarded to hints stage",
+    )
+    parser.add_argument(
+        "--promote-hints",
+        action="store_true",
+        default=False,
+        help="Forward --promote-hints to concepts stage (full pipeline only)",
+    )
+    parser.add_argument(
+        "--as-of",
+        default=None,
+        help="Target date YYYY-MM-DD forwarded to hints stage",
+    )
+    parser.add_argument(
+        "--strict-export",
+        action="store_true",
+        default=False,
+        help="Forward --strict-export to review stage (warn on export-eligible → REVISE)",
+    )
+    parser.add_argument(
+        "--max-synthetic-ratio",
+        type=float,
+        default=None,
+        help="Forward --max-synthetic-ratio to concepts stage (cap synthetic tickets)",
+    )
     return parser.parse_args()
 
 
@@ -437,6 +469,8 @@ def main() -> int:
             "review_only": args.review_only,
             "risk_profile": args.risk_profile,
             "dry_run": args.dry_run,
+            "llm_ideas_file": str(args.llm_ideas_file) if args.llm_ideas_file else None,
+            "promote_hints": args.promote_hints,
         },
         "stages": {},
     }
@@ -484,6 +518,10 @@ def main() -> int:
                 hints_args += ["--market-summary", str(market_summary_path)]
             if anomalies_path and anomalies_path.exists():
                 hints_args += ["--anomalies", str(anomalies_path)]
+            if args.llm_ideas_file:
+                hints_args += ["--llm-ideas-file", str(Path(args.llm_ideas_file).resolve())]
+            if args.as_of:
+                hints_args += ["--as-of", args.as_of]
             hints_output_path = output_dir / "hints" / "hints.yaml"
             hints_args += ["--output", str(hints_output_path)]
             run_stage("hints", hints_args)
@@ -504,6 +542,10 @@ def main() -> int:
             ]
             if hints_output and hints_output.exists():
                 concepts_args += ["--hints", str(hints_output)]
+            if args.promote_hints:
+                concepts_args += ["--promote-hints"]
+            if args.max_synthetic_ratio is not None:
+                concepts_args += ["--max-synthetic-ratio", str(args.max_synthetic_ratio)]
             run_stage("concepts", concepts_args)
             concepts_output = concepts_output_path
             manifest["stages"]["concepts"] = {
@@ -542,6 +584,7 @@ def main() -> int:
             drafts_dir=drafts_dir,
             review_output_base=output_dir,
             max_iterations=args.max_review_iterations,
+            strict_export=args.strict_export,
         )
 
         manifest["stages"]["review_loop"] = {

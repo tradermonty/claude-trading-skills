@@ -47,6 +47,14 @@ python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
   --hints /tmp/edge-hints/hints.yaml \
   --output /tmp/edge-concepts/edge_concepts.yaml \
   --min-ticket-support 2
+
+# With hint promotion and synthetic cap
+python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
+  --tickets-dir /tmp/edge-auto/tickets \
+  --hints /tmp/edge-hints/hints.yaml \
+  --output /tmp/edge-concepts/edge_concepts.yaml \
+  --promote-hints \
+  --max-synthetic-ratio 1.5
 ```
 
 ## Resources

@@ -367,6 +367,18 @@ def generate_llm_hints(llm_command: str | None, payload: dict[str, Any]) -> list
     return parse_hints_payload(parsed)
 
 
+def load_llm_hints_from_file(path: Path) -> list[dict[str, Any]]:
+    """Load LLM-generated hints from a pre-written YAML file."""
+    text = path.read_text().strip()
+    if not text:
+        return []
+    try:
+        parsed = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise HintExtractionError(f"invalid YAML in --llm-ideas-file {path}: {exc}") from exc
+    return parse_hints_payload(parsed)
+
+
 def dedupe_hints(hints: list[dict[str, Any]], max_total: int) -> list[dict[str, Any]]:
     """Deduplicate hints by semantic identity."""
     deduped: list[dict[str, Any]] = []
@@ -405,7 +417,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--as-of", default=None, help="Target date YYYY-MM-DD for filtering news rows"
     )
-    parser.add_argument("--llm-ideas-cmd", default=None, help="Optional external LLM command")
+    llm_group = parser.add_mutually_exclusive_group()
+    llm_group.add_argument("--llm-ideas-cmd", default=None, help="Optional external LLM command")
+    llm_group.add_argument(
+        "--llm-ideas-file",
+        default=None,
+        metavar="PATH",
+        help="Pre-written YAML file of LLM hints (use from Claude Code)",
+    )
     parser.add_argument(
         "--max-anomaly-hints", type=int, default=8, help="Max anomaly-derived hints"
     )
@@ -472,7 +491,14 @@ def main() -> int:
                 "regime_bias(optional), mechanism_tag(optional)."
             ),
         }
-        llm_hints = generate_llm_hints(args.llm_ideas_cmd, llm_payload)
+        if args.llm_ideas_file:
+            llm_hints_path = Path(args.llm_ideas_file).resolve()
+            if not llm_hints_path.exists():
+                print(f"[ERROR] --llm-ideas-file not found: {llm_hints_path}")
+                return 1
+            llm_hints = load_llm_hints_from_file(llm_hints_path)
+        else:
+            llm_hints = generate_llm_hints(args.llm_ideas_cmd, llm_payload)
 
         hints = dedupe_hints(rule_hints + llm_hints, max_total=max(args.max_total_hints, 0))
 

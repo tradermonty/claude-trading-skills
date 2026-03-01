@@ -313,6 +313,148 @@ def test_main_promote_hints_source_metadata(tmp_path: Path, monkeypatch) -> None
     assert "synthetic_ticket_count" not in result2["source"]
 
 
+def test_cap_synthetic_tickets_limits_count() -> None:
+    """cap_synthetic_tickets should limit synthetic count to max(real_count * ratio, floor)."""
+    real_tickets = [
+        {
+            "id": f"edge_auto_real_{i}",
+            "hypothesis_type": "breakout",
+            "mechanism_tag": "behavior",
+            "regime": "RiskOn",
+            "priority_score": 70.0 + i,
+            "entry_family": "pivot_breakout",
+        }
+        for i in range(3)
+    ]
+    synthetic_tickets = [
+        {
+            "id": f"hint_promo_test_{i}",
+            "hypothesis_type": "breakout",
+            "mechanism_tag": "behavior",
+            "regime": "RiskOn",
+            "priority_score": 30.0,
+            "entry_family": "research_only",
+            "_synthetic": True,
+        }
+        for i in range(10)
+    ]
+    # ratio=1.5 → max_synthetic = max(3*1.5, 3) = 4 (ceil of 4.5)
+    capped = sec.cap_synthetic_tickets(
+        real_tickets=real_tickets,
+        synthetic_tickets=synthetic_tickets,
+        max_ratio=1.5,
+        floor=3,
+    )
+    assert len(capped) == 5  # ceil(3 * 1.5) = 5
+
+
+def test_cap_synthetic_tickets_floor_applies() -> None:
+    """When real_count * ratio < floor, use floor."""
+    real_tickets = [
+        {
+            "id": "edge_auto_real_0",
+            "hypothesis_type": "breakout",
+            "mechanism_tag": "behavior",
+            "regime": "RiskOn",
+            "priority_score": 70.0,
+            "entry_family": "pivot_breakout",
+        }
+    ]
+    synthetic_tickets = [
+        {
+            "id": f"hint_promo_test_{i}",
+            "hypothesis_type": "breakout",
+            "mechanism_tag": "behavior",
+            "regime": "RiskOn",
+            "priority_score": 30.0,
+            "_synthetic": True,
+        }
+        for i in range(10)
+    ]
+    # ratio=1.5 → max_synthetic = max(ceil(1*1.5), 3) = max(2, 3) = 3
+    capped = sec.cap_synthetic_tickets(
+        real_tickets=real_tickets,
+        synthetic_tickets=synthetic_tickets,
+        max_ratio=1.5,
+        floor=3,
+    )
+    assert len(capped) == 3
+
+
+def test_cap_synthetic_tickets_no_truncation_needed() -> None:
+    """When synthetic count is already within limit, no truncation."""
+    real_tickets = [{"id": f"r{i}", "priority_score": 70.0} for i in range(5)]
+    synthetic_tickets = [
+        {"id": f"s{i}", "priority_score": 30.0, "_synthetic": True} for i in range(2)
+    ]
+    capped = sec.cap_synthetic_tickets(
+        real_tickets=real_tickets,
+        synthetic_tickets=synthetic_tickets,
+        max_ratio=1.5,
+        floor=3,
+    )
+    assert len(capped) == 2  # 2 < max(ceil(5*1.5), 3) = max(8, 3) = 8
+
+
+def test_main_max_synthetic_ratio(tmp_path: Path, monkeypatch) -> None:
+    """Test that --max-synthetic-ratio caps synthetic tickets in main()."""
+    tickets_dir = tmp_path / "tickets"
+    tickets_dir.mkdir()
+
+    # Create 2 real tickets
+    for i in range(2):
+        ticket = {
+            "id": f"edge_auto_test_{i}",
+            "hypothesis_type": "breakout",
+            "mechanism_tag": "behavior",
+            "regime": "RiskOn",
+            "priority_score": 70.0 + i,
+            "entry_family": "pivot_breakout",
+            "observation": {"symbol": f"SYM{i}"},
+            "date": "2026-02-20",
+        }
+        (tickets_dir / f"ticket_{i}.yaml").write_text(yaml.safe_dump(ticket))
+
+    # Create hints with 8 entries
+    hints_path = tmp_path / "hints.yaml"
+    hints_payload = {
+        "hints": [
+            {
+                "title": f"Hint {i}",
+                "observation": f"Signal {i}",
+                "hypothesis_type": "breakout",
+                "symbols": [f"H{i}"],
+                "regime_bias": "RiskOn",
+                "mechanism_tag": "behavior",
+            }
+            for i in range(8)
+        ]
+    }
+    hints_path.write_text(yaml.safe_dump(hints_payload))
+    output_path = tmp_path / "concepts.yaml"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "synthesize_edge_concepts.py",
+            "--tickets-dir",
+            str(tickets_dir),
+            "--hints",
+            str(hints_path),
+            "--output",
+            str(output_path),
+            "--promote-hints",
+            "--max-synthetic-ratio",
+            "1.5",
+        ],
+    )
+    assert sec.main() == 0
+
+    result = yaml.safe_load(output_path.read_text())
+    # 2 real tickets, ratio=1.5, floor=3 → max_synthetic = max(ceil(2*1.5), 3) = 3
+    assert result["source"]["synthetic_ticket_count"] == 3
+
+
 def test_main_promote_hints_zero_promotions(tmp_path: Path, monkeypatch) -> None:
     """Test that --promote-hints with no hints still outputs promote_hints=True."""
     tickets_dir = tmp_path / "tickets"

@@ -70,6 +70,12 @@ python3 skills/edge-strategy-reviewer/scripts/review_strategy_drafts.py \
   --output-dir reports/ \
   --format json \
   --markdown-summary
+
+# Strict export mode: export-eligible drafts with any warn → REVISE
+python3 skills/edge-strategy-reviewer/scripts/review_strategy_drafts.py \
+  --drafts-dir reports/edge_strategy_drafts/ \
+  --output-dir reports/ \
+  --strict-export
 ```
 
 ## Output Format

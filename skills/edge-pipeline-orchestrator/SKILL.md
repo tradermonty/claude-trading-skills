@@ -80,6 +80,46 @@ output-dir/
     └── metadata.json
 ```
 
+## Claude Code LLM-Augmented Workflow
+
+Run the LLM-augmented pipeline entirely within Claude Code:
+
+1. Run auto_detect to produce `market_summary.json` + `anomalies.json`
+2. Claude Code analyzes data and generates edge hints
+3. Save hints to a YAML file:
+
+```yaml
+- title: Sector rotation into industrials
+  observation: Tech underperforming while industrials show relative strength
+  symbols: [CAT, DE, GE]
+  regime_bias: Neutral
+  mechanism_tag: flow
+  preferred_entry_family: pivot_breakout
+  hypothesis_type: sector_x_stock
+```
+
+4. Run orchestrator with `--llm-ideas-file` and `--promote-hints`:
+
+```bash
+python3 scripts/orchestrate_edge_pipeline.py \
+  --tickets-dir path/to/tickets/ \
+  --llm-ideas-file llm_hints.yaml \
+  --promote-hints \
+  --as-of 2026-02-28 \
+  --max-synthetic-ratio 1.5 \
+  --strict-export \
+  --output-dir reports/edge_pipeline/
+```
+
+### Optional Flags
+
+- `--as-of YYYY-MM-DD` — forwarded to hints stage for date filtering
+- `--strict-export` — export-eligible drafts with any warn finding get REVISE instead of PASS
+- `--max-synthetic-ratio N` — cap synthetic tickets to N × real ticket count (floor: 3)
+
+Note: `--llm-ideas-file` and `--promote-hints` are effective only during full pipeline runs.
+`--resume-from drafts` and `--review-only` skip hints/concepts stages, so these flags are ignored.
+
 ## Resources
 
 - `references/pipeline_flow.md` — Pipeline stages, data contracts, and architecture

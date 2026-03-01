@@ -257,6 +257,41 @@ def test_export_ineligible_pass_research_only(research_probe_draft: dict) -> Non
 
 
 # ---------------------------------------------------------------------------
+# Strict Export Mode
+# ---------------------------------------------------------------------------
+
+
+def test_strict_export_warn_triggers_revise(no_volume_filter_draft: dict) -> None:
+    """In strict mode, export-eligible draft with C7 warn → REVISE."""
+    # no_volume_filter_draft is export_ready_v1=True, entry_family=pivot_breakout
+    # It gets C7 warn (no volume filter) -> normally still PASS
+    normal_review = rsd.review_draft(no_volume_filter_draft)
+    assert normal_review.verdict == "PASS"
+
+    strict_review = rsd.review_draft(no_volume_filter_draft, strict_export=True)
+    assert strict_review.verdict == "REVISE"
+    assert len(strict_review.revision_instructions) > 0
+
+
+def test_strict_export_no_warn_still_passes(well_formed_breakout_draft: dict) -> None:
+    """In strict mode, export-eligible draft with no warns → still PASS."""
+    review = rsd.review_draft(well_formed_breakout_draft, strict_export=True)
+    assert review.verdict == "PASS"
+    assert review.export_eligible is True
+
+
+def test_strict_export_research_probe_unaffected(no_volume_filter_draft: dict) -> None:
+    """In strict mode, non-export-eligible draft with warns → still PASS (not affected)."""
+    # Make a research-only version
+    d = dict(no_volume_filter_draft)
+    d["export_ready_v1"] = False
+    d["entry_family"] = "research_only"
+    review = rsd.review_draft(d, strict_export=True)
+    # Research probes are not export-eligible, so strict mode does not apply
+    assert review.verdict == "PASS"
+
+
+# ---------------------------------------------------------------------------
 # CLI and Output
 # ---------------------------------------------------------------------------
 
