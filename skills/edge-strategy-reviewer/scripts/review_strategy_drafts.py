@@ -514,7 +514,7 @@ def build_output(
     reviews: list[DraftReview],
 ) -> dict[str, Any]:
     """Build the output payload."""
-    summary = {"total": draft_count, "PASS": 0, "REVISE": 0, "REJECT": 0, "export_eligible": 0}
+    summary = {"total": draft_count, "PASS": 0, "REVISE": 0, "REJECT": 0, "export_eligible": 0}  # nosec B105
     for r in reviews:
         summary[r.verdict] = summary.get(r.verdict, 0) + 1
         if r.export_eligible:
@@ -554,7 +554,7 @@ def build_markdown_summary(output: dict) -> str:
     lines.append("")
 
     for r in output.get("reviews", []):
-        verdict_icon = {"PASS": "PASS", "REVISE": "REVISE", "REJECT": "REJECT"}.get(
+        verdict_icon = {"PASS": "PASS", "REVISE": "REVISE", "REJECT": "REJECT"}.get(  # nosec B105
             r["verdict"], r["verdict"]
         )
         lines.append(f"### {r['draft_id']} — {verdict_icon} (confidence: {r['confidence_score']})")
