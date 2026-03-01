@@ -22,6 +22,18 @@ def test_t1_detects_dividend_cut() -> None:
     assert finding.trigger == "T1"
 
 
+def test_t1_detects_missing_dividend_data() -> None:
+    holding = {
+        "ticker": "BBB",
+        "dividend": {"latest_regular": None, "prior_regular": 0.50, "is_missing": True},
+    }
+    finding = t1_dividend_cut_or_suspension(holding)
+    assert finding is not None
+    assert finding.status == "REVIEW"
+    assert finding.trigger == "T1"
+    assert "missing" in finding.reason.lower()
+
+
 def test_t2_returns_review_when_history_shows_two_consecutive_breaches() -> None:
     holding = {
         "instrument_type": "stock",
@@ -133,6 +145,22 @@ def test_t5_warns_on_two_structural_decline_signals() -> None:
     assert finding.trigger == "T5"
 
 
+def test_t5_returns_review_on_three_or_more_signals() -> None:
+    holding = {
+        "operations": {
+            "revenue_cagr_5y": -2.5,
+            "margin_trend": "down",
+            "guidance_trend": "down",
+            "dividend_growth_stalled": False,
+        }
+    }
+    finding = t5_structural_decline(holding)
+    assert finding is not None
+    assert finding.status == "REVIEW"
+    assert finding.trigger == "T5"
+    assert finding.evidence["score"] >= 3
+
+
 def test_render_markdown_title_includes_as_of_date() -> None:
     report = {
         "generated_at": "2026-02-22T00:00:00+00:00",
@@ -165,6 +193,18 @@ def test_build_report_counts_states() -> None:
     report = build_report(payload)
     assert report["summary"]["REVIEW"] == 1
     assert report["summary"]["OK"] == 1
+
+
+def test_build_report_handles_empty_holdings() -> None:
+    payload = {
+        "as_of": "2026-02-22",
+        "holdings": [],
+    }
+    report = build_report(payload)
+    assert report["summary"]["OK"] == 0
+    assert report["summary"]["WARN"] == 0
+    assert report["summary"]["REVIEW"] == 0
+    assert report["results"] == []
 
 
 def test_main_with_output_dir(tmp_path) -> None:
