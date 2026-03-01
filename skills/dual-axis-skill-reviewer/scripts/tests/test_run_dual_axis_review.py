@@ -617,3 +617,84 @@ def test_api_key_detected_from_scripts(reviewer_module, tmp_path: Path):
     assert api_exec < no_api_exec, (
         f"API skill exec_score ({api_exec}) should be lower than non-API skill ({no_api_exec})"
     )
+
+
+def test_pii_hardcoded_path_detected(reviewer_module, tmp_path):
+    """Test that hardcoded /Users/username/ paths produce a high finding."""
+    project_root = tmp_path
+    skill_dir = project_root / "skills" / "pii-skill"
+    skill_md = skill_dir / "SKILL.md"
+    write_text(
+        skill_md,
+        "\n".join(
+            [
+                "---",
+                "name: pii-skill",
+                "description: test pii detection",
+                "---",
+                "## When to Use",
+                "x",
+                "## Prerequisites",
+                "x",
+                "## Workflow",
+                "```bash",
+                "python3 scripts/run.py",
+                "```",
+                "## Output",
+                "x",
+                "## Resources",
+                "x",
+                "",
+            ]
+        ),
+    )
+    write_text(
+        skill_dir / "scripts" / "run.py",
+        'PATH = "/Users/johndoe/Projects/my-project/data"\nprint(PATH)\n',
+    )
+    write_text(skill_dir / "references" / "ref.md", "# ref\n")
+
+    review = reviewer_module.score_skill(project_root, skill_md, skip_tests=True)
+
+    pii_findings = [f for f in review["findings"] if "Hardcoded absolute user path" in f["message"]]
+    assert len(pii_findings) == 1
+    assert pii_findings[0]["severity"] == "high"
+    assert "scripts/run.py" in pii_findings[0]["path"]
+
+
+def test_pii_clean_skill_no_finding(reviewer_module, tmp_path):
+    """Test that a clean skill produces no PII finding."""
+    project_root = tmp_path
+    skill_dir = project_root / "skills" / "clean-skill"
+    skill_md = skill_dir / "SKILL.md"
+    write_text(
+        skill_md,
+        "\n".join(
+            [
+                "---",
+                "name: clean-skill",
+                "description: no pii here",
+                "---",
+                "## When to Use",
+                "x",
+                "## Prerequisites",
+                "x",
+                "## Workflow",
+                "```bash",
+                "python3 scripts/run.py --output-dir reports/",
+                "```",
+                "## Output",
+                "x",
+                "## Resources",
+                "x",
+                "",
+            ]
+        ),
+    )
+    write_text(skill_dir / "scripts" / "run.py", "print('clean')\n")
+    write_text(skill_dir / "references" / "ref.md", "# ref\n")
+
+    review = reviewer_module.score_skill(project_root, skill_md, skip_tests=True)
+
+    pii_findings = [f for f in review["findings"] if "Hardcoded absolute user path" in f["message"]]
+    assert len(pii_findings) == 0

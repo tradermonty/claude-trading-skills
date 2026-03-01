@@ -666,6 +666,37 @@ def score_skill(
                 )
             )
 
+    # PII / hardcoded path check (no score impact, finding only)
+    pii_pattern = re.compile(r"/Users/[A-Za-z0-9._-]+/")
+    all_skill_files: list[tuple[str, list[str]]] = [(rel_skill_file, lines)]
+    for subdir_name in ("scripts", "references"):
+        subdir = skill_dir / subdir_name
+        if subdir.is_dir():
+            for child in sorted(subdir.rglob("*")):
+                if child.is_file() and child.suffix in (".py", ".md", ".yaml", ".yml", ".sh"):
+                    try:
+                        child_lines = child.read_text(encoding="utf-8").splitlines()
+                    except OSError:
+                        continue
+                    rel_child = str(child.relative_to(project_root))
+                    all_skill_files.append((rel_child, child_lines))
+    for file_rel, file_lines in all_skill_files:
+        for line_num, line_text in enumerate(file_lines, start=1):
+            if pii_pattern.search(line_text):
+                findings.append(
+                    Finding(
+                        severity="high",
+                        path=file_rel,
+                        line=line_num,
+                        message="Hardcoded absolute user path detected (potential PII leak).",
+                        improvement=(
+                            "Replace with a relative path or dynamic resolution "
+                            "like `Path(__file__).resolve().parents[N]`."
+                        ),
+                    )
+                )
+                break  # one finding per file is sufficient
+
     # 4) Supporting artifacts (max 10)
     artifact_score = 0
 
