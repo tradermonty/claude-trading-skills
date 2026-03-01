@@ -205,6 +205,72 @@ def test_normalize_news_row_handles_empty_symbol() -> None:
     assert result2["symbol"] == "AAPL"
 
 
+def test_normalize_hint_preserves_hypothesis_type() -> None:
+    """Test that hypothesis_type is passed through when present."""
+    hint = bh.normalize_hint({"title": "Test", "hypothesis_type": "breakout"})
+    assert hint["hypothesis_type"] == "breakout"
+
+
+def test_normalize_hint_omits_empty_hypothesis_type() -> None:
+    """Test that empty or whitespace-only hypothesis_type is excluded."""
+    hint1 = bh.normalize_hint({"title": "Test", "hypothesis_type": ""})
+    assert "hypothesis_type" not in hint1
+
+    hint2 = bh.normalize_hint({"title": "Test", "hypothesis_type": "   "})
+    assert "hypothesis_type" not in hint2
+
+    hint3 = bh.normalize_hint({"title": "Test"})
+    assert "hypothesis_type" not in hint3
+
+
+def test_build_rule_hints_include_hypothesis_type() -> None:
+    """Test that rule-generated hints include hypothesis_type."""
+    hints = bh.build_rule_hints(
+        market_summary={"regime_label": "RiskOn", "pct_above_ma50": 0.66, "vol_trend": 1.12},
+        anomalies=[
+            {"symbol": "NVDA", "metric": "gap", "z": 3.5},
+            {"symbol": "CPRT", "metric": "gap", "z": -3.2},
+            {"symbol": "AMD", "metric": "rel_volume", "z": 3.1},
+        ],
+        news_rows=[
+            {"symbol": "AAPL", "reaction_1d": 0.10},
+            {"symbol": "TSLA", "reaction_1d": -0.12},
+        ],
+        max_anomaly_hints=5,
+        news_threshold=0.06,
+    )
+
+    type_map = {h["title"]: h.get("hypothesis_type") for h in hints}
+    assert type_map["Breadth-supported breakout regime"] == "breakout"
+    assert type_map["Positive gap shock in NVDA"] == "breakout"
+    assert type_map["Downside overreaction watch in CPRT"] == "panic_reversal"
+    assert type_map["Participation spike in AMD"] == "breakout"
+    assert type_map["News drift continuation in AAPL"] == "news_reaction"
+    assert type_map["News shock reversal in TSLA"] == "news_reaction"
+
+
+def test_dedupe_hints_distinguishes_hypothesis_type() -> None:
+    """Test that same title with different hypothesis_type are kept as separate hints."""
+    hints = [
+        {
+            "title": "Test",
+            "hypothesis_type": "breakout",
+            "symbols": [],
+            "regime_bias": "",
+            "mechanism_tag": "behavior",
+        },
+        {
+            "title": "Test",
+            "hypothesis_type": "panic_reversal",
+            "symbols": [],
+            "regime_bias": "",
+            "mechanism_tag": "behavior",
+        },
+    ]
+    result = bh.dedupe_hints(hints, max_total=10)
+    assert len(result) == 2
+
+
 def test_parse_timestamp_to_date_handles_formats() -> None:
     """Test timestamp parsing with various formats."""
     # ISO format with Z

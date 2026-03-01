@@ -26,6 +26,9 @@ concepts:
       representative_conditions:
         - close > high20_prev
         - rel_volume >= 1.5
+      # Fields below appear only when synthetic tickets exist (--promote-hints):
+      # real_ticket_count: 5
+      # synthetic_ticket_count: 2
     abstraction:
       thesis: "When liquidity and participation expand ..."
       invalidation_signals:
@@ -37,9 +40,12 @@ concepts:
     evidence:
       ticket_ids: [edge_auto_vcp_xp_20260220]
       matched_hint_titles: [Breadth-supported breakout regime]
+      # Field below appears only when synthetic tickets exist:
+      # synthetic_ticket_ids: [hint_promo_seasonal_buyback_0]
 ```
 
 ## Design Rule
 
 - Abstraction must include both `thesis` and explicit `invalidation_signals`.
 - `export_ready_v1` should be true only when recommended family is currently supported by pipeline interface v1.
+- `hypothesis_type` valid values: breakout, earnings_drift, news_reaction, futures_trigger, calendar_anomaly, panic_reversal, regime_shift, sector_x_stock, research_hypothesis. The `research_hypothesis` value is a fallback for hint-promoted tickets where keyword inference could not determine a specific type.

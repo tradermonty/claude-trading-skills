@@ -23,6 +23,7 @@ HYPOTHESIS_TO_TITLE = {
     "panic_reversal": "Shock overshoot mean reversion",
     "regime_shift": "Regime transition opportunity",
     "sector_x_stock": "Leader-laggard sector relay",
+    "research_hypothesis": "Unclassified edge hypothesis",
 }
 
 HYPOTHESIS_TO_THESIS = {
@@ -51,6 +52,9 @@ HYPOTHESIS_TO_THESIS = {
     "sector_x_stock": (
         "Leadership shocks in one symbol can propagate into linked symbols through sector-level flow dynamics."
     ),
+    "research_hypothesis": (
+        "Observed pattern may represent a repeatable conditional edge requiring explicit validation."
+    ),
 }
 
 HYPOTHESIS_TO_PLAYBOOKS = {
@@ -62,6 +66,7 @@ HYPOTHESIS_TO_PLAYBOOKS = {
     "panic_reversal": ["shock_reversal", "bounce_with_trend_filter"],
     "regime_shift": ["regime_transition_probe"],
     "sector_x_stock": ["leader_laggard_pair", "sector_relay_follow_through"],
+    "research_hypothesis": ["research_probe"],
 }
 
 HYPOTHESIS_TO_INVALIDATIONS = {
@@ -97,11 +102,112 @@ HYPOTHESIS_TO_INVALIDATIONS = {
         "Lead-lag correlation collapses out-of-sample.",
         "Propagation depends on one-off events only.",
     ],
+    "research_hypothesis": [
+        "Out-of-sample behavior does not replicate.",
+        "Costs erase edge expectancy.",
+    ],
 }
+
+
+KNOWN_HYPOTHESIS_TYPES: frozenset[str] = frozenset(
+    {
+        "breakout",
+        "earnings_drift",
+        "news_reaction",
+        "futures_trigger",
+        "calendar_anomaly",
+        "panic_reversal",
+        "regime_shift",
+        "sector_x_stock",
+    }
+)
+FALLBACK_HYPOTHESIS_TYPE = "research_hypothesis"
+
+HYPOTHESIS_KEYWORDS: dict[str, list[str]] = {
+    "breakout": ["breakout", "pivot", "participation", "high20"],
+    "earnings_drift": ["earnings", "drift", "post-event", "post_event", "pead"],
+    "news_reaction": ["news", "reaction", "headline", "catalyst"],
+    "futures_trigger": ["futures", "cross-asset", "cross_asset", "propagation"],
+    "calendar_anomaly": ["calendar", "seasonal", "buyback", "blackout", "rebalance", "window"],
+    "panic_reversal": ["panic", "reversal", "shock", "overshoot", "mean-reversion", "bounce"],
+    "regime_shift": [
+        "regime",
+        "transition",
+        "inflection",
+        "shift",
+        "rotation",
+        "breadth divergence",
+    ],
+    "sector_x_stock": ["sector", "leader", "laggard", "relay", "supply chain"],
+}
+SYNTHETIC_TICKET_PREFIX = "hint_promo_"
+DEFAULT_SYNTHETIC_PRIORITY = 30.0
 
 
 class ConceptSynthesisError(Exception):
     """Raised when concept synthesis fails."""
+
+
+def infer_hypothesis_type(hint: dict[str, Any]) -> str:
+    """Infer hypothesis_type from explicit field or keyword scan."""
+    explicit = hint.get("hypothesis_type")
+    if isinstance(explicit, str) and explicit.strip().lower() in KNOWN_HYPOTHESIS_TYPES:
+        return explicit.strip().lower()
+    text = (str(hint.get("title", "")) + " " + str(hint.get("observation", ""))).lower()
+    best_type: str | None = None
+    best_count = 0
+    for hyp_type, keywords in HYPOTHESIS_KEYWORDS.items():
+        count = sum(1 for kw in keywords if kw in text)
+        if count > best_count:
+            best_count = count
+            best_type = hyp_type
+    return best_type if best_type is not None else FALLBACK_HYPOTHESIS_TYPE
+
+
+def promote_hints_to_tickets(
+    hints: list[dict[str, Any]],
+    synthetic_priority: float,
+) -> list[dict[str, Any]]:
+    """Promote qualifying hints to synthetic tickets."""
+    tickets: list[dict[str, Any]] = []
+    for idx, hint in enumerate(hints):
+        title = str(hint.get("title", "")).strip()
+        if not title:
+            continue
+
+        hypothesis = infer_hypothesis_type(hint)
+        mechanism = str(hint.get("mechanism_tag", "")).strip() or "uncertain"
+        regime = str(hint.get("regime_bias", "")).strip() or "Unknown"
+
+        entry_family_raw = hint.get("preferred_entry_family")
+        if isinstance(entry_family_raw, str) and entry_family_raw in EXPORTABLE_FAMILIES:
+            entry_family = entry_family_raw
+        else:
+            entry_family = "research_only"
+
+        sanitized = sanitize_identifier(title)
+        ticket_id = f"{SYNTHETIC_TICKET_PREFIX}{sanitized}_{idx}"
+
+        observation: dict[str, Any] = {}
+        symbols = hint.get("symbols", [])
+        if isinstance(symbols, list) and symbols:
+            first = str(symbols[0]).strip().upper()
+            if first:
+                observation["symbol"] = first
+
+        tickets.append(
+            {
+                "id": ticket_id,
+                "hypothesis_type": hypothesis,
+                "mechanism_tag": mechanism,
+                "regime": regime,
+                "entry_family": entry_family,
+                "priority_score": synthetic_priority,
+                "observation": observation,
+                "_synthetic": True,
+            }
+        )
+    return tickets
 
 
 def sanitize_identifier(value: str) -> str:
@@ -260,17 +366,23 @@ def build_concept(
     entry_counter: Counter[str] = Counter()
     condition_counter: Counter[str] = Counter()
     ticket_ids: list[str] = []
+    synthetic_ticket_ids: list[str] = []
 
     for ticket in tickets:
         ticket_id = str(ticket.get("id", "")).strip()
+        is_synthetic = bool(ticket.get("_synthetic"))
         if ticket_id:
-            ticket_ids.append(ticket_id)
+            if is_synthetic:
+                synthetic_ticket_ids.append(ticket_id)
+            else:
+                ticket_ids.append(ticket_id)
 
         entry_family = ticket.get("entry_family")
         if (
             isinstance(entry_family, str)
             and entry_family.strip()
             and entry_family != "research_only"
+            and not is_synthetic
         ):
             entry_counter[entry_family.strip()] += 1
 
@@ -294,21 +406,35 @@ def build_concept(
         recommended_entry_family=recommended_entry_family,
     )
 
+    has_synthetic = bool(synthetic_ticket_ids)
+
+    support_block: dict[str, Any] = {
+        "ticket_count": len(tickets),
+        "avg_priority_score": round(avg_priority, 2),
+        "symbols": top_symbols,
+        "entry_family_distribution": dict(entry_counter),
+        "representative_conditions": [
+            condition for condition, _ in condition_counter.most_common(6)
+        ],
+    }
+    if has_synthetic:
+        support_block["real_ticket_count"] = len(ticket_ids)
+        support_block["synthetic_ticket_count"] = len(synthetic_ticket_ids)
+
+    evidence_block: dict[str, Any] = {
+        "ticket_ids": ticket_ids,
+        "matched_hint_titles": hint_titles,
+    }
+    if has_synthetic:
+        evidence_block["synthetic_ticket_ids"] = synthetic_ticket_ids
+
     return {
         "id": concept_id,
         "title": title,
         "hypothesis_type": hypothesis,
         "mechanism_tag": mechanism,
         "regime": regime,
-        "support": {
-            "ticket_count": len(tickets),
-            "avg_priority_score": round(avg_priority, 2),
-            "symbols": top_symbols,
-            "entry_family_distribution": dict(entry_counter),
-            "representative_conditions": [
-                condition for condition, _ in condition_counter.most_common(6)
-            ],
-        },
+        "support": support_block,
         "abstraction": {
             "thesis": thesis,
             "invalidation_signals": HYPOTHESIS_TO_INVALIDATIONS.get(
@@ -321,10 +447,7 @@ def build_concept(
             "recommended_entry_family": recommended_entry_family,
             "export_ready_v1": bool(export_ready_v1),
         },
-        "evidence": {
-            "ticket_ids": ticket_ids,
-            "matched_hint_titles": hint_titles,
-        },
+        "evidence": evidence_block,
     }
 
 
@@ -347,6 +470,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help="Minimum ticket count required to keep a concept",
+    )
+    parser.add_argument(
+        "--promote-hints",
+        action="store_true",
+        default=False,
+        help="Promote qualifying hints to synthetic tickets for concept creation",
+    )
+    parser.add_argument(
+        "--synthetic-priority",
+        type=float,
+        default=DEFAULT_SYNTHETIC_PRIORITY,
+        help="Priority score for synthetic tickets (default: 30.0)",
     )
     return parser.parse_args()
 
@@ -375,6 +510,14 @@ def main() -> int:
             if ticket is not None:
                 tickets.append(ticket)
 
+        synthetic_tickets: list[dict[str, Any]] = []
+        if args.promote_hints and hints:
+            synthetic_tickets = promote_hints_to_tickets(
+                hints=hints,
+                synthetic_priority=args.synthetic_priority,
+            )
+            tickets = tickets + synthetic_tickets
+
         if not tickets:
             raise ConceptSynthesisError("no valid ticket files found")
 
@@ -402,15 +545,21 @@ def main() -> int:
         candidate_dates = [str(ticket.get("date")) for ticket in tickets if ticket.get("date")]
         as_of = max(candidate_dates) if candidate_dates else None
 
+        source_block: dict[str, Any] = {
+            "tickets_dir": str(tickets_dir),
+            "hints_path": str(hints_path) if hints_path else None,
+            "ticket_file_count": len(ticket_files),
+            "ticket_count": len(tickets),
+        }
+        if args.promote_hints:
+            source_block["promote_hints"] = True
+            source_block["real_ticket_count"] = len(tickets) - len(synthetic_tickets)
+            source_block["synthetic_ticket_count"] = len(synthetic_tickets)
+
         payload = {
             "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
             "as_of": as_of,
-            "source": {
-                "tickets_dir": str(tickets_dir),
-                "hints_path": str(hints_path) if hints_path else None,
-                "ticket_file_count": len(ticket_files),
-                "ticket_count": len(tickets),
-            },
+            "source": source_block,
             "concept_count": len(concepts),
             "concepts": concepts,
         }
@@ -421,7 +570,8 @@ def main() -> int:
         print(f"[ERROR] {exc}")
         return 1
 
-    print(f"[OK] concepts={len(concepts)} output={output_path}")
+    synth_msg = f" synthetic_tickets={len(synthetic_tickets)}" if synthetic_tickets else ""
+    print(f"[OK] concepts={len(concepts)}{synth_msg} output={output_path}")
     return 0
 
 

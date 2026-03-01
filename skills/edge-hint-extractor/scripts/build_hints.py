@@ -185,6 +185,9 @@ def normalize_hint(raw_hint: dict[str, Any]) -> dict[str, Any]:
     }
     if preferred_entry_family is not None:
         normalized_hint["preferred_entry_family"] = preferred_entry_family
+    raw_hypothesis = raw_hint.get("hypothesis_type")
+    if isinstance(raw_hypothesis, str) and raw_hypothesis.strip():
+        normalized_hint["hypothesis_type"] = raw_hypothesis.strip()
     return normalized_hint
 
 
@@ -210,6 +213,7 @@ def build_rule_hints(
                     "observation": (
                         f"Risk-on regime with pct_above_ma50={breadth:.3f} and vol_trend={vol_trend:.3f}."
                     ),
+                    "hypothesis_type": "breakout",
                     "preferred_entry_family": "pivot_breakout",
                     "regime_bias": regime,
                     "mechanism_tag": "behavior",
@@ -222,6 +226,7 @@ def build_rule_hints(
                 {
                     "title": "Risk-off selectivity",
                     "observation": "Risk-off conditions suggest defensive and confirmation-based entries.",
+                    "hypothesis_type": "regime_shift",
                     "regime_bias": regime,
                     "mechanism_tag": "risk_premium",
                 }
@@ -247,6 +252,7 @@ def build_rule_hints(
                     {
                         "title": f"Positive gap shock in {symbol}",
                         "observation": f"{symbol} printed a large positive gap anomaly (z={z_score:.2f}).",
+                        "hypothesis_type": "breakout",
                         "preferred_entry_family": "gap_up_continuation",
                         "symbols": [symbol],
                         "regime_bias": regime,
@@ -260,6 +266,7 @@ def build_rule_hints(
                     {
                         "title": f"Downside overreaction watch in {symbol}",
                         "observation": f"{symbol} showed a negative gap anomaly (z={z_score:.2f}).",
+                        "hypothesis_type": "panic_reversal",
                         "symbols": [symbol],
                         "regime_bias": regime,
                         "mechanism_tag": "behavior",
@@ -272,6 +279,7 @@ def build_rule_hints(
                     {
                         "title": f"Participation spike in {symbol}",
                         "observation": f"Relative volume anomaly detected (z={z_score:.2f}).",
+                        "hypothesis_type": "breakout",
                         "preferred_entry_family": "pivot_breakout",
                         "symbols": [symbol],
                         "regime_bias": regime,
@@ -292,6 +300,7 @@ def build_rule_hints(
             raw_hint = {
                 "title": f"News drift continuation in {symbol}",
                 "observation": f"{symbol} reacted +{reaction:.3f} on event day; monitor continuation.",
+                "hypothesis_type": "news_reaction",
                 "preferred_entry_family": "gap_up_continuation",
                 "symbols": [symbol],
                 "regime_bias": regime,
@@ -301,6 +310,7 @@ def build_rule_hints(
             raw_hint = {
                 "title": f"News shock reversal in {symbol}",
                 "observation": f"{symbol} reacted {reaction:.3f} on event day; monitor overshoot reversal.",
+                "hypothesis_type": "news_reaction",
                 "symbols": [symbol],
                 "regime_bias": regime,
                 "mechanism_tag": "behavior",
@@ -360,15 +370,16 @@ def generate_llm_hints(llm_command: str | None, payload: dict[str, Any]) -> list
 def dedupe_hints(hints: list[dict[str, Any]], max_total: int) -> list[dict[str, Any]]:
     """Deduplicate hints by semantic identity."""
     deduped: list[dict[str, Any]] = []
-    seen: set[tuple[str, str, tuple[str, ...], str, str]] = set()
+    seen: set[tuple[str, str, str, tuple[str, ...], str, str]] = set()
 
     for hint in hints:
         title = str(hint.get("title", "")).strip().lower()
+        hypothesis = str(hint.get("hypothesis_type", "")).strip().lower()
         family = str(hint.get("preferred_entry_family", "")).strip().lower()
         symbols = tuple(str(item).upper() for item in hint.get("symbols", []))
         regime = str(hint.get("regime_bias", "")).strip().lower()
         mechanism = str(hint.get("mechanism_tag", "")).strip().lower()
-        key = (title, family, symbols, regime, mechanism)
+        key = (title, hypothesis, family, symbols, regime, mechanism)
         if key in seen:
             continue
         seen.add(key)
@@ -455,7 +466,10 @@ def main() -> int:
             "news_reactions": news_rows[:20],
             "instruction": (
                 "Generate concise edge hints with fields: title, observation, "
-                "preferred_entry_family(optional), symbols(optional), regime_bias(optional), mechanism_tag(optional)."
+                "hypothesis_type(optional: breakout|earnings_drift|news_reaction|"
+                "futures_trigger|calendar_anomaly|panic_reversal|regime_shift|sector_x_stock), "
+                "preferred_entry_family(optional), symbols(optional), "
+                "regime_bias(optional), mechanism_tag(optional)."
             ),
         }
         llm_hints = generate_llm_hints(args.llm_ideas_cmd, llm_payload)

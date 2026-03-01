@@ -13,6 +13,7 @@ meta:
 hints:
   - title: "Breadth-supported breakout regime"
     observation: "Risk-on regime with pct_above_ma50=0.65"
+    hypothesis_type: "breakout"              # optional
     preferred_entry_family: "pivot_breakout"  # optional
     symbols: ["NVDA", "AVGO"]              # optional
     regime_bias: "RiskOn"                    # optional
@@ -21,6 +22,7 @@ hints:
 
 ## Field Notes
 
+- `hypothesis_type`: optional; if present should be one of: breakout, earnings_drift, news_reaction, futures_trigger, calendar_anomaly, panic_reversal, regime_shift, sector_x_stock. Unrecognized values are first checked against keyword inference from the hint's title and observation; if no match is found, they fall back to `research_hypothesis`. Used for clustering when `--promote-hints` is enabled.
 - `preferred_entry_family`: optional; if present must be `pivot_breakout` or `gap_up_continuation`.
 - `symbols`: optional focus list. Empty means broad market hint.
 - `regime_bias`: optional regime gate (`RiskOn`, `Neutral`, `RiskOff`).
