@@ -115,13 +115,32 @@ def pytest_runtest_setup(item) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Ignore patterns – must live in conftest.py (not a valid ini option).
-# Skills listed here are excluded from single-invocation bulk runs.
-# They remain testable via scripts/run_all_tests.sh (per-skill isolation).
+# Ignore patterns – skip known-failing skills in bulk runs but allow
+# explicit targeting (e.g. ``pytest skills/theme-detector/scripts/tests``).
 # ---------------------------------------------------------------------------
 
-collect_ignore_glob = [
+_BULK_SKIP_GLOBS = [
     "skills/canslim-screener/*",  # requires bs4 (optional dep)
     "skills/theme-detector/tests/*",  # duplicate basenames vs scripts/tests/
     "skills/theme-detector/scripts/tests/*",  # 27+ pre-existing failures
 ]
+
+
+def pytest_ignore_collect(collection_path, config):  # noqa: ANN001
+    """Skip known-failing skills in bulk runs; allow explicit targeting."""
+    import fnmatch
+
+    try:
+        rel = str(collection_path.relative_to(Path.cwd()))
+    except ValueError:
+        return None
+
+    for glob_pat in _BULK_SKIP_GLOBS:
+        if fnmatch.fnmatch(rel, glob_pat):
+            # If user explicitly targeted a path containing this skill, allow it
+            skill_name = glob_pat.split("/")[1]
+            if any(skill_name in str(a) for a in config.args):
+                return None  # don't skip
+            return True  # skip in bulk run
+
+    return None

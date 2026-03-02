@@ -211,6 +211,41 @@ def api_badges(api_info: dict | None) -> str:
     return " ".join(badges)
 
 
+def api_badges_ja(api_info: dict | None) -> str:
+    """Return Japanese Jekyll badge spans from API info dict."""
+    if not api_info:
+        return '<span class="badge badge-free">API不要</span>'
+
+    badges = []
+    fmp = api_info.get("fmp", "")
+    finviz = api_info.get("finviz", "")
+    alpaca = api_info.get("alpaca", "")
+
+    has_required = False
+    if "Required" in fmp:
+        badges.append('<span class="badge badge-api">FMP必須</span>')
+        has_required = True
+    elif "Optional" in fmp:
+        badges.append('<span class="badge badge-optional">FMP任意</span>')
+
+    if "Required" in finviz:
+        badges.append('<span class="badge badge-api">FINVIZ必須</span>')
+        has_required = True
+    elif "Optional" in finviz or "Recommended" in finviz:
+        badges.append('<span class="badge badge-optional">FINVIZ任意</span>')
+
+    if "Required" in alpaca:
+        badges.append('<span class="badge badge-api">Alpaca必須</span>')
+        has_required = True
+
+    if not badges:
+        badges.append('<span class="badge badge-free">API不要</span>')
+    elif not has_required:
+        badges.insert(0, '<span class="badge badge-free">API不要</span>')
+
+    return " ".join(badges)
+
+
 # ---------------------------------------------------------------------------
 # Page generation
 # ---------------------------------------------------------------------------
@@ -497,13 +532,70 @@ def generate_index_table_row(
 ) -> str:
     """Generate a single table row for the index page."""
     title = _title_case(skill_name)
+    star = " ★" if skill_name in HAND_WRITTEN else ""
     link = f"{{{{ '/{lang}/skills/{skill_name}/' | relative_url }}}}"
-    badges = api_badges(api_info).replace('"', "'")
-    # Truncate description for table
+    badges = api_badges_ja(api_info) if lang == "ja" else api_badges(api_info)
     short_desc = description.split(".")[0].strip() if description else title
     if len(short_desc) > 120:
         short_desc = short_desc[:117] + "..."
-    return f"| [{title}]({link}) | {short_desc} | {badges} |"
+    return f"| [{title}]({link}){star} | {short_desc} | {badges} |"
+
+
+def update_index_pages(
+    skills_dir: Path,
+    docs_dir: Path,
+    api_reqs: dict[str, dict],
+) -> None:
+    """Regenerate the Available Guides table in both EN and JA index.md."""
+    # Collect all skills with SKILL.md
+    all_skills: list[tuple[str, dict, dict | None]] = []
+    for d in sorted(skills_dir.iterdir()):
+        if not d.is_dir() or not (d / "SKILL.md").exists():
+            continue
+        data = parse_skill_md(d / "SKILL.md")
+        all_skills.append((d.name, data, api_reqs.get(d.name)))
+
+    for lang in ("en", "ja"):
+        index_path = docs_dir / lang / "skills" / "index.md"
+        if not index_path.exists():
+            continue
+
+        rows = []
+        for name, skill_data, api_info in all_skills:
+            row = generate_index_table_row(
+                name,
+                skill_data["frontmatter"].get("description", ""),
+                api_info,
+                lang,
+            )
+            rows.append(row)
+
+        _replace_table_rows(index_path, rows)
+        print(f"  Updated index: {index_path} ({len(rows)} skills)")
+
+
+def _replace_table_rows(index_path: Path, rows: list[str]) -> None:
+    """Replace table data rows in an index.md file, preserving header/footer."""
+    text = index_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Find the separator line (|---|...) that follows the table header
+    sep_idx = None
+    table_end = None
+    for i, line in enumerate(lines):
+        if line.startswith("|---"):
+            sep_idx = i
+        elif sep_idx is not None and i > sep_idx and not line.startswith("|"):
+            table_end = i
+            break
+
+    if sep_idx is None:
+        return
+    if table_end is None:
+        table_end = len(lines)
+
+    new_lines = lines[: sep_idx + 1] + rows + lines[table_end:]
+    index_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -587,6 +679,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Generated: {name} (EN + JA)")
 
     print(f"\nDone: {generated_en} EN + {generated_ja} JA generated, {skipped} skipped")
+
+    # Update index pages with current skill table
+    update_index_pages(args.skills_dir, args.docs_dir, api_reqs)
+
     return 0
 
 

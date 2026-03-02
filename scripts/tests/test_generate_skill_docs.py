@@ -11,16 +11,20 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from generate_skill_docs import (
+    HAND_WRITTEN,
     _slugify,
     _split_sections,
     _title_case,
     api_badges,
+    api_badges_ja,
     generate_en_page,
+    generate_index_table_row,
     generate_ja_page,
     main,
     parse_api_requirements,
     parse_cli_examples,
     parse_skill_md,
+    update_index_pages,
 )
 
 # ---------------------------------------------------------------------------
@@ -202,6 +206,57 @@ class TestApiBadges:
         assert "Alpaca Required" in badges
 
 
+class TestApiBadgesJa:
+    def test_no_api_ja(self):
+        assert "API不要" in api_badges_ja(None)
+
+    def test_fmp_required_ja(self):
+        badges = api_badges_ja({"fmp": "✅ Required", "finviz": "❌", "alpaca": "❌"})
+        assert "FMP必須" in badges
+        assert "badge-api" in badges
+
+    def test_optional_ja(self):
+        badges = api_badges_ja({"fmp": "🟡 Optional", "finviz": "🟡 Optional", "alpaca": "❌"})
+        assert "API不要" in badges
+        assert "FMP任意" in badges
+        assert "FINVIZ任意" in badges
+
+    def test_alpaca_required_ja(self):
+        badges = api_badges_ja({"fmp": "❌", "finviz": "❌", "alpaca": "✅ Required"})
+        assert "Alpaca必須" in badges
+
+
+# ---------------------------------------------------------------------------
+# Tests: Index table row generation
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateIndexTableRow:
+    def test_en_row_basic(self):
+        row = generate_index_table_row("test-skill", "A test skill", None, "en")
+        assert "Test Skill" in row
+        assert "/en/skills/test-skill/" in row
+        assert "No API" in row
+        assert "★" not in row
+
+    def test_hand_written_gets_star(self):
+        hw = next(iter(HAND_WRITTEN))
+        row = generate_index_table_row(hw, "desc", None, "en")
+        assert "★" in row
+
+    def test_ja_row_uses_ja_badges(self):
+        api = {"fmp": "✅ Required", "finviz": "❌", "alpaca": "❌"}
+        row = generate_index_table_row("test-skill", "desc", api, "ja")
+        assert "FMP必須" in row
+        assert "/ja/skills/test-skill/" in row
+
+    def test_long_description_truncated(self):
+        long_desc = "A" * 200
+        row = generate_index_table_row("x", long_desc, None, "en")
+        assert "..." in row
+        assert len(row) < 300
+
+
 # ---------------------------------------------------------------------------
 # Tests: Title and slug helpers
 # ---------------------------------------------------------------------------
@@ -354,6 +409,37 @@ class TestMain:
         assert "old content" not in en_path.read_text()
         assert "Test Skill" in en_path.read_text()
 
+    def test_main_updates_index(self, tmp_skill, tmp_claude_md):
+        docs_dir = tmp_skill / "docs"
+        en_index = docs_dir / "en" / "skills" / "index.md"
+        ja_index = docs_dir / "ja" / "skills" / "index.md"
+        en_index.parent.mkdir(parents=True)
+        ja_index.parent.mkdir(parents=True)
+        en_index.write_text(
+            "## Guides\n\n| Skill | Desc | API |\n|---|---|---|\n| old | old | old |\n\nFooter\n"
+        )
+        ja_index.write_text(
+            "## ガイド\n\n| スキル | 概要 | API |\n|---|---|---|\n| old | old | old |\n\nFooter\n"
+        )
+
+        main(
+            [
+                "--skills-dir",
+                str(tmp_skill / "skills"),
+                "--docs-dir",
+                str(docs_dir),
+                "--claude-md",
+                str(tmp_claude_md),
+            ]
+        )
+        en_content = en_index.read_text()
+        assert "Test Skill" in en_content
+        assert "old | old" not in en_content
+        assert "Footer" in en_content
+
+        ja_content = ja_index.read_text()
+        assert "Test Skill" in ja_content
+
     def test_skips_dir_without_skill_md(self, tmp_skill, tmp_claude_md):
         # Create a directory without SKILL.md
         (tmp_skill / "skills" / "empty-skill").mkdir()
@@ -373,3 +459,52 @@ class TestMain:
             ]
         )
         assert not (docs_dir / "en" / "skills" / "empty-skill.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# Tests: Index page update
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateIndexPages:
+    def test_replaces_table_rows(self, tmp_skill, tmp_claude_md):
+        docs_dir = tmp_skill / "docs"
+        en_index = docs_dir / "en" / "skills" / "index.md"
+        en_index.parent.mkdir(parents=True)
+        en_index.write_text(
+            "# Title\n\n| Skill | Desc | API |\n|---|---|---|\n| stale | stale | stale |\n\nFooter\n"
+        )
+
+        api_reqs = parse_api_requirements(tmp_claude_md)
+        update_index_pages(tmp_skill / "skills", docs_dir, api_reqs)
+
+        content = en_index.read_text()
+        assert "stale" not in content
+        assert "Test Skill" in content
+        assert "Footer" in content
+
+    def test_preserves_header_and_footer(self, tmp_skill, tmp_claude_md):
+        docs_dir = tmp_skill / "docs"
+        en_index = docs_dir / "en" / "skills" / "index.md"
+        en_index.parent.mkdir(parents=True)
+        en_index.write_text(
+            "---\ntitle: Index\n---\n\n# Heading\n\n"
+            "| Skill | Desc | API |\n|---|---|---|\n| old | row | here |\n\n"
+            "★ = detailed guide\n"
+        )
+
+        api_reqs = parse_api_requirements(tmp_claude_md)
+        update_index_pages(tmp_skill / "skills", docs_dir, api_reqs)
+
+        content = en_index.read_text()
+        assert "title: Index" in content
+        assert "# Heading" in content
+        assert "★ = detailed guide" in content
+        assert "old | row" not in content
+
+    def test_skips_missing_index(self, tmp_skill, tmp_claude_md):
+        docs_dir = tmp_skill / "docs"
+        (docs_dir / "en" / "skills").mkdir(parents=True)
+        # No index.md created — should not raise
+        api_reqs = parse_api_requirements(tmp_claude_md)
+        update_index_pages(tmp_skill / "skills", docs_dir, api_reqs)
