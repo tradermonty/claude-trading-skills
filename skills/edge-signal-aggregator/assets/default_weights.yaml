@@ -1,0 +1,47 @@
+# Default Signal Weights Configuration
+# See references/signal-weighting-framework.md for rationale
+
+schema_version: "1.0"
+
+# Skill weights (must sum to 1.0)
+weights:
+  edge_candidate_agent: 0.25
+  edge_concept_synthesizer: 0.20
+  theme_detector: 0.15
+  sector_analyst: 0.15
+  institutional_flow_tracker: 0.15
+  edge_hint_extractor: 0.10
+
+# Deduplication settings
+deduplication:
+  similarity_threshold: 0.80  # Minimum similarity to consider duplicates
+  ticker_overlap_threshold: 0.50  # Minimum ticker overlap ratio
+  merge_bonus_per_duplicate: 0.05  # Score boost per merged signal
+
+# Agreement bonus
+agreement:
+  two_skills_bonus: 0.10
+  three_plus_skills_bonus: 0.20
+  max_score: 1.00
+
+# Recency adjustment
+recency:
+  within_24h: 1.00
+  days_1_to_3: 0.95
+  days_3_to_7: 0.90
+  days_7_plus: 0.85
+
+# Contradiction severity thresholds
+contradictions:
+  low_penalty: 0.00  # Different time horizons
+  medium_penalty: 0.10  # Same horizon, different skills
+  high_action: "exclude"  # Same skill, opposite signals
+
+# Confidence breakdown weights
+confidence_factors:
+  multi_skill_agreement: 0.35
+  signal_strength: 0.40
+  recency: 0.25
+
+# Default minimum conviction for output filtering
+min_conviction: 0.50
