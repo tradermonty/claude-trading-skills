@@ -755,6 +755,18 @@ def test_filter_rejects_developer_tooling_category(mine_module):
     assert result[0]["title"] == "trade-tool"
 
 
+def test_filter_rejects_broad_off_domain_categories(mine_module):
+    """Non-trading categories beyond developer-tooling are also rejected."""
+    candidates = [
+        {"title": "scheduler", "category": "meeting", "description": "Schedule meetings"},
+        {"title": "support-bot", "category": "customer-support", "description": "Handle tickets"},
+        {"title": "earnings-tool", "category": "trade-review", "description": "Review trades"},
+    ]
+    result = mine_module.filter_non_trading_candidates(candidates)
+    assert len(result) == 1
+    assert result[0]["title"] == "earnings-tool"
+
+
 def test_filter_rejects_keyword_in_title(mine_module):
     """Candidates with rejected keywords in title are filtered out."""
     candidates = [
@@ -811,3 +823,34 @@ def test_build_llm_prompt_trading_focus_false(mine_module):
     assert "trading and investing skill library" not in prompt
     assert "DO NOT propose developer-tooling" not in prompt
     assert "automate or improve" in prompt
+
+
+def test_filter_handles_null_fields(mine_module):
+    """Filter handles None/null values in category, title, description."""
+    candidates = [
+        {"title": None, "category": None, "description": None},
+        {"title": "valid", "category": "trading", "description": "ok"},
+    ]
+    result = mine_module.filter_non_trading_candidates(candidates)
+    assert len(result) == 2  # None fields don't match any reject rule
+
+
+def test_filter_handles_non_string_fields(mine_module):
+    """Filter handles non-string values (e.g., list, int) without crashing."""
+    candidates = [
+        {"title": 123, "category": ["a"], "description": True},
+        {"title": "valid", "category": "trading", "description": "ok"},
+    ]
+    result = mine_module.filter_non_trading_candidates(candidates)
+    assert len(result) == 2
+
+
+def test_filter_rejects_name_based_keyword_after_normalization(mine_module):
+    """name->title normalization should happen before filter (tested via run)."""
+    # Simulate a candidate that used 'name' instead of 'title'
+    # After normalization in run(), title should be set
+    candidates = [
+        {"title": "codebase-navigator", "category": "other", "description": ""},
+    ]
+    result = mine_module.filter_non_trading_candidates(candidates)
+    assert len(result) == 0

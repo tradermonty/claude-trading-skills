@@ -32,13 +32,24 @@ MAX_USER_MESSAGES_PER_SESSION = 5
 MAX_ERROR_OUTPUT_LEN = 500
 
 # Categories rejected by the deterministic post-LLM filter.
-# These are developer-tooling topics that belong to a separate project.
+# Broad denylist covering non-trading domains.
 REJECTED_CATEGORIES = {
     "developer-tooling",
     "developer-productivity",
     "code-navigation",
     "documentation-generation",
     "skill-development",
+    "devops",
+    "ci-cd",
+    "testing",
+    "communication",
+    "project-management",
+    "customer-support",
+    "hr",
+    "meeting",
+    "email",
+    "calendar",
+    "general-productivity",
 }
 
 # Keywords in title/description that indicate a non-trading skill.
@@ -50,6 +61,11 @@ REJECTED_KEYWORDS = [
     "git-bulk",
     "skill-score",
     "batch-patcher",
+    "meeting-scheduler",
+    "email-",
+    "slack-",
+    "jira-",
+    "confluence-",
 ]
 
 AUTOMATED_PROMPT_PREFIXES = [
@@ -624,9 +640,9 @@ def filter_non_trading_candidates(candidates: list[dict]) -> list[dict]:
     """Deterministic post-LLM filter: reject candidates outside trading domain."""
     accepted = []
     for c in candidates:
-        category = c.get("category", "").lower()
-        title = c.get("title", "").lower()
-        desc = c.get("description", "").lower()
+        category = str(c.get("category") or "").lower()
+        title = str(c.get("title") or "").lower()
+        desc = str(c.get("description") or "").lower()
 
         if category in REJECTED_CATEGORIES:
             logger.info("Filtered out '%s' (rejected category: %s)", c.get("title"), category)
@@ -733,6 +749,15 @@ def run(args: argparse.Namespace) -> int:
         trading_focus=trading_focus,
     )
 
+    # Normalize candidates before filtering: name -> title, assign ids
+    if candidates:
+        date_str = datetime.now(tz=timezone.utc).strftime("%Y%m%d")
+        for i, c in enumerate(candidates):
+            c["id"] = f"raw_{date_str}_{i + 1:03d}"
+            # Handle backward compatibility: LLM might output 'name' instead of 'title'
+            if "title" not in c and "name" in c:
+                c["title"] = c.pop("name")
+
     # Deterministic domain filter (only when using default allowlist)
     if candidates and trading_focus:
         candidates = filter_non_trading_candidates(candidates)
@@ -745,14 +770,6 @@ def run(args: argparse.Namespace) -> int:
         "aggregated_signals": aggregated,
         "session_details": all_signals,
     }
-    # Enrich candidates with id and ensure title key exists
-    if candidates:
-        date_str = datetime.now(tz=timezone.utc).strftime("%Y%m%d")
-        for i, c in enumerate(candidates):
-            c["id"] = f"raw_{date_str}_{i + 1:03d}"
-            # Handle backward compatibility: LLM might output 'name' instead of 'title'
-            if "title" not in c and "name" in c:
-                c["title"] = c.pop("name")
     output["candidates"] = candidates if candidates else []
 
     output_path = output_dir / "raw_candidates.yaml"
