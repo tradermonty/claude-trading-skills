@@ -72,6 +72,11 @@ def parse_arguments():
         help="Screen all S&P 500 stocks (requires paid API tier, ~350 calls)",
     )
     parser.add_argument(
+        "--nasdaq100",
+        action="store_true",
+        help="Screen Nasdaq-100 stocks instead of S&P 500 (fetched from Wikipedia, no API key needed)",
+    )
+    parser.add_argument(
         "--mode",
         choices=["all", "prebreakout"],
         default="all",
@@ -430,10 +435,21 @@ def main():
     print("-" * 70)
 
     # Determine universe
+    constituents = []
     if args.universe:
         symbols = args.universe
         universe_desc = f"Custom ({len(symbols)} stocks)"
         print(f"  Using custom universe: {len(symbols)} stocks")
+    elif args.nasdaq100:
+        print("  Fetching Nasdaq-100 constituents...", end=" ", flush=True)
+        constituents = client.get_nasdaq100_constituents()
+        if not constituents:
+            print("FAILED")
+            print("ERROR: Unable to fetch Nasdaq-100 constituents", file=sys.stderr)
+            sys.exit(1)
+        symbols = [c["symbol"] for c in constituents]
+        universe_desc = f"Nasdaq-100 ({len(symbols)} stocks)"
+        print(f"OK ({len(symbols)} stocks)")
     else:
         print("  Fetching S&P 500 constituents...", end=" ", flush=True)
         constituents = client.get_sp500_constituents()

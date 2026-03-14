@@ -86,6 +86,69 @@ class YFinanceClient:
             print(f"ERROR: Failed to fetch S&P 500 constituents: {e}", file=sys.stderr)
             return None
 
+    def get_nasdaq100_constituents(self) -> Optional[list[dict]]:
+        """Fetch Nasdaq-100 constituent list from Wikipedia.
+
+        Returns:
+            List of dicts with keys: symbol, name, sector, subSector
+            or None on failure.
+        """
+        cache_key = "nasdaq100_constituents"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        try:
+            import io
+            import requests as _req
+            time.sleep(1)  # avoid rate-limiting when called after another Wikipedia fetch
+            resp = _req.get(
+                "https://en.wikipedia.org/wiki/Nasdaq-100",
+                timeout=30,
+                verify=False,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            resp.raise_for_status()
+            # The Nasdaq-100 constituents table has id="constituents"
+            tables = pd.read_html(io.StringIO(resp.text), attrs={"id": "constituents"})
+            df = tables[0]
+            result = []
+            for _, row in df.iterrows():
+                symbol = str(row["Ticker"]).replace(".", "-")
+                result.append(
+                    {
+                        "symbol": symbol,
+                        "name": str(row["Company"]),
+                        "sector": str(row.get("GICS Sector", "Unknown")),
+                        "subSector": str(row.get("GICS Sub-Industry", "Unknown")),
+                    }
+                )
+            self.api_calls_made += 1
+            self.cache[cache_key] = result
+            return result
+        except Exception as e:
+            print(f"WARN: Wikipedia fetch failed ({e}), using static Nasdaq-100 fallback list", file=sys.stderr)
+            return self._nasdaq100_fallback()
+
+    # fmt: off
+    _NASDAQ100_TICKERS = [
+        "AAPL", "MSFT", "NVDA", "AMZN", "META", "TSLA", "GOOGL", "GOOG", "AVGO",
+        "COST", "NFLX", "TMUS", "AMD", "PEP", "LIN", "CSCO", "ADBE", "QCOM", "TXN",
+        "AMGN", "INTU", "CMCSA", "ISRG", "AMAT", "BKNG", "HON", "MU", "VRTX", "ADP",
+        "PANW", "GILD", "ADI", "REGN", "SBUX", "LRCX", "MDLZ", "KLAC", "MRVL", "INTC",
+        "SNPS", "CDNS", "CEG", "PYPL", "CTAS", "ASML", "MELI", "MAR", "FTNT", "ABNB",
+        "CRWD", "ORLY", "PCAR", "WDAY", "DASH", "TTD", "MNST", "ROST", "CPRT", "PAYX",
+        "DXCM", "FAST", "BKR", "VRSK", "ON", "GEHC", "EXC", "IDXX", "ODFL", "CTSH",
+        "MCHP", "KDP", "GFS", "TEAM", "CDW", "DDOG", "ZS", "BIIB", "XEL", "EA",
+        "FANG", "ILMN", "WBD", "ANSS", "CCEP", "TTWO", "DLTR", "ZM", "SIRI", "RIVN",
+        "LCID", "PDD", "SMCI", "MDB", "ENPH", "ALGN", "NXPI", "AEP", "TSCO", "EBAY",
+    ]
+    # fmt: on
+
+    def _nasdaq100_fallback(self) -> list[dict]:
+        """Return a static Nasdaq-100 list when Wikipedia is unavailable."""
+        return [{"symbol": s, "name": s, "sector": "Unknown", "subSector": "Unknown"}
+                for s in self._NASDAQ100_TICKERS]
+
     # ------------------------------------------------------------------
     # Historical Prices
     # ------------------------------------------------------------------
