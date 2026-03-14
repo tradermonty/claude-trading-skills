@@ -19,6 +19,7 @@ env/
 .idea/
 .vscode/
 .envrc
+.env
 .mcp.json
 
 # Logs & temp

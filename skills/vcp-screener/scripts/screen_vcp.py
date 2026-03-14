@@ -38,6 +38,7 @@ from calculators.trend_template_calculator import calculate_trend_template
 from calculators.vcp_pattern_calculator import calculate_vcp_pattern
 from calculators.volume_pattern_calculator import calculate_volume_pattern
 from fmp_client import FMPClient
+from yfinance_client import YFinanceClient
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
 
@@ -48,7 +49,9 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--api-key", help="FMP API key (defaults to FMP_API_KEY environment variable)"
+        "--api-key",
+        help="FMP API key (defaults to FMP_API_KEY env var). "
+             "If omitted and FMP_API_KEY is not set, yfinance is used automatically (no key needed).",
     )
     parser.add_argument(
         "--max-candidates",
@@ -405,13 +408,19 @@ def main():
     print("=" * 70)
     print()
 
-    # Initialize FMP client
-    try:
-        client = FMPClient(api_key=args.api_key)
-        print("FMP API client initialized")
-    except ValueError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Initialize data client: prefer FMP when a key is available, else yfinance
+    import os
+    use_fmp = args.api_key or os.getenv("FMP_API_KEY")
+    if use_fmp:
+        try:
+            client = FMPClient(api_key=args.api_key)
+            print("FMP API client initialized")
+        except ValueError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        client = YFinanceClient()
+        print("yfinance client initialized (no FMP key — using Yahoo Finance)")
 
     # ========================================================================
     # Phase 1: Pre-Filter (API-efficient)
