@@ -1,0 +1,309 @@
+# European Stock Universe — Yahoo Finance tickers
+# Usage with VCP screener:
+#   python3 skills/vcp-screener/scripts/screen_vcp.py --europe
+#
+# Ticker format: SYMBOL.EXCHANGE_SUFFIX
+# Suffixes: .L=London  .DE=Frankfurt/XETRA  .PA=Paris  .AS=Amsterdam
+#           .SW=Zurich  .MC=Madrid  .MI=Milan  .ST=Stockholm
+#           .CO=Copenhagen  .HE=Helsinki  .OL=Oslo  .BR=Brussels
+#           .WA=Warsaw  .VI=Vienna  .LS=Lisbon
+
+# ── United Kingdom (LSE) ──────────────────────────────────────────────────────
+SHEL.L    # Shell
+BP.L      # BP
+AZN.L     # AstraZeneca
+HSBA.L    # HSBC
+GSK.L     # GSK
+ULVR.L    # Unilever
+RIO.L     # Rio Tinto
+AAL.L     # Anglo American
+GLEN.L    # Glencore
+VOD.L     # Vodafone
+BT-A.L    # BT Group
+BARC.L    # Barclays
+LLOY.L    # Lloyds Banking Group
+NWG.L     # NatWest
+STAN.L    # Standard Chartered
+BATS.L    # British American Tobacco
+IMB.L     # Imperial Brands
+DGE.L     # Diageo
+REL.L     # RELX
+EXPN.L    # Experian
+WPP.L     # WPP
+CPG.L     # Compass Group
+SGE.L     # Sage Group
+LGEN.L    # Legal & General
+PRU.L     # Prudential
+III.L     # 3i Group
+TSCO.L    # Tesco
+MKS.L     # Marks & Spencer
+AUTO.L    # Auto Trader
+RR.L      # Rolls-Royce
+BA.L      # BAE Systems
+NG.L      # National Grid
+SSE.L     # SSE
+CRH.L     # CRH
+ITRK.L    # Intertek
+HLMA.L    # Halma
+BNZL.L    # Bunzl
+INF.L     # Informa
+RTO.L     # Rentokil Initial
+HIK.L     # Hikma Pharmaceuticals
+CRDA.L    # Croda International
+FLTR.L    # Flutter Entertainment
+KYGA.L    # Kerry Group
+AHT.L     # Ashtead Group
+SBRY.L    # Sainsbury's
+JD.L      # JD Sports
+OCDO.L    # Ocado
+CCH.L     # Coca-Cola HBC
+RS1.L     # RS Group
+WEIR.L    # Weir Group
+IMI.L     # IMI
+
+# ── Germany (XETRA) ───────────────────────────────────────────────────────────
+SAP.DE    # SAP
+SIE.DE    # Siemens
+ALV.DE    # Allianz
+BMW.DE    # BMW
+MBG.DE    # Mercedes-Benz
+VOW3.DE   # Volkswagen
+BAYN.DE   # Bayer
+BASF.DE   # BASF
+DTE.DE    # Deutsche Telekom
+DBK.DE    # Deutsche Bank
+CBK.DE    # Commerzbank
+MRK.DE    # Merck KGaA
+BEI.DE    # Beiersdorf
+ADS.DE    # Adidas
+MUV2.DE   # Munich Re
+HNR1.DE   # Hannover Re
+RWE.DE    # RWE
+EON.DE    # E.ON
+IFX.DE    # Infineon Technologies
+DHL.DE    # DHL Group
+MTX.DE    # MTU Aero Engines
+P911.DE   # Porsche AG
+HLAG.DE   # Hapag-Lloyd
+VNA.DE    # Vonovia
+1COV.DE   # Covestro
+EVK.DE    # Evonik Industries
+TKA.DE    # ThyssenKrupp
+BOSS.DE   # Hugo Boss
+HEN3.DE   # Henkel
+FRE.DE    # Fresenius
+SHL.DE    # Siemens Healthineers
+QGEN.DE   # Qiagen
+ZAL.DE    # Zalando
+AIXA.DE   # Aixtron
+LXS.DE    # Lanxess
+LEG.DE    # LEG Immobilien
+
+# ── France (Euronext Paris) ───────────────────────────────────────────────────
+MC.PA     # LVMH
+OR.PA     # L'Oréal
+TTE.PA    # TotalEnergies
+SAN.PA    # Sanofi
+AIR.PA    # Airbus
+BNP.PA    # BNP Paribas
+CS.PA     # AXA
+RMS.PA    # Hermès
+KER.PA    # Kering
+DSY.PA    # Dassault Systèmes
+SU.PA     # Schneider Electric
+CAP.PA    # Capgemini
+DG.PA     # Vinci
+EL.PA     # EssilorLuxottica
+ORA.PA    # Orange
+PUB.PA    # Publicis Groupe
+RI.PA     # Pernod Ricard
+GLE.PA    # Société Générale
+ACA.PA    # Crédit Agricole
+ENGI.PA   # Engie
+SGO.PA    # Saint-Gobain
+ML.PA     # Michelin
+RNO.PA    # Renault
+AC.PA     # Accor
+LR.PA     # Legrand
+BVI.PA    # Bureau Veritas
+VIV.PA    # Vivendi
+VIE.PA    # Veolia
+AF.PA     # Air France-KLM
+BIM.PA    # bioMérieux
+
+# ── Switzerland (SIX) ─────────────────────────────────────────────────────────
+NESN.SW   # Nestlé
+ROG.SW    # Roche
+NOVN.SW   # Novartis
+ABBN.SW   # ABB
+ZURN.SW   # Zurich Insurance
+UBSG.SW   # UBS
+GIVN.SW   # Givaudan
+LONN.SW   # Lonza
+SIKA.SW   # Sika
+CFR.SW    # Richemont
+SREN.SW   # Swiss Re
+SLHN.SW   # Swiss Life
+SCMN.SW   # Swisscom
+PGHN.SW   # Partners Group
+GEBN.SW   # Geberit
+KNIN.SW   # Kuehne + Nagel
+STMN.SW   # Straumann
+VACN.SW   # VAT Group
+LISN.SW   # Lindt & Sprüngli
+BARN.SW   # Barry Callebaut
+
+# ── Netherlands (Euronext Amsterdam) ─────────────────────────────────────────
+ASML.AS   # ASML
+ADYEN.AS  # Adyen
+HEIA.AS   # Heineken
+PHIA.AS   # Philips
+WKL.AS    # Wolters Kluwer
+IMCD.AS   # IMCD
+NN.AS     # NN Group
+AGN.AS    # Aegon
+RAND.AS   # Randstad
+PRX.AS    # Prosus
+AKZA.AS   # Akzo Nobel
+STLAM.AS  # Stellantis
+UMG.AS    # Universal Music Group
+OCI.AS    # OCI
+
+# ── Spain (BME) ───────────────────────────────────────────────────────────────
+ITX.MC    # Inditex (Zara)
+SAN.MC    # Banco Santander
+BBVA.MC   # BBVA
+IBE.MC    # Iberdrola
+REP.MC    # Repsol
+TEF.MC    # Telefónica
+AMS.MC    # Amadeus IT
+FER.MC    # Ferrovial
+ACS.MC    # ACS Group
+CLNX.MC   # Cellnex Telecom
+ENG.MC    # Enagás
+MAP.MC    # MAPFRE
+NTGY.MC   # Naturgy Energy
+
+# ── Italy (Borsa Italiana) ────────────────────────────────────────────────────
+ENI.MI    # ENI
+ENEL.MI   # Enel
+ISP.MI    # Intesa Sanpaolo
+UCG.MI    # UniCredit
+G.MI      # Generali
+RACE.MI   # Ferrari
+LDO.MI    # Leonardo
+MB.MI     # Mediobanca
+STM.MI    # STMicroelectronics
+MONC.MI   # Moncler
+AMP.MI    # Amplifon
+CNHI.MI   # CNH Industrial
+TEN.MI    # Tenaris
+PIRC.MI   # Pirelli
+BAMI.MI   # Banco BPM
+A2A.MI    # A2A
+
+# ── Sweden (Nasdaq Stockholm) ─────────────────────────────────────────────────
+VOLV-B.ST  # Volvo
+ERIC-B.ST  # Ericsson
+ATCO-A.ST  # Atlas Copco
+ASSA-B.ST  # Assa Abloy
+SAND.ST    # Sandvik
+HM-B.ST    # H&M
+INVE-B.ST  # Investor AB
+SEB-A.ST   # SEB
+SHB-A.ST   # Handelsbanken
+SWED-A.ST  # Swedbank
+NIBE-B.ST  # NIBE Industrier
+HEXA-B.ST  # Hexagon
+SKF-B.ST   # SKF
+ALFA.ST    # Alfa Laval
+EVO.ST     # Evolution Gaming
+ESSITY-B.ST # Essity
+TELE2-B.ST # Tele2
+ELUX-B.ST  # Electrolux
+BOL.ST     # Boliden
+SSAB-A.ST  # SSAB
+
+# ── Denmark (Nasdaq Copenhagen) ───────────────────────────────────────────────
+NOVO-B.CO   # Novo Nordisk
+MAERSK-B.CO # A.P. Møller-Maersk
+DSV.CO      # DSV
+COLO-B.CO   # Coloplast
+ORSTED.CO   # Ørsted
+CARL-B.CO   # Carlsberg
+PNDORA.CO   # Pandora
+GMAB.CO     # Genmab
+TRYG.CO     # Tryg
+DEMANT.CO   # Demant
+NZYM-B.CO   # Novozymes
+ROCK-B.CO   # Rockwool
+FLS.CO      # FLSmidth
+RBREW.CO    # Royal Unibrew
+
+# ── Finland (Nasdaq Helsinki) ─────────────────────────────────────────────────
+NOKIA.HE   # Nokia
+NESTE.HE   # Neste
+FORTUM.HE  # Fortum
+KNEBV.HE   # KONE
+WRT1V.HE   # Wärtsilä
+METSO.HE   # Metso Outotec
+KESKOB.HE  # Kesko
+STERV.HE   # Stora Enso
+OUT1V.HE   # Outokumpu
+
+# ── Norway (Oslo Børs) ────────────────────────────────────────────────────────
+EQNR.OL    # Equinor
+DNB.OL     # DNB
+TEL.OL     # Telenor
+ORK.OL     # Orkla
+MOWI.OL    # Mowi (salmon farming)
+AKRBP.OL   # Aker BP
+SUBC.OL    # Subsea 7
+GJF.OL     # Gjensidige Forsikring
+STB.OL     # Storebrand
+SALM.OL    # SalMar
+SCATC.OL   # Scatec
+
+# ── Belgium (Euronext Brussels) ───────────────────────────────────────────────
+UCB.BR     # UCB (pharma)
+ABI.BR     # AB InBev
+SOLB.BR    # Solvay
+KBC.BR     # KBC Group
+INGA.BR    # ING Group
+APAM.BR    # Aperam
+COLR.BR    # Colruyt
+
+# ── Austria (Vienna) ──────────────────────────────────────────────────────────
+OMV.VI     # OMV (energy)
+EBS.VI     # Erste Group Bank
+RBI.VI     # Raiffeisen Bank International
+VIG.VI     # Vienna Insurance Group
+ATS.VI     # AT&S (electronics)
+
+# ── Portugal (Euronext Lisbon) ────────────────────────────────────────────────
+EDP.LS     # EDP Energias de Portugal
+EDPR.LS    # EDP Renováveis
+GALP.LS    # Galp Energia
+BCP.LS     # Banco Comercial Português
+NOS.LS     # NOS SGPS
+
+# ── Poland (Warsaw Stock Exchange) ────────────────────────────────────────────
+PKN.WA     # PKN Orlen (energy & refining)
+PKO.WA     # PKO Bank Polski (largest bank)
+PZU.WA     # PZU (insurance)
+KGH.WA     # KGHM (copper & silver mining)
+LPP.WA     # LPP (fashion retail — Reserved, Cropp, House)
+CDR.WA     # CD Projekt (gaming — The Witcher, Cyberpunk)
+DNP.WA     # Dino Polska (grocery supermarkets)
+ALE.WA     # Allegro (e-commerce marketplace)
+PGE.WA     # PGE (largest power utility)
+MBK.WA     # mBank
+SPL.WA     # Santander Bank Polska
+ING.WA     # ING Bank Śląski
+CPS.WA     # Cyfrowy Polsat (media & telecoms)
+TPE.WA     # Tauron Polska Energia
+JSW.WA     # JSW (coking coal mining)
+BDX.WA     # Budimex (construction)
+ACP.WA     # Asseco Poland (IT services)
+XTB.WA     # XTB (online broker)
+GPW.WA     # GPW (Warsaw Stock Exchange)

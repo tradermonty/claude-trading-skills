@@ -15,6 +15,9 @@ Usage:
     # Full S&P 500 (requires paid API tier)
     python3 screen_vcp.py --full-sp500
 
+    # European stocks (reads universes/europe.txt, no API key needed)
+    python3 screen_vcp.py --europe
+
 Output:
     - JSON: vcp_screener_YYYY-MM-DD_HHMMSS.json
     - Markdown: vcp_screener_YYYY-MM-DD_HHMMSS.md
@@ -24,6 +27,7 @@ import argparse
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 # Add parent directory to path for imports
@@ -75,6 +79,11 @@ def parse_arguments():
         "--nasdaq100",
         action="store_true",
         help="Screen Nasdaq-100 stocks instead of S&P 500 (fetched from Wikipedia, no API key needed)",
+    )
+    parser.add_argument(
+        "--europe",
+        action="store_true",
+        help="Screen European stocks from universes/europe.txt (no API key needed)",
     )
     parser.add_argument(
         "--mode",
@@ -400,6 +409,36 @@ def compute_entry_ready(
     return True
 
 
+def load_europe_universe() -> list[dict]:
+    """Load European stock tickers from universes/europe.txt.
+
+    Resolves the file relative to the project root (3 levels above this script).
+    Returns a list of dicts with keys: symbol, name, sector, subSector.
+    """
+    # scripts/ -> vcp-screener/ -> skills/ -> project root
+    project_root = Path(__file__).resolve().parents[3]
+    europe_file = project_root / "universes" / "europe.txt"
+
+    if not europe_file.exists():
+        print(f"ERROR: {europe_file} not found", file=sys.stderr)
+        return []
+
+    tickers = []
+    with open(europe_file) as f:
+        for line in f:
+            # Strip inline comments and whitespace
+            line = line.split("#")[0].strip()
+            if not line:
+                continue
+            tickers.append({
+                "symbol": line,
+                "name": line,
+                "sector": "Unknown",
+                "subSector": "Unknown",
+            })
+    return tickers
+
+
 def main():
     args = parse_arguments()
 
@@ -440,6 +479,16 @@ def main():
         symbols = args.universe
         universe_desc = f"Custom ({len(symbols)} stocks)"
         print(f"  Using custom universe: {len(symbols)} stocks")
+    elif args.europe:
+        print("  Loading European universe from universes/europe.txt...", end=" ", flush=True)
+        constituents = load_europe_universe()
+        if not constituents:
+            print("FAILED")
+            print("ERROR: Unable to load European universe", file=sys.stderr)
+            sys.exit(1)
+        symbols = [c["symbol"] for c in constituents]
+        universe_desc = f"Europe ({len(symbols)} stocks)"
+        print(f"OK ({len(symbols)} stocks)")
     elif args.nasdaq100:
         print("  Fetching Nasdaq-100 constituents...", end=" ", flush=True)
         constituents = client.get_nasdaq100_constituents()
