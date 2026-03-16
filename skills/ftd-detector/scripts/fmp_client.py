@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-FMP API Client for Market Top Detector
+FMP API Client for FTD Detector
 
 Provides rate-limited access to Financial Modeling Prep API endpoints
-for market top detection analysis.
+for follow-through day detection analysis.
 
 Features:
 - Rate limiting (0.3s between requests)

@@ -309,3 +309,134 @@ class TestDualIndexConsistency:
         # (If Fix 2 not applied, NASDAQ would overwrite this)
         dist = enriched.get("post_ftd_distribution", {})
         assert "days_monitored" in dist
+
+
+# ─── Test 6: Issue 4 — ZeroDivisionError when prev_volume == 0 ───────────────
+
+
+class TestCountPostFTDDistributionZeroVolume:
+    def test_zero_prev_volume_no_crash(self):
+        """prev_volume=0 should not cause ZeroDivisionError."""
+        from helpers import make_bar
+
+        # Build a minimal history: FTD bar with volume 0, followed by a down day
+        bars = [
+            make_bar(100, volume=1_000_000, date="day-00"),  # pre-FTD
+            make_bar(102, volume=0, date="day-01"),  # FTD day (volume=0)
+            make_bar(101, volume=1_200_000, date="day-02"),  # Day 1 post: down, prev vol is 0
+        ]
+        ftd_idx = 1
+        result = count_post_ftd_distribution(bars, ftd_idx)
+        assert result["distribution_count"] == 0  # Cannot determine with zero prev_volume
+
+
+# ─── Test 7: Issue 5 — Multiple distribution days penalty ────────────────────
+
+
+class TestQualityScoreMultipleDistribution:
+    def test_multiple_distribution_additional_penalty(self):
+        """2+ distribution days -> additional -20 penalty."""
+        market_state = {
+            "sp500": {
+                "ftd": {
+                    "ftd_detected": True,
+                    "ftd_day_number": 5,
+                    "gain_pct": 1.6,
+                    "volume_above_avg": True,
+                }
+            },
+            "nasdaq": {"ftd": {}},
+            "dual_confirmation": False,
+            "post_ftd_distribution": {
+                "distribution_count": 2,
+                "days_monitored": 5,
+                "earliest_distribution_day": 4,
+            },
+        }
+        result = calculate_ftd_quality_score(market_state)
+        # 60 (base) + 10 (gain) + 10 (vol) + 0 (single) - 5 (dist day 4) - 20 (multi) = 55
+        assert result["total_score"] == 55
+        assert "multiple" in result["breakdown"]["post_ftd"].lower()
+
+    def test_single_distribution_no_extra_penalty(self):
+        """1 distribution day -> no additional penalty."""
+        market_state = {
+            "sp500": {
+                "ftd": {
+                    "ftd_detected": True,
+                    "ftd_day_number": 5,
+                    "gain_pct": 1.6,
+                    "volume_above_avg": True,
+                }
+            },
+            "nasdaq": {"ftd": {}},
+            "dual_confirmation": False,
+            "post_ftd_distribution": {
+                "distribution_count": 1,
+                "days_monitored": 5,
+                "earliest_distribution_day": 4,
+            },
+        }
+        result = calculate_ftd_quality_score(market_state)
+        # 60 + 10 + 10 + 0 - 5 = 75
+        assert result["total_score"] == 75
+
+
+# ─── Test 8: Issue 2 — FTD invalidation not reflected in score ───────────────
+
+
+class TestQualityScoreInvalidation:
+    def test_invalidated_ftd_forces_zero_score(self):
+        """FTD invalidation must override score to 0."""
+        market_state = {
+            "sp500": {
+                "ftd": {
+                    "ftd_detected": True,
+                    "ftd_day_number": 5,
+                    "gain_pct": 2.0,
+                    "volume_above_avg": True,
+                }
+            },
+            "nasdaq": {"ftd": {}},
+            "dual_confirmation": False,
+            "post_ftd_distribution": {
+                "distribution_count": 0,
+                "days_monitored": 3,
+                "earliest_distribution_day": None,
+            },
+            "ftd_invalidation": {
+                "invalidated": True,
+                "invalidation_date": "2026-03-10",
+                "days_after_ftd": 4,
+                "ftd_low": 99.0,
+            },
+        }
+        result = calculate_ftd_quality_score(market_state)
+        assert result["total_score"] == 0
+        assert result["signal"] == "Failed/Invalidated"
+        assert result["exposure_range"] == "0-25%"
+        assert "invalidation" in result["breakdown"]
+
+    def test_non_invalidated_ftd_keeps_normal_score(self):
+        """Non-invalidated FTD keeps calculated score."""
+        market_state = {
+            "sp500": {
+                "ftd": {
+                    "ftd_detected": True,
+                    "ftd_day_number": 5,
+                    "gain_pct": 2.0,
+                    "volume_above_avg": True,
+                }
+            },
+            "nasdaq": {"ftd": {}},
+            "dual_confirmation": False,
+            "post_ftd_distribution": {
+                "distribution_count": 0,
+                "days_monitored": 3,
+                "earliest_distribution_day": None,
+            },
+            "ftd_invalidation": {"invalidated": False, "ftd_low": 99.0, "days_since_ftd": 3},
+        }
+        result = calculate_ftd_quality_score(market_state)
+        assert result["total_score"] > 0
+        assert "invalidation" not in result.get("breakdown", {})

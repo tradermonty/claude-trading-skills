@@ -292,6 +292,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
             lines.append(f"- Swing Low: ${swing.get('price', 0):.2f} ({swing.get('date', 'N/A')})")
         if ftd_data and ftd_data.get("ftd_detected"):
             lines.append(f"- FTD Day: {ftd_data.get('ftd_date', 'N/A')}")
+            if ftd_data.get("ftd_low"):
+                lines.append(f"- FTD Day Low (invalidation level): ${ftd_data['ftd_low']:.2f}")
         if data.get("lookback_high"):
             lines.append(f"- Lookback High: ${data['lookback_high']:.2f}")
         lines.append("")

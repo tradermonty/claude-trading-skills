@@ -44,7 +44,7 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
         curr_volume = history[i].get("volume", 0)
         prev_volume = history[i - 1].get("volume", 0)
 
-        if prev_close <= 0:
+        if prev_close <= 0 or prev_volume <= 0:
             continue
 
         change_pct = (curr_close - prev_close) / prev_close * 100
@@ -289,10 +289,32 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     else:
         health_adj = 0
         breakdown["post_ftd"] = "Post-FTD data unavailable: +0"
+
+    # Additional penalty for multiple distribution days (per post_ftd_guide.md)
+    if dist_count >= 2:
+        health_adj -= 20
+        breakdown["post_ftd"] += f" + multiple distributions ({dist_count}x): -20"
+
     score += health_adj
 
     # Clamp score
     score = max(0, min(100, score))
+
+    # FTD invalidation overrides all scoring
+    inv = market_state.get("ftd_invalidation", {})
+    if inv.get("invalidated"):
+        breakdown["invalidation"] = (
+            f"FTD invalidated on {inv.get('invalidation_date', 'N/A')} "
+            f"(Day {inv.get('days_after_ftd', '?')})"
+        )
+        return {
+            "total_score": 0,
+            "breakdown": breakdown,
+            "signal": "Failed/Invalidated",
+            "guidance": "FTD invalidated. Reduce exposure, wait for new rally attempt.",
+            "exposure_range": "0-25%",
+            "ftd_source": ftd_source,
+        }
 
     # Determine signal and guidance
     if score >= 80:
