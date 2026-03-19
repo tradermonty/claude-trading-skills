@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environment
+.env
+.venv/
+venv/
+
+# Runtime
+uploads/
+logs/
+
+# Knowledge (auto-generated, not committed)
+knowledge/daily_dashboard_*.md

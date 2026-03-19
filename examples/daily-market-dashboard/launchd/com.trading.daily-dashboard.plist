@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  SETUP: Replace $HOME and $PROJECT_DIR before installing.
+    PROJECT_DIR should point to examples/daily-market-dashboard inside the repo.
+    REPO_ROOT should point to the claude-trading-skills repository root.
+
+    sed "s|\$HOME|$HOME|g; s|\$REPO_ROOT|$(cd ../.. && pwd)|g; s|\$PROJECT_DIR|$(pwd)|g" \
+      launchd/com.trading.daily-dashboard.plist > ~/Library/LaunchAgents/com.trading.daily-dashboard.plist
+    launchctl load ~/Library/LaunchAgents/com.trading.daily-dashboard.plist
+-->
+<dict>
+	<key>Label</key>
+	<string>com.trading.daily-dashboard</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>$PROJECT_DIR/generate_dashboard.py</string>
+		<string>--project-root</string>
+		<string>$REPO_ROOT</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>$PROJECT_DIR</string>
+
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>6</integer>
+		<key>Minute</key>
+		<integer>30</integer>
+	</dict>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>HOME</key>
+		<string>$HOME</string>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>$PROJECT_DIR/logs/launchd_dashboard.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>$PROJECT_DIR/logs/launchd_dashboard_error.log</string>
+
+	<key>RunAtLoad</key>
+	<false/>
+</dict>
+</plist>
