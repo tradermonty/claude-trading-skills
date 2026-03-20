@@ -229,7 +229,13 @@ async def post_settings(
     max_positions: int = Form(...),
     max_position_size_pct: float = Form(...),
     environment: str = Form(...),
+    live_confirm: str = Form(""),
 ):
+    if environment == "live" and live_confirm != "CONFIRM LIVE TRADING":
+        raise HTTPException(
+            status_code=400,
+            detail="Switching to Live requires typing 'CONFIRM LIVE TRADING'",
+        )
     settings_manager.save({
         "mode": mode,
         "default_risk_pct": default_risk_pct,

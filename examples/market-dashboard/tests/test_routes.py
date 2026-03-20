@@ -138,3 +138,41 @@ def test_order_confirm_advisory_mode_returns_403():
         "stop_price": 145.0,
     })
     assert r.status_code == 403
+
+
+def test_post_settings_live_without_confirm_returns_400():
+    client = make_client()
+    r = client.post("/api/settings", data={
+        "mode": "advisory",
+        "default_risk_pct": "1.0",
+        "max_positions": "5",
+        "max_position_size_pct": "10.0",
+        "environment": "live",
+        # live_confirm absent → must be rejected
+    })
+    assert r.status_code == 400
+
+
+def test_post_settings_live_with_correct_confirm_succeeds():
+    client = make_client()
+    r = client.post("/api/settings", data={
+        "mode": "advisory",
+        "default_risk_pct": "1.0",
+        "max_positions": "5",
+        "max_position_size_pct": "10.0",
+        "environment": "live",
+        "live_confirm": "CONFIRM LIVE TRADING",
+    })
+    assert r.status_code == 200
+
+
+def test_post_settings_paper_needs_no_confirm():
+    client = make_client()
+    r = client.post("/api/settings", data={
+        "mode": "advisory",
+        "default_risk_pct": "1.0",
+        "max_positions": "5",
+        "max_position_size_pct": "10.0",
+        "environment": "paper",
+    })
+    assert r.status_code == 200
