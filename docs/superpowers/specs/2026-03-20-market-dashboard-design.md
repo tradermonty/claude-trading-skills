@@ -67,7 +67,8 @@ examples/market-dashboard/
 │       ├── themes.html
 │       ├── exposure.html
 │       ├── economic_cal.html
-│       └── earnings_cal.html
+│       ├── earnings_cal.html
+│       └── news.html              # Pre-market: Market News Analyst full output
 │
 ├── static/
 │   └── style.css            # Dark theme, Layout A styles
@@ -85,7 +86,7 @@ examples/market-dashboard/
 ## 4. UI Layout — Layout A (Command Center)
 
 ### Top bar
-- App name + status indicator (Market Open / Closed)
+- App name + status indicator — three states: `Pre-Market` (7:00–9:30 AM ET) / `Market Open` (9:30 AM–4:00 PM ET) / `Market Closed`
 - Live index prices (SPY, QQQ, VIX) — updated via TradingView ticker tape
 - **Trading mode badge** (e.g. "✅ Semi-Auto") — click to open settings modal
 
@@ -109,10 +110,18 @@ examples/market-dashboard/
 
 The remaining skills (Theme Detector, Economic Calendar, Earnings Calendar) appear in the **bottom strip only** — not in the signal panel.
 
-### Bottom 3-column strip
-- **Portfolio:** Live P&L from Alpaca (value, daily gain/loss, position list) — links to `/detail/` not applicable
+### Bottom strip — layout adapts by market state
+
+**During Market Hours (9:30 AM–4:00 PM ET) — 3 columns:**
+- **Portfolio:** Live P&L from Alpaca (value, daily gain/loss, position list)
 - **Top Themes:** Top 3 bullish themes from Theme Detector — links to `/detail/themes`
 - **Today's Events:** High-impact economic events + earnings — links to `/detail/economic_cal` and `/detail/earnings_cal`
+
+**Pre-Market (7:00–9:30 AM ET) — 2 columns (wider):**
+- **Pre-Market Brief:** Market News Analyst summary — top 3 overnight news items with market impact assessment — links to `/detail/news`
+- **Today's Schedule:** Economic events + earnings reporting today (time, impact level, consensus) — links to `/detail/economic_cal` and `/detail/earnings_cal`
+
+The portfolio strip is hidden pre-market (no live P&L until open). The news panel replaces it.
 
 ---
 
@@ -173,14 +182,34 @@ Clicking any button activates it (highlighted border + arrow indicator) and reve
 ## 7. Skill Schedule & Caching
 
 ### Cadence & FMP call estimates
-| Cadence | Skills | FMP calls per group per run | Runs/day | FMP calls/day (group) |
-|---|---|---|---|---|
-| Every 15 min (market hours) | FTD Detector, Uptrend Analyzer, Market Breadth, VCP Screener | ~15–20 combined | 26 | ~390–520 |
-| Every 30 min (market hours) | Sector Analyst → Exposure Coach, Theme Detector | ~10–15 combined | 13 | ~130–195 |
-| Every 60 min (market hours) | Market Top Detector, Macro Regime Detector | ~5–10 combined | 7 | ~35–70 |
-| Daily 6:00 AM | Economic Calendar, Earnings Calendar | ~10 combined | 1 | ~10 |
 
-**Estimated FMP usage:** ~565–795 calls/day. This exceeds the free tier (250/day). **FMP Starter tier ($30/mo, 750 calls/day) is the minimum recommended tier.** The free tier is sufficient only if the 15-min group is reduced to every 30 min (~300–400 calls/day).
+**Pre-market window (Mon–Fri 7:00–9:30 AM ET):**
+| Cadence | Skills | Notes |
+|---|---|---|
+| Once at 7:00 AM | Market News Analyst | WebSearch/WebFetch only — no FMP calls |
+| Once at 7:00 AM | Macro Regime Detector | Structural context for the day |
+| Once at 7:00 AM | Market Top Detector | Risk posture before open |
+| Once at 7:00 AM | Sector Analyst | Which sectors likely to lead/lag |
+| Once at 7:00 AM | Theme Detector | Active themes to watch |
+| Already runs at 6:00 AM | Economic Calendar, Earnings Calendar | No change needed |
+
+Pre-market runs are one-shot at 7:00 AM — not repeated during the 7:00–9:30 window. Results remain in cache until the market-hours scheduler takes over.
+
+**Market hours (Mon–Fri 9:30 AM–4:00 PM ET):**
+| Cadence | Skills | FMP calls/day | Notes |
+|---|---|---|---|
+| Once at 9:30 AM open | VCP Screener | ~20–50 | Daily candles don't change intraday — refreshing more often gives identical results |
+| Every 30 min | FTD Detector | ~26–52 | Tracks intraday volume pace; 30 min granularity is sufficient |
+| Every 30 min | Uptrend Analyzer, Market Breadth | 0 | CSV-based, no FMP |
+| Every 30 min | Sector Analyst → Exposure Coach, Theme Detector | 0 | CSV/FINVIZ/WebSearch only |
+| Every 60 min | Market Top Detector, Macro Regime Detector | 0 | CSV/WebFetch only |
+| Daily 6:00 AM | Economic Calendar, Earnings Calendar | ~10 | Week-ahead fetch |
+
+**Estimated FMP usage: ~56–112 calls/day — within the free tier (250/day). Total data cost = $0.**
+
+What is given up vs. a paid cadence:
+- VCP: nothing in practice — daily candles finalize at market close; intraday re-runs returned identical results
+- FTD: very minor — 30 min vs 15 min volume tracking granularity; fully sufficient for human-reviewed signals
 
 ### Cache behaviour
 - Skill scripts write timestamped output filenames (e.g. `ftd_detector_2026-03-20_143022.json`). After a successful subprocess run, `skills_runner.py` renames the skill's timestamped output file to `cache/<skill-name>.json`, overwriting the previous version. The staleness timestamp is read from the `generated_at` field inside the JSON, not the file modification time.
@@ -207,8 +236,10 @@ Sector Analyst output is not displayed directly in the UI. Its `cache/sector-ana
 | TradingView widgets | Live charts, ticker tape, market overview | Free (no account needed) |
 | Alpaca REST API | Portfolio P&L, positions (`GET /account`, `GET /positions`), order execution | Free (paper or live account) |
 | Alpaca Trading Stream | Order fill notifications (WebSocket) | Free |
-| FMP API | Skill data (VCP, FTD, earnings, economic events) | Starter tier ($30/mo) recommended |
+| FMP API | VCP + FTD skill data, economic + earnings calendars | Free tier (250/day) — ~56–112 calls/day |
 | FINVIZ Elite | Theme Detector pre-screening | Existing subscription |
+| yfinance | Earnings calendar fallback (no FMP needed) | Free |
+| **Total ongoing cost** | | **$0** |
 
 ---
 
