@@ -71,7 +71,13 @@ examples/market-dashboard/
 │       ├── exposure.html
 │       ├── economic_cal.html
 │       ├── earnings_cal.html
-│       └── news.html              # Pre-market: Market News Analyst full output
+│       ├── news.html              # Pre-market: Market News Analyst full output
+│       ├── canslim.html           # CANSLIM growth stock candidates
+│       ├── druckenmiller.html     # Stanley Druckenmiller master conviction score
+│       ├── edge_signals.html      # Edge Signal Aggregator conviction dashboard
+│       ├── bubble.html            # US Market Bubble Detector risk assessment
+│       ├── pead.html              # PEAD Screener post-earnings drift candidates
+│       └── scenario.html          # Scenario Analyzer 18-month context
 │
 ├── static/
 │   └── style.css            # Dark theme, Layout A styles
@@ -103,15 +109,17 @@ examples/market-dashboard/
 ### Signal panel — 7 skills displayed
 | Signal | Drill-down page | Refresh cadence |
 |---|---|---|
-| FTD Detector | `/detail/ftd` | 15 min |
-| Uptrend Analyzer | `/detail/uptrend` | 15 min |
-| Market Breadth | `/detail/breadth` | 15 min |
-| VCP Screener | `/detail/vcp` | 15 min |
+| FTD Detector | `/detail/ftd` | 30 min |
+| Uptrend Analyzer | `/detail/uptrend` | 30 min |
+| Market Breadth | `/detail/breadth` | 30 min |
+| VCP Screener | `/detail/vcp` | Once at open |
+| CANSLIM Screener | `/detail/canslim` | Once at open |
 | Market Top Detector | `/detail/market_top` | 60 min |
 | Macro Regime | `/detail/macro_regime` | 60 min |
 | Exposure Coach | `/detail/exposure` | 30 min |
+| Stanley Druckenmiller Score | `/detail/druckenmiller` | Pre-market (7 AM) |
 
-The remaining skills (Theme Detector, Economic Calendar, Earnings Calendar) appear in the **bottom strip only** — not in the signal panel.
+The remaining skills (Theme Detector, Economic Calendar, Earnings Calendar, Edge Signal Aggregator, PEAD, Bubble Detector) appear in the **bottom strip or detail pages only**.
 
 ### Bottom strip — layout adapts by market state
 
@@ -148,24 +156,47 @@ Accessible via the mode badge in the header — opens a settings modal on click.
 
 ### Level 3 Auto — Trade Trigger Logic
 
-Trades in Auto mode are triggered by **price breakout above the VCP pivot**, not at signal detection time. This is the correct way to trade VCP patterns.
+Trades in Auto mode are triggered by **price breakout above the VCP pivot**, not at signal detection time. Before any order fires, a two-stage news + signal confidence check runs.
 
-**Flow:**
-1. VCP Screener runs once at 9:30 AM open → produces candidates with pivot prices
-2. `PivotWatchlistMonitor` loads candidates from `cache/vcp-screener.json`
-3. Monitor subscribes to the candidate symbols via **Alpaca data WebSocket** (free, real-time)
-4. When a symbol's price crosses `pivot × 1.001` (0.1% buffer to avoid false triggers), the monitor fires automatically:
-   - Fetches last-trade price via `StockHistoricalDataClient`
-   - Calculates position size using default risk % and stop from VCP output
-   - Places bracket order via `TradingClient` (entry limit + stop-loss, atomically)
-5. Order fill notification arrives via Alpaca trading stream → dashboard updates portfolio panel
-6. Monitor unsubscribes from that symbol after order is placed
+#### Stage 1 — Pre-market confidence check (7 AM, all VCP candidates)
 
-**Guard rails in Auto mode:**
-- Max positions check before firing (won't exceed `MAX_POSITIONS` from settings)
-- Max position size check (won't exceed `MAX_POSITION_SIZE_PCT` of account)
-- Only fires during market hours (9:30 AM–4:00 PM ET) — monitor is inactive pre-market and after close
-- If market is in a "Caution" or worse state per Market Top Detector, Auto mode pauses new entries and alerts the user
+Checks previous day's close + after-hours + overnight news for each candidate. Cross-references Theme Detector and Institutional Flow Tracker. Tags each stock:
+
+| Tag | Meaning | Action at trigger |
+|---|---|---|
+| `HIGH_CONVICTION` | Positive catalyst confirmed (earnings beat, analyst upgrade, hot theme alignment, institutional accumulation) | Order fires, position size scales to 1.5× default risk % |
+| `CLEAR` | No news either way, clean setup | Order fires at default size |
+| `UNCERTAIN` | Mixed signals or pending event (e.g. earnings within 3 days) | Stage 2 check runs at trigger time |
+| `BLOCKED` | Clear negative catalyst (miss, downgrade, legal, FDA rejection) | Removed from watchlist entirely |
+
+Learned rules from `learned_rules.json` (see Section 9 — Learning System) are applied at this stage alongside the news check.
+
+#### Stage 2 — Real-time check at pivot trigger (UNCERTAIN stocks only)
+
+When an `UNCERTAIN` stock's price crosses its pivot, a quick WebSearch runs for that ticker before the order fires. Re-evaluates:
+- No new negative news → order fires at default size
+- Negative news confirmed → skip, alert sent to user for manual review
+
+#### Pivot breakout flow
+
+1. VCP Screener runs at 9:30 AM open → produces candidates with pivot prices
+2. `PivotWatchlistMonitor` loads candidates, applies confidence tags from Stage 1
+3. Monitor subscribes to candidate symbols via **Alpaca data WebSocket** (free, real-time)
+4. When a symbol's price crosses `pivot × 1.001` (0.1% buffer):
+   - `BLOCKED` stocks already removed — never reach this point
+   - `UNCERTAIN` stocks → Stage 2 check runs now
+   - `CLEAR` / `HIGH_CONVICTION` → order fires immediately
+   - Position size = default risk % × 1.5 for `HIGH_CONVICTION`, default for `CLEAR`
+   - Bracket order placed via `TradingClient` (entry limit + stop-loss, atomically)
+5. Order fill notification arrives via Alpaca trading stream → portfolio panel updates
+6. Trade context saved to `trader-memory-core` for postmortem (see Section 9)
+7. Monitor unsubscribes from that symbol after order is placed
+
+#### Guard rails
+- Max positions check before firing (won't exceed `MAX_POSITIONS`)
+- Max position size check (won't exceed `MAX_POSITION_SIZE_PCT`)
+- Only fires during market hours (9:30 AM–4:00 PM ET)
+- If Market Top Detector signals Caution or worse → Auto mode pauses new entries and alerts user
 
 ### Settings persistence
 Mode and risk settings are written to `settings.json` in the project directory (not `.env`). The app reads `settings.json` on startup; if it does not exist, defaults are used and the file is created. `.env` holds secrets and initial defaults only and is never modified at runtime.
@@ -208,32 +239,49 @@ Clicking any button activates it (highlighted border + arrow indicator) and reve
 ### Cadence & FMP call estimates
 
 **Pre-market window (Mon–Fri 7:00–9:30 AM ET):**
-| Cadence | Skills | Notes |
-|---|---|---|
-| Once at 7:00 AM | Market News Analyst | WebSearch/WebFetch only — no FMP calls |
-| Once at 7:00 AM | Macro Regime Detector | Structural context for the day |
-| Once at 7:00 AM | Market Top Detector | Risk posture before open |
-| Once at 7:00 AM | Sector Analyst | Which sectors likely to lead/lag |
-| Once at 7:00 AM | Theme Detector | Active themes to watch |
-| Already runs at 6:00 AM | Economic Calendar, Earnings Calendar | No change needed |
+| Cadence | Skills | FMP calls | Notes |
+|---|---|---|---|
+| Once at 7:00 AM | Market News Analyst | 0 | WebSearch/WebFetch only |
+| Once at 7:00 AM | Scenario Analyzer | 0 | WebSearch — 18-month context for top headlines |
+| Once at 7:00 AM | Macro Regime Detector | 0 | Structural context for the day |
+| Once at 7:00 AM | Market Top Detector | 0 | Risk posture before open |
+| Once at 7:00 AM | US Market Bubble Detector | 0 | Bubble risk guard rail |
+| Once at 7:00 AM | Sector Analyst | 0 | Which sectors likely to lead/lag |
+| Once at 7:00 AM | Theme Detector | 0 | Active themes to watch |
+| Once at 7:00 AM | Edge Signal Aggregator | 0 | Synthesizes theme + sector + institutional flow into conviction scores |
+| Once at 7:00 AM | Stanley Druckenmiller Investment | 0 | Master conviction score (0–100) across 8 upstream skills |
+| Already runs at 6:00 AM | Economic Calendar, Earnings Calendar | ~10 | Week-ahead fetch |
 
 Pre-market runs are one-shot at 7:00 AM — not repeated during the 7:00–9:30 window. Results remain in cache until the market-hours scheduler takes over.
 
 **Market hours (Mon–Fri 9:30 AM–4:00 PM ET):**
 | Cadence | Skills | FMP calls/day | Notes |
 |---|---|---|---|
-| Once at 9:30 AM open | VCP Screener | ~20–50 | Daily candles don't change intraday — refreshing more often gives identical results |
-| Every 30 min | FTD Detector | ~26–52 | Tracks intraday volume pace; 30 min granularity is sufficient |
-| Every 30 min | Uptrend Analyzer, Market Breadth | 0 | CSV-based, no FMP |
-| Every 30 min | Sector Analyst → Exposure Coach, Theme Detector | 0 | CSV/FINVIZ/WebSearch only |
-| Every 60 min | Market Top Detector, Macro Regime Detector | 0 | CSV/WebFetch only |
-| Daily 6:00 AM | Economic Calendar, Earnings Calendar | ~10 | Week-ahead fetch |
+| Once at 9:30 AM open | VCP Screener | ~20–50 | Daily candles don't change intraday |
+| Once at 9:30 AM open | CANSLIM Screener | ~20–50 | Second candidate pool — growth stocks with fundamental backing |
+| Every 30 min | FTD Detector | ~26–52 | Intraday volume tracking |
+| Every 30 min | Uptrend Analyzer, Market Breadth | 0 | CSV-based |
+| Every 30 min | Sector Analyst → Exposure Coach, Theme Detector | 0 | CSV/FINVIZ/WebSearch |
+| Every 60 min | Market Top Detector, Macro Regime Detector | 0 | CSV/WebFetch |
 
-**Estimated FMP usage: ~56–112 calls/day — within the free tier (250/day). Total data cost = $0.**
+**Post-market (Mon/Wed/Fri only, 4:15 PM ET):**
+| Cadence | Skills | FMP calls/run | Notes |
+|---|---|---|---|
+| 3×/week | Earnings Trade Analyzer + PEAD Screener | ~50–100 combined | Earnings drift patterns don't change daily; 3×/week sufficient |
 
-What is given up vs. a paid cadence:
-- VCP: nothing in practice — daily candles finalize at market close; intraday re-runs returned identical results
-- FTD: very minor — 30 min vs 15 min volume tracking granularity; fully sufficient for human-reviewed signals
+**Daily FMP usage estimate:**
+
+| Source | Calls/day |
+|---|---|
+| FTD Detector (every 30 min) | ~26–52 |
+| VCP Screener (once at open) | ~20–50 |
+| CANSLIM Screener (once at open) | ~20–50 |
+| PEAD + Earnings Trade Analyzer (3×/week avg) | ~21–43 |
+| Economic + Earnings Calendars (6 AM) | ~10 |
+| Everything else | 0 |
+| **Total** | **~97–205/day ✅** |
+
+**Well within the free tier (250/day). Total ongoing data cost = $0.**
 
 ### Cache behaviour
 - Skill scripts write timestamped output filenames (e.g. `ftd_detector_2026-03-20_143022.json`). After a successful subprocess run, `skills_runner.py` renames the skill's timestamped output file to `cache/<skill-name>.json`, overwriting the previous version. The staleness timestamp is read from the `generated_at` field inside the JSON, not the file modification time.
@@ -258,11 +306,13 @@ Sector Analyst output is not displayed directly in the UI. Its `cache/sector-ana
 | Source | Usage | Cost |
 |---|---|---|
 | TradingView widgets | Live charts, ticker tape, market overview | Free (no account needed) |
-| Alpaca REST API | Portfolio P&L, positions (`GET /account`, `GET /positions`), order execution | Free (paper or live account) |
-| Alpaca Trading Stream | Order fill notifications (WebSocket) | Free |
-| FMP API | VCP + FTD skill data, economic + earnings calendars | Free tier (250/day) — ~56–112 calls/day |
+| Alpaca REST API | Portfolio P&L, positions, order execution | Free (paper or live account) |
+| Alpaca Data WebSocket | Pivot breakout monitoring for VCP + CANSLIM candidates | Free |
+| Alpaca Trading Stream | Order fill notifications | Free |
+| FMP API | VCP, CANSLIM, FTD, PEAD, calendars | Free tier (250/day) — ~97–205 calls/day |
 | FINVIZ Elite | Theme Detector pre-screening | Existing subscription |
-| yfinance | Earnings calendar fallback (no FMP needed) | Free |
+| yfinance | Earnings calendar fallback | Free |
+| WebSearch/WebFetch | Market News Analyst, Scenario Analyzer, Bubble Detector | Free |
 | **Total ongoing cost** | | **$0** |
 
 ---
@@ -306,6 +356,52 @@ python-dotenv
 ```
 
 No Node.js or npm required. No frontend build step.
+
+---
+
+## 9b. Learning System
+
+The bot saves every trade with full context and extracts rules from outcomes over time — getting smarter each week without requiring manual tuning.
+
+### Trade context saved at entry (via `trader-memory-core`)
+- VCP score, pivot distance, confidence tag (`HIGH_CONVICTION` / `CLEAR` / `UNCERTAIN`)
+- Market state snapshot: FTD score, breadth score, macro regime, market top risk score
+- News signals found in Stage 1 + Stage 2
+- Theme alignment, institutional flow signals
+- Entry price, stop, position size, risk %
+
+### Automatic postmortem at close
+When a position closes (stop hit or manual exit), `trader-memory-core` generates a postmortem:
+- Profit/loss in R-multiples
+- MAE (max adverse excursion) — how far it went against before turning
+- MFE (max favorable excursion) — how far it went in favour
+- What conditions were present at entry
+
+### Weekly pattern extraction
+Runs every Saturday. Reviews all closed trades and identifies patterns in losses and wins:
+
+```
+Example learned rules:
+- "UNCERTAIN + earnings within 3 days → 78% stop-out rate" → upgrade to BLOCKED
+- "Market Top score > 65 at entry → avg loss 2.3R" → pause new entries above this threshold
+- "Breadth < 40 at entry → negative expectancy" → add to pre-market filter
+- "HIGH_CONVICTION + AI Infrastructure theme → 71% win rate" → keep sizing up
+```
+
+### Rule store — `learned_rules.json`
+- Rules applied at Stage 1 pre-market check alongside news analysis
+- Each rule has a confidence score (requires minimum 5 similar trades before activating)
+- Low-confidence rules alert you rather than act automatically
+- All rules visible and editable from the dashboard settings modal
+- Rules accumulate over time — bot improves with every week of live trading
+
+### New files added for learning system
+```
+├── learning/
+│   ├── pattern_extractor.py     # Weekly job: analyses closed trades → extracts rules
+│   ├── rule_store.py            # Reads/writes learned_rules.json, applies rules to candidates
+│   └── learned_rules.json       # Auto-created, human-reviewable
+```
 
 ---
 
