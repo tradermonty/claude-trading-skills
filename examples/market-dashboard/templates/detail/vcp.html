@@ -47,7 +47,20 @@
           <td>${{ c.get('entry_price', '—') }}</td>
           <td style="color:#f87171;">${{ c.get('stop_price', '—') }}</td>
           <td>{{ c.get('position_size', '—') }} sh</td>
-          {% if settings.mode != 'advisory' %}<td><button class="execute-btn">Execute</button></td>{% endif %}
+          {% if settings.mode != 'advisory' %}
+          <td>
+            <form style="display:inline"
+                  hx-post="/api/order/preview"
+                  hx-target="closest tr"
+                  hx-swap="afterend">
+              <input type="hidden" name="symbol" value="{{ c.get('ticker', '') }}">
+              <input type="hidden" name="entry_price" value="{{ c.get('entry_price', 0) }}">
+              <input type="hidden" name="stop_price" value="{{ c.get('stop_price', 0) }}">
+              <input type="hidden" name="skill" value="vcp-screener">
+              <button type="submit" class="execute-btn">Execute</button>
+            </form>
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>

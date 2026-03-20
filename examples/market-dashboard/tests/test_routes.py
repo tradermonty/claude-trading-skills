@@ -112,3 +112,16 @@ def test_api_portfolio_returns_html():
     assert "text/html" in r.headers["content-type"]
     # Alpaca is not configured in test env → "connect Alpaca" message renders
     assert b"ALPACA_API_KEY" in r.content
+
+
+def test_order_preview_endpoint_exists():
+    """POST /api/order/preview returns 403 in advisory mode (the default)."""
+    client = make_client()
+    r = client.post("/api/order/preview", data={
+        "symbol": "AAPL",
+        "entry_price": "150.0",
+        "stop_price": "145.0",
+        "skill": "vcp-screener",
+    })
+    # Default mode is advisory (DEFAULT_TRADING_MODE = "advisory" in config.py)
+    assert r.status_code == 403

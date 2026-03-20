@@ -112,6 +112,51 @@ async def api_market_state():
     return JSONResponse({"state": _market_state()})
 
 
+@app.post("/api/order/preview", response_class=HTMLResponse)
+async def order_preview(
+    request: Request,
+    symbol: str = Form(...),
+    entry_price: float = Form(...),
+    stop_price: float = Form(...),
+    skill: str = Form(...),
+):
+    settings = settings_manager.load()
+    if settings.get("mode") == "advisory":
+        raise HTTPException(status_code=403, detail="Execute not available in Advisory mode")
+
+    # Fetch live last price; fall back to screener's entry_price if Alpaca unavailable.
+    # CANSLIM/PEAD screeners submit entry_price=0 since they have no price data.
+    # When Alpaca is configured we always fetch live price (overrides any screener value).
+    # When Alpaca is not configured, live_price stays at entry_price (0 for CANSLIM/PEAD).
+    live_price = entry_price
+    if alpaca.is_configured:
+        try:
+            live_price = alpaca.get_last_price(symbol)
+        except Exception:
+            pass
+
+    # Default stop to 3% below entry when screener doesn't provide one (e.g. CANSLIM, PEAD).
+    effective_stop = stop_price if stop_price > 0 else round(live_price * 0.97, 2)
+
+    account_value = 100_000.0  # fallback for unconfigured Alpaca
+    if alpaca.is_configured:
+        try:
+            account_value = alpaca.get_account()["portfolio_value"]
+        except Exception:
+            pass
+
+    ctx = {
+        "request": request,
+        "symbol": symbol,
+        "skill": skill,
+        "entry_price": round(live_price, 2),
+        "stop_price": effective_stop,
+        "account_value": account_value,
+        "default_risk_pct": settings.get("default_risk_pct", 1.0),
+    }
+    return templates.TemplateResponse("fragments/order_preview.html", ctx)
+
+
 @app.get("/api/portfolio", response_class=HTMLResponse)
 async def api_portfolio(request: Request):
     portfolio: dict = {"account": None, "positions": [], "error": None}

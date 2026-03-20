@@ -1,0 +1,168 @@
+<div id="order-preview-{{ symbol }}" style="
+  background:#1e2a3a; border:1px solid #30363d; border-radius:6px;
+  padding:12px; margin-top:8px;
+  font-family:'Consolas','Menlo',monospace; font-size:11px;
+">
+  <div style="font-size:12px; color:#4ade80; margin-bottom:8px; font-weight:bold;">
+    Order Preview — {{ symbol }}
+  </div>
+
+  <div style="display:flex; gap:20px; margin-bottom:10px;">
+    <div><span style="color:#8b949e;">Entry:</span> ${{ "%.2f"|format(entry_price) }}</div>
+    <div><span style="color:#8b949e;">Stop:</span> <span style="color:#f87171;">${{ "%.2f"|format(stop_price) }}</span></div>
+    <div><span style="color:#8b949e;">Risk/sh:</span> ${{ "%.2f"|format(entry_price - stop_price) }}</div>
+  </div>
+
+  <!-- Three-button mode selector -->
+  <div style="display:flex; gap:4px; margin-bottom:10px;">
+    <button class="op-btn op-active" id="op-btn-risk-{{ symbol }}"
+            onclick="opSetMode('{{ symbol }}','risk_pct')">Risk %</button>
+    <button class="op-btn" id="op-btn-shares-{{ symbol }}"
+            onclick="opSetMode('{{ symbol }}','shares')">Shares</button>
+    <button class="op-btn" id="op-btn-dollars-{{ symbol }}"
+            onclick="opSetMode('{{ symbol }}','dollars')">$ Amount</button>
+  </div>
+
+  <!-- Slider -->
+  <div style="margin-bottom:8px;">
+    <input type="range" id="op-slider-{{ symbol }}" style="width:100%; accent-color:#4ade80;"
+           oninput="opUpdateSlider('{{ symbol }}', this.value)">
+    <div style="display:flex; justify-content:space-between; font-size:10px; color:#8b949e; margin-top:2px;">
+      <span id="op-min-{{ symbol }}"></span>
+      <span id="op-cur-{{ symbol }}" style="color:#4ade80; font-weight:bold;"></span>
+      <span id="op-max-{{ symbol }}"></span>
+    </div>
+  </div>
+
+  <!-- Calculated values -->
+  <div style="display:flex; gap:16px; margin-bottom:10px; flex-wrap:wrap;">
+    <div><span style="color:#8b949e;">Shares:</span> <span id="op-shares-{{ symbol }}">—</span></div>
+    <div><span style="color:#8b949e;">$ Amount:</span> <span id="op-dollars-{{ symbol }}">—</span></div>
+    <div><span style="color:#8b949e;">Risk:</span> <span id="op-riskpct-{{ symbol }}" style="color:#facc15;">—</span>%</div>
+    <div><span style="color:#8b949e;">Risk $:</span> <span id="op-riskdol-{{ symbol }}" style="color:#f87171;">—</span></div>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <button class="btn-primary" id="op-confirm-{{ symbol }}"
+            onclick="opConfirm('{{ symbol }}', {{ entry_price }}, {{ stop_price }})">
+      Confirm Order
+    </button>
+    <button class="btn-secondary"
+            onclick="document.getElementById('order-preview-{{ symbol }}').remove()">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<style>
+.op-btn {
+  background:#1e2a3a; border:1px solid #30363d; border-radius:4px;
+  padding:3px 10px; color:#8b949e; cursor:pointer; font-size:11px;
+  font-family:'Consolas','Menlo',monospace;
+}
+.op-btn.op-active { border-color:#4ade80; color:#4ade80; }
+</style>
+
+<script>
+(function() {
+  var SYM = "{{ symbol }}";
+  var ENTRY = {{ entry_price }};
+  var STOP = {{ stop_price }};
+  var RISK_PER_SH = ENTRY - STOP;
+  var ACCOUNT = {{ account_value }};
+  var DEFAULT_RISK = {{ default_risk_pct }};
+  var mode = 'risk_pct';
+
+  if (RISK_PER_SH <= 0 || ENTRY <= 0) {
+    document.getElementById('order-preview-' + SYM).innerHTML =
+      '<div style="color:#f87171; padding:8px;">&#9888; Cannot preview: entry price unavailable.' +
+      ' Ensure Alpaca API keys are configured in .env.</div>';
+    return;
+  }
+
+  function calcShares(riskPct) {
+    var riskDollars = ACCOUNT * riskPct / 100;
+    return Math.max(1, Math.floor(riskDollars / RISK_PER_SH));
+  }
+
+  function display(shares) {
+    var dollars = shares * ENTRY;
+    var riskD = shares * RISK_PER_SH;
+    var riskPct = riskD / ACCOUNT * 100;
+    document.getElementById('op-shares-' + SYM).textContent = shares;
+    document.getElementById('op-dollars-' + SYM).textContent = '$' + dollars.toFixed(0);
+    document.getElementById('op-riskpct-' + SYM).textContent = riskPct.toFixed(2);
+    document.getElementById('op-riskdol-' + SYM).textContent = '$' + riskD.toFixed(0);
+    window['_opShares_' + SYM] = shares;
+  }
+
+  window.opSetMode = function(sym, m) {
+    if (sym !== SYM) return;
+    mode = m;
+    ['risk_pct','shares','dollars'].forEach(function(k) {
+      var el = document.getElementById('op-btn-' + k.replace('_','-') + '-' + sym);
+      if (el) el.classList.toggle('op-active', k === m);
+    });
+    initSlider();
+  };
+
+  function initSlider() {
+    var s = document.getElementById('op-slider-' + SYM);
+    if (mode === 'risk_pct') {
+      s.min = 0.1; s.max = 5.0; s.step = 0.1; s.value = DEFAULT_RISK;
+      document.getElementById('op-min-' + SYM).textContent = '0.1%';
+      document.getElementById('op-max-' + SYM).textContent = '5%';
+    } else if (mode === 'shares') {
+      var mx = calcShares(5.0);
+      s.min = 1; s.max = mx; s.step = 1; s.value = calcShares(DEFAULT_RISK);
+      document.getElementById('op-min-' + SYM).textContent = '1 sh';
+      document.getElementById('op-max-' + SYM).textContent = mx + ' sh';
+    } else {
+      var maxD = Math.floor(ACCOUNT * 0.25 / ENTRY) * ENTRY;
+      s.min = ENTRY; s.max = maxD; s.step = ENTRY;
+      s.value = calcShares(DEFAULT_RISK) * ENTRY;
+      document.getElementById('op-min-' + SYM).textContent = '$' + ENTRY.toFixed(0);
+      document.getElementById('op-max-' + SYM).textContent = '$' + (maxD / 1000).toFixed(0) + 'k';
+    }
+    window.opUpdateSlider(SYM, s.value);
+  }
+
+  window.opUpdateSlider = function(sym, val) {
+    if (sym !== SYM) return;
+    var shares;
+    if (mode === 'risk_pct') {
+      shares = calcShares(parseFloat(val));
+      document.getElementById('op-cur-' + SYM).textContent = parseFloat(val).toFixed(2) + '%';
+    } else if (mode === 'shares') {
+      shares = parseInt(val);
+      document.getElementById('op-cur-' + SYM).textContent = val + ' sh';
+    } else {
+      shares = Math.max(1, Math.floor(parseFloat(val) / ENTRY));
+      document.getElementById('op-cur-' + SYM).textContent = '$' + parseFloat(val).toFixed(0);
+    }
+    display(shares);
+  };
+
+  window.opConfirm = function(sym, entry, stop) {
+    if (sym !== SYM) return;
+    var shares = window['_opShares_' + sym];
+    var btn = document.getElementById('op-confirm-' + sym);
+    btn.disabled = true;
+    btn.textContent = 'Placing\u2026';
+    fetch('/api/order/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol: sym, qty: shares, limit_price: entry, stop_price: stop})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      var el = document.getElementById('order-preview-' + sym);
+      if (data.ok) {
+        el.innerHTML = '<div style="color:#4ade80; padding:8px;">&#10003; Order placed \u2014 ' + data.order_id + '</div>';
+      } else {
+        el.innerHTML = '<div style="color:#f87171; padding:8px;">&#10007; ' + data.error + '</div>';
+      }
+    });
+  };
+
+  initSlider();
+})();
+</script>
