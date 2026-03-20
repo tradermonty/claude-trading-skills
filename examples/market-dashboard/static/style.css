@@ -1,1 +1,205 @@
-/* dark theme */
+/* Market Dashboard — Dark Theme */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-panel: #1e2a3a;
+  --border: #30363d;
+  --green: #4ade80;
+  --yellow: #facc15;
+  --red: #f87171;
+  --blue: #38bdf8;
+  --muted: #8b949e;
+  --text: #e6edf3;
+  --font-mono: 'Consolas', 'Menlo', monospace;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* Live border for LIVE + Auto mode */
+body.live-auto-mode {
+  outline: 3px solid var(--red);
+  outline-offset: -3px;
+}
+
+/* Top bar */
+.topbar {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-title { font-size: 14px; font-weight: bold; color: var(--green); }
+.market-state { font-size: 11px; padding: 2px 8px; border-radius: 3px; }
+.state-pre-market  { background: #1e3a2e; color: var(--yellow); border: 1px solid var(--yellow); }
+.state-market-open { background: #1e3a2e; color: var(--green); border: 1px solid var(--green); }
+.state-market-closed { background: #2a1a1a; color: var(--muted); border: 1px solid var(--border); }
+
+.env-badge { font-size: 11px; padding: 2px 8px; border-radius: 3px; font-weight: bold; }
+.env-paper { background: #1e3a2e; color: var(--green); border: 1px solid var(--green); }
+.env-live  { background: #3a2800; color: var(--yellow); border: 1px solid var(--yellow); }
+
+.mode-badge {
+  cursor: pointer; font-size: 11px; padding: 2px 10px; border-radius: 3px;
+  background: var(--bg-panel); border: 1px solid var(--border); color: var(--text);
+}
+.mode-badge:hover { border-color: var(--green); }
+
+/* Main grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  height: calc(100vh - 120px);
+}
+
+/* Signal panel */
+.signal-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.signal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+}
+.signal-row:hover { border-color: var(--green); background: var(--bg-panel); }
+.signal-row.stale { opacity: 0.6; }
+
+.signal-name { font-size: 11px; color: var(--muted); }
+.signal-value { font-size: 14px; font-weight: bold; }
+.signal-value.green { color: var(--green); }
+.signal-value.yellow { color: var(--yellow); }
+.signal-value.red { color: var(--red); }
+.signal-value.muted { color: var(--muted); }
+
+.stale-badge {
+  font-size: 9px; padding: 1px 4px; border-radius: 2px;
+  background: #3a2800; color: var(--yellow); border: 1px solid var(--yellow);
+}
+
+/* Bottom strip */
+.bottom-strip {
+  display: grid;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+.bottom-strip.market-hours { grid-template-columns: 1fr 1fr 1fr; }
+.bottom-strip.pre-market   { grid-template-columns: 1fr 1fr; }
+
+.bottom-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+.panel-title {
+  font-size: 10px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 8px;
+}
+
+/* Chart container */
+.chart-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Detail pages */
+.detail-page { padding: 16px; max-width: 1200px; margin: 0 auto; }
+.detail-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.back-nav { color: var(--muted); text-decoration: none; font-size: 12px; }
+.back-nav:hover { color: var(--text); }
+
+.summary-strip {
+  display: flex; gap: 24px; margin-bottom: 16px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px;
+}
+.summary-metric { text-align: center; }
+.summary-label { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.summary-value { font-size: 20px; font-weight: bold; color: var(--green); }
+
+/* Data table */
+.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; }
+.data-table th {
+  padding: 6px 8px; text-align: left; color: var(--muted);
+  border-bottom: 1px solid var(--border); font-weight: normal;
+}
+.data-table td { padding: 6px 8px; border-bottom: 1px solid #1e2a3a; }
+.data-table tr:hover td { background: var(--bg-panel); }
+.data-table tr.row-alt td { background: var(--bg-surface); }
+
+.execute-btn {
+  background: #1e3a2e; border: 1px solid var(--green); border-radius: 4px;
+  padding: 2px 10px; color: var(--green); cursor: pointer; font-size: 11px;
+  font-family: var(--font-mono);
+}
+.execute-btn:hover { background: var(--green); color: #000; }
+
+/* Refresh btn */
+.refresh-btn {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px;
+  padding: 4px 12px; color: var(--muted); cursor: pointer; font-size: 11px;
+  font-family: var(--font-mono);
+}
+.refresh-btn:hover { border-color: var(--green); color: var(--text); }
+
+/* Settings modal overlay */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-box {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px; min-width: 360px;
+}
+.modal-title { font-size: 14px; color: var(--green); margin-bottom: 16px; }
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.form-input {
+  width: 100%; background: var(--bg-base); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); padding: 6px 8px; font-family: var(--font-mono);
+  font-size: 12px;
+}
+.form-input:focus { border-color: var(--green); outline: none; }
+
+.btn-primary {
+  background: var(--green); color: #000; border: none; border-radius: 4px;
+  padding: 6px 18px; font-weight: bold; cursor: pointer; font-family: var(--font-mono);
+}
+.btn-secondary {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 14px; color: var(--muted); cursor: pointer; font-family: var(--font-mono);
+}
+
+/* Ticker tape strip */
+.ticker-tape { height: 44px; overflow: hidden; }
