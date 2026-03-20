@@ -1,1 +1,34 @@
-{% extends "base.html" %}{% block content %}<h2>{{ skill_name }}</h2>{% endblock %}
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">Scenario Analyzer</h2>
+  {% if data %}
+    {% set scenarios = data.get('scenarios', []) %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Primary Scenario</div><div class="summary-value" style="font-size:11px;">{{ scenarios[0].get('scenario', '—') if scenarios else '—' }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Scenarios</div><div class="summary-value">{{ scenarios | length }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Scenario</th><th>Probability</th><th>Impact</th></tr></thead>
+      <tbody>
+        {% for s in scenarios %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td>{{ s.get('scenario', '—') }}</td>
+          <td style="color:#4ade80;">{{ s.get('probability', '—') }}</td>
+          <td>{{ s.get('impact', '—') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — scenario-analyzer has no standalone script in Plan 1.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -77,3 +77,12 @@ def test_static_css_served():
     client = make_client()
     r = client.get("/static/style.css")
     assert r.status_code == 200
+
+import pytest
+from config import DETAIL_ROUTES
+
+@pytest.mark.parametrize("page", list(DETAIL_ROUTES.keys()))
+def test_all_detail_routes_return_200(page):
+    client = make_client()
+    r = client.get(f"/detail/{page}")
+    assert r.status_code == 200, f"/detail/{page} returned {r.status_code}"

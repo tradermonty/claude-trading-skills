@@ -1,1 +1,35 @@
-{% extends "base.html" %}{% block content %}<h2>{{ skill_name }}</h2>{% endblock %}
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+      <button class="refresh-btn" hx-post="/api/skill/theme-detector/refresh" hx-swap="none">↻ Refresh now</button>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">Theme Detector</h2>
+  {% if data %}
+    {% set themes = data.get('themes', []) %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Top Theme</div><div class="summary-value" style="font-size:12px;">{{ themes[0].get('theme', '—') if themes else '—' }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Theme Count</div><div class="summary-value">{{ themes | length }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Theme</th><th>Score</th><th>Stocks</th></tr></thead>
+      <tbody>
+        {% for t in themes %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td style="color:#38bdf8;">{{ t.get('theme', '—') }}</td>
+          <td style="color:#4ade80;">{{ t.get('score', '—') }}</td>
+          <td style="font-size:10px; color:#8b949e;">{{ t.get('stocks', []) | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — waiting for first skill run.</p>
+  {% endif %}
+</div>
+{% endblock %}

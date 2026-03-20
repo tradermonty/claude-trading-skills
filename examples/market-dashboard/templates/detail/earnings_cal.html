@@ -1,1 +1,35 @@
-{% extends "base.html" %}{% block content %}<h2>{{ skill_name }}</h2>{% endblock %}
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+      <button class="refresh-btn" hx-post="/api/skill/earnings-calendar/refresh" hx-swap="none">↻ Refresh now</button>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">Earnings Calendar</h2>
+  {% if data %}
+    {% set earnings = data.get('earnings', data.get('results', [])) %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Total Reports</div><div class="summary-value">{{ earnings | length }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Ticker</th><th>Date</th><th>Time</th><th>EPS Est</th></tr></thead>
+      <tbody>
+        {% for e in earnings %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td style="color:#38bdf8; font-weight:bold;">{{ e.get('symbol', e.get('ticker', '—')) }}</td>
+          <td>{{ e.get('date', '—') }}</td>
+          <td style="color:#8b949e;">{{ e.get('time', e.get('hour', '—')) }}</td>
+          <td>{{ e.get('epsEstimated', e.get('eps_est', '—')) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — waiting for first skill run.</p>
+  {% endif %}
+</div>
+{% endblock %}
