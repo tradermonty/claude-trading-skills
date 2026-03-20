@@ -160,11 +160,11 @@ Trades in Auto mode are triggered by **price breakout above the VCP pivot**, not
 
 #### Stage 1 — Pre-market confidence check (7 AM, all VCP candidates)
 
-Checks previous day's close + after-hours + overnight news for each candidate. Cross-references Theme Detector and Institutional Flow Tracker. Tags each stock:
+Checks previous day's close + after-hours + overnight news for each candidate. Cross-references Theme Detector output (from cache). Note: Institutional Flow Tracker runs on a **weekly background scan** (Sunday evening) — its output is cached in `cache/institutional-flow.json` and read here as a supplementary signal, not fetched fresh daily. Tags each stock:
 
 | Tag | Meaning | Action at trigger |
 |---|---|---|
-| `HIGH_CONVICTION` | Positive catalyst confirmed (earnings beat, analyst upgrade, hot theme alignment, institutional accumulation) | Order fires, position size scales to 1.5× default risk % |
+| `HIGH_CONVICTION` | Positive catalyst confirmed (earnings beat, analyst upgrade, hot theme alignment, institutional accumulation from weekly scan) | Order fires, position size scales to 1.5× default risk % |
 | `CLEAR` | No news either way, clean setup | Order fires at default size |
 | `UNCERTAIN` | Mixed signals or pending event (e.g. earnings within 3 days) | Stage 2 check runs at trigger time |
 | `BLOCKED` | Clear negative catalyst (miss, downgrade, legal, FDA rejection) | Removed from watchlist entirely |
@@ -243,13 +243,13 @@ Clicking any button activates it (highlighted border + arrow indicator) and reve
 |---|---|---|---|
 | Once at 7:00 AM | Market News Analyst | 0 | WebSearch/WebFetch only |
 | Once at 7:00 AM | Scenario Analyzer | 0 | WebSearch — 18-month context for top headlines |
-| Once at 7:00 AM | Macro Regime Detector | 0 | Structural context for the day |
+| Once at 7:00 AM | Macro Regime Detector | ~5–10 | ⚠️ FMP required per README |
 | Once at 7:00 AM | Market Top Detector | 0 | Risk posture before open |
 | Once at 7:00 AM | US Market Bubble Detector | 0 | Bubble risk guard rail |
 | Once at 7:00 AM | Sector Analyst | 0 | Which sectors likely to lead/lag |
 | Once at 7:00 AM | Theme Detector | 0 | Active themes to watch |
-| Once at 7:00 AM | Edge Signal Aggregator | 0 | Synthesizes theme + sector + institutional flow into conviction scores |
-| Once at 7:00 AM | Stanley Druckenmiller Investment | 0 | Master conviction score (0–100) across 8 upstream skills |
+| Once at 7:00 AM | Edge Signal Aggregator | 0 | Aggregates edge pipeline skill outputs into ranked conviction dashboard |
+| Once at 7:00 AM | Stanley Druckenmiller Investment | 0 | ⚠️ Advisory/philosophy skill — verify automation compatibility before relying on it for scoring |
 | Already runs at 6:00 AM | Economic Calendar, Earnings Calendar | ~10 | Week-ahead fetch |
 
 Pre-market runs are one-shot at 7:00 AM — not repeated during the 7:00–9:30 window. Results remain in cache until the market-hours scheduler takes over.
@@ -258,11 +258,17 @@ Pre-market runs are one-shot at 7:00 AM — not repeated during the 7:00–9:30 
 | Cadence | Skills | FMP calls/day | Notes |
 |---|---|---|---|
 | Once at 9:30 AM open | VCP Screener | ~20–50 | Daily candles don't change intraday |
-| Once at 9:30 AM open | CANSLIM Screener | ~20–50 | Second candidate pool — growth stocks with fundamental backing |
+| Once at 9:30 AM open | CANSLIM Screener | ~20–50 | ⚠️ Phase 2 — functional but missing L (Leadership/RS Rank) component; treat output as supplementary until Phase 3 |
 | Every 30 min | FTD Detector | ~26–52 | Intraday volume tracking |
 | Every 30 min | Uptrend Analyzer, Market Breadth | 0 | CSV-based |
 | Every 30 min | Sector Analyst → Exposure Coach, Theme Detector | 0 | CSV/FINVIZ/WebSearch |
-| Every 60 min | Market Top Detector, Macro Regime Detector | 0 | CSV/WebFetch |
+| Every 60 min | Market Top Detector | 0 | CSV/WebFetch |
+| Every 60 min | Macro Regime Detector | ~35–70 | FMP required — runs every 60 min during hours |
+
+**Weekly background (Sunday 6:00 PM ET):**
+| Cadence | Skills | FMP calls | Notes |
+|---|---|---|---|
+| Weekly | Institutional Flow Tracker | ~10–20 | 13F filings are quarterly — weekly scan checks for new filings; output cached for daily confidence check |
 
 **Post-market (Mon/Wed/Fri only, 4:15 PM ET):**
 | Cadence | Skills | FMP calls/run | Notes |
@@ -276,12 +282,14 @@ Pre-market runs are one-shot at 7:00 AM — not repeated during the 7:00–9:30 
 | FTD Detector (every 30 min) | ~26–52 |
 | VCP Screener (once at open) | ~20–50 |
 | CANSLIM Screener (once at open) | ~20–50 |
+| Macro Regime Detector (every 60 min, 7 runs) | ~35–70 |
+| Macro Regime Detector pre-market (once at 7 AM) | ~5–10 |
 | PEAD + Earnings Trade Analyzer (3×/week avg) | ~21–43 |
 | Economic + Earnings Calendars (6 AM) | ~10 |
 | Everything else | 0 |
-| **Total** | **~97–205/day ✅** |
+| **Total** | **~137–285/day** |
 
-**Well within the free tier (250/day). Total ongoing data cost = $0.**
+⚠️ **On busy days this may slightly exceed the free tier (250/day).** To stay safely within limits, reduce Macro Regime Detector to every 90 min during hours (5 runs instead of 7) → saves ~10–20 calls → brings total to **~117–245/day ✅**
 
 ### Cache behaviour
 - Skill scripts write timestamped output filenames (e.g. `ftd_detector_2026-03-20_143022.json`). After a successful subprocess run, `skills_runner.py` renames the skill's timestamped output file to `cache/<skill-name>.json`, overwriting the previous version. The staleness timestamp is read from the `generated_at` field inside the JSON, not the file modification time.
