@@ -4,5 +4,6 @@ jinja2
 httpx
 apscheduler
 python-dotenv
+python-multipart
 pytest
 pytest-asyncio
