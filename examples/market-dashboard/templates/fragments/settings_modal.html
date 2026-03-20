@@ -1,1 +1,57 @@
-<div id="modal">settings</div>
+<div class="modal-overlay" onclick="if(event.target===this) this.remove()">
+  <div class="modal-box">
+    <div class="modal-title">⚙️ Dashboard Settings</div>
+
+    {% if settings.environment == 'live' and settings.mode == 'auto' %}
+    <div style="background:#3a1a1a; border:1px solid #f87171; border-radius:4px; padding:8px; margin-bottom:12px; font-size:11px; color:#f87171;">
+      ⚠️ LIVE TRADING + AUTO MODE ACTIVE — red border indicates real money is at risk
+    </div>
+    {% endif %}
+
+    <form hx-post="/api/settings" hx-target="#modal-container" hx-swap="innerHTML">
+      <!-- Trading Mode -->
+      <div class="form-row">
+        <div class="form-label">Trading Mode</div>
+        <select name="mode" class="form-input">
+          <option value="advisory" {% if settings.mode == 'advisory' %}selected{% endif %}>Level 1 — Advisory</option>
+          <option value="semi_auto" {% if settings.mode == 'semi_auto' %}selected{% endif %}>Level 2 — Semi-Auto</option>
+          <option value="auto" {% if settings.mode == 'auto' %}selected{% endif %}>Level 3 — Auto ⚠️</option>
+        </select>
+      </div>
+
+      <!-- Environment -->
+      <div class="form-row">
+        <div class="form-label">Environment</div>
+        <select name="environment" class="form-input">
+          <option value="paper" {% if settings.environment == 'paper' %}selected{% endif %}>📄 Paper Trading</option>
+          <option value="live" {% if settings.environment == 'live' %}selected{% endif %}>💰 Live Trading</option>
+        </select>
+        {% if settings.environment == 'paper' %}
+        <div style="font-size:10px; color:#4ade80; margin-top:4px;">Switching to Live requires typing CONFIRM LIVE TRADING</div>
+        {% endif %}
+      </div>
+
+      <!-- Risk settings -->
+      <div class="form-row">
+        <div class="form-label">Default Risk % per Trade</div>
+        <input type="number" name="default_risk_pct" class="form-input"
+               value="{{ settings.default_risk_pct }}" min="0.1" max="5.0" step="0.1">
+      </div>
+      <div class="form-row">
+        <div class="form-label">Max Open Positions</div>
+        <input type="number" name="max_positions" class="form-input"
+               value="{{ settings.max_positions }}" min="1" max="20">
+      </div>
+      <div class="form-row">
+        <div class="form-label">Max Position Size (% of account)</div>
+        <input type="number" name="max_position_size_pct" class="form-input"
+               value="{{ settings.max_position_size_pct }}" min="1" max="50" step="0.5">
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-container').innerHTML=''">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
