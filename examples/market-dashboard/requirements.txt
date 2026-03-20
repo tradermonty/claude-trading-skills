@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+jinja2
+httpx
+apscheduler
+python-dotenv
+pytest
+pytest-asyncio
