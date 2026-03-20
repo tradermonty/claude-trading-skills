@@ -17,6 +17,9 @@ load_dotenv(ROOT / ".env")
 FMP_API_KEY = os.environ.get("FMP_API_KEY", "")
 FINVIZ_API_KEY = os.environ.get("FINVIZ_API_KEY", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ALPACA_API_KEY = os.environ.get("ALPACA_API_KEY", "")
+ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
+ALPACA_PAPER = os.environ.get("ALPACA_PAPER", "true").lower() == "true"
 
 SKILL_TIMEOUT = int(os.environ.get("SKILL_TIMEOUT", "120"))
 APP_PORT = int(os.environ.get("APP_PORT", "8000"))

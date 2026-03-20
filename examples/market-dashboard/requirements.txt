@@ -7,3 +7,4 @@ python-dotenv
 python-multipart
 pytest
 pytest-asyncio
+alpaca-py
