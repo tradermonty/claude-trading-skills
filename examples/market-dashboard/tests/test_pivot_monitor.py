@@ -123,3 +123,138 @@ def test_stage1_applies_rule_store_rules():
         result = monitor.run_stage1_check([{"symbol": "TSLA", "pivot_price": 200.0}])
         # UNCERTAIN upgraded to BLOCKED by the rule
         assert result[0]["confidence_tag"] == "BLOCKED"
+
+
+# ── Breakout detection and guard rails ─────────────────────────────────────
+
+def test_check_breakout_fires_for_clear_candidate():
+    """When price >= pivot × 1.001, a CLEAR candidate should trigger _fire_order."""
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.is_configured = True
+        monitor._alpaca.get_positions.return_value = []
+        monitor._alpaca.get_account.return_value = {"portfolio_value": 100_000.0}
+        monitor._alpaca.get_last_price.return_value = 156.0
+        monitor._alpaca.place_bracket_order.return_value = {
+            "id": "ord1", "symbol": "AAPL", "qty": 10.0, "limit_price": 156.0, "status": "new"
+        }
+
+        bar = MagicMock()
+        bar.symbol = "AAPL"
+        bar.close = 156.0  # 156 >= 155 × 1.001 = 155.155 ✓
+
+        candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
+        monitor._candidates = candidates
+
+        import pivot_monitor as pm
+        original = pm._market_is_open_now
+        pm._market_is_open_now = lambda: True
+        try:
+            monitor._check_breakout(bar, candidates)
+        finally:
+            pm._market_is_open_now = original
+
+        monitor._alpaca.place_bracket_order.assert_called_once()
+        assert "AAPL" in monitor._triggered
+
+
+def test_check_breakout_skips_blocked_candidate():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.is_configured = True
+        bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
+        candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "BLOCKED"}]
+
+        import pivot_monitor as pm
+        original = pm._market_is_open_now
+        pm._market_is_open_now = lambda: True
+        try:
+            monitor._check_breakout(bar, candidates)
+        finally:
+            pm._market_is_open_now = original
+
+        monitor._alpaca.place_bracket_order.assert_not_called()
+
+
+def test_check_breakout_skips_when_price_below_buffer():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        bar = MagicMock(); bar.symbol = "AAPL"
+        bar.close = 155.0  # exactly at pivot, not above buffer
+        candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
+
+        monitor._check_breakout(bar, candidates)
+        monitor._alpaca.place_bracket_order.assert_not_called()
+
+
+def test_guard_rail_max_positions_blocks_order():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.is_configured = True
+        # 5 positions = max_positions → blocked
+        monitor._alpaca.get_positions.return_value = [{}] * 5
+
+        bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
+        candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
+
+        import pivot_monitor as pm
+        original = pm._market_is_open_now
+        pm._market_is_open_now = lambda: True
+        try:
+            monitor._check_breakout(bar, candidates)
+        finally:
+            pm._market_is_open_now = original
+
+        monitor._alpaca.place_bracket_order.assert_not_called()
+
+
+def test_guard_rail_outside_market_hours_blocks_order():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.is_configured = True
+        bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
+        candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
+
+        import pivot_monitor as pm
+        original = pm._market_is_open_now
+        pm._market_is_open_now = lambda: False
+        try:
+            monitor._check_breakout(bar, candidates)
+        finally:
+            pm._market_is_open_now = original
+
+        monitor._alpaca.place_bracket_order.assert_not_called()
+
+
+def test_uncertain_with_negative_stage2_blocks_order():
+    def negative_search(sym):
+        return ["AAPL: SEC investigation launched"]
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d), search_fn=negative_search)
+        monitor._alpaca.is_configured = True
+        monitor._alpaca.get_positions.return_value = []
+        bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
+        candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "UNCERTAIN"}]
+
+        import pivot_monitor as pm
+        original = pm._market_is_open_now
+        pm._market_is_open_now = lambda: True
+        try:
+            monitor._check_breakout(bar, candidates)
+        finally:
+            pm._market_is_open_now = original
+
+        monitor._alpaca.place_bracket_order.assert_not_called()
+
+
+def test_high_conviction_uses_1_5x_risk():
+    """HIGH_CONVICTION sizing passes risk_pct × 1.5 to qty calculation."""
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.is_configured = True
+        monitor._alpaca.get_account.return_value = {"portfolio_value": 100_000.0}
+        # account=100k, risk=1%, entry=100, stop=97 → risk_per_share=3, dollar_risk=1000 → 333 shares
+        # HIGH_CONVICTION: risk=1.5%, dollar_risk=1500 → 500 shares
+        qty_normal = monitor._calc_qty(100.0, 97.0, high_conviction=False)
+        qty_hc = monitor._calc_qty(100.0, 97.0, high_conviction=True)
+        assert qty_hc > qty_normal
