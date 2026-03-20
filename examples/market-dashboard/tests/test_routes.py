@@ -3,7 +3,19 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pytest
 from fastapi.testclient import TestClient
+from config import DETAIL_ROUTES, SETTINGS_FILE
+
+
+@pytest.fixture(autouse=True)
+def clean_settings():
+    """Delete settings.json before each test so mode defaults to 'advisory'."""
+    if SETTINGS_FILE.exists():
+        SETTINGS_FILE.unlink()
+    yield
+    if SETTINGS_FILE.exists():
+        SETTINGS_FILE.unlink()
 
 
 def make_client():
@@ -78,18 +90,6 @@ def test_static_css_served():
     r = client.get("/static/style.css")
     assert r.status_code == 200
 
-import pytest
-from config import DETAIL_ROUTES, SETTINGS_FILE
-
-
-@pytest.fixture(autouse=True)
-def clean_settings():
-    """Delete settings.json before each test so mode defaults to 'advisory'."""
-    if SETTINGS_FILE.exists():
-        SETTINGS_FILE.unlink()
-    yield
-    if SETTINGS_FILE.exists():
-        SETTINGS_FILE.unlink()
 
 @pytest.mark.parametrize("page", list(DETAIL_ROUTES.keys()))
 def test_all_detail_routes_return_200(page):

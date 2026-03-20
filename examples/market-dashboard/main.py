@@ -11,12 +11,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import CACHE_DIR, DETAIL_ROUTES, ROOT, SKILLS_ROOT, SIGNAL_PANEL_SKILLS, SKILL_REGISTRY
+from config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_PAPER, CACHE_DIR, DETAIL_ROUTES, ROOT, SKILLS_ROOT, SIGNAL_PANEL_SKILLS, SKILL_REGISTRY
 from scheduler import create_scheduler
 from settings_manager import SettingsManager
 from skills_runner import SkillsRunner
 from alpaca_client import AlpacaClient
-from config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_PAPER
 
 app = FastAPI(title="Market Dashboard")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
