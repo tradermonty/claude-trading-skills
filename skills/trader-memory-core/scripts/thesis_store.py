@@ -205,7 +205,7 @@ def _find_by_fingerprint(state_dir: Path, fingerprint: str) -> str | None:
             thesis = yaml.safe_load(yaml_path.read_text())
             if thesis and thesis.get("origin_fingerprint") == fingerprint:
                 return thesis["thesis_id"]
-        except Exception:
+        except (OSError, yaml.YAMLError, KeyError):
             continue
     return None
 
