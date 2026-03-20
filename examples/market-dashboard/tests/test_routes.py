@@ -125,3 +125,16 @@ def test_order_preview_endpoint_exists():
     })
     # Default mode is advisory (DEFAULT_TRADING_MODE = "advisory" in config.py)
     assert r.status_code == 403
+
+
+def test_order_confirm_advisory_mode_returns_403():
+    """Advisory mode (the default) never executes orders — must return 403."""
+    client = make_client()
+    # Default mode is advisory (DEFAULT_TRADING_MODE = "advisory" in config.py)
+    r = client.post("/api/order/confirm", json={
+        "symbol": "AAPL",
+        "qty": 10,
+        "limit_price": 150.0,
+        "stop_price": 145.0,
+    })
+    assert r.status_code == 403

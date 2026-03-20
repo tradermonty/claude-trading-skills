@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -155,6 +156,32 @@ async def order_preview(
         "default_risk_pct": settings.get("default_risk_pct", 1.0),
     }
     return templates.TemplateResponse("fragments/order_preview.html", ctx)
+
+
+class OrderConfirmRequest(BaseModel):
+    symbol: str
+    qty: int
+    limit_price: float
+    stop_price: float
+
+
+@app.post("/api/order/confirm")
+async def order_confirm(body: OrderConfirmRequest):
+    settings = settings_manager.load()
+    if settings.get("mode") == "advisory":
+        raise HTTPException(status_code=403, detail="Execute not available in Advisory mode")
+    if not alpaca.is_configured:
+        return JSONResponse({"ok": False, "error": "Alpaca not configured — set API keys in .env"})
+    try:
+        result = alpaca.place_bracket_order(
+            symbol=body.symbol,
+            qty=body.qty,
+            limit_price=body.limit_price,
+            stop_price=body.stop_price,
+        )
+        return JSONResponse({"ok": True, "order_id": result["id"], "status": result["status"]})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
 
 
 @app.get("/api/portfolio", response_class=HTMLResponse)
