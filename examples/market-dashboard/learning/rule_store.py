@@ -35,7 +35,7 @@ class RuleStore:
             return {"rules": []}
         try:
             return json.loads(self._file.read_text())
-        except Exception:
+        except json.JSONDecodeError:
             return {"rules": []}
 
     def save(self, data: dict) -> None:
@@ -61,6 +61,7 @@ class RuleStore:
         return result
 
     def _matches(self, candidate: dict, condition: dict) -> bool:
+        # Empty condition matches all candidates (intentional — universal rule).
         for key, value in condition.items():
             if key not in candidate:
                 return False
