@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 from zoneinfo import ZoneInfo
@@ -192,7 +192,7 @@ class PivotWatchlistMonitor:
             max_pos = settings.get("max_positions", 5)
             if len(positions) >= max_pos:
                 return False, f"max_positions={max_pos} reached"
-        except Exception:
+        except Exception:  # fail closed — any Alpaca error blocks the order
             return False, "could not check positions"
 
         return True, ""
@@ -211,9 +211,13 @@ class PivotWatchlistMonitor:
                 symbol=symbol, qty=qty, limit_price=entry_price, stop_price=stop_price,
             )
             print(f"[pivot_monitor] ORDER: {symbol} {qty}sh @ {entry_price} | {result}", file=sys.stderr)
-            self._log_trade(candidate, result["id"], entry_price, stop_price, qty, tag)
         except Exception as e:
             print(f"[pivot_monitor] {symbol} order error: {e}", file=sys.stderr)
+            return
+        try:
+            self._log_trade(candidate, result["id"], entry_price, stop_price, qty, tag)
+        except Exception as e:
+            print(f"[pivot_monitor] {symbol} log error (order placed): {e}", file=sys.stderr)
 
     def _calc_qty(self, entry_price: float, stop_price: float, high_conviction: bool) -> int:
         """Calculate share count based on risk % settings and account value."""
@@ -269,7 +273,7 @@ class PivotWatchlistMonitor:
         trades["trades"].append({
             "symbol": candidate["symbol"],
             "order_id": order_id,
-            "entry_time": datetime.utcnow().isoformat(),
+            "entry_time": datetime.now(timezone.utc).isoformat(),
             "entry_price": entry_price,
             "stop_price": stop_price,
             "qty": qty,
@@ -330,10 +334,13 @@ class PivotWatchlistMonitor:
             print(f"[pivot_monitor] stream disconnected: {e}", file=sys.stderr)
 
 
+_MARKET_OPEN = datetime.strptime("09:30", "%H:%M").time()
+_MARKET_CLOSE = datetime.strptime("16:00", "%H:%M").time()
+
+
 def _market_is_open_now() -> bool:
     """Check if current ET time is within market hours (Mon-Fri 9:30-16:00)."""
     now = datetime.now(ZoneInfo("America/New_York"))
     if now.weekday() >= 5:
         return False
-    t = now.time()
-    return (t.hour == 9 and t.minute >= 30) or (10 <= t.hour < 16)
+    return _MARKET_OPEN <= now.time() < _MARKET_CLOSE

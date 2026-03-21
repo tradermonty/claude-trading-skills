@@ -179,11 +179,19 @@ def test_check_breakout_skips_blocked_candidate():
 def test_check_breakout_skips_when_price_below_buffer():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
+        monitor._alpaca.is_configured = True
         bar = MagicMock(); bar.symbol = "AAPL"
-        bar.close = 155.0  # exactly at pivot, not above buffer
+        bar.close = 155.0  # exactly at pivot, not above buffer (needs > 155.155)
         candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
 
-        monitor._check_breakout(bar, candidates)
+        import pivot_monitor as pm
+        original = pm._market_is_open_now
+        pm._market_is_open_now = lambda: True
+        try:
+            monitor._check_breakout(bar, candidates)
+        finally:
+            pm._market_is_open_now = original
+
         monitor._alpaca.place_bracket_order.assert_not_called()
 
 
