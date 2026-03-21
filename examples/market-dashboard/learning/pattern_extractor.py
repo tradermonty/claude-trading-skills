@@ -39,7 +39,7 @@ class PatternExtractor:
         trades = [t for t in all_trades if t.get("outcome") is not None]
 
         if not trades:
-            return {"rules_updated": 0, "trades_analyzed": 0}
+            return {"trades_analyzed": 0, "rules_updated": 0}
 
         stats = self._compute_stats(trades)
         new_rules, updated_ids = self._generate_rules(stats)
@@ -110,7 +110,7 @@ class PatternExtractor:
                 stats[tag] = {"wins": 0, "losses": 0}
             if t.get("outcome") == "win":
                 stats[tag]["wins"] += 1
-            else:
+            elif t.get("outcome") == "loss":
                 stats[tag]["losses"] += 1
         return stats
 
@@ -152,6 +152,7 @@ class PatternExtractor:
     def _persist_rules(self, new_rules: list[dict], updated_ids: set) -> None:
         if not new_rules:
             return
+        # Reload fresh — _generate_rules may have already written updates to existing rules.
         data = self._rule_store.load()
         data["rules"].extend(new_rules)
         self._rule_store.save(data)

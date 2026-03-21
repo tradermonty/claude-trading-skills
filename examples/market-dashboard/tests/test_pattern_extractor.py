@@ -129,8 +129,7 @@ def test_extract_does_not_activate_rule_below_min_sample_count():
         write_trades(Path(d), trades)
         extractor, store = make_extractor(Path(d))
         extractor.extract()
-        for r in store.load()["rules"]:
-            assert r.get("active") is False or r.get("sample_count", 0) < MIN_SAMPLE_COUNT
+        assert store.load()["rules"] == []
 
 
 def test_extract_does_not_create_rule_when_loss_rate_below_threshold():
