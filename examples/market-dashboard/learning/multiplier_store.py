@@ -12,6 +12,7 @@ DEFAULT_SEED_FILE = LEARNING_DIR / "seed_multipliers.json"
 
 MIN_SAMPLE_COUNT = 5
 _MAX_VALID_RR = 20.0
+KELLY_MIN_SAMPLES = 10
 
 
 def _p75(values: list[float]) -> float:
@@ -82,17 +83,50 @@ class MultiplierStore:
         except Exception:
             return 2.0
 
-    def update(self, bucket_key: str, achieved_rr: float) -> None:
-        """Append a real trade's achieved R:R and recompute p75. Discards bad values."""
-        if achieved_rr <= 0 or achieved_rr > _MAX_VALID_RR:
+    def update(self, bucket_key: str, achieved_rr: float, outcome: str = "win") -> None:
+        """Append a real trade's achieved R:R (wins only) and track win/loss counts."""
+        if outcome not in ("win", "loss"):
             return
         data = self._load_learned()
         bucket = data.get(bucket_key, {"observed_rr": []})
-        bucket["observed_rr"].append(achieved_rr)
-        n = len(bucket["observed_rr"])
-        bucket["p75"] = _p75(bucket["observed_rr"])
-        bucket["sample_count"] = n
+
+        # Win/loss counters — always updated for valid outcomes
+        bucket["wins"] = bucket.get("wins", 0) + (1 if outcome == "win" else 0)
+        bucket["losses"] = bucket.get("losses", 0) + (1 if outcome == "loss" else 0)
         bucket["last_updated"] = date.today().isoformat()
+
+        # Only append RR for wins with valid values (RR from losses is negative/meaningless)
+        if outcome == "win" and 0 < achieved_rr <= _MAX_VALID_RR:
+            bucket["observed_rr"].append(achieved_rr)
+            bucket["p75"] = _p75(bucket["observed_rr"])
+            bucket["sample_count"] = len(bucket["observed_rr"])
+
         data[bucket_key] = bucket
         self._learned_file.parent.mkdir(parents=True, exist_ok=True)
         self._learned_file.write_text(json.dumps(data, indent=2))
+
+    def get_kelly_multiplier(self, bucket_key: str, base_risk_pct: float, max_multiplier: float = 2.0) -> float:
+        """Returns Kelly-based size multiplier. Returns 1.0 if insufficient data."""
+        try:
+            data = self._load_learned()
+            bucket = data.get(bucket_key, {})
+            wins = bucket.get("wins", 0)
+            losses = bucket.get("losses", 0)
+            total = wins + losses
+            if total < KELLY_MIN_SAMPLES:
+                return 1.0
+
+            observed = bucket.get("observed_rr", [])
+            if not observed:
+                return 1.0
+
+            win_rate = wins / total
+            loss_rate = losses / total
+            avg_rr = sum(observed) / len(observed)
+
+            kelly = win_rate - (loss_rate / max(avg_rr, 0.1))
+            multiplier = kelly / (base_risk_pct / 100)
+            multiplier = max(0.1, multiplier)  # never size below 10% of base
+            return round(min(multiplier, max_multiplier), 3)
+        except Exception:
+            return 1.0
