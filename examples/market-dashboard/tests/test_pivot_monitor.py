@@ -570,3 +570,110 @@ def test_volume_ratio_zero_always_allows(tmp_path):
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 1_000_000}
     allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
     assert allowed is True
+
+
+# ── Task 2: Time-of-day soft lock tests ──────────────────────────────────────
+
+from unittest.mock import patch
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+def make_et_time(hour, minute):
+    return datetime(2026, 3, 22, hour, minute, 0, tzinfo=ZoneInfo("America/New_York"))
+
+def test_time_lock_clear_blocked_in_open_window(tmp_path):
+    from unittest.mock import MagicMock, patch
+    from pivot_monitor import PivotWatchlistMonitor
+    alpaca = MagicMock()
+    alpaca.is_configured = True
+    alpaca.get_positions.return_value = []
+    settings = MagicMock()
+    settings.load.return_value = {
+        "mode": "auto", "default_risk_pct": 1.0,
+        "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 0, "avoid_open_close_minutes": 30,
+        "breadth_threshold_pct": 60.0, "breadth_size_reduction_pct": 0.0,
+        "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
+        "earnings_blackout_days": 0,
+    }
+    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR"}
+    with patch("pivot_monitor.datetime") as mock_dt:
+        mock_dt.now.return_value = make_et_time(9, 35)
+        allowed, reason = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is False
+    assert "time-of-day" in reason.lower()
+
+def test_time_lock_high_conviction_allowed_in_open_window(tmp_path):
+    from unittest.mock import MagicMock, patch
+    from pivot_monitor import PivotWatchlistMonitor
+    alpaca = MagicMock()
+    alpaca.is_configured = True
+    alpaca.get_positions.return_value = []
+    settings = MagicMock()
+    settings.load.return_value = {
+        "mode": "auto", "default_risk_pct": 1.0,
+        "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 0, "avoid_open_close_minutes": 30,
+        "breadth_threshold_pct": 60.0, "breadth_size_reduction_pct": 0.0,
+        "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
+        "earnings_blackout_days": 0,
+    }
+    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "HIGH_CONVICTION"}
+    with patch("pivot_monitor.datetime") as mock_dt:
+        mock_dt.now.return_value = make_et_time(9, 35)
+        allowed, _ = monitor._guard_rails_allow(candidate, tag="HIGH_CONVICTION")
+    assert allowed is True
+
+def test_time_lock_clear_allowed_outside_window(tmp_path):
+    from unittest.mock import MagicMock, patch
+    from pivot_monitor import PivotWatchlistMonitor
+    alpaca = MagicMock()
+    alpaca.is_configured = True
+    alpaca.get_positions.return_value = []
+    settings = MagicMock()
+    settings.load.return_value = {
+        "mode": "auto", "default_risk_pct": 1.0,
+        "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 0, "avoid_open_close_minutes": 30,
+        "breadth_threshold_pct": 60.0, "breadth_size_reduction_pct": 0.0,
+        "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
+        "earnings_blackout_days": 0,
+    }
+    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR"}
+    with patch("pivot_monitor.datetime") as mock_dt:
+        mock_dt.now.return_value = make_et_time(11, 0)
+        allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is True
+
+def test_time_lock_disabled_when_zero(tmp_path):
+    from unittest.mock import MagicMock, patch
+    from pivot_monitor import PivotWatchlistMonitor
+    alpaca = MagicMock()
+    alpaca.is_configured = True
+    alpaca.get_positions.return_value = []
+    settings = MagicMock()
+    settings.load.return_value = {
+        "mode": "auto", "default_risk_pct": 1.0,
+        "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 0, "avoid_open_close_minutes": 0,
+        "breadth_threshold_pct": 60.0, "breadth_size_reduction_pct": 0.0,
+        "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
+        "earnings_blackout_days": 0,
+    }
+    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR"}
+    with patch("pivot_monitor.datetime") as mock_dt:
+        mock_dt.now.return_value = make_et_time(9, 31)
+        allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is True
