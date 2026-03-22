@@ -931,3 +931,62 @@ def test_partial_exit_sets_flag_on_sell_failure():
         trade = make_partial_trade()
         monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
         assert trade["partial_exit_done"] is True
+
+
+# ── Task 5: Time stop tests ───────────────────────────────────────────────────
+
+def make_time_stop_trade(days_ago, entry=100.0, stop=97.0, qty=10):
+    from datetime import datetime, timezone, timedelta
+    entry_time = (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat()
+    return {"symbol": "AAPL", "entry_price": entry, "stop_price": stop, "qty": qty, "stop_order_id": "stop-ord-1", "outcome": None, "entry_time": entry_time}
+
+
+def test_time_stop_exits_flat_position_after_time_limit():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 100.5
+        monitor._alpaca.place_market_sell.return_value = {"id": "sell-ts", "status": "new"}
+        trade = make_time_stop_trade(days_ago=6)
+        result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
+        assert result is True
+        assert trade["outcome"] == "time_stop"
+        monitor._alpaca.place_market_sell.assert_called_once_with("AAPL", 10)
+
+
+def test_time_stop_no_exit_within_time_limit():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 100.2
+        trade = make_time_stop_trade(days_ago=3)
+        result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()
+
+
+def test_time_stop_no_exit_when_position_above_half_r():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 102.0
+        trade = make_time_stop_trade(days_ago=7)
+        result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()
+
+
+def test_time_stop_disabled_when_days_zero():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 100.1
+        trade = make_time_stop_trade(days_ago=30)
+        result = monitor._apply_time_stop(trade, {"time_stop_days": 0})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()
+
+
+def test_time_stop_skips_when_entry_time_missing():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        trade = {"symbol": "AAPL", "entry_price": 100.0, "stop_price": 97.0, "qty": 10, "outcome": None}
+        result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()

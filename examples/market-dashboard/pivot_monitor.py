@@ -489,7 +489,40 @@ class PivotWatchlistMonitor:
         return False
 
     def _apply_time_stop(self, trade: dict, settings: dict) -> bool:
-        return False  # stub
+        time_stop_days = settings.get("time_stop_days", 5)
+        if time_stop_days == 0:
+            return False
+        entry_time_str = trade.get("entry_time")
+        if not entry_time_str:
+            return False
+        entry_dt = datetime.fromisoformat(entry_time_str)
+        now = datetime.now(timezone.utc)
+        days_open = (now - entry_dt).days
+        if days_open < time_stop_days:
+            return False
+        entry = trade.get("entry_price")
+        stop = trade.get("stop_price")
+        qty = trade.get("qty")
+        if not all([entry, stop, qty]):
+            return False
+        try:
+            current_price = self._alpaca.get_last_price(trade["symbol"])
+        except Exception:
+            return False
+        risk = entry - stop
+        if risk <= 0:
+            return False
+        current_r = abs((current_price - entry) / risk)
+        if current_r > 0.5:
+            return False
+        try:
+            self._alpaca.place_market_sell(trade["symbol"], qty)
+            trade["outcome"] = "time_stop"
+            trade["exit_price"] = current_price
+            return True
+        except Exception as e:
+            print(f"[time_stop] {trade['symbol']} exit failed: {e}", file=sys.stderr)
+        return False
 
     def _get_breadth_multiplier(self) -> float:
         """Returns size multiplier based on market breadth. 1.0 = full size."""
