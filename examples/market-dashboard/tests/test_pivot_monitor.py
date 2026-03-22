@@ -16,6 +16,10 @@ def make_monitor(tmp_path: Path, search_fn=None):
     settings.load.return_value = {
         "mode": "auto", "default_risk_pct": 1.0,
         "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 1.5,
+        "avoid_open_close_minutes": 0,   # 0 = disabled — keeps existing tests green
+        "breadth_threshold_pct": 60.0,
+        "breadth_size_reduction_pct": 0.0,  # 0 = disabled — keeps existing tests green
     }
     return PivotWatchlistMonitor(
         alpaca_client=alpaca,
@@ -278,6 +282,10 @@ def make_monitor_with_store(tmp_path: Path):
     settings.load.return_value = {
         "mode": "auto", "default_risk_pct": 1.0,
         "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 1.5,
+        "avoid_open_close_minutes": 0,
+        "breadth_threshold_pct": 60.0,
+        "breadth_size_reduction_pct": 0.0,
     }
     mstore = MultiplierStore(
         learned_file=tmp_path / "learned_multipliers.json",
@@ -360,6 +368,10 @@ def make_monitor_with_trackers(tmp_path, pdt_tracker=None, drawdown_tracker=None
         "max_weekly_drawdown_pct": 10.0,
         "max_daily_loss_pct": 5.0,
         "earnings_blackout_days": 5,
+        "min_volume_ratio": 1.5,
+        "avoid_open_close_minutes": 0,
+        "breadth_threshold_pct": 60.0,
+        "breadth_size_reduction_pct": 0.0,
     }
     return PivotWatchlistMonitor(
         alpaca_client=alpaca,
@@ -499,3 +511,62 @@ def test_earnings_blackout_blocks_when_reporting_soon():
         allowed, reason = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="CLEAR")
         assert allowed is False
         assert "earnings" in reason.lower()
+
+
+# ── Task 1: Volume confirmation tests ────────────────────────────────────────
+
+def test_volume_above_threshold_allowed(tmp_path):
+    monitor = make_monitor(tmp_path)
+    monitor._alpaca.get_current_volume = lambda sym: 200_000
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 100_000}
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    monitor._alpaca.get_positions.return_value = []
+    allowed, reason = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is True
+
+def test_volume_below_threshold_blocked(tmp_path):
+    monitor = make_monitor(tmp_path)
+    monitor._alpaca.get_current_volume = lambda sym: 100_000
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 200_000}
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    monitor._alpaca.get_positions.return_value = []
+    allowed, reason = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is False
+    assert "volume" in reason.lower()
+
+def test_volume_data_missing_fails_open(tmp_path):
+    monitor = make_monitor(tmp_path)
+    monitor._alpaca.get_current_volume = lambda sym: (_ for _ in ()).throw(Exception("API error"))
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 100_000}
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    monitor._alpaca.get_positions.return_value = []
+    allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is True
+
+def test_volume_ratio_zero_always_allows(tmp_path):
+    from unittest.mock import MagicMock
+    from pivot_monitor import PivotWatchlistMonitor
+    alpaca = MagicMock()
+    alpaca.is_configured = True
+    alpaca.get_positions.return_value = []
+    settings = MagicMock()
+    settings.load.return_value = {
+        "mode": "auto", "default_risk_pct": 1.0,
+        "max_positions": 5, "max_position_size_pct": 10.0,
+        "min_volume_ratio": 0,
+        "avoid_open_close_minutes": 0,
+        "breadth_threshold_pct": 60.0,
+        "breadth_size_reduction_pct": 0.0,
+        "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
+        "earnings_blackout_days": 0,
+    }
+    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    alpaca.get_current_volume = lambda sym: 1
+    import pivot_monitor as pm
+    pm._market_is_open_now = lambda: True
+    candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 1_000_000}
+    allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
+    assert allowed is True

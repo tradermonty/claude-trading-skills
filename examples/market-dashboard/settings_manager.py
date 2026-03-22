@@ -23,6 +23,10 @@ _DEFAULTS = {
     "max_weekly_drawdown_pct": 10.0,
     "max_daily_loss_pct": 5.0,
     "earnings_blackout_days": 5,
+    "min_volume_ratio": 1.5,
+    "avoid_open_close_minutes": 30,
+    "breadth_threshold_pct": 60.0,
+    "breadth_size_reduction_pct": 50.0,
 }
 
 

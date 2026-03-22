@@ -241,6 +241,33 @@ class PivotWatchlistMonitor:
             if self._earnings_blackout.is_blacked_out(symbol, _date.today(), blackout_days):
                 return False, f"earnings blackout: {symbol} reports within {blackout_days} days"
 
+        # Volume confirmation
+        min_vol_ratio = settings.get("min_volume_ratio", 1.5)
+        if min_vol_ratio > 0:
+            avg_vol = candidate.get("avg_volume_20d")
+            if avg_vol:
+                try:
+                    current_vol = self._alpaca.get_current_volume(candidate["symbol"])
+                    if current_vol < avg_vol * min_vol_ratio:
+                        return False, (
+                            f"volume {current_vol}/{int(avg_vol)} "
+                            f"below {min_vol_ratio}x threshold"
+                        )
+                except Exception:
+                    pass  # fail open
+
+        # Time-of-day soft lock
+        avoid_min = settings.get("avoid_open_close_minutes", 30)
+        if avoid_min > 0:
+            now_et = datetime.now(ZoneInfo("America/New_York"))
+            market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+            market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+            minutes_since_open = (now_et - market_open).total_seconds() / 60
+            minutes_to_close = (market_close - now_et).total_seconds() / 60
+            in_soft_lock = minutes_since_open < avoid_min or minutes_to_close < avoid_min
+            if in_soft_lock and tag != "HIGH_CONVICTION":
+                return False, f"time-of-day soft lock: {tag} blocked in open/close window"
+
         return True, ""
 
     def _get_current_regime(self) -> str:

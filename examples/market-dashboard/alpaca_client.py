@@ -80,6 +80,22 @@ class AlpacaClient:
         trade = self.data_client.get_stock_latest_trade(request)
         return float(trade[symbol].price)
 
+    def get_current_volume(self, symbol: str) -> int:
+        """Return today's accumulated volume for symbol using the latest daily bar."""
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        from datetime import date
+        request = StockBarsRequest(
+            symbol_or_symbols=symbol,
+            timeframe=TimeFrame.Day,
+            start=date.today().isoformat(),
+        )
+        bars = self.data_client.get_stock_bars(request)
+        symbol_bars = bars.get(symbol, [])
+        if not symbol_bars:
+            raise ValueError(f"No bar data for {symbol} today")
+        return int(symbol_bars[-1].volume)
+
     def place_bracket_order(
         self,
         symbol: str,
