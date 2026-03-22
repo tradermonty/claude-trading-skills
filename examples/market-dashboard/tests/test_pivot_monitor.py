@@ -677,3 +677,43 @@ def test_time_lock_disabled_when_zero(tmp_path):
         mock_dt.now.return_value = make_et_time(9, 31)
         allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
     assert allowed is True
+
+
+# ── Task 3: Breadth-based size reduction tests ───────────────────────────────
+
+import json
+
+def write_breadth_cache(tmp_path, pct_above_50ma):
+    (tmp_path / "market-breadth.json").write_text(json.dumps({
+        "pct_above_50ma": pct_above_50ma,
+        "generated_at": "2026-03-22T09:35:00",
+    }))
+
+def test_breadth_above_threshold_full_size(tmp_path):
+    write_breadth_cache(tmp_path, 70.0)
+    monitor = make_monitor(tmp_path)
+    monitor._settings.load.return_value["breadth_threshold_pct"] = 60.0
+    monitor._settings.load.return_value["breadth_size_reduction_pct"] = 50.0
+    result = monitor._get_breadth_multiplier()
+    assert result == 1.0
+
+def test_breadth_below_threshold_reduces_size(tmp_path):
+    write_breadth_cache(tmp_path, 45.0)
+    monitor = make_monitor(tmp_path)
+    monitor._settings.load.return_value["breadth_threshold_pct"] = 60.0
+    monitor._settings.load.return_value["breadth_size_reduction_pct"] = 50.0
+    result = monitor._get_breadth_multiplier()
+    assert result == 0.5
+
+def test_breadth_cache_missing_returns_full_size(tmp_path):
+    monitor = make_monitor(tmp_path)
+    result = monitor._get_breadth_multiplier()
+    assert result == 1.0
+
+def test_breadth_reduction_zero_disables_filter(tmp_path):
+    write_breadth_cache(tmp_path, 10.0)
+    monitor = make_monitor(tmp_path)
+    monitor._settings.load.return_value["breadth_threshold_pct"] = 60.0
+    monitor._settings.load.return_value["breadth_size_reduction_pct"] = 0.0
+    result = monitor._get_breadth_multiplier()
+    assert result == 1.0

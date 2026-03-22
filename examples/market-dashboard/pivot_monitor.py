@@ -340,7 +340,9 @@ class PivotWatchlistMonitor:
 
         max_dollar = portfolio_value * (max_pos_pct / 100)
         max_qty_by_size = int(max_dollar / entry_price)
-        return min(qty, max_qty_by_size)
+        raw_qty = min(qty, max_qty_by_size)
+        breadth_mult = self._get_breadth_multiplier()
+        return max(1, int(raw_qty * breadth_mult))
 
     def _log_trade(
         self, candidate: dict, order_id: str,
@@ -394,6 +396,20 @@ class PivotWatchlistMonitor:
             return data.get(field)
         except Exception:
             return None
+
+    def _get_breadth_multiplier(self) -> float:
+        """Returns size multiplier based on market breadth. 1.0 = full size."""
+        settings = self._settings.load()
+        threshold = settings.get("breadth_threshold_pct", 60.0)
+        reduction = settings.get("breadth_size_reduction_pct", 50.0)
+        try:
+            data = json.loads((self._cache_dir / "market-breadth.json").read_text())
+            pct_above_50ma = float(data.get("pct_above_50ma", 100.0))
+            if pct_above_50ma < threshold:
+                return 1.0 - (reduction / 100.0)
+        except Exception:
+            pass
+        return 1.0
 
     # ── Alpaca data WebSocket subscription ────────────────────────────────
 
