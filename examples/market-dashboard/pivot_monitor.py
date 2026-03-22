@@ -455,7 +455,38 @@ class PivotWatchlistMonitor:
         return False
 
     def _apply_partial_exit(self, trade: dict, settings: dict) -> bool:
-        return False  # stub
+        if not settings.get("partial_exit_enabled", True):
+            return False
+        if trade.get("partial_exit_done"):
+            return False
+        entry = trade.get("entry_price")
+        stop = trade.get("stop_price")
+        qty = trade.get("qty")
+        if not all([entry, stop, qty]):
+            return False
+        try:
+            current_price = self._alpaca.get_last_price(trade["symbol"])
+        except Exception:
+            return False
+        risk = entry - stop
+        if risk <= 0:
+            return False
+        target_r = settings.get("partial_exit_at_r", 1.0)
+        current_r = (current_price - entry) / risk
+        if current_r < target_r:
+            return False
+        exit_pct = settings.get("partial_exit_pct", 50)
+        shares_to_sell = max(1, int(qty * exit_pct / 100))
+        try:
+            self._alpaca.place_market_sell(trade["symbol"], shares_to_sell)
+            trade["partial_exit_done"] = True
+            trade["partial_exit_price"] = current_price
+            trade["partial_exit_qty"] = shares_to_sell
+            return True
+        except Exception as e:
+            print(f"[partial_exit] {trade['symbol']} sell failed: {e}", file=sys.stderr)
+            trade["partial_exit_done"] = True
+        return False
 
     def _apply_time_stop(self, trade: dict, settings: dict) -> bool:
         return False  # stub

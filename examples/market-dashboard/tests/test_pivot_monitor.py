@@ -871,3 +871,63 @@ def test_trailing_stop_disabled_by_setting():
         result = monitor._apply_trailing_stop(trade, {"trailing_stop_enabled": False})
         assert result is False
         monitor._alpaca.replace_order_stop.assert_not_called()
+
+
+# ── Task 4: Partial exit tests ────────────────────────────────────────────────
+
+def make_partial_trade(entry=100.0, stop=97.0, qty=20):
+    return {"symbol": "AAPL", "entry_price": entry, "stop_price": stop, "qty": qty, "stop_order_id": "stop-ord-1", "outcome": None, "partial_exit_done": False, "entry_time": "2026-03-20T14:00:00+00:00"}
+
+
+def test_partial_exit_fires_at_target_r():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 103.0
+        monitor._alpaca.place_market_sell.return_value = {"id": "sell-1", "status": "new"}
+        trade = make_partial_trade()
+        result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
+        assert result is True
+        assert trade["partial_exit_done"] is True
+        assert trade["partial_exit_qty"] == 10
+        monitor._alpaca.place_market_sell.assert_called_once_with("AAPL", 10)
+
+
+def test_partial_exit_does_not_fire_below_target_r():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 102.5
+        trade = make_partial_trade()
+        result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()
+
+
+def test_partial_exit_skipped_when_flag_already_set():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 106.0
+        trade = make_partial_trade()
+        trade["partial_exit_done"] = True
+        result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()
+
+
+def test_partial_exit_disabled_by_setting():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 110.0
+        trade = make_partial_trade()
+        result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": False})
+        assert result is False
+        monitor._alpaca.place_market_sell.assert_not_called()
+
+
+def test_partial_exit_sets_flag_on_sell_failure():
+    with tempfile.TemporaryDirectory() as d:
+        monitor = make_monitor(Path(d))
+        monitor._alpaca.get_last_price.return_value = 103.0
+        monitor._alpaca.place_market_sell.side_effect = RuntimeError("order rejected")
+        trade = make_partial_trade()
+        monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
+        assert trade["partial_exit_done"] is True
