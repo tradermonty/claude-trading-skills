@@ -342,6 +342,10 @@ async def post_settings(
     max_weekly_drawdown_pct: float = Form(10.0),
     max_daily_loss_pct: float = Form(5.0),
     earnings_blackout_days: int = Form(5),
+    min_volume_ratio: float = Form(1.5),
+    avoid_open_close_minutes: int = Form(30),
+    breadth_threshold_pct: float = Form(60.0),
+    breadth_size_reduction_pct: float = Form(50.0),
 ):
     if environment == "live" and live_confirm != "CONFIRM LIVE TRADING":
         raise HTTPException(
@@ -357,6 +361,10 @@ async def post_settings(
         "max_weekly_drawdown_pct": max_weekly_drawdown_pct,
         "max_daily_loss_pct": max_daily_loss_pct,
         "earnings_blackout_days": earnings_blackout_days,
+        "min_volume_ratio": min_volume_ratio,
+        "avoid_open_close_minutes": avoid_open_close_minutes,
+        "breadth_threshold_pct": breadth_threshold_pct,
+        "breadth_size_reduction_pct": breadth_size_reduction_pct,
     })
     ctx = {"request": request, "settings": settings_manager.load()}
     return templates.TemplateResponse("fragments/settings_modal.html", ctx)

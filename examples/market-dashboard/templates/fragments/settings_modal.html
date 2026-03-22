@@ -67,6 +67,29 @@
                value="{{ settings.earnings_blackout_days }}" min="0" max="30">
       </div>
 
+      <!-- Entry Quality (Tier 2) -->
+      <div style="font-size:11px; color:#9ca3af; margin-top:16px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Entry Quality Filters</div>
+      <div class="form-row">
+        <div class="form-label">Min Volume Ratio (× 20d avg, 0=off)</div>
+        <input type="number" name="min_volume_ratio" class="form-input"
+               value="{{ settings.get('min_volume_ratio', 1.5) if settings is mapping else settings.min_volume_ratio }}" min="0" max="5" step="0.1">
+      </div>
+      <div class="form-row">
+        <div class="form-label">Avoid Open/Close (minutes, 0=off)</div>
+        <input type="number" name="avoid_open_close_minutes" class="form-input"
+               value="{{ settings.get('avoid_open_close_minutes', 30) if settings is mapping else settings.avoid_open_close_minutes }}" min="0" max="60" step="5">
+      </div>
+      <div class="form-row">
+        <div class="form-label">Breadth Threshold (% above 50MA)</div>
+        <input type="number" name="breadth_threshold_pct" class="form-input"
+               value="{{ settings.get('breadth_threshold_pct', 60.0) if settings is mapping else settings.breadth_threshold_pct }}" min="0" max="100" step="5">
+      </div>
+      <div class="form-row">
+        <div class="form-label">Breadth Size Reduction (%, 0=off)</div>
+        <input type="number" name="breadth_size_reduction_pct" class="form-input"
+               value="{{ settings.get('breadth_size_reduction_pct', 50.0) if settings is mapping else settings.breadth_size_reduction_pct }}" min="0" max="100" step="5">
+      </div>
+
       <div style="display:flex; gap:8px; margin-top:16px;">
         <button type="submit" class="btn-primary">Save</button>
         <button type="button" class="btn-secondary" onclick="document.getElementById('modal-container').innerHTML=''">Cancel</button>
