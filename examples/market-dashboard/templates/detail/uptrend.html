@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+      <button class="refresh-btn" hx-post="/api/skill/uptrend-analyzer/refresh" hx-swap="none">↻ Refresh now</button>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">Uptrend Analyzer</h2>
+  {% if data %}
+    {% set comp = data.get('composite', {}) %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Composite Score</div><div class="summary-value" style="color:{% if comp.get('score', 0) >= 70 %}#4ade80{% elif comp.get('score', 0) >= 40 %}#facc15{% else %}#f87171{% endif %};">{{ comp.get('score', '—') }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Uptrend Ratio</div><div class="summary-value">{{ data.get('uptrend_ratio', '—') }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Trend</div><div class="summary-value" style="font-size:13px;">{{ data.get('trend', '—') }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Component</th><th>Value</th><th>Score</th></tr></thead>
+      <tbody>
+        {% for row in data.get('components', []) %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td>{{ row.get('name', '—') }}</td>
+          <td>{{ row.get('value', '—') }}</td>
+          <td style="color:#4ade80;">{{ row.get('score', '—') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — waiting for first skill run.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{# This fragment is the innerHTML of #signal-panel (in dashboard.html).
+   Do NOT wrap in an outer div here — the parent #signal-panel is the container.
+   Adding a wrapper div would cause nesting: <div id="signal-panel"><div class="signal-panel">... #}
+
+<div style="font-size:10px; color:#8b949e; padding:4px 8px 8px; text-transform:uppercase; letter-spacing:.05em;">
+    Signal Panel
+  </div>
+
+  {% macro score_color(score) %}
+    {% if score is not none %}
+      {% if score >= 70 %}green{% elif score >= 40 %}yellow{% else %}red{% endif %}
+    {% else %}muted{% endif %}
+  {% endmacro %}
+
+  {% for item in signals %}
+    {% set data = item.data %}
+    {% set skill = item.skill %}
+    {% set route = skill.replace('-', '_').replace('_analyzer', '').replace('_detector', '').replace('_screener', '') %}
+
+    {# Map skill names to detail routes #}
+    {% if skill == 'vcp-screener' %}{% set route = 'vcp' %}
+    {% elif skill == 'ftd-detector' %}{% set route = 'ftd' %}
+    {% elif skill == 'market-breadth-analyzer' %}{% set route = 'breadth' %}
+    {% elif skill == 'uptrend-analyzer' %}{% set route = 'uptrend' %}
+    {% elif skill == 'market-top-detector' %}{% set route = 'market_top' %}
+    {% elif skill == 'macro-regime-detector' %}{% set route = 'macro_regime' %}
+    {% elif skill == 'exposure-coach' %}{% set route = 'exposure' %}
+    {% elif skill == 'stanley-druckenmiller-investment' %}{% set route = 'druckenmiller' %}
+    {% elif skill == 'canslim-screener' %}{% set route = 'canslim' %}
+    {% endif %}
+
+    <a href="/detail/{{ route }}" class="signal-row {% if item.stale %}stale{% endif %}">
+      <div>
+        <div style="font-size:10px; color:#64748b; margin-bottom:2px; text-transform:uppercase; letter-spacing:.04em;">
+          {{ item.data.market | default("US") | upper if item.data else "US" }}
+        </div>
+        <div class="signal-name">
+          {% if skill == 'ftd-detector' %}FTD Detector
+          {% elif skill == 'uptrend-analyzer' %}Uptrend Analyzer
+          {% elif skill == 'market-breadth-analyzer' %}Market Breadth
+          {% elif skill == 'vcp-screener' %}VCP Screener
+          {% elif skill == 'canslim-screener' %}CANSLIM
+          {% elif skill == 'market-top-detector' %}Market Top Risk
+          {% elif skill == 'macro-regime-detector' %}Macro Regime
+          {% elif skill == 'exposure-coach' %}Exposure Coach
+          {% elif skill == 'stanley-druckenmiller-investment' %}Druckenmiller
+          {% else %}{{ skill }}{% endif %}
+        </div>
+        {% if data %}
+          <div style="font-size:10px; color:#8b949e; margin-top:2px;">
+            {{ data.get('generated_at', '')[:16] | replace('T', ' ') }}
+          </div>
+        {% endif %}
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        {% if data %}
+          {% set score = data.get('composite', {}).get('score') or data.get('score') or data.get('composite_score') %}
+          <span class="signal-value {{ score_color(score) }}">
+            {% if score is not none %}{{ score | round(0) | int }}
+            {% elif skill == 'vcp-screener' %}{{ data.get('candidates', []) | length }} cand
+            {% elif skill == 'canslim-screener' %}{{ data.get('candidates', []) | length }} cand
+            {% else %}—{% endif %}
+          </span>
+        {% else %}
+          <span class="signal-value muted">—</span>
+        {% endif %}
+        {% if item.stale %}<span class="stale-badge">STALE</span>{% endif %}
+        <span style="color:#30363d; font-size:12px;">›</span>
+      </div>
+    </a>
+  {% endfor %}

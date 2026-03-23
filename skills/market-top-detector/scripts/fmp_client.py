@@ -1,171 +1,263 @@
 #!/usr/bin/env python3
 """
-FMP API Client for Market Top Detector
+Alpaca + FRED Client for Market Top Detector
 
-Provides rate-limited access to Financial Modeling Prep API endpoints
-for market top detection analysis.
-
-Features:
-- Rate limiting (0.3s between requests)
-- Automatic retry on 429 errors
-- Session caching for duplicate requests
-- Batch quote support for ETF baskets
+Replaces FMP API:
+- OHLCV data → Alpaca Market Data API
+- VIX / VIX3M spot → FRED (VIXCLS / VXVCLS series)
 """
 
 import os
-import sys
-import time
+import datetime
 from typing import Optional
 
-try:
-    import requests
-except ImportError:
-    print("ERROR: requests library not found. Install with: pip install requests", file=sys.stderr)
-    sys.exit(1)
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+
+
+def _get_alpaca_client() -> StockHistoricalDataClient:
+    return StockHistoricalDataClient(
+        api_key=os.environ.get("ALPACA_API_KEY", ""),
+        secret_key=os.environ.get("ALPACA_SECRET_KEY", ""),
+    )
+
+
+def _fetch_fred_series(series_id: str) -> Optional[float]:
+    """Return the most recent non-NaN value from a FRED series."""
+    try:
+        from fredapi import Fred
+        fred = Fred(api_key=os.environ.get("FRED_API_KEY", ""))
+        series = fred.get_series(series_id)
+        series = series.dropna()
+        if series.empty:
+            return None
+        return float(series.iloc[-1])
+    except Exception as e:
+        print(f"WARNING: FRED fetch failed for {series_id}: {e}")
+        return None
+
+
+def _alpaca_symbol(symbol: str) -> str:
+    """Map index symbols to tradable ETF proxies."""
+    mapping = {"^GSPC": "SPY", "^VIX": None, "^VIX3M": None}
+    return mapping.get(symbol, symbol)
+
+
+def _bars_to_historical(alpaca_symbol: str, original_symbol: str, df, days: int) -> dict:
+    """Convert Alpaca DataFrame to FMP-compatible historical list (most-recent first)."""
+    if hasattr(df.index, "levels"):
+        try:
+            df = df.xs(alpaca_symbol, level="symbol")
+        except KeyError:
+            pass
+    df = df.sort_index(ascending=False)
+
+    historical = []
+    for ts, row in df.iterrows():
+        historical.append({
+            "date": str(ts.date()) if hasattr(ts, "date") else str(ts)[:10],
+            "open": round(float(row["open"]), 4),
+            "high": round(float(row["high"]), 4),
+            "low": round(float(row["low"]), 4),
+            "close": round(float(row["close"]), 4),
+            "volume": int(row["volume"]),
+        })
+    return {"symbol": original_symbol, "historical": historical[:days]}
 
 
 class FMPClient:
-    """Client for Financial Modeling Prep API with rate limiting and caching"""
-
-    BASE_URL = "https://financialmodelingprep.com/api/v3"
-    RATE_LIMIT_DELAY = 0.3  # 300ms between requests
+    """Drop-in replacement: Alpaca + FRED backed client with same interface."""
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("FMP_API_KEY")
-        if not self.api_key:
+        alpaca_api_key = os.environ.get("ALPACA_API_KEY", "")
+        alpaca_secret = os.environ.get("ALPACA_SECRET_KEY", "")
+        if not alpaca_api_key or not alpaca_secret:
             raise ValueError(
-                "FMP API key required. Set FMP_API_KEY environment variable "
-                "or pass api_key parameter."
+                "ALPACA_API_KEY and ALPACA_SECRET_KEY are required."
             )
-        self.session = requests.Session()
-        self.session.headers.update({"apikey": self.api_key})
-        self.cache = {}
-        self.last_call_time = 0
-        self.rate_limit_reached = False
-        self.retry_count = 0
-        self.max_retries = 1
-        self.api_calls_made = 0
+        self._client = _get_alpaca_client()
+        self._cache: dict = {}
+        self._api_calls_made = 0
 
-    def _rate_limited_get(self, url: str, params: Optional[dict] = None) -> Optional[dict]:
-        if self.rate_limit_reached:
-            return None
+    def get_historical_prices(self, symbol: str, days: int = 260) -> Optional[dict]:
+        """Fetch daily OHLCV via Alpaca. Maps ^GSPC → SPY."""
+        alpaca_sym = _alpaca_symbol(symbol)
+        if alpaca_sym is None:
+            return None  # VIX has no OHLCV on Alpaca
+        cache_key = f"hist_{alpaca_sym}_{days}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
-        if params is None:
-            params = {}
-
-        elapsed = time.time() - self.last_call_time
-        if elapsed < self.RATE_LIMIT_DELAY:
-            time.sleep(self.RATE_LIMIT_DELAY - elapsed)
-
+        start = (datetime.date.today() - datetime.timedelta(days=int(days * 1.6) + 10)).isoformat()
+        request = StockBarsRequest(
+            symbol_or_symbols=alpaca_sym,
+            timeframe=TimeFrame.Day,
+            start=start,
+        )
         try:
-            response = self.session.get(url, params=params, timeout=30)
-            self.last_call_time = time.time()
-            self.api_calls_made += 1
-
-            if response.status_code == 200:
-                self.retry_count = 0
-                return response.json()
-            elif response.status_code == 429:
-                self.retry_count += 1
-                if self.retry_count <= self.max_retries:
-                    print("WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
-                    time.sleep(60)
-                    return self._rate_limited_get(url, params)
-                else:
-                    print("ERROR: Daily API rate limit reached.", file=sys.stderr)
-                    self.rate_limit_reached = True
-                    return None
-            else:
-                print(
-                    f"ERROR: API request failed: {response.status_code} - {response.text[:200]}",
-                    file=sys.stderr,
-                )
-                return None
-        except requests.exceptions.RequestException as e:
-            print(f"ERROR: Request exception: {e}", file=sys.stderr)
+            bars = self._client.get_stock_bars(request)
+            self._api_calls_made += 1
+        except Exception as e:
+            print(f"WARNING: Alpaca bars failed for {alpaca_sym}: {e}")
             return None
 
-    def get_quote(self, symbols: str) -> Optional[list[dict]]:
-        """Fetch real-time quote data for one or more symbols (comma-separated)"""
-        cache_key = f"quote_{symbols}"
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        df = bars.df
+        if df.empty:
+            return None
 
-        url = f"{self.BASE_URL}/quote/{symbols}"
-        data = self._rate_limited_get(url)
-        if data:
-            self.cache[cache_key] = data
-        return data
+        result = _bars_to_historical(alpaca_sym, symbol, df, days)
+        self._cache[cache_key] = result
+        return result
 
-    def get_historical_prices(self, symbol: str, days: int = 365) -> Optional[dict]:
-        """Fetch historical daily OHLCV data"""
-        cache_key = f"prices_{symbol}_{days}"
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+    def get_quote(self, symbol: str) -> Optional[list[dict]]:
+        """
+        Build quote dict from latest bar + 252-day range.
+        VIX and VIX3M spot prices fetched from FRED.
+        """
+        # VIX: FRED series VIXCLS
+        if symbol == "^VIX":
+            price = _fetch_fred_series("VIXCLS")
+            if price is None:
+                return None
+            return [{"symbol": "^VIX", "price": price, "yearHigh": price, "yearLow": price, "volume": 0}]
 
-        url = f"{self.BASE_URL}/historical-price-full/{symbol}"
-        params = {"timeseries": days}
-        data = self._rate_limited_get(url, params)
-        if data:
-            self.cache[cache_key] = data
-        return data
+        # VIX3M: FRED series VXVCLS
+        if symbol == "^VIX3M":
+            price = _fetch_fred_series("VXVCLS")
+            if price is None:
+                return None
+            return [{"symbol": "^VIX3M", "price": price, "yearHigh": price, "yearLow": price, "volume": 0}]
+
+        alpaca_sym = _alpaca_symbol(symbol)
+        if alpaca_sym is None:
+            return None
+
+        cache_key = f"quote_{alpaca_sym}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        hist = self.get_historical_prices(symbol, days=252)
+        if not hist or not hist.get("historical"):
+            return None
+
+        bars = hist["historical"]
+        latest = bars[0]
+        year_high = max(b["high"] for b in bars)
+        year_low = min(b["low"] for b in bars)
+
+        result = [{
+            "symbol": symbol,
+            "price": latest["close"],
+            "yearHigh": year_high,
+            "yearLow": year_low,
+            "volume": latest["volume"],
+        }]
+        self._cache[cache_key] = result
+        return result
 
     def get_batch_quotes(self, symbols: list[str]) -> dict[str, dict]:
-        """Fetch quotes for a list of symbols, batching up to 5 per request"""
+        """Fetch quotes for a list of ETF symbols (batch via Alpaca)."""
+        # Filter out non-Alpaca symbols
+        alpaca_symbols = [s for s in symbols if _alpaca_symbol(s) not in (None,)]
+        if not alpaca_symbols:
+            return {}
+
+        # Map back from Alpaca symbol to original if needed
+        sym_map = {_alpaca_symbol(s): s for s in alpaca_symbols}
+        alpaca_list = list(sym_map.keys())
+
+        start = (datetime.date.today() - datetime.timedelta(days=400)).isoformat()
+        request = StockBarsRequest(
+            symbol_or_symbols=alpaca_list,
+            timeframe=TimeFrame.Day,
+            start=start,
+        )
+        try:
+            bars = self._client.get_stock_bars(request)
+            self._api_calls_made += 1
+        except Exception as e:
+            print(f"WARNING: Alpaca batch quotes failed: {e}")
+            return {}
+
+        df = bars.df
+        if df.empty:
+            return {}
+
         results = {}
-        # FMP supports comma-separated symbols in quote endpoint
-        batch_size = 5
-        for i in range(0, len(symbols), batch_size):
-            batch = symbols[i : i + batch_size]
-            batch_str = ",".join(batch)
-            quotes = self.get_quote(batch_str)
-            if quotes:
-                for q in quotes:
-                    results[q["symbol"]] = q
+        for alpaca_sym in alpaca_list:
+            orig_sym = sym_map[alpaca_sym]
+            try:
+                sym_df = df.xs(alpaca_sym, level="symbol").sort_index(ascending=False)
+                if sym_df.empty:
+                    continue
+                latest = sym_df.iloc[0]
+                year_high = float(sym_df["high"].max())
+                year_low = float(sym_df["low"].min())
+                results[orig_sym] = {
+                    "symbol": orig_sym,
+                    "price": round(float(latest["close"]), 4),
+                    "yearHigh": round(year_high, 4),
+                    "yearLow": round(year_low, 4),
+                    "volume": int(latest["volume"]),
+                }
+            except (KeyError, IndexError):
+                continue
         return results
 
-    def get_batch_historical(self, symbols: list[str], days: int = 50) -> dict[str, list[dict]]:
-        """Fetch historical prices for multiple symbols"""
+    def get_batch_historical(self, symbols: list[str], days: int = 60) -> dict[str, list[dict]]:
+        """Fetch historical bars for multiple ETF symbols (single Alpaca batch request)."""
+        alpaca_list = [_alpaca_symbol(s) for s in symbols if _alpaca_symbol(s) is not None]
+        sym_map = {_alpaca_symbol(s): s for s in symbols if _alpaca_symbol(s) is not None}
+        if not alpaca_list:
+            return {}
+
+        start = (datetime.date.today() - datetime.timedelta(days=int(days * 1.6) + 10)).isoformat()
+        request = StockBarsRequest(
+            symbol_or_symbols=alpaca_list,
+            timeframe=TimeFrame.Day,
+            start=start,
+        )
+        try:
+            bars = self._client.get_stock_bars(request)
+            self._api_calls_made += 1
+        except Exception as e:
+            print(f"WARNING: Alpaca batch historical failed: {e}")
+            return {}
+
+        df = bars.df
+        if df.empty:
+            return {}
+
         results = {}
-        for symbol in symbols:
-            data = self.get_historical_prices(symbol, days=days)
-            if data and "historical" in data:
-                results[symbol] = data["historical"]
+        for alpaca_sym in alpaca_list:
+            orig_sym = sym_map[alpaca_sym]
+            try:
+                sym_df = df.xs(alpaca_sym, level="symbol").sort_index(ascending=False)
+                historical = []
+                for ts, row in sym_df.iterrows():
+                    historical.append({
+                        "date": str(ts.date()) if hasattr(ts, "date") else str(ts)[:10],
+                        "open": round(float(row["open"]), 4),
+                        "high": round(float(row["high"]), 4),
+                        "low": round(float(row["low"]), 4),
+                        "close": round(float(row["close"]), 4),
+                        "volume": int(row["volume"]),
+                    })
+                results[orig_sym] = historical[:days]
+            except (KeyError, IndexError):
+                continue
         return results
-
-    def calculate_ema(self, prices: list[float], period: int) -> float:
-        """Calculate EMA (thin wrapper around math_utils for backward compat)."""
-        from calculators.math_utils import calc_ema
-
-        return calc_ema(prices, period)
-
-    def calculate_sma(self, prices: list[float], period: int) -> float:
-        """Calculate SMA (thin wrapper around math_utils for backward compat)."""
-        from calculators.math_utils import calc_sma
-
-        return calc_sma(prices, period)
 
     def get_vix_term_structure(self) -> Optional[dict]:
-        """
-        Auto-detect VIX term structure by comparing VIX to VIX3M.
+        """Compare VIX (VIXCLS) vs VIX3M (VXVCLS) from FRED."""
+        vix = _fetch_fred_series("VIXCLS")
+        vix3m = _fetch_fred_series("VXVCLS")
 
-        Returns:
-            Dict with ratio, classification, or None if VIX3M unavailable.
-        """
-        vix_quotes = self.get_quote("^VIX")
-        vix3m_quotes = self.get_quote("^VIX3M")
-
-        if not vix_quotes or not vix3m_quotes:
+        if vix is None or vix3m is None or vix3m <= 0:
             return None
 
-        vix_price = vix_quotes[0].get("price", 0)
-        vix3m_price = vix3m_quotes[0].get("price", 0)
-
-        if vix3m_price <= 0:
-            return None
-
-        ratio = vix_price / vix3m_price
-
+        ratio = vix / vix3m
         if ratio < 0.85:
             classification = "steep_contango"
         elif ratio < 0.95:
@@ -176,15 +268,15 @@ class FMPClient:
             classification = "backwardation"
 
         return {
-            "vix": round(vix_price, 2),
-            "vix3m": round(vix3m_price, 2),
+            "vix": round(vix, 2),
+            "vix3m": round(vix3m, 2),
             "ratio": round(ratio, 3),
             "classification": classification,
         }
 
     def get_api_stats(self) -> dict:
         return {
-            "cache_entries": len(self.cache),
-            "api_calls_made": self.api_calls_made,
-            "rate_limit_reached": self.rate_limit_reached,
+            "cache_entries": len(self._cache),
+            "api_calls_made": self._api_calls_made,
+            "rate_limit_reached": False,
         }

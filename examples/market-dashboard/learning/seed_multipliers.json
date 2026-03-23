@@ -1,0 +1,12 @@
+{
+  "vcp+CLEAR+bull":              { "multiplier": 3.0,  "sample_count": 50, "source": "Minervini Stage Analysis" },
+  "vcp+CLEAR+choppy":            { "multiplier": 1.75, "sample_count": 50, "source": "Minervini — reduce targets in choppy" },
+  "vcp+CLEAR+bear":              { "multiplier": 1.5,  "sample_count": 50, "source": "Minervini — tight targets in downtrends" },
+  "vcp+CLEAR+contraction":       { "multiplier": 1.5,  "sample_count": 50, "source": "Minervini — contraction = bear-equivalent" },
+  "vcp+UNCERTAIN+bull":          { "multiplier": 2.0,  "sample_count": 30, "source": "Minervini — lower confidence, conservative" },
+  "vcp+UNCERTAIN+choppy":        { "multiplier": 1.5,  "sample_count": 30, "source": "Minervini — uncertain + choppy, take early" },
+  "vcp+HIGH_CONVICTION+bull":    { "multiplier": 3.5,  "sample_count": 40, "source": "Minervini — institutional + positive catalyst" },
+  "canslim+CLEAR+bull":          { "multiplier": 2.5,  "sample_count": 40, "source": "O'Neil CANSLIM documented win rates" },
+  "canslim+CLEAR+choppy":        { "multiplier": 1.75, "sample_count": 30, "source": "O'Neil — reduced target in non-trending" },
+  "canslim+UNCERTAIN+bull":      { "multiplier": 2.0,  "sample_count": 25, "source": "O'Neil CANSLIM" }
+}

@@ -99,7 +99,10 @@ def extract_regime_score(data: Optional[dict]) -> Optional[int]:
     if "regime_score" in data:
         return int(data["regime_score"])
     if "regime" in data:
-        regime = data["regime"].lower().strip()
+        regime_val = data["regime"]
+        if isinstance(regime_val, dict):
+            regime_val = regime_val.get("current_regime", "unknown")
+        regime = regime_val.lower().strip()
         return REGIME_SCORES.get(regime, 50)
     if "current_regime" in data:
         regime = data["current_regime"].lower().strip()
@@ -112,7 +115,10 @@ def extract_regime_name(data: Optional[dict]) -> str:
     if data is None:
         return "Unknown"
     if "regime" in data:
-        return data["regime"].capitalize()
+        regime_val = data["regime"]
+        if isinstance(regime_val, dict):
+            regime_val = regime_val.get("current_regime", "unknown")
+        return regime_val.capitalize()
     if "current_regime" in data:
         return data["current_regime"].capitalize()
     return "Unknown"

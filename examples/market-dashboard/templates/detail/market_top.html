@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+      <button class="refresh-btn" hx-post="/api/skill/market-top-detector/refresh" hx-swap="none">↻ Refresh now</button>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">Market Top Detector</h2>
+  {% if data %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Risk Score</div><div class="summary-value" style="color:{% if data.get('score', 0) >= 70 %}#f87171{% elif data.get('score', 0) >= 40 %}#facc15{% else %}#4ade80{% endif %};">{{ data.get('score', '—') }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Zone</div><div class="summary-value" style="font-size:13px;">{{ data.get('zone', '—') }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Signals</div><div class="summary-value">{{ data.get('signals', []) | length }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Signal Type</th><th>Value</th><th>Weight</th></tr></thead>
+      <tbody>
+        {% for row in data.get('signals', []) %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td>{{ row.get('type', row.get('name', '—')) }}</td>
+          <td style="color:#f87171;">{{ row.get('value', '—') }}</td>
+          <td>{{ row.get('weight', '—') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — waiting for first skill run.</p>
+  {% endif %}
+</div>
+{% endblock %}

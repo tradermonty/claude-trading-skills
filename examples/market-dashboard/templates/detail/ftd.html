@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+      <button class="refresh-btn" hx-post="/api/skill/ftd-detector/refresh" hx-swap="none">↻ Refresh now</button>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">FTD Detector</h2>
+  {% if data %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Market State</div><div class="summary-value" style="font-size:13px;">{{ data.get('market_state', '—') }}</div></div>
+      <div class="summary-metric"><div class="summary-label">Rally Day</div><div class="summary-value">{{ data.get('rally_day', '—') }}</div></div>
+      <div class="summary-metric"><div class="summary-label">FTD Score</div><div class="summary-value" style="color:{% if data.get('score', 0) >= 70 %}#4ade80{% elif data.get('score', 0) >= 40 %}#facc15{% else %}#f87171{% endif %};">{{ data.get('score', '—') }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Index</th><th>Volume</th><th>Score</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for row in data.get('ftd_events', data.get('events', [])) %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td>{{ row.get('date', '—') }}</td>
+          <td style="color:#38bdf8;">{{ row.get('index', '—') }}</td>
+          <td>{{ row.get('volume', '—') }}</td>
+          <td style="color:#4ade80;">{{ row.get('score', '—') }}</td>
+          <td>{{ row.get('status', '—') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — waiting for first skill run.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if settings.mode == 'auto' %}
+<div class="auto-banner">
+  🤖 <strong>AUTO MODE ACTIVE</strong>
+  {% if settings.environment == 'live' %}
+  <span style="color:#f87171; font-weight:bold; margin-left:8px;">💰 LIVE — real money at risk</span>
+  {% else %}
+  <span style="color:#4ade80; margin-left:8px;">📄 PAPER — simulated only</span>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="main-grid">
+  <!-- Left: TradingView chart -->
+  <div class="chart-container">
+    <div class="tradingview-widget-container" style="height:100%">
+      <div class="tradingview-widget-container__widget" style="height:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {
+        "autosize": true,
+        "symbol": "NASDAQ:QQQ",
+        "interval": "D",
+        "timezone": "America/New_York",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "hide_top_toolbar": false,
+        "hide_legend": false,
+        "allow_symbol_change": true,
+        "support_host": "https://www.tradingview.com"
+      }
+      </script>
+    </div>
+  </div>
+
+  <!-- Right: Signal panel (HTMX auto-refresh every 30s) -->
+  <div id="signal-panel"
+       hx-get="/api/signals"
+       hx-trigger="every 30s"
+       hx-swap="innerHTML"
+       style="height:100%; overflow-y:auto;">
+    {% include "fragments/signals.html" %}
+  </div>
+</div>
+
+<!-- Bottom strip -->
+<div class="bottom-strip {% if market_state == 'pre_market' %}pre-market{% else %}market-hours{% endif %}">
+  {% if market_state == 'pre_market' %}
+    <!-- Pre-Market: news brief + schedule -->
+    <div class="bottom-panel">
+      <div class="panel-title">Pre-Market Brief</div>
+      <a href="/detail/news" style="color:#38bdf8; font-size:11px;">→ View full news analysis</a>
+    </div>
+    <div class="bottom-panel">
+      <div class="panel-title">Today's Schedule</div>
+      <a href="/detail/economic_cal" style="color:#38bdf8; font-size:11px;">→ Economic calendar</a>
+      &nbsp;·&nbsp;
+      <a href="/detail/earnings_cal" style="color:#38bdf8; font-size:11px;">→ Earnings</a>
+    </div>
+  {% else %}
+    <!-- Market Hours: portfolio + themes + events -->
+    <div class="bottom-panel" id="portfolio-panel"
+         hx-get="/api/portfolio"
+         hx-trigger="every 5s, load"
+         hx-swap="innerHTML">
+      <div class="panel-title">Portfolio (Alpaca)</div>
+      <div style="color:#8b949e; font-size:11px;">Loading…</div>
+    </div>
+    <div class="bottom-panel">
+      <div class="panel-title">Top Themes</div>
+      <a href="/detail/themes" style="color:#38bdf8; font-size:11px;">→ Theme Detector</a>
+    </div>
+    <div class="bottom-panel">
+      <div class="panel-title">Today's Events</div>
+      <a href="/detail/economic_cal" style="color:#38bdf8; font-size:11px;">→ Economic</a>
+      &nbsp;·&nbsp;
+      <a href="/detail/earnings_cal" style="color:#38bdf8; font-size:11px;">→ Earnings</a>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

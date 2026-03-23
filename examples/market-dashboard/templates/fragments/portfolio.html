@@ -1,0 +1,55 @@
+{% set account = portfolio.account %}
+{% set positions = portfolio.positions %}
+{% set error = portfolio.error %}
+
+{% if not account and not error %}
+  <div style="color:#8b949e; font-size:11px;">
+    Set ALPACA_API_KEY and ALPACA_SECRET_KEY in .env to connect
+  </div>
+{% elif error %}
+  <div style="color:#f87171; font-size:11px;">⚠️ {{ error[:100] }}</div>
+{% else %}
+  <div style="display:flex; gap:16px; align-items:baseline; margin-bottom:8px; flex-wrap:wrap;">
+    <div>
+      <div style="font-size:10px; color:#8b949e; text-transform:uppercase; margin-bottom:2px;">Portfolio</div>
+      <div style="font-size:16px; font-weight:bold; color:#4ade80;">${{ "{:,.0f}".format(account.portfolio_value) }}</div>
+    </div>
+    <div>
+      <div style="font-size:10px; color:#8b949e; text-transform:uppercase; margin-bottom:2px;">Buying Power</div>
+      <div style="font-size:14px; color:#e6edf3;">${{ "{:,.0f}".format(account.buying_power) }}</div>
+    </div>
+    {% if positions %}
+    <div>
+      <div style="font-size:10px; color:#8b949e; text-transform:uppercase; margin-bottom:2px;">Positions</div>
+      <div style="font-size:14px; color:#e6edf3;">{{ positions | length }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if positions %}
+  <table style="width:100%; border-collapse:collapse; font-size:10px;">
+    <thead>
+      <tr>
+        <th style="text-align:left; color:#8b949e; padding:2px 4px; font-weight:normal; border-bottom:1px solid #30363d;">Sym</th>
+        <th style="text-align:right; color:#8b949e; padding:2px 4px; font-weight:normal; border-bottom:1px solid #30363d;">Qty</th>
+        <th style="text-align:right; color:#8b949e; padding:2px 4px; font-weight:normal; border-bottom:1px solid #30363d;">Value</th>
+        <th style="text-align:right; color:#8b949e; padding:2px 4px; font-weight:normal; border-bottom:1px solid #30363d;">P&amp;L</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in positions %}
+      <tr>
+        <td style="padding:2px 4px; color:#38bdf8; font-weight:bold;">{{ p.symbol }}</td>
+        <td style="padding:2px 4px; text-align:right;">{{ p.qty | int }}</td>
+        <td style="padding:2px 4px; text-align:right;">${{ "{:,.0f}".format(p.market_value) }}</td>
+        <td style="padding:2px 4px; text-align:right; color:{% if p.unrealized_pl >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+          {{ "+" if p.unrealized_pl >= 0 else "" }}${{ "{:,.0f}".format(p.unrealized_pl) }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="color:#8b949e; font-size:11px;">No open positions</div>
+  {% endif %}
+{% endif %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+  <div class="detail-header">
+    <a href="/" class="back-nav">← Dashboard</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      {% if stale %}<span class="stale-badge">STALE — data may be outdated</span>{% endif %}
+      <span style="font-size:11px; color:#8b949e;">{{ data.get('generated_at', 'Never')[:16] | replace('T', ' ') if data else 'No data' }}</span>
+      <button class="refresh-btn" hx-post="/api/skill/pead-screener/refresh" hx-swap="none">↻ Refresh now</button>
+    </div>
+  </div>
+  <h2 style="font-size:14px; color:#4ade80; margin-bottom:12px;">PEAD Screener</h2>
+  {% if data %}
+    {% set cands = data.get('candidates', data.get('results', [])) %}
+    {% set high_grade = cands | selectattr('grade', 'in', ['A', 'A+', 'A-']) | list %}
+    <div class="summary-strip">
+      <div class="summary-metric"><div class="summary-label">Candidates</div><div class="summary-value">{{ cands | length }}</div></div>
+      <div class="summary-metric"><div class="summary-label">High Grade (A)</div><div class="summary-value" style="color:#4ade80;">{{ high_grade | length }}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Ticker</th><th>Grade</th><th>Gap %</th><th>Setup</th>{% if settings.mode != 'advisory' %}<th>Action</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for c in cands %}
+        <tr class="{% if loop.index is odd %}row-alt{% endif %}">
+          <td style="color:#38bdf8; font-weight:bold;">{{ c.get('ticker', c.get('symbol', '?')) }}</td>
+          <td style="color:{% if c.get('grade', '').startswith('A') %}#4ade80{% elif c.get('grade', '').startswith('B') %}#facc15{% else %}#f87171{% endif %};">{{ c.get('grade', '—') }}</td>
+          <td>{{ c.get('gap_pct', c.get('gap', '—')) }}%</td>
+          <td style="color:#8b949e;">{{ c.get('setup', '—') }}</td>
+          {% if settings.mode != 'advisory' %}
+          <td>
+            <form style="display:inline"
+                  hx-post="/api/order/preview"
+                  hx-target="closest tr"
+                  hx-swap="afterend">
+              <input type="hidden" name="symbol" value="{{ c.get('ticker', c.get('symbol', '')) }}">
+              <input type="hidden" name="entry_price" value="0">
+              <input type="hidden" name="stop_price" value="0">
+              <input type="hidden" name="skill" value="pead-screener">
+              <button type="submit" class="execute-btn">Execute</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#8b949e; padding:16px;">No data yet — waiting for first skill run.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -2,16 +2,14 @@
 """
 FMP API Client for CANSLIM Screener
 
-Provides rate-limited access to Financial Modeling Prep API endpoints
-required for CANSLIM component analysis (C, A, N, M).
-
-Features:
-- Rate limiting (0.3s between requests)
-- Automatic retry on 429 errors
-- Session caching for duplicate requests
-- Error handling and logging
+Provides rate-limited access to Financial Modeling Prep stable API endpoints
+required for CANSLIM component analysis (C, A, N, M). Falls back to yfinance
+for ETF/index symbols not available on the FMP free plan.
 """
 
+import csv
+import datetime
+import io
 import os
 import sys
 import time
@@ -24,69 +22,97 @@ except ImportError:
     sys.exit(1)
 
 
-class FMPClient:
-    """Client for Financial Modeling Prep API with rate limiting and caching"""
+def _yf_historical(symbol: str, days: int) -> Optional[dict]:
+    """Fetch historical prices via yfinance (fallback for FMP premium symbols)."""
+    try:
+        import yfinance as yf
+        end = datetime.date.today()
+        start = end - datetime.timedelta(days=int(days * 1.6) + 10)
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(start=str(start), end=str(end))
+        if hist.empty:
+            return None
+        historical = []
+        for date_idx, row in hist.iterrows():
+            historical.append({
+                "date": str(date_idx.date()),
+                "open": round(float(row["Open"]), 4),
+                "high": round(float(row["High"]), 4),
+                "low": round(float(row["Low"]), 4),
+                "close": round(float(row["Close"]), 4),
+                "volume": int(row["Volume"]),
+            })
+        historical.reverse()  # Most recent first
+        return {"symbol": symbol, "historical": historical[:days]}
+    except Exception as e:
+        print(f"WARNING: yfinance historical fallback failed for {symbol}: {e}", file=sys.stderr)
+        return None
 
-    BASE_URL = "https://financialmodelingprep.com/api/v3"
-    RATE_LIMIT_DELAY = 0.3  # 300ms between requests (200 requests/minute max)
+
+def _yf_quote(symbol: str) -> Optional[list[dict]]:
+    """Fetch quote via yfinance (fallback for FMP premium symbols)."""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.fast_info
+        price = info.last_price
+        if not price:
+            hist = ticker.history(period="2d")
+            if not hist.empty:
+                price = float(hist["Close"].iloc[-1])
+        return [{
+            "symbol": symbol,
+            "price": round(float(price), 4) if price else 0,
+            "yearHigh": round(float(info.year_high), 4) if info.year_high else 0,
+            "yearLow": round(float(info.year_low), 4) if info.year_low else 0,
+            "volume": int(info.last_volume) if info.last_volume else 0,
+        }]
+    except Exception as e:
+        print(f"WARNING: yfinance quote fallback failed for {symbol}: {e}", file=sys.stderr)
+        return None
+
+
+class FMPClient:
+    """Client for Financial Modeling Prep stable API with rate limiting and yfinance fallback."""
+
+    BASE_URL = "https://financialmodelingprep.com/stable"
+    RATE_LIMIT_DELAY = 0.3  # 300ms between requests
 
     def __init__(self, api_key: Optional[str] = None):
-        """
-        Initialize FMP API client
-
-        Args:
-            api_key: FMP API key (defaults to FMP_API_KEY environment variable)
-
-        Raises:
-            ValueError: If API key not provided and not in environment
-        """
         self.api_key = api_key or os.getenv("FMP_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "FMP API key required. Set FMP_API_KEY environment variable "
                 "or pass api_key parameter."
             )
-
         self.session = requests.Session()
-        self.session.headers.update({"apikey": self.api_key})
-        self.cache = {}  # Simple in-memory cache for session
+        self.cache = {}
         self.last_call_time = 0
         self.rate_limit_reached = False
         self.retry_count = 0
         self.max_retries = 1
 
     def _rate_limited_get(self, url: str, params: Optional[dict] = None) -> Optional[dict]:
-        """
-        Make rate-limited GET request with retry logic
-
-        Args:
-            url: Full endpoint URL
-            params: Query parameters (apikey sent via header)
-
-        Returns:
-            JSON response dict, or None on error
-        """
         if self.rate_limit_reached:
             return None
 
-        if params is None:
-            params = {}
+        req_params = dict(params) if params else {}
+        req_params["apikey"] = self.api_key
 
-        # Enforce rate limit
         elapsed = time.time() - self.last_call_time
         if elapsed < self.RATE_LIMIT_DELAY:
             time.sleep(self.RATE_LIMIT_DELAY - elapsed)
 
         try:
-            response = self.session.get(url, params=params, timeout=30)
+            response = self.session.get(url, params=req_params, timeout=30)
             self.last_call_time = time.time()
 
             if response.status_code == 200:
-                self.retry_count = 0  # Reset on success
+                self.retry_count = 0
                 return response.json()
-
+            elif response.status_code == 402:
+                return {"_premium": True}
             elif response.status_code == 429:
-                # Rate limit exceeded
                 self.retry_count += 1
                 if self.retry_count <= self.max_retries:
                     print("WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
@@ -98,7 +124,6 @@ class FMPClient:
                     )
                     self.rate_limit_reached = True
                     return None
-
             else:
                 print(
                     f"ERROR: API request failed: {response.status_code} - {response.text[:200]}",
@@ -110,284 +135,153 @@ class FMPClient:
             print(f"ERROR: Request exception: {e}", file=sys.stderr)
             return None
 
+    def _get_sp500_from_github(self) -> Optional[list[dict]]:
+        """Fetch S&P 500 list from GitHub CSV (free fallback)."""
+        try:
+            url = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
+            resp = self.session.get(url, timeout=30)
+            resp.raise_for_status()
+            reader = csv.DictReader(io.StringIO(resp.text))
+            result = []
+            for row in reader:
+                sym = row.get("Symbol", "").replace(".", "-")
+                if sym:
+                    result.append({
+                        "symbol": sym,
+                        "name": row.get("Name", ""),
+                        "sector": row.get("Sector", ""),
+                        "subSector": row.get("Sub-Sector", ""),
+                    })
+            return result if result else None
+        except Exception as e:
+            print(f"WARNING: GitHub S&P 500 fallback failed: {e}", file=sys.stderr)
+            return None
+
     def get_income_statement(
         self, symbol: str, period: str = "quarter", limit: int = 8
     ) -> Optional[list[dict]]:
-        """
-        Fetch income statement data (quarterly or annual)
-
-        Args:
-            symbol: Stock ticker (e.g., "AAPL")
-            period: "quarter" or "annual"
-            limit: Number of periods to fetch (default 8 for quarterly, 5 for annual)
-
-        Returns:
-            List of income statement records (most recent first), or None on error
-
-        Example:
-            quarterly = client.get_income_statement("AAPL", period="quarter", limit=8)
-            # Returns last 8 quarters (2 years) for YoY comparison
-        """
+        """Fetch income statement data (quarterly or annual)."""
         cache_key = f"income_{symbol}_{period}_{limit}"
-
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        url = f"{self.BASE_URL}/income-statement/{symbol}"
-        params = {"period": period, "limit": limit}
-
+        url = f"{self.BASE_URL}/income-statement"
+        params = {"symbol": symbol, "period": period, "limit": limit}
         data = self._rate_limited_get(url, params)
 
-        if data:
+        if data is not None and not (isinstance(data, dict) and data.get("_premium")):
             self.cache[cache_key] = data
-
-        return data
+        return data if data and not data.get("_premium") else None
 
     def get_quote(self, symbols: str) -> Optional[list[dict]]:
-        """
-        Fetch real-time quote data
-
-        Args:
-            symbols: Single ticker or comma-separated list (e.g., "AAPL" or "AAPL,MSFT,GOOGL")
-
-        Returns:
-            List of quote records, or None on error
-
-        Example:
-            quote = client.get_quote("AAPL")
-            # Returns [{"symbol": "AAPL", "price": 185.92, "yearHigh": 198.23, ...}]
-
-            quotes = client.get_quote("^GSPC,^VIX")
-            # Batch fetch S&P 500 and VIX
-        """
+        """Fetch real-time quote data for one or more symbols (comma-separated)."""
         cache_key = f"quote_{symbols}"
-
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        url = f"{self.BASE_URL}/quote/{symbols}"
-
-        data = self._rate_limited_get(url)
-
-        if data:
+        url = f"{self.BASE_URL}/quote"
+        data = self._rate_limited_get(url, {"symbol": symbols})
+        if data is not None and not (isinstance(data, dict) and data.get("_premium")):
             self.cache[cache_key] = data
+            return data
 
-        return data
+        # Fall back to yfinance per symbol
+        results = []
+        for sym in symbols.split(","):
+            sym = sym.strip()
+            yf_data = _yf_quote(sym)
+            if yf_data:
+                results.extend(yf_data)
+        if results:
+            self.cache[cache_key] = results
+        return results if results else None
 
     def get_historical_prices(self, symbol: str, days: int = 365) -> Optional[dict]:
-        """
-        Fetch historical daily price data
-
-        Args:
-            symbol: Stock ticker (e.g., "AAPL")
-            days: Number of days of history to fetch (default 365 for 52-week analysis)
-
-        Returns:
-            Dict with 'symbol' and 'historical' (list of daily OHLCV records), or None
-
-        Example:
-            prices = client.get_historical_prices("AAPL", days=365)
-            # prices['historical'][0] = most recent day
-            # prices['historical'][251] = 252 trading days ago (~1 year)
-        """
+        """Fetch historical daily price data."""
         cache_key = f"prices_{symbol}_{days}"
-
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        url = f"{self.BASE_URL}/historical-price-full/{symbol}"
-        params = {"timeseries": days}
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=int(days * 1.6) + 10)
+        url = f"{self.BASE_URL}/historical-price-eod/full"
+        data = self._rate_limited_get(url, {"symbol": symbol, "from": str(start_date), "to": str(end_date)})
 
-        data = self._rate_limited_get(url, params)
+        if data is not None and not (isinstance(data, dict) and data.get("_premium")):
+            normalized = {"symbol": symbol, "historical": data[:days] if isinstance(data, list) else data}
+            self.cache[cache_key] = normalized
+            return normalized
 
-        if data:
-            self.cache[cache_key] = data
-
-        return data
+        # Fall back to yfinance
+        yf_data = _yf_historical(symbol, days)
+        if yf_data:
+            self.cache[cache_key] = yf_data
+        return yf_data
 
     def get_profile(self, symbol: str) -> Optional[list[dict]]:
-        """
-        Fetch company profile (sector, industry, description)
-
-        Args:
-            symbol: Stock ticker
-
-        Returns:
-            List with single profile dict, or None on error
-
-        Example:
-            profile = client.get_profile("AAPL")
-            # profile[0] = {"symbol": "AAPL", "companyName": "Apple Inc.", "sector": "Technology", ...}
-        """
+        """Fetch company profile (sector, industry, description)."""
         cache_key = f"profile_{symbol}"
-
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        url = f"{self.BASE_URL}/profile/{symbol}"
+        url = f"{self.BASE_URL}/profile"
+        data = self._rate_limited_get(url, {"symbol": symbol})
 
+        if data is not None and not (isinstance(data, dict) and data.get("_premium")):
+            self.cache[cache_key] = data
+        return data if data and not data.get("_premium") else None
+
+    def get_sp500_constituents(self) -> Optional[list[dict]]:
+        """Fetch S&P 500 constituent list."""
+        cache_key = "sp500_constituents"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        url = f"{self.BASE_URL}/sp500-constituent"
         data = self._rate_limited_get(url)
+        if data is not None and not (isinstance(data, dict) and data.get("_premium")):
+            self.cache[cache_key] = data
+            return data
 
+        print("INFO: FMP S&P 500 constituents not available on free plan, using GitHub CSV fallback.", file=sys.stderr)
+        data = self._get_sp500_from_github()
         if data:
             self.cache[cache_key] = data
-
         return data
 
     def get_institutional_holders(self, symbol: str) -> Optional[list[dict]]:
-        """
-        Fetch institutional holder data (Phase 2: I component)
-
-        Args:
-            symbol: Stock ticker
-
-        Returns:
-            List of institutional holders with:
-                - holder: Institution name (str)
-                - shares: Number of shares held (int)
-                - dateReported: Reporting date (str)
-                - change: Change in shares from previous quarter (int)
-            Returns None on error
-
-        Example:
-            holders = client.get_institutional_holders("AAPL")
-            # holders[0] = {"holder": "Vanguard Group Inc", "shares": 1234567890, ...}
-
-        Note:
-            This endpoint provides 13F filing data. Free tier may have limited access.
-            Typical response contains hundreds to thousands of institutional holders.
-        """
+        """Fetch institutional holder data (I component)."""
         cache_key = f"institutional_{symbol}"
-
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        url = f"{self.BASE_URL}/institutional-holder/{symbol}"
+        url = f"{self.BASE_URL}/institutional-ownership/portfolio-holdings-summary"
+        data = self._rate_limited_get(url, {"symbol": symbol})
 
-        data = self._rate_limited_get(url)
-
-        if data:
+        if data and not data.get("_premium") and isinstance(data, list):
             self.cache[cache_key] = data
-
-        return data
+            return data
+        return None
 
     def calculate_ema(self, prices: list[float], period: int = 50) -> float:
-        """
-        Calculate Exponential Moving Average
-
-        Args:
-            prices: List of prices (most recent first)
-            period: EMA period (default 50)
-
-        Returns:
-            EMA value
-
-        Note:
-            This is a helper method for market direction (M component).
-            Uses standard EMA formula: EMA = Price * k + EMA_prev * (1-k)
-            where k = 2 / (period + 1)
-        """
+        """Calculate Exponential Moving Average (prices most recent first)."""
         if len(prices) < period:
-            return sum(prices) / len(prices)  # Fallback to simple average
-
-        # Reverse to oldest-first for calculation
+            return sum(prices) / len(prices)
         prices_reversed = prices[::-1]
-
-        # Initialize with SMA
         sma = sum(prices_reversed[:period]) / period
         ema = sma
-
-        # Calculate EMA
         k = 2 / (period + 1)
         for price in prices_reversed[period:]:
             ema = price * k + ema * (1 - k)
-
         return ema
 
     def clear_cache(self):
-        """Clear session cache (useful for refreshing data)"""
+        """Clear session cache."""
         self.cache = {}
-        print("Cache cleared", file=sys.stderr)
 
     def get_api_stats(self) -> dict:
-        """
-        Get API usage statistics for current session
-
-        Returns:
-            Dict with cache size and estimated API calls made
-        """
         return {
             "cache_entries": len(self.cache),
             "rate_limit_reached": self.rate_limit_reached,
             "retry_count": self.retry_count,
         }
-
-
-def test_client():
-    """Test FMP client with sample queries"""
-    print("Testing FMP Client...")
-
-    client = FMPClient()
-
-    # Test 1: Quote
-    print("\n1. Testing quote endpoint (AAPL)...")
-    quote = client.get_quote("AAPL")
-    if quote:
-        print(f"✓ Quote: {quote[0]['symbol']} @ ${quote[0]['price']:.2f}")
-    else:
-        print("✗ Quote failed")
-
-    # Test 2: Quarterly income statement
-    print("\n2. Testing quarterly income statement (AAPL)...")
-    quarterly = client.get_income_statement("AAPL", period="quarter", limit=8)
-    if quarterly:
-        latest = quarterly[0]
-        print(f"✓ Latest quarter: {latest['date']}, EPS: ${latest.get('eps', 'N/A')}")
-    else:
-        print("✗ Quarterly income statement failed")
-
-    # Test 3: Annual income statement
-    print("\n3. Testing annual income statement (AAPL)...")
-    annual = client.get_income_statement("AAPL", period="annual", limit=5)
-    if annual:
-        latest = annual[0]
-        print(f"✓ Latest year: {latest['date']}, EPS: ${latest.get('eps', 'N/A')}")
-    else:
-        print("✗ Annual income statement failed")
-
-    # Test 4: Historical prices
-    print("\n4. Testing historical prices (AAPL)...")
-    prices = client.get_historical_prices("AAPL", days=365)
-    if prices and "historical" in prices:
-        print(f"✓ Fetched {len(prices['historical'])} days of price history")
-        if len(prices["historical"]) > 0:
-            latest = prices["historical"][0]
-            print(f"  Latest: {latest['date']}, Close: ${latest['close']:.2f}")
-    else:
-        print("✗ Historical prices failed")
-
-    # Test 5: Market indices (batch)
-    print("\n5. Testing market indices (^GSPC, ^VIX)...")
-    indices = client.get_quote("^GSPC,^VIX")
-    if indices:
-        for idx in indices:
-            print(f"✓ {idx['symbol']}: {idx['price']:.2f}")
-    else:
-        print("✗ Market indices failed")
-
-    # Test 6: Cache
-    print("\n6. Testing cache (repeat AAPL quote)...")
-    quote2 = client.get_quote("AAPL")
-    if quote2:
-        print("✓ Cache working (no API call made)")
-
-    # Stats
-    stats = client.get_api_stats()
-    print("\nAPI Stats:")
-    print(f"  Cache entries: {stats['cache_entries']}")
-    print(f"  Rate limit reached: {stats['rate_limit_reached']}")
-
-    print("\n✓ All tests completed")
-
-
-if __name__ == "__main__":
-    test_client()

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Market Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body class="{% if settings.environment == 'live' and settings.mode == 'auto' %}live-auto-mode{% endif %}">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <span class="topbar-title">📊 Market Dashboard</span>
+    <span class="market-state state-{{ market_state | default('market_closed') | replace('_', '-') }}">
+      {% if market_state == 'pre_market' %}Pre-Market
+      {% elif market_state == 'market_open' %}Market Open
+      {% else %}Market Closed{% endif %}
+    </span>
+    <span class="env-badge {% if settings.environment == 'live' %}env-live{% else %}env-paper{% endif %}">
+      {% if settings.environment == 'live' %}💰 LIVE{% else %}📄 PAPER{% endif %}
+    </span>
+    <span class="mode-badge">
+      {% if settings.mode == 'auto' %}🤖 Auto
+      {% elif settings.mode == 'semi_auto' %}✅ Semi-Auto
+      {% else %}👁 Advisory{% endif %}
+    </span>
+    <a href="/" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Home</a>
+    <a href="/settings" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Settings</a>
+    <a href="/trades" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Trades</a>
+    <a href="/stats" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Stats</a>
+    <div style="margin-left:auto; font-size:11px; color:#8b949e;" id="clock"></div>
+    <script>
+      (function tick(){
+        const el = document.getElementById('clock');
+        if(el) el.textContent = new Date().toLocaleTimeString('en-US', {timeZone:'America/New_York', hour12:false}) + ' ET';
+        setTimeout(tick, 1000);
+      })();
+    </script>
+  </div>
+
+  <!-- TradingView Ticker Tape -->
+  <div class="ticker-tape">
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+      {
+        "symbols": [
+          {"proName": "FOREXCOM:SPXUSD", "title": "S&P 500"},
+          {"proName": "NASDAQ:QQQ", "title": "QQQ"},
+          {"proName": "CBOE:VIX", "title": "VIX"},
+          {"proName": "AMEX:SPY", "title": "SPY"},
+          {"proName": "NASDAQ:NVDA", "title": "NVDA"},
+          {"proName": "TVC:DXY", "title": "DXY"}
+        ],
+        "showSymbolLogo": false,
+        "colorTheme": "dark",
+        "isTransparent": true,
+        "displayMode": "adaptive",
+        "locale": "en"
+      }
+      </script>
+    </div>
+  </div>
+
+  {% block content %}{% endblock %}
+
+
+</body>
+</html>
