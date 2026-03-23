@@ -22,7 +22,7 @@ def make_monitor(tmp_path: Path, search_fn=None):
         "breadth_size_reduction_pct": 0.0,  # 0 = disabled — keeps existing tests green
     }
     return PivotWatchlistMonitor(
-        alpaca_client=alpaca,
+        broker_client=alpaca,
         settings_manager=settings,
         cache_dir=tmp_path,
         _search_fn=search_fn or (lambda s: []),
@@ -121,7 +121,7 @@ def test_stage1_applies_rule_store_rules():
             "mode": "auto", "default_risk_pct": 1.0, "max_positions": 5, "max_position_size_pct": 10.0,
         }
         monitor = PivotWatchlistMonitor(
-            alpaca_client=alpaca, settings_manager=settings,
+            broker_client=alpaca, settings_manager=settings,
             cache_dir=Path(d), rule_store=store,
         )
         result = monitor.run_stage1_check([{"symbol": "TSLA", "pivot_price": 200.0}])
@@ -135,11 +135,11 @@ def test_check_breakout_fires_for_clear_candidate():
     """When price >= pivot × 1.001, a CLEAR candidate should trigger _fire_order."""
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.is_configured = True
-        monitor._alpaca.get_positions.return_value = []
-        monitor._alpaca.get_account.return_value = {"portfolio_value": 100_000.0}
-        monitor._alpaca.get_last_price.return_value = 156.0
-        monitor._alpaca.place_bracket_order.return_value = {
+        monitor._broker.is_configured = True
+        monitor._broker.get_positions.return_value = []
+        monitor._broker.get_account.return_value = {"portfolio_value": 100_000.0}
+        monitor._broker.get_last_price.return_value = 156.0
+        monitor._broker.place_bracket_order.return_value = {
             "id": "ord1", "symbol": "AAPL", "qty": 10.0, "limit_price": 156.0, "status": "new"
         }
 
@@ -153,37 +153,39 @@ def test_check_breakout_fires_for_clear_candidate():
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         try:
             monitor._check_breakout(bar, candidates)
         finally:
             pm._market_is_open_now = original
 
-        monitor._alpaca.place_bracket_order.assert_called_once()
+        monitor._broker.place_bracket_order.assert_called_once()
         assert "AAPL" in monitor._triggered
 
 
 def test_check_breakout_skips_blocked_candidate():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.is_configured = True
+        monitor._broker.is_configured = True
         bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
         candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "BLOCKED"}]
 
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         try:
             monitor._check_breakout(bar, candidates)
         finally:
             pm._market_is_open_now = original
 
-        monitor._alpaca.place_bracket_order.assert_not_called()
+        monitor._broker.place_bracket_order.assert_not_called()
 
 
 def test_check_breakout_skips_when_price_below_buffer():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.is_configured = True
+        monitor._broker.is_configured = True
         bar = MagicMock(); bar.symbol = "AAPL"
         bar.close = 155.0  # exactly at pivot, not above buffer (needs > 155.155)
         candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
@@ -191,20 +193,21 @@ def test_check_breakout_skips_when_price_below_buffer():
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         try:
             monitor._check_breakout(bar, candidates)
         finally:
             pm._market_is_open_now = original
 
-        monitor._alpaca.place_bracket_order.assert_not_called()
+        monitor._broker.place_bracket_order.assert_not_called()
 
 
 def test_guard_rail_max_positions_blocks_order():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.is_configured = True
+        monitor._broker.is_configured = True
         # 5 positions = max_positions → blocked
-        monitor._alpaca.get_positions.return_value = [{}] * 5
+        monitor._broker.get_positions.return_value = [{}] * 5
 
         bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
         candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
@@ -212,30 +215,32 @@ def test_guard_rail_max_positions_blocks_order():
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         try:
             monitor._check_breakout(bar, candidates)
         finally:
             pm._market_is_open_now = original
 
-        monitor._alpaca.place_bracket_order.assert_not_called()
+        monitor._broker.place_bracket_order.assert_not_called()
 
 
 def test_guard_rail_outside_market_hours_blocks_order():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.is_configured = True
+        monitor._broker.is_configured = True
         bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
         candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "CLEAR"}]
 
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: False
+        monitor._is_market_open_now = lambda: False
         try:
             monitor._check_breakout(bar, candidates)
         finally:
             pm._market_is_open_now = original
 
-        monitor._alpaca.place_bracket_order.assert_not_called()
+        monitor._broker.place_bracket_order.assert_not_called()
 
 
 def test_uncertain_with_negative_stage2_blocks_order():
@@ -243,28 +248,29 @@ def test_uncertain_with_negative_stage2_blocks_order():
         return ["AAPL: SEC investigation launched"]
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d), search_fn=negative_search)
-        monitor._alpaca.is_configured = True
-        monitor._alpaca.get_positions.return_value = []
+        monitor._broker.is_configured = True
+        monitor._broker.get_positions.return_value = []
         bar = MagicMock(); bar.symbol = "AAPL"; bar.close = 200.0
         candidates = [{"symbol": "AAPL", "pivot_price": 155.0, "confidence_tag": "UNCERTAIN"}]
 
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         try:
             monitor._check_breakout(bar, candidates)
         finally:
             pm._market_is_open_now = original
 
-        monitor._alpaca.place_bracket_order.assert_not_called()
+        monitor._broker.place_bracket_order.assert_not_called()
 
 
 def test_high_conviction_uses_1_5x_risk():
     """HIGH_CONVICTION sizing passes risk_pct × 1.5 to qty calculation."""
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.is_configured = True
-        monitor._alpaca.get_account.return_value = {"portfolio_value": 100_000.0}
+        monitor._broker.is_configured = True
+        monitor._broker.get_account.return_value = {"portfolio_value": 100_000.0}
         # account=100k, risk=1%, entry=100, stop=97 → risk_per_share=3, dollar_risk=1000 → 333 shares
         # HIGH_CONVICTION: risk=1.5%, dollar_risk=1500 → 500 shares
         qty_normal = monitor._calc_qty(100.0, 97.0, high_conviction=False)
@@ -292,7 +298,7 @@ def make_monitor_with_store(tmp_path: Path):
         seed_file=tmp_path / "seed_multipliers.json",
     )
     monitor = PivotWatchlistMonitor(
-        alpaca_client=alpaca,
+        broker_client=alpaca,
         settings_manager=settings,
         cache_dir=tmp_path,
         multiplier_store=mstore,
@@ -330,7 +336,9 @@ def test_log_trade_stores_screener_field():
         monitor._log_trade(
             {"symbol": "AAPL", "pivot_price": 99.0}, "ord1", 100.0, 97.0, 10, "CLEAR"
         )
-        trades = json.loads((tmp / "auto_trades.json").read_text())["trades"]
+        market_id = monitor._market_config.get("id", "us")
+        trades_file = tmp / f"{market_id}-auto_trades.json"
+        trades = json.loads(trades_file.read_text())["trades"]
         assert trades[0]["screener"] == "vcp"
 
 
@@ -345,7 +353,9 @@ def test_log_trade_stores_regime_as_string():
         monitor._log_trade(
             {"symbol": "AAPL", "pivot_price": 99.0}, "ord1", 100.0, 97.0, 10, "CLEAR"
         )
-        trades = json.loads((tmp / "auto_trades.json").read_text())["trades"]
+        market_id = monitor._market_config.get("id", "us")
+        trades_file = tmp / f"{market_id}-auto_trades.json"
+        trades = json.loads(trades_file.read_text())["trades"]
         assert trades[0]["regime"] == "bull"
         assert isinstance(trades[0]["regime"], str)
         assert "macro_regime" not in trades[0]
@@ -374,7 +384,7 @@ def make_monitor_with_trackers(tmp_path, pdt_tracker=None, drawdown_tracker=None
         "breadth_size_reduction_pct": 0.0,
     }
     return PivotWatchlistMonitor(
-        alpaca_client=alpaca,
+        broker_client=alpaca,
         settings_manager=settings,
         cache_dir=Path(tmp_path),
         pdt_tracker=pdt_tracker,
@@ -394,6 +404,7 @@ def test_pdt_0_slots_blocks_all_tags():
         monitor = make_monitor_with_trackers(Path(d), pdt_tracker=tracker)
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         allowed, reason = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="HIGH_CONVICTION")
         assert allowed is False
         assert "PDT" in reason
@@ -410,6 +421,7 @@ def test_pdt_1_slot_blocks_clear_allows_high_conviction():
         monitor = make_monitor_with_trackers(Path(d), pdt_tracker=tracker)
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         allowed_clear, _ = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="CLEAR")
         allowed_hc, _ = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="HIGH_CONVICTION")
         assert allowed_clear is False
@@ -426,6 +438,7 @@ def test_pdt_2_slots_blocks_uncertain():
         monitor = make_monitor_with_trackers(Path(d), pdt_tracker=tracker)
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         allowed_uncertain, _ = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="UNCERTAIN")
         allowed_clear, _ = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="CLEAR")
         assert allowed_uncertain is False
@@ -451,13 +464,14 @@ def test_drawdown_weekly_limit_blocks_guard():
             "earnings_blackout_days": 5,
         }
         monitor = PivotWatchlistMonitor(
-            alpaca_client=alpaca,
+            broker_client=alpaca,
             settings_manager=settings,
             cache_dir=Path(d),
             drawdown_tracker=tracker,
         )
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         allowed, reason = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="CLEAR")
         assert allowed is False
         assert "drawdown" in reason.lower()
@@ -482,13 +496,14 @@ def test_drawdown_disabled_at_100_pct_always_allows():
             "earnings_blackout_days": 0,
         }
         monitor = PivotWatchlistMonitor(
-            alpaca_client=alpaca,
+            broker_client=alpaca,
             settings_manager=settings,
             cache_dir=Path(d),
             drawdown_tracker=tracker,
         )
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         allowed, _ = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="CLEAR")
         assert allowed is True
 
@@ -508,6 +523,7 @@ def test_earnings_blackout_blocks_when_reporting_soon():
         monitor = make_monitor_with_trackers(Path(d), earnings_blackout=eb)
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: True
+        monitor._is_market_open_now = lambda: True
         allowed, reason = monitor._guard_rails_allow({"symbol": "AAPL"}, tag="CLEAR")
         assert allowed is False
         assert "earnings" in reason.lower()
@@ -517,32 +533,35 @@ def test_earnings_blackout_blocks_when_reporting_soon():
 
 def test_volume_above_threshold_allowed(tmp_path):
     monitor = make_monitor(tmp_path)
-    monitor._alpaca.get_current_volume = lambda sym: 200_000
+    monitor._broker.get_current_volume = lambda sym: 200_000
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 100_000}
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
-    monitor._alpaca.get_positions.return_value = []
+    monitor._is_market_open_now = lambda: True
+    monitor._broker.get_positions.return_value = []
     allowed, reason = monitor._guard_rails_allow(candidate, tag="CLEAR")
     assert allowed is True
 
 def test_volume_below_threshold_blocked(tmp_path):
     monitor = make_monitor(tmp_path)
-    monitor._alpaca.get_current_volume = lambda sym: 100_000
+    monitor._broker.get_current_volume = lambda sym: 100_000
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 200_000}
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
-    monitor._alpaca.get_positions.return_value = []
+    monitor._is_market_open_now = lambda: True
+    monitor._broker.get_positions.return_value = []
     allowed, reason = monitor._guard_rails_allow(candidate, tag="CLEAR")
     assert allowed is False
     assert "volume" in reason.lower()
 
 def test_volume_data_missing_fails_open(tmp_path):
     monitor = make_monitor(tmp_path)
-    monitor._alpaca.get_current_volume = lambda sym: (_ for _ in ()).throw(Exception("API error"))
+    monitor._broker.get_current_volume = lambda sym: (_ for _ in ()).throw(Exception("API error"))
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 100_000}
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
-    monitor._alpaca.get_positions.return_value = []
+    monitor._is_market_open_now = lambda: True
+    monitor._broker.get_positions.return_value = []
     allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
     assert allowed is True
 
@@ -563,10 +582,11 @@ def test_volume_ratio_zero_always_allows(tmp_path):
         "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
         "earnings_blackout_days": 0,
     }
-    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    monitor = PivotWatchlistMonitor(broker_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
     alpaca.get_current_volume = lambda sym: 1
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
+    monitor._is_market_open_now = lambda: True
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR", "avg_volume_20d": 1_000_000}
     allowed, _ = monitor._guard_rails_allow(candidate, tag="CLEAR")
     assert allowed is True
@@ -596,9 +616,10 @@ def test_time_lock_clear_blocked_in_open_window(tmp_path):
         "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
         "earnings_blackout_days": 0,
     }
-    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    monitor = PivotWatchlistMonitor(broker_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
+    monitor._is_market_open_now = lambda: True
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR"}
     with patch("pivot_monitor.datetime") as mock_dt:
         mock_dt.now.return_value = make_et_time(9, 35)
@@ -621,9 +642,10 @@ def test_time_lock_high_conviction_allowed_in_open_window(tmp_path):
         "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
         "earnings_blackout_days": 0,
     }
-    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    monitor = PivotWatchlistMonitor(broker_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
+    monitor._is_market_open_now = lambda: True
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "HIGH_CONVICTION"}
     with patch("pivot_monitor.datetime") as mock_dt:
         mock_dt.now.return_value = make_et_time(9, 35)
@@ -645,9 +667,10 @@ def test_time_lock_clear_allowed_outside_window(tmp_path):
         "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
         "earnings_blackout_days": 0,
     }
-    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    monitor = PivotWatchlistMonitor(broker_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
+    monitor._is_market_open_now = lambda: True
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR"}
     with patch("pivot_monitor.datetime") as mock_dt:
         mock_dt.now.return_value = make_et_time(11, 0)
@@ -669,9 +692,10 @@ def test_time_lock_disabled_when_zero(tmp_path):
         "max_weekly_drawdown_pct": 100.0, "max_daily_loss_pct": 100.0,
         "earnings_blackout_days": 0,
     }
-    monitor = PivotWatchlistMonitor(alpaca_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
+    monitor = PivotWatchlistMonitor(broker_client=alpaca, settings_manager=settings, cache_dir=tmp_path)
     import pivot_monitor as pm
     pm._market_is_open_now = lambda: True
+    monitor._is_market_open_now = lambda: True
     candidate = {"symbol": "AAPL", "pivot_price": 100.0, "confidence_tag": "CLEAR"}
     with patch("pivot_monitor.datetime") as mock_dt:
         mock_dt.now.return_value = make_et_time(9, 31)
@@ -731,6 +755,7 @@ def write_auto_trades(tmp_path, trades):
 def test_check_exit_management_skips_when_no_trades_file():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
+        monitor._is_market_open_now = lambda: True
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
@@ -746,6 +771,7 @@ def test_check_exit_management_skips_outside_market_hours():
         write_auto_trades(Path(d), [{"symbol": "AAPL", "entry_price": 100.0, "stop_price": 97.0, "qty": 10, "outcome": None, "stop_order_id": "ord1", "entry_time": "2026-03-20T14:00:00+00:00"}])
         import pivot_monitor as pm
         pm._market_is_open_now = lambda: False
+        monitor._is_market_open_now = lambda: False
         called = []
         monitor._apply_trailing_stop = lambda t, s: called.append("trailing") or False
         monitor._apply_partial_exit = lambda t, s: called.append("partial") or False
@@ -758,6 +784,7 @@ def test_check_exit_management_skips_closed_trades():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
         write_auto_trades(Path(d), [{"symbol": "AAPL", "entry_price": 100.0, "stop_price": 97.0, "qty": 10, "outcome": "win", "stop_order_id": "ord1", "entry_time": "2026-03-15T14:00:00+00:00"}])
+        monitor._is_market_open_now = lambda: True
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
@@ -775,6 +802,7 @@ def test_check_exit_management_writes_file_when_changed():
         tmp = Path(d)
         monitor = make_monitor(tmp)
         write_auto_trades(tmp, [{"symbol": "AAPL", "entry_price": 100.0, "stop_price": 97.0, "qty": 10, "outcome": None, "stop_order_id": "ord1", "entry_time": "2026-03-20T14:00:00+00:00"}])
+        monitor._is_market_open_now = lambda: True
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
@@ -798,6 +826,7 @@ def test_check_exit_management_does_not_write_file_when_unchanged():
         monitor = make_monitor(tmp)
         write_auto_trades(tmp, [{"symbol": "AAPL", "entry_price": 100.0, "stop_price": 97.0, "qty": 10, "outcome": None, "stop_order_id": "ord1", "entry_time": "2026-03-20T14:00:00+00:00"}])
         mtime_before = os.path.getmtime(str(tmp / "auto_trades.json"))
+        monitor._is_market_open_now = lambda: True
         import pivot_monitor as pm
         original = pm._market_is_open_now
         pm._market_is_open_now = lambda: True
@@ -821,56 +850,56 @@ def make_trailing_trade(entry=100.0, stop=97.0, stop_order_id="stop-ord-1"):
 def test_trailing_stop_moves_to_breakeven_at_1r():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 103.0
-        monitor._alpaca.replace_order_stop.return_value = {"id": "stop-ord-1", "status": "accepted"}
+        monitor._broker.get_last_price.return_value = 103.0
+        monitor._broker.replace_order_stop.return_value = {"id": "stop-ord-1", "status": "accepted"}
         trade = make_trailing_trade()
         result = monitor._apply_trailing_stop(trade, {"trailing_stop_enabled": True})
         assert result is True
         assert trade["stop_price"] == 100.0
-        monitor._alpaca.replace_order_stop.assert_called_once_with("stop-ord-1", 100.0)
+        monitor._broker.replace_order_stop.assert_called_once_with("stop-ord-1", 100.0)
 
 
 def test_trailing_stop_moves_to_1r_profit_at_2r():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 106.0
-        monitor._alpaca.replace_order_stop.return_value = {"id": "stop-ord-1", "status": "accepted"}
+        monitor._broker.get_last_price.return_value = 106.0
+        monitor._broker.replace_order_stop.return_value = {"id": "stop-ord-1", "status": "accepted"}
         trade = make_trailing_trade()
         result = monitor._apply_trailing_stop(trade, {"trailing_stop_enabled": True})
         assert result is True
         assert trade["stop_price"] == 103.0
-        monitor._alpaca.replace_order_stop.assert_called_once_with("stop-ord-1", 103.0)
+        monitor._broker.replace_order_stop.assert_called_once_with("stop-ord-1", 103.0)
 
 
 def test_trailing_stop_no_change_below_1r():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 102.5
+        monitor._broker.get_last_price.return_value = 102.5
         trade = make_trailing_trade()
         result = monitor._apply_trailing_stop(trade, {"trailing_stop_enabled": True})
         assert result is False
         assert trade["stop_price"] == 97.0
-        monitor._alpaca.replace_order_stop.assert_not_called()
+        monitor._broker.replace_order_stop.assert_not_called()
 
 
 def test_trailing_stop_no_change_when_already_at_breakeven():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 103.0
+        monitor._broker.get_last_price.return_value = 103.0
         trade = make_trailing_trade(stop=100.0)
         result = monitor._apply_trailing_stop(trade, {"trailing_stop_enabled": True})
         assert result is False
-        monitor._alpaca.replace_order_stop.assert_not_called()
+        monitor._broker.replace_order_stop.assert_not_called()
 
 
 def test_trailing_stop_disabled_by_setting():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 110.0
+        monitor._broker.get_last_price.return_value = 110.0
         trade = make_trailing_trade()
         result = monitor._apply_trailing_stop(trade, {"trailing_stop_enabled": False})
         assert result is False
-        monitor._alpaca.replace_order_stop.assert_not_called()
+        monitor._broker.replace_order_stop.assert_not_called()
 
 
 # ── Task 4: Partial exit tests ────────────────────────────────────────────────
@@ -882,52 +911,52 @@ def make_partial_trade(entry=100.0, stop=97.0, qty=20):
 def test_partial_exit_fires_at_target_r():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 103.0
-        monitor._alpaca.place_market_sell.return_value = {"id": "sell-1", "status": "new"}
+        monitor._broker.get_last_price.return_value = 103.0
+        monitor._broker.place_market_sell.return_value = {"id": "sell-1", "status": "new"}
         trade = make_partial_trade()
         result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
         assert result is True
         assert trade["partial_exit_done"] is True
         assert trade["partial_exit_qty"] == 10
-        monitor._alpaca.place_market_sell.assert_called_once_with("AAPL", 10)
+        monitor._broker.place_market_sell.assert_called_once_with("AAPL", 10)
 
 
 def test_partial_exit_does_not_fire_below_target_r():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 102.5
+        monitor._broker.get_last_price.return_value = 102.5
         trade = make_partial_trade()
         result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
 
 
 def test_partial_exit_skipped_when_flag_already_set():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 106.0
+        monitor._broker.get_last_price.return_value = 106.0
         trade = make_partial_trade()
         trade["partial_exit_done"] = True
         result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
 
 
 def test_partial_exit_disabled_by_setting():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 110.0
+        monitor._broker.get_last_price.return_value = 110.0
         trade = make_partial_trade()
         result = monitor._apply_partial_exit(trade, {"partial_exit_enabled": False})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
 
 
 def test_partial_exit_sets_flag_on_sell_failure():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 103.0
-        monitor._alpaca.place_market_sell.side_effect = RuntimeError("order rejected")
+        monitor._broker.get_last_price.return_value = 103.0
+        monitor._broker.place_market_sell.side_effect = RuntimeError("order rejected")
         trade = make_partial_trade()
         monitor._apply_partial_exit(trade, {"partial_exit_enabled": True, "partial_exit_at_r": 1.0, "partial_exit_pct": 50})
         assert trade["partial_exit_done"] is True
@@ -944,43 +973,43 @@ def make_time_stop_trade(days_ago, entry=100.0, stop=97.0, qty=10):
 def test_time_stop_exits_flat_position_after_time_limit():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 100.5
-        monitor._alpaca.place_market_sell.return_value = {"id": "sell-ts", "status": "new"}
+        monitor._broker.get_last_price.return_value = 100.5
+        monitor._broker.place_market_sell.return_value = {"id": "sell-ts", "status": "new"}
         trade = make_time_stop_trade(days_ago=6)
         result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
         assert result is True
         assert trade["outcome"] == "time_stop"
-        monitor._alpaca.place_market_sell.assert_called_once_with("AAPL", 10)
+        monitor._broker.place_market_sell.assert_called_once_with("AAPL", 10)
 
 
 def test_time_stop_no_exit_within_time_limit():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 100.2
+        monitor._broker.get_last_price.return_value = 100.2
         trade = make_time_stop_trade(days_ago=3)
         result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
 
 
 def test_time_stop_no_exit_when_position_above_half_r():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 102.0
+        monitor._broker.get_last_price.return_value = 102.0
         trade = make_time_stop_trade(days_ago=7)
         result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
 
 
 def test_time_stop_disabled_when_days_zero():
     with tempfile.TemporaryDirectory() as d:
         monitor = make_monitor(Path(d))
-        monitor._alpaca.get_last_price.return_value = 100.1
+        monitor._broker.get_last_price.return_value = 100.1
         trade = make_time_stop_trade(days_ago=30)
         result = monitor._apply_time_stop(trade, {"time_stop_days": 0})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
 
 
 def test_time_stop_skips_when_entry_time_missing():
@@ -989,7 +1018,197 @@ def test_time_stop_skips_when_entry_time_missing():
         trade = {"symbol": "AAPL", "entry_price": 100.0, "stop_price": 97.0, "qty": 10, "outcome": None}
         result = monitor._apply_time_stop(trade, {"time_stop_days": 5})
         assert result is False
-        monitor._alpaca.place_market_sell.assert_not_called()
+        monitor._broker.place_market_sell.assert_not_called()
+
+
+# ── VIX multiplier helpers ────────────────────────────────────────────────────
+
+def write_bubble_cache(tmp_path, vix: float):
+    data = {"vix": vix, "risk_score": 30}
+    (tmp_path / "us-market-bubble-detector.json").write_text(json.dumps(data))
+
+
+def make_vix_monitor(tmp_path, settings_overrides=None):
+    """Build a PivotWatchlistMonitor with a fake cache dir for VIX tests."""
+    from unittest.mock import MagicMock
+    from pivot_monitor import PivotWatchlistMonitor
+    from settings_manager import SettingsManager
+
+    settings = MagicMock(spec=SettingsManager)
+    base = {"vix_sizing_enabled": True, "kelly_sizing_enabled": False}
+    if settings_overrides:
+        base.update(settings_overrides)
+    settings.load.return_value = base
+
+    alpaca = MagicMock()
+    monitor = PivotWatchlistMonitor(
+        broker_client=alpaca,
+        settings_manager=settings,
+        cache_dir=tmp_path,
+    )
+    return monitor
+
+
+def test_vix_below_20_returns_1_0(tmp_path):
+    write_bubble_cache(tmp_path, vix=15.0)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_vix_multiplier() == 1.0
+
+
+def test_vix_between_20_and_25_returns_0_75(tmp_path):
+    write_bubble_cache(tmp_path, vix=22.5)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_vix_multiplier() == 0.75
+
+
+def test_vix_between_25_and_30_returns_0_50(tmp_path):
+    write_bubble_cache(tmp_path, vix=27.0)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_vix_multiplier() == 0.50
+
+
+def test_vix_above_30_returns_0_25(tmp_path):
+    write_bubble_cache(tmp_path, vix=35.0)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_vix_multiplier() == 0.25
+
+
+def test_vix_cache_missing_fails_open(tmp_path):
+    """No cache file → return 1.0, never block trading."""
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_vix_multiplier() == 1.0
+
+
+def test_vix_disabled_returns_1_0(tmp_path):
+    write_bubble_cache(tmp_path, vix=40.0)
+    monitor = make_vix_monitor(tmp_path, settings_overrides={"vix_sizing_enabled": False})
+    assert monitor._get_vix_multiplier() == 1.0
+
+
+# ── _calc_qty sizing multiplier tests ─────────────────────────────────────────
+
+def make_monitor_with_account(tmp_path, portfolio_value: float, settings_overrides=None):
+    """Monitor with a mock Alpaca that returns a fixed portfolio value."""
+    from unittest.mock import MagicMock
+    from pivot_monitor import PivotWatchlistMonitor
+    from settings_manager import SettingsManager
+
+    alpaca = MagicMock()
+    alpaca.get_account.return_value = {"portfolio_value": portfolio_value}
+    alpaca.get_positions.return_value = []
+
+    settings = MagicMock(spec=SettingsManager)
+    base = {
+        "default_risk_pct": 1.0,
+        "max_position_size_pct": 50.0,  # large enough that size cap doesn't interfere with tests
+        "kelly_sizing_enabled": False,
+        "kelly_max_multiplier": 2.0,
+        "vix_sizing_enabled": False,  # disable VIX by default so tests are isolated
+    }
+    if settings_overrides:
+        base.update(settings_overrides)
+    settings.load.return_value = base
+
+    monitor = PivotWatchlistMonitor(
+        broker_client=alpaca,
+        settings_manager=settings,
+        cache_dir=tmp_path,
+    )
+    return monitor
+
+
+def test_calc_qty_kelly_disabled_no_multiplier(tmp_path):
+    """Kelly disabled → qty unchanged from base calculation."""
+    monitor = make_monitor_with_account(tmp_path, portfolio_value=100_000)
+    qty = monitor._calc_qty(
+        entry_price=100.0, stop_price=97.0, high_conviction=False, bucket_key="vcp+CLEAR+bull"
+    )
+    # base: risk $1000 / $3 risk-per-share = 333 shares
+    assert qty == 333
+
+
+def test_calc_qty_kelly_enabled_high_win_rate_increases_qty(tmp_path):
+    """Kelly enabled with a high-win-rate bucket → qty larger than base."""
+    from unittest.mock import MagicMock, patch
+    monitor = make_monitor_with_account(
+        tmp_path, portfolio_value=100_000,
+        settings_overrides={"kelly_sizing_enabled": True, "kelly_max_multiplier": 2.0},
+    )
+    # Inject a mock multiplier_store that returns kelly mult of 1.8
+    mock_store = MagicMock()
+    mock_store.get_kelly_multiplier.return_value = 1.8
+    monitor._multiplier_store = mock_store
+
+    base_qty = 333  # from 1% risk on $100k with $3 risk/share
+    qty = monitor._calc_qty(
+        entry_price=100.0, stop_price=97.0, high_conviction=False, bucket_key="vcp+CLEAR+bull"
+    )
+    assert qty > base_qty
+
+
+def test_calc_qty_high_vix_reduces_qty(tmp_path):
+    """VIX > 30 → qty reduced to 25% of base."""
+    write_bubble_cache(tmp_path, vix=35.0)
+    monitor = make_monitor_with_account(
+        tmp_path, portfolio_value=100_000,
+        settings_overrides={"vix_sizing_enabled": True},
+    )
+    qty = monitor._calc_qty(
+        entry_price=100.0, stop_price=97.0, high_conviction=False, bucket_key="vcp+CLEAR+bull"
+    )
+    # base 333 × 0.25 = 83 (int floor, min 1)
+    assert qty == max(1, int(333 * 0.25))
+
+
+def test_calc_qty_kelly_and_vix_stack(tmp_path):
+    """Kelly mult 1.5 × VIX mult 0.5 = net 0.75 → qty reduced from base."""
+    write_bubble_cache(tmp_path, vix=27.0)  # VIX 0.50
+    monitor = make_monitor_with_account(
+        tmp_path, portfolio_value=100_000,
+        settings_overrides={"kelly_sizing_enabled": True, "vix_sizing_enabled": True},
+    )
+    mock_store = MagicMock()
+    mock_store.get_kelly_multiplier.return_value = 1.5
+    monitor._multiplier_store = mock_store
+
+    qty = monitor._calc_qty(
+        entry_price=100.0, stop_price=97.0, high_conviction=False, bucket_key="vcp+CLEAR+bull"
+    )
+    expected = max(1, int(333 * 1.5 * 0.50))
+    assert qty == expected
+
+
+# ── Regime confidence multiplier tests ───────────────────────────────────────
+
+def _write_regime_cache(tmp_path, score: float):
+    import json
+    (tmp_path / "macro-regime-detector.json").write_text(json.dumps({
+        "regime": {"current_regime": "bull", "score": score}
+    }))
+
+
+def test_regime_confidence_score_75_returns_1_0(tmp_path):
+    _write_regime_cache(tmp_path, 80.0)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_regime_confidence_multiplier() == 1.0
+
+
+def test_regime_confidence_score_50_to_75_returns_0_75(tmp_path):
+    _write_regime_cache(tmp_path, 60.0)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_regime_confidence_multiplier() == 0.75
+
+
+def test_regime_confidence_score_below_25_returns_0_25(tmp_path):
+    _write_regime_cache(tmp_path, 10.0)
+    monitor = make_vix_monitor(tmp_path)
+    assert monitor._get_regime_confidence_multiplier() == 0.25
+
+
+def test_regime_confidence_missing_cache_returns_1_0(tmp_path):
+    monitor = make_vix_monitor(tmp_path)
+    # No cache file written
+    assert monitor._get_regime_confidence_multiplier() == 1.0
 
 
 # ── Task 6: Scheduler smoke test ─────────────────────────────────────────────
@@ -1003,3 +1222,155 @@ def test_create_scheduler_registers_exit_management_job():
         sched = create_scheduler(runner=runner, cache_dir=Path(d), pivot_monitor=monitor)
         job_ids = {job.id for job in sched.get_jobs()}
         assert "exit_management" in job_ids
+
+
+# ── Task 4 (broker abstraction): new tests ────────────────────────────────────
+
+def _make_monitor_with_broker(broker, market_config=None, pdt_enabled=True, calendar_file=None):
+    """Build a PivotWatchlistMonitor using the new broker abstraction interface."""
+    from pivot_monitor import PivotWatchlistMonitor
+    from settings_manager import SettingsManager
+    from pathlib import Path
+    import tempfile
+
+    cache_dir = Path(tempfile.mkdtemp())
+    sm = SettingsManager()
+    if market_config is None:
+        market_config = {
+            "id": "us",
+            "tz": "America/New_York",
+            "open": "09:30",
+            "close": "16:00",
+        }
+    return PivotWatchlistMonitor(
+        broker_client=broker,
+        settings_manager=sm,
+        cache_dir=cache_dir,
+        market_config=market_config,
+        pdt_enabled=pdt_enabled,
+        calendar_file=calendar_file,
+    )
+
+
+def test_monitor_accepts_broker_client_param():
+    """PivotWatchlistMonitor accepts broker_client keyword and stores as self._broker."""
+    from unittest.mock import MagicMock
+    broker = MagicMock()
+    broker.is_configured = True
+
+    monitor = _make_monitor_with_broker(broker)
+    assert monitor._broker is broker
+
+
+def test_pdt_disabled_skips_pdt_guard():
+    """When pdt_enabled=False, PDT tracker block is skipped even with 0 slots."""
+    from unittest.mock import MagicMock
+    from learning.pdt_tracker import PDTTracker
+    import tempfile
+    from pathlib import Path
+    from settings_manager import SettingsManager
+
+    broker = MagicMock()
+    broker.is_configured = True
+    broker.get_positions.return_value = []
+    broker.get_account.return_value = {"portfolio_value": 10000.0}
+    broker.get_current_volume.side_effect = Exception("no vol")
+
+    pdt = MagicMock()
+    pdt.get_allowed_tags.return_value = set()  # 0 slots — would block if PDT enabled
+
+    from pivot_monitor import PivotWatchlistMonitor
+    sm = SettingsManager()
+    cache_dir = Path(tempfile.mkdtemp())
+    market_config = {"id": "oslo", "tz": "Europe/Oslo", "open": "09:00", "close": "16:30"}
+
+    monitor = PivotWatchlistMonitor(
+        broker_client=broker,
+        settings_manager=sm,
+        cache_dir=cache_dir,
+        market_config=market_config,
+        pdt_enabled=False,  # PDT disabled for Oslo
+        pdt_tracker=pdt,
+    )
+
+    # Patch _is_market_open_now to return True so we get past the hours check
+    monitor._is_market_open_now = lambda: True
+
+    allowed, reason = monitor._guard_rails_allow({"symbol": "EQNR"}, tag="CLEAR")
+    # Should not be blocked by PDT since pdt_enabled=False
+    assert "PDT" not in reason
+
+
+def test_market_hours_from_config_oslo():
+    """_is_market_open_now uses market_config tz/open/close, not hardcoded ET."""
+    from unittest.mock import MagicMock, patch
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    broker = MagicMock()
+    market_config = {
+        "id": "oslo",
+        "tz": "Europe/Oslo",
+        "open": "09:00",
+        "close": "16:30",
+    }
+    monitor = _make_monitor_with_broker(broker, market_config=market_config)
+
+    # Simulate 10:00 Oslo time on a Tuesday -> should be open
+    oslo_tz = ZoneInfo("Europe/Oslo")
+    mock_now = datetime(2026, 3, 24, 10, 0, 0, tzinfo=oslo_tz)  # Tuesday 10:00 Oslo
+
+    with patch("pivot_monitor.datetime") as mock_dt:
+        mock_dt.now.return_value = mock_now
+        result = monitor._is_market_open_now()
+
+    assert result is True
+
+
+def test_market_hours_closed_outside_config():
+    """_is_market_open_now returns False outside configured hours."""
+    from unittest.mock import MagicMock, patch
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    broker = MagicMock()
+    market_config = {
+        "id": "oslo",
+        "tz": "Europe/Oslo",
+        "open": "09:00",
+        "close": "16:30",
+    }
+    monitor = _make_monitor_with_broker(broker, market_config=market_config)
+
+    oslo_tz = ZoneInfo("Europe/Oslo")
+    mock_now = datetime(2026, 3, 24, 17, 0, 0, tzinfo=oslo_tz)  # 17:00 -> closed
+
+    with patch("pivot_monitor.datetime") as mock_dt:
+        mock_dt.now.return_value = mock_now
+        result = monitor._is_market_open_now()
+
+    assert result is False
+
+
+def test_per_market_trade_log_file():
+    """_log_trade writes to cache/<market-id>-auto_trades.json."""
+    from unittest.mock import MagicMock
+    import tempfile
+    from pathlib import Path
+
+    broker = MagicMock()
+    broker.get_account.return_value = {"portfolio_value": 10000.0}
+
+    market_config = {"id": "oslo", "tz": "Europe/Oslo", "open": "09:00", "close": "16:30"}
+    monitor = _make_monitor_with_broker(broker, market_config=market_config)
+
+    candidate = {"symbol": "EQNR", "pivot_price": 300.0}
+    monitor._log_trade(candidate, "order-123", 310.0, 300.0, 10, "CLEAR")
+
+    trades_file = monitor._cache_dir / "oslo-auto_trades.json"
+    assert trades_file.exists()
+    import json
+    data = json.loads(trades_file.read_text())
+    assert len(data["trades"]) == 1
+    assert data["trades"][0]["symbol"] == "EQNR"
+    assert data["trades"][0]["market"] == "oslo"

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 16px;">
+  <h2 style="color:#e2e8f0; margin-bottom:16px;">Trade Log</h2>
+
+  <!-- Summary bar -->
+  <div class="bottom-panel" style="margin-bottom:16px; display:flex; gap:32px; align-items:center;">
+    <div>
+      <div style="font-size:11px; color:#94a3b8; margin-bottom:2px;">Total Trades</div>
+      <div style="font-size:20px; color:#e2e8f0; font-weight:600;">{{ total_trades }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px; color:#94a3b8; margin-bottom:2px;">Open</div>
+      <div style="font-size:20px; color:#fbbf24; font-weight:600;">{{ open_count }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px; color:#94a3b8; margin-bottom:2px;">Win Rate</div>
+      <div style="font-size:20px; font-weight:600;
+        {% if win_rate is not none and win_rate >= 50 %}color:#4ade80;
+        {% elif win_rate is not none %}color:#f87171;
+        {% else %}color:#64748b;{% endif %}">
+        {% if win_rate is not none %}{{ win_rate }}%{% else %}—{% endif %}
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; color:#94a3b8; margin-bottom:2px;">Avg R</div>
+      <div style="font-size:20px; font-weight:600;
+        {% if avg_r is not none and avg_r >= 0 %}color:#4ade80;
+        {% elif avg_r is not none %}color:#f87171;
+        {% else %}color:#64748b;{% endif %}">
+        {% if avg_r is not none %}{{ avg_r }}R{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Trades table -->
+  <div class="bottom-panel">
+    <div class="panel-title">All Trades (newest first)</div>
+    <table style="width:100%; border-collapse:collapse; font-size:12px; color:#cbd5e1;">
+      <thead>
+        <tr style="color:#94a3b8; border-bottom:1px solid #334155;">
+          <th style="padding:6px; text-align:left;">Time</th>
+          <th style="padding:6px; text-align:left;">Market</th>
+          <th style="padding:6px; text-align:left;">Symbol</th>
+          <th style="padding:6px; text-align:left;">Screener</th>
+          <th style="padding:6px; text-align:left;">Tag</th>
+          <th style="padding:6px; text-align:left;">Regime</th>
+          <th style="padding:6px; text-align:right;">Entry</th>
+          <th style="padding:6px; text-align:right;">Stop</th>
+          <th style="padding:6px; text-align:right;">Qty</th>
+          <th style="padding:6px; text-align:right;">Outcome</th>
+          <th style="padding:6px; text-align:right;">R</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in trades %}
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:6px; color:#94a3b8;">
+            {{ t.entry_time[:16] | replace("T", " ") if t.entry_time else "—" }}
+          </td>
+          <td style="padding:6px; color:#94a3b8; font-size:11px;">
+            {{ t.market | default("us") | upper }}
+          </td>
+          <td style="padding:6px; font-weight:600;">{{ t.symbol }}</td>
+          <td style="padding:6px; color:#94a3b8;">{{ t.screener | default("—") }}</td>
+          <td style="padding:6px;
+            {% if t.confidence_tag == 'HIGH_CONVICTION' %}color:#4ade80;
+            {% elif t.confidence_tag == 'UNCERTAIN' %}color:#94a3b8;
+            {% else %}color:#cbd5e1;{% endif %}">
+            {{ t.confidence_tag | default("—") }}
+          </td>
+          <td style="padding:6px; color:#94a3b8;">{{ t.regime | default("—") }}</td>
+          <td style="padding:6px; text-align:right;">${{ t.entry_price }}</td>
+          <td style="padding:6px; text-align:right;">${{ t.stop_price }}</td>
+          <td style="padding:6px; text-align:right;">{{ t.qty }}</td>
+          <td style="padding:6px; text-align:right;
+            {% if t.outcome == 'win' %}color:#4ade80;
+            {% elif t.outcome == 'loss' %}color:#f87171;
+            {% else %}color:#94a3b8;{% endif %}">
+            {% if t.outcome == 'win' %}Win
+            {% elif t.outcome == 'loss' %}Loss
+            {% else %}Open{% endif %}
+          </td>
+          <td style="padding:6px; text-align:right;
+            {% if t.r is not none and t.r >= 0 %}color:#4ade80;
+            {% elif t.r is not none %}color:#f87171;
+            {% else %}color:#94a3b8;{% endif %}">
+            {% if t.r is not none %}{{ t.r }}R{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="11" style="padding:12px; color:#64748b; text-align:center;">
+            No trades recorded yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

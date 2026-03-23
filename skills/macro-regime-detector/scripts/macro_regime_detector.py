@@ -237,7 +237,7 @@ def main():
     analysis = {
         "metadata": {
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "data_source": "FMP API",
+            "data_source": "Alpaca + FRED API",
             "history_days": args.days,
             "api_calls": client.get_api_stats(),
             "etfs_analyzed": REQUIRED_ETFS,

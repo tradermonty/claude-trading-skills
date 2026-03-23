@@ -89,6 +89,8 @@ def create_scheduler(
     cache_dir: Path,
     pivot_monitor=None,
     pattern_extractor=None,
+    ibkr_client=None,
+    settings_manager=None,
 ) -> AsyncIOScheduler:
     """Build and return a configured AsyncIOScheduler (not yet started).
 
@@ -205,6 +207,26 @@ def create_scheduler(
             pattern_extractor.extract,
             CronTrigger(day_of_week="sat", hour=18, minute=0),
             id="pattern_extraction",
+            replace_existing=True,
+        )
+
+    # ── Weekly universe builder for non-US markets ─────────────────────────
+    if ibkr_client is not None and settings_manager is not None:
+        from universe_builder import UniverseBuilder
+        universe_builder = UniverseBuilder(
+            ibkr_client=ibkr_client,
+            cache_dir=cache_dir,
+            request_delay=6.0,
+        )
+
+        def universe_build_job():
+            markets = settings_manager.get_enabled_markets()
+            universe_builder.build_all(markets)
+
+        sched.add_job(
+            universe_build_job,
+            CronTrigger(day_of_week="sun", hour=20, minute=0),
+            id="universe_builder",
             replace_existing=True,
         )
 

@@ -20,14 +20,15 @@
     <span class="env-badge {% if settings.environment == 'live' %}env-live{% else %}env-paper{% endif %}">
       {% if settings.environment == 'live' %}💰 LIVE{% else %}📄 PAPER{% endif %}
     </span>
-    <span class="mode-badge"
-          hx-get="/api/settings"
-          hx-target="#modal-container"
-          hx-swap="innerHTML">
+    <span class="mode-badge">
       {% if settings.mode == 'auto' %}🤖 Auto
       {% elif settings.mode == 'semi_auto' %}✅ Semi-Auto
       {% else %}👁 Advisory{% endif %}
     </span>
+    <a href="/" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Home</a>
+    <a href="/settings" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Settings</a>
+    <a href="/trades" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Trades</a>
+    <a href="/stats" style="font-size:12px; color:#94a3b8; text-decoration:none; margin-left:12px;">Stats</a>
     <div style="margin-left:auto; font-size:11px; color:#8b949e;" id="clock"></div>
     <script>
       (function tick(){
@@ -64,8 +65,6 @@
 
   {% block content %}{% endblock %}
 
-  <!-- Modal container (settings modal appears here) -->
-  <div id="modal-container"></div>
 
 </body>
 </html>

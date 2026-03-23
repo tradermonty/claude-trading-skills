@@ -31,6 +31,9 @@
 
     <a href="/detail/{{ route }}" class="signal-row {% if item.stale %}stale{% endif %}">
       <div>
+        <div style="font-size:10px; color:#64748b; margin-bottom:2px; text-transform:uppercase; letter-spacing:.04em;">
+          {{ item.data.market | default("US") | upper if item.data else "US" }}
+        </div>
         <div class="signal-name">
           {% if skill == 'ftd-detector' %}FTD Detector
           {% elif skill == 'uptrend-analyzer' %}Uptrend Analyzer

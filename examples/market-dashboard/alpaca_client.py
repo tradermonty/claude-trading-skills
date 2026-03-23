@@ -4,6 +4,9 @@ from __future__ import annotations
 import asyncio as _asyncio
 import sys
 
+# Patch target for tests — overridden by subscribe_bars at runtime
+StockDataStream = None
+
 
 class AlpacaClient:
     """Wraps alpaca-py TradingClient + StockHistoricalDataClient.
@@ -122,12 +125,24 @@ class AlpacaClient:
             take_profit=TakeProfitRequest(limit_price=round(take_profit_price, 2)),
         )
         order = self.trading_client.submit_order(order_data)
+        # Alpaca bracket orders return legs: [take_profit_leg, stop_loss_leg]
+        stop_order_id = None
+        legs = getattr(order, "legs", None) or []
+        for leg in legs:
+            # Stop leg has a stop_price; take-profit leg does not
+            if getattr(leg, "stop_price", None) is not None:
+                stop_order_id = str(leg.id)
+                break
+        # Fallback: second leg by position if attribute detection fails
+        if stop_order_id is None and len(legs) >= 2:
+            stop_order_id = str(legs[1].id)
         return {
             "id": str(order.id),
             "symbol": order.symbol,
             "qty": float(order.qty),
             "limit_price": float(order.limit_price),
             "status": str(order.status),
+            "stop_order_id": stop_order_id,
         }
 
     def replace_order_stop(self, order_id: str, new_stop_price: float) -> dict:
@@ -142,6 +157,35 @@ class AlpacaClient:
         req = MarketOrderRequest(symbol=symbol, qty=qty, side=OrderSide.SELL, time_in_force=TimeInForce.DAY)
         result = self.trading_client.submit_order(req)
         return {"id": str(result.id), "status": str(result.status)}
+
+    async def subscribe_bars(self, symbols: list[str], callback) -> None:
+        """Subscribe to 1-minute bars for the given symbols and call callback on each bar.
+
+        Wraps Alpaca StockDataStream. Runs stream.run() in a thread executor so the
+        blocking WebSocket call does not block the asyncio event loop.
+        Disconnections are logged but do not raise — caller handles reconnect logic.
+        """
+        import asyncio as _asyncio
+        from alpaca.data.live import StockDataStream as _StockDataStream
+        # Allow tests to patch at module level
+        import alpaca_client as _self_module
+        _StockDataStream_cls = getattr(_self_module, "StockDataStream", None) or _StockDataStream
+
+        stream = _StockDataStream_cls(
+            api_key=self.api_key,
+            secret_key=self.secret_key,
+        )
+
+        async def _handle_bar(bar):
+            await callback(bar)
+
+        stream.subscribe_bars(_handle_bar, *symbols)
+        loop = _asyncio.get_running_loop()
+        try:
+            await loop.run_in_executor(None, stream.run)
+        except Exception as e:
+            import sys
+            print(f"[alpaca_client] subscribe_bars disconnected: {e}", file=sys.stderr)
 
     async def start_trading_stream(self) -> None:
         """Subscribe to order fill events. Runs as a background asyncio task.

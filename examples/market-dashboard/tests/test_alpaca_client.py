@@ -177,3 +177,74 @@ def test_place_market_sell_uses_sell_side_and_day_tif():
     assert req.qty == 5
     assert req.side == OrderSide.SELL
     assert req.time_in_force == TimeInForce.DAY
+
+
+def _make_client():
+    from alpaca_client import AlpacaClient
+    return AlpacaClient(api_key="test_key", secret_key="test_secret", paper=True)
+
+
+def test_place_bracket_order_returns_stop_order_id():
+    """place_bracket_order must return stop_order_id from the bracket order response."""
+    import pytest
+    client = _make_client()
+
+    # Build a mock bracket order response with legs
+    stop_leg = MagicMock()
+    stop_leg.id = "stop-leg-id-123"
+    stop_leg.stop_price = 145.0  # has stop_price → identified as stop leg
+
+    tp_leg = MagicMock()
+    tp_leg.id = "tp-leg-id-456"
+    tp_leg.stop_price = None  # no stop_price → take-profit leg
+
+    mock_order = MagicMock()
+    mock_order.id = "parent-order-id-789"
+    mock_order.symbol = "AAPL"
+    mock_order.qty = 10
+    mock_order.limit_price = 150.0
+    mock_order.status = "accepted"
+    # Alpaca bracket orders have legs: [take_profit_leg, stop_loss_leg]
+    mock_order.legs = [tp_leg, stop_leg]
+
+    mock_trading = MagicMock()
+    mock_trading.submit_order.return_value = mock_order
+    client._trading_client = mock_trading
+
+    result = client.place_bracket_order(
+        symbol="AAPL", qty=10, limit_price=150.0, stop_price=145.0
+    )
+
+    assert "id" in result
+    assert "stop_order_id" in result
+    assert result["id"] == "parent-order-id-789"
+    assert result["stop_order_id"] == "stop-leg-id-123"
+
+
+def test_alpaca_satisfies_broker_client_protocol():
+    """AlpacaClient satisfies BrokerClient after subscribe_bars is added."""
+    from broker_client import BrokerClient
+    client = _make_client()
+    assert isinstance(client, BrokerClient)
+
+
+def test_subscribe_bars_calls_stream_subscribe_and_run():
+    """subscribe_bars wraps StockDataStream correctly."""
+    import asyncio
+    from unittest.mock import patch
+    client = _make_client()
+
+    mock_stream = MagicMock()
+    mock_stream.subscribe_bars = MagicMock()
+    mock_stream.run = MagicMock()
+
+    callback = MagicMock()
+
+    async def run():
+        with patch("alpaca_client.StockDataStream", return_value=mock_stream):
+            await client.subscribe_bars(["AAPL", "MSFT"], callback)
+
+    asyncio.run(run())
+
+    mock_stream.subscribe_bars.assert_called_once()
+    mock_stream.run.assert_called_once()

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
-from alpaca_client import AlpacaClient
+from broker_client import BrokerClient
 from settings_manager import SettingsManager
 
 NEGATIVE_KEYWORDS = {
@@ -38,9 +38,12 @@ class PivotWatchlistMonitor:
 
     def __init__(
         self,
-        alpaca_client: AlpacaClient,
+        broker_client: "BrokerClient",
         settings_manager: SettingsManager,
         cache_dir: Path,
+        market_config: dict | None = None,
+        pdt_enabled: bool = True,
+        calendar_file: Path | None = None,
         rule_store=None,
         multiplier_store=None,
         pdt_tracker=None,
@@ -49,7 +52,15 @@ class PivotWatchlistMonitor:
         _search_fn: Optional[Callable[[str], list[str]]] = None,
         _data_stream=None,
     ):
-        self._alpaca = alpaca_client
+        self._broker = broker_client
+        self._market_config = market_config or {
+            "id": "us",
+            "tz": "America/New_York",
+            "open": "09:30",
+            "close": "16:00",
+        }
+        self._pdt_enabled = pdt_enabled
+        self._calendar_file = calendar_file
         self._settings = settings_manager
         self._cache_dir = cache_dir
         self._rule_store = rule_store
@@ -116,7 +127,10 @@ class PivotWatchlistMonitor:
         return "CLEAR"
 
     def _get_earnings_soon_symbols(self) -> set:
-        earnings_file = self._cache_dir / "earnings-calendar.json"
+        if self._calendar_file is not None:
+            earnings_file = Path(self._calendar_file)
+        else:
+            earnings_file = self._cache_dir / "earnings-calendar.json"
         if not earnings_file.exists():
             return set()
         try:
@@ -182,7 +196,7 @@ class PivotWatchlistMonitor:
 
     def _guard_rails_allow(self, candidate: dict, tag: str = "CLEAR") -> tuple[bool, str]:
         """Check all guard rails. Returns (allowed, reason)."""
-        if not _market_is_open_now():
+        if not self._is_market_open_now():
             return False, "outside market hours"
 
         # Market Top Detector pause
@@ -199,7 +213,7 @@ class PivotWatchlistMonitor:
         # Max positions
         settings = self._settings.load()
         try:
-            positions = self._alpaca.get_positions()
+            positions = self._broker.get_positions()
             max_pos = settings.get("max_positions", 5)
             if len(positions) >= max_pos:
                 return False, f"max_positions={max_pos} reached"
@@ -207,7 +221,7 @@ class PivotWatchlistMonitor:
             return False, "could not check positions"
 
         # PDT selectivity
-        if self._pdt_tracker is not None:
+        if self._pdt_enabled and self._pdt_tracker is not None:
             from datetime import date as _date
             allowed_tags = self._pdt_tracker.get_allowed_tags(_date.today())
             if not allowed_tags:
@@ -219,7 +233,7 @@ class PivotWatchlistMonitor:
         if self._drawdown_tracker is not None:
             settings = self._settings.load()
             try:
-                acct = self._alpaca.get_account()
+                acct = self._broker.get_account()
                 portfolio_value = float(acct["portfolio_value"])
                 max_weekly = settings.get("max_weekly_drawdown_pct", 10.0)
                 max_daily = settings.get("max_daily_loss_pct", 5.0)
@@ -247,7 +261,7 @@ class PivotWatchlistMonitor:
             avg_vol = candidate.get("avg_volume_20d")
             if avg_vol:
                 try:
-                    current_vol = self._alpaca.get_current_volume(candidate["symbol"])
+                    current_vol = self._broker.get_current_volume(candidate["symbol"])
                     if current_vol < avg_vol * min_vol_ratio:
                         return False, (
                             f"volume {current_vol}/{int(avg_vol)} "
@@ -256,14 +270,19 @@ class PivotWatchlistMonitor:
                 except Exception:
                     pass  # fail open
 
-        # Time-of-day soft lock
+        # Time-of-day soft lock — uses market_config hours and timezone
         avoid_min = settings.get("avoid_open_close_minutes", 30)
         if avoid_min > 0:
-            now_et = datetime.now(ZoneInfo("America/New_York"))
-            market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
-            market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-            minutes_since_open = (now_et - market_open).total_seconds() / 60
-            minutes_to_close = (market_close - now_et).total_seconds() / 60
+            tz_str = self._market_config.get("tz", "America/New_York")
+            open_str = self._market_config.get("open", "09:30")
+            close_str = self._market_config.get("close", "16:00")
+            open_h, open_m = int(open_str.split(":")[0]), int(open_str.split(":")[1])
+            close_h, close_m = int(close_str.split(":")[0]), int(close_str.split(":")[1])
+            now_local = datetime.now(ZoneInfo(tz_str))
+            market_open = now_local.replace(hour=open_h, minute=open_m, second=0, microsecond=0)
+            market_close = now_local.replace(hour=close_h, minute=close_m, second=0, microsecond=0)
+            minutes_since_open = (now_local - market_open).total_seconds() / 60
+            minutes_to_close = (market_close - now_local).total_seconds() / 60
             in_soft_lock = minutes_since_open < avoid_min or minutes_to_close < avoid_min
             if in_soft_lock and tag != "HIGH_CONVICTION":
                 return False, f"time-of-day soft lock: {tag} blocked in open/close window"
@@ -285,21 +304,21 @@ class PivotWatchlistMonitor:
         """Fetch live price, look up learned multiplier, place bracket order, log trade."""
         symbol = candidate["symbol"]
         try:
-            entry_price = self._alpaca.get_last_price(symbol)
+            entry_price = self._broker.get_last_price(symbol)
             stop_price = round(entry_price * 0.97, 2)
-            qty = self._calc_qty(entry_price, stop_price, high_conviction=(tag == "HIGH_CONVICTION"))
+            regime = self._get_current_regime()
+            bucket_key = f"vcp+{tag}+{regime}"
+            qty = self._calc_qty(entry_price, stop_price, high_conviction=(tag == "HIGH_CONVICTION"), bucket_key=bucket_key)
             if qty <= 0:
                 print(f"[pivot_monitor] {symbol}: qty=0, skipping", file=sys.stderr)
                 return
 
-            regime = self._get_current_regime()
             multiplier = 2.0
             if self._multiplier_store is not None:
-                bucket_key = f"vcp+{tag}+{regime}"
                 multiplier = self._multiplier_store.get(bucket_key)
             take_profit_price = round(entry_price + (entry_price - stop_price) * multiplier, 2)
 
-            result = self._alpaca.place_bracket_order(
+            result = self._broker.place_bracket_order(
                 symbol=symbol, qty=qty, limit_price=entry_price, stop_price=stop_price,
                 take_profit_price=take_profit_price,
             )
@@ -316,8 +335,14 @@ class PivotWatchlistMonitor:
         except Exception as e:
             print(f"[pivot_monitor] {symbol} log error (order placed): {e}", file=sys.stderr)
 
-    def _calc_qty(self, entry_price: float, stop_price: float, high_conviction: bool) -> int:
-        """Calculate share count based on risk % settings and account value."""
+    def _calc_qty(
+        self,
+        entry_price: float,
+        stop_price: float,
+        high_conviction: bool,
+        bucket_key: str = "",
+    ) -> int:
+        """Calculate share count based on risk % settings, Kelly, and VIX."""
         settings = self._settings.load()
         risk_pct = settings.get("default_risk_pct", 1.0)
         if high_conviction:
@@ -327,7 +352,7 @@ class PivotWatchlistMonitor:
             max_pos_pct = min(max_pos_pct * 1.5, 25.0)
 
         try:
-            portfolio_value = self._alpaca.get_account()["portfolio_value"]
+            portfolio_value = self._broker.get_account()["portfolio_value"]
         except Exception:
             return 0
 
@@ -340,9 +365,19 @@ class PivotWatchlistMonitor:
 
         max_dollar = portfolio_value * (max_pos_pct / 100)
         max_qty_by_size = int(max_dollar / entry_price)
-        raw_qty = min(qty, max_qty_by_size)
-        breadth_mult = self._get_breadth_multiplier()
-        return max(1, int(raw_qty * breadth_mult))
+
+        # Apply Kelly multiplier (opt-in — needs accumulated trade history)
+        kelly_mult = 1.0
+        if settings.get("kelly_sizing_enabled", False) and self._multiplier_store is not None:
+            kelly_max = settings.get("kelly_max_multiplier", 2.0)
+            kelly_mult = self._multiplier_store.get_kelly_multiplier(bucket_key, risk_pct, kelly_max)
+
+        # Apply VIX multiplier (automatic — reads from cache, fails open)
+        vix_mult = self._get_vix_multiplier()
+
+        regime_conf_mult = self._get_regime_confidence_multiplier()
+        final_qty = max(1, int(qty * kelly_mult * vix_mult))
+        return min(max(1, int(final_qty * regime_conf_mult)), max_qty_by_size)
 
     def _log_trade(
         self, candidate: dict, order_id: str,
@@ -353,7 +388,13 @@ class PivotWatchlistMonitor:
         Captures full market state snapshot at entry so PatternExtractor can
         build multi-factor rules (breadth, market top, macro regime, etc.).
         """
-        trades_file = self._cache_dir / "auto_trades.json"
+        market_id = self._market_config.get("id", "us")
+        trades_file = self._cache_dir / f"{market_id}-auto_trades.json"
+        # Backward-compatible read: if us-auto_trades.json missing, check auto_trades.json
+        if market_id == "us" and not trades_file.exists():
+            legacy_file = self._cache_dir / "auto_trades.json"
+            if legacy_file.exists():
+                trades_file = legacy_file
         try:
             trades = json.loads(trades_file.read_text()) if trades_file.exists() else {"trades": []}
         except (json.JSONDecodeError, OSError):
@@ -378,6 +419,7 @@ class PivotWatchlistMonitor:
             "confidence_tag": tag,
             "pivot_price": candidate["pivot_price"],
             "risk_pct": risk_pct,
+            "market": market_id,
             # Market state snapshot for multi-factor rule extraction
             "market_top_score": market_top_score,
             "breadth_score": breadth_score,
@@ -398,8 +440,7 @@ class PivotWatchlistMonitor:
             return None
 
     def _check_exit_management(self) -> None:
-        from pivot_monitor import _market_is_open_now
-        if not _market_is_open_now():
+        if not self._is_market_open_now():
             return
         settings = self._settings.load()
         trades_file = self._cache_dir / "auto_trades.json"
@@ -432,7 +473,7 @@ class PivotWatchlistMonitor:
         if not all([entry, stop, stop_order_id]):
             return False
         try:
-            current_price = self._alpaca.get_last_price(trade["symbol"])
+            current_price = self._broker.get_last_price(trade["symbol"])
         except Exception:
             return False
         risk = entry - stop
@@ -446,7 +487,7 @@ class PivotWatchlistMonitor:
             new_stop = entry
         if new_stop is not None and new_stop > stop:
             try:
-                self._alpaca.replace_order_stop(stop_order_id, new_stop)
+                self._broker.replace_order_stop(stop_order_id, new_stop)
                 trade["stop_price"] = new_stop
                 trade["trailing_stop_level"] = new_stop
                 return True
@@ -465,7 +506,7 @@ class PivotWatchlistMonitor:
         if not all([entry, stop, qty]):
             return False
         try:
-            current_price = self._alpaca.get_last_price(trade["symbol"])
+            current_price = self._broker.get_last_price(trade["symbol"])
         except Exception:
             return False
         risk = entry - stop
@@ -478,7 +519,7 @@ class PivotWatchlistMonitor:
         exit_pct = settings.get("partial_exit_pct", 50)
         shares_to_sell = max(1, int(qty * exit_pct / 100))
         try:
-            self._alpaca.place_market_sell(trade["symbol"], shares_to_sell)
+            self._broker.place_market_sell(trade["symbol"], shares_to_sell)
             trade["partial_exit_done"] = True
             trade["partial_exit_price"] = current_price
             trade["partial_exit_qty"] = shares_to_sell
@@ -506,7 +547,7 @@ class PivotWatchlistMonitor:
         if not all([entry, stop, qty]):
             return False
         try:
-            current_price = self._alpaca.get_last_price(trade["symbol"])
+            current_price = self._broker.get_last_price(trade["symbol"])
         except Exception:
             return False
         risk = entry - stop
@@ -516,13 +557,64 @@ class PivotWatchlistMonitor:
         if current_r > 0.5:
             return False
         try:
-            self._alpaca.place_market_sell(trade["symbol"], qty)
+            self._broker.place_market_sell(trade["symbol"], qty)
             trade["outcome"] = "time_stop"
             trade["exit_price"] = current_price
             return True
         except Exception as e:
             print(f"[time_stop] {trade['symbol']} exit failed: {e}", file=sys.stderr)
         return False
+
+    def _get_vix_multiplier(self) -> float:
+        """Returns size multiplier based on VIX. Lower VIX = full size. Fails open (1.0)."""
+        settings = self._settings.load()
+        if not settings.get("vix_sizing_enabled", True):
+            return 1.0
+        try:
+            for fname in ["us-market-bubble-detector.json", "macro-regime-detector.json"]:
+                fpath = self._cache_dir / fname
+                if fpath.exists():
+                    data = json.loads(fpath.read_text())
+                    vix = (
+                        data.get("vix")
+                        or data.get("VIX")
+                        or (data.get("indicators") or {}).get("vix")
+                    )
+                    if vix is not None:
+                        vix = float(vix)
+                        if vix < 20:
+                            return 1.0
+                        elif vix < 25:
+                            return 0.75
+                        elif vix < 30:
+                            return 0.50
+                        else:
+                            return 0.25
+        except Exception:
+            pass
+        return 1.0  # fail open — no VIX data = no penalty
+
+    def _get_regime_confidence_multiplier(self) -> float:
+        """Returns size multiplier based on regime signal confidence (0-100 score)."""
+        try:
+            data = json.loads((self._cache_dir / "macro-regime-detector.json").read_text())
+            regime_data = data.get("regime", {})
+            score = None
+            if isinstance(regime_data, dict):
+                score = regime_data.get("score")
+            if score is None:
+                return 1.0
+            score = float(score)
+            if score >= 75:
+                return 1.0
+            elif score >= 50:
+                return 0.75
+            elif score >= 25:
+                return 0.5
+            else:
+                return 0.25
+        except Exception:
+            return 1.0
 
     def _get_breadth_multiplier(self) -> float:
         """Returns size multiplier based on market breadth. 1.0 = full size."""
@@ -538,7 +630,23 @@ class PivotWatchlistMonitor:
             pass
         return 1.0
 
-    # ── Alpaca data WebSocket subscription ────────────────────────────────
+    def _is_market_open_now(self) -> bool:
+        """Check if current time is within market hours using market_config."""
+        tz_str = self._market_config.get("tz", "America/New_York")
+        open_str = self._market_config.get("open", "09:30")
+        close_str = self._market_config.get("close", "16:00")
+        open_h, open_m = int(open_str.split(":")[0]), int(open_str.split(":")[1])
+        close_h, close_m = int(close_str.split(":")[0]), int(close_str.split(":")[1])
+        now = datetime.now(ZoneInfo(tz_str))
+        if now.weekday() >= 5:  # Saturday or Sunday
+            return False
+        t = now.time()
+        from datetime import time as _time
+        market_open = _time(open_h, open_m)
+        market_close = _time(close_h, close_m)
+        return market_open <= t < market_close
+
+    # ── Broker data WebSocket subscription ────────────────────────────────
 
     async def start(self, candidates: list[dict]) -> None:
         """Subscribe to Alpaca data WebSocket for candidates and run breakout monitor."""
@@ -548,31 +656,28 @@ class PivotWatchlistMonitor:
 
         if not self._candidates:
             return
-        if not self._alpaca.is_configured:
+        if not self._broker.is_configured:
             return
 
-        if self._data_stream is not None:
-            stream = self._data_stream
-        else:
-            from alpaca.data.live import StockDataStream
-            stream = StockDataStream(
-                api_key=self._alpaca.api_key,
-                secret_key=self._alpaca.secret_key,
-            )
-
         symbols = [c["symbol"] for c in self._candidates]
-        monitor = self  # capture for closure
 
         async def handle_bar(bar):
-            monitor._check_breakout(bar, monitor._candidates)
+            self._check_breakout(bar, self._candidates)
 
-        stream.subscribe_bars(handle_bar, *symbols)
-
-        loop = asyncio.get_running_loop()
-        try:
-            await loop.run_in_executor(None, stream.run)
-        except Exception as e:
-            print(f"[pivot_monitor] stream disconnected: {e}", file=sys.stderr)
+        if self._data_stream is not None:
+            # Test injection: simulate stream with a mock object that has subscribe_bars/run
+            stream = self._data_stream
+            stream.subscribe_bars(handle_bar, *symbols)
+            loop = asyncio.get_running_loop()
+            try:
+                await loop.run_in_executor(None, stream.run)
+            except Exception as e:
+                print(f"[pivot_monitor] stream disconnected: {e}", file=sys.stderr)
+        else:
+            try:
+                await self._broker.subscribe_bars(symbols, handle_bar)
+            except Exception as e:
+                print(f"[pivot_monitor] subscribe_bars error: {e}", file=sys.stderr)
 
 
 _MARKET_OPEN = datetime.strptime("09:30", "%H:%M").time()

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +18,8 @@ from scheduler import create_scheduler
 from settings_manager import SettingsManager
 from skills_runner import SkillsRunner
 from alpaca_client import AlpacaClient
+from ibkr_client import IBKRClient
+from universe_builder import UniverseBuilder
 from learning.rule_store import RuleStore
 from learning.pattern_extractor import PatternExtractor
 from learning.multiplier_store import MultiplierStore
@@ -37,15 +39,46 @@ alpaca = AlpacaClient(
     secret_key=ALPACA_SECRET_KEY,
     paper=ALPACA_PAPER,
 )
+try:
+    ibkr = IBKRClient(paper=ALPACA_PAPER)
+except Exception as _ibkr_exc:
+    import sys as _sys
+    print(f"[main] IBKRClient init failed: {_ibkr_exc}", file=_sys.stderr)
+
+    class _IBKRStub:
+        is_configured = False
+
+    ibkr = _IBKRStub()  # type: ignore[assignment]
 rule_store = RuleStore()  # defaults to learning/learned_rules.json
 multiplier_store = MultiplierStore()  # uses learning/seed_multipliers.json + learning/learned_multipliers.json
+from learning.time_of_day_tracker import TimeOfDayTracker
+from learning.stop_distance_store import StopDistanceStore
+from learning.experiment_tracker import ExperimentTracker
+
+time_of_day_tracker = TimeOfDayTracker()
+stop_distance_store = StopDistanceStore()
+experiment_tracker = ExperimentTracker(is_paper=ALPACA_PAPER)
 pdt_tracker = PDTTracker()
 drawdown_tracker = DrawdownTracker()
 earnings_blackout = EarningsBlackout(cache_dir=CACHE_DIR)
+_us_market_config = {
+    "id": "us",
+    "label": "US (NYSE/NASDAQ)",
+    "broker": "alpaca",
+    "exchange": "SMART",
+    "currency": "USD",
+    "tz": "America/New_York",
+    "open": "09:30",
+    "close": "16:00",
+    "pdt_enabled": True,
+    "enabled": True,
+}
 pivot_monitor = PivotWatchlistMonitor(
-    alpaca_client=alpaca,
+    broker_client=alpaca,
     settings_manager=settings_manager,
     cache_dir=CACHE_DIR,
+    market_config=_us_market_config,
+    pdt_enabled=True,
     rule_store=rule_store,
     multiplier_store=multiplier_store,
     pdt_tracker=pdt_tracker,
@@ -57,7 +90,54 @@ pattern_extractor = PatternExtractor(
     rule_store=rule_store,
     cache_dir=CACHE_DIR,
     multiplier_store=multiplier_store,
+    time_of_day_tracker=time_of_day_tracker,
+    stop_distance_store=stop_distance_store,
+    experiment_tracker=experiment_tracker,
 )
+
+# Module-level broker map
+_broker_map = {"alpaca": alpaca, "ibkr": ibkr}
+_monitors: list[PivotWatchlistMonitor] = []
+
+
+def _build_monitors() -> list[PivotWatchlistMonitor]:
+    """Create one PivotWatchlistMonitor per enabled market."""
+    import sys
+    monitors = []
+    for market in settings_manager.get_enabled_markets():
+        broker = _broker_map.get(market.get("broker", "alpaca"), alpaca)
+        if not broker.is_configured:
+            print(
+                f"[main] {market['id']}: broker not configured — skipping monitor",
+                file=sys.stderr,
+            )
+            continue
+        pdt_enabled = market.get("pdt_enabled", True)
+        calendar_file = CACHE_DIR / f"{market['id']}-earnings-calendar.json"
+        monitor = PivotWatchlistMonitor(
+            broker_client=broker,
+            settings_manager=settings_manager,
+            cache_dir=CACHE_DIR,
+            market_config=market,
+            pdt_enabled=pdt_enabled,
+            calendar_file=calendar_file if calendar_file.exists() else None,
+            rule_store=rule_store,
+            multiplier_store=multiplier_store,
+            pdt_tracker=pdt_tracker if pdt_enabled else None,
+            drawdown_tracker=drawdown_tracker,
+        )
+        monitors.append(monitor)
+    return monitors
+
+
+def _get_us_monitor() -> "PivotWatchlistMonitor | None":
+    """Return the US market monitor (backward-compat for scheduler and status endpoint)."""
+    for m in _monitors:
+        if m._market_config.get("id") == "us":
+            return m
+    return _monitors[0] if _monitors else None
+
+
 _scheduler = None
 
 
@@ -74,13 +154,17 @@ async def _refresh_stale_on_startup():
 
 @app.on_event("startup")
 async def startup():
-    global _scheduler
+    global _scheduler, _monitors
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _monitors = _build_monitors()
+    us_monitor = _get_us_monitor()
     _scheduler = create_scheduler(
         runner=runner,
         cache_dir=CACHE_DIR,
-        pivot_monitor=pivot_monitor,
+        pivot_monitor=us_monitor,
         pattern_extractor=pattern_extractor,
+        ibkr_client=ibkr,
+        settings_manager=settings_manager,
     )
     _scheduler.start()
     asyncio.create_task(_refresh_stale_on_startup())
@@ -172,6 +256,77 @@ async def dashboard(request: Request):
         **_build_signals_context(),
     }
     return templates.TemplateResponse("dashboard.html", ctx)
+
+
+@app.get("/stats", response_class=HTMLResponse)
+async def stats_page(request: Request):
+    ctx = {
+        "request": request,
+        "settings": settings_manager.load(),
+        "multiplier_stats": multiplier_store._load_learned(),
+        "time_of_day": time_of_day_tracker.get_stats(),
+        "experiments": experiment_tracker.get_stats(),
+        "pdt_slots": pdt_tracker.slots_remaining(date.today()),
+    }
+    return templates.TemplateResponse("stats.html", ctx)
+
+
+@app.get("/trades", response_class=HTMLResponse)
+async def trades_page(request: Request):
+    trades = []
+    # Collect all per-market trade files: cache/*-auto_trades.json
+    trade_files = list(CACHE_DIR.glob("*-auto_trades.json"))
+    # Backward compat: also check legacy auto_trades.json (no market prefix)
+    legacy_file = CACHE_DIR / "auto_trades.json"
+    if legacy_file.exists() and legacy_file not in trade_files:
+        trade_files.append(legacy_file)
+
+    for trade_file in trade_files:
+        try:
+            data = json.loads(trade_file.read_text())
+            file_trades = data.get("trades", [])
+            # Inject market field from filename if missing
+            market_id = trade_file.stem.replace("-auto_trades", "")
+            for t in file_trades:
+                if "market" not in t:
+                    t["market"] = market_id if market_id != "auto_trades" else "us"
+            trades.extend(file_trades)
+        except Exception:
+            continue
+
+    # Sort newest first by entry_time
+    trades.sort(key=lambda t: t.get("entry_time", ""), reverse=True)
+
+    # Pre-compute R for each trade
+    for t in trades:
+        try:
+            risk = t["entry_price"] - t["stop_price"]
+            if risk > 0 and t.get("exit_price"):
+                t["r"] = round((t["exit_price"] - t["entry_price"]) / risk, 2)
+            else:
+                t["r"] = None
+        except Exception:
+            t["r"] = None
+
+    # Summary stats
+    closed = [t for t in trades if t.get("outcome") in ("win", "loss")]
+    open_trades = [t for t in trades if not t.get("outcome")]
+    wins = [t for t in closed if t.get("outcome") == "win"]
+    win_rate = round(len(wins) / len(closed) * 100, 1) if closed else None
+    r_values = [t["r"] for t in closed if t.get("r") is not None]
+    avg_r = round(sum(r_values) / len(r_values), 2) if r_values else None
+
+    ctx = {
+        "request": request,
+        "market_state": _market_state(),
+        "settings": settings_manager.load(),
+        "trades": trades,
+        "total_trades": len(trades),
+        "open_count": len(open_trades),
+        "win_rate": win_rate,
+        "avg_r": avg_r,
+    }
+    return templates.TemplateResponse("trades.html", ctx)
 
 
 @app.get("/api/signals", response_class=HTMLResponse)
@@ -296,13 +451,25 @@ async def api_portfolio(request: Request):
 @app.get("/api/monitor/status")
 async def monitor_status():
     """Return current PivotWatchlistMonitor state for the Auto mode banner."""
-    with pivot_monitor._lock:
-        candidates_snapshot = list(pivot_monitor._candidates)
-        triggered_snapshot = list(pivot_monitor._triggered)
+    monitor = _get_us_monitor()
+    if monitor is None:
+        return JSONResponse({"active": False, "candidate_count": 0, "triggered": []})
+    with monitor._lock:
+        candidates_snapshot = list(monitor._candidates)
+        triggered_snapshot = list(monitor._triggered)
     return JSONResponse({
         "active": len(candidates_snapshot) > 0,
         "candidate_count": len(candidates_snapshot),
         "triggered": triggered_snapshot,
+    })
+
+
+@app.get("/api/broker-status")
+async def broker_status():
+    """Return connection status for each broker client."""
+    return JSONResponse({
+        "alpaca": alpaca.is_configured,
+        "ibkr": ibkr.is_configured,
     })
 
 
@@ -324,13 +491,17 @@ async def detail(request: Request, page: str):
     return templates.TemplateResponse(f"detail/{page}.html", ctx)
 
 
-@app.get("/api/settings", response_class=HTMLResponse)
-async def get_settings(request: Request):
-    ctx = {"request": request, "settings": settings_manager.load()}
-    return templates.TemplateResponse("fragments/settings_modal.html", ctx)
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    ctx = {
+        "request": request,
+        "market_state": _market_state(),
+        "settings": settings_manager.load(),
+    }
+    return templates.TemplateResponse("settings.html", ctx)
 
 
-@app.post("/api/settings", response_class=HTMLResponse)
+@app.post("/api/settings")
 async def post_settings(
     request: Request,
     mode: str = Form(...),
@@ -351,7 +522,11 @@ async def post_settings(
     partial_exit_at_r: float = Form(1.0),
     partial_exit_pct: int = Form(50),
     time_stop_days: int = Form(5),
+    kelly_sizing_enabled: str = Form("false"),
+    kelly_max_multiplier: float = Form(2.0),
+    vix_sizing_enabled: str = Form("true"),
 ):
+    from fastapi.responses import RedirectResponse
     if environment == "live" and live_confirm != "CONFIRM LIVE TRADING":
         raise HTTPException(
             status_code=400,
@@ -375,9 +550,11 @@ async def post_settings(
         "partial_exit_at_r": partial_exit_at_r,
         "partial_exit_pct": partial_exit_pct,
         "time_stop_days": time_stop_days,
+        "kelly_sizing_enabled": kelly_sizing_enabled == "true",
+        "kelly_max_multiplier": kelly_max_multiplier,
+        "vix_sizing_enabled": vix_sizing_enabled == "true",
     })
-    ctx = {"request": request, "settings": settings_manager.load()}
-    return templates.TemplateResponse("fragments/settings_modal.html", ctx)
+    return RedirectResponse(url="/settings", status_code=303)
 
 
 @app.post("/api/skill/{skill_name}/refresh")

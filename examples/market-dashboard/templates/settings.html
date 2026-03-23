@@ -1,27 +1,28 @@
-<div class="modal-overlay" onclick="if(event.target===this) this.remove()">
-  <div class="modal-box">
-    <div class="modal-title">⚙️ Dashboard Settings</div>
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 16px; max-width: 700px;">
+  <h2 style="color:#e2e8f0; margin-bottom:16px;">⚙️ Settings</h2>
 
-    {% if settings.environment == 'live' and settings.mode == 'auto' %}
-    <div style="background:#3a1a1a; border:1px solid #f87171; border-radius:4px; padding:8px; margin-bottom:12px; font-size:11px; color:#f87171;">
-      ⚠️ LIVE TRADING + AUTO MODE ACTIVE — red border indicates real money is at risk
-    </div>
-    {% endif %}
+  {% if settings.environment == 'live' and settings.mode == 'auto' %}
+  <div style="background:#3a1a1a; border:1px solid #f87171; border-radius:4px; padding:8px; margin-bottom:16px; font-size:11px; color:#f87171;">
+    ⚠️ LIVE TRADING + AUTO MODE ACTIVE — red border indicates real money is at risk
+  </div>
+  {% endif %}
 
-    <form hx-post="/api/settings" hx-target="#modal-container" hx-swap="innerHTML"
-          onsubmit="return handleSettingsSubmit(this)">
-      <input type="hidden" name="live_confirm" id="live-confirm-input" value="">
-      <!-- Trading Mode -->
+  <form method="post" action="/api/settings" onsubmit="return handleSettingsSubmit(this)" data-saved-env="{{ settings.environment }}">
+    <input type="hidden" name="live_confirm" id="live-confirm-input" value="">
+
+    <!-- Section 1: Mode -->
+    <div class="bottom-panel" style="margin-bottom:16px;">
+      <div class="panel-title">Trading Mode</div>
       <div class="form-row">
-        <div class="form-label">Trading Mode</div>
+        <div class="form-label">Mode</div>
         <select name="mode" class="form-input">
           <option value="advisory" {% if settings.mode == 'advisory' %}selected{% endif %}>Level 1 — Advisory</option>
           <option value="semi_auto" {% if settings.mode == 'semi_auto' %}selected{% endif %}>Level 2 — Semi-Auto</option>
           <option value="auto" {% if settings.mode == 'auto' %}selected{% endif %}>Level 3 — Auto ⚠️</option>
         </select>
       </div>
-
-      <!-- Environment -->
       <div class="form-row">
         <div class="form-label">Environment</div>
         <select name="environment" class="form-input">
@@ -32,8 +33,11 @@
         <div style="font-size:10px; color:#4ade80; margin-top:4px;">Switching to Live requires typing CONFIRM LIVE TRADING</div>
         {% endif %}
       </div>
+    </div>
 
-      <!-- Risk settings -->
+    <!-- Section 2: Risk -->
+    <div class="bottom-panel" style="margin-bottom:16px;">
+      <div class="panel-title">Risk</div>
       <div class="form-row">
         <div class="form-label">Default Risk % per Trade</div>
         <input type="number" name="default_risk_pct" class="form-input"
@@ -49,8 +53,11 @@
         <input type="number" name="max_position_size_pct" class="form-input"
                value="{{ settings.max_position_size_pct }}" min="1" max="50" step="0.5">
       </div>
+    </div>
 
-      <!-- Capital Protection -->
+    <!-- Section 3: Guard Rails -->
+    <div class="bottom-panel" style="margin-bottom:16px;">
+      <div class="panel-title">Guard Rails</div>
       <div class="form-row">
         <div class="form-label">Max Weekly Drawdown % (100 = off)</div>
         <input type="number" name="max_weekly_drawdown_pct" class="form-input"
@@ -66,32 +73,31 @@
         <input type="number" name="earnings_blackout_days" class="form-input"
                value="{{ settings.earnings_blackout_days }}" min="0" max="30">
       </div>
-
-      <!-- Entry Quality (Tier 2) -->
-      <div style="font-size:11px; color:#9ca3af; margin-top:16px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Entry Quality Filters</div>
       <div class="form-row">
-        <div class="form-label">Min Volume Ratio (× 20d avg, 0=off)</div>
+        <div class="form-label">Min Volume Ratio (× 20d avg, 0 = off)</div>
         <input type="number" name="min_volume_ratio" class="form-input"
-               value="{{ settings.get('min_volume_ratio', 1.5) if settings is mapping else settings.min_volume_ratio }}" min="0" max="5" step="0.1">
+               value="{{ settings.min_volume_ratio }}" min="0" max="5" step="0.1">
       </div>
       <div class="form-row">
-        <div class="form-label">Avoid Open/Close (minutes, 0=off)</div>
+        <div class="form-label">Avoid Open/Close (minutes, 0 = off)</div>
         <input type="number" name="avoid_open_close_minutes" class="form-input"
-               value="{{ settings.get('avoid_open_close_minutes', 30) if settings is mapping else settings.avoid_open_close_minutes }}" min="0" max="60" step="5">
+               value="{{ settings.avoid_open_close_minutes }}" min="0" max="60" step="5">
       </div>
       <div class="form-row">
         <div class="form-label">Breadth Threshold (% above 50MA)</div>
         <input type="number" name="breadth_threshold_pct" class="form-input"
-               value="{{ settings.get('breadth_threshold_pct', 60.0) if settings is mapping else settings.breadth_threshold_pct }}" min="0" max="100" step="5">
+               value="{{ settings.breadth_threshold_pct }}" min="0" max="100" step="5">
       </div>
       <div class="form-row">
-        <div class="form-label">Breadth Size Reduction (%, 0=off)</div>
+        <div class="form-label">Breadth Size Reduction (%, 0 = off)</div>
         <input type="number" name="breadth_size_reduction_pct" class="form-input"
-               value="{{ settings.get('breadth_size_reduction_pct', 50.0) if settings is mapping else settings.breadth_size_reduction_pct }}" min="0" max="100" step="5">
+               value="{{ settings.breadth_size_reduction_pct }}" min="0" max="100" step="5">
       </div>
+    </div>
 
-      <!-- Exit Management (Tier 3) -->
-      <div style="margin-top:14px; margin-bottom:6px; font-size:11px; color:#8b949e; text-transform:uppercase;">Exit Management</div>
+    <!-- Section 4: Exit Management -->
+    <div class="bottom-panel" style="margin-bottom:16px;">
+      <div class="panel-title">Exit Management</div>
       <div class="form-row">
         <div class="form-label">Trailing Stop</div>
         <select name="trailing_stop_enabled" class="form-input">
@@ -108,23 +114,52 @@
       </div>
       <div class="form-row">
         <div class="form-label">Partial Exit at R</div>
-        <input type="number" name="partial_exit_at_r" class="form-input" value="{{ settings.partial_exit_at_r }}" min="0.5" max="3.0" step="0.25">
+        <input type="number" name="partial_exit_at_r" class="form-input"
+               value="{{ settings.partial_exit_at_r }}" min="0.5" max="3.0" step="0.25">
       </div>
       <div class="form-row">
         <div class="form-label">Partial Exit Size (%)</div>
-        <input type="number" name="partial_exit_pct" class="form-input" value="{{ settings.partial_exit_pct }}" min="10" max="90" step="5">
+        <input type="number" name="partial_exit_pct" class="form-input"
+               value="{{ settings.partial_exit_pct }}" min="10" max="90" step="5">
       </div>
       <div class="form-row">
-        <div class="form-label">Time Stop (days, 0=off)</div>
-        <input type="number" name="time_stop_days" class="form-input" value="{{ settings.time_stop_days }}" min="0" max="30">
+        <div class="form-label">Time Stop (days, 0 = off)</div>
+        <input type="number" name="time_stop_days" class="form-input"
+               value="{{ settings.time_stop_days }}" min="0" max="30">
       </div>
+    </div>
 
-      <div style="display:flex; gap:8px; margin-top:16px;">
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-container').innerHTML=''">Cancel</button>
+    <!-- Section 5: Smart Sizing -->
+    <div class="bottom-panel" style="margin-bottom:16px;">
+      <div class="panel-title">Smart Sizing</div>
+      <div class="form-row">
+        <div class="form-label">Kelly Sizing</div>
+        <select name="kelly_sizing_enabled" class="form-input">
+          <option value="false" {% if not settings.kelly_sizing_enabled %}selected{% endif %}>Disabled (recommended until 20+ trades)</option>
+          <option value="true" {% if settings.kelly_sizing_enabled %}selected{% endif %}>Enabled</option>
+        </select>
       </div>
-    </form>
-    <script>
+      <div class="form-row">
+        <div class="form-label">Kelly Max Multiplier</div>
+        <input type="number" name="kelly_max_multiplier" class="form-input"
+               value="{{ settings.kelly_max_multiplier }}" min="0.5" max="5.0" step="0.5">
+      </div>
+      <div class="form-row">
+        <div class="form-label">VIX-Based Sizing</div>
+        <select name="vix_sizing_enabled" class="form-input">
+          <option value="true" {% if settings.vix_sizing_enabled %}selected{% endif %}>Enabled</option>
+          <option value="false" {% if not settings.vix_sizing_enabled %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button type="submit" class="btn-primary">Save Settings</button>
+    </div>
+  </form>
+</div>
+
+<script>
 function handleSettingsSubmit(form) {
   var mode = form.querySelector('[name=mode]').value;
   var env = form.querySelector('[name=environment]').value;
@@ -139,16 +174,19 @@ function handleSettingsSubmit(form) {
     if (!ok) return false;
   }
 
-  if (env === 'live') {
+  var savedEnv = form.getAttribute('data-saved-env');
+  if (env === 'live' && savedEnv !== 'live') {
     var typed = prompt('Type exactly to confirm:\n\nCONFIRM LIVE TRADING');
     if (typed !== 'CONFIRM LIVE TRADING') {
       alert('Confirmation did not match. Live trading not enabled.');
       return false;
     }
     document.getElementById('live-confirm-input').value = typed;
+  } else if (env === 'live' && savedEnv === 'live') {
+    // Already in live mode — pass confirmation automatically
+    document.getElementById('live-confirm-input').value = 'CONFIRM LIVE TRADING';
   }
   return true;
 }
-    </script>
-  </div>
-</div>
+</script>
+{% endblock %}

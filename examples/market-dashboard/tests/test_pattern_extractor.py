@@ -220,7 +220,8 @@ def test_extract_updates_multiplier_store_for_winning_trade():
         assert data["vcp+CLEAR+bull"]["observed_rr"] == [3.0]
 
 
-def test_extract_does_not_update_multiplier_for_losing_trade():
+def test_extract_tracks_loss_count_but_not_rr_for_losing_trade():
+    """Losing trades update win/loss counts but do not append to observed_rr."""
     with tempfile.TemporaryDirectory() as d:
         write_trades(Path(d), [{
             "symbol": "AAPL", "confidence_tag": "CLEAR", "screener": "vcp",
@@ -229,7 +230,14 @@ def test_extract_does_not_update_multiplier_for_losing_trade():
         }])
         extractor, mstore = make_extractor_with_mstore(Path(d))
         extractor.extract()
-        assert not (Path(d) / "learned_multipliers.json").exists()
+        import json as _json
+        learned_file = Path(d) / "learned_multipliers.json"
+        assert learned_file.exists()
+        data = _json.loads(learned_file.read_text())
+        bucket = data.get("vcp+CLEAR+bull", {})
+        assert bucket.get("losses", 0) == 1
+        assert bucket.get("wins", 0) == 0
+        assert bucket.get("observed_rr", []) == []
 
 
 def test_extract_skips_trade_missing_stop_price():
@@ -256,3 +264,61 @@ def test_extract_skips_trade_missing_regime():
         extractor, mstore = make_extractor_with_mstore(Path(d))
         extractor.extract()  # must not raise
         assert not (Path(d) / "learned_multipliers.json").exists()
+
+
+# ── Tier 5 wiring tests ───────────────────────────────────────────────────────
+
+def _make_closed_trade(outcome: str = "win") -> dict:
+    return {
+        "symbol": "AAPL",
+        "order_id": "abc123",
+        "entry_time": "2026-03-22T14:30:00+00:00",
+        "entry_price": 100.0,
+        "stop_price": 97.0,
+        "exit_price": 106.0,
+        "confidence_tag": "CLEAR",
+        "screener": "vcp",
+        "regime": "bull",
+        "outcome": outcome,
+    }
+
+def _make_extractor_t5(tmp_path, time_of_day_tracker=None, stop_distance_store=None):
+    from learning.pattern_extractor import PatternExtractor
+    from learning.rule_store import RuleStore
+    from unittest.mock import MagicMock
+    alpaca = MagicMock()
+    alpaca.is_configured = False
+    rule_store = RuleStore(rules_file=tmp_path / "rules.json")
+    return PatternExtractor(
+        alpaca_client=alpaca,
+        rule_store=rule_store,
+        cache_dir=tmp_path,
+        time_of_day_tracker=time_of_day_tracker,
+        stop_distance_store=stop_distance_store,
+    )
+
+def test_time_of_day_tracker_called_for_closed_trade(tmp_path):
+    from unittest.mock import MagicMock
+    tracker = MagicMock()
+    extractor = _make_extractor_t5(tmp_path, time_of_day_tracker=tracker)
+    trade = _make_closed_trade("win")
+    extractor._update_multipliers([trade])
+    tracker.record.assert_called_once()
+    call_args = tracker.record.call_args[0]
+    # First arg is hour (ET), second is outcome
+    assert call_args[1] == "win"
+
+def test_stop_distance_store_called_for_all_closed_trades(tmp_path):
+    from unittest.mock import MagicMock
+    store = MagicMock()
+    extractor = _make_extractor_t5(tmp_path, stop_distance_store=store)
+    trades = [_make_closed_trade("win"), _make_closed_trade("loss")]
+    extractor._update_multipliers(trades)
+    assert store.record.call_count == 2
+
+def test_neither_store_called_when_stores_are_none(tmp_path):
+    # No stores injected — should not raise
+    extractor = _make_extractor_t5(tmp_path)
+    trade = _make_closed_trade("win")
+    # Should complete without error
+    extractor._update_multipliers([trade])

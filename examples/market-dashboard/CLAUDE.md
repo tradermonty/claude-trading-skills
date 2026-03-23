@@ -9,10 +9,15 @@ Always-on FastAPI + HTMX market monitoring dashboard. Runs trading analysis skil
 ```bash
 cd examples/market-dashboard
 cp .env.example .env    # fill in API keys
-uv run uvicorn main:app --port 8000
+uv run uvicorn main:app --port 8000 --host 0.0.0.0
 ```
 
 Use `--reload` during development only. In production, `--reload` watches the filesystem and will restart the server on every cache file write (because `cache/` is in the project directory). Do not use `--reload` in production.
+
+To restart (kills any running instance first):
+```bash
+pkill -f "uvicorn main:app"; cd ~/claude-trading-skills/examples/market-dashboard && uv run uvicorn main:app --port 8000 --host 0.0.0.0
+```
 
 ## Environment setup
 

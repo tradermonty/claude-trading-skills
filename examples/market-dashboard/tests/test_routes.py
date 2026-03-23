@@ -66,7 +66,7 @@ def test_detail_unknown_returns_404():
 
 def test_get_settings_returns_html():
     client = make_client()
-    r = client.get("/api/settings")
+    r = client.get("/settings")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
 
@@ -75,8 +75,9 @@ def test_post_settings_updates_mode():
     client = make_client()
     r = client.post("/api/settings", data={"mode": "semi_auto", "default_risk_pct": "1.5",
                                             "max_positions": "5", "max_position_size_pct": "10.0",
-                                            "environment": "paper"})
-    assert r.status_code == 200
+                                            "environment": "paper"},
+                    follow_redirects=False)
+    assert r.status_code == 303
 
 
 def test_skill_refresh_returns_202():
@@ -130,13 +131,14 @@ def test_order_preview_endpoint_exists():
 def test_dashboard_shows_auto_banner_in_auto_mode():
     """When settings mode=auto, dashboard HTML must contain auto-banner element."""
     client = make_client()
-    # Set mode to auto first
+    # Set mode to auto first — intentionally follows the redirect to confirm the
+    # POST was accepted (303 → /settings → 200); we don't inspect the response body here.
     r = client.post("/api/settings", data={
         "mode": "auto", "default_risk_pct": "1.0",
         "max_positions": "5", "max_position_size_pct": "10.0",
         "environment": "paper",
     })
-    assert r.status_code == 200
+    assert r.status_code == 200  # final page after 303 redirect
 
     r = client.get("/")
     assert r.status_code == 200
@@ -185,8 +187,8 @@ def test_post_settings_live_with_correct_confirm_succeeds():
         "max_position_size_pct": "10.0",
         "environment": "live",
         "live_confirm": "CONFIRM LIVE TRADING",
-    })
-    assert r.status_code == 200
+    }, follow_redirects=False)
+    assert r.status_code == 303
 
 
 def test_post_settings_paper_needs_no_confirm():
@@ -197,8 +199,26 @@ def test_post_settings_paper_needs_no_confirm():
         "max_positions": "5",
         "max_position_size_pct": "10.0",
         "environment": "paper",
-    })
-    assert r.status_code == 200
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_post_settings_redirects_to_settings_page():
+    """POST /api/settings must redirect (303) to /settings, not return modal HTML."""
+    client = make_client()
+    response = client.post(
+        "/api/settings",
+        data={
+            "mode": "advisory",
+            "default_risk_pct": "1.0",
+            "max_positions": "5",
+            "max_position_size_pct": "10.0",
+            "environment": "paper",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/settings")
 
 
 def test_monitor_status_returns_json():
@@ -307,6 +327,8 @@ def test_order_preview_includes_multiplier_in_response(monkeypatch):
 def test_new_settings_fields_save_and_load_round_trip():
     """New capital-protection fields must persist through POST and appear in GET."""
     client = make_client()
+    # Intentionally follows the redirect (303 → /settings → 200) to confirm the
+    # POST was accepted; saved data is verified via SettingsManager below.
     r = client.post("/api/settings", data={
         "mode": "advisory",
         "default_risk_pct": "1.0",
@@ -317,7 +339,7 @@ def test_new_settings_fields_save_and_load_round_trip():
         "max_daily_loss_pct": "3.5",
         "earnings_blackout_days": "7",
     })
-    assert r.status_code == 200
+    assert r.status_code == 200  # final page after 303 redirect
     from settings_manager import SettingsManager
     s = SettingsManager().load()
     assert s["max_weekly_drawdown_pct"] == 8.0
@@ -335,9 +357,9 @@ def test_new_settings_fields_have_defaults_when_not_set():
 
 
 def test_settings_form_includes_new_fields():
-    """GET /api/settings HTML must contain the three new input field names."""
+    """GET /settings HTML must contain the three new input field names."""
     client = make_client()
-    r = client.get("/api/settings")
+    r = client.get("/settings")
     assert r.status_code == 200
     assert b"max_weekly_drawdown_pct" in r.content
     assert b"max_daily_loss_pct" in r.content
@@ -347,6 +369,8 @@ def test_settings_form_includes_new_fields():
 def test_tier2_settings_fields_round_trip():
     """All 4 Tier 2 settings fields survive a POST /api/settings round-trip."""
     client = make_client()
+    # Intentionally follows the redirect (303 → /settings → 200) to confirm the
+    # POST was accepted; saved data is verified via SettingsManager below.
     r = client.post("/api/settings", data={
         "mode": "advisory",
         "default_risk_pct": "1.0",
@@ -358,7 +382,7 @@ def test_tier2_settings_fields_round_trip():
         "breadth_threshold_pct": "55.0",
         "breadth_size_reduction_pct": "40.0",
     })
-    assert r.status_code == 200
+    assert r.status_code == 200  # final page after 303 redirect
     from settings_manager import SettingsManager
     saved = SettingsManager().load()
     assert saved["min_volume_ratio"] == 2.0
@@ -374,3 +398,65 @@ def test_tier2_defaults_present_without_settings_file():
     assert s.get("avoid_open_close_minutes") == 30
     assert s.get("breadth_threshold_pct") == 60.0
     assert s.get("breadth_size_reduction_pct") == 50.0
+
+
+def test_stats_route_returns_200():
+    """GET /stats returns 200."""
+    client = make_client()
+    response = client.get("/stats")
+    assert response.status_code == 200
+
+
+def test_trades_route_returns_200():
+    """GET /trades returns 200."""
+    client = make_client()
+    response = client.get("/trades")
+    assert response.status_code == 200
+
+
+def test_settings_route_returns_200():
+    """GET /settings returns 200."""
+    client = make_client()
+    response = client.get("/settings")
+    assert response.status_code == 200
+
+
+def test_broker_status_endpoint():
+    """GET /api/broker-status returns JSON with alpaca and ibkr keys."""
+    client = make_client()
+    response = client.get("/api/broker-status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "alpaca" in data
+    assert "ibkr" in data
+    assert isinstance(data["alpaca"], bool)
+    assert isinstance(data["ibkr"], bool)
+
+
+def test_trades_route_includes_all_market_files(tmp_path):
+    """GET /trades merges all cache/*-auto_trades.json files."""
+    import json
+    from config import CACHE_DIR
+
+    # Write two market trade files
+    us_file = CACHE_DIR / "us-auto_trades.json"
+    oslo_file = CACHE_DIR / "oslo-auto_trades.json"
+    us_file.write_text(json.dumps({"trades": [
+        {"symbol": "AAPL", "market": "us", "entry_price": 150.0, "stop_price": 145.0,
+         "qty": 10, "outcome": None, "entry_time": "2026-03-20T14:00:00+00:00"}
+    ]}))
+    oslo_file.write_text(json.dumps({"trades": [
+        {"symbol": "EQNR", "market": "oslo", "entry_price": 310.0, "stop_price": 300.0,
+         "qty": 5, "outcome": None, "entry_time": "2026-03-20T10:00:00+00:00"}
+    ]}))
+
+    try:
+        client = make_client()
+        response = client.get("/trades")
+        assert response.status_code == 200
+        # Both symbols should appear in the rendered page
+        assert "AAPL" in response.text
+        assert "EQNR" in response.text
+    finally:
+        us_file.unlink(missing_ok=True)
+        oslo_file.unlink(missing_ok=True)

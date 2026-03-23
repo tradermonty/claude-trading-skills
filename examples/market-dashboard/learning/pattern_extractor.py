@@ -14,11 +14,23 @@ class PatternExtractor:
     updates multiplier_store (for R:R learning) and rule_store (for entry filtering).
     """
 
-    def __init__(self, alpaca_client, rule_store: RuleStore, cache_dir: Path, multiplier_store=None):
+    def __init__(
+        self,
+        alpaca_client,
+        rule_store: RuleStore,
+        cache_dir: Path,
+        multiplier_store=None,
+        time_of_day_tracker=None,
+        stop_distance_store=None,
+        experiment_tracker=None,
+    ):
         self._alpaca = alpaca_client
         self._rule_store = rule_store
         self._cache_dir = cache_dir
         self._multiplier_store = multiplier_store
+        self._time_of_day_tracker = time_of_day_tracker
+        self._stop_distance_store = stop_distance_store
+        self._experiment_tracker = experiment_tracker
 
     def load_trades(self) -> list[dict]:
         trades_file = self._cache_dir / "auto_trades.json"
@@ -39,7 +51,7 @@ class PatternExtractor:
         if not trades:
             return {"trades_analyzed": 0, "rules_updated": 0}
 
-        if self._multiplier_store is not None:
+        if any([self._multiplier_store, self._time_of_day_tracker, self._stop_distance_store, self._experiment_tracker]):
             self._update_multipliers(trades)
 
         stats = self._compute_stats(trades)
@@ -52,19 +64,41 @@ class PatternExtractor:
         }
 
     def _update_multipliers(self, trades: list[dict]) -> None:
-        """Update MultiplierStore for each winning trade with all required fields."""
+        """Update MultiplierStore for each completed trade with outcome."""
         required = ("exit_price", "stop_price", "entry_price", "screener", "confidence_tag", "regime")
         for t in trades:
-            if t.get("outcome") != "win":
+            outcome = t.get("outcome")
+            if outcome not in ("win", "loss"):
                 continue
-            if any(t.get(f) is None for f in required):
-                continue
-            risk = t["entry_price"] - t["stop_price"]
-            if risk <= 0:
-                continue
-            achieved_rr = (t["exit_price"] - t["entry_price"]) / risk
-            bucket_key = f"{t['screener']}+{t['confidence_tag']}+{t['regime']}"
-            self._multiplier_store.update(bucket_key, achieved_rr)
+            if self._multiplier_store is not None:
+                if any(t.get(f) is None for f in required):
+                    pass
+                else:
+                    risk = t["entry_price"] - t["stop_price"]
+                    if risk > 0:
+                        achieved_rr = (t["exit_price"] - t["entry_price"]) / risk
+                        bucket_key = f"{t['screener']}+{t['confidence_tag']}+{t['regime']}"
+                        self._multiplier_store.update(bucket_key, achieved_rr, outcome=outcome)
+
+            # TimeOfDayTracker: all closed trades with entry_time
+            if self._time_of_day_tracker and t.get("entry_time"):
+                try:
+                    from datetime import datetime
+                    from zoneinfo import ZoneInfo
+                    entry_dt = datetime.fromisoformat(t["entry_time"])
+                    hour_et = entry_dt.astimezone(ZoneInfo("America/New_York")).hour
+                    self._time_of_day_tracker.record(hour_et, outcome)
+                except Exception:
+                    pass
+
+            # StopDistanceStore: all closed trades with required price fields
+            if self._stop_distance_store and t.get("stop_price") and t.get("entry_price") and t.get("screener"):
+                try:
+                    stop_pct = abs((t["entry_price"] - t["stop_price"]) / t["entry_price"]) * 100
+                    bucket_key = f"{t['screener']}+{t.get('confidence_tag', 'CLEAR')}+{t.get('regime', 'unknown')}"
+                    self._stop_distance_store.record(bucket_key, stop_pct, outcome)
+                except Exception:
+                    pass
 
     def refresh_trade_outcomes(self) -> int:
         """Query Alpaca closed bracket order legs to populate outcome and exit_price fields."""

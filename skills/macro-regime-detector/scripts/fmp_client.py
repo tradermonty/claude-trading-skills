@@ -1,168 +1,170 @@
 #!/usr/bin/env python3
 """
-FMP API Client for Macro Regime Detector
+Alpaca + FRED Client for Macro Regime Detector
 
-Provides rate-limited access to Financial Modeling Prep stable API endpoints
-for macro regime detection analysis. Falls back to yfinance for
-ETF/index symbols not available on the FMP free plan.
+Replaces FMP API:
+- ETF OHLCV → Alpaca Market Data API
+- Treasury rates (2Y/10Y yield curve) → FRED (DGS2, DGS10)
 """
 
-import datetime
 import os
-import sys
-import time
+import datetime
 from typing import Optional
 
-try:
-    import requests
-except ImportError:
-    print("ERROR: requests library not found. Install with: pip install requests", file=sys.stderr)
-    sys.exit(1)
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
 
 
-def _yf_historical(symbol: str, days: int) -> Optional[dict]:
-    """Fetch historical prices via yfinance (fallback for FMP premium symbols)."""
-    try:
-        import yfinance as yf
-        end = datetime.date.today()
-        start = end - datetime.timedelta(days=int(days * 1.6) + 10)
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(start=str(start), end=str(end))
-        if hist.empty:
-            return None
-        historical = []
-        for date_idx, row in hist.iterrows():
-            historical.append({
-                "date": str(date_idx.date()),
-                "open": round(float(row["Open"]), 4),
-                "high": round(float(row["High"]), 4),
-                "low": round(float(row["Low"]), 4),
-                "close": round(float(row["Close"]), 4),
-                "volume": int(row["Volume"]),
-            })
-        historical.reverse()  # Most recent first
-        return {"symbol": symbol, "historical": historical[:days]}
-    except Exception as e:
-        print(f"WARNING: yfinance historical fallback failed for {symbol}: {e}", file=sys.stderr)
-        return None
+def _get_alpaca_client() -> StockHistoricalDataClient:
+    return StockHistoricalDataClient(
+        api_key=os.environ.get("ALPACA_API_KEY", ""),
+        secret_key=os.environ.get("ALPACA_SECRET_KEY", ""),
+    )
 
 
 class FMPClient:
-    """Client for Financial Modeling Prep stable API with rate limiting and yfinance fallback."""
-
-    BASE_URL = "https://financialmodelingprep.com/stable"
-    RATE_LIMIT_DELAY = 0.3  # 300ms between requests
+    """Drop-in replacement: Alpaca + FRED backed client with same interface."""
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("FMP_API_KEY")
-        if not self.api_key:
+        alpaca_api_key = os.environ.get("ALPACA_API_KEY", "")
+        alpaca_secret = os.environ.get("ALPACA_SECRET_KEY", "")
+        if not alpaca_api_key or not alpaca_secret:
             raise ValueError(
-                "FMP API key required. Set FMP_API_KEY environment variable "
-                "or pass api_key parameter."
+                "ALPACA_API_KEY and ALPACA_SECRET_KEY are required."
             )
-        self.session = requests.Session()
-        self.cache = {}
-        self.last_call_time = 0
-        self.rate_limit_reached = False
-        self.retry_count = 0
-        self.max_retries = 1
-        self.api_calls_made = 0
-
-    def _rate_limited_get(self, url: str, params: Optional[dict] = None) -> Optional[dict]:
-        if self.rate_limit_reached:
-            return None
-
-        req_params = dict(params) if params else {}
-        req_params["apikey"] = self.api_key
-
-        elapsed = time.time() - self.last_call_time
-        if elapsed < self.RATE_LIMIT_DELAY:
-            time.sleep(self.RATE_LIMIT_DELAY - elapsed)
-
-        try:
-            response = self.session.get(url, params=req_params, timeout=30)
-            self.last_call_time = time.time()
-            self.api_calls_made += 1
-
-            if response.status_code == 200:
-                self.retry_count = 0
-                return response.json()
-            elif response.status_code == 402:
-                return {"_premium": True}
-            elif response.status_code == 429:
-                self.retry_count += 1
-                if self.retry_count <= self.max_retries:
-                    print("WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
-                    time.sleep(60)
-                    return self._rate_limited_get(url, params)
-                else:
-                    print("ERROR: Daily API rate limit reached.", file=sys.stderr)
-                    self.rate_limit_reached = True
-                    return None
-            else:
-                print(
-                    f"ERROR: API request failed: {response.status_code} - {response.text[:200]}",
-                    file=sys.stderr,
-                )
-                return None
-        except requests.exceptions.RequestException as e:
-            print(f"ERROR: Request exception: {e}", file=sys.stderr)
-            return None
+        self._alpaca = _get_alpaca_client()
+        self._cache: dict = {}
+        self._api_calls_made = 0
 
     def get_historical_prices(self, symbol: str, days: int = 600) -> Optional[dict]:
-        """Fetch historical daily OHLCV data."""
-        cache_key = f"prices_{symbol}_{days}"
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        """Fetch daily OHLCV via Alpaca (most-recent first, FMP-compatible format)."""
+        cache_key = f"hist_{symbol}_{days}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
-        end_date = datetime.date.today()
-        start_date = end_date - datetime.timedelta(days=int(days * 1.6) + 10)
-        url = f"{self.BASE_URL}/historical-price-eod/full"
-        data = self._rate_limited_get(url, {"symbol": symbol, "from": str(start_date), "to": str(end_date)})
+        start = (datetime.date.today() - datetime.timedelta(days=int(days * 1.6) + 10)).isoformat()
+        request = StockBarsRequest(
+            symbol_or_symbols=symbol,
+            timeframe=TimeFrame.Day,
+            start=start,
+        )
+        try:
+            bars = self._alpaca.get_stock_bars(request)
+            self._api_calls_made += 1
+        except Exception as e:
+            print(f"WARNING: Alpaca bars failed for {symbol}: {e}")
+            return None
 
-        if data is not None and not (isinstance(data, dict) and data.get("_premium")):
-            # Stable API returns a flat list; normalize to legacy format
-            normalized = {"symbol": symbol, "historical": data[:days] if isinstance(data, list) else data}
-            self.cache[cache_key] = normalized
-            return normalized
+        df = bars.df
+        if df.empty:
+            return None
 
-        # Fall back to yfinance
-        yf_data = _yf_historical(symbol, days)
-        if yf_data:
-            self.cache[cache_key] = yf_data
-        return yf_data
+        # Flatten MultiIndex
+        if hasattr(df.index, "levels"):
+            try:
+                df = df.xs(symbol, level="symbol")
+            except KeyError:
+                pass
+        df = df.sort_index(ascending=False)
+
+        historical = []
+        for ts, row in df.iterrows():
+            historical.append({
+                "date": str(ts.date()) if hasattr(ts, "date") else str(ts)[:10],
+                "open": round(float(row["open"]), 4),
+                "high": round(float(row["high"]), 4),
+                "low": round(float(row["low"]), 4),
+                "close": round(float(row["close"]), 4),
+                "volume": int(row["volume"]),
+            })
+
+        result = {"symbol": symbol, "historical": historical[:days]}
+        self._cache[cache_key] = result
+        return result
 
     def get_batch_historical(self, symbols: list[str], days: int = 600) -> dict[str, list[dict]]:
-        """Fetch historical prices for multiple symbols."""
+        """Fetch historical bars for multiple symbols (single Alpaca batch request)."""
+        cache_key = f"batch_{','.join(sorted(symbols))}_{days}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        start = (datetime.date.today() - datetime.timedelta(days=int(days * 1.6) + 10)).isoformat()
+        request = StockBarsRequest(
+            symbol_or_symbols=symbols,
+            timeframe=TimeFrame.Day,
+            start=start,
+        )
+        try:
+            bars = self._alpaca.get_stock_bars(request)
+            self._api_calls_made += 1
+        except Exception as e:
+            print(f"WARNING: Alpaca batch fetch failed: {e}")
+            return {}
+
+        df = bars.df
+        if df.empty:
+            return {}
+
         results = {}
         for symbol in symbols:
-            data = self.get_historical_prices(symbol, days=days)
-            if data and "historical" in data:
-                results[symbol] = data["historical"]
+            try:
+                sym_df = df.xs(symbol, level="symbol").sort_index(ascending=False)
+                historical = []
+                for ts, row in sym_df.iterrows():
+                    historical.append({
+                        "date": str(ts.date()) if hasattr(ts, "date") else str(ts)[:10],
+                        "open": round(float(row["open"]), 4),
+                        "high": round(float(row["high"]), 4),
+                        "low": round(float(row["low"]), 4),
+                        "close": round(float(row["close"]), 4),
+                        "volume": int(row["volume"]),
+                    })
+                results[symbol] = historical[:days]
+            except (KeyError, IndexError):
+                results[symbol] = []
+        self._cache[cache_key] = results
         return results
 
     def get_treasury_rates(self, days: int = 600) -> Optional[list[dict]]:
         """
-        Fetch treasury rate data from FMP stable endpoint.
+        Fetch 2Y and 10Y Treasury yields from FRED (DGS2, DGS10).
 
-        Returns list of dicts with keys like 'date', 'year2', 'year10', etc.
-        Most recent first.
+        Returns list of dicts (most-recent first) matching FMP format:
+        {"date": "YYYY-MM-DD", "year2": float, "year10": float}
         """
         cache_key = f"treasury_{days}"
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
-        url = f"{self.BASE_URL}/treasury-rates"
-        params = {"limit": days}
-        data = self._rate_limited_get(url, params)
-        if data and isinstance(data, list):
-            self.cache[cache_key] = data
-            return data
-        return None
+        try:
+            from fredapi import Fred
+            fred = Fred(api_key=os.environ.get("FRED_API_KEY", ""))
+            yield_2y = fred.get_series("DGS2").dropna()
+            yield_10y = fred.get_series("DGS10").dropna()
+        except Exception as e:
+            print(f"WARNING: FRED treasury fetch failed: {e}")
+            return None
+
+        # Align on common dates
+        import pandas as pd
+        combined = pd.DataFrame({"year2": yield_2y, "year10": yield_10y}).dropna()
+        combined = combined.sort_index(ascending=False).head(days)
+
+        rates = []
+        for date_idx, row in combined.iterrows():
+            rates.append({
+                "date": str(date_idx.date()) if hasattr(date_idx, "date") else str(date_idx)[:10],
+                "year2": round(float(row["year2"]), 4),
+                "year10": round(float(row["year10"]), 4),
+            })
+
+        self._cache[cache_key] = rates
+        return rates
 
     def get_api_stats(self) -> dict:
         return {
-            "cache_entries": len(self.cache),
-            "api_calls_made": self.api_calls_made,
-            "rate_limit_reached": self.rate_limit_reached,
+            "cache_entries": len(self._cache),
+            "api_calls_made": self._api_calls_made,
+            "rate_limit_reached": False,
         }
