@@ -201,6 +201,24 @@ def test_post_settings_paper_needs_no_confirm():
     assert r.status_code == 200
 
 
+def test_post_settings_redirects_to_settings_page():
+    """POST /api/settings must redirect (303) to /settings, not return modal HTML."""
+    client = make_client()
+    response = client.post(
+        "/api/settings",
+        data={
+            "mode": "advisory",
+            "default_risk_pct": "1.0",
+            "max_positions": "5",
+            "max_position_size_pct": "10.0",
+            "environment": "paper",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/settings")
+
+
 def test_monitor_status_returns_json():
     client = make_client()
     r = client.get("/api/monitor/status")
