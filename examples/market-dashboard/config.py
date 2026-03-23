@@ -19,6 +19,8 @@ FINVIZ_API_KEY = os.environ.get("FINVIZ_API_KEY", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ALPACA_API_KEY = os.environ.get("ALPACA_API_KEY", "")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
+FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
+FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 ALPACA_PAPER = os.environ.get("ALPACA_PAPER", "true").lower() == "true"
 
 SKILL_TIMEOUT = int(os.environ.get("SKILL_TIMEOUT", "120"))
