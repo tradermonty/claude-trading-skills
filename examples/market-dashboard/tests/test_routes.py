@@ -75,8 +75,9 @@ def test_post_settings_updates_mode():
     client = make_client()
     r = client.post("/api/settings", data={"mode": "semi_auto", "default_risk_pct": "1.5",
                                             "max_positions": "5", "max_position_size_pct": "10.0",
-                                            "environment": "paper"})
-    assert r.status_code == 200
+                                            "environment": "paper"},
+                    follow_redirects=False)
+    assert r.status_code == 303
 
 
 def test_skill_refresh_returns_202():
@@ -130,13 +131,14 @@ def test_order_preview_endpoint_exists():
 def test_dashboard_shows_auto_banner_in_auto_mode():
     """When settings mode=auto, dashboard HTML must contain auto-banner element."""
     client = make_client()
-    # Set mode to auto first
+    # Set mode to auto first — intentionally follows the redirect to confirm the
+    # POST was accepted (303 → /settings → 200); we don't inspect the response body here.
     r = client.post("/api/settings", data={
         "mode": "auto", "default_risk_pct": "1.0",
         "max_positions": "5", "max_position_size_pct": "10.0",
         "environment": "paper",
     })
-    assert r.status_code == 200
+    assert r.status_code == 200  # final page after 303 redirect
 
     r = client.get("/")
     assert r.status_code == 200
@@ -185,8 +187,8 @@ def test_post_settings_live_with_correct_confirm_succeeds():
         "max_position_size_pct": "10.0",
         "environment": "live",
         "live_confirm": "CONFIRM LIVE TRADING",
-    })
-    assert r.status_code == 200
+    }, follow_redirects=False)
+    assert r.status_code == 303
 
 
 def test_post_settings_paper_needs_no_confirm():
@@ -197,8 +199,8 @@ def test_post_settings_paper_needs_no_confirm():
         "max_positions": "5",
         "max_position_size_pct": "10.0",
         "environment": "paper",
-    })
-    assert r.status_code == 200
+    }, follow_redirects=False)
+    assert r.status_code == 303
 
 
 def test_post_settings_redirects_to_settings_page():
@@ -325,6 +327,8 @@ def test_order_preview_includes_multiplier_in_response(monkeypatch):
 def test_new_settings_fields_save_and_load_round_trip():
     """New capital-protection fields must persist through POST and appear in GET."""
     client = make_client()
+    # Intentionally follows the redirect (303 → /settings → 200) to confirm the
+    # POST was accepted; saved data is verified via SettingsManager below.
     r = client.post("/api/settings", data={
         "mode": "advisory",
         "default_risk_pct": "1.0",
@@ -335,7 +339,7 @@ def test_new_settings_fields_save_and_load_round_trip():
         "max_daily_loss_pct": "3.5",
         "earnings_blackout_days": "7",
     })
-    assert r.status_code == 200
+    assert r.status_code == 200  # final page after 303 redirect
     from settings_manager import SettingsManager
     s = SettingsManager().load()
     assert s["max_weekly_drawdown_pct"] == 8.0
@@ -365,6 +369,8 @@ def test_settings_form_includes_new_fields():
 def test_tier2_settings_fields_round_trip():
     """All 4 Tier 2 settings fields survive a POST /api/settings round-trip."""
     client = make_client()
+    # Intentionally follows the redirect (303 → /settings → 200) to confirm the
+    # POST was accepted; saved data is verified via SettingsManager below.
     r = client.post("/api/settings", data={
         "mode": "advisory",
         "default_risk_pct": "1.0",
@@ -376,7 +382,7 @@ def test_tier2_settings_fields_round_trip():
         "breadth_threshold_pct": "55.0",
         "breadth_size_reduction_pct": "40.0",
     })
-    assert r.status_code == 200
+    assert r.status_code == 200  # final page after 303 redirect
     from settings_manager import SettingsManager
     saved = SettingsManager().load()
     assert saved["min_volume_ratio"] == 2.0

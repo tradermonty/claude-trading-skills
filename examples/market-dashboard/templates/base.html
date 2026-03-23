@@ -20,10 +20,7 @@
     <span class="env-badge {% if settings.environment == 'live' %}env-live{% else %}env-paper{% endif %}">
       {% if settings.environment == 'live' %}💰 LIVE{% else %}📄 PAPER{% endif %}
     </span>
-    <span class="mode-badge"
-          hx-get="/api/settings"
-          hx-target="#modal-container"
-          hx-swap="innerHTML">
+    <span class="mode-badge">
       {% if settings.mode == 'auto' %}🤖 Auto
       {% elif settings.mode == 'semi_auto' %}✅ Semi-Auto
       {% else %}👁 Advisory{% endif %}
