@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 16px;">
+  <h2 style="color:#e2e8f0; margin-bottom:16px;">Settings</h2>
+  <p style="color:#64748b;">Settings page coming soon.</p>
+  {# Field stubs — full form rendered in Task 2 #}
+  <input type="hidden" name="max_weekly_drawdown_pct" value="{{ settings.max_weekly_drawdown_pct }}">
+  <input type="hidden" name="max_daily_loss_pct" value="{{ settings.max_daily_loss_pct }}">
+  <input type="hidden" name="earnings_blackout_days" value="{{ settings.earnings_blackout_days }}">
+</div>
+{% endblock %}

@@ -66,7 +66,7 @@ def test_detail_unknown_returns_404():
 
 def test_get_settings_returns_html():
     client = make_client()
-    r = client.get("/api/settings")
+    r = client.get("/settings")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
 
@@ -335,9 +335,9 @@ def test_new_settings_fields_have_defaults_when_not_set():
 
 
 def test_settings_form_includes_new_fields():
-    """GET /api/settings HTML must contain the three new input field names."""
+    """GET /settings HTML must contain the three new input field names."""
     client = make_client()
-    r = client.get("/api/settings")
+    r = client.get("/settings")
     assert r.status_code == 200
     assert b"max_weekly_drawdown_pct" in r.content
     assert b"max_daily_loss_pct" in r.content
@@ -387,4 +387,11 @@ def test_trades_route_returns_200():
     """GET /trades returns 200."""
     client = make_client()
     response = client.get("/trades")
+    assert response.status_code == 200
+
+
+def test_settings_route_returns_200():
+    """GET /settings returns 200."""
+    client = make_client()
+    response = client.get("/settings")
     assert response.status_code == 200

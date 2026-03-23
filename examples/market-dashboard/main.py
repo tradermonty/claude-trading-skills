@@ -394,13 +394,17 @@ async def detail(request: Request, page: str):
     return templates.TemplateResponse(f"detail/{page}.html", ctx)
 
 
-@app.get("/api/settings", response_class=HTMLResponse)
-async def get_settings(request: Request):
-    ctx = {"request": request, "settings": settings_manager.load()}
-    return templates.TemplateResponse("fragments/settings_modal.html", ctx)
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    ctx = {
+        "request": request,
+        "market_state": _market_state(),
+        "settings": settings_manager.load(),
+    }
+    return templates.TemplateResponse("settings.html", ctx)
 
 
-@app.post("/api/settings", response_class=HTMLResponse)
+@app.post("/api/settings")
 async def post_settings(
     request: Request,
     mode: str = Form(...),
@@ -421,7 +425,11 @@ async def post_settings(
     partial_exit_at_r: float = Form(1.0),
     partial_exit_pct: int = Form(50),
     time_stop_days: int = Form(5),
+    kelly_sizing_enabled: str = Form("false"),
+    kelly_max_multiplier: float = Form(2.0),
+    vix_sizing_enabled: str = Form("true"),
 ):
+    from fastapi.responses import RedirectResponse
     if environment == "live" and live_confirm != "CONFIRM LIVE TRADING":
         raise HTTPException(
             status_code=400,
@@ -445,9 +453,11 @@ async def post_settings(
         "partial_exit_at_r": partial_exit_at_r,
         "partial_exit_pct": partial_exit_pct,
         "time_stop_days": time_stop_days,
+        "kelly_sizing_enabled": kelly_sizing_enabled == "true",
+        "kelly_max_multiplier": kelly_max_multiplier,
+        "vix_sizing_enabled": vix_sizing_enabled == "true",
     })
-    ctx = {"request": request, "settings": settings_manager.load()}
-    return templates.TemplateResponse("fragments/settings_modal.html", ctx)
+    return RedirectResponse(url="/settings", status_code=303)
 
 
 @app.post("/api/skill/{skill_name}/refresh")
