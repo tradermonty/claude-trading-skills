@@ -419,3 +419,44 @@ def test_settings_route_returns_200():
     client = make_client()
     response = client.get("/settings")
     assert response.status_code == 200
+
+
+def test_broker_status_endpoint():
+    """GET /api/broker-status returns JSON with alpaca and ibkr keys."""
+    client = make_client()
+    response = client.get("/api/broker-status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "alpaca" in data
+    assert "ibkr" in data
+    assert isinstance(data["alpaca"], bool)
+    assert isinstance(data["ibkr"], bool)
+
+
+def test_trades_route_includes_all_market_files(tmp_path):
+    """GET /trades merges all cache/*-auto_trades.json files."""
+    import json
+    from config import CACHE_DIR
+
+    # Write two market trade files
+    us_file = CACHE_DIR / "us-auto_trades.json"
+    oslo_file = CACHE_DIR / "oslo-auto_trades.json"
+    us_file.write_text(json.dumps({"trades": [
+        {"symbol": "AAPL", "market": "us", "entry_price": 150.0, "stop_price": 145.0,
+         "qty": 10, "outcome": None, "entry_time": "2026-03-20T14:00:00+00:00"}
+    ]}))
+    oslo_file.write_text(json.dumps({"trades": [
+        {"symbol": "EQNR", "market": "oslo", "entry_price": 310.0, "stop_price": 300.0,
+         "qty": 5, "outcome": None, "entry_time": "2026-03-20T10:00:00+00:00"}
+    ]}))
+
+    try:
+        client = make_client()
+        response = client.get("/trades")
+        assert response.status_code == 200
+        # Both symbols should appear in the rendered page
+        assert "AAPL" in response.text
+        assert "EQNR" in response.text
+    finally:
+        us_file.unlink(missing_ok=True)
+        oslo_file.unlink(missing_ok=True)
