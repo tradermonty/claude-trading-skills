@@ -4,7 +4,7 @@
 
 ## Goal
 
-Extend the trading bot to support international equity markets (Oslo Børs, LSE, and any future exchange) alongside the existing US market, using Interactive Brokers (IBKR) as the international broker while keeping Alpaca for US trading. Also replace the cramped settings modal with a dedicated `/settings` page with organised sections and a home button on all sub-pages.
+Extend the trading bot to support international equity markets (Oslo Børs, LSE, and any future exchange) alongside the existing US market, using Interactive Brokers (IBKR) as the international broker while keeping Alpaca for US trading. Also replace FMP with a free provider stack that eliminates daily call limits. Also replace the cramped settings modal with a dedicated `/settings` page with organised sections and a home button on all sub-pages.
 
 ## Context
 
@@ -12,14 +12,53 @@ The current system trades US equities only via Alpaca. Alpaca does not support n
 
 The PDT (Pattern Day Trader) rule is a US SEC regulation and does not apply to non-US markets or IBKR accounts. All non-US monitor instances skip the PDT guard rail entirely.
 
+## Data Provider Strategy
+
+All data providers are free. FMP is replaced entirely.
+
+| Data Type | Provider | Cost | Notes |
+|-----------|----------|------|-------|
+| US OHLCV daily bars + volume | **Alpaca Market Data** | $0 | Already available, 200 req/min, no daily cap |
+| Market breadth (% above 50/200 MA) | **Computed from Alpaca data** | $0 | Derived in Python from existing OHLCV fetch |
+| Earnings calendar | **Finnhub free tier** | $0 | 60 req/min, no daily cap, confirmed free |
+| 13F institutional flow | **Finnhub free tier** | $0 | Same free tier, runs weekly |
+| Macro data (GDP, CPI, Fed rates, VIX, yield curve) | **FRED API** | $0 | US Federal Reserve, 120 req/min, 840K+ series |
+| Oslo Børs OHLCV | **IBKR market data** | $0 | Included with broker account, paced requests |
+| LSE OHLCV | **IBKR market data** | $0 | Same account, same pacing strategy |
+| Other global exchanges | **IBKR market data** | $0 | Covered by existing broker relationship |
+
+**Total: $0/month**
+
+### IBKR pacing strategy for international data
+
+IBKR enforces a pacing limit of ~60 historical data requests per 10 minutes. International screeners run **once daily** (pre-market for each exchange) rather than every 30 minutes. Requests are spaced with a ~6-second delay between tickers. A universe of 100 stocks takes ~10 minutes to scan — right at the pacing limit but within it.
+
+US trading continues on the 30-minute cycle via Alpaca, which has no pacing constraints.
+
+### Skills migration from FMP
+
+| Skill | Current provider | New provider |
+|-------|-----------------|--------------|
+| vcp-screener | FMP | Alpaca |
+| canslim-screener | FMP | Alpaca |
+| ftd-detector | FMP | Alpaca |
+| uptrend-analyzer | FMP | Alpaca |
+| market-breadth-analyzer | FMP | Computed from Alpaca |
+| market-top-detector | FMP | FRED API (VIX) + Alpaca |
+| macro-regime-detector | FMP | FRED API |
+| earnings-calendar | FMP | Finnhub |
+| institutional-flow-tracker | FMP | Finnhub |
+| economic-calendar-fetcher | FMP | FRED API |
+
 ## Architecture Overview
 
-Four subsystems are added or changed:
+Five subsystems are added or changed:
 
 1. **Broker abstraction layer** — a shared interface both `AlpacaClient` and `IBKRClient` implement
 2. **Universe builder** — weekly job that fetches and filters the tradeable stock universe per non-US market from IBKR data
 3. **Multi-market orchestrator** — starts one `PivotWatchlistMonitor` instance per enabled market, wired to the correct broker and settings
 4. **Settings page** — replaces the modal with a dedicated `/settings` route and full-page layout
+5. **Data provider migration** — replaces FMP with Alpaca (OHLCV), Finnhub (earnings + 13F), and FRED API (macro), eliminating the 250 calls/day limit at zero cost
 
 ---
 
@@ -328,6 +367,7 @@ IB Gateway (headless, Pi-compatible) runs as a background process on the Pi. It 
 | `tests/test_universe_builder.py` | Create | Universe builder unit tests |
 | `tests/test_pivot_monitor.py` | Modify | Multi-market test cases, broker abstraction |
 | `tests/test_routes.py` | Modify | Add `test_settings_route_returns_200`, `test_broker_status_endpoint` |
+| Skill scripts (vcp, canslim, ftd, uptrend, breadth, macro, earnings, 13F, economic-cal) | Modify | Replace FMP API calls with Alpaca / Finnhub / FRED equivalents |
 
 ---
 
@@ -346,6 +386,8 @@ IB Gateway (headless, Pi-compatible) runs as a background process on the Pi. It 
 - Market Top Detector uses US equity data to gate non-US trades — acceptable initially, revisit once non-US trade history accumulates
 - No FX hedging or currency conversion between NOK/GBP/USD accounts
 - Non-US news sentiment not available — volume + price confirmation only
+- IBKR pacing limit means international universe scans take ~10 minutes per exchange — run once daily pre-market only
+- FRED API data is end-of-day for most series (VIX updates daily at market close) — not real-time
 
 ---
 
