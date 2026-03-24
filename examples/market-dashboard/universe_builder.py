@@ -23,10 +23,9 @@ try:
 except ImportError:
     Overview = None  # type: ignore
 
-import sys as _sys
 _fmp_scripts = str(Path(__file__).resolve().parents[2] / "skills/vcp-screener/scripts")
-if _fmp_scripts not in _sys.path:
-    _sys.path.insert(0, _fmp_scripts)
+if _fmp_scripts not in sys.path:
+    sys.path.insert(0, _fmp_scripts)
 try:
     from fmp_client import FMPClient
 except ImportError:
@@ -260,16 +259,20 @@ class UniverseBuilder:
         slots = max(0, batch_size - len(to_recheck))
         to_scan = [c["symbol"] for c in pending[:slots]]
 
-        # Also include active stocks so we can re-check them against fresh FMP data
-        active_symbols = [s["symbol"] for s in existing if s.get("status") == "active"]
-        all_symbols = list(dict.fromkeys(to_recheck + to_scan + active_symbols))
+        # Active stocks with stored MAs only need a quote re-check (no history fetch)
+        # Active stocks without stored MAs need full history (first-time MA computation)
+        active_with_ma = [s["symbol"] for s in existing if s.get("status") == "active" and s["symbol"] not in to_recheck and s.get("ma50") and s.get("ma200")]
+        active_no_ma = [s["symbol"] for s in existing if s.get("status") == "active" and s["symbol"] not in to_recheck and not (s.get("ma50") and s.get("ma200"))]
 
-        if not all_symbols:
+        # Weakening + new scans + active-without-MA need full history
+        all_symbols = list(dict.fromkeys(to_recheck + to_scan + active_no_ma))
+
+        if not all_symbols and not active_with_ma:
             print("[universe_builder] nothing to scan", file=sys.stderr)
             return existing
 
-        quotes = fmp.get_batch_quotes(all_symbols)
-        histories = fmp.get_batch_historical(all_symbols, days=260)
+        quotes = fmp.get_batch_quotes(all_symbols + active_with_ma)
+        histories = fmp.get_batch_historical(all_symbols, days=260)  # Only for weakening + new + active-without-MA
 
         def _passes_criteria(symbol: str) -> bool:
             quote = quotes.get(symbol, {})
@@ -280,9 +283,10 @@ class UniverseBuilder:
             avg_vol = float(quote.get("avgVolume", 0))
             if avg_vol < 500_000:
                 return False
+            # Newest-first bars: bars[0] is most recent
             closes = [float(b["close"]) for b in bars]
-            ma50 = sum(closes[-50:]) / 50
-            ma200 = sum(closes[-200:]) / 200 if len(closes) >= 200 else sum(closes) / len(closes)
+            ma50 = sum(closes[:50]) / 50
+            ma200 = sum(closes[:200]) / 200 if len(closes) >= 200 else sum(closes) / len(closes)
             return price > ma50 and price > ma200
 
         updated_universe: list[dict] = []
@@ -293,33 +297,79 @@ class UniverseBuilder:
             if _passes_criteria(sym):
                 updated = dict(entry)
                 updated["status"] = "active"
+                # Store computed MA values for future quote-only re-checks
+                bars = histories.get(sym, [])
+                closes = [float(b["close"]) for b in bars]
+                if closes:
+                    updated["ma50"] = round(sum(closes[:50]) / 50, 4)
+                    updated["ma200"] = round(sum(closes[:200]) / 200 if len(closes) >= 200 else sum(closes) / len(closes), 4)
                 updated_universe.append(updated)
             # else: fails again → dropped (not added)
 
-        # Keep active stocks — re-check those for which we have fresh FMP data
+        # Keep active stocks — re-check using stored MA + fresh quote price
         for entry in existing:
             if entry.get("status") != "active":
                 continue
             if entry["symbol"] in to_recheck:
                 continue
             sym = entry["symbol"]
-            if sym in quotes and not _passes_criteria(sym):
-                # Failing today → weakening
-                updated = dict(entry)
-                updated["status"] = "weakening"
-                updated_universe.append(updated)
+            stored_ma50 = entry.get("ma50")
+            stored_ma200 = entry.get("ma200")
+            if stored_ma50 and stored_ma200:
+                # Fast path: use stored MAs + fresh quote price (no history fetch needed)
+                quote = quotes.get(sym, {})
+                price = float(quote.get("price", 0)) if quote else 0
+                avg_vol = float(quote.get("avgVolume", 0)) if quote else 0
+                if price and avg_vol >= 500_000:
+                    if price > stored_ma50 and price > stored_ma200:
+                        updated_universe.append(entry)
+                    else:
+                        updated = dict(entry)
+                        updated["status"] = "weakening"
+                        updated_universe.append(updated)
+                else:
+                    # No quote data — keep as-is
+                    updated_universe.append(entry)
             else:
-                updated_universe.append(entry)
+                # No stored MA — use full history check (history was fetched for this symbol)
+                if sym in quotes and not _passes_criteria(sym):
+                    updated = dict(entry)
+                    updated["status"] = "weakening"
+                    # Store computed MA values now that we have history
+                    bars = histories.get(sym, [])
+                    closes = [float(b["close"]) for b in bars]
+                    if closes:
+                        updated["ma50"] = round(sum(closes[:50]) / 50, 4)
+                        updated["ma200"] = round(sum(closes[:200]) / 200 if len(closes) >= 200 else sum(closes) / len(closes), 4)
+                    updated_universe.append(updated)
+                else:
+                    updated = dict(entry)
+                    # Store computed MA values now that we have history
+                    bars = histories.get(sym, [])
+                    closes = [float(b["close"]) for b in bars]
+                    if closes:
+                        updated["ma50"] = round(sum(closes[:50]) / 50, 4)
+                        updated["ma200"] = round(sum(closes[:200]) / 200 if len(closes) >= 200 else sum(closes) / len(closes), 4)
+                    updated_universe.append(updated)
 
         # Process new scans from queue
         scanned_count = queue_data.get("scanned_count", 0)
         for sym in to_scan:
             candidate = next((c for c in pending if c["symbol"] == sym), {})
             if _passes_criteria(sym):
+                bars = histories.get(sym, [])
+                closes = [float(b["close"]) for b in bars]
+                if closes:
+                    ma50_val = round(sum(closes[:50]) / 50, 4)
+                    ma200_val = round(sum(closes[:200]) / 200 if len(closes) >= 200 else sum(closes) / len(closes), 4)
+                else:
+                    ma50_val = ma200_val = None
                 updated_universe.append({
                     "symbol": sym,
                     "status": "active",
                     "sentiment_score": candidate.get("sentiment_score", 0.5),
+                    "ma50": ma50_val,
+                    "ma200": ma200_val,
                 })
             scanned_count += 1
 

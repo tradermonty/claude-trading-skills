@@ -279,23 +279,23 @@ def test_build_queue_returns_empty_when_finviz_fails():
 
 
 def _make_fmp_client_mock(price=150.0, avg_vol=1_000_000):
-    """Build a mock FMPClient for nightly batch tests."""
     mock = MagicMock()
     quote = {"price": price, "avgVolume": avg_vol}
     mock.get_batch_quotes.return_value = {"AAPL": quote, "MSFT": quote}
-    # Uptrending bars: each close is higher than the last, so price > MA50 > MA200
-    bars = [{"close": price - (260 - i) * 0.1, "volume": avg_vol} for i in range(260)]
+    # Newest-first bars: bars[0] is most recent (price), bars[-1] is oldest (lower)
+    # So price > MA50 > MA200 — uptrending
+    bars = [{"close": price - i * 0.1, "volume": avg_vol} for i in range(260)]
     mock.get_batch_historical.return_value = {"AAPL": bars, "MSFT": bars}
     return mock
 
 
 def _make_falling_fmp_mock(price=50.0, avg_vol=1_000_000):
-    """FMPClient mock where price is below MA50 (failing criteria)."""
     mock = MagicMock()
     quote = {"price": price, "avgVolume": avg_vol}
     mock.get_batch_quotes.return_value = {"AAPL": quote, "MSFT": quote}
-    # Falling bars: each close is lower, so price < MA50
-    bars = [{"close": 200.0 - i * 0.5, "volume": avg_vol} for i in range(260)]
+    # Newest-first bars: bars[0] is most recent (50), older bars are much higher
+    # So price (50) < MA50 (~50 + rising) — failing criteria
+    bars = [{"close": price + i * 0.5, "volume": avg_vol} for i in range(260)]
     mock.get_batch_historical.return_value = {"AAPL": bars, "MSFT": bars}
     return mock
 
@@ -405,3 +405,57 @@ def test_run_nightly_batch_active_to_weakening():
     aapl = next((s for s in data["symbols"] if s["symbol"] == "AAPL"), None)
     assert aapl is not None
     assert aapl["status"] == "weakening"
+
+
+def test_run_nightly_batch_weakening_to_active_recovery():
+    """A weakening stock that passes criteria again is restored to active."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    universe = {
+        "updated": "2026-03-23T18:00:00Z",
+        "symbols": [
+            {"symbol": "AAPL", "status": "weakening", "sentiment_score": 0.8}
+        ]
+    }
+    (cache_dir / "vcp-universe.json").write_text(json.dumps(universe))
+    (cache_dir / "universe-queue.json").write_text(json.dumps({
+        "updated": "2026-03-23T18:00:00Z", "scanned_count": 0, "candidates": []
+    }))
+
+    with patch("universe_builder.FMPClient", return_value=_make_fmp_client_mock(price=150.0)):
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.run_nightly_batch(fmp_api_key="test_key", batch_size=20)
+
+    data = json.loads((cache_dir / "vcp-universe.json").read_text())
+    aapl = next((s for s in data["symbols"] if s["symbol"] == "AAPL"), None)
+    assert aapl is not None
+    assert aapl["status"] == "active"
+
+
+def test_run_nightly_batch_adds_passing_stocks_by_symbol():
+    """Passing stock added as active — check by symbol not index."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    queue = {
+        "updated": "2026-03-23T18:00:00Z",
+        "scanned_count": 0,
+        "candidates": [
+            {"symbol": "AAPL", "sentiment_score": 0.8, "status": "pending"},
+        ]
+    }
+    (cache_dir / "universe-queue.json").write_text(json.dumps(queue))
+
+    with patch("universe_builder.FMPClient", return_value=_make_fmp_client_mock(price=150.0)):
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.run_nightly_batch(fmp_api_key="test_key", batch_size=20)
+
+    data = json.loads((cache_dir / "vcp-universe.json").read_text())
+    aapl = next((s for s in data["symbols"] if s["symbol"] == "AAPL"), None)
+    assert aapl is not None
+    assert aapl["status"] == "active"
