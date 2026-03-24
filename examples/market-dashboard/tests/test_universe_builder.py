@@ -209,6 +209,8 @@ def test_build_queue_output_format():
     assert "updated" in data
     assert data["candidates"][0]["symbol"] == "AAPL"
     assert "sentiment_score" in data["candidates"][0]
+    assert "scanned_count" in data
+    assert data["scanned_count"] == 0
 
 
 def test_build_queue_sorts_by_sentiment():
