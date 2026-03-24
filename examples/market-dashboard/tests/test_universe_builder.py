@@ -160,3 +160,101 @@ def test_request_delay_is_respected(monkeypatch):
     # Should have slept once per symbol fetched
     assert all(s == 6 for s in sleep_calls)
     assert len(sleep_calls) >= 1
+
+
+def test_build_queue_writes_queue_file():
+    """build_queue writes cache/universe-queue.json."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    mock_stocks = [
+        {"Ticker": "AAPL", "Price": "175.0", "Volume": "80000000"},
+        {"Ticker": "MSFT", "Price": "420.0", "Volume": "30000000"},
+    ]
+
+    with patch("universe_builder.Overview") as mock_overview, \
+         patch("universe_builder.requests.get") as mock_get:
+        mock_overview.return_value.screener_view.return_value = mock_stocks
+        mock_get.return_value.json.return_value = {"companyNewsScore": 0.6}
+        mock_get.return_value.status_code = 200
+
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.build_queue(finnhub_api_key="test_key")
+
+    assert (cache_dir / "universe-queue.json").exists()
+
+
+def test_build_queue_output_format():
+    """universe-queue.json has candidates list with symbol and sentiment_score."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    mock_stocks = [{"Ticker": "AAPL", "Price": "175.0", "Volume": "80000000"}]
+
+    with patch("universe_builder.Overview") as mock_overview, \
+         patch("universe_builder.requests.get") as mock_get:
+        mock_overview.return_value.screener_view.return_value = mock_stocks
+        mock_get.return_value.json.return_value = {"companyNewsScore": 0.75}
+        mock_get.return_value.status_code = 200
+
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.build_queue(finnhub_api_key="test_key")
+
+    data = json.loads((cache_dir / "universe-queue.json").read_text())
+    assert "candidates" in data
+    assert "updated" in data
+    assert data["candidates"][0]["symbol"] == "AAPL"
+    assert "sentiment_score" in data["candidates"][0]
+
+
+def test_build_queue_sorts_by_sentiment():
+    """Candidates are sorted highest sentiment first."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    mock_stocks = [
+        {"Ticker": "AAPL", "Price": "175.0", "Volume": "80000000"},
+        {"Ticker": "MSFT", "Price": "420.0", "Volume": "30000000"},
+    ]
+
+    sentiment_map = {"AAPL": 0.3, "MSFT": 0.9}
+
+    def mock_get(url, *a, **kw):
+        symbol = url.split("symbol=")[1].split("&")[0]
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"companyNewsScore": sentiment_map.get(symbol, 0.5)}
+        return resp
+
+    with patch("universe_builder.Overview") as mock_overview, \
+         patch("universe_builder.requests.get", side_effect=mock_get):
+        mock_overview.return_value.screener_view.return_value = mock_stocks
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.build_queue(finnhub_api_key="test_key")
+
+    data = json.loads((cache_dir / "universe-queue.json").read_text())
+    assert data["candidates"][0]["symbol"] == "MSFT"
+
+
+def test_build_queue_works_without_finnhub_key():
+    """build_queue skips Finnhub scoring when no key provided, uses 0.5 default."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    mock_stocks = [{"Ticker": "AAPL", "Price": "175.0", "Volume": "80000000"}]
+
+    with patch("universe_builder.Overview") as mock_overview:
+        mock_overview.return_value.screener_view.return_value = mock_stocks
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.build_queue(finnhub_api_key="")
+
+    data = json.loads((cache_dir / "universe-queue.json").read_text())
+    assert data["candidates"][0]["sentiment_score"] == 0.5

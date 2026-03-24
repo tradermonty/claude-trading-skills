@@ -17,6 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import requests
+try:
+    from finvizfinance.screener.overview import Overview
+except ImportError:
+    Overview = None  # type: ignore
+
 if TYPE_CHECKING:
     pass
 
@@ -26,6 +32,13 @@ class UniverseBuilder:
 
     Inject ibkr_client in production. Pass request_delay=0 in tests.
     """
+
+    _FINVIZ_FILTERS = [
+        "ta_sma50_pa",
+        "ta_sma200_pa",
+        "sh_avgvol_o500",
+        "ta_perf3m_o5",
+    ]
 
     def __init__(self, ibkr_client, cache_dir: Path, request_delay: float = 6.0):
         self._ibkr = ibkr_client
@@ -139,6 +152,67 @@ class UniverseBuilder:
         except Exception as e:
             print(f"[universe_builder] _fetch_bars error: {e}", file=sys.stderr)
             return []
+
+    def build_queue(self, finnhub_api_key: str = "") -> list[dict]:
+        """Scrape FINVIZ for quality stocks, score by Finnhub sentiment, write universe-queue.json."""
+        if Overview is None:
+            print("[universe_builder] finvizfinance not installed — skipping queue build", file=sys.stderr)
+            return []
+
+        try:
+            fvscreen = Overview()
+            fvscreen.set_filter(filters_dict={f: True for f in self._FINVIZ_FILTERS})
+        except Exception:
+            fvscreen = Overview()
+
+        try:
+            rows = fvscreen.screener_view(columns=["Ticker", "Price", "Volume"])
+        except Exception as e:
+            print(f"[universe_builder] FINVIZ scrape failed: {e}", file=sys.stderr)
+            return []
+
+        if not rows:
+            print("[universe_builder] FINVIZ returned 0 candidates", file=sys.stderr)
+            return []
+
+        symbols = []
+        for row in rows:
+            if isinstance(row, dict):
+                ticker = row.get("Ticker") or row.get("ticker")
+            else:
+                ticker = getattr(row, "Ticker", None)
+            if ticker:
+                symbols.append(str(ticker).upper())
+
+        candidates = []
+        for symbol in symbols:
+            score = self._get_finnhub_sentiment(symbol, finnhub_api_key)
+            candidates.append({"symbol": symbol, "sentiment_score": score, "status": "pending"})
+
+        candidates.sort(key=lambda c: c["sentiment_score"], reverse=True)
+
+        output = {
+            "updated": datetime.now(timezone.utc).isoformat(),
+            "candidates": candidates,
+            "scanned_count": 0,
+        }
+        queue_file = self._cache_dir / "universe-queue.json"
+        queue_file.write_text(json.dumps(output, indent=2))
+        print(f"[universe_builder] queue built: {len(candidates)} candidates", file=sys.stderr)
+        return candidates
+
+    def _get_finnhub_sentiment(self, symbol: str, api_key: str) -> float:
+        """Fetch Finnhub news sentiment score. Returns 0.5 if unavailable."""
+        if not api_key:
+            return 0.5
+        try:
+            url = f"https://finnhub.io/api/v1/news-sentiment?symbol={symbol}&token={api_key}"
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                return float(resp.json().get("companyNewsScore", 0.5))
+        except Exception:
+            pass
+        return 0.5
 
     def build_all(self, markets: list[dict]) -> None:
         """Build universe for each non-US market in the list.
