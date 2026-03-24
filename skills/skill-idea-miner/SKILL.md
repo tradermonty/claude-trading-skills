@@ -1,18 +1,18 @@
 ---
 name: skill-idea-miner
-description: Mine Claude Code session logs for skill idea candidates. Use when running the weekly skill generation pipeline to extract, score, and backlog new skill ideas from recent coding sessions.
+description: "Mine Claude Code session logs for skill idea candidates. Use when running the weekly skill generation pipeline, analyzing coding sessions for patterns, reviewing session history, or discovering new skill opportunities to extract, score, and backlog ideas from recent sessions."
 ---
 
 # Skill Idea Miner
 
-Automatically extract skill idea candidates from Claude Code session logs,
+Extract skill idea candidates from Claude Code session logs,
 score them for novelty, feasibility, and trading value, and maintain a
 prioritized backlog for downstream skill generation.
 
 ## When to Use
 
 - Weekly automated pipeline run (Saturday 06:00 via launchd)
-- Manual backlog refresh: `python3 scripts/run_skill_generation_pipeline.py --mode weekly`
+- Manual backlog refresh
 - Dry-run to preview candidates without LLM scoring
 
 ## Workflow
@@ -29,8 +29,27 @@ prioritized backlog for downstream skill generation.
    - Repetitive tool sequences (3+ tools repeated 3+ times)
    - Automation request keywords (English and Japanese)
    - Unresolved requests (5+ minute gap after user message)
-6. Invoke Claude CLI headless for idea abstraction
+6. Invoke Claude CLI headless for idea abstraction:
+   ```bash
+   claude -p "Extract skill ideas from these session signals..." \
+     --output-format json --max-turns 1 --budget $1.00
+   ```
 7. Output `raw_candidates.yaml`
+
+**Run Stage 1:**
+
+```bash
+# Full mining run (past 7 days, all allowlist projects)
+python3 scripts/mine_session_logs.py --output-dir reports
+
+# Single project, custom lookback
+python3 scripts/mine_session_logs.py --project claude-trading-skills --lookback-days 14
+
+# Preview candidates without LLM abstraction
+python3 scripts/mine_session_logs.py --dry-run
+```
+
+**Validate:** Confirm `raw_candidates.yaml` exists and contains at least one candidate before proceeding to Stage 2.
 
 ### Stage 2: Scoring and Deduplication
 
@@ -43,7 +62,18 @@ prioritized backlog for downstream skill generation.
    - Feasibility (0-100): technical implementability
    - Trading Value (0-100): practical value for investors/traders
    - Composite = 0.3 * Novelty + 0.3 * Feasibility + 0.4 * Trading Value
-4. Merge scored candidates into `logs/.skill_generation_backlog.yaml`
+4. Merge scored candidates into backlog
+
+**Run Stage 2:**
+
+```bash
+# Score candidates against existing skills
+python3 scripts/score_ideas.py --candidates reports/skill-idea-miner/raw_candidates.yaml \
+  --project-root . --backlog reports/skill-idea-miner/idea_backlog.yaml
+
+# Preview scoring without LLM (zero scores)
+python3 scripts/score_ideas.py --dry-run
+```
 
 ## Output Format
 

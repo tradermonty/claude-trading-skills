@@ -1,17 +1,17 @@
 ---
 name: exposure-coach
-description: Generate a one-page Market Posture summary with net exposure ceiling, growth-vs-value bias, participation breadth, and new-entry-allowed vs cash-priority recommendation by integrating signals from breadth, regime, and flow analysis skills.
+description: "Use when the user asks for market positioning, portfolio allocation guidance, market outlook summary, overall market assessment, risk exposure check, or how much capital to commit. Generate a one-page Market Posture summary with net exposure ceiling, growth-vs-value bias, participation breadth, and new-entry-allowed vs cash-priority recommendation by integrating signals from breadth, regime, and flow analysis skills."
 ---
 
 # Exposure Coach
 
 ## Overview
 
-Exposure Coach synthesizes outputs from market-breadth-analyzer, uptrend-analyzer, macro-regime-detector, market-top-detector, ftd-detector, theme-detector, sector-analyst, and institutional-flow-tracker into a unified control-plane decision. The skill answers the solo trader's core question: "How much capital should I commit to equities right now?" before any individual stock analysis begins.
+Synthesize outputs from market-breadth-analyzer, uptrend-analyzer, macro-regime-detector, market-top-detector, ftd-detector, theme-detector, sector-analyst, and institutional-flow-tracker into a unified exposure decision: how much capital to commit to equities before any individual stock analysis begins.
 
 ## When to Use
 
-- Before initiating any new stock positions to determine appropriate capital commitment
+- Before initiating new stock positions to determine capital commitment
 - At the start of each trading week to calibrate portfolio exposure
 - When multiple market signals conflict and a unified posture is needed
 - After significant macro or market events to reassess exposure ceiling
@@ -28,7 +28,7 @@ Exposure Coach synthesizes outputs from market-breadth-analyzer, uptrend-analyze
 
 ### Step 1: Gather Upstream Skill Outputs
 
-Collect the most recent JSON outputs from integrated skills. Each file provides a specific signal dimension:
+Collect the most recent JSON outputs from integrated skills:
 
 | Skill | Output File Pattern | Signal Provided |
 |-------|---------------------|-----------------|
@@ -41,7 +41,16 @@ Collect the most recent JSON outputs from integrated skills. Each file provides 
 | sector-analyst | `sector_*.json` | Sector performance rankings |
 | institutional-flow-tracker | `institutional_*.json` | Net institutional buying/selling |
 
-### Step 2: Run Exposure Scoring Engine
+### Step 2: Validate Upstream Inputs
+
+Before running the scoring engine, verify input freshness and format:
+
+- Check each JSON file has a valid `generated_at` or `date` field within the last 24 hours
+- If a file is older than 24 hours, re-run the corresponding upstream skill first
+- Confirm each file parses as valid JSON with the expected top-level keys
+- Log any missing or stale inputs -- these reduce confidence but do not block execution
+
+### Step 3: Run Exposure Scoring Engine
 
 Execute the exposure scoring script with paths to upstream outputs:
 
@@ -58,9 +67,9 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
   --output-dir reports/
 ```
 
-The script accepts partial inputs; missing files reduce confidence but do not block execution.
+The script accepts partial inputs; missing files reduce confidence but do not block execution. If the script exits non-zero, check stderr for malformed input details and re-run the offending upstream skill.
 
-### Step 3: Interpret the Market Posture Summary
+### Step 4: Interpret the Market Posture Summary
 
 Review the generated posture report containing:
 
@@ -70,7 +79,7 @@ Review the generated posture report containing:
 4. **Action Recommendation** -- NEW_ENTRY_ALLOWED, REDUCE_ONLY, or CASH_PRIORITY
 5. **Confidence Level** -- HIGH, MEDIUM, or LOW based on input completeness
 
-### Step 4: Apply Exposure Guidance
+### Step 5: Apply Exposure Guidance
 
 Map the posture recommendation to portfolio actions:
 
@@ -110,8 +119,6 @@ Map the posture recommendation to portfolio actions:
 ```
 
 ### Markdown Report
-
-The markdown report provides a one-page summary suitable for quick review:
 
 ```markdown
 # Market Posture Summary

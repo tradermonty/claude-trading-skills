@@ -1,6 +1,6 @@
 ---
 name: edge-hint-extractor
-description: Extract edge hints from daily market observations and news reactions, with optional LLM ideation, and output canonical hints.yaml for downstream concept synthesis and auto detection.
+description: "Extract trading signals and edge hints from daily market observations, anomalies, and news reactions into a canonical hints.yaml file. Use when analyzing market news for investment ideas, generating trading signals from daily observations, or preparing structured hint input for downstream concept synthesis and auto detection. Supports rule-based extraction and optional LLM-augmented ideation."
 ---
 
 # Edge Hint Extractor
@@ -39,9 +39,19 @@ This skill is the first stage in the split workflow: `observe -> abstract -> des
 3. Optionally augment hints with LLM ideas via one of two methods:
    - a. `--llm-ideas-cmd` — pipe data to an external LLM CLI (subprocess).
    - b. `--llm-ideas-file PATH` — load pre-written hints from a YAML file (for Claude Code workflows where Claude generates hints itself).
-4. Pass `hints.yaml` into concept synthesis or auto detection.
+4. Validate the output file exists and contains well-formed YAML:
+   ```bash
+   python3 -c "import yaml; d=yaml.safe_load(open('reports/edge_hint_extractor/hints.yaml')); assert 'hints' in d, 'missing hints key'"
+   ```
+5. Pass `hints.yaml` into concept synthesis or auto detection.
 
 Note: `--llm-ideas-cmd` and `--llm-ideas-file` are mutually exclusive.
+
+## Error Handling
+
+- **Missing input files**: The script exits with an error if `--market-summary` or `--anomalies` files are not found. Run the upstream detector first to generate them.
+- **Malformed input**: If JSON/CSV inputs are corrupted, the script raises a parse error. Verify input files with `python3 -m json.tool <file>` before running.
+- **LLM command failures**: If `--llm-ideas-cmd` fails, the script falls back to rule-based hints only and logs a warning. Check the external CLI path and permissions.
 
 ## Quick Commands
 

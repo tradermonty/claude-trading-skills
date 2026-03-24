@@ -1,6 +1,6 @@
 ---
 name: edge-concept-synthesizer
-description: Abstract detector tickets and hints into reusable edge concepts with thesis, invalidation signals, and strategy playbooks before strategy design/export.
+description: "Use when the user wants to create trading strategies from detector tickets, synthesize market edge concepts, group signal patterns into reusable templates, or prepare structured edge definitions before strategy design. Clusters raw detector tickets and optional hints into deduplicated edge concepts with thesis statements, invalidation signals, and export-readiness flags, outputting edge_concepts.yaml."
 ---
 
 # Edge Concept Synthesizer
@@ -12,9 +12,10 @@ This skill clusters ticket evidence, summarizes recurring conditions, and output
 
 ## When to Use
 
-- You have many raw tickets and need mechanism-level structure.
-- You want to avoid direct ticket-to-strategy overfitting.
-- You need concept-level review before strategy drafting.
+- You have many raw detector tickets and want to group them into reusable trading edge definitions.
+- You want to synthesize market signals into structured concept templates before drafting strategies.
+- You need to avoid direct ticket-to-strategy overfitting by adding a concept-level review step.
+- You are building or refining an edge research pipeline and need concept clustering.
 
 ## Prerequisites
 
@@ -37,8 +38,10 @@ This skill clusters ticket evidence, summarizes recurring conditions, and output
 1. Collect ticket YAML files from auto-detection output.
 2. Optionally provide `hints.yaml` for context matching.
 3. Run `scripts/synthesize_edge_concepts.py`.
-4. Deduplicate concepts: merge same-hypothesis concepts with overlapping conditions (containment > threshold).
-5. Review concepts and promote only high-support concepts into strategy drafting.
+4. **Validate output:** Verify `edge_concepts.yaml` contains expected concept clusters, each with a non-empty `thesis` field and at least one invalidation signal. If any cluster has zero ticket support, investigate missing or malformed input tickets.
+5. Deduplicate concepts: merge same-hypothesis concepts with overlapping conditions (containment > threshold).
+6. **Error recovery:** If synthesis fails due to malformed YAML input, validate ticket files with `python3 -c "import yaml; yaml.safe_load(open('ticket.yaml'))"`. If insufficient ticket support produces empty output, lower `--min-ticket-support` or add `--promote-hints`.
+7. Review concepts and promote only high-support concepts into strategy drafting.
 
 ## Quick Commands
 

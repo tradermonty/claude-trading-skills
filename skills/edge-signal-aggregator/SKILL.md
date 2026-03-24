@@ -1,20 +1,20 @@
 ---
 name: edge-signal-aggregator
-description: Aggregate and rank signals from multiple edge-finding skills (edge-candidate-agent, theme-detector, sector-analyst, institutional-flow-tracker) into a prioritized conviction dashboard with weighted scoring, deduplication, and contradiction detection.
+description: "Aggregate and rank signals from multiple edge-finding skills (edge-candidate-agent, theme-detector, sector-analyst, institutional-flow-tracker) into a prioritized conviction dashboard with weighted scoring, deduplication, and contradiction detection. Use when the user wants to combine edge signals, prioritize trading opportunities, see a summary of all detected edges, rank top opportunities, or review signal consensus and conflicts across analysis skills."
 ---
 
 # Edge Signal Aggregator
 
 ## Overview
 
-Combine outputs from multiple upstream edge-finding skills into a single weighted conviction dashboard. This skill applies configurable signal weights, deduplicates overlapping themes, flags contradictions between skills, and ranks composite edge ideas by aggregate confidence score. The result is a prioritized edge shortlist with provenance links to each contributing skill.
+Combine outputs from multiple upstream edge-finding skills into a single weighted conviction dashboard. Apply configurable signal weights, deduplicate overlapping themes, flag contradictions, and rank composite edge ideas by aggregate confidence score. The result is a prioritized edge shortlist with provenance links to each contributing skill.
 
 ## When to Use
 
-- After running multiple edge-finding skills and wanting a unified view
+- After running multiple edge-finding skills and needing a unified ranked view
 - When consolidating signals from edge-candidate-agent, theme-detector, sector-analyst, and institutional-flow-tracker
-- Before making portfolio allocation decisions based on multiple signal sources
-- To identify contradictions between different analysis approaches
+- Before portfolio allocation decisions requiring multi-source signal consensus
+- To surface contradictions between different analysis approaches
 - When prioritizing which edge ideas deserve deeper research
 
 ## Prerequisites
@@ -34,6 +34,8 @@ Collect output files from the upstream skills you want to aggregate:
 - `reports/sector_analyst_*.json` from sector-analyst
 - `reports/institutional_flow_*.json` from institutional-flow-tracker
 - `reports/edge_hints_*.yaml` from edge-hint-extractor
+
+**Validation:** Before proceeding, verify that at least one upstream output file exists and contains valid JSON/YAML. If files are missing or malformed, re-run the relevant upstream skill first.
 
 ### Step 2: Run Signal Aggregation
 
@@ -80,128 +82,43 @@ python3 skills/edge-signal-aggregator/scripts/aggregate_signals.py \
 
 ## Output Format
 
-### JSON Report
+The aggregator produces both JSON and markdown reports saved to `reports/` as `edge_signal_aggregator_YYYY-MM-DD_HHMMSS.{json,md}`.
+
+### JSON Report Structure
+
+Each report contains four top-level sections:
+
+- **`summary`** -- Total input signals, unique count after dedup, contradictions found, signals above threshold
+- **`ranked_signals`** -- Sorted by composite conviction score, each entry includes:
 
 ```json
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-03-02T07:00:00Z",
-  "config": {
-    "weights": {
-      "edge_candidate_agent": 0.25,
-      "edge_concept_synthesizer": 0.20,
-      "theme_detector": 0.15,
-      "sector_analyst": 0.15,
-      "institutional_flow_tracker": 0.15,
-      "edge_hint_extractor": 0.10
-    },
-    "min_conviction": 0.5,
-    "dedup_similarity_threshold": 0.8
-  },
-  "summary": {
-    "total_input_signals": 42,
-    "unique_signals_after_dedup": 28,
-    "contradictions_found": 3,
-    "signals_above_threshold": 12
-  },
-  "ranked_signals": [
-    {
-      "rank": 1,
-      "signal_id": "sig_001",
-      "title": "AI Infrastructure Capex Acceleration",
-      "composite_score": 0.87,
-      "contributing_skills": [
-        {
-          "skill": "edge_candidate_agent",
-          "signal_ref": "ticket_2026-03-01_001",
-          "raw_score": 0.92,
-          "weighted_contribution": 0.23
-        },
-        {
-          "skill": "theme_detector",
-          "signal_ref": "theme_ai_infra",
-          "raw_score": 0.85,
-          "weighted_contribution": 0.13
-        }
-      ],
-      "tickers": ["NVDA", "AMD", "AVGO"],
-      "direction": "LONG",
-      "time_horizon": "3-6 months",
-      "confidence_breakdown": {
-        "multi_skill_agreement": 0.30,
-        "signal_strength": 0.35,
-        "recency": 0.22
-      }
-    }
+  "rank": 1,
+  "signal_id": "sig_001",
+  "title": "AI Infrastructure Capex Acceleration",
+  "composite_score": 0.87,
+  "contributing_skills": [
+    {"skill": "edge_candidate_agent", "signal_ref": "ticket_2026-03-01_001", "raw_score": 0.92, "weighted_contribution": 0.23}
   ],
-  "contradictions": [
-    {
-      "contradiction_id": "contra_001",
-      "description": "Conflicting sector view on Energy",
-      "skill_a": {
-        "skill": "sector_analyst",
-        "signal": "Energy sector bearish rotation",
-        "direction": "SHORT"
-      },
-      "skill_b": {
-        "skill": "institutional_flow_tracker",
-        "signal": "Heavy institutional buying in XLE",
-        "direction": "LONG"
-      },
-      "resolution_hint": "Check timeframe mismatch (short-term vs long-term)"
-    }
-  ],
-  "deduplication_log": [
-    {
-      "merged_into": "sig_001",
-      "duplicates_removed": ["theme_detector:ai_compute", "edge_hints:datacenter_demand"],
-      "similarity_score": 0.92
-    }
-  ]
+  "tickers": ["NVDA", "AMD", "AVGO"],
+  "direction": "LONG",
+  "time_horizon": "3-6 months",
+  "confidence_breakdown": {"multi_skill_agreement": 0.30, "signal_strength": 0.35, "recency": 0.22}
 }
 ```
 
+- **`contradictions`** -- Conflicting signals between skills, each with a `resolution_hint` (e.g., timeframe mismatch)
+- **`deduplication_log`** -- Merged signals with similarity scores and source references
+
 ### Markdown Report
 
-The markdown report provides a human-readable dashboard:
+Human-readable dashboard with ranked edge ideas, contradiction flags, and dedup summary. See a generated example in `reports/` after running the aggregator.
 
-```markdown
-# Edge Signal Aggregator Dashboard
-**Generated:** 2026-03-02 07:00 UTC
+## Error Handling
 
-## Summary
-- Total Input Signals: 42
-- Unique After Dedup: 28
-- Contradictions: 3
-- High Conviction (>0.7): 12
-
-## Top 10 Edge Ideas by Conviction
-
-### 1. AI Infrastructure Capex Acceleration (Score: 0.87)
-- **Tickers:** NVDA, AMD, AVGO
-- **Direction:** LONG | **Horizon:** 3-6 months
-- **Contributing Skills:**
-  - edge-candidate-agent: 0.92 (ticket_2026-03-01_001)
-  - theme-detector: 0.85 (theme_ai_infra)
-- **Confidence Breakdown:** Agreement 0.30 | Strength 0.35 | Recency 0.22
-
-...
-
-## Contradictions Requiring Review
-
-### Energy Sector Conflict
-- **sector-analyst:** Bearish rotation (SHORT)
-- **institutional-flow-tracker:** Heavy buying XLE (LONG)
-- **Hint:** Check timeframe mismatch
-
-## Deduplication Summary
-- 14 signals merged into 8 unique themes
-- Average similarity of merged signals: 0.89
-```
-
-Reports are saved to `reports/` with filenames:
-- `edge_signal_aggregator_YYYY-MM-DD_HHMMSS.json`
-- `edge_signal_aggregator_YYYY-MM-DD_HHMMSS.md`
+- **Missing input files:** The aggregator skips missing upstream outputs and logs a warning. Ensure at least one valid input file is provided.
+- **Malformed JSON/YAML:** Invalid files are skipped with an error logged to stderr. Re-run the upstream skill to regenerate.
+- **No signals above threshold:** If `--min-conviction` filters out all signals, the report will contain an empty `ranked_signals` array. Lower the threshold or review upstream signal quality.
 
 ## Resources
 

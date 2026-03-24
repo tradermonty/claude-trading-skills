@@ -1,6 +1,6 @@
 ---
 name: sector-analyst
-description: This skill should be used when analyzing sector rotation patterns and market cycle positioning. It fetches sector uptrend data from CSV (no API key required) and optionally accepts chart images for supplementary analysis. Use this skill when the user requests sector rotation analysis, cyclical vs defensive assessment, overbought/oversold identification, or market cycle phase estimation. All analysis and output are conducted in English.
+description: "Analyzes sector rotation patterns and market cycle positioning by fetching uptrend ratio data from CSV, ranking sectors by strength, calculating cyclical vs defensive risk regime scores, identifying overbought/oversold conditions, and estimating the current market cycle phase. Optionally accepts chart images for industry-level supplementary analysis. No API key required. Use this skill when the user requests sector rotation analysis, cyclical vs defensive assessment, sector strength rankings, overbought/oversold identification, rotation opportunity screening, or market cycle phase estimation."
 ---
 
 # Sector Analyst
@@ -11,20 +11,13 @@ This skill enables comprehensive analysis of sector rotation and market cycle po
 
 ## When to Use This Skill
 
-Use this skill when:
-- User requests sector rotation analysis (no chart images required)
-- User asks about cyclical vs defensive positioning
-- User wants to know which sectors are overbought or oversold
-- User requests market cycle phase estimation
-- User provides sector performance charts for supplementary analysis
-- User asks for sector-based scenario analysis or predictions
-
-Example user requests:
-- "Run a sector rotation analysis"
-- "Which sectors are leading — cyclical or defensive?"
-- "Are any sectors overbought right now?"
-- "What phase of the market cycle are we in?"
-- "Analyze these sector performance charts and tell me where we are in the market cycle"
+Use this skill when the user:
+- Requests sector rotation analysis or sector strength rankings
+- Asks about cyclical vs defensive positioning
+- Wants to identify overbought or oversold sectors
+- Requests market cycle phase estimation
+- Provides sector performance charts for supplementary analysis
+- Asks for sector-based scenario analysis or predictions
 
 ## Data Source
 
@@ -57,7 +50,10 @@ Follow this structured workflow:
    - Risk regime (cyclical vs defensive) and score
    - Overbought/oversold sectors
    - Cycle phase estimate and confidence level
-3. If a data freshness warning appears, note it in the analysis
+3. **Validation checkpoint**:
+   - If the script fails or returns an error, report the error to the user and stop
+   - If data is more than 3 days old, warn the user and proceed with a staleness caveat in the report
+   - If fewer than 5 sectors have data, flag incomplete coverage before continuing
 
 ### Step 2: Market Cycle Assessment
 
@@ -120,64 +116,30 @@ Use this structure:
 # Sector Performance Analysis - [Date]
 
 ## Executive Summary
-
 [2-3 sentences summarizing key findings]
 
 ## Current Situation
-
-### Market Cycle Assessment
-[Which cycle phase and why]
-
-### Performance Patterns Observed
-
-#### 1-Week Performance
-[Analysis of recent performance]
-
-#### 1-Month Performance
-[Analysis of medium-term trends]
-
-#### Sector-Level Analysis
-[Detailed breakdown by sector]
-
-#### Industry-Level Analysis
-[Notable industry-specific observations]
+- Market Cycle Assessment: cycle phase and supporting rationale
+- Performance Patterns: 1-week vs 1-month trends, sector-level and industry-level breakdowns
 
 ## Supporting Evidence
-
-### Confirming Signals
-- [List data points supporting cycle assessment]
-
-### Contradictory Signals
-- [List any conflicting indicators]
+- Confirming Signals: data points supporting cycle assessment
+- Contradictory Signals: any conflicting indicators
 
 ## Scenario Analysis
-
-### Scenario 1: [Name] (Probability: XX%)
-**Description**: [What happens]
-**Outperformers**: [Sectors/industries]
-**Underperformers**: [Sectors/industries]
-**Catalysts**: [What would confirm this scenario]
-
-### Scenario 2: [Name] (Probability: XX%)
-[Repeat structure]
-
-[Additional scenarios as appropriate]
+For each scenario (2-4 total):
+- **Scenario N: [Name] (Probability: XX%)**
+- Description, Outperformers, Underperformers, Catalysts
 
 ## Recommended Positioning
-
-### Strategic Positioning (Medium-term)
-[Sector allocation recommendations]
-
-### Tactical Positioning (Short-term)
-[Specific adjustments or opportunities]
+- Strategic (medium-term): sector allocation recommendations
+- Tactical (short-term): specific adjustments or opportunities
 
 ## Key Risks and Monitoring Points
-
 [What to watch that could invalidate the analysis]
 
 ---
-*Analysis Date: [Date]*
-*Data Period: [Timeframe of charts analyzed]*
+*Analysis Date: [Date] | Data Period: [Timeframe]*
 ```
 
 ## Key Analysis Principles

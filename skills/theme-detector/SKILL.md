@@ -1,52 +1,25 @@
 ---
 name: theme-detector
-description: Detect and analyze trending market themes across sectors. Use when user asks about current market themes, trending sectors, sector rotation, thematic investing, what themes are hot or cold, or wants to identify bullish and bearish market narratives with lifecycle analysis.
+description: "Detect and analyze trending market themes across sectors, generate theme lifecycle reports, and track sector momentum and rotation patterns. Use when user asks about current market themes, trending sectors, sector rotation, thematic investing, what themes are hot or cold, or wants to identify bullish and bearish market narratives with lifecycle analysis."
 ---
 
 # Theme Detector
 
 ## Overview
 
-This skill detects and ranks trending market themes by analyzing cross-sector momentum, volume, and breadth signals. It identifies both bullish (upward momentum) and bearish (downward pressure) themes, assesses lifecycle maturity (Emerging/Accelerating/Trending/Mature/Exhausting), and provides a confidence score combining quantitative data with narrative analysis.
-
-**3-Dimensional Scoring Model:**
-1. **Theme Heat** (0-100): Direction-neutral strength of the theme (momentum, volume, uptrend ratio, breadth)
-2. **Lifecycle Maturity**: Stage classification (Emerging / Accelerating / Trending / Mature / Exhausting) based on duration, extremity clustering, valuation, and ETF proliferation
-3. **Confidence** (Low / Medium / High): Reliability of the detection, combining quantitative breadth with narrative confirmation. Script output is capped at Medium; Claude's WebSearch narrative confirmation step can elevate to High.
-
-**Key Features:**
-- Cross-sector theme detection using FINVIZ industry data
-- Direction-aware scoring (bullish and bearish themes)
-- Lifecycle maturity assessment to identify crowded vs. emerging trades
-- ETF proliferation scoring (more ETFs = more mature/crowded theme)
-- Integration with uptrend-dashboard for 3-point evaluation
-- Dual-mode operation: FINVIZ Elite (fast) or public scraping (slower, limited)
-- WebSearch-based narrative confirmation for top themes
+This skill detects and ranks trending market themes by analyzing cross-sector momentum, volume, and breadth signals. It identifies both bullish and bearish themes, assesses lifecycle maturity (Emerging/Accelerating/Trending/Mature/Exhausting), and provides a confidence score combining quantitative data with narrative analysis. Operates in dual mode: FINVIZ Elite (fast, full coverage) or public scraping (free, rate-limited). See `references/theme_detection_methodology.md` for the full 3-Dimensional Scoring Model (Theme Heat, Lifecycle Maturity, Confidence).
 
 ---
 
 ## When to Use This Skill
 
-**Explicit Triggers:**
-- "What market themes are trending right now?"
-- "Which sectors are hot/cold?"
-- "Detect current market themes"
-- "What are the strongest bullish/bearish narratives?"
-- "Is AI/clean energy/defense still a strong theme?"
-- "Where is sector rotation heading?"
-- "Show me thematic investing opportunities"
-
-**Implicit Triggers:**
-- User wants to understand broad market narrative shifts
-- User is looking for thematic ETF or sector allocation ideas
-- User asks about crowded trades or late-cycle themes
-- User wants to know which themes are emerging vs. exhausted
+**Triggers:** User asks about trending market themes, hot/cold sectors, sector rotation, thematic investing opportunities, bullish/bearish narratives, crowded vs. emerging trades, or theme lifecycle status (e.g., "Is AI still a strong theme?").
 
 **When NOT to Use:**
-- Individual stock analysis (use us-stock-analysis instead)
-- Specific sector deep-dive with chart reading (use sector-analyst instead)
-- Portfolio rebalancing (use portfolio-manager instead)
-- Dividend/income investing (use value-dividend-screener instead)
+- Individual stock analysis (use us-stock-analysis)
+- Sector deep-dive with chart reading (use sector-analyst)
+- Portfolio rebalancing (use portfolio-manager)
+- Dividend/income investing (use value-dividend-screener)
 
 ---
 

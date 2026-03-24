@@ -1,6 +1,6 @@
 ---
 name: edge-pipeline-orchestrator
-description: Orchestrate the full edge research pipeline from candidate detection through strategy design, review, revision, and export. Use when coordinating multi-stage edge research workflows end-to-end.
+description: "Run the full edge pipeline to detect trading edge candidates, extract hints, synthesize concepts, design strategy drafts, review and revise them, and export final strategies. Use when you need to run edge pipeline, execute edge research end-to-end, generate strategy drafts from tickets or OHLCV data, resume a pipeline from drafts, or review and export edge strategies."
 ---
 
 # Edge Pipeline Orchestrator

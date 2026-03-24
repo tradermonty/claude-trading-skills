@@ -7,42 +7,13 @@ description: Quantifies market breadth health using TraderMonty's public CSV dat
 
 ## Purpose
 
-Quantify market breadth health using a data-driven 6-component scoring system (0-100). Uses TraderMonty's publicly available CSV data to measure how broadly the market is participating in a rally or decline.
-
 **Score direction:** 100 = Maximum health (broad participation), 0 = Critical weakness.
-
-**No API key required** - uses freely available CSV data from GitHub Pages.
-
-## When to Use This Skill
-
-**English:**
-- User asks "Is the market rally broad-based?" or "How healthy is market breadth?"
-- User wants to assess market participation rate
-- User asks about advance-decline indicators or breadth thrust
-- User wants to know if the market is narrowing (fewer stocks participating)
-- User asks about equity exposure levels based on breadth conditions
-
-**Japanese:**
-- 「マーケットブレッドスはどうですか？」「市場の参加率は？」
-- 「上昇は広がっている？」「一部の銘柄だけの上昇？」
-- ブレッドス指標に基づくエクスポージャー判断
-- 市場の健康度をデータで確認したい
 
 ## Prerequisites
 
 - **Python 3.8+** with `requests` library (for fetching CSV data)
 - **Internet access** to reach GitHub Pages URLs
 - **No API keys required** - uses freely available public CSV data
-
-## Difference from Breadth Chart Analyst
-
-| Aspect | Market Breadth Analyzer | Breadth Chart Analyst |
-|--------|------------------------|----------------------|
-| Data Source | CSV (automated) | Chart images (manual) |
-| API Required | None | None |
-| Output | Quantitative 0-100 score | Qualitative chart analysis |
-| Components | 6 scored dimensions | Visual pattern recognition |
-| Repeatability | Fully reproducible | Analyst-dependent |
 
 ---
 
@@ -66,6 +37,13 @@ The script will:
 5. Track score history and compute trend (improving/deteriorating/stable)
 6. Output JSON and Markdown reports
 
+### Error Handling
+
+- **CSV fetch fails** (network error, 404): Inform the user the data source is unreachable. Suggest retrying later or checking if GitHub Pages URLs have changed.
+- **Data too stale** (> 5 days old): The script warns automatically. Surface this warning prominently and advise the user that scores may not reflect current conditions.
+- **Script returns non-zero exit code**: Display the stderr output to the user and do not present partial results as valid.
+- **Missing component data**: The script auto-redistributes weights. Note which components were excluded and why in the results summary.
+
 ### Phase 2: Present Results
 
 Present the generated Markdown report to the user, highlighting:
@@ -73,7 +51,7 @@ Present the generated Markdown report to the user, highlighting:
 - Strongest and weakest components
 - Recommended equity exposure level
 - Key breadth levels to watch
-- Any data freshness warnings
+- Any data freshness warnings or excluded components
 
 ---
 

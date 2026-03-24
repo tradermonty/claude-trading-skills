@@ -1,6 +1,6 @@
 ---
 name: strategy-pivot-designer
-description: Detect backtest iteration stagnation and generate structurally different strategy pivot proposals when parameter tuning reaches a local optimum.
+description: "Detect backtest iteration stagnation and generate structurally different strategy pivot proposals when parameter tuning reaches a local optimum. Use when backtest results plateau, optimization is stuck or not improving, the user mentions diminishing returns, or wants to try a fundamentally different strategy approach after repeated tuning attempts."
 ---
 
 # Strategy Pivot Designer
@@ -36,11 +36,13 @@ Detect when a strategy's backtest iteration loop has stalled and propose structu
 
 1. Accumulate backtest evaluation results into an iteration history file using `--append-eval`.
 2. Run stagnation detection on the history to identify triggers (plateau, overfitting, cost defeat, tail risk).
-3. If stagnation detected, generate pivot proposals using three techniques: assumption inversion, archetype switch, objective reframe.
-4. Review ranked proposals (scored by quality potential + novelty).
-5. For exportable proposals, ticket YAML is ready for edge-candidate-agent pipeline.
-6. For research_only proposals, manual strategy design needed before pipeline integration.
-7. Feed the selected pivot draft back into backtest-expert for the next iteration cycle.
+3. **Validate diagnosis output** — confirm `pivot_diagnosis_*.json` contains at least one trigger before proceeding. If no triggers fire, the strategy may still have room for parameter tuning.
+4. If stagnation detected, generate pivot proposals using three techniques: assumption inversion, archetype switch, objective reframe.
+5. **Validate pivot proposal schema** — verify each generated YAML in `pivot_drafts/` matches the expected `strategy_draft` schema (see `references/pivot_proposal_schema.md`). If validation fails, review diagnosis triggers and regenerate with adjusted parameters.
+6. Review ranked proposals (scored by quality potential + novelty).
+7. For exportable proposals, ticket YAML is ready for edge-candidate-agent pipeline.
+8. For research_only proposals, manual strategy design needed before pipeline integration.
+9. Feed the selected pivot draft back into backtest-expert for the next iteration cycle.
 
 ## Quick Commands
 

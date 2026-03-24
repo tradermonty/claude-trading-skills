@@ -1,20 +1,20 @@
 ---
 name: edge-strategy-designer
-description: Convert abstract edge concepts into strategy draft variants and optional exportable ticket YAMLs for edge-candidate-agent export/validation.
+description: "Design trading strategy drafts from edge concepts. Use when generating strategy candidates from edge_concepts.yaml, creating strategy YAML drafts with risk profiles, exporting ticket files for edge-candidate-agent, or converting edge hypotheses (breakout, earnings drift, panic reversal) into actionable strategy specs with stop-loss and reward-to-risk parameters."
 ---
 
 # Edge Strategy Designer
 
 ## Overview
 
-Translate concept-level hypotheses into concrete strategy draft specs.
-This skill sits after concept synthesis and before pipeline export validation.
+Translate concept-level trading hypotheses from `edge_concepts.yaml` into concrete strategy draft YAML specs with per-hypothesis exit calibration. This skill sits after concept synthesis and before pipeline export validation.
 
 ## When to Use
 
-- You have `edge_concepts.yaml` and need strategy candidates.
-- You want multiple variants (core/conservative/research-probe) per concept.
-- You want optional exportable ticket files for interface v1 families.
+- You have `edge_concepts.yaml` and need strategy draft candidates.
+- You want multiple risk-profile variants (core, conservative, research-probe) per concept.
+- You need exportable ticket YAML files for the edge-candidate-agent pipeline.
+- You are running the edge research pipeline and need to convert concepts into reviewable strategy drafts.
 
 ## Prerequisites
 
@@ -24,8 +24,8 @@ This skill sits after concept synthesis and before pipeline export validation.
 
 ## Output
 
-- `strategy_drafts/*.yaml`
-- `strategy_drafts/run_manifest.json`
+- `strategy_drafts/*.yaml` -- one draft per concept-variant combination
+- `strategy_drafts/run_manifest.json` -- summary of generated drafts
 - Optional `exportable_tickets/*.yaml` for downstream `export_candidate.py`
 
 ## Workflow
@@ -35,8 +35,9 @@ This skill sits after concept synthesis and before pipeline export validation.
 3. Generate per-concept variants with hypothesis-type exit calibration.
 4. Apply `HYPOTHESIS_EXIT_OVERRIDES` to adjust stop-loss, reward-to-risk, time-stop, and trailing-stop per hypothesis type (breakout, earnings_drift, panic_reversal, etc.).
 5. Clamp reward-to-risk at `RR_FLOOR=1.5` to prevent C5 review failures.
-6. Export v1-ready ticket YAML when applicable.
-7. Hand off exportable tickets to `skills/edge-candidate-agent/scripts/export_candidate.py`.
+6. Validate generated drafts exist and contain required fields before proceeding.
+7. Export v1-ready ticket YAML when applicable.
+8. Hand off exportable tickets to `skills/edge-candidate-agent/scripts/export_candidate.py`.
 
 ## Quick Commands
 

@@ -13,19 +13,11 @@ Unlike the Market Top Detector (API-based risk scorer), this skill uses free CSV
 
 ## When to Use This Skill
 
-**English:**
 - User asks "Is the market breadth healthy?" or "How broad is the rally?"
 - User wants to assess uptrend ratios across sectors
 - User asks about market participation or breadth conditions
 - User needs exposure guidance based on breadth analysis
 - User references Monty's Uptrend Dashboard or uptrend ratios
-
-**Japanese:**
-- 「市場のブレドスは健全？」「上昇の裾野は広い？」
-- セクター別のアップトレンド比率を確認したい
-- 相場参加率・ブレドス状況を診断したい
-- ブレドス分析に基づくエクスポージャーガイダンスが欲しい
-- Montyのアップトレンドダッシュボードについて質問
 
 ## Difference from Market Top Detector
 
@@ -35,7 +27,6 @@ Unlike the Market Top Detector (API-based risk scorer), this skill uses free CSV
 | Data Source | Free GitHub CSV | FMP API (paid) |
 | Focus | Breadth participation | Top formation risk |
 | API Key | Not required | Required (FMP) |
-| Methodology | Monty Uptrend Ratios | O'Neil/Minervini/Monty |
 
 ---
 
@@ -53,6 +44,11 @@ The script will:
 1. Download CSV data from Monty's GitHub repository
 2. Calculate 5 component scores
 3. Generate composite score and reports
+
+**Error handling:**
+- If CSV download fails (network error or 404), report the failure to the user and suggest retrying later or checking the GitHub repository URL.
+- If the script exits with a non-zero code, read stderr output and present the error clearly.
+- Before presenting results, verify that both output files (JSON and Markdown) were created and are non-empty.
 
 ### Phase 2: Present Results
 
@@ -83,20 +79,6 @@ Present the generated Markdown report to the user, highlighting:
 | 40-59 | Neutral | Reduced Exposure (60-80%) |
 | 20-39 | Cautious | Defensive (30-60%) |
 | 0-19 | Bear | Capital Preservation (0-30%) |
-
-### 7-Level Zone Detail
-
-Each scoring zone is further divided into sub-zones for finer-grained assessment:
-
-| Score | Zone Detail | Color |
-|-------|-------------|-------|
-| 80-100 | Strong Bull | Green |
-| 70-79 | Bull-Upper | Light Green |
-| 60-69 | Bull-Lower | Light Green |
-| 40-59 | Neutral | Yellow |
-| 30-39 | Cautious-Upper | Orange |
-| 20-29 | Cautious-Lower | Orange |
-| 0-19 | Bear | Red |
 
 ### Warning System
 

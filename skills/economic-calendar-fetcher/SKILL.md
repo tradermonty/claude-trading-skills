@@ -1,57 +1,30 @@
 ---
 name: economic-calendar-fetcher
-description: "Fetch upcoming economic events and data releases using FMP API. Retrieve scheduled central bank decisions, employment reports, inflation data, GDP releases, and other market-moving economic indicators for specified date ranges (default: next 7 days). The script outputs raw JSON or text; the assistant filters, assesses impact, and generates the Markdown report."
+description: "Fetch upcoming economic events and data releases using FMP API. Retrieve scheduled central bank decisions, employment reports, inflation data, GDP releases, and other market-moving economic indicators for specified date ranges (default: next 7 days). Use when the user asks about the economic calendar, upcoming fed meetings, FOMC decisions, jobs report, CPI release, NFP, market-moving events this week, or scheduled data releases. The script outputs raw JSON or text; the assistant filters, assesses impact, and generates the Markdown report."
 ---
 
 # Economic Calendar Fetcher
 
 ## Overview
 
-Retrieve upcoming economic events and data releases from the Financial Modeling Prep (FMP) Economic Calendar API. This skill fetches scheduled economic indicators including central bank monetary policy decisions, employment reports, inflation data (CPI/PPI), GDP releases, retail sales, manufacturing data, and other market-moving events that impact financial markets.
-
-The skill uses a Python script to query the FMP API and returns raw JSON or text output. The assistant then filters events, assesses market impact, and generates a chronological Markdown report for each scheduled event. No files are generated automatically.
+Retrieve upcoming economic events and data releases from the Financial Modeling Prep (FMP) Economic Calendar API. The Python script queries the API and returns raw JSON or text; the assistant filters events, assesses market impact, and generates a chronological Markdown report. No files are generated automatically.
 
 **Key Capabilities:**
-- Fetch economic events for specified date ranges (max 90 days)
-- Support flexible API key provision (environment variable or CLI argument)
-- Filter by impact level, country, or event type (filtering performed by the assistant)
-- Present filtered results as structured Markdown reports with impact analysis (assistant-generated, not script-generated)
-- Default to next 7 days for quick market outlook
+- Fetch economic events for specified date ranges (max 90 days, default: next 7 days)
+- Flexible API key provision (environment variable or CLI argument)
+- Filter by impact level, country, or event type (assistant-side filtering)
+- Generate structured Markdown reports with impact analysis
 
-**Data Source:**
-- FMP Economic Calendar API: `https://financialmodelingprep.com/api/v3/economic_calendar`
-- Covers major economies: US, EU, UK, Japan, China, Canada, Australia
-- Event types: Central bank decisions, employment, inflation, GDP, trade, housing, surveys
+**Data Source:** FMP Economic Calendar API (`https://financialmodelingprep.com/api/v3/economic_calendar`) covering major economies (US, EU, UK, Japan, China, Canada, Australia).
 
 ## When to Use This Skill
 
-Use this skill when the user requests:
+Use this skill when the user asks about upcoming economic events, the economic calendar, fed meetings, jobs reports, CPI releases, or market-moving data for a date range. Examples:
+- "What economic events are coming up this week?" / "When is the next FOMC meeting?"
+- "Show me high-impact US economic releases for the next two weeks"
+- "Get economic events from January 1 to January 31"
 
-1. **Economic Calendar Queries:**
-   - "What economic events are coming up this week?"
-   - "Show me the economic calendar for the next two weeks"
-   - "When is the next FOMC meeting?"
-   - "What major economic data is being released next month?"
-
-2. **Market Event Planning:**
-   - "What should I watch for in the markets this week?"
-   - "Are there any high-impact economic releases coming?"
-   - "When is the next jobs report / CPI release / GDP report?"
-
-3. **Specific Date Range Requests:**
-   - "Get economic events from January 1 to January 31"
-   - "What's on the economic calendar for Q1 2025?"
-
-4. **Country-Specific Queries:**
-   - "Show me US economic data releases next week"
-   - "What ECB events are scheduled?"
-   - "When is Japan releasing their inflation data?"
-
-**DO NOT use this skill for:**
-- Past economic events (use market-news-analyst for historical analysis)
-- Corporate earnings calendars (this skill excludes earnings)
-- Real-time market data or live quotes
-- Technical analysis or chart interpretation
+**DO NOT use this skill for:** past economic events (use market-news-analyst), corporate earnings calendars, real-time market data, or technical analysis.
 
 ## Prerequisites
 

@@ -1,30 +1,21 @@
 ---
 name: dividend-growth-pullback-screener
-description: Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1.5%+ yield) that are experiencing temporary pullbacks, identified by RSI oversold conditions (RSI ≤40). This skill combines fundamental dividend analysis with technical timing indicators to identify buying opportunities in strong dividend growers during short-term weakness.
+description: "Use when the user asks about dividend stocks to buy, income investing opportunities, undervalued dividend payers, dividend aristocrats on sale, passive income stocks, DGI strategies, or finding dividend growth stocks during pullbacks. Finds high-quality dividend growth stocks (12%+ annual dividend growth, 1.5%+ yield) experiencing temporary pullbacks via RSI oversold conditions (RSI ≤40). Combines fundamental dividend analysis with technical timing indicators to identify buying opportunities in strong dividend growers during short-term weakness."
 ---
 
 # Dividend Growth Pullback Screener
 
 ## Overview
 
-This skill screens for dividend growth stocks that exhibit strong fundamental characteristics but are experiencing temporary technical weakness. It targets stocks with exceptional dividend growth rates (12%+ CAGR) that have pulled back to RSI oversold levels (≤40), creating potential entry opportunities for long-term dividend growth investors.
+Screens for dividend growth stocks with strong fundamentals but temporary technical weakness — exceptional dividend growth rates (12%+ CAGR) pulled back to RSI oversold levels (≤40), creating entry opportunities for long-term dividend growth investors.
 
-**Investment Thesis:** High-quality dividend growth stocks (often yielding 1-2.5%) compound wealth through dividend increases rather than high current yield. Buying these stocks during temporary pullbacks (RSI ≤40) can enhance total returns by combining strong fundamental growth with favorable technical entry timing.
+## When to Use
 
-## When to Use This Skill
+- Dividend growth stocks with 12%+ dividend CAGR during pullbacks
+- Entry opportunities in quality names during market weakness or sector rotations
+- Total return focus over 5-10 years, accepting lower current yields (1.5-3%)
 
-Use this skill when:
-- Looking for dividend growth stocks with exceptional compounding potential (12%+ dividend CAGR)
-- Seeking entry opportunities in quality stocks during temporary market weakness
-- Willing to accept lower current yields (1.5-3%) for higher dividend growth
-- Focusing on total return over 5-10 years rather than current income
-- Market conditions show sector rotations or broad pullbacks affecting quality names
-
-**Do NOT use when:**
-- Seeking high current income (use value-dividend-screener instead)
-- Requiring immediate dividend yields >3%
-- Looking for deep value plays with strict P/E or P/B requirements
-- Short-term trading focus (<6 months)
+**Do NOT use for:** high current income needs (use value-dividend-screener), yields >3%, deep value plays, or short-term trading (<6 months)
 
 ## Screening Workflow
 
@@ -190,28 +181,6 @@ Stocks ranked by composite score. Top scorers combine exceptional dividend growt
 - Lowest risk of further decline
 - Recommended: Conservative entry for high conviction stocks
 - Entry: Full position, tight stop loss 3-5% below
-
-### Dividend Growth Compounding Examples
-
-**12% Dividend CAGR (Minimum Threshold):**
-- Starting Yield: 1.5%
-- Year 6: 2.96% yield on cost (doubled)
-- Year 12: 5.85% yield on cost (4x)
-- Example: Visa (V), Mastercard (MA) historical profile
-
-**15% Dividend CAGR (Excellent):**
-- Starting Yield: 1.8%
-- Year 6: 4.08% yield on cost (2.3x)
-- Year 12: 9.22% yield on cost (5.1x)
-- Example: Microsoft (MSFT) 2010-2020 period
-
-**20% Dividend CAGR (Exceptional):**
-- Starting Yield: 2.0%
-- Year 6: 6.00% yield on cost (3x)
-- Year 12: 18.0% yield on cost (9x)
-- Example: Apple (AAPL) 2012-2020 period
-
-**Key Insight:** Lower starting yield + high growth > high starting yield + low growth over 10+ years.
 
 ## Troubleshooting
 

@@ -9,30 +9,32 @@ description: Comprehensive US stock analysis including fundamental analysis (fin
 
 Perform comprehensive analysis of US stocks covering fundamental analysis (financials, business quality, valuation), technical analysis (indicators, trends, patterns), peer comparisons, and generate detailed investment reports. Fetch real-time market data via web search tools and apply structured analytical frameworks.
 
-## Data Sources
+## Data Gathering
 
-Always use web search tools to gather current market data:
+Use web search tools to fetch current market data. Required data points per analysis type:
 
-**Primary Data to Fetch:**
-1. **Current stock price and trading data** (price, volume, 52-week range)
-2. **Financial statements** (income statement, balance sheet, cash flow)
-3. **Key metrics** (P/E, EPS, revenue, margins, debt ratios)
-4. **Analyst ratings and price targets**
-5. **Recent news and developments**
-6. **Peer/competitor data** (for comparisons)
-7. **Technical data** (moving averages, RSI, MACD when available)
+| Data Category | Basic | Fundamental | Technical | Full Report |
+|---------------|:-----:|:-----------:|:---------:|:-----------:|
+| Price, volume, market cap | x | x | x | x |
+| Financial statements (3-5yr) | | x | | x |
+| Key ratios (P/E, EPS, margins) | x | x | | x |
+| Analyst ratings & targets | | x | | x |
+| Recent news & catalysts | x | x | | x |
+| Peer/competitor data | | x | | x |
+| Moving averages, RSI, MACD | | | x | x |
 
-**Search Strategy:**
-- Use ticker symbol + specific data needed (e.g., "AAPL financial metrics 2024")
-- For comprehensive data: Search for earnings reports, investor presentations, or SEC filings
-- For technical data: Search for "AAPL technical analysis" or use financial data sites
-- Always verify data recency (prefer data from last quarter)
+**Search Query Examples:**
+- Price data: `"AAPL stock price today market cap 2024"`
+- Financials: `"NVDA 10-Q Q3 2024 revenue earnings cash flow"`
+- Valuation: `"MSFT P/E ratio PEG EV/EBITDA vs sector average"`
+- Technical: `"TSLA 50-day 200-day moving average RSI MACD"`
+- Peers: `"AAPL vs MSFT vs GOOGL revenue growth comparison 2024"`
 
-**Quality Sources:**
-- Yahoo Finance, Google Finance, MarketWatch, Seeking Alpha, Bloomberg, CNBC
-- Company investor relations pages
-- SEC filings (10-K, 10-Q) for detailed financials
-- TradingView, StockCharts for technical data
+**Data Validation Checkpoints:**
+- Verify financial data is from the most recent reported quarter before proceeding
+- Cross-check key metrics (revenue, EPS) across at least two sources
+- Confirm price data is from the current trading session
+- Flag any data older than 90 days as potentially stale
 
 ## Analysis Types
 
@@ -56,12 +58,25 @@ This skill supports four types of analysis. Determine which type(s) the user nee
 4. Find recent news or major developments
 5. Present in concise summary format
 
-**Output Format:**
-- Company description (1-2 sentences)
-- Current price and trading metrics
-- Key valuation metrics (table)
-- Recent performance
-- Notable recent news (if any)
+**Sample Output Format:**
+
+```markdown
+## AAPL — Apple Inc.
+Consumer electronics and services company. Market leader in smartphones, PCs, and wearables.
+
+| Metric | Value |
+|--------|-------|
+| Price | $178.52 |
+| Market Cap | $2.78T |
+| P/E (TTM) | 28.4 |
+| EPS (TTM) | $6.29 |
+| Revenue Growth (YoY) | +4.8% |
+| Net Margin | 25.3% |
+| 52-Week Range | $142.00 – $199.62 |
+| YTD Return | +12.1% |
+
+**Recent:** [1-2 sentence summary of key catalyst or news]
+```
 
 ### 2. Fundamental Analysis
 
@@ -95,12 +110,10 @@ This skill supports four types of analysis. Determine which type(s) the user nee
 
 7. **Generate output** following references/report-template.md structure
 
-**Critical Analyses:**
-- Profitability trends (improving/declining margins)
-- Cash flow quality (FCF vs earnings)
-- Balance sheet strength (debt levels, liquidity)
-- Growth sustainability
-- Valuation vs peers and historical average
+**Validation Before Output:**
+- Confirm all financials are from the same reporting period
+- Verify FCF and earnings are directionally consistent; flag divergences
+- Check that peer comparisons use the same fiscal period
 
 ### 3. Technical Analysis
 
@@ -140,11 +153,11 @@ This skill supports four types of analysis. Determine which type(s) the user nee
    - Risk/reward analysis
    - Short and medium-term outlook
 
-**Interpretation Guidelines:**
-- Confirm signals with multiple indicators
-- Consider volume for validation
-- Note divergences between price and indicators
-- Always identify risk levels (stop-loss)
+**Signal Validation Checklist:**
+- [ ] At least 2 indicators confirm the signal direction
+- [ ] Volume supports the move (rising on breakouts, declining on pullbacks)
+- [ ] No price-indicator divergence present (or divergence is flagged)
+- [ ] Key risk level (stop-loss) identified with specific price
 
 ### 4. Comprehensive Investment Report
 
@@ -221,28 +234,12 @@ This skill supports four types of analysis. Determine which type(s) the user nee
 
 ## Output Guidelines
 
-**General Principles:**
-- Use tables for financial data and comparisons (easy to scan)
-- Bold key metrics and findings
-- Include data sources and dates
-- Quantify whenever possible
-- Present both bull and bear perspectives
-- Be clear about assumptions and uncertainties
-
-**Formatting:**
-- **Headers** for clear section separation
-- **Tables** for metrics, comparisons, historical data
-- **Bullet points** for lists, factors, risks
-- **Bold text** for key findings, important metrics
-- **Percentages** for growth rates, returns, margins
-- **Currency** formatted consistently ($B for billions, $M for millions)
-
-**Tone:**
-- Objective and balanced
-- Acknowledge uncertainty
-- Support claims with data
-- Avoid hyperbole
-- Present risks clearly
+- Use **tables** for all financial data and comparisons
+- **Bold** key metrics and actionable findings
+- Include data source and date for every metric cited
+- Format currency consistently: $B (billions), $M (millions)
+- Present both bull and bear perspectives with supporting data
+- State assumptions and confidence level explicitly
 
 ## Reference Files
 
@@ -266,29 +263,10 @@ Load these references as needed during analysis:
 
 ## Example Queries
 
-**Basic Info:**
-- "What's the current price of AAPL?"
-- "Give me key metrics for Tesla"
-- "Quick overview of Microsoft stock"
-
-**Fundamental:**
-- "Analyze NVDA's financials"
-- "Is Amazon overvalued?"
-- "Evaluate Apple's business quality"
-- "What's Google's debt situation?"
-
-**Technical:**
-- "Technical analysis of TSLA"
-- "Is Netflix oversold?"
-- "Show me support levels for AAPL"
-- "What's the trend for AMD?"
-
-**Comprehensive:**
-- "Complete analysis of Microsoft"
-- "Give me a full report on AAPL"
-- "Should I invest in Tesla? Give me detailed analysis"
-
-**Comparison:**
-- "Compare AAPL vs MSFT"
-- "Tesla vs Nvidia - which is better?"
-- "Analyze Meta vs Google"
+| Type | Example |
+|------|---------|
+| Basic | "Quick overview of Microsoft stock", "Key metrics for Tesla" |
+| Fundamental | "Is Amazon overvalued?", "Analyze NVDA's financials" |
+| Technical | "Technical analysis of TSLA", "Support levels for AAPL" |
+| Full Report | "Should I invest in Tesla? Detailed analysis" |
+| Comparison | "Compare AAPL vs MSFT", "Tesla vs Nvidia — which is better?" |

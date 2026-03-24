@@ -1,6 +1,6 @@
 ---
 name: skill-designer
-description: Design new Claude skills from structured idea specifications. Use when the skill auto-generation pipeline needs to produce a Claude CLI prompt that creates a complete skill directory (SKILL.md, references, scripts, tests) following repository conventions.
+description: "Create a new skill, generate a skill, or build skill scaffolding from a structured idea specification. Use when you need to design a skill, bootstrap a skill template, or the skill auto-generation pipeline needs to produce a Claude CLI prompt that creates a complete skill directory (SKILL.md, references, scripts, tests) following repository conventions."
 ---
 
 # Skill Designer
@@ -71,7 +71,14 @@ python3 skills/skill-designer/scripts/build_design_prompt.py \
 After Claude creates the skill, verify:
 - `skills/<skill-name>/SKILL.md` exists with correct frontmatter
 - Directory structure follows conventions
-- Score with dual-axis-skill-reviewer meets threshold
+- Score meets threshold (>= 70/100) via the dual-axis reviewer:
+
+```bash
+uv run skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py \
+  --project-root . --skill <skill-name> --output-dir reports/
+```
+
+If the score is below 70, revise the generated SKILL.md and re-run the reviewer.
 
 ## Output Format
 

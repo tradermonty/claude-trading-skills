@@ -15,14 +15,6 @@ Calculate the optimal number of shares to buy for a long stock trade based on ri
 
 All methods apply portfolio constraints (max position %, max sector %) and output a final recommended share count with full risk breakdown.
 
-## When to Use
-
-- User asks "how many shares should I buy?"
-- User wants to calculate position size for a specific trade setup
-- User mentions risk per trade, stop-loss sizing, or portfolio allocation
-- User asks about Kelly Criterion or ATR-based position sizing
-- User wants to check if a position fits within portfolio concentration limits
-
 ## Prerequisites
 
 - No API keys required
@@ -82,18 +74,32 @@ python3 skills/position-sizer/scripts/position_sizer.py \
   --output-dir reports/
 ```
 
-### Step 3: Load Methodology Reference
+### Step 3: Validate Output
+
+Before proceeding, verify the script output passes sanity checks:
+
+- **Shares > 0**: If zero or negative, the stop-loss distance may exceed risk budget or entry/stop prices may be inverted
+- **Dollar risk <= account size * risk_pct**: Confirm risk does not exceed the intended percentage
+- **Position value < account size**: Flag if position exceeds total equity (likely parameter error)
+- **Stop price < entry price** (for long trades): Alert user if stop is above entry
+
+If the script exits non-zero or produces no JSON output:
+1. Check that all required arguments are provided for the chosen mode
+2. Verify numeric inputs are positive and properly formatted (no currency symbols)
+3. Re-run with corrected parameters and confirm valid output before continuing
+
+### Step 4: Load Methodology Reference
 
 Read `references/sizing_methodologies.md` to provide context on the chosen method, risk guidelines, and portfolio constraint best practices.
 
-### Step 4: Calculate Multiple Scenarios
+### Step 5: Calculate Multiple Scenarios
 
 If the user has not specified a single method, run multiple scenarios for comparison:
 - Fixed Fractional at 0.5%, 1.0%, and 1.5% risk
 - ATR-based at 1.5x, 2.0x, and 3.0x multipliers
 - Present a comparison table showing shares, position value, and dollar risk for each
 
-### Step 5: Apply Portfolio Constraints and Determine Final Size
+### Step 6: Apply Portfolio Constraints and Determine Final Size
 
 Add constraints if the user has portfolio context:
 
@@ -111,7 +117,7 @@ python3 skills/position-sizer/scripts/position_sizer.py \
 
 Explain which constraint is binding and why it limits the position.
 
-### Step 6: Generate Position Report
+### Step 7: Generate Position Report
 
 Present the final recommendation including:
 - Method used and rationale
