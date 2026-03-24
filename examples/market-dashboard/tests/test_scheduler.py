@@ -126,6 +126,10 @@ def test_scheduler_has_universe_build_queue_job():
     job_ids = [j.id for j in sched.get_jobs()]
     assert "universe_build_queue" in job_ids
 
+    job = next(j for j in sched.get_jobs() if j.id == "universe_build_queue")
+    job.func()
+    mock_universe_builder.build_queue.assert_called_once_with(finnhub_api_key="test")
+
 
 def test_scheduler_has_nightly_batch_job():
     """Scheduler includes a Mon-Fri 16:30 job for run_nightly_batch."""
@@ -147,3 +151,7 @@ def test_scheduler_has_nightly_batch_job():
     )
     job_ids = [j.id for j in sched.get_jobs()]
     assert "universe_nightly_batch" in job_ids
+
+    job = next(j for j in sched.get_jobs() if j.id == "universe_nightly_batch")
+    job.func()
+    mock_universe_builder.run_nightly_batch.assert_called_once_with(fmp_api_key="test", batch_size=20)

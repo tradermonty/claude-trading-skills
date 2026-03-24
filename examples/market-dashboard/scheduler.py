@@ -216,7 +216,7 @@ def create_scheduler(
     # ── Weekly universe builder for non-US markets ─────────────────────────
     if ibkr_client is not None and settings_manager is not None:
         from universe_builder import UniverseBuilder
-        universe_builder = UniverseBuilder(
+        _ibkr_ub = UniverseBuilder(
             ibkr_client=ibkr_client,
             cache_dir=cache_dir,
             request_delay=6.0,
@@ -224,7 +224,7 @@ def create_scheduler(
 
         def universe_build_job():
             markets = settings_manager.get_enabled_markets()
-            universe_builder.build_all(markets)
+            _ibkr_ub.build_all(markets)
 
         sched.add_job(
             universe_build_job,
