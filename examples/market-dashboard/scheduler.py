@@ -91,6 +91,9 @@ def create_scheduler(
     pattern_extractor=None,
     ibkr_client=None,
     settings_manager=None,
+    universe_builder=None,
+    finnhub_api_key: str = "",
+    fmp_api_key: str = "",
 ) -> AsyncIOScheduler:
     """Build and return a configured AsyncIOScheduler (not yet started).
 
@@ -227,6 +230,24 @@ def create_scheduler(
             universe_build_job,
             CronTrigger(day_of_week="sun", hour=20, minute=0),
             id="universe_builder",
+            replace_existing=True,
+        )
+
+    # ── Universe builder jobs ──────────────────────────────────────────────────
+    if universe_builder is not None:
+        sched.add_job(
+            lambda: universe_builder.build_queue(finnhub_api_key=finnhub_api_key),
+            CronTrigger(day_of_week="sun", hour=18, minute=0),
+            id="universe_build_queue",
+            replace_existing=True,
+        )
+        sched.add_job(
+            lambda: universe_builder.run_nightly_batch(
+                fmp_api_key=fmp_api_key,
+                batch_size=20,
+            ),
+            CronTrigger(day_of_week="mon-fri", hour=16, minute=30),
+            id="universe_nightly_batch",
             replace_existing=True,
         )
 

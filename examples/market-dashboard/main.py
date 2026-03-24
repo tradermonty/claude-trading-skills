@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_PAPER, CACHE_DIR, DETAIL_ROUTES, ROOT, SKILLS_ROOT, SIGNAL_PANEL_SKILLS, SKILL_REGISTRY
+from config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_PAPER, CACHE_DIR, DETAIL_ROUTES, ROOT, SKILLS_ROOT, SIGNAL_PANEL_SKILLS, SKILL_REGISTRY, FINNHUB_API_KEY, FMP_API_KEY
 from scheduler import create_scheduler
 from settings_manager import SettingsManager
 from skills_runner import SkillsRunner
@@ -165,6 +165,9 @@ async def startup():
         pattern_extractor=pattern_extractor,
         ibkr_client=ibkr,
         settings_manager=settings_manager,
+        universe_builder=UniverseBuilder(ibkr_client=ibkr, cache_dir=CACHE_DIR),
+        finnhub_api_key=FINNHUB_API_KEY,
+        fmp_api_key=FMP_API_KEY,
     )
     _scheduler.start()
     asyncio.create_task(_refresh_stale_on_startup())

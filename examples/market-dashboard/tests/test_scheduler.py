@@ -103,3 +103,47 @@ def test_scheduler_registers_pattern_extraction_when_extractor_given():
     sched = create_scheduler(runner=None, cache_dir=Path("/tmp"), pattern_extractor=extractor)
     job_ids = [j.id for j in sched.get_jobs()]
     assert "pattern_extraction" in job_ids
+
+
+def test_scheduler_has_universe_build_queue_job():
+    """Scheduler includes a Sunday 18:00 job for build_queue."""
+    from scheduler import create_scheduler
+    from unittest.mock import MagicMock
+    from pathlib import Path
+    import tempfile
+
+    mock_runner = MagicMock()
+    mock_universe_builder = MagicMock()
+    cache_dir = Path(tempfile.mkdtemp())
+
+    sched = create_scheduler(
+        runner=mock_runner,
+        cache_dir=cache_dir,
+        universe_builder=mock_universe_builder,
+        finnhub_api_key="test",
+        fmp_api_key="test",
+    )
+    job_ids = [j.id for j in sched.get_jobs()]
+    assert "universe_build_queue" in job_ids
+
+
+def test_scheduler_has_nightly_batch_job():
+    """Scheduler includes a Mon-Fri 16:30 job for run_nightly_batch."""
+    from scheduler import create_scheduler
+    from unittest.mock import MagicMock
+    from pathlib import Path
+    import tempfile
+
+    mock_runner = MagicMock()
+    mock_universe_builder = MagicMock()
+    cache_dir = Path(tempfile.mkdtemp())
+
+    sched = create_scheduler(
+        runner=mock_runner,
+        cache_dir=cache_dir,
+        universe_builder=mock_universe_builder,
+        finnhub_api_key="test",
+        fmp_api_key="test",
+    )
+    job_ids = [j.id for j in sched.get_jobs()]
+    assert "universe_nightly_batch" in job_ids
