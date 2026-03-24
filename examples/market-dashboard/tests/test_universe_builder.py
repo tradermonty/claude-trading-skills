@@ -276,3 +276,132 @@ def test_build_queue_returns_empty_when_finviz_fails():
 
     assert result == []
     assert not (cache_dir / "universe-queue.json").exists()
+
+
+def _make_fmp_client_mock(price=150.0, avg_vol=1_000_000):
+    """Build a mock FMPClient for nightly batch tests."""
+    mock = MagicMock()
+    quote = {"price": price, "avgVolume": avg_vol}
+    mock.get_batch_quotes.return_value = {"AAPL": quote, "MSFT": quote}
+    # Uptrending bars: each close is higher than the last, so price > MA50 > MA200
+    bars = [{"close": price - (260 - i) * 0.1, "volume": avg_vol} for i in range(260)]
+    mock.get_batch_historical.return_value = {"AAPL": bars, "MSFT": bars}
+    return mock
+
+
+def _make_falling_fmp_mock(price=50.0, avg_vol=1_000_000):
+    """FMPClient mock where price is below MA50 (failing criteria)."""
+    mock = MagicMock()
+    quote = {"price": price, "avgVolume": avg_vol}
+    mock.get_batch_quotes.return_value = {"AAPL": quote, "MSFT": quote}
+    # Falling bars: each close is lower, so price < MA50
+    bars = [{"close": 200.0 - i * 0.5, "volume": avg_vol} for i in range(260)]
+    mock.get_batch_historical.return_value = {"AAPL": bars, "MSFT": bars}
+    return mock
+
+
+def test_run_nightly_batch_writes_universe_file():
+    """run_nightly_batch writes cache/vcp-universe.json."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    queue = {
+        "updated": "2026-03-23T18:00:00Z",
+        "scanned_count": 0,
+        "candidates": [
+            {"symbol": "AAPL", "sentiment_score": 0.8, "status": "pending"},
+        ]
+    }
+    (cache_dir / "universe-queue.json").write_text(json.dumps(queue))
+
+    with patch("universe_builder.FMPClient", return_value=_make_fmp_client_mock()):
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.run_nightly_batch(fmp_api_key="test_key", batch_size=20)
+
+    assert (cache_dir / "vcp-universe.json").exists()
+
+
+def test_run_nightly_batch_adds_passing_stocks():
+    """Stocks passing FMP criteria are added to vcp-universe.json as active."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    queue = {
+        "updated": "2026-03-23T18:00:00Z",
+        "scanned_count": 0,
+        "candidates": [
+            {"symbol": "AAPL", "sentiment_score": 0.8, "status": "pending"},
+        ]
+    }
+    (cache_dir / "universe-queue.json").write_text(json.dumps(queue))
+
+    with patch("universe_builder.FMPClient", return_value=_make_fmp_client_mock(price=150.0)):
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.run_nightly_batch(fmp_api_key="test_key", batch_size=20)
+
+    data = json.loads((cache_dir / "vcp-universe.json").read_text())
+    symbols = [s["symbol"] for s in data["symbols"]]
+    assert "AAPL" in symbols
+    assert data["symbols"][0]["status"] == "active"
+
+
+def test_run_nightly_batch_weakening_to_removed():
+    """A weakening stock that fails again is removed from universe."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    universe = {
+        "updated": "2026-03-23T18:00:00Z",
+        "symbols": [
+            {"symbol": "AAPL", "status": "weakening", "sentiment_score": 0.8}
+        ]
+    }
+    (cache_dir / "vcp-universe.json").write_text(json.dumps(universe))
+    (cache_dir / "universe-queue.json").write_text(json.dumps({
+        "updated": "2026-03-23T18:00:00Z", "scanned_count": 0, "candidates": []
+    }))
+
+    with patch("universe_builder.FMPClient", return_value=_make_falling_fmp_mock()):
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.run_nightly_batch(fmp_api_key="test_key", batch_size=20)
+
+    data = json.loads((cache_dir / "vcp-universe.json").read_text())
+    symbols = [s["symbol"] for s in data["symbols"]]
+    assert "AAPL" not in symbols
+
+
+def test_run_nightly_batch_active_to_weakening():
+    """An active stock that fails criteria becomes weakening (not removed immediately)."""
+    from universe_builder import UniverseBuilder
+    mock_ibkr = MagicMock()
+    mock_ibkr.is_configured = False
+    cache_dir = Path(tempfile.mkdtemp())
+
+    universe = {
+        "updated": "2026-03-23T18:00:00Z",
+        "symbols": [
+            {"symbol": "AAPL", "status": "active", "sentiment_score": 0.8}
+        ]
+    }
+    (cache_dir / "vcp-universe.json").write_text(json.dumps(universe))
+    (cache_dir / "universe-queue.json").write_text(json.dumps({
+        "updated": "2026-03-23T18:00:00Z", "scanned_count": 0, "candidates": []
+    }))
+
+    # Falling mock — AAPL price below MA50
+    falling_mock = _make_falling_fmp_mock()
+
+    with patch("universe_builder.FMPClient", return_value=falling_mock):
+        builder = UniverseBuilder(ibkr_client=mock_ibkr, cache_dir=cache_dir)
+        builder.run_nightly_batch(fmp_api_key="test_key", batch_size=20)
+
+    data = json.loads((cache_dir / "vcp-universe.json").read_text())
+    aapl = next((s for s in data["symbols"] if s["symbol"] == "AAPL"), None)
+    assert aapl is not None
+    assert aapl["status"] == "weakening"

@@ -23,6 +23,15 @@ try:
 except ImportError:
     Overview = None  # type: ignore
 
+import sys as _sys
+_fmp_scripts = str(Path(__file__).resolve().parents[2] / "skills/vcp-screener/scripts")
+if _fmp_scripts not in _sys.path:
+    _sys.path.insert(0, _fmp_scripts)
+try:
+    from fmp_client import FMPClient
+except ImportError:
+    FMPClient = None  # type: ignore
+
 if TYPE_CHECKING:
     pass
 
@@ -215,6 +224,126 @@ class UniverseBuilder:
         except Exception:
             pass
         return 0.5
+
+    def run_nightly_batch(self, fmp_api_key: str, batch_size: int = 20) -> list[dict]:
+        """Scan next batch from queue + re-check weakening stocks. Updates vcp-universe.json."""
+        if FMPClient is None:
+            print("[universe_builder] fmp_client not available — skipping nightly batch", file=sys.stderr)
+            return []
+
+        fmp = FMPClient(api_key=fmp_api_key)
+
+        universe_file = self._cache_dir / "vcp-universe.json"
+        queue_file = self._cache_dir / "universe-queue.json"
+
+        existing: list[dict] = []
+        if universe_file.exists():
+            try:
+                existing = json.loads(universe_file.read_text()).get("symbols", [])
+            except Exception:
+                existing = []
+
+        queue_data: dict = {}
+        pending: list[dict] = []
+        if queue_file.exists():
+            try:
+                queue_data = json.loads(queue_file.read_text())
+                pending = [c for c in queue_data.get("candidates", []) if c.get("status") == "pending"]
+            except Exception:
+                pending = []
+
+        # Phase 1: re-check weakening stocks first
+        weakening = [s for s in existing if s.get("status") == "weakening"]
+        to_recheck = [s["symbol"] for s in weakening]
+
+        # Phase 2: take next batch_size slots from pending queue
+        slots = max(0, batch_size - len(to_recheck))
+        to_scan = [c["symbol"] for c in pending[:slots]]
+
+        # Also include active stocks so we can re-check them against fresh FMP data
+        active_symbols = [s["symbol"] for s in existing if s.get("status") == "active"]
+        all_symbols = list(dict.fromkeys(to_recheck + to_scan + active_symbols))
+
+        if not all_symbols:
+            print("[universe_builder] nothing to scan", file=sys.stderr)
+            return existing
+
+        quotes = fmp.get_batch_quotes(all_symbols)
+        histories = fmp.get_batch_historical(all_symbols, days=260)
+
+        def _passes_criteria(symbol: str) -> bool:
+            quote = quotes.get(symbol, {})
+            bars = histories.get(symbol, [])
+            if not quote or not bars or len(bars) < 50:
+                return False
+            price = float(quote.get("price", 0))
+            avg_vol = float(quote.get("avgVolume", 0))
+            if avg_vol < 500_000:
+                return False
+            closes = [float(b["close"]) for b in bars]
+            ma50 = sum(closes[-50:]) / 50
+            ma200 = sum(closes[-200:]) / 200 if len(closes) >= 200 else sum(closes) / len(closes)
+            return price > ma50 and price > ma200
+
+        updated_universe: list[dict] = []
+
+        # Process weakening re-checks
+        for entry in weakening:
+            sym = entry["symbol"]
+            if _passes_criteria(sym):
+                updated = dict(entry)
+                updated["status"] = "active"
+                updated_universe.append(updated)
+            # else: fails again → dropped (not added)
+
+        # Keep active stocks — re-check those for which we have fresh FMP data
+        for entry in existing:
+            if entry.get("status") != "active":
+                continue
+            if entry["symbol"] in to_recheck:
+                continue
+            sym = entry["symbol"]
+            if sym in quotes and not _passes_criteria(sym):
+                # Failing today → weakening
+                updated = dict(entry)
+                updated["status"] = "weakening"
+                updated_universe.append(updated)
+            else:
+                updated_universe.append(entry)
+
+        # Process new scans from queue
+        scanned_count = queue_data.get("scanned_count", 0)
+        for sym in to_scan:
+            candidate = next((c for c in pending if c["symbol"] == sym), {})
+            if _passes_criteria(sym):
+                updated_universe.append({
+                    "symbol": sym,
+                    "status": "active",
+                    "sentiment_score": candidate.get("sentiment_score", 0.5),
+                })
+            scanned_count += 1
+
+        # Mark scanned candidates as done in queue
+        for c in queue_data.get("candidates", []):
+            if c["symbol"] in to_scan:
+                c["status"] = "scanned"
+        queue_data["scanned_count"] = scanned_count
+        if queue_file.exists():
+            queue_file.write_text(json.dumps(queue_data, indent=2))
+
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        output = {
+            "updated": datetime.now(timezone.utc).isoformat(),
+            "symbols": updated_universe,
+        }
+        universe_file.write_text(json.dumps(output, indent=2))
+        active = sum(1 for s in updated_universe if s["status"] == "active")
+        weakening_count = sum(1 for s in updated_universe if s["status"] == "weakening")
+        print(
+            f"[universe_builder] universe updated: {active} active, {weakening_count} weakening",
+            file=sys.stderr,
+        )
+        return updated_universe
 
     def build_all(self, markets: list[dict]) -> None:
         """Build universe for each non-US market in the list.
