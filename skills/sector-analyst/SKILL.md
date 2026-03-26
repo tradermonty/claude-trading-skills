@@ -26,6 +26,12 @@ Example user requests:
 - "What phase of the market cycle are we in?"
 - "Analyze these sector performance charts and tell me where we are in the market cycle"
 
+## Prerequisites
+
+- **Python 3.8+** with `requests` library (for CSV fetching)
+- **No API keys required** — data is fetched from a public GitHub repository
+- **Optional**: Sector performance chart images for supplementary analysis
+
 ## Data Source
 
 Sector uptrend ratios are fetched from TraderMonty's public GitHub repository (no API key required):
@@ -36,13 +42,13 @@ Sector uptrend ratios are fetched from TraderMonty's public GitHub repository (n
 
 ```bash
 # Default: fetch CSV, print human-readable analysis
-python3 skills/sector-analyst/scripts/analyze_sector_rotation.py
+python3 scripts/analyze_sector_rotation.py
 
 # JSON output
-python3 skills/sector-analyst/scripts/analyze_sector_rotation.py --json
+python3 scripts/analyze_sector_rotation.py --json
 
 # Save to file
-python3 skills/sector-analyst/scripts/analyze_sector_rotation.py --save --output-dir reports/
+python3 scripts/analyze_sector_rotation.py --save --output-dir reports/
 ```
 
 ## Analysis Workflow
@@ -51,7 +57,7 @@ Follow this structured workflow:
 
 ### Step 1: CSV Data Collection
 
-1. Run the analysis script: `python3 skills/sector-analyst/scripts/analyze_sector_rotation.py`
+1. Run the analysis script: `python3 scripts/analyze_sector_rotation.py`
 2. Extract from the output:
    - Sector ranking by uptrend ratio
    - Risk regime (cyclical vs defensive) and score
