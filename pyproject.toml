@@ -96,6 +96,7 @@ testpaths = [
     # pair-trade-screener, portfolio-manager, signal-postmortem: tests/ exists but no test_*.py
     "skills/relative-strength-momentum-scanner/scripts/tests",
     "skills/signal-postmortem-analyzer/scripts/tests",
+    "skills/downtrend-duration-analyzer/scripts/tests",
     "scripts/tests",
 ]
 

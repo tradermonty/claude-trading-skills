@@ -28,6 +28,7 @@ permalink: /ja/skills/
 | [CANSLIM Screener]({{ '/ja/skills/canslim-screener/' | relative_url }}) ★ | Screen US stocks using William O'Neil's CANSLIM growth stock methodology | <span class="badge badge-free">API不要</span> |
 | [Data Quality Checker]({{ '/ja/skills/data-quality-checker/' | relative_url }}) | Validate data quality in market analysis documents and blog articles before publication | <span class="badge badge-free">API不要</span> |
 | [Dividend Growth Pullback Screener]({{ '/ja/skills/dividend-growth-pullback-screener/' | relative_url }}) | Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ任意</span> |
+| [Downtrend Duration Analyzer]({{ '/ja/skills/downtrend-duration-analyzer/' | relative_url }}) | Analyze historical downtrend durations and generate interactive HTML histograms showing typical correction lengths by... | <span class="badge badge-free">API不要</span> |
 | [Dual Axis Skill Reviewer]({{ '/ja/skills/dual-axis-skill-reviewer/' | relative_url }}) | Review skills in any project using a dual-axis method: (1) deterministic code-based checks (structure, scripts, tests... | <span class="badge badge-free">API不要</span> |
 | [Earnings Calendar]({{ '/ja/skills/earnings-calendar/' | relative_url }}) | This skill retrieves upcoming earnings announcements for US stocks using the Financial Modeling Prep (FMP) API | <span class="badge badge-api">FMP必須</span> |
 | [Earnings Trade Analyzer]({{ '/ja/skills/earnings-trade-analyzer/' | relative_url }}) | Analyze recent post-earnings stocks using a 5-factor scoring system (Gap Size, Pre-Earnings Trend, Volume Trend, MA20... | <span class="badge badge-api">FMP必須</span> |
@@ -39,7 +40,7 @@ permalink: /ja/skills/
 | [Edge Signal Aggregator]({{ '/ja/skills/edge-signal-aggregator/' | relative_url }}) | Aggregate and rank signals from multiple edge-finding skills (edge-candidate-agent, theme-detector, sector-analyst, i... | <span class="badge badge-free">API不要</span> |
 | [Edge Strategy Designer]({{ '/ja/skills/edge-strategy-designer/' | relative_url }}) | Convert abstract edge concepts into strategy draft variants and optional exportable ticket YAMLs for edge-candidate-a... | <span class="badge badge-free">API不要</span> |
 | [Edge Strategy Reviewer]({{ '/ja/skills/edge-strategy-reviewer/' | relative_url }}) | Critically review strategy drafts from edge-strategy-designer for edge plausibility, overfitting risk, sample size ad... | <span class="badge badge-free">API不要</span> |
-| [Exposure Coach]({{ '/ja/skills/exposure-coach/' | relative_url }}) | Generate a one-page Market Posture summary with net exposure ceiling, growth-vs-value bias, participation breadth, an... | <span class="badge badge-optional">FMP任意</span> |
+| [Exposure Coach]({{ '/ja/skills/exposure-coach/' | relative_url }}) | Generate a one-page Market Posture summary with net exposure ceiling, growth-vs-value bias, participation breadth, an... | <span class="badge badge-free">API不要</span> |
 | [Finviz Screener]({{ '/ja/skills/finviz-screener/' | relative_url }}) ★ | Build and open FinViz screener URLs from natural language requests | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FINVIZ任意</span> |
 | [FTD Detector]({{ '/ja/skills/ftd-detector/' | relative_url }}) | Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's methodology | <span class="badge badge-free">API不要</span> |
 | [Institutional Flow Tracker]({{ '/ja/skills/institutional-flow-tracker/' | relative_url }}) | Use this skill to track institutional investor ownership changes and portfolio flows using 13F filings data | <span class="badge badge-api">FMP必須</span> |
@@ -56,9 +57,12 @@ permalink: /ja/skills/
 | [PEAD Screener]({{ '/ja/skills/pead-screener/' | relative_url }}) | Screen post-earnings gap-up stocks for PEAD (Post-Earnings Announcement Drift) patterns | <span class="badge badge-api">FMP必須</span> |
 | [Portfolio Manager]({{ '/ja/skills/portfolio-manager/' | relative_url }}) | Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze as... | <span class="badge badge-api">Alpaca必須</span> |
 | [Position Sizer]({{ '/ja/skills/position-sizer/' | relative_url }}) ★ | Calculate risk-based position sizes for long stock trades | <span class="badge badge-free">API不要</span> |
-| [Scenario Analyzer]({{ '/ja/skills/scenario-analyzer/' | relative_url }}) | ニュースヘッドラインから18ヶ月シナリオ分析。1次・2次・3次影響と推奨銘柄を生成 | <span class="badge badge-free">API不要</span> |
+| [Scenario Analyzer]({{ '/ja/skills/scenario-analyzer/' | relative_url }}) | ニュースヘッドラインを入力として18ヶ月シナリオを分析するスキル。
+scenario-analystエージェントで主分析を実行し、
+strategy-reviewerエージェントでセカンドオピニオンを取得。
+1次・2次・3次影響、推奨... | <span class="badge badge-free">API不要</span> |
 | [Sector Analyst]({{ '/ja/skills/sector-analyst/' | relative_url }}) | This skill should be used when analyzing sector rotation patterns and market cycle positioning | <span class="badge badge-free">API不要</span> |
-| [Signal Postmortem]({{ '/ja/skills/signal-postmortem/' | relative_url }}) | Record and analyze post-trade outcomes for signals generated by edge pipeline and other skills | <span class="badge badge-optional">FMP任意</span> |
+| [Signal Postmortem]({{ '/ja/skills/signal-postmortem/' | relative_url }}) | Record and analyze post-trade outcomes for signals generated by edge pipeline and other skills | <span class="badge badge-free">API不要</span> |
 | [Skill Designer]({{ '/ja/skills/skill-designer/' | relative_url }}) | Design new Claude skills from structured idea specifications | <span class="badge badge-free">API不要</span> |
 | [Skill Idea Miner]({{ '/ja/skills/skill-idea-miner/' | relative_url }}) | Mine Claude Code session logs for skill idea candidates | <span class="badge badge-free">API不要</span> |
 | [Skill Integration Tester]({{ '/ja/skills/skill-integration-tester/' | relative_url }}) | Validate multi-skill workflows defined in CLAUDE | <span class="badge badge-free">API不要</span> |

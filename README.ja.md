@@ -217,6 +217,11 @@ English README is available at [`README.md`](README.md).
   - O'NeilのDistribution Days、MinerviniのLeading Stock Deterioration、MontyのDefensive Rotationを使用してマーケットトップの確率を検出。
   - 分配と天井形成パターンを識別する6コンポーネント戦術的タイミングシステム。
 
+- **下落トレンド期間分析** (`downtrend-duration-analyzer`)
+  - 過去の下落トレンド期間（ピーク→トラフ）を分析し、セクター・時価総額別のインタラクティブHTMLヒストグラムを生成。
+  - ローリングウィンドウによるピーク/トラフ検出、深度・期間フィルター設定可能。
+  - FMP APIキーが必要。
+
 - **FTD検出器** (`ftd-detector`)
   - William O'Neilの手法を用いて、市場底打ち確認のためのFollow-Through Day (FTD) シグナルを検出。
   - デュアルインデックス追跡（S&P 500 + NASDAQ）と状態マシンによるラリー試行、FTD適格、FTD後の健全性監視。

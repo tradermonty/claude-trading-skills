@@ -68,6 +68,7 @@ A comprehensive catalog of all 50 Claude Trading Skills organized by category. B
 | **Macro Regime Detector** | Detects structural macro regime transitions (1-2 year horizon) using 6-component cross-asset ratio analysis (RSP/SPY, yield curve, credit, size factor, sector rotation) | <span class="badge badge-api">FMP Required</span> |
 | **[US Market Bubble Detector]({{ '/en/skills/us-market-bubble-detector/' | relative_url }})** | Data-driven bubble risk assessment using Minsky/Kindleberger framework. Two-phase evaluation: quantitative scoring (0-12) + strict qualitative adjustment (0-3). Five risk phases | <span class="badge badge-free">No API</span> |
 | **Market Top Detector** | Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Defensive Rotation. 6-component tactical timing system | <span class="badge badge-free">No API</span> |
+| **[Downtrend Duration Analyzer]({{ '/en/skills/downtrend-duration-analyzer/' | relative_url }})** | Analyzes historical downtrend durations (peak-to-trough) and generates interactive HTML histograms segmented by sector and market cap | <span class="badge badge-api">FMP Required</span> |
 
 ---
 
@@ -243,5 +244,6 @@ A comprehensive catalog of all 50 Claude Trading Skills organized by category. B
 | Trade Hypothesis Ideator | -- | -- | -- |
 | Exposure Coach | Optional | -- | -- |
 | Signal Postmortem | Optional | -- | -- |
+| Downtrend Duration Analyzer | Required | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

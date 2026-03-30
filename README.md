@@ -239,6 +239,11 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Rotation.
   - 6-component tactical timing system for identifying distribution and topping patterns.
 
+- **Downtrend Duration Analyzer** (`downtrend-duration-analyzer`)
+  - Analyzes historical downtrend durations (peak-to-trough) and generates interactive HTML histograms segmented by sector and market cap.
+  - Rolling window peak/trough detection with configurable depth and duration filters.
+  - FMP API required.
+
 - **FTD Detector** (`ftd-detector`)
   - Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's methodology.
   - Dual-index tracking (S&P 500 + NASDAQ) with state machine for rally attempt, FTD qualification, and post-FTD health monitoring.
