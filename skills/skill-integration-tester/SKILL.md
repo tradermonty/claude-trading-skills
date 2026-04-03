@@ -1,6 +1,7 @@
 ---
 name: skill-integration-tester
 description: Validate multi-skill workflows defined in CLAUDE.md by checking skill existence, inter-skill data contracts (JSON schema compatibility), file naming conventions, and handoff integrity. Use when adding new workflows, modifying skill outputs, or verifying pipeline health before release.
+requires_api_key: false
 ---
 
 # Skill Integration Tester
