@@ -636,6 +636,8 @@ def _get_staged_files(project_root: Path, skill_name: str) -> list[str]:
             f"docs/ja/skills/{skill_name}.md",
             "docs/en/skills/index.md",
             "docs/ja/skills/index.md",
+            "docs/en/skill-catalog.md",
+            "docs/ja/skill-catalog.md",
         ],
         cwd=project_root,
         capture_output=True,
@@ -800,6 +802,8 @@ def _check_unexpected_changes(project_root: Path, skill_name: str) -> bool:
         f"docs/ja/skills/{skill_name}.md",
         "docs/en/skills/index.md",
         "docs/ja/skills/index.md",
+        "docs/en/skill-catalog.md",
+        "docs/ja/skill-catalog.md",
     ]
     unexpected = [
         f.strip()
@@ -1181,8 +1185,13 @@ def create_skill_pr(
             for dp in doc_paths:
                 if (project_root / dp).exists():
                     stage_paths.append(dp)
-            # Also stage updated index files
-            for idx in ["docs/en/skills/index.md", "docs/ja/skills/index.md"]:
+            # Also stage updated index and catalog files
+            for idx in [
+                "docs/en/skills/index.md",
+                "docs/ja/skills/index.md",
+                "docs/en/skill-catalog.md",
+                "docs/ja/skill-catalog.md",
+            ]:
                 if (project_root / idx).exists():
                     stage_paths.append(idx)
             subprocess.run(
