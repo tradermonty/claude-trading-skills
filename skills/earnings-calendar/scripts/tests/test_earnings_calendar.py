@@ -122,8 +122,8 @@ class TestFilterByMarketCap:
             {"symbol": "SMALL"},
         ]
         profiles = {
-            "BIG": {"mktCap": 10_000_000_000, "exchangeShortName": "NYSE"},
-            "SMALL": {"mktCap": 500_000_000, "exchangeShortName": "NYSE"},
+            "BIG": {"marketCap": 10_000_000_000, "exchange": "NYSE"},
+            "SMALL": {"marketCap": 500_000_000, "exchange": "NYSE"},
         }
         result = client.filter_by_market_cap(earnings, profiles)
         assert len(result) == 1
@@ -132,8 +132,8 @@ class TestFilterByMarketCap:
     def test_filters_non_us_exchanges(self, client):
         earnings = [{"symbol": "US"}, {"symbol": "UK"}]
         profiles = {
-            "US": {"mktCap": 5_000_000_000, "exchangeShortName": "NYSE"},
-            "UK": {"mktCap": 5_000_000_000, "exchangeShortName": "LSE"},
+            "US": {"marketCap": 5_000_000_000, "exchange": "NYSE"},
+            "UK": {"marketCap": 5_000_000_000, "exchange": "LSE"},
         }
         result = client.filter_by_market_cap(earnings, profiles)
         assert len(result) == 1
@@ -149,11 +149,11 @@ class TestFilterByMarketCap:
         earnings = [{"symbol": "AAPL"}]
         profiles = {
             "AAPL": {
-                "mktCap": 3_000_000_000_000,
+                "marketCap": 3_000_000_000_000,
                 "companyName": "Apple Inc.",
                 "sector": "Technology",
                 "industry": "Consumer Electronics",
-                "exchangeShortName": "NASDAQ",
+                "exchange": "NASDAQ",
             },
         }
         result = client.filter_by_market_cap(earnings, profiles)

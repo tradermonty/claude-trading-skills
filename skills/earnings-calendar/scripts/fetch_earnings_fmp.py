@@ -26,6 +26,11 @@ from typing import Optional
 import requests
 
 
+def chunked(values: list[str], size: int) -> list[list[str]]:
+    """Split a list into fixed-size batches."""
+    return [values[i : i + size] for i in range(0, len(values), size)]
+
+
 class FMPEarningsCalendar:
     """FMP Earnings Calendar API client"""
 
@@ -59,9 +64,7 @@ class FMPEarningsCalendar:
         params = {"from": start_date, "to": end_date, "apikey": self.api_key}
 
         try:
-            response = requests.get(
-                url, params=params, timeout=30
-            )
+            response = requests.get(url, params=params, timeout=30)
 
             if response.status_code == 401:
                 print("❌ ERROR: Invalid API key", file=sys.stderr)
@@ -99,38 +102,63 @@ class FMPEarningsCalendar:
             print(f"❌ ERROR: Unexpected error: {str(e)}", file=sys.stderr)
             return None
 
-    def fetch_company_profiles(self, symbols: list[str]) -> dict[str, dict]:
+    def fetch_company_profiles(self, symbols: list[str]) -> Optional[dict[str, dict]]:
         """
-        Fetch company profiles for multiple symbols (batch)
+        Fetch company quote/profile fields in batches.
 
         Args:
             symbols: List of ticker symbols
 
         Returns:
-            Dictionary mapping symbol to profile data
+            Dictionary mapping symbol to profile data, or None on fatal error
         """
         profiles = {}
+        batch_size = 50
 
         print(f"✓ Fetching profiles for {len(symbols)} companies...", file=sys.stderr)
 
-        for i, symbol in enumerate(symbols):
-            url = f"{self.BASE_URL}/profile"
-            params = {"symbol": symbol, "apikey": self.api_key}
+        for batch_number, batch in enumerate(chunked(symbols, batch_size), start=1):
+            url = f"{self.BASE_URL}/batch-quote"
+            params = {"symbols": ",".join(batch), "apikey": self.api_key}
 
             try:
                 response = requests.get(url, params=params, timeout=30)
+
+                if response.status_code == 429:
+                    print(
+                        "❌ ERROR: Rate limit exceeded while fetching company profiles",
+                        file=sys.stderr,
+                    )
+                    print(
+                        "Profile enrichment stopped before completion. "
+                        "Free tier: 250 calls/day. Consider upgrading.",
+                        file=sys.stderr,
+                    )
+                    return None
+
                 response.raise_for_status()
 
                 data = response.json()
-                if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                    profiles[data[0].get("symbol")] = data[0]
+                if isinstance(data, list):
+                    for row in data:
+                        if not isinstance(row, dict):
+                            continue
+                        symbol = row.get("symbol")
+                        if not symbol:
+                            continue
+                        profile = dict(row)
+                        if "companyName" not in profile and profile.get("name"):
+                            profile["companyName"] = profile["name"]
+                        profiles[symbol] = profile
 
-                if (i + 1) % 50 == 0:
-                    print(f"  ✓ Fetched {i + 1}/{len(symbols)} profiles", file=sys.stderr)
+                print(
+                    f"  ✓ Batch {batch_number}: {min(batch_number * batch_size, len(symbols))}/{len(symbols)} profiles",
+                    file=sys.stderr,
+                )
 
             except Exception as e:
                 print(
-                    f"  ⚠️  Warning: Failed to fetch profile for {symbol}: {str(e)}",
+                    f"  ⚠️  Warning: Failed to fetch profile batch {batch_number}: {str(e)}",
                     file=sys.stderr,
                 )
                 continue
@@ -421,6 +449,8 @@ def main():
     print("Step 2: Fetching company profiles...", file=sys.stderr)
     symbols = list(set([e.get("symbol") for e in earnings if e.get("symbol")]))
     profiles = client.fetch_company_profiles(symbols)
+    if profiles is None:
+        sys.exit(1)
 
     # Step 3: Filter by market cap
     print("", file=sys.stderr)
