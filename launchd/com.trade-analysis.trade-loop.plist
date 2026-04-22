@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  SETUP: Replace $HOME and $PROJECT_DIR before installing.
+    sed "s|\$HOME|$HOME|g; s|\$PROJECT_DIR|$(pwd)|g" \
+      launchd/com.trade-analysis.trade-loop.plist \
+      > ~/Library/LaunchAgents/com.trade-analysis.trade-loop.plist
+    launchctl load ~/Library/LaunchAgents/com.trade-analysis.trade-loop.plist
+
+  Fires every 300 seconds. Wrapper gates on weekday + 09:45-15:45 ET
+  window and refuses to run if kill_switch_status.json is TRIPPED.
+-->
+<dict>
+	<key>Label</key>
+	<string>com.trade-analysis.trade-loop</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>$PROJECT_DIR/scripts/run_trade_loop.sh</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>$PROJECT_DIR</string>
+
+	<key>StartInterval</key>
+	<integer>300</integer>
+
+	<key>ThrottleInterval</key>
+	<integer>120</integer>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>HOME</key>
+		<string>$HOME</string>
+		<key>TRADE_LOOP_MODE</key>
+		<string>execute</string>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>$PROJECT_DIR/logs/launchd_trade_loop.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>$PROJECT_DIR/logs/launchd_trade_loop_error.log</string>
+
+	<key>RunAtLoad</key>
+	<false/>
+</dict>
+</plist>

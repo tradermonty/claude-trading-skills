@@ -211,6 +211,50 @@ English README is available at [`README.md`](README.md).
   - スキル別・銘柄別・期間別の集計統計で定期的なシグナル品質監査に対応。
   - FMP APIキーは任意（実現リターン取得用。手動価格入力にも対応）。
 
+### 自動売買スタック
+
+- **トレードループオーケストレータ** (`trade-loop-orchestrator`)
+  - 複数スクリーナー（VCP、CANSLIM、PEAD、earnings-trade-analyzer、kanchi、edge-pipeline、RSM）の候補を統合し、ハイブリッドウェイト（勝率50% + 均等50%）でランキング。
+  - ポートフォリオ制約（最大6ポジション、25%セクター上限、20%単一銘柄上限）と資金配分ロジックを適用し、ブラケット注文スペックを生成。
+  - 決定論的再現性のためのスナップショット／リプレイ機構を内蔵。`--mode dry-run`で本番環境と同一ロジックの検証が可能。
+  - APIキー不要（上流スキル出力のみ消費）。
+
+- **Alpaca Executor** (`alpaca-executor`)
+  - ブラケット注文（エントリー + ストップロス + テイクプロフィット）のAlpaca REST API提出、約定監視、強制フラットを担う実行層。
+  - `flatten_all.py`で緊急クローズアウト（全ポジション即時決済）、`execute_orders.py`で通常の注文投入、`monitor_fills.py`で約定追跡。
+  - Paper/Liveモード切替は`ALPACA_PAPER`環境変数で管理。冪等性とリトライロジックを組込み済み。
+  - **Alpaca APIキー必須**（Paper: 無料、Live: 無料の証券口座）。
+
+- **キルスイッチ** (`kill-switch`)
+  - 日次ドローダウン、ポジション上限、セクター集中、レバレッジ上限を2分おきに監視する独立したリスクガードレール。
+  - 閾値超過時は自動的に`flatten_all.py`を発火し、`state/kill_switch_status.json`に`TRIPPED`状態を書き込んでトレードループの新規エントリーをブロック。
+  - 監査ログ（`state/kill_switch_audit.jsonl`）とリセットゲート（`reset.py --reason ... --yes`）で運用透明性を確保。
+  - Alpaca APIキー必須。
+
+- **EOD リコンサイル** (`eod-reconciliation`)
+  - 大引け後16:30 ETに起動し、当日のフィル、ポジション、キャッシュ残高をAlpacaから取得して損益を再計算。
+  - クローズドトレードのR-multiple分析、アトリビューション（スクリーナー別P&L）、MAE/MFE抽出、仮説ポストモーテム生成。
+  - `reports/eod/eod_<date>.md`とJSONを出力し、Alpaca残高との差異が$5超過の場合はアラート化。
+  - Alpaca APIキー必須。
+
+- **ペーパーリプレイハーネス** (`paper-replay-harness`)
+  - 過去データに対してトレードループを決定論的にリプレイし、SimBrokerで保守的約定解決（次バーのOpen、スリッページ考慮）を行う。
+  - 30日超のバックテスト、エクイティカーブ、ドローダウン、Sharpe、勝率、平均R-multipleを算出。
+  - Paper→Liveゲートの必須コンポーネント（Sharpe > 0.5、最大DD < 5%、勝率×平均R > 0.15の要件を満たす必要あり）。
+  - APIキー不要（ローカル履歴データで動作）。
+
+- **マクロインジケーターダッシュボード** (`macro-indicator-dashboard`)
+  - FREDからVIX、イールドカーブ（10Y-3M、10Y-2Y）、クレジットスプレッド（HY OAS）、TED Spread等を取得し、複合レジームスコアを算出。
+  - `state/macro/regime_<date>.json`に保存され、トレードループのリスクオン/リスクオフ判定のインプットとして使用。
+  - 毎日07:00 ET起動の`macro-refresh` launchdエージェントで自動更新。
+  - **FRED APIキー必須**（無料、https://fred.stlouisfed.org/docs/api/api_key.html ）。
+
+- **相対強度モメンタムスキャナー** (`relative-strength-momentum-scanner`)
+  - IBDスタイルのRS Rating（1-99）を計算し、3/6/12ヶ月リターンの加重複合で市場相対のリーダー銘柄を抽出。
+  - セクター中立化オプション、出来高フィルタ、トレンドテンプレート（50MA > 200MA等）を組み合わせ可能。
+  - トレードループオーケストレータのRSM候補源として直接接続。スタンドアロン実行も可能。
+  - APIキー不要（Alpaca履歴データまたはローカルCSVで動作）。
+
 ### マーケットタイミング・底打ち検出
 
 - **マーケットトップ検出器** (`market-top-detector`)

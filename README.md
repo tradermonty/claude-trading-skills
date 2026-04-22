@@ -233,6 +233,47 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Aggregate statistics by skill, ticker, and time period for periodic signal quality audits.
   - FMP API key optional (for fetching realized returns; manual price entry also supported).
 
+### Automated Trading Stack
+
+End-to-end automated paper/live trading on Alpaca. All components are deterministic and unit-tested. Default posture is paper trading; promotion to live requires signing `LIVE_TRADING_CHECKLIST.md` at the repo root. See `launchd/` for macOS scheduling.
+
+- **Trade Loop Orchestrator** (`trade-loop-orchestrator`)
+  - Every-5-minute driver that loads screener outputs via adapters, applies regime gates, ranks and dedupes signals, sizes positions within portfolio constraints, and submits bracket orders through `alpaca-executor`.
+  - Hybrid signal weighting (equal + historical win rate) configurable in `config/screener_weights.yaml`; global risk limits in `config/trading_params.yaml`.
+  - Emits per-iteration audit JSON + markdown so every decision is reconstructible after the fact.
+  - Alpaca API keys required.
+
+- **Alpaca Executor** (`alpaca-executor`)
+  - Thin Alpaca REST wrapper: bracket-order submission with idempotency keys, portfolio-wide flatten-all for kill-switch events, and structured audit logging.
+  - Idempotency keys are SHA-hashed from (ticker, side, entry, stop, target, signal_id) so re-runs of the same signal cannot double-fill.
+  - Alpaca API keys required.
+
+- **Kill Switch** (`kill-switch`)
+  - 2-minute watchdog that enforces `trading_params.yaml` hard limits: daily drawdown, max position count, max sector exposure, and unknown-Alpaca-state fallback.
+  - On hard breach, shells out to `flatten_all.py`; on soft breach, blocks new entries but holds existing positions; on unknown, orchestrator must treat as TRIPPED.
+  - Alpaca API keys required.
+
+- **EOD Reconciliation** (`eod-reconciliation`)
+  - Nightly 16:30 ET job that reconciles trade-loop decisions against Alpaca fills, attributes per-trade P&L, closes matched theses in trader-memory-core, and triggers postmortems.
+  - Produces both a machine-readable JSON state file and a human-readable markdown report under `reports/eod/`.
+  - Alpaca API keys required.
+
+- **Paper Replay Harness** (`paper-replay-harness`)
+  - Deterministic historical simulator over CSV OHLCV bars with same-inputs → byte-identical-outputs guarantee. No clocks, no network.
+  - SimBroker follows conservative resolution: pending buys fill at next-bar open; when stop and target both print in the same bar, stop wins.
+  - Emits equity curve, max drawdown, Sharpe, win rate, and R-multiple distributions so strategies can be vetted before live deployment.
+  - No API key required.
+
+- **Macro Indicator Dashboard** (`macro-indicator-dashboard`)
+  - Fetches a curated catalog of FRED series, computes a regime score (RISK_ON / NEUTRAL / RISK_OFF), and renders a dashboard the trade loop consults each iteration.
+  - Requires a free FRED API key (https://fred.stlouisfed.org/docs/api/api_key.html).
+
+- **Relative Strength Momentum Scanner** (`relative-strength-momentum-scanner`)
+  - IBD-style RS composite (3/6/9/12-month weighted 0.40 / 0.20 / 0.20 / 0.20), percentile-ranked to 1-99 against a benchmark (default SPY).
+  - Trend filter (close > MA50 > MA200 and within 10% of 52-week high) and MA20 pullback trigger identify entry_ready / watchlist / filtered candidates.
+  - Emits a candidate JSON that is picked up automatically by the trade-loop orchestrator via `screener_adapters.adapt_rsm_scanner`.
+  - No API key required — operates on local OHLCV CSV bars.
+
 ### Market Timing & Bottom Detection
 
 - **Market Top Detector** (`market-top-detector`)
