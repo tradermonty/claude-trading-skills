@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  SETUP: Replace $HOME and $PROJECT_DIR before installing.
+    sed "s|\$HOME|$HOME|g; s|\$PROJECT_DIR|$(pwd)|g" \
+      launchd/com.trade-analysis.kill-switch.plist \
+      > ~/Library/LaunchAgents/com.trade-analysis.kill-switch.plist
+    launchctl load ~/Library/LaunchAgents/com.trade-analysis.kill-switch.plist
+
+  Fires every 120 seconds (StartInterval). Wrapper gates on weekday +
+  09:30-16:00 ET window so it no-ops outside market hours.
+
+  ThrottleInterval=60 prevents launchd from re-firing if a tick takes
+  longer than 60s and another fire is already due.
+-->
+<dict>
+	<key>Label</key>
+	<string>com.trade-analysis.kill-switch</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>$PROJECT_DIR/scripts/run_kill_switch.sh</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>$PROJECT_DIR</string>
+
+	<key>StartInterval</key>
+	<integer>120</integer>
+
+	<key>ThrottleInterval</key>
+	<integer>60</integer>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>HOME</key>
+		<string>$HOME</string>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>$PROJECT_DIR/logs/launchd_kill_switch.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>$PROJECT_DIR/logs/launchd_kill_switch_error.log</string>
+
+	<key>RunAtLoad</key>
+	<false/>
+</dict>
+</plist>
