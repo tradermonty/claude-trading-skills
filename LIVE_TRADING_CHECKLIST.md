@@ -20,7 +20,7 @@
 - [ ] `.envrc` committed only to local machine (listed in `.gitignore`)
 - [ ] `ALPACA_API_KEY`, `ALPACA_SECRET_KEY` set in `.envrc`
 - [ ] `ALPACA_PAPER=true` set in `.envrc` (flip to `false` only when live-ready)
-- [ ] `FRED_API_KEY=f2fd0f502d9d12b46d3a5c183dee9160` set in `.envrc`
+- [ ] `FRED_API_KEY=<your-fred-api-key>` set in `.envrc`
 - [ ] `FMP_API_KEY` set in `.envrc` (required by screeners)
 - [ ] `direnv allow` run in project root, `echo $ALPACA_API_KEY` returns the key
 
