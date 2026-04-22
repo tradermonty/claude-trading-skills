@@ -140,6 +140,22 @@ A comprehensive catalog of all 50 Claude Trading Skills organized by category. B
 
 ---
 
+## 8. Automated Trading
+
+The automated-trader stack takes screener candidates through ranking, sizing, bracket-order submission, intraday risk gating, and end-of-day reconciliation. Every skill is deterministic and unit-tested. Default posture is Alpaca paper trading.
+
+| Skill | Description | API Requirements |
+|-------|-------------|-----------------|
+| **[Trade Loop Orchestrator]({{ '/en/skills/trade-loop-orchestrator/' | relative_url }})** | Every-5-min driver that loads screener outputs via adapters, applies regime gates, ranks and dedupes signals, sizes positions with portfolio constraints, and submits bracket orders through alpaca-executor | <span class="badge badge-api">Alpaca Required</span> |
+| **[Alpaca Executor]({{ '/en/skills/alpaca-executor/' | relative_url }})** | Thin Alpaca REST wrapper: bracket-order submission with idempotency keys, portfolio flatten-all for kill-switch events, and structured audit logging | <span class="badge badge-api">Alpaca Required</span> |
+| **[Kill Switch]({{ '/en/skills/kill-switch/' | relative_url }})** | 2-minute watchdog enforcing daily-loss, position-count, and sector-exposure caps from trading_params.yaml. Flattens all positions on hard breach; blocks new entries on soft breach | <span class="badge badge-api">Alpaca Required</span> |
+| **[EOD Reconciliation]({{ '/en/skills/eod-reconciliation/' | relative_url }})** | 16:30 ET nightly reconciliation of loop decisions against Alpaca fills. Attributes per-trade P&L, closes matched theses, and triggers trader-memory-core postmortems | <span class="badge badge-api">Alpaca Required</span> |
+| **[Paper Replay Harness]({{ '/en/skills/paper-replay-harness/' | relative_url }})** | Deterministic historical simulator over CSV OHLCV bars. Same-inputs → byte-identical outputs; SimBroker resolves stop-before-target conservatively. Produces equity curve, drawdown, Sharpe, and R-multiple stats | <span class="badge badge-free">No API</span> |
+| **[Macro Indicator Dashboard]({{ '/en/skills/macro-indicator-dashboard/' | relative_url }})** | Fetches curated FRED series, computes a regime score (RISK_ON / NEUTRAL / RISK_OFF), and renders a dashboard the trade loop consults each iteration | <span class="badge badge-api">FRED Required</span> |
+| **[Relative Strength Momentum Scanner]({{ '/en/skills/relative-strength-momentum-scanner/' | relative_url }})** | IBD-style RS composite (3/6/9/12mo weighted) percentile-ranked 1-99, trend-filtered (MA50 > MA200, close within 10% of 52w high), pullback trigger at MA20. Emits entry_ready / watchlist / filtered candidates to the trade loop | <span class="badge badge-free">No API</span> |
+
+---
+
 ## Which Skill Should I Use?
 
 ### I want to find growth stocks
@@ -247,5 +263,16 @@ A comprehensive catalog of all 50 Claude Trading Skills organized by category. B
 | Signal Postmortem | Optional | -- | -- |
 | Downtrend Duration Analyzer | Required | -- | -- |
 | Breakout Trade Planner | -- | -- | -- |
+| Alpaca Executor | -- | -- | Required |
+| EOD Reconciliation | -- | -- | Required |
+| Kill Switch | -- | -- | Required |
+| Macro Indicator Dashboard | -- | -- | -- |
+| Paper Replay Harness | -- | -- | -- |
+| Relative Strength Momentum Scanner | -- | -- | -- |
+| Trade Loop Orchestrator | -- | -- | Required |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.
+
+**Other API keys not shown above:**
+
+- **FRED API** (free, https://fred.stlouisfed.org/docs/api/api_key.html) -- Required by Macro Indicator Dashboard and Macro Regime Detector.
