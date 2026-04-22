@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Day Trading Agent</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header>
+  <h1>Day Trading Agent <span class="tag" id="mode-badge">medium</span></h1>
+  <div class="market" id="market-status">market: <span>—</span></div>
+</header>
+
+<section class="controls">
+  <div class="risk-modes" id="risk-modes"></div>
+  <div class="actions">
+    <button id="start-btn" class="primary">Start Trading</button>
+    <button id="stop-btn" class="secondary" disabled>Stop</button>
+    <button id="stop-liquidate-btn" class="warn" disabled>Stop &amp; Liquidate</button>
+    <button id="panic-btn" class="danger">Liquidate All</button>
+  </div>
+  <div id="halt-banner" class="hidden"></div>
+</section>
+
+<section class="grid">
+  <div class="card">
+    <h2>Account</h2>
+    <table id="account-table">
+      <tr><td>Equity</td><td id="equity">—</td></tr>
+      <tr><td>Cash</td><td id="cash">—</td></tr>
+      <tr><td>Buying Power</td><td id="bp">—</td></tr>
+      <tr><td>Long MV</td><td id="long-mv">—</td></tr>
+      <tr><td>Short MV</td><td id="short-mv">—</td></tr>
+      <tr><td>Maintenance Margin</td><td id="maint">—</td></tr>
+      <tr><td>P&amp;L Today</td><td id="pnl-today">—</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Risk Mode Parameters</h2>
+    <table id="risk-table"><tbody></tbody></table>
+  </div>
+
+  <div class="card wide">
+    <h2>Open Positions <span class="muted" id="pos-count"></span></h2>
+    <table class="list">
+      <thead><tr>
+        <th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th>
+        <th>Last</th><th>Mkt Value</th><th>Unrealized P&amp;L</th>
+        <th>%</th><th>Strategy</th>
+      </tr></thead>
+      <tbody id="positions-body"><tr><td colspan="9" class="muted">No open positions.</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card wide">
+    <h2>Trade History <span class="muted" id="trades-stats"></span></h2>
+    <table class="list">
+      <thead><tr>
+        <th>Time (UTC)</th><th>Symbol</th><th>Side</th><th>Qty</th>
+        <th>Price</th><th>P&amp;L</th><th>Strategy</th><th>Mode</th><th>Notes</th>
+      </tr></thead>
+      <tbody id="trades-body"><tr><td colspan="9" class="muted">No trades yet.</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card wide">
+    <h2>Event Log</h2>
+    <div id="events-list" class="events"><div class="muted">No events yet.</div></div>
+  </div>
+</section>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
