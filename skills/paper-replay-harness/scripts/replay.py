@@ -11,6 +11,7 @@ Usage:
       --from 2026-03-01 --to 2026-03-31 \
       --output-dir reports/replay/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import yaml
+    import yaml  # noqa: F401  # availability check; load_yaml() helper uses it indirectly
 except ImportError:
     print("error: pyyaml not installed", file=sys.stderr)
     sys.exit(3)
@@ -38,8 +39,8 @@ from rank_signals import rank_and_dedupe  # noqa: E402
 from run_loop import (  # noqa: E402
     load_sector_map,
     load_yaml,
-    size_position,
     sector_of,
+    size_position,
     would_breach_sector_cap,
 )
 
@@ -49,6 +50,7 @@ DEFAULT_SECTOR_MAP = REPO_ROOT / "config" / "sector_map.yaml"
 
 
 # ---------- Bar loading ----------
+
 
 def load_bars(bars_dir: Path, ticker: str) -> dict[dt.date, dict[str, float]]:
     """Load a ticker's CSV into {date: {open, high, low, close, volume}}."""
@@ -85,6 +87,7 @@ def trading_days(start: dt.date, end: dt.date) -> list[dt.date]:
 
 # ---------- Candidates ----------
 
+
 def load_candidates_for_day(candidates_dir: Path, day: dt.date) -> list[dict[str, Any]]:
     path = candidates_dir / f"candidates_{day.isoformat()}.json"
     if not path.exists():
@@ -102,22 +105,32 @@ def load_candidates_for_day(candidates_dir: Path, day: dt.date) -> list[dict[str
 
 # ---------- Sim broker ----------
 
+
 class SimBroker:
     """Deterministic bracket-order fill engine."""
 
     def __init__(self, starting_cash: float):
         self.cash = starting_cash
-        self.positions: dict[str, dict[str, Any]] = {}  # ticker -> {qty, entry, stop, target, screener, entry_date}
+        self.positions: dict[
+            str, dict[str, Any]
+        ] = {}  # ticker -> {qty, entry, stop, target, screener, entry_date}
         self.pending_buys: list[dict[str, Any]] = []  # filled at next bar open
         self.closed_trades: list[dict[str, Any]] = []
         self.equity_curve: list[dict[str, Any]] = []
 
-    def submit_bracket(self, ticker: str, qty: int, entry_price: float,
-                       stop: float, target: float, screener: str) -> None:
-        self.pending_buys.append({
-            "ticker": ticker, "qty": qty, "intended_entry": entry_price,
-            "stop": stop, "target": target, "screener": screener,
-        })
+    def submit_bracket(
+        self, ticker: str, qty: int, entry_price: float, stop: float, target: float, screener: str
+    ) -> None:
+        self.pending_buys.append(
+            {
+                "ticker": ticker,
+                "qty": qty,
+                "intended_entry": entry_price,
+                "stop": stop,
+                "target": target,
+                "screener": screener,
+            }
+        )
 
     def _open_fill_pending(self, day: dt.date, open_price_of: dict[str, float]) -> None:
         remaining: list[dict[str, Any]] = []
@@ -134,14 +147,19 @@ class SimBroker:
                 continue
             self.cash -= notional
             self.positions[tkr] = {
-                "qty": o["qty"], "entry": px, "stop": o["stop"],
-                "target": o["target"], "screener": o["screener"],
-                "entry_date": day.isoformat(), "intended_entry": o["intended_entry"],
+                "qty": o["qty"],
+                "entry": px,
+                "stop": o["stop"],
+                "target": o["target"],
+                "screener": o["screener"],
+                "entry_date": day.isoformat(),
+                "intended_entry": o["intended_entry"],
             }
         self.pending_buys = remaining
 
-    def _check_exits(self, day: dt.date,
-                     bars_of: dict[str, dict[str, float]]) -> list[dict[str, Any]]:
+    def _check_exits(
+        self, day: dt.date, bars_of: dict[str, dict[str, float]]
+    ) -> list[dict[str, Any]]:
         """Close positions whose bar touched stop (first) or target."""
         closed_today: list[dict[str, Any]] = []
         for tkr, pos in list(self.positions.items()):
@@ -166,7 +184,8 @@ class SimBroker:
                 pnl_dollars = pnl_per_share * pos["qty"]
                 r_mult = (pnl_per_share / risk_per_share) if risk_per_share > 0 else 0
                 rec = {
-                    "ticker": tkr, "entry_date": pos["entry_date"],
+                    "ticker": tkr,
+                    "entry_date": pos["entry_date"],
                     "exit_date": day.isoformat(),
                     "entry_price": round(pos["entry"], 4),
                     "exit_price": round(exit_px, 4),
@@ -189,15 +208,18 @@ class SimBroker:
         return self.cash + mv
 
     def snapshot(self, day: dt.date, equity: float) -> None:
-        self.equity_curve.append({
-            "date": day.isoformat(),
-            "equity": round(equity, 2),
-            "cash": round(self.cash, 2),
-            "positions": len(self.positions),
-        })
+        self.equity_curve.append(
+            {
+                "date": day.isoformat(),
+                "equity": round(equity, 2),
+                "cash": round(self.cash, 2),
+                "positions": len(self.positions),
+            }
+        )
 
 
 # ---------- Iteration ----------
+
 
 def plan_entries(
     candidates: list[dict[str, Any]],
@@ -215,8 +237,7 @@ def plan_entries(
     held = set(broker.positions.keys())
     candidates = [c for c in candidates if c["ticker"] not in held]
 
-    ranked = rank_and_dedupe(candidates, weights, regime=regime,
-                             risk_on_score=risk_on)
+    ranked = rank_and_dedupe(candidates, weights, regime=regime, risk_on_score=risk_on)
     max_positions = int(profile["max_positions"])
     allowed_total = int(math.floor(max_positions * exposure_scale))
     budget = max(allowed_total - len(held), 0)
@@ -230,34 +251,41 @@ def plan_entries(
     for cand in ranked:
         if len(submits) >= budget:
             break
-        qty, _ = size_position(
-            cand["entry_price"], cand["stop_loss"], profile, exposure_scale)
+        qty, _ = size_position(cand["entry_price"], cand["stop_loss"], profile, exposure_scale)
         if qty <= 0:
             continue
         sector = sector_of(cand["ticker"], cand.get("sector"), sector_map)
         notional = qty * cand["entry_price"]
         if would_breach_sector_cap(
-            cand["ticker"], sector, notional, sector_exposures,
-            current_equity, profile["max_sector_exposure_pct"],
+            cand["ticker"],
+            sector,
+            notional,
+            sector_exposures,
+            current_equity,
+            profile["max_sector_exposure_pct"],
         ):
             continue
-        submits.append({
-            "ticker": cand["ticker"],
-            "qty": qty,
-            "intended_entry": cand["entry_price"],
-            "stop": cand["stop_loss"],
-            "target": cand["target"],
-            "screener": cand["primary_screener"],
-            "sector": sector,
-        })
+        submits.append(
+            {
+                "ticker": cand["ticker"],
+                "qty": qty,
+                "intended_entry": cand["entry_price"],
+                "stop": cand["stop_loss"],
+                "target": cand["target"],
+                "screener": cand["primary_screener"],
+                "sector": sector,
+            }
+        )
         sector_exposures[sector] += notional
     return submits
 
 
 # ---------- Aggregation ----------
 
-def aggregate_stats(broker: SimBroker, starting_equity: float,
-                    ending_equity: float) -> dict[str, Any]:
+
+def aggregate_stats(
+    broker: SimBroker, starting_equity: float, ending_equity: float
+) -> dict[str, Any]:
     trades = broker.closed_trades
     if trades:
         wins = [t for t in trades if t["pnl_dollars"] > 0]
@@ -303,9 +331,9 @@ def aggregate_stats(broker: SimBroker, starting_equity: float,
         "win_rate": win_rate,
         "avg_r_multiple": avg_r,
         "max_drawdown_pct": round(max_dd, 3),
-        "total_return_pct": round(
-            (ending_equity - starting_equity) / starting_equity * 100, 3)
-        if starting_equity else 0,
+        "total_return_pct": round((ending_equity - starting_equity) / starting_equity * 100, 3)
+        if starting_equity
+        else 0,
         "by_strategy": dict(by_strategy),
     }
 
@@ -328,12 +356,15 @@ def render_markdown(payload: dict[str, Any]) -> str:
         "|---|---|---|---|---|",
     ]
     for s, b in sorted(payload.get("by_strategy", {}).items()):
-        lines.append(f"| {s} | {b['trades']} | {b['win_rate']} | "
-                     f"{b['avg_r_multiple']} | ${b['pnl_dollars']:,.2f} |")
+        lines.append(
+            f"| {s} | {b['trades']} | {b['win_rate']} | "
+            f"{b['avg_r_multiple']} | ${b['pnl_dollars']:,.2f} |"
+        )
     return "\n".join(lines) + "\n"
 
 
 # ---------- Driver ----------
+
 
 def run_replay(args: argparse.Namespace) -> dict[str, Any]:
     cfg = load_yaml(args.config)
@@ -382,15 +413,24 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
         # 4. Plan new entries from today's candidates for tomorrow's open
         candidates = load_candidates_for_day(args.candidates_dir, day)
         submits = plan_entries(
-            candidates, broker, profile, weights, sector_map,
-            regime=args.regime, risk_on=args.risk_on,
+            candidates,
+            broker,
+            profile,
+            weights,
+            sector_map,
+            regime=args.regime,
+            risk_on=args.risk_on,
             exposure_scale=args.exposure_scale,
             current_equity=equity,
         )
         for s in submits:
             broker.submit_bracket(
-                s["ticker"], s["qty"], s["intended_entry"],
-                s["stop"], s["target"], s["screener"],
+                s["ticker"],
+                s["qty"],
+                s["intended_entry"],
+                s["stop"],
+                s["target"],
+                s["screener"],
             )
 
         broker.snapshot(day, equity)
@@ -416,31 +456,32 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--bars-dir", type=Path, required=True)
     ap.add_argument("--candidates-dir", type=Path, required=True)
-    ap.add_argument("--from", dest="from_date",
-                    type=lambda s: dt.date.fromisoformat(s), required=True)
-    ap.add_argument("--to", dest="to_date",
-                    type=lambda s: dt.date.fromisoformat(s), required=True)
+    ap.add_argument(
+        "--from", dest="from_date", type=lambda s: dt.date.fromisoformat(s), required=True
+    )
+    ap.add_argument("--to", dest="to_date", type=lambda s: dt.date.fromisoformat(s), required=True)
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS)
     ap.add_argument("--sector-map", type=Path, default=DEFAULT_SECTOR_MAP)
     ap.add_argument("--regime", default="GOLDILOCKS")
     ap.add_argument("--risk-on", type=float, default=70.0)
     ap.add_argument("--exposure-scale", type=float, default=1.0)
-    ap.add_argument("--output-dir", type=Path,
-                    default=REPO_ROOT / "reports" / "replay")
+    ap.add_argument("--output-dir", type=Path, default=REPO_ROOT / "reports" / "replay")
     args = ap.parse_args()
 
     payload = run_replay(args)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     tag = f"{args.from_date}_{args.to_date}"
-    (args.output_dir / f"replay_{tag}.json").write_text(
-        json.dumps(payload, indent=2, default=str))
+    (args.output_dir / f"replay_{tag}.json").write_text(json.dumps(payload, indent=2, default=str))
     (args.output_dir / f"replay_{tag}.md").write_text(render_markdown(payload))
 
-    print(f"Replay {tag}: trades={payload['trades_count']} "
-          f"win_rate={payload['win_rate']} "
-          f"total_return={payload['total_return_pct']}%", file=sys.stderr)
+    print(
+        f"Replay {tag}: trades={payload['trades_count']} "
+        f"win_rate={payload['win_rate']} "
+        f"total_return={payload['total_return_pct']}%",
+        file=sys.stderr,
+    )
     return 0
 
 

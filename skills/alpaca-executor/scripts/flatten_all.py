@@ -4,6 +4,7 @@
 Usage:
     python3 flatten_all.py --reason "kill_switch_triggered" --confirm
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,8 +40,9 @@ def _call(method: str, url: str, headers: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--reason", default="manual")
-    ap.add_argument("--confirm", action="store_true",
-                    help="Required unless kill_switch_active=true in config")
+    ap.add_argument(
+        "--confirm", action="store_true", help="Required unless kill_switch_active=true in config"
+    )
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()

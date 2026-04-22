@@ -14,6 +14,7 @@ Exit codes:
     2 - Alpaca API error
     3 - config / environment error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,7 +66,7 @@ def checklist_signed(path: Path) -> bool:
 
 def compute_client_order_id(ticker: str, signal_id: str, day: str) -> str:
     raw = f"{ticker}|{signal_id}|{day}".encode()
-    return "ace_" + hashlib.sha1(raw).hexdigest()[:24]
+    return "ace_" + hashlib.sha1(raw, usedforsecurity=False).hexdigest()[:24]
 
 
 def validate_order(
@@ -206,8 +207,11 @@ def submit_alpaca_order(
             if r.status_code in (200, 201):
                 return r.json()
             if r.status_code in (409, 422):  # idempotent dup or validation
-                return {"status": "duplicate_or_invalid", "http_status": r.status_code,
-                        "body": r.text[:500]}
+                return {
+                    "status": "duplicate_or_invalid",
+                    "http_status": r.status_code,
+                    "body": r.text[:500],
+                }
             if r.status_code >= 500:
                 time.sleep(1 + attempt)
                 continue
@@ -225,15 +229,20 @@ def main() -> int:
     ap.add_argument("--side", required=True, choices=["buy", "sell"])
     ap.add_argument("--quantity", type=int, required=True)
     ap.add_argument("--entry-type", default="market", choices=["market", "limit"])
-    ap.add_argument("--entry-price", type=float, default=0.0,
-                    help="Required for limit orders. For market orders, validation uses this as estimate.")
+    ap.add_argument(
+        "--entry-price",
+        type=float,
+        default=0.0,
+        help="Required for limit orders. For market orders, validation uses this as estimate.",
+    )
     ap.add_argument("--stop-loss", type=float, required=True)
     ap.add_argument("--target", type=float, required=True)
     ap.add_argument("--signal-id", required=True, help="Stable id for idempotency")
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--output", type=Path, required=True)
-    ap.add_argument("--force", action="store_true",
-                    help="Skip safety gate (use ONLY for paper-replay-harness)")
+    ap.add_argument(
+        "--force", action="store_true", help="Skip safety gate (use ONLY for paper-replay-harness)"
+    )
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -246,8 +255,7 @@ def main() -> int:
 
     # Validate the trade structure
     ok, reason = validate_order(
-        args.ticker, args.side, args.quantity, entry_price,
-        args.stop_loss, args.target, cfg
+        args.ticker, args.side, args.quantity, entry_price, args.stop_loss, args.target, cfg
     )
     if not ok:
         _err(reason)
@@ -300,14 +308,22 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(out, indent=2))
-        print(f"DRY_RUN ack: {args.ticker} {args.side} {args.quantity} (coid={coid})", file=sys.stderr)
+        print(
+            f"DRY_RUN ack: {args.ticker} {args.side} {args.quantity} (coid={coid})", file=sys.stderr
+        )
         return 0
 
     # Live submission
     try:
         resp = submit_alpaca_order(
-            args.ticker, args.side, args.quantity, args.entry_type,
-            args.stop_loss, args.target, coid, paper
+            args.ticker,
+            args.side,
+            args.quantity,
+            args.entry_type,
+            args.stop_loss,
+            args.target,
+            coid,
+            paper,
         )
     except Exception as e:
         out = {
@@ -338,7 +354,10 @@ def main() -> int:
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(out, indent=2))
-    print(f"Submitted: {args.ticker} {args.side} {args.quantity} alpaca_id={resp.get('id')}", file=sys.stderr)
+    print(
+        f"Submitted: {args.ticker} {args.side} {args.quantity} alpaca_id={resp.get('id')}",
+        file=sys.stderr,
+    )
     return 0
 
 

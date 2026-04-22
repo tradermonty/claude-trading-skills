@@ -8,6 +8,7 @@ Usage:
     python3 reset.py --reason "manual review complete - account stabilized" \
       --status state/kill_switch_status.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,20 +17,19 @@ import json
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--reason", required=True,
-                    help="Why is the kill-switch being reset? Logged for audit.")
-    ap.add_argument("--status", type=Path,
-                    default=REPO_ROOT / "state" / "kill_switch_status.json")
-    ap.add_argument("--audit-log", type=Path,
-                    default=REPO_ROOT / "state" / "kill_switch_resets.jsonl")
-    ap.add_argument("--yes", action="store_true",
-                    help="Skip interactive confirmation prompt")
+    ap.add_argument(
+        "--reason", required=True, help="Why is the kill-switch being reset? Logged for audit."
+    )
+    ap.add_argument("--status", type=Path, default=REPO_ROOT / "state" / "kill_switch_status.json")
+    ap.add_argument(
+        "--audit-log", type=Path, default=REPO_ROOT / "state" / "kill_switch_resets.jsonl"
+    )
+    ap.add_argument("--yes", action="store_true", help="Skip interactive confirmation prompt")
     args = ap.parse_args()
 
     prior: dict = {}
@@ -41,18 +41,20 @@ def main() -> int:
 
     prior_status = prior.get("status", "UNKNOWN")
     if prior_status == "OK":
-        print("Note: kill-switch is already OK. Reset will refresh state anyway.",
-              file=sys.stderr)
+        print("Note: kill-switch is already OK. Reset will refresh state anyway.", file=sys.stderr)
 
     if not args.yes:
-        prompt = (f"\n*** Reset kill-switch from {prior_status} to OK?\n"
-                  f"*** Reason: {args.reason}\n"
-                  f"Type 'RESET' to confirm: ")
+        prompt = (
+            f"\n*** Reset kill-switch from {prior_status} to OK?\n"
+            f"*** Reason: {args.reason}\n"
+            f"Type 'RESET' to confirm: "
+        )
         try:
             confirm = input(prompt).strip()
         except EOFError:
-            print("REFUSED: no input available, pass --yes for non-interactive use",
-                  file=sys.stderr)
+            print(
+                "REFUSED: no input available, pass --yes for non-interactive use", file=sys.stderr
+            )
             return 1
         if confirm != "RESET":
             print("REFUSED: confirmation not received", file=sys.stderr)

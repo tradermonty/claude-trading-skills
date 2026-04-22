@@ -4,6 +4,7 @@
 Usage:
     python3 generate_dashboard.py --input macro_regime.json --output-dir reports/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -12,7 +13,6 @@ import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
-
 
 REGIME_EMOJI = {
     "GOLDILOCKS": "[++]",
@@ -33,7 +33,7 @@ def render(data: dict[str, Any]) -> str:
     exposure_scale = data.get("exposure_scale", 0.5)
     narrative = data.get("narrative", "")
 
-    out.append(f"# Macro Indicator Dashboard")
+    out.append("# Macro Indicator Dashboard")
     out.append(f"**As of:** {as_of}")
     out.append("")
     out.append(f"## {REGIME_EMOJI.get(regime, '')} Regime: **{regime}**  (confidence {confidence})")
@@ -61,11 +61,17 @@ def render(data: dict[str, Any]) -> str:
     out.append("| Indicator | Value | Notes |")
     out.append("|-----------|-------|-------|")
     if "payems_3m_ann_growth_pct" in g:
-        out.append(f"| Nonfarm Payrolls 3M annualized | {g['payems_3m_ann_growth_pct']:+.2f}% | >2% healthy |")
+        out.append(
+            f"| Nonfarm Payrolls 3M annualized | {g['payems_3m_ann_growth_pct']:+.2f}% | >2% healthy |"
+        )
     if "indpro_6m_change_pct" in g:
-        out.append(f"| Industrial Production 6M change | {g['indpro_6m_change_pct']:+.2f}% | >0 expansion |")
+        out.append(
+            f"| Industrial Production 6M change | {g['indpro_6m_change_pct']:+.2f}% | >0 expansion |"
+        )
     if "sahm_proxy_pp" in g:
-        out.append(f"| Sahm Rule proxy (UR 3M avg vs 12M low) | {g['sahm_proxy_pp']:+.2f}pp | >=0.5pp = recession signal |")
+        out.append(
+            f"| Sahm Rule proxy (UR 3M avg vs 12M low) | {g['sahm_proxy_pp']:+.2f}pp | >=0.5pp = recession signal |"
+        )
     if "icsa_4w_zscore" in g:
         out.append(f"| Initial Claims 4W z-score | {g['icsa_4w_zscore']:+.2f} | >1.5 elevated |")
     out.append("")

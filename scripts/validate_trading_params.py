@@ -12,6 +12,7 @@ Exit codes:
     1 - config has errors
     2 - config not found / unreadable
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,7 +23,10 @@ from typing import Any
 try:
     import yaml
 except ImportError:
-    print("error: PyYAML not installed. Run: pip3 install --break-system-packages pyyaml", file=sys.stderr)
+    print(
+        "error: PyYAML not installed. Run: pip3 install --break-system-packages pyyaml",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 
@@ -43,7 +47,10 @@ def validate_global(g: dict[str, Any], errors: list[str], warnings: list[str]) -
         _err(f"global.mode must be 'paper' or 'live', got {g.get('mode')!r}", errors)
 
     if g.get("mode") == "live" and not g.get("dry_run", True):
-        _warn("global.mode=live with dry_run=false — orders WILL be sent. Confirm checklist is signed.", warnings)
+        _warn(
+            "global.mode=live with dry_run=false — orders WILL be sent. Confirm checklist is signed.",
+            warnings,
+        )
 
     hours = g.get("trading_hours", {})
     if not hours.get("start") or not hours.get("end"):
@@ -73,7 +80,10 @@ def validate_profile(name: str, p: dict[str, Any], errors: list[str], warnings: 
 
     # Sanity ranges (errors)
     if not 0 < p["risk_per_trade_pct"] <= 100:
-        _err(f"profile {name!r}: risk_per_trade_pct must be in (0, 100], got {p['risk_per_trade_pct']}", errors)
+        _err(
+            f"profile {name!r}: risk_per_trade_pct must be in (0, 100], got {p['risk_per_trade_pct']}",
+            errors,
+        )
     if not 0 < p["max_daily_loss_pct"] <= 100:
         _err(f"profile {name!r}: max_daily_loss_pct must be in (0, 100]", errors)
     if p["max_positions"] < 1:
@@ -86,13 +96,24 @@ def validate_profile(name: str, p: dict[str, Any], errors: list[str], warnings: 
         return  # known-bad reference profile, skip warnings
 
     if p["risk_per_trade_pct"] > 3.0:
-        _warn(f"profile {name!r}: risk_per_trade_pct={p['risk_per_trade_pct']} exceeds standard 2% ceiling", warnings)
+        _warn(
+            f"profile {name!r}: risk_per_trade_pct={p['risk_per_trade_pct']} exceeds standard 2% ceiling",
+            warnings,
+        )
     if p["max_daily_loss_pct"] > 6.0:
-        _warn(f"profile {name!r}: max_daily_loss_pct={p['max_daily_loss_pct']} is high - kill-switch may rarely fire", warnings)
+        _warn(
+            f"profile {name!r}: max_daily_loss_pct={p['max_daily_loss_pct']} is high - kill-switch may rarely fire",
+            warnings,
+        )
     if p["max_sector_exposure_pct"] > 50:
-        _warn(f"profile {name!r}: max_sector_exposure_pct={p['max_sector_exposure_pct']} reduces diversification", warnings)
+        _warn(
+            f"profile {name!r}: max_sector_exposure_pct={p['max_sector_exposure_pct']} reduces diversification",
+            warnings,
+        )
     if p["max_positions"] > 15:
-        _warn(f"profile {name!r}: max_positions={p['max_positions']} may dilute conviction", warnings)
+        _warn(
+            f"profile {name!r}: max_positions={p['max_positions']} may dilute conviction", warnings
+        )
 
     # Mathematical sanity: simultaneous risk if all stops hit
     simultaneous_risk = p["risk_per_trade_pct"] * p["max_positions"]
@@ -127,7 +148,10 @@ def validate(config_path: Path) -> int:
     elif active not in profiles:
         _err(f"active_profile {active!r} does not exist in profiles section", errors)
     elif active == "YOLO_DO_NOT_USE":
-        _err("active_profile is YOLO_DO_NOT_USE — refusing to validate as 'pass'. Pick a real profile.", errors)
+        _err(
+            "active_profile is YOLO_DO_NOT_USE — refusing to validate as 'pass'. Pick a real profile.",
+            errors,
+        )
 
     validate_global(cfg.get("global", {}), errors, warnings)
 

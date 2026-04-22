@@ -4,6 +4,7 @@
 Usage:
     python3 capture_sod.py --output state/sod_$(date +%Y-%m-%d).json
 """
+
 from __future__ import annotations
 
 import argparse

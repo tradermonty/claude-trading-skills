@@ -5,6 +5,7 @@ Composite formula (see references/candidate_schema.md):
 
 Supporting bonus: +0.15 per distinct corroborating screener, capped at 3.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -56,11 +57,17 @@ def dedupe_by_ticker(
             reverse=True,
         )
         top_score, top_cand = scored[0]
-        others = [c["primary_screener"] for _, c in scored[1:]
-                  if c["primary_screener"] != top_cand["primary_screener"]]
+        others = [
+            c["primary_screener"]
+            for _, c in scored[1:]
+            if c["primary_screener"] != top_cand["primary_screener"]
+        ]
         supporting = list(dict.fromkeys(top_cand.get("supporting_screeners", []) + others))
-        top_cand = {**top_cand, "supporting_screeners": supporting,
-                    "composite_score": round(top_score, 4)}
+        top_cand = {
+            **top_cand,
+            "supporting_screeners": supporting,
+            "composite_score": round(top_score, 4),
+        }
         # Recompute composite with supporting bonus
         top_cand["composite_score"] = round(compute_composite(top_cand, weights_cfg), 4)
         merged.append(top_cand)

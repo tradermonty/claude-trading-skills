@@ -4,6 +4,7 @@ Each adapter is forgiving: missing report -> empty list, malformed entries
 are skipped with a warning. The orchestrator never crashes on bad screener
 output.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -33,6 +34,7 @@ def _today() -> str:
 
 # ---------- Individual adapters ----------
 
+
 def adapt_vcp_screener(reports_dir: Path) -> list[dict[str, Any]]:
     """VCP (Volatility Contraction Pattern) screener output.
 
@@ -52,23 +54,25 @@ def adapt_vcp_screener(reports_dir: Path) -> list[dict[str, Any]]:
             continue
         for row in rows:
             try:
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": "buy",
-                    "entry_type": "limit",
-                    "entry_price": float(row["pivot_price"]),
-                    "stop_loss": float(row["stop_price"]),
-                    "target": float(row["target_price"]),
-                    "primary_screener": "vcp-screener",
-                    "supporting_screeners": [],
-                    "strategy_score": float(row.get("score", 60)),
-                    "confidence": float(row.get("confidence", 0.7)),
-                    "sector": row.get("sector"),
-                    "atr": row.get("atr"),
-                    "source_report": str(f),
-                    "as_of": data.get("as_of") or row.get("as_of"),
-                    "notes": row.get("notes", "VCP pivot"),
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": "buy",
+                        "entry_type": "limit",
+                        "entry_price": float(row["pivot_price"]),
+                        "stop_loss": float(row["stop_price"]),
+                        "target": float(row["target_price"]),
+                        "primary_screener": "vcp-screener",
+                        "supporting_screeners": [],
+                        "strategy_score": float(row.get("score", 60)),
+                        "confidence": float(row.get("confidence", 0.7)),
+                        "sector": row.get("sector"),
+                        "atr": row.get("atr"),
+                        "source_report": str(f),
+                        "as_of": data.get("as_of") or row.get("as_of"),
+                        "notes": row.get("notes", "VCP pivot"),
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"vcp row skipped: {e}")
     return out
@@ -91,23 +95,25 @@ def adapt_canslim_screener(reports_dir: Path) -> list[dict[str, Any]]:
                 entry = float(row.get("entry_price", row.get("close", 0)))
                 stop = float(row.get("stop_price", entry * 0.93))
                 target = float(row.get("target_price", entry * 1.15))
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": "buy",
-                    "entry_type": "limit",
-                    "entry_price": entry,
-                    "stop_loss": stop,
-                    "target": target,
-                    "primary_screener": "canslim-screener",
-                    "supporting_screeners": [],
-                    "strategy_score": float(row.get("score", 60)),
-                    "confidence": float(row.get("confidence", 0.65)),
-                    "sector": row.get("sector"),
-                    "atr": row.get("atr"),
-                    "source_report": str(f),
-                    "as_of": data.get("as_of"),
-                    "notes": "CANSLIM",
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": "buy",
+                        "entry_type": "limit",
+                        "entry_price": entry,
+                        "stop_loss": stop,
+                        "target": target,
+                        "primary_screener": "canslim-screener",
+                        "supporting_screeners": [],
+                        "strategy_score": float(row.get("score", 60)),
+                        "confidence": float(row.get("confidence", 0.65)),
+                        "sector": row.get("sector"),
+                        "atr": row.get("atr"),
+                        "source_report": str(f),
+                        "as_of": data.get("as_of"),
+                        "notes": "CANSLIM",
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"canslim row skipped: {e}")
     return out
@@ -134,21 +140,23 @@ def adapt_pead_screener(reports_dir: Path) -> list[dict[str, Any]]:
                 entry = float(row.get("breakout_price", row.get("close")))
                 stop = float(row.get("red_candle_low", row.get("stop_price", entry * 0.94)))
                 target = float(row.get("target_price", entry + 2 * (entry - stop)))
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": "buy",
-                    "entry_type": "limit" if state == "SIGNAL_READY" else "market",
-                    "entry_price": entry,
-                    "stop_loss": stop,
-                    "target": target,
-                    "primary_screener": "pead-screener",
-                    "supporting_screeners": [],
-                    "strategy_score": float(row.get("score", 65)),
-                    "confidence": 0.75 if state == "BREAKOUT" else 0.6,
-                    "sector": row.get("sector"),
-                    "source_report": str(f),
-                    "notes": f"PEAD {state}",
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": "buy",
+                        "entry_type": "limit" if state == "SIGNAL_READY" else "market",
+                        "entry_price": entry,
+                        "stop_loss": stop,
+                        "target": target,
+                        "primary_screener": "pead-screener",
+                        "supporting_screeners": [],
+                        "strategy_score": float(row.get("score", 65)),
+                        "confidence": 0.75 if state == "BREAKOUT" else 0.6,
+                        "sector": row.get("sector"),
+                        "source_report": str(f),
+                        "notes": f"PEAD {state}",
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"pead row skipped: {e}")
     return out
@@ -174,21 +182,23 @@ def adapt_earnings_trade_analyzer(reports_dir: Path) -> list[dict[str, Any]]:
                 entry = float(row.get("entry_price", row.get("close")))
                 stop = float(row.get("stop_price", entry * 0.94))
                 target = float(row.get("target_price", entry * 1.10))
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": "buy",
-                    "entry_type": "market",
-                    "entry_price": entry,
-                    "stop_loss": stop,
-                    "target": target,
-                    "primary_screener": "earnings-trade-analyzer",
-                    "supporting_screeners": [],
-                    "strategy_score": 80 if grade == "A" else 65,
-                    "confidence": 0.75 if grade == "A" else 0.6,
-                    "sector": row.get("sector"),
-                    "source_report": str(f),
-                    "notes": f"Earnings reaction grade {grade}",
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": "buy",
+                        "entry_type": "market",
+                        "entry_price": entry,
+                        "stop_loss": stop,
+                        "target": target,
+                        "primary_screener": "earnings-trade-analyzer",
+                        "supporting_screeners": [],
+                        "strategy_score": 80 if grade == "A" else 65,
+                        "confidence": 0.75 if grade == "A" else 0.6,
+                        "sector": row.get("sector"),
+                        "source_report": str(f),
+                        "notes": f"Earnings reaction grade {grade}",
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"earnings row skipped: {e}")
     return out
@@ -211,21 +221,23 @@ def adapt_kanchi_dividend(reports_dir: Path) -> list[dict[str, Any]]:
                 entry = float(row["entry_price"])
                 stop = float(row["stop_price"])
                 target = float(row.get("target_price", entry + 2 * (entry - stop)))
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": "buy",
-                    "entry_type": "limit",
-                    "entry_price": entry,
-                    "stop_loss": stop,
-                    "target": target,
-                    "primary_screener": "kanchi-dividend-sop",
-                    "supporting_screeners": [],
-                    "strategy_score": float(row.get("score", 70)),
-                    "confidence": 0.75,
-                    "sector": row.get("sector"),
-                    "source_report": str(f),
-                    "notes": "Kanchi pullback entry",
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": "buy",
+                        "entry_type": "limit",
+                        "entry_price": entry,
+                        "stop_loss": stop,
+                        "target": target,
+                        "primary_screener": "kanchi-dividend-sop",
+                        "supporting_screeners": [],
+                        "strategy_score": float(row.get("score", 70)),
+                        "confidence": 0.75,
+                        "sector": row.get("sector"),
+                        "source_report": str(f),
+                        "notes": "Kanchi pullback entry",
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"kanchi row skipped: {e}")
     return out
@@ -248,21 +260,23 @@ def adapt_edge_pipeline(reports_dir: Path) -> list[dict[str, Any]]:
                 entry = float(row["entry_price"])
                 stop = float(row["stop_price"])
                 target = float(row.get("target_price", entry + 2 * (entry - stop)))
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": str(row.get("side", "buy")).lower(),
-                    "entry_type": str(row.get("entry_type", "limit")),
-                    "entry_price": entry,
-                    "stop_loss": stop,
-                    "target": target,
-                    "primary_screener": "edge-pipeline",
-                    "supporting_screeners": [],
-                    "strategy_score": float(row.get("score", 65)),
-                    "confidence": float(row.get("confidence", 0.6)),
-                    "sector": row.get("sector"),
-                    "source_report": str(f),
-                    "notes": "edge-pipeline strategy",
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": str(row.get("side", "buy")).lower(),
+                        "entry_type": str(row.get("entry_type", "limit")),
+                        "entry_price": entry,
+                        "stop_loss": stop,
+                        "target": target,
+                        "primary_screener": "edge-pipeline",
+                        "supporting_screeners": [],
+                        "strategy_score": float(row.get("score", 65)),
+                        "confidence": float(row.get("confidence", 0.6)),
+                        "sector": row.get("sector"),
+                        "source_report": str(f),
+                        "notes": "edge-pipeline strategy",
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"edge row skipped: {e}")
     return out
@@ -290,23 +304,24 @@ def adapt_rsm_scanner(reports_dir: Path) -> list[dict[str, Any]]:
             if row.get("status") != "entry_ready":
                 continue
             try:
-                out.append({
-                    "ticker": str(row["ticker"]).upper(),
-                    "side": str(row.get("side", "buy")).lower(),
-                    "entry_type": str(row.get("entry_type", "market")),
-                    "entry_price": float(row["entry_price"]),
-                    "stop_loss": float(row["stop_loss"]),
-                    "target": float(row["target"]),
-                    "primary_screener": "rsm-scanner",
-                    "supporting_screeners": list(
-                        row.get("supporting_screeners") or []),
-                    "strategy_score": float(row.get("strategy_score", row.get("rs_score", 60))),
-                    "confidence": float(row.get("confidence", 0.7)),
-                    "sector": row.get("sector"),
-                    "source_report": str(f),
-                    "as_of": data.get("as_of") or row.get("as_of"),
-                    "notes": row.get("notes", "RS momentum leader"),
-                })
+                out.append(
+                    {
+                        "ticker": str(row["ticker"]).upper(),
+                        "side": str(row.get("side", "buy")).lower(),
+                        "entry_type": str(row.get("entry_type", "market")),
+                        "entry_price": float(row["entry_price"]),
+                        "stop_loss": float(row["stop_loss"]),
+                        "target": float(row["target"]),
+                        "primary_screener": "rsm-scanner",
+                        "supporting_screeners": list(row.get("supporting_screeners") or []),
+                        "strategy_score": float(row.get("strategy_score", row.get("rs_score", 60))),
+                        "confidence": float(row.get("confidence", 0.7)),
+                        "sector": row.get("sector"),
+                        "source_report": str(f),
+                        "as_of": data.get("as_of") or row.get("as_of"),
+                        "notes": row.get("notes", "RS momentum leader"),
+                    }
+                )
             except (KeyError, ValueError, TypeError) as e:
                 _warn(f"rsm row skipped: {e}")
     return out
@@ -324,9 +339,9 @@ ADAPTERS: dict[str, Callable[[Path], list[dict[str, Any]]]] = {
 }
 
 
-def load_all_candidates(reports_dir: Path,
-                        enabled_screeners: list[str] | None = None
-                        ) -> list[dict[str, Any]]:
+def load_all_candidates(
+    reports_dir: Path, enabled_screeners: list[str] | None = None
+) -> list[dict[str, Any]]:
     """Run every enabled adapter and return concatenated candidate list."""
     enabled = set(enabled_screeners) if enabled_screeners else set(ADAPTERS.keys())
     all_cands: list[dict[str, Any]] = []

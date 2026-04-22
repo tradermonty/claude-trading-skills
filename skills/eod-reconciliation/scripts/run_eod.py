@@ -8,6 +8,7 @@ trader-memory-core for postmortems.
 Usage:
     python3 run_eod.py --output-dir reports/eod/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,8 +25,10 @@ from zoneinfo import ZoneInfo
 try:
     import requests
 except ImportError:
-    print("error: requests not installed. Run: pip3 install --break-system-packages requests",
-          file=sys.stderr)
+    print(
+        "error: requests not installed. Run: pip3 install --break-system-packages requests",
+        file=sys.stderr,
+    )
     sys.exit(3)
 
 
@@ -43,6 +46,7 @@ ET = ZoneInfo("America/New_York")
 
 
 # ---------- Alpaca helpers ----------
+
 
 def _headers() -> dict[str, str]:
     return {
@@ -63,8 +67,13 @@ def fetch_alpaca_orders(after_iso: str, timeout: int = 30) -> list[dict[str, Any
     up to 500 by default; we paginate with the `until` parameter if needed.
     """
     url = f"{_base()}/v2/orders"
-    params = {"status": "all", "after": after_iso, "limit": 500,
-              "direction": "asc", "nested": "true"}
+    params = {
+        "status": "all",
+        "after": after_iso,
+        "limit": 500,
+        "direction": "asc",
+        "nested": "true",
+    }
     r = requests.get(url, headers=_headers(), params=params, timeout=timeout)
     r.raise_for_status()
     return r.json() or []
@@ -83,6 +92,7 @@ def fetch_alpaca_positions(timeout: int = 15) -> list[dict[str, Any]]:
 
 
 # ---------- Iteration loading ----------
+
 
 def list_iteration_audits(state_loop_dir: Path, target_date: dt.date) -> list[Path]:
     """Return paths of iter_*.json files whose iteration_id falls on target_date."""
@@ -104,7 +114,7 @@ def load_iteration_decisions(paths: list[Path]) -> list[dict[str, Any]]:
             "iteration_id": data.get("iteration_id"),
             "started_at": data.get("started_at"),
         }
-        for d in (data.get("decisions") or []):
+        for d in data.get("decisions") or []:
             rec = {**iter_meta, **d}
             flat.append(rec)
     return flat
@@ -117,6 +127,7 @@ def extract_submit_decisions(decisions: list[dict[str, Any]]) -> list[dict[str, 
 
 
 # ---------- Matching + classification ----------
+
 
 def classify_order(order: dict[str, Any]) -> str:
     """Map Alpaca order status to EOD bucket."""
@@ -141,8 +152,7 @@ def classify_order(order: dict[str, Any]) -> str:
     return status or "unknown"
 
 
-def compute_slippage(intended_entry: float, fill_price: float | None,
-                     side: str) -> float | None:
+def compute_slippage(intended_entry: float, fill_price: float | None, side: str) -> float | None:
     """Signed slippage in dollars per share.
 
     Positive = price moved against us at entry (worse fill):
@@ -182,15 +192,17 @@ def match_decisions_to_orders(
         coid = d.get("client_order_id")
         order = by_coid.get(coid) if coid else None
         if order is None:
-            matches.append({
-                "decision": d,
-                "order": None,
-                "classification": "unmatched",
-                "unmatched": True,
-                "filled_avg_price": None,
-                "filled_qty": 0,
-                "slippage_per_share": None,
-            })
+            matches.append(
+                {
+                    "decision": d,
+                    "order": None,
+                    "classification": "unmatched",
+                    "unmatched": True,
+                    "filled_avg_price": None,
+                    "filled_qty": 0,
+                    "slippage_per_share": None,
+                }
+            )
             continue
 
         classification = classify_order(order)
@@ -202,26 +214,28 @@ def match_decisions_to_orders(
             fill_price=fill_px,
             side=d.get("side") or order.get("side") or "buy",
         )
-        matches.append({
-            "decision": d,
-            "order": {
-                "id": order.get("id"),
-                "client_order_id": coid,
-                "status": order.get("status"),
-                "side": order.get("side"),
-                "qty": order.get("qty"),
-                "filled_qty": order.get("filled_qty"),
-                "filled_avg_price": avg,
-                "submitted_at": order.get("submitted_at"),
-                "filled_at": order.get("filled_at"),
-                "canceled_at": order.get("canceled_at"),
-            },
-            "classification": classification,
-            "unmatched": False,
-            "filled_avg_price": fill_px,
-            "filled_qty": filled_qty,
-            "slippage_per_share": slip,
-        })
+        matches.append(
+            {
+                "decision": d,
+                "order": {
+                    "id": order.get("id"),
+                    "client_order_id": coid,
+                    "status": order.get("status"),
+                    "side": order.get("side"),
+                    "qty": order.get("qty"),
+                    "filled_qty": order.get("filled_qty"),
+                    "filled_avg_price": avg,
+                    "submitted_at": order.get("submitted_at"),
+                    "filled_at": order.get("filled_at"),
+                    "canceled_at": order.get("canceled_at"),
+                },
+                "classification": classification,
+                "unmatched": False,
+                "filled_avg_price": fill_px,
+                "filled_qty": filled_qty,
+                "slippage_per_share": slip,
+            }
+        )
     return matches
 
 
@@ -234,19 +248,22 @@ def classification_counts(matches: list[dict[str, Any]]) -> dict[str, int]:
 
 # ---------- Attribution ----------
 
+
 def compute_attribution(
     matches: list[dict[str, Any]],
     closed_theses: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Group by primary_screener: submits, fills, realized P&L, open positions."""
-    by: dict[str, dict[str, Any]] = defaultdict(lambda: {
-        "submits": 0,
-        "fills": 0,
-        "partials": 0,
-        "rejects": 0,
-        "realized_pnl_usd": 0.0,
-        "open_positions": 0,
-    })
+    by: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "submits": 0,
+            "fills": 0,
+            "partials": 0,
+            "rejects": 0,
+            "realized_pnl_usd": 0.0,
+            "open_positions": 0,
+        }
+    )
     for m in matches:
         d = m["decision"]
         screener = d.get("primary_screener") or "unknown"
@@ -277,6 +294,7 @@ def compute_attribution(
 
 # ---------- Closed-position detection via theses ----------
 
+
 def detect_closed_positions(
     theses_dir: Path,
     sod_tickers: set[str],
@@ -304,12 +322,14 @@ def detect_closed_positions(
     for idx_entry in active:
         tkr = idx_entry.get("ticker", "").upper()
         if tkr and tkr not in held_now:
-            closed.append({
-                "ticker": tkr,
-                "thesis_id": idx_entry.get("thesis_id"),
-                "thesis_type": idx_entry.get("thesis_type"),
-                "primary_screener": idx_entry.get("source_screener"),
-            })
+            closed.append(
+                {
+                    "ticker": tkr,
+                    "thesis_id": idx_entry.get("thesis_id"),
+                    "thesis_type": idx_entry.get("thesis_type"),
+                    "primary_screener": idx_entry.get("source_screener"),
+                }
+            )
     return closed
 
 
@@ -326,9 +346,14 @@ def close_thesis_and_postmortem(
 
     Returns a dict with thesis_id, realized_pnl_usd, postmortem_path, errors.
     """
-    result: dict[str, Any] = {"thesis_id": thesis_id, "ticker": ticker,
-                              "realized_pnl_usd": None, "r_multiple": None,
-                              "postmortem_path": None, "errors": []}
+    result: dict[str, Any] = {
+        "thesis_id": thesis_id,
+        "ticker": ticker,
+        "realized_pnl_usd": None,
+        "r_multiple": None,
+        "postmortem_path": None,
+        "errors": [],
+    }
 
     sys.path.insert(0, str(THESIS_REVIEW.parent))
     try:
@@ -357,9 +382,14 @@ def close_thesis_and_postmortem(
         return result
 
     # Postmortem via subprocess (fresh interpreter so optional deps load clean)
-    cmd = [sys.executable, str(THESIS_REVIEW),
-           "--state-dir", str(theses_dir),
-           "postmortem", thesis_id]
+    cmd = [
+        sys.executable,
+        str(THESIS_REVIEW),
+        "--state-dir",
+        str(theses_dir),
+        "postmortem",
+        thesis_id,
+    ]
     if journal_dir:
         cmd.extend(["--journal-dir", str(journal_dir)])
     try:
@@ -371,14 +401,14 @@ def close_thesis_and_postmortem(
                     result["postmortem_path"] = line.split("generated:", 1)[1].strip()
                     break
         else:
-            result["errors"].append(
-                f"postmortem rc={r.returncode}: {r.stderr.strip()[:200]}")
+            result["errors"].append(f"postmortem rc={r.returncode}: {r.stderr.strip()[:200]}")
     except subprocess.TimeoutExpired:
         result["errors"].append("postmortem timeout")
     return result
 
 
 # ---------- SOD snapshot ----------
+
 
 def load_sod_snapshot(state_dir: Path, target_date: dt.date) -> dict[str, Any] | None:
     path = state_dir / f"sod_{target_date.isoformat()}.json"
@@ -391,6 +421,7 @@ def load_sod_snapshot(state_dir: Path, target_date: dt.date) -> dict[str, Any] |
 
 
 # ---------- Report rendering ----------
+
 
 def render_markdown(payload: dict[str, Any]) -> str:
     date = payload["date"]
@@ -419,29 +450,38 @@ def render_markdown(payload: dict[str, Any]) -> str:
         "| Classification | Count |",
         "|---|---|",
     ]
-    for k in ("filled", "partial", "canceled", "expired", "rejected",
-              "pending", "unmatched"):
+    for k in ("filled", "partial", "canceled", "expired", "rejected", "pending", "unmatched"):
         if k in fills:
             lines.append(f"| {k} | {fills[k]} |")
-    lines += ["", "## Strategy Attribution", "",
-              "| Screener | Submits | Fills | Realized P&L | Open |",
-              "|---|---|---|---|---|"]
+    lines += [
+        "",
+        "## Strategy Attribution",
+        "",
+        "| Screener | Submits | Fills | Realized P&L | Open |",
+        "|---|---|---|---|---|",
+    ]
     for screener, stats in sorted(by_strat.items()):
         lines.append(
             f"| {screener} | {stats['submits']} | {stats['fills']} | "
             f"${stats['realized_pnl_usd']:,.2f} | {stats['open_positions']} |"
         )
     if closed:
-        lines += ["", "## Closed Positions", "",
-                  "| Ticker | Thesis | Realized P&L | R | Postmortem |",
-                  "|---|---|---|---|---|"]
+        lines += [
+            "",
+            "## Closed Positions",
+            "",
+            "| Ticker | Thesis | Realized P&L | R | Postmortem |",
+            "|---|---|---|---|---|",
+        ]
         for c in closed:
-            pnl_s = (f"${c['realized_pnl_usd']:,.2f}"
-                     if c.get("realized_pnl_usd") is not None else "—")
+            pnl_s = (
+                f"${c['realized_pnl_usd']:,.2f}" if c.get("realized_pnl_usd") is not None else "—"
+            )
             r_s = f"{c['r_multiple']}R" if c.get("r_multiple") is not None else "—"
             pm = c.get("postmortem_path") or "—"
-            lines.append(f"| {c.get('ticker', '—')} | "
-                         f"{c.get('thesis_id', '—')} | {pnl_s} | {r_s} | {pm} |")
+            lines.append(
+                f"| {c.get('ticker', '—')} | {c.get('thesis_id', '—')} | {pnl_s} | {r_s} | {pm} |"
+            )
     if warnings:
         lines += ["", "## Warnings", ""]
         for w in warnings:
@@ -450,6 +490,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
 
 
 # ---------- Orchestration ----------
+
 
 def run_reconciliation(args: argparse.Namespace) -> dict[str, Any]:
     today = args.date or dt.datetime.now(ET).date()
@@ -490,8 +531,7 @@ def run_reconciliation(args: argparse.Namespace) -> dict[str, Any]:
 
     # 6. Detect closed positions via thesis store
     sod_tickers: set[str] = set()  # (not required for current simple logic)
-    closed_candidates = detect_closed_positions(
-        args.theses_dir, sod_tickers, positions)
+    closed_candidates = detect_closed_positions(args.theses_dir, sod_tickers, positions)
 
     # 7. Close each thesis and run postmortem (exit price = last trade if we can)
     # Find exit fills (sell orders that filled today for that ticker)
@@ -567,14 +607,23 @@ def write_reports(payload: dict[str, Any], output_dir: Path) -> tuple[Path, Path
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--state-loop", type=Path, default=DEFAULT_STATE_LOOP,
-                    help="Directory containing iter_*.json iteration audits")
-    ap.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR,
-                    help="State root containing sod_*.json")
+    ap.add_argument(
+        "--state-loop",
+        type=Path,
+        default=DEFAULT_STATE_LOOP,
+        help="Directory containing iter_*.json iteration audits",
+    )
+    ap.add_argument(
+        "--state-dir", type=Path, default=DEFAULT_STATE_DIR, help="State root containing sod_*.json"
+    )
     ap.add_argument("--theses-dir", type=Path, default=DEFAULT_THESES_DIR)
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
-    ap.add_argument("--date", type=lambda s: dt.date.fromisoformat(s),
-                    default=None, help="YYYY-MM-DD override (default: today ET)")
+    ap.add_argument(
+        "--date",
+        type=lambda s: dt.date.fromisoformat(s),
+        default=None,
+        help="YYYY-MM-DD override (default: today ET)",
+    )
     ap.add_argument("--skip-postmortems", action="store_true")
     args = ap.parse_args()
 
@@ -583,8 +632,10 @@ def main() -> int:
 
     pnl = payload.get("day_pnl_usd")
     pnl_s = f"${pnl:,.2f}" if pnl is not None else "unknown"
-    print(f"EOD done: date={payload['date']} pnl={pnl_s} "
-          f"fills={payload.get('fills')} md={md_path}", file=sys.stderr)
+    print(
+        f"EOD done: date={payload['date']} pnl={pnl_s} fills={payload.get('fills')} md={md_path}",
+        file=sys.stderr,
+    )
 
     return 1 if payload.get("warnings") else 0
 

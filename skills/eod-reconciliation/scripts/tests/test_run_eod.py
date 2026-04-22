@@ -1,4 +1,5 @@
 """Tests for eod-reconciliation/scripts/run_eod.py — pure helpers."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -13,8 +14,8 @@ sys.path.insert(0, str(REPO / "skills" / "eod-reconciliation" / "scripts"))
 
 import run_eod as eod  # noqa: E402
 
-
 # ---------- classify_order ----------
+
 
 def test_classify_filled():
     assert eod.classify_order({"status": "filled"}) == "filled"
@@ -53,6 +54,7 @@ def test_classify_unknown():
 
 # ---------- compute_slippage ----------
 
+
 def test_slippage_buy_worse_fill():
     # paid $100.10 when intending $100.00 -> +0.10 slippage
     assert eod.compute_slippage(100.0, 100.10, "buy") == 0.1
@@ -78,8 +80,10 @@ def test_slippage_handles_bad_string():
 
 # ---------- match_decisions_to_orders ----------
 
-def _decision(coid, ticker="AAPL", screener="vcp-screener", entry=100.0,
-              side="buy", action="submit"):
+
+def _decision(
+    coid, ticker="AAPL", screener="vcp-screener", entry=100.0, side="buy", action="submit"
+):
     return {
         "action": action,
         "ticker": ticker,
@@ -91,8 +95,9 @@ def _decision(coid, ticker="AAPL", screener="vcp-screener", entry=100.0,
     }
 
 
-def _order(coid, ticker="AAPL", status="filled", filled_qty="10", qty="10",
-           avg="100.05", side="buy"):
+def _order(
+    coid, ticker="AAPL", status="filled", filled_qty="10", qty="10", avg="100.05", side="buy"
+):
     return {
         "id": "alp_" + coid[-6:],
         "client_order_id": coid,
@@ -130,14 +135,17 @@ def test_match_unmatched_decision():
 
 def test_match_multiple_mixed():
     d = [_decision("ace_1"), _decision("ace_2", ticker="MSFT")]
-    o = [_order("ace_1"),
-         _order("ace_2", ticker="MSFT", status="rejected", filled_qty="0", avg=None)]
+    o = [
+        _order("ace_1"),
+        _order("ace_2", ticker="MSFT", status="rejected", filled_qty="0", avg=None),
+    ]
     m = eod.match_decisions_to_orders(d, o)
     cls = [x["classification"] for x in m]
     assert cls == ["filled", "rejected"]
 
 
 # ---------- classification_counts ----------
+
 
 def test_counts_aggregates_matches():
     matches = [
@@ -152,14 +160,12 @@ def test_counts_aggregates_matches():
 
 # ---------- compute_attribution ----------
 
+
 def test_attribution_buckets_by_screener():
     matches = [
-        {"decision": _decision("x1", screener="vcp-screener"),
-         "classification": "filled"},
-        {"decision": _decision("x2", screener="vcp-screener"),
-         "classification": "rejected"},
-        {"decision": _decision("x3", screener="pead-screener"),
-         "classification": "filled"},
+        {"decision": _decision("x1", screener="vcp-screener"), "classification": "filled"},
+        {"decision": _decision("x2", screener="vcp-screener"), "classification": "rejected"},
+        {"decision": _decision("x3", screener="pead-screener"), "classification": "filled"},
     ]
     closed = [{"primary_screener": "pead-screener", "realized_pnl_usd": 320.0}]
     attr = eod.compute_attribution(matches, closed)
@@ -185,6 +191,7 @@ def test_attribution_rounds_pnl():
 
 # ---------- list_iteration_audits + load_iteration_decisions ----------
 
+
 def test_list_iteration_audits_returns_empty_if_missing(tmp_path):
     missing = tmp_path / "does-not-exist"
     assert eod.list_iteration_audits(missing, dt.date(2026, 4, 21)) == []
@@ -204,14 +211,16 @@ def test_list_iteration_audits_matches_date_prefix(tmp_path):
 
 def test_load_iteration_decisions_flattens_and_carries_meta(tmp_path):
     iter_a = {
-        "iteration_id": "loop_A", "started_at": "2026-04-21T14:00:00Z",
+        "iteration_id": "loop_A",
+        "started_at": "2026-04-21T14:00:00Z",
         "decisions": [
             {"ticker": "AAPL", "action": "submit", "client_order_id": "ace_1"},
             {"ticker": "MSFT", "action": "skip_sector_cap"},
         ],
     }
     iter_b = {
-        "iteration_id": "loop_B", "started_at": "2026-04-21T14:05:00Z",
+        "iteration_id": "loop_B",
+        "started_at": "2026-04-21T14:05:00Z",
         "decisions": [
             {"ticker": "GOOG", "action": "submit", "client_order_id": "ace_2"},
         ],
@@ -249,6 +258,7 @@ def test_extract_submit_decisions_filters():
 
 # ---------- load_sod_snapshot ----------
 
+
 def test_load_sod_snapshot_present(tmp_path):
     date = dt.date(2026, 4, 21)
     p = tmp_path / f"sod_{date.isoformat()}.json"
@@ -264,24 +274,35 @@ def test_load_sod_snapshot_missing(tmp_path):
 
 # ---------- render_markdown ----------
 
+
 def test_render_markdown_contains_all_sections():
     payload = {
         "date": "2026-04-21",
-        "sod_equity": 100000.0, "eod_equity": 100850.0,
-        "day_pnl_usd": 850.0, "day_pnl_pct": 0.85,
+        "sod_equity": 100000.0,
+        "eod_equity": 100850.0,
+        "day_pnl_usd": 850.0,
+        "day_pnl_pct": 0.85,
         "iterations_count": 78,
         "submits_attempted": 4,
         "open_positions": 5,
         "fills": {"filled": 3, "canceled": 1},
         "by_strategy": {
-            "vcp-screener": {"submits": 2, "fills": 2, "realized_pnl_usd": 0.0,
-                             "open_positions": 2},
+            "vcp-screener": {
+                "submits": 2,
+                "fills": 2,
+                "realized_pnl_usd": 0.0,
+                "open_positions": 2,
+            },
         },
-        "closed_positions": [{
-            "ticker": "AAPL", "thesis_id": "th_x",
-            "realized_pnl_usd": 320, "r_multiple": 1.2,
-            "postmortem_path": "state/journal/pm_th_x.md",
-        }],
+        "closed_positions": [
+            {
+                "ticker": "AAPL",
+                "thesis_id": "th_x",
+                "realized_pnl_usd": 320,
+                "r_multiple": 1.2,
+                "postmortem_path": "state/journal/pm_th_x.md",
+            }
+        ],
         "warnings": ["test warning"],
     }
     md = eod.render_markdown(payload)
@@ -295,11 +316,18 @@ def test_render_markdown_contains_all_sections():
 
 def test_render_markdown_handles_empty_closed_and_warnings():
     payload = {
-        "date": "2026-04-21", "sod_equity": 100000.0, "eod_equity": 100000.0,
-        "day_pnl_usd": 0.0, "day_pnl_pct": 0.0,
-        "iterations_count": 0, "submits_attempted": 0, "open_positions": 0,
-        "fills": {}, "by_strategy": {},
-        "closed_positions": [], "warnings": [],
+        "date": "2026-04-21",
+        "sod_equity": 100000.0,
+        "eod_equity": 100000.0,
+        "day_pnl_usd": 0.0,
+        "day_pnl_pct": 0.0,
+        "iterations_count": 0,
+        "submits_attempted": 0,
+        "open_positions": 0,
+        "fills": {},
+        "by_strategy": {},
+        "closed_positions": [],
+        "warnings": [],
     }
     md = eod.render_markdown(payload)
     assert "## Closed Positions" not in md
@@ -308,13 +336,21 @@ def test_render_markdown_handles_empty_closed_and_warnings():
 
 # ---------- write_reports ----------
 
+
 def test_write_reports_creates_md_and_json(tmp_path):
     payload = {
-        "date": "2026-04-21", "sod_equity": 100000.0, "eod_equity": 100100.0,
-        "day_pnl_usd": 100.0, "day_pnl_pct": 0.1,
-        "iterations_count": 1, "submits_attempted": 0, "open_positions": 0,
-        "fills": {}, "by_strategy": {},
-        "closed_positions": [], "warnings": [],
+        "date": "2026-04-21",
+        "sod_equity": 100000.0,
+        "eod_equity": 100100.0,
+        "day_pnl_usd": 100.0,
+        "day_pnl_pct": 0.1,
+        "iterations_count": 1,
+        "submits_attempted": 0,
+        "open_positions": 0,
+        "fills": {},
+        "by_strategy": {},
+        "closed_positions": [],
+        "warnings": [],
     }
     md, js = eod.write_reports(payload, tmp_path)
     assert md.exists() and js.exists()

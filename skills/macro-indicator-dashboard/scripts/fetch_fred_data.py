@@ -17,6 +17,7 @@ Output JSON shape:
       "fetch_errors": []
     }
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,7 +33,10 @@ from urllib.parse import urlencode
 try:
     import requests
 except ImportError:
-    print("error: requests not installed. Run: pip3 install --break-system-packages requests", file=sys.stderr)
+    print(
+        "error: requests not installed. Run: pip3 install --break-system-packages requests",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 
@@ -82,7 +86,7 @@ def fetch_series(series_id: str, api_key: str, start: str) -> dict[str, Any]:
             if r.status_code == 200:
                 return r.json()
             if r.status_code == 429:
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             raise RuntimeError(f"HTTP {r.status_code} for {series_id}: {r.text[:200]}")
         except requests.RequestException as e:
@@ -109,15 +113,26 @@ def normalize_observations(raw: dict[str, Any]) -> list[dict[str, Any]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--api-key", default=os.environ.get("FRED_API_KEY"))
-    ap.add_argument("--output", type=Path, default=None,
-                    help="Output JSON path. Defaults to reports/macro_raw_<date>.json")
-    ap.add_argument("--years", type=int, default=10,
-                    help="Years of history to pull (default 10, min 3 recommended)")
+    ap.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Output JSON path. Defaults to reports/macro_raw_<date>.json",
+    )
+    ap.add_argument(
+        "--years",
+        type=int,
+        default=10,
+        help="Years of history to pull (default 10, min 3 recommended)",
+    )
     args = ap.parse_args()
 
     if not args.api_key:
-        print("error: FRED_API_KEY not set. Get a free key at "
-              "https://fred.stlouisfed.org/docs/api/api_key.html", file=sys.stderr)
+        print(
+            "error: FRED_API_KEY not set. Get a free key at "
+            "https://fred.stlouisfed.org/docs/api/api_key.html",
+            file=sys.stderr,
+        )
         return 2
 
     today = dt.date.today()

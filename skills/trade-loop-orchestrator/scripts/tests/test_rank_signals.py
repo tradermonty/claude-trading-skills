@@ -1,4 +1,5 @@
 """Tests for rank_signals.py — pure functions, no I/O."""
+
 from __future__ import annotations
 
 import sys
@@ -22,8 +23,10 @@ def weights():
             "earnings-trade-analyzer": {"weight": 0.7},
         },
         "regime_gates": {
-            "vcp-screener": {"allowed_regimes": ["GOLDILOCKS", "REFLATION", "RECOVERY"],
-                             "min_risk_on": 40},
+            "vcp-screener": {
+                "allowed_regimes": ["GOLDILOCKS", "REFLATION", "RECOVERY"],
+                "min_risk_on": 40,
+            },
             "canslim-screener": {"min_risk_on": 50},
         },
     }
@@ -36,7 +39,10 @@ def _cand(ticker, screener, score=70, conf=0.7, supporting=None):
         "strategy_score": score,
         "confidence": conf,
         "supporting_screeners": supporting or [],
-        "side": "buy", "entry_price": 100.0, "stop_loss": 95.0, "target": 110.0,
+        "side": "buy",
+        "entry_price": 100.0,
+        "stop_loss": 95.0,
+        "target": 110.0,
     }
 
 
@@ -47,15 +53,15 @@ def test_compute_composite_basic(weights):
 
 
 def test_compute_composite_with_supporting(weights):
-    c = _cand("AAPL", "vcp-screener", score=80, conf=0.8,
-              supporting=["canslim-screener", "pead-screener"])
+    c = _cand(
+        "AAPL", "vcp-screener", score=80, conf=0.8, supporting=["canslim-screener", "pead-screener"]
+    )
     # bonus = 0.15 * 2 = 0.30 -> 0.64 * 1.30 = 0.832
     assert rs.compute_composite(c, weights) == pytest.approx(0.832)
 
 
 def test_compute_composite_supporting_capped_at_3(weights):
-    c = _cand("AAPL", "vcp-screener", score=80, conf=0.8,
-              supporting=["a", "b", "c", "d", "e"])
+    c = _cand("AAPL", "vcp-screener", score=80, conf=0.8, supporting=["a", "b", "c", "d", "e"])
     # bonus capped at 0.45 -> 0.64 * 1.45 = 0.928
     assert rs.compute_composite(c, weights) == pytest.approx(0.928)
 
@@ -68,8 +74,8 @@ def test_compute_composite_missing_weight_defaults_to_1(weights):
 
 def test_dedupe_keeps_highest_composite(weights):
     cands = [
-        _cand("AAPL", "vcp-screener", score=80, conf=0.8),       # 0.64
-        _cand("AAPL", "canslim-screener", score=90, conf=0.9),   # 0.6885 wins
+        _cand("AAPL", "vcp-screener", score=80, conf=0.8),  # 0.64
+        _cand("AAPL", "canslim-screener", score=90, conf=0.9),  # 0.6885 wins
         _cand("MSFT", "pead-screener", score=70, conf=0.7),
     ]
     out = rs.dedupe_by_ticker(cands, weights)
@@ -93,23 +99,20 @@ def test_dedupe_orders_by_composite_descending(weights):
 
 def test_apply_regime_gates_blocks_disallowed_regime(weights):
     cands = [_cand("AAPL", "vcp-screener", 80, 0.8)]
-    out = rs.apply_regime_gates(cands, regime="STAGFLATION",
-                                risk_on_score=50, weights_cfg=weights)
+    out = rs.apply_regime_gates(cands, regime="STAGFLATION", risk_on_score=50, weights_cfg=weights)
     assert out == []  # blocked by allowed_regimes
 
 
 def test_apply_regime_gates_blocks_low_risk_on(weights):
     cands = [_cand("AAPL", "canslim-screener", 80, 0.8)]
     # canslim requires risk_on >= 50
-    out = rs.apply_regime_gates(cands, regime="GOLDILOCKS",
-                                risk_on_score=40, weights_cfg=weights)
+    out = rs.apply_regime_gates(cands, regime="GOLDILOCKS", risk_on_score=40, weights_cfg=weights)
     assert out == []
 
 
 def test_apply_regime_gates_passes_when_no_rules(weights):
     cands = [_cand("XYZ", "earnings-trade-analyzer", 80, 0.8)]
-    out = rs.apply_regime_gates(cands, regime="STAGFLATION",
-                                risk_on_score=20, weights_cfg=weights)
+    out = rs.apply_regime_gates(cands, regime="STAGFLATION", risk_on_score=20, weights_cfg=weights)
     assert len(out) == 1
 
 

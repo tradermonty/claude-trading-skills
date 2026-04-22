@@ -17,6 +17,7 @@ Usage:
     # Live loop (still gated by TRADE_LOOP_DRY_RUN env):
     python3 run_loop.py --mode execute --output state/loop/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,9 +44,8 @@ except ImportError:
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(Path(__file__).parent))
 
-from screener_adapters import load_all_candidates  # noqa: E402
 from rank_signals import rank_and_dedupe  # noqa: E402
-
+from screener_adapters import load_all_candidates  # noqa: E402
 
 DEFAULT_CONFIG = REPO_ROOT / "config" / "trading_params.yaml"
 DEFAULT_WEIGHTS = REPO_ROOT / "config" / "screener_weights.yaml"
@@ -58,6 +58,7 @@ MACRO_DIR = REPO_ROOT / "state" / "macro"
 
 # ---------- Utilities ----------
 
+
 def _utcnow() -> str:
     return dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -68,7 +69,7 @@ def _now_et() -> dt.datetime:
 
 def _signal_id(ticker: str, date: str, screener: str) -> str:
     raw = f"{ticker}|{date}|{screener}".encode()
-    return hashlib.sha1(raw).hexdigest()[:16]
+    return hashlib.sha1(raw, usedforsecurity=False).hexdigest()[:16]
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -90,6 +91,7 @@ def load_sector_map(path: Path) -> dict[str, str]:
 
 
 # ---------- Pre-loop gates ----------
+
 
 def in_trading_window(cfg: dict[str, Any]) -> tuple[bool, str]:
     g = cfg.get("global", {})
@@ -136,6 +138,7 @@ def run_killswitch_check(output_path: Path) -> dict[str, Any]:
 
 # ---------- Macro ----------
 
+
 def latest_macro_snapshot(max_age_hours: float = 4.0) -> dict[str, Any]:
     """Find today's dashboard_*.json and return it; fall back to neutral."""
     today = dt.date.today().isoformat()
@@ -143,16 +146,24 @@ def latest_macro_snapshot(max_age_hours: float = 4.0) -> dict[str, Any]:
     if not paths:
         paths = sorted(MACRO_DIR.glob("dashboard_*.json"), reverse=True)
     if not paths:
-        return {"_fallback": True, "regime": "UNKNOWN",
-                "risk_on_score": 50, "exposure_scale": 0.5,
-                "warning": "no macro snapshot found - using neutral"}
+        return {
+            "_fallback": True,
+            "regime": "UNKNOWN",
+            "risk_on_score": 50,
+            "exposure_scale": 0.5,
+            "warning": "no macro snapshot found - using neutral",
+        }
     latest = paths[0]
     try:
         payload = json.loads(latest.read_text())
     except (json.JSONDecodeError, OSError):
-        return {"_fallback": True, "regime": "UNKNOWN",
-                "risk_on_score": 50, "exposure_scale": 0.5,
-                "warning": f"corrupt macro file {latest}"}
+        return {
+            "_fallback": True,
+            "regime": "UNKNOWN",
+            "risk_on_score": 50,
+            "exposure_scale": 0.5,
+            "warning": f"corrupt macro file {latest}",
+        }
 
     # Age check
     mtime = dt.datetime.utcfromtimestamp(latest.stat().st_mtime)
@@ -167,6 +178,7 @@ def latest_macro_snapshot(max_age_hours: float = 4.0) -> dict[str, Any]:
 
 
 # ---------- Per-candidate gates ----------
+
 
 def size_position(
     entry: float,
@@ -231,6 +243,7 @@ def would_breach_sector_cap(
 
 # ---------- Execution ----------
 
+
 def submit_via_executor(cand: dict[str, Any], qty: int, output_dir: Path) -> dict[str, Any]:
     today = dt.date.today().isoformat()
     signal_id = _signal_id(cand["ticker"], today, cand["primary_screener"])
@@ -238,16 +251,26 @@ def submit_via_executor(cand: dict[str, Any], qty: int, output_dir: Path) -> dic
     order_out.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        sys.executable, str(EXECUTE_TRADE),
-        "--ticker", cand["ticker"],
-        "--side", cand["side"],
-        "--quantity", str(qty),
-        "--entry-type", cand.get("entry_type", "market"),
-        "--entry-price", str(cand["entry_price"]),
-        "--stop-loss", str(cand["stop_loss"]),
-        "--target", str(cand["target"]),
-        "--signal-id", signal_id,
-        "--output", str(order_out),
+        sys.executable,
+        str(EXECUTE_TRADE),
+        "--ticker",
+        cand["ticker"],
+        "--side",
+        cand["side"],
+        "--quantity",
+        str(qty),
+        "--entry-type",
+        cand.get("entry_type", "market"),
+        "--entry-price",
+        str(cand["entry_price"]),
+        "--stop-loss",
+        str(cand["stop_loss"]),
+        "--target",
+        str(cand["target"]),
+        "--signal-id",
+        signal_id,
+        "--output",
+        str(order_out),
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
@@ -265,6 +288,7 @@ def submit_via_executor(cand: dict[str, Any], qty: int, output_dir: Path) -> dic
 
 # ---------- Lock ----------
 
+
 class FileLock:
     def __init__(self, path: Path):
         self.path = path
@@ -276,7 +300,8 @@ class FileLock:
                 age = time.time() - self.path.stat().st_mtime
                 if age < 600:  # 10 min stale threshold
                     raise RuntimeError(
-                        f"lock held at {self.path} (age {age:.0f}s) - another loop running?")
+                        f"lock held at {self.path} (age {age:.0f}s) - another loop running?"
+                    )
             except FileNotFoundError:
                 pass
         self.path.write_text(f"{os.getpid()}\n{_utcnow()}\n")
@@ -290,6 +315,7 @@ class FileLock:
 
 
 # ---------- Main ----------
+
 
 def run_iteration(args: argparse.Namespace) -> dict[str, Any]:
     cfg = load_yaml(args.config)
@@ -396,10 +422,13 @@ def run_iteration(args: argparse.Namespace) -> dict[str, Any]:
     submitted = 0
     for cand in ranked:
         if submitted >= entries_allowed:
-            iteration["decisions"].append({
-                "ticker": cand["ticker"], "action": "skip_budget_exhausted",
-                "composite_score": cand.get("composite_score"),
-            })
+            iteration["decisions"].append(
+                {
+                    "ticker": cand["ticker"],
+                    "action": "skip_budget_exhausted",
+                    "composite_score": cand.get("composite_score"),
+                }
+            )
             continue
 
         ticker = cand["ticker"]
@@ -407,56 +436,74 @@ def run_iteration(args: argparse.Namespace) -> dict[str, Any]:
 
         # Sector cap check
         qty_est, sz_detail = size_position(
-            cand["entry_price"], cand["stop_loss"], profile, exposure_scale)
+            cand["entry_price"], cand["stop_loss"], profile, exposure_scale
+        )
         if qty_est == 0:
-            iteration["decisions"].append({
-                "ticker": ticker, "action": "skip_sizing", **sz_detail,
-                "composite_score": cand.get("composite_score"),
-            })
+            iteration["decisions"].append(
+                {
+                    "ticker": ticker,
+                    "action": "skip_sizing",
+                    **sz_detail,
+                    "composite_score": cand.get("composite_score"),
+                }
+            )
             continue
 
         notional = qty_est * cand["entry_price"]
         if would_breach_sector_cap(
-            ticker, sector, notional, sector_exposures,
-            current_equity, profile["max_sector_exposure_pct"]
+            ticker,
+            sector,
+            notional,
+            sector_exposures,
+            current_equity,
+            profile["max_sector_exposure_pct"],
         ):
-            iteration["decisions"].append({
-                "ticker": ticker, "action": "skip_sector_cap",
-                "sector": sector,
-                "composite_score": cand.get("composite_score"),
-            })
+            iteration["decisions"].append(
+                {
+                    "ticker": ticker,
+                    "action": "skip_sector_cap",
+                    "sector": sector,
+                    "composite_score": cand.get("composite_score"),
+                }
+            )
             continue
 
         # Submit
         if args.mode == "plan":
-            iteration["decisions"].append({
-                "ticker": ticker, "action": "plan_submit",
-                "side": cand["side"], "quantity": qty_est,
-                "entry_type": cand.get("entry_type"),
-                "entry_price": cand["entry_price"],
-                "stop_loss": cand["stop_loss"],
-                "target": cand["target"],
-                "sector": sector,
-                "primary_screener": cand["primary_screener"],
-                "supporting_screeners": cand.get("supporting_screeners", []),
-                "composite_score": cand.get("composite_score"),
-                "sizing": sz_detail,
-            })
+            iteration["decisions"].append(
+                {
+                    "ticker": ticker,
+                    "action": "plan_submit",
+                    "side": cand["side"],
+                    "quantity": qty_est,
+                    "entry_type": cand.get("entry_type"),
+                    "entry_price": cand["entry_price"],
+                    "stop_loss": cand["stop_loss"],
+                    "target": cand["target"],
+                    "sector": sector,
+                    "primary_screener": cand["primary_screener"],
+                    "supporting_screeners": cand.get("supporting_screeners", []),
+                    "composite_score": cand.get("composite_score"),
+                    "sizing": sz_detail,
+                }
+            )
         else:
             result = submit_via_executor(cand, qty_est, output_dir)
             order_body = result.get("order") or {}
-            iteration["decisions"].append({
-                "ticker": ticker,
-                "action": "submit" if result["returncode"] == 0 else "submit_failed",
-                "returncode": result["returncode"],
-                "order_status": order_body.get("status"),
-                "alpaca_order_id": order_body.get("alpaca_order_id"),
-                "client_order_id": order_body.get("client_order_id"),
-                "order_file": result.get("order_file"),
-                "composite_score": cand.get("composite_score"),
-                "quantity": qty_est,
-                "sector": sector,
-            })
+            iteration["decisions"].append(
+                {
+                    "ticker": ticker,
+                    "action": "submit" if result["returncode"] == 0 else "submit_failed",
+                    "returncode": result["returncode"],
+                    "order_status": order_body.get("status"),
+                    "alpaca_order_id": order_body.get("alpaca_order_id"),
+                    "client_order_id": order_body.get("client_order_id"),
+                    "order_file": result.get("order_file"),
+                    "composite_score": cand.get("composite_score"),
+                    "quantity": qty_est,
+                    "sector": sector,
+                }
+            )
             if result["returncode"] != 0:
                 continue
 
@@ -487,8 +534,7 @@ def main() -> int:
     ap.add_argument("--sector-map", type=Path, default=DEFAULT_SECTOR_MAP)
     ap.add_argument("--reports-dir", type=Path, default=REPORTS_DIR)
     ap.add_argument("--output", type=Path, default=REPO_ROOT / "state" / "loop")
-    ap.add_argument("--lock", type=Path,
-                    default=REPO_ROOT / "state" / "loop" / ".lock")
+    ap.add_argument("--lock", type=Path, default=REPO_ROOT / "state" / "loop" / ".lock")
     args = ap.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -502,13 +548,14 @@ def main() -> int:
 
     audit_path = write_iteration_audit(iteration, args.output)
     status = iteration.get("status", "unknown")
-    print(f"[{status}] submitted={iteration.get('submitted_count', 0)} "
-          f"audit={audit_path}", file=sys.stderr)
+    print(
+        f"[{status}] submitted={iteration.get('submitted_count', 0)} audit={audit_path}",
+        file=sys.stderr,
+    )
 
     if status.startswith("blocked"):
         return 2
-    fails = [d for d in iteration.get("decisions", [])
-             if d.get("action") == "submit_failed"]
+    fails = [d for d in iteration.get("decisions", []) if d.get("action") == "submit_failed"]
     if fails:
         return 3
     return 0

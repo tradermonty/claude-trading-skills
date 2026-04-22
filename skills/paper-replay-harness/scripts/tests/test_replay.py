@@ -4,6 +4,7 @@ Covers the deterministic parts of the replay engine. The `run_replay()` driver
 is exercised indirectly via an end-to-end integration test that builds a tiny
 bars/candidates fixture.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,8 +20,8 @@ sys.path.insert(0, str(REPO / "skills" / "paper-replay-harness" / "scripts"))
 
 import replay  # noqa: E402
 
-
 # ---------- trading_days ----------
+
 
 def test_trading_days_skips_weekends():
     # Mon 2026-04-20 → Mon 2026-04-27
@@ -43,6 +44,7 @@ def test_trading_days_reverse_range_empty():
 
 
 # ---------- load_bars ----------
+
 
 def test_load_bars_parses_csv(tmp_path):
     csv_text = (
@@ -74,6 +76,7 @@ def test_load_bars_skips_malformed_rows(tmp_path):
 
 
 # ---------- load_candidates_for_day ----------
+
 
 def test_load_candidates_list_format(tmp_path):
     day = dt.date(2026, 4, 21)
@@ -108,6 +111,7 @@ def test_load_candidates_wrong_shape_returns_empty(tmp_path):
 
 
 # ---------- SimBroker: submit + open fill ----------
+
 
 def test_submit_and_fill_at_next_open():
     b = replay.SimBroker(100_000)
@@ -146,11 +150,16 @@ def test_open_fill_skips_when_cash_constrained():
 
 # ---------- SimBroker: exits ----------
 
+
 def test_check_exits_target_hit():
     b = replay.SimBroker(100_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     b.cash = 100_000 - 1000  # $99k after buying
@@ -170,8 +179,12 @@ def test_check_exits_target_hit():
 def test_check_exits_stop_hit():
     b = replay.SimBroker(100_000)
     b.positions["MSFT"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "pead-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "pead-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     bars = {"MSFT": {"open": 99, "high": 99.5, "low": 96.0, "close": 97.5}}
@@ -185,8 +198,12 @@ def test_check_exits_stop_wins_when_both_printed():
     """Conservative: stop wins over target if both hit same bar."""
     b = replay.SimBroker(100_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     # Bar touched both 96 (below stop) AND 108 (above target)
@@ -200,8 +217,12 @@ def test_check_exits_stop_wins_when_both_printed():
 def test_check_exits_no_trigger():
     b = replay.SimBroker(100_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     bars = {"AAPL": {"open": 100, "high": 102, "low": 99, "close": 101}}
@@ -213,8 +234,12 @@ def test_check_exits_no_trigger():
 def test_check_exits_skips_positions_without_bar():
     b = replay.SimBroker(100_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     closed = b._check_exits(dt.date(2026, 4, 22), {})
@@ -224,16 +249,25 @@ def test_check_exits_skips_positions_without_bar():
 
 # ---------- SimBroker: mark_to_market ----------
 
+
 def test_mark_to_market_uses_close_prices():
     b = replay.SimBroker(50_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     b.positions["MSFT"] = {
-        "qty": 5, "entry": 200.0, "stop": 194.0, "target": 218.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 5,
+        "entry": 200.0,
+        "stop": 194.0,
+        "target": 218.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 200.0,
     }
     equity = b.mark_to_market({"AAPL": 105.0, "MSFT": 210.0})
@@ -244,8 +278,12 @@ def test_mark_to_market_uses_close_prices():
 def test_mark_to_market_falls_back_to_entry_when_no_close():
     b = replay.SimBroker(10_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     equity = b.mark_to_market({})  # no close data
@@ -265,8 +303,17 @@ def test_snapshot_records_equity_curve():
 
 # ---------- plan_entries ----------
 
-def _cand(ticker, screener="vcp-screener", score=80, entry=100.0,
-          stop=97.0, target=106.0, sector="Technology", confidence=0.7):
+
+def _cand(
+    ticker,
+    screener="vcp-screener",
+    score=80,
+    entry=100.0,
+    stop=97.0,
+    target=106.0,
+    sector="Technology",
+    confidence=0.7,
+):
     return {
         "ticker": ticker,
         "primary_screener": screener,
@@ -295,14 +342,24 @@ def _profile():
 def test_plan_entries_filters_held_tickers():
     b = replay.SimBroker(100_000)
     b.positions["AAPL"] = {
-        "qty": 10, "entry": 100.0, "stop": 97.0, "target": 106.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 10,
+        "entry": 100.0,
+        "stop": 97.0,
+        "target": 106.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     cands = [_cand("AAPL"), _cand("MSFT", entry=200.0, stop=194.0, target=218.0)]
     submits = replay.plan_entries(
-        cands, b, _profile(), {"screeners": {}}, {},
-        regime="GOLDILOCKS", risk_on=70.0, exposure_scale=1.0,
+        cands,
+        b,
+        _profile(),
+        {"screeners": {}},
+        {},
+        regime="GOLDILOCKS",
+        risk_on=70.0,
+        exposure_scale=1.0,
         current_equity=100_000,
     )
     tickers = [s["ticker"] for s in submits]
@@ -315,8 +372,12 @@ def test_plan_entries_respects_max_positions_budget():
     # 5 already held out of max 6 => budget = 1
     for i in range(5):
         b.positions[f"T{i}"] = {
-            "qty": 10, "entry": 50.0, "stop": 48.0, "target": 54.0,
-            "screener": "vcp-screener", "entry_date": "2026-04-21",
+            "qty": 10,
+            "entry": 50.0,
+            "stop": 48.0,
+            "target": 54.0,
+            "screener": "vcp-screener",
+            "entry_date": "2026-04-21",
             "intended_entry": 50.0,
         }
     cands = [
@@ -325,8 +386,14 @@ def test_plan_entries_respects_max_positions_budget():
         _cand("C", entry=100.0, stop=97.0, target=106.0, sector="Financial"),
     ]
     submits = replay.plan_entries(
-        cands, b, _profile(), {"screeners": {}}, {},
-        regime="GOLDILOCKS", risk_on=70.0, exposure_scale=1.0,
+        cands,
+        b,
+        _profile(),
+        {"screeners": {}},
+        {},
+        regime="GOLDILOCKS",
+        risk_on=70.0,
+        exposure_scale=1.0,
         current_equity=100_000,
     )
     assert len(submits) == 1
@@ -336,17 +403,26 @@ def test_plan_entries_enforces_sector_cap():
     b = replay.SimBroker(100_000)
     # Pre-load tech exposure close to cap: 24% of 100k = $24k
     b.positions["NVDA"] = {
-        "qty": 240, "entry": 100.0, "stop": 95.0, "target": 115.0,
-        "screener": "vcp-screener", "entry_date": "2026-04-21",
+        "qty": 240,
+        "entry": 100.0,
+        "stop": 95.0,
+        "target": 115.0,
+        "screener": "vcp-screener",
+        "entry_date": "2026-04-21",
         "intended_entry": 100.0,
     }
     # Another Technology entry that would push past 25%
-    cands = [_cand("AAPL", entry=100.0, stop=97.0, target=106.0,
-                   sector="Technology")]
+    cands = [_cand("AAPL", entry=100.0, stop=97.0, target=106.0, sector="Technology")]
     sector_map = {"NVDA": "Technology", "AAPL": "Technology"}
     submits = replay.plan_entries(
-        cands, b, _profile(), {"screeners": {}}, sector_map,
-        regime="GOLDILOCKS", risk_on=70.0, exposure_scale=1.0,
+        cands,
+        b,
+        _profile(),
+        {"screeners": {}},
+        sector_map,
+        regime="GOLDILOCKS",
+        risk_on=70.0,
+        exposure_scale=1.0,
         current_equity=100_000,
     )
     assert submits == []
@@ -354,12 +430,19 @@ def test_plan_entries_enforces_sector_cap():
 
 # ---------- aggregate_stats ----------
 
+
 def _trade(ticker, pnl, r, screener="vcp-screener"):
     return {
-        "ticker": ticker, "pnl_dollars": pnl, "r_multiple": r,
-        "screener": screener, "entry_date": "2026-04-21",
-        "exit_date": "2026-04-22", "entry_price": 100, "exit_price": 100 + pnl/10,
-        "qty": 10, "exit_reason": "target_hit",
+        "ticker": ticker,
+        "pnl_dollars": pnl,
+        "r_multiple": r,
+        "screener": screener,
+        "entry_date": "2026-04-21",
+        "exit_date": "2026-04-22",
+        "entry_price": 100,
+        "exit_price": 100 + pnl / 10,
+        "qty": 10,
+        "exit_reason": "target_hit",
     }
 
 
@@ -422,15 +505,26 @@ def test_aggregate_stats_max_drawdown_on_declining_curve():
 
 # ---------- render_markdown ----------
 
+
 def test_render_markdown_contains_key_sections():
     payload = {
-        "from": "2026-03-01", "to": "2026-03-31",
-        "starting_equity": 100_000.0, "ending_equity": 103_250.0,
-        "total_return_pct": 3.25, "max_drawdown_pct": 1.8,
-        "trades_count": 42, "win_rate": 0.55, "avg_r_multiple": 0.7,
+        "from": "2026-03-01",
+        "to": "2026-03-31",
+        "starting_equity": 100_000.0,
+        "ending_equity": 103_250.0,
+        "total_return_pct": 3.25,
+        "max_drawdown_pct": 1.8,
+        "trades_count": 42,
+        "win_rate": 0.55,
+        "avg_r_multiple": 0.7,
         "by_strategy": {
-            "vcp-screener": {"trades": 18, "wins": 11, "win_rate": 0.61,
-                             "avg_r_multiple": 0.9, "pnl_dollars": 1650.0},
+            "vcp-screener": {
+                "trades": 18,
+                "wins": 11,
+                "win_rate": 0.61,
+                "avg_r_multiple": 0.9,
+                "pnl_dollars": 1650.0,
+            },
         },
     }
     md = replay.render_markdown(payload)
@@ -446,10 +540,15 @@ def test_render_markdown_contains_key_sections():
 
 def test_render_markdown_handles_none_stats():
     payload = {
-        "from": "2026-03-01", "to": "2026-03-02",
-        "starting_equity": 100_000.0, "ending_equity": 100_000.0,
-        "total_return_pct": 0.0, "max_drawdown_pct": 0.0,
-        "trades_count": 0, "win_rate": None, "avg_r_multiple": None,
+        "from": "2026-03-01",
+        "to": "2026-03-02",
+        "starting_equity": 100_000.0,
+        "ending_equity": 100_000.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "trades_count": 0,
+        "win_rate": None,
+        "avg_r_multiple": None,
         "by_strategy": {},
     }
     md = replay.render_markdown(payload)
@@ -457,6 +556,7 @@ def test_render_markdown_handles_none_stats():
 
 
 # ---------- integration: run_replay end-to-end ----------
+
 
 def test_run_replay_integration_small(tmp_path):
     """Tiny fixture: 3 trading days, one AAPL candidate, confirm target hit."""
@@ -468,17 +568,24 @@ def test_run_replay_integration_small(tmp_path):
     # AAPL bars: entry day (open 100 after signal), runs up, target hit day 3
     (bars_dir / "AAPL.csv").write_text(
         "date,open,high,low,close,volume\n"
-        "2026-03-02,99.50,100.00,99.00,99.80,1000000\n"   # signal day
+        "2026-03-02,99.50,100.00,99.00,99.80,1000000\n"  # signal day
         "2026-03-03,100.00,102.00,99.80,101.50,1200000\n"  # fill @ open 100
         "2026-03-04,102.00,107.00,101.50,106.80,1500000\n"  # target 106 hit
     )
     # Candidate posted on day 1 (Mon) → fills Tue open @ 100 → exits Wed @ 106
-    cand = [{
-        "ticker": "AAPL", "primary_screener": "vcp-screener",
-        "strategy_score": 85, "confidence": 0.8,
-        "entry_price": 100.0, "stop_loss": 97.0, "target": 106.0,
-        "sector": "Technology", "supporting_screeners": [],
-    }]
+    cand = [
+        {
+            "ticker": "AAPL",
+            "primary_screener": "vcp-screener",
+            "strategy_score": 85,
+            "confidence": 0.8,
+            "entry_price": 100.0,
+            "stop_loss": 97.0,
+            "target": 106.0,
+            "sector": "Technology",
+            "supporting_screeners": [],
+        }
+    ]
     (cand_dir / "candidates_2026-03-02.json").write_text(json.dumps(cand))
 
     # Minimal config files
@@ -497,6 +604,7 @@ def test_run_replay_integration_small(tmp_path):
     }
     cfg_path = tmp_path / "cfg.yaml"
     import yaml
+
     cfg_path.write_text(yaml.safe_dump(cfg))
     weights_path = tmp_path / "weights.yaml"
     weights_path.write_text("screeners:\n  vcp-screener:\n    weight: 1.0\n")
@@ -504,10 +612,16 @@ def test_run_replay_integration_small(tmp_path):
     sector_path.write_text("AAPL: Technology\n")
 
     args = argparse.Namespace(
-        bars_dir=bars_dir, candidates_dir=cand_dir,
-        from_date=dt.date(2026, 3, 2), to_date=dt.date(2026, 3, 4),
-        config=cfg_path, weights=weights_path, sector_map=sector_path,
-        regime="GOLDILOCKS", risk_on=70.0, exposure_scale=1.0,
+        bars_dir=bars_dir,
+        candidates_dir=cand_dir,
+        from_date=dt.date(2026, 3, 2),
+        to_date=dt.date(2026, 3, 4),
+        config=cfg_path,
+        weights=weights_path,
+        sector_map=sector_path,
+        regime="GOLDILOCKS",
+        risk_on=70.0,
+        exposure_scale=1.0,
     )
     payload = replay.run_replay(args)
 

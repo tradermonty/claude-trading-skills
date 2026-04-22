@@ -1,4 +1,5 @@
 """Tests for relative-strength-momentum-scanner/scripts/scan_rsm.py."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -13,8 +14,8 @@ sys.path.insert(0, str(REPO / "skills" / "relative-strength-momentum-scanner" / 
 
 import scan_rsm  # noqa: E402
 
-
 # ---------- load_universe ----------
+
 
 def test_load_universe_parses_lines(tmp_path):
     p = tmp_path / "u.txt"
@@ -29,6 +30,7 @@ def test_load_universe_missing(tmp_path):
 
 
 # ---------- load_bars ----------
+
 
 def test_load_bars_sorts_ascending(tmp_path):
     (tmp_path / "AAPL.csv").write_text(
@@ -45,6 +47,7 @@ def test_load_bars_missing_returns_empty(tmp_path):
 
 
 # ---------- trim_to_as_of ----------
+
 
 def test_trim_to_as_of():
     rows = [
@@ -64,12 +67,19 @@ def test_trim_to_as_of_none_passthrough():
 
 # ---------- return_over_n ----------
 
+
 def _bars(prices):
     """Build rows from a list of closes."""
     base = dt.date(2025, 1, 1)
     return [
-        {"date": base + dt.timedelta(days=i), "open": p, "high": p,
-         "low": p, "close": p, "volume": 1000}
+        {
+            "date": base + dt.timedelta(days=i),
+            "open": p,
+            "high": p,
+            "low": p,
+            "close": p,
+            "volume": 1000,
+        }
         for i, p in enumerate(prices)
     ]
 
@@ -92,6 +102,7 @@ def test_return_over_n_zero_start_price():
 
 # ---------- moving_average ----------
 
+
 def test_moving_average():
     rows = _bars([100, 102, 104, 106, 108])
     # MA5 = 104
@@ -104,6 +115,7 @@ def test_moving_average_insufficient():
 
 
 # ---------- high_over_n / swing_low_over_n ----------
+
 
 def test_high_over_n_uses_highs():
     rows = _bars([100, 110, 105])
@@ -118,12 +130,14 @@ def test_swing_low_over_n_uses_lows():
 
 # ---------- composite_rs ----------
 
+
 def test_composite_rs_weights():
     # 0.4*10 + 0.2*5 + 0.2*5 + 0.2*5 = 4 + 1 + 1 + 1 = 7
     assert scan_rsm.composite_rs(10, 5, 5, 5) == pytest.approx(7.0)
 
 
 # ---------- percentile_rank ----------
+
 
 def test_percentile_rank_basic():
     vals = [10.0, 50.0, 20.0, 30.0, 40.0]
@@ -147,25 +161,22 @@ def test_percentile_rank_single_element():
 
 # ---------- Gates ----------
 
+
 def test_passes_trend_filter_all_good():
-    assert scan_rsm.passes_trend_filter(
-        close=100, ma50=90, ma200=80, high_52w=105) is True
+    assert scan_rsm.passes_trend_filter(close=100, ma50=90, ma200=80, high_52w=105) is True
 
 
 def test_trend_filter_fails_below_ma50():
-    assert scan_rsm.passes_trend_filter(
-        close=85, ma50=90, ma200=80, high_52w=105) is False
+    assert scan_rsm.passes_trend_filter(close=85, ma50=90, ma200=80, high_52w=105) is False
 
 
 def test_trend_filter_fails_ma50_below_ma200():
-    assert scan_rsm.passes_trend_filter(
-        close=100, ma50=80, ma200=90, high_52w=105) is False
+    assert scan_rsm.passes_trend_filter(close=100, ma50=80, ma200=90, high_52w=105) is False
 
 
 def test_trend_filter_fails_far_from_52w_high():
     # Close = 100 but 52w high = 120 → 100/120 = 83% → fails 90% gate
-    assert scan_rsm.passes_trend_filter(
-        close=100, ma50=90, ma200=80, high_52w=120) is False
+    assert scan_rsm.passes_trend_filter(close=100, ma50=90, ma200=80, high_52w=120) is False
 
 
 def test_trend_filter_none_inputs():
@@ -186,6 +197,7 @@ def test_pullback_ready_ma20_below_ma50():
 
 
 # ---------- compute_ticker ----------
+
 
 def test_compute_ticker_insufficient_history():
     bench = _bars([100] * 252)
@@ -221,13 +233,20 @@ def test_compute_ticker_uptrend_positive_relative():
 
 # ---------- build_candidate ----------
 
+
 def test_build_candidate_entry_ready():
     # Construct metrics that pass trend + pullback filters
     metrics = {
         "close": 100.5,
-        "ma20": 100.0, "ma50": 90.0, "ma200": 80.0,
-        "high_52w": 105.0, "swing_low_20d": 95.0,
-        "rel_63": 12.0, "rel_126": 8.0, "rel_189": 6.0, "rel_252": 20.0,
+        "ma20": 100.0,
+        "ma50": 90.0,
+        "ma200": 80.0,
+        "high_52w": 105.0,
+        "swing_low_20d": 95.0,
+        "rel_63": 12.0,
+        "rel_126": 8.0,
+        "rel_189": 6.0,
+        "rel_252": 20.0,
         "composite_raw": 11.2,
     }
     cand = scan_rsm.build_candidate("AAPL", metrics, rs_score=92, sector="Technology")
@@ -245,9 +264,15 @@ def test_build_candidate_entry_ready():
 def test_build_candidate_watchlist_when_far_from_ma20():
     metrics = {
         "close": 103.0,  # >2% from MA20
-        "ma20": 100.0, "ma50": 90.0, "ma200": 80.0,
-        "high_52w": 105.0, "swing_low_20d": 95.0,
-        "rel_63": 10.0, "rel_126": 5.0, "rel_189": 3.0, "rel_252": 15.0,
+        "ma20": 100.0,
+        "ma50": 90.0,
+        "ma200": 80.0,
+        "high_52w": 105.0,
+        "swing_low_20d": 95.0,
+        "rel_63": 10.0,
+        "rel_126": 5.0,
+        "rel_189": 3.0,
+        "rel_252": 15.0,
         "composite_raw": 8.0,
     }
     cand = scan_rsm.build_candidate("AAPL", metrics, rs_score=75, sector=None)
@@ -257,9 +282,15 @@ def test_build_candidate_watchlist_when_far_from_ma20():
 def test_build_candidate_filtered_when_below_ma50():
     metrics = {
         "close": 88.0,  # below MA50
-        "ma20": 90.0, "ma50": 90.0, "ma200": 80.0,
-        "high_52w": 95.0, "swing_low_20d": 85.0,
-        "rel_63": 2.0, "rel_126": 1.0, "rel_189": 0.0, "rel_252": 5.0,
+        "ma20": 90.0,
+        "ma50": 90.0,
+        "ma200": 80.0,
+        "high_52w": 95.0,
+        "swing_low_20d": 85.0,
+        "rel_63": 2.0,
+        "rel_126": 1.0,
+        "rel_189": 0.0,
+        "rel_252": 5.0,
         "composite_raw": 1.6,
     }
     cand = scan_rsm.build_candidate("X", metrics, rs_score=50, sector=None)
@@ -267,6 +298,7 @@ def test_build_candidate_filtered_when_below_ma50():
 
 
 # ---------- run_scan (integration) ----------
+
 
 def _write_ramp(path, n=300, start=100.0, end=150.0):
     prices = [start + i * (end - start) / (n - 1) for i in range(n)]
@@ -288,7 +320,8 @@ def test_run_scan_integration(tmp_path):
         + "\n".join(
             f"{(base + dt.timedelta(days=i)).isoformat()},100,101,99,100,1000000"
             for i in range(300)
-        ) + "\n"
+        )
+        + "\n"
     )
     # AAPL: strong uptrend
     _write_ramp(bars_dir / "AAPL.csv", n=300, start=100, end=180)
@@ -326,24 +359,37 @@ def test_run_scan_raises_on_short_benchmark(tmp_path):
     )
     with pytest.raises(SystemExit):
         scan_rsm.run_scan(
-            tickers=["AAPL"], bars_dir=bars_dir,
-            benchmark="SPY", as_of=None, sector_map={},
+            tickers=["AAPL"],
+            bars_dir=bars_dir,
+            benchmark="SPY",
+            as_of=None,
+            sector_map={},
         )
 
 
 # ---------- render_markdown ----------
 
+
 def test_render_markdown_contains_sections():
     payload = {
-        "as_of": "2026-04-21", "benchmark": "SPY",
-        "universe_size": 50, "evaluated": 48,
-        "entry_ready_count": 12, "watchlist_count": 9,
-        "candidates": [{
-            "ticker": "AAPL", "rs_score": 99, "status": "entry_ready",
-            "close": 185.4, "entry_price": 185.4,
-            "stop_loss": 175.3, "target": 205.6,
-            "sector": "Technology",
-        }],
+        "as_of": "2026-04-21",
+        "benchmark": "SPY",
+        "universe_size": 50,
+        "evaluated": 48,
+        "entry_ready_count": 12,
+        "watchlist_count": 9,
+        "candidates": [
+            {
+                "ticker": "AAPL",
+                "rs_score": 99,
+                "status": "entry_ready",
+                "close": 185.4,
+                "entry_price": 185.4,
+                "stop_loss": 175.3,
+                "target": 205.6,
+                "sector": "Technology",
+            }
+        ],
     }
     md = scan_rsm.render_markdown(payload)
     assert "# Relative Strength Momentum Scan — 2026-04-21" in md
@@ -355,6 +401,7 @@ def test_render_markdown_contains_sections():
 
 # ---------- CSV output roundtrip ----------
 
+
 def test_run_scan_output_json_is_serializable(tmp_path):
     bars_dir = tmp_path / "bars"
     bars_dir.mkdir()
@@ -363,7 +410,8 @@ def test_run_scan_output_json_is_serializable(tmp_path):
         + "\n".join(
             f"{(dt.date(2025, 1, 1) + dt.timedelta(days=i)).isoformat()},100,101,99,100,1000000"
             for i in range(300)
-        ) + "\n"
+        )
+        + "\n"
     )
     _write_ramp(bars_dir / "AAPL.csv", n=300, start=100, end=160)
     payload = scan_rsm.run_scan(["AAPL"], bars_dir, "SPY", None, {})

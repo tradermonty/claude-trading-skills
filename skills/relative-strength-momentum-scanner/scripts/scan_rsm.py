@@ -16,6 +16,7 @@ Usage:
         --as-of 2026-03-31 \
         --output-dir reports/replay_screens/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,6 +34,7 @@ DEFAULT_SECTOR_MAP = REPO_ROOT / "config" / "sector_map.yaml"
 
 # ---------- Bar loading ----------
 
+
 def load_bars(bars_dir: Path, ticker: str) -> list[dict[str, Any]]:
     """Return OHLCV rows sorted ascending by date."""
     path = bars_dir / f"{ticker.upper()}.csv"
@@ -43,14 +45,16 @@ def load_bars(bars_dir: Path, ticker: str) -> list[dict[str, Any]]:
         reader = csv.DictReader(f)
         for r in reader:
             try:
-                rows.append({
-                    "date": dt.date.fromisoformat(r["date"]),
-                    "open": float(r["open"]),
-                    "high": float(r["high"]),
-                    "low": float(r["low"]),
-                    "close": float(r["close"]),
-                    "volume": float(r.get("volume", 0)),
-                })
+                rows.append(
+                    {
+                        "date": dt.date.fromisoformat(r["date"]),
+                        "open": float(r["open"]),
+                        "high": float(r["high"]),
+                        "low": float(r["low"]),
+                        "close": float(r["close"]),
+                        "volume": float(r.get("volume", 0)),
+                    }
+                )
             except (KeyError, ValueError):
                 continue
     rows.sort(key=lambda x: x["date"])
@@ -94,8 +98,8 @@ def load_sector_map(path: Path) -> dict[str, str]:
 
 # ---------- Core metrics ----------
 
-def trim_to_as_of(rows: list[dict[str, Any]],
-                  as_of: dt.date | None) -> list[dict[str, Any]]:
+
+def trim_to_as_of(rows: list[dict[str, Any]], as_of: dt.date | None) -> list[dict[str, Any]]:
     if as_of is None:
         return rows
     return [r for r in rows if r["date"] <= as_of]
@@ -135,8 +139,7 @@ def swing_low_over_n(rows: list[dict[str, Any]], n: int) -> float | None:
     return min(r["low"] for r in subset)
 
 
-def composite_rs(rel_63: float, rel_126: float,
-                 rel_189: float, rel_252: float) -> float:
+def composite_rs(rel_63: float, rel_126: float, rel_189: float, rel_252: float) -> float:
     """IBD-style weighted composite — raw score, not yet percentile-ranked."""
     return 0.40 * rel_63 + 0.20 * rel_126 + 0.20 * rel_189 + 0.20 * rel_252
 
@@ -158,8 +161,10 @@ def percentile_rank(values: list[float]) -> dict[int, int]:
 
 # ---------- Gating + signal ----------
 
-def passes_trend_filter(close: float, ma50: float | None, ma200: float | None,
-                        high_52w: float | None) -> bool:
+
+def passes_trend_filter(
+    close: float, ma50: float | None, ma200: float | None, high_52w: float | None
+) -> bool:
     if ma50 is None or ma200 is None or high_52w is None:
         return False
     if not (close > ma50 and close > ma200):
@@ -172,8 +177,7 @@ def passes_trend_filter(close: float, ma50: float | None, ma200: float | None,
     return True
 
 
-def is_pullback_ready(close: float, ma20: float | None,
-                      ma50: float | None) -> bool:
+def is_pullback_ready(close: float, ma20: float | None, ma50: float | None) -> bool:
     if ma20 is None or ma50 is None:
         return False
     if ma20 <= ma50:
@@ -184,9 +188,11 @@ def is_pullback_ready(close: float, ma20: float | None,
 
 # ---------- Per-ticker compute ----------
 
-def compute_ticker(rows: list[dict[str, Any]],
-                   benchmark_rows: list[dict[str, Any]],
-                   ) -> dict[str, Any] | None:
+
+def compute_ticker(
+    rows: list[dict[str, Any]],
+    benchmark_rows: list[dict[str, Any]],
+) -> dict[str, Any] | None:
     """Compute all metrics for one ticker. Returns None if insufficient data."""
     if len(rows) < 252:
         return None
@@ -219,12 +225,19 @@ def compute_ticker(rows: list[dict[str, Any]],
 
     return {
         "close": close,
-        "ma20": ma20, "ma50": ma50, "ma200": ma200,
-        "high_52w": high_52w, "swing_low_20d": swing_20,
-        "ret_63": ret_63, "ret_126": ret_126,
-        "ret_189": ret_189, "ret_252": ret_252,
-        "rel_63": rel_63, "rel_126": rel_126,
-        "rel_189": rel_189, "rel_252": rel_252,
+        "ma20": ma20,
+        "ma50": ma50,
+        "ma200": ma200,
+        "high_52w": high_52w,
+        "swing_low_20d": swing_20,
+        "ret_63": ret_63,
+        "ret_126": ret_126,
+        "ret_189": ret_189,
+        "ret_252": ret_252,
+        "rel_63": rel_63,
+        "rel_126": rel_126,
+        "rel_189": rel_189,
+        "rel_252": rel_252,
         "composite_raw": composite_rs(rel_63, rel_126, rel_189, rel_252),
         "as_of": latest["date"].isoformat(),
     }
@@ -232,8 +245,10 @@ def compute_ticker(rows: list[dict[str, Any]],
 
 # ---------- Candidate packaging ----------
 
-def build_candidate(ticker: str, metrics: dict[str, Any], rs_score: int,
-                    sector: str | None) -> dict[str, Any]:
+
+def build_candidate(
+    ticker: str, metrics: dict[str, Any], rs_score: int, sector: str | None
+) -> dict[str, Any]:
     close = metrics["close"]
     ma50 = metrics["ma50"]
     swing = metrics["swing_low_20d"]
@@ -288,12 +303,12 @@ def build_candidate(ticker: str, metrics: dict[str, Any], rs_score: int,
         "supporting_screeners": [],
         "strategy_score": rs_score,
         "confidence": confidence,
-        "notes": f"RS {rs_score} leader"
-                 + (" at MA20 pullback" if pullback_ok else " (watchlist)"),
+        "notes": f"RS {rs_score} leader" + (" at MA20 pullback" if pullback_ok else " (watchlist)"),
     }
 
 
 # ---------- Driver ----------
+
 
 def run_scan(
     tickers: list[str],
@@ -304,10 +319,7 @@ def run_scan(
 ) -> dict[str, Any]:
     bench_rows = trim_to_as_of(load_bars(bars_dir, benchmark), as_of)
     if len(bench_rows) < 252:
-        raise SystemExit(
-            f"error: benchmark {benchmark} has {len(bench_rows)} bars, "
-            f"need >= 252"
-        )
+        raise SystemExit(f"error: benchmark {benchmark} has {len(bench_rows)} bars, need >= 252")
 
     per_ticker: list[tuple[str, dict[str, Any]]] = []
     for tkr in tickers:
@@ -350,8 +362,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
         f"# Relative Strength Momentum Scan — {payload['as_of']}",
         "",
         f"**Benchmark:** {payload['benchmark']}",
-        f"**Universe:** {payload['universe_size']} tickers "
-        f"({payload['evaluated']} with ≥252 bars)",
+        f"**Universe:** {payload['universe_size']} tickers ({payload['evaluated']} with ≥252 bars)",
         f"**Entry-ready:** {payload['entry_ready_count']}  "
         f"| **Watchlist:** {payload['watchlist_count']}",
         "",
@@ -373,15 +384,12 @@ def render_markdown(payload: dict[str, Any]) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--bars-dir", type=Path, required=True)
-    ap.add_argument("--tickers", default=None,
-                    help="Comma-separated ticker list")
+    ap.add_argument("--tickers", default=None, help="Comma-separated ticker list")
     ap.add_argument("--tickers-file", type=Path, default=None)
     ap.add_argument("--benchmark", default="SPY")
-    ap.add_argument("--as-of", type=lambda s: dt.date.fromisoformat(s),
-                    default=None)
+    ap.add_argument("--as-of", type=lambda s: dt.date.fromisoformat(s), default=None)
     ap.add_argument("--sector-map", type=Path, default=DEFAULT_SECTOR_MAP)
-    ap.add_argument("--output-dir", type=Path,
-                    default=REPO_ROOT / "reports")
+    ap.add_argument("--output-dir", type=Path, default=REPO_ROOT / "reports")
     args = ap.parse_args()
 
     if args.tickers:
@@ -396,13 +404,13 @@ def main() -> int:
         return 2
 
     sector_map = load_sector_map(args.sector_map)
-    payload = run_scan(tickers, args.bars_dir, args.benchmark,
-                       args.as_of, sector_map)
+    payload = run_scan(tickers, args.bars_dir, args.benchmark, args.as_of, sector_map)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     tag = payload["as_of"]
     (args.output_dir / f"rsm_scanner_{tag}.json").write_text(
-        json.dumps(payload, indent=2, default=str))
+        json.dumps(payload, indent=2, default=str)
+    )
     (args.output_dir / f"rsm_scanner_{tag}.md").write_text(render_markdown(payload))
 
     print(

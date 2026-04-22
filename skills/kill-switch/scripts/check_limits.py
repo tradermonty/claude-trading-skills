@@ -16,6 +16,7 @@ Usage:
     # Pre-loop check (orchestrator only - never flattens):
     python3 check_limits.py --pre-loop --output state/kill_switch_status.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,6 +47,7 @@ ALPACA_LIVE_BASE = "https://api.alpaca.markets"
 
 # ---------- Alpaca helpers ----------
 
+
 def _headers() -> dict[str, str]:
     key = os.environ.get("ALPACA_API_KEY")
     secret = os.environ.get("ALPACA_SECRET_KEY")
@@ -73,6 +75,7 @@ def fetch_positions(timeout: int = 10) -> list[dict[str, Any]]:
 
 # ---------- Check logic (pure functions, testable) ----------
 
+
 def check_daily_loss(
     current_equity: float,
     sod_equity: float,
@@ -80,8 +83,7 @@ def check_daily_loss(
 ) -> dict[str, Any]:
     """Return status dict; breach is HARD (triggers flatten)."""
     if sod_equity <= 0:
-        return {"type": "daily_loss", "status": "skipped",
-                "message": "sod_equity missing or zero"}
+        return {"type": "daily_loss", "status": "skipped", "message": "sod_equity missing or zero"}
     pnl_pct = (current_equity - sod_equity) / sod_equity * 100
     limit = -abs(max_daily_loss_pct)
     breached = pnl_pct <= limit
@@ -91,8 +93,11 @@ def check_daily_loss(
         "severity": "hard" if breached else None,
         "value_pct": round(pnl_pct, 3),
         "limit_pct": limit,
-        "message": (f"Daily loss {pnl_pct:.2f}% breaches {limit:.2f}% limit"
-                    if breached else f"Daily P&L {pnl_pct:.2f}%"),
+        "message": (
+            f"Daily loss {pnl_pct:.2f}% breaches {limit:.2f}% limit"
+            if breached
+            else f"Daily P&L {pnl_pct:.2f}%"
+        ),
     }
 
 
@@ -109,8 +114,11 @@ def check_position_count(
         "severity": "soft" if breached else None,
         "value": count,
         "limit": max_positions,
-        "message": (f"At cap: {count}/{max_positions} positions open"
-                    if breached else f"{count}/{max_positions} positions"),
+        "message": (
+            f"At cap: {count}/{max_positions} positions open"
+            if breached
+            else f"{count}/{max_positions} positions"
+        ),
     }
 
 
@@ -127,19 +135,24 @@ def check_single_position_size(
     for p in positions:
         mkt_val = abs(float(p.get("market_value", 0)))
         if mkt_val > max_notional * 1.001:
-            offenders.append({
-                "symbol": p.get("symbol"),
-                "market_value": round(mkt_val, 2),
-                "pct_of_account": round(mkt_val / account_equity * 100, 2),
-            })
+            offenders.append(
+                {
+                    "symbol": p.get("symbol"),
+                    "market_value": round(mkt_val, 2),
+                    "pct_of_account": round(mkt_val / account_equity * 100, 2),
+                }
+            )
     return {
         "type": "single_position_size",
         "status": "BREACH" if offenders else "ok",
         "severity": "soft" if offenders else None,
         "limit_pct": max_position_size_pct,
         "offenders": offenders,
-        "message": (f"{len(offenders)} position(s) exceed {max_position_size_pct}% cap"
-                    if offenders else "All positions within single-position cap"),
+        "message": (
+            f"{len(offenders)} position(s) exceed {max_position_size_pct}% cap"
+            if offenders
+            else "All positions within single-position cap"
+        ),
     }
 
 
@@ -185,16 +198,22 @@ def check_sector_exposure(
         "limit_pct": max_sector_exposure_pct,
         "exposures_pct": exposures_pct,
         "breaches": breaches,
-        "message": (f"Sector cap breached: {[b['sector'] for b in breaches]}"
-                    if breaches else "All sectors within exposure cap"),
+        "message": (
+            f"Sector cap breached: {[b['sector'] for b in breaches]}"
+            if breaches
+            else "All sectors within exposure cap"
+        ),
     }
 
 
 def check_distribution_days(distribution_state_path: Path, limit: int = 6) -> dict[str, Any]:
     """Reads market-top-detector output if present. Soft breach - force trim."""
     if not distribution_state_path.exists():
-        return {"type": "distribution_days", "status": "skipped",
-                "message": f"no state file at {distribution_state_path}"}
+        return {
+            "type": "distribution_days",
+            "status": "skipped",
+            "message": f"no state file at {distribution_state_path}",
+        }
     try:
         state = json.loads(distribution_state_path.read_text())
     except (json.JSONDecodeError, OSError) as e:
@@ -207,12 +226,16 @@ def check_distribution_days(distribution_state_path: Path, limit: int = 6) -> di
         "severity": "soft" if breached else None,
         "value": count,
         "limit": limit,
-        "message": (f"Distribution days {count} >= {limit}: market-top warning"
-                    if breached else f"Distribution days: {count}/{limit}"),
+        "message": (
+            f"Distribution days {count} >= {limit}: market-top warning"
+            if breached
+            else f"Distribution days: {count}/{limit}"
+        ),
     }
 
 
 # ---------- Orchestration ----------
+
 
 def build_status(
     account: dict[str, Any],
@@ -230,8 +253,9 @@ def build_status(
         check_daily_loss(current_equity, sod_equity, profile["max_daily_loss_pct"]),
         check_position_count(positions, profile["max_positions"]),
         check_single_position_size(positions, current_equity, profile["max_position_size_pct"]),
-        check_sector_exposure(positions, current_equity, profile["max_sector_exposure_pct"],
-                              sector_map),
+        check_sector_exposure(
+            positions, current_equity, profile["max_sector_exposure_pct"], sector_map
+        ),
         check_distribution_days(distribution_state_path, limit=6),
     ]
 
@@ -273,10 +297,13 @@ def invoke_flatten_all(reason: str, flatten_output: Path) -> dict[str, Any]:
     """Shell out to alpaca-executor/flatten_all.py."""
     flatten_output.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
-        sys.executable, str(FLATTEN_SCRIPT),
-        "--reason", f"kill_switch: {reason}",
+        sys.executable,
+        str(FLATTEN_SCRIPT),
+        "--reason",
+        f"kill_switch: {reason}",
         "--confirm",
-        "--output", str(flatten_output),
+        "--output",
+        str(flatten_output),
     ]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
@@ -298,16 +325,18 @@ def _write(path: Path, payload: dict[str, Any]) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    ap.add_argument("--sod", type=Path,
-                    help="Path to start-of-day equity snapshot")
+    ap.add_argument("--sod", type=Path, help="Path to start-of-day equity snapshot")
     ap.add_argument("--sector-map", type=Path, default=DEFAULT_SECTOR_MAP)
-    ap.add_argument("--distribution-state", type=Path,
-                    default=REPO_ROOT / "state" / "distribution_days.json")
+    ap.add_argument(
+        "--distribution-state", type=Path, default=REPO_ROOT / "state" / "distribution_days.json"
+    )
     ap.add_argument("--output", type=Path, required=True)
-    ap.add_argument("--flatten-output", type=Path,
-                    default=REPO_ROOT / "state" / "flatten_all_last.json")
-    ap.add_argument("--pre-loop", action="store_true",
-                    help="Read-only mode: never triggers flatten_all")
+    ap.add_argument(
+        "--flatten-output", type=Path, default=REPO_ROOT / "state" / "flatten_all_last.json"
+    )
+    ap.add_argument(
+        "--pre-loop", action="store_true", help="Read-only mode: never triggers flatten_all"
+    )
     args = ap.parse_args()
 
     # Load config + profile
@@ -344,8 +373,7 @@ def main() -> int:
         print(f"UNKNOWN: {e}", file=sys.stderr)
         return 3
 
-    status = build_status(account, positions, sod, profile, sector_map,
-                          args.distribution_state)
+    status = build_status(account, positions, sod, profile, sector_map, args.distribution_state)
 
     # On hard breach, shell out to flatten_all (unless pre-loop mode)
     if status["status"] == "TRIPPED" and not args.pre_loop:
@@ -361,9 +389,12 @@ def main() -> int:
     if status["status"] == "WARN":
         print(f"WARN: {len(status['soft_breaches'])} soft breach(es)", file=sys.stderr)
         return 2
-    print(f"OK: equity=${status['account']['equity']:,.2f} "
-          f"pnl={status['account']['pnl_pct']}% "
-          f"positions={status['positions']['count']}", file=sys.stderr)
+    print(
+        f"OK: equity=${status['account']['equity']:,.2f} "
+        f"pnl={status['account']['pnl_pct']}% "
+        f"positions={status['positions']['count']}",
+        file=sys.stderr,
+    )
     return 0
 
 

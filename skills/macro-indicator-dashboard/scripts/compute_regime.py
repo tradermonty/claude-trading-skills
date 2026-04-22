@@ -12,17 +12,16 @@ Reads the JSON emitted by fetch_fred_data.py and emits a new JSON with:
 Usage:
     python3 compute_regime.py --input macro_raw.json --output macro_regime.json
 """
+
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import json
-import math
 import statistics
 import sys
 from pathlib import Path
 from typing import Any
-
 
 REGIMES = ["GOLDILOCKS", "REFLATION", "STAGFLATION", "SLOWDOWN", "RECESSION", "RECOVERY"]
 
@@ -102,7 +101,7 @@ def compute_growth_score(data: dict[str, Any]) -> tuple[float, dict[str, Any]]:
     icsa = _values(data, "ICSA")
     icsa_z = 0.0
     if len(icsa) >= 52:
-        ma4 = [sum(icsa[i - 4:i]) / 4 for i in range(4, len(icsa) + 1)]
+        ma4 = [sum(icsa[i - 4 : i]) / 4 for i in range(4, len(icsa) + 1)]
         if len(ma4) >= 12:
             mean = statistics.mean(ma4[-52:]) if len(ma4) >= 52 else statistics.mean(ma4)
             stdev = statistics.pstdev(ma4[-52:]) or 1.0
@@ -182,20 +181,26 @@ def compute_financial_conditions(data: dict[str, Any]) -> tuple[dict[str, Any], 
         detail["nfci"] = round(nfci, 3)
         # NFCI: -0.5 = very loose, +1 = crisis. Negative is risk-on.
         detail["nfci_signal"] = (
-            "very_loose" if nfci < -0.5 else
-            "loose" if nfci < 0 else
-            "tightening" if nfci < 0.5 else
-            "tight"
+            "very_loose"
+            if nfci < -0.5
+            else "loose"
+            if nfci < 0
+            else "tightening"
+            if nfci < 0.5
+            else "tight"
         )
 
     hy_oas = _latest_value(data, "BAMLH0A0HYM2")
     if hy_oas is not None:
         detail["hy_oas_pct"] = round(hy_oas, 2)
         detail["hy_oas_signal"] = (
-            "very_tight" if hy_oas < 3 else
-            "tight" if hy_oas < 4 else
-            "normal" if hy_oas < 6 else
-            "stressed"
+            "very_tight"
+            if hy_oas < 3
+            else "tight"
+            if hy_oas < 4
+            else "normal"
+            if hy_oas < 6
+            else "stressed"
         )
 
     ig_oas = _latest_value(data, "BAMLC0A0CM")
@@ -218,10 +223,13 @@ def compute_yield_curve(data: dict[str, Any]) -> tuple[dict[str, Any], float]:
     if t10y3m is not None:
         detail["t10y3m"] = round(t10y3m, 3)
         detail["t10y3m_signal"] = (
-            "steep" if t10y3m > 1.0 else
-            "normal" if t10y3m > 0.25 else
-            "flat" if t10y3m > 0 else
-            "inverted"
+            "steep"
+            if t10y3m > 1.0
+            else "normal"
+            if t10y3m > 0.25
+            else "flat"
+            if t10y3m > 0
+            else "inverted"
         )
     if t10y2y is not None:
         detail["t10y2y"] = round(t10y2y, 3)
@@ -301,20 +309,25 @@ def compute_risk_on_score(
 ) -> int:
     """Bound the composite to [0, 100]."""
     base = 50.0
-    base += 25 * growth_score                       # -50 to +50
-    base += -15 * max(0, inflation_score - 1)       # penalize high inflation only
-    base += fc_contribution                         # -20 to +20
-    base += curve_contribution                      # -15 to +15
-    base += liquidity_contribution                  # -5 to +5
+    base += 25 * growth_score  # -50 to +50
+    base += -15 * max(0, inflation_score - 1)  # penalize high inflation only
+    base += fc_contribution  # -20 to +20
+    base += curve_contribution  # -15 to +15
+    base += liquidity_contribution  # -5 to +5
     return max(0, min(100, int(round(base))))
 
 
 def score_to_exposure_scale(risk_on_score: int) -> float:
-    if risk_on_score >= 85: return 1.00
-    if risk_on_score >= 70: return 0.85
-    if risk_on_score >= 55: return 0.70
-    if risk_on_score >= 40: return 0.50
-    if risk_on_score >= 25: return 0.30
+    if risk_on_score >= 85:
+        return 1.00
+    if risk_on_score >= 70:
+        return 0.85
+    if risk_on_score >= 55:
+        return 0.70
+    if risk_on_score >= 40:
+        return 0.50
+    if risk_on_score >= 25:
+        return 0.30
     return 0.10
 
 
@@ -365,10 +378,16 @@ def build_narrative(
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--input", type=Path, required=True, help="macro_raw JSON from fetch_fred_data.py")
+    ap.add_argument(
+        "--input", type=Path, required=True, help="macro_raw JSON from fetch_fred_data.py"
+    )
     ap.add_argument("--output", type=Path, required=True)
-    ap.add_argument("--previous", type=Path, default=None,
-                    help="previous macro_regime JSON for recovery detection")
+    ap.add_argument(
+        "--previous",
+        type=Path,
+        default=None,
+        help="previous macro_regime JSON for recovery detection",
+    )
     args = ap.parse_args()
 
     with args.input.open() as f:

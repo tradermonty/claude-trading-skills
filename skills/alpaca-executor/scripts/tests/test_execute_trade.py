@@ -2,16 +2,13 @@
 
 No network. Mocks env vars + monkeypatches the Alpaca call.
 """
+
 from __future__ import annotations
 
-import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
-import yaml
 
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "skills" / "alpaca-executor" / "scripts"))
@@ -32,7 +29,7 @@ def good_cfg():
         "profiles": {
             "test_profile": {
                 "account_size_usd": 100000,
-                "risk_per_trade_pct": 2.0,   # $2,000 max risk
+                "risk_per_trade_pct": 2.0,  # $2,000 max risk
                 "max_daily_loss_pct": 5.0,
                 "max_positions": 6,
                 "max_sector_exposure_pct": 25,
@@ -60,8 +57,7 @@ def test_compute_client_order_id_unique_per_input():
 
 def test_validate_buy_good(good_cfg):
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=50, entry_price=150,
-        stop_loss=145, target=165, cfg=good_cfg
+        "AAPL", "buy", quantity=50, entry_price=150, stop_loss=145, target=165, cfg=good_cfg
     )
     # risk = 5 * 50 = 250 (below $2000), notional = 7500 (below $20000), R/R = 15/5 = 3.0
     assert ok, reason
@@ -69,8 +65,13 @@ def test_validate_buy_good(good_cfg):
 
 def test_validate_rejects_stop_too_close(good_cfg):
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=50, entry_price=150,
-        stop_loss=149.5, target=165, cfg=good_cfg  # 0.33% stop
+        "AAPL",
+        "buy",
+        quantity=50,
+        entry_price=150,
+        stop_loss=149.5,
+        target=165,
+        cfg=good_cfg,  # 0.33% stop
     )
     assert not ok
     assert "too close" in reason
@@ -79,8 +80,7 @@ def test_validate_rejects_stop_too_close(good_cfg):
 def test_validate_rejects_excess_risk(good_cfg):
     # risk per share = 10, qty = 300 = $3000 risk > $2000 max
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=300, entry_price=150,
-        stop_loss=140, target=170, cfg=good_cfg
+        "AAPL", "buy", quantity=300, entry_price=150, stop_loss=140, target=170, cfg=good_cfg
     )
     assert not ok
     assert "risk" in reason
@@ -89,8 +89,7 @@ def test_validate_rejects_excess_risk(good_cfg):
 def test_validate_rejects_oversize_position(good_cfg):
     # notional = 200 * 150 = $30000 > $20000 max position
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=200, entry_price=150,
-        stop_loss=149, target=152, cfg=good_cfg
+        "AAPL", "buy", quantity=200, entry_price=150, stop_loss=149, target=152, cfg=good_cfg
     )
     assert not ok
 
@@ -98,8 +97,7 @@ def test_validate_rejects_oversize_position(good_cfg):
 def test_validate_rejects_low_rr(good_cfg):
     # R/R = 1/5 = 0.2 below 1.5 min
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=50, entry_price=150,
-        stop_loss=145, target=151, cfg=good_cfg
+        "AAPL", "buy", quantity=50, entry_price=150, stop_loss=145, target=151, cfg=good_cfg
     )
     assert not ok
     assert "R/R" in reason
@@ -107,8 +105,7 @@ def test_validate_rejects_low_rr(good_cfg):
 
 def test_validate_rejects_buy_with_inverted_stop(good_cfg):
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=50, entry_price=150,
-        stop_loss=155, target=170, cfg=good_cfg
+        "AAPL", "buy", quantity=50, entry_price=150, stop_loss=155, target=170, cfg=good_cfg
     )
     assert not ok
     assert "stop" in reason.lower()
@@ -117,8 +114,7 @@ def test_validate_rejects_buy_with_inverted_stop(good_cfg):
 def test_validate_sell_short_works(good_cfg):
     # Short: stop above entry, target below
     ok, reason = et.validate_order(
-        "AAPL", "sell", quantity=50, entry_price=150,
-        stop_loss=153, target=140, cfg=good_cfg
+        "AAPL", "sell", quantity=50, entry_price=150, stop_loss=153, target=140, cfg=good_cfg
     )
     assert ok, reason
 
@@ -126,8 +122,7 @@ def test_validate_sell_short_works(good_cfg):
 def test_validate_below_min_position_size(good_cfg):
     # 5 * 150 = $750 < $1000 min
     ok, reason = et.validate_order(
-        "AAPL", "buy", quantity=5, entry_price=150,
-        stop_loss=145, target=170, cfg=good_cfg
+        "AAPL", "buy", quantity=5, entry_price=150, stop_loss=145, target=170, cfg=good_cfg
     )
     assert not ok
     assert "min" in reason.lower()

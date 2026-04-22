@@ -1,4 +1,5 @@
 """Tests for check_alerts.detect_alerts."""
+
 from __future__ import annotations
 
 import sys
@@ -92,4 +93,5 @@ def test_sahm_no_trigger_below_threshold():
 
 if __name__ == "__main__":
     import pytest
+
     sys.exit(pytest.main([__file__, "-v"]))
