@@ -1,0 +1,149 @@
+# Static GICS-style sector map used by kill-switch/check_limits.py
+# and exposure-coach. Seed covers common liquid tickers; unmapped symbols
+# fall into "Unclassified" and still count against the aggregate cap.
+#
+# Maintenance: extend as positions open in new names. Keep ticker keys UPPER.
+# Format: either flat {ticker: sector} or nested {sectors: {sector: [tickers]}}
+
+sectors:
+  Technology:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - GOOG
+    - META
+    - NVDA
+    - AMD
+    - AVGO
+    - CRM
+    - ORCL
+    - ADBE
+    - INTC
+    - QCOM
+    - TXN
+    - CSCO
+    - NOW
+    - SNOW
+    - PLTR
+    - NET
+    - DDOG
+
+  Consumer_Discretionary:
+    - AMZN
+    - TSLA
+    - HD
+    - MCD
+    - NKE
+    - LOW
+    - SBUX
+    - BKNG
+    - TJX
+    - ABNB
+
+  Communication_Services:
+    - NFLX
+    - DIS
+    - TMUS
+    - VZ
+    - T
+    - CMCSA
+
+  Financials:
+    - JPM
+    - BAC
+    - WFC
+    - GS
+    - MS
+    - C
+    - BLK
+    - SCHW
+    - AXP
+    - V
+    - MA
+    - BRK.B
+
+  Healthcare:
+    - UNH
+    - JNJ
+    - LLY
+    - PFE
+    - MRK
+    - ABBV
+    - TMO
+    - DHR
+    - ABT
+    - BMY
+    - AMGN
+    - GILD
+    - ISRG
+    - REGN
+
+  Industrials:
+    - CAT
+    - DE
+    - UNP
+    - HON
+    - GE
+    - BA
+    - LMT
+    - RTX
+    - UPS
+    - FDX
+    - ETN
+    - EMR
+
+  Energy:
+    - XOM
+    - CVX
+    - COP
+    - SLB
+    - EOG
+    - MPC
+    - PSX
+    - VLO
+    - OXY
+
+  Consumer_Staples:
+    - PG
+    - KO
+    - PEP
+    - WMT
+    - COST
+    - MDLZ
+    - CL
+    - PM
+    - MO
+
+  Utilities:
+    - NEE
+    - DUK
+    - SO
+    - AEP
+    - EXC
+    - XEL
+    - SRE
+
+  Materials:
+    - LIN
+    - SHW
+    - APD
+    - FCX
+    - NEM
+    - ECL
+
+  Real_Estate:
+    - PLD
+    - AMT
+    - EQIX
+    - CCI
+    - PSA
+    - O
+    - SPG
+
+  ETF_Broad:
+    - SPY
+    - QQQ
+    - IWM
+    - DIA
+    - VTI
+    - VOO

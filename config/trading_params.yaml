@@ -1,0 +1,136 @@
+# =============================================================================
+# Automated Trader - Risk & Execution Parameters
+# =============================================================================
+# This is the single source of truth for all risk parameters used by the
+# trade-loop-orchestrator, alpaca-executor, and kill-switch services.
+#
+# You can edit this file at any time. Changes take effect on the next run of
+# the trade loop (no restart required).
+#
+# CHANGE SAFELY:
+#   1. Edit values below
+#   2. Run: python3 scripts/validate_trading_params.py
+#   3. If validation passes, commit the change
+#
+# DO NOT REMOVE THE `YOLO_DO_NOT_USE` PROFILE — it exists as a warning marker.
+# =============================================================================
+
+# Which profile is currently active. Change this line to switch risk regimes.
+active_profile: ray_custom
+
+# -----------------------------------------------------------------------------
+# Global settings that apply to every profile
+# -----------------------------------------------------------------------------
+global:
+  # Trading mode — MUST be "paper" until LIVE_TRADING_CHECKLIST.md is signed.
+  # The orchestrator will refuse to start in "live" mode without the checklist
+  # artifact present and signed.
+  mode: paper                        # paper | live
+
+  # Hard safety flag. Even in "live" mode, if this is true no orders go out.
+  dry_run: true                      # true | false
+
+  # Minimum time between loop runs (seconds). Prevents accidental hammering.
+  min_run_interval_seconds: 60
+
+  # Trading hours (US Eastern Time, 24h format). Loop will skip outside this.
+  trading_hours:
+    start: "09:45"                   # avoid first 15 min (opening auction noise)
+    end:   "15:45"                   # avoid last 15 min (closing auction noise)
+    timezone: "America/New_York"
+
+  # Maximum number of new orders per day (rate limit / sanity cap)
+  max_trades_per_day: 20
+
+  # Cooldown between re-entries on the same ticker (minutes)
+  entry_cooldown_minutes: 60
+
+  # Minimum risk/reward ratio for a trade to be accepted
+  min_rr_ratio: 1.5
+
+  # Blackout window around earnings announcements (calendar days)
+  earnings_blackout_days: 2          # no entries within N days of earnings
+
+  # Liquidity and price floors (applied to every candidate)
+  min_price: 5.0                     # skip penny stocks
+  max_price: 2000.0                  # skip anything absurdly priced
+  min_avg_volume: 500000             # minimum 20-day average volume
+  min_market_cap_usd: 500000000      # $500M minimum market cap
+
+  # Universe restriction
+  allowed_exchanges: [NYSE, NASDAQ, ARCA]
+  blocked_tickers: []                # e.g. [TSLA, GME] - hard exclusions
+  allowed_sectors: []                # empty = all sectors allowed
+
+  # Correlation guard - don't hold too many highly correlated names
+  max_correlated_positions: 3        # e.g. don't hold 4 semis at once
+
+# -----------------------------------------------------------------------------
+# Named risk profiles. Switch with the `active_profile` key above.
+# -----------------------------------------------------------------------------
+profiles:
+
+  # ---------------------------------------------------------------------------
+  # Ray's custom profile (current active configuration)
+  # Selected values: $100k / 2% per trade / 5% daily kill / 6 pos / 25% sector
+  # ---------------------------------------------------------------------------
+  ray_custom:
+    account_size_usd: 100000
+    risk_per_trade_pct: 2.0          # $2,000 max loss per trade
+    max_daily_loss_pct: 5.0          # $5,000 daily kill-switch
+    max_positions: 6
+    max_sector_exposure_pct: 25
+    max_position_size_pct: 20        # no single position > $20,000 notional
+    min_position_size_usd: 1000      # skip if sized below $1k (too small to matter)
+
+  # ---------------------------------------------------------------------------
+  # Conservative - good for first month of paper trading
+  # ---------------------------------------------------------------------------
+  conservative:
+    account_size_usd: 100000
+    risk_per_trade_pct: 0.5
+    max_daily_loss_pct: 2.0
+    max_positions: 5
+    max_sector_exposure_pct: 25
+    max_position_size_pct: 15
+    min_position_size_usd: 1000
+
+  # ---------------------------------------------------------------------------
+  # Moderate - standard growth trader profile
+  # ---------------------------------------------------------------------------
+  moderate:
+    account_size_usd: 100000
+    risk_per_trade_pct: 1.0
+    max_daily_loss_pct: 3.0
+    max_positions: 8
+    max_sector_exposure_pct: 30
+    max_position_size_pct: 20
+    min_position_size_usd: 1000
+
+  # ---------------------------------------------------------------------------
+  # Aggressive - upper bound of anything defensible
+  # ---------------------------------------------------------------------------
+  aggressive:
+    account_size_usd: 100000
+    risk_per_trade_pct: 2.0
+    max_daily_loss_pct: 5.0
+    max_positions: 10
+    max_sector_exposure_pct: 40
+    max_position_size_pct: 25
+    min_position_size_usd: 1000
+
+  # ---------------------------------------------------------------------------
+  # Preserved as a warning marker - original user request.
+  # kill-switch and orchestrator will REFUSE to enable this profile without
+  # an explicit --i-understand-i-will-lose-everything override flag.
+  # DO NOT DELETE - this is here as a reminder of what NOT to do.
+  # ---------------------------------------------------------------------------
+  YOLO_DO_NOT_USE:
+    account_size_usd: 100000
+    risk_per_trade_pct: 100          # 100% risk = one trade can wipe account
+    max_daily_loss_pct: 10
+    max_positions: 20
+    max_sector_exposure_pct: 100     # no sector concentration limit
+    max_position_size_pct: 100
+    min_position_size_usd: 100
+    _safety_lock: true               # requires override flag to activate

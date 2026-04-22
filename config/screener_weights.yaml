@@ -1,0 +1,148 @@
+# =============================================================================
+# Screener Weighting Configuration
+# =============================================================================
+# Controls which screeners feed candidates into the trade loop and how their
+# signals are weighted in the final ranking.
+#
+# Editable at any time. Changes take effect on the next loop run.
+# =============================================================================
+
+# How signals are weighted across screeners.
+#   equal   - every enabled screener contributes equal weight
+#   winrate - weighted by closed-trade win rate from signal-postmortem
+#   hybrid  - 50/50 blend of equal + winrate (recommended)
+weighting_mode: hybrid
+
+hybrid:
+  equal_weight_portion: 0.5
+  winrate_weight_portion: 0.5
+
+# Until each skill has at least this many closed trades in signal-postmortem,
+# fall back to equal weighting for that skill (avoids overfitting on tiny N).
+fallback_min_closed_trades: 20
+
+# -----------------------------------------------------------------------------
+# Primary candidate generators - these produce tradeable signals
+# -----------------------------------------------------------------------------
+primary_screeners:
+
+  vcp-screener:
+    enabled: true
+    base_weight: 1.0                 # multiplier on the equal-weight share
+    cadence: daily                   # daily | intraday | weekly
+    min_score: 70                    # skip candidates scoring below this
+    notes: "Minervini VCP - Stage 2 momentum breakouts"
+
+  canslim-screener:
+    enabled: true
+    base_weight: 1.0
+    cadence: daily
+    min_score: 70                    # composite 0-100, "Strong" band starts at 70
+    notes: "O'Neil CANSLIM - 6 of 7 components (Phase 2)"
+
+  pead-screener:
+    enabled: true
+    base_weight: 1.0
+    cadence: daily
+    min_score: 65
+    mode: B                          # Mode B = pipeline from earnings-trade-analyzer
+    notes: "Post-earnings drift breakouts"
+
+  earnings-trade-analyzer:
+    enabled: true
+    base_weight: 0.7                 # feeds PEAD; lower direct weight
+    cadence: daily
+    min_grade: B                     # A or B grades only
+    notes: "5-factor earnings reaction scoring (feeds PEAD)"
+
+  kanchi-dividend-sop:
+    enabled: true
+    base_weight: 0.8                 # income sleeve - smaller allocation
+    cadence: weekly
+    notes: "Kanchi 5-step dividend quality + pullback entries"
+
+  edge-pipeline-orchestrator:
+    enabled: true
+    base_weight: 1.2                 # custom edges get boost when validated
+    cadence: daily
+    require_pass_verdict: true       # only PASS-verdict drafts feed the loop
+    notes: "End-to-end edge research pipeline output"
+
+  rsm-scanner:
+    enabled: true
+    base_weight: 1.0                 # IBD-style relative strength leaders
+    cadence: daily
+    min_score: 80                    # only top-quintile RS leaders feed the loop
+    notes: "Relative strength momentum scanner (3/6/9/12mo composite)"
+
+# -----------------------------------------------------------------------------
+# Confirmation overlays - boost or downgrade primary signals, not standalone
+# -----------------------------------------------------------------------------
+confirmation_overlays:
+
+  institutional-flow-tracker:
+    enabled: true
+    boost_pct: 15                    # +15% rank boost if smart money accumulating
+    penalty_pct: 10                  # -10% if smart money distributing
+    cadence: weekly                  # 13F filings are quarterly; check weekly
+
+  theme-detector:
+    enabled: true
+    boost_pct: 10                    # +10% if ticker is in a hot theme
+    penalty_pct: 5                   # -5% if in an "Exhausting" theme
+    cadence: daily
+
+  sector-analyst:
+    enabled: true
+    boost_pct: 10                    # +10% if sector is in favorable rotation
+    penalty_pct: 10                  # -10% if sector is in defensive rotation
+    cadence: daily
+
+# -----------------------------------------------------------------------------
+# Regime / timing gates - can block or scale down the entire loop
+# -----------------------------------------------------------------------------
+regime_gates:
+
+  exposure-coach:
+    enabled: true
+    gate_type: ceiling               # sets the max exposure as a hard cap
+    notes: "Master gate. Reads macro + breadth + flow to set 0-100% ceiling."
+
+  macro-indicator-dashboard:
+    enabled: true
+    gate_type: scale                 # scales position sizes by regime score
+    feeds_into: exposure-coach
+    notes: "FRED-based regime detection (NEW)"
+
+  ftd-detector:
+    enabled: true
+    gate_type: block_new_longs       # blocks all new longs until FTD confirms
+    notes: "After corrections, only allow new longs after FTD"
+
+  market-top-detector:
+    enabled: true
+    gate_type: force_trim            # forces trim/cash if distribution fires
+    trim_threshold: 6                # trim if distribution day count >= 6
+
+  us-market-bubble-detector:
+    enabled: true
+    gate_type: ceiling
+    phase_caps:                      # max exposure by bubble phase
+      Normal: 100
+      Caution: 80
+      Elevated_Risk: 60
+      Euphoria: 30
+      Critical: 0
+
+# -----------------------------------------------------------------------------
+# Disabled - available skills not in the default loop
+# -----------------------------------------------------------------------------
+# Re-enable by moving to primary_screeners or confirmation_overlays above.
+disabled_screeners:
+  - pair-trade-screener              # market-neutral, needs different exec path
+  - value-dividend-screener          # overlaps with kanchi-dividend-sop
+  - dividend-growth-pullback-screener
+  - finviz-screener                  # interactive tool, not batch
+  - options-strategy-advisor         # different asset class
+  - trade-hypothesis-ideator         # research tool
+  - strategy-pivot-designer          # research tool
