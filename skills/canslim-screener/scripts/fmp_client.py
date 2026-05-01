@@ -70,7 +70,7 @@ _FMP_ENDPOINTS = {
 }
 
 
-def _normalize_eod_flat_list(data, symbols_str: str):
+def _normalize_eod_flat_list(data, symbols_str: str, limit: Optional[int] = None):
     """Convert stable/historical-price-eod/full flat list to v3-compatible dict.
 
     Input  : [{"symbol": "SPY", "date": "...", "open": ..., ...}, ...]
@@ -80,6 +80,13 @@ def _normalize_eod_flat_list(data, symbols_str: str):
     historicalStockList responses). Returns None when no row matches the
     requested symbol; the caller will record the failure and try the next
     endpoint.
+
+    If `limit` is provided (the original `timeseries=N` request), the
+    `historical` list is truncated to the first `limit` entries. The new
+    EOD endpoint ignores `timeseries` and returns the full available history,
+    so the caller's date-range bounding plus this truncation together preserve
+    the legacy "most-recent N rows" contract. Truncation assumes descending
+    date order, which the FMP EOD endpoint provides (verified live).
 
     Note: empty list ``[]`` does not reach this normalizer because the caller's
     ``if not data: continue`` falsy check handles it earlier in
@@ -104,6 +111,8 @@ def _normalize_eod_flat_list(data, symbols_str: str):
         historical.append({k: v for k, v in row.items() if k != "symbol"})
     if not historical:
         return None
+    if limit is not None and limit > 0:
+        historical = historical[:limit]
     return {"symbol": matched_symbol or symbols_str, "historical": historical}
 
 
@@ -220,8 +229,12 @@ class FMPClient:
 
             # Normalize new stable EOD flat-list shape to v3-compatible dict.
             # No-op for v3 dict / historicalStockList responses.
+            # `timeseries` (original request) is passed as `limit` so the
+            # EOD endpoint's full-history response is truncated to the
+            # legacy "most-recent N rows" contract.
             if endpoint_key == "historical":
-                data = _normalize_eod_flat_list(data, symbols_str)
+                limit = params.get("timeseries") if isinstance(params, dict) else None
+                data = _normalize_eod_flat_list(data, symbols_str, limit=limit)
                 if not data:
                     self._record_endpoint_failure(base_url)
                     continue

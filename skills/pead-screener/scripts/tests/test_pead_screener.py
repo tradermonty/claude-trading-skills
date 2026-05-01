@@ -1042,6 +1042,43 @@ class TestFMPHistoricalNormalizer:
         return client
 
     @patch("fmp_client.requests.Session")
+    def test_eod_flat_list_truncated_to_days(self, mock_session_class):
+        """Contract: returned historical is truncated to `days` rows.
+
+        The new EOD endpoint ignores `timeseries` and returns full history.
+        The normalizer must truncate so callers receive at most N rows,
+        preserving the legacy v3 `timeseries=N` contract.
+        """
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            [
+                {
+                    "symbol": "SPY",
+                    "date": f"2026-04-{30 - i:02d}",
+                    "open": 500.0,
+                    "high": 502.0,
+                    "low": 499.0,
+                    "close": 500.0 + i,
+                    "volume": 1_000_000,
+                }
+                for i in range(5)
+            ],
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=2)
+        assert result is not None
+        # API returned 5 rows but we requested days=2; normalizer must truncate
+        assert len(result["historical"]) == 2, (
+            f"expected truncation to 2 rows, got {len(result['historical'])}"
+        )
+        # Most recent first preserved
+        assert result["historical"][0]["date"] == "2026-04-30"
+        assert result["historical"][1]["date"] == "2026-04-29"
+
+    @patch("fmp_client.requests.Session")
     def test_eod_flat_list_normalized(self, mock_session_class):
         """New stable EOD flat list -> v3-compat dict with historical[]."""
         mock_session = MagicMock()

@@ -1,4 +1,4 @@
-"""Issue #64: stable/historical-price-eod/full normalization for macro-regime-detector."""
+"""Issue #64: stable/historical-price-eod/full normalization for vcp-screener."""
 
 import os
 import sys
