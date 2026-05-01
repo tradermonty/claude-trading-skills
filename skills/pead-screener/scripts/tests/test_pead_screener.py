@@ -1023,6 +1023,186 @@ class TestFMPClient:
             assert "budget exhausted" in str(e).lower()
 
 
+class TestFMPHistoricalNormalizer:
+    """Cover stable/historical-price-eod/full flat-list normalization (Issue #64)."""
+
+    @staticmethod
+    def _mock_response(status_code, json_payload):
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.json.return_value = json_payload
+        resp.text = ""
+        return resp
+
+    @staticmethod
+    def _make_client(mock_session):
+        client = FMPClient(api_key="test_key", max_api_calls=200)
+        client.session = mock_session
+        client.max_retries = 0
+        return client
+
+    @patch("fmp_client.requests.Session")
+    def test_eod_flat_list_normalized(self, mock_session_class):
+        """New stable EOD flat list -> v3-compat dict with historical[]."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            [
+                {
+                    "symbol": "SPY",
+                    "date": "2026-04-29",
+                    "open": 500.0,
+                    "high": 502.0,
+                    "low": 499.0,
+                    "close": 501.0,
+                    "volume": 1_000_000,
+                },
+                {
+                    "symbol": "SPY",
+                    "date": "2026-04-28",
+                    "open": 498.0,
+                    "high": 501.0,
+                    "low": 497.0,
+                    "close": 500.0,
+                    "volume": 1_100_000,
+                },
+            ],
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=2)
+        assert result is not None
+        assert result["symbol"] == "SPY"
+        assert len(result["historical"]) == 2
+        assert result["historical"][0]["date"] == "2026-04-29"
+        assert result["historical"][0]["close"] == 501.0
+        assert "symbol" not in result["historical"][0], (
+            "row-level symbol should be stripped to mirror v3 shape"
+        )
+
+    @patch("fmp_client.requests.Session")
+    def test_empty_list_falls_back_via_falsy_path(self, mock_session_class):
+        """Empty list response is caught by `if not data: continue` before normalizer."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(200, [])
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=2)
+        # Both stable and v3 fallback see empty/None -> final result None
+        assert result is None
+
+    @patch("fmp_client.requests.Session")
+    def test_eod_symbol_mismatch_rejected(self, mock_session_class):
+        """List with no matching symbol -> normalizer returns None, fallback exhausted."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            [{"symbol": "QQQ", "date": "2026-04-29", "open": 1.0, "close": 1.0}],
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=2)
+        assert result is None
+
+    @patch("fmp_client.requests.Session")
+    def test_eod_row_without_symbol_field(self, mock_session_class):
+        """Single-symbol endpoint may omit per-row 'symbol' -> treat as requested symbol."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            [
+                {"date": "2026-04-29", "open": 500.0, "close": 501.0},
+                {"date": "2026-04-28", "open": 498.0, "close": 500.0},
+            ],
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=2)
+        assert result is not None
+        assert result["symbol"] == "SPY"
+        assert len(result["historical"]) == 2
+        assert result["historical"][0]["close"] == 501.0
+
+    @patch("fmp_client.requests.Session")
+    def test_eod_index_symbol_normalized(self, mock_session_class):
+        """Dot/dash normalization (BRK.B vs BRK-B style) works."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            [{"symbol": "BRK.B", "date": "2026-04-29", "open": 400.0, "close": 401.0}],
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("BRK-B", days=1)
+        assert result is not None
+        assert result["historical"][0]["close"] == 401.0
+
+    @patch("fmp_client.requests.Session")
+    def test_legacy_v3_dict_passthrough(self, mock_session_class):
+        """v3 fallback dict shape passes normalizer untouched."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            {"symbol": "SPY", "historical": [{"date": "2026-04-29", "close": 501.0}]},
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=1)
+        assert result is not None
+        assert result["historical"][0]["close"] == 501.0
+
+    @patch("fmp_client.requests.Session")
+    def test_legacy_historicalStockList_still_works(self, mock_session_class):
+        """historicalStockList batch shape still handled by existing branch."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            {
+                "historicalStockList": [
+                    {"symbol": "SPY", "historical": [{"date": "2026-04-29", "close": 501.0}]},
+                    {"symbol": "QQQ", "historical": [{"date": "2026-04-29", "close": 400.0}]},
+                ]
+            },
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        result = client.get_historical_prices("SPY", days=1)
+        assert result is not None
+        assert result["symbol"] == "SPY"
+        assert result["historical"][0]["close"] == 501.0
+
+    @patch("fmp_client.requests.Session")
+    def test_url_uses_eod_endpoint(self, mock_session_class):
+        """Regression: stable URL must be /historical-price-eod/full, not /historical-price-full."""
+        mock_session = MagicMock()
+        mock_session.get.return_value = self._mock_response(
+            200,
+            [{"symbol": "SPY", "date": "2026-04-29", "close": 1.0}],
+        )
+        mock_session_class.return_value = mock_session
+        client = self._make_client(mock_session)
+
+        client.get_historical_prices("SPY", days=1)
+        # First call should hit the new EOD URL with from/to params (not timeseries)
+        first_call = mock_session.get.call_args_list[0]
+        url = first_call[0][0]
+        params = first_call[1]["params"]
+        assert "historical-price-eod/full" in url
+        assert "historical-price-full" not in url.replace("historical-price-eod/full", "")
+        assert params.get("symbol") == "SPY"
+        assert "from" in params and "to" in params
+        assert "timeseries" not in params, (
+            "timeseries must be converted to from/to since stable EOD ignores timeseries"
+        )
+
+
 # ===========================================================================
 # TestPartialWeekBoundary
 # ===========================================================================
