@@ -1,0 +1,8 @@
+{
+  "_doc": "ORL clean break: bar 0 sets ORL low=149.00, ORL high=149.85, vol=2_000_000. Bar 1 opens 149.40, closes 149.50 (still above ORL). Bar 2 closes 148.50 with vol=2_800_000 (1.4x ORL vol) -> trigger fires. No subsequent reclaim, so final state is `triggered`.",
+  "AAPL": [
+    {"ts_et": "2026-05-05T09:30:00-04:00", "o": 149.20, "h": 149.85, "l": 149.00, "c": 149.40, "v": 2000000},
+    {"ts_et": "2026-05-05T09:35:00-04:00", "o": 149.40, "h": 149.60, "l": 149.20, "c": 149.50, "v": 1500000},
+    {"ts_et": "2026-05-05T09:40:00-04:00", "o": 149.45, "h": 149.50, "l": 148.40, "c": 148.50, "v": 2800000}
+  ]
+}

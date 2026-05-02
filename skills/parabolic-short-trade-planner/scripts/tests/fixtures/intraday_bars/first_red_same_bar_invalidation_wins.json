@@ -1,0 +1,8 @@
+{
+  "_doc": "First Red same-bar tie-break: bar 1 is RED (red_low=149.30, red_high=150.10). Bar 2 prints both high=150.30 (would invalidate) AND low=149.10 (would trigger). Per v0.5b contract, invalidation WINS over trigger when both conditions hit on the same bar.",
+  "NVDA": [
+    {"ts_et": "2026-05-05T09:30:00-04:00", "o": 149.00, "h": 150.20, "l": 148.90, "c": 150.00, "v": 1500000},
+    {"ts_et": "2026-05-05T09:35:00-04:00", "o": 150.00, "h": 150.10, "l": 149.30, "c": 149.50, "v": 1700000},
+    {"ts_et": "2026-05-05T09:40:00-04:00", "o": 149.55, "h": 150.30, "l": 149.10, "c": 149.40, "v": 1800000}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "_doc": "ORL fires on bar 2 (close 148.50, vol 2.8M = 1.4x ORL). Bar 3 closes 149.50 — above ORL=149.00 AND above the running VWAP (which is dragged down by bar 2's volume but still ~149.10). Per v0.5b contract, post-trigger reclaim above BOTH orl_low AND vwap flips to `invalidated`.",
+  "AAPL": [
+    {"ts_et": "2026-05-05T09:30:00-04:00", "o": 149.20, "h": 149.85, "l": 149.00, "c": 149.40, "v": 2000000},
+    {"ts_et": "2026-05-05T09:35:00-04:00", "o": 149.40, "h": 149.60, "l": 149.20, "c": 149.50, "v": 1500000},
+    {"ts_et": "2026-05-05T09:40:00-04:00", "o": 149.45, "h": 149.50, "l": 148.40, "c": 148.50, "v": 2800000},
+    {"ts_et": "2026-05-05T09:45:00-04:00", "o": 148.55, "h": 149.60, "l": 148.50, "c": 149.50, "v": 2500000}
+  ]
+}

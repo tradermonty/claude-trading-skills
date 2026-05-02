@@ -1,0 +1,4 @@
+{
+  "_doc": "Empty session for AAPL — adapter returned [] (e.g. holiday or pre-9:30). Every plan should stay `armed` with evaluation_status=no_bars per v0.5c.",
+  "AAPL": []
+}

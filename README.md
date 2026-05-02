@@ -169,9 +169,10 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
 - **Parabolic Short Trade Planner** (`parabolic-short-trade-planner`)
   - Daily screener for Qullamaggie-style Parabolic Short candidates (5-factor weighted score: MA Extension 30% / Acceleration 25% / Volume Climax 20% / Range Expansion 15% / Liquidity 10%) with mode-aware invalidation (`safe_largecap` vs `classic_qm`).
   - Pre-market plan generator emits three conditional triggers per candidate (5-min ORL break, first red 5-min, VWAP fail) with `entry_hint` / `stop_hint` formula strings — no baked-in shares; Phase 3 evaluates `shares_formula` at trigger fire.
+  - Phase 3 intraday trigger monitor (`monitor_intraday_trigger.py`) — one-shot evaluator that fetches 5-min bars (Alpaca live or fixture), walks per-trigger FSM (ORL: 3-state, First Red: 4-state with same-bar invalidation tie-break, VWAP fail: 6-state), and writes `intraday_monitor` JSON with concrete `entry_actual` / `stop_actual` / `shares_actual` when triggered. Replay-deterministic (idempotent across re-runs); `triggered` is non-terminal so post-trigger reclaims still flip to `invalidated`. Wrap in `watch -n 60` or 5-min cron.
   - Broker-agnostic short-inventory adapter; Alpaca implementation is `requests`-direct (no SDK), encoding the ETB-only short policy and surfacing HTB names as `borrow_inventory_unavailable` → `plan_status: watch_only`.
   - SEC Rule 201 (SSR) state tracker that inherits `prior_close` from the screener output (regular-session close, not aftermarket) and persists per-symbol state for next-day carryover.
-  - Manual confirmation reasons split into `blocking_manual_reasons` (HTB borrow, SSR active, premarket high/low unavailable) vs `advisory_manual_reasons` (`manual_locate_required` is always advisory). FMP API required; Alpaca optional (manual fallback when missing).
+  - Manual confirmation reasons split into `blocking_manual_reasons` (HTB borrow, SSR active, premarket high/low unavailable) vs `advisory_manual_reasons` (`manual_locate_required` is always advisory). FMP API required; Alpaca required for Phase 3 live data (paper account works), optional for Phase 2 borrow checks.
 
 - **Edge Candidate Agent** (`edge-candidate-agent`)
   - Converts daily market observations into reproducible research tickets and exports Phase I-compatible candidate specs for `trade-strategy-pipeline`.
@@ -591,7 +592,7 @@ Several skills require API keys for data access:
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Real-time holdings via Alpaca MCP |
 | **CANSLIM Stock Screener** | ✅ Required | ❌ Not used | ❌ Not used | Phase 2 (6 components); free tier sufficient; Finviz web scraping for institutional data |
 | **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | Stage 2 + VCP pattern screening; free tier sufficient |
-| **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | 🟡 Optional | FMP for screener; Alpaca optional (manual fallback). No SDK — `requests` direct |
+| **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | ✅ Phase 3 / 🟡 Phase 2 | FMP for Phase 1 screener; Alpaca required for Phase 3 intraday bars (paper feed OK), optional for Phase 2 borrow checks. No SDK — `requests` direct |
 | **FTD Detector** | ✅ Required | ❌ Not used | ❌ Not used | Index price data for rally/FTD detection |
 | **IBD Distribution Day Monitor** | ✅ Required | ❌ Not used | ❌ Not used | Daily QQQ/SPY OHLCV for Distribution Day detection |
 | **Macro Regime Detector** | ✅ Required | ❌ Not used | ❌ Not used | Cross-asset ETF ratio analysis |

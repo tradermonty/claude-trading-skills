@@ -1,0 +1,10 @@
+{
+  "_doc": "VWAP fail full FSM walk: armed -> first_crack_seen -> vwap_retest_seen -> rejection_confirmed -> triggered. Bar 0 prints session HOD. Bar 1 closes below VWAP for the first time (first_crack_seen). Bar 2 closes back at/above VWAP (vwap_retest_seen). Bar 3 prints lower_high < bar2.high AND closes back below VWAP (rejection_confirmed). Bar 4 prints below bar3 low -> triggered.",
+  "MSFT": [
+    {"ts_et": "2026-05-05T09:30:00-04:00", "o": 400.00, "h": 402.00, "l": 400.00, "c": 401.50, "v": 1000000},
+    {"ts_et": "2026-05-05T09:35:00-04:00", "o": 401.50, "h": 401.60, "l": 400.20, "c": 400.30, "v": 1200000},
+    {"ts_et": "2026-05-05T09:40:00-04:00", "o": 400.30, "h": 401.20, "l": 400.20, "c": 401.10, "v": 1100000},
+    {"ts_et": "2026-05-05T09:45:00-04:00", "o": 401.10, "h": 401.10, "l": 400.20, "c": 400.40, "v": 1300000},
+    {"ts_et": "2026-05-05T09:50:00-04:00", "o": 400.30, "h": 400.40, "l": 399.90, "c": 400.00, "v": 1500000}
+  ]
+}

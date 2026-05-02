@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "skill": "parabolic-short-trade-planner",
+  "phase": "pre_market_plan",
+  "generated_at": "2026-05-04T20:00:00-04:00",
+  "as_of": "2026-05-05",
+  "data_source": "FMP+Alpaca",
+  "data_latency_sec": 0,
+  "account_size": 100000.0,
+  "risk_bps": 50,
+  "plans": [
+    {
+      "ticker": "AAPL",
+      "rank": "B",
+      "score": 72.0,
+      "plan_status": "actionable",
+      "requires_manual_confirmation": true,
+      "trade_allowed_without_manual": false,
+      "blocking_manual_reasons": [],
+      "advisory_manual_reasons": ["manual_locate_required"],
+      "broker_inventory": {"can_open_new_short": true},
+      "ssr_state": {"uptick_rule_active": false},
+      "premarket_levels": {},
+      "key_levels": {"dma_10": 145.0, "dma_20": 140.0, "atr_14": 2.0},
+      "entry_plans": [
+        {
+          "plan_id": "AAPL-20260505-ORL5",
+          "trigger_type": "orl_5min_break",
+          "condition": "5min ORL を出来高 1.2x 以上で下抜け",
+          "entry_hint": "5min_orl_low - 0.05",
+          "stop_hint": "session_HOD + 0.25 * ATR",
+          "structural_targets": ["dma_10", "dma_20"],
+          "reference_r_multiples": [1.0, 2.0, 3.0],
+          "size_recipe": {
+            "risk_usd": 500.0,
+            "max_position_value_usd": 5000.0,
+            "shares_formula": "floor(min(risk_usd / (stop_actual - entry_actual), max_position_value_usd / entry_actual))",
+            "sizing_rule_applied": "fixed_fractional"
+          },
+          "wait_for_trigger": true
+        },
+        {
+          "plan_id": "AAPL-20260505-FR5",
+          "trigger_type": "first_red_5min",
+          "condition": "寄付後最初の赤 5min の安値割れ",
+          "entry_hint": "first_red_5min_low - 0.05",
+          "stop_hint": "first_red_5min_high",
+          "structural_targets": ["dma_10", "dma_20"],
+          "reference_r_multiples": [1.0, 2.0, 3.0],
+          "size_recipe": {
+            "risk_usd": 500.0,
+            "max_position_value_usd": 5000.0,
+            "shares_formula": "floor(min(risk_usd / (stop_actual - entry_actual), max_position_value_usd / entry_actual))",
+            "sizing_rule_applied": "fixed_fractional"
+          },
+          "wait_for_trigger": true
+        }
+      ]
+    }
+  ]
+}

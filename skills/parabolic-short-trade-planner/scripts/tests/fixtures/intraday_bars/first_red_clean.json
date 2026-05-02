@@ -1,0 +1,8 @@
+{
+  "_doc": "First Red clean trigger: bar 0 is green (open 149 < close 150). Bar 1 is RED (open 150 > close 149.50, low=149.30, high=150.10). Bar 2 prints low=149.10 < red_low=149.30 -> trigger. red_high (150.10) is NOT taken out, so no invalidation tie-break.",
+  "NVDA": [
+    {"ts_et": "2026-05-05T09:30:00-04:00", "o": 149.00, "h": 150.20, "l": 148.90, "c": 150.00, "v": 1500000},
+    {"ts_et": "2026-05-05T09:35:00-04:00", "o": 150.00, "h": 150.10, "l": 149.30, "c": 149.50, "v": 1700000},
+    {"ts_et": "2026-05-05T09:40:00-04:00", "o": 149.45, "h": 149.55, "l": 149.10, "c": 149.20, "v": 2000000}
+  ]
+}
