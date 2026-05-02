@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Live API smoke check for parabolic-short-trade-planner.
 
-Five calls — four required gates plus one optional warning — that prove
+Five logical checks (4 required gates + 1 optional warning) that prove
 both the happy paths and the 404 graceful-handling path that's
 otherwise unreachable from Phase 1 output:
 
@@ -15,6 +15,13 @@ otherwise unreachable from Phase 1 output:
     5. Alpaca /v2/assets/XXXXXFAKE                          (negative
        path: 404 → AlpacaInventoryAdapter must return asset_not_found
        dict without raising)
+
+Note: check #5 issues TWO HTTP requests against the same Alpaca
+endpoint (one raw probe to confirm the 404 itself, then a second one
+through `AlpacaInventoryAdapter.get_inventory_status` to confirm the
+adapter handles that response gracefully). So while there are 5
+logical checks, the script makes 6 HTTP calls per run (3 FMP +
+3 Alpaca). The cost remains trivial under both API rate limits.
 
 Returns 0 on all four required gates passing. Logs status code +
 first 200 chars of the error body on failures.

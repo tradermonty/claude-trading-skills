@@ -43,11 +43,20 @@ Other requirements:
 > paths across runs can leave orphan state files. The runbook below
 > always passes `"$(pwd)/state/parabolic_short"` as the SSR state dir.
 
-## 2. Connectivity check (~90 s, 5 calls)
+## 2. Connectivity check (~90 s, 5 checks / 6 HTTP calls)
 
 ```bash
 python3 skills/parabolic-short-trade-planner/scripts/check_live_apis.py
 ```
+
+The script runs **5 logical checks** (4 required gates + 1 optional
+warning) against FMP + Alpaca. The fifth check (`alpaca_404_graceful`)
+issues two HTTP requests against the same Alpaca endpoint — one raw
+probe to confirm the 404 status, one through
+`AlpacaInventoryAdapter.get_inventory_status()` to confirm the adapter
+handles that response without raising — so the script makes
+**6 HTTP calls** per run total (3 FMP + 3 Alpaca). Cost remains
+trivial under both API rate limits.
 
 Expected output (order may vary):
 
