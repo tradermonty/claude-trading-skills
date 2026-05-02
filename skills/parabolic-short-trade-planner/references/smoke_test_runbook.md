@@ -240,7 +240,84 @@ The new `test_as_of_override_advances_carryover` test in
 the CLI/main() level, so this manual step is a regression check, not
 the only verification.
 
-## 7. Success criteria — two-tier
+## 7. Phase 3 — intraday trigger monitor smoke (added in Phase 3 v0.5)
+
+Phase 3 evaluates 5-min bars during the US regular session and
+walks each plan's FSM forward. v0.5 ships two data sources — a
+fixture (offline, used in tests) and live Alpaca. Both are smoke-tested
+here.
+
+### 7a. Fixture-driven dry-run (no network)
+
+```bash
+python3 skills/parabolic-short-trade-planner/scripts/monitor_intraday_trigger.py \
+  --plans-json skills/parabolic-short-trade-planner/scripts/tests/fixtures/phase2_plan_smoke.json \
+  --bars-source fixture \
+  --bars-fixture \
+    skills/parabolic-short-trade-planner/scripts/tests/fixtures/intraday_bars/orl_clean_break.json \
+  --state-dir /tmp/parabolic_intraday_smoke \
+  --output-dir /tmp/parabolic_intraday_smoke \
+  --as-of 2026-05-05 \
+  --now-et 2026-05-05T10:00:00-04:00 \
+  --verbose
+```
+
+Expected (from `parabolic_short_intraday_2026-05-05.json`):
+- `phase: "intraday_monitor"`, `data_source: "fixture"`,
+  `market_status: "regular_session"`.
+- `monitored_plans` contains the AAPL ORL plan with
+  `state: "triggered"`, `entry_actual: 148.45`,
+  `stop_actual: 150.35`, and a `size_recipe_resolved` block with
+  a positive integer `shares_actual`.
+
+### 7b. Alpaca live integration check (paper account)
+
+```bash
+PHASE2_PLAN=reports/smoke/parabolic_short_plan_alpaca_<as_of>.json
+mkdir -p state/parabolic_short
+python3 skills/parabolic-short-trade-planner/scripts/monitor_intraday_trigger.py \
+  --plans-json "$PHASE2_PLAN" \
+  --bars-source alpaca \
+  --state-dir "$(pwd)/state/parabolic_short" \
+  --output-dir reports/smoke/ \
+  --verbose
+```
+
+Expected during regular session:
+- `monitored_plans` is non-empty (one entry per actionable plan
+  in the Phase 2 report).
+- Each plan with bars has `last_bar_ts` within ~20 min of now
+  (15-min IEX feed delay + 5-min bar close).
+- Outside session / on holidays: every plan emits
+  `evaluation_status: "no_bars"` with `state` carried forward
+  from any prior state file (defaults to `armed`). The
+  `monitored_plans` list is **never empty** when input plans
+  exist — this distinguishes "filtered out" from "no bars".
+
+### 7c. Idempotency spot-check
+
+Run Phase 3 twice in a row with `--bars-source fixture` and the
+same `--now-et`; the output JSON files MUST be byte-identical
+after stripping wall-clock fields (`evaluated_at`,
+`last_evaluated_at`, `written_at`). If they diverge, the FSM is
+reading `prior_state` — a regression against the v0.5
+idempotency contract. The
+`tests/test_one_shot_idempotency.py` test enforces the same
+property in CI.
+
+### 7d. Phase 3 PASS criteria (one-tier)
+
+PASS if all of:
+
+- 7a returns exit 0; the AAPL ORL plan reaches `state="triggered"`
+  with the expected `entry_actual` / `stop_actual` and a positive
+  `shares_actual`.
+- 7b returns exit 0; either monitored_plans contain bars (regular
+  session) OR every plan has `evaluation_status: "no_bars"`
+  (closed / pre-9:30).
+- 7c shows byte-identical output across two consecutive runs.
+
+## 8. Success criteria — three-tier (with Phase 3)
 
 A **FULL PASS** requires both tiers green; report a **PARTIAL PASS**
 when one tier passes and the other is incomplete (e.g. "rejection tier
@@ -279,7 +356,7 @@ This tier is **incomplete, not pass** if Phase 1 returns zero
 candidates against the relaxed CSV — investigate (rejection logic
 buggy, CSV stale, or FMP transient error).
 
-## 8. Pitfalls
+## 9. Pitfalls
 
 1. **FMP `quote.previousClose` aftermarket drift** — the screener
    uses `historical-price-eod/full` for `prior_close`. Never read
@@ -322,7 +399,7 @@ buggy, CSV stale, or FMP transient error).
    `--verbose` for the first smoke run; empty output is not the same
    as a broken pipeline.
 
-## 9. Troubleshooting matrix
+## 10. Troubleshooting matrix
 
 | Symptom | Likely cause | Action |
 |---|---|---|

@@ -1,9 +1,27 @@
 # Intraday Trigger Playbook
 
-> **Status**: this reference describes the trigger semantics that
-> Phase 3 (`monitor_intraday_trigger.py`, deferred to v0.5) will
-> evaluate. The Phase 2 plans (`generate_pre_market_plan.py`) emit
-> `entry_hint` / `stop_hint` strings that map to these triggers.
+> **Status (v0.5 — implemented)**: this reference describes the
+> trigger semantics that `monitor_intraday_trigger.py` evaluates as a
+> one-shot FSM. Phase 2 plans (`generate_pre_market_plan.py`) emit
+> `entry_hint` / `stop_hint` formula strings that map to these
+> triggers; Phase 3 reads bars (Alpaca live or fixture), walks the
+> FSM, and writes `intraday_monitor` JSON with concrete
+> `entry_actual` / `stop_actual` / `shares_actual`.
+>
+> **FSM contracts implemented in Phase 3**:
+> - `triggered` is **not** terminal — post-trigger bars are still
+>   evaluated for invalidation predicates so a reclaim flips the plan
+>   to `invalidated`.
+> - `invalidated` **is** terminal/absorbing — no further transitions
+>   for that `plan_id` on that session date.
+> - First Red same-bar tie-break: when a single bar both takes out
+>   `red_high` (would invalidate) AND prints below `red_low` (would
+>   trigger), invalidation wins. Short-side conservatism.
+> - ORL post-trigger invalidation requires `close > orl_low` AND
+>   `close > current_vwap` (BOTH reclaimed, not just one).
+> - Idempotency: every Phase 3 run replays the full session bars; the
+>   FSM is a pure function of `(plan, bars, atr_14)`. `prior_state`
+>   is consulted only for display continuity / notification diffs.
 
 ## 5-min Opening Range Low (ORL) break
 
