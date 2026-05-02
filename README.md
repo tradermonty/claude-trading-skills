@@ -166,6 +166,13 @@ Curated Claude skills for equity investors and traders. Each skill bundles promp
   - Generates JSON + markdown reports with calculation details, constraint analysis, and final recommendations.
   - No API key required — pure calculation, works offline.
 
+- **Parabolic Short Trade Planner** (`parabolic-short-trade-planner`)
+  - Daily screener for Qullamaggie-style Parabolic Short candidates (5-factor weighted score: MA Extension 30% / Acceleration 25% / Volume Climax 20% / Range Expansion 15% / Liquidity 10%) with mode-aware invalidation (`safe_largecap` vs `classic_qm`).
+  - Pre-market plan generator emits three conditional triggers per candidate (5-min ORL break, first red 5-min, VWAP fail) with `entry_hint` / `stop_hint` formula strings — no baked-in shares; Phase 3 evaluates `shares_formula` at trigger fire.
+  - Broker-agnostic short-inventory adapter; Alpaca implementation is `requests`-direct (no SDK), encoding the ETB-only short policy and surfacing HTB names as `borrow_inventory_unavailable` → `plan_status: watch_only`.
+  - SEC Rule 201 (SSR) state tracker that inherits `prior_close` from the screener output (regular-session close, not aftermarket) and persists per-symbol state for next-day carryover.
+  - Manual confirmation reasons split into `blocking_manual_reasons` (HTB borrow, SSR active, premarket high/low unavailable) vs `advisory_manual_reasons` (`manual_locate_required` is always advisory). FMP API required; Alpaca optional (manual fallback when missing).
+
 - **Edge Candidate Agent** (`edge-candidate-agent`)
   - Converts daily market observations into reproducible research tickets and exports Phase I-compatible candidate specs for `trade-strategy-pipeline`.
   - Generates `strategy.yaml` + `metadata.json` artifacts from structured research tickets with interface contract validation (`edge-finder-candidate/v1`).
@@ -584,6 +591,7 @@ Several skills require API keys for data access:
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Real-time holdings via Alpaca MCP |
 | **CANSLIM Stock Screener** | ✅ Required | ❌ Not used | ❌ Not used | Phase 2 (6 components); free tier sufficient; Finviz web scraping for institutional data |
 | **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | Stage 2 + VCP pattern screening; free tier sufficient |
+| **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | 🟡 Optional | FMP for screener; Alpaca optional (manual fallback). No SDK — `requests` direct |
 | **FTD Detector** | ✅ Required | ❌ Not used | ❌ Not used | Index price data for rally/FTD detection |
 | **IBD Distribution Day Monitor** | ✅ Required | ❌ Not used | ❌ Not used | Daily QQQ/SPY OHLCV for Distribution Day detection |
 | **Macro Regime Detector** | ✅ Required | ❌ Not used | ❌ Not used | Cross-asset ETF ratio analysis |

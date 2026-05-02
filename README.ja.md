@@ -145,6 +145,13 @@ English README is available at [`README.md`](README.md).
   - 2つの出力モード: sharesモード（エントリー/ストップ指定）で最終推奨株数、budgetモード（Kelly単独）で推奨リスク予算を返却。
   - JSON + マークダウンレポートを生成。APIキー不要 — 純粋計算、オフラインで動作。
 
+- **Parabolic Short トレードプランナー** (`parabolic-short-trade-planner`)
+  - Qullamaggie 型 Parabolic Short 候補の日次スクリーナー（5因子加重スコア: MA Extension 30% / Acceleration 25% / Volume Climax 20% / Range Expansion 15% / Liquidity 10%）。`safe_largecap` / `classic_qm` の2モードで無効化閾値を切り替え。
+  - 寄り前プラン生成器が候補ごとに3種類の条件付きトリガー（5min ORL ブレイク、First Red 5-min、VWAP fail）を出力。`entry_hint` / `stop_hint` は数式文字列で、shares は固定値ではなく `shares_formula` として Phase 3 で trigger 発火時に評価。
+  - 抽象化された broker short-inventory adapter。Alpaca 実装は `requests` 直叩き（SDK 非依存）で ETB-only ポリシーを表現し、HTB 銘柄は `borrow_inventory_unavailable` → `plan_status: watch_only` として明示。
+  - SEC Rule 201 (SSR) 状態トラッカーは Phase 1 出力の `prior_close`（regular session close、aftermarket ではない）を引継ぎ、銘柄別の state file で翌日の carryover に反映。
+  - Manual confirmation 理由は `blocking_manual_reasons`（HTB 借株、SSR 発動、premarket high/low 取得失敗）と `advisory_manual_reasons`（`manual_locate_required` は常に advisory）に分離。FMP API 必須、Alpaca はオプション（未設定時は manual fallback）。
+
 - **エッジ候補エージェント** (`edge-candidate-agent`)
   - 日次マーケット観察を再現可能なリサーチチケットに変換し、`trade-strategy-pipeline` Phase I互換の候補スペックをエクスポート。
   - 構造化リサーチチケットから`strategy.yaml` + `metadata.json`アーティファクトを生成。インターフェース契約（`edge-finder-candidate/v1`）のバリデーション付き。

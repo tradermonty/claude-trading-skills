@@ -223,6 +223,7 @@ pre-commit install && pre-commit install --hook-type pre-push
 | **Theme Detector** | 🟡 Optional | 🟡 Optional (Recommended) | ❌ Not used | FINVIZ for dynamic stocks; FMP for ETF holdings fallback |
 | **FinViz Screener** | ❌ Not required | 🟡 Optional | ❌ Not used | Public screener free; Elite auto-detected from env var |
 | **Position Sizer** | ❌ Not required | ❌ Not used | ❌ Not used | Pure calculation; works offline |
+| **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | 🟡 Optional | FMP for screener; Alpaca optional (`requests` direct, no SDK). Without Alpaca, every candidate flips to `plan_status: watch_only` |
 | **Data Quality Checker** | ❌ Not required | ❌ Not used | ❌ Not used | Local markdown validation; works offline |
 | **Edge Strategy Reviewer** | ❌ Not required | ❌ Not used | ❌ Not used | Deterministic scoring on local YAML drafts |
 | **Edge Pipeline Orchestrator** | ❌ Not required | ❌ Not used | ❌ Not used | Orchestrates local edge skills via subprocess |
@@ -777,6 +778,13 @@ Skills are designed to be combined for comprehensive analysis:
 6. Portfolio Manager → Execute entry, update thesis with actual price/date
 7. Trader Memory Core (review) → `list_review_due()` for periodic checks
 8. Trader Memory Core (close + postmortem) → Record exit, generate journal entry with MAE/MFE
+
+**Parabolic Short Pipeline (Phase 1 + Phase 2 MVP):**
+1. `screen_parabolic.py` (Phase 1) → daily watchlist JSON; 5-factor weighted score (MA Extension 30 / Acceleration 25 / Volume Climax 20 / Range Expansion 15 / Liquidity 10) → A/B/C/D grade. Hard-rejects via `invalidation_rules` (mode-aware), then attaches `state_caps` / `warnings`. `--dry-run --fixture` for offline pipeline verification.
+2. Review the `reports/parabolic_short_<date>.md` watchlist and decide which candidates to promote (A/B by default).
+3. `generate_pre_market_plan.py` (Phase 2) → reads Phase 1 JSON, filters by `--tradable-min-grade B`, looks up Alpaca short inventory (or `ManualBrokerAdapter` when env vars missing), inherits `prior_close` for SSR Rule 201 evaluation, splits manual-confirmation reasons into blocking vs advisory, and emits three trigger plans per candidate (5-min ORL break, first red 5-min, VWAP fail).
+4. Trader confirms `blocking_manual_reasons` are cleared at the broker (HTB locate, premarket high/low resolved, etc.) and waits for one of the three triggers intraday. Phase 3 / `monitor_intraday_trigger.py` is deferred to v0.5.
+5. Optional: `trader-memory-core` `thesis_ingest.py --source parabolic-short-trade-planner --input reports/parabolic_short_plan_<date>.json` to register theses for postmortem tracking.
 
 ## Important Conventions
 
