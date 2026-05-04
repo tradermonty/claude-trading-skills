@@ -371,18 +371,15 @@ The detailed catalog below is retained for quick reference. For a more navigable
   - Multi-stage filtering: Trend Template → VCP Base Detection → Contraction Analysis → Pivot Point Calculation.
   - FMP API required (free tier sufficient for default screening of top 100 candidates).
 
-- **CANSLIM Stock Screener** (`canslim-screener`) - **Phase 2**
+- **CANSLIM Stock Screener** (`canslim-screener`) - **Phase 3.1**
   - Screens US stocks using William O'Neil's proven CANSLIM growth stock methodology for identifying multi-bagger candidates.
-  - **Phase 2** implements 6 of 7 components (80% coverage): C (Current Earnings), A (Annual Growth), N (Newness/New Highs), **S (Supply/Demand)**, **I (Institutional Sponsorship)**, M (Market Direction).
-  - Composite scoring (0-100) with weighted components: C 19%, A 25%, N 19%, **S 19%**, **I 13%**, M 6% (renormalized for 6 components).
-  - **NEW**: Volume-based accumulation/distribution analysis (S component) - detects institutional buying patterns via up-day vs down-day volume ratios.
-  - **NEW**: Institutional ownership tracking (I component) - analyzes holder count + ownership % with **automatic Finviz fallback** when FMP data incomplete.
-  - **Finviz integration**: Free web scraping for institutional data (beautifulsoup4), improves I component accuracy from 35/100 to 60-100/100.
-  - Interpretation bands: Exceptional+ (90-100), Exceptional (80-89), Strong (70-79), Above Average (60-69).
+  - **Phase 3.1** implements all 7 components (100% coverage) with **multi-period weighted Relative Strength**: C (Current Earnings), A (Annual Growth), N (Newness/New Highs), S (Supply/Demand), **L (Leadership / multi-period RS)**, I (Institutional Sponsorship), M (Market Direction).
+  - L component uses 3m / 6m / 12m weighted RS (`0.40 × rel_3m + 0.30 × rel_6m + 0.30 × rel_12m`) vs configurable benchmark (`--rs-benchmark`, default `^GSPC`).
+  - Composite scoring (0-100) with O'Neil's original weights: C 15%, A 20%, N 15%, S 15%, **L 20%**, I 10%, M 5%.
+  - Volume-based accumulation/distribution analysis (S component) and institutional ownership tracking (I component) with **automatic Finviz fallback**.
   - Bear market protection: M component gates long-entry consideration (M=0 triggers "raise cash" warning).
-  - FMP API + Finviz integration: Free tier sufficient for 40 stocks (~1 minute 40 seconds execution time).
-  - Comprehensive knowledge base: O'Neil's methodology (now includes S and I), scoring formulas, interpretation guide, portfolio construction rules.
-  - Future Phase 3 will add L (Leadership/RS Rank) component for full 7-component CANSLIM (100% coverage).
+  - `--disable-rs` flag skips L for API budget savings (L fixed at neutral 50).
+  - JSON output now includes RS-specific fields: `rs_rating`, `rs_rank_percentile`, `rs_3m_return` / `rs_6m_return` / `rs_12m_return`, `rs_benchmark`, `rs_benchmark_relative_return`, `rs_component_score`, `benchmark_52w_performance`. Markdown adds a Summary Table for quick scanning. Schema version `3.1`.
 
 - **Value Dividend Screener** (`value-dividend-screener`)
   - Screens US stocks for high-quality dividend opportunities using Financial Modeling Prep (FMP) API.
@@ -671,7 +668,7 @@ Several skills require API keys for data access:
 | **Pair Trade Screener** | ✅ Required | ❌ Not used | ❌ Not used | Statistical arbitrage analysis |
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | FMP for stock data; theoretical pricing works without |
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Real-time holdings via Alpaca MCP |
-| **CANSLIM Stock Screener** | ✅ Required | ❌ Not used | ❌ Not used | Phase 2 (6 components); free tier sufficient; Finviz web scraping for institutional data |
+| **CANSLIM Stock Screener** | ✅ Required | ❌ Not used | ❌ Not used | Phase 3.1 (7 components, multi-period RS); free tier sufficient for 35 stocks; Finviz web scraping for institutional data |
 | **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | Stage 2 + VCP pattern screening; free tier sufficient |
 | **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | ✅ Phase 3 / 🟡 Phase 2 | FMP for Phase 1 screener; Alpaca required for Phase 3 intraday bars (paper feed OK), optional for Phase 2 borrow checks. No SDK — `requests` direct |
 | **FTD Detector** | ✅ Required | ❌ Not used | ❌ Not used | Index price data for rally/FTD detection |

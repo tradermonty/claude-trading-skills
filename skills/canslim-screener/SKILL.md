@@ -23,14 +23,28 @@ This skill screens US stocks using William O'Neil's proven CANSLIM methodology, 
 - Interpretation bands: Exceptional+ (90+), Exceptional (80-89), Strong (70-79), Above Average (60-69)
 - Bear market protection (M component gating)
 
-**Phase 3 Component Weights (Original O'Neil weights):**
+**Phase 3.1 Component Weights (Original O'Neil weights):**
 - C (Current Earnings): 15%
 - A (Annual Growth): 20%
 - N (Newness): 15%
 - S (Supply/Demand): 15%
-- L (Leadership/RS Rank): 20%
+- L (Leadership/RS Rank): 20% — multi-period weighted RS (3m/6m/12m vs configurable benchmark)
 - I (Institutional): 10%
 - M (Market Direction): 5%
+
+**Weighted RS Formula:**
+```
+Weighted RS = 0.40 × rel_3m + 0.30 × rel_6m + 0.30 × rel_12m
+```
+Available periods are re-normalized when some are missing. Default benchmark is `^GSPC`;
+override with `--rs-benchmark SPY/QQQ/IWM/...`.
+
+**Fallback hierarchy when multi-period data is incomplete:**
+1. No benchmark → weighted absolute stock performance + 20% penalty.
+2. All multi-period windows missing but >=50 bars of price history → fall back to the
+   legacy 365-day full-window absolute return as the scoring input (20% penalty if no
+   benchmark).
+3. <50 bars of price history → score=0 with `error` set.
 
 **Future Phases:**
 - Phase 4: FINVIZ Elite integration → 10x faster execution
@@ -177,6 +191,12 @@ python3 screen_canslim.py \
   --max-candidates 40 \
   --top 20 \
   --output-dir ../../../
+
+# Custom RS benchmark (Phase 3.1)
+python3 screen_canslim.py --rs-benchmark SPY
+
+# Disable L component (saves per-stock 365-day fetch; L fixed at neutral 50)
+python3 screen_canslim.py --disable-rs
 ```
 
 **Script Workflow (Phase 3 - Full CANSLIM):**
@@ -234,8 +254,11 @@ cat canslim_screener_YYYY-MM-DD_HHMMSS.md
 
 **Component Details in Report:**
 - **S Component**: "Up/Down Volume Ratio: 1.06 ✓ Accumulation"
-- **L Component**: "52wk: +45.2% (+22.1% vs S&P) RS: 88"
+- **L Component (Phase 3.1)**: "3m/6m/12m: +12.4%/+18.7%/+44.1% (rel +5.2%/+8.3%/+22.0%) | RS: 88 (Strong)"
 - **I Component**: "6199 holders, 68.3% ownership ⭐ Superinvestor"
+
+A new **Summary Table** appears above the candidate list in Phase 3.1 reports, showing
+rank, symbol, composite score, rating, RS rating, and RS percentile for quick scanning.
 
 ### Step 5: Analyze Top Candidates and Provide Recommendations
 
@@ -636,9 +659,13 @@ This is **Phase 3** implementing all 7 of 7 CANSLIM components:
 
 ---
 
-**Version:** Phase 3
-**Last Updated:** 2026-02-20
+**Version:** Phase 3.1 (multi-period RS)
+**Last Updated:** 2026-05-03
 **API Requirements:** FMP API (free tier: up to 35 stocks; Starter tier recommended for 40 stocks) + BeautifulSoup/requests/lxml for Finviz
 **Execution Time:** ~2 minutes for 40 stocks
-**Output Formats:** JSON + Markdown
+**Output Formats:** JSON + Markdown (now includes Summary Table and `schema_version: "3.1"`)
 **Components Implemented:** C, A, N, S, L, I, M (7 of 7, 100% coverage)
+**Phase 3.1 additions:** multi-period RS (3m/6m/12m), `--rs-benchmark`, `--disable-rs`,
+new RS fields (`rs_rating`, `rs_rank_percentile`, `rs_3m_return`, `rs_6m_return`,
+`rs_12m_return`, `rs_benchmark`, `rs_benchmark_relative_return`, `rs_component_score`,
+`benchmark_52w_performance`).

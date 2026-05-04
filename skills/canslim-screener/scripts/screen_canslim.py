@@ -118,11 +118,36 @@ def parse_arguments():
         help="Custom list of stock symbols to screen (overrides default S&P 500)",
     )
 
+    parser.add_argument(
+        "--rs-benchmark",
+        default="^GSPC",
+        help=(
+            "Benchmark symbol for L-component Relative Strength (default: ^GSPC). "
+            "Examples: SPY, QQQ, IWM. The M component continues to use ^GSPC for "
+            "EMA scale consistency regardless of this flag."
+        ),
+    )
+
+    parser.add_argument(
+        "--disable-rs",
+        action="store_true",
+        help=(
+            "Skip L component calculation (saves the per-stock 365-day price fetch; "
+            "also skips the custom RS benchmark fetch when applicable). "
+            "L score is set to neutral 50."
+        ),
+    )
+
     return parser.parse_args()
 
 
 def analyze_stock(
-    symbol: str, client: FMPClient, market_data: dict, sp500_historical: list[dict] = None
+    symbol: str,
+    client: FMPClient,
+    market_data: dict,
+    rs_benchmark_historical: Optional[dict] = None,
+    rs_benchmark: str = "^GSPC",
+    disable_rs: bool = False,
 ) -> Optional[dict]:
     """
     Analyze a single stock using CANSLIM Phase 3 components (7 components: C, A, N, S, L, I, M)
@@ -131,7 +156,12 @@ def analyze_stock(
         symbol: Stock ticker
         client: FMP API client
         market_data: Pre-calculated market direction data
-        sp500_historical: S&P 500 historical prices for L component RS calculation
+        rs_benchmark_historical: RS benchmark historical prices (FMP response shape) for the
+                                 L component's relative-strength calculation. May be None when
+                                 the benchmark fetch failed; the L calculator falls back to
+                                 absolute performance with a 20% penalty in that case.
+        rs_benchmark: Benchmark symbol surfaced into the L component output (e.g. "^GSPC", "SPY").
+        disable_rs: When True, skip the per-stock 365-day fetch and emit a neutral L=50 result.
 
     Returns:
         Dict with analysis results, or None if analysis failed
@@ -184,20 +214,75 @@ def analyze_stock(
             else {"score": 0, "error": "No price history data"}
         )
 
-        # L Component: Leadership / Relative Strength (52-week performance vs S&P 500)
-        # Use 365-day historical data for full year comparison
-        historical_prices_52w_data = client.get_historical_prices(symbol, days=365)
-        # Extract 'historical' list from FMP response format
-        historical_prices_52w = (
-            historical_prices_52w_data.get("historical", []) if historical_prices_52w_data else []
-        )
-        # Prepare S&P 500 historical list (extract from FMP response format)
-        sp500_historical_list = sp500_historical.get("historical", []) if sp500_historical else None
-        l_result = (
-            calculate_leadership(historical_prices_52w, sp500_historical=sp500_historical_list)
-            if historical_prices_52w
-            else {"score": 0, "error": "No 52-week price history"}
-        )
+        # L Component: Leadership / Relative Strength
+        # When --disable-rs is set, skip the 365-day fetch entirely and emit a neutral
+        # placeholder so downstream composite scoring still has a value to multiply by.
+        if disable_rs:
+            # Mirror the full Phase 3.1 l_component schema so downstream consumers
+            # (JSON parsers, report templates, postmortem tools) can read fields
+            # uniformly without special-casing the disable-rs branch. Multi-period
+            # numeric fields are None; available_periods is empty; missing_periods
+            # lists every configured window.
+            l_result = {
+                "score": 50,
+                "skipped": True,
+                "reason": "Disabled by --disable-rs",
+                # Legacy fields
+                "stock_52w_performance": None,
+                "sp500_52w_performance": None,
+                "relative_performance": None,
+                "rs_rank_estimate": None,
+                "days_analyzed": 0,
+                "interpretation": "L component skipped via --disable-rs (neutral 50)",
+                "quality_warning": None,
+                "error": None,
+                # Phase 3.1 multi-period fields
+                "rs_3m_return": None,
+                "rs_6m_return": None,
+                "rs_12m_return": None,
+                "benchmark_3m_return": None,
+                "benchmark_6m_return": None,
+                "benchmark_12m_return": None,
+                "rel_3m": None,
+                "rel_6m": None,
+                "rel_12m": None,
+                "weighted_stock_performance": None,
+                "weighted_relative_performance": None,
+                "available_periods": [],
+                "missing_periods": ["3m", "6m", "12m"],
+                "benchmark_52w_performance": None,
+                "rs_benchmark": rs_benchmark,
+                "rs_benchmark_relative_return": None,
+                "rs_rating": "Skipped",
+                "rs_component_score": 50,
+                "rs_rank_percentile": None,
+            }
+        else:
+            historical_prices_52w_data = client.get_historical_prices(symbol, days=365)
+            historical_prices_52w = (
+                historical_prices_52w_data.get("historical", [])
+                if historical_prices_52w_data
+                else []
+            )
+            rs_benchmark_list = (
+                rs_benchmark_historical.get("historical", []) if rs_benchmark_historical else None
+            )
+            l_result = (
+                calculate_leadership(
+                    historical_prices_52w,
+                    sp500_historical=rs_benchmark_list,
+                    rs_benchmark=rs_benchmark,
+                )
+                if historical_prices_52w
+                else {
+                    "score": 0,
+                    "error": "No 52-week price history",
+                    "rs_benchmark": rs_benchmark,
+                    "rs_component_score": 0,
+                    "rs_rating": "Weak",
+                    "rs_rank_percentile": None,
+                }
+            )
 
         # I Component: Institutional Sponsorship (with Finviz fallback)
         institutional_holders = client.get_institutional_holders(symbol)
@@ -304,24 +389,48 @@ def main():
         print("ERROR: Unable to fetch S&P 500 data", file=sys.stderr)
         sys.exit(1)
 
-    # Fetch S&P 500 historical prices (used by both M and L components)
-    print("Fetching S&P 500 52-week data for M (EMA) and L (Relative Strength) components...")
-    sp500_historical = client.get_historical_prices(
-        "^GSPC", days=365
-    )  # Must match ^GSPC quote for M component EMA
-    if sp500_historical and sp500_historical.get("historical"):
-        sp500_days = len(sp500_historical.get("historical", []))
-        print(f"✓ S&P 500 historical data: {sp500_days} days")
+    # Fetch ^GSPC historical prices for the M component. ^GSPC must remain the
+    # benchmark for the M component to keep scale consistent with the ^GSPC quote
+    # (see test_canslim_fixes.py::TestBenchmarkScaleConsistency).
+    print("Fetching ^GSPC 52-week data for M component (EMA)...")
+    market_sp500_historical = client.get_historical_prices("^GSPC", days=365)
+    if market_sp500_historical and market_sp500_historical.get("historical"):
+        market_days = len(market_sp500_historical.get("historical", []))
+        print(f"✓ ^GSPC historical data: {market_days} days")
     else:
-        print(
-            "⚠️  S&P 500 historical data unavailable - M component will use EMA fallback, L component will use absolute performance"
-        )
+        print("⚠️  ^GSPC historical data unavailable - M component will use EMA fallback")
 
-    # Calculate M component using real historical prices for accurate EMA
-    sp500_historical_list = sp500_historical.get("historical", []) if sp500_historical else []
+    # Resolve the L component's benchmark fetch. When the user kept the default
+    # ^GSPC, reuse the already-fetched series (FMPClient cache also covers this,
+    # but the explicit reuse here documents the intent). When --disable-rs is
+    # set, skip the benchmark fetch entirely.
+    rs_benchmark_historical = None
+    if not args.disable_rs:
+        if args.rs_benchmark == "^GSPC":
+            rs_benchmark_historical = market_sp500_historical
+        else:
+            print(
+                f"Fetching {args.rs_benchmark} 52-week data for L component (Relative Strength)..."
+            )
+            rs_benchmark_historical = client.get_historical_prices(args.rs_benchmark, days=365)
+            if rs_benchmark_historical and rs_benchmark_historical.get("historical"):
+                rs_days = len(rs_benchmark_historical.get("historical", []))
+                print(f"✓ {args.rs_benchmark} historical data: {rs_days} days")
+            else:
+                print(
+                    f"⚠️  {args.rs_benchmark} historical data unavailable - "
+                    "L component will fall back to absolute performance with 20% penalty"
+                )
+    else:
+        print("⚠️  --disable-rs set: L component will be fixed at neutral 50 (no RS fetch)")
+
+    # Calculate M component using real ^GSPC historical prices for accurate EMA
+    market_sp500_list = (
+        market_sp500_historical.get("historical", []) if market_sp500_historical else []
+    )
     market_data = calculate_market_direction(
         sp500_quote=sp500_quote[0],
-        sp500_prices=sp500_historical_list if sp500_historical_list else None,
+        sp500_prices=market_sp500_list if market_sp500_list else None,
         vix_quote=vix_quote[0] if vix_quote else None,
     )
 
@@ -344,7 +453,14 @@ def main():
 
     results = []
     for symbol in universe:
-        analysis = analyze_stock(symbol, client, market_data, sp500_historical)
+        analysis = analyze_stock(
+            symbol,
+            client,
+            market_data,
+            rs_benchmark_historical=rs_benchmark_historical,
+            rs_benchmark=args.rs_benchmark,
+            disable_rs=args.disable_rs,
+        )
         if analysis:
             results.append(analysis)
 
@@ -375,10 +491,15 @@ def main():
 
     metadata = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "phase": "3 (7 components - FULL CANSLIM)",
+        "schema_version": "3.1",
+        "phase": "3.1 (7 components - FULL CANSLIM with multi-period RS)",
         "components_included": ["C", "A", "N", "S", "L", "I", "M"],
         "candidates_analyzed": len(results),
         "universe_size": len(universe),
+        "screening_options": {
+            "rs_benchmark": args.rs_benchmark,
+            "rs_disabled": args.disable_rs,
+        },
         "market_condition": {
             "trend": market_data["trend"],
             "M_score": market_data["score"],
@@ -404,10 +525,21 @@ def main():
     api_stats = client.get_api_stats()
     print("API Usage:")
     print(f"  Cache entries: {api_stats['cache_entries']}")
-    print(
-        f"  Estimated calls: ~{len(universe) * 7 + 3} (3 market data calls + {len(universe)} stocks × 7 API calls each)"
-    )
-    print("  Phase 3 includes all 7 CANSLIM components (C, A, N, S, L, I, M)")
+    if args.disable_rs:
+        # Per-stock 365-day RS fetch is skipped; M-side market calls remain
+        # (^GSPC quote + VIX quote + ^GSPC 365-day = 3 calls).
+        print(
+            f"  Estimated calls: ~{len(universe) * 6 + 3} "
+            f"(3 market data calls + {len(universe)} stocks × 6 API calls each, --disable-rs)"
+        )
+    else:
+        # Custom benchmark adds one extra fetch when it differs from ^GSPC.
+        market_calls = 3 if args.rs_benchmark == "^GSPC" else 4
+        print(
+            f"  Estimated calls: ~{len(universe) * 7 + market_calls} "
+            f"({market_calls} market data calls + {len(universe)} stocks × 7 API calls each)"
+        )
+    print("  Phase 3.1 includes all 7 CANSLIM components (C, A, N, S, L, I, M)")
     print()
 
 

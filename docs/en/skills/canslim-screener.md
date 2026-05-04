@@ -44,7 +44,7 @@ The CANSLIM Screener applies William O'Neil's growth stock selection system -- d
 | **A** - Annual Growth | 20% | 3-year EPS CAGR and stability |
 | **N** - Newness | 15% | Distance from 52-week high, breakout detection |
 | **S** - Supply/Demand | 15% | Volume-based accumulation/distribution |
-| **L** - Leadership | 20% | 52-week relative strength vs S&P 500 |
+| **L** - Leadership | 20% | Multi-period RS (3m/6m/12m vs configurable benchmark, default ^GSPC) |
 | **I** - Institutional | 10% | Holder count + ownership % (with Finviz fallback) |
 | **M** - Market Direction | 5% | S&P 500 trend vs 50-day EMA |
 
@@ -303,6 +303,8 @@ This may indicate bear market conditions or a universe lacking growth stocks:
 | `--top` | No | `20` | Number of top results in the report |
 | `--output-dir` | No | `.` | Output directory for JSON and Markdown reports |
 | `--universe` | No | S&P 500 top 40 | Custom list of ticker symbols |
+| `--rs-benchmark` | No | `^GSPC` | Benchmark symbol for L-component RS (e.g. SPY, QQQ, IWM). M component still uses ^GSPC for EMA scale consistency. |
+| `--disable-rs` | No | `false` | Skip L component calculation. Saves the per-stock 365-day price fetch and the custom benchmark fetch (when applicable). L is fixed at neutral 50. |
 
 ### Default Universe
 
@@ -320,6 +322,57 @@ VZ, TXN, AMD, QCOM, INTC
 ```
 Composite = C x 0.15 + A x 0.20 + N x 0.15 + S x 0.15 + L x 0.20 + I x 0.10 + M x 0.05
 ```
+
+### Weighted RS Calculation (Phase 3.1)
+
+The L component now uses a multi-period weighted relative strength against a configurable
+benchmark (default `^GSPC`):
+
+```
+Weighted RS = 0.40 × rel_3m + 0.30 × rel_6m + 0.30 × rel_12m
+```
+
+- Periods: 3m = 63 trading bars, 6m = 126 bars, 12m = 252 bars.
+- When some periods are missing (insufficient history), the weights are re-normalized
+  over the available periods so they still sum to 1.0.
+- **Fallback hierarchy** when full multi-period data is not available:
+  1. **No benchmark** → score from the weighted absolute stock performance with a 20% penalty
+     (preserves the legacy fallback behavior).
+  2. **All multi-period windows missing but >=50 bars of price history available**
+     (e.g. fewer than 63 trading bars but a longer-than-50-bar series) → fall back to
+     the legacy 365-day full-window absolute return as the scoring input. The 20% penalty
+     still applies when no benchmark is present.
+  3. **<50 bars of price history** → score=0 with `error` set; no scoring is performed.
+- Pass `--rs-benchmark SPY` (or QQQ, IWM, etc.) to swap the benchmark. The M component
+  always uses `^GSPC` to keep its EMA calculation in scale.
+
+### Output Schema (Phase 3.1)
+
+The L-component sub-object adds the following fields. Existing fields are preserved for
+backward compatibility.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `rs_3m_return` / `rs_6m_return` / `rs_12m_return` | float \| null | Stock absolute return over 63 / 126 / 252 trading bars. |
+| `benchmark_3m_return` / `benchmark_6m_return` / `benchmark_12m_return` | float \| null | Benchmark absolute return over the same windows. |
+| `rel_3m` / `rel_6m` / `rel_12m` | float \| null | Stock minus benchmark (per period). Null when no benchmark. |
+| `weighted_stock_performance` | float \| null | Weighted absolute return (used as scoring input when no benchmark). |
+| `weighted_relative_performance` | float \| null | Weighted relative return (scoring input when benchmark available). |
+| `benchmark_52w_performance` | float \| null | Symbol-neutral successor to `sp500_52w_performance`. |
+| `rs_benchmark` | string | Benchmark symbol used (e.g. `^GSPC`, `SPY`). |
+| `rs_benchmark_relative_return` | float \| null | Equal to `rel_12m` (252-bar relative). Note: this is **not** the same as legacy `relative_performance`, which uses the full 365-day window. |
+| `rs_rating` | string | Short label derived from `rs_rank_percentile`: `Market Leader` / `Strong` / `Above Average` / `Average` / `Laggard` / `Weak`. |
+| `rs_component_score` | int | Alias of `score` (0–100). |
+| `rs_rank_percentile` | int \| null | **Estimated** percentile derived from relative-performance thresholds. **Not** a cross-sectional percentile within the screened universe. |
+
+Deprecation notes:
+
+- `sp500_52w_performance` is retained for backward compatibility. When `--rs-benchmark`
+  is set to a non-`^GSPC` symbol, this field contains that benchmark's return (the field
+  name lies). Prefer `benchmark_52w_performance`.
+- `relative_performance` continues to mean the 365-day full-window stock − benchmark
+  return. It differs from `rs_benchmark_relative_return` (252-bar) and from
+  `weighted_relative_performance` (multi-period weighted).
 
 ### Rating Bands
 

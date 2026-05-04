@@ -349,14 +349,13 @@ English README is available at [`README.md`](README.md).
   - 多段階フィルタリング: トレンドテンプレート → VCPベース検出 → 収縮分析 → ピボットポイント計算。
   - FMP APIキーが必要（無料ティアで上位100候補のデフォルトスクリーニングに十分）。
 
-- **CANSLIM株式スクリーナー** (`canslim-screener`) - **Phase 2**
+- **CANSLIM株式スクリーナー** (`canslim-screener`) - **Phase 3.1**
   - William O'NeilのCANSLIM成長株手法を用いて米国株をスクリーニング。マルチバガー候補の発見に特化。
-  - Phase 2では7コンポーネントのうち6つを実装（80%カバレッジ）：C (四半期決算)、A (年次成長)、N (新高値)、S (需給)、I (機関投資家)、M (市場方向)。
-  - 複合スコアリング（0-100）と重み付け：C 19%、A 25%、N 19%、S 19%、I 13%、M 6%。
-  - ボリュームベースの蓄積/分配分析（Sコンポーネント）とFinvizフォールバック付き機関投資家所有率追跡（Iコンポーネント）。
-  - ベアマーケット保護：Mコンポーネントがロングエントリー検討をゲート（M=0で「現金化」警告）。
-  - FMP API統合。無料ティア（250 calls/日）で40銘柄分析可能。
-  - 将来のPhase 3でL (リーダーシップ/RS Rank) コンポーネントを追加して全7コンポーネント完成予定。
+  - **Phase 3.1** では全7コンポーネント（100%カバレッジ）を **マルチ期間 RS** で実装：C (四半期決算)、A (年次成長)、N (新高値)、S (需給)、**L (リーダーシップ / マルチ期間 RS)**、I (機関投資家)、M (市場方向)。
+  - L コンポーネントは 3m / 6m / 12m 重み付け RS（`0.40 × rel_3m + 0.30 × rel_6m + 0.30 × rel_12m`）を設定可能 benchmark（`--rs-benchmark`、デフォルト `^GSPC`）に対して計算。
+  - 複合スコアリング（0-100）は O'Neil 原版重み：C 15%、A 20%、N 15%、S 15%、**L 20%**、I 10%、M 5%。
+  - ベアマーケット保護：M=0 で「現金化」警告。`--disable-rs` で L を中立 50 に固定し API 予算を節約可能。
+  - JSON 出力に RS 専用フィールドを追加：`rs_rating`、`rs_rank_percentile`、`rs_3m_return` / `rs_6m_return` / `rs_12m_return`、`rs_benchmark`、`rs_benchmark_relative_return`、`rs_component_score`、`benchmark_52w_performance`。Markdown には Summary Table を追加。スキーマバージョン `3.1`。
 
 - **バリュー配当スクリーナー** (`value-dividend-screener`)
   - FMP APIを使用して高品質な配当投資機会をスクリーニング。

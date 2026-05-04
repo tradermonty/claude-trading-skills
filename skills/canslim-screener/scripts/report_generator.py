@@ -50,6 +50,27 @@ def generate_markdown_report(results: list[dict], metadata: dict, output_file: s
     components_str = ", ".join(components)
     lines.append(f"**Phase:** {metadata['phase']} (Components: {components_str})")
     lines.append(f"**Stocks Analyzed:** {metadata['candidates_analyzed']}")
+
+    schema_version = metadata.get("schema_version")
+    if schema_version:
+        lines.append(f"**Schema Version:** {schema_version}")
+
+    screening_options = metadata.get("screening_options") or {}
+    rs_benchmark = screening_options.get("rs_benchmark")
+    rs_disabled = screening_options.get("rs_disabled", False)
+    if rs_benchmark or rs_disabled:
+        lines.append(
+            f"**RS Benchmark:** {rs_benchmark or '^GSPC'}"
+            + (" (DISABLED via --disable-rs)" if rs_disabled else "")
+        )
+
+    if rs_disabled:
+        lines.append("")
+        lines.append(
+            "> ⚠️ RS Disabled: L component fixed at neutral 50 via `--disable-rs`. "
+            "Composite scores are not directly comparable to full RS runs."
+        )
+
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -64,6 +85,26 @@ def generate_markdown_report(results: list[dict], metadata: dict, output_file: s
         if market.get("warning"):
             lines.append(f"- **⚠️ Warning:** {market['warning']}")
 
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    # Summary table (Phase 3.1: include RS rating + percentile for quick scanning)
+    if results:
+        lines.append("## Summary Table")
+        lines.append("")
+        lines.append("| # | Symbol | Score | Rating | RS Rating | RS % |")
+        lines.append("|---|--------|-------|--------|-----------|------|")
+        for idx, stock in enumerate(results, 1):
+            l_details = stock.get("l_component", {}) or {}
+            rs_rating = l_details.get("rs_rating", "N/A")
+            rs_percentile = l_details.get("rs_rank_percentile")
+            rs_pct_str = f"{rs_percentile}" if isinstance(rs_percentile, (int, float)) else "N/A"
+            lines.append(
+                f"| {idx} | {stock.get('symbol', 'N/A')} | "
+                f"{stock.get('composite_score', 0):.1f} | "
+                f"{stock.get('rating', 'N/A')} | {rs_rating} | {rs_pct_str} |"
+            )
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -99,13 +140,41 @@ def generate_markdown_report(results: list[dict], metadata: dict, output_file: s
     lines.append("- **A** (Annual Growth) - 20% weight: 3-year EPS CAGR")
     lines.append("- **N** (Newness) - 15% weight: Price position vs 52-week high")
     lines.append("- **S** (Supply/Demand) - 15% weight: Volume accumulation/distribution")
-    lines.append("- **L** (Leadership) - 20% weight: Relative Strength vs S&P 500 (52-week)")
+    lines.append(
+        "- **L** (Leadership) - 20% weight: Multi-period weighted Relative Strength "
+        "(3m/6m/12m) vs configurable benchmark"
+    )
     lines.append("- **I** (Institutional) - 10% weight: Institutional holder analysis")
     lines.append("- **M** (Market Direction) - 5% weight: S&P 500 trend")
     lines.append("")
     lines.append("Component weights follow William O'Neil's original CANSLIM methodology,")
     lines.append(
         "with L (Leadership/RS Rank) as the most weighted component alongside A (Annual Growth)."
+    )
+    lines.append("")
+    lines.append("**Weighted RS Calculation (Phase 3.1):**")
+    lines.append("")
+    lines.append("```")
+    lines.append("Weighted RS = 0.40 × rel_3m + 0.30 × rel_6m + 0.30 × rel_12m")
+    lines.append(
+        "(When some periods are missing, the weights are re-normalized over available periods.)"
+    )
+    lines.append("Default benchmark: ^GSPC. Override with --rs-benchmark SPY/QQQ/IWM/...")
+    lines.append("```")
+    lines.append("")
+    lines.append("Fallback hierarchy when full multi-period data is not available:")
+    lines.append("")
+    lines.append(
+        "1. **No benchmark** → score from weighted absolute stock performance with a "
+        "20% penalty (legacy fallback)."
+    )
+    lines.append(
+        "2. **Multi-period unavailable but >=50 bars of price history** → fall back to "
+        "the legacy 365-day full-window absolute return as the scoring input. The 20% "
+        "penalty still applies when no benchmark is present."
+    )
+    lines.append(
+        "3. **<50 bars of price history** → score=0 with `error` set; no scoring is performed."
     )
     lines.append("")
     lines.append("For detailed methodology, see `references/canslim_methodology.md`.")
@@ -200,22 +269,60 @@ def format_stock_entry(rank: int, stock: dict) -> list[str]:
         f"Up/Down Volume Ratio: {s_ratio_str} {s_accumulation} |"
     )
 
-    # L component (Phase 3 - Leadership / Relative Strength)
+    # L component (Phase 3.1 - Leadership / Multi-period Relative Strength)
     l_details = stock.get("l_component", {})
     l_score = l_details.get("score", 0)
-    l_stock_perf = l_details.get("stock_52w_performance", "N/A")
-    l_relative = l_details.get("relative_performance", "N/A")
-    l_rs_rank = l_details.get("rs_rank_estimate", "N/A")
-    l_stock_perf_str = (
-        f"{l_stock_perf:+.1f}%" if isinstance(l_stock_perf, (int, float)) else str(l_stock_perf)
-    )
-    l_relative_str = (
-        f"{l_relative:+.1f}% vs S&P" if isinstance(l_relative, (int, float)) else str(l_relative)
-    )
-    l_rs_str = f"RS: {l_rs_rank}" if isinstance(l_rs_rank, (int, float)) else ""
-    lines.append(
-        f"| 🅻 Leadership | {l_score}/100 | 52wk: {l_stock_perf_str} ({l_relative_str}) {l_rs_str} |"
-    )
+    l_rs_rating = l_details.get("rs_rating")
+    l_rs_rank = l_details.get("rs_rank_percentile") or l_details.get("rs_rank_estimate")
+
+    if l_details.get("skipped"):
+        lines.append(f"| 🅻 Leadership | {l_score}/100 | Skipped via --disable-rs (neutral 50) |")
+    else:
+        # Multi-period breakdown (Phase 3.1) when available; fall back to legacy 52w view.
+        rs_3m = l_details.get("rs_3m_return")
+        rs_6m = l_details.get("rs_6m_return")
+        rs_12m = l_details.get("rs_12m_return")
+        rel_3m = l_details.get("rel_3m")
+        rel_6m = l_details.get("rel_6m")
+        rel_12m = l_details.get("rel_12m")
+
+        def _fmt(v):
+            return f"{v:+.1f}%" if isinstance(v, (int, float)) else "N/A"
+
+        if any(v is not None for v in (rs_3m, rs_6m, rs_12m)):
+            stock_str = f"{_fmt(rs_3m)}/{_fmt(rs_6m)}/{_fmt(rs_12m)}"
+            if any(v is not None for v in (rel_3m, rel_6m, rel_12m)):
+                rel_str = f" (rel {_fmt(rel_3m)}/{_fmt(rel_6m)}/{_fmt(rel_12m)})"
+            else:
+                rel_str = " (no benchmark)"
+            rs_str = (
+                f" | RS: {l_rs_rank} ({l_rs_rating})"
+                if isinstance(l_rs_rank, (int, float)) and l_rs_rating
+                else ""
+            )
+            lines.append(
+                f"| 🅻 Leadership | {l_score}/100 | 3m/6m/12m: {stock_str}{rel_str}{rs_str} |"
+            )
+        else:
+            # Legacy single-period rendering for backwards compatibility (e.g. when
+            # sp500_performance was supplied directly or when calling code uses an
+            # older leadership_calculator output shape).
+            l_stock_perf = l_details.get("stock_52w_performance")
+            l_relative = l_details.get("relative_performance")
+            stock_part = _fmt(l_stock_perf)
+            rel_part = (
+                f"{l_relative:+.1f}% vs benchmark"
+                if isinstance(l_relative, (int, float))
+                else "(no benchmark)"
+            )
+            rs_str = (
+                f" | RS: {l_rs_rank}" + (f" ({l_rs_rating})" if l_rs_rating else "")
+                if isinstance(l_rs_rank, (int, float))
+                else ""
+            )
+            lines.append(
+                f"| 🅻 Leadership | {l_score}/100 | 52wk: {stock_part} ({rel_part}){rs_str} |"
+            )
 
     # I component
     i_details = stock.get("i_component", {})
