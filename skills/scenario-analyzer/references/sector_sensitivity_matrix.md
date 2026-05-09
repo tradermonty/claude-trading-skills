@@ -1,217 +1,217 @@
 # Sector Sensitivity Matrix
 
-このリファレンスは、各種イベントタイプに対するセクター別の感応度をマトリクス形式で整理しています。
-シナリオ分析時に、どのセクターが影響を受けやすいかを素早く判断するために使用します。
+This reference organizes, in matrix form, sector-level sensitivity to various event types.
+Use it during scenario analysis to quickly identify which sectors are most likely to be affected.
 
-## 凡例
+## Legend
 
-**影響度:**
-- `++` : 強いポジティブ影響
-- `+` : ポジティブ影響
-- `0` : 中立/影響軽微
-- `-` : ネガティブ影響
-- `--` : 強いネガティブ影響
+**Impact:**
+- `++` : Strong positive impact
+- `+` : Positive impact
+- `0` : Neutral / minimal impact
+- `-` : Negative impact
+- `--` : Strong negative impact
 
-**確信度:**
-- `H` : 高（過去パターンが一貫）
-- `M` : 中（状況依存）
-- `L` : 低（不確実性高）
-
----
-
-## 1. 金融政策イベント別マトリクス
-
-### 利上げ環境
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 金融（銀行） | + | H | JPM, BAC, WFC | 純金利収入増加 |
-| 金融（保険） | + | M | MET, PRU, AIG | 投資収益改善 |
-| テクノロジー | - | H | AAPL, MSFT, NVDA | 高バリュエーション割引 |
-| 消費財（一般） | - | H | AMZN, HD, NKE | 借入コスト上昇 |
-| 不動産（REIT） | -- | H | AMT, PLD, EQIX | 金利敏感、資金調達コスト増 |
-| 公益事業 | - | H | NEE, DUK, SO | 債券代替としての魅力低下 |
-| ヘルスケア | 0 | M | UNH, JNJ, PFE | 相対的にディフェンシブ |
-| 生活必需品 | 0 | M | PG, KO, WMT | 相対的にディフェンシブ |
-| エネルギー | 0 | L | XOM, CVX, COP | マクロ環境依存 |
-| 素材 | - | M | LIN, APD, ECL | 景気敏感 |
-| 資本財 | - | M | CAT, DE, HON | 設備投資減速懸念 |
-| 通信サービス | 0 | M | GOOGL, META, DIS | 個別要因大きい |
-
-### 利下げ環境
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| テクノロジー | ++ | H | AAPL, MSFT, NVDA | 成長株バリュエーション拡大 |
-| 不動産（REIT） | ++ | H | AMT, PLD, EQIX | 資金調達コスト低下 |
-| 公益事業 | + | H | NEE, DUK, SO | 配当利回りの相対的魅力向上 |
-| 消費財（一般） | + | H | AMZN, HD, NKE | 消費刺激 |
-| 金融（銀行） | - | H | JPM, BAC, WFC | 純金利収入減少 |
-| ヘルスケア | 0 | M | UNH, JNJ, PFE | 相対的にディフェンシブ |
-| 生活必需品 | 0 | M | PG, KO, WMT | 相対的にディフェンシブ |
-| エネルギー | 0 | L | XOM, CVX, COP | マクロ環境依存 |
+**Confidence:**
+- `H` : High (consistent historical pattern)
+- `M` : Medium (situation-dependent)
+- `L` : Low (high uncertainty)
 
 ---
 
-## 2. 地政学イベント別マトリクス
+## 1. Matrix by Monetary-Policy Event
 
-### 戦争・武力紛争
+### Rate-Hike Environment
 
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 防衛 | ++ | H | LMT, RTX, NOC, GD | 軍事支出増加 |
-| エネルギー | + | H | XOM, CVX, COP | 供給懸念で価格上昇 |
-| 金（金鉱） | ++ | H | NEM, GOLD, AEM | 安全資産需要 |
-| 航空 | -- | H | DAL, UAL, AAL | 燃料コスト、需要減 |
-| 旅行・レジャー | -- | H | MAR, HLT, BKNG | 需要減退 |
-| 保険 | - | M | AIG, TRV, ALL | 地政学リスク引当 |
-| 半導体 | - | M | NVDA, AMD, INTC | サプライチェーンリスク |
-| 海運 | +/- | L | ZIM, DAC, MATX | ルート依存で影響異なる |
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Financials (banks) | + | H | JPM, BAC, WFC | Higher net interest income |
+| Financials (insurance) | + | M | MET, PRU, AIG | Better investment income |
+| Technology | - | H | AAPL, MSFT, NVDA | High-multiple discounts |
+| Consumer Discretionary | - | H | AMZN, HD, NKE | Higher borrowing costs |
+| Real Estate (REITs) | -- | H | AMT, PLD, EQIX | Rate-sensitive; higher financing costs |
+| Utilities | - | H | NEE, DUK, SO | Reduced bond-proxy appeal |
+| Healthcare | 0 | M | UNH, JNJ, PFE | Relatively defensive |
+| Consumer Staples | 0 | M | PG, KO, WMT | Relatively defensive |
+| Energy | 0 | L | XOM, CVX, COP | Macro-environment dependent |
+| Materials | - | M | LIN, APD, ECL | Cyclical |
+| Industrials | - | M | CAT, DE, HON | Capex slowdown concerns |
+| Communication Services | 0 | M | GOOGL, META, DIS | Idiosyncratic factors dominate |
 
-### 関税・貿易摩擦（対中国）
+### Rate-Cut Environment
 
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 半導体（製造装置） | -- | H | AMAT, LRCX, KLAC | 中国市場規制 |
-| 消費財（中国依存） | - | H | NKE, AAPL | 製造・販売両面で影響 |
-| 農業 | - | H | DE, ADM, BG | 中国向け輸出減 |
-| メキシコ生産企業 | + | M | - | サプライチェーン代替恩恵 |
-| 国内製造企業 | + | M | - | オンショアリング恩恵 |
-
----
-
-## 3. 規制・政策変更別マトリクス
-
-### 環境規制強化
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 再エネ（太陽光） | ++ | H | ENPH, SEDG, FSLR | 政策支援拡大 |
-| 再エネ（風力） | ++ | H | NEE, AES | 政策支援拡大 |
-| EV | ++ | H | TSLA, RIVN, LCID | 規制による需要増 |
-| リチウム・バッテリー | ++ | H | ALB, LTHM | EV需要連動 |
-| 石油・ガス | -- | H | XOM, CVX, COP | 座礁資産リスク |
-| 石炭 | -- | H | - | フェードアウト加速 |
-| 航空 | - | M | DAL, UAL, AAL | SAF義務化コスト |
-| 自動車（従来型） | - | M | F, GM | EV移行コスト |
-
-### 金融規制強化
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 大手銀行 | - | H | JPM, BAC, C | 資本要件増、収益圧迫 |
-| 地方銀行 | -- | H | - | 規制コスト負担大 |
-| フィンテック | +/- | M | SQ, PYPL | 規制次第で恩恵/打撃 |
-| 暗号資産関連 | - | M | COIN | 規制不透明感 |
-
-### 独占禁止法強化
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| ビッグテック | - | M | GOOGL, META, AMZN, AAPL | 事業分割リスク |
-| 通信 | - | M | T, VZ | M&A阻止リスク |
-| 中小テック | + | M | - | 競争環境改善恩恵 |
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Technology | ++ | H | AAPL, MSFT, NVDA | Multiple expansion for growth |
+| Real Estate (REITs) | ++ | H | AMT, PLD, EQIX | Lower financing costs |
+| Utilities | + | H | NEE, DUK, SO | Relative appeal of dividend yield |
+| Consumer Discretionary | + | H | AMZN, HD, NKE | Stimulates consumption |
+| Financials (banks) | - | H | JPM, BAC, WFC | Lower net interest income |
+| Healthcare | 0 | M | UNH, JNJ, PFE | Relatively defensive |
+| Consumer Staples | 0 | M | PG, KO, WMT | Relatively defensive |
+| Energy | 0 | L | XOM, CVX, COP | Macro-environment dependent |
 
 ---
 
-## 4. テクノロジーシフト別マトリクス
+## 2. Matrix by Geopolitical Event
 
-### AI革命加速
+### Wars / Armed Conflicts
 
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 半導体（GPU） | ++ | H | NVDA, AMD | AI学習/推論チップ需要 |
-| 半導体（メモリ） | ++ | H | MU, WDC | HBM需要 |
-| クラウドインフラ | ++ | H | MSFT, AMZN, GOOGL | AI基盤提供 |
-| エンタープライズSW | + | H | CRM, NOW, ADBE | AI機能統合 |
-| データセンターREIT | ++ | H | EQIX, DLR | 需要急増 |
-| 電力会社 | + | M | NEE, SO | データセンター電力需要 |
-| BPO/アウトソーシング | -- | M | - | AI自動化による代替 |
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Defense | ++ | H | LMT, RTX, NOC, GD | Higher military spending |
+| Energy | + | H | XOM, CVX, COP | Higher prices on supply concerns |
+| Gold (miners) | ++ | H | NEM, GOLD, AEM | Safe-haven demand |
+| Airlines | -- | H | DAL, UAL, AAL | Fuel costs, weaker demand |
+| Travel / leisure | -- | H | MAR, HLT, BKNG | Demand destruction |
+| Insurance | - | M | AIG, TRV, ALL | Geopolitical-risk reserves |
+| Semiconductors | - | M | NVDA, AMD, INTC | Supply-chain risk |
+| Shipping | +/- | L | ZIM, DAC, MATX | Route-dependent |
 
-### EV普及加速
+### Tariffs / Trade Friction (vs. China)
 
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| EV製造 | ++ | H | TSLA, RIVN | 市場拡大 |
-| バッテリー/リチウム | ++ | H | ALB, LTHM, LAC | 素材需要 |
-| 充電インフラ | ++ | H | CHPT, BLNK | インフラ投資 |
-| 電力会社 | + | M | NEE, SO | 電力需要増 |
-| 従来型自動車 | - | M | F, GM | 移行コスト |
-| 自動車部品（エンジン） | -- | H | - | 需要構造変化 |
-| 石油精製 | - | M | VLO, PSX | ガソリン需要減 |
-
----
-
-## 5. コモディティショック別マトリクス
-
-### 原油価格急騰（$100+/bbl）
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 石油メジャー | ++ | H | XOM, CVX, COP | 収益急増 |
-| シェール企業 | ++ | H | PXD, EOG, DVN | 採算性大幅改善 |
-| 油田サービス | ++ | H | SLB, HAL, BKR | 掘削活動増加 |
-| 航空 | -- | H | DAL, UAL, AAL | 燃料コスト急増 |
-| 輸送 | -- | H | UPS, FDX | 燃料コスト増 |
-| 化学 | - | H | DOW, LYB | 原材料コスト増 |
-| 消費財 | - | M | 全般 | 消費者購買力低下 |
-
-### 原油価格急落（$50-/bbl）
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 石油メジャー | -- | H | XOM, CVX, COP | 収益減、設備投資削減 |
-| シェール企業 | -- | H | PXD, EOG, DVN | 採算割れリスク |
-| 航空 | ++ | H | DAL, UAL, AAL | 燃料コスト減 |
-| 消費財 | + | M | 全般 | 可処分所得増 |
-| 化学 | + | M | DOW, LYB | 原材料コスト減 |
-
-### 金価格急騰
-
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 金鉱株 | ++ | H | NEM, GOLD, AEM | レバレッジ効果 |
-| 銀鉱株 | ++ | H | PAAS, AG, HL | 貴金属連動 |
-| 宝飾品 | 0 | M | SIG, TIF | 需要減と在庫価値増が相殺 |
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Semi equipment | -- | H | AMAT, LRCX, KLAC | Restrictions on China market |
+| China-exposed consumer | - | H | NKE, AAPL | Affected on both production and sales |
+| Agriculture | - | H | DE, ADM, BG | Lower exports to China |
+| Mexico-based producers | + | M | - | Supply-chain alternative beneficiaries |
+| US-based manufacturers | + | M | - | Onshoring beneficiaries |
 
 ---
 
-## 6. 経済サイクル別マトリクス
+## 3. Matrix by Regulatory / Policy Change
 
-### 景気拡大期
+### Tighter Environmental Rules
 
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| テクノロジー | ++ | H | AAPL, MSFT, NVDA | 企業IT投資増 |
-| 消費財（一般） | ++ | H | AMZN, HD, NKE | 消費拡大 |
-| 資本財 | ++ | H | CAT, DE, HON | 設備投資増 |
-| 素材 | + | H | LIN, APD, FCX | 需要増 |
-| 金融 | + | H | JPM, BAC, GS | 与信拡大、M&A活発 |
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Renewables (solar) | ++ | H | ENPH, SEDG, FSLR | Expanded policy support |
+| Renewables (wind) | ++ | H | NEE, AES | Expanded policy support |
+| EV | ++ | H | TSLA, RIVN, LCID | Regulation-driven demand |
+| Lithium / batteries | ++ | H | ALB, LTHM | Linked to EV demand |
+| Oil & gas | -- | H | XOM, CVX, COP | Stranded-asset risk |
+| Coal | -- | H | - | Accelerated phase-out |
+| Airlines | - | M | DAL, UAL, AAL | SAF mandate costs |
+| Legacy autos | - | M | F, GM | EV-transition costs |
 
-### 景気後退期
+### Tighter Financial Regulation
 
-| セクター | 影響 | 確信度 | 代表的銘柄 | 備考 |
-|---------|------|--------|-----------|------|
-| 生活必需品 | + | H | PG, KO, WMT | ディフェンシブ |
-| ヘルスケア | + | H | UNH, JNJ, PFE | 非裁量的支出 |
-| 公益事業 | + | H | NEE, DUK, SO | 安定配当 |
-| 消費財（一般） | -- | H | AMZN, HD, NKE | 裁量的支出削減 |
-| 資本財 | -- | H | CAT, DE, HON | 設備投資凍結 |
-| 金融 | - | H | JPM, BAC | 貸倒増加懸念 |
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Large banks | - | H | JPM, BAC, C | Higher capital requirements squeeze profits |
+| Regional banks | -- | H | - | Heavier compliance burden |
+| Fintech | +/- | M | SQ, PYPL | Benefits or hurts depending on rules |
+| Crypto-related | - | M | COIN | Regulatory uncertainty |
+
+### Tighter Antitrust
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Big tech | - | M | GOOGL, META, AMZN, AAPL | Risk of forced breakups |
+| Telecom | - | M | T, VZ | Risk that M&A is blocked |
+| Small/mid tech | + | M | - | Better competitive landscape |
 
 ---
 
-## 使用方法
+## 4. Matrix by Technology Shift
 
-1. **イベントタイプを特定**: ヘッドラインからイベントカテゴリを判断
-2. **該当マトリクスを参照**: 上記から適切なマトリクスを選択
-3. **影響度と確信度を確認**: セクターごとの影響を把握
-4. **代表的銘柄をスタート地点に**: さらに深掘り分析の起点として使用
-5. **複合シナリオは複数参照**: 複数イベントが絡む場合は複数マトリクスを統合
+### AI Revolution Acceleration
 
-## 注意事項
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Semis (GPU) | ++ | H | NVDA, AMD | AI training / inference chip demand |
+| Semis (memory) | ++ | H | MU, WDC | HBM demand |
+| Cloud infra | ++ | H | MSFT, AMZN, GOOGL | AI platform providers |
+| Enterprise SW | + | H | CRM, NOW, ADBE | AI feature integration |
+| Data-center REITs | ++ | H | EQIX, DLR | Surging demand |
+| Utilities | + | M | NEE, SO | Power demand from data centers |
+| BPO / outsourcing | -- | M | - | Replaced by AI automation |
 
-- **個別銘柄の状況**: セクター影響と個別銘柄影響は異なる場合がある
-- **タイミング**: 即時影響と遅延影響を区別する
-- **規模感**: イベントの規模により影響度は変動
-- **市場織り込み度**: 既に市場が織り込んでいる場合は反応が限定的
+### EV Adoption Acceleration
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| EV manufacturers | ++ | H | TSLA, RIVN | Market expansion |
+| Batteries / lithium | ++ | H | ALB, LTHM, LAC | Materials demand |
+| Charging infra | ++ | H | CHPT, BLNK | Infrastructure investment |
+| Utilities | + | M | NEE, SO | Higher electricity demand |
+| Legacy autos | - | M | F, GM | Transition costs |
+| Auto parts (engines) | -- | H | - | Demand structural shift |
+| Oil refining | - | M | VLO, PSX | Lower gasoline demand |
+
+---
+
+## 5. Matrix by Commodity Shock
+
+### Crude-Oil Surge ($100+/bbl)
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Oil majors | ++ | H | XOM, CVX, COP | Earnings surge |
+| Shale companies | ++ | H | PXD, EOG, DVN | Sharp profitability gains |
+| Oilfield services | ++ | H | SLB, HAL, BKR | More drilling activity |
+| Airlines | -- | H | DAL, UAL, AAL | Sharply higher fuel costs |
+| Transportation | -- | H | UPS, FDX | Higher fuel costs |
+| Chemicals | - | H | DOW, LYB | Higher feedstock costs |
+| Consumer goods | - | M | broad | Lower consumer purchasing power |
+
+### Crude-Oil Plunge ($50-/bbl)
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Oil majors | -- | H | XOM, CVX, COP | Lower earnings; capex cuts |
+| Shale companies | -- | H | PXD, EOG, DVN | Risk of margin breakeven |
+| Airlines | ++ | H | DAL, UAL, AAL | Lower fuel costs |
+| Consumer goods | + | M | broad | Higher disposable income |
+| Chemicals | + | M | DOW, LYB | Lower feedstock costs |
+
+### Gold-Price Surge
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Gold miners | ++ | H | NEM, GOLD, AEM | Leverage to gold prices |
+| Silver miners | ++ | H | PAAS, AG, HL | Linked to precious metals |
+| Jewelry | 0 | M | SIG, TIF | Lower demand offset by inventory revaluation |
+
+---
+
+## 6. Matrix by Economic Cycle
+
+### Expansion Phase
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Technology | ++ | H | AAPL, MSFT, NVDA | Higher corporate IT spending |
+| Consumer Discretionary | ++ | H | AMZN, HD, NKE | Expanding consumption |
+| Industrials | ++ | H | CAT, DE, HON | Higher capex |
+| Materials | + | H | LIN, APD, FCX | Higher demand |
+| Financials | + | H | JPM, BAC, GS | Credit growth, active M&A |
+
+### Recession Phase
+
+| Sector | Impact | Confidence | Representative tickers | Notes |
+|--------|--------|------------|------------------------|-------|
+| Consumer Staples | + | H | PG, KO, WMT | Defensive |
+| Healthcare | + | H | UNH, JNJ, PFE | Non-discretionary spending |
+| Utilities | + | H | NEE, DUK, SO | Stable dividends |
+| Consumer Discretionary | -- | H | AMZN, HD, NKE | Discretionary spending cuts |
+| Industrials | -- | H | CAT, DE, HON | Capex frozen |
+| Financials | - | H | JPM, BAC | Higher loan-loss concerns |
+
+---
+
+## How to Use
+
+1. **Identify the event type**: Determine the event category from the headline
+2. **Look up the relevant matrix**: Pick the appropriate matrix above
+3. **Check impact and confidence**: Review the sector-level impact
+4. **Use representative tickers as a starting point**: Use as the entry point for deeper analysis
+5. **Combine matrices for compound scenarios**: Reference multiple matrices when several events overlap
+
+## Caveats
+
+- **Single-stock context**: Sector-level impact may differ from individual-stock impact
+- **Timing**: Distinguish between immediate and delayed effects
+- **Magnitude**: Impact varies with the size of the event
+- **Pricing-in**: Reactions are muted when the event is already discounted
