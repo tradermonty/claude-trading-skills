@@ -1,0 +1,484 @@
+# skills-index.yaml — Single source of truth for skill metadata.
+#
+# This file is consumed by:
+#   - scripts/generate_catalog.py     -> renders docs/{en,ja}/skill-catalog.md
+#   - scripts/validate_skills_index.py -> parity check vs skills/*/SKILL.md
+#   - (future) Trading Skills Navigator -> recommendations
+#   - (future) skillsets/*.yaml       -> bundle definitions reference these names
+#
+# Editing rules:
+#   - `name` must match the directory under skills/ exactly.
+#   - `category` must be one of the ids in `categories`.
+#   - `apis.<api>` accepts: required | optional | none (omit = none).
+#   - `use_cases` are free-form keys defined under top-level `use_cases:`.
+#   - Keep `description` to 1-3 sentences. Long-form lives in SKILL.md.
+#
+# After editing, run:
+#   python3 scripts/validate_skills_index.py
+#   python3 scripts/generate_catalog.py --check     # CI mode
+#   python3 scripts/generate_catalog.py --write     # rewrite docs
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Categories
+# Order controls the section order in the catalog.
+# ---------------------------------------------------------------------------
+categories:
+  - id: stock-screening
+    title: "Stock Screening"
+    order: 1
+  - id: market-analysis
+    title: "Market Analysis"
+    order: 2
+  - id: theme-strategy
+    title: "Theme & Strategy"
+    order: 3
+  - id: portfolio-execution
+    title: "Portfolio & Execution"
+    order: 4
+  - id: dividend-investing
+    title: "Dividend Investing"
+    order: 5
+  - id: edge-research
+    title: "Edge Research Pipeline"
+    order: 6
+  - id: quality-workflow
+    title: "Quality & Workflow"
+    order: 7
+
+# ---------------------------------------------------------------------------
+# APIs — drives the API Requirements Matrix and per-skill badges.
+# ---------------------------------------------------------------------------
+apis:
+  fmp:
+    title: "FMP"
+    badge_required: "FMP Required"
+    badge_optional: "FMP Optional"
+  finviz:
+    title: "FINVIZ Elite"
+    badge_required: "FINVIZ Elite Required"
+    badge_optional: "FINVIZ Optional"
+  alpaca:
+    title: "Alpaca"
+    badge_required: "Alpaca Required"
+    badge_optional: "Alpaca Optional"
+
+# ---------------------------------------------------------------------------
+# Use cases — keys referenced by skills[].use_cases for the
+# "Which Skill Should I Use?" routing section.
+# ---------------------------------------------------------------------------
+use_cases:
+  growth-stocks:
+    title: "I want to find growth stocks"
+  dividend-income:
+    title: "I want dividend income"
+  market-conditions:
+    title: "I want to understand market conditions"
+  stock-research:
+    title: "I want to analyze a specific stock"
+  portfolio-management:
+    title: "I want to manage my portfolio"
+  themes:
+    title: "I want to find trending themes"
+  earnings-momentum:
+    title: "I want to trade earnings momentum"
+  strategy-validation:
+    title: "I want to validate a strategy"
+
+# ---------------------------------------------------------------------------
+# Skills — the canonical list. Bootstrap with scripts/bootstrap_skills_index.py.
+# ---------------------------------------------------------------------------
+# Schema for each entry:
+#   name:        str (required)  — must match skills/<name>/ directory
+#   title:       str (required)  — display name for catalog
+#   category:    str (required)  — FK to categories.id
+#   description: str (required)  — 1-3 sentence catalog blurb
+#   apis:        map (optional)  — {fmp|finviz|alpaca: required|optional}
+#   use_cases:   list (optional) — FK to use_cases keys
+#   has_doc_page: bool (optional) — true if docs/en/skills/<name>.md is a full guide
+#   workflow:    bool (optional)  — true for orchestrator/coordinator skills
+#   timeframe:   list (optional)  — [day|swing|position|long-term|event]
+#   difficulty:  str  (optional)  — beginner|intermediate|advanced
+#   skillsets:   list (optional)  — FK to skillset manifests (Phase 2)
+#   status:      str  (optional)  — stable|beta|deprecated  (default: stable)
+# ---------------------------------------------------------------------------
+skills:
+- name: backtest-expert
+  title: Backtest Expert
+  category: theme-strategy
+  description: Professional-grade strategy validation framework with hypothesis definition, parameter
+    robustness checks, walk-forward testing, and failure post-mortems
+  has_doc_page: true
+- name: breadth-chart-analyst
+  title: Breadth Chart Analyst
+  category: market-analysis
+  description: 'Analyzes S&P 500 Breadth Index and Uptrend Stock Ratio charts for market health. Identifies
+    bull market phases: Healthy Breadth, Narrowing, Distribution'
+  has_doc_page: true
+- name: breakout-trade-planner
+  title: Breakout Trade Planner
+  category: portfolio-execution
+  description: Generates Minervini-style breakout trade plans from VCP screener output. Worst-case entry
+    Gate, stop-limit bracket templates (pre_place / post_confirm), portfolio heat management
+  has_doc_page: true
+- name: canslim-screener
+  title: CANSLIM Screener
+  category: stock-screening
+  description: Full 7-component CANSLIM growth stock scoring (C, A, N, S, L, I, M). Composite 0-100 ratings
+    with bear market protection. Phase 3 implements 100% of O'Neil's methodology
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: data-quality-checker
+  title: Data Quality Checker
+  category: quality-workflow
+  description: Validates market analysis documents for price scale inconsistencies, date/weekday mismatches,
+    allocation total errors, and unit mismatches. Advisory mode (warnings only)
+  has_doc_page: true
+- name: dividend-growth-pullback-screener
+  title: Dividend Growth Pullback Screener
+  category: stock-screening
+  description: Finds dividend growth stocks (12%+ annual growth, 1.5%+ yield) at oversold technical levels
+    (RSI <= 40). Two-stage FINVIZ + FMP pipeline
+  apis:
+    fmp: required
+    finviz: optional
+  has_doc_page: true
+- name: downtrend-duration-analyzer
+  title: Downtrend Duration Analyzer
+  category: market-analysis
+  description: Analyzes historical downtrend durations (peak-to-trough) and generates interactive HTML
+    histograms segmented by sector and market cap
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: dual-axis-skill-reviewer
+  title: Dual-Axis Skill Reviewer
+  category: quality-workflow
+  description: 'Reviews skill quality using dual-axis method: deterministic auto scoring (5-category,
+    0-100) + optional LLM deep review. Powers the automated skill improvement loop'
+  has_doc_page: true
+- name: earnings-calendar
+  title: Earnings Calendar
+  category: portfolio-execution
+  description: Fetches upcoming earnings announcements via FMP API. Focuses on mid-cap+ companies (>$2B
+    market cap), organized by date and timing (BMO/AMC)
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: earnings-trade-analyzer
+  title: Earnings Trade Analyzer
+  category: stock-screening
+  description: 'Scores post-earnings stocks using 5 weighted factors: Gap Size (25%), Pre-Earnings Trend
+    (30%), Volume Trend (20%), MA200 Position (15%), MA50 Position (10%). A/B/C/D grades'
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: economic-calendar-fetcher
+  title: Economic Calendar Fetcher
+  category: portfolio-execution
+  description: Fetches economic events (FOMC, NFP, CPI, GDP) for 7-90 days via FMP API. Impact assessment
+    (High/Medium/Low) with market implications analysis
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: edge-candidate-agent
+  title: Edge Candidate Agent
+  category: edge-research
+  description: Converts daily market observations into reproducible research tickets. Exports `strategy.yaml`
+    + `metadata.json` with interface contract validation
+  has_doc_page: true
+- name: edge-concept-synthesizer
+  title: Edge Concept Synthesizer
+  category: edge-research
+  description: Synthesizes research tickets and hints into unified `edge_concepts.yaml` for strategy design
+  has_doc_page: true
+- name: edge-hint-extractor
+  title: Edge Hint Extractor
+  category: edge-research
+  description: Extracts hints from market summary and anomaly data into `hints.yaml` for downstream concept
+    synthesis
+  has_doc_page: true
+- name: edge-pipeline-orchestrator
+  title: Edge Pipeline Orchestrator
+  category: edge-research
+  description: Orchestrates the full edge research pipeline end-to-end with review-revision feedback loop
+    (max 2 iterations). Supports resume, review-only, and dry-run modes
+  has_doc_page: true
+- name: edge-signal-aggregator
+  title: Edge Signal Aggregator
+  category: edge-research
+  description: Aggregates outputs from edge-candidate-agent, theme-detector, sector-analyst, and institutional-flow-tracker
+    with configurable weighting, deduplication, and contradiction handling into a ranked conviction dashboard
+  has_doc_page: true
+- name: edge-strategy-designer
+  title: Edge Strategy Designer
+  category: edge-research
+  description: Designs strategy drafts (`strategy_drafts/*.yaml`) from edge concepts with entry/exit rules
+    and risk parameters
+  has_doc_page: true
+- name: edge-strategy-reviewer
+  title: Edge Strategy Reviewer
+  category: edge-research
+  description: 'Deterministic quality gate evaluating 8 criteria (C1-C8): edge plausibility, overfitting
+    risk, sample adequacy, regime dependency, exit calibration, risk concentration, execution realism,
+    invalidation quality. PASS/REVISE/REJECT verdicts'
+  has_doc_page: true
+- name: exposure-coach
+  title: Exposure Coach
+  category: portfolio-execution
+  description: Synthesizes outputs from breadth, regime, top-risk, and flow skills into a one-page Market
+    Posture summary with net exposure ceiling (0-100%), growth-vs-value bias, and NEW_ENTRY_ALLOWED /
+    REDUCE_ONLY / CASH_PRIORITY recommendation
+  apis:
+    fmp: optional
+  has_doc_page: true
+- name: finviz-screener
+  title: FinViz Screener
+  category: stock-screening
+  description: Translates natural language (Japanese/English) into FinViz filter URLs. 500+ filter codes
+    across fundamentals, technicals, and descriptives. **Theme cross-screening** (30+ themes × 268 sub-themes)
+    for narrative-based searches like "AI × Logistics" or "Data Centers × Power". Opens results in Chrome
+  apis:
+    finviz: optional
+  has_doc_page: true
+- name: ftd-detector
+  title: FTD Detector
+  category: stock-screening
+  description: Detects Follow-Through Day signals for market bottom confirmation using William O'Neil's
+    methodology. Dual-index tracking with quality scoring (0-100)
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: ibd-distribution-day-monitor
+  title: IBD Distribution Day Monitor
+  category: market-analysis
+  description: Daily IBD Distribution Day detection for QQQ/SPY with 25-session expiration and 5% invalidation.
+    Risk classification (NORMAL/CAUTION/HIGH/SEVERE) and TQQQ/QQQ exposure recommendation
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: institutional-flow-tracker
+  title: Institutional Flow Tracker
+  category: stock-screening
+  description: Tracks institutional ownership changes using 13F SEC filings. Tier-based quality framework
+    weights superinvestors (Berkshire, Baupost) higher than index funds
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: kanchi-dividend-review-monitor
+  title: Kanchi Dividend Review Monitor
+  category: dividend-investing
+  description: Forced-review anomaly detection for T1-T5 triggers with deterministic OK/WARN/REVIEW outputs.
+    Local rule-engine script with unit tests for trigger boundaries
+  has_doc_page: true
+- name: kanchi-dividend-sop
+  title: Kanchi Dividend SOP
+  category: dividend-investing
+  description: Converts Kanchi-style 5-step dividend investing into a repeatable US-stock workflow. Screening,
+    quality checks, valuation mapping, profit filters, pullback entry planning
+  has_doc_page: true
+- name: kanchi-dividend-us-tax-accounting
+  title: Kanchi Dividend US Tax Accounting
+  category: dividend-investing
+  description: US dividend tax classification and account-location workflow. Qualified vs ordinary assumptions,
+    holding-period checks, and account placement tradeoffs
+  has_doc_page: true
+- name: macro-regime-detector
+  title: Macro Regime Detector
+  category: market-analysis
+  description: Detects structural macro regime transitions (1-2 year horizon) using 6-component cross-asset
+    ratio analysis (RSP/SPY, yield curve, credit, size factor, sector rotation)
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: market-breadth-analyzer
+  title: Market Breadth Analyzer
+  category: market-analysis
+  description: Quantifies market breadth health using a data-driven 6-component scoring system (0-100)
+    from publicly available CSV data
+  has_doc_page: true
+- name: market-environment-analysis
+  title: Market Environment Analysis
+  category: market-analysis
+  description: Comprehensive global macro briefing covering equity indices, FX, commodities, yields, and
+    sentiment with structured reporting templates
+  has_doc_page: true
+- name: market-news-analyst
+  title: Market News Analyst
+  category: market-analysis
+  description: 'Collects and analyzes market-moving news from the past 10 days via WebSearch. Impact scoring:
+    (Price Impact x Breadth) x Forward Significance'
+  has_doc_page: true
+- name: market-top-detector
+  title: Market Top Detector
+  category: market-analysis
+  description: Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock
+    Deterioration, and Defensive Rotation. 6-component tactical timing system
+  has_doc_page: true
+- name: options-strategy-advisor
+  title: Options Strategy Advisor
+  category: theme-strategy
+  description: Educational options tool using Black-Scholes pricing. Calculates Greeks (Delta, Gamma,
+    Theta, Vega, Rho), supports 17+ strategies, P/L simulation
+  apis:
+    fmp: optional
+  has_doc_page: true
+- name: pair-trade-screener
+  title: Pair Trade Screener
+  category: theme-strategy
+  description: Statistical arbitrage via cointegration testing. Calculates hedge ratios, mean-reversion
+    speed (half-life), and z-score entry/exit signals
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: parabolic-short-trade-planner
+  title: Parabolic Short Trade Planner
+  category: portfolio-execution
+  description: Daily Parabolic Short screener (5-factor weighted score) plus pre-market plan generator
+    that emits three conditional triggers per candidate (5-min ORL break, first red 5-min, VWAP fail).
+    Alpaca ETB-only short check via `requests` (no SDK), SEC Rule 201 SSR tracker, blocking vs advisory
+    manual confirmation reasons
+  apis:
+    fmp: required
+    alpaca: optional
+  has_doc_page: true
+- name: pead-screener
+  title: PEAD Screener
+  category: stock-screening
+  description: 'Screens for Post-Earnings Announcement Drift patterns using weekly candle analysis. Stage-based
+    monitoring: MONITORING, SIGNAL_READY, BREAKOUT, EXPIRED'
+  apis:
+    fmp: required
+  has_doc_page: true
+- name: portfolio-manager
+  title: Portfolio Manager
+  category: portfolio-execution
+  description: Portfolio analysis with Alpaca MCP Server integration. Asset allocation, sector diversification,
+    risk metrics, HOLD/ADD/TRIM/SELL recommendations, rebalancing plans
+  apis:
+    alpaca: required
+  has_doc_page: true
+- name: position-sizer
+  title: Position Sizer
+  category: portfolio-execution
+  description: Risk-based position sizing using Fixed Fractional, ATR-based, and Kelly Criterion methods.
+    Portfolio constraints (max position %, max sector %). Works offline
+  has_doc_page: true
+- name: scenario-analyzer
+  title: Scenario Analyzer
+  category: theme-strategy
+  description: Builds 18-month scenario projections from news headlines. Dual-agent architecture with
+    1st/2nd/3rd order effects and recommended tickers
+  has_doc_page: true
+- name: sector-analyst
+  title: Sector Analyst
+  category: market-analysis
+  description: Analyzes sector/industry performance charts to assess market positioning and rotation patterns
+    based on market cycle theory (Early/Mid/Late Cycle, Recession)
+  has_doc_page: true
+- name: signal-postmortem
+  title: Signal Postmortem
+  category: edge-research
+  description: Records and analyzes post-trade outcomes for signals generated by edge pipeline and screeners.
+    Classifies outcomes (true positive, false positive, regime mismatch), generates weight feedback for
+    edge-signal-aggregator and skill improvement backlog entries
+  apis:
+    fmp: optional
+  has_doc_page: true
+- name: skill-designer
+  title: Skill Designer
+  category: quality-workflow
+  description: Designs new Claude skills from structured idea specifications. Produces complete skill
+    directories (SKILL.md, references, scripts, tests) following repository conventions
+  has_doc_page: true
+- name: skill-idea-miner
+  title: Skill Idea Miner
+  category: quality-workflow
+  description: Mines Claude Code session logs for skill idea candidates. Extracts, scores, and backlogs
+    new skill ideas from recent coding sessions
+  has_doc_page: true
+- name: skill-integration-tester
+  title: Skill Integration Tester
+  category: quality-workflow
+  description: Validates multi-skill workflows defined in CLAUDE.md by checking skill existence, inter-skill
+    data contracts (JSON schema compatibility), and handoff integrity
+  has_doc_page: true
+- name: stanley-druckenmiller-investment
+  title: Stanley Druckenmiller Investment
+  category: theme-strategy
+  description: 'Encodes Druckenmiller''s macro positioning philosophy: liquidity analysis, asymmetric
+    risk/reward, conviction sizing, and loss-cutting discipline'
+  has_doc_page: true
+- name: strategy-pivot-designer
+  title: Strategy Pivot Designer
+  category: theme-strategy
+  description: Detects backtest stagnation and generates structurally different pivot proposals. 4 deterministic
+    triggers, 3 pivot techniques across 8 strategy archetypes
+  has_doc_page: true
+- name: technical-analyst
+  title: Technical Analyst
+  category: market-analysis
+  description: Pure technical analysis of weekly price charts. Identifies trends, support/resistance,
+    chart patterns, and momentum indicators. Covers Elliott Wave, Dow Theory, candlesticks
+  has_doc_page: true
+- name: theme-detector
+  title: Theme Detector
+  category: theme-strategy
+  description: 'Detects trending bullish and bearish market themes with 3-dimensional scoring: Theme Heat
+    (0-100), Lifecycle Maturity, and Confidence. 14+ cross-sector themes'
+  apis:
+    fmp: optional
+    finviz: optional
+  has_doc_page: true
+- name: trade-hypothesis-ideator
+  title: Trade Hypothesis Ideator
+  category: quality-workflow
+  description: Generates falsifiable trade strategy hypotheses from market data, trade logs, and journal
+    snippets with ranked hypothesis cards and optional strategy.yaml export
+  has_doc_page: true
+- name: trader-memory-core
+  title: Trader Memory Core
+  category: portfolio-execution
+  description: 'Persistent thesis lifecycle tracker: register screener outputs as IDEA, manage state transitions
+    through ENTRY_READY → ACTIVE → CLOSED, attach position sizing, schedule reviews, and generate postmortem
+    reports with MAE/MFE'
+  apis:
+    fmp: optional
+  has_doc_page: true
+- name: uptrend-analyzer
+  title: Uptrend Analyzer
+  category: market-analysis
+  description: Diagnoses breadth health using Uptrend Ratio Dashboard tracking ~2,800 US stocks across
+    11 sectors. 5-component composite scoring with warning overlays
+  has_doc_page: true
+- name: us-market-bubble-detector
+  title: US Market Bubble Detector
+  category: market-analysis
+  description: 'Data-driven bubble risk assessment using Minsky/Kindleberger framework. Two-phase evaluation:
+    quantitative scoring (0-12) + strict qualitative adjustment (0-3). Five risk phases'
+  has_doc_page: true
+- name: us-stock-analysis
+  title: US Stock Analysis
+  category: portfolio-execution
+  description: 'Comprehensive US equity research: fundamentals, technicals, peer comparisons, and structured
+    investment memos with bull/bear cases'
+  has_doc_page: true
+- name: value-dividend-screener
+  title: Value Dividend Screener
+  category: stock-screening
+  description: 'Multi-phase dividend stock screening: value characteristics (P/E, P/B), income (yield),
+    growth (3-year trends), sustainability, and quality scoring'
+  apis:
+    fmp: required
+    finviz: optional
+  has_doc_page: true
+- name: vcp-screener
+  title: VCP Screener
+  category: stock-screening
+  description: 'Detects Mark Minervini''s Volatility Contraction Pattern. 3-phase pipeline: Pre-filter,
+    Trend Template, VCP Detection with pivot points and trade setups'
+  apis:
+    fmp: required
+  has_doc_page: true
