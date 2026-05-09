@@ -246,6 +246,8 @@ class FMPClient:
             return self.cache[cache_key]
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
+        if not data:
+            data = self._get_from_yfinance(symbol, days)
         if data:
             self.cache[cache_key] = data
         return data
@@ -259,6 +261,45 @@ class FMPClient:
                 results[symbol] = data["historical"]
         return results
 
+    def _get_from_yfinance(self, symbol: str, days: int) -> Optional[dict]:
+        """Fallback: fetch ETF history via yfinance when FMP endpoints are unavailable."""
+        try:
+            import yfinance as yf
+
+            # Request ~1.5x calendar days to account for weekends/holidays
+            end = date.today()
+            start = end - timedelta(days=int(days * 1.5))
+            df = yf.download(
+                symbol,
+                start=start.isoformat(),
+                end=end.isoformat(),
+                auto_adjust=True,
+                progress=False,
+            )
+            if df.empty:
+                return None
+            # yfinance returns MultiIndex columns when only one ticker is passed
+            if hasattr(df.columns, "levels"):
+                df.columns = df.columns.droplevel(1)
+            historical = []
+            for idx, row in df.iterrows():
+                historical.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "open": float(row["Open"]),
+                        "high": float(row["High"]),
+                        "low": float(row["Low"]),
+                        "close": float(row["Close"]),
+                        "volume": int(row["Volume"]),
+                    }
+                )
+            # yfinance returns ascending; FMP contract is descending
+            historical.reverse()
+            return {"symbol": symbol, "historical": historical[:days]}
+        except Exception as e:
+            print(f"  yfinance fallback error for {symbol}: {e}", file=sys.stderr)
+            return None
+
     def get_treasury_rates(self, days: int = 600) -> Optional[list[dict]]:
         """
         Fetch treasury rate data from FMP stable endpoint.
@@ -271,7 +312,11 @@ class FMPClient:
             return self.cache[cache_key]
 
         url = f"{self.STABLE_URL}/treasury-rates"
-        params = {"limit": days}
+        # Use from/to date range — the `limit` param caps at ~64 entries on the
+        # stable endpoint; a date range returns the full requested history.
+        today = date.today()
+        start = today - timedelta(days=int(days * 1.5))
+        params = {"from": start.isoformat(), "to": today.isoformat()}
         data = self._rate_limited_get(url, params)
         if data and isinstance(data, list):
             self.cache[cache_key] = data

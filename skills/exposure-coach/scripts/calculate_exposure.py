@@ -79,6 +79,21 @@ def extract_uptrend_score(data: Optional[dict]) -> Optional[int]:
         return None
     if "uptrend_score" in data:
         return int(data["uptrend_score"])
+    # uptrend-analyzer stores composite_score nested under "composite"
+    if "composite" in data and isinstance(data["composite"], dict):
+        nested = data["composite"]
+        if "composite_score" in nested:
+            return int(nested["composite_score"])
+        if "uptrend_pct" in nested:
+            pct = nested["uptrend_pct"]
+            if pct > 50:
+                return min(100, int(50 + pct))
+            elif pct >= 35:
+                return int(35 + pct)
+            elif pct >= 20:
+                return int(20 + pct)
+            else:
+                return int(pct)
     if "uptrend_pct" in data:
         pct = data["uptrend_pct"]
         if pct > 50:
@@ -99,7 +114,11 @@ def extract_regime_score(data: Optional[dict]) -> Optional[int]:
     if "regime_score" in data:
         return int(data["regime_score"])
     if "regime" in data:
-        regime = data["regime"].lower().strip()
+        regime_val = data["regime"]
+        if isinstance(regime_val, dict):
+            regime = regime_val.get("current_regime", "").lower().strip()
+        else:
+            regime = regime_val.lower().strip()
         return REGIME_SCORES.get(regime, 50)
     if "current_regime" in data:
         regime = data["current_regime"].lower().strip()
@@ -112,7 +131,10 @@ def extract_regime_name(data: Optional[dict]) -> str:
     if data is None:
         return "Unknown"
     if "regime" in data:
-        return data["regime"].capitalize()
+        regime_val = data["regime"]
+        if isinstance(regime_val, dict):
+            return regime_val.get("regime_label", regime_val.get("current_regime", "Unknown")).capitalize()
+        return regime_val.capitalize()
     if "current_regime" in data:
         return data["current_regime"].capitalize()
     return "Unknown"

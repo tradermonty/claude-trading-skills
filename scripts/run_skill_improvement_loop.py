@@ -31,8 +31,6 @@ HISTORY_LIMIT = 60
 LOG_RETENTION_DAYS = 30
 CLAUDE_TIMEOUT = 300
 CLAUDE_RETRIES = 2
-CLAUDE_BUDGET_REVIEW = 0.50
-CLAUDE_BUDGET_IMPROVE = 2.00
 IMPROVEMENT_TIMEOUT = 600
 
 
@@ -314,7 +312,6 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                     *strategy["extra_args"],
                     "--max-turns",
                     "1",
-                    f"--max-budget-usd={CLAUDE_BUDGET_REVIEW}",
                 ]
                 # For plain-json mode, append schema instructions to the prompt
                 effective_prompt = prompt_text
@@ -514,7 +511,6 @@ def apply_improvement(
                 "-p",
                 "--allowedTools",
                 "Read,Edit,Write,Glob,Grep",
-                f"--max-budget-usd={CLAUDE_BUDGET_IMPROVE}",
             ],
             input=prompt,
             cwd=project_root,
