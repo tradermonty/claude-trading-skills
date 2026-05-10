@@ -216,7 +216,9 @@ This structure reduces drift between skill source files, documentation, recommen
 
 ## 12. Roadmap
 
-### Phase 0: Vision and Metadata
+### Phase 0: Vision and Metadata — ✅ partially complete (2026-05-09)
+
+> **Status:** `skills-index.yaml` lands as the SSoT in PR #84. All 54 skills carry id / display_name / category / status / summary / integrations[]. timeframe / difficulty fill-in remains follow-up work.
 
 First, organize the existing skill set and make the overall project easier to explain.
 
@@ -286,7 +288,9 @@ Definition of done:
 - Each skillset documents target users, timeframe, required APIs, and when not to use it
 - The Navigator can use skillset manifests for recommendations
 
-### Phase 3: Workflows
+### Phase 3: Workflows — ✅ partially complete (2026-05-09)
+
+> **Status:** PR #85 ships the 5 Core + Satellite manifests (`core-portfolio-weekly`, `market-regime-daily`, `swing-opportunity-daily`, `trade-memory-loop`, `monthly-performance-review`) under `workflows/`, validated by `--strict-workflows`. Advanced workflows (`risk-off-short-daily`, `earnings-weekly`, `strategy-research-pipeline`) remain follow-up.
 
 Skillsets are not enough for real operations. Trading requires sequence, decision gates, and artifact handoffs.
 
@@ -426,11 +430,14 @@ Future development should follow these principles:
 
 Near-term work should proceed in this order:
 
-- **Now**: Finish the project vision documents (`PROJECT_VISION.md` / `PROJECT_VISION.ja.md`)
-- **Now**: Create `skills-index.yaml` or `skills-inventory.yaml` and organize skill inventory / API requirements
+- ✅ **Done (2026-05-09)**: Project vision documents (`PROJECT_VISION.md` / `PROJECT_VISION.ja.md`)
+- ✅ **Done (2026-05-09)**: `skills-index.yaml` SSoT + validator (PR #84)
+- ✅ **Done (2026-05-09)**: 5 core workflow manifests under `workflows/` (PR #85)
+- ✅ **Done (2026-05-09)**: Auto-generated workflow doc pages (PR #86)
+- **Now**: Fill in `timeframe` / `difficulty` for all 54 skills (gates `--strict-metadata`)
 - **Next**: Create Trading Skills Navigator
 - **Next**: Define major skillsets in YAML
-- **Next**: Define major workflows in YAML
+- **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`, `strategy-research-pipeline`)
 - **Next**: Create "Find Your Workflow" documentation
 - **Later**: Add bundle builder or recommender CLI if needed
 - **Later**: Explore a web app proof of concept
