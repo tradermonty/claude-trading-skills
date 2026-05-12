@@ -1,6 +1,7 @@
 """Unit tests for auto_detect_candidates.py (pandas-independent parts)."""
 
 from datetime import date
+from pathlib import Path
 from subprocess import CompletedProcess
 
 import auto_detect_candidates as adc
@@ -245,6 +246,47 @@ def test_scan_news_reaction_candidates_with_tradable_join() -> None:
     assert len(candidates) == 1
     assert candidates[0]["symbol"] == "AAPL"
     assert candidates[0]["entry_family"] == "news_reaction"
+
+
+def test_load_ohlcv_table_reads_csv(tmp_path: Path) -> None:
+    """_load_ohlcv_table sniffs .csv extension and uses pd.read_csv."""
+    pytest.importorskip("pandas")
+    import pandas as pd
+
+    csv_path = tmp_path / "tiny.csv"
+    pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL"],
+            "timestamp": ["2026-02-19", "2026-02-20"],
+            "open": [180.0, 181.0],
+            "high": [182.0, 183.0],
+            "low": [179.0, 180.5],
+            "close": [181.0, 182.5],
+            "volume": [1_000_000, 1_100_000],
+        }
+    ).to_csv(csv_path, index=False)
+
+    df = adc._load_ohlcv_table(csv_path)
+    assert list(df.columns) == ["symbol", "timestamp", "open", "high", "low", "close", "volume"]
+    assert len(df) == 2
+
+
+def test_load_ohlcv_table_rejects_unknown_extension(tmp_path: Path) -> None:
+    """_load_ohlcv_table raises AutoDetectError for unsupported extensions."""
+    pytest.importorskip("pandas")
+    bogus = tmp_path / "ohlcv.xlsx"
+    bogus.write_text("not really xlsx")
+    with pytest.raises(adc.AutoDetectError, match="unsupported OHLCV format"):
+        adc._load_ohlcv_table(bogus)
+
+
+def test_load_ohlcv_table_rejects_no_extension(tmp_path: Path) -> None:
+    """_load_ohlcv_table raises AutoDetectError for files without extensions."""
+    pytest.importorskip("pandas")
+    bogus = tmp_path / "ohlcv"
+    bogus.write_text("symbol,timestamp\n")
+    with pytest.raises(adc.AutoDetectError, match="unsupported OHLCV format"):
+        adc._load_ohlcv_table(bogus)
 
 
 def test_generate_llm_hints_raises_on_failure(monkeypatch) -> None:

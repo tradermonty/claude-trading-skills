@@ -602,13 +602,33 @@ def _require_pandas() -> tuple[Any, Any]:
     return pd, np
 
 
+def _load_ohlcv_table(ohlcv_path: Path) -> Any:
+    """Load OHLCV table, sniffing parquet/CSV by extension."""
+    pd, _ = _require_pandas()
+    suffix = ohlcv_path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(ohlcv_path)
+    if suffix in {".parquet", ".pq"}:
+        try:
+            return pd.read_parquet(ohlcv_path)
+        except ImportError as exc:  # pragma: no cover - depends on runtime environment
+            raise AutoDetectError(
+                f"reading parquet requires pyarrow or fastparquet; install one "
+                f"(e.g. `uv add pyarrow`) or convert {ohlcv_path.name} to CSV."
+            ) from exc
+    raise AutoDetectError(
+        f"unsupported OHLCV format: {suffix or '(none)'} for {ohlcv_path.name} "
+        f"(expected .parquet, .pq, or .csv)"
+    )
+
+
 def compute_features(
     ohlcv_path: Path,
     as_of_date: date | None,
 ) -> tuple[Any, Any, date]:
-    """Load OHLCV parquet and compute per-symbol features."""
+    """Load OHLCV (parquet or CSV) and compute per-symbol features."""
     pd, np = _require_pandas()
-    df = pd.read_parquet(ohlcv_path)
+    df = _load_ohlcv_table(ohlcv_path)
     df.columns = [str(col).lower() for col in df.columns]
 
     missing = sorted(REQUIRED_OHLCV_COLUMNS - set(df.columns))

@@ -76,6 +76,8 @@ python3 skills/edge-candidate-agent/scripts/auto_detect_candidates.py \
   --pipeline-root /path/to/trade-strategy-pipeline
 ```
 
+`--ohlcv` accepts `.parquet` / `.pq` (requires `pyarrow` or `fastparquet`) or `.csv`. The file extension is used to pick the loader; columns required are `symbol, timestamp, open, high, low, close, volume`.
+
 Create a candidate directory from a ticket:
 
 ```bash
