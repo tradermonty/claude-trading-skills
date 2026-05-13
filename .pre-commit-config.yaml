@@ -69,6 +69,15 @@ repos:
         files: '^(skills-index\.yaml|skills/[^/]+/SKILL\.md|workflows/.*\.yaml|scripts/validate_skills_index\.py|scripts/tests/test_validate_skills_index\.py|docs/dev/metadata-and-workflow-schema\.md)$'
         pass_filenames: false
 
+      - id: workflow-docs-drift
+        name: Workflow docs drift check (regenerate from workflows/*.yaml)
+        entry: python3 scripts/generate_workflow_docs.py --check
+        language: system
+        # Fire on any input that affects rendered output: manifests, generator,
+        # and the rendered docs themselves (so manual edits are caught).
+        files: '^(workflows/.*\.yaml|scripts/generate_workflow_docs\.py|docs/(en|ja)/workflows\.md)$'
+        pass_filenames: false
+
       # Pre-push hook: run validator in --strict-workflows mode (workflow file
       # existence + workflow internal-consistency). Pre-commit stays in default
       # mode so commits during workflow drafting are not blocked.
