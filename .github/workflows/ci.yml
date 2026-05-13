@@ -230,6 +230,12 @@ jobs:
       - name: Workflow docs drift check
         run: python3 scripts/generate_workflow_docs.py --check
 
+      # 4. README catalog drift check: the catalog sections in README.md and
+      # README.ja.md (between skills-index sentinel markers) must match what
+      # the generator would produce from skills-index.yaml.
+      - name: README catalog drift check
+        run: python3 scripts/generate_catalog_from_index.py --check
+
       # Note: the validator + generator unit tests already run under the
       # 'Test repo-level scripts' step in the test job above.
 
