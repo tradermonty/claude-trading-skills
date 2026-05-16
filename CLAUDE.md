@@ -561,7 +561,12 @@ python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/thes
 python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
   open-position <id> --actual-price 142.10 --actual-date 2026-05-02 \
   --shares 7.86 --event-date 2026-05-02
+# Partial close (trim): ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED, or → CLOSED
+# when the whole remainder is sold. Cumulative realized P&L in outcome.
+python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
+  trim <id> --shares-sold 4 --price 120.00 --date 2026-05-10
 # close / terminate / attach-position are also CLI subcommands
+# (close accepts ACTIVE or PARTIALLY_CLOSED)
 python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
   close <id> --exit-reason target_hit --actual-price 165.00 --actual-date 2026-06-01
 

@@ -23,8 +23,15 @@ logger = logging.getLogger(__name__)
 
 # -- Constants ----------------------------------------------------------------
 
-_STATUS_ORDER = ["IDEA", "ENTRY_READY", "ACTIVE", "CLOSED", "INVALIDATED"]
-_TERMINAL_STATUSES = {"CLOSED", "INVALIDATED"}
+_STATUS_ORDER = [
+    "IDEA",
+    "ENTRY_READY",
+    "ACTIVE",
+    "PARTIALLY_CLOSED",
+    "CLOSED",
+    "INVALIDATED",
+]
+_TERMINAL_STATUSES = {"CLOSED", "INVALIDATED"}  # PARTIALLY_CLOSED is non-terminal
 
 
 def _parse_dt(value: str) -> datetime:
@@ -105,12 +112,41 @@ def _validate_thesis(thesis: dict) -> None:
 
     status = thesis.get("status")
 
+    position = thesis.get("position") or {}
+
     if status == "ACTIVE":
         entry = thesis.get("entry", {})
         if entry.get("actual_price") is None:
             raise ValueError("ACTIVE thesis requires entry.actual_price")
         if entry.get("actual_date") is None:
             raise ValueError("ACTIVE thesis requires entry.actual_date")
+        # Legacy-lenient: pre-PR-80B ACTIVE files may lack shares_remaining
+        # (runtime defaults it to shares). Only enforce when present.
+        rem = position.get("shares_remaining")
+        sh = position.get("shares")
+        if rem is not None and sh is not None and rem != sh:
+            raise ValueError(f"ACTIVE thesis: shares_remaining ({rem}) must equal shares ({sh})")
+
+    if status == "PARTIALLY_CLOSED":
+        # PR-80B-only status — NO legacy leniency: a PARTIALLY_CLOSED record
+        # must be fully specified.
+        entry = thesis.get("entry", {})
+        if entry.get("actual_price") is None:
+            raise ValueError("PARTIALLY_CLOSED thesis requires entry.actual_price")
+        if entry.get("actual_date") is None:
+            raise ValueError("PARTIALLY_CLOSED thesis requires entry.actual_date")
+        if not thesis.get("position"):
+            raise ValueError("PARTIALLY_CLOSED thesis requires a position")
+        sh = position.get("shares")
+        rem = position.get("shares_remaining")
+        if sh is None:
+            raise ValueError("PARTIALLY_CLOSED thesis requires position.shares")
+        if rem is None:
+            raise ValueError("PARTIALLY_CLOSED thesis requires position.shares_remaining")
+        if not (0 < rem < sh):
+            raise ValueError(
+                f"PARTIALLY_CLOSED thesis requires 0 < shares_remaining ({rem}) < shares ({sh})"
+            )
 
     if status == "CLOSED":
         exit_data = thesis.get("exit", {})
@@ -125,6 +161,10 @@ def _validate_thesis(thesis: dict) -> None:
         exit_date = exit_data.get("actual_date")
         if entry_date and exit_date and _parse_dt(exit_date) < _parse_dt(entry_date):
             raise ValueError("exit.actual_date must be >= entry.actual_date")
+        # Legacy-lenient: only enforce when shares_remaining is present.
+        rem = position.get("shares_remaining")
+        if rem is not None and rem != 0:
+            raise ValueError(f"CLOSED thesis requires shares_remaining == 0, got {rem}")
 
     if status == "INVALIDATED":
         exit_data = thesis.get("exit", {})
@@ -628,6 +668,11 @@ def transition(
             "it requires actual_price and actual_date."
         )
 
+    if new_status == "PARTIALLY_CLOSED":
+        raise ValueError(
+            "Use trim() to reach PARTIALLY_CLOSED — it requires shares_sold, price, and date."
+        )
+
     if new_status in _TERMINAL_STATUSES:
         raise ValueError(
             f"Cannot transition to terminal status {new_status} via transition(). "
@@ -709,6 +754,19 @@ def attach_position(
 
     thesis = _load_thesis(state_dir, thesis_id)
 
+    # attach_position() (re)writes position incl. shares_remaining == shares.
+    # That is only coherent before the position is opened or while it is fully
+    # open. On PARTIALLY_CLOSED it would violate 0 < shares_remaining < shares,
+    # on CLOSED it would violate shares_remaining == 0, and either would
+    # clobber the trim ledger relationship — reject those (and terminal
+    # INVALIDATED) explicitly.
+    _ATTACH_ALLOWED = {"IDEA", "ENTRY_READY", "ACTIVE"}
+    if thesis["status"] not in _ATTACH_ALLOWED:
+        raise ValueError(
+            f"attach_position() not allowed for status {thesis['status']}; "
+            f"only {sorted(_ATTACH_ALLOWED)} (would corrupt shares_remaining)"
+        )
+
     # Determine sizing method from whichever calculation was actually used
     sizing_method = None
     calcs = report.get("calculations", {})
@@ -719,6 +777,7 @@ def attach_position(
 
     thesis["position"] = {
         "shares": report.get("final_recommended_shares"),
+        "shares_remaining": report.get("final_recommended_shares"),
         "position_value": report.get("final_position_value"),
         "risk_dollars": report.get("final_risk_dollars"),
         "risk_pct_of_account": report.get("final_risk_pct"),
@@ -761,6 +820,70 @@ def link_report(state_dir: Path, thesis_id: str, skill: str, file: str, date: st
     return thesis
 
 
+def _sum_realized(history: list[dict]) -> float:
+    """Σ realized_pnl over status_history ledger entries (trims + final leg)."""
+    return sum(e["realized_pnl"] for e in history if "realized_pnl" in e)
+
+
+def _finalize_outcome(
+    thesis: dict,
+    *,
+    exit_price: float,
+    exit_date: str,
+    history_at: str,
+    status: str,
+    reason: str,
+    append_entry: bool,
+) -> None:
+    """Roll up the cumulative realized outcome for a position-backed thesis.
+
+    Single owner of the final-leg status_history ledger append. Callers:
+      - close() / terminate(): append_entry=True (this appends the one final
+        ledger entry for the still-open remainder).
+      - trim() full close-out: append_entry=False (trim already appended the
+        final ledger entry; here we only sum + finalize).
+
+    Precondition: thesis has a position with shares (legacy / no-position
+    theses keep their pre-PR-80B code path in the caller and never reach here).
+    """
+    entry_price = thesis["entry"].get("actual_price")
+    entry_date = thesis["entry"].get("actual_date")
+    position = thesis["position"]
+    original = position["shares"]
+    remaining = position.get("shares_remaining", original)
+
+    if append_entry:
+        thesis["status_history"].append(
+            {
+                "status": status,
+                "at": history_at,
+                "reason": reason,
+                "shares_sold": remaining,
+                "price": exit_price,
+                "proceeds": round(exit_price * remaining, 2),
+                "realized_pnl": round((exit_price - entry_price) * remaining, 2),
+            }
+        )
+
+    position["shares_remaining"] = 0
+    thesis["status"] = status
+
+    pnl_dollars = round(_sum_realized(thesis["status_history"]), 2)
+    thesis["outcome"]["pnl_dollars"] = pnl_dollars
+    if entry_price and original:
+        thesis["outcome"]["pnl_pct"] = round(pnl_dollars / (entry_price * original) * 100, 2)
+    else:
+        thesis["outcome"]["pnl_pct"] = None
+
+    holding_days = None
+    if entry_date:
+        try:
+            holding_days = (_parse_dt(exit_date) - _parse_dt(entry_date)).days
+        except (ValueError, TypeError):
+            pass
+    thesis["outcome"]["holding_days"] = holding_days
+
+
 def close(
     state_dir: Path,
     thesis_id: str,
@@ -769,7 +892,11 @@ def close(
     actual_date: str,
     event_date: str | None = None,
 ) -> dict:
-    """Close an ACTIVE thesis and compute outcome.
+    """Close an ACTIVE or PARTIALLY_CLOSED thesis and compute outcome.
+
+    With a position: outcome is the cumulative realized P&L (Σ trim
+    realized_pnl + this final leg). With no position: the pre-PR-80B
+    single-leg behaviour is kept verbatim.
 
     Args:
         state_dir: Path to state/theses/.
@@ -783,12 +910,14 @@ def close(
         Updated thesis dict.
 
     Raises:
-        ValueError: If thesis is not ACTIVE or entry data is missing.
+        ValueError: If thesis is not ACTIVE/PARTIALLY_CLOSED or entry missing.
     """
     thesis = _load_thesis(state_dir, thesis_id)
 
-    if thesis["status"] != "ACTIVE":
-        raise ValueError(f"Can only close ACTIVE thesis, current status: {thesis['status']}")
+    if thesis["status"] not in ("ACTIVE", "PARTIALLY_CLOSED"):
+        raise ValueError(
+            f"Can only close ACTIVE or PARTIALLY_CLOSED thesis, current status: {thesis['status']}"
+        )
 
     entry_price = thesis["entry"].get("actual_price")
     entry_date = thesis["entry"].get("actual_date")
@@ -801,31 +930,41 @@ def close(
     thesis["exit"]["actual_date"] = actual_date
     thesis["exit"]["exit_reason"] = exit_reason
 
-    # Compute outcome
-    pnl_dollars = actual_price - entry_price
-    if thesis.get("position") and thesis["position"].get("shares"):
-        pnl_dollars *= thesis["position"]["shares"]
-
-    pnl_pct = ((actual_price - entry_price) / entry_price) * 100 if entry_price else None
-
-    holding_days = None
-    if entry_date:
-        try:
-            holding_days = (_parse_dt(actual_date) - _parse_dt(entry_date)).days
-        except (ValueError, TypeError):
-            pass
-
-    thesis["outcome"]["pnl_dollars"] = round(pnl_dollars, 2) if pnl_dollars is not None else None
-    thesis["outcome"]["pnl_pct"] = round(pnl_pct, 2) if pnl_pct is not None else None
-    thesis["outcome"]["holding_days"] = holding_days
-
-    # Transition to CLOSED
     now = _now_iso()
     history_at = event_date or now
-    thesis["status"] = "CLOSED"
-    thesis["status_history"].append(
-        {"status": "CLOSED", "at": history_at, "reason": f"closed: {exit_reason}"}
-    )
+    position = thesis.get("position")
+
+    if position and position.get("shares"):
+        # Cumulative path (single-owner ledger append in _finalize_outcome).
+        _finalize_outcome(
+            thesis,
+            exit_price=actual_price,
+            exit_date=actual_date,
+            history_at=history_at,
+            status="CLOSED",
+            reason=f"closed: {exit_reason}",
+            append_entry=True,
+        )
+    else:
+        # Legacy no-position path — pre-PR-80B behaviour, byte-identical.
+        pnl_dollars = actual_price - entry_price
+        pnl_pct = ((actual_price - entry_price) / entry_price) * 100 if entry_price else None
+        holding_days = None
+        if entry_date:
+            try:
+                holding_days = (_parse_dt(actual_date) - _parse_dt(entry_date)).days
+            except (ValueError, TypeError):
+                pass
+        thesis["outcome"]["pnl_dollars"] = (
+            round(pnl_dollars, 2) if pnl_dollars is not None else None
+        )
+        thesis["outcome"]["pnl_pct"] = round(pnl_pct, 2) if pnl_pct is not None else None
+        thesis["outcome"]["holding_days"] = holding_days
+        thesis["status"] = "CLOSED"
+        thesis["status_history"].append(
+            {"status": "CLOSED", "at": history_at, "reason": f"closed: {exit_reason}"}
+        )
+
     thesis["updated_at"] = now
 
     _save_thesis(state_dir, thesis)
@@ -838,7 +977,122 @@ def close(
         "Closed %s: %s, P&L=%.2f%%",
         thesis_id,
         exit_reason,
-        pnl_pct or 0,
+        thesis["outcome"].get("pnl_pct") or 0,
+    )
+    return thesis
+
+
+def trim(
+    state_dir: Path,
+    thesis_id: str,
+    shares_sold: float,
+    price: float,
+    date: str,
+    reason: str = "position trimmed",
+    exit_reason: str | None = None,
+    event_date: str | None = None,
+) -> dict:
+    """Partially close (trim) an ACTIVE / PARTIALLY_CLOSED position.
+
+    Records a status_history ledger entry (shares_sold / price / proceeds /
+    realized_pnl) and decrements position.shares_remaining. If the trim sells
+    the entire remaining quantity it becomes a full close-out (status CLOSED,
+    exit fields set, cumulative outcome).
+
+    Args:
+        shares_sold: Quantity sold in this trim (0 < shares_sold <= remaining).
+        price: Trim execution price.
+        date: Trim execution date (YYYY-MM-DD or ISO).
+        exit_reason: Only used when this trim fully closes the position
+            (default "manual"); ∈ stop_hit/target_hit/time_stop/invalidated/manual.
+        event_date: Overrides the ledger timestamp (else --date is used).
+
+    Raises:
+        ValueError: On bad status / missing entry / no position / bad qty.
+    """
+    thesis = _load_thesis(state_dir, thesis_id)
+    status = thesis["status"]
+    if status not in ("ACTIVE", "PARTIALLY_CLOSED"):
+        raise ValueError(
+            f"Can only trim ACTIVE or PARTIALLY_CLOSED thesis, current status: {status}"
+        )
+
+    entry_price = thesis["entry"].get("actual_price")
+    if entry_price is None:
+        raise ValueError("Cannot trim thesis: entry.actual_price is not set")
+
+    position = thesis.get("position")
+    if not position or position.get("shares") is None:
+        raise ValueError("trim requires a recorded position — run open-position --shares first")
+
+    original = position["shares"]
+    remaining = position.get("shares_remaining", original)  # legacy default
+    if not (0 < shares_sold <= remaining):
+        raise ValueError(
+            f"shares_sold ({shares_sold}) must be > 0 and <= shares_remaining ({remaining})"
+        )
+
+    realized = round((price - entry_price) * shares_sold, 2)
+    proceeds = round(price * shares_sold, 2)
+    # Round to kill float-subtraction noise (7.86 - 4.00 == 3.86000…3),
+    # then epsilon-snap a ~0 remainder to an exact 0.0 (→ full close-out).
+    new_remaining = round(remaining - shares_sold, 8)
+    if abs(new_remaining) < 1e-9:
+        new_remaining = 0.0
+
+    now = _now_iso()
+    history_at = _coerce_dt(event_date) or _coerce_dt(date)
+    full_close = new_remaining == 0
+    new_status = "CLOSED" if full_close else "PARTIALLY_CLOSED"
+
+    # trim() owns its ledger append (exactly one entry per trim).
+    thesis["status_history"].append(
+        {
+            "status": new_status,
+            "at": history_at,
+            "reason": reason,
+            "shares_sold": shares_sold,
+            "price": price,
+            "proceeds": proceeds,
+            "realized_pnl": realized,
+        }
+    )
+    position["shares_remaining"] = new_remaining
+
+    if full_close:
+        exit_date = _coerce_dt(date)
+        thesis["exit"]["actual_price"] = price
+        thesis["exit"]["actual_date"] = exit_date
+        thesis["exit"]["exit_reason"] = exit_reason or "manual"
+        thesis["status"] = "CLOSED"
+        # Ledger entry already appended above → append_entry=False (sum only).
+        _finalize_outcome(
+            thesis,
+            exit_price=price,
+            exit_date=exit_date,
+            history_at=history_at,
+            status="CLOSED",
+            reason=reason,
+            append_entry=False,
+        )
+    else:
+        thesis["status"] = "PARTIALLY_CLOSED"
+
+    thesis["updated_at"] = now
+
+    _save_thesis(state_dir, thesis)
+
+    index = _load_index(state_dir)
+    _update_index_entry(index, thesis)
+    _save_index(state_dir, index)
+
+    logger.info(
+        "Trimmed %s: sold %s @ %.4f → %s remaining, status %s",
+        thesis_id,
+        shares_sold,
+        price,
+        new_remaining,
+        thesis["status"],
     )
     return thesis
 
@@ -883,6 +1137,12 @@ def open_position(
         if thesis["position"] is None:
             thesis["position"] = {}
         thesis["position"]["shares"] = shares
+    # A PR-80B-era ACTIVE thesis carries shares_remaining explicitly (== the
+    # full opened quantity). Covers both --shares here and an earlier
+    # attach_position()-populated position; legacy (no shares) stays absent.
+    pos = thesis.get("position")
+    if pos and pos.get("shares") is not None and pos.get("shares_remaining") is None:
+        pos["shares_remaining"] = pos["shares"]
 
     history_at = event_date or now
     thesis["status"] = "ACTIVE"
@@ -945,29 +1205,58 @@ def terminate(
     # exit_reason enum: use "invalidated"; user's reason goes in status_history
     thesis["exit"]["exit_reason"] = "invalidated"
 
-    # Compute P&L if we have both entry and exit prices (ACTIVE thesis with price)
     entry_price = thesis["entry"].get("actual_price")
-    if entry_price and actual_price:
-        pnl_pct = ((actual_price - entry_price) / entry_price) * 100
-        pnl_dollars = actual_price - entry_price
-        if thesis.get("position") and thesis["position"].get("shares"):
-            pnl_dollars *= thesis["position"]["shares"]
-        thesis["outcome"]["pnl_pct"] = round(pnl_pct, 2)
-        thesis["outcome"]["pnl_dollars"] = round(pnl_dollars, 2)
-
-        entry_date = thesis["entry"].get("actual_date")
-        if entry_date and actual_date:
-            try:
-                holding_days = (_parse_dt(actual_date) - _parse_dt(entry_date)).days
-                thesis["outcome"]["holding_days"] = holding_days
-            except (ValueError, TypeError):
-                pass
-
     history_at = event_date or now
-    thesis["status"] = "INVALIDATED"
-    thesis["status_history"].append(
-        {"status": "INVALIDATED", "at": history_at, "reason": f"invalidated: {exit_reason}"}
-    )
+    position = thesis.get("position")
+
+    if (
+        position
+        and position.get("shares")
+        and actual_price is not None
+        and actual_date is not None
+        and entry_price
+    ):
+        # Cumulative path: single-owner ledger append + roll-up. For a no-trim
+        # ACTIVE thesis (shares_remaining == shares) this yields the same
+        # pnl_dollars/pct as the legacy block below; for a PARTIALLY_CLOSED
+        # thesis it correctly sums prior trims (no double-count).
+        _finalize_outcome(
+            thesis,
+            exit_price=actual_price,
+            exit_date=actual_date,
+            history_at=history_at,
+            status="INVALIDATED",
+            reason=f"invalidated: {exit_reason}",
+            append_entry=True,
+        )
+    else:
+        # Pre-PR-80B partial-outcome path — verbatim (covers no-price
+        # terminate INVALIDATED, incl. position-attached but no exit price).
+        if entry_price and actual_price:
+            pnl_pct = ((actual_price - entry_price) / entry_price) * 100
+            pnl_dollars = actual_price - entry_price
+            if thesis.get("position") and thesis["position"].get("shares"):
+                pnl_dollars *= thesis["position"]["shares"]
+            thesis["outcome"]["pnl_pct"] = round(pnl_pct, 2)
+            thesis["outcome"]["pnl_dollars"] = round(pnl_dollars, 2)
+
+            entry_date = thesis["entry"].get("actual_date")
+            if entry_date and actual_date:
+                try:
+                    holding_days = (_parse_dt(actual_date) - _parse_dt(entry_date)).days
+                    thesis["outcome"]["holding_days"] = holding_days
+                except (ValueError, TypeError):
+                    pass
+
+        thesis["status"] = "INVALIDATED"
+        thesis["status_history"].append(
+            {
+                "status": "INVALIDATED",
+                "at": history_at,
+                "reason": f"invalidated: {exit_reason}",
+            }
+        )
+
     thesis["updated_at"] = now
 
     _save_thesis(state_dir, thesis)
@@ -1234,6 +1523,21 @@ def main(argv: list[str] | None = None) -> int:
     cl_p.add_argument("--actual-date", required=True, help="Exit date (YYYY-MM-DD or ISO)")
     cl_p.add_argument("--event-date", default=None, help="Backdate status_history.at")
 
+    # trim (partial close: ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED or CLOSED)
+    tr2_p = sub.add_parser("trim", help="Partially close (trim) a position")
+    tr2_p.add_argument("thesis_id", help="Thesis ID")
+    tr2_p.add_argument("--shares-sold", type=float, required=True, help="Quantity sold")
+    tr2_p.add_argument("--price", type=float, required=True, help="Trim execution price")
+    tr2_p.add_argument("--date", required=True, help="Trim date (YYYY-MM-DD or ISO)")
+    tr2_p.add_argument("--reason", default="position trimmed", help="Trim reason")
+    tr2_p.add_argument(
+        "--exit-reason",
+        default=None,
+        choices=["stop_hit", "target_hit", "time_stop", "invalidated", "manual"],
+        help="Only used if the trim fully closes the position (default manual)",
+    )
+    tr2_p.add_argument("--event-date", default=None, help="Override ledger timestamp")
+
     # terminate (→ CLOSED or INVALIDATED)
     tm_p = sub.add_parser("terminate", help="Move thesis to a terminal state")
     tm_p.add_argument("thesis_id", help="Thesis ID")
@@ -1321,6 +1625,22 @@ def main(argv: list[str] | None = None) -> int:
         out = t.get("outcome") or {}
         print(
             f"{args.thesis_id} → {t['status']} ({args.exit_reason}), pnl={out.get('pnl_dollars')}"
+        )
+    elif args.command == "trim":
+        t = trim(
+            state_dir,
+            args.thesis_id,
+            args.shares_sold,
+            args.price,
+            _coerce_dt(args.date),
+            reason=args.reason,
+            exit_reason=args.exit_reason,
+            event_date=_coerce_dt(args.event_date),
+        )
+        rem = (t.get("position") or {}).get("shares_remaining")
+        print(
+            f"{args.thesis_id} → {t['status']} "
+            f"(sold {args.shares_sold} @ {args.price}, remaining {rem})"
         )
     elif args.command == "terminate":
         t = terminate(

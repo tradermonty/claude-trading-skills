@@ -126,6 +126,29 @@ python3 .../thesis_store.py --state-dir state/theses/ open-position <id> \
 `--shares` accepts **fractional** quantities. Python:
 `thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, shares=..., event_date=...)`.
 
+**Trim — partial close** (ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED, or →
+CLOSED when the whole remainder is sold):
+
+```bash
+python3 .../thesis_store.py --state-dir state/theses/ trim <id> \
+  --shares-sold 4 --price 120.00 --date 2026-05-10
+```
+
+`position.shares` is the **original** opened quantity (immutable);
+`position.shares_remaining` tracks what is still open. Each trim appends a
+`status_history` ledger entry (`shares_sold` / `price` / `proceeds` /
+`realized_pnl`). `outcome.pnl_dollars` is the **cumulative** realized P&L
+(Σ all trims + final close); `outcome.pnl_pct = pnl_dollars / (entry_price ×
+original_shares) × 100`. A trim that sells the entire remainder closes the
+thesis (default `exit_reason: manual`, overridable with `--exit-reason`).
+`--date` is the ledger timestamp (override with `--event-date`). Python:
+`thesis_store.trim(state_dir, thesis_id, shares_sold, price, date, ...)`.
+
+Status invariants: `ACTIVE` ⇒ `shares_remaining == shares`;
+`PARTIALLY_CLOSED` ⇒ `0 < shares_remaining < shares`; `CLOSED` ⇒
+`shares_remaining == 0`. Legacy theses (no `shares_remaining`) are treated as
+fully open at runtime.
+
 **Close or invalidate** (→ CLOSED or INVALIDATED):
 
 ```bash
@@ -134,6 +157,9 @@ python3 .../thesis_store.py --state-dir state/theses/ close <id> \
 python3 .../thesis_store.py --state-dir state/theses/ terminate <id> \
   --terminal-status INVALIDATED --exit-reason "thesis broke"
 ```
+
+`close` accepts an `ACTIVE` **or** `PARTIALLY_CLOSED` thesis; from
+PARTIALLY_CLOSED it adds the final leg and reports the cumulative outcome.
 
 Python: `thesis_store.terminate(state_dir, thesis_id, terminal_status, exit_reason, actual_price, actual_date)`. For CLOSED, delegates to `close()` which computes P&L (fractional-share aware). For INVALIDATED, P&L is computed if entry/exit prices are available.
 
