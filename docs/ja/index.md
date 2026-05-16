@@ -81,6 +81,8 @@ Claude Trading Skillsは、株式投資家やトレーダーのための**Claude
 
 複数スキルを組み合わせる Core + Satellite 運用導線は [ワークフロー]({{ '/ja/workflows/' | relative_url }}) を参照してください。各ワークフローは使用スキル・判断ゲート・artifact を順番通りに記述しており、`workflows/*.yaml` の正本 manifest から自動生成されます。
 
+[スキルセット]({{ '/ja/skillsets/' | relative_url }}) はその対となる「目的のために何を入れるか」の層で、各ワークフローに紐づくカテゴリ単位のスキル束です。`skillsets/*.yaml` から自動生成されます。
+
 ---
 
 ## はじめに

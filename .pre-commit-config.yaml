@@ -89,6 +89,15 @@ repos:
         files: '^(workflows/.*\.yaml|scripts/generate_workflow_docs\.py|docs/(en|ja)/workflows\.md)$'
         pass_filenames: false
 
+      - id: skillset-docs-drift
+        name: Skillset docs drift check (regenerate from skillsets/*.yaml)
+        entry: python3 scripts/generate_skillset_docs.py --check
+        language: system
+        # Fire on any input that affects rendered output: manifests, generator,
+        # and the rendered docs themselves (so manual edits are caught).
+        files: '^(skillsets/.*\.yaml|scripts/generate_skillset_docs\.py|docs/(en|ja)/skillsets\.md)$'
+        pass_filenames: false
+
       - id: catalog-drift
         name: README + CLAUDE.md catalog drift check (regenerate from skills-index.yaml)
         entry: python3 scripts/generate_catalog_from_index.py --check
