@@ -243,6 +243,12 @@ jobs:
       - name: Validate skillsets
         run: python3 scripts/validate_skillsets.py
 
+      # 3b. Drift check: docs/{en,ja}/skillsets.md must match what the
+      # generator would produce from skillsets/*.yaml. Catches manual edits
+      # to the docs and stale docs after manifest changes.
+      - name: Skillset docs drift check
+        run: python3 scripts/generate_skillset_docs.py --check
+
       # 3. Drift check: docs/{en,ja}/workflows.md must match what the
       # generator would produce from workflows/*.yaml. Catches manual edits
       # to the docs and stale docs after manifest changes.
