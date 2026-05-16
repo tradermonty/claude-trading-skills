@@ -283,6 +283,16 @@ class TestSymbolMismatch:
 class TestCallerRegression:
     """Tier C: Verify ftd_detector.main() handles FMPClient failures correctly."""
 
+    # IMPORTANT: patch `ftd_detector.FMPClient` (the symbol AS USED by main()),
+    # not the module-level `FMPClient` imported at the top of this file.
+    # When pytest runs both ftd-detector and market-top-detector test files in
+    # the same session, conftest evicts and re-imports `fmp_client` during
+    # skill switches. This produces multiple class objects from the same source
+    # file. Patching the test-file-level `FMPClient` reference would miss the
+    # class that `ftd_detector.main()` actually uses. Patching via
+    # `ftd_detector.FMPClient` always hits the class bound inside ftd_detector
+    # at the time main() executes.
+
     def test_ftd_detector_exits_on_historical_failure(self):
         """get_historical_prices -> None => main() calls sys.exit(1) (fatal)."""
         with (
@@ -293,9 +303,9 @@ class TestCallerRegression:
             import ftd_detector
 
             with (
-                patch.object(FMPClient, "get_historical_prices", return_value=None),
+                patch.object(ftd_detector.FMPClient, "get_historical_prices", return_value=None),
                 patch.object(
-                    FMPClient,
+                    ftd_detector.FMPClient,
                     "get_quote",
                     return_value=[{"symbol": "^GSPC", "price": 5000.0}],
                 ),
@@ -347,8 +357,10 @@ class TestCallerRegression:
                 return None
 
             with (
-                patch.object(FMPClient, "get_historical_prices", side_effect=mock_hist),
-                patch.object(FMPClient, "get_quote", return_value=None),
+                patch.object(
+                    ftd_detector.FMPClient, "get_historical_prices", side_effect=mock_hist
+                ),
+                patch.object(ftd_detector.FMPClient, "get_quote", return_value=None),
                 patch.object(ftd_detector, "generate_json_report"),
                 patch.object(ftd_detector, "generate_markdown_report"),
             ):

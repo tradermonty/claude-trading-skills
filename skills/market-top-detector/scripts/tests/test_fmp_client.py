@@ -336,25 +336,18 @@ class TestEndpointFallback:
         assert result["ratio"] == 0.9
 
     def test_market_top_exits_on_sp500_failure(self):
-        """main() exits with code 1 when S&P 500 data unavailable."""
-        from fmp_client import FMPClient
+        """main() exits with code 1 when S&P 500 data unavailable.
 
-        with (
-            patch.object(FMPClient, "__init__", lambda self, **kw: None),
-            patch.object(FMPClient, "get_quote", return_value=None),
-            patch.object(FMPClient, "get_historical_prices", return_value=None),
-            patch.object(
-                FMPClient,
-                "get_api_stats",
-                return_value={
-                    "cache_entries": 0,
-                    "api_calls_made": 0,
-                    "rate_limit_reached": False,
-                },
-            ),
-            patch("sys.argv", ["market_top_detector.py"]),
-        ):
-            # Need to set required attributes that __init__ would set
+        NOTE: patches `market_top_detector.FMPClient` (the symbol AS USED by
+        main()), not the test-file-local FMPClient. When pytest runs multiple
+        detector skills in the same session, conftest evicts and re-imports
+        `fmp_client` on skill switch, which produces multiple class objects
+        from the same source file. Patching the test-local FMPClient would
+        miss the class that main() actually uses.
+        """
+        with patch("sys.argv", ["market_top_detector.py"]):
+            import market_top_detector
+
             def fake_init(self, **kw):
                 self.api_key = "test"  # pragma: allowlist secret
                 self.session = MagicMock()
@@ -365,16 +358,28 @@ class TestEndpointFallback:
                 self.max_retries = 1
                 self.api_calls_made = 0
 
-            with patch.object(FMPClient, "__init__", fake_init):
-                import market_top_detector
-
+            with (
+                patch.object(market_top_detector.FMPClient, "__init__", fake_init),
+                patch.object(market_top_detector.FMPClient, "get_quote", return_value=None),
+                patch.object(
+                    market_top_detector.FMPClient, "get_historical_prices", return_value=None
+                ),
+                patch.object(
+                    market_top_detector.FMPClient,
+                    "get_api_stats",
+                    return_value={
+                        "cache_entries": 0,
+                        "api_calls_made": 0,
+                        "rate_limit_reached": False,
+                    },
+                ),
+            ):
                 with pytest.raises(SystemExit) as exc_info:
                     market_top_detector.main()
                 assert exc_info.value.code == 1
 
     def test_market_top_continues_on_vix_failure(self, capsys):
         """main() continues with warning when VIX unavailable (non-fatal)."""
-        from fmp_client import FMPClient
 
         sp500_quote = [{"symbol": "^GSPC", "price": 5500.0, "yearHigh": 5600.0}]
         sp500_hist = {
@@ -488,20 +493,36 @@ class TestEndpointFallback:
                     ],
                 ),
             ):
-                from fmp_client import FMPClient
+                import importlib
 
+                import market_top_detector
+
+                importlib.reload(market_top_detector)
+
+                # Patch market_top_detector.FMPClient (the symbol used by main())
+                # rather than a test-file-local fmp_client import. See
+                # test_market_top_exits_on_sp500_failure docstring for the
+                # cross-skill conftest eviction context.
                 with (
-                    patch.object(FMPClient, "get_quote", side_effect=mock_quote),
-                    patch.object(FMPClient, "get_historical_prices", side_effect=mock_hist),
-                    patch.object(FMPClient, "get_batch_quotes", side_effect=mock_batch_quotes),
-                    patch.object(FMPClient, "get_batch_historical", side_effect=mock_batch_hist),
+                    patch.object(
+                        market_top_detector.FMPClient, "get_quote", side_effect=mock_quote
+                    ),
+                    patch.object(
+                        market_top_detector.FMPClient,
+                        "get_historical_prices",
+                        side_effect=mock_hist,
+                    ),
+                    patch.object(
+                        market_top_detector.FMPClient,
+                        "get_batch_quotes",
+                        side_effect=mock_batch_quotes,
+                    ),
+                    patch.object(
+                        market_top_detector.FMPClient,
+                        "get_batch_historical",
+                        side_effect=mock_batch_hist,
+                    ),
                 ):
-                    import importlib
-
-                    import market_top_detector
-
-                    importlib.reload(market_top_detector)
-
                     # Should NOT raise SystemExit — VIX failure is non-fatal
                     try:
                         market_top_detector.main()
