@@ -222,8 +222,8 @@ This reference contains detailed guidance on:
 To understand the chart format and visual elements, review the sample charts included in this skill:
 
 ```
-View: skills/breadth-chart-analyst/assets/SP500_Breadth_Index_200MA_8MA.jpeg
-View: skills/breadth-chart-analyst/assets/US_Stock_Market_Uptrend_Ratio.jpeg
+View: assets/SP500_Breadth_Index_200MA_8MA.jpeg
+View: assets/US_Stock_Market_Uptrend_Ratio.jpeg
 ```
 
 These samples demonstrate:
@@ -495,7 +495,7 @@ Address any conflicts between charts and explain resolution.
 Create a comprehensive markdown report using the template structure:
 
 ```
-Read and use as template: skills/breadth-chart-analyst/assets/breadth_analysis_template.md
+Read and use as template: assets/breadth_analysis_template.md
 ```
 
 **IMPORTANT**: All analysis and output must be in English.
