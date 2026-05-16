@@ -187,3 +187,79 @@ class TestYFinanceFallback:
 
         assert result["symbol"] == "SPY"
         fake_yf.download.assert_not_called()
+
+    @patch("fmp_client.FMPClient._request_with_fallback")
+    def test_empty_historical_dict_triggers_yfinance(self, mock_fmp):
+        # v3 can return a truthy dict with an EMPTY historical list for an
+        # ETF unavailable on the caller's plan. Must still fall back.
+        mock_fmp.return_value = {"symbol": "XLK", "historical": []}
+        client = _make_client()
+        fake_df = _FakeDF([_row("2026-04-29", 2.0, 3.0, 1.5, 2.5, 300)])
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = fake_df
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_historical_prices("XLK", days=5)
+
+        fake_yf.download.assert_called_once()
+        assert result["symbol"] == "XLK"
+        assert len(result["historical"]) == 1
+        assert client.cache["prices_XLK_5"] is result
+
+    @patch("fmp_client.FMPClient._request_with_fallback")
+    def test_empty_historical_then_yfinance_empty_returns_none_not_cached(self, mock_fmp):
+        mock_fmp.return_value = {"symbol": "XLK", "historical": []}
+        client = _make_client()
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = _FakeDF([])
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_historical_prices("XLK", days=5)
+
+        assert result is None
+        assert "prices_XLK_5" not in client.cache
+
+    @patch("fmp_client.FMPClient._request_with_fallback")
+    def test_empty_historicalstocklist_entry_triggers_yfinance(self, mock_fmp):
+        # historicalStockList path can yield {"symbol":..., "historical": []}
+        mock_fmp.return_value = {"symbol": "XLF", "historical": []}
+        client = _make_client()
+        fake_df = _FakeDF([_row("2026-04-29", 1.0, 2.0, 0.5, 1.5, 100)])
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = fake_df
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_historical_prices("XLF", days=5)
+
+        fake_yf.download.assert_called_once()
+        assert result["symbol"] == "XLF"
+        assert len(result["historical"]) == 1
+
+
+class TestHasUsableHistory:
+    """Unit tests for the _has_usable_history helper."""
+
+    def test_none(self):
+        from fmp_client import _has_usable_history
+
+        assert _has_usable_history(None) is False
+
+    def test_empty_historical_list(self):
+        from fmp_client import _has_usable_history
+
+        assert _has_usable_history({"symbol": "X", "historical": []}) is False
+
+    def test_missing_historical_key(self):
+        from fmp_client import _has_usable_history
+
+        assert _has_usable_history({"symbol": "X"}) is False
+
+    def test_non_dict(self):
+        from fmp_client import _has_usable_history
+
+        assert _has_usable_history([{"date": "2026-04-29"}]) is False
+
+    def test_non_empty_historical(self):
+        from fmp_client import _has_usable_history
+
+        assert _has_usable_history({"historical": [{"date": "2026-04-29"}]}) is True

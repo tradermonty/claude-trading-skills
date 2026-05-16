@@ -102,6 +102,18 @@ def _normalize_eod_flat_list(data, symbols_str: str, limit: Optional[int] = None
     return {"symbol": matched_symbol or symbols_str, "historical": historical}
 
 
+def _has_usable_history(data) -> bool:
+    """True only when `data` is a dict carrying a non-empty `historical` list.
+
+    A dict with an empty `historical` list (e.g. an ETF unavailable on the
+    caller's FMP plan) is treated as unusable so the caller can fall back to
+    yfinance instead of caching an empty result.
+    """
+    return bool(
+        isinstance(data, dict) and isinstance(data.get("historical"), list) and data["historical"]
+    )
+
+
 class FMPClient:
     """Client for Financial Modeling Prep API with rate limiting and caching"""
 
@@ -252,11 +264,18 @@ class FMPClient:
             return self.cache[cache_key]
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
-        if not data:
+        # _request_with_fallback can return a truthy dict with an EMPTY
+        # historical list (v3 `{"symbol":...,"historical":[]}` or an empty
+        # historicalStockList entry) for ETFs unavailable on the caller's FMP
+        # plan. A bare `if not data` check would miss that and cache the empty
+        # result, defeating the fallback's purpose — so treat "no usable
+        # history" the same as "no data".
+        if not _has_usable_history(data):
             data = self._get_from_yfinance(symbol, days)
-        if data:
+        if _has_usable_history(data):
             self.cache[cache_key] = data
-        return data
+            return data
+        return None
 
     def _get_from_yfinance(self, symbol: str, days: int) -> Optional[dict]:
         """Fallback: fetch ETF history via yfinance when FMP is unavailable.
