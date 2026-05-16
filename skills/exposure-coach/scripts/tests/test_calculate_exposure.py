@@ -12,6 +12,7 @@ from calculate_exposure import (
     determine_participation,
     determine_recommendation,
     extract_breadth_score,
+    extract_regime_name,
     extract_regime_score,
     extract_top_risk_score,
     extract_uptrend_score,
@@ -73,6 +74,30 @@ class TestExtractUptrendScore:
         score = extract_uptrend_score(data)
         assert score < 30
 
+    def test_nested_composite_score(self):
+        # uptrend-analyzer stores its score under "composite"
+        data = {"composite": {"composite_score": 72}}
+        assert extract_uptrend_score(data) == 72
+
+    def test_nested_composite_uptrend_pct(self):
+        data = {"composite": {"uptrend_pct": 60}}
+        assert extract_uptrend_score(data) >= 75
+
+    def test_flat_takes_priority_over_nested(self):
+        data = {"uptrend_score": 80, "composite": {"composite_score": 10}}
+        assert extract_uptrend_score(data) == 80
+
+    def test_non_dict_composite_ignored(self):
+        data = {"composite": "n/a", "uptrend_pct": 40}
+        score = extract_uptrend_score(data)
+        assert 50 <= score <= 80
+
+    def test_none_input(self):
+        assert extract_uptrend_score(None) is None
+
+    def test_empty_dict(self):
+        assert extract_uptrend_score({}) is None
+
 
 class TestExtractRegimeScore:
     """Tests for regime score extraction."""
@@ -92,6 +117,58 @@ class TestExtractRegimeScore:
     def test_direct_regime_score(self):
         data = {"regime_score": 65}
         assert extract_regime_score(data) == 65
+
+    def test_nested_regime_dict_current_regime(self):
+        # macro-regime-detector emits regime as a nested object
+        data = {"regime": {"current_regime": "Broadening"}}
+        assert extract_regime_score(data) == 80
+
+    def test_nested_regime_dict_unknown_defaults_50(self):
+        data = {"regime": {"current_regime": "Sideways"}}
+        assert extract_regime_score(data) == 50
+
+    def test_nested_regime_dict_no_current_regime(self):
+        data = {"regime": {"regime_label": "Risk-On"}}
+        assert extract_regime_score(data) is None
+
+    def test_none_input(self):
+        assert extract_regime_score(None) is None
+
+    def test_empty_dict(self):
+        assert extract_regime_score({}) is None
+
+
+class TestExtractRegimeName:
+    """Tests for regime name extraction (incl. nested dict regression)."""
+
+    def test_flat_string_regime(self):
+        assert extract_regime_name({"regime": "broadening"}) == "Broadening"
+
+    def test_flat_current_regime(self):
+        assert extract_regime_name({"current_regime": "contraction"}) == "Contraction"
+
+    def test_nested_label_preferred(self):
+        data = {"regime": {"regime_label": "Risk-On", "current_regime": "broadening"}}
+        assert extract_regime_name(data) == "Risk-on"
+
+    def test_nested_current_regime_fallback(self):
+        data = {"regime": {"current_regime": "transitional"}}
+        assert extract_regime_name(data) == "Transitional"
+
+    def test_nested_empty_dict_returns_unknown(self):
+        assert extract_regime_name({"regime": {}}) == "Unknown"
+
+    def test_dict_input_does_not_raise(self):
+        # Regression: previously data["regime"].capitalize() raised on dict
+        data = {"regime": {"current_regime": "broadening"}}
+        result = extract_regime_name(data)
+        assert isinstance(result, str)
+
+    def test_none_input(self):
+        assert extract_regime_name(None) == "Unknown"
+
+    def test_empty_dict(self):
+        assert extract_regime_name({}) == "Unknown"
 
 
 class TestExtractTopRiskScore:
