@@ -91,11 +91,16 @@ Parse the JSON and explain, in the user's language:
 
 ### Step 4 — Explain the setup path
 
-Read `references/setup_paths.md` and walk the user through the path for **their
-recommended workflow's skills specifically** (the actual `required_skills` /
-`optional_skills` from the JSON), for whichever environment they use
-(Claude Web App `.skill` upload, or Claude Code folder copy). Call out any paid
-API keys those skills need.
+Read `references/setup_paths.md` and walk the user through installing
+**`setup_bundle`** — the recommender's deterministic install union over the
+primary skillset **and every secondary workflow** (so nothing is dropped for a
+multi-workflow recommendation). Enumerate `setup_bundle.required` →
+`recommended` → `optional`, cite `setup_bundle.sources` to explain *why* each
+skill is needed, and name `skillset.manifest.related_workflows` for *how* the
+bundle is run. Narrate `skillset.manifest` (when present) as "what the
+recommended skillset is". On an honest gap install `suggested_skills`. Do this
+for whichever environment the user is in (Claude Web App `.skill` upload, or
+Claude Code folder copy); call out any paid API keys those skills need.
 
 ### Step 5 — Point to the learning loop
 
@@ -111,7 +116,8 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 |---|---|
 | `primary_workflow` | Recommended workflow object, or `null` on an honest gap |
 | `secondary_workflows` | Supporting workflows (ordered, time-budget filtered) |
-| `skillset` | `{id, source: skills-index.category, manifest_status}` — `active` when `skillsets/<id>.yaml` ships, else `deferred` |
+| `skillset` | `{id, source: skills-index.category, manifest_status, manifest}`. `manifest_status` is `active` when `skillsets/<id>.yaml` ships, else `deferred`. `manifest` is the 5-key view `{display_name, required_skills, recommended_skills, optional_skills, related_workflows}` when active, else `null`. Describes the **primary skillset only** — not the install list |
+| `setup_bundle` | `{required, recommended, optional, sources}` — the actionable install union over the primary skillset **and every secondary workflow** (deterministic, tier-deduped). **This is what to install.** All-empty on an honest gap (use `suggested_skills`) |
 | `suggested_skills` | Skills to use when no workflow shipped (honest gap); else `[]` |
 | `no_api` | Request-side: was no-API constraint mode active (flag or persona) |
 | `no_api_path` | Path-side: does the **whole** recommendation (primary + every secondary) work without paid API keys? `true`/`false`; `null` on an honest gap. This is the DoD's API-vs-no-API separation — narrate it explicitly |

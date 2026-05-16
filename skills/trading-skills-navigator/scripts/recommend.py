@@ -701,14 +701,86 @@ def _workflow_public_view(workflow: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _skillset(category: str, skillset_ids: frozenset[str]) -> dict[str, str]:
+def _skillset_manifest_view(ss: dict[str, Any]) -> dict[str, Any]:
+    # PR-N3: 5-key public view of a skillset manifest (no `id` — the id lives
+    # on the outer skillset object). Mirrors _workflow_public_view. List order
+    # is preserved from the manifest YAML (meaningful authored order).
+    return {
+        "display_name": ss["display_name"],
+        "required_skills": list(ss["required_skills"]),
+        "recommended_skills": list(ss["recommended_skills"]),
+        "optional_skills": list(ss["optional_skills"]),
+        "related_workflows": list(ss["related_workflows"]),
+    }
+
+
+def _skillset(
+    category: str,
+    skillset_ids: frozenset[str],
+    skillsets_by_id: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     # PR-N2: "active" iff a skillsets/<category>.yaml manifest exists (its id
     # == the skills-index category). Honest-gap categories have no manifest
-    # → stay "deferred". Object shape is unchanged: {id, source, manifest_status}.
+    # → "deferred". PR-N3: `manifest` is ALWAYS present (symmetric schema) —
+    # the 5-key view when active, else None.
+    active = category in skillset_ids
     return {
         "id": category,
         "source": "skills-index.category",
-        "manifest_status": "active" if category in skillset_ids else "deferred",
+        "manifest_status": "active" if active else "deferred",
+        "manifest": (
+            _skillset_manifest_view(skillsets_by_id[category])
+            if active and category in skillsets_by_id
+            else None
+        ),
+    }
+
+
+def _ordered_unique(items: list[str]) -> list[str]:
+    return list(dict.fromkeys(items))
+
+
+def _setup_bundle(
+    skillset_id: str,
+    skillset_manifest: dict[str, Any] | None,
+    primary_wf: dict[str, Any] | None,
+    secondary_wfs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Deterministic install union over the primary skillset/workflow + every
+    secondary workflow. `skillset_id` is threaded explicitly because the 5-key
+    manifest view has no `id`. Tier precedence: required > recommended >
+    optional (a skill never appears in two tiers). Order: primary first, then
+    secondaries in order. Pure function of metadata → parity-safe."""
+    required: list[str] = []
+    recommended: list[str] = []
+    optional: list[str] = []
+    sources: list[str] = []
+
+    if skillset_manifest is not None:
+        required += skillset_manifest["required_skills"]
+        recommended += skillset_manifest["recommended_skills"]
+        optional += skillset_manifest["optional_skills"]
+        sources.append(f"skillset:{skillset_id}")
+    elif primary_wf is not None:
+        required += primary_wf["required_skills"]
+        optional += primary_wf["optional_skills"]
+        sources.append(f"workflow:{primary_wf['id']}")
+
+    for wf in secondary_wfs:
+        required += wf["required_skills"]
+        optional += wf["optional_skills"]
+        sources.append(f"workflow:{wf['id']}")
+
+    required = _ordered_unique(required)
+    req_set = set(required)
+    recommended = [s for s in _ordered_unique(recommended) if s not in req_set]
+    rec_set = set(recommended)
+    optional = [s for s in _ordered_unique(optional) if s not in req_set and s not in rec_set]
+    return {
+        "required": required,
+        "recommended": recommended,
+        "optional": optional,
+        "sources": sources,
     }
 
 
@@ -763,7 +835,8 @@ def recommend(
     norm = normalize_query(query)
     skills_by_id = {s["id"]: s for s in metadata["skills"]}
     workflows_by_id = {w["id"]: w for w in metadata["workflows"]}
-    skillset_ids = frozenset(s["id"] for s in (metadata.get("skillsets") or []))
+    skillsets_by_id = {s["id"]: s for s in (metadata.get("skillsets") or [])}
+    skillset_ids = frozenset(skillsets_by_id)
 
     rationale: list[str] = []
     note: str | None = None
@@ -818,11 +891,15 @@ def recommend(
             f"individual skills from the '{gap_category}' category; a workflow "
             f"manifest is deferred to a later phase."
         )
+        gap_skillset = _skillset(gap_category, skillset_ids, skillsets_by_id)
         return _finalize_result(
             query=query,
             primary=None,
             secondary=[],
-            skillset=_skillset(gap_category, skillset_ids),
+            skillset=gap_skillset,
+            # Honest gap: no manifest, no primary, no secondary → empty bundle.
+            # The actionable install list for a gap is `suggested_skills`.
+            setup_bundle=_setup_bundle(gap_skillset["id"], gap_skillset["manifest"], None, []),
             suggested_skills=suggested,
             no_api=no_api,
             no_api_path=None,  # honest gap has no path — contract column "—"
@@ -860,7 +937,7 @@ def recommend(
         time_budget=time_budget_min,
     )
 
-    skillset = _skillset(dominant_category(primary_wf, skills_by_id), skillset_ids)
+    skillset = _skillset(dominant_category(primary_wf, skills_by_id), skillset_ids, skillsets_by_id)
     rationale.append(
         f"skillset '{skillset['id']}' = category of "
         f"'{primary_wf['required_skills'][0]}' "
@@ -889,11 +966,20 @@ def recommend(
         for wid in secondary_ids
     )
 
+    primary_view = _workflow_public_view(primary_wf)
+    secondary_views = [_workflow_public_view(workflows_by_id[wid]) for wid in secondary_ids]
+
     return _finalize_result(
         query=query,
-        primary=_workflow_public_view(primary_wf),
-        secondary=[_workflow_public_view(workflows_by_id[wid]) for wid in secondary_ids],
+        primary=primary_view,
+        secondary=secondary_views,
         skillset=skillset,
+        # Actionable install union: primary skillset (or primary workflow if no
+        # manifest) + EVERY secondary workflow — so a multi-workflow rec never
+        # drops a secondary's skills (e.g. Q1 keeps vcp-screener).
+        setup_bundle=_setup_bundle(
+            skillset["id"], skillset["manifest"], primary_view, secondary_views
+        ),
         suggested_skills=[],
         no_api=no_api,
         no_api_path=no_api_path,
@@ -908,7 +994,8 @@ def _finalize_result(
     query: str,
     primary: dict[str, Any] | None,
     secondary: list[dict[str, Any]],
-    skillset: dict[str, str],
+    skillset: dict[str, Any],
+    setup_bundle: dict[str, Any],
     suggested_skills: list[dict[str, str]],
     no_api: bool,
     no_api_path: bool | None,
@@ -921,6 +1008,7 @@ def _finalize_result(
         "primary_workflow": primary,
         "secondary_workflows": secondary,
         "skillset": skillset,
+        "setup_bundle": setup_bundle,
         "suggested_skills": suggested_skills,
         "no_api": no_api,
         "no_api_path": no_api_path,
@@ -962,6 +1050,22 @@ def render_text(result: dict[str, Any]) -> str:
             f"Skillset: {result['skillset']['id']} "
             f"(manifest_status={result['skillset']['manifest_status']})"
         )
+        man = result["skillset"]["manifest"]
+        if man is not None:
+            lines.append(f"  Skillset manifest: {man['display_name']}")
+            lines.append(f"    Required:    {', '.join(man['required_skills']) or '—'}")
+            lines.append(f"    Recommended: {', '.join(man['recommended_skills']) or '—'}")
+            lines.append(f"    Optional:    {', '.join(man['optional_skills']) or '—'}")
+            lines.append(f"    Related workflows: {', '.join(man['related_workflows']) or '—'}")
+    sb = result["setup_bundle"]
+    if result["honest_gap"]:
+        lines.append("Setup bundle: (use suggested skills above)")
+    else:
+        lines.append("Setup bundle:")
+        lines.append(f"  Required:    {', '.join(sb['required']) or '—'}")
+        lines.append(f"  Recommended: {', '.join(sb['recommended']) or '—'}")
+        lines.append(f"  Optional:    {', '.join(sb['optional']) or '—'}")
+        lines.append(f"  Sources:     {', '.join(sb['sources']) or '—'}")
     if result["no_api_path"] is None:
         lines.append("No-API path: n/a (no workflow shipped)")
     else:
