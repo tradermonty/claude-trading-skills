@@ -27,13 +27,19 @@ from recommend import (  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # The 10-Question Contract
-#   (num, query, primary, secondary_set, skillset, honest_gap, no_api_path)
+#   (num, query, primary, secondary_set, skillset, honest_gap, no_api_path,
+#    manifest_status)
 # no_api_path = the WHOLE recommended path works without paid API keys
 # (PROJECT_VISION.md §12 / intent_routing.md "no-API" column). None on a
 # honest gap (no path → contract column "—").
+# manifest_status (PR-N2): "active" iff a skillsets/<skillset>.yaml manifest
+# ships (market-regime / core-portfolio / swing-opportunity / trade-memory);
+# honest-gap categories (advanced-satellite / strategy-research) stay
+# "deferred". The PR-N2 diff vs PR-N1 is EXACTLY this column — every other
+# value is byte-unchanged (proves manifests didn't perturb routing).
 # ---------------------------------------------------------------------------
 
-CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = [
+CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None, str]] = [
     (
         1,
         "I want to invest long term but swing trade only when the market is favorable",
@@ -42,6 +48,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "market-regime",
         False,
         False,  # path includes fmp-required swing-opportunity-daily
+        "active",
     ),
     (
         2,
@@ -51,6 +58,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "market-regime",
         False,
         True,
+        "active",
     ),
     (
         3,
@@ -60,6 +68,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "market-regime",
         False,
         False,  # path includes alpaca-required core-portfolio-weekly
+        "active",
     ),
     (
         4,
@@ -69,6 +78,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "core-portfolio",
         False,
         False,  # core-portfolio-weekly → portfolio-manager needs Alpaca
+        "active",
     ),
     (
         5,
@@ -78,6 +88,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "swing-opportunity",
         False,
         False,  # swing-opportunity-daily is fmp-required
+        "active",
     ),
     (
         6,
@@ -87,8 +98,18 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "core-portfolio",
         False,
         False,
+        "active",
     ),
-    (7, "I want to use short strategies", None, set(), "advanced-satellite", True, None),
+    (
+        7,
+        "I want to use short strategies",
+        None,
+        set(),
+        "advanced-satellite",
+        True,
+        None,
+        "deferred",  # honest gap — no manifest
+    ),
     (
         8,
         "I want to know what works without API keys",
@@ -97,6 +118,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "market-regime",
         False,
         True,  # MR + TM + MP are all no-api-basic
+        "active",
     ),
     (
         9,
@@ -106,6 +128,7 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "market-regime",
         False,
         True,
+        "active",
     ),
     (
         10,
@@ -115,12 +138,13 @@ CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = 
         "strategy-research",
         True,
         None,
+        "deferred",  # honest gap — no manifest
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "num,query,exp_primary,exp_secondary,exp_skillset,exp_gap,exp_no_api_path",
+    "num,query,exp_primary,exp_secondary,exp_skillset,exp_gap,exp_no_api_path,exp_manifest_status",
     CONTRACT,
     ids=[f"Q{row[0]}" for row in CONTRACT],
 )
@@ -133,6 +157,7 @@ def test_ten_question_contract(
     exp_skillset: str,
     exp_gap: bool,
     exp_no_api_path: bool | None,
+    exp_manifest_status: str,
 ) -> None:
     r = recommend(query, repo_metadata)
     primary_id = r["primary_workflow"]["id"] if r["primary_workflow"] else None
@@ -142,7 +167,7 @@ def test_ten_question_contract(
     assert r["skillset"]["id"] == exp_skillset, f"Q{num} skillset"
     assert r["honest_gap"] is exp_gap, f"Q{num} honest_gap"
     assert r["no_api_path"] == exp_no_api_path, f"Q{num} no_api_path"
-    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["skillset"]["manifest_status"] == exp_manifest_status, f"Q{num} manifest_status"
     assert r["skillset"]["source"] == "skills-index.category"
 
 
@@ -343,6 +368,72 @@ def test_no_api_path_none_on_honest_gap(repo_metadata: dict[str, Any]) -> None:
     r = recommend("I want to use short strategies", repo_metadata)
     assert r["honest_gap"] is True
     assert r["no_api_path"] is None
+
+
+# ---------------------------------------------------------------------------
+# PR-N2: skillset manifest consumption (manifest_status active/deferred)
+# ---------------------------------------------------------------------------
+
+SHIPPED_SKILLSETS = {
+    "market-regime",
+    "core-portfolio",
+    "swing-opportunity",
+    "trade-memory",
+}
+
+
+def test_metadata_carries_skillsets(
+    repo_metadata: dict[str, Any], bundled_metadata: dict[str, Any]
+) -> None:
+    ssot_ids = {s["id"] for s in repo_metadata["skillsets"]}
+    snap_ids = {s["id"] for s in bundled_metadata["skillsets"]}
+    assert ssot_ids == SHIPPED_SKILLSETS
+    assert snap_ids == SHIPPED_SKILLSETS  # snapshot mirrors the SSoT
+
+
+@pytest.mark.parametrize(
+    "query,exp_skillset",
+    [
+        ("I want to do swing trading", "swing-opportunity"),
+        ("I want to find dividend stocks", "core-portfolio"),
+        ("I have 15 minutes each morning can I take risk today", "market-regime"),
+    ],
+    ids=["swing", "dividend", "regime"],
+)
+def test_skillset_manifest_active_for_shipped_categories(
+    repo_metadata: dict[str, Any], query: str, exp_skillset: str
+) -> None:
+    r = recommend(query, repo_metadata)
+    assert r["skillset"]["id"] == exp_skillset
+    assert r["skillset"]["manifest_status"] == "active"
+
+
+@pytest.mark.parametrize(
+    "query,exp_skillset",
+    [
+        ("I want to use short strategies", "advanced-satellite"),
+        ("I want to research and backtest new strategy ideas", "strategy-research"),
+    ],
+    ids=["short-gap", "research-gap"],
+)
+def test_skillset_deferred_without_manifest(
+    repo_metadata: dict[str, Any], query: str, exp_skillset: str
+) -> None:
+    r = recommend(query, repo_metadata)
+    assert r["skillset"]["id"] == exp_skillset
+    assert r["honest_gap"] is True
+    assert r["skillset"]["manifest_status"] == "deferred"
+
+
+def test_skillset_deferred_when_no_skillsets_in_metadata(
+    repo_metadata: dict[str, Any],
+) -> None:
+    # Strip skillsets → every recommendation must fall back to "deferred"
+    # (proves manifest_status is driven by metadata, not hardcoded active).
+    stripped = {**repo_metadata, "skillsets": []}
+    r = recommend("I want to do swing trading", stripped)
+    assert r["skillset"]["id"] == "swing-opportunity"
+    assert r["skillset"]["manifest_status"] == "deferred"
 
 
 # ---------------------------------------------------------------------------

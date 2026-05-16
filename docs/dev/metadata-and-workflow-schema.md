@@ -262,7 +262,68 @@ Adding `one_of:` later is an additive schema change.
 
 ---
 
-## 3. Validator strictness levels
+## 3. Skillset manifests (`skillsets/*.yaml`)
+
+A skillset is a **category-scoped skill bundle** tied to the workflow(s) that
+operationalize it. A skillset `id` is exactly a `skills-index.yaml` **category**
+(so the Trading Skills Navigator maps a recommendation's dominant category
+straight to its manifest). Validated by `scripts/validate_skillsets.py`
+(pre-commit / pre-push / CI), error codes `SK001`–`SK013`.
+
+### 3.1 Top-level shape
+
+```yaml
+schema_version: 1
+id: market-regime                 # == filename stem == a skills-index category
+display_name: Market Regime
+category: market-regime           # == id (validated equal)
+timeframe: daily                  # daily | weekly | event-driven | research
+difficulty: beginner              # beginner | intermediate | advanced
+api_profile: no-api-basic         # no-api-basic | fmp-required | alpaca-required | mixed
+target_users: [<persona>, ...]    # non-empty
+when_to_use: >-
+  <prose, non-empty>
+when_not_to_use: >-
+  <prose, non-empty — echoes the related workflow's when_not_to_run>
+required_skills:    [<skill-id>, ...]   # non-empty
+recommended_skills: [<skill-id>, ...]   # may be empty
+optional_skills:    [<skill-id>, ...]   # may be empty
+related_workflows:  [<workflow-id>, ...]  # non-empty; resolves to workflows/<id>.yaml
+```
+
+### 3.2 Naming normalization (Vision → category id)
+
+`PROJECT_VISION.md` §12 lists a `trade-memory-loop` skillset candidate. The
+**category id is `trade-memory`** (a `skills-index.yaml` category); the file is
+`skillsets/trade-memory.yaml`, and `trade-memory-loop` appears under
+`related_workflows`. A skillset id MUST be a skills-index category — never a
+workflow id. Do not create `skillsets/trade-memory-loop.yaml`.
+
+### 3.3 `required_skills ⊆ related_workflows` coherence
+
+The validator enforces a live coherence contract (and its pre-commit hook
+fires on `workflows/*.yaml`, so a workflow edit that desyncs a skillset is a
+hard error):
+
+| Rule | Error code |
+|---|---|
+| `id` ≠ filename stem | `SK001` |
+| `id` not a canonical category, or `category` ≠ `id` | `SK002` |
+| Missing/invalid scalar (`schema_version`/`display_name`/`timeframe`/`difficulty`/`api_profile`) | `SK003` |
+| Missing/blank `when_to_use` / `when_not_to_use` | `SK004` |
+| List fields: `target_users`/`required_skills`/`related_workflows` non-empty `list[str]`; `recommended_skills`/`optional_skills` keys **required** (list[str], may be empty — a missing key is an error) | `SK005` |
+| A listed skill not in `skills-index.yaml` | `SK006` |
+| `required_skills` contains a deprecated skill | `SK007` |
+| `required`/`recommended`/`optional` not pairwise disjoint | `SK008` |
+| A `related_workflows` id has no `workflows/<id>.yaml` | `SK009` |
+| `⋃(related workflow.required_skills)` ⊄ this skillset's `required_skills` | `SK010` |
+| Single related workflow: `required_skills` set ≠ that workflow's | `SK011` |
+| `api_profile` does not **cover** a related workflow's: `mixed` covers all; any profile covers a `no-api-basic` workflow; otherwise the provider must match exactly (`fmp-required` ≠ `alpaca-required` even though same tier) | `SK012` |
+| `no-api-basic` skillset lists a paid-required skill in required/recommended/optional | `SK013` |
+
+---
+
+## 4. Validator strictness levels
 
 ```bash
 # Default — pre-commit mode
@@ -292,7 +353,7 @@ python3 scripts/validate_skills_index.py --strict-metadata
 
 ---
 
-## 4. Error code catalog
+## 5. Error code catalog
 
 ### Index-level (always strict)
 
@@ -333,9 +394,28 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `WF011` | `required_skills` / `optional_skills` entry not in `skills-index.yaml` |
 | `WF012` | `artifacts[].produced_by_step` does not match the corresponding step's `produces` (either direction) |
 
+### Skillset-level (`scripts/validate_skillsets.py`, always strict)
+
+| Code | Meaning |
+|---|---|
+| `SK001` | Manifest `id` ≠ filename stem |
+| `SK002` | `id` not a canonical skills-index category, or `category` ≠ `id` |
+| `SK003` | Missing/invalid scalar (`schema_version`/`display_name`/`timeframe`/`difficulty`/`api_profile`) |
+| `SK004` | Missing/blank `when_to_use` / `when_not_to_use` |
+| `SK005` | List-field violation: `target_users`/`required_skills`/`related_workflows` not a non-empty `list[str]`; or `recommended_skills`/`optional_skills` key absent or not a `list[str]` (empty list allowed, missing key is not) |
+| `SK006` | A `required`/`recommended`/`optional` skill not in `skills-index.yaml` |
+| `SK007` | A `required_skills` id is `deprecated` |
+| `SK008` | `required`/`recommended`/`optional` not pairwise disjoint |
+| `SK009` | A `related_workflows` id has no `workflows/<id>.yaml` |
+| `SK010` | `⋃(related workflow.required_skills)` not a subset of this skillset's `required_skills` |
+| `SK011` | Single related workflow: `required_skills` set ≠ that workflow's |
+| `SK012` | `api_profile` does not cover a related workflow's (`mixed` covers all; any covers `no-api-basic`; else exact provider match — `fmp-required` ≠ `alpaca-required`) |
+| `SK013` | `no-api-basic` skillset lists a paid-required skill (fmp/finviz/alpaca @ `required`) anywhere |
+| `SK-PARSE` / `SK-MISSING` | YAML parse error / `skillsets/` absent (absent dir = OK) |
+
 ---
 
-## 5. Migration policy
+## 6. Migration policy
 
 - Schema changes: bump `schema_version` only when the change is breaking. Additive fields do NOT bump.
 - Field renames: never. Add a new field, deprecate the old one in a comment, remove after one full version cycle.

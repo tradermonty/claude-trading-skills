@@ -907,6 +907,123 @@
       "timeframe": "daily"
     }
   ],
+  "skillsets": [
+    {
+      "api_profile": "mixed",
+      "category": "core-portfolio",
+      "difficulty": "beginner",
+      "display_name": "Core Portfolio",
+      "id": "core-portfolio",
+      "optional_skills": [
+        "dividend-growth-pullback-screener",
+        "kanchi-dividend-sop"
+      ],
+      "recommended_skills": [
+        "kanchi-dividend-review-monitor",
+        "value-dividend-screener",
+        "kanchi-dividend-us-tax-accounting"
+      ],
+      "related_workflows": [
+        "core-portfolio-weekly"
+      ],
+      "required_skills": [
+        "portfolio-manager",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "long-term-investor",
+        "dividend-investor"
+      ],
+      "timeframe": "weekly"
+    },
+    {
+      "api_profile": "no-api-basic",
+      "category": "market-regime",
+      "difficulty": "beginner",
+      "display_name": "Market Regime",
+      "id": "market-regime",
+      "optional_skills": [
+        "breadth-chart-analyst",
+        "sector-analyst",
+        "market-environment-analysis",
+        "market-news-analyst",
+        "downtrend-duration-analyzer",
+        "us-market-bubble-detector"
+      ],
+      "recommended_skills": [
+        "market-top-detector",
+        "macro-regime-detector"
+      ],
+      "related_workflows": [
+        "market-regime-daily"
+      ],
+      "required_skills": [
+        "market-breadth-analyzer",
+        "uptrend-analyzer",
+        "exposure-coach"
+      ],
+      "target_users": [
+        "part-time-swing-trader",
+        "growth-investor"
+      ],
+      "timeframe": "daily"
+    },
+    {
+      "api_profile": "fmp-required",
+      "category": "swing-opportunity",
+      "difficulty": "intermediate",
+      "display_name": "Swing Opportunity",
+      "id": "swing-opportunity",
+      "optional_skills": [
+        "finviz-screener"
+      ],
+      "recommended_skills": [
+        "canslim-screener",
+        "breakout-trade-planner",
+        "theme-detector"
+      ],
+      "related_workflows": [
+        "swing-opportunity-daily"
+      ],
+      "required_skills": [
+        "vcp-screener",
+        "technical-analyst",
+        "position-sizer",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "part-time-swing-trader"
+      ],
+      "timeframe": "daily"
+    },
+    {
+      "api_profile": "no-api-basic",
+      "category": "trade-memory",
+      "difficulty": "beginner",
+      "display_name": "Trade Memory",
+      "id": "trade-memory",
+      "optional_skills": [
+        "trade-hypothesis-ideator"
+      ],
+      "recommended_skills": [
+        "backtest-expert"
+      ],
+      "related_workflows": [
+        "trade-memory-loop",
+        "monthly-performance-review"
+      ],
+      "required_skills": [
+        "trader-memory-core",
+        "signal-postmortem"
+      ],
+      "target_users": [
+        "part-time-swing-trader",
+        "long-term-investor",
+        "growth-investor"
+      ],
+      "timeframe": "event-driven"
+    }
+  ],
   "workflows": [
     {
       "api_profile": "mixed",

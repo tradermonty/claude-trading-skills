@@ -1,0 +1,34 @@
+schema_version: 1
+id: core-portfolio
+display_name: Core Portfolio
+category: core-portfolio
+timeframe: weekly
+difficulty: beginner
+api_profile: mixed
+target_users:
+  - long-term-investor
+  - dividend-investor
+
+when_to_use: >-
+  The long-term core sleeve: review holdings, dividend health, and overall
+  allocation once a week. Use to keep the buy-and-hold / dividend book healthy
+  and decide deliberate rebalance actions. Operationalized weekly by the
+  core-portfolio-weekly workflow.
+when_not_to_use: >-
+  Do not run this as a daily routine — daily portfolio churn defeats the
+  long-term framing. Do not use it to chase short-term swing setups; that is
+  the swing-opportunity sleeve gated by market-regime.
+
+required_skills:
+  - portfolio-manager
+  - trader-memory-core
+recommended_skills:
+  - kanchi-dividend-review-monitor
+  - value-dividend-screener
+  - kanchi-dividend-us-tax-accounting
+optional_skills:
+  - dividend-growth-pullback-screener
+  - kanchi-dividend-sop
+
+related_workflows:
+  - core-portfolio-weekly

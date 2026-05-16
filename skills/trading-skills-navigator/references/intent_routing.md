@@ -85,8 +85,17 @@ skill** (manifest order). Not "most common category": e.g.
 `swing-opportunity-daily`'s required skills span swing-opportunity /
 trade-planning / trade-memory; only the first (`vcp-screener` →
 `swing-opportunity`) yields the contract-correct skillset. `source` is always
-`skills-index.category`; `manifest_status` is `deferred` (bundled skillset
-manifests are a later phase — the Navigator is workflow-based today).
+`skills-index.category`.
+
+`manifest_status` (PR-N2): `active` iff a `skillsets/<skillset.id>.yaml`
+manifest ships (the manifest `id` == the skills-index category, so the lookup
+is a direct match — carried as the `skillsets` list in the SSoT / bundled
+snapshot). Today the shipped set is `market-regime`, `core-portfolio`,
+`swing-opportunity`, `trade-memory` → those report `active`. Categories with no
+manifest — including every honest-gap category (`advanced-satellite` for #7,
+`strategy-research` for #10) — report `deferred`. The skillset object shape is
+unchanged (`{id, source, manifest_status}`); only the status value reflects
+manifest presence.
 
 ## The `--no-api` credential rule
 

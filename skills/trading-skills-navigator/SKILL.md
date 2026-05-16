@@ -71,9 +71,12 @@ Parse the JSON and explain, in the user's language:
   `api_profile`. State plainly what it does and when to run it.
 - **Secondary workflows** — if any, how they relate (e.g. "run the regime
   check first, then this when it allows risk").
-- **Skillset** — the `skillset.id` (skills-index category). Note
-  `manifest_status: deferred` means a bundled skillset manifest is a later
-  phase; today the recommendation is workflow-based.
+- **Skillset** — the `skillset.id` (skills-index category).
+  `manifest_status: active` means a curated `skillsets/<id>.yaml` bundle ships
+  for this category (market-regime, core-portfolio, swing-opportunity,
+  trade-memory) — mention it as the install bundle for the recommended
+  workflow. `manifest_status: deferred` means no manifest yet (e.g. honest-gap
+  categories); the recommendation is workflow-based only.
 - **No-API vs API** — read `no_api_path`: `true` → the entire recommended path
   works without paid API keys (state this plainly); `false` → tell the user
   which paid key(s) the path needs; `null` → honest gap, no path. (`no_api` is
@@ -108,7 +111,7 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 |---|---|
 | `primary_workflow` | Recommended workflow object, or `null` on an honest gap |
 | `secondary_workflows` | Supporting workflows (ordered, time-budget filtered) |
-| `skillset` | `{id, source: skills-index.category, manifest_status: deferred}` |
+| `skillset` | `{id, source: skills-index.category, manifest_status}` — `active` when `skillsets/<id>.yaml` ships, else `deferred` |
 | `suggested_skills` | Skills to use when no workflow shipped (honest gap); else `[]` |
 | `no_api` | Request-side: was no-API constraint mode active (flag or persona) |
 | `no_api_path` | Path-side: does the **whole** recommendation (primary + every secondary) work without paid API keys? `true`/`false`; `null` on an honest gap. This is the DoD's API-vs-no-API separation — narrate it explicitly |

@@ -1,0 +1,38 @@
+schema_version: 1
+id: market-regime
+display_name: Market Regime
+category: market-regime
+timeframe: daily
+difficulty: beginner
+api_profile: no-api-basic
+target_users:
+  - part-time-swing-trader
+  - growth-investor
+
+when_to_use: >-
+  The shared risk layer for every trading day. Use before considering new
+  swing-trade risk to decide today's exposure posture (allow / restrict /
+  cash-priority) from breadth, uptrend participation, and top-risk signals.
+  Operationalized daily by the market-regime-daily workflow.
+when_not_to_use: >-
+  Do not treat this bundle's output as a standalone buy/sell signal — the
+  exposure decision is a posture, not a directive. Do not skip it and run
+  swing-opportunity work directly; the regime gate comes first.
+
+required_skills:
+  - market-breadth-analyzer
+  - uptrend-analyzer
+  - exposure-coach
+recommended_skills:
+  - market-top-detector
+  - macro-regime-detector
+optional_skills:
+  - breadth-chart-analyst
+  - sector-analyst
+  - market-environment-analysis
+  - market-news-analyst
+  - downtrend-duration-analyzer
+  - us-market-bubble-detector
+
+related_workflows:
+  - market-regime-daily
