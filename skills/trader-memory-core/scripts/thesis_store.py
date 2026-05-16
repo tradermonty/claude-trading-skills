@@ -163,6 +163,22 @@ def _today_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d")
 
 
+def _coerce_dt(value: str | None) -> str | None:
+    """Normalize a CLI date arg to an RFC 3339 date-time string.
+
+    ``status_history.at`` / ``entry.actual_date`` are schema ``date-time``
+    (``_check_datetime`` requires a 'T' separator + timezone). A bare
+    ``YYYY-MM-DD`` is widened to midnight UTC — the same idiom register()
+    applies to ``_source_date``. A value that already contains 'T' (a full
+    timestamp) is returned unchanged; ``None`` stays ``None``.
+    """
+    if value is None:
+        return None
+    if "T" in value:
+        return value
+    return f"{value}T00:00:00+00:00"
+
+
 def _generate_thesis_id(ticker: str, thesis_type: str, date_str: str) -> str:
     """Generate a thesis ID with a 4-char hash suffix for uniqueness."""
     abbr = _TYPE_ABBR.get(thesis_type)
@@ -579,11 +595,23 @@ def update(state_dir: Path, thesis_id: str, fields: dict) -> dict:
     return thesis
 
 
-def transition(state_dir: Path, thesis_id: str, new_status: str, reason: str) -> dict:
+def transition(
+    state_dir: Path,
+    thesis_id: str,
+    new_status: str,
+    reason: str,
+    event_date: str | None = None,
+) -> dict:
     """Transition thesis to a new status.
 
     Only allows IDEA → ENTRY_READY. All terminal statuses (ACTIVE, CLOSED,
     INVALIDATED) are blocked — use open_position(), close(), or terminate().
+
+    Args:
+        event_date: Optional ISO/date string for status_history.at (for
+            backfilling existing broker positions). Defaults to now. Mirrors
+            open_position(); a bare YYYY-MM-DD is widened to midnight UTC so a
+            later backdated open_position() stays monotonic.
 
     Raises:
         ValueError: If the transition is invalid.
@@ -616,8 +644,9 @@ def transition(state_dir: Path, thesis_id: str, new_status: str, reason: str) ->
         raise ValueError(f"Cannot transition backward from {current} to {new_status}")
 
     now = _now_iso()
+    history_at = _coerce_dt(event_date) or now
     thesis["status"] = new_status
-    thesis["status_history"].append({"status": new_status, "at": now, "reason": reason})
+    thesis["status_history"].append({"status": new_status, "at": history_at, "reason": reason})
     thesis["updated_at"] = now
 
     _save_thesis(state_dir, thesis)
@@ -820,7 +849,7 @@ def open_position(
     actual_price: float,
     actual_date: str,
     reason: str = "position opened",
-    shares: int | None = None,
+    shares: float | None = None,
     event_date: str | None = None,
 ) -> dict:
     """Transition thesis from ENTRY_READY to ACTIVE with entry data.
@@ -1127,7 +1156,14 @@ def validate_state(state_dir: Path) -> dict:
 
 # -- CLI entry point ----------------------------------------------------------
 
-if __name__ == "__main__":
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point. Returns a process exit code (0 ok, non-zero error).
+
+    Extracted from the former ``if __name__ == "__main__"`` block (behavior of
+    the pre-existing subcommands is unchanged) so the lifecycle subcommands are
+    unit-testable via ``main([...])``.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description="Trader Memory Core — thesis store CLI")
@@ -1163,7 +1199,51 @@ if __name__ == "__main__":
     mr_p.add_argument("--outcome", default="OK", choices=["OK", "WARN", "REVIEW"])
     mr_p.add_argument("--notes", default=None)
 
-    args = parser.parse_args()
+    # transition (IDEA → ENTRY_READY); --event-date backdates the history stamp
+    tr_p = sub.add_parser("transition", help="Transition thesis status (e.g. ENTRY_READY)")
+    tr_p.add_argument("thesis_id", help="Thesis ID")
+    tr_p.add_argument("new_status", help="Target status (e.g. ENTRY_READY)")
+    tr_p.add_argument("--reason", required=True, help="Reason for the transition")
+    tr_p.add_argument("--event-date", default=None, help="Backdate status_history.at (YYYY-MM-DD)")
+
+    # open-position (ENTRY_READY → ACTIVE)
+    op_p = sub.add_parser("open-position", help="Open a position (→ ACTIVE)")
+    op_p.add_argument("thesis_id", help="Thesis ID")
+    op_p.add_argument("--actual-price", type=float, required=True, help="Entry price")
+    op_p.add_argument("--actual-date", required=True, help="Entry date (YYYY-MM-DD or ISO)")
+    op_p.add_argument("--shares", type=float, default=None, help="Share count (fractional ok)")
+    op_p.add_argument("--reason", default="position opened", help="Transition reason")
+    op_p.add_argument("--event-date", default=None, help="Backdate status_history.at")
+
+    # attach-position (position-sizer report)
+    ap_p = sub.add_parser("attach-position", help="Attach a position-sizer report")
+    ap_p.add_argument("thesis_id", help="Thesis ID")
+    ap_p.add_argument("--report", required=True, help="Path to position-sizer JSON report")
+    ap_p.add_argument("--expected-entry", type=float, default=None, help="Expected entry price")
+    ap_p.add_argument("--expected-stop", type=float, default=None, help="Expected stop price")
+
+    # close (ACTIVE → CLOSED)
+    cl_p = sub.add_parser("close", help="Close an ACTIVE thesis")
+    cl_p.add_argument("thesis_id", help="Thesis ID")
+    cl_p.add_argument(
+        "--exit-reason",
+        required=True,
+        choices=["stop_hit", "target_hit", "time_stop", "invalidated", "manual"],
+    )
+    cl_p.add_argument("--actual-price", type=float, required=True, help="Exit price")
+    cl_p.add_argument("--actual-date", required=True, help="Exit date (YYYY-MM-DD or ISO)")
+    cl_p.add_argument("--event-date", default=None, help="Backdate status_history.at")
+
+    # terminate (→ CLOSED or INVALIDATED)
+    tm_p = sub.add_parser("terminate", help="Move thesis to a terminal state")
+    tm_p.add_argument("thesis_id", help="Thesis ID")
+    tm_p.add_argument("--terminal-status", required=True, choices=["CLOSED", "INVALIDATED"])
+    tm_p.add_argument("--exit-reason", required=True, help="Reason for termination")
+    tm_p.add_argument("--actual-price", type=float, default=None, help="Exit price (optional)")
+    tm_p.add_argument("--actual-date", default=None, help="Exit date (optional)")
+    tm_p.add_argument("--event-date", default=None, help="Backdate status_history.at")
+
+    args = parser.parse_args(argv)
     state_dir = Path(args.state_dir)
 
     if args.command == "list":
@@ -1200,5 +1280,64 @@ if __name__ == "__main__":
             f"Reviewed {args.thesis_id}: {args.outcome}, next review: "
             f"{t['monitoring']['next_review_date']}"
         )
+    elif args.command == "transition":
+        t = transition(
+            state_dir,
+            args.thesis_id,
+            args.new_status,
+            args.reason,
+            event_date=_coerce_dt(args.event_date),
+        )
+        print(f"{args.thesis_id} → {t['status']}")
+    elif args.command == "open-position":
+        t = open_position(
+            state_dir,
+            args.thesis_id,
+            args.actual_price,
+            _coerce_dt(args.actual_date),
+            reason=args.reason,
+            shares=args.shares,
+            event_date=_coerce_dt(args.event_date),
+        )
+        print(f"{args.thesis_id} → {t['status']} @ {args.actual_price} x {args.shares}")
+    elif args.command == "attach-position":
+        t = attach_position(
+            state_dir,
+            args.thesis_id,
+            args.report,
+            expected_entry=args.expected_entry,
+            expected_stop=args.expected_stop,
+        )
+        print(f"Attached position to {args.thesis_id}: {t['position']['shares']} shares")
+    elif args.command == "close":
+        t = close(
+            state_dir,
+            args.thesis_id,
+            args.exit_reason,
+            args.actual_price,
+            _coerce_dt(args.actual_date),
+            event_date=_coerce_dt(args.event_date),
+        )
+        out = t.get("outcome") or {}
+        print(
+            f"{args.thesis_id} → {t['status']} ({args.exit_reason}), pnl={out.get('pnl_dollars')}"
+        )
+    elif args.command == "terminate":
+        t = terminate(
+            state_dir,
+            args.thesis_id,
+            args.terminal_status,
+            args.exit_reason,
+            actual_price=args.actual_price,
+            actual_date=_coerce_dt(args.actual_date),
+            event_date=_coerce_dt(args.event_date),
+        )
+        print(f"{args.thesis_id} → {t['status']} ({args.exit_reason})")
     else:
         parser.print_help()
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -81,6 +81,95 @@ def ingest_kanchi(record: dict, input_file: str) -> dict:
     return thesis_data
 
 
+_VALID_THESIS_TYPES = (
+    "dividend_income",
+    "growth_momentum",
+    "mean_reversion",
+    "earnings_drift",
+    "pivot_breakout",
+)
+
+
+def _manual_source_date(record: dict) -> str | None:
+    """Date-only (YYYY-MM-DD) source date for a manual record.
+
+    register() builds the IDEA history stamp as
+    ``f"{_source_date}T00:00:00+00:00"``, so _source_date MUST be date-only —
+    a full ISO entry_date would yield a broken double-suffixed timestamp.
+    Mirrors _extract_source_date()'s ``[:10]`` slice; handles missing/typed
+    values defensively.
+    """
+    for key in ("entry_date", "as_of"):
+        val = record.get(key)
+        if val and isinstance(val, str):
+            return val[:10]  # "YYYY-MM-DD" or "YYYY-MM-DDTHH:..."
+    return None
+
+
+@_adapter("manual")
+def ingest_manual(record: dict, input_file: str) -> dict:
+    """Transform a hand-entered (free-form) position record into thesis data.
+
+    For trades that did not come from a screener adapter (fractional-share
+    brokers, manual journaling). Creates an IDEA thesis only — exactly like
+    every other adapter. An already-open broker position reaches ACTIVE via
+    the explicit CLI sequence: transition → open-position (both accept
+    --event-date for backdating). No status mutation here.
+
+    Required: ticker, thesis_statement, thesis_type.
+    Optional: entry_price, entry_date, shares, stop_price/stop_loss,
+    target_price/take_profit, setup_type, notes. entry_price/entry_date/shares
+    are recorded in origin.raw_provenance only — the authoritative
+    entry.actual_* / position.shares are set later by `open-position`.
+    """
+    ticker = record.get("ticker")
+    if not ticker:
+        raise ValueError("Missing required field 'ticker' in manual record")
+
+    thesis_statement = record.get("thesis_statement")
+    if not thesis_statement:
+        raise ValueError(f"Missing required field 'thesis_statement' in manual record for {ticker}")
+
+    thesis_type = record.get("thesis_type")
+    if thesis_type not in _VALID_THESIS_TYPES:
+        raise ValueError(
+            f"Invalid or missing 'thesis_type' for {ticker}: {thesis_type!r}. "
+            f"Expected one of {', '.join(_VALID_THESIS_TYPES)}"
+        )
+
+    thesis_data = {
+        "ticker": ticker,
+        "thesis_type": thesis_type,
+        "thesis_statement": thesis_statement,
+        "setup_type": record.get("setup_type"),
+        "_register_reason": "manually entered",
+        "entry": {},
+        "exit": {},
+        "origin": {
+            "skill": "manual",
+            "output_file": input_file,
+            "raw_provenance": {k: v for k, v in record.items()},
+        },
+    }
+
+    # Optional risk levels → existing schema fields only (entry/exit are
+    # additionalProperties:false). entry_price/entry_date/shares intentionally
+    # NOT mapped to entry.* — they live in origin.raw_provenance; the
+    # authoritative values are set by `open-position`.
+    stop = record.get("stop_loss", record.get("stop_price"))
+    if stop is not None:
+        thesis_data["exit"]["stop_loss"] = stop
+    target = record.get("take_profit", record.get("target_price"))
+    if target is not None:
+        thesis_data["exit"]["take_profit"] = target
+
+    source_date = _manual_source_date(record)
+    if source_date:
+        thesis_data["_source_date"] = source_date
+
+    return thesis_data
+
+
 @_adapter("earnings-trade-analyzer")
 def ingest_earnings(record: dict, input_file: str) -> dict:
     """Transform earnings-trade-analyzer result into thesis data."""
@@ -376,6 +465,12 @@ def _extract_records(data: dict | list, source: str) -> list[dict]:
     """Extract individual records from various output formats."""
     if isinstance(data, list):
         return data
+
+    # Manual entry is free-form: a single dict is always one record, so the
+    # manual adapter (not _extract_records) owns required-field validation and
+    # can emit a clear "Missing required field 'ticker'" message.
+    if source == "manual" and isinstance(data, dict):
+        return [data]
 
     # Common patterns: {results: [...]}, {candidates: [...]}, {rows: [...]}, ...
     for key in ("results", "candidates", "rows"):

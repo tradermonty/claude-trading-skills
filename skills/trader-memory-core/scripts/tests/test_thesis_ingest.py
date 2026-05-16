@@ -293,3 +293,189 @@ def test_duplicate_ingest_is_idempotent(tmp_path: Path):
     ids2 = thesis_ingest.ingest("earnings-trade-analyzer", input_file, str(state_dir))
 
     assert ids1[0] == ids2[0]
+
+
+# -- Tests: manual adapter -----------------------------------------------------
+
+
+def test_ingest_manual_single_record_fractional(tmp_path: Path):
+    """A free-form single dict (no results/candidates wrapper) → schema-valid
+    IDEA thesis; fractional shares preserved in raw_provenance; stop/target
+    land in existing exit.* fields; entry.* left empty."""
+    state_dir = tmp_path / "theses"
+    record = {
+        "ticker": "AMD",
+        "thesis_statement": "AMD AI accelerator momentum, fractional IBI Smart position",
+        "thesis_type": "growth_momentum",
+        "entry_price": 142.10,
+        "entry_date": "2026-05-02",
+        "shares": 7.86,
+        "stop_price": 128.0,
+        "target_price": 180.0,
+    }
+    input_file = _write_json(tmp_path, record)
+
+    ids = thesis_ingest.ingest("manual", input_file, str(state_dir))
+    assert len(ids) == 1
+
+    thesis = thesis_store.get(state_dir, ids[0])  # get() implies schema-valid
+    assert thesis["status"] == "IDEA"
+    assert thesis["ticker"] == "AMD"
+    assert thesis["thesis_type"] == "growth_momentum"
+    assert thesis["origin"]["skill"] == "manual"
+    assert thesis["origin"]["raw_provenance"]["shares"] == 7.86
+    assert thesis["origin"]["raw_provenance"]["entry_price"] == 142.10
+    assert thesis["exit"]["stop_loss"] == 128.0
+    assert thesis["exit"]["take_profit"] == 180.0
+    # entry_price/date NOT mapped to entry.* (set later by open-position)
+    assert thesis["entry"].get("actual_price") is None
+    assert thesis["entry"].get("target_price") is None
+    assert thesis["position"] is None
+    # _source_date from entry_date → IDEA history stamped that day
+    assert thesis["status_history"][0]["at"] == "2026-05-02T00:00:00+00:00"
+    assert "_20260502_" in ids[0]
+
+
+def test_ingest_manual_array(tmp_path: Path):
+    """A list of manual records registers N theses."""
+    state_dir = tmp_path / "theses"
+    records = [
+        {
+            "ticker": "TSLA",
+            "thesis_statement": "TSLA swing",
+            "thesis_type": "growth_momentum",
+            "entry_date": "2026-05-02",
+        },
+        {
+            "ticker": "OIH",
+            "thesis_statement": "OIH energy services",
+            "thesis_type": "mean_reversion",
+            "entry_date": "2026-05-03",
+        },
+    ]
+    input_file = _write_json(tmp_path, records)
+
+    ids = thesis_ingest.ingest("manual", input_file, str(state_dir))
+    assert len(ids) == 2
+    tickers = {thesis_store.get(state_dir, i)["ticker"] for i in ids}
+    assert tickers == {"TSLA", "OIH"}
+
+
+def test_ingest_manual_missing_ticker_reaches_adapter(tmp_path: Path):
+    """A dict with no ticker/id/symbol still reaches the manual adapter
+    (source-aware _extract_records) and yields the clear field error; ingest
+    registers 0."""
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(
+        tmp_path, {"thesis_statement": "no ticker", "thesis_type": "growth_momentum"}
+    )
+
+    ids = thesis_ingest.ingest("manual", input_file, str(state_dir))
+    assert ids == []  # adapter raised, ingest logged + skipped
+
+    # The adapter's message is explicit (not the generic _extract_records one)
+    with pytest.raises(ValueError, match="Missing required field 'ticker'"):
+        thesis_ingest.ingest_manual(
+            {"thesis_statement": "x", "thesis_type": "growth_momentum"}, "f.json"
+        )
+
+
+def test_ingest_manual_invalid_thesis_type(tmp_path: Path):
+    """Bad thesis_type → clear error, 0 registered."""
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(
+        tmp_path,
+        {"ticker": "AMD", "thesis_statement": "x", "thesis_type": "not_a_type"},
+    )
+    ids = thesis_ingest.ingest("manual", input_file, str(state_dir))
+    assert ids == []
+    with pytest.raises(ValueError, match="Invalid or missing 'thesis_type'"):
+        thesis_ingest.ingest_manual(
+            {"ticker": "AMD", "thesis_statement": "x", "thesis_type": "not_a_type"},
+            "f.json",
+        )
+
+
+@pytest.mark.parametrize("entry_date", ["2026-05-02", "2026-05-02T10:00:00+00:00"])
+def test_ingest_manual_source_date_normalized(tmp_path: Path, entry_date: str):
+    """Date-only and full-ISO entry_date both yield a date-only _source_date
+    (register() builds 'YYYY-MM-DDT00:00:00+00:00')."""
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(
+        tmp_path,
+        {
+            "ticker": "NVDA",
+            "thesis_statement": "NVDA",
+            "thesis_type": "growth_momentum",
+            "entry_date": entry_date,
+        },
+    )
+    ids = thesis_ingest.ingest("manual", input_file, str(state_dir))
+    assert len(ids) == 1
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["status_history"][0]["at"] == "2026-05-02T00:00:00+00:00"
+    assert "_20260502_" in ids[0]
+
+
+def test_manual_backdated_lifecycle_monotonic_e2e(tmp_path: Path):
+    """The issue's repro: a pre-existing fractional broker position reaches
+    ACTIVE via manual ingest → transition --event-date → open-position
+    --event-date, and the fully backdated status_history saves cleanly
+    (IDEA == ENTRY_READY == ACTIVE == entry date)."""
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(
+        tmp_path,
+        {
+            "ticker": "AMD",
+            "thesis_statement": "AMD fractional position from IBI Smart",
+            "thesis_type": "growth_momentum",
+            "entry_price": 142.10,
+            "entry_date": "2026-05-02",
+            "shares": 7.86,
+        },
+    )
+    ids = thesis_ingest.ingest("manual", input_file, str(state_dir))
+    tid = ids[0]
+    sd = str(state_dir)
+
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "transition",
+                tid,
+                "ENTRY_READY",
+                "--reason",
+                "existing IBI Smart position",
+                "--event-date",
+                "2026-05-02",
+            ]
+        )
+        == 0
+    )
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "142.10",
+                "--actual-date",
+                "2026-05-02",
+                "--shares",
+                "7.86",
+                "--event-date",
+                "2026-05-02",
+            ]
+        )
+        == 0
+    )
+
+    t = thesis_store.get(state_dir, tid)  # get() implies it saved + validated
+    assert t["status"] == "ACTIVE"
+    assert t["position"]["shares"] == 7.86
+    ats = [h["at"] for h in t["status_history"]]
+    assert ats == ["2026-05-02T00:00:00+00:00"] * 3

@@ -551,6 +551,20 @@ python3 skills/trader-memory-core/scripts/thesis_ingest.py \
   --input reports/kanchi_entry_signals_2026-03-14.json \
   --state-dir state/theses/
 
+# Manual brokerage entry (fractional shares; free-form JSON, single or array)
+python3 skills/trader-memory-core/scripts/thesis_ingest.py \
+  --source manual --input amd.json --state-dir state/theses/
+
+# Walk an existing broker position to ACTIVE (backdated, fractional shares)
+python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
+  transition <id> ENTRY_READY --reason "existing position" --event-date 2026-05-02
+python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
+  open-position <id> --actual-price 142.10 --actual-date 2026-05-02 \
+  --shares 7.86 --event-date 2026-05-02
+# close / terminate / attach-position are also CLI subcommands
+python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
+  close <id> --exit-reason target_hit --actual-price 165.00 --actual-date 2026-06-01
+
 # Query theses
 python3 skills/trader-memory-core/scripts/thesis_store.py \
   --state-dir state/theses/ list --ticker AAPL --status ACTIVE

@@ -1004,3 +1004,206 @@ def test_list_review_due_uses_parsed_date(tmp_path: Path):
     # Verify the thesis does NOT show up when as_of is far in the past
     results = thesis_store.list_review_due(tmp_path, "2000-01-01")
     assert not any(r["thesis_id"] == tid for r in results)
+
+
+# -- Tests: fractional shares --------------------------------------------------
+
+
+def test_fractional_shares_end_to_end(tmp_path: Path):
+    """open_position with fractional shares → close P&L uses the float qty."""
+    tid, _ = _register_and_get(tmp_path)
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=7.86)
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares"] == 7.86
+    assert isinstance(t["position"]["shares"], float)
+
+    thesis_store.close(tmp_path, tid, "target_hit", 165.0, "2026-03-20T10:00:00+00:00")
+    t = thesis_store.get(tmp_path, tid)
+    assert t["outcome"]["pnl_dollars"] == round((165.0 - 150.0) * 7.86, 2)
+
+
+@pytest.mark.parametrize("bad_shares", [0, -1, -0.5])
+def test_schema_rejects_nonpositive_shares(tmp_path: Path, bad_shares):
+    """exclusiveMinimum:0 — zero and negatives are rejected on save."""
+    tid, _ = _register_and_get(tmp_path)
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    with pytest.raises(ValueError, match="Schema validation failed"):
+        thesis_store.open_position(
+            tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=bad_shares
+        )
+
+
+def test_schema_accepts_integer_shares_backward_compat(tmp_path: Path):
+    """Existing integer-shares theses stay valid (number ⊇ integer)."""
+    tid, _ = _register_and_get(tmp_path)
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=100)
+    t = thesis_store.get(tmp_path, tid)  # get() implies schema-valid
+    assert t["position"]["shares"] == 100
+
+
+# -- Tests: lifecycle CLI (main(argv)) ----------------------------------------
+
+
+def test_cli_main_lifecycle_full_sequence(tmp_path: Path, capsys):
+    """register (lib) → transition → open-position → close all via main([...])
+    with a date-only --actual-date that persists as a tz-aware date-time."""
+    # _source_date backdates the IDEA stamp so the fully backdated chain
+    # (IDEA == ENTRY_READY == ACTIVE == 2026-03-01) stays monotonic.
+    tid, _ = _register_and_get(tmp_path, _source_date="2026-03-01")
+    sd = str(tmp_path)
+
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "transition",
+                tid,
+                "ENTRY_READY",
+                "--reason",
+                "validated",
+                "--event-date",
+                "2026-03-01",
+            ]
+        )
+        == 0
+    )
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "150.0",
+                "--actual-date",
+                "2026-03-01",
+                "--shares",
+                "7.86",
+                "--event-date",
+                "2026-03-01",
+            ]
+        )
+        == 0
+    )
+    t = thesis_store.get(tmp_path, tid)
+    assert t["status"] == "ACTIVE"
+    assert t["position"]["shares"] == 7.86
+    # date-only CLI arg widened to tz-aware date-time
+    assert t["entry"]["actual_date"] == "2026-03-01T00:00:00+00:00"
+
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "close",
+                tid,
+                "--exit-reason",
+                "target_hit",
+                "--actual-price",
+                "165.0",
+                "--actual-date",
+                "2026-03-20",
+            ]
+        )
+        == 0
+    )
+    t = thesis_store.get(tmp_path, tid)
+    assert t["status"] == "CLOSED"
+    assert t["outcome"]["pnl_dollars"] == round((165.0 - 150.0) * 7.86, 2)
+
+
+def test_cli_main_attach_and_terminate(tmp_path: Path):
+    """attach-position + terminate INVALIDATED via main([...])."""
+    tid, _ = _register_and_get(tmp_path)
+    sd = str(tmp_path)
+    report = _make_position_report(tmp_path)
+
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "attach-position",
+                tid,
+                "--report",
+                report,
+            ]
+        )
+        == 0
+    )
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares"] == 125
+
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "terminate",
+                tid,
+                "--terminal-status",
+                "INVALIDATED",
+                "--exit-reason",
+                "thesis broke",
+            ]
+        )
+        == 0
+    )
+    assert thesis_store.get(tmp_path, tid)["status"] == "INVALIDATED"
+
+
+def test_cli_main_existing_subcommands_regression(tmp_path: Path):
+    """The pre-existing subcommands still work through the refactored main()."""
+    tid, _ = _register_and_get(tmp_path)
+    sd = str(tmp_path)
+    assert thesis_store.main(["--state-dir", sd, "list"]) == 0
+    assert thesis_store.main(["--state-dir", sd, "get", tid]) == 0
+    assert thesis_store.main(["--state-dir", sd, "review-due"]) == 0
+    assert thesis_store.main(["--state-dir", sd, "rebuild-index"]) == 0
+    assert thesis_store.main(["--state-dir", sd, "doctor"]) == 0
+    assert thesis_store.main(["--state-dir", sd, "mark-reviewed", tid]) == 0
+    # no subcommand → help, non-zero
+    assert thesis_store.main(["--state-dir", sd]) == 1
+
+
+def test_transition_event_date_backdates_history(tmp_path: Path):
+    """transition(event_date=...) stamps status_history.at, not now."""
+    tid, _ = _register_and_get(tmp_path, _source_date="2026-03-01")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "backdated", event_date="2026-03-01")
+    t = thesis_store.get(tmp_path, tid)
+    assert t["status_history"][1]["at"] == "2026-03-01T00:00:00+00:00"
+
+
+def test_transition_without_event_date_regression(tmp_path: Path):
+    """Existing callers (no event_date) still stamp ~now and pass."""
+    tid, _ = _register_and_get(tmp_path)
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    t = thesis_store.get(tmp_path, tid)
+    # IDEA stamped at register (~now), ENTRY_READY at ~now → still monotonic
+    assert t["status_history"][1]["status"] == "ENTRY_READY"
+    assert "T" in t["status_history"][1]["at"]
+
+
+def test_backdate_monotonicity_negative_control(tmp_path: Path):
+    """Without --event-date on transition, a later backdated open_position
+    breaks status_history monotonicity (this is WHY transition gained
+    event_date)."""
+    tid, _ = _register_and_get(tmp_path)  # IDEA @ ~now
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")  # @ ~now
+    # Full ISO past timestamp → exercises the monotonicity guard (a bare
+    # date-only would fail the date-time FormatChecker first; the CLI layer
+    # is what coerces date-only, which is why _coerce_dt exists).
+    with pytest.raises(ValueError, match="is before"):
+        thesis_store.open_position(
+            tmp_path,
+            tid,
+            150.0,
+            "2026-03-01T10:00:00+00:00",
+            shares=7.86,
+            event_date="2020-01-01T00:00:00+00:00",
+        )
