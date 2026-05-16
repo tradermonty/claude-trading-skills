@@ -240,15 +240,79 @@ class FMPClient:
             self._disabled_endpoints.add(base_url)
 
     def get_historical_prices(self, symbol: str, days: int = 600) -> Optional[dict]:
-        """Fetch historical daily OHLCV data"""
+        """Fetch historical daily OHLCV data.
+
+        Falls back to yfinance when the FMP historical-price endpoint returns
+        nothing (e.g. an ETF unavailable on the caller's FMP plan). The yfinance
+        path requires no extra API key; an FMP API key is still required to
+        construct this client.
+        """
         cache_key = f"prices_{symbol}_{days}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
+        if not data:
+            data = self._get_from_yfinance(symbol, days)
         if data:
             self.cache[cache_key] = data
         return data
+
+    def _get_from_yfinance(self, symbol: str, days: int) -> Optional[dict]:
+        """Fallback: fetch ETF history via yfinance when FMP is unavailable.
+
+        Returns the same contract as the FMP path
+        (``{"symbol": ..., "historical": [...]}`` with most-recent-first bars,
+        each carrying ``date``/``open``/``high``/``low``/``close``/``adjClose``/
+        ``volume``) or ``None`` on empty/error. Never caches here — caching is
+        the caller's responsibility so a failed lookup leaves no poisoned entry.
+        ``yfinance`` is imported lazily so the FMP success path never depends on
+        it.
+        """
+        try:
+            import yfinance as yf
+
+            # Request ~1.5x calendar days to cover weekends/holidays.
+            end = date.today()
+            start = end - timedelta(days=int(days * 1.5))
+            df = yf.download(
+                symbol,
+                start=start.isoformat(),
+                end=end.isoformat(),
+                auto_adjust=True,
+                progress=False,
+            )
+            if df is None or df.empty:
+                return None
+            # yfinance returns MultiIndex columns for a single ticker.
+            if hasattr(df.columns, "levels"):
+                df.columns = df.columns.droplevel(1)
+            historical = []
+            for idx, row in df.iterrows():
+                close = float(row["Close"])
+                historical.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "open": float(row["Open"]),
+                        "high": float(row["High"]),
+                        "low": float(row["Low"]),
+                        "close": close,
+                        # auto_adjust=True -> Close is already adjusted.
+                        "adjClose": close,
+                        "volume": int(row["Volume"]),
+                    }
+                )
+            if not historical:
+                return None
+            # yfinance returns ascending; FMP contract is most-recent-first.
+            historical.reverse()
+            return {"symbol": symbol, "historical": historical[:days]}
+        except Exception as e:
+            print(
+                f"WARNING: yfinance fallback failed for {symbol}: {e}",
+                file=sys.stderr,
+            )
+            return None
 
     def get_batch_historical(self, symbols: list[str], days: int = 600) -> dict[str, list[dict]]:
         """Fetch historical prices for multiple symbols"""

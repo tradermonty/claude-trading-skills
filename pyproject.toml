@@ -14,7 +14,9 @@ requires-python = ">=3.9"
 dependencies = [
     "jsonschema>=4.25.1",
     "pyyaml>=6.0",
+    "requests>=2.31.0",
     "scipy>=1.13.1",
+    "yfinance>=0.2.0",
 ]
 
 [project.optional-dependencies]

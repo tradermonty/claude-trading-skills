@@ -23,9 +23,13 @@ Detect structural macro regime transitions using monthly-frequency cross-asset r
 
 2. Execute the main analysis script:
    ```bash
-   python3 skills/macro-regime-detector/scripts/macro_regime_detector.py
+   uv run python3 skills/macro-regime-detector/scripts/macro_regime_detector.py --output-dir reports/
    ```
-   This fetches 600 days of data for 9 ETFs + Treasury rates (10 API calls total).
+   This fetches 600 days of data for 9 ETFs + Treasury rates (~10 API calls total).
+   An **FMP API key is required** to run this skill (the client raises if it is
+   missing). For individual ETFs whose FMP historical-price endpoint returns
+   nothing, the client automatically falls back to yfinance — this fallback
+   needs no additional API key, but it does not remove the FMP key requirement.
 
 3. Read the generated Markdown report and present findings to user.
 
