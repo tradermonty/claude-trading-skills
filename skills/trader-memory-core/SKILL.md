@@ -38,9 +38,57 @@ python3 skills/trader-memory-core/scripts/thesis_ingest.py \
   --state-dir state/theses/
 ```
 
-Supported sources: `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`.
+Supported sources: `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`, `manual`.
 
 Each thesis starts in `IDEA` status.
+
+#### Manual brokerage entry (fractional shares)
+
+For trades that did **not** come from a screener — e.g. fractional-share
+brokers (IBKR, Robinhood, IBI Smart, Alpaca, eToro) or hand journaling — use
+the `manual` source with a free-form JSON file (a single object or an array):
+
+```json
+{
+  "ticker": "AMD",
+  "thesis_statement": "AMD AI accelerator momentum, fractional IBI Smart position",
+  "thesis_type": "growth_momentum",
+  "entry_price": 142.10,
+  "entry_date": "2026-05-02",
+  "shares": 7.86,
+  "stop_price": 128.00
+}
+```
+
+```bash
+python3 skills/trader-memory-core/scripts/thesis_ingest.py \
+  --source manual --input amd.json --state-dir state/theses/
+```
+
+Required: `ticker`, `thesis_statement`, `thesis_type` (one of
+`dividend_income`, `growth_momentum`, `mean_reversion`, `earnings_drift`,
+`pivot_breakout`). `stop_price`/`stop_loss` and `target_price`/`take_profit`
+map to `exit.stop_loss`/`exit.take_profit`; `entry_price`/`entry_date`/`shares`
+are kept in `origin.raw_provenance` — the authoritative entry price/date and
+share count are set when you open the position (below). `shares` may be
+**fractional** (the schema accepts any positive number). Like every adapter,
+manual ingest creates an `IDEA` thesis only — it never mutates status
+directly.
+
+To record an **already-open broker position**, run the explicit lifecycle
+sequence (the `--event-date` flags backdate the history so it stays
+chronological):
+
+```bash
+# 1. ingest → IDEA (stamped at entry_date)
+python3 .../thesis_ingest.py --source manual --input amd.json --state-dir state/theses/
+# 2. IDEA → ENTRY_READY (backdated)
+python3 .../thesis_store.py --state-dir state/theses/ transition <id> ENTRY_READY \
+  --reason "existing IBI Smart position" --event-date 2026-05-02
+# 3. ENTRY_READY → ACTIVE (fractional shares, backdated)
+python3 .../thesis_store.py --state-dir state/theses/ open-position <id> \
+  --actual-price 142.10 --actual-date 2026-05-02 --shares 7.86 --event-date 2026-05-02
+```
 
 ### 2. Query — Search and list theses
 
@@ -53,17 +101,41 @@ Filter by `--ticker`, `--status`, or `--type`.
 
 ### 3. Update — Transition, attach position, link reports
 
+Each lifecycle operation is available **both** as a Python function and as a
+`thesis_store.py` CLI subcommand. `--event-date` / `--actual-date` accept a
+plain `YYYY-MM-DD` (widened to midnight UTC) or a full ISO timestamp.
+
 **State transition** (IDEA → ENTRY_READY only):
 
-Use `thesis_store.transition(state_dir, thesis_id, "ENTRY_READY", reason)` from Python.
+```bash
+python3 skills/trader-memory-core/scripts/thesis_store.py --state-dir state/theses/ \
+  transition <id> ENTRY_READY --reason "validated" [--event-date YYYY-MM-DD]
+```
 
-**Open position** (ENTRY_READY → ACTIVE):
+`--event-date` backdates `status_history.at` (use it when backfilling an
+existing position so the later backdated `open-position` stays chronological).
+Python: `thesis_store.transition(state_dir, thesis_id, "ENTRY_READY", reason, event_date=...)`.
 
-Use `thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date)` — the only path to ACTIVE. Accepts optional `shares` and `event_date` (for backfilling past trades).
+**Open position** (ENTRY_READY → ACTIVE — the only path to ACTIVE):
+
+```bash
+python3 .../thesis_store.py --state-dir state/theses/ open-position <id> \
+  --actual-price 142.10 --actual-date 2026-05-02 [--shares 7.86] [--event-date 2026-05-02]
+```
+
+`--shares` accepts **fractional** quantities. Python:
+`thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, shares=..., event_date=...)`.
 
 **Close or invalidate** (→ CLOSED or INVALIDATED):
 
-Use `thesis_store.terminate(state_dir, thesis_id, terminal_status, exit_reason, actual_price, actual_date)`. For CLOSED, delegates to `close()` which computes P&L. For INVALIDATED, P&L is computed if entry/exit prices are available.
+```bash
+python3 .../thesis_store.py --state-dir state/theses/ close <id> \
+  --exit-reason target_hit --actual-price 165.00 --actual-date 2026-06-01
+python3 .../thesis_store.py --state-dir state/theses/ terminate <id> \
+  --terminal-status INVALIDATED --exit-reason "thesis broke"
+```
+
+Python: `thesis_store.terminate(state_dir, thesis_id, terminal_status, exit_reason, actual_price, actual_date)`. For CLOSED, delegates to `close()` which computes P&L (fractional-share aware). For INVALIDATED, P&L is computed if entry/exit prices are available.
 
 **Record review** (any non-terminal):
 
@@ -71,7 +143,12 @@ Use `thesis_store.mark_reviewed(state_dir, thesis_id, review_date=..., outcome="
 
 **Attach position-sizer output:**
 
-Use `thesis_store.attach_position(state_dir, thesis_id, report_path)` to link position sizing data. Validates that the report mode is "shares" (not budget).
+```bash
+python3 .../thesis_store.py --state-dir state/theses/ attach-position <id> \
+  --report reports/position_report.json
+```
+
+Python: `thesis_store.attach_position(state_dir, thesis_id, report_path)` to link position sizing data. Validates that the report mode is "shares" (not budget).
 
 **Link related reports:**
 
@@ -113,7 +190,7 @@ Each thesis is a YAML file with:
 - Classification: thesis_type, setup_type, catalyst
 - Lifecycle: status, status_history
 - Entry/Exit: target prices, actual prices, conditions
-- Position: shares, value, risk (attached from position-sizer)
+- Position: shares (fractional supported), value, risk (from position-sizer or `open-position --shares`)
 - Monitoring: review dates, triggers, alerts
 - Origin: source skill, screening grade, raw provenance
 - Outcome: P&L, holding days, MAE/MFE, lessons learned

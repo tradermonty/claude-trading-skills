@@ -54,6 +54,31 @@ Any non-terminal status can transition to `INVALIDATED`:
 - Use `close()` or `terminate(terminal_status="CLOSED")` to reach `CLOSED`.
 - Use `terminate(terminal_status="INVALIDATED")` to reach `INVALIDATED`.
 
+## CLI Access
+
+Every lifecycle operation is also a `thesis_store.py` subcommand:
+`transition`, `open-position`, `attach-position`, `close`, `terminate`
+(alongside `list` / `get` / `review-due` / `rebuild-index` / `doctor` /
+`mark-reviewed`). No Python required to walk a thesis through its lifecycle.
+
+### Backdating an existing position (`--event-date`)
+
+`transition`, `open-position`, `close`, and `terminate` accept `--event-date`
+(sets that transition's `status_history.at`). `open-position` also takes
+`--actual-date` (→ `entry.actual_date`); `close`/`terminate` take
+`--actual-date` (→ `exit.actual_date`). A plain `YYYY-MM-DD` is widened to
+midnight UTC; a full ISO timestamp passes through.
+
+`transition --event-date` exists specifically so an already-open broker
+position recorded via the `manual` adapter keeps a **chronological** history:
+the manual adapter backdates the `IDEA` stamp to `entry_date`, then
+`transition --event-date <entry_date>` and `open-position --event-date
+<entry_date>` keep `ENTRY_READY` and `ACTIVE` at the same date. Without
+`transition --event-date`, `ENTRY_READY` would be stamped "now" while a
+backdated `open-position --event-date` puts `ACTIVE` in the past — so `ACTIVE`
+lands before `ENTRY_READY`, failing the `status_history` monotonicity check on
+save.
+
 ## Monitoring Cycle
 
 1. On `register()`: `next_review_date` = `created_at + review_interval_days`

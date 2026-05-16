@@ -137,7 +137,7 @@
     "position": {
       "type": ["object", "null"],
       "properties": {
-        "shares": {"type": "integer", "minimum": 1},
+        "shares": {"type": "number", "exclusiveMinimum": 0},
         "position_value": {"type": "number"},
         "risk_dollars": {"type": "number"},
         "risk_pct_of_account": {"type": ["number", "null"]},

@@ -27,6 +27,16 @@
 | edge-candidate-agent | `id` | `origin.raw_provenance.edge_id` | |
 | edge-candidate-agent | `hypothesis_type` | `origin.raw_provenance.hypothesis_type` | |
 | edge-candidate-agent | `mechanism_tag` | `mechanism_tag` | behavior/structure/uncertain |
+| manual | `ticker` | `ticker` | Required |
+| manual | `thesis_statement` | `thesis_statement` | Required |
+| manual | `thesis_type` | `thesis_type` | Required; must be a valid enum value |
+| manual | `stop_price` / `stop_loss` | `exit.stop_loss` | Optional |
+| manual | `target_price` / `take_profit` | `exit.take_profit` | Optional |
+| manual | `entry_price` | `origin.raw_provenance.entry_price` | Authoritative `entry.actual_price` set by `open-position` |
+| manual | `entry_date` | `origin.raw_provenance.entry_date` | Also drives `_source_date` (date-only `[:10]`) so the IDEA stamp is backdated |
+| manual | `shares` | `origin.raw_provenance.shares` | Fractional ok; authoritative `position.shares` set by `open-position` |
+| manual | `setup_type` | `setup_type` | Optional passthrough |
+| manual | (all other keys) | `origin.raw_provenance.*` | Preserved |
 
 ## Position Sizer (Update Operation, not Register)
 
@@ -37,6 +47,20 @@
 | `final_risk_dollars` | `position.risk_dollars` | |
 | `final_risk_pct` | `position.risk_pct_of_account` | |
 | `mode` | — | Must be "shares" (budget mode rejected) |
+
+`position.shares` is schema type `number`, `exclusiveMinimum: 0` — **fractional
+shares are valid** (IBKR / Robinhood / IBI Smart / Alpaca etc.). Existing
+integer-share theses remain valid (`number` ⊇ `integer`).
+
+## Manual Entry (free-form, non-screener)
+
+The `manual` source ingests hand-entered positions. Input is free-form JSON —
+a single object **or** an array. Like every adapter it creates an `IDEA`
+thesis only; the authoritative entry price/date and (fractional) share count
+are set later by the `open-position` lifecycle step, not at ingest.
+`entry_date` is normalized to a date-only `_source_date` so the IDEA
+`status_history` entry is stamped at the entry date — keeping a backdated
+IDEA → ENTRY_READY → ACTIVE chain chronological.
 
 ## Phase 1 Constraints
 
