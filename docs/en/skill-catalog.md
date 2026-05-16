@@ -10,7 +10,7 @@ permalink: /en/skill-catalog/
 # Skill Catalog
 {: .no_toc }
 
-A comprehensive catalog of all 50 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
+A comprehensive catalog of all 55 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
 {: .fs-6 .fw-300 }
 
 > Use English skill names ("CANSLIM", "VCP", "FinViz", etc.) for best search results on this page.
@@ -138,6 +138,7 @@ A comprehensive catalog of all 50 Claude Trading Skills organized by category. B
 | **Skill Idea Miner** | Mines Claude Code session logs for skill idea candidates. Extracts, scores, and backlogs new skill ideas from recent coding sessions | <span class="badge badge-free">No API</span> |
 | **Skill Integration Tester** | Validates multi-skill workflows defined in CLAUDE.md by checking skill existence, inter-skill data contracts (JSON schema compatibility), and handoff integrity | <span class="badge badge-free">No API</span> |
 | **[Trade Hypothesis Ideator]({{ '/en/skills/trade-hypothesis-ideator/' | relative_url }})** | Generates falsifiable trade strategy hypotheses from market data, trade logs, and journal snippets with ranked hypothesis cards and optional strategy.yaml export | <span class="badge badge-free">No API</span> |
+| **[Trading Skills Navigator]({{ '/en/skills/trading-skills-navigator/' | relative_url }})** | The on-ramp: from a natural-language trading goal, recommends the right workflow, skillset, API profile, and setup path. Deterministic recommender with honest "no workflow yet" gaps; no-API and beginner paths | <span class="badge badge-free">No API</span> |
 | **Weekly Trade Strategy** | Structured template and workflow for weekly trade strategy reports | <span class="badge badge-workflow">Workflow</span> |
 
 ---
@@ -252,5 +253,6 @@ A comprehensive catalog of all 50 Claude Trading Skills organized by category. B
 | Breakout Trade Planner | -- | -- | -- |
 | Ibd Distribution Day Monitor | -- | -- | -- |
 | Parabolic Short Trade Planner | -- | -- | -- |
+| Trading Skills Navigator | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

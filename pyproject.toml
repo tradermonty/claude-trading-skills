@@ -101,6 +101,7 @@ testpaths = [
     "skills/breakout-trade-planner/scripts/tests",
     "skills/ibd-distribution-day-monitor/scripts/tests",
     "skills/parabolic-short-trade-planner/scripts/tests",
+    "skills/trading-skills-navigator/scripts/tests",
     "scripts/tests",
 ]
 

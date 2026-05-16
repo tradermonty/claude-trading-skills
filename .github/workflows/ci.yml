@@ -166,6 +166,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test trading-skills-navigator
+        run: >
+          python -m pytest skills/trading-skills-navigator/scripts/tests/ -v
+          --cov=skills/trading-skills-navigator/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test repo-level scripts
         run: >
           python -m pytest scripts/tests/ -v
@@ -242,6 +249,13 @@ jobs:
       # the generator would produce from skills-index.yaml.
       - name: README catalog drift check
         run: python3 scripts/generate_catalog_from_index.py --check
+
+      # 5. Navigator snapshot drift check: the bundled
+      # skills/trading-skills-navigator/assets/metadata_snapshot.json (the
+      # Claude Web App fallback) must match what build_snapshot.py would
+      # produce from skills-index.yaml + workflows/*.yaml.
+      - name: Navigator snapshot drift check
+        run: python3 skills/trading-skills-navigator/scripts/build_snapshot.py --check
 
       # Note: the validator + generator unit tests already run under the
       # 'Test repo-level scripts' step in the test job above.

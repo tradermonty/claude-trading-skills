@@ -884,8 +884,14 @@ def generate_index_table_row(
     link = f"{{{{ '/{lang}/skills/{skill_name}/' | relative_url }}}}"
     badges = api_badges_ja(api_info) if lang == "ja" else api_badges(api_info)
     short_desc = description.split(".")[0].strip() if description else title
+    # Collapse newlines/whitespace BEFORE truncating so a multi-line YAML
+    # block-scalar description (e.g. scenario-analyzer) can never span
+    # multiple physical lines and break the markdown table / the row-replace
+    # logic. Escape pipes last so the cell stays single-column.
+    short_desc = " ".join(short_desc.split())
     if len(short_desc) > 120:
         short_desc = short_desc[:117] + "..."
+    short_desc = short_desc.replace("\\", "\\\\").replace("|", "\\|")
     return f"| [{title}]({link}){star} | {short_desc} | {badges} |"
 
 
@@ -923,26 +929,40 @@ def update_index_pages(
 
 
 def _replace_table_rows(index_path: Path, rows: list[str]) -> None:
-    """Replace table data rows in an index.md file, preserving header/footer."""
+    """Rebuild an index.md table: header + fresh rows + preserved footer.
+
+    Deterministic, idempotent, and self-healing. Everything between the
+    ``|---`` header separator and the *last* table row is discarded and
+    rebuilt from ``rows``. The footer is whatever follows the last line that
+    starts with ``|`` (its leading blank lines collapsed to exactly one).
+
+    Using "after the last pipe line" — instead of "first non-pipe line after
+    the separator" (the previous logic) — is what makes this self-heal a file
+    already corrupted by a prior multi-line row: stray non-``|`` continuation
+    lines and duplicated row blocks in the old body are all dropped rather
+    than mistaken for the footer and re-appended on every run. Combined with
+    generate_index_table_row() collapsing newlines, rows can never span
+    multiple physical lines again.
+    """
     text = index_path.read_text(encoding="utf-8")
     lines = text.splitlines()
 
-    # Find the separator line (|---|...) that follows the table header
-    sep_idx = None
-    table_end = None
-    for i, line in enumerate(lines):
-        if line.startswith("|---"):
-            sep_idx = i
-        elif sep_idx is not None and i > sep_idx and not line.startswith("|"):
-            table_end = i
-            break
-
+    sep_idx = next((i for i, line in enumerate(lines) if line.startswith("|---")), None)
     if sep_idx is None:
         return
-    if table_end is None:
-        table_end = len(lines)
 
-    new_lines = lines[: sep_idx + 1] + rows + lines[table_end:]
+    # Last physical line (after the separator) that is a table row.
+    last_pipe_idx = sep_idx
+    for i in range(sep_idx + 1, len(lines)):
+        if lines[i].startswith("|"):
+            last_pipe_idx = i
+
+    footer = lines[last_pipe_idx + 1 :]
+    while footer and footer[0].strip() == "":
+        footer.pop(0)
+    footer = (["", *footer]) if footer else []
+
+    new_lines = lines[: sep_idx + 1] + rows + footer
     index_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 

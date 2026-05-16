@@ -1026,6 +1026,28 @@ skills:
   - trade-memory-loop
   - monthly-performance-review
   hand_written_doc: false
+- id: trading-skills-navigator
+  display_name: Trading Skills Navigator
+  category: meta
+  status: production
+  summary: Recommend the right workflow, skillset, API profile, and setup path from a natural-language
+    trading goal.
+  timeframe: research
+  difficulty: beginner
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Reads local skills-index.yaml + workflows/*.yaml (or bundled snapshot); no network
+  inputs:
+  - user_goal
+  - optional_constraints
+  outputs:
+  - workflow_recommendation
+  - skillset_recommendation
+  - setup_path
+  workflows: []
+  hand_written_doc: false
 - id: uptrend-analyzer
   display_name: Uptrend Analyzer
   category: market-regime
