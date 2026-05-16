@@ -88,6 +88,17 @@ repos:
         files: '^(skills-index\.yaml|scripts/generate_catalog_from_index\.py|README\.md|README\.ja\.md|CLAUDE\.md)$'
         pass_filenames: false
 
+      - id: snapshot-check
+        name: Navigator metadata snapshot drift check (regenerate from SSoT)
+        entry: python3 skills/trading-skills-navigator/scripts/build_snapshot.py --check
+        language: system
+        # Fire on any SSoT input, the normalizer/builder, OR the bundled
+        # snapshot itself (catches manual edits + stale Web-App fallback).
+        # recommend.py is included because build_snapshot.py imports its
+        # normalize_* functions — a normalization change must regen the snapshot.
+        files: '^(skills-index\.yaml|workflows/.*\.yaml|skills/trading-skills-navigator/(assets/metadata_snapshot\.json|scripts/(build_snapshot|recommend)\.py))$'
+        pass_filenames: false
+
       # Pre-push hook: run validator in --strict-workflows + --strict-metadata
       # mode. Pre-commit stays in default mode so quick edits aren't blocked,
       # but pushes must satisfy the stricter contract (workflow internal

@@ -1,0 +1,440 @@
+"""Trading Skills Navigator — golden + behavioral tests.
+
+The 10-Question Contract (PROJECT_VISION.md §12 DoD made executable) is the
+hard gate: each row asserts exact primary_workflow.id / secondary set /
+skillset.id / honest_gap against the REAL repo SSoT.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import build_snapshot  # noqa: E402
+from recommend import (  # noqa: E402
+    PERSONAS,
+    dumps,
+    main,
+    recommend,
+    resolve_metadata,
+    workflow_paid_api_reason,
+)
+
+# ---------------------------------------------------------------------------
+# The 10-Question Contract
+#   (num, query, primary, secondary_set, skillset, honest_gap, no_api_path)
+# no_api_path = the WHOLE recommended path works without paid API keys
+# (PROJECT_VISION.md §12 / intent_routing.md "no-API" column). None on a
+# honest gap (no path → contract column "—").
+# ---------------------------------------------------------------------------
+
+CONTRACT: list[tuple[int, str, str | None, set[str], str, bool, bool | None]] = [
+    (
+        1,
+        "I want to invest long term but swing trade only when the market is favorable",
+        "market-regime-daily",
+        {"swing-opportunity-daily"},
+        "market-regime",
+        False,
+        False,  # path includes fmp-required swing-opportunity-daily
+    ),
+    (
+        2,
+        "I have 15 minutes each morning and want to know whether I can take risk today",
+        "market-regime-daily",
+        set(),
+        "market-regime",
+        False,
+        True,
+    ),
+    (
+        3,
+        "I want to separate long-term holdings from short-term trading risk",
+        "market-regime-daily",
+        {"core-portfolio-weekly"},
+        "market-regime",
+        False,
+        False,  # path includes alpaca-required core-portfolio-weekly
+    ),
+    (
+        4,
+        "I want to review my holdings and dividend candidates this week",
+        "core-portfolio-weekly",
+        set(),
+        "core-portfolio",
+        False,
+        False,  # core-portfolio-weekly → portfolio-manager needs Alpaca
+    ),
+    (
+        5,
+        "I want to do swing trading",
+        "swing-opportunity-daily",
+        set(),
+        "swing-opportunity",
+        False,
+        False,  # swing-opportunity-daily is fmp-required
+    ),
+    (
+        6,
+        "I want to find dividend stocks",
+        "core-portfolio-weekly",
+        set(),
+        "core-portfolio",
+        False,
+        False,
+    ),
+    (7, "I want to use short strategies", None, set(), "advanced-satellite", True, None),
+    (
+        8,
+        "I want to know what works without API keys",
+        "market-regime-daily",
+        {"trade-memory-loop", "monthly-performance-review"},
+        "market-regime",
+        False,
+        True,  # MR + TM + MP are all no-api-basic
+    ),
+    (
+        9,
+        "I want a beginner-friendly starting path",
+        "market-regime-daily",
+        set(),
+        "market-regime",
+        False,
+        True,
+    ),
+    (
+        10,
+        "I want to research and backtest new strategy ideas",
+        None,
+        set(),
+        "strategy-research",
+        True,
+        None,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "num,query,exp_primary,exp_secondary,exp_skillset,exp_gap,exp_no_api_path",
+    CONTRACT,
+    ids=[f"Q{row[0]}" for row in CONTRACT],
+)
+def test_ten_question_contract(
+    repo_metadata: dict[str, Any],
+    num: int,
+    query: str,
+    exp_primary: str | None,
+    exp_secondary: set[str],
+    exp_skillset: str,
+    exp_gap: bool,
+    exp_no_api_path: bool | None,
+) -> None:
+    r = recommend(query, repo_metadata)
+    primary_id = r["primary_workflow"]["id"] if r["primary_workflow"] else None
+    secondary_ids = {w["id"] for w in r["secondary_workflows"]}
+    assert primary_id == exp_primary, f"Q{num} primary"
+    assert secondary_ids == exp_secondary, f"Q{num} secondary"
+    assert r["skillset"]["id"] == exp_skillset, f"Q{num} skillset"
+    assert r["honest_gap"] is exp_gap, f"Q{num} honest_gap"
+    assert r["no_api_path"] == exp_no_api_path, f"Q{num} no_api_path"
+    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["skillset"]["source"] == "skills-index.category"
+
+
+def test_honest_gap_returns_suggested_skills(repo_metadata: dict[str, Any]) -> None:
+    for query, cat in [
+        ("I want to use short strategies", "advanced-satellite"),
+        ("I want to research and backtest new strategy ideas", "strategy-research"),
+    ]:
+        r = recommend(query, repo_metadata)
+        assert r["honest_gap"] is True
+        assert r["primary_workflow"] is None
+        assert r["secondary_workflows"] == []
+        assert r["skillset"]["id"] == cat
+        assert r["suggested_skills"], f"{cat}: suggested_skills must be non-empty"
+        ids = [s["id"] for s in r["suggested_skills"]]
+        assert ids == sorted(ids), "suggested_skills must be id-sorted (stable)"
+        for s in r["suggested_skills"]:
+            assert s["category"] == cat
+        assert r["note"] and "deferred" in r["note"]
+
+
+# ---------------------------------------------------------------------------
+# Credential-aware --no-api filter
+# ---------------------------------------------------------------------------
+
+
+def test_no_api_excludes_fmp_required_swing(repo_metadata: dict[str, Any]) -> None:
+    r = recommend("I want to find swing candidates", repo_metadata, no_api=True)
+    assert r["primary_workflow"]["id"] == "market-regime-daily"
+    assert r["no_api"] is True
+    assert any("swing-opportunity-daily" in x and "excluded" in x for x in r["rationale"])
+
+
+def test_no_api_excludes_alpaca_required_core_portfolio(
+    repo_metadata: dict[str, Any],
+) -> None:
+    # core-portfolio-weekly is api_profile: mixed, but its required
+    # portfolio-manager needs Alpaca (required) -> must be excluded.
+    r = recommend("I want to review holdings this week", repo_metadata, no_api=True)
+    assert r["primary_workflow"]["id"] == "market-regime-daily"
+    assert any(
+        "core-portfolio-weekly" in x and "portfolio-manager" in x and "alpaca" in x
+        for x in r["rationale"]
+    )
+
+
+def test_no_api_keeps_no_api_basic_workflow(repo_metadata: dict[str, Any]) -> None:
+    wf = {w["id"]: w for w in repo_metadata["workflows"]}
+    skills = {s["id"]: s for s in repo_metadata["skills"]}
+    # market-regime-daily: no-api-basic + public_csv "required" (NOT paid).
+    assert workflow_paid_api_reason(wf["market-regime-daily"], skills) is None
+    # swing-opportunity-daily: api_profile fmp-required.
+    assert workflow_paid_api_reason(wf["swing-opportunity-daily"], skills) is not None
+
+
+def test_credential_rule_isolated(write_index, write_workflow) -> None:
+    """public_csv 'required' must NOT count as paid; fmp 'required' must."""
+    from recommend import normalize_skill, normalize_workflow
+
+    skills = {
+        "csv-skill": normalize_skill(
+            {
+                "id": "csv-skill",
+                "display_name": "CSV Skill",
+                "category": "market-regime",
+                "status": "production",
+                "summary": "x",
+                "integrations": [
+                    {"id": "public_csv", "type": "local_file", "requirement": "required"}
+                ],
+            }
+        ),
+        "fmp-skill": normalize_skill(
+            {
+                "id": "fmp-skill",
+                "display_name": "FMP Skill",
+                "category": "swing-opportunity",
+                "status": "production",
+                "summary": "x",
+                "integrations": [{"id": "fmp", "type": "market_data", "requirement": "required"}],
+            }
+        ),
+    }
+    free_wf = normalize_workflow(
+        {"id": "free-wf", "api_profile": "no-api-basic", "required_skills": ["csv-skill"]}
+    )
+    paid_wf = normalize_workflow(
+        {"id": "paid-wf", "api_profile": "mixed", "required_skills": ["fmp-skill"]}
+    )
+    assert workflow_paid_api_reason(free_wf, skills) is None
+    assert workflow_paid_api_reason(paid_wf, skills) is not None
+
+
+# ---------------------------------------------------------------------------
+# experience / time-budget tie-break
+# ---------------------------------------------------------------------------
+
+
+def test_time_budget_filters_long_secondary(repo_metadata: dict[str, Any]) -> None:
+    # Q8 secondary: trade-memory-loop (30m) + monthly-performance-review (90m).
+    full = recommend("what works without API keys", repo_metadata)
+    assert {w["id"] for w in full["secondary_workflows"]} == {
+        "trade-memory-loop",
+        "monthly-performance-review",
+    }
+    budget = recommend("what works without API keys", repo_metadata, time_budget="30m")
+    assert [w["id"] for w in budget["secondary_workflows"]] == ["trade-memory-loop"]
+
+
+def test_secondary_ordering_is_deterministic(repo_metadata: dict[str, Any]) -> None:
+    r = recommend("what works without API keys", repo_metadata)
+    ids = [w["id"] for w in r["secondary_workflows"]]
+    # Sorted by estimated_minutes asc: trade-memory-loop(30) < mpr(90).
+    assert ids == ["trade-memory-loop", "monthly-performance-review"]
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_empty_query_exits_one(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--query", "   "]) == 1
+    assert "must not be empty" in capsys.readouterr().err
+
+
+def test_gibberish_graceful_beginner_default(repo_metadata: dict[str, Any]) -> None:
+    r = recommend("asdf qwer zxcv 12345", repo_metadata)
+    assert r["primary_workflow"]["id"] == "market-regime-daily"
+    assert r["honest_gap"] is False
+    assert r["suggested_skills"] == []
+    assert r["note"] and "did not match" in r["note"]
+
+
+def test_json_schema_keys_present(repo_metadata: dict[str, Any]) -> None:
+    r = recommend("I want to do swing trading", repo_metadata)
+    assert set(r) == {
+        "query",
+        "primary_workflow",
+        "secondary_workflows",
+        "skillset",
+        "suggested_skills",
+        "no_api",
+        "no_api_path",
+        "honest_gap",
+        "note",
+        "rationale",
+        "setup_path_ref",
+    }
+    pw = r["primary_workflow"]
+    assert set(pw) >= {
+        "id",
+        "display_name",
+        "cadence",
+        "estimated_minutes",
+        "api_profile",
+        "difficulty",
+        "required_skills",
+        "optional_skills",
+        "prerequisite_workflows",
+    }
+    assert r["setup_path_ref"] == "references/setup_paths.md"
+
+
+def test_json_output_is_idempotent(repo_metadata: dict[str, Any]) -> None:
+    q = "I want to invest long term but swing trade only when the market is favorable"
+    assert dumps(recommend(q, repo_metadata)) == dumps(recommend(q, repo_metadata))
+
+
+# ---------------------------------------------------------------------------
+# no_api_path (the contract "no-API" column — distinct from request `no_api`)
+# ---------------------------------------------------------------------------
+
+
+def test_no_api_path_true_for_pure_no_api_recommendation(
+    repo_metadata: dict[str, Any],
+) -> None:
+    # Q2 / Q9: recommend market-regime-daily only, no --no-api flag passed.
+    for q in (
+        "I have 15 minutes each morning, can I take risk today",
+        "I want a beginner-friendly starting path",
+    ):
+        r = recommend(q, repo_metadata)
+        assert r["primary_workflow"]["id"] == "market-regime-daily"
+        assert r["no_api"] is False, "no flag passed → request mode stays False"
+        assert r["no_api_path"] is True, "but the recommended path IS no-API"
+
+
+def test_no_api_path_false_when_path_needs_paid_api(
+    repo_metadata: dict[str, Any],
+) -> None:
+    r = recommend("I want to do swing trading", repo_metadata)
+    assert r["primary_workflow"]["id"] == "swing-opportunity-daily"
+    assert r["no_api_path"] is False  # fmp-required
+
+
+def test_no_api_path_none_on_honest_gap(repo_metadata: dict[str, Any]) -> None:
+    r = recommend("I want to use short strategies", repo_metadata)
+    assert r["honest_gap"] is True
+    assert r["no_api_path"] is None
+
+
+# ---------------------------------------------------------------------------
+# Bilingual (Japanese) routing — SKILL.md advertises JA triggers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "query,exp_primary,exp_gap,exp_skillset",
+    [
+        # reviewer's three regression examples
+        ("API キー無しで使えるものを教えて", "market-regime-daily", False, "market-regime"),
+        ("スイングトレードをしたい", "swing-opportunity-daily", False, "swing-opportunity"),
+        ("配当株を探したい", "core-portfolio-weekly", False, "core-portfolio"),
+        # a few more JA personas
+        ("初心者だけどどこから始めればいい", "market-regime-daily", False, "market-regime"),
+        ("ショート戦略を使いたい", None, True, "advanced-satellite"),
+        ("新しい戦略をバックテストしたい", None, True, "strategy-research"),
+        ("毎朝15分で今日リスクを取れるか知りたい", "market-regime-daily", False, "market-regime"),
+    ],
+    ids=[
+        "ja-no-api",
+        "ja-swing",
+        "ja-dividend",
+        "ja-beginner",
+        "ja-short-gap",
+        "ja-research-gap",
+        "ja-morning",
+    ],
+)
+def test_japanese_queries_route(
+    repo_metadata: dict[str, Any],
+    query: str,
+    exp_primary: str | None,
+    exp_gap: bool,
+    exp_skillset: str,
+) -> None:
+    r = recommend(query, repo_metadata)
+    primary_id = r["primary_workflow"]["id"] if r["primary_workflow"] else None
+    assert primary_id == exp_primary, f"JA route: {query}"
+    assert r["honest_gap"] is exp_gap
+    assert r["skillset"]["id"] == exp_skillset
+    # JA queries must NOT fall through to the unmapped beginner default note.
+    assert not (r["note"] and "did not match" in r["note"]), (
+        f"JA query fell through to unmapped default: {query}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Snapshot parity (Web App fallback must be byte-identical to the SSoT path)
+# ---------------------------------------------------------------------------
+
+PARITY_QUERIES = [row[1] for row in CONTRACT] + ["asdf qwer zxcv"]
+
+
+@pytest.mark.parametrize("query", PARITY_QUERIES)
+def test_ssot_snapshot_parity(
+    repo_metadata: dict[str, Any], bundled_metadata: dict[str, Any], query: str
+) -> None:
+    assert dumps(recommend(query, repo_metadata)) == dumps(recommend(query, bundled_metadata))
+
+
+def test_snapshot_not_drifted_from_ssot(repo_root: Path) -> None:
+    rc = build_snapshot.main(["--project-root", str(repo_root), "--check"])
+    assert rc == 0, "metadata_snapshot.json is out of sync — run build_snapshot.py"
+
+
+def test_resolve_metadata_prefers_ssot(repo_root: Path) -> None:
+    md, source = resolve_metadata(repo_root)
+    assert source == "ssot"
+    assert len(md["workflows"]) == 5
+
+
+def test_resolve_metadata_falls_back_to_snapshot(tmp_path: Path) -> None:
+    # tmp_path has no skills-index.yaml/workflows -> must use bundled snapshot.
+    md, source = resolve_metadata(tmp_path)
+    assert source == "snapshot"
+    assert len(md["workflows"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# Persona table sanity
+# ---------------------------------------------------------------------------
+
+
+def test_persona_targets_resolve(repo_metadata: dict[str, Any]) -> None:
+    wf_ids = {w["id"] for w in repo_metadata["workflows"]}
+    cats = {s["category"] for s in repo_metadata["skills"]}
+    for p in PERSONAS:
+        if p.gap_category is not None:
+            assert p.gap_category in cats, p.name
+        else:
+            assert p.primary in wf_ids, p.name
+            for sid in p.secondary:
+                assert sid in wf_ids, f"{p.name}:{sid}"
