@@ -97,6 +97,23 @@ manifest — including every honest-gap category (`advanced-satellite` for #7,
 unchanged (`{id, source, manifest_status}`); only the status value reflects
 manifest presence.
 
+`skillset.manifest` (PR-N3): always present in the `skillset` object — a 5-key
+view `{display_name, required_skills, recommended_skills, optional_skills,
+related_workflows}` when `manifest_status == active`, else `null`. It describes
+the **primary (dominant-category) skillset only** — it is *not* the install
+list.
+
+`setup_bundle` (PR-N3, top-level): the actionable install union over the
+primary skillset/workflow **plus every secondary workflow**'s
+required/optional, deterministically ordered (primary first, then secondaries
+in `secondary_workflows` order) and tier-deduped (required > recommended >
+optional). `sources` records each contributor (`skillset:<id>` /
+`workflow:<id>`). This exists because a single skillset cannot cover a
+multi-workflow recommendation — e.g. Q1's `market-regime` skillset alone would
+drop `swing-opportunity-daily`'s `vcp-screener`. Honest gap → all-empty
+(`suggested_skills` is the install list there). `setup_bundle` is what
+`setup_paths.md` / `SKILL.md` Step 4 instruct the user to install.
+
 ## The `--no-api` credential rule
 
 A workflow needs a paid key if **either**:

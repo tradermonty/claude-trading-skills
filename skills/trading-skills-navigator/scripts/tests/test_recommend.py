@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -21,6 +22,7 @@ from recommend import (  # noqa: E402
     dumps,
     main,
     recommend,
+    render_text,
     resolve_metadata,
     workflow_paid_api_reason,
 )
@@ -169,6 +171,14 @@ def test_ten_question_contract(
     assert r["no_api_path"] == exp_no_api_path, f"Q{num} no_api_path"
     assert r["skillset"]["manifest_status"] == exp_manifest_status, f"Q{num} manifest_status"
     assert r["skillset"]["source"] == "skills-index.category"
+    # PR-N3: active rows surface the on-disk manifest; deferred → null.
+    manifest = r["skillset"]["manifest"]
+    if exp_manifest_status == "active":
+        ss = {s["id"]: s for s in repo_metadata["skillsets"]}[exp_skillset]
+        assert manifest is not None, f"Q{num} manifest present"
+        assert manifest["required_skills"] == ss["required_skills"], f"Q{num} manifest req"
+    else:
+        assert manifest is None, f"Q{num} manifest null on deferred"
 
 
 def test_honest_gap_returns_suggested_skills(repo_metadata: dict[str, Any]) -> None:
@@ -309,6 +319,7 @@ def test_json_schema_keys_present(repo_metadata: dict[str, Any]) -> None:
         "primary_workflow",
         "secondary_workflows",
         "skillset",
+        "setup_bundle",
         "suggested_skills",
         "no_api",
         "no_api_path",
@@ -328,6 +339,20 @@ def test_json_schema_keys_present(repo_metadata: dict[str, Any]) -> None:
         "required_skills",
         "optional_skills",
         "prerequisite_workflows",
+    }
+    assert set(r["skillset"]) == {"id", "source", "manifest_status", "manifest"}
+    assert set(r["skillset"]["manifest"]) == {
+        "display_name",
+        "required_skills",
+        "recommended_skills",
+        "optional_skills",
+        "related_workflows",
+    }  # swing query → active manifest
+    assert set(r["setup_bundle"]) == {
+        "required",
+        "recommended",
+        "optional",
+        "sources",
     }
     assert r["setup_path_ref"] == "references/setup_paths.md"
 
@@ -434,6 +459,150 @@ def test_skillset_deferred_when_no_skillsets_in_metadata(
     r = recommend("I want to do swing trading", stripped)
     assert r["skillset"]["id"] == "swing-opportunity"
     assert r["skillset"]["manifest_status"] == "deferred"
+
+
+# ---------------------------------------------------------------------------
+# PR-N3: skillset.manifest surface + setup_bundle (manifest-driven setup)
+# ---------------------------------------------------------------------------
+
+# (query, expected primary skillset, secondary workflow ids, their required skills)
+_SECONDARY_DROP_CASES = [
+    (
+        "I want to invest long term but swing trade only when the market is favorable",
+        "market-regime",
+        {"swing-opportunity-daily"},
+    ),
+    (
+        "I want to separate long-term holdings from short-term trading risk",
+        "market-regime",
+        {"core-portfolio-weekly"},
+    ),
+    (
+        "I want to know what works without API keys",
+        "market-regime",
+        {"trade-memory-loop", "monthly-performance-review"},
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "query,exp_skillset,exp_secondary",
+    _SECONDARY_DROP_CASES,
+    ids=["Q1", "Q3", "Q8"],
+)
+def test_setup_bundle_does_not_drop_secondary_skills(
+    repo_metadata: dict[str, Any],
+    query: str,
+    exp_skillset: str,
+    exp_secondary: set[str],
+) -> None:
+    """The High-finding gate: setup_bundle.required must include the primary
+    skillset's required skills AND every secondary workflow's required skills
+    (e.g. Q1 must keep vcp-screener from swing-opportunity-daily)."""
+    wf = {w["id"]: w for w in repo_metadata["workflows"]}
+    ss = {s["id"]: s for s in repo_metadata["skillsets"]}
+    r = recommend(query, repo_metadata)
+    sb = r["setup_bundle"]
+    req = set(sb["required"])
+
+    assert set(ss[exp_skillset]["required_skills"]) <= req
+    sec_ids = {w["id"] for w in r["secondary_workflows"]}
+    assert sec_ids == exp_secondary
+    for wid in sec_ids:
+        assert set(wf[wid]["required_skills"]) <= req, f"{wid} required dropped"
+
+    # No skill appears in two tiers.
+    assert not (set(sb["required"]) & set(sb["recommended"]))
+    assert not (set(sb["required"]) & set(sb["optional"]))
+    assert not (set(sb["recommended"]) & set(sb["optional"]))
+
+    # sources: primary skillset first, then each secondary workflow.
+    assert sb["sources"][0] == f"skillset:{exp_skillset}"
+    assert set(sb["sources"][1:]) == {f"workflow:{w}" for w in exp_secondary}
+
+
+def test_setup_bundle_deterministic_and_ordered(repo_metadata: dict[str, Any]) -> None:
+    q = "I want to invest long term but swing trade only when the market is favorable"
+    a = recommend(q, repo_metadata)["setup_bundle"]
+    b = recommend(q, repo_metadata)["setup_bundle"]
+    assert a == b  # deterministic
+    # Primary skillset's required skills come before the secondary's.
+    req = a["required"]
+    assert req.index("market-breadth-analyzer") < req.index("vcp-screener")
+
+
+def test_skillset_manifest_contents_match_yaml(
+    repo_metadata: dict[str, Any], repo_root: Path
+) -> None:
+    y = yaml.safe_load((repo_root / "skillsets" / "swing-opportunity.yaml").read_text())
+    m = recommend("I want to do swing trading", repo_metadata)["skillset"]["manifest"]
+    assert m is not None
+    assert m["display_name"] == y["display_name"]
+    assert m["required_skills"] == y["required_skills"]
+    assert m["recommended_skills"] == y["recommended_skills"]
+    assert m["optional_skills"] == y["optional_skills"]
+    assert m["related_workflows"] == y["related_workflows"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I want to use short strategies",
+        "I want to research and backtest new strategy ideas",
+    ],
+    ids=["short-gap", "research-gap"],
+)
+def test_setup_bundle_empty_on_honest_gap(repo_metadata: dict[str, Any], query: str) -> None:
+    r = recommend(query, repo_metadata)
+    assert r["honest_gap"] is True
+    assert r["skillset"]["manifest"] is None
+    assert r["setup_bundle"] == {
+        "required": [],
+        "recommended": [],
+        "optional": [],
+        "sources": [],
+    }
+    assert r["suggested_skills"], "suggested_skills is the gap install list"
+
+
+def test_manifest_null_when_no_skillsets_falls_back_to_workflows(
+    repo_metadata: dict[str, Any],
+) -> None:
+    # No skillsets → manifest None; setup_bundle must still be built from the
+    # primary + secondary workflows (metadata-driven, not hardcoded).
+    stripped = {**repo_metadata, "skillsets": []}
+    r = recommend(
+        "I want to invest long term but swing trade only when the market is favorable",
+        stripped,
+    )
+    assert r["skillset"]["manifest"] is None
+    sb = r["setup_bundle"]
+    assert "market-breadth-analyzer" in sb["required"]  # primary workflow
+    assert "vcp-screener" in sb["required"]  # secondary workflow
+    assert sb["sources"][0] == "workflow:market-regime-daily"
+
+
+def test_render_text_active_lists_manifest_and_bundle(
+    repo_metadata: dict[str, Any],
+) -> None:
+    txt = render_text(
+        recommend(
+            "I want to invest long term but swing trade only when the market is favorable",
+            repo_metadata,
+        )
+    )
+    assert "Skillset manifest: Market Regime" in txt
+    assert "Setup bundle:" in txt
+    assert "vcp-screener" in txt  # secondary skill surfaced
+    assert "Sources:" in txt
+    assert "skillset:market-regime" in txt
+
+
+def test_render_text_honest_gap_no_bundle(repo_metadata: dict[str, Any]) -> None:
+    txt = render_text(recommend("I want to use short strategies", repo_metadata))
+    assert "Suggested skills:" in txt
+    assert "Setup bundle: (use suggested skills above)" in txt
+    assert "Skillset manifest:" not in txt
 
 
 # ---------------------------------------------------------------------------

@@ -1,21 +1,36 @@
 # Setup Paths
 
-After the recommender returns a workflow, walk the user through installing the
-**specific skills that workflow needs** — the actual `required_skills` and
-`optional_skills` from the JSON, not a generic list. Pick the path for the
-user's environment.
+After the recommender returns a result, walk the user through installing the
+**`setup_bundle`** — the recommender already computed the exact install set for
+you. Pick the path for the user's environment.
 
-## Which skills does the recommended workflow need?
+## Which skills to install — read `setup_bundle`
 
-From the recommender JSON:
+The recommender JSON has a top-level **`setup_bundle`** object — the
+deterministic install union over the primary skillset **and every secondary
+workflow** (so a multi-workflow recommendation never drops a secondary
+workflow's skills). Use it directly; do not re-derive from `primary_workflow`.
 
-- `primary_workflow.required_skills` — must install all of these.
-- `primary_workflow.optional_skills` — install if the user wants the optional
-  steps.
-- `secondary_workflows[].required_skills` — needed only if the user also runs
-  the secondary workflow.
-- On an **honest gap** (`primary_workflow: null`), there is no workflow to set
-  up; install the individual `suggested_skills` instead.
+- `setup_bundle.required` — must install all of these.
+- `setup_bundle.recommended` — install for the full value of the recommended
+  skillset.
+- `setup_bundle.optional` — nice-to-have; install if the user wants the
+  optional steps.
+- `setup_bundle.sources` — explains where each part came from (e.g.
+  `skillset:market-regime`, `workflow:swing-opportunity-daily`); use it to tell
+  the user *why* each skill is in the list.
+- A skill never appears in two tiers (required wins over recommended over
+  optional), so install top-down without de-duping.
+
+`skillset.manifest` (when `manifest_status: active`) is the **description of
+the recommended skillset** — its `display_name` and curated
+required/recommended/optional + `related_workflows` (how the bundle is run).
+Narrate it as "what this sleeve is"; it is *not* the install list — that is
+`setup_bundle` (which also covers the secondary workflows).
+
+On an **honest gap** (`primary_workflow: null`, `skillset.manifest: null`,
+`setup_bundle` all empty), there is no workflow/skillset to set up; install the
+individual `suggested_skills` instead.
 
 Always tell the user which of those skills need a **paid API key** (check each
 skill's row in the repo's API Requirements matrix / `CLAUDE.md`). If the
