@@ -106,6 +106,24 @@ def normalize_workflow(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_skillset(raw: dict[str, Any]) -> dict[str, Any]:
+    """Minimal skillset digest (mirrors normalize_workflow). Carries every
+    field the snapshot needs so SSoT↔snapshot stays byte-identical."""
+    return {
+        "id": str(raw.get("id") or "").strip(),
+        "display_name": str(raw.get("display_name") or raw.get("id") or "").strip(),
+        "category": str(raw.get("category") or raw.get("id") or "").strip(),
+        "timeframe": str(raw.get("timeframe") or "unknown"),
+        "difficulty": str(raw.get("difficulty") or "unknown"),
+        "api_profile": str(raw.get("api_profile") or "unknown"),
+        "target_users": [str(u) for u in (raw.get("target_users") or [])],
+        "required_skills": [str(s) for s in (raw.get("required_skills") or [])],
+        "recommended_skills": [str(s) for s in (raw.get("recommended_skills") or [])],
+        "optional_skills": [str(s) for s in (raw.get("optional_skills") or [])],
+        "related_workflows": [str(w) for w in (raw.get("related_workflows") or [])],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Metadata loading — SSoT first, bundled snapshot fallback.
 # ---------------------------------------------------------------------------
@@ -134,26 +152,43 @@ def load_ssot(project_root: Path) -> dict[str, Any]:
             wf = yaml.safe_load(f)
         if isinstance(wf, dict) and wf.get("id"):
             workflows.append(normalize_workflow(wf))
-    return _finalize_metadata(skills, workflows)
+    skillsets = []
+    skillsets_dir = project_root / "skillsets"
+    if skillsets_dir.is_dir():
+        for ss_path in sorted(skillsets_dir.glob("*.yaml")):
+            with ss_path.open("r", encoding="utf-8") as f:
+                ss = yaml.safe_load(f)
+            if isinstance(ss, dict) and ss.get("id"):
+                skillsets.append(normalize_skillset(ss))
+    return _finalize_metadata(skills, workflows, skillsets)
 
 
 def load_snapshot(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         snap = json.load(f)
     # Snapshot is already normalized; re-finalize to guarantee identical
-    # ordering regardless of how it was written.
-    return _finalize_metadata(list(snap.get("skills") or []), list(snap.get("workflows") or []))
+    # ordering regardless of how it was written. `skillsets` is tolerated
+    # absent for backward compatibility with a pre-PR-N2 snapshot.
+    return _finalize_metadata(
+        list(snap.get("skills") or []),
+        list(snap.get("workflows") or []),
+        list(snap.get("skillsets") or []),
+    )
 
 
 def _finalize_metadata(
-    skills: list[dict[str, Any]], workflows: list[dict[str, Any]]
+    skills: list[dict[str, Any]],
+    workflows: list[dict[str, Any]],
+    skillsets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     skills_sorted = sorted(skills, key=lambda s: s["id"])
     workflows_sorted = sorted(workflows, key=lambda w: w["id"])
+    skillsets_sorted = sorted(skillsets or [], key=lambda s: s["id"])
     return {
         "schema_version": SCHEMA_VERSION,
         "skills": skills_sorted,
         "workflows": workflows_sorted,
+        "skillsets": skillsets_sorted,
     }
 
 
@@ -666,11 +701,14 @@ def _workflow_public_view(workflow: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _skillset(category: str) -> dict[str, str]:
+def _skillset(category: str, skillset_ids: frozenset[str]) -> dict[str, str]:
+    # PR-N2: "active" iff a skillsets/<category>.yaml manifest exists (its id
+    # == the skills-index category). Honest-gap categories have no manifest
+    # → stay "deferred". Object shape is unchanged: {id, source, manifest_status}.
     return {
         "id": category,
         "source": "skills-index.category",
-        "manifest_status": "deferred",
+        "manifest_status": "active" if category in skillset_ids else "deferred",
     }
 
 
@@ -725,6 +763,7 @@ def recommend(
     norm = normalize_query(query)
     skills_by_id = {s["id"]: s for s in metadata["skills"]}
     workflows_by_id = {w["id"]: w for w in metadata["workflows"]}
+    skillset_ids = frozenset(s["id"] for s in (metadata.get("skillsets") or []))
 
     rationale: list[str] = []
     note: str | None = None
@@ -783,7 +822,7 @@ def recommend(
             query=query,
             primary=None,
             secondary=[],
-            skillset=_skillset(gap_category),
+            skillset=_skillset(gap_category, skillset_ids),
             suggested_skills=suggested,
             no_api=no_api,
             no_api_path=None,  # honest gap has no path — contract column "—"
@@ -821,7 +860,7 @@ def recommend(
         time_budget=time_budget_min,
     )
 
-    skillset = _skillset(dominant_category(primary_wf, skills_by_id))
+    skillset = _skillset(dominant_category(primary_wf, skills_by_id), skillset_ids)
     rationale.append(
         f"skillset '{skillset['id']}' = category of "
         f"'{primary_wf['required_skills'][0]}' "

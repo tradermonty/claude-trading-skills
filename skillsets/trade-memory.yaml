@@ -1,0 +1,34 @@
+schema_version: 1
+id: trade-memory
+display_name: Trade Memory
+category: trade-memory
+timeframe: event-driven
+difficulty: beginner
+api_profile: no-api-basic
+target_users:
+  - part-time-swing-trader
+  - long-term-investor
+  - growth-investor
+
+when_to_use: >-
+  The shared learning loop: record closed-trade outcomes, run postmortems, and
+  feed lessons back into the process. Use after every closed position and for
+  the monthly performance retrospective. Operationalized by the
+  trade-memory-loop (per closed trade) and monthly-performance-review (monthly)
+  workflows.
+when_not_to_use: >-
+  Do not run before a position is closed — update an open thesis with
+  trader-memory-core directly instead. Do not skip the loop after a closed
+  trade, even on winners.
+
+required_skills:
+  - trader-memory-core
+  - signal-postmortem
+recommended_skills:
+  - backtest-expert
+optional_skills:
+  - trade-hypothesis-ideator
+
+related_workflows:
+  - trade-memory-loop
+  - monthly-performance-review

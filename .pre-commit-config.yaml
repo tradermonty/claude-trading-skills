@@ -69,6 +69,17 @@ repos:
         files: '^(skills-index\.yaml|skills/[^/]+/SKILL\.md|workflows/.*\.yaml|scripts/validate_skills_index\.py|scripts/tests/test_validate_skills_index\.py|docs/dev/metadata-and-workflow-schema\.md)$'
         pass_filenames: false
 
+      - id: validate-skillsets
+        name: Validate skillsets/*.yaml manifests (SK001-SK013)
+        entry: python3 scripts/validate_skillsets.py
+        language: system
+        # Inputs: the manifests, plus skills-index.yaml + workflows/*.yaml
+        # (skill/workflow refs and the related_workflows coherence rules are
+        # validated against them — a workflow edit that desyncs a skillset
+        # must fail here). pass_filenames: false → always validate all manifests.
+        files: '^(skillsets/.*\.yaml|skills-index\.yaml|workflows/.*\.yaml|scripts/validate_skillsets\.py|scripts/tests/test_validate_skillsets\.py|docs/dev/metadata-and-workflow-schema\.md)$'
+        pass_filenames: false
+
       - id: workflow-docs-drift
         name: Workflow docs drift check (regenerate from workflows/*.yaml)
         entry: python3 scripts/generate_workflow_docs.py --check
@@ -96,7 +107,9 @@ repos:
         # snapshot itself (catches manual edits + stale Web-App fallback).
         # recommend.py is included because build_snapshot.py imports its
         # normalize_* functions — a normalization change must regen the snapshot.
-        files: '^(skills-index\.yaml|workflows/.*\.yaml|skills/trading-skills-navigator/(assets/metadata_snapshot\.json|scripts/(build_snapshot|recommend)\.py))$'
+        # skillsets/*.yaml is included because PR-N2 load_ssot folds skillsets
+        # into the snapshot — a manifest edit must regen it.
+        files: '^(skills-index\.yaml|workflows/.*\.yaml|skillsets/.*\.yaml|skills/trading-skills-navigator/(assets/metadata_snapshot\.json|scripts/(build_snapshot|recommend)\.py))$'
         pass_filenames: false
 
       # Pre-push hook: run validator in --strict-workflows + --strict-metadata

@@ -92,3 +92,18 @@ def write_workflow(tmp_path: Path) -> Callable[..., Path]:
         return wf_dir
 
     return _write
+
+
+@pytest.fixture()
+def write_skillset(tmp_path: Path) -> Callable[..., Path]:
+    """Write skillsets/<id>.yaml into tmp_path/skillsets; return the dir."""
+
+    def _write(skillset: dict[str, Any]) -> Path:
+        ss_dir = tmp_path / "skillsets"
+        ss_dir.mkdir(exist_ok=True)
+        (ss_dir / f"{skillset['id']}.yaml").write_text(
+            yaml.safe_dump(skillset, sort_keys=False), encoding="utf-8"
+        )
+        return ss_dir
+
+    return _write

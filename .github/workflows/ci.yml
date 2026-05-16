@@ -238,6 +238,11 @@ jobs:
       - name: Validate skills-index (--strict-metadata)
         run: python3 scripts/validate_skills_index.py --strict-metadata
 
+      # 2c. Skillset manifest validation — full-field completeness +
+      # related_workflows coherence (SK001-SK013). Always strict.
+      - name: Validate skillsets
+        run: python3 scripts/validate_skillsets.py
+
       # 3. Drift check: docs/{en,ja}/workflows.md must match what the
       # generator would produce from workflows/*.yaml. Catches manual edits
       # to the docs and stale docs after manifest changes.
