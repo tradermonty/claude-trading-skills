@@ -54,7 +54,7 @@
     },
     "status": {
       "type": "string",
-      "enum": ["IDEA", "ENTRY_READY", "ACTIVE", "CLOSED", "INVALIDATED"]
+      "enum": ["IDEA", "ENTRY_READY", "ACTIVE", "PARTIALLY_CLOSED", "CLOSED", "INVALIDATED"]
     },
     "status_history": {
       "type": "array",
@@ -64,7 +64,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["IDEA", "ENTRY_READY", "ACTIVE", "CLOSED", "INVALIDATED"]
+            "enum": ["IDEA", "ENTRY_READY", "ACTIVE", "PARTIALLY_CLOSED", "CLOSED", "INVALIDATED"]
           },
           "at": {
             "type": "string",
@@ -72,7 +72,11 @@
           },
           "reason": {
             "type": "string"
-          }
+          },
+          "shares_sold": {"type": "number", "exclusiveMinimum": 0},
+          "price": {"type": "number"},
+          "proceeds": {"type": "number"},
+          "realized_pnl": {"type": "number"}
         }
       }
     },
@@ -138,6 +142,7 @@
       "type": ["object", "null"],
       "properties": {
         "shares": {"type": "number", "exclusiveMinimum": 0},
+        "shares_remaining": {"type": "number", "minimum": 0},
         "position_value": {"type": "number"},
         "risk_dollars": {"type": "number"},
         "risk_pct_of_account": {"type": ["number", "null"]},

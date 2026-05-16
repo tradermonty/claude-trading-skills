@@ -42,7 +42,7 @@
 
 | Raw Field | Canonical Field | Notes |
 |---|---|---|
-| `final_recommended_shares` | `position.shares` | |
+| `final_recommended_shares` | `position.shares` + `position.shares_remaining` | shares_remaining seeded == shares |
 | `final_position_value` | `position.position_value` | |
 | `final_risk_dollars` | `position.risk_dollars` | |
 | `final_risk_pct` | `position.risk_pct_of_account` | |
@@ -51,6 +51,26 @@
 `position.shares` is schema type `number`, `exclusiveMinimum: 0` — **fractional
 shares are valid** (IBKR / Robinhood / IBI Smart / Alpaca etc.). Existing
 integer-share theses remain valid (`number` ⊇ `integer`).
+
+## Partial close (`trim`)
+
+`position.shares` = the **original** opened quantity (immutable).
+`position.shares_remaining` (`number`, `minimum: 0`) = currently-open
+quantity. Each `trim()` and the final close write a `status_history` ledger
+entry:
+
+| Ledger field (status_history item) | Meaning |
+|---|---|
+| `shares_sold` | quantity sold in this leg |
+| `price` | execution price of this leg |
+| `proceeds` | `round(price × shares_sold, 2)` |
+| `realized_pnl` | `round((price − entry_price) × shares_sold, 2)` |
+
+`outcome.pnl_dollars = Σ realized_pnl` over all ledger entries;
+`outcome.pnl_pct = pnl_dollars / (entry_price × original_shares) × 100`. The
+ledger fields are optional in the schema, so legacy (non-trim) status_history
+entries stay valid; `shares_remaining` is optional too (absent ⇒ treated as
+fully open for legacy ACTIVE/CLOSED).
 
 ## Manual Entry (free-form, non-screener)
 

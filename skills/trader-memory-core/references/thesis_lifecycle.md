@@ -6,17 +6,36 @@
 |--------|-------------|-----------------|
 | `IDEA` | Screened candidate, not yet validated for entry | Ingest from screener output |
 | `ENTRY_READY` | Validated, entry conditions defined, waiting for price | Manual review / deep-dive analysis |
-| `ACTIVE` | Position opened (actual_price and actual_date filled) | Entry execution confirmed |
-| `CLOSED` | Position exited, outcome recorded | Exit execution confirmed |
+| `ACTIVE` | Position opened (actual_price and actual_date filled); `shares_remaining == shares` | Entry execution confirmed |
+| `PARTIALLY_CLOSED` | Part of the position trimmed; `0 < shares_remaining < shares` | `trim()` sold some shares |
+| `CLOSED` | Position fully exited, outcome recorded; `shares_remaining == 0` | Exit execution confirmed |
 | `INVALIDATED` | Thesis killed before or during holding | Kill criteria triggered |
 
 ## Valid Transitions
 
 ```
-IDEA ──────► ENTRY_READY ──────► ACTIVE ──────► CLOSED
-  │               │                 │
-  └───────────────┴─────────────────┴──────────► INVALIDATED
+IDEA ─► ENTRY_READY ─► ACTIVE ─► PARTIALLY_CLOSED ─► CLOSED
+  │          │            │            │ ▲   │
+  │          │            │            │ └───┘ (further trims)
+  └──────────┴────────────┴────────────┴───────────► INVALIDATED
 ```
+
+`ACTIVE → PARTIALLY_CLOSED → … → CLOSED` is driven by `trim()` only;
+`trim()` that sells the entire remainder goes straight to `CLOSED`. `close()`
+accepts `ACTIVE` **or** `PARTIALLY_CLOSED`.
+
+### Partial close & cumulative P&L
+
+`position.shares` is the original opened quantity (immutable);
+`position.shares_remaining` is the currently-open quantity. Each `trim()` and
+the final close append a `status_history` ledger entry carrying
+`shares_sold` / `price` / `proceeds` / `realized_pnl`.
+`outcome.pnl_dollars = Σ realized_pnl`;
+`outcome.pnl_pct = pnl_dollars / (entry_price × original_shares) × 100`.
+With no trims this is identical to the legacy single-leg result. Legacy
+ACTIVE/CLOSED theses missing `shares_remaining` validate fine and are treated
+as fully open at runtime; `PARTIALLY_CLOSED` (a post-PR-80B status) always
+requires `position.shares` + `position.shares_remaining`.
 
 ### Forward-Only Rule
 
@@ -39,20 +58,26 @@ Any non-terminal status can transition to `INVALIDATED`:
 |-----------|----------------|--------|
 | `register()` | — | Creates thesis with `IDEA` status (idempotent via fingerprint) |
 | `transition()` | Any non-terminal (IDEA → ENTRY_READY only) | Advances status, appends to `status_history` |
-| `open_position()` | `ENTRY_READY` | Sets entry data, transitions to `ACTIVE` (only path to ACTIVE) |
-| `attach_position()` | Any | Attaches position sizing data |
+| `open_position()` | `ENTRY_READY` | Sets entry data + `shares_remaining`, transitions to `ACTIVE` (only path to ACTIVE) |
+| `attach_position()` | `IDEA` / `ENTRY_READY` / `ACTIVE` | Attaches position sizing data (sets `shares` + `shares_remaining == shares`); rejected on PARTIALLY_CLOSED / CLOSED / INVALIDATED (would corrupt the trim ledger) |
+| `trim()` | `ACTIVE` / `PARTIALLY_CLOSED` | Sells part; appends a ledger entry, decrements `shares_remaining`; → `PARTIALLY_CLOSED` (or `CLOSED` if remainder hits 0) |
 | `link_report()` | Any | Adds linked report reference |
-| `close()` | `ACTIVE` | Sets `CLOSED`, computes `outcome.pnl_*` and `holding_days` |
+| `close()` | `ACTIVE` / `PARTIALLY_CLOSED` | Sets `CLOSED`, computes cumulative `outcome.pnl_*` and `holding_days` |
 | `terminate()` | Any non-terminal | Transitions to `CLOSED` (delegates to close) or `INVALIDATED` with optional exit data |
 | `mark_reviewed()` | Any non-terminal | Updates review dates and status based on review_date |
 | `rebuild_index()` | — | Recreates `_index.json` from YAML files |
 | `validate_state()` | — | Checks file ⇔ index consistency + schema validation |
 
 **Important**:
-- `transition()` only allows `IDEA → ENTRY_READY`. All terminal statuses are blocked.
+- `transition()` only allows `IDEA → ENTRY_READY`; `ACTIVE` and
+  `PARTIALLY_CLOSED` are blocked (use `open_position()` / `trim()`), as are
+  all terminal statuses.
 - Use `open_position()` to reach `ACTIVE` (requires `actual_price` and `actual_date`).
-- Use `close()` or `terminate(terminal_status="CLOSED")` to reach `CLOSED`.
-- Use `terminate(terminal_status="INVALIDATED")` to reach `INVALIDATED`.
+- Use `trim()` to reach `PARTIALLY_CLOSED` (requires `shares_sold`, `price`, `date`).
+- Use `close()` (from `ACTIVE` or `PARTIALLY_CLOSED`), `trim()` selling the
+  whole remainder, or `terminate(terminal_status="CLOSED")` to reach `CLOSED`.
+- Use `terminate(terminal_status="INVALIDATED")` to reach `INVALIDATED`
+  (cumulative P&L when price+date supplied; otherwise the legacy no-P&L path).
 
 ## CLI Access
 

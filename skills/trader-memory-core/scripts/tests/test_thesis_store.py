@@ -1207,3 +1207,274 @@ def test_backdate_monotonicity_negative_control(tmp_path: Path):
             shares=7.86,
             event_date="2020-01-01T00:00:00+00:00",
         )
+
+
+# -- Tests: PR-80B partial close (PARTIALLY_CLOSED + shares_remaining + trim) --
+
+
+def _active_with_shares(tmp_path: Path, shares, entry_price=100.0, **overrides):
+    """Register → ENTRY_READY → ACTIVE @2026-05-01 with `shares` (chain
+    backdated so later-dated trims stay status_history-monotonic).
+
+    `**overrides` (e.g. ticker=...) flow to _register_and_get so a single
+    test can build multiple distinct theses (default _make_thesis_data is
+    fingerprint-idempotent — same args ⇒ same thesis)."""
+    tid, _ = _register_and_get(tmp_path, _source_date="2026-05-01", **overrides)
+    thesis_store.transition(
+        tmp_path, tid, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    thesis_store.open_position(
+        tmp_path,
+        tid,
+        entry_price,
+        "2026-05-01T00:00:00+00:00",
+        shares=shares,
+        event_date="2026-05-01T00:00:00+00:00",
+    )
+    return tid
+
+
+def test_open_position_sets_shares_remaining(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares"] == 10
+    assert t["position"]["shares_remaining"] == 10
+
+
+def test_attach_then_open_position_no_shares_sets_remaining(tmp_path: Path):
+    """attach_position() sets shares_remaining; open_position without --shares
+    must not leave a PR-80B record looking legacy."""
+    tid, _ = _register_and_get(tmp_path, _source_date="2026-05-01")
+    thesis_store.transition(
+        tmp_path, tid, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    report = _make_position_report(tmp_path)  # final_recommended_shares = 125
+    thesis_store.attach_position(tmp_path, tid, report)
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares_remaining"] == 125
+    thesis_store.open_position(
+        tmp_path, tid, 150.0, "2026-05-01T00:00:00+00:00", event_date="2026-05-01T00:00:00+00:00"
+    )
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares_remaining"] == t["position"]["shares"] == 125
+
+
+@pytest.mark.parametrize("end_status", ["PARTIALLY_CLOSED", "CLOSED", "INVALIDATED"])
+def test_attach_position_rejected_post_open(tmp_path: Path, end_status):
+    """attach_position() must refuse PARTIALLY_CLOSED / CLOSED / INVALIDATED —
+    re-writing shares_remaining == shares would violate the invariant and
+    clobber the trim ledger."""
+    report = _make_position_report(tmp_path)
+    tid = _active_with_shares(tmp_path, 10, ticker=f"ATCH{end_status[:3]}")
+
+    if end_status == "PARTIALLY_CLOSED":
+        thesis_store.trim(tmp_path, tid, 4, 120.0, "2026-05-10")
+    elif end_status == "CLOSED":
+        thesis_store.trim(tmp_path, tid, 10, 120.0, "2026-05-10")  # trim-to-zero
+    else:  # INVALIDATED
+        thesis_store.terminate(tmp_path, tid, "INVALIDATED", "thesis broke")
+
+    assert thesis_store.get(tmp_path, tid)["status"] == end_status
+    with pytest.raises(ValueError, match="attach_position\\(\\) not allowed"):
+        thesis_store.attach_position(tmp_path, tid, report)
+
+
+def test_trim_active_to_partially_closed(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    t = thesis_store.trim(tmp_path, tid, 4, 120.0, "2026-05-10")
+    assert t["status"] == "PARTIALLY_CLOSED"
+    assert t["position"]["shares_remaining"] == 6
+    led = t["status_history"][-1]
+    assert led["status"] == "PARTIALLY_CLOSED"
+    assert led["shares_sold"] == 4
+    assert led["price"] == 120.0
+    assert led["proceeds"] == 480.0
+    assert led["realized_pnl"] == 80.0  # (120-100)*4
+    assert led["at"] == "2026-05-10T00:00:00+00:00"  # --date persisted
+
+
+def test_multi_trim_then_close_cumulative(tmp_path: Path):
+    """entry 100 / 10sh; trim 4@120 (+80), trim 3@130 (+90), close 3@90 (−30)
+    → cumulative pnl_dollars 140, pnl_pct 140/(100*10)*100 = 14.0."""
+    tid = _active_with_shares(tmp_path, 10)
+    thesis_store.trim(tmp_path, tid, 4, 120.0, "2026-05-10")
+    thesis_store.trim(tmp_path, tid, 3, 130.0, "2026-05-15")
+    t = thesis_store.close(tmp_path, tid, "manual", 90.0, "2026-05-20T00:00:00+00:00")
+    assert t["status"] == "CLOSED"
+    assert t["position"]["shares_remaining"] == 0
+    assert t["outcome"]["pnl_dollars"] == 140.0
+    assert t["outcome"]["pnl_pct"] == 14.0
+    assert t["outcome"]["holding_days"] == 19  # 2026-05-01 → 2026-05-20
+    ledger = [h for h in t["status_history"] if "realized_pnl" in h]
+    assert [h["realized_pnl"] for h in ledger] == [80.0, 90.0, -30.0]
+    # exactly one terminal entry, and it is CLOSED
+    assert sum(1 for h in t["status_history"] if h["status"] == "CLOSED") == 1
+    assert t["status_history"][-1]["status"] == "CLOSED"
+
+
+def test_trim_to_zero_closes_with_default_exit_reason(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    thesis_store.trim(tmp_path, tid, 6, 120.0, "2026-05-10")
+    t = thesis_store.trim(tmp_path, tid, 4, 130.0, "2026-05-15")
+    assert t["status"] == "CLOSED"
+    assert t["position"]["shares_remaining"] == 0
+    assert t["exit"]["exit_reason"] == "manual"  # default
+    assert t["exit"]["actual_price"] == 130.0
+    assert t["exit"]["actual_date"] == "2026-05-15T00:00:00+00:00"
+    # (120-100)*6 + (130-100)*4 = 120 + 120 = 240
+    assert t["outcome"]["pnl_dollars"] == 240.0
+    # only one CLOSED entry (trim's own ledger entry, not duplicated)
+    assert sum(1 for h in t["status_history"] if h["status"] == "CLOSED") == 1
+
+
+def test_trim_to_zero_exit_reason_override(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 5)
+    t = thesis_store.trim(tmp_path, tid, 5, 80.0, "2026-05-10", exit_reason="stop_hit")
+    assert t["status"] == "CLOSED"
+    assert t["exit"]["exit_reason"] == "stop_hit"
+
+
+def test_close_from_partially_closed_is_cumulative(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    thesis_store.trim(tmp_path, tid, 7, 120.0, "2026-05-10")  # realized +140
+    t = thesis_store.close(
+        tmp_path, tid, "manual", 90.0, "2026-05-20T00:00:00+00:00"
+    )  # remaining 3 @ 90 → (90-100)*3 = −30
+    assert t["status"] == "CLOSED"
+    assert t["outcome"]["pnl_dollars"] == 110.0  # 140 − 30
+    assert sum(1 for h in t["status_history"] if h["status"] == "CLOSED") == 1
+
+
+def test_trim_guards(tmp_path: Path):
+    # Distinct tickers — _make_thesis_data defaults are fingerprint-idempotent,
+    # so identical args would collapse to one thesis.
+    # not ACTIVE/PARTIALLY_CLOSED (IDEA)
+    tid, _ = _register_and_get(tmp_path, ticker="GUARDA")
+    with pytest.raises(ValueError, match="Can only trim"):
+        thesis_store.trim(tmp_path, tid, 1, 100.0, "2026-05-10")
+    # ACTIVE but no position/shares (open-position without --shares)
+    tid2, _ = _register_and_get(tmp_path, ticker="GUARDB", _source_date="2026-05-01")
+    thesis_store.transition(
+        tmp_path, tid2, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    thesis_store.open_position(
+        tmp_path,
+        tid2,
+        100.0,
+        "2026-05-01T00:00:00+00:00",
+        event_date="2026-05-01T00:00:00+00:00",
+    )
+    with pytest.raises(ValueError, match="requires a recorded position"):
+        thesis_store.trim(tmp_path, tid2, 1, 100.0, "2026-05-10")
+    # shares_sold > remaining and <= 0
+    tid3 = _active_with_shares(tmp_path, 5, ticker="GUARDC")
+    with pytest.raises(ValueError, match="must be > 0 and"):
+        thesis_store.trim(tmp_path, tid3, 6, 100.0, "2026-05-10")
+    with pytest.raises(ValueError, match="must be > 0 and"):
+        thesis_store.trim(tmp_path, tid3, 0, 100.0, "2026-05-10")
+
+
+def test_trim_fractional_precision_to_zero(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 7.86)
+    t = thesis_store.trim(tmp_path, tid, 4.00, 120.0, "2026-05-10")
+    assert t["status"] == "PARTIALLY_CLOSED"
+    assert t["position"]["shares_remaining"] == 3.86
+    t = thesis_store.trim(tmp_path, tid, 3.86, 130.0, "2026-05-15")
+    assert t["status"] == "CLOSED"
+    assert t["position"]["shares_remaining"] == 0  # epsilon-snapped
+
+
+def test_transition_into_partially_closed_blocked(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    with pytest.raises(ValueError, match="Use trim\\(\\)"):
+        thesis_store.transition(tmp_path, tid, "PARTIALLY_CLOSED", "nope")
+
+
+def test_partially_closed_requires_shares_remaining(tmp_path: Path):
+    """A PARTIALLY_CLOSED thesis with no shares_remaining is rejected (no
+    legacy leniency for this PR-80B-only status)."""
+    tid = _active_with_shares(tmp_path, 10)
+    thesis_store.trim(tmp_path, tid, 4, 120.0, "2026-05-10")  # → PARTIALLY_CLOSED
+    t = thesis_store.get(tmp_path, tid)
+    del t["position"]["shares_remaining"]
+    with pytest.raises(ValueError, match="requires position.shares_remaining"):
+        thesis_store._validate_thesis(t)
+
+
+def test_closed_shares_remaining_zero_passes_schema(tmp_path: Path):
+    """Regression for the minimum:0 schema fix — a CLOSED thesis persisting
+    shares_remaining == 0 must NOT be rejected at the JSON-Schema layer."""
+    tid = _active_with_shares(tmp_path, 10)
+    thesis_store.trim(tmp_path, tid, 10, 120.0, "2026-05-10")  # full close-out
+    t = thesis_store.get(tmp_path, tid)  # get() implies schema-valid
+    assert t["status"] == "CLOSED"
+    assert t["position"]["shares_remaining"] == 0
+    thesis_store._validate_thesis(t)  # explicit: no raise
+
+
+def test_legacy_active_without_shares_remaining_valid(tmp_path: Path):
+    """A legacy ACTIVE thesis (no shares_remaining key) still validates."""
+    tid = _active_with_shares(tmp_path, 10)
+    t = thesis_store.get(tmp_path, tid)
+    del t["position"]["shares_remaining"]
+    thesis_store._validate_thesis(t)  # ACTIVE leniency: no raise
+
+
+def test_terminate_invalidated_no_price_unchanged(tmp_path: Path):
+    """attach-position then terminate INVALIDATED with no price → one plain
+    INVALIDATED entry, no P&L, shares_remaining untouched (pre-PR-80B path)."""
+    tid, _ = _register_and_get(tmp_path, _source_date="2026-05-01")
+    thesis_store.transition(
+        tmp_path, tid, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    report = _make_position_report(tmp_path)
+    thesis_store.attach_position(tmp_path, tid, report)
+    thesis_store.open_position(
+        tmp_path, tid, 150.0, "2026-05-01T00:00:00+00:00", event_date="2026-05-01T00:00:00+00:00"
+    )
+    t = thesis_store.terminate(tmp_path, tid, "INVALIDATED", "thesis broke")
+    assert t["status"] == "INVALIDATED"
+    assert t["outcome"]["pnl_dollars"] is None
+    assert t["position"]["shares_remaining"] == 125  # untouched
+    assert sum(1 for h in t["status_history"] if h["status"] == "INVALIDATED") == 1
+    assert "realized_pnl" not in t["status_history"][-1]
+
+
+def test_terminate_invalidated_from_partially_closed_cumulative(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    thesis_store.trim(tmp_path, tid, 6, 120.0, "2026-05-10")  # realized +120
+    t = thesis_store.terminate(
+        tmp_path,
+        tid,
+        "INVALIDATED",
+        "broke",
+        actual_price=90.0,
+        actual_date="2026-05-20T00:00:00+00:00",
+    )  # remaining 4 @ 90 → (90-100)*4 = −40
+    assert t["status"] == "INVALIDATED"
+    assert t["outcome"]["pnl_dollars"] == 80.0  # 120 − 40, not double-counted
+    assert sum(1 for h in t["status_history"] if h["status"] == "INVALIDATED") == 1
+
+
+def test_cli_trim_subcommand(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10)
+    sd = str(tmp_path)
+    rc = thesis_store.main(
+        [
+            "--state-dir",
+            sd,
+            "trim",
+            tid,
+            "--shares-sold",
+            "4",
+            "--price",
+            "120",
+            "--date",
+            "2026-05-10",
+        ]
+    )
+    assert rc == 0
+    t = thesis_store.get(tmp_path, tid)
+    assert t["status"] == "PARTIALLY_CLOSED"
+    assert t["position"]["shares_remaining"] == 6
+    assert t["status_history"][-1]["at"] == "2026-05-10T00:00:00+00:00"
