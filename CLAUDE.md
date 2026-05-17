@@ -169,6 +169,8 @@ If no test exists for the changed behavior, add one whenever practical.
 
 ### Pre-commit Hooks
 
+> **Maintainer operations:** for the full regenerate / drift-gate / scheduled-job runbook (what to run after editing the SSoT, how to clear a failing gate, what the `launchd` agents do), see [`docs/dev/maintenance-runbook.md`](docs/dev/maintenance-runbook.md).
+
 This repository uses [pre-commit](https://pre-commit.com/) for automated quality checks. Install after cloning:
 
 ```bash

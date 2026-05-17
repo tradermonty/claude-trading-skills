@@ -9,6 +9,8 @@ Both schemas are versioned (`schema_version: 1`). New fields are always additive
 
 The companion validator is `scripts/validate_skills_index.py`.
 
+For the operational side — when to run which generator, how to clear a failing drift gate, and what the scheduled `launchd` agents do — see [`maintenance-runbook.md`](maintenance-runbook.md).
+
 ---
 
 ## 1. `skills-index.yaml`
