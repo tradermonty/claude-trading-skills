@@ -101,3 +101,22 @@ def test_build_entry_row_attaches_ws2_payout_safety_and_blockers() -> None:
     assert row["payout_safety"]["one_off_flag"] is True
     assert "gaap_one_off" in row["notes"]
     assert "gaap_adjusted_divergence_gt_25pct" in row["pre_order_blockers"]
+
+
+def test_build_entry_row_applies_ws3_event_cap() -> None:
+    from event_scanner import MAJOR_EVENT, ScanResult
+
+    row = build_entry_row(
+        ticker="MKC",
+        alpha_pp=0.5,
+        quote={"price": 46.0},
+        profile={"lastDiv": 1.92},
+        key_metrics=[{"dividendYield": 0.04}],
+        event_scan=ScanResult(
+            ticker="MKC", result=MAJOR_EVENT, pending_mna=True, reasons=["tx_value_280pct_mcap"]
+        ),
+    )
+    assert row["verdict_cap"] == "HOLD-REVIEW"
+    assert row["t1_blocked"] is True
+    assert "major_structural_event" in row["pre_order_blockers"]
+    assert row["event_scan"]["pending_mna"] is True

@@ -16,6 +16,7 @@ from typing import Any
 
 import requests
 from dividend_basis import analyze_dividends, step1_decision
+from event_scanner import ScanResult, apply_event_cap
 from payout_safety import assess_payout_safety
 from thresholds import SCHEMA_VERSION
 
@@ -206,6 +207,7 @@ def build_entry_row(
     dividend_history: list[dict[str, Any]] | None = None,
     floor_pct: float | None = None,
     financials: dict[str, Any] | None = None,
+    event_scan: ScanResult | None = None,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
 
@@ -350,6 +352,28 @@ def build_entry_row(
         pre_order_blockers.extend(safety.blockers)
         if safety.one_off_flag:
             notes.append("gaap_one_off")
+    # WS-3: forward/recent corporate-action layer + pessimistic cap (CR-2, #5).
+    if event_scan is not None:
+        triggered = str(signal) == "TRIGGERED"
+        cap = apply_event_cap(event_scan, step5_triggered=triggered)
+        row["event_scan"] = {
+            "result": event_scan.result,
+            "pending_mna": event_scan.pending_mna,
+            "completed_mna_within_4q": event_scan.completed_mna_within_4q,
+            "sources": event_scan.sources,
+            "scanned_at": event_scan.scanned_at,
+            "reasons": event_scan.reasons,
+        }
+        if cap["verdict_cap"]:
+            row["verdict_cap"] = cap["verdict_cap"]
+        row["t1_blocked"] = cap["t1_blocked"]
+        pre_order_blockers.extend(cap["blockers"])
+        for r in cap["reasons"]:
+            notes.append(r)
+        # completed merger feeds WS-2's GAAP-distortion linkage downstream.
+        if event_scan.completed_mna_within_4q:
+            notes.append("completed_merger_within_4q")
+
     if pre_order_blockers:
         row["pre_order_blockers"] = sorted(set(pre_order_blockers))
 
@@ -462,6 +486,13 @@ def parse_args() -> argparse.Namespace:
         help="Step-1 yield floor %% (e.g. 4.0 income-now, 3.0 balanced). "
         "Enables WS-1 Step-1 verdict + Data Freshness Gate.",
     )
+    parser.add_argument(
+        "--events-json",
+        default=None,
+        help="Path to a curated corporate-events JSON (WS-3 Step 4b, populated "
+        "via WebSearch per SKILL.md). Absent/unknown tickers -> NO_EVENT_FOUND "
+        "(pessimistic cap on TRIGGERED names).",
+    )
     return parser.parse_args()
 
 
@@ -480,10 +511,17 @@ def main() -> int:
     quotes = client.get_batch_quotes(tickers)
     profiles = client.get_batch_profiles(tickers)
 
+    scanner = None
+    if args.events_json:
+        from event_scanner import ManualEventScanner
+
+        scanner = ManualEventScanner(args.events_json)
+
     rows: list[dict[str, Any]] = []
     for ticker in tickers:
         metrics = client.get_key_metrics(ticker, limit=10)
         dividend_history = client.get_stock_dividend(ticker)
+        event_scan = scanner.scan(ticker, args.as_of) if scanner else None
         row = build_entry_row(
             ticker=ticker,
             alpha_pp=args.alpha_pp,
@@ -492,6 +530,7 @@ def main() -> int:
             key_metrics=metrics,
             dividend_history=dividend_history,
             floor_pct=args.yield_floor,
+            event_scan=event_scan,
         )
         rows.append(row)
 
