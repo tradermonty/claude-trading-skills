@@ -18,7 +18,8 @@ import requests
 from dividend_basis import analyze_dividends, step1_decision
 from event_scanner import ScanResult, apply_event_cap
 from payout_safety import assess_payout_safety
-from thresholds import SCHEMA_VERSION
+from thresholds import SCHEMA_VERSION, VERDICTS
+from verdict import build_run_context, synthesize_verdict
 
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
 
@@ -377,14 +378,43 @@ def build_entry_row(
     if pre_order_blockers:
         row["pre_order_blockers"] = sorted(set(pre_order_blockers))
 
+    # WS-5: synthesize the actionable verdict tier + provenance block.
+    safety_v = row.get("payout_safety", {}).get("safety_verdict")
+    final = synthesize_verdict(
+        step1_verdict=row.get("step1_verdict"),
+        safety_verdict=safety_v,
+        event_verdict_cap=row.get("verdict_cap"),
+        event_t1_blocked=bool(row.get("t1_blocked", False)),
+        pre_order_blockers=sorted(set(pre_order_blockers)),
+    )
+    row["verdict"] = final.verdict
+    row["t1_blocked"] = final.t1_blocked
+    row["verdict_reasons"] = final.reasons
+    row["provenance"] = {
+        "price_source": "fmp_quote" if quote else None,
+        "dividend_source": "fmp_stock_dividend" if dividend_history else "fmp_profile_lastDiv",
+        "dividend_dates_used": (basis.dividend_dates_used if basis else []),
+        "payout_source": (financials or {}).get("adjusted_eps_source", "UNAVAILABLE"),
+        "event_scan_result": (event_scan.result if event_scan else "NOT_SCANNED"),
+        "event_scan_checked_at": (event_scan.scanned_at if event_scan else None),
+        "unresolved_blockers": sorted(set(pre_order_blockers)),
+        "evidence_refs": [],  # populated by Claude per SKILL.md source hierarchy
+    }
+
     return row
 
 
 def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> str:
     counts = {"TRIGGERED": 0, "WAIT": 0, "ASSUMPTION-REQUIRED": 0}
+    verdict_counts: dict[str, int] = {}
     for row in rows:
         status = str(row.get("signal", "ASSUMPTION-REQUIRED"))
         counts[status] = counts.get(status, 0) + 1
+        v = row.get("verdict")
+        if v:
+            verdict_counts[v] = verdict_counts.get(v, 0) + 1
+
+    verdict_lines = [f"- {v}: `{verdict_counts[v]}`" for v in VERDICTS if v in verdict_counts]
 
     lines = [
         "# Kanchi Entry Signals",
@@ -393,7 +423,11 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
         f"- alpha_pp: `{alpha_pp:.2f}`",
         f"- ticker_count: `{len(rows)}`",
         "",
-        "## Summary",
+        "## Verdict Summary (WS-5 actionable tier)",
+        "",
+        *(verdict_lines or ["- (no verdicts; run with --yield-floor)"]),
+        "",
+        "## Step-5 Timing Summary",
         "",
         f"- TRIGGERED: `{counts.get('TRIGGERED', 0)}`",
         f"- WAIT: `{counts.get('WAIT', 0)}`",
@@ -493,6 +527,9 @@ def parse_args() -> argparse.Namespace:
         "via WebSearch per SKILL.md). Absent/unknown tickers -> NO_EVENT_FOUND "
         "(pessimistic cap on TRIGGERED names).",
     )
+    parser.add_argument("--profile", default=None, help="income-now | balanced | growth-first")
+    parser.add_argument("--safety-bias", default=None, help="tight | medium")
+    parser.add_argument("--universe-source", default=None, help="Provenance: universe origin.")
     return parser.parse_args()
 
 
@@ -548,6 +585,13 @@ def main() -> int:
         "as_of": args.as_of,
         "alpha_pp": args.alpha_pp,
         "yield_floor_pct": args.yield_floor,
+        "run_context": build_run_context(
+            profile=args.profile,
+            yield_floor_pct=args.yield_floor,
+            safety_bias=args.safety_bias,
+            universe_source=args.universe_source,
+            excluded_asset_types=None,
+        ),
         "ticker_count": len(tickers),
         "api_calls": client.api_calls,
         "rows": rows,
