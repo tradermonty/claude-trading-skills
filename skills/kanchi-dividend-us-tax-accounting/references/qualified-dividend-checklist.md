@@ -36,6 +36,14 @@ Track these fields for each position:
 - Assuming all common-stock dividends will be qualified without holding-period verification.
 - Ignoring short holding periods caused by frequent tactical trading.
 - Treating REIT/BDC distributions as identical to standard qualified-dividend flows.
+- **Modeling special / variable dividends as steady qualified income**
+  (WS-8 hand-off from `kanchi-dividend-sop`). When the upstream
+  `dividend_basis` carries `special_dividend_flag` or
+  `variable_policy_flag` (e.g. ORI annual specials, CALM variable policy),
+  treat that cash as **lumpy and non-recurring** for account-location and
+  cash-flow planning: budget the *regular* run-rate as base income and the
+  special/variable component separately (timing unpredictable; may still
+  be qualified but must not be annualized as if recurring).
 
 ## Recommended Source Hierarchy
 
