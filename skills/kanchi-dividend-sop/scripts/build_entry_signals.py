@@ -16,6 +16,7 @@ from typing import Any
 
 import requests
 from dividend_basis import analyze_dividends, step1_decision
+from payout_safety import assess_payout_safety
 from thresholds import SCHEMA_VERSION
 
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
@@ -204,6 +205,7 @@ def build_entry_row(
     key_metrics: list[dict[str, Any]],
     dividend_history: list[dict[str, Any]] | None = None,
     floor_pct: float | None = None,
+    financials: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
 
@@ -312,6 +314,44 @@ def build_entry_row(
                 notes.append(flag)
         if basis.floor_borderline:
             notes.append("floor_borderline")
+
+    # WS-2: sector-aware payout-safety triad + pre-order blocker seeds.
+    pre_order_blockers: list[str] = []
+    if basis is not None:
+        for flag in ("variable_policy_flag", "cut_flag", "freeze_flag", "suspension_flag"):
+            if getattr(basis, flag):
+                pre_order_blockers.append(flag)
+        if basis.floor_borderline:
+            pre_order_blockers.append("dividend_source_stale")
+    if financials is not None:
+        safety = assess_payout_safety(
+            sector=financials.get("sector") or (profile or {}).get("sector"),
+            annual_dividend=annual_dividend,
+            gaap_eps=financials.get("gaap_eps"),
+            adjusted_eps=financials.get("adjusted_eps"),
+            adjusted_eps_source=financials.get("adjusted_eps_source", "UNAVAILABLE"),
+            fcf_per_share=financials.get("fcf_per_share"),
+            completed_merger_within_4q=bool(financials.get("completed_merger_within_4q", False)),
+            bank_metrics=financials.get("bank_metrics"),
+            utility_metrics=financials.get("utility_metrics"),
+            insurer_metrics=financials.get("insurer_metrics"),
+        )
+        row["payout_safety"] = {
+            "sector_kind": safety.sector_kind,
+            "safety_verdict": safety.safety_verdict,
+            "gaap_eps_payout": safety.gaap_eps_payout,
+            "adjusted_eps_payout": safety.adjusted_eps_payout,
+            "fcf_payout": safety.fcf_payout,
+            "adjusted_eps_source": safety.adjusted_eps_source,
+            "gaap_adj_divergence": safety.gaap_adj_divergence,
+            "one_off_flag": safety.one_off_flag,
+            "reasons": safety.reasons,
+        }
+        pre_order_blockers.extend(safety.blockers)
+        if safety.one_off_flag:
+            notes.append("gaap_one_off")
+    if pre_order_blockers:
+        row["pre_order_blockers"] = sorted(set(pre_order_blockers))
 
     return row
 

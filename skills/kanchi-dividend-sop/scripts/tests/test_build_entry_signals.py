@@ -81,3 +81,23 @@ def test_build_entry_row_assumption_required_when_missing_data() -> None:
     assert row["signal"] == "ASSUMPTION-REQUIRED"
     assert "quote_missing" in row["notes"]
     assert "profile_missing" in row["notes"]
+
+
+def test_build_entry_row_attaches_ws2_payout_safety_and_blockers() -> None:
+    # WS-2 integration: financials -> payout_safety + pre_order_blockers.
+    row = build_entry_row(
+        ticker="MKC",
+        alpha_pp=0.5,
+        quote={"price": 46.35},
+        profile={"lastDiv": 1.92, "sector": "Consumer Staples"},
+        key_metrics=[{"dividendYield": 0.04}],
+        financials={
+            "sector": "Consumer Staples",
+            "gaap_eps": 12.9,
+            "adjusted_eps": 3.09,
+            "adjusted_eps_source": "MANUAL",
+        },
+    )
+    assert row["payout_safety"]["one_off_flag"] is True
+    assert "gaap_one_off" in row["notes"]
+    assert "gaap_adjusted_divergence_gt_25pct" in row["pre_order_blockers"]
