@@ -43,7 +43,7 @@ English README is available at [`README.md`](README.md).
 | 目的 | ワークフロー | 主要スキル | API プロファイル |
 | --- | --- | --- | --- |
 | 毎朝15分で相場を確認したい | [`market-regime-daily`](workflows/market-regime-daily.yaml) | market-breadth-analyzer, uptrend-analyzer, exposure-coach | API なし可 |
-| 長期ポートフォリオを週次で見直したい | [`core-portfolio-weekly`](workflows/core-portfolio-weekly.yaml) | portfolio-manager, kanchi-dividend-review-monitor, trader-memory-core | Alpaca（または手動 CSV） |
+| 長期ポートフォリオを週次で見直したい | [`core-portfolio-weekly`](workflows/core-portfolio-weekly.yaml) | portfolio-manager, kanchi-dividend-review-monitor, trader-memory-core | Alpaca 必須。手動 CSV は劣後フォールバック |
 | 相場環境が許すときだけスイング候補を探す | [`swing-opportunity-daily`](workflows/swing-opportunity-daily.yaml) | vcp-screener, technical-analyst, position-sizer | FMP 必須 |
 | 約定後にトレードを記録して学ぶ | [`trade-memory-loop`](workflows/trade-memory-loop.yaml) | trader-memory-core, signal-postmortem | API なし可 |
 | 月次でパフォーマンスとルールを見直す | [`monthly-performance-review`](workflows/monthly-performance-review.yaml) | trader-memory-core, signal-postmortem, backtest-expert | API なし可 |
