@@ -1,7 +1,7 @@
 # Claude Trading Skills Project Vision
 
 Version: 0.1
-Last updated: 2026-05-03
+Last updated: 2026-05-17
 
 Japanese version: [PROJECT_VISION.ja.md](PROJECT_VISION.ja.md)
 
@@ -216,9 +216,9 @@ This structure reduces drift between skill source files, documentation, recommen
 
 ## 12. Roadmap
 
-### Phase 0: Vision and Metadata — ✅ partially complete (2026-05-09)
+### Phase 0: Vision and Metadata — ✅ complete for the metadata / SSoT layer (2026-05-17)
 
-> **Status:** `skills-index.yaml` lands as the SSoT in PR #84. All 54 skills carry id / display_name / category / status / summary / integrations[]. timeframe / difficulty fill-in remains follow-up work.
+> **Status:** `skills-index.yaml` is the SSoT (PR #84). All currently indexed skills carry id / display_name / category / status / summary / integrations[] / timeframe / difficulty / inputs / outputs, and `--strict-metadata` is enforced in CI and the pre-push hook. No functional metadata/SSoT work remains; future work is routine docs maintenance.
 
 First, organize the existing skill set and make the overall project easier to explain.
 
@@ -238,7 +238,9 @@ Definition of done:
 - The API requirements matrix is current
 - Docs are consistent with the actual number of skills, categories, and descriptions
 
-### Phase 1: Trading Skills Navigator v0
+### Phase 1: Trading Skills Navigator v0 — ✅ v0 implemented (2026-05-17)
+
+> **Status:** `skills/trading-skills-navigator/` ships a deterministic recommender (`recommend.py`) that reads the repo-root SSoT and falls back to a bundled `metadata_snapshot.json` for the Claude Web App, plus manifest-driven setup. A 10-question recommendation regression suite already exists (`scripts/tests/test_recommend.py::CONTRACT`). Ongoing: UX polish, real-user smoke tests, and prompt examples.
 
 Create a meta-skill that acts as the guide for this repository.
 
@@ -265,7 +267,9 @@ Definition of done:
 - It can separate API-key and no-API paths
 - It can explain setup paths for Claude Web App and Claude Code
 
-### Phase 2: Skillsets
+### Phase 2: Skillsets — ✅ partial: 4 core skillsets implemented (2026-05-17)
+
+> **Status:** `skillsets/` ships `market-regime`, `core-portfolio`, `swing-opportunity`, and `trade-memory` manifests (with `skillsets/README.md`), guarded by `validate-skillsets` + the `skillset-docs-drift` gate, and consumed by the Navigator. The remaining skillset candidates (`dividend-income`, `strategy-research`, `advanced-satellite`) are deferred.
 
 Create purpose-specific manifests that bundle skills.
 
@@ -328,7 +332,9 @@ Definition of done:
 - Each trade workflow connects to a journal entry or postmortem
 - At least 1 workflow can be explained end-to-end with sample data
 
-### Phase 4: User-Friendly Entry Points
+### Phase 4: User-Friendly Entry Points — ✅ partially complete (2026-05-17)
+
+> **Status:** README (EN/JA) has a Recommended Starting Path + No-API starter path keyed to the 5 workflows; generated workflow & skillset doc pages exist; the Navigator is the natural-language on-ramp. The dedicated "Find Your Workflow" document and broader quickstart polish remain follow-up.
 
 Make the project easier for users who are not comfortable with GitHub or `.skill` files.
 
@@ -353,7 +359,9 @@ Definition of done:
 - A user can tell which `.skill` files to upload to Claude Web App
 - Starter prompts are available for first use
 
-### Phase 5: Learning Loop
+### Phase 5: Learning Loop — ✅ partially complete (2026-05-17)
+
+> **Status:** `trader-memory-core` + `signal-postmortem` + the `trade-memory-loop` and `monthly-performance-review` workflows close the Plan → Trade → Record → Review → Improve loop. A public end-to-end sample operating example is still pending.
 
 Strengthen the mechanisms for recording trade outcomes and feeding them back into improvement.
 
@@ -434,11 +442,12 @@ Near-term work should proceed in this order:
 - ✅ **Done (2026-05-09)**: `skills-index.yaml` SSoT + validator (PR #84)
 - ✅ **Done (2026-05-09)**: 5 core workflow manifests under `workflows/` (PR #85)
 - ✅ **Done (2026-05-09)**: Auto-generated workflow doc pages (PR #86)
-- **Now**: Fill in `timeframe` / `difficulty` for all 54 skills (gates `--strict-metadata`)
-- **Next**: Create Trading Skills Navigator
-- **Next**: Define major skillsets in YAML
+- ✅ **Done**: All indexed skills carry `timeframe` / `difficulty` / `inputs` / `outputs`; `--strict-metadata` enforced in CI + the pre-push hook
+- ✅ **Done**: Trading Skills Navigator v0 (deterministic recommender + Web App snapshot fallback + manifest-driven setup)
+- **Partial**: Major skillsets in YAML — 4 core skillsets shipped (`market-regime`, `core-portfolio`, `swing-opportunity`, `trade-memory`); remaining skillset candidates (`dividend-income`, `strategy-research`, `advanced-satellite`) deferred
 - **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`, `strategy-research-pipeline`)
 - **Next**: Create "Find Your Workflow" documentation
+- **Next**: Public end-to-end sample operating examples (Plan → Trade → Record → Review → Improve)
 - **Later**: Add bundle builder or recommender CLI if needed
 - **Later**: Explore a web app proof of concept
 
