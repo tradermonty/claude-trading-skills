@@ -30,6 +30,26 @@ from thresholds import (
 _SPECIAL_KEYWORDS = ("special", "supplemental", "one-time", "one time", "extra")
 _MAINTAIN_KEYWORDS = ("maintain", "unchanged", "same annualized", "no change", "flat")
 
+# 4th-review point 10: a generic "% of net income" appears in ordinary bank /
+# insurer payout-ratio language and must NOT alone flag a variable policy.
+# Only the strong tier (an explicit variable/earnings-linked policy) flips the
+# flag; the weak tier just leaves an audit note.
+_STRONG_VARIABLE_KEYWORDS = (
+    "variable dividend policy",
+    "variable dividend",
+    "one-third of net income",
+    "1/3 of net income",
+    "distribution based on earnings",
+    "dividend equal to",
+)
+_WEAK_PAYOUT_KEYWORDS = (
+    "target payout ratio",
+    "capital return framework",
+    "dividend payout ratio",
+    "% of net income",
+    "percent of net income",
+)
+
 _CADENCE_BY_GAP_DAYS = (
     (45, "monthly", 12),
     (135, "quarterly", 4),
@@ -61,7 +81,9 @@ class DividendBasis:
     variable_policy_flag: bool = False
     cut_flag: bool = False
     freeze_flag: bool = False
+    suspension_flag: bool = False
     last_increase_date: str | None = None
+    dividend_dates_used: list[str] = field(default_factory=list)
     regular_forward_yield_pct: float | None = None
     ttm_yield_pct: float | None = None
     floor_borderline: bool = False
@@ -110,6 +132,7 @@ def analyze_dividends(
     *,
     issuer_language: str | None = None,
     floor_pct: float | None = None,
+    as_of_date: str | None = None,
 ) -> DividendBasis:
     """Analyze a stock_dividend `historical` list into a DividendBasis.
 
@@ -187,8 +210,10 @@ def analyze_dividends(
             variable_flag = cov > VARIABLE_POLICY_COV
     if issuer_language:
         low = issuer_language.lower()
-        if "variable dividend" in low or "% of net income" in low or "percent of net income" in low:
+        if any(k in low for k in _STRONG_VARIABLE_KEYWORDS):
             variable_flag = True
+        elif not variable_flag and any(k in low for k in _WEAK_PAYOUT_KEYWORDS):
+            reasons.append("weak_payout_language_only_review_policy")
 
     # --- last increase date (ascending scan over regular amounts) ---
     last_increase: date | None = None
@@ -223,6 +248,19 @@ def analyze_dividends(
         if lang_maintains:
             freeze_flag = True
 
+    # --- suspension: an expected regular declaration is overdue (4th-review
+    #     point 4). Distinct from cut (rate down) and freeze (rate held). ---
+    cadence_days = {"monthly": 30, "quarterly": 91, "semiannual": 182, "annual": 365}.get(
+        cadence, 365
+    )
+    suspension_flag = False
+    ref_date = _parse_date(str(as_of_date)) if as_of_date else None
+    if ref_date is not None:
+        days_since_last_pay = (ref_date - asof_reg).days
+        if days_since_last_pay > cadence_days + FREEZE_GRACE_DAYS:
+            suspension_flag = True
+            reasons.append(f"declaration_overdue_{days_since_last_pay}d")
+
     fwd_yield = (
         round(latest_annualized / price * 100, 2)
         if latest_annualized is not None and price and price > 0
@@ -253,7 +291,9 @@ def analyze_dividends(
         variable_policy_flag=variable_flag,
         cut_flag=cut_flag,
         freeze_flag=freeze_flag,
+        suspension_flag=suspension_flag,
         last_increase_date=last_increase.isoformat() if last_increase else None,
+        dividend_dates_used=[d.isoformat() for d, _ in regular[-8:]],
         regular_forward_yield_pct=fwd_yield,
         ttm_yield_pct=ttm_yield,
         floor_borderline=floor_borderline,
@@ -275,6 +315,8 @@ def step1_decision(
         return "FAIL", "no_dividend"
     if basis.status == "ASSUMPTION-REQUIRED":
         return "STEP1-RECHECK", ";".join(basis.reasons) or "assumption_required"
+    if basis.suspension_flag:
+        return "FAIL", "dividend_suspension_suspected"
     if basis.variable_policy_flag:
         return "FAIL", "variable_dividend_policy"
     if basis.cut_flag:

@@ -126,3 +126,42 @@ def test_no_dividend_history():
     b = analyze_dividends([], price=10.0, floor_pct=3.0)
     assert b.status == "NO-DIVIDEND"
     assert step1_decision(b, 3.0)[0] == "FAIL"
+
+
+# --- 4th-review point 10: weak payout language must NOT flag variable ---
+def test_weak_payout_language_does_not_flag_variable():
+    hist = _series(date(2023, 1, 1), 12, 0.50)  # steady regular
+    b = analyze_dividends(
+        hist,
+        price=40.0,
+        floor_pct=3.0,
+        issuer_language="We target a dividend payout ratio of 40% of net income.",
+    )
+    assert b.variable_policy_flag is False
+    assert any("weak_payout_language" in r for r in b.reasons)
+
+
+def test_strong_variable_language_flags_variable():
+    hist = _series(date(2023, 1, 1), 12, 0.50)
+    b = analyze_dividends(
+        hist,
+        price=40.0,
+        floor_pct=3.0,
+        issuer_language="The company follows a variable dividend policy.",
+    )
+    assert b.variable_policy_flag is True
+
+
+# --- 4th-review point 4: overdue declaration -> suspension_flag -> FAIL ---
+def test_suspension_flag_when_declaration_overdue():
+    hist = _series(date(2023, 1, 1), 12, 0.50)  # last pay ~2025-09
+    b = analyze_dividends(hist, price=40.0, floor_pct=3.0, as_of_date="2026-05-17")
+    assert b.suspension_flag is True
+    assert step1_decision(b, 3.0)[0] == "FAIL"
+
+
+def test_no_suspension_when_recent_and_dates_used_present():
+    hist = _series(date(2025, 6, 1), 8, 0.50)
+    b = analyze_dividends(hist, price=40.0, floor_pct=3.0, as_of_date="2026-05-17")
+    assert b.suspension_flag is False
+    assert len(b.dividend_dates_used) >= 4  # audit trail populated

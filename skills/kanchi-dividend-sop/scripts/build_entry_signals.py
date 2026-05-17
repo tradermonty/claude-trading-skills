@@ -291,7 +291,9 @@ def build_entry_row(
             "variable_policy_flag": basis.variable_policy_flag,
             "cut_flag": basis.cut_flag,
             "freeze_flag": basis.freeze_flag,
+            "suspension_flag": basis.suspension_flag,
             "last_increase_date": basis.last_increase_date,
+            "dividend_dates_used": basis.dividend_dates_used,
             "floor_borderline": basis.floor_borderline,
             "reasons": basis.reasons,
         }
@@ -299,7 +301,13 @@ def build_entry_row(
             verdict, reason = step1_decision(basis, floor_pct)
             row["step1_verdict"] = verdict
             row["step1_reason"] = reason
-        for flag in ("special_dividend_flag", "variable_policy_flag", "cut_flag", "freeze_flag"):
+        for flag in (
+            "special_dividend_flag",
+            "variable_policy_flag",
+            "cut_flag",
+            "freeze_flag",
+            "suspension_flag",
+        ):
             if getattr(basis, flag):
                 notes.append(flag)
         if basis.floor_borderline:
