@@ -348,7 +348,6 @@ def build_index(project_root: Path) -> dict[str, Any]:
             "inputs": [],
             "outputs": [],
             "workflows": [],
-            "hand_written_doc": False,
         }
         skill_entries.append(entry)
 
