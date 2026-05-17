@@ -98,6 +98,19 @@ repos:
         files: '^(skillsets/.*\.yaml|scripts/generate_skillset_docs\.py|docs/(en|ja)/skillsets\.md)$'
         pass_filenames: false
 
+      - id: skill-docs-drift
+        name: Skill docs drift check (generator-owned pages only)
+        entry: python3 scripts/generate_skill_docs.py --check
+        language: system
+        # Content-compares ONLY generator-owned pages (frontmatter
+        # `generated: true`); hand-maintained pages (generated:false/absent
+        # or HAND_WRITTEN) are existence/marker-checked only, never reverted.
+        # Fire on every generator input: SKILL.md, references/scripts (resource
+        # list), CLAUDE.md (API/CLI parse), skill-packages/*.skill (download
+        # button), the generator, and the rendered docs themselves.
+        files: '^(skills/[^/]+/SKILL\.md|skills/[^/]+/references/.*|skills/[^/]+/scripts/.*\.py|scripts/generate_skill_docs\.py|CLAUDE\.md|skill-packages/.*\.skill|docs/(en|ja)/skills/[^/]+\.md)$'
+        pass_filenames: false
+
       - id: catalog-drift
         name: README + CLAUDE.md catalog drift check (regenerate from skills-index.yaml)
         entry: python3 scripts/generate_catalog_from_index.py --check

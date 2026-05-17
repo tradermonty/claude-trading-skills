@@ -101,6 +101,71 @@ def _split_sections(body: str) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Doc-page ownership marker
+# ---------------------------------------------------------------------------
+#
+# A rendered page declares ownership via a `generated:` frontmatter key:
+#   generated: true   -> generator-owned (drift-checked, --overwrite may rewrite)
+#   generated: false  -> hand-maintained (protected; existence/marker only)
+#   (key absent)      -> hand-maintained (protected) -- the safe default
+# Hand-maintained pages are NEVER content-reverted by --check, and --overwrite
+# refuses them unless --force. See docs/README.md "Skill doc ownership".
+
+
+def _read_generated_marker(path: Path) -> str | None:
+    """Return the raw `generated:` value from a page's frontmatter.
+
+    Returns the stripped raw token (e.g. "true", "false", "maybe") if the key
+    is present in the leading YAML frontmatter, or ``None`` if the file is
+    missing/unreadable, has no frontmatter, or has no ``generated:`` key.
+
+    Uses a line scan rather than ``yaml.safe_load`` for the same reason
+    ``parse_skill_md`` keeps a manual fallback: page titles/descriptions can
+    contain unquoted colons that break a strict YAML load.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.startswith("---"):
+        return None
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return None
+    for line in parts[1].splitlines():
+        stripped = line.strip()
+        if stripped.startswith("generated:"):
+            return stripped.split(":", 1)[1].strip()
+    return None
+
+
+def _doc_is_generated(path: Path) -> bool | None:
+    """Ownership of a rendered page.
+
+    ``True``  -> generator-owned (literal ``generated: true``).
+    ``False`` -> explicitly hand-maintained (literal ``generated: false``).
+    ``None``  -> marker absent / file missing / malformed.
+
+    Callers treat both ``False`` and ``None`` as "protected"; only ``True``
+    opts a page into overwrite + content drift checking.
+    """
+    raw = _read_generated_marker(path)
+    if raw is None:
+        return None
+    if raw == "true":
+        return True
+    if raw == "false":
+        return False
+    return None
+
+
+def _marker_present_but_invalid(path: Path) -> bool:
+    """True if a `generated:` key is present but is neither `true` nor `false`."""
+    raw = _read_generated_marker(path)
+    return raw is not None and raw not in ("true", "false")
+
+
+# ---------------------------------------------------------------------------
 # CLAUDE.md API requirements parser
 # ---------------------------------------------------------------------------
 
@@ -344,6 +409,7 @@ parent: Skill Guides
 nav_order: {nav_order}
 lang_peer: /ja/skills/{skill_name}/
 permalink: /en/skills/{skill_name}/
+generated: true
 ---
 
 # {title}
@@ -446,6 +512,7 @@ parent: スキルガイド
 nav_order: {nav_order}
 lang_peer: /en/skills/{skill_name}/
 permalink: /ja/skills/{skill_name}/
+generated: true
 ---
 
 # {title}
@@ -527,6 +594,7 @@ parent: Skill Guides
 nav_order: {nav_order}
 lang_peer: /ja/skills/{skill_name}/
 permalink: /en/skills/{skill_name}/
+generated: true
 ---
 
 # {title}
@@ -667,6 +735,7 @@ parent: スキルガイド
 nav_order: {nav_order}
 lang_peer: /en/skills/{skill_name}/
 permalink: /ja/skills/{skill_name}/
+generated: true
 ---
 
 # {title}
@@ -1139,6 +1208,176 @@ def update_catalog_api_matrix(
 
 
 # ---------------------------------------------------------------------------
+# Ownership-aware write/check helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_nav_orders(skill_dirs: list[Path], overwrite: bool) -> dict[str, int]:
+    """Assign nav_order: hand-written keep 1-10, the rest start at NAV_ORDER_START.
+
+    Shared by the write path and ``--check`` so expected output cannot diverge
+    from what a real generation would write.
+    """
+    new_skills: list[str] = []
+    for d in skill_dirs:
+        if not d.is_dir() or not (d / "SKILL.md").exists():
+            continue
+        name = d.name
+        if name in HAND_WRITTEN and not overwrite:
+            continue
+        new_skills.append(name)
+    new_skills.sort()
+    return {name: NAV_ORDER_START + i for i, name in enumerate(new_skills)}
+
+
+def _render_skill_pages(
+    d: Path,
+    name: str,
+    nav_order: int,
+    api_reqs: dict,
+    cli_examples: dict,
+    skill_packages_dir: Path | None,
+    mode: str,
+) -> tuple[str, str]:
+    """Render (en, ja) page content exactly as the write loop would."""
+    skill_data = parse_skill_md(d / "SKILL.md")
+    api_info = api_reqs.get(name)
+    cli_example = cli_examples.get(name)
+    resources = _list_skill_resources(d)
+    if mode == "full":
+        en = generate_en_full_page(
+            name,
+            skill_data,
+            api_info,
+            cli_example,
+            nav_order,
+            resources,
+            skill_packages_dir=skill_packages_dir,
+        )
+        ja = generate_ja_full_page(
+            name,
+            skill_data,
+            api_info,
+            cli_example,
+            nav_order,
+            resources,
+            skill_packages_dir=skill_packages_dir,
+        )
+    else:
+        en = generate_en_page(
+            name,
+            skill_data,
+            api_info,
+            cli_example,
+            nav_order,
+            resources,
+            skill_packages_dir=skill_packages_dir,
+        )
+        ja = generate_ja_page(
+            name,
+            skill_data,
+            api_info,
+            nav_order,
+            skill_packages_dir=skill_packages_dir,
+        )
+    return en, ja
+
+
+def _may_write(path: Path, name: str, args: argparse.Namespace) -> bool:
+    """Per-page write decision (EN and JA decided independently).
+
+    HAND_WRITTEN ★ guides are always protected (missing OR existing) unless
+    --force; this preserves the existing ``test_skips_hand_written`` contract.
+    Brand-new (non-HAND_WRITTEN) pages are created. Existing pages are only
+    rewritten when --force, or under --overwrite when the page is explicitly
+    generator-owned (``generated: true``). Hand-maintained pages
+    (generated:false/absent) are never destroyed without --force.
+    """
+    if name in HAND_WRITTEN and not args.force:
+        return False
+    if not path.exists():
+        return True
+    if not args.overwrite:
+        return False
+    if args.force:
+        return True
+    return _doc_is_generated(path) is True
+
+
+def _check_drift(
+    skill_dirs: list[Path],
+    en_dir: Path,
+    ja_dir: Path,
+    api_reqs: dict,
+    cli_examples: dict,
+    skill_packages_dir: Path | None,
+    args: argparse.Namespace,
+) -> int:
+    """Pure read/compare drift gate (no mkdir, no writes, no index/catalog).
+
+    Mirrors the sibling generators (generate_workflow_docs / generate_skillset_docs):
+    print ``DRIFT:``/``OK:`` to stderr and return 1 iff any drift. Existence +
+    marker-validity are checked for every page; CONTENT is compared ONLY for
+    pages explicitly marked ``generated: true``. Hand-maintained pages
+    (generated:false/absent/HAND_WRITTEN) are never content-compared and never
+    reverted.
+    """
+    nav_orders = _compute_nav_orders(skill_dirs, overwrite=False)
+    drift = False
+    for d in skill_dirs:
+        if not d.is_dir() or not (d / "SKILL.md").exists():
+            continue
+        name = d.name
+        en_path = en_dir / f"{name}.md"
+        ja_path = ja_dir / f"{name}.md"
+
+        # 1. Existence: every skill must have EN + JA pages.
+        for p in (en_path, ja_path):
+            if not p.is_file():
+                print(f"DRIFT: {p} does not exist", file=sys.stderr)
+                drift = True
+
+        # 2. Marker validity: present-but-invalid generated: value.
+        for p in (en_path, ja_path):
+            if p.is_file() and _marker_present_but_invalid(p):
+                print(
+                    f"DRIFT: {p} has invalid 'generated:' marker (must be true or false)",
+                    file=sys.stderr,
+                )
+                drift = True
+
+        # 3. Content compare ONLY generator-owned (generated: true) pages.
+        # HAND_WRITTEN is always protected regardless of marker (a generated:
+        # true stamped via --force must NOT become drift-checked afterwards).
+        en_owned = (
+            name not in HAND_WRITTEN and en_path.is_file() and _doc_is_generated(en_path) is True
+        )
+        ja_owned = (
+            name not in HAND_WRITTEN and ja_path.is_file() and _doc_is_generated(ja_path) is True
+        )
+        if not (en_owned or ja_owned):
+            continue
+        nav_order = nav_orders.get(name, NAV_ORDER_START)
+        expected_en, expected_ja = _render_skill_pages(
+            d, name, nav_order, api_reqs, cli_examples, skill_packages_dir, args.mode
+        )
+        if en_owned:
+            if en_path.read_text(encoding="utf-8") != expected_en.rstrip("\n") + "\n":
+                print(f"DRIFT: {en_path} differs from regenerated output", file=sys.stderr)
+                drift = True
+            else:
+                print(f"OK: {en_path} matches", file=sys.stderr)
+        if ja_owned:
+            if ja_path.read_text(encoding="utf-8") != expected_ja.rstrip("\n") + "\n":
+                print(f"DRIFT: {ja_path} differs from regenerated output", file=sys.stderr)
+                drift = True
+            else:
+                print(f"OK: {ja_path} matches", file=sys.stderr)
+
+    return 1 if drift else 0
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1168,6 +1407,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help='Category for catalog insertion, e.g. "4. Portfolio & Execution"',
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite hand-maintained pages (generated:false/absent or HAND_WRITTEN). "
+        "Never used in CI/pre-commit.",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Compare regenerated output against on-disk files; exit non-zero if they differ.",
+    )
     args = parser.parse_args(argv)
 
     # Parse CLAUDE.md
@@ -1184,21 +1434,19 @@ def main(argv: list[str] | None = None) -> int:
 
     en_dir = args.docs_dir / "en" / "skills"
     ja_dir = args.docs_dir / "ja" / "skills"
+
+    # --check is a pure read/compare gate: return BEFORE any mkdir/write so it
+    # never touches the tree or runs the index/catalog updaters.
+    if args.check:
+        return _check_drift(
+            skill_dirs, en_dir, ja_dir, api_reqs, cli_examples, skill_packages_dir, args
+        )
+
     en_dir.mkdir(parents=True, exist_ok=True)
     ja_dir.mkdir(parents=True, exist_ok=True)
 
-    # Assign nav_orders: existing hand-written keep 1-10, new start at 11+
-    new_skills = []
-    for d in skill_dirs:
-        if not d.is_dir() or not (d / "SKILL.md").exists():
-            continue
-        name = d.name
-        if name in HAND_WRITTEN and not args.overwrite:
-            continue
-        new_skills.append(name)
-
-    new_skills.sort()
-    nav_orders = {name: NAV_ORDER_START + i for i, name in enumerate(new_skills)}
+    # Assign nav_orders (shared with --check via _compute_nav_orders).
+    nav_orders = _compute_nav_orders(skill_dirs, args.overwrite)
 
     generated_en = 0
     generated_ja = 0
@@ -1209,70 +1457,39 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         name = d.name
-
-        if name in HAND_WRITTEN and not args.overwrite:
-            skipped += 1
-            continue
-
         en_path = en_dir / f"{name}.md"
         ja_path = ja_dir / f"{name}.md"
 
-        if en_path.exists() and not args.overwrite:
+        # Per-page ownership guard (EN and JA decided independently).
+        write_en = _may_write(en_path, name, args)
+        write_ja = _may_write(ja_path, name, args)
+        if not write_en and not write_ja:
             skipped += 1
             continue
 
-        skill_data = parse_skill_md(d / "SKILL.md")
-        api_info = api_reqs.get(name)
-        cli_example = cli_examples.get(name)
         nav_order = nav_orders.get(name, NAV_ORDER_START)
-        resources = _list_skill_resources(d)
+        en_content, ja_content = _render_skill_pages(
+            d, name, nav_order, api_reqs, cli_examples, skill_packages_dir, args.mode
+        )
 
-        if args.mode == "full":
-            # Generate 10-section skeleton pages
-            en_content = generate_en_full_page(
-                name,
-                skill_data,
-                api_info,
-                cli_example,
-                nav_order,
-                resources,
-                skill_packages_dir=skill_packages_dir,
-            )
-            ja_content = generate_ja_full_page(
-                name,
-                skill_data,
-                api_info,
-                cli_example,
-                nav_order,
-                resources,
-                skill_packages_dir=skill_packages_dir,
-            )
-        else:
-            # Generate 6-section auto pages
-            en_content = generate_en_page(
-                name,
-                skill_data,
-                api_info,
-                cli_example,
-                nav_order,
-                resources,
-                skill_packages_dir=skill_packages_dir,
-            )
-            ja_content = generate_ja_page(
-                name,
-                skill_data,
-                api_info,
-                nav_order,
-                skill_packages_dir=skill_packages_dir,
-            )
+        if write_en:
+            en_path.write_text(en_content, encoding="utf-8")
+            generated_en += 1
+        elif args.overwrite:
+            print(f"  Protected, EN skipped: {name} (use --force)", file=sys.stderr)
 
-        en_path.write_text(en_content, encoding="utf-8")
-        generated_en += 1
+        if write_ja:
+            ja_path.write_text(ja_content, encoding="utf-8")
+            generated_ja += 1
+        elif args.overwrite:
+            print(f"  Protected, JA skipped: {name} (use --force)", file=sys.stderr)
 
-        ja_path.write_text(ja_content, encoding="utf-8")
-        generated_ja += 1
-
-        print(f"  Generated: {name} (EN + JA, mode={args.mode})")
+        wrote = []
+        if write_en:
+            wrote.append("EN")
+        if write_ja:
+            wrote.append("JA")
+        print(f"  Generated: {name} ({' + '.join(wrote)}, mode={args.mode})")
 
     print(f"\nDone: {generated_en} EN + {generated_ja} JA generated, {skipped} skipped")
 

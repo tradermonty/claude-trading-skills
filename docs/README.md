@@ -71,6 +71,33 @@ Hand-written guides are marked with ★ in `en/skills/index.md` and `ja/skills/i
 
 ---
 
+## Skill Doc Ownership
+
+The committed `docs/{en,ja}/skills/*.md` pages are the **source of truth** — the
+generator does not own them retroactively (most pages, especially the JA
+translations, were hand-curated after first generation).
+
+- A page declares ownership via a `generated:` frontmatter key:
+  `generated: true` = generator-owned (drift-gated); `generated: false` **or the
+  key absent** = hand-maintained & protected. Skills in the generator's
+  `HAND_WRITTEN` set are always protected.
+- `generate_skill_docs.py --overwrite` **refuses** hand-maintained pages.
+  `--force` is the only override and is **never** used in CI/pre-commit.
+- The `skill-docs-drift` pre-commit hook + CI step run
+  `generate_skill_docs.py --check`, which content-compares **only**
+  `generated: true` pages and verifies every skill has EN+JA pages with a valid
+  marker. It **never** reverts hand-maintained pages.
+- A brand-new auto page created by the generator is stamped `generated: true`
+  (gate-owned until a human hand-edits it and flips the marker to `false` /
+  removes it). After adding or removing skills, re-run the generator to refresh
+  `nav_order` on generator-owned pages.
+
+> The unused per-skill `hand_written_doc` field in `skills-index.yaml` is
+> superseded by this per-page marker for doc ownership; reconciling/removing it
+> is a separate cleanup.
+
+---
+
 ## YAML Frontmatter Reference
 
 Every page requires YAML frontmatter. Fields vary by page type.
