@@ -113,3 +113,21 @@ def test_clean_confirmed_still_clean():
     assert cap["t1_blocked"] is True
     ok = apply_event_cap(ScanResult("Z", CLEAN_CONFIRMED), step5_triggered=True)
     assert ok["verdict_cap"] is None and ok["t1_blocked"] is False
+
+
+# --- 7th-review: provenance.unresolved_blockers must match the full set ---
+def test_provenance_unresolved_blockers_includes_event_blockers():
+    row = build_entry_row(
+        ticker="TRG2",
+        alpha_pp=0.5,
+        quote={"price": 10.0},
+        profile={"sector": "Industrials"},
+        key_metrics=[{"dividendYield": 0.03}],
+        dividend_history=_q(date(2023, 1, 1), 13, [0.10 + 0.01 * i for i in range(13)]),
+        floor_pct=3.0,
+        # no event_scan -> SKIPPED -> event_scan_failed_or_skipped blocker
+    )
+    assert "event_scan_failed_or_skipped" in row["pre_order_blockers"]
+    # Audit provenance must report the COMPLETE set, not the verdict subset.
+    assert row["provenance"]["unresolved_blockers"] == row["pre_order_blockers"]
+    assert "event_scan_failed_or_skipped" in row["provenance"]["unresolved_blockers"]

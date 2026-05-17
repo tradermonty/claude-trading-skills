@@ -451,7 +451,11 @@ def build_entry_row(
         "payout_source": (financials or {}).get("adjusted_eps_source", "UNAVAILABLE"),
         "event_scan_result": (event_scan.result if event_scan else "NOT_SCANNED"),
         "event_scan_checked_at": (event_scan.scanned_at if event_scan else None),
-        "unresolved_blockers": sorted(set(pre_order_blockers)),
+        # 7th-review: audit the COMPLETE unresolved-blocker set (incl.
+        # event-scan order blockers), matching row["pre_order_blockers"];
+        # synthesize() intentionally consumes only the verdict-affecting
+        # subset, but the audit trail must not under-report the T1 gate.
+        "unresolved_blockers": order_blockers,
         "evidence_refs": [],  # populated by Claude per SKILL.md source hierarchy
     }
 
