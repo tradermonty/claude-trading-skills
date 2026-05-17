@@ -609,8 +609,9 @@ def parse_args() -> argparse.Namespace:
         "--events-json",
         default=None,
         help="Path to a curated corporate-events JSON (WS-3 Step 4b, populated "
-        "via WebSearch per SKILL.md). Absent/unknown tickers -> NO_EVENT_FOUND "
-        "(pessimistic cap on TRIGGERED names).",
+        "via WebSearch per SKILL.md). Absent --events-json -> SKIPPED; "
+        "unknown ticker inside the events JSON -> NO_EVENT_FOUND. Both are "
+        "pessimistic for TRIGGERED names (cap to HOLD-REVIEW + T1 blocked).",
     )
     parser.add_argument("--profile", default=None, help="income-now | balanced | growth-first")
     parser.add_argument("--safety-bias", default=None, help="tight | medium")
