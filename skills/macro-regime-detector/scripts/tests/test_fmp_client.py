@@ -105,7 +105,7 @@ def _row(iso, o, h, lo, c, v):
 class TestYFinanceFallback:
     """get_historical_prices falls back to yfinance when FMP returns nothing."""
 
-    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    @patch.object(FMPClient, "_request_with_fallback", return_value=None)
     def test_fallback_invoked_and_shape(self, _mock_fmp):
         client = _make_client()
         fake_df = _FakeDF(
@@ -134,7 +134,7 @@ class TestYFinanceFallback:
         assert bar["close"] == bar["adjClose"] == 2.5
         assert bar["volume"] == 300
 
-    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    @patch.object(FMPClient, "_request_with_fallback", return_value=None)
     def test_days_limit_applied(self, _mock_fmp):
         client = _make_client()
         rows = [_row(f"2026-04-{d:02d}", 1, 2, 0, 1.0 + d, 10 * d) for d in range(1, 11)]
@@ -149,7 +149,7 @@ class TestYFinanceFallback:
         # Newest 3 dates kept (descending)
         assert result["historical"][0]["date"] == "2026-04-10"
 
-    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    @patch.object(FMPClient, "_request_with_fallback", return_value=None)
     def test_empty_df_returns_none_and_not_cached(self, _mock_fmp):
         client = _make_client()
         fake_yf = MagicMock()
@@ -161,7 +161,7 @@ class TestYFinanceFallback:
         assert result is None
         assert "prices_XLV_5" not in client.cache
 
-    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    @patch.object(FMPClient, "_request_with_fallback", return_value=None)
     def test_exception_returns_none_and_not_cached(self, _mock_fmp):
         client = _make_client()
         fake_yf = MagicMock()
@@ -173,7 +173,7 @@ class TestYFinanceFallback:
         assert result is None
         assert "prices_XLE_5" not in client.cache
 
-    @patch("fmp_client.FMPClient._request_with_fallback")
+    @patch.object(FMPClient, "_request_with_fallback")
     def test_fmp_success_does_not_call_yfinance(self, mock_fmp):
         mock_fmp.return_value = {
             "symbol": "SPY",
@@ -188,7 +188,7 @@ class TestYFinanceFallback:
         assert result["symbol"] == "SPY"
         fake_yf.download.assert_not_called()
 
-    @patch("fmp_client.FMPClient._request_with_fallback")
+    @patch.object(FMPClient, "_request_with_fallback")
     def test_empty_historical_dict_triggers_yfinance(self, mock_fmp):
         # v3 can return a truthy dict with an EMPTY historical list for an
         # ETF unavailable on the caller's plan. Must still fall back.
@@ -206,7 +206,7 @@ class TestYFinanceFallback:
         assert len(result["historical"]) == 1
         assert client.cache["prices_XLK_5"] is result
 
-    @patch("fmp_client.FMPClient._request_with_fallback")
+    @patch.object(FMPClient, "_request_with_fallback")
     def test_empty_historical_then_yfinance_empty_returns_none_not_cached(self, mock_fmp):
         mock_fmp.return_value = {"symbol": "XLK", "historical": []}
         client = _make_client()
@@ -219,7 +219,7 @@ class TestYFinanceFallback:
         assert result is None
         assert "prices_XLK_5" not in client.cache
 
-    @patch("fmp_client.FMPClient._request_with_fallback")
+    @patch.object(FMPClient, "_request_with_fallback")
     def test_empty_historicalstocklist_entry_triggers_yfinance(self, mock_fmp):
         # historicalStockList path can yield {"symbol":..., "historical": []}
         mock_fmp.return_value = {"symbol": "XLF", "historical": []}
