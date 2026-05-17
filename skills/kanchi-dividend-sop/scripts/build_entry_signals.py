@@ -354,7 +354,6 @@ def build_entry_row(
         if basis.floor_borderline:
             notes.append("floor_borderline")
 
-    # WS-2: sector-aware payout-safety triad + pre-order blocker seeds.
     pre_order_blockers: list[str] = []
     if basis is not None:
         # freeze_flag is intentionally NOT a blocker here: its disposition
@@ -366,6 +365,37 @@ def build_entry_row(
                 pre_order_blockers.append(flag)
         if basis.floor_borderline:
             pre_order_blockers.append("dividend_source_stale")
+
+    # WS-3 FIRST (6th-review High2/High3): a missing scan is SKIPPED, never
+    # silently clean; the pessimistic cap must run on every row, and a
+    # completed merger must reach WS-2 *before* payout safety is assessed.
+    if event_scan is None:
+        event_scan = ScanResult(ticker=ticker, result="SKIPPED", scanned_at=as_of)
+    triggered = str(signal) == "TRIGGERED"
+    cap = apply_event_cap(event_scan, step5_triggered=triggered)
+    row["event_scan"] = {
+        "result": event_scan.result,
+        "pending_mna": event_scan.pending_mna,
+        "completed_mna_within_4q": event_scan.completed_mna_within_4q,
+        "sources": event_scan.sources,
+        "scanned_at": event_scan.scanned_at,
+        "reasons": event_scan.reasons,
+    }
+    if cap["verdict_cap"]:
+        row["verdict_cap"] = cap["verdict_cap"]
+    row["t1_blocked"] = cap["t1_blocked"]
+    # Event-scan T1/order-gate blockers are kept on the row for the order
+    # gate, but excluded from the verdict-affecting set (their verdict
+    # impact is already represented via verdict_cap + event_t1_blocked).
+    event_order_blockers = list(cap["blockers"])
+    for r in cap["reasons"]:
+        notes.append(r)
+    if event_scan.completed_mna_within_4q:
+        notes.append("completed_merger_within_4q")
+
+    # WS-2: sector-aware payout-safety triad. completed_merger_within_4q now
+    # flows from the event scan (High3) so FITB/Comerica GAAP distortion is
+    # caught from the real path, not only when financials carries the flag.
     if financials is not None:
         safety = assess_payout_safety(
             sector=financials.get("sector") or (profile or {}).get("sector"),
@@ -374,7 +404,10 @@ def build_entry_row(
             adjusted_eps=financials.get("adjusted_eps"),
             adjusted_eps_source=financials.get("adjusted_eps_source", "UNAVAILABLE"),
             fcf_per_share=financials.get("fcf_per_share"),
-            completed_merger_within_4q=bool(financials.get("completed_merger_within_4q", False)),
+            completed_merger_within_4q=bool(
+                financials.get("completed_merger_within_4q", False)
+                or event_scan.completed_mna_within_4q
+            ),
             bank_metrics=financials.get("bank_metrics"),
             utility_metrics=financials.get("utility_metrics"),
             insurer_metrics=financials.get("insurer_metrics"),
@@ -393,32 +426,13 @@ def build_entry_row(
         pre_order_blockers.extend(safety.blockers)
         if safety.one_off_flag:
             notes.append("gaap_one_off")
-    # WS-3: forward/recent corporate-action layer + pessimistic cap (CR-2, #5).
-    if event_scan is not None:
-        triggered = str(signal) == "TRIGGERED"
-        cap = apply_event_cap(event_scan, step5_triggered=triggered)
-        row["event_scan"] = {
-            "result": event_scan.result,
-            "pending_mna": event_scan.pending_mna,
-            "completed_mna_within_4q": event_scan.completed_mna_within_4q,
-            "sources": event_scan.sources,
-            "scanned_at": event_scan.scanned_at,
-            "reasons": event_scan.reasons,
-        }
-        if cap["verdict_cap"]:
-            row["verdict_cap"] = cap["verdict_cap"]
-        row["t1_blocked"] = cap["t1_blocked"]
-        pre_order_blockers.extend(cap["blockers"])
-        for r in cap["reasons"]:
-            notes.append(r)
-        # completed merger feeds WS-2's GAAP-distortion linkage downstream.
-        if event_scan.completed_mna_within_4q:
-            notes.append("completed_merger_within_4q")
 
-    if pre_order_blockers:
-        row["pre_order_blockers"] = sorted(set(pre_order_blockers))
+    order_blockers = sorted(set(pre_order_blockers) | set(event_order_blockers))
+    if order_blockers:
+        row["pre_order_blockers"] = order_blockers
 
-    # WS-5: synthesize the actionable verdict tier + provenance block.
+    # WS-5: synthesize the actionable verdict tier. Verdict-affecting
+    # blockers exclude pure event-scan order blockers (cap handles them).
     safety_v = row.get("payout_safety", {}).get("safety_verdict")
     final = synthesize_verdict(
         step1_verdict=row.get("step1_verdict"),

@@ -12,6 +12,10 @@ insurer paths that the 2026-05 runs got wrong.
 from datetime import date, timedelta
 
 from build_entry_signals import build_entry_row
+from event_scanner import CLEAN_CONFIRMED, ScanResult
+
+# Step 4b ran clean — required for a PASS tier on a TRIGGERED name.
+_CLEAN = ScanResult(ticker="_", result=CLEAN_CONFIRMED)
 
 
 def _q(start, n, amt, step=91):
@@ -53,6 +57,7 @@ def test_ws7b_bank_credit_deterioration_pass_caution():
                 "nco_trend": "deteriorating",
             },
         },
+        event_scan=_CLEAN,
     )
     assert row["payout_safety"]["sector_kind"] == "bank"
     assert row["verdict"] == "PASS-CAUTION"
@@ -78,6 +83,7 @@ def test_ws7b_utility_negative_fcf_not_fail():
             "fcf_per_share": -3.0,
             "utility_metrics": {"ffo_to_debt": 0.16, "rate_case_status": "constructive"},
         },
+        event_scan=_CLEAN,
     )
     assert row["payout_safety"]["sector_kind"] == "utility"
     assert row["verdict"] in ("CLEAN-PASS", "PASS-CAUTION")  # NOT FAIL
@@ -106,6 +112,7 @@ def test_ws7b_insurer_regular_yield_passes_floor():
                 "statutory_capital": "strong",
             },
         },
+        event_scan=_CLEAN,
     )
     db = row["dividend_basis"]
     assert db["special_dividend_flag"] is True

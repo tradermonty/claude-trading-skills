@@ -46,6 +46,24 @@ SKIPPED = "SKIPPED"
 # Results that, on a TRIGGERED Step-5 name, must pessimistically cap.
 _PESSIMISTIC_RESULTS = {FAILED_DEGRADED, SKIPPED, NO_EVENT_FOUND, MAJOR_EVENT}
 
+# The complete valid enum. Anything else (e.g. a typo "FAILED_DEGRADED"
+# instead of "FAILED-DEGRADED") is coerced to FAILED_DEGRADED — default-deny,
+# never silently clean (6th-review Med1).
+_VALID_RESULTS = {
+    CLEAN_CONFIRMED,
+    NO_EVENT_FOUND,
+    MAJOR_EVENT,
+    MINOR_EVENT_CAUTION,
+    FAILED_DEGRADED,
+    SKIPPED,
+}
+
+
+def _coerce_result(value: object) -> str:
+    s = str(value).strip()
+    return s if s in _VALID_RESULTS else FAILED_DEGRADED
+
+
 _ROLLING_24M_TX_PCT_MCAP = 0.15
 
 
@@ -133,7 +151,11 @@ def apply_event_cap(scan: ScanResult, *, step5_triggered: bool) -> dict:
     blockers: list[str] = []
     reasons: list[str] = []
 
-    if scan.result == MAJOR_EVENT:
+    # Default-deny: an unknown/typo result is coerced to FAILED-DEGRADED so
+    # the pessimistic path runs instead of falling through to clean (Med1).
+    result = _coerce_result(scan.result)
+
+    if result == MAJOR_EVENT:
         blockers.append("major_structural_event")
         reasons.extend(scan.reasons or ["major_structural_event"])
         return {
@@ -143,20 +165,20 @@ def apply_event_cap(scan: ScanResult, *, step5_triggered: bool) -> dict:
             "reasons": reasons,
         }
 
-    if scan.result in (FAILED_DEGRADED, SKIPPED):
+    if result in (FAILED_DEGRADED, SKIPPED):
         blockers.append("event_scan_failed_or_skipped")
-        reasons.append(f"event_scan_{scan.result}")
-    elif scan.result == NO_EVENT_FOUND:
+        reasons.append(f"event_scan_{result}")
+    elif result == NO_EVENT_FOUND:
         blockers.append("event_scan_primary_source_unconfirmed")
         reasons.append("no_event_found_primary_source_unchecked")
-    elif scan.result == MINOR_EVENT_CAUTION:
+    elif result == MINOR_EVENT_CAUTION:
         return {
             "verdict_cap": None,
             "t1_blocked": False,
             "blockers": [],
             "reasons": ["minor_bolt_on_event_caution_note"],
         }
-    else:  # CLEAN_CONFIRMED
+    else:  # exactly CLEAN_CONFIRMED (unknowns were coerced away above)
         return {"verdict_cap": None, "t1_blocked": False, "blockers": [], "reasons": []}
 
     # Weak/failed scans only HARD-cap when the name is actually entry-ready.
@@ -201,7 +223,7 @@ class ManualEventScanner:
             )
         return ScanResult(
             ticker=ticker.upper(),
-            result=str(rec.get("result", NO_EVENT_FOUND)),
+            result=_coerce_result(rec.get("result", NO_EVENT_FOUND)),
             pending_mna=bool(rec.get("pending_mna", False)),
             completed_mna_within_4q=bool(rec.get("completed_mna_within_4q", False)),
             spinoff=bool(rec.get("spinoff", False)),

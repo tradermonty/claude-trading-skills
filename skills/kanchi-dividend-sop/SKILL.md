@@ -65,12 +65,20 @@ python3 skills/kanchi-dividend-sop/scripts/build_sop_plan.py \
   --output-dir reports/
 ```
 
-For Step 5 entry timing artifacts:
+For Step 5 entry timing artifacts. **`--yield-floor` is mandatory** — it is
+the Step-1 yield gate; without it every row fail-safes to `STEP1-RECHECK`
+(a row can never reach a PASS tier without Step 1). Pass `--profile` /
+`--safety-bias` for run_context, and `--events-json` for the Step 4b scan
+(absent ⇒ every row is treated as `SKIPPED` and a TRIGGERED name is capped
+to `HOLD-REVIEW` — never silently clean):
 
 ```bash
 python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
   --tickers "JNJ,PG,KO" \
   --alpha-pp 0.5 \
+  --yield-floor 3.0 \
+  --profile balanced --safety-bias medium \
+  --events-json reports/kanchi_events_2026-05-17.json \
   --output-dir reports/
 ```
 

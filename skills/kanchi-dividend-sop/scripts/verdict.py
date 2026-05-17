@@ -43,6 +43,16 @@ def synthesize_verdict(
     if safety_verdict == "FAIL":
         return FinalVerdict("FAIL", True, ["payout_safety_fail"])
 
+    # Step-1 is the core yield-floor gate. If it was not run (no
+    # --yield-floor) or returned an unknown value, a PASS tier cannot be
+    # asserted (6th-review High1): fail-safe to STEP1-RECHECK.
+    _STEP1_OK = {"STEP1-PASS", "HOLD-REVIEW"}
+    if step1_verdict not in _STEP1_OK and step1_verdict not in (
+        "STEP1-RECHECK",
+        "ASSUMPTION-REQUIRED",
+    ):
+        return FinalVerdict("STEP1-RECHECK", True, ["step1_not_run_or_unknown"])
+
     # Step-1 data-freshness recheck dominates (cannot assert PASS yet).
     if step1_verdict in ("STEP1-RECHECK", "ASSUMPTION-REQUIRED"):
         return FinalVerdict("STEP1-RECHECK", True, ["step1_recheck"])

@@ -14,7 +14,11 @@ fail here. No live FMP / WebSearch — all inputs are frozen fixtures.
 from datetime import date, timedelta
 
 from build_entry_signals import build_entry_row
-from event_scanner import MAJOR_EVENT, ScanResult
+from event_scanner import CLEAN_CONFIRMED, MAJOR_EVENT, ScanResult
+
+# Step 4b executed and found nothing material. Required for any PASS tier on
+# a TRIGGERED name (6th-review High2: a missing scan pessimistically caps).
+_CLEAN = ScanResult(ticker="_", result=CLEAN_CONFIRMED)
 
 
 def _q(start: date, n: int, amounts, step=91):
@@ -85,6 +89,7 @@ def test_golden_cmcsa_freeze_conditional_pass():
             "adjusted_eps_source": "FMP",
             "fcf_per_share": 4.5,
         },
+        event_scan=_CLEAN,
     )
     assert row["dividend_basis"]["freeze_flag"] is True
     assert row["verdict"] == "CONDITIONAL-PASS"
