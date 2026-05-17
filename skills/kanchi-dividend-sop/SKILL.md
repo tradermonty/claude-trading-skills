@@ -103,27 +103,44 @@ Return a ticker list grouped by bucket before moving forward.
 ### 3) Apply Kanchi Step 1 (yield filter with trap flag)
 
 Primary rule:
-- `forward_dividend_yield >= 3.5%`
+- Step-1 yield = the **regular forward yield** = `latest_declared_regular
+  dividend × cadence-implied frequency / price` (WS-1 `dividend_basis.py`).
+  Never use `profile.lastDiv` / TTM — it lags the latest declared raise
+  (defect D5) and silently bundles specials (D4).
+- Apply the profile floor (income-now 4.0% / balanced 3.0% / growth-first
+  1.5%) to the **regular** yield only.
 
-Trap controls:
-- Flag extreme yield (`>= 8%`) as `deep-dive-required`.
-- Flag sudden jump in payout as potential special dividend artifact.
+Trap & freshness controls (machine-emitted by `dividend_basis.py`):
+- `special_dividend_flag` → exclude specials; report regular vs ttm yield.
+- `variable_policy_flag` → `FAIL` (CALM-style; not an income base).
+- `cut_flag` → `FAIL`; `suspension_flag` → `FAIL`.
+- `freeze_flag` → `HOLD-REVIEW` (income cash-cow exception decided in
+  Step 8 synthesis only if safety is clean & unblocked).
+- **Data Freshness Gate**: if the regular yield is within ±0.20pp of the
+  floor (`floor_borderline`) and the latest declared dividend is not
+  confirmed from an authoritative source, emit `STEP1-RECHECK` — **never a
+  hard FAIL** (this is the CFR D5 fix).
 
-Output:
-- `PASS` or `FAIL` per ticker.
-- `deep-dive-required` flag for potential yield traps.
+### 4) Apply Kanchi Step 2 (growth and safety) — sector-dispatched
 
-### 4) Apply Kanchi Step 2 (growth and safety)
+Safety is **sector-specific** — a uniform GAAP/FCF triad mis-judges banks
+(FCF meaningless) and regulated utilities (FCF structurally negative).
+Use `references/sector-step2-modules.md`; the deterministic dispatch is
+`scripts/payout_safety.py`.
 
-Require:
-- Revenue and EPS trend positive on multi-year horizon.
-- Dividend trend non-declining over the review period.
+- Always compute the **payout triad**: GAAP-EPS payout, Adjusted-EPS
+  payout, FCF payout. The safety verdict uses **Adjusted-EPS + FCF**
+  (consumer), or the sector module (bank / utility / insurer).
+- `adjusted_eps_source = UNAVAILABLE` ⇒ cap `HOLD-REVIEW` (fail-safe;
+  never a silent PASS).
+- GAAP↔Adjusted EPS divergence > 25% ⇒ Step-4 one-off flag.
+- A merger **completed within 4 quarters** presumes GAAP EPS is distorted
+  ⇒ force the adjusted path or `HOLD-REVIEW` (FITB/Comerica golden case).
+- Regulated utilities: **negative FCF is not an auto-FAIL** — judge on
+  FFO/debt + allowed ROE + rate-case + equity-issuance risk.
 
-Add safety checks:
-- Payout ratio and FCF payout ratio in reasonable range.
-- Debt burden and interest coverage not deteriorating.
-
-When trend is mixed but not broken, classify as `HOLD-FOR-REVIEW` instead of hard reject.
+When trend is mixed but not broken, classify as `HOLD-REVIEW` instead of
+hard reject.
 
 ### 5) Apply Kanchi Step 3 (valuation) with US sector mapping
 
@@ -144,6 +161,27 @@ Reject or downgrade names where recent profits rely on one-time effects:
 
 Record one-line evidence for each `FAIL` to keep auditability.
 
+### 6b) Apply Kanchi Step 4b (forward structural-event scan)
+
+Step 4 is backward-looking; Step 4b catches *pending/recent* structural
+events (the MKC-Unilever miss, D3). For each surviving candidate, run a
+WebSearch + issuer-IR/SEC check using the **source hierarchy**: issuer IR
+→ SEC filing (8-K/10-Q/10-K/proxy/S-4) → exchange/company deck →
+reputable wire → finance portals (secondary only). Record findings into a
+curated events JSON and pass it via `build_entry_signals.py --events-json`.
+
+- Only a **major structural event** caps the verdict to `HOLD-REVIEW`
+  (tx > 10% mcap, share issuance > 10–20%, leverage +0.5x EBITDA,
+  control/listing/HQ change, merger-of-equals / RMT / spin-off / large
+  asset sale, dividend/rating/leverage-policy change, sector-specific
+  materiality, or rolling-24m cumulative M&A > 15% mcap). Minor bolt-ons
+  are a CAUTION note only.
+- **Pessimistic cap**: `FAILED-DEGRADED` / `SKIPPED` / `NO_EVENT_FOUND`
+  on a Step-5 TRIGGERED name ⇒ `HOLD-REVIEW` + **T1 BLOCKED**. WebSearch
+  unavailable (web app / offline) is treated the same — never a silent
+  skip. `CLEAN_CONFIRMED` (primary source checked) is stronger than
+  `NO_EVENT_FOUND` (search only).
+
 ### 7) Apply Kanchi Step 5 (buy on weakness with rules)
 
 Set entry triggers mechanically:
@@ -152,14 +190,32 @@ Set entry triggers mechanically:
 
 Execution pattern:
 - Split orders: `40% -> 30% -> 30%`.
-- Require one-sentence sanity check before each add: "thesis intact vs structural break".
+- **Pre-order blockers**: if a candidate has any unresolved
+  `pre_order_blockers[]` (from WS-1/2/3 — variable/cut/suspension,
+  adjusted-EPS-unavailable, GAAP/Adj divergence, bank credit, utility
+  FFO/debt, event-scan failed/skipped, stale dividend, …) OR
+  `t1_blocked` is true, the first tranche is **blocked or downsized to a
+  ≤20% tracking tranche** — not 40%.
+- **Sector cluster risk**: when ≥ `SECTOR_CLUSTER_WARN_COUNT` same-sector
+  names pass (e.g. many small banks share one macro beta), emit a
+  portfolio-level `CLUSTER-RISK` warning.
+- Require one-sentence sanity check before each *unblocked* add: "thesis
+  intact vs structural break".
 
 ### 8) Produce standardized outputs
 
-Always produce three artifacts:
-1. Screening table (`PASS`, `HOLD-FOR-REVIEW`, `FAIL` with evidence).
-2. One-page stock memo (use `references/stock-note-template.md`).
-3. Limit-order plan with split sizing and invalidation condition.
+Always produce:
+1. Screening table with the **actionable verdict tier**: `CLEAN-PASS`,
+   `PASS-CAUTION`, `CONDITIONAL-PASS`, `HOLD-REVIEW`, `STEP1-RECHECK`,
+   `FAIL` (synthesized by `verdict.py` from Step 1 + Step 2 + Step 4b +
+   blockers). Include evidence per row.
+2. One-page stock memo (use `references/stock-note-template.md`) with the
+   per-ticker **provenance block** (price/dividend/payout/event sources,
+   `unresolved_blockers`, `evidence_refs[]`).
+3. Limit-order plan with split sizing, blocker gate, and invalidation.
+4. Top-level **run_context** (profile, yield_floor_pct, safety_bias,
+   universe_source, excluded_asset_types) so a 3%-run result is never
+   silently reused inside a 4%-run.
 
 ## Output
 
@@ -187,16 +243,34 @@ Run this skill first, then hand off outputs:
 
 ## Guardrails
 
-- Do not issue blind buy calls without Step 4 and safety checks.
+- Do not issue blind buy calls without Step 4, Step 4b and safety checks.
 - Do not treat high yield as value before validating coverage quality.
-- Keep assumptions explicit when data is missing.
+- Use the **regular** forward yield for Step 1, never a special/TTM-inclusive
+  figure; near-floor + unconfirmed ⇒ `STEP1-RECHECK`, not FAIL.
+- A failed/skipped event scan on a TRIGGERED name ⇒ `HOLD-REVIEW` + T1
+  blocked. Never silently skip Step 4b.
+- Keep assumptions explicit; `adjusted_eps`/data missing ⇒ fail-safe
+  `HOLD-REVIEW`, never silent PASS.
 
 ## Resources
 
-- `skills/kanchi-dividend-sop/scripts/build_sop_plan.py`: deterministic SOP plan generator.
-- `skills/kanchi-dividend-sop/scripts/tests/test_build_sop_plan.py`: tests for plan generation.
-- `skills/kanchi-dividend-sop/scripts/build_entry_signals.py`: Step 5 target-buy calculator (`5y avg yield + alpha`).
-- `skills/kanchi-dividend-sop/scripts/tests/test_build_entry_signals.py`: tests for signal calculations.
-- `references/default-thresholds.md`: baseline thresholds and profile tuning.
-- `references/valuation-and-one-off-checks.md`: sector valuation map and one-off checklist.
-- `references/stock-note-template.md`: one-page memo template for each candidate.
+- `scripts/thresholds.py`: **single source of truth** for all SOP
+  thresholds + `SCHEMA_VERSION` (downstream schema-evolution guard).
+- `scripts/dividend_basis.py`: WS-1 regular/special/variable/freeze/cut +
+  Data Freshness Gate engine (pure, offline).
+- `scripts/payout_safety.py`: WS-2 sector-aware GAAP/Adjusted/FCF payout
+  triad + completed-merger linkage.
+- `scripts/event_scanner.py`: WS-3 isolated forward/recent corporate-action
+  scanner + materiality gate + pessimistic cap.
+- `scripts/verdict.py`: WS-5 actionable-tier synthesis + run_context +
+  evidence_ref helpers.
+- `scripts/build_entry_signals.py`: orchestrator (Step 5 targets + WS-1/2/3/5
+  integration). Flags: `--yield-floor`, `--events-json`, `--profile`,
+  `--safety-bias`, `--universe-source`.
+- `scripts/build_sop_plan.py`: deterministic SOP plan scaffold generator.
+- `scripts/tests/test_golden_p0.py`: **P0 merge gate** — end-to-end frozen
+  verdicts for CALM/ORI/CMCSA/MKC/CFR/cut (run via `scripts/run_all_tests.sh`).
+- `references/default-thresholds.md`: human-readable threshold mirror.
+- `references/sector-step2-modules.md`: Step 2 safety indicators by sector.
+- `references/valuation-and-one-off-checks.md`: Step 3 valuation + Step 4 one-off.
+- `references/stock-note-template.md`: one-page memo + provenance block.
