@@ -715,7 +715,7 @@ skills:
     requirement: required
     note: Alpaca brokerage MCP/API
   inputs:
-  - alpaca_holdings_or_csv
+  - alpaca_holdings
   outputs:
   - allocation_report
   - rebalance_actions
