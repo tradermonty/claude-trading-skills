@@ -1,33 +1,35 @@
 ---
 name: scenario-analyzer
 description: |
-  ニュースヘッドラインを入力として18ヶ月シナリオを分析するスキル。
-  scenario-analystエージェントで主分析を実行し、
-  strategy-reviewerエージェントでセカンドオピニオンを取得。
-  1次・2次・3次影響、推奨銘柄、レビューを含む包括的レポートを日本語で生成。
-  使用例: /scenario-analyzer "Fed raises rates by 50bp"
-  トリガー: ニュース分析、シナリオ分析、18ヶ月展望、中長期投資戦略
+  Skill that analyzes 18-month scenarios from a news headline.
+  Runs the primary analysis with the scenario-analyst agent and obtains a
+  second opinion with the strategy-reviewer agent.
+  Generates a comprehensive English report covering 1st/2nd/3rd-order
+  impacts, recommended stocks, and a critical review.
+  Example: /scenario-analyzer "Fed raises rates by 50bp"
+  Triggers: news analysis, scenario analysis, 18-month outlook,
+  medium-to-long-term investment strategy
 ---
 
 # Scenario Analyzer
 
 ## Overview
 
-このスキルは、ニュースヘッドラインを起点として中長期（18ヶ月）の投資シナリオを分析します。
-2つの専門エージェント（`scenario-analyst`と`strategy-reviewer`）を順次呼び出し、
-多角的な分析と批判的レビューを統合した包括的なレポートを生成します。
+This skill analyzes medium-to-long-term (18-month) investment scenarios
+starting from a news headline. It invokes two specialized agents in sequence
+(`scenario-analyst` and `strategy-reviewer`) and integrates multi-angle
+analysis with a critical review into a comprehensive report.
 
 ## When to Use This Skill
 
-以下の場合にこのスキルを使用してください：
+Use this skill when:
 
-- ニュースヘッドラインから中長期の投資影響を分析したい
-- 18ヶ月後のシナリオを複数構築したい
-- セクター・銘柄への影響を1次/2次/3次で整理したい
-- セカンドオピニオンを含む包括的な分析が必要
-- 日本語でのレポート出力が必要
+- You want to analyze the medium-to-long-term investment impact of a news headline
+- You want to construct multiple 18-month scenarios
+- You want sector/stock impacts organized into 1st/2nd/3rd-order effects
+- You need a comprehensive analysis that includes a second opinion
 
-**使用例:**
+**Examples:**
 ```
 /scenario-analyzer "Fed raises interest rates by 50bp, signals more hikes ahead"
 /scenario-analyzer "China announces new tariffs on US semiconductors"
@@ -36,63 +38,63 @@ description: |
 
 ## Prerequisites
 
-- **API Keys**: なし（WebSearch/WebFetchのみ使用）
-- **MCP Servers**: なし
-- **Dependencies**: scenario-analyst および strategy-reviewer エージェントが Task tool で利用可能であること
+- **API Keys**: None (uses only WebSearch/WebFetch)
+- **MCP Servers**: None
+- **Dependencies**: The scenario-analyst and strategy-reviewer agents must be available via the Task tool
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    Skill（オーケストレーター）                        │
+│                    Skill (orchestrator)                              │
 │                                                                      │
-│  Phase 1: 準備                                                       │
-│  ├─ ヘッドライン解析                                                  │
-│  ├─ イベントタイプ分類                                                │
-│  └─ リファレンス読み込み                                              │
+│  Phase 1: Preparation                                                │
+│  ├─ Headline parsing                                                 │
+│  ├─ Event type classification                                        │
+│  └─ Reference loading                                                │
 │                                                                      │
-│  Phase 2: エージェント呼び出し                                        │
-│  ├─ scenario-analyst（主分析）                                       │
-│  └─ strategy-reviewer（セカンドオピニオン）                           │
+│  Phase 2: Agent invocation                                           │
+│  ├─ scenario-analyst (primary analysis)                              │
+│  └─ strategy-reviewer (second opinion)                               │
 │                                                                      │
-│  Phase 3: 統合・レポート生成                                          │
+│  Phase 3: Integration & report generation                            │
 │  └─ reports/scenario_analysis_<topic>_YYYYMMDD.md                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Workflow
 
-### Phase 1: 準備
+### Phase 1: Preparation
 
-#### Step 1.1: ヘッドライン解析
+#### Step 1.1: Headline Parsing
 
-ユーザーから入力されたヘッドラインを解析します。
+Parse the headline provided by the user.
 
-1. **ヘッドライン確認**
-   - 引数としてヘッドラインが渡されているか確認
-   - 渡されていない場合はユーザーに入力を求める
+1. **Headline check**
+   - Confirm a headline was passed as an argument
+   - If not provided, ask the user for input
 
-2. **キーワード抽出**
-   - 主要なエンティティ（企業名、国名、機関名）
-   - 数値データ（金利、価格、数量）
-   - アクション（引き上げ、引き下げ、発表、合意等）
+2. **Keyword extraction**
+   - Key entities (company names, country names, institution names)
+   - Numeric data (rates, prices, quantities)
+   - Actions (raise, cut, announce, agree, etc.)
 
-#### Step 1.2: イベントタイプ分類
+#### Step 1.2: Event Type Classification
 
-ヘッドラインを以下のカテゴリに分類：
+Classify the headline into one of the following categories:
 
-| カテゴリ | 例 |
-|---------|-----|
-| 金融政策 | FOMC、ECB、日銀、利上げ、利下げ、QE/QT |
-| 地政学 | 戦争、制裁、関税、貿易摩擦 |
-| 規制・政策 | 環境規制、金融規制、独禁法 |
-| テクノロジー | AI、EV、再エネ、半導体 |
-| コモディティ | 原油、金、銅、農産物 |
-| 企業・M&A | 買収、破綻、決算、業界再編 |
+| Category | Examples |
+|----------|----------|
+| Monetary Policy | FOMC, ECB, BOJ, rate hike, rate cut, QE/QT |
+| Geopolitics | War, sanctions, tariffs, trade friction |
+| Regulation & Policy | Environmental regulation, financial regulation, antitrust |
+| Technology | AI, EV, renewables, semiconductors |
+| Commodities | Crude oil, gold, copper, agricultural products |
+| Corporate & M&A | Acquisitions, bankruptcies, earnings, industry restructuring |
 
-#### Step 1.3: リファレンス読み込み
+#### Step 1.3: Reference Loading
 
-イベントタイプに基づき、関連するリファレンスを読み込みます：
+Based on the event type, load the relevant references:
 
 ```
 Read references/headline_event_patterns.md
@@ -100,240 +102,240 @@ Read references/sector_sensitivity_matrix.md
 Read references/scenario_playbooks.md
 ```
 
-**リファレンス内容:**
-- `headline_event_patterns.md`: 過去のイベントパターンと市場反応
-- `sector_sensitivity_matrix.md`: イベント×セクターの影響度マトリクス
-- `scenario_playbooks.md`: シナリオ構築のテンプレートとベストプラクティス
+**Reference contents:**
+- `headline_event_patterns.md`: Historical event patterns and market reactions
+- `sector_sensitivity_matrix.md`: Event × sector impact-magnitude matrix
+- `scenario_playbooks.md`: Scenario-construction templates and best practices
 
 ---
 
-### Phase 2: エージェント呼び出し
+### Phase 2: Agent Invocation
 
-#### Step 2.1: scenario-analyst 呼び出し
+#### Step 2.1: Invoke scenario-analyst
 
-Agent toolを使用してメイン分析エージェントを呼び出します。
+Use the Agent tool to invoke the primary analysis agent.
 
 ```
 Agent tool:
 - subagent_type: "scenario-analyst"
 - prompt: |
-    以下のヘッドラインについて18ヶ月シナリオ分析を実行してください。
+    Perform an 18-month scenario analysis for the following headline.
 
-    ## 対象ヘッドライン
-    [入力されたヘッドライン]
+    ## Target Headline
+    [the input headline]
 
-    ## イベントタイプ
-    [分類結果]
+    ## Event Type
+    [classification result]
 
-    ## リファレンス情報
-    [読み込んだリファレンスの要約]
+    ## Reference Information
+    [summary of the loaded references]
 
-    ## 分析要件
-    1. WebSearchで過去2週間の関連ニュースを収集
-    2. Base/Bull/Bearの3シナリオを構築（確率合計100%）
-    3. 1次/2次/3次影響をセクター別に分析
-    4. ポジティブ/ネガティブ影響銘柄を各3-5銘柄選定（米国市場のみ）
-    5. 全て日本語で出力
+    ## Analysis Requirements
+    1. Use WebSearch to collect related news from the past 2 weeks
+    2. Construct 3 scenarios — Base/Bull/Bear (probabilities sum to 100%)
+    3. Analyze 1st/2nd/3rd-order impacts by sector
+    4. Select 3-5 positive- and 3-5 negative-impact stocks (US market only)
+    5. Output everything in English
 ```
 
-**期待する出力:**
-- 関連ニュース記事リスト
-- 3シナリオ（Base/Bull/Bear）の詳細
-- セクター影響分析（1次/2次/3次）
-- 銘柄推奨リスト
+**Expected output:**
+- List of related news articles
+- Details of the 3 scenarios (Base/Bull/Bear)
+- Sector impact analysis (1st/2nd/3rd-order)
+- Stock recommendation list
 
-#### Step 2.2: strategy-reviewer 呼び出し
+#### Step 2.2: Invoke strategy-reviewer
 
-scenario-analystの分析結果を受けて、レビューエージェントを呼び出します。
+Using the scenario-analyst's results, invoke the review agent.
 
 ```
 Agent tool:
 - subagent_type: "strategy-reviewer"
 - prompt: |
-    以下のシナリオ分析をレビューしてください。
+    Review the following scenario analysis.
 
-    ## 対象ヘッドライン
-    [入力されたヘッドライン]
+    ## Target Headline
+    [the input headline]
 
-    ## 分析結果
-    [scenario-analystの出力全文]
+    ## Analysis Result
+    [the full scenario-analyst output]
 
-    ## レビュー要件
-    以下の観点でレビューを実施：
-    1. 見落とされているセクター/銘柄
-    2. シナリオ確率配分の妥当性
-    3. 影響分析の論理的整合性
-    4. 楽観/悲観バイアスの検出
-    5. 代替シナリオの提案
-    6. タイムラインの現実性
+    ## Review Requirements
+    Review from the following angles:
+    1. Overlooked sectors/stocks
+    2. Validity of the scenario probability allocation
+    3. Logical consistency of the impact analysis
+    4. Detection of optimism/pessimism bias
+    5. Proposal of alternative scenarios
+    6. Realism of the timeline
 
-    建設的かつ具体的なフィードバックを日本語で出力してください。
+    Output constructive and specific feedback in English.
 ```
 
-**期待する出力:**
-- 見落としの指摘
-- シナリオ確率への意見
-- バイアスの指摘
-- 代替シナリオの提案
-- 最終推奨事項
+**Expected output:**
+- Pointing out blind spots
+- Opinion on the scenario probabilities
+- Pointing out bias
+- Proposal of alternative scenarios
+- Final recommendations
 
 ---
 
-### Phase 3: 統合・レポート生成
+### Phase 3: Integration & Report Generation
 
-#### Step 3.1: 結果統合
+#### Step 3.1: Integrate Results
 
-両エージェントの出力を統合し、最終投資判断を作成します。
+Integrate the output of both agents to produce the final investment judgment.
 
-**統合ポイント:**
-1. レビューで指摘された見落としを補完
-2. 確率配分の調整（必要な場合）
-3. バイアスを考慮した最終判断
-4. 具体的なアクションプランの策定
+**Integration points:**
+1. Fill in the blind spots raised in the review
+2. Adjust the probability allocation (if needed)
+3. Make the final judgment accounting for bias
+4. Formulate a concrete action plan
 
-#### Step 3.2: レポート生成
+#### Step 3.2: Generate Report
 
-以下の形式で最終レポートを生成し、ファイルに保存します。
+Generate the final report in the following format and save it to a file.
 
-**保存先:** `reports/scenario_analysis_<topic>_YYYYMMDD.md`
+**Save location:** `reports/scenario_analysis_<topic>_YYYYMMDD.md`
 
 ```markdown
-# ヘッドライン・シナリオ分析レポート
+# Headline Scenario Analysis Report
 
-**分析日時**: YYYY-MM-DD HH:MM
-**対象ヘッドライン**: [入力されたヘッドライン]
-**イベントタイプ**: [分類カテゴリ]
-
----
-
-## 1. 関連ニュース記事
-[scenario-analystが収集したニュースリスト]
-
-## 2. 想定シナリオ概要（18ヶ月後まで）
-
-### Base Case（XX%確率）
-[シナリオ詳細]
-
-### Bull Case（XX%確率）
-[シナリオ詳細]
-
-### Bear Case（XX%確率）
-[シナリオ詳細]
-
-## 3. セクター・業種への影響
-
-### 1次的影響（直接的）
-[影響テーブル]
-
-### 2次的影響（バリューチェーン・関連産業）
-[影響テーブル]
-
-### 3次的影響（マクロ・規制・技術）
-[影響テーブル]
-
-## 4. ポジティブ影響が見込まれる銘柄（3-5銘柄）
-[銘柄テーブル]
-
-## 5. ネガティブ影響が見込まれる銘柄（3-5銘柄）
-[銘柄テーブル]
-
-## 6. セカンドオピニオン・レビュー
-[strategy-reviewerの出力]
-
-## 7. 最終投資判断・示唆
-
-### 推奨アクション
-[レビューを踏まえた具体的アクション]
-
-### リスク要因
-[主要リスクの列挙]
-
-### モニタリングポイント
-[フォローすべき指標・イベント]
+**Analyzed at**: YYYY-MM-DD HH:MM
+**Target headline**: [the input headline]
+**Event type**: [classification category]
 
 ---
-**生成**: scenario-analyzer skill
-**エージェント**: scenario-analyst, strategy-reviewer
+
+## 1. Related News Articles
+[news list collected by scenario-analyst]
+
+## 2. Scenario Overview (through 18 months out)
+
+### Base Case (XX% probability)
+[scenario details]
+
+### Bull Case (XX% probability)
+[scenario details]
+
+### Bear Case (XX% probability)
+[scenario details]
+
+## 3. Sector / Industry Impact
+
+### 1st-Order Impact (direct)
+[impact table]
+
+### 2nd-Order Impact (value chain / related industries)
+[impact table]
+
+### 3rd-Order Impact (macro / regulation / technology)
+[impact table]
+
+## 4. Stocks Expected to Benefit (3-5 tickers)
+[stock table]
+
+## 5. Stocks Expected to Be Hurt (3-5 tickers)
+[stock table]
+
+## 6. Second Opinion / Review
+[strategy-reviewer output]
+
+## 7. Final Investment Judgment & Implications
+
+### Recommended Actions
+[concrete actions informed by the review]
+
+### Risk Factors
+[list of key risks]
+
+### Monitoring Points
+[indicators / events to follow]
+
+---
+**Generated by**: scenario-analyzer skill
+**Agents**: scenario-analyst, strategy-reviewer
 ```
 
-#### Step 3.3: レポート保存
+#### Step 3.3: Save the Report
 
-1. `reports/` ディレクトリが存在しない場合は作成
-2. `scenario_analysis_<topic>_YYYYMMDD.md` として保存（例: `scenario_analysis_venezuela_20260104.md`）
-3. 保存完了をユーザーに通知
-4. **プロジェクトルートに直接保存しないこと**
+1. Create the `reports/` directory if it does not exist
+2. Save as `scenario_analysis_<topic>_YYYYMMDD.md` (e.g., `scenario_analysis_venezuela_20260104.md`)
+3. Notify the user that the save completed
+4. **Do not save directly to the project root**
 
 ---
 
 ## Output
 
-このスキルは以下のファイルを生成します：
+This skill generates the following file:
 
-| ファイル | 形式 | 説明 |
-|---------|------|------|
-| `reports/scenario_analysis_<topic>_YYYYMMDD.md` | Markdown | 包括的なシナリオ分析レポート |
+| File | Format | Description |
+|------|--------|-------------|
+| `reports/scenario_analysis_<topic>_YYYYMMDD.md` | Markdown | Comprehensive scenario analysis report |
 
-**出力内容:**
-- 関連ニュース記事リスト
-- Base/Bull/Bear 3シナリオ（確率配分付き）
-- セクター影響分析（1次/2次/3次）
-- ポジティブ/ネガティブ銘柄推奨
-- セカンドオピニオン・レビュー
-- 最終投資判断・示唆
+**Output contents:**
+- List of related news articles
+- 3 scenarios — Base/Bull/Bear (with probability allocation)
+- Sector impact analysis (1st/2nd/3rd-order)
+- Positive/negative stock recommendations
+- Second opinion / review
+- Final investment judgment & implications
 
 ## Resources
 
 ### References
-- `references/headline_event_patterns.md` - イベントパターンと市場反応
-- `references/sector_sensitivity_matrix.md` - セクター感応度マトリクス
-- `references/scenario_playbooks.md` - シナリオ構築テンプレート
+- `references/headline_event_patterns.md` - Event patterns and market reactions
+- `references/sector_sensitivity_matrix.md` - Sector sensitivity matrix
+- `references/scenario_playbooks.md` - Scenario-construction templates
 
 ### Agents
-- `scenario-analyst` - メインシナリオ分析
-- `strategy-reviewer` - セカンドオピニオン・レビュー
+- `scenario-analyst` - Primary scenario analysis
+- `strategy-reviewer` - Second opinion / review
 
 ---
 
 ## Important Notes
 
-### 言語
-- 全ての分析・出力は**日本語**で行う
-- 銘柄ティッカーは英語表記を維持
+### Language
+- All analysis and output are in **English**
+- Stock tickers remain in their standard (English) symbols
 
-### 対象市場
-- 銘柄選定は**米国市場上場銘柄のみ**
-- ADR含む
+### Target Market
+- Stock selection is **US-listed equities only**
+- ADRs included
 
-### 時間軸
-- シナリオは**18ヶ月**を対象
-- 0-6ヶ月/6-12ヶ月/12-18ヶ月の3フェーズで記述
+### Time Horizon
+- Scenarios target **18 months**
+- Described in 3 phases: 0-6 months / 6-12 months / 12-18 months
 
-### 確率配分
+### Probability Allocation
 - Base + Bull + Bear = **100%**
-- 各シナリオの確率は根拠とともに記述
+- Each scenario's probability is described with its rationale
 
-### セカンドオピニオン
-- **必須**で実行（strategy-reviewerを常に呼び出す）
-- レビュー結果は最終判断に反映
+### Second Opinion
+- **Mandatory** (always invoke strategy-reviewer)
+- Review results are reflected in the final judgment
 
-### 出力先（重要）
-- **必ず** `reports/` ディレクトリ配下に保存すること
-- パス: `reports/scenario_analysis_<topic>_YYYYMMDD.md`
-- 例: `reports/scenario_analysis_fed_rate_hike_20260104.md`
-- `reports/` ディレクトリが存在しない場合は作成すること
-- **プロジェクトルートに直接保存してはならない**
+### Output Location (Important)
+- **Always** save under the `reports/` directory
+- Path: `reports/scenario_analysis_<topic>_YYYYMMDD.md`
+- Example: `reports/scenario_analysis_fed_rate_hike_20260104.md`
+- Create the `reports/` directory if it does not exist
+- **Must not save directly to the project root**
 
 ---
 
 ## Quality Checklist
 
-レポート完成前に以下を確認：
+Confirm the following before finalizing the report:
 
-- [ ] ヘッドラインが正しく解析されているか
-- [ ] イベントタイプの分類が適切か
-- [ ] 3シナリオの確率合計が100%か
-- [ ] 1次/2次/3次影響の論理的繋がりがあるか
-- [ ] 銘柄選定に具体的な根拠があるか
-- [ ] strategy-reviewerのレビューが含まれているか
-- [ ] レビューを踏まえた最終判断が記載されているか
-- [ ] レポートが正しいパスに保存されたか
+- [ ] Is the headline parsed correctly?
+- [ ] Is the event type classification appropriate?
+- [ ] Do the 3 scenario probabilities sum to 100%?
+- [ ] Are the 1st/2nd/3rd-order impacts logically connected?
+- [ ] Is the stock selection backed by concrete rationale?
+- [ ] Is the strategy-reviewer review included?
+- [ ] Is the final judgment reflecting the review documented?
+- [ ] Is the report saved to the correct path?

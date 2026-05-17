@@ -3,15 +3,24 @@ layout: default
 title: "Scenario Analyzer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 36
+nav_order: 42
 lang_peer: /ja/skills/scenario-analyzer/
 permalink: /en/skills/scenario-analyzer/
+generated: true
 ---
 
 # Scenario Analyzer
 {: .no_toc }
 
-Analyze news headlines to build 18-month investment scenarios. Uses the `scenario-analyst` agent for primary analysis and the `strategy-reviewer` agent for a second opinion. Generates comprehensive reports including primary/secondary/tertiary sector impacts, stock picks, and critical review. Output is in Japanese.
+Skill that analyzes 18-month scenarios from a news headline.
+Runs the primary analysis with the scenario-analyst agent and obtains a
+second opinion with the strategy-reviewer agent.
+Generates a comprehensive English report covering 1st/2nd/3rd-order
+impacts, recommended stocks, and a critical review.
+Example: /scenario-analyzer "Fed raises rates by 50bp"
+Triggers: news analysis, scenario analysis, 18-month outlook,
+medium-to-long-term investment strategy
+
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">No API</span>
@@ -30,19 +39,23 @@ Analyze news headlines to build 18-month investment scenarios. Uses the `scenari
 
 ## 1. Overview
 
-This skill takes a news headline as input and builds medium-to-long-term (18-month) investment scenarios. It sequentially invokes two specialized agents (`scenario-analyst` and `strategy-reviewer`) to produce a comprehensive report that integrates multi-angle analysis with critical review.
+This skill analyzes medium-to-long-term (18-month) investment scenarios
+starting from a news headline. It invokes two specialized agents in sequence
+(`scenario-analyst` and `strategy-reviewer`) and integrates multi-angle
+analysis with a critical review into a comprehensive report.
 
 ---
 
 ## 2. When to Use
 
-- Analyze the medium-to-long-term investment impact of a news headline
-- Build multiple 18-month forward-looking scenarios (Base / Bull / Bear)
-- Organize sector and stock impacts across primary, secondary, and tertiary levels
-- Obtain a comprehensive analysis that includes a second opinion
-- Generate a Japanese-language scenario report
+Use this skill when:
 
-**Usage examples:**
+- You want to analyze the medium-to-long-term investment impact of a news headline
+- You want to construct multiple 18-month scenarios
+- You want sector/stock impacts organized into 1st/2nd/3rd-order effects
+- You need a comprehensive analysis that includes a second opinion
+
+**Examples:**
 ```
 /scenario-analyzer "Fed raises interest rates by 50bp, signals more hikes ahead"
 /scenario-analyzer "China announces new tariffs on US semiconductors"
@@ -53,9 +66,9 @@ This skill takes a news headline as input and builds medium-to-long-term (18-mon
 
 ## 3. Prerequisites
 
-- **API Key:** None required
-- **Python 3.9+** recommended
-- **Claude Code Required:** This skill uses two specialized agents (`scenario-analyst` and `strategy-reviewer`) defined in the `agents/` directory. These agents are only available in the Claude Code environment. The `.skill` package does not include agents. In the Claude web app, the skill runs all analysis in a single pass without dedicated agents.
+- **API Keys**: None (uses only WebSearch/WebFetch)
+- **MCP Servers**: None
+- **Dependencies**: The scenario-analyst and strategy-reviewer agents must be available via the Task tool
 
 ---
 
@@ -77,25 +90,31 @@ Read references/scenario_playbooks.md
 
 Parse the headline provided by the user.
 
-1. **Headline verification** -- confirm a headline was passed as an argument; if not, prompt the user for input.
-2. **Keyword extraction** -- extract key entities (companies, countries, institutions), numerical data (rates, prices, quantities), and actions (raise, cut, announce, agree, etc.).
+1. **Headline check**
+   - Confirm a headline was passed as an argument
+   - If not provided, ask the user for input
 
-#### Step 1.2: Event-Type Classification
+2. **Keyword extraction**
+   - Key entities (company names, country names, institution names)
+   - Numeric data (rates, prices, quantities)
+   - Actions (raise, cut, announce, agree, etc.)
+
+#### Step 1.2: Event Type Classification
 
 Classify the headline into one of the following categories:
 
 | Category | Examples |
 |----------|----------|
-| Monetary Policy | FOMC, ECB, BOJ, rate hike/cut, QE/QT |
+| Monetary Policy | FOMC, ECB, BOJ, rate hike, rate cut, QE/QT |
 | Geopolitics | War, sanctions, tariffs, trade friction |
-| Regulation / Policy | Environmental regulation, financial regulation, antitrust |
+| Regulation & Policy | Environmental regulation, financial regulation, antitrust |
 | Technology | AI, EV, renewables, semiconductors |
-| Commodities | Oil, gold, copper, agriculture |
-| Corporate / M&A | Acquisitions, bankruptcies, earnings, industry consolidation |
+| Commodities | Crude oil, gold, copper, agricultural products |
+| Corporate & M&A | Acquisitions, bankruptcies, earnings, industry restructuring |
 
-#### Step 1.3: Load References
+#### Step 1.3: Reference Loading
 
-Based on the event type, load the relevant reference documents:
+Based on the event type, load the relevant references:
 
 ```
 Read references/headline_event_patterns.md
@@ -105,8 +124,8 @@ Read references/scenario_playbooks.md
 
 **Reference contents:**
 - `headline_event_patterns.md`: Historical event patterns and market reactions
-- `sector_sensitivity_matrix.md`: Event-to-sector impact matrix
-- `scenario_playbooks.md`: Scenario-building templates and best practices
+- `sector_sensitivity_matrix.md`: Event × sector impact-magnitude matrix
+- `scenario_playbooks.md`: Scenario-construction templates and best practices
 
 ---
 
@@ -114,57 +133,98 @@ Read references/scenario_playbooks.md
 
 #### Step 2.1: Invoke scenario-analyst
 
-Use the Agent tool to invoke the primary analysis agent. The agent:
-1. Collects related news from the past 2 weeks via WebSearch
-2. Builds 3 scenarios (Base / Bull / Bear) with probabilities summing to 100%
-3. Analyzes primary / secondary / tertiary impacts by sector
-4. Selects 3-5 positively and negatively affected stocks (US-listed only)
-5. Outputs everything in Japanese
+Use the Agent tool to invoke the primary analysis agent.
 
-**Expected output:** related news list, 3 scenario details, sector impact analysis, stock pick list.
+```
+Agent tool:
+- subagent_type: "scenario-analyst"
+- prompt: |
+    Perform an 18-month scenario analysis for the following headline.
+
+    ## Target Headline
+    [the input headline]
+
+    ## Event Type
+    [classification result]
+
+    ## Reference Information
+    [summary of the loaded references]
+
+    ## Analysis Requirements
+    1. Use WebSearch to collect related news from the past 2 weeks
+    2. Construct 3 scenarios — Base/Bull/Bear (probabilities sum to 100%)
+    3. Analyze 1st/2nd/3rd-order impacts by sector
+    4. Select 3-5 positive- and 3-5 negative-impact stocks (US market only)
+    5. Output everything in English
+```
+
+**Expected output:**
+- List of related news articles
+- Details of the 3 scenarios (Base/Bull/Bear)
+- Sector impact analysis (1st/2nd/3rd-order)
+- Stock recommendation list
 
 #### Step 2.2: Invoke strategy-reviewer
 
-Pass the scenario-analyst output to the review agent. Review criteria:
-1. Missed sectors or stocks
-2. Scenario probability allocation reasonableness
-3. Logical consistency of impact analysis
-4. Optimistic / pessimistic bias detection
-5. Alternative scenario proposals
-6. Timeline realism
+Using the scenario-analyst's results, invoke the review agent.
 
-**Expected output:** gap identification, probability feedback, bias flags, alternative scenarios, final recommendations.
+```
+Agent tool:
+- subagent_type: "strategy-reviewer"
+- prompt: |
+    Review the following scenario analysis.
+
+    ## Target Headline
+    [the input headline]
+
+    ## Analysis Result
+    [the full scenario-analyst output]
+
+    ## Review Requirements
+    Review from the following angles:
+    1. Overlooked sectors/stocks
+    2. Validity of the scenario probability allocation
+    3. Logical consistency of the impact analysis
+    4. Detection of optimism/pessimism bias
+    5. Proposal of alternative scenarios
+    6. Realism of the timeline
+
+    Output constructive and specific feedback in English.
+```
+
+**Expected output:**
+- Pointing out blind spots
+- Opinion on the scenario probabilities
+- Pointing out bias
+- Proposal of alternative scenarios
+- Final recommendations
 
 ---
 
 ### Phase 3: Integration & Report Generation
 
-#### Step 3.1: Consolidate Results
+#### Step 3.1: Integrate Results
 
-Integrate both agents' outputs into a final investment thesis:
-1. Fill gaps identified by the reviewer
-2. Adjust probability allocations if warranted
-3. Incorporate bias considerations into the final judgment
+Integrate the output of both agents to produce the final investment judgment.
+
+**Integration points:**
+1. Fill in the blind spots raised in the review
+2. Adjust the probability allocation (if needed)
+3. Make the final judgment accounting for bias
 4. Formulate a concrete action plan
 
 #### Step 3.2: Generate Report
 
-Save the final report to `reports/scenario_analysis_<topic>_YYYYMMDD.md` in the following structure:
+Generate the final report in the following format and save it to a file.
 
-- Headline and event type
-- Related news articles
-- 3 scenarios (Base / Bull / Bear) with probabilities
-- Sector impacts (primary / secondary / tertiary)
-- Positively and negatively affected stocks (3-5 each)
-- Second opinion / review section
-- Final investment thesis with recommended actions, risk factors, and monitoring points
+**Save location:** `reports/scenario_analysis_<topic>_YYYYMMDD.md`
 
-#### Step 3.3: Save Report
+```markdown
+# Headline Scenario Analysis Report
 
-1. Create the `reports/` directory if it does not exist
-2. Save as `scenario_analysis_<topic>_YYYYMMDD.md` (e.g., `scenario_analysis_venezuela_20260104.md`)
-3. Notify the user of save completion
-4. **Do NOT save directly to the project root**
+**Analyzed at**: YYYY-MM-DD HH:MM
+**Target headline**: [the input headline]
+**Event type**: [classification category]
 
 ---
 
@@ -177,49 +237,3 @@ Save the final report to `reports/scenario_analysis_<topic>_YYYYMMDD.md` in the 
 - `skills/scenario-analyzer/references/headline_event_patterns.md`
 - `skills/scenario-analyzer/references/scenario_playbooks.md`
 - `skills/scenario-analyzer/references/sector_sensitivity_matrix.md`
-
----
-
-## 7. Important Notes
-
-### Language
-- All analysis and output is in **Japanese**
-- Stock tickers remain in English notation
-
-### Market Scope
-- Stock selection is limited to **US-listed stocks only**
-- ADRs are included
-
-### Time Horizon
-- Scenarios cover **18 months**
-- Described in three phases: 0-6 months / 6-12 months / 12-18 months
-
-### Probability Allocation
-- Base + Bull + Bear = **100%**
-- Each scenario probability must include supporting rationale
-
-### Second Opinion
-- **Mandatory** — `strategy-reviewer` is always invoked
-- Review findings are reflected in the final judgment
-
-### Output Path (Important)
-- Reports **must** be saved under the `reports/` directory
-- Path: `reports/scenario_analysis_<topic>_YYYYMMDD.md`
-- Example: `reports/scenario_analysis_fed_rate_hike_20260104.md`
-- Create `reports/` if it does not exist
-- **Never save directly to the project root**
-
----
-
-## 8. Quality Checklist
-
-Verify before completing the report:
-
-- [ ] Headline correctly parsed
-- [ ] Event type classification is appropriate
-- [ ] 3-scenario probabilities sum to 100%
-- [ ] 1st / 2nd / 3rd order impacts are logically connected
-- [ ] Stock picks have concrete rationale
-- [ ] strategy-reviewer review is included
-- [ ] Final judgment reflects review findings
-- [ ] Report saved to the correct path
