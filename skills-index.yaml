@@ -784,7 +784,7 @@ skills:
   category: strategy-research
   status: production
   summary: Analyze 18-month scenarios from news headlines via scenario-analyst agent with strategy-reviewer
-    second opinion; outputs primary/secondary/tertiary impact analysis and stock picks in Japanese.
+    second opinion; outputs primary/secondary/tertiary impact analysis and stock picks.
   timeframe: event-driven
   difficulty: advanced
   integrations:
@@ -795,7 +795,7 @@ skills:
   inputs:
   - news_headline
   outputs:
-  - scenario_report_ja
+  - scenario_report
   - stock_picks
   - review_yaml
   workflows: []

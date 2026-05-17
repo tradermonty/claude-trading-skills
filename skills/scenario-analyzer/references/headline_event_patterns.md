@@ -1,264 +1,265 @@
 # Headline Event Patterns
 
-このリファレンスは、各種イベントタイプが市場に与える典型的な影響パターンを記載しています。
-シナリオ分析時に参照し、過去の類似事象から将来の展開を推測するために使用します。
+This reference documents the typical impact patterns that various event types
+have on markets. Use it during scenario analysis to infer future developments
+from past analogous events.
 
-## 1. 金融政策イベント
+## 1. Monetary Policy Events
 
 ### Federal Reserve (FOMC)
 
-#### 利上げ（Rate Hike）
-**典型的パターン:**
-- **即時反応（0-1週間）**: 株式市場は一時的下落、債券利回り上昇、ドル高
-- **短期（1-3ヶ月）**: グロース株がバリュー株をアンダーパフォーム
-- **中期（3-12ヶ月）**: 金融セクター堅調、不動産・公益事業軟調
-- **長期（12-18ヶ月）**: 経済減速懸念が顕在化する可能性
+#### Rate Hike
+**Typical pattern:**
+- **Immediate reaction (0-1 week)**: Equities dip temporarily, bond yields rise, USD strengthens
+- **Short term (1-3 months)**: Growth stocks underperform value stocks
+- **Medium term (3-12 months)**: Financials firm, real estate and utilities soft
+- **Long term (12-18 months)**: Economic-slowdown concerns may surface
 
-**セクター別影響:**
-| セクター | 影響 | 理由 |
-|---------|------|------|
-| 金融 | + | 純金利収入増加 |
-| テクノロジー | - | 高バリュエーション銘柄の割引率上昇 |
-| 不動産 | - | 住宅ローン金利上昇で需要減 |
-| 公益事業 | - | 債券代替としての魅力低下 |
-| 消費財（一般） | - | 借入コスト上昇で消費減退 |
+**Sector impact:**
+| Sector | Impact | Reason |
+|--------|--------|--------|
+| Financials | + | Higher net interest income |
+| Technology | - | Higher discount rate on high-valuation names |
+| Real Estate | - | Weaker demand as mortgage rates rise |
+| Utilities | - | Reduced appeal as a bond substitute |
+| Consumer Discretionary | - | Higher borrowing costs dampen consumption |
 
-**過去事例:**
-- 2022年利上げサイクル: ナスダック -33%、金融セクター相対的堅調
-- 2018年12月利上げ後: S&P500 -9%（12月）、翌年1月に反発
+**Historical cases:**
+- 2022 hiking cycle: Nasdaq -33%, financials relatively resilient
+- After Dec 2018 hike: S&P 500 -9% (December), rebound the following January
 
-#### 利下げ（Rate Cut）
-**典型的パターン:**
-- **即時反応**: 株式市場上昇、債券利回り低下、ドル安
-- **短期**: グロース株がアウトパフォーム
-- **中期**: 不動産・公益事業が回復
-- **長期**: 景気刺激効果で企業業績改善
+#### Rate Cut
+**Typical pattern:**
+- **Immediate reaction**: Equities rise, bond yields fall, USD weakens
+- **Short term**: Growth stocks outperform
+- **Medium term**: Real estate and utilities recover
+- **Long term**: Corporate earnings improve on stimulus effect
 
-**注意点:**
-- 景気後退対応の利下げは、初期は株安を伴う可能性
-- 「保険的利下げ」と「景気後退対応」で市場反応が異なる
+**Caveats:**
+- Recession-driven cuts may initially come with falling equities
+- Market reaction differs between an "insurance cut" and a "recession response"
 
-#### QE（量的緩和）/ QT（量的引き締め）
-**QE開始:**
-- 株式市場に強い追い風（流動性供給）
-- 全てのリスク資産に恩恵
-- ドル安、コモディティ高
+#### QE (Quantitative Easing) / QT (Quantitative Tightening)
+**QE start:**
+- Strong tailwind for equities (liquidity injection)
+- Benefits all risk assets
+- Weaker USD, higher commodities
 
-**QT開始:**
-- 流動性縮小で株式市場に逆風
-- 特に投機的資産、小型株に影響大
-- ドル高傾向
+**QT start:**
+- Headwind for equities as liquidity shrinks
+- Especially large impact on speculative assets and small caps
+- Tendency toward a stronger USD
 
 ### European Central Bank (ECB)
 
-**特徴:**
-- ユーロ/ドル為替への影響が大きい
-- 欧州銀行株への直接的影響
-- 周辺国スプレッド（イタリア、スペイン等）が注目指標
+**Characteristics:**
+- Large impact on the EUR/USD exchange rate
+- Direct impact on European bank stocks
+- Peripheral-country spreads (Italy, Spain, etc.) are a key indicator
 
 ### Bank of Japan (BOJ)
 
-**特徴:**
-- YCC（イールドカーブコントロール）政策の変更は極めて市場インパクト大
-- 円キャリートレードへの影響
-- 日本株（日経平均）は円安で上昇傾向
+**Characteristics:**
+- Changes to YCC (Yield Curve Control) policy have an extremely large market impact
+- Impact on the yen carry trade
+- Japanese equities (Nikkei) tend to rise on a weaker yen
 
-**2024年YCC修正事例:**
-- 10年金利上限引き上げ → 円急騰、グローバル金利上昇波及
-
----
-
-## 2. 地政学イベント
-
-### 戦争・武力紛争
-
-**典型的パターン:**
-- **即時反応**: 株安、金高、原油高、国債高（安全資産へ逃避）
-- **短期**: 防衛関連株上昇、エネルギー株堅調
-- **中期**: 紛争地域に依存するサプライチェーンに影響
-- **長期**: インフレ圧力、財政悪化
-
-**セクター別影響:**
-| セクター | 影響 | 理由 |
-|---------|------|------|
-| 防衛 | ++ | 軍事支出増加 |
-| エネルギー | + | 供給懸念でコモディティ価格上昇 |
-| 航空 | - | 燃料コスト上昇、需要減 |
-| 保険 | - | 地政学リスク引当金 |
-| サプライチェーン関連 | - | 物流混乱、調達リスク |
-
-**過去事例:**
-- ロシア・ウクライナ紛争（2022年）: 原油WTI $130超、欧州ガス危機
-- 中東紛争（2023年）: 紅海航路リスク、海運コスト上昇
-
-### 経済制裁
-
-**影響パターン:**
-- 対象国との貿易に依存する企業に打撃
-- コモディティ供給懸念（対象国が主要輸出国の場合）
-- 代替サプライヤーへの恩恵
-
-### 関税・貿易摩擦
-
-**典型的パターン:**
-- **即時反応**: 対象国の株式市場下落、関連セクター売り
-- **短期**: 輸出依存企業の業績懸念
-- **中期**: サプライチェーン再構築の動き
-- **長期**: オンショアリング/フレンドショアリングの進展
-
-**2018-2019年米中貿易摩擦事例:**
-- 中国依存の半導体、農業機械に影響
-- 関税回避のためのメキシコ/ベトナムシフト
+**2024 YCC adjustment case:**
+- Raising the 10-year yield cap → sharp yen appreciation, global yields spill over higher
 
 ---
 
-## 3. 規制・政策変更
+## 2. Geopolitical Events
 
-### 環境規制
+### War / Armed Conflict
 
-**カーボン規制強化:**
-- **恩恵**: 再エネ、EV、クリーンテック
-- **打撃**: 石油・ガス、石炭、航空、重工業
+**Typical pattern:**
+- **Immediate reaction**: Equities down, gold up, oil up, sovereign bonds up (flight to safe assets)
+- **Short term**: Defense names rise, energy stocks firm
+- **Medium term**: Impact on supply chains dependent on the conflict region
+- **Long term**: Inflationary pressure, fiscal deterioration
 
-**排出権取引:**
-- カーボンクレジット価格上昇 → 高排出企業のコスト増
+**Sector impact:**
+| Sector | Impact | Reason |
+|--------|--------|--------|
+| Defense | ++ | Higher military spending |
+| Energy | + | Commodity prices rise on supply concerns |
+| Airlines | - | Higher fuel costs, weaker demand |
+| Insurance | - | Geopolitical-risk reserves |
+| Supply-chain related | - | Logistics disruption, procurement risk |
 
-### 金融規制
+**Historical cases:**
+- Russia-Ukraine conflict (2022): WTI crude over $130, European gas crisis
+- Middle East conflict (2023): Red Sea route risk, higher shipping costs
 
-**資本規制強化:**
-- 銀行の自己資本比率要件引き上げ → 銀行収益圧迫
-- 中小銀行への影響が大きい
+### Economic Sanctions
 
-**暗号資産規制:**
-- 規制強化 → 暗号資産関連株に打撃、従来金融に恩恵
-- 規制明確化 → 市場に好感される場合も
+**Impact pattern:**
+- Hits companies dependent on trade with the targeted country
+- Commodity-supply concerns (when the target is a major exporter)
+- Benefits to alternative suppliers
 
-### 独占禁止法
+### Tariffs / Trade Friction
 
-**大型M&A阻止:**
-- 対象企業の株価下落
-- 業界再編の遅延
+**Typical pattern:**
+- **Immediate reaction**: Equity market of the targeted country falls, related sectors sold off
+- **Short term**: Earnings concerns for export-dependent companies
+- **Medium term**: Moves to rebuild supply chains
+- **Long term**: Progress of onshoring / friend-shoring
 
-**ビッグテック規制:**
-- プラットフォーム企業の事業分割リスク
-- 競合他社・新興企業に恩恵
-
----
-
-## 4. テクノロジーシフト
-
-### AI革命
-
-**恩恵セクター:**
-| セクター | 銘柄例 | 理由 |
-|---------|--------|------|
-| 半導体 | NVDA, AMD, AVGO | AIチップ需要 |
-| クラウド | MSFT, AMZN, GOOGL | AI基盤インフラ |
-| ソフトウェア | CRM, NOW, ADBE | AI機能統合 |
-
-**打撃セクター:**
-| セクター | 銘柄例 | 理由 |
-|---------|--------|------|
-| コールセンター | - | AI自動化 |
-| 翻訳・ローカライズ | - | AIによる代替 |
-| 単純業務BPO | - | RPA/AI置換 |
-
-### EV（電気自動車）普及
-
-**恩恵:**
-- リチウム、コバルト、ニッケル関連
-- EV充電インフラ
-- 電力会社（需要増）
-
-**打撃:**
-- 従来型自動車部品（エンジン、トランスミッション）
-- ガソリンスタンド
-- 石油精製
-
-### 再生可能エネルギー
-
-**政策支援拡大時:**
-- 太陽光・風力関連株上昇
-- ユーティリティスケールのストレージ需要
-
-**政策後退時:**
-- クリーンエネルギー株下落
-- 従来型エネルギー株に資金回帰
+**2018-2019 US-China trade friction case:**
+- Impact on China-dependent semiconductors and agricultural machinery
+- Shift to Mexico/Vietnam to avoid tariffs
 
 ---
 
-## 5. コモディティショック
+## 3. Regulation & Policy Changes
 
-### 原油価格
+### Environmental Regulation
 
-**急騰シナリオ（供給ショック）:**
-- **恩恵**: 石油メジャー、シェール企業、油田サービス
-- **打撃**: 航空、輸送、化学、消費財
+**Tighter carbon regulation:**
+- **Beneficiaries**: Renewables, EV, clean tech
+- **Hurt**: Oil & gas, coal, airlines, heavy industry
 
-**急落シナリオ（需要減退）:**
-- **恩恵**: 航空、輸送、消費財
-- **打撃**: エネルギーセクター全般
+**Emissions trading:**
+- Rising carbon-credit prices → higher costs for high-emission companies
 
-**閾値:**
-- $80以下: エネルギー株軟調
-- $100超: インフレ懸念、消費者心理悪化
+### Financial Regulation
 
-### 金（Gold）
+**Tighter capital regulation:**
+- Higher bank capital-ratio requirements → pressure on bank profitability
+- Larger impact on small and mid-sized banks
 
-**上昇要因:**
-- 地政学リスク
-- インフレ懸念
-- 実質金利低下
-- ドル安
+**Crypto-asset regulation:**
+- Tighter regulation → hits crypto-related stocks, benefits traditional finance
+- Regulatory clarity → can also be received positively by the market
 
-**関連銘柄:**
-- 金鉱株: NEM, GOLD, AEM
-- 金ETF: GLD, IAU
+### Antitrust
 
-### 銅
+**Blocking large M&A:**
+- Share-price decline of the target companies
+- Delay in industry consolidation
 
-**経済指標としての役割（Dr. Copper）:**
-- 銅価格上昇 → 景気拡大シグナル
-- 銅価格下落 → 景気減速シグナル
-
-**関連セクター:**
-- 鉱業: FCX, SCCO
-- 建設・インフラ
-- EV（銅は重要素材）
+**Big Tech regulation:**
+- Business-breakup risk for platform companies
+- Benefits to competitors and emerging companies
 
 ---
 
-## 6. 企業・M&A
+## 4. Technology Shifts
 
-### 大型買収発表
+### AI Revolution
 
-**典型的パターン:**
-- 被買収企業: +20-40%（プレミアム反映）
-- 買収企業: -3-10%（希薄化・プレミアム懸念）
-- 同業他社: +5-15%（次の買収候補思惑）
+**Beneficiary sectors:**
+| Sector | Example tickers | Reason |
+|--------|-----------------|--------|
+| Semiconductors | NVDA, AMD, AVGO | AI chip demand |
+| Cloud | MSFT, AMZN, GOOGL | AI foundational infrastructure |
+| Software | CRM, NOW, ADBE | AI feature integration |
 
-### 大型破綻
+**Hurt sectors:**
+| Sector | Example tickers | Reason |
+|--------|-----------------|--------|
+| Call centers | - | AI automation |
+| Translation / localization | - | Replacement by AI |
+| Simple-task BPO | - | RPA/AI replacement |
 
-**システミックリスク懸念:**
-- 金融セクター全体に波及
-- クレジットスプレッド拡大
+### EV (Electric Vehicle) Adoption
 
-**個別企業破綻:**
-- 競合他社に恩恵（市場シェア獲得）
-- サプライヤーに打撃
+**Beneficiaries:**
+- Lithium, cobalt, nickel related
+- EV charging infrastructure
+- Utilities (higher demand)
 
-### スピンオフ
+**Hurt:**
+- Legacy auto parts (engines, transmissions)
+- Gas stations
+- Oil refining
 
-**典型的パターン:**
-- 親会社: 短期は不透明、中期はスリム化評価
-- スピンオフ会社: 独立後の成長期待で上昇傾向
+### Renewable Energy
+
+**When policy support expands:**
+- Solar/wind related stocks rise
+- Utility-scale storage demand
+
+**When policy retreats:**
+- Clean-energy stocks fall
+- Capital rotates back to legacy energy stocks
 
 ---
 
-## 使用上の注意
+## 5. Commodity Shocks
 
-1. **過去パターンは参考**: 市場環境により反応は異なる
-2. **複合要因を考慮**: 単一イベントではなく、複数要因の相互作用を分析
-3. **タイミングの重要性**: 市場の織り込み度合いで反応が変わる
-4. **規模感を確認**: イベントの規模により影響度が異なる
-5. **定期的更新**: 市場構造の変化に応じてパターンを見直す
+### Crude Oil Price
+
+**Spike scenario (supply shock):**
+- **Beneficiaries**: Oil majors, shale companies, oilfield services
+- **Hurt**: Airlines, transportation, chemicals, consumer goods
+
+**Crash scenario (demand decline):**
+- **Beneficiaries**: Airlines, transportation, consumer goods
+- **Hurt**: Energy sector broadly
+
+**Thresholds:**
+- Below $80: Energy stocks soft
+- Above $100: Inflation concerns, deteriorating consumer sentiment
+
+### Gold
+
+**Drivers of an increase:**
+- Geopolitical risk
+- Inflation concerns
+- Falling real interest rates
+- Weaker USD
+
+**Related tickers:**
+- Gold miners: NEM, GOLD, AEM
+- Gold ETFs: GLD, IAU
+
+### Copper
+
+**Role as an economic indicator (Dr. Copper):**
+- Rising copper price → economic-expansion signal
+- Falling copper price → economic-slowdown signal
+
+**Related sectors:**
+- Mining: FCX, SCCO
+- Construction / infrastructure
+- EV (copper is a key material)
+
+---
+
+## 6. Corporate & M&A
+
+### Large Acquisition Announcement
+
+**Typical pattern:**
+- Acquired company: +20-40% (premium reflected)
+- Acquiring company: -3-10% (dilution / premium concerns)
+- Industry peers: +5-15% (speculation as the next acquisition target)
+
+### Large Bankruptcy
+
+**Systemic-risk concern:**
+- Spills over to the entire financial sector
+- Widening credit spreads
+
+**Single-company bankruptcy:**
+- Benefits competitors (market-share gains)
+- Hurts suppliers
+
+### Spin-off
+
+**Typical pattern:**
+- Parent company: uncertain in the short term, valued for slimming down in the medium term
+- Spin-off company: tends to rise on post-independence growth expectations
+
+---
+
+## Usage Notes
+
+1. **Past patterns are a reference**: Reactions differ depending on the market environment
+2. **Consider compound factors**: Analyze the interaction of multiple factors, not a single event
+3. **Importance of timing**: Reactions change based on how much the market has priced in
+4. **Check the scale**: Impact magnitude differs with the scale of the event
+5. **Periodic updates**: Revisit patterns as market structure changes

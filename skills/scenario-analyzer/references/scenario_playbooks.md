@@ -1,320 +1,321 @@
 # Scenario Playbooks
 
-このリファレンスは、18ヶ月シナリオを構築するためのテンプレートとベストプラクティスを提供します。
-シナリオ分析時に、一貫性のある質の高いシナリオを作成するために使用します。
+This reference provides templates and best practices for constructing
+18-month scenarios. Use it during scenario analysis to produce consistent,
+high-quality scenarios.
 
-## シナリオ構築の基本原則
+## Core Principles of Scenario Construction
 
-### 1. MECE原則（Mutually Exclusive, Collectively Exhaustive）
+### 1. MECE Principle (Mutually Exclusive, Collectively Exhaustive)
 
-シナリオは以下の条件を満たすべき：
-- **相互排他**: 各シナリオは重複しない
-- **網羅的**: 主要な可能性を全てカバー
+Scenarios should satisfy:
+- **Mutually exclusive**: scenarios do not overlap
+- **Collectively exhaustive**: cover all major possibilities
 
-### 2. 確率配分ガイドライン
+### 2. Probability Allocation Guidelines
 
-| シナリオ | 典型的範囲 | 配分の根拠 |
-|---------|----------|-----------|
-| Base Case | 50-65% | 最も蓋然性の高い展開 |
-| Bull Case | 15-25% | ポジティブな上振れ |
-| Bear Case | 20-30% | ネガティブな下振れ |
-| 合計 | 100% | 必ず100%になるよう調整 |
+| Scenario | Typical range | Rationale for the allocation |
+|----------|---------------|------------------------------|
+| Base Case | 50-65% | Most probable development |
+| Bull Case | 15-25% | Positive upside |
+| Bear Case | 20-30% | Negative downside |
+| Total | 100% | Always adjust so it sums to 100% |
 
-**非対称配分が適切な場合:**
-- Bull > Bear: 強気材料が多い環境
-- Bear > Bull: リスク要因が多い環境
-- Base > 60%: 不確実性が低い状況
-- Base < 50%: 不確実性が極めて高い状況（Base Caseも不確実）
+**When an asymmetric allocation is appropriate:**
+- Bull > Bear: environment with many bullish drivers
+- Bear > Bull: environment with many risk factors
+- Base > 60%: low-uncertainty situation
+- Base < 50%: extremely high-uncertainty situation (even the Base Case is uncertain)
 
-### 3. タイムライン区切り
+### 3. Timeline Segmentation
 
-**3フェーズ構造:**
-- **0-6ヶ月**: 短期的反応、初動
-- **6-12ヶ月**: 中期的展開、トレンド形成
-- **12-18ヶ月**: 長期的帰結、新しい均衡
+**3-phase structure:**
+- **0-6 months**: short-term reaction, initial moves
+- **6-12 months**: medium-term development, trend formation
+- **12-18 months**: long-term outcome, new equilibrium
 
 ---
 
-## シナリオテンプレート
+## Scenario Templates
 
-### Base Case テンプレート
+### Base Case Template
 
 ```markdown
-### Base Case（XX%確率）
+### Base Case (XX% probability)
 
-**概要**:
-[1-2文でシナリオを要約。最も蓋然性の高い展開を記述]
+**Summary**:
+[Summarize the scenario in 1-2 sentences. Describe the most probable development.]
 
-**仮定条件**:
-- [仮定1]: [具体的な条件]
-- [仮定2]: [具体的な条件]
-- [仮定3]: [具体的な条件]
+**Assumptions**:
+- [Assumption 1]: [specific condition]
+- [Assumption 2]: [specific condition]
+- [Assumption 3]: [specific condition]
 
-**タイムライン**:
+**Timeline**:
 
-**0-6ヶ月:**
-- [主要な展開1]
-- [主要な展開2]
-- [市場の反応予想]
+**0-6 months:**
+- [Key development 1]
+- [Key development 2]
+- [Expected market reaction]
 
-**6-12ヶ月:**
-- [中期的な展開1]
-- [中期的な展開2]
-- [トレンドの方向性]
+**6-12 months:**
+- [Medium-term development 1]
+- [Medium-term development 2]
+- [Trend direction]
 
-**12-18ヶ月:**
-- [長期的な帰結1]
-- [新しい均衡状態]
-- [構造的変化（あれば）]
+**12-18 months:**
+- [Long-term outcome 1]
+- [New equilibrium state]
+- [Structural change (if any)]
 
-**経済指標への影響**:
-| 指標 | 現状 | 6ヶ月後予想 | 12ヶ月後予想 | 18ヶ月後予想 |
-|------|------|------------|-------------|-------------|
-| GDP成長率 | X% | X% | X% | X% |
-| インフレ率 | X% | X% | X% | X% |
-| 政策金利 | X% | X% | X% | X% |
-| 失業率 | X% | X% | X% | X% |
+**Impact on economic indicators**:
+| Indicator | Current | 6-month forecast | 12-month forecast | 18-month forecast |
+|-----------|---------|------------------|-------------------|-------------------|
+| GDP growth | X% | X% | X% | X% |
+| Inflation | X% | X% | X% | X% |
+| Policy rate | X% | X% | X% | X% |
+| Unemployment | X% | X% | X% | X% |
 
-**主要カタリスト**:
-- [このシナリオを後押しする要因1]
-- [このシナリオを後押しする要因2]
+**Key catalysts**:
+- [Factor that supports this scenario 1]
+- [Factor that supports this scenario 2]
 
-**無効化シグナル**:
-- [このシナリオが崩れる兆候1]
-- [このシナリオが崩れる兆候2]
+**Invalidation signals**:
+- [Sign this scenario is breaking down 1]
+- [Sign this scenario is breaking down 2]
 ```
 
-### Bull Case テンプレート
+### Bull Case Template
 
 ```markdown
-### Bull Case（XX%確率）
+### Bull Case (XX% probability)
 
-**概要**:
-[1-2文で楽観シナリオを要約。どのような上振れが起きるか]
+**Summary**:
+[Summarize the optimistic scenario in 1-2 sentences. What kind of upside occurs.]
 
-**仮定条件**:
-- [楽観的仮定1]: [具体的な条件]
-- [楽観的仮定2]: [具体的な条件]
-- [楽観的仮定3]: [具体的な条件]
+**Assumptions**:
+- [Optimistic assumption 1]: [specific condition]
+- [Optimistic assumption 2]: [specific condition]
+- [Optimistic assumption 3]: [specific condition]
 
-**タイムライン**:
+**Timeline**:
 
-**0-6ヶ月:**
-- [ポジティブな展開1]
-- [ポジティブな展開2]
-- [市場の好反応予想]
+**0-6 months:**
+- [Positive development 1]
+- [Positive development 2]
+- [Expected favorable market reaction]
 
-**6-12ヶ月:**
-- [上振れトレンドの継続]
-- [追加のポジティブ要因]
-- [市場心理の改善]
+**6-12 months:**
+- [Continuation of the upside trend]
+- [Additional positive factors]
+- [Improving market sentiment]
 
-**12-18ヶ月:**
-- [楽観シナリオの帰結]
-- [達成される状態]
-- [持続可能性の評価]
+**12-18 months:**
+- [Outcome of the optimistic scenario]
+- [State achieved]
+- [Sustainability assessment]
 
-**経済指標への影響**:
-[Base Caseより良い数値を想定]
+**Impact on economic indicators**:
+[Assume figures better than the Base Case]
 
-**上振れカタリスト**:
-- [このシナリオを実現させる要因1]
-- [このシナリオを実現させる要因2]
+**Upside catalysts**:
+- [Factor that realizes this scenario 1]
+- [Factor that realizes this scenario 2]
 
-**このシナリオの確率を上げる条件**:
-- [条件1]
-- [条件2]
+**Conditions that raise this scenario's probability**:
+- [Condition 1]
+- [Condition 2]
 ```
 
-### Bear Case テンプレート
+### Bear Case Template
 
 ```markdown
-### Bear Case（XX%確率）
+### Bear Case (XX% probability)
 
-**概要**:
-[1-2文でリスクシナリオを要約。どのような下振れが起きるか]
+**Summary**:
+[Summarize the risk scenario in 1-2 sentences. What kind of downside occurs.]
 
-**仮定条件**:
-- [リスク仮定1]: [具体的な条件]
-- [リスク仮定2]: [具体的な条件]
-- [リスク仮定3]: [具体的な条件]
+**Assumptions**:
+- [Risk assumption 1]: [specific condition]
+- [Risk assumption 2]: [specific condition]
+- [Risk assumption 3]: [specific condition]
 
-**タイムライン**:
+**Timeline**:
 
-**0-6ヶ月:**
-- [ネガティブな展開1]
-- [ネガティブな展開2]
-- [市場の悪反応予想]
+**0-6 months:**
+- [Negative development 1]
+- [Negative development 2]
+- [Expected adverse market reaction]
 
-**6-12ヶ月:**
-- [下振れトレンドの継続/深化]
-- [二次的な問題の顕在化]
-- [市場心理の悪化]
+**6-12 months:**
+- [Continuation/deepening of the downside trend]
+- [Secondary problems surfacing]
+- [Deteriorating market sentiment]
 
-**12-18ヶ月:**
-- [リスクシナリオの帰結]
-- [最悪の場合の状態]
-- [回復の道筋（あれば）]
+**12-18 months:**
+- [Outcome of the risk scenario]
+- [Worst-case state]
+- [Recovery path (if any)]
 
-**経済指標への影響**:
-[Base Caseより悪い数値を想定]
+**Impact on economic indicators**:
+[Assume figures worse than the Base Case]
 
-**下振れリスク要因**:
-- [このシナリオを引き起こす要因1]
-- [このシナリオを引き起こす要因2]
+**Downside risk factors**:
+- [Factor that triggers this scenario 1]
+- [Factor that triggers this scenario 2]
 
-**このシナリオの確率を上げる条件**:
-- [条件1]
-- [条件2]
+**Conditions that raise this scenario's probability**:
+- [Condition 1]
+- [Condition 2]
 
-**リスク緩和要因**:
-- [このシナリオを軽減する可能性のある要因1]
-- [このシナリオを軽減する可能性のある要因2]
+**Risk-mitigating factors**:
+- [Factor that may mitigate this scenario 1]
+- [Factor that may mitigate this scenario 2]
 ```
 
 ---
 
-## イベントタイプ別シナリオプレイブック
+## Scenario Playbooks by Event Type
 
-### 1. 金融政策イベント（利上げ）
+### 1. Monetary Policy Event (Rate Hike)
 
-**Base Case（55%）:**
-- 想定通りの利上げ実施
-- 市場は概ね織り込み済み
-- 軽微な株安、債券利回り小幅上昇
+**Base Case (55%):**
+- Rate hike implemented as expected
+- Market has largely priced it in
+- Mild equity dip, slight rise in bond yields
 
-**Bull Case（20%）:**
-- 利上げ幅が予想より小さい
-- ハト派的なフォワードガイダンス
-- 株式市場ラリー
+**Bull Case (20%):**
+- Hike smaller than expected
+- Dovish forward guidance
+- Equity-market rally
 
-**Bear Case（25%）:**
-- 利上げ幅が予想より大きい
-- タカ派的なフォワードガイダンス
-- 株式市場急落、信用スプレッド拡大
+**Bear Case (25%):**
+- Hike larger than expected
+- Hawkish forward guidance
+- Sharp equity selloff, widening credit spreads
 
-### 2. 地政学イベント（紛争勃発）
+### 2. Geopolitical Event (Conflict Outbreak)
 
-**Base Case（50%）:**
-- 紛争の限定的拡大
-- 短期的なコモディティ価格上昇
-- 数ヶ月で状況安定化
+**Base Case (50%):**
+- Limited escalation of the conflict
+- Short-term rise in commodity prices
+- Situation stabilizes within a few months
 
-**Bull Case（15%）:**
-- 早期停戦・和平合意
-- コモディティ価格正常化
-- 市場は早期に回復
+**Bull Case (15%):**
+- Early ceasefire / peace agreement
+- Commodity prices normalize
+- Market recovers early
 
-**Bear Case（35%）:**
-- 紛争の長期化・拡大
-- コモディティ供給の重大な混乱
-- グローバルインフレ加速、景気後退リスク
+**Bear Case (35%):**
+- Prolonged / expanded conflict
+- Serious disruption of commodity supply
+- Accelerating global inflation, recession risk
 
-### 3. テクノロジーシフト（AI規制）
+### 3. Technology Shift (AI Regulation)
 
-**Base Case（50%）:**
-- 緩やかな規制導入
-- 業界自主規制が主体
-- イノベーションへの影響限定的
+**Base Case (50%):**
+- Gradual introduction of regulation
+- Industry self-regulation predominates
+- Limited impact on innovation
 
-**Bull Case（25%）:**
-- 規制が業界に有利な形で策定
-- 規制の明確化でむしろ投資加速
-- 大手に有利な参入障壁形成
+**Bull Case (25%):**
+- Regulation formulated in a way favorable to the industry
+- Regulatory clarity actually accelerates investment
+- Entry barriers formed that favor incumbents
 
-**Bear Case（25%）:**
-- 厳格な規制導入
-- AI開発の大幅な制限
-- 米国企業の競争力低下
+**Bear Case (25%):**
+- Strict regulation introduced
+- Significant restrictions on AI development
+- Decline in US companies' competitiveness
 
-### 4. 企業イベント（大型M&A）
+### 4. Corporate Event (Large M&A)
 
-**Base Case（60%）:**
-- 規制当局の承認取得
-- 予定通りのクロージング
-- 統合シナジーの段階的実現
+**Base Case (60%):**
+- Regulatory approval obtained
+- Closing on schedule
+- Gradual realization of integration synergies
 
-**Bull Case（15%）:**
-- 予想を上回るシナジー実現
-- 統合が順調
-- 追加のM&A戦略が奏功
+**Bull Case (15%):**
+- Synergies realized beyond expectations
+- Integration goes smoothly
+- Additional M&A strategy succeeds
 
-**Bear Case（25%）:**
-- 規制当局の阻止または条件付き承認
-- 統合の遅延・失敗
-- シナジー未達成
-
----
-
-## シナリオ品質チェックリスト
-
-### 内部整合性
-- [ ] 各シナリオの仮定条件は論理的に整合しているか
-- [ ] タイムラインの展開は因果関係が明確か
-- [ ] 経済指標の予想は相互に整合しているか
-
-### 外部妥当性
-- [ ] 過去の類似事象と整合的か
-- [ ] 現在の市場環境を適切に反映しているか
-- [ ] 専門家の見解と大きく乖離していないか
-
-### 実用性
-- [ ] 投資判断に役立つ具体性があるか
-- [ ] モニタリング可能なカタリストが特定されているか
-- [ ] 無効化シグナルが明確か
-
-### 網羅性
-- [ ] 主要なリスクシナリオが含まれているか
-- [ ] 上振れ可能性が適切に考慮されているか
-- [ ] テールリスクへの言及があるか
+**Bear Case (25%):**
+- Blocked by regulators or conditional approval
+- Delay / failure of integration
+- Synergies not achieved
 
 ---
 
-## よくある間違いと回避方法
+## Scenario Quality Checklist
 
-### 1. 現状維持バイアス
-**問題**: Base Caseに過度な確率を割り当て（70%以上）
-**回避**: 歴史的に見て「何も変わらない」確率は低いことを認識
+### Internal Consistency
+- [ ] Are the assumptions of each scenario logically consistent?
+- [ ] Is the causality of the timeline development clear?
+- [ ] Are the economic-indicator forecasts mutually consistent?
 
-### 2. 最新バイアス
-**問題**: 直近のイベントの影響を過大評価
-**回避**: 長期的な視点を維持、過去のパターンを参照
+### External Validity
+- [ ] Is it consistent with past analogous events?
+- [ ] Does it appropriately reflect the current market environment?
+- [ ] Does it not diverge greatly from expert views?
 
-### 3. 確証バイアス
-**問題**: ヘッドラインに沿った解釈のみ採用
-**回避**: 意図的に反対意見を探す
+### Practicality
+- [ ] Is there enough specificity to be useful for investment decisions?
+- [ ] Are monitorable catalysts identified?
+- [ ] Are invalidation signals clear?
 
-### 4. 過度の精度
-**問題**: 18ヶ月先の数値を小数点以下まで予想
-**回避**: 不確実性を認め、レンジで表現
-
-### 5. シナリオの重複
-**問題**: Base/Bull/Bearが部分的に重なっている
-**回避**: 各シナリオの境界条件を明確化
-
----
-
-## 確率更新のガイドライン
-
-新しい情報が入った際の確率調整:
-
-| 新情報の性質 | 確率調整の方向 |
-|-------------|---------------|
-| シナリオを支持するデータ | +5-15% |
-| シナリオに反するデータ | -5-15% |
-| 決定的な証拠 | +20-30% or -20-30% |
-| 新しいリスク要因の出現 | Bear Case +5-10% |
-| リスク要因の解消 | Bear Case -5-10% |
-
-**調整後は必ず合計100%に再調整**
+### Comprehensiveness
+- [ ] Are the major risk scenarios included?
+- [ ] Is the upside possibility appropriately considered?
+- [ ] Is there mention of tail risk?
 
 ---
 
-## 出力品質基準
+## Common Mistakes and How to Avoid Them
 
-高品質なシナリオの特徴:
-1. **具体性**: 抽象的でなく、数値・日付・名称が含まれる
-2. **論理性**: 因果関係が明確
-3. **検証可能性**: 後から正否を判断できる
-4. **実用性**: 投資判断に直結する情報を含む
-5. **謙虚さ**: 不確実性を適切に表現
+### 1. Status-quo bias
+**Problem**: Assigning excessive probability to the Base Case (70%+)
+**Avoid**: Recognize that historically the probability of "nothing changes" is low
+
+### 2. Recency bias
+**Problem**: Overestimating the impact of the most recent event
+**Avoid**: Maintain a long-term view, refer to past patterns
+
+### 3. Confirmation bias
+**Problem**: Adopting only interpretations aligned with the headline
+**Avoid**: Deliberately seek out opposing views
+
+### 4. Excessive precision
+**Problem**: Forecasting figures 18 months out to decimal places
+**Avoid**: Acknowledge uncertainty, express as a range
+
+### 5. Scenario overlap
+**Problem**: Base/Bull/Bear partially overlap
+**Avoid**: Clarify the boundary conditions of each scenario
+
+---
+
+## Probability Update Guidelines
+
+Probability adjustment when new information arrives:
+
+| Nature of new information | Direction of probability adjustment |
+|---------------------------|-------------------------------------|
+| Data supporting a scenario | +5-15% |
+| Data contradicting a scenario | -5-15% |
+| Decisive evidence | +20-30% or -20-30% |
+| Emergence of a new risk factor | Bear Case +5-10% |
+| Resolution of a risk factor | Bear Case -5-10% |
+
+**After adjustment, always re-normalize to 100% total**
+
+---
+
+## Output Quality Standards
+
+Characteristics of a high-quality scenario:
+1. **Specificity**: not abstract; includes figures, dates, names
+2. **Logic**: clear causality
+3. **Verifiability**: correctness can be judged later
+4. **Practicality**: includes information directly tied to investment decisions
+5. **Humility**: appropriately expresses uncertainty

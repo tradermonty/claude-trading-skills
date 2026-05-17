@@ -621,7 +621,7 @@
         }
       ],
       "status": "production",
-      "summary": "Analyze 18-month scenarios from news headlines via scenario-analyst agent with strategy-reviewer second opinion; outputs primary/secondary/tertiary impact analysis and stock picks in Japanese.",
+      "summary": "Analyze 18-month scenarios from news headlines via scenario-analyst agent with strategy-reviewer second opinion; outputs primary/secondary/tertiary impact analysis and stock picks.",
       "timeframe": "event-driven"
     },
     {
