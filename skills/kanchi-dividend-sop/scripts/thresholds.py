@@ -35,6 +35,14 @@ FLOOR_FRESHNESS_BAND_PP = 0.20
 # A pay above this multiple of the trailing-median regular pay is treated
 # as a special/supplemental dividend (amount-outlier path, label-independent).
 SPECIAL_OUTLIER_MULTIPLE = 1.5
+# An extreme isolated spike (>= this x trailing-local median) is a special
+# on magnitude alone (e.g. ORI's ~7x annual special), even at the series
+# end where no later pay exists to confirm a reversion.
+SPECIAL_EXTREME_MULTIPLE = 3.0
+# Between 1.5x and 3x it is a special ONLY if a later pay reverts to near
+# the trailing-local median (a one-off), distinguishing it from ordinary
+# steep dividend growth which does not revert.
+SPECIAL_REVERT_MULTIPLE = 1.2
 
 # Coefficient of variation of the 12-month-normalized *residual* (post-special)
 # dividend stream above which the issuer is treated as a variable-dividend

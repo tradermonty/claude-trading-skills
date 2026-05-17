@@ -23,7 +23,9 @@ from thresholds import (
     FLOOR_FRESHNESS_BAND_PP,
     FREEZE_GRACE_DAYS,
     MIN_REGULAR_PAYS,
+    SPECIAL_EXTREME_MULTIPLE,
     SPECIAL_OUTLIER_MULTIPLE,
+    SPECIAL_REVERT_MULTIPLE,
     VARIABLE_POLICY_COV,
 )
 
@@ -167,17 +169,41 @@ def analyze_dividends(
     # --- Step 2: explicit special labels/language ---
     explicit_special = {i for i, r in enumerate(rows) if _is_explicit_special(r[2])}
 
-    # --- Step 3: amount-outliers vs trailing median of non-explicit pays ---
-    non_explicit = [r[1] for i, r in enumerate(rows) if i not in explicit_special]
+    # --- Step 3: amount-outliers vs the TRAILING-local median of prior
+    #     regular pays (v2.1 R-1). A global median over a 10y+ history is
+    #     dragged down by old small dividends, so ordinary long-term
+    #     dividend growth would be misclassified as a special and
+    #     latest_declared would collapse to a stale amount (D4 recurrence).
+    #     Compare each pay only against its recent prior regular pays.
     outlier_special: set[int] = set()
-    if non_explicit:
-        med = statistics.median(non_explicit)
-        if med > 0:
-            for i, r in enumerate(rows):
-                if i in explicit_special:
-                    continue
-                if r[1] > SPECIAL_OUTLIER_MULTIPLE * med:
-                    outlier_special.add(i)
+    _TRAILING = max(ppy or 4, 8)
+    for i, r in enumerate(rows):
+        if i in explicit_special:
+            continue
+        prior_regular = [
+            rows[j][1]
+            for j in range(max(0, i - _TRAILING), i)
+            if j not in explicit_special and j not in outlier_special
+        ]
+        if len(prior_regular) < MIN_REGULAR_PAYS:
+            # Too little local history to call an outlier -> treat as
+            # regular (conservative; avoids flagging early history).
+            continue
+        local_med = statistics.median(prior_regular)
+        if local_med <= 0:
+            continue
+        if r[1] > SPECIAL_EXTREME_MULTIPLE * local_med:
+            outlier_special.add(i)  # extreme isolated spike (magnitude)
+        elif r[1] > SPECIAL_OUTLIER_MULTIPLE * local_med:
+            # One-off only if a later pay reverts toward the local median;
+            # ordinary steep growth keeps rising and is NOT a special.
+            revert = any(
+                rows[k][1] <= SPECIAL_REVERT_MULTIPLE * local_med
+                for k in range(i + 1, min(len(rows), i + 3))
+                if k not in explicit_special
+            )
+            if revert:
+                outlier_special.add(i)
 
     special_idx = explicit_special | outlier_special
     special_flag = bool(special_idx)

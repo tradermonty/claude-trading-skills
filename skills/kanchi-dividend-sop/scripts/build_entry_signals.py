@@ -493,23 +493,34 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
         "",
         "## Signals",
         "",
-        "| Ticker | Signal | Price | 5Y Avg Yield% | Target Yield% | Annual Div | Buy Target Price | Drop Needed% | Notes |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---|",
+        "> Verdict/T1-Blocked are the actionable columns. `signal` is only "
+        "Step-5 timing — never act on it alone (a TRIGGERED row can be "
+        "HOLD-REVIEW / T1-blocked).",
+        "",
+        "| Ticker | Verdict | T1 Blocked | Signal | Price | Reg Yield% | "
+        "TTM Yield% | Step1 | Safety | Event Scan | Pre-order Blockers |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|",
     ]
 
     for row in rows:
-        notes = ",".join(row.get("notes", []))
+        db = row.get("dividend_basis", {})
+        ps = row.get("payout_safety", {})
+        ev = row.get("event_scan", {})
+        blockers = ";".join(row.get("pre_order_blockers", [])) or "-"
         lines.append(
-            "| {ticker} | {signal} | {price} | {avg} | {target_yield} | {div} | {target_price} | {drop} | {notes} |".format(
+            "| {ticker} | {verdict} | {t1} | {signal} | {price} | {ry} | "
+            "{ty} | {s1} | {safety} | {ev} | {blk} |".format(
                 ticker=row.get("ticker", ""),
+                verdict=row.get("verdict", "-"),
+                t1="YES" if row.get("t1_blocked") else "no",
                 signal=row.get("signal", ""),
                 price=row.get("price", ""),
-                avg=row.get("avg_5y_yield_pct", ""),
-                target_yield=row.get("target_yield_pct", ""),
-                div=row.get("annual_dividend_per_share", ""),
-                target_price=row.get("buy_target_price", ""),
-                drop=row.get("drop_needed_pct", ""),
-                notes=notes,
+                ry=db.get("regular_forward_yield_pct", ""),
+                ty=db.get("ttm_yield_pct", ""),
+                s1=row.get("step1_verdict", "-"),
+                safety=ps.get("safety_verdict", "-"),
+                ev=ev.get("result", "NOT_SCANNED"),
+                blk=blockers,
             )
         )
 
@@ -518,11 +529,21 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
 
 
 def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
+    # Verdict/blocker columns are first-class so a CSV-only operator sees
+    # the same actionable gate as the JSON (7th-review High).
     fieldnames = [
         "ticker",
+        "verdict",
+        "t1_blocked",
         "signal",
+        "step1_verdict",
+        "payout_safety_verdict",
+        "event_scan_result",
+        "pre_order_blockers",
         "price",
         "annual_dividend_per_share",
+        "regular_forward_yield_pct",
+        "ttm_yield_pct",
         "current_yield_pct",
         "avg_5y_yield_pct",
         "alpha_pp",
@@ -534,13 +555,19 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
     ]
 
     with output_path.open("w", newline="") as fh:
-        # extrasaction="ignore": JSON carries the rich WS-1 dividend_basis
-        # sub-dict; the CSV stays a stable flat contract.
         writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
+            db = row.get("dividend_basis", {})
+            ps = row.get("payout_safety", {})
+            ev = row.get("event_scan", {})
             output = dict(row)
             output["notes"] = ",".join(output.get("notes", []))
+            output["pre_order_blockers"] = ";".join(row.get("pre_order_blockers", []))
+            output["regular_forward_yield_pct"] = db.get("regular_forward_yield_pct")
+            output["ttm_yield_pct"] = db.get("ttm_yield_pct")
+            output["payout_safety_verdict"] = ps.get("safety_verdict")
+            output["event_scan_result"] = ev.get("result", "NOT_SCANNED")
             writer.writerow(output)
 
 

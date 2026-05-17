@@ -33,6 +33,7 @@ def synthesize_verdict(
     event_verdict_cap: str | None,
     event_t1_blocked: bool = False,
     pre_order_blockers: list[str] | None = None,
+    require_safety: bool = True,
 ) -> FinalVerdict:
     blockers = pre_order_blockers or []
     reasons: list[str] = []
@@ -65,6 +66,12 @@ def synthesize_verdict(
         reasons.append("payout_safety_hold_review")
         return FinalVerdict("HOLD-REVIEW", True, reasons)
 
+    # Step-2 must have been evaluated to assert any PASS tier. A library
+    # caller that omits financials (safety_verdict is None) cannot reach
+    # CLEAN/CONDITIONAL-PASS — fail-safe to HOLD-REVIEW (7th-review Medium).
+    if safety_verdict is None and require_safety:
+        return FinalVerdict("HOLD-REVIEW", True, ["payout_safety_not_evaluated"])
+
     # Dividend freeze: income cash-cow only if safety is clean & unblocked.
     if step1_verdict == "HOLD-REVIEW":  # WS-1 emits this for freeze
         if safety_verdict == "PASS" and not blockers:
@@ -83,8 +90,11 @@ def synthesize_verdict(
             reasons.append("payout_safety_caution")
         return FinalVerdict("PASS-CAUTION", event_t1_blocked, reasons)
 
-    if safety_verdict in (None, "PASS") and not blockers:
+    if safety_verdict == "PASS" and not blockers:
         return FinalVerdict("CLEAN-PASS", event_t1_blocked, ["step1_pass_safety_pass"])
+    if safety_verdict is None and not blockers:
+        # require_safety=False explicitly accepted (e.g. Step-5-only use).
+        return FinalVerdict("CLEAN-PASS", event_t1_blocked, ["step1_pass_safety_skipped"])
 
     return FinalVerdict("PASS-CAUTION", event_t1_blocked, ["residual_caution"])
 
