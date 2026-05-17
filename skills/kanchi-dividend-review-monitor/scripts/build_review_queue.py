@@ -309,6 +309,67 @@ def t5_structural_decline(holding: dict[str, Any]) -> TriggerFinding | None:
     return None
 
 
+def t6_dividend_policy_change(holding: dict[str, Any]) -> TriggerFinding | None:
+    """WS-8 slice: consume WS-1 dividend-basis flags.
+
+    Accepts flags from `dividend.flags` (preferred) or, as a convenience,
+    directly on the `dividend` object. Unknown extra keys (incl. a
+    top-level `schema_version`) are ignored, so a newer build_entry_signals
+    schema cannot silently break this monitor (improvement-plan MJ-10).
+    """
+    dividend = holding.get("dividend", {})
+    flags = dividend.get("flags")
+    if not isinstance(flags, dict):
+        flags = dividend
+
+    cut = bool(flags.get("cut_flag", False))
+    variable = bool(flags.get("variable_policy_flag", False))
+    freeze = bool(flags.get("freeze_flag", False))
+    special = bool(flags.get("special_dividend_flag", False))
+
+    if not (cut or variable or freeze or special):
+        return None
+
+    evidence = {
+        "cut_flag": cut,
+        "variable_policy_flag": variable,
+        "freeze_flag": freeze,
+        "special_dividend_flag": special,
+        "schema_version": holding.get("schema_version"),
+    }
+
+    if cut:
+        return TriggerFinding(
+            trigger="T6",
+            status="REVIEW",
+            reason="WS-1 cut_flag set: regular dividend rate declined year-over-year.",
+            evidence=evidence,
+        )
+    if variable:
+        return TriggerFinding(
+            trigger="T6",
+            status="REVIEW",
+            reason="WS-1 variable_policy_flag set: payout is a variable % of profit; "
+            "not a reliable income base.",
+            evidence=evidence,
+        )
+    if freeze:
+        return TriggerFinding(
+            trigger="T6",
+            status="WARN",
+            reason="WS-1 freeze_flag set: dividend held flat (policy change); "
+            "pause optional adds and re-underwrite growth thesis.",
+            evidence=evidence,
+        )
+    return TriggerFinding(
+        trigger="T6",
+        status="WARN",
+        reason="WS-1 special_dividend_flag set: headline/TTM yield inflated by a "
+        "special; verify the regular-only forward yield before any add.",
+        evidence=evidence,
+    )
+
+
 def evaluate_holding(holding: dict[str, Any]) -> dict[str, Any]:
     ticker = str(holding.get("ticker", "")).upper().strip()
     instrument_type = str(holding.get("instrument_type", "stock")).lower()
@@ -320,6 +381,7 @@ def evaluate_holding(holding: dict[str, Any]) -> dict[str, Any]:
         t3_credit_stress_proxy,
         t4_governance_or_filing_alert,
         t5_structural_decline,
+        t6_dividend_policy_change,
     ):
         finding = evaluator(holding)
         if finding:

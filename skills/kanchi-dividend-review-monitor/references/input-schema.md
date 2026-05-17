@@ -7,6 +7,12 @@ Use this normalized JSON schema for `build_review_queue.py`.
 - `as_of`: ISO date string.
 - `holdings`: array of ticker records.
 
+## Optional Top-Level Fields
+
+- `schema_version`: integer emitted by `kanchi-dividend-sop`
+  `build_entry_signals.py` (current: 2). Consumers MUST tolerate unknown
+  future versions and unknown fields rather than failing (MJ-10).
+
 ## Holding Object
 
 ```json
@@ -16,7 +22,13 @@ Use this normalized JSON schema for `build_review_queue.py`.
   "dividend": {
     "latest_regular": 0.50,
     "prior_regular": 0.52,
-    "is_missing": false
+    "is_missing": false,
+    "flags": {
+      "cut_flag": false,
+      "freeze_flag": false,
+      "special_dividend_flag": false,
+      "variable_policy_flag": false
+    }
   },
   "cashflow": {
     "fcf": 1200.0,
