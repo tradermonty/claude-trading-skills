@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from dividend_basis import analyze_dividends, step1_decision
+from thresholds import SCHEMA_VERSION
 
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
 
@@ -184,6 +186,15 @@ class FMPClient:
             return [row for row in data if isinstance(row, dict)]
         return []
 
+    def get_stock_dividend(self, ticker: str) -> list[dict[str, Any]]:
+        """WS-1: full declared-dividend history (regular + special)."""
+        data = self._get(f"historical-price-full/stock_dividend/{ticker}")
+        if isinstance(data, dict):
+            hist = data.get("historical")
+            if isinstance(hist, list):
+                return [row for row in hist if isinstance(row, dict)]
+        return []
+
 
 def build_entry_row(
     ticker: str,
@@ -191,11 +202,28 @@ def build_entry_row(
     quote: dict[str, Any] | None,
     profile: dict[str, Any] | None,
     key_metrics: list[dict[str, Any]],
+    dividend_history: list[dict[str, Any]] | None = None,
+    floor_pct: float | None = None,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
+
+    # WS-1: prefer the regular run-rate from declared-dividend history over
+    # profile.lastDiv (which is a trailing/TTM figure that lagged the latest
+    # declared raise -> defect D5 -- and silently bundled specials -> D4).
+    basis = None
+    if dividend_history:
+        basis = analyze_dividends(
+            dividend_history,
+            price,
+            issuer_language=(profile or {}).get("issuer_language"),
+            floor_pct=floor_pct,
+        )
+
     annual_dividend = to_float((profile or {}).get("lastDiv"))
     if annual_dividend is None and key_metrics:
         annual_dividend = to_float(key_metrics[0].get("dividendPerShare"))
+    if basis is not None and basis.latest_declared_annualized is not None:
+        annual_dividend = basis.latest_declared_annualized
 
     yields_5y = normalize_metrics_yields(key_metrics, max_points=5)
     avg_yield_5y_pct_raw = average(yields_5y)
@@ -232,7 +260,7 @@ def build_entry_row(
     elif len(yields_5y) < 5:
         notes.append(f"avg_5y_yield_points={len(yields_5y)}")
 
-    return {
+    row: dict[str, Any] = {
         "ticker": ticker,
         "signal": signal,
         "price": round(price, 2) if price is not None else None,
@@ -248,6 +276,36 @@ def build_entry_row(
         "yield_observation_count": len(yields_5y),
         "notes": notes,
     }
+
+    # WS-1: attach the dividend-basis breakdown + Step-1 decision.
+    if basis is not None:
+        row["dividend_basis"] = {
+            "status": basis.status,
+            "cadence": basis.cadence,
+            "latest_declared_annualized": basis.latest_declared_annualized,
+            "regular_annual_dividend": basis.regular_annual_dividend,
+            "ttm_dividend_incl_special": basis.ttm_dividend_incl_special,
+            "regular_forward_yield_pct": basis.regular_forward_yield_pct,
+            "ttm_yield_pct": basis.ttm_yield_pct,
+            "special_dividend_flag": basis.special_dividend_flag,
+            "variable_policy_flag": basis.variable_policy_flag,
+            "cut_flag": basis.cut_flag,
+            "freeze_flag": basis.freeze_flag,
+            "last_increase_date": basis.last_increase_date,
+            "floor_borderline": basis.floor_borderline,
+            "reasons": basis.reasons,
+        }
+        if floor_pct is not None:
+            verdict, reason = step1_decision(basis, floor_pct)
+            row["step1_verdict"] = verdict
+            row["step1_reason"] = reason
+        for flag in ("special_dividend_flag", "variable_policy_flag", "cut_flag", "freeze_flag"):
+            if getattr(basis, flag):
+                notes.append(flag)
+        if basis.floor_borderline:
+            notes.append("floor_borderline")
+
+    return row
 
 
 def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> str:
@@ -312,7 +370,9 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
     ]
 
     with output_path.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        # extrasaction="ignore": JSON carries the rich WS-1 dividend_basis
+        # sub-dict; the CSV stays a stable flat contract.
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             output = dict(row)
@@ -347,6 +407,13 @@ def parse_args() -> argparse.Namespace:
         default=0.15,
         help="Per-request wait time to reduce API throttling.",
     )
+    parser.add_argument(
+        "--yield-floor",
+        type=float,
+        default=None,
+        help="Step-1 yield floor %% (e.g. 4.0 income-now, 3.0 balanced). "
+        "Enables WS-1 Step-1 verdict + Data Freshness Gate.",
+    )
     return parser.parse_args()
 
 
@@ -368,12 +435,15 @@ def main() -> int:
     rows: list[dict[str, Any]] = []
     for ticker in tickers:
         metrics = client.get_key_metrics(ticker, limit=10)
+        dividend_history = client.get_stock_dividend(ticker)
         row = build_entry_row(
             ticker=ticker,
             alpha_pp=args.alpha_pp,
             quote=quotes.get(ticker),
             profile=profiles.get(ticker),
             key_metrics=metrics,
+            dividend_history=dividend_history,
+            floor_pct=args.yield_floor,
         )
         rows.append(row)
 
@@ -386,9 +456,11 @@ def main() -> int:
     md_path = output_dir / f"{prefix}.md"
 
     payload = {
+        "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "as_of": args.as_of,
         "alpha_pp": args.alpha_pp,
+        "yield_floor_pct": args.yield_floor,
         "ticker_count": len(tickers),
         "api_calls": client.api_calls,
         "rows": rows,
