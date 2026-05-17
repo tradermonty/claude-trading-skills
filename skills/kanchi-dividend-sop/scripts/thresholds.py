@@ -59,6 +59,11 @@ ADJ_EPS_PAYOUT_CAUTION = 0.70  # 0.70-0.85 = caution band
 ADJ_EPS_PAYOUT_MAX = 0.85
 FCF_PAYOUT_MAX = 0.80
 FCF_PAYOUT_HIGH_RISK = 1.00
+
+# Sector-module thresholds (5th-review F2 — deepen bank/utility/insurer).
+BANK_DEPOSIT_BETA_HIGH = 0.50  # deposit cost passes through fast -> margin risk
+UTILITY_FFO_DEBT_MIN = 0.13  # below this, regulated leverage is stretched
+INSURER_OP_EPS_PAYOUT_MAX = 0.85  # operating-EPS payout hard ceiling
 # GAAP vs Adjusted EPS divergence above which a Step-4 one-off flag fires.
 # Marked calibratable (MN-4): initial value, revisit with a payout-gap
 # distribution study across Dividend Aristocrats.

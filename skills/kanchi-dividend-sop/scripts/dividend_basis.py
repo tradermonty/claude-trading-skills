@@ -82,6 +82,7 @@ class DividendBasis:
     cut_flag: bool = False
     freeze_flag: bool = False
     suspension_flag: bool = False
+    latest_declared_confirmed: bool = False
     last_increase_date: str | None = None
     dividend_dates_used: list[str] = field(default_factory=list)
     regular_forward_yield_pct: float | None = None
@@ -139,6 +140,7 @@ def analyze_dividends(
     `history` items: {"date": "YYYY-MM-DD", "dividend": float, "label": str?}.
     """
     rows: list[tuple[date, float, object]] = []
+    declared: dict[date, bool] = {}
     for item in history or []:
         d = _parse_date(str(item.get("date", "")))
         amt = item.get("dividend")
@@ -149,6 +151,11 @@ def analyze_dividends(
         if d is None or amt is None or amt <= 0:
             continue
         rows.append((d, amt, item.get("label")))
+        # A non-empty declarationDate means the board formally declared
+        # this dividend -> authoritative confirmation for the Data
+        # Freshness Gate (5th-review #4 confirmed-source path).
+        decl = item.get("declarationDate")
+        declared[d] = bool(decl and str(decl).strip())
 
     if not rows:
         return DividendBasis(status="NO-DIVIDEND", reasons=["no_dividend_history"])
@@ -292,6 +299,7 @@ def analyze_dividends(
         cut_flag=cut_flag,
         freeze_flag=freeze_flag,
         suspension_flag=suspension_flag,
+        latest_declared_confirmed=declared.get(regular[-1][0], False),
         last_increase_date=last_increase.isoformat() if last_increase else None,
         dividend_dates_used=[d.isoformat() for d, _ in regular[-8:]],
         regular_forward_yield_pct=fwd_yield,

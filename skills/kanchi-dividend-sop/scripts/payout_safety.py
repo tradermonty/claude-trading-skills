@@ -22,9 +22,12 @@ from dataclasses import dataclass, field
 from thresholds import (
     ADJ_EPS_PAYOUT_CAUTION,
     ADJ_EPS_PAYOUT_MAX,
+    BANK_DEPOSIT_BETA_HIGH,
     FCF_PAYOUT_HIGH_RISK,
     FCF_PAYOUT_MAX,
     GAAP_ADJ_DIVERGENCE,
+    INSURER_OP_EPS_PAYOUT_MAX,
+    UTILITY_FFO_DEBT_MIN,
 )
 
 _CONSUMER_SECTORS = {
@@ -129,23 +132,25 @@ def assess_payout_safety(
             )
         one_off = True
 
-    # --- adjusted EPS availability is the safety anchor for income names ---
-    if adjusted_eps is None or adjusted_eps_source == "UNAVAILABLE":
-        blockers.append("adjusted_eps_unavailable")
-        reasons.append("adjusted_eps_unavailable_failsafe_hold")
+    # Adjusted EPS is the safety ANCHOR only for the consumer path. For
+    # banks/utilities/insurers the sector module is the anchor, so a missing
+    # adjusted EPS must NOT force HOLD-REVIEW there (5th-review F2). The
+    # completed-merger GAAP-distortion path above still HOLDs regardless.
+    adj_missing = adjusted_eps is None or adjusted_eps_source == "UNAVAILABLE"
 
     if kind == "bank":
         verdict = _assess_bank(bank_metrics or {}, gaap_payout, reasons, blockers)
     elif kind == "utility":
         verdict = _assess_utility(utility_metrics or {}, gaap_payout, reasons, blockers)
     elif kind == "insurer":
-        verdict = _assess_insurer(insurer_metrics or {}, gaap_payout, reasons, blockers)
+        verdict = _assess_insurer(insurer_metrics or {}, gaap_payout, adj_payout, reasons, blockers)
     else:
+        if adj_missing:
+            blockers.append("adjusted_eps_unavailable")
+            reasons.append("adjusted_eps_unavailable_failsafe_hold")
         verdict = _assess_consumer(adj_payout, fcf_payout, adjusted_eps, reasons, blockers)
-
-    # Fail-safe: never PASS while the adjusted-EPS anchor is missing.
-    if "adjusted_eps_unavailable" in blockers and verdict in ("PASS", "CAUTION"):
-        verdict = "HOLD-REVIEW"
+        if "adjusted_eps_unavailable" in blockers and verdict in ("PASS", "CAUTION"):
+            verdict = "HOLD-REVIEW"
 
     return SafetyAssessment(
         sector_kind=kind,
@@ -202,6 +207,14 @@ def _assess_bank(m: dict, eps_payout, reasons, blockers) -> str:
         reasons.append("bank_npl_nco_deteriorating")
         blockers.append("bank_npl_nco_deteriorating")
         verdict = "CAUTION"
+    deposit_beta = m.get("deposit_beta")
+    db_str = str(deposit_beta).lower()
+    if (isinstance(deposit_beta, (int, float)) and deposit_beta > BANK_DEPOSIT_BETA_HIGH) or (
+        db_str in ("high", "rising")
+    ):
+        reasons.append("bank_deposit_beta_elevated")
+        if verdict == "PASS":
+            verdict = "CAUTION"
     if eps_payout is not None and eps_payout > ADJ_EPS_PAYOUT_MAX:
         reasons.append("bank_eps_payout_high")
         verdict = "FAIL"
@@ -214,10 +227,19 @@ def _assess_utility(m: dict, eps_payout, reasons, blockers) -> str:
     ffo_debt = m.get("ffo_to_debt")
     rate_case = str(m.get("rate_case_status", "")).lower()
     equity_issuance = str(m.get("equity_issuance_risk", "")).lower()
+    allowed_roe_trend = str(m.get("allowed_roe_trend", "")).lower()
     verdict = "PASS"
     if ffo_debt is None:
         blockers.append("utility_ffo_debt_unavailable")
         verdict = "CAUTION"
+    elif ffo_debt < UTILITY_FFO_DEBT_MIN:
+        reasons.append(f"utility_ffo_debt_below_{UTILITY_FFO_DEBT_MIN}")
+        blockers.append("utility_ffo_debt_weak")
+        verdict = "CAUTION"
+    if allowed_roe_trend in ("falling", "adverse"):
+        reasons.append("utility_allowed_roe_falling")
+        if verdict == "PASS":
+            verdict = "CAUTION"
     if rate_case in ("adverse", "pending_adverse"):
         reasons.append("utility_rate_case_adverse")
         blockers.append("utility_rate_case_adverse")
@@ -232,23 +254,31 @@ def _assess_utility(m: dict, eps_payout, reasons, blockers) -> str:
     return verdict
 
 
-def _assess_insurer(m: dict, eps_payout, reasons, blockers) -> str:
+def _assess_insurer(m: dict, gaap_payout, op_eps_payout, reasons, blockers) -> str:
     combined_ratio = m.get("combined_ratio")
     reserve_dev = str(m.get("reserve_development", "")).lower()
     statutory = str(m.get("statutory_capital", "")).lower()
     verdict = "PASS"
+    # Operating-EPS payout is the insurer income anchor (noisy GAAP).
+    op_payout = op_eps_payout if op_eps_payout is not None else gaap_payout
+    if op_payout is not None and op_payout > INSURER_OP_EPS_PAYOUT_MAX:
+        reasons.append("insurer_operating_eps_payout_high")
+        verdict = "FAIL"
     if combined_ratio is None:
         blockers.append("insurer_combined_ratio_unavailable")
-        verdict = "CAUTION"
+        if verdict == "PASS":
+            verdict = "CAUTION"
     if reserve_dev == "adverse":
         reasons.append("insurer_reserve_development_adverse")
         blockers.append("insurer_reserve_development_adverse")
-        verdict = "HOLD-REVIEW"
+        if verdict != "FAIL":  # never de-escalate a FAIL
+            verdict = "HOLD-REVIEW"
     if combined_ratio is not None and combined_ratio > 1.0:
         reasons.append("insurer_combined_ratio_above_100")
         if verdict == "PASS":
             verdict = "CAUTION"
     if statutory == "weak":
         reasons.append("insurer_statutory_capital_weak")
-        verdict = "HOLD-REVIEW"
+        if verdict != "FAIL":
+            verdict = "HOLD-REVIEW"
     return verdict

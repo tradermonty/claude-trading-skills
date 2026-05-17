@@ -198,6 +198,38 @@ class FMPClient:
                 return [row for row in hist if isinstance(row, dict)]
         return []
 
+    def get_financials(self, ticker: str, sector: str | None = None) -> dict[str, Any]:
+        """WS-2 (5th-review F1): minimal financials for the payout triad.
+
+        Adjusted EPS is NOT in FMP -> source UNAVAILABLE by design (the
+        consumer path then fail-safes to HOLD-REVIEW; sector paths use
+        sector metrics). Sector metric dicts are left None when FMP does
+        not expose them, which deterministically raises *_unavailable
+        blockers (CAUTION) for manual fill rather than a false PASS.
+        """
+        inc = self._get(f"income-statement/{ticker}", {"limit": 1})
+        cf = self._get(f"cash-flow-statement/{ticker}", {"limit": 1})
+        gaap_eps = None
+        if isinstance(inc, list) and inc:
+            gaap_eps = to_float(inc[0].get("epsdiluted")) or to_float(inc[0].get("eps"))
+        fcf_ps = None
+        if isinstance(cf, list) and cf:
+            fcf = to_float(cf[0].get("freeFreeCashFlow")) or to_float(cf[0].get("freeCashFlow"))
+            shares = (
+                to_float(inc[0].get("weightedAverageShsOutDil"))
+                if (isinstance(inc, list) and inc)
+                else None
+            )
+            if fcf is not None and shares:
+                fcf_ps = fcf / shares
+        return {
+            "sector": sector,
+            "gaap_eps": gaap_eps,
+            "adjusted_eps": None,
+            "adjusted_eps_source": "UNAVAILABLE",
+            "fcf_per_share": fcf_ps,
+        }
+
 
 def build_entry_row(
     ticker: str,
@@ -209,6 +241,7 @@ def build_entry_row(
     floor_pct: float | None = None,
     financials: dict[str, Any] | None = None,
     event_scan: ScanResult | None = None,
+    as_of: str | None = None,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
 
@@ -222,6 +255,7 @@ def build_entry_row(
             price,
             issuer_language=(profile or {}).get("issuer_language"),
             floor_pct=floor_pct,
+            as_of_date=as_of,
         )
 
     annual_dividend = to_float((profile or {}).get("lastDiv"))
@@ -303,7 +337,9 @@ def build_entry_row(
             "reasons": basis.reasons,
         }
         if floor_pct is not None:
-            verdict, reason = step1_decision(basis, floor_pct)
+            verdict, reason = step1_decision(
+                basis, floor_pct, source_confirmed=basis.latest_declared_confirmed
+            )
             row["step1_verdict"] = verdict
             row["step1_reason"] = reason
         for flag in (
@@ -563,6 +599,8 @@ def main() -> int:
         metrics = client.get_key_metrics(ticker, limit=10)
         dividend_history = client.get_stock_dividend(ticker)
         event_scan = scanner.scan(ticker, args.as_of) if scanner else None
+        sector = (profiles.get(ticker) or {}).get("sector")
+        financials = client.get_financials(ticker, sector=sector)
         row = build_entry_row(
             ticker=ticker,
             alpha_pp=args.alpha_pp,
@@ -571,7 +609,9 @@ def main() -> int:
             key_metrics=metrics,
             dividend_history=dividend_history,
             floor_pct=args.yield_floor,
+            financials=financials,
             event_scan=event_scan,
+            as_of=args.as_of,
         )
         rows.append(row)
 
