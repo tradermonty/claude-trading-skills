@@ -249,6 +249,14 @@ jobs:
       - name: Skillset docs drift check
         run: python3 scripts/generate_skillset_docs.py --check
 
+      # 3a. Skill docs drift check: generator-owned pages (frontmatter
+      # `generated: true`) must match generator output, and every skill must
+      # have EN+JA pages. Hand-maintained pages (generated:false/absent or
+      # HAND_WRITTEN) are existence/marker-checked only — never content-
+      # compared, never reverted.
+      - name: Skill docs drift check
+        run: python3 scripts/generate_skill_docs.py --check
+
       # 3. Drift check: docs/{en,ja}/workflows.md must match what the
       # generator would produce from workflows/*.yaml. Catches manual edits
       # to the docs and stale docs after manifest changes.

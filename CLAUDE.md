@@ -96,9 +96,19 @@ Generate documentation pages for the Jekyll site at `docs/`.
 # Also updates docs/en/skills/index.md and docs/ja/skills/index.md automatically
 python3 scripts/generate_skill_docs.py --skill <skill-name>
 
-# Regenerate all auto-generated pages
+# Regenerate all auto-generated pages (ONLY pages marked `generated: true`;
+# hand-maintained pages are refused — use --force to override, never in CI)
 python3 scripts/generate_skill_docs.py --overwrite
 ```
+
+> **Skill doc ownership / drift gate:** Committed `docs/{en,ja}/skills/*.md` are
+> source-of-truth. A page is generator-owned only if its frontmatter has
+> `generated: true`; `generated: false` or an absent marker (and any
+> `HAND_WRITTEN` skill) is hand-maintained and **protected** — `--overwrite`
+> refuses it (`--force` is the CI-forbidden escape hatch). The
+> `skill-docs-drift` pre-commit hook + CI step run `generate_skill_docs.py
+> --check`, which content-compares **only** `generated: true` pages and never
+> reverts hand-maintained docs. See `docs/README.md` → "Skill Doc Ownership".
 
 **Hand-written ★ guides (for key skills):**
 
