@@ -92,9 +92,9 @@ translations, were hand-curated after first generation).
   removes it). After adding or removing skills, re-run the generator to refresh
   `nav_order` on generator-owned pages.
 
-> The unused per-skill `hand_written_doc` field in `skills-index.yaml` is
-> superseded by this per-page marker for doc ownership; reconciling/removing it
-> is a separate cleanup.
+> Skill-doc ownership is declared by the per-page `generated:` marker
+> (introduced in #104). The earlier per-skill doc-ownership boolean in
+> `skills-index.yaml` was removed as a follow-up cleanup.
 
 ---
 

@@ -100,7 +100,6 @@ def minimal_skill(skill_id: str, **overrides) -> dict:
         "inputs": ["test_input"],
         "outputs": ["test_output"],
         "workflows": [],
-        "hand_written_doc": False,
     }
     base.update(overrides)
     return base
