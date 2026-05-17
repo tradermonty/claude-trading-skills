@@ -321,7 +321,11 @@ def build_entry_row(
     # WS-2: sector-aware payout-safety triad + pre-order blocker seeds.
     pre_order_blockers: list[str] = []
     if basis is not None:
-        for flag in ("variable_policy_flag", "cut_flag", "freeze_flag", "suspension_flag"):
+        # freeze_flag is intentionally NOT a blocker here: its disposition
+        # (CONDITIONAL-PASS vs HOLD-REVIEW) is decided by synthesize_verdict
+        # from step1_verdict + safety. cut/variable/suspension already force
+        # step1 FAIL; listing them keeps the audit trail explicit.
+        for flag in ("variable_policy_flag", "cut_flag", "suspension_flag"):
             if getattr(basis, flag):
                 pre_order_blockers.append(flag)
         if basis.floor_borderline:
