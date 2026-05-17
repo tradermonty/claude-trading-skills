@@ -2,13 +2,53 @@
 
 from build_review_queue import (
     build_report,
+    evaluate_holding,
     render_markdown,
     t1_dividend_cut_or_suspension,
     t2_coverage_deterioration,
     t3_credit_stress_proxy,
     t4_governance_or_filing_alert,
     t5_structural_decline,
+    t6_dividend_policy_change,
 )
+
+
+def test_t6_variable_policy_flag_reviews() -> None:
+    finding = t6_dividend_policy_change(
+        {"ticker": "CALM", "dividend": {"flags": {"variable_policy_flag": True}}}
+    )
+    assert finding is not None
+    assert finding.trigger == "T6" and finding.status == "REVIEW"
+
+
+def test_t6_freeze_flag_warns_via_inline_flags() -> None:
+    # Flags read directly off `dividend` (convenience path) also work.
+    finding = t6_dividend_policy_change({"ticker": "CMCSA", "dividend": {"freeze_flag": True}})
+    assert finding is not None
+    assert finding.trigger == "T6" and finding.status == "WARN"
+
+
+def test_t6_special_flag_warns() -> None:
+    finding = t6_dividend_policy_change(
+        {"ticker": "ORI", "dividend": {"flags": {"special_dividend_flag": True}}}
+    )
+    assert finding is not None and finding.status == "WARN"
+
+
+def test_t6_none_when_no_flags() -> None:
+    assert t6_dividend_policy_change({"ticker": "JNJ", "dividend": {}}) is None
+
+
+def test_unknown_schema_version_is_tolerated() -> None:
+    # A newer upstream schema_version + unknown fields must not break eval.
+    holding = {
+        "ticker": "CALM",
+        "schema_version": 999,
+        "future_field": {"x": 1},
+        "dividend": {"flags": {"variable_policy_flag": True}, "new_subfield": 42},
+    }
+    result = evaluate_holding(holding)
+    assert result["status"] == "REVIEW"
 
 
 def test_t1_detects_dividend_cut() -> None:
