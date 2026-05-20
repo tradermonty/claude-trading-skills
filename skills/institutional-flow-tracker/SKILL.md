@@ -105,10 +105,10 @@ python3 scripts/analyze_single_stock.py AAPL
 
 **This generates:**
 - Historical institutional ownership trend (8 quarters)
-- List of all institutional holders with position changes
+- Top 20 institutional holders with position changes
 - Concentration analysis (top 10 holders' % of total institutional ownership)
-- New positions vs increased vs decreased positions
-- Data quality assessment with reliability grade
+- New / increased / decreased positions among the largest holders
+- Data quality assessment with coverage-based reliability grade
 
 **Key metrics to evaluate:**
 - **Ownership %:** Higher institutional ownership (>70%) = more stability but limited upside
@@ -209,19 +209,23 @@ All analysis generates structured markdown reports saved to repository root:
 
 ## Data Reliability Grades
 
-All analysis now includes a **reliability grade** based on data quality:
+All analysis includes a **coverage-based reliability grade**:
 
-- **Grade A:** Coverage ratio < 3x, match ratio >= 50%, genuine holder ratio >= 70%. Safe for investment decisions.
-- **Grade B:** Genuine holder ratio >= 30%. Reference only - use with caution.
-- **Grade C:** Genuine holder ratio < 30%. UNRELIABLE - excluded from screening results.
+- **Grade A:** A comparable prior quarter exists and the stock has **>= 50** institutional (13F) holders. Dense coverage, safe for ranking.
+- **Grade B:** A comparable prior quarter exists and the stock has **>= 10** holders. Usable but thin — reference only.
+- **Grade C:** No comparable prior quarter (change not measurable) or **< 10** holders. EXCLUDED from screening results.
 
 The screening script (`track_institutional_flow.py`) automatically excludes Grade C stocks.
 The single stock analysis (`analyze_single_stock.py`) displays the grade with appropriate warnings.
 
-**Why this matters:** FMP returns different numbers of holders per quarter. A stock may show
-5,415 holders in Q4 but only 201 in Q3. Without filtering, aggregate metrics produce
-misleading percent changes (e.g., +400%). The data quality module filters to "genuine" holders
-(present in both quarters) to produce reliable metrics.
+**Why coverage, not per-holder reconciliation:** Metrics are sourced from FMP's aggregate 13F
+summary (`institutional-ownership/symbol-positions-summary`), which reconciles
+quarter-over-quarter deltas across all filing managers **at source**. This replaces the retired
+`/api/v3/institutional-holder` feed, which returned asymmetric per-holder lists across quarters
+(e.g., 5,415 holders one quarter, 201 the next) and required client-side filtering to avoid
+inflated percent changes. With the reconciled summary, the remaining quality signal that matters
+in practice is **breadth** (how many managers hold the name) and whether a prior quarter exists
+to measure change against — which is what the grade now reflects.
 
 ## Limitations and Caveats
 
@@ -320,9 +324,9 @@ For institution-specific portfolio tracking, use:
 
 Shared utility module used by both `track_institutional_flow.py` and `analyze_single_stock.py`:
 
-- **classify_holder():** Classifies holders as genuine/new_full/exited/unknown
-- **calculate_filtered_metrics():** Computes metrics using genuine holders only
-- **reliability_grade():** Assigns A/B/C grade based on data quality
+- **coverage_grade():** Assigns A/B/C grade from holder breadth + prior-quarter availability
+- **latest filed quarter helpers** (`current_quarter()`, `iter_quarters()`, `quarter_end_date()`): walk back to the most recent quarter with filed 13F data
+- **normalize_holder():** Maps a `extract-analytics/holder` row to `{name, shares, change, is_new, is_sold_out}`
 - **is_tradable_stock():** Filters out ETFs, funds, and inactive stocks
 - **deduplicate_share_classes():** Removes BRK-A/B, GOOG/GOOGL duplicates
 

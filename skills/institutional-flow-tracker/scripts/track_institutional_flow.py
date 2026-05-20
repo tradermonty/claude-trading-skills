@@ -2,11 +2,12 @@
 """
 Institutional Flow Tracker - Main Screening Script
 
-Screens for stocks with significant institutional ownership changes by analyzing
-13F filings data. Identifies stocks where smart money is accumulating or distributing.
+Screens for stocks with significant institutional ownership changes by reading
+FMP's aggregate 13F summary (institutional-ownership/symbol-positions-summary).
+Identifies stocks where smart money is accumulating or distributing.
 
-Uses data_quality module for holder classification and reliability grading
-to filter out misleading signals from asymmetric 13F data.
+Reliability is graded from FMP's coverage signals (holder breadth + whether a
+comparable prior quarter exists) via data_quality.coverage_grade.
 
 Usage:
     python3 track_institutional_flow.py --limit 100 --min-change-percent 10
@@ -15,15 +16,16 @@ Usage:
 
 Requirements:
     - FMP API key (set FMP_API_KEY environment variable or pass --api-key)
-    - Free tier: 250 requests/day (sufficient for ~40-50 stocks)
+    - ~2 API calls per analyzed stock (summary + top holders), plus a one-time
+      quarter probe. Free tier (250 req/day) covers roughly 100 stocks/day.
 """
 
 import argparse
+import datetime
 import json
 import os
 import sys
 import time
-from datetime import datetime
 from typing import Optional
 
 try:
@@ -35,145 +37,169 @@ except ImportError:
 # Add scripts directory to path for data_quality import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from data_quality import (
-    calculate_coverage_ratio,
-    calculate_filtered_metrics,
-    calculate_match_ratio,
+    coverage_grade,
+    current_quarter,
     deduplicate_share_classes,
     is_tradable_stock,
-    reliability_grade,
+    iter_quarters,
+    normalize_holder,
+    quarter_end_date,
 )
+
+STABLE_URL = "https://financialmodelingprep.com/stable"
 
 
 class InstitutionalFlowTracker:
     """Track institutional ownership changes across stocks"""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, as_of: Optional[datetime.date] = None):
         self.api_key = api_key
-        self.base_url = "https://financialmodelingprep.com/api/v3"
+        self.base_url = STABLE_URL
+        self._as_of = as_of or datetime.date.today()
+        # Cache of the most recent quarter that has filed 13F data, so we don't
+        # re-probe the lag window for every symbol.
+        self._latest_yq: Optional[tuple[int, int]] = None
 
-    def get_stock_screener(self, market_cap_min: int = 1000000000, limit: int = 100) -> list[dict]:
-        """Get list of stocks meeting market cap criteria"""
-        url = f"{self.base_url}/stock-screener"
-        params = {"marketCapMoreThan": market_cap_min, "limit": limit}
+    def _get(self, path: str, **params) -> Optional[object]:
+        """GET a /stable endpoint, returning parsed JSON or None.
 
+        The API key is sent via header (not query string) so it never appears
+        in a URL — including any URL embedded in a raised exception message.
+        """
         try:
             response = requests.get(
-                url, params=params, headers={"apikey": self.api_key}, timeout=30
+                f"{self.base_url}/{path}",
+                params=params,
+                headers={"apikey": self.api_key},
+                timeout=30,
             )
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching stock screener: {e}")
-            return []
+            print(f"Error fetching {path}: {e}", file=sys.stderr)
+            return None
 
-    def get_institutional_holders(self, symbol: str) -> list[dict]:
-        """Get institutional holders for a specific stock"""
-        url = f"{self.base_url}/institutional-holder/{symbol}"
+    def get_company_screener(
+        self, market_cap_min: int = 1000000000, limit: int = 100
+    ) -> list[dict]:
+        """Get list of stocks meeting market cap criteria (/stable company-screener)."""
+        data = self._get("company-screener", marketCapMoreThan=market_cap_min, limit=limit)
+        return data if isinstance(data, list) else []
 
-        try:
-            response = requests.get(url, headers={"apikey": self.api_key}, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            return data if isinstance(data, list) else []
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching institutional holders for {symbol}: {e}")
+    def get_ownership_summary(self, symbol: str, year: int, quarter: int) -> Optional[dict]:
+        """Get the aggregate 13F positions summary for one symbol/quarter."""
+        data = self._get(
+            "institutional-ownership/symbol-positions-summary",
+            symbol=symbol,
+            year=year,
+            quarter=quarter,
+        )
+        if isinstance(data, list) and data:
+            return data[0]
+        return None
+
+    def latest_summary(
+        self, symbol: str, max_lookback: int = 5
+    ) -> tuple[Optional[int], Optional[int], Optional[dict]]:
+        """Return (year, quarter, summary) for the most recent filed quarter.
+
+        13F data lags the quarter end by ~45 days, so the current calendar
+        quarter is usually not yet filed. Probe backward until a quarter with
+        data is found, caching the result for subsequent symbols.
+        """
+        if self._latest_yq is not None:
+            summary = self.get_ownership_summary(symbol, *self._latest_yq)
+            if summary:
+                return (*self._latest_yq, summary)
+
+        y0, q0 = current_quarter(self._as_of)
+        for year, quarter in iter_quarters(y0, q0, max_lookback):
+            summary = self.get_ownership_summary(symbol, year, quarter)
+            if summary:
+                self._latest_yq = (year, quarter)
+                return (year, quarter, summary)
+        return (None, None, None)
+
+    def get_top_holders(self, symbol: str, year: int, quarter: int, limit: int = 10) -> list[dict]:
+        """Get the top institutional holders (by market value) for a quarter.
+
+        Reads page 0 of extract-analytics/holder, which the feed returns sorted
+        by position size. Returns compact {name, shares, change, ...} records.
+        """
+        rows = self._get(
+            "institutional-ownership/extract-analytics/holder",
+            symbol=symbol,
+            year=year,
+            quarter=quarter,
+            page=0,
+        )
+        if not isinstance(rows, list):
             return []
+        return [normalize_holder(r) for r in rows[:limit]]
 
     def calculate_ownership_metrics(
         self, symbol: str, company_name: str, market_cap: float
     ) -> Optional[dict]:
         """Calculate institutional ownership metrics for a stock.
 
-        Uses data_quality.calculate_filtered_metrics() to compute changes
-        from genuine holders only. Returns None for grade C (unreliable) stocks.
+        Reads FMP's aggregate summary (deltas reconciled server-side). Returns
+        None for stocks graded C (no comparable prior quarter or breadth too
+        thin to rank).
         """
-        holders = self.get_institutional_holders(symbol)
-
-        if not holders or len(holders) < 2:
+        year, quarter, summary = self.latest_summary(symbol)
+        if not summary:
             return None
 
-        # Group by date to get quarterly snapshots
-        quarters = {}
-        for holder in holders:
-            date = holder.get("dateReported", "")
-            if not date:
-                continue
-            if date not in quarters:
-                quarters[date] = []
-            quarters[date].append(holder)
+        investors = summary.get("investorsHolding", 0) or 0
+        last_investors = summary.get("lastInvestorsHolding", 0) or 0
+        grade = coverage_grade(investors, last_investors)
 
-        if not quarters:
-            return None
-
-        # Get most recent quarter and previous quarter
-        sorted_quarters = sorted(quarters.keys(), reverse=True)
-        current_q = sorted_quarters[0]
-        previous_q = sorted_quarters[1] if len(sorted_quarters) >= 2 else None
-
-        current_holders = quarters[current_q]
-        previous_holders = quarters[previous_q] if previous_q else []
-
-        # Data quality assessment
-        filtered = calculate_filtered_metrics(current_holders)
-        total_count = len(current_holders)
-        genuine_ratio = filtered["genuine_count"] / total_count if total_count > 0 else 0
-        coverage = calculate_coverage_ratio(current_holders, previous_holders)
-        match = calculate_match_ratio(current_holders, previous_holders)
-        grade = reliability_grade(coverage, match, genuine_ratio)
-
-        # Skip unreliable stocks (grade C)
+        # Skip stocks with insufficient coverage (grade C)
         if grade == "C":
             return None
 
-        # Use filtered metrics (genuine holders only) for percent change
-        net_change = filtered["net_change"]
-        total_shares_genuine = filtered["total_shares_genuine"]
-        pct_change = filtered["pct_change"]
+        current_shares = summary.get("numberOf13Fshares", 0) or 0
+        previous_shares = summary.get("lastNumberOf13Fshares", 0) or 0
+        shares_change = summary.get("numberOf13FsharesChange")
+        if shares_change is None:
+            shares_change = current_shares - previous_shares
+        pct_change = (shares_change / previous_shares * 100) if previous_shares > 0 else 0.0
 
-        # Total shares (all holders, for display)
-        current_total_shares = sum(h.get("shares", 0) for h in current_holders)
+        increased = summary.get("increasedPositions", 0) or 0
+        reduced = summary.get("reducedPositions", 0) or 0
+        new_positions = summary.get("newPositions", 0) or 0
+        closed_positions = summary.get("closedPositions", 0) or 0
+        unchanged = max(0, investors - increased - reduced - new_positions)
 
-        # Count institutions with increases vs decreases (genuine only)
-        buyers = filtered["buyers"]
-        sellers = filtered["sellers"]
-        unchanged = filtered["genuine_count"] - buyers - sellers
+        institution_change = summary.get("investorsHoldingChange")
+        if institution_change is None:
+            institution_change = investors - last_investors
 
-        # Previous quarter institution count (if available)
-        previous_count = len(previous_holders)
-        current_count = total_count
-        institution_change = current_count - previous_count if previous_q else 0
-
-        # Get top holders sorted by shares held
-        top_holders = sorted(current_holders, key=lambda x: x.get("shares", 0), reverse=True)[:10]
-
-        top_holder_names = [
-            {
-                "name": h.get("holder", "Unknown"),
-                "shares": h.get("shares", 0),
-                "change": h.get("change", 0),
-            }
-            for h in top_holders
-        ]
+        prev_year, prev_quarter = list(iter_quarters(year, quarter, 2))[1]
+        top_holders = self.get_top_holders(symbol, year, quarter, limit=10)
 
         return {
             "symbol": symbol,
             "company_name": company_name,
             "market_cap": market_cap,
-            "current_quarter": current_q,
-            "previous_quarter": previous_q or "N/A",
-            "current_total_shares": current_total_shares,
-            "previous_total_shares": total_shares_genuine - net_change,
-            "shares_change": net_change,
+            "current_quarter": summary.get("date") or quarter_end_date(year, quarter),
+            "previous_quarter": quarter_end_date(prev_year, prev_quarter),
+            "current_total_shares": current_shares,
+            "previous_total_shares": previous_shares,
+            "shares_change": shares_change,
             "percent_change": round(pct_change, 2),
-            "current_institution_count": current_count,
-            "previous_institution_count": previous_count,
+            "current_institution_count": investors,
+            "previous_institution_count": last_investors,
             "institution_count_change": institution_change,
-            "buyers": buyers,
-            "sellers": sellers,
+            "buyers": increased,
+            "sellers": reduced,
             "unchanged": unchanged,
-            "top_holders": top_holder_names,
+            "new_positions": new_positions,
+            "closed_positions": closed_positions,
+            "ownership_percent": round(summary.get("ownershipPercent", 0) or 0, 2),
+            "ownership_percent_change": round(summary.get("ownershipPercentChange", 0) or 0, 2),
+            "top_holders": top_holders,
             "reliability_grade": grade,
-            "genuine_ratio": round(genuine_ratio, 4),
         }
 
     def screen_stocks(
@@ -189,7 +215,7 @@ class InstitutionalFlowTracker:
         """Screen for stocks with significant institutional changes"""
 
         print(f"Fetching stocks with market cap >= ${min_market_cap:,}...")
-        stocks = self.get_stock_screener(market_cap_min=min_market_cap, limit=limit)
+        stocks = self.get_company_screener(market_cap_min=min_market_cap, limit=limit)
 
         if not stocks:
             print("No stocks found in screener")
@@ -261,7 +287,7 @@ class InstitutionalFlowTracker:
             print("No results to report")
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         report = f"""# Institutional Flow Analysis Report
 **Generated:** {timestamp}
@@ -269,8 +295,9 @@ class InstitutionalFlowTracker:
 
 ## Summary
 
-This report identifies stocks with significant institutional ownership changes based on 13F filings data.
-Only stocks with **Grade A or B** data reliability are included. Grade C (unreliable) stocks are excluded.
+This report identifies stocks with significant institutional ownership changes based on FMP's
+aggregate 13F summary data. Only stocks with **Grade A or B** coverage are included; Grade C
+(no comparable prior quarter, or too few 13F holders to rank) is excluded.
 
 ### Key Findings
 
@@ -322,14 +349,14 @@ Only stocks with **Grade A or B** data reliability are included. Grade C (unreli
             report += f"""### {r["symbol"]} - {r["company_name"]}
 
 **Signal:** {direction} ({r["percent_change"]:+.2f}% institutional ownership change)
-**Data Reliability:** {grade_label} (genuine ratio: {r["genuine_ratio"]:.1%})
+**Data Reliability:** {grade_label} (institutional ownership: {r["ownership_percent"]:.1f}%)
 
 **Metrics:**
 - Market Cap: ${r["market_cap"]:,.0f}
 - Current Quarter: {r["current_quarter"]}
-- Institutions: {r["current_institution_count"]} (Buyers: {r.get("buyers", "N/A")}, Sellers: {r.get("sellers", "N/A")}, Unchanged: {r.get("unchanged", "N/A")})
-- Net Shares Change (genuine only): {r["shares_change"]:+,.0f}
-- Estimated Previous Total (genuine): {r["previous_total_shares"]:,.0f} shares
+- Institutions: {r["current_institution_count"]} (Increased: {r.get("buyers", "N/A")}, Reduced: {r.get("sellers", "N/A")}, New: {r.get("new_positions", "N/A")}, Closed: {r.get("closed_positions", "N/A")})
+- Net Shares Change: {r["shares_change"]:+,.0f}
+- Previous Total 13F Shares: {r["previous_total_shares"]:,.0f}
 
 **Top 5 Current Holders:**
 """
@@ -341,18 +368,22 @@ Only stocks with **Grade A or B** data reliability are included. Grade C (unreli
         report += """
 ## Methodology
 
-### Data Quality Filtering
+### Data Source
 
-This report uses **holder classification** to ensure reliable metrics:
+Metrics come from FMP's aggregate 13F summary
+(`institutional-ownership/symbol-positions-summary`), which reconciles
+quarter-over-quarter deltas across all filing managers at source:
 
-- **Genuine holders:** Present in both quarters, partial position change
-- **New-full entries:** First-time appearance (change == shares) - excluded from % calculation
-- **Exited holders:** Fully sold (shares == 0) - excluded from % calculation
+- **Net shares change / % change:** `numberOf13FsharesChange` vs prior quarter
+- **Breadth:** number of 13F holders (`investorsHolding`) and its change
+- **Buyers / Sellers / New / Closed:** managers that increased, reduced, newly
+  opened, or closed positions
 
-**Reliability Grades:**
-- **Grade A:** Coverage ratio < 3x, match ratio >= 50%, genuine ratio >= 70% - Safe for investment decisions
-- **Grade B:** Genuine ratio >= 30% - Reference only (use with caution)
-- **Grade C:** Genuine ratio < 30% - EXCLUDED from this report
+### Reliability Grades (coverage-based)
+
+- **Grade A:** prior quarter present and >= 50 institutional holders -> dense, rankable
+- **Grade B:** prior quarter present and >= 10 holders -> usable, reference only
+- **Grade C:** no comparable prior quarter, or < 10 holders -> EXCLUDED
 
 ### Interpretation Guide
 
@@ -381,16 +412,17 @@ For detailed interpretation framework, see:
 
 ---
 
-**Data Source:** Financial Modeling Prep API (13F Filings)
+**Data Source:** Financial Modeling Prep API (13F Filings, /stable)
 **Note:** 13F data has ~45-day reporting lag. Use as confirming indicator, not real-time signal.
-**Note:** Percent changes are calculated from genuine holders only to prevent inflated metrics.
 """
 
         # Determine output path
         if output_file:
             output_path = output_file if output_file.endswith(".md") else f"{output_file}.md"
         else:
-            filename = f"institutional_flow_screening_{datetime.now().strftime('%Y%m%d')}.md"
+            filename = (
+                f"institutional_flow_screening_{datetime.datetime.now().strftime('%Y%m%d')}.md"
+            )
             if output_dir:
                 os.makedirs(output_dir, exist_ok=True)
                 output_path = os.path.join(output_dir, filename)

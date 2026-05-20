@@ -1,202 +1,176 @@
-"""Tests for analyze_single_stock.py.
+"""Tests for analyze_single_stock.py (/stable aggregate).
 
 Verifies:
-1. No references to nonexistent 'totalShares' field in source code
-2. All-holder comparison (not limited to top 20)
-3. Data quality information is included in analysis output
-4. classify_holder-based change analysis works correctly
+1. Source code no longer references the retired /api/v3 institutional-holder feed
+2. Multi-quarter trend is built from the aggregate summary
+3. Reliability (coverage) grade is included in analysis output
+4. New / increased / decreased lists are derived from the named top holders
 """
 
+import datetime
 import inspect
-import re
 
-import pytest
 from analyze_single_stock import SingleStockAnalyzer
+from data_quality import quarter_end_date
+
+AS_OF = datetime.date(2026, 3, 31)
+
+# Four quarters of accumulation, most recent first.
+SHARES = {
+    (2026, 1): 6_000_000,
+    (2025, 4): 5_500_000,
+    (2025, 3): 5_000_000,
+    (2025, 2): 4_500_000,
+}
+HOLDERS = {
+    (2026, 1): 220,
+    (2025, 4): 215,
+    (2025, 3): 205,
+    (2025, 2): 200,
+}
+
+
+def _make_summary(year, quarter):
+    shares = SHARES[(year, quarter)]
+    holders = HOLDERS[(year, quarter)]
+    return {
+        "date": quarter_end_date(year, quarter),
+        "investorsHolding": holders,
+        "lastInvestorsHolding": holders - 10,
+        "investorsHoldingChange": 10,
+        "numberOf13Fshares": shares,
+        "lastNumberOf13Fshares": shares - 200_000,
+        "numberOf13FsharesChange": 200_000,
+        "increasedPositions": 120,
+        "reducedPositions": 50,
+        "newPositions": 20,
+        "closedPositions": 10,
+        "ownershipPercent": 65.0,
+        "ownershipPercentChange": 1.5,
+    }
+
+
+def _make_top_holders():
+    return [
+        {
+            "name": "Vanguard",
+            "shares": 1_000_000,
+            "change": 50_000,
+            "is_new": False,
+            "is_sold_out": False,
+        },
+        {
+            "name": "BlackRock",
+            "shares": 900_000,
+            "change": -30_000,
+            "is_new": False,
+            "is_sold_out": False,
+        },
+        {
+            "name": "NewFund",
+            "shares": 200_000,
+            "change": 200_000,
+            "is_new": True,
+            "is_sold_out": False,
+        },
+        {"name": "FlatFund", "shares": 100_000, "change": 0, "is_new": False, "is_sold_out": False},
+    ]
 
 
 class TestSourceCodeContract:
-    """Verify source code does not reference nonexistent FMP fields."""
+    """Source must not reference the retired /api/v3 institutional-holder feed."""
 
-    def test_no_totalShares_reference(self):
-        """analyze_single_stock.py must not reference 'totalShares'."""
+    def test_no_v3_api_path(self):
         source = inspect.getsource(SingleStockAnalyzer)
-        # Allow references in comments/docstrings about the migration
-        # but not in actual field access patterns like .get('totalShares')
-        field_access = re.findall(r"\.get\(['\"]totalShares['\"]", source)
-        assert len(field_access) == 0, (
-            f"Found {len(field_access)} references to .get('totalShares') "
-            f"in SingleStockAnalyzer. Use 'shares' instead."
-        )
-
-    def test_no_totalInvested_reference(self):
-        """analyze_single_stock.py must not reference 'totalInvested'."""
-        source = inspect.getsource(SingleStockAnalyzer)
-        field_access = re.findall(r"\.get\(['\"]totalInvested['\"]", source)
-        assert len(field_access) == 0, (
-            f"Found {len(field_access)} references to .get('totalInvested') "
-            f"in SingleStockAnalyzer. This field does not exist in FMP v3."
-        )
+        assert "/api/v3" not in source
+        assert "institutional-holder/" not in source
 
 
 class TestAnalyzeStockOutput:
-    """Test analyze_stock output structure with mock data."""
+    """analyze_stock output structure with mocked /stable responses."""
 
-    @pytest.fixture
-    def mock_analyzer(self, monkeypatch):
-        analyzer = SingleStockAnalyzer("fake_key")
+    def _analyzer(self, monkeypatch, top_holders=None):
+        analyzer = SingleStockAnalyzer("fake_key", as_of=AS_OF)
 
-        def mock_profile(symbol):
-            return {
+        monkeypatch.setattr(
+            analyzer,
+            "get_company_profile",
+            lambda symbol: {
                 "companyName": "Test Corp",
                 "sector": "Technology",
-                "mktCap": 1_000_000_000,
-            }
+                "marketCap": 1_000_000_000,
+            },
+        )
 
-        def mock_holders(symbol):
-            holders = []
-            # Q4 2025: 100 genuine holders + 10 new_full + 5 exited
-            for i in range(100):
-                holders.append(
-                    {
-                        "holder": f"Fund{i}",
-                        "shares": 10_000 + i * 100,
-                        "change": 500 if i % 2 == 0 else -200,
-                        "dateReported": "2025-12-31",
-                    }
-                )
-            for i in range(10):
-                holders.append(
-                    {
-                        "holder": f"NewFund{i}",
-                        "shares": 5_000,
-                        "change": 5_000,
-                        "dateReported": "2025-12-31",
-                    }
-                )
-            for i in range(5):
-                holders.append(
-                    {
-                        "holder": f"ExitFund{i}",
-                        "shares": 0,
-                        "change": -3_000,
-                        "dateReported": "2025-12-31",
-                    }
-                )
-            # Q3 2025: 95 holders (subset)
-            for i in range(95):
-                holders.append(
-                    {
-                        "holder": f"Fund{i}",
-                        "shares": 9_500 + i * 100,
-                        "change": 300,
-                        "dateReported": "2025-09-30",
-                    }
-                )
-            return holders
+        def mock_summary(symbol, year, quarter):
+            key = (year, quarter)
+            return _make_summary(year, quarter) if key in SHARES else None
 
-        monkeypatch.setattr(analyzer, "get_company_profile", mock_profile)
-        monkeypatch.setattr(analyzer, "get_institutional_holders", mock_holders)
+        monkeypatch.setattr(analyzer, "get_ownership_summary", mock_summary)
+        monkeypatch.setattr(
+            analyzer,
+            "get_top_holders",
+            lambda *a, **k: top_holders if top_holders is not None else _make_top_holders(),
+        )
         return analyzer
 
-    def test_analysis_returns_data_quality(self, mock_analyzer):
-        """Analysis output must include data_quality section."""
-        result = mock_analyzer.analyze_stock("TEST", quarters=4)
-        assert "data_quality" in result
+    def test_analysis_returns_coverage_grade(self, monkeypatch):
+        result = self._analyzer(monkeypatch).analyze_stock("TEST", quarters=4)
         dq = result["data_quality"]
-        assert "grade" in dq
-        assert "genuine_ratio" in dq
         assert dq["grade"] in ("A", "B", "C")
+        assert dq["institution_count"] == 220
+        assert dq["ownership_percent"] == 65.0
+        assert dq["prior_quarter_available"] is True
 
-    def test_analysis_uses_all_holders_for_comparison(self, mock_analyzer):
-        """Position changes must consider all holders, not just top 20."""
-        result = mock_analyzer.analyze_stock("TEST", quarters=4)
-        # We have 100 genuine holders in current quarter, all should be considered
-        total_changes = (
-            len(result.get("increased_positions", []))
-            + len(result.get("decreased_positions", []))
-            + len(result.get("new_positions", []))
-        )
-        # Must be more than 20 (old code limited to top 20)
-        assert total_changes > 20
+    def test_quarterly_metrics_count(self, monkeypatch):
+        result = self._analyzer(monkeypatch).analyze_stock("TEST", quarters=4)
+        assert len(result["quarterly_metrics"]) == 4
+        # Most recent quarter carries the named top holders; older ones do not.
+        assert result["quarterly_metrics"][0]["top_holders"]
+        assert result["quarterly_metrics"][-1]["top_holders"] == []
 
-    def test_increased_positions_from_genuine(self, mock_analyzer):
-        """increased_positions should come from genuine holders with positive change."""
-        result = mock_analyzer.analyze_stock("TEST", quarters=4)
-        for pos in result.get("increased_positions", []):
+    def test_shares_trend_accumulation(self, monkeypatch):
+        result = self._analyzer(monkeypatch).analyze_stock("TEST", quarters=4)
+        # (6.0M - 4.5M) / 4.5M * 100 == +33.33%
+        assert result["shares_trend"] > 30
+        assert result["holders_trend"] == 20  # 220 - 200
+
+    def test_new_positions_from_top_holders(self, monkeypatch):
+        result = self._analyzer(monkeypatch).analyze_stock("TEST", quarters=4)
+        names = [p["name"] for p in result["new_positions"]]
+        assert names == ["NewFund"]
+
+    def test_increased_positions_positive_change(self, monkeypatch):
+        result = self._analyzer(monkeypatch).analyze_stock("TEST", quarters=4)
+        assert [p["name"] for p in result["increased_positions"]] == ["Vanguard"]
+        for pos in result["increased_positions"]:
             assert pos["change"] > 0
 
-    def test_decreased_positions_from_genuine(self, mock_analyzer):
-        """decreased_positions should come from genuine holders with negative change."""
-        result = mock_analyzer.analyze_stock("TEST", quarters=4)
-        for pos in result.get("decreased_positions", []):
+    def test_decreased_positions_negative_change(self, monkeypatch):
+        result = self._analyzer(monkeypatch).analyze_stock("TEST", quarters=4)
+        assert [p["name"] for p in result["decreased_positions"]] == ["BlackRock"]
+        for pos in result["decreased_positions"]:
             assert pos["change"] < 0
 
-    def test_new_positions_are_new_full(self, mock_analyzer):
-        """new_positions should be holders classified as new_full."""
-        result = mock_analyzer.analyze_stock("TEST", quarters=4)
-        assert len(result.get("new_positions", [])) == 10
+    def test_insufficient_data_returns_empty(self, monkeypatch):
+        analyzer = SingleStockAnalyzer("fake_key", as_of=AS_OF)
+        monkeypatch.setattr(
+            analyzer, "get_company_profile", lambda s: {"companyName": "X", "sector": "Y"}
+        )
 
-    def test_no_closed_positions_key(self, mock_analyzer):
-        """closed_positions should not be present (unreliable with asymmetric data)."""
-        result = mock_analyzer.analyze_stock("TEST", quarters=4)
-        assert "closed_positions" not in result
+        # Only the latest quarter has data -> fewer than 2 quarters -> {}
+        def one_quarter(symbol, year, quarter):
+            return _make_summary(2026, 1) if (year, quarter) == (2026, 1) else None
 
-    def test_shares_trend_with_low_genuine_ratio(self, monkeypatch):
-        """shares_trend should be None when genuine_ratio < 0.7."""
-        analyzer = SingleStockAnalyzer("fake_key")
-
-        def mock_profile(symbol):
-            return {
-                "companyName": "Bad Data Corp",
-                "sector": "Unknown",
-                "mktCap": 500_000_000,
-            }
-
-        def mock_holders(symbol):
-            holders = []
-            # Q4: mostly new_full (low genuine ratio)
-            for i in range(10):
-                holders.append(
-                    {
-                        "holder": f"Fund{i}",
-                        "shares": 10_000,
-                        "change": 500,
-                        "dateReported": "2025-12-31",
-                    }
-                )
-            for i in range(90):
-                holders.append(
-                    {
-                        "holder": f"NewFund{i}",
-                        "shares": 1_000,
-                        "change": 1_000,
-                        "dateReported": "2025-12-31",
-                    }
-                )
-            # Q3: minimal data
-            for i in range(5):
-                holders.append(
-                    {
-                        "holder": f"Fund{i}",
-                        "shares": 9_500,
-                        "change": 200,
-                        "dateReported": "2025-09-30",
-                    }
-                )
-            return holders
-
-        monkeypatch.setattr(analyzer, "get_company_profile", mock_profile)
-        monkeypatch.setattr(analyzer, "get_institutional_holders", mock_holders)
-
-        result = analyzer.analyze_stock("BADDATA", quarters=4)
-        assert result.get("shares_trend") is None
+        monkeypatch.setattr(analyzer, "get_ownership_summary", one_quarter)
+        monkeypatch.setattr(analyzer, "get_top_holders", lambda *a, **k: _make_top_holders())
+        assert analyzer.analyze_stock("TEST", quarters=4) == {}
 
 
 class TestSingleStockReport:
     """generate_report() must produce valid markdown with methodology and warnings."""
 
     def _make_mock_analysis(self, grade="A"):
-        """Create mock analysis result for report generation."""
         return {
             "symbol": "TEST",
             "company_name": "Test Corp",
@@ -204,23 +178,23 @@ class TestSingleStockReport:
             "market_cap": 1_000_000_000,
             "quarterly_metrics": [
                 {
-                    "quarter": "2025-12-31",
+                    "quarter": "2026-03-31",
                     "total_shares": 5_000_000,
-                    "num_holders": 100,
+                    "num_holders": 220,
                     "top_holders": [
-                        {"holder": f"Fund{i}", "shares": 100_000 - i * 1000, "change": 5_000}
+                        {"name": f"Fund{i}", "shares": 100_000 - i * 1000, "change": 5_000}
                         for i in range(20)
                     ],
                 },
                 {
-                    "quarter": "2025-09-30",
+                    "quarter": "2025-12-31",
                     "total_shares": 4_800_000,
-                    "num_holders": 95,
+                    "num_holders": 210,
                     "top_holders": [],
                 },
             ],
             "shares_trend": 4.17,
-            "holders_trend": 5,
+            "holders_trend": 10,
             "new_positions": [{"name": "NewFund1", "shares": 10_000}],
             "increased_positions": [
                 {"name": "Fund0", "current_shares": 100_000, "change": 5_000, "pct_change": 5.26}
@@ -230,24 +204,28 @@ class TestSingleStockReport:
             ],
             "data_quality": {
                 "grade": grade,
-                "genuine_ratio": 0.85 if grade == "A" else 0.45,
-                "coverage_ratio": 1.05,
-                "match_ratio": 0.90,
-                "genuine_count": 85 if grade == "A" else 45,
-                "total_holders": 100,
+                "institution_count": 220 if grade == "A" else 30,
+                "ownership_percent": 65.0,
+                "ownership_percent_change": 1.5,
+                "prior_quarter_available": True,
+                "increased": 120,
+                "reduced": 50,
+                "new": 20,
+                "closed": 10,
             },
         }
 
-    def test_report_contains_correct_methodology(self, tmp_path):
-        analyzer = SingleStockAnalyzer("fake_key")
-        analysis = self._make_mock_analysis(grade="A")
-        report = analyzer.generate_report(analysis, output_dir=str(tmp_path))
-
-        assert "change != shares" in report
+    def test_report_contains_methodology(self, tmp_path):
+        analyzer = SingleStockAnalyzer("fake_key", as_of=AS_OF)
+        report = analyzer.generate_report(self._make_mock_analysis("A"), output_dir=str(tmp_path))
+        assert "symbol-positions-summary" in report
 
     def test_grade_b_report_contains_caution(self, tmp_path):
-        analyzer = SingleStockAnalyzer("fake_key")
-        analysis = self._make_mock_analysis(grade="B")
-        report = analyzer.generate_report(analysis, output_dir=str(tmp_path))
-
+        analyzer = SingleStockAnalyzer("fake_key", as_of=AS_OF)
+        report = analyzer.generate_report(self._make_mock_analysis("B"), output_dir=str(tmp_path))
         assert "CAUTION: Reference Only" in report
+
+    def test_grade_c_report_contains_warning(self, tmp_path):
+        analyzer = SingleStockAnalyzer("fake_key", as_of=AS_OF)
+        report = analyzer.generate_report(self._make_mock_analysis("C"), output_dir=str(tmp_path))
+        assert "INSUFFICIENT COVERAGE" in report

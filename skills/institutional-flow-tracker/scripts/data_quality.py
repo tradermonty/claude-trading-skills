@@ -1,17 +1,28 @@
 """Shared data quality utilities for Institutional Flow Tracker.
 
-Provides holder classification, reliability grading, and filtering logic
-shared across track_institutional_flow.py, analyze_single_stock.py, and
-track_institution_portfolio.py.
+Provides tradability filtering, share-class deduplication, and reliability
+grading shared across track_institutional_flow.py and analyze_single_stock.py.
 
-All functions use FMP v3 field names: 'shares', 'change', 'holder'.
-The nonexistent fields 'totalShares' and 'totalInvested' are never referenced.
+Data source (FMP /stable):
+    - institutional-ownership/symbol-positions-summary -> per-quarter aggregate
+      flows (investorsHolding, numberOf13Fshares, increasedPositions, ...),
+      already reconciled server-side by FMP.
+    - institutional-ownership/extract-analytics/holder -> per-investor rows
+      (investorName, sharesNumber, changeInSharesNumber, isNew, isSoldOut, ...).
+
+Reliability is graded from FMP's own coverage signals (holder breadth +
+whether a comparable prior quarter exists), which is how institutional-flow
+analysis is graded in practice (ownership breadth / dynamics). The legacy
+per-holder genuine/coverage/match reconciliation was a client-side workaround
+for the retired /api/v3 institutional-holder feed, which returned asymmetric
+holder lists across quarters; the /stable summary endpoint reconciles those
+deltas at source, so that machinery no longer applies.
 """
 
 import re
 
 # --- Known share-class groups for deduplication ---
-# Each tuple: (base_symbol_pattern, list_of_variants)
+# Each tuple: (base_symbol_pattern, group_key)
 SHARE_CLASS_GROUPS = [
     (re.compile(r"^BRK[.-]?[AB]$"), "BRK"),
     (re.compile(r"^GOOG[L]?$"), "GOOG"),
@@ -25,126 +36,87 @@ SHARE_CLASS_GROUPS = [
     (re.compile(r"^(VIACA|VIAC)$"), "VIAC"),
 ]
 
-
-def classify_holder(holder: dict) -> str:
-    """Classify a holder record as genuine, new_full, exited, or unknown.
-
-    Uses FMP v3 fields:
-      - 'shares': current position size
-      - 'change': QoQ change in shares (provided by FMP)
-
-    Classification rules (applied in order):
-      - 'change' key missing -> 'unknown'
-      - shares == 0 -> 'exited'
-      - change == shares > 0 -> 'new_full' (first appearance, entire position is change)
-      - otherwise -> 'genuine' (change != shares, i.e., partial position change)
-    """
-    shares = holder.get("shares", 0)
-    if "change" not in holder:
-        return "unknown"
-    change = holder.get("change", 0)
-
-    if shares == 0:
-        return "exited"
-
-    if shares > 0 and change == shares:
-        return "new_full"
-
-    return "genuine"
+# Default breadth thresholds for coverage_grade(). A stock needs a comparable
+# prior quarter and enough 13F holders for the aggregate change to be meaningful.
+MIN_RELIABLE_HOLDERS = 50  # Grade A: dense, well-covered name
+MIN_USABLE_HOLDERS = 10  # Grade B floor; below this -> Grade C (excluded)
 
 
-def calculate_coverage_ratio(current_holders: list[dict], previous_holders: list[dict]) -> float:
-    """Calculate ratio of current to previous holder counts.
+def coverage_grade(
+    investors_holding: int,
+    last_investors_holding: int,
+    *,
+    min_reliable: int = MIN_RELIABLE_HOLDERS,
+    min_usable: int = MIN_USABLE_HOLDERS,
+) -> str:
+    """Grade reliability of an aggregate 13F summary from FMP coverage signals.
 
-    A high ratio (e.g., 27x) indicates highly asymmetric data where
-    most current-quarter holders are new entries, making aggregate
-    metrics unreliable.
-
-    Returns:
-        float: current_count / previous_count, or inf if previous is empty.
-    """
-    current_count = len(current_holders)
-    previous_count = len(previous_holders)
-
-    if previous_count == 0:
-        return float("inf") if current_count > 0 else 0.0
-    return current_count / previous_count
-
-
-def calculate_match_ratio(current_holders: list[dict], previous_holders: list[dict]) -> float:
-    """Calculate fraction of current holders that also appear in previous quarter.
-
-    Uses the 'holder' field (institution name) for matching.
-
-    Returns:
-        float: matched_count / current_count, or 0.0 if no current holders.
-    """
-    if not current_holders:
-        return 0.0
-
-    current_names = {h.get("holder", "") for h in current_holders}
-    previous_names = {h.get("holder", "") for h in previous_holders}
-
-    matched = current_names & previous_names
-    return len(matched) / len(current_names)
-
-
-def calculate_filtered_metrics(holders: list[dict]) -> dict:
-    """Calculate ownership metrics using only genuine holders.
-
-    Filters out new_full and exited holders to avoid inflated
-    percent_change from asymmetric data.
-
-    Returns dict with:
-        genuine_count: number of genuine holders
-        net_change: sum of change for genuine holders
-        total_shares_genuine: sum of shares for genuine holders
-        pct_change: net_change / previous_total * 100
-        buyers: genuine holders with positive change
-        sellers: genuine holders with negative change
-    """
-    genuine = [h for h in holders if classify_holder(h) == "genuine"]
-
-    genuine_count = len(genuine)
-    net_change = sum(h.get("change", 0) for h in genuine)
-    total_shares = sum(h.get("shares", 0) for h in genuine)
-
-    # previous total = current total - net change
-    previous_total = total_shares - net_change
-    if previous_total > 0:
-        pct_change = (net_change / previous_total) * 100
-    else:
-        pct_change = 0.0
-
-    buyers = sum(1 for h in genuine if h.get("change", 0) > 0)
-    sellers = sum(1 for h in genuine if h.get("change", 0) < 0)
-
-    return {
-        "genuine_count": genuine_count,
-        "net_change": net_change,
-        "total_shares_genuine": total_shares,
-        "pct_change": pct_change,
-        "buyers": buyers,
-        "sellers": sellers,
-    }
-
-
-def reliability_grade(coverage_ratio: float, match_ratio: float, genuine_ratio: float) -> str:
-    """Determine data reliability grade based on quality metrics.
+    Institutional-flow signals are graded on ownership *breadth* (how many
+    managers hold the name) and whether a comparable prior quarter exists to
+    measure change against.
 
     Grades:
-        A: coverage_ratio < 3 AND match_ratio >= 0.5 AND genuine_ratio >= 0.7
-           -> Safe for investment decisions
-        B: genuine_ratio >= 0.3
-           -> Reference only (display with warning)
-        C: everything else
-           -> UNRELIABLE (exclude from rankings)
+        A: prior quarter present AND breadth >= min_reliable
+           -> dense coverage, safe for ranking.
+        B: prior quarter present AND breadth >= min_usable
+           -> usable but thin; reference only.
+        C: no prior quarter (change not measurable) OR breadth < min_usable
+           -> insufficient coverage; exclude from rankings.
     """
-    if coverage_ratio < 3 and match_ratio >= 0.5 and genuine_ratio >= 0.7:
+    if last_investors_holding <= 0 or investors_holding < min_usable:
+        return "C"
+    if investors_holding >= min_reliable:
         return "A"
-    if genuine_ratio >= 0.3:
-        return "B"
-    return "C"
+    return "B"
+
+
+def iter_quarters(year: int, quarter: int, count: int):
+    """Yield ``count`` (year, quarter) tuples descending from (year, quarter).
+
+    Example: iter_quarters(2026, 1, 3) -> (2026, 1), (2025, 4), (2025, 3).
+    """
+    y, q = year, quarter
+    for _ in range(count):
+        yield (y, q)
+        q -= 1
+        if q == 0:
+            q = 4
+            y -= 1
+
+
+def current_quarter(as_of) -> tuple[int, int]:
+    """Return the (year, quarter) of the calendar quarter containing ``as_of``.
+
+    ``as_of`` is a datetime.date (or datetime). Used as the starting point for
+    walking back to the most recent quarter that has 13F data filed.
+    """
+    return (as_of.year, (as_of.month - 1) // 3 + 1)
+
+
+def quarter_end_date(year: int, quarter: int) -> str:
+    """Return the calendar quarter-end date as 'YYYY-MM-DD'."""
+    month, day = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}[quarter]
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def normalize_holder(raw: dict) -> dict:
+    """Map a /stable extract-analytics/holder row to a compact holder record.
+
+    Returns keys: name, shares, change, is_new, is_sold_out. Investor names are
+    occasionally blank in the feed (a CIK with no resolved name); those fall
+    back to a 'CIK <id>' label, or 'Unknown' if the CIK is also missing.
+    """
+    name = (raw.get("investorName") or "").strip()
+    if not name:
+        cik = str(raw.get("cik") or "").strip()
+        name = f"CIK {cik}" if cik else "Unknown"
+    return {
+        "name": name,
+        "shares": raw.get("sharesNumber", 0) or 0,
+        "change": raw.get("changeInSharesNumber", 0) or 0,
+        "is_new": bool(raw.get("isNew", False)),
+        "is_sold_out": bool(raw.get("isSoldOut", False)),
+    }
 
 
 def is_tradable_stock(profile: dict) -> bool:

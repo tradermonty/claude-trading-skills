@@ -1,25 +1,69 @@
-"""Integration tests for InstitutionalFlowTracker pipeline.
+"""Integration tests for InstitutionalFlowTracker pipeline (/stable aggregate).
 
 Verifies end-to-end behavior of the screening pipeline including:
-- Grade C filtering
-- ETF/fund filtering
+- Grade C filtering (no prior quarter / thin breadth)
+- ETF/fund filtering before API calls
 - Missing screener fields safety
 - Share class deduplication
 - Output field cleanliness
 - Report generation
 """
 
+import datetime
+
 from track_institutional_flow import InstitutionalFlowTracker
 
+# Deterministic "as of" so latest_summary resolves to a fixed quarter in tests.
+AS_OF = datetime.date(2026, 3, 31)
 
-def _make_holder(holder, shares, change, date="2025-12-31"):
-    """Create a holder record matching FMP v3 institutional-holder schema."""
+
+def _make_summary(
+    investors=200,
+    last_investors=190,
+    shares=5_000_000,
+    last_shares=4_500_000,
+    increased=120,
+    reduced=50,
+    new=20,
+    closed=10,
+    ownership=65.0,
+    date="2026-03-31",
+):
+    """Build a /stable symbol-positions-summary row."""
     return {
-        "holder": holder,
-        "shares": shares,
-        "change": change,
-        "dateReported": date,
+        "date": date,
+        "investorsHolding": investors,
+        "lastInvestorsHolding": last_investors,
+        "investorsHoldingChange": investors - last_investors,
+        "numberOf13Fshares": shares,
+        "lastNumberOf13Fshares": last_shares,
+        "numberOf13FsharesChange": shares - last_shares,
+        "increasedPositions": increased,
+        "reducedPositions": reduced,
+        "newPositions": new,
+        "closedPositions": closed,
+        "ownershipPercent": ownership,
+        "ownershipPercentChange": 1.2,
     }
+
+
+def _make_top_holders():
+    return [
+        {
+            "name": "Vanguard",
+            "shares": 1_000_000,
+            "change": 50_000,
+            "is_new": False,
+            "is_sold_out": False,
+        },
+        {
+            "name": "BlackRock",
+            "shares": 900_000,
+            "change": 30_000,
+            "is_new": False,
+            "is_sold_out": False,
+        },
+    ]
 
 
 def _make_screener_stock(
@@ -31,7 +75,7 @@ def _make_screener_stock(
     is_active=True,
     sector="Technology",
 ):
-    """Create a screener result matching FMP stock-screener schema."""
+    """Create a screener result matching FMP company-screener schema."""
     return {
         "symbol": symbol,
         "companyName": company_name,
@@ -43,62 +87,31 @@ def _make_screener_stock(
     }
 
 
-def _make_grade_a_holders(symbol):
-    """Generate holders that produce Grade A data (high genuine ratio, good match)."""
-    holders = []
-    # Current quarter: 50 genuine holders
-    for i in range(50):
-        holders.append(_make_holder(f"Fund{i}", 100_000 + i * 1000, 5_000, "2025-12-31"))
-    # Previous quarter: 45 of the same holders (match_ratio = 45/50 = 0.9)
-    for i in range(45):
-        holders.append(_make_holder(f"Fund{i}", 95_000 + i * 1000, 3_000, "2025-09-30"))
-    return holders
-
-
-def _make_grade_c_holders(symbol):
-    """Generate holders that produce Grade C data (low genuine ratio)."""
-    holders = []
-    # Current quarter: almost all new_full (change == shares)
-    for i in range(100):
-        holders.append(_make_holder(f"NewFund{i}", 1_000, 1_000, "2025-12-31"))
-    # A few genuine
-    for i in range(3):
-        holders.append(_make_holder(f"Old{i}", 50_000, 500, "2025-12-31"))
-    # Previous quarter: very few holders
-    for i in range(5):
-        holders.append(_make_holder(f"Old{i}", 49_500, 200, "2025-09-30"))
-    return holders
-
-
 class TestGradeCFiltering:
-    """Grade C stocks must be excluded from screening results."""
+    """Grade C stocks (no prior quarter / thin breadth) must be excluded."""
 
     def test_grade_c_stock_excluded(self, monkeypatch):
-        tracker = InstitutionalFlowTracker("fake_key")
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
 
         monkeypatch.setattr(
             tracker,
-            "get_stock_screener",
+            "get_company_screener",
             lambda **kw: [
                 _make_screener_stock("GOOD"),
                 _make_screener_stock("BAD"),
             ],
         )
 
-        def mock_holders(symbol):
+        def mock_summary(symbol, year, quarter):
             if symbol == "GOOD":
-                return _make_grade_a_holders(symbol)
-            else:
-                return _make_grade_c_holders(symbol)
+                return _make_summary(investors=200, last_investors=190)
+            # BAD: no comparable prior quarter -> Grade C
+            return _make_summary(investors=300, last_investors=0)
 
-        monkeypatch.setattr(tracker, "get_institutional_holders", mock_holders)
+        monkeypatch.setattr(tracker, "get_ownership_summary", mock_summary)
+        monkeypatch.setattr(tracker, "get_top_holders", lambda *a, **k: _make_top_holders())
 
-        # Use very low threshold to ensure both stocks would qualify if not filtered
-        results = tracker.screen_stocks(
-            min_change_percent=0.1,
-            min_institutions=1,
-            limit=10,
-        )
+        results = tracker.screen_stocks(min_change_percent=0.1, min_institutions=1, limit=10)
 
         symbols = [r["symbol"] for r in results]
         assert "GOOD" in symbols
@@ -106,14 +119,14 @@ class TestGradeCFiltering:
 
 
 class TestETFFiltering:
-    """ETFs and funds must be excluded from screening."""
+    """ETFs and funds must be excluded before any ownership API calls."""
 
     def test_etf_excluded_from_screening(self, monkeypatch):
-        tracker = InstitutionalFlowTracker("fake_key")
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
 
         monkeypatch.setattr(
             tracker,
-            "get_stock_screener",
+            "get_company_screener",
             lambda **kw: [
                 _make_screener_stock("AAPL", is_etf=False),
                 _make_screener_stock("SPY", company_name="SPDR S&P 500", is_etf=True),
@@ -121,47 +134,40 @@ class TestETFFiltering:
             ],
         )
 
-        call_symbols = []
+        called_symbols = []
 
-        def mock_holders(symbol):
-            call_symbols.append(symbol)
-            return _make_grade_a_holders(symbol)
+        def mock_summary(symbol, year, quarter):
+            called_symbols.append(symbol)
+            return _make_summary()
 
-        monkeypatch.setattr(tracker, "get_institutional_holders", mock_holders)
+        monkeypatch.setattr(tracker, "get_ownership_summary", mock_summary)
+        monkeypatch.setattr(tracker, "get_top_holders", lambda *a, **k: _make_top_holders())
 
         tracker.screen_stocks(min_change_percent=0.1, min_institutions=1, limit=10)
 
-        # ETF and fund should be filtered BEFORE API calls
-        assert "SPY" not in call_symbols
-        assert "VFINX" not in call_symbols
-        assert "AAPL" in call_symbols
+        assert "SPY" not in called_symbols
+        assert "VFINX" not in called_symbols
+        assert "AAPL" in called_symbols
 
 
 class TestScreenerMissingFields:
     """Screener results with missing isEtf/isFund/isActivelyTrading should pass safely."""
 
     def test_missing_fields_defaults_to_tradable(self, monkeypatch):
-        tracker = InstitutionalFlowTracker("fake_key")
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
 
-        # Screener result with NO isEtf/isFund/isActivelyTrading fields
         monkeypatch.setattr(
             tracker,
-            "get_stock_screener",
+            "get_company_screener",
             lambda **kw: [
                 {"symbol": "NEWCO", "companyName": "New Corp", "marketCap": 5_000_000_000},
             ],
         )
-        monkeypatch.setattr(
-            tracker, "get_institutional_holders", lambda sym: _make_grade_a_holders(sym)
-        )
+        monkeypatch.setattr(tracker, "get_ownership_summary", lambda *a, **k: _make_summary())
+        monkeypatch.setattr(tracker, "get_top_holders", lambda *a, **k: _make_top_holders())
 
-        results = tracker.screen_stocks(
-            min_change_percent=0.1,
-            min_institutions=1,
-            limit=10,
-        )
+        results = tracker.screen_stocks(min_change_percent=0.1, min_institutions=1, limit=10)
 
-        # Should not crash, and NEWCO should be analyzed
         symbols = [r["symbol"] for r in results]
         assert "NEWCO" in symbols
 
@@ -170,26 +176,21 @@ class TestDeduplicationIntegration:
     """BRK-A/B must be deduplicated within the pipeline."""
 
     def test_brk_deduplicated_in_pipeline(self, monkeypatch):
-        tracker = InstitutionalFlowTracker("fake_key")
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
 
         monkeypatch.setattr(
             tracker,
-            "get_stock_screener",
+            "get_company_screener",
             lambda **kw: [
                 _make_screener_stock("BRK-A", market_cap=800_000_000_000),
                 _make_screener_stock("BRK-B", market_cap=800_000_000_000),
                 _make_screener_stock("AAPL", market_cap=3_000_000_000_000),
             ],
         )
-        monkeypatch.setattr(
-            tracker, "get_institutional_holders", lambda sym: _make_grade_a_holders(sym)
-        )
+        monkeypatch.setattr(tracker, "get_ownership_summary", lambda *a, **k: _make_summary())
+        monkeypatch.setattr(tracker, "get_top_holders", lambda *a, **k: _make_top_holders())
 
-        results = tracker.screen_stocks(
-            min_change_percent=0.1,
-            min_institutions=1,
-            limit=10,
-        )
+        results = tracker.screen_stocks(min_change_percent=0.1, min_institutions=1, limit=10)
 
         symbols = [r["symbol"] for r in results]
         brk_count = sum(1 for s in symbols if s.startswith("BRK"))
@@ -198,53 +199,36 @@ class TestDeduplicationIntegration:
 
 
 class TestOutputFieldsClean:
-    """Output must not contain removed fields (value_change etc.)."""
+    """Output must carry the aggregate contract and no removed value_* fields."""
 
     def test_no_value_change_in_output(self, monkeypatch):
-        tracker = InstitutionalFlowTracker("fake_key")
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
 
         monkeypatch.setattr(
-            tracker,
-            "get_stock_screener",
-            lambda **kw: [
-                _make_screener_stock("AAPL"),
-            ],
+            tracker, "get_company_screener", lambda **kw: [_make_screener_stock("AAPL")]
         )
-        monkeypatch.setattr(
-            tracker, "get_institutional_holders", lambda sym: _make_grade_a_holders(sym)
-        )
+        monkeypatch.setattr(tracker, "get_ownership_summary", lambda *a, **k: _make_summary())
+        monkeypatch.setattr(tracker, "get_top_holders", lambda *a, **k: _make_top_holders())
 
-        results = tracker.screen_stocks(
-            min_change_percent=0.1,
-            min_institutions=1,
-            limit=10,
-        )
+        results = tracker.screen_stocks(min_change_percent=0.1, min_institutions=1, limit=10)
 
         assert len(results) >= 1
         for r in results:
-            assert "value_change" not in r, "value_change field should be removed"
-            assert "current_value" not in r, "current_value field should be removed"
-            assert "previous_value" not in r, "previous_value field should be removed"
+            assert "value_change" not in r
+            assert "current_value" not in r
+            assert "previous_value" not in r
+            assert "genuine_ratio" not in r  # retired with the per-holder grading
 
     def test_required_fields_present(self, monkeypatch):
-        tracker = InstitutionalFlowTracker("fake_key")
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
 
         monkeypatch.setattr(
-            tracker,
-            "get_stock_screener",
-            lambda **kw: [
-                _make_screener_stock("MSFT"),
-            ],
+            tracker, "get_company_screener", lambda **kw: [_make_screener_stock("MSFT")]
         )
-        monkeypatch.setattr(
-            tracker, "get_institutional_holders", lambda sym: _make_grade_a_holders(sym)
-        )
+        monkeypatch.setattr(tracker, "get_ownership_summary", lambda *a, **k: _make_summary())
+        monkeypatch.setattr(tracker, "get_top_holders", lambda *a, **k: _make_top_holders())
 
-        results = tracker.screen_stocks(
-            min_change_percent=0.1,
-            min_institutions=1,
-            limit=10,
-        )
+        results = tracker.screen_stocks(min_change_percent=0.1, min_institutions=1, limit=10)
 
         assert len(results) >= 1
         required_fields = [
@@ -254,10 +238,13 @@ class TestOutputFieldsClean:
             "current_quarter",
             "percent_change",
             "current_institution_count",
+            "institution_count_change",
             "buyers",
             "sellers",
+            "new_positions",
+            "closed_positions",
+            "ownership_percent",
             "reliability_grade",
-            "genuine_ratio",
             "top_holders",
         ]
         for r in results:
@@ -269,14 +256,14 @@ class TestScreeningReport:
     """generate_report() must produce valid markdown with expected sections."""
 
     def _make_mock_results(self):
-        """Create mock screening results with Grade A and B stocks."""
+        """Create mock screening results matching the aggregate contract."""
         return [
             {
                 "symbol": "AAPL",
                 "company_name": "Apple Inc.",
                 "market_cap": 3_000_000_000_000,
-                "current_quarter": "2025-12-31",
-                "previous_quarter": "2025-09-30",
+                "current_quarter": "2026-03-31",
+                "previous_quarter": "2025-12-31",
                 "current_total_shares": 5_000_000,
                 "previous_total_shares": 4_500_000,
                 "shares_change": 500_000,
@@ -286,58 +273,57 @@ class TestScreeningReport:
                 "institution_count_change": 10,
                 "buyers": 120,
                 "sellers": 50,
-                "unchanged": 30,
+                "unchanged": 10,
+                "new_positions": 20,
+                "closed_positions": 10,
+                "ownership_percent": 65.0,
+                "ownership_percent_change": 1.2,
                 "top_holders": [
                     {"name": "Vanguard", "shares": 1_000_000, "change": 50_000},
                     {"name": "BlackRock", "shares": 900_000, "change": 30_000},
                 ],
                 "reliability_grade": "A",
-                "genuine_ratio": 0.85,
             },
             {
                 "symbol": "TSLA",
                 "company_name": "Tesla Inc.",
                 "market_cap": 800_000_000_000,
-                "current_quarter": "2025-12-31",
-                "previous_quarter": "2025-09-30",
+                "current_quarter": "2026-03-31",
+                "previous_quarter": "2025-12-31",
                 "current_total_shares": 2_000_000,
                 "previous_total_shares": 2_200_000,
                 "shares_change": -200_000,
                 "percent_change": -9.09,
-                "current_institution_count": 150,
-                "previous_institution_count": 160,
-                "institution_count_change": -10,
-                "buyers": 40,
-                "sellers": 80,
-                "unchanged": 30,
+                "current_institution_count": 30,
+                "previous_institution_count": 35,
+                "institution_count_change": -5,
+                "buyers": 8,
+                "sellers": 18,
+                "unchanged": 4,
+                "new_positions": 2,
+                "closed_positions": 6,
+                "ownership_percent": 45.0,
+                "ownership_percent_change": -2.0,
                 "top_holders": [
                     {"name": "ARK Invest", "shares": 500_000, "change": -100_000},
                 ],
                 "reliability_grade": "B",
-                "genuine_ratio": 0.45,
             },
         ]
 
     def test_report_contains_grade_a_or_b(self, tmp_path):
-        tracker = InstitutionalFlowTracker("fake_key")
-        results = self._make_mock_results()
-        report = tracker.generate_report(results, output_dir=str(tmp_path))
-
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
+        report = tracker.generate_report(self._make_mock_results(), output_dir=str(tmp_path))
         assert "Grade A" in report or "Grade B" in report
 
     def test_report_detailed_results_exclude_grade_c(self, tmp_path):
         """Detailed Results section should only contain Grade A/B stocks."""
-        tracker = InstitutionalFlowTracker("fake_key")
-        results = self._make_mock_results()
-        report = tracker.generate_report(results, output_dir=str(tmp_path))
-
-        # Extract the Detailed Results section
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
+        report = tracker.generate_report(self._make_mock_results(), output_dir=str(tmp_path))
         detailed = report.split("## Detailed Results")[1].split("## Methodology")[0]
         assert "Grade C" not in detailed
 
-    def test_report_grade_a_mentions_match_ratio(self, tmp_path):
-        tracker = InstitutionalFlowTracker("fake_key")
-        results = self._make_mock_results()
-        report = tracker.generate_report(results, output_dir=str(tmp_path))
-
-        assert "match ratio" in report.lower() or "match" in report.lower()
+    def test_report_mentions_ownership(self, tmp_path):
+        tracker = InstitutionalFlowTracker("fake_key", as_of=AS_OF)
+        report = tracker.generate_report(self._make_mock_results(), output_dir=str(tmp_path))
+        assert "ownership" in report.lower()
