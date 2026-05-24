@@ -48,7 +48,7 @@ English README is available at [`README.md`](README.md).
 | 約定後にトレードを記録して学ぶ | [`trade-memory-loop`](workflows/trade-memory-loop.yaml) | trader-memory-core, signal-postmortem | API なし可 |
 | 月次でパフォーマンスとルールを見直す | [`monthly-performance-review`](workflows/monthly-performance-review.yaml) | trader-memory-core, signal-postmortem, backtest-expert | API なし可 |
 
-manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/README.md) を参照してください。
+manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/README.md) を参照してください。「自分の状況にどのワークフローが合うか」を 1 ページで知りたい場合は [ワークフローの選び方](docs/ja/find-your-workflow.md)（[English](docs/en/find-your-workflow.md)）を参照してください。
 
 ### API キー不要の入口
 
