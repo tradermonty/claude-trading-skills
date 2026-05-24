@@ -1,9 +1,9 @@
 """WS-1 golden + edge-case tests for dividend_basis.py (offline, deterministic).
 
-Fixtures model the FMP `historical-price-full/stock_dividend` shape and the
-real dividend cadences observed on 2026-05-17. Verdicts frozen here are the
-P0 regression gate for defects D1 (freeze), D4 (special/variable), D5
-(stale-dividend false-negative near the floor).
+Fixtures model the FMP `/stable dividends` record shape (date / dividend /
+declarationDate) and the real dividend cadences observed on 2026-05-17.
+Verdicts frozen here are the P0 regression gate for defects D1 (freeze),
+D4 (special/variable), D5 (stale-dividend false-negative near the floor).
 
 # DATA-DATE: 2026-05-17
 # VALID-UNTIL: 2026-08-31 (re-confirm CMCSA freeze / CFR raise next quarter)

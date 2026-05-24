@@ -113,7 +113,7 @@ Return a ticker list grouped by bucket before moving forward.
 Primary rule:
 - Step-1 yield = the **regular forward yield** = `latest_declared_regular
   dividend × cadence-implied frequency / price` (WS-1 `dividend_basis.py`).
-  Never use `profile.lastDiv` / TTM — it lags the latest declared raise
+  Never use `profile.lastDividend` / TTM — it lags the latest declared raise
   (defect D5) and silently bundles specials (D4).
 - Apply the profile floor (income-now 4.0% / balanced 3.0% / growth-first
   1.5%) to the **regular** yield only.

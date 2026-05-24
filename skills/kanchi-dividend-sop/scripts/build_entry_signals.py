@@ -9,7 +9,6 @@ import json
 import os
 import sys
 import time
-from collections.abc import Iterable
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,7 +20,11 @@ from payout_safety import assess_payout_safety
 from thresholds import SCHEMA_VERSION, VERDICTS
 from verdict import build_run_context, synthesize_verdict
 
-FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
+# FMP /stable (the legacy /api/v3 paths now return 403 "Legacy Endpoint" for
+# keys issued after 2025-08-31). Endpoints are query-style (?symbol=...) and
+# comma-batched quote/profile requests silently return [], so they are fetched
+# one symbol per request below.
+FMP_BASE_URL = "https://financialmodelingprep.com/stable"
 
 
 def parse_ticker_csv(raw: str) -> list[str]:
@@ -78,11 +81,6 @@ def to_float(value: Any) -> float | None:
         return None
 
 
-def chunked(values: list[str], size: int) -> Iterable[list[str]]:
-    for i in range(0, len(values), size):
-        yield values[i : i + size]
-
-
 def normalize_metrics_yields(metrics: list[dict[str, Any]], max_points: int = 5) -> list[float]:
     yields_pct: list[float] = []
     for item in metrics:
@@ -112,15 +110,19 @@ class FMPClient:
         self.api_calls = 0
 
     def _get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any | None:
+        # The API key is sent via header (not query string) so it never appears
+        # in a URL — including any URL embedded in a raised exception message.
         query = dict(params or {})
-        query["apikey"] = self.api_key
         url = f"{FMP_BASE_URL}/{endpoint}"
+        headers = {"apikey": self.api_key}
         attempts = 0
 
         while attempts < 2:
             attempts += 1
             try:
-                response = self.session.get(url, params=query, timeout=self.timeout)
+                response = self.session.get(
+                    url, params=query, headers=headers, timeout=self.timeout
+                )
                 self.api_calls += 1
             except requests.RequestException as exc:
                 print(f"WARNING: Request error for {endpoint}: {exc}", file=sys.stderr)
@@ -144,58 +146,66 @@ class FMPClient:
         return None
 
     def get_batch_quotes(self, tickers: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch quotes for all tickers (one /stable quote request per symbol).
+
+        Comma-batched /stable quote requests silently return [], so each symbol
+        is requested individually.
+        """
         result: dict[str, dict[str, Any]] = {}
-        for group in chunked(tickers, 50):
-            data = self._get(f"quote/{','.join(group)}")
-            if not isinstance(data, list):
+        for ticker in tickers:
+            data = self._get("quote", {"symbol": ticker})
+            if not isinstance(data, list) or not data:
                 continue
-            for row in data:
-                if not isinstance(row, dict):
-                    continue
-                symbol = str(row.get("symbol", "")).strip().upper()
-                if symbol:
-                    result[symbol] = row
+            row = data[0]
+            if not isinstance(row, dict):
+                continue
+            symbol = str(row.get("symbol", "")).strip().upper()
+            if symbol:
+                result[symbol] = row
         return result
 
     def get_batch_profiles(self, tickers: list[str]) -> dict[str, dict[str, Any]]:
-        result: dict[str, dict[str, Any]] = {}
-        for group in chunked(tickers, 25):
-            data = self._get(f"profile/{','.join(group)}")
-            if isinstance(data, list):
-                for row in data:
-                    if not isinstance(row, dict):
-                        continue
-                    symbol = str(row.get("symbol", "")).strip().upper()
-                    if symbol:
-                        result[symbol] = row
-                continue
+        """Fetch profiles for all tickers (one /stable profile request per symbol).
 
-            # Batch profile may fail for mixed symbols; fallback to per-symbol.
-            for ticker in group:
-                single = self._get(f"profile/{ticker}")
-                if not isinstance(single, list) or not single:
-                    continue
-                row = single[0]
-                if not isinstance(row, dict):
-                    continue
-                symbol = str(row.get("symbol", "")).strip().upper()
-                if symbol:
-                    result[symbol] = row
+        /stable renamed the trailing dividend field lastDiv -> lastDividend; a
+        lastDiv alias is restored so downstream consumers are unchanged.
+        """
+        result: dict[str, dict[str, Any]] = {}
+        for ticker in tickers:
+            data = self._get("profile", {"symbol": ticker})
+            if not isinstance(data, list) or not data:
+                continue
+            row = data[0]
+            if not isinstance(row, dict):
+                continue
+            if "lastDiv" not in row and "lastDividend" in row:
+                row["lastDiv"] = row["lastDividend"]
+            symbol = str(row.get("symbol", "")).strip().upper()
+            if symbol:
+                result[symbol] = row
         return result
 
-    def get_key_metrics(self, ticker: str, limit: int = 10) -> list[dict[str, Any]]:
-        data = self._get(f"key-metrics/{ticker}", {"limit": limit})
+    def get_ratios(self, ticker: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Annual financial ratios (the 5y dividend-yield history series).
+
+        On /stable, dividendYield and dividendPerShare moved off key-metrics
+        onto the ratios endpoint (dividendYield is a decimal, e.g. 0.0404).
+        """
+        data = self._get("ratios", {"symbol": ticker, "limit": limit})
         if isinstance(data, list):
             return [row for row in data if isinstance(row, dict)]
         return []
 
     def get_stock_dividend(self, ticker: str) -> list[dict[str, Any]]:
-        """WS-1: full declared-dividend history (regular + special)."""
-        data = self._get(f"historical-price-full/stock_dividend/{ticker}")
-        if isinstance(data, dict):
-            hist = data.get("historical")
-            if isinstance(hist, list):
-                return [row for row in hist if isinstance(row, dict)]
+        """WS-1: full declared-dividend history (regular + special).
+
+        /stable dividends returns a flat list (the legacy
+        historical-price-full/stock_dividend {symbol, historical:[]} wrapper is
+        gone). Records still carry date / dividend / declarationDate.
+        """
+        data = self._get("dividends", {"symbol": ticker})
+        if isinstance(data, list):
+            return [row for row in data if isinstance(row, dict)]
         return []
 
     def get_financials(self, ticker: str, sector: str | None = None) -> dict[str, Any]:
@@ -207,14 +217,19 @@ class FMPClient:
         not expose them, which deterministically raises *_unavailable
         blockers (CAUTION) for manual fill rather than a false PASS.
         """
-        inc = self._get(f"income-statement/{ticker}", {"limit": 1})
-        cf = self._get(f"cash-flow-statement/{ticker}", {"limit": 1})
+        inc = self._get("income-statement", {"symbol": ticker, "limit": 1})
+        cf = self._get("cash-flow-statement", {"symbol": ticker, "limit": 1})
         gaap_eps = None
         if isinstance(inc, list) and inc:
-            gaap_eps = to_float(inc[0].get("epsdiluted")) or to_float(inc[0].get("eps"))
+            # /stable renamed epsdiluted -> epsDiluted; keep both as fallbacks.
+            gaap_eps = (
+                to_float(inc[0].get("epsDiluted"))
+                or to_float(inc[0].get("epsdiluted"))
+                or to_float(inc[0].get("eps"))
+            )
         fcf_ps = None
         if isinstance(cf, list) and cf:
-            fcf = to_float(cf[0].get("freeFreeCashFlow")) or to_float(cf[0].get("freeCashFlow"))
+            fcf = to_float(cf[0].get("freeCashFlow"))
             shares = (
                 to_float(inc[0].get("weightedAverageShsOutDil"))
                 if (isinstance(inc, list) and inc)
@@ -642,7 +657,7 @@ def main() -> int:
 
     rows: list[dict[str, Any]] = []
     for ticker in tickers:
-        metrics = client.get_key_metrics(ticker, limit=10)
+        metrics = client.get_ratios(ticker, limit=10)
         dividend_history = client.get_stock_dividend(ticker)
         event_scan = scanner.scan(ticker, args.as_of) if scanner else None
         sector = (profiles.get(ticker) or {}).get("sector")
