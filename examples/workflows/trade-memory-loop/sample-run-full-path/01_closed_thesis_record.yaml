@@ -1,0 +1,98 @@
+# Illustrative sample — fictional ticker EXMPL. NOT investment advice.
+# Schema: skills/trader-memory-core/schemas/thesis.schema.json
+# Date/date-time values are quoted so yaml.safe_load returns them as strings
+# (the schema requires "type": string + "format": date-time / date).
+thesis_id: th_EXMPL_growth_20260108_a1b2
+ticker: EXMPL
+created_at: '2026-01-05T13:00:00+00:00'
+updated_at: '2026-02-27T16:00:00+00:00'
+thesis_type: growth_momentum
+setup_type: vcp_breakout
+catalyst: Q4 earnings beat plus a multi-week VCP base breakout
+status: CLOSED
+status_history:
+  - status: IDEA
+    at: '2026-01-05T13:00:00+00:00'
+    reason: Surfaced by vcp-screener (grade A) in the 2026-01-05 scan
+  - status: ENTRY_READY
+    at: '2026-01-07T18:00:00+00:00'
+    reason: technical-analyst confirmed the weekly base; pivot defined
+  - status: ACTIVE
+    at: '2026-01-08T14:35:00+00:00'
+    reason: Pivot cleared on volume; entry filled
+  - status: CLOSED
+    at: '2026-02-27T15:50:00+00:00'
+    reason: Trailed exit after target_hit; thesis played out
+thesis_statement: >-
+  EXMPL completed a tight 7-week VCP base after a Q4 earnings beat; a breakout
+  through the 142.50 pivot on expanding volume should resolve into a
+  momentum advance toward the 165-170 measured-move zone.
+mechanism_tag: structure
+evidence:
+  - VCP base with three contractions, final contraction < 8%
+  - Q4 revenue +24% YoY, raised FY guidance
+  - Relative strength line at new high ahead of price
+  - 'Accumulation: 4 up-weeks on volume vs 1 down-week'
+kill_criteria:
+  - Close back below the 134.50 stop (base failure)
+  - Two distribution weeks in the first 10 sessions post-breakout
+  - Guidance walk-back or negative pre-announcement
+confidence: medium
+confidence_score: 0.6
+entry:
+  target_price: 142.5
+  conditions:
+    - Break and 30-min hold above 142.50 pivot
+    - Breakout volume >= 1.5x 50-day average
+  actual_price: 142.1
+  actual_date: '2026-01-08T14:35:00+00:00'
+exit:
+  stop_loss: 134.5
+  stop_loss_pct: -5.35
+  take_profit: 157.3
+  take_profit_rr: 2.0
+  time_stop_days: 60
+  actual_price: 168.4
+  actual_date: '2026-02-27T15:50:00+00:00'
+  exit_reason: target_hit
+position:
+  shares: 70
+  shares_remaining: 0
+  position_value: 9947.0
+  risk_dollars: 532.0
+  risk_pct_of_account: 0.53
+  account_type: margin
+  sizing_method: fixed_risk_1pct
+  raw_source:
+    skill: position-sizer
+    file: reports/position_sizer_EXMPL_2026-01-08.json
+    fields:
+      account_size: 100000
+      risk_pct: 1.0
+market_context:
+  regime: RISK_ON
+  breadth_score: 66
+  top_detector_score: null
+  sector: Technology
+origin:
+  skill: vcp-screener
+  output_file: reports/vcp_screen_2026-01-05.json
+  screening_grade: A
+  screening_score: 88
+  raw_provenance: {}
+linked_reports:
+  - skill: technical-analyst
+    file: reports/ta_EXMPL_2026-01-07.md
+    date: '2026-01-07'
+outcome:
+  pnl_dollars: 1841.0
+  pnl_pct: 18.5
+  holding_days: 50
+  mae_pct: -4.2
+  mfe_pct: 21.0
+  mae_mfe_source: manual (illustrative)
+  lessons_learned: >-
+    Thesis-driven winner. The initial 2R target (157.30) was reached on
+    2026-02-10; trailing the stop under the rising 10-EMA captured an extra
+    ~7% before the trail triggered at 168.40. MAE stayed shallow (-4.2%),
+    confirming the breakout was well-timed.

@@ -15,16 +15,23 @@ future fixture/replay harness can consume.
 
 ## Available examples
 
-| Example | Workflow | Cadence | Skills (required) |
-|---|---|---|---|
-| [`market-regime-daily/`](market-regime-daily/) | [`market-regime-daily.yaml`](../../workflows/market-regime-daily.yaml) | daily | market-breadth-analyzer → uptrend-analyzer → exposure-coach |
-| [`trade-memory-loop/`](trade-memory-loop/) | [`trade-memory-loop.yaml`](../../workflows/trade-memory-loop.yaml) | per closed trade | trader-memory-core → signal-postmortem → trader-memory-core |
+| Example | Workflow | Cadence | Sample variant | Skills |
+|---|---|---|---|---|
+| [`market-regime-daily/sample-run/`](market-regime-daily/sample-run/) | [`market-regime-daily.yaml`](../../workflows/market-regime-daily.yaml) | daily | required-only | market-breadth-analyzer → uptrend-analyzer → exposure-coach |
+| [`market-regime-daily/sample-run-full-path/`](market-regime-daily/sample-run-full-path/) | same | daily | **full-path** | + optional market-top-detector at step 3 |
+| [`trade-memory-loop/sample-run/`](trade-memory-loop/sample-run/) | [`trade-memory-loop.yaml`](../../workflows/trade-memory-loop.yaml) | per closed trade | required-only | trader-memory-core → signal-postmortem → trader-memory-core |
+| [`trade-memory-loop/sample-run-full-path/`](trade-memory-loop/sample-run-full-path/) | same | per closed trade | **full-path** | + optional backtest-expert at step 3 |
 
-Each example is **required-only**: it exercises just the required steps. The
-one optional step in each workflow is intentionally skipped and documented in
-that example's `README.md` and `manifest.yaml` (`optional_steps_skipped`). A
-full-path sample (including optional steps) may be added later in a separate
-change.
+Each workflow ships two sample variants:
+
+- **`sample-run/` (required-only)** — exercises just the required steps. The
+  one optional step in each workflow is intentionally skipped and documented
+  in that example's `manifest.yaml` (`optional_steps_skipped`).
+- **`sample-run-full-path/` (full-path)** — runs the optional step too, so
+  every step in the workflow manifest is exercised. For `market-regime-daily`
+  this also strips the top-level `*_score` workflow hand-off fields from the
+  upstream fixtures so the sample exercises the **nested-shape parser** in
+  `exposure-coach` directly (see the "Artifact convention" note below).
 
 ## Artifact convention: `raw-plus-handoff`
 
@@ -38,16 +45,21 @@ copies of raw skill stdout:
   alongside it. This is the field the Claude-orchestrated next step actually
   consumes when it hands a score to `exposure-coach`.
 
-This convention is deliberate and also **documents a real, known
-`exposure-coach` parser asymmetry**: `extract_uptrend_score()` already reads
-the nested `composite` shape, but `extract_breadth_score()` reads **only** the
-top-level field — so raw breadth output (nested only) is silently dropped by
-`exposure-coach` today. That parser gap is **not fixed here** (this is a
-docs/sample-only change); it is tracked as a separate code issue and linked
-from the pull request that introduced these examples. The sample is authored
-so that running the **real** `exposure-coach` extractors over these files
-reproduces exactly the scores shown in `04_exposure_decision.json` (see each
-example's verification notes).
+This convention exists in `sample-run/` because the original parser in
+`exposure-coach` only read the top-level `*_score` hand-off fields for
+breadth and top-risk — the nested `composite.composite_score` shape that the
+real upstream skills actually emit was silently dropped. That parser gap was
+**fixed by [PR #137](https://github.com/tradermonty/claude-trading-skills/pull/137)**
+(merged 2026-05-24), which added nested-shape reading and correct polarity
+for `breadth` (direct), `top_risk` (inverted as `100 - score`), and `ftd`
+(direct, since a Follow-Through Day is bullish bottom-confirmation).
+
+The new **`sample-run-full-path/`** variant therefore omits the top-level
+hand-off fields and provides raw nested fixtures so that running the
+post-PR-#137 `exposure-coach` extractors over them reproduces the scores in
+`04_exposure_decision.json`. The required-only `sample-run/` is kept
+unchanged (raw-plus-handoff convention preserved) as a reference for
+workflows that already produce both shapes.
 
 ## Coupling
 

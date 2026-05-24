@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "validation_id": "bt_EXMPL_trail_10ema_20260227",
+  "thesis_id": "th_EXMPL_growth_20260108_a1b2",
+  "ticker_universe": "Illustrative — fictional historical sample, not investment advice",
+  "rule_under_test": {
+    "name": "Trail under rising 10-EMA after 2R target hit",
+    "description": "For VCP breakouts in RISK_ON regimes, after the initial 2R profit target is reached, replace the fixed stop with a trailing stop set 1 ATR below the rising 10-day EMA. Exit on the first close below the trailing stop.",
+    "preconditions": [
+      "Setup type: vcp_breakout",
+      "Regime at entry: RISK_ON",
+      "Initial 2R target reached (i.e. unrealized P&L >= 2x initial risk)"
+    ]
+  },
+  "backtest_spec": {
+    "lookback_years": 6,
+    "date_range": "2020-01-01 to 2026-01-01",
+    "sample_size": 87,
+    "selection_filter": "vcp-screener grade A or B, RISK_ON regime at entry, 2R target reached within 60 days",
+    "comparison_baseline": "Fixed 2R take-profit (no trail)"
+  },
+  "results": {
+    "rule_avg_holding_days": 38.4,
+    "rule_avg_return_pct": 14.6,
+    "rule_win_rate": 0.71,
+    "baseline_avg_holding_days": 22.1,
+    "baseline_avg_return_pct": 10.2,
+    "baseline_win_rate": 1.00,
+    "rule_vs_baseline_return_delta_pct": 4.4,
+    "rule_vs_baseline_holding_delta_days": 16.3,
+    "max_drawdown_during_trail_pct": -4.8,
+    "trail_premature_exit_rate": 0.18
+  },
+  "interpretation": {
+    "verdict": "VALIDATED_WITH_CAVEAT",
+    "summary": "The 'trail under 10-EMA after 2R' rule adds ~4.4 percentage points of average return vs taking the fixed 2R profit, at the cost of ~16 extra holding days and an 18% rate of premature trail exits (trail triggered then price recovered). Net edge is positive for VCP / RISK_ON setups; recommended to keep the rule with explicit awareness of the longer holding period.",
+    "caveats": [
+      "Backtest universe is a fictional illustrative sample; real-world result may differ.",
+      "Win rate baseline is 100% by construction (all samples already reached 2R).",
+      "Premature trail exits cluster in choppy mid-cycle regimes — consider regime-aware trail width."
+    ]
+  },
+  "linked_postmortem": "02_postmortem_findings.json",
+  "linked_thesis": "01_closed_thesis_record.yaml",
+  "generated_at": "2026-02-27T16:30:00+00:00"
+}

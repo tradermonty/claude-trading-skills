@@ -1,0 +1,72 @@
+workflow_id: market-regime-daily
+sample_type: full-path
+illustrative: true                 # fictional market snapshot; not investment advice
+artifact_shape: raw-nested-only    # composite{} mirrors raw skill output;
+                                   # top-level *_score handoff fields are deliberately omitted
+                                   # so exposure-coach must read the nested shape.
+prompt: prompt.md
+
+optional_steps_skipped: []
+
+artifacts:
+  - step: 1
+    artifact_id: market_breadth_report
+    skill: market-breadth-analyzer
+    files:
+      canonical: 01_market_breadth_report_raw.json
+  - step: 2
+    artifact_id: uptrend_report
+    skill: uptrend-analyzer
+    files:
+      canonical: 02_uptrend_report_raw.json
+  - step: 3
+    artifact_id: top_risk_report
+    skill: market-top-detector
+    files:
+      canonical: 03_top_risk_report_raw.json
+  - step: 4
+    artifact_id: exposure_decision
+    skill: exposure-coach
+    files:
+      canonical: 04_exposure_decision.json
+      companion: 04_exposure_decision.md
+
+# Fixture note: 04_exposure_decision.json is reproducible from the three raw
+# fixtures using the real exposure-coach extractors (PR #137, merged
+# 2026-05-24). Running:
+#   python3 skills/exposure-coach/scripts/calculate_exposure.py \
+#     --breadth  sample-run-full-path/01_market_breadth_report_raw.json \
+#     --uptrend  sample-run-full-path/02_uptrend_report_raw.json \
+#     --top-risk sample-run-full-path/03_top_risk_report_raw.json
+# produces a posture matching the deterministic key fields below. The point
+# of this full-path sample (vs the required-only sample-run/) is to prove
+# that the nested-only shapes are correctly consumed:
+#   extract_breadth_score(01)  reads composite.composite_score == 66
+#   extract_uptrend_score(02)  reads composite.composite_score == 72
+#   extract_top_risk_score(03) reads composite.composite_score == 38
+#                              and inverts it to 100 - 38 == 62
+# Before PR #137 the breadth and top-risk readers ignored the nested shape,
+# so this sample's top_risk_score would silently fall out and the result
+# would collapse to REDUCE_ONLY / LOW (the required-only outcome).
+verification:
+  data_date: "2026-01-15"
+  expected:
+    breadth_score: 66
+    uptrend_score: 72
+    top_risk_score: 62
+    composite_score: 56.2
+    exposure_ceiling_pct: 58
+    recommendation: NEW_ENTRY_ALLOWED
+    confidence: MEDIUM
+    bias: NEUTRAL
+    participation: BROAD
+    inputs_provided:
+      - top_risk
+      - breadth
+      - uptrend
+    inputs_missing:
+      - regime
+      - institutional
+      - sector
+      - theme
+      - ftd

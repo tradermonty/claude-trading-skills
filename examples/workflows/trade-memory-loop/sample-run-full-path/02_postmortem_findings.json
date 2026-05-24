@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "postmortem_id": "pm_sig_EXMPL_20260108_a1b2",
+  "signal_id": "sig_EXMPL_20260108_a1b2",
+  "ticker": "EXMPL",
+  "signal_date": "2026-01-08",
+  "source_skill": "vcp-screener",
+  "predicted_direction": "LONG",
+  "entry_price": 142.1,
+  "realized_returns": {
+    "5d": 0.021,
+    "20d": 0.083
+  },
+  "exit_price": 168.4,
+  "exit_date": "2026-02-27",
+  "holding_days": 50,
+  "outcome_category": "TRUE_POSITIVE",
+  "regime_at_signal": "RISK_ON",
+  "regime_at_exit": "RISK_ON",
+  "outcome_notes": "Thesis-driven win: VCP breakout held; initial 2R target reached, trailed exit captured additional momentum. No regime change.",
+  "recorded_at": "2026-02-27T16:05:00Z"
+}

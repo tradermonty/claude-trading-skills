@@ -1,0 +1,51 @@
+workflow_id: trade-memory-loop
+sample_type: full-path
+illustrative: true                 # fictional ticker EXMPL; not investment advice
+artifact_shape: raw-plus-handoff   # consistent across examples/workflows/;
+                                   # this workflow's artifacts are native shapes
+prompt: prompt.md
+
+optional_steps_skipped: []
+
+artifacts:
+  - step: 1
+    artifact_id: closed_thesis_record
+    skill: trader-memory-core
+    schema: skills/trader-memory-core/schemas/thesis.schema.json
+    files:
+      canonical: 01_closed_thesis_record.yaml
+  - step: 2
+    artifact_id: postmortem_findings
+    skill: signal-postmortem
+    files:
+      canonical: 02_postmortem_findings.json
+      companion: 02_postmortem_summary.md
+  - step: 3
+    artifact_id: backtest_validation
+    skill: backtest-expert
+    files:
+      canonical: 03_backtest_validation.json
+      companion: 03_backtest_validation.md
+  - step: 4
+    artifact_id: lessons_log_entry
+    skill: trader-memory-core
+    files:
+      canonical: 04_lessons_log_entry.md
+
+# Fixture note: 01_closed_thesis_record.yaml is identical to the required-only
+# sample and still validates against the real trader-memory-core schema
+# (jsonschema Draft7 + CLOSED business invariants). 02_postmortem_findings.json
+# is also reused unchanged — the postmortem classification doesn't change just
+# because a backtest is added. The new step-3 artifact and the updated step-4
+# journal entry are the full-path additions, demonstrating how an optional
+# `backtest-expert` re-validation feeds the lessons-learned section with a
+# statistical cross-check.
+verification:
+  thesis_status: CLOSED
+  thesis_validates: true
+  expected:
+    outcome_category: TRUE_POSITIVE
+    holding_days: 50
+    exit_reason: target_hit
+    backtest_verdict: VALIDATED_WITH_CAVEAT
+    backtest_avg_return_delta_pp: 4.4

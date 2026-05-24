@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-01-15T13:08:00+00:00",
+  "exposure_ceiling_pct": 58,
+  "bias": "NEUTRAL",
+  "participation": "BROAD",
+  "recommendation": "NEW_ENTRY_ALLOWED",
+  "confidence": "MEDIUM",
+  "composite_score": 56.2,
+  "component_scores": {
+    "breadth_score": 66,
+    "uptrend_score": 72,
+    "top_risk_score": 62
+  },
+  "inputs_provided": [
+    "top_risk",
+    "breadth",
+    "uptrend"
+  ],
+  "inputs_missing": [
+    "regime",
+    "institutional",
+    "sector",
+    "theme",
+    "ftd"
+  ],
+  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 56% ceiling."
+}

@@ -1,0 +1,82 @@
+{
+  "metadata": {
+    "generated_at": "2026-01-15 07:08:00",
+    "data_mode": "Illustrative — fictional market snapshot; not investment advice",
+    "data_source": "market-top-detector (architecture mirrored, raw nested shape)",
+    "cli_inputs": {
+      "breadth_200dma": 61.0,
+      "breadth_50dma": 64.5,
+      "put_call_ratio": 0.82,
+      "vix_term_structure": "contango",
+      "margin_debt_yoy_pct": 18.0
+    },
+    "index_data": {
+      "sp500_price": 6201.50,
+      "sp500_year_high": 6420.00,
+      "sp500_distance_from_high_pct": -3.4,
+      "qqq_price": 555.20,
+      "vix_level": 17.8
+    }
+  },
+  "composite": {
+    "composite_score": 38.0,
+    "zone": "Yellow (Early Warning)",
+    "zone_color": "yellow",
+    "risk_budget": "60-80%",
+    "guidance": "Early warning signals present; reduce gross exposure but no top yet.",
+    "actions": [
+      "Maintain core holdings",
+      "Tighten stops on speculative positions",
+      "Reduce new entries",
+      "Watch distribution-day cluster"
+    ],
+    "strongest_warning": {
+      "component": "distribution_days",
+      "label": "Distribution Day Count",
+      "score": 55
+    },
+    "weakest_warning": {
+      "component": "leading_stocks",
+      "label": "Leading Stock Health",
+      "score": 20
+    },
+    "component_scores": {
+      "distribution_days": {
+        "score": 55,
+        "weight": 0.25,
+        "weighted_contribution": 13.75,
+        "label": "Distribution Day Count"
+      },
+      "leading_stocks": {
+        "score": 20,
+        "weight": 0.20,
+        "weighted_contribution": 4.0,
+        "label": "Leading Stock Health"
+      },
+      "defensive_rotation": {
+        "score": 35,
+        "weight": 0.15,
+        "weighted_contribution": 5.25,
+        "label": "Defensive Sector Rotation"
+      },
+      "breadth_divergence": {
+        "score": 30,
+        "weight": 0.15,
+        "weighted_contribution": 4.5,
+        "label": "Market Breadth Divergence"
+      },
+      "index_technical": {
+        "score": 40,
+        "weight": 0.15,
+        "weighted_contribution": 6.0,
+        "label": "Index Technical Condition"
+      },
+      "sentiment": {
+        "score": 45,
+        "weight": 0.10,
+        "weighted_contribution": 4.5,
+        "label": "Sentiment & Positioning"
+      }
+    }
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "metadata": {
+    "generated_at": "2026-01-15 07:05:00",
+    "data_source": "TraderMonty Market Breadth CSV (public, no API key)",
+    "detail_url": "https://tradermonty.github.io/market-breadth-analysis/",
+    "summary_url": "https://tradermonty.github.io/market-breadth-analysis/",
+    "total_rows": 2480,
+    "data_freshness": {
+      "latest_date": "2026-01-14",
+      "days_old": 1,
+      "warning": null,
+      "last_modified": null
+    }
+  },
+  "composite": {
+    "composite_score": 66,
+    "zone": "Healthy",
+    "zone_color": "blue",
+    "exposure_guidance": "75-90%",
+    "guidance": "Normal operations. Broad participation, but watch the S&P 500 vs breadth divergence.",
+    "actions": [
+      "Maintain core exposure",
+      "Monitor divergence component"
+    ],
+    "strongest_health": {
+      "component": "bearish_signal",
+      "label": "Bearish Signal Status",
+      "score": 80
+    },
+    "weakest_health": {
+      "component": "divergence",
+      "label": "S&P 500 vs Breadth Divergence",
+      "score": 50
+    },
+    "excluded_components": [],
+    "data_quality": {
+      "available_count": 6,
+      "total_components": 6,
+      "label": "Complete (6/6 components)",
+      "missing_components": []
+    },
+    "component_scores": {
+      "breadth_level_trend": {
+        "score": 72,
+        "weight": 0.25,
+        "effective_weight": 0.25,
+        "weighted_contribution": 18.0,
+        "data_available": true,
+        "label": "Current Breadth Level & Trend"
+      },
+      "ma_crossover": {
+        "score": 68,
+        "weight": 0.2,
+        "effective_weight": 0.2,
+        "weighted_contribution": 13.6,
+        "data_available": true,
+        "label": "8MA vs 200MA Crossover"
+      },
+      "cycle_position": {
+        "score": 60,
+        "weight": 0.2,
+        "effective_weight": 0.2,
+        "weighted_contribution": 12.0,
+        "data_available": true,
+        "label": "Peak/Trough Cycle Position"
+      },
+      "bearish_signal": {
+        "score": 80,
+        "weight": 0.15,
+        "effective_weight": 0.15,
+        "weighted_contribution": 12.0,
+        "data_available": true,
+        "label": "Bearish Signal Status"
+      },
+      "historical_percentile": {
+        "score": 55,
+        "weight": 0.1,
+        "effective_weight": 0.1,
+        "weighted_contribution": 5.5,
+        "data_available": true,
+        "label": "Historical Percentile"
+      },
+      "divergence": {
+        "score": 50,
+        "weight": 0.1,
+        "effective_weight": 0.1,
+        "weighted_contribution": 5.0,
+        "data_available": true,
+        "label": "S&P 500 vs Breadth Divergence"
+      }
+    }
+  },
+  "components": {
+    "breadth_level_trend": {
+      "score": 72,
+      "signal": "HEALTHY: 8MA above 200MA, rising",
+      "data_available": true,
+      "current_8ma": 0.61,
+      "current_200ma": 0.54,
+      "trend": 1,
+      "level_score": 70,
+      "trend_score": 74,
+      "ma8_direction": "rising",
+      "direction_modifier": 0
+    },
+    "ma_crossover": {
+      "score": 68,
+      "signal": "POSITIVE: 8MA > 200MA",
+      "data_available": true,
+      "gap": 0.07,
+      "gap_score": 72,
+      "ma8_direction": "rising",
+      "direction_modifier": 0
+    },
+    "cycle_position": {
+      "score": 60,
+      "signal": "NEUTRAL: mid-cycle",
+      "data_available": true,
+      "latest_marker_type": "trough",
+      "days_since_marker": 34,
+      "ma8_trend": "rising",
+      "extreme_trough": false
+    },
+    "bearish_signal": {
+      "score": 80,
+      "signal": "CLEAR: no active bearish signal",
+      "data_available": true,
+      "signal_active": false,
+      "trend": 1,
+      "current_8ma": 0.61,
+      "in_pink_zone": false,
+      "pink_zone_days": 0,
+      "base_score": 90,
+      "context_adjustment": -10,
+      "pink_zone_adjustment": 0
+    },
+    "historical_percentile": {
+      "score": 55,
+      "signal": "NORMAL: 55th percentile",
+      "data_available": true,
+      "current_8ma": 0.61,
+      "percentile_rank": 55.0,
+      "avg_peak": 0.68,
+      "avg_trough": 0.34,
+      "adjustment": 0
+    },
+    "divergence": {
+      "score": 50,
+      "signal": "MILD: price slightly ahead of breadth",
+      "data_available": true,
+      "sp500_pct_change": 3.1,
+      "breadth_change": 0.012,
+      "divergence_type": "mild_bearish",
+      "early_warning": false
+    }
+  }
+}
