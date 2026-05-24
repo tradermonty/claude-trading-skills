@@ -86,6 +86,19 @@ This path lets you review market conditions, size trades, journal decisions, and
 
 > Tip: The source folders and ZIPs contain identical content. Edit a source folder if you want to customize a skill, then re-zip it before uploading to the web app.
 
+## Companion Work Package
+
+Want a ready-to-run agent-style workflow? See the companion
+[Hermes Trading Research Agent Work Package](https://github.com/tradermonty/hermes-trading-research-agent-work-package).
+
+It packages these skills into a Hermes profile with task-oriented slash-command routines such as
+`/pre-market-routine`, `/after-close-review`, `/trade-journal`, `/weekly-portfolio-review`, and
+`/monthly-performance-review`.
+
+This is a research, journaling, and risk-review assistant, **not** an automated trading system.
+It does **not** place orders, provide a signal service, or run hidden scheduled jobs;
+**human decision gates remain central**.
+
 ## Core Skill Areas
 
 This repository contains skills across the following areas:
