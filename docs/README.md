@@ -505,6 +505,9 @@ Current `nav_order` assignments for top-level en/ pages:
 | 1 | Getting Started |
 | 2 | Skill Catalog |
 | 3 | Skill Guides (index) |
+| 4 | Workflows |
+| 5 | Skillsets |
+| 6 | Find Your Workflow |
 
 Skill guide pages use `nav_order` values from 1 to ~50. To avoid conflicts:
 1. Check existing values in `docs/en/skills/` before assigning

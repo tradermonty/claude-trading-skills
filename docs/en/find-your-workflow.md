@@ -2,7 +2,7 @@
 layout: default
 title: Find Your Workflow
 parent: English
-nav_order: 3
+nav_order: 6
 lang_peer: /ja/find-your-workflow/
 permalink: /en/find-your-workflow/
 ---

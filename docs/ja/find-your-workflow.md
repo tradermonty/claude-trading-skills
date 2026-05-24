@@ -2,7 +2,7 @@
 layout: default
 title: ワークフローの選び方
 parent: 日本語
-nav_order: 3
+nav_order: 6
 lang_peer: /en/find-your-workflow/
 permalink: /ja/find-your-workflow/
 ---
