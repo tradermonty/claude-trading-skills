@@ -362,7 +362,7 @@ Definition of done:
 
 ### Phase 5: Learning Loop — ✅ partially complete (2026-05-24)
 
-> **Status:** `trader-memory-core` + `signal-postmortem` + the `trade-memory-loop` and `monthly-performance-review` workflows close the Plan → Trade → Record → Review → Improve loop. Public end-to-end sample operating examples now ship under [`examples/workflows/`](examples/workflows/): each canonical workflow has both a `sample-run/` (required-only) and a `sample-run-full-path/` (with the optional step exercised, PR #141, merged 2026-05-24). The full-path samples are deterministically reproducible via the real `calculate_exposure.py` / `thesis_store._validate_thesis()` paths.
+> **Status:** `trader-memory-core` + `signal-postmortem` + the `trade-memory-loop` and `monthly-performance-review` workflows close the Plan → Trade → Record → Review → Improve loop. Public end-to-end sample operating examples now ship under [`examples/workflows/`](examples/workflows/): the two workflows currently covered (`market-regime-daily` and `trade-memory-loop`) each have both a `sample-run/` (required-only) and a `sample-run-full-path/` (with the optional step exercised, PR #141, merged 2026-05-24). The full-path samples are deterministically reproducible via the real `calculate_exposure.py` / `thesis_store._validate_thesis()` paths. Adding equivalent samples for the remaining workflows (`core-portfolio-weekly`, `swing-opportunity-daily`, `monthly-performance-review`) is follow-up work.
 
 Strengthen the mechanisms for recording trade outcomes and feeding them back into improvement.
 
