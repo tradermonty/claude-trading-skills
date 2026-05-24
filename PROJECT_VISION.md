@@ -332,9 +332,9 @@ Definition of done:
 - Each trade workflow connects to a journal entry or postmortem
 - At least 1 workflow can be explained end-to-end with sample data
 
-### Phase 4: User-Friendly Entry Points — ✅ partially complete (2026-05-17)
+### Phase 4: User-Friendly Entry Points — ✅ partially complete (2026-05-24)
 
-> **Status:** README (EN/JA) has a Recommended Starting Path + No-API starter path keyed to the 5 workflows; generated workflow & skillset doc pages exist; the Navigator is the natural-language on-ramp. The dedicated "Find Your Workflow" document and broader quickstart polish remain follow-up.
+> **Status:** README (EN/JA) has a Recommended Starting Path + No-API starter path keyed to the 5 workflows; generated workflow & skillset doc pages exist; the Navigator is the natural-language on-ramp; the dedicated [Find Your Workflow](docs/en/find-your-workflow.md) ([日本語](docs/ja/find-your-workflow.md)) on-ramp is now published (PR #142); and the [Hermes Trading Research Agent Work Package](https://github.com/tradermonty/hermes-trading-research-agent-work-package) companion is linked from the README (PR #140) as a ready-to-run agent-style usage path. Broader quickstart polish (starter prompts, API setup wizard, web UI) remains follow-up.
 
 Make the project easier for users who are not comfortable with GitHub or `.skill` files.
 
@@ -343,7 +343,7 @@ Phase 4 focuses on static entry points and distribution paths. It should provide
 Candidates:
 
 - Core + Satellite quickstart
-- "Find Your Workflow" document
+- ✅ ["Find Your Workflow" document](docs/en/find-your-workflow.md) (PR #142, merged 2026-05-24)
 - 15-minute daily routine
 - 60-minute weekly review
 - Starter prompts
@@ -351,6 +351,7 @@ Candidates:
 - API setup guide
 - `scripts/recommend_skills.py`
 - Static recommender page
+- ✅ [Hermes Trading Research Agent Work Package](https://github.com/tradermonty/hermes-trading-research-agent-work-package) companion link in README (PR #140, merged 2026-05-24)
 
 Definition of done:
 
@@ -359,9 +360,9 @@ Definition of done:
 - A user can tell which `.skill` files to upload to Claude Web App
 - Starter prompts are available for first use
 
-### Phase 5: Learning Loop — ✅ partially complete (2026-05-17)
+### Phase 5: Learning Loop — ✅ partially complete (2026-05-24)
 
-> **Status:** `trader-memory-core` + `signal-postmortem` + the `trade-memory-loop` and `monthly-performance-review` workflows close the Plan → Trade → Record → Review → Improve loop. A public end-to-end sample operating example is still pending.
+> **Status:** `trader-memory-core` + `signal-postmortem` + the `trade-memory-loop` and `monthly-performance-review` workflows close the Plan → Trade → Record → Review → Improve loop. Public end-to-end sample operating examples now ship under [`examples/workflows/`](examples/workflows/): each canonical workflow has both a `sample-run/` (required-only) and a `sample-run-full-path/` (with the optional step exercised, PR #141, merged 2026-05-24). The full-path samples are deterministically reproducible via the real `calculate_exposure.py` / `thesis_store._validate_thesis()` paths.
 
 Strengthen the mechanisms for recording trade outcomes and feeding them back into improvement.
 
@@ -446,8 +447,9 @@ Near-term work should proceed in this order:
 - ✅ **Done**: Trading Skills Navigator v0 (deterministic recommender + Web App snapshot fallback + manifest-driven setup)
 - **Partial**: Major skillsets in YAML — 4 core skillsets shipped (`market-regime`, `core-portfolio`, `swing-opportunity`, `trade-memory`); remaining skillset candidates (`dividend-income`, `strategy-research`, `advanced-satellite`) deferred
 - **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`, `strategy-research-pipeline`)
-- **Next**: Create "Find Your Workflow" documentation
-- **Next**: Public end-to-end sample operating examples (Plan → Trade → Record → Review → Improve)
+- ✅ **Done (2026-05-24)**: Create "Find Your Workflow" documentation ([EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md), PR #142)
+- ✅ **Done (2026-05-24)**: Public end-to-end sample operating examples — both `sample-run/` (required-only) and `sample-run-full-path/` (with optional step) under [`examples/workflows/`](examples/workflows/) for `market-regime-daily` and `trade-memory-loop` (PR #141; required-only path shipped earlier in PR #118)
+- ✅ **Done (2026-05-24)**: Companion work package — [Hermes Trading Research Agent](https://github.com/tradermonty/hermes-trading-research-agent-work-package) link added to README (PR #140)
 - **Later**: Add bundle builder or recommender CLI if needed
 - **Later**: Explore a web app proof of concept
 
