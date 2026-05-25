@@ -593,6 +593,16 @@ PERSONAS: tuple[Persona, ...] = (
             "what went wrong with",
             "log my trade",
             "trade review after",
+            # Post-trade coaching entry terms (added 2026-05-25 alongside the
+            # trade-performance-coach skill integration in PR-G); without these,
+            # natural-language queries like "post-trade coaching" fall back to
+            # the beginner persona instead of trade-memory-loop.
+            "post-trade coach",
+            "post-trade coaching",
+            "trade coach",
+            "trade coaching",
+            "performance coach",
+            "trade-performance-coach",
             # JA
             "ジャーナル",
             "トレード記録",
@@ -604,9 +614,13 @@ PERSONAS: tuple[Persona, ...] = (
             "損切り後",
             "反省",
             "教訓",
+            "トレードコーチ",
+            "売買コーチ",
+            "取引後レビュー",
+            "トレード後レビュー",
         ),
         primary="trade-memory-loop",
-        rationale="trade journaling / postmortem loop after a closed position",
+        rationale="trade journaling / postmortem / post-trade coaching loop after a closed position",
     ),
     # Monthly performance review.
     Persona(

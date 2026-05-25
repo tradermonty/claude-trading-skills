@@ -181,6 +181,54 @@ def test_ten_question_contract(
         assert manifest is None, f"Q{num} manifest null on deferred"
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "post-trade coaching",
+        "post-trade coach",
+        "trade coach",
+        "trade coaching",
+        "performance coach",
+        "トレードコーチ",
+        "取引後レビュー",
+    ],
+    ids=[
+        "en-post-trade-coaching",
+        "en-post-trade-coach",
+        "en-trade-coach",
+        "en-trade-coaching",
+        "en-performance-coach",
+        "ja-トレードコーチ",
+        "ja-取引後レビュー",
+    ],
+)
+def test_post_trade_coaching_routes_to_trade_memory_loop(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    """Regression (2026-05-25 PR-G review):
+    post-trade coaching entry terms must route to trade-memory-loop with
+    trade-performance-coach surfaced in the setup_bundle.recommended list.
+    Before PR-G's recommend.py update, these queries fell back to the
+    beginner persona (market-regime-daily).
+    """
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"] is not None
+    assert r["primary_workflow"]["id"] == "trade-memory-loop", (
+        f"query {query!r} should route to trade-memory-loop, got {r['primary_workflow']['id']!r}"
+    )
+    bundle = r["setup_bundle"]
+    # trade-performance-coach is in the workflow's optional_skills and the
+    # skillset's recommended_skills; it must appear in the setup bundle.
+    bundle_skills = set(bundle.get("recommended", []))
+    bundle_skills.update(bundle.get("required", []))
+    bundle_skills.update(bundle.get("optional", []))
+    assert "trade-performance-coach" in bundle_skills, (
+        f"query {query!r} setup_bundle missing trade-performance-coach; "
+        f"bundle keys = {sorted(bundle.keys())}, recommended = "
+        f"{bundle.get('recommended')}"
+    )
+
+
 def test_honest_gap_returns_suggested_skills(repo_metadata: dict[str, Any]) -> None:
     for query, cat in [
         ("I want to use short strategies", "advanced-satellite"),
