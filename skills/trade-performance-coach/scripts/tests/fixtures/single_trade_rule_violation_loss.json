@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "review_type": "single_trade",
+  "trade_id": "rule_violation_EXMPL_001",
+  "ticker": "EXMPL",
+  "outcome": "loss",
+  "planned": {
+    "thesis": "Breakout continuation setup, but confirmation was not complete.",
+    "entry": 50.0,
+    "stop": 47.5,
+    "target": 57.5,
+    "risk_r": 1.0,
+    "thesis_recorded_before_entry": false,
+    "setup_confirmed": false,
+    "market_regime": "restrictive"
+  },
+  "actual": {
+    "entry": 54.0,
+    "exit": 46.0,
+    "risk_r": 1.8,
+    "portfolio_heat_r": 4.2,
+    "stop_moved": true,
+    "stop_move_planned": false,
+    "entry_before_confirmation": true,
+    "traded_against_regime": true
+  },
+  "risk_plan": {
+    "max_risk_per_trade_r": 1.0,
+    "max_portfolio_heat_r": 4.0
+  },
+  "postmortem": {
+    "root_cause": "rule_violation",
+    "notes": ["I entered before confirmation and moved the stop after the trade went against me."]
+  },
+  "journal": {
+    "reflection": "I did not want to miss the move because the stock was moving fast.",
+    "emotions": ["FOMO", "frustrated"]
+  }
+}

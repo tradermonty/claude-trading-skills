@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "review_type": "single_trade",
+  "trade_id": "missing_risk_EXMPL_001",
+  "ticker": "EXMPL",
+  "outcome": "loss",
+  "planned": {
+    "thesis": "Stage 2 setup; risk plan was not recorded in the broker-side ticket.",
+    "entry": 50.0,
+    "stop": 47.0,
+    "target": 56.0,
+    "thesis_recorded_before_entry": true,
+    "setup_confirmed": true,
+    "market_regime": "allowed"
+  },
+  "actual": {
+    "entry": 50.0,
+    "exit": 47.0,
+    "stop_moved": false,
+    "entry_before_confirmation": false,
+    "traded_against_regime": false
+  },
+  "postmortem": {
+    "notes": [
+      "Risk plan and actual risk sizing fields are missing from this record (legacy broker import). The trade closed at the planned stop. There is no evidence of size creep."
+    ]
+  },
+  "journal": {
+    "reflection": "Followed the plan; the stop hit.",
+    "emotions": ["calm"]
+  }
+}

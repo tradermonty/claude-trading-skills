@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "review_type": "monthly_aggregate",
+  "trade_id": "monthly_2026_05",
+  "outcome": "mixed",
+  "planned": {
+    "thesis_recorded_before_entry": true,
+    "setup_confirmed": true,
+    "market_regime": "allowed"
+  },
+  "actual": {
+    "risk_r": 1.4,
+    "portfolio_heat_r": 3.7,
+    "stop_moved": false,
+    "entry_before_confirmation": false,
+    "traded_against_regime": false
+  },
+  "risk_plan": {
+    "max_risk_per_trade_r": 1.0,
+    "max_portfolio_heat_r": 4.0
+  },
+  "monthly": {
+    "trades": ["EXMPL1", "EXMPL2", "EXMPL3"],
+    "consecutive_losses": 3,
+    "rule_violations": 2
+  },
+  "postmortem": {
+    "root_cause": "risk_sizing",
+    "notes": ["After two losses, I increased size to make it back."]
+  },
+  "journal": {
+    "reflection": "I wanted to make it back quickly after the prior loss.",
+    "emotions": ["frustrated", "revenge"]
+  }
+}

@@ -791,6 +791,22 @@
     },
     {
       "category": "trade-memory",
+      "difficulty": "intermediate",
+      "display_name": "Trade Performance Coach",
+      "id": "trade-performance-coach",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Review closed trades, partial exits, and monthly aggregates for process adherence, risk discipline, execution quality, and evidence-based trading behavior patterns, then produce next-session operating rules.",
+      "timeframe": "event-driven"
+    },
+    {
+      "category": "trade-memory",
       "difficulty": "beginner",
       "display_name": "Trader Memory Core",
       "id": "trader-memory-core",

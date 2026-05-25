@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "review_type": "single_trade",
+  "trade_id": "premature_exit_EXMPL_001",
+  "ticker": "EXMPL",
+  "outcome": "loss",
+  "planned": {
+    "thesis": "Stage 2 breakout setup with multi-week base; target = +2R measured move.",
+    "entry": 100.0,
+    "stop": 97.0,
+    "target": 106.0,
+    "risk_r": 1.0,
+    "thesis_recorded_before_entry": true,
+    "setup_confirmed": true,
+    "market_regime": "allowed"
+  },
+  "actual": {
+    "entry": 100.2,
+    "exit": 99.5,
+    "risk_r": 1.0,
+    "portfolio_heat_r": 1.5,
+    "stop_moved": false,
+    "entry_before_confirmation": false,
+    "traded_against_regime": false,
+    "premature_exit": true
+  },
+  "risk_plan": {
+    "max_risk_per_trade_r": 1.0,
+    "max_portfolio_heat_r": 4.0
+  },
+  "postmortem": {
+    "notes": [
+      "Trade was working but I closed it before the stop and before the target was approached."
+    ]
+  },
+  "journal": {
+    "reflection": "Got scared and took it off early. Stop was never touched.",
+    "emotions": ["anxious"]
+  }
+}

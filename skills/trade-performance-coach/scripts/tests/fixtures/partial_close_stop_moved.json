@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "review_type": "partial_close",
+  "trade_id": "partial_EXMPL_001",
+  "ticker": "EXMPL",
+  "outcome": "open",
+  "planned": {
+    "thesis": "Trend continuation with partial at 2R.",
+    "entry": 75.0,
+    "stop": 70.0,
+    "target": 85.0,
+    "risk_r": 1.0,
+    "thesis_recorded_before_entry": true,
+    "setup_confirmed": true,
+    "market_regime": "allowed"
+  },
+  "actual": {
+    "entry": 75.2,
+    "partial_exit": 79.5,
+    "risk_r": 1.0,
+    "portfolio_heat_r": 3.2,
+    "stop_moved": true,
+    "stop_move_planned": false,
+    "entry_before_confirmation": false,
+    "traded_against_regime": false
+  },
+  "risk_plan": {
+    "max_risk_per_trade_r": 1.0,
+    "max_portfolio_heat_r": 4.0
+  },
+  "postmortem": {
+    "root_cause": "execution",
+    "notes": ["Partial was fine, but I moved the stop manually without a written rule."]
+  },
+  "journal": {
+    "reflection": "I moved the stop because I was worried about giving back gains.",
+    "emotions": ["anxious"]
+  }
+}

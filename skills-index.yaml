@@ -953,6 +953,32 @@ skills:
   - hypothesis_cards
   - strategy_yaml
   workflows: []
+- id: trade-performance-coach
+  display_name: Trade Performance Coach
+  category: trade-memory
+  status: beta
+  summary: Review closed trades, partial exits, and monthly aggregates for process adherence,
+    risk discipline, execution quality, and evidence-based trading behavior patterns, then
+    produce next-session operating rules.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Works from local trader-memory / postmortem / journal records; no network or paid
+      API required
+  inputs:
+  - closed_thesis_record
+  - postmortem_findings
+  - trade_journal_entries
+  - risk_plan
+  outputs:
+  - performance_coach_report
+  - behavioral_pattern_tags
+  - risk_manager_notes
+  - next_session_operating_rules
+  workflows: []
 - id: trader-memory-core
   display_name: Trader Memory Core
   category: trade-memory

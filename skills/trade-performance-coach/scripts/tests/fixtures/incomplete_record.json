@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "review_type": "single_trade",
+  "trade_id": "incomplete_EXMPL_001",
+  "ticker": "EXMPL",
+  "outcome": "unknown",
+  "actual": {
+    "entry": 100.0
+  },
+  "journal": {
+    "reflection": "I need to add more details later."
+  }
+}

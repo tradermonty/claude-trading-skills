@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trade Performance Coach Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "review_type",
+    "review_id",
+    "overall_verdict",
+    "summary",
+    "scores",
+    "process_adherence_findings",
+    "risk_manager_notes",
+    "execution_quality_assessment",
+    "behavioral_pattern_tags",
+    "next_session_operating_rules",
+    "coach_questions",
+    "human_decision_gate",
+    "disclaimer"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "review_type": {"enum": ["single_trade", "partial_close", "monthly_aggregate"]},
+    "review_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string"},
+    "source_records": {"type": "array", "items": {"type": "string"}},
+    "overall_verdict": {"enum": ["OK", "WARN", "REVIEW_REQUIRED", "RULE_VIOLATION", "COOL_DOWN"]},
+    "summary": {
+      "type": "object",
+      "required": ["outcome", "primary_root_cause", "secondary_root_causes", "confidence"],
+      "properties": {
+        "outcome": {"enum": ["win", "loss", "breakeven", "open", "mixed", "unknown"]},
+        "primary_root_cause": {"enum": ["thesis_quality", "execution", "risk_sizing", "market_environment", "rule_violation", "randomness", "unknown"]},
+        "secondary_root_causes": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"enum": ["low", "medium", "high"]}
+      },
+      "additionalProperties": true
+    },
+    "scores": {
+      "type": "object",
+      "required": ["process_score", "risk_score", "execution_score", "review_quality_score"],
+      "properties": {
+        "process_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "risk_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "execution_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "review_quality_score": {"type": "integer", "minimum": 0, "maximum": 100}
+      },
+      "additionalProperties": false
+    },
+    "process_adherence_findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "risk_manager_notes": {"type": "array", "items": {"$ref": "#/$defs/riskNote"}},
+    "execution_quality_assessment": {"type": "array", "items": {"$ref": "#/$defs/executionFinding"}},
+    "behavioral_pattern_tags": {"type": "array", "items": {"$ref": "#/$defs/behaviorTag"}},
+    "next_session_operating_rules": {"type": "array", "items": {"$ref": "#/$defs/operatingRule"}},
+    "coach_questions": {"type": "array", "items": {"type": "string"}},
+    "human_decision_gate": {
+      "type": "object",
+      "required": ["question", "allowed_actions", "default_action"],
+      "properties": {
+        "question": {"type": "string"},
+        "allowed_actions": {
+          "type": "array",
+          "items": {"enum": ["accept_rules", "modify_rules", "defer", "journal_only"]}
+        },
+        "default_action": {"const": "journal_only"}
+      },
+      "additionalProperties": false
+    },
+    "disclaimer": {"type": "string"}
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["rule", "status", "evidence", "severity"],
+      "properties": {
+        "rule": {"type": "string"},
+        "status": {"enum": ["met", "missed", "unclear", "not_applicable"]},
+        "evidence": {"type": "string"},
+        "severity": {"enum": ["info", "warning", "critical"]}
+      },
+      "additionalProperties": false
+    },
+    "riskNote": {
+      "type": "object",
+      "required": ["topic", "finding", "severity", "evidence"],
+      "properties": {
+        "topic": {"enum": ["position_size", "portfolio_heat", "drawdown", "correlation", "stop_discipline", "loss_limit", "regime_gate"]},
+        "finding": {"type": "string"},
+        "severity": {"enum": ["info", "warning", "critical"]},
+        "evidence": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "executionFinding": {
+      "type": "object",
+      "required": ["phase", "finding", "evidence", "severity"],
+      "properties": {
+        "phase": {"enum": ["entry", "add", "trim", "stop", "exit", "review"]},
+        "finding": {"type": "string"},
+        "evidence": {"type": "string"},
+        "severity": {"enum": ["info", "warning", "critical"]}
+      },
+      "additionalProperties": false
+    },
+    "behaviorTag": {
+      "type": "object",
+      "required": ["tag", "confidence", "evidence", "reflection_question"],
+      "properties": {
+        "tag": {"enum": ["fomo_entry", "revenge_trade", "premature_exit", "overconfidence_after_winner", "loss_aversion", "rule_drift", "stop_moved", "size_creep", "hesitation", "no_pattern_detected"]},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "evidence": {"type": "string"},
+        "reflection_question": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "operatingRule": {
+      "type": "object",
+      "required": ["rule", "duration", "trigger", "reason"],
+      "properties": {
+        "rule": {"type": "string"},
+        "duration": {"type": "string"},
+        "trigger": {"type": "string"},
+        "reason": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
