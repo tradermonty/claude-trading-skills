@@ -151,7 +151,7 @@ permalink: /ja/workflows/
 
 **必須スキル:** `trader-memory-core`, `signal-postmortem`
 
-**任意スキル:** `backtest-expert`, `dual-axis-skill-reviewer`
+**任意スキル:** `trade-performance-coach`, `backtest-expert`, `dual-axis-skill-reviewer`
 
 **artifact 一覧:**
 
@@ -159,11 +159,14 @@ permalink: /ja/workflows/
 |---|---|---|---|
 | `monthly_aggregate` | 1 | あり | — |
 | `aggregate_postmortem` | 2 | あり | — |
-| `hypothesis_revalidation` | 3 | なし | — |
-| `skill_review_findings` | 4 | なし | — |
-| `monthly_decision_log` | 5 | あり | — |
-| `rule_changes_for_next_month` | 5 | あり | — |
-| `skill_improvement_backlog` | 5 | なし | — |
+| `monthly_performance_coach_report` | 3 | なし | — |
+| `monthly_behavior_patterns` | 3 | なし | — |
+| `next_month_operating_rules` | 3 | なし | — |
+| `hypothesis_revalidation` | 4 | なし | — |
+| `skill_review_findings` | 5 | なし | — |
+| `monthly_decision_log` | 6 | あり | — |
+| `rule_changes_for_next_month` | 6 | あり | — |
+| `skill_improvement_backlog` | 6 | なし | — |
 
 **ステップ:**
 
@@ -177,17 +180,23 @@ permalink: /ja/workflows/
 - produces: `aggregate_postmortem`
 - **判断:** What recurring patterns appear across the month's outcomes? Classify by thesis quality, execution, market environment, and randomness.
 
-**ステップ 3: Re-validate hypotheses via backtest** （任意） → `backtest-expert`
+**ステップ 3: Coach monthly process, risk, and behavior patterns** （任意） （判断ゲート） → `trade-performance-coach`
+
+- consumes: `monthly_aggregate`, `aggregate_postmortem`
+- produces: `monthly_performance_coach_report`, `monthly_behavior_patterns`, `next_month_operating_rules`
+- **判断:** Which next-month operating rules should be accepted, modified, deferred, or journaled only?
+
+**ステップ 4: Re-validate hypotheses via backtest** （任意） → `backtest-expert`
 
 - consumes: `aggregate_postmortem`
 - produces: `hypothesis_revalidation`
 
-**ステップ 4: Review which skills helped or hurt** （任意） → `dual-axis-skill-reviewer`
+**ステップ 5: Review which skills helped or hurt** （任意） → `dual-axis-skill-reviewer`
 
 - consumes: `aggregate_postmortem`
 - produces: `skill_review_findings`
 
-**ステップ 5: Produce decision log and rule changes** （判断ゲート） → `trader-memory-core`
+**ステップ 6: Produce decision log and rule changes** （判断ゲート） → `trader-memory-core`
 
 - consumes: `aggregate_postmortem`, `hypothesis_revalidation`, `skill_review_findings`
 - produces: `monthly_decision_log`, `rule_changes_for_next_month`, `skill_improvement_backlog`
@@ -289,13 +298,13 @@ permalink: /ja/workflows/
 
 **`trade-memory-loop`** · ad-hoc · ~30 min · no-api-basic · beginner
 
-**実行タイミング:** Every time a position is closed (full or partial exit). Records the outcome, generates a postmortem, and (optionally) re-validates the original hypothesis via backtest.
+**実行タイミング:** Every time a position is closed (full or partial exit). Records the outcome, generates a postmortem, (optionally) coaches process / risk / execution / behavior patterns, and (optionally) re-validates the original hypothesis via backtest.
 
 **実行してはいけないとき:** Do not run before a position is closed — use trader-memory-core directly to update an open thesis instead. Do not skip this loop after a closed trade, even on winners.
 
 **必須スキル:** `trader-memory-core`, `signal-postmortem`
 
-**任意スキル:** `backtest-expert`
+**任意スキル:** `trade-performance-coach`, `backtest-expert`
 
 **artifact 一覧:**
 
@@ -303,8 +312,10 @@ permalink: /ja/workflows/
 |---|---|---|---|
 | `closed_thesis_record` | 1 | あり | — |
 | `postmortem_findings` | 2 | あり | `monthly-performance-review` |
-| `backtest_validation` | 3 | なし | — |
-| `lessons_log_entry` | 4 | あり | `monthly-performance-review` |
+| `performance_coach_report` | 3 | なし | `monthly-performance-review` |
+| `next_session_operating_rules` | 3 | なし | `monthly-performance-review` |
+| `backtest_validation` | 4 | なし | — |
+| `lessons_log_entry` | 5 | あり | `monthly-performance-review` |
 
 **ステップ:**
 
@@ -318,12 +329,18 @@ permalink: /ja/workflows/
 - produces: `postmortem_findings`
 - **判断:** What was the root cause of the outcome — thesis quality, execution, market environment, or randomness? Classify and document.
 
-**ステップ 3: Re-validate hypothesis via backtest** （任意） → `backtest-expert`
+**ステップ 3: Coach process, risk, and behavior patterns** （任意） （判断ゲート） → `trade-performance-coach`
+
+- consumes: `closed_thesis_record`, `postmortem_findings`
+- produces: `performance_coach_report`, `next_session_operating_rules`
+- **判断:** Which next-session operating rules should the trader accept, modify, defer, or journal only?
+
+**ステップ 4: Re-validate hypothesis via backtest** （任意） → `backtest-expert`
 
 - consumes: `postmortem_findings`
 - produces: `backtest_validation`
 
-**ステップ 4: Append lessons to journal** → `trader-memory-core`
+**ステップ 5: Append lessons to journal** → `trader-memory-core`
 
 - consumes: `postmortem_findings`, `backtest_validation`
 - produces: `lessons_log_entry`

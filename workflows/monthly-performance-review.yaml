@@ -22,6 +22,7 @@ required_skills:
   - trader-memory-core
   - signal-postmortem
 optional_skills:
+  - trade-performance-coach
   - backtest-expert
   - dual-axis-skill-reviewer
 
@@ -32,20 +33,29 @@ artifacts:
   - id: aggregate_postmortem
     produced_by_step: 2
     required: true
-  - id: hypothesis_revalidation
+  - id: monthly_performance_coach_report
     produced_by_step: 3
     required: false
-  - id: skill_review_findings
+  - id: monthly_behavior_patterns
+    produced_by_step: 3
+    required: false
+  - id: next_month_operating_rules
+    produced_by_step: 3
+    required: false
+  - id: hypothesis_revalidation
     produced_by_step: 4
     required: false
-  - id: monthly_decision_log
+  - id: skill_review_findings
     produced_by_step: 5
+    required: false
+  - id: monthly_decision_log
+    produced_by_step: 6
     required: true
   - id: rule_changes_for_next_month
-    produced_by_step: 5
+    produced_by_step: 6
     required: true
   - id: skill_improvement_backlog
-    produced_by_step: 5
+    produced_by_step: 6
     required: false
 
 # final_outputs separates trade-side improvements from repo-side improvements.
@@ -79,6 +89,22 @@ steps:
       thesis quality, execution, market environment, and randomness.
 
   - step: 3
+    name: Coach monthly process, risk, and behavior patterns
+    skill: trade-performance-coach
+    optional: true
+    consumes:
+      - monthly_aggregate
+      - aggregate_postmortem
+    produces:
+      - monthly_performance_coach_report
+      - monthly_behavior_patterns
+      - next_month_operating_rules
+    decision_gate: true
+    decision_question: >-
+      Which next-month operating rules should be accepted, modified, deferred,
+      or journaled only?
+
+  - step: 4
     name: Re-validate hypotheses via backtest
     skill: backtest-expert
     optional: true
@@ -88,7 +114,7 @@ steps:
       - hypothesis_revalidation
     decision_gate: false
 
-  - step: 4
+  - step: 5
     name: Review which skills helped or hurt
     skill: dual-axis-skill-reviewer
     optional: true
@@ -98,7 +124,7 @@ steps:
       - skill_review_findings
     decision_gate: false
 
-  - step: 5
+  - step: 6
     name: Produce decision log and rule changes
     skill: trader-memory-core
     consumes:

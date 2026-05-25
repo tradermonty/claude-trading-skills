@@ -1022,7 +1022,8 @@
         "trade-hypothesis-ideator"
       ],
       "recommended_skills": [
-        "backtest-expert"
+        "backtest-expert",
+        "trade-performance-coach"
       ],
       "related_workflows": [
         "trade-memory-loop",
@@ -1093,6 +1094,7 @@
       "estimated_minutes": 90,
       "id": "monthly-performance-review",
       "optional_skills": [
+        "trade-performance-coach",
         "backtest-expert",
         "dual-axis-skill-reviewer"
       ],
@@ -1140,6 +1142,7 @@
       "estimated_minutes": 30,
       "id": "trade-memory-loop",
       "optional_skills": [
+        "trade-performance-coach",
         "backtest-expert"
       ],
       "prerequisite_workflows": [],

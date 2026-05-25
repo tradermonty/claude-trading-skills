@@ -149,7 +149,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Required skills:** `trader-memory-core`, `signal-postmortem`
 
-**Optional skills:** `backtest-expert`, `dual-axis-skill-reviewer`
+**Optional skills:** `trade-performance-coach`, `backtest-expert`, `dual-axis-skill-reviewer`
 
 **Artifacts:**
 
@@ -157,11 +157,14 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 |---|---|---|---|
 | `monthly_aggregate` | 1 | yes | — |
 | `aggregate_postmortem` | 2 | yes | — |
-| `hypothesis_revalidation` | 3 | no | — |
-| `skill_review_findings` | 4 | no | — |
-| `monthly_decision_log` | 5 | yes | — |
-| `rule_changes_for_next_month` | 5 | yes | — |
-| `skill_improvement_backlog` | 5 | no | — |
+| `monthly_performance_coach_report` | 3 | no | — |
+| `monthly_behavior_patterns` | 3 | no | — |
+| `next_month_operating_rules` | 3 | no | — |
+| `hypothesis_revalidation` | 4 | no | — |
+| `skill_review_findings` | 5 | no | — |
+| `monthly_decision_log` | 6 | yes | — |
+| `rule_changes_for_next_month` | 6 | yes | — |
+| `skill_improvement_backlog` | 6 | no | — |
 
 **Steps:**
 
@@ -175,17 +178,23 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - produces: `aggregate_postmortem`
 - **Decision:** What recurring patterns appear across the month's outcomes? Classify by thesis quality, execution, market environment, and randomness.
 
-**Step 3: Re-validate hypotheses via backtest** (optional) → `backtest-expert`
+**Step 3: Coach monthly process, risk, and behavior patterns** (optional) (decision gate) → `trade-performance-coach`
+
+- consumes: `monthly_aggregate`, `aggregate_postmortem`
+- produces: `monthly_performance_coach_report`, `monthly_behavior_patterns`, `next_month_operating_rules`
+- **Decision:** Which next-month operating rules should be accepted, modified, deferred, or journaled only?
+
+**Step 4: Re-validate hypotheses via backtest** (optional) → `backtest-expert`
 
 - consumes: `aggregate_postmortem`
 - produces: `hypothesis_revalidation`
 
-**Step 4: Review which skills helped or hurt** (optional) → `dual-axis-skill-reviewer`
+**Step 5: Review which skills helped or hurt** (optional) → `dual-axis-skill-reviewer`
 
 - consumes: `aggregate_postmortem`
 - produces: `skill_review_findings`
 
-**Step 5: Produce decision log and rule changes** (decision gate) → `trader-memory-core`
+**Step 6: Produce decision log and rule changes** (decision gate) → `trader-memory-core`
 
 - consumes: `aggregate_postmortem`, `hypothesis_revalidation`, `skill_review_findings`
 - produces: `monthly_decision_log`, `rule_changes_for_next_month`, `skill_improvement_backlog`
@@ -287,13 +296,13 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **`trade-memory-loop`** · ad-hoc · ~30 min · no-api-basic · beginner
 
-**When to run:** Every time a position is closed (full or partial exit). Records the outcome, generates a postmortem, and (optionally) re-validates the original hypothesis via backtest.
+**When to run:** Every time a position is closed (full or partial exit). Records the outcome, generates a postmortem, (optionally) coaches process / risk / execution / behavior patterns, and (optionally) re-validates the original hypothesis via backtest.
 
 **When NOT to run:** Do not run before a position is closed — use trader-memory-core directly to update an open thesis instead. Do not skip this loop after a closed trade, even on winners.
 
 **Required skills:** `trader-memory-core`, `signal-postmortem`
 
-**Optional skills:** `backtest-expert`
+**Optional skills:** `trade-performance-coach`, `backtest-expert`
 
 **Artifacts:**
 
@@ -301,8 +310,10 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 |---|---|---|---|
 | `closed_thesis_record` | 1 | yes | — |
 | `postmortem_findings` | 2 | yes | `monthly-performance-review` |
-| `backtest_validation` | 3 | no | — |
-| `lessons_log_entry` | 4 | yes | `monthly-performance-review` |
+| `performance_coach_report` | 3 | no | `monthly-performance-review` |
+| `next_session_operating_rules` | 3 | no | `monthly-performance-review` |
+| `backtest_validation` | 4 | no | — |
+| `lessons_log_entry` | 5 | yes | `monthly-performance-review` |
 
 **Steps:**
 
@@ -316,12 +327,18 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - produces: `postmortem_findings`
 - **Decision:** What was the root cause of the outcome — thesis quality, execution, market environment, or randomness? Classify and document.
 
-**Step 3: Re-validate hypothesis via backtest** (optional) → `backtest-expert`
+**Step 3: Coach process, risk, and behavior patterns** (optional) (decision gate) → `trade-performance-coach`
+
+- consumes: `closed_thesis_record`, `postmortem_findings`
+- produces: `performance_coach_report`, `next_session_operating_rules`
+- **Decision:** Which next-session operating rules should the trader accept, modify, defer, or journal only?
+
+**Step 4: Re-validate hypothesis via backtest** (optional) → `backtest-expert`
 
 - consumes: `postmortem_findings`
 - produces: `backtest_validation`
 
-**Step 4: Append lessons to journal** → `trader-memory-core`
+**Step 5: Append lessons to journal** → `trader-memory-core`
 
 - consumes: `postmortem_findings`, `backtest_validation`
 - produces: `lessons_log_entry`

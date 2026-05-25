@@ -99,7 +99,7 @@ Purpose-specific skillset bundles for the solo-trader OS. A skillset is a catego
 
 **Required skills:** `trader-memory-core`, `signal-postmortem`
 
-**Recommended skills:** `backtest-expert`
+**Recommended skills:** `backtest-expert`, `trade-performance-coach`
 
 **Optional skills:** `trade-hypothesis-ideator`
 

@@ -101,7 +101,7 @@ permalink: /ja/skillsets/
 
 **必須スキル:** `trader-memory-core`, `signal-postmortem`
 
-**推奨スキル:** `backtest-expert`
+**推奨スキル:** `backtest-expert`, `trade-performance-coach`
 
 **任意スキル:** `trade-hypothesis-ideator`
 

@@ -12,8 +12,9 @@ api_profile: no-api-basic
 
 when_to_run: >-
   Every time a position is closed (full or partial exit). Records the outcome,
-  generates a postmortem, and (optionally) re-validates the original hypothesis
-  via backtest.
+  generates a postmortem, (optionally) coaches process / risk / execution /
+  behavior patterns, and (optionally) re-validates the original hypothesis via
+  backtest.
 when_not_to_run: >-
   Do not run before a position is closed — use trader-memory-core directly to
   update an open thesis instead. Do not skip this loop after a closed trade,
@@ -23,6 +24,7 @@ required_skills:
   - trader-memory-core
   - signal-postmortem
 optional_skills:
+  - trade-performance-coach
   - backtest-expert
 
 artifacts:
@@ -34,11 +36,21 @@ artifacts:
     required: true
     downstream_hints:
       - monthly-performance-review
-  - id: backtest_validation
+  - id: performance_coach_report
     produced_by_step: 3
     required: false
-  - id: lessons_log_entry
+    downstream_hints:
+      - monthly-performance-review
+  - id: next_session_operating_rules
+    produced_by_step: 3
+    required: false
+    downstream_hints:
+      - monthly-performance-review
+  - id: backtest_validation
     produced_by_step: 4
+    required: false
+  - id: lessons_log_entry
+    produced_by_step: 5
     required: true
     downstream_hints:
       - monthly-performance-review
@@ -64,6 +76,21 @@ steps:
       market environment, or randomness? Classify and document.
 
   - step: 3
+    name: Coach process, risk, and behavior patterns
+    skill: trade-performance-coach
+    optional: true
+    consumes:
+      - closed_thesis_record
+      - postmortem_findings
+    produces:
+      - performance_coach_report
+      - next_session_operating_rules
+    decision_gate: true
+    decision_question: >-
+      Which next-session operating rules should the trader accept, modify,
+      defer, or journal only?
+
+  - step: 4
     name: Re-validate hypothesis via backtest
     skill: backtest-expert
     optional: true
@@ -73,7 +100,7 @@ steps:
       - backtest_validation
     decision_gate: false
 
-  - step: 4
+  - step: 5
     name: Append lessons to journal
     skill: trader-memory-core
     consumes:

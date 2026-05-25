@@ -978,7 +978,9 @@ skills:
   - behavioral_pattern_tags
   - risk_manager_notes
   - next_session_operating_rules
-  workflows: []
+  workflows:
+  - trade-memory-loop
+  - monthly-performance-review
 - id: trader-memory-core
   display_name: Trader Memory Core
   category: trade-memory
