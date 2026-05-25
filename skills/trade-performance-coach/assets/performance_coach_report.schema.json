@@ -106,7 +106,7 @@
       "type": "object",
       "required": ["tag", "confidence", "evidence", "reflection_question"],
       "properties": {
-        "tag": {"enum": ["fomo_entry", "revenge_trade", "premature_exit", "overconfidence_after_winner", "loss_aversion", "rule_drift", "stop_moved", "size_creep", "hesitation", "no_pattern_detected"]},
+        "tag": {"enum": ["fomo_entry", "revenge_trade", "premature_exit", "overconfidence_after_winner", "loss_aversion", "rule_drift", "stop_moved", "size_creep", "unknown_size_discipline", "hesitation", "no_pattern_detected"]},
         "confidence": {"enum": ["low", "medium", "high"]},
         "evidence": {"type": "string"},
         "reflection_question": {"type": "string"}

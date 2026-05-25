@@ -64,7 +64,7 @@ Behavior tags use:
 
 ```json
 {
-  "tag": "fomo_entry | revenge_trade | premature_exit | overconfidence_after_winner | loss_aversion | rule_drift | stop_moved | size_creep | hesitation | no_pattern_detected",
+  "tag": "fomo_entry | revenge_trade | premature_exit | overconfidence_after_winner | loss_aversion | rule_drift | stop_moved | size_creep | unknown_size_discipline | hesitation | no_pattern_detected",
   "confidence": "low | medium | high",
   "evidence": "string",
   "reflection_question": "string"

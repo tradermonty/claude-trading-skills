@@ -92,7 +92,10 @@ def test_missing_risk_data_does_not_tag_size_creep():
     """Blocker 2 regression (2026-05-24 PR-F review):
     size_creep must require explicit evidence that actual.risk_r > reference_r.
     A missing-risk-data position_size warning must NOT be tagged as size_creep;
-    instead it should surface as unknown_size_discipline.
+    instead it should surface as unknown_size_discipline. The next-session rule
+    must NOT claim "actual risk exceeded the plan" (which would contradict the
+    missing-data state); it must ask the trader to record planned/actual risk
+    next time.
     """
     report = rpc.build_review(load("risk_data_missing_no_size_creep.json"), ["fixture"])
     tags = {t["tag"] for t in report["behavioral_pattern_tags"]}
@@ -102,6 +105,49 @@ def test_missing_risk_data_does_not_tag_size_creep():
         n["topic"] == "position_size" and n["severity"] == "warning"
         for n in report["risk_manager_notes"]
     )
+    # The Cap-risk-at-0.5R rule (which states "Actual risk exceeded the stated
+    # risk plan") must NOT fire when risk discipline is unverifiable.
+    rules = report["next_session_operating_rules"]
+    assert all("0.5R" not in r["rule"] for r in rules), (
+        "Cap-risk-at-0.5R rule must only fire for size_creep, not unknown_size_discipline"
+    )
+    assert all("exceeded" not in r["reason"].lower() for r in rules), (
+        "next-session rule reason must not claim risk exceeded when data is missing"
+    )
+    # Instead, a rule asking the trader to record planned/actual risk must fire.
+    assert any("record" in r["rule"].lower() and "risk" in r["rule"].lower() for r in rules), (
+        "unknown_size_discipline must produce a record-planned/actual-risk rule"
+    )
+
+
+def test_report_validates_against_schema():
+    """Schema enum coverage regression (2026-05-24 PR-F review):
+    every behavior_tag the runtime can emit must be in the schema's enum,
+    including unknown_size_discipline. Validate one report per fixture so
+    that adding a new tag without updating the schema fails this test.
+    """
+    try:
+        import jsonschema  # type: ignore
+    except ImportError:  # pragma: no cover - environment dependent
+        import pytest
+
+        pytest.skip("jsonschema not installed")
+    schema_path = SCRIPT_DIR.parent / "assets" / "performance_coach_report.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    fixtures = [
+        "single_trade_clean_loss.json",
+        "single_trade_rule_violation_loss.json",
+        "partial_close_stop_moved.json",
+        "monthly_aggregate_revenge_pattern.json",
+        "incomplete_record.json",
+        "single_trade_premature_exit.json",
+        "risk_data_missing_no_size_creep.json",
+    ]
+    for fixture in fixtures:
+        report = rpc.build_review(load(fixture), [fixture])
+        # schema_version is int per dataclass output; the asset schema uses 1.0
+        # as illustrative — coerce to match the structural enum check below.
+        jsonschema.Draft7Validator(schema).validate(report)
 
 
 def test_cli_writes_json_and_markdown(tmp_path):

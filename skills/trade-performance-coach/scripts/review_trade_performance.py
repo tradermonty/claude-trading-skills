@@ -540,12 +540,24 @@ def next_session_rules(
         if rule not in {r["rule"] for r in rules}:
             rules.append({"rule": rule, "duration": duration, "trigger": trigger, "reason": reason})
 
-    if any(n.topic == "position_size" and n.severity in {"warning", "critical"} for n in notes):
+    # Blocker 2 follow-up (2026-05-24 PR-F review): the cap-risk rule must
+    # only fire when there is explicit evidence that actual risk exceeded the
+    # plan (size_creep tag). The missing-risk-data case (unknown_size_discipline)
+    # is "unverifiable", not "exceeded", so it gets a different rule asking the
+    # trader to record planned/actual risk next time.
+    if any(t.tag == "size_creep" for t in tags):
         add(
             "Cap risk at 0.5R for the next two trades unless the trader explicitly modifies the risk plan in the journal.",
             "next_two_trades",
-            "position_size finding",
+            "size_creep tag",
             "Actual risk exceeded the stated risk plan.",
+        )
+    elif any(t.tag == "unknown_size_discipline" for t in tags):
+        add(
+            "On the next trade, record both planned risk_r and actual risk_r in the journal so risk discipline becomes verifiable.",
+            "next_trade",
+            "unknown_size_discipline tag",
+            "Risk discipline could not be assessed because planned or actual risk was missing.",
         )
     if any(t.tag == "fomo_entry" for t in tags):
         add(

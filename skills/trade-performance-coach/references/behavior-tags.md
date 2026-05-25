@@ -15,7 +15,8 @@ about trading behavior that may explain process drift. Always use language like
 | `premature_exit` | Exited before plan due to discomfort without invalidation. | exit before stop/target; journal says "got scared" | predefine partial/exit rules; no discretionary exit without invalidation note |
 | `overconfidence_after_winner` | Risk increased after a win without rule justification. | actual risk > plan after prior winner; journal says "easy money" | cap risk after large winner; require normal sizing until next review |
 | `stop_moved` | Stop was moved after entry without a pre-defined plan. | `actual.stop_moved = true` and not planned | stop changes must be pre-written; unplanned move triggers review |
-| `size_creep` | Actual risk or size exceeded risk plan. | actual R > planned max R | reduce next trade size; require position-size screenshot |
+| `size_creep` | Actual risk or size exceeded risk plan. | actual R > planned max R (explicit comparison) | reduce next trade size; require position-size screenshot |
+| `unknown_size_discipline` | Risk discipline could not be assessed because actual.risk_r or the risk plan reference is missing. | position_size warning emitted because actual or reference risk is None | record planned and actual risk on the next trade so size discipline becomes verifiable |
 | `hesitation` | Valid plan was not executed due to hesitation. | missed planned entry; journal says "hesitated" | use if/then trigger checklist; define no-entry after missed trigger |
 | `rule_drift` | Repeated small deviations from rules. | multiple minor deviations or unclear records | simplify rules; pick one rule to enforce next week |
 | `no_pattern_detected` | No behavior pattern detected from available evidence. | clean record with no supportive evidence | no behavior-specific guardrail needed |
