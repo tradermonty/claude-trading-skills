@@ -26,6 +26,38 @@ Smoke-test all providers: `python3 scripts/api_clients/tests/test_smoke.py` (8/8
 
 Catalog + migration guide: `scripts/api_clients/README.md`. OANDA and Binance keys exist in the secrets file but are **OFF-LIMITS** per project hard-constraints (no broker execution; the forex SDK belongs to a separate project).
 
+## QA Discipline — No Shortcuts Rule
+
+Before claiming any infrastructure, client, validator, or scoring change is "done", run the full gauntlet **up front**, not as a follow-up after the user asks. Smoke tests + `--quick` release gate **do not count as QA** on their own; they only confirm the happy path.
+
+**The non-negotiable gauntlet:**
+
+```bash
+# 1. Pre-commit on every changed file (catches lint, format, codespell, secret leaks, absolute paths)
+uv run pre-commit run --files <each changed file>
+
+# 2. Targeted unit tests for new code — mocked HTTP / mocked filesystem, runs offline
+python3 -m pytest <path/to/new/tests>/ -v
+
+# 3. Full project suite — confirms no regressions in any skill
+bash scripts/run_all_tests.sh
+
+# 4. Strict release gate — runs full pytest + all 9 institutional checks
+python3 scripts/run_release_gate.py --strict
+```
+
+**Required for any new module that hits a network/file/external system:**
+- Unit tests with `unittest.mock.patch` covering: URL construction, auth params, dataclass parsing, empty responses, HTTP error paths, rate-limit/retry paths, and security invariants (no value echo in errors)
+- Tests run offline — no smoke-test-only coverage
+- Pragma allowlists (`# pragma: allowlist secret`) on test fixture values + docstring examples
+
+**Required for any new validator / scoring change:**
+- Compute expected values from the actual implementation, not from outdated docs
+- Pin exact numbers in `pytest.approx(..., abs=...)` so drift is caught
+- One test per behavioral branch, not just the happy path
+
+**When the user has to ask "did we do QA?":** I failed. The fix is to run the gauntlet next time before declaring done — not to apologize after. This rule has been re-learned once (2026-05-27 API client layer); it must not be re-learned again.
+
 ## Repository Architecture
 
 ### Skill Structure
