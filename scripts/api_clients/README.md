@@ -1,0 +1,81 @@
+# API Provider Catalog
+
+Centralized API client layer for TraderMonty. Replaces scrapers (yfinance, finvizfinance, WebSearch) with structured, key-authenticated providers.
+
+## Quick start
+
+```python
+from scripts.api_clients import PolygonClient, NewsClient, EIAClient, PolymarketClient, FinnhubClient
+
+# All clients auto-load keys from ~/.claude/secrets/tradermonty.env
+poly = PolygonClient()
+bars = poly.get_aggs("NVDA", "day", "2026-01-01", "2026-05-27")
+
+news = NewsClient()
+items = news.search_news("Fed rate cut", days=3, limit=20)
+```
+
+Run the smoke test to verify every provider is reachable:
+```bash
+python3 scripts/api_clients/tests/test_smoke.py
+```
+
+## Provider matrix
+
+| Provider | Module | Key env var | Free tier | Best used for |
+|---|---|---|---|---|
+| **Polygon.io** | `polygon_client.PolygonClient` | `POLYGON_API_KEY` | 5 req/min, EOD | OHLCV, news, fundamentals — replaces yfinance everywhere |
+| **Marketaux + Newsdata IO** | `news_client.NewsClient` | `MARKETAUX_API_KEY`, `NEWSDATA_API_KEY` | 100/day each | Ticker-tagged news + sentiment — replaces WebSearch |
+| **EIA** | `eia_client.EIAClient` | `EIA_API_KEY` | Unlimited | Power demand, gas prices, spark spread → Power Infrastructure theme |
+| **Polymarket** | `polymarket_client.PolymarketClient` | (public Gamma API) | Unlimited | Consensus probability for catalysts → what-is-priced-in framework |
+| **Finnhub** | `finnhub_client.FinnhubClient` | `FINNHUB_API_KEY` | 60 req/min | Economic + earnings calendars (free alt to FMP) |
+| **Alpaca** | (`portfolio-manager` skill, MCP) | `ALPACA_API_KEY` + `ALPACA_API_SECRET` | Free paper | Portfolio reads only — no execution |
+| **HuggingFace / DeepSeek / Kimi** | (skill-level via `LLM_PROVIDER`) | `HF_TOKEN`, `DEEPSEEK_API_KEY`, `KIMI_API_KEY` | Varies | LLM-axis reviewer, narrative synthesis |
+| **Telegram** | (alerting only, no client yet) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Free | Push notifications |
+| **Apify** | (not wrapped) | `APIFY_API_KEY` | Pay-as-you-go | Future: replace finvizfinance with Apify actor |
+
+## OFF-LIMITS
+
+These keys exist in the secrets file but the project's hard constraints (see `CLAUDE.md`) forbid using them:
+
+- **OANDA** (`OANDA_API_TOKEN`) — forex broker SDK belongs to a separate project; no broker execution here
+- **Binance** (`BINANCE_API_KEY`) — no auto-trade; crypto execution outside project scope
+
+If you find yourself reaching for these, stop. The constraint exists to keep the manual-review gate intact.
+
+## Key file location
+
+All keys live at:
+```
+~/.claude/secrets/tradermonty.env   (mode 600, outside repo)
+```
+
+The file is auto-loaded on first `get_api_key()` call. Supports two formats:
+```bash
+# Shell-export style:
+export POLYGON_API_KEY="abc123"
+FOO=bar
+
+# Provider-block style:
+Provider  :Marketeaux
+API Key   :<your_key_value_here>
+```
+
+## Migration guide — replace existing scrapers
+
+| Current scraper | Replace with | Skills affected |
+|---|---|---|
+| `yfinance.download(...)` | `PolygonClient.get_aggs(...)` | etf-scanner, vcp-screener, market-top-detector, ftd-detector |
+| `finvizfinance.industry()` | `PolygonClient.get_grouped_daily(...)` + sector aggregation | theme-detector |
+| `WebSearch("ticker news")` | `NewsClient.get_market_news(tickers=[...])` | market-news-analyst, scenario-analyzer |
+| FMP `/calendar/economic` | `FinnhubClient.economic_calendar(...)` | economic-calendar-fetcher |
+| FMP `/earning_calendar` | `FinnhubClient.earnings_calendar(...)` | earnings-calendar |
+
+## Design rules for new clients
+
+1. **Always go through `get_api_key()`** — never read `os.environ` directly. Centralizes the secrets-file load.
+2. **Mark required vs optional** with `required=False`; let users wire one provider without forcing all.
+3. **Throttle internally**, don't push that responsibility to callers. Free-tier limits are real.
+4. **Return dataclasses, not raw dicts**, so the schema is discoverable and type-checkable.
+5. **Don't echo key values** in error messages. Use `***REDACTED***` where logging.
+6. **Handle 429 with a single backoff + retry**, not infinite loops.

@@ -8,6 +8,24 @@ This repository contains Claude Skills for equity investors and traders. Each sk
 
 ⚠️ **Important:** Some skills require paid API subscriptions (FMP API and/or FINVIZ Elite) to function. See the [API Key Management](#api-key-management) section for detailed requirements by skill.
 
+## Centralized API Client Layer
+
+**Always use `scripts/api_clients/` instead of scrapers (yfinance, finvizfinance, WebSearch).** Keys are auto-loaded from `~/.claude/secrets/tradermonty.env`.
+
+```python
+from scripts.api_clients import (
+    PolygonClient,    # OHLCV + news + fundamentals  (replaces yfinance)
+    NewsClient,       # Marketaux + Newsdata IO     (replaces WebSearch for ticker news)
+    EIAClient,        # Power demand + gas prices   (Power Infrastructure theme)
+    PolymarketClient, # Implied probability         (what-is-priced-in framework)
+    FinnhubClient,    # Econ + earnings calendars   (free alt to FMP)
+)
+```
+
+Smoke-test all providers: `python3 scripts/api_clients/tests/test_smoke.py` (8/8 green as of 2026-05-27).
+
+Catalog + migration guide: `scripts/api_clients/README.md`. OANDA and Binance keys exist in the secrets file but are **OFF-LIMITS** per project hard-constraints (no broker execution; the forex SDK belongs to a separate project).
+
 ## Repository Architecture
 
 ### Skill Structure
