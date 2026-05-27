@@ -2,18 +2,18 @@
 
 Convention:
     Keys live in ~/.claude/secrets/tradermonty.env as shell-style assignments:
-        export FOO_API_KEY="value"
-        BAR_API_KEY=value
+        export FOO_API_KEY="value"  # pragma: allowlist secret
+        BAR_API_KEY=value  # pragma: allowlist secret
 
     This module parses that file and exposes get_api_key(name) without ever
     echoing values. Already-set env vars take precedence (12-factor).
 """
+
 from __future__ import annotations
 
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 SECRETS_PATH = Path.home() / ".claude" / "secrets" / "tradermonty.env"
 
@@ -47,7 +47,7 @@ def load_env(path: Path = SECRETS_PATH, override: bool = False) -> dict[str, str
         return {}
 
     keys_seen: dict[str, str] = {}
-    pending_provider: Optional[str] = None  # for "Provider :X / API Key :Y" blocks
+    pending_provider: str | None = None  # for "Provider :X / API Key :Y" blocks
     with open(path, encoding="utf-8") as f:
         for raw in f:
             line = raw.rstrip("\n")
@@ -93,7 +93,7 @@ def load_env(path: Path = SECRETS_PATH, override: bool = False) -> dict[str, str
     return keys_seen
 
 
-def get_api_key(name: str, *, required: bool = True) -> Optional[str]:
+def get_api_key(name: str, *, required: bool = True) -> str | None:
     """Fetch an API key by name. Auto-loads the secrets file on first call.
 
     Args:

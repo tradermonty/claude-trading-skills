@@ -21,12 +21,12 @@ Usage:
     bars = client.get_aggs("AAPL", "day", "2026-01-01", "2026-05-27")
 """
 
-from .load_env import get_api_key, load_env  # noqa: F401
-from .polygon_client import PolygonClient  # noqa: F401
-from .news_client import NewsClient  # noqa: F401
 from .eia_client import EIAClient  # noqa: F401
-from .polymarket_client import PolymarketClient  # noqa: F401
 from .finnhub_client import FinnhubClient  # noqa: F401
+from .load_env import get_api_key, load_env  # noqa: F401
+from .news_client import NewsClient  # noqa: F401
+from .polygon_client import PolygonClient  # noqa: F401
+from .polymarket_client import PolymarketClient  # noqa: F401
 
 __all__ = [
     "PolygonClient",

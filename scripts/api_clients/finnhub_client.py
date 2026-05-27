@@ -6,11 +6,12 @@ earnings-calendar skills, which currently require FMP.
 Free tier: 60 calls/min, US data only on free.
 Docs: https://finnhub.io/docs/api
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 try:
     import requests
@@ -29,11 +30,11 @@ class EconEvent:
     country: str
     event: str
     time: datetime
-    actual: Optional[float]
-    estimate: Optional[float]
-    previous: Optional[float]
+    actual: float | None
+    estimate: float | None
+    previous: float | None
     impact: str  # "low" / "medium" / "high"
-    unit: Optional[str] = None
+    unit: str | None = None
 
 
 @dataclass
@@ -42,11 +43,13 @@ class EarningsEvent:
 
     symbol: str
     date: date
-    hour: str  # "bmo" (before market open) / "amc" (after market close) / "dmh" (during market hours)
-    eps_estimate: Optional[float]
-    eps_actual: Optional[float]
-    revenue_estimate: Optional[float]
-    revenue_actual: Optional[float]
+    hour: (
+        str  # "bmo" (before market open) / "amc" (after market close) / "dmh" (during market hours)
+    )
+    eps_estimate: float | None
+    eps_actual: float | None
+    revenue_estimate: float | None
+    revenue_actual: float | None
     year: int
     quarter: int
 
@@ -54,12 +57,12 @@ class EarningsEvent:
 class FinnhubClient:
     """Finnhub REST client."""
 
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 20):
+    def __init__(self, api_key: str | None = None, timeout: int = 20):
         self.api_key = api_key or get_api_key("FINNHUB_API_KEY")
         self.timeout = timeout
         self._session = requests.Session()
 
-    def _get(self, path: str, params: Optional[dict] = None) -> Any:
+    def _get(self, path: str, params: dict | None = None) -> Any:
         params = dict(params or {})
         params["token"] = self.api_key
         r = self._session.get(f"{BASE}{path}", params=params, timeout=self.timeout)
@@ -69,7 +72,7 @@ class FinnhubClient:
     # ── calendars ───────────────────────────────────────────────────
 
     def economic_calendar(
-        self, *, from_date: Optional[str] = None, to_date: Optional[str] = None
+        self, *, from_date: str | None = None, to_date: str | None = None
     ) -> list[EconEvent]:
         """Macro events (CPI, FOMC, employment) for date range.
 
@@ -104,9 +107,9 @@ class FinnhubClient:
     def earnings_calendar(
         self,
         *,
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
-        symbol: Optional[str] = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        symbol: str | None = None,
     ) -> list[EarningsEvent]:
         """Earnings reports for date range or single symbol."""
         if not from_date:
@@ -145,10 +148,13 @@ class FinnhubClient:
         """Company-specific news from past N days."""
         end = date.today()
         start = end - timedelta(days=days)
-        return self._get(
-            "/company-news",
-            {"symbol": symbol.upper(), "from": start.isoformat(), "to": end.isoformat()},
-        ) or []
+        return (
+            self._get(
+                "/company-news",
+                {"symbol": symbol.upper(), "from": start.isoformat(), "to": end.isoformat()},
+            )
+            or []
+        )
 
     def quote(self, symbol: str) -> dict[str, Any]:
         """Real-time quote: c (current), h (high), l (low), o (open), pc (prev close), t (timestamp)."""
