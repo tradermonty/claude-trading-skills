@@ -27,6 +27,9 @@ dev = [
     "detect-secrets>=1.5.0",
     "codespell>=2.3.0",
     "pre-commit>=3.0.0",
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "yfinance>=0.2.0",
 ]
 
 [tool.ruff]

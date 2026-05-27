@@ -18,7 +18,6 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # These are excluded from the gate so that the pre-push hook is usable.
 # Remove a skill from this list once its failures are fixed.
 KNOWN_SKIP=(
-    "theme-detector"    # 27 pre-existing failures
     "canslim-screener"  # requires bs4 (optional dep, not in dev extras)
 )
 
