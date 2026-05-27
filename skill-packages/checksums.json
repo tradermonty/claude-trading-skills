@@ -1,12 +1,12 @@
 {
   "_release": {
     "manifest_version": "3.0",
-    "build_timestamp": "2026-05-27T01:12:26.880681+00:00",
-    "source_commit": "4d748d6ef5152d25d7c51eb6132f2e26c73f139f",
+    "build_timestamp": "2026-05-27T01:26:14.999570+00:00",
+    "source_commit": "b8dc98d2585494519607d2dd2801b48ab0d8a713",
     "source_dirty": true,
-    "signed_by": "a-plus-release",
+    "signed_by": "a-plus-release-v2",
     "signing_note": "HMAC-SHA256 manifest signing enabled (Phase 1 \u2014 Third Hardening Pass). See docs/internal/key-management.md for production key requirements.",
-    "_signature": "25b6020e2267b20cf691fff400e8d28fdd49d979aa8476860387d054afbdac34",
+    "_signature": "515a52fc8c701e0d1bfc455315c50b718cbada16fecdbabd3f21f4524b756a01",
     "_signature_key_id": "0e69b4d5"
   },
   "backtest-expert": {
@@ -287,14 +287,14 @@
   },
   "theme-detector": {
     "file": "theme-detector.skill",
-    "sha256": "5ae2e554f2a98763226a0e2d29a40a3d459500b2cf889d623248a41852c78a4b",
-    "size_bytes": 118201,
+    "sha256": "72efe45a5fc389cb36fa0d6706633f06ba356480a1f44764b9461ecaab65897b",
+    "size_bytes": 125286,
     "stale": false
   },
   "trade-hypothesis-ideator": {
     "file": "trade-hypothesis-ideator.skill",
-    "sha256": "54bc387297475fb4d735eb0c0ccf40083573ca43f39a7eb7988535c68cd82a0e",
-    "size_bytes": 32428,
+    "sha256": "a670e7071413e18dd99694a3ee6c85636050a9dc08e4160bbda67074f627e70c",
+    "size_bytes": 36837,
     "stale": false
   },
   "trader-memory-core": {

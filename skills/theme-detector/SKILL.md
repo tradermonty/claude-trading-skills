@@ -175,10 +175,11 @@ Update Confidence levels based on findings:
 Cross-reference detection results with knowledge bases:
 
 **Reference Documents to Consult:**
-1. `references/cross_sector_themes.md` - Theme definitions and constituent industries
+1. `references/cross_sector_themes.md` - Theme definitions and constituent industries (18 themes incl. Power Infrastructure)
 2. `references/thematic_etf_catalog.md` - ETF exposure options by theme
 3. `references/theme_detection_methodology.md` - Scoring model details
 4. `references/finviz_industry_codes.md` - Industry classification reference
+5. `references/energy-power-market-signals.md` - Deep-dive: spark spreads, capacity markets, duck curve, scarcity pricing, AI power demand supply chain. Load when Power Infrastructure theme scores hot or any utility/IPP stocks appear in results.
 
 **Analysis Framework:**
 

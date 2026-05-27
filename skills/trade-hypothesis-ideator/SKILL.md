@@ -46,6 +46,7 @@ python3 skills/trade-hypothesis-ideator/scripts/run_hypothesis_ideator.py \
 
 - `references/hypothesis_types.md`
 - `references/evidence_quality_guide.md`
+- `references/what-is-priced-in-framework.md` - Framework for translating research into sized positions: score/rank (quant), fair-value gap (expectational), and what-is-priced-in (fundamental discretionary). Load when hypothesis involves an earnings catalyst, valuation gap, or consensus revision thesis.
 
 ## Output Artifact
 
