@@ -364,6 +364,17 @@ Create a concise, actionable summary for the user:
 
 ---
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 ### Scripts Directory (`scripts/`)
@@ -669,3 +680,15 @@ This is **Phase 3** implementing all 7 of 7 CANSLIM components:
 new RS fields (`rs_rating`, `rs_rank_percentile`, `rs_3m_return`, `rs_6m_return`,
 `rs_12m_return`, `rs_benchmark`, `rs_benchmark_relative_return`, `rs_component_score`,
 `benchmark_52w_performance`).
+
+## Data Gaps
+
+Explicit behavior when required data is unavailable — do not substitute neutrals silently.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` env var missing | CRITICAL | Halt — exit 1; print setup instructions; do not write output |
+| FMP returns HTTP error or empty list | HIGH | Halt — log `[DATA GAP HIGH]`; do not fabricate candidates |
+| Individual ticker data unavailable | LOW | Skip ticker; list missing symbols in output under `data_gaps[]` |
+| Fewer than 30 qualifying candidates | MEDIUM | Continue; note reduced sample; mark `confidence: LOW` in output |
+| Data timestamp >1 trading day old | MEDIUM | Warn in output; proceed only with user confirmation |

@@ -126,13 +126,63 @@ Lightweight index for fast queries without loading full YAML files.
 
 Postmortem markdown reports: `pm_{thesis_id}.md`.
 
+## Thesis Lifecycle States
+
+All thesis records follow the canonical `ThesisLifecycle` state machine from `schemas/artifacts.py`.
+No state may be skipped; only forward transitions are valid.
+
+| State | Meaning | Who sets it |
+|-------|---------|-------------|
+| `IDEA` | Screener output registered; not yet validated | `thesis_ingest.py` |
+| `CANDIDATE` | Chart review done; awaiting sizing | Trader via `transition()` |
+| `PLANNED` | Position sized; entry plan ready for manual approval | Trader via `transition()` |
+| `ENTERED` | Order placed manually at broker; confirmed fill | Trader via `open_position()` |
+| `MANAGED` | Position open; periodic review due | Automatic on review-due check |
+| `EXITED` | Position closed at broker | Trader via `close_position()` |
+| `POSTMORTEM_DONE` | Postmortem written and classified | `thesis_review.py postmortem` |
+| `ARCHIVED` | No further action required | Trader via `transition()` |
+
+**No transition from `PLANNED` to `ENTERED` may occur without manual broker confirmation.**
+This skill does not place orders — it tracks state.
+
+## Manual Review Gate
+
+Every thesis must pass through at least one decision gate before advancing to `ENTERED`:
+
+1. Trader confirms entry criteria still met on live chart
+2. Position size reviewed against current account equity (not the original plan)
+3. Portfolio heat checked — total open risk within personal limit
+4. Order placed manually at broker; actual fill price recorded back into thesis
+
 ## Key Principles
 
-- **Forward-only transitions**: IDEA → ENTRY_READY → ACTIVE → CLOSED (no backtracking)
+- **Forward-only transitions**: IDEA → CANDIDATE → PLANNED → ENTERED → MANAGED → EXITED → POSTMORTEM_DONE → ARCHIVED
 - **Raw provenance**: All original screener data preserved in `origin.raw_provenance`
 - **Atomic writes**: All file operations use tempfile + os.replace
 - **Git-tracked state**: `state/` directory is committed, providing audit trail
 - **Phase 1 scope**: Single-ticker theses only (pair trades and options in Phase 2)
+
+## Data Gaps
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| Source screener JSON unreadable | CRITICAL | Halt — cannot register thesis without input |
+| Thesis ID not found in state store | HIGH | Halt update — do not create phantom records |
+| FMP API key missing for MAE/MFE | MEDIUM | Generate postmortem without MAE/MFE; note limitation |
+| Exit price not yet available | MEDIUM | Keep thesis in `EXITED` without P&L; add when confirmed |
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `trade_thesis` | `TradeThesis` | Full trade thesis with ThesisLifecycle state and provenance |
+| `journal_entry` | `JournalEntry` | Timestamped decision log entry for trader memory |
+| `postmortem_report` | `PostmortemReport` | 2×2 process/outcome classification with lessons learned |
+
+Schema: `schemas/json/trade_thesis.json` (and sibling files for additional types above)
 
 ## Resources
 

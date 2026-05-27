@@ -3,7 +3,7 @@ layout: default
 title: "Skill Designer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 38
+nav_order: 51
 lang_peer: /ja/skills/skill-designer/
 permalink: /en/skills/skill-designer/
 ---
@@ -50,7 +50,7 @@ documents, helper scripts, and test scaffolding.
 
 - Python 3.9+
 - No external API keys required
-- Reference files must exist under `skills/skill-designer/references/`
+- Reference files must exist under `references/`
 
 ---
 

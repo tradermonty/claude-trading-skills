@@ -3,7 +3,7 @@ layout: default
 title: "Data Quality Checker"
 grand_parent: English
 parent: Skill Guides
-nav_order: 12
+nav_order: 15
 lang_peer: /ja/skills/data-quality-checker/
 permalink: /en/skills/data-quality-checker/
 ---

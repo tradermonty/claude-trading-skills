@@ -306,6 +306,18 @@ Anticipate common user questions:
 - Sector balance considerations
 - Position sizing based on risk tolerance
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+| `dividend_review` | `DividendReview` | Dividend anomaly findings (T1-T5) and review queue |
+
+Schema: `schemas/json/screen_candidate.json` (and sibling files for additional types above)
+
 ## Resources
 
 ### scripts/screen_dividend_stocks.py
@@ -560,3 +572,15 @@ python3 scripts/screen_dividend_stocks.py --use-finviz --finviz-api-key your_key
 
 - **v1.1** (November 2025): Added FINVIZ Elite integration for two-stage screening
 - **v1.0** (November 2025): Initial release with comprehensive multi-phase screening
+
+## Data Gaps
+
+Explicit behavior when required data is unavailable — do not substitute neutrals silently.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` env var missing | CRITICAL | Halt — exit 1; print setup instructions; do not write output |
+| FMP returns HTTP error or empty list | HIGH | Halt — log `[DATA GAP HIGH]`; do not fabricate candidates |
+| Individual ticker data unavailable | LOW | Skip ticker; list missing symbols in output under `data_gaps[]` |
+| Fewer than 30 qualifying candidates | MEDIUM | Continue; note reduced sample; mark `confidence: LOW` in output |
+| Data timestamp >1 trading day old | MEDIUM | Warn in output; proceed only with user confirmation |

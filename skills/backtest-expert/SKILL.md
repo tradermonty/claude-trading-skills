@@ -185,6 +185,18 @@ See `references/failed_tests.md` for detailed examples and diagnostic framework.
 - `reports/backtest_eval_<timestamp>.json` — structured evaluation with per-dimension scores, red flags, and verdict
 - `reports/backtest_eval_<timestamp>.md` — human-readable report with dimension table, key metrics, and red flag details
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `backtest_report` | `BacktestReport` | Scored backtest result with verdict and red-flag list |
+| `backtest_spec` | `BacktestSpec` | Strategy specification with safety defaults (paper_only_until_validated: true) |
+
+Schema: `schemas/json/backtest_report.json` (and sibling files for additional types above)
+
 ## Resources
 
 ### Methodology Reference
@@ -232,3 +244,53 @@ This skill focuses on **systematic/quantitative** backtesting where:
 - Context (news, macro) is deliberately stripped out
 
 Discretionary traders study differently—this skill may not apply to setups requiring subjective judgment.
+
+## No-Lookahead Checklist
+
+Complete this checklist before treating any backtest result as valid. A single "NO" invalidates the result.
+
+| # | Check | Pass? |
+|---|-------|-------|
+| 1 | Entry/exit signals use only data available at bar close on the signal date | ☐ |
+| 2 | No future prices, volumes, or events referenced in signal logic | ☐ |
+| 3 | Earnings dates, dividends, and index membership known only as of signal date | ☐ |
+| 4 | Survivorship bias acknowledged — delisted stocks included in universe | ☐ |
+| 5 | Parameters selected before seeing test-period results (not reverse-engineered) | ☐ |
+| 6 | At least 30 independent trades in the test period | ☐ |
+| 7 | Out-of-sample period held back and tested only once | ☐ |
+| 8 | Slippage, commissions, and borrow costs modeled (not assumed zero) | ☐ |
+
+When producing a `BacktestSpec` artifact, populate `no_lookahead_confirmed` and
+`survivorship_bias_acknowledged` only after working through this checklist.
+
+## Paper Only Until Validated
+
+**This skill produces decision-support output, not a live trading signal.**
+
+A strategy is eligible for paper trading only after:
+1. No-Lookahead Checklist passes (all 8 items confirmed)
+2. Out-of-sample test completes with results within expected range
+3. Edge degrades gracefully across parameter perturbations (plateau, not spike)
+
+A strategy is eligible for live trading only after:
+1. All paper-trading criteria met
+2. Minimum 3 months paper trading with results consistent with backtest expectations
+3. Trader explicitly signs off outside this repo
+
+Output artifacts set `paper_only_until_validated: true` by default. This field must not be
+set to `false` in any artifact produced by this skill.
+
+
+## Data Gaps
+
+Backtest quality depends entirely on the quality of user-supplied data. Explicit handling rules:
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| OHLCV history shorter than 3× the strategy lookback | HIGH | Halt — note insufficient history; do not extrapolate |
+| Missing bars (gaps in OHLCV series) | HIGH | Flag in output; do not fill with averages or interpolation |
+| Corporate actions (splits, dividends) not adjusted | HIGH | Warn; results may be invalid; require adjusted data |
+| Fewer than 30 qualifying trade signals | MEDIUM | Continue; mark `confidence: LOW`; note small-sample caveat |
+| Universe survivorship not confirmed | MEDIUM | Add survivorship warning to all output artifacts |
+
+Do not silently ignore data quality issues. Every gap must appear in the output `data_gaps[]` array.

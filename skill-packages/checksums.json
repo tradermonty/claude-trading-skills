@@ -1,0 +1,342 @@
+{
+  "_release": {
+    "manifest_version": "3.0",
+    "build_timestamp": "2026-05-27T01:12:26.880681+00:00",
+    "source_commit": "4d748d6ef5152d25d7c51eb6132f2e26c73f139f",
+    "source_dirty": true,
+    "signed_by": "a-plus-release",
+    "signing_note": "HMAC-SHA256 manifest signing enabled (Phase 1 \u2014 Third Hardening Pass). See docs/internal/key-management.md for production key requirements.",
+    "_signature": "25b6020e2267b20cf691fff400e8d28fdd49d979aa8476860387d054afbdac34",
+    "_signature_key_id": "0e69b4d5"
+  },
+  "backtest-expert": {
+    "file": "backtest-expert.skill",
+    "sha256": "339c3ef588b2320bbad3a090d1c12644d16981875c0796af3f7cab71a9487c52",
+    "size_bytes": 20042,
+    "stale": false
+  },
+  "breadth-chart-analyst": {
+    "file": "breadth-chart-analyst.skill",
+    "sha256": "62d3e0e9bb1d85edfda2fc270d4866870646e21ef60a9db44d4ed5dec096b199",
+    "size_bytes": 1505652,
+    "stale": false
+  },
+  "breakout-trade-planner": {
+    "file": "breakout-trade-planner.skill",
+    "sha256": "ecc732a82b737c2b4052ce72123a1204f74aa8613e9edb16ac1299b74a3a28d8",
+    "size_bytes": 19477,
+    "stale": false
+  },
+  "canslim-screener": {
+    "file": "canslim-screener.skill",
+    "sha256": "fdc0b648fe186b0ac740cffeb0e9e5c69edbd14dcc9f9acd6f7d78924de56311",
+    "size_bytes": 103069,
+    "stale": false
+  },
+  "data-quality-checker": {
+    "file": "data-quality-checker.skill",
+    "sha256": "e37f04dcb23b2d8f61a29da8640cb1ffdc90f4ef4da5fe7a95ca4a9f135ba7b2",
+    "size_bytes": 21503,
+    "stale": false
+  },
+  "dividend-growth-pullback-screener": {
+    "file": "dividend-growth-pullback-screener.skill",
+    "sha256": "d7646dd46b3c47709ea1d1fedb0f31a34e6fc245f77d863bbb6db9e6dc6c97fb",
+    "size_bytes": 38498,
+    "stale": false
+  },
+  "downtrend-duration-analyzer": {
+    "file": "downtrend-duration-analyzer.skill",
+    "sha256": "7ba74beb4a8c5eec04ca0a624ce01347e26610b25fae7b2c34c7268e1fdd25e8",
+    "size_bytes": 18312,
+    "stale": false
+  },
+  "dual-axis-skill-reviewer": {
+    "file": "dual-axis-skill-reviewer.skill",
+    "sha256": "0771503a026fe77cb025ad57ccf35f48b003ebd303dd1e39e15b0634dd438d07",
+    "size_bytes": 18304,
+    "stale": false
+  },
+  "earnings-calendar": {
+    "file": "earnings-calendar.skill",
+    "sha256": "385c39ec4a91a765859bd1d2d207791a9580b4b0ceb6d6cd2b5e06204b15d40f",
+    "size_bytes": 26515,
+    "stale": false
+  },
+  "earnings-trade-analyzer": {
+    "file": "earnings-trade-analyzer.skill",
+    "sha256": "c08d27632be2fcb8fc2643e2a68cd3a125ab31c03c6db2121022c6da5ff82d74",
+    "size_bytes": 31365,
+    "stale": false
+  },
+  "economic-calendar-fetcher": {
+    "file": "economic-calendar-fetcher.skill",
+    "sha256": "3bca8a28cae062bf3e4e284e3284932b2430b5347354f61da35b585ecd43b046",
+    "size_bytes": 15093,
+    "stale": false
+  },
+  "edge-candidate-agent": {
+    "file": "edge-candidate-agent.skill",
+    "sha256": "ad326b8f326236f49fad2af58b571dd3e2a22d7c992ec89d7a5d55f8abf5a041",
+    "size_bytes": 36575,
+    "stale": false
+  },
+  "edge-concept-synthesizer": {
+    "file": "edge-concept-synthesizer.skill",
+    "sha256": "916a4ba7ede3bb4902ebe1a520a97fb60a548bce339009dcef8e87b51b1025a0",
+    "size_bytes": 16457,
+    "stale": false
+  },
+  "edge-hint-extractor": {
+    "file": "edge-hint-extractor.skill",
+    "sha256": "13e990d8d67259b8c846ff615bd73df9876c397737ee08a9e67413f20f745bbd",
+    "size_bytes": 11038,
+    "stale": false
+  },
+  "edge-pipeline-orchestrator": {
+    "file": "edge-pipeline-orchestrator.skill",
+    "sha256": "6fef69de6da8cdccce5b72e08f55b3599afdc9dea7f1c9d2879f47e28bcba3d4",
+    "size_bytes": 20873,
+    "stale": false
+  },
+  "edge-signal-aggregator": {
+    "file": "edge-signal-aggregator.skill",
+    "sha256": "8eb59e560bf34047d73f68fd0da7480bf73628bbe75a8b098d17778c3fe426b2",
+    "size_bytes": 22371,
+    "stale": false
+  },
+  "edge-strategy-designer": {
+    "file": "edge-strategy-designer.skill",
+    "sha256": "e4823f3f0cea276adc9ce5c6a6dadff81b3a312333d35f5e400d8534d00e278a",
+    "size_bytes": 9305,
+    "stale": false
+  },
+  "edge-strategy-reviewer": {
+    "file": "edge-strategy-reviewer.skill",
+    "sha256": "164bfeb12a5dd15c9baafc1234e5bbbe286dcc71e700fa3a1c2c2567c441cf42",
+    "size_bytes": 18981,
+    "stale": false
+  },
+  "exposure-coach": {
+    "file": "exposure-coach.skill",
+    "sha256": "ff9187ef0e37771fe012ec5145122b874f532fc4cce55fbd16ae89c1e015dd96",
+    "size_bytes": 15912,
+    "stale": false
+  },
+  "finviz-screener": {
+    "file": "finviz-screener.skill",
+    "sha256": "838395dcf2f2d73e0692a238b93e65c0f8f1c220ce454f0a36f606163dd79476",
+    "size_bytes": 36177,
+    "stale": false
+  },
+  "ftd-detector": {
+    "file": "ftd-detector.skill",
+    "sha256": "7a1d8b3e32886fd0928b136677d74b5b5ec2881375e57b70cc943b593cfcad80",
+    "size_bytes": 42716,
+    "stale": false
+  },
+  "ibd-distribution-day-monitor": {
+    "file": "ibd-distribution-day-monitor.skill",
+    "sha256": "f8304b0c472a92cd5d829364837e12d4fbb3667ca3767e646cbb47520df68538",
+    "size_bytes": 39290,
+    "stale": false
+  },
+  "institutional-flow-tracker": {
+    "file": "institutional-flow-tracker.skill",
+    "sha256": "3f8db0d3a338e082a9dca4e554c1587d397092474253a93c8507d4b4c3bd3fc7",
+    "size_bytes": 56944,
+    "stale": false
+  },
+  "kanchi-dividend-review-monitor": {
+    "file": "kanchi-dividend-review-monitor.skill",
+    "sha256": "7c5ad59d7bd70d35d38742ab938ab4d62b18a93ea63d2cdbc521ca1ca8a07ce1",
+    "size_bytes": 12251,
+    "stale": false
+  },
+  "kanchi-dividend-sop": {
+    "file": "kanchi-dividend-sop.skill",
+    "sha256": "2dfd3357643d2f3d96f1ad84a3fdc1384302089dceeebd64aedc52b38711e1cc",
+    "size_bytes": 15341,
+    "stale": false
+  },
+  "kanchi-dividend-us-tax-accounting": {
+    "file": "kanchi-dividend-us-tax-accounting.skill",
+    "sha256": "ed257750390ccfc5d324a18aa59bf657d2f739112fdaf7c319c0f26995f0fa35",
+    "size_bytes": 8535,
+    "stale": false
+  },
+  "macro-regime-detector": {
+    "file": "macro-regime-detector.skill",
+    "sha256": "6b4ed430fad840c52f970fb8dc3ef43699133567b7bfd9a928e60be99553f588",
+    "size_bytes": 59895,
+    "stale": false
+  },
+  "market-breadth-analyzer": {
+    "file": "market-breadth-analyzer.skill",
+    "sha256": "e20edf09e38dc1578a2f938dc5557558bbe0ce9a0cac8ee41b17d8a5bae2b1de",
+    "size_bytes": 46652,
+    "stale": false
+  },
+  "market-environment-analysis": {
+    "file": "market-environment-analysis.skill",
+    "sha256": "8704d80cebde7e9499266d3c315f4e1f532053d0a3c313022a38797523eb4535",
+    "size_bytes": 9745,
+    "stale": false
+  },
+  "market-news-analyst": {
+    "file": "market-news-analyst.skill",
+    "sha256": "ded5647189f34e1bf02f5e6b05173e925f600afda75c3ee1a3ec035ba6a1d7f4",
+    "size_bytes": 31560,
+    "stale": false
+  },
+  "market-top-detector": {
+    "file": "market-top-detector.skill",
+    "sha256": "ed957093be8af0594e152000ed5f1122f921a8d458addcc78b87baf3c36b7ffa",
+    "size_bytes": 81103,
+    "stale": false
+  },
+  "options-strategy-advisor": {
+    "file": "options-strategy-advisor.skill",
+    "sha256": "356e74e7edf7ea6267511de5277f29c591a54e152a9c1c2ede4016a1bc83a10b",
+    "size_bytes": 25444,
+    "stale": false
+  },
+  "pair-trade-screener": {
+    "file": "pair-trade-screener.skill",
+    "sha256": "cea9b68cd26967340f965e528665d6205d5746e383e2ec94fc395cf9650de35a",
+    "size_bytes": 39365,
+    "stale": false
+  },
+  "parabolic-short-trade-planner": {
+    "file": "parabolic-short-trade-planner.skill",
+    "sha256": "8cdb8ff952a887988e70361df63c86464826473678cb3e38349b54753a7b03b9",
+    "size_bytes": 146455,
+    "stale": false
+  },
+  "pead-screener": {
+    "file": "pead-screener.skill",
+    "sha256": "c7bfdb5f8da1676b6aeb6d8632e8b7aa377923dbdf43c5268721c02e615c4397",
+    "size_bytes": 38735,
+    "stale": false
+  },
+  "portfolio-manager": {
+    "file": "portfolio-manager.skill",
+    "sha256": "31a4a8c6b332829897c68f17ca36b2e7dc4b9a9c282c58bd7826434fb824ded1",
+    "size_bytes": 68102,
+    "stale": false
+  },
+  "position-sizer": {
+    "file": "position-sizer.skill",
+    "sha256": "a850f4b3b7bd924e2ce95ee66ba6eabef44736dad29339972e46813029162a02",
+    "size_bytes": 14682,
+    "stale": false
+  },
+  "scenario-analyzer": {
+    "file": "scenario-analyzer.skill",
+    "sha256": "4ed8ce1e368bcfff3cd3a5011ec81aff80866bf38d7080e414d24c21136a0e02",
+    "size_bytes": 15980,
+    "stale": false
+  },
+  "sector-analyst": {
+    "file": "sector-analyst.skill",
+    "sha256": "776c0a4d5cc8ef2a940acee1021ed9da90dcdc245b5c76004b866c19bb65180b",
+    "size_bytes": 1325340,
+    "stale": false
+  },
+  "signal-postmortem": {
+    "file": "signal-postmortem.skill",
+    "sha256": "151ee4d8b28892ff6e2d519ebc46e7e95332966d21579c1c4591171cb8c547ca",
+    "size_bytes": 22448,
+    "stale": false
+  },
+  "skill-designer": {
+    "file": "skill-designer.skill",
+    "sha256": "38069a554be4926ab64b946d092162039bb214f82a213b6f68db3a62e48bd4ee",
+    "size_bytes": 8675,
+    "stale": false
+  },
+  "skill-idea-miner": {
+    "file": "skill-idea-miner.skill",
+    "sha256": "799e4ff83f6dd21709d50812c728fcaefde11946f22aeb564956bb82557f01c7",
+    "size_bytes": 28022,
+    "stale": false
+  },
+  "skill-integration-tester": {
+    "file": "skill-integration-tester.skill",
+    "sha256": "20debddb9fbea925c342fea6a943052ae9380bd8e11b88148e01ba7638888b25",
+    "size_bytes": 13146,
+    "stale": false
+  },
+  "stanley-druckenmiller-investment": {
+    "file": "stanley-druckenmiller-investment.skill",
+    "sha256": "5905c98c3df80db6e85dee8701cc194a7bc2fbbd5e05824b7b1cdb34d5650478",
+    "size_bytes": 47494,
+    "stale": false
+  },
+  "strategy-pivot-designer": {
+    "file": "strategy-pivot-designer.skill",
+    "sha256": "17d520d81fa1116ba610370c09626bf0a01ba430d23d1f15ede78e53a4e935e4",
+    "size_bytes": 33735,
+    "stale": false
+  },
+  "technical-analyst": {
+    "file": "technical-analyst.skill",
+    "sha256": "b5428159c77e85a928a9e04829cc23eb49e91ffe8c322a3de2189b5267c2802e",
+    "size_bytes": 10048,
+    "stale": false
+  },
+  "theme-detector": {
+    "file": "theme-detector.skill",
+    "sha256": "5ae2e554f2a98763226a0e2d29a40a3d459500b2cf889d623248a41852c78a4b",
+    "size_bytes": 118201,
+    "stale": false
+  },
+  "trade-hypothesis-ideator": {
+    "file": "trade-hypothesis-ideator.skill",
+    "sha256": "54bc387297475fb4d735eb0c0ccf40083573ca43f39a7eb7988535c68cd82a0e",
+    "size_bytes": 32428,
+    "stale": false
+  },
+  "trader-memory-core": {
+    "file": "trader-memory-core.skill",
+    "sha256": "f9f29099c2852ff2835ee53612e361dec4255e6090c544e126fc8fb2dce0c60f",
+    "size_bytes": 39443,
+    "stale": false
+  },
+  "trading-skills-navigator": {
+    "file": "trading-skills-navigator.skill",
+    "sha256": "3425dae38a41133b7dc962d2371df17100a6004c98e72313b381abd4bdf37da8",
+    "size_bytes": 31988,
+    "stale": false
+  },
+  "uptrend-analyzer": {
+    "file": "uptrend-analyzer.skill",
+    "sha256": "f0f1bdd6ad0f228e1bf59ebb39736ce2063543ca544ddd03e4c3c88456b6cf91",
+    "size_bytes": 55636,
+    "stale": false
+  },
+  "us-market-bubble-detector": {
+    "file": "us-market-bubble-detector.skill",
+    "sha256": "48892a307de5e2a48610629e465369a0923ec248e3592e0e4992914109c06503",
+    "size_bytes": 38310,
+    "stale": false
+  },
+  "us-stock-analysis": {
+    "file": "us-stock-analysis.skill",
+    "sha256": "0dbb6781fdc5f261ac5b3cec242f682b49309c1dbe27ffd0dc71babf25b8e333",
+    "size_bytes": 11571,
+    "stale": false
+  },
+  "value-dividend-screener": {
+    "file": "value-dividend-screener.skill",
+    "sha256": "d093909f929995db29862074bc86f69c45545e8f2f8271adf2cb1930cbbe7589",
+    "size_bytes": 25945,
+    "stale": false
+  },
+  "vcp-screener": {
+    "file": "vcp-screener.skill",
+    "sha256": "cb20345a1003ed910dc708320a0d46f8551a46ea14393e42e0c3cf4d2b487109",
+    "size_bytes": 74678,
+    "stale": false
+  }
+}

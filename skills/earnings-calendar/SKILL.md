@@ -691,6 +691,17 @@ For Claude Web, understand that:
 - Not saved to disk
 - Forgotten when session ends
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `journal_entry` | `JournalEntry` | Timestamped decision log entry for trader memory |
+
+Schema: `schemas/json/journal_entry.json`
+
 ## Resources
 
 **FMP API**:
@@ -719,3 +730,15 @@ This skill provides a reliable, API-driven approach to generating weekly earning
 **Key Workflow**: Date Calculation → API Key Setup → API Data Retrieval → Processing → Report Generation → QA → Delivery
 
 **Output**: Clean, organized markdown report with earnings grouped by date/timing/market cap, including summary statistics and trading considerations.
+
+## Data Gaps
+
+Explicit behavior when required data is unavailable — do not substitute neutrals silently.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` env var missing | CRITICAL | Halt — exit 1; print setup instructions; do not write output |
+| FMP returns HTTP error or empty list | HIGH | Halt — log `[DATA GAP HIGH]`; do not fabricate candidates |
+| Individual ticker data unavailable | LOW | Skip ticker; list missing symbols in output under `data_gaps[]` |
+| Fewer than 30 qualifying candidates | MEDIUM | Continue; note reduced sample; mark `confidence: LOW` in output |
+| Data timestamp >1 trading day old | MEDIUM | Warn in output; proceed only with user confirmation |

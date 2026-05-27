@@ -3,7 +3,7 @@ layout: default
 title: "Skill Idea Miner"
 grand_parent: English
 parent: Skill Guides
-nav_order: 39
+nav_order: 52
 lang_peer: /ja/skills/skill-idea-miner/
 permalink: /en/skills/skill-idea-miner/
 ---
@@ -44,27 +44,46 @@ Mine Claude Code session logs for skill idea candidates. Use when running the we
 
 ## 3. Prerequisites
 
-- **API Key:** None required
-- **Python 3.9+** recommended
+- **Python 3.10+** with `pyyaml` package
+- **Claude CLI** installed and authenticated (`claude --version` to verify)
+- **Session logs** in `~/.claude/projects/<project>/` (created automatically by Claude Code)
+- No API keys required (uses Claude CLI for LLM calls)
 
 ---
 
 ## 4. Quick Start
 
-### Stage 1: Session Log Mining
+```bash
+# Dry-run: preview mined candidates without LLM scoring
+python3 scripts/mine_session_logs.py --dry-run --output-dir reports/
 
-1. Enumerate session logs from allowlist projects in `~/.claude/projects/`
-2. Filter to past 7 days by file mtime, confirm with `timestamp` field
-3. Extract user messages (`type: "user"`, `userType: "external"`)
-4. Extract tool usage patterns from assistant messages
-5. Run deterministic signal detection:
-   - Skill usage frequency (`skills/*/` path references)
-   - Error patterns (non-zero exit codes, `is_error` flags, exception keywords)
-   - Repetitive tool sequences (3+ tools repeated 3+ times)
+# Full mining with scoring (requires Claude CLI)
+python3 scripts/mine_session_logs.py --output-dir reports/
+
+# Score existing candidates
+python3 scripts/score_ideas.py \
+  --candidates reports/raw_candidates.yaml \
+  --output-dir logs/
+```
 
 ---
 
 ## 5. Workflow
+
+### Quick Start
+
+```bash
+# Dry-run: preview mined candidates without LLM scoring
+python3 scripts/mine_session_logs.py --dry-run --output-dir reports/
+
+# Full mining with scoring (requires Claude CLI)
+python3 scripts/mine_session_logs.py --output-dir reports/
+
+# Score existing candidates
+python3 scripts/score_ideas.py \
+  --candidates reports/raw_candidates.yaml \
+  --output-dir logs/
+```
 
 ### Stage 1: Session Log Mining
 

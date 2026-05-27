@@ -128,6 +128,17 @@ base. Suggest specific corrections for each issue.
 - **[allocations]**: Allocation total: 110.0% (expected ~100%)
 ```
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `data_quality_report` | `DataQualityReport` | Validation findings list with severity levels |
+
+Schema: `schemas/json/data_quality_report.json`
+
 ## Resources
 
 - `scripts/check_data_quality.py` -- Main validation script

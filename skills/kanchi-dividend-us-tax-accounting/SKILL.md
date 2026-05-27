@@ -130,6 +130,17 @@ Use this minimum rhythm:
 - Receive risk-event context (`WARN/REVIEW`) from `kanchi-dividend-review-monitor`.
 - Return account-location constraints back to `kanchi-dividend-sop` before new entries.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `journal_entry` | `JournalEntry` | Timestamped decision log entry for trader memory |
+
+Schema: `schemas/json/journal_entry.json`
+
 ## Resources
 
 - `skills/kanchi-dividend-us-tax-accounting/scripts/build_tax_planning_sheet.py`: tax planning sheet generator.

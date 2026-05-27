@@ -1,0 +1,449 @@
+{
+  "$defs": {
+    "DataGap": {
+      "description": "A single data gap record \u2014 emitted when expected data is absent or stale.",
+      "properties": {
+        "gap_id": {
+          "title": "Gap Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "description": {
+          "description": "What data is missing or stale",
+          "title": "Description",
+          "type": "string"
+        },
+        "affected_decision": {
+          "description": "Which downstream decision this impairs",
+          "title": "Affected Decision",
+          "type": "string"
+        },
+        "remediation": {
+          "description": "How the user can resolve this gap",
+          "title": "Remediation",
+          "type": "string"
+        },
+        "can_continue": {
+          "description": "Whether the skill/workflow can produce useful output despite this gap",
+          "title": "Can Continue",
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which upstream skill or API caused the gap",
+          "title": "Source"
+        }
+      },
+      "required": [
+        "severity",
+        "description",
+        "affected_decision",
+        "remediation",
+        "can_continue"
+      ],
+      "title": "DataGap",
+      "type": "object"
+    },
+    "Disclaimer": {
+      "properties": {
+        "text": {
+          "default": "This artifact is produced by TraderMonty, a decision-support and trading-process toolkit. It is NOT financial advice, investment advisory, a trading signal, or a guarantee of profitability. All trading decisions, position sizing, risk management, and broker execution decisions remain solely the user's responsibility. Review all outputs manually before acting.",
+          "title": "Text",
+          "type": "string"
+        },
+        "decision_support_only": {
+          "default": true,
+          "title": "Decision Support Only",
+          "type": "boolean"
+        }
+      },
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "ManualReviewStatus": {
+      "description": "Lifecycle state of the human review gate for an artifact.",
+      "enum": [
+        "PENDING",
+        "IN_REVIEW",
+        "APPROVED",
+        "REJECTED",
+        "WAIVED"
+      ],
+      "title": "ManualReviewStatus",
+      "type": "string"
+    },
+    "ReviewerRole": {
+      "description": "Role of the reviewer who completed or waived the review.",
+      "enum": [
+        "RESEARCHER",
+        "REVIEWER",
+        "RISK_APPROVER",
+        "ADMIN"
+      ],
+      "title": "ReviewerRole",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "description": "Output from kanchi-dividend-review-monitor.",
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "artifact_id": {
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "artifact_type": {
+      "default": "dividend_review",
+      "title": "Artifact Type",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "skill_id": {
+      "description": "ID of the skill that produced this artifact",
+      "title": "Skill Id",
+      "type": "string"
+    },
+    "workflow_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Workflow run ID if produced within a workflow",
+      "title": "Workflow Id"
+    },
+    "workflow_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflow Run Id"
+    },
+    "symbols": {
+      "description": "Tickers/assets covered",
+      "items": {
+        "type": "string"
+      },
+      "title": "Symbols",
+      "type": "array"
+    },
+    "data_sources_used": {
+      "description": "APIs, CSVs, or other sources consumed",
+      "items": {
+        "type": "string"
+      },
+      "title": "Data Sources Used",
+      "type": "array"
+    },
+    "data_gaps": {
+      "description": "All detected data gaps; empty list = no gaps detected",
+      "items": {
+        "$ref": "#/$defs/DataGap"
+      },
+      "title": "Data Gaps",
+      "type": "array"
+    },
+    "assumptions": {
+      "description": "Explicit assumptions made due to missing or inferred data",
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "HIGH / MEDIUM / LOW \u2014 reflects data completeness and signal quality",
+      "title": "Confidence"
+    },
+    "manual_review_required": {
+      "default": true,
+      "title": "Manual Review Required",
+      "type": "boolean"
+    },
+    "manual_review_status": {
+      "$ref": "#/$defs/ManualReviewStatus",
+      "default": "PENDING",
+      "description": "Review lifecycle: PENDING \u2192 IN_REVIEW \u2192 APPROVED / REJECTED. WAIVED is permitted only for non-trade artifacts (e.g., data quality reports). Promotion-blocking: outputs with status PENDING or IN_REVIEW must not be acted upon."
+    },
+    "reviewer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name or identifier of the human reviewer who completed or waived the review",
+      "title": "Reviewer"
+    },
+    "reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ISO-8601 timestamp when the review was completed or waived",
+      "title": "Reviewed At"
+    },
+    "review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reviewer's notes, decision rationale, or conditions attached to the approval",
+      "title": "Review Notes"
+    },
+    "reviewer_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewerRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Role of the reviewer who completed or waived the review"
+    },
+    "author_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ID of the artifact author; used to prevent self-review",
+      "title": "Author Id"
+    },
+    "dual_review_required": {
+      "default": false,
+      "description": "Whether a second independent reviewer is required",
+      "title": "Dual Review Required",
+      "type": "boolean"
+    },
+    "secondary_reviewer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Reviewer"
+    },
+    "secondary_reviewer_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewerRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "secondary_reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Reviewed At"
+    },
+    "secondary_review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Review Notes"
+    },
+    "next_actions": {
+      "description": "Suggested next steps for the user",
+      "items": {
+        "type": "string"
+      },
+      "title": "Next Actions",
+      "type": "array"
+    },
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "company_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Name"
+    },
+    "anomaly_flags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Anomaly Flags",
+      "type": "array"
+    },
+    "t1_dividend_cut_risk": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "T1 Dividend Cut Risk"
+    },
+    "t2_payout_sustainability": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "T2 Payout Sustainability"
+    },
+    "t3_earnings_trend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "T3 Earnings Trend"
+    },
+    "t4_balance_sheet_risk": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "T4 Balance Sheet Risk"
+    },
+    "t5_sector_regime": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "T5 Sector Regime"
+    },
+    "review_queue_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "OK / MONITOR / REVIEW / URGENT",
+      "title": "Review Queue Status"
+    },
+    "additional_buy_deferred": {
+      "default": false,
+      "description": "True if T1-T5 anomalies prevent additional buys",
+      "title": "Additional Buy Deferred",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "skill_id",
+    "ticker"
+  ],
+  "title": "DividendReview",
+  "type": "object"
+}

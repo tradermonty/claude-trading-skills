@@ -608,6 +608,17 @@ Solutions:
 - **Data Usage**: ~2 requests per symbol for 2-year history
 - **Upgrade**: Professional plan ($29/mo) recommended for frequent screening
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 - **FMP Historical Price API**: https://site.financialmodelingprep.com/developer/docs/historical-price-full
@@ -620,3 +631,15 @@ Solutions:
 **Version**: 1.0
 **Last Updated**: 2025-11-08
 **Dependencies**: Python 3.8+, pandas, numpy, scipy, statsmodels, requests
+
+## Data Gaps
+
+Explicit behavior when required data is unavailable — do not substitute neutrals silently.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` env var missing | CRITICAL | Halt — exit 1; print setup instructions; do not write output |
+| FMP returns HTTP error or empty list | HIGH | Halt — log `[DATA GAP HIGH]`; do not fabricate candidates |
+| Individual ticker data unavailable | LOW | Skip ticker; list missing symbols in output under `data_gaps[]` |
+| Fewer than 30 qualifying candidates | MEDIUM | Continue; note reduced sample; mark `confidence: LOW` in output |
+| Data timestamp >1 trading day old | MEDIUM | Warn in output; proceed only with user confirmation |

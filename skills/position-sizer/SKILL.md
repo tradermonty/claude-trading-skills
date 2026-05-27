@@ -7,7 +7,8 @@ description: Calculate risk-based position sizes for long stock trades. Use when
 
 ## Overview
 
-Calculate the optimal number of shares to buy for a long stock trade based on risk management principles. Supports three sizing methods:
+Calculate a reference position size for a long stock trade based on risk management principles.
+Output is a decision-support calculation — the trader must approve and manually enter any resulting order at the broker. Supports three sizing methods:
 
 - **Fixed Fractional**: Risk a fixed percentage of account equity per trade (default: 1%)
 - **ATR-Based**: Use Average True Range to set volatility-adjusted stop distances
@@ -17,7 +18,7 @@ All methods apply portfolio constraints (max position %, max sector %) and outpu
 
 ## When to Use
 
-- User asks "how many shares should I buy?"
+- User asks "how many shares to evaluate for this setup?" or "what is my reference position size?"
 - User wants to calculate position size for a specific trade setup
 - User mentions risk per trade, stop-loss sizing, or portfolio allocation
 - User asks about Kelly Criterion or ATR-based position sizing
@@ -164,6 +165,17 @@ Generated automatically alongside the JSON report. Contains:
 - Final recommendation with shares, value, and risk
 
 Reports are saved to `reports/` with filenames `position_sizer_YYYY-MM-DD_HHMMSS.json` and `.md`.
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `position_sizing_plan` | `PositionSizingPlan` | Risk-based share count with sizing method and constraints |
+
+Schema: `schemas/json/position_sizing_plan.json`
 
 ## Resources
 

@@ -145,3 +145,14 @@ Confidence levels: High, Medium, Low.
 ### When to Load References
 - **First use:** Load `uptrend_methodology.md` for full framework understanding
 - **Regular execution:** References not needed - script handles scoring
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `uptrend_assessment` | `UptrendAssessment` | Uptrend ratio composite score and trend health breakdown |
+
+Schema: `schemas/json/uptrend_assessment.json`

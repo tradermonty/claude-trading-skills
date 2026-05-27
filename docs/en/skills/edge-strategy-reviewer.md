@@ -3,7 +3,7 @@ layout: default
 title: "Edge Strategy Reviewer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 23
+nav_order: 28
 lang_peer: /ja/skills/edge-strategy-reviewer/
 permalink: /en/skills/edge-strategy-reviewer/
 ---

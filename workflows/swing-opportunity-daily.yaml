@@ -37,26 +37,33 @@ prerequisite_workflows:
 
 artifacts:
   - id: vcp_candidates
+    schema_id: screen_candidate
     produced_by_step: 1
     required: true
   - id: canslim_candidates
+    schema_id: screen_candidate
     produced_by_step: 2
     required: false
   - id: theme_candidates
+    schema_id: screen_candidate
     produced_by_step: 3
     required: false
   - id: validated_setups
+    schema_id: technical_validation
     produced_by_step: 4
     required: true
   - id: position_sizing
+    schema_id: position_sizing_plan
     produced_by_step: 5
     required: true
   - id: trade_plans
+    schema_id: trade_plan
     produced_by_step: 6
     required: false
     downstream_hints:
       - trade-memory-loop
   - id: candidate_journal_entry
+    schema_id: journal_entry
     produced_by_step: 7
     required: true
     downstream_hints:

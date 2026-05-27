@@ -3,7 +3,7 @@ layout: default
 title: "Edge Pipeline Orchestrator"
 grand_parent: English
 parent: Skill Guides
-nav_order: 21
+nav_order: 25
 lang_peer: /ja/skills/edge-pipeline-orchestrator/
 permalink: /en/skills/edge-pipeline-orchestrator/
 ---
@@ -45,7 +45,7 @@ Orchestrate the full edge research pipeline from candidate detection through str
 
 ## 3. Prerequisites
 
-- Orchestrates local edge skills via subprocess
+- Orchestrates edge pipeline subskills via subprocess
 - Python 3.9+ recommended
 
 ---

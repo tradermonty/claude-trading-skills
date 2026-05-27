@@ -13,6 +13,7 @@ import pytest
 
 # Make scripts/ importable
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from validate_skills_index import Finding, validate  # noqa: E402
@@ -805,6 +806,361 @@ def test_default_mode_warns_on_unknown_timeframe(tmp_path: Path) -> None:
 def test_missing_index_file(tmp_path: Path) -> None:
     findings = validate(tmp_path)
     assert any(f.code == "IDX-MISSING" for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — SK019 Output Artifact section
+# ---------------------------------------------------------------------------
+
+
+def test_sk019_skill_with_schema_ids_but_no_section_warns(tmp_path: Path) -> None:
+    write_schema_index(tmp_path, ["screen_candidate"])
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nSome content.\n")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=["screen_candidate"])],
+    )
+    findings = validate(tmp_path)
+    assert "SK019" in warning_codes(findings)
+
+
+def test_sk019_skill_with_section_passes(tmp_path: Path) -> None:
+    write_schema_index(tmp_path, ["screen_candidate"])
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nSome content.\n\n## Output Artifact\n\nscreen_candidate\n",
+    )
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=["screen_candidate"])],
+    )
+    findings = validate(tmp_path)
+    assert "SK019" not in warning_codes(findings)
+
+
+def test_sk019_skill_with_empty_schema_ids_exempt(tmp_path: Path) -> None:
+    write_schema_index(tmp_path, ["screen_candidate"])
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nNo artifact.\n")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=[])],
+    )
+    findings = validate(tmp_path)
+    assert "SK019" not in warning_codes(findings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 — SK018 unqualified execution language check
+# ---------------------------------------------------------------------------
+
+
+def test_sk018_unqualified_buy_now_warns(tmp_path: Path) -> None:
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nBuy now when signal fires.\n")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", category="swing-opportunity")],
+    )
+    findings = validate(tmp_path)
+    assert "SK018" in warning_codes(findings)
+
+
+def test_sk018_qualified_execution_passes(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nEnter trade manually at broker after confirming setup.\n",
+    )
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", category="swing-opportunity")],
+    )
+    findings = validate(tmp_path)
+    assert "SK018" not in warning_codes(findings)
+
+
+def test_sk018_non_trade_category_exempt(tmp_path: Path) -> None:
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nBuy now when signal fires.\n")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", category="market-regime")],  # not a trade-planning category
+    )
+    findings = validate(tmp_path)
+    assert "SK018" not in warning_codes(findings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — SK017 data gap documentation
+# ---------------------------------------------------------------------------
+
+_MARKET_DATA_INTEGRATION = [
+    {
+        "id": "fmp_api",
+        "type": "market_data",
+        "requirement": "required",
+        "note": "FMP API required.",
+    }
+]
+
+_RECOMMENDED_INTEGRATION = [
+    {
+        "id": "fmp_api",
+        "type": "market_data",
+        "requirement": "recommended",
+        "note": "FMP API recommended.",
+    }
+]
+
+
+def write_skill_with_text(project_root: Path, skill_id: str, body: str) -> None:
+    skill_dir = project_root / "skills" / skill_id
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        f"---\nname: {skill_id}\ndescription: Test.\n---\n\n{body}",
+        encoding="utf-8",
+    )
+
+
+def test_sk017_missing_data_gaps_section_warns(tmp_path: Path) -> None:
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nSome content.\n")
+    write_index(tmp_path, [minimal_skill("alpha", integrations=_MARKET_DATA_INTEGRATION)])
+    findings = validate(tmp_path)
+    assert "SK017" in warning_codes(findings)
+
+
+def test_sk017_present_data_gaps_section_passes(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nSome content.\n\n## Data Gaps\n\nHalt on missing API key.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha", integrations=_MARKET_DATA_INTEGRATION)])
+    findings = validate(tmp_path)
+    assert "SK017" not in warning_codes(findings)
+
+
+def test_sk017_recommended_integration_also_requires_section(tmp_path: Path) -> None:
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nSome content.\n")
+    write_index(tmp_path, [minimal_skill("alpha", integrations=_RECOMMENDED_INTEGRATION)])
+    findings = validate(tmp_path)
+    assert "SK017" in warning_codes(findings)
+
+
+def test_sk017_calculation_only_skill_exempt(tmp_path: Path) -> None:
+    write_skill_with_text(tmp_path, "alpha", "## Overview\n\nPure calculation.\n")
+    write_index(tmp_path, [minimal_skill("alpha")])  # default: calculation not_required
+    findings = validate(tmp_path)
+    assert "SK017" not in warning_codes(findings)
+
+
+def test_sk017_case_insensitive_heading_match(tmp_path: Path) -> None:
+    """'## missing data' (lower-case) should satisfy SK017."""
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nSome content.\n\n## missing data\n\nHalt on missing key.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha", integrations=_MARKET_DATA_INTEGRATION)])
+    findings = validate(tmp_path)
+    assert "SK017" not in warning_codes(findings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — SK015 artifact_schema_ids validation
+# ---------------------------------------------------------------------------
+
+
+def write_schema_index(project_root: Path, artifact_types: list[str]) -> None:
+    """Write a minimal schemas/json/index.json for SK015 checks."""
+    import json
+
+    schemas_dir = project_root / "schemas" / "json"
+    schemas_dir.mkdir(parents=True, exist_ok=True)
+    entries = [
+        {"artifact_type": t, "model": t.title().replace("_", ""), "schema_file": f"{t}.json"}
+        for t in artifact_types
+    ]
+    (schemas_dir / "index.json").write_text(json.dumps(entries), encoding="utf-8")
+
+
+def test_sk015_valid_artifact_schema_ids_passes(tmp_path: Path) -> None:
+    write_schema_index(tmp_path, ["screen_candidate", "trade_plan"])
+    write_skill(tmp_path, "alpha")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=["screen_candidate"])],
+    )
+    findings = validate(tmp_path)
+    assert "SK015" not in codes(findings)
+
+
+def test_sk015_invalid_artifact_schema_id_errors(tmp_path: Path) -> None:
+    write_schema_index(tmp_path, ["screen_candidate"])
+    write_skill(tmp_path, "alpha")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=["not_a_real_schema"])],
+    )
+    findings = validate(tmp_path)
+    assert "SK015" in codes(findings)
+
+
+def test_sk015_empty_list_passes(tmp_path: Path) -> None:
+    write_schema_index(tmp_path, ["screen_candidate"])
+    write_skill(tmp_path, "alpha")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=[])],
+    )
+    findings = validate(tmp_path)
+    assert "SK015" not in codes(findings)
+
+
+def test_sk015_no_schema_index_skips_check(tmp_path: Path) -> None:
+    """When schemas/json/index.json is absent SK015 is not raised."""
+    write_skill(tmp_path, "alpha")
+    write_index(
+        tmp_path,
+        [minimal_skill("alpha", artifact_schema_ids=["anything"])],
+    )
+    findings = validate(tmp_path)
+    assert "SK015" not in codes(findings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — SK016 stale package detection
+# ---------------------------------------------------------------------------
+
+
+def _touch(path: Path, mtime: float) -> None:
+    import os
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("")
+    os.utime(path, (mtime, mtime))
+
+
+def test_sk016_stale_package_warns(tmp_path: Path) -> None:
+    import time
+
+    base = time.time()
+    write_skill(tmp_path, "alpha")
+    # Package written before SKILL.md
+    pkg = tmp_path / "skill-packages" / "alpha.skill"
+    _touch(pkg, base - 100)
+    skill_md = tmp_path / "skills" / "alpha" / "SKILL.md"
+    _touch(skill_md, base)
+
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK016" in warning_codes(findings)
+
+
+def test_sk016_fresh_package_no_warning(tmp_path: Path) -> None:
+    import time
+
+    base = time.time()
+    write_skill(tmp_path, "alpha")
+    skill_md = tmp_path / "skills" / "alpha" / "SKILL.md"
+    _touch(skill_md, base - 100)
+    pkg = tmp_path / "skill-packages" / "alpha.skill"
+    _touch(pkg, base)
+
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK016" not in warning_codes(findings)
+
+
+def test_sk016_missing_package_no_warning(tmp_path: Path) -> None:
+    """No SK016 warning when skill has no package yet."""
+    write_skill(tmp_path, "alpha")
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK016" not in warning_codes(findings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — SK020 forbidden language in SKILL.md
+# ---------------------------------------------------------------------------
+
+
+def test_sk020_guaranteed_profit_errors(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nThis skill provides guaranteed profit opportunities.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK020" in codes(findings), "SK020 must fire for 'guaranteed profit'"
+
+
+def test_sk020_sure_win_errors(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nFind sure win setups with high probability.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK020" in codes(findings), "SK020 must fire for 'sure win'"
+
+
+def test_sk020_risk_free_errors(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nIdentify risk-free arbitrage opportunities.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK020" in codes(findings), "SK020 must fire for 'risk-free'"
+
+
+def test_sk020_auto_execute_errors(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Workflow\n\nAuto-execute the entry order when conditions are met.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK020" in codes(findings), "SK020 must fire for 'auto-execute'"
+
+
+def test_sk020_clean_skill_passes(tmp_path: Path) -> None:
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Overview\n\nThis skill identifies VCP candidates for manual review.\n\n"
+        "All trade decisions require manual confirmation at the broker.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK020" not in codes(findings)
+
+
+def test_sk020_risk_free_disclosure_exempt(tmp_path: Path) -> None:
+    """'risk-free disclosure' phrase should not trigger SK020."""
+    write_skill_with_text(
+        tmp_path,
+        "alpha",
+        "## Disclaimer\n\nThis is not financial advice. risk-free disclosure: all outputs "
+        "are decision-support only.\n",
+    )
+    write_index(tmp_path, [minimal_skill("alpha")])
+    findings = validate(tmp_path)
+    assert "SK020" not in codes(findings)
+
+
+def test_sk020_live_repo_has_no_violations() -> None:
+    """No SKILL.md in the live repo should contain forbidden language (SK020 = 0 errors)."""
+    findings = validate(PROJECT_ROOT)
+    sk020_errors = [f for f in findings if f.code == "SK020" and f.severity == "error"]
+    assert not sk020_errors, (
+        "Live repo has SK020 forbidden language violations:\n"
+        + "\n".join(f"  [{f.code}] {f.location}: {f.message}" for f in sk020_errors)
+    )
 
 
 if __name__ == "__main__":

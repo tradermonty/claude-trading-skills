@@ -106,6 +106,17 @@ ln -sfn /path/to/claude-trading-skills/skills/dual-axis-skill-reviewer \
 
 After this, Claude Code will discover the skill in all projects, and the script is accessible at `~/.claude/skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py`.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `strategy_review` | `StrategyReview` | Multi-criterion scoring with PASS/REVISE/REJECT verdict |
+
+Schema: `schemas/json/strategy_review.json`
+
 ## Resources
 
 - Auto axis scores metadata, workflow coverage, execution safety, artifact presence, and test health.

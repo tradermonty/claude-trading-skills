@@ -26,18 +26,22 @@ optional_skills:
 
 artifacts:
   - id: market_breadth_report
+    schema_id: breadth_assessment
     produced_by_step: 1
     required: true
     downstream_hints:
       - swing-opportunity-daily
       - monthly-performance-review
   - id: uptrend_report
+    schema_id: uptrend_assessment
     produced_by_step: 2
     required: true
   - id: top_risk_report
+    schema_id: market_top_risk_report
     produced_by_step: 3
     required: false
   - id: exposure_decision
+    schema_id: exposure_decision
     produced_by_step: 4
     required: true
     downstream_hints:

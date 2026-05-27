@@ -3,7 +3,7 @@ layout: default
 title: "Strategy Pivot Designer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 41
+nav_order: 55
 lang_peer: /ja/skills/strategy-pivot-designer/
 permalink: /en/skills/strategy-pivot-designer/
 ---

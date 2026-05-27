@@ -233,6 +233,17 @@ Analyst:
 5. Generates complete report with focused scenario analysis
 ```
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `technical_validation` | `TechnicalValidation` | Chart-based setup quality assessment with pattern details |
+
+Schema: `schemas/json/technical_validation.json`
+
 ## Resources
 
 This skill includes the following bundled resources:

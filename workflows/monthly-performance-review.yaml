@@ -27,24 +27,31 @@ optional_skills:
 
 artifacts:
   - id: monthly_aggregate
+    schema_id: journal_entry
     produced_by_step: 1
     required: true
   - id: aggregate_postmortem
+    schema_id: postmortem_report
     produced_by_step: 2
     required: true
   - id: hypothesis_revalidation
+    schema_id: backtest_report
     produced_by_step: 3
     required: false
   - id: skill_review_findings
+    schema_id: strategy_review
     produced_by_step: 4
     required: false
   - id: monthly_decision_log
+    schema_id: journal_entry
     produced_by_step: 5
     required: true
   - id: rule_changes_for_next_month
+    schema_id: journal_entry
     produced_by_step: 5
     required: true
   - id: skill_improvement_backlog
+    schema_id: strategy_review
     produced_by_step: 5
     required: false
 

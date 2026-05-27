@@ -3,7 +3,7 @@ layout: default
 title: "Edge Concept Synthesizer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 19
+nav_order: 23
 lang_peer: /ja/skills/edge-concept-synthesizer/
 permalink: /en/skills/edge-concept-synthesizer/
 ---

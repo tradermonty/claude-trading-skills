@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Market News Analyst
+title: "Market News Analyst"
 grand_parent: English
 parent: Skill Guides
-nav_order: 9
+nav_order: 40
 lang_peer: /ja/skills/market-news-analyst/
 permalink: /en/skills/market-news-analyst/
 ---
@@ -11,8 +11,10 @@ permalink: /en/skills/market-news-analyst/
 # Market News Analyst
 {: .no_toc }
 
-Analyze recent market-moving news events from the past 10 days, rank them by quantitative impact score, and assess multi-asset reactions across equities, bonds, commodities, and currencies.
+This skill should be used when analyzing recent market-moving news events and their impact on equity markets and commodities. Use this skill when the user requests analysis of major financial news from the past 10 days, wants to understand market reactions to monetary policy decisions (FOMC, ECB, BOJ), needs assessment of geopolitical events' impact on commodities, or requires comprehensive review of earnings announcements from mega-cap stocks. The skill automatically collects news using WebSearch/WebFetch tools and produces impact-ranked analysis reports. All analysis thinking and output are conducted in English.
 {: .fs-6 .fw-300 }
+
+<span class="badge badge-free">No API</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/market-news-analyst.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/market-news-analyst){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -28,278 +30,441 @@ Analyze recent market-moving news events from the past 10 days, rank them by qua
 
 ## 1. Overview
 
-Market News Analyst automatically collects and analyzes major market-moving news from the past 10 days using WebSearch and WebFetch. Each event is scored with a quantitative Impact Score formula, ranked from highest to lowest impact, and analyzed across multiple asset classes.
-
-<span class="badge badge-free">No API</span>
-
-**What it solves:**
-- Systematically identifies the most important market events from the past 10 days
-- Replaces subjective "feel" with a quantitative impact scoring formula
-- Analyzes reactions across equities, bonds, commodities, and currencies in a single report
-- Compares actual market reactions against historical patterns to identify anomalies
-- Distinguishes correlation from causation when attributing market moves to news events
-
-**Impact Score formula:**
-
-```
-Impact Score = (Price Impact Score x Breadth Multiplier) x Forward-Looking Modifier
-```
-
-| Component | Values | Description |
-|-----------|--------|-------------|
-| **Price Impact** | 1-10 points | Severity of asset price movement (Negligible=1, Minor=2, Moderate=4, Major=7, Severe=10) |
-| **Breadth Multiplier** | 1x-3x | How many markets affected (Stock-Specific=1x, Sector-Wide=1.5x, Cross-Asset=2x, Systemic=3x) |
-| **Forward Modifier** | 0.75x-1.5x | Future significance (Contrary=-25%, Isolated=0%, Trend Confirm=+25%, Regime Change=+50%) |
-
-**Example calculation:**
-
-A surprise FOMC 75bps rate hike with hawkish tone:
-- Price Impact: S&P 500 -2.5% = Severe (10 points)
-- Breadth: Equities, bonds, USD, commodities all moved = Systemic (3x)
-- Forward: Ongoing tightening cycle = Trend Confirmation (1.25x)
-- **Impact Score: (10 x 3) x 1.25 = 37.5**
+This skill enables comprehensive analysis of market-moving news events from the past 10 days, focusing on their impact on US equity markets and commodities. The skill automatically collects news from trusted sources using WebSearch and WebFetch tools, evaluates market impact magnitude, analyzes actual market reactions, and produces structured English reports ranked by market impact significance.
 
 ---
 
-## 2. Prerequisites
+## 2. When to Use
 
-- **API Key:** None required
-- **Data source:** Claude uses WebSearch and WebFetch to collect news from trusted financial sources (Bloomberg, Reuters, WSJ, FT, CNBC, official government sources)
-- **No Python dependencies** -- this is a purely conversational skill with no CLI script
+Use this skill when:
+- User requests analysis of recent major market news (past 10 days)
+- User wants to understand market reactions to specific events (FOMC decisions, earnings, geopolitical)
+- User needs comprehensive market news summary with impact assessment
+- User asks about correlations between news events and commodity price movements
+- User requests analysis of how central bank policy announcements affected markets
 
-> Market News Analyst works entirely through natural language prompts. Claude automatically searches trusted news sources across monetary policy, earnings, geopolitics, and commodities.
-{: .tip }
+Example user requests:
+- "Analyze the major market news from the past 10 days"
+- "How did the latest FOMC decision impact the market?"
+- "What were the most important market-moving events this week?"
+- "Analyze recent geopolitical news and commodity price reactions"
+- "Review mega-cap tech earnings and their market impact"
 
 ---
 
-## 3. Quick Start
+## 3. Prerequisites
 
-Tell Claude:
+- **Tools:** WebSearch and WebFetch tools must be available for news collection
+- **API Keys:** None required (uses built-in web search capabilities)
+- **Knowledge:** Familiarity with financial markets terminology is helpful but not required
 
-```
-Analyze the major market news from the past 10 days
-```
+---
 
-Claude executes parallel web searches across six news categories (monetary policy, economic data, mega-cap earnings, geopolitical events, commodity markets, corporate news), scores each event, and generates a ranked report. That is all you need to get started.
+## 4. Quick Start
 
-For a focused analysis:
+```bash
+Impact Score = (Price Impact Score × Breadth Multiplier) + Forward-Looking Modifier
 
-```
-How did the latest FOMC decision impact the market? Full multi-asset analysis.
+Price Impact Score:
+- Severe: 10 points
+- Major: 7 points
+- Moderate: 4 points
+- Minor: 2 points
+- Negligible: 1 point
 ```
 
 ---
 
-## 4. How It Works
+## 5. Workflow
 
-The skill follows a structured 6-step workflow:
+Follow this structured 6-step workflow when analyzing market news:
 
-1. **News collection** -- Parallel WebSearch queries cover monetary policy (FOMC, ECB, BOJ), economic data (CPI, NFP, GDP), mega-cap earnings (Magnificent 7), geopolitical events, commodity markets, and corporate news. Sources are prioritized by credibility tier.
-2. **Knowledge base loading** -- Reference files load based on collected news types: `market_event_patterns.md` for historical reaction patterns, `geopolitical_commodity_correlations.md` for conflict-to-commodity analysis, `corporate_news_impact.md` for mega-cap earnings frameworks, and `trusted_news_sources.md` for source credibility assessment.
-3. **Impact magnitude assessment** -- Each event is scored across three dimensions (Price Impact, Breadth, Forward Significance) using specific numerical criteria. Events are ranked from highest to lowest Impact Score.
-4. **Market reaction analysis** -- For each significant event (Impact Score >5), actual market reactions are analyzed across equities, bonds, commodities, currencies, and derivatives. Reactions are compared against historical patterns to classify as Consistent, Amplified, Dampened, or Inverse.
-5. **Correlation and causation assessment** -- When multiple events occurred in the period, interactions are analyzed: reinforcing events, offsetting events, sequential dependencies, and coincidental timing.
-6. **Report generation** -- A structured Markdown report is generated with executive summary, impact rankings table, detailed event analysis, thematic synthesis, commodity deep dive, and forward-looking implications.
+### Step 1: News Collection via WebSearch/WebFetch
+
+**Objective:** Gather comprehensive news from the past 10 days covering major market-moving events.
+
+**Search Strategy:**
+
+Execute parallel WebSearch queries covering different news categories:
+
+**Monetary Policy:**
+- Search: "FOMC meeting past 10 days", "Federal Reserve interest rate", "ECB policy decision", "Bank of Japan"
+- Target: Central bank decisions, forward guidance changes, inflation commentary
+
+**Inflation/Economic Data:**
+- Search: "CPI inflation report [current month]", "jobs report NFP", "GDP data", "PPI producer prices"
+- Target: Major economic data releases and surprises
+
+**Mega-Cap Earnings:**
+- Search: "Apple earnings [current quarter]", "Microsoft earnings", "NVIDIA earnings", "Amazon earnings", "Tesla earnings", "Meta earnings", "Google earnings"
+- Target: Results, guidance, market reactions for largest companies
+
+**Geopolitical Events:**
+- Search: "Middle East conflict oil prices", "Ukraine war", "US China tensions", "trade war tariffs"
+- Target: Conflicts, sanctions, trade disputes affecting markets
+
+**Commodity Markets:**
+- Search: "oil prices news past week", "gold prices", "OPEC meeting", "natural gas prices", "copper prices"
+- Target: Supply disruptions, demand shifts, price movements
+
+**Corporate News:**
+- Search: "major M&A announcement", "bank earnings", "tech sector news", "bankruptcy", "credit rating downgrade"
+- Target: Large corporate events beyond mega-caps
+
+**Recommended News Sources (Priority Order):**
+1. Official sources: FederalReserve.gov, SEC.gov (EDGAR), Treasury.gov, BLS.gov
+2. Tier 1 financial news: Bloomberg, Reuters, Wall Street Journal, Financial Times
+3. Specialized: CNBC (real-time), MarketWatch (summaries), S&P Global Platts (commodities)
+
+**Search Execution:**
+- Use WebSearch for broad topic searches
+- Use WebFetch for specific URLs from official sources or major news outlets
+- Collect publication dates to ensure news is within 10-day window
+- Capture: Event date, source, headline, key details, market context (pre-market, trading hours, after-hours)
+
+**Filtering Criteria:**
+- Focus on Tier 1 market-moving events (see references/market_event_patterns.md)
+- Prioritize news with clear market impact (price moves, volume spikes)
+- Exclude: Stock-specific small-cap news, minor product updates, routine filings
+
+Think in English throughout collection process. Document each significant news item with:
+- Date and time
+- Event type (monetary policy, earnings, geopolitical, etc.)
+- Source reliability tier
+- Initial market reaction (if observable)
+
+### Step 2: Load Knowledge Base References
+
+**Objective:** Access domain expertise to inform impact assessment.
+
+Load relevant reference files based on collected news types:
+
+**Always Load:**
+- `references/market_event_patterns.md` - Comprehensive patterns for all major event types
+- `references/trusted_news_sources.md` - Source credibility assessment
+
+**Conditionally Load (Based on News Collected):**
+
+If **monetary policy news** found:
+- Focus on: market_event_patterns.md → Central Bank Monetary Policy Events section
+- Key frameworks: Interest rate hike/cut reactions, QE/QT impacts, hawkish/dovish tone
+
+If **geopolitical events** found:
+- Load: `references/geopolitical_commodity_correlations.md`
+- Focus on: Energy Commodities, Precious Metals, regional frameworks matching event
+
+If **mega-cap earnings** found:
+- Load: `references/corporate_news_impact.md`
+- Focus on: Specific company sections, sector contagion patterns
+
+If **commodity news** found:
+- Load: `references/geopolitical_commodity_correlations.md`
+- Focus on: Specific commodity sections (Oil, Gold, Copper, etc.)
+
+**Knowledge Integration:**
+Compare collected news against historical patterns to:
+- Predict expected market reactions
+- Identify anomalies (market reacted differently than historical pattern)
+- Assess whether reaction was typical magnitude or outsized
+- Determine if contagion occurred as expected
+
+### Step 3: Impact Magnitude Assessment
+
+**Objective:** Rank each news event by market impact significance.
+
+**Impact Assessment Framework:**
+
+For each news item, evaluate across three dimensions:
+
+**1. Asset Price Impact (Primary Factor):**
+
+Measure actual or estimated price movements:
+
+**Equity Markets:**
+- Index-level: S&P 500, Nasdaq 100, Dow Jones
+  - Severe: ±2%+ in day
+  - Major: ±1-2%
+  - Moderate: ±0.5-1%
+  - Minor: ±0.2-0.5%
+  - Negligible: <0.2%
+
+- Sector-level: Specific sector ETFs
+  - Severe: ±5%+
+  - Major: ±3-5%
+  - Moderate: ±1-3%
+  - Minor: <1%
+
+- Stock-specific: Individual mega-caps
+  - Severe: ±10%+ (and index weight causes index move)
+  - Major: ±5-10%
+  - Moderate: ±2-5%
+
+**Commodity Markets:**
+- Oil (WTI/Brent):
+  - Severe: ±5%+
+  - Major: ±3-5%
+  - Moderate: ±1-3%
+
+- Gold:
+  - Severe: ±3%+
+  - Major: ±1.5-3%
+  - Moderate: ±0.5-1.5%
+
+- Base Metals (Copper, etc.):
+  - Severe: ±4%+
+  - Major: ±2-4%
+  - Moderate: ±1-2%
+
+**Bond Markets:**
+- 10-Year Treasury Yield:
+  - Severe: ±20bps+ in day
+  - Major: ±10-20bps
+  - Moderate: ±5-10bps
+
+**Currency Markets:**
+- USD Index (DXY):
+  - Severe: ±1.5%+
+  - Major: ±0.75-1.5%
+  - Moderate: ±0.3-0.75%
+
+**2. Breadth of Impact (Multiplier):**
+
+Assess how many markets/sectors affected:
+
+- **Systemic (3x multiplier):** Multiple asset classes, global markets
+  - Examples: FOMC surprise, banking crisis, major war outbreak
+
+- **Cross-Asset (2x multiplier):** Equities + commodities, or equities + bonds
+  - Examples: Inflation surprise, geopolitical supply shock
+
+- **Sector-Wide (1.5x multiplier):** Entire sector or related sectors
+  - Examples: Tech earnings cluster, energy policy announcement
+
+- **Stock-Specific (1x multiplier):** Single company (unless mega-cap with index impact)
+  - Examples: Individual company earnings, M&A
+
+**3. Forward-Looking Significance (Modifier):**
+
+Consider future implications:
+
+- **Regime Change (+50%):** Fundamental market structure shift
+  - Examples: Fed pivot from hiking to cutting, major geopolitical realignment
+
+- **Trend Confirmation (+25%):** Reinforces existing trajectory
+  - Examples: Consecutive strong inflation prints, sustained earnings beats
+
+- **Isolated Event (0%):** One-off with limited forward signal
+  - Examples: Single data point within range, company-specific issue
+
+- **Contrary Signal (-25%):** Contradicts prevailing narrative
+  - Examples: Good news ignored by market, bad news rallied
+
+**Impact Score Calculation:**
+
+```
+Impact Score = (Price Impact Score × Breadth Multiplier) + Forward-Looking Modifier
+
+Price Impact Score:
+- Severe: 10 points
+- Major: 7 points
+- Moderate: 4 points
+- Minor: 2 points
+- Negligible: 1 point
+```
+
+**Example Calculations:**
+
+**FOMC 75bps Rate Hike (hawkish tone):**
+- Price Impact: S&P 500 -2.5% (Severe = 10 points)
+- Breadth: Systemic (equities, bonds, USD, commodities all moved) = 3x
+- Forward: Trend confirmation (ongoing tightening) = +25%
+- **Score: (10 × 3) × 1.25 = 37.5**
+
+**NVIDIA Earnings Beat:**
+- Price Impact: NVDA +15%, Nasdaq +1.5% (Severe = 10 points)
+- Breadth: Sector-wide (semis, tech broadly) = 1.5x
+- Forward: Trend confirmation (AI demand) = +25%
+- **Score: (10 × 1.5) × 1.25 = 18.75**
+
+**Geopolitical Flare-up (Middle East):**
+- Price Impact: Oil +8%, S&P -1.2% (Severe = 10 points)
+- Breadth: Cross-asset (oil, equities, gold) = 2x
+- Forward: Isolated event (no escalation) = 0%
+- **Score: (10 × 2) × 1.0 = 20**
+
+**Single Stock Earnings (Non-Mega-Cap):**
+- Price Impact: Stock +12%, no index impact (Major = 7 points)
+- Breadth: Stock-specific = 1x
+- Forward: Isolated = 0%
+- **Score: (7 × 1) × 1.0 = 7**
+
+**Ranking:**
+After scoring all news items, rank from highest to lowest impact score. This determines report ordering.
+
+### Step 4: Market Reaction Analysis
+
+**Objective:** Analyze how markets actually responded to each event.
+
+For each significant news item (Impact Score >5), conduct detailed reaction analysis:
+
+**Immediate Reaction (Intraday):**
+- Direction: Positive, negative, mixed
+- Magnitude: Align with price impact categories
+- Timing: Pre-market, during trading, after-hours
+- Volatility: VIX movement, bid-ask spreads
+
+**Multi-Asset Response:**
+
+**Equities:**
+- Index performance (S&P 500, Nasdaq, Dow, Russell 2000)
+- Sector rotation (which sectors outperformed/underperformed)
+- Individual stock moves (mega-caps, relevant companies)
+- Growth vs Value, Large vs Small Cap divergences
+
+**Fixed Income:**
+- Treasury yields (2Y, 10Y, 30Y)
+- Yield curve shape (steepening, flattening, inversion)
+- Credit spreads (IG, HY)
+- TIPS breakevens (inflation expectations)
+
+**Commodities:**
+- Energy: Oil (WTI, Brent), Natural Gas
+- Precious Metals: Gold, Silver
+- Base Metals: Copper, Aluminum (if relevant)
+- Agricultural: Wheat, Corn, Soybeans (if relevant)
+
+**Currencies:**
+- USD Index (DXY)
+- EUR/USD, USD/JPY, GBP/USD
+- Emerging market currencies
+- Safe havens (JPY, CHF)
+
+**Derivatives:**
+- VIX (volatility index)
+- Options activity (put/call ratio, unusual volume)
+- Futures positioning
+
+**Pattern Comparison:**
+
+Compare observed reaction against expected pattern from knowledge base:
+
+- **Consistent:** Reaction matched historical pattern
+  - Example: Fed hike → Tech stocks down, USD up (as expected)
+
+- **Amplified:** Reaction exceeded typical pattern
+  - Example: Inflation print +0.3% above consensus → Selloff 2x typical
+  - Investigate: Positioning, sentiment, cumulative factors
+
+- **Dampened:** Reaction less than historical pattern
+  - Example: Geopolitical event → Oil barely moved
+  - Investigate: Already priced in, other offsetting factors
+
+- **Inverse:** Reaction opposite of historical pattern
+  - Example: Good news ignored, bad news rallied
+  - Investigate: "Good news is bad news" dynamics, Fed pivot hopes
+
+**Anomaly Identification:**
+
+Flag reactions that deviate significantly from patterns:
+- Market shrugged off typically market-moving news
+- Overreaction to typically minor news
+- Contagion failed to spread as expected
+- Safe havens didn't work (correlations broke)
+
+**Sentiment Indicators:**
+
+- Risk-On vs Risk-Off: Which regime dominated
+- Positioning: Evidence of crowded trades unwinding
+- Momentum: Follow-through in subsequent sessions or reversal
+
+### Step 5: Correlation and Causation Assessment
+
+**Objective:** Distinguish direct impacts from coincidental timing.
+
+**Multi-Event Analysis:**
+
+When multiple significant events occurred in the 10-day period, assess interactions:
+
+**Reinforcing Events:**
+- Same directional impact
+- Example: Hawkish FOMC + hot CPI → Both bearish for equities, amplified move
+- Combined impact often non-linear (greater than sum of parts)
+
+**Offsetting Events:**
+- Opposite directional impacts
+- Example: Strong earnings (positive) + geopolitical tensions (negative) → Muted net reaction
+- Identify which factor dominated
+
+**Sequential Events:**
+- One event set up reaction to next
+- Example: First rate hike modest reaction, second rate hike severe (cumulative tightening concerns)
+- Path dependence matters
+
+**Coincidental Timing:**
+- Events unrelated but occurred simultaneously
+- Difficult to isolate individual impacts
+- Note uncertainty in attribution
+
+**Geopolitical-Commodity Correlations:**
+
+For geopolitical events, specifically analyze commodity market reactions using geopolitical_commodity_correlations.md:
+
+**Energy:**
+- Map conflict/sanction to supply disruption risk
+- Assess actual vs feared supply impact
+- Duration: Temporary spike vs sustained elevation
+
+**Precious Metals:**
+- Safe-haven flows vs real rate drivers
+- Gold response to risk-off events
+- Central bank buying implications
+
+**Industrial Metals:**
+- Demand destruction from economic slowdown fears
+- Supply chain disruptions
+- China factor in copper, aluminum
+
+**Agriculture:**
+- Black Sea grain exports (Russia-Ukraine)
+- Weather overlays
+- Food security policy responses
+
+**Transmission Mechanisms:**
+
+Trace how news impacts flowed through markets:
+
+**Direct Channel:**
+- News → Immediate asset price reaction
+- Example: OPEC cuts → Oil prices up immediately
+
+**Indirect Channels:**
+- News → Economic impact → Asset prices
+- Example: Rate hike → Mortgage rates up → Housing slows → Homebuilder stocks down
+
+**Sentiment Channel:**
+- News → Risk appetite shift → Broad asset reallocation
+- Example: Banking crisis → Flight to quality → Treasuries rally, stocks sell
+
+**Feedback Loops:**
+- Initial reaction creates secondary effects
+- Example: Stock selloff → Margin calls → Forced selling → Deeper selloff
+
+### Step 6: Report Generation
+
+**Objective:** Create structured English Markdown report ranked by market impact.
+
+**Report Structure:**
+
+```markdown
+# Market News Analysis Report - [Date Range]
 
 ---
 
-## 5. Usage Examples
+## 6. Resources
 
-### Example 1: Full 10-Day Analysis (Default)
+**References:**
 
-**Prompt:**
-```
-Analyze the major market news from the past 10 days
-```
-
-**What you get:** A comprehensive report covering all significant events, ranked by Impact Score, with multi-asset reaction analysis, thematic synthesis identifying the dominant market narrative, and forward-looking risk scenarios.
-
-**Why useful:** The standard weekly research workflow that keeps you current on everything that moved markets, not just the headlines you happened to see.
-
----
-
-### Example 2: FOMC Decision Analysis
-
-**Prompt:**
-```
-Analyze the latest Fed decision -- rate action, dot plot, market reaction across all asset classes
-```
-
-**What you get:** Detailed FOMC analysis including the rate decision, vote count, dot plot changes, Powell press conference highlights, and full multi-asset reaction: equities (index-level and sector rotation), Treasury yields (2Y/10Y/30Y curve shape), USD (DXY and major pairs), commodities (gold, oil), and VIX. Comparison against historical reaction patterns for similar Fed actions.
-
-**Why useful:** FOMC decisions typically produce the highest Impact Scores (systemic breadth, potential regime change). This focused analysis captures all transmission channels from a single policy event.
-
----
-
-### Example 3: Earnings Season Coverage
-
-**Prompt:**
-```
-Review mega-cap earnings from the past 10 days and their market impact
-```
-
-**What you get:** Analysis of recent Magnificent 7 and other mega-cap earnings: beat/miss magnitude versus consensus, guidance changes, revenue growth trends, market reaction (gap, follow-through), sector contagion (did the earnings report lift or drag the entire sector?), and index-level impact weighted by market cap.
-
-**Why useful:** Mega-cap earnings often drive sector-wide moves and can shift market sentiment. Understanding the contagion pattern (Apple misses and tech sells off, or Apple misses but tech recovers) reveals market positioning.
-
----
-
-### Example 4: Geopolitical Event Impact
-
-**Prompt:**
-```
-Analyze recent geopolitical events and their impact on commodities and equity markets
-```
-
-**What you get:** Assessment of conflicts, sanctions, or trade tensions with specific commodity price impacts (oil, gold, base metals, agricultural), equity sector impacts (energy, defense, airlines), currency safe-haven flows (JPY, CHF, gold), and comparison against the geopolitical-commodity correlation framework from the knowledge base. Includes expected duration assessment (temporary spike vs sustained elevation).
-
-**Why useful:** Geopolitical events often produce cross-asset moves that the standard equity-focused analysis misses. The commodity correlation framework helps distinguish fear-driven spikes from fundamental supply disruptions.
-
----
-
-### Example 5: Economic Indicator Analysis
-
-**Prompt:**
-```
-CPI came in hot -- analyze the inflation data and market reaction
-```
-
-**What you get:** Breakdown of headline vs core CPI, comparison to consensus and prior month, component analysis (shelter, energy, food, services), implications for Fed policy path, and market reaction across all asset classes. The surprise factor is quantified (e.g., "+0.3% above consensus is a Major surprise") and compared to historical inflation print reactions.
-
-**Why useful:** Inflation data directly impacts rate expectations, which ripple through every asset class. Understanding the magnitude of the surprise relative to history prevents overreacting to normal variance or underreacting to genuine shifts.
-
----
-
-### Example 6: Commodity Correlation Analysis
-
-**Prompt:**
-```
-Oil prices spiked 8% this week -- what drove it and what are the knock-on effects?
-```
-
-**What you get:** Supply-side analysis (OPEC decisions, geopolitical supply risk, inventory data), demand-side factors (economic data, seasonal patterns), and knock-on effects: energy sector equities, airlines, consumer discretionary, inflation expectations (TIPS breakevens), central bank policy implications, and currency impacts on oil-importing nations.
-
-**Why useful:** Commodity moves are often the clearest expression of real-world supply/demand dynamics. Tracing the transmission mechanism from commodity prices through to equity sectors and policy expectations reveals trading opportunities beyond the commodity itself.
-
----
-
-### Example 7: Market Regime Detection
-
-**Prompt:**
-```
-Is the market in risk-on or risk-off mode? What's the evidence from the past 10 days?
-```
-
-**What you get:** Risk appetite assessment based on multiple indicators: sector rotation (cyclicals vs defensives, growth vs value), credit spreads (IG and HY), safe haven flows (Treasuries, gold, JPY), VIX level and trend, equity breadth (large vs small cap divergence), and fund flow data. Dominant market narrative identified, with anomalies flagged (e.g., "gold rallying alongside equities suggests inflation hedging, not risk-off").
-
-**Why useful:** Understanding the current market regime determines whether to lean into momentum or adopt defensive positioning. The multi-indicator approach prevents false signals from any single metric.
-
----
-
-## 6. Understanding the Output
-
-The report follows a structured template:
-
-1. **Executive Summary** -- 3-4 sentences covering the analysis period, number of significant events, dominant theme, and top 1-2 highest-impact events.
-2. **Market Impact Rankings** -- Table sorted by Impact Score with event name, date, score, affected asset classes, and brief reaction summary.
-3. **Detailed Event Analysis** -- For each ranked event: event summary, multi-asset market reaction (equities, bonds, commodities, currencies, volatility), pattern comparison (expected vs actual), impact score calculation breakdown, and sector-specific impacts.
-4. **Thematic Synthesis** -- Dominant market narrative, interconnected events, market regime assessment (risk-on/risk-off with evidence), and anomalies/surprises.
-5. **Commodity Market Deep Dive** -- Dedicated section for energy, precious metals, base metals, and agricultural commodities with geopolitical correlation analysis.
-6. **Forward-Looking Implications** -- Market positioning insights, upcoming catalysts, and 3-5 risk scenarios with probability and potential impact.
-7. **Data Sources and Methodology** -- Sources consulted by tier, analysis period, and knowledge base references used.
-
-Reports are saved to the `reports/` directory with the naming convention `market_news_analysis_[START]_to_[END].md`.
-
----
-
-## 7. Tips & Best Practices
-
-- **Run weekly for consistent market awareness.** The 10-day default window makes this ideal as a weekly ritual. Running it every Monday morning gives you a structured view of what happened while markets were moving.
-- **Use focused prompts for deeper analysis.** The full 10-day scan is broad. When a specific event dominates (FOMC, major earnings), a focused prompt produces more detailed analysis of that single event's transmission mechanisms.
-- **Pay attention to pattern deviations.** The most actionable insights come from events where actual market reactions differed from historical patterns (Dampened or Inverse reactions). These anomalies often signal positioning changes or regime shifts.
-- **Cross-reference with other skills.** After the news analysis identifies sector-level impacts, use Sector Analyst for detailed chart reading or FinViz Screener to find individual stocks within affected sectors.
-- **Watch the Forward-Looking section.** The risk scenarios section identifies upcoming catalysts that the recent news has set up. These are the events most likely to produce the next significant market moves.
-- **Verify source quality.** The report includes source tiers. Events sourced from Tier 1 (official government/central bank) are most reliable. Events sourced only from Tier 3-4 should be treated with more caution.
-
----
-
-## 8. Combining with Other Skills
-
-| Workflow | How to Combine |
-|----------|---------------|
-| **Daily market monitoring** | Market News Analyst for macro context, then Economic Calendar Fetcher for upcoming events, then Breadth Chart Analyst for market health visualization |
-| **Sector rotation trading** | News analysis identifies which sectors are under pressure or gaining momentum, then Sector Analyst provides detailed chart-based confirmation |
-| **Earnings-driven research** | News analysis covers mega-cap earnings reactions, then US Stock Analysis for deep dives on individual stocks that reported, then Earnings Trade Analyzer for scoring entry setups |
-| **Risk management** | News analysis identifies regime shifts (risk-on/risk-off), then US Market Bubble Detector for structural risk assessment, then Portfolio Manager for position adjustment |
-| **Commodity-linked equities** | Geopolitical-commodity analysis from news skill, then FinViz Screener to find energy/mining stocks positioned to benefit from commodity moves |
-
----
-
-## 9. Troubleshooting
-
-### News collection seems incomplete
-
-**Cause:** WebSearch may not surface all relevant events, especially those behind paywalls (Bloomberg Terminal, WSJ subscriber content).
-
-**Fix:** If you know a specific event occurred, prompt Claude directly: "Include the ECB rate decision from March 6 in the analysis." You can also provide specific URLs via WebFetch for paywalled content you have access to.
-
-### Impact scores seem too high or too low
-
-**Cause:** The scoring framework requires judgment calls on breadth multipliers and forward significance that depend on available data quality.
-
-**Fix:** The detailed score breakdown shows exactly how each component was calculated. Challenge specific components: "I think the breadth multiplier should be 1.5x (sector-wide) not 2x (cross-asset) because bonds didn't move." Claude will recalculate.
-
-### Geopolitical-commodity analysis missing
-
-**Cause:** The geopolitical correlation reference only loads when geopolitical events are detected in the news collection phase.
-
-**Fix:** Explicitly request it: "Include geopolitical-commodity correlation analysis in the report." This forces the reference file to load even if the automated detection missed a relevant event.
-
-### Report is too long
-
-**Cause:** A 10-day period with many significant events (earnings season, FOMC week) can produce lengthy reports.
-
-**Fix:** Request a focused scope: "Analyze only the top 3 market-moving events from the past week" or "Focus only on monetary policy and its market impact."
-
----
-
-## 10. Reference
-
-### Impact Score Thresholds
-
-| Price Impact Level | Equity (Index) | Equity (Sector) | Commodities (Oil) | Gold | Bonds (10Y) | Points |
-|-------------------|----------------|-----------------|-------------------|------|-------------|--------|
-| **Severe** | +/-2%+ | +/-5%+ | +/-5%+ | +/-3%+ | +/-20bps+ | 10 |
-| **Major** | +/-1-2% | +/-3-5% | +/-3-5% | +/-1.5-3% | +/-10-20bps | 7 |
-| **Moderate** | +/-0.5-1% | +/-1-3% | +/-1-3% | +/-0.5-1.5% | +/-5-10bps | 4 |
-| **Minor** | +/-0.2-0.5% | <1% | -- | -- | -- | 2 |
-| **Negligible** | <0.2% | -- | -- | -- | -- | 1 |
-
-### Breadth Multipliers
-
-| Scope | Multiplier | Example |
-|-------|-----------|---------|
-| Systemic | 3x | FOMC surprise, banking crisis, major war |
-| Cross-Asset | 2x | Inflation surprise affecting equities + bonds |
-| Sector-Wide | 1.5x | Tech earnings cluster, energy policy change |
-| Stock-Specific | 1x | Single company earnings (unless mega-cap) |
-
-### Reference Knowledge Base
-
-| File | When Loaded | Content |
-|------|------------|---------|
-| `references/market_event_patterns.md` | Always | Historical reaction patterns for central banks, inflation, earnings, geopolitics; case studies (2008, COVID, 2022) |
-| `references/trusted_news_sources.md` | Always | 4-tier source credibility guide, search strategies, source selection by news type |
-| `references/geopolitical_commodity_correlations.md` | When geopolitical events detected | Energy, precious metals, base metals, agriculture correlations; regional frameworks |
-| `references/corporate_news_impact.md` | When mega-cap earnings detected | Magnificent 7 analysis frameworks, sector contagion patterns, M&A impact |
-
-### News Category Search Targets
-
-| Category | Search Topics | Priority Sources |
-|----------|--------------|-----------------|
-| Monetary Policy | FOMC, ECB, BOJ, rate decisions | FederalReserve.gov, WSJ, Reuters |
-| Economic Data | CPI, NFP, GDP, PPI | BLS.gov, BEA.gov, Bloomberg |
-| Mega-Cap Earnings | Magnificent 7, banks, healthcare | Company IR pages, SEC EDGAR |
-| Geopolitical | Conflicts, sanctions, trade disputes | Reuters, FT, Bloomberg |
-| Commodities | Oil, gold, OPEC, supply disruptions | S&P Global Platts, Reuters |
-| Corporate | M&A, bankruptcies, credit downgrades | Bloomberg, WSJ, SEC |
+- `skills/market-news-analyst/references/corporate_news_impact.md`
+- `skills/market-news-analyst/references/geopolitical_commodity_correlations.md`
+- `skills/market-news-analyst/references/market_event_patterns.md`
+- `skills/market-news-analyst/references/trusted_news_sources.md`

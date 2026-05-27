@@ -292,3 +292,15 @@ Load these references as needed during analysis:
 - "Compare AAPL vs MSFT"
 - "Tesla vs Nvidia - which is better?"
 - "Analyze Meta vs Google"
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `technical_validation` | `TechnicalValidation` | Chart-based setup quality assessment with pattern details |
+| `scenario_analysis` | `ScenarioAnalysis` | Probability-weighted scenario set with trigger levels |
+
+Schema: `schemas/json/technical_validation.json` (and sibling files for additional types above)

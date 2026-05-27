@@ -13,6 +13,7 @@ description = "Claude Skills for equity investors and traders"
 requires-python = ">=3.9"
 dependencies = [
     "jsonschema>=4.25.1",
+    "pydantic>=2.0.0",
     "pyyaml>=6.0",
     "scipy>=1.13.1",
 ]
@@ -53,6 +54,7 @@ ignore = [
 # scripts/run_all_tests.sh is kept for backward compatibility.
 addopts = "--import-mode=importlib"
 testpaths = [
+    "schemas/tests",
     "skills/backtest-expert/scripts/tests",
     "skills/dual-axis-skill-reviewer/scripts/tests",
     "skills/ftd-detector/scripts/tests",

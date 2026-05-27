@@ -102,6 +102,37 @@ reviews:
     revision_instructions: []
 ```
 
+## Research Quality Gate
+
+Before any reviewed strategy advances to paper trading, the `research_quality` dimension must pass.
+This is a cross-cutting gate applied after C1-C8 scoring.
+
+| Check | Requirement | Blocks Advance? |
+|-------|-------------|-----------------|
+| RQ1 | No-lookahead confirmed (all 8 backtest-expert checklist items) | YES |
+| RQ2 | Survivorship bias acknowledged in methodology | YES |
+| RQ3 | Out-of-sample hold-out documented in draft | YES |
+| RQ4 | `paper_only_until_validated: true` present in artifact | YES |
+| RQ5 | Sample size ≥ 30 trades stated in draft | REVISE (not REJECT) |
+| RQ6 | Parameter sensitivity tested across at least 3 variants | REVISE (not REJECT) |
+
+A draft that fails RQ1-RQ4 is forced to REJECT regardless of C1-C8 scores.
+A draft that fails RQ5-RQ6 is forced to REVISE with specific revision instructions.
+
+Strategies that pass this gate still carry `paper_only_until_validated: true` in all exported
+artifacts — this field cannot be cleared by this reviewer.
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `strategy_review` | `StrategyReview` | Multi-criterion scoring with PASS/REVISE/REJECT verdict |
+
+Schema: `schemas/json/strategy_review.json`
+
 ## Resources
 
 - `references/review_criteria.md` — Detailed scoring rubric for C1-C8

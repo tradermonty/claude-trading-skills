@@ -3,7 +3,7 @@ layout: default
 title: "Kanchi Dividend SOP"
 grand_parent: English
 parent: Skill Guides
-nav_order: 27
+nav_order: 35
 lang_peer: /ja/skills/kanchi-dividend-sop/
 permalink: /en/skills/kanchi-dividend-sop/
 ---
@@ -14,7 +14,7 @@ permalink: /en/skills/kanchi-dividend-sop/
 Convert Kanchi-style dividend investing into a repeatable US-stock operating procedure. Use when users ask for かんち式配当投資, dividend screening, dividend growth quality checks, PERxPBR adaptation for US sectors, pullback limit-order planning, or one-page stock memo creation. Covers screening, deep dive, entry planning, and post-purchase monitoring cadence.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">No API</span>
+<span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/kanchi-dividend-sop.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/kanchi-dividend-sop){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -59,8 +59,30 @@ export FMP_API_KEY=your_api_key_here
 
 Prepare one of the following inputs before running the workflow:
 1. Output from `skills/value-dividend-screener/scripts/screen_dividend_stocks.py`.
-2. Output from `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py`.
+2. Output from `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth.py`.
 3. User-provided ticker list (broker export or manual list).
+
+#### Expected JSON Input Format
+
+When using `--input`, provide JSON in one of these formats:
+
+```json
+{
+  "profile": "balanced",
+  "candidates": [
+    {"ticker": "JNJ", "bucket": "core"},
+    {"ticker": "O", "bucket": "satellite"}
+  ]
+}
+```
+
+Or simplified:
+
+```json
+{
+  "tickers": ["JNJ", "PG", "KO"]
+}
+```
 
 For deterministic artifact generation, provide tickers to:
 

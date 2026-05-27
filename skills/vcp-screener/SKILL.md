@@ -83,7 +83,7 @@ python3 skills/vcp-screener/scripts/screen_vcp.py \
 
 For each top candidate, present:
 - **Quality** (`composite_score` / rating) — how well-formed is the VCP pattern?
-- **Execution State** (`execution_state`) — is it buyable now? (Pre-breakout / Breakout = actionable)
+- **Execution State** (`execution_state`) — is the setup in an actionable stage for manual evaluation? (Pre-breakout / Breakout = evaluate now; all entries require manual broker placement)
 - **Pattern Type** (`pattern_type`) — Textbook VCP / VCP-adjacent / Post-breakout / Extended Leader / Damaged
 - `★` marker if a State Cap was applied (raw score was downgraded)
 - Contraction details (T1/T2/T3 depths and ratios)
@@ -99,10 +99,14 @@ For each top candidate, present:
 - **Extended / Overextended:** Trade missed — add to watchlist for next base
 - **Damaged / Invalid:** Setup invalidated — do not enter
 
-**By Rating (secondary, after state confirms actionability):**
-- **Textbook VCP (90+):** Buy at pivot with aggressive sizing (1.5-2x)
-- **Strong VCP (80-89):** Buy at pivot with standard sizing (1x)
-- **Good VCP (70-79):** Buy on volume confirmation above pivot (0.75x)
+**By Rating (secondary, after state confirms manual evaluation is warranted):**
+
+All sizing below is a starting reference for manual position sizing. No order is placed
+by this skill — all entries require manual confirmation and placement at the broker.
+
+- **Textbook VCP (90+):** Evaluate entry at pivot — reference sizing 1.5-2x standard
+- **Strong VCP (80-89):** Evaluate entry at pivot — reference sizing 1x standard
+- **Good VCP (70-79):** Evaluate entry on volume confirmation above pivot — reference sizing 0.75x
 - **Developing (60-69):** Add to watchlist, wait for tighter contraction
 - **Weak/No VCP (<60):** Monitor only or skip
 
@@ -117,8 +121,31 @@ For each top candidate, present:
 - `vcp_screener_YYYY-MM-DD_HHMMSS.json` - Structured results
 - `vcp_screener_YYYY-MM-DD_HHMMSS.md` - Human-readable report
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 - `references/vcp_methodology.md` - VCP theory and Trend Template explanation
 - `references/scoring_system.md` - Scoring thresholds and component weights
 - `references/fmp_api_endpoints.md` - API endpoints and rate limits
+
+## Data Gaps
+
+Explicit behavior when required data is unavailable — do not substitute neutrals silently.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` env var missing | CRITICAL | Halt — exit 1; print setup instructions; do not write output |
+| FMP returns HTTP error or empty list | HIGH | Halt — log `[DATA GAP HIGH]`; do not fabricate candidates |
+| Individual ticker data unavailable | LOW | Skip ticker; list missing symbols in output under `data_gaps[]` |
+| Fewer than 30 qualifying candidates | MEDIUM | Continue; note reduced sample; mark `confidence: LOW` in output |
+| Data timestamp >1 trading day old | MEDIUM | Warn in output; proceed only with user confirmation |

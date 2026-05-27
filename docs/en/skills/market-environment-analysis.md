@@ -3,7 +3,7 @@ layout: default
 title: "Market Environment Analysis"
 grand_parent: English
 parent: Skill Guides
-nav_order: 30
+nav_order: 39
 lang_peer: /ja/skills/market-environment-analysis/
 permalink: /en/skills/market-environment-analysis/
 ---
@@ -34,14 +34,26 @@ Comprehensive market environment analysis and reporting tool. Analyzes global ma
 
 ---
 
-## 2. Prerequisites
+## 2. When to Use
 
-- **API Key:** None required
-- **Python 3.9+** recommended
+- When you need a comprehensive overview of global market conditions
+- Before making trading or investment decisions
+- For daily/weekly market briefings
+- When assessing risk-on/risk-off sentiment
+- For understanding inter-market correlations and sector rotation
+- When preparing market reports for clients or personal records
 
 ---
 
-## 3. Quick Start
+## 3. Prerequisites
+
+- **WebSearch access**: Required for fetching real-time market data
+- **No API keys required**: This skill uses web search for data collection
+- **Optional**: Economic calendar data for event-driven analysis
+
+---
+
+## 4. Quick Start
 
 ```bash
 1. Executive Summary (3-5 key points)
@@ -57,7 +69,7 @@ Comprehensive market environment analysis and reporting tool. Analyzes global ma
 
 ---
 
-## 4. Workflow
+## 5. Workflow
 
 ### 1. Initial Data Collection
 Collect latest market data using web_search tool:
@@ -92,7 +104,7 @@ Evaluate the following from collected data:
 
 ---
 
-## 5. Resources
+## 6. Resources
 
 **References:**
 

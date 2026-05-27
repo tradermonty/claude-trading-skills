@@ -3,7 +3,7 @@ layout: default
 title: "Edge Signal Aggregator"
 grand_parent: English
 parent: Skill Guides
-nav_order: 11
+nav_order: 26
 lang_peer: /ja/skills/edge-signal-aggregator/
 permalink: /en/skills/edge-signal-aggregator/
 ---

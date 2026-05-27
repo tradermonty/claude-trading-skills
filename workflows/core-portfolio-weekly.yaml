@@ -26,20 +26,25 @@ optional_skills:
 
 artifacts:
   - id: holdings_snapshot
+    schema_id: portfolio_review
     produced_by_step: 1
     required: true
     downstream_hints:
       - monthly-performance-review
   - id: allocation_report
+    schema_id: portfolio_review
     produced_by_step: 2
     required: true
   - id: dividend_review_findings
+    schema_id: dividend_review
     produced_by_step: 3
     required: false
   - id: rebalance_actions
+    schema_id: portfolio_review
     produced_by_step: 4
     required: true
   - id: weekly_journal_entry
+    schema_id: journal_entry
     produced_by_step: 5
     required: true
 

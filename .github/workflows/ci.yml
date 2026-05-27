@@ -173,6 +173,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test trader-memory-core
+        run: >
+          python -m pytest skills/trader-memory-core/scripts/tests/ -v
+          --cov=skills/trader-memory-core/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test repo-level scripts
         run: >
           python -m pytest scripts/tests/ -v
@@ -259,6 +266,29 @@ jobs:
 
       # Note: the validator + generator unit tests already run under the
       # 'Test repo-level scripts' step in the test job above.
+
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    # Run after lint, test, and metadata all pass
+    needs: [lint, test, metadata]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml pydantic
+
+      # Run the full release gate in quick mode (tests already ran in 'test' job)
+      # --strict is not used in CI because ceremony/audit logs live on the runner
+      # filesystem (they are not committed). Production releases run with --strict
+      # from an environment where those state files are present.
+      - name: Release gate (quick)
+        run: python3 scripts/run_release_gate.py --quick
 
   security:
     name: Security

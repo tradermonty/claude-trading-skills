@@ -99,6 +99,13 @@ repos:
         files: '^(skills-index\.yaml|workflows/.*\.yaml|skills/trading-skills-navigator/(assets/metadata_snapshot\.json|scripts/(build_snapshot|recommend)\.py))$'
         pass_filenames: false
 
+      - id: skill-package-integrity
+        name: Verify skill package checksums
+        entry: python3 scripts/manage_skill_packages.py verify
+        language: system
+        files: '^skill-packages/'
+        pass_filenames: false
+
       # Pre-push hook: run validator in --strict-workflows + --strict-metadata
       # mode. Pre-commit stays in default mode so quick edits aren't blocked,
       # but pushes must satisfy the stricter contract (workflow internal

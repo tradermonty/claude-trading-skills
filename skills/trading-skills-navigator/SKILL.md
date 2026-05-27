@@ -117,6 +117,17 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 | `rationale` | Ordered list of why-this-was-recommended strings |
 | `setup_path_ref` | Pointer to the setup-path reference |
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `journal_entry` | `JournalEntry` | Timestamped decision log entry for trader memory |
+
+Schema: `schemas/json/journal_entry.json`
+
 ## Resources
 
 - `scripts/recommend.py` — the deterministic recommender (single source of

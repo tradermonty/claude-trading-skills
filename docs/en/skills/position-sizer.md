@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Position Sizer
+title: "Position Sizer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 6
+nav_order: 47
 lang_peer: /ja/skills/position-sizer/
 permalink: /en/skills/position-sizer/
 ---
@@ -11,8 +11,10 @@ permalink: /en/skills/position-sizer/
 # Position Sizer
 {: .no_toc }
 
-Calculate risk-based position sizes for long stock trades using Fixed Fractional, ATR-Based, or Kelly Criterion methods. Supports portfolio constraints, sector concentration checks, and multi-scenario comparison.
+Calculate risk-based position sizes for long stock trades. Use when user asks about position sizing, how many shares to buy, risk per trade, Kelly criterion, ATR-based sizing, or portfolio risk allocation. Supports stop-loss distance calculation, volatility scaling, and sector concentration checks.
 {: .fs-6 .fw-300 }
+
+<span class="badge badge-free">No API</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/position-sizer.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/position-sizer){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -28,158 +30,131 @@ Calculate risk-based position sizes for long stock trades using Fixed Fractional
 
 ## 1. Overview
 
-Position Sizer answers the most important question in trade execution: "How many shares should I buy?" Correct sizing is the single most important factor in long-term portfolio survival. A great stock pick with bad sizing can destroy an account; a mediocre pick with proper sizing preserves capital for the next opportunity.
+Calculate a reference position size for a long stock trade based on risk management principles.
+Output is a decision-support calculation — the trader must approve and manually enter any resulting order at the broker. Supports three sizing methods:
 
-**What it solves:**
-- Eliminates guesswork from position sizing decisions
-- Enforces disciplined risk management with a fixed percentage of account equity at risk
-- Adjusts for volatility differences across stocks using ATR-based sizing
-- Calculates mathematically optimal allocation via Kelly Criterion
-- Applies portfolio-level constraints (max position size, sector concentration limits)
+- **Fixed Fractional**: Risk a fixed percentage of account equity per trade (default: 1%)
+- **ATR-Based**: Use Average True Range to set volatility-adjusted stop distances
+- **Kelly Criterion**: Calculate mathematically optimal risk allocation from historical win/loss statistics
 
-**Key capabilities:**
-- 3 sizing methods: Fixed Fractional, ATR-Based, and Kelly Criterion
-- Portfolio constraints: max position % of account, max sector %, current sector exposure tracking
-- Binding constraint identification: tells you which limit is capping your position
-- Pure calculation -- no API keys, no internet, works completely offline
-
-<span class="badge badge-free">No API</span>
+All methods apply portfolio constraints (max position %, max sector %) and output a final recommended share count with full risk breakdown.
 
 ---
 
-## 2. Prerequisites
+## 2. When to Use
 
-- **API Key:** None required -- pure mathematical calculations
-- **Python 3.9+:** Required to run the calculation script
-- **No additional Python dependencies** -- uses only the standard library
-- **No internet connection needed** -- works completely offline
-
-> Position Sizer is a self-contained calculator. It requires no API keys, no market data feeds, and no external dependencies. Provide the numbers and it does the math.
-{: .tip }
+- User asks "how many shares to evaluate for this setup?" or "what is my reference position size?"
+- User wants to calculate position size for a specific trade setup
+- User mentions risk per trade, stop-loss sizing, or portfolio allocation
+- User asks about Kelly Criterion or ATR-based position sizing
+- User wants to check if a position fits within portfolio concentration limits
 
 ---
 
-## 3. Quick Start
+## 3. Prerequisites
 
-Tell Claude:
+- No API keys required
+- Python 3.9+ with standard library only
 
-```
-I have a $100,000 account. I want to buy AAPL at $155 with a stop at $148.50, risking 1% of my account. How many shares?
-```
+---
 
-Or run the script directly:
+## 4. Quick Start
 
 ```bash
+# Basic: stop-loss based sizing
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --entry 155.00 --stop 148.50 \
+  --account-size 100000 --risk-pct 1.0
+
+# ATR-based sizing
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --entry 155.00 --atr 3.20 --atr-multiplier 2.0 \
+  --account-size 100000 --risk-pct 1.0
+
+# Kelly Criterion (budget mode: no --entry)
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --win-rate 0.55 --avg-win 2.5 --avg-loss 1.0 \
+  --account-size 100000
+
+# With portfolio constraints
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --entry 155.00 --stop 148.50 \
+  --account-size 100000 --risk-pct 1.0 \
+  --max-position-pct 10 --max-sector-pct 30 \
+  --sector Technology --current-sector-exposure 22
+```
+
+---
+
+## 5. Workflow
+
+### Step 1: Gather Trade Parameters
+
+Collect from the user:
+- **Required**: Account size (total equity)
+- **Mode A (Fixed Fractional)**: Entry price, stop price, risk percentage (default 1%)
+- **Mode B (ATR-Based)**: Entry price, ATR value, ATR multiplier (default 2.0x), risk percentage
+- **Mode C (Kelly Criterion)**: Win rate, average win, average loss; optionally entry and stop for share calculation
+- **Optional constraints**: Max position % of account, max sector %, current sector exposure
+
+If the user provides a stock ticker but not specific prices, use available tools to look up the current price and suggest entry/stop levels based on technical analysis.
+
+### Step 2: Execute Position Sizer Script
+
+Run the position sizing calculation:
+
+```bash
+# Fixed Fractional (most common)
 python3 skills/position-sizer/scripts/position_sizer.py \
   --account-size 100000 \
   --entry 155 \
   --stop 148.50 \
   --risk-pct 1.0 \
   --output-dir reports/
-```
 
-Claude calculates 153 shares ($23,715 position, $994.50 at risk) and explains the reasoning. That is all you need to get started.
-
----
-
-## 4. How It Works
-
-1. **Gather parameters** -- The script collects account size, entry price, stop price (or ATR), and risk percentage. For Kelly Criterion, it collects win rate and average win/loss statistics.
-2. **Calculate risk per share** -- For Fixed Fractional: `entry - stop`. For ATR-Based: `ATR * multiplier`. For Kelly: derived from the half-Kelly budget and entry/stop distance.
-3. **Compute base share count** -- `dollar_risk / risk_per_share`, always rounded down to whole shares. Rounding up would exceed the risk budget.
-4. **Apply portfolio constraints** -- If `--max-position-pct` or `--max-sector-pct` is specified, the share count is capped by the tightest constraint. The binding constraint is identified in the output.
-5. **Generate reports** -- JSON and Markdown files are saved to the output directory with full calculation details, constraint analysis, and the final recommendation.
-
-**Three sizing modes:**
-
-| Mode | Required Inputs | Best For |
-|------|----------------|----------|
-| Fixed Fractional | Entry, stop, risk % | Discretionary trades with clear technical stops |
-| ATR-Based | Entry, ATR, multiplier, risk % | Systematic trading, cross-stock volatility normalization |
-| Kelly Criterion | Win rate, avg win, avg loss | Capital allocation planning with a proven track record |
-
----
-
-## 5. Usage Examples
-
-### Example 1: Basic Stop-Loss Based Sizing
-
-**Prompt:**
-```
-I have $100,000. Buy at $155, stop at $148.50, risk 1%.
-```
-
-**Command:**
-```bash
+# ATR-Based
 python3 skills/position-sizer/scripts/position_sizer.py \
   --account-size 100000 \
   --entry 155 \
-  --stop 148.50 \
-  --risk-pct 1.0 \
-  --output-dir reports/
-```
-
-**Result:** 153 shares, $23,715 position value, $994.50 dollar risk (0.99% of account).
-
-**Why useful:** The most common sizing method. Define your stop based on chart support, and the calculator tells you exactly how many shares fit within your risk budget.
-
----
-
-### Example 2: ATR-Based Volatility-Adjusted Sizing
-
-**Prompt:**
-```
-Size a position in NVDA at $850 entry, ATR(14) is $22.50, use 2x ATR multiplier and 1% risk on a $100,000 account.
-```
-
-**Command:**
-```bash
-python3 skills/position-sizer/scripts/position_sizer.py \
-  --account-size 100000 \
-  --entry 850 \
-  --atr 22.50 \
+  --atr 3.20 \
   --atr-multiplier 2.0 \
   --risk-pct 1.0 \
   --output-dir reports/
-```
 
-**Result:** 22 shares, stop at $805.00, $990 dollar risk.
-
-**Why useful:** ATR-based sizing automatically adjusts for volatility. A low-volatility stock gets a larger position (tighter stop), while a high-volatility stock gets a smaller position (wider stop). This normalizes risk across different stocks in your portfolio.
-
----
-
-### Example 3: Kelly Criterion (Budget Mode)
-
-**Prompt:**
-```
-My trading system has a 55% win rate with average wins of $2.50 and average losses of $1.00. What percentage of my $100,000 account should I allocate?
-```
-
-**Command:**
-```bash
+# Kelly Criterion (budget mode - no entry)
 python3 skills/position-sizer/scripts/position_sizer.py \
   --account-size 100000 \
   --win-rate 0.55 \
   --avg-win 2.5 \
   --avg-loss 1.0 \
   --output-dir reports/
+
+# Kelly Criterion (shares mode - with entry/stop)
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 \
+  --entry 155 \
+  --stop 148.50 \
+  --win-rate 0.55 \
+  --avg-win 2.5 \
+  --avg-loss 1.0 \
+  --output-dir reports/
 ```
 
-**Result:** Full Kelly = 37%, Half Kelly = 18.5%, recommended risk budget = $18,500.
+### Step 3: Load Methodology Reference
 
-**Why useful:** When you do not yet have a specific entry and stop, Kelly Criterion tells you how much capital to allocate based on your system's historical edge. Always use half Kelly in practice -- it captures 75% of the theoretical growth with dramatically lower drawdowns.
+Read `references/sizing_methodologies.md` to provide context on the chosen method, risk guidelines, and portfolio constraint best practices.
 
----
+### Step 4: Calculate Multiple Scenarios
 
-### Example 4: Portfolio Constraints
+If the user has not specified a single method, run multiple scenarios for comparison:
+- Fixed Fractional at 0.5%, 1.0%, and 1.5% risk
+- ATR-based at 1.5x, 2.0x, and 3.0x multipliers
+- Present a comparison table showing shares, position value, and dollar risk for each
 
-**Prompt:**
-```
-Same AAPL trade ($155 entry, $148.50 stop, 1% risk), but cap any single position at 10% of account and Tech sector at 30%. I already have 22% in Tech.
-```
+### Step 5: Apply Portfolio Constraints and Determine Final Size
 
-**Command:**
+Add constraints if the user has portfolio context:
+
 ```bash
 python3 skills/position-sizer/scripts/position_sizer.py \
   --account-size 100000 \
@@ -188,172 +163,30 @@ python3 skills/position-sizer/scripts/position_sizer.py \
   --risk-pct 1.0 \
   --max-position-pct 10 \
   --max-sector-pct 30 \
-  --sector Technology \
   --current-sector-exposure 22 \
   --output-dir reports/
 ```
 
-**Result:** Risk-based = 153 shares, but sector constraint limits to 51 shares ($7,905 position). Binding constraint: sector concentration (only 8% room remaining in Tech).
+Explain which constraint is binding and why it limits the position.
 
-**Why useful:** Portfolio constraints prevent concentration risk from creeping in. Even though the risk calculation says 153 shares, the sector limit recognizes that adding more Tech exposure would push the portfolio past 30% in a single sector.
+### Step 6: Generate Position Report
 
----
-
-### Example 5: Multiple Scenario Comparison
-
-**Prompt:**
-```
-Compare position sizes at 0.5%, 1.0%, and 1.5% risk for a $200,000 account, entry $75, stop $71.
-```
-
-**What happens:** Claude runs the script three times with different `--risk-pct` values and presents a comparison table showing shares, position value, and dollar risk at each level (e.g., 250 / 500 / 750 shares respectively).
-
-**Why useful:** Seeing multiple scenarios side-by-side helps you choose the right risk level based on conviction, market conditions, and current portfolio heat. Conservative after a losing streak? Use 0.5%. High-conviction setup in a Strong breadth zone? Consider 1.0-1.5%.
+Present the final recommendation including:
+- Method used and rationale
+- Exact share count and position value
+- Dollar risk and percentage of account
+- Stop-loss price
+- Any binding constraints
+- Risk management reminders (portfolio heat, loss-cutting discipline)
 
 ---
 
-### Example 6: Sector Concentration Check
+## 6. Resources
 
-**Prompt:**
-```
-I already have 22% in Technology. Can I add another Tech position within my 30% limit?
-```
+**References:**
 
-**Command:**
-```bash
-python3 skills/position-sizer/scripts/position_sizer.py \
-  --account-size 100000 --entry 155 --stop 148.50 --risk-pct 1.0 \
-  --max-sector-pct 30 --sector Technology --current-sector-exposure 22 \
-  --output-dir reports/
-```
+- `skills/position-sizer/references/sizing_methodologies.md`
 
-**Result:** Sector has 8% remaining ($8,000). Maximum 51 shares ($7,905), below the 153 from risk-based calculation. Sector constraint is binding.
+**Scripts:**
 
-**Why useful:** Sector checks prevent inadvertent concentration during a hot streak. The binding constraint report makes it clear exactly why the position is smaller than expected.
-
----
-
-### Example 7: Natural Language Request
-
-**Prompt:**
-```
-How many shares of MSFT should I buy? My account is $50,000, I want tight risk,
-and the stock is at $420 with recent support at $408.
-```
-
-**What happens:** Claude interprets "tight risk" as 0.5-1.0%, uses the support level as the stop, and runs the calculation. It presents the result with an explanation of the stop placement and share count.
-
-**Why useful:** You do not need to remember CLI arguments. Describe your situation in plain language and Claude extracts the parameters, runs the calculation, and explains the result.
-
----
-
-## 6. Understanding the Output
-
-After execution, the script produces a JSON and Markdown report containing:
-
-1. **Parameters Summary** -- Account size, entry price, stop price, risk percentage, and any constraints.
-2. **Calculation Details** -- The active sizing method with step-by-step math: risk per share, dollar risk, and base share count.
-3. **Constraints Analysis** -- If max position or sector limits were specified, each constraint is evaluated and the binding constraint is identified.
-4. **Final Recommendation** -- The recommended share count (always the minimum across all constraints), position value, dollar risk, and risk as a percentage of account.
-
-### Key JSON Fields
-
-| Field | Description |
-|-------|-------------|
-| `mode` | `shares` (entry/stop provided) or `budget` (Kelly only, no entry) |
-| `final_recommended_shares` | The number to trade -- minimum across all constraints |
-| `binding_constraint` | Which limit capped the position: `risk_based`, `max_position_pct`, or `max_sector_pct` |
-
----
-
-## 7. Tips & Best Practices
-
-- **Default to 1% risk.** The 1% rule is the industry standard for swing traders. Never exceed 2% without exceptional reason and a proven track record.
-- **Always round down.** The script rounds shares down to whole numbers. Rounding up would exceed your risk budget.
-- **Use half Kelly, never full Kelly.** Full Kelly maximizes theoretical growth but produces extreme drawdowns (50%+). Half Kelly captures 75% of the growth with far more manageable volatility.
-- **Check portfolio heat.** Total open risk across all positions should stay below 6-8% of account equity. If you are already at 6%, do not add new positions until existing trades move to breakeven or close.
-- **Reduce risk after losses.** After 2-3 consecutive losses, drop to 0.5% risk per trade. Protect capital during drawdowns, then scale back up after wins confirm the market environment.
-- **Combine constraints for safety.** Use both `--max-position-pct` and `--max-sector-pct` together. The strictest constraint wins, preventing both single-stock and sector concentration risk.
-
----
-
-## 8. Combining with Other Skills
-
-| Workflow | How to Combine |
-|----------|---------------|
-| **Post-screener sizing** | After CANSLIM, VCP, or Dividend screeners identify candidates, use Position Sizer to calculate exact share counts before entry |
-| **Breadth-adjusted risk** | Use Market Breadth Analyzer to determine the health zone, then adjust risk percentage: 1.0-1.5% in Strong zone, 0.5% in Weakening zone |
-| **Backtest validation** | After Backtest Expert confirms a strategy's edge, use the win rate and payoff ratio as Kelly Criterion inputs for optimal capital allocation |
-| **Technical entry planning** | Use Technical Analyst to identify the stop level (support, moving average, prior low), then feed it into Position Sizer for the share count |
-| **Portfolio rebalancing** | After Portfolio Manager reviews current holdings, use Position Sizer with sector constraints to size new additions without exceeding concentration limits |
-
----
-
-## 9. Troubleshooting
-
-### "Error: --account-size is required"
-
-**Cause:** The `--account-size` argument was not provided.
-
-**Fix:** Always include `--account-size` with your total account equity. This is the only truly required argument.
-
-### Position size seems too small
-
-**Cause:** Typically one of three reasons: (1) the stop is very wide relative to the entry, (2) a portfolio constraint is binding, or (3) the stock price is high relative to account size.
-
-**Fix:** Check the `binding_constraint` field in the JSON output. If it shows `max_position_pct` or `max_sector_pct`, the constraint is limiting you below the risk-based calculation. If the risk-based shares are already small, the stop distance is wide -- consider whether the stop is appropriately placed.
-
-### Kelly Criterion returns 0%
-
-**Cause:** The trading system has negative expected value. When the Kelly formula produces a negative number, it is floored at 0%, meaning "do not trade this system."
-
-**Fix:** This is not a bug -- it is the correct mathematical answer. A negative Kelly means the system loses money over time. Re-evaluate the strategy's win rate and payoff ratio before trading.
-
-### "No sizing method could be determined"
-
-**Cause:** Insufficient arguments were provided. The script needs at least one complete set: (1) entry + stop + risk-pct, (2) entry + ATR + risk-pct, or (3) win-rate + avg-win + avg-loss.
-
-**Fix:** Provide a complete set of arguments for at least one sizing method. See the CLI Arguments table below for required combinations.
-
----
-
-## 10. Reference
-
-### CLI Arguments
-
-| Argument | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `--account-size` | Yes | -- | Total account value in dollars |
-| `--entry` | No | -- | Entry price per share |
-| `--stop` | No | -- | Stop-loss price per share |
-| `--risk-pct` | No | -- | Risk percentage per trade (e.g., 1.0 for 1%) |
-| `--atr` | No | -- | Average True Range value for ATR-based sizing |
-| `--atr-multiplier` | No | `2.0` | ATR multiplier for stop distance |
-| `--win-rate` | No | -- | Historical win rate (0-1) for Kelly Criterion |
-| `--avg-win` | No | -- | Average win amount for Kelly Criterion |
-| `--avg-loss` | No | -- | Average loss amount for Kelly Criterion |
-| `--max-position-pct` | No | -- | Maximum single position as % of account |
-| `--max-sector-pct` | No | -- | Maximum sector exposure as % of account |
-| `--sector` | No | -- | Sector name for concentration check |
-| `--current-sector-exposure` | No | `0.0` | Current sector exposure as % of account |
-| `--output-dir` | No | `reports/` | Output directory for JSON and Markdown reports |
-
-### Sizing Method Comparison
-
-| Feature | Fixed Fractional | ATR-Based | Kelly Criterion |
-|---------|-----------------|-----------|-----------------|
-| Input needed | Entry, stop, risk % | Entry, ATR, multiplier, risk % | Win rate, avg win/loss |
-| Adjusts for volatility | No | Yes | No (uses historical stats) |
-| Requires track record | No | No | Yes (100+ trades) |
-| Best for | Discretionary trades | Systematic/mechanical | Capital allocation |
-| Stop determined by | Chart analysis | ATR calculation | External (chart or ATR) |
-
-### Standard Risk Levels
-
-| Risk % | Trader Profile | Notes |
-|--------|---------------|-------|
-| 0.25-0.50% | Conservative / large account | Institutional-grade risk |
-| 0.50-1.00% | Experienced swing trader | Minervini recommended range |
-| 1.00-1.50% | Active trader, proven edge | Standard for tested systems |
-| 1.50-2.00% | Aggressive, high win-rate | Maximum for most strategies |
-| > 2.00% | Dangerous | Ruin risk increases rapidly |
+- `skills/position-sizer/scripts/position_sizer.py`

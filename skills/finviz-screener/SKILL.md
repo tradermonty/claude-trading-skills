@@ -312,6 +312,17 @@ Screening works best as a dialogue, not a one-shot query:
 
 ---
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 - `references/finviz_screener_filters.md` — Complete filter code reference with natural language keywords (includes industry code examples; full 142-code list is in the Industry Codes section)

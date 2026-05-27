@@ -684,6 +684,17 @@ Breadth Analyst (thinking in English):
 7. Generates comprehensive combined report
 ```
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `breadth_assessment` | `BreadthAssessment` | Market breadth composite score and component breakdown |
+
+Schema: `schemas/json/breadth_assessment.json`
+
 ## Resources
 
 This skill includes the following bundled resources:

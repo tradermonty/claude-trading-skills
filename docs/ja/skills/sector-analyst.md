@@ -3,7 +3,7 @@ layout: default
 title: "Sector Analyst"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 37
+nav_order: 49
 lang_peer: /en/skills/sector-analyst/
 permalink: /ja/skills/sector-analyst/
 ---
@@ -11,7 +11,7 @@ permalink: /ja/skills/sector-analyst/
 # Sector Analyst
 {: .no_toc }
 
-セクターローテーションパターンとマーケットサイクルのポジショニングを分析するスキルです。CSVからセクターのアップトレンドデータを取得し（APIキー不要）、補足分析としてチャート画像も受け付けます。セクターローテーション分析、シクリカル vs ディフェンシブ評価、買われすぎ/売られすぎの特定、マーケットサイクルのフェーズ推定が必要な場合に使用します。
+This skill should be used when analyzing sector rotation patterns and market cycle positioning. It fetches sector uptrend data from CSV (no API key required) and optionally accepts chart images for supplementary analysis. Use this skill when the user requests sector rotation analysis, cyclical vs defensive assessment, overbought/oversold identification, or market cycle phase estimation. All analysis and output are conducted in English.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">API不要</span>
@@ -19,126 +19,10 @@ permalink: /ja/skills/sector-analyst/
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/sector-analyst.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/sector-analyst){: .btn .fs-5 .mb-4 .mb-md-0 }
 
-<details open markdown="block">
-  <summary>目次</summary>
-  {: .text-delta }
-- TOC
-{:toc}
-</details>
+> **Note:** This page has not yet been translated into Japanese.
+> Please refer to the [English version]({{ '/en/skills/sector-analyst/' | relative_url }}) for the full guide.
+{: .warning }
 
 ---
 
-## 1. 概要
-
-TraderMontyの公開CSVデータセットからアップトレンド比率データを取得し、セクターローテーションとマーケットサイクルのポジショニングを包括的に分析するスキルです。セクターのランキング、シクリカル vs ディフェンシブのリスクレジームスコア計算、買われすぎ/売られすぎ状態の特定、現在のマーケットサイクルフェーズの推定を行います。チャート画像を提供すると、データドリブン分析を業種レベルの詳細で補完できます。
-
----
-
-## 2. 使用タイミング
-
-以下の場合にこのスキルを使用してください：
-- セクターローテーション分析のリクエスト（チャート画像不要）
-- シクリカル vs ディフェンシブのポジショニングについての質問
-- どのセクターが買われすぎ/売られすぎかを知りたい場合
-- マーケットサイクルのフェーズ推定が必要な場合
-- セクターパフォーマンスチャートを提供して補足分析を求める場合
-- セクターベースのシナリオ分析や予測のリクエスト
-
-**リクエスト例：**
-- 「セクターローテーション分析を実行して」
-- 「シクリカルとディフェンシブ、どちらが優位？」
-- 「今買われすぎのセクターはある？」
-- 「マーケットサイクルのどのフェーズにいる？」
-- 「このセクターパフォーマンスチャートを分析して」
-
----
-
-## 3. 前提条件
-
-- 画像ベースのチャート分析機能
-- Python 3.9+ 推奨
-
----
-
-## 4. クイックスタート
-
-```bash
-python3 skills/sector-analyst/scripts/analyze_sector_rotation.py
-```
-
----
-
-## 5. ワークフロー
-
-### ステップ1: CSVデータ収集
-
-1. 分析スクリプトを実行: `python3 skills/sector-analyst/scripts/analyze_sector_rotation.py`
-2. 出力から以下を抽出:
-   - アップトレンド比率によるセクターランキング
-   - リスクレジーム（シクリカル vs ディフェンシブ）とスコア
-   - 買われすぎ/売られすぎのセクター
-   - サイクルフェーズの推定と信頼度
-3. データ鮮度に関する警告が表示された場合は分析に記載
-
-### ステップ2: マーケットサイクル評価
-
-スクリプトのサイクルフェーズ推定を出発点として使用：
-- `references/sector_rotation.md` を読み込み、マーケットサイクルとセクターローテーションのフレームワークを参照
-- スクリプトの定量的結果を各サイクルフェーズの想定パターンと比較:
-  - 初期回復（Early Cycle Recovery）
-  - 拡大期（Mid Cycle Expansion）
-  - 後期サイクル（Late Cycle）
-  - 景気後退（Recession）
-- ナレッジベースに基づく定性的な解釈を追加
-
-チャート画像が提供された場合は、業種レベルの詳細で補完：
-- チャート画像から業種別パフォーマンスデータを抽出
-- 1週間 vs 1ヶ月のパフォーマンスを比較しトレンドの一貫性を確認
-- セクター内で強さ/弱さを見せている特定の業種を記録
-
-### ステップ3: 現状分析
-
-観察結果を客観的な評価に統合：
-- 現在のパフォーマンスが最も近いマーケットサイクルフェーズを特定
-- 裏付けとなるエビデンス（どのセクター/業種がこの見方を確認するか）を強調
-- 矛盾するシグナルや異常パターンを記録
-- シグナルの一貫性に基づく信頼度を評価
-
-データドリブンな表現と具体的なパフォーマンス数値への言及を使用。
-
-### ステップ4: シナリオ策定
-
-セクターローテーションの原則と現在のポジショニングに基づき、次のフェーズに向けた2-4のシナリオを策定：
-
-各シナリオについて：
-- マーケットサイクルの遷移を記述
-- アウトパフォームが期待されるセクターを特定
-- アンダーパフォームが予想されるセクターを特定
-- このシナリオを確認するカタリストや条件を明記
-- 確率を割り当て（sector_rotation.mdの確率評価フレームワークを参照）
-
-シナリオは最も可能性の高いもの（最高確率）からオルタナティブ/コントラリアンシナリオまで幅広く設定。
-
-### ステップ5: レポート生成
-
-以下のセクションを含む構造化されたMarkdownドキュメントを作成：
-
-**必須セクション：**
-1. **エグゼクティブサマリー**: 主要な発見の2-3文の概要
-2. **現状分析**: 現在のパフォーマンスパターンとマーケットサイクルポジショニングの詳細分析
-3. **裏付けエビデンス**: サイクル評価を支持する具体的なセクター・業種パフォーマンスデータ
-4. **シナリオ分析**: 2-4のシナリオ（説明と確率割り当て付き）
-5. **推奨ポジショニング**: シナリオ確率に基づく戦略的・戦術的ポジショニング提案
-6. **主要リスク**: 注視すべきリスクや矛盾するシグナル
-
----
-
-## 6. リソース
-
-**リファレンス：**
-
-- `skills/sector-analyst/references/sector_rotation.md`
-
-**スクリプト：**
-
-- `skills/sector-analyst/scripts/analyze_sector_rotation.py`
+[English版ガイドを見る]({{ '/en/skills/sector-analyst/' | relative_url }}){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }

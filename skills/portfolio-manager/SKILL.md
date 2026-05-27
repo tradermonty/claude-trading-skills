@@ -741,10 +741,52 @@ Model portfolio behavior under different scenarios:
 - "Is [SYMBOL] overweight in my portfolio?"
 - "What should I do with [SYMBOL]?"
 
+## Concentration Check — Manual Review Triggers
+
+Flag any of the following in the `PortfolioReview` output artifact. The trader must review and
+decide outside this skill — no rebalance action is taken automatically.
+
+| Condition | Threshold | Flag level |
+|-----------|-----------|------------|
+| Single position > portfolio | 10% | HIGH — concentration risk |
+| Single sector > portfolio | 30% | HIGH — concentration risk |
+| Top 5 positions > portfolio | 40% | MEDIUM — review diversification |
+| Equity allocation vs target | >10% drift | MEDIUM — rebalance candidate |
+| HHI (concentration index) | >2500 | HIGH — highly concentrated |
+| Beta-adjusted risk vs benchmark | >1.5× | MEDIUM — elevated market risk |
+
+Rebalance actions are decision-support proposals, not instructions. All buy/sell actions
+require manual placement at the broker — this skill does not execute orders.
+
 ## Limitations and Disclaimers
 
-**Include in all reports:**
+**Include in all reports. Output artifacts carry `manual_review_required: true`.**
 
-*This analysis is for informational purposes only and does not constitute financial advice. Investment decisions should be made based on individual circumstances, risk tolerance, and financial goals. Past performance does not guarantee future results. Consult with a qualified financial advisor before making investment decisions.*
+*This analysis is for informational and decision-support purposes only. It does not constitute
+financial advice. No order is placed, modified, or cancelled by this skill — all actions
+require manual entry at the brokerage. Investment decisions should be made based on individual
+circumstances, risk tolerance, and financial goals. Past performance does not guarantee future
+results. Consult a qualified financial advisor before making investment decisions.*
 
-*Data accuracy depends on Alpaca API and third-party market data sources. Verify critical information independently. Tax implications are estimates only; consult a tax professional for specific guidance.*
+*Data accuracy depends on the Alpaca API and third-party market data sources. Verify critical
+information independently. Tax implications are estimates only; consult a tax professional.*
+
+## Data Gaps
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| Alpaca MCP server not connected | CRITICAL | Halt — do not assume holdings; request manual CSV input |
+| Holdings snapshot >1 trading day old | HIGH | Warn; do not proceed without user confirmation |
+| Position data missing for a ticker | HIGH | Flag as UNVERIFIABLE; exclude from HHI and risk calculations |
+| Market prices unavailable (market closed) | MEDIUM | Use last known price; mark report as AT-CLOSE |
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `portfolio_review` | `PortfolioReview` | Holdings snapshot, allocation analysis, and rebalance proposals |
+
+Schema: `schemas/json/portfolio_review.json`

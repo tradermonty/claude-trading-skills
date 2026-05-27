@@ -1,0 +1,631 @@
+{
+  "$defs": {
+    "DataGap": {
+      "description": "A single data gap record \u2014 emitted when expected data is absent or stale.",
+      "properties": {
+        "gap_id": {
+          "title": "Gap Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "description": {
+          "description": "What data is missing or stale",
+          "title": "Description",
+          "type": "string"
+        },
+        "affected_decision": {
+          "description": "Which downstream decision this impairs",
+          "title": "Affected Decision",
+          "type": "string"
+        },
+        "remediation": {
+          "description": "How the user can resolve this gap",
+          "title": "Remediation",
+          "type": "string"
+        },
+        "can_continue": {
+          "description": "Whether the skill/workflow can produce useful output despite this gap",
+          "title": "Can Continue",
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which upstream skill or API caused the gap",
+          "title": "Source"
+        }
+      },
+      "required": [
+        "severity",
+        "description",
+        "affected_decision",
+        "remediation",
+        "can_continue"
+      ],
+      "title": "DataGap",
+      "type": "object"
+    },
+    "Disclaimer": {
+      "properties": {
+        "text": {
+          "default": "This artifact is produced by TraderMonty, a decision-support and trading-process toolkit. It is NOT financial advice, investment advisory, a trading signal, or a guarantee of profitability. All trading decisions, position sizing, risk management, and broker execution decisions remain solely the user's responsibility. Review all outputs manually before acting.",
+          "title": "Text",
+          "type": "string"
+        },
+        "decision_support_only": {
+          "default": true,
+          "title": "Decision Support Only",
+          "type": "boolean"
+        }
+      },
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "ManualReviewStatus": {
+      "description": "Lifecycle state of the human review gate for an artifact.",
+      "enum": [
+        "PENDING",
+        "IN_REVIEW",
+        "APPROVED",
+        "REJECTED",
+        "WAIVED"
+      ],
+      "title": "ManualReviewStatus",
+      "type": "string"
+    },
+    "ReviewerRole": {
+      "description": "Role of the reviewer who completed or waived the review.",
+      "enum": [
+        "RESEARCHER",
+        "REVIEWER",
+        "RISK_APPROVER",
+        "ADMIN"
+      ],
+      "title": "ReviewerRole",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "WorkflowStatus": {
+      "enum": [
+        "STARTED",
+        "IN_PROGRESS",
+        "AWAITING_DECISION",
+        "AWAITING_REVIEW",
+        "COMPLETED",
+        "ABANDONED"
+      ],
+      "title": "WorkflowStatus",
+      "type": "string"
+    },
+    "WorkflowStepRecord": {
+      "properties": {
+        "step_number": {
+          "title": "Step Number",
+          "type": "integer"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "skill_id": {
+          "title": "Skill Id",
+          "type": "string"
+        },
+        "status": {
+          "default": "PENDING",
+          "description": "PENDING / RUNNING / DONE / SKIPPED / FAILED",
+          "title": "Status",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "artifact_ids_produced": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids Produced",
+          "type": "array"
+        },
+        "input_artifact_ids": {
+          "description": "artifact_ids consumed as inputs by this step",
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Artifact Ids",
+          "type": "array"
+        },
+        "output_artifact_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "SHA-256 hashes of artifacts produced by this step: {artifact_id: sha256}",
+          "title": "Output Artifact Hashes",
+          "type": "object"
+        },
+        "decision_gate_question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Gate Question"
+        },
+        "decision_gate_answer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Gate Answer"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "required": [
+        "step_number",
+        "name",
+        "skill_id"
+      ],
+      "title": "WorkflowStepRecord",
+      "type": "object"
+    }
+  },
+  "description": "Record of a single workflow execution session.\n\nSaved to state/workflow-runs/<run_id>.json by the workflow runner.\nNever contains trade execution instructions.",
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "artifact_id": {
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "artifact_type": {
+      "default": "workflow_run",
+      "title": "Artifact Type",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "skill_id": {
+      "description": "ID of the skill that produced this artifact",
+      "title": "Skill Id",
+      "type": "string"
+    },
+    "workflow_id": {
+      "title": "Workflow Id",
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflow Run Id"
+    },
+    "symbols": {
+      "description": "Tickers/assets covered",
+      "items": {
+        "type": "string"
+      },
+      "title": "Symbols",
+      "type": "array"
+    },
+    "data_sources_used": {
+      "description": "APIs, CSVs, or other sources consumed",
+      "items": {
+        "type": "string"
+      },
+      "title": "Data Sources Used",
+      "type": "array"
+    },
+    "data_gaps": {
+      "description": "All detected data gaps; empty list = no gaps detected",
+      "items": {
+        "$ref": "#/$defs/DataGap"
+      },
+      "title": "Data Gaps",
+      "type": "array"
+    },
+    "assumptions": {
+      "description": "Explicit assumptions made due to missing or inferred data",
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "HIGH / MEDIUM / LOW \u2014 reflects data completeness and signal quality",
+      "title": "Confidence"
+    },
+    "manual_review_required": {
+      "default": true,
+      "description": "Workflow runs require human review at each decision gate",
+      "title": "Manual Review Required",
+      "type": "boolean"
+    },
+    "manual_review_status": {
+      "$ref": "#/$defs/ManualReviewStatus",
+      "default": "PENDING",
+      "description": "Review lifecycle: PENDING \u2192 IN_REVIEW \u2192 APPROVED / REJECTED. WAIVED is permitted only for non-trade artifacts (e.g., data quality reports). Promotion-blocking: outputs with status PENDING or IN_REVIEW must not be acted upon."
+    },
+    "reviewer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name or identifier of the human reviewer who completed or waived the review",
+      "title": "Reviewer"
+    },
+    "reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ISO-8601 timestamp when the review was completed or waived",
+      "title": "Reviewed At"
+    },
+    "review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reviewer's notes, decision rationale, or conditions attached to the approval",
+      "title": "Review Notes"
+    },
+    "reviewer_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewerRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Role of the reviewer who completed or waived the review"
+    },
+    "author_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ID of the artifact author; used to prevent self-review",
+      "title": "Author Id"
+    },
+    "dual_review_required": {
+      "default": false,
+      "description": "Whether a second independent reviewer is required",
+      "title": "Dual Review Required",
+      "type": "boolean"
+    },
+    "secondary_reviewer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Reviewer"
+    },
+    "secondary_reviewer_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewerRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "secondary_reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Reviewed At"
+    },
+    "secondary_review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Review Notes"
+    },
+    "next_actions": {
+      "description": "Suggested next steps for the user",
+      "items": {
+        "type": "string"
+      },
+      "title": "Next Actions",
+      "type": "array"
+    },
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "workflow_display_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflow Display Name"
+    },
+    "workflow_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Manifest version of the workflow at run-start time (from manifest 'version' field)",
+      "title": "Workflow Version"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "run_timestamp": {
+      "description": "ISO-8601 UTC timestamp when the run was created (alias for started_at; always populated for reproducibility audit trails)",
+      "title": "Run Timestamp",
+      "type": "string"
+    },
+    "operator": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name or identifier of the operator who started the run",
+      "title": "Operator"
+    },
+    "status": {
+      "$ref": "#/$defs/WorkflowStatus",
+      "default": "STARTED"
+    },
+    "started_at": {
+      "title": "Started At",
+      "type": "string"
+    },
+    "completed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completed At"
+    },
+    "estimated_minutes": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Estimated Minutes"
+    },
+    "skill_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Snapshot of skill versions at run-start time: {skill_id: version}",
+      "title": "Skill Versions",
+      "type": "object"
+    },
+    "artifact_schema_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Snapshot of artifact schema versions at run-start time: {artifact_type: schema_version}",
+      "title": "Artifact Schema Versions",
+      "type": "object"
+    },
+    "input_artifact_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "SHA-256 hashes of key input artifacts: {artifact_id: sha256}",
+      "title": "Input Artifact Hashes",
+      "type": "object"
+    },
+    "output_artifact_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "SHA-256 hashes of key output artifacts: {artifact_id: sha256}",
+      "title": "Output Artifact Hashes",
+      "type": "object"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/WorkflowStepRecord"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "artifact_ids": {
+      "description": "artifact_ids of all artifacts produced during this run",
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "decision_gate_log": {
+      "description": "Log of all decision gate answers",
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Decision Gate Log",
+      "type": "array"
+    },
+    "manual_review_items_completed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Manual Review Items Completed",
+      "type": "array"
+    },
+    "journal_entry_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Journal Entry Id"
+    },
+    "abort_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Abort Reason"
+    }
+  },
+  "required": [
+    "skill_id",
+    "workflow_id"
+  ],
+  "title": "WorkflowRun",
+  "type": "object"
+}

@@ -543,3 +543,14 @@ Independent observers must be able to verify each adjustment.
 **Reason for v2.1 Revision:**
 Prevent over-scoring through unmeasured "narrative" assessments and double-counting.
 Ensure all bubble risk evaluations are independently verifiable and free from confirmation bias.
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `market_top_risk_report` | `MarketTopRiskReport` | Market top composite risk score and indicator breakdown |
+
+Schema: `schemas/json/market_top_risk_report.json`

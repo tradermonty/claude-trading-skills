@@ -3,7 +3,7 @@ layout: default
 title: "Earnings Trade Analyzer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 16
+nav_order: 20
 lang_peer: /ja/skills/earnings-trade-analyzer/
 permalink: /en/skills/earnings-trade-analyzer/
 ---

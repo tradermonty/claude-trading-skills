@@ -101,6 +101,17 @@ ideas:
     status: "pending"
 ```
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `strategy_review` | `StrategyReview` | Multi-criterion scoring with PASS/REVISE/REJECT verdict |
+
+Schema: `schemas/json/strategy_review.json`
+
 ## Resources
 
 - `references/idea_extraction_rubric.md` — Signal detection criteria and scoring rubric

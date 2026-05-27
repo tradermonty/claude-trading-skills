@@ -85,8 +85,30 @@ Options:
   --days N            Days of history to fetch (default: 600)
 ```
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `macro_regime_report` | `MacroRegimeReport` | Cross-asset regime classification with transition signals |
+
+Schema: `schemas/json/macro_regime_report.json`
+
 ## Resources
 
 - `references/regime_detection_methodology.md` — Detection methodology and signal interpretation
 - `references/indicator_interpretation_guide.md` — Guide for interpreting cross-asset ratios
 - `references/historical_regimes.md` — Historical regime examples for context
+
+## Data Gaps
+
+This skill operates with or without FMP API access. Behavior when data is unavailable:
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` not set | MEDIUM | Fall back to offline mode or manual CSV; note limitation in output |
+| FMP returns empty response | MEDIUM | Warn; use cached or user-supplied data if available |
+| Individual ticker data missing | LOW | Skip ticker; list under `data_gaps[]` in output |
+| Fewer than 10 data points | HIGH | Halt analysis for that instrument; do not extrapolate |

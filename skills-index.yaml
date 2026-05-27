@@ -31,6 +31,7 @@ skills:
   - trade-memory-loop
   - monthly-performance-review
   hand_written_doc: false
+  artifact_schema_ids: ["backtest_report", "backtest_spec"]
 - id: breadth-chart-analyst
   display_name: Breadth Chart Analyst
   category: market-regime
@@ -50,6 +51,7 @@ skills:
   - breadth_assessment_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["breadth_assessment"]
 - id: breakout-trade-planner
   display_name: Breakout Trade Planner
   category: swing-opportunity
@@ -73,6 +75,7 @@ skills:
   workflows:
   - swing-opportunity-daily
   hand_written_doc: false
+  artifact_schema_ids: ["trade_plan"]
 - id: canslim-screener
   display_name: CANSLIM Screener
   category: swing-opportunity
@@ -94,6 +97,7 @@ skills:
   workflows:
   - swing-opportunity-daily
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: data-quality-checker
   display_name: Data Quality Checker
   category: meta
@@ -113,6 +117,7 @@ skills:
   - issue_list
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["data_quality_report"]
 - id: dividend-growth-pullback-screener
   display_name: Dividend Growth Pullback Screener
   category: core-portfolio
@@ -138,6 +143,7 @@ skills:
   - yield_growth_metrics
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate", "dividend_review"]
 - id: downtrend-duration-analyzer
   display_name: Downtrend Duration Analyzer
   category: market-regime
@@ -158,6 +164,7 @@ skills:
   - sector_breakdown
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: []
 - id: dual-axis-skill-reviewer
   display_name: Dual Axis Skill Reviewer
   category: meta
@@ -178,6 +185,7 @@ skills:
   workflows:
   - monthly-performance-review
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: earnings-calendar
   display_name: Earnings Calendar
   category: meta
@@ -198,6 +206,7 @@ skills:
   - earnings_calendar_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["journal_entry"]
 - id: earnings-trade-analyzer
   display_name: Earnings Trade Analyzer
   category: advanced-satellite
@@ -218,6 +227,7 @@ skills:
   - five_factor_grades
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: economic-calendar-fetcher
   display_name: Economic Calendar Fetcher
   category: meta
@@ -236,6 +246,7 @@ skills:
   - economic_events_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["journal_entry"]
 - id: edge-candidate-agent
   display_name: Edge Candidate Agent
   category: strategy-research
@@ -257,6 +268,7 @@ skills:
   - tickets_dir
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: edge-concept-synthesizer
   display_name: Edge Concept Synthesizer
   category: strategy-research
@@ -277,6 +289,7 @@ skills:
   - edge_concepts_yaml
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: edge-hint-extractor
   display_name: Edge Hint Extractor
   category: strategy-research
@@ -297,6 +310,7 @@ skills:
   - hints_yaml
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: []
 - id: edge-pipeline-orchestrator
   display_name: Edge Pipeline Orchestrator
   category: strategy-research
@@ -319,6 +333,7 @@ skills:
   - exported_strategies
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: edge-signal-aggregator
   display_name: Edge Signal Aggregator
   category: strategy-research
@@ -341,6 +356,7 @@ skills:
   - conviction_dashboard
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: edge-strategy-designer
   display_name: Edge Strategy Designer
   category: strategy-research
@@ -360,6 +376,7 @@ skills:
   - strategy_drafts_yaml
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: edge-strategy-reviewer
   display_name: Edge Strategy Reviewer
   category: strategy-research
@@ -380,6 +397,7 @@ skills:
   - verdict_list
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: exposure-coach
   display_name: Exposure Coach
   category: market-regime
@@ -403,6 +421,7 @@ skills:
   workflows:
   - market-regime-daily
   hand_written_doc: false
+  artifact_schema_ids: ["exposure_decision"]
 - id: finviz-screener
   display_name: Finviz Screener
   category: swing-opportunity
@@ -422,6 +441,7 @@ skills:
   - filter_codes
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: ftd-detector
   display_name: FTD Detector
   category: market-regime
@@ -442,6 +462,7 @@ skills:
   - ftd_signal_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["breadth_assessment"]
 - id: ibd-distribution-day-monitor
   display_name: IBD Distribution Day Monitor
   category: market-regime
@@ -463,6 +484,7 @@ skills:
   - distribution_day_count_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["breadth_assessment"]
 - id: institutional-flow-tracker
   display_name: Institutional Flow Tracker
   category: advanced-satellite
@@ -483,6 +505,7 @@ skills:
   - flow_analysis_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: kanchi-dividend-review-monitor
   display_name: Kanchi Dividend Review Monitor
   category: core-portfolio
@@ -504,6 +527,7 @@ skills:
   workflows:
   - core-portfolio-weekly
   hand_written_doc: false
+  artifact_schema_ids: ["dividend_review"]
 - id: kanchi-dividend-sop
   display_name: Kanchi Dividend SOP
   category: core-portfolio
@@ -524,6 +548,7 @@ skills:
   - stock_memo
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate", "trade_plan"]
 - id: kanchi-dividend-us-tax-accounting
   display_name: Kanchi Dividend US Tax Accounting
   category: core-portfolio
@@ -545,6 +570,7 @@ skills:
   workflows:
   - core-portfolio-weekly
   hand_written_doc: false
+  artifact_schema_ids: ["journal_entry"]
 - id: macro-regime-detector
   display_name: Macro Regime Detector
   category: market-regime
@@ -565,6 +591,7 @@ skills:
   workflows:
   - market-regime-daily
   hand_written_doc: false
+  artifact_schema_ids: ["macro_regime_report"]
 - id: market-breadth-analyzer
   display_name: Market Breadth Analyzer
   category: market-regime
@@ -585,6 +612,7 @@ skills:
   workflows:
   - market-regime-daily
   hand_written_doc: false
+  artifact_schema_ids: ["breadth_assessment"]
 - id: market-environment-analysis
   display_name: Market Environment Analysis
   category: market-regime
@@ -608,6 +636,7 @@ skills:
   - market_environment_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["scenario_analysis"]
 - id: market-news-analyst
   display_name: Market News Analyst
   category: market-regime
@@ -628,6 +657,7 @@ skills:
   - news_impact_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["scenario_analysis"]
 - id: market-top-detector
   display_name: Market Top Detector
   category: market-regime
@@ -648,6 +678,7 @@ skills:
   workflows:
   - market-regime-daily
   hand_written_doc: false
+  artifact_schema_ids: ["market_top_risk_report"]
 - id: options-strategy-advisor
   display_name: Options Strategy Advisor
   category: advanced-satellite
@@ -670,6 +701,7 @@ skills:
   - strategy_comparison
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["trade_plan", "scenario_analysis"]
 - id: pair-trade-screener
   display_name: Pair Trade Screener
   category: advanced-satellite
@@ -690,6 +722,7 @@ skills:
   - zscore_signals
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: parabolic-short-trade-planner
   display_name: Parabolic Short Trade Planner
   category: advanced-satellite
@@ -715,6 +748,7 @@ skills:
   - intraday_trigger_state
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate", "trade_plan"]
 - id: pead-screener
   display_name: PEAD Screener
   category: advanced-satellite
@@ -735,6 +769,7 @@ skills:
   - breakout_triggers
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: portfolio-manager
   display_name: Portfolio Manager
   category: core-portfolio
@@ -757,6 +792,7 @@ skills:
   workflows:
   - core-portfolio-weekly
   hand_written_doc: false
+  artifact_schema_ids: ["portfolio_review"]
 - id: position-sizer
   display_name: Position Sizer
   category: trade-planning
@@ -779,6 +815,7 @@ skills:
   workflows:
   - swing-opportunity-daily
   hand_written_doc: false
+  artifact_schema_ids: ["position_sizing_plan"]
 - id: scenario-analyzer
   display_name: Scenario Analyzer
   category: strategy-research
@@ -800,6 +837,7 @@ skills:
   - review_yaml
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["scenario_analysis"]
 - id: sector-analyst
   display_name: Sector Analyst
   category: market-regime
@@ -819,6 +857,7 @@ skills:
   - rotation_assessment_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["scenario_analysis"]
 - id: signal-postmortem
   display_name: Signal Postmortem
   category: trade-memory
@@ -839,6 +878,7 @@ skills:
   - trade-memory-loop
   - monthly-performance-review
   hand_written_doc: false
+  artifact_schema_ids: ["postmortem_report"]
 - id: skill-designer
   display_name: Skill Designer
   category: meta
@@ -857,6 +897,7 @@ skills:
   - skill_scaffolding
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: skill-idea-miner
   display_name: Skill Idea Miner
   category: meta
@@ -875,6 +916,7 @@ skills:
   - skill_idea_backlog_yaml
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: skill-integration-tester
   display_name: Skill Integration Tester
   category: meta
@@ -895,6 +937,7 @@ skills:
   - workflow_validation_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: stanley-druckenmiller-investment
   display_name: Stanley Druckenmiller Investment
   category: strategy-research
@@ -916,6 +959,7 @@ skills:
   - druckenmiller_synthesis_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["scenario_analysis"]
 - id: strategy-pivot-designer
   display_name: Strategy Pivot Designer
   category: strategy-research
@@ -935,6 +979,7 @@ skills:
   - pivot_proposals
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["strategy_review"]
 - id: technical-analyst
   display_name: Technical Analyst
   category: trade-planning
@@ -955,6 +1000,7 @@ skills:
   workflows:
   - swing-opportunity-daily
   hand_written_doc: false
+  artifact_schema_ids: ["technical_validation"]
 - id: theme-detector
   display_name: Theme Detector
   category: swing-opportunity
@@ -980,6 +1026,7 @@ skills:
   workflows:
   - swing-opportunity-daily
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]
 - id: trade-hypothesis-ideator
   display_name: Trade Hypothesis Ideator
   category: trade-memory
@@ -1001,6 +1048,7 @@ skills:
   - strategy_yaml
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["trade_thesis"]
 - id: trader-memory-core
   display_name: Trader Memory Core
   category: trade-memory
@@ -1026,6 +1074,7 @@ skills:
   - trade-memory-loop
   - monthly-performance-review
   hand_written_doc: false
+  artifact_schema_ids: ["trade_thesis", "journal_entry", "postmortem_report"]
 - id: trading-skills-navigator
   display_name: Trading Skills Navigator
   category: meta
@@ -1048,6 +1097,7 @@ skills:
   - setup_path
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["journal_entry"]
 - id: uptrend-analyzer
   display_name: Uptrend Analyzer
   category: market-regime
@@ -1068,6 +1118,7 @@ skills:
   workflows:
   - market-regime-daily
   hand_written_doc: false
+  artifact_schema_ids: ["uptrend_assessment"]
 - id: us-market-bubble-detector
   display_name: US Market Bubble Detector
   category: market-regime
@@ -1087,6 +1138,7 @@ skills:
   - bubble_risk_score
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["market_top_risk_report"]
 - id: us-stock-analysis
   display_name: US Stock Analysis
   category: trade-planning
@@ -1109,6 +1161,7 @@ skills:
   - stock_analysis_report
   workflows: []
   hand_written_doc: false
+  artifact_schema_ids: ["technical_validation", "scenario_analysis"]
 - id: value-dividend-screener
   display_name: Value Dividend Screener
   category: core-portfolio
@@ -1135,6 +1188,7 @@ skills:
   workflows:
   - core-portfolio-weekly
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate", "dividend_review"]
 - id: vcp-screener
   display_name: VCP Screener
   category: swing-opportunity
@@ -1155,3 +1209,4 @@ skills:
   workflows:
   - swing-opportunity-daily
   hand_written_doc: false
+  artifact_schema_ids: ["screen_candidate"]

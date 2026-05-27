@@ -658,6 +658,17 @@ When conducting market news analysis:
 - A "hot" CPI that's 0.1% above consensus is different from 0.5% above
 - Quantify surprise factor
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `scenario_analysis` | `ScenarioAnalysis` | Probability-weighted scenario set with trigger levels |
+
+Schema: `schemas/json/scenario_analysis.json`
+
 ## Resources
 
 ### references/
@@ -722,3 +733,16 @@ When conducting market news analysis:
 - Quantify all market reactions with specific percentages
 - Load appropriate reference files based on news types collected
 - Generate comprehensive reports ranked by market impact (highest impact first)
+
+## Data Gaps
+
+Explicit behavior when web data is unavailable — do not fabricate events or market context.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| Web search returns no results | HIGH | Halt step; note data gap in output; do not invent events |
+| Fewer than 3 credible sources found | MEDIUM | Flag low-source confidence in output; mark analysis PRELIMINARY |
+| Source credibility unverifiable | MEDIUM | Label source UNVERIFIED in output; apply minimum weight |
+| Event data older than 10 days | MEDIUM | Warn; note staleness; mark time-sensitivity LOW |
+
+Do not assume neutral market impact when source data is absent.

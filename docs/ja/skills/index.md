@@ -25,7 +25,7 @@ permalink: /ja/skills/
 |--------|------|-----|
 | [Backtest Expert]({{ '/ja/skills/backtest-expert/' | relative_url }}) ★ | Expert guidance for systematic backtesting of trading strategies | <span class="badge badge-free">API不要</span> |
 | [Breadth Chart Analyst]({{ '/ja/skills/breadth-chart-analyst/' | relative_url }}) | This skill should be used when analyzing market breadth charts, specifically the S&P 500 Breadth Index (200-Day MA ba... | <span class="badge badge-free">API不要</span> |
-| [Breakout Trade Planner]({{ '/ja/skills/breakout-trade-planner/' | relative_url }}) | Generate Minervini-style breakout trade plans from VCP screener output with worst-case risk calculation, portfolio he... | <span class="badge badge-free">API不要</span> |
+| [Breakout Trade Planner]({{ '/ja/skills/breakout-trade-planner/' | relative_url }}) | Generate Minervini-style breakout trade plan templates from VCP screener output with worst-case risk calculation, por... | <span class="badge badge-free">API不要</span> |
 | [CANSLIM Screener]({{ '/ja/skills/canslim-screener/' | relative_url }}) ★ | Screen US stocks using William O'Neil's CANSLIM growth stock methodology | <span class="badge badge-api">FMP必須</span> |
 | [Data Quality Checker]({{ '/ja/skills/data-quality-checker/' | relative_url }}) | Validate data quality in market analysis documents and blog articles before publication | <span class="badge badge-free">API不要</span> |
 | [Dividend Growth Pullback Screener]({{ '/ja/skills/dividend-growth-pullback-screener/' | relative_url }}) | Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ任意</span> |

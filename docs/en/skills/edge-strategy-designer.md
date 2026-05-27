@@ -3,7 +3,7 @@ layout: default
 title: "Edge Strategy Designer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 22
+nav_order: 27
 lang_peer: /ja/skills/edge-strategy-designer/
 permalink: /en/skills/edge-strategy-designer/
 ---

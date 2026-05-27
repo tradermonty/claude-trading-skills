@@ -203,6 +203,17 @@ Reports are saved to `reports/` with filenames:
 - `edge_signal_aggregator_YYYY-MM-DD_HHMMSS.json`
 - `edge_signal_aggregator_YYYY-MM-DD_HHMMSS.md`
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 - `scripts/aggregate_signals.py` -- Main aggregation script with CLI interface

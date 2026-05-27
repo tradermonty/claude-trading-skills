@@ -138,6 +138,17 @@ New positions allowed within the 70% ceiling.
 
 Reports are saved to `reports/` with filenames `exposure_posture_YYYY-MM-DD_HHMMSS.{json,md}`.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `exposure_decision` | `ExposureDecision` | Recommended portfolio exposure level with gate rationale |
+
+Schema: `schemas/json/exposure_decision.json`
+
 ## Resources
 
 - `scripts/calculate_exposure.py` -- Main orchestrator that scores and synthesizes inputs

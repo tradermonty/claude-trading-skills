@@ -180,3 +180,14 @@ Load appropriate reference documents to provide philosophical context:
 | Theme Detector | Input (optional) | Weeks-months thematic |
 | CANSLIM Screener | Input (optional) | Setup-specific |
 | **This Skill** | **Synthesizer** | **Unified conviction** |
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `scenario_analysis` | `ScenarioAnalysis` | Probability-weighted scenario set with trigger levels |
+
+Schema: `schemas/json/scenario_analysis.json`

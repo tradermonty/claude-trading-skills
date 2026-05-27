@@ -78,6 +78,17 @@ After Claude creates the skill, verify:
 The script outputs a plain-text prompt to stdout. Exit code 0 on success,
 1 if required reference files are missing.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `strategy_review` | `StrategyReview` | Multi-criterion scoring with PASS/REVISE/REJECT verdict |
+
+Schema: `schemas/json/strategy_review.json`
+
 ## Resources
 
 - `references/skill-structure-guide.md` -- Directory structure, SKILL.md format, naming conventions

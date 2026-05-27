@@ -69,6 +69,17 @@ python3 skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py \
   --no-dedup
 ```
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 - `skills/edge-concept-synthesizer/scripts/synthesize_edge_concepts.py`

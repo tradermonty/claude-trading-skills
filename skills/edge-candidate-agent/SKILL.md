@@ -116,6 +116,17 @@ python3 skills/edge-candidate-agent/scripts/validate_candidate.py \
 - Require deterministic metadata with `interface_version: edge-finder-candidate/v1`.
 - Use `--dry-run` in pipeline before full execution.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 ### `skills/edge-candidate-agent/scripts/export_candidate.py`

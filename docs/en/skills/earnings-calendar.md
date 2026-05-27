@@ -3,7 +3,7 @@ layout: default
 title: "Earnings Calendar"
 grand_parent: English
 parent: Skill Guides
-nav_order: 15
+nav_order: 19
 lang_peer: /ja/skills/earnings-calendar/
 permalink: /en/skills/earnings-calendar/
 ---

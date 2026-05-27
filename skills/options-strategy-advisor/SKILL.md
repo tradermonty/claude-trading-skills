@@ -964,6 +964,18 @@ Workflow:
 - Solution: Break into legs, analyze separately
 - Refer to references for strategy details
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `trade_plan` | `TradePlan` | Entry/stop/target plan — manual_review_required: true always |
+| `scenario_analysis` | `ScenarioAnalysis` | Probability-weighted scenario set with trigger levels |
+
+Schema: `schemas/json/trade_plan.json` (and sibling files for additional types above)
+
 ## Resources
 
 **References:**

@@ -3,7 +3,7 @@ layout: default
 title: "Options Strategy Advisor"
 grand_parent: English
 parent: Skill Guides
-nav_order: 32
+nav_order: 42
 lang_peer: /ja/skills/options-strategy-advisor/
 permalink: /en/skills/options-strategy-advisor/
 ---
@@ -68,9 +68,33 @@ Example requests:
 
 ## 3. Prerequisites
 
-- **FMP API key** optional but recommended
-- FMP for stock data; Black-Scholes works without
-- Python 3.9+ recommended
+**Required:**
+- Python 3.8+ with `numpy`, `scipy`, `requests`
+
+**Optional:**
+- FMP API key (for real-time stock prices and historical volatility)
+  - Set via `FMP_API_KEY` environment variable or `--api-key` argument
+  - Without API key: Use manual inputs for stock price and volatility
+
+**Installation:**
+```bash
+pip install numpy scipy requests
+```
+
+**Quick Start Examples:**
+```bash
+# Basic call option pricing (no API key needed)
+python3 scripts/black_scholes.py
+
+# With FMP API key for real-time data
+python3 scripts/black_scholes.py --ticker AAPL --api-key $FMP_API_KEY
+
+# Custom option parameters
+python3 scripts/black_scholes.py --stock-price 180 --strike 185 --days 30 --volatility 0.25
+
+# Put option analysis
+python3 scripts/black_scholes.py --stock-price 180 --strike 175 --days 30 --option-type put
+```
 
 ---
 
@@ -657,6 +681,10 @@ Straddle/Strangle:
 ---
 
 ## 6. Resources
+
+**References:**
+
+- `skills/options-strategy-advisor/references/black_scholes_methodology.md`
 
 **Scripts:**
 

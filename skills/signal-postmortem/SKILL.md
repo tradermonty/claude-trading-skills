@@ -192,6 +192,17 @@ python3 skills/signal-postmortem/scripts/postmortem_analyzer.py \
 
 Reports are saved to `reports/` with filenames `postmortem_summary_YYYY-MM-DD.md`.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `postmortem_report` | `PostmortemReport` | 2×2 process/outcome classification with lessons learned |
+
+Schema: `schemas/json/postmortem_report.json`
+
 ## Resources
 
 - `scripts/postmortem_recorder.py` -- Records individual signal outcomes
@@ -199,9 +210,46 @@ Reports are saved to `reports/` with filenames `postmortem_summary_YYYY-MM-DD.md
 - `references/outcome-classification.md` -- Classification rules and edge cases
 - `references/feedback-integration.md` -- How to integrate feedback with downstream skills
 
+## 2×2 Postmortem Classification
+
+Every closed trade is classified on two independent axes. This is the canonical `PostmortemReport`
+structure from `schemas/artifacts.py`.
+
+```
+                     OUTCOME QUALITY
+                   Win          Loss
+                ┌─────────────┬─────────────┐
+  PROCESS  Good │ Learn & Keep│ Bad luck —  │
+  QUALITY       │ (validate)  │ keep process│
+           ──── ├─────────────┼─────────────┤
+           Poor │ Lucky win — │ Fix process │
+                │ fix process │ (review)    │
+                └─────────────┴─────────────┘
+```
+
+| Classification | `process_quality` | `outcome_quality` | Action |
+|----------------|------------------|------------------|--------|
+| Skill validated | good | win | Document what worked; reinforce |
+| Bad luck | good | loss | Keep process; note market conditions |
+| Lucky win | poor | win | Fix process before repeating |
+| Fix required | poor | loss | Identify root cause; update rules |
+
+`PostmortemReport` artifacts must set `process_quality`, `outcome_quality`, and `classification`.
+Never classify a loss as "bad luck" without first confirming the process was sound.
+
+## Data Gaps
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| Exit price or exit date missing | HIGH | Halt — record `EXITED` state; defer postmortem until confirmed |
+| Original entry thesis not found | HIGH | Document as "no thesis record" — do not fabricate context |
+| MAE/MFE unavailable (no FMP key) | MEDIUM | Continue without MAE/MFE; note limitation in output |
+| Fewer than 20 signals for weight adjustment | MEDIUM | Skip weight feedback; note small-sample caveat |
+
 ## Key Principles
 
 1. **Honest Attribution** -- Every outcome is attributed to its source skill for accountability
 2. **Regime Awareness** -- Regime context is recorded to distinguish skill failure from market regime shifts
 3. **Minimum Sample Size** -- Weight adjustments require 20+ signals for statistical validity
 4. **Feedback Loop Closure** -- Results flow back to improve both signal aggregation and skill quality
+5. **2×2 Classification Required** -- `process_quality` and `outcome_quality` must both be set; a win does not exempt the process from review

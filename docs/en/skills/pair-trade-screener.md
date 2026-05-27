@@ -3,7 +3,7 @@ layout: default
 title: "Pair Trade Screener"
 grand_parent: English
 parent: Skill Guides
-nav_order: 33
+nav_order: 43
 lang_peer: /ja/skills/pair-trade-screener/
 permalink: /en/skills/pair-trade-screener/
 ---
@@ -70,7 +70,7 @@ Example user requests:
 ## 3. Prerequisites
 
 - **FMP API key** required (`FMP_API_KEY` environment variable)
-- Statistical arbitrage analysis
+- Financial Modeling Prep API
 - Python 3.9+ recommended
 
 ---

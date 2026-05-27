@@ -3,7 +3,7 @@ layout: default
 title: "Data Quality Checker"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 12
+nav_order: 15
 lang_peer: /en/skills/data-quality-checker/
 permalink: /ja/skills/data-quality-checker/
 ---
@@ -11,7 +11,7 @@ permalink: /ja/skills/data-quality-checker/
 # Data Quality Checker
 {: .no_toc }
 
-市場分析ドキュメントやブログ記事の公開前にデータ品質を検証します。価格スケールの不整合（ETF vs 先物）、金融商品の表記エラー、日付/曜日の不一致、配分合計のエラー、単位の不一致をチェックする際に使用します。英語・日本語のコンテンツに対応。アドバイザリーモード -- 問題をブロッカーとしてではなく、人間のレビュー用の警告としてフラグします。
+Validate data quality in market analysis documents and blog articles before publication. Use when checking for price scale inconsistencies (ETF vs futures), instrument notation errors, date/day-of-week mismatches, allocation total errors, and unit mismatches. Supports English and Japanese content. Advisory mode -- flags issues as warnings for human review, not as blockers.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">API不要</span>
@@ -19,126 +19,10 @@ permalink: /ja/skills/data-quality-checker/
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/data-quality-checker.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/data-quality-checker){: .btn .fs-5 .mb-4 .mb-md-0 }
 
-<details open markdown="block">
-  <summary>目次</summary>
-  {: .text-delta }
-- TOC
-{:toc}
-</details>
+> **Note:** This page has not yet been translated into Japanese.
+> Please refer to the [English version]({{ '/en/skills/data-quality-checker/' | relative_url }}) for the full guide.
+{: .warning }
 
 ---
 
-## 1. 概要
-
-市場分析ドキュメントの公開前に一般的なデータ品質の問題を検出します。チェッカーは5つのカテゴリを検証します：価格スケールの一貫性、金融商品の表記、日付/曜日の正確性、配分合計、単位の使用法。すべての検出結果はアドバイザリーであり、公開をブロックするのではなく、人間のレビュー用に潜在的な問題をフラグします。
-
----
-
-## 2. 使用タイミング
-
-- 週次戦略ブログや市場分析レポートの公開前
-- 自動生成された市場サマリーの確認後
-- 翻訳されたドキュメント（英語/日本語）のデータ正確性をレビューする場合
-- 複数のデータソース（FRED、FMP、FINVIZ）からのデータを1つのレポートに統合する場合
-- 金融データを含むドキュメントの事前チェックとして
-
----
-
-## 3. 前提条件
-
-- Python 3.9+
-- 外部APIキー不要
-- サードパーティのPythonパッケージ不要（標準ライブラリのみ使用）
-
----
-
-## 4. クイックスタート
-
-```bash
-# マークダウンファイルのチェック
-python3 skills/data-quality-checker/scripts/check_data_quality.py \
-  --file reports/weekly_strategy.md
-
-# 特定のチェックのみ実行
-python3 skills/data-quality-checker/scripts/check_data_quality.py \
-  --file report.md --checks price_scale,dates,allocations
-
-# 年推定のための基準日指定
-python3 skills/data-quality-checker/scripts/check_data_quality.py \
-  --file report.md --as-of 2026-02-28 --output-dir reports/
-```
-
----
-
-## 5. ワークフロー
-
-### ステップ1: 入力ドキュメントの受領
-
-対象のマークダウンファイルパスとオプションパラメータを受け取ります：
-- `--file`: 検証対象のマークダウンドキュメントへのパス（必須）
-- `--checks`: 実行するチェックのカンマ区切りリスト（任意、デフォルト: 全チェック）
-- `--as-of`: 年推定のための基準日（YYYY-MM-DD形式、任意）
-- `--output-dir`: レポート出力ディレクトリ（任意、デフォルト: `reports/`）
-
-### ステップ2: 検証スクリプトの実行
-
-データ品質チェッカースクリプトを実行します：
-
-```bash
-python3 skills/data-quality-checker/scripts/check_data_quality.py \
-  --file path/to/document.md \
-  --output-dir reports/
-```
-
-特定のチェックのみ実行する場合：
-
-```bash
-python3 skills/data-quality-checker/scripts/check_data_quality.py \
-  --file path/to/document.md \
-  --checks price_scale,dates,allocations
-```
-
-年推定のための基準日を指定する場合（日付に明示的な年がないドキュメントに有用）：
-
-```bash
-python3 skills/data-quality-checker/scripts/check_data_quality.py \
-  --file path/to/document.md \
-  --as-of 2026-02-28
-```
-
-### ステップ3: リファレンス基準の読み込み
-
-検出結果を文脈化するために関連するリファレンスドキュメントを読み込みます：
-
-- `references/instrument_notation_standard.md` -- 各金融商品クラスの標準ティッカー表記、桁数ヒント、命名規則
-- `references/common_data_errors.md` -- FREDデータの遅延、ETF/先物スケールの混同、祝日の見落とし、配分合計の落とし穴、単位混同パターンなど、頻繁に観察されるエラーのカタログ
-
-### ステップ4: 検出結果のレビュー
-
-出力の各検出結果を確認します：
-
-- **ERROR** -- 高信頼度の問題（例：カレンダー計算で検証された日付/曜日の不一致）。修正を強く推奨。
-- **WARNING** -- 人間の判断が必要な可能性の高い問題（例：価格スケールの異常、表記の不整合、0.5%以上ずれた配分合計）。
-- **INFO** -- 情報提供的な注記（例：意図的かもしれないbp/%の混在使用）。
-
-### ステップ5: 品質レポートの生成
-
-スクリプトは2つの出力ファイルを生成します：
-
-1. **JSONレポート** (`data_quality_YYYY-MM-DD_HHMMSS.json`): 重大度、カテゴリ、メッセージ、行番号、コンテキストを含む機械可読な検出結果リスト。
-2. **マークダウンレポート** (`data_quality_YYYY-MM-DD_HHMMSS.md`): 重大度レベル別にグループ化された人間可読なレポート。
-
-検出結果をナレッジベースからの説明とともにユーザーに提示し、各問題に対する具体的な修正案を提案します。
-
----
-
-## 6. リソース
-
-**リファレンス:**
-
-- `skills/data-quality-checker/references/common_data_errors.md`
-- `skills/data-quality-checker/references/instrument_notation_standard.md`
-
-**スクリプト:**
-
-- `skills/data-quality-checker/scripts/check_data_quality.py`
+[English版ガイドを見る]({{ '/en/skills/data-quality-checker/' | relative_url }}){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }

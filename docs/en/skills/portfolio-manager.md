@@ -3,7 +3,7 @@ layout: default
 title: "Portfolio Manager"
 grand_parent: English
 parent: Skill Guides
-nav_order: 35
+nav_order: 46
 lang_peer: /ja/skills/portfolio-manager/
 permalink: /en/skills/portfolio-manager/
 ---
@@ -194,3 +194,7 @@ Analyze current allocation across multiple dimensions:
 - `skills/portfolio-manager/references/rebalancing-strategies.md`
 - `skills/portfolio-manager/references/risk-profile-questionnaire.md`
 - `skills/portfolio-manager/references/target-allocations.md`
+
+**Scripts:**
+
+- `skills/portfolio-manager/scripts/check_alpaca_connection.py`

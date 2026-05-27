@@ -3,7 +3,7 @@ layout: default
 title: "Trading Skills Navigator"
 grand_parent: English
 parent: Skill Guides
-nav_order: 11
+nav_order: 60
 lang_peer: /ja/skills/trading-skills-navigator/
 permalink: /en/skills/trading-skills-navigator/
 ---
@@ -16,6 +16,7 @@ Recommend the right trading workflow, skillset, API profile, and setup path from
 
 <span class="badge badge-free">No API</span>
 
+[Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/trading-skills-navigator.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/trading-skills-navigator){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 <details open markdown="block">
@@ -106,10 +107,13 @@ Parse the JSON and explain, in the user's language:
 - **Skillset** — the `skillset.id` (skills-index category). Note
   `manifest_status: deferred` means a bundled skillset manifest is a later
   phase; today the recommendation is workflow-based.
-- **No-API vs API** — if `no_api` is true, say it works without paid keys. If a
-  workflow was excluded under `--no-api`, surface the `rationale` entry that
-  explains which paid integration caused it (e.g. "swing-opportunity-daily
-  needs FMP").
+- **No-API vs API** — read `no_api_path`: `true` → the entire recommended path
+  works without paid API keys (state this plainly); `false` → tell the user
+  which paid key(s) the path needs; `null` → honest gap, no path. (`no_api` is
+  the *request* flag — whether no-API mode was active — not whether the path is
+  free; always narrate `no_api_path`.) If a workflow was excluded under
+  `--no-api`, surface the `rationale` entry naming the paid integration (e.g.
+  "swing-opportunity-daily needs FMP").
 - **Honest gap** — if `honest_gap` is true there is **no shipped workflow** for
   this intent. Say so directly, then present `suggested_skills` from the
   relevant category and relay the `note`. Never invent a workflow.

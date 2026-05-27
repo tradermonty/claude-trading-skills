@@ -3,7 +3,7 @@ layout: default
 title: "Edge Candidate Agent"
 grand_parent: English
 parent: Skill Guides
-nav_order: 18
+nav_order: 22
 lang_peer: /ja/skills/edge-candidate-agent/
 permalink: /en/skills/edge-candidate-agent/
 ---
@@ -14,7 +14,7 @@ permalink: /en/skills/edge-candidate-agent/
 Generate and prioritize US equity long-side edge research tickets from EOD observations, then export pipeline-ready candidate specs for trade-strategy-pipeline Phase I. Use when users ask to turn hypotheses/anomalies into reproducible research tickets, convert validated ideas into `strategy.yaml` + `metadata.json`, or preflight-check interface compatibility (`edge-finder-candidate/v1`) before running pipeline backtests.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">No API</span>
+<span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/edge-candidate-agent.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/edge-candidate-agent){: .btn .fs-5 .mb-4 .mb-md-0 }

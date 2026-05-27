@@ -3,7 +3,7 @@ layout: default
 title: "Kanchi Dividend Review Monitor"
 grand_parent: English
 parent: Skill Guides
-nav_order: 26
+nav_order: 34
 lang_peer: /ja/skills/kanchi-dividend-review-monitor/
 permalink: /en/skills/kanchi-dividend-review-monitor/
 ---
@@ -14,7 +14,7 @@ permalink: /en/skills/kanchi-dividend-review-monitor/
 Monitor dividend portfolios with Kanchi-style forced-review triggers (T1-T5) and convert anomalies into OK/WARN/REVIEW states without auto-selling. Use when users ask for 減配検知, 8-Kガバナンス監視, 配当安全性モニタリング, REVIEWキュー自動化, or periodic dividend risk checks.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">No API</span>
+<span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/kanchi-dividend-review-monitor.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/kanchi-dividend-review-monitor){: .btn .fs-5 .mb-4 .mb-md-0 }

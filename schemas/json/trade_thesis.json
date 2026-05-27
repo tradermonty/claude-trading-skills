@@ -1,0 +1,690 @@
+{
+  "$defs": {
+    "DataGap": {
+      "description": "A single data gap record \u2014 emitted when expected data is absent or stale.",
+      "properties": {
+        "gap_id": {
+          "title": "Gap Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "description": {
+          "description": "What data is missing or stale",
+          "title": "Description",
+          "type": "string"
+        },
+        "affected_decision": {
+          "description": "Which downstream decision this impairs",
+          "title": "Affected Decision",
+          "type": "string"
+        },
+        "remediation": {
+          "description": "How the user can resolve this gap",
+          "title": "Remediation",
+          "type": "string"
+        },
+        "can_continue": {
+          "description": "Whether the skill/workflow can produce useful output despite this gap",
+          "title": "Can Continue",
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which upstream skill or API caused the gap",
+          "title": "Source"
+        }
+      },
+      "required": [
+        "severity",
+        "description",
+        "affected_decision",
+        "remediation",
+        "can_continue"
+      ],
+      "title": "DataGap",
+      "type": "object"
+    },
+    "Disclaimer": {
+      "properties": {
+        "text": {
+          "default": "This artifact is produced by TraderMonty, a decision-support and trading-process toolkit. It is NOT financial advice, investment advisory, a trading signal, or a guarantee of profitability. All trading decisions, position sizing, risk management, and broker execution decisions remain solely the user's responsibility. Review all outputs manually before acting.",
+          "title": "Text",
+          "type": "string"
+        },
+        "decision_support_only": {
+          "default": true,
+          "title": "Decision Support Only",
+          "type": "boolean"
+        }
+      },
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "ManualReviewStatus": {
+      "description": "Lifecycle state of the human review gate for an artifact.",
+      "enum": [
+        "PENDING",
+        "IN_REVIEW",
+        "APPROVED",
+        "REJECTED",
+        "WAIVED"
+      ],
+      "title": "ManualReviewStatus",
+      "type": "string"
+    },
+    "ReviewerRole": {
+      "description": "Role of the reviewer who completed or waived the review.",
+      "enum": [
+        "RESEARCHER",
+        "REVIEWER",
+        "RISK_APPROVER",
+        "ADMIN"
+      ],
+      "title": "ReviewerRole",
+      "type": "string"
+    },
+    "SetupType": {
+      "enum": [
+        "VCP",
+        "CANSLIM",
+        "PEAD",
+        "EARNINGS_GAP",
+        "PARABOLIC_SHORT",
+        "BREAKOUT",
+        "PAIR_LONG",
+        "PAIR_SHORT",
+        "OPTIONS_COVERED_CALL",
+        "OPTIONS_PROTECTIVE_PUT",
+        "OPTIONS_SPREAD",
+        "DIVIDEND_PULLBACK",
+        "OTHER"
+      ],
+      "title": "SetupType",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "ThesisLifecycle": {
+      "enum": [
+        "IDEA",
+        "CANDIDATE",
+        "PLANNED",
+        "ENTERED",
+        "MANAGED",
+        "EXITED",
+        "POSTMORTEM_DONE",
+        "ARCHIVED"
+      ],
+      "title": "ThesisLifecycle",
+      "type": "string"
+    }
+  },
+  "description": "A single trade or investment thesis tracked through its lifecycle.",
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "artifact_id": {
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "artifact_type": {
+      "default": "trade_thesis",
+      "title": "Artifact Type",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "skill_id": {
+      "description": "ID of the skill that produced this artifact",
+      "title": "Skill Id",
+      "type": "string"
+    },
+    "workflow_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Workflow run ID if produced within a workflow",
+      "title": "Workflow Id"
+    },
+    "workflow_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflow Run Id"
+    },
+    "symbols": {
+      "description": "Tickers/assets covered",
+      "items": {
+        "type": "string"
+      },
+      "title": "Symbols",
+      "type": "array"
+    },
+    "data_sources_used": {
+      "description": "APIs, CSVs, or other sources consumed",
+      "items": {
+        "type": "string"
+      },
+      "title": "Data Sources Used",
+      "type": "array"
+    },
+    "data_gaps": {
+      "description": "All detected data gaps; empty list = no gaps detected",
+      "items": {
+        "$ref": "#/$defs/DataGap"
+      },
+      "title": "Data Gaps",
+      "type": "array"
+    },
+    "assumptions": {
+      "description": "Explicit assumptions made due to missing or inferred data",
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "HIGH / MEDIUM / LOW \u2014 reflects data completeness and signal quality",
+      "title": "Confidence"
+    },
+    "manual_review_required": {
+      "default": true,
+      "title": "Manual Review Required",
+      "type": "boolean"
+    },
+    "manual_review_status": {
+      "$ref": "#/$defs/ManualReviewStatus",
+      "default": "PENDING",
+      "description": "Review lifecycle: PENDING \u2192 IN_REVIEW \u2192 APPROVED / REJECTED. WAIVED is permitted only for non-trade artifacts (e.g., data quality reports). Promotion-blocking: outputs with status PENDING or IN_REVIEW must not be acted upon."
+    },
+    "reviewer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name or identifier of the human reviewer who completed or waived the review",
+      "title": "Reviewer"
+    },
+    "reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ISO-8601 timestamp when the review was completed or waived",
+      "title": "Reviewed At"
+    },
+    "review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reviewer's notes, decision rationale, or conditions attached to the approval",
+      "title": "Review Notes"
+    },
+    "reviewer_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewerRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Role of the reviewer who completed or waived the review"
+    },
+    "author_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ID of the artifact author; used to prevent self-review",
+      "title": "Author Id"
+    },
+    "dual_review_required": {
+      "default": false,
+      "description": "Whether a second independent reviewer is required",
+      "title": "Dual Review Required",
+      "type": "boolean"
+    },
+    "secondary_reviewer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Reviewer"
+    },
+    "secondary_reviewer_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewerRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "secondary_reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Reviewed At"
+    },
+    "secondary_review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secondary Review Notes"
+    },
+    "next_actions": {
+      "description": "Suggested next steps for the user",
+      "items": {
+        "type": "string"
+      },
+      "title": "Next Actions",
+      "type": "array"
+    },
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "thesis_id": {
+      "title": "Thesis Id",
+      "type": "string"
+    },
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "lifecycle_state": {
+      "$ref": "#/$defs/ThesisLifecycle",
+      "default": "IDEA"
+    },
+    "source_skill": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Skill"
+    },
+    "setup_type": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SetupType"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "thesis_summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Thesis Summary"
+    },
+    "market_regime_at_entry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Market Regime At Entry"
+    },
+    "exposure_decision_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exposure Decision Id"
+    },
+    "entry_plan": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entry Plan"
+    },
+    "entry_price_planned": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entry Price Planned"
+    },
+    "stop_price": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stop Price"
+    },
+    "target_price": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Price"
+    },
+    "reward_risk": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reward Risk"
+    },
+    "shares_planned": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shares Planned"
+    },
+    "risk_dollars_planned": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Risk Dollars Planned"
+    },
+    "entry_price_actual": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entry Price Actual"
+    },
+    "entry_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entry Date"
+    },
+    "shares_actual": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shares Actual"
+    },
+    "exit_price": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Price"
+    },
+    "exit_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Date"
+    },
+    "pnl_dollars": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pnl Dollars"
+    },
+    "pnl_pct": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pnl Pct"
+    },
+    "mae_pct": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum Adverse Excursion %",
+      "title": "Mae Pct"
+    },
+    "mfe_pct": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum Favorable Excursion %",
+      "title": "Mfe Pct"
+    },
+    "emotions_at_entry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Emotions At Entry"
+    },
+    "rule_deviations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rule Deviations",
+      "type": "array"
+    },
+    "exit_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Reason"
+    },
+    "linked_report_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Linked Report Paths",
+      "type": "array"
+    },
+    "lessons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Lessons",
+      "type": "array"
+    }
+  },
+  "required": [
+    "skill_id",
+    "ticker"
+  ],
+  "title": "TradeThesis",
+  "type": "object"
+}

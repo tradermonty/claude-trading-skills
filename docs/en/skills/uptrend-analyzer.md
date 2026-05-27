@@ -3,7 +3,7 @@ layout: default
 title: "Uptrend Analyzer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 43
+nav_order: 61
 lang_peer: /ja/skills/uptrend-analyzer/
 permalink: /en/skills/uptrend-analyzer/
 ---
@@ -43,13 +43,19 @@ Analyzes market breadth using Monty's Uptrend Ratio Dashboard data to diagnose t
 - User needs exposure guidance based on breadth analysis
 - User references Monty's Uptrend Dashboard or uptrend ratios
 
+**Japanese:**
+- 「市場のブレドスは健全？」「上昇の裾野は広い？」
+- セクター別のアップトレンド比率を確認したい
+- 相場参加率・ブレドス状況を診断したい
+- ブレドス分析に基づくエクスポージャーガイダンスが欲しい
+- Montyのアップトレンドダッシュボードについて質問
 
 ---
 
 ## 3. Prerequisites
 
-- **API Key:** None required
-- **Python 3.9+** recommended
+- Monty Uptrend Ratio Dashboard CSV; no API key required
+- Python 3.9+ recommended
 
 ---
 

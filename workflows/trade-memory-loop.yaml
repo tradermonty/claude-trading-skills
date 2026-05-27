@@ -27,17 +27,21 @@ optional_skills:
 
 artifacts:
   - id: closed_thesis_record
+    schema_id: trade_thesis
     produced_by_step: 1
     required: true
   - id: postmortem_findings
+    schema_id: postmortem_report
     produced_by_step: 2
     required: true
     downstream_hints:
       - monthly-performance-review
   - id: backtest_validation
+    schema_id: backtest_report
     produced_by_step: 3
     required: false
   - id: lessons_log_entry
+    schema_id: journal_entry
     produced_by_step: 4
     required: true
     downstream_hints:

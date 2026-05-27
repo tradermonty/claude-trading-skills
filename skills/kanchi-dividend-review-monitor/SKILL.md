@@ -115,6 +115,17 @@ Always return:
 - Feed `REVIEW` results back to `kanchi-dividend-sop` for re-underwriting and position-size review.
 - Share account-type context with `kanchi-dividend-us-tax-accounting` when risk events imply account relocation decisions.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `dividend_review` | `DividendReview` | Dividend anomaly findings (T1-T5) and review queue |
+
+Schema: `schemas/json/dividend_review.json`
+
 ## Resources
 
 - `scripts/build_review_queue.py`: local rule engine for T1-T5.
@@ -122,3 +133,25 @@ Always return:
 - `references/trigger-matrix.md`: trigger definitions, cadence, and actions.
 - `references/input-schema.md`: normalized input schema and sample JSON.
 - `references/review-ticket-template.md`: standardized manual-review ticket layout.
+
+## Data Gaps
+
+This skill operates with or without FMP API access. Behavior when data is unavailable:
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` not set | MEDIUM | Fall back to offline mode or manual CSV; note limitation in output |
+| FMP returns empty response | MEDIUM | Warn; use cached or user-supplied data if available |
+| Individual ticker data missing | LOW | Skip ticker; list under `data_gaps[]` in output |
+| Fewer than 10 data points | HIGH | Halt analysis for that instrument; do not extrapolate |
+
+## Manual Review Gate
+
+This skill produces review tickets, not trading decisions. For each T1-T5 anomaly flagged:
+
+1. T1 (dividend cut) or T2 (yield spike >30%) — defer all additional buys until resolved manually
+2. T3 (price drop >15%) — review full thesis before any buy or hold decision
+3. T4 (payout ratio >90%) — flag for human judgment; do not auto-exclude
+4. T5 (volume/liquidity change) — verify data quality before acting on signal
+
+No review ticket implies automatic action — all decisions require the trader's explicit approval.

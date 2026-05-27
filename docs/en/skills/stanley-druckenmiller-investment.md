@@ -3,7 +3,7 @@ layout: default
 title: "Stanley Druckenmiller Investment"
 grand_parent: English
 parent: Skill Guides
-nav_order: 40
+nav_order: 54
 lang_peer: /ja/skills/stanley-druckenmiller-investment/
 permalink: /en/skills/stanley-druckenmiller-investment/
 ---
@@ -11,7 +11,7 @@ permalink: /en/skills/stanley-druckenmiller-investment/
 # Stanley Druckenmiller Investment
 {: .no_toc }
 
-Druckenmiller Strategy Synthesizer - Integrates 8 upstream skill outputs (Market Breadth, Uptrend Analysis, Market Top, Macro Regime, FTD Detector, VCP Screener, Theme Detector, CANSLIM Screener) into a unified conviction score (0-100), pattern classification, and allocation recommendation. Use when user asks about overall market conviction, portfolio positioning, asset allocation, strategy synthesis, or Druckenmiller-style analysis. Triggers on queries like "What is my conviction level?", "How should I position?", "Run the strategy synthesizer", "Druckenmiller analysis".
+Druckenmiller Strategy Synthesizer - Integrates 8 upstream skill outputs (Market Breadth, Uptrend Analysis, Market Top, Macro Regime, FTD Detector, VCP Screener, Theme Detector, CANSLIM Screener) into a unified conviction score (0-100), pattern classification, and allocation recommendation. Use when user asks about overall market conviction, portfolio positioning, asset allocation, strategy synthesis, or Druckenmiller-style analysis. Triggers on queries like "What is my conviction level?", "How should I position?", "Run the strategy synthesizer", "Druckenmiller analysis", "総合的な市場判断", "確信度スコア", "ポートフォリオ配分", "ドラッケンミラー分析".
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">No API</span>
@@ -44,13 +44,21 @@ Druckenmiller Strategy Synthesizer - Integrates 8 upstream skill outputs (Market
 - User asks "Should I increase or decrease exposure?"
 - User wants pattern classification (policy pivot, distortion, contrarian, wait)
 
+**Japanese:**
+- 「総合的な市場判断は？」「今のポジショニングは？」
+- ブレッドス、アップトレンド、天井リスク、マクロの統合判断
+- 「エクスポージャーを増やすべき？減らすべき？」
+- 「ドラッケンミラー分析を実行して」
+- 個別スキル実行後の戦略統合レポート
+
+---
 
 ---
 
 ## 3. Prerequisites
 
-- **API Key:** None required
-- **Python 3.9+** recommended
+- Synthesizes outputs from upstream skills; pure calculation
+- Python 3.9+ recommended
 
 ---
 

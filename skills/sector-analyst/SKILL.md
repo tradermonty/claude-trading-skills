@@ -209,6 +209,17 @@ Apply these probability ranges based on evidence strength:
 
 Total probabilities across all scenarios should sum to approximately 100%.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `scenario_analysis` | `ScenarioAnalysis` | Probability-weighted scenario set with trigger levels |
+
+Schema: `schemas/json/scenario_analysis.json`
+
 ## Resources
 
 ### scripts/

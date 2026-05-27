@@ -327,6 +327,17 @@ If user requested specific filters, note at top:
 
 **Language:** All reports in English
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `journal_entry` | `JournalEntry` | Timestamped decision log entry for trader memory |
+
+Schema: `schemas/json/journal_entry.json`
+
 ## Resources
 
 **Python Script:**
@@ -365,3 +376,15 @@ If user requested specific filters, note at top:
 - Rate limits (429): Suggest waiting or upgrading FMP tier; re-run the script after the wait
 - Network failures: Check connection and re-run; no automatic retry or cache in the script
 - Invalid dates: Validation with helpful error messages
+
+## Data Gaps
+
+Explicit behavior when required data is unavailable — do not substitute neutrals silently.
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` env var missing | CRITICAL | Halt — exit 1; print setup instructions; do not write output |
+| FMP returns HTTP error or empty list | HIGH | Halt — log `[DATA GAP HIGH]`; do not fabricate candidates |
+| Individual ticker data unavailable | LOW | Skip ticker; list missing symbols in output under `data_gaps[]` |
+| Fewer than 30 qualifying candidates | MEDIUM | Continue; note reduced sample; mark `confidence: LOW` in output |
+| Data timestamp >1 trading day old | MEDIUM | Warn in output; proceed only with user confirmation |

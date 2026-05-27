@@ -6,13 +6,19 @@ Strictness levels:
   --strict-workflows   : also resolve workflow references and check internal-consistency
   --strict-metadata    : also enforce timeframe/difficulty/inputs/outputs completeness
 
-Emits stable error codes (IDX001-009, WF001-010). See
+Emits stable error codes (IDX001-012, WF001-013). See
 docs/dev/metadata-and-workflow-schema.md for the full catalog.
+
+New in Phase 4 hardening:
+  WF013 : workflow artifact has schema_id that does not match a known artifact type in
+           schemas/json/index.json. Under --strict-workflows this is an error; otherwise
+           a warning.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -125,6 +131,18 @@ def _scan_skill_folders(project_root: Path) -> dict[str, Path]:
 
 
 SUPPORTED_SCHEMA_VERSION = 1
+
+
+def _load_known_schema_ids(project_root: Path) -> frozenset[str]:
+    """Return the set of artifact_type values from schemas/json/index.json, or empty set."""
+    index_path = project_root / "schemas" / "json" / "index.json"
+    if not index_path.is_file():
+        return frozenset()
+    try:
+        entries = json.loads(index_path.read_text(encoding="utf-8"))
+        return frozenset(e["artifact_type"] for e in entries if isinstance(e, dict) and "artifact_type" in e)
+    except Exception:  # noqa: BLE001
+        return frozenset()
 
 
 def _validate_index_structure(
@@ -280,6 +298,10 @@ def _validate_index_structure(
         if strict_metadata and not entry.get("outputs"):
             findings.append(Finding("IDX-META", "error", loc, "outputs is empty"))
 
+        # SK015: artifact_schema_ids must reference known artifact types
+        # (checked when known_schema_ids is available — populated in validate())
+        # Stored on entry so validate() can pass known_schema_ids in second pass.
+
     return findings, skills_by_id
 
 
@@ -312,7 +334,13 @@ def _validate_bijection_and_frontmatter(
                 )
             )
 
+    # SK017 integration types that require data gap documentation
+    _DATA_INTEGRATION_TYPES = frozenset({"market_data", "api", "mcp", "web", "screener"})
+    _DATA_REQUIREMENTS = frozenset({"required", "recommended"})
+    _DATA_GAP_HEADINGS = re.compile(r"^##\s+(data.gap|missing.data)", re.IGNORECASE | re.MULTILINE)
+
     # IDX004: frontmatter `name` ≠ index `id`
+    # SK017: external-data skills must document data gap behavior
     for skill_id, skill_md in folders.items():
         if skill_id not in skills_by_id:
             continue  # already reported as IDX003
@@ -330,6 +358,40 @@ def _validate_bijection_and_frontmatter(
                     "error",
                     str(skill_md),
                     f"frontmatter name {fm_name!r} does not match index id {skill_id!r}",
+                )
+            )
+
+        # SK017: skills with required/recommended external data must have a ## Data Gaps section
+        entry = skills_by_id[skill_id]
+        needs_gap_doc = any(
+            i.get("type") in _DATA_INTEGRATION_TYPES
+            and i.get("requirement") in _DATA_REQUIREMENTS
+            for i in entry.get("integrations", [])
+        )
+        if needs_gap_doc and not _DATA_GAP_HEADINGS.search(text):
+            findings.append(
+                Finding(
+                    "SK017",
+                    "warning",
+                    str(skill_md),
+                    "skill uses required/recommended external data but SKILL.md "
+                    "has no '## Data Gaps' section — add explicit missing-data behavior",
+                )
+            )
+
+        # SK019: skills with artifact_schema_ids must declare ## Output Artifact section
+        _OUTPUT_ARTIFACT_HEADING = re.compile(
+            r"^##\s+Output Artifact", re.IGNORECASE | re.MULTILINE
+        )
+        artifact_schema_ids = entry.get("artifact_schema_ids") or []
+        if artifact_schema_ids and not _OUTPUT_ARTIFACT_HEADING.search(text):
+            findings.append(
+                Finding(
+                    "SK019",
+                    "warning",
+                    str(skill_md),
+                    "skill declares artifact_schema_ids but SKILL.md has no "
+                    "'## Output Artifact' section — add structured output declaration",
                 )
             )
 
@@ -366,9 +428,118 @@ def _validate_workflow_references(
     return findings, available
 
 
+def _validate_skill_index_hardening(
+    skills_by_id: dict[str, dict],
+    project_root: Path,
+    known_schema_ids: frozenset[str],
+) -> list[Finding]:
+    """SK015: artifact_schema_ids must reference registered types.
+    SK016: skill package (.skill file) must not be older than SKILL.md.
+    """
+    findings: list[Finding] = []
+    packages_dir = project_root / "skill-packages"
+
+    for skill_id, entry in skills_by_id.items():
+        loc = f"skills-index.yaml::{skill_id}"
+
+        # SK015 — validate artifact_schema_ids references
+        schema_ids: list = entry.get("artifact_schema_ids") or []
+        if known_schema_ids:
+            for sid in schema_ids:
+                if sid not in known_schema_ids:
+                    findings.append(
+                        Finding(
+                            "SK015",
+                            "error",
+                            loc,
+                            f"artifact_schema_ids contains {sid!r} which is not registered "
+                            "in schemas/json/index.json",
+                        )
+                    )
+
+        # SK016 — stale package detection (warning only)
+        skill_md = project_root / "skills" / skill_id / "SKILL.md"
+        package = packages_dir / f"{skill_id}.skill"
+        if package.is_file() and skill_md.is_file():
+            pkg_mtime = package.stat().st_mtime
+            md_mtime = skill_md.stat().st_mtime
+            if md_mtime > pkg_mtime:
+                findings.append(
+                    Finding(
+                        "SK016",
+                        "warning",
+                        f"skill-packages/{skill_id}.skill",
+                        f"package is older than skills/{skill_id}/SKILL.md — "
+                        "re-run packaging script to update",
+                    )
+                )
+
+        # SK018 — trade-planning skills must not contain unqualified execution language
+        # Categories that generate trade plans require decision-support disclaimers, not direct orders.
+        _TRADE_CATEGORIES = frozenset({"swing-opportunity", "trade-planning", "trade-memory"})
+        if entry.get("category") in _TRADE_CATEGORIES and skill_md.is_file():
+            try:
+                md_text = skill_md.read_text(encoding="utf-8")
+            except OSError:
+                md_text = ""
+            _EXEC_LANG = re.compile(
+                r"\b(buy now|sell now|place order|execute order|go long|go short|enter trade)\b",
+                re.IGNORECASE,
+            )
+            _QUALIFIED = re.compile(
+                r"(manual|broker|decision.support|do not|no auto|approve|confirm)",
+                re.IGNORECASE,
+            )
+            for m in _EXEC_LANG.finditer(md_text):
+                surrounding = md_text[max(0, m.start() - 120) : m.end() + 120]
+                if not _QUALIFIED.search(surrounding):
+                    findings.append(
+                        Finding(
+                            "SK018",
+                            "warning",
+                            str(skill_md),
+                            f"unqualified execution language {m.group()!r} — add 'manual', "
+                            "'broker', or 'decision-support' qualifier nearby",
+                        )
+                    )
+                    break  # one finding per skill is sufficient
+
+        # SK020 — no SKILL.md (any category) may claim guaranteed profits or automatic execution
+        # These phrases undermine the decision-support-only positioning of TraderMonty and could
+        # create misleading impressions for users.
+        if skill_md.is_file():
+            try:
+                md_text_sk020 = skill_md.read_text(encoding="utf-8")
+            except OSError:
+                md_text_sk020 = ""
+            _GUARANTEED = re.compile(
+                r"\b(guaranteed\s+(profit|return|gain|win)|"
+                r"sure\s+win|can(not|'t)\s+lose|"
+                r"risk.free(?!\s+(disclosure|rate\b))|"
+                r"always\s+profitable|100\s*%\s+accurate|"
+                r"place\s+this\s+trade\s+automatically|auto.execut\w+|"
+                r"execut\w+\s+automatically|trades?\s+automatically)\b",
+                re.IGNORECASE,
+            )
+            m_guaranteed = _GUARANTEED.search(md_text_sk020)
+            if m_guaranteed:
+                findings.append(
+                    Finding(
+                        "SK020",
+                        "error",
+                        str(skill_md),
+                        f"forbidden language {m_guaranteed.group()!r} — SKILL.md must not "
+                        "claim guaranteed profits, risk-free returns, or automatic execution",
+                    )
+                )
+
+    return findings
+
+
 def _validate_workflow_internal(
     workflow_path: Path,
     skills_by_id: dict[str, dict],
+    known_schema_ids: frozenset[str] | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     rel_loc = f"workflows/{workflow_path.name}"
@@ -438,6 +609,23 @@ def _validate_workflow_internal(
         produced_by = art.get("produced_by_step")
         if art_id and isinstance(produced_by, int):
             artifact_produced_by[art_id] = produced_by
+
+        # WF013: schema_id must be a known artifact type (from schemas/json/index.json)
+        schema_id = art.get("schema_id")
+        if schema_id is not None and known_schema_ids:
+            if schema_id not in known_schema_ids:
+                findings.append(
+                    Finding(
+                        "WF013",
+                        "error",
+                        rel_loc,
+                        (
+                            f"artifact {art_id!r} has schema_id={schema_id!r} which is not "
+                            "registered in schemas/json/index.json. "
+                            "Run `python schemas/export_json_schemas.py` to regenerate."
+                        ),
+                    )
+                )
 
     # Build step.produces map for WF012 cross-check
     step_produces: dict[int, set[str]] = {}
@@ -643,9 +831,11 @@ def validate(
     )
     findings.extend(wf_ref_findings)
 
+    known_schema_ids = _load_known_schema_ids(project_root)
+    findings.extend(_validate_skill_index_hardening(skills_by_id, project_root, known_schema_ids))
     if strict_workflows:
         for wf_path in available_workflows.values():
-            findings.extend(_validate_workflow_internal(wf_path, skills_by_id))
+            findings.extend(_validate_workflow_internal(wf_path, skills_by_id, known_schema_ids))
 
     return findings
 

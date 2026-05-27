@@ -46,3 +46,14 @@ python3 skills/trade-hypothesis-ideator/scripts/run_hypothesis_ideator.py \
 
 - `references/hypothesis_types.md`
 - `references/evidence_quality_guide.md`
+
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `trade_thesis` | `TradeThesis` | Full trade thesis with ThesisLifecycle state and provenance |
+
+Schema: `schemas/json/trade_thesis.json`

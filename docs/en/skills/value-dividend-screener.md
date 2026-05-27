@@ -3,7 +3,7 @@ layout: default
 title: "Value Dividend Screener"
 grand_parent: English
 parent: Skill Guides
-nav_order: 44
+nav_order: 64
 lang_peer: /ja/skills/value-dividend-screener/
 permalink: /en/skills/value-dividend-screener/
 ---
@@ -57,7 +57,7 @@ Invoke this skill when the user requests:
 
 - **FMP API key** required (`FMP_API_KEY` environment variable)
 - **FINVIZ Elite** optional (improves performance)
-- FMP for analysis; FINVIZ reduces execution time by 70-80%
+- Financial Modeling Prep API
 - Python 3.9+ recommended
 
 ---

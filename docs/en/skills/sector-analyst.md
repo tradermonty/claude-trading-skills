@@ -3,7 +3,7 @@ layout: default
 title: "Sector Analyst"
 grand_parent: English
 parent: Skill Guides
-nav_order: 37
+nav_order: 49
 lang_peer: /ja/skills/sector-analyst/
 permalink: /en/skills/sector-analyst/
 ---
@@ -55,8 +55,9 @@ Example user requests:
 
 ## 3. Prerequisites
 
-- Image-based chart analysis
-- Python 3.9+ recommended
+- **Python 3.8+** with `requests` library (for CSV fetching)
+- **No API keys required** — data is fetched from a public GitHub repository
+- **Optional**: Sector performance chart images for supplementary analysis
 
 ---
 
@@ -74,7 +75,7 @@ Follow this structured workflow:
 
 ### Step 1: CSV Data Collection
 
-1. Run the analysis script: `python3 skills/sector-analyst/scripts/analyze_sector_rotation.py`
+1. Run the analysis script: `python3 scripts/analyze_sector_rotation.py`
 2. Extract from the output:
    - Sector ranking by uptrend ratio
    - Risk regime (cyclical vs defensive) and score

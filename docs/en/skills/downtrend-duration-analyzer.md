@@ -3,7 +3,7 @@ layout: default
 title: "Downtrend Duration Analyzer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 11
+nav_order: 17
 lang_peer: /ja/skills/downtrend-duration-analyzer/
 permalink: /en/skills/downtrend-duration-analyzer/
 ---
@@ -16,6 +16,7 @@ Analyze historical downtrend durations and generate interactive HTML histograms 
 
 <span class="badge badge-free">No API</span>
 
+[Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/downtrend-duration-analyzer.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/downtrend-duration-analyzer){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 <details open markdown="block">

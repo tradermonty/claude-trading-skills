@@ -3,7 +3,7 @@ layout: default
 title: "Kanchi Dividend US Tax Accounting"
 grand_parent: English
 parent: Skill Guides
-nav_order: 28
+nav_order: 36
 lang_peer: /ja/skills/kanchi-dividend-us-tax-accounting/
 permalink: /en/skills/kanchi-dividend-us-tax-accounting/
 ---
@@ -52,6 +52,28 @@ Prepare holding-level inputs:
 - `instrument_type`
 - `account_type`
 - `hold_days_in_window` (if available)
+
+### Expected JSON Input Format
+
+```json
+{
+  "holdings": [
+    {
+      "ticker": "JNJ",
+      "instrument_type": "stock",
+      "account_type": "taxable",
+      "security_type": "common",
+      "hold_days_in_window": 75
+    },
+    {
+      "ticker": "O",
+      "instrument_type": "reit",
+      "account_type": "ira",
+      "hold_days_in_window": 100
+    }
+  ]
+}
+```
 
 For deterministic output artifacts, provide JSON input and run:
 

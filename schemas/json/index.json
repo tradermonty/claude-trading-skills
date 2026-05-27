@@ -1,0 +1,102 @@
+[
+  {
+    "artifact_type": "data_quality_report",
+    "model": "DataQualityReport",
+    "schema_file": "data_quality_report.json"
+  },
+  {
+    "artifact_type": "breadth_assessment",
+    "model": "BreadthAssessment",
+    "schema_file": "breadth_assessment.json"
+  },
+  {
+    "artifact_type": "uptrend_assessment",
+    "model": "UptrendAssessment",
+    "schema_file": "uptrend_assessment.json"
+  },
+  {
+    "artifact_type": "market_top_risk_report",
+    "model": "MarketTopRiskReport",
+    "schema_file": "market_top_risk_report.json"
+  },
+  {
+    "artifact_type": "macro_regime_report",
+    "model": "MacroRegimeReport",
+    "schema_file": "macro_regime_report.json"
+  },
+  {
+    "artifact_type": "exposure_decision",
+    "model": "ExposureDecision",
+    "schema_file": "exposure_decision.json"
+  },
+  {
+    "artifact_type": "screen_candidate",
+    "model": "ScreenCandidate",
+    "schema_file": "screen_candidate.json"
+  },
+  {
+    "artifact_type": "technical_validation",
+    "model": "TechnicalValidation",
+    "schema_file": "technical_validation.json"
+  },
+  {
+    "artifact_type": "position_sizing_plan",
+    "model": "PositionSizingPlan",
+    "schema_file": "position_sizing_plan.json"
+  },
+  {
+    "artifact_type": "trade_plan",
+    "model": "TradePlan",
+    "schema_file": "trade_plan.json"
+  },
+  {
+    "artifact_type": "trade_thesis",
+    "model": "TradeThesis",
+    "schema_file": "trade_thesis.json"
+  },
+  {
+    "artifact_type": "journal_entry",
+    "model": "JournalEntry",
+    "schema_file": "journal_entry.json"
+  },
+  {
+    "artifact_type": "postmortem_report",
+    "model": "PostmortemReport",
+    "schema_file": "postmortem_report.json"
+  },
+  {
+    "artifact_type": "backtest_spec",
+    "model": "BacktestSpec",
+    "schema_file": "backtest_spec.json"
+  },
+  {
+    "artifact_type": "backtest_report",
+    "model": "BacktestReport",
+    "schema_file": "backtest_report.json"
+  },
+  {
+    "artifact_type": "strategy_review",
+    "model": "StrategyReview",
+    "schema_file": "strategy_review.json"
+  },
+  {
+    "artifact_type": "portfolio_review",
+    "model": "PortfolioReview",
+    "schema_file": "portfolio_review.json"
+  },
+  {
+    "artifact_type": "dividend_review",
+    "model": "DividendReview",
+    "schema_file": "dividend_review.json"
+  },
+  {
+    "artifact_type": "scenario_analysis",
+    "model": "ScenarioAnalysis",
+    "schema_file": "scenario_analysis.json"
+  },
+  {
+    "artifact_type": "workflow_run",
+    "model": "WorkflowRun",
+    "schema_file": "workflow_run.json"
+  }
+]

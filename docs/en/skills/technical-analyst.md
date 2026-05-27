@@ -3,7 +3,7 @@ layout: default
 title: "Technical Analyst"
 grand_parent: English
 parent: Skill Guides
-nav_order: 42
+nav_order: 56
 lang_peer: /ja/skills/technical-analyst/
 permalink: /en/skills/technical-analyst/
 ---
@@ -34,14 +34,24 @@ This skill enables comprehensive technical analysis of weekly price charts. Anal
 
 ---
 
-## 2. Prerequisites
+## 2. When to Use
 
-- Image-based chart analysis
-- Python 3.9+ recommended
+- User provides weekly chart images (stocks, indices, crypto, forex) and requests technical analysis
+- Need to identify trend direction, strength, and potential reversal points
+- Looking for support/resistance levels and key price zones
+- Want probabilistic scenario planning with specific price targets
+- Require objective chart-based analysis without fundamental or news considerations
 
 ---
 
-## 3. Quick Start
+## 3. Prerequisites
+
+- **Chart Images**: User must provide weekly timeframe chart images for analysis
+- **No API Keys Required**: This skill analyzes user-provided images; no external data fetches
+
+---
+
+## 4. Quick Start
 
 ```bash
 Read: references/technical_analysis_framework.md
@@ -49,7 +59,7 @@ Read: references/technical_analysis_framework.md
 
 ---
 
-## 4. Workflow
+## 5. Workflow
 
 ### Step 1: Receive Chart Images
 
@@ -179,7 +189,7 @@ Do not batch analyses. Complete and save each report before moving to the next c
 
 ---
 
-## 5. Resources
+## 6. Resources
 
 **References:**
 

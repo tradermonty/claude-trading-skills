@@ -191,6 +191,18 @@ Run this skill first, then hand off outputs:
 - Do not treat high yield as value before validating coverage quality.
 - Keep assumptions explicit when data is missing.
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+| `trade_plan` | `TradePlan` | Entry/stop/target plan — manual_review_required: true always |
+
+Schema: `schemas/json/screen_candidate.json` (and sibling files for additional types above)
+
 ## Resources
 
 - `skills/kanchi-dividend-sop/scripts/build_sop_plan.py`: deterministic SOP plan generator.
@@ -200,3 +212,23 @@ Run this skill first, then hand off outputs:
 - `references/default-thresholds.md`: baseline thresholds and profile tuning.
 - `references/valuation-and-one-off-checks.md`: sector valuation map and one-off checklist.
 - `references/stock-note-template.md`: one-page memo template for each candidate.
+
+## Data Gaps
+
+This skill operates with or without FMP API access. Behavior when data is unavailable:
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` not set | MEDIUM | Fall back to offline mode or manual CSV; note limitation in output |
+| FMP returns empty response | MEDIUM | Warn; use cached or user-supplied data if available |
+| Individual ticker data missing | LOW | Skip ticker; list under `data_gaps[]` in output |
+| Fewer than 10 data points | HIGH | Halt analysis for that instrument; do not extrapolate |
+
+## Manual Review Gate
+
+All output from this skill is decision-support only. Before adding or increasing any position:
+
+1. Check portfolio concentration — single position must remain below 5% of total portfolio
+2. Confirm T1-T5 anomaly check (via `kanchi-dividend-review-monitor`) shows no blocking issues
+3. Verify dividend qualification status (ordinary vs qualified) via `kanchi-dividend-us-tax-accounting`
+4. Entry order placed manually at broker — this skill does not place orders

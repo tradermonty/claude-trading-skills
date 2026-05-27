@@ -3,7 +3,7 @@ layout: default
 title: "Trade Hypothesis Ideator"
 grand_parent: English
 parent: Skill Guides
-nav_order: 11
+nav_order: 58
 lang_peer: /ja/skills/trade-hypothesis-ideator/
 permalink: /en/skills/trade-hypothesis-ideator/
 ---
@@ -37,8 +37,8 @@ Generate falsifiable trade strategy hypotheses from market data, trade logs, and
 
 ## 2. Prerequisites
 
-- **API Key:** None required
-- **Python 3.9+** recommended
+- Hypothesis generation from journal/data inputs; pure calculation
+- Python 3.9+ recommended
 
 ---
 
