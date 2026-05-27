@@ -17,11 +17,12 @@ Docs:
     - Gamma:  https://docs.polymarket.com/developers/gamma-markets-api/overview
     - CLOB:   https://docs.polymarket.com/developers/CLOB/overview
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 try:
     import requests
@@ -41,16 +42,16 @@ class Market:
     id: str
     question: str
     slug: str
-    end_date: Optional[datetime]
-    yes_price: Optional[float]  # 0.0 .. 1.0 = implied probability
-    no_price: Optional[float]
+    end_date: datetime | None
+    yes_price: float | None  # 0.0 .. 1.0 = implied probability
+    no_price: float | None
     volume_24h: float
     liquidity: float
-    category: Optional[str] = None
+    category: str | None = None
     tags: list[str] = field(default_factory=list)
 
     @property
-    def implied_probability(self) -> Optional[float]:
+    def implied_probability(self) -> float | None:
         """Market's implied probability the YES outcome occurs."""
         return self.yes_price
 
@@ -67,13 +68,13 @@ class PolymarketClient:
             print(f"{m.question}: {m.implied_probability:.0%}")
     """
 
-    def __init__(self, jwt_token: Optional[str] = None, timeout: int = 20):
+    def __init__(self, jwt_token: str | None = None, timeout: int = 20):
         # JWT only used by research API; public Gamma/CLOB endpoints don't need it
         self.jwt = jwt_token or get_api_key("POLYMARKET_API_KEY", required=False)
         self.timeout = timeout
         self._session = requests.Session()
 
-    def _get(self, base: str, path: str, params: Optional[dict] = None) -> Any:
+    def _get(self, base: str, path: str, params: dict | None = None) -> Any:
         url = f"{base}{path}"
         r = self._session.get(url, params=params or {}, timeout=self.timeout)
         r.raise_for_status()
@@ -93,7 +94,7 @@ class PolymarketClient:
         no_price = float(outcomes[1]) if outcomes and len(outcomes) > 1 else None
 
         end_iso = raw.get("endDate") or raw.get("end_date_iso")
-        end_dt: Optional[datetime] = None
+        end_dt: datetime | None = None
         if end_iso:
             try:
                 end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))

@@ -9,11 +9,12 @@ Usage:
     items = client.get_market_news(tickers=["NVDA", "AAPL"], days=7)
     geopolitical = client.search_news("OPEC oil production cut", days=3)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 try:
     import requests
@@ -37,7 +38,7 @@ class NewsItem:
     published_at: datetime
     provider: str  # "marketaux" / "newsdata"
     tickers: list[str] = field(default_factory=list)
-    sentiment: Optional[float] = None  # -1.0 .. +1.0 (marketaux only)
+    sentiment: float | None = None  # -1.0 .. +1.0 (marketaux only)
     keywords: list[str] = field(default_factory=list)
 
 
@@ -63,8 +64,8 @@ class NewsClient:
 
     def __init__(
         self,
-        marketaux_key: Optional[str] = None,
-        newsdata_key: Optional[str] = None,
+        marketaux_key: str | None = None,
+        newsdata_key: str | None = None,
         timeout: int = 20,
     ):
         # Both keys optional — if one is missing, fall through to the other
@@ -82,9 +83,9 @@ class NewsClient:
     def _marketaux_call(
         self,
         *,
-        symbols: Optional[list[str]] = None,
-        search: Optional[str] = None,
-        published_after: Optional[str] = None,
+        symbols: list[str] | None = None,
+        search: str | None = None,
+        published_after: str | None = None,
         limit: int = 10,
     ) -> list[NewsItem]:
         if not self.marketaux_key:
@@ -107,7 +108,9 @@ class NewsClient:
         out: list[NewsItem] = []
         for art in data:
             entities = art.get("entities") or []
-            sentiments = [e.get("sentiment_score") for e in entities if e.get("sentiment_score") is not None]
+            sentiments = [
+                e.get("sentiment_score") for e in entities if e.get("sentiment_score") is not None
+            ]
             avg_sent = sum(sentiments) / len(sentiments) if sentiments else None
             out.append(
                 NewsItem(
@@ -129,9 +132,9 @@ class NewsClient:
     def _newsdata_call(
         self,
         *,
-        q: Optional[str] = None,
-        category: Optional[str] = "business",
-        country: Optional[str] = "us",
+        q: str | None = None,
+        category: str | None = "business",
+        country: str | None = "us",
         limit: int = 10,
     ) -> list[NewsItem]:
         if not self.newsdata_key:
@@ -176,7 +179,7 @@ class NewsClient:
     def get_market_news(
         self,
         *,
-        tickers: Optional[list[str]] = None,
+        tickers: list[str] | None = None,
         days: int = 7,
         limit: int = 25,
     ) -> list[NewsItem]:
@@ -185,7 +188,9 @@ class NewsClient:
         Uses Marketaux if tickers provided (for entity tagging + sentiment).
         Falls back to Newsdata if Marketaux unavailable or returns nothing.
         """
-        published_after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+        published_after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         items = self._marketaux_call(symbols=tickers, published_after=published_after, limit=limit)
         if not items:
             q = " OR ".join(tickers) if tickers else None
@@ -194,7 +199,9 @@ class NewsClient:
 
     def search_news(self, query: str, days: int = 7, limit: int = 25) -> list[NewsItem]:
         """Keyword search across both providers, deduplicated by URL."""
-        published_after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+        published_after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         items = self._marketaux_call(search=query, published_after=published_after, limit=limit)
         items += self._newsdata_call(q=query, limit=limit)
         # Dedup by URL

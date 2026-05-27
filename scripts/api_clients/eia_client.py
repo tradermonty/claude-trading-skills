@@ -10,11 +10,12 @@ Powers the Power Infrastructure & AI Energy Demand theme directly:
 Free tier: unlimited within reason; key required.
 Docs: https://www.eia.gov/opendata/documentation.php
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 
 try:
     import requests
@@ -64,12 +65,12 @@ class EIAClient:
         spread = client.spark_spread_indicator("PJM")
     """
 
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 30):
+    def __init__(self, api_key: str | None = None, timeout: int = 30):
         self.api_key = api_key or get_api_key("EIA_API_KEY")
         self.timeout = timeout
         self._session = requests.Session()
 
-    def _get(self, path: str, params: Optional[dict] = None) -> dict:
+    def _get(self, path: str, params: dict | None = None) -> dict:
         params = dict(params or {})
         params["api_key"] = self.api_key
         r = self._session.get(f"{BASE}{path}", params=params, timeout=self.timeout)
@@ -91,7 +92,11 @@ class EIAClient:
         Returns: list of EnergyPoint, oldest -> newest.
         """
         code = REGIONS.get(region.upper(), region.upper())
-        endpoint = "/electricity/rto/region-data/data" if hourly else "/electricity/rto/daily-region-data/data"
+        endpoint = (
+            "/electricity/rto/region-data/data"
+            if hourly
+            else "/electricity/rto/daily-region-data/data"
+        )
         params = {
             "frequency": "hourly" if hourly else "daily",
             "data[]": "value",

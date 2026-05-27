@@ -12,19 +12,18 @@ Stocks Starter ($29/mo): 100 calls/min, real-time, 5 years.
 
 Docs: https://polygon.io/docs
 """
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 try:
     import requests
 except ImportError as e:
-    raise ImportError(
-        "polygon_client requires `requests`. Install: pip install requests"
-    ) from e
+    raise ImportError("polygon_client requires `requests`. Install: pip install requests") from e
 
 from .load_env import get_api_key
 
@@ -41,8 +40,8 @@ class Bar:
     low: float
     close: float
     volume: float
-    vwap: Optional[float] = None
-    transactions: Optional[int] = None
+    vwap: float | None = None
+    transactions: int | None = None
 
     @property
     def datetime(self) -> datetime:
@@ -60,7 +59,7 @@ class PolygonClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         rate_limit_sec: float = 0.0,
         timeout: int = 30,
     ):
@@ -79,7 +78,7 @@ class PolygonClient:
                 time.sleep(self.rate_limit_sec - elapsed)
         self._last_request = time.time()
 
-    def _get(self, path: str, params: Optional[dict] = None) -> dict:
+    def _get(self, path: str, params: dict | None = None) -> dict:
         self._throttle()
         params = dict(params or {})
         params["apiKey"] = self.api_key
@@ -118,7 +117,9 @@ class PolygonClient:
         Returns:
             list[Bar] sorted oldest -> newest
         """
-        path = f"/v2/aggs/ticker/{ticker.upper()}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
+        path = (
+            f"/v2/aggs/ticker/{ticker.upper()}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
+        )
         params = {"adjusted": str(adjusted).lower(), "sort": "asc", "limit": limit}
         data = self._get(path, params)
         results = data.get("results") or []
@@ -143,11 +144,11 @@ class PolygonClient:
 
     def get_ticker_news(
         self,
-        ticker: Optional[str] = None,
+        ticker: str | None = None,
         *,
         limit: int = 10,
         order: str = "desc",
-        published_gte: Optional[str] = None,
+        published_gte: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get news articles. If ticker omitted, returns market-wide news.
 
@@ -166,7 +167,7 @@ class PolygonClient:
         """Current market open/closed state across all venues."""
         return self._get("/v1/marketstatus/now")
 
-    def get_previous_close(self, ticker: str, adjusted: bool = True) -> Optional[Bar]:
+    def get_previous_close(self, ticker: str, adjusted: bool = True) -> Bar | None:
         """Yesterday's OHLCV."""
         path = f"/v2/aggs/ticker/{ticker.upper()}/prev"
         data = self._get(path, {"adjusted": str(adjusted).lower()})
@@ -199,7 +200,7 @@ class PolygonClient:
         *,
         market: str = "stocks",
         active: bool = True,
-        ticker_search: Optional[str] = None,
+        ticker_search: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         """Search/list tickers. Used by screeners."""
