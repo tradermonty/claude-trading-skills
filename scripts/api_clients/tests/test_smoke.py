@@ -14,7 +14,10 @@ from pathlib import Path
 # Make the package importable when run as a script
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))  # repo root
 
+from scripts.api_clients.bea_client import BEAClient  # noqa: E402
+from scripts.api_clients.commodity_client import CommodityClient  # noqa: E402
 from scripts.api_clients.eia_client import EIAClient  # noqa: E402
+from scripts.api_clients.estat_client import EStatClient  # noqa: E402
 from scripts.api_clients.finnhub_client import FinnhubClient  # noqa: E402
 from scripts.api_clients.news_client import NewsClient  # noqa: E402
 from scripts.api_clients.polygon_client import PolygonClient  # noqa: E402
@@ -110,6 +113,33 @@ def smoke_finnhub_earnings():
     return f"{len(evs)} earnings reports (next 7 days)"
 
 
+def smoke_bea():
+    c = BEAClient()
+    obs = c.real_gdp_growth()  # auto-computes last-N years with publication lag
+    if not obs:
+        return "no observations returned"
+    latest = obs[-1]
+    return f"{len(obs)} GDP-growth points, latest {latest.time_period} = {latest.value}"
+
+
+def smoke_commodity():
+    c = CommodityClient()
+    prices = c.latest(["BRENT", "GOLD"])
+    if not prices:
+        return "no prices returned"
+    parts = [f"{p.common_name}=${p.usd_price:.2f}/{p.unit}" for p in prices]
+    return ", ".join(parts)
+
+
+def smoke_estat():
+    c = EStatClient()
+    obs = c.cpi_national(limit=3)
+    if not obs:
+        return "no observations returned"
+    latest = obs[-1]
+    return f"{len(obs)} JP CPI rows, latest {latest.time_period} = {latest.value}"
+
+
 def main() -> int:
     print("=" * 70)
     print("API smoke tests")
@@ -122,6 +152,9 @@ def main() -> int:
     check("Polymarket: top markets", smoke_polymarket)
     check("Finnhub: econ calendar", smoke_finnhub_econ)
     check("Finnhub: earnings cal", smoke_finnhub_earnings)
+    check("BEA: real GDP growth", smoke_bea)
+    check("Commodity: Brent+Gold", smoke_commodity)
+    check("e-Stat: Japan CPI", smoke_estat)
     print("=" * 70)
     passed = sum(1 for _, ok, _ in RESULTS if ok)
     print(f"{passed}/{len(RESULTS)} providers reachable")

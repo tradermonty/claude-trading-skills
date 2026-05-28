@@ -15,6 +15,9 @@ Available clients:
     - EIAClient          : Energy/power data (US Energy Information Admin)
     - PolymarketClient   : Prediction market consensus (for what-is-priced-in)
     - FinnhubClient      : Economic calendar + earnings (free tier)
+    - BEAClient          : US GDP, savings rate, consumer spending (BEA)
+    - CommodityClient    : Oil, gold, metals, agriculture spot prices
+    - EStatClient        : Japan macro stats (CPI, retail sales, etc.)
 
 OFF-LIMITS per project hard-constraints:
     - OANDA   : forex broker (separate project) — never import here
@@ -26,7 +29,10 @@ Usage (from a repo-root Claude-Code session or notebook):
     bars = client.get_aggs("AAPL", "day", "2026-01-01", "2026-05-27")
 """
 
+from .bea_client import BEAClient  # noqa: F401
+from .commodity_client import CommodityClient  # noqa: F401
 from .eia_client import EIAClient  # noqa: F401
+from .estat_client import EStatClient  # noqa: F401
 from .finnhub_client import FinnhubClient  # noqa: F401
 from .load_env import get_api_key, load_env  # noqa: F401
 from .news_client import NewsClient  # noqa: F401
@@ -39,6 +45,9 @@ __all__ = [
     "EIAClient",
     "PolymarketClient",
     "FinnhubClient",
+    "BEAClient",
+    "CommodityClient",
+    "EStatClient",
     "get_api_key",
     "load_env",
 ]

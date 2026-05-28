@@ -43,6 +43,9 @@ python3 scripts/api_clients/tests/test_smoke.py
 | **EIA** | `eia_client.EIAClient` | `EIA_API_KEY` | Unlimited | Power demand, gas prices, spark spread → Power Infrastructure theme |
 | **Polymarket** | `polymarket_client.PolymarketClient` | (public Gamma API) | Unlimited | Consensus probability for catalysts → what-is-priced-in framework |
 | **Finnhub** | `finnhub_client.FinnhubClient` | `FINNHUB_API_KEY` | 60 req/min | Economic + earnings calendars (free alt to FMP) |
+| **BEA** | `bea_client.BEAClient` | `US_BEA_API_KEY` | Unlimited | US GDP, savings rate → macro-regime, druckenmiller |
+| **CommodityPriceAPI** | `commodity_client.CommodityClient` | `COMMODITY_API_KEY` | 100/month | Oil/gold/metals/grains spot → energy + risk-off themes |
+| **e-Stat (Japan)** | `estat_client.EStatClient` | `ESTAT_API_KEY` | Generous | JP CPI, retail sales, employment → JA reports |
 | **Alpaca** | (`portfolio-manager` skill, MCP) | `ALPACA_API_KEY` + `ALPACA_API_SECRET` | Free paper | Portfolio reads only — no execution |
 | **HuggingFace / DeepSeek / Kimi** | (skill-level via `LLM_PROVIDER`) | `HF_TOKEN`, `DEEPSEEK_API_KEY`, `KIMI_API_KEY` | Varies | LLM-axis reviewer, narrative synthesis |
 | **Telegram** | (alerting only, no client yet) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Free | Push notifications |
