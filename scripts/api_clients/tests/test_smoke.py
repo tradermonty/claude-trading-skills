@@ -15,6 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))  # repo root
 
 from scripts.api_clients.bea_client import BEAClient  # noqa: E402
+from scripts.api_clients.bis_client import BISClient  # noqa: E402
+from scripts.api_clients.bls_client import BLSClient  # noqa: E402
 from scripts.api_clients.commodity_client import CommodityClient  # noqa: E402
 from scripts.api_clients.eia_client import EIAClient  # noqa: E402
 from scripts.api_clients.estat_client import EStatClient  # noqa: E402
@@ -111,6 +113,23 @@ def smoke_estat():
     return f"{len(obs)} JP CPI rows, latest {latest.time_period} = {latest.value}"
 
 
+def smoke_bis():
+    c = BISClient()
+    diff = c.rate_differential("US", "JP")
+    if "error" in diff:
+        return f"diff fetch failed: {diff}"
+    return f"US-JP rate spread = {diff['spread_pp']:+.2f} pp (period {diff['period']})"
+
+
+def smoke_bls():
+    c = BLSClient()
+    obs = c.get_named("unemployment_rate", start_year=2025)
+    if not obs:
+        return "no observations returned"
+    latest = max(obs, key=lambda x: x.period)
+    return f"{len(obs)} unemp readings, latest {latest.period} = {latest.value}%"
+
+
 def main() -> int:
     print("=" * 70)
     print("API smoke tests")
@@ -126,6 +145,8 @@ def main() -> int:
     check("BEA: real GDP growth", smoke_bea)
     check("Commodity: Brent+Gold", smoke_commodity)
     check("e-Stat: Japan CPI", smoke_estat)
+    check("BIS: US-JP rate diff", smoke_bis)
+    check("BLS: US unemployment", smoke_bls)
     print("=" * 70)
     passed = sum(1 for _, ok, _ in RESULTS if ok)
     print(f"{passed}/{len(RESULTS)} providers reachable")

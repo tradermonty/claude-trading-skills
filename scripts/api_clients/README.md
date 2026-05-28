@@ -32,6 +32,8 @@ python3 scripts/api_clients/tests/test_smoke.py
 | **BEA** | `bea_client.BEAClient` | `US_BEA_API_KEY` | Unlimited | US GDP, savings rate → macro-regime, druckenmiller |
 | **CommodityPriceAPI** | `commodity_client.CommodityClient` | `COMMODITY_API_KEY` | 100/month | Oil/gold/metals/grains spot → energy + risk-off themes |
 | **e-Stat (Japan)** | `estat_client.EStatClient` | `ESTAT_API_KEY` | Generous | JP CPI, retail sales, employment → JA reports |
+| **BIS** | `bis_client.BISClient` | _(none — public API)_ | Unlimited | Central bank policy rates 49 countries → FX context, rate differentials |
+| **BLS** | `bls_client.BLSClient` | _(none, optional `BLS_API_KEY`)_ | 25/day no-key, 500/day with | US unemployment, NFP, CPI, PPI → macro-regime, druckenmiller |
 | **Alpaca** | (`portfolio-manager` skill, MCP) | `ALPACA_API_KEY` + `ALPACA_API_SECRET` | Free paper | Portfolio reads only — no execution |
 | **HuggingFace / DeepSeek / Kimi** | (skill-level via `LLM_PROVIDER`) | `HF_TOKEN`, `DEEPSEEK_API_KEY`, `KIMI_API_KEY` | Varies | LLM-axis reviewer, narrative synthesis |
 | **Telegram** | (alerting only, no client yet) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Free | Push notifications |

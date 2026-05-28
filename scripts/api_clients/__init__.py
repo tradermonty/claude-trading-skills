@@ -13,6 +13,8 @@ Available clients:
     - BEAClient          : US GDP, savings rate, consumer spending (BEA)
     - CommodityClient    : Oil, gold, metals, agriculture spot prices
     - EStatClient        : Japan macro stats (CPI, retail sales, etc.)
+    - BISClient          : Central bank policy rates, 49 countries (FREE, no key)
+    - BLSClient          : US unemployment, NFP, CPI, PPI (FREE, no key)
 
 OFF-LIMITS per project hard-constraints:
     - OANDA   : forex broker (separate project) — never import here
@@ -25,6 +27,8 @@ Usage:
 """
 
 from .bea_client import BEAClient  # noqa: F401
+from .bis_client import BISClient  # noqa: F401
+from .bls_client import BLSClient  # noqa: F401
 from .commodity_client import CommodityClient  # noqa: F401
 from .eia_client import EIAClient  # noqa: F401
 from .estat_client import EStatClient  # noqa: F401
@@ -43,6 +47,8 @@ __all__ = [
     "BEAClient",
     "CommodityClient",
     "EStatClient",
+    "BISClient",
+    "BLSClient",
     "get_api_key",
     "load_env",
 ]
