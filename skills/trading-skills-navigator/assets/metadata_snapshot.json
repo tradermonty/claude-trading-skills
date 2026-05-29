@@ -975,6 +975,36 @@
       ]
     },
     {
+      "api_profile": "mixed",
+      "cadence": "daily",
+      "difficulty": "intermediate",
+      "display_name": "Multi-Asset Opportunity Daily",
+      "estimated_minutes": 45,
+      "id": "multi-asset-opportunity-daily",
+      "optional_skills": [
+        "market-news-analyst",
+        "market-environment-analysis",
+        "sector-analyst",
+        "scenario-analyzer",
+        "stanley-druckenmiller-investment"
+      ],
+      "prerequisite_workflows": [
+        "market-regime-daily"
+      ],
+      "required_skills": [
+        "macro-regime-detector",
+        "theme-detector",
+        "trade-hypothesis-ideator",
+        "position-sizer",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "part-time-swing-trader",
+        "growth-investor",
+        "macro-discretionary-trader"
+      ]
+    },
+    {
       "api_profile": "fmp-required",
       "cadence": "daily",
       "difficulty": "intermediate",

@@ -23,6 +23,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | mixed | beginner |
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
+| [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
 | [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 30 | fmp-required | intermediate |
 | [`trade-memory-loop`](#trade-memory-loop) — Trade Memory Loop | ad-hoc | 30 | no-api-basic | beginner |
 
@@ -203,6 +204,78 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - `monthly_decision_log` — What trades worked / what did not, by category
 - `rule_changes_for_next_month` — Adjustments to position sizing, entry rules, regime gates
 - `skill_improvement_backlog` — Optional feedback into repo improvement loop (skills / workflows)
+
+**Journal destination:** `trader-memory-core`
+
+---
+
+## Multi-Asset Opportunity Daily {#multi-asset-opportunity-daily}
+
+**`multi-asset-opportunity-daily`** · daily · ~45 min · mixed · intermediate
+
+**When to run:** Only after market-regime-daily has produced a non-restrictive exposure decision. Sweeps macro + themes + news to surface multi-asset ideas (equities, commodities-via-equity-proxies, options expressions) and synthesizes them into ranked hypothesis cards.
+
+**When NOT to run:** Do not run when the latest market-regime-daily exposure_decision is cash-priority. Do not treat hypothesis cards as buy/sell signals — they carry manual_review_required and must pass human sign-off before any capital moves. Forex output is research-only; never feed it into a broker.
+
+**Required skills:** `macro-regime-detector`, `theme-detector`, `trade-hypothesis-ideator`, `position-sizer`, `trader-memory-core`
+
+**Optional skills:** `market-news-analyst`, `market-environment-analysis`, `sector-analyst`, `scenario-analyzer`, `stanley-druckenmiller-investment`
+
+**Prerequisite workflows (informational):**
+
+- `market-regime-daily` expects `exposure_decision` — Multi-asset opportunity scanning requires a non-restrictive exposure posture. Skip on cash-priority days; reduce scope on restrict days.
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `macro_regime_brief` | 1 | yes | `swing-opportunity-daily`, `monthly-performance-review` |
+| `hot_themes` | 2 | yes | `swing-opportunity-daily` |
+| `catalyst_news_brief` | 3 | no | — |
+| `hypothesis_cards` | 4 | yes | `swing-opportunity-daily`, `trade-memory-loop` |
+| `sized_hypotheses` | 5 | yes | — |
+| `opportunity_journal_entries` | 6 | yes | `trade-memory-loop`, `monthly-performance-review` |
+
+**Steps:**
+
+**Step 1: Refresh macro regime context** → `macro-regime-detector`
+
+- produces: `macro_regime_brief`
+
+**Step 2: Detect hot themes + sector rotation** → `theme-detector`
+
+- consumes: `macro_regime_brief`
+- produces: `hot_themes`
+
+**Step 3: Scan news + catalyst landscape** (optional) → `market-news-analyst`
+
+- consumes: `hot_themes`
+- produces: `catalyst_news_brief`
+
+**Step 4: Synthesize ranked hypothesis cards** (decision gate) → `trade-hypothesis-ideator`
+
+- consumes: `macro_regime_brief`, `hot_themes`, `catalyst_news_brief`
+- produces: `hypothesis_cards`
+- **Decision:** For each hypothesis, does layer 1 (macro) align with layer 2 (theme) and is what-is-priced-in still favorable? Reject any card where the gap to consensus is unclear or already closed.
+
+**Step 5: Apply risk-based sizing to hypothesis cards** → `position-sizer`
+
+- consumes: `hypothesis_cards`
+- produces: `sized_hypotheses`
+
+**Step 6: Persist as IDEA / ENTRY_READY entries** (decision gate) → `trader-memory-core`
+
+- consumes: `hypothesis_cards`, `sized_hypotheses`
+- produces: `opportunity_journal_entries`
+- **Decision:** Which hypotheses should be promoted from IDEA to ENTRY_READY, which stay as IDEA pending more confirmation, and which are rejected?
+
+**Manual review:**
+
+- Confirm the regime brief does not contradict the exposure_decision from market-regime-daily.
+- Confirm each hypothesis has a written thesis AND a kill criterion.
+- Confirm position sizing respects portfolio risk caps (per-position and per-sector).
+- For forex-related output, confirm research_only=true; never wire to a broker.
+- Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
 
 **Journal destination:** `trader-memory-core`
 

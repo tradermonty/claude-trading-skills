@@ -25,6 +25,7 @@ permalink: /ja/workflows/
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | mixed | beginner |
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
+| [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
 | [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 30 | fmp-required | intermediate |
 | [`trade-memory-loop`](#trade-memory-loop) — Trade Memory Loop | ad-hoc | 30 | no-api-basic | beginner |
 
@@ -205,6 +206,78 @@ permalink: /ja/workflows/
 - `monthly_decision_log` — What trades worked / what did not, by category
 - `rule_changes_for_next_month` — Adjustments to position sizing, entry rules, regime gates
 - `skill_improvement_backlog` — Optional feedback into repo improvement loop (skills / workflows)
+
+**Journal 出力先:** `trader-memory-core`
+
+---
+
+## Multi-Asset Opportunity Daily {#multi-asset-opportunity-daily}
+
+**`multi-asset-opportunity-daily`** · daily · ~45 min · mixed · intermediate
+
+**実行タイミング:** Only after market-regime-daily has produced a non-restrictive exposure decision. Sweeps macro + themes + news to surface multi-asset ideas (equities, commodities-via-equity-proxies, options expressions) and synthesizes them into ranked hypothesis cards.
+
+**実行してはいけないとき:** Do not run when the latest market-regime-daily exposure_decision is cash-priority. Do not treat hypothesis cards as buy/sell signals — they carry manual_review_required and must pass human sign-off before any capital moves. Forex output is research-only; never feed it into a broker.
+
+**必須スキル:** `macro-regime-detector`, `theme-detector`, `trade-hypothesis-ideator`, `position-sizer`, `trader-memory-core`
+
+**任意スキル:** `market-news-analyst`, `market-environment-analysis`, `sector-analyst`, `scenario-analyzer`, `stanley-druckenmiller-investment`
+
+**前提ワークフロー（informational）:**
+
+- `market-regime-daily` が期待する artifact `exposure_decision` — Multi-asset opportunity scanning requires a non-restrictive exposure posture. Skip on cash-priority days; reduce scope on restrict days.
+
+**artifact 一覧:**
+
+| Artifact | 生成ステップ | 必須 | 下流ヒント |
+|---|---|---|---|
+| `macro_regime_brief` | 1 | あり | `swing-opportunity-daily`, `monthly-performance-review` |
+| `hot_themes` | 2 | あり | `swing-opportunity-daily` |
+| `catalyst_news_brief` | 3 | なし | — |
+| `hypothesis_cards` | 4 | あり | `swing-opportunity-daily`, `trade-memory-loop` |
+| `sized_hypotheses` | 5 | あり | — |
+| `opportunity_journal_entries` | 6 | あり | `trade-memory-loop`, `monthly-performance-review` |
+
+**ステップ:**
+
+**ステップ 1: Refresh macro regime context** → `macro-regime-detector`
+
+- produces: `macro_regime_brief`
+
+**ステップ 2: Detect hot themes + sector rotation** → `theme-detector`
+
+- consumes: `macro_regime_brief`
+- produces: `hot_themes`
+
+**ステップ 3: Scan news + catalyst landscape** （任意） → `market-news-analyst`
+
+- consumes: `hot_themes`
+- produces: `catalyst_news_brief`
+
+**ステップ 4: Synthesize ranked hypothesis cards** （判断ゲート） → `trade-hypothesis-ideator`
+
+- consumes: `macro_regime_brief`, `hot_themes`, `catalyst_news_brief`
+- produces: `hypothesis_cards`
+- **判断:** For each hypothesis, does layer 1 (macro) align with layer 2 (theme) and is what-is-priced-in still favorable? Reject any card where the gap to consensus is unclear or already closed.
+
+**ステップ 5: Apply risk-based sizing to hypothesis cards** → `position-sizer`
+
+- consumes: `hypothesis_cards`
+- produces: `sized_hypotheses`
+
+**ステップ 6: Persist as IDEA / ENTRY_READY entries** （判断ゲート） → `trader-memory-core`
+
+- consumes: `hypothesis_cards`, `sized_hypotheses`
+- produces: `opportunity_journal_entries`
+- **判断:** Which hypotheses should be promoted from IDEA to ENTRY_READY, which stay as IDEA pending more confirmation, and which are rejected?
+
+**手動レビュー:**
+
+- Confirm the regime brief does not contradict the exposure_decision from market-regime-daily.
+- Confirm each hypothesis has a written thesis AND a kill criterion.
+- Confirm position sizing respects portfolio risk caps (per-position and per-sector).
+- For forex-related output, confirm research_only=true; never wire to a broker.
+- Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
 
 **Journal 出力先:** `trader-memory-core`
 

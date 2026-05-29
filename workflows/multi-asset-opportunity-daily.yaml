@@ -1,0 +1,158 @@
+schema_version: 1
+id: multi-asset-opportunity-daily
+display_name: Multi-Asset Opportunity Daily
+cadence: daily
+estimated_minutes: 45
+target_users:
+  - part-time-swing-trader
+  - growth-investor
+  - macro-discretionary-trader
+difficulty: intermediate
+api_profile: mixed
+
+when_to_run: >-
+  Only after market-regime-daily has produced a non-restrictive exposure
+  decision. Sweeps macro + themes + news to surface multi-asset ideas
+  (equities, commodities-via-equity-proxies, options expressions) and
+  synthesizes them into ranked hypothesis cards.
+when_not_to_run: >-
+  Do not run when the latest market-regime-daily exposure_decision is
+  cash-priority. Do not treat hypothesis cards as buy/sell signals — they
+  carry manual_review_required and must pass human sign-off before any
+  capital moves. Forex output is research-only; never feed it into a broker.
+
+required_skills:
+  - macro-regime-detector
+  - theme-detector
+  - trade-hypothesis-ideator
+  - position-sizer
+  - trader-memory-core
+optional_skills:
+  - market-news-analyst
+  - market-environment-analysis
+  - sector-analyst
+  - scenario-analyzer
+  - stanley-druckenmiller-investment
+
+# Informational only — validator does NOT enforce inter-workflow ordering.
+prerequisite_workflows:
+  - id: market-regime-daily
+    artifact: exposure_decision
+    rationale: >-
+      Multi-asset opportunity scanning requires a non-restrictive exposure
+      posture. Skip on cash-priority days; reduce scope on restrict days.
+
+artifacts:
+  - id: macro_regime_brief
+    schema_id: macro_regime_report
+    produced_by_step: 1
+    required: true
+    downstream_hints:
+      - swing-opportunity-daily
+      - monthly-performance-review
+
+  - id: hot_themes
+    schema_id: screen_candidate
+    produced_by_step: 2
+    required: true
+    downstream_hints:
+      - swing-opportunity-daily
+
+  - id: catalyst_news_brief
+    schema_id: scenario_analysis
+    produced_by_step: 3
+    required: false
+
+  - id: hypothesis_cards
+    schema_id: trade_thesis
+    produced_by_step: 4
+    required: true
+    downstream_hints:
+      - swing-opportunity-daily
+      - trade-memory-loop
+
+  - id: sized_hypotheses
+    schema_id: position_sizing_plan
+    produced_by_step: 5
+    required: true
+
+  - id: opportunity_journal_entries
+    schema_id: journal_entry
+    produced_by_step: 6
+    required: true
+    downstream_hints:
+      - trade-memory-loop
+      - monthly-performance-review
+
+steps:
+  - step: 1
+    name: Refresh macro regime context
+    skill: macro-regime-detector
+    produces:
+      - macro_regime_brief
+    decision_gate: false
+
+  - step: 2
+    name: Detect hot themes + sector rotation
+    skill: theme-detector
+    consumes:
+      - macro_regime_brief
+    produces:
+      - hot_themes
+    decision_gate: false
+
+  - step: 3
+    name: Scan news + catalyst landscape
+    skill: market-news-analyst
+    optional: true
+    consumes:
+      - hot_themes
+    produces:
+      - catalyst_news_brief
+    decision_gate: false
+
+  - step: 4
+    name: Synthesize ranked hypothesis cards
+    skill: trade-hypothesis-ideator
+    consumes:
+      - macro_regime_brief
+      - hot_themes
+      - catalyst_news_brief
+    produces:
+      - hypothesis_cards
+    decision_gate: true
+    decision_question: >-
+      For each hypothesis, does layer 1 (macro) align with layer 2 (theme)
+      and is what-is-priced-in still favorable? Reject any card where the
+      gap to consensus is unclear or already closed.
+
+  - step: 5
+    name: Apply risk-based sizing to hypothesis cards
+    skill: position-sizer
+    consumes:
+      - hypothesis_cards
+    produces:
+      - sized_hypotheses
+    decision_gate: false
+
+  - step: 6
+    name: Persist as IDEA / ENTRY_READY entries
+    skill: trader-memory-core
+    consumes:
+      - hypothesis_cards
+      - sized_hypotheses
+    produces:
+      - opportunity_journal_entries
+    decision_gate: true
+    decision_question: >-
+      Which hypotheses should be promoted from IDEA to ENTRY_READY, which
+      stay as IDEA pending more confirmation, and which are rejected?
+
+manual_review:
+  - Confirm the regime brief does not contradict the exposure_decision from market-regime-daily.
+  - Confirm each hypothesis has a written thesis AND a kill criterion.
+  - Confirm position sizing respects portfolio risk caps (per-position and per-sector).
+  - For forex-related output, confirm research_only=true; never wire to a broker.
+  - Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
+
+journal_destination: trader-memory-core

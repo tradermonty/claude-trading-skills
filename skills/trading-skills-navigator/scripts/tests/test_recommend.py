@@ -413,14 +413,15 @@ def test_snapshot_not_drifted_from_ssot(repo_root: Path) -> None:
 def test_resolve_metadata_prefers_ssot(repo_root: Path) -> None:
     md, source = resolve_metadata(repo_root)
     assert source == "ssot"
-    assert len(md["workflows"]) == 5
+    # Expect at least 5 workflows; new workflows can be added without churning this test.
+    assert len(md["workflows"]) >= 5
 
 
 def test_resolve_metadata_falls_back_to_snapshot(tmp_path: Path) -> None:
     # tmp_path has no skills-index.yaml/workflows -> must use bundled snapshot.
     md, source = resolve_metadata(tmp_path)
     assert source == "snapshot"
-    assert len(md["workflows"]) == 5
+    assert len(md["workflows"]) >= 5
 
 
 # ---------------------------------------------------------------------------
