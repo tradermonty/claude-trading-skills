@@ -59,7 +59,7 @@ cp -r claude-trading-skills/skills/finviz-screener /path/to/skills-directory/
 # 3. Restart or reload Claude Code to detect the new skill
 ```
 
-> Source folders and `.skill` packages contain identical content. Edit a source folder to customize a skill, then re-zip it for distribution via the web app.
+> `.skill` packages are built from source folders with tests and local build artifacts omitted. Edit a source folder to customize a skill, then run `python3 scripts/package_skills.py --skill <skill-name>` before distributing it via the web app.
 {: .tip }
 
 ---

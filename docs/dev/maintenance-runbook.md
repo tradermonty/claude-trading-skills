@@ -215,8 +215,14 @@ collaborator). Reverting afterward is optional (local preference only).
 
 ## 7. Releasing skill-package archives
 
-`skill-packages/*.skill` are regenerated with the skill-creator packager after
-a skill directory changes (see prior PRs for the exact invocation). The
-`skill-docs-drift` hook's `files:` includes `skill-packages/*.skill`, so a
-stale archive that feeds a generator-owned page surfaces as drift. Repackage,
-`git add` the `.skill`, re-run `pre-commit run --all-files`.
+`skill-packages/*.skill` are regenerated after a skill directory changes:
+
+```bash
+python3 scripts/package_skills.py --skill <skill-name>
+```
+
+The packager excludes `tests/`, `__pycache__/`, Python bytecode, and `.DS_Store`
+files from distributable archives. The `skill-docs-drift` hook's `files:`
+includes `skill-packages/*.skill`, so a stale archive that feeds a
+generator-owned page surfaces as drift. Repackage, `git add` the `.skill`, and
+re-run `pre-commit run --all-files`.

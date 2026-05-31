@@ -59,7 +59,7 @@ cp -r claude-trading-skills/skills/finviz-screener /path/to/skills-directory/
 # 3. Claude Codeを再起動またはリロード
 ```
 
-> ソースフォルダと `.skill` パッケージの内容は同一です。カスタマイズしたい場合はソースフォルダを編集し、再度ZIP化して配布できます。
+> `.skill` パッケージはソースフォルダから生成しますが、テストとローカルビルド成果物は除外します。カスタマイズしたい場合はソースフォルダを編集し、配布前に `python3 scripts/package_skills.py --skill <skill-name>` を実行してください。
 {: .tip }
 
 ---

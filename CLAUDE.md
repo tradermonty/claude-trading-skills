@@ -927,8 +927,11 @@ Files that contain secrets (`.mcp.json`, `.envrc`) must be listed in `.gitignore
 When skills are ready for distribution:
 
 1. Test skill thoroughly in Claude Code
-2. Package skill using skill-creator packaging script
-3. Move .skill file to `skill-packages/`
+2. Package skill with the repo packager, which excludes tests and local build artifacts:
+   ```bash
+   python3 scripts/package_skills.py --skill <skill-name>
+   ```
+3. Confirm the generated `.skill` file is in `skill-packages/`
 4. Update README.md and README.ja.md with skill description
    - **Important:** Clearly indicate if the skill requires API subscriptions (FMP, FINVIZ Elite)
    - Include pricing information and sign-up links for required APIs

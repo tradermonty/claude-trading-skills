@@ -75,6 +75,7 @@ Before running the Python script, collect the following data using WebSearch.
    Valid range: 20-100
    Primary search: "S&P 500 percent stocks above 50 day moving average"
    Fallback: "market breadth 50dma site:barchart.com"
+   Direct fallback when search snippets are poor: fetch `https://www.barchart.com/stocks/quotes/$S5FI/overview` and extract the embedded `lastPrice` / `tradeTime` for “S&P 500 Stocks Above 50-Day Average”.
    Record the data date
 
 3. [REQUIRED] CBOE Equity Put/Call Ratio
@@ -82,6 +83,7 @@ Before running the Python script, collect the following data using WebSearch.
    Primary search: "CBOE equity put call ratio today"
    Fallback: "CBOE total put call ratio current"
    Fallback: "put call ratio site:cboe.com"
+   Direct fallback when Cboe CSV endpoints are stale: fetch `https://ycharts.com/indicators/cboe_equity_put_call_ratio` and parse the “Last Value” / “Latest Period” table fields. Treat this as a secondary source and cite it in freshness notes.
    Record the data date
 
 4. [OPTIONAL] VIX Term Structure

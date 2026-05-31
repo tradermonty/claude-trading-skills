@@ -50,13 +50,17 @@ Quantify market breadth health using a data-driven 6-component scoring system (0
 
 ### Phase 1: Execute Python Script
 
-Run the analysis script:
+Run the analysis script. If using a nested or date-stamped `--output-dir` in cron runs, create it first; the history writer expects the directory to already exist.
 
 ```bash
+mkdir -p reports/<routine-or-date>
 python3 skills/market-breadth-analyzer/scripts/market_breadth_analyzer.py \
   --detail-url "https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv" \
-  --summary-url "https://tradermonty.github.io/market-breadth-analysis/market_breadth_summary.csv"
+  --summary-url "https://tradermonty.github.io/market-breadth-analysis/market_breadth_summary.csv" \
+  --output-dir reports/<routine-or-date>
 ```
+
+For a simple ad-hoc run, omit `--output-dir` or use an existing directory.
 
 The script will:
 1. Fetch detail CSV (~2,500 rows, 2016-present) and summary CSV (8 metrics)
