@@ -175,10 +175,11 @@ Update Confidence levels based on findings:
 Cross-reference detection results with knowledge bases:
 
 **Reference Documents to Consult:**
-1. `references/cross_sector_themes.md` - Theme definitions and constituent industries
+1. `references/cross_sector_themes.md` - Theme definitions and constituent industries (18 themes incl. Power Infrastructure)
 2. `references/thematic_etf_catalog.md` - ETF exposure options by theme
 3. `references/theme_detection_methodology.md` - Scoring model details
 4. `references/finviz_industry_codes.md` - Industry classification reference
+5. `references/energy-power-market-signals.md` - Deep-dive: spark spreads, capacity markets, duck curve, scarcity pricing, AI power demand supply chain. Load when Power Infrastructure theme scores hot or any utility/IPP stocks appear in results.
 
 **Analysis Framework:**
 
@@ -318,6 +319,17 @@ The skill generates two output files in the `reports/` directory:
 
 ---
 
+## Output Artifact
+
+All output from this skill must be structured as one of the following canonical artifact types.
+Each artifact carries `manual_review_required: true`, a `disclaimer`, and a `data_gaps[]` array.
+
+| artifact_type | Pydantic model | Description |
+|---------------|---------------|-------------|
+| `screen_candidate` | `ScreenCandidate` | Screened stock with scoring rationale and action state |
+
+Schema: `schemas/json/screen_candidate.json`
+
 ## Resources
 
 ### Scripts Directory (`scripts/`)
@@ -413,3 +425,14 @@ A LEAD theme indicates relative outperformance of its constituent industries. A 
 **Execution Time:** ~2-8 minutes depending on mode
 **Output Formats:** JSON + Markdown
 **Themes Covered:** 14+ cross-sector themes
+
+## Data Gaps
+
+This skill operates with or without FMP API access. Behavior when data is unavailable:
+
+| Scenario | Severity | Behavior |
+|----------|----------|----------|
+| `FMP_API_KEY` not set | MEDIUM | Fall back to offline mode or manual CSV; note limitation in output |
+| FMP returns empty response | MEDIUM | Warn; use cached or user-supplied data if available |
+| Individual ticker data missing | LOW | Skip ticker; list under `data_gaps[]` in output |
+| Fewer than 10 data points | HIGH | Halt analysis for that instrument; do not extrapolate |

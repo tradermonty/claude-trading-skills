@@ -196,6 +196,47 @@ This reference defines market themes by their constituent FINVIZ industries, sec
 
 ---
 
+## Power Infrastructure & AI Energy Demand
+
+- **Direction bias**: Bullish (structural demand growth, multi-year capex cycle)
+- **Industries**: Utilities - Independent Power Producers, Utilities - Regulated Electric, Utilities - Diversified, Specialty Industrial Machinery, Electrical Equipment & Parts, Engineering & Construction
+- **Sectors**: Utilities (primary), Industrials, Energy
+- **Proxy ETFs**: XLU, UTG, GRID, ARGT (GRID is most direct — tracks global power infrastructure)
+- **Static stocks**: VST, CEG, TLN, NRG, GEV, PWR, MYRG, FLNC, EQT, AR, SMR, OKLO, AEP, DTE, PCG
+- **Min matching industries**: 2
+
+**Theme rationale:**
+AI/hyperscaler data centers require 100–500 MW each, continuously. US power demand
+has been flat for 20 years and is now inflecting up for the first time. New supply
+cannot be added quickly — interconnection queues run 4-7 years, large transformers
+have 18-24 month lead times, gas turbines are backordered 2-3 years. This structural
+supply/demand imbalance benefits generators, transmission builders, and storage operators.
+
+**Key catalyst events:**
+- PJM capacity auction results (April-May annually) → direct earnings catalyst for VST, NRG, TLN
+- FERC interconnection reform decisions → speeds or slows new supply entry
+- Hyperscaler earnings capex guidance (MSFT, GOOGL, AMZN, META)
+- EIA monthly electric power data (demand growth confirmation/miss)
+- NOAA summer outlook (early May) → near-term scarcity pricing probability
+
+**Sub-themes within this theme:**
+- *Merchant generators* (VST, TLN, NRG): most levered to wholesale power prices and capacity auction clearing levels
+- *Nuclear baseload* (CEG, SMR, OKLO): preferred by data centers for 24/7 carbon-free power; PPAs at premium
+- *Gas turbine OEMs* (GEV): backordered through 2027+; pricing power improving
+- *Transmission & grid* (PWR, MYRG): multi-year FERC-mandated buildout
+- *Storage* (FLNC, STEM): duck curve arbitrage improving as solar penetration grows
+- *Natural gas supply* (EQT, AR): incremental fuel for new gas generation capacity
+
+**Key signal to monitor — spark spread:**
+Spark spread = power price − (gas price × heat rate). Widening spreads → bullish
+gas generators. See `energy-power-market-signals.md` for full mechanics.
+
+**Note:** This theme overlaps with Nuclear Energy (CEG, SMR) and Clean Energy & EV (FLNC, BE).
+Nuclear Energy captures uranium miners and reactor builders; Power Infrastructure captures
+the full power generation + delivery equity supply chain driven by AI demand growth.
+
+---
+
 ## Obesity & GLP-1
 
 - **Direction bias**: Bullish (medical innovation)
@@ -230,8 +271,9 @@ This reference defines market themes by their constituent FINVIZ industries, sec
 | Nuclear Energy | 4 | 3 | 4 | 15 | 2 |
 | Uranium | 2 | 2 | 3 | 15 | 1 |
 | Obesity & GLP-1 | 4 | 1 | 2 | 10 | 2 |
+| Power Infrastructure & AI Energy | 6 | 3 | 4 | 15 | 2 |
 
-**Total: 17 themes** covering all major market narratives.
+**Total: 18 themes** covering all major market narratives.
 
 ---
 
@@ -248,5 +290,9 @@ Some industries contribute to multiple themes. When scoring, each industry's dat
 | Capital Markets | Financial Services, Crypto |
 | Electrical Equipment & Parts | Clean Energy, Nuclear |
 | Uranium | Nuclear, Uranium |
+| Utilities - Independent Power Producers | Nuclear Energy, Power Infrastructure |
+| Electrical Equipment & Parts | Clean Energy, Nuclear, Power Infrastructure |
+| Engineering & Construction | Infrastructure, Power Infrastructure |
+| Specialty Industrial Machinery | Nuclear, Power Infrastructure |
 
 This overlap is intentional - a strong software industry may boost multiple themes simultaneously, reflecting the interconnected nature of market narratives.
