@@ -240,7 +240,7 @@ The main Core + Satellite starting path is described above. The examples below s
 4. Use **Backtest Expert** to validate entry/exit strategies before position sizing
 
 ### Strategic Positioning
-1. Use **Stanley Druckenmiller Investment Advisor** for macro theme identification
+1. Use **Stanley Druckenmiller Investment** for macro theme identification
 2. Use **Economic Calendar Fetcher** to time entries around major data releases
 3. Use **Breadth Chart Analyst** and **Technical Analyst** for confirmation signals
 4. Use **US Market Bubble Detector** for risk management and profit-taking guidance
