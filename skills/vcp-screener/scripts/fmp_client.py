@@ -317,7 +317,7 @@ class FMPClient:
     def get_batch_quotes(self, symbols: list[str]) -> dict[str, dict]:
         """Fetch quotes for a list of symbols, batching up to 5 per request"""
         results = {}
-        batch_size = 5
+        batch_size = 1  # stable/quote multi-symbol is paid-only; force single calls
         for i in range(0, len(symbols), batch_size):
             batch = symbols[i : i + batch_size]
             batch_str = ",".join(batch)
