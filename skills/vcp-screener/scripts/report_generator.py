@@ -14,7 +14,11 @@ from typing import Optional
 
 
 def generate_json_report(
-    results: list[dict], metadata: dict, output_file: str, all_results: Optional[list[dict]] = None
+    results: list[dict],
+    metadata: dict,
+    output_file: str,
+    all_results: Optional[list[dict]] = None,
+    skipped: Optional[list[dict]] = None,
 ):
     """Generate JSON report with screening results.
 
@@ -23,6 +27,7 @@ def generate_json_report(
         metadata: Screening metadata
         output_file: Output file path
         all_results: Full candidate list for summary stats (defaults to results)
+        skipped: Per-symbol quote failures from FMPClient.get_quote_failures()
     """
     summary_source = all_results if all_results is not None else results
     sector_counts = {}
@@ -30,22 +35,28 @@ def generate_json_report(
         s = stock.get("sector", "Unknown")
         sector_counts[s] = sector_counts.get(s, 0) + 1
 
+    skipped_list = skipped or []
     report = {
         "schema_version": "1.0",
         "metadata": metadata,
         "results": results,
+        "skipped_symbols": skipped_list,
         "summary": _generate_summary(summary_source),
         "sector_distribution": sector_counts,
     }
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
 
     print(f"  JSON report saved to: {output_file}")
 
 
 def generate_markdown_report(
-    results: list[dict], metadata: dict, output_file: str, all_results: Optional[list[dict]] = None
+    results: list[dict],
+    metadata: dict,
+    output_file: str,
+    all_results: Optional[list[dict]] = None,
+    skipped: Optional[list[dict]] = None,
 ):
     """Generate Markdown report with VCP screening results.
 
@@ -54,8 +65,19 @@ def generate_markdown_report(
         metadata: Screening metadata
         output_file: Output file path
         all_results: Full candidate list for summary stats (defaults to results)
+        skipped: Per-symbol quote failures from FMPClient.get_quote_failures()
     """
+    skipped_list = skipped or []
     lines = []
+
+    # Warning banner when symbols were silently skipped
+    if skipped_list:
+        lines.append(
+            f"> **WARNING:** {len(skipped_list)} symbol(s) could not be quoted and are "
+            "excluded from rankings. Results may be incomplete. "
+            "See **Skipped Symbols** section below."
+        )
+        lines.append("")
 
     # Header
     lines.append("# VCP Screener Report - Minervini Volatility Contraction Pattern")
@@ -72,10 +94,31 @@ def generate_markdown_report(
     lines.append("| Stage | Count |")
     lines.append("|-------|-------|")
     lines.append(f"| Universe | {funnel.get('universe', 'N/A')} |")
+    lines.append(f"| Quotes fetched | {funnel.get('quotes_fetched', 'N/A')} |")
+    if funnel.get("symbols_skipped", 0):
+        lines.append(f"| Symbols skipped (no quote) | {funnel['symbols_skipped']} ⚠️ |")
     lines.append(f"| Pre-filter passed | {funnel.get('pre_filter_passed', 'N/A')} |")
     lines.append(f"| Trend Template passed | {funnel.get('trend_template_passed', 'N/A')} |")
     lines.append(f"| VCP candidates | {funnel.get('vcp_candidates', len(results))} |")
     lines.append("")
+
+    # Skipped symbols table
+    if skipped_list:
+        lines.append("## Skipped Symbols")
+        lines.append("")
+        lines.append(
+            "These symbols were excluded because the FMP API returned no quote data. "
+            "Rankings are based on the quoted universe only."
+        )
+        lines.append("")
+        lines.append("| Symbol | HTTP Status | Reason |")
+        lines.append("|--------|-------------|--------|")
+        for entry in skipped_list:
+            sym = entry.get("symbol", "?")
+            status = entry.get("http_status", "?")
+            cat = entry.get("error_category", "unknown")
+            lines.append(f"| {sym} | {status} | {cat} |")
+        lines.append("")
 
     # Show "top X of Y" when not all results are displayed
     total_candidates = len(all_results) if all_results is not None else len(results)
@@ -210,7 +253,7 @@ def generate_markdown_report(
     )
     lines.append("")
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
     print(f"  Markdown report saved to: {output_file}")

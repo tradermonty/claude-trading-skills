@@ -532,7 +532,10 @@ def main():
     # Batch fetch quotes
     print("  Fetching quotes...", end=" ", flush=True)
     all_quotes = client.get_batch_quotes(symbols)
-    print(f"OK ({len(all_quotes)} quotes)")
+    quote_failures = client.get_quote_failures()
+    skipped_count = len(quote_failures)
+    suffix = f", {skipped_count} skipped" if skipped_count else ""
+    print(f"OK ({len(all_quotes)} quotes{suffix})")
 
     # Apply pre-filter
     print("  Applying pre-filter...", end=" ", flush=True)
@@ -750,6 +753,8 @@ def main():
         },
         "funnel": {
             "universe": len(symbols),
+            "quotes_fetched": len(all_quotes),
+            "symbols_skipped": len(quote_failures),
             "pre_filter_passed": len(pre_filtered),
             "trend_template_passed": len(trend_passed),
             "vcp_candidates": len(results),
@@ -759,8 +764,8 @@ def main():
 
     top_results = results[: args.top]
 
-    generate_json_report(top_results, metadata, json_file, all_results=results)
-    generate_markdown_report(top_results, metadata, md_file, all_results=results)
+    generate_json_report(top_results, metadata, json_file, all_results=results, skipped=quote_failures)
+    generate_markdown_report(top_results, metadata, md_file, all_results=results, skipped=quote_failures)
 
     # ========================================================================
     # Summary
