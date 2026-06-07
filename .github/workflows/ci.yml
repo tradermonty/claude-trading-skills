@@ -180,6 +180,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test repo-level API clients (Claude-Code tooling)
+        run: >
+          python -m pytest scripts/api_clients/tests/ -v
+          --cov=scripts/api_clients
+          --cov-report=term-missing
+          --cov-append
+
       # Known failures: theme-detector (27 pre-existing), canslim-screener (requires bs4).
       # Run with continue-on-error so they don't block the pipeline.
       - name: Install theme-detector extra deps

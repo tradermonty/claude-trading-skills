@@ -8,23 +8,35 @@ This repository contains Claude Skills for equity investors and traders. Each sk
 
 ⚠️ **Important:** Some skills require paid API subscriptions (FMP API and/or FINVIZ Elite) to function. See the [API Key Management](#api-key-management) section for detailed requirements by skill.
 
-## Centralized API Client Layer
+## Repo-Level API Client Layer (Claude-Code / repo tooling only)
 
-**Always use `scripts/api_clients/` instead of scrapers (yfinance, finvizfinance, WebSearch).** Keys are auto-loaded from `~/.claude/secrets/tradermonty.env`.
+`scripts/api_clients/` is a **repo-level / Claude-Code tooling** layer for
+ad-hoc research, exploration, and orchestration from the repo root. It is
+**NOT** for direct import from packaged `.skill` runtimes.
+
+**Why:** `scripts/package_skills.py` bundles only a single `skills/<name>/`
+tree into each `.skill` ZIP. A skill that did `from scripts.api_clients
+import …` would `ImportError` once installed from its packaged form.
+Per-skill API consolidation is tracked separately (see Issue #115 — vendor /
+generator approach for the *packaged* clients).
 
 ```python
-from scripts.api_clients import (
-    PolygonClient,    # OHLCV + news + fundamentals  (replaces yfinance)
-    NewsClient,       # Marketaux + Newsdata IO     (replaces WebSearch for ticker news)
-    EIAClient,        # Power demand + gas prices   (Power Infrastructure theme)
-    PolymarketClient, # Implied probability         (what-is-priced-in framework)
-    FinnhubClient,    # Econ + earnings calendars   (free alt to FMP)
-)
+# Use from the repo root only (Claude-Code sessions, ad-hoc scripts, notebooks):
+from scripts.api_clients.polygon_client import PolygonClient
+from scripts.api_clients.news_client import NewsClient
+# … etc.
 ```
 
-Smoke-test all providers: `python3 scripts/api_clients/tests/test_smoke.py` (8/8 green as of 2026-05-27).
+Available providers: Polygon, News (Marketaux + Newsdata fallback), EIA,
+Polymarket, Finnhub. Keys are auto-loaded from
+`~/.claude/secrets/tradermonty.env` (mode 600, never committed).
 
-Catalog + migration guide: `scripts/api_clients/README.md`. OANDA and Binance keys exist in the secrets file but are **OFF-LIMITS** per project hard-constraints (no broker execution; the forex SDK belongs to a separate project).
+Offline mocked tests: `pytest scripts/api_clients/tests/ -q`.
+Catalog + design rules: `scripts/api_clients/README.md`.
+
+OANDA and Binance keys exist in the secrets file but are **OFF-LIMITS** per
+project hard-constraints (no broker execution; the forex SDK belongs to a
+separate project).
 
 ## Repository Architecture
 

@@ -139,6 +139,37 @@ class TestNewsClient:
         dt = _parse_ts("2026-05-27T12:00:00Z")
         assert dt.tzinfo is not None
 
+    def test_safe_parse_ts_tolerates_missing(self):
+        """Regression: an article missing published_at must not crash the
+        whole get_market_news call (PR #154 review blocker 5)."""
+        from scripts.api_clients.news_client import _safe_parse_ts
+
+        # Both must return a tz-aware datetime, not raise
+        assert _safe_parse_ts("").tzinfo is not None
+        assert _safe_parse_ts(None).tzinfo is not None
+        assert _safe_parse_ts("not-a-real-date").tzinfo is not None
+
+    def test_marketaux_tolerates_article_with_no_published_at(self):
+        """End-to-end check that the offending Marketaux path no longer crashes."""
+        client = NewsClient(marketaux_key="mx", newsdata_key="newsdata_key")
+        # An article without `published_at` — exactly the case that crashed before
+        ma_payload = {
+            "data": [
+                {
+                    "title": "T1",
+                    "url": "https://x.com/t1",
+                    "source": "X",
+                    # NB: no published_at field at all
+                    "entities": [],
+                }
+            ]
+        }
+        with patch.object(client._session, "get", return_value=_resp(200, ma_payload)):
+            items = client.get_market_news(tickers=["NVDA"], limit=1)
+        # The article still gets returned, with a fallback timestamp
+        assert len(items) == 1
+        assert items[0].published_at is not None
+
     def test_marketaux_falls_back_to_newsdata_when_empty(self):
         client = NewsClient(marketaux_key="mx", newsdata_key="newsdata_key")
         # Marketaux returns empty

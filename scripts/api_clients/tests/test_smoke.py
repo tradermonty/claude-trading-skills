@@ -23,14 +23,43 @@ from scripts.api_clients.polymarket_client import PolymarketClient  # noqa: E402
 RESULTS: list[tuple[str, bool, str]] = []
 
 
+def _redact_query_params(msg: str) -> str:
+    """Remove sensitive query-param values from error messages.
+
+    SECURITY: requests.HTTPError stringifies to include the full request URL,
+    and our clients ride keys in the query string (apiKey=, api_key=,
+    access_key=, token=, appId=, registrationkey=). A 401/403 from any
+    provider could echo the key into stdout/CI logs without this scrubber.
+    """
+    import re
+
+    sensitive_params = (
+        "apikey",
+        "api_key",
+        "access_key",
+        "token",
+        "appid",
+        "registrationkey",
+        "key",
+        "userid",
+    )
+    pattern = re.compile(
+        r"\b(" + "|".join(sensitive_params) + r")=[^&\s'\"\\]+",
+        re.IGNORECASE,
+    )
+    return pattern.sub(r"\1=***REDACTED***", msg)
+
+
 def check(name: str, fn) -> None:
     try:
         out = fn()
         RESULTS.append((name, True, out))
         print(f"✓ {name:25s}  {out}")
     except Exception as e:
-        RESULTS.append((name, False, repr(e)[:80]))
-        print(f"✗ {name:25s}  {repr(e)[:80]}")
+        # SECURITY: scrub any key=value pair that might appear in the error
+        msg = _redact_query_params(repr(e))[:200]
+        RESULTS.append((name, False, msg))
+        print(f"✗ {name:25s}  {msg}")
 
 
 def smoke_polygon():

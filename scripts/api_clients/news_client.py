@@ -43,7 +43,11 @@ class NewsItem:
 
 
 def _parse_ts(s: str) -> datetime:
-    """Parse ISO timestamps from either provider, always returning UTC-aware."""
+    """Parse ISO timestamps from either provider, always returning UTC-aware.
+
+    Raises ValueError if the string doesn't match either expected format.
+    Callers that may pass missing/empty values should use `_safe_parse_ts`.
+    """
     s = s.replace("Z", "+00:00")
     try:
         dt = datetime.fromisoformat(s)
@@ -53,6 +57,21 @@ def _parse_ts(s: str) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _safe_parse_ts(s: str | None) -> datetime:
+    """Same as _parse_ts but tolerates missing or malformed values.
+
+    Articles missing `published_at` (or an unexpected format) should not crash
+    the whole `get_market_news`/`search_news` call. Falls back to "now" so the
+    article still appears in the result, just unsorted by its true timestamp.
+    """
+    if not s:
+        return datetime.now(timezone.utc)
+    try:
+        return _parse_ts(s)
+    except (ValueError, TypeError):
+        return datetime.now(timezone.utc)
 
 
 class NewsClient:
@@ -118,7 +137,7 @@ class NewsClient:
                     description=art.get("description", "") or art.get("snippet", ""),
                     url=art.get("url", ""),
                     source=art.get("source", ""),
-                    published_at=_parse_ts(art.get("published_at", "")),
+                    published_at=_safe_parse_ts(art.get("published_at", "")),
                     provider="marketaux",
                     tickers=[e.get("symbol") for e in entities if e.get("symbol")],
                     sentiment=avg_sent,

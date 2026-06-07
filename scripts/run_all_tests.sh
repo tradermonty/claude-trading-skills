@@ -63,19 +63,21 @@ for test_dir in "$REPO_ROOT"/skills/*/scripts/tests/ "$REPO_ROOT"/skills/*/tests
     echo ""
 done
 
-# --- Repo-level tests: scripts/tests/ ---
-REPO_TEST_DIR="$REPO_ROOT/scripts/tests"
-if [ -d "$REPO_TEST_DIR" ] && ls "$REPO_TEST_DIR"/test_*.py >/dev/null 2>&1; then
-    TOTAL=$((TOTAL + 1))
-    echo "--- repo scripts/tests ---"
-    if uv run --extra dev pytest "$REPO_TEST_DIR" --tb=short -q 2>&1; then
-        :
-    else
-        FAILED=$((FAILED + 1))
-        FAILED_SKILLS+=("scripts/tests")
+# --- Repo-level tests: scripts/tests/ and scripts/api_clients/tests/ ---
+for REPO_TEST_DIR in "$REPO_ROOT/scripts/tests" "$REPO_ROOT/scripts/api_clients/tests"; do
+    if [ -d "$REPO_TEST_DIR" ] && ls "$REPO_TEST_DIR"/test_*.py >/dev/null 2>&1; then
+        TOTAL=$((TOTAL + 1))
+        label=$(echo "$REPO_TEST_DIR" | sed "s|$REPO_ROOT/||")
+        echo "--- $label ---"
+        if uv run --extra dev pytest "$REPO_TEST_DIR" --tb=short -q 2>&1; then
+            :
+        else
+            FAILED=$((FAILED + 1))
+            FAILED_SKILLS+=("$label")
+        fi
+        echo ""
     fi
-    echo ""
-fi
+done
 
 echo "=== Summary: $((TOTAL - FAILED))/$TOTAL passed, $SKIPPED skipped ==="
 if [ ${#KNOWN_SKIP[@]} -gt 0 ]; then

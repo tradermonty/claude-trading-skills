@@ -1,8 +1,13 @@
-"""Centralized API client layer for TraderMonty.
+"""Repo-level API client layer (Claude-Code / repo tooling ONLY).
 
-Replaces scraper-based data collection (yfinance, finvizfinance, WebSearch)
-with structured API access. Single entry point for env loading and rate
-limiting across all providers.
+**Scope:** ad-hoc research, exploration, and orchestration from the repo
+root. **Not** for direct import from packaged `.skill` runtimes.
+
+`scripts/package_skills.py` bundles only a single `skills/<name>/` tree
+into each `.skill` ZIP. A skill that did `from scripts.api_clients import …`
+would `ImportError` once installed from its packaged form. Per-skill API
+consolidation is a separate effort (vendor / generator approach, see
+Issue #115).
 
 Available clients:
     - PolygonClient      : OHLCV, fundamentals, news, market status
@@ -15,8 +20,8 @@ OFF-LIMITS per project hard-constraints:
     - OANDA   : forex broker (separate project) — never import here
     - Binance : no auto-trade; crypto execution outside project scope
 
-Usage:
-    from scripts.api_clients import PolygonClient
+Usage (from a repo-root Claude-Code session or notebook):
+    from scripts.api_clients.polygon_client import PolygonClient
     client = PolygonClient()  # auto-loads ~/.claude/secrets/tradermonty.env
     bars = client.get_aggs("AAPL", "day", "2026-01-01", "2026-05-27")
 """

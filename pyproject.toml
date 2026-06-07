@@ -105,6 +105,8 @@ testpaths = [
     "skills/parabolic-short-trade-planner/scripts/tests",
     "skills/trading-skills-navigator/scripts/tests",
     "scripts/tests",
+    # Repo-level API client tests (not a skill — Claude-Code / repo tooling).
+    "scripts/api_clients/tests",
 ]
 
 [tool.bandit]
