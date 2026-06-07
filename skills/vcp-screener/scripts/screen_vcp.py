@@ -2,18 +2,21 @@
 """
 VCP Stock Screener - Main Orchestrator
 
-Screens S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP).
+Screens stocks for Mark Minervini's Volatility Contraction Pattern (VCP).
 Uses a 3-phase pipeline: Pre-filter -> Trend Template -> VCP Detection & Scoring.
 
 Usage:
-    # Default (S&P 500, top 100 candidates, free tier API)
-    python3 screen_vcp.py --api-key YOUR_KEY
+    # Default: yfinance provider, curated ~100-stock starter universe (no API key needed)
+    python3 screen_vcp.py
 
-    # Custom universe
+    # Custom universe (yfinance, no API key needed)
     python3 screen_vcp.py --universe AAPL NVDA MSFT AMZN META
 
-    # Full S&P 500 (requires paid API tier)
-    python3 screen_vcp.py --full-sp500
+    # FMP provider (requires FMP API key)
+    python3 screen_vcp.py --provider fmp --api-key YOUR_KEY
+
+    # Full S&P 500 via FMP (requires paid FMP tier)
+    python3 screen_vcp.py --provider fmp --api-key YOUR_KEY --full-sp500
 
 Output:
     - JSON: vcp_screener_YYYY-MM-DD_HHMMSS.json
@@ -39,9 +42,9 @@ from calculators.relative_strength_calculator import (
 from calculators.trend_template_calculator import calculate_trend_template
 from calculators.vcp_pattern_calculator import calculate_vcp_pattern
 from calculators.volume_pattern_calculator import calculate_volume_pattern
-from fmp_client import FMPClient
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
+from universe import NAME_MAP, SECTOR_MAP, STARTER_UNIVERSE
 
 
 def parse_arguments():
@@ -50,7 +53,13 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--api-key", help="FMP API key (defaults to FMP_API_KEY environment variable)"
+        "--provider",
+        choices=["yfinance", "fmp"],
+        default="yfinance",
+        help="Data provider: 'yfinance' (default, no key needed) or 'fmp' (requires API key)",
+    )
+    parser.add_argument(
+        "--api-key", help="FMP API key (defaults to FMP_API_KEY environment variable). Required only for --provider fmp."
     )
     parser.add_argument(
         "--max-candidates",
@@ -195,6 +204,15 @@ def parse_arguments():
     return args
 
 
+def _derive_quote_yf(symbol: str, hist: list[dict]) -> dict:
+    """Derive pre-filter quote fields from OHLCV history (yfinance path).
+
+    Wraps yf_client._derive_quote so screen_vcp.py owns the import.
+    """
+    from yf_client import _derive_quote
+    return _derive_quote(symbol, hist)
+
+
 def passes_trend_filter(tt_result: dict, trend_min_score: float = 85.0) -> bool:
     """Check if a stock passes Phase 2 trend template filter.
 
@@ -220,7 +238,7 @@ def pre_filter_stock(quote: dict) -> tuple:
     price = quote.get("price", 0)
     year_high = quote.get("yearHigh", 0)
     year_low = quote.get("yearLow", 0)
-    avg_volume = quote.get("avgVolume", 0)
+    avg_volume = quote.get("avgVolume") or quote.get("volume", 0)  # stable omits avgVolume
 
     if price <= 10:
         return False, 0
@@ -477,6 +495,37 @@ def compute_entry_ready(
     return True
 
 
+def _check_full_sp500_yfinance(args) -> None:
+    """Hard-stop when --full-sp500 is used with --provider yfinance.
+
+    yfinance v1 supports only the curated starter universe (~100 stocks).
+    Full S&P 500 scanning via yfinance is deferred to a future release.
+    """
+    if args.full_sp500 and args.provider == "yfinance":
+        print(
+            "\nERROR: --full-sp500 is not supported with --provider yfinance in v1.\n\n"
+            "The yfinance provider currently supports the curated starter universe of\n"
+            "~100 liquid U.S. stocks only. Full S&P 500 scanning via yfinance is\n"
+            "deferred to a future release.\n\n"
+            "Options:\n"
+            "  • Use the default curated starter universe (omit --full-sp500).\n"
+            "  • Screen specific symbols:  --universe AAPL MSFT NVDA ...\n"
+            "  • Switch to FMP provider:   --provider fmp --api-key YOUR_KEY --full-sp500",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _init_fmp_client(api_key: Optional[str]):
+    """Import and initialise FMPClient; exit on missing key."""
+    from fmp_client import FMPClient
+    try:
+        return FMPClient(api_key=api_key)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     args = parse_arguments()
 
@@ -484,57 +533,109 @@ def main():
         print("ERROR: --ext-threshold must be between 0 and 50 (exclusive)", file=sys.stderr)
         sys.exit(1)
 
+    # Guard: --full-sp500 is not supported with yfinance in v1
+    _check_full_sp500_yfinance(args)
+
     print("=" * 70)
     print("VCP Stock Screener")
     print("Mark Minervini's Volatility Contraction Pattern")
     print("=" * 70)
     print()
 
-    # Initialize FMP client
-    try:
-        client = FMPClient(api_key=args.api_key)
-        print("FMP API client initialized")
-    except ValueError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+    use_yfinance = (args.provider == "yfinance")
 
     # ========================================================================
-    # Phase 1: Pre-Filter (API-efficient)
+    # Phase 1: Pre-Filter
     # ========================================================================
-    print()
     print("Phase 1: Pre-Filter")
     print("-" * 70)
 
-    # Determine universe
-    if args.universe:
-        symbols = args.universe
-        universe_desc = f"Custom ({len(symbols)} stocks)"
-        print(f"  Using custom universe: {len(symbols)} stocks")
+    if use_yfinance:
+        # ── yfinance path ──────────────────────────────────────────────────
+        from yf_client import YFinanceClient
+        yf_client = YFinanceClient()
+
+        if args.universe:
+            symbols = args.universe
+            universe_desc = f"Custom ({len(symbols)} stocks)"
+            universe_type = "custom"
+            print(f"  Using custom universe: {len(symbols)} stocks")
+        else:
+            symbols = [e["symbol"] for e in STARTER_UNIVERSE]
+            universe_desc = f"Starter universe ({len(symbols)} stocks)"
+            universe_type = "starter_100"
+            print(f"  Using curated starter universe: {len(symbols)} stocks")
+
+        # Sector/name lookup: starter universe has full metadata; custom falls back to symbol
+        sector_map = dict(SECTOR_MAP)
+        name_map = dict(NAME_MAP)
+        for sym in symbols:
+            sector_map.setdefault(sym, "Unknown")
+            name_map.setdefault(sym, sym)
+
+        # Single bulk download covers both Phase 1 and Phase 2 data needs
+        print(
+            f"  Downloading 1y daily OHLCV for {len(symbols)} symbol(s) via yfinance "
+            "(one bulk call, multiple internal HTTP connections)...",
+            flush=True,
+        )
+        t0 = datetime.now()
+        all_hist = yf_client.bulk_download(symbols, period="1y")
+        elapsed_dl = (datetime.now() - t0).total_seconds()
+        skipped_syms = yf_client.get_skipped_symbols()
+        skipped_count = len(skipped_syms)
+        suffix = f", {skipped_count} skipped" if skipped_count else ""
+        print(f"  Download complete in {elapsed_dl:.1f}s ({len(all_hist)} symbols{suffix})")
+
+        # Derive quote dicts from OHLCV (no extra HTTP calls)
+        all_quotes = {sym: _derive_quote_yf(sym, hist) for sym, hist in all_hist.items() if hist}
+
+        # SPY benchmark for RS calculation (separate call; uses cache if already warm)
+        print("  Fetching SPY 1y history for RS benchmark...", end=" ", flush=True)
+        spy_hist_map = yf_client.bulk_download(["SPY"], period="1y")
+        sp500_history = spy_hist_map.get("SPY", [])
+        print(f"OK ({len(sp500_history)} days)" if sp500_history else "WARN - unavailable")
+
+        # candidate_histories: same data already in memory, no second download
+        candidate_histories = all_hist
+
+        quote_failures = skipped_syms  # uniform name for report generation
+
     else:
-        print("  Fetching S&P 500 constituents...", end=" ", flush=True)
-        constituents = client.get_sp500_constituents()
-        if not constituents:
-            print("FAILED")
-            print("ERROR: Unable to fetch S&P 500 constituents", file=sys.stderr)
-            sys.exit(1)
-        symbols = [c["symbol"] for c in constituents]
-        universe_desc = f"S&P 500 ({len(symbols)} stocks)"
-        print(f"OK ({len(symbols)} stocks)")
+        # ── FMP path (unchanged behaviour) ────────────────────────────────
+        fmp_client = _init_fmp_client(args.api_key)
+        print("FMP API client initialized")
 
-    # Build sector/name lookup
-    sector_map = {}
-    name_map = {}
-    if not args.universe and constituents:
-        for c in constituents:
-            sector_map[c["symbol"]] = c.get("sector", "Unknown")
-            name_map[c["symbol"]] = c.get("name", c["symbol"])
+        if args.universe:
+            symbols = args.universe
+            universe_desc = f"Custom ({len(symbols)} stocks)"
+            universe_type = "custom"
+            print(f"  Using custom universe: {len(symbols)} stocks")
+            sector_map = {}
+            name_map = {}
+        else:
+            print("  Fetching S&P 500 constituents...", end=" ", flush=True)
+            constituents = fmp_client.get_sp500_constituents()
+            if not constituents:
+                print("FAILED")
+                print("ERROR: Unable to fetch S&P 500 constituents", file=sys.stderr)
+                sys.exit(1)
+            symbols = [c["symbol"] for c in constituents]
+            universe_desc = f"S&P 500 ({len(symbols)} stocks)"
+            universe_type = "sp500"
+            print(f"OK ({len(symbols)} stocks)")
+            sector_map = {c["symbol"]: c.get("sector", "Unknown") for c in constituents}
+            name_map = {c["symbol"]: c.get("name", c["symbol"]) for c in constituents}
 
-    # Batch fetch quotes
-    print("  Fetching quotes...", end=" ", flush=True)
-    all_quotes = client.get_batch_quotes(symbols)
-    print(f"OK ({len(all_quotes)} quotes)")
+        print("  Fetching quotes...", end=" ", flush=True)
+        all_quotes = fmp_client.get_batch_quotes(symbols)
+        quote_failures = fmp_client.get_quote_failures()
+        skipped_count = len(quote_failures)
+        suffix = f", {skipped_count} skipped" if skipped_count else ""
+        print(f"OK ({len(all_quotes)} quotes{suffix})")
+        candidate_histories = {}  # populated below in Phase 2
 
-    # Apply pre-filter
+    # Apply pre-filter (shared between providers)
     print("  Applying pre-filter...", end=" ", flush=True)
     pre_filtered = []
     for sym in symbols:
@@ -545,11 +646,9 @@ def main():
         if passed:
             pre_filtered.append((sym, likelihood, quote))
 
-    # Sort by Stage 2 likelihood, take top candidates
     pre_filtered.sort(key=lambda x: x[1], reverse=True)
     max_candidates = len(pre_filtered) if args.full_sp500 else args.max_candidates
     candidates = pre_filtered[:max_candidates]
-
     print(f"{len(pre_filtered)} passed, taking top {len(candidates)}")
     print()
 
@@ -559,28 +658,22 @@ def main():
     print("Phase 2: Trend Template Filter")
     print("-" * 70)
 
-    # Fetch SPY historical for RS calculation
-    print("  Fetching SPY 260-day history...", end=" ", flush=True)
-    spy_data = client.get_historical_prices("SPY", days=260)
-    sp500_history = spy_data.get("historical", []) if spy_data else []
-    if sp500_history:
-        print(f"OK ({len(sp500_history)} days)")
-    else:
-        print("WARN - SPY data unavailable, RS calculations will be limited")
+    if not use_yfinance:
+        # FMP: fetch SPY and per-symbol histories (original flow)
+        print("  Fetching SPY 260-day history...", end=" ", flush=True)
+        spy_data = fmp_client.get_historical_prices("SPY", days=260)
+        sp500_history = spy_data.get("historical", []) if spy_data else []
+        print(f"OK ({len(sp500_history)} days)" if sp500_history else "WARN - unavailable")
 
-    # Fetch historical data for candidates
-    candidate_symbols = [c[0] for c in candidates]
-    print(f"  Fetching 260-day histories for {len(candidate_symbols)} candidates...")
+        candidate_symbols = [c[0] for c in candidates]
+        print(f"  Fetching 260-day histories for {len(candidate_symbols)} candidates...")
+        for i, sym in enumerate(candidate_symbols):
+            if (i + 1) % 20 == 0 or i == len(candidate_symbols) - 1:
+                print(f"    Progress: {i + 1}/{len(candidate_symbols)}", flush=True)
+            data = fmp_client.get_historical_prices(sym, days=260)
+            if data and "historical" in data:
+                candidate_histories[sym] = data["historical"]
 
-    candidate_histories = {}
-    for i, sym in enumerate(candidate_symbols):
-        if (i + 1) % 20 == 0 or i == len(candidate_symbols) - 1:
-            print(f"    Progress: {i + 1}/{len(candidate_symbols)}", flush=True)
-        data = client.get_historical_prices(sym, days=260)
-        if data and "historical" in data:
-            candidate_histories[sym] = data["historical"]
-
-    # Apply Trend Template filter
     print("  Applying 7-point Trend Template...", end=" ", flush=True)
     trend_passed = []
 
@@ -588,11 +681,8 @@ def main():
         hist = candidate_histories.get(sym, [])
         if not hist or len(hist) < 50:
             continue
-
-        # Quick RS calculation for criterion 7
         rs_result = calculate_relative_strength(hist, sp500_history)
         rs_rank = rs_result.get("rs_rank_estimate", 0)
-
         tt_result = calculate_trend_template(
             hist, quote, rs_rank=rs_rank, ext_threshold=args.ext_threshold
         )
@@ -614,13 +704,11 @@ def main():
         sector = sector_map.get(sym, "Unknown")
         name = name_map.get(sym, sym)
 
-        # For custom universe, try to get name from quote
         if not name or name == sym:
             name = quote.get("name", sym)
         if not sector or sector == "Unknown":
             sector = quote.get("sector", "Unknown")
 
-        # Skip stale/acquired stocks
         if is_stale_price(hist, threshold=args.min_atr_pct):
             print(f"  Skipping {sym} (stale price - likely acquired/pinned)")
             continue
@@ -660,7 +748,6 @@ def main():
         ranked_rs = rank_relative_strength_universe(rs_map)
         for r in results:
             r["relative_strength"] = ranked_rs[r["symbol"]]
-            # Recalculate composite score with updated RS (preserving state caps)
             composite = calculate_composite_score(
                 trend_score=r["trend_template"].get("score", 0),
                 contraction_score=r["vcp_pattern"].get("score", 0),
@@ -685,7 +772,6 @@ def main():
             r["state_cap_applied"] = composite.get("state_cap_applied", False)
             r["cap_reason"] = composite.get("cap_reason")
 
-    # Compute entry_ready using CLI thresholds
     require_vcp = not args.no_require_valid_vcp
     for r in results:
         r["entry_ready"] = compute_entry_ready(
@@ -695,17 +781,14 @@ def main():
             require_valid_vcp=require_vcp,
         )
 
-    # Sort by composite score
     results.sort(key=lambda x: x["composite_score"], reverse=True)
 
-    # Apply prebreakout filter if requested
     if args.mode == "prebreakout":
         total_before = len(results)
         results = [r for r in results if r.get("entry_ready", False)]
         print(f"  Pre-breakout filter: {total_before} -> {len(results)} candidates")
         print()
 
-    # Apply strict mode filter if requested
     if args.strict:
         total_before = len(results)
         results = [
@@ -728,11 +811,22 @@ def main():
     json_file = os.path.join(args.output_dir, f"vcp_screener_{timestamp}.json")
     md_file = os.path.join(args.output_dir, f"vcp_screener_{timestamp}.md")
 
-    api_stats = client.get_api_stats()
+    if use_yfinance:
+        provider_stats = yf_client.get_provider_stats()
+    else:
+        fmp_raw = fmp_client.get_api_stats()
+        provider_stats = {
+            "provider": "fmp",
+            "api_calls_made": fmp_raw["api_calls_made"],
+            "cache_entries": fmp_raw["cache_entries"],
+            "rate_limit_reached": fmp_raw["rate_limit_reached"],
+        }
 
     metadata = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "provider": args.provider,
         "universe_description": universe_desc,
+        "universe_type": universe_type,
         "max_candidates": max_candidates,
         "ext_threshold": args.ext_threshold,
         "tuning_params": {
@@ -750,17 +844,18 @@ def main():
         },
         "funnel": {
             "universe": len(symbols),
+            "quotes_fetched": len(all_quotes),
+            "symbols_skipped": len(quote_failures),
             "pre_filter_passed": len(pre_filtered),
             "trend_template_passed": len(trend_passed),
             "vcp_candidates": len(results),
         },
-        "api_stats": api_stats,
+        "api_stats": provider_stats,
     }
 
     top_results = results[: args.top]
-
-    generate_json_report(top_results, metadata, json_file, all_results=results)
-    generate_markdown_report(top_results, metadata, md_file, all_results=results)
+    generate_json_report(top_results, metadata, json_file, all_results=results, skipped=quote_failures)
+    generate_markdown_report(top_results, metadata, md_file, all_results=results, skipped=quote_failures)
 
     # ========================================================================
     # Summary
@@ -770,7 +865,6 @@ def main():
     print("VCP Screening Complete")
     print("=" * 70)
 
-    # Top 5 display
     if results:
         print()
         print(f"Top {min(5, len(results))} Results:")
@@ -786,12 +880,12 @@ def main():
         print("  No VCP candidates found in this screening run.")
 
     print()
-    print(f"  JSON Report:    {json_file}")
+    print(f"  JSON Report:     {json_file}")
     print(f"  Markdown Report: {md_file}")
     print()
-    print("API Usage:")
-    print(f"  API calls made: {api_stats['api_calls_made']}")
-    print(f"  Cache entries:  {api_stats['cache_entries']}")
+    print("Provider Stats:")
+    for k, v in provider_stats.items():
+        print(f"  {k}: {v}")
     print()
 
 

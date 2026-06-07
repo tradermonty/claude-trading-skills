@@ -20,6 +20,7 @@ env/
 .vscode/
 .claude/
 .envrc
+.env
 .mcp.json
 
 # Logs & temp

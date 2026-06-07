@@ -122,6 +122,21 @@ def _normalize_eod_flat_list(data, symbols_str: str, limit: Optional[int] = None
     return {"symbol": matched_symbol or symbols_str, "historical": historical}
 
 
+def _categorize_failure(status: int, body: str) -> str:
+    """Map an HTTP status + body snippet to a human-readable error category."""
+    if status == 403 and "Legacy Endpoint" in body:
+        return "legacy_endpoint_retired"
+    if status == 402 or "Premium" in body or "subscription" in body.lower():
+        return "paid_tier_required"
+    if status == 404:
+        return "symbol_not_found"
+    if status == 429:
+        return "rate_limit_exceeded"
+    if status == 0:
+        return "no_endpoint_available"
+    return f"http_{status}"
+
+
 class FMPClient:
     """Client for Financial Modeling Prep API with rate limiting and caching"""
 
@@ -148,6 +163,11 @@ class FMPClient:
         # Circuit breaker: track consecutive failures per endpoint URL prefix
         self._endpoint_failures: dict[str, int] = {}
         self._disabled_endpoints: set[str] = set()
+        # Track status/body of most recent HTTP call for failure categorisation
+        self._last_request_status: int = 0
+        self._last_request_body: str = ""
+        # Per-symbol quote failure log (symbol, http_status, error_category, endpoint)
+        self.quote_failures: list[dict] = []
 
     def _rate_limited_get(
         self, url: str, params: Optional[dict] = None, quiet: bool = False
@@ -169,8 +189,12 @@ class FMPClient:
 
             if response.status_code == 200:
                 self.retry_count = 0
+                self._last_request_status = 200
+                self._last_request_body = ""
                 return response.json()
             elif response.status_code == 429:
+                self._last_request_status = 429
+                self._last_request_body = response.text[:200]
                 self.retry_count += 1
                 if self.retry_count <= self.max_retries:
                     print("WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
@@ -181,6 +205,8 @@ class FMPClient:
                     self.rate_limit_reached = True
                     return None
             else:
+                self._last_request_status = response.status_code
+                self._last_request_body = response.text[:200]
                 if not quiet:
                     print(
                         f"ERROR: API request failed: {response.status_code} - {response.text[:200]}",
@@ -196,10 +222,17 @@ class FMPClient:
 
         Returns parsed JSON in v3-compatible shape, or None if all fail.
         Non-last endpoints use quiet=True to suppress expected 403 stderr.
+
+        For quote requests, records per-symbol failures in self.quote_failures.
+        v3 endpoints are disabled immediately on the first "Legacy Endpoint" 403
+        (post-Aug-2025 API keys) rather than waiting for the normal threshold.
         """
         params = dict(extra_params) if extra_params else {}
         endpoints = _FMP_ENDPOINTS[endpoint_key]
         is_single = "," not in symbols_str
+
+        best_fail_status: int = 0
+        best_fail_body: str = ""
 
         for i, (base_url, url_builder) in enumerate(endpoints):
             # Circuit breaker: skip endpoints with too many consecutive failures
@@ -210,7 +243,18 @@ class FMPClient:
             is_last = i == len(endpoints) - 1
             data = self._rate_limited_get(url, final_params, quiet=not is_last)
             if not data:  # falsy (None, [], {}) — try next endpoint
-                self._record_endpoint_failure(base_url)
+                status = self._last_request_status
+                body = self._last_request_body
+                # Keep the most informative failure status seen across endpoints
+                if status > best_fail_status:
+                    best_fail_status = status
+                    best_fail_body = body
+                # Immediately disable v3 on "Legacy Endpoint" 403 — don't wait for threshold.
+                # This avoids silently burning failure budget on a known-dead fallback.
+                if status == 403 and "Legacy Endpoint" in body:
+                    self._disabled_endpoints.add(base_url)
+                else:
+                    self._record_endpoint_failure(base_url)
                 continue
 
             # Normalize new stable EOD flat-list shape to v3-compatible dict.
@@ -263,7 +307,22 @@ class FMPClient:
             if valid:
                 self._endpoint_failures[base_url] = 0
                 return data
+            # Shape-invalid response still counts as a failure
+            status = self._last_request_status
+            body = self._last_request_body
+            if status > best_fail_status:
+                best_fail_status = status
+                best_fail_body = body
             self._record_endpoint_failure(base_url)
+
+        # All endpoints exhausted — record per-symbol failure for quote requests
+        if endpoint_key == "quote":
+            self.quote_failures.append({
+                "symbol": symbols_str,
+                "http_status": best_fail_status,
+                "error_category": _categorize_failure(best_fail_status, best_fail_body),
+                "endpoint": endpoint_key,
+            })
         return None
 
     def _record_endpoint_failure(self, base_url: str) -> None:
@@ -317,7 +376,7 @@ class FMPClient:
     def get_batch_quotes(self, symbols: list[str]) -> dict[str, dict]:
         """Fetch quotes for a list of symbols, batching up to 5 per request"""
         results = {}
-        batch_size = 5
+        batch_size = 1  # stable/quote multi-symbol is paid-only; force single calls
         for i in range(0, len(symbols), batch_size):
             batch = symbols[i : i + batch_size]
             batch_str = ",".join(batch)
@@ -341,6 +400,14 @@ class FMPClient:
         if len(prices) < period:
             return sum(prices) / len(prices)
         return sum(prices[:period]) / period
+
+    def get_quote_failures(self) -> list[dict]:
+        """Return per-symbol quote failures recorded during this session.
+
+        Each entry: {"symbol": str, "http_status": int,
+                     "error_category": str, "endpoint": str}
+        """
+        return list(self.quote_failures)
 
     def get_api_stats(self) -> dict:
         return {
