@@ -3351,3 +3351,83 @@ class TestEarlyPostBreakoutCap:
             breakout_volume=False,
         )
         assert result["state"] == "Early-post-breakout"
+
+
+# ===========================================================================
+# --provider / --full-sp500 behaviour tests
+# ===========================================================================
+
+
+class TestProviderFullSP500Guard:
+    """Test --full-sp500 guard for yfinance provider and --provider flag."""
+
+    def _run(self, argv: list[str]):
+        """Run parse_arguments() with the given argv list."""
+        import sys as _sys
+        old_argv = _sys.argv
+        _sys.argv = ["screen_vcp.py"] + argv
+        try:
+            return parse_arguments()
+        finally:
+            _sys.argv = old_argv
+
+    # ── --provider default ──────────────────────────────────────────────
+
+    def test_default_provider_is_yfinance(self):
+        """Without --provider, the default should be 'yfinance'."""
+        args = self._run([])
+        assert args.provider == "yfinance"
+
+    def test_explicit_yfinance_provider(self):
+        args = self._run(["--provider", "yfinance"])
+        assert args.provider == "yfinance"
+
+    def test_explicit_fmp_provider(self):
+        args = self._run(["--provider", "fmp"])
+        assert args.provider == "fmp"
+
+    # ── --full-sp500 + yfinance hard-stop ──────────────────────────────
+
+    def test_full_sp500_yfinance_exits_with_code_1(self, capsys):
+        """--provider yfinance --full-sp500 must raise SystemExit(1)."""
+        from screen_vcp import _check_full_sp500_yfinance
+
+        args = self._run(["--provider", "yfinance"])
+        args.full_sp500 = True
+
+        with pytest.raises(SystemExit) as exc_info:
+            _check_full_sp500_yfinance(args)
+        assert exc_info.value.code == 1
+
+    def test_full_sp500_yfinance_error_message_content(self, capsys):
+        """Stderr must explain curated universe and deferred full-S&P-500."""
+        from screen_vcp import _check_full_sp500_yfinance
+
+        args = self._run(["--provider", "yfinance"])
+        args.full_sp500 = True
+
+        with pytest.raises(SystemExit):
+            _check_full_sp500_yfinance(args)
+
+        captured = capsys.readouterr()
+        assert "curated starter universe" in captured.err or "curated" in captured.err
+        assert "deferred" in captured.err
+
+    def test_full_sp500_fmp_does_not_exit(self):
+        """--provider fmp --full-sp500 must NOT raise SystemExit."""
+        from screen_vcp import _check_full_sp500_yfinance
+
+        args = self._run(["--provider", "fmp"])
+        args.full_sp500 = True
+
+        # Should not raise
+        _check_full_sp500_yfinance(args)
+
+    def test_no_full_sp500_yfinance_does_not_exit(self):
+        """--provider yfinance without --full-sp500 must NOT raise SystemExit."""
+        from screen_vcp import _check_full_sp500_yfinance
+
+        args = self._run(["--provider", "yfinance"])
+        args.full_sp500 = False
+
+        _check_full_sp500_yfinance(args)  # should not raise
