@@ -28,6 +28,9 @@ dev = [
     "detect-secrets>=1.5.0",
     "codespell>=2.3.0",
     "pre-commit>=3.0.0",
+    # Needed by skill-level tests under `uv run --extra dev pytest`:
+    "pandas>=1.5.0",   # theme-detector + downtrend-duration-analyzer tests
+    "numpy>=1.23.0",   # theme-detector tests
 ]
 
 [tool.ruff]
