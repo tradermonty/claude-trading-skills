@@ -26,7 +26,7 @@ repos:
     hooks:
       - id: codespell
         args: [--skip, ".venv,*.json,*.csv,*.baseline,skill-packages,*.pyc,__pycache__",
-               --ignore-words-list, "trough,ore,cna,acn,blok,hims,pont,claus,theses"]
+               --ignore-words-list, "trough,ore,cna,acn,blok,hims,pont,claus,theses,socal"]
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
