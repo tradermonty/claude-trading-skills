@@ -51,11 +51,16 @@ class TestEarningsCalendarMigration:
 
 class TestCompanyProfilesPerSymbol:
     def test_profiles_issued_one_request_per_symbol_on_stable(self):
+        # profile-bulk is the primary path now; with it unavailable the
+        # per-symbol fallback must still issue one /stable/profile call per
+        # symbol (no comma-batching, no v3 URL).
         client = _make_client()
         seen = []
 
         def mock_get(url, params=None, timeout=None):
             params = params or {}
+            if url.endswith("/profile-bulk"):
+                return _mock_response(200, None, text="")  # bulk unavailable
             seen.append((url, params))
             sym = params.get("symbol")
             return _mock_response(200, [{"symbol": sym, "marketCap": 1000}])
@@ -70,4 +75,6 @@ class TestCompanyProfilesPerSymbol:
             assert "/api/v3/" not in url
             assert "," not in params.get("symbol", "")
         assert set(result.keys()) == {"AAPL", "MSFT"}
+        # marketCap preserved; mktCap alias added for the analyzer's filter.
         assert result["AAPL"]["marketCap"] == 1000
+        assert result["AAPL"]["mktCap"] == 1000
