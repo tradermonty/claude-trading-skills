@@ -116,6 +116,18 @@ def _normalize_eod_flat_list(data, symbols_str: str, limit: Optional[int] = None
     return {"symbol": matched_symbol or symbols_str, "historical": historical}
 
 
+def _has_usable_history(data) -> bool:
+    """True only when `data` is a dict carrying a non-empty `historical` list.
+
+    A dict with an empty `historical` list (e.g. an index/ETF unavailable on the
+    caller's FMP plan) is treated as unusable so the caller can fall back to
+    yfinance instead of caching an empty result.
+    """
+    return bool(
+        isinstance(data, dict) and isinstance(data.get("historical"), list) and data["historical"]
+    )
+
+
 class FMPClient:
     """Client for Financial Modeling Prep API with rate limiting and caching"""
 
@@ -268,26 +280,126 @@ class FMPClient:
             self._disabled_endpoints.add(base_url)
 
     def get_quote(self, symbols: str) -> Optional[list[dict]]:
-        """Fetch real-time quote data for one or more symbols (comma-separated)"""
+        """Fetch real-time quote data for one or more symbols (comma-separated).
+
+        Falls back to a yfinance-derived quote when FMP returns nothing (e.g. an
+        index like ^GSPC/^VIX gated behind a paid FMP plan). Fallback is
+        single-symbol only — comma lists are left to FMP.
+        """
         cache_key = f"quote_{symbols}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         data = self._request_with_fallback("quote", symbols)
+        if not data and "," not in symbols:
+            data = self._get_quote_from_yfinance(symbols)
         if data:
             self.cache[cache_key] = data
         return data
 
+    def _get_quote_from_yfinance(self, symbol: str) -> Optional[list[dict]]:
+        """Fallback quote derived from recent yfinance daily bars.
+
+        Returns the FMP quote shape (a list with one dict carrying
+        price/previousClose/change/changesPercentage/open/high/low/volume/
+        yearHigh/yearLow), or ``None`` when history is unavailable. Year
+        high/low are approximated from ~252 daily bars.
+        """
+        hist = self._get_hist_from_yfinance(symbol, 260)
+        if not _has_usable_history(hist):
+            return None
+        bars = hist["historical"]  # most-recent-first
+        latest = bars[0]
+        prev_close = bars[1]["close"] if len(bars) > 1 else latest["close"]
+        price = latest["close"]
+        change = price - prev_close
+        pct = (change / prev_close * 100) if prev_close else 0.0
+        window = bars[:252]
+        year_high = max(b["high"] for b in window)
+        year_low = min(b["low"] for b in window)
+        return [
+            {
+                "symbol": symbol,
+                "price": price,
+                "previousClose": prev_close,
+                "change": round(change, 4),
+                "changesPercentage": round(pct, 4),
+                "open": latest["open"],
+                "dayHigh": latest["high"],
+                "dayLow": latest["low"],
+                "high": latest["high"],
+                "low": latest["low"],
+                "volume": latest["volume"],
+                "yearHigh": year_high,
+                "yearLow": year_low,
+            }
+        ]
+
     def get_historical_prices(self, symbol: str, days: int = 365) -> Optional[dict]:
-        """Fetch historical daily OHLCV data"""
+        """Fetch historical daily OHLCV data.
+
+        Falls back to yfinance when the FMP endpoint returns no usable history
+        (e.g. an index/ETF gated behind a paid FMP plan). The yfinance path
+        needs no extra API key; an FMP key is still required to build the client.
+        """
         cache_key = f"prices_{symbol}_{days}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
-        if data:
+        if not _has_usable_history(data):
+            data = self._get_hist_from_yfinance(symbol, days)
+        if _has_usable_history(data):
             self.cache[cache_key] = data
-        return data
+            return data
+        return None
+
+    def _get_hist_from_yfinance(self, symbol: str, days: int) -> Optional[dict]:
+        """Fallback: fetch daily history via yfinance when FMP is unavailable.
+
+        Returns the FMP-compatible shape ``{"symbol": ..., "historical": [...]}``
+        with most-recent-first bars (date/open/high/low/close/adjClose/volume),
+        or ``None`` on empty/error. ``yfinance`` is imported lazily so the FMP
+        success path never depends on it.
+        """
+        try:
+            import yfinance as yf
+
+            end = date.today()
+            start = end - timedelta(days=int(days * 1.5))  # cover weekends/holidays
+            df = yf.download(
+                symbol,
+                start=start.isoformat(),
+                end=end.isoformat(),
+                auto_adjust=True,
+                progress=False,
+            )
+            if df is None or df.empty:
+                return None
+            # yfinance returns MultiIndex columns for a single ticker.
+            if hasattr(df.columns, "levels"):
+                df.columns = df.columns.droplevel(1)
+            historical = []
+            for idx, row in df.iterrows():
+                close = float(row["Close"])
+                historical.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "open": float(row["Open"]),
+                        "high": float(row["High"]),
+                        "low": float(row["Low"]),
+                        "close": close,
+                        "adjClose": close,  # auto_adjust=True -> Close already adjusted
+                        "volume": int(row["Volume"]),
+                    }
+                )
+            if not historical:
+                return None
+            historical.reverse()  # yfinance ascending -> FMP most-recent-first
+            return {"symbol": symbol, "historical": historical[:days]}
+        except Exception as e:
+            print(f"WARNING: yfinance history fallback failed for {symbol}: {e}", file=sys.stderr)
+            return None
 
     def get_batch_quotes(self, symbols: list[str]) -> dict[str, dict]:
         """Fetch quotes for a list of symbols.

@@ -128,13 +128,16 @@ class TestEndpointFallback:
         assert result == v3_data
 
     def test_quote_both_fail(self):
-        """Both endpoints 403 returns None."""
+        """Both FMP endpoints 403 and yfinance unavailable returns None."""
         client = self._make_client()
 
         def mock_get(url, params=None, timeout=None):
             return _mock_response(403, text="Forbidden")
 
         client.session.get = mock_get
+        # Simulate yfinance fallback also unavailable so the "all sources
+        # failed -> None" contract still holds.
+        client._get_hist_from_yfinance = lambda *a, **k: None
         result = client.get_quote("^GSPC")
         assert result is None
 
@@ -213,7 +216,7 @@ class TestEndpointFallback:
         assert result == v3_data
 
     def test_historical_batch_no_match_returns_none_when_v3_also_fails(self):
-        """Stable batch no match + v3 403 returns None."""
+        """Stable batch no match + v3 403 + yfinance unavailable returns None."""
         client = self._make_client()
         batch_data = {
             "historicalStockList": [
@@ -230,6 +233,8 @@ class TestEndpointFallback:
             return _mock_response(403, text="Forbidden")
 
         client.session.get = mock_get
+        # Simulate yfinance fallback also unavailable.
+        client._get_hist_from_yfinance = lambda *a, **k: None
         result = client.get_historical_prices("^GSPC", days=80)
         assert result is None
 
@@ -590,3 +595,137 @@ class TestEODFlatListSuccess:
         assert "historical-price-eod/full" in url
         assert "from" in params and "to" in params
         assert "timeseries" not in params
+
+
+# --- yfinance fallback for paid-tier-gated symbols (indices/ETFs) ---
+
+
+class _FakeColumns:
+    """Plain columns object WITHOUT a `levels` attr (no MultiIndex)."""
+
+
+class _FakeTS:
+    def __init__(self, iso):
+        self._iso = iso
+
+    def strftime(self, fmt):
+        return self._iso  # tests only use %Y-%m-%d
+
+
+class _FakeDF:
+    """Minimal stand-in for a yfinance DataFrame (ascending by date)."""
+
+    def __init__(self, rows):
+        self._rows = rows  # list of (Timestamp-like, dict)
+        self.empty = len(rows) == 0
+        self.columns = _FakeColumns()
+
+    def iterrows(self):
+        return iter(self._rows)
+
+
+def _row(iso, o, h, lo, c, v):
+    return (_FakeTS(iso), {"Open": o, "High": h, "Low": lo, "Close": c, "Volume": v})
+
+
+def _make_client():
+    with patch.dict(os.environ, {"FMP_API_KEY": "test_key"}):
+        from fmp_client import FMPClient
+
+        return FMPClient(api_key="test_key")
+
+
+class TestYFinanceFallback:
+    """get_historical_prices / get_quote fall back to yfinance when FMP returns
+    nothing (e.g. ^GSPC/^VIX or sector ETFs gated behind a paid FMP plan)."""
+
+    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    def test_historical_fallback_invoked_and_shape(self, _mock_fmp):
+        client = _make_client()
+        fake_df = _FakeDF(
+            [
+                _row("2026-04-27", 1.0, 2.0, 0.5, 1.5, 100),
+                _row("2026-04-28", 1.5, 2.5, 1.0, 2.0, 200),
+                _row("2026-04-29", 2.0, 3.0, 1.5, 2.5, 300),
+            ]
+        )
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = fake_df
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_historical_prices("^GSPC", days=10)
+
+        assert isinstance(result, dict)
+        assert result["symbol"] == "^GSPC"
+        hist = result["historical"]
+        assert len(hist) == 3
+        # Most-recent-first (descending) per FMP contract
+        assert hist[0]["date"] == "2026-04-29"
+        assert hist[-1]["date"] == "2026-04-27"
+        for key in ("date", "open", "high", "low", "close", "adjClose", "volume"):
+            assert key in hist[0]
+        assert hist[0]["close"] == hist[0]["adjClose"] == 2.5
+
+    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    def test_quote_fallback_derives_fields(self, _mock_fmp):
+        client = _make_client()
+        # ascending; latest close 2.5, prev close 2.0 -> +25%
+        fake_df = _FakeDF(
+            [
+                _row("2026-04-27", 1.0, 4.0, 0.5, 1.5, 100),  # yearHigh source
+                _row("2026-04-28", 1.5, 2.5, 0.2, 2.0, 200),  # yearLow source
+                _row("2026-04-29", 2.0, 3.0, 1.5, 2.5, 300),
+            ]
+        )
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = fake_df
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            quotes = client.get_quote("^VIX")
+
+        assert isinstance(quotes, list) and len(quotes) == 1
+        q = quotes[0]
+        assert q["symbol"] == "^VIX"
+        assert q["price"] == 2.5
+        assert q["previousClose"] == 2.0
+        assert q["change"] == 0.5
+        assert q["changesPercentage"] == 25.0
+        assert q["yearHigh"] == 4.0
+        assert q["yearLow"] == 0.2
+
+    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    def test_empty_df_returns_none_and_not_cached(self, _mock_fmp):
+        client = _make_client()
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = _FakeDF([])
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_historical_prices("^IXIC", days=5)
+
+        assert result is None
+        assert "prices_^IXIC_5" not in client.cache
+
+    @patch("fmp_client.FMPClient._request_with_fallback")
+    def test_fmp_success_does_not_call_yfinance(self, mock_fmp):
+        mock_fmp.return_value = {
+            "symbol": "SPY",
+            "historical": [{"date": "2026-04-29", "close": 1.0}],
+        }
+        client = _make_client()
+        fake_yf = MagicMock()
+
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_historical_prices("SPY", days=5)
+
+        assert result["symbol"] == "SPY"
+        fake_yf.download.assert_not_called()
+
+    @patch("fmp_client.FMPClient._request_with_fallback", return_value=None)
+    def test_batch_quote_not_single_skips_fallback(self, _mock_fmp):
+        """Comma-separated symbols are left to FMP (no single-symbol fallback)."""
+        client = _make_client()
+        fake_yf = MagicMock()
+        with patch.dict("sys.modules", {"yfinance": fake_yf}):
+            result = client.get_quote("AAA,BBB")
+        assert result is None
+        fake_yf.download.assert_not_called()
