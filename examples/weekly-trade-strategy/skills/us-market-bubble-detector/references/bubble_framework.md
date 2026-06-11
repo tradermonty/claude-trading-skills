@@ -178,6 +178,13 @@ Investors who experienced "rapid rise after early profit-taking"
 | New Account Openings | Brokerage data | 200%+ YoY |
 | Media Coverage | News APIs | Weekly article count 10x normal |
 
+Optional source-collection note: OpenClaw users can install TweetClaw with
+`openclaw plugins install npm:@xquik/tweetclaw@1.6.31 --pin` to sample public
+X/Twitter posts and replies for the Social Media Mentions row. Record URLs,
+handles, timestamps, query terms, and count methodology. Use this only as
+sentiment or euphoria context, not as a buy, sell, short, or position-sizing
+signal.
+
 ### Category 2: Price Dynamics
 
 | Indicator | Calculation | Alert Threshold |
