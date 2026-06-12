@@ -14,6 +14,8 @@ Features:
 - Earnings calendar and historical price fetching
 """
 
+import csv
+import io
 import os
 import sys
 import time
@@ -118,9 +120,11 @@ class FMPClient:
     """Client for Financial Modeling Prep API with rate limiting, caching, and budget control"""
 
     BASE_URL = "https://financialmodelingprep.com/api/v3"
+    STABLE_URL = "https://financialmodelingprep.com/stable"
     RATE_LIMIT_DELAY = 0.3  # 300ms between requests
 
     _ENDPOINT_FAILURE_THRESHOLD = 3  # disable endpoint after N consecutive failures
+    _PROFILE_BULK_MAX_PARTS = 30  # safety cap on profile-bulk pagination
 
     def __init__(self, api_key: Optional[str] = None, max_api_calls: int = 200):
         self.api_key = api_key or os.getenv("FMP_API_KEY")
@@ -141,11 +145,16 @@ class FMPClient:
         # Circuit breaker: track consecutive failures per endpoint URL prefix
         self._endpoint_failures: dict[str, int] = {}
         self._disabled_endpoints: set[str] = set()
+        # Lazily-loaded {SYMBOL: profile} map from /stable/profile-bulk
+        self._profile_bulk: Optional[dict[str, dict]] = None
 
     def _rate_limited_get(
-        self, url: str, params: Optional[dict] = None, quiet: bool = False
-    ) -> Optional[dict]:
+        self, url: str, params: Optional[dict] = None, quiet: bool = False, raw: bool = False
+    ):
         """Make a rate-limited GET request with budget enforcement.
+
+        Returns parsed JSON by default, or the raw response text when
+        ``raw=True`` (used for the CSV profile-bulk endpoint).
 
         Raises:
             ApiCallBudgetExceeded: When api_calls_made >= max_api_calls
@@ -172,13 +181,13 @@ class FMPClient:
 
             if response.status_code == 200:
                 self.retry_count = 0
-                return response.json()
+                return response.text if raw else response.json()
             elif response.status_code == 429:
                 self.retry_count += 1
                 if self.retry_count <= self.max_retries:
                     print("WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
                     time.sleep(60)
-                    return self._rate_limited_get(url, params, quiet=quiet)
+                    return self._rate_limited_get(url, params, quiet=quiet, raw=raw)
                 else:
                     print("ERROR: Daily API rate limit reached.", file=sys.stderr)
                     self.rate_limit_reached = True
@@ -295,17 +304,71 @@ class FMPClient:
             self.cache[cache_key] = data
         return data
 
-    def get_company_profiles(self, symbols: list[str]) -> dict[str, dict]:
-        """Fetch company profiles for multiple symbols.
+    @staticmethod
+    def _to_number(value):
+        """Coerce a CSV/string numeric field to float; None/'' -> 0."""
+        if value in (None, ""):
+            return 0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return value
 
-        The /stable profile endpoint does not support comma-batched symbols
-        (a multi-symbol request returns ``[]``), so fetch one symbol at a time.
+    @classmethod
+    def _v3_compat_profile(cls, profile: dict) -> dict:
+        """Add v3-compatible aliases so the screener's mktCap filter keeps working.
 
-        Args:
-            symbols: List of stock symbols
+        /stable/profile (and profile-bulk) renamed v3 fields: marketCap ->
+        mktCap, exchange -> exchangeShortName. screen_pead.py filters on
+        ``mktCap``, so without the alias market_cap reads 0 on a /stable key and
+        the market-cap gate drops every candidate. Numeric fields from the CSV
+        bulk endpoint arrive as strings and are coerced here.
+        """
+        if "mktCap" not in profile and "marketCap" in profile:
+            profile["mktCap"] = profile["marketCap"]
+        if "exchangeShortName" not in profile and "exchange" in profile:
+            profile["exchangeShortName"] = profile["exchange"]
+        for key in ("mktCap", "marketCap", "price"):
+            if key in profile:
+                profile[key] = cls._to_number(profile[key])
+        return profile
 
-        Returns:
-            Dict mapping symbol -> profile dict (with marketCap, sector, etc.)
+    def _load_profile_bulk(self) -> dict[str, dict]:
+        """Download and cache the full {SYMBOL: profile} map from profile-bulk.
+
+        /stable has no batch profile endpoint (comma-batched ?symbol= silently
+        returns []), so a global symbol list is served from FMP's bulk CSV dump
+        instead. The dump is paginated by ``part``; parts are fetched until one
+        comes back empty/non-CSV (a handful of calls), then cached for the
+        session. Returns {} when the bulk endpoint is unavailable (e.g. a legacy
+        key), letting the caller fall back to the per-symbol profile endpoint.
+        """
+        if self._profile_bulk is not None:
+            return self._profile_bulk
+
+        table: dict[str, dict] = {}
+        for part in range(self._PROFILE_BULK_MAX_PARTS):
+            text = self._rate_limited_get(
+                f"{self.STABLE_URL}/profile-bulk", {"part": part}, quiet=True, raw=True
+            )
+            if not text or not text.lstrip().startswith('"symbol"'):
+                break  # no more parts (empty body or an error/JSON message)
+            added = 0
+            for row in csv.DictReader(io.StringIO(text)):
+                sym = (row.get("symbol") or "").strip().upper()
+                if sym:
+                    table[sym] = self._v3_compat_profile(dict(row))
+                    added += 1
+            if added == 0:
+                break
+        self._profile_bulk = table
+        return table
+
+    def _get_company_profiles_per_symbol(self, symbols: list[str]) -> dict[str, dict]:
+        """Per-symbol /stable/profile lookups (fallback when bulk is unavailable).
+
+        This is #139's per-symbol path, with v3-compatible field aliasing applied
+        so screen_pead.py's mktCap filter works on /stable keys.
         """
         results = {}
         for symbol in symbols:
@@ -322,9 +385,39 @@ class FMPClient:
             if data and isinstance(data, list) and data:
                 profile = data[0]
                 if isinstance(profile, dict) and "symbol" in profile:
+                    profile = self._v3_compat_profile(profile)
                     self.cache[cache_key] = profile
                     results[profile["symbol"]] = profile
         return results
+
+    def get_company_profiles(self, symbols: list[str]) -> dict[str, dict]:
+        """Map ticker symbols to company profile data.
+
+        /stable has no batch profile endpoint, so the full profile universe is
+        downloaded once via /stable/profile-bulk (a handful of cached CSV calls)
+        and the requested symbols are looked up locally — far cheaper than one
+        request per symbol across a large earnings-calendar symbol set. Falls
+        back to the per-symbol profile endpoint (#139's path) for legacy keys
+        where profile-bulk is unavailable.
+
+        Args:
+            symbols: List of stock symbols
+
+        Returns:
+            Dict mapping symbol -> profile dict (with v3-compatible ``mktCap``).
+        """
+        bulk = self._load_profile_bulk()
+        if bulk:
+            results = {}
+            for symbol in symbols:
+                profile = bulk.get(symbol.strip().upper())
+                if profile:
+                    results[symbol] = profile
+            if results:
+                return results
+
+        # Legacy fallback (e.g. a pre-cutover key where profile-bulk is unavailable)
+        return self._get_company_profiles_per_symbol(symbols)
 
     def get_historical_prices(self, symbol: str, days: int = 90) -> Optional[dict]:
         """Fetch historical daily OHLCV data.
