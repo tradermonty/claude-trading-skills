@@ -148,11 +148,17 @@ class FMPClient:
         # Circuit breaker: track consecutive failures per endpoint URL prefix
         self._endpoint_failures: dict[str, int] = {}
         self._disabled_endpoints: set[str] = set()
+        # Most recent transport-level failure reason; set by _rate_limited_get
+        # so _request_with_fallback can surface suppressed errors even when
+        # an endpoint was called with quiet=True.
+        self._last_error: Optional[str] = None
 
     def _rate_limited_get(
         self, url: str, params: Optional[dict] = None, quiet: bool = False
     ) -> Optional[dict]:
+        self._last_error = None
         if self.rate_limit_reached:
+            self._last_error = "daily rate limit already reached"
             return None
 
         if params is None:
@@ -177,17 +183,21 @@ class FMPClient:
                     time.sleep(60)
                     return self._rate_limited_get(url, params, quiet=quiet)
                 else:
+                    self._last_error = "HTTP 429 (daily rate limit)"
                     print("ERROR: Daily API rate limit reached.", file=sys.stderr)
                     self.rate_limit_reached = True
                     return None
             else:
+                msg = f"HTTP {response.status_code} - {response.text[:200]}"
+                self._last_error = msg
                 if not quiet:
                     print(
-                        f"ERROR: API request failed: {response.status_code} - {response.text[:200]}",
+                        f"ERROR: API request failed: {msg}",
                         file=sys.stderr,
                     )
                 return None
         except requests.exceptions.RequestException as e:
+            self._last_error = f"request exception: {e}"
             print(f"ERROR: Request exception: {e}", file=sys.stderr)
             return None
 
@@ -195,7 +205,11 @@ class FMPClient:
         """Try stable endpoint first, fall back to v3 for legacy users.
 
         Returns parsed JSON in v3-compatible shape, or None if all fail.
-        Non-last endpoints use quiet=True to suppress expected 403 stderr.
+        Non-last endpoints are called with quiet=True so the user isn't
+        alarmed by an expected stable failure when v3 will catch it — but
+        when a non-last endpoint DOES fail, a WARN line is emitted explaining
+        why we're falling back. Otherwise users only see the (often misleading)
+        last-endpoint error and have no clue what really went wrong.
         """
         params = dict(extra_params) if extra_params else {}
         endpoints = _FMP_ENDPOINTS[endpoint_key]
@@ -211,6 +225,7 @@ class FMPClient:
             data = self._rate_limited_get(url, final_params, quiet=not is_last)
             if not data:  # falsy (None, [], {}) — try next endpoint
                 self._record_endpoint_failure(base_url)
+                self._warn_fallback(base_url, is_last, self._last_error)
                 continue
 
             # Normalize new stable EOD flat-list shape to v3-compatible dict.
@@ -223,22 +238,30 @@ class FMPClient:
                 data = _normalize_eod_flat_list(data, symbols_str, limit=limit)
                 if not data:
                     self._record_endpoint_failure(base_url)
+                    self._warn_fallback(
+                        base_url, is_last,
+                        f"response had no rows matching '{symbols_str}'",
+                    )
                     continue
 
             # Shape validation: reject truthy-but-wrong-shape responses
             valid = True
+            shape_issue: Optional[str] = None
             if endpoint_key == "quote":
                 if not isinstance(data, list) or len(data) == 0:
                     valid = False
+                    shape_issue = "expected non-empty list"
                 elif is_single and not any(
                     q.get("symbol", "").replace("-", ".") == symbols_str.replace("-", ".")
                     for q in data
                 ):
                     valid = False
+                    shape_issue = f"requested symbol '{symbols_str}' not in response"
 
             if endpoint_key == "historical":
                 if not isinstance(data, dict):
                     valid = False
+                    shape_issue = "expected dict"
                 elif "historicalStockList" in data:
                     # stable batch format -> v3 single format (exact match only)
                     norm = symbols_str.replace("-", ".")
@@ -254,17 +277,32 @@ class FMPClient:
                         self._endpoint_failures[base_url] = 0
                         return found
                     valid = False
+                    shape_issue = f"'{symbols_str}' not in historicalStockList"
                 elif "historical" not in data:
                     valid = False
+                    shape_issue = "missing 'historical' key"
                 elif is_single and data.get("symbol"):
                     if data["symbol"].replace("-", ".") != symbols_str.replace("-", "."):
                         valid = False
+                        shape_issue = f"response symbol '{data['symbol']}' != requested '{symbols_str}'"
 
             if valid:
                 self._endpoint_failures[base_url] = 0
                 return data
             self._record_endpoint_failure(base_url)
+            self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
         return None
+
+    def _warn_fallback(self, base_url: str, is_last: bool, reason: Optional[str]) -> None:
+        """Emit a WARN line so users see why a non-last endpoint failed and the
+        client is falling back. No-op when the failing endpoint is the last one
+        (its error was already printed by _rate_limited_get with quiet=False)."""
+        if is_last or not reason:
+            return
+        print(
+            f"WARN: {base_url} failed ({reason}); falling back to next endpoint",
+            file=sys.stderr,
+        )
 
     def _record_endpoint_failure(self, base_url: str) -> None:
         """Track consecutive failures and disable endpoint after threshold."""

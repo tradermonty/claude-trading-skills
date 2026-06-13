@@ -44,6 +44,11 @@ from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
 
 
+# Historical scan window default (~5 years in trading days). Used by
+# argparse `const=` so bare `--history` keeps the prior default behavior.
+DEFAULT_HISTORY_DAYS = 1260
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="VCP Stock Screener - Minervini Volatility Contraction Pattern"
@@ -171,6 +176,41 @@ def parse_arguments():
         ),
     )
 
+    hist_group = parser.add_argument_group("Historical single-ticker mode")
+    # --history accepts an optional integer: scan-window length in trading days.
+    # Bare --history uses DEFAULT_HISTORY_DAYS (5 years). The total fetch is
+    # this value plus lookback, outcome window, and a safety buffer (computed
+    # internally in run_historical).
+    hist_group.add_argument(
+        "--history",
+        nargs="?",
+        type=int,
+        const=DEFAULT_HISTORY_DAYS,
+        default=None,
+        metavar="DAYS",
+        help=(
+            f"Scan a single ticker's history for all VCPs. With a value, scans "
+            f"NNN trading days back from the present; without a value, defaults "
+            f"to {DEFAULT_HISTORY_DAYS} trading days (~5 years). Requires --ticker."
+        ),
+    )
+    hist_group.add_argument(
+        "--ticker",
+        help="Ticker symbol for historical scan (e.g. FIX, TSLA)",
+    )
+    hist_group.add_argument(
+        "--stride-days",
+        type=int,
+        default=5,
+        help="Trading-day step for the as-of cursor (default 5)",
+    )
+    hist_group.add_argument(
+        "--outcome-days",
+        type=int,
+        default=60,
+        help="Forward window for outcome evaluation (default 60)",
+    )
+
     args = parser.parse_args()
 
     # Lower bound is 2 by design: VCP requires successive contractions, and
@@ -191,6 +231,18 @@ def parse_arguments():
         parser.error("--min-contraction-days must be 1-30")
     if not (30 <= args.lookback_days <= 365):
         parser.error("--lookback-days must be 30-365")
+    if args.history is not None:
+        if not args.ticker:
+            parser.error("--history requires --ticker SYM")
+        if not (100 <= args.history <= 5040):
+            parser.error(
+                "--history must be 100-5040 trading days "
+                "(approximately 5 months to 20 years)"
+            )
+        if not (1 <= args.stride_days <= 60):
+            parser.error("--stride-days must be 1-60")
+        if not (5 <= args.outcome_days <= 252):
+            parser.error("--outcome-days must be 5-252")
 
     return args
 
@@ -270,11 +322,30 @@ def analyze_stock(
     breakout_volume_ratio: float = 1.5,
     max_sma200_extension: float = 50.0,
     wide_and_loose_threshold: float = 15.0,
+    as_of_offset: int = 0,
 ) -> Optional[dict]:
     """
     Full VCP analysis for a single stock (Phase 3).
     No additional API calls needed - uses pre-fetched data.
+
+    Args:
+        as_of_offset: Index into ``historical`` (most-recent-first) that the
+            analysis should treat as "today". Default 0 = analyze right edge,
+            matching cross-sectional screening. Positive values shift the
+            as-of cursor into the past for historical/walk-forward analysis;
+            the caller is responsible for synthesizing ``quote`` (price /
+            yearHigh / yearLow) from the OHLCV slice at that offset.
+            ``sp500_history`` is sliced identically so RS comparisons stay
+            aligned. Bars more recent than ``historical[as_of_offset]`` are
+            ignored.
     """
+    # Historical mode: shift the as-of cursor by slicing both arrays so
+    # historical[as_of_offset] becomes index 0 for every downstream calculator.
+    if as_of_offset > 0:
+        historical = historical[as_of_offset:]
+        if sp500_history:
+            sp500_history = sp500_history[as_of_offset:]
+
     price = quote.get("price", 0)
     market_cap = quote.get("marketCap", 0)
 
@@ -304,9 +375,14 @@ def analyze_stock(
     )
 
     # 4. Volume Pattern
+    # Slice to the same lookback window the VCP calculator used. Contraction
+    # high_idx/low_idx are chronological indices over historical[:lookback_days];
+    # _zone_volume_analysis maps them back via n - 1 - chrono_idx, so n must
+    # equal that slice length or the reverse mapping reads the wrong bars.
     pivot_price = vcp_result.get("pivot_price")
+    historical_lookback = historical[:lookback_days]
     vol_result = calculate_volume_pattern(
-        historical,
+        historical_lookback,
         pivot_price=pivot_price,
         contractions=vcp_result.get("contractions"),
         breakout_volume_ratio=breakout_volume_ratio,
@@ -480,6 +556,111 @@ def compute_entry_ready(
     return True
 
 
+def run_historical(args, client) -> None:
+    """Historical single-ticker scan: fetch long history, walk the as-of
+    cursor, attach forward outcomes, write reports. Exits via return."""
+    from historical_report import (
+        generate_historical_json_report,
+        generate_historical_markdown_report,
+    )
+    from historical_scanner import sanitize_ticker, scan_history
+
+    try:
+        ticker = sanitize_ticker(args.ticker)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Required bars = scan window (args.history) + lookback at the oldest
+    # offset + outcome window. A 60-bar buffer protects against FMP returning
+    # fewer bars than requested due to holidays/halts/recent listings.
+    scan_days = args.history
+    required_days = scan_days + args.lookback_days + args.outcome_days
+    fetch_days = required_days + 60
+    print()
+    print(f"Historical VCP Scan — {ticker}")
+    print("-" * 70)
+    print(
+        f"  Fetching {fetch_days}-day history for {ticker} and SPY...",
+        end=" ",
+        flush=True,
+    )
+    ticker_data = client.get_historical_prices(ticker, days=fetch_days)
+    spy_data = client.get_historical_prices("SPY", days=fetch_days)
+    historical = ticker_data.get("historical", []) if ticker_data else []
+    sp500_history = spy_data.get("historical", []) if spy_data else []
+    if not historical:
+        print("FAILED")
+        print(f"ERROR: No historical data returned for {ticker}", file=sys.stderr)
+        sys.exit(1)
+    print(f"OK ({len(historical)} ticker bars, {len(sp500_history)} SPY bars)")
+    if len(historical) < required_days:
+        print(
+            f"  WARN: requested ~{required_days} bars but FMP returned "
+            f"{len(historical)}; oldest part of the scan window will be truncated."
+        )
+
+    print(
+        f"  Sweeping history (stride={args.stride_days}d, "
+        f"lookback={args.lookback_days}d, outcome={args.outcome_days}d)..."
+    )
+    analyzer_kwargs = {
+        "ext_threshold": args.ext_threshold,
+        "min_contractions": args.min_contractions,
+        "t1_depth_min": args.t1_depth_min,
+        "contraction_ratio": args.contraction_ratio,
+        "atr_multiplier": args.atr_multiplier,
+        "min_contraction_days": args.min_contraction_days,
+        "breakout_volume_ratio": args.breakout_volume_ratio,
+        "max_sma200_extension": args.max_sma200_extension,
+        "wide_and_loose_threshold": args.wide_and_loose_threshold,
+    }
+    detections = scan_history(
+        ticker,
+        historical,
+        sp500_history,
+        stride_days=args.stride_days,
+        outcome_days=args.outcome_days,
+        lookback_days=args.lookback_days,
+        analyzer_kwargs=analyzer_kwargs,
+    )
+    print(f"  Found {len(detections)} unique VCP detections")
+    print()
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    # Use the same YYYY-MM-DD_HHMMSS pattern as the cross-sectional report so
+    # repeated same-day runs don't overwrite previous output.
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    json_file = os.path.join(args.output_dir, f"vcp_history_{ticker}_{timestamp}.json")
+    md_file = os.path.join(args.output_dir, f"vcp_history_{ticker}_{timestamp}.md")
+    history_range = ""
+    if historical:
+        history_range = f"{historical[-1].get('date', '?')} to {historical[0].get('date', '?')}"
+    metadata = {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "symbol": ticker,
+        "scan_days": scan_days,
+        "stride_days": args.stride_days,
+        "lookback_days": args.lookback_days,
+        "outcome_days": args.outcome_days,
+        "bars_fetched": len(historical),
+        "history_range": history_range,
+        "tuning_params": analyzer_kwargs,
+        "api_stats": client.get_api_stats(),
+    }
+    generate_historical_json_report(ticker, detections, metadata, json_file)
+    generate_historical_markdown_report(ticker, detections, metadata, md_file)
+
+    print()
+    print("=" * 70)
+    print(f"Historical VCP scan complete — {ticker}")
+    print("=" * 70)
+    print(f"  Detections: {len(detections)}")
+    print(f"  JSON Report:     {json_file}")
+    print(f"  Markdown Report: {md_file}")
+    print()
+
+
 def main():
     args = parse_arguments()
 
@@ -500,6 +681,13 @@ def main():
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # ------------------------------------------------------------------------
+    # Historical single-ticker mode dispatch — completes via early return.
+    # ------------------------------------------------------------------------
+    if args.history is not None:
+        run_historical(args, client)
+        return
 
     # ========================================================================
     # Phase 1: Pre-Filter (API-efficient)

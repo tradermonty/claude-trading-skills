@@ -1,6 +1,6 @@
 ---
 name: vcp-screener
-description: Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP). Identifies Stage 2 uptrend stocks forming tight bases with contracting volatility near breakout pivot points. Use when user requests VCP screening, Minervini-style setups, tight base patterns, volatility contraction breakout candidates, or Stage 2 momentum stock scanning.
+description: Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP) and detect historical VCPs in a single ticker's price path. Identifies Stage 2 uptrend stocks forming tight bases with contracting volatility near breakout pivot points; in historical single-ticker mode walks a multi-year history and emits every VCP that formed with forward-outcome stats (breakout / stop-hit / timeout). Use when user requests VCP screening, Minervini-style setups, tight base patterns, volatility contraction breakout candidates, Stage 2 momentum stock scanning, or historical VCP pattern study on a specific ticker (e.g. FIX, TSLA).
 ---
 
 # VCP Screener - Minervini Volatility Contraction Pattern
@@ -13,6 +13,8 @@ Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP),
 - User wants to find tight base / volatility contraction patterns
 - User requests Stage 2 momentum stock scanning
 - User asks for breakout candidates with defined risk
+- User asks "find every historical VCP in <TICKER>" or wants to study one ticker's
+  past VCP setups with forward outcomes (`--history --ticker SYM`)
 
 ## Prerequisites
 
@@ -44,6 +46,52 @@ Only return stocks with `valid_vcp=True` AND `execution_state` in `(Pre-breakout
 ```bash
 python3 skills/vcp-screener/scripts/screen_vcp.py --strict --output-dir reports/
 ```
+
+### Historical single-ticker mode
+
+Walk one ticker's multi-year history, detect every VCP that ever formed, and
+attach forward-outcome stats (breakout / stop-hit / timeout, days-to-outcome,
+max gain, max loss) per detection. Useful for pattern study and backtesting
+context — not a real-time screener.
+
+```bash
+# Default: scan ~5 years (1260 trading days), 5-day stride, 60-day outcome window
+python3 skills/vcp-screener/scripts/screen_vcp.py \
+  --history --ticker FIX --output-dir reports/
+
+# Custom scan length: 750 trading days (~3 years), 90-day outcome window
+python3 skills/vcp-screener/scripts/screen_vcp.py \
+  --history 750 --ticker TSLA \
+  --stride-days 5 --outcome-days 90 \
+  --output-dir reports/
+
+# Long scan: 10 years (2520 trading days)
+python3 skills/vcp-screener/scripts/screen_vcp.py \
+  --history 2520 --ticker NVDA --output-dir reports/
+```
+
+Outputs (timestamped):
+- `vcp_history_<SYM>_<YYYY-MM-DD_HHMMSS>.json` — timeline of detections with full
+  analyzer payload + `forward_outcome` per detection + summary stats.
+- `vcp_history_<SYM>_<YYYY-MM-DD_HHMMSS>.md` — human-readable timeline.
+
+Mode-specific flags:
+
+| Parameter | Default | Range | Effect |
+|-----------|---------|-------|--------|
+| `--history [DAYS]` | (off) / 1260 if bare | 100-5040 | Enable historical mode; optionally specify trading-day scan window (requires `--ticker`) |
+| `--ticker SYM` | — | — | Ticker to scan |
+| `--stride-days` | 5 | 1-60 | Trading-day step between as-of cursor positions |
+| `--outcome-days` | 60 | 5-252 | Forward window evaluated per detection |
+
+Notes:
+- Two FMP API calls per scan (ticker + SPY history), not 100+ like the
+  cross-sectional pipeline.
+- `marketCap` and absolute RS percentile reflect the ticker in isolation,
+  not against the live screening universe — use this report for pattern
+  study, not portfolio sizing.
+- Detections are deduplicated by `(T1_high_date, last_low_date, pivot)` so
+  the same VCP isn't reported repeatedly as the cursor ages.
 
 ### Advanced Tuning (for backtesting)
 

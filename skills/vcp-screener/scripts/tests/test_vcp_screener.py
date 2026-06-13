@@ -9,6 +9,7 @@ Trend Template criteria, volume patterns, pivot proximity, and scoring.
 import json
 import os
 import tempfile
+from unittest import mock
 
 import pytest
 from calculators.pivot_proximity_calculator import calculate_pivot_proximity
@@ -237,6 +238,116 @@ class TestVolumePattern:
         result = calculate_volume_pattern(prices)
         assert result["dry_up_ratio"] < 0.3
         assert result["score"] >= 80
+
+
+class TestZoneVolumeIndexContract:
+    """Regression: contraction indices are chronological within the lookback
+    window; _zone_volume_analysis maps them back via n - 1 - chrono_idx where
+    n = len(volumes). Callers must pass volumes whose length matches the
+    lookback window used to compute the contractions, otherwise the reverse
+    mapping indexes into the wrong bars.
+    """
+
+    def test_zone_a_volume_correct_when_history_matches_lookback(self):
+        """When the caller passes a 120-bar slice (matching the lookback window
+        the contractions were built from), zone_a_avg_volume reflects the actual
+        contraction bars."""
+        # 120 recent bars; mark contraction-area volumes distinctly.
+        prices = _make_prices(120, start=100, volume=1_000_000)
+        # Contraction (T1) at chronological indices 50..70 within the lookback slice.
+        # Reverse mapping: rev_idx = 120 - 1 - chrono_idx, so MRF indices 49..69.
+        for i in range(49, 70):
+            prices[i]["volume"] = 50_000  # very low volume in the contraction
+
+        contractions = [
+            {
+                "label": "T1",
+                "high_idx": 50,
+                "high_price": 110.0,
+                "high_date": "2025-01-50",
+                "low_idx": 70,
+                "low_price": 95.0,
+                "low_date": "2025-01-70",
+                "depth_pct": 13.6,
+                "duration_days": 20,
+            }
+        ]
+        result = calculate_volume_pattern(prices, pivot_price=110.0, contractions=contractions)
+        za = result["zone_analysis"]["zone_a_avg_volume"]
+        # Average of the 21 bars at the low-volume contraction region.
+        assert 40_000 <= za <= 60_000, f"zone_a should reflect contraction bars (~50k), got {za}"
+
+    def test_zone_a_volume_wrong_when_history_exceeds_lookback(self):
+        """If the caller passes a longer history (e.g., 260 bars) but contraction
+        indices were built from a 120-bar slice, _zone_volume_analysis will read
+        from the wrong region. This test documents the calculator's contract;
+        analyze_stock() must pre-slice to avoid it.
+        """
+        # Recent 120 bars: contraction at chronological 50..70 (MRF 49..69), low vol.
+        recent = _make_prices(120, start=100, volume=1_000_000)
+        for i in range(49, 70):
+            recent[i]["volume"] = 50_000
+        # Older 140 bars: high volume — should NOT be read by zone_a if contracts
+        # were detected only within the 120-bar lookback.
+        older = _make_prices(140, start=80, volume=20_000_000)
+        full = recent + older  # most-recent-first
+
+        contractions = [
+            {
+                "label": "T1",
+                "high_idx": 50,
+                "high_price": 110.0,
+                "high_date": "2025-01-50",
+                "low_idx": 70,
+                "low_price": 95.0,
+                "low_date": "2025-01-70",
+                "depth_pct": 13.6,
+                "duration_days": 20,
+            }
+        ]
+        result_full = calculate_volume_pattern(full, pivot_price=110.0, contractions=contractions)
+        za_full = result_full["zone_analysis"]["zone_a_avg_volume"]
+        # With n=260, rev_idx = 260 - 1 - 70 = 189 .. 260 - 1 - 50 = 209,
+        # which lies in the OLDER (20M) region. Caller-side fix must avoid this.
+        assert za_full > 10_000_000, (
+            f"Expected the bug to manifest (zone_a reads older bars ~20M); got {za_full}. "
+            "This test documents the contract — pass historical[:lookback_days]."
+        )
+
+    def test_analyze_stock_slices_history_for_volume_calculator(self):
+        """analyze_stock must slice historical to lookback_days before calling
+        calculate_volume_pattern, to preserve the chronological index contract
+        between vcp_pattern_calculator and volume_pattern_calculator.
+        """
+        history_260 = _make_prices(260, start=100, daily_change=0.001)
+        sp500_260 = _make_prices(260, start=400, daily_change=0.0005)
+        quote = {
+            "price": history_260[0]["close"],
+            "yearHigh": history_260[0]["close"] * 1.1,
+            "yearLow": history_260[0]["close"] * 0.6,
+            "marketCap": 1e9,
+            "avgVolume": 1_000_000,
+        }
+        lookback = 120
+
+        captured_lengths = []
+        original = calculate_volume_pattern
+
+        def _capture(historical_prices, *args, **kwargs):
+            captured_lengths.append(len(historical_prices))
+            return original(historical_prices, *args, **kwargs)
+
+        with mock.patch("screen_vcp.calculate_volume_pattern", side_effect=_capture):
+            analyze_stock(
+                "TEST", history_260, quote, sp500_260, lookback_days=lookback
+            )
+
+        assert captured_lengths, "calculate_volume_pattern was not called"
+        assert captured_lengths[0] == lookback, (
+            f"analyze_stock should have passed a {lookback}-bar slice to "
+            f"calculate_volume_pattern; got {captured_lengths[0]} bars. "
+            "This is the regression for the chronological-index bug."
+        )
 
 
 # ===========================================================================
