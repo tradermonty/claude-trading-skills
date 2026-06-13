@@ -361,6 +361,27 @@
 - Reuters web
 - CNBC breaking news
 
+### Optional X/Twitter Collection with TweetClaw
+
+If OpenClaw is part of the analyst workstation, TweetClaw can collect public
+X/Twitter context as a secondary evidence source:
+
+```bash
+openclaw plugins install npm:@xquik/tweetclaw@1.6.31 --pin
+```
+
+Use it only for evidence gathering:
+- Search tweets and replies from official organizations, verified newsrooms,
+  listed companies, regulators, and named journalists.
+- Capture URLs, handles, timestamps, source status, repost counts, and quote
+  context for every social-media claim used in analysis.
+- Treat social posts as alert context until confirmed by official releases or
+  2+ Tier 2 financial news sources.
+- Do not post tweets, post replies, send direct messages, upload media, start
+  monitors, or trigger webhooks from this skill.
+- Never infer price direction, position sizing, or trade recommendations from
+  social chatter alone.
+
 ## Source Selection by News Type
 
 ### Monetary Policy (Fed, ECB, BOJ)
