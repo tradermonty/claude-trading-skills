@@ -9,6 +9,7 @@ and opens a PR when the score is below threshold.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import logging
 import os
@@ -517,6 +518,30 @@ def _skill_import_names(project_root: Path, skill_name: str) -> set[str]:
     return imports
 
 
+def _skill_string_literals(project_root: Path, skill_name: str) -> set[str]:
+    """Return string-constant values used anywhere in the skill's code.
+
+    Captures libraries referenced by name instead of imported — e.g. an lxml
+    parser passed as ``BeautifulSoup(html, "lxml")`` or a name handed to
+    ``importlib.import_module`` — so they are not mistaken for unused deps.
+    """
+    literals: set[str] = set()
+    skill_dir = project_root / "skills" / skill_name
+    if not skill_dir.exists():
+        return literals
+    for py in skill_dir.rglob("*.py"):
+        if "__pycache__" in py.parts:
+            continue
+        try:
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                literals.add(node.value.strip().lower())
+    return literals
+
+
 def _repo_python_floor(project_root: Path) -> tuple[int, int] | None:
     """Parse the `requires-python = ">=3.9"` floor from pyproject.toml -> (3, 9)."""
     pyproject = project_root / "pyproject.toml"
@@ -538,7 +563,7 @@ def check_prerequisites_faithfulness(project_root: Path, skill_name: str) -> lis
     Returns a list of human-readable violation strings (empty == faithful).
     Guards against the two error classes seen in PR #164:
       1. A known third-party library is listed (in backticks) but no skill file
-         imports it.
+         imports or references it by name.
       2. A `Python 3.x+` floor is stated below the repo's requires-python.
     """
     skill_md = project_root / "skills" / skill_name / "SKILL.md"
@@ -552,7 +577,12 @@ def check_prerequisites_faithfulness(project_root: Path, skill_name: str) -> lis
         return []
 
     violations: set[str] = set()
-    imports = _skill_import_names(project_root, skill_name)
+    # A library counts as used if it is imported OR referenced by name as a
+    # string literal (covers parser backends like the lxml engine that
+    # BeautifulSoup loads from the string "lxml").
+    satisfied = _skill_import_names(project_root, skill_name) | _skill_string_literals(
+        project_root, skill_name
+    )
 
     # 1) Library faithfulness. Only inspect backtick-quoted tokens, which is how
     #    these SKILL.md files declare dependencies, and skip negated lines such
@@ -564,11 +594,12 @@ def check_prerequisites_faithfulness(project_root: Path, skill_name: str) -> lis
             m = re.match(r"[a-z0-9_.\-]+", raw_token.strip().lower())
             if not m:
                 continue
-            import_name = _KNOWN_THIRD_PARTY_LIBS.get(m.group(0))
-            if import_name and import_name not in imports:
+            display = m.group(0)
+            import_name = _KNOWN_THIRD_PARTY_LIBS.get(display)
+            if import_name and import_name not in satisfied and display not in satisfied:
                 violations.add(
                     f"Prerequisites list `{raw_token.strip()}` but no skill file "
-                    f"imports `{import_name}`."
+                    f"imports or references `{import_name}`."
                 )
 
     # 2) Python version floor must be >= the repo's requires-python.

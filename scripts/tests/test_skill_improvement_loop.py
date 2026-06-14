@@ -1075,6 +1075,17 @@ def test_faithfulness_import_from_form_counts(loop_module, tmp_path: Path):
     assert loop_module.check_prerequisites_faithfulness(tmp_path, "uptrend") == []
 
 
+def test_faithfulness_lib_referenced_as_string_literal_is_faithful(loop_module, tmp_path: Path):
+    """A lib used by name (lxml as a BeautifulSoup parser) is not flagged as unused."""
+    _setup_faithfulness_project(
+        tmp_path,
+        "canslim",
+        "- **Python 3.9+** with `beautifulsoup4` and `lxml`",
+        script_src='from bs4 import BeautifulSoup\n\nsoup = BeautifulSoup("<p/>", "lxml")\n',
+    )
+    assert loop_module.check_prerequisites_faithfulness(tmp_path, "canslim") == []
+
+
 def test_repo_python_floor_parses_pyproject(loop_module, tmp_path: Path):
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nrequires-python = ">=3.11"\n', encoding="utf-8"
