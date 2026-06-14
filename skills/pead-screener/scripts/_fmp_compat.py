@@ -47,8 +47,8 @@ _PATH_WITH_SYMBOL = {
 # /stable name differs from the v3 name. Explicit because the underscore
 # (v3-style) /stable name 404s for these; the hyphenated name is the live one
 # (verified 2026-06: /stable/sp500_constituent and /stable/earning_calendar
-# both 404, the hyphenated variants both 200). These override the
-# underscore-preserving best-effort fallthrough below.
+# both 404; the hyphenated variants are the live endpoints — 200 with a Premium
+# key, lower tiers may 402). These override the underscore-preserving fallthrough.
 _PATH_RENAME_NO_SYMBOL = {
     "sp500_constituent": "/sp500-constituent",
     "earning_calendar": "/earnings-calendar",
