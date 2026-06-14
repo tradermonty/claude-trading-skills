@@ -43,7 +43,7 @@ class TestHardcodedCallSiteMigratedToStable:
 
         assert len(seen) == 1
         url, _ = seen[0]
-        assert "/stable/sp500_constituent" in url
+        assert "/stable/sp500-constituent" in url
         assert "/api/v3/" not in url
         assert result == [{"symbol": "AAPL"}, {"symbol": "MSFT"}]
 

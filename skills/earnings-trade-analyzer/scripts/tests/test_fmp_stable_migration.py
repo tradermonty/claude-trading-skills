@@ -1,7 +1,8 @@
 """FMP /api/v3 → /stable migration tests for earnings-trade-analyzer.
 
 Covers the two hardcoded-v3 call sites:
-- get_earnings_calendar  -> /stable/earning_calendar (underscore = free tier)
+- get_earnings_calendar  -> /stable/earnings-calendar (underscore form 404s on
+  all tiers; the hyphenated name is the live one, pinned in _PATH_RENAME_NO_SYMBOL)
 - get_company_profiles   -> per-symbol /stable/profile (stable rejects comma
   batching, so the method must issue one request per symbol)
 """
@@ -28,7 +29,7 @@ def _mock_response(status_code, json_payload, text=""):
 
 
 class TestEarningsCalendarMigration:
-    def test_earnings_calendar_hits_stable_underscore(self):
+    def test_earnings_calendar_hits_stable_hyphen(self):
         client = _make_client()
         seen = []
 
@@ -41,8 +42,8 @@ class TestEarningsCalendarMigration:
 
         assert len(seen) == 1
         url, params = seen[0]
-        # underscore variant is the free-tier endpoint; must not "modernize" to hyphen
-        assert "/stable/earning_calendar" in url
+        # underscore /stable form 404s for all tiers; the hyphenated name is the live one
+        assert "/stable/earnings-calendar" in url
         assert "/api/v3/" not in url
         assert params.get("from") == "2026-06-01"
         assert params.get("to") == "2026-06-08"

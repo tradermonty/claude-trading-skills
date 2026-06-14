@@ -10,11 +10,14 @@ already iterate a ``_FMP_ENDPOINTS`` stable→v3 table must NOT route through th
 shim, or the v3 fallback entry would be rewritten back to stable and the
 fallback contract would break.
 
-Note on endpoint naming: ``/stable`` accepts both underscore (legacy-style) and
-hyphen (modern) names, but for several endpoints the underscore variant is free
-while the hyphen variant is paid-gated (e.g. ``economic_calendar`` vs
-``economic-calendar``, ``stock_news`` vs ``news/stock``). The rewriter preserves
-underscore names to keep free-tier access working.
+Note on endpoint naming: ``/stable`` endpoint names are inconsistent. Most
+legacy underscore names resolve, so unmapped endpoints fall through to a 1:1
+underscore-preserving swap. But a few endpoints (``sp500_constituent`` and
+``earning_calendar``) return **404 on the underscore form for all tiers** —
+their live ``/stable`` name is hyphenated (verified 2026-06). Those are pinned
+to the hyphenated form in ``_PATH_RENAME_NO_SYMBOL`` below. Do not "modernize"
+the underscore-preserving fallthrough wholesale, and do not revert the pinned
+endpoints back to underscore.
 """
 
 from __future__ import annotations
@@ -56,7 +59,8 @@ def v3_to_stable(url: str, params: dict | None = None) -> tuple[str, dict]:
     """Rewrite a legacy FMP v3 URL to its ``/stable`` equivalent.
 
     No-op for URLs that do not contain ``/api/v3/``. Unmapped endpoints fall
-    back to a 1:1 path swap, intentionally preserving underscore naming.
+    back to a 1:1 underscore-preserving path swap; endpoints whose underscore
+    ``/stable`` form 404s are pinned to hyphen via ``_PATH_RENAME_NO_SYMBOL``.
     """
     params = {} if params is None else dict(params)
 
@@ -98,5 +102,6 @@ def v3_to_stable(url: str, params: dict | None = None) -> tuple[str, dict]:
     if after in _PATH_RENAME_NO_SYMBOL:
         return _STABLE + _PATH_RENAME_NO_SYMBOL[after], params
 
-    # Best-effort 1:1 swap; preserve underscore names (free-tier friendly).
+    # Best-effort 1:1 swap, preserving the underscore (v3-style) name. Endpoints
+    # whose underscore /stable form is known to 404 are pinned to hyphen above.
     return _STABLE + "/" + after, params

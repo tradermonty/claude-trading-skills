@@ -3,7 +3,7 @@
 ## Endpoints
 
 ### 1. S&P 500 Constituents
-- **URL:** `GET /api/v3/sp500_constituent`
+- **URL:** `GET /stable/sp500-constituent`
 - **Calls:** 1 (cached)
 - **Returns:** `[{symbol, name, sector, subSector}, ...]`
 - **Used in:** Phase 1 - Universe definition

@@ -48,7 +48,7 @@ python3 skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py \
 If the analyzer reports a 404 or an implausible empty earnings calendar during a scheduled after-close/pre-market run, do not report "no earnings reactions" immediately. Verify the same range through the stable endpoint used by the compatibility shim and clearly label the result as an ungraded fallback:
 
 ```bash
-curl "https://financialmodelingprep.com/stable/earning_calendar?from=YYYY-MM-DD&to=YYYY-MM-DD&apikey=$FMP_API_KEY"
+curl "https://financialmodelingprep.com/stable/earnings-calendar?from=YYYY-MM-DD&to=YYYY-MM-DD&apikey=$FMP_API_KEY"
 ```
 
 Then optionally enrich returned US tickers through the analyzer's stable-first FMP client or per-symbol `/stable/quote?symbol=<ticker>` calls to rank by same-day `changesPercentage`, market cap, and liquidity. Use legacy `/api/v3` quote calls only as a legacy-key fallback after stable has failed. Present these as **preliminary / ungraded reactions** because the 5-factor scorer did not run; do not assign A/B/C/D grades from the fallback alone.
