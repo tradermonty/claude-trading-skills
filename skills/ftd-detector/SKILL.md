@@ -123,7 +123,7 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 ## Prerequisites
 
 - **FMP API Key:** Required. Set `FMP_API_KEY` environment variable or pass via `--api-key` flag.
-- **Python 3.8+:** With `requests` library installed.
+- **Python 3.9+:** With `requests` library installed.
 - **API Budget:** 4 calls per execution (well within FMP free tier of 250/day).
 
 ## Output Files

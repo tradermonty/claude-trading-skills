@@ -28,7 +28,7 @@ Example user requests:
 
 ## Prerequisites
 
-- **Python 3.8+** with `requests` library (for CSV fetching)
+- **Python 3.9+**; no third-party libraries required (CSV fetched via stdlib `urllib`)
 - **No API keys required** — data is fetched from a public GitHub repository
 - **Optional**: Sector performance chart images for supplementary analysis
 

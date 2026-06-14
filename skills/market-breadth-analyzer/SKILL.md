@@ -30,7 +30,7 @@ Quantify market breadth health using a data-driven 6-component scoring system (0
 
 ## Prerequisites
 
-- **Python 3.8+** with `requests` library (for fetching CSV data)
+- **Python 3.9+** with `requests` library (for fetching CSV data)
 - **Internet access** to reach GitHub Pages URLs
 - **No API keys required** - uses freely available public CSV data
 

@@ -30,7 +30,7 @@ Use this skill when:
 
 - **FMP API key** (required): Set `FMP_API_KEY` environment variable or pass `--fmp-api-key`. Free tier (250 calls/day) is sufficient for FMP-only mode (≤40 stocks). [Sign up](https://site.financialmodelingprep.com/developer/docs).
 - **FINVIZ Elite API key** (optional, recommended): Set `FINVIZ_API_KEY` environment variable or pass `--finviz-api-key`. Reduces execution time from 10–15 min to 2–3 min. [Sign up](https://elite.finviz.com/).
-- Python 3.8+ with `requests` and `pandas` libraries installed.
+- Python 3.9+ with the `requests` library installed.
 
 ## Screening Workflow
 

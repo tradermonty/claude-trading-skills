@@ -14,7 +14,7 @@ This skill tracks institutional investor activity through 13F SEC filings to ide
 ## Prerequisites
 
 - **FMP API Key:** Set `FMP_API_KEY` environment variable or pass `--api-key` to scripts
-- **Python 3.8+:** Required for running analysis scripts
+- **Python 3.9+:** Required for running analysis scripts
 - **Dependencies:** `pip install requests` (scripts handle missing dependencies gracefully)
 
 ## When to Use This Skill

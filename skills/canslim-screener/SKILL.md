@@ -81,7 +81,7 @@ override with `--rs-benchmark SPY/QQQ/IWM/...`.
   - Set via environment variable: `export FMP_API_KEY=your_key_here`
 
 **Python Dependencies:**
-- Python 3.7+
+- Python 3.9+
 - `requests` (FMP API calls)
 - `beautifulsoup4` (Finviz web scraping)
 - `lxml` (HTML parsing)
@@ -132,7 +132,7 @@ echo $FMP_API_KEY
 
 **Requirements:**
 - **FMP API key** (free tier: 250 calls/day, sufficient for 40 stocks)
-- **Python 3.7+** with required libraries:
+- **Python 3.9+** with required libraries:
   - `requests` (FMP API calls)
   - `beautifulsoup4` (Finviz web scraping)
   - `lxml` (HTML parsing)

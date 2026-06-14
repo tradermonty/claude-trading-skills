@@ -24,7 +24,7 @@ This skill provides comprehensive options strategy analysis and education using 
 ## Prerequisites
 
 **Required:**
-- Python 3.8+ with `numpy`, `scipy`, `requests`
+- Python 3.9+ with `numpy`, `scipy`, `requests`
 
 **Optional:**
 - FMP API key (for real-time stock prices and historical volatility)
@@ -892,7 +892,7 @@ else:
 - **Theoretical pricing**: Black-Scholes approximation
 - **User IV input**: Optional, defaults to HV
 - **No real-time data required**: FMP Free tier sufficient
-- **Dependencies**: Python 3.8+, numpy, scipy, pandas
+- **Dependencies**: Python 3.9+, numpy, scipy, requests
 
 ## Common Use Cases
 
@@ -986,5 +986,5 @@ Workflow:
 
 **Version**: 1.0
 **Last Updated**: 2025-11-08
-**Dependencies**: Python 3.8+, numpy, scipy, pandas, requests
+**Dependencies**: Python 3.9+, numpy, scipy, requests
 **API**: FMP API (Free tier sufficient)
