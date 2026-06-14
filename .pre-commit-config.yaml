@@ -134,6 +134,24 @@ repos:
         files: '^(skills-index\.yaml|workflows/.*\.yaml|skillsets/.*\.yaml|skills/trading-skills-navigator/(assets/metadata_snapshot\.json|scripts/(build_snapshot|recommend)\.py))$'
         pass_filenames: false
 
+      - id: fmp-client-drift
+        name: FMP client drift check (regenerate vendored fmp_client.py from canonical source)
+        entry: python3 scripts/generate_fmp_client.py --check
+        language: system
+        # Fire on the canonical source, the generator, and every vendored copy
+        # (catches a manual edit to a generated fmp_client.py / _fmp_compat.py).
+        files: '^(scripts/fmp_client/.*|scripts/generate_fmp_client\.py|skills/(pead-screener|earnings-trade-analyzer|ibd-distribution-day-monitor)/scripts/(fmp_client|_fmp_compat)\.py)$'
+        pass_filenames: false
+
+      - id: fmp-package-drift
+        name: FMP skill package drift check (re-package after vendored client changes)
+        entry: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor
+        language: system
+        # The fmp-client-drift gate validates source; this validates the .skill
+        # bundles so an edited client that was not re-packaged is caught.
+        files: '^(skills/(pead-screener|earnings-trade-analyzer|ibd-distribution-day-monitor)/.*|skill-packages/(pead-screener|earnings-trade-analyzer|ibd-distribution-day-monitor)\.skill)$'
+        pass_filenames: false
+
       # Pre-push hook: run validator in --strict-workflows + --strict-metadata
       # mode. Pre-commit stays in default mode so quick edits aren't blocked,
       # but pushes must satisfy the stricter contract (workflow internal

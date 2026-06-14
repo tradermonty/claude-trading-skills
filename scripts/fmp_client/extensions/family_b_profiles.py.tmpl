@@ -1,0 +1,55 @@
+    def get_earnings_calendar(self, from_date: str, to_date: str) -> Optional[list[dict]]:
+        """Fetch earnings calendar for a date range.
+
+        Args:
+            from_date: Start date in YYYY-MM-DD format
+            to_date: End date in YYYY-MM-DD format
+
+        Returns:
+            List of earnings event dicts or None on failure.
+            Each dict contains: date, symbol, eps, epsEstimated, revenue,
+            revenueEstimated, time (bmo/amc)
+        """
+        cache_key = f"earnings_{from_date}_{to_date}"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        # Hardcoded v3 URL bypasses the stable→v3 fallback list; rewrite here.
+        url, params = v3_to_stable(
+            f"{self.BASE_URL}/earning_calendar", {"from": from_date, "to": to_date}
+        )
+        data = self._rate_limited_get(url, params)
+        if data:
+            self.cache[cache_key] = data
+        return data
+
+    def get_company_profiles(self, symbols: list[str]) -> dict[str, dict]:
+        """Fetch company profiles for multiple symbols.
+
+        The /stable profile endpoint does not support comma-batched symbols
+        (a multi-symbol request returns ``[]``), so fetch one symbol at a time.
+
+        Args:
+            symbols: List of stock symbols
+
+        Returns:
+            Dict mapping symbol -> profile dict (with marketCap, sector, etc.)
+        """
+        results = {}
+        for symbol in symbols:
+            cache_key = f"profile_{symbol}"
+            if cache_key in self.cache:
+                cached = self.cache[cache_key]
+                if isinstance(cached, dict):
+                    results[symbol] = cached
+                continue
+
+            # Hardcoded v3 URL bypasses the stable→v3 fallback list; rewrite here.
+            url, params = v3_to_stable(f"{self.BASE_URL}/profile/{symbol}")
+            data = self._rate_limited_get(url, params)
+            if data and isinstance(data, list) and data:
+                profile = data[0]
+                if isinstance(profile, dict) and "symbol" in profile:
+                    self.cache[cache_key] = profile
+                    results[profile["symbol"]] = profile
+        return results

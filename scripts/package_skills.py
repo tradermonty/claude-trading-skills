@@ -88,6 +88,39 @@ def package_skill(skill_dir: Path, output_dir: Path, *, dry_run: bool = False) -
     return output_path
 
 
+def _source_logical_contents(skill_dir: Path) -> dict[str, tuple[bytes, bool]]:
+    """Logical archive contents from source: name -> (uncompressed bytes, exec bit)."""
+    skill_dir = skill_dir.resolve()
+    contents: dict[str, tuple[bytes, bool]] = {}
+    for source_path in iter_package_files(skill_dir):
+        rel = source_path.relative_to(skill_dir)
+        name = f"{skill_dir.name}/{rel.as_posix()}"
+        contents[name] = (source_path.read_bytes(), bool(source_path.stat().st_mode & 0o111))
+    return contents
+
+
+def _archive_logical_contents(archive_path: Path) -> dict[str, tuple[bytes, bool]]:
+    """Logical contents of a committed .skill: name -> (uncompressed bytes, exec bit).
+
+    Compares logical content (not raw ZIP_DEFLATED bytes) so the gate does not
+    flap when the local and CI zlib versions compress the same input differently.
+    """
+    contents: dict[str, tuple[bytes, bool]] = {}
+    with ZipFile(archive_path) as archive:
+        for info in archive.infolist():
+            exec_bit = bool((info.external_attr >> 16) & 0o111)
+            contents[info.filename] = (archive.read(info.filename), exec_bit)
+    return contents
+
+
+def check_skill(skill_dir: Path, output_dir: Path) -> bool:
+    """Return True when the committed .skill matches what packaging would produce."""
+    archive_path = output_dir.resolve() / f"{skill_dir.resolve().name}.skill"
+    if not archive_path.is_file():
+        return False
+    return _source_logical_contents(skill_dir) == _archive_logical_contents(archive_path)
+
+
 def discover_skill_dirs(skills_dir: Path) -> list[Path]:
     """Return source skill directories that contain SKILL.md."""
     return sorted(
@@ -122,6 +155,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print archives that would be generated without writing files.",
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify committed .skill archives match source (logical content); exit 1 on drift.",
+    )
     return parser.parse_args()
 
 
@@ -144,6 +182,17 @@ def main() -> int:
 
     if not skill_dirs:
         raise SystemExit(f"No skills found in {skills_dir}")
+
+    if args.check:
+        drift = False
+        for skill_dir in skill_dirs:
+            archive_path = output_dir / f"{skill_dir.name}.skill"
+            if check_skill(skill_dir, output_dir):
+                print(f"OK: {_display_path(archive_path)} matches source")
+            else:
+                print(f"DRIFT: {_display_path(archive_path)} is stale; re-run package_skills.py")
+                drift = True
+        return 1 if drift else 0
 
     for skill_dir in skill_dirs:
         output_path = package_skill(skill_dir, output_dir, dry_run=args.dry_run)
