@@ -31,7 +31,7 @@ class SkillConfig:
 
     skill: str  # skill directory name under skills/
     title: str  # module-docstring title line
-    family: str  # "A" | "B"
+    family: str  # "A" | "B" | "special"
     has_quote: bool  # family A: quote endpoint + get_quote/get_batch_quotes
     budget: bool  # family B: ApiCallBudgetExceeded + max_api_calls=200
     hist_days: int  # get_historical_prices default `days`
@@ -41,6 +41,7 @@ class SkillConfig:
     class_constants: tuple[tuple[str, str], ...]  # (name, literal) class attributes
     extensions: tuple[str, ...]  # extension module names appended to the FMPClient body
     batch_days: int = 260  # get_batch_historical default `days` (family A only)
+    standalone_template: str | None = None  # full-file template for PR2 special clients
 
 
 _FAMILY_A_FEATURES = (
@@ -49,9 +50,9 @@ _FAMILY_A_FEATURES = (
 )
 
 
-# Family B (budget) landed in PR1a; family A (quote) added in PR1b — same generator.
-# canslim-screener / macro-regime-detector / market-top-detector stay hand-written
-# (PR2 — they need the yfinance / fundamentals surface).
+# Family B (budget) landed in PR1a; family A (quote) added in PR1b.
+# PR2 adds the yfinance/fundamentals specials as generated standalone templates
+# so the already-generated six clients remain byte-identical.
 SKILLS: dict[str, SkillConfig] = {
     "pead-screener": SkillConfig(
         skill="pead-screener",
@@ -138,5 +139,48 @@ SKILLS: dict[str, SkillConfig] = {
         class_constants=(),
         extensions=("family_a_quote", "ftd"),
         batch_days=50,
+    ),
+    "canslim-screener": SkillConfig(
+        skill="canslim-screener",
+        title="FMP API Client for CANSLIM Screener",
+        family="special",
+        has_quote=True,
+        budget=False,
+        hist_days=365,
+        hist_return_list=False,
+        has_compat=False,
+        feature_lines=(),
+        class_constants=(),
+        extensions=(),
+        standalone_template="canslim.py.tmpl",
+    ),
+    "macro-regime-detector": SkillConfig(
+        skill="macro-regime-detector",
+        title="FMP API Client for Macro Regime Detector",
+        family="special",
+        has_quote=False,
+        budget=False,
+        hist_days=600,
+        hist_return_list=False,
+        has_compat=False,
+        feature_lines=(),
+        class_constants=(),
+        extensions=(),
+        standalone_template="macro.py.tmpl",
+    ),
+    "market-top-detector": SkillConfig(
+        skill="market-top-detector",
+        title="FMP API Client for Market Top Detector",
+        family="special",
+        has_quote=True,
+        budget=False,
+        hist_days=365,
+        hist_return_list=False,
+        has_compat=False,
+        feature_lines=(),
+        class_constants=(),
+        extensions=(),
+        batch_days=50,
+        standalone_template="market_top.py.tmpl",
     ),
 }

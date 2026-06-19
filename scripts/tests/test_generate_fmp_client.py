@@ -11,6 +11,23 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+GENERATED_SKILLS = {
+    "pead-screener",
+    "earnings-trade-analyzer",
+    "ibd-distribution-day-monitor",
+    "vcp-screener",
+    "parabolic-short-trade-planner",
+    "ftd-detector",
+    "canslim-screener",
+    "macro-regime-detector",
+    "market-top-detector",
+}
+NO_COMPAT_SKILLS = {
+    "ftd-detector",
+    "canslim-screener",
+    "macro-regime-detector",
+    "market-top-detector",
+}
 
 
 @pytest.fixture(scope="module")
@@ -27,20 +44,13 @@ def _skills(gen):
     return gen._load_registry()
 
 
-def test_registry_has_both_families(gen):
+def test_registry_has_expected_skills(gen):
     skills = _skills(gen)
-    assert set(skills) == {
-        "pead-screener",
-        "earnings-trade-analyzer",
-        "ibd-distribution-day-monitor",
-        "vcp-screener",
-        "parabolic-short-trade-planner",
-        "ftd-detector",
-    }
+    assert set(skills) == GENERATED_SKILLS
     for cfg in skills.values():
-        # budget (family B) and quote (family A) are mutually exclusive.
         assert cfg.budget == (cfg.family == "B")
-        assert cfg.has_quote == (cfg.family == "A")
+        assert cfg.has_compat == (cfg.skill not in NO_COMPAT_SKILLS)
+        assert bool(cfg.standalone_template) == (cfg.family == "special")
 
 
 def test_render_is_idempotent(gen):
@@ -83,6 +93,8 @@ def test_family_a_has_quote_no_budget(gen):
 def test_core_upgrade_present(gen):
     # The canonical core is the evolved vcp client; family B inherits its diagnostics.
     for cfg in _skills(gen).values():
+        if cfg.family == "special":
+            continue
         out = gen.render_fmp_client(cfg)
         assert "_warn_fallback" in out
         assert "self._last_error" in out
@@ -115,6 +127,58 @@ def test_compat_template_matches_vendored(gen):
             encoding="utf-8"
         )
         assert vendored == compat
+
+
+def test_no_compat_file_for_no_compat_skills(gen):
+    skills = _skills(gen)
+    assert {name for name, cfg in skills.items() if not cfg.has_compat} == NO_COMPAT_SKILLS
+    for skill in NO_COMPAT_SKILLS:
+        assert not (REPO_ROOT / "skills" / skill / "scripts" / "_fmp_compat.py").exists()
+
+
+def test_special_templates_preserve_public_surface(gen):
+    skills = _skills(gen)
+    canslim = gen.render_fmp_client(skills["canslim-screener"])
+    for needle in (
+        "def get_income_statement(",
+        "def get_quote(self, symbols: str)",
+        "def get_historical_prices(self, symbol: str, days: int = 365)",
+        "def get_profile(self, symbol: str)",
+        "def get_institutional_holders(self, symbol: str)",
+        "def calculate_ema(self, prices: list[float], period: int = 50)",
+        "def clear_cache(self)",
+        '"retry_count": self.retry_count',
+        'p["mktCap"] = p["marketCap"]',
+    ):
+        assert needle in canslim
+    assert '"api_calls_made"' not in canslim
+
+    macro = gen.render_fmp_client(skills["macro-regime-detector"])
+    for needle in (
+        "def _has_usable_history(data) -> bool:",
+        "def get_historical_prices(self, symbol: str, days: int = 600)",
+        "def _get_from_yfinance(self, symbol: str, days: int)",
+        "def get_batch_historical(self, symbols: list[str], days: int = 600)",
+        "def get_treasury_rates(self, days: int = 600)",
+        '"api_calls_made": self.api_calls_made',
+    ):
+        assert needle in macro
+
+    market_top = gen.render_fmp_client(skills["market-top-detector"])
+    for needle in (
+        "def _has_usable_history(data) -> bool:",
+        "def get_quote(self, symbols: str)",
+        "def _get_quote_from_yfinance(self, symbol: str)",
+        "def get_historical_prices(self, symbol: str, days: int = 365)",
+        "def _get_hist_from_yfinance(self, symbol: str, days: int)",
+        "def get_batch_quotes(self, symbols: list[str])",
+        "def get_batch_historical(self, symbols: list[str], days: int = 50)",
+        "def calculate_ema(self, prices: list[float], period: int)",
+        "def calculate_sma(self, prices: list[float], period: int)",
+        "def get_vix_term_structure(self)",
+        '"api_calls_made": self.api_calls_made',
+    ):
+        assert needle in market_top
 
 
 def test_check_passes_against_committed(gen):

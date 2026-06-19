@@ -1,4 +1,4 @@
-"""7-way parameterized contract test for FMP client `get_historical_prices`.
+"""9-way parameterized contract test for FMP client `get_historical_prices`.
 
 Issue #64 truncate contract: every skill-local copy of `fmp_client.py` must
 respect `days=N` (truncate to at most N rows, most-recent-first).
@@ -26,6 +26,7 @@ FMP_CLIENT_FILES = [
     "skills/ftd-detector/scripts/fmp_client.py",
     "skills/macro-regime-detector/scripts/fmp_client.py",
     "skills/market-top-detector/scripts/fmp_client.py",
+    "skills/parabolic-short-trade-planner/scripts/fmp_client.py",
     "skills/pead-screener/scripts/fmp_client.py",
     "skills/vcp-screener/scripts/fmp_client.py",
     "skills/ibd-distribution-day-monitor/scripts/fmp_client.py",

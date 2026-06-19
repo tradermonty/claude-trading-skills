@@ -103,6 +103,19 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Install canslim-screener FMP test deps
+        run: pip install beautifulsoup4 lxml
+
+      - name: Test canslim-screener FMP client contracts
+        run: >
+          python -m pytest
+          skills/canslim-screener/scripts/tests/test_fmp_fallback.py
+          skills/canslim-screener/scripts/tests/test_fmp_stable_migration.py
+          -v
+          --cov=skills/canslim-screener/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test parabolic-short-trade-planner
         run: >
           python -m pytest skills/parabolic-short-trade-planner/scripts/tests/ -v
@@ -287,7 +300,7 @@ jobs:
         run: python3 scripts/generate_fmp_client.py --check
 
       - name: FMP skill package drift check
-        run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector
+        run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector
 
       # Note: the validator + generator unit tests already run under the
       # 'Test repo-level scripts' step in the test job above.

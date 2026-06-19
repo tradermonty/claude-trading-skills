@@ -29,6 +29,12 @@ FAMILY_A = [
     "skills/ftd-detector/scripts/fmp_client.py",
 ]
 
+SPECIALS = [
+    "skills/canslim-screener/scripts/fmp_client.py",
+    "skills/macro-regime-detector/scripts/fmp_client.py",
+    "skills/market-top-detector/scripts/fmp_client.py",
+]
+
 
 def _load(rel_path: str):
     abs_path = REPO_ROOT / rel_path
@@ -93,3 +99,78 @@ def test_family_a_quote_surface_no_budget(rel_path, monkeypatch):
     client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
     stats = client.get_api_stats()
     assert set(stats) == {"cache_entries", "api_calls_made", "rate_limit_reached"}
+
+
+@pytest.mark.parametrize("rel_path", SPECIALS)
+def test_special_clients_have_no_budget(rel_path, monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
+    mod = _load(rel_path)
+    assert not hasattr(mod, "ApiCallBudgetExceeded")
+    mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+
+
+def test_canslim_special_surface_and_stats(monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
+    mod = _load("skills/canslim-screener/scripts/fmp_client.py")
+    for method in (
+        "get_income_statement",
+        "get_quote",
+        "get_historical_prices",
+        "get_profile",
+        "get_institutional_holders",
+        "calculate_ema",
+        "get_api_stats",
+        "clear_cache",
+    ):
+        assert hasattr(mod.FMPClient, method)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    assert set(client.get_api_stats()) == {
+        "cache_entries",
+        "rate_limit_reached",
+        "retry_count",
+    }
+
+
+def test_macro_special_surface_and_stats(monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
+    mod = _load("skills/macro-regime-detector/scripts/fmp_client.py")
+    assert hasattr(mod, "_has_usable_history")
+    for method in (
+        "get_historical_prices",
+        "_get_from_yfinance",
+        "get_batch_historical",
+        "get_treasury_rates",
+        "get_api_stats",
+    ):
+        assert hasattr(mod.FMPClient, method)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    assert set(client.get_api_stats()) == {
+        "cache_entries",
+        "api_calls_made",
+        "rate_limit_reached",
+    }
+
+
+def test_market_top_special_surface_and_stats(monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
+    mod = _load("skills/market-top-detector/scripts/fmp_client.py")
+    assert hasattr(mod, "_has_usable_history")
+    for method in (
+        "get_quote",
+        "_get_quote_from_yfinance",
+        "get_historical_prices",
+        "_get_hist_from_yfinance",
+        "get_batch_quotes",
+        "get_batch_historical",
+        "calculate_ema",
+        "calculate_sma",
+        "get_vix_term_structure",
+        "get_api_stats",
+    ):
+        assert hasattr(mod.FMPClient, method)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    assert set(client.get_api_stats()) == {
+        "cache_entries",
+        "api_calls_made",
+        "rate_limit_reached",
+    }
