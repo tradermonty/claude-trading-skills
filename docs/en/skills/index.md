@@ -77,6 +77,7 @@ Hand-written guides (marked with ★) follow a detailed 10-section structure. Au
 | [US Stock Analysis]({{ '/en/skills/us-stock-analysis/' | relative_url }}) ★ | Comprehensive US stock analysis including fundamental analysis (financial metrics, business quality, valuation), tech... | <span class="badge badge-free">No API</span> |
 | [Value Dividend Screener]({{ '/en/skills/value-dividend-screener/' | relative_url }}) | Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E ratio under 20, P/B rat... | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">FINVIZ Optional</span> |
 | [VCP Screener]({{ '/en/skills/vcp-screener/' | relative_url }}) ★ | Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP) | <span class="badge badge-api">FMP Required</span> |
+| [Weekly Performance Digest]({{ '/en/skills/weekly-performance-digest/' | relative_url }}) | Generate a weekly performance summary from closed trader-memory-core theses — win rate, expectancy, profit factor, R-... | <span class="badge badge-free">No API</span> |
 
 ★ = Hand-written detailed guide with examples, troubleshooting, and CLI reference.
 

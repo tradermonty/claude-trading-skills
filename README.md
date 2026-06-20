@@ -175,6 +175,7 @@ The detailed catalog below is **auto-generated** from `skills-index.yaml` by `sc
 | **Trade Hypothesis Ideator** (`trade-hypothesis-ideator`) | Generate falsifiable trade strategy hypotheses from market data, trade logs, and journal snippets with ranked hypothesis cards and optional strategy.yaml export. | `local_calculation` — | production |
 | **Trade Performance Coach** (`trade-performance-coach`) | Review closed trades, partial exits, and monthly aggregates for process adherence, risk discipline, execution quality, and evidence-based trading behavior patterns, then produce next-session operating rules. | `local_calculation` — | beta |
 | **Trader Memory Core** (`trader-memory-core`) | Track investment theses across their lifecycle — from screening idea to closed position with postmortem. | `fmp` optional | production |
+| **Weekly Performance Digest** (`weekly-performance-digest`) | Generate a weekly performance summary from closed trades with win rate, expectancy, and pattern analysis. | `local_calculation` — | production |
 
 ### Strategy Research
 

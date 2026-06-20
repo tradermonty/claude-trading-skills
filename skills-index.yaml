@@ -1128,3 +1128,23 @@ skills:
   - pivot_points
   workflows:
   - swing-opportunity-daily
+- id: weekly-performance-digest
+  display_name: Weekly Performance Digest
+  category: trade-memory
+  status: production
+  summary: Generate a weekly performance summary from closed trades with win rate, expectancy, and pattern analysis.
+  timeframe: weekly
+  difficulty: beginner
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Pure calculation; works offline
+  inputs:
+  - closed_thesis_record
+  outputs:
+  - weekly_performance_digest
+  - performance_pattern_analysis
+  workflows:
+  - trade-memory-loop
+  - monthly-performance-review
