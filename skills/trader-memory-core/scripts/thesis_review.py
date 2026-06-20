@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,7 @@ import thesis_store  # noqa: E402
 logger = logging.getLogger(__name__)
 
 JOURNAL_DIR_NAME = "journal"
+TERMINAL_STATUSES = {"CLOSED", "INVALIDATED"}
 
 
 # -- MAE / MFE ----------------------------------------------------------------
@@ -261,9 +262,201 @@ def summary_stats(state_dir: str) -> dict:
     return result
 
 
+def _matches_as_of(entry: dict, as_of: str | None) -> bool:
+    if not as_of:
+        return True
+    if entry.get("status") in TERMINAL_STATUSES:
+        return True
+    next_review = entry.get("next_review_date")
+    return bool(next_review and next_review <= as_of)
+
+
+def summary_entries(
+    state_dir: str,
+    *,
+    ticker: str | None = None,
+    status: str | None = None,
+    since: str | None = None,
+    as_of: str | None = None,
+    by: str | None = None,
+) -> dict:
+    """Build filtered review-summary data from the lightweight index."""
+    state_path = Path(state_dir)
+    entries = thesis_store.query(
+        state_path,
+        ticker=ticker,
+        status=status,
+        date_from=since,
+    )
+    entries = [e for e in entries if _matches_as_of(e, as_of)]
+
+    result = {
+        "count": len(entries),
+        "filters": {
+            "ticker": ticker,
+            "status": status,
+            "since": since,
+            "as_of": as_of,
+        },
+        "entries": entries,
+    }
+    if by:
+        grouped: dict[str, int] = {}
+        for entry in entries:
+            key = str(entry.get(by) or "unknown")
+            grouped[key] = grouped.get(key, 0) + 1
+        result["by"] = by
+        result["groups"] = grouped
+    return result
+
+
+def format_compact_summary(summary: dict) -> str:
+    """Render one line per thesis for CLI scanning."""
+    lines = []
+    for entry in summary["entries"]:
+        parts = [
+            entry["thesis_id"],
+            entry.get("ticker", "?"),
+            entry.get("status", "?"),
+            entry.get("thesis_type", "?"),
+            f"created={entry.get('created_at', '—')}",
+        ]
+        next_review = entry.get("next_review_date")
+        if next_review:
+            parts.append(f"next_review={next_review}")
+        lines.append(" | ".join(parts))
+    return "\n".join(lines) if lines else "(no theses matched)"
+
+
+def _terminal_event_date(thesis: dict) -> str | None:
+    exit_date = thesis.get("exit", {}).get("actual_date")
+    if exit_date:
+        return exit_date[:10]
+    for event in reversed(thesis.get("status_history", [])):
+        if event.get("status") in TERMINAL_STATUSES:
+            at = event.get("at")
+            if at:
+                return at[:10]
+    return None
+
+
+def _month_bounds(month: str) -> tuple[str, str]:
+    try:
+        start = datetime.strptime(month, "%Y-%m").date()
+    except ValueError as e:
+        raise ValueError("--month must be YYYY-MM") from e
+    if start.month == 12:
+        next_month = start.replace(year=start.year + 1, month=1)
+    else:
+        next_month = start.replace(month=start.month + 1)
+    end = next_month - timedelta(days=1)
+    return start.isoformat(), end.isoformat()
+
+
+def monthly_report(
+    state_dir: str,
+    month: str,
+    *,
+    journal_dir: str | None = None,
+    output: str | None = None,
+) -> str:
+    """Generate a monthly review markdown report for terminal theses."""
+    start, end = _month_bounds(month)
+    state_path = Path(state_dir)
+
+    terminal_entries = thesis_store.query(state_path, status="CLOSED") + thesis_store.query(
+        state_path, status="INVALIDATED"
+    )
+    theses = []
+    for entry in terminal_entries:
+        thesis = thesis_store.get(state_path, entry["thesis_id"])
+        event_date = _terminal_event_date(thesis)
+        if event_date and start <= event_date <= end:
+            theses.append((event_date, thesis))
+    theses.sort(key=lambda item: (item[0], item[1]["ticker"]))
+
+    content = _render_monthly_report(month, start, end, theses)
+    if output:
+        out_path = Path(output)
+    else:
+        j_dir = Path(journal_dir) if journal_dir else state_path.parent / JOURNAL_DIR_NAME
+        out_path = j_dir / f"monthly-review-{month}.md"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(content)
+    return str(out_path)
+
+
+def _render_monthly_report(month: str, start: str, end: str, theses: list[tuple[str, dict]]) -> str:
+    pnl_values = [
+        t.get("outcome", {}).get("pnl_pct")
+        for _, t in theses
+        if t.get("outcome", {}).get("pnl_pct") is not None
+    ]
+    wins = sum(1 for p in pnl_values if p >= 0)
+    avg_pnl = round(sum(pnl_values) / len(pnl_values), 2) if pnl_values else None
+
+    distribution: dict[str, int] = {}
+    lessons = []
+    rows = []
+    for event_date, thesis in theses:
+        outcome = thesis.get("outcome", {})
+        exit_data = thesis.get("exit", {})
+        reason = exit_data.get("exit_reason") or thesis.get("status")
+        distribution[reason] = distribution.get(reason, 0) + 1
+        lesson = outcome.get("lessons_learned")
+        if lesson:
+            lessons.append(f"- {thesis['ticker']}: {lesson}")
+        rows.append(
+            "| {date} | {ticker} | {status} | {ttype} | {pnl} | {reason} |".format(
+                date=event_date,
+                ticker=thesis["ticker"],
+                status=thesis["status"],
+                ttype=thesis["thesis_type"],
+                pnl=outcome.get("pnl_pct", "—"),
+                reason=reason,
+            )
+        )
+
+    if not rows:
+        rows.append("| — | — | — | — | — | — |")
+    distribution_lines = [f"- {key}: {count}" for key, count in sorted(distribution.items())]
+    if not distribution_lines:
+        distribution_lines = ["- (none)"]
+    if not lessons:
+        lessons = ["- (none recorded)"]
+
+    win_rate = round(wins / len(pnl_values), 4) if pnl_values else None
+    return f"""# Monthly Review: {month}
+
+**Window:** {start} to {end}
+
+## P&L Summary
+
+- Closed/invalidated theses: {len(theses)}
+- Theses with P&L: {len(pnl_values)}
+- Win rate: {win_rate}
+- Average P&L (%): {avg_pnl}
+
+## Closed Trade Roster
+
+| Date | Ticker | Status | Type | P&L (%) | Outcome |
+|------|--------|--------|------|---------|---------|
+{chr(10).join(rows)}
+
+## Postmortem Outcome Distribution
+
+{chr(10).join(distribution_lines)}
+
+## Top Lessons
+
+{chr(10).join(lessons)}
+"""
+
+
 # -- CLI -----------------------------------------------------------------------
 
-if __name__ == "__main__":
+
+def main(argv: list[str] | None = None) -> int:
     import argparse
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -282,9 +475,20 @@ if __name__ == "__main__":
     pm_p.add_argument("--journal-dir", default=None)
 
     # summary
-    sub.add_parser("summary", help="Show summary statistics")
+    summary_p = sub.add_parser("summary", help="Show summary statistics")
+    summary_p.add_argument("--ticker", default=None)
+    summary_p.add_argument("--status", default=None)
+    summary_p.add_argument("--since", default=None, help="Filter by created_at >= YYYY-MM-DD")
+    summary_p.add_argument("--as-of", default=None, help="Review-due snapshot date YYYY-MM-DD")
+    summary_p.add_argument("--by", choices=["status", "thesis_type"], default=None)
+    summary_p.add_argument("--compact", action="store_true")
 
-    args = parser.parse_args()
+    monthly_p = sub.add_parser("monthly-report", help="Generate monthly review markdown")
+    monthly_p.add_argument("--month", required=True, help="Month in YYYY-MM")
+    monthly_p.add_argument("--journal-dir", default=None)
+    monthly_p.add_argument("--output", default=None)
+
+    args = parser.parse_args(argv)
 
     if args.command == "review-due":
         as_of = args.as_of or datetime.utcnow().strftime("%Y-%m-%d")
@@ -294,7 +498,38 @@ if __name__ == "__main__":
         path = generate_postmortem(args.thesis_id, args.state_dir, journal_dir=args.journal_dir)
         print(f"Postmortem generated: {path}")
     elif args.command == "summary":
-        s = summary_stats(args.state_dir)
-        print(json.dumps(s, indent=2))
+        if not any([args.ticker, args.status, args.since, args.as_of, args.by, args.compact]):
+            s = summary_stats(args.state_dir)
+        else:
+            s = summary_entries(
+                args.state_dir,
+                ticker=args.ticker,
+                status=args.status,
+                since=args.since,
+                as_of=args.as_of,
+                by=args.by,
+            )
+        if args.compact:
+            print(format_compact_summary(s))
+        else:
+            print(json.dumps(s, indent=2))
+    elif args.command == "monthly-report":
+        path = monthly_report(
+            args.state_dir,
+            args.month,
+            journal_dir=args.journal_dir,
+            output=args.output,
+        )
+        print(f"Monthly report generated: {path}")
     else:
         parser.print_help()
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        raise SystemExit(1)

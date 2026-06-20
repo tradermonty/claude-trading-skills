@@ -1,5 +1,6 @@
 """Tests for thesis_review.py — review, postmortem, and MAE/MFE."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -223,3 +224,135 @@ def test_summary_stats_includes_invalidated_with_pnl(tmp_path: Path):
     assert stats["count"] == 2  # only those with P&L
     assert stats["win_rate"] == 0.5  # 1 win, 1 loss
     assert stats["avg_pnl_pct"] == pytest.approx(2.5, abs=0.01)  # (10 + -5) / 2
+
+
+def test_summary_entries_filters_and_groups(tmp_path: Path):
+    """Filtered summary should reuse index-backed query fields."""
+    state_dir = tmp_path / "theses"
+    thesis_store.register(
+        state_dir,
+        _make_thesis_data(
+            ticker="AAPL",
+            thesis_type="dividend_income",
+            thesis_statement="old AAPL thesis",
+            _source_date="2026-03-01",
+        ),
+    )
+    tid = thesis_store.register(
+        state_dir,
+        _make_thesis_data(
+            ticker="MSFT",
+            thesis_type="growth_momentum",
+            thesis_statement="new MSFT thesis",
+            _source_date="2026-05-01",
+        ),
+    )
+    thesis_store.transition(state_dir, tid, "ENTRY_READY", "ready")
+
+    summary = thesis_review.summary_entries(
+        str(state_dir),
+        status="ENTRY_READY",
+        since="2026-04-01",
+        by="thesis_type",
+    )
+
+    assert summary["count"] == 1
+    assert summary["entries"][0]["ticker"] == "MSFT"
+    assert summary["groups"] == {"growth_momentum": 1}
+
+
+def test_summary_entries_as_of_filters_not_yet_due_active(tmp_path: Path):
+    """--as-of should act as a review-due snapshot for non-terminal theses."""
+    state_dir = tmp_path / "theses"
+    due = thesis_store.register(
+        state_dir,
+        _make_thesis_data(ticker="DUE", thesis_statement="due thesis"),
+    )
+    later = thesis_store.register(
+        state_dir,
+        _make_thesis_data(ticker="LATE", thesis_statement="later thesis"),
+    )
+    thesis_store.update(state_dir, due, {"monitoring": {"next_review_date": "2026-04-01"}})
+    thesis_store.update(state_dir, later, {"monitoring": {"next_review_date": "2026-06-01"}})
+
+    summary = thesis_review.summary_entries(str(state_dir), as_of="2026-05-01")
+
+    assert summary["count"] == 1
+    assert summary["entries"][0]["ticker"] == "DUE"
+
+
+def test_format_compact_summary_one_line_per_thesis(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    thesis_store.register(state_dir, _make_thesis_data(ticker="AAPL"))
+
+    summary = thesis_review.summary_entries(str(state_dir), ticker="AAPL")
+    compact = thesis_review.format_compact_summary(summary)
+
+    assert "AAPL" in compact
+    assert "IDEA" in compact
+    assert compact.count("\n") == 0
+
+
+def test_main_summary_preserves_default_json(tmp_path: Path, capsys):
+    state_dir = tmp_path / "theses"
+    _create_closed_thesis(state_dir, entry_price=100.0, exit_price=110.0)
+
+    assert thesis_review.main(["--state-dir", str(state_dir), "summary"]) == 0
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data["count"] == 1
+    assert "by_type" in data
+
+
+def test_monthly_report_uses_exit_date_not_created_at(tmp_path: Path):
+    """Monthly report membership should use exit/status-history dates."""
+    state_dir = tmp_path / "theses"
+    journal_dir = tmp_path / "journal"
+
+    tid_apr = _create_active_thesis(state_dir, entry_price=100.0)
+    thesis_store.close(state_dir, tid_apr, "target_hit", 110.0, "2026-04-15T10:00:00+00:00")
+    thesis_store.update(
+        state_dir,
+        tid_apr,
+        {"outcome": {"lessons_learned": "Let winners work"}},
+    )
+
+    tid_may = _create_active_thesis(state_dir, entry_price=100.0)
+    thesis_store.close(state_dir, tid_may, "stop_hit", 90.0, "2026-05-02T10:00:00+00:00")
+
+    report_path = thesis_review.monthly_report(
+        str(state_dir),
+        "2026-04",
+        journal_dir=str(journal_dir),
+    )
+
+    assert report_path == str(journal_dir / "monthly-review-2026-04.md")
+    content = Path(report_path).read_text()
+    assert "# Monthly Review: 2026-04" in content
+    assert "Closed/invalidated theses: 1" in content
+    assert "target_hit: 1" in content
+    assert "Let winners work" in content
+    assert "stop_hit" not in content
+
+
+def test_main_monthly_report_output_override(tmp_path: Path, capsys):
+    state_dir = tmp_path / "theses"
+    out_path = tmp_path / "custom.md"
+    _create_closed_thesis(state_dir, entry_price=100.0, exit_price=110.0)
+
+    assert (
+        thesis_review.main(
+            [
+                "--state-dir",
+                str(state_dir),
+                "monthly-report",
+                "--month",
+                "2026-04",
+                "--output",
+                str(out_path),
+            ]
+        )
+        == 0
+    )
+    assert out_path.exists()
+    assert "Monthly report generated" in capsys.readouterr().out
