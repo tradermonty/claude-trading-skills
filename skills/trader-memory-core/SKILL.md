@@ -271,3 +271,4 @@ Postmortem markdown reports: `pm_{thesis_id}.md`.
 - `references/thesis_lifecycle.md` — Status states and valid transitions
 - `references/field_mapping.md` — Source skill → canonical field mapping
 - `schemas/thesis.schema.json` — JSON Schema for thesis validation
+- `../../examples/workflows/trade-memory-loop/sample-run-full-path/` — Worked end-to-end Plan → Trade → Record → Postmortem → Backtest → Journal example

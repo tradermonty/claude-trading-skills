@@ -311,3 +311,6 @@ Each thesis is stored as a YAML file in `state/theses/`:
 
 **Schema:**
 - `skills/trader-memory-core/schemas/thesis.schema.json` -- JSON Schema for thesis validation
+
+**Worked example:**
+- `examples/workflows/trade-memory-loop/sample-run-full-path/` -- End-to-end Plan -> Trade -> Record -> Postmortem -> Backtest -> Journal sample run

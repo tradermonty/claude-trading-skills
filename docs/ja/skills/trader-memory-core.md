@@ -311,3 +311,6 @@ P&L、保有日数、（FMP APIキーがあれば）MAE/MFEを含むレポート
 
 **スキーマ:**
 - `skills/trader-memory-core/schemas/thesis.schema.json` -- thesis バリデーション用 JSON Schema
+
+**実例:**
+- `examples/workflows/trade-memory-loop/sample-run-full-path/` -- Plan -> Trade -> Record -> Postmortem -> Backtest -> Journal のエンドツーエンド実行例
