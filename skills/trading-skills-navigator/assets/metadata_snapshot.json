@@ -921,6 +921,22 @@
       "status": "production",
       "summary": "Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP).",
       "timeframe": "daily"
+    },
+    {
+      "category": "trade-memory",
+      "difficulty": "beginner",
+      "display_name": "Weekly Performance Digest",
+      "id": "weekly-performance-digest",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "production",
+      "summary": "Generate a weekly performance summary from closed trades with win rate, expectancy, and pattern analysis.",
+      "timeframe": "weekly"
     }
   ],
   "skillsets": [
