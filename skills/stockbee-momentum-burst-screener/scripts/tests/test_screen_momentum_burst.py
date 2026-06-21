@@ -10,6 +10,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from screen_momentum_burst import (  # noqa: E402
     FMPClient,
     analyze_symbol,
+    generate_markdown_report,
     normalize_bars,
     read_prices_json,
     read_universe_file,
@@ -180,3 +181,32 @@ def test_fmp_universe_routes_to_stable_company_screener(monkeypatch):
 
     assert [row["symbol"] for row in universe] == ["AAPL"]
     assert session.get.call_args_list[0][0][0].endswith("/stable/company-screener")
+
+
+def test_include_rejected_handles_insufficient_history(tmp_path):
+    # A symbol with too little history returns a minimal skeleton (no volume).
+    skeleton = analyze_symbol(
+        "SHORT",
+        normalize_bars(
+            [{"date": "2026-06-20", "open": 10, "high": 11, "low": 9, "close": 10.5, "volume": 500}]
+        ),
+        _args(),
+    )
+    assert skeleton["reject_reasons"] == ["insufficient_history"]
+    assert "volume" not in skeleton
+
+    metadata = {
+        "generated_at": "2026-06-20 00:00:00",
+        "input_mode": "prices_json",
+        "symbols_processed": 1,
+        "market_gate": "allowed",
+    }
+    out = tmp_path / "report.md"
+
+    # Regression: --include-rejected used to crash on the skeleton row via
+    # the thousands-separator format on a None volume.
+    generate_markdown_report([skeleton], metadata, str(out), top=50, include_rejected=True)
+
+    text = out.read_text(encoding="utf-8")
+    assert "SHORT" in text
+    assert "Volume: n/a" in text

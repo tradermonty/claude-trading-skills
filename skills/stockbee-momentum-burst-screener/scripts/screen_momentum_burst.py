@@ -936,6 +936,10 @@ def format_candidate_md(row: dict[str, Any]) -> str:
     tags = ", ".join(row.get("trigger_tags") or []) or "none"
     rejects = ", ".join(row.get("reject_reasons") or []) or "none"
     soft = ", ".join(row.get("soft_failure_tags") or []) or "none"
+    # Hard-reject skeletons (e.g. insufficient_history) omit numeric fields, so
+    # guard the thousands-separator format against a missing/None volume.
+    volume = row.get("volume")
+    volume_str = f"{volume:,}" if isinstance(volume, (int, float)) else "n/a"
     return "\n".join(
         [
             f"### {row['symbol']} — {row.get('rating')} / {row.get('setup_score')}",
@@ -944,7 +948,7 @@ def format_candidate_md(row: dict[str, Any]) -> str:
             f"- Trigger: `{row.get('primary_trigger')}` ({tags})",
             f"- Price: close {row.get('close')}, day gain {row.get('day_gain_pct')}%, "
             f"dollar gain {row.get('dollar_gain')}",
-            f"- Volume: {row.get('volume'):,} "
+            f"- Volume: {volume_str} "
             f"({row.get('volume_ratio_1d')}x previous day, {row.get('volume_ratio_20d')}x 20d avg)",
             f"- Close location: {row.get('close_location_pct')}%",
             f"- Base: {row.get('prior_base_days')} days, width {row.get('base_width_pct')}%",
