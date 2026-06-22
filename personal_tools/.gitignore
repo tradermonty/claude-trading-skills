@@ -1,0 +1,12 @@
+# Runtime caches and generated reports
+.cache/
+reports/
+monitor_reports/
+
+# Personal trading plans (contain account size, position details)
+plans/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
