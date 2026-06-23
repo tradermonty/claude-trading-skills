@@ -3,27 +3,358 @@ layout: default
 title: "Position Sizer"
 grand_parent: 简体中文
 parent: 技能指南
-nav_order: 11
+nav_order: 6
 lang_peer: /en/skills/position-sizer/
 permalink: /zh/skills/position-sizer/
-generated: true
+generated: false
 ---
 
 # Position Sizer
 {: .no_toc }
 
-Calculate risk-based position sizes for long stock trades. Use when user asks about position sizing, how many shares to buy, risk per trade, Kelly criterion, ATR-based sizing, or portfolio risk allocation. Supports stop-loss distance calculation, volatility scaling, and sector concentration checks.
+用固定比例(Fixed Fractional)、基于 ATR 或 Kelly 准则三种方法,为做多股票交易计算基于风险的仓位规模。支持组合约束、板块集中度检查与多情景对比。
 {: .fs-6 .fw-300 }
-
-<span class="badge badge-free">无需 API</span>
 
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/position-sizer.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/position-sizer){: .btn .fs-5 .mb-4 .mb-md-0 }
 
-> **说明：** 本页尚未翻译为简体中文。
-> 完整指南请参阅[英文版]({{ '/en/skills/position-sizer/' | relative_url }})。
-{: .warning }
+<details open markdown="block">
+  <summary>目录</summary>
+  {: .text-delta }
+- TOC
+{:toc}
+</details>
 
 ---
 
-[查看英文版指南]({{ '/en/skills/position-sizer/' | relative_url }}){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+## 1. 概述
+
+Position Sizer 回答交易执行中最重要的问题:“我该买多少股?”正确的仓位规模是长期组合存活的最重要单一因素。再好的选股配上错误的仓位也能毁掉账户;平庸的选股配上恰当的仓位却能为下一个机会保住本金。
+
+**它解决什么:**
+- 把猜测从仓位决策中剔除
+- 用账户净值中固定比例的风险敞口,强制有纪律的风险管理
+- 用基于 ATR 的测算,按各股波动率差异做调整
+- 通过 Kelly 准则计算数学上最优的配置
+- 施加组合层面的约束(最大仓位规模、板块集中度上限)
+
+**核心能力:**
+- 3 种测算方法:固定比例、基于 ATR、Kelly 准则
+- 组合约束:单一仓位占账户最大 %、板块最大 %、当前板块敞口跟踪
+- 识别约束瓶颈:告诉你哪个上限在限制你的仓位
+- 纯计算 —— 无 API 密钥、无需联网,完全离线可用
+
+<span class="badge badge-free">无需 API</span>
+
+---
+
+## 2. 前提条件
+
+- **API 密钥:** 无需 —— 纯数学计算
+- **Python 3.9+:** 运行计算脚本所需
+- **无额外 Python 依赖** —— 仅使用标准库
+- **无需联网** —— 完全离线可用
+
+> Position Sizer 是自包含计算器。它无需 API 密钥、无需市场数据源、无外部依赖。给出数字,它来做计算。
+{: .tip }
+
+---
+
+## 3. 快速开始
+
+对 Claude 说:
+
+```
+我有一个 $100,000 的账户。想在 $155 买入 AAPL,止损 $148.50,风险为账户的 1%。买多少股?
+```
+
+或直接运行脚本:
+
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --output-dir reports/
+```
+
+Claude 计算出 153 股($23,715 仓位,风险 $994.50)并解释推理。这就是上手所需的一切。
+
+---
+
+## 4. 工作原理
+
+1. **收集参数** —— 脚本收集账户规模、入场价、止损价(或 ATR)与风险百分比。对 Kelly 准则,还收集胜率与平均盈亏统计。
+2. **计算每股风险** —— 固定比例:`入场 - 止损`;基于 ATR:`ATR × 乘数`;Kelly:由半 Kelly 预算与入场/止损距离推导。
+3. **计算基础股数** —— `美元风险 / 每股风险`,始终向下取整到整股。向上取整会超出风险预算。
+4. **施加组合约束** —— 若指定了 `--max-position-pct` 或 `--max-sector-pct`,股数受最紧约束封顶。输出中会标明约束瓶颈。
+5. **生成报告** —— JSON 与 Markdown 文件保存到输出目录,含完整计算细节、约束分析与最终建议。
+
+**三种测算模式:**
+
+| 模式 | 必需输入 | 最适合 |
+|------|----------|--------|
+| 固定比例 | 入场、止损、风险 % | 有清晰技术止损的酌情交易 |
+| 基于 ATR | 入场、ATR、乘数、风险 % | 系统化交易、跨股波动率归一化 |
+| Kelly 准则 | 胜率、平均盈利、平均亏损 | 有可靠业绩记录的资金配置规划 |
+
+---
+
+## 5. 使用示例
+
+### 示例 1:基于止损的基础测算
+
+**提示词:**
+```
+我有 $100,000。$155 买入,$148.50 止损,风险 1%。
+```
+
+**命令:**
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --output-dir reports/
+```
+
+**结果:** 153 股,仓位价值 $23,715,美元风险 $994.50(账户的 0.99%)。
+
+**为何有用:** 最常见的测算方法。基于图表支撑定义止损,计算器精确告诉你在风险预算内能买多少股。
+
+---
+
+### 示例 2:基于 ATR 的波动率调整测算
+
+**提示词:**
+```
+为 NVDA 测算仓位,入场 $850,ATR(14) 为 $22.50,用 2 倍 ATR 乘数与 1% 风险,账户 $100,000。
+```
+
+**命令:**
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 \
+  --entry 850 \
+  --atr 22.50 \
+  --atr-multiplier 2.0 \
+  --risk-pct 1.0 \
+  --output-dir reports/
+```
+
+**结果:** 22 股,止损 $805.00,美元风险 $990。
+
+**为何有用:** 基于 ATR 的测算自动按波动率调整。低波动股票获得更大仓位(更紧止损),高波动股票获得更小仓位(更宽止损)。这能在组合内不同股票间归一化风险。
+
+---
+
+### 示例 3:Kelly 准则(预算模式)
+
+**提示词:**
+```
+我的交易系统胜率 55%,平均盈利 $2.50、平均亏损 $1.00。我该把 $100,000 账户的多少比例配进去?
+```
+
+**命令:**
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 \
+  --win-rate 0.55 \
+  --avg-win 2.5 \
+  --avg-loss 1.0 \
+  --output-dir reports/
+```
+
+**结果:** 全 Kelly = 37%,半 Kelly = 18.5%,建议风险预算 = $18,500。
+
+**为何有用:** 当你还没有具体入场与止损时,Kelly 准则根据系统的历史优势告诉你该配多少资金。实践中始终用半 Kelly —— 它以显著更低的回撤捕获理论增长的 75%。
+
+---
+
+### 示例 4:组合约束
+
+**提示词:**
+```
+同样的 AAPL 交易($155 入场、$148.50 止损、1% 风险),但单一仓位封顶为账户 10%、科技板块封顶 30%。我科技板块已占 22%。
+```
+
+**命令:**
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --max-position-pct 10 \
+  --max-sector-pct 30 \
+  --sector Technology \
+  --current-sector-exposure 22 \
+  --output-dir reports/
+```
+
+**结果:** 基于风险 = 153 股,但板块约束限制到 51 股(仓位 $7,905)。约束瓶颈:板块集中度(科技板块仅剩 8% 空间)。
+
+**为何有用:** 组合约束防止集中度风险悄然累积。即便风险计算说 153 股,板块上限也认识到再加科技敞口会把组合推过单一板块 30%。
+
+---
+
+### 示例 5:多情景对比
+
+**提示词:**
+```
+对 $200,000 账户、入场 $75、止损 $71,对比 0.5%、1.0%、1.5% 风险下的仓位规模。
+```
+
+**发生了什么:** Claude 用不同 `--risk-pct` 值运行脚本三次,呈现对比表,显示各档的股数、仓位价值与美元风险(例如分别 250 / 500 / 750 股)。
+
+**为何有用:** 并排看多个情景,帮你根据确信度、市况与当前组合热度选择合适的风险档。连亏后保守?用 0.5%。强宽度区间的高确信形态?可考虑 1.0-1.5%。
+
+---
+
+### 示例 6:板块集中度检查
+
+**提示词:**
+```
+我科技板块已占 22%。在 30% 上限内还能再加一个科技仓位吗?
+```
+
+**命令:**
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 100000 --entry 155 --stop 148.50 --risk-pct 1.0 \
+  --max-sector-pct 30 --sector Technology --current-sector-exposure 22 \
+  --output-dir reports/
+```
+
+**结果:** 板块剩 8%($8,000)。最多 51 股($7,905),低于基于风险计算的 153 股。板块约束是瓶颈。
+
+**为何有用:** 板块检查防止行情火热时无意造成集中。约束瓶颈报告清楚说明为何仓位比预期小。
+
+---
+
+### 示例 7:自然语言请求
+
+**提示词:**
+```
+我该买多少股 MSFT?账户 $50,000,我想要紧风险,
+股价 $420,近期支撑在 $408。
+```
+
+**发生了什么:** Claude 把“紧风险”理解为 0.5-1.0%,用支撑位作止损,运行计算。它呈现结果并解释止损放置与股数。
+
+**为何有用:** 你无需记住 CLI 参数。用平实语言描述处境,Claude 提取参数、运行计算并解释结果。
+
+---
+
+## 6. 解读输出
+
+执行后,脚本生成含以下内容的 JSON 与 Markdown 报告:
+
+1. **参数小结** —— 账户规模、入场价、止损价、风险百分比及任何约束。
+2. **计算细节** —— 所用测算方法的逐步计算:每股风险、美元风险与基础股数。
+3. **约束分析** —— 若指定了最大仓位或板块上限,逐一评估各约束并标明瓶颈。
+4. **最终建议** —— 建议股数(始终取所有约束中的最小值)、仓位价值、美元风险及占账户的风险百分比。
+
+### 关键 JSON 字段
+
+| 字段 | 说明 |
+|------|------|
+| `mode` | `shares`(提供了入场/止损)或 `budget`(仅 Kelly、无入场) |
+| `final_recommended_shares` | 实际交易股数 —— 所有约束中的最小值 |
+| `binding_constraint` | 哪个上限封顶了仓位:`risk_based`、`max_position_pct` 或 `max_sector_pct` |
+
+---
+
+## 7. 技巧与最佳实践
+
+- **默认 1% 风险。** 1% 规则是波段交易者的行业标准。没有特殊理由与可靠业绩记录,绝不超过 2%。
+- **始终向下取整。** 脚本把股数向下取整到整数。向上取整会超出你的风险预算。
+- **用半 Kelly,绝不用全 Kelly。** 全 Kelly 最大化理论增长但产生极端回撤(50%+)。半 Kelly 捕获 75% 的增长,波动却可控得多。
+- **检查组合热度。** 所有持仓的总在险风险应保持在账户净值的 6-8% 以下。若已到 6%,在现有交易移到保本或平仓前不要加新仓。
+- **亏损后降低风险。** 连亏 2-3 次后,降到每笔 0.5% 风险。回撤期保护本金,待盈利确认市场环境后再加回。
+- **组合约束以策安全。** 同时使用 `--max-position-pct` 与 `--max-sector-pct`。最严约束胜出,同时防止单股与板块集中度风险。
+
+---
+
+## 8. 与其他技能组合
+
+| 工作流 | 如何组合 |
+|--------|----------|
+| **筛选后测算** | CANSLIM、VCP 或股息筛选器识别候选后,用 Position Sizer 在入场前计算精确股数 |
+| **宽度调整风险** | 用 Market Breadth Analyzer 判断健康区间,再调整风险百分比:强区间 1.0-1.5%,转弱区间 0.5% |
+| **回测验证** | Backtest Expert 确认策略优势后,把胜率与盈亏比作为 Kelly 准则输入以求最优资金配置 |
+| **技术入场规划** | 用 Technical Analyst 识别止损位(支撑、均线、前低),再喂给 Position Sizer 求股数 |
+| **组合再平衡** | Portfolio Manager 复盘当前持仓后,用带板块约束的 Position Sizer 为新增仓位定规模,不超集中度上限 |
+
+---
+
+## 9. 故障排查
+
+### “Error: --account-size is required”
+
+**原因:** 未提供 `--account-size` 参数。
+
+**修复:** 始终带上 `--account-size` 与你的账户总净值。这是唯一真正必需的参数。
+
+### 仓位规模似乎太小
+
+**原因:** 通常是三种原因之一:(1) 止损相对入场很宽,(2) 某组合约束是瓶颈,或 (3) 股价相对账户规模偏高。
+
+**修复:** 检查 JSON 输出中的 `binding_constraint` 字段。若显示 `max_position_pct` 或 `max_sector_pct`,约束把你限制在基于风险计算之下。若基于风险的股数本就小,说明止损距离宽 —— 考虑止损是否放置得当。
+
+### Kelly 准则返回 0%
+
+**原因:** 交易系统期望值为负。当 Kelly 公式产生负数时,被下限截断为 0%,意为“不要交易这个系统”。
+
+**修复:** 这不是 bug —— 这是正确的数学答案。负 Kelly 意味着系统长期亏钱。交易前重新评估策略的胜率与盈亏比。
+
+### “No sizing method could be determined”
+
+**原因:** 提供的参数不足。脚本至少需要一组完整输入:(1) 入场 + 止损 + 风险 %,(2) 入场 + ATR + 风险 %,或 (3) 胜率 + 平均盈利 + 平均亏损。
+
+**修复:** 至少为一种测算方法提供完整参数。所需组合见下方 CLI 参数表。
+
+---
+
+## 10. 参考资料
+
+### CLI 参数
+
+| 参数 | 必需 | 默认 | 说明 |
+|------|------|------|------|
+| `--account-size` | 是 | -- | 账户总价值(美元) |
+| `--entry` | 否 | -- | 每股入场价 |
+| `--stop` | 否 | -- | 每股止损价 |
+| `--risk-pct` | 否 | -- | 每笔风险百分比(例如 1.0 表示 1%) |
+| `--atr` | 否 | -- | 用于基于 ATR 测算的平均真实波幅值 |
+| `--atr-multiplier` | 否 | `2.0` | 止损距离的 ATR 乘数 |
+| `--win-rate` | 否 | -- | Kelly 准则的历史胜率(0-1) |
+| `--avg-win` | 否 | -- | Kelly 准则的平均盈利额 |
+| `--avg-loss` | 否 | -- | Kelly 准则的平均亏损额 |
+| `--max-position-pct` | 否 | -- | 单一仓位占账户的最大 % |
+| `--max-sector-pct` | 否 | -- | 板块敞口占账户的最大 % |
+| `--sector` | 否 | -- | 用于集中度检查的板块名 |
+| `--current-sector-exposure` | 否 | `0.0` | 当前板块敞口占账户 % |
+| `--output-dir` | 否 | `reports/` | JSON 与 Markdown 报告的输出目录 |
+
+### 测算方法对比
+
+| 特性 | 固定比例 | 基于 ATR | Kelly 准则 |
+|------|----------|----------|-----------|
+| 所需输入 | 入场、止损、风险 % | 入场、ATR、乘数、风险 % | 胜率、平均盈亏 |
+| 按波动率调整 | 否 | 是 | 否(用历史统计) |
+| 需要业绩记录 | 否 | 否 | 是(100+ 笔) |
+| 最适合 | 酌情交易 | 系统化/机械 | 资金配置 |
+| 止损由何决定 | 图表分析 | ATR 计算 | 外部(图表或 ATR) |
+
+### 标准风险水平
+
+| 风险 % | 交易者画像 | 备注 |
+|--------|-----------|------|
+| 0.25-0.50% | 保守 / 大账户 | 机构级风险 |
+| 0.50-1.00% | 有经验的波段交易者 | Minervini 推荐区间 |
+| 1.00-1.50% | 活跃交易者、已证优势 | 经验证系统的标准 |
+| 1.50-2.00% | 激进、高胜率 | 多数策略的上限 |
+| > 2.00% | 危险 | 破产风险快速上升 |
