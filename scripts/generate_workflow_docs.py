@@ -116,6 +116,52 @@ LABELS: dict[str, dict[str, str]] = {
         "no": "なし",
         "none": "（なし）",
     },
+    "zh": {
+        "page_title": "工作流",
+        "page_intro": (
+            "面向个人交易者 OS 的运营工作流 manifest 群。每条工作流按顺序"
+            "列出所用技能、判断关卡与 artifact。"
+            "[`workflows/`](https://github.com/tradermonty/claude-trading-skills/tree/main/workflows) "
+            "下的 manifest 为正本，本页由其自动生成。\n\n"
+            "**翻译方针：** 本页仅将标题标签中文化。manifest 正文"
+            "（`when_to_run` / `decision_question` / `manual_review` 等）按英文正本原样显示。"
+            "正文的中文化为后续计划（拟在 manifest 中增加 `*_zh` 字段，"
+            "或设置单独的本地化层）。"
+        ),
+        "auto_generated_note": (
+            "本页由 `scripts/generate_workflow_docs.py` 自动生成。请勿手动编辑。"
+        ),
+        "summary_table_title": "工作流一览",
+        "col_workflow": "工作流",
+        "col_cadence": "频率",
+        "col_minutes": "预计(分)",
+        "col_api": "API 配置",
+        "col_difficulty": "难度",
+        "when_to_run": "何时运行",
+        "when_not_to_run": "何时不要运行",
+        "required_skills": "必需技能",
+        "optional_skills": "可选技能",
+        "prerequisite_workflows": "前置工作流（informational）",
+        "prerequisite_artifact": "所需的 artifact",
+        "artifacts": "artifact 一览",
+        "col_artifact": "Artifact",
+        "col_produced_by": "生成步骤",
+        "col_required": "必需",
+        "col_downstream": "下游提示",
+        "steps": "步骤",
+        "step_label": "步骤",
+        "step_optional": "（可选）",
+        "step_decision_gate": "（判断关卡）",
+        "step_consumes": "consumes",
+        "step_produces": "produces",
+        "step_decision_question": "判断",
+        "manual_review": "人工复核",
+        "journal_destination": "Journal 输出位置",
+        "final_outputs": "最终输出",
+        "yes": "是",
+        "no": "否",
+        "none": "（无）",
+    },
 }
 
 
@@ -136,6 +182,15 @@ parent: 日本語
 nav_order: 4
 lang_peer: /en/workflows/
 permalink: /ja/workflows/
+---
+""",
+    "zh": """---
+layout: default
+title: 工作流
+parent: 简体中文
+nav_order: 4
+lang_peer: /en/workflows/
+permalink: /zh/workflows/
 ---
 """,
 }
@@ -378,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--lang",
-        choices=["en", "ja", "all"],
+        choices=["en", "ja", "zh", "all"],
         default="all",
         help="Which language to generate (default: all)",
     )
@@ -386,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
         "--output",
         type=Path,
         default=None,
-        help="Override output path (only valid with --lang en or --lang ja)",
+        help="Override output path (only valid with --lang en, ja, or zh)",
     )
     parser.add_argument(
         "--check",
@@ -396,7 +451,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.output and args.lang == "all":
-        print("--output requires --lang en or --lang ja, not all", file=sys.stderr)
+        print("--output requires --lang en, ja, or zh, not all", file=sys.stderr)
         return 2
 
     workflows_dir = args.project_root / "workflows"
@@ -409,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no workflow manifests found under {workflows_dir}", file=sys.stderr)
         return 1
 
-    langs = ["en", "ja"] if args.lang == "all" else [args.lang]
+    langs = ["en", "ja", "zh"] if args.lang == "all" else [args.lang]
     drift = False
 
     for lang in langs:

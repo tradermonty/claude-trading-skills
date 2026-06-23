@@ -101,9 +101,10 @@ More text below the matrix.
 
 
 def write_all_targets(project_root: Path) -> None:
-    """Create README.md + README.ja.md + CLAUDE.md with their sentinels."""
+    """Create README.md + README.ja.md + README.zh.md + CLAUDE.md with sentinels."""
     write_readme(project_root, name="README.md", sentinel="catalog-en")
     write_readme(project_root, name="README.ja.md", sentinel="catalog-ja")
+    write_readme(project_root, name="README.zh.md", sentinel="catalog-zh")
     write_claude_md(project_root)
 
 

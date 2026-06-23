@@ -21,11 +21,14 @@ from generate_skill_docs import (
     _title_case,
     api_badges,
     api_badges_ja,
+    api_badges_zh,
     generate_en_full_page,
     generate_en_page,
     generate_index_table_row,
     generate_ja_full_page,
     generate_ja_page,
+    generate_zh_full_page,
+    generate_zh_page,
     main,
     parse_api_requirements,
     parse_cli_examples,
@@ -233,6 +236,26 @@ class TestApiBadgesJa:
         assert "Alpaca必須" in badges
 
 
+class TestApiBadgesZh:
+    def test_no_api_zh(self):
+        assert "无需 API" in api_badges_zh(None)
+
+    def test_fmp_required_zh(self):
+        badges = api_badges_zh({"fmp": "✅ Required", "finviz": "❌", "alpaca": "❌"})
+        assert "FMP 必需" in badges
+        assert "badge-api" in badges
+
+    def test_optional_zh(self):
+        badges = api_badges_zh({"fmp": "🟡 Optional", "finviz": "🟡 Optional", "alpaca": "❌"})
+        assert "无需 API" in badges
+        assert "FMP 可选" in badges
+        assert "FINVIZ 可选" in badges
+
+    def test_alpaca_required_zh(self):
+        badges = api_badges_zh({"fmp": "❌", "finviz": "❌", "alpaca": "✅ Required"})
+        assert "Alpaca 必需" in badges
+
+
 # ---------------------------------------------------------------------------
 # Tests: Index table row generation
 # ---------------------------------------------------------------------------
@@ -256,6 +279,12 @@ class TestGenerateIndexTableRow:
         row = generate_index_table_row("test-skill", "desc", api, "ja")
         assert "FMP必須" in row
         assert "/ja/skills/test-skill/" in row
+
+    def test_zh_row_uses_zh_badges(self):
+        api = {"fmp": "✅ Required", "finviz": "❌", "alpaca": "❌"}
+        row = generate_index_table_row("test-skill", "desc", api, "zh")
+        assert "FMP 必需" in row
+        assert "/zh/skills/test-skill/" in row
 
     def test_long_description_truncated(self):
         long_desc = "A" * 200
@@ -345,6 +374,33 @@ class TestGenerateJaPage:
         data = parse_skill_md(tmp_skill / "skills" / "test-skill" / "SKILL.md")
         page = generate_ja_page("test-skill", data, None, 11)
         assert "/en/skills/test-skill/" in page
+
+
+class TestGenerateZhPage:
+    def test_contains_zh_frontmatter(self, tmp_skill):
+        data = parse_skill_md(tmp_skill / "skills" / "test-skill" / "SKILL.md")
+        page = generate_zh_page("test-skill", data, None, 11)
+        assert "grand_parent: 简体中文" in page
+        assert "parent: 技能指南" in page
+        assert "permalink: /zh/skills/test-skill/" in page
+        assert "generated: true" in page
+
+    def test_contains_translation_banner(self, tmp_skill):
+        data = parse_skill_md(tmp_skill / "skills" / "test-skill" / "SKILL.md")
+        page = generate_zh_page("test-skill", data, None, 11)
+        assert "尚未翻译为简体中文" in page
+
+    def test_links_to_en_version(self, tmp_skill):
+        data = parse_skill_md(tmp_skill / "skills" / "test-skill" / "SKILL.md")
+        page = generate_zh_page("test-skill", data, None, 11)
+        assert "/en/skills/test-skill/" in page
+
+    def test_full_page_has_ten_sections(self, tmp_skill):
+        data = parse_skill_md(tmp_skill / "skills" / "test-skill" / "SKILL.md")
+        page = generate_zh_full_page("test-skill", data, None, None, 11, {})
+        assert "## 1. 概述" in page
+        assert "## 10. 参考资料" in page
+        assert "grand_parent: 简体中文" in page
 
 
 # ---------------------------------------------------------------------------
@@ -603,12 +659,16 @@ class TestOwnershipGuardAndCheck:
         ja = docs_dir / "ja" / "skills" / "backtest-expert.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
+        zh = docs_dir / "zh" / "skills" / "backtest-expert.md"
+        zh.parent.mkdir(parents=True)
         en.write_text("---\ntitle: x\ngenerated: true\n---\nwildly divergent hand body\n")
         ja.write_text("---\ntitle: x\ngenerated: true\n---\n手動の全く違う本文\n")
+        zh.write_text("---\ntitle: x\ngenerated: true\n---\n手写的完全不同正文\n")
         # tmp_skill always creates skills/test-skill too; give it protected
         # pages so existence checks don't trip (focus is the HW assertion).
         (docs_dir / "en" / "skills" / "test-skill.md").write_text("protected en\n")
         (docs_dir / "ja" / "skills" / "test-skill.md").write_text("protected ja\n")
+        (docs_dir / "zh" / "skills" / "test-skill.md").write_text("protected zh\n")
         rc = main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
         assert rc == 0
 
@@ -616,10 +676,13 @@ class TestOwnershipGuardAndCheck:
         docs_dir = tmp_skill / "docs"
         en = docs_dir / "en" / "skills" / "test-skill.md"
         ja = docs_dir / "ja" / "skills" / "test-skill.md"
+        zh = docs_dir / "zh" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
+        zh.parent.mkdir(parents=True)
         en.write_text("wildly different EN, no marker\n")
         ja.write_text("全く違う日本語、マーカーなし\n")
+        zh.write_text("完全不同的中文，无标记\n")
         rc = main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
         assert rc == 0
 

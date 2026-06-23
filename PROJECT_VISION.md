@@ -3,7 +3,7 @@
 Version: 0.1
 Last updated: 2026-05-17
 
-Japanese version: [PROJECT_VISION.ja.md](PROJECT_VISION.ja.md)
+Japanese version: [PROJECT_VISION.ja.md](PROJECT_VISION.ja.md) ・ 简体中文版: [PROJECT_VISION.zh.md](PROJECT_VISION.zh.md)
 
 Claude Trading Skills is a Claude Skills-based trading process OS for time-constrained individual investors.
 

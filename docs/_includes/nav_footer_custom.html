@@ -1,14 +1,17 @@
 {% if page.lang_peer %}
 <div class="lang-toggle" style="padding: 0.5rem 1rem; border-top: 1px solid var(--borderColor-default, #d0d7de); margin-top: 1rem;">
+  {% comment %}
+    The en/ja/zh doc trees share parallel URLs (/en/..., /ja/..., /zh/...), so
+    every language's URL can be derived from the current one by swapping the
+    2-char language segment. "/xx" is 3 chars, so slice:3 keeps the suffix.
+  {% endcomment %}
   {% assign current_lang = page.url | slice: 1, 2 %}
-  {% if current_lang == "en" %}
-    <span style="font-weight: 600;">EN</span> |
-    <a href="{{ page.lang_peer | relative_url }}">JP</a>
-  {% elsif current_lang == "ja" %}
-    <a href="{{ page.lang_peer | relative_url }}">EN</a> |
-    <span style="font-weight: 600;">JP</span>
-  {% else %}
-    <a href="{{ page.lang_peer | relative_url }}">Switch Language</a>
-  {% endif %}
+  {% assign suffix = page.url | slice: 3, 1000 %}
+  {% assign en_url = "/en" | append: suffix %}
+  {% assign ja_url = "/ja" | append: suffix %}
+  {% assign zh_url = "/zh" | append: suffix %}
+  {% if current_lang == "en" %}<span style="font-weight: 600;">EN</span>{% else %}<a href="{{ en_url | relative_url }}">EN</a>{% endif %} |
+  {% if current_lang == "ja" %}<span style="font-weight: 600;">JP</span>{% else %}<a href="{{ ja_url | relative_url }}">JP</a>{% endif %} |
+  {% if current_lang == "zh" %}<span style="font-weight: 600;">中文</span>{% else %}<a href="{{ zh_url | relative_url }}">中文</a>{% endif %}
 </div>
 {% endif %}

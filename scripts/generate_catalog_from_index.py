@@ -63,6 +63,17 @@ CATEGORY_LABELS_JA = {
     "meta": "メタ / 開発ツール（Meta）",
 }
 
+CATEGORY_LABELS_ZH = {
+    "market-regime": "市场环境（Market Regime）",
+    "core-portfolio": "核心组合（Core Portfolio）",
+    "swing-opportunity": "波段机会（Swing Opportunity）",
+    "trade-planning": "交易计划（Trade Planning）",
+    "trade-memory": "交易记忆（Trade Memory）",
+    "strategy-research": "策略研究（Strategy Research）",
+    "advanced-satellite": "进阶卫星（Advanced Satellite）",
+    "meta": "元 / 开发工具（Meta）",
+}
+
 INTEGRATION_BADGES = {
     "required": "**required**",
     "recommended": "_recommended_",
@@ -193,6 +204,40 @@ def render_catalog_ja(skills: list[dict]) -> str:
     return buf.getvalue().rstrip("\n")
 
 
+def render_catalog_zh(skills: list[dict]) -> str:
+    buf = io.StringIO()
+    buf.write(
+        "<!-- 本节由 scripts/generate_catalog_from_index.py 从 skills-index.yaml "
+        "自动生成。请勿手动编辑——请修改 index 并重新运行生成器。 -->\n\n"
+    )
+    buckets = group_by_category(skills)
+    for cat in [
+        "market-regime",
+        "core-portfolio",
+        "swing-opportunity",
+        "trade-planning",
+        "trade-memory",
+        "strategy-research",
+        "advanced-satellite",
+        "meta",
+    ]:
+        items = buckets.get(cat, [])
+        if not items:
+            continue
+        buf.write(f"### {CATEGORY_LABELS_ZH[cat]}\n\n")
+        buf.write("| 技能 | 概要 | 依赖 | 状态 |\n")
+        buf.write("|---|---|---|---|\n")
+        for s in items:
+            sid = s.get("id", "")
+            display_name = _escape_table_cell(s.get("display_name", sid))
+            summary = _escape_table_cell(s.get("summary") or "")
+            status = _escape_table_cell(s.get("status", ""))
+            integs = _primary_integrations(s)
+            buf.write(f"| **{display_name}** (`{sid}`) | {summary} | {integs} | {status} |\n")
+        buf.write("\n")
+    return buf.getvalue().rstrip("\n")
+
+
 def _find_integration(skill: dict, integration_id: str) -> dict | None:
     """Return the integrations[] entry with id == integration_id, or None."""
     for i in skill.get("integrations") or []:
@@ -276,6 +321,7 @@ def render_api_matrix(skills: list[dict]) -> str:
 RENDERERS = {
     "catalog-en": render_catalog_en,
     "catalog-ja": render_catalog_ja,
+    "catalog-zh": render_catalog_zh,
     "api-matrix": render_api_matrix,
 }
 
@@ -318,6 +364,7 @@ def rewrite_file(path: Path, skills: list[dict]) -> tuple[str, str]:
 TARGETS = [
     ("README.md", {"catalog-en"}),
     ("README.ja.md", {"catalog-ja"}),
+    ("README.zh.md", {"catalog-zh"}),
     ("CLAUDE.md", {"api-matrix"}),
 ]
 

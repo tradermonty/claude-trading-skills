@@ -18,6 +18,8 @@ The project follows a **first for self, open for others** stance: it is built fi
 
 日本語版READMEは[`README.ja.md`](README.ja.md)をご覧ください。
 
+简体中文版 README 请见 [`README.zh.md`](README.zh.md)。
+
 ## Disclaimer
 
 This repository is for educational, research, and process-improvement purposes only. It is not financial advice, investment advisory service, tax advice, legal advice, a signal service, or a broker execution platform. Trading and investing involve risk, including loss of principal. Past performance, backtests, screens, reports, and AI-generated analysis do not guarantee future results. All trading decisions, position sizing, tax/regulatory compliance, and broker usage are the user's responsibility.

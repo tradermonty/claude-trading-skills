@@ -87,6 +87,37 @@ LABELS: dict[str, dict[str, str]] = {
         "related_workflows": "関連ワークフロー",
         "none": "（なし）",
     },
+    "zh": {
+        "page_title": "技能集",
+        "page_intro": (
+            "面向个人交易者 OS 的按目标划分的技能集。技能集是按类别划分的一组技能"
+            "（必需 / 推荐 / 可选），并绑定到将其运营化的工作流"
+            "（即“为达成此目标该装入哪些技能”一层）。"
+            "[`skillsets/`](https://github.com/tradermonty/claude-trading-skills/tree/main/skillsets) "
+            "下的 manifest 为正本，本页由其自动生成。\n\n"
+            "**翻译方针：** 本页仅将标题标签中文化。manifest 正文"
+            "（`when_to_use` / `when_not_to_use` 等）按英文正本原样显示。"
+            "正文的中文化为后续计划（拟在 manifest 中增加 `*_zh` 字段，"
+            "或设置单独的本地化层）。"
+        ),
+        "auto_generated_note": (
+            "本页由 `scripts/generate_skillset_docs.py` 自动生成。请勿手动编辑。"
+        ),
+        "summary_table_title": "技能集一览",
+        "col_skillset": "技能集",
+        "col_timeframe": "时间框架",
+        "col_api": "API 配置",
+        "col_difficulty": "难度",
+        "col_related_workflows": "相关工作流",
+        "when_to_use": "何时使用",
+        "when_not_to_use": "何时不要使用",
+        "target_users": "目标用户",
+        "required_skills": "必需技能",
+        "recommended_skills": "推荐技能",
+        "optional_skills": "可选技能",
+        "related_workflows": "相关工作流",
+        "none": "（无）",
+    },
 }
 
 
@@ -107,6 +138,15 @@ parent: 日本語
 nav_order: 5
 lang_peer: /en/skillsets/
 permalink: /ja/skillsets/
+---
+""",
+    "zh": """---
+layout: default
+title: 技能集
+parent: 简体中文
+nav_order: 5
+lang_peer: /en/skillsets/
+permalink: /zh/skillsets/
 ---
 """,
 }
@@ -256,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--lang",
-        choices=["en", "ja", "all"],
+        choices=["en", "ja", "zh", "all"],
         default="all",
         help="Which language to generate (default: all)",
     )
@@ -264,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         "--output",
         type=Path,
         default=None,
-        help="Override output path (only valid with --lang en or --lang ja)",
+        help="Override output path (only valid with --lang en, ja, or zh)",
     )
     parser.add_argument(
         "--check",
@@ -274,7 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.output and args.lang == "all":
-        print("--output requires --lang en or --lang ja, not all", file=sys.stderr)
+        print("--output requires --lang en, ja, or zh, not all", file=sys.stderr)
         return 2
 
     skillsets_dir = args.project_root / "skillsets"
@@ -287,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no skillset manifests found under {skillsets_dir}", file=sys.stderr)
         return 1
 
-    langs = ["en", "ja"] if args.lang == "all" else [args.lang]
+    langs = ["en", "ja", "zh"] if args.lang == "all" else [args.lang]
     drift = False
 
     for lang in langs:

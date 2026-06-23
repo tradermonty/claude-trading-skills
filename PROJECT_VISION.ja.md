@@ -3,7 +3,7 @@
 Version: 0.1
 Last updated: 2026-05-17
 
-English version: [PROJECT_VISION.md](PROJECT_VISION.md)
+English version: [PROJECT_VISION.md](PROJECT_VISION.md) ・ 简体中文版: [PROJECT_VISION.zh.md](PROJECT_VISION.zh.md)
 
 Claude Trading Skills は、時間制約のある個人投資家が、長期投資を土台にしながら、相場環境に応じて規律あるスイングトレードを行い、リスク管理と記録・振り返りを通じて継続的に成長するための Claude Skills ベースの意思決定プロセスOSです。
 
