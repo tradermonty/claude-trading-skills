@@ -6,13 +6,13 @@ parent: 技能指南
 nav_order: 51
 lang_peer: /en/skills/technical-analyst/
 permalink: /zh/skills/technical-analyst/
-generated: true
+generated: false
 ---
 
 # Technical Analyst
 {: .no_toc }
 
-This skill should be used when analyzing weekly price charts for stocks, stock indices, cryptocurrencies, or forex pairs. Use this skill when the user provides chart images and requests technical analysis, trend identification, support/resistance levels, scenario planning, or probability assessments based purely on chart data without consideration of news or fundamental factors.
+本技能用于分析股票、股票指数、加密货币或外汇货币对的周线价格图表。当用户提供图表图像并要求进行技术分析、趋势判断、支撑/阻力位识别、情景规划,或纯粹基于图表数据(不考虑新闻或基本面因素)给出概率评估时使用。
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">无需 API</span>
@@ -20,10 +20,168 @@ This skill should be used when analyzing weekly price charts for stocks, stock i
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/technical-analyst.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/technical-analyst){: .btn .fs-5 .mb-4 .mb-md-0 }
 
-> **说明：** 本页尚未翻译为简体中文。
-> 完整指南请参阅[英文版]({{ '/en/skills/technical-analyst/' | relative_url }})。
-{: .warning }
+<details open markdown="block">
+  <summary>目录</summary>
+  {: .text-delta }
+- TOC
+{:toc}
+</details>
 
 ---
 
-[查看英文版指南]({{ '/en/skills/technical-analyst/' | relative_url }}){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+## 1. 概述
+
+本技能用于对周线价格图表进行全面的技术分析。通过分析图表图像识别趋势、支撑与阻力位、均线关系、成交量形态,并为未来价格走势构建概率化的情景。所有分析均仅基于图表数据进行客观判断,不受新闻、基本面或市场情绪的影响。
+
+---
+
+## 2. 前提条件
+
+- 基于图像的图表分析
+- 推荐 Python 3.9+
+
+---
+
+## 3. 快速开始
+
+```bash
+Read: references/technical_analysis_framework.md
+```
+
+---
+
+## 4. 工作流
+
+### 步骤 1:接收图表图像
+
+当用户提供一张或多张待分析的周线图表图像时:
+
+1. 确认已收到全部图表图像
+2. 确定需要分析的图表数量
+3. 留意用户要求的任何特定关注点
+4. 按顺序依次分析图表,一次一张
+
+### 步骤 2:加载技术分析框架
+
+开始分析前,先阅读完整的技术分析方法论:
+
+```
+Read: references/technical_analysis_framework.md
+```
+
+该参考文档包含以下详细指导:
+- 趋势分析与分类
+- 支撑与阻力位识别
+- 均线解读
+- 成交量分析
+- 图表形态与K线分析
+- 情景构建与概率分配
+- 分析纪律与客观性
+
+### 步骤 3:系统化分析每张图表
+
+针对每张图表图像,按以下顺序进行系统化分析:
+
+#### 3.1 趋势分析
+- 识别趋势方向(上升趋势、下降趋势、横盘整理)
+- 评估趋势强度(强、中等、弱)
+- 注意趋势持续时间及潜在的力竭信号
+- 检查更高的高点/低点或更低的高点/低点形态
+
+#### 3.2 支撑与阻力分析
+- 标记重要的水平支撑位
+- 标记重要的水平阻力位
+- 识别趋势线支撑/阻力
+- 注意任何支撑-阻力角色反转
+- 评估多个支撑/阻力位重合形成的汇聚区
+
+#### 3.3 均线分析
+- 判断价格相对于 20 周、50 周、200 周均线的位置
+- 评估均线排列(多头排列、空头排列或中性配置)
+- 注意均线斜率(上升、下降、走平)
+- 识别任何近期或即将出现的均线交叉
+- 观察均线是否充当动态支撑或阻力
+
+#### 3.4 成交量分析
+- 评估整体成交量趋势(增加、减少、稳定)
+- 识别成交量异动及其发生背景(在支撑/阻力处、突破时)
+- 检查成交量与价格之间是确认还是背离
+- 注意任何成交量高潮或力竭形态
+
+#### 3.5 图表形态与价格行为
+- 识别任何反转形态(锤子线、射击之星、吞没形态等)
+- 识别任何延续形态(旗形、三角形等)
+- 注意重要的K线组合形态
+- 观察近期的突破或破位
+
+#### 3.6 综合观察结论
+- 把所有技术要素整合为连贯的当前评估
+- 识别影响该图表走势的最重要因素
+- 注意任何相互冲突的信号或不确定性
+- 确定将决定未来方向的关键价位
+
+### 步骤 4:构建概率化情景
+
+针对每张已分析的图表,为未来价格走势构建 2-4 个不同的情景:
+
+#### 情景结构
+
+每个情景必须包含:
+1. **情景名称**:清晰、描述性的标题(例如“多头情景:突破阻力位”)
+2. **概率估计**:基于技术因素的百分比可能性(所有情景的概率之和必须为 100%)
+3. **描述**:该情景的具体内容及其演变方式
+4. **支持因素**:支持该情景的技术证据(至少 2-3 项)
+5. **目标位**:若该情景实现,预期的价格水平
+6. **失效位**:会推翻该情景的具体价格水平
+
+#### 典型情景框架
+
+- **基准情景(40-60%)**:基于当前结构最可能出现的结果
+- **多头情景(20-40%)**:需要向上突破才能实现的乐观情景
+- **空头情景(20-40%)**:需要向下破位才能实现的悲观情景
+- **备选情景(5-15%)**:概率较低但技术上仍属合理的结果
+
+根据支持性技术因素的强弱调整概率。确保概率设定合理,且总和为 100%。
+
+### 步骤 5:生成分析报告
+
+针对每张已分析的图表,使用模板结构创建完整的 Markdown 报告:
+
+```
+Read and use as template: assets/analysis_template.md
+```
+
+报告必须包含以下所有部分:
+1. 图表概览
+2. 趋势分析
+3. 支撑与阻力位
+4. 均线分析
+5. 成交量分析
+6. 图表形态与价格行为
+7. 当前市场评估
+8. 情景分析(2-4 个情景及其概率)
+9. 总结
+10. 免责声明
+
+**文件命名规则**:将每份分析保存为 `[SYMBOL]_technical_analysis_[YYYY-MM-DD].md`
+
+示例:`SPY_technical_analysis_2025-11-02.md`
+
+### 步骤 6:对多张图表重复执行
+
+如果提供了多张图表:
+
+1. 对第一张图表完成完整的分析工作流(步骤 3-5)
+2. 保存该分析报告
+3. 进入下一张图表
+4. 重复执行,直到所有图表均已分析并完成文档记录
+
+不要批量分析。每完成并保存一份报告后,才进入下一张图表。
+
+---
+
+## 5. 资源
+
+**参考文档(References):**
+
+- `skills/technical-analyst/references/technical_analysis_framework.md`
