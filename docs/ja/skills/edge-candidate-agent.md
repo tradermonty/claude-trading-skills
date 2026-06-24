@@ -14,7 +14,7 @@ permalink: /ja/skills/edge-candidate-agent/
 EOD観測から米国株式ロングサイドのエッジリサーチチケットを生成・優先順位付けし、trade-strategy-pipeline Phase I 向けのパイプライン対応候補スペックをエクスポートします。仮説/アノマリーを再現可能なリサーチチケットに変換する場合、検証済みアイデアを `strategy.yaml` + `metadata.json` に変換する場合、またはパイプラインバックテスト実行前にインターフェース互換性（`edge-finder-candidate/v1`）をプリフライトチェックする場合に使用します。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">API不要</span>
+<span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/edge-candidate-agent.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/edge-candidate-agent){: .btn .fs-5 .mb-4 .mb-md-0 }

@@ -14,7 +14,7 @@ permalink: /en/skills/trader-memory-core/
 Persistent state layer that tracks investment theses from screening idea to closed position with postmortem. Bundles screener, analysis, position sizing, and portfolio management outputs into a single thesis object per trade idea.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-optional">FMP Optional</span>
+<span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/trader-memory-core.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/trader-memory-core){: .btn .fs-5 .mb-4 .mb-md-0 }

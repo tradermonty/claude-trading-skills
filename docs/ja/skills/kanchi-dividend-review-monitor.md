@@ -14,7 +14,7 @@ permalink: /ja/skills/kanchi-dividend-review-monitor/
 かんち式の強制レビュートリガー（T1-T5）で配当ポートフォリオを監視し、異常値をOK/WARN/REVIEWステートに変換します。自動売却は行いません。減配検知、8-Kガバナンス監視、配当安全性モニタリング、REVIEWキュー自動化、または定期的な配当リスクチェックを求められた際に使用します。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">API不要</span>
+<span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/kanchi-dividend-review-monitor.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/kanchi-dividend-review-monitor){: .btn .fs-5 .mb-4 .mb-md-0 }

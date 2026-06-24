@@ -15,7 +15,7 @@ generated: false
 持久化状态层,跟踪投资论点从筛选想法到平仓并完成事后复盘的全过程。把筛选器、分析、仓位测算与组合管理的输出,按每个交易想法打包进单一论点对象。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-optional">FMP 可选</span>
+<span class="badge badge-free">无需 API</span> <span class="badge badge-optional">FMP 可选</span>
 
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/trader-memory-core.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/trader-memory-core){: .btn .fs-5 .mb-4 .mb-md-0 }

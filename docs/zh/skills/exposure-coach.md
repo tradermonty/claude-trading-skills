@@ -15,7 +15,7 @@ generated: false
 整合宽度(breadth)、市场环境(regime)和资金流向分析类技能的信号,生成一页式的"市场姿态"(Market Posture)摘要,涵盖净敞口上限、成长股与价值股偏向、市场参与广度,以及"允许新建仓位"与"优先持有现金"之间的建议。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-optional">FMP 可选</span>
+<span class="badge badge-free">无需 API</span>
 
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/exposure-coach.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/exposure-coach){: .btn .fs-5 .mb-4 .mb-md-0 }

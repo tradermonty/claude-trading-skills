@@ -15,6 +15,8 @@ generated: false
 筛选 S&P 500 股票,识别 Mark Minervini 的波动率收缩形态(VCP)。找出处于 Stage 2 上升趋势、在突破枢轴点附近以收缩波动率形成紧致平台的股票。
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-api">FMP 必需</span>
+
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/vcp-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/vcp-screener){: .btn .fs-5 .mb-4 .mb-md-0 }
 

@@ -15,6 +15,8 @@ generated: false
 用 William O'Neil 经过验证的 CANSLIM 成长股方法论筛选美股。第 3 阶段实现全部 7 个分量,方法论覆盖率 100%。
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-api">FMP 必需</span>
+
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/canslim-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/canslim-screener){: .btn .fs-5 .mb-4 .mb-md-0 }
 

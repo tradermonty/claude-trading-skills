@@ -14,7 +14,7 @@ permalink: /ja/skills/kanchi-dividend-sop/
 かんち式配当投資を米国株向けの再現可能なオペレーティングプロシージャに変換します。かんち式配当投資、配当スクリーニング、配当成長の品質チェック、米国セクター向けPER×PBR適応、押し目指値注文プランニング、または1ページ銘柄メモの作成を求められた際に使用します。スクリーニング、深掘り、エントリープランニング、購入後のモニタリング頻度をカバーします。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">API不要</span>
+<span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/kanchi-dividend-sop.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/kanchi-dividend-sop){: .btn .fs-5 .mb-4 .mb-md-0 }

@@ -15,7 +15,7 @@ generated: false
 使用跨资产比率分析检测结构性宏观体制转换(1-2 年视角)。分析 RSP/SPY 集中度、收益率曲线、信用状况、规模因子、股债关系与板块轮动,识别集中(Concentration)、扩散(Broadening)、收缩(Contraction)、通胀(Inflationary)与过渡(Transitional)五种体制状态之间的切换。当用户询问宏观体制、市场体制变化、结构性轮动或长期市场定位时运行本技能。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-api">FMP 必需</span>
+<span class="badge badge-free">无需 API</span>
 
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/macro-regime-detector.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/macro-regime-detector){: .btn .fs-5 .mb-4 .mb-md-0 }

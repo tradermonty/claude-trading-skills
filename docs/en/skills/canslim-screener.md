@@ -14,6 +14,8 @@ permalink: /en/skills/canslim-screener/
 Screen US stocks using William O'Neil's proven CANSLIM growth stock methodology. Phase 3 implements all 7 components for 100% methodology coverage.
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-api">FMP Required</span>
+
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/canslim-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/canslim-screener){: .btn .fs-5 .mb-4 .mb-md-0 }
 

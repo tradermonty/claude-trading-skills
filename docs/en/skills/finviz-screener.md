@@ -14,6 +14,8 @@ permalink: /en/skills/finviz-screener/
 Translate natural language stock screening requests into FinViz screener filter URLs and open them in Chrome. Supports both Japanese and English input.
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-free">No API</span> <span class="badge badge-optional">FINVIZ Optional</span>
+
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/finviz-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/finviz-screener){: .btn .fs-5 .mb-4 .mb-md-0 }
 

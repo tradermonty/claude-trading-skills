@@ -14,7 +14,7 @@ permalink: /ja/skills/trader-memory-core/
 投資仮説のライフサイクルを永続的に追跡するステート層。スクリーニングから決済・振り返りまで、各スキルの出力を1つの thesis オブジェクトに統合します。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-optional">FMP任意</span>
+<span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/trader-memory-core.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/trader-memory-core){: .btn .fs-5 .mb-4 .mb-md-0 }

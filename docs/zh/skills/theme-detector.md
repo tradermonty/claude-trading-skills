@@ -15,6 +15,8 @@ generated: false
 用三维评分(主题热度、生命周期成熟度、置信度)跨板块检测并排序趋势中的市场主题。同时识别多头与空头主题。
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-free">无需 API</span> <span class="badge badge-optional">FMP 可选</span> <span class="badge badge-optional">FINVIZ 可选</span>
+
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/theme-detector.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/theme-detector){: .btn .fs-5 .mb-4 .mb-md-0 }
 

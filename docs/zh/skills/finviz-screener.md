@@ -15,6 +15,8 @@ generated: false
 把自然语言的选股请求转换为 FinViz 筛选器过滤 URL,并在 Chrome 中打开。支持中文与英文输入。
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-free">无需 API</span> <span class="badge badge-optional">FINVIZ 可选</span>
+
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/finviz-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/finviz-screener){: .btn .fs-5 .mb-4 .mb-md-0 }
 

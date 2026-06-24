@@ -14,6 +14,8 @@ permalink: /en/skills/theme-detector/
 Detect and rank trending market themes across sectors using 3-dimensional scoring: Theme Heat, Lifecycle Maturity, and Confidence. Identifies both bullish and bearish themes.
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span> <span class="badge badge-optional">FINVIZ Optional</span>
+
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/theme-detector.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/theme-detector){: .btn .fs-5 .mb-4 .mb-md-0 }
 

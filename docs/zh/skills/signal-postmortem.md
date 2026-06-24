@@ -15,7 +15,7 @@ generated: false
 记录并分析由 edge 流水线及其他技能生成的信号的交易后结果。跟踪假阳性、错失机会与体制错配,并把结果反馈到 edge-signal-aggregator 的权重与技能改进待办。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-optional">FMP 可选</span>
+<span class="badge badge-free">无需 API</span>
 
 [下载技能包 (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/signal-postmortem.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [在 GitHub 查看源码](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/signal-postmortem){: .btn .fs-5 .mb-4 .mb-md-0 }

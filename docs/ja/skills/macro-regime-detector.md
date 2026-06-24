@@ -14,7 +14,7 @@ permalink: /ja/skills/macro-regime-detector/
 クロスアセット比率分析を用いて、構造的なマクロレジーム転換（1〜2年の期間）を検出します。RSP/SPY集中度、イールドカーブ、信用環境、サイズファクター、株式-債券関係、セクターローテーションを分析し、Concentration、Broadening、Contraction、Inflationary、Transitionalの各状態間のレジームシフトを特定します。マクロレジーム、市場レジーム変化、構造的ローテーション、長期的な市場ポジショニングについて聞かれた際に実行します。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-api">FMP必須</span>
+<span class="badge badge-free">API不要</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/macro-regime-detector.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/macro-regime-detector){: .btn .fs-5 .mb-4 .mb-md-0 }
