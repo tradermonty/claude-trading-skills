@@ -39,7 +39,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(f"**Latest Data:** {latest} ({days_old} days old{lm_str})")
     lines.append(
         "**Live Dashboard:** [Interactive Chart]"
-        "(https://tradermonty.github.io/market-breadth-analysis/)"
+        "(https://sydcurie.github.io/market-breadth-analysis/)"
     )
     lines.append("")
 

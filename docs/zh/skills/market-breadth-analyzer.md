@@ -219,7 +219,7 @@ S&P 500 的价格走势与市场宽度之间存在背离吗?
 
 **原因:** CSV 中的最新行超过 5 天,通常是因为 TraderMonty 的 GitHub Actions 流水线未运行。
 
-**修复:** 这是警告而非错误。分析仍会使用最近可用数据运行。到[源仓库](https://github.com/tradermonty/market-breadth-analysis)查看更新状态。市场假期期间出现过期是正常的。
+**修复:** 这是警告而非错误。分析仍会使用最近可用数据运行。到[源仓库](https://github.com/sydcurie/market-breadth-analysis)查看更新状态。市场假期期间出现过期是正常的。
 
 ### “Component X excluded (insufficient data)” 消息
 
@@ -231,7 +231,7 @@ S&P 500 的价格走势与市场宽度之间存在背离吗?
 
 **原因:** 无法访问 GitHub Pages(网络问题、企业防火墙,或托管服务临时宕机)。
 
-**修复:** 检查网络连接。尝试在浏览器中直接打开数据 URL:`https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv`。若被防火墙拦截,可手动下载 CSV 并传入其本地路径(脚本当前预期 URL;你可能需要修改获取逻辑以支持本地文件)。
+**修复:** 检查网络连接。尝试在浏览器中直接打开数据 URL:`https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv`。若被防火墙拦截,可手动下载 CSV 并传入其本地路径(脚本当前预期 URL;你可能需要修改获取逻辑以支持本地文件)。
 
 ### 市场上涨,评分却意外偏低
 

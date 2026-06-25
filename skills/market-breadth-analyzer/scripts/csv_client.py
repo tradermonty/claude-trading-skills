@@ -2,12 +2,12 @@
 """
 Market Breadth Analyzer - CSV Data Client
 
-Fetches and parses market breadth CSV data from TraderMonty's public GitHub Pages.
+Fetches and parses market breadth CSV data from a public GitHub Pages host.
 No API key required.
 
 Data sources:
-  Detail:  https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv
-  Summary: https://tradermonty.github.io/market-breadth-analysis/market_breadth_summary.csv
+  Detail:  https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv
+  Summary: https://sydcurie.github.io/market-breadth-analysis/market_breadth_summary.csv
 """
 
 import csv
@@ -18,9 +18,9 @@ from typing import Optional
 
 import requests
 
-DEFAULT_DETAIL_URL = "https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv"
+DEFAULT_DETAIL_URL = "https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv"
 DEFAULT_SUMMARY_URL = (
-    "https://tradermonty.github.io/market-breadth-analysis/market_breadth_summary.csv"
+    "https://sydcurie.github.io/market-breadth-analysis/market_breadth_summary.csv"
 )
 
 DETAIL_COLUMNS = {

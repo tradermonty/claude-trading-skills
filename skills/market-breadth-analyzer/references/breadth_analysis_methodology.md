@@ -225,10 +225,10 @@ The analyzer maintains a rolling history of composite scores to detect trend dir
 
 ## Live Resources
 
-- **Interactive Dashboard:** https://tradermonty.github.io/market-breadth-analysis/
-- **Data CSV:** https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv
-- **Summary CSV:** https://tradermonty.github.io/market-breadth-analysis/market_breadth_summary.csv
-- **Source Repository:** https://github.com/tradermonty/market-breadth-analysis
+- **Interactive Dashboard:** https://sydcurie.github.io/market-breadth-analysis/
+- **Data CSV:** https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv
+- **Summary CSV:** https://sydcurie.github.io/market-breadth-analysis/market_breadth_summary.csv
+- **Source Repository:** https://github.com/sydcurie/market-breadth-analysis
 
 Data is automatically updated twice daily via GitHub Actions. CSV files are freely accessible without API keys.
 

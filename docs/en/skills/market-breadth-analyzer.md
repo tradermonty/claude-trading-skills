@@ -218,7 +218,7 @@ After execution, the script produces two files and prints a summary to the conso
 
 **Cause:** The latest row in the CSV is more than 5 days old, typically because TraderMonty's GitHub Actions pipeline has not run.
 
-**Fix:** This is a warning, not an error. The analysis still runs using the most recent available data. Check the [source repository](https://github.com/tradermonty/market-breadth-analysis) for update status. During market holidays, staleness is expected.
+**Fix:** This is a warning, not an error. The analysis still runs using the most recent available data. Check the [source repository](https://github.com/sydcurie/market-breadth-analysis) for update status. During market holidays, staleness is expected.
 
 ### "Component X excluded (insufficient data)" message
 
@@ -230,7 +230,7 @@ After execution, the script produces two files and prints a summary to the conso
 
 **Cause:** Unable to reach GitHub Pages (network issues, corporate firewall, or the hosting service is temporarily down).
 
-**Fix:** Verify your internet connection. Try opening the data URL directly in a browser: `https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv`. If blocked by a firewall, download the CSV manually and pass its local path (the script currently expects URLs; you may need to modify the fetch logic for local files).
+**Fix:** Verify your internet connection. Try opening the data URL directly in a browser: `https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv`. If blocked by a firewall, download the CSV manually and pass its local path (the script currently expects URLs; you may need to modify the fetch logic for local files).
 
 ### Score seems unexpectedly low despite market rally
 
