@@ -5,7 +5,7 @@ Theme Detector - Uptrend Ratio Client
 Fetches sector uptrend ratio data from Monty's Uptrend Ratio Dashboard
 (GitHub CSV). No API key required.
 
-Data Source: https://github.com/tradermonty/uptrend-dashboard
+Data Source: https://github.com/sydcurie/uptrend-dashboard
 """
 
 import csv
@@ -23,11 +23,11 @@ except ImportError:
 
 
 TIMESERIES_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/"
     "main/data/uptrend_ratio_timeseries.csv"
 )
 SECTOR_SUMMARY_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/main/data/sector_summary.csv"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/main/data/sector_summary.csv"
 )
 
 # Map FINVIZ sector names to uptrend worksheet names

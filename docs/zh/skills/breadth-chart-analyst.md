@@ -114,9 +114,9 @@ python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py
 
 | 来源 | URL | 提供内容 |
 |--------|-----|----------|
-| Market Breadth | `tradermonty.github.io/.../market_breadth_data.csv` | 200 日均线、8 日均线、趋势、死叉 |
-| Uptrend Ratio | `github.com/tradermonty/uptrend-dashboard/.../uptrend_ratio_timeseries.csv` | 比率、10 日均线、斜率、趋势、颜色标记 |
-| Sector Summary | `github.com/tradermonty/uptrend-dashboard/.../sector_summary.csv` | 各板块比率、趋势、状态 |
+| Market Breadth | `sydcurie.github.io/.../market_breadth_data.csv` | 200 日均线、8 日均线、趋势、死叉 |
+| Uptrend Ratio | `github.com/sydcurie/uptrend-dashboard/.../uptrend_ratio_timeseries.csv` | 比率、10 日均线、斜率、趋势、颜色标记 |
+| Sector Summary | `github.com/sydcurie/uptrend-dashboard/.../sector_summary.csv` | 各板块比率、趋势、状态 |
 
 **数据来源优先级:**
 

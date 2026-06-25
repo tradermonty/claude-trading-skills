@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sector rotation analysis from TraderMonty's public CSV data.
+"""Sector rotation analysis from a public CSV data host.
 
 .. note:: Uses ``from __future__ import annotations`` for Python 3.9 compat.
 
@@ -8,7 +8,7 @@ check) from GitHub, then produces sector rankings, risk-regime scoring,
 overbought/oversold flags, and market-cycle phase estimation.
 
 Data Source:
-  https://github.com/tradermonty/uptrend-dashboard
+  https://github.com/sydcurie/uptrend-dashboard
 
 Dependencies: stdlib only (urllib, csv, json, argparse, dataclasses).
 """
@@ -31,10 +31,10 @@ from datetime import date, datetime
 # ---------------------------------------------------------------------------
 
 SECTOR_CSV_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/main/data/sector_summary.csv"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/main/data/sector_summary.csv"
 )
 UPTREND_CSV_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard"
     "/main/data/uptrend_ratio_timeseries.csv"
 )
 

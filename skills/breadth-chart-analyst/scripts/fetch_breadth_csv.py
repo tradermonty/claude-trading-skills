@@ -6,9 +6,9 @@ PRIMARY data source for Breadth analysis, replacing OpenCV image detection.
 Uses only stdlib (urllib.request + csv) -- no external dependencies.
 
 Data Sources:
-  - Market Breadth: tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv
-  - Uptrend Ratio:  raw.githubusercontent.com/tradermonty/uptrend-dashboard/main/data/uptrend_ratio_timeseries.csv
-  - Sector Summary: raw.githubusercontent.com/tradermonty/uptrend-dashboard/main/data/sector_summary.csv
+  - Market Breadth: sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv
+  - Uptrend Ratio:  raw.githubusercontent.com/sydcurie/uptrend-dashboard/main/data/uptrend_ratio_timeseries.csv
+  - Sector Summary: raw.githubusercontent.com/sydcurie/uptrend-dashboard/main/data/sector_summary.csv
 """
 
 import argparse
@@ -22,13 +22,13 @@ from typing import Optional
 
 # --- Constants ---
 
-BREADTH_CSV_URL = "https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv"
+BREADTH_CSV_URL = "https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv"
 UPTREND_CSV_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/"
     "main/data/uptrend_ratio_timeseries.csv"
 )
 SECTOR_CSV_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/main/data/sector_summary.csv"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/main/data/sector_summary.csv"
 )
 
 # --- Threshold classifications ---

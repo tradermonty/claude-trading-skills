@@ -102,11 +102,11 @@ python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py
 - Image analysis is SUPPLEMENTARY only (for visual trend context)
 
 **Data Sources**:
-1. **Market Breadth**: `tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv`
+1. **Market Breadth**: `sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv`
    - Provides: 200-Day MA, 8-Day MA, Trend, Dead Cross status
-2. **Uptrend Ratio**: `tradermonty/uptrend-dashboard/data/uptrend_ratio_timeseries.csv`
+2. **Uptrend Ratio**: `sydcurie/uptrend-dashboard/data/uptrend_ratio_timeseries.csv`
    - Provides: Current ratio, 10MA, slope, trend (UP/DOWN), color (GREEN/RED)
-3. **Sector Summary**: `tradermonty/uptrend-dashboard/data/sector_summary.csv`
+3. **Sector Summary**: `sydcurie/uptrend-dashboard/data/sector_summary.csv`
    - Provides: Per-sector ratio, trend, status (overbought/oversold)
 
 **Data Source Priority**:

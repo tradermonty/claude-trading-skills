@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Breadth CSV Client - Fetch 200DMA breadth from TraderMonty's public CSV.
+Breadth CSV Client - Fetch 200DMA breadth from a public CSV host.
 
 Lightweight client for auto-fetching S&P 500 breadth data (% above 200DMA)
 from the market-breadth-analysis GitHub Pages CSV. No API key required.
 
 Data source:
-  https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv
+  https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv
 """
 
 import csv
@@ -16,7 +16,7 @@ from typing import Optional
 
 import requests
 
-DEFAULT_DETAIL_URL = "https://tradermonty.github.io/market-breadth-analysis/market_breadth_data.csv"
+DEFAULT_DETAIL_URL = "https://sydcurie.github.io/market-breadth-analysis/market_breadth_data.csv"
 
 TIMEOUT = 30
 

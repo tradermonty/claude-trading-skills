@@ -113,9 +113,9 @@ python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py
 
 | Source | URL | Provides |
 |--------|-----|----------|
-| Market Breadth | `tradermonty.github.io/.../market_breadth_data.csv` | 200-Day MA, 8-Day MA, Trend, Dead Cross |
-| Uptrend Ratio | `github.com/tradermonty/uptrend-dashboard/.../uptrend_ratio_timeseries.csv` | Ratio, 10MA, slope, trend, color |
-| Sector Summary | `github.com/tradermonty/uptrend-dashboard/.../sector_summary.csv` | Per-sector ratio, trend, status |
+| Market Breadth | `sydcurie.github.io/.../market_breadth_data.csv` | 200-Day MA, 8-Day MA, Trend, Dead Cross |
+| Uptrend Ratio | `github.com/sydcurie/uptrend-dashboard/.../uptrend_ratio_timeseries.csv` | Ratio, 10MA, slope, trend, color |
+| Sector Summary | `github.com/sydcurie/uptrend-dashboard/.../sector_summary.csv` | Per-sector ratio, trend, status |
 
 **Data Source Priority:**
 

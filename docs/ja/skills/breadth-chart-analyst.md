@@ -114,9 +114,9 @@ python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py
 
 | ソース | URL | 提供データ |
 |--------|-----|----------|
-| マーケットブレッドス | `tradermonty.github.io/.../market_breadth_data.csv` | 200日MA、8日MA、トレンド、デッドクロス |
-| アップトレンド比率 | `github.com/tradermonty/uptrend-dashboard/.../uptrend_ratio_timeseries.csv` | 比率、10MA、傾き、トレンド、色 |
-| セクターサマリー | `github.com/tradermonty/uptrend-dashboard/.../sector_summary.csv` | セクター別比率、トレンド、ステータス |
+| マーケットブレッドス | `sydcurie.github.io/.../market_breadth_data.csv` | 200日MA、8日MA、トレンド、デッドクロス |
+| アップトレンド比率 | `github.com/sydcurie/uptrend-dashboard/.../uptrend_ratio_timeseries.csv` | 比率、10MA、傾き、トレンド、色 |
+| セクターサマリー | `github.com/sydcurie/uptrend-dashboard/.../sector_summary.csv` | セクター別比率、トレンド、ステータス |
 
 **データソース優先順位：**
 
