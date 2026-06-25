@@ -4,7 +4,7 @@
 
 Monty's Uptrend Ratio Dashboard tracks approximately 2,800 US stocks across 11 GICS sectors. For each stock, it determines whether the stock is in an "uptrend" based on the criteria below. The dashboard publishes daily CSV data on GitHub.
 
-**GitHub Repository:** `tradermonty/uptrend-dashboard`
+**GitHub Repository:** `sydcurie/uptrend-dashboard`
 **Live Dashboard:** https://uptrend-dashboard.streamlit.app/
 
 ### Uptrend Definition (Finviz Elite Screener)

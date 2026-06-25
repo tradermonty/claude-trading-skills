@@ -18,11 +18,11 @@ from typing import Optional
 import requests
 
 TIMESERIES_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/"
     "main/data/uptrend_ratio_timeseries.csv"
 )
 SECTOR_SUMMARY_URL = (
-    "https://raw.githubusercontent.com/tradermonty/uptrend-dashboard/main/data/sector_summary.csv"
+    "https://raw.githubusercontent.com/sydcurie/uptrend-dashboard/main/data/sector_summary.csv"
 )
 
 
