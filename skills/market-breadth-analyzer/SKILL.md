@@ -28,6 +28,13 @@ Quantify market breadth health using a data-driven 6-component scoring system (0
 - ブレッドス指標に基づくエクスポージャー判断
 - 市場の健康度をデータで確認したい
 
+**Simplified Chinese:**
+- 用户问"现在的上涨有广度吗?"或"市场宽度健康吗?"
+- 用户想评估市场参与率
+- 用户询问涨跌家数指标或宽度突破(breadth thrust)
+- 用户想知道市场是否在收窄(参与股票数量减少)
+- 用户基于市场宽度状况询问股票敞口水平
+
 ## Output Language
 
 Default output (Markdown report headings, narrative, and table labels) is English, per this repository's convention. If the user is communicating in Chinese, or explicitly requests a Chinese report, generate the Markdown report in Simplified Chinese instead. Keep the following unchanged regardless of output language:

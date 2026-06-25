@@ -27,6 +27,13 @@ Unlike the Market Top Detector (API-based risk scorer), this skill uses free CSV
 - ブレドス分析に基づくエクスポージャーガイダンスが欲しい
 - Montyのアップトレンドダッシュボードについて質問
 
+**Simplified Chinese:**
+- 用户问"市场宽度健康吗?"或"这波上涨广度如何?"
+- 用户想评估各板块的上升趋势比率
+- 用户询问市场参与度或宽度状况
+- 用户需要基于宽度分析的敞口建议
+- 用户提到 Monty 的 Uptrend Dashboard 或上升趋势比率
+
 ## Output Language
 
 Default output (Markdown report headings, narrative, and table labels) is English, per this repository's convention. If the user is communicating in Chinese, or explicitly requests a Chinese report, generate the Markdown report in Simplified Chinese instead. Keep the following unchanged regardless of output language:

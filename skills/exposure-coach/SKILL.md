@@ -11,11 +11,19 @@ Exposure Coach synthesizes outputs from market-breadth-analyzer, uptrend-analyze
 
 ## When to Use
 
+**English:**
 - Before initiating any new stock positions to determine appropriate capital commitment
 - At the start of each trading week to calibrate portfolio exposure
 - When multiple market signals conflict and a unified posture is needed
 - After significant macro or market events to reassess exposure ceiling
 - When transitioning between market regimes (broadening, concentration, contraction)
+
+**Simplified Chinese:**
+- 在新建任何个股仓位之前,需要确定合适的资金投入比例
+- 每个交易周开始时,校准组合的整体敞口
+- 多个市场信号互相矛盾,需要一个统一的姿态判断
+- 重大宏观或市场事件之后,重新评估敞口上限
+- 在不同市场体制(扩散、集中、收缩)之间切换时
 
 ## Output Language
 
