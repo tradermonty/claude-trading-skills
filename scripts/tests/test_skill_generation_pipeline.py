@@ -1109,6 +1109,28 @@ def test_extract_failed_hooks(pipeline_module):
     assert "codespell" not in result
 
 
+def test_extract_failed_hooks_multiword_name(pipeline_module):
+    """Multi-word hook names are captured in full (not truncated to last word)."""
+    output = "Detect absolute paths with usernames.................................Failed\n"
+    result = pipeline_module._extract_failed_hooks(output)
+    assert result == "Detect absolute paths with usernames"
+
+
+def test_extract_failed_hooks_ignores_output_lines(pipeline_module):
+    """Hook *output* lines that merely contain 'Failed' are not mistaken for hooks.
+
+    Regression for the garbled "folder, only)" hook names seen in the logs: the
+    status must sit immediately after the dot run, so prose containing 'Failed'
+    elsewhere is ignored.
+    """
+    output = (
+        "ruff.................................................................Failed\n"
+        "  some check ran........ 2 files scanned, 0 Failed in folder, only staged\n"
+    )
+    result = pipeline_module._extract_failed_hooks(output)
+    assert result == "ruff"
+
+
 # -- Daily flow: existing PR sets pr_open --
 
 
@@ -1318,3 +1340,61 @@ def test_register_testpaths_empty_tests_dir(pipeline_module, tmp_path: Path):
     result = pipeline_module.register_testpaths(tmp_path, "empty-tests")
 
     assert result is False
+
+
+def test_create_skill_pr_uses_unsafe_fixes(pipeline_module, tmp_path: Path):
+    """Auto-fix must pass --unsafe-fixes so rules like UP007 are actually fixed."""
+    call_log = []
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(str(c) for c in cmd)
+        call_log.append(cmd_str)
+        if "diff" in cmd_str and "--cached" in cmd_str:
+            return CompletedProcess(cmd, 0, "skills/x/SKILL.md\n", "")
+        if "gh" in cmd_str and "pr" in cmd_str and "create" in cmd_str:
+            return CompletedProcess(cmd, 0, "https://github.com/test/pr/9", "")
+        return CompletedProcess(cmd, 0, "", "")
+
+    # ruff + gh present; pre-commit absent so the verify loop is skipped.
+    def fake_which(name):
+        return None if name == "pre-commit" else f"/usr/bin/{name}"
+
+    with (
+        patch.object(pipeline_module.subprocess, "run", fake_run),
+        patch.object(pipeline_module.shutil, "which", fake_which),
+    ):
+        pipeline_module.create_skill_pr(
+            tmp_path, "x", {"id": "x", "title": "X"}, {"auto_review": {"score": 90}}, "feat/x"
+        )
+
+    assert any("ruff check --fix --unsafe-fixes" in c for c in call_log)
+
+
+def test_rollback_restores_tracked_despite_untracked_pathspec(pipeline_module, tmp_path: Path):
+    """A failed checkout of the untracked skill dir must not block other restores.
+
+    Asserts the new per-path behavior: tracked paths (e.g. index.md) are still
+    restored individually, and the final clean-tree assertion force-cleans any
+    leftover (here index.md reported still dirty -> git restore issued).
+    """
+    call_log = []
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(str(c) for c in cmd)
+        call_log.append(cmd_str)
+        # The brand-new untracked skill dir has no tracked version -> checkout fails.
+        if cmd[:3] == ["git", "checkout", "--"] and cmd[-1] == "skills/x/":
+            return CompletedProcess(cmd, 1, "", "error: pathspec 'skills/x/' did not match")
+        # Clean-tree assertion: report index.md still dirty to exercise force-cleanup.
+        if "status" in cmd_str and "--porcelain" in cmd_str:
+            return CompletedProcess(cmd, 0, " M docs/en/skills/index.md\n", "")
+        return CompletedProcess(cmd, 0, "", "")
+
+    with patch.object(pipeline_module.subprocess, "run", fake_run):
+        pipeline_module._rollback_skill(tmp_path, "x", "feat/x")
+
+    # Per-path restore reached index.md even though skills/x/ checkout failed first.
+    assert "git checkout -- docs/en/skills/index.md" in call_log
+    # Final clean-tree assertion ran and force-restored the leftover tracked file.
+    assert any("status --porcelain" in c for c in call_log)
+    assert "git restore -- docs/en/skills/index.md" in call_log

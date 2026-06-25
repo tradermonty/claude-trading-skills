@@ -649,15 +649,26 @@ def _get_staged_files(project_root: Path, skill_name: str) -> list[str]:
     return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
 
 
+# pre-commit result line: "<hook name>....<dots>....<status>" with the status
+# (Passed/Failed/Skipped) immediately after a run of >=4 dots.
+_RESULT_LINE_RE = re.compile(r"^(?P<name>.+?)\.{4,}(?P<status>Passed|Failed|Skipped)\b")
+
+
 def _extract_failed_hooks(output: str) -> str:
-    """Extract hook names that show 'Failed' from pre-commit output."""
+    """Extract hook names that show 'Failed' from pre-commit output.
+
+    pre-commit result lines look like ``<hook name>....<dots>....<status>`` where
+    status is Passed/Failed/Skipped immediately after the dot run. Anchoring on
+    that shape preserves multi-word hook names (e.g. "Detect absolute paths with
+    usernames") and ignores hook *output* lines that merely contain the word
+    "Failed" (e.g. "... 0 Failed"), which the old word-splitting heuristic
+    mis-captured (the "folder, only)" garbage seen in logs).
+    """
     failed = []
     for line in output.splitlines():
-        # pre-commit output format: "hook-name...Failed" or "hook-name...Passed"
-        if "Failed" in line:
-            hook_name = line.split("...")[0].strip().split()[-1] if "..." in line else ""
-            if hook_name:
-                failed.append(hook_name)
+        match = _RESULT_LINE_RE.match(line)
+        if match and match.group("status") == "Failed":
+            failed.append(match.group("name").strip())
     return ", ".join(failed) if failed else ""
 
 
@@ -1058,24 +1069,19 @@ def _rollback_skill(project_root: Path, skill_name: str, branch_name: str) -> No
         capture_output=True,
         check=False,
     )
-    # Restore modified tracked files
-    restore = subprocess.run(
-        ["git", "checkout", "--"] + rollback_paths,
-        cwd=project_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    # Fallback: git restore for files that git checkout missed
-    if restore.returncode != 0:
-        logger.info("git checkout restore failed; trying git restore fallback.")
+    # Restore modified tracked files ONE PATH AT A TIME. A batched
+    # "git checkout -- <all paths>" aborts on the first invalid pathspec (e.g. a
+    # brand-new untracked skill dir with no tracked version), leaving the other
+    # tracked paths — notably docs/{en,ja}/skills/index.md — dirty and blocking
+    # the next day's clean-tree gate. Per-path restore is independent.
+    for path in rollback_paths:
         subprocess.run(
-            ["git", "restore", "--"] + rollback_paths,
+            ["git", "checkout", "--", path],
             cwd=project_root,
             capture_output=True,
             check=False,
         )
-    # Remove untracked files/dirs under the skill and generated docs
+    # Remove untracked files/dirs (the new skill + its generated doc pages)
     for clean_path in [
         f"skills/{skill_name}/",
         f"docs/en/skills/{skill_name}.md",
@@ -1087,22 +1093,39 @@ def _rollback_skill(project_root: Path, skill_name: str, branch_name: str) -> No
             capture_output=True,
             check=False,
         )
-    # Verify pyproject.toml is clean
+    # Assert a clean tree across ALL rollback paths; force-restore tracked files
+    # and force-clean untracked ones that survived, and log leftovers by name so
+    # a stuck rollback is diagnosable rather than silently dirtying the tree.
     verify = subprocess.run(
-        ["git", "diff", "--name-only", "--", "pyproject.toml"],
+        ["git", "status", "--porcelain", "--"] + rollback_paths,
         cwd=project_root,
         capture_output=True,
         text=True,
         check=False,
     )
-    if verify.stdout.strip():
-        logger.warning("pyproject.toml still dirty after rollback; forcing restore.")
-        subprocess.run(
-            ["git", "restore", "pyproject.toml"],
-            cwd=project_root,
-            capture_output=True,
-            check=False,
+    leftover = [ln for ln in verify.stdout.splitlines() if ln.strip()]
+    if leftover:
+        logger.warning(
+            "Rollback left %d dirty path(s); forcing cleanup: %s",
+            len(leftover),
+            ", ".join(ln[3:] for ln in leftover),
         )
+        for ln in leftover:
+            status, path = ln[:2], ln[3:].strip().strip('"')
+            if "?" in status:
+                subprocess.run(
+                    ["git", "clean", "-fd", "--", path],
+                    cwd=project_root,
+                    capture_output=True,
+                    check=False,
+                )
+            else:
+                subprocess.run(
+                    ["git", "restore", "--", path],
+                    cwd=project_root,
+                    capture_output=True,
+                    check=False,
+                )
     # Return to main
     subprocess.run(
         ["git", "checkout", "main"],
@@ -1133,10 +1156,14 @@ def create_skill_pr(
     if not shutil.which("gh"):
         logger.error("gh CLI not found; cannot create PR.")
         return None
-    # Auto-fix lint issues
+    # Auto-fix lint issues. --unsafe-fixes is required for rules ruff flags but
+    # won't safe-fix (e.g. UP007 Optional[X] -> X | None); without it these
+    # survive every pre-commit attempt and the skill never opens a PR. ruff only
+    # flags such rules when applying them is runtime-safe, and the result is
+    # re-verified by pre-commit + human PR review + CI.
     if shutil.which("ruff"):
         subprocess.run(
-            ["ruff", "check", "--fix", f"skills/{skill_name}/"],
+            ["ruff", "check", "--fix", "--unsafe-fixes", f"skills/{skill_name}/"],
             cwd=project_root,
             capture_output=True,
             check=False,
@@ -1237,7 +1264,7 @@ def create_skill_pr(
                     "pre-commit still failing after %d attempts. Failed hooks: %s. Output: %s",
                     max_precommit_attempts,
                     failed_hooks,
-                    pc_output.strip()[:500],
+                    pc_output.strip()[:2000],
                 )
                 return None
             restage = subprocess.run(
