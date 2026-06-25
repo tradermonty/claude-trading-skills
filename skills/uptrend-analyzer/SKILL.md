@@ -27,6 +27,15 @@ Unlike the Market Top Detector (API-based risk scorer), this skill uses free CSV
 - ブレドス分析に基づくエクスポージャーガイダンスが欲しい
 - Montyのアップトレンドダッシュボードについて質問
 
+## Output Language
+
+Default output (Markdown report headings, narrative, and table labels) is English, per this repository's convention. If the user is communicating in Chinese, or explicitly requests a Chinese report, generate the Markdown report in Simplified Chinese instead. Keep the following unchanged regardless of output language:
+- JSON field names/keys in the JSON report
+- File names (e.g. `uptrend_analysis_YYYY-MM-DD_HHMMSS.md`)
+- CLI flags, script paths, and code identifiers
+
+The JSON report schema does not change with output language -- only the Markdown narrative is localized.
+
 ## Prerequisites
 
 - **Python 3.9+** with the `requests` library (CSV parsing uses the stdlib `csv`/`io` modules)

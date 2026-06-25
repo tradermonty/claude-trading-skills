@@ -17,6 +17,15 @@ Exposure Coach synthesizes outputs from market-breadth-analyzer, uptrend-analyze
 - After significant macro or market events to reassess exposure ceiling
 - When transitioning between market regimes (broadening, concentration, contraction)
 
+## Output Language
+
+Default output (Markdown report headings, narrative, and table labels) is English, per this repository's convention. If the user is communicating in Chinese, or explicitly requests a Chinese report, generate the Markdown report in Simplified Chinese instead. Keep the following unchanged regardless of output language:
+- JSON field names/keys in the JSON report (`exposure_ceiling_pct`, `bias`, `participation`, `recommendation`, `confidence`, `component_scores`, etc.)
+- File names (e.g. `exposure_posture_YYYY-MM-DD_HHMMSS.md`)
+- CLI flags, script paths, and code identifiers
+
+The JSON report schema does not change with output language -- only the Markdown narrative is localized.
+
 ## Prerequisites
 
 - Python 3.9+
