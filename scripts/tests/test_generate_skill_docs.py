@@ -106,6 +106,7 @@ def tmp_claude_md(tmp_path):
         | **Free Skill** | ❌ Not required | ❌ Not used | ❌ Not used | No API needed |
         | **Optional Skill** | 🟡 Optional | 🟡 Optional (Recommended) | ❌ Not used | Both optional |
         | **Alpaca Skill** | ❌ Not required | ❌ Not used | ✅ Required | Needs Alpaca |
+        | **Stockbee 20% Study** | ✅ Required | ❌ Not used | ❌ Not used | FMP live data |
 
         ### Running Helper Scripts
 
@@ -180,6 +181,11 @@ class TestParseApiRequirements:
         reqs = parse_api_requirements(tmp_claude_md)
         assert "alpaca-skill" in reqs
         assert "Required" in reqs["alpaca-skill"]["alpaca"]
+
+    def test_percent_display_name_adds_pct_slug_alias(self, tmp_claude_md):
+        reqs = parse_api_requirements(tmp_claude_md)
+        assert "stockbee-20pct-study" in reqs
+        assert "Required" in reqs["stockbee-20pct-study"]["fmp"]
 
 
 class TestParseCLIExamples:

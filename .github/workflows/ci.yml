@@ -138,6 +138,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test stockbee-20pct-study
+        run: >
+          python -m pytest skills/stockbee-20pct-study/scripts/tests/ -v
+          --cov=skills/stockbee-20pct-study/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test stockbee-momentum-burst-screener
         run: >
           python -m pytest skills/stockbee-momentum-burst-screener/scripts/tests/ -v

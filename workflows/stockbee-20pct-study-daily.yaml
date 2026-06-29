@@ -1,0 +1,119 @@
+schema_version: 1
+id: stockbee-20pct-study-daily
+display_name: Stockbee 20% Study Daily
+cadence: daily
+estimated_minutes: 30
+target_users:
+  - part-time-swing-trader
+  - growth-investor
+  - strategy-researcher
+difficulty: advanced
+api_profile: mixed
+
+when_to_run: >-
+  Run after the US market close, or during historical research backfills, to
+  identify +20%/-20% movers, classify event context, update matured outcomes,
+  and accumulate a model book of explosive market moves.
+when_not_to_run: >-
+  Do not use as a buy/sell signal workflow or automatic execution system. Do
+  not promote new rules from small samples, current-only universes, or events
+  without survivorship-bias and data-quality notes.
+
+required_skills:
+  - stockbee-20pct-study
+optional_skills:
+  - trader-memory-core
+  - edge-candidate-agent
+  - edge-hint-extractor
+  - stockbee-episodic-pivot-analyzer
+  - theme-detector
+  - backtest-expert
+
+artifacts:
+  - id: twenty_pct_mover_events
+    produced_by_step: 1
+    required: true
+  - id: classified_event_study
+    produced_by_step: 2
+    required: true
+  - id: matured_event_outcomes
+    produced_by_step: 3
+    required: true
+  - id: twenty_pct_cohort_summary
+    produced_by_step: 4
+    required: true
+    downstream_hints:
+      - monthly-performance-review
+  - id: edge_hints_yaml
+    produced_by_step: 4
+    required: false
+    downstream_hints:
+      - monthly-performance-review
+  - id: accepted_lessons_log
+    produced_by_step: 5
+    required: false
+    downstream_hints:
+      - monthly-performance-review
+
+steps:
+  - step: 1
+    name: Scan daily +20% and -20% movers
+    skill: stockbee-20pct-study
+    produces:
+      - twenty_pct_mover_events
+    decision_gate: false
+
+  - step: 2
+    name: Classify catalyst, chart context, theme cluster, and risk flags
+    skill: stockbee-20pct-study
+    consumes:
+      - twenty_pct_mover_events
+    produces:
+      - classified_event_study
+    decision_gate: false
+
+  - step: 3
+    name: Update matured forward outcomes for prior 20% study records
+    skill: stockbee-20pct-study
+    consumes:
+      - classified_event_study
+    produces:
+      - matured_event_outcomes
+    decision_gate: false
+
+  - step: 4
+    name: Summarize cohorts and export edge hints
+    skill: stockbee-20pct-study
+    consumes:
+      - matured_event_outcomes
+    produces:
+      - twenty_pct_cohort_summary
+      - edge_hints_yaml
+    decision_gate: true
+    decision_question: >-
+      Which 20% mover patterns have enough sample size, stable outcome behavior,
+      and execution realism to promote into edge research rather than journal-only
+      observation?
+
+  - step: 5
+    name: Log accepted lessons
+    skill: trader-memory-core
+    optional: true
+    consumes:
+      - twenty_pct_cohort_summary
+      - edge_hints_yaml
+    produces:
+      - accepted_lessons_log
+    decision_gate: true
+    decision_question: >-
+      Which findings are accepted as operating-rule candidates, which are rejected,
+      and which remain pending more examples?
+
+manual_review:
+  - Inspect representative winner and failure charts before accepting any pattern.
+  - Separate observation, research hypothesis, and executable trade plan.
+  - Mark current-universe backfills as survivorship-biased unless delisted symbols are included.
+  - Require explicit sample-size thresholds before promoting a cohort rule.
+  - Feed accepted lessons into monthly-performance-review rather than changing rules ad hoc.
+
+journal_destination: trader-memory-core

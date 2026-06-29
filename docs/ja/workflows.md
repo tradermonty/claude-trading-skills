@@ -26,6 +26,7 @@ permalink: /ja/workflows/
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
+| [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
 | [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 35 | mixed | advanced |
 | [`stockbee-fluency-loop`](#stockbee-fluency-loop) — Stockbee Setup Fluency Loop | daily | 20 | no-api-basic | intermediate |
 | [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 35 | fmp-required | intermediate |
@@ -289,6 +290,69 @@ permalink: /ja/workflows/
 - Confirm position sizing respects portfolio risk caps (per-position and per-sector).
 - For forex-related output, confirm research_only=true; never wire to a broker.
 - Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
+
+**Journal 出力先:** `trader-memory-core`
+
+---
+
+## Stockbee 20% Study Daily {#stockbee-20pct-study-daily}
+
+**`stockbee-20pct-study-daily`** · daily · ~30 min · mixed · advanced
+
+**実行タイミング:** Run after the US market close, or during historical research backfills, to identify +20%/-20% movers, classify event context, update matured outcomes, and accumulate a model book of explosive market moves.
+
+**実行してはいけないとき:** Do not use as a buy/sell signal workflow or automatic execution system. Do not promote new rules from small samples, current-only universes, or events without survivorship-bias and data-quality notes.
+
+**必須スキル:** `stockbee-20pct-study`
+
+**任意スキル:** `trader-memory-core`, `edge-candidate-agent`, `edge-hint-extractor`, `stockbee-episodic-pivot-analyzer`, `theme-detector`, `backtest-expert`
+
+**artifact 一覧:**
+
+| Artifact | 生成ステップ | 必須 | 下流ヒント |
+|---|---|---|---|
+| `twenty_pct_mover_events` | 1 | あり | — |
+| `classified_event_study` | 2 | あり | — |
+| `matured_event_outcomes` | 3 | あり | — |
+| `twenty_pct_cohort_summary` | 4 | あり | `monthly-performance-review` |
+| `edge_hints_yaml` | 4 | なし | `monthly-performance-review` |
+| `accepted_lessons_log` | 5 | なし | `monthly-performance-review` |
+
+**ステップ:**
+
+**ステップ 1: Scan daily +20% and -20% movers** → `stockbee-20pct-study`
+
+- produces: `twenty_pct_mover_events`
+
+**ステップ 2: Classify catalyst, chart context, theme cluster, and risk flags** → `stockbee-20pct-study`
+
+- consumes: `twenty_pct_mover_events`
+- produces: `classified_event_study`
+
+**ステップ 3: Update matured forward outcomes for prior 20% study records** → `stockbee-20pct-study`
+
+- consumes: `classified_event_study`
+- produces: `matured_event_outcomes`
+
+**ステップ 4: Summarize cohorts and export edge hints** （判断ゲート） → `stockbee-20pct-study`
+
+- consumes: `matured_event_outcomes`
+- produces: `twenty_pct_cohort_summary`, `edge_hints_yaml`
+- **判断:** Which 20% mover patterns have enough sample size, stable outcome behavior, and execution realism to promote into edge research rather than journal-only observation?
+
+**ステップ 5: Log accepted lessons** （任意） （判断ゲート） → `trader-memory-core`
+
+- consumes: `twenty_pct_cohort_summary`, `edge_hints_yaml`
+- produces: `accepted_lessons_log`
+- **判断:** Which findings are accepted as operating-rule candidates, which are rejected, and which remain pending more examples?
+
+**手動レビュー:**
+
+- Inspect representative winner and failure charts before accepting any pattern.
+- Separate observation, research hypothesis, and executable trade plan.
+- Mark current-universe backfills as survivorship-biased unless delisted symbols are included.
+- Require explicit sample-size thresholds before promoting a cohort rule.
+- Feed accepted lessons into monthly-performance-review rather than changing rules ad hoc.
 
 **Journal 出力先:** `trader-memory-core`
 

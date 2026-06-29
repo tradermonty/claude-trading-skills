@@ -196,12 +196,15 @@ def parse_api_requirements(claude_md: Path) -> dict[str, dict]:
         if name in ("Skill", "-------", ""):
             continue
         slug = _slugify(name)
-        result[slug] = {
+        api_info = {
             "fmp": cols[2],
             "finviz": cols[3],
             "alpaca": cols[4],
             "notes": cols[5] if len(cols) > 5 else "",
         }
+        result[slug] = api_info
+        if "%" in name:
+            result[_slugify(name.replace("%", "pct"))] = api_info
     return result
 
 

@@ -24,6 +24,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
+| [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
 | [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 35 | mixed | advanced |
 | [`stockbee-fluency-loop`](#stockbee-fluency-loop) — Stockbee Setup Fluency Loop | daily | 20 | no-api-basic | intermediate |
 | [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 35 | fmp-required | intermediate |
@@ -287,6 +288,69 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm position sizing respects portfolio risk caps (per-position and per-sector).
 - For forex-related output, confirm research_only=true; never wire to a broker.
 - Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
+
+**Journal destination:** `trader-memory-core`
+
+---
+
+## Stockbee 20% Study Daily {#stockbee-20pct-study-daily}
+
+**`stockbee-20pct-study-daily`** · daily · ~30 min · mixed · advanced
+
+**When to run:** Run after the US market close, or during historical research backfills, to identify +20%/-20% movers, classify event context, update matured outcomes, and accumulate a model book of explosive market moves.
+
+**When NOT to run:** Do not use as a buy/sell signal workflow or automatic execution system. Do not promote new rules from small samples, current-only universes, or events without survivorship-bias and data-quality notes.
+
+**Required skills:** `stockbee-20pct-study`
+
+**Optional skills:** `trader-memory-core`, `edge-candidate-agent`, `edge-hint-extractor`, `stockbee-episodic-pivot-analyzer`, `theme-detector`, `backtest-expert`
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `twenty_pct_mover_events` | 1 | yes | — |
+| `classified_event_study` | 2 | yes | — |
+| `matured_event_outcomes` | 3 | yes | — |
+| `twenty_pct_cohort_summary` | 4 | yes | `monthly-performance-review` |
+| `edge_hints_yaml` | 4 | no | `monthly-performance-review` |
+| `accepted_lessons_log` | 5 | no | `monthly-performance-review` |
+
+**Steps:**
+
+**Step 1: Scan daily +20% and -20% movers** → `stockbee-20pct-study`
+
+- produces: `twenty_pct_mover_events`
+
+**Step 2: Classify catalyst, chart context, theme cluster, and risk flags** → `stockbee-20pct-study`
+
+- consumes: `twenty_pct_mover_events`
+- produces: `classified_event_study`
+
+**Step 3: Update matured forward outcomes for prior 20% study records** → `stockbee-20pct-study`
+
+- consumes: `classified_event_study`
+- produces: `matured_event_outcomes`
+
+**Step 4: Summarize cohorts and export edge hints** (decision gate) → `stockbee-20pct-study`
+
+- consumes: `matured_event_outcomes`
+- produces: `twenty_pct_cohort_summary`, `edge_hints_yaml`
+- **Decision:** Which 20% mover patterns have enough sample size, stable outcome behavior, and execution realism to promote into edge research rather than journal-only observation?
+
+**Step 5: Log accepted lessons** (optional) (decision gate) → `trader-memory-core`
+
+- consumes: `twenty_pct_cohort_summary`, `edge_hints_yaml`
+- produces: `accepted_lessons_log`
+- **Decision:** Which findings are accepted as operating-rule candidates, which are rejected, and which remain pending more examples?
+
+**Manual review:**
+
+- Inspect representative winner and failure charts before accepting any pattern.
+- Separate observation, research hypothesis, and executable trade plan.
+- Mark current-universe backfills as survivorship-biased unless delisted symbols are included.
+- Require explicit sample-size thresholds before promoting a cohort rule.
+- Feed accepted lessons into monthly-performance-review rather than changing rules ad hoc.
 
 **Journal destination:** `trader-memory-core`
 
