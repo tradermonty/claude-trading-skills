@@ -1116,8 +1116,8 @@ def update_forward_outcomes(
             mae = pct_change(low, entry_close)
             if direction == "DOWN":
                 directional_close = -close_return
-                directional_mfe = pct_change(entry_close, low)
-                directional_mae = pct_change(entry_close, high)
+                directional_mfe = safe_pct(entry_close - low, entry_close)
+                directional_mae = safe_pct(entry_close - high, entry_close)
             else:
                 directional_close = close_return
                 directional_mfe = mfe

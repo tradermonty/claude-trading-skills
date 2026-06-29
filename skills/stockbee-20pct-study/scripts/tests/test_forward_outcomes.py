@@ -79,6 +79,34 @@ def test_update_forward_outcomes_for_down_event_directional_return():
     assert outcome["directional_mfe_pct"] > 0
 
 
+def test_down_event_directional_excursions_use_entry_close_denominator():
+    prices = {
+        "DNCO": bars_from_rows(
+            [
+                ("2026-01-01", 100, 101, 99, 100),
+                ("2026-01-02", 80, 82, 78, 80),
+                ("2026-01-03", 82, 90, 70, 72),
+            ]
+        )
+    }
+    records = [
+        {
+            "record_id": "DNCO:2026-01-02:DOWN:1D",
+            "symbol": "DNCO",
+            "event_date": "2026-01-02",
+            "direction": "DOWN",
+            "outcomes": {},
+        }
+    ]
+
+    updated, _ = mod.update_forward_outcomes(records, prices, horizons=[1])
+
+    outcome = updated[0]["outcomes"]["1d"]
+    assert outcome["directional_close_return_pct"] == 10.0
+    assert outcome["directional_mfe_pct"] == 12.5
+    assert outcome["directional_mae_pct"] == -12.5
+
+
 def test_update_forward_outcomes_marks_incomplete_window_pending():
     prices = {
         "UPCO": bars_from_rows(
