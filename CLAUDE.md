@@ -263,6 +263,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Skill Idea Miner** | ❌ Not used | ❌ Not used | ❌ Not used | Mines session logs for skill ideas |
 | **Skill Integration Tester** | ❌ Not used | ❌ Not used | ❌ Not used | Validates multi-skill workflow contracts |
 | **Stanley Druckenmiller Investment** | ❌ Not used | ❌ Not used | ❌ Not used | Synthesizes outputs from upstream skills; pure calculation |
+| **Stockbee 20% Study** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe, daily OHLCV, symbol profile, and optional historical backfill data |
 | **Stockbee Episodic Pivot Analyzer** | 🟡 Optional | ❌ Not used | ❌ Not used | Optional OHLCV/profile enrichment via Financial Modeling Prep |
 | **Stockbee Momentum Burst Screener** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe and daily OHLCV via Financial Modeling Prep |
 | **Stockbee Setup Fluency Trainer** | 🟡 Optional | ❌ Not used | ❌ Not used | Financial Modeling Prep daily OHLCV for automatic outcome updates when local prices are unavailable |

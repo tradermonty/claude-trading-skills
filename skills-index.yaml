@@ -872,6 +872,48 @@ skills:
   outputs:
   - druckenmiller_synthesis_report
   workflows: []
+- id: stockbee-20pct-study
+  display_name: Stockbee 20% Study
+  category: strategy-research
+  status: beta
+  summary: Build a daily Stockbee-style +20%/-20% mover event study, classify catalysts and setup context,
+    update forward outcomes, and export evidence-backed edge hints without treating movers as buy/sell signals.
+  timeframe: daily
+  difficulty: advanced
+  integrations:
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: Live US universe, daily OHLCV, symbol profile, and optional historical backfill data
+  - id: prices_json
+    type: local_file
+    requirement: optional
+    note: Offline OHLCV JSON fallback for no-API backfills and tests
+  - id: news_events_json
+    type: local_file
+    requirement: optional
+    note: Optional catalyst/event records for higher-quality classification
+  - id: websearch
+    type: web
+    requirement: optional
+    note: Optional manual catalyst enrichment when structured event data is unavailable
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Event detection, outcome updates, cohort statistics, and report generation
+  inputs:
+  - daily_ohlcv_universe
+  - optional_news_events
+  - market_regime_report
+  - twenty_pct_study_db
+  outputs:
+  - twenty_pct_mover_events
+  - classified_event_study
+  - matured_event_outcomes
+  - twenty_pct_cohort_summary
+  - edge_hints_yaml
+  workflows:
+  - stockbee-20pct-study-daily
 - id: stockbee-episodic-pivot-analyzer
   display_name: Stockbee Episodic Pivot Analyzer
   category: advanced-satellite

@@ -63,6 +63,7 @@ testpaths = [
     "skills/market-breadth-analyzer/scripts/tests",
     "skills/market-top-detector/scripts/tests",
     "skills/stanley-druckenmiller-investment/scripts/tests",
+    "skills/stockbee-20pct-study/scripts/tests",
     "skills/stockbee-momentum-burst-screener/scripts/tests",
     # theme-detector excluded: 27+ pre-existing failures + duplicate basenames
     "skills/uptrend-analyzer/scripts/tests",

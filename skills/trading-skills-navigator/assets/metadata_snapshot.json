@@ -721,6 +721,42 @@
       "timeframe": "weekly"
     },
     {
+      "category": "strategy-research",
+      "difficulty": "advanced",
+      "display_name": "Stockbee 20% Study",
+      "id": "stockbee-20pct-study",
+      "integrations": [
+        {
+          "id": "fmp",
+          "requirement": "required",
+          "type": "market_data"
+        },
+        {
+          "id": "prices_json",
+          "requirement": "optional",
+          "type": "local_file"
+        },
+        {
+          "id": "news_events_json",
+          "requirement": "optional",
+          "type": "local_file"
+        },
+        {
+          "id": "websearch",
+          "requirement": "optional",
+          "type": "web"
+        },
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Build a daily Stockbee-style +20%/-20% mover event study, classify catalysts and setup context, update forward outcomes, and export evidence-backed edge hints without treating movers as buy/sell signals.",
+      "timeframe": "daily"
+    },
+    {
       "category": "advanced-satellite",
       "difficulty": "advanced",
       "display_name": "Stockbee Episodic Pivot Analyzer",
@@ -1232,6 +1268,31 @@
         "part-time-swing-trader",
         "growth-investor",
         "macro-discretionary-trader"
+      ]
+    },
+    {
+      "api_profile": "mixed",
+      "cadence": "daily",
+      "difficulty": "advanced",
+      "display_name": "Stockbee 20% Study Daily",
+      "estimated_minutes": 30,
+      "id": "stockbee-20pct-study-daily",
+      "optional_skills": [
+        "trader-memory-core",
+        "edge-candidate-agent",
+        "edge-hint-extractor",
+        "stockbee-episodic-pivot-analyzer",
+        "theme-detector",
+        "backtest-expert"
+      ],
+      "prerequisite_workflows": [],
+      "required_skills": [
+        "stockbee-20pct-study"
+      ],
+      "target_users": [
+        "part-time-swing-trader",
+        "growth-investor",
+        "strategy-researcher"
       ]
     },
     {

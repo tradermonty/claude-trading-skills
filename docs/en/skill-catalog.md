@@ -10,7 +10,7 @@ permalink: /en/skill-catalog/
 # Skill Catalog
 {: .no_toc }
 
-A comprehensive catalog of all 55 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
+A comprehensive catalog of all 61 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
 {: .fs-6 .fw-300 }
 
 > Use English skill names ("CANSLIM", "VCP", "FinViz", etc.) for best search results on this page.
@@ -81,6 +81,7 @@ A comprehensive catalog of all 55 Claude Trading Skills organized by category. B
 | **[Theme Detector]({{ '/en/skills/theme-detector/' | relative_url }})** | Detects trending bullish and bearish market themes with 3-dimensional scoring: Theme Heat (0-100), Lifecycle Maturity, and Confidence. 14+ cross-sector themes | <span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span> <span class="badge badge-optional">FINVIZ Optional</span> |
 | **[Scenario Analyzer]({{ '/en/skills/scenario-analyzer/' | relative_url }})** | Builds 18-month scenario projections from news headlines. Dual-agent architecture with 1st/2nd/3rd order effects and recommended tickers | <span class="badge badge-free">No API</span> |
 | **[Backtest Expert]({{ '/en/skills/backtest-expert/' | relative_url }})** | Professional-grade strategy validation framework with hypothesis definition, parameter robustness checks, walk-forward testing, and failure post-mortems | <span class="badge badge-free">No API</span> |
+| **[Stockbee 20% Study]({{ '/en/skills/stockbee-20pct-study/' | relative_url }})** | Builds a daily +20%/-20% mover model book, classifies catalyst and chart context, updates forward outcomes, and mines cohorts for research prompts. Study workflow only — not a buy/sell signal service | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">Local JSON Optional</span> |
 | **Options Strategy Advisor** | Educational options tool using Black-Scholes pricing. Calculates Greeks (Delta, Gamma, Theta, Vega, Rho), supports 17+ strategies, P/L simulation | <span class="badge badge-optional">FMP Optional</span> |
 | **Pair Trade Screener** | Statistical arbitrage via cointegration testing. Calculates hedge ratios, mean-reversion speed (half-life), and z-score entry/exit signals | <span class="badge badge-api">FMP Required</span> |
 | **Stanley Druckenmiller Investment** | Encodes Druckenmiller's macro positioning philosophy: liquidity analysis, asymmetric risk/reward, conviction sizing, and loss-cutting discipline | <span class="badge badge-free">No API</span> |
@@ -262,5 +263,6 @@ A comprehensive catalog of all 55 Claude Trading Skills organized by category. B
 | Stockbee Episodic Pivot Analyzer | Optional | -- | -- |
 | Stockbee Momentum Burst Screener | Required | -- | -- |
 | Stockbee Setup Fluency Trainer | Optional | -- | -- |
+| Stockbee 20pct Study | Required | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

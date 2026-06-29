@@ -15,6 +15,7 @@ For the full schema, error codes, and validator rules, see [`docs/dev/metadata-a
 | [`swing-opportunity-daily.yaml`](swing-opportunity-daily.yaml) | daily (~35 min) | fmp-required | vcp-screener, technical-analyst, position-sizer |
 | [`multi-asset-opportunity-daily.yaml`](multi-asset-opportunity-daily.yaml) | daily (~45 min) | mixed | macro-regime-detector, theme-detector, trade-hypothesis-ideator |
 | [`stockbee-ep-daily.yaml`](stockbee-ep-daily.yaml) | daily (~35 min) | mixed | stockbee-episodic-pivot-analyzer, technical-analyst, position-sizer |
+| [`stockbee-20pct-study-daily.yaml`](stockbee-20pct-study-daily.yaml) | daily (~30 min) | mixed | stockbee-20pct-study |
 | [`stockbee-fluency-loop.yaml`](stockbee-fluency-loop.yaml) | daily (~20 min) | no-api-basic | stockbee-setup-fluency-trainer |
 | [`trade-memory-loop.yaml`](trade-memory-loop.yaml) | ad-hoc (per closed trade) | no-api-basic | trader-memory-core, signal-postmortem |
 | [`monthly-performance-review.yaml`](monthly-performance-review.yaml) | monthly (~90 min) | no-api-basic | trader-memory-core, signal-postmortem, backtest-expert |
