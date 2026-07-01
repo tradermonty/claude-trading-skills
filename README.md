@@ -125,6 +125,7 @@ The detailed catalog below is **auto-generated** from `skills-index.yaml` by `sc
 | Skill | Summary | Integrations | Status |
 |---|---|---|---|
 | **Breadth Chart Analyst** (`breadth-chart-analyst`) | This skill should be used when analyzing market breadth charts, specifically the S&P 500 Breadth Index (200-Day MA based) and the US Stock Market Uptrend Stock Ratio charts. | `chart_image` **required** | production |
+| **Crypto Regime Analyzer** (`crypto-regime-analyzer`) | Quantifies crypto market regime health (0-100 composite, 100 = risk-on) from six components using free keyless public data. | `coingecko` **required**, `binance_funding` _recommended_, `prices_json` optional | beta |
 | **Downtrend Duration Analyzer** (`downtrend-duration-analyzer`) | Analyze historical downtrend durations and generate interactive HTML histograms showing typical correction lengths by sector and market cap. | `local_calculation` — | production |
 | **Exposure Coach** (`exposure-coach`) | Generate a one-page Market Posture summary with net exposure ceiling, growth-vs-value bias, participation breadth, and new-entry-allowed vs cash-priority recommendation by integrating signals from breadth, regime, and flow analysis skills. | `local_calculation` — | production |
 | **FTD Detector** (`ftd-detector`) | Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's methodology. | `fmp` **required** | production |

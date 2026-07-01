@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""
+Component 4: Perpetual Funding Regime (Weight: 15%)
+
+Perp funding rates proxy aggregate leverage positioning. The scoring is
+deliberately contrarian at the extremes and trend-friendly in the middle:
+
+  Average 8h funding across tracked majors (annualized shown in signal):
+    strongly negative (<= -0.010%)          -> 80  (washed out; shorts pay)
+    mildly negative (-0.010% .. 0%)         -> 65  (skeptical positioning)
+    neutral-positive (0% .. +0.010%)        -> 75  (healthy, near baseline)
+    warm (+0.010% .. +0.030%)               -> 55  (leverage building)
+    hot (+0.030% .. +0.060%)                -> 30  (crowded longs)
+    extreme (> +0.060%)                     -> 10  (euphoric leverage;
+                                                    liquidation-cascade risk)
+
+Baseline note: Binance's default funding is +0.010% per 8h, so "neutral"
+clusters slightly positive by construction.
+
+Input: dict of {symbol: latest 8h funding rate as decimal} e.g.
+{"BTCUSDT": 0.0001} for +0.010%.
+"""
+
+MIN_SYMBOLS = 2
+
+_BANDS = [
+    (-float("inf"), -0.00010, 80, "WASHED OUT (negative funding; shorts paying longs)"),
+    (-0.00010, 0.0, 65, "SKEPTICAL (mildly negative funding)"),
+    (0.0, 0.00010, 75, "NEUTRAL (funding near baseline)"),
+    (0.00010, 0.00030, 55, "WARMING (long leverage building)"),
+    (0.00030, 0.00060, 30, "CROWDED (hot funding; crowded longs)"),
+    (0.00060, float("inf"), 10, "EUPHORIC (extreme funding; cascade risk)"),
+]
+
+
+def calculate_funding_regime(funding_map: dict) -> dict:
+    """
+    Score perp funding regime from latest 8h rates.
+
+    Args:
+        funding_map: {symbol: funding rate as decimal per 8h period}.
+
+    Returns:
+        Dict with score, signal, data_available, and funding details.
+    """
+    rates = [r for r in (funding_map or {}).values() if r is not None]
+    if len(rates) < MIN_SYMBOLS:
+        return {
+            "score": 50,
+            "signal": f"NO DATA: Need funding for >= {MIN_SYMBOLS} symbols",
+            "data_available": False,
+        }
+
+    avg = sum(rates) / len(rates)
+    for lo, hi, score, label in _BANDS:
+        if lo < avg <= hi or (lo == -float("inf") and avg <= hi):
+            annualized = avg * 3 * 365 * 100
+            return {
+                "score": score,
+                "signal": f"{label}; avg {avg * 100:.4f}%/8h "
+                f"(~{annualized:.1f}% annualized) across {len(rates)} perps",
+                "data_available": True,
+                "avg_funding_8h": avg,
+                "annualized_pct": round(annualized, 2),
+                "n_symbols": len(rates),
+            }
+
+    # Unreachable given band coverage, but keep a safe fallback.
+    return {"score": 50, "signal": "Funding regime indeterminate", "data_available": False}
