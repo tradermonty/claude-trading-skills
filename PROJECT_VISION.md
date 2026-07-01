@@ -1,7 +1,7 @@
 # Claude Trading Skills Project Vision
 
-Version: 0.1
-Last updated: 2026-05-17
+Version: 0.2
+Last updated: 2026-07-01
 
 Japanese version: [PROJECT_VISION.ja.md](PROJECT_VISION.ja.md)
 
@@ -446,7 +446,7 @@ Near-term work should proceed in this order:
 - ✅ **Done**: All indexed skills carry `timeframe` / `difficulty` / `inputs` / `outputs`; `--strict-metadata` enforced in CI + the pre-push hook
 - ✅ **Done**: Trading Skills Navigator v0 (deterministic recommender + Web App snapshot fallback + manifest-driven setup)
 - **Partial**: Major skillsets in YAML — 4 core skillsets shipped (`market-regime`, `core-portfolio`, `swing-opportunity`, `trade-memory`); remaining skillset candidates (`dividend-income`, `strategy-research`, `advanced-satellite`) deferred
-- **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`, `strategy-research-pipeline`)
+- **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`, `strategy-research-pipeline`) — tracked in [#216](https://github.com/tradermonty/claude-trading-skills/issues/216)
 - ✅ **Done (2026-05-24)**: Create "Find Your Workflow" documentation ([EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md), PR #142)
 - ✅ **Done (2026-05-24)**: Public end-to-end sample operating examples — both `sample-run/` (required-only) and `sample-run-full-path/` (with optional step) under [`examples/workflows/`](examples/workflows/) for `market-regime-daily` and `trade-memory-loop` (PR #141; required-only path shipped earlier in PR #118)
 - ✅ **Done (2026-05-24)**: Companion work package — [Hermes Trading Research Agent](https://github.com/tradermonty/hermes-trading-research-agent-work-package) link added to README (PR #140)
@@ -454,6 +454,50 @@ Near-term work should proceed in this order:
 - **Later**: Explore a web app proof of concept
 
 It is safer to build structured knowledge and a guide first, rather than jumping directly to web apps or bundle ZIPs.
+
+### 2026-07-01 Repository Audit Priorities
+
+A full repository audit on 2026-07-01 mapped the current state against the mission and produced the prioritized backlog below. Each item is tracked as a GitHub issue labeled `roadmap-2026-07`.
+
+The guiding observation: the analysis and screening layers are already strong, while the mission-critical gaps are the "stop taking big losses" capability set (Priority A) and the "growing together" community foundation (Priority B).
+
+**Priority A — mission-critical capability gaps (build first):**
+
+- [#194](https://github.com/tradermonty/claude-trading-skills/issues/194) Account-level drawdown circuit breaker (daily loss limit / losing-streak cooldown / weekly drawdown halt)
+- [#195](https://github.com/tradermonty/claude-trading-skills/issues/195) Pre-trade discipline gate (checklist before manual execution)
+- [#196](https://github.com/tradermonty/claude-trading-skills/issues/196) Promote learning-loop skills out of beta (`trade-performance-coach`, `stockbee-setup-fluency-trainer`)
+- [#197](https://github.com/tradermonty/claude-trading-skills/issues/197) Generalize deliberate practice (VCP / CANSLIM / breakout drills + paper-trading path)
+
+**Priority B — "growing together" community foundation:**
+
+- [#198](https://github.com/tradermonty/claude-trading-skills/issues/198) Community health files (CONTRIBUTING / CODE_OF_CONDUCT / SECURITY)
+- [#199](https://github.com/tradermonty/claude-trading-skills/issues/199) Issue and PR templates aligned with welcomed contribution types
+- [#201](https://github.com/tradermonty/claude-trading-skills/issues/201) GitHub Discussions with ground rules
+- [#203](https://github.com/tradermonty/claude-trading-skills/issues/203) Slim the README for beginners (relocate contributor-only sections)
+
+**Priority C — beginner onboarding:**
+
+- [#200](https://github.com/tradermonty/claude-trading-skills/issues/200) Bilingual glossary
+- [#202](https://github.com/tradermonty/claude-trading-skills/issues/202) FAQ page
+- [#204](https://github.com/tradermonty/claude-trading-skills/issues/204) "Your First Week" onboarding guide
+- [#206](https://github.com/tradermonty/claude-trading-skills/issues/206) Honest minimum-cost statement
+- [#208](https://github.com/tradermonty/claude-trading-skills/issues/208) Sample runs for the remaining core workflows
+- [#209](https://github.com/tradermonty/claude-trading-skills/issues/209) Output screenshots and visuals
+
+**Priority D — housekeeping and quality debt:**
+
+- [#212](https://github.com/tradermonty/claude-trading-skills/issues/212) Regenerate stale / missing `.skill` packages
+- [#205](https://github.com/tradermonty/claude-trading-skills/issues/205) Fix stale counts in `trading-skills-navigator`
+- [#207](https://github.com/tradermonty/claude-trading-skills/issues/207) Restart the stalled skill improvement loop
+- [#214](https://github.com/tradermonty/claude-trading-skills/issues/214) Improve the 4 lowest-scoring skills
+
+**Priority E — mid-term coverage:**
+
+- [#210](https://github.com/tradermonty/claude-trading-skills/issues/210) Auto-generate the CI test matrix
+- [#211](https://github.com/tradermonty/claude-trading-skills/issues/211) Test suites for skills that have none
+- [#213](https://github.com/tradermonty/claude-trading-skills/issues/213) Small-account support (PDT rule / fractional shares / friction costs)
+- [#215](https://github.com/tradermonty/claude-trading-skills/issues/215) Japan tax skill (NISA / tokutei-kouza / foreign tax credit)
+- [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) Deferred skillsets and advanced workflow manifests
 
 ## 16. Community and Governance
 

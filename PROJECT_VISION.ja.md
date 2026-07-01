@@ -1,7 +1,7 @@
 # Claude Trading Skills プロジェクトビジョン
 
-Version: 0.1
-Last updated: 2026-05-17
+Version: 0.2
+Last updated: 2026-07-01
 
 English version: [PROJECT_VISION.md](PROJECT_VISION.md)
 
@@ -443,13 +443,58 @@ Plan -> Trade -> Record -> Review -> Improve -> Adjust Workflow
 - ✅ **完了**: 現在 index に登録されている全スキルに `timeframe` / `difficulty` / `inputs` / `outputs` を付与し、`--strict-metadata` を CI + pre-push hook で enforce
 - ✅ **完了**: Trading Skills Navigator v0（決定論的 recommender + Web App snapshot fallback + manifest 駆動 setup）
 - **一部完了**: 主要 skillsets の YAML 定義 — コア 4 skillset 実装済み（`market-regime` / `core-portfolio` / `swing-opportunity` / `trade-memory`）。残りの skillset 候補（`dividend-income` / `strategy-research` / `advanced-satellite`）は後続
-- **Next**: Advanced ワークフロー manifest（`risk-off-short-daily` / `earnings-weekly` / `strategy-research-pipeline`）を追加
-- **Next**: "Find Your Workflow" ドキュメントを作る
-- **Next**: 公開可能な end-to-end 実行サンプル（Plan → Trade → Record → Review → Improve）
+- **Next**: Advanced ワークフロー manifest（`risk-off-short-daily` / `earnings-weekly` / `strategy-research-pipeline`）を追加 — [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) で追跡
+- ✅ **完了 (2026-05-24)**: "Find Your Workflow" ドキュメント（[EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md)、PR #142）
+- ✅ **完了 (2026-05-24)**: 公開可能な end-to-end 実行サンプル — `examples/workflows/` に `market-regime-daily` と `trade-memory-loop` の sample-run / sample-run-full-path を収録（PR #141）
+- ✅ **完了 (2026-05-24)**: 併走プロジェクト [Hermes Trading Research Agent Work Package](https://github.com/tradermonty/hermes-trading-research-agent-work-package) を README からリンク（PR #140）
 - **Later**: 必要に応じて bundle builder や recommender CLI を作る
 - **Later**: Web アプリ POC を検討する
 
 最初から Web アプリや bundle ZIP に進むより、まずは構造化された知識と案内役を作る方が安全です。
+
+### 2026-07-01 リポジトリ監査による優先事項
+
+2026-07-01 にリポジトリ全体をミッションと照らして監査し、以下の優先順位付きバックログを作成しました。各項目は `roadmap-2026-07` ラベル付きの GitHub Issue として追跡します。
+
+監査から得た指針はこうです。分析・スクリーニングのレイヤーはすでに十分強い。ミッションに照らして最も足りないのは「大負けしないための仕組み」を担う Priority A と、「growing together」を支えるコミュニティ基盤の Priority B です。
+
+**Priority A — ミッション直結の機能ギャップ（最優先で作る）:**
+
+- [#194](https://github.com/tradermonty/claude-trading-skills/issues/194) 口座レベルのドローダウン・サーキットブレーカー（日次最大損失 / 連敗クールダウン / 週次ドローダウン停止）
+- [#195](https://github.com/tradermonty/claude-trading-skills/issues/195) プレトレード規律ゲート（手動執行前のチェックリスト）
+- [#196](https://github.com/tradermonty/claude-trading-skills/issues/196) 学習ループ系スキルのベータ卒業（`trade-performance-coach` / `stockbee-setup-fluency-trainer`）
+- [#197](https://github.com/tradermonty/claude-trading-skills/issues/197) 練習機能の一般化（VCP / CANSLIM / ブレイクアウトのドリル + ペーパートレード練習パス）
+
+**Priority B — 「growing together」のコミュニティ基盤:**
+
+- [#198](https://github.com/tradermonty/claude-trading-skills/issues/198) コミュニティ健全性ファイル（CONTRIBUTING / CODE_OF_CONDUCT / SECURITY）
+- [#199](https://github.com/tradermonty/claude-trading-skills/issues/199) 歓迎する貢献の型に沿った Issue / PR テンプレート
+- [#201](https://github.com/tradermonty/claude-trading-skills/issues/201) グラウンドルール付き GitHub Discussions の開設
+- [#203](https://github.com/tradermonty/claude-trading-skills/issues/203) README のスリム化（メンテナー向けセクションの移設）
+
+**Priority C — 初心者オンボーディング:**
+
+- [#200](https://github.com/tradermonty/claude-trading-skills/issues/200) 用語集（EN / JA）
+- [#202](https://github.com/tradermonty/claude-trading-skills/issues/202) FAQ ページ
+- [#204](https://github.com/tradermonty/claude-trading-skills/issues/204) 「最初の1週間」ガイド
+- [#206](https://github.com/tradermonty/claude-trading-skills/issues/206) 実際の最低コストの明示
+- [#208](https://github.com/tradermonty/claude-trading-skills/issues/208) 残りのコアワークフローの実行サンプル
+- [#209](https://github.com/tradermonty/claude-trading-skills/issues/209) 出力スクリーンショット等の視覚材料
+
+**Priority D — 足元の整理と品質負債:**
+
+- [#212](https://github.com/tradermonty/claude-trading-skills/issues/212) 古い / 未生成の `.skill` パッケージの再生成
+- [#205](https://github.com/tradermonty/claude-trading-skills/issues/205) `trading-skills-navigator` の古いスキル数表記の修正
+- [#207](https://github.com/tradermonty/claude-trading-skills/issues/207) 停止中のスキル改善ループの再稼働
+- [#214](https://github.com/tradermonty/claude-trading-skills/issues/214) 低スコア4スキルの改善
+
+**Priority E — 中期のカバレッジ:**
+
+- [#210](https://github.com/tradermonty/claude-trading-skills/issues/210) CI テストマトリクスの自動生成
+- [#211](https://github.com/tradermonty/claude-trading-skills/issues/211) テスト未整備スキルへのテスト追加
+- [#213](https://github.com/tradermonty/claude-trading-skills/issues/213) 小口座サポート（PDT ルール / 端株サイジング / 取引摩擦コスト）
+- [#215](https://github.com/tradermonty/claude-trading-skills/issues/215) 日本の税制スキル（NISA / 特定口座 / 外国税額控除）
+- [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) 未着手の skillset と Advanced ワークフロー manifest
 
 ## 16. コミュニティと運営方針
 
