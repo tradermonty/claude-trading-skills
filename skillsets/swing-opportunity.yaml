@@ -20,6 +20,7 @@ when_not_to_use: >-
 
 required_skills:
   - vcp-screener
+  - drawdown-circuit-breaker
   - technical-analyst
   - position-sizer
   - trader-memory-core

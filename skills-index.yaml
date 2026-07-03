@@ -151,6 +151,27 @@ skills:
   - duration_histogram_html
   - sector_breakdown
   workflows: []
+- id: drawdown-circuit-breaker
+  display_name: Drawdown Circuit Breaker
+  category: trade-planning
+  status: beta
+  summary: Account-level circuit breaker that reads trader-memory-core state and decides whether
+    new trade risk is allowed today using daily loss limits, losing-streak cooldowns,
+    and weekly/monthly drawdown halts.
+  timeframe: daily
+  difficulty: beginner
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Reads trader-memory-core thesis YAML files; pure calculation, works offline
+  inputs:
+  - thesis_record
+  - account_size
+  outputs:
+  - circuit_breaker_decision
+  workflows:
+  - swing-opportunity-daily
 - id: dual-axis-skill-reviewer
   display_name: Dual Axis Skill Reviewer
   category: meta

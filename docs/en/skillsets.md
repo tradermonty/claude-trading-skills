@@ -77,7 +77,7 @@ Purpose-specific skillset bundles for the solo-trader OS. A skillset is a catego
 
 **Target users:** `part-time-swing-trader`
 
-**Required skills:** `vcp-screener`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**Required skills:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`
 
 **Recommended skills:** `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 

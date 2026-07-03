@@ -503,7 +503,7 @@ permalink: /ja/workflows/
 
 **実行してはいけないとき:** Do not run when the latest market-regime-daily exposure_decision is cash-priority or restrictive. Do not use as a standalone screener without the regime gate.
 
-**必須スキル:** `vcp-screener`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**必須スキル:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`
 
 **任意スキル:** `stockbee-momentum-burst-screener`, `stockbee-exhaustion-hammer-screener`, `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 
@@ -515,55 +515,61 @@ permalink: /ja/workflows/
 
 | Artifact | 生成ステップ | 必須 | 下流ヒント |
 |---|---|---|---|
-| `vcp_candidates` | 1 | あり | — |
-| `momentum_burst_candidates` | 2 | なし | — |
-| `exhaustion_hammer_candidates` | 3 | なし | — |
-| `canslim_candidates` | 4 | なし | — |
-| `theme_candidates` | 5 | なし | — |
-| `validated_setups` | 6 | あり | — |
-| `position_sizing` | 7 | あり | — |
-| `trade_plans` | 8 | なし | `trade-memory-loop` |
-| `candidate_journal_entry` | 9 | あり | `trade-memory-loop` |
+| `circuit_breaker_decision` | 1 | あり | — |
+| `vcp_candidates` | 2 | あり | — |
+| `momentum_burst_candidates` | 3 | なし | — |
+| `exhaustion_hammer_candidates` | 4 | なし | — |
+| `canslim_candidates` | 5 | なし | — |
+| `theme_candidates` | 6 | なし | — |
+| `validated_setups` | 7 | あり | — |
+| `position_sizing` | 8 | あり | — |
+| `trade_plans` | 9 | なし | `trade-memory-loop` |
+| `candidate_journal_entry` | 10 | あり | `trade-memory-loop` |
 
 **ステップ:**
 
-**ステップ 1: Run VCP screener** → `vcp-screener`
+**ステップ 1: Check account circuit breaker** （判断ゲート） → `drawdown-circuit-breaker`
+
+- produces: `circuit_breaker_decision`
+- **判断:** Is the account circuit breaker clear (TRADING_ALLOWED) for new trade risk today?
+
+**ステップ 2: Run VCP screener** → `vcp-screener`
 
 - produces: `vcp_candidates`
 
-**ステップ 2: Run Stockbee momentum burst screener** （任意） → `stockbee-momentum-burst-screener`
+**ステップ 3: Run Stockbee momentum burst screener** （任意） → `stockbee-momentum-burst-screener`
 
 - produces: `momentum_burst_candidates`
 
-**ステップ 3: Run Stockbee exhaustion hammer screener** （任意） → `stockbee-exhaustion-hammer-screener`
+**ステップ 4: Run Stockbee exhaustion hammer screener** （任意） → `stockbee-exhaustion-hammer-screener`
 
 - produces: `exhaustion_hammer_candidates`
 
-**ステップ 4: Run CANSLIM screener** （任意） → `canslim-screener`
+**ステップ 5: Run CANSLIM screener** （任意） → `canslim-screener`
 
 - produces: `canslim_candidates`
 
-**ステップ 5: Theme detection cross-check** （任意） → `theme-detector`
+**ステップ 6: Theme detection cross-check** （任意） → `theme-detector`
 
 - produces: `theme_candidates`
 
-**ステップ 6: Validate setups on weekly chart** （判断ゲート） → `technical-analyst`
+**ステップ 7: Validate setups on weekly chart** （判断ゲート） → `technical-analyst`
 
 - consumes: `vcp_candidates`, `momentum_burst_candidates`, `exhaustion_hammer_candidates`, `canslim_candidates`, `theme_candidates`
 - produces: `validated_setups`
 - **判断:** Which candidates have a clean weekly setup (Stage 2 uptrend, tight base, or Stockbee-style range expansion from a controlled base) and pass the manual chart review? For exhaustion hammers, confirm the pullback is not thesis-breaking and risk to the day low is acceptable. Reject candidates that don't pass.
 
-**ステップ 7: Calculate position size** → `position-sizer`
+**ステップ 8: Calculate position size** → `position-sizer`
 
 - consumes: `validated_setups`
 - produces: `position_sizing`
 
-**ステップ 8: Build entry plan** （任意） → `breakout-trade-planner`
+**ステップ 9: Build entry plan** （任意） → `breakout-trade-planner`
 
 - consumes: `validated_setups`, `position_sizing`
 - produces: `trade_plans`
 
-**ステップ 9: Register thesis in journal** （判断ゲート） → `trader-memory-core`
+**ステップ 10: Register thesis in journal** （判断ゲート） → `trader-memory-core`
 
 - consumes: `position_sizing`, `trade_plans`
 - produces: `candidate_journal_entry`
@@ -572,6 +578,7 @@ permalink: /ja/workflows/
 **手動レビュー:**
 
 - Confirm market-regime-daily exposure_decision allows new risk before acting.
+- Confirm circuit_breaker_decision is TRADING_ALLOWED before screening or sizing new candidates.
 - Reject any candidate where weekly setup is unclear, even if screener passed.
 - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
 - Treat Stockbee exhaustion hammer output as candidate generation only; confirm the pullback is not caused by a thesis-breaking news event and verify risk to the day low.

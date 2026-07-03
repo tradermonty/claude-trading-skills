@@ -3,7 +3,7 @@ layout: default
 title: "Stockbee Setup Fluency Trainer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 53
+nav_order: 54
 lang_peer: /ja/skills/stockbee-setup-fluency-trainer/
 permalink: /en/skills/stockbee-setup-fluency-trainer/
 generated: true

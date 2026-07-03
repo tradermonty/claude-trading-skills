@@ -119,6 +119,22 @@
       "timeframe": "research"
     },
     {
+      "category": "trade-planning",
+      "difficulty": "beginner",
+      "display_name": "Drawdown Circuit Breaker",
+      "id": "drawdown-circuit-breaker",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Account-level circuit breaker that reads trader-memory-core state and decides whether new trade risk is allowed today using daily loss limits, losing-streak cooldowns, and weekly/monthly drawdown halts.",
+      "timeframe": "daily"
+    },
+    {
       "category": "meta",
       "difficulty": "intermediate",
       "display_name": "Dual Axis Skill Reviewer",
@@ -1166,6 +1182,7 @@
       ],
       "required_skills": [
         "vcp-screener",
+        "drawdown-circuit-breaker",
         "technical-analyst",
         "position-sizer",
         "trader-memory-core"
@@ -1395,6 +1412,7 @@
       ],
       "required_skills": [
         "vcp-screener",
+        "drawdown-circuit-breaker",
         "technical-analyst",
         "position-sizer",
         "trader-memory-core"

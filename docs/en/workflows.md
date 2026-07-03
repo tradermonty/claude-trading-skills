@@ -501,7 +501,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **When NOT to run:** Do not run when the latest market-regime-daily exposure_decision is cash-priority or restrictive. Do not use as a standalone screener without the regime gate.
 
-**Required skills:** `vcp-screener`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**Required skills:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`
 
 **Optional skills:** `stockbee-momentum-burst-screener`, `stockbee-exhaustion-hammer-screener`, `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 
@@ -513,55 +513,61 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 | Artifact | Produced by step | Required | Downstream hints |
 |---|---|---|---|
-| `vcp_candidates` | 1 | yes | — |
-| `momentum_burst_candidates` | 2 | no | — |
-| `exhaustion_hammer_candidates` | 3 | no | — |
-| `canslim_candidates` | 4 | no | — |
-| `theme_candidates` | 5 | no | — |
-| `validated_setups` | 6 | yes | — |
-| `position_sizing` | 7 | yes | — |
-| `trade_plans` | 8 | no | `trade-memory-loop` |
-| `candidate_journal_entry` | 9 | yes | `trade-memory-loop` |
+| `circuit_breaker_decision` | 1 | yes | — |
+| `vcp_candidates` | 2 | yes | — |
+| `momentum_burst_candidates` | 3 | no | — |
+| `exhaustion_hammer_candidates` | 4 | no | — |
+| `canslim_candidates` | 5 | no | — |
+| `theme_candidates` | 6 | no | — |
+| `validated_setups` | 7 | yes | — |
+| `position_sizing` | 8 | yes | — |
+| `trade_plans` | 9 | no | `trade-memory-loop` |
+| `candidate_journal_entry` | 10 | yes | `trade-memory-loop` |
 
 **Steps:**
 
-**Step 1: Run VCP screener** → `vcp-screener`
+**Step 1: Check account circuit breaker** (decision gate) → `drawdown-circuit-breaker`
+
+- produces: `circuit_breaker_decision`
+- **Decision:** Is the account circuit breaker clear (TRADING_ALLOWED) for new trade risk today?
+
+**Step 2: Run VCP screener** → `vcp-screener`
 
 - produces: `vcp_candidates`
 
-**Step 2: Run Stockbee momentum burst screener** (optional) → `stockbee-momentum-burst-screener`
+**Step 3: Run Stockbee momentum burst screener** (optional) → `stockbee-momentum-burst-screener`
 
 - produces: `momentum_burst_candidates`
 
-**Step 3: Run Stockbee exhaustion hammer screener** (optional) → `stockbee-exhaustion-hammer-screener`
+**Step 4: Run Stockbee exhaustion hammer screener** (optional) → `stockbee-exhaustion-hammer-screener`
 
 - produces: `exhaustion_hammer_candidates`
 
-**Step 4: Run CANSLIM screener** (optional) → `canslim-screener`
+**Step 5: Run CANSLIM screener** (optional) → `canslim-screener`
 
 - produces: `canslim_candidates`
 
-**Step 5: Theme detection cross-check** (optional) → `theme-detector`
+**Step 6: Theme detection cross-check** (optional) → `theme-detector`
 
 - produces: `theme_candidates`
 
-**Step 6: Validate setups on weekly chart** (decision gate) → `technical-analyst`
+**Step 7: Validate setups on weekly chart** (decision gate) → `technical-analyst`
 
 - consumes: `vcp_candidates`, `momentum_burst_candidates`, `exhaustion_hammer_candidates`, `canslim_candidates`, `theme_candidates`
 - produces: `validated_setups`
 - **Decision:** Which candidates have a clean weekly setup (Stage 2 uptrend, tight base, or Stockbee-style range expansion from a controlled base) and pass the manual chart review? For exhaustion hammers, confirm the pullback is not thesis-breaking and risk to the day low is acceptable. Reject candidates that don't pass.
 
-**Step 7: Calculate position size** → `position-sizer`
+**Step 8: Calculate position size** → `position-sizer`
 
 - consumes: `validated_setups`
 - produces: `position_sizing`
 
-**Step 8: Build entry plan** (optional) → `breakout-trade-planner`
+**Step 9: Build entry plan** (optional) → `breakout-trade-planner`
 
 - consumes: `validated_setups`, `position_sizing`
 - produces: `trade_plans`
 
-**Step 9: Register thesis in journal** (decision gate) → `trader-memory-core`
+**Step 10: Register thesis in journal** (decision gate) → `trader-memory-core`
 
 - consumes: `position_sizing`, `trade_plans`
 - produces: `candidate_journal_entry`
@@ -570,6 +576,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 **Manual review:**
 
 - Confirm market-regime-daily exposure_decision allows new risk before acting.
+- Confirm circuit_breaker_decision is TRADING_ALLOWED before screening or sizing new candidates.
 - Reject any candidate where weekly setup is unclear, even if screener passed.
 - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
 - Treat Stockbee exhaustion hammer output as candidate generation only; confirm the pullback is not caused by a thesis-breaking news event and verify risk to the day low.

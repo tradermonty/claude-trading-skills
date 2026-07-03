@@ -18,6 +18,7 @@ when_not_to_run: >-
 
 required_skills:
   - vcp-screener
+  - drawdown-circuit-breaker
   - technical-analyst
   - position-sizer
   - trader-memory-core
@@ -38,47 +39,60 @@ prerequisite_workflows:
       Skip this workflow on cash-priority or restrictive days.
 
 artifacts:
-  - id: vcp_candidates
+  - id: circuit_breaker_decision
     produced_by_step: 1
     required: true
-  - id: momentum_burst_candidates
+  - id: vcp_candidates
     produced_by_step: 2
-    required: false
-  - id: exhaustion_hammer_candidates
+    required: true
+  - id: momentum_burst_candidates
     produced_by_step: 3
     required: false
-  - id: canslim_candidates
+  - id: exhaustion_hammer_candidates
     produced_by_step: 4
     required: false
-  - id: theme_candidates
+  - id: canslim_candidates
     produced_by_step: 5
     required: false
-  - id: validated_setups
+  - id: theme_candidates
     produced_by_step: 6
-    required: true
-  - id: position_sizing
+    required: false
+  - id: validated_setups
     produced_by_step: 7
     required: true
-  - id: trade_plans
+  - id: position_sizing
     produced_by_step: 8
+    required: true
+  - id: trade_plans
+    produced_by_step: 9
     required: false
     downstream_hints:
       - trade-memory-loop
   - id: candidate_journal_entry
-    produced_by_step: 9
+    produced_by_step: 10
     required: true
     downstream_hints:
       - trade-memory-loop
 
 steps:
   - step: 1
+    name: Check account circuit breaker
+    skill: drawdown-circuit-breaker
+    produces:
+      - circuit_breaker_decision
+    decision_gate: true
+    decision_question: >-
+      Is the account circuit breaker clear (TRADING_ALLOWED) for new trade
+      risk today?
+
+  - step: 2
     name: Run VCP screener
     skill: vcp-screener
     produces:
       - vcp_candidates
     decision_gate: false
 
-  - step: 2
+  - step: 3
     name: Run Stockbee momentum burst screener
     skill: stockbee-momentum-burst-screener
     optional: true
@@ -86,7 +100,7 @@ steps:
       - momentum_burst_candidates
     decision_gate: false
 
-  - step: 3
+  - step: 4
     name: Run Stockbee exhaustion hammer screener
     skill: stockbee-exhaustion-hammer-screener
     optional: true
@@ -94,7 +108,7 @@ steps:
       - exhaustion_hammer_candidates
     decision_gate: false
 
-  - step: 4
+  - step: 5
     name: Run CANSLIM screener
     skill: canslim-screener
     optional: true
@@ -102,7 +116,7 @@ steps:
       - canslim_candidates
     decision_gate: false
 
-  - step: 5
+  - step: 6
     name: Theme detection cross-check
     skill: theme-detector
     optional: true
@@ -110,7 +124,7 @@ steps:
       - theme_candidates
     decision_gate: false
 
-  - step: 6
+  - step: 7
     name: Validate setups on weekly chart
     skill: technical-analyst
     consumes:
@@ -129,7 +143,7 @@ steps:
       thesis-breaking and risk to the day low is acceptable. Reject candidates
       that don't pass.
 
-  - step: 7
+  - step: 8
     name: Calculate position size
     skill: position-sizer
     consumes:
@@ -138,7 +152,7 @@ steps:
       - position_sizing
     decision_gate: false
 
-  - step: 8
+  - step: 9
     name: Build entry plan
     skill: breakout-trade-planner
     optional: true
@@ -149,7 +163,7 @@ steps:
       - trade_plans
     decision_gate: false
 
-  - step: 9
+  - step: 10
     name: Register thesis in journal
     skill: trader-memory-core
     consumes:
@@ -165,6 +179,7 @@ steps:
 
 manual_review:
   - Confirm market-regime-daily exposure_decision allows new risk before acting.
+  - Confirm circuit_breaker_decision is TRADING_ALLOWED before screening or sizing new candidates.
   - Reject any candidate where weekly setup is unclear, even if screener passed.
   - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
   - Treat Stockbee exhaustion hammer output as candidate generation only; confirm the pullback is not caused by a thesis-breaking news event and verify risk to the day low.

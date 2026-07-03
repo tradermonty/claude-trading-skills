@@ -61,6 +61,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test drawdown-circuit-breaker
+        run: >
+          python -m pytest skills/drawdown-circuit-breaker/scripts/tests/ -v
+          --cov=skills/drawdown-circuit-breaker/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test dual-axis-skill-reviewer
         run: >
           python -m pytest skills/dual-axis-skill-reviewer/scripts/tests/ -v

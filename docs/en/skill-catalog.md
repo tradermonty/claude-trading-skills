@@ -10,7 +10,7 @@ permalink: /en/skill-catalog/
 # Skill Catalog
 {: .no_toc }
 
-A comprehensive catalog of all 61 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
+A comprehensive catalog of all 63 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
 {: .fs-6 .fw-300 }
 
 > Use English skill names ("CANSLIM", "VCP", "FinViz", etc.) for best search results on this page.
@@ -97,6 +97,7 @@ A comprehensive catalog of all 61 Claude Trading Skills organized by category. B
 | **Portfolio Manager** | Portfolio analysis with Alpaca MCP Server integration. Asset allocation, sector diversification, risk metrics, HOLD/ADD/TRIM/SELL recommendations, rebalancing plans | <span class="badge badge-api">Alpaca Required</span> |
 | **[Trader Memory Core]({{ '/en/skills/trader-memory-core/' | relative_url }})** | Persistent thesis lifecycle tracker: register screener outputs as IDEA, manage state transitions through ENTRY_READY → ACTIVE → CLOSED, attach position sizing, schedule reviews, and generate postmortem reports with MAE/MFE | <span class="badge badge-optional">FMP Optional</span> |
 | **[Trade Performance Coach]({{ '/en/skills/trade-performance-coach/' | relative_url }})** | Post-trade coach: reviews closed trades, partial exits, and monthly aggregates across 5 axes (process, risk, execution, behavior patterns, review quality), emits OK/WARN/REVIEW_REQUIRED/RULE_VIOLATION/COOL_DOWN verdict and next-session operating rules with human decision gate. Beta. | <span class="badge badge-free">No API</span> |
+| **[Drawdown Circuit Breaker]({{ '/en/skills/drawdown-circuit-breaker/' | relative_url }})** | Account-level risk gate that reads trader-memory-core state and returns TRADING_ALLOWED / COOLDOWN / HALTED from realized P&L, losing-streak, and weekly/monthly drawdown rules | <span class="badge badge-free">No API</span> |
 | **[Weekly Performance Digest]({{ '/en/skills/weekly-performance-digest/' | relative_url }})** | Aggregate the week's closed trades into win rate, expectancy, profit factor, R-multiple, and MAE/MFE, with win/loss pattern analysis by source skill, exit reason, thesis type, sector, and mechanism. Pure local calculation | <span class="badge badge-free">No API</span> |
 | **[Position Sizer]({{ '/en/skills/position-sizer/' | relative_url }})** | Risk-based position sizing using Fixed Fractional, ATR-based, and Kelly Criterion methods. Portfolio constraints (max position %, max sector %). Works offline | <span class="badge badge-free">No API</span> |
 | **[Breakout Trade Planner]({{ '/en/skills/breakout-trade-planner/' | relative_url }})** | Generates Minervini-style breakout trade plans from VCP screener output. Worst-case entry Gate, stop-limit bracket templates (pre_place / post_confirm), portfolio heat management | <span class="badge badge-free">No API</span> |
@@ -266,5 +267,6 @@ A comprehensive catalog of all 61 Claude Trading Skills organized by category. B
 | Stockbee Setup Fluency Trainer | Optional | -- | -- |
 | Stockbee 20pct Study | Required | -- | -- |
 | Stockbee Exhaustion Hammer Screener | Required | -- | -- |
+| Drawdown Circuit Breaker | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.
