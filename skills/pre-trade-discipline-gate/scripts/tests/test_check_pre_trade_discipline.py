@@ -323,6 +323,39 @@ def test_terminal_outcome_fallback_blocks_revenge_trade(tmp_path: Path):
     assert any("outcome.pnl_dollars" in r for r in result["candidate_results"][0]["reasons"])
 
 
+def test_bare_terminal_exit_date_counts_on_named_et_date_at_night(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    write_thesis(
+        state_dir,
+        thesis_id="th_bare_exit_gm_20260703_0001",
+        outcome_pnl=-100,
+        exit_date="2026-07-03",
+        history=[{"status": "CLOSED", "at": "2026-07-03", "reason": "legacy close"}],
+    )
+
+    timestamp_as_of = evaluate(
+        tmp_path,
+        [base_candidate()],
+        state_dir=state_dir,
+        as_of=parse_as_of("2026-07-03T23:00:00-04:00"),
+    )
+    date_only_as_of = evaluate(
+        tmp_path,
+        [base_candidate(symbol="MSFT")],
+        state_dir=state_dir,
+        as_of=parse_as_of("2026-07-03"),
+    )
+
+    assert timestamp_as_of["overall_decision"] == "NO_GO"
+    assert date_only_as_of["overall_decision"] == "NO_GO"
+    assert any(
+        "outcome.pnl_dollars" in r for r in timestamp_as_of["candidate_results"][0]["reasons"]
+    )
+    assert any(
+        "outcome.pnl_dollars" in r for r in date_only_as_of["candidate_results"][0]["reasons"]
+    )
+
+
 def test_producer_bare_date_trim_counts_on_named_trading_date(tmp_path: Path):
     thesis_store = load_thesis_store_module()
     state_dir = tmp_path / "theses"

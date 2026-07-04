@@ -94,6 +94,8 @@ def _parse_event_datetime(value: Any) -> datetime:
     """Parse trader-memory-core producer timestamps into ET accounting time."""
     if isinstance(value, str):
         stripped = value.strip()
+        if DATE_ONLY_RE.match(stripped):
+            return datetime.combine(date.fromisoformat(stripped), time.min, tzinfo=ET)
         match = PRODUCER_UTC_MIDNIGHT_RE.match(stripped)
         if match:
             return datetime.combine(date.fromisoformat(match.group("day")), time.min, tzinfo=ET)
