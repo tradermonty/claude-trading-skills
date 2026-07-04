@@ -40,6 +40,7 @@ def calculate_confidence(
     breadth_confirmed: bool,
     narrative_confirmed: bool,
     stale_data_penalty: bool,
+    coverage_penalty_count: int = 0,
 ) -> str:
     """Determine confidence level from confirmation layers.
 
@@ -47,6 +48,7 @@ def calculate_confidence(
     2 layers confirmed => Medium
     1 or 0 layers     => Low
     stale_data_penalty downgrades by 1 level (High->Medium, Medium->Low).
+    coverage_penalty_count downgrades by up to 2 additional levels.
     """
     confirmed_count = sum([quant_confirmed, breadth_confirmed, narrative_confirmed])
 
@@ -59,6 +61,14 @@ def calculate_confidence(
 
     if stale_data_penalty and level != "Low":
         level = "Medium" if level == "High" else "Low"
+
+    for _ in range(min(max(coverage_penalty_count, 0), 2)):
+        if level == "High":
+            level = "Medium"
+        elif level == "Medium":
+            level = "Low"
+        else:
+            break
 
     return level
 

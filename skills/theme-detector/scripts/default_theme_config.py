@@ -331,6 +331,7 @@ DEFAULT_THEMES_CONFIG: dict = {
         },
         {
             "theme_name": "Nuclear & Uranium",
+            "min_matching_industries": 1,
             "matching_keywords": [
                 "Uranium",
                 "Utilities - Independent Power Producers",

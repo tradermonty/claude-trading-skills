@@ -36,9 +36,9 @@ Theme Detectorは、FINVIZの業種・セクターパフォーマンスデータ
 
 | 次元 | スケール | 意味 |
 |------|---------|------|
-| **Theme Heat** | 0-100 | テーマの強度（モメンタム、出来高、上昇トレンド比率、ブレッド） |
-| **Lifecycle Maturity** | Emerging / Accelerating / Trending / Mature / Exhausting | テーマの成熟度（持続期間、極端度、バリュエーション、ETF本数） |
-| **Confidence** | Low / Medium / High | 検出の信頼度（定量的データとナラティブの一致度） |
+| **Theme Heat v2** | 0-100 | テーマの強度（モメンタム、出来高、上昇トレンド比率、ブレッド、任意の個別株リーダーシップ証拠） |
+| **Lifecycle Maturity** | Emerging / Accelerating / Trending / Mature / Exhausting | テーマの成熟度（履歴ベースの持続期間、極端度、バリュエーション、ETF本数） |
+| **Confidence** | Low / Medium / High | 検出の信頼度（定量データ、カバレッジ、リーダーシップ証拠、ナラティブの一致度） |
 
 **主な特徴:**
 - 14以上のクロスセクターテーマを定義済み（AI/半導体、クリーンエネルギー、サイバーセキュリティ、ゴールド、バイオテク等）
@@ -46,6 +46,8 @@ Theme Detectorは、FINVIZの業種・セクターパフォーマンスデータ
 - ライフサイクルステージ分類: Emerging → Accelerating → Trending → Mature → Exhausting
 - ETF増殖スコアリング: ETFが多いテーマは成熟度が高い（クラウデッドトレード警告）
 - Monty's Uptrend Ratio Dashboardとの統合
+- `--scan-hits` による 5D+20%、EP9M、レンジ拡大、新高値、高RS の個別株リーダーシップ証拠
+- `--history-file` によるテーマ履歴、1日/5日変化、20日z-score、持続期間の追跡
 - WebSearchベースのナラティブ確認
 
 **解決する問題:**
@@ -61,7 +63,7 @@ Theme Detectorは、FINVIZの業種・セクターパフォーマンスデータ
 
 | 項目 | 要否 | 説明 |
 |------|------|------|
-| Python 3.7+ | 必須 | スクリプト実行用 |
+| Python 3.9+ | 必須 | スクリプト実行用 |
 | `requests` | 必須 | HTTP通信 |
 | `beautifulsoup4` | 必須 | FINVIZ HTMLスクレイピング |
 | `lxml` | 必須 | HTML解析 |
@@ -100,6 +102,18 @@ python3 skills/theme-detector/scripts/theme_detector.py \
   --output-dir reports/
 ```
 
+### 個別株リーダーシップ + 履歴を使う日次実行
+
+```bash
+python3 skills/theme-detector/scripts/theme_detector.py \
+  --scan-hits data/theme_scan_hits_YYYY-MM-DD.json \
+  --history-file reports/theme_detector_history.json \
+  --as-of-date YYYY-MM-DD \
+  --output-dir reports/
+```
+
+`--scan-hits` はJSON/JSONL/CSVを受け取り、`scan_type` がある行はそのまま使い、無い行は `return_5d`、`change_pct`、`volume`、`relative_volume`、`true_range` / `atr_20`、`close_location`、`new_high`、`rs_rating` などから 5D+20%、EP9M、レンジ拡大、新高値、高RS を判定します。リーダーシップ証拠が無い場合は0点としてTheme Heatを押し下げず、カバレッジ不足としてConfidence側に反映します。
+
 ### Claudeへの自然言語
 
 ```
@@ -120,13 +134,15 @@ Step 1: 業種データ収集（FINVIZ）
   ↓
 Step 2: テーマ分類（業種→テーママッピング）
   ↓
-Step 3: Heat計算（4コンポーネント）
+Step 3: Heat計算（カバレッジ付きコンポーネント）
   ↓
-Step 4: ライフサイクル評価
+Step 4: 個別株リーダーシップ証拠（任意）
   ↓
-Step 5: ナラティブ確認（WebSearch）
+Step 5: ライフサイクル / 履歴 / 加速度評価
   ↓
-Step 6: レポート生成
+Step 6: ナラティブ確認（WebSearch）
+  ↓
+Step 7: What Changed Today / Leadership Evidence / レポート生成
 ```
 
 **Step 1: 業種データ収集**
@@ -140,7 +156,7 @@ Step 6: レポート生成
 
 **Step 3: Theme Heat計算**
 
-Theme Heat (0-100) は4つのサブスコアから算出されます：
+Theme Heat (0-100) は利用可能なサブスコアから算出されます。欠損データは50点として中立加点せず、カバレッジ不足としてConfidence側に反映します：
 
 | サブスコア | 内容 |
 |-----------|------|
@@ -446,6 +462,10 @@ python3 skills/theme-detector/scripts/theme_detector.py [OPTIONS]
 | `--discover-themes` | 未マッチ業種から自動テーマ発見 | `false` |
 | `--dynamic-stocks` | FINVIZによる動的銘柄選択 | `false` |
 | `--dynamic-min-cap` | 動的銘柄の最小時価総額 (micro/small/mid) | `small` |
+| `--scan-hits` | 個別株リーダーシップのJSON/JSONL/CSV | なし |
+| `--history-file` | テーマ履歴JSON | `<output-dir>/theme_detector_history.json` |
+| `--no-history-update` | 履歴を読み込むが今回分を書き込まない | `false` |
+| `--as-of-date` | 決定論的な実行日 (YYYY-MM-DD) | 当日 |
 
 ### 定義済みテーマ一覧
 

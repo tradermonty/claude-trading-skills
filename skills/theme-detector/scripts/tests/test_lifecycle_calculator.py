@@ -3,6 +3,7 @@
 import pytest
 from calculators.lifecycle_calculator import (
     calculate_lifecycle_maturity,
+    calculate_lifecycle_maturity_detailed,
     classify_stage,
     estimate_duration_score,
     etf_proliferation_score,
@@ -84,8 +85,8 @@ class TestExtremityClusteringScore:
         score = extremity_clustering_score(stocks, is_bearish=True)
         assert score == pytest.approx(100.0)
 
-    def test_empty_returns_50(self):
-        assert extremity_clustering_score([], is_bearish=False) == pytest.approx(50.0)
+    def test_empty_returns_none(self):
+        assert extremity_clustering_score([], is_bearish=False) is None
 
     def test_none_rsi_ignored(self):
         stocks = [{"rsi": None}, {"rsi": 75}, {"rsi": 80}]
@@ -144,8 +145,8 @@ class TestPriceExtremeSaturationScore:
         score = price_extreme_saturation_score(stocks, is_bearish=True)
         assert score == pytest.approx(100.0)
 
-    def test_empty_returns_50(self):
-        assert price_extreme_saturation_score([], is_bearish=False) == pytest.approx(50.0)
+    def test_empty_returns_none(self):
+        assert price_extreme_saturation_score([], is_bearish=False) is None
 
     def test_boundary_exactly_5pct(self):
         # dist <= 0.05 => counted
@@ -192,21 +193,21 @@ class TestValuationPremiumScore:
         stocks = self._make_stocks([110, 110, 110])
         assert valuation_premium_score(stocks) == pytest.approx(100.0)
 
-    def test_fewer_than_3_valid_returns_50(self):
+    def test_fewer_than_3_valid_returns_none(self):
         stocks = self._make_stocks([22, 22])
-        assert valuation_premium_score(stocks) == pytest.approx(50.0)
+        assert valuation_premium_score(stocks) is None
 
     def test_none_pe_excluded(self):
         stocks = self._make_stocks([None, 22, 22])
-        assert valuation_premium_score(stocks) == pytest.approx(50.0)
+        assert valuation_premium_score(stocks) is None
 
     def test_negative_pe_excluded(self):
         stocks = self._make_stocks([-10, 22, 22, 22])
         # valid: [22, 22, 22] => median 22 => ratio 1.0 => 16
         assert valuation_premium_score(stocks) == pytest.approx(16.0)
 
-    def test_empty_returns_50(self):
-        assert valuation_premium_score([]) == pytest.approx(50.0)
+    def test_empty_returns_none(self):
+        assert valuation_premium_score([]) is None
 
 
 # ── etf_proliferation_score ──────────────────────────────────────────
@@ -288,10 +289,19 @@ class TestCalculateLifecycleMaturity:
         result = calculate_lifecycle_maturity(0.0, 0.0, 0.0, 0.0, 0.0)
         assert result == pytest.approx(0.0)
 
-    def test_none_defaults(self):
-        # All None => 50 each
+    def test_none_has_zero_score_and_zero_coverage(self):
         result = calculate_lifecycle_maturity(None, None, None, None, None)
-        assert result == pytest.approx(50.0)
+        assert result == pytest.approx(0.0)
+        detailed = calculate_lifecycle_maturity_detailed(None, None, None, None, None)
+        assert detailed["score"] is None
+        assert detailed["coverage"] == pytest.approx(0.0)
+        assert set(detailed["missing_components"]) == {
+            "duration",
+            "extremity",
+            "price_extreme",
+            "valuation",
+            "etf_proliferation",
+        }
 
     def test_clamped_above_100(self):
         result = calculate_lifecycle_maturity(200.0, 200.0, 200.0, 200.0, 200.0)

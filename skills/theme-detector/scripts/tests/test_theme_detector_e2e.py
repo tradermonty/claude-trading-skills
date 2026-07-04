@@ -5,6 +5,7 @@ without network calls (all I/O is mocked).
 """
 
 import json
+import sys
 
 from calculators.heat_calculator import (
     breadth_signal_score,
@@ -132,7 +133,9 @@ class TestThemeDetectorE2E:
         metadata = {
             "generated_at": "2026-02-16 09:00:00",
             "data_mode": data_mode,
-            "data_sources": {},
+            "data_sources": {
+                "scan_hits": {"path": "scan_hits.json", "rows": 1, "hits": 1, "skipped_rows": 0}
+            },
         }
         json_report = generate_json_report([scored_theme], industry_rankings, {}, metadata)
 
@@ -154,7 +157,9 @@ class TestThemeDetectorE2E:
         assert "LEAD" in md_report
         assert "NVDA" in md_report
         assert "## 1. Theme Dashboard" in md_report
-        assert "## 7. Methodology & Data Quality" in md_report
+        assert "## 2. What Changed Today" in md_report
+        assert "## 3. Leadership Evidence" in md_report
+        assert "## 9. Methodology & Data Quality" in md_report
 
         # Verify perf values are reasonable (not multiplied by 100 again)
         assert "500.0%" not in md_report
@@ -237,6 +242,136 @@ class TestThemeDetectorE2E:
         ai = [t for t in themes if t["theme_name"] == "AI & Semiconductors"][0]
         assert ai["theme_origin"] == "seed"
         assert ai["name_confidence"] == "high"
+
+    def test_cli_scan_hits_history_no_update(self, monkeypatch, tmp_path, capsys):
+        """CLI run emits leadership/history sections without mutating history."""
+        import etf_scanner
+        import finviz_performance_client
+        import theme_detector
+        import uptrend_client
+
+        raw = [
+            _make_raw_industry("Semiconductors", "Technology", 0.05, 0.12, 0.25),
+            _make_raw_industry("Software - Application", "Technology", 0.04, 0.10, 0.20),
+            _make_raw_industry("Software - Infrastructure", "Technology", 0.035, 0.09, 0.18),
+            _make_raw_industry("Banks - Diversified", "Financial", 0.01, 0.02, 0.03),
+        ]
+        monkeypatch.setattr(finviz_performance_client, "get_industry_performance", lambda: raw)
+        monkeypatch.setattr(
+            finviz_performance_client, "cap_outlier_performances", lambda rows: rows
+        )
+        monkeypatch.setattr(
+            uptrend_client,
+            "fetch_sector_uptrend_data",
+            lambda: {
+                "Technology": {
+                    "ratio": 0.55,
+                    "ma_10": 0.45,
+                    "slope": 0.01,
+                    "trend": "up",
+                    "latest_date": "2026-07-04",
+                }
+            },
+        )
+        monkeypatch.setattr(uptrend_client, "is_data_stale", lambda *_args, **_kwargs: False)
+
+        class FakeScanner:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def batch_stock_metrics(self, symbols):
+                return [
+                    {
+                        "symbol": sym,
+                        "rsi_14": 72,
+                        "dist_from_52w_high": 0.02,
+                        "dist_from_52w_low": 0.40,
+                        "pe_ratio": 40,
+                    }
+                    for sym in symbols
+                ]
+
+            def batch_etf_volume_ratios(self, symbols):
+                return {sym: {"symbol": sym, "vol_20d": 200.0, "vol_60d": 100.0} for sym in symbols}
+
+            def backend_stats(self):
+                return {
+                    "fmp_calls": 0,
+                    "fmp_failures": 0,
+                    "yf_calls": 0,
+                    "yf_fallbacks": 0,
+                    "stock": {},
+                    "etf": {},
+                }
+
+        monkeypatch.setattr(etf_scanner, "ETFScanner", FakeScanner)
+
+        scan_hits = tmp_path / "scan_hits.json"
+        scan_hits.write_text(
+            json.dumps(
+                [
+                    {
+                        "symbol": "NVDA",
+                        "return_5d": 25,
+                        "change_pct": 6,
+                        "volume": 12_000_000,
+                        "relative_volume": 2.4,
+                        "atr_expansion": 1.8,
+                        "close_location": 0.85,
+                        "industry": "Semiconductors",
+                    }
+                ]
+            )
+        )
+        history_file = tmp_path / "history.json"
+        history_payload = {
+            "version": 1,
+            "themes": {
+                "AI & Semiconductors": [
+                    {
+                        "date": "2026-07-03",
+                        "theme": "AI & Semiconductors",
+                        "heat": 45,
+                        "leadership_counts": {"ep9m": 0},
+                    }
+                ]
+            },
+        }
+        history_file.write_text(json.dumps(history_payload))
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "theme_detector.py",
+                "--output-dir",
+                str(tmp_path),
+                "--scan-hits",
+                str(scan_hits),
+                "--history-file",
+                str(history_file),
+                "--no-history-update",
+                "--as-of-date",
+                "2026-07-04",
+                "--max-themes",
+                "1",
+            ],
+        )
+
+        theme_detector.main()
+        captured = capsys.readouterr()
+        report = json.loads(captured.out)
+        top_theme = report["themes"]["all"][0]
+        assert top_theme["leadership_score"] is not None
+        assert top_theme["leadership_counts"]["ep9m"] == 1
+        assert top_theme["history_metrics"]["heat_delta_1d"] is not None
+        assert report["what_changed_today"]
+        assert report["leadership_evidence"][0]["ep9m_count"] == 1
+
+        markdown = next(tmp_path.glob("theme_detector_*.md")).read_text()
+        assert "## 2. What Changed Today" in markdown
+        assert "## 3. Leadership Evidence" in markdown
+        assert json.loads(history_file.read_text()) == history_payload
 
     def test_discover_path_finds_unmatched_clusters(self):
         """Discover path finds themes from unmatched industries."""
@@ -387,7 +522,9 @@ class TestThemeDetectorE2E:
         metadata = {
             "generated_at": "2026-02-16 09:00:00",
             "data_mode": data_mode,
-            "data_sources": {},
+            "data_sources": {
+                "scan_hits": {"path": "scan_hits.json", "rows": 1, "hits": 1, "skipped_rows": 0}
+            },
         }
         json_report = generate_json_report([scored_theme], {"top": [], "bottom": []}, {}, metadata)
 

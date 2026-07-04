@@ -60,9 +60,14 @@ class TestDetectDivergence:
         assert result["gap"] == 40.0
         assert "acceleration candidate" in result["description"]
 
-    def test_defaults_to_50_when_keys_missing(self):
-        """Missing keys default to 50, so gap is 0 and returns None."""
+    def test_missing_keys_return_none(self):
+        """Missing keys return None rather than inventing neutral coverage."""
         result = detect_divergence({}, "bullish")
+        assert result is None
+
+    def test_none_uptrend_returns_none(self):
+        """Missing uptrend coverage does not crash divergence detection."""
+        result = detect_divergence({"momentum_strength": 80, "uptrend_signal": None}, "bullish")
         assert result is None
 
     def test_gap_rounding(self):

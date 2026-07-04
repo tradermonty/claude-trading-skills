@@ -47,7 +47,8 @@ def rank_industries(industries: list[dict]) -> list[dict]:
     Each input dict must have keys: name, perf_1w, perf_1m, perf_3m, perf_6m.
     Additional keys are preserved.
 
-    Adds fields: weighted_return, momentum_score, direction, rank.
+    Adds fields: weighted_return, momentum_score, direction, rank,
+    strength_rank, signed_rank, rank_direction.
     Returns list sorted by momentum_score descending.
     """
     if not industries:
@@ -67,12 +68,17 @@ def rank_industries(industries: list[dict]) -> list[dict]:
         entry["direction"] = direction
         scored.append(entry)
 
+    signed_ranked = sorted(scored, key=lambda x: x["weighted_return"], reverse=True)
+    signed_mid = len(signed_ranked) // 2
+    for i, entry in enumerate(signed_ranked, start=1):
+        entry["signed_rank"] = i
+        entry["rank_direction"] = "bullish" if i <= signed_mid else "bearish"
+
     scored.sort(key=lambda x: x["momentum_score"], reverse=True)
 
-    mid = len(scored) // 2
     for i, entry in enumerate(scored, start=1):
         entry["rank"] = i
-        entry["rank_direction"] = "bullish" if i <= mid else "bearish"
+        entry["strength_rank"] = i
 
     return scored
 

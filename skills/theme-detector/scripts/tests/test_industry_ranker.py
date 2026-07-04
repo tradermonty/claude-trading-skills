@@ -114,7 +114,7 @@ class TestRankIndustries:
     """Test rank_industries function."""
 
     def test_adds_required_fields(self):
-        """Each result dict gets momentum_score, weighted_return, direction, rank."""
+        """Each result dict gets ranking and direction fields."""
         industries = [_make_industry("Tech", 5, 10, 15, 20)]
         ranked = rank_industries(industries)
         assert len(ranked) == 1
@@ -123,6 +123,9 @@ class TestRankIndustries:
         assert "weighted_return" in item
         assert "direction" in item
         assert "rank" in item
+        assert "strength_rank" in item
+        assert "signed_rank" in item
+        assert "rank_direction" in item
 
     def test_weighted_return_calculation(self):
         """Verify weighted return = sum(perf_x * weight_x)."""
@@ -196,6 +199,21 @@ class TestRankIndustries:
         directions = {r["name"]: r["direction"] for r in ranked}
         assert directions["Bull"] == "bullish"
         assert directions["Bear"] == "bearish"
+
+    def test_severe_decliner_keeps_bearish_rank_direction(self):
+        """Strong negative momentum can rank high by strength but not as bullish."""
+        industries = [
+            _make_industry("Crash", perf_1w=-30, perf_1m=-30, perf_3m=-30, perf_6m=-30),
+            _make_industry("Leader", perf_1w=20, perf_1m=20, perf_3m=20, perf_6m=20),
+            _make_industry("Mild", perf_1w=2, perf_1m=2, perf_3m=2, perf_6m=2),
+            _make_industry("Flat"),
+        ]
+        ranked = rank_industries(industries)
+        crash = next(item for item in ranked if item["name"] == "Crash")
+        leader = next(item for item in ranked if item["name"] == "Leader")
+        assert crash["strength_rank"] < leader["strength_rank"]
+        assert crash["rank_direction"] == "bearish"
+        assert leader["rank_direction"] == "bullish"
 
 
 # ---------------------------------------------------------------------------

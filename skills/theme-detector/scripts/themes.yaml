@@ -159,6 +159,7 @@ cross_sector:
     etf_count: 4
 
   - theme_name: "Nuclear & Uranium"
+    min_matching_industries: 1
     matching_keywords:
       - Uranium
       - Utilities - Independent Power Producers

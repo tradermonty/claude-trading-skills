@@ -47,20 +47,20 @@ def estimate_duration_score(
     return float(count * 25)
 
 
-def extremity_clustering_score(stock_metrics: list[dict], is_bearish: bool) -> float:
+def extremity_clustering_score(stock_metrics: list[dict], is_bearish: bool) -> Optional[float]:
     """Proportion of stocks at RSI extremes.
 
     Bullish: count RSI > 70
     Bearish: count RSI < 30
     Formula: min(100, pct * 200)
-    Returns 50.0 if empty.
+    Returns None if empty or no valid RSI values.
     """
     if not stock_metrics:
-        return 50.0
+        return None
 
     valid = [s for s in stock_metrics if s.get("rsi") is not None]
     if not valid:
-        return 50.0
+        return None
 
     if is_bearish:
         extreme_count = sum(1 for s in valid if s["rsi"] < 30)
@@ -71,40 +71,40 @@ def extremity_clustering_score(stock_metrics: list[dict], is_bearish: bool) -> f
     return min(100.0, pct * 200.0)
 
 
-def price_extreme_saturation_score(stock_metrics: list[dict], is_bearish: bool) -> float:
+def price_extreme_saturation_score(stock_metrics: list[dict], is_bearish: bool) -> Optional[float]:
     """Proportion of stocks near 52-week extremes.
 
     Bullish: dist_from_52w_high <= 0.05
     Bearish: dist_from_52w_low <= 0.05
     Formula: min(100, pct * 200)
-    Returns 50.0 if empty.
+    Returns None if empty or no valid 52-week distance values.
     """
     if not stock_metrics:
-        return 50.0
+        return None
 
     key = "dist_from_52w_low" if is_bearish else "dist_from_52w_high"
     valid = [s for s in stock_metrics if s.get(key) is not None]
     if not valid:
-        return 50.0
+        return None
 
     near_count = sum(1 for s in valid if s[key] <= 0.05)
     pct = near_count / len(valid)
     return min(100.0, pct * 200.0)
 
 
-def valuation_premium_score(stock_metrics: list[dict]) -> float:
+def valuation_premium_score(stock_metrics: list[dict]) -> Optional[float]:
     """Score based on median P/E relative to market average (22).
 
     premium_ratio = median_PE / 22.0
     Score: min(100, max(0, (premium_ratio - 0.5) * 32))
-    Needs 3+ valid P/E values, else returns 50.0.
+    Needs 3+ valid P/E values, else returns None.
     """
     valid_pe = [
         s["pe_ratio"] for s in stock_metrics if s.get("pe_ratio") is not None and s["pe_ratio"] > 0
     ]
 
     if len(valid_pe) < 3:
-        return 50.0
+        return None
 
     median_pe = statistics.median(valid_pe)
     premium_ratio = median_pe / 22.0
@@ -167,22 +167,50 @@ def calculate_lifecycle_maturity(
     valuation: Optional[float],
     etf_prolif: Optional[float],
 ) -> float:
-    """Weighted sum of lifecycle sub-scores, clamped 0-100.
+    """Weighted available lifecycle sub-scores, clamped 0-100.
 
-    Any None input defaults to 50.0.
+    Missing inputs are excluded from the denominator rather than defaulting
+    to neutral 50.0. Returns 0.0 if no components are available.
     """
-    d = duration if duration is not None else 50.0
-    e = extremity if extremity is not None else 50.0
-    p = price_extreme if price_extreme is not None else 50.0
-    v = valuation if valuation is not None else 50.0
-    et = etf_prolif if etf_prolif is not None else 50.0
-
-    raw = (
-        d * LIFECYCLE_WEIGHTS["duration"]
-        + e * LIFECYCLE_WEIGHTS["extremity"]
-        + p * LIFECYCLE_WEIGHTS["price_extreme"]
-        + v * LIFECYCLE_WEIGHTS["valuation"]
-        + et * LIFECYCLE_WEIGHTS["etf_proliferation"]
+    detailed = calculate_lifecycle_maturity_detailed(
+        duration, extremity, price_extreme, valuation, etf_prolif
     )
+    return float(detailed["score"] or 0.0)
 
-    return float(min(100.0, max(0.0, raw)))
+
+def calculate_lifecycle_maturity_detailed(
+    duration: Optional[float],
+    extremity: Optional[float],
+    price_extreme: Optional[float],
+    valuation: Optional[float],
+    etf_prolif: Optional[float],
+) -> dict:
+    """Calculate lifecycle maturity plus coverage metadata."""
+    components = {
+        "duration": duration,
+        "extremity": extremity,
+        "price_extreme": price_extreme,
+        "valuation": valuation,
+        "etf_proliferation": etf_prolif,
+    }
+    score, coverage = _weighted_available_score(components, LIFECYCLE_WEIGHTS)
+    missing = [name for name, value in components.items() if value is None]
+    return {
+        "score": None if score is None else float(min(100.0, max(0.0, score))),
+        "coverage": coverage,
+        "missing_components": missing,
+        "components": components,
+    }
+
+
+def _weighted_available_score(
+    components: dict[str, Optional[float]], weights: dict[str, float]
+) -> tuple[Optional[float], float]:
+    available = {k: v for k, v in components.items() if v is not None}
+    total_possible = sum(weights.values())
+    total_weight = sum(weights[k] for k in available if k in weights)
+    if total_weight == 0 or total_possible == 0:
+        return None, 0.0
+
+    score = sum(float(available[k]) * weights[k] for k in available if k in weights) / total_weight
+    return score, total_weight / total_possible

@@ -38,6 +38,8 @@ def generate_json_report(
 
     # Data quality flags
     data_quality = _assess_data_quality(themes, industry_rankings, sector_uptrend, metadata)
+    what_changed = _summarize_what_changed_today(themes)
+    leadership_evidence = _build_leadership_evidence(themes)
 
     return {
         "report_type": "theme_detector",
@@ -57,6 +59,8 @@ def generate_json_report(
         },
         "industry_rankings": industry_rankings,
         "sector_uptrend": sector_uptrend,
+        "what_changed_today": what_changed,
+        "leadership_evidence": leadership_evidence,
         "data_quality": data_quality,
     }
 
@@ -122,24 +126,38 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
             )
         lines.append("")
 
-    # Section 2: Bullish Themes Detail
+    # Section 2: What Changed Today
     lines.append("---")
     lines.append("")
-    lines.append(f"## 2. Leading Themes (Top {top_n_detail})")
+    lines.append("## 2. What Changed Today")
+    lines.append("")
+    _add_what_changed_today(lines, json_data.get("what_changed_today", {}))
+
+    # Section 3: Leadership Evidence
+    lines.append("---")
+    lines.append("")
+    lines.append("## 3. Leadership Evidence")
+    lines.append("")
+    _add_leadership_evidence(lines, json_data.get("leadership_evidence", []))
+
+    # Section 4: Bullish Themes Detail
+    lines.append("---")
+    lines.append("")
+    lines.append(f"## 4. Leading Themes (Top {top_n_detail})")
     lines.append("")
     _add_theme_details(lines, bullish[:top_n_detail])
 
-    # Section 3: Bearish Themes Detail
+    # Section 5: Bearish Themes Detail
     lines.append("---")
     lines.append("")
-    lines.append(f"## 3. Lagging Themes (Top {top_n_detail})")
+    lines.append(f"## 5. Lagging Themes (Top {top_n_detail})")
     lines.append("")
     _add_theme_details(lines, bearish[:top_n_detail])
 
-    # Section 4: All Themes Summary Table
+    # Section 6: All Themes Summary Table
     lines.append("---")
     lines.append("")
-    lines.append("## 4. All Themes Summary")
+    lines.append("## 6. All Themes Summary")
     lines.append("")
     if all_themes:
         lines.append("| # | Theme | Dir | Heat | Maturity | Stage | Industries |")
@@ -163,10 +181,10 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
         lines.append("No themes detected.")
         lines.append("")
 
-    # Section 5: Industry Rankings
+    # Section 7: Industry Rankings
     lines.append("---")
     lines.append("")
-    lines.append("## 5. Industry Rankings")
+    lines.append("## 7. Industry Rankings")
     lines.append("")
     rankings = json_data.get("industry_rankings", {})
     top = rankings.get("top", [])
@@ -208,10 +226,10 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
         lines.append("Industry ranking data unavailable.")
         lines.append("")
 
-    # Section 6: Sector Uptrend Ratios
+    # Section 8: Sector Uptrend Ratios
     lines.append("---")
     lines.append("")
-    lines.append("## 6. Sector Uptrend Ratios")
+    lines.append("## 8. Sector Uptrend Ratios")
     lines.append("")
     uptrend = json_data.get("sector_uptrend", {})
     if uptrend:
@@ -236,10 +254,10 @@ def generate_markdown_report(json_data: dict, top_n_detail: int = 3) -> str:
         lines.append("Sector uptrend data unavailable.")
         lines.append("")
 
-    # Section 7: Methodology + Data Quality
+    # Section 9: Methodology + Data Quality
     lines.append("---")
     lines.append("")
-    lines.append("## 7. Methodology & Data Quality")
+    lines.append("## 9. Methodology & Data Quality")
     lines.append("")
     lines.append("### Methodology")
     lines.append("")
@@ -371,6 +389,22 @@ def _assess_data_quality(
         flags.append(f"FINVIZ error: {sources['finviz_error']}")
     if sources.get("uptrend_error"):
         flags.append(f"Uptrend error: {sources['uptrend_error']}")
+    scan_hits = sources.get("scan_hits", {})
+    if isinstance(scan_hits, dict) and not scan_hits.get("path"):
+        flags.append("Stock leadership scan hits unavailable - leadership evidence not blended")
+    elif (
+        isinstance(scan_hits, dict)
+        and scan_hits.get("rows", 0) > 0
+        and scan_hits.get("hits", 0) == 0
+    ):
+        flags.append("Stock leadership scan rows produced no qualifying hits")
+
+    low_heat = [t.get("name") for t in themes if t.get("heat_coverage", 1.0) < 0.75]
+    if low_heat:
+        flags.append(f"Heat component coverage low for {len(low_heat)} theme(s)")
+    low_lifecycle = [t.get("name") for t in themes if t.get("maturity_coverage", 1.0) < 0.60]
+    if low_lifecycle:
+        flags.append(f"Lifecycle component coverage low for {len(low_lifecycle)} theme(s)")
 
     # Scanner backend statistics (support both flat and nested formats)
     scanner = sources.get("scanner_backend", {})
@@ -410,6 +444,135 @@ def _assess_data_quality(
         "status": "warning" if flags else "ok",
         "flags": flags,
     }
+
+
+def _summarize_what_changed_today(themes: list[dict]) -> dict:
+    newly_emerging = []
+    accelerating = []
+    ep9m_clusters = []
+    fading = []
+
+    for theme in themes:
+        metrics = theme.get("history_metrics", {})
+        delta_1d = metrics.get("heat_delta_1d")
+        z_20d = metrics.get("heat_z_20d")
+        counts = theme.get("leadership_counts", {})
+        ep9m_count = counts.get("ep9m", 0)
+
+        if metrics.get("prior_observations", 0) == 0 and theme.get("heat", 0) >= 40:
+            newly_emerging.append(theme.get("name"))
+        if z_20d is not None and z_20d >= 1.0:
+            accelerating.append(
+                {
+                    "theme": theme.get("name"),
+                    "heat_z_20d": z_20d,
+                    "heat_delta_1d": delta_1d,
+                }
+            )
+        if ep9m_count:
+            ep9m_clusters.append(
+                {
+                    "theme": theme.get("name"),
+                    "ep9m_count": ep9m_count,
+                    "leader_symbols": theme.get("leader_symbols", []),
+                }
+            )
+        if delta_1d is not None and delta_1d <= -10.0:
+            fading.append({"theme": theme.get("name"), "heat_delta_1d": delta_1d})
+
+    accelerating.sort(key=lambda item: item.get("heat_z_20d") or 0, reverse=True)
+    ep9m_clusters.sort(key=lambda item: item.get("ep9m_count") or 0, reverse=True)
+    fading.sort(key=lambda item: item.get("heat_delta_1d") or 0)
+    return {
+        "newly_emerging_themes": newly_emerging,
+        "largest_heat_acceleration": accelerating[:5],
+        "new_ep9m_clusters": ep9m_clusters[:5],
+        "fading_after_leadership": fading[:5],
+    }
+
+
+def _build_leadership_evidence(themes: list[dict]) -> list[dict]:
+    rows = []
+    for theme in themes:
+        counts = theme.get("leadership_counts", {})
+        rows.append(
+            {
+                "theme": theme.get("name"),
+                "five_day_20pct_count": counts.get("five_day_20pct", 0),
+                "ep9m_count": counts.get("ep9m", 0),
+                "range_expansion_count": counts.get("range_expansion", 0),
+                "new_high_count": counts.get("new_high", 0),
+                "high_rs_count": counts.get("high_rs", 0),
+                "leadership_score": theme.get("leadership_score"),
+                "leader_symbols": theme.get("leader_symbols", []),
+            }
+        )
+    rows.sort(
+        key=lambda row: (
+            row.get("leadership_score") is not None,
+            row.get("leadership_score") or 0,
+            row.get("ep9m_count") or 0,
+        ),
+        reverse=True,
+    )
+    return rows
+
+
+def _add_what_changed_today(lines: list[str], summary: dict) -> None:
+    if not summary:
+        lines.append("No history metrics available.")
+        lines.append("")
+        return
+    emerging = summary.get("newly_emerging_themes", [])
+    acceleration = summary.get("largest_heat_acceleration", [])
+    ep9m = summary.get("new_ep9m_clusters", [])
+    fading = summary.get("fading_after_leadership", [])
+
+    lines.append(f"- **Newly emerging themes:** {', '.join(emerging) if emerging else 'None'}")
+    if acceleration:
+        accel = ", ".join(f"{item['theme']} (z={item['heat_z_20d']:+.2f})" for item in acceleration)
+        lines.append(f"- **Largest heat acceleration:** {accel}")
+    else:
+        lines.append("- **Largest heat acceleration:** None")
+    if ep9m:
+        clusters = ", ".join(f"{item['theme']} ({item['ep9m_count']})" for item in ep9m)
+        lines.append(f"- **New EP9M clusters:** {clusters}")
+    else:
+        lines.append("- **New EP9M clusters:** None")
+    if fading:
+        fade = ", ".join(f"{item['theme']} ({item['heat_delta_1d']:+.1f})" for item in fading)
+        lines.append(f"- **Fading after prior leadership:** {fade}")
+    else:
+        lines.append("- **Fading after prior leadership:** None")
+    lines.append("")
+
+
+def _add_leadership_evidence(lines: list[str], evidence: list[dict]) -> None:
+    if not evidence:
+        lines.append("No leadership evidence available.")
+        lines.append("")
+        return
+    lines.append(
+        "| Theme | 5D+20% | EP9M | Range Expansion | New Highs | High RS | Score | Leaders |"
+    )
+    lines.append(
+        "|-------|--------|------|-----------------|-----------|---------|-------|---------|"
+    )
+    for row in evidence:
+        leaders = ", ".join(row.get("leader_symbols", [])[:8]) or "N/A"
+        score = row.get("leadership_score")
+        score_str = "N/A" if score is None else f"{score:.1f}"
+        lines.append(
+            f"| {row.get('theme', 'N/A')} "
+            f"| {row.get('five_day_20pct_count', 0)} "
+            f"| {row.get('ep9m_count', 0)} "
+            f"| {row.get('range_expansion_count', 0)} "
+            f"| {row.get('new_high_count', 0)} "
+            f"| {row.get('high_rs_count', 0)} "
+            f"| {score_str} "
+            f"| {leaders} |"
+        )
+    lines.append("")
 
 
 def _heat_bar(heat: float) -> str:
@@ -526,7 +689,8 @@ def _add_theme_details(lines: list[str], themes: list[dict]) -> None:
         if t.get("lifecycle_data_quality") == "insufficient":
             lines.append(
                 "> **[Lifecycle data insufficient]** "
-                "Maturity values are defaults; no stock metrics available."
+                "Stock-level lifecycle components are missing or partial; "
+                "maturity uses available components and coverage metadata."
             )
             lines.append("")
 
@@ -544,9 +708,21 @@ def _add_theme_details(lines: list[str], themes: list[dict]) -> None:
             lines.append(f"- **Origin:** Discovered (name confidence: {name_conf})")
         lines.append(f"- **Direction:** {_direction_label(t.get('direction'))}")
         lines.append(f"- **Heat:** {t.get('heat', 0):.1f}/100 ({t.get('heat_label', 'N/A')})")
+        if t.get("base_heat") is not None and t.get("base_heat") != t.get("heat"):
+            lines.append(f"- **Base Heat:** {t.get('base_heat', 0):.1f}/100")
+        if t.get("leadership_score") is not None:
+            lines.append(f"- **Leadership Score:** {t.get('leadership_score', 0):.1f}/100")
         lines.append(f"- **Maturity:** {t.get('maturity', 0):.1f}/100")
         lines.append(f"- **Stage:** {t.get('stage', 'N/A')}")
         lines.append(f"- **Confidence:** {t.get('confidence', 'N/A')}")
+        penalties = t.get("confidence_penalties", [])
+        if penalties:
+            lines.append(f"- **Confidence Penalties:** {', '.join(penalties)}")
+        lines.append(
+            f"- **Data Coverage:** Heat {t.get('heat_coverage', 0):.0%}, "
+            f"Lifecycle {t.get('maturity_coverage', 0):.0%}, "
+            f"Leadership {t.get('leadership_coverage', 0):.0%}"
+        )
         lines.append("")
 
         # Divergence alert (shown before heat breakdown for visibility)
@@ -585,9 +761,9 @@ def _add_theme_details(lines: list[str], themes: list[dict]) -> None:
             lines.append("")
             if t.get("lifecycle_data_quality") == "insufficient":
                 lines.append(
-                    "- *Note: Maturity based on defaults (no stock "
-                    "metrics available). Values may not reflect "
-                    "actual lifecycle stage.*"
+                    "- *Note: Stock-level lifecycle components are missing "
+                    "or partial; maturity is based on available components "
+                    "and coverage metadata.*"
                 )
             for key, val in mat_bd.items():
                 label = key.replace("_", " ").title()

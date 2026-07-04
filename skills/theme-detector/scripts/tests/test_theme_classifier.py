@@ -100,6 +100,36 @@ class TestCrossSectorThemes:
         theme_names = [t["theme_name"] for t in themes]
         assert "AI & Automation" not in theme_names
 
+    def test_per_theme_min_matching_industries_override(self):
+        """Theme-level minimum can detect a narrow one-industry theme."""
+        config = {
+            "cross_sector_min_matches": 2,
+            "vertical_min_industries": 3,
+            "cross_sector": [
+                {
+                    "theme_name": "Nuclear & Uranium",
+                    "min_matching_industries": 1,
+                    "matching_keywords": ["Uranium", "Other Industrial Metals & Mining"],
+                    "proxy_etfs": ["URA"],
+                    "static_stocks": ["CCJ"],
+                },
+                {
+                    "theme_name": "Default Needs Two",
+                    "matching_keywords": ["Uranium", "Gold"],
+                    "proxy_etfs": [],
+                    "static_stocks": [],
+                },
+            ],
+        }
+        ranked = [
+            _make_ranked_industry("Uranium", 20.0, 90.0, "bullish", 1, "Energy"),
+            _make_ranked_industry("Banks - Regional", 8.0, 65.0, "bullish", 2, "Financial"),
+        ]
+        themes = classify_themes(ranked, config)
+        names = [theme["theme_name"] for theme in themes]
+        assert "Nuclear & Uranium" in names
+        assert "Default Needs Two" not in names
+
     def test_all_three_matches(self):
         """All three keywords match -> theme detected with all three matching."""
         ranked = [

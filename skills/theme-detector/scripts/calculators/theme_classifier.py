@@ -11,6 +11,7 @@ themes_config format:
         {
             "theme_name": str,
             "matching_keywords": [str, ...],
+            "min_matching_industries": int,  # optional per-theme override
             "proxy_etfs": [str, ...],
             "static_stocks": [str, ...],
         },
@@ -67,8 +68,9 @@ def classify_themes(
     for theme_def in cross_sector_defs:
         keywords = theme_def.get("matching_keywords", [])
         matches = [kw for kw in keywords if kw in active_set]
+        min_matches = theme_def.get("min_matching_industries", cross_sector_min)
 
-        if len(matches) >= cross_sector_min:
+        if len(matches) >= min_matches:
             matching_inds = [active_set[m] for m in matches]
             direction = _majority_direction(matching_inds)
             sector_weights = get_theme_sector_weights({"matching_industries": matching_inds})

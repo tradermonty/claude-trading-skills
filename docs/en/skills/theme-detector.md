@@ -40,9 +40,9 @@ The Theme Detector identifies which market themes (AI & Semiconductors, Clean En
 
 | Dimension | Range | What It Measures |
 |-----------|-------|-----------------|
-| **Theme Heat** | 0-100 | Strength of the theme: momentum, volume intensity, uptrend ratio, breadth |
-| **Lifecycle Maturity** | Emerging / Accelerating / Trending / Mature / Exhausting | How developed the theme is: duration, RSI extremity, valuation, ETF proliferation |
-| **Confidence** | Low / Medium / High | Reliability of detection: quantitative breadth combined with narrative confirmation |
+| **Theme Heat v2** | 0-100 | Strength of the theme: momentum, volume intensity, uptrend ratio, breadth, and optional stock-leadership evidence |
+| **Lifecycle Maturity** | Emerging / Accelerating / Trending / Mature / Exhausting | How developed the theme is: actual theme-history duration when available, RSI extremity, valuation, ETF proliferation |
+| **Confidence** | Low / Medium / High | Reliability of detection: quantitative breadth, data coverage, leadership evidence, and narrative confirmation |
 
 **14+ themes tracked:** AI & Semiconductors, Clean Energy & EV, Cybersecurity, Cloud Computing & SaaS, Biotech & Genomics, Infrastructure & Construction, Gold & Precious Metals, Defense & Aerospace, Energy (Oil & Gas), Consumer Staples & Defensive, Financial & Banking, Real Estate, Blockchain & Crypto, Healthcare Innovation.
 
@@ -53,7 +53,7 @@ The Theme Detector identifies which market themes (AI & Semiconductors, Clean En
 **Core functionality requires no API keys.** The skill uses FINVIZ public screener data and yfinance for ETF/stock metrics.
 
 **Python Dependencies:**
-- Python 3.7+
+- Python 3.9+
 - `requests`
 - `beautifulsoup4`
 - `lxml`
@@ -100,19 +100,21 @@ python3 skills/theme-detector/scripts/theme_detector.py --output-dir reports/
 
 1. **Industry data collection** -- Scans ~145 FINVIZ industries for performance, volume, and stock-level metrics (via FINVIZ Elite API or public scraping).
 2. **Theme classification** -- Maps industries to cross-sector themes using definitions in `cross_sector_themes.md`. Each theme requires a minimum number of constituent industries to show activity before it is classified.
-3. **Heat scoring** -- Calculates Theme Heat (0-100) from four sub-components:
+3. **Heat scoring** -- Calculates Theme Heat (0-100) from available sub-components without giving neutral credit to missing data:
    - **Momentum strength** -- Multi-timeframe performance weighting
    - **Volume intensity** -- Current volume vs historical average
    - **Uptrend ratio** -- Percentage of constituent stocks in technical uptrends
    - **Breadth** -- Ratio of matching industries with directionally-aligned weighted returns (positive for LEAD themes, negative for LAG themes). Industry-level participation rate, not stock-level
-4. **Lifecycle assessment** -- Determines maturity stage from:
-   - **Duration score** -- How long the theme has been active
+4. **Stock leadership evidence** -- Optional `--scan-hits` rows detect 5D+20%, EP9M, range expansion, new highs, and high-RS clusters. Leadership is blended into Theme Heat v2 only when actual evidence exists.
+5. **Theme history and acceleration** -- Optional `--history-file` stores daily heat and leadership counts, then reports duration, 1D/5D heat deltas, and 20D heat z-score.
+6. **Lifecycle assessment** -- Determines maturity stage from:
+   - **Duration score** -- How long the theme has been active in history, falling back to performance horizons when no history exists
    - **Extremity clustering** -- Concentration of RSI readings at extremes
    - **Price extreme saturation** -- Stocks at 52-week highs/lows
    - **Valuation premium** -- P/E premium vs historical norms (requires FMP)
    - **ETF proliferation** -- Number of thematic ETFs (more = more mature/crowded)
-5. **Direction detection** -- Classifies each theme as bullish, bearish, or neutral based on weighted industry performance, uptrend ratio, and volume confirmation.
-6. **Narrative confirmation** -- For top 5 themes, Claude performs WebSearch queries to validate whether the quantitative signal aligns with real-world news and analyst coverage.
+7. **Direction detection** -- Classifies each theme as LEAD/LAG from signed weighted industry performance while keeping activity strength direction-neutral.
+8. **Narrative confirmation** -- For top 5 themes, Claude performs WebSearch queries to validate whether the quantitative signal aligns with real-world news and analyst coverage.
 
 ---
 
@@ -144,7 +146,22 @@ python3 skills/theme-detector/scripts/theme_detector.py \
 
 ---
 
-### Example 3: Lifecycle Assessment
+### Example 3: Daily Leadership + History Run
+
+**Command:**
+```bash
+python3 skills/theme-detector/scripts/theme_detector.py \
+  --scan-hits data/theme_scan_hits_YYYY-MM-DD.json \
+  --history-file reports/theme_detector_history.json \
+  --as-of-date YYYY-MM-DD \
+  --output-dir reports/
+```
+
+**Why useful:** Adds Stockbee/Pradeep-style evidence from 5D+20%, EP9M, range expansion, new highs, and high-RS stocks, then reports `What Changed Today` and `Leadership Evidence` so the daily workflow can spot fresh theme acceleration.
+
+---
+
+### Example 4: Lifecycle Assessment
 
 **Prompt:**
 ```

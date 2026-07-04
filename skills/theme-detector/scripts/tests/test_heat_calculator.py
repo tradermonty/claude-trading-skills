@@ -4,6 +4,7 @@ import pytest
 from calculators.heat_calculator import (
     breadth_signal_score,
     calculate_theme_heat,
+    calculate_theme_heat_detailed,
     momentum_strength_score,
     uptrend_signal_score,
     volume_intensity_score,
@@ -16,33 +17,28 @@ class TestMomentumStrengthScore:
     """sigmoid: 100 / (1 + exp(-0.15 * (abs(wr%) - 5.0)))"""
 
     def test_zero_return(self):
-        # abs(0) - 5 = -5 => sigmoid(0.75) ≈ 32
         score = momentum_strength_score(0.0)
-        assert 30 <= score <= 35
+        assert 0 <= score <= 1
 
     def test_five_percent(self):
-        # abs(5) - 5 = 0 => sigmoid(0) = 50
         score = momentum_strength_score(5.0)
-        assert score == pytest.approx(50.0, abs=0.1)
+        assert score == pytest.approx(12.33, abs=0.1)
 
     def test_negative_five_percent(self):
-        # abs(-5) - 5 = 0 => 50
         score = momentum_strength_score(-5.0)
-        assert score == pytest.approx(50.0, abs=0.1)
+        assert score == pytest.approx(12.33, abs=0.1)
 
     def test_fifteen_percent(self):
-        # abs(15) - 5 = 10 => sigmoid(-1.5) ≈ 82
         score = momentum_strength_score(15.0)
-        assert 80 <= score <= 85
+        assert score == pytest.approx(50.0, abs=0.1)
 
     def test_twenty_percent(self):
-        # abs(20) - 5 = 15 => sigmoid(-2.25) ≈ 90
         score = momentum_strength_score(20.0)
-        assert 88 <= score <= 92
+        assert 62 <= score <= 65
 
     def test_negative_twenty_percent(self):
         score = momentum_strength_score(-20.0)
-        assert 88 <= score <= 92
+        assert 62 <= score <= 65
 
     def test_returns_float(self):
         assert isinstance(momentum_strength_score(3.0), float)
@@ -59,12 +55,10 @@ class TestVolumeIntensityScore:
         assert volume_intensity_score(80.0, 100.0) == pytest.approx(0.0)
 
     def test_ratio_1_0_returns_50(self):
-        # (1.0 - 0.8) * 250 = 50
-        assert volume_intensity_score(100.0, 100.0) == pytest.approx(50.0)
+        assert volume_intensity_score(100.0, 100.0) == pytest.approx(40.8248)
 
     def test_ratio_1_2_returns_100(self):
-        # (1.2 - 0.8) * 250 = 100
-        assert volume_intensity_score(120.0, 100.0) == pytest.approx(100.0)
+        assert volume_intensity_score(120.0, 100.0) == pytest.approx(57.7350)
 
     def test_ratio_above_cap_clamped_to_100(self):
         # (2.0 - 0.8) * 250 = 300 => clamped 100
@@ -75,13 +69,13 @@ class TestVolumeIntensityScore:
         assert volume_intensity_score(50.0, 100.0) == pytest.approx(0.0)
 
     def test_none_vol_20d(self):
-        assert volume_intensity_score(None, 100.0) == pytest.approx(50.0)
+        assert volume_intensity_score(None, 100.0) is None
 
     def test_none_vol_60d(self):
-        assert volume_intensity_score(100.0, None) == pytest.approx(50.0)
+        assert volume_intensity_score(100.0, None) is None
 
     def test_zero_vol_60d(self):
-        assert volume_intensity_score(100.0, 0.0) == pytest.approx(50.0)
+        assert volume_intensity_score(100.0, 0.0) is None
 
 
 # ── uptrend_signal_score ─────────────────────────────────────────────
@@ -101,25 +95,25 @@ class TestUptrendSignalScore:
         # ratio>ma_10 AND slope>0 => 80
         data = [self._make_sector(ratio=50, ma_10=40, slope=0.5)]
         score = uptrend_signal_score(data, is_bearish=False)
-        assert score == pytest.approx(80.0)
+        assert score == pytest.approx(100.0)
 
     def test_ratio_only_gives_60(self):
         # ratio>ma_10 but slope<=0 => 60
         data = [self._make_sector(ratio=50, ma_10=40, slope=-0.1)]
         score = uptrend_signal_score(data, is_bearish=False)
-        assert score == pytest.approx(60.0)
+        assert score == pytest.approx(90.0)
 
     def test_slope_only_gives_60(self):
         # ratio<=ma_10 but slope>0 => 60
         data = [self._make_sector(ratio=30, ma_10=40, slope=0.5)]
         score = uptrend_signal_score(data, is_bearish=False)
-        assert score == pytest.approx(60.0)
+        assert score == pytest.approx(90.0)
 
     def test_neither_gives_20(self):
         # ratio<=ma_10 AND slope<=0 => 20
         data = [self._make_sector(ratio=30, ma_10=40, slope=-0.1)]
         score = uptrend_signal_score(data, is_bearish=False)
-        assert score == pytest.approx(20.0)
+        assert score == pytest.approx(80.0)
 
     def test_weighted_average(self):
         # sector A: both positive => 80, weight 2
@@ -130,22 +124,22 @@ class TestUptrendSignalScore:
             self._make_sector(ratio=30, ma_10=40, slope=-0.1, weight=1.0),
         ]
         score = uptrend_signal_score(data, is_bearish=False)
-        assert score == pytest.approx(60.0)
+        assert score == pytest.approx(93.33333333333333)
 
     def test_bearish_inversion(self):
         # both positive => 80, bearish => 100-80 = 20
         data = [self._make_sector(ratio=50, ma_10=40, slope=0.5)]
         score = uptrend_signal_score(data, is_bearish=True)
-        assert score == pytest.approx(20.0)
+        assert score == pytest.approx(0.0)
 
     def test_empty_list(self):
-        assert uptrend_signal_score([], is_bearish=False) == pytest.approx(50.0)
+        assert uptrend_signal_score([], is_bearish=False) is None
 
     def test_equal_ratio_and_ma10(self):
         # ratio == ma_10 => not > => slope<=0 => 20
         data = [self._make_sector(ratio=40, ma_10=40, slope=0)]
         score = uptrend_signal_score(data, is_bearish=False)
-        assert score == pytest.approx(20.0)
+        assert score == pytest.approx(80.0)
 
 
 # ── breadth_signal_score ─────────────────────────────────────────────
@@ -156,10 +150,10 @@ class TestBreadthSignalScore:
         assert breadth_signal_score(0.0) == pytest.approx(0.0)
 
     def test_half(self):
-        assert breadth_signal_score(0.5) == pytest.approx(50.0)
+        assert breadth_signal_score(0.5) == pytest.approx(14.142135623730951)
 
     def test_full(self):
-        assert breadth_signal_score(1.0) == pytest.approx(100.0)
+        assert breadth_signal_score(1.0) == pytest.approx(80.0)
 
     def test_above_one_clamped(self):
         assert breadth_signal_score(1.5) == pytest.approx(100.0)
@@ -168,7 +162,7 @@ class TestBreadthSignalScore:
         assert breadth_signal_score(-0.3) == pytest.approx(0.0)
 
     def test_none(self):
-        assert breadth_signal_score(None) == pytest.approx(50.0)
+        assert breadth_signal_score(None) is None
 
 
 # ── calculate_theme_heat ─────────────────────────────────────────────
@@ -176,10 +170,8 @@ class TestBreadthSignalScore:
 
 class TestCalculateThemeHeat:
     def test_weighted_sum(self):
-        # 80*0.40 + 60*0.25 + 70*0.20 + 50*0.15
-        # = 32 + 15 + 14 + 7.5 = 68.5
         result = calculate_theme_heat(80.0, 60.0, 70.0, 50.0)
-        assert result == pytest.approx(68.5)
+        assert result == pytest.approx(67.5)
 
     def test_all_100(self):
         result = calculate_theme_heat(100.0, 100.0, 100.0, 100.0)
@@ -189,16 +181,29 @@ class TestCalculateThemeHeat:
         result = calculate_theme_heat(0.0, 0.0, 0.0, 0.0)
         assert result == pytest.approx(0.0)
 
-    def test_none_defaults_to_50(self):
-        # All None => 50*0.40 + 50*0.25 + 50*0.20 + 50*0.15 = 50
+    def test_all_none_has_zero_score_and_zero_coverage(self):
         result = calculate_theme_heat(None, None, None, None)
-        assert result == pytest.approx(50.0)
+        assert result == pytest.approx(0.0)
+        detailed = calculate_theme_heat_detailed(None, None, None, None)
+        assert detailed["score"] is None
+        assert detailed["coverage"] == pytest.approx(0.0)
+        assert set(detailed["missing_components"]) == {
+            "momentum_strength",
+            "volume_intensity",
+            "uptrend_signal",
+            "breadth_signal",
+        }
 
     def test_partial_none(self):
-        # 80*0.40 + 50*0.25 + 50*0.20 + 50*0.15
-        # = 32 + 12.5 + 10 + 7.5 = 62.0
         result = calculate_theme_heat(80.0, None, None, None)
-        assert result == pytest.approx(62.0)
+        assert result == pytest.approx(80.0)
+        detailed = calculate_theme_heat_detailed(80.0, None, None, None)
+        assert detailed["coverage"] == pytest.approx(0.35)
+        assert detailed["missing_components"] == [
+            "volume_intensity",
+            "uptrend_signal",
+            "breadth_signal",
+        ]
 
     def test_clamped_above_100(self):
         result = calculate_theme_heat(200.0, 200.0, 200.0, 200.0)
@@ -222,8 +227,7 @@ class TestUptrendSignalNoneValues:
         """ma_10=None should not crash (treated as 0)."""
         data = [{"sector": "Tech", "ratio": 0.5, "ma_10": None, "slope": 0.01, "weight": 1.0}]
         score = uptrend_signal_score(data, is_bearish=False)
-        # ratio(0.5) > ma_10(0) AND slope(0.01) > 0 => 80
-        assert score == pytest.approx(80.0)
+        assert score == pytest.approx(70.0)
 
     def test_none_slope(self):
         """slope=None should not crash (treated as 0)."""
@@ -236,12 +240,10 @@ class TestUptrendSignalNoneValues:
         """ratio=None should not crash (treated as 0)."""
         data = [{"sector": "Tech", "ratio": None, "ma_10": 0.3, "slope": 0.01, "weight": 1.0}]
         score = uptrend_signal_score(data, is_bearish=False)
-        # ratio(0) not > ma_10(0.3) but slope(0.01) > 0 => 60
-        assert score == pytest.approx(60.0)
+        assert score == pytest.approx(10.0)
 
     def test_all_none(self):
         """All values None should not crash."""
         data = [{"sector": "Tech", "ratio": None, "ma_10": None, "slope": None, "weight": 1.0}]
         score = uptrend_signal_score(data, is_bearish=False)
-        # ratio(0) not > ma_10(0), slope(0) not > 0 => 20
-        assert score == pytest.approx(20.0)
+        assert score == pytest.approx(0.0)
