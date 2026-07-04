@@ -19,9 +19,10 @@ The skill uses a Python script to query the FMP API and returns raw JSON or text
 - Default to next 7 days for quick market outlook
 
 **Data Source:**
-- FMP Economic Calendar API: `https://financialmodelingprep.com/api/v3/economic_calendar`
+- FMP Economic Calendar API: `https://financialmodelingprep.com/stable/economic-calendar` (singular "economic")
 - Covers major economies: US, EU, UK, Japan, China, Canada, Australia
 - Event types: Central bank decisions, employment, inflation, GDP, trade, housing, surveys
+- Note: the legacy `api/v3/economic_calendar` endpoint was fully retired by FMP on 2025-08-31 and now returns `403 Legacy Endpoint` — do not use it, including as a fallback.
 
 ## When to Use This Skill
 
@@ -136,26 +137,10 @@ python3 skills/economic-calendar-fetcher/scripts/get_economic_calendar.py \
 **Handle errors and empty results:**
 - Invalid API key → Ask user to verify key
 - Rate limit exceeded (429) → Suggest waiting or upgrading FMP tier
+- Restricted endpoint (402 Payment Required) → The script raises a clear error stating the current FMP subscription tier does not include the Economic Calendar endpoint. Tell the user they need to upgrade their FMP plan at https://financialmodelingprep.com/ — do not treat this as "zero events" and do not fall back to the legacy v3 endpoint (it was retired 2025-08-31 and returns `403 Legacy Endpoint`).
 - Network errors → Check your connection and re-run the script
 - Invalid date format → Provide correct format example
-- **Unexpected empty list for a plausible current/future range:** Do not declare the calendar empty yet. Verify the same range against the primary v3 endpoint directly, then locally filter rows by parsed `date` because FMP may return adjacent-date rows. This applies even when the helper script itself returned `[]` (not only when a stable endpoint was used).
-
-Direct v3 fallback probe:
-```bash
-python3 - <<'PY'
-import os, json, urllib.parse, urllib.request, datetime
-start = datetime.date.fromisoformat("YYYY-MM-DD")
-end = datetime.date.fromisoformat("YYYY-MM-DD")
-url = "https://financialmodelingprep.com/api/v3/economic_calendar?" + urllib.parse.urlencode({
-    "from": start.isoformat(), "to": end.isoformat(), "apikey": os.environ["FMP_API_KEY"]
-})
-with urllib.request.urlopen(url, timeout=30) as r:
-    data = json.loads(r.read())
-filtered = [e for e in data if start <= datetime.date.fromisoformat(e["date"][:10]) <= end]
-filtered.sort(key=lambda e: e.get("date", ""))
-print(json.dumps(filtered, indent=2))
-PY
-```
+- **Empty list `[]` for a plausible current/future range:** As of the current script version, an empty list from the API is a genuine "no events" response — a 404 or restricted-endpoint response now raises an explicit error instead of being silently converted to `[]`. If you still suspect missing data, re-verify the date range and API key rather than assuming a broken endpoint.
 
 ### Step 4: Parse and Filter Events
 
@@ -359,9 +344,10 @@ If user requested specific filters, note at top:
   - Best practices for caching and efficiency
 
 **API Details:**
-- Primary endpoint: `https://financialmodelingprep.com/api/v3/economic_calendar`
-- Stable endpoint caveat: if a helper script or docs use `https://financialmodelingprep.com/stable/economics-calendar` and it returns `404` or `[]` for an otherwise valid date range, fall back to the v3 endpoint above before declaring the calendar empty.
-- Date-range caveat: v3 responses can include rows just outside the requested `from`/`to` window; after fetching, filter events locally by parsed `date` so only the requested date range is reported.
+- Primary endpoint: `https://financialmodelingprep.com/stable/economic-calendar` (singular "economic" — the plural `economics-calendar` is a dead URL that 404s)
+- Legacy endpoint retired: `https://financialmodelingprep.com/api/v3/economic_calendar` was shut down by FMP on 2025-08-31 and now returns `403 Legacy Endpoint`. Do not use it or fall back to it.
+- Restricted-endpoint caveat: the stable Economic Calendar endpoint may require a paid FMP subscription tier. If the API key lacks entitlement, it returns `402 Payment Required`, which the script surfaces as a clear error rather than an empty list.
+- Date-range caveat: responses can include rows just outside the requested `from`/`to` window; after fetching, filter events locally by parsed `date` so only the requested date range is reported.
 - Authentication: API key required (free tier: 250 requests/day)
 - Max date range: 90 days per request
 - Response format: JSON array of event objects
@@ -383,6 +369,7 @@ If user requested specific filters, note at top:
 **Error Handling:**
 - API key errors: Clear user guidance for obtaining free key
 - Rate limits (429): Suggest waiting or upgrading FMP tier; re-run the script after the wait
+- Restricted endpoint (402): Script raises a clear error — the FMP subscription tier lacks access to this endpoint; direct the user to upgrade at https://financialmodelingprep.com/. Do not fall back to the legacy v3 endpoint (retired 2025-08-31, returns 403).
 - Network failures: Check connection and re-run; no automatic retry or cache in the script
-- Stable endpoint returns `404` or an empty list for a valid range: retry the same range through `https://financialmodelingprep.com/api/v3/economic_calendar`, then locally filter returned events to the requested dates before reporting.
+- Genuine 404: The script now raises an error instead of silently returning an empty list — investigate rather than assuming zero events.
 - Invalid dates: Validation with helpful error messages
