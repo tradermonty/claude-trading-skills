@@ -51,7 +51,11 @@ def load_scan_hits(path: str, run_date: str) -> tuple[list[ScanHit], dict]:
     rows = _load_rows(path)
     hits: list[ScanHit] = []
     skipped_rows = 0
+    skipped_date_rows = 0
     for row in rows:
+        if not _row_matches_run_date(row, run_date):
+            skipped_date_rows += 1
+            continue
         row_hits = detect_scan_hits_from_row(row, run_date)
         if row_hits:
             hits.extend(row_hits)
@@ -63,6 +67,7 @@ def load_scan_hits(path: str, run_date: str) -> tuple[list[ScanHit], dict]:
         "rows": len(rows),
         "hits": len(hits),
         "skipped_rows": skipped_rows,
+        "skipped_date_rows": skipped_date_rows,
     }
     return hits, summary
 
@@ -71,6 +76,8 @@ def detect_scan_hits_from_row(row: dict, run_date: str) -> list[ScanHit]:
     """Derive one or more ScanHit records from a raw or pre-labeled row."""
     symbol = str(row.get("symbol") or "").strip().upper()
     if not symbol:
+        return []
+    if not _row_matches_run_date(row, run_date):
         return []
 
     enriched = _enrich_row(row)
@@ -123,15 +130,12 @@ def aggregate_leadership(
 def calculate_leadership_score(theme_name: str, counts: dict[str, int], history: dict) -> float:
     """Calculate 0-100 leadership score from hit counts and prior history."""
     weighted = 0.0
-    weight_sum = 0.0
     for scan_type, weight in LEADERSHIP_WEIGHTS.items():
         value = counts.get(scan_type, 0)
-        if value <= 0:
-            continue
         prior = _prior_counts(history, theme_name, scan_type)
         component = _count_component_score(value, prior)
         weighted += component * weight
-        weight_sum += weight
+    weight_sum = sum(LEADERSHIP_WEIGHTS.values())
     return round(min(100.0, max(0.0, weighted / weight_sum if weight_sum else 0.0)), 2)
 
 
@@ -139,7 +143,8 @@ def blend_theme_heat(base_heat: float, leadership_score: Optional[float]) -> flo
     """Blend leadership only when actual leadership evidence exists."""
     if leadership_score is None:
         return base_heat
-    return round(0.70 * base_heat + 0.30 * leadership_score, 2)
+    blended = 0.70 * base_heat + 0.30 * leadership_score
+    return round(max(base_heat, blended), 2)
 
 
 def _load_rows(path: str) -> list[dict]:
@@ -186,6 +191,20 @@ def _derive_scan_types(row: dict) -> list[str]:
     if _is_high_rs(row):
         scan_types.append("high_rs")
     return scan_types
+
+
+def _row_matches_run_date(row: dict, run_date: str) -> bool:
+    row_date = _date_key(row.get("date"))
+    if row_date is None:
+        return True
+    return row_date == _date_key(run_date)
+
+
+def _date_key(value) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    return text[:10] if len(text) >= 10 else text
 
 
 def _scan_hit_from_row(row: dict, date: str, symbol: str, scan_type: str) -> ScanHit:
