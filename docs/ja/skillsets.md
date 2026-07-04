@@ -79,7 +79,7 @@ permalink: /ja/skillsets/
 
 **対象ユーザー:** `part-time-swing-trader`
 
-**必須スキル:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**必須スキル:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
 **推奨スキル:** `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 

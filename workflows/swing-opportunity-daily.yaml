@@ -22,6 +22,7 @@ required_skills:
   - technical-analyst
   - position-sizer
   - trader-memory-core
+  - pre-trade-discipline-gate
 optional_skills:
   - stockbee-momentum-burst-screener
   - stockbee-exhaustion-hammer-screener
@@ -73,6 +74,9 @@ artifacts:
     required: true
     downstream_hints:
       - trade-memory-loop
+  - id: pre_trade_discipline_decision
+    produced_by_step: 11
+    required: true
 
 steps:
   - step: 1
@@ -177,6 +181,22 @@ steps:
       entry / stop / target. Confirm risk per trade matches position-sizer
       output and total portfolio heat is within budget.
 
+  - step: 11
+    name: Run manual execution discipline gate
+    skill: pre-trade-discipline-gate
+    consumes:
+      - candidate_journal_entry
+      - position_sizing
+      - trade_plans
+      - circuit_breaker_decision
+    produces:
+      - pre_trade_discipline_decision
+    decision_gate: true
+    decision_question: >-
+      Before placing any manual broker order, does each actionable candidate
+      pass the written-plan, predefined-stop, position-size, recent-loss,
+      market-regime, and circuit-breaker discipline checks?
+
 manual_review:
   - Confirm market-regime-daily exposure_decision allows new risk before acting.
   - Confirm circuit_breaker_decision is TRADING_ALLOWED before screening or sizing new candidates.
@@ -184,6 +204,7 @@ manual_review:
   - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
   - Treat Stockbee exhaustion hammer output as candidate generation only; confirm the pullback is not caused by a thesis-breaking news event and verify risk to the day low.
   - Verify total portfolio heat is within budget before placing any order.
+  - Confirm pre_trade_discipline_decision is GO before placing any manual broker order.
   - All orders are placed manually at the broker; no auto-execution.
 
 journal_destination: trader-memory-core

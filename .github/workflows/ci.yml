@@ -201,6 +201,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test pre-trade-discipline-gate
+        run: >
+          python -m pytest skills/pre-trade-discipline-gate/scripts/tests/ -v
+          --cov=skills/pre-trade-discipline-gate/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test edge-strategy-reviewer
         run: >
           python -m pytest skills/edge-strategy-reviewer/scripts/tests/ -v

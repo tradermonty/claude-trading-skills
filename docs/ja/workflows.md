@@ -27,7 +27,7 @@ permalink: /ja/workflows/
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
 | [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
-| [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 35 | mixed | advanced |
+| [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 40 | mixed | advanced |
 | [`stockbee-fluency-loop`](#stockbee-fluency-loop) — Stockbee Setup Fluency Loop | daily | 20 | no-api-basic | intermediate |
 | [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 40 | fmp-required | intermediate |
 | [`trade-memory-loop`](#trade-memory-loop) — Trade Memory Loop | ad-hoc | 30 | no-api-basic | beginner |
@@ -360,13 +360,13 @@ permalink: /ja/workflows/
 
 ## Stockbee EP Daily {#stockbee-ep-daily}
 
-**`stockbee-ep-daily`** · daily · ~35 min · mixed · advanced
+**`stockbee-ep-daily`** · daily · ~40 min · mixed · advanced
 
 **実行タイミング:** Run on earnings/news-heavy days after the market-regime workflow allows new risk, or ad hoc when a game-changing catalyst appears. Use this workflow to classify Day 1 Episodic Pivot candidates and decide whether they are actionable today, delayed-EP watchlist names, or PEAD handoff candidates.
 
 **実行してはいけないとき:** Do not run as a blind stock screener without catalyst inputs. Do not use it to bypass market-regime gates, chart validation, position sizing, or manual catalyst review.
 
-**必須スキル:** `stockbee-episodic-pivot-analyzer`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**必須スキル:** `drawdown-circuit-breaker`, `stockbee-episodic-pivot-analyzer`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
 **任意スキル:** `earnings-trade-analyzer`, `stockbee-momentum-burst-screener`, `pead-screener`, `theme-detector`, `breakout-trade-planner`
 
@@ -378,61 +378,76 @@ permalink: /ja/workflows/
 
 | Artifact | 生成ステップ | 必須 | 下流ヒント |
 |---|---|---|---|
-| `earnings_candidates` | 1 | なし | — |
-| `momentum_burst_candidates` | 2 | なし | — |
-| `episodic_pivot_candidates` | 3 | あり | — |
-| `pead_handoff_candidates` | 3 | なし | `swing-opportunity-daily` |
-| `delayed_ep_watchlist` | 3 | なし | — |
-| `validated_ep_setups` | 4 | あり | — |
-| `ep_position_sizing` | 5 | あり | — |
-| `ep_trade_plan` | 6 | なし | — |
-| `ep_journal_entry` | 7 | あり | `trade-memory-loop` |
+| `circuit_breaker_decision` | 1 | あり | — |
+| `earnings_candidates` | 2 | なし | — |
+| `momentum_burst_candidates` | 3 | なし | — |
+| `episodic_pivot_candidates` | 4 | あり | — |
+| `pead_handoff_candidates` | 4 | なし | `swing-opportunity-daily` |
+| `delayed_ep_watchlist` | 4 | なし | — |
+| `validated_ep_setups` | 5 | あり | — |
+| `ep_position_sizing` | 6 | あり | — |
+| `ep_trade_plan` | 7 | なし | — |
+| `ep_journal_entry` | 8 | あり | `trade-memory-loop` |
+| `pre_trade_discipline_decision` | 9 | あり | — |
 
 **ステップ:**
 
-**ステップ 1: Optional earnings candidate scan** （任意） → `earnings-trade-analyzer`
+**ステップ 1: Check account circuit breaker** （判断ゲート） → `drawdown-circuit-breaker`
+
+- produces: `circuit_breaker_decision`
+- **判断:** Is the account circuit breaker clear (TRADING_ALLOWED) for new EP trade risk today?
+
+**ステップ 2: Optional earnings candidate scan** （任意） → `earnings-trade-analyzer`
 
 - produces: `earnings_candidates`
 
-**ステップ 2: Optional momentum confirmation scan** （任意） → `stockbee-momentum-burst-screener`
+**ステップ 3: Optional momentum confirmation scan** （任意） → `stockbee-momentum-burst-screener`
 
 - produces: `momentum_burst_candidates`
 
-**ステップ 3: Analyze Day 1 Episodic Pivot candidates** （判断ゲート） → `stockbee-episodic-pivot-analyzer`
+**ステップ 4: Analyze Day 1 Episodic Pivot candidates** （判断ゲート） → `stockbee-episodic-pivot-analyzer`
 
 - consumes: `earnings_candidates`, `momentum_burst_candidates`
 - produces: `episodic_pivot_candidates`, `pead_handoff_candidates`, `delayed_ep_watchlist`
 - **判断:** Which candidates have a true game-changing catalyst plus price/volume confirmation? Separate ACTIONABLE_DAY1 from DELAYED_EP_WATCH and reject low-quality headline-only moves.
 
-**ステップ 4: Validate EP chart quality** （判断ゲート） → `technical-analyst`
+**ステップ 5: Validate EP chart quality** （判断ゲート） → `technical-analyst`
 
 - consumes: `episodic_pivot_candidates`
 - produces: `validated_ep_setups`
 - **判断:** Does the chart confirm a clean EP reaction with acceptable close quality, liquidity, and risk to the EP-day low?
 
-**ステップ 5: Calculate EP position size** → `position-sizer`
+**ステップ 6: Calculate EP position size** → `position-sizer`
 
 - consumes: `validated_ep_setups`
 - produces: `ep_position_sizing`
 
-**ステップ 6: Build optional EP trade plan** （任意） → `breakout-trade-planner`
+**ステップ 7: Build optional EP trade plan** （任意） → `breakout-trade-planner`
 
 - consumes: `validated_ep_setups`, `ep_position_sizing`
 - produces: `ep_trade_plan`
 
-**ステップ 7: Register EP thesis or watchlist entry** （判断ゲート） → `trader-memory-core`
+**ステップ 8: Register EP thesis or watchlist entry** （判断ゲート） → `trader-memory-core`
 
 - consumes: `validated_ep_setups`, `ep_position_sizing`, `ep_trade_plan`
 - produces: `ep_journal_entry`
 - **判断:** Which candidates deserve an active thesis, which belong on delayed EP / PEAD watch, and which should be ignored despite a high initial score?
 
+**ステップ 9: Run EP manual execution discipline gate** （判断ゲート） → `pre-trade-discipline-gate`
+
+- consumes: `circuit_breaker_decision`, `ep_journal_entry`, `ep_position_sizing`, `ep_trade_plan`
+- produces: `pre_trade_discipline_decision`
+- **判断:** Before placing any manual broker order, do ACTIONABLE_DAY1 or ENTRY_READY EP candidates pass the written-plan, predefined-stop, position-size, recent-loss, market-regime, and circuit-breaker discipline checks? Treat delayed EP, PEAD handoff, ignored, or rejected candidates as no-action journal entries, not order approvals.
+
 **手動レビュー:**
 
 - Confirm market-regime-daily allows new risk before acting.
+- Confirm circuit_breaker_decision is TRADING_ALLOWED before analyzing new EP trade risk.
 - Verify the catalyst manually; this workflow does not discover or validate news truth by itself.
 - Treat analyst-only and story-only EPs as lower quality unless price/volume confirmation is exceptional.
 - Use EP-day low as the default stop reference only if the distance is realistically sizeable.
 - Send overextended earnings/guidance EPs to PEAD monitoring instead of chasing Day 1.
+- Confirm pre_trade_discipline_decision is GO before placing any manual broker order; watchlist and PEAD handoff candidates should not be treated as order approvals.
 - All orders are placed manually at the broker; no auto-execution.
 
 **Journal 出力先:** `trader-memory-core`
@@ -503,7 +518,7 @@ permalink: /ja/workflows/
 
 **実行してはいけないとき:** Do not run when the latest market-regime-daily exposure_decision is cash-priority or restrictive. Do not use as a standalone screener without the regime gate.
 
-**必須スキル:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**必須スキル:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
 **任意スキル:** `stockbee-momentum-burst-screener`, `stockbee-exhaustion-hammer-screener`, `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 
@@ -525,6 +540,7 @@ permalink: /ja/workflows/
 | `position_sizing` | 8 | あり | — |
 | `trade_plans` | 9 | なし | `trade-memory-loop` |
 | `candidate_journal_entry` | 10 | あり | `trade-memory-loop` |
+| `pre_trade_discipline_decision` | 11 | あり | — |
 
 **ステップ:**
 
@@ -575,6 +591,12 @@ permalink: /ja/workflows/
 - produces: `candidate_journal_entry`
 - **判断:** For each candidate that survived validation, register the thesis with entry / stop / target. Confirm risk per trade matches position-sizer output and total portfolio heat is within budget.
 
+**ステップ 11: Run manual execution discipline gate** （判断ゲート） → `pre-trade-discipline-gate`
+
+- consumes: `candidate_journal_entry`, `position_sizing`, `trade_plans`, `circuit_breaker_decision`
+- produces: `pre_trade_discipline_decision`
+- **判断:** Before placing any manual broker order, does each actionable candidate pass the written-plan, predefined-stop, position-size, recent-loss, market-regime, and circuit-breaker discipline checks?
+
 **手動レビュー:**
 
 - Confirm market-regime-daily exposure_decision allows new risk before acting.
@@ -583,6 +605,7 @@ permalink: /ja/workflows/
 - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
 - Treat Stockbee exhaustion hammer output as candidate generation only; confirm the pullback is not caused by a thesis-breaking news event and verify risk to the day low.
 - Verify total portfolio heat is within budget before placing any order.
+- Confirm pre_trade_discipline_decision is GO before placing any manual broker order.
 - All orders are placed manually at the broker; no auto-execution.
 
 **Journal 出力先:** `trader-memory-core`

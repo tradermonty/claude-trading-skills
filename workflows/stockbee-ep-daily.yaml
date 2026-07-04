@@ -2,7 +2,7 @@ schema_version: 1
 id: stockbee-ep-daily
 display_name: Stockbee EP Daily
 cadence: daily
-estimated_minutes: 35
+estimated_minutes: 40
 target_users:
   - part-time-swing-trader
   - growth-investor
@@ -20,10 +20,12 @@ when_not_to_run: >-
   catalyst review.
 
 required_skills:
+  - drawdown-circuit-breaker
   - stockbee-episodic-pivot-analyzer
   - technical-analyst
   - position-sizer
   - trader-memory-core
+  - pre-trade-discipline-gate
 optional_skills:
   - earnings-trade-analyzer
   - stockbee-momentum-burst-screener
@@ -38,40 +40,56 @@ prerequisite_workflows:
       New EP trades should still respect the market-regime exposure gate.
 
 artifacts:
-  - id: earnings_candidates
+  - id: circuit_breaker_decision
     produced_by_step: 1
-    required: false
-  - id: momentum_burst_candidates
+    required: true
+  - id: earnings_candidates
     produced_by_step: 2
     required: false
-  - id: episodic_pivot_candidates
+  - id: momentum_burst_candidates
     produced_by_step: 3
+    required: false
+  - id: episodic_pivot_candidates
+    produced_by_step: 4
     required: true
   - id: pead_handoff_candidates
-    produced_by_step: 3
+    produced_by_step: 4
     required: false
     downstream_hints:
       - swing-opportunity-daily
   - id: delayed_ep_watchlist
-    produced_by_step: 3
+    produced_by_step: 4
     required: false
   - id: validated_ep_setups
-    produced_by_step: 4
-    required: true
-  - id: ep_position_sizing
     produced_by_step: 5
     required: true
-  - id: ep_trade_plan
+  - id: ep_position_sizing
     produced_by_step: 6
+    required: true
+  - id: ep_trade_plan
+    produced_by_step: 7
     required: false
   - id: ep_journal_entry
-    produced_by_step: 7
+    produced_by_step: 8
     required: true
     downstream_hints:
       - trade-memory-loop
+  - id: pre_trade_discipline_decision
+    produced_by_step: 9
+    required: true
 
 steps:
   - step: 1
+    name: Check account circuit breaker
+    skill: drawdown-circuit-breaker
+    produces:
+      - circuit_breaker_decision
+    decision_gate: true
+    decision_question: >-
+      Is the account circuit breaker clear (TRADING_ALLOWED) for new EP trade
+      risk today?
+
+  - step: 2
     name: Optional earnings candidate scan
     skill: earnings-trade-analyzer
     optional: true
@@ -79,7 +97,7 @@ steps:
       - earnings_candidates
     decision_gate: false
 
-  - step: 2
+  - step: 3
     name: Optional momentum confirmation scan
     skill: stockbee-momentum-burst-screener
     optional: true
@@ -87,7 +105,7 @@ steps:
       - momentum_burst_candidates
     decision_gate: false
 
-  - step: 3
+  - step: 4
     name: Analyze Day 1 Episodic Pivot candidates
     skill: stockbee-episodic-pivot-analyzer
     consumes:
@@ -103,7 +121,7 @@ steps:
       confirmation? Separate ACTIONABLE_DAY1 from DELAYED_EP_WATCH and reject
       low-quality headline-only moves.
 
-  - step: 4
+  - step: 5
     name: Validate EP chart quality
     skill: technical-analyst
     consumes:
@@ -115,7 +133,7 @@ steps:
       Does the chart confirm a clean EP reaction with acceptable close quality,
       liquidity, and risk to the EP-day low?
 
-  - step: 5
+  - step: 6
     name: Calculate EP position size
     skill: position-sizer
     consumes:
@@ -124,7 +142,7 @@ steps:
       - ep_position_sizing
     decision_gate: false
 
-  - step: 6
+  - step: 7
     name: Build optional EP trade plan
     skill: breakout-trade-planner
     optional: true
@@ -135,7 +153,7 @@ steps:
       - ep_trade_plan
     decision_gate: false
 
-  - step: 7
+  - step: 8
     name: Register EP thesis or watchlist entry
     skill: trader-memory-core
     consumes:
@@ -149,12 +167,32 @@ steps:
       Which candidates deserve an active thesis, which belong on delayed EP / PEAD
       watch, and which should be ignored despite a high initial score?
 
+  - step: 9
+    name: Run EP manual execution discipline gate
+    skill: pre-trade-discipline-gate
+    consumes:
+      - circuit_breaker_decision
+      - ep_journal_entry
+      - ep_position_sizing
+      - ep_trade_plan
+    produces:
+      - pre_trade_discipline_decision
+    decision_gate: true
+    decision_question: >-
+      Before placing any manual broker order, do ACTIONABLE_DAY1 or ENTRY_READY
+      EP candidates pass the written-plan, predefined-stop, position-size,
+      recent-loss, market-regime, and circuit-breaker discipline checks? Treat
+      delayed EP, PEAD handoff, ignored, or rejected candidates as no-action
+      journal entries, not order approvals.
+
 manual_review:
   - Confirm market-regime-daily allows new risk before acting.
+  - Confirm circuit_breaker_decision is TRADING_ALLOWED before analyzing new EP trade risk.
   - Verify the catalyst manually; this workflow does not discover or validate news truth by itself.
   - Treat analyst-only and story-only EPs as lower quality unless price/volume confirmation is exceptional.
   - Use EP-day low as the default stop reference only if the distance is realistically sizeable.
   - Send overextended earnings/guidance EPs to PEAD monitoring instead of chasing Day 1.
+  - Confirm pre_trade_discipline_decision is GO before placing any manual broker order; watchlist and PEAD handoff candidates should not be treated as order approvals.
   - All orders are placed manually at the broker; no auto-execution.
 
 journal_destination: trader-memory-core

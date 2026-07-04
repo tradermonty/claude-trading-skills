@@ -625,6 +625,22 @@
       "timeframe": "event-driven"
     },
     {
+      "category": "trade-planning",
+      "difficulty": "intermediate",
+      "display_name": "Pre-Trade Discipline Gate",
+      "id": "pre-trade-discipline-gate",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk, market-regime-blocked, or circuit-breaker-blocked entries and journals the result.",
+      "timeframe": "event-driven"
+    },
+    {
       "category": "strategy-research",
       "difficulty": "advanced",
       "display_name": "Scenario Analyzer",
@@ -1185,7 +1201,8 @@
         "drawdown-circuit-breaker",
         "technical-analyst",
         "position-sizer",
-        "trader-memory-core"
+        "trader-memory-core",
+        "pre-trade-discipline-gate"
       ],
       "target_users": [
         "part-time-swing-trader"
@@ -1349,7 +1366,7 @@
       "cadence": "daily",
       "difficulty": "advanced",
       "display_name": "Stockbee EP Daily",
-      "estimated_minutes": 35,
+      "estimated_minutes": 40,
       "id": "stockbee-ep-daily",
       "optional_skills": [
         "earnings-trade-analyzer",
@@ -1362,10 +1379,12 @@
         "market-regime-daily"
       ],
       "required_skills": [
+        "drawdown-circuit-breaker",
         "stockbee-episodic-pivot-analyzer",
         "technical-analyst",
         "position-sizer",
-        "trader-memory-core"
+        "trader-memory-core",
+        "pre-trade-discipline-gate"
       ],
       "target_users": [
         "part-time-swing-trader",
@@ -1415,7 +1434,8 @@
         "drawdown-circuit-breaker",
         "technical-analyst",
         "position-sizer",
-        "trader-memory-core"
+        "trader-memory-core",
+        "pre-trade-discipline-gate"
       ],
       "target_users": [
         "part-time-swing-trader"

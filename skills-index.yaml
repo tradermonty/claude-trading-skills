@@ -172,6 +172,7 @@ skills:
   - circuit_breaker_decision
   workflows:
   - swing-opportunity-daily
+  - stockbee-ep-daily
 - id: dual-axis-skill-reviewer
   display_name: Dual Axis Skill Reviewer
   category: meta
@@ -763,6 +764,29 @@ skills:
   - risk_amount
   workflows:
   - swing-opportunity-daily
+- id: pre-trade-discipline-gate
+  display_name: Pre-Trade Discipline Gate
+  category: trade-planning
+  status: beta
+  summary: Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk,
+    market-regime-blocked, or circuit-breaker-blocked entries and journals the result.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Reads local checklist, workflow artifacts, and trader-memory-core state; works offline
+  inputs:
+  - pre_trade_checklist
+  - exposure_decision
+  - circuit_breaker_decision
+  - thesis_record
+  outputs:
+  - pre_trade_discipline_decision
+  workflows:
+  - swing-opportunity-daily
+  - stockbee-ep-daily
 - id: scenario-analyzer
   display_name: Scenario Analyzer
   category: strategy-research

@@ -268,5 +268,6 @@ A comprehensive catalog of all 63 Claude Trading Skills organized by category. B
 | Stockbee 20pct Study | Required | -- | -- |
 | Stockbee Exhaustion Hammer Screener | Required | -- | -- |
 | Drawdown Circuit Breaker | -- | -- | -- |
+| Pre Trade Discipline Gate | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

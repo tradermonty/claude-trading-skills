@@ -25,7 +25,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
 | [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
-| [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 35 | mixed | advanced |
+| [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 40 | mixed | advanced |
 | [`stockbee-fluency-loop`](#stockbee-fluency-loop) — Stockbee Setup Fluency Loop | daily | 20 | no-api-basic | intermediate |
 | [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 40 | fmp-required | intermediate |
 | [`trade-memory-loop`](#trade-memory-loop) — Trade Memory Loop | ad-hoc | 30 | no-api-basic | beginner |
@@ -358,13 +358,13 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 ## Stockbee EP Daily {#stockbee-ep-daily}
 
-**`stockbee-ep-daily`** · daily · ~35 min · mixed · advanced
+**`stockbee-ep-daily`** · daily · ~40 min · mixed · advanced
 
 **When to run:** Run on earnings/news-heavy days after the market-regime workflow allows new risk, or ad hoc when a game-changing catalyst appears. Use this workflow to classify Day 1 Episodic Pivot candidates and decide whether they are actionable today, delayed-EP watchlist names, or PEAD handoff candidates.
 
 **When NOT to run:** Do not run as a blind stock screener without catalyst inputs. Do not use it to bypass market-regime gates, chart validation, position sizing, or manual catalyst review.
 
-**Required skills:** `stockbee-episodic-pivot-analyzer`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**Required skills:** `drawdown-circuit-breaker`, `stockbee-episodic-pivot-analyzer`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
 **Optional skills:** `earnings-trade-analyzer`, `stockbee-momentum-burst-screener`, `pead-screener`, `theme-detector`, `breakout-trade-planner`
 
@@ -376,61 +376,76 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 | Artifact | Produced by step | Required | Downstream hints |
 |---|---|---|---|
-| `earnings_candidates` | 1 | no | — |
-| `momentum_burst_candidates` | 2 | no | — |
-| `episodic_pivot_candidates` | 3 | yes | — |
-| `pead_handoff_candidates` | 3 | no | `swing-opportunity-daily` |
-| `delayed_ep_watchlist` | 3 | no | — |
-| `validated_ep_setups` | 4 | yes | — |
-| `ep_position_sizing` | 5 | yes | — |
-| `ep_trade_plan` | 6 | no | — |
-| `ep_journal_entry` | 7 | yes | `trade-memory-loop` |
+| `circuit_breaker_decision` | 1 | yes | — |
+| `earnings_candidates` | 2 | no | — |
+| `momentum_burst_candidates` | 3 | no | — |
+| `episodic_pivot_candidates` | 4 | yes | — |
+| `pead_handoff_candidates` | 4 | no | `swing-opportunity-daily` |
+| `delayed_ep_watchlist` | 4 | no | — |
+| `validated_ep_setups` | 5 | yes | — |
+| `ep_position_sizing` | 6 | yes | — |
+| `ep_trade_plan` | 7 | no | — |
+| `ep_journal_entry` | 8 | yes | `trade-memory-loop` |
+| `pre_trade_discipline_decision` | 9 | yes | — |
 
 **Steps:**
 
-**Step 1: Optional earnings candidate scan** (optional) → `earnings-trade-analyzer`
+**Step 1: Check account circuit breaker** (decision gate) → `drawdown-circuit-breaker`
+
+- produces: `circuit_breaker_decision`
+- **Decision:** Is the account circuit breaker clear (TRADING_ALLOWED) for new EP trade risk today?
+
+**Step 2: Optional earnings candidate scan** (optional) → `earnings-trade-analyzer`
 
 - produces: `earnings_candidates`
 
-**Step 2: Optional momentum confirmation scan** (optional) → `stockbee-momentum-burst-screener`
+**Step 3: Optional momentum confirmation scan** (optional) → `stockbee-momentum-burst-screener`
 
 - produces: `momentum_burst_candidates`
 
-**Step 3: Analyze Day 1 Episodic Pivot candidates** (decision gate) → `stockbee-episodic-pivot-analyzer`
+**Step 4: Analyze Day 1 Episodic Pivot candidates** (decision gate) → `stockbee-episodic-pivot-analyzer`
 
 - consumes: `earnings_candidates`, `momentum_burst_candidates`
 - produces: `episodic_pivot_candidates`, `pead_handoff_candidates`, `delayed_ep_watchlist`
 - **Decision:** Which candidates have a true game-changing catalyst plus price/volume confirmation? Separate ACTIONABLE_DAY1 from DELAYED_EP_WATCH and reject low-quality headline-only moves.
 
-**Step 4: Validate EP chart quality** (decision gate) → `technical-analyst`
+**Step 5: Validate EP chart quality** (decision gate) → `technical-analyst`
 
 - consumes: `episodic_pivot_candidates`
 - produces: `validated_ep_setups`
 - **Decision:** Does the chart confirm a clean EP reaction with acceptable close quality, liquidity, and risk to the EP-day low?
 
-**Step 5: Calculate EP position size** → `position-sizer`
+**Step 6: Calculate EP position size** → `position-sizer`
 
 - consumes: `validated_ep_setups`
 - produces: `ep_position_sizing`
 
-**Step 6: Build optional EP trade plan** (optional) → `breakout-trade-planner`
+**Step 7: Build optional EP trade plan** (optional) → `breakout-trade-planner`
 
 - consumes: `validated_ep_setups`, `ep_position_sizing`
 - produces: `ep_trade_plan`
 
-**Step 7: Register EP thesis or watchlist entry** (decision gate) → `trader-memory-core`
+**Step 8: Register EP thesis or watchlist entry** (decision gate) → `trader-memory-core`
 
 - consumes: `validated_ep_setups`, `ep_position_sizing`, `ep_trade_plan`
 - produces: `ep_journal_entry`
 - **Decision:** Which candidates deserve an active thesis, which belong on delayed EP / PEAD watch, and which should be ignored despite a high initial score?
 
+**Step 9: Run EP manual execution discipline gate** (decision gate) → `pre-trade-discipline-gate`
+
+- consumes: `circuit_breaker_decision`, `ep_journal_entry`, `ep_position_sizing`, `ep_trade_plan`
+- produces: `pre_trade_discipline_decision`
+- **Decision:** Before placing any manual broker order, do ACTIONABLE_DAY1 or ENTRY_READY EP candidates pass the written-plan, predefined-stop, position-size, recent-loss, market-regime, and circuit-breaker discipline checks? Treat delayed EP, PEAD handoff, ignored, or rejected candidates as no-action journal entries, not order approvals.
+
 **Manual review:**
 
 - Confirm market-regime-daily allows new risk before acting.
+- Confirm circuit_breaker_decision is TRADING_ALLOWED before analyzing new EP trade risk.
 - Verify the catalyst manually; this workflow does not discover or validate news truth by itself.
 - Treat analyst-only and story-only EPs as lower quality unless price/volume confirmation is exceptional.
 - Use EP-day low as the default stop reference only if the distance is realistically sizeable.
 - Send overextended earnings/guidance EPs to PEAD monitoring instead of chasing Day 1.
+- Confirm pre_trade_discipline_decision is GO before placing any manual broker order; watchlist and PEAD handoff candidates should not be treated as order approvals.
 - All orders are placed manually at the broker; no auto-execution.
 
 **Journal destination:** `trader-memory-core`
@@ -501,7 +516,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **When NOT to run:** Do not run when the latest market-regime-daily exposure_decision is cash-priority or restrictive. Do not use as a standalone screener without the regime gate.
 
-**Required skills:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`
+**Required skills:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
 **Optional skills:** `stockbee-momentum-burst-screener`, `stockbee-exhaustion-hammer-screener`, `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 
@@ -523,6 +538,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | `position_sizing` | 8 | yes | — |
 | `trade_plans` | 9 | no | `trade-memory-loop` |
 | `candidate_journal_entry` | 10 | yes | `trade-memory-loop` |
+| `pre_trade_discipline_decision` | 11 | yes | — |
 
 **Steps:**
 
@@ -573,6 +589,12 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - produces: `candidate_journal_entry`
 - **Decision:** For each candidate that survived validation, register the thesis with entry / stop / target. Confirm risk per trade matches position-sizer output and total portfolio heat is within budget.
 
+**Step 11: Run manual execution discipline gate** (decision gate) → `pre-trade-discipline-gate`
+
+- consumes: `candidate_journal_entry`, `position_sizing`, `trade_plans`, `circuit_breaker_decision`
+- produces: `pre_trade_discipline_decision`
+- **Decision:** Before placing any manual broker order, does each actionable candidate pass the written-plan, predefined-stop, position-size, recent-loss, market-regime, and circuit-breaker discipline checks?
+
 **Manual review:**
 
 - Confirm market-regime-daily exposure_decision allows new risk before acting.
@@ -581,6 +603,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
 - Treat Stockbee exhaustion hammer output as candidate generation only; confirm the pullback is not caused by a thesis-breaking news event and verify risk to the day low.
 - Verify total portfolio heat is within budget before placing any order.
+- Confirm pre_trade_discipline_decision is GO before placing any manual broker order.
 - All orders are placed manually at the broker; no auto-execution.
 
 **Journal destination:** `trader-memory-core`
