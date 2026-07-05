@@ -447,13 +447,13 @@ def main() -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     json_path = os.path.join(args.output_dir, f"position_sizer_{timestamp}.json")
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     print(f"JSON report: {json_path}")
 
     md_report = generate_markdown_report(result)
     md_path = os.path.join(args.output_dir, f"position_sizer_{timestamp}.md")
-    with open(md_path, "w") as f:
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(md_report)
     print(f"Markdown report: {md_path}")
 

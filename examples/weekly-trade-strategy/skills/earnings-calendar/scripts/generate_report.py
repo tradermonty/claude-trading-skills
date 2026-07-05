@@ -366,7 +366,7 @@ def main():
     report = generate_report(earnings)
 
     if output_file:
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(report)
         print(f"✓ Report saved to: {output_file}", file=sys.stderr)
     else:

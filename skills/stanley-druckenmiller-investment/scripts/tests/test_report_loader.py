@@ -32,7 +32,7 @@ class TestFindLatestReport:
     def test_ignores_non_json(self, tmp_reports):
         """Should ignore .md files with matching prefix."""
         md_path = os.path.join(tmp_reports, "market_breadth_2026-02-19.md")
-        with open(md_path, "w") as f:
+        with open(md_path, "w", encoding="utf-8") as f:
             f.write("# Report")
         result = find_latest_report(tmp_reports, "market_breadth_")
         assert result is None

@@ -111,7 +111,7 @@ def generate_json_report(
         os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True
     )
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     return output_path
@@ -263,7 +263,7 @@ def generate_markdown_report(
         os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True
     )
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
     return output_path

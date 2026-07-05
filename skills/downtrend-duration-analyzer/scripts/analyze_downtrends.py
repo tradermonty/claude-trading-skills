@@ -536,7 +536,7 @@ def main() -> None:
 
     # Write JSON
     json_path = output_dir / f"downtrend_analysis_{timestamp}.json"
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     print(f"JSON report saved to: {json_path}")
 

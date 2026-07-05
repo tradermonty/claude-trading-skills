@@ -17,18 +17,18 @@ class TestLoadHistory:
         assert load_history(tmp_history) == []
 
     def test_empty_file(self, tmp_history):
-        with open(tmp_history, "w") as f:
+        with open(tmp_history, "w", encoding="utf-8") as f:
             f.write("")
         assert load_history(tmp_history) == []
 
     def test_corrupt_file(self, tmp_history):
-        with open(tmp_history, "w") as f:
+        with open(tmp_history, "w", encoding="utf-8") as f:
             f.write("{bad json")
         assert load_history(tmp_history) == []
 
     def test_valid_file(self, tmp_history):
         data = [{"data_date": "2025-01-01", "composite_score": 60.0}]
-        with open(tmp_history, "w") as f:
+        with open(tmp_history, "w", encoding="utf-8") as f:
             json.dump(data, f)
         assert load_history(tmp_history) == data
 

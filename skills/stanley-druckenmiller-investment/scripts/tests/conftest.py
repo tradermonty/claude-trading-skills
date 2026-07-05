@@ -22,7 +22,7 @@ def make_report(prefix: str, data: dict, reports_dir: str, age_hours: int = 0) -
     ts = datetime.now() - timedelta(hours=age_hours)
     filename = f"{prefix}{ts.strftime('%Y-%m-%d_%H%M%S')}.json"
     path = os.path.join(reports_dir, filename)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
     # Set file mtime to match the age offset
     mtime = ts.timestamp()

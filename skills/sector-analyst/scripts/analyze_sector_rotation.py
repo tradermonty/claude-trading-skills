@@ -739,7 +739,7 @@ def main() -> None:
         ext = ".json" if args.json else ".md"
         filename = f"sector_rotation_{date.today().isoformat()}{ext}"
         filepath = os.path.join(args.output_dir, filename)
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(output)
         print(f"Saved to {filepath}", file=sys.stderr)
 

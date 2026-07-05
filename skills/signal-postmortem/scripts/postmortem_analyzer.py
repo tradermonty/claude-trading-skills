@@ -475,7 +475,7 @@ def main():
     if args.generate_weight_feedback:
         feedback = generate_weight_feedback(metrics, args.min_sample_size)
         output_file = output_dir / f"weight_feedback_{timestamp}.json"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(feedback, f, indent=2)
         print(f"Saved weight feedback: {output_file}")
         print(f"  Adjustments: {len(feedback['skill_adjustments'])}")
@@ -487,7 +487,7 @@ def main():
         output_file = output_dir / f"skill_improvement_backlog_{timestamp}.yaml"
 
         # Write as YAML-like format
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             for entry in backlog:
                 f.write(f"- skill: {entry['skill']}\n")
                 f.write(f"  issue_type: {entry['issue_type']}\n")
@@ -510,7 +510,7 @@ def main():
         group_by = [g.strip() for g in args.group_by.split(",")]
         summary = generate_summary(metrics, postmortems, group_by)
         output_file = output_dir / f"postmortem_summary_{timestamp}.md"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(summary)
         print(f"Saved summary: {output_file}")
 

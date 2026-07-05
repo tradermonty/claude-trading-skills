@@ -20,7 +20,7 @@ class TestLoadPreviousReport:
             # Create two report files
             for ts in ["2026-02-18_100000", "2026-02-19_100000"]:
                 path = os.path.join(tmpdir, f"market_top_{ts}.json")
-                with open(path, "w") as f:
+                with open(path, "w", encoding="utf-8") as f:
                     json.dump({"timestamp": ts}, f)
             result = _load_previous_report(tmpdir)
             assert result["timestamp"] == "2026-02-19_100000"
@@ -28,7 +28,7 @@ class TestLoadPreviousReport:
     def test_invalid_json_returns_none(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "market_top_2026-02-19_100000.json")
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write("not json")
             result = _load_previous_report(tmpdir)
             assert result is None

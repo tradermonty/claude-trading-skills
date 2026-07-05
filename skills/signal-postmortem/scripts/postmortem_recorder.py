@@ -364,7 +364,7 @@ def main():
 
         # Save postmortem
         output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(postmortem, f, indent=2)
 
         print(f"Saved postmortem: {output_file}")
@@ -402,7 +402,7 @@ def main():
 
             # Save individual postmortem
             output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
-            with open(output_file, "w") as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(postmortem, f, indent=2)
 
     # Save batch summary
@@ -417,7 +417,7 @@ def main():
         "postmortems": results,
     }
 
-    with open(summary_file, "w") as f:
+    with open(summary_file, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
     # Print summary

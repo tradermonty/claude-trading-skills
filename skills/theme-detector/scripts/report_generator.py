@@ -356,10 +356,10 @@ def save_reports(json_data: dict, markdown: str, output_dir: str) -> dict[str, s
     json_path = os.path.join(output_dir, f"theme_detector_{timestamp}.json")
     md_path = os.path.join(output_dir, f"theme_detector_{timestamp}.md")
 
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(json_data, f, indent=2, default=str)
 
-    with open(md_path, "w") as f:
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
     return {"json": json_path, "markdown": md_path}

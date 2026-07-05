@@ -946,7 +946,7 @@ def test_validate_state_detects_review_date_drift(tmp_path: Path):
     with open(index_path) as f:
         index = json.load(f)
     index["theses"][tid]["next_review_date"] = "2099-01-01"
-    with open(index_path, "w") as f:
+    with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index, f)
 
     result = thesis_store.validate_state(tmp_path)

@@ -1126,14 +1126,14 @@ def main() -> int:
 
     # Write JSON report
     json_path = output_dir / f"{args.output_prefix}_{timestamp}.json"
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     print(f"JSON report written to: {json_path}")
 
     # Write Markdown report
     md_content = generate_markdown_report(result)
     md_path = output_dir / f"{args.output_prefix}_{timestamp}.md"
-    with open(md_path, "w") as f:
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(md_content)
     print(f"Markdown report written to: {md_path}")
 

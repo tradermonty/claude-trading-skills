@@ -38,7 +38,7 @@ def generate_json_report(
         "sector_distribution": sector_counts,
     }
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
 
     print(f"  JSON report saved to: {output_file}")
@@ -210,7 +210,7 @@ def generate_markdown_report(
     )
     lines.append("")
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
     print(f"  Markdown report saved to: {output_file}")

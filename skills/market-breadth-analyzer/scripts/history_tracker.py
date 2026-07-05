@@ -68,7 +68,7 @@ def append_history(
     if len(history) > 20:
         history = history[-20:]
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, default=str)
 
     return history

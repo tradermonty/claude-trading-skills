@@ -12,7 +12,7 @@ import sys
 def generate_json_report(analysis: dict, output_file: str):
     """Save full analysis as JSON"""
     try:
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(analysis, f, indent=2, default=str)
     except OSError as e:
         print(f"ERROR: Failed to write JSON report to {output_file}: {e}", file=sys.stderr)
@@ -444,7 +444,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("")
 
     try:
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
     except OSError as e:
         print(f"ERROR: Failed to write Markdown report to {output_file}: {e}", file=sys.stderr)

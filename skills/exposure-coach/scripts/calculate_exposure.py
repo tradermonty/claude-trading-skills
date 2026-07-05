@@ -625,7 +625,7 @@ def main():
 
     # Write JSON
     json_path = args.output_dir / f"exposure_posture_{timestamp}.json"
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     print(f"JSON report: {json_path}")
 
@@ -633,7 +633,7 @@ def main():
     if not args.json_only:
         md_content = generate_markdown_report(result)
         md_path = args.output_dir / f"exposure_posture_{timestamp}.md"
-        with open(md_path, "w") as f:
+        with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
         print(f"Markdown report: {md_path}")
 
