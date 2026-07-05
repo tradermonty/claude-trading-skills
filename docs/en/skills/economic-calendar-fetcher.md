@@ -42,9 +42,10 @@ The skill uses a Python script to query the FMP API and returns raw JSON or text
 - Default to next 7 days for quick market outlook
 
 **Data Source:**
-- FMP Economic Calendar API: `https://financialmodelingprep.com/api/v3/economic_calendar`
+- FMP Economic Calendar API: `https://financialmodelingprep.com/stable/economic-calendar` (singular "economic")
 - Covers major economies: US, EU, UK, Japan, China, Canada, Australia
 - Event types: Central bank decisions, employment, inflation, GDP, trade, housing, surveys
+- Legacy note: `https://financialmodelingprep.com/api/v3/economic_calendar` was retired by FMP and must not be used as a fallback.
 
 ---
 
