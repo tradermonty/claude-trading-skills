@@ -84,7 +84,9 @@ def _run_pass1(normalized: dict, output_dir: Path) -> int:
     }
 
     out_path = output_dir / "evidence_summary.json"
-    out_path.write_text(json.dumps(evidence_payload, indent=2, ensure_ascii=True) + "\n")
+    out_path.write_text(
+        json.dumps(evidence_payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
 
     print(f"[OK] pass1 completed: {out_path}")
     return 0
@@ -134,8 +136,8 @@ def _run_pass2(
 
     bundle_path = output_dir / "output_bundle.json"
     report_path = output_dir / "hypothesis_report.md"
-    bundle_path.write_text(json.dumps(bundle, indent=2, ensure_ascii=True) + "\n")
-    report_path.write_text(build_markdown_report(bundle))
+    bundle_path.write_text(json.dumps(bundle, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    report_path.write_text(build_markdown_report(bundle), encoding="utf-8")
 
     print(f"[OK] pass2 bundle: {bundle_path}")
     print(f"[OK] pass2 report: {report_path}")
@@ -164,7 +166,9 @@ def _export_strategies(hypotheses: list[dict], output_dir: Path) -> list[str]:
         "candidate_ids": exported_ids,
     }
     manifest_path = output_dir / "strategy_exports.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
 
     return exported_ids
 

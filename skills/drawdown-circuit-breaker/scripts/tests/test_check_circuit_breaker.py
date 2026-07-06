@@ -74,7 +74,7 @@ def write_thesis(
         thesis["exit"] = {"actual_date": exit_date, "actual_price": 100.0, "exit_reason": "manual"}
 
     path = state_dir / f"{thesis_id}.yaml"
-    path.write_text(yaml.safe_dump(thesis, sort_keys=False))
+    path.write_text(yaml.safe_dump(thesis, sort_keys=False), encoding="utf-8")
     return path
 
 
@@ -292,7 +292,7 @@ def test_future_events_after_as_of_time_are_excluded(tmp_path: Path):
 def test_malformed_yaml_sets_partial_quality_without_blocking(tmp_path: Path):
     state_dir = tmp_path / "theses"
     (state_dir).mkdir()
-    (state_dir / "th_bad.yaml").write_text("status: [")
+    (state_dir / "th_bad.yaml").write_text("status: [", encoding="utf-8")
     write_thesis(
         state_dir,
         "th_good_gm_20260702_0001",
@@ -585,7 +585,7 @@ def test_exit_null_does_not_crash_terminal_scan(tmp_path: Path):
     path = state_dir / "th_exit_null_gm_20260702_0001.yaml"
     data = yaml.safe_load(path.read_text())
     data["exit"] = None
-    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
     result = evaluate_state(state_dir, as_of="2026-07-02")
 
@@ -604,7 +604,7 @@ def test_terminal_non_list_history_still_uses_outcome_fallback(tmp_path: Path):
     path = state_dir / "th_bad_history_gm_20260702_0001.yaml"
     data = yaml.safe_load(path.read_text())
     data["status_history"] = {"status": "CLOSED", "at": "2026-07-02T10:00:00-04:00"}
-    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
     result = evaluate_state(state_dir, as_of="2026-07-02")
 
@@ -632,7 +632,7 @@ def test_terminal_exit_null_and_non_list_history_degrades_to_partial(tmp_path: P
     data = yaml.safe_load(path.read_text())
     data["exit"] = None
     data["status_history"] = {"status": "CLOSED", "at": "2026-07-02T10:00:00-04:00"}
-    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
     result = evaluate_state(state_dir, as_of="2026-07-02")
 
@@ -767,7 +767,9 @@ def test_json_only_cli_creates_json_without_markdown(tmp_path: Path):
 
 def test_config_file_and_cli_overrides_are_applied(tmp_path: Path):
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"max_daily_loss_pct": 1.0, "losing_streak_n": 3}))
+    config_path.write_text(
+        json.dumps({"max_daily_loss_pct": 1.0, "losing_streak_n": 3}), encoding="utf-8"
+    )
     output_dir = tmp_path / "reports"
 
     exit_code = main(
@@ -794,7 +796,7 @@ def test_config_file_and_cli_overrides_are_applied(tmp_path: Path):
 
 def test_unknown_config_key_fails_closed(tmp_path: Path):
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"max_daily_loss_pct_typo": 1.0}))
+    config_path.write_text(json.dumps({"max_daily_loss_pct_typo": 1.0}), encoding="utf-8")
 
     exit_code = main(
         [

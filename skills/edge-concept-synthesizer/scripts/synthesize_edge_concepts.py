@@ -840,7 +840,7 @@ def main() -> int:
         }
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(yaml.safe_dump(payload, sort_keys=False))
+        output_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     except ConceptSynthesisError as exc:
         print(f"[ERROR] {exc}")
         return 1

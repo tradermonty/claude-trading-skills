@@ -33,7 +33,7 @@ def _flnc_like_fixture(tmp_path, last_earnings_date: str = "2026-04-28"):
             # "compute from last_earnings_date" branch in run_dry_run.
             break
     out_path = tmp_path / "dry_run_with_earnings.json"
-    out_path.write_text(json.dumps(fixture))
+    out_path.write_text(json.dumps(fixture), encoding="utf-8")
     return out_path
 
 
@@ -50,7 +50,7 @@ def _upcoming_earnings_fixture(tmp_path, next_earnings_date: str):
             sym["market_data_as_of"] = "2026-04-30"
             break
     out_path = tmp_path / "dry_run_with_upcoming_earnings.json"
-    out_path.write_text(json.dumps(fixture))
+    out_path.write_text(json.dumps(fixture), encoding="utf-8")
     return out_path
 
 

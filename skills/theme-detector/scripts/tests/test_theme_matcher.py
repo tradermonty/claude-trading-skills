@@ -83,7 +83,9 @@ def test_missing_scan_hits_and_narrative_are_optional():
 
 def test_narrative_scores_accept_wrapped_shape(tmp_path):
     path = tmp_path / "narrative.json"
-    path.write_text('{"themes": {"Cybersecurity": {"narrative_keyword_score": 82}}}')
+    path.write_text(
+        '{"themes": {"Cybersecurity": {"narrative_keyword_score": 82}}}', encoding="utf-8"
+    )
 
     scores = load_narrative_scores(str(path))
     theme = _theme("Cybersecurity", ["CRWD"], ["CIBR"])

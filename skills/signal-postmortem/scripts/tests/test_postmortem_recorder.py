@@ -217,7 +217,7 @@ class TestIntegration:
 
         # Write to file
         output_file = tmp_path / "pm_sig_msft_20260301_test.json"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(postmortem, f, indent=2)
 
         # Read back and verify

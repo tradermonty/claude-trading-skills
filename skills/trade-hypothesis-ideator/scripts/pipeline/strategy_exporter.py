@@ -256,8 +256,12 @@ def export_candidate(hypothesis: dict, output_dir: Path, dry_run: bool = False) 
     strategy_path = candidate_dir / "strategy.yaml"
     metadata_path = candidate_dir / "metadata.json"
 
-    strategy_path.write_text(yaml.safe_dump(spec, sort_keys=False, allow_unicode=False))
-    metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=True) + "\n")
+    strategy_path.write_text(
+        yaml.safe_dump(spec, sort_keys=False, allow_unicode=False), encoding="utf-8"
+    )
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
 
     return candidate_dir
 

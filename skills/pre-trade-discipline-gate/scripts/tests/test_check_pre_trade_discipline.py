@@ -31,13 +31,13 @@ def load_thesis_store_module():
 
 def write_json(path: Path, data: dict | list) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return path
 
 
 def write_yaml(path: Path, data: dict) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     return path
 
 
@@ -79,7 +79,7 @@ def write_thesis(
         thesis["exit"] = {"actual_date": exit_date, "actual_price": 95.0, "exit_reason": "manual"}
     state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / f"{thesis_id}.yaml"
-    path.write_text(yaml.safe_dump(thesis, sort_keys=False))
+    path.write_text(yaml.safe_dump(thesis, sort_keys=False), encoding="utf-8")
     return path
 
 
@@ -483,7 +483,7 @@ def test_report_write_failure_does_not_link_thesis(tmp_path: Path):
     )
     market, circuit = allowed_artifacts(tmp_path)
     output_file = tmp_path / "not_a_directory"
-    output_file.write_text("blocks output_dir mkdir")
+    output_file.write_text("blocks output_dir mkdir", encoding="utf-8")
 
     exit_code = main(
         [

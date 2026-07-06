@@ -102,7 +102,7 @@ def test_find_by_fingerprint_yaml_fallback(tmp_path: Path):
     tid = thesis_store.register(tmp_path, _make_thesis_data())
     # Remove index to simulate empty/corrupt
     index_path = tmp_path / thesis_store.INDEX_FILE
-    index_path.write_text('{"version": 1, "theses": {}}')
+    index_path.write_text('{"version": 1, "theses": {}}', encoding="utf-8")
     # Should still find via YAML fallback
     thesis = thesis_store.get(tmp_path, tid)
     fp = thesis.get("origin_fingerprint")
@@ -286,7 +286,7 @@ def _make_position_report(tmp_path: Path, **overrides):
     }
     report.update(overrides)
     report_path = tmp_path / "position_report.json"
-    report_path.write_text(json.dumps(report))
+    report_path.write_text(json.dumps(report), encoding="utf-8")
     return str(report_path)
 
 
@@ -348,7 +348,7 @@ def test_attach_position_atr_based_method(tmp_path: Path):
         "final_risk_pct": 0.008,
     }
     report_path = tmp_path / "atr_report.json"
-    report_path.write_text(json.dumps(report))
+    report_path.write_text(json.dumps(report), encoding="utf-8")
 
     thesis = thesis_store.attach_position(state_dir, tid, str(report_path))
     assert thesis["position"]["sizing_method"] == "atr_based"
@@ -373,7 +373,7 @@ def test_attach_position_kelly_method(tmp_path: Path):
         "final_risk_pct": 0.0064,
     }
     report_path = tmp_path / "kelly_report.json"
-    report_path.write_text(json.dumps(report))
+    report_path.write_text(json.dumps(report), encoding="utf-8")
 
     thesis = thesis_store.attach_position(state_dir, tid, str(report_path))
     assert thesis["position"]["sizing_method"] == "kelly"
@@ -626,7 +626,7 @@ def test_rebuild_index_skips_corrupt(tmp_path: Path):
     """rebuild_index should skip corrupt YAML files."""
     thesis_store.register(tmp_path, _make_thesis_data())
     # Create corrupt file
-    (tmp_path / "th_bad_pvt_20260314_0000.yaml").write_text("{{invalid yaml")
+    (tmp_path / "th_bad_pvt_20260314_0000.yaml").write_text("{{invalid yaml", encoding="utf-8")
     idx = thesis_store.rebuild_index(tmp_path)
     assert len(idx["theses"]) == 1  # only the valid one
 
@@ -643,7 +643,7 @@ def test_rebuild_index_skips_schema_invalid(tmp_path: Path):
     bad["thesis_id"] = "th_bad_div_20260314_0000"
     bad["status"] = "BOGUS"
     bad_path = tmp_path / "th_bad_div_20260314_0000.yaml"
-    bad_path.write_text(yaml.dump(bad, default_flow_style=False))
+    bad_path.write_text(yaml.dump(bad, default_flow_style=False), encoding="utf-8")
 
     idx = thesis_store.rebuild_index(tmp_path)
     assert tid in idx["theses"]
@@ -857,7 +857,7 @@ def test_validate_state_detects_schema_error(tmp_path: Path):
     # Corrupt the thesis: set an invalid status
     thesis["status"] = "BOGUS"
     yaml_path = tmp_path / f"{tid}.yaml"
-    yaml_path.write_text(yaml.dump(thesis, default_flow_style=False))
+    yaml_path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
 
     result = thesis_store.validate_state(tmp_path)
     assert not result["ok"]
@@ -946,7 +946,7 @@ def test_validate_state_detects_review_date_drift(tmp_path: Path):
     with open(index_path) as f:
         index = json.load(f)
     index["theses"][tid]["next_review_date"] = "2099-01-01"
-    with open(index_path, "w") as f:
+    with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index, f)
 
     result = thesis_store.validate_state(tmp_path)

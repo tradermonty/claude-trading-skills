@@ -178,7 +178,9 @@ def drafts_dir(
     d = tmp_path / "drafts"
     d.mkdir()
     for draft in [sample_draft_pass, sample_draft_revise, sample_draft_reject]:
-        (d / f"{draft['id']}.yaml").write_text(yaml.safe_dump(draft, sort_keys=False))
+        (d / f"{draft['id']}.yaml").write_text(
+            yaml.safe_dump(draft, sort_keys=False), encoding="utf-8"
+        )
     return d
 
 
@@ -191,7 +193,7 @@ def reviews_dir(
     d.mkdir()
     for review in [sample_review_pass, sample_review_revise, sample_review_reject]:
         (d / f"{review['draft_id']}_review.yaml").write_text(
-            yaml.safe_dump(review, sort_keys=False)
+            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
         )
     return d
 
@@ -210,7 +212,9 @@ def tickets_dir(tmp_path: Path) -> Path:
         "priority_score": 75,
         "observation": {"symbol": "AAPL", "date": "2026-01-01"},
     }
-    (d / "edge_breakout_AAPL_20260101.yaml").write_text(yaml.safe_dump(ticket, sort_keys=False))
+    (d / "edge_breakout_AAPL_20260101.yaml").write_text(
+        yaml.safe_dump(ticket, sort_keys=False), encoding="utf-8"
+    )
     return d
 
 
@@ -229,7 +233,7 @@ def hints_file(tmp_path: Path) -> Path:
             }
         ],
     }
-    path.write_text(yaml.safe_dump(payload, sort_keys=False))
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return path
 
 
@@ -252,7 +256,7 @@ def concepts_file(tmp_path: Path) -> Path:
             }
         ],
     }
-    path.write_text(yaml.safe_dump(payload, sort_keys=False))
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return path
 
 
@@ -267,7 +271,7 @@ def market_summary_file(tmp_path: Path) -> Path:
         "risk_on_score": 70,
         "risk_off_score": 30,
     }
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
 
@@ -279,7 +283,7 @@ def anomalies_file(tmp_path: Path) -> Path:
         {"symbol": "AAPL", "metric": "gap", "z": 3.2},
         {"symbol": "MSFT", "metric": "rel_volume", "z": 2.8},
     ]
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
 
@@ -306,5 +310,5 @@ def exportable_tickets_dir(tmp_path: Path, sample_draft_pass: dict) -> Path:
         },
         "cost_model": {"commission_per_share": 0.0, "slippage_bps": 5},
     }
-    (d / f"{ticket_id}.yaml").write_text(yaml.safe_dump(ticket, sort_keys=False))
+    (d / f"{ticket_id}.yaml").write_text(yaml.safe_dump(ticket, sort_keys=False), encoding="utf-8")
     return d

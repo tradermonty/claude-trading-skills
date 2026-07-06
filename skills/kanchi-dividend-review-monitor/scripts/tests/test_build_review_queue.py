@@ -264,7 +264,7 @@ def test_main_with_output_dir(tmp_path) -> None:
         ],
     }
     input_file = tmp_path / "input.json"
-    input_file.write_text(json.dumps(input_data))
+    input_file.write_text(json.dumps(input_data), encoding="utf-8")
 
     output_dir = tmp_path / "output"
 

@@ -125,7 +125,7 @@ def render_markdown(rows: list[PlanningRow], as_of: str) -> str:
 
 
 def write_csv(path: Path, rows: list[PlanningRow]) -> None:
-    with path.open("w", newline="") as f:
+    with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
             [
@@ -173,7 +173,7 @@ def main() -> int:
 
     markdown_path = output_dir / f"tax_planning_sheet_{args.as_of}.md"
     csv_path = output_dir / f"tax_planning_sheet_{args.as_of}.csv"
-    markdown_path.write_text(render_markdown(rows, args.as_of) + "\n")
+    markdown_path.write_text(render_markdown(rows, args.as_of) + "\n", encoding="utf-8")
     write_csv(csv_path, rows)
 
     print(f"Wrote markdown: {markdown_path}")

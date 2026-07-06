@@ -122,7 +122,7 @@ def generate_postmortem(
 
     content = _render_postmortem(thesis)
     pm_path = j_dir / f"pm_{thesis_id}.md"
-    pm_path.write_text(content)
+    pm_path.write_text(content, encoding="utf-8")
 
     logger.info("Generated postmortem: %s", pm_path)
     return str(pm_path)
@@ -382,7 +382,7 @@ def monthly_report(
         j_dir = Path(journal_dir) if journal_dir else state_path.parent / JOURNAL_DIR_NAME
         out_path = j_dir / f"monthly-review-{month}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(content)
+    out_path.write_text(content, encoding="utf-8")
     return str(out_path)
 
 

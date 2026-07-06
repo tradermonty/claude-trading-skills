@@ -17,7 +17,7 @@ def test_load_candidates_from_json_with_bucket(tmp_path: Path) -> None:
         "candidates": [{"ticker": "jnj", "bucket": "core"}, {"ticker": "o", "bucket": "satellite"}],
     }
     input_path = tmp_path / "input.json"
-    input_path.write_text(json.dumps(payload))
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
     candidates, profile = load_candidates(input_path, None)
     assert profile == "income_now"
     assert candidates == [

@@ -569,7 +569,7 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
         "notes",
     ]
 
-    with output_path.open("w", newline="") as fh:
+    with output_path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
@@ -701,9 +701,11 @@ def main() -> int:
         "api_calls": client.api_calls,
         "rows": rows,
     }
-    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     write_csv(rows, csv_path)
-    md_path.write_text(render_markdown(rows, as_of=args.as_of, alpha_pp=args.alpha_pp) + "\n")
+    md_path.write_text(
+        render_markdown(rows, as_of=args.as_of, alpha_pp=args.alpha_pp) + "\n", encoding="utf-8"
+    )
 
     print(f"Wrote JSON: {json_path}")
     print(f"Wrote CSV: {csv_path}")

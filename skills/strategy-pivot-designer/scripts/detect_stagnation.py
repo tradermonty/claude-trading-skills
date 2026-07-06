@@ -345,7 +345,7 @@ def append_eval(
     }
 
     history["iterations"].append(iteration_entry)
-    history_path.write_text(json.dumps(history, indent=2, default=str))
+    history_path.write_text(json.dumps(history, indent=2, default=str), encoding="utf-8")
 
     return history
 
@@ -448,7 +448,7 @@ def main() -> int:
     filename = f"pivot_diagnosis_{strategy_id}_{timestamp}.json"
     output_path = output_dir / filename
 
-    output_path.write_text(json.dumps(diagnosis, indent=2, default=str))
+    output_path.write_text(json.dumps(diagnosis, indent=2, default=str), encoding="utf-8")
 
     print(f"Recommendation: {diagnosis['recommendation']}")
     if diagnosis["triggers_fired"]:

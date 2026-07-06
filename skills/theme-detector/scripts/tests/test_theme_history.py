@@ -75,5 +75,7 @@ def test_build_observation_contains_leadership_counts():
 
 def test_load_history_accepts_flat_list(tmp_path):
     path = tmp_path / "history.json"
-    path.write_text(json.dumps([{"date": "2026-07-04", "theme": "AI", "heat": 70}]))
+    path.write_text(
+        json.dumps([{"date": "2026-07-04", "theme": "AI", "heat": 70}]), encoding="utf-8"
+    )
     assert load_history(str(path))["AI"][0]["heat"] == 70

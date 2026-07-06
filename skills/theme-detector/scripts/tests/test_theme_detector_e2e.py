@@ -321,7 +321,8 @@ class TestThemeDetectorE2E:
                         "industry": "Semiconductors",
                     }
                 ]
-            )
+            ),
+            encoding="utf-8",
         )
         history_file = tmp_path / "history.json"
         history_payload = {
@@ -337,7 +338,7 @@ class TestThemeDetectorE2E:
                 ]
             },
         }
-        history_file.write_text(json.dumps(history_payload))
+        history_file.write_text(json.dumps(history_payload), encoding="utf-8")
 
         monkeypatch.setattr(
             sys,

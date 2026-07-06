@@ -533,12 +533,12 @@ def write_reports(result: dict, output_dir: Path, json_only: bool) -> tuple[Path
     generated_at = _parse_datetime(result["generated_at"]).astimezone(timezone.utc)
     timestamp = generated_at.strftime("%Y-%m-%d_%H%M%S")
     json_path = output_dir / f"circuit_breaker_decision_{timestamp}.json"
-    json_path.write_text(json.dumps(result, indent=2) + "\n")
+    json_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 
     md_path = None
     if not json_only:
         md_path = output_dir / f"circuit_breaker_decision_{timestamp}.md"
-        md_path.write_text(generate_markdown_report(result))
+        md_path.write_text(generate_markdown_report(result), encoding="utf-8")
     return json_path, md_path
 
 

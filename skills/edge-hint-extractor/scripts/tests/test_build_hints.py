@@ -282,7 +282,7 @@ def test_load_llm_hints_from_file_bare_list(tmp_path: Path) -> None:
         "  mechanism_tag: flow\n"
     )
     f = tmp_path / "hints.yaml"
-    f.write_text(yaml_content)
+    f.write_text(yaml_content, encoding="utf-8")
     result = bh.load_llm_hints_from_file(f)
     assert len(result) == 1
     assert result[0]["title"] == "Sector rotation into industrials"
@@ -298,7 +298,7 @@ def test_load_llm_hints_from_file_dict_wrapper(tmp_path: Path) -> None:
         "    symbols: [NVDA]\n"
     )
     f = tmp_path / "hints.yaml"
-    f.write_text(yaml_content)
+    f.write_text(yaml_content, encoding="utf-8")
     result = bh.load_llm_hints_from_file(f)
     assert len(result) == 1
     assert result[0]["symbols"] == ["NVDA"]
@@ -307,7 +307,7 @@ def test_load_llm_hints_from_file_dict_wrapper(tmp_path: Path) -> None:
 def test_load_llm_hints_from_file_empty(tmp_path: Path) -> None:
     """Test that empty file returns empty list."""
     f = tmp_path / "empty.yaml"
-    f.write_text("")
+    f.write_text("", encoding="utf-8")
     result = bh.load_llm_hints_from_file(f)
     assert result == []
 
@@ -315,7 +315,7 @@ def test_load_llm_hints_from_file_empty(tmp_path: Path) -> None:
 def test_load_llm_hints_from_file_invalid_yaml(tmp_path: Path) -> None:
     """Test that invalid YAML raises HintExtractionError."""
     f = tmp_path / "bad.yaml"
-    f.write_text(":\n  - [invalid\n")
+    f.write_text(":\n  - [invalid\n", encoding="utf-8")
     with pytest.raises(bh.HintExtractionError, match="invalid YAML"):
         bh.load_llm_hints_from_file(f)
 

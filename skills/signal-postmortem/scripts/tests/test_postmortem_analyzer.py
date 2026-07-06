@@ -287,7 +287,7 @@ class TestIntegration:
         pm_dir.mkdir()
 
         for pm in large_postmortem_set:
-            with open(pm_dir / f"{pm['postmortem_id']}.json", "w") as f:
+            with open(pm_dir / f"{pm['postmortem_id']}.json", "w", encoding="utf-8") as f:
                 json.dump(pm, f)
 
         # Calculate metrics

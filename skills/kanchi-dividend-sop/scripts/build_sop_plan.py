@@ -131,7 +131,9 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     filename = args.filename or f"kanchi_sop_plan_{args.as_of}.md"
     output_path = output_dir / filename
-    output_path.write_text(render_markdown(candidates, args.as_of, profile) + "\n")
+    output_path.write_text(
+        render_markdown(candidates, args.as_of, profile) + "\n", encoding="utf-8"
+    )
     print(f"Wrote SOP plan: {output_path}")
     return 0
 

@@ -512,7 +512,7 @@ class TestLoadJsonFile:
     def test_load_valid_file(self, tmp_path):
         test_file = tmp_path / "test.json"
         test_data = {"key": "value"}
-        test_file.write_text(json.dumps(test_data))
+        test_file.write_text(json.dumps(test_data), encoding="utf-8")
         result = load_json_file(test_file)
         assert result == test_data
 
@@ -526,7 +526,7 @@ class TestLoadJsonFile:
 
     def test_load_invalid_json(self, tmp_path):
         test_file = tmp_path / "invalid.json"
-        test_file.write_text("not valid json")
+        test_file.write_text("not valid json", encoding="utf-8")
         result = load_json_file(test_file)
         assert result is None
 
@@ -542,16 +542,16 @@ class TestIntegration:
 
         # Create mock input files
         breadth_file = tmp_path / "breadth.json"
-        breadth_file.write_text(json.dumps({"breadth_score": 70}))
+        breadth_file.write_text(json.dumps({"breadth_score": 70}), encoding="utf-8")
 
         regime_file = tmp_path / "regime.json"
-        regime_file.write_text(json.dumps({"regime": "Broadening"}))
+        regime_file.write_text(json.dumps({"regime": "Broadening"}), encoding="utf-8")
 
         top_risk_file = tmp_path / "top_risk.json"
-        top_risk_file.write_text(json.dumps({"top_risk_score": 75}))
+        top_risk_file.write_text(json.dumps({"top_risk_score": 75}), encoding="utf-8")
 
         uptrend_file = tmp_path / "uptrend.json"
-        uptrend_file.write_text(json.dumps({"uptrend_score": 65}))
+        uptrend_file.write_text(json.dumps({"uptrend_score": 65}), encoding="utf-8")
 
         output_dir = tmp_path / "reports"
 
@@ -597,7 +597,7 @@ class TestIntegration:
 
         # Create only one non-critical input
         sector_file = tmp_path / "sector.json"
-        sector_file.write_text(json.dumps({"sector_score": 60}))
+        sector_file.write_text(json.dumps({"sector_score": 60}), encoding="utf-8")
 
         output_dir = tmp_path / "reports"
 

@@ -36,7 +36,7 @@ def save_history(path: str, history: dict[str, list[dict]]) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {"version": 1, "themes": history}
     tmp = target.with_suffix(target.suffix + ".tmp")
-    with tmp.open("w") as f:
+    with tmp.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
     tmp.replace(target)
 

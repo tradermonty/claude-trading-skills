@@ -23,7 +23,7 @@ from config_loader import (
 
 def _write_yaml(tmpdir, content):
     path = os.path.join(tmpdir, "themes.yaml")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     return path
 

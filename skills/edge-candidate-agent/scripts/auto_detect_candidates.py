@@ -1503,8 +1503,12 @@ def write_outputs(
     exportable_dir.mkdir(parents=True, exist_ok=True)
     research_dir.mkdir(parents=True, exist_ok=True)
 
-    (output_dir / "market_summary.json").write_text(json.dumps(market_summary, indent=2) + "\n")
-    (output_dir / "anomalies.json").write_text(json.dumps(anomalies, indent=2) + "\n")
+    (output_dir / "market_summary.json").write_text(
+        json.dumps(market_summary, indent=2) + "\n", encoding="utf-8"
+    )
+    (output_dir / "anomalies.json").write_text(
+        json.dumps(anomalies, indent=2) + "\n", encoding="utf-8"
+    )
 
     if watchlist:
         watchlist_df = pd.DataFrame(watchlist)
@@ -1526,7 +1530,9 @@ def write_outputs(
             market_summary=market_summary,
         )
         ticket_path = exportable_dir / f"{payload['id']}.yaml"
-        ticket_path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False))
+        ticket_path.write_text(
+            yaml.safe_dump(payload, sort_keys=False, allow_unicode=False), encoding="utf-8"
+        )
         exportable_paths.append(ticket_path)
 
     for idx, ticket_seed in enumerate(research_tickets, start=1):
@@ -1538,7 +1544,9 @@ def write_outputs(
             market_summary=market_summary,
         )
         ticket_path = research_dir / f"{payload['id']}.yaml"
-        ticket_path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False))
+        ticket_path.write_text(
+            yaml.safe_dump(payload, sort_keys=False, allow_unicode=False), encoding="utf-8"
+        )
         research_paths.append(ticket_path)
 
     report_markdown = render_daily_report(
@@ -1552,7 +1560,7 @@ def write_outputs(
         skipped_modules=skipped_modules,
     )
     report_path = output_dir / "daily_report.md"
-    report_path.write_text(report_markdown)
+    report_path.write_text(report_markdown, encoding="utf-8")
 
     manifest = {
         "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
@@ -1564,7 +1572,9 @@ def write_outputs(
         "skipped_modules": skipped_modules,
         "output_dir": str(output_dir),
     }
-    (output_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (output_dir / "run_manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
     return exportable_paths, research_paths, report_path
 
 

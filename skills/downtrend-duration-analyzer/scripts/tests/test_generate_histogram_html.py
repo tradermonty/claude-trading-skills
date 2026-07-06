@@ -157,7 +157,7 @@ class TestFindLatestJson:
     def test_direct_path(self, tmp_path):
         """Test finding a directly specified file."""
         json_file = tmp_path / "test.json"
-        json_file.write_text('{"test": true}')
+        json_file.write_text('{"test": true}', encoding="utf-8")
 
         result = find_latest_json(str(json_file), tmp_path)
 
@@ -166,8 +166,12 @@ class TestFindLatestJson:
     def test_glob_pattern(self, tmp_path):
         """Test finding files with glob pattern."""
         # Create multiple JSON files
-        (tmp_path / "analysis_2026-01-01.json").write_text('{"date": "2026-01-01"}')
-        (tmp_path / "analysis_2026-02-01.json").write_text('{"date": "2026-02-01"}')
+        (tmp_path / "analysis_2026-01-01.json").write_text(
+            '{"date": "2026-01-01"}', encoding="utf-8"
+        )
+        (tmp_path / "analysis_2026-02-01.json").write_text(
+            '{"date": "2026-02-01"}', encoding="utf-8"
+        )
 
         result = find_latest_json(str(tmp_path / "analysis_*.json"), tmp_path)
 

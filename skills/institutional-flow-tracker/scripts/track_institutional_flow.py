@@ -429,7 +429,7 @@ For detailed interpretation framework, see:
             else:
                 output_path = filename
 
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(report)
         print(f"\nReport saved to: {output_path}")
 
@@ -537,7 +537,7 @@ Examples:
         if args.output_dir:
             os.makedirs(args.output_dir, exist_ok=True)
             json_output = os.path.join(args.output_dir, os.path.basename(json_output))
-        with open(json_output, "w") as f:
+        with open(json_output, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
         print(f"JSON results saved to: {json_output}")
 

@@ -514,7 +514,7 @@ def main() -> int:
         output_path = output_dir / f"review_queue_{date_suffix}.json"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(report, indent=2, ensure_ascii=True) + "\n")
+    output_path.write_text(json.dumps(report, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
     if args.markdown:
         markdown_path = Path(args.markdown)
@@ -522,7 +522,7 @@ def main() -> int:
         markdown_path = output_dir / f"review_queue_{date_suffix}.md"
 
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
-    markdown_path.write_text(render_markdown(report) + "\n")
+    markdown_path.write_text(render_markdown(report) + "\n", encoding="utf-8")
 
     print(f"Wrote JSON report: {output_path}")
     print(f"Wrote markdown report: {markdown_path}")

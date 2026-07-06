@@ -452,7 +452,7 @@ def save_results(pairs, output_file):
         "pairs": pairs,
     }
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2)
 
     print(f"  → Saved {len(pairs)} pairs to {output_file}")

@@ -305,7 +305,7 @@ def test_cli_drafts_dir(tmp_path: Path, well_formed_breakout_draft: dict) -> Non
     drafts_dir = tmp_path / "drafts"
     drafts_dir.mkdir()
     (drafts_dir / "draft1.yaml").write_text(
-        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False)
+        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False), encoding="utf-8"
     )
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -318,7 +318,9 @@ def test_cli_drafts_dir(tmp_path: Path, well_formed_breakout_draft: dict) -> Non
 def test_cli_single_draft(tmp_path: Path, well_formed_breakout_draft: dict) -> None:
     """CLI with --draft should process a single YAML file."""
     draft_file = tmp_path / "single_draft.yaml"
-    draft_file.write_text(yaml.safe_dump(well_formed_breakout_draft, sort_keys=False))
+    draft_file.write_text(
+        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False), encoding="utf-8"
+    )
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
@@ -330,7 +332,9 @@ def test_cli_single_draft(tmp_path: Path, well_formed_breakout_draft: dict) -> N
 def test_cli_format_yaml(tmp_path: Path, well_formed_breakout_draft: dict) -> None:
     """CLI with --format yaml should produce valid YAML output."""
     draft_file = tmp_path / "draft.yaml"
-    draft_file.write_text(yaml.safe_dump(well_formed_breakout_draft, sort_keys=False))
+    draft_file.write_text(
+        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False), encoding="utf-8"
+    )
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
@@ -355,7 +359,9 @@ def test_cli_format_yaml(tmp_path: Path, well_formed_breakout_draft: dict) -> No
 def test_cli_format_json(tmp_path: Path, well_formed_breakout_draft: dict) -> None:
     """CLI with --format json should produce valid JSON output."""
     draft_file = tmp_path / "draft.yaml"
-    draft_file.write_text(yaml.safe_dump(well_formed_breakout_draft, sort_keys=False))
+    draft_file.write_text(
+        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False), encoding="utf-8"
+    )
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
@@ -380,7 +386,9 @@ def test_cli_format_json(tmp_path: Path, well_formed_breakout_draft: dict) -> No
 def test_cli_markdown_summary(tmp_path: Path, well_formed_breakout_draft: dict) -> None:
     """CLI with --markdown-summary should produce a markdown file."""
     draft_file = tmp_path / "draft.yaml"
-    draft_file.write_text(yaml.safe_dump(well_formed_breakout_draft, sort_keys=False))
+    draft_file.write_text(
+        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False), encoding="utf-8"
+    )
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 

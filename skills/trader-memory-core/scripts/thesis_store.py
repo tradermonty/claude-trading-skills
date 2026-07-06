@@ -271,7 +271,7 @@ def _atomic_write_yaml(path: Path, data: dict) -> None:
     """Write YAML atomically using tempfile + os.replace."""
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         os.replace(tmp, path)
     except BaseException:
@@ -286,7 +286,7 @@ def _atomic_write_json(path: Path, data: dict) -> None:
     """Write JSON atomically using tempfile + os.replace."""
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
         os.replace(tmp, path)

@@ -712,13 +712,15 @@ def main(argv: list[str] | None = None) -> int:
         ext = args.output_format
         out_path = output_dir / f"review.{ext}"
         if ext == "yaml":
-            out_path.write_text(yaml.safe_dump(output, sort_keys=False, default_flow_style=False))
+            out_path.write_text(
+                yaml.safe_dump(output, sort_keys=False, default_flow_style=False), encoding="utf-8"
+            )
         else:
-            out_path.write_text(json.dumps(output, indent=2) + "\n")
+            out_path.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
 
         if args.markdown_summary:
             md_path = output_dir / "review_summary.md"
-            md_path.write_text(build_markdown_summary(output))
+            md_path.write_text(build_markdown_summary(output), encoding="utf-8")
 
     except ReviewError as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)

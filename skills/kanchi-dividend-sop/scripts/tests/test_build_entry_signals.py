@@ -15,7 +15,7 @@ def test_parse_ticker_csv_normalizes_and_deduplicates() -> None:
 
 def test_load_tickers_from_json_candidates(tmp_path) -> None:
     path = tmp_path / "input.json"
-    path.write_text('{"candidates":[{"ticker":"jnj"},{"ticker":"pg"}]}')
+    path.write_text('{"candidates":[{"ticker":"jnj"},{"ticker":"pg"}]}', encoding="utf-8")
     assert load_tickers(path, None) == ["JNJ", "PG"]
 
 

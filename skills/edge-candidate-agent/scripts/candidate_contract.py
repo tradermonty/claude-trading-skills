@@ -39,7 +39,7 @@ def read_yaml(path: Path) -> dict[str, Any]:
 
 def write_yaml(path: Path, payload: dict[str, Any]) -> None:
     """Write a dict payload as stable YAML."""
-    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False))
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False), encoding="utf-8")
 
 
 def validate_ticket_payload(ticket: dict[str, Any]) -> list[str]:

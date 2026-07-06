@@ -41,7 +41,7 @@ class TestTrackedDraft:
         self, tmp_path: Path, sample_draft_pass: dict
     ) -> None:
         draft_path = tmp_path / "draft_abc.yaml"
-        draft_path.write_text(yaml.safe_dump(sample_draft_pass, sort_keys=False))
+        draft_path.write_text(yaml.safe_dump(sample_draft_pass, sort_keys=False), encoding="utf-8")
         td = TrackedDraft(
             draft_id=sample_draft_pass["id"],
             file_path=draft_path,
@@ -80,7 +80,9 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir(exist_ok=True)
         for draft in drafts:
-            (drafts_dir / f"{draft['id']}.yaml").write_text(yaml.safe_dump(draft, sort_keys=False))
+            (drafts_dir / f"{draft['id']}.yaml").write_text(
+                yaml.safe_dump(draft, sort_keys=False), encoding="utf-8"
+            )
 
         review_dirs: list[Path] = []
         for i, reviews in enumerate(reviews_by_iter):
@@ -88,7 +90,7 @@ class TestReviewLoop:
             rd.mkdir(exist_ok=True)
             for review in reviews:
                 (rd / f"{review['draft_id']}_review.yaml").write_text(
-                    yaml.safe_dump(review, sort_keys=False)
+                    yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                 )
             review_dirs.append(rd)
         return drafts_dir, review_dirs
@@ -103,7 +105,7 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         (drafts_dir / f"{sample_draft_pass['id']}.yaml").write_text(
-            yaml.safe_dump(sample_draft_pass, sort_keys=False)
+            yaml.safe_dump(sample_draft_pass, sort_keys=False), encoding="utf-8"
         )
         review_dir = tmp_path / "reviews_iter_0"
         review_dir.mkdir()
@@ -114,7 +116,7 @@ class TestReviewLoop:
             "revision_instructions": [],
         }
         (review_dir / f"{sample_draft_pass['id']}_review.yaml").write_text(
-            yaml.safe_dump(review, sort_keys=False)
+            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
         )
 
         def side_effect(stage: str, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
@@ -143,7 +145,7 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         (drafts_dir / f"{sample_draft_pass['id']}.yaml").write_text(
-            yaml.safe_dump(sample_draft_pass, sort_keys=False)
+            yaml.safe_dump(sample_draft_pass, sort_keys=False), encoding="utf-8"
         )
         review_dir = tmp_path / "reviews_iter_0"
         review_dir.mkdir()
@@ -154,7 +156,7 @@ class TestReviewLoop:
             "revision_instructions": [],
         }
         (review_dir / f"{sample_draft_pass['id']}_review.yaml").write_text(
-            yaml.safe_dump(review, sort_keys=False)
+            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
         )
 
         def side_effect(stage: str, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
@@ -184,7 +186,7 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         (drafts_dir / f"{sample_draft_revise['id']}.yaml").write_text(
-            yaml.safe_dump(sample_draft_revise, sort_keys=False)
+            yaml.safe_dump(sample_draft_revise, sort_keys=False), encoding="utf-8"
         )
 
         call_count = 0
@@ -204,7 +206,7 @@ class TestReviewLoop:
                             "revision_instructions": ["Reduce entry conditions"],
                         }
                         (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                            yaml.safe_dump(review, sort_keys=False)
+                            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                         )
                         break
                 call_count += 1
@@ -232,7 +234,7 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         (drafts_dir / f"{sample_draft_reject['id']}.yaml").write_text(
-            yaml.safe_dump(sample_draft_reject, sort_keys=False)
+            yaml.safe_dump(sample_draft_reject, sort_keys=False), encoding="utf-8"
         )
 
         def side_effect(stage: str, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
@@ -248,7 +250,7 @@ class TestReviewLoop:
                             "revision_instructions": [],
                         }
                         (out_dir / f"{sample_draft_reject['id']}_review.yaml").write_text(
-                            yaml.safe_dump(review, sort_keys=False)
+                            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                         )
                         break
             return subprocess.CompletedProcess(args=[], returncode=0, stdout="[OK]", stderr="")
@@ -275,7 +277,9 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         for draft in [sample_draft_pass, sample_draft_revise]:
-            (drafts_dir / f"{draft['id']}.yaml").write_text(yaml.safe_dump(draft, sort_keys=False))
+            (drafts_dir / f"{draft['id']}.yaml").write_text(
+                yaml.safe_dump(draft, sort_keys=False), encoding="utf-8"
+            )
 
         iteration = [0]
 
@@ -300,10 +304,10 @@ class TestReviewLoop:
                                 "revision_instructions": ["Reduce entry conditions"],
                             }
                             (out_dir / f"{sample_draft_pass['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r1, sort_keys=False)
+                                yaml.safe_dump(r1, sort_keys=False), encoding="utf-8"
                             )
                             (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r2, sort_keys=False)
+                                yaml.safe_dump(r2, sort_keys=False), encoding="utf-8"
                             )
                         else:
                             # iter 1: pass the revised one
@@ -314,7 +318,7 @@ class TestReviewLoop:
                                 "revision_instructions": [],
                             }
                             (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r2, sort_keys=False)
+                                yaml.safe_dump(r2, sort_keys=False), encoding="utf-8"
                             )
                         iteration[0] += 1
                         break
@@ -343,7 +347,9 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         for draft in [sample_draft_reject, sample_draft_revise]:
-            (drafts_dir / f"{draft['id']}.yaml").write_text(yaml.safe_dump(draft, sort_keys=False))
+            (drafts_dir / f"{draft['id']}.yaml").write_text(
+                yaml.safe_dump(draft, sort_keys=False), encoding="utf-8"
+            )
 
         iteration = [0]
 
@@ -367,10 +373,10 @@ class TestReviewLoop:
                                 "revision_instructions": ["Add volume filter"],
                             }
                             (out_dir / f"{sample_draft_reject['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r1, sort_keys=False)
+                                yaml.safe_dump(r1, sort_keys=False), encoding="utf-8"
                             )
                             (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r2, sort_keys=False)
+                                yaml.safe_dump(r2, sort_keys=False), encoding="utf-8"
                             )
                         else:
                             r2 = {
@@ -380,7 +386,7 @@ class TestReviewLoop:
                                 "revision_instructions": [],
                             }
                             (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r2, sort_keys=False)
+                                yaml.safe_dump(r2, sort_keys=False), encoding="utf-8"
                             )
                         iteration[0] += 1
                         break
@@ -411,7 +417,9 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         for draft in [sample_draft_pass, sample_draft_revise, sample_draft_reject]:
-            (drafts_dir / f"{draft['id']}.yaml").write_text(yaml.safe_dump(draft, sort_keys=False))
+            (drafts_dir / f"{draft['id']}.yaml").write_text(
+                yaml.safe_dump(draft, sort_keys=False), encoding="utf-8"
+            )
 
         iteration = [0]
         iter1_draft_ids: list[str] = []
@@ -446,7 +454,7 @@ class TestReviewLoop:
                         }
                         if out_dir_arg:
                             (out_dir_arg / f"{draft_id}_review.yaml").write_text(
-                                yaml.safe_dump(review, sort_keys=False)
+                                yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                             )
                 else:
                     # iter 1: Record which drafts are being reviewed
@@ -464,7 +472,7 @@ class TestReviewLoop:
                     }
                     if out_dir_arg:
                         (out_dir_arg / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                            yaml.safe_dump(review, sort_keys=False)
+                            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                         )
 
                 iteration[0] += 1
@@ -491,7 +499,7 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         (drafts_dir / f"{sample_draft_revise['id']}.yaml").write_text(
-            yaml.safe_dump(sample_draft_revise, sort_keys=False)
+            yaml.safe_dump(sample_draft_revise, sort_keys=False), encoding="utf-8"
         )
 
         def side_effect(stage: str, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
@@ -507,7 +515,7 @@ class TestReviewLoop:
                             "revision_instructions": ["Reduce entry conditions"],
                         }
                         (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                            yaml.safe_dump(review, sort_keys=False)
+                            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                         )
                         break
             return subprocess.CompletedProcess(args=[], returncode=0, stdout="[OK]", stderr="")
@@ -531,7 +539,9 @@ class TestReviewLoop:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         draft_path = drafts_dir / f"{sample_draft_revise['id']}.yaml"
-        draft_path.write_text(yaml.safe_dump(sample_draft_revise, sort_keys=False))
+        draft_path.write_text(
+            yaml.safe_dump(sample_draft_revise, sort_keys=False), encoding="utf-8"
+        )
 
         def side_effect(stage: str, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
             if stage == "review":
@@ -546,7 +556,7 @@ class TestReviewLoop:
                             "revision_instructions": ["Reduce entry conditions"],
                         }
                         (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                            yaml.safe_dump(review, sort_keys=False)
+                            yaml.safe_dump(review, sort_keys=False), encoding="utf-8"
                         )
                         break
             return subprocess.CompletedProcess(args=[], returncode=0, stdout="[OK]", stderr="")
@@ -602,7 +612,8 @@ class TestExportLogic:
         strategies_dir.mkdir()
         ticket_path = tmp_path / "ticket.yaml"
         ticket_path.write_text(
-            yaml.safe_dump(build_export_ticket(sample_draft_pass), sort_keys=False)
+            yaml.safe_dump(build_export_ticket(sample_draft_pass), sort_keys=False),
+            encoding="utf-8",
         )
 
         from orchestrate_edge_pipeline import export_draft
@@ -692,7 +703,7 @@ class TestExportLogic:
 class TestFilePathManagement:
     def test_export_reads_from_tracked_path(self, tmp_path: Path, sample_draft_pass: dict) -> None:
         draft_path = tmp_path / f"{sample_draft_pass['id']}.yaml"
-        draft_path.write_text(yaml.safe_dump(sample_draft_pass, sort_keys=False))
+        draft_path.write_text(yaml.safe_dump(sample_draft_pass, sort_keys=False), encoding="utf-8")
         td = TrackedDraft(
             draft_id=sample_draft_pass["id"],
             file_path=draft_path,
@@ -715,7 +726,9 @@ class TestFilePathManagement:
         drafts_dir = tmp_path / "drafts"
         drafts_dir.mkdir()
         for draft in [sample_draft_pass, sample_draft_revise]:
-            (drafts_dir / f"{draft['id']}.yaml").write_text(yaml.safe_dump(draft, sort_keys=False))
+            (drafts_dir / f"{draft['id']}.yaml").write_text(
+                yaml.safe_dump(draft, sort_keys=False), encoding="utf-8"
+            )
 
         iteration = [0]
 
@@ -739,10 +752,10 @@ class TestFilePathManagement:
                                 "revision_instructions": ["Add volume filter"],
                             }
                             (out_dir / f"{sample_draft_pass['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r1, sort_keys=False)
+                                yaml.safe_dump(r1, sort_keys=False), encoding="utf-8"
                             )
                             (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r2, sort_keys=False)
+                                yaml.safe_dump(r2, sort_keys=False), encoding="utf-8"
                             )
                         else:
                             r2 = {
@@ -752,7 +765,7 @@ class TestFilePathManagement:
                                 "revision_instructions": [],
                             }
                             (out_dir / f"{sample_draft_revise['id']}_review.yaml").write_text(
-                                yaml.safe_dump(r2, sort_keys=False)
+                                yaml.safe_dump(r2, sort_keys=False), encoding="utf-8"
                             )
                         iteration[0] += 1
                         break
@@ -874,7 +887,8 @@ class TestCLI:
 
         ohlcv_path = tmp_path / "ohlcv.csv"
         ohlcv_path.write_text(
-            "symbol,timestamp,open,high,low,close,volume\nAAPL,2026-01-01,150,155,149,154,1000000\n"
+            "symbol,timestamp,open,high,low,close,volume\nAAPL,2026-01-01,150,155,149,154,1000000\n",
+            encoding="utf-8",
         )
 
         def side_effect(stage: str, args: list[str], **kw: Any) -> subprocess.CompletedProcess:
@@ -887,8 +901,12 @@ class TestCLI:
                         break
                 if tickets_out:
                     tickets_out.mkdir(parents=True, exist_ok=True)
-                    (tickets_out / "market_summary.json").write_text('{"regime": "Neutral"}')
-                    (tickets_out / "anomalies.json").write_text('{"anomalies": []}')
+                    (tickets_out / "market_summary.json").write_text(
+                        '{"regime": "Neutral"}', encoding="utf-8"
+                    )
+                    (tickets_out / "anomalies.json").write_text(
+                        '{"anomalies": []}', encoding="utf-8"
+                    )
             return subprocess.CompletedProcess(args=[], returncode=0, stdout="[OK]", stderr="")
 
         mock_run_stage.side_effect = side_effect
@@ -1177,7 +1195,9 @@ class TestLoadHelpers:
         }
         review_dir = tmp_path / "reviews"
         review_dir.mkdir()
-        (review_dir / "review.yaml").write_text(yaml.safe_dump(consolidated, sort_keys=False))
+        (review_dir / "review.yaml").write_text(
+            yaml.safe_dump(consolidated, sort_keys=False), encoding="utf-8"
+        )
         reviews = load_reviews_from_dir(review_dir)
         assert len(reviews) == 2
         assert reviews[0]["draft_id"] == "draft_a"
@@ -1592,7 +1612,7 @@ class TestLLMIdeasFileThreading:
         from orchestrate_edge_pipeline import main
 
         llm_file = tmp_path / "llm_hints.yaml"
-        llm_file.write_text("- title: Test hint\n  observation: obs\n")
+        llm_file.write_text("- title: Test hint\n  observation: obs\n", encoding="utf-8")
 
         mock_run_stage.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="[OK]", stderr=""

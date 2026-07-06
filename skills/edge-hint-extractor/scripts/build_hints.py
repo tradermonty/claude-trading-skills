@@ -521,7 +521,7 @@ def main() -> int:
                 "regime": infer_regime_label(market_summary),
             },
         }
-        output_path.write_text(yaml.safe_dump(output_payload, sort_keys=False))
+        output_path.write_text(yaml.safe_dump(output_payload, sort_keys=False), encoding="utf-8")
     except HintExtractionError as exc:
         print(f"[ERROR] {exc}")
         return 1

@@ -576,12 +576,12 @@ def main():
     ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     json_file = os.path.join(args.output_dir, f"breakout_trade_plan_{ts}.json")
-    with open(json_file, "w") as f:
+    with open(json_file, "w", encoding="utf-8") as f:
         json.dump(plans, f, indent=2, default=str)
     print(f"JSON plan saved to: {json_file}")
 
     md_file = os.path.join(args.output_dir, f"breakout_trade_plan_{ts}.md")
-    with open(md_file, "w") as f:
+    with open(md_file, "w", encoding="utf-8") as f:
         f.write(generate_markdown(plans))
     print(f"Markdown plan saved to: {md_file}")
 

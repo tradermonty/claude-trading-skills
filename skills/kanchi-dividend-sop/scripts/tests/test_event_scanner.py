@@ -115,7 +115,9 @@ def test_manual_scanner_missing_file_is_pessimistic(tmp_path):
 
 def test_manual_scanner_reads_events(tmp_path):
     p = tmp_path / "events.json"
-    p.write_text('{"events": {"MKC": {"result": "MAJOR_EVENT", "pending_mna": true}}}')
+    p.write_text(
+        '{"events": {"MKC": {"result": "MAJOR_EVENT", "pending_mna": true}}}', encoding="utf-8"
+    )
     s = ManualEventScanner(p)
     r = s.scan("mkc", "2026-05-17")
     assert r.result == MAJOR_EVENT and r.pending_mna is True

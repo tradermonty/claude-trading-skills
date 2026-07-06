@@ -235,7 +235,7 @@ def test_read_prices_json_accepts_symbol_map(tmp_path):
         "APP": [{"date": "2026-06-26", "open": 1, "high": 2, "low": 1, "close": 2, "volume": 100}]
     }
     path = tmp_path / "prices.json"
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
     data = read_prices_json(str(path))
 
@@ -245,7 +245,7 @@ def test_read_prices_json_accepts_symbol_map(tmp_path):
 
 def test_read_universe_file_csv_symbol_column(tmp_path):
     path = tmp_path / "universe.csv"
-    path.write_text("symbol,name\nAPP,AppLovin\nENPH,Enphase\n")
+    path.write_text("symbol,name\nAPP,AppLovin\nENPH,Enphase\n", encoding="utf-8")
 
     assert read_universe_file(str(path)) == ["APP", "ENPH"]
 

@@ -597,9 +597,9 @@ def write_reports(
     md_path = (
         Path(result["artifact_paths"]["markdown"]) if result["artifact_paths"]["markdown"] else None
     )
-    json_path.write_text(json.dumps(result, indent=2) + "\n")
+    json_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     if not json_only and md_path is not None:
-        md_path.write_text(generate_markdown_report(result))
+        md_path.write_text(generate_markdown_report(result), encoding="utf-8")
     return json_path, md_path
 
 
@@ -610,7 +610,7 @@ def write_journal(result: dict[str, Any], journal_dir: Path | None) -> Path | No
     generated_at = _parse_datetime(result["generated_at"]).astimezone(timezone.utc)
     journal_path = journal_dir / f"pre_trade_discipline_{generated_at.strftime('%Y-%m-%d')}.jsonl"
     result["artifact_paths"]["journal"] = str(journal_path)
-    with journal_path.open("a") as f:
+    with journal_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(result, sort_keys=True) + "\n")
     return journal_path
 

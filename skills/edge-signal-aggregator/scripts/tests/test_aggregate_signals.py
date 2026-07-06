@@ -662,7 +662,8 @@ class TestIntegration:
                         }
                     ]
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Run with captured output

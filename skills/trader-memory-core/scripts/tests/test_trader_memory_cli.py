@@ -90,7 +90,8 @@ def test_ingest_unknown_source_exits_cleanly(tmp_path):
                 "thesis_statement": "AMD thesis",
                 "thesis_type": "growth_momentum",
             }
-        )
+        ),
+        encoding="utf-8",
     )
 
     rc, _, err = _run(
@@ -120,7 +121,8 @@ def test_ingest_bulk_csv_via_launcher(tmp_path):
                 "AMD,AMD thesis,growth_momentum,2026-05-02",
                 "OIH,OIH thesis,mean_reversion,2026-05-03",
             ]
-        )
+        ),
+        encoding="utf-8",
     )
 
     rc, out, err = _run(
@@ -150,7 +152,8 @@ def test_store_attach_position_invalid_report_exits_cleanly(tmp_path):
                 "thesis_statement": "AMD thesis",
                 "thesis_type": "growth_momentum",
             }
-        )
+        ),
+        encoding="utf-8",
     )
 
     rc, out, err = _run(
@@ -168,7 +171,7 @@ def test_store_attach_position_invalid_report_exits_cleanly(tmp_path):
     thesis_id = out.split(":", 1)[1].strip()
 
     bad_report = tmp_path / "position.json"
-    bad_report.write_text(json.dumps({"mode": "budget"}))
+    bad_report.write_text(json.dumps({"mode": "budget"}), encoding="utf-8")
 
     rc, _, err = _run(
         [
@@ -199,7 +202,8 @@ def test_review_summary_and_monthly_report_via_launcher(tmp_path):
                 "thesis_type": "growth_momentum",
                 "entry_date": "2026-04-01",
             }
-        )
+        ),
+        encoding="utf-8",
     )
 
     rc, out, err = _run(

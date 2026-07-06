@@ -279,7 +279,9 @@ def export_candidate(
     if not dry_run:
         candidate_dir.mkdir(parents=True, exist_ok=True)
         write_yaml(strategy_path, spec)
-        metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=True) + "\n")
+        metadata_path.write_text(
+            json.dumps(metadata, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+        )
 
     return spec, metadata, candidate_dir
 

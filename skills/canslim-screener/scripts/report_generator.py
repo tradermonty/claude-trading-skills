@@ -24,7 +24,7 @@ def generate_json_report(results: list[dict], metadata: dict, output_file: str):
     """
     report = {"metadata": metadata, "results": results, "summary": generate_summary_stats(results)}
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     print(f"✓ JSON report saved to: {output_file}")
@@ -191,7 +191,7 @@ def generate_markdown_report(results: list[dict], metadata: dict, output_file: s
     lines.append("")
 
     # Write to file
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
     print(f"✓ Markdown report saved to: {output_file}")

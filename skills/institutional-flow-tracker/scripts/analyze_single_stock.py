@@ -503,7 +503,7 @@ Decreased lists reflect the **largest** holders rather than the full tail.
             else:
                 output_path = filename
 
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(report)
 
         print(f"\nReport saved to: {output_path}")

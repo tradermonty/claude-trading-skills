@@ -68,11 +68,11 @@ def test_list_session_logs_date_filter(mine_module, tmp_path: Path):
 
     # Recent file (now)
     recent = proj_dir / "recent_session.jsonl"
-    recent.write_text('{"type":"user"}\n')
+    recent.write_text('{"type":"user"}\n', encoding="utf-8")
 
     # Old file (30 days ago)
     old = proj_dir / "old_session.jsonl"
-    old.write_text('{"type":"user"}\n')
+    old.write_text('{"type":"user"}\n', encoding="utf-8")
     old_time = time.time() - (30 * 86400)
     os.utime(old, (old_time, old_time))
 
@@ -108,7 +108,7 @@ def test_parse_user_messages_str(mine_module, tmp_path: Path):
             }
         ),
     ]
-    log.write_text("\n".join(lines))
+    log.write_text("\n".join(lines), encoding="utf-8")
 
     result = mine_module.parse_session(log)
     assert len(result["user_messages"]) == 2
@@ -135,7 +135,7 @@ def test_parse_user_messages_list(mine_module, tmp_path: Path):
             }
         ),
     ]
-    log.write_text("\n".join(lines))
+    log.write_text("\n".join(lines), encoding="utf-8")
 
     result = mine_module.parse_session(log)
     assert len(result["user_messages"]) == 2
@@ -171,7 +171,7 @@ def test_parse_tool_usage(mine_module, tmp_path: Path):
             }
         ),
     ]
-    log.write_text("\n".join(lines))
+    log.write_text("\n".join(lines), encoding="utf-8")
 
     result = mine_module.parse_session(log)
     tool_uses = [t for t in result["tool_uses"] if not t["name"].startswith("__")]
@@ -203,7 +203,7 @@ def test_parse_malformed_jsonl(mine_module, tmp_path: Path):
             }
         ),
     ]
-    log.write_text("\n".join(lines))
+    log.write_text("\n".join(lines), encoding="utf-8")
 
     result = mine_module.parse_session(log)
     assert len(result["user_messages"]) == 2
@@ -385,7 +385,7 @@ def test_parse_assistant_with_message_type(mine_module, tmp_path: Path):
         },
         "timestamp": "2026-02-28T10:00:00+00:00",
     }
-    log.write_text(json.dumps(entry))
+    log.write_text(json.dumps(entry), encoding="utf-8")
     result = mine_module.parse_session(log)
     tool_uses = [t for t in result["tool_uses"] if not t["name"].startswith("__")]
     assert len(tool_uses) == 1
@@ -416,7 +416,7 @@ def test_timed_entries_correct_types(mine_module, tmp_path: Path):
             }
         ),
     ]
-    log.write_text("\n".join(lines))
+    log.write_text("\n".join(lines), encoding="utf-8")
     result = mine_module.parse_session(log)
     assert result["timed_entries"][0]["type"] == "user"
     assert result["timed_entries"][1]["type"] == "assistant"
@@ -439,7 +439,7 @@ def test_parse_assistant_role_fallback(mine_module, tmp_path: Path):
         },
         "timestamp": "2026-02-28T10:00:00+00:00",
     }
-    log.write_text(json.dumps(entry))
+    log.write_text(json.dumps(entry), encoding="utf-8")
     result = mine_module.parse_session(log)
     tool_uses = [t for t in result["tool_uses"] if not t["name"].startswith("__")]
     assert len(tool_uses) == 1
@@ -538,7 +538,7 @@ def test_sidechain_excluded_from_timed_entries(mine_module, tmp_path: Path):
             }
         ),
     ]
-    log.write_text("\n".join(lines))
+    log.write_text("\n".join(lines), encoding="utf-8")
     result = mine_module.parse_session(log)
     # Sidechain entry should NOT be in timed_entries
     types = [e["type"] for e in result["timed_entries"]]
@@ -574,7 +574,7 @@ def test_error_output_truncated(mine_module, tmp_path: Path):
         "is_error": True,
         "timestamp": "2026-03-01T10:00:00+00:00",
     }
-    log.write_text(json.dumps(entry))
+    log.write_text(json.dumps(entry), encoding="utf-8")
     result = mine_module.parse_session(log)
     error_entries = [t for t in result["tool_uses"] if t["name"] == "__tool_result_error__"]
     assert len(error_entries) == 1
@@ -591,7 +591,7 @@ def test_error_pattern_output_truncated(mine_module, tmp_path: Path):
         "message": {"type": "tool_result", "content": long_traceback},
         "timestamp": "2026-03-01T10:00:00+00:00",
     }
-    log.write_text(json.dumps(entry))
+    log.write_text(json.dumps(entry), encoding="utf-8")
     result = mine_module.parse_session(log)
     error_entries = [t for t in result["tool_uses"] if t["name"] == "__tool_result_error__"]
     assert len(error_entries) == 1

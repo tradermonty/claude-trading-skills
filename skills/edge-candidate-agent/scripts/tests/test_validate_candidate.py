@@ -53,7 +53,7 @@ def build_valid_strategy(strategy_id: str) -> dict:
 def write_strategy(path: Path, strategy_id: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = build_valid_strategy(strategy_id)
-    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False))
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False), encoding="utf-8")
 
 
 def test_validate_with_pipeline_schema_requires_src_dir(tmp_path: Path) -> None:

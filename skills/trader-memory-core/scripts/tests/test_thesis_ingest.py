@@ -12,13 +12,13 @@ import thesis_store
 
 def _write_json(tmp_path: Path, data, filename="input.json"):
     path = tmp_path / filename
-    path.write_text(json.dumps(data))
+    path.write_text(json.dumps(data), encoding="utf-8")
     return str(path)
 
 
 def _write_text(tmp_path: Path, text: str, filename="input.csv"):
     path = tmp_path / filename
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     return str(path)
 
 

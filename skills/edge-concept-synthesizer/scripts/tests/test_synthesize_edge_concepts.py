@@ -246,7 +246,7 @@ def _setup_main_fixtures(tmp_path: Path) -> tuple[Path, Path]:
         "observation": {"symbol": "XP"},
         "date": "2026-02-20",
     }
-    (tickets_dir / "ticket_1.yaml").write_text(yaml.safe_dump(ticket))
+    (tickets_dir / "ticket_1.yaml").write_text(yaml.safe_dump(ticket), encoding="utf-8")
 
     hints_path = tmp_path / "hints.yaml"
     hints_payload = {
@@ -261,7 +261,7 @@ def _setup_main_fixtures(tmp_path: Path) -> tuple[Path, Path]:
             }
         ]
     }
-    hints_path.write_text(yaml.safe_dump(hints_payload))
+    hints_path.write_text(yaml.safe_dump(hints_payload), encoding="utf-8")
     return tickets_dir, hints_path
 
 
@@ -413,7 +413,7 @@ def test_main_max_synthetic_ratio(tmp_path: Path, monkeypatch) -> None:
             "observation": {"symbol": f"SYM{i}"},
             "date": "2026-02-20",
         }
-        (tickets_dir / f"ticket_{i}.yaml").write_text(yaml.safe_dump(ticket))
+        (tickets_dir / f"ticket_{i}.yaml").write_text(yaml.safe_dump(ticket), encoding="utf-8")
 
     # Create hints with 8 entries
     hints_path = tmp_path / "hints.yaml"
@@ -430,7 +430,7 @@ def test_main_max_synthetic_ratio(tmp_path: Path, monkeypatch) -> None:
             for i in range(8)
         ]
     }
-    hints_path.write_text(yaml.safe_dump(hints_payload))
+    hints_path.write_text(yaml.safe_dump(hints_payload), encoding="utf-8")
     output_path = tmp_path / "concepts.yaml"
 
     monkeypatch.setattr(
@@ -470,7 +470,7 @@ def test_main_promote_hints_zero_promotions(tmp_path: Path, monkeypatch) -> None
         "observation": {"symbol": "XP"},
         "date": "2026-02-20",
     }
-    (tickets_dir / "ticket_1.yaml").write_text(yaml.safe_dump(ticket))
+    (tickets_dir / "ticket_1.yaml").write_text(yaml.safe_dump(ticket), encoding="utf-8")
     output_path = tmp_path / "concepts.yaml"
 
     # --promote-hints ON but no hints file provided
@@ -809,7 +809,7 @@ def test_main_no_dedup_flag(tmp_path: Path, monkeypatch) -> None:
         "signal_definition": {"conditions": ["close > high20_prev", "rel_volume >= 1.5"]},
         "date": "2026-02-20",
     }
-    (tickets_dir / "ticket_2.yaml").write_text(yaml.safe_dump(ticket2))
+    (tickets_dir / "ticket_2.yaml").write_text(yaml.safe_dump(ticket2), encoding="utf-8")
     output_path = tmp_path / "concepts.yaml"
 
     monkeypatch.setattr(
@@ -845,7 +845,7 @@ def test_main_overlap_threshold_effect(tmp_path: Path, monkeypatch) -> None:
             "signal_definition": {"conditions": ["close > high20_prev", "rel_volume >= 1.5"]},
             "date": "2026-02-20",
         }
-        (tickets_dir / f"ticket_dup_{i}.yaml").write_text(yaml.safe_dump(ticket))
+        (tickets_dir / f"ticket_dup_{i}.yaml").write_text(yaml.safe_dump(ticket), encoding="utf-8")
     output_path = tmp_path / "concepts.yaml"
 
     # With low threshold -> should merge

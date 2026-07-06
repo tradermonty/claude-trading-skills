@@ -255,7 +255,7 @@ class TestErrorHandling:
 
         # Create a text file with .jpeg extension
         fake_image = tmp_path / "fake.jpeg"
-        fake_image.write_text("not an image")
+        fake_image.write_text("not an image", encoding="utf-8")
 
         detector = UptrendRatioDetector(str(fake_image))
         result = detector.detect()

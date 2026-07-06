@@ -86,7 +86,7 @@ class TestCheckSkillExists:
     def test_exists_when_skill_md_present(self, tmp_path):
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+        (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
         assert check_skill_exists("my-skill", tmp_path)
 
     def test_not_exists_when_missing(self, tmp_path):
@@ -99,12 +99,12 @@ class TestCheckSkillExists:
 class TestParseFrontmatterName:
     def test_extracts_name(self, tmp_path):
         md = tmp_path / "SKILL.md"
-        md.write_text("---\nname: foo-bar\ndescription: X\n---\nBody")
+        md.write_text("---\nname: foo-bar\ndescription: X\n---\nBody", encoding="utf-8")
         assert parse_frontmatter_name(md) == "foo-bar"
 
     def test_returns_none_for_no_frontmatter(self, tmp_path):
         md = tmp_path / "SKILL.md"
-        md.write_text("No frontmatter here")
+        md.write_text("No frontmatter here", encoding="utf-8")
         assert parse_frontmatter_name(md) is None
 
     def test_returns_none_for_missing_file(self, tmp_path):
@@ -118,26 +118,26 @@ class TestCheckNamingConventions:
     def test_valid_skill_no_violations(self, tmp_path):
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+        (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
         scripts_dir = skill_dir / "scripts"
         scripts_dir.mkdir()
-        (scripts_dir / "run_check.py").write_text("")
+        (scripts_dir / "run_check.py").write_text("", encoding="utf-8")
         assert check_naming_conventions("my-skill", tmp_path) == []
 
     def test_detects_non_snake_case_script(self, tmp_path):
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
+        (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n", encoding="utf-8")
         scripts_dir = skill_dir / "scripts"
         scripts_dir.mkdir()
-        (scripts_dir / "RunAnalysis.py").write_text("")
+        (scripts_dir / "RunAnalysis.py").write_text("", encoding="utf-8")
         violations = check_naming_conventions("my-skill", tmp_path)
         assert any("snake_case" in v for v in violations)
 
     def test_detects_name_mismatch(self, tmp_path):
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("---\nname: wrong-name\n---\n")
+        (skill_dir / "SKILL.md").write_text("---\nname: wrong-name\n---\n", encoding="utf-8")
         violations = check_naming_conventions("my-skill", tmp_path)
         assert any("does not match" in v for v in violations)
 
@@ -149,7 +149,7 @@ class TestValidateHandoff:
     def _make_skill(self, skills_dir, name):
         d = skills_dir / name
         d.mkdir(parents=True, exist_ok=True)
-        (d / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
+        (d / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
 
     def test_known_valid_contract(self, tmp_path):
         self._make_skill(tmp_path, "earnings-trade-analyzer")
@@ -177,7 +177,7 @@ class TestValidateWorkflow:
         for name in ("skill-a", "skill-b"):
             d = tmp_path / name
             d.mkdir()
-            (d / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
+            (d / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
         steps = [
             {"skill_display": "skill-a", "action": "do A"},
             {"skill_display": "skill-b", "action": "do B"},
@@ -188,7 +188,7 @@ class TestValidateWorkflow:
     def test_missing_step_marks_broken(self, tmp_path):
         d = tmp_path / "skill-a"
         d.mkdir()
-        (d / "SKILL.md").write_text("---\nname: skill-a\n---\n")
+        (d / "SKILL.md").write_text("---\nname: skill-a\n---\n", encoding="utf-8")
         steps = [
             {"skill_display": "skill-a", "action": "do A"},
             {"skill_display": "nonexistent", "action": "do B"},

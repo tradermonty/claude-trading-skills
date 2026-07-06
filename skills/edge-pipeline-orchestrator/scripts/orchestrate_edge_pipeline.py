@@ -207,7 +207,7 @@ def export_draft(
     if ticket_path is None:
         ticket = build_export_ticket(draft)
         generated_path = draft_path.parent / f"{ticket_id}_export_ticket.yaml"
-        generated_path.write_text(yaml.safe_dump(ticket, sort_keys=False))
+        generated_path.write_text(yaml.safe_dump(ticket, sort_keys=False), encoding="utf-8")
         ticket_path = generated_path
 
     if dry_run:
@@ -302,7 +302,9 @@ def run_review_loop(
         iter_drafts_dir.mkdir(parents=True, exist_ok=True)
         for draft_id, (draft_data, orig_path) in current_drafts.items():
             iter_draft_path = iter_drafts_dir / f"{draft_id}.yaml"
-            iter_draft_path.write_text(yaml.safe_dump(draft_data, sort_keys=False))
+            iter_draft_path.write_text(
+                yaml.safe_dump(draft_data, sort_keys=False), encoding="utf-8"
+            )
 
         # Run review stage
         review_dir = review_output_base / f"reviews_iter_{iteration}"
@@ -358,7 +360,7 @@ def run_review_loop(
                 instructions = review.get("revision_instructions", [])
                 revised = apply_revisions(draft_data, instructions)
                 # Write revised draft back to file
-                file_path.write_text(yaml.safe_dump(revised, sort_keys=False))
+                file_path.write_text(yaml.safe_dump(revised, sort_keys=False), encoding="utf-8")
                 next_drafts[draft_id] = (revised, file_path)
 
         current_drafts = next_drafts
@@ -366,7 +368,7 @@ def run_review_loop(
     # Downgrade remaining REVISE drafts
     for draft_id, (draft_data, file_path) in current_drafts.items():
         downgraded = downgrade_to_research_probe(draft_data)
-        file_path.write_text(yaml.safe_dump(downgraded, sort_keys=False))
+        file_path.write_text(yaml.safe_dump(downgraded, sort_keys=False), encoding="utf-8")
         result.downgraded.append(draft_id)
 
     return result
@@ -700,11 +702,11 @@ def main() -> int:
         manifest["error"] = str(exc)
         print(f"[ERROR] {exc}", file=sys.stderr)
         manifest_path = output_dir / "pipeline_run_manifest.json"
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         return 1
 
     manifest_path = output_dir / "pipeline_run_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     print(
         f"[OK] pipeline={run_id} "

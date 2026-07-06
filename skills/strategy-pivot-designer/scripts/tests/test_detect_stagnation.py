@@ -311,11 +311,11 @@ def test_append_eval_strategy_id_mismatch_raises(tmp_path: Path) -> None:
         ],
     }
     history_path = tmp_path / "history.json"
-    history_path.write_text(json.dumps(existing))
+    history_path.write_text(json.dumps(existing), encoding="utf-8")
 
     eval_data = {"total_score": 60, "dimensions": [], "red_flags": [], "inputs": {}}
     eval_path = tmp_path / "eval_mismatch.json"
-    eval_path.write_text(json.dumps(eval_data))
+    eval_path.write_text(json.dumps(eval_data), encoding="utf-8")
 
     with pytest.raises(ValueError, match="strategy_id mismatch"):
         ds.append_eval(eval_path, history_path, "strat_beta", changes="Wrong id")
@@ -333,7 +333,7 @@ def test_append_eval_creates_new_history(tmp_path: Path) -> None:
         "inputs": {"total_trades": 60, "slippage_tested": False},
     }
     eval_path = tmp_path / "eval.json"
-    eval_path.write_text(json.dumps(eval_data))
+    eval_path.write_text(json.dumps(eval_data), encoding="utf-8")
 
     history_path = tmp_path / "history.json"
     assert not history_path.exists()
@@ -362,7 +362,7 @@ def test_append_eval_increments_iteration(tmp_path: Path) -> None:
         ],
     }
     history_path = tmp_path / "history.json"
-    history_path.write_text(json.dumps(existing))
+    history_path.write_text(json.dumps(existing), encoding="utf-8")
 
     eval_data = {
         "total_score": 60,
@@ -372,7 +372,7 @@ def test_append_eval_increments_iteration(tmp_path: Path) -> None:
         "inputs": {},
     }
     eval_path = tmp_path / "eval2.json"
-    eval_path.write_text(json.dumps(eval_data))
+    eval_path.write_text(json.dumps(eval_data), encoding="utf-8")
 
     result = ds.append_eval(eval_path, history_path, "existing_strat", changes="Added filter")
 
@@ -390,7 +390,7 @@ def test_main_corrupt_history_returns_error(
 ) -> None:
     """Detection mode with corrupt JSON history returns 1, not traceback."""
     history_path = tmp_path / "bad.json"
-    history_path.write_text("{broken json!!!")
+    history_path.write_text("{broken json!!!", encoding="utf-8")
     monkeypatch.setattr(
         "sys.argv",
         ["detect_stagnation.py", "--history", str(history_path), "--output-dir", str(tmp_path)],

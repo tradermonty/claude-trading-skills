@@ -382,7 +382,7 @@ def main() -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     output_path = output_dir / f"downtrend_histogram_{timestamp}.html"
 
-    output_path.write_text(html_content)
+    output_path.write_text(html_content, encoding="utf-8")
     print(f"HTML visualization saved to: {output_path}")
 
 

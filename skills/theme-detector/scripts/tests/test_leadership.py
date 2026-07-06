@@ -62,7 +62,8 @@ def test_load_scan_hits_accepts_prelabeled_json(tmp_path):
                     "theme_guess": "Nuclear & Uranium",
                 }
             ]
-        )
+        ),
+        encoding="utf-8",
     )
     hits, summary = load_scan_hits(str(path), "2026-07-04")
     assert summary["rows"] == 1
@@ -93,7 +94,8 @@ def test_load_scan_hits_filters_non_run_date_rows(tmp_path):
                     "theme_guess": "AI & Semiconductors",
                 },
             ]
-        )
+        ),
+        encoding="utf-8",
     )
 
     hits, summary = load_scan_hits(str(path), "2026-07-04")

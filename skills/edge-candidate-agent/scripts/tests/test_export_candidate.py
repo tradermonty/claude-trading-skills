@@ -10,7 +10,7 @@ from export_candidate import ExportError, deep_merge, export_candidate
 
 
 def write_ticket(path: Path, payload: dict) -> None:
-    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False))
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False), encoding="utf-8")
 
 
 def test_export_pivot_breakout_candidate(tmp_path: Path) -> None:
