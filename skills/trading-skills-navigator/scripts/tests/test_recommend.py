@@ -7,6 +7,7 @@ skillset.id / honest_gap against the REAL repo SSoT.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -453,6 +454,28 @@ SHIPPED_SKILLSETS = {
     "swing-opportunity",
     "trade-memory",
 }
+
+
+def _skill_md_advertised_counts(repo_root: Path) -> tuple[int, int]:
+    text = (repo_root / "skills" / "trading-skills-navigator" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r"A new user faces (\d+) skills \+ (\d+) workflows", text)
+    assert match, "SKILL.md must advertise the current skill/workflow counts"
+    return int(match.group(1)), int(match.group(2))
+
+
+def test_skill_md_advertised_counts_match_metadata(
+    repo_root: Path, repo_metadata: dict[str, Any], bundled_metadata: dict[str, Any]
+) -> None:
+    advertised = _skill_md_advertised_counts(repo_root)
+    repo_counts = (len(repo_metadata["skills"]), len(repo_metadata["workflows"]))
+    snapshot_counts = (
+        len(bundled_metadata["skills"]),
+        len(bundled_metadata["workflows"]),
+    )
+    assert advertised == repo_counts
+    assert snapshot_counts == repo_counts
 
 
 def test_metadata_carries_skillsets(
