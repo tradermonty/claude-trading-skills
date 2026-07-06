@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check package drift only for packaged skills touched by changed files."""
+"""Check .skill package drift for changed paths or the full skill set."""
 
 from __future__ import annotations
 
@@ -7,7 +7,13 @@ import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from package_skills import DEFAULT_OUTPUT_DIR, DEFAULT_SKILLS_DIR, PROJECT_ROOT, check_skill
+from package_skills import (
+    DEFAULT_OUTPUT_DIR,
+    DEFAULT_SKILLS_DIR,
+    PROJECT_ROOT,
+    check_skill,
+    discover_skill_dirs,
+)
 from package_skills import should_include as package_should_include
 
 
@@ -68,30 +74,18 @@ def packaged_skills_for_changed_paths(
         if skill is None:
             continue
 
-        archive_path = output_dir / f"{skill}.skill"
-        if archive_path.is_file() and (skills_dir / skill / "SKILL.md").is_file():
+        if (skills_dir / skill / "SKILL.md").is_file():
             candidate_skills.add(skill)
 
     return sorted(candidate_skills)
 
 
-def check_changed_package_drift(
-    changed_paths: Iterable[str],
+def _check_skill_names(
+    skill_names: Iterable[str],
     *,
     skills_dir: Path = DEFAULT_SKILLS_DIR,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
-    project_root: Path = PROJECT_ROOT,
 ) -> int:
-    """Check changed packaged skills and return a process-style exit code."""
-    skill_names = packaged_skills_for_changed_paths(
-        changed_paths,
-        skills_dir=skills_dir,
-        output_dir=output_dir,
-        project_root=project_root,
-    )
-    if not skill_names:
-        return 0
-
     drift = False
     for skill_name in skill_names:
         skill_dir = skills_dir / skill_name
@@ -107,6 +101,36 @@ def check_changed_package_drift(
             drift = True
 
     return 1 if drift else 0
+
+
+def check_changed_package_drift(
+    changed_paths: Iterable[str],
+    *,
+    skills_dir: Path = DEFAULT_SKILLS_DIR,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    project_root: Path = PROJECT_ROOT,
+) -> int:
+    """Check package drift and return a process-style exit code.
+
+    Filename mode stays scoped to packageable changed skills. No-argument mode
+    validates every source skill so CI/pre-commit wiring cannot skip missing
+    archives when invoked without file arguments.
+    """
+    changed_path_list = list(changed_paths)
+    if changed_path_list:
+        skill_names = packaged_skills_for_changed_paths(
+            changed_path_list,
+            skills_dir=skills_dir,
+            output_dir=output_dir,
+            project_root=project_root,
+        )
+    else:
+        skill_names = [skill_dir.name for skill_dir in discover_skill_dirs(skills_dir)]
+
+    if not skill_names:
+        return 0
+
+    return _check_skill_names(skill_names, skills_dir=skills_dir, output_dir=output_dir)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

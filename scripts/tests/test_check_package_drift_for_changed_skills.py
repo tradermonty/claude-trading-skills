@@ -10,6 +10,7 @@ import pytest
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+import check_package_drift_for_changed_skills as checker  # noqa: E402
 from check_package_drift_for_changed_skills import (
     check_changed_package_drift,  # noqa: E402
     packaged_skills_for_changed_paths,  # noqa: E402
@@ -47,9 +48,44 @@ def _check(project_root: Path, changed_paths: list[str]) -> int:
     )
 
 
-def test_no_args_passes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_no_args_checks_all_skills_and_passes_when_archives_match(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _make_skill(tmp_path, "demo")
+
     assert _check(tmp_path, []) == 0
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().out == "OK: skill-packages/demo.skill matches source\n"
+
+
+def test_no_args_fails_when_archive_is_stale(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    skill_dir = _make_skill(tmp_path, "demo")
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: Changed.\n---\n",
+        encoding="utf-8",
+    )
+
+    assert _check(tmp_path, []) == 1
+    assert capsys.readouterr().out == (
+        "DRIFT: skill-packages/demo.skill is stale; "
+        "re-run python3 scripts/package_skills.py --skill demo\n"
+    )
+
+
+def test_no_args_fails_when_archive_is_missing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _make_skill(tmp_path, "demo", package=False)
+
+    assert _check(tmp_path, []) == 1
+    assert capsys.readouterr().out == (
+        "DRIFT: skill-packages/demo.skill is stale; "
+        "re-run python3 scripts/package_skills.py --skill demo\n"
+    )
 
 
 def test_skill_source_change_fails_when_archive_is_stale(
@@ -121,17 +157,20 @@ def test_packaged_schema_change_fails_when_archive_is_stale(
     )
 
 
-def test_unpacked_skill_source_change_is_ignored(
+def test_skill_source_change_fails_when_archive_is_missing(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     _make_skill(tmp_path, "demo", package=False)
 
-    assert _check(tmp_path, ["skills/demo/SKILL.md"]) == 0
-    assert capsys.readouterr().out == ""
+    assert _check(tmp_path, ["skills/demo/SKILL.md"]) == 1
+    assert capsys.readouterr().out == (
+        "DRIFT: skill-packages/demo.skill is stale; "
+        "re-run python3 scripts/package_skills.py --skill demo\n"
+    )
 
 
-def test_multiple_skill_changes_check_only_packaged_changed_skills(
+def test_multiple_skill_changes_check_only_changed_skills_and_missing_archives(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -156,9 +195,26 @@ def test_multiple_skill_changes_check_only_packaged_changed_skills(
         skills_dir=tmp_path / "skills",
         output_dir=tmp_path / "skill-packages",
         project_root=tmp_path,
-    ) == ["changed"]
+    ) == ["changed", "unpacked"]
     assert _check(tmp_path, ["skills/changed/SKILL.md", "skills/unpacked/SKILL.md"]) == 1
     assert capsys.readouterr().out == (
         "DRIFT: skill-packages/changed.skill is stale; "
         "re-run python3 scripts/package_skills.py --skill changed\n"
+        "DRIFT: skill-packages/unpacked.skill is stale; "
+        "re-run python3 scripts/package_skills.py --skill unpacked\n"
     )
+
+
+def test_main_empty_argv_invokes_no_arg_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_paths: list[str] = []
+
+    def fake_check(changed_paths: list[str]) -> int:
+        captured_paths.extend(changed_paths)
+        return 7
+
+    monkeypatch.setattr(checker, "check_changed_package_drift", fake_check)
+
+    assert checker.main([]) == 7
+    assert captured_paths == []

@@ -351,22 +351,8 @@ jobs:
       - name: FMP client drift check
         run: python3 scripts/generate_fmp_client.py --check
 
-      - name: Changed skill package drift check
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-            HEAD="${{ github.event.pull_request.head.sha }}"
-          else
-            BASE="${{ github.event.before }}"
-            HEAD="${{ github.sha }}"
-            if [[ "$BASE" =~ ^0+$ ]]; then
-              BASE="${HEAD}^"
-            fi
-          fi
-          mapfile -t changed < <(git diff --name-only "$BASE...$HEAD")
-          python3 scripts/check_package_drift_for_changed_skills.py "${changed[@]}"
+      - name: Packaged skill drift check
+        run: python3 scripts/check_package_drift_for_changed_skills.py
 
       - name: FMP skill package drift check
         run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector

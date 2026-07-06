@@ -144,13 +144,14 @@ repos:
         pass_filenames: false
 
       - id: changed-package-drift
-        name: Changed packaged skill drift check
+        name: Packaged skill drift check
         entry: python3 scripts/check_package_drift_for_changed_skills.py
         language: system
-        # Check only packaged skills touched by this commit, so unrelated stale
-        # archives do not block focused PRs.
-        files: '^(skills/[^/]+/.*|skill-packages/[^/]+\.skill)$'
-        pass_filenames: true
+        # Keep the historical id for hook continuity, but run the checker in
+        # no-argument mode so missing or stale packages cannot be skipped when
+        # the hook is invoked without filenames.
+        files: '^(skills/[^/]+/.*|skill-packages/[^/]+\.skill|scripts/(check_package_drift_for_changed_skills|package_skills)\.py)$'
+        pass_filenames: false
 
       - id: fmp-package-drift
         name: FMP skill package drift check (re-package after vendored client changes)
