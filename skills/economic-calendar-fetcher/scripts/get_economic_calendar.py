@@ -42,9 +42,9 @@ def fetch_economic_calendar(from_date: str, to_date: str, api_key: str) -> list[
 
     Raises:
         urllib.error.HTTPError: If API request fails
-        ValueError: If response is invalid
+        ValueError: If response is invalid, or if the endpoint is restricted (402)
     """
-    base_url = "https://financialmodelingprep.com/stable/economics-calendar"
+    base_url = "https://financialmodelingprep.com/stable/economic-calendar"
 
     # Build query parameters (stable API uses apikey as query param)
     params = {"from": from_date, "to": to_date, "apikey": api_key}
@@ -68,9 +68,12 @@ def fetch_economic_calendar(from_date: str, to_date: str, api_key: str) -> list[
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8") if e.fp else "No error details"
-        # Stable API returns 404 with [] when no events exist
-        if e.code == 404 and error_body.strip() == "[]":
-            return []
+        if e.code == 402:
+            raise ValueError(
+                "FMP API returned 402 Payment Required: the Economic Calendar endpoint "
+                "is not included in your current FMP subscription tier. Upgrade your plan "
+                f"at https://financialmodelingprep.com/ to access this endpoint. Details: {error_body}"
+            )
         raise urllib.error.HTTPError(
             e.url, e.code, f"FMP API error: {e.reason}. Details: {error_body}", e.hdrs, e.fp
         )

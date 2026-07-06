@@ -1,9 +1,12 @@
 """Tests for get_economic_calendar.py"""
 
+import io
 import json
 import os
 import sys
+import urllib.error
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,6 +14,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from get_economic_calendar import (
+    fetch_economic_calendar,
     format_event_output,
     get_api_key,
     validate_date_range,
@@ -61,6 +65,89 @@ class TestGetApiKey:
     def test_returns_none_when_not_set(self, monkeypatch):
         monkeypatch.delenv("FMP_API_KEY", raising=False)
         assert get_api_key() is None
+
+
+# ---------------------------------------------------------------------------
+# fetch_economic_calendar tests
+# ---------------------------------------------------------------------------
+
+
+def _fake_response(status: int, body: bytes):
+    cm = MagicMock()
+    cm.__enter__.return_value = cm
+    cm.status = status
+    cm.read.return_value = body
+    return cm
+
+
+class TestFetchEconomicCalendar:
+    def test_uses_singular_stable_endpoint(self):
+        captured = {}
+
+        def fake_urlopen(request):
+            captured["url"] = request.full_url
+            return _fake_response(200, b"[]")
+
+        with patch("get_economic_calendar.urllib.request.urlopen", side_effect=fake_urlopen):
+            fetch_economic_calendar("2025-01-01", "2025-01-07", "test_key")
+
+        assert captured["url"].startswith(
+            "https://financialmodelingprep.com/stable/economic-calendar?"
+        )
+        assert "economics-calendar" not in captured["url"]
+
+    def test_success_returns_events(self):
+        payload = json.dumps(SAMPLE_EVENTS).encode("utf-8")
+
+        with patch(
+            "get_economic_calendar.urllib.request.urlopen",
+            side_effect=lambda request: _fake_response(200, payload),
+        ):
+            events = fetch_economic_calendar("2025-01-01", "2025-01-07", "test_key")
+
+        assert events == SAMPLE_EVENTS
+
+    def test_402_raises_clear_restricted_endpoint_error(self):
+        def fake_urlopen(request):
+            raise urllib.error.HTTPError(
+                request.full_url,
+                402,
+                "Payment Required",
+                hdrs=None,
+                fp=io.BytesIO(
+                    b"Restricted Endpoint: not available under your current subscription"
+                ),
+            )
+
+        with patch("get_economic_calendar.urllib.request.urlopen", side_effect=fake_urlopen):
+            with pytest.raises(ValueError, match="402|subscription|upgrade"):
+                fetch_economic_calendar("2025-01-01", "2025-01-07", "test_key")
+
+    def test_genuine_404_raises_instead_of_swallowing(self):
+        def fake_urlopen(request):
+            raise urllib.error.HTTPError(
+                request.full_url,
+                404,
+                "Not Found",
+                hdrs=None,
+                fp=io.BytesIO(b'{"Error Message": "Not found"}'),
+            )
+
+        with patch("get_economic_calendar.urllib.request.urlopen", side_effect=fake_urlopen):
+            with pytest.raises(urllib.error.HTTPError):
+                fetch_economic_calendar("2025-01-01", "2025-01-07", "test_key")
+
+    def test_404_with_empty_array_body_no_longer_swallowed(self):
+        # Regression test: a 404 must never be silently treated as "zero events",
+        # even if the error body happens to be "[]".
+        def fake_urlopen(request):
+            raise urllib.error.HTTPError(
+                request.full_url, 404, "Not Found", hdrs=None, fp=io.BytesIO(b"[]")
+            )
+
+        with patch("get_economic_calendar.urllib.request.urlopen", side_effect=fake_urlopen):
+            with pytest.raises(urllib.error.HTTPError):
+                fetch_economic_calendar("2025-01-01", "2025-01-07", "test_key")
 
 
 # ---------------------------------------------------------------------------

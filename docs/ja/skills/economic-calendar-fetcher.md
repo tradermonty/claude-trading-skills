@@ -42,9 +42,10 @@ Pythonスクリプトを使用してFMP APIにクエリを実行し、生のJSON
 - デフォルトで次の7日間のクイック市場見通し
 
 **データソース:**
-- FMP Economic Calendar API: `https://financialmodelingprep.com/api/v3/economic_calendar`
+- FMP Economic Calendar API: `https://financialmodelingprep.com/stable/economic-calendar`（singular "economic"）
 - 主要経済圏をカバー: 米国、EU、英国、日本、中国、カナダ、オーストラリア
 - イベントタイプ: 中央銀行決定、雇用、インフレ、GDP、貿易、住宅、サーベイ
+- レガシー注意: `https://financialmodelingprep.com/api/v3/economic_calendar` はFMP側で廃止済みのため、フォールバックとして使用しないでください。
 
 ---
 

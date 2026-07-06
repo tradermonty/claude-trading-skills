@@ -1,5 +1,7 @@
 # FMP Economic Calendar API Documentation
 
+> **⚠️ Stale endpoint warning (2026-07-04):** This entire document, including every code example below, is written against the legacy `api/v3/economic_calendar` endpoint. FMP fully retired that endpoint on 2025-08-31 — it now returns `403 Legacy Endpoint`. The script (`scripts/get_economic_calendar.py`) uses the current endpoint, `https://financialmodelingprep.com/stable/economic-calendar` (singular "economic"), which may itself require a paid FMP tier (returns `402 Payment Required` otherwise). Treat the URLs and curl/Python snippets in this file as historical reference only, not as current instructions.
+
 ## Overview
 
 The Financial Modeling Prep (FMP) Economic Calendar API provides access to upcoming and historical economic data releases, central bank decisions, and other market-moving events. This API enables traders and investors to stay informed about scheduled economic events that may impact financial markets.
