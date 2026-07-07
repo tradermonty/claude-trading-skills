@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Project vision and scope
+    url: https://github.com/tradermonty/claude-trading-skills/blob/main/PROJECT_VISION.md
+    about: Read the project boundary before opening a contribution issue.
+  - name: Documentation site
+    url: https://tradermonty.github.io/claude-trading-skills/
+    about: Check the published docs and workflow guides first.

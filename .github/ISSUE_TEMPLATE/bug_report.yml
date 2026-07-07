@@ -1,0 +1,76 @@
+name: Bug report
+description: Report broken behavior in a skill, workflow, script, or documentation path.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Claude Trading Skills.
+
+        This project is educational and process-focused. Do not request financial advice,
+        buy/sell recommendations, brokerage execution, or profit guarantees.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What is broken? / 何が壊れていますか？
+      description: Summarize the bug in one or two sentences. / 1-2文で要約してください。
+      placeholder: The vcp-screener command fails when...
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce / 再現手順
+      description: Include commands, files, or workflow steps. / コマンド、ファイル、手順を書いてください。
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior / 期待した動作
+      description: What should happen instead? / 本来どう動くべきですか？
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior / 実際の動作
+      description: Paste the relevant error or output. / 関連するエラーや出力を貼ってください。
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: affected-area
+    attributes:
+      label: Affected skill, workflow, or file / 影響範囲
+      description: Name the skill, workflow, script, or doc page if known. / 分かる範囲で書いてください。
+      placeholder: skills/vcp-screener, workflows/swing-opportunity-daily.yaml, README.md
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 実行環境
+      description: OS, Python version, command runner, and dependency manager. / OS、Python、実行方法など。
+      placeholder: macOS 15, Python 3.11, uv, Claude Code
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add screenshots, sanitized sample data, or links if useful. / 必要なら補足してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認
+      options:
+        - label: I removed secrets, API keys, account numbers, and personal data. / 秘密情報・個人情報は除外しました。
+          required: true
+        - label: I am not asking for financial advice, a buy/sell signal, or broker execution. / 金融助言・売買推奨・発注依頼ではありません。
+          required: true

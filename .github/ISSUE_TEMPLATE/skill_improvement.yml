@@ -1,0 +1,71 @@
+name: Skill improvement proposal
+description: Propose a focused improvement to an existing skill.
+title: "[Skill improvement]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for concrete skill improvements: tests, fixtures, docs,
+        error handling, metadata, package quality, or safer workflow behavior.
+  - type: input
+    id: skill-name
+    attributes:
+      label: Skill name / スキル名
+      description: Use the directory name under `skills/` if known. / 分かれば `skills/` 配下の名前で書いてください。
+      placeholder: portfolio-manager
+    validations:
+      required: true
+  - type: dropdown
+    id: improvement-type
+    attributes:
+      label: Improvement type / 改善種別
+      description: Pick the closest fit. / 最も近いものを選んでください。
+      options:
+        - Tests or fixtures
+        - Documentation or examples
+        - Error handling or validation
+        - Metadata or workflow references
+        - Package or generated artifact drift
+        - Safety boundary or no-advice wording
+        - Other focused improvement
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 課題
+      description: What makes the current skill hard to use, test, or trust? / 何が使いにくい、検証しにくい、信頼しにくいですか？
+      placeholder: The current SKILL.md does not explain...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed change / 提案する変更
+      description: Keep the change narrow and verifiable. / 変更範囲は小さく、検証可能にしてください。
+      placeholder: Add fixtures that cover...
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Suggested validation / 想定する検証
+      description: Name targeted tests, package checks, or docs checks. / 対象テストや package/docs check を書いてください。
+      placeholder: python3.9 -m pytest skills/<skill>/scripts/tests -q
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add links, sanitized sample inputs, or prior output if useful. / 必要なら補足してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認
+      options:
+        - label: This proposal is about improving tooling/process, not requesting personalized trading advice. / 個別の投資助言依頼ではありません。
+          required: true
+        - label: I removed secrets, proprietary account data, and personal information. / 秘密情報・口座情報・個人情報は除外しました。
+          required: true

@@ -1,0 +1,55 @@
+name: Real-use pitfall report
+description: Share a practical obstacle found while using the skills or workflows.
+title: "[Pitfall]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for practical friction discovered during real use:
+        confusing setup, unclear warnings, missing runbook steps, bad defaults,
+        or places where the no-advice boundary needs clearer wording.
+  - type: textarea
+    id: pitfall
+    attributes:
+      label: Pitfall / 困った点
+      description: What went wrong or became confusing in real use? / 実運用で何に困りましたか？
+      placeholder: I expected the workflow to stop when...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / 状況
+      description: Which workflow, skill, data source, or docs path were you using? / どの workflow・skill・data・docs ですか？
+      placeholder: I was following docs/en/find-your-workflow.md with...
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / 影響
+      description: How did it affect setup, review quality, risk management, or learning? / setup・レビュー品質・リスク管理・学習にどう影響しましたか？
+    validations:
+      required: true
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested fix / 改善案
+      description: Suggest clearer wording, a test, a guardrail, or a runbook step. / 文言、テスト、ガードレール、runbook など。
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add sanitized examples or links if useful. / 必要なら補足してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認
+      options:
+        - label: This report describes process friction, not a request for trade recommendations. / 売買推奨依頼ではなく、プロセス上の困りごとです。
+          required: true
+        - label: I removed secrets, personal data, and brokerage account details. / 秘密情報・個人情報・口座情報は除外しました。
+          required: true

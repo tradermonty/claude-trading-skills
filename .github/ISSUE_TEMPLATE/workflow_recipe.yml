@@ -1,0 +1,65 @@
+name: Workflow recipe improvement
+description: Suggest a better multi-skill workflow, sample run, or handoff recipe.
+title: "[Workflow recipe]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for workflow recipes, sample runs, prompts, handoffs,
+        and practical improvements to repeatable trading-process routines.
+  - type: input
+    id: workflow-name
+    attributes:
+      label: Workflow or routine / ワークフロー名
+      description: Name the workflow manifest, sample, or routine if known. / 分かれば manifest や routine 名を書いてください。
+      placeholder: workflows/market-regime-daily.yaml
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case / 利用場面
+      description: Who is this for, and what decision process does it improve? / 誰のどんな判断プロセスを改善しますか？
+      placeholder: A 15-minute morning market check for...
+    validations:
+      required: true
+  - type: textarea
+    id: current-gap
+    attributes:
+      label: Current gap / 現状の不足
+      description: What is missing, unclear, or hard to repeat today? / 現状で何が不足・不明確ですか？
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-recipe
+    attributes:
+      label: Proposed recipe / 提案する流れ
+      description: List skills, inputs, outputs, and decision gates. / スキル、入力、出力、判断ゲートを書いてください。
+      placeholder: |
+        1. Run market-breadth-analyzer with...
+        2. Feed the output to exposure-coach...
+        3. Stop if...
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Expected artifacts / 期待する成果物
+      description: Name reports, YAML, markdown, screenshots, or journal entries. / レポート、YAML、Markdown、記録など。
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add sanitized examples or links if useful. / 必要なら補足してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認
+      options:
+        - label: This recipe keeps human decision gates and does not automate broker execution. / 人間の判断ゲートを残し、自動発注しません。
+          required: true
+        - label: I removed secrets, personal data, and brokerage account details. / 秘密情報・個人情報・口座情報は除外しました。
+          required: true
