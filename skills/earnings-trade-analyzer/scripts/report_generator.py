@@ -179,15 +179,17 @@ def generate_markdown_report(
     for i, r in enumerate(results, 1):
         symbol = r.get("symbol", "???")
         grade = r.get("grade", "D")
-        score = r.get("composite_score", 0)
-        gap_pct = r.get("gap_pct", 0)
-        components = r.get("components", {})
+        # `or 0` also coerces an explicit None (e.g. an upstream component that
+        # failed to compute) so the numeric format specs below never blow up.
+        score = r.get("composite_score", 0) or 0
+        gap_pct = r.get("gap_pct", 0) or 0
+        components = r.get("components", {}) or {}
 
-        trend_pct = components.get("pre_earnings_trend", {}).get("return_20d_pct", 0)
-        vol_ratio = components.get("volume_trend", {}).get("vol_ratio_20_60", 0)
-        ma200_dist = components.get("ma200_position", {}).get("distance_pct", 0)
-        ma50_dist = components.get("ma50_position", {}).get("distance_pct", 0)
-        market_cap = r.get("market_cap", 0)
+        trend_pct = components.get("pre_earnings_trend", {}).get("return_20d_pct", 0) or 0
+        vol_ratio = components.get("volume_trend", {}).get("vol_ratio_20_60", 0) or 0
+        ma200_dist = components.get("ma200_position", {}).get("distance_pct", 0) or 0
+        ma50_dist = components.get("ma50_position", {}).get("distance_pct", 0) or 0
+        market_cap = r.get("market_cap", 0) or 0
 
         lines.append(
             f"| {i} | **{symbol}** | {grade} | {score:.1f} | "
@@ -207,10 +209,12 @@ def generate_markdown_report(
             symbol = r.get("symbol", "???")
             company = r.get("company_name", symbol)
             grade = r.get("grade", "?")
-            score = r.get("composite_score", 0)
-            gap_pct = r.get("gap_pct", 0)
+            score = r.get("composite_score", 0) or 0
+            gap_pct = r.get("gap_pct", 0) or 0
             earnings_date = r.get("earnings_date", "N/A")
-            timing = r.get("earnings_timing", "unknown")
+            # `or "unknown"` also handles an explicit None timing (the earnings
+            # source may not specify before/after-market), avoiding .upper() on None.
+            timing = r.get("earnings_timing", "unknown") or "unknown"
             sector = r.get("sector", "N/A")
             guidance = r.get("guidance", "")
             weakest = r.get("weakest_component", "N/A")
@@ -232,9 +236,12 @@ def generate_markdown_report(
             lines.append("|-----------|-------|--------|----------|")
             breakdown = r.get("component_breakdown", {})
             for comp_name, comp_data in breakdown.items():
+                comp_score = comp_data.get("score", 0) or 0
+                comp_weight = comp_data.get("weight", 0) or 0
+                comp_weighted = comp_data.get("weighted_score", 0) or 0
                 lines.append(
-                    f"| {comp_name} | {comp_data['score']:.0f} | "
-                    f"{comp_data['weight']:.0%} | {comp_data['weighted_score']:.1f} |"
+                    f"| {comp_name} | {comp_score:.0f} | "
+                    f"{comp_weight:.0%} | {comp_weighted:.1f} |"
                 )
             lines.append("")
 

@@ -76,12 +76,15 @@ def calculate_volume_trend(daily_prices: list[dict], earnings_date: str) -> dict
             "warning": f"Earnings date {earnings_date} not found in price data",
         }
 
-    # Calculate 20-day average volume starting from earnings date
-    # In most-recent-first order, the 20 days around/after earnings
-    # are at indices max(0, earnings_idx - 10) to earnings_idx + 10
-    # But simpler: use earnings_idx as center, take 20 days from earnings_idx forward
-    start_20 = earnings_idx
-    end_20 = min(earnings_idx + 20, len(daily_prices))
+    # daily_prices is most-recent-first (index 0 = latest bar; higher index =
+    # older date). Because this analyzer only screens stocks that reported
+    # within the last few days (default --lookback-days 2), the most-recent 20
+    # bars capture the post-earnings volume reaction and the most-recent 60 bars
+    # are the surrounding baseline. Walking forward from earnings_idx (as an
+    # earlier version did) averaged the OLDER, pre-earnings bars instead, which
+    # inverted the signal and duplicated the pre-earnings-trend window.
+    start_20 = 0
+    end_20 = min(20, len(daily_prices))
 
     if end_20 - start_20 < 5:
         return {
@@ -95,9 +98,9 @@ def calculate_volume_trend(daily_prices: list[dict], earnings_date: str) -> dict
     volumes_20 = [daily_prices[i]["volume"] for i in range(start_20, end_20)]
     recent_avg = sum(volumes_20) / len(volumes_20)
 
-    # Calculate 60-day average volume
-    start_60 = earnings_idx
-    end_60 = min(earnings_idx + 60, len(daily_prices))
+    # Calculate 60-day average volume (most-recent 60 bars)
+    start_60 = 0
+    end_60 = min(60, len(daily_prices))
 
     if end_60 - start_60 < 20:
         return {

@@ -215,9 +215,13 @@ def format_stock_entry(rank: int, stock: dict) -> list[str]:
     lines.append(f"### {rank}. {stock['symbol']} - {stock['company_name']} {rating_emoji}")
 
     # Basic info
+    price = stock.get("price")
+    price_str = f"${price:.2f}" if isinstance(price, (int, float)) else "N/A"
+    mc = stock.get("market_cap")
+    mc_str = f"${mc / 1e9:.1f}B" if isinstance(mc, (int, float)) else "N/A"
     lines.append(
-        f"**Price:** ${stock.get('price', 'N/A'):.2f} | "
-        f"**Market Cap:** ${stock.get('market_cap', 0) / 1e9:.1f}B | "
+        f"**Price:** {price_str} | "
+        f"**Market Cap:** {mc_str} | "
         f"**Sector:** {stock.get('sector', 'N/A')}"
     )
 
