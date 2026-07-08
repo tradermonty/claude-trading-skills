@@ -247,6 +247,25 @@ skills:
   outputs:
   - economic_events_report
   workflows: []
+- id: fxmacrodata-calendar
+  display_name: FXMacroData Calendar
+  category: meta
+  status: production
+  summary: Fetch official-source macro release-calendar events using FXMacroData for trade planning
+    and event-risk filters.
+  timeframe: event-driven
+  difficulty: beginner
+  integrations:
+  - id: fxmacrodata
+    type: market_data
+    requirement: optional
+    note: FXMacroData REST API; public USD calendar rows work without a key
+  inputs:
+  - currency
+  - market_tier_filter
+  outputs:
+  - macro_release_calendar
+  workflows: []
 - id: edge-candidate-agent
   display_name: Edge Candidate Agent
   category: strategy-research
