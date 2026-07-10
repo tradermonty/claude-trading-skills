@@ -50,6 +50,11 @@ def _v3_hist_url(base, symbols_str, params):
     return f"{base}/{symbols_str}", params
 
 
+def _constituents_url(base, symbols_str, params):
+    """stable/sp500-constituent or api/v3/sp500_constituent (no symbol path)."""
+    return base, params
+
+
 _FMP_ENDPOINTS = {
     "quote": [
         ("https://financialmodelingprep.com/stable/quote", _stable_quote_url),
@@ -58,6 +63,10 @@ _FMP_ENDPOINTS = {
     "historical": [
         ("https://financialmodelingprep.com/stable/historical-price-full", _stable_hist_url),
         ("https://financialmodelingprep.com/api/v3/historical-price-full", _v3_hist_url),
+    ],
+    "constituents": [
+        ("https://financialmodelingprep.com/stable/sp500-constituent", _constituents_url),
+        ("https://financialmodelingprep.com/api/v3/sp500_constituent", _constituents_url),
     ],
 }
 
@@ -164,6 +173,14 @@ class FMPClient:
                 ):
                     valid = False
 
+            if endpoint_key == "constituents":
+                # Non-empty list of dicts carrying a symbol; rejects error
+                # payloads and the stable endpoint's occasional {} response.
+                if not isinstance(data, list) or len(data) == 0:
+                    valid = False
+                elif not isinstance(data[0], dict) or "symbol" not in data[0]:
+                    valid = False
+
             if endpoint_key == "historical":
                 if not isinstance(data, dict):
                     valid = False
@@ -212,8 +229,9 @@ class FMPClient:
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        url = f"{self.BASE_URL}/sp500_constituent"
-        data = self._rate_limited_get(url)
+        # stable/sp500-constituent first; legacy api/v3/sp500_constituent now
+        # 403s for current API keys. symbols_str is unused for this endpoint.
+        data = self._request_with_fallback("constituents", "")
         if data:
             self.cache[cache_key] = data
         return data
