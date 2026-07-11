@@ -42,7 +42,7 @@ except ImportError:  # pragma: no cover - exercised only without requests
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 BINANCE_FAPI_BASE = "https://fapi.binance.com"
 REQUEST_DELAY_S = 6.5
-HISTORY_DAYS = 400
+HISTORY_DAYS = 365  # public API cap; auto-daily granularity above 90 days
 STABLECOIN_IDS = {
     "tether",
     "usd-coin",
@@ -136,7 +136,7 @@ class DataClient:
             return cached
         raw = self._get(
             f"{COINGECKO_BASE}/coins/{coin_id}/market_chart",
-            {"vs_currency": "usd", "days": HISTORY_DAYS, "interval": "daily"},
+            {"vs_currency": "usd", "days": HISTORY_DAYS},
         )
         closes = [p[1] for p in raw.get("prices", [])]
         self._store(f"hist_{coin_id}", closes)
