@@ -31,264 +31,75 @@ jobs:
       - name: Codespell
         run: codespell --toml pyproject.toml skills/ scripts/
 
-  test:
-    name: Test
+  discover-tests:
+    name: Discover test matrix
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python 3.9
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
+      - name: Discover and validate test coverage
+        id: discover
+        run: echo "matrix=$(python3 scripts/ci_test_matrix.py matrix)" >> "$GITHUB_OUTPUT"
 
-      - name: Install dependencies
+  test:
+    name: Test (${{ matrix.id }})
+    needs: discover-tests
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.allowed_failure }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover-tests.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install project dependencies
         run: pip install -e ".[dev]"
-
-      # Run each skill's tests in isolation to avoid module name collisions
-      # (each skill has its own scorer.py, calculators/, helpers.py).
-      # Order: alphabetical by skill name.
-      - name: Test backtest-expert
+      - name: Install policy dependencies
+        run: python scripts/ci_test_matrix.py install "${{ matrix.id }}"
+      - name: Run isolated tests
         run: >
-          python -m pytest skills/backtest-expert/scripts/tests/ -v
-          --cov=skills/backtest-expert/scripts
-          --cov-report=term-missing
-
-      - name: Test data-quality-checker
-        run: >
-          python -m pytest skills/data-quality-checker/scripts/tests/ -v
-          --cov=skills/data-quality-checker/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test drawdown-circuit-breaker
-        run: >
-          python -m pytest skills/drawdown-circuit-breaker/scripts/tests/ -v
-          --cov=skills/drawdown-circuit-breaker/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test dual-axis-skill-reviewer
-        run: >
-          python -m pytest skills/dual-axis-skill-reviewer/scripts/tests/ -v
-          --cov=skills/dual-axis-skill-reviewer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test ftd-detector
-        run: >
-          python -m pytest skills/ftd-detector/scripts/tests/ -v
-          --cov=skills/ftd-detector/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test institutional-flow-tracker
-        run: >
-          python -m pytest skills/institutional-flow-tracker/scripts/tests/ -v
-          --cov=skills/institutional-flow-tracker/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test macro-regime-detector
-        run: >
-          python -m pytest skills/macro-regime-detector/scripts/tests/ -v
-          --cov=skills/macro-regime-detector/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test market-breadth-analyzer
-        run: >
-          python -m pytest skills/market-breadth-analyzer/scripts/tests/ -v
-          --cov=skills/market-breadth-analyzer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test market-news-analyst skill contract
-        run: python -m pytest skills/market-news-analyst/scripts/tests/ -v
-
-      - name: Test market-top-detector
-        run: >
-          python -m pytest skills/market-top-detector/scripts/tests/ -v
-          --cov=skills/market-top-detector/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Install canslim-screener FMP test deps
-        run: pip install beautifulsoup4 lxml
-
-      - name: Test canslim-screener FMP client contracts
-        run: >
-          python -m pytest
-          skills/canslim-screener/scripts/tests/test_fmp_fallback.py
-          skills/canslim-screener/scripts/tests/test_fmp_stable_migration.py
-          skills/canslim-screener/scripts/tests/test_institutional_fallback.py
-          -v
-          --cov=skills/canslim-screener/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test parabolic-short-trade-planner
-        run: >
-          python -m pytest skills/parabolic-short-trade-planner/scripts/tests/ -v
-          --cov=skills/parabolic-short-trade-planner/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test sector-analyst
-        run: >
-          python -m pytest skills/sector-analyst/scripts/tests/ -v
-          --cov=skills/sector-analyst/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test scenario-analyzer skill contract
-        run: python -m pytest skills/scenario-analyzer/scripts/tests/ -v
-
-      - name: Test stanley-druckenmiller-investment
-        run: >
-          python -m pytest skills/stanley-druckenmiller-investment/scripts/tests/ -v
-          --cov=skills/stanley-druckenmiller-investment/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test stockbee-20pct-study
-        run: >
-          python -m pytest skills/stockbee-20pct-study/scripts/tests/ -v
-          --cov=skills/stockbee-20pct-study/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test stockbee-exhaustion-hammer-screener
-        run: >
-          python -m pytest skills/stockbee-exhaustion-hammer-screener/scripts/tests/ -v
-          --cov=skills/stockbee-exhaustion-hammer-screener/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test stockbee-momentum-burst-screener
-        run: >
-          python -m pytest skills/stockbee-momentum-burst-screener/scripts/tests/ -v
-          --cov=skills/stockbee-momentum-burst-screener/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test stockbee-episodic-pivot-analyzer
-        run: >
-          python -m pytest skills/stockbee-episodic-pivot-analyzer/scripts/tests/ -v
-          --cov=skills/stockbee-episodic-pivot-analyzer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test stockbee-setup-fluency-trainer
-        run: >
-          python -m pytest skills/stockbee-setup-fluency-trainer/scripts/tests/ -v
-          --cov=skills/stockbee-setup-fluency-trainer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test uptrend-analyzer
-        run: >
-          python -m pytest skills/uptrend-analyzer/scripts/tests/ -v
-          --cov=skills/uptrend-analyzer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test vcp-screener
-        run: >
-          python -m pytest skills/vcp-screener/scripts/tests/ -v
-          --cov=skills/vcp-screener/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test position-sizer
-        run: >
-          python -m pytest skills/position-sizer/scripts/tests/ -v
-          --cov=skills/position-sizer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test pre-trade-discipline-gate
-        run: >
-          python -m pytest skills/pre-trade-discipline-gate/scripts/tests/ -v
-          --cov=skills/pre-trade-discipline-gate/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test edge-strategy-reviewer
-        run: >
-          python -m pytest skills/edge-strategy-reviewer/scripts/tests/ -v
-          --cov=skills/edge-strategy-reviewer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test edge-pipeline-orchestrator
-        run: >
-          python -m pytest skills/edge-pipeline-orchestrator/scripts/tests/ -v
-          --cov=skills/edge-pipeline-orchestrator/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test skill-designer
-        run: >
-          python -m pytest skills/skill-designer/scripts/tests/ -v
-          --cov=skills/skill-designer/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test skill-idea-miner
-        run: >
-          python -m pytest skills/skill-idea-miner/scripts/tests/ -v
-          --cov=skills/skill-idea-miner/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test trading-skills-navigator
-        run: >
-          python -m pytest skills/trading-skills-navigator/scripts/tests/ -v
-          --cov=skills/trading-skills-navigator/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Test technical-analyst skill contract
-        run: python -m pytest skills/technical-analyst/scripts/tests/ -v
-
-      - name: Test us-market-bubble-detector skill contract
-        run: python -m pytest skills/us-market-bubble-detector/scripts/tests/ -v
-
-      - name: Test us-stock-analysis skill contract
-        run: python -m pytest skills/us-stock-analysis/scripts/tests/ -v
-
-      - name: Test repo-level scripts
-        run: >
-          python -m pytest scripts/tests/ -v
-          --cov=scripts
-          --cov-report=term-missing
-          --cov-append
-
-      # Known failures: theme-detector (27 pre-existing), canslim-screener (requires bs4).
-      # Run with continue-on-error so they don't block the pipeline.
-      - name: Install theme-detector extra deps
-        run: pip install pandas numpy
-
-      - name: Test theme-detector (known failures)
-        continue-on-error: true
-        run: >
-          python -m pytest skills/theme-detector/scripts/tests/ -v
-          --cov=skills/theme-detector/scripts
-          --cov-report=term-missing
-          --cov-append
-
-      - name: Coverage summary
+          python scripts/ci_test_matrix.py run "${{ matrix.id }}"
+          --coverage-dir coverage-data
+      - name: Upload coverage row
         if: always()
-        run: python -m coverage report
-
-      - name: Upload coverage report
-        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: htmlcov/
-          retention-days: 7
+          name: coverage-${{ matrix.id }}
+          path: coverage-data/
+          if-no-files-found: warn
+          retention-days: 1
+
+  coverage:
+    name: Coverage
+    needs: [discover-tests, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install project dependencies
+        run: pip install -e ".[dev]"
+      - name: Download coverage rows
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-artifacts
+      - name: Validate and combine coverage
+        run: >
+          python scripts/ci_test_matrix.py aggregate
+          --artifacts coverage-artifacts
+          --output combined-coverage
 
   metadata:
     name: Metadata + Workflow checks

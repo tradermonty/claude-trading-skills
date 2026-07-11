@@ -59,17 +59,26 @@ def calculate_market_direction(
             "interpretation": "Market data unavailable",
         }
 
-    # Calculate or estimate 50-day EMA
+    # Calculate 50-day EMA (requires real historical bars)
     sp500_ema_50 = None
     if sp500_prices and len(sp500_prices) >= 50:
         # Calculate from historical data
         close_prices = [day.get("close") for day in sp500_prices if day.get("close")]
         if len(close_prices) >= 50:
             sp500_ema_50 = calculate_ema(close_prices, period=50)
-    else:
-        # Estimate: Assume EMA is ~2% below current price in uptrend, ~2% above in downtrend
-        # This is a simplified fallback when historical data unavailable
-        sp500_ema_50 = sp500_price * 0.98  # Conservative estimate
+
+    if not sp500_ema_50:
+        # Do not fabricate a trend when history is missing. Fabricating a fixed
+        # -2% EMA offset would always trip the 'uptrend'/'strong_uptrend' branch,
+        # inverting the safety purpose of the M component during a data outage.
+        return {
+            "score": 50,  # Neutral when trend cannot be determined
+            "error": "Insufficient S&P 500 history for 50-day EMA",
+            "trend": "unknown",
+            "sp500_price": sp500_price,
+            "sp500_ema_50": None,
+            "interpretation": "Market trend unavailable - insufficient historical data",
+        }
 
     # Calculate distance from EMA
     distance_from_ema_pct = ((sp500_price / sp500_ema_50) - 1) * 100 if sp500_ema_50 else 0

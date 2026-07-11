@@ -1008,8 +1008,11 @@ def screen_dividend_growth_pullbacks(
             "debt_to_equity": health_metrics.get("debt_to_equity"),
             "current_ratio": health_metrics.get("current_ratio"),
             "financially_healthy": health_metrics.get("financially_healthy", False),
-            "roe": latest_metrics.get("roe", 0),
-            "profit_margin": latest_metrics.get("netProfitMargin", 0),
+            # roe and netProfitMargin from FMP are decimals (e.g., 0.25 = 25%),
+            # like payoutRatio above; convert to whole-number percents so they
+            # match the composite-score thresholds and the report's "%" display.
+            "roe": (latest_metrics.get("roe") or 0) * 100,
+            "profit_margin": (latest_metrics.get("netProfitMargin") or 0) * 100,
         }
 
         # Calculate composite score
