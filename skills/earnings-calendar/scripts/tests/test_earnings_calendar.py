@@ -14,6 +14,7 @@ from generate_report import (
     generate_report,
     get_day_name,
     group_by_date,
+    load_earnings_data,
 )
 
 # ── Fixtures ──────────────────────────────────────────────────────────
@@ -212,6 +213,13 @@ class TestGroupByDate:
     def test_empty_input(self):
         assert group_by_date([]) == {}
 
+    def test_null_and_unknown_timing_fall_back_to_tas(self):
+        earnings = [
+            {"date": "2026-07-13", "timing": None},
+            {"date": "2026-07-13", "timing": "UNKNOWN"},
+        ]
+        assert group_by_date(earnings)["2026-07-13"]["TAS"] == earnings
+
 
 class TestFormatRevenue:
     def test_trillion(self):
@@ -241,6 +249,11 @@ class TestCalculateSummaryStats:
         assert stats["sectors"]["Healthcare"] == 1
         assert stats["peak_count"] == 2  # Nov 4 has 2 entries
 
+    def test_records_without_dates_have_no_peak(self):
+        stats = calculate_summary_stats([{"symbol": "NODATE", "date": ""}])
+        assert stats["peak_date"] is None
+        assert stats["peak_count"] == 0
+
 
 class TestGenerateReport:
     def test_report_contains_companies(self, sample_earnings):
@@ -258,3 +271,26 @@ class TestGenerateReport:
         assert "Executive Summary" in report
         assert "Key Observations" in report
         assert "Sector Distribution" in report
+
+    def test_null_company_and_sector_render_as_na(self):
+        report = generate_report(
+            [
+                {
+                    "symbol": "NULLS",
+                    "companyName": None,
+                    "sector": None,
+                    "date": "2026-07-13",
+                    "timing": "BMO",
+                    "marketCap": 1,
+                }
+            ]
+        )
+        assert "NULLS" in report
+        assert "N/A" in report
+
+
+class TestLoadEarningsData:
+    def test_skips_bracketed_progress_preamble(self, tmp_path):
+        source = tmp_path / "earnings.json"
+        source.write_text('[INFO] fetching page 1\n[{"symbol": "AAPL"}]')
+        assert load_earnings_data(str(source)) == [{"symbol": "AAPL"}]

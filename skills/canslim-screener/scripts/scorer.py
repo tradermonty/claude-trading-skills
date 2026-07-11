@@ -38,7 +38,7 @@ WEIGHTS_PHASE2 = {
     "C": 0.19,  # Current Earnings (15% / 0.80 = 0.1875 ≈ 0.19)
     "A": 0.25,  # Annual Growth (20% / 0.80 = 0.25)
     "N": 0.19,  # Newness (15% / 0.80 = 0.1875 ≈ 0.19)
-    "S": 0.19,  # Supply/Demand (15% / 0.80 = 0.1875 ≈ 0.19)
+    "S": 0.18,  # Supply/Demand (15% / 0.80 = 0.1875, rounded down to keep total = 1.00)
     "I": 0.13,  # Institutional (10% / 0.80 = 0.125 ≈ 0.13)
     "M": 0.06,  # Market Direction (5% / 0.80 = 0.0625 ≈ 0.06)
 }

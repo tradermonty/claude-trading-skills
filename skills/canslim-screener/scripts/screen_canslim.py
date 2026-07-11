@@ -431,7 +431,11 @@ def main():
     )
 
     print(f"S&P 500: ${market_data['sp500_price']:.2f}")
-    print(f"Distance from 50-EMA: {market_data['distance_from_ema_pct']:+.2f}%")
+    _dist = market_data.get("distance_from_ema_pct")
+    if isinstance(_dist, (int, float)):
+        print(f"Distance from 50-EMA: {_dist:+.2f}%")
+    else:
+        print("Distance from 50-EMA: N/A (insufficient history)")
     print(f"Trend: {market_data['trend']}")
     print(f"M Score: {market_data['score']}/100")
     print(f"Interpretation: {market_data['interpretation']}")

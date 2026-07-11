@@ -177,3 +177,46 @@ class TestScriptStructure:
         """Script should accept --output-dir for report placement."""
         source = SCRIPT_PATH.read_text()
         assert "output" in source.lower(), "Script should support an output directory argument"
+
+
+def test_fmp_decimal_roe_and_margin_are_converted_to_percent(monkeypatch):
+    """FMP decimal fundamentals must match percent-based scoring/report fields."""
+    mod = _load_script()
+    client = MagicMock()
+    client.rate_limit_reached = False
+    client.screen_stocks.return_value = [
+        {"symbol": "TEST", "companyName": "Test Inc", "price": 100, "sector": "Tech"}
+    ]
+    client.get_dividend_history.return_value = [{}]
+    client.get_historical_prices.return_value = [{"close": 100}] * 30
+    client.get_income_statement.return_value = [{}]
+    client.get_balance_sheet.return_value = [{}]
+    client.get_cash_flow.return_value = [{}]
+    client.get_key_metrics.return_value = [{"roe": 0.25, "netProfitMargin": 0.125}]
+
+    analyzer = MagicMock()
+    analyzer.analyze_dividend_growth.return_value = (15.0, True, 2.0, 5)
+    analyzer.analyze_growth_metrics.return_value = {
+        "revenue_cagr_3y": 1.0,
+        "eps_cagr_3y": 1.0,
+    }
+    analyzer.analyze_financial_health.return_value = {"financially_healthy": True}
+    analyzer.is_reit.return_value = False
+    analyzer.calculate_payout_ratios.return_value = {
+        "payout_ratio": 50.0,
+        "fcf_payout_ratio": 60.0,
+    }
+    analyzer.calculate_composite_score.return_value = 80.0
+
+    monkeypatch.setattr(mod, "FMPClient", MagicMock(return_value=client))
+    monkeypatch.setattr(mod, "StockAnalyzer", MagicMock(return_value=analyzer))
+    monkeypatch.setattr(
+        mod,
+        "RSICalculator",
+        MagicMock(return_value=MagicMock(calculate_rsi=MagicMock(return_value=30.0))),
+    )
+
+    result = mod.screen_dividend_growth_pullbacks("test-key")[0]
+
+    assert result["roe"] == 25.0
+    assert result["profit_margin"] == 12.5
