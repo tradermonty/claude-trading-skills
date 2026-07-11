@@ -475,9 +475,11 @@ class TestOpenBrowser:
         assert mock_run.call_args[0][0][0] == "google-chrome"
 
     @mock.patch("open_finviz_screener.webbrowser.open")
+    @mock.patch("open_finviz_screener.sys")
     @mock.patch("open_finviz_screener.subprocess.run")
-    def test_fallback_to_webbrowser(self, mock_run, mock_wb_open):
+    def test_fallback_to_webbrowser(self, mock_run, mock_sys, mock_wb_open):
         # Both macOS calls fail → webbrowser fallback
+        mock_sys.platform = "darwin"
         mock_run.side_effect = [
             subprocess.CalledProcessError(1, "open"),
             subprocess.CalledProcessError(1, "open"),
