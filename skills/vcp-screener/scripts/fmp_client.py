@@ -13,6 +13,8 @@ Features:
 - S&P 500 constituents fetching
 """
 
+import csv
+import io
 import os
 import sys
 import time
@@ -218,6 +220,44 @@ class FMPClient:
         if failures >= self._ENDPOINT_FAILURE_THRESHOLD:
             self._disabled_endpoints.add(base_url)
 
+    # Public-dataset fallback for keys where no FMP tier serves constituents:
+    # stable/sp500-constituent 402s (Restricted Endpoint, paid-only) and
+    # api/v3/sp500_constituent 403s (Legacy Endpoint, pre-2025-08-31 subs only).
+    _CONSTITUENTS_CSV_URL = (
+        "https://raw.githubusercontent.com/datasets/"
+        "s-and-p-500-companies/main/data/constituents.csv"
+    )
+
+    def _fetch_constituents_csv(self) -> Optional[list[dict]]:
+        """Fetch the public S&P 500 list, mapped to the v3 response shape.
+
+        Uses a bare requests.get, NOT self.session — the FMP apikey header
+        must not leak to a third-party host.
+        """
+        try:
+            response = requests.get(self._CONSTITUENTS_CSV_URL, timeout=30)
+            if response.status_code != 200:
+                print(
+                    f"ERROR: constituents CSV fallback failed: {response.status_code}",
+                    file=sys.stderr,
+                )
+                return None
+            data = [
+                {
+                    # FMP uses dash-style class symbols (BRK-B), the CSV uses dots.
+                    "symbol": row["Symbol"].replace(".", "-"),
+                    "name": row["Security"],
+                    "sector": row["GICS Sector"],
+                    "subSector": row["GICS Sub-Industry"],
+                }
+                for row in csv.DictReader(io.StringIO(response.text))
+                if row.get("Symbol")
+            ]
+        except (requests.exceptions.RequestException, csv.Error, KeyError) as e:
+            print(f"ERROR: constituents CSV fallback failed: {e}", file=sys.stderr)
+            return None
+        return data or None
+
     def get_sp500_constituents(self) -> Optional[list[dict]]:
         """Fetch S&P 500 constituent list.
 
@@ -232,6 +272,10 @@ class FMPClient:
         # stable/sp500-constituent first; legacy api/v3/sp500_constituent now
         # 403s for current API keys. symbols_str is unused for this endpoint.
         data = self._request_with_fallback("constituents", "")
+        if not data:
+            # Free-tier keys get 402 from stable and 403 from v3 — no FMP
+            # endpoint serves constituents at all. Use the public dataset.
+            data = self._fetch_constituents_csv()
         if data:
             self.cache[cache_key] = data
         return data

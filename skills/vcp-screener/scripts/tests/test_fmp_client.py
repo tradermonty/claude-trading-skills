@@ -82,3 +82,68 @@ def test_falls_back_when_stable_returns_wrong_shape():
     result = client.get_sp500_constituents()
     assert result == _CONSTITUENTS
     assert any(_V3 in u for u in client.session.requested)
+
+
+# On free-tier keys created after 2025-08-31, NO FMP endpoint serves
+# constituents: stable/sp500-constituent 402s (Restricted Endpoint) and
+# api/v3/sp500_constituent 403s (Legacy Endpoint). The client then falls
+# back to the public datasets/s-and-p-500-companies CSV.
+
+_CSV_TEXT = (
+    "Symbol,Security,GICS Sector,GICS Sub-Industry,Headquarters Location,"
+    "Date added,CIK,Founded\n"
+    'MMM,3M,Industrials,Industrial Conglomerates,"Saint Paul, Minnesota",'
+    "1957-03-04,66740,1902\n"
+    'BRK.B,Berkshire Hathaway,Financials,Multi-Sector Holdings,"Omaha, Nebraska",'
+    "2010-02-16,1067983,1839\n"
+)
+
+_NO_FMP_TIER = {
+    _STABLE: _FakeResponse(402, None, "Restricted Endpoint"),
+    _V3: _FakeResponse(403, None, "Legacy Endpoint"),
+}
+
+
+def test_falls_back_to_public_csv_when_no_fmp_tier_serves_constituents(monkeypatch):
+    client = _client(dict(_NO_FMP_TIER))
+    captured = {}
+
+    def fake_get(url, **kwargs):
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        return _FakeResponse(200, None, _CSV_TEXT)
+
+    monkeypatch.setattr("fmp_client.requests.get", fake_get)
+    result = client.get_sp500_constituents()
+
+    # Dot-class symbols are normalized to FMP's dash style (BRK.B -> BRK-B).
+    assert [c["symbol"] for c in result] == ["MMM", "BRK-B"]
+    assert result[0] == {
+        "symbol": "MMM",
+        "name": "3M",
+        "sector": "Industrials",
+        "subSector": "Industrial Conglomerates",
+    }
+    assert "s-and-p-500-companies" in captured["url"]
+    # The FMP apikey session header must not leak to the public host.
+    assert "headers" not in captured["kwargs"]
+    assert not any("s-and-p-500-companies" in u for u in client.session.requested)
+
+
+def test_returns_none_when_fmp_and_csv_fallback_all_fail(monkeypatch):
+    client = _client(dict(_NO_FMP_TIER))
+    monkeypatch.setattr(
+        "fmp_client.requests.get",
+        lambda url, **kwargs: _FakeResponse(500, None, "upstream down"),
+    )
+    assert client.get_sp500_constituents() is None
+
+
+def test_csv_fallback_not_used_when_fmp_succeeds(monkeypatch):
+    client = _client({_STABLE: _FakeResponse(200, _CONSTITUENTS)})
+
+    def fail_get(url, **kwargs):
+        raise AssertionError("public CSV must not be fetched when FMP works")
+
+    monkeypatch.setattr("fmp_client.requests.get", fail_get)
+    assert client.get_sp500_constituents() == _CONSTITUENTS
