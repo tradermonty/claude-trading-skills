@@ -240,8 +240,7 @@ def generate_markdown_report(
                 comp_weight = comp_data.get("weight", 0) or 0
                 comp_weighted = comp_data.get("weighted_score", 0) or 0
                 lines.append(
-                    f"| {comp_name} | {comp_score:.0f} | "
-                    f"{comp_weight:.0%} | {comp_weighted:.1f} |"
+                    f"| {comp_name} | {comp_score:.0f} | {comp_weight:.0%} | {comp_weighted:.1f} |"
                 )
             lines.append("")
 
