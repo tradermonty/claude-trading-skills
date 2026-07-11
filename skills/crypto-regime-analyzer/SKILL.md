@@ -51,10 +51,10 @@ Missing components have their weight proportionally redistributed (same conventi
 | Score | Zone | Posture |
 |---|---|---|
 | 80-100 | RISK_ON | Full crypto allocation permitted; alt entries allowed |
-| 60-79 | CONSTRUCTIVE | Core BTC/ETH-weighted positioning; selective alt entries |
-| 40-59 | NEUTRAL | Hold core only; no new alt entries |
-| 20-39 | DEFENSIVE | Reduce exposure; rotate toward stables |
-| 0-19 | RISK_OFF | Capital preservation; no new entries |
+| 40-79 | NEUTRAL | No strong signal; hold core positions, avoid aggressive adds |
+| 0-39 | RISK_OFF | Defensive; reduce exposure, rotate toward stables, no new entries |
+
+Three zones by design: a 2018-2026 weekly walk-forward validation (see `references/VALIDATION.md`) showed the extreme zones separate cleanly in forward returns (RISK_ON +21.9% vs RISK_OFF +7.5% mean 90d BTC forward return, monotonic across all three zones) while finer five-zone middle gradations did not rank monotonically. The zone map claims only what the historical evidence supported.
 
 ---
 
@@ -92,7 +92,7 @@ When presenting results, lead with the zone and posture, then explain the 1-2 co
 
 ### Phase 3 (optional): Feed Downstream
 
-The JSON composite is designed to slot into an `exposure-coach`-style posture summary as a crypto-sleeve input, or to gate any crypto screening/analysis the user runs afterward: no new alt entries below CONSTRUCTIVE, no new entries of any kind below NEUTRAL.
+The JSON composite is designed to slot into an `exposure-coach`-style posture summary as a crypto-sleeve input, or to gate any crypto screening/analysis the user runs afterward: no aggressive adds below RISK_ON, no new entries in RISK_OFF.
 
 ## Output
 
@@ -104,6 +104,7 @@ The script writes two artifacts to `--output-dir` and prints a one-line summary 
 
 ## Resources
 
+- `references/VALIDATION.md` — 2018-2026 walk-forward historical validation: methodology, zone forward-return tables, exposure-scaling results, and stated limitations.
 - `references/crypto_regime_methodology.md` — full scoring rationale, every threshold table, the offline snapshot JSON schema, and the live data-source endpoint list.
 - `scripts/crypto_regime_analyzer.py` — CLI orchestrator (entry point).
 - `scripts/data_client.py` — CoinGecko/Binance fetchers, per-day cache, dominance history accumulator, offline loader.

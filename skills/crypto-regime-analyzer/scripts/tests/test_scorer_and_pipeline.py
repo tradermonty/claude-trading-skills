@@ -28,10 +28,12 @@ def test_weight_redistribution_on_missing_component():
 
 def test_zone_boundaries():
     for score, zone in [
-        (85, "RISK_ON"),
-        (70, "CONSTRUCTIVE"),
+        (95, "RISK_ON"),
+        (80, "RISK_ON"),
+        (79.9, "NEUTRAL"),
         (50, "NEUTRAL"),
-        (30, "DEFENSIVE"),
+        (40, "NEUTRAL"),
+        (39.9, "RISK_OFF"),
         (10, "RISK_OFF"),
     ]:
         components = {cid: _comp(score) for cid in COMPONENT_WEIGHTS}
@@ -56,7 +58,7 @@ def test_end_to_end_bull_snapshot(trending_series, universe):
     }
     analysis = run_analysis(snapshot)
     assert analysis["composite"]["components_available"] == 6
-    assert analysis["composite"]["zone"] in ("RISK_ON", "CONSTRUCTIVE")
+    assert analysis["composite"]["zone"] in ("RISK_ON", "NEUTRAL")
     assert analysis["metadata"]["universe_size"] == 10
 
 
@@ -70,7 +72,7 @@ def test_end_to_end_bear_snapshot(trending_series, universe):
         "funding": {"BTCUSDT": 0.0005, "ETHUSDT": 0.0004},
     }
     analysis = run_analysis(snapshot)
-    assert analysis["composite"]["zone"] in ("DEFENSIVE", "RISK_OFF")
+    assert analysis["composite"]["zone"] == "RISK_OFF"
 
 
 def test_end_to_end_degrades_without_dominance_and_funding(trending_series, universe):

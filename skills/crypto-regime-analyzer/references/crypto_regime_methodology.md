@@ -69,7 +69,7 @@ Inputs: 31+ daily closes per coin, >= 5 usable coins, BTC included. % of univers
 
 ## Composite & Zones
 
-Weighted average over available components with proportional weight redistribution. Zones: 80-100 RISK_ON, 60-79 CONSTRUCTIVE, 40-59 NEUTRAL, 20-39 DEFENSIVE, 0-19 RISK_OFF, each mapped to a posture string (see SKILL.md).
+Weighted average over available components with proportional weight redistribution. Zones: 80-100 RISK_ON, 40-79 NEUTRAL, 0-39 RISK_OFF, each mapped to a posture string (see SKILL.md). The 3-zone map (rather than 5) and the 80/40 boundaries are supported by a 2018-2026 walk-forward validation — see VALIDATION.md in this directory.
 
 ## Offline Snapshot Schema (`--input-json`)
 

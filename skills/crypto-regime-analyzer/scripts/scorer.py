@@ -19,11 +19,14 @@ redistributed among the remaining available components (same convention
 as market-breadth-analyzer).
 
 Regime Zone Mapping (100 = Risk-on):
-  80-100: RISK_ON     - Full crypto allocation permitted; alts allowed
-  60-79:  CONSTRUCTIVE- Core positions (BTC/ETH-weighted); selective alts
-  40-59:  NEUTRAL     - Hold core only; no new alt entries
-  20-39:  DEFENSIVE   - Reduce exposure; stables priority
-  0-19:   RISK_OFF    - Capital preservation; no new entries
+  80-100: RISK_ON  - Full crypto allocation permitted; alt entries allowed
+  40-79:  NEUTRAL  - No strong signal; hold core, avoid aggressive adds
+  0-39:   RISK_OFF - Defensive; reduce exposure, no new entries
+
+Three zones (not five) by design: historical validation (2018-2026 weekly
+walk-forward, see references/) showed the extreme zones separate cleanly
+in forward returns while finer middle gradations did not rank
+monotonically. The zone map claims only what the data supported.
 """
 
 COMPONENT_WEIGHTS = {
@@ -46,10 +49,8 @@ COMPONENT_LABELS = {
 
 ZONES = [
     (80, "RISK_ON", "Full crypto allocation permitted; alt entries allowed"),
-    (60, "CONSTRUCTIVE", "Core BTC/ETH-weighted positioning; selective alt entries"),
-    (40, "NEUTRAL", "Hold core only; no new alt entries"),
-    (20, "DEFENSIVE", "Reduce exposure; rotate toward stables"),
-    (0, "RISK_OFF", "Capital preservation; no new entries"),
+    (40, "NEUTRAL", "No strong signal; hold core positions, avoid aggressive adds"),
+    (0, "RISK_OFF", "Defensive; reduce exposure, rotate toward stables, no new entries"),
 ]
 
 
