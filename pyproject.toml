@@ -61,6 +61,7 @@ testpaths = [
     "skills/institutional-flow-tracker/scripts/tests",
     "skills/macro-regime-detector/scripts/tests",
     "skills/market-breadth-analyzer/scripts/tests",
+    "skills/market-news-analyst/scripts/tests",
     "skills/market-top-detector/scripts/tests",
     "skills/stanley-druckenmiller-investment/scripts/tests",
     "skills/stockbee-20pct-study/scripts/tests",
@@ -97,7 +98,9 @@ testpaths = [
     "skills/kanchi-dividend-us-tax-accounting/scripts/tests",
     "skills/market-environment-analysis/scripts/tests",
     "skills/sector-analyst/scripts/tests",
+    "skills/scenario-analyzer/scripts/tests",
     "skills/strategy-pivot-designer/scripts/tests",
+    "skills/technical-analyst/scripts/tests",
     # pair-trade-screener, portfolio-manager, signal-postmortem: tests/ exists but no test_*.py
     "skills/relative-strength-momentum-scanner/scripts/tests",
     "skills/signal-postmortem-analyzer/scripts/tests",
@@ -107,6 +110,8 @@ testpaths = [
     "skills/ibd-distribution-day-monitor/scripts/tests",
     "skills/parabolic-short-trade-planner/scripts/tests",
     "skills/trading-skills-navigator/scripts/tests",
+    "skills/us-market-bubble-detector/scripts/tests",
+    "skills/us-stock-analysis/scripts/tests",
     "scripts/tests",
 ]
 

@@ -6,8 +6,8 @@
 
 ```
 □ Step 1: Update Bubble-O-Meter (2 minutes)
-   - Score 8 indicators on 0-2 scale
-   - Confirm risk budget based on total score
+   - Score 6 quantitative indicators (0-2) + 3 qualitative adjustments (0-1)
+   - Confirm risk budget based on the 0-15 total score
 
 □ Step 2: Position Management (2 minutes)
    - Update ATR trailing stops
@@ -56,62 +56,70 @@ When uncertain about investment decisions, answer these 3 questions:
 
 ---
 
-## Quick Scoring for 8 Indicators
+## v2.1 Quick Scoring: 6 Quantitative + 3 Qualitative
 
-### 1. Mass Penetration
-```
-0 points: Investors only
-1 point: General awareness but investment still limited
-2 points: Taxi drivers/family recommending
-```
+### Quantitative Indicators (0-2 each)
 
-### 2. Media Saturation
+### 1. Put/Call Ratio
 ```
-0 points: Normal coverage level
-1 point: Search trends 2-3x
-2 points: TV specials/magazine covers, searches 5x+
+0 points: P/C > 0.85
+1 point: P/C 0.70-0.85
+2 points: P/C < 0.70
 ```
 
-### 3. New Entrants
+### 2. Volatility Suppression + New Highs
 ```
-0 points: Normal account opening pace
-1 point: 50-100% YoY increase
-2 points: 200%+ YoY, beginner flood
-```
-
-### 4. Issuance Flood
-```
-0 points: Normal IPO count
-1 point: 50% increase in IPOs/related products
-2 points: Low-quality IPOs, theme ETF proliferation
+0 points: VIX > 15 or index more than 10% from highs
+1 point: VIX 12-15 and index near highs
+2 points: VIX < 12 and major index within 5% of 52-week high
 ```
 
-### 5. Leverage
+### 3. Leverage
 ```
-0 points: Normal range
-1 point: Margin balance 1.5x
-2 points: All-time high, funding rates elevated
+0 points: Margin debt YoY <= +10% or negative
+1 point: Margin debt YoY +10-20%
+2 points: Margin debt YoY +20% or more and all-time high
+```
+
+### 4. IPO Market Overheating
+```
+0 points: Normal levels
+1 point: Quarterly IPO count >1.5x five-year average
+2 points: Quarterly IPO count >2x five-year average and median first-day return +20%+
+```
+
+### 5. Breadth Anomaly
+```
+0 points: >60% of S&P 500 stocks above 50DMA
+1 point: 45-60% above 50DMA
+2 points: New high and <45% above 50DMA
 ```
 
 ### 6. Price Acceleration
 ```
-0 points: Near historical median
-1 point: Exceeds 90th percentile
-2 points: 95-99th percentile or accelerating
+0 points: Past 3-month return below 85th percentile
+1 point: Past 3-month return in 85-95th percentile
+2 points: Past 3-month return above 95th percentile
 ```
 
-### 7. Valuation Disconnect
+### Qualitative Adjustments (0-1 each; +3 max)
+
+### A. Social Penetration
 ```
-0 points: Explainable by fundamentals
-1 point: High valuation but explained by growth expectations
-2 points: Completely "narrative"-dependent, fundamentals ignored
+0 points: Any required evidence missing
+1 point: Direct user report + specific examples + at least 3 independent sources
 ```
 
-### 8. Correlation & Breadth
+### B. Media/Search Trends
 ```
-0 points: Only some leaders rising
-1 point: Sector-wide spread
-2 points: Even low-quality/zombie companies rallying
+0 points: Search trends <5x or no mainstream coverage confirmation
+1 point: Google Trends 5x+ YoY and mainstream coverage confirmed
+```
+
+### C. Valuation Disconnect
+```
+0 points: P/E <25 or fundamentals support valuation
+1 point: P/E >25, fundamentals ignored, and "this time is different" documented
 ```
 
 ---
@@ -169,11 +177,12 @@ def calculate_trailing_stop(current_price, atr_20d, bubble_phase):
     """
     Calculate trailing stop based on bubble stage
 
-    bubble_phase: 'normal', 'caution', 'euphoria', 'critical'
+    bubble_phase: 'normal', 'caution', 'elevated_risk', 'euphoria', 'critical'
     """
     multipliers = {
         'normal': 2.0,
         'caution': 1.8,
+        'elevated_risk': 1.6,
         'euphoria': 1.5,
         'critical': 1.2
     }
@@ -252,8 +261,9 @@ Condition Check:
 **Psychology:** Regret aversion (fear of being late)
 **Solution:**
 - Conduct Bubble-O-Meter when feeling "too late"
-- Score ≤8: Small position entry OK
-- Score ≥9: Correct to stay out
+- Score <=7: Small position entry OK
+- Score 8-9: Only exceptional setups with reduced position size
+- Score >=10: Correct to stay out
 
 ### Failure 2: Re-entry after profit-taking (buying high)
 

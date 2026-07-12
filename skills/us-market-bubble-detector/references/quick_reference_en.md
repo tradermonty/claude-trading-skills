@@ -6,8 +6,8 @@
 
 ```
 □ Step 1: Update Bubble-O-Meter (2 min)
-   - Score 8 indicators (0-2 points each)
-   - Check risk budget based on total score
+   - Score 6 quantitative indicators (0-2) + 3 qualitative adjustments (0-1)
+   - Check risk budget based on 0-15 total score
 
 □ Step 2: Position Management (2 min)
    - Update ATR trailing stops
@@ -47,68 +47,77 @@ When uncertain about an investment decision, answer these 3 questions:
 | Phase | Score | Risk Budget | Entry | Profit-Taking | Stop | Short |
 |-------|-------|------------|-------|---------------|------|-------|
 | **Normal** | 0-4 | 100% | Normal | At target | 2.0 ATR | No |
-| **Caution** | 5-8 | 70% | 50% reduced | 25% at +20% | 1.8 ATR | No |
-| **Euphoria** | 9-12 | 40% | Stopped | 50% at +20% | 1.5 ATR | After confirm |
-| **Critical** | 13-16 | 20% | Stopped | 75-100% now | 1.2 ATR | Recommended |
+| **Caution** | 5-7 | 70-80% | 50% reduced | 25% at +20% | 1.8 ATR | No |
+| **Elevated Risk** | 8-9 | 50-70% | Selective | 40% at +20% | 1.6 ATR | Consider |
+| **Euphoria** | 10-12 | 40-50% | Stopped | 50% at +20% | 1.5 ATR | After confirm |
+| **Critical** | 13-15 | 20-30% | Stopped | 75-100% now | 1.2 ATR | Recommended |
 
 ---
 
-## 8 Indicators Quick Scoring
+## v2.1 Quick Scoring: 6 Quantitative + 3 Qualitative
 
-### 1. Mass Penetration
-```
-0 pts: Investors only
-1 pt: General awareness but investment limited
-2 pts: Taxi drivers/family recommending
-```
+### Quantitative Indicators (0-2 each)
 
-### 2. Media Saturation
+### 1. Put/Call Ratio
 ```
-0 pts: Normal coverage
-1 pt: Search trends 2-3x normal
-2 pts: TV specials/magazine covers, 5x+ search spike
+0 pts: P/C > 0.85
+1 pt: P/C 0.70-0.85
+2 pts: P/C < 0.70
 ```
 
-### 3. New Accounts & Inflows
+### 2. Volatility Suppression + New Highs
 ```
-0 pts: Normal account openings
-1 pt: 50-100% YoY increase
-2 pts: 200%+ YoY, first-time investor flood
-```
-
-### 4. New Issuance Flood
-```
-0 pts: Normal IPO volume
-1 pt: IPO/SPAC/ETFs up 50%+
-2 pts: Low-quality IPO flood, "theme" fund proliferation
+0 pts: VIX > 15 or index more than 10% from highs
+1 pt: VIX 12-15 and index near highs
+2 pts: VIX < 12 and major index within 5% of 52-week high
 ```
 
-### 5. Leverage Indicators
+### 3. Leverage
 ```
-0 pts: Margin debt in normal range
-1 pt: Margin debt 1.5x average
-2 pts: All-time high margin, funding rates elevated, extreme positioning
+0 pts: Margin debt YoY <= +10% or negative
+1 pt: Margin debt YoY +10-20%
+2 pts: Margin debt YoY +20% or more and all-time high
+```
+
+### 4. IPO Market Overheating
+```
+0 pts: Normal levels
+1 pt: Quarterly IPO count >1.5x five-year average
+2 pts: Quarterly IPO count >2x five-year average and median first-day return +20%+
+```
+
+### 5. Breadth Anomaly
+```
+0 pts: >60% of S&P 500 stocks above 50DMA
+1 pt: 45-60% above 50DMA
+2 pts: New high and <45% above 50DMA
 ```
 
 ### 6. Price Acceleration
 ```
-0 pts: Annualized returns near historical median
-1 pt: Returns exceed 90th percentile
-2 pts: Returns at 95-99th percentile, or positive second derivative
+0 pts: Past 3-month return below 85th percentile
+1 pt: Past 3-month return in 85-95th percentile
+2 pts: Past 3-month return above 95th percentile
 ```
 
-### 7. Valuation Disconnect
+### Qualitative Adjustments (0-1 each; +3 max)
+
+### A. Social Penetration
 ```
-0 pts: Fundamentally explainable
-1 pt: High valuation but "growth expectations" provide cover
-2 pts: Pure "narrative" dependent, fundamentals ignored
+0 pts: Any required evidence missing
+1 pt: Direct user report + specific examples + at least 3 independent sources
 ```
 
-### 8. Breadth & Correlation
+### B. Media/Search Trends
 ```
-0 pts: Only leader stocks rising
-1 pt: Sector-wide participation
-2 pts: Low-quality/zombie companies rising (last buyers in)
+0 pts: Search trends <5x or no mainstream coverage confirmation
+1 pt: Google Trends 5x+ YoY and mainstream coverage confirmed
+```
+
+### C. Valuation Disconnect
+```
+0 pts: P/E <25 or fundamentals support valuation
+1 pt: P/E >25, fundamentals ignored, and "this time is different" documented
 ```
 
 ---
@@ -136,11 +145,12 @@ def calculate_trailing_stop(current_price, atr_20d, bubble_phase):
     """
     Calculate trailing stop based on bubble phase
 
-    bubble_phase: 'normal', 'caution', 'euphoria', 'critical'
+    bubble_phase: 'normal', 'caution', 'elevated_risk', 'euphoria', 'critical'
     """
     multipliers = {
         'normal': 2.0,
         'caution': 1.8,
+        'elevated_risk': 1.6,
         'euphoria': 1.5,
         'critical': 1.2
     }
@@ -210,8 +220,9 @@ Conditions check:
 **Psychology:** Regret aversion (FOMO about missing out)
 **Solution:**
 - Run Bubble-O-Meter when feeling too late
-- If score ≤8, small entry OK
-- If score ≥9, correct to wait
+- If score <=7, small entry OK
+- If score 8-9, enter only on exceptional setups with reduced size
+- If score >=10, correct to wait
 
 ### Failure 2: Re-entry after taking profits (buying high)
 
