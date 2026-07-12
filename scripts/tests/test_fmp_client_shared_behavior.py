@@ -174,3 +174,82 @@ def test_market_top_special_surface_and_stats(monkeypatch):
         "api_calls_made",
         "rate_limit_reached",
     }
+
+
+# Clients whose registry row includes the sp500_constituents extension.
+CONSTITUENTS_CLIENTS = [
+    "skills/vcp-screener/scripts/fmp_client.py",
+    "skills/parabolic-short-trade-planner/scripts/fmp_client.py",
+]
+
+_CONSTITUENTS_CSV = (
+    "Symbol,Security,GICS Sector,GICS Sub-Industry,Headquarters Location,"
+    "Date added,CIK,Founded\n"
+    'MMM,3M,Industrials,Industrial Conglomerates,"Saint Paul, Minnesota",'
+    "1957-03-04,66740,1902\n"
+    'BRK.B,Berkshire Hathaway,Financials,Multi-Sector Holdings,"Omaha, Nebraska",'
+    "2010-02-16,1067983,1839\n"
+)
+
+
+class _FakeCsvResponse:
+    def __init__(self, status_code, text):
+        self.status_code = status_code
+        self.text = text
+
+
+@pytest.mark.parametrize("rel_path", CONSTITUENTS_CLIENTS)
+def test_constituents_public_csv_fallback_when_no_fmp_tier(rel_path, monkeypatch):
+    """Free tier: stable 402s, v3 403s — no FMP endpoint serves the list."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    # _rate_limited_get returns None on 402/403 — simulate FMP unavailable.
+    monkeypatch.setattr(client, "_rate_limited_get", lambda *a, **k: None)
+    captured = {}
+
+    def fake_get(url, **kwargs):
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        return _FakeCsvResponse(200, _CONSTITUENTS_CSV)
+
+    monkeypatch.setattr(mod.requests, "get", fake_get)
+    result = client.get_sp500_constituents()
+
+    # Dot-class symbols normalized to FMP's dash style (BRK.B -> BRK-B).
+    assert [c["symbol"] for c in result] == ["MMM", "BRK-B"]
+    assert result[0] == {
+        "symbol": "MMM",
+        "name": "3M",
+        "sector": "Industrials",
+        "subSector": "Industrial Conglomerates",
+    }
+    assert "s-and-p-500-companies" in captured["url"]
+    # Bare requests.get: the FMP apikey session header must not leak.
+    assert "headers" not in captured["kwargs"]
+
+
+@pytest.mark.parametrize("rel_path", CONSTITUENTS_CLIENTS)
+def test_constituents_csv_not_fetched_when_fmp_succeeds(rel_path, monkeypatch):
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    fmp_rows = [
+        {"symbol": "AAPL", "name": "Apple Inc.", "sector": "Technology", "subSector": "Hardware"}
+    ]
+    monkeypatch.setattr(client, "_rate_limited_get", lambda *a, **k: list(fmp_rows))
+
+    def fail_get(url, **kwargs):
+        raise AssertionError("public CSV must not be fetched when FMP works")
+
+    monkeypatch.setattr(mod.requests, "get", fail_get)
+    assert client.get_sp500_constituents() == fmp_rows
+
+
+@pytest.mark.parametrize("rel_path", CONSTITUENTS_CLIENTS)
+def test_constituents_none_when_fmp_and_csv_both_fail(rel_path, monkeypatch):
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    monkeypatch.setattr(client, "_rate_limited_get", lambda *a, **k: None)
+    monkeypatch.setattr(
+        mod.requests, "get", lambda url, **kwargs: _FakeCsvResponse(500, "upstream down")
+    )
+    assert client.get_sp500_constituents() is None
