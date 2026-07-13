@@ -540,6 +540,27 @@
       "timeframe": "daily"
     },
     {
+      "category": "market-regime",
+      "difficulty": "intermediate",
+      "display_name": "News Reaction Failure Analyzer",
+      "id": "news-reaction-failure-analyzer",
+      "integrations": [
+        {
+          "id": "fmp",
+          "requirement": "required",
+          "type": "market_data"
+        },
+        {
+          "id": "websearch",
+          "requirement": "required",
+          "type": "web"
+        }
+      ],
+      "status": "production",
+      "summary": "Judges whether a market failed to react to news favorable to a crowded speculative position, implementing step 2 of Jason Shapiro's contrarian methodology with a Monte-Carlo-verified drift-significance verdict test.",
+      "timeframe": "event-driven"
+    },
+    {
       "category": "advanced-satellite",
       "difficulty": "advanced",
       "display_name": "Options Strategy Advisor",

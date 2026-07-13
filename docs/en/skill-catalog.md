@@ -73,6 +73,7 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | **[IBD Distribution Day Monitor]({{ '/en/skills/ibd-distribution-day-monitor/' | relative_url }})** | Daily IBD Distribution Day detection for QQQ/SPY with 25-session expiration and 5% invalidation. Risk classification (NORMAL/CAUTION/HIGH/SEVERE) and TQQQ/QQQ exposure recommendation | <span class="badge badge-api">FMP Required</span> |
 | **[Downtrend Duration Analyzer]({{ '/en/skills/downtrend-duration-analyzer/' | relative_url }})** | Analyzes historical downtrend durations (peak-to-trough) and generates interactive HTML histograms segmented by sector and market cap | <span class="badge badge-api">FMP Required</span> |
 | **[COT Contrarian Detector]({{ '/en/skills/cot-contrarian-detector/' | relative_url }})** | Detects crowded large-speculator positioning across 65 CFTC futures markets via COT Index (3-year/26-week), implementing step 1 of Jason Shapiro's contrarian methodology | <span class="badge badge-api">FMP Required</span> |
+| **[News Reaction Failure Analyzer]({{ '/en/skills/news-reaction-failure-analyzer/' | relative_url }})** | Judges whether a crowded market failed to react to favorable news via a Monte-Carlo-verified drift-significance test, implementing step 2 of Jason Shapiro's contrarian methodology | <span class="badge badge-api">FMP Required</span> |
 
 ---
 
@@ -271,5 +272,6 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | Drawdown Circuit Breaker | -- | -- | -- |
 | Pre Trade Discipline Gate | -- | -- | -- |
 | COT Contrarian Detector | Required | -- | -- |
+| News Reaction Failure Analyzer | Required | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.
