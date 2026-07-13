@@ -61,6 +61,7 @@ except ImportError:  # pragma: no cover - environment guard
 
 from reaction_math import (
     DRIFT_Z_DEFAULT,
+    ET,
     MIN_EVENTS_DEFAULT,
     Z_THRESHOLD_DEFAULT,
     build_sorted_series,
@@ -347,13 +348,16 @@ def resolve_direction_from_detector(
         reason `detector_missing_symbol`.
     (b) classification == NEUTRAL -> refuse with reason `not_crowded`
         (fail-closed; only an explicit --direction overrides this).
-    (c) detector run_context.data_date / run_context.as_of missing,
+    (c) detector run_context.data_date missing/empty, not a string,
         unparsable, or dated AFTER --as-of -> reason
         `detector_missing_data_date` / `detector_invalid_data_date` /
         `detector_future_data_date` respectively (all fail-closed -- a
         detector-json's classification is meaningless without a
-        trustworthy vintage). Older than --max-detector-age-days vs
-        --as-of -> reason `detector_json_stale`.
+        trustworthy vintage). `data_date` is REQUIRED: run_context.as_of
+        is the RUN date, not the DATA vintage, and never substitutes for a
+        missing data_date -- doing so would let stale COT data masquerade
+        as fresh (age computed against as_of would come out 0). Older than
+        --max-detector-age-days vs --as-of -> reason `detector_json_stale`.
 
     `detector_data` is untrusted, parsed JSON: valid JSON but the wrong
     shape (top-level list/string/null, `markets`/`skipped` not lists, list
@@ -370,7 +374,7 @@ def resolve_direction_from_detector(
     run_context = detector_data.get("run_context")
     if not isinstance(run_context, dict):
         run_context = {}
-    data_date = run_context.get("data_date") or run_context.get("as_of")
+    data_date = run_context.get("data_date")
     ctx = {"run_context": run_context, "data_date": data_date}
 
     markets_raw = detector_data.get("markets")
@@ -385,8 +389,10 @@ def resolve_direction_from_detector(
     if market_row is None or symbol in skipped_symbols:
         return None, "detector_missing_symbol", ctx
 
-    if not data_date:
+    if data_date is None or data_date == "":
         return None, "detector_missing_data_date", ctx
+    if not isinstance(data_date, str):
+        return None, "detector_invalid_data_date", ctx
     try:
         as_of_dt = datetime.strptime(as_of, "%Y-%m-%d").date()
         data_dt = datetime.strptime(data_date[:10], "%Y-%m-%d").date()
@@ -462,7 +468,16 @@ def validate_events(
             dropped.append({"event_id": event_id, "reason": "unparsable_event_time"})
             continue
 
-        event_date = dt.date()
+        # Normalize to the ET calendar date before comparing against the
+        # window/as-of bounds -- the same ET used for the 16:00 close
+        # cutoff in compute_effective_date(), one source of truth. Using
+        # the input's own raw offset (dt.date()) instead would judge the
+        # same market moment differently depending on how the curator
+        # happened to express the timestamp (e.g. a late-UTC timestamp
+        # that's actually ET-evening the day before would be wrongly
+        # excluded; a late-Pacific timestamp that's actually ET-early-next-
+        # day would be wrongly admitted -- news-side lookahead).
+        event_date = dt.astimezone(ET).date()
         if not (window_start <= event_date <= as_of_dt):
             dropped.append({"event_id": event_id, "reason": "outside_window"})
             continue

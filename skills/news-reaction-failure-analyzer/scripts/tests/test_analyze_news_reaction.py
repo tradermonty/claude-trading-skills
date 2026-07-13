@@ -519,6 +519,40 @@ class TestValidateEvents:
             assert len(valid) == 1
             assert valid[0].get("source_tier_invalid") is not True
 
+    # --- P2 regression (round-2 re-review): window/as-of comparisons must
+    # use the ET calendar date (the same ET used for the 16:00 close
+    # cutoff elsewhere), not the raw offset the curator happened to write
+    # -- otherwise the same market moment is judged differently by input
+    # timezone, and a late-Pacific timestamp that's actually ET-the-next-
+    # day admits news-side lookahead.
+
+    def test_late_utc_timestamp_that_is_still_et_evening_is_included(self):
+        # 2026-07-13T00:30:00+00:00 = 2026-07-12 20:30 ET -- within as_of
+        # 2026-07-12's window. The raw (non-ET) date would read 07-13 and
+        # wrongly exclude it.
+        events = [make_event(event_time="2026-07-13T00:30:00+00:00")]
+        valid, dropped = validate_events(events, as_of="2026-07-12", window_days=10)
+        assert len(valid) == 1
+        assert dropped == []
+
+    def test_late_pacific_timestamp_that_is_actually_et_next_day_is_excluded(self):
+        # 2026-07-12T23:30:00-07:00 = 2026-07-13 02:30 ET -- AFTER as_of
+        # 2026-07-12, i.e. news-side lookahead if admitted. The raw
+        # (non-ET) date would read 07-12 and wrongly admit it.
+        events = [make_event(event_time="2026-07-12T23:30:00-07:00")]
+        valid, dropped = validate_events(events, as_of="2026-07-12", window_days=10)
+        assert valid == []
+        assert dropped[0]["reason"] == "outside_window"
+
+    def test_et_native_timestamp_is_unaffected_by_the_normalization(self):
+        # Regression sanity check: an already-ET-offset timestamp (the
+        # make_event() default, -04:00) behaves identically before and
+        # after normalizing through ET.
+        events = [make_event(event_time="2026-07-08T14:30:00-04:00")]
+        valid, dropped = validate_events(events, as_of="2026-07-12", window_days=10)
+        assert len(valid) == 1
+        assert dropped == []
+
 
 # ---------------------------------------------------------------------------
 # P1 regression, end-to-end: the CLI itself must never crash on a
@@ -626,6 +660,81 @@ class TestMainFailsClosedOnMalformedInput:
         payload = self._report(out_dir)
         assert payload["verdict"] == "INSUFFICIENT_EVIDENCE"
         assert payload["verdict_reason"] == "detector_missing_symbol"
+
+    # --- P1 regression (round-2 re-review): data_date must be a REQUIRED,
+    # non-empty string -- no as_of fallback (that would mask a genuinely
+    # unknown COT vintage as fresh), and no crash on a non-string value
+    # (data_date[:10] used to raise TypeError before it ever reached
+    # datetime.strptime's ValueError handler).
+
+    def _detector_json(self, tmp_path, data_date, filename):
+        detector = {
+            "run_context": {"as_of": "2026-07-12", "data_date": data_date},
+            "markets": [{"symbol": "B6", "classification": "CROWDED_SHORT"}],
+            "skipped": [],
+        }
+        path = tmp_path / filename
+        path.write_text(json.dumps(detector), encoding="utf-8")
+        return path
+
+    def test_detector_json_missing_data_date_is_not_masked_by_as_of(self, tmp_path):
+        # run_context.as_of present but NO data_date key at all -- must NOT
+        # be silently treated as fresh via an as_of fallback (age computed
+        # against as_of would come out exactly 0, hiding a genuinely
+        # unknown COT data vintage).
+        detector_path = tmp_path / "detector_no_data_date.json"
+        detector_path.write_text(
+            json.dumps(
+                {
+                    "run_context": {"as_of": "2026-07-12"},
+                    "markets": [{"symbol": "B6", "classification": "CROWDED_SHORT"}],
+                    "skipped": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        payload = self._report(out_dir)
+        assert payload["verdict"] == "INSUFFICIENT_EVIDENCE"
+        assert payload["verdict_reason"] == "detector_missing_data_date"
+
+    def test_detector_json_empty_string_data_date_exits_0(self, tmp_path):
+        detector_path = self._detector_json(tmp_path, "", "detector_empty_date.json")
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        payload = self._report(out_dir)
+        assert payload["verdict_reason"] == "detector_missing_data_date"
+
+    def test_detector_json_int_data_date_exits_0_not_a_crash(self, tmp_path):
+        detector_path = self._detector_json(tmp_path, 123, "detector_int_date.json")
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        payload = self._report(out_dir)
+        assert payload["verdict_reason"] == "detector_invalid_data_date"
+
+    def test_detector_json_list_data_date_exits_0_not_a_crash(self, tmp_path):
+        detector_path = self._detector_json(tmp_path, ["2026-07-07"], "detector_list_date.json")
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        payload = self._report(out_dir)
+        assert payload["verdict_reason"] == "detector_invalid_data_date"
+
+    def test_detector_json_dict_data_date_exits_0_not_a_crash(self, tmp_path):
+        detector_path = self._detector_json(
+            tmp_path, {"date": "2026-07-07"}, "detector_dict_date.json"
+        )
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        payload = self._report(out_dir)
+        assert payload["verdict_reason"] == "detector_invalid_data_date"
+
+    def test_detector_json_bool_data_date_exits_0_not_a_crash(self, tmp_path):
+        detector_path = self._detector_json(tmp_path, True, "detector_bool_date.json")
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        payload = self._report(out_dir)
+        assert payload["verdict_reason"] == "detector_invalid_data_date"
 
 
 # ---------------------------------------------------------------------------
