@@ -151,27 +151,59 @@ class TestComputeEffectiveDate:
 
 class TestComputeReturns:
     def test_hand_computed_returns(self):
-        # effective_date = D4 (idx=4, close=97); pre = D3 (idx=3, close=98);
-        # +1d = D5 (idx=5, close=100); +3d = D7 (idx=7, close=105).
+        # effective_date = D4 (idx=4, close=97); pre = D3 (idx=3, close=98).
+        # return_1d spans exactly 1 trading session -- the effective date
+        # itself (idx=4, close=97) vs pre-close.
+        # return_3d spans exactly 3 trading sessions starting at the
+        # effective date: D4,D5,D6 (idx=4,5,6; closes 97,100,103) -- i.e.
+        # close[idx+2]=D6=103 vs the same pre-close.
         result = compute_returns(SERIES, "2026-06-05")
-        assert result["return_1d"] == pytest.approx(100 / 98 - 1)
-        assert result["return_3d"] == pytest.approx(105 / 98 - 1)
+        assert result["return_1d"] == pytest.approx(97 / 98 - 1)
+        assert result["return_3d"] == pytest.approx(103 / 98 - 1)
 
     def test_effective_date_at_series_start_has_no_pre_close(self):
         result = compute_returns(SERIES, "2026-06-01")
         assert result["return_1d"] is None
         assert result["return_3d"] is None
 
-    def test_insufficient_forward_bars_returns_none_for_that_horizon(self):
-        # D10 (idx=10) is the last bar: no +1d or +3d bar exists.
+    def test_return_1d_available_even_on_the_last_bar(self):
+        # D10 (idx=10) is the last bar. return_1d only needs close[idx]
+        # itself (always present once the effective date is found in the
+        # series) vs close[idx-1] -- it does NOT need a forward bar, so it
+        # is available even here.
         result = compute_returns(SERIES, "2026-06-16")
-        assert result["return_1d"] is None
+        assert result["return_1d"] == pytest.approx(108 / 106 - 1)
+
+    def test_insufficient_forward_bars_returns_none_for_3d_only(self):
+        # D10 (idx=10) is the last bar: return_3d needs close[idx+2], which
+        # doesn't exist yet -- unlike return_1d (see the test above), this
+        # horizon degrades to None.
+        result = compute_returns(SERIES, "2026-06-16")
         assert result["return_3d"] is None
 
     def test_unknown_effective_date_returns_none(self):
         result = compute_returns(SERIES, "2099-01-01")
         assert result["return_1d"] is None
         assert result["return_3d"] is None
+
+    def test_pins_exact_indices_used_close_idx_and_close_idx_plus_2(self):
+        # Regression guard for a real historical bug: return_1d/return_3d
+        # used to be computed as close[idx+1]/close[idx+3] (2-session /
+        # 4-session spans) instead of the true close[idx]/close[idx+2]
+        # (1-session / 3-session spans), both against close[idx-1]. All
+        # values here are distinct so any off-by-one in which bar is used
+        # produces a detectably different result.
+        dates = [f"2026-08-{i:02d}" for i in range(1, 8)]
+        closes = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0]
+        series = list(zip(dates, closes))
+        effective_date = dates[3]  # idx=3, close=40
+        result = compute_returns(series, effective_date)
+        # return_1d must use close[idx]=40 vs close[idx-1]=30 -- NOT
+        # close[idx+1]=50 (the old, wrong 2-session span).
+        assert result["return_1d"] == pytest.approx(40.0 / 30.0 - 1)
+        # return_3d must use close[idx+2]=60 vs close[idx-1]=30 -- NOT
+        # close[idx+3]=70 (the old, wrong 4-session span).
+        assert result["return_3d"] == pytest.approx(60.0 / 30.0 - 1)
 
 
 class TestComputeDailyStdev:
@@ -281,12 +313,31 @@ class TestClusterEvents:
         }
 
     def test_overlapping_windows_collapse_to_one_cluster(self):
-        # window=3: event@5 -> [5,8]; event@6 -> [6,9] overlaps (6<=8).
+        # window=3 trading days spans [idx, idx+window-1]: event@5 -> [5,7];
+        # event@6 -> [6,8] overlaps (6<=7).
         events = [self._event("e1", 5, 1.0), self._event("e2", 6, 2.0)]
         clusters = cluster_events(events)
         assert len(clusters) == 1
         assert clusters[0]["effective_date_index"] == 5
         assert [m["event_id"] for m in clusters[0]["cluster_members"]] == ["e1", "e2"]
+
+    def test_gap_of_exactly_window_days_does_not_overlap(self):
+        # Corrected window math: a 3-day window spans [idx, idx+2], so a gap
+        # of exactly 3 between two events' effective_date_index means the
+        # second event's window starts the day AFTER the first window ends
+        # -- no overlap. (Under the old, wrong [idx, idx+window] math this
+        # pair incorrectly merged into one cluster -- this is the pinned
+        # regression test for that off-by-one.)
+        events = [self._event("e1", 0, 1.0), self._event("e2", 3, 2.0)]
+        clusters = cluster_events(events)
+        assert len(clusters) == 2
+
+    def test_gap_of_window_minus_one_still_overlaps(self):
+        # A gap of 2 (window-1) means the second event's window starts on
+        # the last day of the first's window -- still overlapping.
+        events = [self._event("e1", 0, 1.0), self._event("e2", 2, 2.0)]
+        clusters = cluster_events(events)
+        assert len(clusters) == 1
 
     def test_cluster_z3_is_earliest_members_own_z3_not_averaged(self):
         # e1 (earliest, idx=5) has z3=1.0; e2 (idx=6) has a very different
@@ -306,7 +357,7 @@ class TestClusterEvents:
         assert members == {"e1": 1.0, "e2": 9.0}
 
     def test_non_overlapping_windows_stay_separate(self):
-        # event@0 -> [0,3]; event@5 -> [5,8]; event@10 -> [10,13]. None overlap.
+        # event@0 -> [0,2]; event@5 -> [5,7]; event@10 -> [10,12]. None overlap.
         events = [self._event("e1", 0, 1.0), self._event("e2", 5, 2.0), self._event("e3", 10, 3.0)]
         clusters = cluster_events(events)
         assert len(clusters) == 3
@@ -319,10 +370,10 @@ class TestClusterEvents:
         assert [c["zscore_3d_adjusted"] for c in clusters] == [1.0, 2.0, 3.0]
 
     def test_transitive_chain_merges_into_one_cluster(self):
-        # event@0 -> [0,3]; event@3 -> [3,6] overlaps 0; event@6 -> [6,9]
-        # overlaps the extended chain end (6) even though it doesn't overlap
-        # event@0's own window directly.
-        events = [self._event("e1", 0, 0.0), self._event("e2", 3, 3.0), self._event("e3", 6, 6.0)]
+        # event@0 -> [0,2]; event@2 -> [2,4] overlaps 0 (2<=2); event@4 ->
+        # [4,6] overlaps the extended chain end (4) even though it doesn't
+        # overlap event@0's own window directly (4 > 0's own end of 2).
+        events = [self._event("e1", 0, 0.0), self._event("e2", 2, 3.0), self._event("e3", 4, 6.0)]
         clusters = cluster_events(events)
         assert len(clusters) == 1
         assert [m["event_id"] for m in clusters[0]["cluster_members"]] == ["e1", "e2", "e3"]

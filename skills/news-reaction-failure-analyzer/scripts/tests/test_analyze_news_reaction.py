@@ -89,7 +89,7 @@ class TestFetchPriceSeries:
         rows = make_eod_rows(TRADING_DATES, CLOSES)
         client.session = _FakeSession([_FakeResponse(rows, status_code=200)])
         chain = [("ESUSD", "futures", False)]
-        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29")
+        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29", as_of="2026-06-29")
         assert result["error"] is None
         assert result["price_symbol"] == "ESUSD"
         assert result["proxy_used"] is False
@@ -105,7 +105,7 @@ class TestFetchPriceSeries:
             ]
         )
         chain = [("NQUSD", "futures", False), ("QQQ", "etf", False)]
-        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29")
+        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29", as_of="2026-06-29")
         assert result["error"] is None
         assert result["price_symbol"] == "QQQ"
         assert result["proxy_used"] is True
@@ -120,7 +120,7 @@ class TestFetchPriceSeries:
             ]
         )
         chain = [("VXUSD", "futures", False), ("SOMEPROXY", "etf", False)]
-        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29")
+        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29", as_of="2026-06-29")
         assert result["error"] is None
         assert result["price_symbol"] == "SOMEPROXY"
         assert result["proxy_used"] is True
@@ -134,7 +134,7 @@ class TestFetchPriceSeries:
             ]
         )
         chain = [("VXUSD", "futures", False), ("NOPROXY", "etf", False)]
-        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29")
+        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29", as_of="2026-06-29")
         assert result["error"] == "no_price_source"
         assert result["series"] == []
         assert len(result["attempts"]) == 2
@@ -143,8 +143,71 @@ class TestFetchPriceSeries:
         client = PriceClient(api_key="fake", sleep_seconds=0.0)
         client.session = _FakeSession([_FakeResponse({}, status_code=402)])
         chain = [("ZQUSD", "futures", False)]
-        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29")
+        result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29", as_of="2026-06-29")
         assert result["error"] == "no_price_source"
+
+
+def _weekday_dates(start, count):
+    dates = []
+    d = start
+    while len(dates) < count:
+        if d.weekday() < 5:
+            dates.append(d.isoformat())
+        d += timedelta(days=1)
+    return dates
+
+
+# ---------------------------------------------------------------------------
+# P1-2 regression: --as-of is an information cutoff, not just a report
+# label. A backdated run must never see prices dated after it -- the fetch
+# range intentionally over-requests forward days (PRICE_FETCH_LOOKAHEAD_DAYS)
+# so a live/current-date run has real bars near the window edge, but on a
+# backdated run those would be real future-relative-to-as_of prices
+# (lookahead bias) unless clipped.
+# ---------------------------------------------------------------------------
+
+
+class TestAsOfInformationCutoff:
+    def _fetch(self, dates, closes, as_of):
+        rows = make_eod_rows(dates, closes)
+        client = PriceClient(api_key="fake", sleep_seconds=0.0)
+        client.session = _FakeSession([_FakeResponse(rows, status_code=200)])
+        return fetch_price_series(
+            client, [("ESUSD", "futures", False)], dates[0], dates[-1], as_of=as_of
+        )
+
+    def test_fetch_price_series_never_returns_bars_after_as_of(self):
+        dates = _weekday_dates(date(2026, 5, 1), 90)
+        as_of = dates[69]  # cutoff in the middle of the fetched range
+        closes = [100.0 + i * 0.1 for i in range(len(dates))]
+        result = self._fetch(dates, closes, as_of)
+        assert result["error"] is None
+        returned_dates = [d for d, _ in result["series"]]
+        assert returned_dates == dates[:70]
+        assert all(d <= as_of for d in returned_dates)
+
+    def test_event_one_session_before_as_of_is_insufficient_price_window(self):
+        dates = _weekday_dates(date(2026, 5, 1), 90)
+        as_of = dates[69]
+        closes = [100.0 + i * 0.1 for i in range(len(dates))]
+        series = self._fetch(dates, closes, as_of)["series"]
+        # Only 1 forward bar (the as_of bar itself) remains in the
+        # truncated series -- return_3d needs 2 (close[idx+2]).
+        event = make_event(event_time=f"{dates[68]}T10:00:00-04:00")
+        record = build_event_record(event, series, "CROWDED_LONG")
+        assert record["usable"] is False
+        assert record["reason"] == "insufficient_price_window"
+
+    def test_event_four_sessions_before_as_of_is_usable(self):
+        dates = _weekday_dates(date(2026, 5, 1), 90)
+        as_of = dates[69]
+        closes = [100.0 + i * 0.1 for i in range(len(dates))]
+        series = self._fetch(dates, closes, as_of)["series"]
+        # 4 forward bars remain in the truncated series -- more than
+        # enough for the 3-session return_3d window.
+        event = make_event(event_time=f"{dates[65]}T10:00:00-04:00")
+        record = build_event_record(event, series, "CROWDED_LONG")
+        assert record["usable"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +292,49 @@ class TestResolveDirectionFromDetector:
         assert direction == "CROWDED_LONG"
         assert reason is None
 
+    # --- P2-3 regression: a detector-json's vintage (data_date) must be
+    # trustworthy before the classification it carries is used -- missing,
+    # unparsable, or future-dated all fail closed now (an explicit
+    # --direction still bypasses this whole function, unchanged).
+
+    def test_missing_data_date_fails_closed(self):
+        detector = make_detector_json(
+            as_of=None,
+            data_date=None,
+            markets=[{"symbol": "ES", "classification": "CROWDED_LONG"}],
+        )
+        direction, reason, _ctx = resolve_direction_from_detector(
+            detector, "ES", as_of="2026-07-12", max_age_days=10
+        )
+        assert direction is None
+        assert reason == "detector_missing_data_date"
+
+    def test_unparsable_data_date_fails_closed(self):
+        detector = make_detector_json(
+            data_date="not-a-date",
+            markets=[{"symbol": "ES", "classification": "CROWDED_LONG"}],
+        )
+        direction, reason, _ctx = resolve_direction_from_detector(
+            detector, "ES", as_of="2026-07-12", max_age_days=10
+        )
+        assert direction is None
+        assert reason == "detector_invalid_data_date"
+
+    def test_future_dated_data_date_fails_closed(self):
+        # data_date after --as-of: the detector claims to know about data
+        # from the future relative to this run -- untrustworthy, not just
+        # "not stale".
+        detector = make_detector_json(
+            as_of="2026-07-20",
+            data_date="2026-07-15",
+            markets=[{"symbol": "ES", "classification": "CROWDED_LONG"}],
+        )
+        direction, reason, _ctx = resolve_direction_from_detector(
+            detector, "ES", as_of="2026-07-12", max_age_days=10
+        )
+        assert direction is None
+        assert reason == "detector_future_data_date"
+
     # --- P1 regression: structurally-malformed (valid JSON, wrong shape)
     # detector-json must never crash -- always fail-closed with a reason.
 
@@ -271,7 +377,9 @@ class TestResolveDirectionFromDetector:
 
     def test_skipped_not_a_list_is_treated_as_empty_not_a_crash(self):
         detector = {
-            "run_context": {},
+            # data_date present and fresh here so this test isolates the
+            # `skipped` shape guard, not the P2-3 data_date checks below.
+            "run_context": {"as_of": "2026-07-12", "data_date": "2026-07-07"},
             "markets": [{"symbol": "ES", "classification": "CROWDED_LONG"}],
             "skipped": "oops",
         }
@@ -282,6 +390,11 @@ class TestResolveDirectionFromDetector:
         assert reason is None
 
     def test_run_context_not_a_dict_is_treated_as_empty_not_a_crash(self):
+        # run_context="oops" coerces to {} without crashing -- but that
+        # also means no data_date survives, so this now correctly fails
+        # closed via the P2-3 guard rather than silently succeeding (there
+        # is no way to both ignore an invalid run_context AND trust a
+        # data_date that lives inside it).
         detector = {
             "run_context": "oops",
             "markets": [{"symbol": "ES", "classification": "CROWDED_LONG"}],
@@ -289,8 +402,8 @@ class TestResolveDirectionFromDetector:
         direction, reason, _ctx = resolve_direction_from_detector(
             detector, "ES", as_of="2026-07-12", max_age_days=10
         )
-        assert direction == "CROWDED_LONG"
-        assert reason is None
+        assert direction is None
+        assert reason == "detector_missing_data_date"
 
 
 # ---------------------------------------------------------------------------

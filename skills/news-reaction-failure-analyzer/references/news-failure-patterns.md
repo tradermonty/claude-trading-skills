@@ -187,10 +187,12 @@ verdict.
   or after 16:00 ET count from the next trading day (the close has
   already happened). Weekend/holiday gaps degrade naturally to the next
   available trading bar — never a crash.
-- **Returns:** `close(eff + k trading days) / close(eff - 1 trading day) -
-  1`, for k ∈ {1, 3} — spans the pre-event baseline through k days after
-  the effective date, capturing the full initial reaction window
-  (including any overnight/opening gap).
+- **Returns:** `close(eff + k - 1 trading days) / close(eff - 1 trading
+  day) - 1`, for k ∈ {1, 3} — a true k-trading-session return: the k
+  sessions starting at, and including, the effective date itself, against
+  the close the day before (capturing any overnight/opening gap). For
+  k=1 that's just `close(eff) / close(eff-1)`; for k=3 it's
+  `close(eff+2) / close(eff-1)` (the 3 sessions eff, eff+1, eff+2).
 - **Z-scores:** `daily_stdev` is the sample stdev of trailing daily
   returns ending the day before the event (60-trading-day lookback by
   default). `zscore_1d = return_1d / daily_stdev`; `zscore_3d = return_3d

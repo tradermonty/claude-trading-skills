@@ -127,10 +127,12 @@ Emit a handoff block for `contrarian-setup-gate` (#241, not yet built):
   action confirmation (step 3), entry (step 4), and exit (step 5) are still
   manual and still required before any position.
 - **INSUFFICIENT_EVIDENCE never advances the pipeline.** Fewer than
-  `--min-events` (default 3) usable relevant event *clusters*, a stale or
-  missing detector report, a `NEUTRAL` classification without an explicit
-  override, or no working price source all produce this verdict — never a
-  crash, never a forced call on inadequate data.
+  `--min-events` (default 3) usable relevant event *clusters*, a missing
+  detector report, or a detector vintage (`data_date`) that's missing,
+  unparsable, dated after `--as-of`, or older than
+  `--max-detector-age-days` (stale), a `NEUTRAL` classification without an
+  explicit override, or no working price source all produce this verdict
+  — never a crash, never a forced call on inadequate data.
 - **COT publication lag.** COT data is 3-9 days old by the time it's read
   (see `cot-contrarian-detector`); news-failure evidence should be read in
   that context, not as same-day confirmation.

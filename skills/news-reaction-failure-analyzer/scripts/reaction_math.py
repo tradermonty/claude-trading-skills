@@ -73,10 +73,12 @@ DAILY_STDEV_LOOKBACK_DEFAULT = 60
 DAILY_STDEV_MIN_SAMPLES_DEFAULT = 20
 
 # Event-clustering independence guard: relevant events whose 3-trading-day
-# return windows [effective_date_index, +window] share any trading day are
-# collapsed into one cluster (counted once toward n). This defends the
-# iid-N(0,1) null the verdict test assumes -- overlapping windows would
-# otherwise produce correlated z3 values that silently inflate n.
+# return windows [effective_date_index, effective_date_index + window - 1]
+# share any trading day are collapsed into one cluster (counted once toward
+# n). This defends the iid-N(0,1) null the verdict test assumes --
+# overlapping windows would otherwise produce correlated z3 values that
+# silently inflate n. The window matches compute_returns()'s return_3d span
+# (window trading sessions starting at, and including, the effective date).
 CLUSTER_WINDOW_DAYS = 3
 
 # Market close cutoff (ET). An event at/after this wall-clock hour counts
@@ -154,10 +156,15 @@ def compute_effective_date(event_time_iso: str, trading_dates: list[str]) -> str
 
 
 def compute_returns(series: list[tuple[str, float]], effective_date: str) -> dict:
-    """close(eff + k trading days) / close(eff - 1 trading day) - 1, for
-    k in {1, 3}, as fractions (e.g. 0.02 for +2%). Returns None for a
-    horizon when the effective date isn't in the series, has no prior bar
-    (it's the first row), or lacks enough forward bars.
+    """close(eff + k - 1 trading days) / close(eff - 1 trading day) - 1, for
+    k in {1, 3}, as fractions (e.g. 0.02 for +2%) -- a true k-trading-session
+    return: the k sessions starting at and including the effective date
+    itself, against the close the day before. For k=1 that's just
+    close(eff)/close(eff-1); for k=3 it's close(eff+2)/close(eff-1) (the
+    3 sessions eff, eff+1, eff+2). Returns None for a horizon when the
+    effective date isn't in the series, has no prior bar (it's the first
+    row), or lacks enough forward bars for that horizon (return_1d never
+    needs a forward bar, since its own session IS the effective date).
     """
     idx = find_date_index(series, effective_date)
     if idx is None or idx < 1:
@@ -165,7 +172,7 @@ def compute_returns(series: list[tuple[str, float]], effective_date: str) -> dic
     pre_close = series[idx - 1][1]
     result: dict = {}
     for k, key in ((1, "return_1d"), (3, "return_3d")):
-        post_idx = idx + k
+        post_idx = idx + k - 1
         if post_idx >= len(series) or not pre_close:
             result[key] = None
         else:
@@ -266,8 +273,9 @@ def classify_reaction(adjusted_zscore_3d: float, z_threshold: float = Z_THRESHOL
 
 
 def cluster_events(events: list[dict], window: int = CLUSTER_WINDOW_DAYS) -> list[dict]:
-    """Collapse relevant events whose [effective_date_index, +window]
-    3-trading-day return windows overlap into one cluster, counted once.
+    """Collapse relevant events whose [effective_date_index,
+    effective_date_index + window - 1] 3-trading-day return windows overlap
+    into one cluster, counted once.
 
     `events`: list of dicts, each with at least `event_id` (str),
     `effective_date` (str), `effective_date_index` (int), and
@@ -295,15 +303,15 @@ def cluster_events(events: list[dict], window: int = CLUSTER_WINDOW_DAYS) -> lis
     ordered = sorted(events, key=lambda e: e["effective_date_index"])
     clusters: list[list[dict]] = []
     current = [ordered[0]]
-    current_end = ordered[0]["effective_date_index"] + window
+    current_end = ordered[0]["effective_date_index"] + window - 1
     for ev in ordered[1:]:
         if ev["effective_date_index"] <= current_end:
             current.append(ev)
-            current_end = max(current_end, ev["effective_date_index"] + window)
+            current_end = max(current_end, ev["effective_date_index"] + window - 1)
         else:
             clusters.append(current)
             current = [ev]
-            current_end = ev["effective_date_index"] + window
+            current_end = ev["effective_date_index"] + window - 1
     clusters.append(current)
     return [_finalize_cluster(members) for members in clusters]
 

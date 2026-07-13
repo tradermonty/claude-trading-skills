@@ -86,7 +86,12 @@ MAX_DETECTOR_AGE_DAYS_DEFAULT = 10
 
 # Extra calendar days fetched before/after the nominal window so effective-
 # date snapping and the 60-trading-day daily_stdev lookback both have real
-# bars to work with, without a second round-trip.
+# bars to work with, without a second round-trip. The lookahead fetch is
+# deliberately over-requested and then clipped to --as-of by
+# fetch_price_series()'s cutoff filter -- it only pays off on a
+# live/current --as-of run, where "after as_of" simply doesn't exist yet in
+# FMP's data; on a backdated --as-of it fetches real future-relative-to-
+# as_of bars that the cutoff filter then discards, to avoid lookahead bias.
 PRICE_FETCH_LOOKBACK_DAYS = 130
 PRICE_FETCH_LOOKAHEAD_DAYS = 10
 
@@ -254,11 +259,21 @@ def fetch_price_series(
     chain: list[tuple[str, str, bool]],
     from_date: str,
     to_date: str,
+    as_of: str,
 ) -> dict[str, Any]:
     """Try each (price_symbol, kind, invert) in `chain` in order. A source
     fails on HTTP error OR `rows == 0` (a distinct, documented failure mode
     -- some symbols return 200 with an empty body rather than an HTTP
     error). First success wins.
+
+    `as_of` is an INFORMATION CUTOFF, not just a report label: any bar
+    dated after it is dropped before a source is considered successful.
+    Without this, a backdated --as-of run would see prices that hadn't
+    happened yet at that date (lookahead bias) -- the caller intentionally
+    over-requests `to_date` past `as_of` (see PRICE_FETCH_LOOKAHEAD_DAYS)
+    so a live/current-date run has real bars near the window edge; this is
+    what actually enforces the cutoff for a backdated run. A source whose
+    rows are entirely after `as_of` degrades the same way as "0 rows".
 
     Returns a dict:
       success: {"error": None, "series": [(date, close), ...], "price_symbol",
@@ -280,6 +295,7 @@ def fetch_price_series(
             attempts.append({"price_symbol": price_symbol, "kind": kind, "status": "0 rows"})
             continue
         series = build_sorted_series(rows)
+        series = [(d, c) for d, c in series if d <= as_of]
         if not series:
             attempts.append({"price_symbol": price_symbol, "kind": kind, "status": "0 rows"})
             continue
@@ -331,8 +347,13 @@ def resolve_direction_from_detector(
         reason `detector_missing_symbol`.
     (b) classification == NEUTRAL -> refuse with reason `not_crowded`
         (fail-closed; only an explicit --direction overrides this).
-    (c) detector run_context.as_of / run_context.data_date older than
-        --max-detector-age-days vs --as-of -> reason `detector_json_stale`.
+    (c) detector run_context.data_date / run_context.as_of missing,
+        unparsable, or dated AFTER --as-of -> reason
+        `detector_missing_data_date` / `detector_invalid_data_date` /
+        `detector_future_data_date` respectively (all fail-closed -- a
+        detector-json's classification is meaningless without a
+        trustworthy vintage). Older than --max-detector-age-days vs
+        --as-of -> reason `detector_json_stale`.
 
     `detector_data` is untrusted, parsed JSON: valid JSON but the wrong
     shape (top-level list/string/null, `markets`/`skipped` not lists, list
@@ -364,16 +385,19 @@ def resolve_direction_from_detector(
     if market_row is None or symbol in skipped_symbols:
         return None, "detector_missing_symbol", ctx
 
-    if data_date:
-        try:
-            as_of_dt = datetime.strptime(as_of, "%Y-%m-%d").date()
-            data_dt = datetime.strptime(data_date[:10], "%Y-%m-%d").date()
-            age_days = (as_of_dt - data_dt).days
-            ctx["detector_age_days"] = age_days
-            if age_days > max_age_days:
-                return None, "detector_json_stale", ctx
-        except ValueError:
-            pass  # unparsable date: don't fail closed on a formatting quirk
+    if not data_date:
+        return None, "detector_missing_data_date", ctx
+    try:
+        as_of_dt = datetime.strptime(as_of, "%Y-%m-%d").date()
+        data_dt = datetime.strptime(data_date[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None, "detector_invalid_data_date", ctx
+    age_days = (as_of_dt - data_dt).days
+    ctx["detector_age_days"] = age_days
+    if age_days < 0:
+        return None, "detector_future_data_date", ctx
+    if age_days > max_age_days:
+        return None, "detector_json_stale", ctx
 
     classification = market_row.get("classification")
     if classification == "NEUTRAL":
@@ -869,7 +893,7 @@ def main() -> None:
     as_of_date = datetime.strptime(args.as_of, "%Y-%m-%d").date()
     from_date = (as_of_date - timedelta(days=PRICE_FETCH_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     to_date = (as_of_date + timedelta(days=PRICE_FETCH_LOOKAHEAD_DAYS)).strftime("%Y-%m-%d")
-    price_result = fetch_price_series(client, chain, from_date, to_date)
+    price_result = fetch_price_series(client, chain, from_date, to_date, as_of=args.as_of)
 
     run_context = build_run_context(
         price_result["price_symbol"],
