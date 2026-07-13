@@ -3,7 +3,7 @@ layout: default
 title: "Trade Performance Coach"
 grand_parent: English
 parent: Skill Guides
-nav_order: 60
+nav_order: 61
 lang_peer: /ja/skills/trade-performance-coach/
 permalink: /en/skills/trade-performance-coach/
 generated: true

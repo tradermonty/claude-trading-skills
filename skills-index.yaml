@@ -657,6 +657,31 @@ skills:
   - market_top_composite_score
   workflows:
   - market-regime-daily
+- id: news-reaction-failure-analyzer
+  display_name: News Reaction Failure Analyzer
+  category: market-regime
+  status: production
+  summary: Judges whether a market failed to react to news favorable to a crowded speculative
+    position, implementing step 2 of Jason Shapiro's contrarian methodology with a Monte-Carlo-verified
+    drift-significance verdict test.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: Historical EOD price data; per-symbol coverage varies (ETF proxy fallback documented)
+  - id: websearch
+    type: web
+    requirement: required
+    note: Events curation (Claude searches news to build the events JSON; no FMP news endpoint exists
+      for futures)
+  inputs:
+  - cot_detector_report
+  - curated_events_json
+  outputs:
+  - news_failure_verdict
+  workflows: []
 - id: options-strategy-advisor
   display_name: Options Strategy Advisor
   category: advanced-satellite

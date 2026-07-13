@@ -252,6 +252,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Market Environment Analysis** | ❌ Not used | ❌ Not used | ❌ Not used | Global market data via WebSearch / WebFetch; Optional chart image inputs for technical interpretation |
 | **Market News Analyst** | ❌ Not used | ❌ Not used | ❌ Not used | Web search / fetch |
 | **Market Top Detector** | ❌ Not used | ❌ Not used | ❌ Not used | Public market data CSVs; no API key required |
+| **News Reaction Failure Analyzer** | ✅ Required | ❌ Not used | ❌ Not used | Historical EOD price data; per-symbol coverage varies (ETF proxy fallback documented) |
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **PEAD Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Pair Trade Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
