@@ -846,6 +846,7 @@ def _title_case(slug: str) -> str:
         "mcp": "MCP",
         "sop": "SOP",
         "esg": "ESG",
+        "cot": "COT",
     }
     words = slug.split("-")
     return " ".join(acronyms.get(w, w.capitalize()) for w in words)
@@ -1431,8 +1432,12 @@ def main(argv: list[str] | None = None) -> int:
     # Resolve skill-packages-dir (None if it doesn't exist)
     skill_packages_dir = args.skill_packages_dir if args.skill_packages_dir.is_dir() else None
 
-    # Discover skills
-    skill_dirs = sorted(args.skills_dir.iterdir())
+    # Discover skills. `all_skill_dirs` (unfiltered) feeds nav_order assignment
+    # so a single-skill `--skill` run assigns the same nav_order --check would
+    # expect from a full-repo scan; `skill_dirs` (possibly filtered) drives
+    # what actually gets read/written below.
+    all_skill_dirs = sorted(args.skills_dir.iterdir())
+    skill_dirs = all_skill_dirs
     if args.skill:
         skill_dirs = [args.skills_dir / args.skill]
 
@@ -1449,8 +1454,10 @@ def main(argv: list[str] | None = None) -> int:
     en_dir.mkdir(parents=True, exist_ok=True)
     ja_dir.mkdir(parents=True, exist_ok=True)
 
-    # Assign nav_orders (shared with --check via _compute_nav_orders).
-    nav_orders = _compute_nav_orders(skill_dirs, args.overwrite)
+    # Assign nav_orders from the full skill set (shared with --check via
+    # _compute_nav_orders) so `--skill <name>` alone doesn't collapse every
+    # new skill to NAV_ORDER_START.
+    nav_orders = _compute_nav_orders(all_skill_dirs, args.overwrite)
 
     generated_en = 0
     generated_ja = 0

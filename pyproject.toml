@@ -112,6 +112,7 @@ testpaths = [
     "skills/trading-skills-navigator/scripts/tests",
     "skills/us-market-bubble-detector/scripts/tests",
     "skills/us-stock-analysis/scripts/tests",
+    "skills/cot-contrarian-detector/scripts/tests",
     "scripts/tests",
 ]
 

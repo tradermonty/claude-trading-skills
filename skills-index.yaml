@@ -90,6 +90,24 @@ skills:
   - composite_scores
   workflows:
   - swing-opportunity-daily
+- id: cot-contrarian-detector
+  display_name: COT Contrarian Detector
+  category: market-regime
+  status: production
+  summary: Detects crowded speculative (large-speculator) positioning in CFTC futures markets using
+    Commitment of Traders data, implementing step 1 of Jason Shapiro's contrarian methodology.
+  timeframe: weekly
+  difficulty: intermediate
+  integrations:
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: CFTC COT data via FMP; requires Premium+ plan
+  inputs:
+  - cot_report_data
+  outputs:
+  - cot_crowding_report
+  workflows: []
 - id: data-quality-checker
   display_name: Data Quality Checker
   category: meta

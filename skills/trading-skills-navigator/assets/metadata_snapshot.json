@@ -66,6 +66,22 @@
       "timeframe": "weekly"
     },
     {
+      "category": "market-regime",
+      "difficulty": "intermediate",
+      "display_name": "COT Contrarian Detector",
+      "id": "cot-contrarian-detector",
+      "integrations": [
+        {
+          "id": "fmp",
+          "requirement": "required",
+          "type": "market_data"
+        }
+      ],
+      "status": "production",
+      "summary": "Detects crowded speculative (large-speculator) positioning in CFTC futures markets using Commitment of Traders data, implementing step 1 of Jason Shapiro's contrarian methodology.",
+      "timeframe": "weekly"
+    },
+    {
       "category": "meta",
       "difficulty": "beginner",
       "display_name": "Data Quality Checker",

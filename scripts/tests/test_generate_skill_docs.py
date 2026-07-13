@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from generate_skill_docs import (
     HAND_WRITTEN,
+    NAV_ORDER_START,
     _doc_is_generated,
     _extract_catalog_slugs,
     _generate_buttons,
@@ -1122,3 +1123,147 @@ class TestUpdateCatalogApiMatrix:
         content = catalog.read_text()
         # free-skill should not be added to JA because all values are "-"
         assert "Free Skill" not in content
+
+
+# ---------------------------------------------------------------------------
+# Tests: nav_order assignment under `--skill` (regression for the bug where
+# `main()` computed nav_order from the filtered single-skill list instead of
+# a full-repo scan, so every `--skill <name>` run collapsed to NAV_ORDER_START
+# regardless of the target's alphabetical position -- which then mismatched
+# what `--check` computes from a full scan and caused guaranteed drift).
+# ---------------------------------------------------------------------------
+
+
+class TestSkillFlagNavOrderAssignment:
+    def _make_skill(self, skills_dir: Path, name: str) -> None:
+        """Create a minimal, renderable skill directory (mirrors `tmp_skill`)."""
+        skill_dir = skills_dir / name
+        skill_dir.mkdir(parents=True)
+        title = name.replace("-", " ").title()
+        (skill_dir / "SKILL.md").write_text(
+            textwrap.dedent(f"""\
+            ---
+            name: {name}
+            description: A test skill named {title} for the nav_order regression test.
+            ---
+
+            # {title}
+
+            ## Overview
+
+            This is a test skill.
+
+            ## When to Use
+
+            Use when testing.
+
+            ## Prerequisites
+
+            - No API key required
+
+            ## Workflow
+
+            ### Step 1: Run it
+
+            ```bash
+            python3 scripts/run.py
+            ```
+            """)
+        )
+
+    def test_skill_flag_assigns_full_scan_nav_order_not_start(self, tmp_path):
+        """3 skills, sorted alphabetically: alpha-skill, beta-skill,
+        gamma-target. gamma-target is 3rd, so a full-repo scan assigns it
+        NAV_ORDER_START + 2. Running `--skill gamma-target` alone must
+        assign the SAME value -- not collapse to NAV_ORDER_START as if it
+        were the only skill in the repo."""
+        skills_dir = tmp_path / "skills"
+        docs_dir = tmp_path / "docs"
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("# CLAUDE.md\n\n#### API Requirements by Skill\n\n")
+
+        for name in ["alpha-skill", "beta-skill", "gamma-target"]:
+            self._make_skill(skills_dir, name)
+
+        exit_code = main(
+            [
+                "--skill",
+                "gamma-target",
+                "--skills-dir",
+                str(skills_dir),
+                "--docs-dir",
+                str(docs_dir),
+                "--claude-md",
+                str(claude_md),
+                "--skill-packages-dir",
+                str(tmp_path / "skill-packages"),  # doesn't exist -> resolved to None
+            ]
+        )
+        assert exit_code == 0
+
+        page = (docs_dir / "en" / "skills" / "gamma-target.md").read_text()
+        expected_nav_order = NAV_ORDER_START + 2  # alpha=0, beta=1, gamma-target=2
+        assert f"nav_order: {expected_nav_order}" in page
+        assert f"nav_order: {NAV_ORDER_START}\n" not in page
+
+        # Only gamma-target was requested via --skill; alpha/beta pages must
+        # not have been written at all (the write loop stays scoped to the
+        # requested skill even though nav_order is computed from the full set).
+        assert not (docs_dir / "en" / "skills" / "alpha-skill.md").exists()
+        assert not (docs_dir / "en" / "skills" / "beta-skill.md").exists()
+
+    def test_skill_flag_matches_full_scan_check_nav_order(self, tmp_path, capsys):
+        """The nav_order a `--skill`-scoped run assigns must equal what a
+        subsequent full-repo `--check` run would independently compute --
+        this is exactly the invariant that broke before the fix (a `--skill`
+        write followed by `--check` reported drift on the very same page).
+
+        alpha-skill/beta-skill are deliberately never generated here (only
+        gamma-target is), so `--check` legitimately reports them as missing
+        -- that's unrelated to nav_order and is not what this test asserts.
+        The assertion is specifically that gamma-target's page matches.
+        """
+        skills_dir = tmp_path / "skills"
+        docs_dir = tmp_path / "docs"
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("# CLAUDE.md\n\n#### API Requirements by Skill\n\n")
+
+        for name in ["alpha-skill", "beta-skill", "gamma-target"]:
+            self._make_skill(skills_dir, name)
+
+        write_exit = main(
+            [
+                "--skill",
+                "gamma-target",
+                "--overwrite",
+                "--skills-dir",
+                str(skills_dir),
+                "--docs-dir",
+                str(docs_dir),
+                "--claude-md",
+                str(claude_md),
+                "--skill-packages-dir",
+                str(tmp_path / "skill-packages"),
+            ]
+        )
+        assert write_exit == 0
+        capsys.readouterr()  # discard write-phase output
+
+        main(
+            [
+                "--check",
+                "--skills-dir",
+                str(skills_dir),
+                "--docs-dir",
+                str(docs_dir),
+                "--claude-md",
+                str(claude_md),
+                "--skill-packages-dir",
+                str(tmp_path / "skill-packages"),
+            ]
+        )
+        check_lines = capsys.readouterr().err.splitlines()
+        assert any(
+            line.startswith("OK:") and "gamma-target.md matches" in line for line in check_lines
+        )
+        assert not any(line.startswith("DRIFT:") and "gamma-target" in line for line in check_lines)
