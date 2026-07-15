@@ -6,17 +6,20 @@ calls are made here. Run with:
     python3 -m pytest skills/news-reaction-failure-analyzer/scripts/tests/ -v
 """
 
+import argparse
 import json
 import subprocess
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
 import requests
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
+import analyze_news_reaction as analyzer  # noqa: E402
 from analyze_news_reaction import (  # noqa: E402
     PRICE_SOURCE_CHAINS,
     PriceClient,
@@ -585,6 +588,46 @@ class TestMainFailsClosedOnMalformedInput:
         assert len(report_files) == 1, f"expected exactly 1 report, found {report_files}"
         return json.loads(report_files[0].read_text(encoding="utf-8"))
 
+    def _run_main_in_process(
+        self,
+        tmp_path,
+        monkeypatch,
+        events,
+        fetch_result,
+        build_record=None,
+        symbol="B6",
+    ):
+        out_dir = tmp_path / "out"
+        events_path = tmp_path / "events.json"
+        events_path.write_text(json.dumps({"events": events}), encoding="utf-8")
+        args = argparse.Namespace(
+            symbol=symbol,
+            price_symbol=None,
+            direction="CROWDED_SHORT",
+            detector_json=None,
+            max_detector_age_days=10,
+            events_json=str(events_path),
+            window_days=10,
+            min_events=3,
+            z_threshold=0.5,
+            drift_z=1.45,
+            as_of="2026-07-12",
+            output_dir=str(out_dir),
+            format="json",
+            api_key="FAKE",  # pragma: allowlist secret
+            sleep_seconds=0.0,
+        )
+        monkeypatch.setattr(analyzer, "parse_arguments", lambda: args)
+        monkeypatch.setattr(analyzer, "fetch_price_series", lambda *args, **kwargs: fetch_result)
+        if build_record is not None:
+            monkeypatch.setattr(analyzer, "build_event_record", build_record)
+
+        with pytest.raises(SystemExit) as exc_info:
+            analyzer.main()
+
+        assert exc_info.value.code == 0
+        return self._report(out_dir, symbol=symbol)
+
     def test_events_json_top_level_null_exits_0_and_writes_report(self, tmp_path):
         events_path = tmp_path / "events_null.json"
         events_path.write_text("null", encoding="utf-8")
@@ -636,6 +679,57 @@ class TestMainFailsClosedOnMalformedInput:
         payload = self._report(out_dir, symbol="ZZFAKE")
         assert payload["verdict"] == "INSUFFICIENT_EVIDENCE"
         assert payload["verdict_reason"] == "no_price_source"
+        assert payload["dropped_events"] == [
+            {"event_id": "?", "reason": "malformed_event_item"},
+            {"event_id": "?", "reason": "malformed_event_item"},
+            {"event_id": "?", "reason": "malformed_event_item"},
+        ]
+
+    def test_fetch_failure_preserves_validation_drops(self, tmp_path, monkeypatch):
+        events = [make_event(event_id="valid"), make_event(event_id="missing-url", source_url=None)]
+        fetch_result = {
+            "price_symbol": None,
+            "source_kind": None,
+            "proxy_used": False,
+            "inverted": False,
+            "series": [],
+            "error": "no_price_source",
+        }
+
+        payload = self._run_main_in_process(tmp_path, monkeypatch, events, fetch_result)
+
+        assert payload["verdict_reason"] == "no_price_source"
+        assert payload["dropped_events"] == [
+            {"event_id": "missing-url", "reason": "missing_source_url"}
+        ]
+
+    def test_no_usable_events_preserves_all_accumulated_drops(self, tmp_path, monkeypatch):
+        events = [make_event(event_id="valid"), make_event(event_id="missing-url", source_url=None)]
+        fetch_result = {
+            "price_symbol": "GBPUSD",
+            "source_kind": "futures",
+            "proxy_used": False,
+            "inverted": False,
+            "series": [("2026-07-08", 100.0)],
+            "error": None,
+        }
+
+        def unusable_record(event, series, direction):
+            return {"usable": False, "reason": "insufficient_price_history"}
+
+        payload = self._run_main_in_process(
+            tmp_path,
+            monkeypatch,
+            events,
+            fetch_result,
+            build_record=unusable_record,
+        )
+
+        assert payload["verdict_reason"] == "no_usable_events"
+        assert payload["dropped_events"] == [
+            {"event_id": "missing-url", "reason": "missing_source_url"},
+            {"event_id": "valid", "reason": "insufficient_price_history"},
+        ]
 
     def test_detector_json_top_level_list_exits_0(self, tmp_path):
         detector_path = tmp_path / "detector_list.json"
