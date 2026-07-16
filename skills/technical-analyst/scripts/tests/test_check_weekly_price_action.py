@@ -227,6 +227,35 @@ class TestLoadJsonFile:
         assert error is None
         assert reason is None
 
+    # --- Residual P1 (user re-review round 2 of PR #247): a file that is
+    # readable but NOT valid UTF-8 raises UnicodeDecodeError -- a
+    # ValueError subclass, NOT an OSError -- so it used to escape the
+    # `except OSError` clause entirely and crash with a traceback instead
+    # of failing closed. UnicodeDecodeError IS a UnicodeError, so
+    # `except (OSError, UnicodeError)` catches both without widening the
+    # net to unrelated exception types (e.g. MemoryError still propagates,
+    # which is correct -- that's not a "this input is bad" condition).
+
+    def test_non_utf8_bytes_returns_unreadable_reason_not_a_crash(self, tmp_path):
+        binary_path = tmp_path / "binary.json"
+        binary_path.write_bytes(b"\xff\xfe\x00bad")
+        data, error, reason = load_json_file(str(binary_path))
+        assert data is None
+        assert error is not None
+        assert reason == "unreadable"
+
+    def test_directory_path_returns_unreadable_reason_not_a_crash(self, tmp_path):
+        # IsADirectoryError is an OSError subclass -- already covered by
+        # the existing `except OSError`, but cheap to pin explicitly since
+        # it's the same "can we even open this as a file" question as the
+        # missing-file and non-UTF-8 cases above.
+        dir_path = tmp_path / "a_directory"
+        dir_path.mkdir()
+        data, error, reason = load_json_file(str(dir_path))
+        assert data is None
+        assert error is not None
+        assert reason == "unreadable"
+
 
 # ---------------------------------------------------------------------------
 # Detector-json handling (verbatim behavior copy of #245's hardened guards)
@@ -553,6 +582,22 @@ class TestMainFailsClosedOnMalformedInput:
         payload = self._report(out_dir)
         assert payload["verdict"] == "INSUFFICIENT_DATA"
         assert payload["verdict_reason"] == "detector_json_parse_error"
+
+    # --- Residual P1 (user re-review round 2 of PR #247): a readable but
+    # non-UTF-8 --detector-json file raises UnicodeDecodeError, which
+    # `except OSError` alone does not catch -- used to crash with a
+    # traceback and exit 1, no report. Repro exactly as given: a raw byte
+    # sequence that is not valid UTF-8.
+
+    def test_detector_json_non_utf8_bytes_is_insufficient_data_exit_0_no_traceback(self, tmp_path):
+        binary_path = tmp_path / "binary.json"
+        binary_path.write_bytes(b"\xff\xfe\x00bad")
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(binary_path)])
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "Traceback" not in result.stderr
+        payload = self._report(out_dir)
+        assert payload["verdict"] == "INSUFFICIENT_DATA"
+        assert payload["verdict_reason"] == "detector_json_unreadable"
 
     def test_detector_json_top_level_list_exits_0(self, tmp_path):
         detector_path = tmp_path / "detector_list.json"

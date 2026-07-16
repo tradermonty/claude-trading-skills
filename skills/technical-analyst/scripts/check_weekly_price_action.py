@@ -303,17 +303,25 @@ def load_json_file(path: str) -> tuple[dict[str, Any] | None, str | None, str | 
     """Read and parse a JSON file. Returns (data, None, None) on success, or
     (None, error, reason) on failure, where `reason` is a machine-readable
     tag distinguishing the two ways this can fail closed: `"unreadable"`
-    (the file is missing, unreadable, or otherwise can't be opened -- an
-    OSError) vs `"parse_error"` (the file opened fine but isn't valid
-    JSON). Callers use `reason` (not the free-text `error` string, which
-    is for logging only) to pick a specific fail-closed verdict_reason
-    (P1 regression, user re-review of PR #247: this file previously had no
-    reason tag at all, and callers exited 1 with no report for BOTH cases
-    instead of failing closed to INSUFFICIENT_DATA like every other
-    degraded-input path in this script)."""
+    (the file is missing, unreadable, not valid UTF-8, or otherwise can't
+    be read as text) vs `"parse_error"` (the file opened and decoded fine
+    but isn't valid JSON). Callers use `reason` (not the free-text `error`
+    string, which is for logging only) to pick a specific fail-closed
+    verdict_reason (P1 regression, user re-review of PR #247: this file
+    previously had no reason tag at all, and callers exited 1 with no
+    report for BOTH cases instead of failing closed to INSUFFICIENT_DATA
+    like every other degraded-input path in this script).
+
+    Catches `(OSError, UnicodeError)`, not `OSError` alone: a readable
+    file that isn't valid UTF-8 raises `UnicodeDecodeError`, which is a
+    `ValueError`/`UnicodeError` subclass, NOT an `OSError` -- it used to
+    escape this function entirely and crash with a traceback (residual P1,
+    user re-review round 2). `MemoryError` and other unrelated exceptions
+    are deliberately left uncaught -- those aren't "this input is bad"
+    conditions."""
     try:
         text = Path(path).read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         return None, f"cannot read {path}: {exc}", "unreadable"
     try:
         return json.loads(text), None, None
