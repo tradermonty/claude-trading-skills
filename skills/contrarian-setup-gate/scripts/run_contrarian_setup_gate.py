@@ -13,7 +13,7 @@ PURE and OFFLINE: no network, no API keys, no environment reads beyond the
 three local report files this CLI is pointed at. The CLI's own job is
 narrow: load the three JSON files with hardening -- unreadable / parse_error
 / non_finite are caught here in `load_json_file` (non_finite: a whole-file
-recursive scan rejecting any non-finite float anywhere, even in a field the
+iterative scan rejecting any non-finite float anywhere, even in a field the
 gate never reads -- PR #249 user-review round 3; this closes off the only
 route by which a raw non-finite value could otherwise reach the JSON
 writer's `allow_nan=False` via an audit-echo field and crash with exit 1

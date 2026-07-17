@@ -77,7 +77,7 @@ A consistency failure marks the **exhibiting input** `INVALID` with a named reas
 |---|---|---|
 | `detector_unreadable` | INVALID | File missing, unreadable, or not valid UTF-8 |
 | `detector_parse_error` | INVALID | File read but is not valid JSON |
-| `detector_non_finite` | INVALID | Valid JSON, but the parsed structure contains a non-finite float (`inf`/`-inf`/`nan`) SOMEWHERE, at any depth, in any field -- including a syntactically valid JSON number that overflows to `inf` on parse (e.g. `1e309`), and the bare `Infinity`/`-Infinity`/`NaN` literals `json.loads` accepts by default as a non-standard extension. Detected by a whole-file recursive scan in the CLI's `load_json_file`, BEFORE the data is ever handed to `normalize_crowding` -- not scoped to fields the gate reads. See "Why the non-finite scan is whole-file" below (PR #249 user-review round 3) |
+| `detector_non_finite` | INVALID | Valid JSON, but the parsed structure contains a non-finite float (`inf`/`-inf`/`nan`) SOMEWHERE, at any depth, in any field -- including a syntactically valid JSON number that overflows to `inf` on parse (e.g. `1e309`), and the bare `Infinity`/`-Infinity`/`NaN` literals `json.loads` accepts by default as a non-standard extension. Detected by a whole-file iterative scan in the CLI's `load_json_file`, BEFORE the data is ever handed to `normalize_crowding` -- not scoped to fields the gate reads. See "Why the non-finite scan is whole-file" below (PR #249 user-review round 3) |
 | `detector_malformed` | INVALID | Valid JSON but the top level is not an object |
 | `detector_schema_unsupported` | INVALID | `schema_version` major is not `1` |
 | `detector_missing_symbol` | INSUFFICIENT | Symbol absent from `markets[]`, or present in `skipped[]` |
