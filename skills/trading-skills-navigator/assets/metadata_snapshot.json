@@ -1411,6 +1411,27 @@
       ]
     },
     {
+      "api_profile": "fmp-required",
+      "cadence": "weekly",
+      "difficulty": "advanced",
+      "display_name": "Shapiro COT Contrarian",
+      "estimated_minutes": 60,
+      "id": "shapiro-contrarian",
+      "optional_skills": [],
+      "prerequisite_workflows": [],
+      "required_skills": [
+        "cot-contrarian-detector",
+        "news-reaction-failure-analyzer",
+        "technical-analyst",
+        "contrarian-setup-gate",
+        "futures-position-sizer",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "futures-contrarian-trader"
+      ]
+    },
+    {
       "api_profile": "mixed",
       "cadence": "daily",
       "difficulty": "advanced",

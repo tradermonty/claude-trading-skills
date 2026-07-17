@@ -317,6 +317,54 @@ PERSONAS: tuple[Persona, ...] = (
             "Strategy Research area; no dedicated workflow shipped yet"
         ),
     ),
+    # Shapiro COT contrarian pipeline (Issue #244) — crowded futures
+    # positioning fade. Ships as a real workflow (shapiro-contrarian.yaml),
+    # NOT an honest gap; the setup_bundle collision this used to cause
+    # against the market-regime skillset is fixed in _skillset() (see its
+    # docstring), not here.
+    Persona(
+        name="shapiro-contrarian-futures-trader",
+        any_terms=(
+            "shapiro",
+            "jason shapiro",
+            "cot report",
+            "cot data",
+            "cot contrarian",
+            "commitment of traders",
+            "crowded positioning",
+            "crowded speculator",
+            "crowded futures",
+            "fade the crowd",
+            "fade a crowded",
+            "futures contrarian",
+            "contrarian futures",
+            "contrarian fade",
+            # JA — normalize_query lowercases, so "COT" -> "cot"
+            "シャピロ",
+            "ジェイソン・シャピロ",
+            "cotレポート",
+            "cotデータ",
+            "コミットメントオブトレーダーズ",
+            "建玉の偏り",
+            "建玉の混み合い",
+            "投機筋の偏り",
+            "先物逆張り",
+            "先物の逆張り",
+            "逆張り先物",
+            "混雑ポジション",
+            "混み合った先物",
+            "混み合う先物",
+            "混み合っている先物",
+            "混み合ったポジション",
+            "混雑した先物",
+        ),
+        primary="shapiro-contrarian",
+        rationale=(
+            "Shapiro COT contrarian trader — weekly crowded-futures-positioning "
+            "fade pipeline (COT crowding, news-reaction failure, price-action "
+            "reversal, gated sizing)"
+        ),
+    ),
     # Q8 — no-API path.
     Persona(
         name="no-api-path",
@@ -732,21 +780,36 @@ def _skillset(
     category: str,
     skillset_ids: frozenset[str],
     skillsets_by_id: dict[str, dict[str, Any]],
+    *,
+    primary_workflow_id: str | None = None,
 ) -> dict[str, Any]:
     # PR-N2: "active" iff a skillsets/<category>.yaml manifest exists (its id
     # == the skills-index category). Honest-gap categories have no manifest
     # → "deferred". PR-N3: `manifest` is ALWAYS present (symmetric schema) —
     # the 5-key view when active, else None.
-    active = category in skillset_ids
+    #
+    # Issue #244 rebase review: category is just the FIRST required skill's
+    # skills-index category (dominant_category()) — it can coincidentally
+    # collide with a manifest that was purpose-built for a DIFFERENT
+    # workflow. E.g. shapiro-contrarian's first required skill,
+    # cot-contrarian-detector, is category=market-regime, but the
+    # market-regime skillset manifest was authored for market-regime-daily's
+    # own 3 skills (its related_workflows), not shapiro-contrarian's 6. When
+    # `primary_workflow_id` is given, the manifest is only "active" if it
+    # actually names that workflow in `related_workflows` — otherwise this
+    # behaves exactly like an honest-gap category (deferred, manifest=None),
+    # which is what keeps setup_bundle() from silently replacing a
+    # multi-category workflow's own required_skills with an unrelated
+    # manifest's.
+    manifest = skillsets_by_id.get(category) if category in skillset_ids else None
+    active = manifest is not None and (
+        primary_workflow_id is None or primary_workflow_id in manifest["related_workflows"]
+    )
     return {
         "id": category,
         "source": "skills-index.category",
         "manifest_status": "active" if active else "deferred",
-        "manifest": (
-            _skillset_manifest_view(skillsets_by_id[category])
-            if active and category in skillsets_by_id
-            else None
-        ),
+        "manifest": _skillset_manifest_view(manifest) if active else None,
     }
 
 
@@ -951,7 +1014,12 @@ def recommend(
         time_budget=time_budget_min,
     )
 
-    skillset = _skillset(dominant_category(primary_wf, skills_by_id), skillset_ids, skillsets_by_id)
+    skillset = _skillset(
+        dominant_category(primary_wf, skills_by_id),
+        skillset_ids,
+        skillsets_by_id,
+        primary_workflow_id=primary_wf["id"],
+    )
     rationale.append(
         f"skillset '{skillset['id']}' = category of "
         f"'{primary_wf['required_skills'][0]}' "

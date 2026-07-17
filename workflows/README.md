@@ -19,6 +19,7 @@ For the full schema, error codes, and validator rules, see [`docs/dev/metadata-a
 | [`stockbee-fluency-loop.yaml`](stockbee-fluency-loop.yaml) | daily (~20 min) | no-api-basic | stockbee-setup-fluency-trainer |
 | [`trade-memory-loop.yaml`](trade-memory-loop.yaml) | ad-hoc (per closed trade) | no-api-basic | trader-memory-core, signal-postmortem |
 | [`monthly-performance-review.yaml`](monthly-performance-review.yaml) | monthly (~90 min) | no-api-basic | trader-memory-core, signal-postmortem, backtest-expert |
+| [`shapiro-contrarian.yaml`](shapiro-contrarian.yaml) | weekly (~60 min) | fmp-required | cot-contrarian-detector, news-reaction-failure-analyzer, technical-analyst, contrarian-setup-gate, futures-position-sizer, trader-memory-core |
 
 ## How to read a manifest
 
