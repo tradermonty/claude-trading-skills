@@ -129,16 +129,18 @@ class TestStrictNonNegInt:
         assert fs.strict_nonneg_int(value) == 2**100 + 7
 
 
-# --- Floor algorithm (PINNED, relative epsilon) -----------------------------
+# --- Floor algorithm (PINNED, exact rational arithmetic -- no epsilon) -----
 
 
 class TestComputeContracts:
     def test_exact_k_times_rpc_gives_k(self):
         # rpc built from a non-binary-exact product (0.1 * 3) so the exact
-        # multiple isn't binary-representable, exercising the epsilon nudge
-        # rather than passing by binary luck (plan v2 review requirement).
+        # multiple isn't binary-representable. budget is computed AS
+        # rpc * 7 (the same rpc, round-tripped), so the exact rational
+        # quotient recovers exactly 7 -- no epsilon involved at all now,
+        # just exact Fraction arithmetic.
         rpc = 0.1 * 3  # 0.30000000000000004 in float64
-        budget = rpc * 7  # "true" 7x, but float noise may land fractionally under
+        budget = rpc * 7
         assert fs.compute_contracts(budget, rpc) == 7
 
     def test_k_times_rpc_minus_true_shortfall_gives_k_minus_1(self):
@@ -152,10 +154,10 @@ class TestComputeContracts:
         budget = 250.0
         assert fs.compute_contracts(budget, rpc) == 2
 
-    def test_large_scale_exact_multiple_still_recovers_under_count(self):
-        # q ~ 1e5: the (now absolute) epsilon must still recover an exact
-        # multiple lost to float noise, without ever rounding up a genuine
-        # fractional remainder.
+    def test_large_scale_exact_multiple_still_recovers_exactly(self):
+        # q ~ 1e5: the exact-rational floor recovers an exact multiple
+        # without ever rounding up a genuine fractional remainder --
+        # by construction, not by an epsilon's sizing.
         rpc = 1012.50
         budget = rpc * 100_000
         assert fs.compute_contracts(budget, rpc) == 100_000
@@ -176,9 +178,15 @@ class TestComputeContracts:
     def test_max_contracts_none_means_uncapped(self):
         assert fs.compute_contracts(1000.0, 100.0, max_contracts=None) == 10
 
-    # --- Code review round 3, P1-1: relative epsilon rounded UP past the
-    # actual risk budget at large q. Reverted to absolute epsilon + a hard
-    # post-condition invariant that is the real correctness guarantee. ---
+    # --- Code review round 3, P1-1 (and its own re-review): the relative
+    # epsilon rounded UP past the actual risk budget at large q; the
+    # absolute-epsilon + hard-post-condition-loop fix that replaced it
+    # could not terminate in practice at large scale (float64 loses the
+    # ability to represent `(contracts - 1) * rpc != contracts * rpc` once
+    # contracts is huge, so the loop's exit condition never becomes true).
+    # Both are now replaced by an EXACT rational floor (Fraction), which
+    # has no epsilon, no loop, and no representable-difference failure
+    # mode -- it terminates in O(1) and is exact by construction. ---
 
     def test_p1_1_exact_repro_does_not_round_up_past_budget(self):
         # Exact reviewer repro: budget=$99,999,999,950, rpc=$1,000 ->
@@ -191,11 +199,59 @@ class TestComputeContracts:
         assert contracts == 99_999_999
         assert contracts * rpc <= budget
 
+    def test_hang_repro_terminates_instantly_and_is_rejected_as_absurd(self):
+        # The reviewer's exact hang repro for the (now-removed)
+        # epsilon+while design: at this scale, `(contracts - 1) * rpc`
+        # and `contracts * rpc` are bit-for-bit identical in float64, so
+        # the old post-condition loop's exit test never became true and
+        # it decremented toward zero one candidate contract at a time --
+        # computationally indistinguishable from a hang (~2.4e285
+        # iterations). The exact-rational floor computes the (equally
+        # absurd) answer in O(1); CONTRACTS_SANITY_MAX then rejects it
+        # outright as economically implausible, exit 2, rather than
+        # returning a technically-correct nonsense SIZED report.
+        distance = 1.0  # |entry - stop| = |2 - 1|
+        multiplier = 1.4296227991821346e-275
+        rpc = distance * multiplier
+        account_size = 341482236954.82006
+        risk_pct = 10.0
+        budget = account_size * risk_pct / 100.0
+        with pytest.raises(fs.ConfigError) as exc_info:
+            fs.compute_contracts(budget, rpc)
+        assert exc_info.value.reason == "contracts_implausibly_large"
+
+    def test_money_safety_correction_3_times_rpc_exceeds_0_9_budget(self):
+        # The epsilon-based designs' "under-count fix" was itself a bug at
+        # this exact scale: rpc = 0.1 * 3 = 0.30000000000000004 (slightly
+        # ABOVE the mathematical 0.3), so 3 * rpc = 0.9000000000000001,
+        # which EXCEEDS a separately-specified 0.9 budget. 3 contracts
+        # would cost more than the budget allows in float64 terms; the
+        # money-safe answer is 2, and the exact-rational floor correctly
+        # returns 2 (an epsilon nudge would have pushed this to the wrong
+        # answer, 3).
+        rpc = 0.1 * 3
+        budget = 0.9
+        assert 3 * rpc > budget  # confirms the money-unsafe direction is real
+        contracts = fs.compute_contracts(budget, rpc)
+        assert contracts == 2
+        assert contracts * rpc <= budget
+
+    def test_moderately_large_legit_case_still_sized_under_sanity_cap(self):
+        # ~1e8 contracts (a $1 trillion account against a cheap contract)
+        # is a legitimate case this module's own tests exercise elsewhere
+        # (e.g. the P1-1 repro above) -- it must stay well under
+        # CONTRACTS_SANITY_MAX and never be rejected.
+        budget = 1_000.0 * 100_000_000  # $100,000,000,000
+        rpc = 1_000.0
+        contracts = fs.compute_contracts(budget, rpc)
+        assert contracts == 100_000_000
+        assert contracts < fs.CONTRACTS_SANITY_MAX
+
     def test_invariant_holds_across_a_scale_sweep(self):
-        # The hard post-condition must hold (contracts * rpc <= budget)
-        # regardless of scale -- this is the actual guarantee, not the
-        # epsilon's sizing. Sweep several orders of magnitude, each with a
-        # genuine, deliberately non-round fractional shortfall.
+        # contracts * rpc <= budget must hold regardless of scale -- exact
+        # by construction now, not by trusting any epsilon's sizing. Sweep
+        # several orders of magnitude, each with a genuine, deliberately
+        # non-round fractional shortfall.
         for rpc in (0.30000000000000004, 1.0, 1012.50, 1_000.0, 7.8125):
             for k in (1, 2, 100, 100_000, 10**8):
                 budget = rpc * k - 0.5 * rpc  # a true (k - 0.5)x budget
@@ -548,19 +604,23 @@ class TestSizeFuturesPositionOverflowGuards:
             fs.size_futures_position(**self.base_kwargs(spec=zero_multiplier_spec))
         assert exc_info.value.reason == "risk_per_contract_non_positive"
 
-    def test_quotient_overflow_raises_config_error(self):
-        # Follow-up to P1-2: risk_per_contract can be finite and POSITIVE
-        # (not underflowed to exactly 0.0) yet still so tiny relative to a
-        # large-but-capped risk_budget that the QUOTIENT itself overflows
-        # to inf -- caught inside compute_contracts(), not by the
-        # risk_per_contract guard (which only checks risk_per_contract
-        # itself, not the quotient).
+    def test_quotient_overflow_now_caught_as_implausibly_large(self):
+        # Follow-up to P1-2, superseded by the round-3 exact-rational floor
+        # (round-3, second re-review): risk_per_contract can be finite and
+        # POSITIVE (not underflowed to exactly 0.0) yet still so tiny
+        # relative to a large-but-capped risk_budget that the naive FLOAT
+        # quotient would have overflowed to inf. Fraction arithmetic has no
+        # such overflow ceiling -- the exact quotient is instead a
+        # legitimately astronomical (but finite, exact) integer, which the
+        # CONTRACTS_SANITY_MAX check now catches as economically
+        # implausible rather than as a numeric overflow. Same end result
+        # (a clean ConfigError, exit 2), different, more accurate reason.
         tiny_spec = dict(ES_SPEC, multiplier=1e-300, tick_size=0.25, tick_value=2.5e-301)
         with pytest.raises(fs.ConfigError) as exc_info:
             fs.size_futures_position(
                 **self.base_kwargs(spec=tiny_spec, account_size=1e12, risk_pct=10.0)
             )
-        assert exc_info.value.reason == "contracts_quotient_overflow"
+        assert exc_info.value.reason == "contracts_implausibly_large"
 
 
 # --- size_futures_position: mode B (gate-supplied stop) --------------------

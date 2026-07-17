@@ -16,25 +16,30 @@ total_risk           = contracts * risk_per_contract            (USD, when SIZED
 
 `fx_rate` converts a non-USD-quoted contract's risk into USD; it is `1.0` for every symbol in the verified core table (all 23 are USD-quoted -- see `futures-contract-specs.md`) and is required, with no default, for any operator-supplied override symbol quoted in another currency.
 
-## The Floor Algorithm (Absolute Epsilon + a Hard Post-Condition Invariant)
+## The Floor Algorithm (Exact Rational Arithmetic -- No Epsilon)
 
 ```python
-q = risk_budget / risk_per_contract
-contracts = math.floor(q + 1e-9)
-while contracts > 0 and contracts * risk_per_contract > risk_budget:
-    contracts -= 1
+from fractions import Fraction
+q = Fraction(risk_budget) / Fraction(risk_per_contract)
+contracts = math.floor(q)
 ```
 
-Floating-point division can land a "true" exact multiple (`risk_budget == k * risk_per_contract` for some integer k) a few ULPs *under* `k` due to binary representation error -- a naive `math.floor(q)` would then silently return `k - 1` instead of `k`. An earlier version of this skill used a *relative* epsilon (`math.floor(q * (1 + 1e-9))`) to fix that under-count; an independent user review (round 3, P1-1) found this was a mistake: a relative nudge's *absolute* size grows with `q`, and at a large scale (e.g. `q ~ 1e8` for a big account against a cheap contract) a `1e-9`-relative nudge is already large enough in absolute terms (~0.1) to swallow a *genuine* fractional shortfall -- the reported repro was `q = 99999999.95` (a true 0.05-contract shortfall) rounding UP to `100,000,000` contracts, $50 over the actual risk budget, and still reported as `SIZED`. That is exactly the "never round up" contract this skill exists to enforce, violated by the fix meant to guard a much smaller edge case.
+`Fraction(finite_float)` converts a float64 to the *exact* rational number it represents -- every float64 is a dyadic rational (an exact fraction with a power-of-2 denominator), so this conversion loses nothing. The division and floor that follow are then exact rational operations: `contracts * risk_per_contract <= risk_budget` holds *by construction*, with no epsilon, no iteration, and no float-representation edge case of any kind.
 
-The corrected design has two independent layers, and only the second one is actually load-bearing for correctness:
+This design replaced two earlier float-heuristic attempts, both of which were bugs caught by independent user review across two rounds:
 
-1. **The epsilon (a nicety, not a guarantee).** A small, *fixed absolute* epsilon (`1e-9`) added before flooring repairs the same float64 under-count the relative version was meant to fix, without growing with scale.
-2. **The hard post-condition (the real guarantee).** After the floor (and epsilon), the code walks `contracts` back down, one at a time if needed, until `contracts * risk_per_contract <= risk_budget` holds exactly in float64 terms. This is what makes "the risk budget is never exceeded" true *by construction*, independent of whatever the epsilon did -- even a mis-sized or removed epsilon could never let a sized position exceed its budget, because this loop is the actual enforcement mechanism, not the epsilon.
+1. **A relative epsilon** (`math.floor(q * (1 + 1e-9))`, an early plan-review addition meant to recover a contract lost to float64 under-counting at an exact `k * risk_per_contract` boundary). A relative nudge's *absolute* size grows with `q`, and at large scale (`q ~ 1e8`, a big account against a cheap contract) a `1e-9`-relative nudge was already large enough (~0.1 in absolute terms) to swallow a *genuine* fractional shortfall and round the contract count UP past the actual risk budget -- the reported repro was `q = 99999999.95` (a true 0.05-contract shortfall) rounding to `100,000,000` contracts, $50 over budget, still `SIZED`.
+2. **An absolute epsilon plus a hard post-condition loop** (`contracts = floor(q + 1e-9)`, then `while contracts * risk_per_contract > risk_budget: contracts -= 1` to walk any over-count back down). This fixed the rounding-up defect, but a *second* independent re-review found it could not terminate in practice at large scale: once `contracts` is large enough (the reported repro reached roughly `2.4e285`), float64 can no longer represent the difference between `contracts` and `contracts - 1` when each is multiplied by `risk_per_contract` -- `(contracts - 1) * risk_per_contract` and `contracts * risk_per_contract` become bit-for-bit identical -- so the loop's exit condition never becomes true and it decrements toward zero one candidate contract at a time. Not an infinite loop in the mathematical sense, but computationally indistinguishable from a hang.
 
-The tick-grid check (`is_on_tick_grid`) and the minimum-stop-distance guard (`meets_min_stop_distance`) keep their own *relative* epsilon (unchanged) -- that construction is still correct for them, since tick sizes span multiple orders of magnitude across symbols and a ratio-based (not budget-based) comparison is what they're doing; the relative-epsilon defect specifically affected the contract-count floor, where the "risk_budget / risk_per_contract" quotient's scale set the failure mode.
+Both defects came from trying to patch float64's inherent imprecision with more float64 heuristics. The fix is to stop doing float arithmetic for this comparison at all -- `Fraction` sidesteps the entire problem class rather than adding another layer meant to compensate for it.
 
-**Minimum-stop-distance guard.** If the entry/stop distance is less than one tick, sizing is refused rather than silently computing an ultra-high, effectively meaningless contract count from a near-zero `risk_per_contract`. This closes the one regime where any epsilon design gets shaky: a stop distance of a few ULPs would make `risk_per_contract` itself vanishingly small, and even a tiny risk budget would imply an enormous (and nonsensical) contract count.
+**A consequence worth knowing:** this design is money-safe in a way that can look surprising at a glance. Take `risk_per_contract = 0.1 * 3 = 0.30000000000000004` (slightly *above* the mathematical 0.3) against a budget of exactly `0.9`: `3 * risk_per_contract = 0.9000000000000001`, which *exceeds* the 0.9 budget in float64 terms. Three contracts would cost more than the budget allows; the exact-rational floor correctly returns `2`, not `3` -- even though "3 times risk-per-contract is about 0.9" looks intuitively fine at a glance. This is the same "never round up" guarantee working correctly at a scale where naive intuition (and the old epsilon-based designs) got it wrong.
+
+**Sanity cap on the result.** The exact-rational floor can no longer hang on an absurd input (e.g. a denormal-scale `--multiplier` override combined with a large `--account-size`), but it can still return a technically correct, economically meaningless answer -- the hang repro above computes an exact contract count with hundreds of digits. `CONTRACTS_SANITY_MAX` (1e12, four orders of magnitude above the largest legitimate case this skill's own tests exercise, ~1e8) rejects anything above it outright as `contracts_implausibly_large`, turning nonsense input into a clean `ConfigError` instead of a nonsensical `SIZED` report.
+
+The tick-grid check (`is_on_tick_grid`) and the minimum-stop-distance guard (`meets_min_stop_distance`) are unrelated to this and keep their own *relative* float epsilon (unchanged) -- that construction is still correct for them, since tick sizes span multiple orders of magnitude across symbols and a ratio-based (not budget-based) comparison is what they're doing; the float-epsilon defects above were specific to the contract-count floor, where the "risk_budget / risk_per_contract" quotient's own scale set the failure mode.
+
+**Minimum-stop-distance guard.** If the entry/stop distance is less than one tick, sizing is refused rather than silently computing an ultra-high, effectively meaningless contract count from a near-zero `risk_per_contract`. This closes the regime where `risk_per_contract` itself would be vanishingly small and even a tiny risk budget would imply an enormous (and nonsensical) contract count -- now doubly guarded by `CONTRACTS_SANITY_MAX` as well.
 
 ## Two Fail-Closed Classes: ConfigError vs. NO_TRADE
 

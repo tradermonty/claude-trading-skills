@@ -22,11 +22,12 @@ import pytest
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "futures_position_sizer.py"
 
 
-def _run_cli(args: list[str]) -> subprocess.CompletedProcess:
+def _run_cli(args: list[str], timeout: float | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(SCRIPT_PATH), *args],
         capture_output=True,
         text=True,
+        timeout=timeout,
     )
 
 
@@ -523,6 +524,36 @@ class TestBudgetInvariantAndUnderflowGuards:
         result = _run_cli(args)
         assert result.returncode == 2
         assert "Traceback" not in result.stderr
+        assert not out_dir.exists() or not any(out_dir.iterdir())
+
+    def test_p1_1_followup_hang_repro_terminates_and_exits_2(self, tmp_path):
+        # Second re-review of the P1-1 fix: the absolute-epsilon + hard
+        # post-condition loop that "fixed" P1-1 could not terminate in
+        # practice at this scale (float64 can no longer represent
+        # `(contracts - 1) * rpc != contracts * rpc` once contracts is
+        # ~2.4e285, so the loop's decrement never reaches its exit
+        # condition). A `timeout=` on the subprocess call turns a
+        # regression back into that failure mode into a clean pytest
+        # failure (TimeoutExpired) instead of an actually-hanging test
+        # suite. The exact-rational floor must terminate instantly and
+        # reject the absurd result outright.
+        out_dir = tmp_path / "reports"
+        args = [
+            "--symbol", "ZZZZ",
+            "--direction", "LONG",
+            "--entry", "2",
+            "--stop", "1",
+            "--multiplier", "1.4296227991821346e-275",
+            "--tick-size", "1",
+            "--contract-currency", "USD",
+            "--account-size", "341482236954.82006",
+            "--risk-pct", "10",
+            "--output-dir", str(out_dir),
+        ]  # fmt: skip
+        result = _run_cli(args, timeout=10.0)
+        assert result.returncode == 2
+        assert "Traceback" not in result.stderr
+        assert "implausible" in result.stderr
         assert not out_dir.exists() or not any(out_dir.iterdir())
 
 

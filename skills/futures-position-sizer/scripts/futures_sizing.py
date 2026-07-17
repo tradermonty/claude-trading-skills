@@ -38,6 +38,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Any
 
 SCHEMA_VERSION = "1.0"
@@ -52,22 +53,35 @@ SKILL_NAME = "futures-position-sizer"
 # off-grid/mid-quote price is legitimate and only warns).
 BOND_FAMILY = frozenset({"ZT", "ZF", "ZN", "ZB"})
 
-# ABSOLUTE (not relative) epsilon for the contract-count floor -- a
-# relative epsilon (plan v3, review round-2 P2) was a mistake, caught by
-# independent user review (round 3, P1-1): a RELATIVE nudge's absolute
-# size grows with q (risk_budget / risk_per_contract), and at large q
-# (e.g. q ~ 1e8 for a big account against a cheap contract) a 1e-9-relative
-# nudge is already ~0.1 in absolute terms -- large enough to swallow a
-# GENUINE fractional shortfall (e.g. q = 99999999.95, a true 0.05-contract
-# shortfall) and round the contract count UP past what the risk budget
-# actually supports. A small, fixed ABSOLUTE epsilon repairs the same
-# float64 under-count this was meant to fix (e.g. floor(2.9999999999) -> 2
-# when the true value is exactly 3) without that scale-dependent growth.
-# This alone is still only a NICETY, not the correctness guarantee -- see
-# the hard `while contracts * rpc > budget: contracts -= 1` post-condition
-# in compute_contracts(), which is what actually guarantees the "never
-# exceeds the risk budget" contract regardless of any epsilon subtlety.
-FLOOR_ABS_EPSILON = 1e-9
+# The contract-count floor uses EXACT rational arithmetic (see
+# compute_contracts() below) -- NO epsilon of any kind. Two earlier
+# float-heuristic designs were both bugs, caught across two rounds of
+# independent user review:
+#   (1) A RELATIVE epsilon (`floor(q * (1 + 1e-9))`, plan v3, review
+#       round-2 P2): its absolute size grows with q, and at large q
+#       (~1e8) it was large enough to swallow a GENUINE fractional
+#       shortfall and round the contract count UP past the risk budget
+#       (round-3 P1-1).
+#   (2) An ABSOLUTE epsilon + a hard post-condition loop
+#       (`while contracts * rpc > budget: contracts -= 1`, the round-3
+#       P1-1 fix): at large `contracts`, float64 can no longer represent
+#       the difference between `contracts` and `contracts - 1` when
+#       multiplied by `risk_per_contract_usd` -- `(contracts - 1) * rpc`
+#       equals `contracts * rpc` bit-for-bit -- so the loop's exit
+#       condition never becomes true and it decrements toward zero one
+#       at a time, which is not actually "forever" but is computationally
+#       indistinguishable from a hang at the reported repro's scale
+#       (~2.4e285 iterations) (round-3 follow-up, the user's own re-review
+#       of the P1-1 fix).
+# `Fraction(finite_float)` converts a float64 to the EXACT rational number
+# it represents (every float64 is a dyadic rational -- an exact fraction
+# with a power-of-2 denominator -- so this conversion loses nothing); the
+# division and floor that follow are then exact rational operations with
+# no iteration and no representable-difference failure mode. This
+# terminates in O(1) regardless of scale, and
+# `contracts * risk_per_contract_usd <= risk_budget_usd` holds BY
+# CONSTRUCTION (exact arithmetic), not by trusting any epsilon's sizing or
+# any loop's ability to actually converge.
 
 # Same relative-epsilon construction applied to the tick-grid / minimum-
 # stop-distance guards below, for the identical reason: tolerate float
@@ -77,6 +91,21 @@ FLOOR_ABS_EPSILON = 1e-9
 GRID_REL_EPSILON = 1e-9
 
 RISK_PCT_WARNING_THRESHOLD = 2.0
+
+# Sanity cap on the exact-floor contract count. The exact-rational floor
+# in compute_contracts() can no longer HANG (unlike the float-heuristic
+# designs it replaced) even on economically-absurd inputs (e.g. a
+# denormal-scale --multiplier override combined with a large
+# --account-size), but it can still return an economically meaningless
+# answer, like ~2.4e285 "contracts" -- there is no real futures account
+# that could ever hold anywhere near this many. Rejecting anything above
+# this bound turns nonsense input into a clean, immediate ConfigError
+# (exit 2) instead of a technically-well-formed but absurd SIZED report.
+# 1e12 has ~4 orders of magnitude of headroom over the largest legitimate
+# case this module's own test suite exercises (~1e8 contracts, a $1
+# trillion account against a cheap contract), while still being nowhere
+# near any real position size.
+CONTRACTS_SANITY_MAX = 1_000_000_000_000  # 1e12
 
 # A "symbol" -- whether from an untrusted gate-report file or an operator
 # CLI flag -- is allowed to become PART OF AN OUTPUT FILENAME
@@ -575,48 +604,71 @@ def _format_ticks(ticks: float) -> int | float:
 def compute_contracts(
     risk_budget_usd: float, risk_per_contract_usd: float, max_contracts: int | None = None
 ) -> int:
-    """`floor(q + FLOOR_ABS_EPSILON)` where `q = risk_budget /
-    risk_per_contract`, then capped by `max_contracts` (None = uncapped).
+    """`floor(Fraction(risk_budget_usd) / Fraction(risk_per_contract_usd))`,
+    then capped by `max_contracts` (None = uncapped) and rejected outright
+    if economically implausible.
 
-    Two independent layers, per user review round 3 (P1-1):
+    `Fraction(finite_float)` converts a float64 to the EXACT rational
+    number it represents (every float64 is a dyadic rational, so this is
+    lossless); the division and floor that follow are then exact rational
+    operations. This is the load-bearing correctness guarantee --
+    `contracts * risk_per_contract_usd <= risk_budget_usd` holds BY
+    CONSTRUCTION -- replacing two earlier float-heuristic designs that
+    were both bugs (see the module-level comment above this function):
+    a relative epsilon that rounded UP past the budget at large scale, and
+    an absolute epsilon + hard post-condition loop that could not
+    terminate in practice at large scale (round-trip user review, round 3).
 
-    1. The epsilon is a NICETY: it recovers a contract lost to float64
-       representation error at an exact k * risk_per_contract boundary
-       (e.g. a "true" 3.0 that landed at 2.9999999999 due to binary
-       rounding). It is deliberately a small, fixed ABSOLUTE value, not a
-       value that scales with q -- see FLOOR_ABS_EPSILON's docstring for
-       why a relative epsilon is unsafe at large q.
-    2. The hard post-condition loop below is the actual CORRECTNESS
-       GUARANTEE: regardless of what the epsilon nudge did, `contracts`
-       is walked back down until `contracts * risk_per_contract_usd <=
-       risk_budget_usd` holds exactly, in float64 terms. This is what
-       makes "never exceeds the risk budget" true BY CONSTRUCTION rather
-       than by trusting the epsilon's sizing -- the epsilon could be
-       wrong, removed, or misapplied elsewhere and this loop would still
-       hold the guarantee.
+    NEVER rounds up beyond the exact quotient -- a true 2.5 stays 2. A
+    "true" 3 * risk_per_contract that, in float64, evaluates to slightly
+    MORE than a separately-specified budget (e.g. rpc = 0.1 * 3 =
+    0.30000000000000004, so 3 * rpc = 0.9000000000000001 > a 0.9 budget)
+    money-safely floors to 2, not 3 -- the exact-rational quotient is what
+    the money actually supports, not what an intuitive "3 * rpc ~= budget"
+    read might suggest.
 
-    NEVER rounds up beyond the exact quotient -- a true 2.5 stays 2.
-
-    Raises `ConfigError` if the quotient itself is not finite: callers
-    already guard `risk_budget_usd` (finite) and `risk_per_contract_usd`
-    (finite and > 0) individually, but the QUOTIENT of two individually
-    reasonable values can still overflow to inf (e.g. a large but capped
-    risk_budget_usd divided by a tiny-but-nonzero risk_per_contract_usd
-    that is far from underflowing to exactly 0.0) -- an uncaught inf `q`
-    would otherwise crash `math.floor()` with `OverflowError` a few lines
-    below (user review round 3, P1-2 follow-up)."""
-    q = risk_budget_usd / risk_per_contract_usd
-    if not math.isfinite(q):
+    Raises `ConfigError`:
+    - `risk_per_contract_non_positive` if `risk_per_contract_usd` is
+      exactly zero (division by zero) -- `size_futures_position` already
+      guards this before calling here, but this function never crashes
+      regardless of caller discipline.
+    - `contracts_quotient_overflow` if either input is not finite --
+      `Fraction()` itself raises `ValueError` (nan) or `OverflowError`
+      (inf) constructing from a non-finite float; also already guarded
+      upstream, same defense-in-depth rationale.
+    - `contracts_implausibly_large` if the resulting contract count
+      exceeds `CONTRACTS_SANITY_MAX` -- the exact-rational floor can no
+      longer HANG on an economically-absurd input (e.g. a denormal-scale
+      --multiplier override), but it can still return a technically
+      correct, meaningless answer like ~2.4e285 "contracts"; this turns
+      that into a clean, immediate error instead of a nonsensical SIZED
+      report. Checked BEFORE `max_contracts` is applied, so a coincidental
+      --max-contracts cap can never mask an absurd underlying input."""
+    try:
+        q = Fraction(risk_budget_usd) / Fraction(risk_per_contract_usd)
+    except ZeroDivisionError as exc:
         raise ConfigError(
-            f"computed risk_budget/risk_per_contract quotient is not finite "
+            f"risk_per_contract_usd is zero (risk_budget_usd={risk_budget_usd}) -- "
+            "cannot compute a contract count",
+            reason="risk_per_contract_non_positive",
+        ) from exc
+    except (ValueError, OverflowError) as exc:
+        raise ConfigError(
+            f"risk_budget_usd or risk_per_contract_usd is not finite "
             f"(risk_budget_usd={risk_budget_usd}, "
-            f"risk_per_contract_usd={risk_per_contract_usd}) -- "
-            "risk_per_contract is unreasonably small relative to the risk budget",
+            f"risk_per_contract_usd={risk_per_contract_usd})",
             reason="contracts_quotient_overflow",
+        ) from exc
+    contracts = math.floor(q)
+    if contracts > CONTRACTS_SANITY_MAX:
+        raise ConfigError(
+            f"computed contract count ({contracts}) is economically implausible "
+            f"(risk_budget_usd={risk_budget_usd}, "
+            f"risk_per_contract_usd={risk_per_contract_usd}) -- check "
+            "--multiplier/--tick-size (or an unknown-symbol override) and the "
+            "entry/stop distance for an unreasonably small risk_per_contract",
+            reason="contracts_implausibly_large",
         )
-    contracts = math.floor(q + FLOOR_ABS_EPSILON)
-    while contracts > 0 and contracts * risk_per_contract_usd > risk_budget_usd:
-        contracts -= 1
     if max_contracts is not None and max_contracts > 0:
         contracts = min(contracts, max_contracts)
     return contracts
@@ -868,9 +920,12 @@ def size_futures_position(
         if not is_on_tick_grid(stop, tick_size):
             warnings.append("off_tick_grid_stop")
 
-    # --- Minimum stop distance (closes the ULP-degenerate regime any
-    # epsilon design gets shaky in, on independent grounds from the floor
-    # algorithm's own epsilon).
+    # --- Minimum stop distance: independent of the (now epsilon-free,
+    # exact-rational) contract-count floor below -- this guards against a
+    # near-zero risk_per_contract implying an absurdly large contract
+    # count from a genuinely too-close stop, which CONTRACTS_SANITY_MAX
+    # would also catch downstream, but rejecting it here gives a clearer,
+    # more specific reason (`stop_too_close` / `gate_stop_too_close`).
     if not meets_min_stop_distance(entry, stop, tick_size):
         if stop_source == "operator":
             raise ConfigError(
