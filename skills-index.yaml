@@ -503,6 +503,7 @@ skills:
   - entry_price
   - stop_price
   - account_size
+  - risk_pct
   - contrarian_setup_gate_report
   outputs:
   - futures_position_size

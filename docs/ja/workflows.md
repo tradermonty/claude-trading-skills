@@ -353,7 +353,7 @@ permalink: /ja/workflows/
 
 - consumes: `futures_position_size`, `contrarian_setup_gate_report`
 - produces: `contrarian_thesis_entry`
-- **判断:** Register each READY fade with direction, entry, stop (the gate's invalidation_level), and contract count. Confirm per-trade risk matches the sizer output and total portfolio heat is within budget.
+- **判断:** Register each fade whose sizer output is sizing_status SIZED — never a NO_TRADE result — in this order: (1) create the IDEA thesis first (manual ingest or register() — attach-futures-position only attaches to an EXISTING thesis, it never creates one); (2) attach the SIZED report with attach-futures-position, which persists contracts / direction / multiplier / USD currency / risk onto the thesis position; (3) link the upstream cot_crowding_report, news_failure_verdict, price_action_confirmation_report, and contrarian_setup_gate_report to the thesis with thesis_store.link_report() so the fade's full evidence chain is auditable; (4) only transition to ACTIVE with open-position once the order actually fills at the broker. Confirm per-trade risk matches the sizer output and total portfolio heat is within budget.
 
 **手動レビュー:**
 
@@ -365,6 +365,8 @@ permalink: /ja/workflows/
 - Verify the sizer's contract count and per-contract risk before any order; confirm total portfolio heat is within budget.
 - Futures margin is broker/time-dependent and NOT computed — verify initial and maintenance margin with the broker before trading.
 - All orders are placed manually at the broker; no auto-execution. Monitoring (COT normalization, stop, thesis invalidation) is manual until contrarian-position-monitor ships.
+- The gate's entry_trigger / sizer's planned entry is not an actual fill. Keep the SIZED report itself (it carries the planned entry); a manual-ingest source also keeps entry_price in origin.raw_provenance.entry_price. Either way, never write it to entry.actual_price before a real fill happens.
+- Do not transition the thesis to ACTIVE (open-position) until the order actually fills at the broker. Step 6 only reaches IDEA/ENTRY_READY with the futures position attached — no order is ever placed automatically.
 
 **Journal 出力先:** `trader-memory-core`
 
