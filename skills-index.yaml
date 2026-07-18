@@ -511,6 +511,30 @@ skills:
   outputs:
   - ftd_signal_report
   workflows: []
+- id: futures-position-sizer
+  display_name: Futures Position Sizer
+  category: trade-planning
+  status: beta
+  summary: Calculate contract-based futures position sizes from a direction, entry, and stop-loss,
+    using a verified 23-market contract-spec table (multiplier, tick size, tick value), implementing
+    step 4 of Jason Shapiro's contrarian pipeline.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Pure calculation; consumes contrarian-setup-gate's READY_FOR_PLAN report or explicit
+      direction/entry/stop flags; works offline
+  inputs:
+  - entry_price
+  - stop_price
+  - account_size
+  - contrarian_setup_gate_report
+  outputs:
+  - futures_contract_count
+  - risk_amount
+  workflows: []
 - id: ibd-distribution-day-monitor
   display_name: IBD Distribution Day Monitor
   category: market-regime

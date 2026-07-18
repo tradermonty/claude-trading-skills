@@ -106,6 +106,6 @@ Every input's `state` is one of `CONFIRMED`, `NOT_CONFIRMED`, `INSUFFICIENT`, `P
 
 ## Resources
 
-- `scripts/run_contrarian_setup_gate.py` -- CLI: 4-class hardened JSON loading, report generation
-- `scripts/gate_logic.py` -- Pure synthesis core: normalization, consistency checks, the precedence state machine
+- `scripts/run_contrarian_setup_gate.py` -- CLI: hardened JSON loading (unreadable / parse_error incl. RecursionError / non_finite via an iterative whole-file scan), report generation
+- `scripts/gate_logic.py` -- Pure synthesis core: normalization (incl. malformed-shape detection), consistency checks, the precedence state machine
 - `references/gate-decision-table.md` -- Full decision table, reason-token glossary, worked examples (including the real B6 REJECTED case)

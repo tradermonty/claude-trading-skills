@@ -244,6 +244,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Exposure Coach** | ❌ Not used | ❌ Not used | ❌ Not used | Synthesizes signals from other skills; pure calculation |
 | **FTD Detector** | ✅ Required | ❌ Not used | ❌ Not used | Daily QQQ/SPY OHLCV via FMP |
 | **Finviz Screener** | ❌ Not used | 🟡 Optional | ❌ Not used | FINVIZ Elite API |
+| **Futures Position Sizer** | ❌ Not used | ❌ Not used | ❌ Not used | Pure calculation; consumes contrarian-setup-gate's READY_FOR_PLAN report or explicit direction/entry/stop flags; works offline |
 | **IBD Distribution Day Monitor** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Institutional Flow Tracker** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Kanchi Dividend Review Monitor** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Dividend / price monitoring via FMP |
