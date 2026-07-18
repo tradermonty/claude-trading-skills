@@ -24,6 +24,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
+| [`shapiro-contrarian`](#shapiro-contrarian) — Shapiro COT Contrarian | weekly | 60 | fmp-required | advanced |
 | [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
 | [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 40 | mixed | advanced |
 | [`stockbee-fluency-loop`](#stockbee-fluency-loop) — Stockbee Setup Fluency Loop | daily | 20 | no-api-basic | intermediate |
@@ -288,6 +289,80 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm position sizing respects portfolio risk caps (per-position and per-sector).
 - For forex-related output, confirm research_only=true; never wire to a broker.
 - Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
+
+**Journal destination:** `trader-memory-core`
+
+---
+
+## Shapiro COT Contrarian {#shapiro-contrarian}
+
+**`shapiro-contrarian`** · weekly · ~60 min · fmp-required · advanced
+
+**When to run:** Weekly, after the CFTC Commitment of Traders report publishes (Friday ~3:30pm ET, carrying Tuesday's positioning). Screens roughly 65 futures markets for crowded speculative extremes and, only where a news-failure and a weekly price-action reversal both confirm, produces a contract-sized contrarian fade plan.
+
+**When NOT to run:** Do not run intraday or more than weekly — COT data updates once a week and the edge is positioning-driven, not intraday. Do not act on a crowding extreme alone; the gate must reach READY_FOR_PLAN (crowding, news failure, and price action all CONFIRMED) before any sizing. Not for equities — COT covers CFTC futures markets only.
+
+**Required skills:** `cot-contrarian-detector`, `news-reaction-failure-analyzer`, `technical-analyst`, `contrarian-setup-gate`, `futures-position-sizer`, `trader-memory-core`
+
+**Optional skills:** (none)
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `cot_crowding_report` | 1 | yes | — |
+| `news_failure_verdict` | 2 | yes | — |
+| `price_action_confirmation_report` | 3 | yes | — |
+| `contrarian_setup_gate_report` | 4 | yes | — |
+| `futures_position_size` | 5 | yes | — |
+| `contrarian_thesis_entry` | 6 | yes | `trade-memory-loop`, `monthly-performance-review` |
+
+**Steps:**
+
+**Step 1: Screen COT crowding** (decision gate) → `cot-contrarian-detector`
+
+- produces: `cot_crowding_report`
+- **Decision:** Which futures markets are at a 3-year COT-index crowding extreme (CROWDED_LONG / CROWDED_SHORT) this week? Crowding alone is not a signal — carry only the extremes forward.
+
+**Step 2: Check for news-reaction failure** (decision gate) → `news-reaction-failure-analyzer`
+
+- consumes: `cot_crowding_report`
+- produces: `news_failure_verdict`
+- **Decision:** For each crowded market, did price fail to react to news favorable to the crowd's direction (CONFIRMED, against a curated primary/wire-source events file built via WebSearch)? Drop NOT_CONFIRMED / INSUFFICIENT_EVIDENCE markets.
+
+**Step 3: Confirm weekly price-action reversal** (decision gate) → `technical-analyst`
+
+- consumes: `cot_crowding_report`
+- produces: `price_action_confirmation_report`
+- **Decision:** On the weekly chart, is there a reversal against the crowd (key reversal, failed breakout, or failed extreme) — CONFIRMED — with a defined swing stop? Reject NOT_CONFIRMED / INSUFFICIENT_DATA.
+
+**Step 4: Synthesize the contrarian setup gate** (decision gate) → `contrarian-setup-gate`
+
+- consumes: `cot_crowding_report`, `news_failure_verdict`, `price_action_confirmation_report`
+- produces: `contrarian_setup_gate_report`
+- **Decision:** Does the gate reach READY_FOR_PLAN (crowding, news failure, and price action all CONFIRMED, fail-closed)? Only READY_FOR_PLAN markets proceed to sizing; CROWDED / WATCHING_PRICE / REJECTED / INSUFFICIENT_EVIDENCE stop here.
+
+**Step 5: Size the futures position** → `futures-position-sizer`
+
+- consumes: `contrarian_setup_gate_report`
+- produces: `futures_position_size`
+
+**Step 6: Register the contrarian thesis** (decision gate) → `trader-memory-core`
+
+- consumes: `futures_position_size`, `contrarian_setup_gate_report`
+- produces: `contrarian_thesis_entry`
+- **Decision:** Register each READY fade with direction, entry, stop (the gate's invalidation_level), and contract count. Confirm per-trade risk matches the sizer output and total portfolio heat is within budget.
+
+**Manual review:**
+
+- COT data is 3 days lagged (Tuesday snapshot, Friday release) — treat the crowding read as end-of-Tuesday, not live.
+- Crowding is a precondition, never a trade signal — require the news-failure AND price-action confirmations before sizing.
+- News-failure events must be curated from primary/wire sources with real URLs; do not fabricate. INSUFFICIENT_EVIDENCE never advances.
+- Confirm the gate setup_status is READY_FOR_PLAN before sizing; the sizer will refuse a non-READY gate, but verify the reason if it does.
+- Step 5 needs more than contrarian_setup_gate_report — the sizer's --entry, --account-size, and --risk-pct are always operator-supplied, even in gate-handoff mode; neither the gate nor the sizer derives them, so gather these before invoking futures-position-sizer.
+- Verify the sizer's contract count and per-contract risk before any order; confirm total portfolio heat is within budget.
+- Futures margin is broker/time-dependent and NOT computed — verify initial and maintenance margin with the broker before trading.
+- All orders are placed manually at the broker; no auto-execution. Monitoring (COT normalization, stop, thesis invalidation) is manual until contrarian-position-monitor ships.
 
 **Journal destination:** `trader-memory-core`
 

@@ -110,7 +110,8 @@ skills:
   - price_action_confirmation_report
   outputs:
   - contrarian_setup_gate_report
-  workflows: []
+  workflows:
+  - shapiro-contrarian
 - id: cot-contrarian-detector
   display_name: COT Contrarian Detector
   category: market-regime
@@ -128,7 +129,8 @@ skills:
   - cot_report_data
   outputs:
   - cot_crowding_report
-  workflows: []
+  workflows:
+  - shapiro-contrarian
 - id: data-quality-checker
   display_name: Data Quality Checker
   category: meta
@@ -503,9 +505,9 @@ skills:
   - account_size
   - contrarian_setup_gate_report
   outputs:
-  - futures_contract_count
-  - risk_amount
-  workflows: []
+  - futures_position_size
+  workflows:
+  - shapiro-contrarian
 - id: ibd-distribution-day-monitor
   display_name: IBD Distribution Day Monitor
   category: market-regime
@@ -722,11 +724,12 @@ skills:
     note: Events curation (Claude searches news to build the events JSON; no FMP news endpoint exists
       for futures)
   inputs:
-  - cot_detector_report
+  - cot_crowding_report
   - curated_events_json
   outputs:
   - news_failure_verdict
-  workflows: []
+  workflows:
+  - shapiro-contrarian
 - id: options-strategy-advisor
   display_name: Options Strategy Advisor
   category: advanced-satellite
@@ -1223,6 +1226,7 @@ skills:
   - price_action_confirmation_report
   workflows:
   - swing-opportunity-daily
+  - shapiro-contrarian
 - id: theme-detector
   display_name: Theme Detector
   category: swing-opportunity
@@ -1320,6 +1324,7 @@ skills:
   - swing-opportunity-daily
   - trade-memory-loop
   - monthly-performance-review
+  - shapiro-contrarian
 - id: trading-skills-navigator
   display_name: Trading Skills Navigator
   category: meta

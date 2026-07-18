@@ -50,7 +50,7 @@ A skillset manifest has these fields (all required, all validated):
    (`no-api-basic|fmp-required|alpaca-required|mixed`).
 2. **`target_users`** — non-empty list of canonical persona ids
    (`part-time-swing-trader`, `growth-investor`, `long-term-investor`,
-   `dividend-investor`).
+   `dividend-investor`, `futures-contrarian-trader`).
 3. **`when_to_use` / `when_not_to_use`** — non-empty prose. `when_not_to_use`
    echoes the related workflow's `when_not_to_run` guard.
 4. **`required_skills` / `recommended_skills` / `optional_skills`** — pairwise

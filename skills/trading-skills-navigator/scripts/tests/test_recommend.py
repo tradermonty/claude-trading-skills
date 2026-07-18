@@ -230,6 +230,99 @@ def test_post_trade_coaching_routes_to_trade_memory_loop(
     )
 
 
+# ---------------------------------------------------------------------------
+# Shapiro COT contrarian pipeline (Issue #244 rebase review)
+# ---------------------------------------------------------------------------
+
+_SHAPIRO_REQUIRED_SKILLS = {
+    "cot-contrarian-detector",
+    "news-reaction-failure-analyzer",
+    "technical-analyst",
+    "contrarian-setup-gate",
+    "futures-position-sizer",
+    "trader-memory-core",
+}
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I want to fade a crowded futures position",
+        "help me screen COT data for contrarian setups",
+        "shapiro style contrarian futures trading",
+        "コミットメントオブトレーダーズで逆張りしたい",
+        "先物の逆張りをしたい",
+        "シャピロ式の逆張り手法を使いたい",
+        # Regression (accept-test review): natural JA sentences using the
+        # crowded VERB forms (混み合った/混み合っている), not just the noun
+        # form (混雑ポジション) — the original persona missed these.
+        "COTで混み合った先物ポジションを逆張りしたい",
+        "建玉が混み合っている先物を逆張りしたい",
+    ],
+    ids=[
+        "en-fade-crowded-futures",
+        "en-cot-contrarian",
+        "en-shapiro-style",
+        "ja-cot-contrarian",
+        "ja-futures-contrarian",
+        "ja-shapiro-style",
+        "ja-cot-crowded-verb-form",
+        "ja-crowded-futures-teiru-form",
+    ],
+)
+def test_shapiro_contrarian_routes_with_full_bundle(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    """Regression (Issue #244 rebase review): before the shapiro-contrarian
+    persona was added, these EN/JA queries (Shapiro/COT/crowded-futures
+    intent) fell through to the unmapped beginner default
+    (market-regime-daily). Adding the persona alone was not enough either:
+    cot-contrarian-detector (shapiro-contrarian's first required skill) has
+    category=market-regime, which collides with the market-regime-daily
+    skillset manifest — that manifest was purpose-built for a DIFFERENT,
+    3-skill workflow, so it would have silently dropped 5 of
+    shapiro-contrarian's 6 required skills from setup_bundle. The fix gates
+    a skillset manifest's "active" status on it actually naming the primary
+    workflow in `related_workflows` (see _skillset()'s docstring); an
+    unrelated manifest now defers instead of leaking into the bundle.
+    """
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
+    assert r["primary_workflow"]["id"] == "shapiro-contrarian", (
+        f"query {query!r} should route to shapiro-contrarian, got {r['primary_workflow']['id']!r}"
+    )
+    assert r["honest_gap"] is False
+    assert not (r["note"] and "did not match" in r["note"]), (
+        f"query fell through to unmapped default: {query!r}"
+    )
+    # The unrelated market-regime manifest must NOT silently supply the
+    # bundle -- shapiro-contrarian has no purpose-built skillset yet.
+    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["skillset"]["manifest"] is None
+    bundle_required = set(r["setup_bundle"]["required"])
+    assert bundle_required == _SHAPIRO_REQUIRED_SKILLS, (
+        f"query {query!r} setup_bundle.required = {bundle_required}, "
+        f"expected exactly {_SHAPIRO_REQUIRED_SKILLS}"
+    )
+
+
+def test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow(
+    repo_metadata: dict[str, Any],
+) -> None:
+    """Before this fix, `manifest_status: deferred` only ever occurred on an
+    honest-gap category (no manifest ships for that category at all — see
+    test_skillset_deferred_without_manifest). shapiro-contrarian is the
+    first case where a manifest DOES exist for the workflow's dominant
+    category (market-regime) but doesn't cover this specific workflow,
+    proving manifest_status is workflow-aware, not just
+    category-existence-aware."""
+    r = recommend("shapiro style contrarian futures trading", repo_metadata)
+    assert r["honest_gap"] is False
+    assert r["primary_workflow"]["id"] == "shapiro-contrarian"
+    assert r["skillset"]["id"] == "market-regime"
+    assert r["skillset"]["manifest_status"] == "deferred"
+
+
 def test_honest_gap_returns_suggested_skills(repo_metadata: dict[str, Any]) -> None:
     for query, cat in [
         ("I want to use short strategies", "advanced-satellite"),
