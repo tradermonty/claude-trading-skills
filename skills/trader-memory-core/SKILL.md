@@ -154,6 +154,12 @@ python3 .../trader_memory_cli.py store --state-dir state/theses/ open-position <
 
 `--shares` accepts **fractional** quantities. Python:
 `thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, shares=..., event_date=...)`.
+`shares` (and `shares_remaining`, when present) must be a **finite, positive
+number no greater than 10<sup>12</sup>** (a sanity bound, not an economic
+constraint — fractional shares below the cap remain unrestricted). NaN,
+±Infinity, and absurdly large values (e.g. a malformed position-sizer
+report) are rejected with a clean error at save time, on `open-position`,
+`attach-position`, and `trim` alike.
 
 For a **futures** thesis, use `--contracts` instead of `--shares` (see
 "Futures positions" below) — if `attach-futures-position` already populated
