@@ -144,13 +144,14 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Step 6: Register the candidate thesis** (decision gate) → `trader-memory-core`
 
-- consumes: `kanchi_candidates`, `account_location_advice`, `review_queue`
+- consumes: `kanchi_candidates`, `stock_memo`, `account_location_advice`, `review_queue`
 - produces: `kanchi_thesis_entry`
-- **Decision:** For each actionable candidate, register the thesis with the Kanchi verdict, stock memo, and (if available) tax/account-location advice and any review-monitor flags. Confirm no unresolved blockers, sizing, sector concentration, and tranche plan before entering an order. Never transition the thesis to ACTIVE until a real broker fill happens -- this step only reaches IDEA / ENTRY_READY.
+- **Decision:** For each actionable candidate, ingest the kanchi_candidates verdict as an IDEA thesis, then link the saved stock_memo file (and, if available, tax/account-location advice and any review-monitor flags) to it with thesis_store.link_report() so the fully-documented Kanchi memo is part of the auditable record, not just referenced in prose. Confirm no unresolved blockers, sizing, sector concentration, and tranche plan before entering an order. Never transition the thesis to ACTIVE until a real broker fill happens -- this step only reaches IDEA / ENTRY_READY.
 
 **Manual review:**
 
 - A HOLD-REVIEW, STEP1-RECHECK, or FAIL Kanchi verdict is fail-closed -- it never advances to sizing or thesis registration.
+- The step-3 stock memo (`references/stock-note-template.md` in kanchi-dividend-sop, a hand-written one-pager) is not embedded in the kanchi_candidates JSON -- save it to a file, then after the IDEA thesis is registered, call `thesis_store.link_report(state_dir, thesis_id, "kanchi-dividend-sop", <memo_path>, date)` to attach it. Without this call the thesis has no documented memo in its `linked_reports`, even though one was written.
 - No order is ever placed automatically, and the thesis never auto-transitions to ACTIVE; every fill is entered manually at the broker, then recorded with open-position.
 - Screeners (steps 1-2) are optional -- a manually supplied ticker list is an equally valid path into step 3.
 - Tax and account-location advice (step 4) is advisory, not authoritative -- verify with a tax professional or the actual broker/custodian statements before acting on it.
