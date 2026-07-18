@@ -173,6 +173,19 @@ def _sign(direction: str) -> int:
 # ArgumentTypeError.
 _MAX_CONTRACTS = 10**12
 
+# Sanity cap on equity shares (Issue #254, pre-existing money-critical
+# gap — same value as _MAX_CONTRACTS above, but a SEPARATE local
+# constant: equity has no natural economic upper bound the way a
+# contract count does (fractional shares, penny stocks), so this is
+# purely an absurd-input sanity bound, not an economic constraint. It
+# exists to reject a "400-digit JSON value" class of input and a
+# finite-but-absurd value like 1e300 before a thesis can ever become
+# ACTIVE-then-uncloseable (shares that overflow every downstream P&L
+# computation with no way to close the position). Deliberately not
+# reused as _MAX_CONTRACTS to keep the equity and futures sanity bounds
+# independently tunable even though they start at the same value.
+_MAX_SHARES = 10**12
+
 
 def _valid_finite_positive(value: Any) -> float | None:
     """A usable positive number from untrusted input: finite, non-bool,
@@ -193,6 +206,24 @@ def _valid_finite_positive(value: Any) -> float | None:
         return None
     try:
         if not math.isfinite(value) or value <= 0:
+            return None
+        return float(value)
+    except OverflowError:
+        return None
+
+
+def _valid_finite_nonneg(value: Any) -> float | None:
+    """Like `_valid_finite_positive` above, but allows exactly 0 (Issue
+    #254): `position.shares_remaining == 0` is a legitimate, common state
+    for any CLOSED equity thesis (see `test_closed_shares_remaining_zero_
+    passes_schema`) — unlike `shares` itself, this field's floor is >= 0,
+    not > 0. Same bool-exclude -> isfinite -> range chain, huge-int-safe
+    (`OverflowError` caught) — the float analog of `_valid_nonneg_int`
+    vs. `_valid_positive_int` below."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        if not math.isfinite(value) or value < 0:
             return None
         return float(value)
     except OverflowError:
@@ -435,6 +466,73 @@ def _validate_futures_position_fields(position: dict) -> None:
         )
 
 
+def _validate_equity_position_fields(position: dict) -> None:
+    """Defense-in-depth, status-agnostic field validator for an equity
+    position (Issue #254, pre-existing money-critical gap — symmetric
+    with `_validate_futures_position_fields()` above). Called from
+    `_validate_thesis()` for EVERY save of a thesis that has a
+    shares-shaped position, regardless of which function produced it:
+    `open_position(shares=...)` / `attach_position()` / `trim()` never
+    validated `shares` at all before this fix (`shares=10**400` crashed
+    `close()` with an uncaught `OverflowError`; `shares=inf` silently
+    persisted `pnl_dollars: inf`) — this is the ONE chokepoint that closes
+    every write path, including `attach_position()`'s untouched-by-this-
+    PR plain `json.load()` of the position-sizer report (it flows through
+    here for free, since attach also ends in `_save_thesis()`) and any
+    future `update()`-style load-mutate-save path.
+
+    Uses `_valid_finite_positive()` for `shares` (fractional shares are
+    legitimate — unlike futures contracts, this does NOT integer-
+    truncate) and `_valid_finite_nonneg()` for `shares_remaining` (which
+    legitimately reaches exactly 0 once CLOSED — using
+    `_valid_finite_positive` there would reject every closed equity
+    thesis).
+
+    Placement note: called from `_validate_thesis()` AFTER the JSON
+    Schema check. The schema's own `exclusiveMinimum: 0` on `shares`
+    already rejects 0/negative with `"Schema validation failed"` — this
+    function only needs to catch what the schema can't express: nan/inf
+    (schema's `exclusiveMinimum` does not reject either, verified
+    empirically for the analogous futures field) and the sanity cap.
+
+    Raises ValueError on the first invalid field, before any state
+    mutation elsewhere in `_save_thesis()`'s validate-then-write contract
+    (validation always runs before `_atomic_write_yaml`, so a raise here
+    leaves the on-disk file byte-for-byte untouched).
+    """
+    shares = position.get("shares")
+    valid_shares = _valid_finite_positive(shares)
+    if valid_shares is None:
+        raise ValueError(
+            f"equity thesis position.shares is invalid: {shares!r} "
+            "(must be a finite positive number)"
+        )
+    if valid_shares > _MAX_SHARES:
+        raise ValueError(
+            f"equity thesis position.shares ({valid_shares}) exceeds the "
+            f"maximum sanity bound ({_MAX_SHARES})"
+        )
+
+    shares_remaining = position.get("shares_remaining")
+    if shares_remaining is not None:
+        valid_remaining = _valid_finite_nonneg(shares_remaining)
+        if valid_remaining is None:
+            raise ValueError(
+                f"equity thesis position.shares_remaining is invalid: "
+                f"{shares_remaining!r} (must be a finite non-negative number)"
+            )
+        if valid_remaining > _MAX_SHARES:
+            raise ValueError(
+                f"equity thesis position.shares_remaining ({valid_remaining}) "
+                f"exceeds the maximum sanity bound ({_MAX_SHARES})"
+            )
+        if valid_remaining > valid_shares:
+            raise ValueError(
+                f"equity thesis position.shares_remaining ({valid_remaining}) "
+                f"must be <= shares ({valid_shares})"
+            )
+
+
 def _validate_thesis(thesis: dict) -> None:
     """JSON Schema + business invariants. Called by _save_thesis()."""
     schema = _get_schema()
@@ -449,6 +547,11 @@ def _validate_thesis(thesis: dict) -> None:
 
     if _is_futures(thesis):
         _validate_futures_position_fields(position)
+    elif position and position.get("shares") is not None:
+        # Issue #254: the equity analog of the futures branch above — any
+        # thesis with a shares-shaped position gets the same
+        # status-agnostic field validation, regardless of write path.
+        _validate_equity_position_fields(position)
 
     if status == "ACTIVE":
         entry = thesis.get("entry", {})
@@ -1481,6 +1584,35 @@ def _finalize_outcome(
 
     Precondition: thesis has a position with shares (legacy / no-position
     theses keep their pre-PR-80B code path in the caller and never reach here).
+
+    Output-side finiteness (Issue #254, pre-existing money-critical gap —
+    same "guard the OUTPUT, not just the input" principle as
+    `_finalize_futures_outcome()`'s P1 addendum, PLUS an extra layer that
+    one doesn't have — see the futures follow-up noted in this PR's
+    tracked issue): every value computed here (proceeds, realized_pnl,
+    cumulative pnl_dollars via `_sum_realized()`, pnl_pct) is computed
+    into a LOCAL variable and validated finite BEFORE any mutation of
+    `thesis`/`position`/`status_history`. Validation is TWO layers, both
+    required:
+
+      1. `try/except OverflowError` around the arithmetic itself. A huge
+         Python int operand (e.g. a disk-corrupted `shares: 10**400` that
+         bypassed `_validate_thesis()` at write time — see D1's
+         `_validate_equity_position_fields()`, which only runs on
+         `_save_thesis()`, not on read) makes `round(10**400 * 1.5, 2)`
+         raise `OverflowError` from *inside* the multiplication —
+         `math.isfinite()` is never reached. Verified empirically.
+      2. `math.isfinite()` on the result, for the case where the
+         arithmetic itself succeeds but produces `inf`/`nan` (e.g.
+         `shares = float("inf")`, which multiplies cleanly to `inf`
+         without raising).
+
+    Both layers apply to `math.isfinite()` itself too, not just the
+    preceding arithmetic — `_sum_realized()` over an all-Python-int
+    ledger can return a huge *int* result (no float ever entered the
+    computation, so `round()` doesn't raise), and `math.isfinite()` on
+    THAT huge int raises OverflowError in turn. Each finiteness check
+    below therefore lives inside the same `try` as the value it checks.
     """
     entry_price = thesis["entry"].get("actual_price")
     entry_date = thesis["entry"].get("actual_date")
@@ -1488,28 +1620,58 @@ def _finalize_outcome(
     original = position["shares"]
     remaining = position.get("shares_remaining", original)
 
+    new_entry = None
     if append_entry:
-        thesis["status_history"].append(
-            {
-                "status": status,
-                "at": history_at,
-                "reason": reason,
-                "shares_sold": remaining,
-                "price": exit_price,
-                "proceeds": round(exit_price * remaining, 2),
-                "realized_pnl": round((exit_price - entry_price) * remaining, 2),
-            }
-        )
+        try:
+            leg_proceeds = round(exit_price * remaining, 2)
+            leg_realized = round((exit_price - entry_price) * remaining, 2)
+            leg_finite = math.isfinite(leg_proceeds) and math.isfinite(leg_realized)
+        except OverflowError as exc:
+            raise ValueError(
+                "computed proceeds/realized_pnl overflowed (exit_price="
+                f"{exit_price}, shares={remaining}) — operands too large"
+            ) from exc
+        if not leg_finite:
+            raise ValueError(
+                f"computed proceeds/realized_pnl is not finite ({leg_proceeds}, {leg_realized})"
+            )
+        new_entry = {
+            "status": status,
+            "at": history_at,
+            "reason": reason,
+            "shares_sold": remaining,
+            "price": exit_price,
+            "proceeds": leg_proceeds,
+            "realized_pnl": leg_realized,
+        }
 
-    position["shares_remaining"] = 0
-    thesis["status"] = status
+    # Cumulative pnl_dollars computed WITHOUT mutating status_history yet
+    # — _sum_realized() runs over the existing ledger plus the
+    # not-yet-appended new_entry, so a non-finite/overflowing cumulative
+    # result still rejects cleanly before any state changes.
+    history_for_sum = thesis["status_history"] + ([new_entry] if new_entry else [])
+    try:
+        pnl_dollars = round(_sum_realized(history_for_sum), 2)
+        pnl_dollars_finite = math.isfinite(pnl_dollars)
+    except OverflowError as exc:
+        raise ValueError(
+            "computed cumulative pnl_dollars overflowed — the position's "
+            "realized P&L ledger contains an operand too large"
+        ) from exc
+    if not pnl_dollars_finite:
+        raise ValueError(f"computed cumulative pnl_dollars is not finite ({pnl_dollars})")
 
-    pnl_dollars = round(_sum_realized(thesis["status_history"]), 2)
-    thesis["outcome"]["pnl_dollars"] = pnl_dollars
+    pnl_pct = None
     if entry_price and original:
-        thesis["outcome"]["pnl_pct"] = round(pnl_dollars / (entry_price * original) * 100, 2)
-    else:
-        thesis["outcome"]["pnl_pct"] = None
+        try:
+            pnl_pct = round(pnl_dollars / (entry_price * original) * 100, 2)
+            pnl_pct_finite = math.isfinite(pnl_pct)
+        except OverflowError as exc:
+            raise ValueError(
+                "computed pnl_pct overflowed — the notional denominator (entry * shares) overflowed"
+            ) from exc
+        if not pnl_pct_finite:
+            raise ValueError(f"computed pnl_pct is not finite ({pnl_pct})")
 
     holding_days = None
     if entry_date:
@@ -1517,6 +1679,14 @@ def _finalize_outcome(
             holding_days = (_parse_dt(exit_date) - _parse_dt(entry_date)).days
         except (ValueError, TypeError):
             pass
+
+    # All computed values validated finite — now, and only now, mutate.
+    if new_entry is not None:
+        thesis["status_history"].append(new_entry)
+    position["shares_remaining"] = 0
+    thesis["status"] = status
+    thesis["outcome"]["pnl_dollars"] = pnl_dollars
+    thesis["outcome"]["pnl_pct"] = pnl_pct
     thesis["outcome"]["holding_days"] = holding_days
 
 
@@ -1857,12 +2027,37 @@ def trim(
         raise ValueError(
             f"shares_sold ({shares_sold}) must be > 0 and <= shares_remaining ({remaining})"
         )
+    # Note: this range check is comparison-based, not arithmetic — a
+    # huge/nan/inf shares_sold is already rejected here (comparisons
+    # never raise OverflowError in Python, unlike the multiplication/
+    # subtraction below), so no separate input-side guard is needed.
 
-    realized = round((price - entry_price) * shares_sold, 2)
-    proceeds = round(price * shares_sold, 2)
-    # Round to kill float-subtraction noise (7.86 - 4.00 == 3.86000…3),
-    # then epsilon-snap a ~0 remainder to an exact 0.0 (→ full close-out).
-    new_remaining = round(remaining - shares_sold, 8)
+    # Output-side finiteness (Issue #254, pre-existing money-critical gap
+    # — see _finalize_outcome()'s docstring for the two-layer rationale:
+    # try/except OverflowError for arithmetic that can raise mid-
+    # computation on a disk-corrupted huge `shares_remaining` — e.g. a
+    # thesis that bypassed _validate_thesis()'s write-time D1 chokepoint
+    # — PLUS math.isfinite() for a clean-but-inf/nan result). Both layers
+    # apply before any state mutation below.
+    try:
+        realized = round((price - entry_price) * shares_sold, 2)
+        proceeds = round(price * shares_sold, 2)
+        # Round to kill float-subtraction noise (7.86 - 4.00 == 3.86000…3),
+        # then epsilon-snap a ~0 remainder to an exact 0.0 (→ full close-out).
+        new_remaining = round(remaining - shares_sold, 8)
+        trim_finite = (
+            math.isfinite(realized) and math.isfinite(proceeds) and math.isfinite(new_remaining)
+        )
+    except OverflowError as exc:
+        raise ValueError(
+            f"computed realized_pnl/proceeds/shares_remaining overflowed (price={price}, "
+            f"shares_sold={shares_sold}) — operands too large"
+        ) from exc
+    if not trim_finite:
+        raise ValueError(
+            "computed realized_pnl/proceeds/shares_remaining is not finite "
+            f"({realized}, {proceeds}, {new_remaining})"
+        )
     if abs(new_remaining) < 1e-9:
         new_remaining = 0.0
 
@@ -2399,21 +2594,52 @@ def terminate(
     else:
         # Pre-PR-80B partial-outcome path — verbatim (covers no-price
         # terminate INVALIDATED, incl. position-attached but no exit price).
-        if entry_price and actual_price:
-            pnl_pct = ((actual_price - entry_price) / entry_price) * 100
-            pnl_dollars = actual_price - entry_price
-            if thesis.get("position") and thesis["position"].get("shares"):
-                pnl_dollars *= thesis["position"]["shares"]
-            thesis["outcome"]["pnl_pct"] = round(pnl_pct, 2)
-            thesis["outcome"]["pnl_dollars"] = round(pnl_dollars, 2)
+        #
+        # Output-side finiteness (Issue #254, pre-existing money-critical
+        # gap — same two-layer rationale as _finalize_outcome()'s
+        # docstring): pnl_dollars/pnl_pct are computed into LOCAL
+        # variables and validated (try/except OverflowError for
+        # mid-arithmetic overflow on a disk-corrupted huge `shares`, then
+        # math.isfinite() for a clean-but-inf/nan result) BEFORE any
+        # mutation of thesis["outcome"]. compute_outcome mirrors the
+        # original `if entry_price and actual_price:` gate exactly, so a
+        # thesis with no price data is untouched exactly as before.
+        pnl_pct = None
+        pnl_dollars = None
+        holding_days = None
+        compute_outcome = bool(entry_price and actual_price)
+        if compute_outcome:
+            try:
+                pnl_pct_raw = ((actual_price - entry_price) / entry_price) * 100
+                pnl_dollars_raw = actual_price - entry_price
+                if thesis.get("position") and thesis["position"].get("shares"):
+                    pnl_dollars_raw *= thesis["position"]["shares"]
+                pnl_pct = round(pnl_pct_raw, 2)
+                pnl_dollars = round(pnl_dollars_raw, 2)
+                outcome_finite = math.isfinite(pnl_pct) and math.isfinite(pnl_dollars)
+            except OverflowError as exc:
+                raise ValueError(
+                    "computed pnl_dollars/pnl_pct overflowed (actual_price="
+                    f"{actual_price}, entry_price={entry_price}) — operands too large"
+                ) from exc
+            if not outcome_finite:
+                raise ValueError(
+                    f"computed pnl_dollars/pnl_pct is not finite ({pnl_dollars}, {pnl_pct})"
+                )
 
             entry_date = thesis["entry"].get("actual_date")
             if entry_date and actual_date:
                 try:
                     holding_days = (_parse_dt(actual_date) - _parse_dt(entry_date)).days
-                    thesis["outcome"]["holding_days"] = holding_days
                 except (ValueError, TypeError):
                     pass
+
+        # All computed values validated finite — now, and only now, mutate.
+        if compute_outcome:
+            thesis["outcome"]["pnl_pct"] = pnl_pct
+            thesis["outcome"]["pnl_dollars"] = pnl_dollars
+            if holding_days is not None:
+                thesis["outcome"]["holding_days"] = holding_days
 
         thesis["status"] = "INVALIDATED"
         thesis["status_history"].append(
@@ -2784,6 +3010,45 @@ def main(argv: list[str] | None = None) -> int:
             raise argparse.ArgumentTypeError(f"{value!r} must be greater than 0")
         return parsed
 
+    def _strict_shares(value: str) -> float:
+        """Argparse type= for --shares (open-position) / --shares-sold
+        (trim) ONLY (Issue #254, pre-existing money-critical gap) — a
+        dedicated, equity-specific parser, per-domain like
+        _strict_positive_int above (NOT a cap bolted onto the shared
+        _strict_positive_finite_float, which is documented as
+        futures-only and would conflate two independently-tunable sanity
+        domains — see _is_futures()'s module docstring on why futures/
+        equity code paths must not be merged).
+
+        Parses via float() (never int()) since equity shares are
+        legitimately fractional (7.86, matching a real IBKR/Robinhood
+        fill) — unlike futures contracts, this does NOT truncate to a
+        whole number. Rejects nan/inf/non-numeric (argparse.
+        ArgumentTypeError, exit 2, no traceback) and enforces the same
+        _MAX_SHARES sanity cap as _valid_finite_positive()'s callers on
+        the Python API side, for the same reason _strict_positive_int
+        enforces _MAX_CONTRACTS: a 400+-digit CLI string would otherwise
+        reach the business logic layer as a "successfully parsed" value
+        and only be rejected several calls later, deep inside
+        open_position()/trim(). Note the mechanism differs from the
+        contracts case: float("1" + "0"*400) returns inf cleanly (no
+        exception — string-to-float parsing saturates rather than
+        raising OverflowError, unlike int-to-float conversion), so this
+        is caught by the isfinite() check below, not a try/except."""
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError) as exc:
+            raise argparse.ArgumentTypeError(f"{value!r} is not a valid number") from exc
+        if not math.isfinite(parsed):
+            raise argparse.ArgumentTypeError(f"{value!r} must be finite (not inf/-inf/nan)")
+        if parsed <= 0:
+            raise argparse.ArgumentTypeError(f"{value!r} must be greater than 0")
+        if parsed > _MAX_SHARES:
+            raise argparse.ArgumentTypeError(
+                f"{value!r} exceeds the maximum share count ({_MAX_SHARES})"
+            )
+        return parsed
+
     parser = argparse.ArgumentParser(description="Trader Memory Core — thesis store CLI")
     parser.add_argument("--state-dir", default="state/theses", help="Path to thesis state dir")
     sub = parser.add_subparsers(dest="command")
@@ -2831,7 +3096,9 @@ def main(argv: list[str] | None = None) -> int:
         "--actual-price", type=_strict_finite_float, required=True, help="Entry price"
     )
     op_p.add_argument("--actual-date", required=True, help="Entry date (YYYY-MM-DD or ISO)")
-    op_p.add_argument("--shares", type=float, default=None, help="Share count (fractional ok)")
+    op_p.add_argument(
+        "--shares", type=_strict_shares, default=None, help="Share count (fractional ok)"
+    )
     op_p.add_argument(
         "--contracts", type=_strict_positive_int, default=None, help="Contract count (futures)"
     )
@@ -2902,7 +3169,9 @@ def main(argv: list[str] | None = None) -> int:
     # trim (partial close: ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED or CLOSED)
     tr2_p = sub.add_parser("trim", help="Partially close (trim) a position")
     tr2_p.add_argument("thesis_id", help="Thesis ID")
-    tr2_p.add_argument("--shares-sold", type=float, default=None, help="Quantity sold (equity)")
+    tr2_p.add_argument(
+        "--shares-sold", type=_strict_shares, default=None, help="Quantity sold (equity)"
+    )
     tr2_p.add_argument(
         "--contracts-sold",
         type=_strict_positive_int,

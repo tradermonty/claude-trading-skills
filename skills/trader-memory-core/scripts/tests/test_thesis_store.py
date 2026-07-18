@@ -1,5 +1,6 @@
 """Tests for thesis_store.py — CRUD, transitions, and index management."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -30,6 +31,23 @@ def _register_and_get(state_dir, **overrides):
     tid = thesis_store.register(state_dir, data)
     thesis = thesis_store.get(state_dir, tid)
     return tid, thesis
+
+
+def _state_file_hash(state_dir, thesis_id: str) -> str:
+    """SHA-256 of the on-disk thesis YAML file — for byte-exact
+    before/after comparison around a rejected mutation (duplicated here
+    from test_thesis_store_futures.py per this suite's self-contained-
+    per-file convention; Issue #254)."""
+    path = Path(state_dir) / f"{thesis_id}.yaml"
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _index_file_hash(state_dir) -> str:
+    """SHA-256 of the on-disk _index.json file — a rejection must leave
+    BOTH the thesis YAML and the index untouched (_save_index() is only
+    ever reached after _save_thesis() succeeds)."""
+    path = Path(state_dir) / thesis_store.INDEX_FILE
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # -- Tests: register + get ----------------------------------------------------
@@ -1041,6 +1059,478 @@ def test_schema_accepts_integer_shares_backward_compat(tmp_path: Path):
     thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=100)
     t = thesis_store.get(tmp_path, tid)  # get() implies schema-valid
     assert t["position"]["shares"] == 100
+
+
+# -- Tests: Issue #254 — equity shares finiteness/sanity validation ----------
+# (pre-existing money-critical gap: shares=10**400 crashed close() with an
+# uncaught OverflowError; shares=inf silently persisted pnl_dollars: inf.
+# _valid_finite_positive() is the SAME huge-int-safe validator #253 added
+# for futures multiplier — no new low-level helper needed, just missing
+# call sites at the _validate_thesis() chokepoint + output-side P&L guards.)
+
+
+def test_valid_finite_positive_rejects_bad_shares_values():
+    """_valid_finite_positive() in the equity/shares context: huge int,
+    inf, nan, non-positive all rejected cleanly (never raises); ordinary
+    fractional/integer shares pass through as float."""
+    assert thesis_store._valid_finite_positive(10**400) is None  # must not raise
+    assert thesis_store._valid_finite_positive(float("inf")) is None
+    assert thesis_store._valid_finite_positive(float("-inf")) is None
+    assert thesis_store._valid_finite_positive(float("nan")) is None
+    assert thesis_store._valid_finite_positive(0) is None
+    assert thesis_store._valid_finite_positive(-1) is None
+    assert thesis_store._valid_finite_positive(7.86) == 7.86
+    assert thesis_store._valid_finite_positive(100) == 100.0
+
+
+def test_valid_finite_nonneg_allows_zero_but_not_negative():
+    """_valid_finite_nonneg() (new for #254): shares_remaining==0 (any
+    CLOSED equity thesis) must be accepted, unlike _valid_finite_positive."""
+    assert thesis_store._valid_finite_nonneg(0) == 0.0
+    assert thesis_store._valid_finite_nonneg(0.0) == 0.0
+    assert thesis_store._valid_finite_nonneg(-0.5) is None
+    assert thesis_store._valid_finite_nonneg(float("nan")) is None
+    assert thesis_store._valid_finite_nonneg(float("inf")) is None
+    assert thesis_store._valid_finite_nonneg(10**400) is None  # must not raise
+
+
+def test_open_position_rejects_huge_shares(tmp_path: Path):
+    """Issue #254 (money-critical): shares=10**400 must be rejected with
+    a clean ValueError at save time (D1 chokepoint) — the original bug
+    crashed close() later with an uncaught OverflowError instead."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQHUGE")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    before = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="equity thesis position.shares is invalid"):
+        thesis_store.open_position(
+            tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10**400
+        )
+    assert _index_file_hash(tmp_path) == before
+    assert thesis_store.get(tmp_path, tid)["status"] == "ENTRY_READY"
+
+
+def test_open_position_rejects_infinite_shares(tmp_path: Path):
+    """Issue #254: shares=inf must be rejected — the original bug
+    silently persisted a thesis that could open but never correctly
+    close (pnl_dollars: inf)."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQINF")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    with pytest.raises(ValueError, match="equity thesis position.shares is invalid"):
+        thesis_store.open_position(
+            tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=float("inf")
+        )
+    assert thesis_store.get(tmp_path, tid)["status"] == "ENTRY_READY"
+
+
+def test_open_position_rejects_nan_shares(tmp_path: Path):
+    """Issue #254: shares=nan must be rejected."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQNAN")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    with pytest.raises(ValueError, match="equity thesis position.shares is invalid"):
+        thesis_store.open_position(
+            tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=float("nan")
+        )
+    assert thesis_store.get(tmp_path, tid)["status"] == "ENTRY_READY"
+
+
+def test_open_position_rejects_shares_above_max_sanity_bound(tmp_path: Path):
+    """Issue #254: a finite, ordinary-looking float just above
+    _MAX_SHARES is rejected — the sanity cap, not just the finiteness
+    check."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQCAPPLUS")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    with pytest.raises(ValueError, match="exceeds the maximum sanity bound"):
+        thesis_store.open_position(
+            tmp_path,
+            tid,
+            150.0,
+            "2026-03-01T10:00:00+00:00",
+            shares=thesis_store._MAX_SHARES + 1,
+        )
+
+
+def test_open_position_accepts_shares_at_max_sanity_bound(tmp_path: Path):
+    """Issue #254: _MAX_SHARES itself is a valid (if absurd) share count —
+    the boundary is inclusive."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQCAPEXACT")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    t = thesis_store.open_position(
+        tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=thesis_store._MAX_SHARES
+    )
+    assert t["position"]["shares"] == thesis_store._MAX_SHARES
+
+
+def test_open_position_accepts_fractional_shares_below_cap(tmp_path: Path):
+    """Regression pin: ordinary fractional shares (0.5, 7.86) are
+    unaffected by the new cap/finiteness checks."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQFRACOK")
+    thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
+    t = thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=0.5)
+    assert t["position"]["shares"] == 0.5
+
+
+def test_attach_position_rejects_huge_shares_in_report(tmp_path: Path):
+    """Issue #254: attach_position() reads the position-sizer report with
+    a plain (unhardened) json.load() and never validated
+    final_recommended_shares before this fix — the D1 chokepoint at
+    _save_thesis() closes this "for free" since attach also ends there."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir, ticker="EQATTACHHUGE")
+    report_path = _make_position_report(tmp_path, final_recommended_shares=10**400)
+    before = _state_file_hash(state_dir, tid)
+    with pytest.raises(ValueError, match="equity thesis position.shares is invalid"):
+        thesis_store.attach_position(state_dir, tid, report_path)
+    assert _state_file_hash(state_dir, tid) == before
+
+
+def test_attach_position_rejects_infinite_shares_in_report(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir, ticker="EQATTACHINF")
+    report_path = _make_position_report(tmp_path, final_recommended_shares=float("inf"))
+    with pytest.raises(ValueError, match="equity thesis position.shares is invalid"):
+        thesis_store.attach_position(state_dir, tid, report_path)
+
+
+def test_attach_position_rejects_nan_shares_in_report(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir, ticker="EQATTACHNAN")
+    report_path = _make_position_report(tmp_path, final_recommended_shares=float("nan"))
+    with pytest.raises(ValueError, match="equity thesis position.shares is invalid"):
+        thesis_store.attach_position(state_dir, tid, report_path)
+
+
+def test_trim_rejects_huge_shares_sold(tmp_path: Path):
+    """Issue #254: trim(shares_sold=10**400) is already rejected by the
+    existing comparison-based range guard (0 < shares_sold <= remaining
+    never raises OverflowError for huge ints — verified empirically),
+    pinned here as a regression guard against that safety property."""
+    tid = _active_with_shares(tmp_path, 10, ticker="EQTRIMHUGE")
+    before = _state_file_hash(tmp_path, tid)
+    with pytest.raises(ValueError, match="must be > 0 and"):
+        thesis_store.trim(tmp_path, tid, 10**400, 120.0, "2026-05-10")
+    assert _state_file_hash(tmp_path, tid) == before
+    assert thesis_store.get(tmp_path, tid)["position"]["shares_remaining"] == 10
+
+
+def test_trim_rejects_infinite_shares_sold(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10, ticker="EQTRIMINF")
+    with pytest.raises(ValueError, match="must be > 0 and"):
+        thesis_store.trim(tmp_path, tid, float("inf"), 120.0, "2026-05-10")
+    assert thesis_store.get(tmp_path, tid)["position"]["shares_remaining"] == 10
+
+
+def test_trim_rejects_nan_shares_sold(tmp_path: Path):
+    tid = _active_with_shares(tmp_path, 10, ticker="EQTRIMNAN")
+    with pytest.raises(ValueError, match="must be > 0 and"):
+        thesis_store.trim(tmp_path, tid, float("nan"), 120.0, "2026-05-10")
+    assert thesis_store.get(tmp_path, tid)["position"]["shares_remaining"] == 10
+
+
+def test_close_rejects_overflowing_pnl_with_shares_at_cap(tmp_path: Path):
+    """Issue #254 test#7: shares at exactly _MAX_SHARES (a legitimately-
+    accepted, cap-respecting value) combined with an extreme (but
+    individually finite — actual_price input validation is explicitly
+    out of scope for #254, tracked as a follow-up) price makes the
+    PRODUCT overflow to inf. Verified via computation:
+    round(1e300 * 1e12, 2) == inf. close() must reject before persisting,
+    leaving outcome.pnl_dollars null and the file byte-unchanged."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQOVERFLOWCAP", _source_date="2026-05-01")
+    thesis_store.transition(
+        tmp_path, tid, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    thesis_store.open_position(
+        tmp_path,
+        tid,
+        1.0,
+        "2026-05-01T00:00:00+00:00",
+        shares=thesis_store._MAX_SHARES,
+        event_date="2026-05-01T00:00:00+00:00",
+    )
+    before = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="not finite"):
+        thesis_store.close(tmp_path, tid, "manual", 1e300, "2026-05-10T00:00:00+00:00")
+    assert _state_file_hash(tmp_path, tid) == before
+    assert _index_file_hash(tmp_path) == before_index
+    t = thesis_store.get(tmp_path, tid)
+    assert t["status"] == "ACTIVE"
+    assert t["outcome"]["pnl_dollars"] is None
+
+
+def test_close_rejects_disk_corrupted_infinite_shares_d4_only(tmp_path: Path):
+    """Issue #254 test#7b (P1 D4): a thesis whose shares became `.inf` on
+    disk WITHOUT ever going through open_position()/attach_position() (a
+    hand-edited file, or one written before this fix) is never re-
+    validated on READ — _load_thesis() is a plain yaml.safe_load(), and
+    _validate_thesis() (D1) only runs from _save_thesis() on WRITE. D4
+    (the output-side guard inside close()/_finalize_outcome()) is the
+    ONLY thing standing between this file and a crash/silent-inf
+    persistence. Confirms D1 is NOT reachable on this path and D4 alone
+    rejects it, leaving the file byte-unchanged."""
+    import yaml
+
+    tid = _active_with_shares(tmp_path, 10, ticker="EQDISKINF")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["shares"] = float("inf")
+    thesis["position"]["shares_remaining"] = float("inf")
+    yaml_path = tmp_path / f"{tid}.yaml"
+    yaml_path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
+
+    # Confirm the corrupted file round-trips on plain read (D1 not
+    # executed on this path — _load_thesis()/get() do not validate).
+    reloaded = thesis_store.get(tmp_path, tid)
+    assert reloaded["position"]["shares"] == float("inf")
+
+    before = _state_file_hash(tmp_path, tid)
+    with pytest.raises(ValueError, match="not finite"):
+        thesis_store.close(tmp_path, tid, "manual", 120.0, "2026-05-10T00:00:00+00:00")
+    assert _state_file_hash(tmp_path, tid) == before
+
+
+def test_trim_rejects_disk_corrupted_huge_int_shares_remaining_d4_only(tmp_path: Path):
+    """Issue #254 test#7b variant: a disk-corrupted shares_remaining as a
+    genuine (YAML-representable) huge Python int — not `.inf` — must
+    raise via the try/except OverflowError layer specifically (bare
+    math.isfinite() alone does not catch mid-arithmetic overflow; see
+    _finalize_outcome()'s docstring). trim() must reject cleanly and
+    leave the file byte-unchanged."""
+    import yaml
+
+    tid = _active_with_shares(tmp_path, 10, ticker="EQDISKHUGE")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["shares"] = 10**400
+    thesis["position"]["shares_remaining"] = 10**400
+    yaml_path = tmp_path / f"{tid}.yaml"
+    yaml_path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
+
+    before = _state_file_hash(tmp_path, tid)
+    with pytest.raises(ValueError):  # must not raise OverflowError
+        thesis_store.trim(tmp_path, tid, 1, 120.0, "2026-05-10")
+    assert _state_file_hash(tmp_path, tid) == before
+
+
+def test_terminate_invalidated_rejects_disk_corrupted_huge_shares_d4_only(tmp_path: Path):
+    """Issue #254 test#7b variant: terminate()'s legacy no-cumulative-path
+    branch (pnl_dollars *= shares) must also reject a disk-corrupted huge
+    shares value cleanly via D4, not crash with OverflowError."""
+    import yaml
+
+    tid, _ = _register_and_get(tmp_path, ticker="EQDISKTERM", _source_date="2026-05-01")
+    thesis_store.transition(
+        tmp_path, tid, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    thesis_store.open_position(
+        tmp_path,
+        tid,
+        100.0,
+        "2026-05-01T00:00:00+00:00",
+        shares=10,
+        event_date="2026-05-01T00:00:00+00:00",
+    )
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["shares"] = 10**400
+    thesis["position"]["shares_remaining"] = 10**400
+    yaml_path = tmp_path / f"{tid}.yaml"
+    yaml_path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
+
+    before = _state_file_hash(tmp_path, tid)
+    with pytest.raises(ValueError):  # must not raise OverflowError
+        thesis_store.terminate(
+            tmp_path,
+            tid,
+            "INVALIDATED",
+            "thesis broke",
+            actual_price=90.0,
+            actual_date="2026-05-10T00:00:00+00:00",
+        )
+    assert _state_file_hash(tmp_path, tid) == before
+
+
+def test_cli_open_position_rejects_nan_shares(tmp_path: Path):
+    """Issue #254: the CLI --shares flag rejects "nan" at argparse level
+    (exit 2, no traceback) via the new _strict_shares parser."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQCLINAN", _source_date="2026-03-01")
+    sd = str(tmp_path)
+    assert (
+        thesis_store.main(["--state-dir", sd, "transition", tid, "ENTRY_READY", "--reason", "ok"])
+        == 0
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "150",
+                "--actual-date",
+                "2026-03-01",
+                "--shares",
+                "nan",
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
+def test_cli_open_position_rejects_infinite_shares(tmp_path: Path):
+    tid, _ = _register_and_get(tmp_path, ticker="EQCLIINF", _source_date="2026-03-01")
+    sd = str(tmp_path)
+    assert (
+        thesis_store.main(["--state-dir", sd, "transition", tid, "ENTRY_READY", "--reason", "ok"])
+        == 0
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "150",
+                "--actual-date",
+                "2026-03-01",
+                "--shares",
+                "inf",
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
+def test_cli_open_position_rejects_shares_above_cap(tmp_path: Path):
+    tid, _ = _register_and_get(tmp_path, ticker="EQCLICAP", _source_date="2026-03-01")
+    sd = str(tmp_path)
+    assert (
+        thesis_store.main(["--state-dir", sd, "transition", tid, "ENTRY_READY", "--reason", "ok"])
+        == 0
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "150",
+                "--actual-date",
+                "2026-03-01",
+                "--shares",
+                str(thesis_store._MAX_SHARES + 1),
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
+def test_cli_open_position_rejects_huge_digit_string_shares(tmp_path: Path):
+    """Issue #254 mechanism note: unlike the futures --contracts case
+    (int() parses arbitrary precision, needs an explicit cap check), a
+    400-digit --shares string goes through float() parsing, which
+    SATURATES to inf rather than raising (verified empirically:
+    float("1"+"0"*400) == inf, no exception) — so this is caught by the
+    isfinite() check in _strict_shares, not a try/except. Different
+    mechanism, same clean rejection with no traceback."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQCLIDIGITS", _source_date="2026-03-01")
+    sd = str(tmp_path)
+    assert (
+        thesis_store.main(["--state-dir", sd, "transition", tid, "ENTRY_READY", "--reason", "ok"])
+        == 0
+    )
+    huge_digits = "1" + "0" * 400
+    with pytest.raises(SystemExit) as exc_info:
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "150",
+                "--actual-date",
+                "2026-03-01",
+                "--shares",
+                huge_digits,
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
+def test_cli_open_position_accepts_fractional_shares_no_regression(tmp_path: Path):
+    """Regression pin: --shares 7.86 (fractional, the common real-world
+    case) is unaffected by the new strict parser."""
+    tid, _ = _register_and_get(tmp_path, ticker="EQCLIFRACOK", _source_date="2026-03-01")
+    sd = str(tmp_path)
+    assert (
+        thesis_store.main(["--state-dir", sd, "transition", tid, "ENTRY_READY", "--reason", "ok"])
+        == 0
+    )
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "open-position",
+                tid,
+                "--actual-price",
+                "150",
+                "--actual-date",
+                "2026-03-01",
+                "--shares",
+                "7.86",
+            ]
+        )
+        == 0
+    )
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares"] == 7.86
+
+
+def test_cli_trim_rejects_nan_shares_sold(tmp_path: Path):
+    """Issue #254: the CLI --shares-sold flag (trim) rejects "nan" too."""
+    tid = _active_with_shares(tmp_path, 10, ticker="EQCLITRIMNAN")
+    sd = str(tmp_path)
+    with pytest.raises(SystemExit) as exc_info:
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "trim",
+                tid,
+                "--shares-sold",
+                "nan",
+                "--price",
+                "120",
+                "--date",
+                "2026-05-10",
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
+def test_cli_trim_accepts_fractional_shares_sold_no_regression(tmp_path: Path):
+    """Regression pin: --shares-sold with a fractional value still works."""
+    tid = _active_with_shares(tmp_path, 7.86, ticker="EQCLITRIMFRACOK")
+    sd = str(tmp_path)
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                sd,
+                "trim",
+                tid,
+                "--shares-sold",
+                "4.0",
+                "--price",
+                "120",
+                "--date",
+                "2026-05-10",
+            ]
+        )
+        == 0
+    )
+    t = thesis_store.get(tmp_path, tid)
+    assert t["position"]["shares_remaining"] == pytest.approx(3.86)
 
 
 # -- Tests: lifecycle CLI (main(argv)) ----------------------------------------
