@@ -403,13 +403,13 @@ python3 value-dividend-screener/scripts/screen_dividend_stocks.py \
 **Dividend Growth Pullback Screener:** ⚠️ Requires FMP API key; FINVIZ Elite optional but recommended
 ```bash
 # Two-stage screening with RSI filter (RECOMMENDED)
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth.py --use-finviz
+python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
 
 # FMP-only screening (limited to ~40 stocks due to API limits)
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth.py --max-candidates 40
+python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
 
 # Custom RSI threshold and dividend growth requirements
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth.py \
+python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py \
   --use-finviz \
   --rsi-threshold 35 \
   --min-div-growth 15
