@@ -272,7 +272,7 @@ def ingest_pead(record: dict, input_file: str) -> dict:
         "origin": {
             "skill": "pead-screener",
             "output_file": input_file,
-            "screening_grade": record.get("grade"),
+            "screening_grade": record.get("rating"),
             "screening_score": record.get("composite_score"),
             "raw_provenance": {k: v for k, v in record.items()},
         },

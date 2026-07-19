@@ -110,7 +110,7 @@ def test_ingest_pead(tmp_path: Path):
         "entry_price": 380.00,
         "stop_price": 355.00,
         "stage": "BREAKOUT",
-        "grade": "B",
+        "rating": "B",
     }
     input_file = _write_json(tmp_path, {"results": [record]})
 
@@ -120,6 +120,7 @@ def test_ingest_pead(tmp_path: Path):
     thesis = thesis_store.get(state_dir, ids[0])
     assert thesis["entry"]["target_price"] == 380.00
     assert thesis["exit"]["stop_loss"] == 355.00
+    assert thesis["origin"]["screening_grade"] == "B"
     assert thesis["origin"]["raw_provenance"]["stage"] == "BREAKOUT"
 
 
