@@ -1719,7 +1719,9 @@ def _finalize_futures_outcome(
     mutation of thesis/position/status_history. An all-finite-INPUT
     computation (e.g. multiplier=1e308) can still OVERFLOW to inf, and
     inf-inf can further produce nan in the pnl_pct division — neither may
-    ever persist into thesis state.
+    ever persist into thesis state. The arithmetic and math.isfinite()
+    checks share try/except OverflowError guards because a disk-corrupted
+    huge Python int can overflow before either check returns (Issue #258).
     """
     entry_price = thesis["entry"].get("actual_price")
     entry_date = thesis["entry"].get("actual_date")
@@ -1731,9 +1733,17 @@ def _finalize_futures_outcome(
 
     new_entry = None
     if append_entry:
-        leg_proceeds = round(exit_price * multiplier * remaining, 2)
-        leg_realized = round((exit_price - entry_price) * multiplier * remaining * sign, 2)
-        if not (math.isfinite(leg_proceeds) and math.isfinite(leg_realized)):
+        try:
+            leg_proceeds = round(exit_price * multiplier * remaining, 2)
+            leg_realized = round((exit_price - entry_price) * multiplier * remaining * sign, 2)
+            leg_finite = math.isfinite(leg_proceeds) and math.isfinite(leg_realized)
+        except OverflowError as exc:
+            raise ValueError(
+                "computed proceeds/realized_pnl overflowed (exit_price="
+                f"{exit_price}, multiplier={multiplier}, quantity={remaining}) — "
+                "operands too large"
+            ) from exc
+        if not leg_finite:
             raise ValueError(
                 "computed proceeds/realized_pnl is not finite (exit_price="
                 f"{exit_price}, multiplier={multiplier}, quantity={remaining}) — "
@@ -1754,8 +1764,15 @@ def _finalize_futures_outcome(
     # not-yet-appended new_entry, so a non-finite cumulative result still
     # rejects cleanly before any state changes.
     history_for_sum = thesis["status_history"] + ([new_entry] if new_entry else [])
-    pnl_dollars = round(_sum_realized(history_for_sum), 2)
-    if not math.isfinite(pnl_dollars):
+    try:
+        pnl_dollars = round(_sum_realized(history_for_sum), 2)
+        pnl_dollars_finite = math.isfinite(pnl_dollars)
+    except OverflowError as exc:
+        raise ValueError(
+            "computed cumulative pnl_dollars overflowed — the position's "
+            "realized P&L ledger contains an operand too large"
+        ) from exc
+    if not pnl_dollars_finite:
         raise ValueError(
             f"computed cumulative pnl_dollars is not finite ({pnl_dollars}) — "
             "the position's realized P&L ledger overflowed"
@@ -1767,8 +1784,15 @@ def _finalize_futures_outcome(
         # the direct futures analog of equity's entry*shares denominator —
         # a descriptive metric only; pnl_dollars above is the money-critical
         # exact figure and is never derived from this percentage.
-        pnl_pct = round(pnl_dollars / (entry_price * multiplier * original) * 100, 2)
-        if not math.isfinite(pnl_pct):
+        try:
+            pnl_pct = round(pnl_dollars / (entry_price * multiplier * original) * 100, 2)
+            pnl_pct_finite = math.isfinite(pnl_pct)
+        except OverflowError as exc:
+            raise ValueError(
+                "computed pnl_pct overflowed — the notional denominator "
+                "(entry * multiplier * quantity) contains an operand too large"
+            ) from exc
+        if not pnl_pct_finite:
             raise ValueError(
                 f"computed pnl_pct is not finite ({pnl_pct}) — the notional "
                 "denominator (entry * multiplier * quantity) overflowed"
@@ -2172,13 +2196,22 @@ def _trim_futures(
 
     multiplier = position["multiplier"]
     sign = _sign(position["direction"])
-    realized = round((price - entry_price) * multiplier * valid_contracts_sold * sign, 2)
-    proceeds = round(price * multiplier * valid_contracts_sold, 2)
     # P1 addendum-1 (user re-review, teaching 10b — guard the OUTPUT, not
     # just the input): individually-finite operands (e.g. multiplier=1e308)
-    # can still overflow their PRODUCT to inf. Validated before any
-    # mutation below.
-    if not (math.isfinite(realized) and math.isfinite(proceeds)):
+    # can still overflow their PRODUCT to inf. A disk-corrupted huge int can
+    # instead raise OverflowError during arithmetic or math.isfinite(), so
+    # both live inside the same guard. Validated before any mutation below.
+    try:
+        realized = round((price - entry_price) * multiplier * valid_contracts_sold * sign, 2)
+        proceeds = round(price * multiplier * valid_contracts_sold, 2)
+        trim_finite = math.isfinite(realized) and math.isfinite(proceeds)
+    except OverflowError as exc:
+        raise ValueError(
+            "computed realized_pnl/proceeds overflowed (price="
+            f"{price}, multiplier={multiplier}, contracts_sold={valid_contracts_sold}) — "
+            "operands too large"
+        ) from exc
+    if not trim_finite:
         raise ValueError(
             "computed realized_pnl/proceeds is not finite (price="
             f"{price}, multiplier={multiplier}, contracts_sold={valid_contracts_sold}) — "

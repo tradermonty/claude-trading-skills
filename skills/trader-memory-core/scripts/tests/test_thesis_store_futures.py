@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 import thesis_review
 import thesis_store
+import yaml
 
 # -- Helpers -------------------------------------------------------------------
 
@@ -203,6 +204,12 @@ def _index_file_hash(state_dir) -> str:
     succeeds, but this pins that structural guarantee explicitly)."""
     path = Path(state_dir) / thesis_store.INDEX_FILE
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_corrupted_thesis(state_dir, thesis_id: str, thesis: dict) -> None:
+    """Write a deliberately invalid thesis without the save-time validator."""
+    path = Path(state_dir) / f"{thesis_id}.yaml"
+    path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
 
 
 # -- Tests: round-trip P&L (plan §3 test#2/#3/#4) ------------------------------
@@ -1719,6 +1726,121 @@ def test_trim_futures_rejects_overflow_with_finite_operands(tmp_path: Path):
     t = thesis_store.get(tmp_path, tid)
     assert t["status"] == "ACTIVE"
     assert t["position"]["quantity_remaining"] == 2
+
+
+# -- Tests: Issue #258 disk-corrupted huge-int output guards --------------
+
+
+def test_close_futures_converts_huge_remaining_leg_overflow(tmp_path: Path):
+    """A huge on-disk remainder must fail at the final-leg calculation."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKLEG")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["quantity_remaining"] = 10**400
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+
+    before_thesis = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="computed proceeds/realized_pnl overflowed"):
+        thesis_store.close(tmp_path, tid, "manual", 5010.0, "2026-05-10T00:00:00+00:00")
+    assert _state_file_hash(tmp_path, tid) == before_thesis
+    assert _index_file_hash(tmp_path) == before_index
+
+
+def test_terminate_futures_converts_huge_multiplier_leg_overflow(tmp_path: Path):
+    """INVALIDATED uses its own append-entry path and must fail before save."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKTERM")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["multiplier"] = 10**400
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+
+    before_thesis = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="computed proceeds/realized_pnl overflowed"):
+        thesis_store.terminate(
+            tmp_path,
+            tid,
+            "INVALIDATED",
+            "thesis invalidated",
+            actual_price=5010.0,
+            actual_date="2026-05-10T00:00:00+00:00",
+        )
+    assert _state_file_hash(tmp_path, tid) == before_thesis
+    assert _index_file_hash(tmp_path) == before_index
+
+
+def test_close_futures_converts_huge_ledger_overflow(tmp_path: Path):
+    """A huge realized-P&L ledger integer must fail at cumulative rollup."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKLEDGER")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["status_history"].append(
+        {
+            "status": "PARTIALLY_CLOSED",
+            "at": "2026-05-05T00:00:00+00:00",
+            "reason": "disk-corrupted ledger",
+            "realized_pnl": 10**400,
+        }
+    )
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+
+    before_thesis = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="computed cumulative pnl_dollars overflowed"):
+        thesis_store.close(tmp_path, tid, "manual", 5010.0, "2026-05-10T00:00:00+00:00")
+    assert _state_file_hash(tmp_path, tid) == before_thesis
+    assert _index_file_hash(tmp_path) == before_index
+
+
+def test_close_futures_converts_huge_original_quantity_pct_overflow(tmp_path: Path):
+    """A huge original quantity with a normal remainder reaches pnl_pct."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKPCT")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["quantity"] = 10**400
+    thesis["position"]["quantity_remaining"] = 1
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+
+    before_thesis = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="computed pnl_pct overflowed"):
+        thesis_store.close(tmp_path, tid, "manual", 5010.0, "2026-05-10T00:00:00+00:00")
+    assert _state_file_hash(tmp_path, tid) == before_thesis
+    assert _index_file_hash(tmp_path) == before_index
+
+
+def test_partial_trim_futures_converts_huge_multiplier_overflow(tmp_path: Path):
+    """The partial-trim calculation must convert a huge-int overflow."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKTRIM")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["multiplier"] = 10**400
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+
+    before_thesis = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="computed realized_pnl/proceeds overflowed"):
+        thesis_store.trim(tmp_path, tid, 1, 5010.0, "2026-05-10")
+    assert _state_file_hash(tmp_path, tid) == before_thesis
+    assert _index_file_hash(tmp_path) == before_index
+
+
+def test_full_close_trim_futures_converts_huge_ledger_overflow(tmp_path: Path):
+    """Full trim mutates only its loaded copy before cumulative rollup fails."""
+    tid = _active_futures(tmp_path, contracts=1, ticker="ESDISKFULLTRIM")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["status_history"].append(
+        {
+            "status": "PARTIALLY_CLOSED",
+            "at": "2026-05-05T00:00:00+00:00",
+            "reason": "disk-corrupted ledger",
+            "realized_pnl": 10**400,
+        }
+    )
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+
+    before_thesis = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+    with pytest.raises(ValueError, match="computed cumulative pnl_dollars overflowed"):
+        thesis_store.trim(tmp_path, tid, 1, 5010.0, "2026-05-10")
+    assert _state_file_hash(tmp_path, tid) == before_thesis
+    assert _index_file_hash(tmp_path) == before_index
 
 
 def test_open_position_direct_open_requires_contract_currency(tmp_path: Path):
