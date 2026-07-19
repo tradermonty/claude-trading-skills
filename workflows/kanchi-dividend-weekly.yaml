@@ -32,6 +32,36 @@ optional_skills:
   - kanchi-dividend-us-tax-accounting
   - kanchi-dividend-review-monitor
 
+# Optional source for existing-holding context used only by steps 4-5.
+# Candidate underwriting in steps 1-3 does not require this workflow.
+prerequisite_workflows:
+  - id: core-portfolio-weekly
+    artifact: holdings_snapshot
+    rationale: >-
+      Use its live holdings as the source when optional tax or review-monitor
+      checks are requested. Normalize that snapshot to each skill's distinct
+      manual input schema; skip steps 4-5 when no applicable input exists.
+
+manual_inputs:
+  - id: tax_holdings_input
+    required: false
+    used_by_steps:
+      - 4
+    schema_ref: skills/kanchi-dividend-us-tax-accounting/references/input-schema.md
+    description: >-
+      Operator-supplied JSON with holdings[]. For a new candidate, provide a
+      hypothetical intended account and leave hold_days_in_window absent so
+      the result remains assumption-required rather than falsely confirmed.
+  - id: review_monitor_input
+    required: false
+    used_by_steps:
+      - 5
+    schema_ref: skills/kanchi-dividend-review-monitor/references/input-schema.md
+    description: >-
+      Normalized existing-holding JSON with dividend and risk evidence. This
+      is not derivable from a candidate ticker alone; skip step 5 for a new,
+      not-yet-held name without monitoring evidence.
+
 artifacts:
   - id: high_yield_candidates
     produced_by_step: 1
@@ -51,7 +81,7 @@ artifacts:
   - id: review_queue
     produced_by_step: 5
     required: false
-  - id: kanchi_thesis_entry
+  - id: thesis_record
     produced_by_step: 6
     required: true
     downstream_hints:
@@ -121,7 +151,7 @@ steps:
       - account_location_advice
       - review_queue
     produces:
-      - kanchi_thesis_entry
+      - thesis_record
     decision_gate: true
     decision_question: >-
       For each actionable candidate, ingest the kanchi_candidates verdict as
@@ -156,9 +186,14 @@ manual_review:
   - Tax and account-location advice (step 4) is advisory, not authoritative
     -- verify with a tax professional or the actual broker/custodian
     statements before acting on it.
+  - Step 4 requires `tax_holdings_input` matching the linked schema; do not
+    pass raw screener rows directly as tax holdings.
   - If review-monitor (step 5) flags an existing holding WARN or REVIEW,
     that only pauses additional buys in that name -- it never triggers an
     automatic sell.
+  - Step 5 requires `review_monitor_input` matching its richer linked schema;
+    a ticker-only candidate is insufficient and the optional step must be
+    skipped rather than manufacturing missing evidence.
   - Screener outputs land under each skill's own `logs/` directory, not a
     shared `reports/` path; treat artifact ids as logical references, not
     literal filenames, when wiring steps together.

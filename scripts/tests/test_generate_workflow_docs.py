@@ -176,6 +176,29 @@ def test_render_includes_prerequisite_workflows(workflows_dir: Path) -> None:
     assert "Need upstream output" in page
 
 
+def test_render_includes_manual_input_contracts(workflows_dir: Path) -> None:
+    make_workflow(
+        workflows_dir,
+        id="manual-inputs",
+        manual_inputs=[
+            {
+                "id": "tax_holdings_input",
+                "required": False,
+                "used_by_steps": [2],
+                "schema_ref": "skills/tax/references/input-schema.md",
+                "description": "JSON object with a holdings array.",
+            }
+        ],
+    )
+    workflows = load_workflows(workflows_dir)
+    page = render_page(workflows, "en")
+    assert "Manual input contracts" in page
+    assert "`tax_holdings_input`" in page
+    assert "2" in page
+    assert "`skills/tax/references/input-schema.md`" in page
+    assert "JSON object with a holdings array." in page
+
+
 def test_render_includes_final_outputs(workflows_dir: Path) -> None:
     make_workflow(
         workflows_dir,

@@ -29,8 +29,9 @@ A workflow manifest has these main sections:
 1. **Header** — `id`, `display_name`, `cadence`, `estimated_minutes`, `target_users`, `difficulty`, `api_profile`, plus `when_to_run` / `when_not_to_run` guidance.
 2. **`required_skills` / `optional_skills`** — the skills you need installed to run this workflow. Required skills must appear in at least one non-optional step.
 3. **`prerequisite_workflows`** *(optional)* — informational hint that this workflow expects an artifact from another workflow upstream (e.g. `swing-opportunity-daily` expects `exposure_decision` from `market-regime-daily`). Validator does NOT enforce — see "Inter-workflow data flow" below.
-4. **`artifacts`** — every named output, with `produced_by_step`, `required` flag, and (optional) `downstream_hints` for navigation. The validator cross-checks `produced_by_step` against each step's `produces:` list.
-5. **`steps`** — ordered execution. Each step names exactly one skill, may be `optional`, may be a `decision_gate` (which requires a `decision_question`), and declares what it `consumes` and `produces`.
+4. **`manual_inputs`** *(optional)* — operator-supplied inputs that are not produced by an earlier step. Each entry names the steps that use it and links its canonical schema; keep distinct JSON shapes as separate entries.
+5. **`artifacts`** — every named output, with `produced_by_step`, `required` flag, and (optional) `downstream_hints` for navigation. The validator cross-checks `produced_by_step` against each step's `produces:` list.
+6. **`steps`** — ordered execution. Each step names exactly one skill, may be `optional`, may be a `decision_gate` (which requires a `decision_question`), and declares what it `consumes` and `produces`.
 
 Below the steps:
 - **`manual_review`** — checklist items the human must confirm. Workflows are semi-automated, not auto-execution. Human judgment remains in the loop.

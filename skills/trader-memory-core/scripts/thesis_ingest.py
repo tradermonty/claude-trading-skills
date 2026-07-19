@@ -38,6 +38,9 @@ def _adapter(source_name: str):
 # -- Individual Adapters ------------------------------------------------------
 
 
+_KANCHI_ACTIONABLE_VERDICTS = frozenset({"CLEAN-PASS", "PASS-CAUTION", "CONDITIONAL-PASS"})
+
+
 @_adapter("kanchi-dividend-sop")
 def ingest_kanchi(record: dict, input_file: str) -> dict:
     """Transform kanchi-dividend-sop output into thesis data."""
@@ -45,12 +48,20 @@ def ingest_kanchi(record: dict, input_file: str) -> dict:
     if not ticker:
         raise ValueError("Missing required field 'ticker' in kanchi record")
 
+    verdict = record.get("verdict")
+    if not isinstance(verdict, str) or verdict not in _KANCHI_ACTIONABLE_VERDICTS:
+        rendered = repr(verdict) if verdict is not None else "missing"
+        raise ValueError(
+            "Kanchi record is not actionable: verdict "
+            f"{rendered}; expected one of {sorted(_KANCHI_ACTIONABLE_VERDICTS)}"
+        )
+
     thesis_data = {
         "ticker": ticker,
         "thesis_type": "dividend_income",
         "thesis_statement": (f"{ticker} dividend income thesis from Kanchi screening"),
         "setup_type": record.get("setup_type", "kanchi_5step"),
-        "_register_reason": "screened by kanchi-dividend-sop",
+        "_register_reason": f"kanchi-dividend-sop actionable verdict: {verdict}",
         "entry": {},
         "exit": {},
         "origin": {
