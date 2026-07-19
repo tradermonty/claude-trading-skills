@@ -71,6 +71,11 @@ Supported sources: `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screen
 
 Each thesis starts in `IDEA` status.
 
+For `kanchi-dividend-sop`, registration is fail-closed: each row must carry
+one of `CLEAN-PASS`, `PASS-CAUTION`, or `CONDITIONAL-PASS` in `verdict`.
+Missing verdicts and `HOLD-REVIEW` / `STEP1-RECHECK` / `FAIL` rows are skipped
+and never written to thesis state.
+
 #### Manual brokerage entry (fractional shares)
 
 For trades that did **not** come from a screener — e.g. fractional-share
