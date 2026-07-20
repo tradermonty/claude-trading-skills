@@ -30,6 +30,7 @@ runs with zero network access.
 """
 
 import json
+import math
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -245,32 +246,109 @@ class DataClient:
         for i, coin in enumerate(universe, 1):
             self._log(f"  [{i}/{len(universe)}] history: {coin['symbol']}")
             try:
-                series[coin["symbol"]] = self.fetch_history(coin["id"])
+                closes = self.fetch_history(coin["id"])
+                _validate_price_series(coin["symbol"], closes)
+                series[coin["symbol"]] = closes
             except Exception as exc:
                 self._log(f"  WARN: {coin['symbol']} history failed ({exc}); skipping coin")
 
         self._log("Fetching BTC dominance...")
-        self.fetch_dominance()
-        dominance_series = self.load_dominance_series()
+        try:
+            self.fetch_dominance()
+            dominance_series = self.load_dominance_series()
+            _validate_dominance_series(dominance_series)
+        except Exception as exc:
+            self._log(f"  WARN: dominance fetch failed ({exc}); component will be skipped")
+            dominance_series = []
 
         self._log("Fetching Binance funding rates...")
-        funding = self.fetch_funding([c["symbol"] for c in universe[:10]])
+        raw_funding = self.fetch_funding([c["symbol"] for c in universe[:10]])
+        funding = {}
+        if not isinstance(raw_funding, dict):
+            self._log("  WARN: funding response was not an object; component will be skipped")
+        else:
+            for symbol, rate in raw_funding.items():
+                try:
+                    _validate_funding_rate(symbol, rate)
+                    funding[symbol] = rate
+                except ValueError as exc:
+                    self._log(f"  WARN: invalid funding row skipped ({exc})")
 
-        return {
-            "as_of": datetime.now(timezone.utc).isoformat(),
-            "series": series,
-            "dominance_series": dominance_series,
-            "funding": funding,
-        }
+        return validate_snapshot(
+            {
+                "as_of": datetime.now(timezone.utc).isoformat(),
+                "series": series,
+                "dominance_series": dominance_series,
+                "funding": funding,
+            }
+        )
+
+
+def _require_finite_number(value, path: str, *, positive: bool = False) -> None:
+    """Reject bools, non-numeric values, and non-finite market data."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Snapshot '{path}' must be a number")
+    if not math.isfinite(value):
+        raise ValueError(f"Snapshot '{path}' must be finite")
+    if positive and value <= 0:
+        raise ValueError(f"Snapshot '{path}' must be positive")
+
+
+def _validate_price_series(symbol, closes) -> None:
+    if not isinstance(symbol, str) or not symbol.strip():
+        raise ValueError("Snapshot 'series' keys must be non-empty strings")
+    if not isinstance(closes, list) or not closes:
+        raise ValueError(f"Snapshot 'series.{symbol}' must be a non-empty array")
+    for index, close in enumerate(closes):
+        _require_finite_number(close, f"series.{symbol}[{index}]", positive=True)
+
+
+def _validate_dominance_series(dominance_series) -> None:
+    if not isinstance(dominance_series, list):
+        raise ValueError("Snapshot 'dominance_series' must be an array")
+    for index, dominance in enumerate(dominance_series):
+        _require_finite_number(dominance, f"dominance_series[{index}]", positive=True)
+        if dominance > 100:
+            raise ValueError(f"Snapshot 'dominance_series[{index}]' must be <= 100")
+
+
+def _validate_funding_rate(symbol, rate) -> None:
+    if not isinstance(symbol, str) or not symbol.strip():
+        raise ValueError("Snapshot 'funding' keys must be non-empty strings")
+    _require_finite_number(rate, f"funding.{symbol}")
+
+
+def validate_snapshot(snapshot: dict) -> dict:
+    """Validate snapshot structure and numeric market-data boundaries."""
+    if not isinstance(snapshot, dict):
+        raise ValueError("Snapshot must be a JSON object")
+
+    for key in ("series", "dominance_series", "funding"):
+        if key not in snapshot:
+            raise ValueError(f"Snapshot missing required key: '{key}'")
+
+    series = snapshot["series"]
+    if not isinstance(series, dict):
+        raise ValueError("Snapshot 'series' must be an object")
+    if "BTC" not in series:
+        raise ValueError("Snapshot 'series' must include a 'BTC' entry")
+    for symbol, closes in series.items():
+        _validate_price_series(symbol, closes)
+
+    dominance_series = snapshot["dominance_series"]
+    _validate_dominance_series(dominance_series)
+
+    funding = snapshot["funding"]
+    if not isinstance(funding, dict):
+        raise ValueError("Snapshot 'funding' must be an object")
+    for symbol, rate in funding.items():
+        _validate_funding_rate(symbol, rate)
+
+    return snapshot
 
 
 def load_snapshot_from_json(path: str) -> dict:
     """Offline path: load a pre-built snapshot (schema in references/)."""
     with open(path) as f:
         snapshot = json.load(f)
-    for key in ("series", "dominance_series", "funding"):
-        if key not in snapshot:
-            raise ValueError(f"Snapshot missing required key: '{key}'")
-    if "BTC" not in snapshot["series"]:
-        raise ValueError("Snapshot 'series' must include a 'BTC' entry")
-    return snapshot
+    return validate_snapshot(snapshot)

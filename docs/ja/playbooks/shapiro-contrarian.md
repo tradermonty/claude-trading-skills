@@ -1,7 +1,8 @@
 ---
 layout: default
 title: Shapiro COT 逆張りプレイブック
-parent: 日本語
+grand_parent: 日本語
+parent: プレイブック
 nav_order: 20
 lang_peer: /en/playbooks/shapiro-contrarian/
 permalink: /ja/playbooks/shapiro-contrarian/

@@ -13,7 +13,7 @@ Scoring rationale, thresholds, and data schemas for `crypto-regime-analyzer`.
 
 ### 1. BTC Trend Structure (25%)
 
-Inputs: >= 210 daily BTC closes.
+Inputs: >= 220 daily BTC closes (200-day average plus a 20-day slope lookback).
 
 | Structure | Base |
 |---|---|
@@ -92,9 +92,10 @@ Weighted average over available components with proportional weight redistributi
 Rules:
 
 - `series` **must** include a `"BTC"` key; all other keys are treated as alts.
-- Closes are floats, oldest -> newest, ideally 400+ observations (210 minimum for BTC trend, 365 for drawdown/vol, 200 for alt breadth membership).
+- Closes are finite positive numbers, oldest -> newest, ideally 400+ observations (220 minimum for BTC trend, 365 for drawdown/vol, 200 for alt breadth membership).
 - `dominance_series` is daily BTC dominance percentages oldest -> newest; empty list is allowed (component degrades).
-- `funding` values are decimal 8h rates (`0.0001` = +0.010%); empty object is allowed (component degrades).
+- `dominance_series` values must be finite percentages greater than 0 and at most 100.
+- `funding` values are finite decimal 8h rates (`0.0001` = +0.010%); empty object is allowed (component degrades).
 
 ## Data Sources (live mode)
 

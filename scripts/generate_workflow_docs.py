@@ -50,6 +50,11 @@ LABELS: dict[str, dict[str, str]] = {
         "optional_skills": "Optional skills",
         "prerequisite_workflows": "Prerequisite workflows (informational)",
         "prerequisite_artifact": "expects",
+        "manual_inputs": "Manual input contracts",
+        "col_input": "Input",
+        "col_used_by_steps": "Used by steps",
+        "col_schema_ref": "Schema reference",
+        "col_description": "Description",
         "artifacts": "Artifacts",
         "col_artifact": "Artifact",
         "col_produced_by": "Produced by step",
@@ -97,6 +102,11 @@ LABELS: dict[str, dict[str, str]] = {
         "optional_skills": "任意スキル",
         "prerequisite_workflows": "前提ワークフロー（informational）",
         "prerequisite_artifact": "が期待する artifact",
+        "manual_inputs": "手動入力契約",
+        "col_input": "入力",
+        "col_used_by_steps": "使用ステップ",
+        "col_schema_ref": "スキーマ参照",
+        "col_description": "説明",
         "artifacts": "artifact 一覧",
         "col_artifact": "Artifact",
         "col_produced_by": "生成ステップ",
@@ -216,6 +226,29 @@ def _render_prerequisite_workflows(prereqs: list[dict], labels: dict[str, str]) 
     return buf.getvalue()
 
 
+def _render_manual_inputs(inputs: list[dict], labels: dict[str, str]) -> str:
+    if not inputs:
+        return ""
+    buf = io.StringIO()
+    buf.write(f"**{labels['manual_inputs']}:**\n\n")
+    buf.write(
+        f"| {labels['col_input']} | {labels['col_required']} | "
+        f"{labels['col_used_by_steps']} | {labels['col_schema_ref']} | "
+        f"{labels['col_description']} |\n"
+    )
+    buf.write("|---|---|---|---|---|\n")
+    for item in inputs:
+        input_id = item.get("id", "")
+        required = labels["yes"] if item.get("required", False) else labels["no"]
+        steps = ", ".join(str(step) for step in (item.get("used_by_steps") or [])) or "—"
+        schema_ref = item.get("schema_ref") or ""
+        schema = f"`{schema_ref}`" if schema_ref else "—"
+        description = _wrap(item.get("description", "")) or "—"
+        buf.write(f"| `{input_id}` | {required} | {steps} | {schema} | {description} |\n")
+    buf.write("\n")
+    return buf.getvalue()
+
+
 def _render_artifacts(artifacts: list[dict], labels: dict[str, str]) -> str:
     if not artifacts:
         return ""
@@ -319,6 +352,7 @@ def render_workflow_section(wf: dict, labels: dict[str, str]) -> str:
         _render_skill_list(wf.get("optional_skills") or [], labels, labels["optional_skills"])
     )
     buf.write(_render_prerequisite_workflows(wf.get("prerequisite_workflows") or [], labels))
+    buf.write(_render_manual_inputs(wf.get("manual_inputs") or [], labels))
     buf.write(_render_artifacts(wf.get("artifacts") or [], labels))
 
     steps = wf.get("steps") or []

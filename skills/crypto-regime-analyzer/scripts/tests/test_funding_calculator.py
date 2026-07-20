@@ -1,5 +1,6 @@
 """Tests for Component 4: Perpetual Funding Regime Calculator."""
 
+import pytest
 from calculators.funding_calculator import calculate_funding_regime
 
 
@@ -35,3 +36,23 @@ def test_annualization_math():
     # +0.01%/8h -> 3 periods/day * 365 = ~10.95% annualized
     result = calculate_funding_regime({"A": 0.0001, "B": 0.0001})
     assert abs(result["annualized_pct"] - 10.95) < 0.01
+
+
+@pytest.mark.parametrize(
+    ("rate", "expected_score"),
+    [
+        (-0.00010, 80),
+        (-0.000099, 65),
+        (-0.000001, 65),
+        (0.0, 75),
+        (0.00010, 75),
+        (0.000101, 55),
+        (0.00030, 55),
+        (0.000301, 30),
+        (0.00060, 30),
+        (0.000601, 10),
+    ],
+)
+def test_funding_band_boundaries(rate, expected_score):
+    result = calculate_funding_regime({"A": rate, "B": rate})
+    assert result["score"] == expected_score

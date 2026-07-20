@@ -23,15 +23,6 @@ Input: dict of {symbol: latest 8h funding rate as decimal} e.g.
 
 MIN_SYMBOLS = 2
 
-_BANDS = [
-    (-float("inf"), -0.00010, 80, "WASHED OUT (negative funding; shorts paying longs)"),
-    (-0.00010, 0.0, 65, "SKEPTICAL (mildly negative funding)"),
-    (0.0, 0.00010, 75, "NEUTRAL (funding near baseline)"),
-    (0.00010, 0.00030, 55, "WARMING (long leverage building)"),
-    (0.00030, 0.00060, 30, "CROWDED (hot funding; crowded longs)"),
-    (0.00060, float("inf"), 10, "EUPHORIC (extreme funding; cascade risk)"),
-]
-
 
 def calculate_funding_regime(funding_map: dict) -> dict:
     """
@@ -52,18 +43,26 @@ def calculate_funding_regime(funding_map: dict) -> dict:
         }
 
     avg = sum(rates) / len(rates)
-    for lo, hi, score, label in _BANDS:
-        if lo < avg <= hi or (lo == -float("inf") and avg <= hi):
-            annualized = avg * 3 * 365 * 100
-            return {
-                "score": score,
-                "signal": f"{label}; avg {avg * 100:.4f}%/8h "
-                f"(~{annualized:.1f}% annualized) across {len(rates)} perps",
-                "data_available": True,
-                "avg_funding_8h": avg,
-                "annualized_pct": round(annualized, 2),
-                "n_symbols": len(rates),
-            }
+    if avg <= -0.00010:
+        score, label = 80, "WASHED OUT (negative funding; shorts paying longs)"
+    elif avg < 0.0:
+        score, label = 65, "SKEPTICAL (mildly negative funding)"
+    elif avg <= 0.00010:
+        score, label = 75, "NEUTRAL (funding near baseline)"
+    elif avg <= 0.00030:
+        score, label = 55, "WARMING (long leverage building)"
+    elif avg <= 0.00060:
+        score, label = 30, "CROWDED (hot funding; crowded longs)"
+    else:
+        score, label = 10, "EUPHORIC (extreme funding; cascade risk)"
 
-    # Unreachable given band coverage, but keep a safe fallback.
-    return {"score": 50, "signal": "Funding regime indeterminate", "data_available": False}
+    annualized = avg * 3 * 365 * 100
+    return {
+        "score": score,
+        "signal": f"{label}; avg {avg * 100:.4f}%/8h "
+        f"(~{annualized:.1f}% annualized) across {len(rates)} perps",
+        "data_available": True,
+        "avg_funding_8h": avg,
+        "annualized_pct": round(annualized, 2),
+        "n_symbols": len(rates),
+    }

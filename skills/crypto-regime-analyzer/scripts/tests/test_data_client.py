@@ -147,3 +147,98 @@ def test_snapshot_validation_requires_btc(tmp_path):
     bad.write_text('{"series": {"ETH": [1, 2]}, "dominance_series": [], "funding": {}}')
     with pytest.raises(ValueError):
         load_snapshot_from_json(str(bad))
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"series": [], "dominance_series": [], "funding": {}},
+        {"series": {"BTC": [float("nan")]}, "dominance_series": [], "funding": {}},
+        {"series": {"BTC": [float("inf")]}, "dominance_series": [], "funding": {}},
+        {"series": {"BTC": [0.0]}, "dominance_series": [], "funding": {}},
+        {"series": {"BTC": [-1.0]}, "dominance_series": [], "funding": {}},
+        {"series": {"BTC": ["1.0"]}, "dominance_series": [], "funding": {}},
+        {"series": {"BTC": [1.0]}, "dominance_series": [float("nan")], "funding": {}},
+        {"series": {"BTC": [1.0]}, "dominance_series": [101.0], "funding": {}},
+        {"series": {"BTC": [1.0]}, "dominance_series": [], "funding": {"BTC": None}},
+        {"series": {"BTC": [1.0]}, "dominance_series": [], "funding": {"BTC": float("inf")}},
+    ],
+)
+def test_snapshot_validation_rejects_malformed_or_non_finite_market_data(tmp_path, payload):
+    bad = tmp_path / "snap.json"
+    bad.write_text(json.dumps(payload))
+
+    with pytest.raises(ValueError):
+        load_snapshot_from_json(str(bad))
+
+
+def test_build_snapshot_degrades_when_dominance_fetch_fails(tmp_path, monkeypatch):
+    client = _client(tmp_path)
+    monkeypatch.setattr(client, "fetch_universe", lambda: [{"id": "bitcoin", "symbol": "BTC"}])
+    monkeypatch.setattr(client, "fetch_history", lambda _coin_id: [100.0] * 220)
+    monkeypatch.setattr(
+        client,
+        "fetch_dominance",
+        lambda: (_ for _ in ()).throw(RuntimeError("temporary failure")),
+    )
+    monkeypatch.setattr(client, "fetch_funding", lambda _symbols: {})
+
+    snapshot = client.build_snapshot()
+
+    assert snapshot["dominance_series"] == []
+    assert snapshot["series"]["BTC"] == [100.0] * 220
+
+
+def test_build_snapshot_skips_malformed_optional_alt_history(tmp_path, monkeypatch):
+    client = _client(tmp_path)
+    monkeypatch.setattr(
+        client,
+        "fetch_universe",
+        lambda: [
+            {"id": "bitcoin", "symbol": "BTC"},
+            {"id": "bad-coin", "symbol": "BAD"},
+        ],
+    )
+    monkeypatch.setattr(
+        client,
+        "fetch_history",
+        lambda coin_id: [100.0] * 365 if coin_id == "bitcoin" else [],
+    )
+    monkeypatch.setattr(client, "fetch_dominance", lambda: 55.0)
+    monkeypatch.setattr(client, "load_dominance_series", lambda: [])
+    monkeypatch.setattr(client, "fetch_funding", lambda _symbols: {})
+
+    snapshot = client.build_snapshot()
+
+    assert set(snapshot["series"]) == {"BTC"}
+
+
+def test_build_snapshot_skips_invalid_optional_funding_rows(tmp_path, monkeypatch):
+    client = _client(tmp_path)
+    monkeypatch.setattr(client, "fetch_universe", lambda: [{"id": "bitcoin", "symbol": "BTC"}])
+    monkeypatch.setattr(client, "fetch_history", lambda _coin_id: [100.0] * 365)
+    monkeypatch.setattr(client, "fetch_dominance", lambda: 55.0)
+    monkeypatch.setattr(client, "load_dominance_series", lambda: [])
+    monkeypatch.setattr(
+        client,
+        "fetch_funding",
+        lambda _symbols: {"BTCUSDT": float("nan"), "ETHUSDT": 0.0},
+    )
+
+    snapshot = client.build_snapshot()
+
+    assert snapshot["funding"] == {"ETHUSDT": 0.0}
+
+
+def test_build_snapshot_degrades_invalid_optional_dominance_values(tmp_path, monkeypatch):
+    client = _client(tmp_path)
+    monkeypatch.setattr(client, "fetch_universe", lambda: [{"id": "bitcoin", "symbol": "BTC"}])
+    monkeypatch.setattr(client, "fetch_history", lambda _coin_id: [100.0] * 365)
+    monkeypatch.setattr(client, "fetch_dominance", lambda: 55.0)
+    monkeypatch.setattr(client, "load_dominance_series", lambda: [float("nan")])
+    monkeypatch.setattr(client, "fetch_funding", lambda _symbols: {})
+
+    snapshot = client.build_snapshot()
+
+    assert snapshot["dominance_series"] == []

@@ -57,6 +57,12 @@ Or simplified:
 }
 ```
 
+The optional `value-dividend-screener` and
+`dividend-growth-pullback-screener` handoffs use `stocks[].symbol`.
+Both `build_sop_plan.py --input` and `build_entry_signals.py --input`
+accept that shape directly, as well as the native `candidates[].ticker` and
+`tickers[]` shapes above.
+
 For deterministic artifact generation, provide tickers to:
 
 ```bash

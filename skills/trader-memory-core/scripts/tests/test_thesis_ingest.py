@@ -30,6 +30,7 @@ def test_ingest_kanchi(tmp_path: Path):
     state_dir = tmp_path / "theses"
     record = {
         "ticker": "JNJ",
+        "verdict": "CLEAN-PASS",
         "buy_target_price": 148.50,
         "current_yield_pct": 3.2,
         "signal": "BUY",
@@ -46,6 +47,34 @@ def test_ingest_kanchi(tmp_path: Path):
     assert thesis["entry"]["target_price"] == 148.50
     assert thesis["origin"]["skill"] == "kanchi-dividend-sop"
     assert thesis["origin"]["raw_provenance"]["current_yield_pct"] == 3.2
+
+
+@pytest.mark.parametrize("verdict", ["CLEAN-PASS", "PASS-CAUTION", "CONDITIONAL-PASS"])
+def test_ingest_kanchi_accepts_only_actionable_verdicts(tmp_path: Path, verdict: str):
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(tmp_path, {"rows": [{"ticker": "JNJ", "verdict": verdict}]})
+
+    ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
+
+    assert len(ids) == 1
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    [None, "", "HOLD-REVIEW", "STEP1-RECHECK", "FAIL", 123],
+    ids=["missing", "empty", "hold-review", "step1-recheck", "fail", "non-string"],
+)
+def test_ingest_kanchi_rejects_non_actionable_verdicts_fail_closed(tmp_path: Path, verdict):
+    state_dir = tmp_path / "theses"
+    record = {"ticker": "JNJ"}
+    if verdict is not None:
+        record["verdict"] = verdict
+    input_file = _write_json(tmp_path, {"rows": [record]})
+
+    ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
+
+    assert ids == []
+    assert not state_dir.exists() or list(state_dir.glob("th_*.yaml")) == []
 
 
 # -- Tests: earnings adapter ---------------------------------------------------
@@ -301,7 +330,7 @@ def test_edge_market_basket_skipped(tmp_path: Path):
 def test_ingest_kanchi_rows_key(tmp_path: Path):
     """kanchi build_entry_signals.py uses 'rows' key, not 'candidates'."""
     state_dir = tmp_path / "theses"
-    record = {"ticker": "PG", "buy_target_price": 165.00}
+    record = {"ticker": "PG", "verdict": "PASS-CAUTION", "buy_target_price": 165.00}
     input_file = _write_json(tmp_path, {"rows": [record]})
 
     ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
@@ -343,7 +372,7 @@ def test_ingest_propagates_as_of_date(tmp_path: Path):
     data = {
         "as_of": "2026-02-20",
         "generated_at": "2026-02-20T10:00:00Z",
-        "rows": [{"ticker": "KO", "buy_target_price": 60.00}],
+        "rows": [{"ticker": "KO", "verdict": "CLEAN-PASS", "buy_target_price": 60.00}],
     }
     input_file = _write_json(tmp_path, data)
 

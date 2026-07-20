@@ -27,7 +27,7 @@ from calculators.dominance_calculator import calculate_dominance_regime
 from calculators.drawdown_vol_calculator import calculate_drawdown_vol
 from calculators.funding_calculator import calculate_funding_regime
 from calculators.momentum_thrust_calculator import calculate_momentum_thrust
-from data_client import DataClient, load_snapshot_from_json
+from data_client import DataClient, load_snapshot_from_json, validate_snapshot
 from report_generator import generate_json_report, generate_markdown_report, print_summary
 from scorer import calculate_composite_score
 
@@ -36,6 +36,7 @@ BTC_CONSTRUCTIVE_THRESHOLD = 60
 
 def run_analysis(snapshot: dict) -> dict:
     """Run all six components + composite over a snapshot."""
+    validate_snapshot(snapshot)
     series = snapshot["series"]
     btc_closes = series.get("BTC", [])
     alt_series = {sym: s for sym, s in series.items() if sym != "BTC"}

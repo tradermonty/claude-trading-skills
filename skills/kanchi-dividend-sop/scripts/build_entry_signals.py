@@ -48,24 +48,35 @@ def load_tickers(input_path: Path | None, tickers_csv: str | None) -> list[str]:
     payload = json.loads(input_path.read_text())
     tickers: list[str] = []
 
+    def append_ticker(value: Any) -> None:
+        ticker = str(value or "").strip().upper()
+        if ticker and ticker not in tickers:
+            tickers.append(ticker)
+
     raw_candidates = payload.get("candidates")
     if isinstance(raw_candidates, list):
         for item in raw_candidates:
             if isinstance(item, dict):
-                ticker = str(item.get("ticker", "")).strip().upper()
-                if ticker and ticker not in tickers:
-                    tickers.append(ticker)
+                append_ticker(item.get("ticker") or item.get("symbol"))
             else:
-                ticker = str(item).strip().upper()
-                if ticker and ticker not in tickers:
-                    tickers.append(ticker)
+                append_ticker(item)
+
+    # value-dividend-screener and dividend-growth-pullback-screener both
+    # publish their ranked JSON rows as ``stocks[].symbol``. Accept that
+    # contract directly so workflow handoff does not depend on a prose-only
+    # manual rename to candidates/ticker.
+    raw_stocks = payload.get("stocks")
+    if isinstance(raw_stocks, list):
+        for item in raw_stocks:
+            if isinstance(item, dict):
+                append_ticker(item.get("symbol") or item.get("ticker"))
+            else:
+                append_ticker(item)
 
     raw_tickers = payload.get("tickers")
     if isinstance(raw_tickers, list):
         for item in raw_tickers:
-            ticker = str(item).strip().upper()
-            if ticker and ticker not in tickers:
-                tickers.append(ticker)
+            append_ticker(item)
 
     return tickers
 

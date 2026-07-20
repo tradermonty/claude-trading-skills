@@ -1,5 +1,6 @@
 """Tests for the composite scorer and end-to-end offline analysis."""
 
+import pytest
 from crypto_regime_analyzer import run_analysis
 from report_generator import generate_markdown_report
 from scorer import COMPONENT_WEIGHTS, calculate_composite_score
@@ -114,3 +115,14 @@ def test_end_to_end_degrades_without_dominance_and_funding(trending_series, univ
     analysis = run_analysis(snapshot)
     assert analysis["composite"]["components_available"] == 4
     assert analysis["composite"]["score"] is not None
+
+
+def test_run_analysis_rejects_non_finite_snapshot_values():
+    snapshot = {
+        "series": {"BTC": [float("nan")] * 400},
+        "dominance_series": [],
+        "funding": {},
+    }
+
+    with pytest.raises(ValueError, match="must be finite"):
+        run_analysis(snapshot)

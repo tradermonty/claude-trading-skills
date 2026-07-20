@@ -106,6 +106,17 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Optional skills:** `value-dividend-screener`, `dividend-growth-pullback-screener`, `kanchi-dividend-us-tax-accounting`, `kanchi-dividend-review-monitor`
 
+**Prerequisite workflows (informational):**
+
+- `core-portfolio-weekly` expects `holdings_snapshot` — Use its live holdings as the source when optional tax or review-monitor checks are requested. Normalize that snapshot to each skill's distinct manual input schema; skip steps 4-5 when no applicable input exists.
+
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `tax_holdings_input` | no | 4 | `skills/kanchi-dividend-us-tax-accounting/references/input-schema.md` | Operator-supplied JSON with holdings[]. For a new candidate, provide a hypothetical intended account and leave hold_days_in_window absent so the result remains assumption-required rather than falsely confirmed. |
+| `review_monitor_input` | no | 5 | `skills/kanchi-dividend-review-monitor/references/input-schema.md` | Normalized existing-holding JSON with dividend and risk evidence. This is not derivable from a candidate ticker alone; skip step 5 for a new, not-yet-held name without monitoring evidence. |
+
 **Artifacts:**
 
 | Artifact | Produced by step | Required | Downstream hints |
@@ -116,7 +127,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | `stock_memo` | 3 | yes | — |
 | `account_location_advice` | 4 | no | — |
 | `review_queue` | 5 | no | — |
-| `kanchi_thesis_entry` | 6 | yes | `trade-memory-loop`, `monthly-performance-review` |
+| `thesis_record` | 6 | yes | `trade-memory-loop`, `monthly-performance-review` |
 
 **Steps:**
 
@@ -145,7 +156,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 **Step 6: Register the candidate thesis** (decision gate) → `trader-memory-core`
 
 - consumes: `kanchi_candidates`, `stock_memo`, `account_location_advice`, `review_queue`
-- produces: `kanchi_thesis_entry`
+- produces: `thesis_record`
 - **Decision:** For each actionable candidate, ingest the kanchi_candidates verdict as an IDEA thesis, then link the saved stock_memo file (and, if available, tax/account-location advice and any review-monitor flags) to it with thesis_store.link_report() so the fully-documented Kanchi memo is part of the auditable record, not just referenced in prose. Confirm no unresolved blockers, sizing, sector concentration, and tranche plan before entering an order. Never transition the thesis to ACTIVE until a real broker fill happens -- this step only reaches IDEA / ENTRY_READY.
 
 **Manual review:**
@@ -155,7 +166,9 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - No order is ever placed automatically, and the thesis never auto-transitions to ACTIVE; every fill is entered manually at the broker, then recorded with open-position.
 - Screeners (steps 1-2) are optional -- a manually supplied ticker list is an equally valid path into step 3.
 - Tax and account-location advice (step 4) is advisory, not authoritative -- verify with a tax professional or the actual broker/custodian statements before acting on it.
+- Step 4 requires `tax_holdings_input` matching the linked schema; do not pass raw screener rows directly as tax holdings.
 - If review-monitor (step 5) flags an existing holding WARN or REVIEW, that only pauses additional buys in that name -- it never triggers an automatic sell.
+- Step 5 requires `review_monitor_input` matching its richer linked schema; a ticker-only candidate is insufficient and the optional step must be skipped rather than manufacturing missing evidence.
 - Screener outputs land under each skill's own `logs/` directory, not a shared `reports/` path; treat artifact ids as logical references, not literal filenames, when wiring steps together.
 - Command examples for dividend-growth-pullback-screener must use `screen_dividend_growth_rsi.py` -- `screen_dividend_growth.py` does not exist in this repository.
 
