@@ -283,7 +283,10 @@ def ingest_pead(record: dict, input_file: str) -> dict:
         "origin": {
             "skill": "pead-screener",
             "output_file": input_file,
-            "screening_grade": record.get("grade"),
+            # screen_pead.py's output record names its grade field `rating`
+            # (screen_pead.py:379), never `grade` — reading `grade` here left
+            # screening_grade permanently None. Mirrors ingest_vcp/ingest_canslim.
+            "screening_grade": record.get("rating"),
             "screening_score": record.get("composite_score"),
             "raw_provenance": {k: v for k, v in record.items()},
         },
