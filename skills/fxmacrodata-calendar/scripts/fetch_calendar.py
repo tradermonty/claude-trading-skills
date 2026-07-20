@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -13,6 +14,14 @@ from typing import Any
 from urllib.parse import urlencode
 
 FXMACRODATA_BASE_URL = "https://fxmacrodata.com/api/v1"
+
+
+def _normalize_currency(value: str) -> str:
+    """Return a safe three-letter currency code without echoing bad input."""
+    normalized = value.strip().lower()
+    if len(normalized) != 3 or not normalized.isascii() or not normalized.isalpha():
+        raise RuntimeError("currency must be a 3-letter ASCII code")
+    return normalized
 
 
 def _tier_rank(value: Any) -> int:
@@ -51,35 +60,39 @@ def _redact(text: str) -> str:
 
 
 def fetch_calendar(currency: str, limit: int, min_tier: int | None) -> dict[str, Any]:
+    normalized_currency = _normalize_currency(currency)
     limit_count = max(1, min(int(limit), 100))
     params = {"limit": str(limit_count)}
     api_key = os.getenv("FXMACRODATA_API_KEY")
     if api_key:
         params["api_key"] = api_key
 
-    url = f"{FXMACRODATA_BASE_URL}/calendar/{currency.lower()}?{urlencode(params)}"
-    request = urllib.request.Request(
-        url, headers={"User-Agent": "claude-trading-skills-fxmacrodata/1.0"}
-    )
-
     try:
+        url = f"{FXMACRODATA_BASE_URL}/calendar/{normalized_currency}?{urlencode(params)}"
+        request = urllib.request.Request(
+            url, headers={"User-Agent": "claude-trading-skills-fxmacrodata/1.0"}
+        )
         with urllib.request.urlopen(request, timeout=20) as response:
             payload = json.load(response)
     except urllib.error.HTTPError as exc:
         raise RuntimeError(
-            f"FXMacroData API request failed for currency={currency.lower()}: HTTP {exc.code}"
+            f"FXMacroData API request failed for currency={normalized_currency}: HTTP {exc.code}"
         ) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(
-            f"FXMacroData API request failed for currency={currency.lower()}: {exc.reason}"
+            f"FXMacroData API request failed for currency={normalized_currency}: {exc.reason}"
         ) from exc
     except TimeoutError as exc:
         raise RuntimeError(
-            f"FXMacroData API request timed out for currency={currency.lower()}"
+            f"FXMacroData API request timed out for currency={normalized_currency}"
         ) from exc
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise RuntimeError(
-            f"FXMacroData API returned invalid JSON for currency={currency.lower()}"
+            f"FXMacroData API returned invalid JSON for currency={normalized_currency}"
+        ) from exc
+    except (http.client.InvalidURL, ValueError) as exc:
+        raise RuntimeError(
+            f"FXMacroData API request could not be built for currency={normalized_currency}"
         ) from exc
 
     if not isinstance(payload, dict):
@@ -95,7 +108,7 @@ def fetch_calendar(currency: str, limit: int, min_tier: int | None) -> dict[str,
 
     events = events[:limit_count]
     return {
-        "currency": payload.get("currency", currency.upper()),
+        "currency": payload.get("currency", normalized_currency.upper()),
         "timezone": payload.get("timezone"),
         "data_quality": payload.get("data_quality"),
         "events": events,

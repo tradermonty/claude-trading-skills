@@ -18,7 +18,7 @@ concrete recommendation: which **workflow** to run, which **skillset**
 (skills-index category) it belongs to, the **API requirement**, and the
 **setup path** for Claude Web App or Claude Code.
 
-A new user faces 69 skills + 11 workflows with no router. This skill is that
+A new user faces 70 skills + 11 workflows with no router. This skill is that
 router. It is **deterministic** — a Python recommender (`scripts/recommend.py`)
 consumes the repo metadata; this SKILL.md narrates the result conversationally.
 

@@ -131,6 +131,35 @@ skills:
   - cot_crowding_report
   workflows:
   - shapiro-contrarian
+- id: crypto-regime-analyzer
+  display_name: Crypto Regime Analyzer
+  category: market-regime
+  status: beta
+  summary: Quantifies crypto market regime health (0-100 composite, 100 = risk-on) from six components using free keyless public data.
+  timeframe: daily
+  difficulty: intermediate
+  integrations:
+  - id: coingecko
+    type: market_data
+    requirement: required
+    note: Free public API, no key; universe, price history, BTC dominance
+  - id: binance_funding
+    type: market_data
+    requirement: recommended
+    note: Public futures endpoint for perp funding; component skipped if unreachable
+  - id: prices_json
+    type: local_file
+    requirement: optional
+    note: Offline snapshot path (--input-json); schema in references
+  inputs:
+  - coingecko_public_api
+  - funding_rates
+  - snapshot_json
+  outputs:
+  - crypto_regime_composite_score
+  - component_breakdown
+  - posture_recommendation
+  workflows: []
 - id: data-quality-checker
   display_name: Data Quality Checker
   category: meta

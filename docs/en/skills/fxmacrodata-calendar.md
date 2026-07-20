@@ -3,7 +3,7 @@ layout: default
 title: "Fxmacrodata Calendar"
 grand_parent: English
 parent: Skill Guides
-nav_order: 33
+nav_order: 34
 lang_peer: /ja/skills/fxmacrodata-calendar/
 permalink: /en/skills/fxmacrodata-calendar/
 generated: true

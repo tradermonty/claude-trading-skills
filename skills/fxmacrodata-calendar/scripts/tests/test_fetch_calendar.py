@@ -71,6 +71,16 @@ class TestTierRank:
 
 
 class TestFetchCalendar:
+    @pytest.mark.parametrize("currency", ["us", "usd\nkey", "u$d", "円円円"])
+    def test_invalid_currency_is_rejected_before_request(self, monkeypatch, currency):
+        def unexpected_urlopen(*args, **kwargs):
+            pytest.fail("urlopen must not run for an invalid currency")
+
+        monkeypatch.setattr(fetch_calendar.urllib.request, "urlopen", unexpected_urlopen)
+
+        with pytest.raises(RuntimeError, match="3-letter ASCII code"):
+            fetch_calendar.fetch_calendar(currency, 50, 1)
+
     def test_numeric_tier_filter(self, monkeypatch):
         payload = {
             "currency": "USD",
@@ -156,6 +166,24 @@ class TestFetchCalendar:
 
 
 class TestMainErrorHandling:
+    def test_invalid_currency_never_leaks_api_key_or_traceback(self, monkeypatch, capsys):
+        monkeypatch.setenv("FXMACRODATA_API_KEY", "REVIEW_SECRET_123")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["fetch_calendar.py", "--currency", "usd\napi_key=REVIEW_SECRET_123"],
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            fetch_calendar.main()
+
+        assert exc_info.value.code != 0
+        captured = capsys.readouterr()
+        assert "REVIEW_SECRET_123" not in captured.err
+        assert "REVIEW_SECRET_123" not in captured.out
+        assert "Traceback" not in captured.err
+        assert "3-letter ASCII code" in captured.err
+
     def test_http_error_exits_nonzero_and_never_leaks_api_key(self, monkeypatch, capsys):
         secret_url = f"{fetch_calendar.FXMACRODATA_BASE_URL}/calendar/usd?api_key=SECRET"
 
