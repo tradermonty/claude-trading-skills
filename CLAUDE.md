@@ -225,6 +225,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **CANSLIM Screener** | ✅ Required | ❌ Not used | ❌ Not used | US stock fundamentals via FMP |
 | **COT Contrarian Detector** | ✅ Required | ❌ Not used | ❌ Not used | CFTC COT data via FMP; requires Premium+ plan |
 | **Contrarian Setup Gate** | ❌ Not used | ❌ Not used | ❌ Not used | Reads the three upstream contrarian-pipeline report JSONs; works offline |
+| **Crypto Regime Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Free public API, no key; universe, price history, BTC dominance; Public futures endpoint for perp funding; component skipped if unreachable; Offline snapshot path (--input-json); schema in references |
 | **Data Quality Checker** | ❌ Not used | ❌ Not used | ❌ Not used | Local markdown validation; works offline |
 | **Dividend Growth Pullback Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API |
 | **Downtrend Duration Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Duration analysis from market data; pure calculation |

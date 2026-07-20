@@ -277,6 +277,7 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | COT Contrarian Detector | Required | -- | -- |
 | News Reaction Failure Analyzer | Required | -- | -- |
 | Contrarian Setup Gate | -- | -- | -- |
+| Crypto Regime Analyzer | -- | -- | -- |
 | Futures Position Sizer | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

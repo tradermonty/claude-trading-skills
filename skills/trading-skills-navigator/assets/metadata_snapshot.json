@@ -98,6 +98,32 @@
       "timeframe": "weekly"
     },
     {
+      "category": "market-regime",
+      "difficulty": "intermediate",
+      "display_name": "Crypto Regime Analyzer",
+      "id": "crypto-regime-analyzer",
+      "integrations": [
+        {
+          "id": "coingecko",
+          "requirement": "required",
+          "type": "market_data"
+        },
+        {
+          "id": "binance_funding",
+          "requirement": "recommended",
+          "type": "market_data"
+        },
+        {
+          "id": "prices_json",
+          "requirement": "optional",
+          "type": "local_file"
+        }
+      ],
+      "status": "beta",
+      "summary": "Quantifies crypto market regime health (0-100 composite, 100 = risk-on) from six components using free keyless public data.",
+      "timeframe": "daily"
+    },
+    {
       "category": "meta",
       "difficulty": "beginner",
       "display_name": "Data Quality Checker",
