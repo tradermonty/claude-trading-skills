@@ -407,6 +407,22 @@
       "timeframe": "event-driven"
     },
     {
+      "category": "meta",
+      "difficulty": "beginner",
+      "display_name": "FXMacroData Calendar",
+      "id": "fxmacrodata-calendar",
+      "integrations": [
+        {
+          "id": "fxmacrodata",
+          "requirement": "optional",
+          "type": "market_data"
+        }
+      ],
+      "status": "beta",
+      "summary": "Fetch official-source macro release-calendar events using FXMacroData for trade planning and event-risk filters.",
+      "timeframe": "event-driven"
+    },
+    {
       "category": "market-regime",
       "difficulty": "intermediate",
       "display_name": "IBD Distribution Day Monitor",

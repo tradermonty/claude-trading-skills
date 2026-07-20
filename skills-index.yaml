@@ -292,7 +292,7 @@ skills:
 - id: fxmacrodata-calendar
   display_name: FXMacroData Calendar
   category: meta
-  status: production
+  status: beta
   summary: Fetch official-source macro release-calendar events using FXMacroData for trade planning
     and event-risk filters.
   timeframe: event-driven
