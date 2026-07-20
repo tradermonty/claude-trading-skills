@@ -139,7 +139,7 @@ def test_ingest_pead(tmp_path: Path):
         "entry_price": 380.00,
         "stop_price": 355.00,
         "stage": "BREAKOUT",
-        "grade": "B",
+        "rating": "B",
     }
     input_file = _write_json(tmp_path, {"results": [record]})
 
@@ -160,7 +160,7 @@ def test_ingest_pead_stage_reflected_in_thesis_statement(tmp_path: Path):
     record = {
         "symbol": "AMD",
         "stage": "SIGNAL_READY",
-        "grade": "A",
+        "rating": "A",
     }
     input_file = _write_json(tmp_path, {"results": [record]})
 
@@ -168,6 +168,42 @@ def test_ingest_pead_stage_reflected_in_thesis_statement(tmp_path: Path):
     thesis = thesis_store.get(state_dir, ids[0])
     assert "SIGNAL_READY" in thesis["thesis_statement"]
     assert "status ?" not in thesis["thesis_statement"]
+
+
+def test_ingest_pead_screening_grade_from_rating(tmp_path: Path):
+    """Regression (#273): a real screen_pead.py output record carries `rating`
+    (screen_pead.py:379), never `grade` -- so origin.screening_grade must be
+    read from `rating`. Before the fix it read `grade` and was therefore always
+    None on real screener output, mirroring ingest_vcp/ingest_canslim which
+    already read `rating`."""
+    state_dir = tmp_path / "theses"
+    record = {
+        "symbol": "NVDA",
+        "stage": "BREAKOUT",
+        "entry_price": 120.00,
+        "stop_price": 110.00,
+        "rating": "A",
+        "composite_score": 88.0,
+    }
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["origin"]["screening_grade"] == "A"
+    assert thesis["origin"]["screening_score"] == 88.0
+
+
+def test_ingest_pead_screening_grade_none_when_absent(tmp_path: Path):
+    """Defensive null path: a record with neither `rating` nor `grade`
+    yields screening_grade == None (not a crash), while the rest of the
+    thesis still registers."""
+    state_dir = tmp_path / "theses"
+    record = {"symbol": "TSLA", "stage": "MONITORING"}
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["origin"]["screening_grade"] is None
 
 
 @pytest.mark.parametrize(
