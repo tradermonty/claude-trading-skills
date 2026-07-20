@@ -1,0 +1,188 @@
+schema_version: 1
+id: shapiro-contrarian
+display_name: Shapiro COT Contrarian
+cadence: weekly
+estimated_minutes: 60
+target_users:
+  - futures-contrarian-trader
+difficulty: advanced
+api_profile: fmp-required
+
+when_to_run: >-
+  Weekly, after the CFTC Commitment of Traders report publishes (Friday
+  ~3:30pm ET, carrying Tuesday's positioning). Screens roughly 65 futures
+  markets for crowded speculative extremes and, only where a news-failure
+  and a weekly price-action reversal both confirm, produces a
+  contract-sized contrarian fade plan.
+when_not_to_run: >-
+  Do not run intraday or more than weekly — COT data updates once a week
+  and the edge is positioning-driven, not intraday. Do not act on a
+  crowding extreme alone; the gate must reach READY_FOR_PLAN (crowding,
+  news failure, and price action all CONFIRMED) before any sizing. Not
+  for equities — COT covers CFTC futures markets only.
+
+required_skills:
+  - cot-contrarian-detector
+  - news-reaction-failure-analyzer
+  - technical-analyst
+  - contrarian-setup-gate
+  - futures-position-sizer
+  - trader-memory-core
+optional_skills: []
+
+artifacts:
+  - id: cot_crowding_report
+    produced_by_step: 1
+    required: true
+  - id: news_failure_verdict
+    produced_by_step: 2
+    required: true
+  - id: price_action_confirmation_report
+    produced_by_step: 3
+    required: true
+  - id: contrarian_setup_gate_report
+    produced_by_step: 4
+    required: true
+  - id: futures_position_size
+    produced_by_step: 5
+    required: true
+  - id: contrarian_thesis_entry
+    produced_by_step: 6
+    required: true
+    downstream_hints:
+      - trade-memory-loop
+      - monthly-performance-review
+
+steps:
+  - step: 1
+    name: Screen COT crowding
+    skill: cot-contrarian-detector
+    produces:
+      - cot_crowding_report
+    decision_gate: true
+    decision_question: >-
+      Which futures markets are at a 3-year COT-index crowding extreme
+      (CROWDED_LONG / CROWDED_SHORT) this week? Crowding alone is not a
+      signal — carry only the extremes forward.
+
+  - step: 2
+    name: Check for news-reaction failure
+    skill: news-reaction-failure-analyzer
+    consumes:
+      - cot_crowding_report
+    produces:
+      - news_failure_verdict
+    decision_gate: true
+    decision_question: >-
+      For each crowded market, did price fail to react to news favorable to
+      the crowd's direction (CONFIRMED, against a curated primary/wire-source
+      events file built via WebSearch)? Drop NOT_CONFIRMED /
+      INSUFFICIENT_EVIDENCE markets.
+    depends_on:
+      - 1
+
+  - step: 3
+    name: Confirm weekly price-action reversal
+    skill: technical-analyst
+    consumes:
+      - cot_crowding_report
+    produces:
+      - price_action_confirmation_report
+    decision_gate: true
+    decision_question: >-
+      On the weekly chart, is there a reversal against the crowd (key
+      reversal, failed breakout, or failed extreme) — CONFIRMED — with a
+      defined swing stop? Reject NOT_CONFIRMED / INSUFFICIENT_DATA.
+    depends_on:
+      - 1
+
+  - step: 4
+    name: Synthesize the contrarian setup gate
+    skill: contrarian-setup-gate
+    consumes:
+      - cot_crowding_report
+      - news_failure_verdict
+      - price_action_confirmation_report
+    produces:
+      - contrarian_setup_gate_report
+    decision_gate: true
+    decision_question: >-
+      Does the gate reach READY_FOR_PLAN (crowding, news failure, and price
+      action all CONFIRMED, fail-closed)? Only READY_FOR_PLAN markets
+      proceed to sizing; CROWDED / WATCHING_PRICE / REJECTED /
+      INSUFFICIENT_EVIDENCE stop here.
+    depends_on:
+      - 1
+      - 2
+      - 3
+
+  - step: 5
+    name: Size the futures position
+    skill: futures-position-sizer
+    consumes:
+      - contrarian_setup_gate_report
+    produces:
+      - futures_position_size
+    decision_gate: false
+    depends_on:
+      - 4
+
+  - step: 6
+    name: Register the contrarian thesis
+    skill: trader-memory-core
+    consumes:
+      - futures_position_size
+      - contrarian_setup_gate_report
+    produces:
+      - contrarian_thesis_entry
+    decision_gate: true
+    decision_question: >-
+      Register each fade whose sizer output is sizing_status SIZED —
+      never a NO_TRADE result — in this order: (1) create the IDEA
+      thesis first (manual ingest or register() — attach-futures-position
+      only attaches to an EXISTING thesis, it never creates one); (2)
+      attach the SIZED report with attach-futures-position, which
+      persists contracts / direction / multiplier / USD currency / risk
+      onto the thesis position; (3) link the upstream
+      cot_crowding_report, news_failure_verdict,
+      price_action_confirmation_report, and contrarian_setup_gate_report
+      to the thesis with thesis_store.link_report() so the fade's full
+      evidence chain is auditable; (4) only transition to ACTIVE with
+      open-position once the order actually fills at the broker.
+      Confirm per-trade risk matches the sizer output and total
+      portfolio heat is within budget.
+    depends_on:
+      - 4
+      - 5
+
+manual_review:
+  - COT data is 3 days lagged (Tuesday snapshot, Friday release) — treat the
+    crowding read as end-of-Tuesday, not live.
+  - Crowding is a precondition, never a trade signal — require the
+    news-failure AND price-action confirmations before sizing.
+  - News-failure events must be curated from primary/wire sources with real
+    URLs; do not fabricate. INSUFFICIENT_EVIDENCE never advances.
+  - Confirm the gate setup_status is READY_FOR_PLAN before sizing; the sizer
+    will refuse a non-READY gate, but verify the reason if it does.
+  - Step 5 needs more than contrarian_setup_gate_report — the sizer's
+    --entry, --account-size, and --risk-pct are always operator-supplied,
+    even in gate-handoff mode; neither the gate nor the sizer derives
+    them, so gather these before invoking futures-position-sizer.
+  - Verify the sizer's contract count and per-contract risk before any
+    order; confirm total portfolio heat is within budget.
+  - Futures margin is broker/time-dependent and NOT computed — verify
+    initial and maintenance margin with the broker before trading.
+  - All orders are placed manually at the broker; no auto-execution.
+    Monitoring (COT normalization, stop, thesis invalidation) is manual
+    until contrarian-position-monitor ships.
+  - The gate's entry_trigger / sizer's planned entry is not an actual
+    fill. Keep the SIZED report itself (it carries the planned entry);
+    a manual-ingest source also keeps entry_price in
+    origin.raw_provenance.entry_price. Either way, never write it to
+    entry.actual_price before a real fill happens.
+  - Do not transition the thesis to ACTIVE (open-position) until the
+    order actually fills at the broker. Step 6 only reaches
+    IDEA/ENTRY_READY with the futures position attached — no order is
+    ever placed automatically.
+
+journal_destination: trader-memory-core

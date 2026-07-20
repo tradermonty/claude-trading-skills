@@ -74,6 +74,7 @@
             "type": "string"
           },
           "shares_sold": {"type": "number", "exclusiveMinimum": 0},
+          "quantity_sold": {"type": "integer", "exclusiveMinimum": 0},
           "price": {"type": "number"},
           "proceeds": {"type": "number"},
           "realized_pnl": {"type": "number"}
@@ -155,7 +156,27 @@
             "file": {"type": "string"},
             "fields": {"type": "object"}
           }
-        }
+        },
+        "asset_type": {"type": ["string", "null"], "enum": ["equity", "futures", null]},
+        "quantity": {"type": "integer", "exclusiveMinimum": 0},
+        "quantity_remaining": {"type": "integer", "minimum": 0},
+        "quantity_unit": {"type": ["string", "null"], "enum": ["contracts", null]},
+        "multiplier": {"type": "number", "exclusiveMinimum": 0},
+        "contract_symbol": {"type": ["string", "null"]},
+        "direction": {"type": ["string", "null"], "enum": ["LONG", "SHORT", null]},
+        "contract_spec": {
+          "type": "object",
+          "properties": {
+            "multiplier": {"type": "number"},
+            "tick_size": {"type": "number"},
+            "tick_value": {"type": "number"},
+            "currency": {"type": "string"},
+            "source": {"type": ["string", "null"]},
+            "verified": {"type": ["string", "null"]}
+          }
+        },
+        "risk_per_contract_usd": {"type": ["number", "null"]},
+        "total_risk_usd": {"type": ["number", "null"]}
       }
     },
     "market_context": {

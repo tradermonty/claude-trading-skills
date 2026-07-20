@@ -19,6 +19,16 @@ def test_load_tickers_from_json_candidates(tmp_path) -> None:
     assert load_tickers(path, None) == ["JNJ", "PG"]
 
 
+def test_load_tickers_from_screener_stocks_symbol_contract(tmp_path) -> None:
+    """Both optional upstream screeners emit ``stocks[].symbol``."""
+    path = tmp_path / "screener-output.json"
+    path.write_text(
+        '{"stocks":[{"symbol":"jnj"},{"symbol":"PG"},{"symbol":"jnj"}]}',
+        encoding="utf-8",
+    )
+    assert load_tickers(path, None) == ["JNJ", "PG"]
+
+
 def test_normalize_metrics_yields_limits_to_five_points() -> None:
     metrics = [
         {"dividendYield": 0.02},

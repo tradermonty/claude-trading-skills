@@ -20,7 +20,32 @@ from calculators.institutional_calculator import (
     score_institutional_sponsorship,
 )
 from calculators.market_calculator import calculate_ema, calculate_market_direction
-from report_generator import generate_markdown_report
+from report_generator import format_stock_entry, generate_markdown_report
+from scorer import WEIGHTS_PHASE2
+
+
+def test_phase2_weights_sum_to_one():
+    assert sum(WEIGHTS_PHASE2.values()) == 1.0
+
+
+def test_stock_entry_handles_missing_price_and_market_cap():
+    lines = format_stock_entry(
+        1,
+        {
+            "symbol": "NULLS",
+            "company_name": "Null Values Inc.",
+            "composite_score": 50.0,
+            "rating": "Hold",
+            "rating_description": "Neutral",
+            "guidance": "Wait",
+            "weakest_component": "M",
+            "weakest_score": 50,
+            "price": None,
+            "market_cap": None,
+        },
+    )
+    assert "**Price:** N/A | **Market Cap:** N/A" in lines[1]
+
 
 # ---------------------------------------------------------------------------
 # B1: M Component - EMA calculation with real historical data
@@ -102,19 +127,23 @@ class TestMComponentEMA:
             f"distance_from_ema_pct={result.get('distance_from_ema_pct')}"
         )
 
-    def test_fallback_always_gives_high_score(self):
-        """Without historical data, fallback EMA = price * 0.98, always ~+2% -> strong_uptrend."""
+    def test_missing_history_returns_neutral_unknown(self):
+        """Without historical data the 50-day EMA cannot be computed, so the M
+        component must return a neutral/unknown state rather than fabricating a
+        -2% EMA offset that always trips 'strong_uptrend' (which would invert the
+        component's defensive purpose during a data outage)."""
         sp500_quote = {"price": 5000.0}
         result = calculate_market_direction(
             sp500_quote=sp500_quote,
-            sp500_prices=None,  # No historical data -> fallback
+            sp500_prices=None,  # No historical data -> cannot compute EMA
             vix_quote={"price": 14.0},
         )
-        # Fallback: EMA = 5000 * 0.98 = 4900, distance = +2.04% -> strong_uptrend
-        assert result["score"] >= 90, (
-            f"Fallback (no historical data) should give high score, got {result['score']}"
+        assert result["score"] == 50, (
+            f"Missing history should score neutral 50, got {result['score']}"
         )
-        assert result["trend"] == "strong_uptrend"
+        assert result["trend"] == "unknown"
+        assert result["sp500_ema_50"] is None
+        assert "error" in result
 
     def test_real_ema_differs_from_fallback(self):
         """With real declining prices, EMA should differ from the naive 0.98 fallback."""

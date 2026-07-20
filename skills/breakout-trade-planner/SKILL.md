@@ -49,6 +49,7 @@ For each actionable order, explain:
 - R-multiple targets and reward-risk ratio
 - Two execution modes: pre_place (stop-limit) vs post_confirm (limit after 5min confirmation)
 - Portfolio risk contribution and cumulative heat
+- Broker and intraday constraints: these templates are planning artifacts, not broker permission. If the plan could create same-day round trips or use margin, confirm the user's broker-specific intraday/day-trading controls. FINRA replaced the old pattern-day-trader day-count and $25,000 minimum-equity requirements with intraday margin standards effective 2026-06-04, with broker phase-in allowed through 2027-10-20.
 
 ## Minervini Gate (Filtering Criteria)
 

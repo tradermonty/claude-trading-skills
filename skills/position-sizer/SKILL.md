@@ -1,6 +1,6 @@
 ---
 name: position-sizer
-description: Calculate risk-based position sizes for long stock trades. Use when user asks about position sizing, how many shares to buy, risk per trade, Kelly criterion, ATR-based sizing, or portfolio risk allocation. Supports stop-loss distance calculation, volatility scaling, and sector concentration checks.
+description: Calculate risk-based position sizes for long stock trades. Use when user asks about position sizing, how many shares to buy, risk per trade, Kelly criterion, ATR-based sizing, fractional-share sizing, or portfolio risk allocation. Supports stop-loss distance calculation, volatility scaling, and sector concentration checks.
 ---
 
 # Position Sizer
@@ -13,7 +13,7 @@ Calculate the optimal number of shares to buy for a long stock trade based on ri
 - **ATR-Based**: Use Average True Range to set volatility-adjusted stop distances
 - **Kelly Criterion**: Calculate mathematically optimal risk allocation from historical win/loss statistics
 
-All methods apply portfolio constraints (max position %, max sector %) and output a final recommended share count with full risk breakdown.
+All methods apply portfolio constraints (max position %, max sector %) and output a final recommended share count with full risk breakdown. The default output is whole shares. Use `--fractional` only when the user's broker supports fractional shares for the security and order type.
 
 ## When to Use
 
@@ -21,6 +21,7 @@ All methods apply portfolio constraints (max position %, max sector %) and outpu
 - User wants to calculate position size for a specific trade setup
 - User mentions risk per trade, stop-loss sizing, or portfolio allocation
 - User asks about Kelly Criterion or ATR-based position sizing
+- User has a small account where whole-share rounding would under-deploy a defined risk budget
 - User wants to check if a position fits within portfolio concentration limits
 
 ## Prerequisites
@@ -38,6 +39,7 @@ Collect from the user:
 - **Mode B (ATR-Based)**: Entry price, ATR value, ATR multiplier (default 2.0x), risk percentage
 - **Mode C (Kelly Criterion)**: Win rate, average win, average loss; optionally entry and stop for share calculation
 - **Optional constraints**: Max position % of account, max sector %, current sector exposure
+- **Optional share mode**: Whole shares by default, or fractional shares with `--fractional --share-precision N` when supported by the broker
 
 If the user provides a stock ticker but not specific prices, use available tools to look up the current price and suggest entry/stop levels based on technical analysis.
 
@@ -52,6 +54,16 @@ python3 skills/position-sizer/scripts/position_sizer.py \
   --entry 155 \
   --stop 148.50 \
   --risk-pct 1.0 \
+  --output-dir reports/
+
+# Fractional shares for small accounts or high-priced stocks
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 1000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --fractional \
+  --share-precision 4 \
   --output-dir reports/
 
 # ATR-Based
@@ -120,6 +132,7 @@ Present the final recommendation including:
 - Stop-loss price
 - Any binding constraints
 - Risk management reminders (portfolio heat, loss-cutting discipline)
+- Small-account reminders: fractional shares do not remove broker minimums, spread/slippage, commissions/fees, margin limits, borrow availability, or day-trading controls
 
 ## Output Format
 
@@ -174,8 +187,10 @@ Reports are saved to `reports/` with filenames `position_sizer_YYYY-MM-DD_HHMMSS
 
 1. **Survival first**: Position sizing is about surviving losing streaks, not maximizing winners
 2. **The 1% rule**: Default to 1% risk per trade; never exceed 2% without exceptional reason
-3. **Round down**: Always round shares down to whole numbers (never round up)
-4. **Strictest constraint wins**: When multiple limits apply, the tightest one determines final size
-5. **Half Kelly**: Never use full Kelly in practice; half Kelly captures 75% of growth with far less risk
-6. **Portfolio heat**: Total open risk should not exceed 6-8% of account equity
-7. **Asymmetry of losses**: A 50% loss requires a 100% gain to recover; size accordingly
+3. **Default to whole shares**: Existing workflows remain integer-share by default
+4. **Floor, never round up**: Whole-share mode floors to an integer; fractional mode floors to the requested precision so risk and concentration budgets are not exceeded
+5. **Strictest constraint wins**: When multiple limits apply, the tightest one determines final size
+6. **Half Kelly**: Never use full Kelly in practice; half Kelly captures 75% of growth with far less risk
+7. **Portfolio heat**: Total open risk should not exceed 6-8% of account equity
+8. **Intraday rules are broker-specific**: FINRA replaced the old pattern-day-trader day-count and $25,000 minimum-equity requirements with intraday margin standards effective 2026-06-04, with broker phase-in allowed through 2027-10-20. Check the broker's current rules before repeated same-day trading in a margin account.
+9. **Asymmetry of losses**: A 50% loss requires a 100% gain to recover; size accordingly

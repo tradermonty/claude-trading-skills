@@ -33,20 +33,21 @@
 - NASDAQ: -78% (5,048 → 1,114)
 - Many bankruptcies: Pets.com, Webvan, eToys, etc.
 
-### Bubble-O-Meter Score Estimate (March 2000)
+### Bubble-O-Meter v2.1 Score Estimate (March 2000)
 
 | Indicator | Score | Rationale |
 |-----------|-------|-----------|
-| Mass Penetration | 2 | Family/friends entering "day trading" |
-| Media Saturation | 2 | Time magazine cover "Amazon.com", CNBC ratings surge |
-| New Entrants | 2 | Online brokerage accounts +300% YoY |
-| Issuance Flood | 2 | 457 IPOs (1999), many low-quality |
+| Put/Call Ratio | 2 | Speculative call demand and day-trading optimism dominated |
+| Volatility Suppression + New Highs | 2 | NASDAQ at repeated highs with complacency toward drawdown risk |
 | Leverage | 1 | Margin trading increased, but not to mortgage levels |
+| IPO Market Overheating | 2 | 457 IPOs (1999), many low-quality |
+| Breadth Anomaly | 2 | Low-quality internet names rallied alongside leaders |
 | Price Acceleration | 2 | NASDAQ +85% annual (1999) |
-| Valuation Disconnect | 2 | "Profits unnecessary, only revenue growth matters" |
-| Correlation & Breadth | 2 | Even unprofitable companies rallying, no quality selection |
+| Social Penetration | 1 | Family/friends entering "day trading" |
+| Media/Search Trends | 1 | Time magazine cover "Amazon.com", CNBC ratings surge |
+| Valuation Disconnect | 1 | "Profits unnecessary, only revenue growth matters" |
 
-**Total: 15/16 points (Critical Zone)**
+**Total: 15/15 points (Critical Zone)**
 
 ### Lessons
 
@@ -88,20 +89,21 @@
 - Bitcoin: $19,783 → $3,200 (-84%)
 - ICO scams exposed, regulatory crackdown
 
-### Bubble-O-Meter Score Estimate (Mid-December 2017)
+### Bubble-O-Meter v2.1 Score Estimate (Mid-December 2017)
 
 | Indicator | Score | Rationale |
 |-----------|-------|-----------|
-| Mass Penetration | 2 | Taxi drivers, grandparents asserting "must buy" |
-| Media Saturation | 2 | Google searches for "Bitcoin" at all-time high, daily CNBC specials |
-| New Entrants | 2 | Coinbase new accounts exceeding 300k/day |
-| Issuance Flood | 2 | 966 ICOs (2017), majority fraudulent |
+| Put/Call Ratio | 2 | Crypto derivatives and call-like upside speculation were extreme |
+| Volatility Suppression + New Highs | 2 | Traders treated repeated new highs as normal despite extreme volatility |
 | Leverage | 2 | 100x leverage trading on BitMEX etc. surging |
+| IPO Market Overheating | 2 | 966 ICOs (2017), majority fraudulent |
+| Breadth Anomaly | 2 | Even obscure altcoins +1000%+ |
 | Price Acceleration | 2 | Doubled in one month ($10k→$20k), acceleration positive and increasing |
-| Valuation Disconnect | 2 | "Digital gold," "end of fiat currency" narratives dominant |
-| Correlation & Breadth | 2 | Even obscure altcoins +1000%+ |
+| Social Penetration | 1 | Taxi drivers, grandparents asserting "must buy" |
+| Media/Search Trends | 1 | Google searches for "Bitcoin" at all-time high, daily CNBC specials |
+| Valuation Disconnect | 1 | "Digital gold," "end of fiat currency" narratives dominant |
 
-**Total: 16/16 points (Critical Zone - Perfect Score)**
+**Total: 15/15 points (Critical Zone - Max Score)**
 
 ### Lessons
 
@@ -147,20 +149,21 @@
 - NASDAQ: -33% (2022 full year)
 - Crypto bubble collapse (Luna, FTX failures)
 
-### Bubble-O-Meter Score Estimate (November 2021)
+### Bubble-O-Meter v2.1 Score Estimate (November 2021)
 
 | Indicator | Score | Rationale |
 |-----------|-------|-----------|
-| Mass Penetration | 2 | WallStreetBets, TikTok investment influencers proliferating |
-| Media Saturation | 2 | CNBC ratings surge, housewife investment specials |
-| New Entrants | 2 | Young demographic accounts 3x on Robinhood etc. |
-| Issuance Flood | 2 | 613 SPACs (2021 full year), many low-quality |
+| Put/Call Ratio | 2 | Retail call-option demand and meme-stock option activity surged |
+| Volatility Suppression + New Highs | 2 | Major indices made highs while risk was treated as temporary |
 | Leverage | 1 | Individual options trading surged, but not excessive mortgage levels |
+| IPO Market Overheating | 2 | 613 SPACs (2021 full year), many low-quality |
+| Breadth Anomaly | 1 | Concentrated in FAANG and speculative cohorts, not universal breadth |
 | Price Acceleration | 2 | Numerous growth stocks +100%+ annual |
-| Valuation Disconnect | 2 | Extreme DCF assuming "zero discount rate," profit ignored |
-| Correlation & Breadth | 1 | Concentrated in FAANG etc., not broad rally |
+| Social Penetration | 1 | WallStreetBets, TikTok investment influencers proliferating |
+| Media/Search Trends | 1 | CNBC ratings surge, housewife investment specials |
+| Valuation Disconnect | 1 | Extreme DCF assuming "zero discount rate," profit ignored |
 
-**Total: 14/16 points (Critical Zone)**
+**Total: 13/15 points (Critical Zone)**
 
 ### Special Factors
 

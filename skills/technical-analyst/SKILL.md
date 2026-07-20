@@ -233,6 +233,163 @@ Analyst:
 5. Generates complete report with focused scenario analysis
 ```
 
+## Contrarian Confirmation Mode (Shapiro Step 3)
+
+This is an ADDITIVE mode, separate from the pure chart-analysis workflow
+above. It activates only on an explicit contrarian-confirmation request —
+typically after `cot-contrarian-detector` (step 1) has flagged a market
+crowded and, optionally, `news-reaction-failure-analyzer` (step 2) has
+shown it failed to react to favorable news. A plain "analyze this chart"
+request still runs the original workflow (Steps 1-6 above) unchanged.
+
+### Purpose
+
+Confirm whether the WEEKLY chart is showing price-action evidence that a
+crowded market is reversing: a weekly key reversal, an intraweek failed
+extreme, or a confirmed-then-rejected failed breakout — vetoed by a
+continuation check (a new closing extreme in the crowd's direction more
+recent than any signal found). See
+`references/contrarian-confirmation-checklist.md` for the full,
+word-for-word methodology shared by both chart mode and script mode.
+
+### Inputs
+
+- **Crowd direction**: `CROWDED_LONG` or `CROWDED_SHORT` — from the user,
+  or from a prior `cot-contrarian-detector` report.
+- **Chart image (primary)**: a user-supplied weekly chart, read the same
+  way as the existing workflow, using the strict definitions below.
+- **Script fallback (data-driven)**: `scripts/check_weekly_price_action.py`
+  when no chart is supplied, or when an auditable, deterministic result is
+  wanted instead of (or alongside) a visual read.
+
+### The Three Checks + Swing Levels
+
+1. **Weekly key reversal**: a new swing-lookback extreme (default 13
+   weeks) followed by a close through the prior week's opposite level.
+2. **Failed extreme**: an intraweek poke past the prior extreme-lookback
+   level (default 52 weeks) that closes back through it the same week.
+3. **Failed breakout**: a weekly CLOSING breakout past the prior
+   extreme-lookback level, rejected (closed back through) within <=3
+   subsequent weeks — `week_of` is the FAILURE week, never the breakout
+   week.
+4. **Continuation veto**: a new CLOSING extreme in the crowd's direction,
+   strictly more recent than the newest triggered signal above, vetoes
+   confirmation regardless of what triggered.
+5. **Swing levels**: the nearest fractal swing high/low (5-week pivot,
+   with a documented fallback) supplies `stop_reference` — the nearest
+   swing high when fading a crowded LONG, the nearest swing low when
+   fading a crowded SHORT.
+
+Every comparison is a STRICT inequality; window truncation is
+per-evaluated-week, not per-run. Full definitions, the direction-mirror
+table, worked examples, and the confidence-HIGH rule are in
+`references/contrarian-confirmation-checklist.md` — read it before
+producing a chart-mode verdict, so chart and script judge identically.
+
+### Output Contract
+
+```yaml
+symbol: BT
+direction: CROWDED_LONG
+mode: data # "chart" for a Claude chart-image read
+verdict: CONFIRMED | NOT_CONFIRMED | INSUFFICIENT_DATA
+confidence: HIGH | MEDIUM | LOW # LOW reserved, never emitted in v1
+verdict_reason: key_reversal | failed_extreme | failed_breakout |
+  continuation_intact | no_reversal_evidence |
+  insufficient_weekly_bars | no_price_source | ...
+checks:
+  weekly_key_reversal:
+    { triggered, week_of, swing_window_weeks_used,
+      extreme_window_weeks_used, is_full_window_extreme, detail }
+  failed_extreme: { triggered, attempted_level, week_of, window_weeks_used, detail }
+  failed_breakout: { triggered, breakout_level, week_of, window_weeks_used, detail }
+  continuation: { new_closing_extreme_with_crowd, week_of, window_weeks_used }
+swing_levels:
+  nearest_swing_high: { price, week_of, fallback }
+  nearest_swing_low: { price, week_of, fallback }
+  stop_reference: 0.0
+weekly_bars_used: 52
+last_completed_week: 2026-07-06
+handoff: # consumed by contrarian-setup-gate (#241)
+  price_action: { verdict, confidence, stop_reference, report_path }
+run_context:
+  {
+    price_symbol,
+    price_source,
+    proxy_used,
+    as_of,
+    lookbacks,
+    recency,
+    min_weeks,
+    detector_json,
+    detector_age_days,
+    schema_version,
+  }
+```
+
+**Invariant**: `checks` (and `swing_levels`) is `null` whenever
+`verdict: INSUFFICIENT_DATA` — regardless of the specific reason
+(`no_price_source`, `insufficient_weekly_bars`, a detector-json refusal,
+...). A downstream consumer can check `verdict` alone before deciding
+whether `checks.*` is safe to read, without branching on
+`verdict_reason`.
+
+**File naming**: `ta_confirmation_<SYMBOL>_<as-of>.json` and
+`ta_confirmation_<SYMBOL>_<as-of>.md`, saved to `reports/`.
+
+### Chart-Primary, Script-Fallback
+
+Chart images remain the PRIMARY input, consistent with this skill's
+identity. Run the script instead of (or alongside) a chart read when no
+chart is supplied, or when an auditable, deterministic result is
+preferred:
+
+```bash
+python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
+  --symbol BT --direction CROWDED_LONG --as-of 2026-07-15 \
+  --output-dir reports/
+```
+
+Or resolve direction from a `cot-contrarian-detector` report directly:
+
+```bash
+python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
+  --symbol BT --detector-json reports/cot_crowding_2026-07-12.json \
+  --as-of 2026-07-15 --output-dir reports/
+```
+
+The script fetches weekly-resampled OHLC via a documented futures-to-ETF
+fallback chain (see the module docstring in
+`scripts/check_weekly_price_action.py`), truncates daily bars to `--as-of`
+BEFORE resampling (no lookahead), and fails closed to
+`INSUFFICIENT_DATA` — never a crash — on an unreadable (missing file),
+syntactically invalid, stale, or structurally malformed `--detector-json`,
+too little price history (`--min-weeks`, default 30), or no usable price
+source.
+
+### Conservative Disagreement Rule
+
+If both chart mode and script mode produce a result for the same
+symbol/direction and their verdicts DISAGREE, the final verdict is
+**`NOT_CONFIRMED`** (`verdict_reason: mode_disagreement`), with both
+sub-results attached for review — never silently prefer one mode. If one
+mode is `INSUFFICIENT_DATA` and the other is a clean verdict, the clean
+verdict stands.
+
+### Guardrails
+
+- **Verdict-only — never a trade recommendation on its own.** This
+  confirms step 3 of 5 (Shapiro's process). Entry and exit planning are
+  still manual and still required; position sizing belongs to
+  `position-sizer` / `futures-position-sizer`, not this mode.
+- **`INSUFFICIENT_DATA` never advances the pipeline** — fail-closed on
+  every degraded input, always exits 0 with a report written.
+- **Weekly timeframe only.**
+- **The existing chart-analysis workflow above is unchanged** — this mode
+  only activates on an explicit contrarian-confirmation request.
+- **A single-signal MEDIUM verdict is deliberately weak evidence** — see
+  the Confidence section of `references/contrarian-confirmation-checklist.md`.
+
 ## Resources
 
 This skill includes the following bundled resources:
@@ -255,3 +412,27 @@ Comprehensive methodology for technical analysis including:
 Structured template for technical analysis reports with all required sections.
 
 **Usage**: Use this template structure for every analysis report. Copy the format and populate with specific findings for each chart.
+
+### references/contrarian-confirmation-checklist.md
+
+Full methodology for Contrarian Confirmation Mode (Shapiro Step 3): direction
+convention, window/truncation rules, the 3 signal checks + continuation
+veto, swing-level (fractal pivot) rules, verdict synthesis, confidence
+rules, the output contract, a chart-mode walkthrough, and the conservative
+disagreement rule.
+
+**Usage**: Read this file before producing a Contrarian Confirmation Mode
+verdict — chart mode and `scripts/check_weekly_price_action.py` must judge
+identically, so the same strict definitions apply to both.
+
+### scripts/check_weekly_price_action.py
+
+Data-driven fallback CLI for Contrarian Confirmation Mode. Fetches
+weekly-resampled OHLC (documented futures-to-ETF fallback chain,
+`--as-of` information cutoff applied before resampling), runs the 3
+signal checks + continuation veto + swing-level detection, and writes
+`ta_confirmation_<SYMBOL>_<as-of>.json`/`.md` to `reports/`.
+
+**Usage**: Run when no chart image is supplied, or when an auditable,
+deterministic result is wanted. See the Contrarian Confirmation Mode
+section above for invocation examples.

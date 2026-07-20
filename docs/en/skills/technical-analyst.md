@@ -179,8 +179,67 @@ Do not batch analyses. Complete and save each report before moving to the next c
 
 ---
 
-## 5. Resources
+## 5. Contrarian Confirmation Mode (Shapiro Step 3)
+
+This is an ADDITIVE mode, separate from the pure chart-analysis workflow above. It activates only on an explicit contrarian-confirmation request -- typically after `cot-contrarian-detector` (step 1) has flagged a market crowded and, optionally, `news-reaction-failure-analyzer` (step 2) has shown it failed to react to favorable news. A plain "analyze this chart" request still runs the original workflow (Steps 1-6 above) unchanged.
+
+### Purpose
+
+Confirm whether the weekly chart shows price-action evidence that a crowded market is reversing: a weekly key reversal, an intraweek failed extreme, or a confirmed-then-rejected failed breakout, all vetoed by a continuation check (a new closing extreme in the crowd's direction more recent than any signal found). See `references/contrarian-confirmation-checklist.md` for the full methodology, shared word-for-word by both chart mode and script mode.
+
+### The Three Checks + Swing Levels
+
+1. **Weekly key reversal** -- a new swing-lookback extreme (default 13 weeks) followed by a close through the prior week's opposite level.
+2. **Failed extreme** -- an intraweek poke past the prior extreme-lookback level (default 52 weeks) that closes back through it the same week.
+3. **Failed breakout** -- a weekly closing breakout past the prior extreme-lookback level, rejected within <=3 subsequent weeks; `week_of` is the FAILURE week, never the breakout week.
+4. **Continuation veto** -- a new closing extreme in the crowd's direction, more recent than the newest triggered signal, vetoes confirmation regardless of what triggered.
+5. **Swing levels** -- the nearest fractal swing high/low (5-week pivot, with a documented fallback) supplies `stop_reference`.
+
+Every comparison is a strict inequality; window truncation is per-evaluated-week, not per-run.
+
+### Chart-Primary, Script-Fallback
+
+Chart images remain the primary input. Run the script instead of (or alongside) a chart read when no chart is supplied, or an auditable, deterministic result is preferred:
+
+```bash
+python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
+  --symbol BT --direction CROWDED_LONG --as-of 2026-07-15 \
+  --output-dir reports/
+```
+
+Or resolve direction from a `cot-contrarian-detector` report directly:
+
+```bash
+python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
+  --symbol BT --detector-json reports/cot_crowding_2026-07-12.json \
+  --as-of 2026-07-15 --output-dir reports/
+```
+
+The script fetches weekly-resampled OHLC via a documented futures-to-ETF fallback chain, truncates daily bars to `--as-of` before resampling (no lookahead), and fails closed to `INSUFFICIENT_DATA` -- never a crash -- on a missing/stale/malformed `--detector-json`, too little price history (`--min-weeks`, default 30), or no usable price source.
+
+### Output
+
+- **JSON/Markdown**: `ta_confirmation_<SYMBOL>_<as-of>.json` / `.md`, saved to `reports/`.
+- **verdict**: `CONFIRMED` / `NOT_CONFIRMED` / `INSUFFICIENT_DATA`, with `confidence` (`HIGH`/`MEDIUM`) and a `verdict_reason`.
+- **handoff**: a `price_action` block (`verdict`, `confidence`, `stop_reference`, `report_path`) intended for `contrarian-setup-gate` (#241, not yet built).
+
+### Guardrails
+
+- Verdict-only -- never a trade recommendation on its own; entry/exit planning and position sizing belong to downstream skills.
+- `INSUFFICIENT_DATA` never advances the pipeline -- fail-closed on every degraded input.
+- Weekly timeframe only.
+- The existing chart-analysis workflow above is unchanged; this mode only activates on an explicit contrarian-confirmation request.
+- A single-signal `MEDIUM` verdict is deliberately weak evidence -- see the Confidence section of `references/contrarian-confirmation-checklist.md`.
+
+---
+
+## 6. Resources
 
 **References:**
 
 - `skills/technical-analyst/references/technical_analysis_framework.md`
+- `skills/technical-analyst/references/contrarian-confirmation-checklist.md`
+
+**Scripts:**
+
+- `skills/technical-analyst/scripts/check_weekly_price_action.py`

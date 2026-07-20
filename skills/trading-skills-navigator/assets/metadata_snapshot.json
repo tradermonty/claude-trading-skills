@@ -66,6 +66,38 @@
       "timeframe": "weekly"
     },
     {
+      "category": "trade-planning",
+      "difficulty": "intermediate",
+      "display_name": "Contrarian Setup Gate",
+      "id": "contrarian-setup-gate",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Offline synthesis gate that combines COT crowding, news-reaction failure, and weekly price-action confirmation into one actionable setup_status via a fail-closed precedence state machine, implementing the decision center of Jason Shapiro's contrarian methodology.",
+      "timeframe": "event-driven"
+    },
+    {
+      "category": "market-regime",
+      "difficulty": "intermediate",
+      "display_name": "COT Contrarian Detector",
+      "id": "cot-contrarian-detector",
+      "integrations": [
+        {
+          "id": "fmp",
+          "requirement": "required",
+          "type": "market_data"
+        }
+      ],
+      "status": "production",
+      "summary": "Detects crowded speculative (large-speculator) positioning in CFTC futures markets using Commitment of Traders data, implementing step 1 of Jason Shapiro's contrarian methodology.",
+      "timeframe": "weekly"
+    },
+    {
       "category": "meta",
       "difficulty": "beginner",
       "display_name": "Data Quality Checker",
@@ -359,6 +391,22 @@
       "timeframe": "daily"
     },
     {
+      "category": "trade-planning",
+      "difficulty": "intermediate",
+      "display_name": "Futures Position Sizer",
+      "id": "futures-position-sizer",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Calculate contract-based futures position sizes from a direction, entry, and stop-loss, using a verified 23-market contract-spec table (multiplier, tick size, tick value), implementing step 4 of Jason Shapiro's contrarian pipeline.",
+      "timeframe": "event-driven"
+    },
+    {
       "category": "market-regime",
       "difficulty": "intermediate",
       "display_name": "IBD Distribution Day Monitor",
@@ -522,6 +570,27 @@
       "status": "production",
       "summary": "Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation.",
       "timeframe": "daily"
+    },
+    {
+      "category": "market-regime",
+      "difficulty": "intermediate",
+      "display_name": "News Reaction Failure Analyzer",
+      "id": "news-reaction-failure-analyzer",
+      "integrations": [
+        {
+          "id": "fmp",
+          "requirement": "required",
+          "type": "market_data"
+        },
+        {
+          "id": "websearch",
+          "requirement": "required",
+          "type": "web"
+        }
+      ],
+      "status": "production",
+      "summary": "Judges whether a market failed to react to news favorable to a crowded speculative position, implementing step 2 of Jason Shapiro's contrarian methodology with a Monte-Carlo-verified drift-significance verdict test.",
+      "timeframe": "event-driven"
     },
     {
       "category": "advanced-satellite",
@@ -923,6 +992,11 @@
           "id": "chart_image",
           "requirement": "required",
           "type": "image"
+        },
+        {
+          "id": "fmp",
+          "requirement": "optional",
+          "type": "market_data"
         }
       ],
       "status": "production",
@@ -1262,6 +1336,31 @@
       ]
     },
     {
+      "api_profile": "mixed",
+      "cadence": "weekly",
+      "difficulty": "intermediate",
+      "display_name": "Kanchi Dividend Weekly",
+      "estimated_minutes": 60,
+      "id": "kanchi-dividend-weekly",
+      "optional_skills": [
+        "value-dividend-screener",
+        "dividend-growth-pullback-screener",
+        "kanchi-dividend-us-tax-accounting",
+        "kanchi-dividend-review-monitor"
+      ],
+      "prerequisite_workflows": [
+        "core-portfolio-weekly"
+      ],
+      "required_skills": [
+        "kanchi-dividend-sop",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "long-term-investor",
+        "dividend-investor"
+      ]
+    },
+    {
       "api_profile": "no-api-basic",
       "cadence": "daily",
       "difficulty": "beginner",
@@ -1334,6 +1433,27 @@
         "part-time-swing-trader",
         "growth-investor",
         "macro-discretionary-trader"
+      ]
+    },
+    {
+      "api_profile": "fmp-required",
+      "cadence": "weekly",
+      "difficulty": "advanced",
+      "display_name": "Shapiro COT Contrarian",
+      "estimated_minutes": 60,
+      "id": "shapiro-contrarian",
+      "optional_skills": [],
+      "prerequisite_workflows": [],
+      "required_skills": [
+        "cot-contrarian-detector",
+        "news-reaction-failure-analyzer",
+        "technical-analyst",
+        "contrarian-setup-gate",
+        "futures-position-sizer",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "futures-contrarian-trader"
       ]
     },
     {

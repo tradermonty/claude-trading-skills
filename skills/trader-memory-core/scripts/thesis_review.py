@@ -144,6 +144,24 @@ def _render_postmortem(thesis: dict) -> str:
             return "—"
         return f"{val}{suffix}"
 
+    # Position table is unit-aware (D7): position_value/risk_dollars are
+    # equity-only fields, just like "shares" — a futures thesis shows its
+    # own audit fields (Contracts/Multiplier/Risk-per-contract/Total risk)
+    # instead of three blank "—" rows.
+    if thesis_store._is_futures(thesis):
+        position_rows = (
+            f"| Contracts | {_fmt(position.get('quantity'))} |\n"
+            f"| Multiplier | {_fmt(position.get('multiplier'))} |\n"
+            f"| Risk/Contract ($) | {_fmt(position.get('risk_per_contract_usd'))} |\n"
+            f"| Total Risk ($) | {_fmt(position.get('total_risk_usd'))} |"
+        )
+    else:
+        position_rows = (
+            f"| Shares | {_fmt(position.get('shares'))} |\n"
+            f"| Position Value | {_fmt(position.get('position_value'))} |\n"
+            f"| Risk ($) | {_fmt(position.get('risk_dollars'))} |"
+        )
+
     return f"""# Postmortem: {thesis["thesis_id"]}
 
 **Ticker:** {thesis["ticker"]}
@@ -177,9 +195,7 @@ def _render_postmortem(thesis: dict) -> str:
 
 | Metric | Value |
 |--------|-------|
-| Shares | {_fmt(position.get("shares"))} |
-| Position Value | {_fmt(position.get("position_value"))} |
-| Risk ($) | {_fmt(position.get("risk_dollars"))} |
+{position_rows}
 
 ## Evidence at Entry
 

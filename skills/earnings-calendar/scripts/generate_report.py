@@ -35,12 +35,27 @@ def load_earnings_data(filepath: str) -> list[dict]:
         with open(filepath) as f:
             content = f.read()
 
-            # Handle case where file has progress messages before JSON
-            json_start = content.find("[")
-            if json_start != -1:
-                content = content[json_start:]
-
-            data = json.loads(content)
+            # Handle case where file has progress messages before JSON.
+            # Try a direct parse first; only fall back to locating the array
+            # if the file has a non-JSON preamble. A preamble may itself
+            # contain "[" (e.g. "[INFO] ..."), so scan each candidate "["
+            # and keep the first one that decodes to valid JSON rather than
+            # blindly slicing from the first bracket.
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError:
+                decoder = json.JSONDecoder()
+                data = None
+                search_start = 0
+                while True:
+                    bracket = content.find("[", search_start)
+                    if bracket == -1:
+                        raise
+                    try:
+                        data, _ = decoder.raw_decode(content[bracket:])
+                        break
+                    except json.JSONDecodeError:
+                        search_start = bracket + 1
 
             if not isinstance(data, list):
                 print("ERROR: JSON file must contain an array of earnings data", file=sys.stderr)
@@ -73,7 +88,9 @@ def group_by_date(earnings: list[dict]) -> dict:
 
     for stock in earnings:
         date = stock.get("date")
-        timing = stock.get("timing", "TAS")
+        timing = stock.get("timing") or "TAS"
+        if timing not in ("BMO", "AMC", "TAS"):
+            timing = "TAS"
 
         if date:
             by_date[date][timing].append(stock)
@@ -103,9 +120,12 @@ def calculate_summary_stats(earnings: list[dict]) -> dict:
 
     # Peak day
     by_date = group_by_date(earnings)
-    peak = max(by_date.items(), key=lambda x: sum(len(v) for v in x[1].values()))
-    peak_date, peak_data = peak
-    peak_count = sum(len(v) for v in peak_data.values())
+    if by_date:
+        peak = max(by_date.items(), key=lambda x: sum(len(v) for v in x[1].values()))
+        peak_date, peak_data = peak
+        peak_count = sum(len(v) for v in peak_data.values())
+    else:
+        peak_date, peak_count = None, 0
 
     return {
         "total": total,
@@ -180,6 +200,9 @@ def generate_report(earnings: list[dict]) -> str:
     # Top 5 by market cap
     top5 = sorted(earnings, key=lambda x: x.get("marketCap", 0), reverse=True)[:5]
 
+    # Peak day label (may be absent if no records had a usable date)
+    peak_day = get_day_name(stats["peak_date"]).split(",")[0] if stats["peak_date"] else "N/A"
+
     # Generate report
     report = f"""# Upcoming Earnings Calendar - Week of {date_range}
 
@@ -195,7 +218,7 @@ def generate_report(earnings: list[dict]) -> str:
 - **Total Companies Reporting**: {stats["total"]}
 - **Mega/Large Cap (>$10B)**: {stats["large_cap"]}
 - **Mid Cap ($2B-$10B)**: {stats["mid_cap"]}
-- **Peak Day**: {get_day_name(stats["peak_date"]).split(",")[0]} ({stats["peak_count"]} companies)
+- **Peak Day**: {peak_day} ({stats["peak_count"]} companies)
 
 ---
 
@@ -231,9 +254,9 @@ def generate_report(earnings: list[dict]) -> str:
 
                 for stock in display_stocks:
                     ticker = stock.get("symbol", "N/A")
-                    company = stock.get("companyName", "N/A")[:35]
+                    company = (stock.get("companyName") or "N/A")[:35]
                     mcap = stock.get("marketCapFormatted", "N/A")
-                    sector = stock.get("sector", "N/A")[:18]
+                    sector = (stock.get("sector") or "N/A")[:18]
 
                     eps = stock.get("epsEstimated")
                     eps_str = f"${eps:.2f}" if eps is not None else "N/A"
@@ -267,10 +290,9 @@ def generate_report(earnings: list[dict]) -> str:
     for sector, count in top_sectors:
         report += f"- **{sector}**: {count} companies\n"
 
-    peak_day_name = get_day_name(stats["peak_date"]).split(",")[0]
     report += f"""
 ### Trading Considerations
-- **Peak Day**: {peak_day_name} with {stats["peak_count"]} earnings announcements
+- **Peak Day**: {peak_day} with {stats["peak_count"]} earnings announcements
 - **Pre-Market Focus**: BMO announcements before 9:30 AM ET
 - **After-Hours Focus**: AMC announcements after 4:00 PM ET
 

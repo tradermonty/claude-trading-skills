@@ -32,7 +32,7 @@ export FMP_API_KEY=your_api_key_here
 
 Prepare one of the following inputs before running the workflow:
 1. Output from `skills/value-dividend-screener/scripts/screen_dividend_stocks.py`.
-2. Output from `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth.py`.
+2. Output from `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py`.
 3. User-provided ticker list (broker export or manual list).
 
 #### Expected JSON Input Format
@@ -56,6 +56,12 @@ Or simplified:
   "tickers": ["JNJ", "PG", "KO"]
 }
 ```
+
+The optional `value-dividend-screener` and
+`dividend-growth-pullback-screener` handoffs use `stocks[].symbol`.
+Both `build_sop_plan.py --input` and `build_entry_signals.py --input`
+accept that shape directly, as well as the native `candidates[].ticker` and
+`tickers[]` shapes above.
 
 For deterministic artifact generation, provide tickers to:
 

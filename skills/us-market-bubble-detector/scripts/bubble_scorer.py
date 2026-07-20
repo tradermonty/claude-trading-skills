@@ -1,299 +1,361 @@
 #!/usr/bin/env python3
 """
-Bubble-O-Meter: 米国株式市場のバブル度を多面的に評価するスクリプト
+Bubble-O-Meter: evaluate US market bubble risk with the v2.1 framework.
 
-8つの指標を0-2点で評価し、合計スコア(0-16点)でバブル度を判定:
-- 0-4: 正常域
-- 5-8: 警戒域
-- 9-12: 熱狂域
-- 13-16: 臨界域
+The v2.1 model scores six quantitative indicators at 0-2 points each
+(0-12 total), then applies three strict qualitative adjustments at 0-1 point
+each (0-3 total). The final score is 0-15.
 
-使用方法:
-    python bubble_scorer.py --ticker SPY --period 1y
+Usage:
+    python bubble_scorer.py --manual
+    python bubble_scorer.py --scores '{"put_call_ratio":0,...,"valuation_disconnect":0}'
 """
 
 import argparse
 import json
 from datetime import datetime
+from typing import Optional
 
 
 class BubbleScorer:
-    """バブルスコアリングシステム"""
+    """Bubble scoring system for the revised v2.1 contract."""
 
-    def __init__(self):
-        self.indicators = {
-            "mass_penetration": {
-                "name": "大衆浸透度",
-                "weight": 2,
-                "description": "非投資家層からの推奨・言及",
+    def __init__(self) -> None:
+        self.quantitative_indicators = {
+            "put_call_ratio": {
+                "name": "Put/Call Ratio",
+                "max_score": 2,
+                "description": "CBOE equity put/call ratio optimism threshold",
             },
-            "media_saturation": {
-                "name": "メディア飽和",
-                "weight": 2,
-                "description": "検索・SNS・メディア露出の急騰",
-            },
-            "new_accounts": {
-                "name": "新規参入",
-                "weight": 2,
-                "description": "口座開設・資金流入の加速",
-            },
-            "new_issuance": {
-                "name": "新規発行氾濫",
-                "weight": 2,
-                "description": "IPO/SPAC/関連商品の乱立",
+            "volatility_suppression": {
+                "name": "Volatility Suppression + New Highs",
+                "max_score": 2,
+                "description": "Low VIX combined with major index proximity to 52-week highs",
             },
             "leverage": {
-                "name": "レバレッジ",
-                "weight": 2,
-                "description": "証拠金・信用・資金調達レートの偏り",
+                "name": "Leverage",
+                "max_score": 2,
+                "description": "FINRA margin debt growth and all-time-high behavior",
+            },
+            "ipo_heat": {
+                "name": "IPO Market Overheating",
+                "max_score": 2,
+                "description": "IPO count and first-day return versus five-year averages",
+            },
+            "breadth_anomaly": {
+                "name": "Breadth Anomaly",
+                "max_score": 2,
+                "description": "New highs with narrow S&P 500 participation above 50DMA",
             },
             "price_acceleration": {
-                "name": "価格加速度",
-                "weight": 2,
-                "description": "リターンが歴史分布上位に到達",
+                "name": "Price Acceleration",
+                "max_score": 2,
+                "description": "Three-month return percentile versus the past 10 years",
+            },
+        }
+        self.qualitative_adjustments = {
+            "social_penetration": {
+                "name": "Social Penetration",
+                "max_score": 1,
+                "description": "Direct, specific, repeated non-investor recommendations",
+            },
+            "media_search_trends": {
+                "name": "Media/Search Trends",
+                "max_score": 1,
+                "description": "Measured 5x+ search interest plus mainstream coverage",
             },
             "valuation_disconnect": {
-                "name": "バリュエーション逸脱",
-                "weight": 2,
-                "description": "ファンダ説明が物語一辺倒に",
-            },
-            "breadth_expansion": {
-                "name": "相関と幅",
-                "weight": 2,
-                "description": "低質銘柄まで全面高",
+                "name": "Valuation Disconnect",
+                "max_score": 1,
+                "description": "Documented fundamentals-ignored narrative without double-counting",
             },
         }
 
-    def calculate_score(self, scores: dict[str, int]) -> dict:
+    @property
+    def indicators(self) -> dict[str, dict]:
+        """Backward-compatible combined indicator map."""
+        return {**self.quantitative_indicators, **self.qualitative_adjustments}
+
+    def calculate_score(
+        self,
+        quantitative_scores: dict[str, int],
+        qualitative_scores: Optional[dict[str, int]] = None,
+    ) -> dict:
         """
-        各指標のスコアから総合評価を計算
+        Calculate the v2.1 bubble score.
 
         Args:
-            scores: 各指標のスコア辞書 (0-2点)
+            quantitative_scores: Scores for the six 0-2 quantitative indicators,
+                or a flat combined mapping containing all nine v2.1 score keys.
+            qualitative_scores: Scores for the three 0-1 qualitative adjustments.
 
         Returns:
-            評価結果の辞書
+            Evaluation result dictionary.
         """
-        total_score = sum(scores.values())
-        max_score = len(self.indicators) * 2
+        if qualitative_scores is None:
+            quantitative_scores, qualitative_scores = self._split_flat_scores(quantitative_scores)
 
-        # バブル段階の判定
-        if total_score <= 4:
-            phase = "正常域"
-            risk_level = "低"
-            action = "通常通りの投資戦略を継続"
-        elif total_score <= 8:
-            phase = "警戒域"
-            risk_level = "中"
-            action = "部分利確の開始、新規ポジションのサイズ縮小"
-        elif total_score <= 12:
-            phase = "熱狂域"
-            risk_level = "高"
-            action = "階段状利確の加速、ATRトレーリングストップ厳格化、総リスク予算30-50%削減"
-        else:
-            phase = "臨界域"
-            risk_level = "極めて高"
-            action = "大幅な利確またはフルヘッジ、新規参入停止、反転確認後のショートポジション検討"
+        self._validate_scores(quantitative_scores, self.quantitative_indicators)
+        self._validate_scores(qualitative_scores, self.qualitative_adjustments)
 
-        # Minskyフェーズの推定
-        minsky_phase = self._estimate_minsky_phase(scores, total_score)
+        quantitative_total = sum(quantitative_scores.values())
+        qualitative_total = sum(qualitative_scores.values())
+        total_score = quantitative_total + qualitative_total
+        max_score = self._max_score()
+        phase, risk_level, risk_budget, action = self._classify_score(total_score)
 
         return {
             "timestamp": datetime.now().isoformat(),
+            "quantitative_score": quantitative_total,
+            "qualitative_adjustment": qualitative_total,
             "total_score": total_score,
             "max_score": max_score,
             "percentage": round(total_score / max_score * 100, 1),
             "phase": phase,
             "risk_level": risk_level,
-            "minsky_phase": minsky_phase,
+            "risk_budget": risk_budget,
+            "minsky_phase": self._estimate_minsky_phase(quantitative_scores, total_score),
             "recommended_action": action,
-            "indicator_scores": scores,
-            "detailed_indicators": self._format_indicator_details(scores),
+            "quantitative_scores": quantitative_scores,
+            "qualitative_scores": qualitative_scores,
+            "indicator_scores": {**quantitative_scores, **qualitative_scores},
+            "detailed_quantitative_indicators": self._format_indicator_details(
+                quantitative_scores, self.quantitative_indicators
+            ),
+            "detailed_qualitative_adjustments": self._format_indicator_details(
+                qualitative_scores, self.qualitative_adjustments
+            ),
         }
 
-    def _estimate_minsky_phase(self, scores: dict[str, int], total: int) -> str:
-        """Minsky/Kindlebergerフェーズの推定"""
-        mass_pen = scores.get("mass_penetration", 0)
-        media = scores.get("media_saturation", 0)
-        price_acc = scores.get("price_acceleration", 0)
+    def _max_score(self) -> int:
+        return sum(item["max_score"] for item in self.indicators.values())
+
+    def _split_flat_scores(self, scores: dict[str, int]) -> tuple[dict[str, int], dict[str, int]]:
+        quantitative = {
+            key: value for key, value in scores.items() if key in self.quantitative_indicators
+        }
+        qualitative = {
+            key: value for key, value in scores.items() if key in self.qualitative_adjustments
+        }
+        return quantitative, qualitative
+
+    def _validate_scores(self, scores: dict[str, int], schema: dict[str, dict]) -> None:
+        expected = set(schema)
+        actual = set(scores)
+        missing = sorted(expected - actual)
+        unknown = sorted(actual - expected)
+        if missing:
+            raise ValueError(f"Missing score(s): {', '.join(missing)}")
+        if unknown:
+            raise ValueError(f"Unknown score(s): {', '.join(unknown)}")
+
+        for key, value in scores.items():
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"{key} must be an integer")
+            max_score = schema[key]["max_score"]
+            if not 0 <= value <= max_score:
+                raise ValueError(f"{key} must be between 0 and {max_score}")
+
+    def _classify_score(self, total_score: int) -> tuple[str, str, str, str]:
+        if total_score <= 4:
+            return ("Normal", "Low", "100%", "Continue normal investment strategy")
+        if total_score <= 7:
+            return ("Caution", "Medium", "70-80%", "Start partial profit-taking and reduce sizing")
+        if total_score <= 9:
+            return (
+                "Elevated Risk",
+                "Medium-High",
+                "50-70%",
+                "Reduce risk budget and tighten trailing stops",
+            )
+        if total_score <= 12:
+            return (
+                "Euphoria",
+                "High",
+                "40-50%",
+                "Accelerate staged profit-taking and reduce total risk budget",
+            )
+        return (
+            "Critical",
+            "Extreme",
+            "20-30%",
+            "Prioritize major profit-taking, hedging, and halt new entries",
+        )
+
+    def _estimate_minsky_phase(self, quantitative_scores: dict[str, int], total: int) -> str:
+        price_acceleration = quantitative_scores.get("price_acceleration", 0)
+        volatility = quantitative_scores.get("volatility_suppression", 0)
+        breadth = quantitative_scores.get("breadth_anomaly", 0)
 
         if total <= 4:
-            return "Displacement/Early Boom (きっかけ・初期拡張)"
-        elif total <= 8:
-            if media >= 1 and price_acc >= 1:
-                return "Boom (拡張期)"
-            else:
-                return "Displacement/Early Boom (きっかけ・初期拡張)"
-        elif total <= 12:
-            if mass_pen >= 2 and media >= 2:
-                return "Euphoria (熱狂期) - FOMOが制度化"
-            else:
-                return "Late Boom/Early Euphoria (拡張後期・熱狂初期)"
-        else:
-            if mass_pen >= 2:
-                return "Peak Euphoria/Profit Taking (熱狂ピーク・利確開始) - 反転間近"
-            else:
-                return "Euphoria (熱狂期)"
+            return "Displacement/Early Boom"
+        if total <= 7:
+            if price_acceleration >= 1 and volatility >= 1:
+                return "Boom"
+            return "Displacement/Early Boom"
+        if total <= 9:
+            return "Late Boom/Elevated Risk"
+        if total <= 12:
+            if price_acceleration >= 2 and breadth >= 2:
+                return "Euphoria"
+            return "Late Boom/Early Euphoria"
+        return "Peak Euphoria/Profit Taking"
 
-    def _format_indicator_details(self, scores: dict[str, int]) -> list[dict]:
-        """指標の詳細情報をフォーマット"""
+    def _format_indicator_details(
+        self, scores: dict[str, int], schema: dict[str, dict]
+    ) -> list[dict]:
         details = []
         for key, value in scores.items():
-            indicator = self.indicators.get(key, {})
-            status = "🔴高" if value == 2 else "🟡中" if value == 1 else "🟢低"
+            indicator = schema[key]
+            max_score = indicator["max_score"]
+            if value == max_score:
+                status = "high"
+            elif value > 0:
+                status = "medium"
+            else:
+                status = "low"
             details.append(
                 {
-                    "indicator": indicator.get("name", key),
+                    "indicator": indicator["name"],
                     "score": value,
+                    "max_score": max_score,
                     "status": status,
-                    "description": indicator.get("description", ""),
+                    "description": indicator["description"],
                 }
             )
         return details
 
     def get_scoring_guidelines(self) -> str:
-        """各指標のスコアリングガイドラインを返す"""
-        guidelines = """
-## バブルスコアリング・ガイドライン
+        """Return concise scoring guidance for manual input."""
+        return """
+## Bubble-O-Meter v2.1 scoring keys
 
-### 1. 大衆浸透度 (Mass Penetration)
-- 0点: 専門家・投資家層のみの議論
-- 1点: 一般層にも認知されるが、まだ投資対象としては限定的
-- 2点: 非投資家（タクシー運転手、美容師、家族）が積極的に推奨・言及
+Quantitative indicators (0-2 each):
+- put_call_ratio: 2 if P/C < 0.70, 1 if 0.70-0.85, 0 if > 0.85.
+- volatility_suppression: 2 if VIX < 12 and index within 5% of highs,
+  1 if VIX 12-15 and near highs, otherwise 0.
+- leverage: 2 if margin debt YoY +20% and all-time high, 1 if +10-20%, otherwise 0.
+- ipo_heat: 2 if IPO count >2x five-year average and first-day return +20%,
+  1 if count >1.5x, otherwise 0.
+- breadth_anomaly: 2 if new high and <45% above 50DMA, 1 if 45-60%, otherwise 0.
+- price_acceleration: 2 if three-month return >95th percentile,
+  1 if 85-95th percentile, otherwise 0.
 
-### 2. メディア飽和 (Media Saturation)
-- 0点: 通常レベルの報道・検索トレンド
-- 1点: 検索トレンド、SNS言及が平常の2-3倍
-- 2点: テレビ特集、雑誌表紙、検索トレンド急騰（平常の5倍以上）
-
-### 3. 新規参入 (New Accounts & Inflows)
-- 0点: 通常レベルの口座開設・入金
-- 1点: 口座開設が前年比50-100%増
-- 2点: 口座開設が前年比200%以上、「初めての投資」層の大量流入
-
-### 4. 新規発行氾濫 (New Issuance Flood)
-- 0点: 通常レベルのIPO/商品組成
-- 1点: IPO/SPAC/関連ETFが前年比50%以上増加
-- 2点: 低質なIPO乱立、「○○関連」ファンド・ETFの濫造
-
-### 5. レバレッジ (Leverage Indicators)
-- 0点: 証拠金残高・信用評価損益が正常範囲
-- 1点: 証拠金残高が過去平均の1.5倍、先物ポジション偏り
-- 2点: 証拠金残高が過去最高更新、資金調達レート高止まり、極端なポジション偏り
-
-### 6. 価格加速度 (Price Acceleration)
-- 0点: 年率リターンが歴史分布の中央値付近
-- 1点: 年率リターンが過去90パーセンタイル超
-- 2点: 年率リターンが過去95-99パーセンタイル、または加速度（2階微分）が正で増加
-
-### 7. バリュエーション逸脱 (Valuation Disconnect)
-- 0点: ファンダメンタルで合理的に説明可能
-- 1点: 高バリュエーションだが「成長期待」で一応説明可能
-- 2点: 説明が完全に「物語」「革命」「パラダイムシフト」に依存、「今回は違う」
-
-### 8. 相関と幅 (Breadth & Correlation)
-- 0点: 一部のリーダー銘柄のみ上昇
-- 1点: セクター全体に波及、mid-capまで上昇
-- 2点: 低質・low-cap銘柄まで全面高、「ゾンビ企業」も上昇（最後の買い手参入）
+Qualitative adjustments (0-1 each; +3 maximum):
+- social_penetration: +1 only with direct, specific, repeated non-investor reports.
+- media_search_trends: +1 only with measured 5x+ search trends plus mainstream coverage.
+- valuation_disconnect: +1 only with documented fundamentals-ignored narrative.
 """
-        return guidelines
 
     def format_output(self, result: dict) -> str:
-        """結果を読みやすくフォーマット"""
-        output = f"""
-{"=" * 60}
-🔍 米国市場バブル度評価 - Bubble-O-Meter
-{"=" * 60}
-
-評価日時: {result["timestamp"]}
-
-【総合スコア】
-{result["total_score"]}/{result["max_score"]}点 ({result["percentage"]}%)
-
-【市場フェーズ】
-現在: {result["phase"]} (リスク: {result["risk_level"]})
-Minskyフェーズ: {result["minsky_phase"]}
-
-【推奨アクション】
-{result["recommended_action"]}
-
-{"=" * 60}
-【指標別スコア】
-{"=" * 60}
-"""
-        for detail in result["detailed_indicators"]:
-            output += f"\n{detail['status']} {detail['indicator']}: {detail['score']}/2点\n"
-            output += f"   └─ {detail['description']}\n"
-
-        output += f"\n{'=' * 60}\n"
-
-        return output
+        """Format results for CLI display."""
+        lines = [
+            "=" * 60,
+            "US Market Bubble Risk - Bubble-O-Meter v2.1",
+            "=" * 60,
+            f"Evaluated at: {result['timestamp']}",
+            "",
+            f"Quantitative: {result['quantitative_score']}/12",
+            f"Qualitative adjustment: +{result['qualitative_adjustment']}/3",
+            f"Final score: {result['total_score']}/{result['max_score']} ({result['percentage']}%)",
+            f"Phase: {result['phase']} (Risk: {result['risk_level']})",
+            f"Risk budget: {result['risk_budget']}",
+            f"Minsky phase: {result['minsky_phase']}",
+            f"Recommended action: {result['recommended_action']}",
+            "",
+            "Quantitative indicators:",
+        ]
+        for detail in result["detailed_quantitative_indicators"]:
+            lines.append(
+                f"- {detail['indicator']}: {detail['score']}/{detail['max_score']} "
+                f"({detail['status']})"
+            )
+        lines.append("")
+        lines.append("Qualitative adjustments:")
+        for detail in result["detailed_qualitative_adjustments"]:
+            lines.append(
+                f"- {detail['indicator']}: +{detail['score']}/{detail['max_score']} "
+                f"({detail['status']})"
+            )
+        lines.append("=" * 60)
+        return "\n".join(lines)
 
 
 def manual_assessment() -> dict[str, int]:
-    """対話型の手動評価"""
+    """Collect manual v2.1 scores interactively."""
     scorer = BubbleScorer()
     print("\n" + "=" * 60)
-    print("🔍 米国市場バブル度評価 - Manual Assessment")
+    print("US Market Bubble Risk - Manual Assessment v2.1")
     print("=" * 60)
-    print("\n各指標を0-2点で評価してください:")
     print(scorer.get_scoring_guidelines())
 
     scores = {}
     for key, indicator in scorer.indicators.items():
+        max_score = indicator["max_score"]
         while True:
             try:
-                score = int(input(f"\n{indicator['name']} (0-2): "))
-                if 0 <= score <= 2:
+                score = int(input(f"\n{indicator['name']} (0-{max_score}): "))
+                if 0 <= score <= max_score:
                     scores[key] = score
                     break
-                else:
-                    print("0, 1, 2 のいずれかを入力してください")
+                print(f"Enter a value between 0 and {max_score}")
             except ValueError:
-                print("数値を入力してください")
-
+                print("Enter a numeric value")
     return scores
 
 
-def main():
-    parser = argparse.ArgumentParser(description="米国市場のバブル度を評価するBubble-O-Meter")
-    parser.add_argument("--manual", action="store_true", help="対話型の手動評価モード")
+def _scores_from_json(raw_scores: str) -> tuple[dict[str, int], Optional[dict[str, int]]]:
+    parsed = json.loads(raw_scores)
+    if not isinstance(parsed, dict):
+        raise ValueError("--scores must be a JSON object")
+    if "quantitative" in parsed or "qualitative" in parsed:
+        quantitative = parsed.get("quantitative", {})
+        qualitative = parsed.get("qualitative", {})
+        if not isinstance(quantitative, dict) or not isinstance(qualitative, dict):
+            raise ValueError("nested scores must use object values")
+        return quantitative, qualitative
+    return parsed, None
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Evaluate US market bubble risk with v2.1.")
+    parser.add_argument("--manual", action="store_true", help="Run interactive manual scoring")
     parser.add_argument(
         "--scores",
         type=str,
-        help='JSON形式のスコア文字列 (例: \'{"mass_penetration":2,"media_saturation":1,...}\')',
+        help="JSON score object, either flat or {'quantitative': {...}, 'qualitative': {...}}",
     )
-    parser.add_argument("--output", choices=["text", "json"], default="text", help="出力形式")
+    parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format")
 
     args = parser.parse_args()
     scorer = BubbleScorer()
 
-    # スコアの取得
     if args.manual:
-        scores = manual_assessment()
+        quantitative_scores, qualitative_scores = _scores_from_json(json.dumps(manual_assessment()))
     elif args.scores:
         try:
-            scores = json.loads(args.scores)
-        except json.JSONDecodeError:
-            print("エラー: 無効なJSON形式です")
+            quantitative_scores, qualitative_scores = _scores_from_json(args.scores)
+        except (json.JSONDecodeError, ValueError) as exc:
+            print(f"Error: {exc}")
             return 1
     else:
-        print("エラー: --manual または --scores を指定してください")
-        print("\nガイドラインを表示:")
+        print("Error: specify --manual or --scores")
+        print("\nGuidelines:")
         print(scorer.get_scoring_guidelines())
         return 1
 
-    # 評価の実行
-    result = scorer.calculate_score(scores)
+    try:
+        result = scorer.calculate_score(quantitative_scores, qualitative_scores)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
 
-    # 出力
     if args.output == "json":
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print(scorer.format_output(result))
-
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    raise SystemExit(main())

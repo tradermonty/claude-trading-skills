@@ -22,6 +22,10 @@ dollar_risk    = account_size * risk_pct / 100
 shares         = int(dollar_risk / risk_per_share)
 ```
 
+In the CLI, whole-share mode remains the default and floors to an integer.
+When the broker supports fractional shares, `--fractional --share-precision N`
+floors to the requested decimal precision instead of rounding up.
+
 ### Standard Risk Levels
 
 | Risk % | Trader Profile | Notes |
@@ -45,6 +49,32 @@ shares         = int(dollar_risk / risk_per_share)
 - Default method for most swing and position trades
 - When you have a clear technical stop level (support, moving average, prior low)
 - When trading a system with established risk parameters
+- When a small account or high-priced stock would otherwise round the position to zero shares, provided the broker supports fractional trading for that security and order type
+
+### Fractional-Share Mode
+
+Fractional shares can make the risk budget usable for small accounts, high-priced stocks, or very tight risk budgets:
+
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 1000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --fractional \
+  --share-precision 4 \
+  --output-dir reports/
+```
+
+With the inputs above, the risk budget is $10 and risk per share is $6.50.
+Whole-share mode returns 1 share. Fractional mode floors to 1.5384 shares,
+keeping risk at or below the $10 budget while using more of the account's
+intended risk allocation.
+
+Use fractional mode as a sizing calculation, not as broker permission. Brokers
+can impose minimum order sizes, limited fractional support by security or order
+type, wider effective spreads for small notional orders, margin restrictions,
+and different tax-lot behavior.
 
 ### Minervini / O'Neil Integration
 
@@ -265,6 +295,31 @@ portfolio_heat = sum(shares_i * risk_per_share_i) / account_size * 100
 ```
 
 If portfolio heat exceeds 8%, do not add new positions until existing trades are moved to breakeven or closed.
+
+### Small-Account Friction
+
+For small accounts, the calculated risk budget can be smaller than the
+practical cost of trading. Before accepting a position size, check:
+
+- Bid/ask spread as a percentage of notional value
+- Commission, regulatory, platform, or currency-conversion fees
+- Slippage on marketable orders
+- Broker minimum order value and fractional-share support
+- Margin eligibility, borrow availability for shorts, and settlement rules
+
+If these costs consume a meaningful share of planned risk, reduce frequency,
+raise the setup-quality bar, use wider time frames, or skip the trade.
+
+### Intraday Margin and Day-Trading Controls
+
+Do not treat the legacy "$25,000 pattern day trader" rule as the only current
+constraint. FINRA Notice 26-10 replaced the old day-trading margin requirements,
+including the pattern-day-trader day-count and $25,000 minimum-equity
+requirements, with new intraday margin standards effective 2026-06-04. FINRA
+allows firms to phase in implementation through 2027-10-20, so the practical
+rule a trader experiences can still vary by broker during the transition.
+
+Source: https://www.finra.org/rules-guidance/notices/26-10
 
 ### Asymmetry of Losses
 

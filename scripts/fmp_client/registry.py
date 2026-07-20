@@ -42,6 +42,7 @@ class SkillConfig:
     extensions: tuple[str, ...]  # extension module names appended to the FMPClient body
     batch_days: int = 260  # get_batch_historical default `days` (family A only)
     standalone_template: str | None = None  # full-file template for PR2 special clients
+    query_auth: bool = False  # send FMP API key as ?apikey= instead of a header
 
 
 _FAMILY_A_FEATURES = (
@@ -76,6 +77,7 @@ SKILLS: dict[str, SkillConfig] = {
         hist_days=250,
         hist_return_list=True,
         has_compat=True,
+        query_auth=True,
         feature_lines=_FAMILY_B_FEATURES,
         class_constants=(
             (

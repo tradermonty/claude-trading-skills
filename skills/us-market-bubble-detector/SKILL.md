@@ -277,7 +277,7 @@ Verify the following when using:
 ```
 □ Have you collected all Phase 1 data?
 □ Did you apply each indicator's threshold mechanically?
-□ Did you keep qualitative evaluation within +5 point limit?
+□ Did you keep qualitative evaluation within +3 point limit?
 □ Are you NOT assigning points based on news article impressions?
 □ Does your final score align with other quantitative frameworks?
 ```
@@ -293,7 +293,7 @@ Ignore "many news reports" or "experts are cautious" without quantitative data.
 Always evaluate in this order: Phase 1 (Data Collection) → Phase 2 (Quantitative) → Phase 3 (Qualitative Adjustment).
 
 ### 3. Upper Limit on Subjective Indicators
-Qualitative adjustment has a total limit of +5 points. It cannot override quantitative evaluation.
+Qualitative adjustment has a total limit of +3 points. It cannot override quantitative evaluation.
 
 ### 4. "Taxi Driver" is Symbolic
 Do not readily acknowledge mass penetration without direct recommendations from non-investors.

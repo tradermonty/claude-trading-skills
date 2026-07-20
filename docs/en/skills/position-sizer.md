@@ -11,7 +11,7 @@ permalink: /en/skills/position-sizer/
 # Position Sizer
 {: .no_toc }
 
-Calculate risk-based position sizes for long stock trades using Fixed Fractional, ATR-Based, or Kelly Criterion methods. Supports portfolio constraints, sector concentration checks, and multi-scenario comparison.
+Calculate risk-based position sizes for long stock trades using Fixed Fractional, ATR-Based, or Kelly Criterion methods. Supports whole-share or fractional-share output, portfolio constraints, sector concentration checks, and multi-scenario comparison.
 {: .fs-6 .fw-300 }
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/position-sizer.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
@@ -36,11 +36,13 @@ Position Sizer answers the most important question in trade execution: "How many
 - Adjusts for volatility differences across stocks using ATR-based sizing
 - Calculates mathematically optimal allocation via Kelly Criterion
 - Applies portfolio-level constraints (max position size, sector concentration limits)
+- Lets small accounts use broker-supported fractional shares without rounding above the risk budget
 
 **Key capabilities:**
 - 3 sizing methods: Fixed Fractional, ATR-Based, and Kelly Criterion
 - Portfolio constraints: max position % of account, max sector %, current sector exposure tracking
 - Binding constraint identification: tells you which limit is capping your position
+- Fractional-share mode: `--fractional --share-precision N` floors shares to the requested decimal precision
 - Pure calculation -- no API keys, no internet, works completely offline
 
 <span class="badge badge-free">No API</span>
@@ -80,13 +82,28 @@ python3 skills/position-sizer/scripts/position_sizer.py \
 
 Claude calculates 153 shares ($23,715 position, $994.50 at risk) and explains the reasoning. That is all you need to get started.
 
+For a small account or high-priced stock, enable fractional shares only if your broker supports them:
+
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 1000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --fractional \
+  --share-precision 4 \
+  --output-dir reports/
+```
+
+The fractional command returns 1.5384 shares, keeping planned risk at or below the $10 budget.
+
 ---
 
 ## 4. How It Works
 
 1. **Gather parameters** -- The script collects account size, entry price, stop price (or ATR), and risk percentage. For Kelly Criterion, it collects win rate and average win/loss statistics.
 2. **Calculate risk per share** -- For Fixed Fractional: `entry - stop`. For ATR-Based: `ATR * multiplier`. For Kelly: derived from the half-Kelly budget and entry/stop distance.
-3. **Compute base share count** -- `dollar_risk / risk_per_share`, always rounded down to whole shares. Rounding up would exceed the risk budget.
+3. **Compute base share count** -- `dollar_risk / risk_per_share`, always floored. Whole-share mode floors to an integer; fractional mode floors to the requested decimal precision. Rounding up would exceed the risk budget.
 4. **Apply portfolio constraints** -- If `--max-position-pct` or `--max-sector-pct` is specified, the share count is capped by the tightest constraint. The binding constraint is identified in the output.
 5. **Generate reports** -- JSON and Markdown files are saved to the output directory with full calculation details, constraint analysis, and the final recommendation.
 
@@ -97,6 +114,7 @@ Claude calculates 153 shares ($23,715 position, $994.50 at risk) and explains th
 | Fixed Fractional | Entry, stop, risk % | Discretionary trades with clear technical stops |
 | ATR-Based | Entry, ATR, multiplier, risk % | Systematic trading, cross-stock volatility normalization |
 | Kelly Criterion | Win rate, avg win, avg loss | Capital allocation planning with a proven track record |
+| Fractional output | Any share mode + `--fractional` | Small accounts, high-priced stocks, broker-supported fractional trading |
 
 ---
 
@@ -212,7 +230,32 @@ Compare position sizes at 0.5%, 1.0%, and 1.5% risk for a $200,000 account, entr
 
 ---
 
-### Example 6: Sector Concentration Check
+### Example 6: Fractional Shares for a Small Account
+
+**Prompt:**
+```
+I have a $1,000 account. Entry $155, stop $148.50, risk 1%. My broker supports fractional shares.
+```
+
+**Command:**
+```bash
+python3 skills/position-sizer/scripts/position_sizer.py \
+  --account-size 1000 \
+  --entry 155 \
+  --stop 148.50 \
+  --risk-pct 1.0 \
+  --fractional \
+  --share-precision 4 \
+  --output-dir reports/
+```
+
+**Result:** Whole-share mode would return 1 share. Fractional mode returns 1.5384 shares, keeping planned risk at or below $10 while using more of the intended risk budget.
+
+**Why useful:** This avoids rounding a small account down so far that the planned risk model becomes meaningless. It still depends on broker support, minimum order value, spreads, slippage, and fees.
+
+---
+
+### Example 7: Sector Concentration Check
 
 **Prompt:**
 ```
@@ -233,7 +276,7 @@ python3 skills/position-sizer/scripts/position_sizer.py \
 
 ---
 
-### Example 7: Natural Language Request
+### Example 8: Natural Language Request
 
 **Prompt:**
 ```
@@ -263,17 +306,21 @@ After execution, the script produces a JSON and Markdown report containing:
 | `mode` | `shares` (entry/stop provided) or `budget` (Kelly only, no entry) |
 | `final_recommended_shares` | The number to trade -- minimum across all constraints |
 | `binding_constraint` | Which limit capped the position: `risk_based`, `max_position_pct`, or `max_sector_pct` |
+| `parameters.fractional_shares` | Present when fractional-share mode is enabled |
+| `parameters.share_precision` | Decimal precision used for fractional-share flooring |
 
 ---
 
 ## 7. Tips & Best Practices
 
 - **Default to 1% risk.** The 1% rule is the industry standard for swing traders. Never exceed 2% without exceptional reason and a proven track record.
-- **Always round down.** The script rounds shares down to whole numbers. Rounding up would exceed your risk budget.
+- **Always floor.** Whole-share mode floors to an integer. Fractional mode floors to the requested precision. Rounding up would exceed your risk budget.
 - **Use half Kelly, never full Kelly.** Full Kelly maximizes theoretical growth but produces extreme drawdowns (50%+). Half Kelly captures 75% of the growth with far more manageable volatility.
 - **Check portfolio heat.** Total open risk across all positions should stay below 6-8% of account equity. If you are already at 6%, do not add new positions until existing trades move to breakeven or close.
 - **Reduce risk after losses.** After 2-3 consecutive losses, drop to 0.5% risk per trade. Protect capital during drawdowns, then scale back up after wins confirm the market environment.
 - **Combine constraints for safety.** Use both `--max-position-pct` and `--max-sector-pct` together. The strictest constraint wins, preventing both single-stock and sector concentration risk.
+- **Account for friction.** Small fractional orders can be dominated by spreads, slippage, fees, minimum order values, currency conversion, and settlement or margin limits.
+- **Check intraday controls at the broker.** FINRA replaced the old pattern-day-trader day-count and $25,000 minimum-equity requirements with intraday margin standards effective 2026-06-04, with broker phase-in allowed through 2027-10-20. Your broker's current controls still decide what you can actually do in a margin account. Source: <https://www.finra.org/rules-guidance/notices/26-10>
 
 ---
 
@@ -336,6 +383,8 @@ After execution, the script produces a JSON and Markdown report containing:
 | `--max-sector-pct` | No | -- | Maximum sector exposure as % of account |
 | `--sector` | No | -- | Sector name for concentration check |
 | `--current-sector-exposure` | No | `0.0` | Current sector exposure as % of account |
+| `--fractional` | No | `false` | Enable fractional share output |
+| `--share-precision` | No | `4` | Decimal places for fractional shares, 0-8 |
 | `--output-dir` | No | `reports/` | Output directory for JSON and Markdown reports |
 
 ### Sizing Method Comparison

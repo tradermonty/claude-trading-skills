@@ -191,8 +191,67 @@ Read and use as template: assets/analysis_template.md
 
 ---
 
-## 6. リソース
+## 6. 逆張り確認モード（Shapiroステップ3）
+
+このモードは既存の純粋チャート分析ワークフローに追加された機能です。逆張り確認を明示的に依頼された場合にのみ有効になります。通常はステップ1の`cot-contrarian-detector`が市場の偏りを検出し、ステップ2の`news-reaction-failure-analyzer`が好材料への無反応を確認した後に使用します。単に「このチャートを分析して」と依頼された場合は、上記のステップ1から6までの既存ワークフローがそのまま実行されます。
+
+### 目的
+
+週足チャートに、偏った市場が反転しつつある証拠が現れているかを確認します。具体的には週足キーリバーサル、週中のフェイルドエクストリーム、そして一度は成立したブレイクアウトが否定されるフェイルドブレイクアウトの3パターンを検出し、継続性による否定判定でチェックします。継続性による否定判定とは、検出された最新のシグナルよりも新しい週に、偏りの方向へ新たな終値エクストリームが記録された場合に確認を取り消す仕組みです。詳細な方法論はチャートモードとスクリプトモードの両方で一字一句共通です。`references/contrarian-confirmation-checklist.md`を参照してください。
+
+### 3つのチェックとスイングレベル
+
+1. **週足キーリバーサル** — 直近スイングルックバック期間（デフォルト13週）の新高値・新安値をつけた週の終値が、前週の反対側のレベルを突破して引けるパターン
+2. **フェイルドエクストリーム** — 直前のエクストリームルックバック期間（デフォルト52週）のレベルを週中に突破したものの、同じ週のうちに終値がそのレベルを割り込んで引けるパターン
+3. **フェイルドブレイクアウト** — 直前のエクストリームルックバック期間のレベルを終値で明確にブレイクした後、3週以内に終値がそのレベルを再び割り込んで引けるパターン。この場合の`week_of`はブレイクアウトが否定された週を指し、ブレイクアウトが成立した週そのものではありません
+4. **継続性による否定判定** — 検出された最新シグナルよりも新しい週に、偏りの方向へ新たな終値エクストリームが記録された場合、それがどのシグナルであっても確認は取り消されます
+5. **スイングレベル** — 前後2週ずつを含む5週フラクタルとしてスイング高値・安値を検出し、`stop_reference`を算出します。フラクタルが見つからない場合はフォールバック値を使用します
+
+すべての比較は厳密な不等号で判定され、ウィンドウの切り詰めは実行単位ではなく評価対象週ごとに行われます。
+
+### チャート優先・スクリプトはフォールバック
+
+チャート画像が引き続き主要な入力です。チャート画像が提供されない場合、または監査可能で決定論的な結果が求められる場合は、チャート読み取りの代わりに、あるいはそれと併用してスクリプトを実行します。
+
+```bash
+python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
+  --symbol BT --direction CROWDED_LONG --as-of 2026-07-15 \
+  --output-dir reports/
+```
+
+`cot-contrarian-detector`のレポートから直接方向を解決することもできます。
+
+```bash
+python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
+  --symbol BT --detector-json reports/cot_crowding_2026-07-12.json \
+  --as-of 2026-07-15 --output-dir reports/
+```
+
+スクリプトは先物からETFへのフォールバックチェーンで週次リサンプル済みのOHLCを取得し、リサンプル前に日足データを`--as-of`で切り詰めることでルックアヘッドを防ぎます。`--detector-json`が欠落・失効・不正な形式の場合、価格履歴が`--min-weeks`（デフォルト30週）に満たない場合、または有効な価格ソースが存在しない場合は、クラッシュせず`INSUFFICIENT_DATA`としてフェイルクローズします。
+
+### 出力
+
+- **JSON/Markdown**: `ta_confirmation_<SYMBOL>_<as-of>.json`および`.md`を`reports/`に保存します
+- **verdict**: `CONFIRMED`、`NOT_CONFIRMED`、`INSUFFICIENT_DATA`のいずれかで、`confidence`（`HIGH`または`MEDIUM`）と`verdict_reason`を伴います
+- **handoff**: `verdict`、`confidence`、`stop_reference`、`report_path`を含む`price_action`ブロックを出力します。Issue #241でまだ実装されていない`contrarian-setup-gate`が、この`handoff`ブロックを消費する想定です
+
+### ガードレール
+
+- 判定のみを提供し、それ単体をトレード推奨として扱いません。エントリー・エグジット計画とポジションサイジングは下流のスキルの役割です
+- `INSUFFICIENT_DATA`はパイプラインを先に進めません。入力が劣化したすべてのケースでフェイルクローズします
+- 週足のみを対象とします
+- 上記の既存チャート分析ワークフローは変更されません。このモードは逆張り確認が明示的に依頼された場合にのみ有効になります
+- シグナルが1つだけの`MEDIUM`判定は意図的に弱いエビデンスとして扱われます。詳細は`references/contrarian-confirmation-checklist.md`の確信度セクションを参照してください
+
+---
+
+## 7. リソース
 
 **リファレンス：**
 
 - `skills/technical-analyst/references/technical_analysis_framework.md`
+- `skills/technical-analyst/references/contrarian-confirmation-checklist.md`
+
+**スクリプト：**
+
+- `skills/technical-analyst/scripts/check_weekly_price_action.py`

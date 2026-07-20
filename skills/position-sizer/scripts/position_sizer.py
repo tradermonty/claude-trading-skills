@@ -13,6 +13,7 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import ROUND_FLOOR, Decimal, localcontext
 
 
 @dataclass
@@ -30,6 +31,8 @@ class SizingParameters:
     max_sector_pct: float | None = None
     sector: str | None = None
     current_sector_exposure: float = 0.0
+    fractional_shares: bool = False
+    share_precision: int = 4
 
 
 def validate_parameters(params: SizingParameters) -> None:
@@ -52,6 +55,25 @@ def validate_parameters(params: SizingParameters) -> None:
         raise ValueError("avg_win must be positive")
     if params.avg_loss is not None and params.avg_loss <= 0:
         raise ValueError("avg_loss must be positive")
+    if params.share_precision < 0 or params.share_precision > 8:
+        raise ValueError("share_precision must be between 0 and 8")
+
+
+def to_decimal(value: int | float) -> Decimal:
+    """Convert a user-facing numeric input without adding binary float noise."""
+    return Decimal(str(value))
+
+
+def floor_share_quantity(quantity: Decimal, params: SizingParameters) -> int | float:
+    """Floor shares so the result never exceeds the source budget."""
+    if not params.fractional_shares:
+        return int(quantity)
+    quantum = Decimal(1).scaleb(-params.share_precision)
+    integer_digits = max(quantity.adjusted() + 1, 1)
+    with localcontext() as context:
+        context.prec = integer_digits + params.share_precision + 2
+        floored = quantity.quantize(quantum, rounding=ROUND_FLOOR)
+    return float(floored)
 
 
 def calculate_fixed_fractional(params: SizingParameters) -> dict:
@@ -60,16 +82,16 @@ def calculate_fixed_fractional(params: SizingParameters) -> dict:
     Calculates shares based on a fixed percentage of account risked per trade.
     risk_per_share = entry_price - stop_price
     dollar_risk = account_size * risk_pct / 100
-    shares = int(dollar_risk / risk_per_share)
+    shares = floor(dollar_risk / risk_per_share)
     """
-    risk_per_share = params.entry_price - params.stop_price
-    dollar_risk = params.account_size * params.risk_pct / 100
-    shares = int(dollar_risk / risk_per_share)
+    risk_per_share = to_decimal(params.entry_price) - to_decimal(params.stop_price)
+    dollar_risk = to_decimal(params.account_size) * to_decimal(params.risk_pct) / Decimal(100)
+    shares = floor_share_quantity(dollar_risk / risk_per_share, params)
     return {
         "method": "fixed_fractional",
         "shares": shares,
-        "risk_per_share": round(risk_per_share, 2),
-        "dollar_risk": round(dollar_risk, 2),
+        "risk_per_share": round(float(risk_per_share), 2),
+        "dollar_risk": round(float(dollar_risk), 2),
         "stop_price": params.stop_price,
     }
 
@@ -81,16 +103,16 @@ def calculate_atr_based(params: SizingParameters) -> dict:
     stop_distance = atr * atr_multiplier
     stop_price = entry_price - stop_distance
     """
-    stop_distance = params.atr * params.atr_multiplier
-    stop_price = round(params.entry_price - stop_distance, 2)
+    stop_distance = to_decimal(params.atr) * to_decimal(params.atr_multiplier)
+    stop_price = round(float(to_decimal(params.entry_price) - stop_distance), 2)
     risk_per_share = stop_distance
-    dollar_risk = params.account_size * params.risk_pct / 100
-    shares = int(dollar_risk / risk_per_share)
+    dollar_risk = to_decimal(params.account_size) * to_decimal(params.risk_pct) / Decimal(100)
+    shares = floor_share_quantity(dollar_risk / risk_per_share, params)
     return {
         "method": "atr_based",
         "shares": shares,
-        "risk_per_share": round(risk_per_share, 2),
-        "dollar_risk": round(dollar_risk, 2),
+        "risk_per_share": round(float(risk_per_share), 2),
+        "dollar_risk": round(float(dollar_risk), 2),
         "stop_price": stop_price,
         "atr": params.atr,
         "atr_multiplier": params.atr_multiplier,
@@ -117,18 +139,26 @@ def calculate_kelly(params: SizingParameters) -> dict:
     }
 
 
-def apply_constraints(shares: int, params: SizingParameters) -> tuple[int, list[dict], str | None]:
+def apply_constraints(
+    shares: int | float, params: SizingParameters
+) -> tuple[int | float, list[dict], str | None]:
     """Apply portfolio constraints and return (final_shares, constraints, binding).
 
     Evaluates max position % and max sector % constraints, then returns
     the minimum of all candidate share counts (strictest constraint wins).
     """
     constraints: list[dict] = []
-    candidates = [shares]
+    candidates: list[int | float] = [shares]
     binding: str | None = None
 
     if params.max_position_pct is not None and params.entry_price:
-        max_by_pos = int(params.account_size * params.max_position_pct / 100 / params.entry_price)
+        max_by_pos = floor_share_quantity(
+            to_decimal(params.account_size)
+            * to_decimal(params.max_position_pct)
+            / Decimal(100)
+            / to_decimal(params.entry_price),
+            params,
+        )
         constraints.append(
             {
                 "type": "max_position_pct",
@@ -140,9 +170,14 @@ def apply_constraints(shares: int, params: SizingParameters) -> tuple[int, list[
         candidates.append(max_by_pos)
 
     if params.max_sector_pct is not None and params.entry_price:
-        remaining_pct = params.max_sector_pct - params.current_sector_exposure
-        remaining_dollars = remaining_pct / 100 * params.account_size
-        max_by_sector = max(0, int(remaining_dollars / params.entry_price))
+        remaining_pct = to_decimal(params.max_sector_pct) - to_decimal(
+            params.current_sector_exposure
+        )
+        remaining_dollars = remaining_pct / Decimal(100) * to_decimal(params.account_size)
+        max_by_sector = max(
+            0,
+            floor_share_quantity(remaining_dollars / to_decimal(params.entry_price), params),
+        )
         constraints.append(
             {
                 "type": "max_sector_pct",
@@ -214,19 +249,21 @@ def calculate_position(params: SizingParameters) -> dict:
         "atr_based": None,
         "kelly": None,
     }
-    risk_shares = 0
+    risk_shares: int | float = 0
 
     if is_kelly_mode:
         kelly = calculate_kelly(params)
         calculations["kelly"] = kelly
         # Use half-kelly budget to determine shares
-        budget = params.account_size * kelly["half_kelly_pct"] / 100
+        budget = (
+            to_decimal(params.account_size) * to_decimal(kelly["half_kelly_pct"]) / Decimal(100)
+        )
         if params.stop_price:
-            risk_per_share = params.entry_price - params.stop_price
-            risk_shares = int(budget / risk_per_share)
+            risk_per_share = to_decimal(params.entry_price) - to_decimal(params.stop_price)
+            risk_shares = floor_share_quantity(budget / risk_per_share, params)
             result["parameters"]["stop_price"] = params.stop_price
         else:
-            risk_shares = int(budget / params.entry_price)
+            risk_shares = floor_share_quantity(budget / to_decimal(params.entry_price), params)
     elif params.atr is not None:
         atr_result = calculate_atr_based(params)
         calculations["atr_based"] = atr_result
@@ -241,6 +278,9 @@ def calculate_position(params: SizingParameters) -> dict:
         result["parameters"]["risk_pct"] = params.risk_pct
 
     result["calculations"] = calculations
+    if params.fractional_shares:
+        result["parameters"]["fractional_shares"] = True
+        result["parameters"]["share_precision"] = params.share_precision
 
     # Apply constraints
     final_shares, constraints, binding = apply_constraints(risk_shares, params)
@@ -391,6 +431,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Current sector exposure as %% of account",
     )
     parser.add_argument(
+        "--fractional",
+        action="store_true",
+        help="Allow fractional share output, floored to --share-precision",
+    )
+    parser.add_argument(
+        "--share-precision",
+        type=int,
+        default=4,
+        help="Decimal places for --fractional share quantities, 0-8 (default: 4)",
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default="reports/",
@@ -434,6 +485,8 @@ def main() -> None:
         max_sector_pct=args.max_sector_pct,
         sector=args.sector,
         current_sector_exposure=args.current_sector_exposure,
+        fractional_shares=args.fractional,
+        share_precision=args.share_precision,
     )
 
     try:

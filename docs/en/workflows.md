@@ -21,9 +21,11 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | Workflow | Cadence | Est. min | API profile | Difficulty |
 |---|---|---|---|---|
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | mixed | beginner |
+| [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi Dividend Weekly | weekly | 60 | mixed | intermediate |
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
+| [`shapiro-contrarian`](#shapiro-contrarian) — Shapiro COT Contrarian | weekly | 60 | fmp-required | advanced |
 | [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
 | [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 40 | mixed | advanced |
 | [`stockbee-fluency-loop`](#stockbee-fluency-loop) — Stockbee Setup Fluency Loop | daily | 20 | no-api-basic | intermediate |
@@ -87,6 +89,88 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm holdings snapshot reflects the actual brokerage state (Alpaca or CSV).
 - Confirm rebalance actions are entered manually at the broker, not auto-executed.
 - If dividend_review_findings flags T1-T5 issues, defer additional buys until resolved.
+
+**Journal destination:** `trader-memory-core`
+
+---
+
+## Kanchi Dividend Weekly {#kanchi-dividend-weekly}
+
+**`kanchi-dividend-weekly`** · weekly · ~60 min · mixed · intermediate
+
+**When to run:** Weekly, to source and underwrite new US-listed dividend candidates using Kanchi's 5-step method: screen for yield/quality, deep-dive the strongest names, and register a fully-documented candidate thesis before any entry. v1 covers US-listed dividend stocks only.
+
+**When NOT to run:** Not for Japanese or other non-US-listed dividend stocks -- this workflow neither covers nor implies support for them in v1. Not a claim that Kanchi-style screening is a profitable strategy; it is a disciplined candidate-sourcing routine, not a signal to buy. Not for maintaining an existing holding -- that is core-portfolio-weekly's job (this workflow is for finding and underwriting NEW candidates). No order is ever placed automatically; every buy is entered manually at the broker.
+
+**Required skills:** `kanchi-dividend-sop`, `trader-memory-core`
+
+**Optional skills:** `value-dividend-screener`, `dividend-growth-pullback-screener`, `kanchi-dividend-us-tax-accounting`, `kanchi-dividend-review-monitor`
+
+**Prerequisite workflows (informational):**
+
+- `core-portfolio-weekly` expects `holdings_snapshot` — Use its live holdings as the source when optional tax or review-monitor checks are requested. Normalize that snapshot to each skill's distinct manual input schema; skip steps 4-5 when no applicable input exists.
+
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `tax_holdings_input` | no | 4 | `skills/kanchi-dividend-us-tax-accounting/references/input-schema.md` | Operator-supplied JSON with holdings[]. For a new candidate, provide a hypothetical intended account and leave hold_days_in_window absent so the result remains assumption-required rather than falsely confirmed. |
+| `review_monitor_input` | no | 5 | `skills/kanchi-dividend-review-monitor/references/input-schema.md` | Normalized existing-holding JSON with dividend and risk evidence. This is not derivable from a candidate ticker alone; skip step 5 for a new, not-yet-held name without monitoring evidence. |
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `high_yield_candidates` | 1 | no | — |
+| `pullback_candidates` | 2 | no | — |
+| `kanchi_candidates` | 3 | yes | — |
+| `stock_memo` | 3 | yes | — |
+| `account_location_advice` | 4 | no | — |
+| `review_queue` | 5 | no | — |
+| `thesis_record` | 6 | yes | `trade-memory-loop`, `monthly-performance-review` |
+
+**Steps:**
+
+**Step 1: Screen for high-yield candidates** (optional) → `value-dividend-screener`
+
+- produces: `high_yield_candidates`
+
+**Step 2: Screen for dividend-growth pullbacks** (optional) → `dividend-growth-pullback-screener`
+
+- produces: `pullback_candidates`
+
+**Step 3: Run the Kanchi 5-step underwriting** (decision gate) → `kanchi-dividend-sop`
+
+- consumes: `high_yield_candidates`, `pullback_candidates`
+- produces: `kanchi_candidates`, `stock_memo`
+- **Decision:** For each candidate, does the Kanchi verdict reach an actionable tier (CLEAN-PASS / PASS-CAUTION / CONDITIONAL-PASS)? A HOLD-REVIEW, STEP1-RECHECK, or FAIL verdict is fail-closed -- it stops here, not forward to sizing or registration. Candidates may come from step 1/2 screeners (use if available) or a manually supplied ticker list -- neither screener is required to run this step.
+
+**Step 4: Check US tax and account-location treatment** (optional) → `kanchi-dividend-us-tax-accounting`
+
+- produces: `account_location_advice`
+
+**Step 5: Check existing-holding review triggers** (optional) → `kanchi-dividend-review-monitor`
+
+- produces: `review_queue`
+
+**Step 6: Register the candidate thesis** (decision gate) → `trader-memory-core`
+
+- consumes: `kanchi_candidates`, `stock_memo`, `account_location_advice`, `review_queue`
+- produces: `thesis_record`
+- **Decision:** For each actionable candidate, ingest the kanchi_candidates verdict as an IDEA thesis, then link the saved stock_memo file (and, if available, tax/account-location advice and any review-monitor flags) to it with thesis_store.link_report() so the fully-documented Kanchi memo is part of the auditable record, not just referenced in prose. Confirm no unresolved blockers, sizing, sector concentration, and tranche plan before entering an order. Never transition the thesis to ACTIVE until a real broker fill happens -- this step only reaches IDEA / ENTRY_READY.
+
+**Manual review:**
+
+- A HOLD-REVIEW, STEP1-RECHECK, or FAIL Kanchi verdict is fail-closed -- it never advances to sizing or thesis registration.
+- The step-3 stock memo (`references/stock-note-template.md` in kanchi-dividend-sop, a hand-written one-pager) is not embedded in the kanchi_candidates JSON -- save it to a file, then after the IDEA thesis is registered, call `thesis_store.link_report(state_dir, thesis_id, "kanchi-dividend-sop", <memo_path>, date)` to attach it. Without this call the thesis has no documented memo in its `linked_reports`, even though one was written.
+- No order is ever placed automatically, and the thesis never auto-transitions to ACTIVE; every fill is entered manually at the broker, then recorded with open-position.
+- Screeners (steps 1-2) are optional -- a manually supplied ticker list is an equally valid path into step 3.
+- Tax and account-location advice (step 4) is advisory, not authoritative -- verify with a tax professional or the actual broker/custodian statements before acting on it.
+- Step 4 requires `tax_holdings_input` matching the linked schema; do not pass raw screener rows directly as tax holdings.
+- If review-monitor (step 5) flags an existing holding WARN or REVIEW, that only pauses additional buys in that name -- it never triggers an automatic sell.
+- Step 5 requires `review_monitor_input` matching its richer linked schema; a ticker-only candidate is insufficient and the optional step must be skipped rather than manufacturing missing evidence.
+- Screener outputs land under each skill's own `logs/` directory, not a shared `reports/` path; treat artifact ids as logical references, not literal filenames, when wiring steps together.
+- Command examples for dividend-growth-pullback-screener must use `screen_dividend_growth_rsi.py` -- `screen_dividend_growth.py` does not exist in this repository.
 
 **Journal destination:** `trader-memory-core`
 
@@ -288,6 +372,82 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm position sizing respects portfolio risk caps (per-position and per-sector).
 - For forex-related output, confirm research_only=true; never wire to a broker.
 - Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
+
+**Journal destination:** `trader-memory-core`
+
+---
+
+## Shapiro COT Contrarian {#shapiro-contrarian}
+
+**`shapiro-contrarian`** · weekly · ~60 min · fmp-required · advanced
+
+**When to run:** Weekly, after the CFTC Commitment of Traders report publishes (Friday ~3:30pm ET, carrying Tuesday's positioning). Screens roughly 65 futures markets for crowded speculative extremes and, only where a news-failure and a weekly price-action reversal both confirm, produces a contract-sized contrarian fade plan.
+
+**When NOT to run:** Do not run intraday or more than weekly — COT data updates once a week and the edge is positioning-driven, not intraday. Do not act on a crowding extreme alone; the gate must reach READY_FOR_PLAN (crowding, news failure, and price action all CONFIRMED) before any sizing. Not for equities — COT covers CFTC futures markets only.
+
+**Required skills:** `cot-contrarian-detector`, `news-reaction-failure-analyzer`, `technical-analyst`, `contrarian-setup-gate`, `futures-position-sizer`, `trader-memory-core`
+
+**Optional skills:** (none)
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `cot_crowding_report` | 1 | yes | — |
+| `news_failure_verdict` | 2 | yes | — |
+| `price_action_confirmation_report` | 3 | yes | — |
+| `contrarian_setup_gate_report` | 4 | yes | — |
+| `futures_position_size` | 5 | yes | — |
+| `contrarian_thesis_entry` | 6 | yes | `trade-memory-loop`, `monthly-performance-review` |
+
+**Steps:**
+
+**Step 1: Screen COT crowding** (decision gate) → `cot-contrarian-detector`
+
+- produces: `cot_crowding_report`
+- **Decision:** Which futures markets are at a 3-year COT-index crowding extreme (CROWDED_LONG / CROWDED_SHORT) this week? Crowding alone is not a signal — carry only the extremes forward.
+
+**Step 2: Check for news-reaction failure** (decision gate) → `news-reaction-failure-analyzer`
+
+- consumes: `cot_crowding_report`
+- produces: `news_failure_verdict`
+- **Decision:** For each crowded market, did price fail to react to news favorable to the crowd's direction (CONFIRMED, against a curated primary/wire-source events file built via WebSearch)? Drop NOT_CONFIRMED / INSUFFICIENT_EVIDENCE markets.
+
+**Step 3: Confirm weekly price-action reversal** (decision gate) → `technical-analyst`
+
+- consumes: `cot_crowding_report`
+- produces: `price_action_confirmation_report`
+- **Decision:** On the weekly chart, is there a reversal against the crowd (key reversal, failed breakout, or failed extreme) — CONFIRMED — with a defined swing stop? Reject NOT_CONFIRMED / INSUFFICIENT_DATA.
+
+**Step 4: Synthesize the contrarian setup gate** (decision gate) → `contrarian-setup-gate`
+
+- consumes: `cot_crowding_report`, `news_failure_verdict`, `price_action_confirmation_report`
+- produces: `contrarian_setup_gate_report`
+- **Decision:** Does the gate reach READY_FOR_PLAN (crowding, news failure, and price action all CONFIRMED, fail-closed)? Only READY_FOR_PLAN markets proceed to sizing; CROWDED / WATCHING_PRICE / REJECTED / INSUFFICIENT_EVIDENCE stop here.
+
+**Step 5: Size the futures position** → `futures-position-sizer`
+
+- consumes: `contrarian_setup_gate_report`
+- produces: `futures_position_size`
+
+**Step 6: Register the contrarian thesis** (decision gate) → `trader-memory-core`
+
+- consumes: `futures_position_size`, `contrarian_setup_gate_report`
+- produces: `contrarian_thesis_entry`
+- **Decision:** Register each fade whose sizer output is sizing_status SIZED — never a NO_TRADE result — in this order: (1) create the IDEA thesis first (manual ingest or register() — attach-futures-position only attaches to an EXISTING thesis, it never creates one); (2) attach the SIZED report with attach-futures-position, which persists contracts / direction / multiplier / USD currency / risk onto the thesis position; (3) link the upstream cot_crowding_report, news_failure_verdict, price_action_confirmation_report, and contrarian_setup_gate_report to the thesis with thesis_store.link_report() so the fade's full evidence chain is auditable; (4) only transition to ACTIVE with open-position once the order actually fills at the broker. Confirm per-trade risk matches the sizer output and total portfolio heat is within budget.
+
+**Manual review:**
+
+- COT data is 3 days lagged (Tuesday snapshot, Friday release) — treat the crowding read as end-of-Tuesday, not live.
+- Crowding is a precondition, never a trade signal — require the news-failure AND price-action confirmations before sizing.
+- News-failure events must be curated from primary/wire sources with real URLs; do not fabricate. INSUFFICIENT_EVIDENCE never advances.
+- Confirm the gate setup_status is READY_FOR_PLAN before sizing; the sizer will refuse a non-READY gate, but verify the reason if it does.
+- Step 5 needs more than contrarian_setup_gate_report — the sizer's --entry, --account-size, and --risk-pct are always operator-supplied, even in gate-handoff mode; neither the gate nor the sizer derives them, so gather these before invoking futures-position-sizer.
+- Verify the sizer's contract count and per-contract risk before any order; confirm total portfolio heat is within budget.
+- Futures margin is broker/time-dependent and NOT computed — verify initial and maintenance margin with the broker before trading.
+- All orders are placed manually at the broker; no auto-execution. Monitoring (COT normalization, stop, thesis invalidation) is manual until contrarian-position-monitor ships.
+- The gate's entry_trigger / sizer's planned entry is not an actual fill. Keep the SIZED report itself (it carries the planned entry); a manual-ingest source also keeps entry_price in origin.raw_provenance.entry_price. Either way, never write it to entry.actual_price before a real fill happens.
+- Do not transition the thesis to ACTIVE (open-position) until the order actually fills at the broker. Step 6 only reaches IDEA/ENTRY_READY with the futures position attached — no order is ever placed automatically.
 
 **Journal destination:** `trader-memory-core`
 

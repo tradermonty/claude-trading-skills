@@ -26,6 +26,21 @@ def test_load_candidates_from_json_with_bucket(tmp_path: Path) -> None:
     ]
 
 
+def test_load_candidates_from_screener_stocks_symbol_contract(tmp_path: Path) -> None:
+    """Workflow screener artifacts use ``stocks[].symbol``, not candidates/ticker."""
+    payload = {"stocks": [{"symbol": "jnj"}, {"symbol": "o"}]}
+    input_path = tmp_path / "screener-output.json"
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    candidates, profile = load_candidates(input_path, None)
+
+    assert profile == "balanced"
+    assert candidates == [
+        {"ticker": "JNJ", "bucket": "unassigned"},
+        {"ticker": "O", "bucket": "unassigned"},
+    ]
+
+
 def test_load_candidates_from_ticker_csv() -> None:
     candidates, profile = load_candidates(None, "aapl,msft")
     assert profile == "balanced"

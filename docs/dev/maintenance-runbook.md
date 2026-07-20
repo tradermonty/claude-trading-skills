@@ -37,6 +37,11 @@ uv run --extra dev pytest <path>                     # a subset
 bash scripts/run_all_tests.sh                        # per-skill isolation = the pre-push gate
 ```
 
+For skills that are primarily instructions, references, image-input workflows,
+or agent orchestration, use
+[`knowledge-skill-test-contract.md`](knowledge-skill-test-contract.md) as the
+minimum test contract instead of skipping tests.
+
 A fresh `git worktree` has its own venv — run `uv sync --extra dev` in it
 before `uv run pytest`, or collection fails with import errors.
 

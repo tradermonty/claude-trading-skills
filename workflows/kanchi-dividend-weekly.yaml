@@ -1,0 +1,204 @@
+schema_version: 1
+id: kanchi-dividend-weekly
+display_name: Kanchi Dividend Weekly
+cadence: weekly
+estimated_minutes: 60
+target_users:
+  - long-term-investor
+  - dividend-investor
+difficulty: intermediate
+api_profile: mixed
+
+when_to_run: >-
+  Weekly, to source and underwrite new US-listed dividend candidates using
+  Kanchi's 5-step method: screen for yield/quality, deep-dive the strongest
+  names, and register a fully-documented candidate thesis before any entry.
+  v1 covers US-listed dividend stocks only.
+when_not_to_run: >-
+  Not for Japanese or other non-US-listed dividend stocks -- this workflow
+  neither covers nor implies support for them in v1. Not a claim that
+  Kanchi-style screening is a profitable strategy; it is a disciplined
+  candidate-sourcing routine, not a signal to buy. Not for maintaining an
+  existing holding -- that is core-portfolio-weekly's job (this workflow is
+  for finding and underwriting NEW candidates). No order is ever placed
+  automatically; every buy is entered manually at the broker.
+
+required_skills:
+  - kanchi-dividend-sop
+  - trader-memory-core
+optional_skills:
+  - value-dividend-screener
+  - dividend-growth-pullback-screener
+  - kanchi-dividend-us-tax-accounting
+  - kanchi-dividend-review-monitor
+
+# Optional source for existing-holding context used only by steps 4-5.
+# Candidate underwriting in steps 1-3 does not require this workflow.
+prerequisite_workflows:
+  - id: core-portfolio-weekly
+    artifact: holdings_snapshot
+    rationale: >-
+      Use its live holdings as the source when optional tax or review-monitor
+      checks are requested. Normalize that snapshot to each skill's distinct
+      manual input schema; skip steps 4-5 when no applicable input exists.
+
+manual_inputs:
+  - id: tax_holdings_input
+    required: false
+    used_by_steps:
+      - 4
+    schema_ref: skills/kanchi-dividend-us-tax-accounting/references/input-schema.md
+    description: >-
+      Operator-supplied JSON with holdings[]. For a new candidate, provide a
+      hypothetical intended account and leave hold_days_in_window absent so
+      the result remains assumption-required rather than falsely confirmed.
+  - id: review_monitor_input
+    required: false
+    used_by_steps:
+      - 5
+    schema_ref: skills/kanchi-dividend-review-monitor/references/input-schema.md
+    description: >-
+      Normalized existing-holding JSON with dividend and risk evidence. This
+      is not derivable from a candidate ticker alone; skip step 5 for a new,
+      not-yet-held name without monitoring evidence.
+
+artifacts:
+  - id: high_yield_candidates
+    produced_by_step: 1
+    required: false
+  - id: pullback_candidates
+    produced_by_step: 2
+    required: false
+  - id: kanchi_candidates
+    produced_by_step: 3
+    required: true
+  - id: stock_memo
+    produced_by_step: 3
+    required: true
+  - id: account_location_advice
+    produced_by_step: 4
+    required: false
+  - id: review_queue
+    produced_by_step: 5
+    required: false
+  - id: thesis_record
+    produced_by_step: 6
+    required: true
+    downstream_hints:
+      - trade-memory-loop
+      - monthly-performance-review
+
+steps:
+  - step: 1
+    name: Screen for high-yield candidates
+    skill: value-dividend-screener
+    optional: true
+    produces:
+      - high_yield_candidates
+    decision_gate: false
+
+  - step: 2
+    name: Screen for dividend-growth pullbacks
+    skill: dividend-growth-pullback-screener
+    optional: true
+    produces:
+      - pullback_candidates
+    decision_gate: false
+
+  - step: 3
+    name: Run the Kanchi 5-step underwriting
+    skill: kanchi-dividend-sop
+    consumes:
+      - high_yield_candidates
+      - pullback_candidates
+    produces:
+      - kanchi_candidates
+      - stock_memo
+    decision_gate: true
+    decision_question: >-
+      For each candidate, does the Kanchi verdict reach an actionable tier
+      (CLEAN-PASS / PASS-CAUTION / CONDITIONAL-PASS)? A HOLD-REVIEW,
+      STEP1-RECHECK, or FAIL verdict is fail-closed -- it stops here, not
+      forward to sizing or registration. Candidates may come from step 1/2
+      screeners (use if available) or a manually supplied ticker list --
+      neither screener is required to run this step.
+    depends_on:
+      - 1
+      - 2
+
+  - step: 4
+    name: Check US tax and account-location treatment
+    skill: kanchi-dividend-us-tax-accounting
+    optional: true
+    produces:
+      - account_location_advice
+    decision_gate: false
+
+  - step: 5
+    name: Check existing-holding review triggers
+    skill: kanchi-dividend-review-monitor
+    optional: true
+    produces:
+      - review_queue
+    decision_gate: false
+
+  - step: 6
+    name: Register the candidate thesis
+    skill: trader-memory-core
+    consumes:
+      - kanchi_candidates
+      - stock_memo
+      - account_location_advice
+      - review_queue
+    produces:
+      - thesis_record
+    decision_gate: true
+    decision_question: >-
+      For each actionable candidate, ingest the kanchi_candidates verdict as
+      an IDEA thesis, then link the saved stock_memo file (and, if
+      available, tax/account-location advice and any review-monitor flags)
+      to it with thesis_store.link_report() so the fully-documented Kanchi
+      memo is part of the auditable record, not just referenced in prose.
+      Confirm no unresolved blockers, sizing, sector concentration, and
+      tranche plan before entering an order. Never transition the thesis to
+      ACTIVE until a real broker fill happens -- this step only reaches
+      IDEA / ENTRY_READY.
+    depends_on:
+      - 3
+      - 4
+      - 5
+
+manual_review:
+  - A HOLD-REVIEW, STEP1-RECHECK, or FAIL Kanchi verdict is fail-closed --
+    it never advances to sizing or thesis registration.
+  - The step-3 stock memo (`references/stock-note-template.md` in
+    kanchi-dividend-sop, a hand-written one-pager) is not embedded in the
+    kanchi_candidates JSON -- save it to a file, then after the IDEA thesis
+    is registered, call
+    `thesis_store.link_report(state_dir, thesis_id, "kanchi-dividend-sop",
+    <memo_path>, date)` to attach it. Without this call the thesis has no
+    documented memo in its `linked_reports`, even though one was written.
+  - No order is ever placed automatically, and the thesis never
+    auto-transitions to ACTIVE; every fill is entered manually at the
+    broker, then recorded with open-position.
+  - Screeners (steps 1-2) are optional -- a manually supplied ticker list is
+    an equally valid path into step 3.
+  - Tax and account-location advice (step 4) is advisory, not authoritative
+    -- verify with a tax professional or the actual broker/custodian
+    statements before acting on it.
+  - Step 4 requires `tax_holdings_input` matching the linked schema; do not
+    pass raw screener rows directly as tax holdings.
+  - If review-monitor (step 5) flags an existing holding WARN or REVIEW,
+    that only pauses additional buys in that name -- it never triggers an
+    automatic sell.
+  - Step 5 requires `review_monitor_input` matching its richer linked schema;
+    a ticker-only candidate is insufficient and the optional step must be
+    skipped rather than manufacturing missing evidence.
+  - Screener outputs land under each skill's own `logs/` directory, not a
+    shared `reports/` path; treat artifact ids as logical references, not
+    literal filenames, when wiring steps together.
+  - Command examples for dividend-growth-pullback-screener must use
+    `screen_dividend_growth_rsi.py` -- `screen_dividend_growth.py` does not
+    exist in this repository.
+
+journal_destination: trader-memory-core

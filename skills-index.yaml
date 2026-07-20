@@ -90,6 +90,47 @@ skills:
   - composite_scores
   workflows:
   - swing-opportunity-daily
+- id: contrarian-setup-gate
+  display_name: Contrarian Setup Gate
+  category: trade-planning
+  status: beta
+  summary: Offline synthesis gate that combines COT crowding, news-reaction failure, and weekly
+    price-action confirmation into one actionable setup_status via a fail-closed precedence state
+    machine, implementing the decision center of Jason Shapiro's contrarian methodology.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Reads the three upstream contrarian-pipeline report JSONs; works offline
+  inputs:
+  - cot_crowding_report
+  - news_failure_verdict
+  - price_action_confirmation_report
+  outputs:
+  - contrarian_setup_gate_report
+  workflows:
+  - shapiro-contrarian
+- id: cot-contrarian-detector
+  display_name: COT Contrarian Detector
+  category: market-regime
+  status: production
+  summary: Detects crowded speculative (large-speculator) positioning in CFTC futures markets using
+    Commitment of Traders data, implementing step 1 of Jason Shapiro's contrarian methodology.
+  timeframe: weekly
+  difficulty: intermediate
+  integrations:
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: CFTC COT data via FMP; requires Premium+ plan
+  inputs:
+  - cot_report_data
+  outputs:
+  - cot_crowding_report
+  workflows:
+  - shapiro-contrarian
 - id: data-quality-checker
   display_name: Data Quality Checker
   category: meta
@@ -131,7 +172,8 @@ skills:
   outputs:
   - pullback_candidates
   - yield_growth_metrics
-  workflows: []
+  workflows:
+  - kanchi-dividend-weekly
 - id: downtrend-duration-analyzer
   display_name: Downtrend Duration Analyzer
   category: market-regime
@@ -462,6 +504,31 @@ skills:
   outputs:
   - ftd_signal_report
   workflows: []
+- id: futures-position-sizer
+  display_name: Futures Position Sizer
+  category: trade-planning
+  status: beta
+  summary: Calculate contract-based futures position sizes from a direction, entry, and stop-loss,
+    using a verified 23-market contract-spec table (multiplier, tick size, tick value), implementing
+    step 4 of Jason Shapiro's contrarian pipeline.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Pure calculation; consumes contrarian-setup-gate's READY_FOR_PLAN report or explicit
+      direction/entry/stop flags; works offline
+  inputs:
+  - entry_price
+  - stop_price
+  - account_size
+  - risk_pct
+  - contrarian_setup_gate_report
+  outputs:
+  - futures_position_size
+  workflows:
+  - shapiro-contrarian
 - id: ibd-distribution-day-monitor
   display_name: IBD Distribution Day Monitor
   category: market-regime
@@ -521,6 +588,7 @@ skills:
   - review_queue
   workflows:
   - core-portfolio-weekly
+  - kanchi-dividend-weekly
 - id: kanchi-dividend-sop
   display_name: Kanchi Dividend SOP
   category: core-portfolio
@@ -539,7 +607,8 @@ skills:
   outputs:
   - kanchi_candidates
   - stock_memo
-  workflows: []
+  workflows:
+  - kanchi-dividend-weekly
 - id: kanchi-dividend-us-tax-accounting
   display_name: Kanchi Dividend US Tax Accounting
   category: core-portfolio
@@ -560,6 +629,7 @@ skills:
   - account_location_advice
   workflows:
   - core-portfolio-weekly
+  - kanchi-dividend-weekly
 - id: macro-regime-detector
   display_name: Macro Regime Detector
   category: market-regime
@@ -658,6 +728,32 @@ skills:
   - market_top_composite_score
   workflows:
   - market-regime-daily
+- id: news-reaction-failure-analyzer
+  display_name: News Reaction Failure Analyzer
+  category: market-regime
+  status: production
+  summary: Judges whether a market failed to react to news favorable to a crowded speculative
+    position, implementing step 2 of Jason Shapiro's contrarian methodology with a Monte-Carlo-verified
+    drift-significance verdict test.
+  timeframe: event-driven
+  difficulty: intermediate
+  integrations:
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: Historical EOD price data; per-symbol coverage varies (ETF proxy fallback documented)
+  - id: websearch
+    type: web
+    requirement: required
+    note: Events curation (Claude searches news to build the events JSON; no FMP news endpoint exists
+      for futures)
+  inputs:
+  - cot_crowding_report
+  - curated_events_json
+  outputs:
+  - news_failure_verdict
+  workflows:
+  - shapiro-contrarian
 - id: options-strategy-advisor
   display_name: Options Strategy Advisor
   category: advanced-satellite
@@ -1143,12 +1239,18 @@ skills:
     type: image
     requirement: required
     note: Chart screenshot input
+  - id: fmp
+    type: market_data
+    requirement: optional
+    note: Optional weekly OHLCV fallback for contrarian confirmation (Shapiro step 3)
   inputs:
   - weekly_chart_image
   outputs:
   - technical_assessment_report
+  - price_action_confirmation_report
   workflows:
   - swing-opportunity-daily
+  - shapiro-contrarian
 - id: theme-detector
   display_name: Theme Detector
   category: swing-opportunity
@@ -1237,6 +1339,7 @@ skills:
   inputs:
   - screener_report
   - trade_actions
+  - futures_position_size
   outputs:
   - thesis_record
   - journal_entry
@@ -1245,6 +1348,8 @@ skills:
   - swing-opportunity-daily
   - trade-memory-loop
   - monthly-performance-review
+  - shapiro-contrarian
+  - kanchi-dividend-weekly
 - id: trading-skills-navigator
   display_name: Trading Skills Navigator
   category: meta
@@ -1349,6 +1454,7 @@ skills:
   - high_yield_candidates
   workflows:
   - core-portfolio-weekly
+  - kanchi-dividend-weekly
 - id: vcp-screener
   display_name: VCP Screener
   category: swing-opportunity

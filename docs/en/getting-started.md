@@ -24,9 +24,12 @@ Installation instructions, API key setup, and a hands-on tutorial to run your fi
 
 ## Prerequisites
 
+> **What this actually costs:** Claude Skills require a paid Claude plan that supports the Skills feature. FMP, FINVIZ Elite, and Alpaca are optional data or broker integrations for specific workflows; the five-skill starter path works with public CSVs, chart screenshots, and local files, so it does not require any paid data API subscription beyond your Claude plan.
+{: .note }
+
 | Item | Required | Description |
 |------|----------|-------------|
-| Claude Account | Yes | Pro, Team, or Enterprise plan (plans that support the Skills feature) |
+| Claude Account | Yes | Paid Claude plan that supports the Skills feature |
 | Python 3.9+ | Yes | Required for helper scripts. Most skills use Python-based data fetching |
 | FMP API Key | Optional | Financial Modeling Prep API. Required by screening skills (free tier available) |
 | FINVIZ Elite | Optional | Speeds up dividend screeners 70-80% and improves Theme Detector coverage |

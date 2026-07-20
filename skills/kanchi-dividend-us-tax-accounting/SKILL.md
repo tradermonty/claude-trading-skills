@@ -26,27 +26,7 @@ Prepare holding-level inputs:
 - `account_type`
 - `hold_days_in_window` (if available)
 
-### Expected JSON Input Format
-
-```json
-{
-  "holdings": [
-    {
-      "ticker": "JNJ",
-      "instrument_type": "stock",
-      "account_type": "taxable",
-      "security_type": "common",
-      "hold_days_in_window": 75
-    },
-    {
-      "ticker": "O",
-      "instrument_type": "reit",
-      "account_type": "ira",
-      "hold_days_in_window": 100
-    }
-  ]
-}
-```
+Use the exact JSON contract and examples in `references/input-schema.md`.
 
 For deterministic output artifacts, provide JSON input and run:
 

@@ -1,4 +1,4 @@
-# Bubble Detector Implementation Guide (Revised v2.0)
+# Bubble Detector Implementation Guide (Revised v2.1)
 
 ## Required Checklist Before Use
 
@@ -210,10 +210,10 @@ Common mistakes to avoid:
 ### Step 6: Final Judgment and Report
 
 ```markdown
-# [Market Name] Bubble Evaluation Report (Revised v2.0)
+# [Market Name] Bubble Evaluation Report (Revised v2.1)
 
 ## Overall Assessment
-- Final Score: 0/16 points
+- Final Score: 0/15 points
 - Phase: Normal
 - Risk Level: Low
 - Evaluation Date: 2025-10-27
@@ -265,7 +265,7 @@ Common mistakes to avoid:
 ✅ Good Evaluation:
 [web_search: "Google Trends Japan stocks Takaichi"]
 Result: 1.8x year-over-year
-→ Google Trends adjustment +0 points (below 3x)
+→ Google Trends adjustment +0 points (below 5x)
 ```
 
 ### NG Example 2: Scoring Based on Impressions
@@ -312,11 +312,11 @@ After completing evaluation, verify the following:
 □ Does each score have measured value basis?
   - Have you excluded impressions like "many reports"?
 
-□ Did you keep qualitative adjustment within +5 point limit?
+□ Did you keep qualitative adjustment within +3 point limit?
   - Adjustment A: [  ] points
   - Adjustment B: [  ] points
   - Adjustment C: [  ] points
-  - Total ≤ 5 points?
+  - Total <= 3 points?
 
 □ Is the final score reasonable?
   - Compare with other quantitative frameworks
@@ -363,7 +363,7 @@ After completing evaluation, verify the following:
 ## Evaluation Report Template
 
 ```markdown
-# [Market Name] Bubble Evaluation Report v2.0
+# [Market Name] Bubble Evaluation Report v2.1
 
 **Evaluation Date:** YYYY-MM-DD
 **Evaluator Confidence:** [0-100]
@@ -374,7 +374,7 @@ After completing evaluation, verify the following:
 ## Executive Summary
 
 **Conclusion:** [One-sentence conclusion]
-**Score:** X/16 points ([Normal/Caution/Euphoria/Critical])
+**Score:** X/15 points ([Normal/Caution/Elevated Risk/Euphoria/Critical])
 **Recommendation:** [Concise action]
 
 ---

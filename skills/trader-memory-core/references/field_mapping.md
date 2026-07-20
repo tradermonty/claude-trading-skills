@@ -8,6 +8,7 @@
 | kanchi-dividend-sop | `buy_target_price` | `entry.target_price` | |
 | kanchi-dividend-sop | `current_yield_pct` | `origin.raw_provenance.current_yield_pct` | Preserved in raw |
 | kanchi-dividend-sop | `signal` | `origin.raw_provenance.signal` | Preserved in raw |
+| kanchi-dividend-sop | `verdict` | ingest eligibility | Only `CLEAN-PASS`, `PASS-CAUTION`, or `CONDITIONAL-PASS`; all other or missing values fail closed |
 | earnings-trade-analyzer | `symbol` | `ticker` | Renamed |
 | earnings-trade-analyzer | `grade` | `origin.screening_grade` | A/B/C/D |
 | earnings-trade-analyzer | `composite_score` | `origin.screening_score` | 0-100 |

@@ -22,6 +22,7 @@ from recommend import (  # noqa: E402
     PERSONAS,
     dumps,
     main,
+    normalize_query,
     recommend,
     render_text,
     resolve_metadata,
@@ -228,6 +229,233 @@ def test_post_trade_coaching_routes_to_trade_memory_loop(
         f"bundle keys = {sorted(bundle.keys())}, recommended = "
         f"{bundle.get('recommended')}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Shapiro COT contrarian pipeline (Issue #244 rebase review)
+# ---------------------------------------------------------------------------
+
+_SHAPIRO_REQUIRED_SKILLS = {
+    "cot-contrarian-detector",
+    "news-reaction-failure-analyzer",
+    "technical-analyst",
+    "contrarian-setup-gate",
+    "futures-position-sizer",
+    "trader-memory-core",
+}
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I want to fade a crowded futures position",
+        "help me screen COT data for contrarian setups",
+        "shapiro style contrarian futures trading",
+        "コミットメントオブトレーダーズで逆張りしたい",
+        "先物の逆張りをしたい",
+        "シャピロ式の逆張り手法を使いたい",
+        # Regression (accept-test review): natural JA sentences using the
+        # crowded VERB forms (混み合った/混み合っている), not just the noun
+        # form (混雑ポジション) — the original persona missed these.
+        "COTで混み合った先物ポジションを逆張りしたい",
+        "建玉が混み合っている先物を逆張りしたい",
+    ],
+    ids=[
+        "en-fade-crowded-futures",
+        "en-cot-contrarian",
+        "en-shapiro-style",
+        "ja-cot-contrarian",
+        "ja-futures-contrarian",
+        "ja-shapiro-style",
+        "ja-cot-crowded-verb-form",
+        "ja-crowded-futures-teiru-form",
+    ],
+)
+def test_shapiro_contrarian_routes_with_full_bundle(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    """Regression (Issue #244 rebase review): before the shapiro-contrarian
+    persona was added, these EN/JA queries (Shapiro/COT/crowded-futures
+    intent) fell through to the unmapped beginner default
+    (market-regime-daily). Adding the persona alone was not enough either:
+    cot-contrarian-detector (shapiro-contrarian's first required skill) has
+    category=market-regime, which collides with the market-regime-daily
+    skillset manifest — that manifest was purpose-built for a DIFFERENT,
+    3-skill workflow, so it would have silently dropped 5 of
+    shapiro-contrarian's 6 required skills from setup_bundle. The fix gates
+    a skillset manifest's "active" status on it actually naming the primary
+    workflow in `related_workflows` (see _skillset()'s docstring); an
+    unrelated manifest now defers instead of leaking into the bundle.
+    """
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
+    assert r["primary_workflow"]["id"] == "shapiro-contrarian", (
+        f"query {query!r} should route to shapiro-contrarian, got {r['primary_workflow']['id']!r}"
+    )
+    assert r["honest_gap"] is False
+    assert not (r["note"] and "did not match" in r["note"]), (
+        f"query fell through to unmapped default: {query!r}"
+    )
+    # The unrelated market-regime manifest must NOT silently supply the
+    # bundle -- shapiro-contrarian has no purpose-built skillset yet.
+    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["skillset"]["manifest"] is None
+    bundle_required = set(r["setup_bundle"]["required"])
+    assert bundle_required == _SHAPIRO_REQUIRED_SKILLS, (
+        f"query {query!r} setup_bundle.required = {bundle_required}, "
+        f"expected exactly {_SHAPIRO_REQUIRED_SKILLS}"
+    )
+
+
+def test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow(
+    repo_metadata: dict[str, Any],
+) -> None:
+    """Before this fix, `manifest_status: deferred` only ever occurred on an
+    honest-gap category (no manifest ships for that category at all — see
+    test_skillset_deferred_without_manifest). shapiro-contrarian is the
+    first case where a manifest DOES exist for the workflow's dominant
+    category (market-regime) but doesn't cover this specific workflow,
+    proving manifest_status is workflow-aware, not just
+    category-existence-aware."""
+    r = recommend("shapiro style contrarian futures trading", repo_metadata)
+    assert r["honest_gap"] is False
+    assert r["primary_workflow"]["id"] == "shapiro-contrarian"
+    assert r["skillset"]["id"] == "market-regime"
+    assert r["skillset"]["manifest_status"] == "deferred"
+
+
+# ---------------------------------------------------------------------------
+# Kanchi dividend candidate sourcing (Issue #260)
+# ---------------------------------------------------------------------------
+
+_KANCHI_EXPECTED_REQUIRED = {"kanchi-dividend-sop", "trader-memory-core"}
+_KANCHI_EXPECTED_OPTIONAL = {
+    "value-dividend-screener",
+    "dividend-growth-pullback-screener",
+    "kanchi-dividend-us-tax-accounting",
+    "kanchi-dividend-review-monitor",
+}
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I want to use Kanchi to screen high-yield dividend stocks",
+        "kanchi dividend screening this week",
+        "help me underwrite dividend candidates Kanchi-style",
+        "run a kanchi high-dividend screen",
+        "かんち式で高配当株スクリーニングしたい",
+        "かんちさんのやり方で配当株スクリーニングしたい",
+        "高配当株を探したい",
+    ],
+    ids=[
+        "en-kanchi-high-yield",
+        "en-kanchi-dividend-screening",
+        "en-underwrite-kanchi-style",
+        "en-kanchi-high-dividend-screen",
+        "ja-kanchi-style-screening",
+        "ja-kanchisan-screening",
+        "ja-high-yield-search",
+    ],
+)
+def test_kanchi_dividend_weekly_routes_with_full_bundle(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    """Regression (Issue #260): Kanchi-intent EN/JA queries must route to
+    kanchi-dividend-weekly with its full required+optional 6-skill bundle,
+    not fall through to core-portfolio-weekly (existing-holdings
+    maintenance) via the broad dividend-long-term-investor persona. The
+    dominant-category skillset (core-portfolio) must defer rather than
+    replace the bundle (same mechanism as shapiro-contrarian /
+    market-regime — see test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow),
+    since skillsets/core-portfolio.yaml deliberately does NOT list
+    kanchi-dividend-weekly in related_workflows (would fail SK010: its
+    required_skills aren't a subset of core-portfolio.yaml's)."""
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
+    assert r["primary_workflow"]["id"] == "kanchi-dividend-weekly", (
+        f"query {query!r} should route to kanchi-dividend-weekly, got "
+        f"{r['primary_workflow']['id']!r}"
+    )
+    assert r["honest_gap"] is False
+    assert r["skillset"]["id"] == "core-portfolio"
+    assert r["skillset"]["manifest_status"] == "deferred"
+    sb = r["setup_bundle"]
+    assert set(sb["required"]) == _KANCHI_EXPECTED_REQUIRED, (
+        f"query {query!r} setup_bundle.required = {sb['required']}"
+    )
+    assert set(sb["optional"]) == _KANCHI_EXPECTED_OPTIONAL, (
+        f"query {query!r} setup_bundle.optional = {sb['optional']}"
+    )
+    assert sb["sources"] == ["workflow:kanchi-dividend-weekly"]
+
+
+def test_kanchi_persona_does_not_regress_core_portfolio_routing(
+    repo_metadata: dict[str, Any],
+) -> None:
+    """Regression (Issue #260 plan R1, highest risk): the new
+    kanchi-dividend-investor persona sits BEFORE dividend-long-term-investor
+    in PERSONAS (first-match-wins), so it must not change routing for
+    existing core-portfolio-weekly queries -- including CONTRACT Q4's
+    "...dividend candidates..." and Q6's "dividend stocks", the two
+    highest-risk collision targets the plan flagged."""
+    protected = [
+        "I want to review my holdings and dividend candidates this week",  # CONTRACT Q4
+        "I want to find dividend stocks",  # CONTRACT Q6 / skillset test
+        "配当株を探したい",  # JA pinned (:783)
+        "I want to see my portfolio allocation",
+        "I want to rebalance my holdings",
+    ]
+    for q in protected:
+        r = recommend(q, repo_metadata)
+        assert r["primary_workflow"] is not None, f"{q!r} lost its routing entirely"
+        assert r["primary_workflow"]["id"] == "core-portfolio-weekly", (
+            f"kanchi persona regressed routing for {q!r}: got {r['primary_workflow']['id']!r}"
+        )
+
+
+def test_kanchi_persona_terms_do_not_collide_with_pinned_queries() -> None:
+    """D4 mandatory gate (Issue #260 plan): every kanchi-dividend-investor
+    any_term must never appear as a substring of any EXISTING pinned query
+    string in this file (the golden 10-question CONTRACT plus the other
+    named regression parametrize lists) -- matches() (recommend.py) is
+    unguarded substring containment with no word boundaries, so an overly
+    broad term could silently hijack another persona's routing. This is the
+    mechanical, always-on version of the one-off pre-implementation dry-run
+    the plan required before writing any_terms."""
+    kanchi = next(p for p in PERSONAS if p.name == "kanchi-dividend-investor")
+    protected_queries = [row[1] for row in CONTRACT] + [
+        # test_post_trade_coaching_routes_to_trade_memory_loop
+        "post-trade coaching",
+        "post-trade coach",
+        "trade coach",
+        "trade coaching",
+        "performance coach",
+        "トレードコーチ",
+        "取引後レビュー",
+        # test_skillset_manifest_active_for_shipped_categories /
+        # test_skillset_deferred_without_manifest
+        "I want to do swing trading",
+        "I want to find dividend stocks",
+        "I have 15 minutes each morning can I take risk today",
+        "I want to use short strategies",
+        "I want to research and backtest new strategy ideas",
+        # test_japanese_queries_route
+        "API キー無しで使えるものを教えて",
+        "スイングトレードをしたい",
+        "配当株を探したい",
+        "初心者だけどどこから始めればいい",
+        "ショート戦略を使いたい",
+        "新しい戦略をバックテストしたい",
+        "毎朝15分で今日リスクを取れるか知りたい",
+    ]
+    for term in kanchi.any_terms:
+        term_norm = normalize_query(term)
+        for q in protected_queries:
+            assert term_norm not in normalize_query(q), (
+                f"kanchi persona term {term!r} is a substring of pinned "
+                f"query {q!r} -- would hijack its routing"
+            )
 
 
 def test_honest_gap_returns_suggested_skills(repo_metadata: dict[str, Any]) -> None:

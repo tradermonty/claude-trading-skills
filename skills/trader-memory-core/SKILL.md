@@ -71,6 +71,11 @@ Supported sources: `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screen
 
 Each thesis starts in `IDEA` status.
 
+For `kanchi-dividend-sop`, registration is fail-closed: each row must carry
+one of `CLEAN-PASS`, `PASS-CAUTION`, or `CONDITIONAL-PASS` in `verdict`.
+Missing verdicts and `HOLD-REVIEW` / `STEP1-RECHECK` / `FAIL` rows are skipped
+and never written to thesis state.
+
 #### Manual brokerage entry (fractional shares)
 
 For trades that did **not** come from a screener — e.g. fractional-share
@@ -154,6 +159,16 @@ python3 .../trader_memory_cli.py store --state-dir state/theses/ open-position <
 
 `--shares` accepts **fractional** quantities. Python:
 `thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, shares=..., event_date=...)`.
+`shares` (and `shares_remaining`, when present) must be a **finite, positive
+number no greater than 10<sup>12</sup>** (a sanity bound, not an economic
+constraint — fractional shares below the cap remain unrestricted). NaN,
+±Infinity, and absurdly large values (e.g. a malformed position-sizer
+report) are rejected with a clean error at save time, on `open-position`,
+`attach-position`, and `trim` alike.
+
+For a **futures** thesis, use `--contracts` instead of `--shares` (see
+"Futures positions" below) — if `attach-futures-position` already populated
+the position, omit `--contracts` and only pass `--actual-price`/`--actual-date`.
 
 **Trim — partial close** (ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED, or →
 CLOSED when the whole remainder is sold):
@@ -177,6 +192,10 @@ Status invariants: `ACTIVE` ⇒ `shares_remaining == shares`;
 `PARTIALLY_CLOSED` ⇒ `0 < shares_remaining < shares`; `CLOSED` ⇒
 `shares_remaining == 0`. Legacy theses (no `shares_remaining`) are treated as
 fully open at runtime.
+
+For a **futures** thesis, use `--contracts-sold` instead of `--shares-sold` —
+`close`/`terminate` need no flag changes; they read `position.asset_type` and
+dispatch automatically (see "Futures positions" below).
 
 **Close or invalidate** (→ CLOSED or INVALIDATED):
 
@@ -204,6 +223,63 @@ python3 .../trader_memory_cli.py store --state-dir state/theses/ attach-position
 ```
 
 Python: `thesis_store.attach_position(state_dir, thesis_id, report_path)` to link position sizing data. Validates that the report mode is "shares" (not budget).
+
+#### Futures positions (contracts / multiplier / direction)
+
+A thesis whose `position.asset_type == "futures"` (or `quantity_unit ==
+"contracts"`) is a **futures** thesis. Futures theses use `quantity` /
+`quantity_remaining` (whole contracts — no fractional contracts) instead of
+`shares` / `shares_remaining`, carry a `direction` (`LONG` or `SHORT`) and a
+`multiplier`, and every P&L computation (`close`, `terminate`, `trim`) applies
+`(exit_price - entry_price) × multiplier × quantity × sign` (sign = +1
+LONG, −1 SHORT) instead of the equity per-unit formula. `close` / `terminate`
+/ `trim` / `open-position` all dispatch on `position.asset_type` automatically
+— no separate futures subcommands for those four operations. **USD-denominated
+contracts only** — there is no FX conversion in the P&L path, so a non-USD
+`contract_spec.currency` is rejected outright rather than computing P&L in
+the wrong currency's magnitude.
+
+**Attach a futures-position-sizer SIZED report** (step 6 of the Shapiro
+contrarian pipeline — futures-position-sizer → trader-memory-core):
+
+```bash
+python3 .../trader_memory_cli.py store --state-dir state/theses/ \
+  attach-futures-position <id> --report reports/futures_position_es_2026-05-10.json
+```
+
+Rejects a `NO_TRADE` report (`sizing_status != "SIZED"`), an invalid
+`direction`, a non-positive/fractional `contracts` count, a non-finite/non-positive
+`contract_spec.multiplier`, or a non-USD `contract_spec.currency`.
+Re-attach status guard is `IDEA`/`ENTRY_READY` **only** — stricter than
+equity's `attach-position` (which also allows `ACTIVE`): re-attaching a
+futures position on `ACTIVE` would silently overwrite the entire position
+dict including `direction`, flipping the sign of every subsequent P&L
+computation. Correcting an already-open futures position needs a fresh
+thesis (or a future dedicated "amend" operation) — not a re-attach.
+
+**Direct open, no attach** (build the position from CLI flags instead of a
+SIZED report — `--contract-currency` is **required** here since there is no
+`contract_spec` to read a currency from, and must be `USD`):
+
+```bash
+python3 .../trader_memory_cli.py store --state-dir state/theses/ open-position <id> \
+  --actual-price 5000 --actual-date 2026-05-10 \
+  --contracts 2 --multiplier 50 --direction SHORT --contract-symbol ES \
+  --contract-currency USD
+```
+
+**Trim / close / terminate** — same subcommands as equity, `--contracts-sold`
+in place of `--shares-sold`:
+
+```bash
+python3 .../trader_memory_cli.py store --state-dir state/theses/ trim <id> \
+  --contracts-sold 1 --price 4950.00 --date 2026-05-12
+python3 .../trader_memory_cli.py store --state-dir state/theses/ close <id> \
+  --exit-reason target_hit --actual-price 4900.00 --actual-date 2026-05-15
+```
+
+Python: `thesis_store.attach_futures_position(state_dir, thesis_id, report_path)`,
+`thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, contracts=..., multiplier=..., direction=...)`.
 
 **Link related reports:**
 
@@ -245,7 +321,7 @@ Each thesis is a YAML file with:
 - Classification: thesis_type, setup_type, catalyst
 - Lifecycle: status, status_history
 - Entry/Exit: target prices, actual prices, conditions
-- Position: shares (fractional supported), value, risk (from position-sizer or `open-position --shares`)
+- Position: shares (fractional supported), value, risk (from position-sizer or `open-position --shares`); or, for futures, quantity/multiplier/direction/contract_spec (from futures-position-sizer or `open-position --contracts`)
 - Monitoring: review dates, triggers, alerts
 - Origin: source skill, screening grade, raw provenance
 - Outcome: P&L, holding days, MAE/MFE, lessons learned

@@ -1,5 +1,7 @@
 """Unit tests for design_strategy_drafts.py."""
 
+from __future__ import annotations
+
 import design_strategy_drafts as dsd
 
 

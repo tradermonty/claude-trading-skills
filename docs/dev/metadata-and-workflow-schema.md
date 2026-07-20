@@ -164,6 +164,13 @@ prerequisite_workflows:           # informational only, NOT validated
     artifact: <artifact-id>       # which upstream artifact this workflow expects
     rationale: <why>
 
+manual_inputs:                    # optional external/manual JSON contracts
+  - id: <input-id>
+    required: true | false
+    used_by_steps: [<step-number>, ...]
+    schema_ref: <repo-relative-path>
+    description: <what supplies this input and how it degrades>
+
 artifacts:
   - id: <artifact-id>
     produced_by_step: <step-number>
@@ -208,6 +215,7 @@ These are validated under `--strict-workflows`:
 | Every `required_skills` entry appears in at least one non-optional step | `WF009` |
 | Every non-optional `step.skill` appears in `required_skills` | `WF010` |
 | Workflow file referenced by an index entry's `workflows:` exists | `WF001` |
+| Required artifact produced before the final step is not consumed by any later step | `WF013` |
 
 ### 2.3 `consumes:` semantics — "use if available", not "required input"
 
@@ -245,13 +253,24 @@ This field is **informational only**. The validator does NOT check that the name
 
 If a hard inter-workflow contract is needed in the future, it will be added as a new field — never by repurposing `prerequisite_workflows`.
 
-### 2.5 `downstream_hints` is informational
+### 2.5 `manual_inputs:` — explicit external input contract
+
+Use `manual_inputs` when an optional step reads operator-supplied data that is
+not produced by an earlier step in the same workflow. Keep each distinct JSON
+shape separate and point `schema_ref` to its canonical skill reference. The
+field is rendered in workflow documentation but is informational in schema v1;
+the named skill remains responsible for validating the input at runtime.
+
+Do not place a manual input in `steps[].consumes`: `consumes` is reserved for
+artifacts produced by an earlier step in the same workflow.
+
+### 2.6 `downstream_hints` is informational
 
 `artifacts[].downstream_hints` is a free-form list of workflow IDs that *might* consume the artifact downstream. The validator does not check this. It is meant for human navigation and (future) Navigator hints.
 
 If a hard inter-workflow contract is needed later, add a separate field (e.g. `consumed_by_workflows: [...]` with strict semantics). Never repurpose `downstream_hints`.
 
-### 2.6 `one_of:` is intentionally NOT in v1
+### 2.7 `one_of:` is intentionally NOT in v1
 
 Cases like "either `vcp-screener` or `canslim-screener`" are expressed by:
 
@@ -393,6 +412,7 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `WF010` | Non-optional step `skill` missing from `required_skills` |
 | `WF011` | `required_skills` / `optional_skills` entry not in `skills-index.yaml` |
 | `WF012` | `artifacts[].produced_by_step` does not match the corresponding step's `produces` (either direction) |
+| `WF013` | Required artifact produced before the final step is not consumed by any later step |
 
 ### Skillset-level (`scripts/validate_skillsets.py`, always strict)
 

@@ -14,6 +14,7 @@ This guide explains how to write and maintain articles in the `docs/` directory.
 - [Bilingual (en/ja) Rules](#bilingual-enja-rules)
 - [Styling Reference](#styling-reference)
 - [Checklist: Adding a New Skill Guide](#checklist-adding-a-new-skill-guide)
+- [Checklist: Adding a New Playbook](#checklist-adding-a-new-playbook)
 - [Conventions and Pitfalls](#conventions-and-pitfalls)
 
 ---
@@ -494,6 +495,69 @@ Follow these steps when adding a new skill guide page:
 
 ---
 
+## Checklist: Adding a New Playbook
+
+Playbooks are workflow-level guides (a multi-skill routine end to end), distinct
+from single-skill guides. They live under the **Playbooks** (`プレイブック`) nav
+parent — a three-level hierarchy: `English`/`日本語` → `Playbooks`/`プレイブック` →
+the playbook page. Reuse this convention for every new playbook (e.g. a future
+Kanchi dividend playbook); do **not** re-add a playbook as a flat top-level page
+under `English`/`日本語`.
+
+### 1. Create the English page
+
+- [ ] Create `docs/en/playbooks/<playbook-name>.md`
+- [ ] `parent: Playbooks` and `grand_parent: English` are **required**
+- [ ] Pick a `nav_order` on the child scale under the parent (10, 12, 14, 20, … — use an unused value)
+
+```yaml
+---
+layout: default
+title: <Playbook Name> Playbook
+parent: Playbooks
+grand_parent: English
+nav_order: 30
+lang_peer: /ja/playbooks/<playbook-name>/
+permalink: /en/playbooks/<playbook-name>/
+---
+```
+
+### 2. Create the Japanese page
+
+- [ ] Create `docs/ja/playbooks/<playbook-name>.md` with the same file name
+- [ ] `parent: プレイブック` and `grand_parent: 日本語` are **required**
+- [ ] **Same** `nav_order` as the en/ version
+- [ ] Write natural Japanese, not a heading-for-heading translation
+
+```yaml
+---
+layout: default
+title: <Playbook Name> プレイブック
+parent: プレイブック
+grand_parent: 日本語
+nav_order: 30
+lang_peer: /en/playbooks/<playbook-name>/
+permalink: /ja/playbooks/<playbook-name>/
+---
+```
+
+### 3. Update the parent index pages
+
+- [ ] Add the playbook to the list in `docs/en/playbooks/index.md`
+- [ ] Add it to `docs/ja/playbooks/index.md` — the parent index lists the available playbooks; it is not an empty navigation container
+
+### 4. Verify
+
+- [ ] `parent` / `grand_parent` match the language (EN: `Playbooks` / `English`; JA: `プレイブック` / `日本語`)
+- [ ] EN and JA use identical `nav_order`
+- [ ] `permalink` matches the file path and is **preserved** — never change a published playbook URL
+- [ ] Set `lang_peer` in both directions **only when the counterpart page exists**; if it does not, add the counterpart in the same PR or open an explicit follow-up issue (do not leave a `lang_peer` pointing at a missing page)
+- [ ] Japanese-only headings used as in-page link targets need an explicit `{#ascii-id}` — kramdown strips non-ASCII characters when generating heading ids, so a `[..](#日本語見出し)` link will not resolve
+- [ ] All internal links use `{{ '...' | relative_url }}` syntax
+- [ ] Sidebar shows `Playbooks` / `プレイブック` as a collapsible parent with the new page nested as a child (not a flat top-level item), on both mobile and desktop widths; the EN/JA language toggle works on the page
+
+---
+
 ## Conventions and Pitfalls
 
 ### nav_order Numbering
@@ -508,6 +572,12 @@ Current `nav_order` assignments for top-level en/ pages:
 | 4 | Workflows |
 | 5 | Skillsets |
 | 6 | Find Your Workflow |
+| 7 | Playbooks |
+
+`Playbooks` (`プレイブック`) is a `has_children` parent. Its child playbook pages
+use their own `nav_order` scale scoped to the parent (currently 10, 12, 14, 20 —
+see [Adding a New Playbook](#checklist-adding-a-new-playbook)), independent of this
+top-level table.
 
 Skill guide pages use `nav_order` values from 1 to ~50. To avoid conflicts:
 1. Check existing values in `docs/en/skills/` before assigning

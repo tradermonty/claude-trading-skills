@@ -30,6 +30,7 @@ def test_ingest_kanchi(tmp_path: Path):
     state_dir = tmp_path / "theses"
     record = {
         "ticker": "JNJ",
+        "verdict": "CLEAN-PASS",
         "buy_target_price": 148.50,
         "current_yield_pct": 3.2,
         "signal": "BUY",
@@ -46,6 +47,34 @@ def test_ingest_kanchi(tmp_path: Path):
     assert thesis["entry"]["target_price"] == 148.50
     assert thesis["origin"]["skill"] == "kanchi-dividend-sop"
     assert thesis["origin"]["raw_provenance"]["current_yield_pct"] == 3.2
+
+
+@pytest.mark.parametrize("verdict", ["CLEAN-PASS", "PASS-CAUTION", "CONDITIONAL-PASS"])
+def test_ingest_kanchi_accepts_only_actionable_verdicts(tmp_path: Path, verdict: str):
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(tmp_path, {"rows": [{"ticker": "JNJ", "verdict": verdict}]})
+
+    ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
+
+    assert len(ids) == 1
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    [None, "", "HOLD-REVIEW", "STEP1-RECHECK", "FAIL", 123],
+    ids=["missing", "empty", "hold-review", "step1-recheck", "fail", "non-string"],
+)
+def test_ingest_kanchi_rejects_non_actionable_verdicts_fail_closed(tmp_path: Path, verdict):
+    state_dir = tmp_path / "theses"
+    record = {"ticker": "JNJ"}
+    if verdict is not None:
+        record["verdict"] = verdict
+    input_file = _write_json(tmp_path, {"rows": [record]})
+
+    ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
+
+    assert ids == []
+    assert not state_dir.exists() or list(state_dir.glob("th_*.yaml")) == []
 
 
 # -- Tests: earnings adapter ---------------------------------------------------
@@ -102,14 +131,15 @@ def test_ingest_vcp(tmp_path: Path):
 
 
 def test_ingest_pead(tmp_path: Path):
-    """pead JSON → entry_price and stop_loss mapped."""
+    """pead JSON (real field names: stage/stop_price, not status/stop_loss) →
+    entry_price and stop_loss mapped for an actionable BREAKOUT candidate."""
     state_dir = tmp_path / "theses"
     record = {
         "symbol": "CRWD",
         "entry_price": 380.00,
-        "stop_loss": 355.00,
-        "status": "SIGNAL_READY",
-        "grade": "B",
+        "stop_price": 355.00,
+        "stage": "BREAKOUT",
+        "rating": "B",
     }
     input_file = _write_json(tmp_path, {"results": [record]})
 
@@ -119,6 +149,122 @@ def test_ingest_pead(tmp_path: Path):
     thesis = thesis_store.get(state_dir, ids[0])
     assert thesis["entry"]["target_price"] == 380.00
     assert thesis["exit"]["stop_loss"] == 355.00
+    assert thesis["origin"]["raw_provenance"]["stage"] == "BREAKOUT"
+
+
+def test_ingest_pead_stage_reflected_in_thesis_statement(tmp_path: Path):
+    """Regression: the real `stage` field (not the nonexistent `status`)
+    must land in thesis_statement -- before the fix this was always the
+    literal string 'status ?' regardless of the record's actual stage."""
+    state_dir = tmp_path / "theses"
+    record = {
+        "symbol": "AMD",
+        "stage": "SIGNAL_READY",
+        "rating": "A",
+    }
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert "SIGNAL_READY" in thesis["thesis_statement"]
+    assert "status ?" not in thesis["thesis_statement"]
+
+
+def test_ingest_pead_screening_grade_from_rating(tmp_path: Path):
+    """Regression (#273): a real screen_pead.py output record carries `rating`
+    (screen_pead.py:379), never `grade` -- so origin.screening_grade must be
+    read from `rating`. Before the fix it read `grade` and was therefore always
+    None on real screener output, mirroring ingest_vcp/ingest_canslim which
+    already read `rating`."""
+    state_dir = tmp_path / "theses"
+    record = {
+        "symbol": "NVDA",
+        "stage": "BREAKOUT",
+        "entry_price": 120.00,
+        "stop_price": 110.00,
+        "rating": "A",
+        "composite_score": 88.0,
+    }
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["origin"]["screening_grade"] == "A"
+    assert thesis["origin"]["screening_score"] == 88.0
+
+
+def test_ingest_pead_screening_grade_none_when_absent(tmp_path: Path):
+    """Defensive null path: a record with neither `rating` nor `grade`
+    yields screening_grade == None (not a crash), while the rest of the
+    thesis still registers."""
+    state_dir = tmp_path / "theses"
+    record = {"symbol": "TSLA", "stage": "MONITORING"}
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["origin"]["screening_grade"] is None
+
+
+@pytest.mark.parametrize(
+    "bad_stop_price",
+    [None, "not-a-number", float("nan"), float("inf"), float("-inf"), 0.0, -5.0],
+    ids=["missing", "non-numeric", "nan", "inf", "neg-inf", "zero", "negative"],
+)
+def test_ingest_pead_breakout_rejects_invalid_stop_fail_closed(tmp_path: Path, bad_stop_price):
+    """Money-adjacent fail-closed gate: an actionable (stage=BREAKOUT)
+    PEAD candidate with a missing/non-numeric/NaN/Infinity/non-positive
+    stop_price must be REJECTED, not silently registered with no stop or
+    a garbage stop.
+
+    The adapter raises ValueError (same mechanism every other adapter
+    uses for a missing required field, e.g. ingest_kanchi's missing
+    ticker) -- but thesis_ingest.ingest()'s per-record loop deliberately
+    catches ValueError from the adapter, logs it, and skips just that
+    record (thesis_ingest.py:517-521) rather than aborting the whole
+    batch or propagating to the caller. So the observable, asserted
+    behavior here is "not registered" (empty ids, nothing on disk), not
+    a raised exception -- matches the pre-existing convention, verified
+    empirically against this exact record shape before writing this
+    assertion."""
+    state_dir = tmp_path / "theses"
+    record = {"symbol": "TSLA", "stage": "BREAKOUT", "entry_price": 250.0}
+    if bad_stop_price is not None:
+        record["stop_price"] = bad_stop_price
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    assert ids == [], f"BREAKOUT with invalid stop_price={bad_stop_price!r} must not register"
+    assert not state_dir.exists() or list(state_dir.glob("th_*.yaml")) == []
+
+
+@pytest.mark.parametrize("stage", ["MONITORING", "SIGNAL_READY", "EXPIRED"])
+def test_ingest_pead_non_breakout_stage_allows_missing_stop(tmp_path: Path, stage):
+    """A non-actionable stage never had a real stop in the first place
+    (report_generator.py only computes one for BREAKOUT); ingest must
+    still succeed as an IDEA thesis with exit.stop_loss simply unset --
+    never filled with an invalid placeholder."""
+    state_dir = tmp_path / "theses"
+    record = {"symbol": "SNOW", "stage": stage}
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    assert len(ids) == 1
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["status"] == "IDEA"
+    assert thesis["exit"]["stop_loss"] is None
+
+
+def test_ingest_pead_breakout_with_valid_stop_still_succeeds(tmp_path: Path):
+    """Sanity check alongside the fail-closed tests: a well-formed BREAKOUT
+    record (fractional/typical stop) is NOT rejected by the new guard."""
+    state_dir = tmp_path / "theses"
+    record = {"symbol": "MDB", "stage": "BREAKOUT", "stop_price": 210.25}
+    input_file = _write_json(tmp_path, {"results": [record]})
+
+    ids = thesis_ingest.ingest("pead-screener", input_file, str(state_dir))
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["exit"]["stop_loss"] == 210.25
 
 
 # -- Tests: canslim adapter ----------------------------------------------------
@@ -220,7 +366,7 @@ def test_edge_market_basket_skipped(tmp_path: Path):
 def test_ingest_kanchi_rows_key(tmp_path: Path):
     """kanchi build_entry_signals.py uses 'rows' key, not 'candidates'."""
     state_dir = tmp_path / "theses"
-    record = {"ticker": "PG", "buy_target_price": 165.00}
+    record = {"ticker": "PG", "verdict": "PASS-CAUTION", "buy_target_price": 165.00}
     input_file = _write_json(tmp_path, {"rows": [record]})
 
     ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
@@ -262,7 +408,7 @@ def test_ingest_propagates_as_of_date(tmp_path: Path):
     data = {
         "as_of": "2026-02-20",
         "generated_at": "2026-02-20T10:00:00Z",
-        "rows": [{"ticker": "KO", "buy_target_price": 60.00}],
+        "rows": [{"ticker": "KO", "verdict": "CLEAN-PASS", "buy_target_price": 60.00}],
     }
     input_file = _write_json(tmp_path, data)
 

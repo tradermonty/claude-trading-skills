@@ -107,6 +107,13 @@ JSON fixture (one is shipped at `scripts/tests/fixtures/dry_run_minimal.json`).
    --bars-fixture <path>` against a JSON fixture
    (`scripts/tests/fixtures/intraday_bars/`).
 
+Phase 3 trigger detection is not an order instruction. Before any manual
+short entry, confirm borrow/locate availability, SEC Rule 201 SSR state,
+broker short-sale controls, and the broker's current intraday margin or
+day-trading controls. FINRA replaced the old pattern-day-trader day-count
+and $25,000 minimum-equity requirements with intraday margin standards
+effective 2026-06-04, with broker phase-in allowed through 2027-10-20.
+
 Phase 3 is **idempotent**: each run replays the full session bars
 from open up to `now_et` (or `--now-et` override), so re-running
 during the same minute produces the same state. `prior_state` is

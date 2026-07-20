@@ -72,6 +72,9 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | **Market Top Detector** | Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Defensive Rotation. 6-component tactical timing system | <span class="badge badge-free">No API</span> |
 | **[IBD Distribution Day Monitor]({{ '/en/skills/ibd-distribution-day-monitor/' | relative_url }})** | Daily IBD Distribution Day detection for QQQ/SPY with 25-session expiration and 5% invalidation. Risk classification (NORMAL/CAUTION/HIGH/SEVERE) and TQQQ/QQQ exposure recommendation | <span class="badge badge-api">FMP Required</span> |
 | **[Downtrend Duration Analyzer]({{ '/en/skills/downtrend-duration-analyzer/' | relative_url }})** | Analyzes historical downtrend durations (peak-to-trough) and generates interactive HTML histograms segmented by sector and market cap | <span class="badge badge-api">FMP Required</span> |
+| **[COT Contrarian Detector]({{ '/en/skills/cot-contrarian-detector/' | relative_url }})** | Detects crowded large-speculator positioning across 65 CFTC futures markets via COT Index (3-year/26-week), implementing step 1 of Jason Shapiro's contrarian methodology | <span class="badge badge-api">FMP Required</span> |
+| **[News Reaction Failure Analyzer]({{ '/en/skills/news-reaction-failure-analyzer/' | relative_url }})** | Judges whether a crowded market failed to react to favorable news via a Monte-Carlo-verified drift-significance test, implementing step 2 of Jason Shapiro's contrarian methodology | <span class="badge badge-api">FMP Required</span> |
+| **[Contrarian Setup Gate]({{ '/en/skills/contrarian-setup-gate/' | relative_url }})** | Synthesizes crowding, news-failure, and price-action verdicts into one setup_status via a fail-closed precedence state machine, implementing the decision center of Jason Shapiro's contrarian methodology. Beta. Pure offline calculation | <span class="badge badge-free">No API</span> |
 
 ---
 
@@ -100,6 +103,7 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | **[Drawdown Circuit Breaker]({{ '/en/skills/drawdown-circuit-breaker/' | relative_url }})** | Account-level risk gate that reads trader-memory-core state and returns TRADING_ALLOWED / COOLDOWN / HALTED from realized P&L, losing-streak, and weekly/monthly drawdown rules | <span class="badge badge-free">No API</span> |
 | **[Weekly Performance Digest]({{ '/en/skills/weekly-performance-digest/' | relative_url }})** | Aggregate the week's closed trades into win rate, expectancy, profit factor, R-multiple, and MAE/MFE, with win/loss pattern analysis by source skill, exit reason, thesis type, sector, and mechanism. Pure local calculation | <span class="badge badge-free">No API</span> |
 | **[Position Sizer]({{ '/en/skills/position-sizer/' | relative_url }})** | Risk-based position sizing using Fixed Fractional, ATR-based, and Kelly Criterion methods. Portfolio constraints (max position %, max sector %). Works offline | <span class="badge badge-free">No API</span> |
+| **[Futures Position Sizer]({{ '/en/skills/futures-position-sizer/' | relative_url }})** | Contract-based futures position sizing from direction/entry/stop using a verified 23-market contract-spec table (multiplier, tick size, tick value). Explicit flags or contrarian-setup-gate READY_FOR_PLAN handoff. Beta. Works offline | <span class="badge badge-free">No API</span> |
 | **[Breakout Trade Planner]({{ '/en/skills/breakout-trade-planner/' | relative_url }})** | Generates Minervini-style breakout trade plans from VCP screener output. Worst-case entry Gate, stop-limit bracket templates (pre_place / post_confirm), portfolio heat management | <span class="badge badge-free">No API</span> |
 | **[Parabolic Short Trade Planner]({{ '/en/skills/parabolic-short-trade-planner/' | relative_url }})** | Daily Parabolic Short screener (5-factor weighted score) plus pre-market plan generator that emits three conditional triggers per candidate (5-min ORL break, first red 5-min, VWAP fail). Alpaca ETB-only short check via `requests` (no SDK), SEC Rule 201 SSR tracker, blocking vs advisory manual confirmation reasons | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">Alpaca Optional</span> |
 | **[Exposure Coach]({{ '/en/skills/exposure-coach/' | relative_url }})** | Synthesizes outputs from breadth, regime, top-risk, and flow skills into a one-page Market Posture summary with net exposure ceiling (0-100%), growth-vs-value bias, and NEW_ENTRY_ALLOWED / REDUCE_ONLY / CASH_PRIORITY recommendation | <span class="badge badge-optional">FMP Optional</span> |
@@ -179,6 +183,7 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 
 - **Portfolio Manager** -- Real-time holdings analysis and rebalancing with Alpaca integration
 - **[Position Sizer]({{ '/en/skills/position-sizer/' | relative_url }})** -- Risk-based position sizing with portfolio constraints
+- **[Futures Position Sizer]({{ '/en/skills/futures-position-sizer/' | relative_url }})** -- Contract-based futures position sizing (multiplier/tick-value aware)
 - **[Trader Memory Core]({{ '/en/skills/trader-memory-core/' | relative_url }})** -- Track theses from idea to postmortem with persistent state
 
 ### I want to find trending themes
@@ -214,7 +219,7 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | Institutional Flow Tracker | Required | -- | -- |
 | Sector Analyst | -- | -- | -- |
 | Breadth Chart Analyst | -- | -- | -- |
-| Technical Analyst | -- | -- | -- |
+| Technical Analyst | Optional | -- | -- |
 | Market News Analyst | -- | -- | -- |
 | Market Environment Analysis | -- | -- | -- |
 | Market Breadth Analyzer | -- | -- | -- |
@@ -269,5 +274,9 @@ A comprehensive catalog of all 64 Claude Trading Skills organized by category. B
 | Stockbee Exhaustion Hammer Screener | Required | -- | -- |
 | Drawdown Circuit Breaker | -- | -- | -- |
 | Pre Trade Discipline Gate | -- | -- | -- |
+| COT Contrarian Detector | Required | -- | -- |
+| News Reaction Failure Analyzer | Required | -- | -- |
+| Contrarian Setup Gate | -- | -- | -- |
+| Futures Position Sizer | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

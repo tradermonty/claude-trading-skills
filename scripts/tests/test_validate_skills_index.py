@@ -669,6 +669,241 @@ def test_wf012_step_produces_undeclared_artifact(tmp_path: Path) -> None:
     assert "WF012" in codes(findings)
 
 
+def _setup_wf013_repo(
+    tmp_path: Path,
+    *,
+    artifacts: list[dict],
+    steps: list[dict],
+) -> None:
+    """Create a valid two-skill workflow for WF013 contract tests."""
+    write_skill(tmp_path, "alpha")
+    write_skill(tmp_path, "beta")
+    write_index(
+        tmp_path,
+        [
+            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill("beta"),
+        ],
+    )
+    write_workflow(
+        tmp_path,
+        "sample",
+        {
+            "schema_version": 1,
+            "id": "sample",
+            "required_skills": ["alpha"],
+            "optional_skills": [],
+            "artifacts": artifacts,
+            "steps": steps,
+            "journal_destination": "beta",
+        },
+    )
+
+
+def test_wf013_kanchi_weekly_intermediate_required_artifact_is_dangling(tmp_path: Path) -> None:
+    """A pre-fix kanchi-weekly-style required intermediate artifact must fail."""
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[
+            {"id": "kanchi_candidates", "produced_by_step": 3, "required": True},
+            {"id": "stock_memo", "produced_by_step": 3, "required": True},
+            {"id": "kanchi_thesis_entry", "produced_by_step": 6, "required": True},
+        ],
+        steps=[
+            {
+                "step": 3,
+                "name": "Run Kanchi underwriting",
+                "skill": "alpha",
+                "produces": ["kanchi_candidates", "stock_memo"],
+                "decision_gate": False,
+            },
+            {
+                "step": 6,
+                "name": "Register candidate thesis",
+                "skill": "alpha",
+                "consumes": ["kanchi_candidates"],
+                "produces": ["kanchi_thesis_entry"],
+                "decision_gate": False,
+            },
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    wf013 = [finding for finding in findings if finding.code == "WF013"]
+    assert len(wf013) == 1, findings
+    assert "stock_memo" in wf013[0].message
+
+
+def test_wf013_final_required_artifact_passes(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[
+            {
+                "id": "final_report",
+                "produced_by_step": 2,
+                "required": True,
+                "downstream_hints": ["another-workflow"],
+            }
+        ],
+        steps=[
+            {"step": 1, "name": "Prepare", "skill": "alpha", "decision_gate": False},
+            {
+                "step": 2,
+                "name": "Report",
+                "skill": "alpha",
+                "produces": ["final_report"],
+                "decision_gate": False,
+            },
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert codes(findings) == [], findings
+
+
+def test_wf013_terminal_artifact_without_downstream_hints_passes(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[{"id": "terminal_output", "produced_by_step": 2, "required": True}],
+        steps=[
+            {"step": 1, "name": "Prepare", "skill": "alpha", "decision_gate": False},
+            {
+                "step": 2,
+                "name": "Finish",
+                "skill": "alpha",
+                "produces": ["terminal_output"],
+                "decision_gate": False,
+            },
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert codes(findings) == [], findings
+
+
+def test_wf013_multiple_final_required_artifacts_pass(tmp_path: Path) -> None:
+    artifacts = [
+        {"id": "final_report", "produced_by_step": 2, "required": True},
+        {"id": "audit_record", "produced_by_step": 2, "required": True},
+    ]
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=artifacts,
+        steps=[
+            {"step": 1, "name": "Prepare", "skill": "alpha", "decision_gate": False},
+            {
+                "step": 2,
+                "name": "Publish",
+                "skill": "alpha",
+                "produces": ["final_report", "audit_record"],
+                "decision_gate": False,
+            },
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert codes(findings) == [], findings
+
+
+def test_wf013_intermediate_optional_artifact_may_be_dangling(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[{"id": "notes", "produced_by_step": 1, "required": False}],
+        steps=[
+            {
+                "step": 1,
+                "name": "Prepare",
+                "skill": "alpha",
+                "produces": ["notes"],
+                "decision_gate": False,
+            },
+            {"step": 2, "name": "Finish", "skill": "alpha", "decision_gate": False},
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert codes(findings) == [], findings
+
+
+def test_wf013_required_artifact_consumed_by_later_step_passes(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[{"id": "input_data", "produced_by_step": 1, "required": True}],
+        steps=[
+            {
+                "step": 1,
+                "name": "Prepare",
+                "skill": "alpha",
+                "produces": ["input_data"],
+                "decision_gate": False,
+            },
+            {
+                "step": 2,
+                "name": "Use data",
+                "skill": "alpha",
+                "consumes": ["input_data"],
+                "decision_gate": False,
+            },
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert codes(findings) == [], findings
+
+
+def test_wf013_required_must_be_yaml_boolean_true(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[{"id": "notes", "produced_by_step": 1, "required": "true"}],
+        steps=[
+            {
+                "step": 1,
+                "name": "Prepare",
+                "skill": "alpha",
+                "produces": ["notes"],
+                "decision_gate": False,
+            },
+            {"step": 2, "name": "Finish", "skill": "alpha", "decision_gate": False},
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert "WF013" not in codes(findings)
+
+
+def test_wf013_ignores_non_integer_step_when_finding_final_step(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[{"id": "terminal", "produced_by_step": 2, "required": True}],
+        steps=[
+            {"step": 1, "name": "Prepare", "skill": "alpha", "decision_gate": False},
+            {
+                "step": 2,
+                "name": "Finish",
+                "skill": "alpha",
+                "produces": ["terminal"],
+                "decision_gate": False,
+            },
+            {"step": "3", "name": "Invalid", "skill": "alpha", "decision_gate": False},
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert "WF013" not in codes(findings)
+
+
+def test_wf013_does_not_stack_on_wf012_mismatch(tmp_path: Path) -> None:
+    _setup_wf013_repo(
+        tmp_path,
+        artifacts=[{"id": "broken", "produced_by_step": 1, "required": True}],
+        steps=[
+            {"step": 1, "name": "Prepare", "skill": "alpha", "decision_gate": False},
+            {"step": 2, "name": "Finish", "skill": "alpha", "decision_gate": False},
+        ],
+    )
+    findings = validate(tmp_path, strict_workflows=True)
+    assert "WF012" in codes(findings)
+    assert "WF013" not in codes(findings)
+
+
+def test_wf013_current_workflow_corpus_passes() -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    findings = validate(project_root, strict_workflows=True, strict_metadata=True)
+    assert codes(findings) == [], findings
+
+
 def test_wf010_step_skill_not_in_required_skills(tmp_path: Path) -> None:
     _setup_minimal_workflow_repo(
         tmp_path,

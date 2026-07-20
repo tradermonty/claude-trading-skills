@@ -6,7 +6,7 @@ Strictness levels:
   --strict-workflows   : also resolve workflow references and check internal-consistency
   --strict-metadata    : also enforce timeframe/difficulty/inputs/outputs completeness
 
-Emits stable error codes (IDX001-009, WF001-010). See
+Emits stable error codes (IDX001-012, WF001-013). See
 docs/dev/metadata-and-workflow-schema.md for the full catalog.
 """
 
@@ -441,6 +441,7 @@ def _validate_workflow_internal(
 
     # Build step.produces map for WF012 cross-check
     step_produces: dict[int, set[str]] = {}
+    valid_steps: dict[int, dict] = {}
 
     seen_step_numbers: set[int] = set()
     non_optional_step_skills: set[str] = set()
@@ -451,6 +452,8 @@ def _validate_workflow_internal(
         step_num = step.get("step")
         if isinstance(step_num, int):
             seen_step_numbers.add(step_num)
+        if isinstance(step_num, int) and not isinstance(step_num, bool):
+            valid_steps[step_num] = step
         skill_id = str(step.get("skill") or "")
         is_optional = bool(step.get("optional", False))
         if isinstance(step_num, int):
@@ -573,6 +576,43 @@ def _validate_workflow_internal(
                         "error",
                         f"{rel_loc} step {step_num}",
                         f"step produces {art_id!r} which is not declared in artifacts:",
+                    )
+                )
+
+    # WF013: a required artifact produced before the final valid integer step
+    # must be consumed by a later step. Only artifacts whose production
+    # contract is WF012-valid participate, so malformed artifacts do not get a
+    # redundant WF013 finding.
+    if valid_steps:
+        final_step = max(valid_steps)
+        for art in artifacts:
+            if not isinstance(art, dict) or art.get("required") is not True:
+                continue
+            art_id = str(art.get("id") or "")
+            produced_by = art.get("produced_by_step")
+            if (
+                not art_id
+                or not isinstance(produced_by, int)
+                or isinstance(produced_by, bool)
+                or produced_by not in valid_steps
+                or art_id not in set(valid_steps[produced_by].get("produces") or [])
+                or produced_by >= final_step
+            ):
+                continue
+            consumed_later = any(
+                step_num > produced_by and art_id in set(step.get("consumes") or [])
+                for step_num, step in valid_steps.items()
+            )
+            if not consumed_later:
+                findings.append(
+                    Finding(
+                        "WF013",
+                        "error",
+                        rel_loc,
+                        (
+                            f"required artifact {art_id!r} produced at step {produced_by} "
+                            "is not consumed by any later step"
+                        ),
                     )
                 )
 

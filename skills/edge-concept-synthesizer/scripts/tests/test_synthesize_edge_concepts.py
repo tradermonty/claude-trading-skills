@@ -1,5 +1,7 @@
 """Unit tests for synthesize_edge_concepts.py."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import synthesize_edge_concepts as sec

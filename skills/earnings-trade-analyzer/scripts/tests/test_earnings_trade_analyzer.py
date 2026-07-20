@@ -455,6 +455,24 @@ class TestVolumeTrend:
         assert result["score"] == 0.0
         assert "warning" in result
 
+    def test_recent_window_is_anchored_at_latest_bar(self):
+        """An older earnings index must not move both averages into pre-event bars."""
+        prices = [
+            {
+                "date": f"2025-01-{80 - i:02d}",
+                "close": 100.0,
+                "volume": 2_000_000 if i < 20 else 500_000,
+            }
+            for i in range(80)
+        ]
+        prices[3]["date"] = "2025-01-01"
+
+        result = calculate_volume_trend(prices, "2025-01-01")
+
+        assert result["recent_avg_volume"] == 2_000_000
+        assert result["longer_avg_volume"] == 1_000_000
+        assert result["vol_ratio_20_60"] == 2.0
+
 
 # ===========================================================================
 # MA200 Calculator Tests
@@ -798,6 +816,38 @@ class TestReportGenerator:
             assert "AAPL" in content
             assert "Grade A & B Details" in content
 
+    def test_markdown_handles_none_numeric_timing_and_breakdown_values(self):
+        """Unavailable upstream values render as neutral values instead of crashing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self._make_result(grade="A")
+            result.update(
+                composite_score=None,
+                gap_pct=None,
+                market_cap=None,
+                earnings_timing=None,
+            )
+            result["components"] = {
+                "pre_earnings_trend": {"return_20d_pct": None},
+                "volume_trend": {"vol_ratio_20_60": None},
+                "ma200_position": {"distance_pct": None},
+                "ma50_position": {"distance_pct": None},
+            }
+            result["component_breakdown"] = {
+                "Gap Size": {"score": None, "weight": None, "weighted_score": None},
+                "Missing Fields": {},
+            }
+            md_path = os.path.join(tmpdir, "none-values.md")
+
+            generate_markdown_report(
+                [result],
+                {"generated_at": "2026-07-11", "lookback_days": 2},
+                md_path,
+            )
+
+            content = open(md_path).read()
+            assert "(UNKNOWN)" in content
+            assert "| Gap Size | 0 | 0% | 0.0 |" in content
+
     def test_markdown_sector_distribution(self):
         """Markdown report includes sector distribution table."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -839,6 +889,25 @@ class TestReportGenerator:
 
 class TestFMPClient:
     """Test FMP client error handling and budget enforcement."""
+
+    @patch("fmp_client.requests.Session")
+    def test_api_key_is_sent_as_query_parameter(self, mock_session_cls):
+        """FMP v3 authentication is carried in params, never a session header."""
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"ok": True}
+        mock_session = MagicMock()
+        mock_session.get.return_value = response
+        mock_session_cls.return_value = mock_session
+        client = FMPClient(api_key="query-key", max_api_calls=1)  # pragma: allowlist secret
+        client.RATE_LIMIT_DELAY = 0
+
+        assert client._rate_limited_get("https://example.test", {"symbol": "AAPL"}) == {"ok": True}
+        mock_session.get.assert_called_once_with(
+            "https://example.test",
+            params={"symbol": "AAPL", "apikey": "query-key"},  # pragma: allowlist secret
+            timeout=30,
+        )
+        assert "apikey" not in mock_session.headers
 
     @patch("fmp_client.requests.Session")
     def test_api_429_retry(self, mock_session_cls):
