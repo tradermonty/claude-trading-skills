@@ -36,6 +36,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
+from numeric_utils import MAX_ABS_FUNDING_RATE
+
 try:
     import requests
 except ImportError:  # pragma: no cover - exercised only without requests
@@ -316,6 +318,11 @@ def _validate_funding_rate(symbol, rate) -> None:
     if not isinstance(symbol, str) or not symbol.strip():
         raise ValueError("Snapshot 'funding' keys must be non-empty strings")
     _require_finite_number(rate, f"funding.{symbol}")
+    if abs(rate) > MAX_ABS_FUNDING_RATE:
+        raise ValueError(
+            f"Snapshot 'funding.{symbol}' must be between "
+            f"-{MAX_ABS_FUNDING_RATE:g} and {MAX_ABS_FUNDING_RATE:g}"
+        )
 
 
 def validate_snapshot(snapshot: dict) -> dict:

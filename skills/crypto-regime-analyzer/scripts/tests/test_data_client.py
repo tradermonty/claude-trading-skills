@@ -173,6 +173,22 @@ def test_snapshot_validation_rejects_malformed_or_non_finite_market_data(tmp_pat
         load_snapshot_from_json(str(bad))
 
 
+def test_load_snapshot_rejects_finite_but_impossible_funding_rate(tmp_path):
+    bad = tmp_path / "bad-funding.json"
+    bad.write_text(
+        json.dumps(
+            {
+                "series": {"BTC": [100.0]},
+                "dominance_series": [],
+                "funding": {"BTCUSDT": 1e308, "ETHUSDT": 1e308},
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="funding.*between"):
+        load_snapshot_from_json(str(bad))
+
+
 def test_build_snapshot_degrades_when_dominance_fetch_fails(tmp_path, monkeypatch):
     client = _client(tmp_path)
     monkeypatch.setattr(client, "fetch_universe", lambda: [{"id": "bitcoin", "symbol": "BTC"}])

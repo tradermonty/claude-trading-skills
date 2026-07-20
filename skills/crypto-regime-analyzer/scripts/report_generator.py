@@ -12,8 +12,9 @@ from scorer import COMPONENT_LABELS, COMPONENT_WEIGHTS
 
 def generate_json_report(analysis: dict, output_file: str):
     """Save full analysis as JSON."""
+    payload = json.dumps(analysis, indent=2, default=str, allow_nan=False)
     with open(output_file, "w") as f:
-        json.dump(analysis, f, indent=2, default=str)
+        f.write(payload)
     print(f"  JSON report saved to: {output_file}")
 
 

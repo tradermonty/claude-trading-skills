@@ -1,5 +1,7 @@
 """Tests for Component 4: Perpetual Funding Regime Calculator."""
 
+import math
+
 import pytest
 from calculators.funding_calculator import calculate_funding_regime
 
@@ -56,3 +58,12 @@ def test_annualization_math():
 def test_funding_band_boundaries(rate, expected_score):
     result = calculate_funding_regime({"A": rate, "B": rate})
     assert result["score"] == expected_score
+
+
+def test_extreme_finite_funding_never_produces_non_finite_output():
+    """Finite inputs must not turn into Infinity during averaging/annualizing."""
+    result = calculate_funding_regime({"A": 1e308, "B": 1e308})
+
+    assert result["data_available"] is False
+    assert "invalid" in result["signal"].lower()
+    assert all(not isinstance(value, float) or math.isfinite(value) for value in result.values())

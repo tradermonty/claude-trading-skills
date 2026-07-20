@@ -1,5 +1,7 @@
 """Tests for Component 5: Drawdown & Volatility Position Calculator."""
 
+import math
+
 from calculators.drawdown_vol_calculator import calculate_drawdown_vol
 
 
@@ -42,3 +44,13 @@ def test_score_within_bounds(trending_series):
         result = calculate_drawdown_vol(trending_series(n=400, daily_pct=pct))
         if result["data_available"]:
             assert 0 <= result["score"] <= 100
+
+
+def test_extreme_finite_prices_do_not_crash_or_emit_non_finite_values():
+    closes = ([1e-308, 1e308] * 183)[:365]
+
+    result = calculate_drawdown_vol(closes)
+
+    assert result["data_available"] is True
+    for key in ("drawdown_pct", "realized_vol_30d", "vol_percentile_1y"):
+        assert math.isfinite(result[key]), key

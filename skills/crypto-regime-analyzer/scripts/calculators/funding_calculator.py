@@ -18,8 +18,13 @@ Baseline note: Binance's default funding is +0.010% per 8h, so "neutral"
 clusters slightly positive by construction.
 
 Input: dict of {symbol: latest 8h funding rate as decimal} e.g.
-{"BTCUSDT": 0.0001} for +0.010%.
+{"BTCUSDT": 0.0001} for +0.010%. Rates outside [-1, 1] are rejected as
+invalid data before averaging or annualizing.
 """
+
+import math
+
+from numeric_utils import MAX_ABS_FUNDING_RATE, scaled_mean
 
 MIN_SYMBOLS = 2
 
@@ -34,7 +39,23 @@ def calculate_funding_regime(funding_map: dict) -> dict:
     Returns:
         Dict with score, signal, data_available, and funding details.
     """
-    rates = [r for r in (funding_map or {}).values() if r is not None]
+    raw_rates = [rate for rate in (funding_map or {}).values() if rate is not None]
+    invalid = [
+        rate
+        for rate in raw_rates
+        if isinstance(rate, bool)
+        or not isinstance(rate, (int, float))
+        or not math.isfinite(rate)
+        or abs(rate) > MAX_ABS_FUNDING_RATE
+    ]
+    if invalid:
+        return {
+            "score": 50,
+            "signal": "INVALID DATA: funding rate must be finite and between -1 and 1",
+            "data_available": False,
+        }
+
+    rates = raw_rates
     if len(rates) < MIN_SYMBOLS:
         return {
             "score": 50,
@@ -42,7 +63,7 @@ def calculate_funding_regime(funding_map: dict) -> dict:
             "data_available": False,
         }
 
-    avg = sum(rates) / len(rates)
+    avg = scaled_mean(rates)
     if avg <= -0.00010:
         score, label = 80, "WASHED OUT (negative funding; shorts paying longs)"
     elif avg < 0.0:

@@ -17,13 +17,14 @@ Inputs: >= 220 daily BTC closes (200-day average plus a 20-day slope lookback).
 
 | Structure | Base |
 |---|---|
+| price = 50DMA = 200DMA (flat) | 50 |
 | price > 50DMA > 200DMA (bull stack) | 90 |
 | price between 200DMA and 50DMA, stack intact (pullback) | 65 |
 | price below both, 50DMA still > 200DMA | 55 |
 | price > 50DMA but 50DMA <= 200DMA (recovery attempt) | 45 |
 | price < 50DMA < 200DMA (bear stack) | 15 |
 
-Modifier: 200DMA slope over a 20-day lookback, +10 rising / -10 falling. Signal notes when the 50/200DMA gap is within 1.5% (imminent cross watch). Score clamped to [0, 100].
+Modifier: 200DMA slope over a 20-day lookback, +10 rising / 0 flat / -10 falling. Signal notes when the 50/200DMA gap is within 1.5% (imminent cross watch). Score clamped to [0, 100].
 
 ### 2. Alt Breadth Participation (20%)
 
@@ -95,7 +96,7 @@ Rules:
 - Closes are finite positive numbers, oldest -> newest, ideally 400+ observations (220 minimum for BTC trend, 365 for drawdown/vol, 200 for alt breadth membership).
 - `dominance_series` is daily BTC dominance percentages oldest -> newest; empty list is allowed (component degrades).
 - `dominance_series` values must be finite percentages greater than 0 and at most 100.
-- `funding` values are finite decimal 8h rates (`0.0001` = +0.010%); empty object is allowed (component degrades).
+- `funding` values are finite decimal 8h rates (`0.0001` = +0.010%) in the inclusive range `[-1, 1]`; empty object is allowed (component degrades). The deliberately wide range is a numerical-safety guard, not a claim that such extreme rates are economically plausible.
 
 ## Data Sources (live mode)
 

@@ -1,8 +1,10 @@
 """Tests for the composite scorer and end-to-end offline analysis."""
 
+import json
+
 import pytest
 from crypto_regime_analyzer import run_analysis
-from report_generator import generate_markdown_report
+from report_generator import generate_json_report, generate_markdown_report
 from scorer import COMPONENT_WEIGHTS, calculate_composite_score
 
 
@@ -126,3 +128,24 @@ def test_run_analysis_rejects_non_finite_snapshot_values():
 
     with pytest.raises(ValueError, match="must be finite"):
         run_analysis(snapshot)
+
+
+def test_json_report_rejects_non_standard_non_finite_numbers(tmp_path):
+    output = tmp_path / "report.json"
+
+    with pytest.raises(ValueError):
+        generate_json_report({"bad": float("inf")}, str(output))
+    assert not output.exists()
+
+
+def test_end_to_end_extreme_finite_prices_remain_strict_json_serializable():
+    closes = ([1e-308, 1e308] * 183)[:365]
+    snapshot = {
+        "series": {"BTC": closes, **{f"ALT{i}": closes for i in range(5)}},
+        "dominance_series": [50.0] * 31,
+        "funding": {"BTCUSDT": 0.0001, "ETHUSDT": 0.0001},
+    }
+
+    analysis = run_analysis(snapshot)
+
+    json.dumps(analysis, allow_nan=False)

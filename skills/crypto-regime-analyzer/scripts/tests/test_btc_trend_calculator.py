@@ -43,3 +43,13 @@ def test_score_clamped_to_bounds(trending_series):
     up = calculate_btc_trend(trending_series(n=400, daily_pct=1.0))
     down = calculate_btc_trend(trending_series(n=400, daily_pct=-1.0))
     assert 0 <= down["score"] <= up["score"] <= 100
+
+
+def test_flat_series_is_neutral_with_flat_long_term_average():
+    result = calculate_btc_trend([100.0] * 220)
+
+    assert result["score"] == 50
+    assert "FLAT" in result["signal"]
+    assert "200DMA flat" in result["signal"]
+    assert "BEAR STACK" not in result["signal"]
+    assert "watch" not in result["signal"]

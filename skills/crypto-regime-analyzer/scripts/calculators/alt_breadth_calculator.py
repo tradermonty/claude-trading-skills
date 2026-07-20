@@ -21,6 +21,8 @@ Scoring (100 = broad participation):
     pct_above_50dma <= pct_above_200dma - 15pts -> -5  (rolling over)
 """
 
+from numeric_utils import scaled_mean
+
 MIN_HISTORY = 200
 MIN_UNIVERSE = 5
 
@@ -32,7 +34,7 @@ def _pct_above_sma(series_map: dict, window: int) -> tuple:
             skipped.append(symbol)
             continue
         counted += 1
-        if closes[-1] > sum(closes[-window:]) / window:
+        if closes[-1] > scaled_mean(closes[-window:]):
             above += 1
     pct = (above / counted * 100) if counted else 0.0
     return pct, counted, skipped

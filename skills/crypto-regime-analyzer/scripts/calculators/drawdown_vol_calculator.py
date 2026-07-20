@@ -44,16 +44,19 @@ def _drawdown_score(dd: float) -> int:
 
 
 def _realized_vol(closes: list, window: int) -> float:
+    # log(current) - log(previous) is algebraically identical to
+    # log(current / previous), but does not overflow/underflow when both
+    # prices are finite positive values at opposite IEEE-754 extremes.
     rets = [
-        math.log(closes[i] / closes[i - 1])
+        math.log(closes[i]) - math.log(closes[i - 1])
         for i in range(len(closes) - window + 1, len(closes))
         if closes[i - 1] > 0
     ]
     if len(rets) < 2:
         return 0.0
-    mean = sum(rets) / len(rets)
-    var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
-    return math.sqrt(var) * math.sqrt(365)
+    mean = math.fsum(rets) / len(rets)
+    var = math.fsum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
+    return math.sqrt(max(0.0, var)) * math.sqrt(365)
 
 
 def calculate_drawdown_vol(closes: list) -> dict:

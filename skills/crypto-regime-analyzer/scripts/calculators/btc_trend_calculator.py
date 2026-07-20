@@ -19,22 +19,29 @@ Scoring (100 = healthy risk-on trend):
 
   200DMA slope modifier (20-day lookback):
     rising  -> +10
+    flat    ->   0
     falling -> -10
 
   Cross proximity modifier:
     |50DMA - 200DMA| / 200DMA < 1.5% -> signal notes an imminent cross
     (no score change; informational)
 
+An exactly flat price/MA structure is neutral (50), not a bear stack.
 Score is clamped to [0, 100].
 """
+
+import math
+
+from numeric_utils import scaled_mean
 
 SLOPE_LOOKBACK = 20
 MIN_FULL_HISTORY = 200 + SLOPE_LOOKBACK
 CROSS_PROXIMITY_PCT = 0.015
+FLAT_REL_TOLERANCE = 1e-12
 
 
 def _sma(values: list, window: int) -> float:
-    return sum(values[-window:]) / window
+    return scaled_mean(values[-window:])
 
 
 def calculate_btc_trend(closes: list) -> dict:
@@ -57,10 +64,22 @@ def calculate_btc_trend(closes: list) -> dict:
     price = closes[-1]
     ma50 = _sma(closes, 50)
     ma200 = _sma(closes, 200)
-    ma200_prev = sum(closes[-(200 + SLOPE_LOOKBACK) : -SLOPE_LOOKBACK]) / 200
-    ma200_rising = ma200 > ma200_prev
+    ma200_prev = scaled_mean(closes[-(200 + SLOPE_LOOKBACK) : -SLOPE_LOOKBACK])
+    if math.isclose(ma200, ma200_prev, rel_tol=FLAT_REL_TOLERANCE, abs_tol=0.0):
+        ma200_direction = "flat"
+    elif ma200 > ma200_prev:
+        ma200_direction = "rising"
+    else:
+        ma200_direction = "falling"
+    ma200_rising = ma200_direction == "rising"
 
-    if price > ma50 > ma200:
+    is_flat_structure = all(
+        math.isclose(value, ma200, rel_tol=FLAT_REL_TOLERANCE, abs_tol=0.0)
+        for value in (price, ma50)
+    )
+    if is_flat_structure:
+        base, structure = 50, "FLAT (price = 50DMA = 200DMA)"
+    elif price > ma50 > ma200:
         base, structure = 90, "BULL STACK (price > 50DMA > 200DMA)"
     elif price > ma200 and price <= ma50 and ma50 > ma200:
         base, structure = 65, "BULL PULLBACK (price between 200DMA and 50DMA)"
@@ -71,11 +90,14 @@ def calculate_btc_trend(closes: list) -> dict:
     else:
         base, structure = 15, "BEAR STACK (price < 50DMA < 200DMA)"
 
-    score = base + (10 if ma200_rising else -10)
+    slope_modifier = (
+        10 if ma200_direction == "rising" else -10 if ma200_direction == "falling" else 0
+    )
+    score = base + slope_modifier
     score = max(0, min(100, score))
 
-    signal = f"{structure}; 200DMA {'rising' if ma200_rising else 'falling'}"
-    if ma200 > 0 and abs(ma50 - ma200) / ma200 < CROSS_PROXIMITY_PCT:
+    signal = f"{structure}; 200DMA {ma200_direction}"
+    if not is_flat_structure and ma200 > 0 and abs(ma50 - ma200) / ma200 < CROSS_PROXIMITY_PCT:
         cross = "golden cross" if ma50 <= ma200 and price > ma50 else "cross"
         signal += f"; 50/200DMA within 1.5% ({cross} watch)"
 
@@ -87,4 +109,5 @@ def calculate_btc_trend(closes: list) -> dict:
         "ma50": round(ma50, 2),
         "ma200": round(ma200, 2),
         "ma200_rising": ma200_rising,
+        "ma200_direction": ma200_direction,
     }

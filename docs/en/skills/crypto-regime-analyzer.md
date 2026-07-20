@@ -114,5 +114,6 @@ block, size, or execute a trade.
 
 - `skills/crypto-regime-analyzer/scripts/crypto_regime_analyzer.py`
 - `skills/crypto-regime-analyzer/scripts/data_client.py`
+- `skills/crypto-regime-analyzer/scripts/numeric_utils.py`
 - `skills/crypto-regime-analyzer/scripts/report_generator.py`
 - `skills/crypto-regime-analyzer/scripts/scorer.py`
