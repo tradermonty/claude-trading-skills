@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 import thesis_review
 import thesis_store
+import yaml
 
 # -- Helpers -------------------------------------------------------------------
 
@@ -203,6 +204,12 @@ def _index_file_hash(state_dir) -> str:
     succeeds, but this pins that structural guarantee explicitly)."""
     path = Path(state_dir) / thesis_store.INDEX_FILE
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_corrupted_thesis(state_dir, thesis_id: str, thesis: dict) -> None:
+    """Bypass the save-time validator to model a hand-edited/legacy file."""
+    path = Path(state_dir) / f"{thesis_id}.yaml"
+    path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
 
 
 # -- Tests: round-trip P&L (plan §3 test#2/#3/#4) ------------------------------
@@ -1719,6 +1726,97 @@ def test_trim_futures_rejects_overflow_with_finite_operands(tmp_path: Path):
     t = thesis_store.get(tmp_path, tid)
     assert t["status"] == "ACTIVE"
     assert t["position"]["quantity_remaining"] == 2
+
+
+def test_close_futures_rejects_disk_corrupted_huge_quantity_remaining(tmp_path: Path):
+    """Issue #258: huge quantity_remaining must not leak OverflowError."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKHUGEREM")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["quantity_remaining"] = 10**400
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+    before = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match="computed proceeds/realized_pnl overflowed") as exc_info:
+        thesis_store.close(tmp_path, tid, "manual", 5010.0, "2026-05-10T00:00:00+00:00")
+
+    assert isinstance(exc_info.value.__cause__, OverflowError)
+    assert _state_file_hash(tmp_path, tid) == before
+    assert _index_file_hash(tmp_path) == before_index
+    reloaded = thesis_store.get(tmp_path, tid)
+    assert reloaded["status"] == "ACTIVE"
+    assert reloaded["outcome"]["pnl_dollars"] is None
+    assert reloaded["position"]["quantity_remaining"] == 10**400
+
+
+def test_close_futures_rejects_disk_corrupted_huge_realized_ledger(tmp_path: Path):
+    """Issue #258: cumulative ledger arithmetic is independently guarded."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKHUGELEDGER")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["status_history"].append(
+        {
+            "status": "PARTIALLY_CLOSED",
+            "at": "2026-05-05T00:00:00+00:00",
+            "reason": "disk corruption fixture",
+            "realized_pnl": 10**400,
+        }
+    )
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+    before = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match="computed cumulative pnl_dollars overflowed") as exc_info:
+        thesis_store.close(tmp_path, tid, "manual", 5010.0, "2026-05-10T00:00:00+00:00")
+
+    assert isinstance(exc_info.value.__cause__, OverflowError)
+    assert _state_file_hash(tmp_path, tid) == before
+    assert _index_file_hash(tmp_path) == before_index
+    reloaded = thesis_store.get(tmp_path, tid)
+    assert reloaded["status"] == "ACTIVE"
+    assert reloaded["outcome"]["pnl_dollars"] is None
+
+
+def test_close_futures_rejects_disk_corrupted_huge_original_quantity(tmp_path: Path):
+    """Issue #258: pnl_pct denominator arithmetic is independently guarded."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKHUGEORIGINAL")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["quantity"] = 10**400
+    thesis["position"]["quantity_remaining"] = 1
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+    before = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match="computed pnl_pct overflowed") as exc_info:
+        thesis_store.close(tmp_path, tid, "manual", 5010.0, "2026-05-10T00:00:00+00:00")
+
+    assert isinstance(exc_info.value.__cause__, OverflowError)
+    assert _state_file_hash(tmp_path, tid) == before
+    assert _index_file_hash(tmp_path) == before_index
+    reloaded = thesis_store.get(tmp_path, tid)
+    assert reloaded["status"] == "ACTIVE"
+    assert reloaded["outcome"]["pnl_dollars"] is None
+    assert reloaded["position"]["quantity_remaining"] == 1
+
+
+def test_trim_futures_rejects_disk_corrupted_huge_multiplier(tmp_path: Path):
+    """Issue #258: trim P&L arithmetic converts OverflowError to ValueError."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESDISKHUGEMULT")
+    thesis = thesis_store.get(tmp_path, tid)
+    thesis["position"]["multiplier"] = 10**400
+    _write_corrupted_thesis(tmp_path, tid, thesis)
+    before = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match="computed realized_pnl/proceeds overflowed") as exc_info:
+        thesis_store.trim(tmp_path, tid, 1, 5010.0, "2026-05-10")
+
+    assert isinstance(exc_info.value.__cause__, OverflowError)
+    assert _state_file_hash(tmp_path, tid) == before
+    assert _index_file_hash(tmp_path) == before_index
+    reloaded = thesis_store.get(tmp_path, tid)
+    assert reloaded["status"] == "ACTIVE"
+    assert reloaded["outcome"]["pnl_dollars"] is None
+    assert reloaded["position"]["quantity_remaining"] == 2
 
 
 def test_open_position_direct_open_requires_contract_currency(tmp_path: Path):
