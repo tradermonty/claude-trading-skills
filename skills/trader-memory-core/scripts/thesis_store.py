@@ -187,6 +187,26 @@ _MAX_CONTRACTS = 10**12
 _MAX_SHARES = 10**12
 
 
+def _valid_finite_number(value: Any) -> float | None:
+    """Return a finite numeric value as float, or ``None`` when invalid.
+
+    Unlike the positive/non-negative validators below, this deliberately
+    accepts zero and negative values: equity ``actual_price`` fields may be
+    zero (for example, a delisted stock), and their storage contract is
+    finite-only.  Bool is excluded explicitly, and ``OverflowError`` from a
+    Python integer too large for ``math.isfinite()`` is treated as invalid
+    input rather than escaping from a public API call (Issue #257).
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        if not math.isfinite(value):
+            return None
+        return float(value)
+    except OverflowError:
+        return None
+
+
 def _valid_finite_positive(value: Any) -> float | None:
     """A usable positive number from untrusted input: finite, non-bool,
     strictly > 0. `isinstance(True, int)` is `True` in Python, so bool
@@ -540,6 +560,22 @@ def _validate_thesis(thesis: dict) -> None:
     errors = sorted(validator.iter_errors(thesis), key=lambda e: list(e.path))
     if errors:
         raise ValueError(f"Schema validation failed: {errors[0].message}")
+
+    # Issue #257: JSON Schema's ``type: number`` accepts NaN/Infinity in
+    # Python, so validate both stored price fields at the common save
+    # chokepoint. update() and future load-mutate-save paths can touch either
+    # field outside the normal lifecycle helpers. Equity prices are
+    # finite-only (zero and negatives remain valid by contract); futures keep
+    # their existing finite-positive contract even through generic writes.
+    price_validator = _valid_finite_positive if _is_futures(thesis) else _valid_finite_number
+    price_requirement = "a finite positive number" if _is_futures(thesis) else "a finite number"
+    for section_name in ("entry", "exit"):
+        actual_price = (thesis.get(section_name) or {}).get("actual_price")
+        if actual_price is not None and price_validator(actual_price) is None:
+            raise ValueError(
+                f"thesis {section_name}.actual_price is invalid: {actual_price!r} "
+                f"(must be {price_requirement})"
+            )
 
     status = thesis.get("status")
 
@@ -1832,6 +1868,14 @@ def close(
             f"Can only close ACTIVE or PARTIALLY_CLOSED thesis, current status: {thesis['status']}"
         )
 
+    # Issue #257: reject malformed equity API input before any arithmetic or
+    # in-memory mutation.  Futures dispatched above and retain their stricter
+    # finite-positive contract and existing error messages.
+    if _valid_finite_number(actual_price) is None:
+        raise ValueError(
+            f"close() requires a finite actual_price for an equity thesis, got {actual_price!r}"
+        )
+
     entry_price = thesis["entry"].get("actual_price")
     entry_date = thesis["entry"].get("actual_date")
 
@@ -2012,6 +2056,10 @@ def trim(
         raise ValueError(
             f"Can only trim ACTIVE or PARTIALLY_CLOSED thesis, current status: {status}"
         )
+
+    # Issue #257: validate before the subtraction/multiplication below.
+    if _valid_finite_number(price) is None:
+        raise ValueError(f"trim() requires a finite price for an equity thesis, got {price!r}")
 
     entry_price = thesis["entry"].get("actual_price")
     if entry_price is None:
@@ -2348,6 +2396,14 @@ def open_position(
     if thesis["status"] != "ENTRY_READY":
         raise ValueError(f"open_position() requires ENTRY_READY status, got {thesis['status']}")
 
+    # Issue #257: prevent a non-finite equity entry price from reaching ACTIVE.
+    # Futures dispatched above and keep their finite-positive validation.
+    if _valid_finite_number(actual_price) is None:
+        raise ValueError(
+            "open_position() requires a finite actual_price for an equity thesis, "
+            f"got {actual_price!r}"
+        )
+
     now = _now_iso()
     thesis["entry"]["actual_price"] = actual_price
     thesis["entry"]["actual_date"] = actual_date
@@ -2556,6 +2612,14 @@ def terminate(
 
     if thesis["status"] in _TERMINAL_STATUSES:
         raise ValueError(f"Cannot terminate: already in terminal status {thesis['status']}")
+
+    # INVALIDATED permits an omitted price, but a provided equity price must
+    # be finite before any outcome arithmetic or exit-field mutation.
+    if actual_price is not None and _valid_finite_number(actual_price) is None:
+        raise ValueError(
+            "terminate() requires a finite actual_price for an equity thesis "
+            f"when provided, got {actual_price!r}"
+        )
 
     now = _now_iso()
 

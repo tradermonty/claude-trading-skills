@@ -465,6 +465,28 @@ def test_update_rejects_nan_multiplier_on_active_futures(tmp_path: Path):
     assert thesis_store.get(tmp_path, tid)["position"]["multiplier"] == 50
 
 
+@pytest.mark.parametrize("section_name", ["entry", "exit"])
+@pytest.mark.parametrize("bad_price", [0, -1.0])
+def test_update_rejects_nonpositive_futures_actual_price(tmp_path: Path, section_name, bad_price):
+    """Issue #257 review: the common save chokepoint must preserve the
+    futures finite-positive price contract even through generic update()."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESUPDATEPRICE")
+    before_state = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match=rf"thesis {section_name}\.actual_price is invalid"):
+        thesis_store.update(
+            tmp_path,
+            tid,
+            {section_name: {"actual_price": bad_price}},
+        )
+
+    assert _state_file_hash(tmp_path, tid) == before_state
+    assert _index_file_hash(tmp_path) == before_index
+    assert thesis_store.get(tmp_path, tid)["entry"]["actual_price"] == 5000.0
+    assert thesis_store.get(tmp_path, tid)["exit"]["actual_price"] is None
+
+
 def test_update_rejects_injecting_futures_position_with_nan_multiplier(tmp_path: Path):
     """New-P1/P2: injecting a FRESH futures-shaped position (on a
     non-futures thesis) with a NaN multiplier via update() is rejected by
