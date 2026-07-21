@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import sys
@@ -34,6 +35,22 @@ class _FakeResponse:
 
     def read(self):
         return self._body
+
+
+class _ReadErrorResponse:
+    """Fake urlopen() context manager that fails while reading the body."""
+
+    def __init__(self, error: BaseException):
+        self._error = error
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+    def read(self):
+        raise self._error
 
 
 SAFE_DATA_QUALITY = {
@@ -93,7 +110,7 @@ class TestTierRank:
         "value",
         [0, -1, 4, 99, True, "2", "HIGH", None],
     )
-    def test_only_api_contract_tiers_are_accepted(self, value):
+    def test_only_supported_live_response_tiers_are_accepted(self, value):
         assert fetch_calendar._tier_rank(value) is None
 
 
@@ -246,6 +263,29 @@ class TestResponseContract:
 
 
 class TestFetchCalendar:
+    @pytest.mark.parametrize(
+        "read_error",
+        [
+            http.client.IncompleteRead(b"partial", 100),
+            ConnectionResetError("connection reset; api_key=PURE_SECRET"),
+            OSError("socket read failed; api_key=PURE_SECRET"),
+        ],
+        ids=("incomplete-read", "connection-reset", "os-error"),
+    )
+    def test_response_read_error_is_sanitized_runtime_error(self, monkeypatch, read_error):
+        monkeypatch.setenv("FXMACRODATA_API_KEY", "PURE_SECRET")
+        monkeypatch.setattr(
+            fetch_calendar.urllib.request,
+            "urlopen",
+            lambda *a, **k: _ReadErrorResponse(read_error),
+        )
+
+        with pytest.raises(RuntimeError, match="response body could not be read") as exc_info:
+            fetch_calendar.fetch_calendar("usd", 50, 1)
+
+        assert "PURE_SECRET" not in str(exc_info.value)
+        assert exc_info.value.__cause__ is read_error
+
     @pytest.mark.parametrize("currency", ["us", "usd\nkey", "u$d", "円円円"])
     def test_invalid_currency_is_rejected_before_request(self, monkeypatch, currency):
         def unexpected_urlopen(*args, **kwargs):
@@ -418,6 +458,37 @@ class TestFetchCalendar:
 
 
 class TestMainErrorHandling:
+    @pytest.mark.parametrize(
+        "read_error",
+        [
+            http.client.IncompleteRead(b"partial", 100),
+            ConnectionResetError("connection reset; api_key=CLI_SECRET"),
+            OSError("socket read failed; api_key=CLI_SECRET"),
+        ],
+        ids=("incomplete-read", "connection-reset", "os-error"),
+    )
+    def test_response_read_error_exits_cleanly_without_key_leak(
+        self, monkeypatch, capsys, read_error
+    ):
+        monkeypatch.setenv("FXMACRODATA_API_KEY", "CLI_SECRET")
+        monkeypatch.setattr(
+            fetch_calendar.urllib.request,
+            "urlopen",
+            lambda *a, **k: _ReadErrorResponse(read_error),
+        )
+        monkeypatch.setattr(sys, "argv", ["fetch_calendar.py", "--currency", "usd"])
+
+        with pytest.raises(SystemExit) as exc_info:
+            fetch_calendar.main()
+
+        assert exc_info.value.code != 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "Error:" in captured.err
+        assert "response body could not be read" in captured.err
+        assert "Traceback" not in captured.err
+        assert "CLI_SECRET" not in captured.err
+
     def test_cli_rejects_out_of_range_min_tier(self, monkeypatch, capsys):
         monkeypatch.setattr(
             sys,

@@ -47,7 +47,7 @@ def _normalize_currency(value: str) -> str:
 
 
 def _tier_rank(value: Any) -> int | None:
-    """Return an API-contract market tier, or None for invalid input."""
+    """Return a supported live-response market tier, or None for invalid input."""
     if isinstance(value, int) and not isinstance(value, bool) and value in VALID_MARKET_TIERS:
         return value
     return None
@@ -209,6 +209,10 @@ def fetch_calendar(currency: str, limit: int, min_tier: int | None) -> dict[str,
     except (http.client.InvalidURL, ValueError) as exc:
         raise RuntimeError(
             f"FXMacroData API request could not be built for currency={normalized_currency}"
+        ) from exc
+    except (http.client.HTTPException, OSError) as exc:
+        raise RuntimeError(
+            f"FXMacroData API response body could not be read for currency={normalized_currency}"
         ) from exc
 
     payload = _validate_calendar_payload(payload, normalized_currency.upper())

@@ -60,6 +60,8 @@ python3 skills/fxmacrodata-calendar/scripts/fetch_calendar.py \
 
 `--min-tier` には `1`、`2`、`3` のいずれかを指定します。数値が小さいほど重要度が高く、たとえば `--min-tier 2` はtier 1とtier 2を返します。取得件数は `--limit` で指定でき、1〜100件に制限されます。
 
+ライブのカレンダーレスポンスには現在 `market_tier` が含まれていますが、現行OpenAPIの `CalendarReleaseRow` にはこの項目が定義されていません。このスキルではライブ拡張フィールドとして扱い、フィルタリングのため整数の1〜3を必須とします。
+
 ---
 
 ## 4. ワークフロー

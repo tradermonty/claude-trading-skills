@@ -38,4 +38,7 @@ top-tier macro risk check.
 Set `FXMACRODATA_API_KEY` for authenticated FXMacroData endpoints. Public USD
 calendar rows can be fetched without a key. The client uses the canonical
 `https://api.fxmacrodata.com/v1` endpoint and accepts `--min-tier` values 1,
-2, or 3 only.
+2, or 3 only. Live calendar responses currently include `market_tier`; the
+skill treats it as an extension field and requires integer values 1 through 3
+for filtering, although the current `CalendarReleaseRow` OpenAPI schema does
+not declare that field.
