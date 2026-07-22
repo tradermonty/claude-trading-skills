@@ -26,6 +26,7 @@ from analyze_news_reaction import (  # noqa: E402
     fetch_price_series,
     generate_json_report,
     generate_markdown_report,
+    load_json_file,
     resolve_direction_from_detector,
     validate_events,
 )
@@ -145,6 +146,50 @@ class TestFetchPriceSeries:
         chain = [("ZQUSD", "futures", False)]
         result = fetch_price_series(client, chain, "2026-06-01", "2026-06-29", as_of="2026-06-29")
         assert result["error"] == "no_price_source"
+
+
+# ---------------------------------------------------------------------------
+# JSON input loading
+# ---------------------------------------------------------------------------
+
+
+class TestLoadJsonFile:
+    def test_valid_json_returns_no_error_or_reason(self, tmp_path):
+        path = tmp_path / "valid.json"
+        path.write_text('{"events": []}', encoding="utf-8")
+
+        data, error, reason = load_json_file(str(path))
+
+        assert data == {"events": []}
+        assert error is None
+        assert reason is None
+
+    def test_invalid_json_returns_parse_error_reason(self, tmp_path):
+        path = tmp_path / "invalid.json"
+        path.write_text("{bad json", encoding="utf-8")
+
+        data, error, reason = load_json_file(str(path))
+
+        assert data is None
+        assert error is not None
+        assert reason == "parse_error"
+
+    def test_missing_file_returns_unreadable_reason(self, tmp_path):
+        data, error, reason = load_json_file(str(tmp_path / "missing.json"))
+
+        assert data is None
+        assert error is not None
+        assert reason == "unreadable"
+
+    def test_non_utf8_file_returns_unreadable_reason(self, tmp_path):
+        path = tmp_path / "binary.json"
+        path.write_bytes(b"\xff\xfe\x00bad")
+
+        data, error, reason = load_json_file(str(path))
+
+        assert data is None
+        assert error is not None
+        assert reason == "unreadable"
 
 
 def _weekday_dates(start, count):
@@ -584,6 +629,52 @@ class TestMainFailsClosedOnMalformedInput:
         report_files = list(out_dir.glob(f"nrf_{symbol}_*.json"))
         assert len(report_files) == 1, f"expected exactly 1 report, found {report_files}"
         return json.loads(report_files[0].read_text(encoding="utf-8"))
+
+    def _assert_failed_input(self, result, out_dir, reason):
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "WARN:" in result.stderr
+        assert "Traceback" not in result.stderr
+        payload = self._report(out_dir)
+        assert payload["verdict"] == "INSUFFICIENT_EVIDENCE"
+        assert payload["verdict_reason"] == reason
+
+    def test_events_json_non_utf8_is_unreadable_and_writes_report(self, tmp_path):
+        events_path = tmp_path / "events_binary.json"
+        events_path.write_bytes(b"\xff\xfe\x00bad")
+
+        result, out_dir = self._run_cli(
+            tmp_path,
+            ["--direction", "CROWDED_SHORT", "--events-json", str(events_path)],
+        )
+
+        self._assert_failed_input(result, out_dir, "events_json_unreadable")
+
+    def test_events_json_invalid_syntax_is_parse_error_and_writes_report(self, tmp_path):
+        events_path = tmp_path / "events_invalid.json"
+        events_path.write_text("{bad json", encoding="utf-8")
+
+        result, out_dir = self._run_cli(
+            tmp_path,
+            ["--direction", "CROWDED_SHORT", "--events-json", str(events_path)],
+        )
+
+        self._assert_failed_input(result, out_dir, "events_json_parse_error")
+
+    def test_detector_json_non_utf8_is_unreadable_and_writes_report(self, tmp_path):
+        detector_path = tmp_path / "detector_binary.json"
+        detector_path.write_bytes(b"\xff\xfe\x00bad")
+
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+
+        self._assert_failed_input(result, out_dir, "detector_json_unreadable")
+
+    def test_detector_json_invalid_syntax_is_parse_error_and_writes_report(self, tmp_path):
+        detector_path = tmp_path / "detector_invalid.json"
+        detector_path.write_text("{bad json", encoding="utf-8")
+
+        result, out_dir = self._run_cli(tmp_path, ["--detector-json", str(detector_path)])
+
+        self._assert_failed_input(result, out_dir, "detector_json_parse_error")
 
     def test_events_json_top_level_null_exits_0_and_writes_report(self, tmp_path):
         events_path = tmp_path / "events_null.json"

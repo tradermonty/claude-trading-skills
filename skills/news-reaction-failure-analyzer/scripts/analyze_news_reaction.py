@@ -324,16 +324,22 @@ def fetch_price_series(
 # --- Detector-json handling --------------------------------------------------
 
 
-def load_json_file(path: str) -> tuple[dict[str, Any] | None, str | None]:
-    """Read and parse a JSON file. Returns (data, None) or (None, error)."""
+def load_json_file(
+    path: str,
+) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    """Read and parse JSON, returning data plus a machine-readable failure reason.
+
+    ``unreadable`` covers filesystem and UTF-8 decoding failures, while
+    ``parse_error`` means the file was readable text but not valid JSON.
+    """
     try:
         text = Path(path).read_text(encoding="utf-8")
-    except OSError as exc:
-        return None, f"cannot read {path}: {exc}"
+    except (OSError, UnicodeError) as exc:
+        return None, f"cannot read {path}: {exc}", "unreadable"
     try:
-        return json.loads(text), None
+        return json.loads(text), None, None
     except json.JSONDecodeError as exc:
-        return None, f"invalid JSON in {path}: {exc}"
+        return None, f"invalid JSON in {path}: {exc}", "parse_error"
 
 
 def resolve_direction_from_detector(
@@ -774,10 +780,29 @@ def main() -> None:
     direction = args.direction
     detector_age_days = None
     if direction is None and args.detector_json:
-        detector_data, error = load_json_file(args.detector_json)
+        detector_data, error, load_reason = load_json_file(args.detector_json)
         if error:
-            print(f"Error: {error}", file=sys.stderr)
-            sys.exit(1)
+            print(f"WARN: {error}", file=sys.stderr)
+            run_context = build_run_context(
+                None,
+                None,
+                False,
+                False,
+                args.window_days,
+                args.min_events,
+                args.z_threshold,
+                args.drift_z,
+                args.as_of,
+                args.detector_json,
+                None,
+            )
+            reason = (
+                "detector_json_unreadable"
+                if load_reason == "unreadable"
+                else "detector_json_parse_error"
+            )
+            emit(_insufficient_evidence_output(symbol, None, reason, args, run_context))
+            sys.exit(0)
         direction, reason, ctx = resolve_direction_from_detector(
             detector_data, symbol, args.as_of, args.max_detector_age_days
         )
@@ -840,10 +865,27 @@ def main() -> None:
         )
         sys.exit(0)
 
-    events_data, error = load_json_file(args.events_json)
+    events_data, error, load_reason = load_json_file(args.events_json)
     if error:
-        print(f"Error: {error}", file=sys.stderr)
-        sys.exit(1)
+        print(f"WARN: {error}", file=sys.stderr)
+        run_context = build_run_context(
+            None,
+            None,
+            False,
+            False,
+            args.window_days,
+            args.min_events,
+            args.z_threshold,
+            args.drift_z,
+            args.as_of,
+            args.detector_json,
+            detector_age_days,
+        )
+        reason = (
+            "events_json_unreadable" if load_reason == "unreadable" else "events_json_parse_error"
+        )
+        emit(_insufficient_evidence_output(symbol, direction, reason, args, run_context))
+        sys.exit(0)
     # events_data is untrusted, parsed JSON: valid JSON but the wrong shape
     # (top-level list/string/null, or "events" not a list at all) must
     # never crash -- degrade to malformed_events_json, exactly like every
