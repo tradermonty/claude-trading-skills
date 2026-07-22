@@ -1,6 +1,7 @@
 schema_version: 1
 id: kanchi-dividend-weekly
 display_name: Kanchi Dividend Weekly
+display_name_ja: Kanchi式配当銘柄の週次選定
 cadence: weekly
 estimated_minutes: 60
 target_users:
@@ -14,6 +15,10 @@ when_to_run: >-
   Kanchi's 5-step method: screen for yield/quality, deep-dive the strongest
   names, and register a fully-documented candidate thesis before any entry.
   v1 covers US-listed dividend stocks only.
+when_to_run_ja: >-
+  Kanchiの5ステップ手法で米国上場の新規配当候補を抽出・精査するため、週次で実行する。
+  利回りと品質でスクリーニングし、有力銘柄を詳細分析して、エントリー前に根拠を
+  完全に記録した候補の投資仮説を登録する。v1は米国上場の配当株のみを対象とする。
 when_not_to_run: >-
   Not for Japanese or other non-US-listed dividend stocks -- this workflow
   neither covers nor implies support for them in v1. Not a claim that
@@ -22,6 +27,12 @@ when_not_to_run: >-
   existing holding -- that is core-portfolio-weekly's job (this workflow is
   for finding and underwriting NEW candidates). No order is ever placed
   automatically; every buy is entered manually at the broker.
+when_not_to_run_ja: >-
+  日本株や米国以外の市場に上場する配当株には使用しない。v1では対応せず、対応を示唆もしない。
+  Kanchi式スクリーニングが収益性のある戦略だと主張するものではない。これは買いシグナルではなく、
+  規律ある候補抽出手順である。既存保有銘柄の管理には使用しない。それは
+  core-portfolio-weekly の役割であり、このワークフローは新規候補の発見と精査を目的とする。
+  注文は自動発注せず、すべての買い注文をブローカーで手動入力する。
 
 required_skills:
   - kanchi-dividend-sop
@@ -41,6 +52,9 @@ prerequisite_workflows:
       Use its live holdings as the source when optional tax or review-monitor
       checks are requested. Normalize that snapshot to each skill's distinct
       manual input schema; skip steps 4-5 when no applicable input exists.
+    rationale_ja: >-
+      任意の税務またはレビュー監視チェックを行う場合、そのライブ保有情報を入力元として使う。
+      各スキル固有の手動入力スキーマへ正規化し、該当する入力がなければステップ4と5を省略する。
 
 manual_inputs:
   - id: tax_holdings_input
@@ -52,6 +66,10 @@ manual_inputs:
       Operator-supplied JSON with holdings[]. For a new candidate, provide a
       hypothetical intended account and leave hold_days_in_window absent so
       the result remains assumption-required rather than falsely confirmed.
+    description_ja: >-
+      holdings[] を含むオペレーター提供のJSON。新規候補では予定口座を仮定値として指定し、
+      hold_days_in_window は省略する。これにより、結果を誤って確認済みにせず
+      assumption-required のまま保持する。
   - id: review_monitor_input
     required: false
     used_by_steps:
@@ -61,6 +79,9 @@ manual_inputs:
       Normalized existing-holding JSON with dividend and risk evidence. This
       is not derivable from a candidate ticker alone; skip step 5 for a new,
       not-yet-held name without monitoring evidence.
+    description_ja: >-
+      配当とリスクの証拠を含む、正規化済みの既存保有銘柄JSON。候補ティッカーだけからは
+      導出できないため、まだ保有しておらず監視証拠がない新規銘柄ではステップ5を省略する。
 
 artifacts:
   - id: high_yield_candidates
@@ -91,6 +112,7 @@ artifacts:
 steps:
   - step: 1
     name: Screen for high-yield candidates
+    name_ja: 高配当候補をスクリーニングする
     skill: value-dividend-screener
     optional: true
     produces:
@@ -99,6 +121,7 @@ steps:
 
   - step: 2
     name: Screen for dividend-growth pullbacks
+    name_ja: 増配株の押し目候補をスクリーニングする
     skill: dividend-growth-pullback-screener
     optional: true
     produces:
@@ -107,6 +130,7 @@ steps:
 
   - step: 3
     name: Run the Kanchi 5-step underwriting
+    name_ja: Kanchiの5ステップ精査を実行する
     skill: kanchi-dividend-sop
     consumes:
       - high_yield_candidates
@@ -122,12 +146,19 @@ steps:
       forward to sizing or registration. Candidates may come from step 1/2
       screeners (use if available) or a manually supplied ticker list --
       neither screener is required to run this step.
+    decision_question_ja: >-
+      各候補のKanchi判定は実行可能な段階（CLEAN-PASS / PASS-CAUTION /
+      CONDITIONAL-PASS）に達しているか。HOLD-REVIEW、STEP1-RECHECK、FAIL は
+      fail-closed とし、サイズ計算や登録へ進めずここで停止する。候補はステップ1・2の
+      スクリーナー出力を利用可能なら使うか、手動提供のティッカー一覧から取得できる。
+      このステップの実行にどちらのスクリーナーも必須ではない。
     depends_on:
       - 1
       - 2
 
   - step: 4
     name: Check US tax and account-location treatment
+    name_ja: 米国税務と口座配置の扱いを確認する
     skill: kanchi-dividend-us-tax-accounting
     optional: true
     produces:
@@ -136,6 +167,7 @@ steps:
 
   - step: 5
     name: Check existing-holding review triggers
+    name_ja: 既存保有銘柄のレビュー条件を確認する
     skill: kanchi-dividend-review-monitor
     optional: true
     produces:
@@ -144,6 +176,7 @@ steps:
 
   - step: 6
     name: Register the candidate thesis
+    name_ja: 候補の投資仮説を登録する
     skill: trader-memory-core
     consumes:
       - kanchi_candidates
@@ -163,6 +196,14 @@ steps:
       tranche plan before entering an order. Never transition the thesis to
       ACTIVE until a real broker fill happens -- this step only reaches
       IDEA / ENTRY_READY.
+    decision_question_ja: >-
+      実行可能な各候補について、kanchi_candidates の判定を IDEA の投資仮説として
+      取り込み、保存した stock_memo ファイルを thesis_store.link_report() で関連付ける。
+      利用可能な場合は、税務・口座配置の助言とレビュー監視フラグも関連付け、根拠が完全に
+      記録されたKanchiメモを、文章で参照するだけでなく監査可能な記録の一部にする。
+      注文前に未解決の阻害要因、ポジションサイズ、セクター集中、分割買い計画を確認する。
+      ブローカーで実際に約定するまで投資仮説を ACTIVE に移行しない。このステップは
+      IDEA / ENTRY_READY までとする。
     depends_on:
       - 3
       - 4
@@ -200,5 +241,16 @@ manual_review:
   - Command examples for dividend-growth-pullback-screener must use
     `screen_dividend_growth_rsi.py` -- `screen_dividend_growth.py` does not
     exist in this repository.
+manual_review_ja:
+  - Kanchi判定が HOLD-REVIEW、STEP1-RECHECK、FAIL の場合は fail-closed とし、サイズ計算や投資仮説登録へ進めない。
+  - ステップ3の株式メモ（kanchi-dividend-sop の `references/stock-note-template.md` に基づく手書き1ページ）は kanchi_candidates JSON に埋め込まれない。ファイルへ保存し、IDEA の投資仮説登録後に `thesis_store.link_report(state_dir, thesis_id, "kanchi-dividend-sop", <memo_path>, date)` を呼び出して添付する。この呼び出しがなければ、メモを作成していても投資仮説の `linked_reports` に記録されない。
+  - 注文を自動発注せず、投資仮説を自動で ACTIVE へ移行しない。すべての約定をブローカーで手動入力し、その後 open-position で記録する。
+  - ステップ1・2のスクリーナーは任意であり、手動提供のティッカー一覧もステップ3への有効な入力とする。
+  - ステップ4の税務・口座配置の助言は参考情報であり、権威ある判断ではない。行動前に税務専門家または実際のブローカー・カストディアン資料で確認する。
+  - ステップ4にはリンク先スキーマに合う `tax_holdings_input` が必要であり、スクリーナーの未加工行を税務上の保有情報として直接渡さない。
+  - ステップ5のレビュー監視が既存保有銘柄を WARN または REVIEW と判定した場合、その銘柄の買い増しだけを一時停止する。自動売却は行わない。
+  - ステップ5には、より詳細なリンク先スキーマに合う `review_monitor_input` が必要である。ティッカーだけでは不十分なため、不足証拠を作り出さず任意ステップを省略する。
+  - スクリーナー出力は共有 `reports/` ではなく各スキル固有の `logs/` 配下に保存される。ステップを連携するとき、成果物IDは実ファイル名ではなく論理参照として扱う。
+  - dividend-growth-pullback-screener のコマンド例には `screen_dividend_growth_rsi.py` を使用する。`screen_dividend_growth.py` はこのリポジトリに存在しない。
 
 journal_destination: trader-memory-core

@@ -1,6 +1,7 @@
 schema_version: 1
 id: stockbee-fluency-loop
 display_name: Stockbee Setup Fluency Loop
+display_name_ja: Stockbeeセットアップ習熟ループ
 cadence: daily
 estimated_minutes: 20
 target_users:
@@ -13,10 +14,18 @@ when_to_run: >-
   After stockbee-momentum-burst-screener produces candidate reports, and again
   after 3/5 trading-day windows have matured. Builds a model book of Stockbee
   Momentum Burst examples so the trader can improve setup recognition.
+when_to_run_ja: >-
+  stockbee-momentum-burst-screener が候補レポートを生成した後と、3取引日・5取引日の
+  観測期間が経過した後に実行する。Stockbee Momentum Burstのモデルブックを作り、
+  トレーダーのセットアップ認識力を高める。
 when_not_to_run: >-
   Do not use as an execution workflow or signal service. Do not change trading
   rules from tiny samples; require enough matured examples and manual chart
   review before promoting or filtering a setup tag.
+when_not_to_run_ja: >-
+  執行ワークフローやシグナルサービスとして使用しない。少数サンプルから取引ルールを
+  変更しない。セットアップタグを採用・除外する前に、十分な観測済み事例と
+  チャートの手動レビューを求める。
 
 required_skills:
   - stockbee-setup-fluency-trainer
@@ -51,6 +60,7 @@ artifacts:
 steps:
   - step: 1
     name: Ingest latest Stockbee momentum burst candidates
+    name_ja: 最新のStockbeeモメンタムバースト候補を取り込む
     skill: stockbee-setup-fluency-trainer
     produces:
       - model_book_ingest
@@ -58,6 +68,7 @@ steps:
 
   - step: 2
     name: Update matured 3-day and 5-day outcomes
+    name_ja: 観測期間を終えた3日・5日後の結果を更新する
     skill: stockbee-setup-fluency-trainer
     consumes:
       - model_book_ingest
@@ -67,6 +78,7 @@ steps:
 
   - step: 3
     name: Summarize setup cohorts and rule candidates
+    name_ja: セットアップのコホートとルール候補を要約する
     skill: stockbee-setup-fluency-trainer
     consumes:
       - matured_setup_outcomes
@@ -78,9 +90,13 @@ steps:
       Which setup tags have enough matured examples to promote, downgrade, or
       continue monitoring? Require representative chart review before changing
       trade rules.
+    decision_question_ja: >-
+      採用、格下げ、監視継続を判断できるだけの観測済み事例があるセットアップタグは
+      どれか。取引ルールを変更する前に代表的なチャートを確認する。
 
   - step: 4
     name: Log accepted lessons
+    name_ja: 採用した学びを記録する
     skill: trader-memory-core
     optional: true
     consumes:
@@ -92,11 +108,18 @@ steps:
     decision_question: >-
       Which findings are accepted as operating-rule changes, and which remain
       journal-only observations pending more examples?
+    decision_question_ja: >-
+      どの知見を運用ルールの変更として採用し、どれを追加事例待ちの記録だけの観察とするか。
 
 manual_review:
   - Inspect representative winner and failure charts before accepting a rule change.
   - Separate evidence from execution decisions; this workflow records setup behavior, not actual P&L.
   - Keep sample-size thresholds explicit, especially when market regime changes.
   - Feed accepted lessons into monthly-performance-review rather than adding ad-hoc rules daily.
+manual_review_ja:
+  - ルール変更を採用する前に、代表的な成功例と失敗例のチャートを確認する。
+  - 証拠と執行判断を区別する。このワークフローはセットアップの傾向を記録し、実際の損益を扱わない。
+  - 特に市場レジームが変化したときは、サンプル数の基準を明示する。
+  - 日々場当たり的なルールを加えず、採用した学びを monthly-performance-review に引き渡す。
 
 journal_destination: trader-memory-core

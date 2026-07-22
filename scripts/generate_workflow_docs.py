@@ -77,14 +77,10 @@ LABELS: dict[str, dict[str, str]] = {
     "ja": {
         "page_title": "ワークフロー",
         "page_intro": (
-            "個人トレーダー OS の運用ワークフロー manifest 群です。各ワークフローは"
-            "使用するスキル・判断ゲート・artifact の流れを順番通りに記述しています。"
+            "個人トレーダー OS の運用ワークフロー定義です。各ワークフローは"
+            "使用するスキル・判断ゲート・成果物の流れを順番通りに記述しています。"
             "[`workflows/`](https://github.com/tradermonty/claude-trading-skills/tree/main/workflows) "
-            "以下の manifest が正本で、本ページはそこから自動生成されます。\n\n"
-            "**翻訳方針:** 本ページは見出しラベルのみ日本語化しています。"
-            "manifest 本文（`when_to_run` / `decision_question` / `manual_review` 等）は"
-            "英語正本をそのまま表示します。本文の日本語化は将来の対応予定です（manifest 側に "
-            "`*_ja` フィールドを追加するか、別のローカライズ層を設ける方向で検討中）。"
+            "以下の定義ファイルが正本で、本ページはそこから自動生成されます。"
         ),
         "auto_generated_note": (
             "このページは `scripts/generate_workflow_docs.py` によって自動生成されます。"
@@ -93,22 +89,22 @@ LABELS: dict[str, dict[str, str]] = {
         "summary_table_title": "ワークフロー一覧",
         "col_workflow": "ワークフロー",
         "col_cadence": "頻度",
-        "col_minutes": "目安(分)",
+        "col_minutes": "目安（分）",
         "col_api": "API プロファイル",
         "col_difficulty": "難易度",
         "when_to_run": "実行タイミング",
         "when_not_to_run": "実行してはいけないとき",
         "required_skills": "必須スキル",
         "optional_skills": "任意スキル",
-        "prerequisite_workflows": "前提ワークフロー（informational）",
-        "prerequisite_artifact": "が期待する artifact",
+        "prerequisite_workflows": "前提ワークフロー（参考情報）",
+        "prerequisite_artifact": "が期待する成果物",
         "manual_inputs": "手動入力契約",
         "col_input": "入力",
         "col_used_by_steps": "使用ステップ",
         "col_schema_ref": "スキーマ参照",
         "col_description": "説明",
-        "artifacts": "artifact 一覧",
-        "col_artifact": "Artifact",
+        "artifacts": "成果物一覧",
+        "col_artifact": "成果物",
         "col_produced_by": "生成ステップ",
         "col_required": "必須",
         "col_downstream": "下流ヒント",
@@ -116,15 +112,36 @@ LABELS: dict[str, dict[str, str]] = {
         "step_label": "ステップ",
         "step_optional": "（任意）",
         "step_decision_gate": "（判断ゲート）",
-        "step_consumes": "consumes",
-        "step_produces": "produces",
+        "step_consumes": "入力",
+        "step_produces": "出力",
         "step_decision_question": "判断",
         "manual_review": "手動レビュー",
-        "journal_destination": "Journal 出力先",
+        "journal_destination": "記録先",
         "final_outputs": "最終出力",
         "yes": "あり",
         "no": "なし",
         "none": "（なし）",
+    },
+}
+
+
+ENUM_LABELS: dict[str, dict[str, dict[str, str]]] = {
+    "cadence": {
+        "en": {},
+        "ja": {
+            "daily": "毎日",
+            "weekly": "毎週",
+            "monthly": "毎月",
+            "ad-hoc": "随時",
+        },
+    },
+    "difficulty": {
+        "en": {},
+        "ja": {
+            "beginner": "初級",
+            "intermediate": "中級",
+            "advanced": "上級",
+        },
     },
 }
 
@@ -179,7 +196,53 @@ def _wrap(text: str | None) -> str:
     return " ".join(text.split())
 
 
-def _render_summary_table(workflows: list[dict], labels: dict[str, str]) -> str:
+def _localized_text(
+    item: dict,
+    field: str,
+    lang: str,
+    location: str,
+    *,
+    default: str = "",
+) -> str:
+    """Resolve prose for a locale; Japanese never falls back to English."""
+    if lang == "en":
+        value = item.get(field, default)
+        return value if isinstance(value, str) else str(value or default)
+
+    localized_field = f"{field}_ja"
+    value = item.get(localized_field)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{location}.{localized_field} must be a non-empty string")
+    return value
+
+
+def _localized_enum(field: str, value: object, lang: str) -> str:
+    raw = str(value or "")
+    return ENUM_LABELS[field][lang].get(raw, raw)
+
+
+def _mapping_list(
+    item: dict,
+    field: str,
+    location: str,
+    *,
+    required: bool = False,
+) -> list[dict]:
+    """Return a list of mappings or fail with an actionable error."""
+    value = item.get(field)
+    if value is None:
+        if required:
+            raise ValueError(f"{location}.{field} must be a list")
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"{location}.{field} must be a list")
+    for index, child in enumerate(value):
+        if not isinstance(child, dict):
+            raise ValueError(f"{location}.{field}[{index}] must be a mapping")
+    return value
+
+
+def _render_summary_table(workflows: list[dict], labels: dict[str, str], lang: str) -> str:
     buf = io.StringIO()
     buf.write(f"## {labels['summary_table_title']}\n\n")
     buf.write(
@@ -190,13 +253,17 @@ def _render_summary_table(workflows: list[dict], labels: dict[str, str]) -> str:
     for wf in workflows:
         wf_id = wf["id"]
         anchor = f"#{wf_id}"
-        display_name = wf.get("display_name", wf_id)
+        display_name = _localized_text(
+            wf, "display_name", lang, f"workflows/{wf_id}", default=wf_id
+        )
+        cadence = _localized_enum("cadence", wf.get("cadence"), lang)
+        difficulty = _localized_enum("difficulty", wf.get("difficulty"), lang)
         buf.write(
             f"| [`{wf_id}`]({anchor}) — {display_name} "
-            f"| {wf.get('cadence', '')} "
+            f"| {cadence} "
             f"| {wf.get('estimated_minutes', '')} "
             f"| {wf.get('api_profile', '')} "
-            f"| {wf.get('difficulty', '')} |\n"
+            f"| {difficulty} |\n"
         )
     buf.write("\n")
     return buf.getvalue()
@@ -209,15 +276,24 @@ def _render_skill_list(skills: list[str], labels: dict[str, str], heading: str) 
     return f"**{heading}:** {items}\n\n"
 
 
-def _render_prerequisite_workflows(prereqs: list[dict], labels: dict[str, str]) -> str:
+def _render_prerequisite_workflows(
+    prereqs: list[dict], labels: dict[str, str], lang: str, workflow_id: str
+) -> str:
     if not prereqs:
         return ""
     buf = io.StringIO()
     buf.write(f"**{labels['prerequisite_workflows']}:**\n\n")
-    for p in prereqs:
+    for index, p in enumerate(prereqs):
         wf = p.get("id", "?")
         artifact = p.get("artifact", "?")
-        rationale = _wrap(p.get("rationale", ""))
+        rationale = _wrap(
+            _localized_text(
+                p,
+                "rationale",
+                lang,
+                f"workflows/{workflow_id}.prerequisite_workflows[{index}]",
+            )
+        )
         buf.write(f"- `{wf}` {labels['prerequisite_artifact']} `{artifact}`")
         if rationale:
             buf.write(f" — {rationale}")
@@ -226,7 +302,9 @@ def _render_prerequisite_workflows(prereqs: list[dict], labels: dict[str, str]) 
     return buf.getvalue()
 
 
-def _render_manual_inputs(inputs: list[dict], labels: dict[str, str]) -> str:
+def _render_manual_inputs(
+    inputs: list[dict], labels: dict[str, str], lang: str, workflow_id: str
+) -> str:
     if not inputs:
         return ""
     buf = io.StringIO()
@@ -237,13 +315,23 @@ def _render_manual_inputs(inputs: list[dict], labels: dict[str, str]) -> str:
         f"{labels['col_description']} |\n"
     )
     buf.write("|---|---|---|---|---|\n")
-    for item in inputs:
+    for index, item in enumerate(inputs):
         input_id = item.get("id", "")
         required = labels["yes"] if item.get("required", False) else labels["no"]
         steps = ", ".join(str(step) for step in (item.get("used_by_steps") or [])) or "—"
         schema_ref = item.get("schema_ref") or ""
         schema = f"`{schema_ref}`" if schema_ref else "—"
-        description = _wrap(item.get("description", "")) or "—"
+        description = (
+            _wrap(
+                _localized_text(
+                    item,
+                    "description",
+                    lang,
+                    f"workflows/{workflow_id}.manual_inputs[{index}]",
+                )
+            )
+            or "—"
+        )
         buf.write(f"| `{input_id}` | {required} | {steps} | {schema} | {description} |\n")
     buf.write("\n")
     return buf.getvalue()
@@ -270,10 +358,17 @@ def _render_artifacts(artifacts: list[dict], labels: dict[str, str]) -> str:
     return buf.getvalue()
 
 
-def _render_step(step: dict, labels: dict[str, str]) -> str:
+def _render_step(
+    step: dict,
+    labels: dict[str, str],
+    lang: str,
+    workflow_id: str,
+    step_index: int,
+) -> str:
     buf = io.StringIO()
     step_num = step.get("step", "?")
-    name = step.get("name", "")
+    location = f"workflows/{workflow_id}.steps[{step_index}]"
+    name = _localized_text(step, "name", lang, location)
     skill = step.get("skill", "?")
     flags = []
     if step.get("optional"):
@@ -291,7 +386,7 @@ def _render_step(step: dict, labels: dict[str, str]) -> str:
     if produces:
         buf.write(f"- {labels['step_produces']}: " + ", ".join(f"`{p}`" for p in produces) + "\n")
     if step.get("decision_gate"):
-        q = _wrap(step.get("decision_question", ""))
+        q = _wrap(_localized_text(step, "decision_question", lang, location))
         if q:
             buf.write(f"- **{labels['step_decision_question']}:** {q}\n")
 
@@ -310,15 +405,25 @@ def _render_manual_review(items: list[str] | None, labels: dict[str, str]) -> st
     return buf.getvalue()
 
 
-def _render_final_outputs(items: list[dict] | None, labels: dict[str, str]) -> str:
+def _render_final_outputs(
+    items: list[dict] | None,
+    labels: dict[str, str],
+    lang: str,
+    workflow_id: str,
+) -> str:
     if not items:
         return ""
     buf = io.StringIO()
     buf.write(f"**{labels['final_outputs']}:**\n\n")
-    for item in items:
+    for index, item in enumerate(items):
         if isinstance(item, dict):
             iid = item.get("id", "")
-            desc = item.get("description", "")
+            desc = _localized_text(
+                item,
+                "description",
+                lang,
+                f"workflows/{workflow_id}.final_outputs[{index}]",
+            )
             buf.write(f"- `{iid}` — {desc}\n" if desc else f"- `{iid}`\n")
         else:
             buf.write(f"- `{item}`\n")
@@ -326,20 +431,23 @@ def _render_final_outputs(items: list[dict] | None, labels: dict[str, str]) -> s
     return buf.getvalue()
 
 
-def render_workflow_section(wf: dict, labels: dict[str, str]) -> str:
+def render_workflow_section(wf: dict, labels: dict[str, str], lang: str) -> str:
     buf = io.StringIO()
     wf_id = wf["id"]
-    display_name = wf.get("display_name", wf_id)
+    workflow_location = f"workflows/{wf_id}"
+    display_name = _localized_text(wf, "display_name", lang, workflow_location, default=wf_id)
+    cadence = _localized_enum("cadence", wf.get("cadence"), lang)
+    difficulty = _localized_enum("difficulty", wf.get("difficulty"), lang)
+    minutes = wf.get("estimated_minutes", "?")
+    duration = f"~{minutes} min" if lang == "en" else f"約{minutes}分"
 
     buf.write(f"## {display_name} {{#{wf_id}}}\n\n")
     buf.write(
-        f"**`{wf_id}`** · {wf.get('cadence', '')} · "
-        f"~{wf.get('estimated_minutes', '?')} min · "
-        f"{wf.get('api_profile', '')} · {wf.get('difficulty', '')}\n\n"
+        f"**`{wf_id}`** · {cadence} · {duration} · {wf.get('api_profile', '')} · {difficulty}\n\n"
     )
 
-    when_to = _wrap(wf.get("when_to_run"))
-    when_not = _wrap(wf.get("when_not_to_run"))
+    when_to = _wrap(_localized_text(wf, "when_to_run", lang, workflow_location))
+    when_not = _wrap(_localized_text(wf, "when_not_to_run", lang, workflow_location))
     if when_to:
         buf.write(f"**{labels['when_to_run']}:** {when_to}\n\n")
     if when_not:
@@ -351,18 +459,41 @@ def render_workflow_section(wf: dict, labels: dict[str, str]) -> str:
     buf.write(
         _render_skill_list(wf.get("optional_skills") or [], labels, labels["optional_skills"])
     )
-    buf.write(_render_prerequisite_workflows(wf.get("prerequisite_workflows") or [], labels))
-    buf.write(_render_manual_inputs(wf.get("manual_inputs") or [], labels))
+    prerequisites = _mapping_list(wf, "prerequisite_workflows", workflow_location)
+    manual_inputs = _mapping_list(wf, "manual_inputs", workflow_location)
+    steps = _mapping_list(wf, "steps", workflow_location, required=True)
+    final_outputs = _mapping_list(wf, "final_outputs", workflow_location)
+    buf.write(_render_prerequisite_workflows(prerequisites, labels, lang, wf_id))
+    buf.write(_render_manual_inputs(manual_inputs, labels, lang, wf_id))
     buf.write(_render_artifacts(wf.get("artifacts") or [], labels))
 
-    steps = wf.get("steps") or []
     if steps:
         buf.write(f"**{labels['steps']}:**\n\n")
-        for step in steps:
-            buf.write(_render_step(step, labels))
+        for index, step in enumerate(steps):
+            buf.write(_render_step(step, labels, lang, wf_id, index))
 
-    buf.write(_render_manual_review(wf.get("manual_review"), labels))
-    buf.write(_render_final_outputs(wf.get("final_outputs"), labels))
+    if lang == "ja":
+        source_review = wf.get("manual_review")
+        if not isinstance(source_review, list):
+            raise ValueError(f"{workflow_location}.manual_review must be a list")
+        manual_review = wf.get("manual_review_ja")
+        if not isinstance(manual_review, list):
+            raise ValueError(f"{workflow_location}.manual_review_ja must be a list")
+        expected_count = len(source_review)
+        if len(manual_review) != expected_count:
+            raise ValueError(
+                f"{workflow_location}.manual_review_ja must contain exactly "
+                f"{expected_count} item(s) to match manual_review"
+            )
+        for index, item in enumerate(manual_review):
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError(
+                    f"{workflow_location}.manual_review_ja[{index}] must be a non-empty string"
+                )
+    else:
+        manual_review = wf.get("manual_review")
+    buf.write(_render_manual_review(manual_review, labels))
+    buf.write(_render_final_outputs(final_outputs, labels, lang, wf_id))
 
     journal = wf.get("journal_destination")
     if journal:
@@ -381,10 +512,10 @@ def render_page(workflows: list[dict], lang: str) -> str:
     buf.write(f"> _{labels['auto_generated_note']}_\n\n")
     buf.write(f"{labels['page_intro']}\n\n")
     buf.write("---\n\n")
-    buf.write(_render_summary_table(workflows, labels))
+    buf.write(_render_summary_table(workflows, labels, lang))
     buf.write("---\n\n")
     for wf in workflows:
-        buf.write(render_workflow_section(wf, labels))
+        buf.write(render_workflow_section(wf, labels, lang))
     # Normalize trailing newlines to a single \n so generator output stays
     # in lockstep with the end-of-file-fixer pre-commit hook. Otherwise
     # --check would always drift after the fixer trims the page.
@@ -447,7 +578,11 @@ def main(argv: list[str] | None = None) -> int:
     drift = False
 
     for lang in langs:
-        rendered = render_page(workflows, lang)
+        try:
+            rendered = render_page(workflows, lang)
+        except ValueError as exc:
+            print(f"ERROR: workflow localization is incomplete: {exc}", file=sys.stderr)
+            return 1
         target = args.output or default_output_path(args.project_root, lang)
 
         if args.check:

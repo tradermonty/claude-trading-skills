@@ -1,6 +1,7 @@
 schema_version: 1
 id: stockbee-ep-daily
 display_name: Stockbee EP Daily
+display_name_ja: Stockbee EP日次確認
 cadence: daily
 estimated_minutes: 40
 target_users:
@@ -14,10 +15,19 @@ when_to_run: >-
   risk, or ad hoc when a game-changing catalyst appears. Use this workflow to
   classify Day 1 Episodic Pivot candidates and decide whether they are
   actionable today, delayed-EP watchlist names, or PEAD handoff candidates.
+when_to_run_ja: >-
+  決算・ニュースが多い日に市場レジームのワークフローが新規リスクを許可した後、
+  または状況を変える重大なカタリストが現れたときに随時実行する。Day 1の
+  Episodic Pivot候補を分類し、本日実行可能か、遅延EPの監視銘柄か、
+  PEADへ引き渡す候補かを判断する。
 when_not_to_run: >-
   Do not run as a blind stock screener without catalyst inputs. Do not use it
   to bypass market-regime gates, chart validation, position sizing, or manual
   catalyst review.
+when_not_to_run_ja: >-
+  カタリスト入力なしの機械的な銘柄スクリーナーとして実行しない。市場レジームの
+  ゲート、チャート検証、ポジションサイズ計算、カタリストの手動確認を迂回するために
+  使用しない。
 
 required_skills:
   - drawdown-circuit-breaker
@@ -38,6 +48,8 @@ prerequisite_workflows:
     artifact: exposure_decision
     rationale: >-
       New EP trades should still respect the market-regime exposure gate.
+    rationale_ja: >-
+      新規EP取引でも市場レジームのエクスポージャーゲートに従う必要がある。
 
 artifacts:
   - id: circuit_breaker_decision
@@ -81,6 +93,7 @@ artifacts:
 steps:
   - step: 1
     name: Check account circuit breaker
+    name_ja: 口座のサーキットブレーカーを確認する
     skill: drawdown-circuit-breaker
     produces:
       - circuit_breaker_decision
@@ -88,9 +101,13 @@ steps:
     decision_question: >-
       Is the account circuit breaker clear (TRADING_ALLOWED) for new EP trade
       risk today?
+    decision_question_ja: >-
+      本日の新規EP取引リスクについて、口座のサーキットブレーカーは
+      TRADING_ALLOWED になっているか。
 
   - step: 2
     name: Optional earnings candidate scan
+    name_ja: 任意で決算候補を抽出する
     skill: earnings-trade-analyzer
     optional: true
     produces:
@@ -99,6 +116,7 @@ steps:
 
   - step: 3
     name: Optional momentum confirmation scan
+    name_ja: 任意でモメンタム確認スキャンを実行する
     skill: stockbee-momentum-burst-screener
     optional: true
     produces:
@@ -107,6 +125,7 @@ steps:
 
   - step: 4
     name: Analyze Day 1 Episodic Pivot candidates
+    name_ja: Day 1 Episodic Pivot候補を分析する
     skill: stockbee-episodic-pivot-analyzer
     consumes:
       - earnings_candidates
@@ -120,9 +139,14 @@ steps:
       Which candidates have a true game-changing catalyst plus price/volume
       confirmation? Separate ACTIONABLE_DAY1 from DELAYED_EP_WATCH and reject
       low-quality headline-only moves.
+    decision_question_ja: >-
+      状況を変える真のカタリストに加え、価格と出来高の確認がある候補はどれか。
+      ACTIONABLE_DAY1 と DELAYED_EP_WATCH を分け、見出しだけに反応した
+      低品質な値動きは却下する。
 
   - step: 5
     name: Validate EP chart quality
+    name_ja: EPチャートの品質を検証する
     skill: technical-analyst
     consumes:
       - episodic_pivot_candidates
@@ -132,9 +156,13 @@ steps:
     decision_question: >-
       Does the chart confirm a clean EP reaction with acceptable close quality,
       liquidity, and risk to the EP-day low?
+    decision_question_ja: >-
+      チャートは、終値の質、流動性、EP当日の安値までのリスクが許容できる
+      明確なEP反応を示しているか。
 
   - step: 6
     name: Calculate EP position size
+    name_ja: EPのポジションサイズを計算する
     skill: position-sizer
     consumes:
       - validated_ep_setups
@@ -144,6 +172,7 @@ steps:
 
   - step: 7
     name: Build optional EP trade plan
+    name_ja: 任意でEP取引計画を作成する
     skill: breakout-trade-planner
     optional: true
     consumes:
@@ -155,6 +184,7 @@ steps:
 
   - step: 8
     name: Register EP thesis or watchlist entry
+    name_ja: EPの投資仮説または監視リスト項目を登録する
     skill: trader-memory-core
     consumes:
       - validated_ep_setups
@@ -166,9 +196,13 @@ steps:
     decision_question: >-
       Which candidates deserve an active thesis, which belong on delayed EP / PEAD
       watch, and which should be ignored despite a high initial score?
+    decision_question_ja: >-
+      どの候補を有効な投資仮説とし、どれを遅延EP / PEADの監視対象とし、
+      初期スコアが高くてもどれを無視するか。
 
   - step: 9
     name: Run EP manual execution discipline gate
+    name_ja: EPの手動執行規律ゲートを実行する
     skill: pre-trade-discipline-gate
     consumes:
       - circuit_breaker_decision
@@ -184,6 +218,11 @@ steps:
       recent-loss, market-regime, and circuit-breaker discipline checks? Treat
       delayed EP, PEAD handoff, ignored, or rejected candidates as no-action
       journal entries, not order approvals.
+    decision_question_ja: >-
+      ブローカーへ手動注文を出す前に、ACTIONABLE_DAY1 または ENTRY_READY の
+      EP候補は、文章化された計画、事前設定したストップ、ポジションサイズ、直近損失、
+      市場レジーム、サーキットブレーカーの規律チェックを通過しているか。
+      遅延EP、PEAD引き渡し、無視、却下の候補は注文承認ではなく、取引なしの記録として扱う。
 
 manual_review:
   - Confirm market-regime-daily allows new risk before acting.
@@ -194,5 +233,14 @@ manual_review:
   - Send overextended earnings/guidance EPs to PEAD monitoring instead of chasing Day 1.
   - Confirm pre_trade_discipline_decision is GO before placing any manual broker order; watchlist and PEAD handoff candidates should not be treated as order approvals.
   - All orders are placed manually at the broker; no auto-execution.
+manual_review_ja:
+  - 実行前に market-regime-daily が新規リスクを許可していることを確認する。
+  - 新規EP取引リスクを分析する前に circuit_breaker_decision が TRADING_ALLOWED であることを確認する。
+  - カタリストを手動で検証する。このワークフロー単独ではニュースの真偽を発見・検証しない。
+  - アナリスト評価や物語だけのEPは、価格と出来高の確認が例外的に強くない限り低品質として扱う。
+  - EP当日の安値を標準ストップ基準にするのは、その距離で現実的なサイズを設定できる場合だけとする。
+  - 過度に伸びた決算・業績見通しEPはDay 1で追わず、PEAD監視へ送る。
+  - ブローカーへ手動注文を出す前に pre_trade_discipline_decision が GO であることを確認し、監視リストとPEAD引き渡し候補を注文承認として扱わない。
+  - すべての注文はブローカーで手動入力し、自動執行しない。
 
 journal_destination: trader-memory-core

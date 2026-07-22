@@ -1,6 +1,7 @@
 schema_version: 1
 id: market-regime-daily
 display_name: Market Regime Daily
+display_name_ja: 市場レジーム日次確認
 cadence: daily
 estimated_minutes: 15
 target_users:
@@ -12,9 +13,15 @@ api_profile: no-api-basic
 when_to_run: >-
   Before considering new swing-trade risk for the day. Run before market open
   or in the first 30 minutes after.
+when_to_run_ja: >-
+  その日の新規スイング取引リスクを検討する前に実行する。市場開始前、
+  または開始後30分以内に実行する。
 when_not_to_run: >-
   Do not use this output as a standalone buy/sell signal. The exposure_decision
   is a posture (allow / restrict / cash-priority), not a directive.
+when_not_to_run_ja: >-
+  この出力を単独の売買シグナルとして使用しない。exposure_decision は
+  方針（allow / restrict / cash-priority）であり、売買指示ではない。
 
 required_skills:
   - market-breadth-analyzer
@@ -46,6 +53,7 @@ artifacts:
 steps:
   - step: 1
     name: Analyze market breadth
+    name_ja: 市場の騰落状況を分析する
     skill: market-breadth-analyzer
     produces:
       - market_breadth_report
@@ -53,6 +61,7 @@ steps:
 
   - step: 2
     name: Analyze uptrend participation
+    name_ja: 上昇トレンドへの参加状況を分析する
     skill: uptrend-analyzer
     produces:
       - uptrend_report
@@ -60,6 +69,7 @@ steps:
 
   - step: 3
     name: Check market top risk
+    name_ja: 市場天井のリスクを確認する
     skill: market-top-detector
     optional: true
     produces:
@@ -68,6 +78,7 @@ steps:
 
   - step: 4
     name: Decide exposure posture
+    name_ja: エクスポージャー方針を決定する
     skill: exposure-coach
     consumes:
       - market_breadth_report
@@ -79,10 +90,18 @@ steps:
     decision_question: >-
       Given today's breadth, uptrend participation, and top risk, is new swing
       trade risk allowed, restricted, or cash-priority?
+    decision_question_ja: >-
+      本日の騰落状況、上昇トレンドへの参加状況、市場天井リスクを踏まえ、
+      新規スイング取引のリスクを allow、restrict、cash-priority の
+      どれにするか。
 
 manual_review:
   - Confirm output is not used as a buy/sell signal.
   - Confirm whether exposure should be reduced, unchanged, or increased.
   - If exposure_decision is restrictive, defer running swing-opportunity-daily.
+manual_review_ja:
+  - 出力を売買シグナルとして使用していないことを確認する。
+  - エクスポージャーを減らすか、維持するか、増やすかを確認する。
+  - exposure_decision が restrictive の場合、swing-opportunity-daily の実行を見送る。
 
 journal_destination: trader-memory-core
