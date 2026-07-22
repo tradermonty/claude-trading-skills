@@ -6,7 +6,7 @@ Strictness levels:
   --strict-workflows   : also resolve workflow references and check internal-consistency
   --strict-metadata    : also enforce timeframe/difficulty/inputs/outputs completeness
 
-Emits stable error codes (IDX001-012, WF001-013). See
+Emits stable error codes (IDX001-012, WF001-014). See
 docs/dev/metadata-and-workflow-schema.md for the full catalog.
 """
 
@@ -366,6 +366,135 @@ def _validate_workflow_references(
     return findings, available
 
 
+def _validate_workflow_japanese(
+    wf: dict[str, Any],
+    rel_loc: str,
+) -> list[Finding]:
+    """Enforce complete human-facing Japanese workflow prose (WF014)."""
+    findings: list[Finding] = []
+
+    def require_text(item: dict[str, Any], field: str, path: str) -> None:
+        value = item.get(field)
+        if not isinstance(value, str) or not value.strip():
+            findings.append(
+                Finding(
+                    "WF014",
+                    "error",
+                    rel_loc,
+                    f"{path}.{field} must be a non-empty string",
+                )
+            )
+
+    for field in ("display_name_ja", "when_to_run_ja", "when_not_to_run_ja"):
+        require_text(wf, field, rel_loc)
+
+    nested_fields = (
+        ("prerequisite_workflows", "rationale_ja"),
+        ("manual_inputs", "description_ja"),
+        ("final_outputs", "description_ja"),
+    )
+    for collection_name, field in nested_fields:
+        collection = wf.get(collection_name)
+        if collection is None:
+            collection = []
+        if not isinstance(collection, list):
+            findings.append(
+                Finding(
+                    "WF014",
+                    "error",
+                    rel_loc,
+                    f"{collection_name} must be a list for Japanese localization",
+                )
+            )
+            continue
+        for index, item in enumerate(collection):
+            if not isinstance(item, dict):
+                findings.append(
+                    Finding(
+                        "WF014",
+                        "error",
+                        rel_loc,
+                        f"{collection_name}[{index}] must be a mapping",
+                    )
+                )
+                continue
+            require_text(item, field, f"{collection_name}[{index}]")
+
+    steps = wf.get("steps")
+    if not isinstance(steps, list):
+        findings.append(
+            Finding(
+                "WF014",
+                "error",
+                rel_loc,
+                "steps must be a list for Japanese localization",
+            )
+        )
+    else:
+        for index, step in enumerate(steps):
+            if not isinstance(step, dict):
+                findings.append(
+                    Finding(
+                        "WF014",
+                        "error",
+                        rel_loc,
+                        f"steps[{index}] must be a mapping",
+                    )
+                )
+                continue
+            require_text(step, "name_ja", f"steps[{index}]")
+            if step.get("decision_gate"):
+                require_text(step, "decision_question_ja", f"steps[{index}]")
+
+    manual_review = wf.get("manual_review")
+    if not isinstance(manual_review, list):
+        findings.append(
+            Finding(
+                "WF014",
+                "error",
+                rel_loc,
+                "manual_review must be a list for Japanese localization",
+            )
+        )
+        manual_review = []
+    manual_review_ja = wf.get("manual_review_ja")
+    if not isinstance(manual_review_ja, list):
+        findings.append(
+            Finding(
+                "WF014",
+                "error",
+                rel_loc,
+                "manual_review_ja must be a list matching manual_review",
+            )
+        )
+    else:
+        expected_count = len(manual_review)
+        if len(manual_review_ja) != expected_count:
+            findings.append(
+                Finding(
+                    "WF014",
+                    "error",
+                    rel_loc,
+                    (
+                        "manual_review_ja must contain exactly "
+                        f"{expected_count} item(s) to match manual_review"
+                    ),
+                )
+            )
+        for index, item in enumerate(manual_review_ja):
+            if not isinstance(item, str) or not item.strip():
+                findings.append(
+                    Finding(
+                        "WF014",
+                        "error",
+                        rel_loc,
+                        f"manual_review_ja[{index}] must be a non-empty string",
+                    )
+                )
+
+    return findings
+
+
 def _validate_workflow_internal(
     workflow_path: Path,
     skills_by_id: dict[str, dict],
@@ -380,6 +509,8 @@ def _validate_workflow_internal(
 
     if not isinstance(wf, dict):
         return [Finding("WF-PARSE", "error", rel_loc, "top-level must be a mapping")]
+
+    findings.extend(_validate_workflow_japanese(wf, rel_loc))
 
     wf_id = str(wf.get("id") or "")
     if wf_id != workflow_path.stem:

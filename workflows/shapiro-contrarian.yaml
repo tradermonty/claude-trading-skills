@@ -1,6 +1,7 @@
 schema_version: 1
 id: shapiro-contrarian
 display_name: Shapiro COT Contrarian
+display_name_ja: Shapiro式COT逆張り
 cadence: weekly
 estimated_minutes: 60
 target_users:
@@ -14,12 +15,22 @@ when_to_run: >-
   markets for crowded speculative extremes and, only where a news-failure
   and a weekly price-action reversal both confirm, produces a
   contract-sized contrarian fade plan.
+when_to_run_ja: >-
+  CFTCのCommitment of Tradersレポート公開後（毎週金曜日の米東部時間午後3時30分頃、
+  火曜日時点の建玉）に週次で実行する。約65の先物市場から投機筋の極端な混雑を探し、
+  ニュース反応の失敗と週足の価格反転の両方が確認できた場合にのみ、
+  契約数を算出した逆張り計画を作成する。
 when_not_to_run: >-
   Do not run intraday or more than weekly — COT data updates once a week
   and the edge is positioning-driven, not intraday. Do not act on a
   crowding extreme alone; the gate must reach READY_FOR_PLAN (crowding,
   news failure, and price action all CONFIRMED) before any sizing. Not
   for equities — COT covers CFTC futures markets only.
+when_not_to_run_ja: >-
+  日中または週1回を超えて実行しない。COTデータは週次更新であり、エッジは日中値動きではなく
+  建玉状況に由来する。混雑の極端値だけで取引しない。ポジションサイズ計算前に、混雑、
+  ニュース反応の失敗、価格動向がすべて CONFIRMED となり、ゲートが READY_FOR_PLAN に
+  到達する必要がある。COTはCFTC先物市場のみを対象とするため、株式には使用しない。
 
 required_skills:
   - cot-contrarian-detector
@@ -56,6 +67,7 @@ artifacts:
 steps:
   - step: 1
     name: Screen COT crowding
+    name_ja: COTの混雑度をスクリーニングする
     skill: cot-contrarian-detector
     produces:
       - cot_crowding_report
@@ -64,9 +76,13 @@ steps:
       Which futures markets are at a 3-year COT-index crowding extreme
       (CROWDED_LONG / CROWDED_SHORT) this week? Crowding alone is not a
       signal — carry only the extremes forward.
+    decision_question_ja: >-
+      今週、3年間のCOT指数で混雑の極端値（CROWDED_LONG / CROWDED_SHORT）にある
+      先物市場はどれか。混雑だけではシグナルにならないため、極端値のみ次へ進める。
 
   - step: 2
     name: Check for news-reaction failure
+    name_ja: ニュース反応の失敗を確認する
     skill: news-reaction-failure-analyzer
     consumes:
       - cot_crowding_report
@@ -78,11 +94,16 @@ steps:
       the crowd's direction (CONFIRMED, against a curated primary/wire-source
       events file built via WebSearch)? Drop NOT_CONFIRMED /
       INSUFFICIENT_EVIDENCE markets.
+    decision_question_ja: >-
+      各混雑市場で、群衆の方向に有利なニュースに価格が反応しなかったことを
+      CONFIRMED と判定できるか。WebSearchで作成した一次情報・通信社情報の
+      イベントファイルを使用し、NOT_CONFIRMED / INSUFFICIENT_EVIDENCE の市場は除外する。
     depends_on:
       - 1
 
   - step: 3
     name: Confirm weekly price-action reversal
+    name_ja: 週足の価格反転を確認する
     skill: technical-analyst
     consumes:
       - cot_crowding_report
@@ -93,11 +114,16 @@ steps:
       On the weekly chart, is there a reversal against the crowd (key
       reversal, failed breakout, or failed extreme) — CONFIRMED — with a
       defined swing stop? Reject NOT_CONFIRMED / INSUFFICIENT_DATA.
+    decision_question_ja: >-
+      週足チャートで群衆と逆方向の反転（キーリバーサル、ブレイクアウト失敗、極端値失敗）が
+      CONFIRMED となり、スイングのストップが明確か。NOT_CONFIRMED /
+      INSUFFICIENT_DATA は却下する。
     depends_on:
       - 1
 
   - step: 4
     name: Synthesize the contrarian setup gate
+    name_ja: 逆張りセットアップのゲート判定を統合する
     skill: contrarian-setup-gate
     consumes:
       - cot_crowding_report
@@ -111,6 +137,11 @@ steps:
       action all CONFIRMED, fail-closed)? Only READY_FOR_PLAN markets
       proceed to sizing; CROWDED / WATCHING_PRICE / REJECTED /
       INSUFFICIENT_EVIDENCE stop here.
+    decision_question_ja: >-
+      ゲートは、混雑、ニュース反応の失敗、価格動向がすべて CONFIRMED となる
+      fail-closed の READY_FOR_PLAN に到達したか。READY_FOR_PLAN の市場だけを
+      ポジションサイズ計算へ進め、CROWDED / WATCHING_PRICE / REJECTED /
+      INSUFFICIENT_EVIDENCE はここで停止する。
     depends_on:
       - 1
       - 2
@@ -118,6 +149,7 @@ steps:
 
   - step: 5
     name: Size the futures position
+    name_ja: 先物ポジションのサイズを計算する
     skill: futures-position-sizer
     consumes:
       - contrarian_setup_gate_report
@@ -129,6 +161,7 @@ steps:
 
   - step: 6
     name: Register the contrarian thesis
+    name_ja: 逆張りの投資仮説を登録する
     skill: trader-memory-core
     consumes:
       - futures_position_size
@@ -151,6 +184,16 @@ steps:
       open-position once the order actually fills at the broker.
       Confirm per-trade risk matches the sizer output and total
       portfolio heat is within budget.
+    decision_question_ja: >-
+      sizer出力の sizing_status が SIZED の逆張りだけを、NO_TRADE の結果を除外して
+      次の順序で登録する。(1) 最初に IDEA の投資仮説を作成する（手動取り込みまたは
+      register()。attach-futures-position は既存の投資仮説に付加するだけで新規作成しない）。
+      (2) attach-futures-position で SIZED レポートを付加し、契約数、方向、乗数、USD通貨、
+      リスクをポジションへ保存する。(3) cot_crowding_report、news_failure_verdict、
+      price_action_confirmation_report、contrarian_setup_gate_report を
+      thesis_store.link_report() で投資仮説に関連付け、証拠の連鎖を監査可能にする。
+      (4) ブローカーで注文が実際に約定した後にのみ open-position で ACTIVE へ移行する。
+      取引ごとのリスクがsizer出力と一致し、ポートフォリオ全体のリスク量が上限内であることを確認する。
     depends_on:
       - 4
       - 5
@@ -184,5 +227,16 @@ manual_review:
     order actually fills at the broker. Step 6 only reaches
     IDEA/ENTRY_READY with the futures position attached — no order is
     ever placed automatically.
+manual_review_ja:
+  - COTデータには3日間の遅延がある（火曜日時点、金曜日公開）。混雑判定はライブではなく火曜日終了時点として扱う。
+  - 混雑は前提条件であり、取引シグナルではない。サイズ計算前にニュース反応の失敗と価格動向の両方を確認する。
+  - ニュース反応失敗のイベントは実在URL付きの一次情報・通信社情報から選び、捏造しない。INSUFFICIENT_EVIDENCE は次へ進めない。
+  - サイズ計算前にゲートの setup_status が READY_FOR_PLAN であることを確認する。sizerはREADYでないゲートを拒否するが、その場合は理由を確認する。
+  - ステップ5には contrarian_setup_gate_report 以外に、常にオペレーター指定の --entry、--account-size、--risk-pct が必要である。ゲートもsizerも導出しないため、futures-position-sizer 実行前に用意する。
+  - 注文前にsizerの契約数と1契約当たりリスクを検証し、ポートフォリオ全体のリスク量が上限内であることを確認する。
+  - 先物証拠金はブローカーと時点に依存し、計算されない。取引前に必要証拠金と維持証拠金をブローカーで確認する。
+  - すべての注文はブローカーで手動入力し、自動執行しない。contrarian-position-monitor 提供まではCOT正規化、ストップ、投資仮説無効化の監視も手動で行う。
+  - ゲートの entry_trigger とsizerの予定エントリーは実際の約定ではない。予定エントリーを含む SIZED レポート自体を保存する。手動取り込み元でも entry_price は origin.raw_provenance.entry_price に保持する。実際の約定前に entry.actual_price へ書き込まない。
+  - ブローカーで注文が実際に約定するまで、投資仮説を ACTIVE（open-position）へ移行しない。ステップ6は先物ポジションを付加した IDEA / ENTRY_READY までで、注文を自動発注しない。
 
 journal_destination: trader-memory-core

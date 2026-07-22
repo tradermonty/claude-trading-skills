@@ -6,6 +6,7 @@ validator emits the specific error code.
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -62,13 +63,49 @@ def write_index(project_root: Path, skills: list[dict]) -> None:
     )
 
 
-def write_workflow(project_root: Path, workflow_id: str, content: dict) -> Path:
+def _with_japanese_fields(content: dict) -> dict:
+    """Return a localized copy so unrelated workflow tests satisfy WF014."""
+    payload = copy.deepcopy(content)
+    payload.setdefault("display_name_ja", "サンプルワークフロー")
+    payload.setdefault("when_to_run_ja", "テスト時に実行します。")
+    payload.setdefault("when_not_to_run_ja", "条件外では実行しません。")
+
+    for prereq in payload.get("prerequisite_workflows") or []:
+        if isinstance(prereq, dict):
+            prereq.setdefault("rationale_ja", "上流の成果物が必要です。")
+    for manual_input in payload.get("manual_inputs") or []:
+        if isinstance(manual_input, dict):
+            manual_input.setdefault("description_ja", "手動入力の説明です。")
+    for step in payload.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        step.setdefault("name_ja", "ステップを実行する")
+        if step.get("decision_gate"):
+            step.setdefault("decision_question_ja", "続行してよいですか？")
+
+    payload.setdefault("manual_review", [])
+    manual_review = payload.get("manual_review") or []
+    payload.setdefault("manual_review_ja", ["確認します。" for _ in manual_review])
+    for output in payload.get("final_outputs") or []:
+        if isinstance(output, dict):
+            output.setdefault("description_ja", "最終出力の説明です。")
+    return payload
+
+
+def write_workflow(
+    project_root: Path,
+    workflow_id: str,
+    content: dict,
+    *,
+    localize: bool = True,
+) -> Path:
     import yaml as _yaml
 
     workflows_dir = project_root / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
     path = workflows_dir / f"{workflow_id}.yaml"
-    path.write_text(_yaml.safe_dump(content, sort_keys=False), encoding="utf-8")
+    payload = _with_japanese_fields(content) if localize else content
+    path.write_text(_yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return path
 
 
@@ -487,6 +524,123 @@ def test_wf005_decision_gate_missing_question(tmp_path: Path) -> None:
     )
     findings = validate(tmp_path, strict_workflows=True)
     assert "WF005" in codes(findings)
+
+
+@pytest.mark.parametrize("invalid_value", [None, "", "   ", 123])
+def test_wf014_top_level_translation_must_be_non_empty_string(
+    tmp_path: Path, invalid_value: object
+) -> None:
+    _setup_minimal_workflow_repo(tmp_path)
+    workflow_path = tmp_path / "workflows" / "sample.yaml"
+
+    import yaml as _yaml
+
+    workflow = _yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    workflow["display_name_ja"] = invalid_value
+    write_workflow(tmp_path, "sample", workflow, localize=False)
+
+    findings = validate(tmp_path, strict_workflows=True)
+    wf014 = [finding for finding in findings if finding.code == "WF014"]
+    assert wf014, findings
+    assert any("display_name_ja" in finding.message for finding in wf014)
+
+
+def test_wf014_nested_translations_are_required(tmp_path: Path) -> None:
+    _setup_minimal_workflow_repo(
+        tmp_path,
+        prerequisite_workflows=[
+            {"id": "upstream", "artifact": "upstream_output", "rationale": "Needed"}
+        ],
+        manual_inputs=[
+            {
+                "id": "operator_input",
+                "required": False,
+                "used_by_steps": [1],
+                "description": "Operator input",
+            }
+        ],
+        steps=[
+            {
+                "step": 1,
+                "name": "Decide",
+                "skill": "alpha",
+                "produces": ["art1"],
+                "decision_gate": True,
+                "decision_question": "Continue?",
+            }
+        ],
+        manual_review=["Review the result"],
+        final_outputs=[{"id": "decision", "description": "Decision output"}],
+    )
+    workflow_path = tmp_path / "workflows" / "sample.yaml"
+
+    import yaml as _yaml
+
+    workflow = _yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    del workflow["prerequisite_workflows"][0]["rationale_ja"]
+    del workflow["manual_inputs"][0]["description_ja"]
+    del workflow["steps"][0]["name_ja"]
+    del workflow["steps"][0]["decision_question_ja"]
+    del workflow["final_outputs"][0]["description_ja"]
+    workflow["manual_review_ja"] = []
+    write_workflow(tmp_path, "sample", workflow, localize=False)
+
+    findings = validate(tmp_path, strict_workflows=True)
+    messages = [finding.message for finding in findings if finding.code == "WF014"]
+    assert any("prerequisite_workflows[0].rationale_ja" in message for message in messages)
+    assert any("manual_inputs[0].description_ja" in message for message in messages)
+    assert any("steps[0].name_ja" in message for message in messages)
+    assert any("steps[0].decision_question_ja" in message for message in messages)
+    assert any("manual_review_ja" in message for message in messages)
+    assert any("final_outputs[0].description_ja" in message for message in messages)
+
+
+@pytest.mark.parametrize(
+    "field,invalid_value",
+    [
+        ("prerequisite_workflows", {"id": "upstream"}),
+        ("manual_inputs", {"id": "operator_input"}),
+        ("steps", None),
+        ("steps", {"step": 1}),
+        ("steps", ["not-a-mapping"]),
+        ("final_outputs", {"id": "decision"}),
+        ("manual_inputs", ["not-a-mapping"]),
+    ],
+)
+def test_wf014_translation_collections_must_be_lists_of_mappings(
+    tmp_path: Path, field: str, invalid_value: object
+) -> None:
+    _setup_minimal_workflow_repo(tmp_path, **{field: invalid_value})
+
+    findings = validate(tmp_path, strict_workflows=True)
+    messages = [finding.message for finding in findings if finding.code == "WF014"]
+    assert any(field in message for message in messages), findings
+
+
+def test_wf014_manual_review_source_must_be_a_list(tmp_path: Path) -> None:
+    _setup_minimal_workflow_repo(
+        tmp_path,
+        manual_review="Review this output.",
+        manual_review_ja=[],
+    )
+
+    findings = validate(tmp_path, strict_workflows=True)
+    messages = [finding.message for finding in findings if finding.code == "WF014"]
+    assert any("manual_review must be a list" in message for message in messages), findings
+
+
+def test_wf014_not_enforced_without_strict_workflows(tmp_path: Path) -> None:
+    _setup_minimal_workflow_repo(tmp_path)
+    workflow_path = tmp_path / "workflows" / "sample.yaml"
+
+    import yaml as _yaml
+
+    workflow = _yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    del workflow["display_name_ja"]
+    write_workflow(tmp_path, "sample", workflow, localize=False)
+
+    findings = validate(tmp_path, strict_workflows=False)
+    assert "WF014" not in codes(findings)
 
 
 def test_wf006_journal_destination_missing(tmp_path: Path) -> None:

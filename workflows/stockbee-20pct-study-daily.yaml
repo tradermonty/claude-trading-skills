@@ -1,6 +1,7 @@
 schema_version: 1
 id: stockbee-20pct-study-daily
 display_name: Stockbee 20% Study Daily
+display_name_ja: Stockbee 20%値動き日次研究
 cadence: daily
 estimated_minutes: 30
 target_users:
@@ -14,10 +15,18 @@ when_to_run: >-
   Run after the US market close, or during historical research backfills, to
   identify +20%/-20% movers, classify event context, update matured outcomes,
   and accumulate a model book of explosive market moves.
+when_to_run_ja: >-
+  米国市場の取引終了後、または過去データの補完調査時に実行する。+20% / -20% の
+  値動きを検出し、イベントの背景を分類し、観測期間を終えた結果を更新して、
+  急激な市場変動のモデルブックを蓄積する。
 when_not_to_run: >-
   Do not use as a buy/sell signal workflow or automatic execution system. Do
   not promote new rules from small samples, current-only universes, or events
   without survivorship-bias and data-quality notes.
+when_not_to_run_ja: >-
+  売買シグナルや自動執行のワークフローとして使用しない。少数サンプル、
+  現在の銘柄集合だけを使った分析、または生存者バイアスとデータ品質の注記がない
+  イベントから新しいルールを採用しない。
 
 required_skills:
   - stockbee-20pct-study
@@ -58,6 +67,7 @@ artifacts:
 steps:
   - step: 1
     name: Scan daily +20% and -20% movers
+    name_ja: 日次で+20% / -20%変動銘柄を抽出する
     skill: stockbee-20pct-study
     produces:
       - twenty_pct_mover_events
@@ -65,6 +75,7 @@ steps:
 
   - step: 2
     name: Classify catalyst, chart context, theme cluster, and risk flags
+    name_ja: カタリスト、チャート状況、テーマ群、リスクフラグを分類する
     skill: stockbee-20pct-study
     consumes:
       - twenty_pct_mover_events
@@ -74,6 +85,7 @@ steps:
 
   - step: 3
     name: Update matured forward outcomes for prior 20% study records
+    name_ja: 過去の20%研究記録について観測期間後の結果を更新する
     skill: stockbee-20pct-study
     consumes:
       - classified_event_study
@@ -83,6 +95,7 @@ steps:
 
   - step: 4
     name: Summarize cohorts and export edge hints
+    name_ja: コホートを要約してエッジ候補を出力する
     skill: stockbee-20pct-study
     consumes:
       - matured_event_outcomes
@@ -94,9 +107,13 @@ steps:
       Which 20% mover patterns have enough sample size, stable outcome behavior,
       and execution realism to promote into edge research rather than journal-only
       observation?
+    decision_question_ja: >-
+      20%変動パターンのうち、記録だけの観察ではなくエッジ研究へ進めるのに十分な
+      サンプル数、安定した結果傾向、現実的な執行可能性を備えるものはどれか。
 
   - step: 5
     name: Log accepted lessons
+    name_ja: 採用した学びを記録する
     skill: trader-memory-core
     optional: true
     consumes:
@@ -108,6 +125,8 @@ steps:
     decision_question: >-
       Which findings are accepted as operating-rule candidates, which are rejected,
       and which remain pending more examples?
+    decision_question_ja: >-
+      どの知見を運用ルール候補として採用し、どれを却下し、どれを追加事例待ちにするか。
 
 manual_review:
   - Inspect representative winner and failure charts before accepting any pattern.
@@ -115,5 +134,11 @@ manual_review:
   - Mark current-universe backfills as survivorship-biased unless delisted symbols are included.
   - Require explicit sample-size thresholds before promoting a cohort rule.
   - Feed accepted lessons into monthly-performance-review rather than changing rules ad hoc.
+manual_review_ja:
+  - パターンを採用する前に、代表的な成功例と失敗例のチャートを確認する。
+  - 観察、研究仮説、実行可能な売買計画を区別する。
+  - 上場廃止銘柄を含まない現在の銘柄集合による過去分析は、生存者バイアスありと明記する。
+  - コホートのルールを採用する前に、明示したサンプル数の基準を満たすことを求める。
+  - ルールを場当たり的に変更せず、採用した学びを monthly-performance-review に引き渡す。
 
 journal_destination: trader-memory-core

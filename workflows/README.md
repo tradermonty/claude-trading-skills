@@ -26,17 +26,22 @@ For the full schema, error codes, and validator rules, see [`docs/dev/metadata-a
 
 A workflow manifest has these main sections:
 
-1. **Header** — `id`, `display_name`, `cadence`, `estimated_minutes`, `target_users`, `difficulty`, `api_profile`, plus `when_to_run` / `when_not_to_run` guidance.
+1. **Header** — `id`, `display_name`, `display_name_ja`, `cadence`, `estimated_minutes`, `target_users`, `difficulty`, `api_profile`, plus `when_to_run` / `when_to_run_ja` and `when_not_to_run` / `when_not_to_run_ja` guidance.
 2. **`required_skills` / `optional_skills`** — the skills you need installed to run this workflow. Required skills must appear in at least one non-optional step.
-3. **`prerequisite_workflows`** *(optional)* — informational hint that this workflow expects an artifact from another workflow upstream (e.g. `swing-opportunity-daily` expects `exposure_decision` from `market-regime-daily`). Validator does NOT enforce — see "Inter-workflow data flow" below.
-4. **`manual_inputs`** *(optional)* — operator-supplied inputs that are not produced by an earlier step. Each entry names the steps that use it and links its canonical schema; keep distinct JSON shapes as separate entries.
+3. **`prerequisite_workflows`** *(optional)* — informational hint that this workflow expects an artifact from another workflow upstream (e.g. `swing-opportunity-daily` expects `exposure_decision` from `market-regime-daily`). Human rationale uses paired `rationale` / `rationale_ja` fields. Validator does NOT enforce ordering — see "Inter-workflow data flow" below.
+4. **`manual_inputs`** *(optional)* — operator-supplied inputs that are not produced by an earlier step. Each entry names the steps that use it, links its canonical schema, and pairs `description` with `description_ja`; keep distinct JSON shapes as separate entries.
 5. **`artifacts`** — every named output, with `produced_by_step`, `required` flag, and (optional) `downstream_hints` for navigation. The validator cross-checks `produced_by_step` against each step's `produces:` list.
-6. **`steps`** — ordered execution. Each step names exactly one skill, may be `optional`, may be a `decision_gate` (which requires a `decision_question`), and declares what it `consumes` and `produces`.
+6. **`steps`** — ordered execution. Each step names exactly one skill, pairs `name` with `name_ja`, may be `optional`, may be a `decision_gate` (which requires both `decision_question` and `decision_question_ja`), and declares what it `consumes` and `produces`.
 
 Below the steps:
-- **`manual_review`** — checklist items the human must confirm. Workflows are semi-automated, not auto-execution. Human judgment remains in the loop.
+- **`manual_review` / `manual_review_ja`** — item-aligned checklists the human must confirm. Workflows are semi-automated, not auto-execution. Human judgment remains in the loop.
 - **`journal_destination`** — which skill captures the workflow's outcome (always `trader-memory-core` here).
-- **`final_outputs`** — only on `monthly-performance-review`. Separates trade-side improvements from repo-side improvements.
+- **`final_outputs`** — only on `monthly-performance-review`. Separates trade-side improvements from repo-side improvements and pairs `description` with `description_ja`.
+
+All human-facing Japanese fields are mandatory under `--strict-workflows`
+(`WF014`). Japanese documentation generation fails instead of silently falling
+back to English. Machine identifiers, status values, CLI options, file paths,
+and API profiles remain untranslated.
 
 ### `consumes:` means "use if available", not "required input"
 
@@ -99,4 +104,4 @@ Future versions of this repo (vision Phase 1: Trading Skills Navigator) may auto
 
 ## Validation
 
-Manifests are validated by `scripts/validate_skills_index.py --strict-workflows` (run on `pre-push` and CI). Errors are stable codes (WF001-012). See `docs/dev/metadata-and-workflow-schema.md` for the full catalog.
+Manifests are validated by `scripts/validate_skills_index.py --strict-workflows` (run on `pre-push` and CI). Errors are stable codes (WF001-014). See `docs/dev/metadata-and-workflow-schema.md` for the full catalog.

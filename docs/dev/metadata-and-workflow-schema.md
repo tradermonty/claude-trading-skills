@@ -145,6 +145,7 @@ This field is the back-reference. The forward reference (workflow → skill) is 
 schema_version: 1
 id: <workflow-id>                 # must equal filename (sans .yaml)
 display_name: <Human Title>
+display_name_ja: <Japanese Human Title>
 cadence: daily | weekly | monthly | ad-hoc
 estimated_minutes: <int>
 target_users: [<user-persona>, ...]
@@ -153,8 +154,12 @@ api_profile: no-api-basic | fmp-required | alpaca-required | mixed
 
 when_to_run: >-
   <prose>
+when_to_run_ja: >-
+  <Japanese prose>
 when_not_to_run: >-
   <prose>
+when_not_to_run_ja: >-
+  <Japanese prose>
 
 required_skills: [<skill-id>, ...]
 optional_skills: [<skill-id>, ...]
@@ -163,6 +168,7 @@ prerequisite_workflows:           # informational only, NOT validated
   - id: <workflow-id>
     artifact: <artifact-id>       # which upstream artifact this workflow expects
     rationale: <why>
+    rationale_ja: <Japanese why>
 
 manual_inputs:                    # optional external/manual JSON contracts
   - id: <input-id>
@@ -170,6 +176,7 @@ manual_inputs:                    # optional external/manual JSON contracts
     used_by_steps: [<step-number>, ...]
     schema_ref: <repo-relative-path>
     description: <what supplies this input and how it degrades>
+    description_ja: <Japanese description>
 
 artifacts:
   - id: <artifact-id>
@@ -180,6 +187,7 @@ artifacts:
 steps:
   - step: <int>
     name: <step-title>
+    name_ja: <Japanese step-title>
     skill: <skill-id>
     optional: true | false       # default false
     consumes: [<artifact-id>, ...]
@@ -187,17 +195,29 @@ steps:
     decision_gate: true | false
     decision_question: >-
       <question, required when decision_gate is true>
+    decision_question_ja: >-
+      <Japanese question, required when decision_gate is true>
     depends_on: [<step-number>, ...]   # only earlier steps
 
 manual_review:
   - <prose, one item per line>
+manual_review_ja:                 # same length and order as manual_review
+  - <Japanese prose, one item per line>
 
 journal_destination: <skill-id>
 
 # Only on monthly-performance-review:
 final_outputs:
   - id: <output-id>
+    description: <human-facing description>
+    description_ja: <Japanese human-facing description>
 ```
+
+Japanese workflow documentation is fail-closed: every human-facing field shown
+above must have a non-empty Japanese counterpart. `manual_review_ja` must match
+`manual_review` item-for-item. `generate_workflow_docs.py --lang ja` never falls
+back to English. Machine-readable workflow, skill, artifact, status, enum, CLI,
+file, and API-profile identifiers remain unchanged and are rendered as code.
 
 ### 2.2 Internal-consistency rules
 
@@ -216,6 +236,7 @@ These are validated under `--strict-workflows`:
 | Every non-optional `step.skill` appears in `required_skills` | `WF010` |
 | Workflow file referenced by an index entry's `workflows:` exists | `WF001` |
 | Required artifact produced before the final step is not consumed by any later step | `WF013` |
+| Human-facing Japanese workflow prose is missing, empty, wrongly typed, or list-misaligned | `WF014` |
 
 ### 2.3 `consumes:` semantics — "use if available", not "required input"
 
@@ -413,6 +434,7 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `WF011` | `required_skills` / `optional_skills` entry not in `skills-index.yaml` |
 | `WF012` | `artifacts[].produced_by_step` does not match the corresponding step's `produces` (either direction) |
 | `WF013` | Required artifact produced before the final step is not consumed by any later step |
+| `WF014` | Required Japanese workflow prose is missing, empty, wrongly typed, or `manual_review_ja` is not aligned |
 
 ### Skillset-level (`scripts/validate_skillsets.py`, always strict)
 

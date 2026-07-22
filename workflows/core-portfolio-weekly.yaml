@@ -1,6 +1,7 @@
 schema_version: 1
 id: core-portfolio-weekly
 display_name: Core Portfolio Weekly
+display_name_ja: コア・ポートフォリオ週次レビュー
 cadence: weekly
 estimated_minutes: 60
 target_users:
@@ -12,9 +13,15 @@ api_profile: mixed
 when_to_run: >-
   Once per week, typically on Saturday or Sunday before next week's market
   open. Reviews long-term holdings, dividend positions, and overall allocation.
+when_to_run_ja: >-
+  毎週1回、通常は土曜日または日曜日の翌週市場開始前に実行する。
+  長期保有銘柄、配当ポジション、ポートフォリオ全体の配分を確認する。
 when_not_to_run: >-
   Do not run as a daily routine. Daily portfolio churn defeats the long-term
   framing of this workflow.
+when_not_to_run_ja: >-
+  日次ルーティンとして実行しない。毎日の売買でポートフォリオを頻繁に
+  入れ替えると、このワークフローの長期投資という前提が崩れる。
 
 required_skills:
   - portfolio-manager
@@ -46,6 +53,7 @@ artifacts:
 steps:
   - step: 1
     name: Fetch holdings snapshot
+    name_ja: 保有銘柄のスナップショットを取得する
     skill: portfolio-manager
     produces:
       - holdings_snapshot
@@ -53,6 +61,7 @@ steps:
 
   - step: 2
     name: Review allocation and concentration
+    name_ja: 資産配分と集中度を確認する
     skill: portfolio-manager
     consumes:
       - holdings_snapshot
@@ -62,9 +71,13 @@ steps:
     decision_question: >-
       Are sector and single-name concentrations within target bands? If not,
       what specific reallocation does the trader propose?
+    decision_question_ja: >-
+      セクター別および個別銘柄の集中度は目標範囲内か。範囲外の場合、
+      トレーダーはどのような具体的な再配分を提案するか。
 
   - step: 3
     name: Check dividend health (T1-T5 anomaly check)
+    name_ja: 配当の健全性を確認する（T1-T5異常チェック）
     skill: kanchi-dividend-review-monitor
     optional: true
     consumes:
@@ -75,6 +88,7 @@ steps:
 
   - step: 4
     name: Decide rebalance actions
+    name_ja: リバランス対応を決定する
     skill: portfolio-manager
     consumes:
       - allocation_report
@@ -85,9 +99,13 @@ steps:
     decision_question: >-
       Which rebalance actions (if any) will be executed next week? Confirm
       explicit buy / sell / hold list with sizing.
+    decision_question_ja: >-
+      来週実行するリバランス対応はあるか。ポジションサイズを含む具体的な
+      買い・売り・保有継続の一覧を確認する。
 
   - step: 5
     name: Journal the weekly review
+    name_ja: 週次レビューを記録する
     skill: trader-memory-core
     consumes:
       - rebalance_actions
@@ -99,5 +117,9 @@ manual_review:
   - Confirm holdings snapshot reflects the actual brokerage state (Alpaca or CSV).
   - Confirm rebalance actions are entered manually at the broker, not auto-executed.
   - If dividend_review_findings flags T1-T5 issues, defer additional buys until resolved.
+manual_review_ja:
+  - 保有銘柄のスナップショットが実際の証券口座（AlpacaまたはCSV）の状態を反映していることを確認する。
+  - リバランス注文はブローカーで手動入力し、自動執行されないことを確認する。
+  - dividend_review_findings がT1-T5の問題を示した場合、解決するまで買い増しを見送る。
 
 journal_destination: trader-memory-core

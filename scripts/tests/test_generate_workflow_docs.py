@@ -39,13 +39,16 @@ def make_workflow(workflows_dir: Path, **overrides) -> dict:
         "schema_version": 1,
         "id": "sample-workflow",
         "display_name": "Sample Workflow",
+        "display_name_ja": "サンプルワークフロー",
         "cadence": "daily",
         "estimated_minutes": 10,
         "target_users": ["test-user"],
         "difficulty": "beginner",
         "api_profile": "no-api-basic",
         "when_to_run": "When the test demands it.",
+        "when_to_run_ja": "テストで必要なときに実行します。",
         "when_not_to_run": "When you are unsure.",
+        "when_not_to_run_ja": "判断に迷うときは実行しません。",
         "required_skills": ["alpha"],
         "optional_skills": ["beta"],
         "artifacts": [
@@ -55,11 +58,14 @@ def make_workflow(workflows_dir: Path, **overrides) -> dict:
             {
                 "step": 1,
                 "name": "Run alpha",
+                "name_ja": "alphaを実行する",
                 "skill": "alpha",
                 "produces": ["primary_output"],
                 "decision_gate": False,
             }
         ],
+        "manual_review": ["Confirm the test output."],
+        "manual_review_ja": ["テスト出力を確認します。"],
         "journal_destination": "alpha",
     }
     base.update(overrides)
@@ -117,10 +123,17 @@ def test_render_marks_optional_steps(workflows_dir: Path) -> None:
         optional_skills=["beta"],
         artifacts=[],
         steps=[
-            {"step": 1, "name": "Required", "skill": "alpha", "decision_gate": False},
+            {
+                "step": 1,
+                "name": "Required",
+                "name_ja": "必須ステップ",
+                "skill": "alpha",
+                "decision_gate": False,
+            },
             {
                 "step": 2,
                 "name": "Optional",
+                "name_ja": "任意ステップ",
                 "skill": "beta",
                 "optional": True,
                 "decision_gate": False,
@@ -144,9 +157,11 @@ def test_render_marks_decision_gates_with_question(workflows_dir: Path) -> None:
             {
                 "step": 1,
                 "name": "Decide",
+                "name_ja": "判断する",
                 "skill": "alpha",
                 "decision_gate": True,
                 "decision_question": "Is this a test?",
+                "decision_question_ja": "これはテストですか？",
             }
         ],
     )
@@ -165,6 +180,7 @@ def test_render_includes_prerequisite_workflows(workflows_dir: Path) -> None:
                 "id": "upstream",
                 "artifact": "their_artifact",
                 "rationale": "Need upstream output",
+                "rationale_ja": "上流の出力が必要です",
             }
         ],
     )
@@ -187,6 +203,7 @@ def test_render_includes_manual_input_contracts(workflows_dir: Path) -> None:
                 "used_by_steps": [2],
                 "schema_ref": "skills/tax/references/input-schema.md",
                 "description": "JSON object with a holdings array.",
+                "description_ja": "holdings配列を含むJSONオブジェクトです。",
             }
         ],
     )
@@ -204,8 +221,16 @@ def test_render_includes_final_outputs(workflows_dir: Path) -> None:
         workflows_dir,
         id="monthly-style",
         final_outputs=[
-            {"id": "decision_log", "description": "Trade-side decisions"},
-            {"id": "rule_changes", "description": "Rules to change"},
+            {
+                "id": "decision_log",
+                "description": "Trade-side decisions",
+                "description_ja": "売買判断",
+            },
+            {
+                "id": "rule_changes",
+                "description": "Rules to change",
+                "description_ja": "変更するルール",
+            },
         ],
     )
     workflows = load_workflows(workflows_dir)
@@ -216,7 +241,28 @@ def test_render_includes_final_outputs(workflows_dir: Path) -> None:
 
 
 def test_render_japanese_uses_japanese_labels(workflows_dir: Path) -> None:
-    make_workflow(workflows_dir, id="ja-test")
+    make_workflow(
+        workflows_dir,
+        id="ja-test",
+        manual_inputs=[
+            {
+                "id": "operator_input",
+                "required": False,
+                "used_by_steps": [1],
+                "schema_ref": "schemas/input.json",
+                "description": "English manual input description.",
+                "description_ja": "手動入力の説明です。",
+            }
+        ],
+        prerequisite_workflows=[
+            {
+                "id": "upstream",
+                "artifact": "upstream_output",
+                "rationale": "English prerequisite rationale.",
+                "rationale_ja": "上流の成果物が必要です。",
+            }
+        ],
+    )
     workflows = load_workflows(workflows_dir)
     page = render_page(workflows, "ja")
     # Page title and frontmatter
@@ -225,6 +271,110 @@ def test_render_japanese_uses_japanese_labels(workflows_dir: Path) -> None:
     assert "実行タイミング" in page
     assert "必須スキル" in page
     assert "ステップ 1" in page
+    assert "サンプルワークフロー" in page
+    assert "毎日" in page
+    assert "初級" in page
+    assert "約10分" in page
+    assert "alphaを実行する" in page
+    assert "テスト出力を確認します。" in page
+    assert "手動入力の説明です。" in page
+    assert "上流の成果物が必要です。" in page
+    assert "定義ファイル" in page
+    assert "成果物" in page
+    assert "参考情報" in page
+    assert "English manual input description." not in page
+    assert "English prerequisite rationale." not in page
+    assert "When the test demands it." not in page
+
+
+def test_render_japanese_requires_translated_fields(workflows_dir: Path) -> None:
+    workflow = make_workflow(workflows_dir, id="missing-ja")
+    del workflow["steps"][0]["name_ja"]
+    _write_workflow(workflows_dir, workflow)
+
+    with pytest.raises(ValueError, match=r"steps\[0\]\.name_ja"):
+        render_page(load_workflows(workflows_dir), "ja")
+
+
+@pytest.mark.parametrize("manual_review_ja", [[], [""]])
+def test_render_japanese_requires_aligned_manual_review(
+    workflows_dir: Path, manual_review_ja: list[str]
+) -> None:
+    make_workflow(
+        workflows_dir,
+        id="bad-ja-review",
+        manual_review_ja=manual_review_ja,
+    )
+
+    with pytest.raises(ValueError, match="manual_review_ja"):
+        render_page(load_workflows(workflows_dir), "ja")
+
+
+def test_render_japanese_rejects_non_list_manual_review(workflows_dir: Path) -> None:
+    make_workflow(
+        workflows_dir,
+        id="bad-source-review",
+        manual_review="Review this output.",
+        manual_review_ja=[],
+    )
+
+    with pytest.raises(ValueError, match="manual_review must be a list"):
+        render_page(load_workflows(workflows_dir), "ja")
+
+
+@pytest.mark.parametrize(
+    "field,invalid_value",
+    [
+        ("prerequisite_workflows", {"id": "upstream"}),
+        ("manual_inputs", {"id": "operator_input"}),
+        ("steps", None),
+        ("steps", {"step": 1}),
+        ("steps", ["not-a-mapping"]),
+        ("final_outputs", {"id": "decision"}),
+        ("manual_inputs", ["not-a-mapping"]),
+    ],
+)
+def test_render_rejects_malformed_workflow_collections(
+    workflows_dir: Path, field: str, invalid_value: object
+) -> None:
+    make_workflow(workflows_dir, id="malformed", **{field: invalid_value})
+
+    with pytest.raises(ValueError, match=field):
+        render_page(load_workflows(workflows_dir), "ja")
+
+
+def test_main_reports_incomplete_japanese_translation(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+    workflow = make_workflow(workflows_dir, id="missing-ja-cli")
+    del workflow["when_to_run_ja"]
+    _write_workflow(workflows_dir, workflow)
+
+    rc = main(
+        [
+            "--project-root",
+            str(tmp_path),
+            "--lang",
+            "ja",
+            "--output",
+            str(tmp_path / "out.md"),
+        ]
+    )
+
+    assert rc == 1
+    assert not (tmp_path / "out.md").exists()
+
+
+def test_render_english_ignores_japanese_fields(workflows_dir: Path) -> None:
+    make_workflow(workflows_dir, id="en-stable")
+    page = render_page(load_workflows(workflows_dir), "en")
+
+    assert "Sample Workflow" in page
+    assert "When the test demands it." in page
+    assert "Run alpha" in page
+    assert "サンプルワークフロー" not in page
+    assert "テストで必要なときに実行します。" not in page
+    assert "alphaを実行する" not in page
 
 
 def test_render_omits_prerequisite_section_when_absent(workflows_dir: Path) -> None:

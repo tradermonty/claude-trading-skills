@@ -1,6 +1,7 @@
 schema_version: 1
 id: monthly-performance-review
 display_name: Monthly Performance Review
+display_name_ja: 月次パフォーマンスレビュー
 cadence: monthly
 estimated_minutes: 90
 target_users:
@@ -14,9 +15,16 @@ when_to_run: >-
   First weekend of each month, reviewing the prior month's closed positions,
   open thesis health, and process improvements. Closes the
   Plan -> Trade -> Record -> Review -> Improve loop.
+when_to_run_ja: >-
+  毎月最初の週末に、前月の決済済みポジション、未決済の投資仮説の健全性、
+  プロセス改善を確認する。計画 -> 取引 -> 記録 -> 振り返り -> 改善 の
+  ループを完結させる。
 when_not_to_run: >-
   Do not skip this review even in losing months — that is when it matters most.
   Do not run weekly; the monthly cadence is intentional to filter noise.
+when_not_to_run_ja: >-
+  損失月であっても省略しない。そのような月にこそレビューが重要である。
+  ノイズを除くため月次としているので、週次では実行しない。
 
 required_skills:
   - trader-memory-core
@@ -63,14 +71,18 @@ artifacts:
 final_outputs:
   - id: monthly_decision_log
     description: What trades worked / what did not, by category
+    description_ja: カテゴリ別に整理した、機能した取引と機能しなかった取引
   - id: rule_changes_for_next_month
     description: Adjustments to position sizing, entry rules, regime gates
+    description_ja: ポジションサイズ、エントリールール、レジームゲートの調整
   - id: skill_improvement_backlog
     description: Optional feedback into repo improvement loop (skills / workflows)
+    description_ja: リポジトリ改善ループへの任意のフィードバック（スキル / ワークフロー）
 
 steps:
   - step: 1
     name: Aggregate the month's trades and theses
+    name_ja: 当月の取引と投資仮説を集計する
     skill: trader-memory-core
     produces:
       - monthly_aggregate
@@ -78,6 +90,7 @@ steps:
 
   - step: 2
     name: Pattern-level postmortem across the month
+    name_ja: 月間のパターン単位で事後分析する
     skill: signal-postmortem
     consumes:
       - monthly_aggregate
@@ -87,9 +100,13 @@ steps:
     decision_question: >-
       What recurring patterns appear across the month's outcomes? Classify by
       thesis quality, execution, market environment, and randomness.
+    decision_question_ja: >-
+      当月の結果にどのような反復パターンがあるか。投資仮説の質、執行、
+      市場環境、偶然性に分類する。
 
   - step: 3
     name: Coach monthly process, risk, and behavior patterns
+    name_ja: 月次のプロセス、リスク、行動パターンを振り返る
     skill: trade-performance-coach
     optional: true
     consumes:
@@ -103,9 +120,12 @@ steps:
     decision_question: >-
       Which next-month operating rules should be accepted, modified, deferred,
       or journaled only?
+    decision_question_ja: >-
+      翌月の運用ルールのうち、採用、修正、保留、記録のみとするものはどれか。
 
   - step: 4
     name: Re-validate hypotheses via backtest
+    name_ja: バックテストで仮説を再検証する
     skill: backtest-expert
     optional: true
     consumes:
@@ -116,6 +136,7 @@ steps:
 
   - step: 5
     name: Review which skills helped or hurt
+    name_ja: 有効だったスキルと逆効果だったスキルを確認する
     skill: dual-axis-skill-reviewer
     optional: true
     consumes:
@@ -126,6 +147,7 @@ steps:
 
   - step: 6
     name: Produce decision log and rule changes
+    name_ja: 判断記録とルール変更を作成する
     skill: trader-memory-core
     consumes:
       - aggregate_postmortem
@@ -139,11 +161,19 @@ steps:
     decision_question: >-
       Based on this month's evidence, what specific rules will change next
       month? Trade-side rules vs repo-side improvements should stay separate.
+    decision_question_ja: >-
+      当月の証拠に基づき、翌月に変更する具体的なルールは何か。取引側のルールと
+      リポジトリ側の改善は分けて扱う。
 
 manual_review:
   - Distinguish process improvements (rule changes) from outcome accidents (randomness).
   - Trade-side rule changes apply to the trader's behavior next month.
   - Skill-side improvements are repo-improvement candidates and may or may not be acted on.
   - Be willing to delete or downgrade rules that aren't working — not just add new ones.
+manual_review_ja:
+  - プロセス改善（ルール変更）と、偶然による結果を区別する。
+  - 取引側のルール変更は、翌月のトレーダーの行動に適用する。
+  - スキル側の改善はリポジトリ改善候補であり、必ず実施するとは限らない。
+  - 新しいルールを追加するだけでなく、機能していないルールの削除や格下げも検討する。
 
 journal_destination: trader-memory-core
