@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Project vision and scope / プロジェクトの方針
+    url: https://github.com/tradermonty/claude-trading-skills/blob/main/PROJECT_VISION.md
+    about: Read the project boundary before filing. / 投稿前にプロジェクトの範囲を確認してください。
+  - name: Documentation site / ドキュメント
+    url: https://tradermonty.github.io/claude-trading-skills/
+    about: Check the published guides and workflows first. / 最初に公開ガイドとワークフローを確認してください。

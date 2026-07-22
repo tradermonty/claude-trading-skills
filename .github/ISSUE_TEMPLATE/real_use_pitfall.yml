@@ -1,0 +1,59 @@
+name: Real-use pitfall / 実運用の課題
+description: Share practical friction found during real use. / 実際の利用で見つけた困りごとを共有します。
+title: "[Pitfall]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for setup friction, unclear warnings, missing runbook steps,
+        unsafe defaults, or unclear educational boundaries found during real use.
+
+        setupのつまずき、不明確な警告、runbook不足、危険な初期値、教育目的の境界の課題に利用してください。
+  - type: textarea
+    id: pitfall
+    attributes:
+      label: Pitfall / 困った点
+      description: Explain what went wrong or became confusing in real use. / 実際の利用で何が失敗または分かりにくかったか説明してください。
+      placeholder: "I expected the workflow to stop when..."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / 利用状況
+      description: Name the workflow, skill, data source, or documentation path. / 利用したworkflow、skill、data source、文書のパスを書いてください。
+      placeholder: "docs/en/find-your-workflow.md with..."
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / 影響
+      description: Explain the effect on setup, review quality, risk management, or learning. / setup、レビュー品質、リスク管理、学習への影響を書いてください。
+      placeholder: "This caused me to..."
+    validations:
+      required: true
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested fix / 改善案
+      description: Suggest clearer wording, a test, a guardrail, or a runbook step. / 文言、テスト、ガードレール、runbook手順などを提案してください。
+      placeholder: "Add a warning before..."
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add sanitized examples, screenshots, or links if useful. / 必要なら秘密情報を除いた例、画像、リンクを追加してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認事項
+      description: Confirm both items before submitting. / 送信前に両方を確認してください。
+      options:
+        - label: I removed secrets, API keys, personal information, and brokerage account data. / 秘密情報、APIキー、個人情報、証券口座情報を除外しました。
+          required: true
+        - label: This is not a request for financial advice, buy/sell recommendations, profit guarantees, or broker execution. / 金融助言、売買推奨、利益保証、発注実行の依頼ではありません。
+          required: true
