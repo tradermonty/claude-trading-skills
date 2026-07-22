@@ -1,0 +1,70 @@
+name: Workflow recipe / ワークフロー改善
+description: Improve a multi-skill workflow or sample recipe. / 複数スキルの流れや実行例を改善します。
+title: "[Workflow recipe]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for workflow recipes, sample runs, prompts, handoffs,
+        and repeatable process improvements that preserve human decision gates.
+
+        ワークフロー、実行例、prompt、handoff、人間の判断ゲートを残す手順改善に利用してください。
+  - type: input
+    id: workflow-name
+    attributes:
+      label: Workflow or routine / ワークフロー名
+      description: Name the workflow manifest, sample, or routine if known. / 分かればmanifest、sample、routine名を書いてください。
+      placeholder: "workflows/market-regime-daily.yaml"
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case / 利用場面
+      description: Explain who it helps and which decision process improves. / 誰のどの判断プロセスを改善するか説明してください。
+      placeholder: "A 15-minute morning market check for..."
+    validations:
+      required: true
+  - type: textarea
+    id: current-gap
+    attributes:
+      label: Current gap / 現状の不足
+      description: Explain what is missing, unclear, or hard to repeat. / 何が不足、不明確、再現困難か説明してください。
+      placeholder: "The current workflow does not..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-recipe
+    attributes:
+      label: Proposed recipe / 提案する流れ
+      description: List skills, inputs, outputs, and decision gates. / スキル、入力、出力、判断ゲートを書いてください。
+      placeholder: |
+        1. Run market-breadth-analyzer with...
+        2. Feed the output to exposure-coach...
+        3. Stop if...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-artifacts
+    attributes:
+      label: Expected artifacts / 期待する成果物
+      description: Name reports, YAML, Markdown, screenshots, or journal entries. / レポート、YAML、Markdown、画像、記録を書いてください。
+      placeholder: "reports/..., a workflow manifest, and a sample run"
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add sanitized examples or links if useful. / 必要なら秘密情報を除いた例やリンクを追加してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認事項
+      description: Confirm both items before submitting. / 送信前に両方を確認してください。
+      options:
+        - label: I removed secrets, API keys, personal information, and brokerage account data. / 秘密情報、APIキー、個人情報、証券口座情報を除外しました。
+          required: true
+        - label: This is not a request for financial advice, buy/sell recommendations, profit guarantees, or broker execution. / 金融助言、売買推奨、利益保証、発注実行の依頼ではありません。
+          required: true

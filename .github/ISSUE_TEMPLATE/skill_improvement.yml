@@ -1,0 +1,74 @@
+name: Skill improvement / スキル改善
+description: Propose a focused improvement to an existing skill. / 既存スキルの具体的な改善を提案します。
+title: "[Skill improvement]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for focused improvements to tests, fixtures, documentation,
+        error handling, metadata, packaging, or safety boundaries.
+
+        テスト、fixture、文書、エラー処理、metadata、package、安全境界の改善に利用してください。
+  - type: input
+    id: skill-name
+    attributes:
+      label: Skill name / スキル名
+      description: Use the directory name under `skills/` if known. / 分かれば `skills/` 配下のディレクトリ名を書いてください。
+      placeholder: "portfolio-manager"
+    validations:
+      required: true
+  - type: dropdown
+    id: improvement-type
+    attributes:
+      label: Improvement type / 改善種別
+      description: Select the closest category. / 最も近い分類を選んでください。
+      options:
+        - Tests or fixtures
+        - Documentation or examples
+        - Error handling or validation
+        - Metadata or workflow references
+        - Package or generated artifact drift
+        - Safety boundary or no-advice wording
+        - Other focused improvement
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 課題
+      description: Explain what makes the skill hard to use, test, or trust. / 何が使いにくい、検証しにくい、信頼しにくいか説明してください。
+      placeholder: "The current SKILL.md does not explain..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed change / 提案する変更
+      description: Keep the change narrow and verifiable. / 変更範囲を小さく、検証可能にしてください。
+      placeholder: "Add fixtures that cover..."
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Suggested validation / 想定する検証
+      description: Name targeted tests, package checks, or documentation checks. / 対象テスト、package、文書checkを書いてください。
+      placeholder: "python3.9 -m pytest skills/<skill>/scripts/tests -q"
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context / 補足
+      description: Add sanitized examples, links, or prior output if useful. / 必要なら秘密情報を除いた例、リンク、過去の出力を追加してください。
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements / 確認事項
+      description: Confirm both items before submitting. / 送信前に両方を確認してください。
+      options:
+        - label: I removed secrets, API keys, personal information, and brokerage account data. / 秘密情報、APIキー、個人情報、証券口座情報を除外しました。
+          required: true
+        - label: This is not a request for financial advice, buy/sell recommendations, profit guarantees, or broker execution. / 金融助言、売買推奨、利益保証、発注実行の依頼ではありません。
+          required: true
