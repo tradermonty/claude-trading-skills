@@ -50,6 +50,8 @@ English README is available at [`README.md`](README.md).
 
 manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/README.md) を参照してください。「自分の状況にどのワークフローが合うか」を 1 ページで知りたい場合は [ワークフローの選び方](docs/ja/find-your-workflow.md)（[English](docs/en/find-your-workflow.md)）を参照してください。
 
+初めて使う場合は、[最初の1週間](docs/ja/your-first-week.md)（[English](docs/en/your-first-week.md)）で、インストール、有料データAPI不要の相場確認、最初のジャーナル登録、最初の週次レビューまで順に進めてください。
+
 ### 実際に必要な費用
 
 Claude Skills を使うには、Skills 機能に対応した有料 Claude プランが必要です。FMP、FINVIZ Elite、Alpaca などのデータ/API・ブローカー連携は特定のワークフロー向けの任意または個別要件です。下の5スキルの入口は公開 CSV、チャート画像、ローカルファイルで動くため、Claude プラン以外の有料データ API 契約は不要です。
