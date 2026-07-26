@@ -52,7 +52,16 @@ See [`workflows/README.md`](workflows/README.md) for how to read a manifest and 
 
 ### What This Actually Costs
 
-Claude Skills require a paid Claude plan that supports the Skills feature. FMP, FINVIZ Elite, and Alpaca are optional data or broker integrations for specific workflows; the five-skill starter path below works with public CSVs, chart screenshots, and local files, so it does not require any paid data API subscription beyond your Claude plan.
+Claude Web Skills are currently available on Free, Pro, Max, Team, and
+Enterprise accounts; see Anthropic's
+[current Skills help](https://support.claude.com/en/articles/12512180-use-skills-in-claude)
+because access can change. Claude Code has separate account requirements, and
+the Claude.ai Free plan does not include it; see the
+[Claude Code setup guide](https://code.claude.com/docs/en/getting-started).
+FMP, FINVIZ Elite, and Alpaca are optional data or broker integrations for
+specific workflows. The five-skill starter path below works with public CSVs,
+chart screenshots, and local files, so it does not require a paid market-data
+API subscription.
 
 ### No API Key Starter Path
 
@@ -78,15 +87,19 @@ This path lets you review market conditions, size trades, journal decisions, and
 - `skillsets/` – Purpose-specific install bundles defining required / recommended / optional skills for major goals (4 core skillsets shipped: market-regime, core-portfolio, swing-opportunity, trade-memory; consumed by the Navigator).
 
 ## Getting Started
+
+First time here? Read the [FAQ](docs/en/faq.md) for plan, cost, safety, and scope
+answers.
+
 ### Use with Claude Web App
 1. Download the `.skill` file that matches the skill you want from `skill-packages/`.
-2. Open Claude in your browser, go to **Settings → Skills**, and upload the ZIP (see Anthropic's [Skills launch post](https://www.anthropic.com/news/skills) for feature overview).
-3. Enable the skill inside the conversation where you need it.
+2. For an individual account, open **Settings > Capabilities** and enable **Code execution and file creation**. Team and Enterprise users may need an organization owner to enable Skills.
+3. Open **Customize > Skills**, upload the ZIP, confirm it appears in the list, and enable it if needed (see Anthropic's [current Skills help](https://support.claude.com/en/articles/12512180-use-skills-in-claude)).
 
 ### Use with Claude Code (desktop or CLI)
 1. Clone or download this repository.
-2. Copy the desired skill folder (e.g., `backtest-expert`) into your Claude Code **Skills** directory (open Claude Code → **Settings → Skills → Open Skills Folder**, per the [Claude Code Skills documentation](https://docs.claude.com/en/docs/claude-code/skills)).
-3. Restart or reload Claude Code so the new skill is detected.
+2. Copy the desired skill folder (e.g., `backtest-expert`) to `~/.claude/skills/` for personal use or `.claude/skills/` inside a project (see the [Claude Code setup guide](https://code.claude.com/docs/en/getting-started)).
+3. Claude Code detects changes in an existing skills directory. Restart it only if you created the top-level skills directory after the session started.
 
 > Tip: `.skill` packages are built from the source folders with tests and local build artifacts omitted. Edit a source folder if you want to customize a skill, then run `python3 scripts/package_skills.py --skill <skill-name>` before uploading to the web app.
 

@@ -52,7 +52,15 @@ manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/
 
 ### 実際に必要な費用
 
-Claude Skills を使うには、Skills 機能に対応した有料 Claude プランが必要です。FMP、FINVIZ Elite、Alpaca などのデータ/API・ブローカー連携は特定のワークフロー向けの任意または個別要件です。下の5スキルの入口は公開 CSV、チャート画像、ローカルファイルで動くため、Claude プラン以外の有料データ API 契約は不要です。
+Claude WebのSkillsは現在Free、Pro、Max、Team、Enterpriseで利用できます。
+利用条件は変更される可能性があるため、Anthropicの
+[最新のSkillsヘルプ](https://support.claude.com/en/articles/12512180-use-skills-in-claude)
+を確認してください。Claude Codeには別のアカウント要件があり、Claude.aiのFreeプラン
+には含まれません。詳細は
+[Claude Codeセットアップガイド](https://code.claude.com/docs/en/getting-started)
+を確認してください。FMP、FINVIZ Elite、Alpacaなどのデータ/API・ブローカー連携は
+任意または特定ワークフローだけの要件です。下の5スキルの入口は公開CSV、チャート画像、
+ローカルファイルで動くため、有料の市場データAPI契約は不要です。
 
 ### API キー不要の入口
 
@@ -78,15 +86,19 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 - `skillsets/` – 目的別のインストール単位。主要 goal ごとに required / recommended / optional skills を定義します（コア 4 skillset 実装済み: market-regime, core-portfolio, swing-opportunity, trade-memory。Navigator が参照）。
 
 ## はじめに
+
+初めて利用する場合は、プラン・費用・安全性・機能範囲をまとめた
+[よくある質問](docs/ja/faq.md)を先に確認してください。
+
 ### Claudeウェブアプリで使う場合
 1. 利用したいスキルに対応する`.skill`ファイルを`skill-packages/`からダウンロードします。
-2. ブラウザでClaudeを開き、**Settings → Skills**に進んでZIPをアップロードします（詳しくはAnthropicの[Skillsローンチ記事](https://www.anthropic.com/news/skills)を参照）。
-3. 必要な会話内でスキルを有効化します。
+2. 個人アカウントでは**Settings > Capabilities**を開き、**Code execution and file creation**を有効にします。Team/Enterpriseでは組織オーナーによる有効化が必要な場合があります。
+3. **Customize > Skills**でZIPをアップロードし、一覧への表示を確認して、必要に応じて有効化します（Anthropicの[最新のSkillsヘルプ](https://support.claude.com/en/articles/12512180-use-skills-in-claude)も参照）。
 
 ### Claude Code（デスクトップ/CLI）で使う場合
 1. このリポジトリをクローン、もしくはダウンロードします。
-2. 使いたいスキルのフォルダ（例: `backtest-expert`）をClaude Codeの**Skills**ディレクトリにコピーします（Claude Code → **Settings → Skills → Open Skills Folder**。詳細は[Claude Code Skillsドキュメント](https://docs.claude.com/en/docs/claude-code/skills)を参照）。
-3. Claude Codeを再起動、またはリロードすると新しいスキルが認識されます。
+2. 使いたいスキルのフォルダ（例: `backtest-expert`）を、個人利用なら`~/.claude/skills/`、プロジェクト内だけなら`.claude/skills/`へコピーします（[Claude Codeセットアップガイド](https://code.claude.com/docs/en/getting-started)も参照）。
+3. 既存のskillsディレクトリ内の変更は自動検出されます。セッション開始後に最上位skillsディレクトリを新規作成した場合だけ再起動します。
 
 > ヒント: `.skill`パッケージはソースフォルダから生成しますが、テストとローカルビルド成果物は除外します。スキルをカスタマイズする場合はソースフォルダを編集し、ウェブアプリ向けに配布するときは`python3 scripts/package_skills.py --skill <skill-name>`を実行してください。
 

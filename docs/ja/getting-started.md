@@ -13,6 +13,9 @@ permalink: /ja/getting-started/
 Claude Trading Skillsのインストール方法、APIキーの設定、最初のスキル実行までをガイドします。
 {: .fs-6 .fw-300 }
 
+初めて利用する場合は、アクセス条件・費用・安全性・機能範囲をまとめた
+[よくある質問]({{ '/ja/faq/' | relative_url }})も確認してください。
+
 <details open markdown="block">
   <summary>目次</summary>
   {: .text-delta }
@@ -24,12 +27,19 @@ Claude Trading Skillsのインストール方法、APIキーの設定、最初�
 
 ## 必要なもの
 
-> **実際に必要な費用:** Claude Skills を使うには、Skills 機能に対応した有料 Claude プランが必要です。FMP、FINVIZ Elite、Alpaca などのデータ/API・ブローカー連携は特定のワークフロー向けの任意または個別要件です。5スキルの入口は公開 CSV、チャート画像、ローカルファイルで動くため、Claude プラン以外の有料データ API 契約は不要です。
+> **実際に必要な費用:** Claude WebのSkillsは現在Free、Pro、Max、Team、
+> Enterpriseで利用できます。Claude Codeには別のアカウント要件があり、
+> Claude.aiのFreeプランには含まれません。FMP、FINVIZ Elite、Alpacaは任意
+> または特定スキルだけの連携で、5スキルの入口に有料の市場データAPI契約は
+> 不要です。最新の利用条件はAnthropicの
+> [Skillsヘルプ](https://support.claude.com/en/articles/12512180-use-skills-in-claude)
+> と[Claude Codeセットアップガイド](https://code.claude.com/docs/en/getting-started)
+> で確認してください。
 {: .note }
 
 | 項目 | 必須/任意 | 説明 |
 |------|-----------|------|
-| Claudeアカウント | 必須 | Skills機能に対応した有料 Claude プラン |
+| Claudeアカウント | 必須 | Skillsを利用できるClaude Webアカウント、または別途利用条件を満たすClaude Codeアカウント |
 | Python 3.9+ | 必須 | スクリプト実行用。多くのスキルが Python ヘルパーを使用 |
 | FMP APIキー | 任意 | Financial Modeling Prep API。一部スキルで必須（無料ティアあり） |
 | FINVIZ Elite | 任意 | 配当スクリーナーの高速化、Theme Detectorの精度向上に推奨 |
@@ -42,11 +52,11 @@ Claude Trading Skillsのインストール方法、APIキーの設定、最初�
 ### Claude Web Appで使う場合
 
 1. `skill-packages/` ディレクトリから使いたいスキルの `.skill` ファイル（ZIP形式）をダウンロードします。
-2. ブラウザでClaudeを開き、**Settings → Skills** に進みます。
-3. ダウンロードした `.skill` ファイルをアップロードします。
-4. 新しい会話でスキルが自動的に有効になります。
+2. 個人アカウントでは **Settings > Capabilities** を開き、**Code execution and file creation** を有効にします。Team/Enterpriseでは組織オーナーによるSkillsの有効化が必要な場合があります。
+3. **Customize > Skills** を開き、ダウンロードした `.skill` ファイルをアップロードします。
+4. スキルが Customize > Skills に表示されることを確認し、必要に応じて有効化します。
 
-> 詳しくは Anthropic の [Skills ローンチ記事](https://www.anthropic.com/news/skills) を参照してください。
+> アカウント別の設定とトラブルシューティングは、Anthropicの[最新のSkillsヘルプ](https://support.claude.com/en/articles/12512180-use-skills-in-claude)を参照してください。
 {: .note }
 
 ### Claude Code（デスクトップ / CLI）で使う場合
@@ -55,12 +65,18 @@ Claude Trading Skillsのインストール方法、APIキーの設定、最初�
 # 1. リポジトリをクローン
 git clone https://github.com/tradermonty/claude-trading-skills.git
 
-# 2. 使いたいスキルフォルダをClaude CodeのSkillsディレクトリにコピー
-#    （Claude Code → Settings → Skills → Open Skills Folder でパスを確認）
-cp -r claude-trading-skills/skills/finviz-screener /path/to/skills-directory/
+# 2. 使いたいスキルフォルダを個人用Claude Code skillsディレクトリにコピー
+mkdir -p ~/.claude/skills
+cp -r claude-trading-skills/skills/finviz-screener ~/.claude/skills/
 
-# 3. Claude Codeを再起動またはリロード
+# 3. 起動後に最上位skillsディレクトリを作った場合だけ再起動
 ```
+
+> プロジェクト内だけで使うスキルは`.claude/skills/`からも検出されます。
+> 対応アカウントとインストール方法は
+> [Claude Codeセットアップガイド](https://code.claude.com/docs/en/getting-started)
+> を参照してください。
+{: .note }
 
 > `.skill` パッケージはソースフォルダから生成しますが、テストとローカルビルド成果物は除外します。カスタマイズしたい場合はソースフォルダを編集し、配布前に `python3 scripts/package_skills.py --skill <skill-name>` を実行してください。
 {: .tip }
@@ -106,7 +122,9 @@ export FINVIZ_API_KEY=your_key_here
 
 ### Alpaca Trading
 
-Portfolio Manager スキルで保有データの取得とトレード執行に使用します。
+Portfolio Managerでライブ保有データを取得し、分析とリバランス案を作る場合は必須です。
+この読み取り・分析用連携はブローカーへ注文を送信しません。売買には
+人間が別途確認・執行する必要があります。
 
 | プラン | 料金 | 備考 |
 |--------|------|------|
