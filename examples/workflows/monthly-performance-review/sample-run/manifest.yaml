@@ -1,0 +1,48 @@
+workflow_id: monthly-performance-review
+sample_type: required-only
+illustrative: true
+prompt: prompt.md
+
+optional_steps_skipped:
+  - step: 3
+    skill: trade-performance-coach
+    reason: required-only canonical sample
+  - step: 4
+    skill: backtest-expert
+    reason: required-only canonical sample
+  - step: 5
+    skill: dual-axis-skill-reviewer
+    reason: required-only canonical sample
+
+artifacts:
+  - step: 1
+    artifact_id: monthly_aggregate
+    skill: trader-memory-core
+    files:
+      canonical: 01_monthly_aggregate.json
+  - step: 2
+    artifact_id: aggregate_postmortem
+    skill: signal-postmortem
+    files:
+      canonical: 02_aggregate_postmortem.json
+  - step: 6
+    artifact_id: monthly_decision_log
+    skill: trader-memory-core
+    files:
+      canonical: 06_monthly_decision_log.json
+  - step: 6
+    artifact_id: rule_changes_for_next_month
+    skill: trader-memory-core
+    files:
+      canonical: 06_rule_changes_for_next_month.yaml
+
+verification:
+  data_month: "2026-05"
+  expected:
+    closed_trades: 3
+    winners: 2
+    losers: 1
+    realized_pnl: 300.0
+    win_rate_pct: 66.67
+    accepted_rule_count: 2
+    repo_backlog_count: 0

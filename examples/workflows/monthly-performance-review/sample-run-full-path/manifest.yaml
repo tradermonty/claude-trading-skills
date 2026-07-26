@@ -1,0 +1,72 @@
+workflow_id: monthly-performance-review
+sample_type: full-path
+illustrative: true
+prompt: prompt.md
+
+optional_steps_skipped: []
+
+artifacts:
+  - step: 1
+    artifact_id: monthly_aggregate
+    skill: trader-memory-core
+    files:
+      canonical: 01_monthly_aggregate.json
+  - step: 2
+    artifact_id: aggregate_postmortem
+    skill: signal-postmortem
+    files:
+      canonical: 02_aggregate_postmortem.json
+  - step: 3
+    artifact_id: monthly_performance_coach_report
+    skill: trade-performance-coach
+    files:
+      canonical: 03_monthly_performance_coach_report.json
+  - step: 3
+    artifact_id: monthly_behavior_patterns
+    skill: trade-performance-coach
+    files:
+      canonical: 03_monthly_behavior_patterns.json
+  - step: 3
+    artifact_id: next_month_operating_rules
+    skill: trade-performance-coach
+    files:
+      canonical: 03_next_month_operating_rules.yaml
+  - step: 4
+    artifact_id: hypothesis_revalidation
+    skill: backtest-expert
+    files:
+      canonical: 04_hypothesis_revalidation.json
+  - step: 5
+    artifact_id: skill_review_findings
+    skill: dual-axis-skill-reviewer
+    files:
+      canonical: 05_skill_review_findings.json
+  - step: 6
+    artifact_id: monthly_decision_log
+    skill: trader-memory-core
+    files:
+      canonical: 06_monthly_decision_log.json
+  - step: 6
+    artifact_id: rule_changes_for_next_month
+    skill: trader-memory-core
+    files:
+      canonical: 06_rule_changes_for_next_month.yaml
+  - step: 6
+    artifact_id: skill_improvement_backlog
+    skill: trader-memory-core
+    files:
+      canonical: 06_skill_improvement_backlog.yaml
+
+verification:
+  data_month: "2026-05"
+  expected:
+    closed_trades: 3
+    winners: 2
+    losers: 1
+    realized_pnl: 300.0
+    win_rate_pct: 66.67
+    backtest_trades: 10
+    backtest_average_r: 0.2
+    backtest_verdict: INCONCLUSIVE
+    accepted_rule_count: 2
+    repo_backlog_count: 1

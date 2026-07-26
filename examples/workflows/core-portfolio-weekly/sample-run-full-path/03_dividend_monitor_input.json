@@ -1,0 +1,18 @@
+{
+  "as_of": "2026-06-27",
+  "holdings": [
+    {
+      "ticker": "FICTC",
+      "instrument_type": "stock",
+      "dividend": {
+        "latest_regular": 0.55,
+        "prior_regular": 0.50
+      },
+      "cashflow": {
+        "fcf": 80.0,
+        "dividends_paid": 85.0,
+        "coverage_ratio_history": [0.70, 0.78]
+      }
+    }
+  ]
+}

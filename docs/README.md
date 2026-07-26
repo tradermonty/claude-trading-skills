@@ -32,6 +32,10 @@ docs/
 ├── en/                          # English documentation
 │   ├── index.md                 # EN top page (parent for all EN children)
 │   ├── getting-started.md
+│   ├── glossary.md              # Plain-language trading terms (matched with JA)
+│   ├── your-first-week.md       # Seven-day onboarding guide (matched with JA)
+│   ├── playbooks/
+│   │   └── index.md             # Playbook parent page
 │   ├── faq.md                   # First-timer FAQ (matched with JA)
 │   ├── skill-catalog.md         # Full catalog table (all skills)
 │   └── skills/
@@ -41,6 +45,10 @@ docs/
 ├── ja/                          # Japanese documentation (mirrors en/)
 │   ├── index.md
 │   ├── getting-started.md
+│   ├── glossary.md
+│   ├── your-first-week.md
+│   ├── playbooks/
+│   │   └── index.md
 │   ├── faq.md
 │   ├── skill-catalog.md
 │   └── skills/
@@ -575,8 +583,10 @@ Current `nav_order` assignments for top-level en/ pages:
 | 4 | Workflows |
 | 5 | Skillsets |
 | 6 | Find Your Workflow |
-| 7 | Playbooks |
-| 8 | FAQ |
+| 7 | Glossary |
+| 8 | Your First Week |
+| 9 | Playbooks |
+| 10 | FAQ |
 
 `Playbooks` (`プレイブック`) is a `has_children` parent. Its child playbook pages
 use their own `nav_order` scale scoped to the parent (currently 10, 12, 14, 20 —

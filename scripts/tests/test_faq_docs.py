@@ -18,13 +18,25 @@ SKILLS_HELP_URL = "https://support.claude.com/en/articles/12512180-use-skills-in
 CLAUDE_CODE_URL = "https://code.claude.com/docs/en/getting-started"
 PRICING_URL = "https://claude.com/pricing"
 ALLOWED_FAQ_URLS = {SKILLS_HELP_URL, CLAUDE_CODE_URL, PRICING_URL}
+TOP_LEVEL_NAV = {
+    "getting-started.md": 1,
+    "skill-catalog.md": 2,
+    "skills/index.md": 3,
+    "workflows.md": 4,
+    "skillsets.md": 5,
+    "find-your-workflow.md": 6,
+    "glossary.md": 7,
+    "your-first-week.md": 8,
+    "playbooks/index.md": 9,
+    "faq.md": 10,
+}
 
 EXPECTED_FRONTMATTER = {
     EN_FAQ: {
         "layout": "default",
         "title": "Frequently Asked Questions",
         "parent": "English",
-        "nav_order": 8,
+        "nav_order": 10,
         "lang_peer": "/ja/faq/",
         "permalink": "/en/faq/",
     },
@@ -32,7 +44,7 @@ EXPECTED_FRONTMATTER = {
         "layout": "default",
         "title": "よくある質問",
         "parent": "日本語",
-        "nav_order": 8,
+        "nav_order": 10,
         "lang_peer": "/en/faq/",
         "permalink": "/ja/faq/",
     },
@@ -93,6 +105,17 @@ def web_install_section(text: str) -> str:
 def test_faq_pages_have_complete_reciprocal_frontmatter() -> None:
     for path, expected in EXPECTED_FRONTMATTER.items():
         assert parse_frontmatter(read(path)) == expected
+
+
+def test_top_level_navigation_is_unique_and_matches_in_both_languages() -> None:
+    for lang in ("en", "ja"):
+        nav_orders = {
+            filename: parse_frontmatter(read(ROOT / "docs" / lang / filename))["nav_order"]
+            for filename in TOP_LEVEL_NAV
+        }
+
+        assert nav_orders == TOP_LEVEL_NAV
+        assert len(set(nav_orders.values())) == len(nav_orders)
 
 
 def test_faq_pages_have_twelve_matched_questions_with_semantic_parity() -> None:
@@ -162,6 +185,18 @@ def test_getting_started_requires_explicit_skill_visibility_and_enablement_check
     assert "必要に応じて有効化" in ja_text
 
 
+def test_getting_started_only_requires_restart_for_a_new_top_level_skills_directory() -> None:
+    en_text = read(GETTING_STARTED_EN)
+    ja_text = read(GETTING_STARTED_JA)
+
+    assert "Restart Claude Code after adding a new skill" not in en_text
+    assert "新しいスキルの追加後は再起動が必要" not in ja_text
+    assert "Top-level skills directory created after this session started" in en_text
+    assert "Changes inside an existing skills directory are detected automatically" in en_text
+    assert "セッション開始後に最上位skillsディレクトリを新規作成した" in ja_text
+    assert "既存skillsディレクトリ内の変更は自動検出される" in ja_text
+
+
 def test_portfolio_manager_is_documented_as_read_only_for_orders() -> None:
     en_text = read(GETTING_STARTED_EN)
     ja_text = read(GETTING_STARTED_JA)
@@ -176,9 +211,9 @@ def test_portfolio_manager_is_documented_as_read_only_for_orders() -> None:
     assert "人間が別途確認・執行" in ja_text
 
 
-def test_contributor_guide_lists_faq_as_top_level_page_eight() -> None:
+def test_contributor_guide_lists_faq_as_top_level_page_ten() -> None:
     text = read(DOCS_GUIDE)
 
     assert "│   ├── faq.md" in text
     assert "| **FAQ** | `en/faq.md`, `ja/faq.md` |" in text
-    assert "| 8 | FAQ |" in text
+    assert "| 10 | FAQ |" in text

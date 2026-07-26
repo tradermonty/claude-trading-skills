@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "review_type": "monthly_aggregate",
+  "trade_id": "monthly_2026_05_fictional",
+  "period": {
+    "start": "2026-05-01",
+    "end": "2026-05-31"
+  },
+  "outcome": "mixed",
+  "planned": {
+    "thesis_recorded_before_entry": true,
+    "setup_confirmed": true,
+    "market_regime": "allowed"
+  },
+  "actual": {
+    "risk_r": 0.5,
+    "portfolio_heat_r": 1.5,
+    "stop_moved": false,
+    "entry_before_confirmation": true,
+    "traded_against_regime": false
+  },
+  "risk_plan": {
+    "max_risk_per_trade_r": 1.0,
+    "max_portfolio_heat_r": 4.0
+  },
+  "monthly": {
+    "trades": ["TRADE-001", "TRADE-002", "TRADE-003"],
+    "consecutive_losses": 1,
+    "rule_violations": 1
+  },
+  "postmortem": {
+    "root_cause": "execution",
+    "notes": [
+      "TRADE-002 entered before its written confirmation condition."
+    ]
+  },
+  "journal": {
+    "reflection": "Keep the confirmation gate explicit after the DEMOX loss.",
+    "emotions": ["impatient"]
+  },
+  "trades": [
+    {
+      "trade_id": "TRADE-001",
+      "symbol": "EXMPL",
+      "outcome": "win",
+      "realized_pnl": 500.0,
+      "root_cause": "thesis_quality",
+      "process_followed": true
+    },
+    {
+      "trade_id": "TRADE-002",
+      "symbol": "DEMOX",
+      "outcome": "loss",
+      "realized_pnl": -300.0,
+      "root_cause": "execution",
+      "process_followed": false
+    },
+    {
+      "trade_id": "TRADE-003",
+      "symbol": "FICTA",
+      "outcome": "win",
+      "realized_pnl": 100.0,
+      "root_cause": "randomness",
+      "process_followed": true
+    }
+  ],
+  "summary": {
+    "closed_trades": 3,
+    "winners": 2,
+    "losers": 1,
+    "realized_pnl": 300.0,
+    "win_rate_pct": 66.67
+  }
+}

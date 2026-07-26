@@ -1,0 +1,43 @@
+workflow_id: core-portfolio-weekly
+sample_type: required-only
+illustrative: true
+prompt: prompt.md
+
+optional_steps_skipped:
+  - step: 3
+    skill: kanchi-dividend-review-monitor
+    reason: required-only canonical sample
+
+artifacts:
+  - step: 1
+    artifact_id: holdings_snapshot
+    skill: portfolio-manager
+    files:
+      canonical: 01_holdings_snapshot.json
+  - step: 2
+    artifact_id: allocation_report
+    skill: portfolio-manager
+    files:
+      canonical: 02_allocation_report.json
+      companion: 02_allocation_report.md
+  - step: 4
+    artifact_id: rebalance_actions
+    skill: portfolio-manager
+    files:
+      canonical: 04_rebalance_actions.yaml
+  - step: 5
+    artifact_id: weekly_journal_entry
+    skill: trader-memory-core
+    files:
+      canonical: 05_weekly_journal_entry.yaml
+
+verification:
+  data_date: "2026-06-27"
+  expected:
+    equity: 100000.0
+    positions_market_value: 90000.0
+    cash: 10000.0
+    allocation_total_pct: 100.0
+    action_symbol: FICTA
+    shares_to_trim: 50
+    projected_cash_pct: 15.0

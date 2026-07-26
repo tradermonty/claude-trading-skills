@@ -1,0 +1,12 @@
+schema_version: "1.0"
+period: "2026-05"
+items:
+  - backlog_id: IMP-001
+    scope: repository
+    skill: vcp-screener
+    title: Require a confirmation timestamp in the candidate hand-off contract.
+    evidence_ids:
+      - SKILL-REVIEW-001
+    priority: medium
+    status: proposed
+trade_rules_included: false

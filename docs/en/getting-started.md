@@ -14,7 +14,9 @@ Installation instructions, API key setup, and a hands-on tutorial to run your fi
 {: .fs-6 .fw-300 }
 
 New to the project? The [FAQ]({{ '/en/faq/' | relative_url }}) answers common
-questions about access, cost, safety, and scope.
+questions about access, cost, safety, and scope. New to the trading vocabulary
+used below? Keep the [Glossary]({{ '/en/glossary/' | relative_url }}) open as a
+plain-language reference.
 
 <details open markdown="block">
   <summary>Table of Contents</summary>
@@ -180,7 +182,7 @@ Find stocks with EPS growth > 25% and price above SMA200
 |-------|-----|
 | `name` field in SKILL.md does not match the folder name | Verify that `name` in the YAML frontmatter exactly matches the skill folder name |
 | Skill folder placed in the wrong directory | Confirm the folder is inside Claude Code's Skills directory |
-| Claude Code not restarted | Restart Claude Code after adding a new skill |
+| Top-level skills directory created after this session started | Restart Claude Code once. Changes inside an existing skills directory are detected automatically |
 
 ### API Key Errors
 

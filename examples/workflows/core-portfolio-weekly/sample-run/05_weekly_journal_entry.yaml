@@ -1,0 +1,19 @@
+schema_version: "1.0"
+journal_type: core_portfolio_weekly
+review_date: "2026-06-27"
+source_snapshot: 01_holdings_snapshot.json
+allocation_decision: REBALANCE_PROPOSED
+dividend_review_status: NOT_RUN
+proposed_actions:
+  - action_id: RA-001
+    symbol: FICTA
+    action: TRIM
+    shares: 50
+    estimated_value: 5000.0
+    broker_status: NOT_SUBMITTED
+projected_cash_pct: 15.0
+human_confirmation:
+  broker_state_verified: false
+  tax_impact_reviewed: false
+  execution_authorized: false
+note: Fictional teaching journal; no broker order was placed.

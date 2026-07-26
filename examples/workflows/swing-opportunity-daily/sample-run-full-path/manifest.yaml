@@ -1,0 +1,85 @@
+workflow_id: swing-opportunity-daily
+sample_type: full-path
+illustrative: true
+prompt: prompt.md
+
+prerequisite_inputs:
+  - workflow_id: market-regime-daily
+    artifact_id: exposure_decision
+    data_date: "2026-06-29"
+    required_state: NEW_ENTRY_ALLOWED
+    file: 00_exposure_decision.json
+
+optional_steps_skipped: []
+
+artifacts:
+  - step: 1
+    artifact_id: circuit_breaker_decision
+    skill: drawdown-circuit-breaker
+    files:
+      canonical: 01_circuit_breaker_decision.json
+  - step: 2
+    artifact_id: vcp_candidates
+    skill: vcp-screener
+    files:
+      canonical: 02_vcp_candidates.json
+  - step: 3
+    artifact_id: momentum_burst_candidates
+    skill: stockbee-momentum-burst-screener
+    files:
+      canonical: 03_momentum_burst_candidates.json
+  - step: 4
+    artifact_id: exhaustion_hammer_candidates
+    skill: stockbee-exhaustion-hammer-screener
+    files:
+      canonical: 04_exhaustion_hammer_candidates.json
+  - step: 5
+    artifact_id: canslim_candidates
+    skill: canslim-screener
+    files:
+      canonical: 05_canslim_candidates.json
+  - step: 6
+    artifact_id: theme_candidates
+    skill: theme-detector
+    files:
+      canonical: 06_theme_candidates.json
+  - step: 7
+    artifact_id: validated_setups
+    skill: technical-analyst
+    files:
+      canonical: 07_validated_setups.json
+  - step: 8
+    artifact_id: position_sizing
+    skill: position-sizer
+    files:
+      canonical: 08_position_sizing.json
+  - step: 9
+    artifact_id: trade_plans
+    skill: breakout-trade-planner
+    files:
+      canonical: 09_trade_plans.json
+  - step: 10
+    artifact_id: candidate_journal_entry
+    skill: trader-memory-core
+    files:
+      canonical: 10_candidate_journal_entry.yaml
+  - step: 11
+    artifact_id: pre_trade_discipline_decision
+    skill: pre-trade-discipline-gate
+    files:
+      canonical: 11_pre_trade_discipline_decision.json
+      companion: 11_pre_trade_discipline_decision.md
+
+verification:
+  data_date: "2026-06-29"
+  expected:
+    symbol: EXMPL
+    entry_price: 50.0
+    stop_price: 47.5
+    account_size: 100000.0
+    risk_pct: 0.5
+    shares: 200
+    risk_dollars: 500.0
+    optional_sources_run: 5
+    final_gate: GO
+    broker_status: NOT_SUBMITTED

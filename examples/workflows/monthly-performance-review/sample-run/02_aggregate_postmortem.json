@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "source_trade_ids": ["TRADE-001", "TRADE-002", "TRADE-003"],
+  "category_counts": {
+    "thesis_quality": 1,
+    "execution": 1,
+    "market_environment": 0,
+    "randomness": 1
+  },
+  "findings": [
+    {
+      "evidence_id": "PM-THESIS-001",
+      "category": "thesis_quality",
+      "trade_ids": ["TRADE-001"],
+      "finding": "The written thesis and planned exit aligned on the larger winner."
+    },
+    {
+      "evidence_id": "PM-EXEC-001",
+      "category": "execution",
+      "trade_ids": ["TRADE-002"],
+      "finding": "The only loss entered before its confirmation condition."
+    },
+    {
+      "evidence_id": "PM-RANDOM-001",
+      "category": "randomness",
+      "trade_ids": ["TRADE-003"],
+      "finding": "The small winner lacks enough evidence for a rule change."
+    }
+  ],
+  "decision": "REVIEW_EXECUTION_RULE",
+  "warnings": [
+    "Three fictional trades are insufficient to infer strategy expectancy."
+  ]
+}

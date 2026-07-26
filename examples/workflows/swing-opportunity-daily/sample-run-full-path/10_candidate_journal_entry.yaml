@@ -1,0 +1,82 @@
+thesis_id: th_EXMPL_gro_20260629_cd34
+ticker: EXMPL
+created_at: "2026-06-29T12:20:00+00:00"
+updated_at: "2026-06-29T12:25:00+00:00"
+thesis_type: growth_momentum
+setup_type: fictional_vcp
+catalyst: null
+status: ENTRY_READY
+status_history:
+  - status: IDEA
+    at: "2026-06-29T12:20:00+00:00"
+    reason: Registered from the fictional multi-screen sample.
+  - status: ENTRY_READY
+    at: "2026-06-29T12:25:00+00:00"
+    reason: Weekly setup, position size, and optional trade plan were reviewed.
+thesis_statement: EXMPL holds the fictional 50.00 pivot after a tightening VCP base.
+mechanism_tag: behavior
+evidence:
+  - VCP contractions narrowed from 18% to 10% to 5%.
+  - Momentum, CANSLIM, and fictional-theme screens corroborated the candidate.
+  - Manual weekly-chart review passed.
+kill_criteria:
+  - Close below the planned 47.50 stop invalidates the setup.
+confidence: medium
+confidence_score: 0.7
+entry:
+  target_price: 50.0
+  conditions:
+    - Entry must remain in the written plan.
+  actual_price: null
+  actual_date: null
+exit:
+  stop_loss: 47.5
+  stop_loss_pct: 5.0
+  take_profit: 55.0
+  take_profit_rr: 2.0
+  time_stop_days: 10
+  actual_price: null
+  actual_date: null
+  exit_reason: null
+position:
+  shares: 200
+  shares_remaining: 200
+  position_value: 10000.0
+  risk_dollars: 500.0
+  risk_pct_of_account: 0.5
+  account_type: fictional_cash
+  sizing_method: fixed_fractional
+  raw_source:
+    skill: position-sizer
+    file: 08_position_sizing.json
+    fields:
+      final_recommended_shares: 200
+      final_risk_dollars: 500.0
+market_context:
+  regime: NEW_ENTRY_ALLOWED
+  breadth_score: 70
+  top_detector_score: 35
+  sector: Fictional Technology
+monitoring:
+  review_interval_days: 1
+  next_review_date: "2026-06-30"
+  last_review_date: null
+  review_status: OK
+  triggers_config: []
+  alerts: []
+origin:
+  skill: breakout-trade-planner
+  output_file: 09_trade_plans.json
+  screening_grade: A
+  screening_score: 88
+  raw_provenance:
+    fixture: fictional
+linked_reports: []
+outcome:
+  pnl_dollars: null
+  pnl_pct: null
+  holding_days: null
+  mae_pct: null
+  mfe_pct: null
+  mae_mfe_source: null
+  lessons_learned: null

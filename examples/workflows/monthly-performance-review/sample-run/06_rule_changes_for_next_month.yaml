@@ -1,0 +1,17 @@
+schema_version: "1.0"
+effective_month: "2026-06"
+rules:
+  - rule_id: RULE-001
+    rule: Require the written confirmation condition before entry.
+    evidence_ids:
+      - TRADE-002
+      - PM-EXEC-001
+    status: ACCEPTED
+  - rule_id: RULE-002
+    rule: Keep planned risk at or below 0.5% of the fictional account per trade.
+    evidence_ids:
+      - TRADE-001
+      - TRADE-002
+      - TRADE-003
+    status: ACCEPTED
+review_after: "2026-06-30"

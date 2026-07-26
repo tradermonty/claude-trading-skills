@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-29T12:05:00+00:00",
+  "as_of_date": "2026-06-29",
+  "recommendation": "TRADING_ALLOWED",
+  "triggered_rules": [],
+  "metrics": {
+    "realized_pnl_today": 0.0,
+    "realized_pnl_wtd": 0.0,
+    "realized_pnl_mtd": 0.0,
+    "consecutive_losses": 0,
+    "last_loss_exit_at": null,
+    "theses_scanned": 0
+  },
+  "account_size": 100000.0,
+  "config": {
+    "max_daily_loss_pct": 2.0,
+    "losing_streak_n": 2,
+    "cooldown_hours": 24.0,
+    "weekly_drawdown_pct": 5.0,
+    "monthly_drawdown_pct": 8.0
+  },
+  "data_quality": "OK",
+  "warnings": [],
+  "rationale": "No account-level circuit breaker rules are active; new trade risk may proceed."
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "review_mode": "required-only",
+  "decisions": [
+    {
+      "decision_id": "DEC-001",
+      "scope": "trade_process",
+      "decision": "REQUIRE_ENTRY_CONFIRMATION",
+      "evidence_ids": ["TRADE-002", "PM-EXEC-001"],
+      "status": "ACCEPTED_FOR_JUNE"
+    },
+    {
+      "decision_id": "DEC-002",
+      "scope": "risk",
+      "decision": "KEEP_RISK_CAP_AT_0_5_PERCENT",
+      "evidence_ids": ["TRADE-001", "TRADE-002", "TRADE-003"],
+      "status": "ACCEPTED_FOR_JUNE"
+    }
+  ],
+  "repo_improvements": [],
+  "human_review_completed": true
+}

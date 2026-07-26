@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-06-27T16:00:00+00:00",
+  "as_of": "2026-06-27",
+  "summary": {
+    "OK": 0,
+    "WARN": 1,
+    "REVIEW": 0
+  },
+  "results": [
+    {
+      "ticker": "FICTC",
+      "instrument_type": "stock",
+      "status": "WARN",
+      "actions": [
+        "pause_buy_adds_optional",
+        "append_next_earnings_checklist"
+      ],
+      "findings": [
+        {
+          "trigger": "T2",
+          "status": "WARN",
+          "reason": "Current period payout coverage ratio exceeds 1.0.",
+          "evidence": {
+            "instrument_type": "stock",
+            "denominator_key": "fcf",
+            "denominator_value": 80.0,
+            "dividends_paid": 85.0,
+            "coverage_ratio_history": [0.7, 0.78],
+            "current_ratio": 1.0625
+          }
+        }
+      ]
+    }
+  ]
+}

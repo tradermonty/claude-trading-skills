@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "review_mode": "full-path",
+  "decisions": [
+    {
+      "decision_id": "DEC-001",
+      "scope": "trade_process",
+      "decision": "REQUIRE_ENTRY_CONFIRMATION",
+      "evidence_ids": [
+        "TRADE-002",
+        "PM-EXEC-001",
+        "BEHAVIOR-001",
+        "COACH-RULE-001"
+      ],
+      "status": "ACCEPTED_FOR_JUNE"
+    },
+    {
+      "decision_id": "DEC-002",
+      "scope": "risk",
+      "decision": "START_JUNE_IN_REVIEW_ONLY_MODE",
+      "evidence_ids": [
+        "BEHAVIOR-002",
+        "COACH-RULE-002"
+      ],
+      "status": "ACCEPTED_FOR_FIRST_SESSION"
+    }
+  ],
+  "hypothesis_decision": {
+    "hypothesis_id": "HYP-001",
+    "verdict": "INCONCLUSIVE",
+    "action": "NO_STRATEGY_CLAIM"
+  },
+  "repo_improvements": [
+    {
+      "backlog_id": "IMP-001",
+      "evidence_ids": ["SKILL-REVIEW-001"]
+    }
+  ],
+  "human_review_completed": true
+}

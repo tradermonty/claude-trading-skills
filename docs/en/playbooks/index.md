@@ -2,7 +2,7 @@
 layout: default
 title: Playbooks
 parent: English
-nav_order: 7
+nav_order: 9
 has_children: true
 lang_peer: /ja/playbooks/
 permalink: /en/playbooks/

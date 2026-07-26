@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "reviews": [
+    {
+      "evidence_id": "SKILL-REVIEW-001",
+      "skill": "vcp-screener",
+      "assessment": "HELPFUL_WITH_GAP",
+      "trade_ids": ["TRADE-001", "TRADE-002"],
+      "finding": "Candidate context was useful, but the hand-off did not require a recorded confirmation timestamp.",
+      "repo_action": "BACKLOG"
+    },
+    {
+      "evidence_id": "SKILL-REVIEW-002",
+      "skill": "pre-trade-discipline-gate",
+      "assessment": "HELPFUL",
+      "trade_ids": ["TRADE-003"],
+      "finding": "The written-plan gate kept risk within the configured cap.",
+      "repo_action": "NONE"
+    }
+  ],
+  "warnings": [
+    "Fictional review evidence; no production skill score is asserted."
+  ]
+}

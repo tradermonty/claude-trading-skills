@@ -2,7 +2,7 @@
 layout: default
 title: Frequently Asked Questions
 parent: English
-nav_order: 8
+nav_order: 10
 lang_peer: /ja/faq/
 permalink: /en/faq/
 ---

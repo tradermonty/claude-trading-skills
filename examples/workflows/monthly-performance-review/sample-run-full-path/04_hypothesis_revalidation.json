@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "hypothesis_id": "HYP-001",
+  "hypothesis": "The fictional confirmation rule has positive expectancy.",
+  "sample_returns_r": [1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0],
+  "metrics": {
+    "trade_count": 10,
+    "wins": 6,
+    "losses": 4,
+    "win_rate_pct": 60.0,
+    "total_return_r": 2.0,
+    "average_return_r": 0.2
+  },
+  "verdict": "INCONCLUSIVE",
+  "limitations": [
+    "The fixed ten-trade teaching sample is too small for validation.",
+    "No fees, slippage, or out-of-sample period are represented."
+  ]
+}

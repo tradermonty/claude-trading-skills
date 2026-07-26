@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-06-27",
+  "portfolio_value": 100000.0,
+  "allocation": [
+    {"bucket": "FICTA", "current_pct": 30.0, "target_pct": 25.0, "variance_pct": 5.0},
+    {"bucket": "FICTB", "current_pct": 30.0, "target_pct": 30.0, "variance_pct": 0.0},
+    {"bucket": "FICTC", "current_pct": 30.0, "target_pct": 30.0, "variance_pct": 0.0},
+    {"bucket": "CASH", "current_pct": 10.0, "target_pct": 15.0, "variance_pct": -5.0}
+  ],
+  "allocation_total_pct": 100.0,
+  "largest_position": {"symbol": "FICTA", "weight_pct": 30.0},
+  "decision": "REBALANCE_PROPOSED",
+  "rationale": "Reduce the fictional FICTA allocation by five percentage points and restore the cash target."
+}

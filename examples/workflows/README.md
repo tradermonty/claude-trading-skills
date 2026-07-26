@@ -19,19 +19,39 @@ future fixture/replay harness can consume.
 |---|---|---|---|---|
 | [`market-regime-daily/sample-run/`](market-regime-daily/sample-run/) | [`market-regime-daily.yaml`](../../workflows/market-regime-daily.yaml) | daily | required-only | market-breadth-analyzer → uptrend-analyzer → exposure-coach |
 | [`market-regime-daily/sample-run-full-path/`](market-regime-daily/sample-run-full-path/) | same | daily | **full-path** | + optional market-top-detector at step 3 |
+| [`core-portfolio-weekly/sample-run/`](core-portfolio-weekly/sample-run/) | [`core-portfolio-weekly.yaml`](../../workflows/core-portfolio-weekly.yaml) | weekly | required-only | portfolio-manager → trader-memory-core |
+| [`core-portfolio-weekly/sample-run-full-path/`](core-portfolio-weekly/sample-run-full-path/) | same | weekly | **full-path** | + optional kanchi-dividend-review-monitor at step 3 |
+| [`swing-opportunity-daily/sample-run/`](swing-opportunity-daily/sample-run/) | [`swing-opportunity-daily.yaml`](../../workflows/swing-opportunity-daily.yaml) | daily | required-only | circuit breaker → VCP → chart validation → sizing → journal → discipline gate |
+| [`swing-opportunity-daily/sample-run-full-path/`](swing-opportunity-daily/sample-run-full-path/) | same | daily | **full-path** | + all five optional candidate/plan steps |
 | [`trade-memory-loop/sample-run/`](trade-memory-loop/sample-run/) | [`trade-memory-loop.yaml`](../../workflows/trade-memory-loop.yaml) | per closed trade | required-only | trader-memory-core → signal-postmortem → trader-memory-core |
 | [`trade-memory-loop/sample-run-full-path/`](trade-memory-loop/sample-run-full-path/) | same | per closed trade | **full-path** | + optional backtest-expert at step 3 |
+| [`monthly-performance-review/sample-run/`](monthly-performance-review/sample-run/) | [`monthly-performance-review.yaml`](../../workflows/monthly-performance-review.yaml) | monthly | required-only | trader-memory-core → signal-postmortem → trader-memory-core |
+| [`monthly-performance-review/sample-run-full-path/`](monthly-performance-review/sample-run-full-path/) | same | monthly | **full-path** | + coaching, backtest, skill review, and improvement backlog |
 
-Each workflow ships two sample variants:
+The three samples added for `core-portfolio-weekly`,
+`swing-opportunity-daily`, and `monthly-performance-review` use this strict
+variant contract:
 
-- **`sample-run/` (required-only)** — exercises just the required steps. The
-  one optional step in each workflow is intentionally skipped and documented
-  in that example's `manifest.yaml` (`optional_steps_skipped`).
-- **`sample-run-full-path/` (full-path)** — runs the optional step too, so
-  every step in the workflow manifest is exercised. For `market-regime-daily`
-  this also strips the top-level `*_score` workflow hand-off fields from the
-  upstream fixtures so the sample exercises the **nested-shape parser** in
-  `exposure-coach` directly (see the "Artifact convention" note below).
+- **`sample-run/` (required-only)** — includes every artifact declared
+  `required: true` and records every optional workflow step in
+  `optional_steps_skipped`.
+- **`sample-run-full-path/` (full-path)** — runs every workflow step and
+  includes every declared artifact, including optional artifacts emitted by a
+  required step.
+
+The older `market-regime-daily` and `trade-memory-loop` examples predate this
+strict coverage contract and retain their historical fixture layouts.
+`market-regime-daily/sample-run-full-path/` also strips the top-level
+`*_score` workflow hand-off fields from the upstream fixtures so the sample
+exercises the **nested-shape parser** in `exposure-coach` directly (see the
+"Artifact convention" note below).
+
+Every sample is a static teaching fixture. Fixed dates and explicitly fictional
+symbols/accounts make the calculations reproducible. They contain no broker
+credentials, real account data, order submission, or investment advice.
+`swing-opportunity-daily` also carries a self-contained, non-restrictive
+`market-regime-daily` prerequisite artifact; the sample stops at the manual
+pre-trade discipline gate.
 
 ## Artifact convention: `raw-plus-handoff`
 
@@ -61,11 +81,13 @@ post-PR-#137 `exposure-coach` extractors over them reproduces the scores in
 unchanged (raw-plus-handoff convention preserved) as a reference for
 workflows that already produce both shapes.
 
-## Coupling
+## Validation and coupling
 
-These files are intentionally **decoupled** from the generated-docs / drift-gate
-machinery: no generator, validator, snapshot builder, catalog, CI metadata
-job, or pytest path reads `examples/`. Editing or extending them cannot cause
-catalog/snapshot/docs drift. (They are still subject to the standard
-hygiene pre-commit hooks — whitespace, YAML syntax, `detect-secrets`,
-`no-absolute-paths`, etc.)
+These files remain **decoupled** from generated docs, catalogs, snapshots,
+skill packages, and workflow generation. A focused pytest contract covers the
+three strict samples above: manifest/workflow parity, optional-step coverage,
+safe relative paths, schema/business invariants where available, and
+cross-artifact arithmetic. The historical examples are not silently rewritten
+by that contract. All files also remain subject to standard hygiene hooks
+(whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
+checks).

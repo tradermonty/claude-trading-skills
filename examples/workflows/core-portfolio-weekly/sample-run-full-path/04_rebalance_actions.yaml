@@ -1,0 +1,22 @@
+schema_version: "1.0"
+as_of: "2026-06-27"
+decision: PROPOSED_MANUAL_ACTIONS
+dividend_review:
+  status: WARN
+  symbol: FICTC
+  trigger: T2
+  response: PAUSE_OPTIONAL_ADDS_PENDING_HUMAN_REVIEW
+actions:
+  - action_id: RA-001
+    symbol: FICTA
+    action: TRIM
+    shares: 50
+    reference_price: 100.0
+    estimated_value: 5000.0
+    status: PROPOSED_NOT_SUBMITTED
+projected_allocation:
+  FICTA_pct: 25.0
+  FICTB_pct: 30.0
+  FICTC_pct: 30.0
+  cash_pct: 15.0
+manual_execution_required: true

@@ -104,6 +104,8 @@ single source of truth that powers this page.
 
 - [Getting Started](getting-started.md) — install paths for Claude Code,
   Claude web app, and CLI
+- [Glossary]({{ '/en/glossary/' | relative_url }}) — plain-language definitions
+  of the trading terms used in these workflows
 - [Skill Catalog](skill-catalog.md) — full alphabetical catalog of every skill
 - [Workflows](workflows.md) — auto-generated manifest reference for every
   workflow

@@ -1,0 +1,15 @@
+schema_version: "1.0"
+source_review_id: monthly_2026_05_fictional
+human_gate_action: modify_rules
+rules:
+  - rule_id: COACH-RULE-001
+    rule: No new entry without a pre-entry thesis record, invalidation point, and setup-confirmation note.
+    duration: next_week
+    evidence_ids:
+      - PM-EXEC-001
+      - BEHAVIOR-001
+  - rule_id: COACH-RULE-002
+    rule: Use review-only mode for the first June session and journal the rule review before adding risk.
+    duration: next_session
+    evidence_ids:
+      - BEHAVIOR-002

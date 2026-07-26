@@ -1,0 +1,18 @@
+schema_version: "1.0"
+effective_month: "2026-06"
+rules:
+  - rule_id: RULE-001
+    rule: Require the written confirmation condition before entry.
+    source_rule_id: COACH-RULE-001
+    evidence_ids:
+      - TRADE-002
+      - PM-EXEC-001
+      - BEHAVIOR-001
+    status: ACCEPTED
+  - rule_id: RULE-002
+    rule: Use review-only mode for the first June session and journal the review before adding risk.
+    source_rule_id: COACH-RULE-002
+    evidence_ids:
+      - BEHAVIOR-002
+    status: ACCEPTED
+review_after: "2026-06-30"

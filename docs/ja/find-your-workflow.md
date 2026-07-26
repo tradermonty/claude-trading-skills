@@ -104,6 +104,7 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 ## 関連ページ
 
 - [はじめに](getting-started.md) — Claude Code / Claude ウェブアプリ / CLI 向けインストール手順
+- [用語集]({{ '/ja/glossary/' | relative_url }}) — ワークフローで使うトレード用語の平易な説明
 - [スキル一覧](skill-catalog.md) — 全スキルのアルファベット順カタログ
 - [ワークフロー](workflows.md) — 全ワークフローの自動生成 manifest リファレンス
 - [スキルセット](skillsets.md) — 目的別インストールバンドル

@@ -2,7 +2,7 @@
 layout: default
 title: よくある質問
 parent: 日本語
-nav_order: 8
+nav_order: 10
 lang_peer: /en/faq/
 permalink: /ja/faq/
 ---

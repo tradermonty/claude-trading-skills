@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-29T12:30:00+00:00",
+  "as_of": "2026-06-29T08:30:00-04:00",
+  "overall_decision": "GO",
+  "candidate_results": [
+    {
+      "symbol": "EXMPL",
+      "thesis_id": "th_EXMPL_gro_20260629_cd34",
+      "order_intent": "MANUAL_ORDER",
+      "actionable": true,
+      "decision": "GO",
+      "reasons": [],
+      "checklist_answers": {
+        "entry_in_written_plan": true,
+        "stop_predefined": true,
+        "size_within_plan": true,
+        "planned_risk_dollars": 500.0,
+        "actual_risk_dollars": 500.0,
+        "notes": "Fictional 200-share plan; no order submitted."
+      },
+      "link_status": "skipped_no_state_dir"
+    }
+  ],
+  "metrics": {
+    "candidates_total": 1,
+    "actionable_candidates": 1,
+    "theses_scanned": 0,
+    "revenge_window_hours": 24.0
+  },
+  "inputs": {
+    "state_dir": null,
+    "market_regime_decision": "00_exposure_decision.json",
+    "circuit_breaker_decision": "01_circuit_breaker_decision.json"
+  },
+  "artifact_paths": {
+    "json": "11_pre_trade_discipline_decision.json",
+    "markdown": "11_pre_trade_discipline_decision.md"
+  },
+  "warnings": [],
+  "rationale": "All actionable manual-order candidates passed the pre-trade discipline gate."
+}
