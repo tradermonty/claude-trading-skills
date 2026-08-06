@@ -3,7 +3,7 @@ layout: default
 title: "Residual Edge Analyzer"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 50
+nav_order: 51
 lang_peer: /en/skills/residual-edge-analyzer/
 permalink: /ja/skills/residual-edge-analyzer/
 generated: true

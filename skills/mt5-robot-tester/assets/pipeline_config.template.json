@@ -1,0 +1,60 @@
+{
+  "_comment": "mt5-robot-tester pipeline config. Copy this file, fill in the paths, do not commit personal paths, and pass it with --config. All three folders must be under MQL5\\Experts so the tester can run them.",
+
+  "terminal_path": null,
+  "_terminal_path_help": "Terminal lookup order: --terminal-path, $MT5_TERMINAL_PATH, this terminal_path value, then common install paths.",
+
+  "folders": {
+    "candidates": "<MT5_DATA_DIR>/MQL5/Experts/candidate bots",
+    "in_testing": "<MT5_DATA_DIR>/MQL5/Experts/bots in testing",
+    "finalists":  "<MT5_DATA_DIR>/MQL5/Experts/finalist bots"
+  },
+
+  "sets_dir": null,
+  "_sets_dir_help": "Optional folder containing <bot_name>.set EA inputs. Round 3 parameter optimization requires it; without one, R3 is skipped and the Round 2 result determines the verdict.",
+
+  "common": {
+    "period": "H1",
+    "from": "2020.01.01",
+    "to": "2026.06.30",
+    "model": 4,
+    "deposit": 10000,
+    "currency": "USD",
+    "leverage": 100,
+    "delay_ms": 32,
+    "optimization_criterion": 0,
+    "_symbols_help": "REQUIRED: Market Watch symbols to test in Round 1, one backtest per symbol. Replace this example FTMO Market Watch list with your symbols:",
+    "symbols": [
+      "EURUSD", "GBPUSD", "USDCHF", "USDJPY", "AUDUSD", "NZDUSD", "USDCAD",
+      "XAUUSD", "XAGUSD", "BTCUSD", "US500.cash", "US100.cash", "US30.cash",
+      "NVDA", "TSLA", "AMZN", "MSFT", "AMD", "AVGO"
+    ]
+  },
+
+  "gates": {
+    "round1_min_positive": 5,
+    "round1_min_profit_multiple": 3.0,
+    "finalist_min_profit_multiple": 4.0,
+    "finalist_max_drawdown_pct": 12.0,
+    "finalist_require_improvement": true
+  },
+
+  "round2_reference": {
+    "min_profit_pct": 300.0,
+    "max_drawdown_pct": 15.0,
+    "min_pct_positive_months": 70.0,
+    "require_all_years_positive": true,
+    "min_lr_correlation": 0.80,
+    "max_months_to_new_high": 3
+  },
+
+  "round3": {
+    "range_pct": 0.5,
+    "step_pct": 0.05,
+    "params_after_magic": 6,
+    "magic_param_name": "MagicNumber",
+    "use_learned_order": true
+  },
+
+  "timeout_seconds": 3600
+}

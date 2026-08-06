@@ -251,6 +251,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Kanchi Dividend Review Monitor** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Dividend / price monitoring via FMP |
 | **Kanchi Dividend SOP** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | US dividend stock data via FMP |
 | **Kanchi Dividend US Tax Accounting** | ❌ Not used | ❌ Not used | ❌ Not used | US tax workflow guidance; pure calculation |
+| **MT5 Robot Tester** | ❌ Not used | ❌ Not used | ❌ Not used | Local Windows MT5 terminal, EA and set files, and broker tick data; no API key; Offline report parsing, gates, metrics, checkpoints, and learning aggregation |
 | **Macro Regime Detector** | ❌ Not used | ❌ Not used | ❌ Not used | Cross-asset ratio data via yfinance or local CSV |
 | **Market Breadth Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | TraderMonty public CSV; no API key required |
 | **Market Environment Analysis** | ❌ Not used | ❌ Not used | ❌ Not used | Global market data via WebSearch / WebFetch; Optional chart image inputs for technical interpretation |

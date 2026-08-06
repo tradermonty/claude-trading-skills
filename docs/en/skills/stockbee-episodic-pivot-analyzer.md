@@ -3,7 +3,7 @@ layout: default
 title: "Stockbee Episodic Pivot Analyzer"
 grand_parent: English
 parent: Skill Guides
-nav_order: 59
+nav_order: 60
 lang_peer: /ja/skills/stockbee-episodic-pivot-analyzer/
 permalink: /en/skills/stockbee-episodic-pivot-analyzer/
 generated: true

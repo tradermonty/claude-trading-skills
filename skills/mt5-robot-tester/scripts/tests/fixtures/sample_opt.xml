@@ -1,0 +1,260 @@
+<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Tester">
+  <Table>
+   <Row>
+    <Cell><Data ss:Type="String">Paso</Data></Cell>
+    <Cell><Data ss:Type="String">Símbolo</Data></Cell>
+    <Cell><Data ss:Type="String">Resultado</Data></Cell>
+    <Cell><Data ss:Type="String">Beneficio</Data></Cell>
+    <Cell><Data ss:Type="String">Total de operaciones</Data></Cell>
+    <Cell><Data ss:Type="String">Factor de rentabilidad</Data></Cell>
+    <Cell><Data ss:Type="String">Beneficio esperado</Data></Cell>
+    <Cell><Data ss:Type="String">Reducción %</Data></Cell>
+    <Cell><Data ss:Type="String">Factor de recuperación</Data></Cell>
+    <Cell><Data ss:Type="String">Ratio de Sharpe</Data></Cell>
+    <Cell><Data ss:Type="String">MagicNumber</Data></Cell>
+    <Cell><Data ss:Type="String">GannHiLoPeriod1</Data></Cell>
+    <Cell><Data ss:Type="String">PriceEntryMult1</Data></Cell>
+    <Cell><Data ss:Type="String">StopLossCoef1</Data></Cell>
+    <Cell><Data ss:Type="String">TrailingStopCoef1</Data></Cell>
+    <Cell><Data ss:Type="String">TrailingActCef1</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">72</Data></Cell>
+    <Cell><Data ss:Type="String">US100.cash</Data></Cell>
+    <Cell><Data ss:Type="Number">1.15</Data></Cell>
+    <Cell><Data ss:Type="Number">45231.12</Data></Cell>
+    <Cell><Data ss:Type="Number">3139</Data></Cell>
+    <Cell><Data ss:Type="Number">1.15</Data></Cell>
+    <Cell><Data ss:Type="Number">8.49</Data></Cell>
+    <Cell><Data ss:Type="Number">17.43</Data></Cell>
+    <Cell><Data ss:Type="Number">3.62</Data></Cell>
+    <Cell><Data ss:Type="Number">3.19</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">33</Data></Cell>
+    <Cell><Data ss:Type="String">TSLA</Data></Cell>
+    <Cell><Data ss:Type="Number">1.39</Data></Cell>
+    <Cell><Data ss:Type="Number">18308.98</Data></Cell>
+    <Cell><Data ss:Type="Number">686</Data></Cell>
+    <Cell><Data ss:Type="Number">1.39</Data></Cell>
+    <Cell><Data ss:Type="Number">26.69</Data></Cell>
+    <Cell><Data ss:Type="Number">15.22</Data></Cell>
+    <Cell><Data ss:Type="Number">6.98</Data></Cell>
+    <Cell><Data ss:Type="Number">5.24</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">70</Data></Cell>
+    <Cell><Data ss:Type="String">US500.cash</Data></Cell>
+    <Cell><Data ss:Type="Number">1.04</Data></Cell>
+    <Cell><Data ss:Type="Number">8276.89</Data></Cell>
+    <Cell><Data ss:Type="Number">3092</Data></Cell>
+    <Cell><Data ss:Type="Number">1.04</Data></Cell>
+    <Cell><Data ss:Type="Number">2.68</Data></Cell>
+    <Cell><Data ss:Type="Number">49.30</Data></Cell>
+    <Cell><Data ss:Type="Number">0.56</Data></Cell>
+    <Cell><Data ss:Type="Number">1.06</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">18</Data></Cell>
+    <Cell><Data ss:Type="String">NVDA</Data></Cell>
+    <Cell><Data ss:Type="Number">1.31</Data></Cell>
+    <Cell><Data ss:Type="Number">6419.00</Data></Cell>
+    <Cell><Data ss:Type="Number">368</Data></Cell>
+    <Cell><Data ss:Type="Number">1.31</Data></Cell>
+    <Cell><Data ss:Type="Number">17.44</Data></Cell>
+    <Cell><Data ss:Type="Number">13.80</Data></Cell>
+    <Cell><Data ss:Type="Number">2.82</Data></Cell>
+    <Cell><Data ss:Type="Number">4.43</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">57</Data></Cell>
+    <Cell><Data ss:Type="String">JP225.cash</Data></Cell>
+    <Cell><Data ss:Type="Number">1.20</Data></Cell>
+    <Cell><Data ss:Type="Number">3651.28</Data></Cell>
+    <Cell><Data ss:Type="Number">303</Data></Cell>
+    <Cell><Data ss:Type="Number">1.20</Data></Cell>
+    <Cell><Data ss:Type="Number">12.05</Data></Cell>
+    <Cell><Data ss:Type="Number">13.63</Data></Cell>
+    <Cell><Data ss:Type="Number">2.22</Data></Cell>
+    <Cell><Data ss:Type="Number">3.14</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">34</Data></Cell>
+    <Cell><Data ss:Type="String">AMZN</Data></Cell>
+    <Cell><Data ss:Type="Number">1.05</Data></Cell>
+    <Cell><Data ss:Type="Number">2267.70</Data></Cell>
+    <Cell><Data ss:Type="Number">720</Data></Cell>
+    <Cell><Data ss:Type="Number">1.05</Data></Cell>
+    <Cell><Data ss:Type="Number">3.15</Data></Cell>
+    <Cell><Data ss:Type="Number">41.30</Data></Cell>
+    <Cell><Data ss:Type="Number">0.29</Data></Cell>
+    <Cell><Data ss:Type="Number">0.89</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">26</Data></Cell>
+    <Cell><Data ss:Type="String">CSCO</Data></Cell>
+    <Cell><Data ss:Type="Number">1.13</Data></Cell>
+    <Cell><Data ss:Type="Number">946.75</Data></Cell>
+    <Cell><Data ss:Type="Number">229</Data></Cell>
+    <Cell><Data ss:Type="Number">1.13</Data></Cell>
+    <Cell><Data ss:Type="Number">4.13</Data></Cell>
+    <Cell><Data ss:Type="Number">12.38</Data></Cell>
+    <Cell><Data ss:Type="Number">0.75</Data></Cell>
+    <Cell><Data ss:Type="Number">0.84</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">19</Data></Cell>
+    <Cell><Data ss:Type="String">AVGO</Data></Cell>
+    <Cell><Data ss:Type="Number">0.91</Data></Cell>
+    <Cell><Data ss:Type="Number">-558.43</Data></Cell>
+    <Cell><Data ss:Type="Number">71</Data></Cell>
+    <Cell><Data ss:Type="Number">0.91</Data></Cell>
+    <Cell><Data ss:Type="Number">-7.87</Data></Cell>
+    <Cell><Data ss:Type="Number">19.78</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.28</Data></Cell>
+    <Cell><Data ss:Type="Number">-1.51</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell><Data ss:Type="String">USDHKD</Data></Cell>
+    <Cell><Data ss:Type="Number">0.00</Data></Cell>
+    <Cell><Data ss:Type="Number">-715.36</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell><Data ss:Type="Number">0.00</Data></Cell>
+    <Cell><Data ss:Type="Number">-238.45</Data></Cell>
+    <Cell><Data ss:Type="Number">8.21</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.86</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.17</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">52</Data></Cell>
+    <Cell><Data ss:Type="String">XAUAUD</Data></Cell>
+    <Cell><Data ss:Type="Number">0.88</Data></Cell>
+    <Cell><Data ss:Type="Number">-1510.48</Data></Cell>
+    <Cell><Data ss:Type="Number">190</Data></Cell>
+    <Cell><Data ss:Type="Number">0.88</Data></Cell>
+    <Cell><Data ss:Type="Number">-7.95</Data></Cell>
+    <Cell><Data ss:Type="Number">29.36</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.43</Data></Cell>
+    <Cell><Data ss:Type="Number">-2.42</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">21</Data></Cell>
+    <Cell><Data ss:Type="String">AZN</Data></Cell>
+    <Cell><Data ss:Type="Number">0.89</Data></Cell>
+    <Cell><Data ss:Type="Number">-1600.62</Data></Cell>
+    <Cell><Data ss:Type="Number">239</Data></Cell>
+    <Cell><Data ss:Type="Number">0.89</Data></Cell>
+    <Cell><Data ss:Type="Number">-6.70</Data></Cell>
+    <Cell><Data ss:Type="Number">32.90</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.39</Data></Cell>
+    <Cell><Data ss:Type="Number">-1.65</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">71</Data></Cell>
+    <Cell><Data ss:Type="String">HK50.cash</Data></Cell>
+    <Cell><Data ss:Type="Number">0.98</Data></Cell>
+    <Cell><Data ss:Type="Number">-1780.85</Data></Cell>
+    <Cell><Data ss:Type="Number">928</Data></Cell>
+    <Cell><Data ss:Type="Number">0.98</Data></Cell>
+    <Cell><Data ss:Type="Number">-1.92</Data></Cell>
+    <Cell><Data ss:Type="Number">47.99</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.24</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.46</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="Number">25</Data></Cell>
+    <Cell><Data ss:Type="String">BAC</Data></Cell>
+    <Cell><Data ss:Type="Number">0.71</Data></Cell>
+    <Cell><Data ss:Type="Number">-2117.91</Data></Cell>
+    <Cell><Data ss:Type="Number">277</Data></Cell>
+    <Cell><Data ss:Type="Number">0.71</Data></Cell>
+    <Cell><Data ss:Type="Number">-7.65</Data></Cell>
+    <Cell><Data ss:Type="Number">22.66</Data></Cell>
+    <Cell><Data ss:Type="Number">-0.92</Data></Cell>
+    <Cell><Data ss:Type="Number">-4.15</Data></Cell>
+    <Cell><Data ss:Type="Number">34545345</Data></Cell>
+    <Cell><Data ss:Type="Number">86</Data></Cell>
+    <Cell><Data ss:Type="Number">1.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1.0</Data></Cell>
+    <Cell><Data ss:Type="Number">1.4</Data></Cell>
+    <Cell><Data ss:Type="Number">0.7</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>

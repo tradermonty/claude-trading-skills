@@ -757,6 +757,32 @@ skills:
   - market_top_composite_score
   workflows:
   - market-regime-daily
+- id: mt5-robot-tester
+  display_name: MT5 Robot Tester
+  category: strategy-research
+  status: beta
+  summary: Batch-test MetaTrader 5 Expert Advisors through a resumable three-round local
+    pipeline, rank results, and retain deterministic parameter and symbol learnings.
+  timeframe: research
+  difficulty: advanced
+  integrations:
+  - id: mt5_local_files
+    type: local_file
+    requirement: required
+    note: Local Windows MT5 terminal, EA and set files, and broker tick data; no API key
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Offline report parsing, gates, metrics, checkpoints, and learning aggregation
+  inputs:
+  - mt5_ea_binaries
+  - mt5_pipeline_config
+  - broker_tick_data
+  outputs:
+  - mt5_backtest_reports
+  - robot_leaderboard
+  - learning_store
+  workflows: []
 - id: news-reaction-failure-analyzer
   display_name: News Reaction Failure Analyzer
   category: market-regime

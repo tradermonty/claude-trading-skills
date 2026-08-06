@@ -3,7 +3,7 @@ layout: default
 title: "Weekly Performance Digest"
 grand_parent: English
 parent: Skill Guides
-nav_order: 71
+nav_order: 72
 lang_peer: /ja/skills/weekly-performance-digest/
 permalink: /en/skills/weekly-performance-digest/
 generated: true

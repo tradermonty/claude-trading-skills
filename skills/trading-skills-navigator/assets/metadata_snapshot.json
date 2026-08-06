@@ -614,6 +614,27 @@
       "timeframe": "daily"
     },
     {
+      "category": "strategy-research",
+      "difficulty": "advanced",
+      "display_name": "MT5 Robot Tester",
+      "id": "mt5-robot-tester",
+      "integrations": [
+        {
+          "id": "mt5_local_files",
+          "requirement": "required",
+          "type": "local_file"
+        },
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Batch-test MetaTrader 5 Expert Advisors through a resumable three-round local pipeline, rank results, and retain deterministic parameter and symbol learnings.",
+      "timeframe": "research"
+    },
+    {
       "category": "market-regime",
       "difficulty": "intermediate",
       "display_name": "News Reaction Failure Analyzer",
