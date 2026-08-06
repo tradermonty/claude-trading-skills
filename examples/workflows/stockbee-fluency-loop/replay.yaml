@@ -1,0 +1,60 @@
+schema_version: 1
+workflow_id: stockbee-fluency-loop
+fixed_timestamp: "2026-07-01T12:00:00+00:00"
+
+inputs:
+  screener: replay-inputs/screener.json
+  prices: replay-inputs/prices.json
+  accepted_lessons: replay-inputs/accepted_lessons.yaml
+
+steps:
+  - step: 1
+    executor: stockbee_fluency_ingest
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      model_book_ingest:
+        canonical: 01_model_book_ingest.json
+        state: 01_model_book.jsonl
+
+  - step: 2
+    executor: stockbee_fluency_update
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      matured_setup_outcomes:
+        canonical: 02_matured_setup_outcomes.json
+        state: 02_model_book.jsonl
+
+  - step: 3
+    executor: stockbee_fluency_summarize
+    executor_mode: native_cli
+    gate_policy: record_only
+    output_files:
+      setup_fluency_summary:
+        canonical: 03_setup_fluency_summary.json
+      rule_candidates:
+        canonical: 03_rule_candidates.json
+
+  - step: 4
+    executor: manual_lessons_log
+    executor_mode: manual_contract
+    gate_policy: record_only
+    output_files:
+      accepted_lessons_log:
+        canonical: 04_accepted_lessons_log.yaml
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+    golden_dir: sample-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+    golden_dir: sample-run-full-path

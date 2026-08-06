@@ -1,0 +1,372 @@
+{
+  "generated_at": "2026-07-01T12:00:00+00:00",
+  "groups": {
+    "primary_trigger": [
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "4pct_breakout",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      }
+    ],
+    "rating": [
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "A",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      }
+    ],
+    "setup_tags": [
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "4pct_breakout",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "close_near_high",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "controlled_3_to_20_day_base",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "high_volume_expansion",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "range_expansion",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "rating_A",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "tight_base",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "volume_dry_up",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      }
+    ]
+  },
+  "matured_records": 6,
+  "model_book": "$STATE/model_book.jsonl",
+  "overall": {
+    "avg_3d_return_pct": 7.0,
+    "avg_5d_mae_pct": -1.0,
+    "avg_5d_mfe_pct": 13.0,
+    "avg_5d_return_pct": 12.0,
+    "failure_rate_pct": 0.0,
+    "median_5d_return_pct": 12.0,
+    "pending": 0,
+    "sample_size": 6,
+    "stop_hit_rate_pct": 0.0,
+    "strong_winner_rate_pct": 100.0,
+    "win_rate_pct": 100.0
+  },
+  "pending_records": 0,
+  "rule_candidates": [
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "A",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "A",
+      "group_by": "rating",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "4pct_breakout",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "4pct_breakout",
+      "group_by": "primary_trigger",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "4pct_breakout",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "4pct_breakout",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "close_near_high",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "close_near_high",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "controlled_3_to_20_day_base",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "controlled_3_to_20_day_base",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "high_volume_expansion",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "high_volume_expansion",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "range_expansion",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "range_expansion",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "rating_A",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "rating_A",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "tight_base",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "tight_base",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    },
+    {
+      "action": "promote",
+      "evidence": {
+        "avg_3d_return_pct": 7.0,
+        "avg_5d_mae_pct": -1.0,
+        "avg_5d_mfe_pct": 13.0,
+        "avg_5d_return_pct": 12.0,
+        "failure_rate_pct": 0.0,
+        "group": "volume_dry_up",
+        "median_5d_return_pct": 12.0,
+        "pending": 0,
+        "sample_size": 6,
+        "stop_hit_rate_pct": 0.0,
+        "strong_winner_rate_pct": 100.0,
+        "win_rate_pct": 100.0
+      },
+      "group": "volume_dry_up",
+      "group_by": "setup_tags",
+      "reason": "High win rate with positive 5d expectancy and acceptable drawdown."
+    }
+  ],
+  "schema_version": "1.0",
+  "skill": "stockbee-setup-fluency-trainer",
+  "total_records": 6
+}

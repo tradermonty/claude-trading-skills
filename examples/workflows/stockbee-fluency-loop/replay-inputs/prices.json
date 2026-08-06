@@ -1,0 +1,52 @@
+{
+  "prices": {
+    "EXMPL1": [
+      {"date": "2026-06-20", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1000000},
+      {"date": "2026-06-22", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1100000},
+      {"date": "2026-06-23", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 1200000},
+      {"date": "2026-06-24", "open": 105, "high": 108, "low": 104, "close": 107, "volume": 1150000},
+      {"date": "2026-06-25", "open": 107, "high": 110, "low": 106, "close": 109, "volume": 1050000},
+      {"date": "2026-06-26", "open": 109, "high": 113, "low": 108, "close": 112, "volume": 1250000}
+    ],
+    "EXMPL2": [
+      {"date": "2026-06-20", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1000000},
+      {"date": "2026-06-22", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1100000},
+      {"date": "2026-06-23", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 1200000},
+      {"date": "2026-06-24", "open": 105, "high": 108, "low": 104, "close": 107, "volume": 1150000},
+      {"date": "2026-06-25", "open": 107, "high": 110, "low": 106, "close": 109, "volume": 1050000},
+      {"date": "2026-06-26", "open": 109, "high": 113, "low": 108, "close": 112, "volume": 1250000}
+    ],
+    "EXMPL3": [
+      {"date": "2026-06-20", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1000000},
+      {"date": "2026-06-22", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1100000},
+      {"date": "2026-06-23", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 1200000},
+      {"date": "2026-06-24", "open": 105, "high": 108, "low": 104, "close": 107, "volume": 1150000},
+      {"date": "2026-06-25", "open": 107, "high": 110, "low": 106, "close": 109, "volume": 1050000},
+      {"date": "2026-06-26", "open": 109, "high": 113, "low": 108, "close": 112, "volume": 1250000}
+    ],
+    "EXMPL4": [
+      {"date": "2026-06-20", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1000000},
+      {"date": "2026-06-22", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1100000},
+      {"date": "2026-06-23", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 1200000},
+      {"date": "2026-06-24", "open": 105, "high": 108, "low": 104, "close": 107, "volume": 1150000},
+      {"date": "2026-06-25", "open": 107, "high": 110, "low": 106, "close": 109, "volume": 1050000},
+      {"date": "2026-06-26", "open": 109, "high": 113, "low": 108, "close": 112, "volume": 1250000}
+    ],
+    "EXMPL5": [
+      {"date": "2026-06-20", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1000000},
+      {"date": "2026-06-22", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1100000},
+      {"date": "2026-06-23", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 1200000},
+      {"date": "2026-06-24", "open": 105, "high": 108, "low": 104, "close": 107, "volume": 1150000},
+      {"date": "2026-06-25", "open": 107, "high": 110, "low": 106, "close": 109, "volume": 1050000},
+      {"date": "2026-06-26", "open": 109, "high": 113, "low": 108, "close": 112, "volume": 1250000}
+    ],
+    "EXMPL6": [
+      {"date": "2026-06-20", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1000000},
+      {"date": "2026-06-22", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1100000},
+      {"date": "2026-06-23", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 1200000},
+      {"date": "2026-06-24", "open": 105, "high": 108, "low": 104, "close": 107, "volume": 1150000},
+      {"date": "2026-06-25", "open": 107, "high": 110, "low": 106, "close": 109, "volume": 1050000},
+      {"date": "2026-06-26", "open": 109, "high": 113, "low": 108, "close": 112, "volume": 1250000}
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/manual-lessons.schema.json",
+  "title": "Manual lessons replay contract",
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["setup_fluency_summary", "rule_candidates"],
+      "properties": {
+        "setup_fluency_summary": {"$ref": "#/$defs/sha256"},
+        "rule_candidates": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lesson_id", "decision", "observation", "changes_trading_rules"],
+      "properties": {
+        "lesson_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "decision": {
+          "enum": ["accepted_operating_rule", "journal_only", "rejected"]
+        },
+        "observation": {"type": "string", "minLength": 1},
+        "changes_trading_rules": {"type": "boolean"}
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "human_approved",
+        "source_artifacts",
+        "source_sha256",
+        "lessons"
+      ],
+      "properties": {
+        "human_approved": {"const": true},
+        "source_artifacts": {
+          "const": ["setup_fluency_summary", "rule_candidates"]
+        },
+        "source_sha256": {"$ref": "#/$defs/source_hashes"},
+        "lessons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/lesson"}
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "workflow_id",
+        "recorded_at",
+        "source_artifacts",
+        "lessons",
+        "provenance"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "workflow_id": {"const": "stockbee-fluency-loop"},
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "source_artifacts": {
+          "const": ["setup_fluency_summary", "rule_candidates"]
+        },
+        "lessons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/lesson"}
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "execution_mode",
+            "native_trader_memory_validated",
+            "source_sha256",
+            "note"
+          ],
+          "properties": {
+            "execution_mode": {"const": "manual_contract"},
+            "native_trader_memory_validated": {"const": false},
+            "source_sha256": {"$ref": "#/$defs/source_hashes"},
+            "note": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}

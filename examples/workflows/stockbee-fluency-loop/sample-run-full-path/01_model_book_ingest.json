@@ -1,0 +1,19 @@
+{
+  "candidates_loaded": 6,
+  "generated_at": "2026-07-01T12:00:00+00:00",
+  "ingest": {
+    "candidates_loaded": 6,
+    "inserted": 6,
+    "skipped": 0,
+    "studyable": 6,
+    "total": 6,
+    "updated": 0
+  },
+  "model_book": "$STATE/model_book.jsonl",
+  "schema_version": "1.0",
+  "skill": "stockbee-setup-fluency-trainer",
+  "source_reports": [
+    "$INPUT/screener.json"
+  ],
+  "title": "Stockbee Setup Fluency Ingest Report"
+}

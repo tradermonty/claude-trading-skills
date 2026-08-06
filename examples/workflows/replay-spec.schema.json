@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/workflow-replay-spec.schema.json",
+  "title": "Workflow replay specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workflow_id",
+    "fixed_timestamp",
+    "inputs",
+    "steps",
+    "variants"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "workflow_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "fixed_timestamp": {"type": "string", "format": "date-time"},
+    "inputs": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step",
+          "executor",
+          "executor_mode",
+          "gate_policy",
+          "output_files"
+        ],
+        "properties": {
+          "step": {"type": "integer", "minimum": 1},
+          "executor": {"type": "string", "minLength": 1},
+          "executor_mode": {"enum": ["native_cli", "manual_contract"]},
+          "gate_policy": {"enum": ["continue", "halt", "record_only"]},
+          "output_files": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "variants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required-only", "full-path"],
+      "properties": {
+        "required-only": {"$ref": "#/$defs/variant"},
+        "full-path": {"$ref": "#/$defs/variant"}
+      }
+    }
+  },
+  "$defs": {
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled_steps", "golden_dir"],
+      "properties": {
+        "enabled_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "golden_dir": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

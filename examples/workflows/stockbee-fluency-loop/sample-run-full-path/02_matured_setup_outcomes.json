@@ -1,0 +1,19 @@
+{
+  "api_stats": null,
+  "generated_at": "2026-07-01T12:00:00+00:00",
+  "horizons": [
+    3,
+    5
+  ],
+  "model_book": "$STATE/model_book.jsonl",
+  "prices_source": "$INPUT/prices.json",
+  "schema_version": "1.0",
+  "skill": "stockbee-setup-fluency-trainer",
+  "title": "Stockbee Setup Fluency Outcome Update",
+  "update": {
+    "matured": 6,
+    "skipped_no_prices": 0,
+    "still_pending": 0,
+    "updated": 6
+  }
+}

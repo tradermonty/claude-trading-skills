@@ -1,0 +1,42 @@
+schema_version: 1
+
+covered:
+  stockbee-fluency-loop:
+    spec: stockbee-fluency-loop/replay.yaml
+    variants:
+      - required-only
+      - full-path
+
+# Frozen Phase 1 baseline. The validator rejects adding another deferral, so a
+# newly introduced workflow must ship both replay variants.
+deferred:
+  core-portfolio-weekly:
+    issue: 294
+    reason: Existing examples need migration to artifact-store execution.
+  kanchi-dividend-weekly:
+    issue: 294
+    reason: Native and human contract adapters are not implemented yet.
+  market-regime-daily:
+    issue: 294
+    reason: Historical examples need provider-input replay adapters.
+  monthly-performance-review:
+    issue: 294
+    reason: Existing examples need transactional journal replay migration.
+  multi-asset-opportunity-daily:
+    issue: 294
+    reason: Provider-backed and manual hypothesis adapters remain deferred.
+  shapiro-contrarian:
+    issue: 294
+    reason: Five decision gates need explicit deterministic evaluators.
+  stockbee-20pct-study-daily:
+    issue: 294
+    reason: Offline study and accepted-lessons adapters remain deferred.
+  stockbee-ep-daily:
+    issue: 294
+    reason: Circuit-breaker and EP handoff failure fixtures remain deferred.
+  swing-opportunity-daily:
+    issue: 294
+    reason: Existing examples need circuit-breaker halt replay migration.
+  trade-memory-loop:
+    issue: 294
+    reason: Existing examples need atomic lessons-journal replay migration.

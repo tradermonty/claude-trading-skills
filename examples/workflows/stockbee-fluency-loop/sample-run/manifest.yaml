@@ -1,0 +1,37 @@
+workflow_id: stockbee-fluency-loop
+sample_type: required-only
+illustrative: true
+generated_by: scripts/workflow_replay.py generate
+prompt: prompt.md
+network_policy: offline-input-required
+optional_steps_skipped:
+- step: 4
+  skill: trader-memory-core
+  reason: required-only executable replay
+artifacts:
+- step: 1
+  artifact_id: model_book_ingest
+  skill: stockbee-setup-fluency-trainer
+  execution_mode: native_cli
+  files:
+    canonical: 01_model_book_ingest.json
+    state: 01_model_book.jsonl
+- step: 2
+  artifact_id: matured_setup_outcomes
+  skill: stockbee-setup-fluency-trainer
+  execution_mode: native_cli
+  files:
+    canonical: 02_matured_setup_outcomes.json
+    state: 02_model_book.jsonl
+- step: 3
+  artifact_id: rule_candidates
+  skill: stockbee-setup-fluency-trainer
+  execution_mode: native_cli
+  files:
+    canonical: 03_rule_candidates.json
+- step: 3
+  artifact_id: setup_fluency_summary
+  skill: stockbee-setup-fluency-trainer
+  execution_mode: native_cli
+  files:
+    canonical: 03_setup_fluency_summary.json

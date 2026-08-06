@@ -1,0 +1,20 @@
+schema_version: 1
+workflow_id: stockbee-fluency-loop
+recorded_at: '2026-07-01T12:00:00+00:00'
+source_artifacts:
+- setup_fluency_summary
+- rule_candidates
+lessons:
+- lesson_id: fictional-tight-base-review
+  decision: journal_only
+  observation: Keep the fictional tight-base cohort in study status until representative
+    charts have been reviewed outside this replay.
+  changes_trading_rules: false
+provenance:
+  execution_mode: manual_contract
+  native_trader_memory_validated: false
+  source_sha256:
+    setup_fluency_summary: 1d2c5dfabd874fd940077addd6bc8b024cd2b1af85bce0c171b612aff5b53a1e  # pragma: allowlist secret
+    rule_candidates: 22db8228a113bd3d26b0df5a28c8051439f241061b6d261b508b41d3b97f501a  # pragma: allowlist secret
+  note: Human-approved fixture staged by replay harness; no trader-memory-core append
+    API was executed.
