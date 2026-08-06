@@ -502,13 +502,32 @@ def test_update_rejects_injecting_futures_position_with_nan_multiplier(tmp_path:
     assert thesis_store.get(tmp_path, tid)["position"] is None
 
 
-def test_update_equity_position_unaffected(tmp_path: Path):
-    """Regression pin: update() touching position on an EQUITY thesis is
-    entirely unaffected by the new futures guard (out of scope, existing
-    behavior preserved)."""
+def test_update_rejects_equity_position_rewrite(tmp_path: Path):
+    """Issue #255: equity position writes also belong to lifecycle APIs."""
     tid = _active_equity(tmp_path, 10, ticker="EQUPDATE")
-    t = thesis_store.update(tmp_path, tid, {"position": {"shares": 10, "note": "test"}})
-    assert t["position"]["shares"] == 10
+    before_state = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match=r"update\(\) cannot modify position"):
+        thesis_store.update(tmp_path, tid, {"position": {"shares": 10, "note": "test"}})
+
+    assert _state_file_hash(tmp_path, tid) == before_state
+    assert _index_file_hash(tmp_path) == before_index
+    assert thesis_store.get(tmp_path, tid)["position"]["shares"] == 10
+
+
+def test_update_rejects_pnl_fabrication_on_active_futures(tmp_path: Path):
+    """An active futures thesis cannot receive fabricated P&L via update()."""
+    tid = _active_futures(tmp_path, contracts=2, ticker="ESOUTCOME")
+    before_state = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match=r"update\(\) outcome"):
+        thesis_store.update(tmp_path, tid, {"outcome": {"pnl_pct": 999.0}})
+
+    assert _state_file_hash(tmp_path, tid) == before_state
+    assert _index_file_hash(tmp_path) == before_index
+    assert thesis_store.get(tmp_path, tid)["status"] == "ACTIVE"
 
 
 def test_validate_futures_position_fields_rejects_nonfinite_multiplier(tmp_path: Path):

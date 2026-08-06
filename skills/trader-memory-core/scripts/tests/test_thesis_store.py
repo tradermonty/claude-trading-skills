@@ -954,6 +954,111 @@ def test_update_origin_fingerprint_rejected(tmp_path: Path):
         thesis_store.update(tmp_path, tid, {"origin_fingerprint": "hack"})
 
 
+# -- Tests: Issue #255 — generic update ownership boundaries -----------------
+
+
+@pytest.mark.parametrize(
+    "position_payload",
+    [
+        None,
+        {},
+        "not-a-dict",
+        {"note": "metadata only"},
+        {"multiplier": float("nan")},
+        {"direction": "SHORT"},
+        {"quantity": 2},
+        {"quantity_remaining": 1},
+        {"shares": 10},
+        {"risk_dollars": 100.0},
+        {"asset_type": "futures"},
+        {"quantity_unit": "contracts"},
+    ],
+)
+def test_update_rejects_all_position_writes_without_persisting(tmp_path: Path, position_payload):
+    """Only dedicated lifecycle APIs may create or mutate positions."""
+    tid, _ = _register_and_get(tmp_path, ticker="UPDPOS")
+    before_state = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match=r"update\(\) cannot modify position"):
+        thesis_store.update(tmp_path, tid, {"position": position_payload})
+
+    assert _state_file_hash(tmp_path, tid) == before_state
+    assert _index_file_hash(tmp_path) == before_index
+    assert thesis_store.get(tmp_path, tid)["position"] is None
+
+
+def test_update_allows_review_owned_outcome_fields(tmp_path: Path):
+    """MAE/MFE review data and lessons remain writable through update()."""
+    tid, _ = _register_and_get(tmp_path, ticker="UPDOUTOK")
+
+    thesis = thesis_store.update(
+        tmp_path,
+        tid,
+        {
+            "outcome": {
+                "mae_pct": -4.5,
+                "mfe_pct": 8.25,
+                "mae_mfe_source": "fixture",
+                "lessons_learned": "Honor the stop",
+            }
+        },
+    )
+
+    assert thesis["outcome"]["mae_pct"] == -4.5
+    assert thesis["outcome"]["mfe_pct"] == 8.25
+    assert thesis["outcome"]["mae_mfe_source"] == "fixture"
+    assert thesis["outcome"]["lessons_learned"] == "Honor the stop"
+
+
+@pytest.mark.parametrize(
+    "outcome_payload",
+    [
+        None,
+        "not-a-dict",
+        [],
+        {"pnl_dollars": 999999.0},
+        {"pnl_pct": 999.0},
+        {"holding_days": 1},
+        {"unknown_metric": 1},
+        {1: 99},
+        {"mae_pct": -2.0, "pnl_dollars": 999999.0},
+        {"mae_pct": float("nan")},
+        {"mae_pct": float("inf")},
+        {"mfe_pct": float("-inf")},
+        {"mae_pct": True},
+        {"mfe_pct": 10**400},
+        {"mae_mfe_source": "fixture", "mae_pct": float("nan")},
+    ],
+)
+def test_update_rejects_invalid_outcome_writes_atomically(tmp_path: Path, outcome_payload):
+    """Lifecycle, unknown, malformed, and non-finite values fail closed."""
+    tid, _ = _register_and_get(tmp_path, ticker="UPDOUTBAD")
+    before_state = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match=r"update\(\) outcome"):
+        thesis_store.update(tmp_path, tid, {"outcome": outcome_payload})
+
+    assert _state_file_hash(tmp_path, tid) == before_state
+    assert _index_file_hash(tmp_path) == before_index
+    assert thesis_store.get(tmp_path, tid)["outcome"]["pnl_dollars"] is None
+
+
+def test_update_rejects_pnl_fabrication_on_active_equity(tmp_path: Path):
+    """An active equity thesis cannot receive fabricated P&L via update()."""
+    tid = _active_with_shares(tmp_path, 10, ticker="EQOUTCOME")
+    before_state = _state_file_hash(tmp_path, tid)
+    before_index = _index_file_hash(tmp_path)
+
+    with pytest.raises(ValueError, match=r"update\(\) outcome"):
+        thesis_store.update(tmp_path, tid, {"outcome": {"pnl_dollars": 999999.0}})
+
+    assert _state_file_hash(tmp_path, tid) == before_state
+    assert _index_file_hash(tmp_path) == before_index
+    assert thesis_store.get(tmp_path, tid)["status"] == "ACTIVE"
+
+
 # -- Tests: Blocker #3 — validate_state full index comparison -----------------
 
 

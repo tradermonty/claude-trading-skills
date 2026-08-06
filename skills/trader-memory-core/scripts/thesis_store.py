@@ -81,6 +81,7 @@ INDEX_FILE = "_index.json"
 _SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "thesis.schema.json"
 _SCHEMA: dict | None = None
 _VALID_EXIT_REASONS = {"stop_hit", "target_hit", "time_stop", "invalidated", "manual"}
+_UPDATE_OUTCOME_FIELDS = frozenset({"mae_pct", "mfe_pct", "mae_mfe_source", "lessons_learned"})
 
 _FORMAT_CHECKER = FormatChecker()
 
@@ -1133,43 +1134,51 @@ def update(state_dir: Path, thesis_id: str, fields: dict) -> dict:
         The updated thesis dict.
 
     Raises:
-        ValueError: If a protected field is targeted, or `fields["position"]`
-            would touch a futures position (see below).
+        ValueError: If a protected field is targeted, if any direct
+            `position` write is attempted, or if `outcome` contains fields
+            not owned by the review workflow.
     """
     thesis = _load_thesis(state_dir, thesis_id)
     now = _now_iso()
 
-    # P1 addendum (user re-review, money-critical): "position" is in
-    # neither _protected nor _nested_keys below, so without this guard
-    # update() would do a raw, UNVALIDATED replace of thesis["position"] —
-    # bypassing attach_futures_position()'s direction/multiplier/currency/
-    # integer-contracts validation AND the _ATTACH_FUTURES_ALLOWED
-    # ACTIVE-reattach guard entirely. Concretely: open a LONG futures
-    # position, then update(id, {"position": {**pos, "direction": "SHORT"}})
-    # would silently flip every subsequent P&L's sign with zero error
-    # (the P1-1 sign-flip bug, reopened through a different API). Blocked
-    # in BOTH directions: (a) the thesis is ALREADY futures (any position
-    # field write is un-auditable outside the dedicated lifecycle
-    # functions), or (b) the incoming value ITSELF looks futures-shaped
-    # (asset_type="futures"/quantity_unit="contracts") — closes the
-    # "inject a fresh futures position via update() on a non-futures
-    # thesis" path too, which _is_futures(thesis) alone (checked on the
-    # PRE-merge thesis) would miss. Equity position updates are entirely
-    # unaffected (out of scope) — this only fires for futures on either
-    # side of the check.
+    # Issue #255: position is lifecycle-owned for both equities and
+    # futures. Generic replacement bypasses validation and audit history,
+    # including when the incoming payload omits the asset markers used by
+    # _is_futures(). Refuse the key itself so None, empty/metadata-only
+    # dicts, malformed values, and every current or future money field all
+    # fail closed before any in-memory mutation or persistence.
     if "position" in fields:
-        incoming = fields["position"]
-        incoming_is_futures_shaped = isinstance(incoming, dict) and (
-            incoming.get("asset_type") == "futures" or incoming.get("quantity_unit") == "contracts"
+        raise ValueError(
+            "update() cannot modify position — use attach_position() / "
+            "attach_futures_position() / open_position() / trim() / close() / "
+            "terminate() instead; direct position writes bypass lifecycle "
+            "validation and audit history"
         )
-        if _is_futures(thesis) or incoming_is_futures_shaped:
+
+    # Review code legitimately owns excursion metrics and lessons. P&L and
+    # holding duration are lifecycle-owned and must only be computed by the
+    # close/trim/terminate paths. An allowlist also prevents future outcome
+    # fields from becoming silently writable through this generic API.
+    if "outcome" in fields:
+        outcome_fields = fields["outcome"]
+        if not isinstance(outcome_fields, dict):
+            raise ValueError("update() outcome must be a dict of review-owned fields")
+        disallowed_outcome_fields = set(outcome_fields) - _UPDATE_OUTCOME_FIELDS
+        if disallowed_outcome_fields:
+            names = ", ".join(sorted(repr(name) for name in disallowed_outcome_fields))
             raise ValueError(
-                "update() cannot modify position on a futures thesis (or set a "
-                "futures-shaped one) — use attach_futures_position() / "
-                "open_position(contracts=...) / trim() / close() / terminate() "
-                "instead; direct position writes bypass currency/multiplier/"
-                "direction/quantity validation"
+                "update() outcome may only modify review-owned fields "
+                f"{sorted(_UPDATE_OUTCOME_FIELDS)}; disallowed: {names}"
             )
+        for metric_name in ("mae_pct", "mfe_pct"):
+            if metric_name not in outcome_fields:
+                continue
+            metric_value = outcome_fields[metric_name]
+            if metric_value is not None and _valid_finite_number(metric_value) is None:
+                raise ValueError(
+                    f"update() outcome.{metric_name} must be null or a finite "
+                    f"number, got {metric_value!r}"
+                )
 
     # Deep merge nested dicts
     _protected = frozenset(

@@ -157,6 +157,10 @@ def test_generate_postmortem_with_adapter(tmp_path: Path):
     journal_dir = tmp_path / "journal"
 
     tid = _create_closed_thesis(state_dir, entry_price=150.0, exit_price=165.0)
+    outcome_before = thesis_store.get(state_dir, tid)["outcome"]
+    lifecycle_before = {
+        key: outcome_before[key] for key in ("pnl_dollars", "pnl_pct", "holding_days")
+    }
 
     adapter = MockPriceAdapter(
         [
@@ -174,6 +178,9 @@ def test_generate_postmortem_with_adapter(tmp_path: Path):
     thesis = thesis_store.get(state_dir, tid)
     assert thesis["outcome"]["mae_pct"] is not None
     assert thesis["outcome"]["mfe_pct"] is not None
+    assert {
+        key: thesis["outcome"][key] for key in ("pnl_dollars", "pnl_pct", "holding_days")
+    } == lifecycle_before
 
 
 # -- Tests: summary_stats -----------------------------------------------------

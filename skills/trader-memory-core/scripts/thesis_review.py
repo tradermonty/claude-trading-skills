@@ -106,12 +106,15 @@ def generate_postmortem(
 
     # Compute MAE/MFE if possible
     mae_mfe = compute_mae_mfe(thesis, price_adapter)
-    thesis["outcome"]["mae_pct"] = mae_mfe["mae_pct"]
-    thesis["outcome"]["mfe_pct"] = mae_mfe["mfe_pct"]
-    thesis["outcome"]["mae_mfe_source"] = mae_mfe["mae_mfe_source"]
+    outcome_update = {
+        "mae_pct": mae_mfe["mae_pct"],
+        "mfe_pct": mae_mfe["mfe_pct"],
+        "mae_mfe_source": mae_mfe["mae_mfe_source"],
+    }
+    thesis["outcome"].update(outcome_update)
 
     # Update thesis with MAE/MFE
-    thesis_store.update(state_path, thesis_id, {"outcome": thesis["outcome"]})
+    thesis_store.update(state_path, thesis_id, {"outcome": outcome_update})
 
     # Generate postmortem from template
     if journal_dir:
