@@ -26,6 +26,7 @@ import yaml
 ET = ZoneInfo("America/New_York")
 TERMINAL_STATUSES = {"CLOSED", "INVALIDATED"}
 THESIS_STATUSES = {"IDEA", "ENTRY_READY", "ACTIVE", "PARTIALLY_CLOSED", *TERMINAL_STATUSES}
+REQUIRED_HISTORY_STATUSES = {"ACTIVE", "PARTIALLY_CLOSED", *TERMINAL_STATUSES}
 RECOMMENDATION_RANK = {"TRADING_ALLOWED": 0, "COOLDOWN": 1, "HALTED": 2}
 DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PRODUCER_UTC_MIDNIGHT_RE = re.compile(
@@ -74,6 +75,18 @@ def _positive_finite_float(value: Any, *, name: str) -> float:
     return parsed
 
 
+def _finite_number(value: Any, *, name: str) -> float:
+    """Parse an already-typed finite P&L number without bool/string coercion."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} must be an int or float")
+    try:
+        if not math.isfinite(value):
+            raise ValueError(f"{name} must be finite; non-finite values are not allowed")
+        return float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{name} must be finite; non-finite values are not allowed") from exc
+
+
 def _positive_int(value: Any, *, name: str) -> int:
     """Require an exact positive integer without boolean or float coercion."""
     if isinstance(value, bool) or not isinstance(value, int):
@@ -98,6 +111,35 @@ def _warning_blocks_new_risk(warning: str) -> bool:
 def _is_ledger_event_missing_pnl(event: dict[str, Any]) -> bool:
     """Identify trim/final-leg events that must carry realized_pnl."""
     return event.get("status") == "PARTIALLY_CLOSED" or bool(LEDGER_EVENT_FIELDS & event.keys())
+
+
+def _parseable_history_event_error(event: Any) -> str | None:
+    if not isinstance(event, dict):
+        return "status_history event expected object"
+    status = event.get("status")
+    if status not in THESIS_STATUSES:
+        return f"missing or unrecognized status: {status!r}"
+    try:
+        _parse_event_datetime(event.get("at"))
+    except ValueError as exc:
+        return f"invalid at: {exc}"
+    return None
+
+
+def _validate_open_thesis_fields(data: dict, *, status: str) -> None:
+    entry = data.get("entry")
+    if not isinstance(entry, dict):
+        raise ValueError(f"{status} thesis requires entry")
+    if entry.get("actual_price") is None:
+        raise ValueError(f"{status} thesis requires entry.actual_price")
+    _finite_number(entry["actual_price"], name="entry.actual_price")
+    if entry.get("actual_date") is None:
+        raise ValueError(f"{status} thesis requires entry.actual_date")
+    _parse_event_datetime(entry["actual_date"])
+    if status == "PARTIALLY_CLOSED":
+        position = data.get("position")
+        if not isinstance(position, dict) or not position:
+            raise ValueError(f"{status} thesis requires position")
 
 
 def _loss_threshold(account_size: float, percentage: float, *, name: str) -> float:
@@ -203,15 +245,30 @@ def _load_thesis_file(path: Path) -> dict:
     history = data.get("status_history")
     if not isinstance(history, list):
         raise ValueError("thesis status_history must be a list")
+    for field in ("thesis_id", "ticker"):
+        if not isinstance(data.get(field), str) or not data[field].strip():
+            raise ValueError(f"thesis file has missing or empty {field}")
+    if status in REQUIRED_HISTORY_STATUSES:
+        if not history:
+            raise ValueError(f"{status} thesis has no status_history events")
+        for index, event in enumerate(history):
+            event_error = _parseable_history_event_error(event)
+            if event_error:
+                raise ValueError(f"status_history[{index}] is malformed: {event_error}")
+        if history[-1]["status"] != status:
+            raise ValueError(
+                "thesis status_history does not reach current status: "
+                f"last={history[-1]['status']!r}, current={status!r}"
+            )
+    if status in {"ACTIVE", "PARTIALLY_CLOSED"}:
+        _validate_open_thesis_fields(data, status=status)
     if status == "PARTIALLY_CLOSED":
         has_valid_ledger_entry = False
         for event in history:
             if not isinstance(event, dict) or not _is_ledger_event_missing_pnl(event):
                 continue
             try:
-                realized_pnl = float(event["realized_pnl"])
-                if not math.isfinite(realized_pnl):
-                    raise ValueError
+                _finite_number(event["realized_pnl"], name="realized_pnl")
                 _parse_event_datetime(event.get("at"))
             except (KeyError, TypeError, ValueError, OverflowError):
                 continue
@@ -240,6 +297,8 @@ def load_theses(state_dir: Path) -> tuple[list[dict], str, list[str]]:
     """Load thesis YAMLs, returning (valid theses, data_quality, warnings)."""
     if not state_dir.exists():
         return [], "EMPTY_STATE", []
+    if not state_dir.is_dir():
+        return [], "PARTIAL", [f"State path is not a directory: {state_dir}"]
     paths = sorted(state_dir.glob("th_*.yaml"))
     if not paths:
         return [], "EMPTY_STATE", []
@@ -287,9 +346,7 @@ def _iter_ledger_entries(theses: Iterable[dict]) -> tuple[list[LedgerEntry], lis
                     thesis_ledger_invalid = True
                 continue
             try:
-                realized_pnl = float(event["realized_pnl"])
-                if not math.isfinite(realized_pnl):
-                    raise ValueError("non-finite realized_pnl")
+                realized_pnl = _finite_number(event["realized_pnl"], name="realized_pnl")
                 at = _parse_event_datetime(event.get("at"))
             except Exception as exc:  # noqa: BLE001 - record all malformed local ledger values.
                 warnings.append(f"Skipped realized_pnl event for {source}: {exc}")
@@ -312,9 +369,7 @@ def _iter_ledger_entries(theses: Iterable[dict]) -> tuple[list[LedgerEntry], lis
             if outcome_pnl is None:
                 continue
             try:
-                outcome_pnl_float = float(outcome_pnl)
-                if not math.isfinite(outcome_pnl_float):
-                    raise ValueError("non-finite outcome.pnl_dollars")
+                outcome_pnl_float = _finite_number(outcome_pnl, name="outcome.pnl_dollars")
             except (TypeError, ValueError, OverflowError) as exc:
                 warnings.append(f"Skipped outcome.pnl_dollars for {source}: {exc}")
                 continue
@@ -390,9 +445,7 @@ def collect_terminal_results(theses: Iterable[dict]) -> tuple[list[TerminalResul
             )
             continue
         try:
-            pnl = float(outcome["pnl_dollars"])
-            if not math.isfinite(pnl):
-                raise ValueError("non-finite pnl_dollars")
+            pnl = _finite_number(outcome["pnl_dollars"], name="pnl_dollars")
         except (TypeError, ValueError, OverflowError) as exc:
             warnings.append(
                 f"Skipped terminal thesis with invalid pnl: {thesis.get('thesis_id')}: {exc}"
