@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+POLICY_GATE_ID = "executable-test-policy"
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,42 @@ class MatrixError(ValueError):
 
 
 def _has_tests(path: Path) -> bool:
-    return path.is_dir() and any(path.glob("test_*.py"))
+    return path.is_dir() and any(candidate.is_file() for candidate in path.glob("test_*.py"))
+
+
+def executable_test_inventory(root: Path = ROOT) -> dict[str, bool]:
+    """Return canonical-test presence for every skill with executable Python scripts."""
+    skills_dir = root / "skills"
+    if not skills_dir.is_dir():
+        raise MatrixError(f"skills directory is missing: {skills_dir}")
+    inventory: dict[str, bool] = {}
+    for skill_dir in sorted(path for path in skills_dir.iterdir() if path.is_dir()):
+        skill_id = skill_dir.name
+        if not ID_RE.fullmatch(skill_id):
+            raise MatrixError(f"unsafe skill id: {skill_id!r}")
+        scripts_dir = skill_dir / "scripts"
+        executable_scripts = tuple(
+            path
+            for path in sorted(scripts_dir.glob("*.py"))
+            if path.is_file() and path.name != "__init__.py"
+        )
+        if not executable_scripts:
+            continue
+        inventory[skill_id] = any(
+            _has_tests(skill_dir / relative) for relative in (Path("scripts/tests"), Path("tests"))
+        )
+    return inventory
+
+
+def validate_executable_test_coverage(root: Path = ROOT) -> None:
+    """Fail when any skill has Python scripts but no canonical tests."""
+    missing = sorted(
+        skill_id for skill_id, has_tests in executable_test_inventory(root).items() if not has_tests
+    )
+    if missing:
+        raise MatrixError(
+            "skills with executable scripts lack canonical tests: " + ", ".join(missing)
+        )
 
 
 def discover(root: Path = ROOT) -> dict[str, TestEntry]:
@@ -304,11 +340,28 @@ def main(argv: list[str] | None = None) -> int:
     aggregate_parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 
-    try:
-        entries = build_entries()
-        if args.command == "matrix":
+    if args.command == "matrix":
+        try:
+            validate_executable_test_coverage(ROOT)
+            entries = build_entries()
             print(json.dumps(matrix(entries), separators=(",", ":")))
-        elif args.command == "list":
+        except (MatrixError, OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            # ci.yml captures this command inside echo, which masks its exit status.
+            # Emit a blocking row so the next direct CLI invocation fails visibly.
+            print(
+                json.dumps(
+                    {"include": [{"id": POLICY_GATE_ID, "allowed_failure": False}]},
+                    separators=(",", ":"),
+                )
+            )
+            return 1
+        return 0
+
+    try:
+        validate_executable_test_coverage(ROOT)
+        entries = build_entries()
+        if args.command == "list":
             for entry in entries.values():
                 if not entry.excluded:
                     print(entry.id)

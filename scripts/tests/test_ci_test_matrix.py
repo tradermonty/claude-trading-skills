@@ -8,15 +8,18 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.ci_test_matrix import (
+    POLICY_GATE_ID,
     MatrixError,
     TestEntry,
     aggregate,
     build_entries,
     discover,
+    executable_test_inventory,
     install,
     main,
     matrix,
     run,
+    validate_executable_test_coverage,
 )
 
 
@@ -24,6 +27,72 @@ def _test_file(root: Path, relative: str) -> None:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+
+
+def _script_file(root: Path, skill_id: str, name: str = "run.py") -> None:
+    path = root / "skills" / skill_id / "scripts" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("def main():\n    return 0\n", encoding="utf-8")
+
+
+def test_executable_inventory_requires_canonical_test_files(tmp_path):
+    for skill_id in ("covered", "missing", "empty", "nested-only"):
+        _script_file(tmp_path, skill_id)
+    _test_file(tmp_path, "skills/covered/scripts/tests/test_covered.py")
+    (tmp_path / "skills/empty/scripts/tests").mkdir(parents=True)
+    (tmp_path / "skills/empty/scripts/tests/test_directory.py").mkdir()
+    _test_file(
+        tmp_path,
+        "skills/nested-only/examples/skills/nested/scripts/tests/test_nested.py",
+    )
+
+    assert executable_test_inventory(tmp_path) == {
+        "covered": True,
+        "empty": False,
+        "missing": False,
+        "nested-only": False,
+    }
+    with pytest.raises(
+        MatrixError,
+        match="skills with executable scripts lack canonical tests: empty, missing, nested-only",
+    ):
+        validate_executable_test_coverage(tmp_path)
+
+
+def test_executable_inventory_accepts_tests_layout_and_ignores_init_only(tmp_path):
+    _script_file(tmp_path, "direct-tests")
+    _test_file(tmp_path, "skills/direct-tests/tests/test_direct.py")
+    _script_file(tmp_path, "init-only", "__init__.py")
+
+    assert executable_test_inventory(tmp_path) == {"direct-tests": True}
+    validate_executable_test_coverage(tmp_path)
+
+
+def test_executable_inventory_rejects_missing_or_unsafe_skills_directory(tmp_path):
+    with pytest.raises(MatrixError, match="skills directory is missing"):
+        executable_test_inventory(tmp_path)
+
+    _script_file(tmp_path, "Unsafe")
+    with pytest.raises(MatrixError, match="unsafe skill id"):
+        executable_test_inventory(tmp_path)
+
+
+def test_cli_matrix_emits_blocking_policy_row_for_untested_script(monkeypatch, tmp_path, capsys):
+    _script_file(tmp_path, "untested")
+    monkeypatch.setattr("scripts.ci_test_matrix.ROOT", tmp_path)
+    monkeypatch.setattr("scripts.ci_test_matrix.POLICY", {})
+
+    assert main(["matrix"]) == 1
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {
+        "include": [{"id": POLICY_GATE_ID, "allowed_failure": False}]
+    }
+    assert "skills with executable scripts lack canonical tests: untested" in captured.err
+
+    assert main(["install", POLICY_GATE_ID]) == 1
+    assert (
+        "skills with executable scripts lack canonical tests: untested" in capsys.readouterr().err
+    )
 
 
 def test_discover_supports_both_direct_skill_layouts_and_repo_tests(tmp_path):
