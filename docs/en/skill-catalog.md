@@ -38,6 +38,89 @@ A comprehensive catalog of all 72 Claude Trading Skills organized by category. B
 
 ---
 
+## Operational Role Matrix
+
+<!-- skills-index:start name="operational-roles-en" -->
+<!-- This matrix is auto-generated from skills-index.yaml by scripts/generate_catalog_from_index.py. Do not edit by hand. -->
+
+| Skill | Operational role | Standalone rationale |
+|---|---|---|
+| `backtest-expert` | `workflow_step` | — |
+| `breadth-chart-analyst` | `standalone` | Directly analyzes user-supplied breadth charts without a workflow handoff. |
+| `breakout-trade-planner` | `workflow_step` | — |
+| `canslim-screener` | `workflow_step` | — |
+| `contrarian-setup-gate` | `workflow_step` | — |
+| `cot-contrarian-detector` | `workflow_step` | — |
+| `crypto-regime-analyzer` | `standalone` | Provides an independent crypto regime assessment on demand. |
+| `data-quality-checker` | `standalone` | Runs directly against a document before publication or review. |
+| `dividend-growth-pullback-screener` | `workflow_step` | — |
+| `downtrend-duration-analyzer` | `research_only` | — |
+| `drawdown-circuit-breaker` | `workflow_step` | — |
+| `dual-axis-skill-reviewer` | `workflow_step` | — |
+| `earnings-calendar` | `standalone` | Fetches an earnings calendar as an independent event-planning utility. |
+| `earnings-trade-analyzer` | `workflow_step` | — |
+| `economic-calendar-fetcher` | `standalone` | Fetches economic events as an independent planning utility. |
+| `edge-candidate-agent` | `workflow_step` | — |
+| `edge-concept-synthesizer` | `internal_component` | — |
+| `edge-hint-extractor` | `workflow_step` | — |
+| `edge-pipeline-orchestrator` | `research_only` | — |
+| `edge-signal-aggregator` | `standalone` | Directly consolidates selected local research outputs into a ranked dashboard. |
+| `edge-strategy-designer` | `internal_component` | — |
+| `edge-strategy-reviewer` | `internal_component` | — |
+| `exposure-coach` | `workflow_step` | — |
+| `finviz-screener` | `standalone` | Builds a screener URL directly from a user's standalone screening request. |
+| `ftd-detector` | `standalone` | Runs an independent follow-through-day assessment when requested. |
+| `futures-position-sizer` | `workflow_step` | — |
+| `fxmacrodata-calendar` | `standalone` | Fetches official macro calendar data directly for event-risk planning. |
+| `ibd-distribution-day-monitor` | `standalone` | Runs an independent distribution-day risk assessment for QQQ or SPY. |
+| `institutional-flow-tracker` | `standalone` | Produces an independent institutional ownership and flow assessment on demand. |
+| `kanchi-dividend-review-monitor` | `workflow_step` | — |
+| `kanchi-dividend-sop` | `workflow_step` | — |
+| `kanchi-dividend-us-tax-accounting` | `workflow_step` | — |
+| `macro-regime-detector` | `workflow_step` | — |
+| `market-breadth-analyzer` | `workflow_step` | — |
+| `market-environment-analysis` | `workflow_step` | — |
+| `market-news-analyst` | `workflow_step` | — |
+| `market-top-detector` | `workflow_step` | — |
+| `mt5-robot-tester` | `research_only` | — |
+| `news-reaction-failure-analyzer` | `workflow_step` | — |
+| `options-strategy-advisor` | `standalone` | Provides self-contained options education, pricing, and scenario analysis. |
+| `pair-trade-screener` | `standalone` | Screens and analyzes pair-trade candidates as a self-contained tool. |
+| `parabolic-short-trade-planner` | `standalone` | Runs its own screening and conditional short-planning lifecycle. |
+| `pead-screener` | `workflow_step` | — |
+| `portfolio-manager` | `workflow_step` | — |
+| `position-sizer` | `workflow_step` | — |
+| `pre-trade-discipline-gate` | `workflow_step` | — |
+| `residual-edge-analyzer` | `research_only` | — |
+| `scenario-analyzer` | `workflow_step` | — |
+| `sector-analyst` | `workflow_step` | — |
+| `signal-postmortem` | `workflow_step` | — |
+| `skill-designer` | `internal_component` | — |
+| `skill-idea-miner` | `internal_component` | — |
+| `skill-integration-tester` | `standalone` | Validates selected skill handoffs directly as a repository maintenance tool. |
+| `stanley-druckenmiller-investment` | `workflow_step` | — |
+| `stockbee-20pct-study` | `workflow_step` | — |
+| `stockbee-episodic-pivot-analyzer` | `workflow_step` | — |
+| `stockbee-exhaustion-hammer-screener` | `workflow_step` | — |
+| `stockbee-momentum-burst-screener` | `workflow_step` | — |
+| `stockbee-setup-fluency-trainer` | `workflow_step` | — |
+| `strategy-pivot-designer` | `research_only` | — |
+| `technical-analyst` | `workflow_step` | — |
+| `theme-detector` | `workflow_step` | — |
+| `trade-hypothesis-ideator` | `workflow_step` | — |
+| `trade-performance-coach` | `workflow_step` | — |
+| `trader-memory-core` | `workflow_step` | — |
+| `trading-skills-navigator` | `standalone` | Acts as the direct user on-ramp that recommends, but does not join, workflows. |
+| `uptrend-analyzer` | `workflow_step` | — |
+| `us-market-bubble-detector` | `standalone` | Produces an independent market bubble-risk assessment on demand. |
+| `us-stock-analysis` | `standalone` | Produces a self-contained research report for a requested US equity. |
+| `value-dividend-screener` | `workflow_step` | — |
+| `vcp-screener` | `workflow_step` | — |
+| `weekly-performance-digest` | `standalone` | Generates a standalone weekly digest from supplied closed-trade records. |
+<!-- skills-index:end name="operational-roles-en" -->
+
+---
+
 ## 1. Stock Screening
 
 | Skill | Description | API Requirements |

@@ -87,6 +87,9 @@ Parse the JSON and explain, in the user's language:
 - **Honest gap** — if `honest_gap` is true there is **no shipped workflow** for
   this intent. Say so directly, then present `suggested_skills` from the
   relevant category and relay the `note`. Never invent a workflow.
+- **Operational roles** — narrate the `operational_roles` entry for every
+  skill in the setup bundle or honest-gap suggestion. Explain standalone
+  rationale when present; keep enum values unchanged.
 - Always read the `rationale` array and explain *why* this was recommended.
 
 ### Step 4 — Explain the setup path
@@ -119,6 +122,7 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 | `skillset` | `{id, source: skills-index.category, manifest_status, manifest}`. `manifest_status` is `active` when `skillsets/<id>.yaml` ships, else `deferred`. `manifest` is the 5-key view `{display_name, required_skills, recommended_skills, optional_skills, related_workflows}` when active, else `null`. Describes the **primary skillset only** — not the install list |
 | `setup_bundle` | `{required, recommended, optional, sources}` — the actionable install union over the primary skillset **and every secondary workflow** (deterministic, tier-deduped). **This is what to install.** All-empty on an honest gap (use `suggested_skills`) |
 | `suggested_skills` | Skills to use when no workflow shipped (honest gap); else `[]` |
+| `operational_roles` | Skill id → `{type, rationale?}` for every setup-bundle skill, or every `suggested_skills` item on an honest gap |
 | `no_api` | Request-side: was no-API constraint mode active (flag or persona) |
 | `no_api_path` | Path-side: does the **whole** recommendation (primary + every secondary) work without paid API keys? `true`/`false`; `null` on an honest gap. This is the DoD's API-vs-no-API separation — narrate it explicitly |
 | `honest_gap` | `true` when no workflow exists for the intent |

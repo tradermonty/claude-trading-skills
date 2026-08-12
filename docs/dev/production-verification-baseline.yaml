@@ -255,15 +255,15 @@ skills:
 - id: earnings-calendar
   profile: meta_data_standalone
 - id: earnings-trade-analyzer
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: economic-calendar-fetcher
   profile: meta_data_standalone
 - id: edge-candidate-agent
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: edge-concept-synthesizer
   profile: executable_standalone_trading
 - id: edge-hint-extractor
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: edge-pipeline-orchestrator
   profile: executable_standalone_trading
 - id: edge-signal-aggregator
@@ -293,9 +293,19 @@ skills:
 - id: market-breadth-analyzer
   profile: executable_workflow_trading
 - id: market-environment-analysis
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: market-news-analyst
   profile: knowledge_standalone_trading
+  overrides:
+    workflow_contract:
+      value: not_verified
+      rationale: The skill is referenced by a canonical workflow, but no complete skill handoff contract audit is recorded.
+      evidence: []
+    end_to_end_replay:
+      value: not_verified
+      rationale: Canonical workflow replay evidence is not complete.
+      evidence:
+      - issue: https://github.com/tradermonty/claude-trading-skills/issues/294
 - id: market-top-detector
   profile: executable_workflow_trading
 - id: news-reaction-failure-analyzer
@@ -307,15 +317,25 @@ skills:
 - id: parabolic-short-trade-planner
   profile: executable_standalone_trading
 - id: pead-screener
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: portfolio-manager
   profile: executable_workflow_trading
 - id: position-sizer
   profile: executable_workflow_trading
 - id: scenario-analyzer
   profile: knowledge_standalone_trading
+  overrides:
+    workflow_contract:
+      value: not_verified
+      rationale: The skill is referenced by a canonical workflow, but no complete skill handoff contract audit is recorded.
+      evidence: []
+    end_to_end_replay:
+      value: not_verified
+      rationale: Canonical workflow replay evidence is not complete.
+      evidence:
+      - issue: https://github.com/tradermonty/claude-trading-skills/issues/294
 - id: sector-analyst
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: signal-postmortem
   profile: executable_workflow_trading
 - id: skill-designer
@@ -325,7 +345,7 @@ skills:
 - id: skill-integration-tester
   profile: meta_standalone
 - id: stanley-druckenmiller-investment
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: strategy-pivot-designer
   profile: executable_standalone_trading
 - id: technical-analyst
@@ -333,7 +353,7 @@ skills:
 - id: theme-detector
   profile: executable_workflow_trading
 - id: trade-hypothesis-ideator
-  profile: executable_standalone_trading
+  profile: executable_workflow_trading
 - id: trader-memory-core
   profile: executable_workflow_trading
 - id: trading-skills-navigator
@@ -349,4 +369,4 @@ skills:
 - id: vcp-screener
   profile: executable_workflow_trading
 - id: weekly-performance-digest
-  profile: executable_workflow_trading
+  profile: executable_standalone_trading

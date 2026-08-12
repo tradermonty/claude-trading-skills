@@ -18,6 +18,8 @@ from generate_catalog_from_index import (  # noqa: E402
     render_api_matrix,
     render_catalog_en,
     render_catalog_ja,
+    render_operational_roles_en,
+    render_operational_roles_ja,
     rewrite_file,
 )
 
@@ -42,6 +44,10 @@ def make_skill(skill_id: str, category: str = "core-portfolio", **overrides) -> 
         ],
         "timeframe": "weekly",
         "difficulty": "intermediate",
+        "operational_role": {
+            "type": "standalone",
+            "rationale": f"{skill_id} is intentionally run on its own.",
+        },
     }
     base.update(overrides)
     return base
@@ -105,6 +111,21 @@ def write_all_targets(project_root: Path) -> None:
     write_readme(project_root, name="README.md", sentinel="catalog-en")
     write_readme(project_root, name="README.ja.md", sentinel="catalog-ja")
     write_claude_md(project_root)
+    for lang, sentinel in (
+        ("en", "operational-roles-en"),
+        ("ja", "operational-roles-ja"),
+    ):
+        path = project_root / "docs" / lang / "skill-catalog.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f"""# Catalog
+
+<!-- skills-index:start name="{sentinel}" -->
+PLACEHOLDER — will be regenerated.
+<!-- skills-index:end name="{sentinel}" -->
+""",
+            encoding="utf-8",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +143,7 @@ def test_render_en_groups_by_category() -> None:
     assert "### Core Portfolio" in out
     assert "`a-skill`" in out
     assert "`b-skill`" in out
+    assert "| Skill | Summary | Integrations | Role | Status |" in out
 
 
 def test_render_ja_uses_japanese_headers() -> None:
@@ -129,6 +151,25 @@ def test_render_ja_uses_japanese_headers() -> None:
     out = render_catalog_ja(skills)
     assert "### 相場環境" in out
     assert "サマリ" in out
+    assert "運用ロール" in out
+
+
+def test_render_operational_role_matrix_surfaces_standalone_rationale() -> None:
+    skills = [
+        make_skill("alpha"),
+        make_skill(
+            "beta",
+            operational_role={"type": "workflow_step"},
+        ),
+    ]
+
+    en = render_operational_roles_en(skills)
+    ja = render_operational_roles_ja(skills)
+
+    assert "`standalone`" in en
+    assert "alpha is intentionally run on its own." in en
+    assert "`workflow_step`" in en
+    assert "alpha is intentionally run on its own." in ja
 
 
 def test_render_skips_empty_categories() -> None:

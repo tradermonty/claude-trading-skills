@@ -62,6 +62,11 @@ def normalize_skill(raw: dict[str, Any]) -> dict[str, Any]:
                 "requirement": str(ig.get("requirement") or "unknown"),
             }
         )
+    raw_role = raw.get("operational_role")
+    role = raw_role if isinstance(raw_role, dict) else {}
+    operational_role = {"type": str(role.get("type") or "unknown")}
+    if isinstance(role.get("rationale"), str) and role["rationale"].strip():
+        operational_role["rationale"] = role["rationale"].strip()
     return {
         "id": str(raw.get("id") or "").strip(),
         "display_name": str(raw.get("display_name") or raw.get("id") or "").strip(),
@@ -71,6 +76,7 @@ def normalize_skill(raw: dict[str, Any]) -> dict[str, Any]:
         "timeframe": str(raw.get("timeframe") or "unknown"),
         "difficulty": str(raw.get("difficulty") or "unknown"),
         "integrations": integrations,
+        "operational_role": operational_role,
     }
 
 
@@ -1004,6 +1010,9 @@ def recommend(
             f"manifest is deferred to a later phase."
         )
         gap_skillset = _skillset(gap_category, skillset_ids, skillsets_by_id)
+        operational_roles = _operational_role_map(
+            [skill["id"] for skill in suggested], skills_by_id
+        )
         return _finalize_result(
             query=query,
             primary=None,
@@ -1013,6 +1022,7 @@ def recommend(
             # The actionable install list for a gap is `suggested_skills`.
             setup_bundle=_setup_bundle(gap_skillset["id"], gap_skillset["manifest"], None, []),
             suggested_skills=suggested,
+            operational_roles=operational_roles,
             no_api=no_api,
             no_api_path=None,  # honest gap has no path — contract column "—"
             honest_gap=True,
@@ -1086,6 +1096,10 @@ def recommend(
     primary_view = _workflow_public_view(primary_wf)
     secondary_views = [_workflow_public_view(workflows_by_id[wid]) for wid in secondary_ids]
 
+    setup_bundle = _setup_bundle(
+        skillset["id"], skillset["manifest"], primary_view, secondary_views
+    )
+    setup_ids = setup_bundle["required"] + setup_bundle["recommended"] + setup_bundle["optional"]
     return _finalize_result(
         query=query,
         primary=primary_view,
@@ -1094,10 +1108,9 @@ def recommend(
         # Actionable install union: primary skillset (or primary workflow if no
         # manifest) + EVERY secondary workflow — so a multi-workflow rec never
         # drops a secondary's skills (e.g. Q1 keeps vcp-screener).
-        setup_bundle=_setup_bundle(
-            skillset["id"], skillset["manifest"], primary_view, secondary_views
-        ),
+        setup_bundle=setup_bundle,
         suggested_skills=[],
+        operational_roles=_operational_role_map(setup_ids, skills_by_id),
         no_api=no_api,
         no_api_path=no_api_path,
         honest_gap=False,
@@ -1114,6 +1127,7 @@ def _finalize_result(
     skillset: dict[str, Any],
     setup_bundle: dict[str, Any],
     suggested_skills: list[dict[str, str]],
+    operational_roles: dict[str, dict[str, str]],
     no_api: bool,
     no_api_path: bool | None,
     honest_gap: bool,
@@ -1127,6 +1141,7 @@ def _finalize_result(
         "skillset": skillset,
         "setup_bundle": setup_bundle,
         "suggested_skills": suggested_skills,
+        "operational_roles": operational_roles,
         "no_api": no_api,
         "no_api_path": no_api_path,
         "honest_gap": honest_gap,
@@ -1134,6 +1149,22 @@ def _finalize_result(
         "rationale": rationale,
         "setup_path_ref": SETUP_PATH_REF,
     }
+
+
+def _operational_role_map(
+    skill_ids: list[str], skills_by_id: dict[str, dict[str, Any]]
+) -> dict[str, dict[str, str]]:
+    """Return stable role metadata for every selected or suggested skill."""
+    result: dict[str, dict[str, str]] = {}
+    for skill_id in sorted(set(skill_ids)):
+        role = skills_by_id.get(skill_id, {}).get("operational_role")
+        normalized = role if isinstance(role, dict) else {"type": "unknown"}
+        view = {"type": str(normalized.get("type") or "unknown")}
+        rationale = normalized.get("rationale")
+        if isinstance(rationale, str) and rationale.strip():
+            view["rationale"] = rationale.strip()
+        result[skill_id] = view
+    return result
 
 
 def dumps(result: dict[str, Any]) -> str:
@@ -1183,6 +1214,11 @@ def render_text(result: dict[str, Any]) -> str:
         lines.append(f"  Recommended: {', '.join(sb['recommended']) or '—'}")
         lines.append(f"  Optional:    {', '.join(sb['optional']) or '—'}")
         lines.append(f"  Sources:     {', '.join(sb['sources']) or '—'}")
+    lines.append("Operational roles:")
+    for skill_id, role in result["operational_roles"].items():
+        rationale = role.get("rationale")
+        suffix = f" — {rationale}" if rationale else ""
+        lines.append(f"  - {skill_id}: {role['type']}{suffix}")
     if result["no_api_path"] is None:
         lines.append("No-API path: n/a (no workflow shipped)")
     else:

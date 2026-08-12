@@ -35,6 +35,9 @@ skills:
     display_name: <Human Title>
     category: <one of categories>
     status: production | beta | experimental | deprecated
+    operational_role:
+      type: standalone | workflow_step | internal_component | research_only
+      rationale: <why intentionally outside workflows>  # standalone only
     knowledge_only: true  # required only for script-free production skills
     verification:
       instruction_contract: passed | not_verified | not_applicable
@@ -90,7 +93,8 @@ bypass the test gate.
 | `integrations` | List form (see §1.4). May be empty for skills with no dependencies, but prefer `[{id: local_calculation, type: calculation, requirement: not_required}]`. |
 | `inputs` | List of strings. Empty list (`[]`) allowed under `default` / `--strict-workflows` (warn); `--strict-metadata` requires at least one entry. |
 | `outputs` | List of strings. Empty list (`[]`) allowed under `default` / `--strict-workflows` (warn); `--strict-metadata` requires at least one entry. |
-| `workflows` | List of workflow IDs. Default mode warns on missing files; `--strict-workflows` errors. |
+| `workflows` | List of unique, non-empty workflow ID strings. Malformed lists warn by default and error under `--strict-workflows`; missing files follow the same severity tiers. |
+| `operational_role` | Exact mapping described in §1.4. Missing warns by default and errors under `--strict-metadata`; malformed present mappings always error. |
 
 As of 2026-05-12 the canonical `skills-index.yaml` populates `timeframe`, `difficulty`, `inputs`, and `outputs` for all 54 skills, and `--strict-metadata` is enforced in CI + the pre-push hook. New skill entries must satisfy `--strict-metadata` to merge.
 
@@ -106,7 +110,30 @@ The extension is additive and keeps `schema_version: 1`; existing fields are not
 [`production-verification.md`](production-verification.md) for the evidence rules, axis criteria,
 baseline, and live issue gate.
 
-### 1.4 `integrations` schema
+### 1.4 `operational_role` schema
+
+Every skill declares exactly one operational role:
+
+| Type | Meaning |
+|---|---|
+| `workflow_step` | Referenced by a workflow manifest's `required_skills`, `optional_skills`, or `steps[].skill`. |
+| `standalone` | Intentionally invoked directly and not referenced by a workflow. Requires a non-empty, skill-specific `rationale`. |
+| `internal_component` | Invoked by another skill or repository pipeline rather than offered as an end-user workflow step. |
+| `research_only` | Exploratory or backtest tooling outside the daily operational loop. |
+
+The mapping has an exact shape: standalone roles contain `type` and
+`rationale`; every other role contains only `type`. Missing roles warn in
+default and `--strict-workflows` modes and fail under `--strict-metadata`
+(`IDX015`). Malformed mappings fail in every mode.
+
+Under `--strict-workflows`, the validator constructs the canonical forward set
+from the union of every manifest's `required_skills`, `optional_skills`, and
+`steps[].skill`. A skill is `workflow_step` if and only if that set is non-empty
+(`WF015`), and its index-owned `workflows` value must be a list of unique,
+non-empty strings that equals the forward set (`WF016`). Malformed values are
+reported as one stable `WF016` finding rather than coerced or iterated.
+
+### 1.5 `integrations` schema
 
 ```yaml
 integrations:
@@ -148,7 +175,7 @@ integrations:
 - `type: calculation` — skill performs deterministic local computation. Pair with `id: local_calculation` and `requirement: not_required`. Use this for `position-sizer` and similar pure-compute skills.
 - `type: none` — explicit "no integration record applies". Reserved for edge cases. Prefer `calculation` whenever the skill does any computation.
 
-### 1.5 `workflows` field semantics
+### 1.6 `workflows` field semantics
 
 Each entry is a `workflow id` (= filename in `workflows/` minus `.yaml`).
 
@@ -425,6 +452,9 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `timeframe` / `difficulty` not `unknown` | ⚠️ warn | ⚠️ warn | ✅ error |
 | `inputs` / `outputs` populated | ⚠️ warn | ⚠️ warn | ✅ error |
 | `unknown` integrations allowed | ⚠️ warn | ⚠️ warn | ❌ rejected |
+| `operational_role` present | ⚠️ warn | ⚠️ warn | ✅ error |
+| Operational role ↔ workflow forward/back parity | — | ✅ error | — |
+| Malformed `workflows` back-reference list | ⚠️ warn | ✅ error | ⚠️ warn |
 
 ---
 
@@ -453,6 +483,7 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `IDX012` | Integration uses an `unknown` marker (`id` / `type` / `requirement`); flagged for owner review. Warning by default; error under `--strict-metadata`. |
 | `IDX013` | Missing production `verification` block, or a present block has the wrong type, missing/unknown axes, or invalid enum values. Missing block warns by default and errors under `--strict-metadata`; malformed present blocks always error. |
 | `IDX014` | Invalid `knowledge_only` type, non-production use, or conflict with executable Python scripts. |
+| `IDX015` | Missing or malformed `operational_role`; missing warns by default and errors under `--strict-metadata`, malformed present mappings always error. |
 
 ### Workflow-level (strict-workflows)
 
@@ -472,6 +503,8 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `WF012` | `artifacts[].produced_by_step` does not match the corresponding step's `produces` (either direction) |
 | `WF013` | Required artifact produced before the final step is not consumed by any later step |
 | `WF014` | Required Japanese workflow prose is missing, empty, wrongly typed, or `manual_review_ja` is not aligned |
+| `WF015` | `operational_role.type` is not `workflow_step` exactly when workflow forward references exist |
+| `WF016` | Index `workflows` is not a unique, non-empty `list[str]`, or its back-references do not exactly match manifest forward references |
 
 ### Skillset-level (`scripts/validate_skillsets.py`, always strict)
 

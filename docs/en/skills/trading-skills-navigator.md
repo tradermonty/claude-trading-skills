@@ -113,6 +113,8 @@ Parse the JSON and explain, in the user's language:
 - **Honest gap** — if `honest_gap` is true there is **no shipped workflow** for
   this intent. Say so directly, then present `suggested_skills` from the
   relevant category and relay the `note`. Never invent a workflow.
+- **Operational roles** — explain each `operational_roles` entry for the
+  setup bundle or honest-gap suggestions, including standalone rationale.
 - Always read the `rationale` array and explain *why* this was recommended.
 
 ### Step 4 — Explain the setup path
