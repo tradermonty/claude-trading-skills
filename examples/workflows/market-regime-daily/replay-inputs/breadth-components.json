@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "breadth",
+  "as_of": "2026-01-14T21:00:00+00:00",
+  "max_age_days": 2,
+  "component_scores": {
+    "breadth_level_trend": 72,
+    "ma_crossover": 68,
+    "cycle_position": 60,
+    "bearish_signal": 80,
+    "historical_percentile": 55,
+    "divergence": 50
+  },
+  "data_availability": {
+    "breadth_level_trend": true,
+    "ma_crossover": true,
+    "cycle_position": true,
+    "bearish_signal": true,
+    "historical_percentile": true,
+    "divergence": true
+  },
+  "warning_flags": {}
+}

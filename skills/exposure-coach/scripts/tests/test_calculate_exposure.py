@@ -1,6 +1,10 @@
 """Tests for calculate_exposure.py."""
 
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from calculate_exposure import (
@@ -30,6 +34,32 @@ def canonical_regime(regime: dict) -> dict:
         "composite": {"data_quality": {"available_count": 5, "total_components": 6}},
         "regime": {"confidence": "high", **regime},
     }
+
+
+def test_missing_critical_rationale_is_hash_seed_deterministic() -> None:
+    scripts_dir = Path(__file__).resolve().parents[1]
+    code = (
+        "from calculate_exposure import generate_rationale; "
+        "print(generate_rationale(49.0, 'REDUCE_ONLY', 'BROAD', 'NEUTRAL', "
+        "{'breadth': 66, 'uptrend': 72, 'regime': None, 'top_risk': None}, "
+        "['regime', 'top_risk']))"
+    )
+    outputs = []
+    for seed in ("1", "7", "31"):
+        env = dict(os.environ)
+        env["PYTHONHASHSEED"] = seed
+        completed = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=scripts_dir,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        outputs.append(completed.stdout.strip())
+
+    assert len(set(outputs)) == 1
+    assert "Missing critical inputs (regime, top_risk)" in outputs[0]
 
 
 class TestExtractBreadthScore:

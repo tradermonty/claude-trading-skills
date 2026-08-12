@@ -33,17 +33,19 @@ COVERAGE = ROOT / "examples" / "workflows" / "replay-coverage.yaml"
 SPEC = ROOT / "examples" / "workflows" / "stockbee-fluency-loop" / "replay.yaml"
 
 
-def test_coverage_is_complete_and_three_of_eleven_deferrals_are_frozen() -> None:
+def test_coverage_is_complete_and_four_of_eleven_deferrals_are_frozen() -> None:
     summary = validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
+        "market-regime-daily",
         "stockbee-20pct-study-daily",
         "stockbee-fluency-loop",
         "trade-memory-loop",
     ]
     assert set(summary["deferred"]) == FROZEN_DEFERRED_WORKFLOWS
-    assert len(summary["deferred"]) == 8
+    assert len(summary["deferred"]) == 7
     assert summary["variants"] == {
+        "market-regime-daily": ["required-only", "full-path"],
         "stockbee-20pct-study-daily": ["required-only", "full-path"],
         "stockbee-fluency-loop": ["required-only", "full-path"],
         "trade-memory-loop": ["required-only", "full-path"],
@@ -59,10 +61,10 @@ def test_new_workflow_cannot_be_silently_deferred() -> None:
 
     coverage["deferred"]["new-workflow"] = {
         "issue": 294,
-        "reason": "Do not allow new coverage 3/11 deferrals.",
+        "reason": "Do not allow new coverage 4/11 deferrals.",
     }
     errors = coverage_errors(workflow_ids, coverage)
-    assert any("frozen coverage 3/11 deferred set" in error for error in errors)
+    assert any("frozen coverage 4/11 deferred set" in error for error in errors)
 
 
 def test_pilot_spec_matches_workflow_and_requires_offline_prices() -> None:
@@ -169,9 +171,9 @@ def test_generate_rejects_source_destination_without_deleting_existing_files(
 
     coverage = load_yaml(COVERAGE)
     coverage["covered"]["stockbee-fluency-loop"]["spec"] = "replay.yaml"
-    coverage["covered"]["stockbee-20pct-study-daily"]["spec"] = str(
-        ROOT / "examples/workflows/stockbee-20pct-study-daily/replay.yaml"
-    )
+    for workflow_id, entry in coverage["covered"].items():
+        if workflow_id != "stockbee-fluency-loop":
+            entry["spec"] = str(COVERAGE.parent / entry["spec"])
     coverage_path = tmp_path / "replay-coverage.yaml"
     coverage_path.write_text(yaml.safe_dump(coverage, sort_keys=False), encoding="utf-8")
     before[coverage_path.relative_to(tmp_path)] = coverage_path.read_bytes()

@@ -1,6 +1,11 @@
 schema_version: 1
 
 covered:
+  market-regime-daily:
+    spec: market-regime-daily/replay.yaml
+    variants:
+      - required-only
+      - full-path
   stockbee-20pct-study-daily:
     spec: stockbee-20pct-study-daily/replay.yaml
     variants:
@@ -17,7 +22,7 @@ covered:
       - required-only
       - full-path
 
-# Frozen Coverage 3/11 baseline. The validator rejects adding another deferral, so a
+# Frozen Coverage 4/11 baseline. The validator rejects adding another deferral, so a
 # newly introduced workflow must ship both replay variants.
 deferred:
   core-portfolio-weekly:
@@ -26,9 +31,6 @@ deferred:
   kanchi-dividend-weekly:
     issue: 294
     reason: Native and human contract adapters are not implemented yet.
-  market-regime-daily:
-    issue: 294
-    reason: Historical examples need provider-input replay adapters.
   monthly-performance-review:
     issue: 294
     reason: Existing examples need transactional journal replay migration.

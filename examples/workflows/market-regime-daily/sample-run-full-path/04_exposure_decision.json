@@ -1,22 +1,14 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-15T13:08:00+00:00",
-  "exposure_ceiling_pct": 58,
   "bias": "NEUTRAL",
-  "participation": "BROAD",
-  "recommendation": "NEW_ENTRY_ALLOWED",
-  "confidence": "MEDIUM",
-  "composite_score": 56.2,
   "component_scores": {
     "breadth_score": 66,
-    "uptrend_score": 72,
-    "top_risk_score": 62
+    "top_risk_score": 62,
+    "uptrend_score": 71
   },
-  "inputs_provided": [
-    "top_risk",
-    "breadth",
-    "uptrend"
-  ],
+  "composite_score": 55.9,
+  "confidence": "MEDIUM",
+  "exposure_ceiling_pct": 57,
+  "generated_at": "2026-01-15T13:08:00+00:00",
   "inputs_missing": [
     "regime",
     "institutional",
@@ -24,5 +16,13 @@
     "theme",
     "ftd"
   ],
-  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 56% ceiling."
+  "inputs_provided": [
+    "top_risk",
+    "breadth",
+    "uptrend"
+  ],
+  "participation": "BROAD",
+  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 55% ceiling.",
+  "recommendation": "NEW_ENTRY_ALLOWED",
+  "schema_version": "1.0"
 }

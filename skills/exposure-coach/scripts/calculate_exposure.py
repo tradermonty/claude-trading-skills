@@ -506,7 +506,7 @@ def generate_rationale(
 
     # Missing inputs
     if missing:
-        critical_missing = set(missing) & CRITICAL_INPUTS
+        critical_missing = sorted(set(missing) & CRITICAL_INPUTS)
         if critical_missing:
             parts.append(
                 f"Missing critical inputs ({', '.join(critical_missing)}) reduce confidence."

@@ -1,0 +1,56 @@
+schema_version: 1
+workflow_id: market-regime-daily
+fixed_timestamp: "2026-01-15T13:08:00+00:00"
+
+inputs:
+  market_breadth_components: replay-inputs/breadth-components.json
+  market_uptrend_components: replay-inputs/uptrend-components.json
+  market_top_risk_components: replay-inputs/top-risk-components.json
+
+steps:
+  - step: 1
+    executor: market_regime_breadth
+    executor_mode: native_api
+    gate_policy: continue
+    output_files:
+      market_breadth_report:
+        canonical: 01_market_breadth_report.json
+
+  - step: 2
+    executor: market_regime_uptrend
+    executor_mode: native_api
+    gate_policy: continue
+    output_files:
+      uptrend_report:
+        canonical: 02_uptrend_report.json
+
+  - step: 3
+    executor: market_regime_top_risk
+    executor_mode: native_api
+    gate_policy: continue
+    output_files:
+      top_risk_report:
+        canonical: 03_top_risk_report.json
+
+  - step: 4
+    executor: market_regime_exposure
+    executor_mode: native_cli
+    gate_policy: record_only
+    output_files:
+      exposure_decision:
+        canonical: 04_exposure_decision.json
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 4
+    golden_dir: sample-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+    golden_dir: sample-run-full-path
