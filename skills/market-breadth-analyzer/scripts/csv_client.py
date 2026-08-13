@@ -70,6 +70,10 @@ def fetch_detail_csv(url: str = DEFAULT_DETAIL_URL) -> list[dict]:
         if missing:
             print(f"\n  WARN: Missing columns: {missing}", file=sys.stderr)
 
+    if not rows:
+        print("OK (0 rows)")
+        return []
+
     # Sort by date ascending
     rows.sort(key=lambda r: r["Date"])
 
@@ -185,6 +189,10 @@ def get_latest_n_rows(rows: list[dict], n: int) -> list[dict]:
 
 def _parse_detail_row(raw: dict) -> dict:
     """Convert a raw CSV row dict to properly typed values."""
+    missing = [column for column in DETAIL_COLUMNS if raw.get(column) is None]
+    if missing:
+        raise ValueError(f"missing values for: {', '.join(missing)}")
+
     row = {}
     row["Date"] = raw["Date"].strip()
     row["S&P500_Price"] = float(raw["S&P500_Price"])
