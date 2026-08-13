@@ -303,16 +303,36 @@ def load_theses(state_dir: Path) -> tuple[list[dict], str, list[str]]:
     if not paths:
         return [], "EMPTY_STATE", []
 
-    theses: list[dict] = []
+    candidates: list[tuple[Path, dict]] = []
     warnings: list[str] = []
     for path in paths:
         try:
             thesis = _load_thesis_file(path)
-            thesis.setdefault("_source_path", str(path))
-            theses.append(thesis)
+            # The enumerated path is authoritative. Never allow an untrusted
+            # YAML field to forge the source named in audit warnings.
+            thesis["_source_path"] = str(path)
+            candidates.append((path, thesis))
         except Exception as exc:  # noqa: BLE001 - degrade partially on local state issues.
             warnings.append(f"Skipped {path}: {exc}")
 
+    candidates_by_id: dict[str, list[tuple[Path, dict]]] = {}
+    for candidate in candidates:
+        normalized_id = candidate[1]["thesis_id"].strip()
+        candidates_by_id.setdefault(normalized_id, []).append(candidate)
+
+    duplicate_ids = {
+        thesis_id for thesis_id, grouped in candidates_by_id.items() if len(grouped) > 1
+    }
+    for thesis_id in sorted(duplicate_ids):
+        duplicate_paths = sorted(path for path, _thesis in candidates_by_id[thesis_id])
+        warnings.append(
+            f"Duplicate thesis_id {thesis_id!r} in valid thesis files; excluded all copies: "
+            + ", ".join(str(path) for path in duplicate_paths)
+        )
+
+    theses = [
+        thesis for _path, thesis in candidates if thesis["thesis_id"].strip() not in duplicate_ids
+    ]
     if warnings:
         return theses, "PARTIAL", warnings
     return theses, "OK", []
