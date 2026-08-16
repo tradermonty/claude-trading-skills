@@ -563,6 +563,30 @@ class TestGenerateRationale:
         )
         assert "preservation" in rationale.lower()
 
+    def test_rationale_quotes_exposure_ceiling_not_composite(self):
+        """The ceiling sentence must report the ceiling, never the raw score."""
+        rationale = generate_rationale(
+            73.1,
+            "NEW_ENTRY_ALLOWED",
+            "BROAD",
+            "NEUTRAL",
+            {"breadth": 79, "uptrend": 57},
+            [],
+            exposure_ceiling=80,
+        )
+        assert "80% ceiling" in rationale
+        assert "73% ceiling" not in rationale
+
+    def test_rationale_ceiling_defaults_to_derived_value(self):
+        """Omitting exposure_ceiling still yields the ceiling, not the composite."""
+        composite = 73.1
+        expected = determine_exposure_ceiling(composite)
+        rationale = generate_rationale(
+            composite, "NEW_ENTRY_ALLOWED", "BROAD", "NEUTRAL", {"breadth": 79}, []
+        )
+        assert f"{expected}% ceiling" in rationale
+        assert f"{int(composite)}% ceiling" not in rationale
+
 
 class TestGenerateMarkdownReport:
     """Tests for markdown report generation."""

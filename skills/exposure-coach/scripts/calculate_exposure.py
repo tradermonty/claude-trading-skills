@@ -478,8 +478,16 @@ def generate_rationale(
     bias: str,
     scores: dict[str, Optional[int]],
     missing: list[str],
+    exposure_ceiling: Optional[int] = None,
 ) -> str:
-    """Generate human-readable rationale."""
+    """Generate human-readable rationale.
+
+    exposure_ceiling is the value reported to the user; when omitted it is
+    derived from composite so the rationale never quotes the raw score.
+    """
+    if exposure_ceiling is None:
+        exposure_ceiling = determine_exposure_ceiling(composite)
+
     parts = []
 
     # Participation assessment
@@ -518,7 +526,7 @@ def generate_rationale(
     elif recommendation == "REDUCE_ONLY":
         parts.append("New entries not recommended; consider trimming on strength.")
     else:
-        parts.append(f"New positions allowed within the {int(composite)}% ceiling.")
+        parts.append(f"New positions allowed within the {exposure_ceiling}% ceiling.")
 
     return " ".join(parts)
 
@@ -648,7 +656,9 @@ def main():
     participation = determine_participation(scores["uptrend"], scores["breadth"], sector_data)
     confidence = determine_confidence(provided, missing)
 
-    rationale = generate_rationale(composite, recommendation, participation, bias, scores, missing)
+    rationale = generate_rationale(
+        composite, recommendation, participation, bias, scores, missing, exposure_ceiling
+    )
 
     # Build result
     now = datetime.now(timezone.utc)
