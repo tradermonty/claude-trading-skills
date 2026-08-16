@@ -15,7 +15,7 @@
 **Participation:** BROAD
 
 ### Rationale
-Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 56% ceiling.
+Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 58% ceiling.
 
 ### Missing Inputs
 regime, institutional, sector, theme, ftd
