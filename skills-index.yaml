@@ -934,6 +934,29 @@ skills:
   - regime_transition_report
   workflows:
   - market-regime-daily
+- id: manifoldbt-backtester
+  display_name: manifoldbt Backtester
+  category: strategy-research
+  status: beta
+  summary: Runs a declarative strategy spec over OHLCV bars with the manifoldbt Rust engine and emits the eight inputs backtest-expert scores.
+  timeframe: research
+  difficulty: intermediate
+  integrations:
+  - id: manifoldbt
+    type: calculation
+    requirement: required
+    note: pip install manifoldbt; free tier covers this skill, no API key
+  - id: ohlcv_file
+    type: local_file
+    requirement: required
+    note: CSV or Parquet with timestamp, open, high, low, close, volume
+  inputs:
+  - strategy_spec
+  - ohlcv_bars
+  outputs:
+  - round_trip_statistics
+  - backtest_expert_inputs
+  workflows: []
 - id: market-breadth-analyzer
   display_name: Market Breadth Analyzer
   category: market-regime

@@ -299,6 +299,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | S&P 500 OHLCV via FMP |
 | **Value Dividend Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API |
 | **Weekly Performance Digest** | ❌ Not used | ❌ Not used | ❌ Not used | Pure calculation; works offline |
+| **manifoldbt Backtester** | ❌ Not used | ❌ Not used | ❌ Not used | pip install manifoldbt; free tier covers this skill, no API key; CSV or Parquet with timestamp, open, high, low, close, volume |
 <!-- skills-index:end name="api-matrix" -->
 
 > Note: a skill listed as `❌ Not used` for FMP / FINVIZ / Alpaca may still need WebSearch, public CSVs, chart screenshots, or other non-paid inputs. See each skill's full `integrations[]` entry in `skills-index.yaml` for the complete picture.

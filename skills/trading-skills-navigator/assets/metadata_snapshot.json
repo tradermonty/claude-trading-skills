@@ -550,6 +550,27 @@
       "timeframe": "weekly"
     },
     {
+      "category": "strategy-research",
+      "difficulty": "intermediate",
+      "display_name": "manifoldbt Backtester",
+      "id": "manifoldbt-backtester",
+      "integrations": [
+        {
+          "id": "manifoldbt",
+          "requirement": "required",
+          "type": "calculation"
+        },
+        {
+          "id": "ohlcv_file",
+          "requirement": "required",
+          "type": "local_file"
+        }
+      ],
+      "status": "beta",
+      "summary": "Runs a declarative strategy spec over OHLCV bars with the manifoldbt Rust engine and emits the eight inputs backtest-expert scores.",
+      "timeframe": "research"
+    },
+    {
       "category": "market-regime",
       "difficulty": "beginner",
       "display_name": "Market Breadth Analyzer",

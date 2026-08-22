@@ -225,6 +225,7 @@ A comprehensive catalog of all 72 Claude Trading Skills organized by category. B
 | Technical Analyst | Optional | -- | -- |
 | Market News Analyst | -- | -- | -- |
 | Market Environment Analysis | -- | -- | -- |
+| manifoldbt Backtester | -- | -- | -- |
 | Market Breadth Analyzer | -- | -- | -- |
 | Uptrend Analyzer | -- | -- | -- |
 | Macro Regime Detector | Optional | -- | -- |
@@ -285,5 +286,6 @@ A comprehensive catalog of all 72 Claude Trading Skills organized by category. B
 | Futures Position Sizer | -- | -- | -- |
 | FXMacroData Calendar | -- | -- | -- |
 | Residual Edge Analyzer | -- | -- | -- |
+| Manifoldbt Backtester | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.
