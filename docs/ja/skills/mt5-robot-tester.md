@@ -3,7 +3,7 @@ layout: default
 title: "Mt5 Robot Tester"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 43
+nav_order: 44
 lang_peer: /en/skills/mt5-robot-tester/
 permalink: /ja/skills/mt5-robot-tester/
 generated: true

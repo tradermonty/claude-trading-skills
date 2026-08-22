@@ -85,6 +85,7 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 | **Theme Detector** | FINVIZの業種データで上昇・下落テーマを3次元スコアリング（Heat、Lifecycle、Confidence）で検出 | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span> <span class="badge badge-optional">FINVIZ任意</span> |
 | **[Scenario Analyzer]({{ '/ja/skills/scenario-analyzer/' | relative_url }})** | ニュースヘッドラインから18ヶ月シナリオ分析。1次・2次・3次影響と推奨銘柄を生成 | <span class="badge badge-free">API不要</span> |
 | **[Backtest Expert]({{ '/ja/skills/backtest-expert/' | relative_url }})** | 戦略仮説のパラメータ堅牢性検証、ウォークフォワード検証を含むプロフェッショナルグレード検証フレームワーク | <span class="badge badge-free">API不要</span> |
+| **[manifoldbt Backtester]({{ '/ja/skills/manifoldbt-backtester/' | relative_url }})** | Runs a declarative strategy spec over OHLCV bars with the manifoldbt Rust engine and emits the eight inputs backtest-expert scores _(EN, awaiting translation)_ | <span class="badge badge-free">API不要</span> |
 | **[MT5 Robot Tester]({{ '/ja/skills/mt5-robot-tester/' | relative_url }})** | ローカルのMetaTrader 5 EAを再開可能な3ラウンドで一括検証し、上書きを防ぐファイル処理、決定論的ゲート、実行間学習を提供。Windows、MT5、EAファイル、ブローカーのtick dataが必要 | <span class="badge badge-free">API不要</span> |
 | **[Stockbee 20% Study]({{ '/ja/skills/stockbee-20pct-study/' | relative_url }})** | +20% / -20% mover のモデルブックを日次で作成し、カタリスト、チャート文脈、将来リターン、コホート傾向を研究用に整理。売買シグナルではなく仮説作成専用 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">ローカルJSON任意</span> |
 | **Options Strategy Advisor** | Black-Scholesモデルで理論価格・グリークス算出。17以上のオプション戦略を教育的に解説 | <span class="badge badge-optional">FMP任意</span> |
@@ -193,6 +194,7 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 ### 戦略を検証したい
 
 - **[Backtest Expert]({{ '/ja/skills/backtest-expert/' | relative_url }})** - 戦略仮説のプロフェッショナルグレード検証
+- **[manifoldbt Backtester]({{ '/ja/skills/manifoldbt-backtester/' | relative_url }})** - Executes a strategy spec and produces the metrics backtest-expert scores _(EN, awaiting translation)_
 - **Strategy Pivot Designer** - 停滞した戦略から新しいアプローチを生成
 
 ### ポートフォリオを管理したい
@@ -220,6 +222,7 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 | Theme Detector | 任意 | 推奨 | - |
 | Pair Trade Screener | 必須 | - | - |
 | Macro Regime Detector | 任意 | - | - |
+| manifoldbt Backtester | - | - | - |
 | Options Strategy Advisor | 任意 | - | - |
 | Portfolio Manager | - | - | 必須 |
 | Trader Memory Core | 任意 | - | - |

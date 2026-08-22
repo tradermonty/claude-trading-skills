@@ -129,7 +129,7 @@ This repository contains skills across the following areas:
 | Swing Opportunities | `vcp-screener`, `canslim-screener`, `breakout-trade-planner` |
 | Trade Planning | `position-sizer`, `technical-analyst`, `pre-trade-discipline-gate` |
 | Trade Memory | `trader-memory-core`, `signal-postmortem` |
-| Strategy Research | `backtest-expert`, `edge-pipeline-orchestrator` |
+| Strategy Research | `backtest-expert`, `manifoldbt-backtester`, `edge-pipeline-orchestrator` |
 | Advanced Satellite | `parabolic-short-trade-planner`, `earnings-trade-analyzer`, `options-strategy-advisor` |
 
 The detailed catalog below is **auto-generated** from `skills-index.yaml` by `scripts/generate_catalog_from_index.py`. To update a skill's description, edit its `skills-index.yaml` entry and re-run the generator (`python3 scripts/generate_catalog_from_index.py`). For a more navigable version, use the documentation site.
@@ -218,6 +218,7 @@ The detailed catalog below is **auto-generated** from `skills-index.yaml` by `sc
 | **Edge Signal Aggregator** (`edge-signal-aggregator`) | Aggregate and rank signals from multiple edge-finding skills (edge-candidate-agent, theme-detector, sector-analyst, institutional-flow-tracker) into a prioritized conviction dashboard with weighted scoring, deduplication, and contradicti... | `local_calculation` — | production |
 | **Edge Strategy Designer** (`edge-strategy-designer`) | Convert abstract edge concepts into strategy draft variants and optional exportable ticket YAMLs for edge-candidate-agent export/validation. | `local_calculation` — | production |
 | **Edge Strategy Reviewer** (`edge-strategy-reviewer`) | Critically review strategy drafts from edge-strategy-designer for edge plausibility, overfitting risk, sample size adequacy, and execution realism. | `local_calculation` — | production |
+| **manifoldbt Backtester** (`manifoldbt-backtester`) | Runs a declarative strategy spec over OHLCV bars with the manifoldbt Rust engine and emits the eight inputs backtest-expert scores. | `manifoldbt` **required**, `ohlcv_file` **required** | beta |
 | **MT5 Robot Tester** (`mt5-robot-tester`) | Batch-test MetaTrader 5 Expert Advisors through a resumable three-round local pipeline, rank results, and retain deterministic parameter and symbol learnings. | `mt5_local_files` **required**, `local_calculation` — | beta |
 | **Residual Edge Analyzer** (`residual-edge-analyzer`) | Separate strategy return performance into declared baseline exposure and residual edge using HAC regression, rolling stability, baseline sensitivity, and regime diagnostics. | `local_calculation` — | beta |
 | **Scenario Analyzer** (`scenario-analyzer`) | Analyze 18-month scenarios from news headlines via scenario-analyst agent with strategy-reviewer second opinion; outputs primary/secondary/tertiary impact analysis and stock picks. | `websearch` **required** | production |
