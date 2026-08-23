@@ -90,6 +90,34 @@ def test_fetch_detail_csv_returns_empty_when_no_valid_rows(monkeypatch, capsys, 
     assert "OK (0 rows)" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    ("column", "value", "warning"),
+    [
+        ("Date", "2025-02-30", "invalid Date"),
+        ("S&P500_Price", "nan", "must be finite"),
+        ("Breadth_Index_Raw", "inf", "must be finite"),
+        ("Breadth_Index_200MA", "-inf", "must be finite"),
+        ("Bearish_Signal", "unknown", "invalid boolean value"),
+    ],
+)
+def test_fetch_detail_csv_rejects_semantically_invalid_rows(
+    monkeypatch,
+    capsys,
+    column,
+    value,
+    warning,
+):
+    values = _detail_row("2025-01-01").split(",")
+    values[list(csv_client.DETAIL_COLUMNS).index(column)] = value
+    body = "\n".join([DETAIL_HEADER, ",".join(values)])
+    monkeypatch.setattr(csv_client.requests, "get", Mock(return_value=_response(body)))
+
+    assert csv_client.fetch_detail_csv("https://example.test/detail.csv") == []
+    captured = capsys.readouterr()
+    assert warning in captured.err
+    assert "OK (0 rows)" in captured.out
+
+
 def test_fetch_detail_csv_transport_error_fails_closed(monkeypatch, capsys):
     monkeypatch.setattr(
         csv_client.requests,
@@ -110,6 +138,14 @@ def test_fetch_summary_csv_maps_metrics_and_skips_blank_names(monkeypatch):
         "Current": "0.55",
     }
     response.raise_for_status.assert_called_once_with()
+
+
+def test_fetch_summary_csv_skips_truncated_rows(monkeypatch, capsys):
+    response = _response("Metric,Value\nBroken\nCurrent,0.55\n")
+    monkeypatch.setattr(csv_client.requests, "get", Mock(return_value=response))
+
+    assert csv_client.fetch_summary_csv("https://example.test/summary.csv") == {"Current": "0.55"}
+    assert "WARN: Skipping summary line 2: truncated row" in capsys.readouterr().err
 
 
 def test_fetch_summary_csv_transport_error_returns_empty(monkeypatch, capsys):
