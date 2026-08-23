@@ -270,7 +270,7 @@ def _validate_index_structure(
                 role_type = operational_role.get("type")
                 expected_keys = {"type", "rationale"} if role_type == "standalone" else {"type"}
                 missing_keys = sorted(expected_keys - set(operational_role))
-                unknown_keys = sorted(set(operational_role) - expected_keys)
+                unknown_keys = sorted(set(operational_role) - expected_keys, key=repr)
                 if not _valid_enum(role_type, VALID_OPERATIONAL_ROLES):
                     role_error = f"`operational_role.type` has invalid value {role_type!r}"
                 elif missing_keys:

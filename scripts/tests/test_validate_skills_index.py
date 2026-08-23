@@ -458,6 +458,7 @@ def test_idx015_missing_role_errors_in_strict_metadata(tmp_path: Path) -> None:
         {"type": "standalone", "rationale": "   "},
         {"type": "standalone", "rationale": 123},
         {"type": "workflow_step", "rationale": "unexpected"},
+        {"type": "workflow_step", 1: "unexpected"},
     ],
 )
 def test_idx015_malformed_role_always_errors(tmp_path: Path, operational_role: object) -> None:
