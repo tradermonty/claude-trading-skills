@@ -113,10 +113,19 @@ def parse_as_of(value: str | None) -> datetime:
     return _parse_datetime(value, default_tz=ET).astimezone(ET)
 
 
-def _load_structured_file(path: Path) -> Any:
+def _parse_exact_json_float(text: str) -> float | str:
+    """Keep JSON decimals exact when binary float parsing would change their value."""
+    parsed = float(text)
+    round_trip = Decimal(str(parsed))
+    return parsed if round_trip.is_finite() and round_trip == Decimal(text) else text
+
+
+def _load_structured_file(path: Path, *, preserve_json_floats: bool = False) -> Any:
     with path.open() as f:
         if path.suffix.lower() in {".yaml", ".yml"}:
             return yaml.safe_load(f)
+        if preserve_json_floats:
+            return json.load(f, parse_float=_parse_exact_json_float)
         return json.load(f)
 
 
@@ -125,7 +134,7 @@ def _normalize_token(value: Any) -> str:
 
 
 def load_candidates(answers_file: Path) -> list[dict[str, Any]]:
-    data = _load_structured_file(answers_file)
+    data = _load_structured_file(answers_file, preserve_json_floats=True)
     if isinstance(data, dict):
         candidates = data.get("candidates")
         if candidates is None:

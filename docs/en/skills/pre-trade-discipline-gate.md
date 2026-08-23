@@ -92,4 +92,4 @@ Use `--fail-on-non-go` when shell automation should return exit code `2` for non
 
 When a candidate has `thesis_id` and `--state-dir` is supplied, the generated JSON report is added to the thesis `linked_reports` list. The skill does not call `mark_reviewed`, so monitoring review dates are not advanced.
 
-The JSON report and JSONL journal keep each candidate's `checklist_answers`, including written-plan, stop, size, risk-dollar, and notes fields, so later reviews can audit what was answered before the order. Valid risk values retain their original representation; invalid risk values are stored as JSON `null`.
+The JSON report and JSONL journal keep each candidate's `checklist_answers`, including written-plan, stop, size, risk-dollar, and notes fields, so later reviews can audit what was answered before the order. Invalid risk values are stored as JSON `null`. Valid JSON decimals that cannot round-trip through a binary float are retained as numeric strings so their exact value reaches the comparison and audit record.
