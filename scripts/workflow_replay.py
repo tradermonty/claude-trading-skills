@@ -662,6 +662,17 @@ def _validate_artifact_files(
             seen[path] = f"{artifact_id}.{role}"
 
 
+def _artifact_file_digests(
+    artifacts: Mapping[str, dict[str, Any]],
+) -> dict[str, str]:
+    """Seal every declared artifact file by its stable artifact-role identity."""
+    digests: dict[str, str] = {}
+    for artifact_id, bundle in artifacts.items():
+        for role, raw_path in bundle["files"].items():
+            digests[f"{artifact_id}.{role}"] = _file_sha256(Path(raw_path))
+    return digests
+
+
 def _stockbee_ingest(
     repo_root: Path,
     spec: Mapping[str, Any],
@@ -2449,6 +2460,7 @@ def execute_replay(
 
     completed_steps: list[int] = []
     artifacts: dict[str, dict[str, Any]] = {}
+    sealed_artifact_digests: dict[str, str] = {}
     step_reports: list[dict[str, Any]] = []
     status = "completed"
     with tempfile.TemporaryDirectory(prefix="workflow-replay-") as temp_name:
@@ -2500,6 +2512,14 @@ def execute_replay(
                 candidate_artifacts = dict(artifacts)
                 candidate_artifacts.update(produced)
                 _validate_artifact_files(stage, candidate_artifacts, f"step {number} output")
+                produced_digests = _artifact_file_digests(produced)
+                duplicate_seals = set(produced_digests) & set(sealed_artifact_digests)
+                if duplicate_seals:
+                    raise ReplayError(
+                        f"step {number} replaced sealed artifacts: {sorted(duplicate_seals)}",
+                        completed_steps,
+                    )
+                sealed_artifact_digests.update(produced_digests)
                 artifacts = candidate_artifacts
                 completed_steps.append(number)
                 step_report = {
@@ -2519,6 +2539,18 @@ def execute_replay(
                 if replay_step["gate_policy"] == "halt":
                     status = "halted"
                     break
+
+            _validate_artifact_files(stage, artifacts, "final artifact store")
+            final_digests = _artifact_file_digests(artifacts)
+            changed_artifacts = sorted(
+                artifact_id
+                for artifact_id in set(final_digests) | set(sealed_artifact_digests)
+                if final_digests.get(artifact_id) != sealed_artifact_digests.get(artifact_id)
+            )
+            if changed_artifacts:
+                raise ReplayError(
+                    f"final artifact integrity mismatch: {changed_artifacts}", completed_steps
+                )
 
             report = {
                 "schema_version": 1,

@@ -213,6 +213,32 @@ def test_corrupt_handoff_stops_before_exposure_and_preserves_destination(tmp_pat
     assert {path.name for path in output.iterdir()} == {"keep.txt"}
 
 
+def test_corrupt_final_handoff_stops_before_publication(tmp_path: Path) -> None:
+    output = tmp_path / "published"
+    output.mkdir()
+    sentinel = output / "keep.txt"
+    sentinel.write_text("keep\n", encoding="utf-8")
+
+    def corrupt_after_exposure(step: int, artifacts: dict[str, dict]) -> None:
+        if step == 4:
+            path = Path(artifacts["exposure_decision"]["files"]["canonical"])
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["recommendation"] = "TAMPERED"
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="final artifact integrity mismatch") as exc_info:
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            output,
+            after_step=corrupt_after_exposure,
+        )
+
+    assert exc_info.value.completed_steps == [1, 2, 4]
+    assert {path.name for path in output.iterdir()} == {"keep.txt"}
+
+
 @pytest.mark.parametrize(
     "failure",
     [
