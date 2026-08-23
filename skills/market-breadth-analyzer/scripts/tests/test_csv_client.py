@@ -94,6 +94,7 @@ def test_fetch_detail_csv_returns_empty_when_no_valid_rows(monkeypatch, capsys, 
     ("column", "value", "warning"),
     [
         ("Date", "2025-02-30", "invalid Date"),
+        ("Date", "2026-1-5", "invalid Date"),
         ("S&P500_Price", "nan", "must be finite"),
         ("Breadth_Index_Raw", "inf", "must be finite"),
         ("Breadth_Index_200MA", "-inf", "must be finite"),
