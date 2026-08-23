@@ -109,8 +109,10 @@ threshold it should not clear.
 single-symbol long-only strategy that never scales a position. Shorting breaks
 it, because a sell can open. Scaling breaks it, because one exit answers several
 entries. A universe breaks it, because fills interleave. This skill tracks
-position per symbol and closes a trip when it crosses back through flat, using a
-size-weighted entry price.
+position per symbol and closes a trip when it crosses back through flat. Entry
+and exit quantities and cash values accumulate across that whole lifecycle;
+their weighted-average prices are display values, while PnL comes from the cash
+flows themselves.
 
 **Costs decide small trades.** At 7 bps a side, a trade that gains 0.1% on price
 loses money. Expectancy comes from the win rate and the average winner together,

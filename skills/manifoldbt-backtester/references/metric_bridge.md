@@ -44,7 +44,10 @@ shape: single symbol, long only, no scaling. Outside it:
 - a universe interleaves fills across symbols, so pairs cross instruments
 
 `pair_round_trips` tracks position per symbol and closes a trip when it crosses
-back through flat, weighting the entry price by size.
+back through flat. It accumulates entry / exit quantities and cash values over
+the whole lifecycle, including a scale-out followed by a re-add. The weighted
+average prices are for display; gross and net PnL are derived from those cash
+flows so earlier exits never use the remaining position's cost basis.
 
 ### Gross percentages beside a net win rate
 

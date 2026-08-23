@@ -16,11 +16,12 @@ plausible and are wrong:
 * the universe has more than one symbol, so fills interleave.
 
 So this module tracks position per symbol instead of pattern-matching rows. A
-fill in the direction of the running position opens or increases it, and the
-entry price becomes a size-weighted average; a fill against it reduces or closes
-it. A round trip is emitted when the position crosses back through flat, and a
-fill that flips the sign in one go is split into the part that closes and the
-part that opens.
+fill in the direction of the running position opens or increases it, while a
+fill against it reduces or closes it. Entry and exit cash flows accumulate for
+the whole flat-to-flat lifecycle, so scaling out and then back in cannot mix the
+remaining position's average entry with earlier exits. A round trip is emitted
+when the position crosses back through flat, and a fill that flips the sign in
+one go is split into the part that closes and the part that opens.
 
 Deliberately dependency-free: plain dicts in, plain dicts out. It runs under the
 repository's test job, which installs no dataframe library, and it lets the
@@ -60,24 +61,34 @@ def _close_trip(symbol: Any, p: dict[str, Any], ts: Any) -> dict[str, Any]:
     "what did this position return net of costs", which is the only figure a
     trader can spend.
     """
+    entry_avg = p["entry_value"] / p["entry_qty"] if p["entry_qty"] else 0.0
     exit_avg = p["exit_value"] / p["exit_qty"] if p["exit_qty"] else 0.0
     side_label = "long" if p["entry_sign"] > 0 else "short"
-    entry = p["entry"]
-    gross = ((exit_avg - entry) / entry) if entry else 0.0
-    gross = gross if side_label == "long" else -gross
-
-    notional = entry * p["exit_qty"]
-    cost = (p["fees"] / notional) if notional else 0.0
+    gross_pnl = (
+        p["exit_value"] - p["entry_value"]
+        if side_label == "long"
+        else p["entry_value"] - p["exit_value"]
+    )
+    net_pnl = gross_pnl - p["fees"]
+    gross_return = gross_pnl / p["entry_value"] if p["entry_value"] else 0.0
+    net_return = net_pnl / p["entry_value"] if p["entry_value"] else 0.0
 
     return {
         "symbol_id": symbol,
         "direction": side_label,
-        "quantity": p["exit_qty"],
-        "entry_price": entry,
+        "quantity": p["entry_qty"],
+        "entry_qty": p["entry_qty"],
+        "exit_qty": p["exit_qty"],
+        "entry_value": p["entry_value"],
+        "exit_value": p["exit_value"],
+        "entry_price": entry_avg,
         "exit_price": exit_avg,
-        "gross_return_pct": gross * 100.0,
-        "return_pct": (gross - cost) * 100.0,
+        "gross_pnl": gross_pnl,
+        "net_pnl": net_pnl,
+        "gross_return_pct": gross_return * 100.0,
+        "return_pct": net_return * 100.0,
         "fees": p["fees"],
+        "total_fees": p["fees"],
         "entry_timestamp": p["opened_at"],
         "exit_timestamp": ts,
     }
@@ -94,9 +105,9 @@ def pair_round_trips(fills: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
     Returns one dict per completed round trip:
 
-    ``symbol_id``, ``direction`` (``"long"`` / ``"short"``), ``quantity``,
-    ``entry_price`` (size-weighted), ``exit_price`` (size-weighted),
-    ``return_pct``, ``fees``, ``entry_timestamp``, ``exit_timestamp``.
+    ``symbol_id``, ``direction`` (``"long"`` / ``"short"``), cumulative entry
+    and exit quantities / values, their display-average prices, gross and net
+    PnL / returns, fees, and the entry / exit timestamps.
 
     ``return_pct`` is **net of fees**, signed by direction, expressed against the
     notional put at risk. Gross would be the easier number to compute and the
@@ -110,8 +121,8 @@ def pair_round_trips(fills: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return, and counting it inflates the trade count the quality framework
     scores.
     """
-    # Per symbol: running signed quantity, weighted entry price, accrued fees,
-    # the timestamp the position opened, and the exit accumulator.
+    # Per symbol: running signed quantity, lifecycle entry/exit cash flows,
+    # accrued fees, and the timestamp the position opened.
     state: dict[Any, dict[str, Any]] = {}
     closed: list[dict[str, Any]] = []
 
@@ -128,7 +139,8 @@ def pair_round_trips(fills: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
             symbol,
             {
                 "qty": 0.0,
-                "entry": 0.0,
+                "entry_qty": 0.0,
+                "entry_value": 0.0,
                 "entry_sign": 0.0,
                 "fees": 0.0,
                 "opened_at": None,
@@ -154,7 +166,8 @@ def pair_round_trips(fills: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
                 p.update(
                     {
                         "qty": 0.0,
-                        "entry": 0.0,
+                        "entry_qty": 0.0,
+                        "entry_value": 0.0,
                         "entry_sign": 0.0,
                         "fees": 0.0,
                         "opened_at": None,
@@ -165,17 +178,18 @@ def pair_round_trips(fills: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
         if remaining != 0.0:
             if abs(p["qty"]) <= _FLAT_EPS:
-                p["entry"] = price
+                p["entry_qty"] = abs(remaining)
+                p["entry_value"] = abs(remaining) * price
                 p["qty"] = remaining
                 p["entry_sign"] = 1.0 if remaining > 0 else -1.0
                 p["opened_at"] = ts
                 p["fees"] += fee * (abs(remaining) / abs(delta))
             else:
-                # Scaling in: the entry price becomes the size-weighted average,
-                # which is what makes the later percentage answer "what did this
-                # position return", not "what did the last add return".
-                total = abs(p["qty"]) + abs(remaining)
-                p["entry"] = (p["entry"] * abs(p["qty"]) + price * abs(remaining)) / total
+                # Keep the whole lifecycle's entry basis. Re-weighting only the
+                # remaining inventory here loses the basis of shares already
+                # sold and makes earlier exits incomparable with the entry.
+                p["entry_qty"] += abs(remaining)
+                p["entry_value"] += price * abs(remaining)
                 p["qty"] += remaining
                 p["fees"] += fee * (abs(remaining) / abs(delta))
 

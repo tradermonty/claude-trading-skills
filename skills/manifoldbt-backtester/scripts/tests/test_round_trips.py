@@ -4,6 +4,7 @@ Every case here is one the naive "zip consecutive rows" approach gets wrong.
 That is the point of the module, so it is the point of the tests.
 """
 
+import pytest
 from round_trips import SIDE_BUY, SIDE_SELL, pair_round_trips, summarize_round_trips
 
 # ---------------------------------------------------------------- the simple case
@@ -85,6 +86,74 @@ def test_scaling_out_closes_once_flat(fill):
     assert len(trips) == 1
     assert trips[0]["exit_price"] == 120.0  # weighted across both exits
     assert trips[0]["return_pct"] == 20.0
+
+
+def test_scaling_out_then_back_in_uses_whole_lifecycle_cash_flows(fill):
+    """A re-add must not mix the remaining-position entry with all exits."""
+    trips = pair_round_trips(
+        [
+            fill(SIDE_BUY, 100.0, 10),
+            fill(SIDE_SELL, 110.0, 4),
+            fill(SIDE_BUY, 120.0, 5),
+            fill(SIDE_SELL, 130.0, 11),
+        ]
+    )
+
+    assert len(trips) == 1
+    trip = trips[0]
+    assert trip["entry_qty"] == pytest.approx(15.0)
+    assert trip["exit_qty"] == pytest.approx(15.0)
+    assert trip["entry_value"] == pytest.approx(1_600.0)
+    assert trip["exit_value"] == pytest.approx(1_870.0)
+    assert trip["entry_price"] == pytest.approx(1_600.0 / 15.0)
+    assert trip["exit_price"] == pytest.approx(1_870.0 / 15.0)
+    assert trip["gross_pnl"] == pytest.approx(270.0)
+    assert trip["net_pnl"] == pytest.approx(270.0)
+    assert trip["gross_return_pct"] == pytest.approx(16.875)
+    assert trip["return_pct"] == pytest.approx(16.875)
+
+
+def test_scaling_out_then_back_in_cannot_flip_a_loser_to_a_win(fill):
+    """Regression for the silent sign flip reported in PR #325 review."""
+    trips = pair_round_trips(
+        [
+            fill(SIDE_BUY, 100.0, 10),
+            fill(SIDE_SELL, 50.0, 9),
+            fill(SIDE_BUY, 50.0, 100),
+            fill(SIDE_SELL, 51.0, 101),
+        ]
+    )
+
+    assert len(trips) == 1
+    trip = trips[0]
+    assert trip["entry_value"] == pytest.approx(6_000.0)
+    assert trip["exit_value"] == pytest.approx(5_601.0)
+    assert trip["gross_pnl"] == pytest.approx(-399.0)
+    assert trip["return_pct"] == pytest.approx(-6.65)
+
+    summary = summarize_round_trips(trips)
+    assert summary["wins"] == 0
+    assert summary["losses"] == 1
+
+
+def test_short_scaling_out_then_back_in_uses_whole_lifecycle_cash_flows(fill):
+    trips = pair_round_trips(
+        [
+            fill(SIDE_SELL, 100.0, 10),
+            fill(SIDE_BUY, 90.0, 4),
+            fill(SIDE_SELL, 80.0, 5),
+            fill(SIDE_BUY, 70.0, 11),
+        ]
+    )
+
+    assert len(trips) == 1
+    trip = trips[0]
+    assert trip["entry_qty"] == pytest.approx(15.0)
+    assert trip["exit_qty"] == pytest.approx(15.0)
+    assert trip["entry_value"] == pytest.approx(1_400.0)
+    assert trip["exit_value"] == pytest.approx(1_130.0)
+    assert trip["gross_pnl"] == pytest.approx(270.0)
+    assert trip["gross_return_pct"] == pytest.approx(100.0 * 270.0 / 1_400.0)
 
 
 def test_reversal_splits_into_close_then_open(fill):
