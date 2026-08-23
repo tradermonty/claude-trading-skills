@@ -81,6 +81,8 @@ python3 skills/drawdown-circuit-breaker/scripts/check_circuit_breaker.py \
 
 スクリプトはすべての `th_*.yaml` を走査し、各 thesis の `status_history[]` ledger から `realized_pnl` を読みます。`_index.json` は P&L 計算に使いません。インデックスは軽量な検索用ファイルであり、部分クローズや日次実現損益に必要な台帳を持たないためです。
 
+各ファイルの検証後、有効な thesis を前後の空白を除いた大文字小文字を区別する `thesis_id` でグループ化します。同じ ID を持つ有効なファイルが2件以上ある場合、その重複グループ全体を P&L と連敗の計算から除外し、実際のすべての source path を warning に記録します。重複 state を修復して decision を再実行するまでは `PARTIAL` + `HALTED` です。`metrics.theses_scanned` は、受理された一意IDの thesis のみを数えます。
+
 state directory が存在しない、または存在する空ディレクトリの場合は、`data_quality: EMPTY_STATE` とともに `TRADING_ALLOWED` を返します。履歴がまだない新規ユーザーをブロックしないためです。指定された state path が存在する一方でディレクトリではない場合は、不完全な state data として fail closed します。
 
 state が存在する一方で thesis、ledger event、terminal result のいずれかを読み飛ばした場合、または記録値が競合する場合は、`data_quality: PARTIAL`、`recommendation: HALTED`、`incomplete_state_data` rule を返して fail closed にします。warning を修復して再実行するまで新規リスクを取りません。唯一の復元可能な例外は、realized-P&L ledger entry がない旧形式の terminal thesis で、有限値の `outcome.pnl_dollars` と解析可能な terminal history がある場合です。この場合は監査用に `PARTIAL` を残しつつ、それ単独では計算済み recommendation を上書きしません。`ACTIVE`、`PARTIALLY_CLOSED`、`CLOSED`、`INVALIDATED` の thesis では、各 history event が object であり、認識済みの `status` と解析可能な `at` を持ち、最後の history status が thesis status と一致している必要があります。`ACTIVE` と `PARTIALLY_CLOSED` の thesis は entry actuals を持ち、`PARTIALLY_CLOSED` の thesis は position も持つ必要があります。malformed、古い、または骨格だけの lifecycle history は terminal fallback を無効にして halt します。ledger の形をした event の `realized_pnl` が欠落・型不正・非 finite の場合も、値を強制変換せず halt します。
