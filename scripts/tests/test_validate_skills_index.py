@@ -459,6 +459,10 @@ def test_idx015_missing_role_errors_in_strict_metadata(tmp_path: Path) -> None:
         {"type": "standalone", "rationale": 123},
         {"type": "workflow_step", "rationale": "unexpected"},
         {"type": "workflow_step", 1: "unexpected"},
+        # Two unknown keys of mutually incomparable types: one alone leaves a
+        # single-element set, which sorts without ever comparing. Only a second
+        # key of a different type forces the comparison that used to raise.
+        {"type": "workflow_step", 1: "unexpected", "extra": "unexpected"},
     ],
 )
 def test_idx015_malformed_role_always_errors(tmp_path: Path, operational_role: object) -> None:
