@@ -137,6 +137,10 @@ def minimal_skill(skill_id: str, **overrides) -> dict:
         "inputs": ["test_input"],
         "outputs": ["test_output"],
         "workflows": [],
+        "operational_role": {
+            "type": "standalone",
+            "rationale": "Runs directly as an intentionally independent tool.",
+        },
         "verification": {
             "instruction_contract": "not_verified",
             "unit_tests": "not_verified",
@@ -419,6 +423,55 @@ def test_idx012_unknown_integration_errors_in_strict_metadata(tmp_path: Path) ->
     assert "IDX012" in codes(findings)
 
 
+def test_idx015_missing_role_warns_by_default_and_in_strict_workflows(tmp_path: Path) -> None:
+    write_skill(tmp_path, "alpha")
+    skill = minimal_skill("alpha")
+    del skill["operational_role"]
+    write_index(tmp_path, [skill])
+
+    default_findings = validate(tmp_path)
+    workflow_findings = validate(tmp_path, strict_workflows=True)
+
+    assert [finding.code for finding in default_findings].count("IDX015") == 1
+    assert "IDX015" in warning_codes(default_findings)
+    assert [finding.code for finding in workflow_findings].count("IDX015") == 1
+    assert "IDX015" in warning_codes(workflow_findings)
+    assert "WF015" not in codes(workflow_findings)
+
+
+def test_idx015_missing_role_errors_in_strict_metadata(tmp_path: Path) -> None:
+    write_skill(tmp_path, "alpha")
+    skill = minimal_skill("alpha")
+    del skill["operational_role"]
+    write_index(tmp_path, [skill])
+
+    assert "IDX015" in codes(validate(tmp_path, strict_metadata=True))
+
+
+@pytest.mark.parametrize(
+    "operational_role",
+    [
+        "standalone",
+        {},
+        {"type": "bogus"},
+        {"type": "standalone"},
+        {"type": "standalone", "rationale": "   "},
+        {"type": "standalone", "rationale": 123},
+        {"type": "workflow_step", "rationale": "unexpected"},
+        {"type": "workflow_step", 1: "unexpected"},
+        # Two unknown keys of mutually incomparable types: one alone leaves a
+        # single-element set, which sorts without ever comparing. Only a second
+        # key of a different type forces the comparison that used to raise.
+        {"type": "workflow_step", 1: "unexpected", "extra": "unexpected"},
+    ],
+)
+def test_idx015_malformed_role_always_errors(tmp_path: Path, operational_role: object) -> None:
+    write_skill(tmp_path, "alpha")
+    write_index(tmp_path, [minimal_skill("alpha", operational_role=operational_role)])
+
+    assert "IDX015" in codes(validate(tmp_path))
+
+
 # ---------------------------------------------------------------------------
 # Workflow-level error codes (require --strict-workflows)
 # ---------------------------------------------------------------------------
@@ -431,7 +484,11 @@ def _setup_minimal_workflow_repo(tmp_path: Path, **wf_overrides) -> None:
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )
@@ -466,6 +523,129 @@ def test_wf001_workflow_file_missing(tmp_path: Path) -> None:
     write_index(tmp_path, [minimal_skill("alpha", workflows=["ghost"])])
     findings = validate(tmp_path, strict_workflows=True)
     assert "WF001" in codes(findings)
+
+
+def test_wf015_optional_only_skill_is_a_workflow_step(tmp_path: Path) -> None:
+    write_skill(tmp_path, "alpha")
+    write_skill(tmp_path, "beta")
+    write_index(
+        tmp_path,
+        [
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
+            minimal_skill(
+                "beta",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
+        ],
+    )
+    write_workflow(
+        tmp_path,
+        "sample",
+        {
+            "schema_version": 1,
+            "id": "sample",
+            "display_name": "Sample",
+            "required_skills": ["alpha"],
+            "optional_skills": ["beta"],
+            "artifacts": [],
+            "steps": [
+                {
+                    "step": 1,
+                    "name": "Run alpha",
+                    "skill": "alpha",
+                    "decision_gate": False,
+                }
+            ],
+            "journal_destination": "alpha",
+        },
+    )
+
+    findings = validate(tmp_path, strict_workflows=True)
+    assert "WF015" not in codes(findings), findings
+    assert "WF016" not in codes(findings), findings
+
+
+def test_wf015_rejects_standalone_role_with_forward_reference(tmp_path: Path) -> None:
+    _setup_minimal_workflow_repo(tmp_path)
+    import yaml as _yaml
+
+    index_path = tmp_path / "skills-index.yaml"
+    index = _yaml.safe_load(index_path.read_text(encoding="utf-8"))
+    index["skills"][0]["operational_role"] = {
+        "type": "standalone",
+        "rationale": "Incorrectly classified for this fixture.",
+    }
+    index_path.write_text(_yaml.safe_dump(index, sort_keys=False), encoding="utf-8")
+
+    assert "WF015" in codes(validate(tmp_path, strict_workflows=True))
+
+
+def test_wf016_rejects_dangling_workflow_back_reference(tmp_path: Path) -> None:
+    _setup_minimal_workflow_repo(tmp_path)
+    import yaml as _yaml
+
+    index_path = tmp_path / "skills-index.yaml"
+    index = _yaml.safe_load(index_path.read_text(encoding="utf-8"))
+    index["skills"][1]["workflows"] = ["sample"]
+    index_path.write_text(_yaml.safe_dump(index, sort_keys=False), encoding="utf-8")
+
+    assert "WF016" in codes(validate(tmp_path, strict_workflows=True))
+
+
+@pytest.mark.parametrize(
+    "workflows",
+    [
+        None,
+        {},
+        123,
+        "sample",
+        ["sample", 123],
+        ["sample", "sample"],
+        [""],
+    ],
+)
+def test_wf016_rejects_malformed_workflow_backrefs_without_crashing(
+    tmp_path: Path, workflows: object
+) -> None:
+    _setup_minimal_workflow_repo(tmp_path)
+    import yaml as _yaml
+
+    index_path = tmp_path / "skills-index.yaml"
+    index = _yaml.safe_load(index_path.read_text(encoding="utf-8"))
+    index["skills"][0]["workflows"] = workflows
+    index_path.write_text(_yaml.safe_dump(index, sort_keys=False), encoding="utf-8")
+
+    findings = validate(tmp_path, strict_workflows=True)
+    assert [finding.code for finding in findings].count("WF016") == 1
+
+
+def test_wf016_missing_workflow_backrefs_warns_by_default_and_errors_when_strict(
+    tmp_path: Path,
+) -> None:
+    write_skill(tmp_path, "alpha")
+    skill = minimal_skill("alpha")
+    del skill["workflows"]
+    write_index(tmp_path, [skill])
+
+    default_findings = validate(tmp_path)
+    strict_findings = validate(tmp_path, strict_workflows=True)
+    assert "WF016" in warning_codes(default_findings)
+    assert "WF016" in codes(strict_findings)
+
+
+def test_repository_operational_roles_match_all_workflow_references() -> None:
+    project_root = SCRIPTS_DIR.parent
+    findings = validate(project_root, strict_metadata=True, strict_workflows=True)
+    role_findings = [
+        finding for finding in findings if finding.code in {"IDX015", "WF015", "WF016"}
+    ]
+
+    assert role_findings == []
 
 
 def test_wf002_workflow_id_filename_mismatch(tmp_path: Path) -> None:
@@ -745,7 +925,11 @@ def test_wf011_optional_skill_not_in_index(tmp_path: Path) -> None:
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )
@@ -773,7 +957,11 @@ def test_wf012_artifact_produced_by_step_mismatch(tmp_path: Path) -> None:
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )
@@ -805,7 +993,11 @@ def test_wf012_step_produces_undeclared_artifact(tmp_path: Path) -> None:
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )
@@ -845,7 +1037,11 @@ def _setup_wf013_repo(
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )
@@ -1099,8 +1295,16 @@ def test_optional_step_skill_in_optional_skills_passes(tmp_path: Path) -> None:
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
-            minimal_skill("extra"),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
+            minimal_skill(
+                "extra",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )
@@ -1137,7 +1341,11 @@ def test_consume_optional_artifact_passes(tmp_path: Path) -> None:
     write_index(
         tmp_path,
         [
-            minimal_skill("alpha", workflows=["sample"]),
+            minimal_skill(
+                "alpha",
+                workflows=["sample"],
+                operational_role={"type": "workflow_step"},
+            ),
             minimal_skill("beta"),
         ],
     )

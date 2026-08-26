@@ -88,12 +88,6 @@ coverage:
       expires_on: "2026-10-31"
       issue: 293
       reason: Ratchet from the 2026-08-10 executable-code baseline.
-    market-breadth-analyzer:
-      floor: 69
-      target: 70
-      expires_on: "2026-10-31"
-      issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
     pair-trade-screener:
       floor: 56
       target: 70

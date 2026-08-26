@@ -22,7 +22,7 @@
     "uptrend"
   ],
   "participation": "BROAD",
-  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 55% ceiling.",
+  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (regime) reduce confidence. New positions allowed within the 57% ceiling.",
   "recommendation": "NEW_ENTRY_ALLOWED",
   "schema_version": "1.0"
 }

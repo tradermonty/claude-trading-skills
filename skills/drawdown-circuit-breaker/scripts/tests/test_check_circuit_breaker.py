@@ -373,6 +373,267 @@ def test_malformed_yaml_sets_partial_quality_and_halts(tmp_path: Path):
     json.dumps(result, allow_nan=False)
 
 
+def test_duplicate_thesis_ids_are_excluded_fail_closed_with_real_paths(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    write_thesis(
+        state_dir,
+        "th_unique_loss_gm_20260702_0001",
+        status="PARTIALLY_CLOSED",
+        history=[
+            {
+                "status": "PARTIALLY_CLOSED",
+                "at": "2026-07-02T11:00:00-04:00",
+                "reason": "trim",
+                "realized_pnl": -2500.0,
+            }
+        ],
+    )
+
+    duplicate_template = {
+        "thesis_id": " th_duplicate_profit_gm_20260702_0002 ",
+        "ticker": "DUP",
+        "status": "PARTIALLY_CLOSED",
+        "status_history": [
+            {
+                "status": "PARTIALLY_CLOSED",
+                "at": "2026-07-02T12:00:00-04:00",
+                "reason": "trim",
+                "realized_pnl": 1000.0,
+            }
+        ],
+        "entry": {
+            "actual_price": 100.0,
+            "actual_date": "2026-07-01T09:30:00-04:00",
+        },
+        "position": {"shares": 100.0, "shares_remaining": 50.0},
+        "_source_path": "/forged/from-input.yaml",
+    }
+    duplicate_paths = [
+        state_dir / "th_a_duplicate.yaml",
+        state_dir / "th_m_duplicate.yaml",
+        state_dir / "th_z_duplicate.yaml",
+    ]
+    state_dir.mkdir(parents=True, exist_ok=True)
+    for index, path in enumerate(duplicate_paths):
+        payload = dict(duplicate_template)
+        payload["thesis_id"] = (
+            "th_duplicate_profit_gm_20260702_0002"
+            if index == 1
+            else duplicate_template["thesis_id"]
+        )
+        path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    result = evaluate_state(state_dir)
+
+    assert result["recommendation"] == "HALTED"
+    assert result["data_quality"] == "PARTIAL"
+    assert result["metrics"]["realized_pnl_today"] == -2500.0
+    assert result["metrics"]["realized_pnl_wtd"] == -2500.0
+    assert result["metrics"]["realized_pnl_mtd"] == -2500.0
+    assert result["metrics"]["theses_scanned"] == 1
+    assert [rule["rule"] for rule in result["triggered_rules"]] == [
+        "max_daily_loss",
+        "incomplete_state_data",
+    ]
+    duplicate_warnings = [
+        warning for warning in result["warnings"] if "Duplicate thesis_id" in warning
+    ]
+    assert duplicate_warnings == [
+        "Duplicate thesis_id 'th_duplicate_profit_gm_20260702_0002' in valid thesis "
+        "files; excluded all copies: " + ", ".join(str(path) for path in duplicate_paths)
+    ]
+    assert "/forged/from-input.yaml" not in duplicate_warnings[0]
+
+
+def test_duplicate_terminal_theses_do_not_affect_losing_streak(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    write_thesis(
+        state_dir,
+        "th_unique_loss_gm_20260701_0001",
+        ticker="UNIQ",
+        status="CLOSED",
+        history=[
+            {
+                "status": "CLOSED",
+                "at": "2026-07-01T10:00:00-04:00",
+                "reason": "manual",
+                "realized_pnl": -100.0,
+            }
+        ],
+        pnl_dollars=-100.0,
+        exit_date="2026-07-01T10:00:00-04:00",
+    )
+    duplicate = {
+        "thesis_id": "th_duplicate_loss_gm_20260701_0002",
+        "ticker": "DUPL",
+        "status": "CLOSED",
+        "status_history": [
+            {
+                "status": "CLOSED",
+                "at": "2026-07-01T11:00:00-04:00",
+                "reason": "manual",
+                "realized_pnl": -200.0,
+            }
+        ],
+        "exit": {
+            "actual_date": "2026-07-01T11:00:00-04:00",
+            "actual_price": 100.0,
+            "exit_reason": "manual",
+        },
+        "outcome": {"pnl_dollars": -200.0, "pnl_pct": -0.2},
+    }
+    for name in ("th_duplicate_one.yaml", "th_duplicate_two.yaml"):
+        (state_dir / name).write_text(yaml.safe_dump(duplicate, sort_keys=False), encoding="utf-8")
+
+    result = evaluate_state(state_dir, as_of="2026-07-02T12:00:00-04:00")
+
+    assert result["metrics"]["realized_pnl_wtd"] == -100.0
+    assert result["metrics"]["realized_pnl_mtd"] == -100.0
+    assert result["metrics"]["consecutive_losses"] == 1
+    assert result["metrics"]["last_loss_exit_at"] == "2026-07-01T10:00:00-04:00"
+    assert result["metrics"]["theses_scanned"] == 1
+    assert [rule["rule"] for rule in result["triggered_rules"]] == ["incomplete_state_data"]
+
+
+def test_duplicate_warnings_are_sorted_by_normalized_id(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    state_dir.mkdir()
+    for filename, thesis_id in (
+        ("th_1_zulu.yaml", " zulu "),
+        ("th_2_zulu.yaml", "zulu"),
+        ("th_3_alpha.yaml", "alpha"),
+        ("th_4_alpha.yaml", " alpha "),
+    ):
+        (state_dir / filename).write_text(
+            yaml.safe_dump(
+                {
+                    "thesis_id": thesis_id,
+                    "ticker": "TEST",
+                    "status": "IDEA",
+                    "status_history": [],
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+    theses, quality, warnings = load_theses(state_dir)
+
+    assert theses == []
+    assert quality == "PARTIAL"
+    assert [warning.split("'", 2)[1] for warning in warnings] == ["alpha", "zulu"]
+
+
+def test_valid_unique_thesis_cannot_forge_source_path_in_ledger_warning(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    state_dir.mkdir()
+    actual_path = state_dir / "th_unique_with_forged_source.yaml"
+    actual_path.write_text(
+        yaml.safe_dump(
+            {
+                "thesis_id": "th_unique_with_forged_source",
+                "ticker": "REAL",
+                "status": "PARTIALLY_CLOSED",
+                "status_history": [
+                    {
+                        "status": "PARTIALLY_CLOSED",
+                        "at": "2026-07-02T10:00:00-04:00",
+                        "reason": "trim",
+                        "realized_pnl": -100.0,
+                    },
+                    {
+                        "status": "PARTIALLY_CLOSED",
+                        "at": "2026-07-02T11:00:00-04:00",
+                        "reason": "trim",
+                        "shares_sold": 5,
+                    },
+                ],
+                "entry": {
+                    "actual_price": 100.0,
+                    "actual_date": "2026-07-01T09:30:00-04:00",
+                },
+                "position": {"shares": 100.0, "shares_remaining": 50.0},
+                "_source_path": "/forged/from-input.yaml",
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = evaluate_state(state_dir)
+
+    ledger_warning = next(
+        warning
+        for warning in result["warnings"]
+        if "ledger-shaped event missing realized_pnl" in warning
+    )
+    assert str(actual_path) in ledger_warning
+    assert "/forged/from-input.yaml" not in ledger_warning
+    assert result["metrics"]["theses_scanned"] == 1
+    assert result["recommendation"] == "HALTED"
+
+
+def test_duplicate_detection_uses_only_valid_case_sensitive_trimmed_ids(tmp_path: Path):
+    state_dir = tmp_path / "theses"
+    upper_path = write_thesis(
+        state_dir,
+        "th_case_upper_file",
+        ticker="UPPER",
+        status="PARTIALLY_CLOSED",
+        history=[
+            {
+                "status": "PARTIALLY_CLOSED",
+                "at": "2026-07-02T10:00:00-04:00",
+                "reason": "trim",
+                "realized_pnl": 100.0,
+            }
+        ],
+    )
+    lower_path = write_thesis(
+        state_dir,
+        "th_case_lower_file",
+        ticker="LOWER",
+        status="PARTIALLY_CLOSED",
+        history=[
+            {
+                "status": "PARTIALLY_CLOSED",
+                "at": "2026-07-02T11:00:00-04:00",
+                "reason": "trim",
+                "realized_pnl": 200.0,
+            }
+        ],
+    )
+    for path, logical_id in (
+        (upper_path, "th_CaseSensitiveId"),
+        (lower_path, "th_casesensitiveid"),
+    ):
+        payload = yaml.safe_load(path.read_text())
+        payload["thesis_id"] = logical_id
+        path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    (state_dir / "th_malformed_same_id.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "thesis_id": " th_CaseSensitiveId ",
+                "status": "PARTIALLY_CLOSED",
+                "status_history": [],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = evaluate_state(state_dir)
+
+    assert result["metrics"]["realized_pnl_today"] == 300.0
+    assert result["metrics"]["realized_pnl_wtd"] == 300.0
+    assert result["metrics"]["realized_pnl_mtd"] == 300.0
+    assert result["metrics"]["theses_scanned"] == 2
+    assert not any("Duplicate thesis_id" in warning for warning in result["warnings"])
+    assert any("th_malformed_same_id.yaml" in warning for warning in result["warnings"])
+    assert result["data_quality"] == "PARTIAL"
+    assert result["recommendation"] == "HALTED"
+
+
 @pytest.mark.parametrize(
     "thesis",
     [

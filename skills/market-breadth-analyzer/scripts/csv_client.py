@@ -12,6 +12,7 @@ Data sources:
 
 import csv
 import io
+import math
 import sys
 from datetime import datetime
 from typing import Optional
@@ -70,6 +71,10 @@ def fetch_detail_csv(url: str = DEFAULT_DETAIL_URL) -> list[dict]:
         if missing:
             print(f"\n  WARN: Missing columns: {missing}", file=sys.stderr)
 
+    if not rows:
+        print("OK (0 rows)")
+        return []
+
     # Sort by date ascending
     rows.sort(key=lambda r: r["Date"])
 
@@ -94,9 +99,14 @@ def fetch_summary_csv(url: str = DEFAULT_SUMMARY_URL) -> dict[str, str]:
 
     reader = csv.DictReader(io.StringIO(resp.text))
     summary = {}
-    for raw_row in reader:
-        metric = raw_row.get("Metric", "").strip()
-        value = raw_row.get("Value", "").strip()
+    for line_num, raw_row in enumerate(reader, start=2):
+        raw_metric = raw_row.get("Metric")
+        raw_value = raw_row.get("Value")
+        if raw_metric is None or raw_value is None:
+            print(f"\n  WARN: Skipping summary line {line_num}: truncated row", file=sys.stderr)
+            continue
+        metric = raw_metric.strip()
+        value = raw_value.strip()
         if metric:
             summary[metric] = value
 
@@ -185,12 +195,24 @@ def get_latest_n_rows(rows: list[dict], n: int) -> list[dict]:
 
 def _parse_detail_row(raw: dict) -> dict:
     """Convert a raw CSV row dict to properly typed values."""
+    missing = [column for column in DETAIL_COLUMNS if raw.get(column) is None]
+    if missing:
+        raise ValueError(f"missing values for: {', '.join(missing)}")
+
     row = {}
     row["Date"] = raw["Date"].strip()
-    row["S&P500_Price"] = float(raw["S&P500_Price"])
-    row["Breadth_Index_Raw"] = float(raw["Breadth_Index_Raw"])
-    row["Breadth_Index_200MA"] = float(raw["Breadth_Index_200MA"])
-    row["Breadth_Index_8MA"] = float(raw["Breadth_Index_8MA"])
+    try:
+        parsed_date = datetime.strptime(row["Date"], "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError(f"invalid Date: {row['Date']!r}") from exc
+    if parsed_date.strftime("%Y-%m-%d") != row["Date"]:
+        raise ValueError(f"invalid Date: {row['Date']!r}")
+    row["S&P500_Price"] = _parse_finite_float(raw["S&P500_Price"], "S&P500_Price")
+    row["Breadth_Index_Raw"] = _parse_finite_float(raw["Breadth_Index_Raw"], "Breadth_Index_Raw")
+    row["Breadth_Index_200MA"] = _parse_finite_float(
+        raw["Breadth_Index_200MA"], "Breadth_Index_200MA"
+    )
+    row["Breadth_Index_8MA"] = _parse_finite_float(raw["Breadth_Index_8MA"], "Breadth_Index_8MA")
     row["Breadth_200MA_Trend"] = int(raw["Breadth_200MA_Trend"])
     row["Bearish_Signal"] = _parse_bool(raw["Bearish_Signal"])
     row["Is_Peak"] = _parse_bool(raw["Is_Peak"])
@@ -199,9 +221,22 @@ def _parse_detail_row(raw: dict) -> dict:
     return row
 
 
+def _parse_finite_float(val: str, column: str) -> float:
+    """Parse a CSV number and reject NaN/Infinity before scoring."""
+    parsed = float(val)
+    if not math.isfinite(parsed):
+        raise ValueError(f"{column} must be finite")
+    return parsed
+
+
 def _parse_bool(val: str) -> bool:
     """Parse boolean from CSV string."""
-    return val.strip().lower() in ("true", "1", "yes")
+    normalized = val.strip().lower()
+    if normalized in ("true", "1", "yes"):
+        return True
+    if normalized in ("false", "0", "no"):
+        return False
+    raise ValueError(f"invalid boolean value: {val!r}")
 
 
 # Testing

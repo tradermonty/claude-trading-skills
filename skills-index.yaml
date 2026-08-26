@@ -22,6 +22,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Expert guidance for systematic backtesting of trading strategies.
   timeframe: research
   difficulty: advanced
@@ -37,8 +39,10 @@ skills:
   - backtest_report
   - performance_metrics
   workflows:
-  - trade-memory-loop
   - monthly-performance-review
+  - stockbee-20pct-study-daily
+  - stockbee-fluency-loop
+  - trade-memory-loop
 - id: breadth-chart-analyst
   display_name: Breadth Chart Analyst
   category: market-regime
@@ -52,6 +56,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Directly analyzes user-supplied breadth charts without a workflow handoff."
   summary: This skill should be used when analyzing market breadth charts, specifically the S&P 500 Breadth
     Index (200-Day MA based) and the US Stock Market Uptrend Stock Ratio charts.
   timeframe: daily
@@ -79,6 +86,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Generate Minervini-style breakout trade plans from VCP screener output with worst-case risk
     calculation, portfolio heat management, and Alpaca-compatible order templates (stop-limit bracket
     for pre-placement, limit bracket for post-confi...
@@ -96,6 +105,7 @@ skills:
   - entry_plan
   - alpaca_order_template
   workflows:
+  - stockbee-ep-daily
   - swing-opportunity-daily
 - id: canslim-screener
   display_name: CANSLIM Screener
@@ -110,6 +120,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Screen US stocks using William O'Neil's CANSLIM growth stock methodology.
   timeframe: weekly
   difficulty: intermediate
@@ -130,6 +142,8 @@ skills:
   display_name: Contrarian Setup Gate
   category: trade-planning
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Offline synthesis gate that combines COT crowding, news-reaction failure, and weekly
     price-action confirmation into one actionable setup_status via a fail-closed precedence state
     machine, implementing the decision center of Jason Shapiro's contrarian methodology.
@@ -161,6 +175,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Detects crowded speculative (large-speculator) positioning in CFTC futures markets using
     Commitment of Traders data, implementing step 1 of Jason Shapiro's contrarian methodology.
   timeframe: weekly
@@ -180,6 +196,9 @@ skills:
   display_name: Crypto Regime Analyzer
   category: market-regime
   status: beta
+  operational_role:
+    type: standalone
+    rationale: "Provides an independent crypto regime assessment on demand."
   summary: Quantifies crypto market regime health (0-100 composite, 100 = risk-on) from six components using free keyless public data.
   timeframe: daily
   difficulty: intermediate
@@ -218,6 +237,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Runs directly against a document before publication or review."
   summary: Validate data quality in market analysis documents and blog articles before publication.
   timeframe: event-driven
   difficulty: beginner
@@ -245,6 +267,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1.5%+
     yield) that are experiencing temporary pullbacks, identified by RSI oversold conditions (RSI ≤40).
   timeframe: weekly
@@ -279,6 +303,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: research_only
   summary: Analyze historical downtrend durations and generate interactive HTML histograms showing typical
     correction lengths by sector and market cap.
   timeframe: research
@@ -298,6 +324,8 @@ skills:
   display_name: Drawdown Circuit Breaker
   category: trade-planning
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Account-level circuit breaker that reads trader-memory-core state and decides whether
     new trade risk is allowed today using daily loss limits, losing-streak cooldowns,
     and weekly/monthly drawdown halts.
@@ -314,8 +342,8 @@ skills:
   outputs:
   - circuit_breaker_decision
   workflows:
-  - swing-opportunity-daily
   - stockbee-ep-daily
+  - swing-opportunity-daily
 - id: dual-axis-skill-reviewer
   display_name: Dual Axis Skill Reviewer
   category: meta
@@ -329,6 +357,8 @@ skills:
     financial_logic_review: not_applicable
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: 'Review skills in any project using a dual-axis method: (1) deterministic code-based checks
     (structure, scripts, tests, execution safety) and (2) LLM deep review findings.'
   timeframe: research
@@ -357,6 +387,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Fetches an earnings calendar as an independent event-planning utility."
   summary: This skill retrieves upcoming earnings announcements for US stocks using the Financial Modeling
     Prep (FMP) API.
   timeframe: event-driven
@@ -379,12 +412,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Analyze recent post-earnings stocks using a 5-factor scoring system (Gap Size, Pre-Earnings
     Trend, Volume Trend, MA200 Position, MA50 Position).
   timeframe: event-driven
@@ -399,7 +434,8 @@ skills:
   outputs:
   - scored_candidates
   - five_factor_grades
-  workflows: []
+  workflows:
+  - stockbee-ep-daily
 - id: economic-calendar-fetcher
   display_name: Economic Calendar Fetcher
   category: meta
@@ -413,6 +449,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Fetches economic events as an independent planning utility."
   summary: Fetch upcoming economic events and data releases using FMP API.
   timeframe: event-driven
   difficulty: beginner
@@ -430,6 +469,9 @@ skills:
   display_name: FXMacroData Calendar
   category: meta
   status: beta
+  operational_role:
+    type: standalone
+    rationale: "Fetches official macro calendar data directly for event-risk planning."
   summary: Fetch official-source macro release-calendar events using FXMacroData for trade planning
     and event-risk filters.
   timeframe: event-driven
@@ -452,12 +494,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Generate and prioritize US equity long-side edge research tickets from EOD observations, then
     export pipeline-ready candidate specs for trade-strategy-pipeline Phase I.
   timeframe: research
@@ -473,7 +517,8 @@ skills:
   - market_summary_json
   - anomalies_json
   - tickets_dir
-  workflows: []
+  workflows:
+  - stockbee-20pct-study-daily
 - id: edge-concept-synthesizer
   display_name: Edge Concept Synthesizer
   category: strategy-research
@@ -487,6 +532,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: internal_component
   summary: Abstract detector tickets and hints into reusable edge concepts with thesis, invalidation signals,
     and strategy playbooks before strategy design/export.
   timeframe: research
@@ -509,12 +556,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Extract edge hints from daily market observations and news reactions, with optional LLM ideation,
     and output canonical hints.yaml for downstream concept synthesis and auto detection.
   timeframe: research
@@ -529,7 +578,8 @@ skills:
   - anomalies_json
   outputs:
   - hints_yaml
-  workflows: []
+  workflows:
+  - stockbee-20pct-study-daily
 - id: edge-pipeline-orchestrator
   display_name: Edge Pipeline Orchestrator
   category: strategy-research
@@ -543,6 +593,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: research_only
   summary: Orchestrate the full edge research pipeline from candidate detection through strategy design,
     review, revision, and export.
   timeframe: research
@@ -573,6 +625,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Directly consolidates selected local research outputs into a ranked dashboard."
   summary: Aggregate and rank signals from multiple edge-finding skills (edge-candidate-agent, theme-detector,
     sector-analyst, institutional-flow-tracker) into a prioritized conviction dashboard with weighted
     scoring, deduplication, and contradicti...
@@ -603,6 +658,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: internal_component
   summary: Convert abstract edge concepts into strategy draft variants and optional exportable ticket
     YAMLs for edge-candidate-agent export/validation.
   timeframe: research
@@ -630,6 +687,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: internal_component
   summary: Critically review strategy drafts from edge-strategy-designer for edge plausibility, overfitting
     risk, sample size adequacy, and execution realism.
   timeframe: research
@@ -658,6 +717,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Generate a one-page Market Posture summary with net exposure ceiling, growth-vs-value bias,
     participation breadth, and new-entry-allowed vs cash-priority recommendation by integrating signals
     from breadth, regime, and flow analysis skills.
@@ -689,6 +750,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Builds a screener URL directly from a user's standalone screening request."
   summary: Build and open FinViz screener URLs from natural language requests.
   timeframe: event-driven
   difficulty: beginner
@@ -716,6 +780,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Runs an independent follow-through-day assessment when requested."
   summary: Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's
     methodology.
   timeframe: daily
@@ -735,6 +802,8 @@ skills:
   display_name: Futures Position Sizer
   category: trade-planning
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Calculate contract-based futures position sizes from a direction, entry, and stop-loss,
     using a verified 23-market contract-spec table (multiplier, tick size, tick value), implementing
     step 4 of Jason Shapiro's contrarian pipeline.
@@ -769,6 +838,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Runs an independent distribution-day risk assessment for QQQ or SPY."
   summary: Detect IBD-style Distribution Days for QQQ/SPY (close down at least 0.2% on higher volume),
     track 25-session expiration and 5% invalidation, count d5/d15/d25 clusters, classify market risk (NORMAL/CAUTION/HIGH/SEVERE),
     and emit TQQQ/QQQ...
@@ -798,6 +870,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Produces an independent institutional ownership and flow assessment on demand."
   summary: Use this skill to track institutional investor ownership changes and portfolio flows using
     13F filings data.
   timeframe: research
@@ -826,6 +901,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Monitor dividend portfolios with Kanchi-style forced-review triggers (T1-T5) and convert anomalies
     into OK/WARN/REVIEW states without auto-selling.
   timeframe: weekly
@@ -856,6 +933,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Convert Kanchi-style dividend investing into a repeatable US-stock operating procedure.
   timeframe: weekly
   difficulty: intermediate
@@ -885,6 +964,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Provide US dividend tax and account-location workflow for Kanchi-style income portfolios.
   timeframe: event-driven
   difficulty: intermediate
@@ -915,6 +996,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Detect structural macro regime transitions (1-2 year horizon) using cross-asset ratio analysis.
   timeframe: weekly
   difficulty: advanced
@@ -934,6 +1017,7 @@ skills:
   - regime_transition_report
   workflows:
   - market-regime-daily
+  - multi-asset-opportunity-daily
 - id: market-breadth-analyzer
   display_name: Market Breadth Analyzer
   category: market-regime
@@ -947,6 +1031,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Quantifies market breadth health using TraderMonty's public CSV data.
   timeframe: daily
   difficulty: beginner
@@ -969,12 +1055,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Comprehensive market environment analysis and reporting tool.
   timeframe: daily
   difficulty: intermediate
@@ -992,7 +1080,8 @@ skills:
   - chart_image
   outputs:
   - market_environment_report
-  workflows: []
+  workflows:
+  - multi-asset-opportunity-daily
 - id: market-news-analyst
   display_name: Market News Analyst
   category: market-regime
@@ -1001,12 +1090,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_applicable
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: This skill should be used when analyzing recent market-moving news events and their impact
     on equity markets and commodities.
   timeframe: daily
@@ -1021,7 +1112,8 @@ skills:
   - date_range
   outputs:
   - news_impact_report
-  workflows: []
+  workflows:
+  - multi-asset-opportunity-daily
 - id: market-top-detector
   display_name: Market Top Detector
   category: market-regime
@@ -1035,6 +1127,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration,
     and Monty Defensive Sector Rotation.
   timeframe: daily
@@ -1054,6 +1148,8 @@ skills:
   display_name: MT5 Robot Tester
   category: strategy-research
   status: beta
+  operational_role:
+    type: research_only
   summary: Batch-test MetaTrader 5 Expert Advisors through a resumable three-round local
     pipeline, rank results, and retain deterministic parameter and symbol learnings.
   timeframe: research
@@ -1089,6 +1185,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Judges whether a market failed to react to news favorable to a crowded speculative
     position, implementing step 2 of Jason Shapiro's contrarian methodology with a Monte-Carlo-verified
     drift-significance verdict test.
@@ -1124,6 +1222,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Provides self-contained options education, pricing, and scenario analysis."
   summary: Options trading strategy analysis and simulation tool.
   timeframe: event-driven
   difficulty: advanced
@@ -1154,6 +1255,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Screens and analyzes pair-trade candidates as a self-contained tool."
   summary: Statistical arbitrage tool for identifying and analyzing pair trading opportunities.
   timeframe: research
   difficulty: advanced
@@ -1182,6 +1286,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Runs its own screening and conditional short-planning lifecycle."
   summary: Screen US equities for parabolic exhaustion patterns and generate conditional pre-market short
     plans, then evaluate intraday trigger fires from live 5-min bars.
   timeframe: event-driven
@@ -1209,12 +1316,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Screen post-earnings gap-up stocks for PEAD (Post-Earnings Announcement Drift) patterns.
   timeframe: event-driven
   difficulty: intermediate
@@ -1229,7 +1338,8 @@ skills:
   outputs:
   - pead_signal_list
   - breakout_triggers
-  workflows: []
+  workflows:
+  - stockbee-ep-daily
 - id: portfolio-manager
   display_name: Portfolio Manager
   category: core-portfolio
@@ -1243,6 +1353,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and
     positions, then analyze asset allocation, risk metrics, individual stock positions, diversification,
     and generate rebalancing recommendations.
@@ -1273,6 +1385,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Calculate risk-based position sizes for long stock trades.
   timeframe: event-driven
   difficulty: beginner
@@ -1289,11 +1403,15 @@ skills:
   - share_count
   - risk_amount
   workflows:
+  - multi-asset-opportunity-daily
+  - stockbee-ep-daily
   - swing-opportunity-daily
 - id: pre-trade-discipline-gate
   display_name: Pre-Trade Discipline Gate
   category: trade-planning
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk,
     market-regime-blocked, or circuit-breaker-blocked entries and journals the result.
   timeframe: event-driven
@@ -1311,12 +1429,14 @@ skills:
   outputs:
   - pre_trade_discipline_decision
   workflows:
-  - swing-opportunity-daily
   - stockbee-ep-daily
+  - swing-opportunity-daily
 - id: residual-edge-analyzer
   display_name: Residual Edge Analyzer
   category: strategy-research
   status: beta
+  operational_role:
+    type: research_only
   summary: Separate strategy return performance into declared baseline exposure and residual edge
     using HAC regression, rolling stability, baseline sensitivity, and regime diagnostics.
   timeframe: research
@@ -1342,12 +1462,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_applicable
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Analyze 18-month scenarios from news headlines via scenario-analyst agent with strategy-reviewer
     second opinion; outputs primary/secondary/tertiary impact analysis and stock picks.
   timeframe: event-driven
@@ -1363,7 +1485,8 @@ skills:
   - scenario_report
   - stock_picks
   - review_yaml
-  workflows: []
+  workflows:
+  - multi-asset-opportunity-daily
 - id: sector-analyst
   display_name: Sector Analyst
   category: market-regime
@@ -1371,12 +1494,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: This skill should be used when analyzing sector rotation patterns and market cycle positioning.
   timeframe: weekly
   difficulty: intermediate
@@ -1390,7 +1515,8 @@ skills:
   - chart_image
   outputs:
   - rotation_assessment_report
-  workflows: []
+  workflows:
+  - multi-asset-opportunity-daily
 - id: signal-postmortem
   display_name: Signal Postmortem
   category: trade-memory
@@ -1404,6 +1530,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Record and analyze post-trade outcomes for signals generated by edge pipeline and other skills.
   timeframe: event-driven
   difficulty: beginner
@@ -1417,8 +1545,9 @@ skills:
   outputs:
   - postmortem_findings
   workflows:
-  - trade-memory-loop
   - monthly-performance-review
+  - stockbee-fluency-loop
+  - trade-memory-loop
 - id: skill-designer
   display_name: Skill Designer
   category: meta
@@ -1432,6 +1561,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: internal_component
   summary: Design new Claude skills from structured idea specifications.
   timeframe: research
   difficulty: intermediate
@@ -1458,6 +1589,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: internal_component
   summary: Mine Claude Code session logs for skill idea candidates.
   timeframe: research
   difficulty: intermediate
@@ -1484,6 +1617,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Validates selected skill handoffs directly as a repository maintenance tool."
   summary: Validate multi-skill workflows defined in CLAUDE.md by checking skill existence, inter-skill
     data contracts (JSON schema compatibility), file naming conventions, and handoff integrity.
   timeframe: research
@@ -1506,12 +1642,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Druckenmiller Strategy Synthesizer - Integrates 8 upstream skill outputs (Market Breadth, Uptrend
     Analysis, Market Top, Macro Regime, FTD Detector, VCP Screener, Theme Detector, CANSLIM Screener)
     into a unified conviction score (0-100),...
@@ -1527,11 +1665,14 @@ skills:
   - exposure_decision
   outputs:
   - druckenmiller_synthesis_report
-  workflows: []
+  workflows:
+  - multi-asset-opportunity-daily
 - id: stockbee-20pct-study
   display_name: Stockbee 20% Study
   category: strategy-research
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Build a daily Stockbee-style +20%/-20% mover event study, classify catalysts and setup context,
     update forward outcomes, and export evidence-backed edge hints without treating movers as buy/sell signals.
   timeframe: daily
@@ -1574,6 +1715,8 @@ skills:
   display_name: Stockbee Episodic Pivot Analyzer
   category: advanced-satellite
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Analyze Stockbee-style Day 1 Episodic Pivot candidates from earnings, guidance, M&A, FDA,
     analyst, contract, product, short-squeeze, and story/theme catalysts using catalyst quality,
     gap/range expansion, volume shock, neglect/revaluation context, liquidity, and EP-day-low risk.
@@ -1603,11 +1746,14 @@ skills:
   - delayed_ep_watchlist
   - pead_handoff_candidates
   workflows:
+  - stockbee-20pct-study-daily
   - stockbee-ep-daily
 - id: stockbee-exhaustion-hammer-screener
   display_name: Stockbee Exhaustion Hammer Screener
   category: swing-opportunity
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Screen US stocks for Stockbee-style selling-exhaustion hammer candidates using quality/liquidity
     gates, prior momentum, pullback depth, undercut/reclaim, hammer geometry, volume confirmation,
     market gate, and risk-distance filters.
@@ -1645,6 +1791,8 @@ skills:
   display_name: Stockbee Momentum Burst Screener
   category: swing-opportunity
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Screen US stocks for Stockbee-style 3-5 day momentum burst candidates using 4% breakout,
     dollar breakout, range expansion, volume expansion, setup quality, and risk-distance filters.
   timeframe: daily
@@ -1671,11 +1819,14 @@ skills:
   - setup_quality_scores
   - trade_plan_inputs
   workflows:
+  - stockbee-ep-daily
   - swing-opportunity-daily
 - id: stockbee-setup-fluency-trainer
   display_name: Stockbee Setup Fluency Trainer
   category: trade-memory
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Build a Stockbee-style setup model book from momentum-burst screener candidates, then update
     3-day and 5-day forward outcomes with MFE/MAE, stop-hit status, outcome tags, and cohort statistics.
   timeframe: daily
@@ -1717,6 +1868,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: research_only
   summary: Detect backtest iteration stagnation and generate structurally different strategy pivot proposals
     when parameter tuning reaches a local optimum.
   timeframe: research
@@ -1744,6 +1897,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: This skill should be used when analyzing weekly price charts for stocks, stock indices, cryptocurrencies,
     or forex pairs.
   timeframe: event-driven
@@ -1763,8 +1918,9 @@ skills:
   - technical_assessment_report
   - price_action_confirmation_report
   workflows:
-  - swing-opportunity-daily
   - shapiro-contrarian
+  - stockbee-ep-daily
+  - swing-opportunity-daily
 - id: theme-detector
   display_name: Theme Detector
   category: swing-opportunity
@@ -1778,6 +1934,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Detect and analyze trending market themes across sectors.
   timeframe: weekly
   difficulty: intermediate
@@ -1797,6 +1955,9 @@ skills:
   - theme_heat_scores
   - trending_themes
   workflows:
+  - multi-asset-opportunity-daily
+  - stockbee-20pct-study-daily
+  - stockbee-ep-daily
   - swing-opportunity-daily
 - id: trade-hypothesis-ideator
   display_name: Trade Hypothesis Ideator
@@ -1805,12 +1966,14 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_applicable
-    end_to_end_replay: not_applicable
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Generate falsifiable trade strategy hypotheses from market data, trade logs, and journal snippets
     with ranked hypothesis cards and optional strategy.yaml export.
   timeframe: research
@@ -1826,11 +1989,14 @@ skills:
   outputs:
   - hypothesis_cards
   - strategy_yaml
-  workflows: []
+  workflows:
+  - multi-asset-opportunity-daily
 - id: trade-performance-coach
   display_name: Trade Performance Coach
   category: trade-memory
   status: beta
+  operational_role:
+    type: workflow_step
   summary: Review closed trades, partial exits, and monthly aggregates for process adherence,
     risk discipline, execution quality, and evidence-based trading behavior patterns, then
     produce next-session operating rules.
@@ -1853,8 +2019,8 @@ skills:
   - risk_manager_notes
   - next_session_operating_rules
   workflows:
-  - trade-memory-loop
   - monthly-performance-review
+  - trade-memory-loop
 - id: trader-memory-core
   display_name: Trader Memory Core
   category: trade-memory
@@ -1868,6 +2034,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Track investment theses across their lifecycle — from screening idea to closed position with
     postmortem.
   timeframe: event-driven
@@ -1886,11 +2054,15 @@ skills:
   - journal_entry
   workflows:
   - core-portfolio-weekly
+  - kanchi-dividend-weekly
+  - monthly-performance-review
+  - multi-asset-opportunity-daily
+  - shapiro-contrarian
+  - stockbee-20pct-study-daily
+  - stockbee-ep-daily
+  - stockbee-fluency-loop
   - swing-opportunity-daily
   - trade-memory-loop
-  - monthly-performance-review
-  - shapiro-contrarian
-  - kanchi-dividend-weekly
 - id: trading-skills-navigator
   display_name: Trading Skills Navigator
   category: meta
@@ -1904,6 +2076,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_applicable
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Acts as the direct user on-ramp that recommends, but does not join, workflows."
   summary: Recommend the right workflow, skillset, API profile, and setup path from a natural-language
     trading goal.
   timeframe: research
@@ -1934,6 +2109,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Analyzes market breadth using Monty's Uptrend Ratio Dashboard data to diagnose the current
     market environment.
   timeframe: daily
@@ -1962,6 +2139,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Produces an independent market bubble-risk assessment on demand."
   summary: Evaluates market bubble risk through quantitative data-driven analysis using the revised Minsky/Kindleberger
     framework v2.1.
   timeframe: weekly
@@ -1990,6 +2170,9 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Produces a self-contained research report for a requested US equity."
   summary: Comprehensive US stock analysis including fundamental analysis (financial metrics, business
     quality, valuation), technical analysis (indicators, chart patterns, support/resistance), stock comparisons,
     and investment report generation.
@@ -2020,6 +2203,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E
     ratio under 20, P/B ratio under 2), attractive yields (3% or higher), and consistent growth (dividend/revenue/EPS
     trending up over 3 years).
@@ -2055,6 +2240,8 @@ skills:
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: workflow_step
   summary: Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP).
   timeframe: daily
   difficulty: intermediate
@@ -2077,12 +2264,15 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_verified
-    end_to_end_replay: not_verified
+    workflow_contract: not_applicable
+    end_to_end_replay: not_applicable
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
     security_review: not_verified
+  operational_role:
+    type: standalone
+    rationale: "Generates a standalone weekly digest from supplied closed-trade records."
   summary: Generate a weekly performance summary from closed trades with win rate, expectancy, and pattern analysis.
   timeframe: weekly
   difficulty: beginner
@@ -2096,6 +2286,4 @@ skills:
   outputs:
   - weekly_performance_digest
   - performance_pattern_analysis
-  workflows:
-  - trade-memory-loop
-  - monthly-performance-review
+  workflows: []
