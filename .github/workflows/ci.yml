@@ -197,7 +197,7 @@ jobs:
       # 'Test repo-level scripts' step in the test job above.
 
   workflow-replay:
-    name: Workflow replay (Coverage 3/11)
+    name: Workflow replay (Coverage 4/11)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

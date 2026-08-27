@@ -116,9 +116,14 @@ mistake in a second instead of after a long load.
 ### 3. Read the warnings before the numbers
 
 The run prints warnings that change how you should read the result: a sample
-under 30 trades, a span under a year, no friction modelled, no completed round
-trip, or a gap between the engine's win rate and the paired one. Each one is a
-reason to fix the setup and run again.
+under 30 trades, a span under a year, no friction modelled, or a gap between the
+engine's win rate and the paired one. Each one is a reason to fix the setup and
+run again.
+
+Three conditions stop the handoff instead of producing a score: no completed
+round trips, missing or non-finite maximum drawdown, and scratch trades. The
+evaluator has no scratch input, so passing a population that contains them would
+make its derived expectancy disagree with the completed trades.
 
 ### 4. Hand off to backtest-expert
 

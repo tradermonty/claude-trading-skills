@@ -173,6 +173,44 @@ def test_actual_risk_above_plan_blocks_order(tmp_path: Path):
     assert "actual risk 501 exceeds planned risk 500" in result["candidate_results"][0]["reasons"]
 
 
+@pytest.mark.parametrize(
+    ("planned", "actual", "expected_loaded_actual"),
+    [
+        ("0", "1e-324", "1e-324"),
+        ("9007199254740992", "9007199254740993.0", "9007199254740993.0"),
+        ("500", "500.25", 500.25),
+    ],
+)
+def test_json_candidate_loader_preserves_non_roundtrippable_risk_values(
+    tmp_path: Path,
+    planned: str,
+    actual: str,
+    expected_loaded_actual: object,
+):
+    answers = tmp_path / "answers.json"
+    answers.write_text(
+        f"""
+{{
+  "candidates": [{{
+    "symbol": "AAPL",
+    "order_intent": "ENTRY_READY",
+    "entry_in_written_plan": true,
+    "stop_predefined": true,
+    "size_within_plan": true,
+    "planned_risk_dollars": {planned},
+    "actual_risk_dollars": {actual}
+  }}]
+}}
+""",
+        encoding="utf-8",
+    )
+
+    candidate = load_candidates(answers)[0]
+
+    assert candidate["actual_risk_dollars"] == expected_loaded_actual
+    assert evaluate(tmp_path, [candidate])["overall_decision"] == "NO_GO"
+
+
 @pytest.mark.parametrize("field", ["planned_risk_dollars", "actual_risk_dollars"])
 @pytest.mark.parametrize(
     "invalid_value",

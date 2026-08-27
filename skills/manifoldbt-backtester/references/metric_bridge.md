@@ -9,7 +9,7 @@ hand.
 | Evaluator input | Source | Conversion |
 |-----------------|--------|------------|
 | `--total-trades` | paired round trips | count of completed trips, not fills |
-| `--win-rate` | paired round trips | percent of decided trips that made money net of fees |
+| `--win-rate` | paired round trips | percent of all completed trips that made money net of fees |
 | `--avg-win-pct` | paired round trips | mean net return of winners, percent of notional |
 | `--avg-loss-pct` | paired round trips | mean net return of losers, absolute value |
 | `--max-drawdown-pct` | engine metrics | `abs(max_drawdown) * 100` |
@@ -73,19 +73,30 @@ fall. The evaluator wants a positive percent and scores worse as it grows. Pass
 ## Scratch trades
 
 A trip that returns exactly zero is neither a win nor a loss. `summarize_round_trips`
-counts it in `total_trades`, excludes it from the win rate, and reports it under
-`scratches`. Folding scratches into losses depresses the win rate without any
-trade having gone against the strategy.
+counts it in `total_trades`, keeps it in the win-rate denominator because it did
+not win, and reports it under `scratches`.
+
+The eight-input evaluator cannot represent a third outcome population. It
+derives loss rate as `1 - win_rate`, so handing it scratches would make either
+expectancy or average loss describe a different population. The bridge therefore
+refuses the handoff when scratches are present instead of producing a plausible
+but wrong score.
 
 ## Warnings the bridge emits
 
 | Warning | Why it matters |
 |---------|----------------|
-| no completed round trip | every percentage below it is undefined |
 | fewer than 30 round trips | the sample-size dimension scores 0 |
 | span under a year | the robustness dimension scores 0 |
 | no friction modelled | execution realism scores 0 |
-| `max_drawdown` absent | the risk dimension scores as if flawless |
 | win rate gap over one point | the pairing and the engine disagree |
 
 Read them before the numbers. Each one changes what the score means.
+
+## Conditions that stop the handoff
+
+| Condition | Why it fails closed |
+|-----------|---------------------|
+| no completed round trip | win rate and average returns are undefined, while the evaluator can still produce a plausible score |
+| `max_drawdown` missing or non-finite | substituting zero would award an almost-perfect risk score |
+| one or more scratch trades | the evaluator has no scratch input and cannot derive exact expectancy |

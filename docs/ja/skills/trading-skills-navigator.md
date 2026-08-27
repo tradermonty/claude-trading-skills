@@ -118,6 +118,8 @@ JSON を読み、ユーザーの言語で次を説明します。
 - Skillset: `skillset.id` とカテゴリ
 - API なし / API あり: `--no-api` で除外された workflow があれば、どの有料連携が理由か
 - Honest gap: 出荷済み workflow がない場合は、その事実と `suggested_skills` を正直に伝える
+- Operational roles: setup bundle または honest-gap 候補に含まれる各スキルの
+  `operational_roles` を説明し、standalone の場合は理由も伝える
 - Rationale: なぜその推奨になったのか
 
 ### Step 4: セットアップ手順を示す

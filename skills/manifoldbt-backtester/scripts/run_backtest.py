@@ -109,7 +109,9 @@ def main() -> int:
     ap.add_argument("--json-out", help="Write the full result to this path")
     args = ap.parse_args()
 
-    cfg = validate_spec(json.loads(Path(args.spec).read_text(encoding="utf-8")))
+    raw_spec = json.loads(Path(args.spec).read_text(encoding="utf-8"))
+    cfg = validate_spec(raw_spec)
+    num_parameters = count_parameters(raw_spec)
 
     try:
         import manifoldbt as bt
@@ -178,7 +180,7 @@ def main() -> int:
         summary,
         start_ns=start,
         end_ns=end,
-        num_parameters=count_parameters(cfg),
+        num_parameters=num_parameters,
         slippage_tested=bool(cfg["slippage_bps"] or cfg["fees_bps"]),
     )
     command = format_evaluate_command(inputs)
@@ -194,7 +196,7 @@ def main() -> int:
         f"Years: {inputs['years_tested']}   Parameters: {inputs['num_parameters']}"
     )
 
-    for w in describe_warnings(cfg) + inputs["warnings"]:
+    for w in describe_warnings(raw_spec) + inputs["warnings"]:
         print(f"  [warn] {w}")
 
     print("\nHand off to backtest-expert:\n  " + command)

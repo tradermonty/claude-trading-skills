@@ -5,6 +5,7 @@ produces a plausible number that scores the strategy wrongly rather than
 raising.
 """
 
+import pytest
 from bridge import NANOS_PER_YEAR, build_evaluation_inputs, format_evaluate_command
 
 
@@ -88,9 +89,9 @@ def test_span_under_a_year_is_flagged():
 # ---------------------------------------------------------------------- warnings
 
 
-def test_no_round_trip_says_the_percentages_are_undefined():
-    out = build_evaluation_inputs({"max_drawdown": -0.1}, _summary(total_trades=0))
-    assert any("never returned to flat" in w for w in out["warnings"])
+def test_no_round_trip_is_rejected_instead_of_scored():
+    with pytest.raises(ValueError, match="no completed round trip"):
+        build_evaluation_inputs({"max_drawdown": -0.1}, _summary(total_trades=0))
 
 
 def test_thin_sample_is_named_before_the_evaluator_scores_it_zero():
@@ -103,10 +104,36 @@ def test_frictionless_run_is_flagged():
     assert any("no slippage" in w for w in out["warnings"])
 
 
-def test_missing_drawdown_is_flagged_rather_than_scored_as_zero():
-    out = build_evaluation_inputs({}, _summary())
-    assert out["max_drawdown_pct"] == 0.0
-    assert any("max_drawdown absent" in w for w in out["warnings"])
+def test_missing_drawdown_is_rejected_instead_of_scored_as_zero():
+    with pytest.raises(ValueError, match="max_drawdown absent"):
+        build_evaluation_inputs({}, _summary())
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_drawdown_is_rejected(value):
+    with pytest.raises(ValueError, match="must be finite"):
+        build_evaluation_inputs({"max_drawdown": value}, _summary())
+
+
+def test_non_numeric_drawdown_is_rejected():
+    with pytest.raises(ValueError, match="not numeric"):
+        build_evaluation_inputs({"max_drawdown": "unknown"}, _summary())
+
+
+def test_scratch_population_is_rejected_before_expectancy_is_distorted():
+    with pytest.raises(ValueError, match="scratch trade"):
+        build_evaluation_inputs(
+            {"max_drawdown": -0.1},
+            _summary(
+                total_trades=100,
+                wins=1,
+                losses=0,
+                scratches=99,
+                win_rate_pct=1.0,
+                avg_win_pct=10.0,
+                avg_loss_pct=0.0,
+            ),
+        )
 
 
 # ----------------------------------------------------------------- command output

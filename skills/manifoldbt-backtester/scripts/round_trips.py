@@ -199,9 +199,11 @@ def pair_round_trips(fills: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 def summarize_round_trips(trips: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate round trips into the shape the quality framework scores.
 
-    A zero-return trip counts as neither a win nor a loss: it is a scratch, and
-    folding it into either bucket moves the win rate without any trade having
-    changed hands.
+    A zero-return trip counts as neither a win nor a loss: it is a scratch. It
+    still belongs in the win-rate denominator because it is a completed trade
+    that did not win. The downstream evaluator has no scratch input, so the
+    bridge refuses to hand off a population containing scratches rather than
+    silently treating them as ordinary losses.
     """
     gagnants = [t["return_pct"] for t in trips if t["return_pct"] > 0]
     perdants = [t["return_pct"] for t in trips if t["return_pct"] < 0]
@@ -212,8 +214,9 @@ def summarize_round_trips(trips: list[dict[str, Any]]) -> dict[str, Any]:
         "wins": len(gagnants),
         "losses": len(perdants),
         "scratches": len(trips) - decides,
-        # Win rate over DECIDED trips, so scratches do not silently depress it.
-        "win_rate_pct": (100.0 * len(gagnants) / decides) if decides else 0.0,
+        # A scratch is not a win. Keeping it in the denominator makes the
+        # standalone summary honest even though it is not a loss either.
+        "win_rate_pct": (100.0 * len(gagnants) / len(trips)) if trips else 0.0,
         "avg_win_pct": (sum(gagnants) / len(gagnants)) if gagnants else 0.0,
         # Positive by convention: the quality framework asks for the magnitude.
         "avg_loss_pct": abs(sum(perdants) / len(perdants)) if perdants else 0.0,

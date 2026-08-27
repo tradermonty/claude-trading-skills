@@ -1,135 +1,62 @@
-# Example: `market-regime-daily`
+# Executable replay: `market-regime-daily`
 
-A canonical sample run of the
-[`market-regime-daily`](../../../workflows/market-regime-daily.yaml) workflow:
-a daily, no-API market-posture check that decides whether new swing-trade risk
-is allowed before the session.
+This directory contains deterministic required-only and full-path replays for
+[`market-regime-daily`](../../../workflows/market-regime-daily.yaml). The data is
+fictional, fixed at `2026-01-15T13:08:00+00:00`, and is not investment advice.
 
-> ⚠️ **Illustrative only — not investment advice.** Both sample variants use
-> a **fictional market snapshot** for a fixed date (`2026-01-15`) with **no
-> individual tickers**. The numbers are hand-authored to be internally
-> consistent and code-faithful, **not** captured from a live run.
+## Evidence boundary
 
-## Two sample variants
+Steps 1–3 execute the native scorer and JSON report APIs for
+`market-breadth-analyzer`, `uptrend-analyzer`, and (on the full path)
+`market-top-detector`. They consume complete fictional component-score fixtures.
+They do **not** execute provider fetches, individual component calculators, live
+API calls, or live API failure paths. The manifests therefore label those steps
+`native_api`; this is workflow handoff evidence, not full production verification
+of each skill.
 
-This example ships two parallel samples that share the same date and inputs:
+Those three skills do not expose a literal `INSUFFICIENT_EVIDENCE` artifact
+contract. The replay uses the corresponding fail-closed rule: every canonical
+component must be present, available, finite, within 0–100, fresh relative to
+the fixed replay timestamp, and consistent with the other fixture dates.
+Insufficient or stale component evidence stops before publication.
 
-| Variant | Optional step | Posture outcome | Confidence | Purpose |
-|---|---|---|---|---|
-| [`sample-run/`](sample-run/) (**required-only**) | skipped | REDUCE_ONLY (48% ceiling) | LOW | Shows the conservative floor when critical inputs are missing |
-| [`sample-run-full-path/`](sample-run-full-path/) (**full-path**) | included | NEW_ENTRY_ALLOWED (58% ceiling) | MEDIUM | Shows what the optional `market-top-detector` adds, and exercises the nested-shape parser fixed in PR #137 |
+Step 4 runs the real `exposure-coach` CLI against the artifacts generated in the
+same replay. Before invocation, every handoff is revalidated against a fresh
+native scorer calculation. After invocation, the harness requires exactly one
+JSON report and verifies its complete schema and decision values against the
+native Exposure Coach API. Invalid JSON is not treated as a merely missing
+optional signal.
 
-## Steps in this sample
+## Variants
 
-| Step | Skill | Artifact | `sample-run/` | `sample-run-full-path/` |
-|---|---|---|---|---|
-| 1 | `market-breadth-analyzer` | `market_breadth_report` | ✅ included | ✅ included (nested-only) |
-| 2 | `uptrend-analyzer` | `uptrend_report` | ✅ included | ✅ included (nested-only) |
-| 3 | `market-top-detector` | `top_risk_report` | ⏭️ skipped (optional) | ✅ included (nested-only) |
-| 4 | `exposure-coach` | `exposure_decision` | ✅ included | ✅ included |
+| Variant | Steps | Expected posture |
+|---|---|---|
+| `sample-run/` | breadth → uptrend → exposure | `REDUCE_ONLY`, `LOW` confidence; optional top-risk evidence is omitted |
+| `sample-run-full-path/` | breadth → uptrend → top-risk → exposure | `NEW_ENTRY_ALLOWED`, `MEDIUM` confidence |
 
-## Files
+All output trees are generated transactionally. A malformed fixture, corrupt
+handoff, native scorer/report exception, CLI failure, missing or multiple CLI
+reports, or decision mismatch leaves any existing destination unchanged.
 
-```
-sample-run/                        # required-only (raw-plus-handoff)
-  prompt.md                        # the prompt you give Claude
-  manifest.yaml                    # machine-readable step → artifact → file map
-  01_market_breadth_report.json    # raw composite{} + top-level breadth_score
-  01_market_breadth_report.md      # companion (human report)
-  02_uptrend_report.json           # raw composite{} + top-level uptrend_score
-  02_uptrend_report.md             # companion
-  04_exposure_decision.json        # exposure-coach output
-  04_exposure_decision.md          # companion (one-page posture)
+## Reproduce
 
-sample-run-full-path/              # full-path (raw-nested-only)
-  prompt.md                        # full-path prompt
-  manifest.yaml                    # step → artifact → file map, no skipped steps
-  01_market_breadth_report_raw.json # raw composite{}, no top-level handoff
-  02_uptrend_report_raw.json        # raw composite{}, no top-level handoff
-  03_top_risk_report_raw.json       # raw composite{} from market-top-detector
-  04_exposure_decision.json         # exposure-coach output (computed from the 3 raw fixtures)
-  04_exposure_decision.md           # companion
-```
-
-## The `raw-plus-handoff` convention (sample-run/) — historical note
-
-`sample-run/` JSON each carry **both** the nested `composite { composite_score, … }`
-block **and** a top-level hand-off field (`breadth_score` / `uptrend_score`).
-The top-level field originally existed because `exposure-coach`'s
-`extract_breadth_score()` only read the top-level field — the nested shape was
-silently dropped, making *raw* breadth output a missing critical input.
-
-That parser gap was **fixed by
-[PR #137](https://github.com/tradermonty/claude-trading-skills/pull/137)**
-(merged 2026-05-24). After PR #137, the extractor reads both shapes; the
-top-level hand-off field in `sample-run/` is now a convenience rather than a
-necessity. `sample-run-full-path/` deliberately omits it to exercise the
-nested-only path directly.
-
-## Why the required-only posture is `REDUCE_ONLY / LOW` (this is correct)
-
-`exposure-coach` treats `regime`, `top_risk`, and `breadth` as **critical
-inputs** and applies a **−10 composite haircut per missing critical input**.
-In `sample-run/`, both `regime` (`macro-regime-detector`) and `top_risk`
-(`market-top-detector`) are absent → a −20 haircut. With breadth 66 and
-uptrend 72 the pre-haircut composite is `(66·0.15 + 72·0.15) / 0.30 = 69.0`,
-haircut to **49.0**, mapped to a **48% exposure ceiling, REDUCE_ONLY,
-LOW confidence** — even though internal participation is `BROAD`.
-
-## Why the full-path posture is `NEW_ENTRY_ALLOWED / MEDIUM`
-
-`sample-run-full-path/` adds step 3 (`market-top-detector` with
-`composite.composite_score = 38`, a "Yellow / Early Warning" zone). The
-extractor inverts that to `100 − 38 = 62` (high score = safe to be exposed)
-and clears one of the two critical-input haircuts. The composite climbs to
-**56.2** (58% ceiling, **NEW_ENTRY_ALLOWED, MEDIUM** confidence). This is the
-honest, code-faithful demonstration of what running the optional satellite
-adds — and it only works correctly *because* PR #137 fixed the nested-shape
-parser for `top_risk`.
-
-## Reproduce / verify
-
-From the repo root, full-path sample (post-PR #137):
+From the repository root:
 
 ```bash
-python3 skills/exposure-coach/scripts/calculate_exposure.py \
-  --breadth  examples/workflows/market-regime-daily/sample-run-full-path/01_market_breadth_report_raw.json \
-  --uptrend  examples/workflows/market-regime-daily/sample-run-full-path/02_uptrend_report_raw.json \
-  --top-risk examples/workflows/market-regime-daily/sample-run-full-path/03_top_risk_report_raw.json \
-  --output-dir /tmp/verify_full_path/
+python3 scripts/workflow_replay.py run \
+  --spec examples/workflows/market-regime-daily/replay.yaml \
+  --variant required-only \
+  --output-dir /tmp/market-regime-required
 
-# Then check the deterministic key fields:
-python3 - <<'PY'
-import glob, json
-actual = json.load(open(sorted(glob.glob("/tmp/verify_full_path/exposure_posture_*.json"))[-1]))
-expected = json.load(open("examples/workflows/market-regime-daily/sample-run-full-path/04_exposure_decision.json"))
-for key in ("composite_score", "exposure_ceiling_pct", "recommendation", "confidence", "bias", "participation", "component_scores", "inputs_provided", "inputs_missing"):
-    assert actual[key] == expected[key], f"{key}: {actual[key]!r} != {expected[key]!r}"
-print("OK: full-path sample reproduced deterministically from raw nested fixtures")
-PY
+python3 scripts/workflow_replay.py run \
+  --spec examples/workflows/market-regime-daily/replay.yaml \
+  --variant full-path \
+  --output-dir /tmp/market-regime-full
+
+python3 scripts/workflow_replay.py check
 ```
 
-Required-only sample verification (read-only check that the extractors agree
-with the fixture):
-
-```bash
-python3 - <<'PY'
-import json, sys
-sys.path.insert(0, "skills/exposure-coach/scripts")
-import calculate_exposure as ce
-d = "examples/workflows/market-regime-daily/sample-run"
-b = json.load(open(f"{d}/01_market_breadth_report.json"))
-u = json.load(open(f"{d}/02_uptrend_report.json"))
-dec = json.load(open(f"{d}/04_exposure_decision.json"))
-assert ce.extract_breadth_score(b) == dec["component_scores"]["breadth_score"] == 66
-assert ce.extract_uptrend_score(u) == dec["component_scores"]["uptrend_score"] == 72
-print("OK: real exposure-coach extractors reproduce the required-only sample scores")
-PY
-```
-
-## Run it for real
-
-See [`sample-run/prompt.md`](sample-run/prompt.md) or
-[`sample-run-full-path/prompt.md`](sample-run-full-path/prompt.md). The
-skills fetch public CSVs (no API key) plus optional FMP data for the
-top-risk step; your live numbers will differ from these fixed samples.
+The harness removes API-key, token, secret, password, and proxy environment
+variables from the Exposure Coach subprocess. It supplies no provider or API
+flags. This is an offline-input contract, not an operating-system network
+sandbox.

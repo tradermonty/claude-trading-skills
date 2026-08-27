@@ -62,6 +62,7 @@ flags. Setting it to 0 is allowed and reported as a warning.
 
 - one per indicator `period`
 - one per numeric threshold used in `entry`
+- one when `size` is explicitly supplied
 - one per bracket distance set
 
 Fees, slippage and `signal_delay` are excluded. They are costs and conventions,
@@ -98,4 +99,5 @@ A spec with more than four parameters triggers a warning before it runs.
 }
 ```
 
-Four parameters: the RSI period, the threshold of 30, the stop and the target.
+Five parameters: the RSI period, the threshold of 30, the explicit position
+size, the stop and the target.

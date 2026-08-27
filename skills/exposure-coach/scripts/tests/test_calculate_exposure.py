@@ -1,6 +1,10 @@
 """Tests for calculate_exposure.py."""
 
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from calculate_exposure import (
@@ -30,6 +34,32 @@ def canonical_regime(regime: dict) -> dict:
         "composite": {"data_quality": {"available_count": 5, "total_components": 6}},
         "regime": {"confidence": "high", **regime},
     }
+
+
+def test_missing_critical_rationale_is_hash_seed_deterministic() -> None:
+    scripts_dir = Path(__file__).resolve().parents[1]
+    code = (
+        "from calculate_exposure import generate_rationale; "
+        "print(generate_rationale(49.0, 'REDUCE_ONLY', 'BROAD', 'NEUTRAL', "
+        "{'breadth': 66, 'uptrend': 72, 'regime': None, 'top_risk': None}, "
+        "['regime', 'top_risk']))"
+    )
+    outputs = []
+    for seed in ("1", "7", "31"):
+        env = dict(os.environ)
+        env["PYTHONHASHSEED"] = seed
+        completed = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=scripts_dir,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        outputs.append(completed.stdout.strip())
+
+    assert len(set(outputs)) == 1
+    assert "Missing critical inputs (regime, top_risk)" in outputs[0]
 
 
 class TestExtractBreadthScore:
@@ -562,6 +592,30 @@ class TestGenerateRationale:
             25, "CASH_PRIORITY", "NARROW", "DEFENSIVE", {"top_risk": 20}, []
         )
         assert "preservation" in rationale.lower()
+
+    def test_rationale_quotes_exposure_ceiling_not_composite(self):
+        """The ceiling sentence must report the ceiling, never the raw score."""
+        rationale = generate_rationale(
+            73.1,
+            "NEW_ENTRY_ALLOWED",
+            "BROAD",
+            "NEUTRAL",
+            {"breadth": 79, "uptrend": 57},
+            [],
+            exposure_ceiling=80,
+        )
+        assert "80% ceiling" in rationale
+        assert "73% ceiling" not in rationale
+
+    def test_rationale_ceiling_defaults_to_derived_value(self):
+        """Omitting exposure_ceiling still yields the ceiling, not the composite."""
+        composite = 73.1
+        expected = determine_exposure_ceiling(composite)
+        rationale = generate_rationale(
+            composite, "NEW_ENTRY_ALLOWED", "BROAD", "NEUTRAL", {"breadth": 79}, []
+        )
+        assert f"{expected}% ceiling" in rationale
+        assert f"{int(composite)}% ceiling" not in rationale
 
 
 class TestGenerateMarkdownReport:

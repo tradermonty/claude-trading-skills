@@ -118,6 +118,11 @@ def _escape_table_cell(text: str) -> str:
     return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
 
 
+def _operational_role(skill: dict) -> dict:
+    role = skill.get("operational_role")
+    return role if isinstance(role, dict) else {}
+
+
 # ---------------------------------------------------------------------------
 # Rendering — one renderer per `name` sentinel
 # ---------------------------------------------------------------------------
@@ -145,15 +150,18 @@ def render_catalog_en(skills: list[dict]) -> str:
         if not items:
             continue
         buf.write(f"### {CATEGORY_LABELS_EN[cat]}\n\n")
-        buf.write("| Skill | Summary | Integrations | Status |\n")
-        buf.write("|---|---|---|---|\n")
+        buf.write("| Skill | Summary | Integrations | Role | Status |\n")
+        buf.write("|---|---|---|---|---|\n")
         for s in items:
             sid = s.get("id", "")
             display_name = _escape_table_cell(s.get("display_name", sid))
             summary = _escape_table_cell(s.get("summary") or "")
             status = _escape_table_cell(s.get("status", ""))
             integs = _primary_integrations(s)
-            buf.write(f"| **{display_name}** (`{sid}`) | {summary} | {integs} | {status} |\n")
+            role = _escape_table_cell(str(_operational_role(s).get("type", "unknown")))
+            buf.write(
+                f"| **{display_name}** (`{sid}`) | {summary} | {integs} | {role} | {status} |\n"
+            )
         buf.write("\n")
     return buf.getvalue().rstrip("\n")
 
@@ -180,15 +188,18 @@ def render_catalog_ja(skills: list[dict]) -> str:
         if not items:
             continue
         buf.write(f"### {CATEGORY_LABELS_JA[cat]}\n\n")
-        buf.write("| スキル | サマリ | 依存 | ステータス |\n")
-        buf.write("|---|---|---|---|\n")
+        buf.write("| スキル | サマリ | 依存 | 運用ロール | ステータス |\n")
+        buf.write("|---|---|---|---|---|\n")
         for s in items:
             sid = s.get("id", "")
             display_name = _escape_table_cell(s.get("display_name", sid))
             summary = _escape_table_cell(s.get("summary") or "")
             status = _escape_table_cell(s.get("status", ""))
             integs = _primary_integrations(s)
-            buf.write(f"| **{display_name}** (`{sid}`) | {summary} | {integs} | {status} |\n")
+            role = _escape_table_cell(str(_operational_role(s).get("type", "unknown")))
+            buf.write(
+                f"| **{display_name}** (`{sid}`) | {summary} | {integs} | {role} | {status} |\n"
+            )
         buf.write("\n")
     return buf.getvalue().rstrip("\n")
 
@@ -273,10 +284,51 @@ def render_api_matrix(skills: list[dict]) -> str:
     return buf.getvalue().rstrip("\n")
 
 
+def render_operational_roles_en(skills: list[dict]) -> str:
+    buf = io.StringIO()
+    buf.write(
+        "<!-- This matrix is auto-generated from skills-index.yaml by "
+        "scripts/generate_catalog_from_index.py. Do not edit by hand. -->\n\n"
+    )
+    buf.write("| Skill | Operational role | Standalone rationale |\n")
+    buf.write("|---|---|---|\n")
+    for skill in sorted(skills, key=lambda item: item.get("id", "")):
+        role = _operational_role(skill)
+        rationale = role.get("rationale") if role.get("type") == "standalone" else "—"
+        buf.write(
+            f"| `{skill.get('id', '')}` | "
+            f"`{_escape_table_cell(str(role.get('type', 'unknown')))}` | "
+            f"{_escape_table_cell(str(rationale))} |\n"
+        )
+    return buf.getvalue().rstrip("\n")
+
+
+def render_operational_roles_ja(skills: list[dict]) -> str:
+    buf = io.StringIO()
+    buf.write(
+        "<!-- このマトリクスは skills-index.yaml から "
+        "scripts/generate_catalog_from_index.py で自動生成されます。"
+        "手動編集しないでください。 -->\n\n"
+    )
+    buf.write("| スキル | 運用ロール | standalone の理由 |\n")
+    buf.write("|---|---|---|\n")
+    for skill in sorted(skills, key=lambda item: item.get("id", "")):
+        role = _operational_role(skill)
+        rationale = role.get("rationale") if role.get("type") == "standalone" else "—"
+        buf.write(
+            f"| `{skill.get('id', '')}` | "
+            f"`{_escape_table_cell(str(role.get('type', 'unknown')))}` | "
+            f"{_escape_table_cell(str(rationale))} |\n"
+        )
+    return buf.getvalue().rstrip("\n")
+
+
 RENDERERS = {
     "catalog-en": render_catalog_en,
     "catalog-ja": render_catalog_ja,
     "api-matrix": render_api_matrix,
+    "operational-roles-en": render_operational_roles_en,
+    "operational-roles-ja": render_operational_roles_ja,
 }
 
 
@@ -319,6 +371,8 @@ TARGETS = [
     ("README.md", {"catalog-en"}),
     ("README.ja.md", {"catalog-ja"}),
     ("CLAUDE.md", {"api-matrix"}),
+    ("docs/en/skill-catalog.md", {"operational-roles-en"}),
+    ("docs/ja/skill-catalog.md", {"operational-roles-ja"}),
 ]
 
 

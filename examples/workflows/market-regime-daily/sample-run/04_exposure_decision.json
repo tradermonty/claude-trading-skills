@@ -1,20 +1,13 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-15T13:05:00+00:00",
-  "exposure_ceiling_pct": 48,
   "bias": "NEUTRAL",
-  "participation": "BROAD",
-  "recommendation": "REDUCE_ONLY",
-  "confidence": "LOW",
-  "composite_score": 49.0,
   "component_scores": {
     "breadth_score": 66,
-    "uptrend_score": 72
+    "uptrend_score": 71
   },
-  "inputs_provided": [
-    "breadth",
-    "uptrend"
-  ],
+  "composite_score": 48.5,
+  "confidence": "LOW",
+  "exposure_ceiling_pct": 47,
+  "generated_at": "2026-01-15T13:08:00+00:00",
   "inputs_missing": [
     "regime",
     "top_risk",
@@ -23,5 +16,12 @@
     "theme",
     "ftd"
   ],
-  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (top_risk, regime) reduce confidence. New entries not recommended; consider trimming on strength."
+  "inputs_provided": [
+    "breadth",
+    "uptrend"
+  ],
+  "participation": "BROAD",
+  "rationale": "Broad participation indicates healthy market internals. Missing critical inputs (regime, top_risk) reduce confidence. New entries not recommended; consider trimming on strength.",
+  "recommendation": "REDUCE_ONLY",
+  "schema_version": "1.0"
 }

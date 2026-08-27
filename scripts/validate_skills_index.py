@@ -6,7 +6,7 @@ Strictness levels:
   --strict-workflows   : also resolve workflow references and check internal-consistency
   --strict-metadata    : also enforce timeframe/difficulty/inputs/outputs completeness
 
-Emits stable error codes (IDX001-014, WF001-014). See
+Emits stable error codes (IDX001-015, WF001-016). See
 docs/dev/metadata-and-workflow-schema.md for the full catalog.
 """
 
@@ -67,6 +67,9 @@ VALID_REQUIREMENTS = frozenset(
 
 VALID_TIMEFRAMES = frozenset({"daily", "weekly", "event-driven", "research", "unknown"})
 VALID_DIFFICULTIES = frozenset({"beginner", "intermediate", "advanced", "unknown"})
+VALID_OPERATIONAL_ROLES = frozenset(
+    {"standalone", "workflow_step", "internal_component", "research_only"}
+)
 
 VERIFICATION_AXES = frozenset(
     {
@@ -246,6 +249,44 @@ def _validate_index_structure(
         status = entry.get("status")
         if not _valid_enum(status, VALID_STATUSES):
             findings.append(Finding("IDX006", "error", loc, f"invalid status {status!r}"))
+
+        operational_role_present = "operational_role" in entry
+        if not operational_role_present:
+            severity = "error" if strict_metadata else "warning"
+            findings.append(
+                Finding(
+                    "IDX015",
+                    severity,
+                    loc,
+                    "missing required `operational_role` mapping",
+                )
+            )
+        else:
+            operational_role = entry.get("operational_role")
+            role_error: str | None = None
+            if not isinstance(operational_role, dict):
+                role_error = "`operational_role` must be a mapping"
+            else:
+                role_type = operational_role.get("type")
+                expected_keys = {"type", "rationale"} if role_type == "standalone" else {"type"}
+                missing_keys = sorted(expected_keys - set(operational_role))
+                unknown_keys = sorted(set(operational_role) - expected_keys, key=repr)
+                if not _valid_enum(role_type, VALID_OPERATIONAL_ROLES):
+                    role_error = f"`operational_role.type` has invalid value {role_type!r}"
+                elif missing_keys:
+                    role_error = f"`operational_role` missing keys: {missing_keys}"
+                elif unknown_keys:
+                    role_error = f"`operational_role` has unknown keys: {unknown_keys}"
+                elif role_type == "standalone" and (
+                    not isinstance(operational_role.get("rationale"), str)
+                    or not operational_role["rationale"].strip()
+                ):
+                    role_error = (
+                        "`operational_role.rationale` must be a non-empty string "
+                        "for standalone skills"
+                    )
+            if role_error:
+                findings.append(Finding("IDX015", "error", loc, role_error))
 
         if "knowledge_only" in entry:
             knowledge_only = entry.get("knowledge_only")
@@ -443,7 +484,22 @@ def _validate_workflow_references(
             available[wf.stem] = wf
 
     for skill_id, entry in skills_by_id.items():
-        for wf_id in entry.get("workflows") or []:
+        workflow_ids = _valid_workflow_backrefs(entry)
+        if workflow_ids is None:
+            sev = "error" if strict else "warning"
+            findings.append(
+                Finding(
+                    "WF016",
+                    sev,
+                    f"skills-index.yaml::{skill_id}",
+                    (
+                        "`workflows` must be a list of unique, non-empty strings; "
+                        f"got {entry.get('workflows')!r}"
+                    ),
+                )
+            )
+            continue
+        for wf_id in workflow_ids:
             if wf_id not in available:
                 sev = "error" if strict else "warning"
                 findings.append(
@@ -455,6 +511,104 @@ def _validate_workflow_references(
                     )
                 )
     return findings, available
+
+
+def _valid_workflow_backrefs(entry: dict[str, Any]) -> list[str] | None:
+    """Return valid, unique workflow IDs, else None."""
+    raw_backrefs = entry.get("workflows")
+    if not isinstance(raw_backrefs, list):
+        return None
+    if not all(isinstance(value, str) and value.strip() for value in raw_backrefs):
+        return None
+    if len(raw_backrefs) != len(set(raw_backrefs)):
+        return None
+    return raw_backrefs
+
+
+def _valid_operational_role(entry: dict[str, Any]) -> str | None:
+    """Return a structurally valid operational role type, else None."""
+    role = entry.get("operational_role")
+    if not isinstance(role, dict):
+        return None
+    role_type = role.get("type")
+    if not _valid_enum(role_type, VALID_OPERATIONAL_ROLES):
+        return None
+    expected_keys = {"type", "rationale"} if role_type == "standalone" else {"type"}
+    if set(role) != expected_keys:
+        return None
+    if role_type == "standalone" and (
+        not isinstance(role.get("rationale"), str) or not role["rationale"].strip()
+    ):
+        return None
+    return role_type
+
+
+def _validate_operational_role_workflows(
+    skills_by_id: dict[str, dict], workflow_paths: dict[str, Path]
+) -> list[Finding]:
+    """Enforce workflow forward/back references and role classification parity."""
+    findings: list[Finding] = []
+    forward_refs: dict[str, set[str]] = {skill_id: set() for skill_id in skills_by_id}
+
+    for workflow_path in workflow_paths.values():
+        try:
+            workflow = _load_yaml(workflow_path)
+        except (OSError, yaml.YAMLError):
+            continue
+        if not isinstance(workflow, dict):
+            continue
+        workflow_id = str(workflow.get("id") or workflow_path.stem)
+        referenced: set[str] = set()
+        for field in ("required_skills", "optional_skills"):
+            values = workflow.get(field) or []
+            if isinstance(values, list):
+                referenced.update(str(value) for value in values if value)
+        steps = workflow.get("steps") or []
+        if isinstance(steps, list):
+            referenced.update(
+                str(step["skill"]) for step in steps if isinstance(step, dict) and step.get("skill")
+            )
+        for skill_id in referenced:
+            if skill_id in forward_refs:
+                forward_refs[skill_id].add(workflow_id)
+
+    for skill_id, entry in skills_by_id.items():
+        role_type = _valid_operational_role(entry)
+        if role_type is None:
+            # IDX015 is the single source finding for missing/malformed roles.
+            continue
+        loc = f"skills-index.yaml::{skill_id}"
+        expected = sorted(forward_refs[skill_id])
+        should_be_workflow_step = bool(expected)
+        if (role_type == "workflow_step") != should_be_workflow_step:
+            required_role = "workflow_step" if should_be_workflow_step else "a non-workflow role"
+            findings.append(
+                Finding(
+                    "WF015",
+                    "error",
+                    loc,
+                    (
+                        f"operational_role.type is {role_type!r}; forward workflow "
+                        f"references require {required_role} (workflows={expected})"
+                    ),
+                )
+            )
+
+        actual = _valid_workflow_backrefs(entry)
+        if actual is None:
+            # _validate_workflow_references emits the single WF016 shape finding.
+            continue
+        if sorted(actual) != expected:
+            findings.append(
+                Finding(
+                    "WF016",
+                    "error",
+                    loc,
+                    f"workflows back-references are {actual}; expected exactly {expected}",
+                )
+            )
+
+    return findings
 
 
 def _validate_workflow_japanese(
@@ -908,6 +1062,7 @@ def validate(
     if strict_workflows:
         for wf_path in available_workflows.values():
             findings.extend(_validate_workflow_internal(wf_path, skills_by_id))
+        findings.extend(_validate_operational_role_workflows(skills_by_id, available_workflows))
 
     return findings
 

@@ -268,11 +268,11 @@ def test_summary_reports_loss_magnitude_positive(fill):
     assert s["avg_win_pct"] == 0.0
 
 
-def test_scratch_trades_are_excluded_from_win_rate(fill):
+def test_scratch_trades_remain_in_win_rate_denominator(fill):
     """A flat trade is neither a win nor a loss.
 
-    Counting it as a loss would drag the win rate down without any trade having
-    gone against the strategy.
+    It is still a completed trade that did not win, so omitting it from the
+    denominator would overstate the observed win rate.
     """
     s = summarize_round_trips(
         pair_round_trips(
@@ -286,7 +286,7 @@ def test_scratch_trades_are_excluded_from_win_rate(fill):
     )
     assert s["total_trades"] == 2
     assert s["scratches"] == 1
-    assert s["win_rate_pct"] == 100.0
+    assert s["win_rate_pct"] == 50.0
 
 
 def test_empty_log_summarizes_without_dividing_by_zero():

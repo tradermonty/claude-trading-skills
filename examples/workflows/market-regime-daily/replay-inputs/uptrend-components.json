@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "kind": "uptrend",
+  "as_of": "2026-01-14T21:00:00+00:00",
+  "max_age_days": 2,
+  "component_scores": {
+    "market_breadth": 85,
+    "sector_participation": 74,
+    "sector_rotation": 66,
+    "momentum": 68,
+    "historical_context": 72
+  },
+  "data_availability": {
+    "market_breadth": true,
+    "sector_participation": true,
+    "sector_rotation": true,
+    "momentum": true,
+    "historical_context": true
+  },
+  "warning_flags": {
+    "late_cycle": false,
+    "high_spread": false,
+    "divergence": true
+  }
+}

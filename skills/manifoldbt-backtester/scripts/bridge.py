@@ -31,6 +31,7 @@ than a dict comprehension:
 
 from __future__ import annotations
 
+import math
 import shlex
 from typing import Any
 
@@ -58,21 +59,33 @@ def build_evaluation_inputs(
     """
     warnings_out: list[str] = []
 
-    # Drawdown: stored negative, scored positive.
-    dd = metrics.get("max_drawdown")
-    dd_pct = abs(float(dd)) * 100.0 if dd is not None else 0.0
-    if dd is None:
-        warnings_out.append(
-            "max_drawdown absent from metrics; risk dimension scored as if flawless"
+    scratches = int(trip_summary.get("scratches", 0))
+    if scratches:
+        raise ValueError(
+            f"cannot hand off {scratches} scratch trade(s): backtest-expert has no "
+            "scratch-rate input, so its derived expectancy would be wrong"
         )
 
+    # Drawdown: stored negative, scored positive. Missing or non-finite risk
+    # cannot be represented honestly; zero would award an almost-perfect score.
+    dd = metrics.get("max_drawdown")
+    if dd is None:
+        raise ValueError("max_drawdown absent from engine metrics; refusing to score risk as 0%")
+    try:
+        dd_value = float(dd)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"max_drawdown is not numeric: {dd!r}") from exc
+    if not math.isfinite(dd_value):
+        raise ValueError(f"max_drawdown must be finite, got {dd!r}")
+    dd_pct = abs(dd_value) * 100.0
+
     total = int(trip_summary.get("total_trades", 0))
-    if total == 0:
-        warnings_out.append(
-            "no completed round trip: the strategy never returned to flat, so every "
-            "percentage below is undefined"
+    if total <= 0:
+        raise ValueError(
+            "no completed round trip: win rate and average returns are undefined; "
+            "refusing to generate an evaluator command"
         )
-    elif total < 30:
+    if total < 30:
         # Not an error. The evaluator scores this zero on sample size by design,
         # and saying so up front beats the user reading a 0 and blaming the run.
         warnings_out.append(
@@ -101,7 +114,7 @@ def build_evaluation_inputs(
             warnings_out.append(
                 f"win rate from pairing ({trip_summary['win_rate_pct']:.1f}%) and from "
                 f"the engine ({float(engine_win_rate) * 100:.1f}%) differ by {gap:.1f} points; "
-                "scratch trades or an open final position usually explain it"
+                "an open final position or a different engine convention usually explains it"
             )
 
     return {

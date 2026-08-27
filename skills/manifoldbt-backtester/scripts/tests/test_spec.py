@@ -106,6 +106,14 @@ def test_bracket_distances_count_as_parameters():
     assert count_parameters(_spec(stop_loss_pct=1.0, take_profit_pct=2.0)) == 4
 
 
+def test_explicit_position_size_counts_as_a_parameter():
+    assert count_parameters(_spec(size=0.25)) == 3
+
+
+def test_default_position_size_is_not_counted_when_omitted():
+    assert count_parameters(_spec()) == 2
+
+
 def test_costs_are_not_parameters():
     """Fees are imposed by the market, not fitted; counting them would flatter
     nothing and would misreport how much freedom the strategy really has."""

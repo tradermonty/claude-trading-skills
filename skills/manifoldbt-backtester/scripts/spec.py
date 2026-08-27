@@ -139,9 +139,10 @@ def count_parameters(spec: dict[str, Any]) -> int:
     """Count the strategy's tunable knobs, for the robustness dimension.
 
     Counted: one per indicator period, plus a numeric threshold used directly in
-    the entry condition, plus each bracket distance. Not counted: fees and
-    slippage, which are costs the market imposes rather than knobs to fit, and
-    the signal delay, which is an execution convention.
+    the entry condition, an explicitly supplied position size, plus each bracket
+    distance. Not counted: fees and slippage, which are costs the market imposes
+    rather than knobs to fit, and the signal delay, which is an execution
+    convention.
     """
     n = len(spec.get("indicators") or {})
     entry = spec.get("entry") or {}
@@ -149,6 +150,8 @@ def count_parameters(spec: dict[str, Any]) -> int:
         v = entry.get(side_name)
         if isinstance(v, (int, float)) and not isinstance(v, bool):
             n += 1
+    if "size" in spec:
+        n += 1
     n += sum(1 for c in ("stop_loss_pct", "take_profit_pct") if spec.get(c) is not None)
     return n
 
