@@ -63,7 +63,7 @@ Revenge-risk detection reads trader-memory-core thesis YAML files:
 
 When `thesis_id` and `--state-dir` are provided, the skill links the generated JSON report with trader-memory-core `link_report`. It never uses `mark_reviewed`, because pre-trade checklist logging must not advance monitoring review dates.
 
-The JSON report and JSONL journal retain candidate-level `checklist_answers` for `entry_in_written_plan`, `stop_predefined`, `size_within_plan`, `planned_risk_dollars`, `actual_risk_dollars`, and `notes`. Invalid risk-dollar values are stored as JSON `null`; valid values keep their original representation. This keeps GO decisions reviewable later instead of recording only failures.
+The JSON report and JSONL journal retain candidate-level `checklist_answers` for `entry_in_written_plan`, `stop_predefined`, `size_within_plan`, `planned_risk_dollars`, `actual_risk_dollars`, and `notes`. Invalid risk-dollar values are stored as JSON `null`. Valid JSON decimals that cannot round-trip through a binary float are retained as numeric strings, preserving their exact value for the decision and audit record. This keeps GO decisions reviewable later instead of recording only failures.
 
 ## Workflow Integration
 

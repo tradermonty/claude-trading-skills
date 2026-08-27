@@ -109,7 +109,7 @@ The script writes:
 - A matching markdown report unless `--json-only` is set
 - A JSONL journal row under `state/journal/pre-trade-discipline/` when `--journal-dir` is provided
 
-Each candidate result includes a `checklist_answers` object with the written-plan, stop, size, risk-dollar, and notes answers used for the decision, so later reviews can audit what was answered at order time. Invalid risk-dollar values are stored as JSON `null`, while valid values retain their original representation.
+Each candidate result includes a `checklist_answers` object with the written-plan, stop, size, risk-dollar, and notes answers used for the decision, so later reviews can audit what was answered at order time. Invalid risk-dollar values are stored as JSON `null`. Valid JSON decimals that cannot round-trip through a binary float are retained as numeric strings so underflow or precision loss cannot change the gate decision.
 
 If a candidate includes `thesis_id` and `--state-dir` is provided, the JSON report is linked into the thesis `linked_reports` list using trader-memory-core `link_report`. The skill does not call `mark_reviewed` and does not change monitoring review dates.
 

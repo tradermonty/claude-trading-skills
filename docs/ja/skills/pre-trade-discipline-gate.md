@@ -92,4 +92,4 @@ python3 skills/pre-trade-discipline-gate/scripts/check_pre_trade_discipline.py \
 
 候補に `thesis_id` があり、`--state-dir` を指定した場合、生成したJSON reportをthesisの `linked_reports` に追加します。`mark_reviewed` は呼ばないため、monitoringのレビュー日は進みません。
 
-JSON reportとJSONL journalには、候補ごとの `checklist_answers` として、計画、ストップ、サイズ、リスク金額、メモの回答が残ります。有効なリスク値は入力時の表現を維持し、無効なリスク値は JSON の `null` として保存されます。これにより、GO判定も後から監査できます。
+JSON reportとJSONL journalには、候補ごとの `checklist_answers` として、計画、ストップ、サイズ、リスク金額、メモの回答が残ります。無効なリスク値は JSON の `null` として保存されます。二進浮動小数点で正確に往復できない有効な JSON 小数は数値文字列として保持し、比較処理と監査記録まで正確な値を渡します。これにより、GO判定も後から監査できます。
