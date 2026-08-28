@@ -115,6 +115,45 @@ def apply_entry_filter(results):
     return filtered
 
 
+def build_candidates(earnings, profiles, min_market_cap):
+    """Build a deduplicated candidate list from stable FMP profile fields."""
+    candidates = []
+    for earning in earnings:
+        symbol = earning.get("symbol")
+        if not symbol or symbol not in profiles:
+            continue
+
+        profile = profiles[symbol]
+        market_cap = profile.get("marketCap", 0)
+        exchange = profile.get("exchange", "")
+
+        if market_cap < min_market_cap:
+            continue
+        if exchange not in FMPClient.US_EXCHANGES:
+            continue
+
+        candidates.append(
+            {
+                "symbol": symbol,
+                "company_name": profile.get("companyName", symbol),
+                "earnings_date": earning.get("date"),
+                "earnings_timing": normalize_timing(earning.get("time")),
+                "market_cap": market_cap,
+                "sector": profile.get("sector", "N/A"),
+                "industry": profile.get("industry", "N/A"),
+                "price": profile.get("price", 0),
+            }
+        )
+
+    seen = set()
+    unique_candidates = []
+    for candidate in candidates:
+        if candidate["symbol"] not in seen:
+            seen.add(candidate["symbol"])
+            unique_candidates.append(candidate)
+    return unique_candidates
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Earnings Trade Analyzer - 5-Factor Post-Earnings Scoring"
@@ -199,44 +238,8 @@ def main():
 
     print(f"Profiles retrieved: {len(profiles)}", file=sys.stderr)
 
-    # Filter by market cap and US exchange
-    candidates = []
-    for earning in earnings:
-        symbol = earning.get("symbol")
-        if not symbol or symbol not in profiles:
-            continue
-
-        profile = profiles[symbol]
-        market_cap = profile.get("mktCap", 0)
-        exchange = profile.get("exchangeShortName", "")
-
-        if market_cap < args.min_market_cap:
-            continue
-        if exchange not in FMPClient.US_EXCHANGES:
-            continue
-
-        timing = normalize_timing(earning.get("time"))
-        candidates.append(
-            {
-                "symbol": symbol,
-                "company_name": profile.get("companyName", symbol),
-                "earnings_date": earning.get("date"),
-                "earnings_timing": timing,
-                "market_cap": market_cap,
-                "sector": profile.get("sector", "N/A"),
-                "industry": profile.get("industry", "N/A"),
-                "price": profile.get("price", 0),
-            }
-        )
-
-    # Deduplicate by symbol (keep first occurrence)
-    seen = set()
-    unique_candidates = []
-    for c in candidates:
-        if c["symbol"] not in seen:
-            seen.add(c["symbol"])
-            unique_candidates.append(c)
-    candidates = unique_candidates
+    # Filter by market cap and US exchange, keeping the first event per symbol.
+    candidates = build_candidates(earnings, profiles, args.min_market_cap)
 
     print(f"Candidates after filtering: {len(candidates)}", file=sys.stderr)
 

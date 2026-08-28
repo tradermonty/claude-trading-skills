@@ -11,7 +11,7 @@ import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
-from analyze_earnings_trades import apply_entry_filter
+from analyze_earnings_trades import apply_entry_filter, build_candidates
 from calculators.gap_size_calculator import calculate_gap
 from calculators.ma50_calculator import calculate_ma50_position
 from calculators.ma200_calculator import calculate_ma200_position
@@ -1039,6 +1039,64 @@ class TestGapBoundary:
         result = calculate_pre_earnings_trend(prices, "2025-01-15")
         assert result["score"] == 0.0
         assert "warning" in result
+
+
+# ===========================================================================
+# Candidate Filtering Tests
+# ===========================================================================
+
+
+class TestCandidateFiltering:
+    """Test /stable/profile candidate filtering and deduplication."""
+
+    def test_uses_stable_profile_fields_and_keeps_first_earnings_row(self):
+        earnings = [
+            {"symbol": "TGT", "date": "2026-08-27", "time": "bmo"},
+            {"symbol": "TGT", "date": "2026-08-26", "time": "amc"},
+        ]
+        profiles = {
+            "TGT": {
+                "symbol": "TGT",
+                "companyName": "Target Corporation",
+                "marketCap": 77_000_000_000,
+                "exchange": "NYSE",
+                "sector": "Consumer Defensive",
+                "industry": "Discount Stores",
+                "price": 102.5,
+            }
+        }
+
+        candidates = build_candidates(
+            earnings,
+            profiles,
+            min_market_cap=77_000_000_000,
+        )
+
+        assert candidates == [
+            {
+                "symbol": "TGT",
+                "company_name": "Target Corporation",
+                "earnings_date": "2026-08-27",
+                "earnings_timing": "bmo",
+                "market_cap": 77_000_000_000,
+                "sector": "Consumer Defensive",
+                "industry": "Discount Stores",
+                "price": 102.5,
+            }
+        ]
+
+    def test_excludes_missing_low_cap_and_non_us_profiles(self):
+        earnings = [
+            {"symbol": "MISSING", "date": "2026-08-27"},
+            {"symbol": "SMALL", "date": "2026-08-27"},
+            {"symbol": "FOREIGN", "date": "2026-08-27"},
+        ]
+        profiles = {
+            "SMALL": {"marketCap": 499_999_999, "exchange": "NASDAQ"},
+            "FOREIGN": {"marketCap": 10_000_000_000, "exchange": "LSE"},
+        }
+
+        assert build_candidates(earnings, profiles, min_market_cap=500_000_000) == []
 
 
 # ===========================================================================
