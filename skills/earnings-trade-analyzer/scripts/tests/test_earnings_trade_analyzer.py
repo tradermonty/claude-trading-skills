@@ -11,7 +11,7 @@ import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
-from analyze_earnings_trades import apply_entry_filter
+from analyze_earnings_trades import apply_entry_filter, main
 from calculators.gap_size_calculator import calculate_gap
 from calculators.ma50_calculator import calculate_ma50_position
 from calculators.ma200_calculator import calculate_ma200_position
@@ -970,6 +970,87 @@ class TestFMPClient:
         assert "api_calls_made" in stats
         assert "max_api_calls" in stats
         assert stats["max_api_calls"] == 100
+
+
+# ===========================================================================
+# Stable Profile Filtering Regression
+# ===========================================================================
+
+
+class TestStableProfileFiltering:
+    """Ensure /stable/profile fields survive the Phase 1 candidate filters."""
+
+    @patch("analyze_earnings_trades.generate_markdown_report")
+    @patch("analyze_earnings_trades.generate_json_report")
+    @patch("analyze_earnings_trades.analyze_stock")
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_stable_profile_fields_reach_report_generation(
+        self,
+        mock_client_cls,
+        mock_analyze_stock,
+        mock_generate_json,
+        mock_generate_markdown,
+    ):
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        mock_client_cls.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.api_calls_made = 0
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "WMT", "date": "2026-08-27", "time": "bmo"}
+        ]
+        client.get_company_profiles.return_value = {
+            "WMT": {
+                "symbol": "WMT",
+                "companyName": "Walmart Inc.",
+                "marketCap": 842_000_000_000,
+                "exchange": "NYSE",
+                "sector": "Consumer Defensive",
+                "industry": "Discount Stores",
+                "price": 104.50,
+            }
+        }
+        client.get_historical_prices.return_value = [{"date": "2026-08-28", "close": 105.0}] * 50
+        client.get_api_stats.return_value = {"api_calls_made": 0, "max_api_calls": 200}
+        mock_analyze_stock.return_value = {
+            "gap": {"gap_pct": 5.0},
+            "pre_earnings_trend": {},
+            "volume_trend": {},
+            "ma200_position": {},
+            "ma50_position": {},
+            "composite": {
+                "composite_score": 71.8,
+                "grade": "B",
+                "grade_description": "Strong",
+                "guidance": "Consider for watchlist",
+                "weakest_component": "MA50 Position",
+                "strongest_component": "Gap Size",
+                "component_breakdown": {},
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch(
+                "sys.argv",
+                [
+                    "analyze_earnings_trades.py",
+                    "--api-key",
+                    "test_key",
+                    "--output-dir",
+                    tmpdir,
+                ],
+            ):
+                main()
+
+        client.get_historical_prices.assert_called_once_with("WMT", days=250)
+        mock_analyze_stock.assert_called_once()
+        mock_generate_json.assert_called_once()
+        mock_generate_markdown.assert_called_once()
+
+        json_results = mock_generate_json.call_args.args[0]
+        markdown_results = mock_generate_markdown.call_args.args[0]
+        assert json_results == markdown_results
+        assert json_results[0]["symbol"] == "WMT"
+        assert json_results[0]["market_cap"] == 842_000_000_000
 
 
 # ===========================================================================

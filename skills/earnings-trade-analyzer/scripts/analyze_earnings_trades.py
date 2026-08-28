@@ -207,8 +207,8 @@ def main():
             continue
 
         profile = profiles[symbol]
-        market_cap = profile.get("mktCap", 0)
-        exchange = profile.get("exchangeShortName", "")
+        market_cap = profile.get("marketCap", 0)
+        exchange = profile.get("exchange", "")
 
         if market_cap < args.min_market_cap:
             continue
