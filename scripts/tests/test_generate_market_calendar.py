@@ -133,7 +133,11 @@ def test_invalid_authority_is_rejected(generator, monkeypatch, tmp_path):
         generator.load_config()
 
 
-def test_canonical_runtime_executes_real_provider_contract():
+def test_canonical_runtime_executes_real_provider_contract_when_installed():
+    # The repository-scripts row intentionally does not install this optional
+    # runtime dependency. Each generated consumer contract exercises the real
+    # provider in its own dependency-isolated CI row.
+    pytest.importorskip("pandas_market_calendars")
     calendar = _load(
         REPO_ROOT / "scripts" / "market_calendar" / "market_calendar.py",
         "canonical_market_calendar",
