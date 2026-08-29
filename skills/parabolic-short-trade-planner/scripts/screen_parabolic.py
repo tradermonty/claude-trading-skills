@@ -108,11 +108,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _count_trading_days(start: date, end: date) -> int:
-    """Count Mon-Fri days, exclusive of ``start``, inclusive of ``end``.
-
-    Holiday calendar is not modeled — the Mon-Fri approximation is off by
-    one on weeks containing US exchange holidays. For the typical 10-day
-    catalyst window this is tolerable.
+    """Count XNYS sessions, exclusive of ``start``, inclusive of ``end``.
 
     Returns 0 when ``start == end`` and a negative number when
     ``end < start``.
@@ -192,7 +188,7 @@ def _compute_earnings_metadata(
 ) -> dict:
     """Compute earnings metadata for one symbol relative to a reference date.
 
-    ``trading_days_since_earnings`` is in **trading days** (Mon-Fri), used
+    ``trading_days_since_earnings`` is in **XNYS sessions**, used
     for the soft ``recent_earnings_catalyst`` warning.
 
     ``earnings_within_days`` is in **calendar days** to the next earnings

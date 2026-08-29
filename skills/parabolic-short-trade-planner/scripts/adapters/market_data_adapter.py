@@ -35,8 +35,8 @@ class MarketDataAdapter(ABC):
 
         Returned bars MUST be:
           - chronological (oldest first),
-          - all from the regular cash session (09:30–16:00 ET) of
-            ``session_date``,
+          - all from the authoritative XNYS regular cash session of
+            ``session_date``, including holiday and early-close handling,
           - filtered to **confirmed** bars only: a bar with ``ts_et =
             T`` covers ``[T, T+5min)`` and is confirmed at ``T+5min``,
             so the bar is included iff ``T + 5min <= until_et``.

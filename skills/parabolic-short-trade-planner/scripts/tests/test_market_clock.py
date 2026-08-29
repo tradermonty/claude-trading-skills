@@ -4,7 +4,7 @@ Coverage focus:
 - DST boundaries (EST/EDT switch in March + November). The ET offset
   shifts from -05:00 to -04:00 mid-March and back in early November;
   any naive offset arithmetic would silently break here.
-- Regular-session window (09:30 ≤ ts < 16:00 ET on weekdays only).
+- Calendar-defined regular-session window, including holidays and early closes.
 - session_date_for is anchored to ET wall-clock date, NOT UTC date,
   so a 21:00 UTC timestamp on a Tuesday must map to the same Tuesday.
 - minutes_until_close returns None outside the session and a positive

@@ -15,22 +15,16 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 try:
     import requests
 except ImportError as e:  # pragma: no cover - environment check
     raise RuntimeError("alpaca_market_data_adapter requires the `requests` package") from e
 
+from _market_calendar import Session, session_for_date
 from broker_short_inventory_adapter import BrokerNotConfiguredError
-from market_clock import (
-    ET,
-    REGULAR_CLOSE_HOUR,
-    REGULAR_CLOSE_MINUTE,
-    REGULAR_OPEN_HOUR,
-    REGULAR_OPEN_MINUTE,
-    to_utc,
-)
+from market_clock import ET, to_utc
 from market_data_adapter import MarketDataAdapter
 
 DATA_BASE_URL = "https://data.alpaca.markets"
@@ -78,23 +72,22 @@ class AlpacaMarketDataAdapter(MarketDataAdapter):
         if until_et.tzinfo is None:
             raise ValueError("until_et must be timezone-aware")
 
-        # Build the regular-session window in ET, convert to RFC3339 UTC.
+        # Resolve the authoritative session before any provider call. A valid
+        # holiday/weekend is empty; calendar/provider failures propagate.
         date_obj = datetime.strptime(session_date, "%Y-%m-%d").date()
-        open_et = datetime.combine(
-            date_obj, time(REGULAR_OPEN_HOUR, REGULAR_OPEN_MINUTE), tzinfo=ET
-        )
-        close_et = datetime.combine(
-            date_obj, time(REGULAR_CLOSE_HOUR, REGULAR_CLOSE_MINUTE), tzinfo=ET
-        )
-        # End at the earlier of close_et and until_et — there's no point
+        session = session_for_date("XNYS", date_obj)
+        if session is None:
+            return []
+
+        # End at the earlier of the actual close and until_et — there's no point
         # asking Alpaca for bars we'd then discard.
-        end_et = min(close_et, until_et)
-        if end_et <= open_et:
+        end_et = min(session.market_close, until_et)
+        if end_et <= session.market_open:
             return []
 
         params_base = {
             "timeframe": TIMEFRAME,
-            "start": _rfc3339_utc(open_et),
+            "start": _rfc3339_utc(session.market_open),
             "end": _rfc3339_utc(end_et),
             "adjustment": "raw",
             "feed": self.feed,
@@ -128,7 +121,7 @@ class AlpacaMarketDataAdapter(MarketDataAdapter):
             if not page_token:
                 break
 
-        return _convert_and_filter(all_wire_bars, session_date=session_date, until_et=until_et)
+        return _convert_and_filter(all_wire_bars, session=session, until_et=until_et)
 
 
 def _rfc3339_utc(ts_et: datetime) -> str:
@@ -140,7 +133,7 @@ def _rfc3339_utc(ts_et: datetime) -> str:
 def _convert_and_filter(
     wire_bars: list[dict],
     *,
-    session_date: str,
+    session: Session,
     until_et: datetime,
 ) -> list[dict]:
     """Normalise Alpaca's wire shape and apply the contract filters.
@@ -156,17 +149,6 @@ def _convert_and_filter(
     documented meaning of "the start of the bar that triggered the
     transition" (i.e. the 5-min interval whose close fired the move).
     """
-    open_et = datetime.combine(
-        datetime.strptime(session_date, "%Y-%m-%d").date(),
-        time(REGULAR_OPEN_HOUR, REGULAR_OPEN_MINUTE),
-        tzinfo=ET,
-    )
-    close_et = datetime.combine(
-        datetime.strptime(session_date, "%Y-%m-%d").date(),
-        time(REGULAR_CLOSE_HOUR, REGULAR_CLOSE_MINUTE),
-        tzinfo=ET,
-    )
-
     out: list[dict] = []
     for wire in wire_bars:
         ts_utc_str = wire["t"]
@@ -178,11 +160,14 @@ def _convert_and_filter(
         ts_et = ts_utc.astimezone(ET)
         bar_close_et = ts_et + BAR_DURATION
 
-        # Regular-session filter: 09:30 ≤ bar_start < 16:00 ET on the
-        # requested session_date.
-        if ts_et.date().isoformat() != session_date:
+        # The full bar interval must fit inside the actual exchange session.
+        # This excludes bars starting at an early close and any after-hours
+        # bars returned by the provider.
+        if ts_et.date() != session.session_date:
             continue
-        if not (open_et <= ts_et < close_et):
+        if not (session.market_open <= ts_et < session.market_close):
+            continue
+        if bar_close_et > session.market_close:
             continue
         # Confirmation filter: only include bars whose CLOSE
         # (bar_start + 5 min) is at or before until_et.

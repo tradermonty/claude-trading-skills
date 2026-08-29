@@ -22,6 +22,8 @@ ADAPTERS_DIR = Path(__file__).resolve().parents[1] / "adapters"
 if str(ADAPTERS_DIR) not in sys.path:
     sys.path.insert(0, str(ADAPTERS_DIR))
 
+import fixture_market_data_adapter as fixture_adapter
+from _market_calendar import CalendarUnavailableError
 from fixture_market_data_adapter import FixtureBarsAdapter
 
 ET = ZoneInfo("America/New_York")
@@ -91,6 +93,60 @@ class TestFiltering:
         until = datetime(2026, 5, 5, 16, 0, tzinfo=ET)
         bars = adapter.get_bars_5min("AAPL", session_date="2026-05-06", until_et=until)
         assert bars == []
+
+    def test_early_close_excludes_bars_at_and_after_close(self, tmp_path):
+        fixture = tmp_path / "early-close.json"
+        fixture.write_text(
+            json.dumps(
+                {
+                    "AAPL": [
+                        _bar("2026-11-27T12:55:00-05:00", 150.0),
+                        _bar("2026-11-27T13:00:00-05:00", 150.5),
+                        _bar("2026-11-27T13:05:00-05:00", 151.0),
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        adapter = FixtureBarsAdapter(fixture)
+
+        bars = adapter.get_bars_5min(
+            "AAPL",
+            session_date="2026-11-27",
+            until_et=datetime(2026, 11, 27, 16, 30, tzinfo=ET),
+        )
+
+        assert [bar["ts_et"] for bar in bars] == ["2026-11-27T12:55:00-05:00"]
+
+    def test_exchange_holiday_returns_empty(self, tmp_path):
+        fixture = tmp_path / "holiday.json"
+        fixture.write_text(
+            json.dumps({"AAPL": [_bar("2026-04-03T09:30:00-04:00", 150.0)]}),
+            encoding="utf-8",
+        )
+        adapter = FixtureBarsAdapter(fixture)
+
+        bars = adapter.get_bars_5min(
+            "AAPL",
+            session_date="2026-04-03",  # Good Friday
+            until_et=datetime(2026, 4, 3, 16, 30, tzinfo=ET),
+        )
+
+        assert bars == []
+
+    def test_calendar_provider_failure_propagates(self, mixed_fixture, monkeypatch):
+        def fail_closed(_venue, _date):
+            raise CalendarUnavailableError("calendar unavailable")
+
+        monkeypatch.setattr(fixture_adapter, "session_for_date", fail_closed)
+        adapter = FixtureBarsAdapter(mixed_fixture)
+
+        with pytest.raises(CalendarUnavailableError, match="calendar unavailable"):
+            adapter.get_bars_5min(
+                "AAPL",
+                session_date="2026-05-05",
+                until_et=datetime(2026, 5, 5, 10, 0, tzinfo=ET),
+            )
 
     def test_naive_until_raises(self, mixed_fixture):
         adapter = FixtureBarsAdapter(mixed_fixture)

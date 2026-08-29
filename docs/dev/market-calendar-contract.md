@@ -96,6 +96,7 @@ created and are not inputs to signal, expiry, event, or freshness calculations.
 | `market-top-detector/utils.py`, `breadth_csv_client.py` | Freshness uses XNYS sessions; auto breadth selects the latest row at/before `as-of`, and future-dated scored CLI values fail closed |
 | `market-top-detector/market_top_detector.py` | Historical CLI replay fails closed; index, leading, and sector histories are all ceiling-filtered before calculators receive them |
 | `parabolic-short-trade-planner/market_clock.py`, `screen_parabolic.py` | Intraday state and earnings age use XNYS; live/fixture bars are ceiling-filtered |
+| `parabolic-short-trade-planner/adapters/*_market_data_adapter.py` | Alpaca query windows and both live/fixture bar filters use the authoritative XNYS open/close; holidays are empty and early-close after-hours bars are excluded |
 | `parabolic-short-trade-planner/ssr_state_tracker.py` | Rule 201 carryover loads the previous XNYS session, including weekend and holiday gaps |
 | Other parabolic `datetime.now(timezone.utc)` calls | Provenance, state-write, or live-monitor evaluation timestamps; timezone-aware and not session-day inference |
 | `parabolic-short-trade-planner/generate_pre_market_plan.py` | Explicit/Phase-1 `as_of` owns plan date; default clock is a live-only fallback |

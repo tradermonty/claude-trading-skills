@@ -21,11 +21,6 @@ from _market_calendar import is_open_at, session_for_date
 
 ET = ZoneInfo("America/New_York")
 
-REGULAR_OPEN_HOUR = 9
-REGULAR_OPEN_MINUTE = 30
-REGULAR_CLOSE_HOUR = 16
-REGULAR_CLOSE_MINUTE = 0
-
 
 def _require_aware(ts: datetime) -> None:
     if ts.tzinfo is None:

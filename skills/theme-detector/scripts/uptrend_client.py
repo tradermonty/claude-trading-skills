@@ -97,8 +97,7 @@ def is_data_stale(
 ) -> bool:
     """Check if the latest data is older than threshold business days.
 
-    Counts only Mon-Fri as business days, so Friday data is not considered
-    stale when checked on Saturday or Sunday.
+    Counts XNYS sessions, so exchange holidays and weekends do not age data.
 
     Args:
         latest_date_str: Date string in YYYY-MM-DD format

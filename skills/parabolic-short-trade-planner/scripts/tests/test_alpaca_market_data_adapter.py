@@ -28,6 +28,8 @@ ADAPTERS_DIR = Path(__file__).resolve().parents[1] / "adapters"
 if str(ADAPTERS_DIR) not in sys.path:
     sys.path.insert(0, str(ADAPTERS_DIR))
 
+import alpaca_market_data_adapter as alpaca_adapter
+from _market_calendar import CalendarUnavailableError
 from alpaca_market_data_adapter import AlpacaMarketDataAdapter
 
 ET = ZoneInfo("America/New_York")
@@ -195,6 +197,53 @@ class TestRegularSessionFilter:
         # Only 15:55 ET survives (16:00 itself is the close, excluded).
         assert len(bars) == 1
         assert bars[0]["ts_et"].startswith("2026-05-05T15:55:00")
+
+    def test_early_close_uses_exchange_session_boundary(self, adapter):
+        captured = {}
+        wire = [
+            _bar_alpaca("2026-11-27T17:55:00Z", 150.0),  # 12:55 ET, final regular bar
+            _bar_alpaca("2026-11-27T18:00:00Z", 150.5),  # 13:00 ET, market closed
+            _bar_alpaca("2026-11-27T18:05:00Z", 151.0),  # 13:05 ET, after-hours
+        ]
+
+        def fake_get(url, headers=None, params=None, timeout=None):
+            captured["params"] = params
+            return _alpaca_bars_response(wire)
+
+        with patch("requests.get", side_effect=fake_get):
+            bars = adapter.get_bars_5min(
+                "AAPL",
+                session_date="2026-11-27",
+                until_et=datetime(2026, 11, 27, 16, 30, tzinfo=ET),
+            )
+
+        assert captured["params"]["end"].endswith("18:00:00Z")
+        assert [bar["ts_et"] for bar in bars] == ["2026-11-27T12:55:00-05:00"]
+
+    def test_exchange_holiday_returns_empty_without_http(self, adapter):
+        with patch("requests.get") as get:
+            bars = adapter.get_bars_5min(
+                "AAPL",
+                session_date="2026-04-03",  # Good Friday
+                until_et=datetime(2026, 4, 3, 16, 30, tzinfo=ET),
+            )
+
+        assert bars == []
+        get.assert_not_called()
+
+    def test_calendar_provider_failure_propagates(self, adapter, monkeypatch):
+        def fail_closed(_venue, _date):
+            raise CalendarUnavailableError("calendar unavailable")
+
+        monkeypatch.setattr(alpaca_adapter, "session_for_date", fail_closed)
+        with patch("requests.get") as get:
+            with pytest.raises(CalendarUnavailableError, match="calendar unavailable"):
+                adapter.get_bars_5min(
+                    "AAPL",
+                    session_date="2026-05-05",
+                    until_et=datetime(2026, 5, 5, 10, 0, tzinfo=ET),
+                )
+        get.assert_not_called()
 
 
 class TestErrorHandling:
