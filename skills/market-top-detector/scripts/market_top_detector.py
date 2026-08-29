@@ -29,8 +29,9 @@ import glob
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
@@ -58,7 +59,17 @@ from scenario_engine import generate_scenarios
 from scorer import calculate_composite_score, detect_follow_through_day
 
 
-def parse_arguments():
+def _iso_date(value: str) -> date:
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be YYYY-MM-DD") from exc
+    if parsed.isoformat() != value:
+        raise argparse.ArgumentTypeError("must be zero-padded YYYY-MM-DD")
+    return parsed
+
+
+def parse_arguments(argv: Optional[list[str]] = None):
     parser = argparse.ArgumentParser(
         description="Market Top Detector - O'Neil/Minervini/Monty Integration"
     )
@@ -135,11 +146,20 @@ def parse_arguments():
 
     # Output
     parser.add_argument("--output-dir", default="reports/", help="Output directory for reports")
+    parser.add_argument(
+        "--as-of",
+        type=_iso_date,
+        default=None,
+        help=(
+            "Evaluation date (YYYY-MM-DD). Historical live replay is rejected because "
+            "the quote provider is not point-in-time."
+        ),
+    )
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def compute_data_freshness(date_args: dict) -> dict:
+def compute_data_freshness(date_args: dict, as_of_date: Optional[date] = None) -> dict:
     """
     Compute data freshness factors for CLI input dates.
 
@@ -166,7 +186,7 @@ def compute_data_freshness(date_args: dict) -> dict:
 
     result = {}
     factors = []
-    today = dateclass.today()
+    today = as_of_date or dateclass.today()
 
     for arg_key, label in freshness_map.items():
         date_str = date_args.get(arg_key)
@@ -275,8 +295,72 @@ def _compute_deltas(current_scores: dict[str, float], previous_report: Optional[
     }
 
 
-def main():
-    args = parse_arguments()
+def _history_on_or_before(rows: list[dict], as_of_date: date) -> list[dict]:
+    """Reject future bars at the consumer boundary; preserve provider order."""
+    filtered = []
+    for row in rows:
+        try:
+            row_date = date.fromisoformat(str(row.get("date", ""))[:10])
+        except (TypeError, ValueError):
+            continue
+        if row_date <= as_of_date:
+            filtered.append(row)
+    return filtered
+
+
+def _batch_histories_on_or_before(
+    histories: dict[str, list[dict]], as_of_date: date
+) -> dict[str, list[dict]]:
+    """Apply the PIT ceiling to every symbol and discard empty histories."""
+    return {
+        symbol: filtered
+        for symbol, rows in histories.items()
+        if (filtered := _history_on_or_before(rows, as_of_date))
+    }
+
+
+def _future_dated_scored_inputs(args: argparse.Namespace, as_of_date: date) -> list[str]:
+    """Return scored CLI fields whose declared source date exceeds as-of."""
+    pairs = (
+        ("breadth_200dma", "breadth_200dma_date"),
+        ("breadth_50dma", "breadth_50dma_date"),
+        ("put_call", "put_call_date"),
+        ("margin_debt_yoy", "margin_debt_date"),
+    )
+    future = []
+    for value_name, date_name in pairs:
+        if getattr(args, value_name, None) is None:
+            continue
+        raw_date = getattr(args, date_name, None)
+        if not raw_date:
+            continue
+        try:
+            source_date = date.fromisoformat(raw_date)
+        except (TypeError, ValueError):
+            continue
+        if source_date > as_of_date:
+            future.append(value_name)
+    return future
+
+
+def main(argv: Optional[list[str]] = None):
+    args = parse_arguments(argv)
+    live_today = datetime.now(ZoneInfo("America/New_York")).date()
+    as_of_date = args.as_of or live_today
+    if args.as_of is not None and as_of_date != live_today:
+        print(
+            "ERROR: historical --as-of requires point-in-time quote data, which the live "
+            "provider does not supply; refusing a look-ahead-biased replay",
+            file=sys.stderr,
+        )
+        return 2
+    future_inputs = _future_dated_scored_inputs(args, as_of_date)
+    if future_inputs:
+        print(
+            "ERROR: refusing future-dated scored input(s): " + ", ".join(future_inputs),
+            file=sys.stderr,
+        )
+        return 2
 
     print("=" * 70)
     print("Market Top Detector")
@@ -304,7 +388,10 @@ def main():
     sp500_quote_list = client.get_quote("^GSPC")
     sp500_quote = sp500_quote_list[0] if sp500_quote_list else None
     sp500_history_data = client.get_historical_prices("^GSPC", days=260)
-    sp500_history = sp500_history_data.get("historical", []) if sp500_history_data else []
+    sp500_history = _history_on_or_before(
+        sp500_history_data.get("historical", []) if sp500_history_data else [],
+        as_of_date,
+    )
     if sp500_quote and sp500_history:
         print(f"OK (${sp500_quote.get('price', 0):.2f}, {len(sp500_history)} days)")
     else:
@@ -317,7 +404,10 @@ def main():
     qqq_quote_list = client.get_quote("QQQ")
     qqq_quote = qqq_quote_list[0] if qqq_quote_list else None
     qqq_history_data = client.get_historical_prices("QQQ", days=260)
-    qqq_history = qqq_history_data.get("historical", []) if qqq_history_data else []
+    qqq_history = _history_on_or_before(
+        qqq_history_data.get("historical", []) if qqq_history_data else [],
+        as_of_date,
+    )
     if qqq_quote and qqq_history:
         print(f"OK (${qqq_quote.get('price', 0):.2f}, {len(qqq_history)} days)")
     else:
@@ -360,6 +450,7 @@ def main():
         print("  Fetching Leading ETFs (dynamic basket)...", end=" ", flush=True)
         leading_quotes = {s: candidate_quotes[s] for s in selected_basket if s in candidate_quotes}
         leading_historical = client.get_batch_historical(selected_basket, days=60)
+    leading_historical = _batch_histories_on_or_before(leading_historical, as_of_date)
     print(f"OK ({len(leading_quotes)} quotes, {len(leading_historical)} histories)")
 
     # Sector ETFs
@@ -367,7 +458,10 @@ def main():
     # Remove QQQ from sector fetching if already fetched
     sector_etfs_to_fetch = [e for e in all_sector_etfs if e != "QQQ"]
     print("  Fetching Sector ETFs...", end=" ", flush=True)
-    sector_historical = client.get_batch_historical(sector_etfs_to_fetch, days=50)
+    sector_historical = _batch_histories_on_or_before(
+        client.get_batch_historical(sector_etfs_to_fetch, days=50),
+        as_of_date,
+    )
     # Add QQQ history if available
     if qqq_history:
         sector_historical["QQQ"] = qqq_history[:50]
@@ -405,7 +499,7 @@ def main():
 
     if effective_breadth_200dma is None and not args.no_auto_breadth:
         print("  Fetching 200DMA breadth from TraderMonty CSV...", end=" ", flush=True)
-        auto_result = fetch_breadth_200dma()
+        auto_result = fetch_breadth_200dma(as_of_date=as_of_date)
         if auto_result is not None:
             effective_breadth_200dma = auto_result["value"]
             breadth_source = "auto"
@@ -467,7 +561,7 @@ def main():
         "put_call_date": args.put_call_date,
         "margin_debt_date": args.margin_debt_date,
     }
-    data_freshness = compute_data_freshness(freshness_args)
+    data_freshness = compute_data_freshness(freshness_args, as_of_date=as_of_date)
 
     # ========================================================================
     # Step 3: Composite Score
@@ -565,6 +659,7 @@ def main():
     analysis = {
         "metadata": {
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "as_of_date": as_of_date.isoformat(),
             "data_mode": "FMP API + CLI inputs",
             "api_calls": client.get_api_stats(),
             "cli_inputs": {
@@ -625,7 +720,8 @@ def main():
     print(f"  API calls made: {stats['api_calls_made']}")
     print(f"  Cache entries: {stats['cache_entries']}")
     print()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

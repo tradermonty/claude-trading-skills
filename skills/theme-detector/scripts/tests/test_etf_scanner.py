@@ -4,11 +4,70 @@ Tests FMP backend, symbol normalization, caching, batching,
 per-symbol retry, symbol-level fallback, and backend stats.
 """
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
-from etf_scanner import ETFScanner
+from etf_scanner import ETFScanner, _frame_on_or_before
+
+
+def test_dataframe_ceiling_handles_timezone_naive_aware_and_invalid_indexes():
+    frame = pd.DataFrame(
+        {"Close": [1.0, 2.0, 3.0, 4.0]},
+        index=[
+            "2026-04-06",
+            pd.Timestamp("2026-04-06 23:30", tz="America/New_York"),
+            "2026-04-07",
+            "not-a-date",
+        ],
+    )
+
+    filtered = _frame_on_or_before(frame, date(2026, 4, 6))
+
+    assert filtered["Close"].tolist() == [1.0, 2.0]
+
+
+def test_dataframe_ceiling_rejects_nat_numeric_and_all_future_rows():
+    frame = pd.DataFrame(
+        {"Close": [1.0, 2.0, 3.0]},
+        index=[pd.NaT, 0, "2026-04-07"],
+    )
+
+    assert _frame_on_or_before(frame, date(2026, 4, 6)).empty
+
+
+@patch("etf_scanner.yf")
+def test_yfinance_batch_filters_provider_overfetch_before_metrics(mock_yf):
+    scanner = ETFScanner(as_of_date=date(2026, 4, 6))
+    mock_yf.download.return_value = pd.DataFrame(
+        {
+            "Close": list(range(1, 18)) + [1_000.0],
+            "High": list(range(1, 18)) + [1_001.0],
+            "Low": list(range(1, 18)) + [999.0],
+        },
+        index=pd.date_range("2026-03-21", periods=18, freq="D"),
+    )
+    mock_yf.Ticker.return_value.info = {}
+
+    [result] = scanner._batch_stock_metrics_yfinance(["AAPL"])
+
+    assert result["dist_from_52w_high"] == 0.0
+
+
+@patch("etf_scanner.yf")
+def test_yfinance_cache_filters_before_storing(mock_yf):
+    scanner = ETFScanner(as_of_date=date(2026, 4, 6))
+    mock_yf.download.return_value = pd.DataFrame(
+        {"Close": [100.0, 999.0]},
+        index=pd.to_datetime(["2026-04-06", "2026-04-07"]),
+    )
+
+    data = scanner._get_cached("AAPL")
+
+    assert data is not None
+    assert data["Close"].tolist() == [100.0]
+    assert scanner._cache["AAPL_6mo_2026-04-06"].equals(data)
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +353,28 @@ class TestFMPHistoricalFetch:
 
     def _make_scanner(self):
         return ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
+
+    def test_as_of_filters_future_and_malformed_rows_fail_closed(self, monkeypatch):
+        scanner = ETFScanner(
+            fmp_api_key="test_key",
+            rate_limit_sec=0,
+            as_of_date=date(2026, 2, 13),
+        )
+        rows = [
+            {"date": "2026-02-14", "close": 151},
+            {"date": "not-a-date", "close": 999},
+            {"close": 998},
+            {"date": "2026-02-13", "close": 150},
+        ]
+        monkeypatch.setattr(
+            scanner,
+            "_fmp_request",
+            lambda *_args, **_kwargs: {"symbol": "AAPL", "historical": rows},
+        )
+
+        result = scanner._fetch_fmp_historical(["AAPL"], timeseries=20)
+
+        assert result == {"AAPL": [{"date": "2026-02-13", "close": 150}]}
 
     @patch("etf_scanner._requests_lib")
     def test_multi_symbol_parses_historicalStockList(self, mock_requests):

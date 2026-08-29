@@ -55,6 +55,24 @@ class TestStatePersistence:
         assert today["ssr_carryover_from_prior_day"] is True
         assert today["uptick_rule_active"] is True
 
+    def test_friday_state_carries_to_monday(self, tmp_path):
+        state = evaluate_ssr(prior_regular_close=100.0, current_price=85.0)
+        save_state(tmp_path, "XYZ", "2026-05-01", state)
+
+        loaded = load_prior_day_state(tmp_path, "XYZ", "2026-05-04")
+
+        assert loaded is not None
+        assert loaded["ssr_triggered_today"] is True
+
+    def test_holiday_gap_uses_previous_exchange_session(self, tmp_path):
+        state = evaluate_ssr(prior_regular_close=100.0, current_price=85.0)
+        save_state(tmp_path, "XYZ", "2026-07-02", state)
+
+        loaded = load_prior_day_state(tmp_path, "XYZ", "2026-07-06")
+
+        assert loaded is not None
+        assert loaded["ssr_triggered_today"] is True
+
 
 class TestThresholdConstant:
     def test_constant_is_10(self):

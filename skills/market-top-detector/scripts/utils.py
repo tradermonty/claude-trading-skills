@@ -4,7 +4,9 @@ Market Top Detector - Shared Utilities
 Common helper functions used across multiple modules.
 """
 
-from datetime import date, timedelta
+from datetime import date
+
+from _market_calendar import count_sessions
 
 
 def count_business_days(start_date: date, end_date: date) -> int:
@@ -15,10 +17,10 @@ def count_business_days(start_date: date, end_date: date) -> int:
     """
     if start_date > end_date:
         return -1
-    count = 0
-    current = start_date
-    while current < end_date:
-        current += timedelta(days=1)
-        if current.weekday() < 5:
-            count += 1
-    return count
+    return count_sessions(
+        "XNYS",
+        start_date,
+        end_date,
+        include_start=False,
+        include_end=True,
+    )

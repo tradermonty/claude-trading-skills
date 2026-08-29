@@ -12,14 +12,16 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Add scripts dir to path for sibling imports
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from _market_calendar import current_or_next_session, parse_aware_datetime, require_aware
 from order_builder import (
     build_entry_condition,
     build_post_confirm_template,
@@ -38,6 +40,22 @@ from risk_calculator import (
 
 ACCEPTED_INPUT_VERSIONS = {"1.0"}
 MAX_RISK_PCT = 8.0
+ET = ZoneInfo("America/New_York")
+
+
+def resolve_as_of(value: str | None) -> datetime:
+    """Resolve CLI as-of to one aware instant; date-only means 00:00 ET."""
+    if value is None:
+        return datetime.now(timezone.utc)
+    stripped = value.strip()
+    try:
+        if len(stripped) == 10:
+            return datetime.combine(date.fromisoformat(stripped), time.min, tzinfo=ET)
+        return parse_aware_datetime(stripped)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "--as-of must be YYYY-MM-DD or an offset-bearing ISO-8601 timestamp"
+        ) from exc
 
 
 def load_input(path: str) -> dict:
@@ -123,6 +141,7 @@ def process_candidate(
     cumulative_risk_pct: float,
     sector_tracker: dict[str, float],
     exposure: dict,
+    as_of: datetime | None = None,
 ) -> dict:
     """Process a single VCP candidate through the Minervini Gate.
 
@@ -201,6 +220,7 @@ def process_candidate(
             cumulative_risk_pct,
             sector_tracker,
             exposure,
+            as_of,
         )
 
     # --- Breakout path ---
@@ -265,6 +285,7 @@ def _build_actionable(
     cumulative_risk_pct,
     sector_tracker,
     exposure,
+    as_of=None,
 ):
     """Build an actionable order with trade plan and order templates."""
     sector = base["sector"]
@@ -329,12 +350,10 @@ def _build_actionable(
         entry_condition=entry_cond,
     )
 
-    # Valid for today if market is open (weekday), otherwise next trading day
-    today = datetime.now().date()
-    if today.weekday() < 5:  # Monday-Friday: valid today
-        valid_date = today
-    else:  # Weekend: next Monday
-        valid_date = today + timedelta(days=7 - today.weekday())
+    # The plan is valid for the current not-yet-closed XNYS session, or the
+    # next real session after a close, weekend, or exchange holiday.
+    decision_time = require_aware(as_of or datetime.now(timezone.utc))
+    valid_date = current_or_next_session("XNYS", decision_time).session_date
 
     result = {
         **base,
@@ -407,6 +426,10 @@ def generate_plans(data: dict, args: argparse.Namespace) -> dict:
     deferred = []
     constrained = []
     warnings = []
+    as_of = require_aware(
+        getattr(args, "decision_as_of", None) or datetime.now(timezone.utc),
+        name="decision_as_of",
+    )
 
     cumulative_risk_pct = exposure.get("open_risk_pct", 0.0)
     sector_tracker: dict[str, float] = {}
@@ -420,7 +443,14 @@ def generate_plans(data: dict, args: argparse.Namespace) -> dict:
             rejected.append({"symbol": symbol, "reason": f"validation: {'; '.join(warns)}"})
             continue
 
-        classified = process_candidate(result, args, cumulative_risk_pct, sector_tracker, exposure)
+        classified = process_candidate(
+            result,
+            args,
+            cumulative_risk_pct,
+            sector_tracker,
+            exposure,
+            as_of,
+        )
         cls = classified["classification"]
 
         if cls == "actionable":
@@ -446,7 +476,7 @@ def generate_plans(data: dict, args: argparse.Namespace) -> dict:
 
     return {
         "schema_version": "1.0",
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generated_at": as_of.isoformat(timespec="seconds"),
         "parameters": {
             "account_size": args.account_size,
             "base_risk_pct": args.risk_pct,
@@ -551,7 +581,7 @@ def generate_markdown(plans: dict) -> str:
     return "\n".join(lines)
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Generate breakout trade plans from VCP screener output"
     )
@@ -567,13 +597,21 @@ def main():
     parser.add_argument("--pivot-buffer-pct", type=float, default=0.1)
     parser.add_argument("--current-exposure-json", default=None)
     parser.add_argument("--output-dir", default="reports/")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--as-of",
+        help="YYYY-MM-DD (00:00 ET) or an offset-bearing ISO-8601 timestamp",
+    )
+    args = parser.parse_args(argv)
+    try:
+        args.decision_as_of = resolve_as_of(args.as_of)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     data = load_input(args.input)
     plans = generate_plans(data, args)
 
     os.makedirs(args.output_dir, exist_ok=True)
-    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    ts = args.decision_as_of.astimezone(ET).strftime("%Y-%m-%d_%H%M%S")
 
     json_file = os.path.join(args.output_dir, f"breakout_trade_plan_{ts}.json")
     with open(json_file, "w", encoding="utf-8") as f:
@@ -590,7 +628,8 @@ def main():
         f"Revalidation: {plans['summary']['revalidation_count']} | "
         f"Watchlist: {plans['summary']['watchlist_count']}"
     )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

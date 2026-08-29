@@ -6,12 +6,15 @@ import argparse
 import json
 import os
 import tempfile
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from plan_breakout_trades import (
     generate_plans,
     load_input,
     process_candidate,
+    resolve_as_of,
     validate_result,
 )
 
@@ -150,6 +153,31 @@ class TestMinerviniGate:
         assert classified["data"]["plan_type"] == "pending_breakout"
         assert classified["data"]["decision_code"] == "ACTIONABLE_PREBREAKOUT"
 
+    def test_plan_session_skips_holiday_and_rolls_after_early_close(self):
+        result = _make_vcp_result(score=85.0)
+        args = _make_args()
+        exposure = {"sector_exposure": {}, "open_risk_pct": 0}
+
+        holiday = process_candidate(
+            result,
+            args,
+            0.0,
+            {},
+            exposure,
+            datetime(2026, 7, 3, 10, tzinfo=ZoneInfo("America/New_York")),
+        )
+        assert holiday["data"]["plan_valid_for_session"] == "2026-07-06"
+
+        after_early_close = process_candidate(
+            result,
+            args,
+            0.0,
+            {},
+            exposure,
+            datetime(2026, 11, 27, 13, tzinfo=ZoneInfo("America/New_York")),
+        )
+        assert after_early_close["data"]["plan_valid_for_session"] == "2026-11-30"
+
     def test_prebreakout_risk_worst_over_8_rejected(self):
         # pivot=100, last_low=88 -> stop=87.12, worst=102 -> risk=14.58%
         result = _make_vcp_result(score=85.0, last_low=88.0)
@@ -284,10 +312,16 @@ class TestPortfolioConstraints:
 class TestGeneratePlans:
     def test_empty_results(self):
         data = _make_input_data([])
-        args = _make_args()
+        args = _make_args(decision_as_of=resolve_as_of("2026-07-06"))
         plans = generate_plans(data, args)
         assert plans["schema_version"] == "1.0"
         assert plans["summary"]["actionable_count"] == 0
+        assert plans["generated_at"] == "2026-07-06T00:00:00-04:00"
+
+    @pytest.mark.parametrize("value", ["not-a-date", "2026-07-06T10:00:00"])
+    def test_invalid_or_naive_as_of_rejected(self, value):
+        with pytest.raises(ValueError, match="--as-of"):
+            resolve_as_of(value)
 
     def test_score_order_processing(self):
         r1 = _make_vcp_result(symbol="HIGH", score=90.0)

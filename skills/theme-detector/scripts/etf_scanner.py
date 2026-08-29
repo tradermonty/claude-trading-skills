@@ -58,8 +58,9 @@ def _stable_hist_url(base: str, symbols_str: str, params: dict) -> tuple[str, di
     # The /stable EOD endpoint ignores `timeseries`; convert it to a from/to
     # range (~2x calendar days to cover N trading days, +10 slack).
     days = params.pop("timeseries", None)
+    as_of = params.pop("_as_of", None)
     if days is not None:
-        today = date.today()
+        today = date.fromisoformat(as_of) if as_of else date.today()
         params["from"] = (today - timedelta(days=int(days) * 2 + 10)).isoformat()
         params["to"] = today.isoformat()
     return base, params
@@ -67,6 +68,7 @@ def _stable_hist_url(base: str, symbols_str: str, params: dict) -> tuple[str, di
 
 def _v3_hist_url(base: str, symbols_str: str, params: dict) -> tuple[str, dict]:
     """api/v3/historical-price-full/A,B?..."""
+    params.pop("_as_of", None)
     return f"{base}/{symbols_str}", params
 
 
@@ -103,6 +105,43 @@ _FMP_ENDPOINTS = {
 }
 
 
+def _history_row_on_or_before(row: Any, as_of_date: date) -> bool:
+    """Accept only well-formed dated rows that do not exceed the PIT ceiling."""
+    if not isinstance(row, dict):
+        return False
+    raw_date = row.get("date")
+    if not isinstance(raw_date, str):
+        return False
+    try:
+        row_date = date.fromisoformat(raw_date[:10])
+    except ValueError:
+        return False
+    return row_date <= as_of_date
+
+
+def _frame_on_or_before(data: pd.DataFrame, as_of_date: date) -> pd.DataFrame:
+    """Remove invalid and post-as-of rows from a provider DataFrame.
+
+    ``Timestamp.date()`` intentionally preserves the provider row's displayed
+    date for both timezone-aware and naive indexes. Numeric indexes are not
+    dates and must not be silently interpreted as Unix nanoseconds.
+    """
+    if data is None or data.empty:
+        return data
+    keep: list[bool] = []
+    for raw_index in data.index:
+        if isinstance(raw_index, (bool, int, float, complex)):
+            keep.append(False)
+            continue
+        try:
+            timestamp = pd.Timestamp(raw_index)
+        except (TypeError, ValueError):
+            keep.append(False)
+            continue
+        keep.append(not pd.isna(timestamp) and timestamp.date() <= as_of_date)
+    return data.loc[keep].copy()
+
+
 class ETFScanner:
     """Scans ETFs and stocks for volume ratios and technical metrics.
 
@@ -117,10 +156,16 @@ class ETFScanner:
 
     _ENDPOINT_FAILURE_THRESHOLD = 3  # disable endpoint after N consecutive failures
 
-    def __init__(self, fmp_api_key: Optional[str] = None, rate_limit_sec: float = 0.3):
+    def __init__(
+        self,
+        fmp_api_key: Optional[str] = None,
+        rate_limit_sec: float = 0.3,
+        as_of_date: Optional[date] = None,
+    ):
         self._cache: dict[str, pd.DataFrame] = {}
         self._fmp_api_key = fmp_api_key
         self._rate_limit_sec = rate_limit_sec
+        self._as_of_date = as_of_date
         self._last_request_time = 0.0
         self._fmp_quote_cache: dict[str, dict] = {}  # normalized_symbol -> quote dict
         self._stats: dict[str, dict[str, int]] = {
@@ -271,6 +316,8 @@ class ETFScanner:
         """Batch fetch historical prices with per-symbol retry on partial failure."""
         result: dict[str, list[dict]] = {}
         extra = {"timeseries": timeseries}
+        if self._as_of_date is not None:
+            extra["_as_of"] = self._as_of_date.isoformat()
 
         # Phase 1: batch fetch
         for i in range(0, len(symbols), self.FMP_HIST_BATCH_SIZE):
@@ -301,7 +348,11 @@ class ETFScanner:
         for s in symbols:
             norm = self._normalize_symbol_for_fmp(s)
             if norm in result:
-                mapped[s] = result[norm]
+                rows = result[norm]
+                if self._as_of_date is not None:
+                    rows = [row for row in rows if _history_row_on_or_before(row, self._as_of_date)]
+                if rows:
+                    mapped[s] = rows
         return mapped
 
     def _parse_historical_response(self, data: Any, result: dict) -> None:
@@ -438,13 +489,19 @@ class ETFScanner:
             ]
 
         try:
-            data = yf.download(
-                symbols,
-                period="1y",
-                group_by="ticker",
-                threads=True,
-                progress=False,
-            )
+            kwargs = {
+                "group_by": "ticker",
+                "threads": True,
+                "progress": False,
+            }
+            if self._as_of_date is None:
+                kwargs["period"] = "1y"
+            else:
+                kwargs["start"] = (self._as_of_date - timedelta(days=370)).isoformat()
+                kwargs["end"] = (self._as_of_date + timedelta(days=1)).isoformat()
+            data = yf.download(symbols, **kwargs)
+            if self._as_of_date is not None:
+                data = _frame_on_or_before(data, self._as_of_date)
         except Exception as e:
             print(f"WARNING: Batch download failed: {e}", file=sys.stderr)
             return [
@@ -694,12 +751,23 @@ class ETFScanner:
 
     def _get_cached(self, symbol: str, period: str = "6mo") -> Optional[pd.DataFrame]:
         """Get cached download or fetch new data."""
-        cache_key = f"{symbol}_{period}"
+        cache_key = f"{symbol}_{period}_{self._as_of_date or 'live'}"
         if cache_key in self._cache:
             return self._cache[cache_key]
 
         try:
-            data = yf.download(symbol, period=period, progress=False)
+            if self._as_of_date is None:
+                data = yf.download(symbol, period=period, progress=False)
+            else:
+                lookback_days = 190 if period == "6mo" else 370
+                data = yf.download(
+                    symbol,
+                    start=(self._as_of_date - timedelta(days=lookback_days)).isoformat(),
+                    end=(self._as_of_date + timedelta(days=1)).isoformat(),
+                    progress=False,
+                )
+            if self._as_of_date is not None:
+                data = _frame_on_or_before(data, self._as_of_date)
             self._cache[cache_key] = data
             return data
         except Exception as e:

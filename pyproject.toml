@@ -21,6 +21,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+market-calendar = [
+    "pandas-market-calendars==5.2.2",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -48,6 +51,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/conftest.py" = ["E402"]
 "**/test_*.py" = ["E402"]
+"**/_market_calendar.py" = ["UP007"]
+"scripts/market_calendar/market_calendar.py" = ["UP007"]
 
 [tool.pytest.ini_options]
 # importlib mode resolves conftest/module name collisions across skills

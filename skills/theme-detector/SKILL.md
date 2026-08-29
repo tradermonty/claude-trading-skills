@@ -61,7 +61,7 @@ This skill detects and ranks trending market themes by analyzing cross-sector mo
 **Required:**
 - Python 3.9+ with core dependencies.
   ```bash
-  pip install requests beautifulsoup4 lxml pandas numpy yfinance
+  pip install -r skills/theme-detector/requirements.txt
   ```
 
 **Cron / mixed-Python fallback:** If the active `python3` is older than 3.10, or a newer Hermes venv lacks the data-science dependencies, run the detector through `uv` with an explicit modern interpreter and temporary dependencies instead of editing the environment mid-cron:
@@ -89,9 +89,8 @@ FMP API (optional, for P/E ratio valuation data):
 export FMP_API_KEY=your_fmp_api_key_here
 ```
 
-**Optional Python packages:**
-- `finvizfinance` - Required for FINVIZ Elite mode
-- `PyYAML` - Required for `--themes-config` custom themes
+The requirements include `finvizfinance`, PyYAML, pandas/numpy, requests, and
+yfinance because normal public-mode execution imports or uses each of them.
 
 Without FINVIZ Elite, the skill uses public FINVIZ scraping (limited to ~20 stocks per industry, slower rate limits).
 
@@ -429,6 +428,14 @@ The skill generates two output files in the `reports/` directory:
 - `report_template.md` - Markdown template for report generation with placeholder format
 
 ---
+
+## Exchange Calendar and Replay
+
+Install `requirements.txt` before running the detector. `--as-of-date` is a
+strict `YYYY-MM-DD` ceiling used by both uptrend freshness checks and provider
+history windows. Because FINVIZ, quote, profile, and uptrend inputs are live
+rather than PIT snapshots, a non-current `--as-of-date` fails closed. Freshness
+counts XNYS sessions and excludes future-dated source rows.
 
 ## Important Notes
 

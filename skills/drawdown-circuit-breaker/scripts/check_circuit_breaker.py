@@ -23,6 +23,14 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+# Keep sibling imports working for direct CLI execution and importlib-based
+# workflow replay tests that do not add this directory to ``sys.path``.
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from _market_calendar import next_session_after, next_session_on_or_after
+
 ET = ZoneInfo("America/New_York")
 TERMINAL_STATUSES = {"CLOSED", "INVALIDATED"}
 THESIS_STATUSES = {"IDEA", "ENTRY_READY", "ACTIVE", "PARTIALLY_CLOSED", *TERMINAL_STATUSES}
@@ -502,23 +510,26 @@ def _sum_realized_between(
 
 
 def _next_weekday(day: date) -> date:
-    candidate = day + timedelta(days=1)
-    while candidate.weekday() >= 5:
-        candidate += timedelta(days=1)
-    return candidate
+    """Compatibility name: return the next real XNYS session date."""
+    return next_session_after("XNYS", day).session_date
 
 
 def _next_monday(day: date) -> date:
+    """Return the first XNYS session in the next calendar week."""
     days_ahead = 7 - day.weekday()
     if days_ahead <= 0:
         days_ahead += 7
-    return day + timedelta(days=days_ahead)
+    boundary = day + timedelta(days=days_ahead)
+    return next_session_on_or_after("XNYS", boundary).session_date
 
 
 def _first_next_month(day: date) -> date:
+    """Return the first XNYS session on/after next month's first day."""
     if day.month == 12:
-        return date(day.year + 1, 1, 1)
-    return date(day.year, day.month + 1, 1)
+        boundary = date(day.year + 1, 1, 1)
+    else:
+        boundary = date(day.year, day.month + 1, 1)
+    return next_session_on_or_after("XNYS", boundary).session_date
 
 
 def _start_of_day_et(day: date) -> datetime:

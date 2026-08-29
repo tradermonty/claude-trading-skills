@@ -24,6 +24,7 @@ import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Allow running as a script: scripts/ and scripts/calculators/ on sys.path.
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -32,6 +33,7 @@ for _p in (str(CALCULATORS_DIR), str(SCRIPTS_DIR)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from _market_calendar import count_sessions  # noqa: E402
 from bar_normalizer import normalize_bars  # noqa: E402
 from invalidation_rules import check_invalidation  # noqa: E402
 from parabolic_report_generator import (  # noqa: E402
@@ -48,9 +50,20 @@ logger = logging.getLogger("parabolic_short.screen")
 DEFAULT_TOP = 25
 DEFAULT_LOOKBACK_DAYS = 60
 DEFAULT_MIN_ROC_5D = {"safe_largecap": 30.0, "classic_qm": 100.0}
+ET = ZoneInfo("America/New_York")
 
 
 # ---------- CLI ----------
+
+
+def _iso_date_arg(value: str) -> str:
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be YYYY-MM-DD") from exc
+    if parsed.isoformat() != value:
+        raise argparse.ArgumentTypeError("must be zero-padded YYYY-MM-DD")
+    return value
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -84,7 +97,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--api-key")
     p.add_argument("--output-dir", default="reports/")
     p.add_argument("--output-prefix", default="parabolic_short")
-    p.add_argument("--as-of", default=None, help="YYYY-MM-DD; default: today")
+    p.add_argument("--as-of", type=_iso_date_arg, default=None, help="YYYY-MM-DD; default: today")
     p.add_argument("--dry-run", action="store_true", help="Read --fixture instead of FMP")
     p.add_argument("--fixture", help="JSON fixture path (used with --dry-run)")
     p.add_argument("--verbose", action="store_true")
@@ -106,13 +119,26 @@ def _count_trading_days(start: date, end: date) -> int:
     """
     if end < start:
         return -((start - end).days)
-    count = 0
-    current = start
-    while current < end:
-        current += timedelta(days=1)
-        if current.weekday() < 5:
-            count += 1
-    return count
+    return count_sessions(
+        "XNYS",
+        start,
+        end,
+        include_start=False,
+        include_end=True,
+    )
+
+
+def _bars_on_or_before(bars_recent_first: list[dict], as_of_date: date) -> list[dict]:
+    """Filter provider or fixture bars at the consumer boundary."""
+    filtered: list[dict] = []
+    for bar in bars_recent_first:
+        try:
+            bar_date = date.fromisoformat(str(bar.get("date", ""))[:10])
+        except (TypeError, ValueError):
+            continue
+        if bar_date <= as_of_date:
+            filtered.append(bar)
+    return filtered
 
 
 def _resolve_market_data_as_of(bars_recent_first: list[dict]) -> str | None:
@@ -356,7 +382,11 @@ def screen_one_candidate(
     )
 
 
-def run_dry_run(fixture_path: str, args: argparse.Namespace) -> list[dict]:
+def run_dry_run(
+    fixture_path: str,
+    args: argparse.Namespace,
+    run_date: str | None = None,
+) -> list[dict]:
     """Run the pipeline against an in-memory fixture JSON.
 
     Fixture shape (all earnings/market_data fields are optional)::
@@ -382,9 +412,20 @@ def run_dry_run(fixture_path: str, args: argparse.Namespace) -> list[dict]:
     with open(fixture_path, encoding="utf-8") as fh:
         fixture = json.load(fh)
     out: list[dict] = []
+    ceiling = date.fromisoformat(run_date) if run_date is not None else None
     for sym in fixture["symbols"]:
         bars = sym["bars"]
+        if ceiling is not None:
+            bars = _bars_on_or_before(bars, ceiling)
+            if not bars:
+                continue
         market_data_as_of = sym.get("market_data_as_of") or _resolve_market_data_as_of(bars)
+        if ceiling is not None and market_data_as_of:
+            explicit_date = date.fromisoformat(market_data_as_of)
+            if explicit_date > ceiling:
+                raise ValueError(
+                    f"fixture market_data_as_of {market_data_as_of} exceeds --as-of {run_date}"
+                )
         # Build earnings_meta from explicit fixture fields, falling back to
         # computed values where possible.
         last_iso = sym.get("last_earnings_date")
@@ -454,10 +495,7 @@ def run_live(args: argparse.Namespace, run_date: str) -> list[dict]:
     # land inside the fetched range.
     catalyst_window = args.earnings_catalyst_window_days
     exclude_window = args.exclude_earnings_within_days
-    try:
-        center = datetime.fromisoformat(run_date).date()
-    except ValueError:
-        center = datetime.now().date()
+    center = date.fromisoformat(run_date)
     from_date = (center - timedelta(days=catalyst_window + 7)).isoformat()
     to_date = (center + timedelta(days=exclude_window + 7)).isoformat()
     raw_events = client.get_earnings_calendar(from_date, to_date) or []
@@ -472,7 +510,10 @@ def run_live(args: argparse.Namespace, run_date: str) -> list[dict]:
         if not bars_payload or "historical" not in bars_payload:
             continue
         profile = client.get_company_profile(sym) or {}
-        bars_recent_first = bars_payload["historical"]
+        bars_recent_first = _bars_on_or_before(bars_payload["historical"], center)
+        if not bars_recent_first:
+            logger.warning("No %s bars on or before --as-of %s", sym, run_date)
+            continue
         market_data_as_of = _resolve_market_data_as_of(bars_recent_first)
         earnings_meta: dict | None = None
         if market_data_as_of:
@@ -541,12 +582,24 @@ def main(argv: list[str] | None = None) -> int:
     # smoke runbook's Tier 1 PASS criterion looks for.
     for noisy in ("urllib3", "urllib3.connectionpool"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
-    as_of = args.as_of or datetime.now().date().isoformat()
+    live_date = datetime.now(ET).date()
+    as_of = args.as_of or live_date.isoformat()
+
+    if not args.dry_run and args.as_of is not None and date.fromisoformat(as_of) != live_date:
+        print(
+            "ERROR: historical --as-of is supported only with --dry-run fixture data; "
+            "the live universe and profile endpoints are not point-in-time",
+            file=sys.stderr,
+        )
+        return 2
 
     if args.dry_run:
         if not args.fixture:
             raise SystemExit("--dry-run requires --fixture <path>")
-        candidates = run_dry_run(args.fixture, args)
+        try:
+            candidates = run_dry_run(args.fixture, args, run_date=as_of)
+        except (TypeError, ValueError) as exc:
+            raise SystemExit(f"Invalid dry-run data: {exc}") from exc
         data_source = "fixture"
     else:
         candidates = run_live(args, run_date=as_of)

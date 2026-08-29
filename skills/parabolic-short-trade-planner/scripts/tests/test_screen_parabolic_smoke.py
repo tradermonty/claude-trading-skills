@@ -241,3 +241,16 @@ class TestMainCLI:
         files = sorted(p.name for p in tmp_path.iterdir())
         assert any(f.endswith(".json") for f in files)
         assert any(f.endswith(".md") for f in files)
+
+    def test_historical_live_run_fails_before_provider_access(self, tmp_path):
+        rc = screen_parabolic.main(
+            [
+                "--output-dir",
+                str(tmp_path),
+                "--as-of",
+                "2000-01-03",
+            ]
+        )
+
+        assert rc == 2
+        assert list(tmp_path.iterdir()) == []

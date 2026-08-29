@@ -154,6 +154,13 @@ The script writes `circuit_breaker_decision_YYYY-MM-DD_HHMMSS.json` and, unless 
 }
 ```
 
+## Exchange Calendar Contract
+
+Install `requirements.txt` before running the checker. Daily, weekly, and
+monthly halt dates use actual XNYS sessions. `active_until` remains compatible:
+the halt ends at 00:00 America/New_York on the next eligible session date, not
+at that session's opening bell. Use `--as-of` for deterministic evaluation.
+
 ## Resources
 
 - `scripts/check_circuit_breaker.py` - Main CLI and rule engine

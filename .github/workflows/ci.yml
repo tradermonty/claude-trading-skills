@@ -187,6 +187,9 @@ jobs:
       - name: FMP client drift check
         run: python3 scripts/generate_fmp_client.py --check
 
+      - name: Shared market calendar drift check
+        run: python3 scripts/generate_market_calendar.py --check
+
       - name: Packaged skill drift check
         run: python3 scripts/check_package_drift_for_changed_skills.py
 
@@ -223,6 +226,25 @@ jobs:
           path: workflow-replay-report.json
           if-no-files-found: warn
           retention-days: 7
+
+  market-calendar-compat:
+    name: Market calendar (Python 3.9 clean room)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Verify each standalone consumer in an isolated environment
+        run: |
+          while IFS= read -r skill
+          do
+            env_dir="${RUNNER_TEMP}/market-calendar-${skill}"
+            python3 -m venv "${env_dir}"
+            "${env_dir}/bin/pip" install -r "skills/${skill}/requirements.txt"
+            "${env_dir}/bin/python" scripts/smoke_market_calendar.py --skill "${skill}"
+          done < scripts/market_calendar/consumers.txt
 
   security:
     name: Security

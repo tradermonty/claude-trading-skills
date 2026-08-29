@@ -166,6 +166,30 @@ coverage:
 allowed_failures: {}
 
 matrix:
+  breakout-trade-planner:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the pinned shared cash-equity calendar contract.
+  drawdown-circuit-breaker:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the pinned shared cash-equity calendar contract.
+  market-environment-analysis:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the pinned shared cash-equity calendar contract.
+  market-top-detector:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the pinned shared cash-equity calendar contract.
+  parabolic-short-trade-planner:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the pinned shared cash-equity calendar contract.
+  theme-detector:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the pinned shared cash-equity calendar contract.
   canslim-screener:
     test_paths:
     - skills/canslim-screener/scripts/tests/test_fmp_fallback.py

@@ -2,7 +2,7 @@
 
 Pins behavior of:
 
-* :func:`_count_trading_days` — weekday counting (no holiday calendar).
+* :func:`_count_trading_days` — XNYS session counting.
 * :func:`_resolve_market_data_as_of` — latest-bar-date probe with FMP
   recent-first input.
 * :func:`_index_earnings_events` — defensive parser tolerating shape
@@ -14,6 +14,7 @@ Pins behavior of:
 from datetime import date
 
 from screen_parabolic import (
+    _bars_on_or_before,
     _compute_earnings_metadata,
     _count_trading_days,
     _index_earnings_events,
@@ -38,6 +39,9 @@ class TestCountTradingDays:
         # Mon → next Mon: 4 weekday gaps + the next Monday = 5 trading days.
         assert _count_trading_days(date(2026, 5, 4), date(2026, 5, 11)) == 5
 
+    def test_good_friday_is_not_a_trading_day(self):
+        assert _count_trading_days(date(2026, 4, 2), date(2026, 4, 6)) == 1
+
     def test_end_before_start_is_negative(self):
         assert _count_trading_days(date(2026, 5, 8), date(2026, 5, 6)) < 0
 
@@ -59,6 +63,14 @@ class TestResolveMarketDataAsOf:
 
     def test_missing_date_returns_none(self):
         assert _resolve_market_data_as_of([{"close": 1.0}]) is None
+
+    def test_future_and_invalid_bars_are_removed_by_as_of_ceiling(self):
+        bars = [
+            {"date": "2026-05-09", "close": 3.0},
+            {"date": "invalid", "close": 2.0},
+            {"date": "2026-05-08", "close": 1.0},
+        ]
+        assert _bars_on_or_before(bars, date(2026, 5, 8)) == [bars[2]]
 
 
 class TestIndexEarningsEvents:

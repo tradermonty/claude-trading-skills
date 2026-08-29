@@ -156,6 +156,15 @@ Top-level dates: `as_of` is the planning date (Phase 2 contract — never
 mutate); `run_date` mirrors it; `market_data_as_of` is the latest bar
 date used for technical metrics (differs from `as_of` on weekend runs).
 
+## Exchange Calendar and Replay
+
+Install `requirements.txt` before running the planner. Phase 1 `--as-of` uses
+strict `YYYY-MM-DD`, filters bars beyond that ceiling, and counts earnings age
+with XNYS sessions. Phase 3 uses actual holidays and early closes; the close
+boundary is exclusive. Historical dates are accepted only with Phase 1
+`--dry-run` fixture data; live universe and profile endpoints are not PIT and
+therefore fail closed for a non-current `--as-of`.
+
 ## Output Format
 
 Phase 1 JSON: `parabolic_short_<as_of>.json` (schema_version 1.0).

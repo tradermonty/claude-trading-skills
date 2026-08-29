@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 
 def load_history(path: Optional[str]) -> dict[str, list[dict]]:
@@ -108,8 +109,11 @@ def build_observation(theme: dict, run_date: str) -> dict:
 def resolve_run_date(value: Optional[str] = None) -> str:
     """Return YYYY-MM-DD run date."""
     if value:
-        return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
-    return datetime.now().date().isoformat()
+        parsed = datetime.strptime(value, "%Y-%m-%d").date()
+        if parsed.isoformat() != value:
+            raise ValueError("run date must be zero-padded YYYY-MM-DD")
+        return parsed.isoformat()
+    return datetime.now(ZoneInfo("America/New_York")).date().isoformat()
 
 
 def _prior_records(records: list[dict], current_date: str) -> list[dict]:

@@ -11,8 +11,11 @@ Data Source: https://github.com/tradermonty/uptrend-dashboard
 import csv
 import io
 import sys
-from datetime import datetime, timedelta
+from datetime import date
 from typing import Optional
+from zoneinfo import ZoneInfo
+
+from _market_calendar import count_sessions
 
 try:
     import requests
@@ -86,7 +89,12 @@ def _calculate_slope(values: list[float]) -> Optional[float]:
     return round(numerator / denominator, 6)
 
 
-def is_data_stale(latest_date_str: str, threshold_bdays: int = 2) -> bool:
+def is_data_stale(
+    latest_date_str: str,
+    threshold_bdays: int = 2,
+    *,
+    as_of_date: Optional[date] = None,
+) -> bool:
     """Check if the latest data is older than threshold business days.
 
     Counts only Mon-Fri as business days, so Friday data is not considered
@@ -100,22 +108,30 @@ def is_data_stale(latest_date_str: str, threshold_bdays: int = 2) -> bool:
         True if data is stale (older than threshold)
     """
     try:
-        latest = datetime.strptime(latest_date_str, "%Y-%m-%d")
-        now = datetime.now()
-        # Compare at date level to avoid intraday time issues
-        now_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        bdays = 0
-        current = latest
-        while current < now_midnight:
-            current += timedelta(days=1)
-            if current.weekday() < 5:  # Mon-Fri
-                bdays += 1
+        latest = date.fromisoformat(latest_date_str)
+        current_date = as_of_date or _live_et_date()
+        if latest > current_date:
+            return True
+        bdays = count_sessions(
+            "XNYS",
+            latest,
+            current_date,
+            include_start=False,
+            include_end=True,
+        )
         return bdays > threshold_bdays
     except (ValueError, TypeError):
         return True
 
 
-def fetch_sector_uptrend_data() -> dict[str, dict]:
+def _live_et_date() -> date:
+    """Return the live XNYS calendar date without machine-local time."""
+    from datetime import datetime
+
+    return datetime.now(ZoneInfo("America/New_York")).date()
+
+
+def fetch_sector_uptrend_data(*, as_of_date: Optional[date] = None) -> dict[str, dict]:
     """Fetch sector uptrend ratio data from timeseries CSV.
 
     Downloads the full timeseries, extracts the latest row per sector,
@@ -157,6 +173,12 @@ def fetch_sector_uptrend_data() -> dict[str, dict]:
         trend = row.get("trend", "").strip()
 
         if not date_str or ratio is None:
+            continue
+        try:
+            row_date = date.fromisoformat(date_str)
+        except ValueError:
+            continue
+        if as_of_date is not None and row_date > as_of_date:
             continue
 
         if ws not in sector_rows:

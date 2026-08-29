@@ -170,7 +170,8 @@ def test_realized_pnl_today_includes_partial_trim_and_daily_halt(tmp_path: Path)
     assert result["metrics"]["realized_pnl_today"] == -2000.0
     assert result["recommendation"] == "HALTED"
     assert result["triggered_rules"][0]["rule"] == "max_daily_loss"
-    assert result["triggered_rules"][0]["active_until"].startswith("2026-07-03T00:00:00")
+    # 2026-07-03 is the observed Independence Day holiday; next session is Monday.
+    assert result["triggered_rules"][0]["active_until"] == "2026-07-06T00:00:00-04:00"
 
 
 def test_daily_loss_below_threshold_is_allowed(tmp_path: Path):
@@ -1506,7 +1507,7 @@ def test_monthly_drawdown_halt_and_halted_priority_over_cooldown(tmp_path: Path)
     rules = {rule["rule"]: rule for rule in result["triggered_rules"]}
     assert "losing_streak_cooldown" in rules
     assert "monthly_drawdown_halt" in rules
-    assert rules["monthly_drawdown_halt"]["active_until"].startswith("2026-08-01T00:00:00")
+    assert rules["monthly_drawdown_halt"]["active_until"] == "2026-08-03T00:00:00-04:00"
 
 
 def test_json_only_cli_creates_json_without_markdown(tmp_path: Path):

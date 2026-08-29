@@ -11,8 +11,9 @@ Data source:
 
 import csv
 import io
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -21,7 +22,11 @@ DEFAULT_DETAIL_URL = "https://tradermonty.github.io/market-breadth-analysis/mark
 TIMEOUT = 30
 
 
-def fetch_breadth_200dma(url: str = DEFAULT_DETAIL_URL) -> Optional[dict]:
+def fetch_breadth_200dma(
+    url: str = DEFAULT_DETAIL_URL,
+    *,
+    as_of_date: Optional[date] = None,
+) -> Optional[dict]:
     """
     Fetch the latest 200DMA breadth value from TraderMonty CSV.
 
@@ -31,6 +36,8 @@ def fetch_breadth_200dma(url: str = DEFAULT_DETAIL_URL) -> Optional[dict]:
         None if fetch fails or CSV is empty.
     """
     rows = _fetch_detail_csv(url)
+    if as_of_date is not None:
+        rows = [row for row in rows if _row_on_or_before(row, as_of_date)]
     if not rows:
         return None
 
@@ -39,7 +46,7 @@ def fetch_breadth_200dma(url: str = DEFAULT_DETAIL_URL) -> Optional[dict]:
     value = round(raw_value * 100, 2)
     date_str = latest["Date"]
 
-    freshness = _check_data_freshness(date_str)
+    freshness = _check_data_freshness(date_str, as_of_date=as_of_date)
 
     return {
         "value": value,
@@ -75,7 +82,20 @@ def _fetch_detail_csv(url: str) -> list:
     return rows
 
 
-def _check_data_freshness(date_str: str, max_stale_days: int = 5) -> dict:
+def _row_on_or_before(row: dict, as_of_date: date) -> bool:
+    try:
+        row_date = date.fromisoformat(row["Date"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return row_date <= as_of_date
+
+
+def _check_data_freshness(
+    date_str: str,
+    max_stale_days: int = 5,
+    *,
+    as_of_date: Optional[date] = None,
+) -> dict:
     """Check if data date is within acceptable freshness window.
 
     Uses business days so Friday data remains fresh on Monday.
@@ -88,7 +108,7 @@ def _check_data_freshness(date_str: str, max_stale_days: int = 5) -> dict:
     except ValueError:
         return {"is_fresh": False, "days_old": None}
 
-    today = datetime.now().date()
+    today = as_of_date or datetime.now(ZoneInfo("America/New_York")).date()
 
     # Reject future dates
     if data_date > today:

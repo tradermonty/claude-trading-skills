@@ -4,7 +4,7 @@
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -17,7 +17,10 @@ from market_utils import (
     generate_checklist,
     get_market_session_times,
     get_market_status,
+    main,
 )
+
+UTC = ZoneInfo("UTC")
 
 
 class TestGetMarketSessionTimes:
@@ -40,6 +43,20 @@ class TestGetMarketSessionTimes:
         for market in asian_markets:
             assert result[market].get("lunch") is not None, f"{market} should have lunch break"
 
+    def test_tokyo_close_reflects_2024_jpx_cutover(self):
+        before = get_market_session_times(datetime(2024, 11, 1, 0, tzinfo=UTC))
+        after = get_market_session_times(datetime(2024, 11, 5, 0, tzinfo=UTC))
+        assert before["Tokyo"]["close"] == "15:00 JST"
+        assert after["Tokyo"]["close"] == "15:30 JST"
+
+    def test_london_and_new_york_labels_follow_dst(self):
+        summer = get_market_session_times(datetime(2026, 7, 6, 12, tzinfo=UTC))
+        winter = get_market_session_times(datetime(2026, 1, 5, 12, tzinfo=UTC))
+        assert summer["London"]["open"].endswith("BST")
+        assert winter["London"]["open"].endswith("GMT")
+        assert summer["New York"]["open"].endswith("EDT")
+        assert winter["New York"]["open"].endswith("EST")
+
     def test_western_markets_no_lunch_break(self):
         result = get_market_session_times()
         western_markets = ["London", "New York"]
@@ -56,38 +73,39 @@ class TestFormatMarketReportHeader:
         result = format_market_report_header()
         assert "Market Environment Report" in result
 
-    @patch("market_utils.datetime")
-    def test_contains_formatted_date(self, mock_datetime):
-        mock_now = datetime(2025, 3, 15, 14, 30)
-        mock_datetime.now.return_value = mock_now
-        result = format_market_report_header()
+    def test_contains_formatted_date(self):
+        result = format_market_report_header(datetime(2025, 3, 15, 14, 30, tzinfo=UTC))
         assert "2025-03-15" in result
         assert "Saturday" in result
-        assert "14:30" in result
+        assert "14:30 UTC" in result
 
 
 class TestCalculateTradingDaysToEvent:
-    @patch("market_utils.datetime")
-    def test_same_day_returns_zero(self, mock_datetime):
-        mock_datetime.now.return_value.date.return_value = datetime(2025, 3, 10).date()
-        mock_datetime.strptime = datetime.strptime
-        result = calculate_trading_days_to_event("2025-03-10")
+    def test_same_day_returns_zero(self):
+        result = calculate_trading_days_to_event(
+            "2025-03-10", datetime(2025, 3, 10, 12, tzinfo=UTC)
+        )
         assert result == 0
 
-    @patch("market_utils.datetime")
-    def test_weekend_excluded(self, mock_datetime):
+    def test_weekend_excluded(self):
         # Monday Mar 10 to Monday Mar 17 = 5 trading days
-        mock_datetime.now.return_value.date.return_value = datetime(2025, 3, 10).date()
-        mock_datetime.strptime = datetime.strptime
-        result = calculate_trading_days_to_event("2025-03-17")
+        result = calculate_trading_days_to_event(
+            "2025-03-17", datetime(2025, 3, 10, 12, tzinfo=UTC)
+        )
         assert result == 5
 
-    @patch("market_utils.datetime")
-    def test_within_week(self, mock_datetime):
+    def test_within_week(self):
         # Monday Mar 10 to Friday Mar 14 = 4 trading days
-        mock_datetime.now.return_value.date.return_value = datetime(2025, 3, 10).date()
-        mock_datetime.strptime = datetime.strptime
-        result = calculate_trading_days_to_event("2025-03-14")
+        result = calculate_trading_days_to_event(
+            "2025-03-14", datetime(2025, 3, 10, 12, tzinfo=UTC)
+        )
+        assert result == 4
+
+    def test_holiday_is_excluded(self):
+        # Mon Jun 29 through Mon Jul 6 excludes Fri Jul 3 exchange holiday.
+        result = calculate_trading_days_to_event(
+            "2026-07-06", datetime(2026, 6, 29, 12, tzinfo=UTC)
+        )
         assert result == 4
 
 
@@ -149,6 +167,32 @@ class TestGetMarketStatus:
         result = get_market_status()
         assert "Tokyo" in result
         assert "US" in result
+
+    def test_tokyo_lunch_and_us_early_close(self):
+        tokyo_lunch = datetime(2024, 11, 5, 3, 0, tzinfo=UTC)
+        assert "Tokyo Market: Lunch break" in get_market_status(tokyo_lunch)
+
+        us_early_close = datetime(2026, 11, 27, 18, 0, tzinfo=UTC)
+        assert "US Market: Closed" in get_market_status(us_early_close)
+
+    def test_holiday_is_not_treated_as_open(self):
+        good_friday = datetime(2026, 4, 3, 15, 0, tzinfo=UTC)
+        assert "US Market: Closed (non-session)" in get_market_status(good_friday)
+
+
+class TestCli:
+    def test_offset_as_of_is_accepted(self, capsys):
+        assert main(["--as-of", "2026-07-06T14:00:00Z"]) == 0
+        assert "US Market: Trading" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("value", ["2026-07-06", "not-a-date", "2026-07-06T10:00:00"])
+    def test_date_only_naive_and_invalid_as_of_are_rejected(self, value, capsys):
+        with pytest.raises(SystemExit) as exc:
+            main(["--as-of", value])
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "as-of" in captured.err
 
 
 class TestGenerateChecklist:

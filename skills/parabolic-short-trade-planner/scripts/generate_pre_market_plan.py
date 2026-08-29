@@ -25,8 +25,9 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 for _p in (
@@ -296,7 +297,17 @@ def main(argv: list[str] | None = None) -> int:
 
     with open(args.candidates_json, encoding="utf-8") as fh:
         phase1 = json.load(fh)
-    as_of = args.as_of or phase1.get("as_of") or datetime.now().date().isoformat()
+    as_of = (
+        args.as_of
+        or phase1.get("as_of")
+        or datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+    )
+    try:
+        parsed_as_of = date.fromisoformat(as_of)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit("--as-of/Phase 1 as_of must be YYYY-MM-DD") from exc
+    if parsed_as_of.isoformat() != as_of:
+        raise SystemExit("--as-of/Phase 1 as_of must be zero-padded YYYY-MM-DD")
     candidates = phase1.get("candidates", [])
 
     broker = _resolve_broker(args)

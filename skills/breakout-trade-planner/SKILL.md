@@ -84,6 +84,13 @@ Candidates must pass ALL conditions:
 - `breakout_trade_plan_YYYY-MM-DD_HHMMSS.json` — Structured plans with order templates
 - `breakout_trade_plan_YYYY-MM-DD_HHMMSS.md` — Human-readable report
 
+## Exchange Calendar and Replay
+
+Install `requirements.txt` before running the planner. `--as-of` accepts either
+`YYYY-MM-DD` (00:00 America/New_York) or an offset-bearing ISO-8601 timestamp.
+Plan validity uses the current not-yet-closed XNYS session or the next real
+session after a close, weekend, or exchange holiday.
+
 ## Resources
 
 - `references/minervini_entry_rules.md` — Entry methodology and rules

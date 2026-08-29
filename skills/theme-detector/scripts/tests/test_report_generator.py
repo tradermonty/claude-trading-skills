@@ -3,6 +3,7 @@
 import json
 import os
 import tempfile
+from datetime import date
 
 import pytest
 from report_generator import (
@@ -249,6 +250,32 @@ class TestGenerateJsonReport:
         dq = sample_json_report["data_quality"]
         assert dq["status"] == "ok"
         assert dq["flags"] == []
+
+    def test_report_freshness_uses_xnys_sessions(
+        self, sample_themes, sample_industry_rankings, sample_metadata
+    ):
+        sector = {"Technology": {"latest_date": "2026-04-02"}}
+        report = generate_json_report(
+            sample_themes,
+            sample_industry_rankings,
+            sector,
+            sample_metadata,
+            as_of_date=date(2026, 4, 6),
+        )
+        assert not any("sessions old" in flag for flag in report["data_quality"]["flags"])
+
+    def test_report_freshness_rejects_future_data(
+        self, sample_themes, sample_industry_rankings, sample_metadata
+    ):
+        sector = {"Technology": {"latest_date": "2026-04-07"}}
+        report = generate_json_report(
+            sample_themes,
+            sample_industry_rankings,
+            sector,
+            sample_metadata,
+            as_of_date=date(2026, 4, 6),
+        )
+        assert any("after the report as-of" in flag for flag in report["data_quality"]["flags"])
 
     def test_empty_themes(self, sample_industry_rankings, sample_sector_uptrend, sample_metadata):
         """Empty themes list produces warning, not error."""

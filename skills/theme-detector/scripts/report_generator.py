@@ -7,12 +7,20 @@ Generates JSON and Markdown reports for detected market themes.
 
 import json
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
+
+from _market_calendar import count_sessions
 
 
 def generate_json_report(
-    themes: list[dict], industry_rankings: dict, sector_uptrend: dict, metadata: dict
+    themes: list[dict],
+    industry_rankings: dict,
+    sector_uptrend: dict,
+    metadata: dict,
+    *,
+    as_of_date: Optional[date] = None,
 ) -> dict:
     """Create the full JSON output structure.
 
@@ -46,7 +54,13 @@ def generate_json_report(
     )
 
     # Data quality flags
-    data_quality = _assess_data_quality(themes, industry_rankings, sector_uptrend, metadata)
+    data_quality = _assess_data_quality(
+        themes,
+        industry_rankings,
+        sector_uptrend,
+        metadata,
+        as_of_date=as_of_date,
+    )
     what_changed = _summarize_what_changed_today(themes)
     leadership_evidence = _build_leadership_evidence(themes)
 
@@ -369,7 +383,12 @@ def save_reports(json_data: dict, markdown: str, output_dir: str) -> dict[str, s
 
 
 def _assess_data_quality(
-    themes: list[dict], industry_rankings: dict, sector_uptrend: dict, metadata: dict
+    themes: list[dict],
+    industry_rankings: dict,
+    sector_uptrend: dict,
+    metadata: dict,
+    *,
+    as_of_date: Optional[date] = None,
 ) -> dict:
     """Assess data quality and return flags.
 
@@ -393,10 +412,20 @@ def _assess_data_quality(
         for sector, data in sector_uptrend.items():
             if isinstance(data, dict) and data.get("latest_date"):
                 try:
-                    latest = datetime.strptime(data["latest_date"], "%Y-%m-%d")
-                    age = (datetime.now() - latest).days
+                    latest = date.fromisoformat(data["latest_date"])
+                    current_date = as_of_date or datetime.now(ZoneInfo("America/New_York")).date()
+                    if latest > current_date:
+                        flags.append(f"Uptrend data for {sector} is dated after the report as-of")
+                        break
+                    age = count_sessions(
+                        "XNYS",
+                        latest,
+                        current_date,
+                        include_start=False,
+                        include_end=True,
+                    )
                     if age > 3:
-                        flags.append(f"Uptrend data for {sector} is {age} days old")
+                        flags.append(f"Uptrend data for {sector} is {age} sessions old")
                         break  # One warning is enough
                 except (ValueError, TypeError):
                     pass

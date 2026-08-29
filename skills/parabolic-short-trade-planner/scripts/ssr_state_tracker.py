@@ -21,8 +21,10 @@ Contract notes:
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+
+from _market_calendar import previous_session_before
 
 SSR_DROP_THRESHOLD_PCT = 10.0
 
@@ -66,17 +68,14 @@ def state_path(state_dir: str | Path, ticker: str, as_of: str) -> Path:
 
 
 def load_prior_day_state(state_dir: str | Path, ticker: str, as_of: str) -> dict | None:
-    """Read yesterday's state file (if any) so today can compute carryover.
-
-    Calendar-day arithmetic is fine here — Rule 201 carryover is
-    "next trading day" but a strict trading-calendar lookup is overkill
-    for a planner that runs daily. If yesterday is a weekend, no file
-    exists and we return ``None``.
-    """
+    """Read the previous XNYS session's state for Rule 201 carryover."""
     try:
-        prior = (date.fromisoformat(as_of) - timedelta(days=1)).isoformat()
+        as_of_date = date.fromisoformat(as_of)
     except (TypeError, ValueError):
         return None
+    if as_of_date.isoformat() != as_of:
+        return None
+    prior = previous_session_before("XNYS", as_of_date).session_date.isoformat()
     p = state_path(state_dir, ticker, prior)
     if not p.exists():
         return None

@@ -70,6 +70,14 @@ python scripts/market_utils.py
 - format_percentage_change(value): Format price changes
 ```
 
+## Exchange Calendar and Replay
+
+Install `requirements.txt` before using `scripts/market_utils.py`. Its
+`--as-of` flag requires an offset-bearing ISO-8601 timestamp (or `Z`); a bare
+date is rejected because Tokyo, London, and New York status must share one
+unambiguous instant. Session status is holiday-, lunch-break-, DST-, and
+early-close-aware.
+
 ## Reference Documentation
 
 ### Key Indicators Interpretation

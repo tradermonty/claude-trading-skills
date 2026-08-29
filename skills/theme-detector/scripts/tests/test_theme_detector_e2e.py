@@ -6,6 +6,7 @@ without network calls (all I/O is mocked).
 
 import json
 import sys
+from datetime import date
 
 from calculators.heat_calculator import (
     breadth_signal_score,
@@ -263,7 +264,7 @@ class TestThemeDetectorE2E:
         monkeypatch.setattr(
             uptrend_client,
             "fetch_sector_uptrend_data",
-            lambda: {
+            lambda **_kwargs: {
                 "Technology": {
                     "ratio": 0.55,
                     "ma_10": 0.45,
@@ -274,6 +275,7 @@ class TestThemeDetectorE2E:
             },
         )
         monkeypatch.setattr(uptrend_client, "is_data_stale", lambda *_args, **_kwargs: False)
+        monkeypatch.setattr(theme_detector, "_live_market_date", lambda: date(2026, 7, 4))
 
         class FakeScanner:
             def __init__(self, *args, **kwargs):
@@ -373,6 +375,16 @@ class TestThemeDetectorE2E:
         assert "## 2. What Changed Today" in markdown
         assert "## 3. Leadership Evidence" in markdown
         assert json.loads(history_file.read_text()) == history_payload
+
+    def test_historical_live_as_of_fails_before_provider_access(self, capsys):
+        import theme_detector
+
+        rc = theme_detector.main(["--as-of-date", "2000-01-03"])
+
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "not point-in-time" in captured.err
+        assert captured.out == ""
 
     def test_discover_path_finds_unmatched_clusters(self):
         """Discover path finds themes from unmatched industries."""

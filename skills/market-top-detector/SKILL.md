@@ -161,6 +161,13 @@ Present the generated Markdown report to the user, highlighting:
 
 ---
 
+## Exchange Calendar and Replay
+
+Install `requirements.txt` before running the detector. Freshness uses XNYS
+sessions rather than weekdays. `--as-of YYYY-MM-DD` is accepted for the live
+evaluation date, but historical live replay fails closed because the current
+quote endpoints are not point-in-time sources.
+
 ## API Requirements
 
 **Required:** FMP API key (free tier sufficient: ~33 calls per execution)

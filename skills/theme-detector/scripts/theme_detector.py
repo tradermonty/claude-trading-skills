@@ -21,7 +21,8 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 # Ensure scripts directory is on the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -237,7 +238,14 @@ INDUSTRY_TO_SECTOR: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # CLI argument parsing
 # ---------------------------------------------------------------------------
-def parse_args() -> argparse.Namespace:
+def _as_of_date_arg(value: str) -> str:
+    try:
+        return resolve_run_date(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be zero-padded YYYY-MM-DD") from exc
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Detect trending market themes from FINVIZ industry data"
     )
@@ -326,10 +334,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--as-of-date",
+        type=_as_of_date_arg,
         default=None,
         help="Run date for deterministic history/scan processing (YYYY-MM-DD)",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +543,22 @@ def _theme_selection_priority(theme: dict, match_detail: dict | None = None) -> 
 # ---------------------------------------------------------------------------
 # Main orchestrator
 # ---------------------------------------------------------------------------
-def main():
+def _live_market_date() -> date:
+    return datetime.now(ZoneInfo("America/New_York")).date()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    run_date = args.as_of_date or _live_market_date().isoformat()
+    run_date_value = date.fromisoformat(run_date)
+    if args.as_of_date is not None and run_date_value != _live_market_date():
+        print(
+            "ERROR: historical --as-of-date is unavailable because FINVIZ, quote, "
+            "profile, and uptrend live sources are not point-in-time",
+            file=sys.stderr,
+        )
+        return 2
+
     # Lazy imports: these modules depend on pandas/numpy/yfinance/finvizfinance
     # and are only needed at runtime, not when importing helpers for testing.
     from calculators.theme_classifier import deduplicate_themes, enrich_vertical_themes
@@ -543,8 +567,6 @@ def main():
     from finviz_performance_client import cap_outlier_performances, get_industry_performance
     from uptrend_client import fetch_sector_uptrend_data, is_data_stale
 
-    args = parse_args()
-    run_date = resolve_run_date(args.as_of_date)
     output_dir = _resolve_output_dir(args.output_dir)
     history_file = args.history_file or os.path.join(output_dir, "theme_detector_history.json")
     history = load_history(history_file)
@@ -669,7 +691,7 @@ def main():
     else:
         metadata["data_sources"]["narrative_scores"] = {"path": None, "themes": 0}
 
-    scanner = ETFScanner(fmp_api_key=args.fmp_api_key)
+    scanner = ETFScanner(fmp_api_key=args.fmp_api_key, as_of_date=run_date_value)
 
     preselection_etfs = sorted(
         {etf for theme in themes for etf in theme.get("proxy_etfs", []) if etf}
@@ -806,18 +828,28 @@ def main():
     # Step 7: Fetch uptrend-dashboard data
     # -----------------------------------------------------------------------
     print("Fetching uptrend ratio data...", file=sys.stderr)
-    sector_uptrend = fetch_sector_uptrend_data()
+    sector_uptrend = fetch_sector_uptrend_data(as_of_date=run_date_value)
     stale_data = False
 
     if sector_uptrend:
-        # Check freshness from any sector's latest_date
-        any_sector = next(iter(sector_uptrend.values()), {})
-        latest_date = any_sector.get("latest_date", "")
-        stale_data = is_data_stale(latest_date, threshold_bdays=2)
+        stale_sectors = [
+            sector
+            for sector, values in sector_uptrend.items()
+            if is_data_stale(
+                values.get("latest_date", ""),
+                threshold_bdays=2,
+                as_of_date=run_date_value,
+            )
+        ]
+        stale_data = bool(stale_sectors)
         if stale_data:
-            print(f"  WARNING: Uptrend data is stale (latest: {latest_date})", file=sys.stderr)
+            print(
+                "  WARNING: Uptrend data is stale for: " + ", ".join(stale_sectors),
+                file=sys.stderr,
+            )
         metadata["data_sources"]["uptrend_sectors"] = len(sector_uptrend)
         metadata["data_sources"]["uptrend_stale"] = stale_data
+        metadata["data_sources"]["uptrend_stale_sectors"] = stale_sectors
     else:
         print("  WARNING: Uptrend data unavailable", file=sys.stderr)
         metadata["data_sources"]["uptrend_error"] = "fetch failed"
@@ -1044,7 +1076,13 @@ def main():
     # -----------------------------------------------------------------------
     print("Generating reports...", file=sys.stderr)
 
-    json_report = generate_json_report(scored_themes, industry_rankings, sector_uptrend, metadata)
+    json_report = generate_json_report(
+        scored_themes,
+        industry_rankings,
+        sector_uptrend,
+        metadata,
+        as_of_date=run_date_value,
+    )
     md_report = generate_markdown_report(json_report, top_n_detail=args.top)
 
     paths = save_reports(json_report, md_report, output_dir)
@@ -1061,6 +1099,7 @@ def main():
 
     # Print JSON to stdout for programmatic consumption
     print(json.dumps(json_report, indent=2, default=str))
+    return 0
 
 
 def _average_industry_perfs(industries: list[dict]) -> dict:
@@ -1077,4 +1116,4 @@ def _average_industry_perfs(industries: list[dict]) -> dict:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

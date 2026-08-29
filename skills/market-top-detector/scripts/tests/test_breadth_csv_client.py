@@ -1,6 +1,6 @@
 """Tests for Breadth CSV Client (TraderMonty auto-fetch)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -47,6 +47,24 @@ class TestFetchBreadth200dma:
         mock_get.return_value = _mock_response(SAMPLE_CSV)
         result = fetch_breadth_200dma()
         assert result["date"] == "2026-02-18"
+
+    @patch("breadth_csv_client.requests.get")
+    def test_as_of_selects_latest_non_future_row(self, mock_get):
+        mock_get.return_value = _mock_response(SAMPLE_CSV)
+
+        result = fetch_breadth_200dma(as_of_date=date(2026, 2, 16))
+
+        assert result is not None
+        assert result["date"] == "2026-02-14"
+        assert result["value"] == 62.0
+
+    @patch("breadth_csv_client.requests.get")
+    def test_as_of_with_only_future_rows_returns_none(self, mock_get):
+        mock_get.return_value = _mock_response(SAMPLE_CSV)
+
+        result = fetch_breadth_200dma(as_of_date=date(2026, 2, 13))
+
+        assert result is None
 
     @patch("breadth_csv_client.requests.get")
     @patch("breadth_csv_client.datetime")
