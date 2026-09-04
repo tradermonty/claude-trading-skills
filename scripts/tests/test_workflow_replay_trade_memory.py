@@ -42,16 +42,17 @@ def test_trade_memory_spec_has_honest_executor_evidence() -> None:
     }
 
 
-def test_coverage_includes_trade_memory_at_four_of_eleven() -> None:
+def test_coverage_includes_trade_memory_at_five_of_eleven() -> None:
     summary = replay_module.validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
+        "core-portfolio-weekly",
         "market-regime-daily",
         "stockbee-20pct-study-daily",
         "stockbee-fluency-loop",
         "trade-memory-loop",
     ]
-    assert len(summary["deferred"]) == 7
+    assert len(summary["deferred"]) == 6
     assert "trade-memory-loop" not in summary["deferred"]
 
 
@@ -441,6 +442,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
     monkeypatch.setattr(replay_module, "_publish_trees_transactionally", capture_publication)
     result = generate_goldens(ROOT, COVERAGE)
     assert result["generated"] == [
+        "core-portfolio-weekly:required-only",
+        "core-portfolio-weekly:full-path",
         "market-regime-daily:required-only",
         "market-regime-daily:full-path",
         "stockbee-20pct-study-daily:required-only",
@@ -451,6 +454,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
         "trade-memory-loop:full-path",
     ]
     assert staged_destinations == [
+        "sample-run",
+        "sample-run-full-path",
         "sample-run",
         "sample-run-full-path",
         "sample-run",

@@ -1,0 +1,71 @@
+schema_version: 1
+workflow_id: core-portfolio-weekly
+fixed_timestamp: "2026-06-27T16:00:00+00:00"
+
+inputs:
+  holdings_snapshot: replay-inputs/holdings-snapshot.json
+  allocation_decision: replay-inputs/allocation-decision.yaml
+  dividend_enrichment: replay-inputs/dividend-enrichment.json
+  rebalance_decision_required: replay-inputs/rebalance-decision-required.yaml
+  rebalance_decision_full: replay-inputs/rebalance-decision-full.yaml
+  journal_decision_required: replay-inputs/journal-decision-required.yaml
+  journal_decision_full: replay-inputs/journal-decision-full.yaml
+
+steps:
+  - step: 1
+    executor: core_portfolio_snapshot
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      holdings_snapshot:
+        canonical: 01_holdings_snapshot.json
+
+  - step: 2
+    executor: core_portfolio_allocation
+    executor_mode: manual_contract
+    gate_policy: record_only
+    output_files:
+      allocation_report:
+        canonical: 02_allocation_report.json
+        companion: 02_allocation_report.md
+
+  - step: 3
+    executor: core_portfolio_dividend
+    executor_mode: native_api
+    gate_policy: continue
+    output_files:
+      dividend_review_findings:
+        canonical: 03_dividend_review_findings.json
+
+  - step: 4
+    executor: core_portfolio_rebalance
+    executor_mode: manual_contract
+    gate_policy: record_only
+    output_files:
+      rebalance_actions:
+        canonical: 04_rebalance_actions.yaml
+
+  - step: 5
+    executor: core_portfolio_journal
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      weekly_journal_entry:
+        canonical: 05_weekly_journal_entry.yaml
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 4
+      - 5
+    golden_dir: sample-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+    golden_dir: sample-run-full-path

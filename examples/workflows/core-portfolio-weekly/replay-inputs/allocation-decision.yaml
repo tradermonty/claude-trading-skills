@@ -1,0 +1,16 @@
+schema_version: 1
+snapshot_sha256: 194504c3a57abd5daaecc568a3ff07647401ba1d77e83c8a9308ea4972d86a3b  # pragma: allowlist secret
+targets:
+  - bucket: FICTA
+    target_pct: 25.0
+  - bucket: FICTB
+    target_pct: 30.0
+  - bucket: FICTC
+    target_pct: 30.0
+  - bucket: CASH
+    target_pct: 15.0
+human_decision:
+  human_approved: true
+  execution_authorized: false
+  decision: REBALANCE_PROPOSED
+  rationale: Reduce the fictional FICTA allocation by five percentage points and restore the cash target.

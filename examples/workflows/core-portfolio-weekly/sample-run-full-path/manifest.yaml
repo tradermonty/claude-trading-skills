@@ -1,51 +1,62 @@
 workflow_id: core-portfolio-weekly
 sample_type: full-path
+status: completed
+completed_steps:
+- 1
+- 2
+- 3
+- 4
+- 5
+required_steps_not_executed: []
 illustrative: true
+generated_by: scripts/workflow_replay.py generate
 prompt: prompt.md
-
+network_policy: offline-input-required
 optional_steps_skipped: []
-
-verification_inputs:
-  - file: 03_dividend_monitor_input.json
-    purpose: deterministic input to kanchi-dividend-review-monitor
-
 artifacts:
-  - step: 1
-    artifact_id: holdings_snapshot
-    skill: portfolio-manager
-    files:
-      canonical: 01_holdings_snapshot.json
-  - step: 2
-    artifact_id: allocation_report
-    skill: portfolio-manager
-    files:
-      canonical: 02_allocation_report.json
-      companion: 02_allocation_report.md
-  - step: 3
-    artifact_id: dividend_review_findings
-    skill: kanchi-dividend-review-monitor
-    files:
-      canonical: 03_dividend_review_findings.json
-  - step: 4
-    artifact_id: rebalance_actions
-    skill: portfolio-manager
-    files:
-      canonical: 04_rebalance_actions.yaml
-  - step: 5
-    artifact_id: weekly_journal_entry
-    skill: trader-memory-core
-    files:
-      canonical: 05_weekly_journal_entry.yaml
-
-verification:
-  data_date: "2026-06-27"
-  expected:
-    equity: 100000.0
-    positions_market_value: 90000.0
-    cash: 10000.0
-    allocation_total_pct: 100.0
-    dividend_warn_symbol: FICTC
-    dividend_warn_trigger: T2
-    action_symbol: FICTA
-    shares_to_trim: 50
-    projected_cash_pct: 15.0
+- step: 1
+  artifact_id: holdings_snapshot
+  skill: portfolio-manager
+  execution_mode: manual_contract
+  files:
+    canonical: 01_holdings_snapshot.json
+- step: 2
+  artifact_id: allocation_report
+  skill: portfolio-manager
+  execution_mode: manual_contract
+  files:
+    canonical: 02_allocation_report.json
+    companion: 02_allocation_report.md
+- step: 3
+  artifact_id: dividend_review_findings
+  skill: kanchi-dividend-review-monitor
+  execution_mode: native_api
+  files:
+    canonical: 03_dividend_review_findings.json
+- step: 4
+  artifact_id: rebalance_actions
+  skill: portfolio-manager
+  execution_mode: manual_contract
+  files:
+    canonical: 04_rebalance_actions.yaml
+- step: 5
+  artifact_id: weekly_journal_entry
+  skill: trader-memory-core
+  execution_mode: manual_contract
+  files:
+    canonical: 05_weekly_journal_entry.yaml
+execution_evidence:
+  native_portfolio_manager_executed: false
+  native_trader_memory_append_executed: false
+  native_dividend_rule_api_executed: true
+  broker_or_live_api_calls: false
+  execution_authorized: false
+execution_evidence_limitations:
+- Holdings, target allocation, rebalance, and journal decisions are fictional manual
+  contracts sealed to upstream artifact SHA-256 values.
+- Allocation and projected-weight arithmetic is recomputed, but Portfolio Manager
+  has no offline native decision API and is not claimed as executed.
+- The optional full path calls the native Kanchi dividend rule API after joining enrichment
+  to the step-1 snapshot identity.
+- The journal is staged transactionally; Trader Memory Core is not mutated and no
+  broker order is placed or authorized.
