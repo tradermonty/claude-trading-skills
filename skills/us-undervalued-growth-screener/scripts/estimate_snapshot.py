@@ -32,7 +32,8 @@ from typing import Any
 
 MANIFEST_NAME = "snapshot-manifest.json"
 UNIVERSE_NAME = "universe.jsonl"
-SNAPSHOT_SCHEMA_VERSION = 1
+ENUMERATION_AUDIT_NAME = "listing-enumeration-audit.json"
+SNAPSHOT_SCHEMA_VERSION = 2
 
 # Per-symbol classification buckets. Precedence when several apply:
 # excluded > unit_mismatch > no_estimates > negative_eps > evaluable.
@@ -68,6 +69,7 @@ def create_snapshot(
     *,
     shard_count: int,
     as_of: datetime,
+    enumeration_audit: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Freeze the universe and initialize an empty manifest."""
     if shard_count <= 0:
@@ -82,6 +84,13 @@ def create_snapshot(
         for row in ordered:
             handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
     sha = _universe_sha256(ordered)
+    enumeration_sha256: str | None = None
+    if enumeration_audit is not None:
+        enumeration_bytes = (
+            json.dumps(dict(enumeration_audit), indent=2, ensure_ascii=False) + "\n"
+        ).encode("utf-8")
+        (snapshot_dir / ENUMERATION_AUDIT_NAME).write_bytes(enumeration_bytes)
+        enumeration_sha256 = hashlib.sha256(enumeration_bytes).hexdigest()
     manifest = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "snapshot_id": (
@@ -90,6 +99,8 @@ def create_snapshot(
         "created_at": as_of.astimezone(timezone.utc).isoformat(),
         "universe_sha256": sha,
         "universe_count": len(ordered),
+        "listing_enumeration_audit_sha256": enumeration_sha256,
+        "normalization_policy": "current_only_per_retrieval",
         "shard_count": shard_count,
         "shards": {
             str(index): {"status": "pending", "attempted": 0, "classified": {}}
@@ -149,6 +160,85 @@ def load_verified_universe(snapshot_dir: Path, manifest: Mapping[str, Any]) -> l
             "universe may have been modified; create a new snapshot instead"
         )
     return rows
+
+
+def load_verified_enumeration(
+    snapshot_dir: Path, manifest: Mapping[str, Any]
+) -> tuple[dict[str, Any], str]:
+    """Load and semantically verify the listing-enumeration proof bound by the manifest."""
+    path = snapshot_dir / ENUMERATION_AUDIT_NAME
+    data = path.read_bytes()
+    actual_sha = hashlib.sha256(data).hexdigest()
+    if actual_sha != manifest.get("listing_enumeration_audit_sha256"):
+        raise ValueError("listing enumeration audit SHA-256 does not match the manifest")
+    audit = json.loads(data)
+    if not isinstance(audit, Mapping):
+        raise ValueError("listing enumeration audit is not a JSON object")
+    audit = dict(audit)
+    requested = [str(value).upper() for value in (audit.get("requested_exchanges") or [])]
+    retrieved = [str(value).upper() for value in (audit.get("retrieved_exchanges") or [])]
+    bands = [dict(row) for row in (audit.get("bands") or []) if isinstance(row, Mapping)]
+    band_exchanges = {str(row.get("exchange") or "").upper() for row in bands}
+    try:
+        minimum = float(audit["requested_min_market_cap"])
+        maximum = float(audit["requested_max_market_cap"])
+        min_price = float(audit["min_price"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("listing enumeration audit lacks an explicit numeric scope") from exc
+    bands_well_formed = True
+    ranges_by_exchange: dict[str, list[tuple[float, float]]] = {
+        exchange: [] for exchange in requested
+    }
+    for row in bands:
+        exchange = str(row.get("exchange") or "").upper()
+        try:
+            band_minimum = float(row["min_market_cap"])
+            band_maximum = float(row["max_market_cap"])
+        except (KeyError, TypeError, ValueError):
+            bands_well_formed = False
+            continue
+        if (
+            exchange not in ranges_by_exchange
+            or band_minimum >= band_maximum
+            or row.get("provider_exhausted") is not True
+        ):
+            bands_well_formed = False
+            continue
+        ranges_by_exchange[exchange].append((band_minimum, band_maximum))
+
+    def covers_requested_range(ranges: Sequence[tuple[float, float]]) -> bool:
+        cursor = minimum
+        for band_minimum, band_maximum in sorted(ranges):
+            if band_maximum < minimum or band_minimum > maximum:
+                continue
+            clipped_minimum = max(band_minimum, minimum)
+            clipped_maximum = min(band_maximum, maximum)
+            if clipped_minimum > cursor:
+                return False
+            cursor = max(cursor, clipped_maximum)
+        return cursor >= maximum
+
+    bands_cover_scope = bands_well_formed and all(
+        covers_requested_range(ranges_by_exchange[exchange]) for exchange in requested
+    )
+    valid = (
+        audit.get("method") == "adaptive_market_cap_bands"
+        and audit.get("retrieval_scope_explicit") is True
+        and audit.get("pagination_exhausted") is True
+        and audit.get("enumeration_verified") is True
+        and int(audit.get("saturated_leaf_count") or 0) == 0
+        and int(audit.get("row_count") or -1) == int(manifest.get("universe_count") or -2)
+        and bool(requested)
+        and sorted(set(requested)) == sorted(set(retrieved))
+        and set(requested).issubset(band_exchanges)
+        and bool(bands)
+        and bands_cover_scope
+        and minimum < maximum
+        and min_price >= 0
+    )
+    if not valid:
+        raise ValueError("listing enumeration audit does not prove the complete requested scope")
+    return audit, actual_sha
 
 
 def shard_path(snapshot_dir: Path, shard_index: int) -> Path:
@@ -221,6 +311,9 @@ def update_shard(
     oldest_retrieved_at: str | None = None,
     newest_retrieved_at: str | None = None,
     retrieval_time_unknown: int = 0,
+    oldest_normalization_as_of: str | None = None,
+    newest_normalization_as_of: str | None = None,
+    normalization_time_unknown: int = 0,
 ) -> dict[str, Any]:
     if status not in {"pending", "partial", "complete"}:
         raise ValueError(f"unknown shard status {status!r}")
@@ -236,6 +329,9 @@ def update_shard(
         "oldest_retrieved_at": oldest_retrieved_at,
         "newest_retrieved_at": newest_retrieved_at,
         "retrieval_time_unknown": retrieval_time_unknown,
+        "oldest_normalization_as_of": oldest_normalization_as_of,
+        "newest_normalization_as_of": newest_normalization_as_of,
+        "normalization_time_unknown": normalization_time_unknown,
         "shard_sha256": shard_sha256,
         "classified": dict(sorted(classified.items())),
     }
@@ -252,6 +348,7 @@ def snapshot_status(manifest: Mapping[str, Any]) -> dict[str, Any]:
     attempted_total = 0
     fetch_failed_total = 0
     retrieval_time_unknown_total = 0
+    normalization_time_unknown_total = 0
     oldest_retrieved: str | None = None
     newest_retrieved: str | None = None
     for entry in shards.values():
@@ -260,6 +357,7 @@ def snapshot_status(manifest: Mapping[str, Any]) -> dict[str, Any]:
         attempted_total += int(entry.get("attempted") or 0)
         fetch_failed_total += int(entry.get("fetch_failed") or 0)
         retrieval_time_unknown_total += int(entry.get("retrieval_time_unknown") or 0)
+        normalization_time_unknown_total += int(entry.get("normalization_time_unknown") or 0)
         oldest = entry.get("oldest_retrieved_at")
         if (
             isinstance(oldest, str)
@@ -284,8 +382,12 @@ def snapshot_status(manifest: Mapping[str, Any]) -> dict[str, Any]:
     # SEPARATE readiness axes — a shard full of unknown-provenance rows must
     # never look screenable, and staleness is judged from the ACTUAL
     # oldest/newest retrieval stamps, not the operator-supplied as_of.
-    freshness_provenance_complete = retrieval_time_unknown_total == 0 and (
-        attempted_total == 0 or (oldest_retrieved is not None and newest_retrieved is not None)
+    freshness_provenance_complete = (
+        retrieval_time_unknown_total == 0
+        and normalization_time_unknown_total == 0
+        and (
+            attempted_total == 0 or (oldest_retrieved is not None and newest_retrieved is not None)
+        )
     )
     return {
         "snapshot_id": manifest.get("snapshot_id"),
@@ -295,6 +397,7 @@ def snapshot_status(manifest: Mapping[str, Any]) -> dict[str, Any]:
         "attempted_total": attempted_total,
         "fetch_failed_total": fetch_failed_total,
         "retrieval_time_unknown_total": retrieval_time_unknown_total,
+        "normalization_time_unknown_total": normalization_time_unknown_total,
         "oldest_retrieved_at": oldest_retrieved,
         "newest_retrieved_at": newest_retrieved,
         "classified_totals": totals,
@@ -316,18 +419,37 @@ def snapshot_status(manifest: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def verify_snapshot(
+def _rows_from_bytes(data: bytes, *, path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for line_no, raw in enumerate(data.decode("utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        value = json.loads(raw)
+        if not isinstance(value, Mapping):
+            raise ValueError(f"{path}:{line_no} is not a JSON object")
+        rows.append(dict(value))
+    return rows
+
+
+def load_verified_snapshot(
     snapshot_dir: Path,
     *,
     screening_as_of: datetime,
     max_staleness_days: float,
     clock_skew_seconds: float = 300.0,
 ) -> dict[str, Any]:
-    """Deep readiness verification against the ACTUAL snapshot contents.
+    """Return a verification verdict and the rows read by that verification.
 
     ``snapshot_status`` trusts the manifest's own counters; a tampered,
     truncated or swapped ``shard-*.jsonl`` would sail through it. This
-    function re-reads every shard file and verifies, symbol by symbol:
+    function reads each artifact exactly once, verifies it symbol by symbol,
+    and returns only those in-memory rows.  The consumer therefore cannot
+    verify one set of bytes and later screen a different set of shard bytes.
+
+    The returned ``verification_digest`` binds the exact manifest bytes, the
+    canonical frozen-universe SHA-256, and every actual shard SHA-256.
+
+    Verification checks:
 
     - the frozen universe itself (schema/count/uniqueness/SHA-256);
     - each shard file's SHA-256 against the manifest;
@@ -347,27 +469,65 @@ def verify_snapshot(
     """
     if max_staleness_days <= 0:
         raise ValueError("max_staleness_days must be positive")
-    manifest = load_manifest(snapshot_dir)
+    manifest_path = snapshot_dir / MANIFEST_NAME
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    if not isinstance(manifest, Mapping):
+        raise ValueError(f"{manifest_path} is not a JSON object")
+    manifest = dict(manifest)
+    if int(manifest.get("schema_version") or 0) != SNAPSHOT_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported snapshot manifest schema_version {manifest.get('schema_version')!r}"
+        )
     problems: list[str] = []
     try:
-        universe = load_verified_universe(snapshot_dir, manifest)
-    except ValueError as exc:
+        universe_path = snapshot_dir / UNIVERSE_NAME
+        universe = _rows_from_bytes(universe_path.read_bytes(), path=universe_path)
+        expected_count = int(manifest.get("universe_count") or -1)
+        if len(universe) != expected_count:
+            raise ValueError(
+                f"universe.jsonl has {len(universe)} rows but the manifest froze {expected_count}"
+            )
+        universe_symbols = [str(row.get("symbol") or "") for row in universe]
+        if "" in universe_symbols or len(set(universe_symbols)) != len(universe_symbols):
+            raise ValueError("universe.jsonl symbols are missing or not unique")
+        universe_sha = _universe_sha256(universe)
+        if universe_sha != manifest.get("universe_sha256"):
+            raise ValueError(
+                "universe.jsonl does not match the frozen universe_sha256 — the snapshot "
+                "universe may have been modified; create a new snapshot instead"
+            )
+    except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         universe = []
+        universe_sha = None
         problems.append(str(exc))
     expected_symbols = {str(row.get("symbol") or "") for row in universe}
     shard_count = int(manifest.get("shard_count") or 0)
     seen: dict[str, int] = {}
     row_stamps: list[datetime] = []
     unknown_stamp_rows = 0
+    normalization_stamps: list[datetime] = []
+    unknown_normalization_rows = 0
+    verified_rows: list[dict[str, Any]] = []
+    actual_shard_hashes: dict[str, str | None] = {}
+    try:
+        enumeration_audit, enumeration_sha = load_verified_enumeration(snapshot_dir, manifest)
+    except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        enumeration_audit = {}
+        enumeration_sha = None
+        problems.append(str(exc))
     for index in range(shard_count):
         entry = (manifest.get("shards") or {}).get(str(index)) or {}
         path = shard_path(snapshot_dir, index)
         if not path.exists():
+            actual_shard_hashes[str(index)] = None
             if int(entry.get("attempted") or 0) > 0:
                 problems.append(f"shard {index}: file missing but manifest records rows")
             continue
+        shard_bytes = path.read_bytes()
         recorded_sha = entry.get("shard_sha256")
-        actual_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        actual_sha = hashlib.sha256(shard_bytes).hexdigest()
+        actual_shard_hashes[str(index)] = actual_sha
         if not (isinstance(recorded_sha, str) and recorded_sha):
             # A shard collected before SHA recording existed must be
             # backfilled (a zero-collect --resume re-records it) or
@@ -376,7 +536,17 @@ def verify_snapshot(
         elif recorded_sha != actual_sha:
             problems.append(f"shard {index}: file SHA-256 does not match the manifest")
         recount: dict[str, int] = {}
-        for row in load_shard_rows(snapshot_dir, index):
+        shard_normalization_stamps: list[str] = []
+        shard_unknown_normalization = 0
+        shard_rows = _rows_from_bytes(shard_bytes, path=path)
+        expected_in_shard = sum(
+            1 for symbol in expected_symbols if stable_shard(symbol, shard_count) == index
+        )
+        if int(entry.get("attempted") or 0) != len(shard_rows):
+            problems.append(f"shard {index}: manifest attempted count does not match the file")
+        if int(entry.get("expected") or 0) != expected_in_shard:
+            problems.append(f"shard {index}: manifest expected count does not match the universe")
+        for row in shard_rows:
             symbol = str(row.get("symbol") or "")
             if not symbol:
                 problems.append(f"shard {index}: row without a symbol")
@@ -389,6 +559,8 @@ def verify_snapshot(
                 problems.append(f"shard {index}: {symbol} is not in the frozen universe")
             if shard_count and stable_shard(symbol, shard_count) != index:
                 problems.append(f"shard {index}: {symbol} belongs to another shard")
+            if row.get("snapshot_shard") != index:
+                problems.append(f"shard {index}: {symbol} carries the wrong snapshot_shard")
             name = str(row.get("snapshot_classification") or "")
             if name not in CLASSIFICATIONS:
                 problems.append(f"shard {index}: {symbol} has classification {name!r}")
@@ -405,9 +577,42 @@ def verify_snapshot(
                     row_stamps.append(stamp_dt)
             else:
                 unknown_stamp_rows += 1
+            normalization_stamp = row.get("snapshot_normalization_as_of")
+            if isinstance(normalization_stamp, str) and normalization_stamp:
+                try:
+                    normalization_dt = datetime.fromisoformat(normalization_stamp)
+                except ValueError:
+                    problems.append(
+                        f"shard {index}: {symbol} has unparsable snapshot_normalization_as_of"
+                    )
+                else:
+                    if normalization_dt.tzinfo is None:
+                        normalization_dt = normalization_dt.replace(tzinfo=timezone.utc)
+                    normalization_stamps.append(normalization_dt)
+                    shard_normalization_stamps.append(normalization_dt.isoformat())
+            else:
+                unknown_normalization_rows += 1
+                shard_unknown_normalization += 1
+            verified_rows.append(row)
         recorded = {key: int(value or 0) for key, value in (entry.get("classified") or {}).items()}
         if recorded != recount:
             problems.append(f"shard {index}: manifest classification counts do not match the file")
+        recorded_oldest_normalization = entry.get("oldest_normalization_as_of")
+        recorded_newest_normalization = entry.get("newest_normalization_as_of")
+        actual_shard_oldest = (
+            min(shard_normalization_stamps) if shard_normalization_stamps else None
+        )
+        actual_shard_newest = (
+            max(shard_normalization_stamps) if shard_normalization_stamps else None
+        )
+        if (
+            recorded_oldest_normalization != actual_shard_oldest
+            or recorded_newest_normalization != actual_shard_newest
+            or int(entry.get("normalization_time_unknown") or 0) != shard_unknown_normalization
+        ):
+            problems.append(
+                f"shard {index}: manifest normalization provenance does not match the file"
+            )
     missing = expected_symbols - set(seen)
     if missing:
         problems.append(
@@ -415,6 +620,10 @@ def verify_snapshot(
         )
     if unknown_stamp_rows:
         problems.append(f"{unknown_stamp_rows} rows carry no retrieval stamp (unknown provenance)")
+    if unknown_normalization_rows:
+        problems.append(
+            f"{unknown_normalization_rows} rows carry no normalization as-of (unknown provenance)"
+        )
     status = snapshot_status(manifest)
     # Freshness is judged from the stamps RE-AGGREGATED out of the shard
     # rows themselves (the manifest's own bounds are informational only),
@@ -428,23 +637,79 @@ def verify_snapshot(
     no_future_retrievals = actual_newest is not None and actual_newest <= (
         screening_as_of + timedelta(seconds=float(clock_skew_seconds))
     )
-    verified = not problems
-    return {
+    actual_oldest_normalization = min(normalization_stamps) if normalization_stamps else None
+    actual_newest_normalization = max(normalization_stamps) if normalization_stamps else None
+    normalization_current = (
+        actual_oldest_normalization is not None
+        and actual_oldest_normalization
+        >= screening_as_of - timedelta(days=float(max_staleness_days))
+    )
+    no_future_normalization = (
+        actual_newest_normalization is not None
+        and actual_newest_normalization
+        <= screening_as_of + timedelta(seconds=float(clock_skew_seconds))
+    )
+    binding = {
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "universe_sha256": universe_sha,
+        "listing_enumeration_audit_sha256": enumeration_sha,
+        "shard_sha256": actual_shard_hashes,
+    }
+    verification_digest = hashlib.sha256(
+        json.dumps(binding, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    contents_verified = not problems
+    verdict = {
         **status,
         "screening_as_of": screening_as_of.astimezone(timezone.utc).isoformat(),
         "max_staleness_days": float(max_staleness_days),
         "clock_skew_seconds": float(clock_skew_seconds),
         "verified_oldest_retrieved_at": actual_oldest.isoformat() if actual_oldest else None,
         "verified_newest_retrieved_at": actual_newest.isoformat() if actual_newest else None,
+        "verified_oldest_normalization_as_of": (
+            actual_oldest_normalization.isoformat() if actual_oldest_normalization else None
+        ),
+        "verified_newest_normalization_as_of": (
+            actual_newest_normalization.isoformat() if actual_newest_normalization else None
+        ),
         "staleness_ok": staleness_ok,
         "no_future_retrievals": no_future_retrievals,
+        "normalization_current": normalization_current,
+        "no_future_normalization": no_future_normalization,
+        "listing_enumeration": enumeration_audit,
+        "listing_enumeration_verified": bool(enumeration_audit),
         "problem_count": len(problems),
         "problems": problems[:50],
-        "contents_verified": verified,
+        "contents_verified": contents_verified,
+        "snapshot_verification_digest": verification_digest,
+        "verification_binding": binding,
         "ready_for_screening": (
-            verified
+            contents_verified
             and bool(status.get("collection_ready"))
             and staleness_ok
             and no_future_retrievals
+            and normalization_current
+            and no_future_normalization
         ),
     }
+    return {
+        "verdict": verdict,
+        "verification_digest": verification_digest,
+        "rows": verified_rows if verdict["ready_for_screening"] else [],
+    }
+
+
+def verify_snapshot(
+    snapshot_dir: Path,
+    *,
+    screening_as_of: datetime,
+    max_staleness_days: float,
+    clock_skew_seconds: float = 300.0,
+) -> dict[str, Any]:
+    """Deep readiness verdict; use ``load_verified_snapshot`` when screening."""
+    return load_verified_snapshot(
+        snapshot_dir,
+        screening_as_of=screening_as_of,
+        max_staleness_days=max_staleness_days,
+        clock_skew_seconds=clock_skew_seconds,
+    )["verdict"]

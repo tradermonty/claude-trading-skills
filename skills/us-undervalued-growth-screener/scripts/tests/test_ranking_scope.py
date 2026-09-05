@@ -94,6 +94,7 @@ def _audit(
     unresolved: int = 0,
     probe: int = 35,
     evaluable: int = 98,
+    snapshot_verified: bool = False,
 ) -> dict:
     return {
         "universe": {"row_count": universe},
@@ -109,6 +110,12 @@ def _audit(
                     "universe_symbol_count": universe,
                 },
                 "quality_probe": {"attempted": [f"S{i}" for i in range(probe)]},
+                "snapshot_verification": {
+                    "ready_for_screening": snapshot_verified,
+                    "snapshot_verification_digest": "a" * 64 if snapshot_verified else None,
+                    "classification_matches_universe": snapshot_verified,
+                    "classified_total": universe if snapshot_verified else 0,
+                },
             }
         },
     }
@@ -161,6 +168,51 @@ class DeriveRankingScopeTests(unittest.TestCase):
         )
         self.assertEqual(info["ranking_scope"], "final_scoped")
         self.assertEqual(info["economic_attempt_count"], 600)
+
+    def test_verified_sharded_snapshot_is_marketwide(self) -> None:
+        info = EVAL._derive_ranking_scope(
+            _audit(
+                mode="sharded_snapshot",
+                seeds=2371,
+                evaluable=1800,
+                snapshot_verified=True,
+            ),
+            deep_dive_count=5,
+        )
+        self.assertEqual(info["ranking_scope"], "final_marketwide")
+
+    def test_unverified_sharded_snapshot_is_diagnostic(self) -> None:
+        info = EVAL._derive_ranking_scope(
+            _audit(mode="sharded_snapshot", seeds=2371, evaluable=1800),
+            deep_dive_count=5,
+        )
+        self.assertEqual(info["ranking_scope"], "diagnostic")
+
+    def test_marketwide_markdown_drops_scoped_pilot_warning(self) -> None:
+        report = {
+            "ranking_scope": "final_marketwide",
+            "ranking_status": "final",
+            "strict_mode": True,
+            "analysis_as_of": "2026-09-05T12:00:00+00:00",
+            "coverage": {
+                "listing_universe_count": 2371,
+                "economic_attempt_count": 2371,
+            },
+            "ranked_candidates": [],
+            "conditional": [],
+            "review_required": [],
+            "screened_out": [],
+            "excluded": [],
+        }
+        markdown = EVAL.render_markdown(report, language="en")
+        self.assertNotIn("Scoped Pilot", markdown)
+        self.assertNotIn("NOT a market-wide ranking", markdown)
+
+        report["ranking_scope"] = "final_scoped"
+        report["coverage"]["economic_attempt_count"] = 180
+        markdown = EVAL.render_markdown(report, language="en")
+        self.assertIn("Scoped Pilot", markdown)
+        self.assertIn("NOT a market-wide ranking", markdown)
 
 
 if __name__ == "__main__":

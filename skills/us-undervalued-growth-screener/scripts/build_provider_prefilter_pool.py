@@ -320,7 +320,12 @@ def build_pool(
         normalize_liquidity(row, minimum_period_days=20).get("valid_for_screen") is True
         for row in selected
     )
-    valid = pool_adequate and lane_coverage_count >= 3 and selected_liquidity_valid
+    lane_floor_waived = allow_small_pool and lane_coverage_count < 3
+    valid = (
+        pool_adequate
+        and (lane_coverage_count >= 3 or lane_floor_waived)
+        and selected_liquidity_valid
+    )
     fcf_prefilter_excluded_symbols = sorted({item["symbol"] for item in fcf_prefilter_exclusions})
     audit = {
         "runtime": runtime_metadata(),
@@ -335,6 +340,7 @@ def build_pool(
         "lane_selected_counts": lane_selected_counts,
         "lane_coverage_count": lane_coverage_count,
         "minimum_required_lanes": 3,
+        "lane_floor_waived": lane_floor_waived,
         "per_lane": per_lane,
         "max_pool": max_pool,
         "minimum_pool": minimum_pool,

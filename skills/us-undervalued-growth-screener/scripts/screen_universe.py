@@ -74,6 +74,7 @@ ALLOWED_EXCHANGES = {"NYSE", "NASDAQ", "NYSE AMERICAN", "NYSEAMERICAN", "AMEX"}
 CANDIDATE_GENERATION_MODES = {
     "full_universe_fundamentals",
     "provider_prefilter",
+    "sharded_snapshot",
     "liquidity_stratified_estimates",
     "available_fundamentals",
     "user_supplied",
@@ -906,6 +907,106 @@ def _validate_candidate_pool_scope(
             reasons,
         )
 
+    if candidate_generation_mode == "sharded_snapshot":
+        verification = _mapping(audit.get("snapshot_verification"))
+        digest = _text(verification.get("snapshot_verification_digest"))
+        classifications = _mapping(audit.get("snapshot_classification_totals"))
+        classified_total = sum(
+            value for raw in classifications.values() if (value := _integer(raw)) is not None
+        )
+        economic_attempt_count = _integer(audit.get("economic_attempt_count"))
+        evaluable_count = _integer(audit.get("economically_evaluable_count"))
+        input_count = _integer(audit.get("input_row_count"))
+        selected_count = _integer(audit.get("selected_count"))
+        declared_symbols = sorted(
+            str(value).upper()
+            for value in (audit.get("selected_symbols") or [])
+            if str(value).strip()
+        )
+        source_ids = audit.get("source_ids")
+        target_pool_size = _integer(audit.get("target_pool_size"))
+        preliminary_pool_count = _integer(audit.get("preliminary_pool_count"))
+        eligible_pool_exhausted = audit.get("eligible_pool_exhausted") is True
+        runtime = _mapping(audit.get("runtime"))
+        expected_runtime = runtime_metadata()
+
+        if audit.get("selection_method") != "sharded_snapshot_multilane":
+            reasons.append("sharded-snapshot audit has an incompatible selection_method")
+        if audit.get("valid") is not True:
+            reasons.append("sharded-snapshot generation audit is not valid")
+        if input_count != len(universe_rows):
+            reasons.append("sharded-snapshot input_row_count does not match frozen universe")
+        if economic_attempt_count != len(universe_rows):
+            reasons.append("sharded-snapshot economic attempts do not cover frozen universe")
+        if classified_total != len(universe_rows):
+            reasons.append("sharded-snapshot classifications do not cover frozen universe")
+        allowed_classifications = {
+            "evaluable",
+            "no_estimates",
+            "negative_eps",
+            "unit_mismatch",
+            "excluded",
+        }
+        if set(classifications) - allowed_classifications:
+            reasons.append("sharded-snapshot audit has an unknown classification")
+        if evaluable_count is None or evaluable_count < len(candidate_rows):
+            reasons.append("sharded-snapshot evaluable count is smaller than its final pool")
+        if any(row.get("snapshot_classification") != "evaluable" for row in candidate_rows):
+            reasons.append("sharded-snapshot final pool contains a non-evaluable row")
+        if any(row.get("quality_probe_attempted") is not True for row in candidate_rows):
+            reasons.append("sharded-snapshot final pool contains an unprobed row")
+        if selected_count != len(candidate_rows) or declared_symbols != candidate_symbols:
+            reasons.append("sharded-snapshot selected rows do not match its generation audit")
+        if target_pool_size is None or not 30 <= target_pool_size <= 50:
+            reasons.append("sharded-snapshot target_pool_size must be between 30 and 50")
+        elif len(candidate_rows) < target_pool_size and not (
+            eligible_pool_exhausted
+            and preliminary_pool_count is not None
+            and preliminary_pool_count < target_pool_size
+        ):
+            reasons.append("a short sharded-snapshot pool must prove eligible-pool exhaustion")
+        if not (
+            verification.get("ready_for_screening") is True
+            and verification.get("classification_matches_universe") is True
+            and _integer(verification.get("classified_total")) == len(universe_rows)
+            and digest is not None
+            and len(digest) == 64
+        ):
+            reasons.append("sharded-snapshot verification is missing or not screen-ready")
+        if audit.get("snapshot_verification_digest") != digest:
+            reasons.append("sharded-snapshot digest does not match its verification verdict")
+        if (
+            not isinstance(source_ids, list)
+            or not source_ids
+            or not all(isinstance(value, str) and value.strip() for value in source_ids)
+        ):
+            reasons.append("sharded-snapshot audit requires source_ids")
+        if not _text(audit.get("artifact_path")) or not _text(audit.get("artifact_sha256")):
+            reasons.append("sharded-snapshot audit requires a bound pool artifact")
+        for key in (
+            "skill_name",
+            "skill_version",
+            "schema_version",
+            "contract_revision",
+            "runtime_fingerprint",
+        ):
+            if runtime.get(key) != expected_runtime.get(key):
+                reasons.append(f"sharded-snapshot runtime {key} is stale or mismatched")
+
+        valid = not reasons
+        normalized = dict(audit)
+        normalized.update(
+            {
+                "valid": valid,
+                "coverage_scope": "full_listing_universe",
+                "actual_input_row_count": len(universe_rows),
+                "actual_selected_count": len(candidate_rows),
+                "actual_selected_symbols": candidate_symbols,
+                "universe_symbol_count": len(universe_symbols),
+            }
+        )
+        return valid, "full_listing_universe", normalized, reasons
+
     expected_methods = {
         "liquidity_stratified_estimates": {
             "sector_market_cap_stratified_liquidity",
@@ -1451,11 +1552,14 @@ def run_layered(
         status = row["decision"]["status"]
         candidate_counts[status] = candidate_counts.get(status, 0) + 1
 
+    marketwide_snapshot_exhausted = bool(
+        candidate_generation_mode == "sharded_snapshot" and pool_scope_verified
+    )
     if selected and pool_complete:
         candidate_pool_status = "sufficient"
     elif selected:
         candidate_pool_status = "sufficient_pending_enrichment"
-    elif pool_complete and discovery_evaluable_count > 0:
+    elif pool_complete and (discovery_evaluable_count > 0 or marketwide_snapshot_exhausted):
         candidate_pool_status = (
             "no_qualifying_candidates"
             if conclusion_scope == "full_listing_universe"
@@ -1472,7 +1576,9 @@ def run_layered(
         "insufficient_data": "insufficient_data",
     }[candidate_pool_status]
 
-    if not candidate_decisions:
+    if not candidate_decisions and marketwide_snapshot_exhausted:
+        next_action = "publish_no_candidates"
+    elif not candidate_decisions:
         next_action = "build_discovery_pool"
     elif not pool_scope_verified:
         next_action = "verify_candidate_pool_generation"

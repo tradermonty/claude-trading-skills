@@ -19,7 +19,7 @@ import run_pipeline as PIPELINE  # noqa: E402
 from fmp_client import ApiCallBudgetExceeded  # noqa: E402
 from screen_universe import requires_unit_reconciliation  # noqa: E402
 
-AS_OF = datetime(2026, 8, 30, 23, 0, tzinfo=timezone.utc)
+AS_OF = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _listing(symbol: str, **overrides) -> dict:
@@ -93,6 +93,36 @@ class FakeClient:
 
 def _config() -> dict:
     return dict(PIPELINE.DEFAULT_CONFIG)
+
+
+def _enumeration_audit(universe: list[dict]) -> dict:
+    return {
+        "method": "adaptive_market_cap_bands",
+        "retrieval_scope_explicit": True,
+        "pagination_exhausted": True,
+        "requested_exchanges": ["NASDAQ", "NYSE", "AMEX"],
+        "retrieved_exchanges": ["NASDAQ", "NYSE", "AMEX"],
+        "requested_min_market_cap": 500_000_000,
+        "requested_max_market_cap": 20_000_000_000,
+        "min_price": 5.0,
+        "page_limit": 1000,
+        "query_count": 3,
+        "row_count": len(universe),
+        "bands": [
+            {
+                "exchange": exchange,
+                "min_market_cap": 500_000_000,
+                "max_market_cap": 20_000_000_000,
+                "row_count": 0,
+                "rows_fetched": 0,
+                "provider_exhausted": True,
+                "depth": 0,
+            }
+            for exchange in ("NASDAQ", "NYSE", "AMEX")
+        ],
+        "saturated_leaf_count": 0,
+        "enumeration_verified": True,
+    }
 
 
 class StableShardTests(unittest.TestCase):
@@ -411,7 +441,7 @@ class FreshnessStampTests(unittest.TestCase):
             )
             self.assertEqual(first.exit_code, 0)
             original_as_of = SNAP.load_manifest(snapshot_dir)["shards"]["0"]["as_of"]
-            later = AS_OF.replace(day=31)
+            later = AS_OF + timedelta(minutes=1)
             second = PIPELINE.execute_collect_estimates(
                 FakeClient(estimates),
                 _config(),
@@ -767,7 +797,13 @@ class SnapshotVerificationTests(unittest.TestCase):
     def _build_clean(self, tmp: str) -> Path:
         snapshot_dir = Path(tmp) / "snap"
         universe = [_listing("AAA"), _listing("BBB")]
-        SNAP.create_snapshot(snapshot_dir, universe, shard_count=1, as_of=AS_OF)
+        SNAP.create_snapshot(
+            snapshot_dir,
+            universe,
+            shard_count=1,
+            as_of=AS_OF,
+            enumeration_audit=_enumeration_audit(universe),
+        )
         result = PIPELINE.execute_collect_estimates(
             FakeClient({row["symbol"]: _estimate_rows() for row in universe}),
             _config(),

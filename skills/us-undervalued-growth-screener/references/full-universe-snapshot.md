@@ -19,10 +19,15 @@ python3 scripts/run_pipeline.py \
 ```
 
 - The FIRST invocation enumerates listings and **freezes the universe** into
-  the snapshot directory (`snapshot-manifest.json` + `universe.jsonl`,
+  the snapshot directory (`snapshot-manifest.json` + `universe.jsonl` +
+  `listing-enumeration-audit.json`,
   identified by `snapshot_id` = timestamp + universe SHA-256). Every later
   shard run writes into that frozen snapshot; new listings and delistings go
   to the NEXT snapshot, never mixed in.
+- Collection is current-only: a historical or future `--analysis-as-of` is
+  rejected before client/cache/raw/snapshot creation. Each row records
+  `snapshot_normalization_as_of`; shard manifests aggregate its bounds so a
+  later screen cannot treat an old FY-period normalization as current.
 - Shard membership is `sha256(symbol) % shard_count` — the same symbol always
   lands in the same shard, so multi-day collection is deterministic.
 - Each attempted symbol is normalized (FY1-FY3 EPS/revenue, analyst counts)
@@ -59,30 +64,81 @@ python3 scripts/run_pipeline.py \
   freshness stamp.
 - Shard summaries (`shard-<i>-summary.json`) and the manifest carry attempted
   / expected / fetch-failed counts, per-bucket classification, `as_of`,
-  retrieval bounds, and calls used.
+  retrieval and normalization bounds, and calls used.
 
-## Readiness (enforced before `screen-full-snapshot`, PR B)
+## Stage: `screen-full-snapshot`
+
+After every shard is complete, run the current-only market-wide screen:
+
+```bash
+python3 scripts/run_pipeline.py \
+  --stage screen-full-snapshot \
+  --snapshot-dir .cache/us-garp/snapshot-2026-08 \
+  --config assets/claude-code-config.example.json \
+  --output-dir reports/us-undervalued-growth-screener
+```
+
+This stage performs its read-only snapshot preflight before constructing the
+FMP client or creating cache, provider-raw, or run directories. It refuses an
+incomplete, stale, future-dated, tampered, or semantically misclassified
+snapshot with exit code 1 and creates no run artifact tree.
+
+The screen is deliberately current-only. Exact-liquidity and TTM quality
+probes use current provider evidence, so an operator-supplied historical
+`--analysis-as-of` is rejected before those calls rather than mixing current
+fundamentals into a historical ranking. The allowed wall-clock skew defaults
+to five minutes.
+
+For a ready snapshot, the stage:
+
+1. uses the verified in-memory shard rows from the same reads that produced
+   the readiness verdict;
+2. rechecks gap-free exhausted bands for every requested exchange, requires
+   the frozen market-cap/price scope to contain the screen request, then binds
+   that audit, the manifest, frozen-universe SHA-256, and every shard SHA-256
+   into a `snapshot_verification_digest` carried by all downstream audits;
+3. records the estimate-attempt classification and retrieval provenance for
+   every frozen symbol in `universe-audit-results.jsonl`;
+4. builds a deterministic 30–50 name multi-lane pool (default 50), backfills
+   failed/empty exact-liquidity calls until the target succeeds or every
+   eligible symbol has an explicit outcome, probes every preliminary-pool
+   name for current quality evidence, and never selects an unprobed deep-dive
+   name; and
+5. commits five deep-dive slots for the market-wide path.
+
+A verified snapshot with no economically evaluable names can produce a formal
+market-wide no-candidate result. Missing coverage, an unresolved enrichment
+queue, or a short pool that cannot prove exhaustion remains diagnostic and
+exits 2. A successful underwriting handoff or verified no-candidate result
+exits 0.
+
+## Readiness and content binding
 
 Two layers, deliberately separate:
 
 - **`snapshot_status(manifest)` → `collection_ready`** — manifest-level
   aggregation only (all shards complete with zero `fetch_failed`,
   classification counts summing exactly to the frozen universe,
-  `retrieval_time_unknown == 0`). It trusts the manifest's own counters and
+  `retrieval_time_unknown == 0`, `normalization_time_unknown == 0`). It trusts
+  the manifest's own counters and
   therefore proves nothing about the shard files.
-- **`verify_snapshot(snapshot_dir, screening_as_of=..., max_staleness_days=...)`
-  → `ready_for_screening`** — the ONLY source of the screening verdict. It
-  re-reads every `shard-*.jsonl` and verifies against the frozen universe:
+- **`load_verified_snapshot(snapshot_dir, screening_as_of=..., max_staleness_days=...)`
+  → `verdict + verified rows`** — the ONLY source of the screening verdict and
+  consumable rows. It
+  reads the hash-bound listing-enumeration audit and every `shard-*.jsonl`
+  exactly once and verifies against the frozen universe:
   file presence and SHA-256 vs the manifest, no duplicate symbols, every
   symbol in the frozen universe and in its `stable_shard` shard, the union
   covering the universe EXACTLY, classifications limited to allowed values,
   per-shard counts matching the manifest — plus staleness measured from the
-  ACTUAL aggregated `oldest_retrieved_at` against
+  ACTUAL aggregated `oldest_retrieved_at` and
+  `oldest_normalization_as_of` against
   `screening_as_of - max_staleness_days` (never the operator-supplied
   collection `as_of`).
 
-Only a run screened from a snapshot whose `verify_snapshot` verdict is
-`ready_for_screening: true` may emit `ranking_scope: final_marketwide`.
+Only a run screened from this same-read bundle with
+`ready_for_screening: true`, an exact classification total, and a bound
+`snapshot_verification_digest` may emit `ranking_scope: final_marketwide`.
 
 ## Operating on the FMP Starter plan
 
