@@ -167,15 +167,30 @@ def derive_ranking_scope_from_audit(
         probe_count = _as_int(probe_raw) or 0
     queue_count = _as_int(_as_mapping(audit.get("enrichment")).get("unresolved_count")) or 0
 
+    snapshot_verification = _as_mapping(generation.get("snapshot_verification"))
+    snapshot_digest = snapshot_verification.get("snapshot_verification_digest")
+    verified_sharded_snapshot = bool(
+        mode == "sharded_snapshot"
+        and snapshot_verification.get("ready_for_screening") is True
+        and isinstance(snapshot_digest, str)
+        and len(snapshot_digest) == 64
+        and snapshot_verification.get("classification_matches_universe") is True
+        and _as_int(snapshot_verification.get("classified_total")) == universe_total
+        and attempted == universe_total
+    )
+
     if (
         queue_count > 0
         or universe_total <= 0
         or attempted is None
         or attempted <= 0
         or attempted > universe_total
+        or (mode == "sharded_snapshot" and not verified_sharded_snapshot)
     ):
         scope = "diagnostic"
-    elif mode == "analyst_estimates_bulk" and covered >= universe_total:
+    elif (mode == "analyst_estimates_bulk" and covered >= universe_total) or (
+        mode == "sharded_snapshot" and verified_sharded_snapshot
+    ):
         scope = "final_marketwide"
     else:
         scope = "final_scoped"
