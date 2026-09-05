@@ -1,0 +1,9 @@
+schema_version: 1
+human_approved: true
+execution_authorized: false
+rebalance_actions_sha256: 343f139482ea1db1870ebf3d54802fbc6658fda2166afb2391eef9a7d5048315  # pragma: allowlist secret
+allocation_decision: REBALANCE_PROPOSED
+broker_state_verified: false
+disclosure_reviewed: false
+tax_impact_reviewed: false
+note: Fictional teaching journal; no broker order was placed.
