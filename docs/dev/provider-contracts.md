@@ -124,12 +124,14 @@ exiting, so a CI/scheduler consumer can tell "an ordinary quiet day" apart from
 fixed exit code (and, for pead-screener, a log level); an unrecognized/`unknown`
 reason falls back to exit 1 in both scripts.
 
-**earnings-trade-analyzer** (`analyze_earnings_trades.py`, `_ZERO_RESULT_MESSAGES` /
-`explain_empty_selection`, evaluated in this order, first match wins):
+**earnings-trade-analyzer** (`analyze_earnings_trades.py`, `_ZERO_RESULT_MESSAGES`;
+falsy/non-list calendar bodies evaluated first in `classify_empty_calendar`,
+the rest in `explain_empty_selection` in fixed order, first match wins):
 
 | Code | Condition | Exit |
 |---|---|---|
-| `no_earnings_rows` | no earnings row carried a `symbol` (a genuine empty window; an entirely empty calendar response still exits 1 earlier in `main()`, unchanged from before) | 0 |
+| `no_earnings_rows` | the calendar returned `[]`, or rows none of which carried a `symbol` — a genuine empty window | 0 |
+| `calendar_fetch_failed` | the calendar fetch returned no usable body (`None` on transport/HTTP/rate-limit failure, or a non-list body) | 1 |
 | `profiles_budget_exhausted` | budget exhausted (`api_stats["budget_remaining"] == 0` or `rate_limit_reached`) and no profiles were returned at all | 0 |
 | `no_profiles_returned` | ≥1 earnings symbol, but `get_company_profiles` returned nothing | 1 |
 | `profiles_missing_required_field:marketCap` | ≥1 profile came back, but none has a usable numeric `marketCap` (non-bool `int`/`float`, finite) | 1 |
@@ -179,6 +181,20 @@ signal above.
 
 Owners are validated against `skills-index.yaml` by `check` — an owner naming a
 skill directory that does not exist there is a validation error.
+
+## Deliberately out of scope: session-aware empty suspicion
+
+A clean HTTP 200 `[]` on a busy earnings weekday (silent drop) still exits 0
+with `no_earnings_rows`: the exit code distinguishes transport/shape failure
+(`None`/non-list) from an empty body, not a quiet window from a dropped one.
+Session-awareness was rejected for the CLI because a stdlib weekday heuristic
+false-positives on exchange holidays, and importing the shared XNYS calendar
+(`scripts/market_calendar/`) from a skill script would break clean-room
+installs (`package_skills.py` ships only the skill directory; vendoring would
+expand the #340 generator's consumer set). Async coverage stays with the
+weekly canary via the `earnings-calendar` `non_empty` contract. Session-aware
+suspicion is tracked as follow-up work in
+[Issue #356](https://github.com/tradermonty/claude-trading-skills/issues/356).
 
 ## Follow-up issue: `earnings-calendar` has no `time` field
 

@@ -56,12 +56,19 @@ def normalize_timing(time_value):
         return "unknown"
 
 
-# ZERO_RESULT_REASON -> (exit_code, one-line explanation). Evaluated in
-# `explain_empty_selection` in this fixed order; see docs/dev/provider-contracts.md.
+# ZERO_RESULT_REASON -> (exit_code, one-line explanation). `no_earnings_rows`
+# and `calendar_fetch_failed` are evaluated in `classify_empty_calendar`
+# (falsy calendar responses, before candidate selection); the rest in
+# `explain_empty_selection` in fixed order; see docs/dev/provider-contracts.md.
 _ZERO_RESULT_MESSAGES = {
     "no_earnings_rows": (
         0,
         "The earnings calendar carried no rows with a symbol for the lookback window.",
+    ),
+    "calendar_fetch_failed": (
+        1,
+        "The earnings calendar fetch failed (no usable response body); "
+        "the provider may be down or the response shape may have changed.",
     ),
     "profiles_budget_exhausted": (
         0,
@@ -96,6 +103,21 @@ _ZERO_RESULT_MESSAGES = {
         "ordinary empty day, not a schema drift.",
     ),
 }
+
+
+def classify_empty_calendar(earnings) -> str:
+    """Classify a falsy earnings-calendar response (issue #355).
+
+    Only a clean empty list is benign: the provider returns HTTP 200 with
+    ``[]`` for a window with no announcements. ``None`` (transport/HTTP
+    failure, rate limit) and any non-list body (wrong shape, including a
+    200-with-``null`` body) fail closed as ``calendar_fetch_failed``.
+    Truthy lists — including symbol-less ones — never reach this helper;
+    they fall through to ``select_candidates``/``explain_empty_selection``.
+    """
+    if isinstance(earnings, list) and not earnings:
+        return "no_earnings_rows"
+    return "calendar_fetch_failed"
 
 
 def explain_empty_selection(earnings, profiles, min_market_cap, api_stats):
@@ -332,9 +354,20 @@ def main():
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if not earnings:
-        print("ERROR: No earnings data returned from API.", file=sys.stderr)
-        sys.exit(1)
+    if not isinstance(earnings, list) or not earnings:
+        api_stats = client.get_api_stats()
+        reason = classify_empty_calendar(earnings)
+        exit_code, message = _ZERO_RESULT_MESSAGES.get(
+            reason, (1, f"No candidates found (reason: {reason}).")
+        )
+        print(f"ZERO_RESULT_REASON={reason}", file=sys.stderr)
+        print(
+            f"api_stats: budget_remaining={api_stats.get('budget_remaining')} "
+            f"rate_limit_reached={api_stats.get('rate_limit_reached')}",
+            file=sys.stderr,
+        )
+        print(message, file=sys.stderr)
+        sys.exit(exit_code)
 
     print(f"Raw earnings announcements: {len(earnings)}", file=sys.stderr)
 

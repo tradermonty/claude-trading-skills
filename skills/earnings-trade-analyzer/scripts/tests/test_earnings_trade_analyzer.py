@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from analyze_earnings_trades import (
     apply_entry_filter,
+    classify_empty_calendar,
     explain_empty_selection,
     main,
     select_candidates,
@@ -417,6 +418,22 @@ class TestExplainEmptySelection:
         )
 
 
+class TestClassifyEmptyCalendar:
+    """Only a clean empty list is benign; None and non-list bodies fail closed."""
+
+    def test_empty_list_is_benign(self):
+        assert classify_empty_calendar([]) == "no_earnings_rows"
+
+    def test_none_fails_closed(self):
+        assert classify_empty_calendar(None) == "calendar_fetch_failed"
+
+    def test_non_list_bodies_fail_closed(self):
+        assert classify_empty_calendar({}) == "calendar_fetch_failed"
+        assert classify_empty_calendar("") == "calendar_fetch_failed"
+        assert classify_empty_calendar(0) == "calendar_fetch_failed"
+        assert classify_empty_calendar({"error": "Bad Request"}) == "calendar_fetch_failed"
+
+
 class TestMainZeroResultExitCodes:
     """Drive main() end-to-end with a mocked FMPClient for each exit code."""
 
@@ -558,6 +575,65 @@ class TestMainZeroResultExitCodes:
         assert exc_info.value.code == 0
         err = capsys.readouterr().err
         assert "ZERO_RESULT_REASON=no_earnings_rows" in err
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_empty_calendar_list_exits_0(self, mock_client_class, tmp_path, capsys):
+        """A clean empty calendar response exits 0 with api_stats observability."""
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=no_earnings_rows" in err
+        assert "budget_remaining=50" in err
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_failed_calendar_fetch_exits_1(self, mock_client_class, tmp_path, capsys):
+        """A failed calendar fetch (None body) fails closed with exit 1."""
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = None
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=calendar_fetch_failed" in err
+        assert "rate_limit_reached=False" in err
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_truthy_non_list_body_exits_1_with_reason(self, mock_client_class, tmp_path, capsys):
+        """A truthy non-list body (wrong shape) fails closed with a reason line."""
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = {"error": "Bad Request"}
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=calendar_fetch_failed" in err
 
     @patch("analyze_earnings_trades.FMPClient")
     def test_mixed_filters_rejected_all_exits_0(self, mock_client_class, tmp_path, capsys):
