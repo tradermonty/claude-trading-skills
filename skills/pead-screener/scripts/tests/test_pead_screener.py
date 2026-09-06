@@ -2015,7 +2015,7 @@ class TestMainZeroResultExitCodes:
         assert "ZERO_RESULT_REASON=no_profiles_returned" in err
 
     @patch("screen_pead.FMPClient")
-    def test_mode_a_profiles_budget_exhausted_exits_0(self, mock_client_class, tmp_path, capsys):
+    def test_mode_a_profiles_budget_exhausted_exits_1(self, mock_client_class, tmp_path, capsys):
         client = mock_client_class.return_value
         client.get_earnings_calendar.return_value = [
             {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
@@ -2027,9 +2027,53 @@ class TestMainZeroResultExitCodes:
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
-        assert exc_info.value.code == 0
+        assert exc_info.value.code == 1
         err = capsys.readouterr().err
         assert "ZERO_RESULT_REASON=profiles_budget_exhausted" in err  # pragma: allowlist secret
+
+    @pytest.mark.parametrize("max_calls", [1, 2])
+    def test_mode_a_profile_fetch_budget_exception_exits_cleanly(
+        self, max_calls, tmp_path, capsys, monkeypatch
+    ):
+        client = FMPClient(api_key="test-key", max_api_calls=max_calls)
+        client.RATE_LIMIT_DELAY = 0
+        calendar = MagicMock(status_code=200)
+        calendar.json.return_value = [
+            {"symbol": symbol, "date": "2026-09-03", "time": "bmo"}
+            for symbol in ("AAPL", "MSFT", "GOOG")
+        ]
+
+        def respond(url, params, timeout):
+            if url.endswith("/earnings-calendar"):
+                return calendar
+            assert url.endswith("/profile")
+            response = MagicMock(status_code=200)
+            response.json.return_value = [
+                {"symbol": params["symbol"], "marketCap": 3e12, "exchange": "NASDAQ"}
+            ]
+            return response
+
+        get = MagicMock(side_effect=respond)
+        monkeypatch.setattr(client.session, "get", get)
+        with patch("screen_pead.FMPClient", return_value=client):
+            with patch.object(
+                sys, "argv", self._argv(tmp_path, ["--max-api-calls", str(max_calls)])
+            ):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        reason_line = "ZERO_RESULT_REASON=profiles_budget_exhausted"  # pragma: allowlist secret
+        assert reason_line in captured.err
+        assert (
+            "ERROR: API budget was exhausted before company profile fetching completed"
+            in captured.err
+        )
+        assert "Traceback" not in captured.err
+        assert get.call_count == max_calls
+        assert sum(key.startswith("profile_") for key in client.cache) == max_calls - 1
+        assert not list(tmp_path.iterdir())
 
     @patch("screen_pead.FMPClient")
     def test_mode_a_missing_marketcap_field_exits_1(self, mock_client_class, tmp_path, capsys):

@@ -675,9 +675,10 @@ _ZERO_RESULT_REASONS = {
         "the provider may be down or the response shape may have changed.",
     ),
     "profiles_budget_exhausted": (
-        0,
-        "WARNING",
-        "API budget was exhausted before any company profile could be fetched.",
+        1,
+        "ERROR",
+        "API budget was exhausted before company profile fetching completed. "
+        "Increase --max-api-calls or reduce --lookback-days and retry.",
     ),
     "no_profiles_returned": (
         1,
@@ -736,7 +737,12 @@ def _get_candidates_mode_a(client: FMPClient, args) -> tuple[list[dict], Optiona
 
     # Fetch company profiles for market cap filtering
     print(f"  Fetching profiles for {len(symbols)} symbols...")
-    profiles = client.get_company_profiles(symbols)
+    try:
+        profiles = client.get_company_profiles(symbols)
+    except ApiCallBudgetExceeded:
+        # Partial profiles remain in the client cache, but this fetch did not
+        # complete and there is no budget left for historical-price analysis.
+        return [], "profiles_budget_exhausted"
 
     if not profiles:
         api_stats = client.get_api_stats()
