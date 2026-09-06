@@ -187,6 +187,14 @@ jobs:
       - name: FMP client drift check
         run: python3 scripts/generate_fmp_client.py --check
 
+      # 5b. Provider response contract check (Issue #332): validates
+      # config/provider-contracts/fmp/*.v*.json structure + fixtures against
+      # the generated fmp_client.py owners in skills-index.yaml. Offline —
+      # no `requests` import at module top, so this runs fine in this job's
+      # pyyaml + packaging install.
+      - name: Provider contract check
+        run: python3 scripts/check_provider_contracts.py check
+
       - name: Shared market calendar drift check
         run: python3 scripts/generate_market_calendar.py --check
 
@@ -194,7 +202,7 @@ jobs:
         run: python3 scripts/check_package_drift_for_changed_skills.py
 
       - name: FMP skill package drift check
-        run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector
+        run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector --skill us-undervalued-growth-screener
 
       # 5b. Dependency declaration check (offline, issue #330): every
       # executable skill must ship requirements.txt covering its imports.

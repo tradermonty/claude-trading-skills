@@ -56,7 +56,15 @@ class FMPEarningsCalendar:
             List of earnings announcements or None on error
         """
         url = f"{self.BASE_URL}/earnings-calendar"
-        params = {"from": start_date, "to": end_date, "apikey": self.api_key}
+        # includeReportTimes must be the literal string "true"/"false" (any
+        # other value, including a JSON boolean, is HTTP 400); without it the
+        # response omits `time` entirely (#352).
+        params = {
+            "from": start_date,
+            "to": end_date,
+            "includeReportTimes": "true",
+            "apikey": self.api_key,
+        }
 
         try:
             response = requests.get(url, params=params, timeout=30)

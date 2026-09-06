@@ -39,10 +39,11 @@ Mark non-applicable items as N/A and explain them under reviewer notes. / 非該
 - [ ] Navigator snapshot passed `python3 skills/trading-skills-navigator/scripts/build_snapshot.py --check`. / navigator snapshotを確認しました。
 - [ ] Vendored FMP clients passed `python3 scripts/generate_fmp_client.py --check`. / FMP clientのdriftを確認しました。
 - [ ] Changed skill packages passed `python3 scripts/check_package_drift_for_changed_skills.py`. / 変更skillのpackage driftを確認しました。
+- [ ] FMP provider response contracts passed `python3 scripts/check_provider_contracts.py check`. / FMP providerの応答契約を確認しました。
 - [ ] FMP package mirrors passed the repository CI command below. / FMP package mirrorのdriftを確認しました。
 
 ```bash
-python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector
+python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector --skill us-undervalued-growth-screener
 ```
 
 ## Reviewer notes and N/A reasons / レビュー補足・N/A理由

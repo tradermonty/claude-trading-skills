@@ -10,10 +10,12 @@ generation, Mode B validation, FMP client error handling, and edge cases.
 import json
 import logging
 import os
+import sys
 import tempfile
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
+import pytest
 from calculators.breakout_calculator import calculate_breakout
 from calculators.liquidity_calculator import calculate_liquidity
 from calculators.risk_reward_calculator import calculate_risk_reward
@@ -25,10 +27,13 @@ from fmp_client import ApiCallBudgetExceeded, FMPClient
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import COMPONENT_WEIGHTS, calculate_composite_score
 from screen_pead import (
+    _ZERO_RESULT_REASONS,
     _get_candidates_mode_a,
+    _get_candidates_mode_b,
     analyze_stock,
     calculate_price_gap,
     calculate_setup_quality,
+    main,
     profile_market_cap,
     validate_input_json,
 )
@@ -680,6 +685,42 @@ class TestReportGenerator:
             assert "AAPL" in content
             assert "MSFT" in content
             assert "GOOG" in content
+
+    def test_markdown_shows_timing_unknown_row_for_mode_a(self):
+        results = [self._make_result("AAPL", "BREAKOUT", 85)]
+        metadata = {
+            "generated_at": "2026-02-21 10:00:00",
+            "lookback_days": 14,
+            "watch_weeks": 5,
+            "mode": "A",
+            "api_stats": {"api_calls_made": 50, "budget_remaining": 150},
+            "timing_unknown_count": 2,
+            "timing_candidates_total": 6,
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(results, metadata, md_file)
+            with open(md_file) as f:
+                content = f.read()
+            assert "| Timing unknown | 2 of 6 |" in content
+
+    def test_markdown_shows_timing_unknown_as_na_for_mode_b(self):
+        results = [self._make_result("AAPL", "BREAKOUT", 85)]
+        metadata = {
+            "generated_at": "2026-02-21 10:00:00",
+            "lookback_days": None,
+            "watch_weeks": 5,
+            "mode": "B",
+            "api_stats": {"api_calls_made": 50, "budget_remaining": 150},
+            "timing_unknown_count": None,
+            "timing_candidates_total": None,
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = os.path.join(tmpdir, "test.md")
+            generate_markdown_report(results, metadata, md_file)
+            with open(md_file) as f:
+                content = f.read()
+            assert "| Timing unknown | n/a |" in content
 
     def test_stage_grouping(self):
         """Results are grouped by stage in the report."""
@@ -1440,13 +1481,15 @@ class TestModeACandidates:
             {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
         ]
         client.get_company_profiles.return_value = {"AAPL": profile}
+        client.get_api_stats.return_value = {"budget_remaining": 100, "rate_limit_reached": False}
         return client
 
     def test_issue_328_regression_stable_profile_is_kept(self):
         client = self._client(
             {"symbol": "AAPL", "marketCap": 3_500_000_000_000, "exchange": "NASDAQ"}
         )
-        result = _get_candidates_mode_a(client, self._args())
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert reason is None
         assert len(result) == 1
         assert result[0]["symbol"] == "AAPL"
         assert result[0]["market_cap"] == 3_500_000_000_000
@@ -1457,21 +1500,598 @@ class TestModeACandidates:
         client = self._client(
             {"symbol": "AAPL", "mktCap": 3_500_000_000_000, "exchangeShortName": "NASDAQ"}
         )
-        assert len(_get_candidates_mode_a(client, self._args())) == 1
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert len(result) == 1
+        assert reason is None
 
     def test_below_min_market_cap_is_dropped(self):
         client = self._client({"symbol": "AAPL", "marketCap": 999_999_999})
-        assert _get_candidates_mode_a(client, self._args()) == []
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "all_below_market_cap_floor"
 
     def test_null_market_cap_is_dropped_not_crash(self):
         client = self._client({"symbol": "AAPL", "marketCap": None})
-        assert _get_candidates_mode_a(client, self._args()) == []
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "profiles_missing_required_field:marketCap"
 
     def test_non_numeric_market_cap_is_dropped_not_crash(self):
         client = self._client({"symbol": "AAPL", "marketCap": "n/a"})
-        assert _get_candidates_mode_a(client, self._args()) == []
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "profiles_missing_required_field:marketCap"
 
     def test_missing_profile_is_dropped(self):
         client = self._client({"symbol": "AAPL", "marketCap": 3e12})
         client.get_company_profiles.return_value = {}
-        assert _get_candidates_mode_a(client, self._args()) == []
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "no_profiles_returned"
+
+    @staticmethod
+    def _client_with_time(time_value, profile=None):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": time_value}
+        ]
+        client.get_company_profiles.return_value = {
+            "AAPL": profile or {"symbol": "AAPL", "marketCap": 3_500_000_000_000}
+        }
+        client.get_api_stats.return_value = {"budget_remaining": 100, "rate_limit_reached": False}
+        return client
+
+    def test_null_time_normalizes_to_unknown_not_empty_string(self):
+        """Issue #352: `time: null` (unconfirmed session) must become the
+        canonical 'unknown', matching what Mode B's validate_input_json
+        requires -- not an empty string."""
+        client = self._client_with_time(None)
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert reason is None
+        assert result[0]["earnings_timing"] == "unknown"
+
+    def test_bmo_time_normalizes_to_bmo(self):
+        client = self._client_with_time("bmo")
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result[0]["earnings_timing"] == "bmo"
+
+    def test_amc_time_normalizes_to_amc(self):
+        client = self._client_with_time("amc")
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result[0]["earnings_timing"] == "amc"
+
+    def test_missing_time_key_normalizes_to_unknown(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [{"symbol": "AAPL", "date": "2026-09-03"}]
+        client.get_company_profiles.return_value = {
+            "AAPL": {"symbol": "AAPL", "marketCap": 3_500_000_000_000}
+        }
+        client.get_api_stats.return_value = {"budget_remaining": 100, "rate_limit_reached": False}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result[0]["earnings_timing"] == "unknown"
+
+
+# ===========================================================================
+# TestZeroResultReasons (Issue #332: ZERO_RESULT_REASON codes for both modes)
+# ===========================================================================
+
+
+class TestModeAZeroResultReasons:
+    """_get_candidates_mode_a reason codes, evaluated in the documented order."""
+
+    @staticmethod
+    def _args(min_market_cap=1_000_000_000, lookback_days=5):
+        args = MagicMock()
+        args.min_market_cap = min_market_cap
+        args.lookback_days = lookback_days
+        return args
+
+    def test_no_earnings_rows_when_calendar_empty(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = []
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "no_earnings_rows"
+
+    def test_no_earnings_rows_when_no_symbols(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [{"date": "2026-09-03", "time": "amc"}]
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "no_earnings_rows"
+
+    def test_calendar_fetch_failed_when_calendar_is_none(self):
+        """A failed fetch (None body) must not look like a quiet day."""
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = None
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "calendar_fetch_failed"
+        exit_code, level, _ = _ZERO_RESULT_REASONS[reason]
+        assert (exit_code, level) == (1, "ERROR")
+
+    def test_calendar_fetch_failed_when_calendar_is_non_list(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = {"error": "Bad Request"}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "calendar_fetch_failed"
+
+    def test_malformed_rows_are_ignored_not_crash(self):
+        """Non-dict rows are never dereferenced; symbols-empty stays benign."""
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = ["x", None, {"foo": 1}]
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "no_earnings_rows"
+
+    def test_profiles_budget_exhausted_when_budget_remaining_zero(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {}
+        client.get_api_stats.return_value = {"budget_remaining": 0, "rate_limit_reached": False}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "profiles_budget_exhausted"
+
+    def test_profiles_budget_exhausted_when_rate_limit_reached(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {}
+        client.get_api_stats.return_value = {"budget_remaining": 5, "rate_limit_reached": True}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "profiles_budget_exhausted"
+
+    def test_no_profiles_returned_when_budget_remains(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {}
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "no_profiles_returned"
+
+    def test_missing_required_field_market_cap_when_key_absent_from_all_profiles(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {"AAPL": {"exchange": "NASDAQ"}}
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "profiles_missing_required_field:marketCap"
+
+    def test_all_below_market_cap_floor_when_key_present_but_low(self):
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {
+            "AAPL": {"marketCap": 1_000, "exchange": "NASDAQ"}
+        }
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+        result, reason = _get_candidates_mode_a(client, self._args(min_market_cap=1_000_000_000))
+        assert result == []
+        assert reason == "all_below_market_cap_floor"
+
+    def test_missing_required_field_market_cap_when_all_values_null(self):
+        """Key present but null/non-numeric for every profile must still be
+        classified as missing-field, not as an ordinary below-floor day
+        (review round 1)."""
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"},
+            {"symbol": "MSFT", "date": "2026-09-03", "time": "amc"},
+        ]
+        client.get_company_profiles.return_value = {
+            "AAPL": {"marketCap": None, "exchange": "NASDAQ"},
+            "MSFT": {"marketCap": "n/a", "exchange": "NASDAQ"},
+        }
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+        result, reason = _get_candidates_mode_a(client, self._args())
+        assert result == []
+        assert reason == "profiles_missing_required_field:marketCap"
+
+
+class TestModeBZeroResultReasons:
+    def test_no_input_candidates_when_grade_filter_excludes_all(self, tmp_path):
+        payload = {
+            "schema_version": "1.0",
+            "results": [
+                {
+                    "symbol": "AAPL",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "amc",
+                    "gap_pct": 5.0,
+                    "grade": "D",
+                }
+            ],
+        }
+        json_path = tmp_path / "candidates.json"
+        json_path.write_text(json.dumps(payload))
+
+        args = MagicMock()
+        args.candidates_json = str(json_path)
+        args.min_grade = "A"
+
+        result, reason = _get_candidates_mode_b(args)
+        assert result == []
+        assert reason == "no_input_candidates"
+
+    def test_non_empty_candidates_have_no_reason(self, tmp_path):
+        payload = {
+            "schema_version": "1.0",
+            "results": [
+                {
+                    "symbol": "AAPL",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "amc",
+                    "gap_pct": 5.0,
+                    "grade": "A",
+                }
+            ],
+        }
+        json_path = tmp_path / "candidates.json"
+        json_path.write_text(json.dumps(payload))
+
+        args = MagicMock()
+        args.candidates_json = str(json_path)
+        args.min_grade = "B"
+
+        result, reason = _get_candidates_mode_b(args)
+        assert len(result) == 1
+        assert reason is None
+
+
+class TestFixtureConsumerFieldContracts:
+    """D4: pin profile_market_cap and the Mode A marketCap reason against a
+    sanitized live /stable/profile fixture row (Issue #332)."""
+
+    FIXTURE_PROFILE = {
+        "symbol": "AAPL",
+        "price": 319.97,
+        "marketCap": 4699513299320,
+        "beta": 1.086,
+        "lastDividend": 1.06,
+        "exchangeFullName": "NASDAQ Global Select",
+        "exchange": "NASDAQ",
+        "industry": "Consumer Electronics",
+        "sector": "Technology",
+        "country": "US",
+    }
+
+    def test_profile_market_cap_matches_fixture(self):
+        assert profile_market_cap(self.FIXTURE_PROFILE) == 4699513299320
+
+    def test_profile_market_cap_legacy_alias(self):
+        assert profile_market_cap({"mktCap": 5e9}) == 5e9
+
+    def test_profile_market_cap_empty_profile_is_zero(self):
+        assert profile_market_cap({}) == 0.0
+
+    def test_mode_a_reason_when_marketcap_renamed(self):
+        renamed = dict(self.FIXTURE_PROFILE)
+        renamed["mktCap"] = renamed.pop("marketCap")
+        # mktCap alias keeps the candidate (legacy key path), so drop the
+        # legacy key entirely to reproduce the #328 field-rename signature.
+        del renamed["mktCap"]
+
+        client = MagicMock()
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {"AAPL": renamed}
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+
+        args = MagicMock()
+        args.min_market_cap = 2_000_000_000
+        args.lookback_days = 5
+
+        result, reason = _get_candidates_mode_a(client, args)
+        assert result == []
+        assert reason == "profiles_missing_required_field:marketCap"
+
+
+class TestTimingMetadata:
+    """Issue #352: metadata carries timing_unknown_count / timing_candidates_total
+    / timing_source for Mode A, and None for all three in Mode B."""
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_reports_timing_unknown_count_and_source(self, mock_client_class, tmp_path):
+        client = mock_client_class.return_value
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "bmo"},
+            {"symbol": "MSFT", "date": "2026-09-03", "time": "amc"},
+            {"symbol": "GOOG", "date": "2026-09-03", "time": None},
+        ]
+        client.get_company_profiles.return_value = {
+            "AAPL": {"marketCap": 3e12, "exchange": "NASDAQ"},
+            "MSFT": {"marketCap": 2e12, "exchange": "NASDAQ"},
+            "GOOG": {"marketCap": 1.5e12, "exchange": "NASDAQ"},
+        }
+        prices = [
+            {
+                "date": "2026-09-03",
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+                "volume": 1_000_000,
+            }
+        ] * 10
+        client.get_historical_prices.return_value = {"historical": prices}
+        client.get_api_stats.return_value = {
+            "api_calls_made": 4,
+            "budget_remaining": 100,
+            "rate_limit_reached": False,
+        }
+
+        argv = ["screen_pead.py", "--api-key", "test-key", "--output-dir", str(tmp_path)]
+        with patch.object(sys, "argv", argv):
+            main()
+
+        json_files = list(tmp_path.glob("pead_screener_*.json"))
+        assert len(json_files) == 1
+        data = json.loads(json_files[0].read_text())
+        metadata = data["metadata"]
+        assert metadata["timing_candidates_total"] == 3
+        assert metadata["timing_unknown_count"] == 1
+        assert metadata["timing_source"] == "fmp_stable_includeReportTimes"
+
+    @patch("screen_pead._get_candidates_mode_a")
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_timing_counts_only_candidates_surviving_budget_trim(
+        self, mock_client_class, mock_get_candidates, tmp_path
+    ):
+        """Regression: timing_candidates_total/timing_unknown_count must be
+        counted AFTER the Phase 1.5 budget trim, not before it -- otherwise
+        the reported denominator includes candidates that never reach
+        Phase 2 analysis at all."""
+        mock_get_candidates.return_value = (
+            [
+                {
+                    "symbol": "A",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "bmo",
+                    "gap_pct": None,
+                    "market_cap": 5e9,
+                },
+                {
+                    "symbol": "B",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "unknown",
+                    "gap_pct": None,
+                    "market_cap": 4e9,
+                },
+                {
+                    "symbol": "C",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "unknown",
+                    "gap_pct": None,
+                    "market_cap": 3e9,
+                },
+                {
+                    "symbol": "D",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "amc",
+                    "gap_pct": None,
+                    "market_cap": 2e9,
+                },
+            ],
+            None,
+        )
+        client = mock_client_class.return_value
+        prices = [
+            {
+                "date": "2026-09-03",
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+                "volume": 1_000_000,
+            }
+        ] * 10
+        client.get_historical_prices.return_value = {"historical": prices}
+        # budget_remaining (2) is lower than the candidate count (4), so the
+        # Phase 1.5 trim branch executes and keeps only the first 2 (A, B).
+        client.get_api_stats.return_value = {
+            "api_calls_made": 1,
+            "budget_remaining": 2,
+            "rate_limit_reached": False,
+        }
+
+        argv = ["screen_pead.py", "--api-key", "test-key", "--output-dir", str(tmp_path)]
+        with patch.object(sys, "argv", argv):
+            main()
+
+        json_files = list(tmp_path.glob("pead_screener_*.json"))
+        assert len(json_files) == 1
+        data = json.loads(json_files[0].read_text())
+        metadata = data["metadata"]
+        # Trimmed population is [A (bmo), B (unknown)], not the original 4.
+        assert metadata["timing_candidates_total"] == 2
+        assert metadata["timing_unknown_count"] == 1
+
+    def test_mode_b_leaves_timing_metadata_none(self, tmp_path):
+        payload = {
+            "schema_version": "1.0",
+            "results": [
+                {
+                    "symbol": "AAPL",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "amc",
+                    "gap_pct": 5.0,
+                    "grade": "A",
+                }
+            ],
+        }
+        json_path = tmp_path / "candidates.json"
+        json_path.write_text(json.dumps(payload))
+
+        with patch("screen_pead.FMPClient") as mock_client_class:
+            client = mock_client_class.return_value
+            prices = [
+                {
+                    "date": "2026-09-03",
+                    "open": 100.0,
+                    "high": 101.0,
+                    "low": 99.0,
+                    "close": 100.5,
+                    "volume": 1_000_000,
+                }
+            ] * 10
+            client.get_historical_prices.return_value = {"historical": prices}
+            client.get_api_stats.return_value = {
+                "api_calls_made": 1,
+                "budget_remaining": 100,
+                "rate_limit_reached": False,
+            }
+
+            argv = [
+                "screen_pead.py",
+                "--api-key",
+                "test-key",
+                "--output-dir",
+                str(tmp_path),
+                "--candidates-json",
+                str(json_path),
+            ]
+            with patch.object(sys, "argv", argv):
+                main()
+
+        json_files = list(tmp_path.glob("pead_screener_*.json"))
+        assert len(json_files) == 1
+        data = json.loads(json_files[0].read_text())
+        metadata = data["metadata"]
+        assert metadata["timing_candidates_total"] is None
+        assert metadata["timing_unknown_count"] is None
+        assert metadata["timing_source"] is None
+
+
+class TestMainZeroResultExitCodes:
+    """Drive main() end-to-end with a mocked FMPClient for each exit code."""
+
+    @staticmethod
+    def _argv(tmpdir, extra=None):
+        argv = ["screen_pead.py", "--api-key", "test-key", "--output-dir", str(tmpdir)]
+        return argv + (extra or [])
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_no_earnings_rows_exits_0(self, mock_client_class, tmp_path, capsys):
+        client = mock_client_class.return_value
+        client.get_earnings_calendar.return_value = []
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=no_earnings_rows" in err
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_no_profiles_returned_exits_1(self, mock_client_class, tmp_path, capsys):
+        client = mock_client_class.return_value
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {}
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=no_profiles_returned" in err
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_profiles_budget_exhausted_exits_0(self, mock_client_class, tmp_path, capsys):
+        client = mock_client_class.return_value
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {}
+        client.get_api_stats.return_value = {"budget_remaining": 0, "rate_limit_reached": False}
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=profiles_budget_exhausted" in err  # pragma: allowlist secret
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_missing_marketcap_field_exits_1(self, mock_client_class, tmp_path, capsys):
+        client = mock_client_class.return_value
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {"AAPL": {"exchange": "NASDAQ"}}
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=profiles_missing_required_field:marketCap" in err
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_a_all_below_market_cap_floor_exits_0(self, mock_client_class, tmp_path, capsys):
+        client = mock_client_class.return_value
+        client.get_earnings_calendar.return_value = [
+            {"symbol": "AAPL", "date": "2026-09-03", "time": "amc"}
+        ]
+        client.get_company_profiles.return_value = {
+            "AAPL": {"marketCap": 1_000, "exchange": "NASDAQ"}
+        }
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+
+        with patch.object(sys, "argv", self._argv(tmp_path, ["--min-market-cap", "1000000000"])):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=all_below_market_cap_floor" in err
+
+    @patch("screen_pead.FMPClient")
+    def test_mode_b_no_input_candidates_exits_0(self, mock_client_class, tmp_path, capsys):
+        payload = {
+            "schema_version": "1.0",
+            "results": [
+                {
+                    "symbol": "AAPL",
+                    "earnings_date": "2026-09-03",
+                    "earnings_timing": "amc",
+                    "gap_pct": 5.0,
+                    "grade": "D",
+                }
+            ],
+        }
+        json_path = tmp_path / "candidates.json"
+        json_path.write_text(json.dumps(payload))
+
+        with patch.object(
+            sys,
+            "argv",
+            self._argv(tmp_path, ["--candidates-json", str(json_path), "--min-grade", "A"]),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=no_input_candidates" in err

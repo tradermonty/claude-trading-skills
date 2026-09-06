@@ -76,6 +76,7 @@ without writing.
 |---|---|---|
 | `scripts/validate_skills_index.py` | `python3 scripts/validate_skills_index.py [--strict-workflows] [--strict-metadata]` | `skills-index.yaml` ↔ `skills/` bijection, enums, workflow artifact flow. Default = warn on best-effort fields; `--strict-metadata` requires `timeframe`/`difficulty`/`inputs`/`outputs`; `--strict-workflows` errors on workflow issues, including incomplete Japanese prose (`WF014`). |
 | `scripts/validate_skillsets.py` | `python3 scripts/validate_skillsets.py` | `skillsets/*.yaml` manifests (SK001–SK013) + `related_workflows` coherence. Always strict. |
+| `scripts/check_provider_contracts.py` | `python3 scripts/check_provider_contracts.py check` (offline, CI) · `canary` (live, weekly via `.github/workflows/fmp-contract-canary.yml`, needs `FMP_API_KEY`, report-only) | `config/provider-contracts/fmp/*.v*.json` structure + fixtures vs. `skills-index.yaml` owners (`check`); live FMP response vs. contract, redacting the key (`canary`). See [`docs/dev/provider-contracts.md`](provider-contracts.md). |
 
 ### Skill-doc ownership (the `generated:` marker)
 

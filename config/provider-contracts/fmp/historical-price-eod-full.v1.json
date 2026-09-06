@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "historical-price-eod-full",
+  "path": "/stable/historical-price-eod/full",
+  "query": {"symbol": "AAPL", "from": "2026-08-31", "to": "2026-09-04"},
+  "contract_version": 1,
+  "recorded_on": "2026-09-05",
+  "recording": "live /stable response; flat list, descending date, no fields removed",
+  "owners": [
+    "pead-screener",
+    "earnings-trade-analyzer",
+    "ibd-distribution-day-monitor",
+    "vcp-screener",
+    "parabolic-short-trade-planner",
+    "ftd-detector",
+    "canslim-screener",
+    "macro-regime-detector",
+    "market-top-detector",
+    "us-undervalued-growth-screener"
+  ],
+  "tier_notes": "flat list (not the legacy {symbol, historical} wrapper); the generated client's fallback normalizer rewraps it",
+  "required_fields": {
+    "symbol": {"types": ["str"], "nullable": false},
+    "date": {"types": ["str"], "nullable": false},
+    "open": {"types": ["int", "float"], "nullable": false},
+    "high": {"types": ["int", "float"], "nullable": false},
+    "low": {"types": ["int", "float"], "nullable": false},
+    "close": {"types": ["int", "float"], "nullable": false},
+    "volume": {"types": ["int"], "nullable": false}
+  },
+  "optional_fields": ["change", "changePercent", "vwap"],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {"min_rows": 1, "reason": "AAPL historical EOD must never be empty"},
+  "fixture": [
+    {
+      "symbol": "AAPL",
+      "date": "2026-09-04",
+      "open": 328.31,
+      "high": 328.93,
+      "low": 317.86,
+      "close": 319.97,
+      "volume": 39606884,
+      "change": -8.33,
+      "changePercent": -2.54,
+      "vwap": 323.7675
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2026-09-03",
+      "open": 324.87,
+      "high": 330.81,
+      "low": 324.11,
+      "close": 328.21,
+      "volume": 37225838,
+      "change": 3.34,
+      "changePercent": 1.03,
+      "vwap": 327
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2026-09-02",
+      "open": 326.87,
+      "high": 328.4,
+      "low": 323.53,
+      "close": 324.96,
+      "volume": 33776400,
+      "change": -1.91,
+      "changePercent": -0.58433,
+      "vwap": 325.94
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2026-09-01",
+      "open": 316.98,
+      "high": 327.3,
+      "low": 314.73,
+      "close": 325.13,
+      "volume": 53167400,
+      "change": 8.15,
+      "changePercent": 2.57,
+      "vwap": 321.035
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2026-08-31",
+      "open": 319.6,
+      "high": 321.24,
+      "low": 312.8,
+      "close": 316.85,
+      "volume": 41242724,
+      "change": -2.75,
+      "changePercent": -0.86045,
+      "vwap": 317.6225
+    }
+  ]
+}

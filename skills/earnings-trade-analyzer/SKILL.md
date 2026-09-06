@@ -97,6 +97,14 @@ Based on grades:
 - `earnings_trade_analyzer_YYYY-MM-DD_HHMMSS.json` - Structured results with schema_version "1.0"
 - `earnings_trade_analyzer_YYYY-MM-DD_HHMMSS.md` - Human-readable report with tables
 
+### Unknown earnings timing
+
+FMP does not confirm a bmo/amc session for every earnings row; unconfirmed
+rows report `earnings_timing: "unknown"` and the gap calculation assumes the
+AMC window as a fallback. Both reports surface `timing_unknown_count` out of
+`timing_candidates_total` so this assumption stays visible rather than
+blending unnoticed into the scores.
+
 ## Resources
 
 - `references/scoring_methodology.md` - 5-factor scoring system, grade thresholds, and entry quality filter rules

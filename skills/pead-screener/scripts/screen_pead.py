@@ -53,7 +53,7 @@ def calculate_price_gap(daily_prices: list[dict], earnings_date: str, timing: st
     Args:
         daily_prices: Most-recent-first daily price data
         earnings_date: YYYY-MM-DD string
-        timing: 'bmo', 'amc', or empty/unknown
+        timing: 'bmo', 'amc', or 'unknown'
 
     Returns:
         Gap percentage (e.g. 6.3 for 6.3%), or 0.0 if calculation not possible.
@@ -301,7 +301,7 @@ def analyze_stock(
         symbol: Stock symbol
         daily_prices: Most-recent-first daily OHLCV data
         earnings_date: Earnings announcement date (YYYY-MM-DD)
-        earnings_timing: 'bmo' (before market open) or 'amc' (after market close)
+        earnings_timing: 'bmo', 'amc', or 'unknown'
         gap_pct: Earnings gap percentage
         current_price: Current stock price
         watch_weeks: Maximum monitoring window in weeks
@@ -420,13 +420,17 @@ def main():
     candidates = []
 
     if mode == "A":
-        candidates = _get_candidates_mode_a(client, args)
+        candidates, reason = _get_candidates_mode_a(client, args)
     else:
-        candidates = _get_candidates_mode_b(args)
+        candidates, reason = _get_candidates_mode_b(args)
 
     if not candidates:
-        print("  No candidates found. Exiting.")
-        sys.exit(0)
+        exit_code, level, message = _ZERO_RESULT_REASONS.get(
+            reason, (1, "ERROR", f"No candidates found (reason: {reason}).")
+        )
+        print(f"ZERO_RESULT_REASON={reason}", file=sys.stderr)
+        print(f"  {level}: {message}", file=sys.stderr)
+        sys.exit(exit_code)
 
     print(f"  Total candidates: {len(candidates)}")
     print()
@@ -450,6 +454,22 @@ def main():
     else:
         print("  Budget sufficient")
     print()
+
+    # Timing diagnostics (Issue #352), counted AFTER the budget trim above so
+    # the population matches the candidates that actually enter Phase 2 (same
+    # convention as earnings-trade-analyzer). Mode A candidates carry a
+    # normalized earnings_timing from the FMP calendar; Mode B candidates
+    # carry whatever the input JSON already recorded, so leave the aggregate
+    # None rather than re-deriving a count that duplicates the upstream
+    # report's own metadata.
+    if mode == "A":
+        timing_candidates_total = len(candidates)
+        timing_unknown_count = sum(1 for c in candidates if c.get("earnings_timing") == "unknown")
+        timing_source = "fmp_stable_includeReportTimes"
+    else:
+        timing_candidates_total = None
+        timing_unknown_count = None
+        timing_source = None
 
     # ========================================================================
     # Phase 2: Fetch Historical Data & Weekly Candle Analysis
@@ -538,6 +558,9 @@ def main():
         "min_market_cap": args.min_market_cap if mode == "A" else None,
         "min_grade": args.min_grade if mode == "B" else None,
         "api_stats": api_stats,
+        "timing_unknown_count": timing_unknown_count,
+        "timing_candidates_total": timing_candidates_total,
+        "timing_source": timing_source,
     }
 
     # Sort by stage priority then composite score before top-N cutoff
@@ -635,8 +658,59 @@ def profile_market_cap(profile: dict) -> float:
     return 0.0
 
 
-def _get_candidates_mode_a(client: FMPClient, args) -> list[dict]:
-    """Get candidates from FMP earnings calendar (Mode A)."""
+# ZERO_RESULT_REASON -> (exit_code, level, one-line explanation). Both
+# `_get_candidates_mode_a` and `_get_candidates_mode_b` return `(candidates,
+# reason)`; `reason` is None when `candidates` is non-empty. See
+# docs/dev/provider-contracts.md.
+_ZERO_RESULT_REASONS = {
+    "no_earnings_rows": (
+        0,
+        "WARNING",
+        "The FMP earnings calendar returned no rows for the selected date range.",
+    ),
+    "calendar_fetch_failed": (
+        1,
+        "ERROR",
+        "The earnings calendar fetch failed (no usable response body); "
+        "the provider may be down or the response shape may have changed.",
+    ),
+    "profiles_budget_exhausted": (
+        0,
+        "WARNING",
+        "API budget was exhausted before any company profile could be fetched.",
+    ),
+    "no_profiles_returned": (
+        1,
+        "ERROR",
+        "The FMP API returned earnings symbols but no company profiles for any of them.",
+    ),
+    "profiles_missing_required_field:marketCap": (
+        1,
+        "ERROR",
+        "None of the returned profiles contain a marketCap or mktCap field; "
+        "the FMP response shape may have changed.",
+    ),
+    "all_below_market_cap_floor": (
+        0,
+        "INFO",
+        "All candidates were below the minimum market cap floor.",
+    ),
+    "no_input_candidates": (
+        0,
+        "INFO",
+        "No records in the input JSON met the minimum grade filter.",
+    ),
+}
+
+
+def _get_candidates_mode_a(client: FMPClient, args) -> tuple[list[dict], Optional[str]]:
+    """Get candidates from FMP earnings calendar (Mode A).
+
+    Returns:
+        ``(candidates, reason)`` where ``reason`` is ``None`` when
+        ``candidates`` is non-empty, else one of the keys in
+        ``_ZERO_RESULT_REASONS``.
+    """
     # Calculate date range
     to_date = datetime.now().strftime("%Y-%m-%d")
     from_date = (datetime.now() - timedelta(days=args.lookback_days)).strftime("%Y-%m-%d")
@@ -644,41 +718,65 @@ def _get_candidates_mode_a(client: FMPClient, args) -> list[dict]:
     print(f"  Fetching earnings calendar: {from_date} to {to_date}")
 
     earnings = client.get_earnings_calendar(from_date, to_date)
+    if not isinstance(earnings, list):
+        print("  ERROR: Earnings calendar fetch failed (no usable response body)")
+        return [], "calendar_fetch_failed"
     if not earnings:
         print("  WARNING: No earnings data returned")
-        return []
+        return [], "no_earnings_rows"
 
     print(f"  Raw earnings events: {len(earnings)}")
 
-    # Get unique symbols
-    symbols = list(set(e.get("symbol", "") for e in earnings if e.get("symbol")))
+    # Get unique symbols (non-dict rows are ignored, never dereferenced).
+    symbols = list(
+        set(e.get("symbol", "") for e in earnings if isinstance(e, dict) and e.get("symbol"))
+    )
     if not symbols:
-        return []
+        return [], "no_earnings_rows"
 
     # Fetch company profiles for market cap filtering
     print(f"  Fetching profiles for {len(symbols)} symbols...")
     profiles = client.get_company_profiles(symbols)
 
+    if not profiles:
+        api_stats = client.get_api_stats()
+        if api_stats.get("budget_remaining") == 0 or api_stats.get("rate_limit_reached"):
+            return [], "profiles_budget_exhausted"
+        return [], "no_profiles_returned"
+
     # Build candidates with market cap filter (gap filter deferred to Phase 2
     # where actual price data is available for accurate gap calculation)
-    grade_map = {e.get("symbol"): e for e in earnings}
+    grade_map = {e.get("symbol"): e for e in earnings if isinstance(e, dict)}
     candidates = []
+    any_usable_cap = False
 
     for symbol in symbols:
         earning = grade_map.get(symbol, {})
         profile = profiles.get(symbol, {})
+
+        if isinstance(profile, dict) and (
+            _coerce_market_cap(profile.get("marketCap")) is not None
+            or _coerce_market_cap(profile.get("mktCap")) is not None
+        ):
+            any_usable_cap = True
 
         # Market cap filter (/stable returns marketCap; v3 returned mktCap)
         market_cap = profile_market_cap(profile)
         if market_cap < args.min_market_cap:
             continue
 
-        timing = earning.get("time", "")
-        # Normalize timing
+        timing = earning.get("time")
+        # Normalize timing. Anything that isn't a confirmed bmo/amc session
+        # (missing key, None/null from the provider, or an unrecognized
+        # string) becomes the canonical "unknown" -- never an empty string,
+        # so this matches the {"bmo", "amc", "unknown"} set that Mode B's
+        # validate_input_json requires (#352).
         if timing in ("bmo", "Before Market Open"):
             timing = "bmo"
         elif timing in ("amc", "After Market Close"):
             timing = "amc"
+        else:
+            timing = "unknown"
 
         candidates.append(
             {
@@ -691,11 +789,21 @@ def _get_candidates_mode_a(client: FMPClient, args) -> list[dict]:
         )
 
     print(f"  Candidates after market cap filter: {len(candidates)}")
-    return candidates
+
+    if candidates:
+        return candidates, None
+    if not any_usable_cap:
+        return [], "profiles_missing_required_field:marketCap"
+    return [], "all_below_market_cap_floor"
 
 
-def _get_candidates_mode_b(args) -> list[dict]:
+def _get_candidates_mode_b(args) -> tuple[list[dict], Optional[str]]:
     """Get candidates from earnings-trade-analyzer JSON (Mode B).
+
+    Returns:
+        ``(candidates, reason)`` where ``reason`` is ``None`` when
+        ``candidates`` is non-empty, else one of the keys in
+        ``_ZERO_RESULT_REASONS``.
 
     Raises:
         SystemExit(1): On file not found, JSON parse error, or validation error.
@@ -735,7 +843,10 @@ def _get_candidates_mode_b(args) -> list[dict]:
             )
 
     print(f"  After grade filter (>= {args.min_grade}): {len(candidates)}")
-    return candidates
+
+    if candidates:
+        return candidates, None
+    return [], "no_input_candidates"
 
 
 if __name__ == "__main__":

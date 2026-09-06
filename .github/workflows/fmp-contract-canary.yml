@@ -1,0 +1,61 @@
+name: FMP contract canary
+
+# Weekly live probe for issue #332 (report-only until a promotion issue
+# makes it fail-closed — mirrors the packaged-deps-nightly / #349 pattern):
+# probes the four FMP endpoints covered by config/provider-contracts/fmp/
+# and scores the live response against the recorded contract, catching the
+# #328 failure class (HTTP 200, field renamed/removed) before a consumer
+# skill goes silently empty. PRs run the offline `check` subcommand instead
+# (see ci.yml's "Provider contract check" step); this workflow is the only
+# place that calls the live FMP API for this gate.
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # weekly, Monday 12:00 UTC
+  workflow_dispatch:
+
+jobs:
+  canary:
+    name: Live FMP contract probe (report-only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Check FMP_API_KEY secret is present
+        id: key_check
+        env:
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+        run: |
+          if [ -z "$FMP_API_KEY" ]; then
+            echo "SKIPPED: FMP_API_KEY secret not set"
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install requests
+        if: steps.key_check.outputs.has_key == 'true'
+        run: pip install requests
+
+      - name: Run canary
+        if: steps.key_check.outputs.has_key == 'true'
+        env:
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+        run: |
+          python3 scripts/check_provider_contracts.py canary \
+            --report reports/fmp-canary-report.json
+
+      - name: Upload canary report
+        if: always() && steps.key_check.outputs.has_key == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fmp-canary-report
+          path: reports/fmp-canary-report.json
+          if-no-files-found: warn
+          retention-days: 30

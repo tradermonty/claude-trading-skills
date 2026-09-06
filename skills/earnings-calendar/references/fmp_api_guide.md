@@ -12,14 +12,14 @@ Financial Modeling Prep (FMP) provides a comprehensive financial data API with e
 
 **Earnings Calendar Endpoint**:
 ```
-https://financialmodelingprep.com/api/v3/earning_calendar
+https://financialmodelingprep.com/stable/earnings-calendar
 ```
 
 ### Authentication
 
 FMP API requires an API key for authentication:
 ```
-https://financialmodelingprep.com/api/v3/earning_calendar?apikey=YOUR_API_KEY&from=2025-11-03&to=2025-11-09
+https://financialmodelingprep.com/stable/earnings-calendar?apikey=YOUR_API_KEY&from=2025-11-03&to=2025-11-09&includeReportTimes=true
 ```
 
 **Getting an API Key**:
@@ -37,6 +37,7 @@ https://financialmodelingprep.com/api/v3/earning_calendar?apikey=YOUR_API_KEY&fr
 | `apikey` | string | Your FMP API key | `YOUR_API_KEY` |
 | `from` | date | Start date (YYYY-MM-DD) | `2025-11-03` |
 | `to` | date | End date (YYYY-MM-DD) | `2025-11-09` |
+| `includeReportTimes` | string | Must be the literal string `"true"` or `"false"` (any other value, including a JSON boolean, is HTTP 400). Only `"true"` includes the `time` field in the response (#352) — omitting the parameter drops `time` from every row entirely. | `true` |
 
 ### Constraints
 
@@ -48,12 +49,15 @@ https://financialmodelingprep.com/api/v3/earning_calendar?apikey=YOUR_API_KEY&fr
 ### Example Request
 
 ```bash
-curl "https://financialmodelingprep.com/api/v3/earning_calendar?apikey=YOUR_KEY&from=2025-11-03&to=2025-11-09"
+curl "https://financialmodelingprep.com/stable/earnings-calendar?apikey=YOUR_KEY&from=2025-11-03&to=2025-11-09&includeReportTimes=true"
 ```
 
 ## Response Format
 
 ### JSON Structure
+
+The examples below assume the request included `includeReportTimes=true`
+(see above); without it, the `time` key is omitted from every row entirely.
 
 ```json
 [
@@ -78,9 +82,24 @@ curl "https://financialmodelingprep.com/api/v3/earning_calendar?apikey=YOUR_KEY&
         "revenueEstimated": 56200000000,
         "fiscalDateEnding": "2025-09-30",
         "updatedFromDate": "2025-11-02"
+    },
+    {
+        "symbol": "GOOGL",
+        "date": "2025-11-05",
+        "eps": null,
+        "epsEstimated": 2.10,
+        "time": null,
+        "revenue": null,
+        "revenueEstimated": 88500000000,
+        "fiscalDateEnding": "2025-09-30",
+        "updatedFromDate": "2025-11-02"
     }
 ]
 ```
+
+The third row above shows a report the provider has not yet confirmed a
+session for: `time` is `null`, which `normalize_timing()` maps to `"TAS"`
+(to-be-announced) rather than "bmo"/"amc".
 
 ### Field Descriptions
 
@@ -90,7 +109,7 @@ curl "https://financialmodelingprep.com/api/v3/earning_calendar?apikey=YOUR_KEY&
 | `date` | string | Earnings announcement date (YYYY-MM-DD) |
 | `eps` | number/null | Actual EPS (null if not yet announced) |
 | `epsEstimated` | number | Estimated EPS by analysts |
-| `time` | string | Timing: "bmo" (before market open), "amc" (after market close), "tba" (to be announced) |
+| `time` | string/null | Timing: `"bmo"` (before market open), `"amc"` (after market close), or `null` (session not yet confirmed by the provider). Only present when the request carries `includeReportTimes=true`; otherwise the key is absent entirely (#352). |
 | `revenue` | number/null | Actual revenue (null if not yet announced) |
 | `revenueEstimated` | number | Estimated revenue by analysts |
 | `fiscalDateEnding` | string | Fiscal period ending date |

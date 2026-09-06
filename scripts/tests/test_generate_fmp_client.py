@@ -11,6 +11,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.provider_contracts import _APIKEY_RE
+
 GENERATED_SKILLS = {
     "pead-screener",
     "earnings-trade-analyzer",
@@ -228,3 +232,17 @@ def test_generated_output_is_ruff_clean(gen):
     assert fmt.returncode == 0, fmt.stdout + fmt.stderr
     chk = subprocess.run([ruff, "check", *files], capture_output=True, text=True)
     assert chk.returncode == 0, chk.stdout + chk.stderr
+
+
+def test_generated_output_redacts_apikey_in_stderr(gen):
+    """Every rendered client masks apikey=/api_key= before printing (Issue #357).
+
+    The regex is duplicated verbatim (generated clients are standalone and cannot
+    import scripts/provider_contracts.py); this guards against the copies drifting
+    from the source of truth.
+    """
+    expected_pattern_literal = f'r"{_APIKEY_RE.pattern}"'
+    for cfg in _skills(gen).values():
+        out = gen.render_fmp_client(cfg)
+        assert "_redact_key(" in out, cfg.skill
+        assert expected_pattern_literal in out, cfg.skill

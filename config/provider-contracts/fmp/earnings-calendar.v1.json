@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "earnings-calendar",
+  "path": "/stable/earnings-calendar",
+  "query": {"from": "2026-09-04", "to": "2026-09-04", "includeReportTimes": "true"},
+  "contract_version": 1,
+  "recorded_on": "2026-09-06",
+  "recording": "live /stable response with includeReportTimes=true; time restored (#352)",
+  "owners": [
+    "pead-screener",
+    "earnings-trade-analyzer",
+    "ibd-distribution-day-monitor"
+  ],
+  "tier_notes": "no comma-batched symbol filter; from/to date range only; includeReportTimes=true required (string \"true\"/\"false\", any other value is HTTP 400) or `time` is omitted entirely",
+  "required_fields": {
+    "symbol": {"types": ["str"], "nullable": false},
+    "date": {"types": ["str"], "nullable": false},
+    "epsActual": {"types": ["int", "float"], "nullable": true},
+    "epsEstimated": {"types": ["int", "float"], "nullable": true},
+    "revenueActual": {"types": ["int", "float"], "nullable": true},
+    "revenueEstimated": {"types": ["int", "float"], "nullable": true},
+    "time": {"types": ["str"], "nullable": true}
+  },
+  "optional_fields": ["lastUpdated", "periodEnding", "fiscalPeriod", "fiscalYear", "confirmed"],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {"min_rows": 1, "reason": "a busy earnings-calendar trading day is never empty"},
+  "fixture": [
+    {
+      "symbol": "JW-B",
+      "date": "2026-09-04",
+      "epsActual": 0.23,
+      "epsEstimated": 0.4,
+      "revenueActual": 386361000,
+      "revenueEstimated": 3800000000,
+      "time": "bmo",
+      "periodEnding": "2026-07-31",
+      "fiscalPeriod": "Q1",
+      "fiscalYear": 2027,
+      "confirmed": false,
+      "lastUpdated": "2026-09-06"
+    },
+    {
+      "symbol": "NTRBW",
+      "date": "2026-09-04",
+      "epsActual": -0.07,
+      "epsEstimated": null,
+      "revenueActual": 437514,
+      "revenueEstimated": null,
+      "time": "amc",
+      "periodEnding": "2026-07-31",
+      "fiscalPeriod": "Q2",
+      "fiscalYear": 2026,
+      "confirmed": false,
+      "lastUpdated": "2026-09-06"
+    },
+    {
+      "symbol": "RSF",
+      "date": "2026-09-04",
+      "epsActual": 1.04,
+      "epsEstimated": 1.04,
+      "revenueActual": 4994875,
+      "revenueEstimated": 4586200,
+      "time": null,
+      "periodEnding": "2026-06-30",
+      "fiscalPeriod": "Q4",
+      "fiscalYear": 2025,
+      "confirmed": false,
+      "lastUpdated": "2026-09-06"
+    }
+  ]
+}
