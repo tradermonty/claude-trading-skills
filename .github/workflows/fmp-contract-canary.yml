@@ -14,16 +14,19 @@ on:
     - cron: "0 12 * * 1" # weekly, Monday 12:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   canary:
     name: Live FMP contract probe (report-only)
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python 3.9
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.9"
 
@@ -39,9 +42,15 @@ jobs:
             echo "has_key=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install requests
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+      - name: Sync locked project environment
         if: steps.key_check.outputs.has_key == 'true'
-        run: pip install requests
+        run: |
+          uv sync --locked --no-install-project --extra dev --extra ci
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run canary
         if: steps.key_check.outputs.has_key == 'true'
@@ -53,7 +62,7 @@ jobs:
 
       - name: Upload canary report
         if: always() && steps.key_check.outputs.has_key == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: fmp-canary-report
           path: reports/fmp-canary-report.json

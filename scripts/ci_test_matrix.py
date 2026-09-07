@@ -13,6 +13,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, replace
 from datetime import date
+from importlib import metadata
 from pathlib import Path
 
 import yaml
@@ -542,7 +543,23 @@ def matrix(entries: dict[str, TestEntry]) -> dict[str, list[dict[str, object]]]:
     }
 
 
-def install(entry: TestEntry) -> None:
+def install(entry: TestEntry, *, check: bool = False) -> None:
+    if check:
+        for raw in entry.requirements:
+            requirement = Requirement(raw)
+            if requirement.marker is not None and not requirement.marker.evaluate():
+                continue
+            if requirement.url or requirement.extras:
+                raise MatrixError(f"cannot verify installed requirement: {raw}")
+            try:
+                installed = metadata.version(requirement.name)
+            except metadata.PackageNotFoundError as exc:
+                raise MatrixError(f"locked environment missing requirement: {raw}") from exc
+            if installed not in requirement.specifier:
+                raise MatrixError(
+                    f"locked environment has {requirement.name}=={installed}, needs {raw}"
+                )
+        return
     if entry.requirements:
         uv = shutil.which("uv")
         command = (
@@ -899,6 +916,7 @@ def main(argv: list[str] | None = None) -> int:
     allowed_parser.add_argument("id")
     install_parser = subparsers.add_parser("install")
     install_parser.add_argument("id")
+    install_parser.add_argument("--check", action="store_true", help="verify without installing")
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("id")
     run_parser.add_argument("--coverage-dir", type=Path)
@@ -919,7 +937,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "allowed-failure":
             return 0 if _entry(entries, args.id).allowed_failure else 1
         elif args.command == "install":
-            install(_entry(entries, args.id))
+            install(_entry(entries, args.id), check=args.check)
         elif args.command == "run":
             return run(_entry(entries, args.id), ROOT, args.coverage_dir)
         elif args.command == "aggregate":

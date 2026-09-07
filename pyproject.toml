@@ -32,6 +32,15 @@ dev = [
     "detect-secrets>=1.5.0",
     "codespell>=2.3.0",
     "pre-commit>=3.0.0",
+    "tomli>=2.0; python_version < '3.11'",
+    "pip-audit==2.10.1; python_version >= '3.10'",
+    "bandit[toml]>=1.9.0; python_version >= '3.10'",
+]
+ci = [
+    "beautifulsoup4",
+    "lxml",
+    "statsmodels>=0.14,<0.15",
+    "pandas-market-calendars==5.2.2",
 ]
 
 [tool.ruff]
