@@ -604,7 +604,7 @@ class TestMainZeroResultExitCodes:
         assert "ZERO_RESULT_REASON=no_profiles_returned" in err
 
     @patch("analyze_earnings_trades.FMPClient")
-    def test_profiles_budget_exhausted_exits_0(self, mock_client_class, tmp_path, capsys):
+    def test_profiles_budget_exhausted_exits_1(self, mock_client_class, tmp_path, capsys):
         client = mock_client_class.return_value
         mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
         client.get_earnings_calendar.return_value = [
@@ -620,9 +620,57 @@ class TestMainZeroResultExitCodes:
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
-        assert exc_info.value.code == 0
+        assert exc_info.value.code == 1
         err = capsys.readouterr().err
         assert "ZERO_RESULT_REASON=profiles_budget_exhausted" in err  # pragma: allowlist secret
+
+    @pytest.mark.parametrize("max_calls", [1, 2])
+    def test_profiles_budget_exhausted_real_client_exits_1(self, max_calls, tmp_path, capsys):
+        """Real FMPClient hits ApiCallBudgetExceeded mid-profile-fetch.
+
+        Before the fix, the ``except ApiCallBudgetExceeded`` block around
+        ``get_company_profiles`` already exits 1 with a generic ``ERROR:``
+        line -- the exit-code assertion alone would pass red. The
+        ``ZERO_RESULT_REASON=profiles_budget_exhausted`` line is what's
+        missing pre-fix and is the assertion that actually fails red here.
+        """
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+
+        def fake_get(url, params=None, timeout=30):
+            response = MagicMock()
+            response.status_code = 200
+            if url.endswith("/earnings-calendar"):
+                response.json.return_value = [
+                    {"symbol": s, "date": "2026-09-04", "time": "amc"} for s in symbols
+                ]
+            else:
+                assert url.endswith("/profile")
+                symbol = params.get("symbol")
+                response.json.return_value = [{"symbol": symbol, "marketCap": 3_000_000_000}]
+            return response
+
+        client = FMPClient(api_key="test-key", max_api_calls=max_calls)
+        client.RATE_LIMIT_DELAY = 0
+        client.session.get = MagicMock(side_effect=fake_get)
+
+        with patch("analyze_earnings_trades.FMPClient", return_value=client) as mock_client_class:
+            mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+            argv = self._argv(tmp_path) + ["--max-api-calls", str(max_calls)]
+            with patch.object(sys, "argv", argv):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=profiles_budget_exhausted" in err  # pragma: allowlist secret
+        assert "API budget was exhausted before company profile fetching completed" in err
+        assert "ERROR:" not in err
+        assert "Traceback" not in err
+        assert "api_stats: budget_remaining=0 rate_limit_reached=False" in err
+        assert client.session.get.call_count == max_calls
+        profile_cache_entries = [k for k in client.cache if k.startswith("profile_")]
+        assert len(profile_cache_entries) == max_calls - 1
+        assert list(tmp_path.iterdir()) == []
 
     @patch("analyze_earnings_trades.FMPClient")
     def test_missing_marketcap_field_exits_1(self, mock_client_class, tmp_path, capsys):

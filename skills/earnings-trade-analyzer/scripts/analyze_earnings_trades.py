@@ -71,8 +71,9 @@ _ZERO_RESULT_MESSAGES = {
         "the provider may be down or the response shape may have changed.",
     ),
     "profiles_budget_exhausted": (
-        0,
-        "API budget was exhausted before any company profile could be fetched.",
+        1,
+        "API budget was exhausted before company profile fetching completed. "
+        "Increase --max-api-calls or reduce --lookback-days and retry.",
     ),
     "no_profiles_returned": (
         1,
@@ -290,6 +291,21 @@ def apply_entry_filter(results):
     return filtered
 
 
+def _exit_zero_result(reason: str):
+    """Print the ZERO_RESULT_REASON line + table message and exit accordingly.
+
+    Shared by the ``if not candidates:`` empty-selection block and the
+    ``except ApiCallBudgetExceeded`` around ``get_company_profiles``; both
+    paths produce no report (reports are only generated after Phase 3).
+    """
+    exit_code, message = _ZERO_RESULT_MESSAGES.get(
+        reason, (1, f"No candidates found (reason: {reason}).")
+    )
+    print(f"ZERO_RESULT_REASON={reason}", file=sys.stderr)
+    print(message, file=sys.stderr)
+    sys.exit(exit_code)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Earnings Trade Analyzer - 5-Factor Post-Earnings Scoring"
@@ -381,9 +397,16 @@ def main():
     print("Fetching company profiles...", file=sys.stderr)
     try:
         profiles = client.get_company_profiles(symbols)
-    except ApiCallBudgetExceeded as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+    except ApiCallBudgetExceeded:
+        # Keep the budget numbers visible for operators (the calendar path
+        # prints the same line); the reason line is what schedulers parse.
+        api_stats = client.get_api_stats()
+        print(
+            f"api_stats: budget_remaining={api_stats.get('budget_remaining')} "
+            f"rate_limit_reached={api_stats.get('rate_limit_reached')}",
+            file=sys.stderr,
+        )
+        _exit_zero_result("profiles_budget_exhausted")
 
     print(f"Profiles retrieved: {len(profiles)}", file=sys.stderr)
 
@@ -395,12 +418,7 @@ def main():
     if not candidates:
         api_stats = client.get_api_stats()
         reason = explain_empty_selection(earnings, profiles, args.min_market_cap, api_stats)
-        exit_code, message = _ZERO_RESULT_MESSAGES.get(
-            reason, (1, f"No candidates found (reason: {reason}).")
-        )
-        print(f"ZERO_RESULT_REASON={reason}", file=sys.stderr)
-        print(message, file=sys.stderr)
-        sys.exit(exit_code)
+        _exit_zero_result(reason)
 
     # Phase 1.5: Budget check
     print("\n--- Phase 1.5: Budget Check ---", file=sys.stderr)

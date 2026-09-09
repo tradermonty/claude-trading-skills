@@ -45,7 +45,7 @@ python3 skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py \
 
 #### Degraded endpoint / budget fallback for scheduled reviews
 
-If the analyzer reports a 404, an implausible empty earnings calendar, or exhausts its API-call budget before producing scored candidates during a scheduled after-close/pre-market run, do not report "no earnings reactions" immediately.
+If the analyzer reports a 404, an implausible empty earnings calendar, or exhausts its API-call budget before producing scored candidates during a scheduled after-close/pre-market run, do not report "no earnings reactions" immediately. Budget or daily rate-limit exhaustion during profile fetching exits 1 with `ZERO_RESULT_REASON=profiles_budget_exhausted` rather than exiting successfully — treat it as a failed run to retry or fall back on, not a quiet day.
 
 1. First retry once with a narrower liquid-universe configuration so the full 5-factor scorer has a chance to complete, for example:
 
@@ -66,7 +66,7 @@ curl "https://financialmodelingprep.com/stable/earnings-calendar?from=YYYY-MM-DD
 
 Then optionally enrich returned US tickers through the analyzer's stable-first FMP client or per-symbol `/stable/quote?symbol=<ticker>` calls to rank by same-day `changesPercentage`, market cap, and liquidity. Use legacy `/api/v3` quote calls only as a legacy-key fallback after stable has failed. Present these as **preliminary / ungraded reactions** because the 5-factor scorer did not run; do not assign A/B/C/D grades from the fallback alone.
 
-**No-candidate output pitfall:** The analyzer may print `Candidates after filtering: 0` / `No candidates found matching criteria.` and exit successfully without writing an `earnings_trade_analyzer_*.json` file. In that case, do not try to run PEAD Mode B from a nonexistent candidate file. Say explicitly that no scored analyzer JSON was produced, run the endpoint/quote enrichment fallback above if the routine needs an earnings section, and label any names as manual-review only.
+**No-candidate output pitfall:** The analyzer may print `Candidates after filtering: 0` / `No candidates found matching criteria.` and exit successfully without writing an `earnings_trade_analyzer_*.json` file. In that case, do not try to run PEAD Mode B from a nonexistent candidate file. Say explicitly that no scored analyzer JSON was produced, run the endpoint/quote enrichment fallback above if the routine needs an earnings section, and label any names as manual-review only. This success-exit path does not cover budget exhaustion during profile fetching: that case exits 1 (`ZERO_RESULT_REASON=profiles_budget_exhausted`) instead.
 
 ### Step 2: Review Results
 

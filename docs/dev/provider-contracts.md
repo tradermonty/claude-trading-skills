@@ -130,14 +130,16 @@ fixed exit code (and, for pead-screener, a log level); an unrecognized/`unknown`
 reason falls back to exit 1 in both scripts.
 
 **earnings-trade-analyzer** (`analyze_earnings_trades.py`, `_ZERO_RESULT_MESSAGES`;
-falsy/non-list calendar bodies evaluated first in `classify_empty_calendar`,
+falsy/non-list calendar bodies evaluated first in `classify_empty_calendar`;
+`profiles_budget_exhausted` is also emitted directly from the
+`except ApiCallBudgetExceeded` around the profile fetch in `main()`;
 the rest in `explain_empty_selection` in fixed order, first match wins):
 
 | Code | Condition | Exit |
 |---|---|---|
 | `no_earnings_rows` | the calendar returned `[]`, or rows none of which carried a `symbol` — a genuine empty window | 0 |
 | `calendar_fetch_failed` | the calendar fetch returned no usable body (`None` on transport/HTTP/rate-limit failure, or a non-list body) | 1 |
-| `profiles_budget_exhausted` | budget exhausted (`api_stats["budget_remaining"] == 0` or `rate_limit_reached`) and no profiles were returned at all | 0 |
+| `profiles_budget_exhausted` | profile fetching raised `ApiCallBudgetExceeded` (including after partial retrieval), or profiles came back empty and the budget is exhausted (`api_stats["budget_remaining"] == 0` or `rate_limit_reached`) | 1 |
 | `no_profiles_returned` | ≥1 earnings symbol, but `get_company_profiles` returned nothing | 1 |
 | `profiles_missing_required_field:marketCap` | ≥1 profile came back, but none has a usable numeric `marketCap` (non-bool `int`/`float`, finite) | 1 |
 | `profiles_missing_required_field:exchange` | ≥1 usable market cap exists, but none of those profiles has a string `exchange` | 1 |
@@ -145,6 +147,11 @@ the rest in `explain_empty_selection` in fixed order, first match wins):
 | `all_non_us_exchange` | every usable profile's exchange is a non-US exchange (not in `FMPClient.US_EXCHANGES`) | 0 |
 | `mixed_filters_rejected_all` | usable profiles exist and were all rejected, but by a *mix* of the cap-floor and exchange filters rather than one uniform cause — treated as an ordinary empty day, not schema drift | 0 |
 | *(fallback)* `unknown` / any other reason not in the table | none of the above matched | 1 |
+
+For earnings-trade-analyzer, `profiles_budget_exhausted` exits 1: a daily 429
+limit or an aborted profile fetch leaves an incomplete profile set (possibly
+none at all), so no scored report can be produced — that is not a benign empty
+day.
 
 **pead-screener** (`screen_pead.py`, `_ZERO_RESULT_REASONS` / `_get_candidates_mode_a`
 + `_get_candidates_mode_b`, both return `(candidates, reason)` with `reason is None`
