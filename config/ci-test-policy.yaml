@@ -46,12 +46,6 @@ coverage:
       expires_on: "2026-10-31"
       issue: 293
       reason: Ratchet from the 2026-08-10 executable-code baseline.
-    earnings-calendar:
-      floor: 48
-      target: 70
-      expires_on: "2026-10-31"
-      issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
     earnings-trade-analyzer:
       floor: 67
       target: 70
