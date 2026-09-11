@@ -1192,7 +1192,8 @@ def generate_markdown_report(results: list[dict], criteria: dict, output_path: s
 **10-Year Dividend Projection ({stock["dividend_cagr_3y"]:.0f}% CAGR):**
 - Current Yield on Cost: {stock["dividend_yield"]:.2f}%
 - Year 5 Yield on Cost: {stock["dividend_yield"] * (1 + stock["dividend_cagr_3y"] / 100) ** 5:.2f}%
-- Year 10 Yield on Cost: {stock["dividend_yield"] * (1 + stock["dividend_cagr_3y"] / 100) ** 10:.2f}%
+- Year 10 Yield on Cost: {
+                stock["dividend_yield"] * (1 + stock["dividend_cagr_3y"] / 100) ** 10:.2f}%
 
 **Entry Strategy:**
 {f"- RSI {stock['rsi']:.0f} indicates {rsi_interpretation.lower()} condition"}

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from typing import Optional, get_type_hints
 
 import pytest
 
@@ -148,6 +149,20 @@ def test_canonical_runtime_executes_real_provider_contract_when_installed():
     nyse = calendar.session_for_date("XNYS", date(2026, 11, 27))
     assert jpx.market_close.strftime("%H:%M") == "15:30"
     assert nyse.market_close.strftime("%H:%M") == "13:00"
+
+
+def test_calendar_annotations_remain_runtime_evaluable_on_python39(generator):
+    paths = [REPO_ROOT / "scripts" / "market_calendar" / "market_calendar.py"]
+    paths.extend(
+        REPO_ROOT / "skills" / skill / "scripts" / "_market_calendar.py"
+        for skill in generator.load_config()["consumers"]
+    )
+    for index, path in enumerate(paths):
+        calendar = _load(path, f"calendar_runtime_typing_{index}")
+        hints = get_type_hints(calendar.Session)
+        assert hints["break_start"] == Optional[datetime]
+        assert hints["break_end"] == Optional[datetime]
+        assert get_type_hints(calendar.session_for_date)["return"] == Optional[calendar.Session]
 
 
 def test_optional_mapping_renders_check_skill_deps_marker(generator):
