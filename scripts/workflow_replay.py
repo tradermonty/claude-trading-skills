@@ -601,11 +601,19 @@ def _scrubbed_environment() -> dict[str, str]:
     }
 
 
-def _run_cli(command: list[str], repo_root: Path) -> subprocess.CompletedProcess[str]:
+def _run_cli(
+    command: list[str],
+    repo_root: Path,
+    *,
+    path_override: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    environment = _scrubbed_environment()
+    if path_override is not None:
+        environment["PATH"] = str(path_override)
     completed = subprocess.run(
         command,
         cwd=repo_root,
-        env=_scrubbed_environment(),
+        env=environment,
         check=False,
         capture_output=True,
         text=True,
@@ -1228,6 +1236,43 @@ def _normalize_elapsed(obj: Any) -> Any:
     if isinstance(obj, str):
         return _ELAPSED_RE.sub(" in <elapsed>s", obj)
     return obj
+
+
+def _normalize_review_test_command(report: dict[str, Any]) -> None:
+    """Replace the environment-specific pytest launcher with a replay token."""
+    auto_review = report.get("auto_review")
+    if not isinstance(auto_review, dict):
+        raise ReplayError("skill review auto_review must be a mapping")
+
+    status = auto_review.get("test_status")
+    command = auto_review.get("test_command")
+    command_statuses = {"passed", "failed", "timeout"}
+    no_command_statuses = {"not_found", "tool_missing", "not_applicable", "skipped"}
+    if status in no_command_statuses:
+        if command is not None:
+            raise ReplayError(f"skill review test_status {status!r} requires test_command: null")
+        return
+    if status not in command_statuses:
+        raise ReplayError(f"unexpected skill review test_status: {status!r}")
+    if not isinstance(command, str) or not command.strip():
+        raise ReplayError(f"skill review test_status {status!r} requires a test command")
+
+    prefixes = (
+        "uv run --extra dev pytest ",
+        f"{sys.executable} -m pytest ",
+    )
+    prefix = next((candidate for candidate in prefixes if command.startswith(candidate)), None)
+    if prefix is None:
+        raise ReplayError(f"unexpected skill review test command: {command!r}")
+
+    # Keep every pytest argument byte-for-byte; only the launcher is replay metadata.
+    pytest_arguments = command[len(prefix) :]
+    if not pytest_arguments.strip():
+        raise ReplayError("skill review test command requires pytest arguments")
+    shell_markers = ("\n", "\r", "&&", "||", ";", "|", "&", ">", "<", "`", "$(")
+    if any(marker in pytest_arguments for marker in shell_markers):
+        raise ReplayError("skill review test command contains shell control syntax")
+    auto_review["test_command"] = f"pytest {pytest_arguments}"
 
 
 def _exact_payload_sha256(payload: Any) -> str:
@@ -2562,6 +2607,8 @@ def _monthly_skill_review(
     script = (
         repo_root / "skills" / "dual-axis-skill-reviewer" / "scripts" / "run_dual_axis_review.py"
     )
+    python_fallback_path = work / "python-fallback-path"
+    python_fallback_path.mkdir(parents=True, exist_ok=True)
     _run_cli(
         [
             sys.executable,
@@ -2574,9 +2621,12 @@ def _monthly_skill_review(
             str(batch),
         ],
         repo_root,
+        path_override=python_fallback_path,
     )
+    report = _load_json(_latest_report(batch, f"skill_review_{skill_name}_*.json"), "skill review")
+    _normalize_review_test_command(report)
     report = _canonicalize(
-        _load_json(_latest_report(batch, f"skill_review_{skill_name}_*.json"), "skill review"),
+        report,
         spec["fixed_timestamp"],
         {str(repo_root) + "/": ""},
     )

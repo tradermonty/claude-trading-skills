@@ -118,6 +118,9 @@ def test_full_path_runs_coach_backtest_and_reviews_skill(tmp_path: Path) -> None
     assert skill["skill_name"] == "vcp-screener"
     assert skill["selection_mode"] == "manual"
     assert skill["final_score"] == 93
+    assert skill["review"]["auto_review"]["test_command"] == (
+        "pytest skills/vcp-screener/scripts/tests -q"
+    )
 
     decision = json.loads((output / "06_monthly_decision_log.json").read_text())
     assert set(decision["provenance"].keys()) == {
@@ -254,6 +257,152 @@ def test_native_commands_are_offline_and_do_not_launch_uv(
         )
         for environment in environments
     )
+    reviewer_indexes = [
+        index
+        for index, command in enumerate(commands)
+        if any(part.endswith("run_dual_axis_review.py") for part in command)
+    ]
+    assert len(reviewer_indexes) == 1
+    reviewer_index = reviewer_indexes[0]
+    reviewer_path = environments[reviewer_index]["PATH"]
+    assert Path(reviewer_path).name == "python-fallback-path"
+    assert all(
+        environment["PATH"] != reviewer_path
+        for index, environment in enumerate(environments)
+        if index != reviewer_index
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --extra dev pytest skills/vcp-screener/scripts/tests -q",
+        f"{sys.executable} -m pytest skills/vcp-screener/scripts/tests -q",
+    ],
+)
+def test_skill_review_test_command_normalizes_supported_launchers(command: str) -> None:
+    report = {"auto_review": {"test_status": "passed", "test_command": command}}
+
+    replay_module._normalize_review_test_command(report)
+
+    assert report["auto_review"]["test_command"] == ("pytest skills/vcp-screener/scripts/tests -q")
+
+
+def test_skill_review_test_command_preserves_pytest_arguments_byte_for_byte() -> None:
+    arguments = "skills/vcp-screener/scripts/tests -q  --maxfail=1"
+    report = {
+        "auto_review": {
+            "test_status": "passed",
+            "test_command": f"uv run --extra dev pytest {arguments}",
+        }
+    }
+
+    replay_module._normalize_review_test_command(report)
+
+    assert report["auto_review"]["test_command"] == f"pytest {arguments}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest skills/vcp-screener/scripts/tests -q",
+        "uv run --extra ci pytest skills/vcp-screener/scripts/tests -q",
+        f"{sys.executable} -m unittest skills/vcp-screener/scripts/tests -q",
+        f"{sys.executable} -I -m pytest skills/vcp-screener/scripts/tests -q",
+        f"{sys.executable} -m pytest skills/vcp-screener/scripts/tests -q && echo bad",
+        "uv run --extra dev pytest",
+    ],
+)
+def test_skill_review_test_command_rejects_unknown_or_shell_forms(command: str) -> None:
+    report = {"auto_review": {"test_status": "passed", "test_command": command}}
+
+    with pytest.raises(ReplayError):
+        replay_module._normalize_review_test_command(report)
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["not_found", "tool_missing", "not_applicable", "skipped"],
+)
+def test_skill_review_test_command_preserves_valid_null_statuses(status: str) -> None:
+    report = {"auto_review": {"test_status": status, "test_command": None}}
+
+    replay_module._normalize_review_test_command(report)
+
+    assert report["auto_review"]["test_command"] is None
+
+
+@pytest.mark.parametrize(
+    ("status", "command"),
+    [
+        ("passed", None),
+        ("failed", ""),
+        ("timeout", None),
+        ("not_found", "uv run --extra dev pytest tests -q"),
+        ("unexpected", None),
+    ],
+)
+def test_skill_review_test_command_rejects_status_command_mismatches(
+    status: str, command: str | None
+) -> None:
+    report = {"auto_review": {"test_status": status, "test_command": command}}
+
+    with pytest.raises(ReplayError):
+        replay_module._normalize_review_test_command(report)
+
+
+def test_skill_review_command_is_normalized_before_other_replay_metadata() -> None:
+    raw_target = ROOT / "skills" / "vcp-screener" / "scripts" / "tests"
+    report = {
+        "generated_at": "2026-09-11T12:34:56Z",
+        "auto_review": {
+            "test_status": "passed",
+            "test_command": f"{sys.executable} -m pytest {raw_target} -q",
+            "test_output": "262 passed in 1.23s",
+        },
+    }
+
+    replay_module._normalize_review_test_command(report)
+    canonical = replay_module._canonicalize(
+        report,
+        "2026-05-31T23:59:59Z",
+        {str(ROOT) + "/": ""},
+    )
+    canonical = replay_module._normalize_elapsed(canonical)
+
+    assert canonical == {
+        "generated_at": "2026-05-31T23:59:59Z",
+        "auto_review": {
+            "test_status": "passed",
+            "test_command": "pytest skills/vcp-screener/scripts/tests -q",
+            "test_output": "262 passed in <elapsed>s",
+        },
+    }
+
+
+def test_skill_review_command_variants_have_identical_provenance_digest() -> None:
+    fixed_timestamp = "2026-05-31T23:59:59Z"
+    commands = [
+        "uv run --extra dev pytest skills/vcp-screener/scripts/tests -q",
+        f"{sys.executable} -m pytest skills/vcp-screener/scripts/tests -q",
+    ]
+    digests = []
+    for command in commands:
+        report = {
+            "auto_review": {
+                "test_status": "passed",
+                "test_command": command,
+                "test_output": "262 passed in 1.23s",
+            }
+        }
+        replay_module._normalize_review_test_command(report)
+        canonical = replay_module._normalize_elapsed(
+            replay_module._canonicalize(report, fixed_timestamp, {})
+        )
+        payload = {"schema_version": 1, "review": canonical}
+        digests.append(replay_module._payload_sha256(payload, fixed_timestamp))
+
+    assert len(set(digests)) == 1
 
 
 def test_monthly_goldens_are_byte_reproducible(tmp_path: Path) -> None:
