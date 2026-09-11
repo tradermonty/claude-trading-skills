@@ -61,6 +61,7 @@ def test_fetch_failure_emits_no_json(monkeypatch, capsys, reply, message):
         params={
             "from": "2026-09-07",
             "to": "2026-09-11",
+            "includeReportTimes": "true",
             "apikey": "fixture-key",  # pragma: allowlist secret
         },
         timeout=30,
@@ -90,6 +91,7 @@ def test_fetch_to_report_pipeline(monkeypatch, tmp_path, capsys):
             assert params == {
                 "from": "2026-09-07",
                 "to": "2026-09-11",
+                "includeReportTimes": "true",
                 "apikey": "fixture-key",  # pragma: allowlist secret
             }
             return response(earnings)
