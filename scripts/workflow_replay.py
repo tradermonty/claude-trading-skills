@@ -2349,6 +2349,13 @@ def _monthly_aggregate(
             "realized_pnl": round(realized_total, 2),
             "win_rate_pct": round(winners / closed * 100, 2),
         },
+        "provenance": {
+            "execution_mode": "manual_contract",
+            "deferred_evidence": (
+                "Monthly aggregate is consolidated in-harness from the closed-theses log; "
+                "trader-memory-core journal synthesis remains deferred (issue 294)."
+            ),
+        },
     }
     artifacts = _artifact_paths(stage, step["output_files"])
     _write_json(Path(artifacts["monthly_aggregate"]["files"]["canonical"]), aggregate)
@@ -2395,6 +2402,59 @@ def _monthly_postmortem(
         category_counts[category] = category_counts.get(category, 0) + item["count"]
     _require_non_empty_string(decision["summary"], "pattern decision summary")
 
+    expected_native = sorted(decision["expected_native_classifications"])
+    if expected_native != sorted(allowed_categories):
+        raise ReplayError(
+            "expected_native_classifications must list the canonical postmortem category set; "
+            f"got {expected_native}"
+        )
+
+    aggregate = _load_json(
+        Path(consumed["monthly_aggregate"]["files"]["canonical"]), "monthly aggregate"
+    )
+    _require_mapping_keys(
+        aggregate,
+        label="monthly aggregate",
+        required={"trades", "summary"},
+        optional={
+            "schema_version",
+            "review_type",
+            "trade_id",
+            "period",
+            "outcome",
+            "planned",
+            "actual",
+            "risk_plan",
+            "monthly",
+            "postmortem",
+            "journal",
+            "provenance",
+        },
+    )
+    trades = aggregate["trades"]
+    if not isinstance(trades, list) or not trades:
+        raise ReplayError("monthly aggregate trades must be a non-empty list")
+    trade_ids: list[str] = []
+    for row in trades:
+        if not isinstance(row, dict) or "root_cause" not in row:
+            raise ReplayError("monthly aggregate trade must be a mapping with a root_cause")
+        if row["root_cause"] not in allowed_categories:
+            raise ReplayError(
+                f"monthly aggregate trade has unexpected root_cause {row['root_cause']!r}"
+            )
+        trade_ids.append(row.get("trade_id"))
+    summary = _require_mapping_keys(
+        aggregate["summary"],
+        label="monthly aggregate summary",
+        required={"closed_trades", "winners", "losers"},
+        optional={"realized_pnl", "win_rate_pct"},
+    )
+    closed = _require_finite_number(summary["closed_trades"], "monthly aggregate closed_trades")
+    if int(closed) != len(trades):
+        raise ReplayError("monthly aggregate summary.closed_trades must equal the number of trades")
+    if int(summary["winners"]) + int(summary["losers"]) != int(closed):
+        raise ReplayError("monthly aggregate summary winners + losers must equal closed_trades")
+
     pm_records = _load_json(inputs["postmortems"], "postmortems")
     if isinstance(pm_records, dict):
         pm_records = pm_records.get("records") or []
@@ -2408,7 +2468,8 @@ def _monthly_postmortem(
     analyzer = _repo_module(
         repo_root, "postmortem_analyzer", repo_root / "skills" / "signal-postmortem" / "scripts"
     )
-    loaded = analyzer.load_postmortems(str(pm_dir), days_back=2000)
+    fixed_now = datetime.fromisoformat(spec["fixed_timestamp"].replace("Z", "+00:00"))
+    loaded = analyzer.load_postmortems(str(pm_dir), days_back=2000, now=fixed_now)
     if not loaded:
         raise ReplayError("no postmortems loaded from fixture")
     metrics = analyzer.calculate_skill_metrics(loaded)
@@ -2428,6 +2489,12 @@ def _monthly_postmortem(
             "source_skills": sorted(
                 {pm.get("source_skill") for pm in pm_records if pm.get("source_skill")}
             ),
+            "aggregate": {
+                "postmortem_root_cause": aggregate.get("postmortem", {}).get("root_cause"),
+                "closed_trades": aggregate.get("summary", {}).get("closed_trades"),
+                "trade_ids": trade_ids,
+                "sha256": _payload_sha256(aggregate, spec["fixed_timestamp"]),
+            },
         },
     }
     artifacts = _artifact_paths(stage, step["output_files"])
@@ -2710,6 +2777,11 @@ def _monthly_decision_log(
                 if "skill_review_findings" in consumed
                 else None
             ),
+            "execution_mode": "manual_contract",
+            "deferred_evidence": (
+                "Decision log is transcribed from the human rule-change decision; native "
+                "trader-memory-core decision/journal persistence remains deferred (issue 294)."
+            ),
         },
     }
     artifacts = _artifact_paths(stage, step["output_files"])
@@ -2765,7 +2837,7 @@ EXECUTORS: dict[str, ExecutorRegistration] = {
     "market_regime_uptrend": ExecutorRegistration("native_api", _market_regime_uptrend),
     "market_regime_top_risk": ExecutorRegistration("native_api", _market_regime_top_risk),
     "market_regime_exposure": ExecutorRegistration("native_cli", _market_regime_exposure),
-    "monthly_aggregate": ExecutorRegistration("native_api", _monthly_aggregate),
+    "monthly_aggregate": ExecutorRegistration("manual_contract", _monthly_aggregate),
     "monthly_postmortem": ExecutorRegistration(
         "composite",
         _monthly_postmortem,
@@ -2778,11 +2850,7 @@ EXECUTORS: dict[str, ExecutorRegistration] = {
     ),
     "monthly_backtest": ExecutorRegistration("native_cli", _monthly_backtest),
     "monthly_skill_review": ExecutorRegistration("native_cli", _monthly_skill_review),
-    "monthly_decision_log": ExecutorRegistration(
-        "composite",
-        _monthly_decision_log,
-        ("native_api", "manual_contract"),
-    ),
+    "monthly_decision_log": ExecutorRegistration("manual_contract", _monthly_decision_log),
 }
 
 

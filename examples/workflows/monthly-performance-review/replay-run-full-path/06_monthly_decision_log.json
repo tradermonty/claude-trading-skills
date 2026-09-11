@@ -1,7 +1,9 @@
 {
   "monthly_aggregate_root_cause": "Confirmation discipline rather than market regime drove the month's losses.",
   "provenance": {
-    "aggregate_postmortem": "54929c98c91ab287f4eecd0cb6b141e9b51ab92f9f531edc043bb23e335ab970",
+    "aggregate_postmortem": "1fdcf82d121fa869ab3df0a2314fe56ccc3679b7723fe7e2eff30946cfa25a04",
+    "deferred_evidence": "Decision log is transcribed from the human rule-change decision; native trader-memory-core decision/journal persistence remains deferred (issue 294).",
+    "execution_mode": "manual_contract",
     "hypothesis_revalidation": "841f238f320b0f8a58a462f5f3a82ab925c5852307a13696f737b2fc58add5de",
     "skill_review_findings": "a3ffee73567e1aa5bb01a06521693cac5b90e3389ff43418a83607233e227855"
   },

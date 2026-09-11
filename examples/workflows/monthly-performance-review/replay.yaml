@@ -14,7 +14,7 @@ inputs:
 steps:
   - step: 1
     executor: monthly_aggregate
-    executor_mode: native_api
+    executor_mode: manual_contract
     gate_policy: continue
     output_files:
       monthly_aggregate:
@@ -64,10 +64,7 @@ steps:
 
   - step: 6
     executor: monthly_decision_log
-    executor_mode: composite
-    executor_components:
-      - native_api
-      - manual_contract
+    executor_mode: manual_contract
     gate_policy: record_only
     output_files:
       monthly_decision_log:

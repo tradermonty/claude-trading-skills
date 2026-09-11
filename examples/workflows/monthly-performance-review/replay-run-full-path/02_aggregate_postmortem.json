@@ -68,6 +68,18 @@
     }
   },
   "provenance": {
+    "aggregate": {
+      "closed_trades": 5,
+      "postmortem_root_cause": "thesis_quality",
+      "sha256": "0d49fb0fdef13a5baa78b965266ed596961de8144e62f30b8df00ab444b7148c",
+      "trade_ids": [
+        "TRADE-001",
+        "TRADE-002",
+        "TRADE-003",
+        "TRADE-004",
+        "TRADE-005"
+      ]
+    },
     "postmortem_records": 5,
     "source_skills": [
       "canslim-screener",

@@ -38,6 +38,10 @@
     ],
     "root_cause": "thesis_quality"
   },
+  "provenance": {
+    "deferred_evidence": "Monthly aggregate is consolidated in-harness from the closed-theses log; trader-memory-core journal synthesis remains deferred (issue 294).",
+    "execution_mode": "manual_contract"
+  },
   "review_type": "monthly_aggregate",
   "risk_plan": {
     "max_portfolio_heat_r": 4.0,

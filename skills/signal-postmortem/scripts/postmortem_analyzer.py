@@ -14,13 +14,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
-def load_postmortems(postmortems_dir: str, days_back: int = 90) -> list:
+def load_postmortems(
+    postmortems_dir: str, days_back: int = 90, now: datetime | None = None
+) -> list:
     """
     Load postmortem records from directory.
 
     Args:
         postmortems_dir: Directory containing postmortem JSON files
         days_back: Only include postmortems from this many days back
+        now: Optional fixed reference time for the cutoff window. When omitted,
+            wall-clock time is used. Passing a fixed anchor keeps the window
+            deterministic for replay harnesses whose fixtures are dated
+            independently of the run date.
 
     Returns:
         List of postmortem records
@@ -31,7 +37,8 @@ def load_postmortems(postmortems_dir: str, days_back: int = 90) -> list:
     if not dir_path.exists():
         return postmortems
 
-    cutoff_date = datetime.now() - timedelta(days=days_back)
+    ref_time = (now or datetime.now()).replace(tzinfo=None)
+    cutoff_date = ref_time - timedelta(days=days_back)
 
     for json_file in dir_path.glob("pm_*.json"):
         try:

@@ -18,7 +18,7 @@ artifacts:
 - step: 1
   artifact_id: monthly_aggregate
   skill: trader-memory-core
-  execution_mode: native_api
+  execution_mode: manual_contract
   files:
     canonical: 01_monthly_aggregate.json
 - step: 2
@@ -68,23 +68,18 @@ artifacts:
 - step: 6
   artifact_id: monthly_decision_log
   skill: trader-memory-core
-  execution_mode: composite
+  execution_mode: manual_contract
   files:
     canonical: 06_monthly_decision_log.json
-  executor_components: &id002
-  - native_api
-  - manual_contract
 - step: 6
   artifact_id: rule_changes_for_next_month
   skill: trader-memory-core
-  execution_mode: composite
+  execution_mode: manual_contract
   files:
     canonical: 06_rule_changes_for_next_month.yaml
-  executor_components: *id002
 - step: 6
   artifact_id: skill_improvement_backlog
   skill: trader-memory-core
-  execution_mode: composite
+  execution_mode: manual_contract
   files:
     canonical: 06_skill_improvement_backlog.yaml
-  executor_components: *id002

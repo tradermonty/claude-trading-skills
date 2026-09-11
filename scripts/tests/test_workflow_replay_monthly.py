@@ -31,12 +31,11 @@ def test_monthly_spec_has_honest_executor_evidence() -> None:
     assert summary["workflow_id"] == "monthly-performance-review"
     assert summary["variants"] == ["required-only", "full-path"]
     assert summary["native_steps"] == [4, 5]
-    assert summary["composite_steps"] == [2, 3, 6]
-    assert summary["manual_contract_steps"] == []
+    assert summary["composite_steps"] == [2, 3]
+    assert summary["manual_contract_steps"] == [1, 6]
     assert summary["executor_components"] == {
         2: ["native_api", "manual_contract"],
         3: ["native_cli", "manual_contract"],
-        6: ["native_api", "manual_contract"],
     }
 
 
@@ -47,9 +46,9 @@ def test_required_only_aggregates_and_documents_rule_changes(tmp_path: Path) -> 
     assert report["status"] == "completed"
     assert [step["step"] for step in report["steps"]] == [1, 2, 6]
     assert [step["executor_mode"] for step in report["steps"]] == [
-        "native_api",
+        "manual_contract",
         "composite",
-        "composite",
+        "manual_contract",
     ]
 
     aggregate = json.loads((output / "01_monthly_aggregate.json").read_text())
@@ -127,6 +126,8 @@ def test_full_path_runs_coach_backtest_and_reviews_skill(tmp_path: Path) -> None
         "aggregate_postmortem",
         "hypothesis_revalidation",
         "skill_review_findings",
+        "execution_mode",
+        "deferred_evidence",
     }
     assert len(decision["rule_changes"]) == 3
 
@@ -178,6 +179,48 @@ def test_bad_coach_action_fails_closed(tmp_path: Path) -> None:
         )
 
     assert exc_info.value.completed_steps == [1, 2]
+
+
+def test_postmortem_rejects_aggregate_with_non_canonical_root_cause(tmp_path: Path) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    original = INPUTS / "closed_theses.json"
+    altered = input_dir / original.name
+    payload = json.loads(original.read_text())
+    payload["thesis_records"][0]["root_cause"] = "process"
+    altered.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="unexpected root_cause") as exc_info:
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "outputs" / "postmortem",
+            input_overrides={"closed_theses": altered},
+        )
+
+    assert exc_info.value.completed_steps == [1]
+
+
+def test_expected_native_classifications_must_be_canonical(tmp_path: Path) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    original = INPUTS / "pattern_decision.yaml"
+    altered = input_dir / original.name
+    decision = load_yaml(original)
+    decision["expected_native_classifications"] = ["thesis_quality", "execution"]
+    altered.write_text(yaml.safe_dump(decision, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="expected_native_classifications") as exc_info:
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "outputs" / "categories",
+            input_overrides={"pattern_decision": altered},
+        )
+
+    assert exc_info.value.completed_steps == [1]
 
 
 def test_invalid_backtest_metrics_fail_closed(tmp_path: Path) -> None:
