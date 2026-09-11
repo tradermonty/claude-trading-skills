@@ -97,7 +97,7 @@ jobs:
           --coverage-dir coverage-data
       - name: Upload coverage row
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-${{ matrix.id }}
           path: coverage-data/
@@ -135,7 +135,7 @@ jobs:
           --output combined-coverage
       - name: Upload executable-code coverage report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: executable-code-coverage-report
           path: combined-coverage/
@@ -280,7 +280,7 @@ jobs:
 
       - name: Upload workflow replay evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workflow-replay-report
           path: workflow-replay-report.json
@@ -376,7 +376,7 @@ jobs:
         run: python scripts/check_supply_chain.py audit --report supply-chain-audit.json
       - name: Upload dependency audit report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: supply-chain-audit
           path: supply-chain-audit.json
