@@ -1,0 +1,12 @@
+{
+    "hypothesis_id": "confirmation-pivot-entry",
+  "symbol": "GAMMA",
+  "total_trades": 150,
+  "win_rate": 0.46,
+  "avg_win_pct": 6.5,
+  "avg_loss_pct": 3.0,
+  "max_drawdown_pct": 18.0,
+  "years_tested": 5,
+  "num_parameters": 4,
+  "slippage_tested": true
+}

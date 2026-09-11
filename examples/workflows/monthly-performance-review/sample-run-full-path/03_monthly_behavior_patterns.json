@@ -1,26 +1,13 @@
 {
-  "schema_version": "1.0",
-  "period": "2026-05",
-  "source_review_id": "monthly_2026_05_fictional",
-  "patterns": [
+  "behavioral_pattern_tags": [
     {
-      "evidence_id": "BEHAVIOR-001",
-      "tag": "fomo_entry",
       "confidence": "medium",
-      "source_fields": [
-        "actual.entry_before_confirmation",
-        "journal.reflection"
-      ],
-      "scope": "non_diagnostic_process_reflection"
-    },
-    {
-      "evidence_id": "BEHAVIOR-002",
-      "tag": "revenge_trade",
-      "confidence": "medium",
-      "source_fields": [
-        "journal.reflection"
-      ],
-      "scope": "non_diagnostic_process_reflection"
+      "evidence": "Risk discipline could not be assessed because actual.risk_r or risk_plan/planned risk reference is missing.",
+      "reflection_question": "Can the risk plan or actual risk be recorded for the next trade so size discipline is verifiable?",
+      "tag": "unknown_size_discipline"
     }
-  ]
+  ],
+  "primary_root_cause": "thesis_quality",
+  "review_id": "monthly_2026-05_fictional",
+  "schema_version": 1
 }

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "period": {
+    "start": "2026-05-01",
+    "end": "2026-05-31"
+  },
+  "thesis_records": [
+    {
+      "trade_id": "TRADE-001",
+      "symbol": "ALPHA",
+      "outcome": "win",
+      "realized_pnl": 450.0,
+      "root_cause": "thesis_quality",
+      "process_followed": true
+    },
+    {
+      "trade_id": "TRADE-002",
+      "symbol": "BETA",
+      "outcome": "loss",
+      "realized_pnl": -300.0,
+      "root_cause": "execution",
+      "process_followed": false
+    },
+    {
+      "trade_id": "TRADE-003",
+      "symbol": "GAMMA",
+      "outcome": "win",
+      "realized_pnl": 750.0,
+      "root_cause": "thesis_quality",
+      "process_followed": true
+    },
+    {
+      "trade_id": "TRADE-004",
+      "symbol": "DELTA",
+      "outcome": "loss",
+      "realized_pnl": -180.0,
+      "root_cause": "randomness",
+      "process_followed": true
+    },
+    {
+      "trade_id": "TRADE-005",
+      "symbol": "EPSILON",
+      "outcome": "loss",
+      "realized_pnl": -220.0,
+      "root_cause": "thesis_quality",
+      "process_followed": true
+    }
+  ]
+}
