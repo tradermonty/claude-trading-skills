@@ -1,0 +1,7 @@
+schema_version: 1
+action: accept_rules
+accepted_rules:
+- require the confirmed pivot before any entry
+- move the stop loss only after the thesis is invalidated
+- keep portfolio heat at or below 4R
+human_notes: Carry the confirmation and stop-discipline rules into the next month.

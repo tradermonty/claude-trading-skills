@@ -83,7 +83,7 @@ variants:
       - 1
       - 2
       - 6
-    golden_dir: sample-run
+    golden_dir: replay-run
   full-path:
     enabled_steps:
       - 1
@@ -92,4 +92,4 @@ variants:
       - 4
       - 5
       - 6
-    golden_dir: sample-run-full-path
+    golden_dir: replay-run-full-path

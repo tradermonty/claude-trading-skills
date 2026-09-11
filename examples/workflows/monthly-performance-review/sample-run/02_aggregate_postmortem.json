@@ -1,81 +1,35 @@
 {
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "source_trade_ids": ["TRADE-001", "TRADE-002", "TRADE-003"],
   "category_counts": {
+    "thesis_quality": 1,
     "execution": 1,
     "market_environment": 0,
-    "randomness": 1,
-    "thesis_quality": 2
+    "randomness": 1
   },
-  "decision": "documented",
   "findings": [
     {
+      "evidence_id": "PM-THESIS-001",
       "category": "thesis_quality",
-      "count": 2,
-      "pattern": "entries below the confirmed pivot were repeatedly stopped out",
-      "qualifier": "confirmation rule was overridden"
+      "trade_ids": ["TRADE-001"],
+      "finding": "The written thesis and planned exit aligned on the larger winner."
     },
     {
+      "evidence_id": "PM-EXEC-001",
       "category": "execution",
-      "count": 1,
-      "pattern": "one losing trade broke the process rule",
-      "qualifier": "stop loss moved after entry"
+      "trade_ids": ["TRADE-002"],
+      "finding": "The only loss entered before its confirmation condition."
     },
     {
-      "category": "market_environment",
-      "count": 0,
-      "pattern": "no systemic market-environment signal found",
-      "qualifier": "regime stayed in the allowed band"
-    },
-    {
+      "evidence_id": "PM-RANDOM-001",
       "category": "randomness",
-      "count": 1,
-      "pattern": "one losing trade was noise-driven",
-      "qualifier": "no predictable edge"
+      "trade_ids": ["TRADE-003"],
+      "finding": "The small winner lacks enough evidence for a rule change."
     }
   ],
-  "native_skill_metrics": {
-    "canslim-screener": {
-      "accuracy": 1.0,
-      "avg_return_5d": 1.8,
-      "false_positive": 0,
-      "false_positive_rate": 0.0,
-      "false_positive_severe": 0,
-      "neutral": 1,
-      "regime_mismatch": 0,
-      "sample_size": 2,
-      "true_positive": 1
-    },
-    "pead-screener": {
-      "accuracy": 1.0,
-      "avg_return_5d": 2.7,
-      "false_positive": 0,
-      "false_positive_rate": 0.0,
-      "false_positive_severe": 0,
-      "neutral": 0,
-      "regime_mismatch": 0,
-      "sample_size": 1,
-      "true_positive": 1
-    },
-    "vcp-screener": {
-      "accuracy": 0.0,
-      "avg_return_5d": -1.35,
-      "false_positive": 1,
-      "false_positive_rate": 0.5,
-      "false_positive_severe": 0,
-      "neutral": 0,
-      "regime_mismatch": 1,
-      "sample_size": 2,
-      "true_positive": 0
-    }
-  },
-  "provenance": {
-    "postmortem_records": 5,
-    "source_skills": [
-      "canslim-screener",
-      "pead-screener",
-      "vcp-screener"
-    ]
-  },
-  "schema_version": 1,
-  "summary": "Confirmation discipline rather than market regime drove the month's losses.",
-  "warnings": []
+  "decision": "REVIEW_EXECUTION_RULE",
+  "warnings": [
+    "Three fictional trades are insufficient to infer strategy expectancy."
+  ]
 }

@@ -1,111 +1,25 @@
 {
-  "final_score": 93,
-  "grades": {},
-  "review": {
-    "auto_review": {
-      "findings": [
-        {
-          "improvement": "Use a dedicated output path like `reports/` to avoid source tree pollution.",
-          "line": 33,
-          "message": "Sample commands write generated reports into source `scripts/` directory.",
-          "path": "skills/vcp-screener/SKILL.md",
-          "severity": "medium"
-        },
-        {
-          "improvement": "Add an explicit example like `export FMP_API_KEY=...`.",
-          "line": 21,
-          "message": "API key is documented, but no copy-paste setup command is shown.",
-          "path": "skills/vcp-screener/SKILL.md",
-          "severity": "low"
-        }
-      ],
-      "improvement_items": [],
-      "improvements_required": false,
-      "score": 93,
-      "score_breakdown": {
-        "execution_safety_reproducibility": 18,
-        "metadata_use_case": 20,
-        "supporting_artifacts": 10,
-        "test_health": 20,
-        "workflow_coverage": 25
-      },
-      "skill_file": "skills/vcp-screener/SKILL.md",
-      "skill_name": "vcp-screener",
-      "skill_type": "execution_or_hybrid",
-      "test_command": "uv run --extra dev pytest skills/vcp-screener/scripts/tests -q",
-      "test_output": "........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 82%]\n..............................................                           [100%]\n262 passed in <elapsed>s",
-      "test_status": "passed"
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "reviews": [
+    {
+      "evidence_id": "SKILL-REVIEW-001",
+      "skill": "vcp-screener",
+      "assessment": "HELPFUL_WITH_GAP",
+      "trade_ids": ["TRADE-001", "TRADE-002"],
+      "finding": "Candidate context was useful, but the hand-off did not require a recorded confirmation timestamp.",
+      "repo_action": "BACKLOG"
     },
-    "declared_verification": {
-      "all_applicable_axes_passed": false,
-      "axes": {
-        "data_provenance": "not_verified",
-        "empirical_validation": "not_verified",
-        "end_to_end_replay": "not_verified",
-        "financial_logic_review": "not_verified",
-        "instruction_contract": "not_verified",
-        "security_review": "not_verified",
-        "unit_tests": "not_verified",
-        "workflow_contract": "not_verified"
-      },
-      "declaration_complete": true,
-      "declaration_status": "complete",
-      "not_applicable_axes": [],
-      "not_verified_axes": [
-        "data_provenance",
-        "empirical_validation",
-        "end_to_end_replay",
-        "financial_logic_review",
-        "instruction_contract",
-        "security_review",
-        "unit_tests",
-        "workflow_contract"
-      ],
-      "note": "Declared metadata only; excluded from auto, LLM, and final scores. A live high-severity issue check is still required for a production decision.",
-      "source": "skills-index.yaml"
-    },
-    "final_review": {
-      "findings": [
-        {
-          "axis": "auto",
-          "improvement": "Use a dedicated output path like `reports/` to avoid source tree pollution.",
-          "line": 33,
-          "message": "Sample commands write generated reports into source `scripts/` directory.",
-          "path": "skills/vcp-screener/SKILL.md",
-          "severity": "medium"
-        },
-        {
-          "axis": "auto",
-          "improvement": "Add an explicit example like `export FMP_API_KEY=...`.",
-          "line": 21,
-          "message": "API key is documented, but no copy-paste setup command is shown.",
-          "path": "skills/vcp-screener/SKILL.md",
-          "severity": "low"
-        }
-      ],
-      "improvement_items": [],
-      "improvements_required": false,
-      "score": 93,
-      "weights": {
-        "auto_weight": 1.0,
-        "llm_weight": 0.0
-      }
-    },
-    "generated_at": "2026-06-01T09:00:00+00:00",
-    "llm_prompt_file": null,
-    "llm_review": {
-      "findings": [],
-      "provided": false,
-      "score": null,
-      "source_file": null,
-      "summary": ""
-    },
-    "seed": null,
-    "selection_mode": "manual",
-    "skill_file": "skills/vcp-screener/SKILL.md",
-    "skill_name": "vcp-screener"
-  },
-  "schema_version": 1,
-  "selection_mode": "manual",
-  "skill_name": "vcp-screener"
+    {
+      "evidence_id": "SKILL-REVIEW-002",
+      "skill": "pre-trade-discipline-gate",
+      "assessment": "HELPFUL",
+      "trade_ids": ["TRADE-003"],
+      "finding": "The written-plan gate kept risk within the configured cap.",
+      "repo_action": "NONE"
+    }
+  ],
+  "warnings": [
+    "Fictional review evidence; no production skill score is asserted."
+  ]
 }

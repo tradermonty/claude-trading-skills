@@ -1,0 +1,8 @@
+schema_version: 1
+trade_rule_changes:
+- Enforce the confirmed-pivot rule before any entry.
+- Do not move a stop loss before thesis invalidation.
+- Hold portfolio heat at or below 4R next month.
+repo_improvements:
+- vcp-screener: add a regime-gate note to the pivot-confirmation output.
+- trader-memory-core: surface consecutive-losses count in the monthly aggregate.

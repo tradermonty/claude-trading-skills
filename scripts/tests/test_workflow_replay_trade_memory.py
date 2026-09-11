@@ -456,8 +456,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
     assert staged_destinations == [
         "sample-run",
         "sample-run-full-path",
-        "sample-run",
-        "sample-run-full-path",
+        "replay-run",
+        "replay-run-full-path",
         "sample-run",
         "sample-run-full-path",
         "sample-run",

@@ -1,22 +1,41 @@
 {
-  "monthly_aggregate_root_cause": "Confirmation discipline rather than market regime drove the month's losses.",
-  "provenance": {
-    "aggregate_postmortem": "54929c98c91ab287f4eecd0cb6b141e9b51ab92f9f531edc043bb23e335ab970",
-    "hypothesis_revalidation": "841f238f320b0f8a58a462f5f3a82ab925c5852307a13696f737b2fc58add5de",
-    "skill_review_findings": "7f95083ce40cdb8aabccc8591b4b21855dc9005a6b39ec8f8c5c7d998a76b04c"
+  "schema_version": "1.0",
+  "period": "2026-05",
+  "review_mode": "full-path",
+  "decisions": [
+    {
+      "decision_id": "DEC-001",
+      "scope": "trade_process",
+      "decision": "REQUIRE_ENTRY_CONFIRMATION",
+      "evidence_ids": [
+        "TRADE-002",
+        "PM-EXEC-001",
+        "BEHAVIOR-001",
+        "COACH-RULE-001"
+      ],
+      "status": "ACCEPTED_FOR_JUNE"
+    },
+    {
+      "decision_id": "DEC-002",
+      "scope": "risk",
+      "decision": "START_JUNE_IN_REVIEW_ONLY_MODE",
+      "evidence_ids": [
+        "BEHAVIOR-002",
+        "COACH-RULE-002"
+      ],
+      "status": "ACCEPTED_FOR_FIRST_SESSION"
+    }
+  ],
+  "hypothesis_decision": {
+    "hypothesis_id": "HYP-001",
+    "verdict": "INCONCLUSIVE",
+    "action": "NO_STRATEGY_CLAIM"
   },
   "repo_improvements": [
     {
-      "vcp-screener": "add a regime-gate note to the pivot-confirmation output."
-    },
-    {
-      "trader-memory-core": "surface consecutive-losses count in the monthly aggregate."
+      "backlog_id": "IMP-001",
+      "evidence_ids": ["SKILL-REVIEW-001"]
     }
   ],
-  "rule_changes": [
-    "Enforce the confirmed-pivot rule before any entry.",
-    "Do not move a stop loss before thesis invalidation.",
-    "Hold portfolio heat at or below 4R next month."
-  ],
-  "schema_version": 1
+  "human_review_completed": true
 }

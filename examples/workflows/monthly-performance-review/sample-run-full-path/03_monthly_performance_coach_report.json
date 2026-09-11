@@ -1,78 +1,97 @@
 {
+  "schema_version": 1,
+  "review_type": "monthly_aggregate",
+  "review_id": "monthly_2026_05_fictional",
+  "generated_at": "2026-06-01T12:00:00+00:00",
+  "source_records": [
+    "examples/workflows/monthly-performance-review/sample-run-full-path/01_monthly_aggregate.json"
+  ],
+  "overall_verdict": "COOL_DOWN",
+  "summary": {
+    "outcome": "mixed",
+    "primary_root_cause": "execution",
+    "secondary_root_causes": [
+      "behavior_pattern"
+    ],
+    "confidence": "high"
+  },
+  "scores": {
+    "process_score": 70,
+    "risk_score": 100,
+    "execution_score": 70,
+    "review_quality_score": 88
+  },
+  "process_adherence_findings": [
+    {
+      "rule": "pre_entry_thesis_record",
+      "status": "met",
+      "evidence": "A pre-entry thesis record is present",
+      "severity": "info"
+    },
+    {
+      "rule": "setup_confirmation",
+      "status": "missed",
+      "evidence": "Entry appears to have occurred before planned setup confirmation",
+      "severity": "critical"
+    }
+  ],
+  "risk_manager_notes": [
+    {
+      "topic": "position_size",
+      "finding": "Actual risk was within the provided risk limit.",
+      "severity": "info",
+      "evidence": "actual.risk_r=0.5, reference_r=1"
+    }
+  ],
+  "execution_quality_assessment": [
+    {
+      "phase": "entry",
+      "finding": "Entry appears to have occurred before planned confirmation.",
+      "evidence": "actual.entry_before_confirmation is true",
+      "severity": "critical"
+    }
+  ],
   "behavioral_pattern_tags": [
     {
+      "tag": "fomo_entry",
       "confidence": "medium",
-      "evidence": "Risk discipline could not be assessed because actual.risk_r or risk_plan/planned risk reference is missing.",
-      "reflection_question": "Can the risk plan or actual risk be recorded for the next trade so size discipline is verifiable?",
-      "tag": "unknown_size_discipline"
+      "evidence": "Entry/journal evidence suggests fear of missing a move or entry before confirmation.",
+      "reflection_question": "What evidence did you have before entry that would not have been available after waiting for confirmation?"
+    },
+    {
+      "tag": "revenge_trade",
+      "confidence": "medium",
+      "evidence": "Journal language suggests a possible attempt to recover prior losses.",
+      "reflection_question": "Would you have taken this trade if the prior trade had been a winner?"
+    }
+  ],
+  "next_session_operating_rules": [
+    {
+      "rule": "No new entry without a pre-entry thesis record, invalidation point, and setup-confirmation note.",
+      "duration": "next_week",
+      "trigger": "possible FOMO entry pattern",
+      "reason": "The review found evidence of entry before confirmation or fear of missing a move."
+    },
+    {
+      "rule": "Switch to review-only mode for the next session; do not add new risk until the rule review is journaled.",
+      "duration": "next_session",
+      "trigger": "possible revenge/cool-down condition",
+      "reason": "Repeated losses or revenge-trade evidence can escalate risk-taking."
     }
   ],
   "coach_questions": [
-    "Can the risk plan or actual risk be recorded for the next trade so size discipline is verifiable?"
+    "What evidence did you have before entry that would not have been available after waiting for confirmation?",
+    "Would you have taken this trade if the prior trade had been a winner?"
   ],
-  "disclaimer": "This review is for trading-process improvement only. It is not financial advice, investment advice, therapy, mental-health diagnosis, or a trading signal. The human trader remains responsible for all decisions and risk.",
-  "execution_quality_assessment": [
-    {
-      "evidence": "actual.entry_before_confirmation is false or absent",
-      "finding": "No explicit early-entry issue was detected from the provided record.",
-      "phase": "entry",
-      "severity": "info"
-    }
-  ],
-  "generated_at": "2026-06-01T09:00:00+00:00",
   "human_decision_gate": {
+    "question": "Do you accept these temporary operating rules, modify them, defer the decision, or journal this review only?",
     "allowed_actions": [
       "accept_rules",
       "modify_rules",
       "defer",
       "journal_only"
     ],
-    "default_action": "journal_only",
-    "question": "Do you accept these temporary operating rules, modify them, defer the decision, or journal this review only?"
+    "default_action": "journal_only"
   },
-  "next_session_operating_rules": [
-    {
-      "duration": "next_trade",
-      "reason": "Risk discipline could not be assessed because planned or actual risk was missing.",
-      "rule": "On the next trade, record both planned risk_r and actual risk_r in the journal so risk discipline becomes verifiable.",
-      "trigger": "unknown_size_discipline tag"
-    }
-  ],
-  "overall_verdict": "REVIEW_REQUIRED",
-  "process_adherence_findings": [
-    {
-      "evidence": "A pre-entry thesis record is present",
-      "rule": "pre_entry_thesis_record",
-      "severity": "info",
-      "status": "met"
-    }
-  ],
-  "review_id": "monthly_2026-05_fictional",
-  "review_type": "monthly_aggregate",
-  "risk_manager_notes": [
-    {
-      "evidence": "Missing actual.risk_r, planned.risk_r, or risk_plan.max_risk_per_trade_r",
-      "finding": "Risk comparison is unclear because actual risk or risk plan is missing.",
-      "severity": "warning",
-      "topic": "position_size"
-    }
-  ],
-  "schema_version": 1,
-  "scores": {
-    "execution_score": 100,
-    "process_score": 100,
-    "review_quality_score": 76,
-    "risk_score": 85
-  },
-  "source_records": [
-    "./01_monthly_aggregate.json"
-  ],
-  "summary": {
-    "confidence": "medium",
-    "outcome": "mixed",
-    "primary_root_cause": "thesis_quality",
-    "secondary_root_causes": [
-      "risk_sizing"
-    ]
-  }
+  "disclaimer": "This review is for trading-process improvement only. It is not financial advice, investment advice, therapy, mental-health diagnosis, or a trading signal. The human trader remains responsible for all decisions and risk."
 }

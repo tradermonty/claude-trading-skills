@@ -1,0 +1,78 @@
+{
+  "behavioral_pattern_tags": [
+    {
+      "confidence": "medium",
+      "evidence": "Risk discipline could not be assessed because actual.risk_r or risk_plan/planned risk reference is missing.",
+      "reflection_question": "Can the risk plan or actual risk be recorded for the next trade so size discipline is verifiable?",
+      "tag": "unknown_size_discipline"
+    }
+  ],
+  "coach_questions": [
+    "Can the risk plan or actual risk be recorded for the next trade so size discipline is verifiable?"
+  ],
+  "disclaimer": "This review is for trading-process improvement only. It is not financial advice, investment advice, therapy, mental-health diagnosis, or a trading signal. The human trader remains responsible for all decisions and risk.",
+  "execution_quality_assessment": [
+    {
+      "evidence": "actual.entry_before_confirmation is false or absent",
+      "finding": "No explicit early-entry issue was detected from the provided record.",
+      "phase": "entry",
+      "severity": "info"
+    }
+  ],
+  "generated_at": "2026-06-01T09:00:00+00:00",
+  "human_decision_gate": {
+    "allowed_actions": [
+      "accept_rules",
+      "modify_rules",
+      "defer",
+      "journal_only"
+    ],
+    "default_action": "journal_only",
+    "question": "Do you accept these temporary operating rules, modify them, defer the decision, or journal this review only?"
+  },
+  "next_session_operating_rules": [
+    {
+      "duration": "next_trade",
+      "reason": "Risk discipline could not be assessed because planned or actual risk was missing.",
+      "rule": "On the next trade, record both planned risk_r and actual risk_r in the journal so risk discipline becomes verifiable.",
+      "trigger": "unknown_size_discipline tag"
+    }
+  ],
+  "overall_verdict": "REVIEW_REQUIRED",
+  "process_adherence_findings": [
+    {
+      "evidence": "A pre-entry thesis record is present",
+      "rule": "pre_entry_thesis_record",
+      "severity": "info",
+      "status": "met"
+    }
+  ],
+  "review_id": "monthly_2026-05_fictional",
+  "review_type": "monthly_aggregate",
+  "risk_manager_notes": [
+    {
+      "evidence": "Missing actual.risk_r, planned.risk_r, or risk_plan.max_risk_per_trade_r",
+      "finding": "Risk comparison is unclear because actual risk or risk plan is missing.",
+      "severity": "warning",
+      "topic": "position_size"
+    }
+  ],
+  "schema_version": 1,
+  "scores": {
+    "execution_score": 100,
+    "process_score": 100,
+    "review_quality_score": 76,
+    "risk_score": 85
+  },
+  "source_records": [
+    "./01_monthly_aggregate.json"
+  ],
+  "summary": {
+    "confidence": "medium",
+    "outcome": "mixed",
+    "primary_root_cause": "thesis_quality",
+    "secondary_root_causes": [
+      "risk_sizing"
+    ]
+  }
+}

@@ -258,8 +258,8 @@ def test_native_commands_are_offline_and_do_not_launch_uv(
 
 def test_monthly_goldens_are_byte_reproducible(tmp_path: Path) -> None:
     for variant, golden_name in (
-        ("required-only", "sample-run"),
-        ("full-path", "sample-run-full-path"),
+        ("required-only", "replay-run"),
+        ("full-path", "replay-run-full-path"),
     ):
         actual = tmp_path / variant
         execute_replay(ROOT, SPEC, variant, actual)
