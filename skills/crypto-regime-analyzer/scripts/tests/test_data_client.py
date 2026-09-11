@@ -107,6 +107,59 @@ def test_universe_cache_is_scoped_by_top_n(tmp_path, monkeypatch):
     assert len(calls) == 2
 
 
+def test_fetch_universe_excludes_usd1_and_backfills_top_n(tmp_path, monkeypatch):
+    client = DataClient(str(tmp_path), top_n=2, quiet=True)
+    raw = [
+        {"id": "bitcoin", "symbol": "btc"},
+        {"id": "usd1-wlfi", "symbol": "usd1"},
+        {"id": "ethereum", "symbol": "eth"},
+    ]
+    monkeypatch.setattr(client, "_get", lambda _url, params=None: raw)
+
+    universe = client.fetch_universe()
+
+    assert universe == [
+        {"id": "bitcoin", "symbol": "BTC"},
+        {"id": "ethereum", "symbol": "ETH"},
+    ]
+    assert len(universe) == client.top_n
+
+
+def test_fetch_universe_replaces_cache_containing_newly_excluded_coin(tmp_path, monkeypatch):
+    client = DataClient(str(tmp_path), top_n=2, quiet=True)
+    cache_path = client._cache_path("universe_top2")
+    stale = [
+        {"id": "bitcoin", "symbol": "BTC"},
+        {"id": "usd1-wlfi", "symbol": "USD1"},
+    ]
+    with open(cache_path, "w") as f:
+        json.dump(stale, f)
+
+    raw = [
+        {"id": "bitcoin", "symbol": "btc"},
+        {"id": "usd1-wlfi", "symbol": "usd1"},
+        {"id": "ethereum", "symbol": "eth"},
+    ]
+    calls = []
+
+    def fake_get(_url, params=None):
+        calls.append(params)
+        return raw
+
+    monkeypatch.setattr(client, "_get", fake_get)
+
+    universe = client.fetch_universe()
+
+    expected = [
+        {"id": "bitcoin", "symbol": "BTC"},
+        {"id": "ethereum", "symbol": "ETH"},
+    ]
+    assert universe == expected
+    assert len(calls) == 1
+    with open(cache_path) as f:
+        assert json.load(f) == expected
+
+
 def test_funding_cache_is_scoped_by_symbol_cohort(tmp_path, monkeypatch):
     client = _client(tmp_path)
     calls = []
