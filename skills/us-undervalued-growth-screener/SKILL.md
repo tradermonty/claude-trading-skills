@@ -208,6 +208,35 @@ python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
 
 The generated FMP client reuses the repository's central `scripts/fmp_client/` source-of-truth pattern. It writes raw responses and a persistent SQLite cache to disk. Do **not** paste or read the raw provider trees into the language-model context. Read only `run-summary.json`, `NEXT_ACTION.json`, `audit/broad-screen-audit.json`, and the compact packets under `candidate-packets/`.
 
+For a market-wide run on a plan without bulk estimates, collect every frozen
+universe shard first, then screen the verified snapshot:
+
+```bash
+python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
+  --stage collect-estimates --shard-index 0 --shard-count 8 \
+  --snapshot-dir .cache/us-garp/snapshot-current \
+  --config skills/us-undervalued-growth-screener/assets/claude-code-config.example.json \
+  --resume
+
+python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
+  --stage screen-full-snapshot \
+  --snapshot-dir .cache/us-garp/snapshot-current \
+  --config skills/us-undervalued-growth-screener/assets/claude-code-config.example.json \
+  --output-dir reports/us-undervalued-growth-screener
+```
+
+Run each shard once without `--resume`; use `--resume` only to continue an
+existing partial shard. Both collection and screening are current-only:
+collection fixes the estimate-normalization basis, while screening adds exact
+liquidity and TTM quality evidence. The first collection binds the exhausted
+listing-enumeration audit into the snapshot manifest. Screening performs a
+read-only content/freshness preflight before creating provider or run
+artifacts, carries a digest binding the enumeration proof and every verified
+shard into downstream audits, backfills liquidity failures until 50 valid
+names or full eligible exhaustion, and commits five probed deep-dive names. Read
+`references/full-universe-snapshot.md` for the full collection and screening
+contract.
+
 The direct runner first attempts bulk ratios, key metrics, estimate, and EOD datasets. It falls back to bounded per-symbol enrichment only when bulk access is unavailable; a plan-gated (402/403) bulk endpoint is remembered in the cache for 30 days so later runs do not spend calls re-probing it. On the fallback path the estimate seed is a stratified sector × market-cap sample (√-weighted Hamilton quota, liquidity-ranked within cells, hash tie-break) whose size is derived from the remaining call budget; `audit/seed-audit.json` states the selection basis. Before pool selection, the top lane candidates receive a `key-metrics-ttm` quality probe (ROIC, FCF yield, EV/FCF, leverage, SBC) and a probe-resolved row with SBC-adjusted FCF yield below 1% cannot enter any lane except `high_growth_exception`. Exact 20-day ADDV work is prioritized by the four economic lanes, not by ticker order. Read `references/claude-code-execution.md` and `references/migration-v3.6-to-v3.6.1.md` for the full execution contract.
 
 ### Layer 1 — Listing-Universe Audit
@@ -236,7 +265,7 @@ Choose the best route in this order:
 
 For a bounded live run, target at least 30 resolved pool rows and at least three represented lanes unless the provider is demonstrably exhausted. A smaller convenience pool may be diagnostic but should not be described as a high-recall GARP search.
 
-State the economic scope honestly. `run-summary.json` separates `listing_enumeration_complete` from `economic_screen_scope_complete` and reports `estimate_seed_coverage_pct` / `valid_estimate_coverage_pct`; on the per-symbol fallback path the economic scope is never complete and the discovery audit records `provider_exhausted_scope: estimate_seed`. Describe such a result as "N seeded names evaluated with consensus estimates", never as a market-wide conclusion.
+State the economic scope honestly. `run-summary.json` separates `listing_enumeration_complete` from `economic_screen_scope_complete` and reports `estimate_seed_coverage_pct` / `valid_estimate_coverage_pct`; on the bounded per-symbol fallback path the economic scope is never complete and the discovery audit records `provider_exhausted_scope: estimate_seed`. Describe such a result as "N seeded names evaluated with consensus estimates", never as a market-wide conclusion. Only `screen-full-snapshot` with a deeply verified full-universe classification and bound verification digest may emit `final_marketwide` on the per-symbol route.
 
 Do not stop because a TTM or statement endpoint is plan-gated. Switch routes automatically.
 
