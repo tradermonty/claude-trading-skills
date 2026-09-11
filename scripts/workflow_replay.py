@@ -2449,10 +2449,18 @@ def _monthly_postmortem(
         required={"closed_trades", "winners", "losers"},
         optional={"realized_pnl", "win_rate_pct"},
     )
-    closed = _require_finite_number(summary["closed_trades"], "monthly aggregate closed_trades")
-    if int(closed) != len(trades):
+    closed = _require_finite_number(
+        summary["closed_trades"], "monthly aggregate closed_trades", integer=True, minimum=0
+    )
+    winners = _require_finite_number(
+        summary["winners"], "monthly aggregate winners", integer=True, minimum=0
+    )
+    losers = _require_finite_number(
+        summary["losers"], "monthly aggregate losers", integer=True, minimum=0
+    )
+    if closed != len(trades):
         raise ReplayError("monthly aggregate summary.closed_trades must equal the number of trades")
-    if int(summary["winners"]) + int(summary["losers"]) != int(closed):
+    if winners + losers != closed:
         raise ReplayError("monthly aggregate summary winners + losers must equal closed_trades")
 
     pm_records = _load_json(inputs["postmortems"], "postmortems")

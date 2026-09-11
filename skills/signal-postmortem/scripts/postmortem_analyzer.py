@@ -6,6 +6,8 @@ Generates feedback for edge-signal-aggregator weight calibration
 and skill improvement backlog entries from postmortem records.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

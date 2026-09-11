@@ -202,6 +202,50 @@ def test_postmortem_rejects_aggregate_with_non_canonical_root_cause(tmp_path: Pa
     assert exc_info.value.completed_steps == [1]
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"closed_trades": 5.9},
+        {"winners": -1, "losers": 6},
+        {"winners": True, "losers": 4},
+        {"winners": 1.9, "losers": 4},
+        {"winners": 1, "losers": 4, "closed_trades": 6},
+    ],
+)
+def test_postmortem_rejects_non_integer_or_negative_counts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mutation: dict
+) -> None:
+    registration = EXECUTORS["monthly_aggregate"]
+
+    def tamper_run(*args, **kwargs):
+        artifacts = registration.run(*args, **kwargs)
+        canonical = Path(artifacts["monthly_aggregate"]["files"]["canonical"])
+        payload = json.loads(canonical.read_text())
+        payload["summary"].update(mutation)
+        canonical.write_text(json.dumps(payload), encoding="utf-8")
+        return artifacts
+
+    monkeypatch.setitem(
+        EXECUTORS,
+        "monthly_aggregate",
+        replay_module.ExecutorRegistration(
+            mode=registration.mode,
+            run=tamper_run,
+            components=registration.components,
+        ),
+    )
+
+    with pytest.raises(ReplayError) as exc_info:
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "outputs" / "counts",
+        )
+
+    assert exc_info.value.completed_steps == [1]
+
+
 def test_expected_native_classifications_must_be_canonical(tmp_path: Path) -> None:
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()
