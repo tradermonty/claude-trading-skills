@@ -77,6 +77,13 @@ def _missing_deps_error(repo_root: Path) -> str:
     )
 
 
+def _subprocess_env() -> dict[str, str]:
+    """Keep CLI output UTF-8 even when Windows uses a legacy console code page."""
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
 def main(argv: list[str]) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print(_usage(), file=sys.stderr)
@@ -107,7 +114,7 @@ def main(argv: list[str]) -> int:
     uv = shutil.which("uv") if not inner else None
 
     if uv is not None:
-        env = os.environ.copy()
+        env = _subprocess_env()
         env[RECURSION_GUARD_ENV] = "1"
         cmd = [uv, "run", "--project", str(repo_root), "python", str(target), *rest]
         return subprocess.call(cmd, env=env)
@@ -119,7 +126,7 @@ def main(argv: list[str]) -> int:
         print(_missing_deps_error(repo_root), file=sys.stderr)
         return 3
 
-    return subprocess.call([sys.executable, str(target), *rest])
+    return subprocess.call([sys.executable, str(target), *rest], env=_subprocess_env())
 
 
 if __name__ == "__main__":
