@@ -263,7 +263,9 @@ def test_review_summary_and_monthly_report_via_launcher(tmp_path):
         ],
     ]
     for step in steps:
-        rc, _, err = _run(step)
+        # The launcher must override legacy Windows console encodings; these
+        # commands print Unicode transition arrows.
+        rc, _, err = _run(step, env={"PYTHONIOENCODING": "ascii"})
         assert rc == 0, err
 
     rc, out, err = _run(

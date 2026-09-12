@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from pathlib import Path
 
 from report_generator import generate_markdown_report
 
@@ -175,6 +176,20 @@ def _make_analysis(
             },
         },
     }
+
+
+def test_markdown_report_writes_utf8_to_unicode_path(tmp_path: Path):
+    """Issue #64: Windows must not use its locale encoding for Markdown output."""
+    analysis = _make_analysis()
+    analysis["regime"]["regime_description"] = "警戒を維持 ✅"
+    output = tmp_path / "reports with spaces 日本語" / "macro regime.md"
+    output.parent.mkdir()
+
+    generate_markdown_report(analysis, str(output))
+
+    raw = output.read_bytes()
+    assert "警戒を維持 ✅".encode() in raw
+    assert output.read_text(encoding="utf-8").count("警戒を維持 ✅") == 1
 
 
 class TestCompetingRegimeRecommendations:

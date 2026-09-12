@@ -17,7 +17,7 @@ def test_every_project_job_uses_locked_environment():
         config = workflow(name)
         assert config["permissions"] == {"contents": "read"}
         for job_id, job in config["jobs"].items():
-            if job_id in {"market-calendar-compat", "dependency-review"}:
+            if job_id in {"market-calendar-compat", "dependency-review", "compatibility"}:
                 continue
             steps = job["steps"]
             sync_steps = [step for step in steps if SYNC in step.get("run", "")]
@@ -29,6 +29,29 @@ def test_every_project_job_uses_locked_environment():
             # Standalone smoke intentionally invokes pip only within its fresh venvs.
             assert all(not step.get("run", "").startswith("pip install") for step in steps)
             assert all("pip install -e" not in step.get("run", "") for step in steps)
+
+
+def test_cross_platform_jobs_use_locked_environment_without_posix_path_wiring():
+    for name in ("ci.yml", "compatibility-nightly.yml"):
+        config = workflow(name)
+        assert config["permissions"] == {"contents": "read"}
+        job = config["jobs"]["compatibility"]
+        steps = job["steps"]
+        sync_steps = [step for step in steps if SYNC in step.get("run", "")]
+        assert len(sync_steps) == 1, name
+        assert "GITHUB_PATH" not in sync_steps[0]["run"]
+        assert job["env"]["TRADER_MEMORY_CLI_INNER"] == "1"
+        uv_steps = [step for step in steps if "astral-sh/setup-uv@" in step.get("uses", "")]
+        assert len(uv_steps) == 1
+        assert uv_steps[0]["with"]["version"] == "0.12.10"
+        command_steps = [step["run"] for step in steps if "uv run" in step.get("run", "")]
+        assert command_steps
+        assert all("uv run --no-sync" in run for run in command_steps)
+
+    nightly_discover = workflow("compatibility-nightly.yml")["jobs"]["discover"]["steps"]
+    sync_steps = [step for step in nightly_discover if SYNC in step.get("run", "")]
+    assert len(sync_steps) == 1
+    assert 'echo "$PWD/.venv/bin" >> "$GITHUB_PATH"' in sync_steps[0]["run"]
 
 
 def test_matrix_only_checks_installed_requirements_and_security_uses_python311():

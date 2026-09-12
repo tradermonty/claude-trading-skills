@@ -14,6 +14,13 @@ Run every command below from the repository root. For environment setup,
 drift gates, recovery procedures, and scheduled-job troubleshooting, use the
 [maintenance runbook](maintenance-runbook.md).
 
+The `run_skill_improvement.sh` and `run_skill_generation.sh` entry points are
+guarded macOS `launchd` wrappers. On Linux or Windows, invoke the Python
+orchestrators shown under **Manual Execution**. Run the improvement orchestrator
+only in an already-isolated, clean checkout; the direct Python command does not
+create or reset the dedicated checkout managed by the macOS wrapper. See the
+[platform support matrix](platform-support.md).
+
 ## Safety and side effects
 
 `--dry-run` suppresses branch and PR creation, but it is **not** a read-only
@@ -109,7 +116,7 @@ launchctl start com.trade-analysis.skill-improvement
 | File | Purpose |
 | --- | --- |
 | `scripts/run_skill_improvement_loop.py` | Orchestration script (selection, scoring, improvement, PR) |
-| `scripts/run_skill_improvement.sh` | Thin shell wrapper for launchd |
+| `scripts/run_skill_improvement.sh` | macOS-only guarded shell wrapper for launchd |
 | `launchd/com.trade-analysis.skill-improvement.plist` | macOS launchd agent configuration |
 | `skills/dual-axis-skill-reviewer/` | Reviewer skill (scoring engine) |
 | `logs/.skill_improvement_state.json` | Round-robin state and history |
@@ -169,7 +176,7 @@ launchctl start com.trade-analysis.skill-generation-daily
 | File | Purpose |
 | --- | --- |
 | `scripts/run_skill_generation_pipeline.py` | Orchestration script (mining, selection, design, review, PR) |
-| `scripts/run_skill_generation.sh` | Thin shell wrapper for launchd |
+| `scripts/run_skill_generation.sh` | macOS-only guarded shell wrapper for launchd |
 | `launchd/com.trade-analysis.skill-generation-weekly.plist` | Weekly mining schedule (Saturday 06:00) |
 | `launchd/com.trade-analysis.skill-generation-daily.plist` | Daily generation schedule (07:00) |
 | `skills/skill-idea-miner/` | Mining and scoring skill |

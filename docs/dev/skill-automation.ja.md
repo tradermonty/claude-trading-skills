@@ -14,6 +14,13 @@
 復旧手順、定期jobのトラブルシューティングは
 [maintenance runbook](maintenance-runbook.md)を参照してください。
 
+`run_skill_improvement.sh`と`run_skill_generation.sh`は、guard付きのmacOS
+`launchd`専用wrapperです。LinuxまたはWindowsでは、**手動実行**に記載した
+Python orchestratorを直接使ってください。自己改善orchestratorは、事前に分離した
+clean checkout内でのみ実行します。Pythonを直接呼んでも、macOS wrapperが行う
+専用checkoutの作成・resetは再現されません。詳細は
+[platformサポートマトリクス](platform-support.ja.md)を参照してください。
+
 ## 安全性と副作用
 
 `--dry-run`はbranchやPRの作成を抑止しますが、filesystemをread-onlyには
@@ -106,7 +113,7 @@ launchctl start com.trade-analysis.skill-improvement
 | ファイル | 用途 |
 | --- | --- |
 | `scripts/run_skill_improvement_loop.py` | オーケストレーションスクリプト（選択、スコアリング、改善、PR） |
-| `scripts/run_skill_improvement.sh` | launchd用シェルラッパー |
+| `scripts/run_skill_improvement.sh` | guard付きmacOS launchd専用シェルラッパー |
 | `launchd/com.trade-analysis.skill-improvement.plist` | macOS launchdエージェント設定 |
 | `skills/dual-axis-skill-reviewer/` | レビュアースキル（スコアリングエンジン） |
 | `logs/.skill_improvement_state.json` | ラウンドロビン状態と履歴 |
@@ -166,7 +173,7 @@ launchctl start com.trade-analysis.skill-generation-daily
 | ファイル | 用途 |
 | --- | --- |
 | `scripts/run_skill_generation_pipeline.py` | オーケストレーションスクリプト（マイニング、選択、設計、レビュー、PR） |
-| `scripts/run_skill_generation.sh` | launchd用シェルラッパー |
+| `scripts/run_skill_generation.sh` | guard付きmacOS launchd専用シェルラッパー |
 | `launchd/com.trade-analysis.skill-generation-weekly.plist` | 週次マイニングスケジュール（土曜06:00） |
 | `launchd/com.trade-analysis.skill-generation-daily.plist` | 日次生成スケジュール（07:00） |
 | `skills/skill-idea-miner/` | マイニング＆スコアリングスキル |

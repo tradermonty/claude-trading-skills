@@ -104,6 +104,11 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 
 > ヒント: `.skill`パッケージはソースフォルダから生成しますが、テストとローカルビルド成果物は除外します。スキルをカスタマイズする場合はソースフォルダを編集し、ウェブアプリ向けに配布するときは`python3 scripts/package_skills.py --skill <skill-name>`を実行してください。
 
+コントリビューター向けtoolingは、Linux・macOS・Windows上のCPython
+3.9–3.14を対象とし、CI tierとplatform固有automationの境界を明示しています。
+リポジトリ保守コマンドを実行する前に
+[platformサポートマトリクス](docs/dev/platform-support.ja.md)を確認してください。
+
 ## コンパニオン・ワークパッケージ
 
 すぐに使えるエージェント型ワークフローが必要であれば、コンパニオンリポジトリの

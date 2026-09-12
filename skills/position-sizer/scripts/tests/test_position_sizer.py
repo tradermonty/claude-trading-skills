@@ -614,7 +614,7 @@ class TestOutput:
         assert "# Position Sizing Report" in markdown
         assert "**Shares:** 153" in markdown
 
-    def test_cli_arguments(self):
+    def test_cli_arguments(self, tmp_path):
         """Verify argparse works for standard cases."""
         script = "skills/position-sizer/scripts/position_sizer.py"
         result = subprocess.run(
@@ -630,7 +630,7 @@ class TestOutput:
                 "--risk-pct",
                 "1.0",
                 "--output-dir",
-                "/tmp/position_sizer_test",
+                str(tmp_path),
             ],
             capture_output=True,
             text=True,
@@ -639,7 +639,7 @@ class TestOutput:
         assert result.returncode == 0
         assert "153 shares" in result.stdout
 
-    def test_cli_fractional_arguments(self):
+    def test_cli_fractional_arguments(self, tmp_path):
         """Verify CLI supports fractional share output."""
         script = "skills/position-sizer/scripts/position_sizer.py"
         result = subprocess.run(
@@ -658,7 +658,7 @@ class TestOutput:
                 "--share-precision",
                 "4",
                 "--output-dir",
-                "/tmp/position_sizer_test",
+                str(tmp_path),
             ],
             capture_output=True,
             text=True,

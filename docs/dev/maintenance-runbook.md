@@ -37,8 +37,14 @@ Run tests:
 ```bash
 uv run pytest -q                                     # full suite
 uv run --extra dev pytest <path>                     # a subset
-bash scripts/run_all_tests.sh                        # per-skill isolation = the pre-push gate
+uv run --extra dev python scripts/run_all_tests.py   # cross-platform per-skill isolation
+bash scripts/run_all_tests.sh                        # POSIX-only wrapper for the Python command
 ```
+
+The supported OS/Python combinations and PR/nightly CI tiers are defined in
+[`config/platform-compatibility.yaml`](../../config/platform-compatibility.yaml)
+and documented in [Platform support](platform-support.md). Validate the local
+runtime with `python scripts/check_platform_compatibility.py check`.
 
 For skills that are primarily instructions, references, image-input workflows,
 or agent orchestration, use
@@ -100,7 +106,9 @@ contract: `docs/README.md` → *Skill Doc Ownership*.
 | Added a **new skill** | follow `CLAUDE.md` → *Creating a New Skill* (mandatory checklist: docs, index entry, catalog, README, API matrix) | `validate_skills_index.py --strict-metadata` + `pre-commit run --all-files` |
 
 Fastest catch-all before pushing: `pre-commit run --all-files` (runs every
-drift `--check`) then `bash scripts/run_all_tests.sh`.
+drift `--check`) then
+`uv run --extra dev python scripts/run_all_tests.py`. The `.sh` launcher is a
+POSIX-only convenience wrapper.
 
 ---
 
