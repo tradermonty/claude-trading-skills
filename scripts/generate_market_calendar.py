@@ -41,18 +41,44 @@ def load_config() -> dict:
     if not isinstance(additional, dict) or not set(additional).issubset(consumers):
         raise ValueError("additional requirements must be keyed by calendar consumers")
     for skill, requirements in additional.items():
-        if (
-            not isinstance(requirements, list)
-            or not all(isinstance(item, str) and item for item in requirements)
-            or len(requirements) != len(set(requirements))
-        ):
-            raise ValueError(f"additional requirements for {skill} must be unique strings")
+        if not isinstance(requirements, list):
+            raise ValueError(f"additional requirements for {skill} must be a list")
+        seen: set[str] = set()
+        for item in requirements:
+            requirement, _ = _split_entry(skill, item)
+            if requirement in seen:
+                raise ValueError(f"duplicate additional requirement for {skill}: {requirement}")
+            seen.add(requirement)
     return data
 
 
-def _requirements_text(requirement: str, additional: list[str] | None = None) -> str:
-    requirements = [requirement, *(additional or [])]
-    return BANNER + "\n".join(requirements) + "\n"
+def _split_entry(skill: str, item: object) -> tuple[str, str | None]:
+    """Split an additional_requirements entry into (requirement, optional reason)."""
+    if isinstance(item, str):
+        if not item:
+            raise ValueError(f"additional requirements for {skill} must be non-empty strings")
+        return item, None
+    if (
+        isinstance(item, dict)
+        and set(item) == {"requirement", "optional"}
+        and isinstance(item["requirement"], str)
+        and item["requirement"]
+        and isinstance(item["optional"], str)
+        and item["optional"].strip()
+    ):
+        return item["requirement"], item["optional"].strip()
+    raise ValueError(
+        f"additional requirements for {skill} must be strings or {{requirement, optional}} mappings"
+    )
+
+
+def _requirements_text(
+    requirement: str, additional: list[tuple[str, str | None]] | None = None
+) -> str:
+    rendered = [requirement]
+    for req, optional in additional or []:
+        rendered.append(f"{req}  # optional: {optional}" if optional else req)
+    return BANNER + "\n".join(rendered) + "\n"
 
 
 def targets(config: dict) -> list[tuple[Path, str]]:
@@ -61,7 +87,10 @@ def targets(config: dict) -> list[tuple[Path, str]]:
     rendered: list[tuple[Path, str]] = [
         (CONSUMER_INVENTORY_PATH, "".join(f"{skill}\n" for skill in config["consumers"]))
     ]
-    additional = config.get("additional_requirements", {})
+    additional = {
+        skill: [_split_entry(skill, item) for item in items]
+        for skill, items in config.get("additional_requirements", {}).items()
+    }
     for skill in config["consumers"]:
         skill_dir = REPO_ROOT / "skills" / skill
         requirement = _requirements_text(config["requirement"], additional.get(skill, []))

@@ -147,6 +147,13 @@ def generate_markdown_report(
     lines.append(f"**Generated:** {now}")
     lines.append(f"**Lookback:** {lookback_days} days")
     lines.append(f"**Total Screened:** {summary['total']}")
+    timing_unknown_count = metadata.get("timing_unknown_count")
+    timing_candidates_total = metadata.get("timing_candidates_total")
+    if timing_unknown_count is not None and timing_candidates_total is not None:
+        lines.append(
+            f"**Timing unknown:** {timing_unknown_count} of {timing_candidates_total} "
+            "(gap window assumed AMC)"
+        )
     lines.append("")
 
     # Show top count if limited

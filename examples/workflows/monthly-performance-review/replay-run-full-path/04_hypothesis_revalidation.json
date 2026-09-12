@@ -1,0 +1,55 @@
+{
+  "evaluation": {
+    "dimensions": [
+      {
+        "max_score": 20,
+        "name": "Sample Size",
+        "score": 17
+      },
+      {
+        "max_score": 20,
+        "name": "Expectancy",
+        "score": 0
+      },
+      {
+        "max_score": 20,
+        "name": "Risk Management",
+        "score": 12
+      },
+      {
+        "max_score": 20,
+        "name": "Robustness",
+        "score": 10
+      },
+      {
+        "max_score": 20,
+        "name": "Execution Realism",
+        "score": 20
+      }
+    ],
+    "expectancy": -2.9562999999999997,
+    "inputs": {
+      "avg_loss_pct": 3.0,
+      "avg_win_pct": 6.5,
+      "max_drawdown_pct": 18.0,
+      "num_parameters": 4,
+      "slippage_tested": true,
+      "total_trades": 150,
+      "win_rate": 0.46,
+      "years_tested": 5
+    },
+    "profit_factor": 0.01001272520259862,
+    "red_flags": [
+      {
+        "id": "negative_expectancy",
+        "message": "Negative expectancy (-2.956%) — strategy loses money on average.",
+        "severity": "high"
+      }
+    ],
+    "total_score": 59,
+    "verdict": "Refine"
+  },
+  "hypothesis_id": "confirmation-pivot-entry",
+  "schema_version": 1,
+  "symbol": "GAMMA"
+}

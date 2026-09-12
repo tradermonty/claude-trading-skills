@@ -16,20 +16,26 @@ consumers:
 
 # Existing imports needed for a true standalone ``--help`` smoke. The shared
 # calendar pin remains the only requirement common to every consumer.
+# Entries are plain requirement strings, or {requirement, optional} mappings
+# whose reason is rendered as a ``# optional:`` marker (see issue #330).
 additional_requirements:
   drawdown-circuit-breaker:
     - pyyaml>=6.0
   market-top-detector:
     - requests>=2.31.0
+    - requirement: yfinance>=0.2.0
+      optional: FMP success path never depends on it; fallback returns None
   parabolic-short-trade-planner:
     - requests>=2.31.0
   theme-detector:
-    - finvizfinance>=1.0.0
+    - requirement: finvizfinance>=1.0.0
+      optional: FINVIZ client degrades to static config (HAS_FINVIZFINANCE)
     - numpy>=1.26.0
     - pandas>=2.0.0
     - pyyaml>=6.0
     - requests>=2.31.0
-    - yfinance>=0.2.0
+    - requirement: yfinance>=0.2.0
+      optional: ETF scanner falls back to FMP/static paths (HAS_YFINANCE)
 
 example_mirrors:
   - examples/weekly-trade-strategy/.claude/skills/market-environment-analysis

@@ -1,0 +1,4806 @@
+{
+  "schema_version": 1,
+  "benchmark_version": "2026-08-29.v1",
+  "description": "Manually labeled EN/JA gold corpus for deterministic first-match Navigator routing.",
+  "baseline": {
+    "candidate_precision": 1,
+    "candidate_recall": 1,
+    "selected_accuracy": 1,
+    "workflow_accuracy": 1
+  },
+  "neighbor_contracts": [
+    {
+      "target_persona": "short-strategy-trader",
+      "allowed_selected_personas": ["separate-core-satellite"],
+      "rationale": "Distinguish short selling from short-term portfolio separation."
+    },
+    {
+      "target_persona": "strategy-researcher",
+      "allowed_selected_personas": ["stockbee-20pct-researcher"],
+      "rationale": "Distinguish generic strategy backtesting from the specific 20% mover study."
+    },
+    {
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "allowed_selected_personas": ["multi-asset-opportunity-trader"],
+      "rationale": "Distinguish COT crowding analysis from a cross-asset opportunity scan."
+    },
+    {
+      "target_persona": "no-api-path",
+      "allowed_selected_personas": ["swing-trader"],
+      "rationale": "An available API key must not be interpreted as a no-API constraint."
+    },
+    {
+      "target_persona": "stockbee-20pct-researcher",
+      "allowed_selected_personas": ["dividend-long-term-investor"],
+      "rationale": "Distinguish a 20% mover event study from a 20% portfolio allocation."
+    },
+    {
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "allowed_selected_personas": ["swing-trader"],
+      "rationale": "Distinguish catalyst-specific EP analysis from generic swing screening."
+    },
+    {
+      "target_persona": "stockbee-fluency-learner",
+      "allowed_selected_personas": ["swing-trader"],
+      "rationale": "Distinguish setup learning from immediate momentum execution."
+    },
+    {
+      "target_persona": "multi-asset-opportunity-trader",
+      "allowed_selected_personas": ["dividend-long-term-investor"],
+      "rationale": "Distinguish opportunity discovery from portfolio rebalancing."
+    },
+    {
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "allowed_selected_personas": ["swing-trader"],
+      "rationale": "Distinguish regime-gated swing intent from unconditional swing intent."
+    },
+    {
+      "target_persona": "morning-risk-check",
+      "allowed_selected_personas": ["trade-journaler"],
+      "rationale": "Distinguish a pre-trade risk check from a post-trade review."
+    },
+    {
+      "target_persona": "separate-core-satellite",
+      "allowed_selected_personas": ["dividend-long-term-investor"],
+      "rationale": "Distinguish sleeve separation from holdings maintenance."
+    },
+    {
+      "target_persona": "kanchi-dividend-investor",
+      "allowed_selected_personas": ["dividend-long-term-investor"],
+      "rationale": "Distinguish Kanchi candidate sourcing from existing dividend holdings review."
+    },
+    {
+      "target_persona": "dividend-long-term-investor",
+      "allowed_selected_personas": ["separate-core-satellite"],
+      "rationale": "Distinguish holdings maintenance from core and satellite separation."
+    },
+    {
+      "target_persona": "swing-trader",
+      "allowed_selected_personas": ["stockbee-fluency-learner"],
+      "rationale": "Distinguish executable swing screening from setup-learning practice."
+    },
+    {
+      "target_persona": "beginner-onramp",
+      "allowed_selected_personas": ["no-api-path"],
+      "rationale": "Distinguish a general beginner request from an explicit no-API constraint."
+    },
+    {
+      "target_persona": "monthly-reviewer",
+      "allowed_selected_personas": ["trade-journaler"],
+      "rationale": "Distinguish one-trade postmortems from month-level review."
+    },
+    {
+      "target_persona": "trade-journaler",
+      "allowed_selected_personas": ["monthly-reviewer"],
+      "rationale": "Distinguish month-level review from one-trade journaling."
+    }
+  ],
+  "shadowing_contracts": [
+    {
+      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"swing\",13,\"swing-trader\",\"swing\",\"equal\"]",
+      "winner": "part-time-swing-trader-regime-gated",
+      "rationale": "Specific regime-gated swing intent must precede generic swing intent",
+      "ambiguous_case_ids": [
+        "amb-swing-en",
+        "amb-swing-ja"
+      ]
+    },
+    {
+      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"スイング\",13,\"swing-trader\",\"スイング\",\"equal\"]",
+      "winner": "part-time-swing-trader-regime-gated",
+      "rationale": "Specific regime-gated swing intent must precede generic swing intent",
+      "ambiguous_case_ids": [
+        "amb-swing-en",
+        "amb-swing-ja"
+      ]
+    },
+    {
+      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"スイング\",13,\"swing-trader\",\"スイングトレード\",\"earlier_in_later\"]",
+      "winner": "part-time-swing-trader-regime-gated",
+      "rationale": "Specific regime-gated swing intent must precede generic swing intent",
+      "ambiguous_case_ids": [
+        "amb-swing-en",
+        "amb-swing-ja"
+      ]
+    },
+    {
+      "fingerprint": "[10,\"separate-core-satellite\",\"long-term holdings from\",12,\"dividend-long-term-investor\",\"holdings\",\"later_in_earlier\"]",
+      "winner": "separate-core-satellite",
+      "rationale": "Core/satellite separation must precede broad holdings language",
+      "ambiguous_case_ids": [
+        "amb-core-en",
+        "amb-core-ja"
+      ]
+    },
+    {
+      "fingerprint": "[10,\"separate-core-satellite\",\"long term holdings from\",12,\"dividend-long-term-investor\",\"holdings\",\"later_in_earlier\"]",
+      "winner": "separate-core-satellite",
+      "rationale": "Core/satellite separation must precede broad holdings language",
+      "ambiguous_case_ids": [
+        "amb-core-en",
+        "amb-core-ja"
+      ]
+    },
+    {
+      "fingerprint": "[10,\"separate-core-satellite\",\"長期保有と短期\",12,\"dividend-long-term-investor\",\"長期保有\",\"later_in_earlier\"]",
+      "winner": "separate-core-satellite",
+      "rationale": "Core/satellite separation must precede broad holdings language",
+      "ambiguous_case_ids": [
+        "amb-core-en",
+        "amb-core-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"kanchi dividend\",12,\"dividend-long-term-investor\",\"dividend\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"kanchi high-dividend\",12,\"dividend-long-term-investor\",\"dividend\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"high-yield dividend stocks\",12,\"dividend-long-term-investor\",\"dividend\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"high-yield dividend stocks\",12,\"dividend-long-term-investor\",\"yield\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"high-yield dividend screen\",12,\"dividend-long-term-investor\",\"dividend\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"high-yield dividend screen\",12,\"dividend-long-term-investor\",\"yield\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"underwrite dividend\",12,\"dividend-long-term-investor\",\"dividend\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"高配当株スクリーニング\",12,\"dividend-long-term-investor\",\"配当\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"高配当株スクリーニング\",12,\"dividend-long-term-investor\",\"配当株\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"高配当株スクリーニング\",12,\"dividend-long-term-investor\",\"高配当\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"高配当株を探\",12,\"dividend-long-term-investor\",\"配当\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"高配当株を探\",12,\"dividend-long-term-investor\",\"配当株\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"高配当株を探\",12,\"dividend-long-term-investor\",\"高配当\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"配当株スクリーニング\",12,\"dividend-long-term-investor\",\"配当\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[11,\"kanchi-dividend-investor\",\"配当株スクリーニング\",12,\"dividend-long-term-investor\",\"配当株\",\"later_in_earlier\"]",
+      "winner": "kanchi-dividend-investor",
+      "rationale": "Kanchi candidate sourcing must precede broad dividend portfolio maintenance",
+      "ambiguous_case_ids": [
+        "amb-kanchi-en",
+        "amb-kanchi-ja"
+      ]
+    },
+    {
+      "fingerprint": "[15,\"monthly-reviewer\",\"今月の振り返り\",16,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
+      "winner": "monthly-reviewer",
+      "rationale": "Specific monthly Japanese review phrases must precede generic reflection language",
+      "ambiguous_case_ids": [
+        "amb-monthly-ja"
+      ]
+    },
+    {
+      "fingerprint": "[15,\"monthly-reviewer\",\"先月の振り返り\",16,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
+      "winner": "monthly-reviewer",
+      "rationale": "Specific monthly Japanese review phrases must precede generic reflection language",
+      "ambiguous_case_ids": [
+        "amb-monthly-ja"
+      ]
+    },
+    {
+      "fingerprint": "[15,\"monthly-reviewer\",\"月次の振り返り\",16,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
+      "winner": "monthly-reviewer",
+      "rationale": "Specific monthly Japanese review phrases must precede generic reflection language",
+      "ambiguous_case_ids": [
+        "amb-monthly-ja"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "short-p01",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "I want a short-selling playbook",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p02",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "Find bearish short candidates",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p03",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "Help me go short after a parabolic run",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p04",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "Review a short squeeze setup",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p05",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "空売り戦略を使いたい",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p06",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "ショートポジションを検討したい",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p07",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "売り建て候補を探したい",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-p08",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "パラボリックショートを研究したい",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "short-m01",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "I WANT A SHORT-SELLING PLAYBOOK",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": "short-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "short-m02",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "空売り戦略を使いたい。",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "short-strategy-trader"
+      ],
+      "expected_selected_persona": "short-strategy-trader",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": "short-p05",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "short-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Separate portfolio risk from short-term trading",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "short-strategy-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "short-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "長期と短期の投資リスクを分けたい",
+      "target_persona": "short-strategy-trader",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "short-strategy-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "research-p01",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "I want to backtest a new strategy",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p02",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "Help me validate a strategy hypothesis",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p03",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "Research and backtest my strategy idea",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p04",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "Build a strategy research workflow",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p05",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "新しい戦略をバックテストしたい",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p06",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "戦略アイデアを検証したい",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p07",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "仮説検証の流れを作りたい",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-p08",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "戦略研究を始めたい",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "research-m01",
+      "language": "en",
+      "label": "honest_gap",
+      "query": "I want to back test a new strategy",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": "research-p01",
+      "transformation": "orthographic",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "research-m02",
+      "language": "ja",
+      "label": "honest_gap",
+      "query": "検証したい、新しい戦略を",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "strategy-researcher"
+      ],
+      "expected_selected_persona": "strategy-researcher",
+      "expected_primary_workflow": null,
+      "expected_honest_gap": true,
+      "expected_no_api_path": null,
+      "neighbor_of": null,
+      "base_id": "research-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "research-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Run a Stockbee 20% mover study",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "strategy-researcher",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "research-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "20%変動銘柄を研究したい",
+      "target_persona": "strategy-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "strategy-researcher",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "shapiro-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Screen COT data for crowded futures",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Run the Jason Shapiro contrarian workflow",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Find a futures contrarian fade",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Review commitment of traders positioning",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "COTデータで先物の逆張りを探したい",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "シャピロ式の逆張り先物を確認したい",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "建玉の偏りを調べたい",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "混み合った先物ポジションを分析したい",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "shapiro-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "REVIEW COMMITMENT OF TRADERS POSITIONING",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "shapiro-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "shapiro-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "先物を確認したい、シャピロ式の逆張りで",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "shapiro-contrarian-futures-trader"
+      ],
+      "expected_selected_persona": "shapiro-contrarian-futures-trader",
+      "expected_primary_workflow": "shapiro-contrarian",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "shapiro-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "shapiro-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Scan cross-asset opportunities instead of futures crowding",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "shapiro-contrarian-futures-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "shapiro-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "複数資産の投資機会を確認したい",
+      "target_persona": "shapiro-contrarian-futures-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "shapiro-contrarian-futures-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "noapi-p01",
+      "language": "en",
+      "label": "no_api",
+      "query": "Show workflows without API access",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p02",
+      "language": "en",
+      "label": "no_api",
+      "query": "I need a no API path",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p03",
+      "language": "en",
+      "label": "no_api",
+      "query": "What works without a subscription",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p04",
+      "language": "en",
+      "label": "no_api",
+      "query": "Use free only tools",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p05",
+      "language": "ja",
+      "label": "no_api",
+      "query": "APIなしで使える流れを教えて",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p06",
+      "language": "ja",
+      "label": "no_api",
+      "query": "API不要のワークフローが欲しい",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p07",
+      "language": "ja",
+      "label": "no_api",
+      "query": "課金なしで始めたい",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-p08",
+      "language": "ja",
+      "label": "no_api",
+      "query": "キー無しで使えるものを探したい",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "noapi-m01",
+      "language": "en",
+      "label": "no_api",
+      "query": "I need a no-API path",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "noapi-p01",
+      "transformation": "orthographic",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "noapi-m02",
+      "language": "ja",
+      "label": "no_api",
+      "query": "API なしで、使える流れを教えて",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "noapi-p05",
+      "transformation": "orthographic",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "noapi-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "I have an API key and want swing trading",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "no-api-path",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "noapi-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "APIキーを設定済みなのでスイングトレードをしたい",
+      "target_persona": "no-api-path",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "no-api-path",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "twentypct-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Run a Stockbee 20% mover study",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Find today's +20% movers",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Build an explosive mover model book",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Analyze twenty percent movers",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "ストックビー20%変動研究をしたい",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "20%変動銘柄を調べたい",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "プラス20%銘柄を集めたい",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "急騰急落モデルブックを作りたい",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "twentypct-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "RUN A STOCKBEE 20% MOVER STUDY",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "twentypct-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "twentypct-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "調べたい、20%変動銘柄を",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "stockbee-20pct-researcher"
+      ],
+      "expected_selected_persona": "stockbee-20pct-researcher",
+      "expected_primary_workflow": "stockbee-20pct-study-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "twentypct-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "twentypct-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Set my portfolio allocation to 20%",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-20pct-researcher",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "twentypct-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "ポートフォリオを20%ずつリバランスしたい",
+      "target_persona": "stockbee-20pct-researcher",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-20pct-researcher",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "ep-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Analyze an episodic pivot candidate",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Run the Stockbee EP workflow",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Classify Day 1 EP candidates",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Build a delayed EP watchlist",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "エピソディックピボット候補を分析したい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "ストックビーEPを実行したい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "Day 1 EP候補を分類したい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "遅延EPの監視リストを作りたい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "ep-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "Analyze an episodic-pivot candidate",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "ep-p01",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "ep-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "EP候補を、分類したい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "ep-p05",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "ep-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Find ordinary swing trade setups",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-episodic-pivot-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "ep-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "普通のスイング候補を探したい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-episodic-pivot-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "fluency-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Build a Stockbee setup fluency loop",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Maintain a setup model book",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Study failed setups systematically",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Practice setup recognition",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "セットアップ習熟を進めたい",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "セットアップ練習帳を作りたい",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "ストックビーのモデルブックを更新したい",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "失敗セットアップを研究したい",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "fluency-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "Practice recognition with setup fluency",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "fluency-p01",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "fluency-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "セットアップを習熟したい",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "fluency-p05",
+      "transformation": "ja_particle",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "fluency-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Execute a momentum trade now",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-fluency-learner",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "fluency-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "モメンタム銘柄を今すぐ取引したい",
+      "target_persona": "stockbee-fluency-learner",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-fluency-learner",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "multiasset-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Run a multi-asset opportunity scan",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Find cross-asset opportunities",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Scan themes across assets",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Create ranked opportunity cards",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "マルチアセット投資機会を探したい",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "複数資産の投資機会を確認したい",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "資産横断の投資機会を調べたい",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "マクロとテーマを横断して候補を出したい",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "multiasset-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "Find cross asset opportunities",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "multiasset-p01",
+      "transformation": "orthographic",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "multiasset-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "確認したい、複数資産の投資機会を",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "multi-asset-opportunity-trader"
+      ],
+      "expected_selected_persona": "multi-asset-opportunity-trader",
+      "expected_primary_workflow": "multi-asset-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "multiasset-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "multiasset-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Rebalance my multi-asset portfolio",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "multi-asset-opportunity-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "multiasset-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "複数資産ポートフォリオをリバランスしたい",
+      "target_persona": "multi-asset-opportunity-trader",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "multi-asset-opportunity-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "gatedswing-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Swing trade only when the market is favorable",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Do swing trading if the market allows",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Take swing setups when conditions are good",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Swing only when it is safe",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "地合いが良い時だけスイングしたい",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "相場次第でスイングをしたい",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "市場環境が良い時にスイングしたい",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "条件が良い時だけスイングしたい",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "gatedswing-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "SWING TRADE ONLY WHEN THE MARKET IS FAVORABLE",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "gatedswing-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "gatedswing-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "スイングしたい、地合いが良い時だけ",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "gatedswing-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "gatedswing-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Swing trade regardless of market conditions",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "part-time-swing-trader-regime-gated",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "gatedswing-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "地合いに関係なくスイングしたい",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "part-time-swing-trader-regime-gated",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "morning-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Can I take risk today",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Run my quick check this morning",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Is it safe to trade today",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "I have 15 minutes before trading",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "今日はリスクを取れるか知りたい",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "毎朝のクイックチェックをしたい",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "今日トレードしてよいか確認したい",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "朝の15分で相場を確認したい",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "morning-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "CAN I TAKE RISK TODAY?",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "morning-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "morning-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "今日、リスクを取れるか知りたい",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "morning-risk-check"
+      ],
+      "expected_selected_persona": "morning-risk-check",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "morning-p05",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "morning-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Review risk after a closed trade",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "morning-risk-check",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "morning-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "決済したトレードの反省を記録したい",
+      "target_persona": "morning-risk-check",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "morning-risk-check",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "separate-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Split portfolio risk from trading risk",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Separate investing from short-term trades",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Use a core and satellite portfolio",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Isolate short-term risk from long-term investing",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "長期と短期を分けたい",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "投資とトレードを切り分けたい",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "コアとサテライトのポートフォリオを分離したい",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "separate-p08",
+      "language": "ja",
+      "label": "ambiguous",
+      "query": "長期投資から短期リスクを分けたい",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite",
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive",
+        "ambiguous"
+      ]
+    },
+    {
+      "id": "separate-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "From trading risk, split portfolio risk",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "separate-p01",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "separate-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "長期と短期を分ける",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "separate-p05",
+      "transformation": "ja_conjugation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "separate-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Review dividend holdings this week",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "separate-core-satellite",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "separate-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "配当の長期保有を見直したい",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "separate-core-satellite",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "kanchi-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Use Kanchi to screen candidates",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Run the Kanchi weekly workflow",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Apply the Kanchi method",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Start a Kanchi-style screen",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "かんち式で候補を探したい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "かんちさんの方法を使いたい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "かんち式の週次確認をしたい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "かんちで銘柄候補を探したい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "kanchi-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "USE KANCHI TO SCREEN CANDIDATES",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "kanchi-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "kanchi-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "候補を、かんち式で探したい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "kanchi-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "kanchi-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Review my existing dividend holdings",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "kanchi-dividend-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "kanchi-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "保有中の配当株を見直したい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "kanchi-dividend-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "dividend-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Review my dividend holdings",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Rebalance my long-term portfolio",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Find dividend stocks",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Check portfolio allocation",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "配当株を見直したい",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "長期投資のポートフォリオを確認したい",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "保有銘柄をリバランスしたい",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "増配株を探したい",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "dividend-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "REVIEW MY DIVIDEND HOLDINGS",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "dividend-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "dividend-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "配当株が見直したい",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "dividend-p05",
+      "transformation": "ja_particle",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "dividend-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Split portfolio risk from short-term trades",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "dividend-long-term-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "dividend-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "長期と短期を分けたい",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "separate-core-satellite"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "dividend-long-term-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "swing-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "I want to do swing trading",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Find breakout trade setups",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Scan momentum trade candidates",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Plan a short-term swing",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "スイングトレードをしたい",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "ブレイクアウト候補を探したい",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "モメンタム銘柄を確認したい",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "短期売買の候補が欲しい",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "swing-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "I WANT TO DO SWING TRADING",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "swing-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "swing-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "候補を、ブレイクアウトで探したい",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "swing-trader"
+      ],
+      "expected_selected_persona": "swing-trader",
+      "expected_primary_workflow": "swing-opportunity-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "swing-p05",
+      "transformation": "word_order",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "swing-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Build a Stockbee setup fluency loop",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "swing-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "swing-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "セットアップ習熟を進めたい",
+      "target_persona": "swing-trader",
+      "expected_candidate_personas": [
+        "stockbee-fluency-learner"
+      ],
+      "expected_selected_persona": "stockbee-fluency-learner",
+      "expected_primary_workflow": "stockbee-fluency-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "swing-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "beginner-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "I am a beginner",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Where do I start",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Give me a beginner-friendly path",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "I am new to trading skills",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "初心者向けの道筋が欲しい",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "どこから始めればよいか知りたい",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "入門の流れを教えて",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "初めて使うので案内して",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "beginner-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "I AM A BEGINNER",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "beginner-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "beginner-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "初心者向けの、道筋が欲しい",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "beginner-onramp"
+      ],
+      "expected_selected_persona": "beginner-onramp",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "beginner-p05",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "beginner-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Show workflows without API access",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "beginner-onramp",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "beginner-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "APIなしで使える流れを教えて",
+      "target_persona": "beginner-onramp",
+      "expected_candidate_personas": [
+        "no-api-path"
+      ],
+      "expected_selected_persona": "no-api-path",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "beginner-onramp",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "monthly-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Run my monthly review",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Review last month",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Prepare a month-end review",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Summarize monthly performance",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "月次レビューを実行したい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "月末レビューを作りたい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "月間パフォーマンスを確認したい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "月次の結果をまとめたい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "monthly-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "RUN MY MONTHLY REVIEW",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "monthly-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "monthly-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "月次レビューを、実行したい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "monthly-p05",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "monthly-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Write a postmortem for one closed trade",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "monthly-reviewer",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "monthly-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "決済したトレードの教訓を記録したい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "monthly-reviewer",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "journal-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Write a trade journal entry",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Run a postmortem on a closed trade",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Record lessons learned from my trade",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Use post-trade coaching",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "トレード記録を残したい",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "決済したトレードを反省したい",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "売買記録に教訓を残したい",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "取引後レビューをしたい",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "journal-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "WRITE A TRADE JOURNAL ENTRY",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "journal-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "journal-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "トレードの記録を残したい",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": null,
+      "base_id": "journal-p05",
+      "transformation": "ja_particle",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "journal-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Run my monthly performance review",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "trade-journaler",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "journal-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "月次レビューを作りたい",
+      "target_persona": "trade-journaler",
+      "expected_candidate_personas": [
+        "monthly-reviewer"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "trade-journaler",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "amb-swing-en",
+      "language": "en",
+      "label": "ambiguous",
+      "query": "Swing trade only when the market is favorable",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "swing-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    },
+    {
+      "id": "amb-swing-ja",
+      "language": "ja",
+      "label": "ambiguous",
+      "query": "地合いが良い時だけスイングトレードをしたい",
+      "target_persona": "part-time-swing-trader-regime-gated",
+      "expected_candidate_personas": [
+        "part-time-swing-trader-regime-gated",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "part-time-swing-trader-regime-gated",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "swing-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    },
+    {
+      "id": "amb-core-en",
+      "language": "en",
+      "label": "ambiguous",
+      "query": "Separate long-term holdings from short-term trading risk",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite",
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "dividend-long-term-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    },
+    {
+      "id": "amb-core-ja",
+      "language": "ja",
+      "label": "ambiguous",
+      "query": "長期保有と短期リスクを分けたい",
+      "target_persona": "separate-core-satellite",
+      "expected_candidate_personas": [
+        "separate-core-satellite",
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "separate-core-satellite",
+      "expected_primary_workflow": "market-regime-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "dividend-long-term-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    },
+    {
+      "id": "amb-kanchi-en",
+      "language": "en",
+      "label": "ambiguous",
+      "query": "Run a Kanchi dividend screen",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor",
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "dividend-long-term-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    },
+    {
+      "id": "amb-kanchi-ja",
+      "language": "ja",
+      "label": "ambiguous",
+      "query": "高配当株スクリーニングをしたい",
+      "target_persona": "kanchi-dividend-investor",
+      "expected_candidate_personas": [
+        "kanchi-dividend-investor",
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "kanchi-dividend-investor",
+      "expected_primary_workflow": "kanchi-dividend-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "dividend-long-term-investor",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    },
+    {
+      "id": "amb-monthly-ja",
+      "language": "ja",
+      "label": "ambiguous",
+      "query": "今月の振り返りをしたい",
+      "target_persona": "monthly-reviewer",
+      "expected_candidate_personas": [
+        "monthly-reviewer",
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "monthly-reviewer",
+      "expected_primary_workflow": "monthly-performance-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "trade-journaler",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
+      ]
+    }
+  ]
+}

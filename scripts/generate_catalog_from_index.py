@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from check_skill_catalog import CatalogError, validate_catalogs
 
 # ---------------------------------------------------------------------------
 # Sentinels
@@ -448,6 +449,16 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"Unchanged: {path}", file=sys.stderr)
 
+    try:
+        validate_catalogs(args.project_root.resolve())
+    except CatalogError as exc:
+        print(f"ERROR: website skill catalogs: {exc}", file=sys.stderr)
+        return 1
+
+    print(
+        "OK: website EN/JA skill catalogs match skills-index.yaml",
+        file=sys.stderr,
+    )
     return 1 if (args.check and drift) else 0
 
 

@@ -46,13 +46,52 @@ from calculators.equity_bond_calculator import calculate_equity_bond
 from calculators.sector_rotation_calculator import calculate_sector_rotation
 from calculators.size_factor_calculator import calculate_size_factor
 from calculators.yield_curve_calculator import calculate_yield_curve
-from fmp_client import FMPClient
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score, check_regime_consistency, classify_regime
+
+
+def _requests_available() -> bool:
+    try:
+        import requests  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+if _requests_available():
+    from fmp_client import FMPClient
+else:
+    # fmp_client exits(1) at import time when requests is missing; defer
+    # that failure to the startup probe so it surfaces as exit 2 with an
+    # actionable message. Any other fmp_client ImportError stays loud.
+    FMPClient = None  # type: ignore[assignment]
 
 # ETF symbols needed for analysis
 REQUIRED_ETFS = ["RSP", "SPY", "IWM", "TLT", "SHY", "HYG", "LQD", "XLY", "XLP"]
 HISTORY_DAYS = 600  # ~2.4 years of daily data
+
+# Third-party packages required at runtime (see requirements.txt alongside
+# SKILL.md). Probed at startup so a broken install fails with an actionable
+# message (exit 2) instead of a silent all-zero report (issue #311).
+REQUIRED_PACKAGES = ("requests", "yfinance")
+
+
+def missing_required_packages() -> list[str]:
+    """Return required third-party packages that cannot be imported.
+
+    Import is attempted (not just located) so a broken install that
+    raises ImportError is classified as missing rather than degrading
+    into an all-zero report downstream (issue #311).
+    """
+    import importlib
+
+    missing = []
+    for name in REQUIRED_PACKAGES:
+        try:
+            importlib.import_module(name)
+        except ImportError:
+            missing.append(name)
+    return missing
 
 
 def parse_arguments():
@@ -84,6 +123,20 @@ def main():
     print("Cross-Asset Ratio Analysis for Structural Regime Transitions")
     print("=" * 70)
     print()
+
+    # Fail closed on a broken install: a missing required package must not
+    # degrade into an all-zero report (issue #311). Exit 2 distinguishes
+    # misconfiguration from a data outage (exit 1 below).
+    missing = missing_required_packages()
+    if missing:
+        print(
+            "ERROR: missing required dependencies: "
+            + ", ".join(missing)
+            + ". Install skills/macro-regime-detector/requirements.txt "
+            + "in the skill directory (pip install -r requirements.txt).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     # Initialize market-data client. FMP is optional; without a key, ETF
     # history is fetched directly through yfinance.

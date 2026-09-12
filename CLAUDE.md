@@ -173,7 +173,10 @@ If no test exists for the changed behavior, add one whenever practical.
 skills must also carry the eight-axis `verification` block in `skills-index.yaml`. Use
 [`docs/dev/production-verification.md`](docs/dev/production-verification.md) for the pass/NA
 criteria, audit baseline, live high-severity issue gate, and the rule for resetting stale evidence
-to `not_verified`.
+to `not_verified`. Verification does not by itself catch a provider silently renaming a field a
+consumer reads (Issue #328's failure class) — see
+[`docs/dev/provider-contracts.md`](docs/dev/provider-contracts.md) for the FMP response contracts
+that gate on that.
 
 ### Pre-commit Hooks
 
@@ -939,7 +942,8 @@ Scripts should:
 - Check for API keys before making requests
 - Validate date ranges and input parameters
 - Provide helpful error messages to stderr
-- Return proper exit codes (0 for success, 1 for errors)
+- Return proper exit codes (0 for success, 1 for errors, 2 for missing
+  runtime dependencies with an actionable message pointing at requirements.txt)
 - Support retry logic with exponential backoff for rate limits
 
 ### No Personal Information in Committed Files
@@ -976,6 +980,24 @@ When skills are ready for distribution:
 5. Commit changes with descriptive message
 
 ZIP packages allow Claude web app users to upload and use skills without cloning the repository.
+
+**Runtime Dependency Declaration (issue #330):**
+
+Every skill with executable Python (`skills/<id>/scripts/*.py` outside `tests/`)
+must ship `skills/<id>/requirements.txt`:
+
+- List every third-party package the packaged scripts import (use
+  `opencv-python-headless`, never `opencv-python`, for CI compatibility).
+- Skills using only the standard library contain a `# stdlib-only` marker line.
+- Requirement-line grammar: `<PEP 508 requirement>` with an optional trailing
+  `# optional: <reason>` marker. Direct URL references and environment markers
+  (`;`) are rejected. An `optional` entry must be imported only inside
+  `try/except ImportError` with a degraded path plus an absence test.
+- Verify with `python3 scripts/check_skill_deps.py check` (offline, fail-closed)
+  and `python3 scripts/check_skill_deps.py smoke --skill <skill-id>`.
+  `package_skills.py` refuses to package an executable skill without the manifest.
+- New skills: copy the `requirements.txt` convention from an existing skill with
+  similar imports; the skill-creator flow must include this file before packaging.
 
 ⚠️ **API Key Requirements in Distribution:**
 - When distributing skills that require API keys, clearly document the requirements in the skill's SKILL.md

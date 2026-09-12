@@ -1,0 +1,6 @@
+schema_version: 1
+items:
+- id: vcp-confirmation-regime-note
+  skill: vcp-screener
+  proposal: annotate pivot confirmation with the active market regime
+  severity: minor

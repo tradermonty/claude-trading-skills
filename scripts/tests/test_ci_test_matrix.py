@@ -581,8 +581,71 @@ def test_current_policy_has_no_allowed_failures_and_enforces_all_tiers():
     assert entries["theme-detector"].allowed_failure is False
     assert entries["futures-position-sizer"].coverage_target == 85
     assert entries["drawdown-circuit-breaker"].coverage_target == 85
+    assert entries["position-sizer"].coverage_target == 85
+    assert entries["position-sizer"].coverage_floor == 85
+    assert entries["position-sizer"].coverage_waiver is None
     assert entries["mt5-robot-tester"].coverage_target == 70
     assert entries["options-strategy-advisor"].coverage_floor == 70
     assert entries["signal-postmortem"].coverage_floor == 40
     assert entries["pair-trade-screener"].requirements == ("statsmodels>=0.14,<0.15",)
     assert entries["market-news-analyst"].coverage_target is None
+
+
+@pytest.mark.parametrize("installed", ["1.0", "2.0"])
+def test_install_check_verifies_version_without_installing(monkeypatch, installed):
+    monkeypatch.setattr("scripts.ci_test_matrix.metadata.version", lambda name: installed)
+    monkeypatch.setattr(
+        "scripts.ci_test_matrix.subprocess.run",
+        lambda *args, **kwargs: pytest.fail("check mode must not install"),
+    )
+    entry = TestEntry("alpha", ("tests",), "scripts", requirements=("safe-package>=1",))
+    install(entry, check=True)
+
+
+def test_install_check_rejects_missing_distribution(monkeypatch):
+    from importlib.metadata import PackageNotFoundError
+
+    def missing(name):
+        raise PackageNotFoundError(name)
+
+    monkeypatch.setattr("scripts.ci_test_matrix.metadata.version", missing)
+    entry = TestEntry("alpha", ("tests",), "scripts", requirements=("missing-package>=1",))
+    with pytest.raises(MatrixError, match="missing requirement"):
+        install(entry, check=True)
+
+
+def test_install_check_rejects_incompatible_version(monkeypatch):
+    monkeypatch.setattr("scripts.ci_test_matrix.metadata.version", lambda name: "0.9")
+    entry = TestEntry("alpha", ("tests",), "scripts", requirements=("safe-package>=1",))
+    with pytest.raises(MatrixError, match="needs safe-package>=1"):
+        install(entry, check=True)
+
+
+def test_install_check_skips_inapplicable_markers(monkeypatch):
+    monkeypatch.setattr(
+        "scripts.ci_test_matrix.metadata.version", lambda name: pytest.fail("inactive marker")
+    )
+    entry = TestEntry(
+        "alpha", ("tests",), "scripts", requirements=('safe-package; python_version < "2"',)
+    )
+    install(entry, check=True)
+
+
+@pytest.mark.parametrize("requirement", ["safe[extra]>=1", "safe @ https://example.com/safe.whl"])
+def test_install_check_fails_closed_on_unverifiable_requirement(requirement):
+    entry = TestEntry("alpha", ("tests",), "scripts", requirements=(requirement,))
+    with pytest.raises(MatrixError, match="cannot verify"):
+        install(entry, check=True)
+
+
+def test_install_check_cli_forwards_check_flag(monkeypatch):
+    entry = TestEntry("alpha", ("tests",), "scripts", requirements=("safe>=1",))
+    monkeypatch.setattr("scripts.ci_test_matrix.load_policy", lambda root: None)
+    monkeypatch.setattr("scripts.ci_test_matrix.load_skill_metadata", lambda root: {})
+    monkeypatch.setattr("scripts.ci_test_matrix.build_entries", lambda *args: {"alpha": entry})
+    calls = []
+    monkeypatch.setattr(
+        "scripts.ci_test_matrix.install", lambda item, *, check: calls.append((item, check))
+    )
+    assert main(["install", "--check", "alpha"]) == 0
+    assert calls == [(entry, True)]

@@ -27,16 +27,27 @@ market-calendar = [
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
-    "ruff==0.9.6",
+    "ruff==0.16.6",
     "bandit[toml]>=1.7.0",
     "detect-secrets>=1.5.0",
     "codespell>=2.3.0",
     "pre-commit>=3.0.0",
+    "tomli>=2.0; python_version < '3.11'",
+    "pip-audit==2.10.1; python_version >= '3.10'",
+    "bandit[toml]>=1.9.0; python_version >= '3.10'",
+]
+ci = [
+    "beautifulsoup4",
+    "lxml",
+    "statsmodels>=0.14,<0.15",
+    "pandas-market-calendars==5.2.2",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+# Keep the pre-upgrade Python scope; Markdown snippets are maintained as docs.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
@@ -51,8 +62,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/conftest.py" = ["E402"]
 "**/test_*.py" = ["E402"]
-"**/_market_calendar.py" = ["UP007"]
-"scripts/market_calendar/market_calendar.py" = ["UP007"]
+# Preserve runtime-evaluable annotations on Python 3.9 in the shared calendar.
+"**/_market_calendar.py" = ["UP007", "UP045"]
+"scripts/market_calendar/market_calendar.py" = ["UP007", "UP045"]
 
 [tool.pytest.ini_options]
 # importlib mode resolves conftest/module name collisions across skills

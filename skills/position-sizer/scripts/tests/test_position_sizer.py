@@ -13,6 +13,7 @@ from position_sizer import (
     calculate_kelly,
     calculate_position,
     generate_markdown_report,
+    main,
     validate_parameters,
 )
 
@@ -572,6 +573,46 @@ class TestOutput:
         assert "## Parameters" in md
         assert "## Final Recommendation" in md
         assert "153" in md  # final shares
+
+    def test_main_writes_risk_pct_reports_in_process(self, monkeypatch, tmp_path, capsys):
+        """The CLI entry point writes both reports and prints its share summary."""
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "position_sizer.py",
+                "--account-size",
+                "100000",
+                "--entry",
+                "155",
+                "--stop",
+                "148.50",
+                "--risk-pct",
+                "1.0",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+
+        main()
+
+        stdout = capsys.readouterr().out
+        assert "Final: 153 shares" in stdout
+        assert "JSON report:" in stdout
+        assert "Markdown report:" in stdout
+
+        json_reports = list(tmp_path.glob("position_sizer_*.json"))
+        markdown_reports = list(tmp_path.glob("position_sizer_*.md"))
+        assert len(json_reports) == 1
+        assert len(markdown_reports) == 1
+
+        payload = json.loads(json_reports[0].read_text(encoding="utf-8"))
+        assert payload["mode"] == "shares"
+        assert payload["final_recommended_shares"] == 153
+
+        markdown = markdown_reports[0].read_text(encoding="utf-8")
+        assert "# Position Sizing Report" in markdown
+        assert "**Shares:** 153" in markdown
 
     def test_cli_arguments(self):
         """Verify argparse works for standard cases."""

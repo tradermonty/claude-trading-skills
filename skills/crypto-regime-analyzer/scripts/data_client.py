@@ -60,6 +60,7 @@ STABLECOIN_IDS = {
     "true-usd",
     "frax",
     "binance-usd",
+    "usd1-wlfi",
 }
 WRAPPED_OR_STAKED_IDS = {
     "wrapped-bitcoin",
@@ -135,8 +136,9 @@ class DataClient:
     def fetch_universe(self) -> list:
         """Top-N non-stable, non-wrapped coins by market cap."""
         cache_key = f"universe_top{self.top_n}"
+        excluded = STABLECOIN_IDS | WRAPPED_OR_STAKED_IDS | NON_CRYPTO_BETA_IDS
         cached = self._cached(cache_key)
-        if cached:
+        if cached and not any(coin["id"] in excluded for coin in cached):
             return cached
         raw = self._get(
             f"{COINGECKO_BASE}/coins/markets",
@@ -151,7 +153,6 @@ class DataClient:
                 "sparkline": "false",
             },
         )
-        excluded = STABLECOIN_IDS | WRAPPED_OR_STAKED_IDS | NON_CRYPTO_BETA_IDS
         universe = [
             {"id": c["id"], "symbol": c["symbol"].upper()} for c in raw if c["id"] not in excluded
         ][: self.top_n]

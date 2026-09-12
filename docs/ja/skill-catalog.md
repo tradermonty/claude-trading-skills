@@ -10,7 +10,7 @@ permalink: /ja/skill-catalog/
 # スキル一覧
 {: .no_toc }
 
-Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各スキルのAPI要件バッジで、利用に必要な外部サービスをすぐに確認できます。
+全74個のClaude Trading Skillsをカテゴリ別に紹介します。各スキルのAPI要件バッジで、利用に必要な外部サービスをすぐに確認できます。
 {: .fs-6 .fw-300 }
 
 > 検索は英語スキル名（"CANSLIM", "VCP", "FinViz"等）での検索を推奨します。日本語の部分一致検索は制限があります。
@@ -131,7 +131,7 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 | **VCP Screener** | Mark MinerviniのVolatility Contraction Pattern を検出。Stage 2上昇トレンド銘柄のボラティリティ収縮とブレイクアウトポイントを識別 | <span class="badge badge-api">FMP必須</span> |
 | **Stockbee Momentum Burst Screener** | Stockbee型の短期モメンタムバースト候補をスクリーニング。4%ブレイクアウト、ドルブレイクアウト、レンジ拡大トリガーをセットアップ品質・リスク幅で0-100点（A/B/Watch）評価。候補生成専用で technical-analyst / position-sizer に接続 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">ローカルJSON任意</span> |
 | **[Stockbee Exhaustion Hammer Screener]({{ '/ja/skills/stockbee-exhaustion-hammer-screener/' | relative_url }})** | Stockbee型の売り枯れハンマー候補をスクリーニング。流動性、直前モメンタム、押し目の深さ、undercut/reclaim、長い下ヒゲ、終値位置、ストップまでのリスクを評価する候補生成専用スキル | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">ローカルJSON任意</span> |
-| **FinViz Screener** | 自然言語（日本語/英語）でFinVizスクリーニング条件を構築。500以上のフィルターコードに対応し、Chromeで結果を表示。**テーマクロス検索**（30以上のテーマ × 268サブテーマ）で「AI × 物流」「データセンター × 電力」等のナラティブベース検索が可能 | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FINVIZ任意</span> |
+| **Finviz Screener** | 自然言語（日本語/英語）でFinVizスクリーニング条件を構築。500以上のフィルターコードに対応し、Chromeで結果を表示。**テーマクロス検索**（30以上のテーマ × 268サブテーマ）で「AI × 物流」「データセンター × 電力」等のナラティブベース検索が可能 | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FINVIZ任意</span> |
 | **Value Dividend Screener** | 高配当バリュー株をスクリーニング。P/E、P/B、配当利回り、3年成長トレンドで多段階フィルタリング | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ任意</span> |
 | **[US Undervalued Growth Screener]({{ '/ja/skills/us-undervalued-growth-screener/' | relative_url }})** | Claude Code向け米国中小型GARPスクリーナー。FMP直接取得パイプラインとローカルキャッシュ、FY1予想正規化、流動性検証、フォワード同一基準バリュエーション、SBC調整FCF、公開前監査、自己完結型エビデンスバンドル | <span class="badge badge-optional">FMP推奨</span> |
 | **Dividend Growth Pullback Screener** | 年間配当成長12%以上の高品質配当成長株で、RSI 40以下のプルバック中の銘柄を検出 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ任意</span> |
@@ -161,6 +161,7 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 | **[COT Contrarian Detector]({{ '/ja/skills/cot-contrarian-detector/' | relative_url }})** | COT Indexにより65のCFTC先物市場における大口投機筋の偏ったポジションを検出。ジェイソン・シャピロ式逆張り手法のステップ1 | <span class="badge badge-api">FMP必須</span> |
 | **[News Reaction Failure Analyzer]({{ '/ja/skills/news-reaction-failure-analyzer/' | relative_url }})** | モンテカルロ検証済みのドリフト有意性検定により、偏った市場が好材料に反応しなかったかを判定。ジェイソン・シャピロ式逆張り手法のステップ2 | <span class="badge badge-api">FMP必須</span> |
 | **[Contrarian Setup Gate]({{ '/ja/skills/contrarian-setup-gate/' | relative_url }})** | 偏りポジション・ニュースフェイリュア・価格アクションの3判定をフェイルクローズドな優先順位付き状態遷移マシンで統合し、ジェイソン・シャピロ式逆張り手法の判断中枢を担う。ベータ版、完全オフライン計算 | <span class="badge badge-free">API不要</span> |
+| **[Crypto Regime Analyzer]({{ '/ja/skills/crypto-regime-analyzer/' | relative_url }})** | 無料・キー不要の公開データ6要素から暗号資産市場のレジーム健全性を定量化。オフラインスナップショットにも対応 | <span class="badge badge-free">API不要</span> |
 
 ---
 
@@ -199,6 +200,7 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 | **Earnings Calendar** | FMP APIで今後の決算発表を取得。時価総額$2B以上の中大型株に焦点 | <span class="badge badge-api">FMP必須</span> |
 | **Economic Calendar Fetcher** | FMP APIで7-90日間の経済イベントを取得。インパクト評価付き時系列レポート | <span class="badge badge-api">FMP必須</span> |
 | **[FXMacroData Calendar]({{ '/ja/skills/fxmacrodata-calendar/' | relative_url }})** | FXMacroDataを使い公式ソースのマクロ発表カレンダーイベントを取得。トレードプランニングとイベントリスクフィルタに利用。USDの公開カレンダー行はキーなしで動作。Beta | <span class="badge badge-optional">FXMacroDataキー任意</span> |
+| **[Pre-Trade Discipline Gate]({{ '/ja/skills/pre-trade-discipline-gate/' | relative_url }})** | 注文計画を進める前に決定論的な事前チェックリストとフェイルクローズド判断ゲートを適用 | <span class="badge badge-free">API不要</span> |
 
 ---
 
@@ -233,11 +235,13 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 | スキル | 説明 | API要件 |
 |--------|------|---------|
 | **Data Quality Checker** | マーケット分析ドキュメントの価格スケール、日付曜日、配分合計、単位の不整合を検証 | <span class="badge badge-free">API不要</span> |
-| **Dual-Axis Skill Reviewer** | デュアルアクシス方式でスキル品質をレビュー。決定論的オートスコアリング + オプションLLMレビュー | <span class="badge badge-free">API不要</span> |
+| **Dual Axis Skill Reviewer** | デュアルアクシス方式でスキル品質をレビュー。決定論的オートスコアリング + オプションLLMレビュー | <span class="badge badge-free">API不要</span> |
 | **Skill Designer** | 構造化されたアイデア仕様からClaudeスキルを設計。SKILL.md、references、scripts、testsを含む完全なスキルディレクトリを生成 | <span class="badge badge-free">API不要</span> |
 | **Skill Idea Miner** | Claude Codeセッションログからスキルアイデア候補を抽出・スコアリング・バックログ化 | <span class="badge badge-free">API不要</span> |
 | **Skill Integration Tester** | CLAUDE.mdで定義されたマルチスキルワークフローをスキル存在、データ契約互換性、ハンドオフ整合性の観点で検証 | <span class="badge badge-free">API不要</span> |
 | **Trade Hypothesis Ideator** | マーケットデータ、トレードログ、ジャーナルから反証可能なトレード仮説を生成しランキング。strategy.yamlエクスポート対応 | <span class="badge badge-free">API不要</span> |
+| **[Stockbee Episodic Pivot Analyzer]({{ '/ja/skills/stockbee-episodic-pivot-analyzer/' | relative_url }})** | エピソディックピボット候補のカタリスト、価格、出来高、フォロースルーの根拠を分析 | <span class="badge badge-optional">FMP任意</span> |
+| **[Stockbee Setup Fluency Trainer]({{ '/ja/skills/stockbee-setup-fluency-trainer/' | relative_url }})** | ローカル事例からStockbeeセットアップ認識を反復練習し、必要に応じてFMPデータで補強 | <span class="badge badge-optional">FMP任意</span> |
 | **[Trading Skills Navigator]({{ '/ja/skills/trading-skills-navigator/' | relative_url }})** | オンランプ。自然言語のトレード目標から最適なワークフロー・スキルセット・API要件・セットアップ手順を推奨。決定論的レコメンダーと「該当ワークフロー未提供」の正直なギャップ提示。API不要・初心者向けパス対応 | <span class="badge badge-free">API不要</span> |
 | **Weekly Trade Strategy** | 週次トレード戦略の構造化テンプレートとワークフロー | <span class="badge badge-workflow">ワークフロー</span> |
 
@@ -296,44 +300,80 @@ Claude Trading Skillsの全スキルをカテゴリ別に紹介します。各�
 ## API要件マトリクス
 
 | スキル | FMP | FINVIZ Elite | Alpaca |
-|--------|-----|-------------|--------|
+|-------|-----|--------------|--------|
+| Backtest Expert | - | - | - |
+| Breadth Chart Analyst | - | - | - |
+| Breakout Trade Planner | - | - | - |
 | CANSLIM Screener | 必須 | - | - |
-| VCP Screener | 必須 | - | - |
-| FinViz Screener | - | 任意 | - |
-| Value Dividend Screener | 必須 | 推奨 | - |
-| US Undervalued Growth Screener | 推奨 | - | - |
+| Contrarian Setup Gate | - | - | - |
+| COT Contrarian Detector | 必須 | - | - |
+| Crypto Regime Analyzer | - | - | - |
+| Data Quality Checker | - | - | - |
 | Dividend Growth Pullback Screener | 必須 | 推奨 | - |
+| Downtrend Duration Analyzer | - | - | - |
+| Drawdown Circuit Breaker | - | - | - |
+| Dual Axis Skill Reviewer | - | - | - |
+| Earnings Calendar | 必須 | - | - |
 | Earnings Trade Analyzer | 必須 | - | - |
-| PEAD Screener | 必須 | - | - |
+| Economic Calendar Fetcher | 必須 | - | - |
+| FXMacroData Calendar | - | - | - |
+| Edge Candidate Agent | 任意 | - | - |
+| Edge Concept Synthesizer | - | - | - |
+| Edge Hint Extractor | - | - | - |
+| Edge Pipeline Orchestrator | - | - | - |
+| Edge Signal Aggregator | - | - | - |
+| Edge Strategy Designer | - | - | - |
+| Edge Strategy Reviewer | - | - | - |
+| Exposure Coach | - | - | - |
+| Finviz Screener | - | 任意 | - |
 | FTD Detector | 必須 | - | - |
+| Futures Position Sizer | - | - | - |
+| IBD Distribution Day Monitor | 必須 | - | - |
 | Institutional Flow Tracker | 必須 | - | - |
-| Theme Detector | 任意 | 推奨 | - |
-| Pair Trade Screener | 必須 | - | - |
+| Kanchi Dividend Review Monitor | 推奨 | - | - |
+| Kanchi Dividend SOP | 推奨 | - | - |
+| Kanchi Dividend US Tax Accounting | - | - | - |
 | Macro Regime Detector | 任意 | - | - |
 | manifoldbt Backtester | - | - | - |
-| Options Strategy Advisor | 任意 | - | - |
-| Portfolio Manager | - | - | 必須 |
-| Trader Memory Core | 任意 | - | - |
-| Earnings Calendar | 必須 | - | - |
-| Economic Calendar Fetcher | 必須 | - | - |
-| Downtrend Duration Analyzer | 必須 | - | - |
-| IBD Distribution Day Monitor | 必須 | - | - |
-| Parabolic Short Trade Planner | 必須 | - | - |
-| Edge Candidate Agent | 任意 | - | - |
-| Kanchi Dividend Review Monitor | 任意 | - | - |
-| Kanchi Dividend SOP | 任意 | - | - |
-| Stockbee Momentum Burst Screener | 必須 | - | - |
-| Stockbee Episodic Pivot Analyzer | 任意 | - | - |
-| Stockbee Setup Fluency Trainer | 任意 | - | - |
-| Stockbee 20pct Study | 必須 | - | - |
-| Stockbee Exhaustion Hammer Screener | 必須 | - | - |
-| Drawdown Circuit Breaker | - | - | - |
-| COT Contrarian Detector | 必須 | - | - |
-| News Reaction Failure Analyzer | 必須 | - | - |
-| Technical Analyst | 任意 | - | - |
-| Contrarian Setup Gate | - | - | - |
-| Futures Position Sizer | - | - | - |
+| Market Breadth Analyzer | - | - | - |
+| Market Environment Analysis | - | - | - |
+| Market News Analyst | - | - | - |
+| Market Top Detector | - | - | - |
 | MT5 Robot Tester | - | - | - |
-| その他すべてのスキル | - | - | - |
+| News Reaction Failure Analyzer | 必須 | - | - |
+| Options Strategy Advisor | 任意 | - | - |
+| Pair Trade Screener | 必須 | - | - |
+| Parabolic Short Trade Planner | 必須 | - | 任意 |
+| PEAD Screener | 必須 | - | - |
+| Portfolio Manager | - | - | 必須 |
+| Position Sizer | - | - | - |
+| Pre-Trade Discipline Gate | - | - | - |
+| Residual Edge Analyzer | - | - | - |
+| Scenario Analyzer | - | - | - |
+| Sector Analyst | - | - | - |
+| Signal Postmortem | - | - | - |
+| Skill Designer | - | - | - |
+| Skill Idea Miner | - | - | - |
+| Skill Integration Tester | - | - | - |
+| Stanley Druckenmiller Investment | - | - | - |
+| Stockbee 20% Study | 必須 | - | - |
+| Stockbee Episodic Pivot Analyzer | 任意 | - | - |
+| Stockbee Exhaustion Hammer Screener | 必須 | - | - |
+| Stockbee Momentum Burst Screener | 必須 | - | - |
+| Stockbee Setup Fluency Trainer | 任意 | - | - |
+| Strategy Pivot Designer | - | - | - |
+| Technical Analyst | 任意 | - | - |
+| Theme Detector | 任意 | 推奨 | - |
+| Trade Hypothesis Ideator | - | - | - |
+| Trade Performance Coach | - | - | - |
+| Trader Memory Core | 任意 | - | - |
+| Trading Skills Navigator | - | - | - |
+| Uptrend Analyzer | - | - | - |
+| US Market Bubble Detector | - | - | - |
+| US Stock Analysis | - | - | - |
+| US Undervalued Growth Screener | 推奨 | - | - |
+| Value Dividend Screener | 必須 | 推奨 | - |
+| VCP Screener | 必須 | - | - |
+| Weekly Performance Digest | - | - | - |
 
-「-」は不要を意味します。「任意」はあれば機能強化、なくても基本機能は動作します。
+「-」は不要を意味します。「必須」はそのプロバイダーなしでは実行できないこと、「推奨」は代替手段があるものの優先される経路であること、「任意」は機能強化にのみ使用することを意味します。

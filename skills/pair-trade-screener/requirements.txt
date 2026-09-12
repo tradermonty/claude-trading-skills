@@ -1,0 +1,7 @@
+# Runtime dependencies for standalone .skill installs (issue #330).
+# Verified by scripts/check_skill_deps.py.
+numpy>=1.26  # floor verified numpy==2.2.6 on 2026-09-05
+pandas>=2.0  # floor verified pandas==2.3.3 on 2026-09-05
+requests>=2.31.0
+scipy>=1.13.1
+statsmodels>=0.14,<0.15  # upper bound inherited from config/ci-test-policy.yaml matrix

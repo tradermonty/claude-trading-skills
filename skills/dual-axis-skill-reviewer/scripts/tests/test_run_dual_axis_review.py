@@ -66,7 +66,7 @@ def test_discover_test_dirs_supports_two_layouts(reviewer_module, tmp_path: Path
     assert skill_dir / "tests" in dirs
 
 
-def test_run_tests_fallbacks_to_python_pytest(reviewer_module, tmp_path: Path, monkeypatch):
+def test_run_tests_prefers_synchronized_interpreter(reviewer_module, tmp_path: Path, monkeypatch):
     skill_dir = tmp_path / "skills" / "sample"
     write_text(skill_dir / "tests" / "test_x.py", "def test_x():\n    assert True\n")
 
@@ -74,22 +74,27 @@ def test_run_tests_fallbacks_to_python_pytest(reviewer_module, tmp_path: Path, m
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
-        if cmd[0] == "uv":
-            raise FileNotFoundError("uv missing")
         return subprocess.CompletedProcess(cmd, 0, "ok\n1 passed\n", "")
 
     monkeypatch.setattr(reviewer_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        reviewer_module.importlib.util,
+        "find_spec",
+        lambda name: SimpleNamespace() if name == "pytest" else None,
+    )
 
     status, command, output = reviewer_module.run_tests(tmp_path, skill_dir)
 
     assert status == "passed"
     assert command is not None and sys.executable in command
     assert "1 passed" in output
-    assert calls[0][0] == "uv"
-    assert calls[1][0] == sys.executable
+    assert calls[0][0] == sys.executable
+    assert not any(call[0] == "uv" for call in calls)
 
 
-def test_run_tests_fallback_timeout_is_captured(reviewer_module, tmp_path: Path, monkeypatch):
+def test_run_tests_falls_back_to_uv_without_pytest_installed(
+    reviewer_module, tmp_path: Path, monkeypatch
+):
     skill_dir = tmp_path / "skills" / "sample"
     write_text(skill_dir / "tests" / "test_x.py", "def test_x():\n    assert True\n")
 
@@ -98,18 +103,43 @@ def test_run_tests_fallback_timeout_is_captured(reviewer_module, tmp_path: Path,
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
         if cmd[0] == "uv":
-            raise FileNotFoundError("uv missing")
+            return subprocess.CompletedProcess(cmd, 0, "ok\n1 passed\n", "")
+        raise AssertionError("python pytest should not be tried when pytest is unavailable")
+
+    monkeypatch.setattr(reviewer_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(reviewer_module.importlib.util, "find_spec", lambda name: None)
+
+    status, command, output = reviewer_module.run_tests(tmp_path, skill_dir)
+
+    assert status == "passed"
+    assert command is not None and command.startswith("uv")
+    assert "1 passed" in output
+    assert calls[0][0] == "uv"
+
+
+def test_run_tests_python_timeout_is_captured(reviewer_module, tmp_path: Path, monkeypatch):
+    skill_dir = tmp_path / "skills" / "sample"
+    write_text(skill_dir / "tests" / "test_x.py", "def test_x():\n    assert True\n")
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
         raise subprocess.TimeoutExpired(cmd=cmd, timeout=180)
 
     monkeypatch.setattr(reviewer_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        reviewer_module.importlib.util,
+        "find_spec",
+        lambda name: SimpleNamespace() if name == "pytest" else None,
+    )
 
     status, command, output = reviewer_module.run_tests(tmp_path, skill_dir)
 
     assert status == "timeout"
     assert command is not None and sys.executable in command
+    assert calls[0][0] == sys.executable
     assert "timeout" in output.lower()
-    assert calls[0][0] == "uv"
-    assert calls[1][0] == sys.executable
 
 
 def test_load_llm_review_validation(reviewer_module, tmp_path: Path):

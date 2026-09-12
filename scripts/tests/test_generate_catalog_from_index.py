@@ -11,6 +11,7 @@ import yaml
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+import generate_catalog_from_index as catalog_generator  # noqa: E402
 from generate_catalog_from_index import (  # noqa: E402
     SENTINEL_RE,
     SentinelError,
@@ -442,7 +443,8 @@ def test_sentinel_regex_requires_matching_names() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_main_writes_then_check_passes(tmp_path: Path) -> None:
+def test_main_writes_then_check_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(catalog_generator, "validate_catalogs", lambda _root: None)
     write_minimal_index(tmp_path, [make_skill("a-skill", category="market-regime")])
     write_all_targets(tmp_path)
 
@@ -453,7 +455,8 @@ def test_main_writes_then_check_passes(tmp_path: Path) -> None:
     assert rc == 0
 
 
-def test_main_check_fails_on_drift(tmp_path: Path) -> None:
+def test_main_check_fails_on_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(catalog_generator, "validate_catalogs", lambda _root: None)
     write_minimal_index(tmp_path, [make_skill("a-skill", category="market-regime")])
     write_all_targets(tmp_path)
 
@@ -467,6 +470,40 @@ def test_main_check_fails_on_drift(tmp_path: Path) -> None:
     (tmp_path / "README.md").write_text(tampered, encoding="utf-8")
 
     rc = main(["--project-root", str(tmp_path), "--check"])
+    assert rc == 1
+
+
+def test_main_runs_website_catalog_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_minimal_index(tmp_path, [make_skill("a-skill", category="market-regime")])
+    write_all_targets(tmp_path)
+    validated_roots: list[Path] = []
+    monkeypatch.setattr(
+        catalog_generator,
+        "validate_catalogs",
+        lambda root: validated_roots.append(root),
+    )
+
+    rc = main(["--project-root", str(tmp_path)])
+
+    assert rc == 0
+    assert validated_roots == [tmp_path.resolve()]
+
+
+def test_main_fails_when_website_catalog_validation_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_minimal_index(tmp_path, [make_skill("a-skill", category="market-regime")])
+    write_all_targets(tmp_path)
+
+    def fail_validation(_root: Path) -> None:
+        raise catalog_generator.CatalogError("catalog drift")
+
+    monkeypatch.setattr(catalog_generator, "validate_catalogs", fail_validation)
+
+    rc = main(["--project-root", str(tmp_path)])
+
     assert rc == 1
 
 

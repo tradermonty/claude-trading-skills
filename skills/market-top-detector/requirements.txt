@@ -2,3 +2,4 @@
 # Source of truth: scripts/market_calendar/ and config/market-calendar-dependency.yaml.
 pandas-market-calendars==5.2.2
 requests>=2.31.0
+yfinance>=0.2.0  # optional: FMP success path never depends on it; fallback returns None

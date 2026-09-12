@@ -21,6 +21,8 @@ from agent.knowledge import (
     search_knowledge_markdown,
 )
 from agent.sanitizer import sanitize
+from streamlit.elements.widgets.chat import ChatInputValue
+
 from config.settings import (
     APP_ICON,
     APP_LOG_FORMAT,
@@ -41,7 +43,6 @@ from config.settings import (
     get_auth_description,
     validate_runtime_environment,
 )
-from streamlit.elements.widgets.chat import ChatInputValue
 
 logger = logging.getLogger(__name__)
 _LOGGING_CONFIGURED = False

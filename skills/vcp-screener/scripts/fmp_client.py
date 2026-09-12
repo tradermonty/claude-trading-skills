@@ -16,6 +16,7 @@ Features:
 """
 
 import os
+import re
 import sys
 import time
 from datetime import date, timedelta
@@ -26,6 +27,19 @@ try:
 except ImportError:
     print("ERROR: requests library not found. Install with: pip install requests", file=sys.stderr)
     sys.exit(1)
+
+# Mirror of scripts/provider_contracts.py::redact_url (clients are standalone).
+# Requires a `?`/`&` prefix, so this masks apikey=/api_key= in URL query
+# strings, not a rendered params dict (unreachable today: only
+# RequestException text -- which can embed the full request URL -- is
+# ever printed here, never a bare params repr()).
+_APIKEY_RE = re.compile(r"([?&](?:apikey|api_key)=)[^&\s]+", re.IGNORECASE)
+
+
+def _redact_key(text: str) -> str:
+    """Mask apikey=/api_key= query values so stderr never carries the key."""
+    return _APIKEY_RE.sub(r"\1REDACTED", str(text))
+
 
 try:
     from _fmp_compat import v3_to_stable
@@ -190,7 +204,7 @@ class FMPClient:
                     self.rate_limit_reached = True
                     return None
             else:
-                msg = f"HTTP {response.status_code} - {response.text[:200]}"
+                msg = _redact_key(f"HTTP {response.status_code} - {response.text[:200]}")
                 self._last_error = msg
                 if not quiet:
                     print(
@@ -199,8 +213,9 @@ class FMPClient:
                     )
                 return None
         except requests.exceptions.RequestException as e:
-            self._last_error = f"request exception: {e}"
-            print(f"ERROR: Request exception: {e}", file=sys.stderr)
+            redacted = _redact_key(str(e))
+            self._last_error = f"request exception: {redacted}"
+            print(f"ERROR: Request exception: {redacted}", file=sys.stderr)
             return None
 
     def _request_with_fallback(self, endpoint_key, symbols_str, extra_params=None):

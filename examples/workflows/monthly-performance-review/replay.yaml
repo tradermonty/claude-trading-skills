@@ -1,0 +1,92 @@
+schema_version: 1
+workflow_id: monthly-performance-review
+fixed_timestamp: "2026-06-01T09:00:00+00:00"
+
+inputs:
+  closed_theses: replay-inputs/closed_theses.json
+  postmortems: replay-inputs/postmortems.json
+  pattern_decision: replay-inputs/pattern_decision.yaml
+  coach_decision: replay-inputs/coach_decision.yaml
+  backtest_params: replay-inputs/backtest_params.json
+  skill_review_target: replay-inputs/skill_review_target.yaml
+  rule_change_decision: replay-inputs/rule_change_decision.yaml
+
+steps:
+  - step: 1
+    executor: monthly_aggregate
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      monthly_aggregate:
+        canonical: 01_monthly_aggregate.json
+
+  - step: 2
+    executor: monthly_postmortem
+    executor_mode: composite
+    executor_components:
+      - native_api
+      - manual_contract
+    gate_policy: record_only
+    output_files:
+      aggregate_postmortem:
+        canonical: 02_aggregate_postmortem.json
+
+  - step: 3
+    executor: monthly_coach
+    executor_mode: composite
+    executor_components:
+      - native_cli
+      - manual_contract
+    gate_policy: record_only
+    output_files:
+      monthly_performance_coach_report:
+        canonical: 03_monthly_performance_coach_report.json
+      monthly_behavior_patterns:
+        canonical: 03_monthly_behavior_patterns.json
+      next_month_operating_rules:
+        canonical: 03_next_month_operating_rules.yaml
+
+  - step: 4
+    executor: monthly_backtest
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      hypothesis_revalidation:
+        canonical: 04_hypothesis_revalidation.json
+
+  - step: 5
+    executor: monthly_skill_review
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      skill_review_findings:
+        canonical: 05_skill_review_findings.json
+
+  - step: 6
+    executor: monthly_decision_log
+    executor_mode: manual_contract
+    gate_policy: record_only
+    output_files:
+      monthly_decision_log:
+        canonical: 06_monthly_decision_log.json
+      rule_changes_for_next_month:
+        canonical: 06_rule_changes_for_next_month.yaml
+      skill_improvement_backlog:
+        canonical: 06_skill_improvement_backlog.yaml
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 6
+    golden_dir: replay-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+    golden_dir: replay-run-full-path

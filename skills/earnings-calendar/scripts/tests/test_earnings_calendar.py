@@ -6,6 +6,8 @@ Covers:
 - Report generation (generate_report.py pure functions)
 """
 
+from unittest.mock import patch
+
 import pytest
 from fetch_earnings_fmp import FMPEarningsCalendar, validate_date
 from generate_report import (
@@ -92,6 +94,21 @@ class TestNormalizeTiming:
     def test_unknown_returns_tas(self, client):
         assert client.normalize_timing("unknown") == "TAS"
         assert client.normalize_timing("") == "TAS"
+
+
+# ── fetch_earnings_calendar (Issue #352: includeReportTimes) ───────────
+
+
+class TestFetchEarningsCalendarRequestsReportTimes:
+    @patch("fetch_earnings_fmp.requests.get")
+    def test_requests_include_report_times_true(self, mock_get, client):
+        mock_response = mock_get.return_value
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+
+        client.fetch_earnings_calendar("2026-09-04", "2026-09-04")
+
+        assert mock_get.call_args.kwargs["params"]["includeReportTimes"] == "true"
 
 
 # ── format_market_cap ─────────────────────────────────────────────────

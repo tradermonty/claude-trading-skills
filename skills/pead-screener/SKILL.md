@@ -84,6 +84,16 @@ Based on stages and ratings:
 - `pead_screener_YYYY-MM-DD_HHMMSS.json` - Structured results with stage classification
 - `pead_screener_YYYY-MM-DD_HHMMSS.md` - Human-readable report grouped by stage
 
+### Unknown earnings timing
+
+FMP does not confirm a bmo/amc session for every earnings row; unconfirmed
+rows carry `earnings_timing: "unknown"` in Mode A and the price gap
+calculation assumes the AMC window as a fallback. The Mode A report shows
+`timing_unknown_count` out of `timing_candidates_total` so this assumption
+stays visible (Mode B reports `n/a` since timing is inherited from the input
+JSON). `timing_candidates_total` is the post-budget-trim population that was
+actually analyzed, not the raw earnings-calendar row count.
+
 ## Resources
 
 - `references/pead_strategy.md` - PEAD theory and weekly candle approach

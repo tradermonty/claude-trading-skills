@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -35,6 +36,18 @@ try:
 except ImportError:
     print("ERROR: requests library not found. Install with: pip install requests", file=sys.stderr)
     raise
+
+# Mirror of scripts/provider_contracts.py::redact_url (clients are standalone).
+# Requires a `?`/`&` prefix, so this masks apikey=/api_key= in URL query
+# strings, not a rendered params dict (unreachable today: only
+# RequestException text -- which can embed the full request URL -- is
+# ever printed here, never a bare params repr()).
+_APIKEY_RE = re.compile(r"([?&](?:apikey|api_key)=)[^&\s]+", re.IGNORECASE)
+
+
+def _redact_key(text: str) -> str:
+    """Mask apikey=/api_key= query values so stderr never carries the key."""
+    return _APIKEY_RE.sub(r"\1REDACTED", str(text))
 
 
 _PROVIDER_ERROR_KEYS = frozenset({"error message", "errormessage", "error"})
@@ -298,6 +311,10 @@ class FMPClient:
         os.replace(temp, target)
 
     def _record_failure(self, endpoint: str, reason: str, status_code: int | None = None) -> None:
+        # `endpoint` is an identity key: the circuit breaker below and the
+        # capability-cache gate in `_fetch_statements` compare it against the
+        # raw url, so it is stored unredacted here and masked only where it
+        # is exposed (`diagnostics()['failure_samples']`).
         item: dict[str, Any] = {"endpoint": endpoint, "reason": reason}
         if status_code is not None:
             item["status_code"] = status_code
@@ -362,7 +379,10 @@ class FMPClient:
             except requests.RequestException as exc:
                 self._record_failure(url, f"request_exception:{exc.__class__.__name__}")
                 if not quiet:
-                    print(f"WARN: FMP request failed for {url}: {exc}", file=sys.stderr)
+                    print(
+                        f"WARN: FMP request failed for {url}: {_redact_key(exc)}",
+                        file=sys.stderr,
+                    )
                 return None
             if response.status_code == 429 and attempts < 2:
                 time.sleep(60)
@@ -371,7 +391,7 @@ class FMPClient:
                 self._record_failure(url, f"http_{response.status_code}", response.status_code)
                 if not quiet:
                     print(
-                        f"WARN: FMP endpoint failed: {url} HTTP {response.status_code}",
+                        f"WARN: FMP endpoint failed: {_redact_key(url)} HTTP {response.status_code}",
                         file=sys.stderr,
                     )
                 return None
@@ -380,7 +400,7 @@ class FMPClient:
             except ValueError:
                 self._record_failure(url, "invalid_json", response.status_code)
                 if not quiet:
-                    print(f"WARN: FMP returned invalid JSON: {url}", file=sys.stderr)
+                    print(f"WARN: FMP returned invalid JSON: {_redact_key(url)}", file=sys.stderr)
                 return None
             if _is_provider_error_payload(payload):
                 # FMP reports plan limits and endpoint errors as HTTP 200
@@ -388,7 +408,9 @@ class FMPClient:
                 # data would cache the outage as an "empty" success.
                 self._record_failure(url, "provider_error_payload", response.status_code)
                 if not quiet:
-                    print(f"WARN: FMP returned an error payload: {url}", file=sys.stderr)
+                    print(
+                        f"WARN: FMP returned an error payload: {_redact_key(url)}", file=sys.stderr
+                    )
                 return None
             if validate is not None and not validate(payload):
                 # Same outage class hidden one level down (e.g. an error
@@ -396,7 +418,10 @@ class FMPClient:
                 # produces: a failure, never cached.
                 self._record_failure(url, "schema_validation_failed", response.status_code)
                 if not quiet:
-                    print(f"WARN: FMP payload failed schema validation: {url}", file=sys.stderr)
+                    print(
+                        f"WARN: FMP payload failed schema validation: {_redact_key(url)}",
+                        file=sys.stderr,
+                    )
                 return None
             if not allow_empty and payload in (None, [], {}):
                 self._record_failure(url, "empty_response", response.status_code)
@@ -711,7 +736,10 @@ class FMPClient:
             "max_api_calls": self.max_api_calls,
             "cache_hits": self.cache_hits,
             "failure_count": len(self.failures),
-            "failure_samples": self.failures[:20],
+            "failure_samples": [
+                {**item, "endpoint": _redact_key(item.get("endpoint", ""))}
+                for item in self.failures[:20]
+            ],
             "disabled_endpoint_count": len(self._disabled_endpoints),
             "capability_cache_hits": self.capability_cache_hits,
             "remaining_calls": self.remaining_calls,

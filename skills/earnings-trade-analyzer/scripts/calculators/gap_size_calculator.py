@@ -76,6 +76,8 @@ def calculate_gap(daily_prices: list[dict], earnings_date: str, timing: str) -> 
           - timing_used: str
           - score: float (0-100)
           - warning: str (optional, if data issue)
+          - timing_note: str (optional; present only when timing is 'unknown',
+            explaining that the AMC window was assumed rather than measured)
     """
     earnings_idx = _find_index_by_date(daily_prices, earnings_date)
 
@@ -149,4 +151,9 @@ def calculate_gap(daily_prices: list[dict], earnings_date: str, timing: str) -> 
         "timing_used": timing_lower,
         "score": score,
     }
+    if timing_lower == "unknown":
+        result["timing_note"] = (
+            "timing unknown; AMC window assumed (BMO reporters may be "
+            "measured on the wrong session pair)"
+        )
     return result

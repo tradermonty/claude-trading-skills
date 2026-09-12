@@ -10,7 +10,7 @@ permalink: /en/skill-catalog/
 # Skill Catalog
 {: .no_toc }
 
-A comprehensive catalog of all 73 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
+A comprehensive catalog of all 74 Claude Trading Skills organized by category. Badge indicators show API requirements at a glance.
 {: .fs-6 .fw-300 }
 
 > Use English skill names ("CANSLIM", "VCP", "FinViz", etc.) for best search results on this page.
@@ -131,7 +131,7 @@ A comprehensive catalog of all 73 Claude Trading Skills organized by category. B
 | **[VCP Screener]({{ '/en/skills/vcp-screener/' | relative_url }})** | Detects Mark Minervini's Volatility Contraction Pattern. 3-phase pipeline: Pre-filter, Trend Template, VCP Detection with pivot points and trade setups | <span class="badge badge-api">FMP Required</span> |
 | **[Stockbee Momentum Burst Screener]({{ '/en/skills/stockbee-momentum-burst-screener/' | relative_url }})** | Stockbee-style short-term momentum burst screening: 4% breakout, dollar breakout, and range-expansion triggers scored 0-100 (A/B/Watch) with setup-quality and risk-distance filters. Candidate generation only — routes survivors to technical-analyst and position-sizer | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">Local JSON Optional</span> |
 | **[Stockbee Exhaustion Hammer Screener]({{ '/en/skills/stockbee-exhaustion-hammer-screener/' | relative_url }})** | Stockbee-style selling-exhaustion hammer screening for liquid stocks with prior momentum, pullback depth, undercut/reclaim behavior, long lower-wick reversal geometry, and risk-distance filters. Candidate generation only | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">Local JSON Optional</span> |
-| **[FinViz Screener]({{ '/en/skills/finviz-screener/' | relative_url }})** | Translates natural language (Japanese/English) into FinViz filter URLs. 500+ filter codes across fundamentals, technicals, and descriptives. **Theme cross-screening** (30+ themes × 268 sub-themes) for narrative-based searches like "AI × Logistics" or "Data Centers × Power". Opens results in Chrome | <span class="badge badge-free">No API</span> <span class="badge badge-optional">FINVIZ Optional</span> |
+| **[Finviz Screener]({{ '/en/skills/finviz-screener/' | relative_url }})** | Translates natural language (Japanese/English) into FinViz filter URLs. 500+ filter codes across fundamentals, technicals, and descriptives. **Theme cross-screening** (30+ themes × 268 sub-themes) for narrative-based searches like "AI × Logistics" or "Data Centers × Power". Opens results in Chrome | <span class="badge badge-free">No API</span> <span class="badge badge-optional">FINVIZ Optional</span> |
 | **Value Dividend Screener** | Multi-phase dividend stock screening: value characteristics (P/E, P/B), income (yield), growth (3-year trends), sustainability, and quality scoring | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">FINVIZ Optional</span> |
 | **[US Undervalued Growth Screener]({{ '/en/skills/us-undervalued-growth-screener/' | relative_url }})** | Claude Code-native GARP screen for US small/mid caps: direct-FMP discovery pipeline with local cache, FY1 estimate normalization, verified liquidity, forward same-basis valuation, SBC-adjusted FCF, prepublication audit, and a self-contained evidence bundle | <span class="badge badge-optional">FMP Recommended</span> |
 | **Dividend Growth Pullback Screener** | Finds dividend growth stocks (12%+ annual growth, 1.5%+ yield) at oversold technical levels (RSI <= 40). Two-stage FINVIZ + FMP pipeline | <span class="badge badge-api">FMP Required</span> <span class="badge badge-optional">FINVIZ Optional</span> |
@@ -161,6 +161,7 @@ A comprehensive catalog of all 73 Claude Trading Skills organized by category. B
 | **[COT Contrarian Detector]({{ '/en/skills/cot-contrarian-detector/' | relative_url }})** | Detects crowded large-speculator positioning across 65 CFTC futures markets via COT Index (3-year/26-week), implementing step 1 of Jason Shapiro's contrarian methodology | <span class="badge badge-api">FMP Required</span> |
 | **[News Reaction Failure Analyzer]({{ '/en/skills/news-reaction-failure-analyzer/' | relative_url }})** | Judges whether a crowded market failed to react to favorable news via a Monte-Carlo-verified drift-significance test, implementing step 2 of Jason Shapiro's contrarian methodology | <span class="badge badge-api">FMP Required</span> |
 | **[Contrarian Setup Gate]({{ '/en/skills/contrarian-setup-gate/' | relative_url }})** | Synthesizes crowding, news-failure, and price-action verdicts into one setup_status via a fail-closed precedence state machine, implementing the decision center of Jason Shapiro's contrarian methodology. Beta. Pure offline calculation | <span class="badge badge-free">No API</span> |
+| **[Crypto Regime Analyzer]({{ '/en/skills/crypto-regime-analyzer/' | relative_url }})** | Quantifies crypto market regime health from six components using free, keyless public data, with an offline snapshot fallback | <span class="badge badge-free">No API</span> |
 
 ---
 
@@ -199,6 +200,7 @@ A comprehensive catalog of all 73 Claude Trading Skills organized by category. B
 | **Earnings Calendar** | Fetches upcoming earnings announcements via FMP API. Focuses on mid-cap+ companies (>$2B market cap), organized by date and timing (BMO/AMC) | <span class="badge badge-api">FMP Required</span> |
 | **Economic Calendar Fetcher** | Fetches economic events (FOMC, NFP, CPI, GDP) for 7-90 days via FMP API. Impact assessment (High/Medium/Low) with market implications analysis | <span class="badge badge-api">FMP Required</span> |
 | **[FXMacroData Calendar]({{ '/en/skills/fxmacrodata-calendar/' | relative_url }})** | Fetches official-source macro release-calendar events using FXMacroData for trade planning and event-risk filters. Public USD calendar rows work without a key. Beta | <span class="badge badge-optional">FXMacroData Key Optional</span> |
+| **[Pre-Trade Discipline Gate]({{ '/en/skills/pre-trade-discipline-gate/' | relative_url }})** | Applies a deterministic pre-trade checklist and fail-closed decision gate before a planned order can proceed | <span class="badge badge-free">No API</span> |
 
 ---
 
@@ -233,11 +235,13 @@ A comprehensive catalog of all 73 Claude Trading Skills organized by category. B
 | Skill | Description | API Requirements |
 |-------|-------------|-----------------|
 | **Data Quality Checker** | Validates market analysis documents for price scale inconsistencies, date/weekday mismatches, allocation total errors, and unit mismatches. Advisory mode (warnings only) | <span class="badge badge-free">No API</span> |
-| **Dual-Axis Skill Reviewer** | Reviews skill quality using dual-axis method: deterministic auto scoring (5-category, 0-100) + optional LLM deep review. Powers the automated skill improvement loop | <span class="badge badge-free">No API</span> |
+| **Dual Axis Skill Reviewer** | Reviews skill quality using dual-axis method: deterministic auto scoring (5-category, 0-100) + optional LLM deep review. Powers the automated skill improvement loop | <span class="badge badge-free">No API</span> |
 | **Skill Designer** | Designs new Claude skills from structured idea specifications. Produces complete skill directories (SKILL.md, references, scripts, tests) following repository conventions | <span class="badge badge-free">No API</span> |
 | **Skill Idea Miner** | Mines Claude Code session logs for skill idea candidates. Extracts, scores, and backlogs new skill ideas from recent coding sessions | <span class="badge badge-free">No API</span> |
 | **Skill Integration Tester** | Validates multi-skill workflows defined in CLAUDE.md by checking skill existence, inter-skill data contracts (JSON schema compatibility), and handoff integrity | <span class="badge badge-free">No API</span> |
 | **[Trade Hypothesis Ideator]({{ '/en/skills/trade-hypothesis-ideator/' | relative_url }})** | Generates falsifiable trade strategy hypotheses from market data, trade logs, and journal snippets with ranked hypothesis cards and optional strategy.yaml export | <span class="badge badge-free">No API</span> |
+| **[Stockbee Episodic Pivot Analyzer]({{ '/en/skills/stockbee-episodic-pivot-analyzer/' | relative_url }})** | Analyzes episodic-pivot candidates and their catalyst, price, volume, and follow-through evidence | <span class="badge badge-optional">FMP Optional</span> |
+| **[Stockbee Setup Fluency Trainer]({{ '/en/skills/stockbee-setup-fluency-trainer/' | relative_url }})** | Builds repeatable Stockbee setup-recognition practice from local examples with optional FMP enrichment | <span class="badge badge-optional">FMP Optional</span> |
 | **[Trading Skills Navigator]({{ '/en/skills/trading-skills-navigator/' | relative_url }})** | The on-ramp: from a natural-language trading goal, recommends the right workflow, skillset, API profile, and setup path. Deterministic recommender with honest "no workflow yet" gaps; no-API and beginner paths | <span class="badge badge-free">No API</span> |
 | **Weekly Trade Strategy** | Structured template and workflow for weekly trade strategy reports | <span class="badge badge-workflow">Workflow</span> |
 
@@ -299,82 +303,80 @@ A comprehensive catalog of all 73 Claude Trading Skills organized by category. B
 ## API Requirements Matrix
 
 | Skill | FMP | FINVIZ Elite | Alpaca |
-|-------|-----|-------------|--------|
-| CANSLIM Screener | Required | -- | -- |
-| VCP Screener | Required | -- | -- |
-| FinViz Screener | -- | Optional | -- |
-| Value Dividend Screener | Required | Recommended | -- |
-| Dividend Growth Pullback Screener | Required | Recommended | -- |
-| Earnings Trade Analyzer | Required | -- | -- |
-| PEAD Screener | Required | -- | -- |
-| FTD Detector | Required | -- | -- |
-| Institutional Flow Tracker | Required | -- | -- |
-| Sector Analyst | -- | -- | -- |
-| Breadth Chart Analyst | -- | -- | -- |
-| Technical Analyst | Optional | -- | -- |
-| Market News Analyst | -- | -- | -- |
-| Market Environment Analysis | -- | -- | -- |
-| manifoldbt Backtester | -- | -- | -- |
-| Market Breadth Analyzer | -- | -- | -- |
-| Uptrend Analyzer | -- | -- | -- |
-| Macro Regime Detector | Optional | -- | -- |
-| US Market Bubble Detector | -- | -- | -- |
-| Market Top Detector | -- | -- | -- |
-| IBD Distribution Day Monitor | Required | -- | -- |
-| Theme Detector | Optional | Recommended | -- |
-| Scenario Analyzer | -- | -- | -- |
+|-------|-----|--------------|--------|
 | Backtest Expert | -- | -- | -- |
-| Options Strategy Advisor | Optional | -- | -- |
-| Pair Trade Screener | Required | -- | -- |
-| Stanley Druckenmiller Investment | -- | -- | -- |
-| Strategy Pivot Designer | -- | -- | -- |
-| Portfolio Manager | -- | -- | Required |
-| Trader Memory Core | Optional | -- | -- |
-| Position Sizer | -- | -- | -- |
-| US Stock Analysis | -- | -- | -- |
+| Breadth Chart Analyst | -- | -- | -- |
+| Breakout Trade Planner | -- | -- | -- |
+| CANSLIM Screener | Required | -- | -- |
+| Contrarian Setup Gate | -- | -- | -- |
+| COT Contrarian Detector | Required | -- | -- |
+| Crypto Regime Analyzer | -- | -- | -- |
+| Data Quality Checker | -- | -- | -- |
+| Dividend Growth Pullback Screener | Required | Recommended | -- |
+| Downtrend Duration Analyzer | -- | -- | -- |
+| Drawdown Circuit Breaker | -- | -- | -- |
+| Dual Axis Skill Reviewer | -- | -- | -- |
 | Earnings Calendar | Required | -- | -- |
+| Earnings Trade Analyzer | Required | -- | -- |
 | Economic Calendar Fetcher | Required | -- | -- |
-| Kanchi Dividend SOP | -- | -- | -- |
-| Kanchi Dividend Review Monitor | -- | -- | -- |
-| Kanchi Dividend US Tax Accounting | -- | -- | -- |
-| Edge Candidate Agent | -- | -- | -- |
-| Edge Hint Extractor | -- | -- | -- |
+| FXMacroData Calendar | -- | -- | -- |
+| Edge Candidate Agent | Optional | -- | -- |
 | Edge Concept Synthesizer | -- | -- | -- |
+| Edge Hint Extractor | -- | -- | -- |
+| Edge Pipeline Orchestrator | -- | -- | -- |
+| Edge Signal Aggregator | -- | -- | -- |
 | Edge Strategy Designer | -- | -- | -- |
 | Edge Strategy Reviewer | -- | -- | -- |
-| Edge Pipeline Orchestrator | -- | -- | -- |
-| Data Quality Checker | -- | -- | -- |
-| Dual-Axis Skill Reviewer | -- | -- | -- |
-| Weekly Trade Strategy | -- | -- | -- |
-| Edge Signal Aggregator | -- | -- | -- |
+| Exposure Coach | -- | -- | -- |
+| Finviz Screener | -- | Optional | -- |
+| FTD Detector | Required | -- | -- |
+| Futures Position Sizer | -- | -- | -- |
+| IBD Distribution Day Monitor | Required | -- | -- |
+| Institutional Flow Tracker | Required | -- | -- |
+| Kanchi Dividend Review Monitor | Recommended | -- | -- |
+| Kanchi Dividend SOP | Recommended | -- | -- |
+| Kanchi Dividend US Tax Accounting | -- | -- | -- |
+| Macro Regime Detector | Optional | -- | -- |
+| manifoldbt Backtester | -- | -- | -- |
+| Market Breadth Analyzer | -- | -- | -- |
+| Market Environment Analysis | -- | -- | -- |
+| Market News Analyst | -- | -- | -- |
+| Market Top Detector | -- | -- | -- |
+| MT5 Robot Tester | -- | -- | -- |
+| News Reaction Failure Analyzer | Required | -- | -- |
+| Options Strategy Advisor | Optional | -- | -- |
+| Pair Trade Screener | Required | -- | -- |
+| Parabolic Short Trade Planner | Required | -- | Optional |
+| PEAD Screener | Required | -- | -- |
+| Portfolio Manager | -- | -- | Required |
+| Position Sizer | -- | -- | -- |
+| Pre-Trade Discipline Gate | -- | -- | -- |
+| Residual Edge Analyzer | -- | -- | -- |
+| Scenario Analyzer | -- | -- | -- |
+| Sector Analyst | -- | -- | -- |
+| Signal Postmortem | -- | -- | -- |
 | Skill Designer | -- | -- | -- |
 | Skill Idea Miner | -- | -- | -- |
 | Skill Integration Tester | -- | -- | -- |
-| Trade Hypothesis Ideator | -- | -- | -- |
-| Exposure Coach | Optional | -- | -- |
-| Signal Postmortem | Optional | -- | -- |
-| Downtrend Duration Analyzer | Required | -- | -- |
-| Breakout Trade Planner | -- | -- | -- |
-| Ibd Distribution Day Monitor | -- | -- | -- |
-| Parabolic Short Trade Planner | -- | -- | -- |
-| Trading Skills Navigator | -- | -- | -- |
-| Trade Performance Coach | -- | -- | -- |
-| Weekly Performance Digest | -- | -- | -- |
+| Stanley Druckenmiller Investment | -- | -- | -- |
+| Stockbee 20% Study | Required | -- | -- |
 | Stockbee Episodic Pivot Analyzer | Optional | -- | -- |
+| Stockbee Exhaustion Hammer Screener | Required | -- | -- |
 | Stockbee Momentum Burst Screener | Required | -- | -- |
 | Stockbee Setup Fluency Trainer | Optional | -- | -- |
-| Stockbee 20pct Study | Required | -- | -- |
-| Stockbee Exhaustion Hammer Screener | Required | -- | -- |
-| Drawdown Circuit Breaker | -- | -- | -- |
-| Pre Trade Discipline Gate | -- | -- | -- |
-| COT Contrarian Detector | Required | -- | -- |
-| News Reaction Failure Analyzer | Required | -- | -- |
-| Mt5 Robot Tester | -- | -- | -- |
-| Contrarian Setup Gate | -- | -- | -- |
-| Crypto Regime Analyzer | -- | -- | -- |
-| Futures Position Sizer | -- | -- | -- |
-| FXMacroData Calendar | -- | -- | -- |
-| Residual Edge Analyzer | -- | -- | -- |
-| US Undervalued Growth Screener | -- | -- | -- |
+| Strategy Pivot Designer | -- | -- | -- |
+| Technical Analyst | Optional | -- | -- |
+| Theme Detector | Optional | Recommended | -- |
+| Trade Hypothesis Ideator | -- | -- | -- |
+| Trade Performance Coach | -- | -- | -- |
+| Trader Memory Core | Optional | -- | -- |
+| Trading Skills Navigator | -- | -- | -- |
+| Uptrend Analyzer | -- | -- | -- |
+| US Market Bubble Detector | -- | -- | -- |
+| US Stock Analysis | -- | -- | -- |
+| US Undervalued Growth Screener | Recommended | -- | -- |
+| Value Dividend Screener | Required | Recommended | -- |
+| VCP Screener | Required | -- | -- |
+| Weekly Performance Digest | -- | -- | -- |
 
-"--" means not required. "Optional" means functionality is enhanced but the skill works without it.
+"--" means not required. "Required" means the skill cannot run without that provider; "Recommended" means the provider is the preferred path but a fallback exists; "Optional" means it only enhances functionality.

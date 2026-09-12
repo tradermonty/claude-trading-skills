@@ -13,6 +13,7 @@ Cross-project usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import random
@@ -303,20 +304,14 @@ def run_tests(project_root: Path, skill_dir: Path) -> tuple[str, str | None, str
     py_command = [sys.executable, "-m", "pytest", *test_targets, "-q"]
     py_command_text = " ".join(py_command)
 
-    try:
-        env = dict(os.environ)
-        env["UV_CACHE_DIR"] = str(project_root / ".uv-cache")
-        proc = subprocess.run(
-            uv_command,
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            timeout=180,
-            check=False,
-            env=env,
-        )
-        command_text = uv_command_text
-    except FileNotFoundError:
+    # Prefer the already-synchronized interpreter's pytest. Running `uv run` here
+    # would resolve/mutate dependencies on a cold environment and leak setup output
+    # ("Installed N packages ...") into test_output, making test evidence
+    # non-deterministic across warm/cold runs. Fall back to `uv run` only when the
+    # current interpreter has no pytest (e.g. a bare ~/.claude launcher).
+    env = dict(os.environ)
+    env["UV_CACHE_DIR"] = str(project_root / ".uv-cache")
+    if importlib.util.find_spec("pytest") is not None:
         try:
             proc = subprocess.run(
                 py_command,
@@ -327,12 +322,24 @@ def run_tests(project_root: Path, skill_dir: Path) -> tuple[str, str | None, str
                 check=False,
             )
             command_text = py_command_text
+        except subprocess.TimeoutExpired:
+            return "timeout", py_command_text, "pytest timeout (>180s)"
+    else:
+        try:
+            proc = subprocess.run(
+                uv_command,
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                timeout=180,
+                check=False,
+                env=env,
+            )
+            command_text = uv_command_text
         except FileNotFoundError:
             return "tool_missing", None, "Neither `uv` nor `python -m pytest` is available."
         except subprocess.TimeoutExpired:
-            return "timeout", py_command_text, "pytest timeout (>180s)"
-    except subprocess.TimeoutExpired:
-        return "timeout", uv_command_text, "pytest timeout (>180s)"
+            return "timeout", uv_command_text, "pytest timeout (>180s)"
 
     output = f"{proc.stdout}\n{proc.stderr}".strip()
     if proc.returncode == 0:

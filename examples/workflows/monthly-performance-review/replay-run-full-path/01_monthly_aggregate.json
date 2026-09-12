@@ -1,0 +1,96 @@
+{
+  "actual": {
+    "entry_before_confirmation": false,
+    "portfolio_heat_r": 3,
+    "stop_moved": false,
+    "traded_against_regime": false
+  },
+  "journal": {
+    "emotions": [],
+    "reflection": "Monthly aggregate reconstructed from the closed-theses log."
+  },
+  "monthly": {
+    "consecutive_losses": 2,
+    "rule_violations": 1,
+    "trades": [
+      "TRADE-001",
+      "TRADE-002",
+      "TRADE-003",
+      "TRADE-004",
+      "TRADE-005"
+    ]
+  },
+  "outcome": "mixed",
+  "period": {
+    "end": "2026-05-31",
+    "start": "2026-05-01"
+  },
+  "planned": {
+    "market_regime": "allowed",
+    "setup_confirmed": true,
+    "thesis_recorded_before_entry": true
+  },
+  "postmortem": {
+    "notes": [
+      "1 trades traced to execution",
+      "1 trades traced to randomness",
+      "3 trades traced to thesis_quality"
+    ],
+    "root_cause": "thesis_quality"
+  },
+  "provenance": {
+    "deferred_evidence": "Monthly aggregate is consolidated in-harness from the closed-theses log; trader-memory-core journal synthesis remains deferred (issue 294).",
+    "execution_mode": "manual_contract"
+  },
+  "review_type": "monthly_aggregate",
+  "risk_plan": {
+    "max_portfolio_heat_r": 4.0,
+    "max_risk_per_trade_r": 1.0
+  },
+  "schema_version": 1,
+  "summary": {
+    "closed_trades": 5,
+    "losers": 3,
+    "realized_pnl": 500.0,
+    "win_rate_pct": 40.0,
+    "winners": 2
+  },
+  "trade_id": "monthly_2026-05_fictional",
+  "trades": [
+    {
+      "outcome": "win",
+      "realized_pnl": 450.0,
+      "root_cause": "thesis_quality",
+      "symbol": "ALPHA",
+      "trade_id": "TRADE-001"
+    },
+    {
+      "outcome": "loss",
+      "realized_pnl": -300.0,
+      "root_cause": "execution",
+      "symbol": "BETA",
+      "trade_id": "TRADE-002"
+    },
+    {
+      "outcome": "win",
+      "realized_pnl": 750.0,
+      "root_cause": "thesis_quality",
+      "symbol": "GAMMA",
+      "trade_id": "TRADE-003"
+    },
+    {
+      "outcome": "loss",
+      "realized_pnl": -180.0,
+      "root_cause": "randomness",
+      "symbol": "DELTA",
+      "trade_id": "TRADE-004"
+    },
+    {
+      "outcome": "loss",
+      "realized_pnl": -220.0,
+      "root_cause": "thesis_quality",
+      "symbol": "EPSILON",
+      "trade_id": "TRADE-005"
+    }
+  ]
+}

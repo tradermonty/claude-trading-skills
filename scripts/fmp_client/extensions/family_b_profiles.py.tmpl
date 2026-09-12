@@ -8,15 +8,21 @@
         Returns:
             List of earnings event dicts or None on failure.
             Each dict contains: date, symbol, eps, epsEstimated, revenue,
-            revenueEstimated, time (bmo/amc)
+            revenueEstimated, time. ``time`` is ``bmo``, ``amc``, or ``None``
+            when the provider has not confirmed a session (#352); requesting
+            it requires ``includeReportTimes=true`` below, or the key is
+            omitted from the response entirely.
         """
         cache_key = f"earnings_{from_date}_{to_date}"
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         # Hardcoded v3 URL bypasses the stable→v3 fallback list; rewrite here.
+        # includeReportTimes must be the string "true"/"false" -- any other
+        # value (including a JSON boolean sent as Python True) is HTTP 400.
         url, params = v3_to_stable(
-            f"{self.BASE_URL}/earning_calendar", {"from": from_date, "to": to_date}
+            f"{self.BASE_URL}/earning_calendar",
+            {"from": from_date, "to": to_date, "includeReportTimes": "true"},
         )
         data = self._rate_limited_get(url, params)
         if data:

@@ -1,0 +1,5 @@
+# Runtime dependencies for standalone .skill installs (issue #330).
+# Verified by scripts/check_skill_deps.py.
+beautifulsoup4>=4.12  # floor verified beautifulsoup4==4.14.3 on 2026-09-05
+lxml>=4.9  # parser backend selected by string literal; floor verified lxml==6.0.2 on 2026-09-05
+requests>=2.31.0

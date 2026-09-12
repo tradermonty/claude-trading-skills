@@ -1,8 +1,9 @@
 # Intent Routing Rubric
 
 `scripts/recommend.py` is the **single source of truth** for routing. This
-document explains the engine; it does not re-implement it (no drift test in
-Phase 1 — the script's golden suite is the contract).
+document explains the engine; `assets/intent_benchmark_v1.json` is the
+explicitly labeled 211-case EN/JA gold corpus, and
+`scripts/intent_benchmark.py` is its fail-closed evaluator.
 
 ## Engine overview
 
@@ -16,12 +17,15 @@ Phase 1 — the script's golden suite is the contract).
 3. A persona either names a `primary` workflow (+ optional `secondary`), or an
    `gap_category` (honest gap — no workflow shipped).
 4. Apply constraint filters (`--no-api`, `--time-budget`, `--experience`).
-5. Emit a stable JSON recommendation, including `no_api_path` (see below).
+5. Emit a stable JSON recommendation, including `no_api_path` and
+   `routing_diagnostics` (see below).
 
 If **no** persona matches, the input is treated as unmapped → a graceful
 **beginner default** (`market-regime-daily`, `honest_gap: false`) with a
 `note` asking the user to rephrase. This is distinct from an *honest gap*
-(personas #7/#10), which is a recognized intent with no shipped workflow.
+(personas #1/#2), which is a recognized intent with no shipped workflow.
+`routing_diagnostics.status` is `fallback` in this path, so the default is not
+presented as a confident exact match.
 
 ## Persona table (order matters)
 
@@ -31,15 +35,21 @@ Evaluated top-to-bottom; first match wins. Order encodes precedence:
 |---|---|---|---|
 | 1 | `short-strategy-trader` | "short strategies / shorting / parabolic short" | honest gap → `advanced-satellite` |
 | 2 | `strategy-researcher` | "backtest / research a strategy / strategy ideas" | honest gap → `strategy-research` |
-| 3 | `no-api-path` | "without API / no API keys / no subscription" | `market-regime-daily` + {`trade-memory-loop`, `monthly-performance-review`}, force `no_api` |
-| 4 | `part-time-swing-trader-regime-gated` | "swing" **AND** regime-conditional ("only when", "favorable", "when the market") | `market-regime-daily` + `swing-opportunity-daily` |
-| 5 | `morning-risk-check` | "15 min each morning / can I take risk today" | `market-regime-daily` |
-| 6 | `separate-core-satellite` | "separate / split long-term from short-term risk" (not "dividend") | `market-regime-daily` + `core-portfolio-weekly` |
-| 7 | `dividend-long-term-investor` | "dividend / holdings / rebalance / long-term investor" | `core-portfolio-weekly` |
-| 8 | `swing-trader` | "swing / breakout" (no regime gate) | `swing-opportunity-daily` |
-| 9 | `beginner-onramp` | "beginner / where do I start / getting started" | `market-regime-daily` |
-| 10 | `trade-journaler` | "journal / postmortem / closed trade / lessons learned" | `trade-memory-loop` |
-| 11 | `monthly-reviewer` | "monthly review / end of month / performance review" | `monthly-performance-review` |
+| 3 | `shapiro-contrarian-futures-trader` | "COT / Shapiro / crowded futures" | `shapiro-contrarian` |
+| 4 | `no-api-path` | "without API / no subscription / free only" | `market-regime-daily` + {`trade-memory-loop`, `monthly-performance-review`}, force `no_api` |
+| 5 | `stockbee-20pct-researcher` | "20% movers / explosive mover model book" | `stockbee-20pct-study-daily` |
+| 6 | `stockbee-episodic-pivot-trader` | "episodic pivot / Day 1 EP / delayed EP" | `stockbee-ep-daily` |
+| 7 | `stockbee-fluency-learner` | "setup fluency / setup model book" | `stockbee-fluency-loop` |
+| 8 | `multi-asset-opportunity-trader` | "multi-asset / cross-asset opportunities" | `multi-asset-opportunity-daily` |
+| 9 | `part-time-swing-trader-regime-gated` | "swing" **AND** regime-conditional ("only when", "favorable", "when the market") | `market-regime-daily` + `swing-opportunity-daily` |
+| 10 | `morning-risk-check` | "15 min each morning / can I take risk today" | `market-regime-daily` |
+| 11 | `separate-core-satellite` | "separate / split long-term from short-term risk" (not "dividend") | `market-regime-daily` + `core-portfolio-weekly` |
+| 12 | `kanchi-dividend-investor` | "Kanchi / high-dividend screening" | `kanchi-dividend-weekly` |
+| 13 | `dividend-long-term-investor` | "dividend / holdings / rebalance / long-term investor" | `core-portfolio-weekly` |
+| 14 | `swing-trader` | "swing / breakout" (no regime gate) | `swing-opportunity-daily` |
+| 15 | `beginner-onramp` | "beginner / where do I start / getting started" | `market-regime-daily` |
+| 16 | `monthly-reviewer` | "monthly review / end of month / performance review" | `monthly-performance-review` |
+| 17 | `trade-journaler` | "journal / postmortem / closed trade / lessons learned" | `trade-memory-loop` |
 
 **Critical orderings**
 
@@ -49,11 +59,39 @@ Evaluated top-to-bottom; first match wins. Order encodes precedence:
   "go short", "short position"…) — it deliberately does **not** match
   "short-term", so #6 ("separate long-term holdings from short-term risk")
   still routes to the regime layer.
-- #4 (swing **and** regime-conditional) before #8 (generic swing): Q1
+- #9 (swing **and** regime-conditional) before #14 (generic swing): Q1
   ("swing trade only when the market is favorable") → regime first; Q5
   ("do swing trading") → swing directly.
-- #6 before #7 and excludes "dividend": "separate long-term holdings from
+- #11 before #13 and excludes "dividend": "separate long-term holdings from
   short-term risk" → regime/core split, not the dividend bucket.
+- #12 before #13: specific Kanchi candidate sourcing wins over broad dividend
+  portfolio maintenance while both candidates remain visible in diagnostics.
+- #16 before #17: specific JA monthly phrases such as 「今月の振り返り」 win
+  over the generic journal term 「振り返り」.
+
+## Routing diagnostics and benchmark gate
+
+`routing_diagnostics.candidate_personas` contains every persona whose
+`matches()` predicate succeeds, in `PERSONAS` order and before no-API/time
+constraints are applied. The first candidate remains the selected persona for
+backward compatibility. One match is `exact`; multiple matches are
+`ambiguous`; no matches are `fallback` with `selected_persona: null`.
+
+The versioned corpus requires all 17 personas and all 11 workflows to carry
+positive and hard-negative coverage in both English and Japanese. Its
+metamorphic cases cover EN case/punctuation/word-order/orthographic changes and
+JA punctuation/word-order/orthographic/particle/conjugation changes. Candidate
+precision, candidate recall, selected accuracy, and workflow accuracy are all
+fixed at 1.0. Static shadowing contracts fingerprint every ordered
+cross-persona term containment; a new overlap, stale allowlist entry,
+contradictory require/exclude group, or unlabeled ambiguous contract fails CI.
+
+Run the same gate locally:
+
+```bash
+python3 skills/trading-skills-navigator/scripts/intent_benchmark.py \
+  --project-root .
+```
 
 ## The 10-Question Contract
 
@@ -169,7 +207,7 @@ and no-API paths".
 
 ## Honest gap output
 
-For personas #1/#7 (`advanced-satellite`) and #2/#10 (`strategy-research`):
+For personas #1 (`advanced-satellite`) and #2 (`strategy-research`):
 `primary_workflow: null`, `secondary_workflows: []`, `skillset.id` = the gap
 category, `suggested_skills` = that category's non-deprecated skills
 (id-sorted, `{id, display_name, category}`), `honest_gap: true`, and a `note`

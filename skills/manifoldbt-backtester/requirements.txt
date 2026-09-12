@@ -1,0 +1,4 @@
+# Runtime dependencies for standalone .skill installs (issue #330).
+# Verified by scripts/check_skill_deps.py.
+manifoldbt  # unpinned: floor not verified in authoring env (pip install manifoldbt per SKILL.md)
+pandas>=2.0  # floor verified pandas==2.3.3 on 2026-09-05

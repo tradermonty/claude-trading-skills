@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "vulnerabilities": [
+    {
+      "package": "curl-cffi",
+      "version": "0.13.0",
+      "advisory": "GHSA-qw2m-4pqf-rmpp",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 0.15.0 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    },
+    {
+      "package": "filelock",
+      "version": "3.19.1",
+      "advisory": "GHSA-w853-jp5j-5j7f",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 3.20.1 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    },
+    {
+      "package": "filelock",
+      "version": "3.19.1",
+      "advisory": "GHSA-qmgc-5h2g-mvrw",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 3.20.3 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    },
+    {
+      "package": "pytest",
+      "version": "8.4.2",
+      "advisory": "GHSA-6w46-j5rx-g56g",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 9.0.3 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    },
+    {
+      "package": "requests",
+      "version": "2.32.5",
+      "advisory": "GHSA-gc5v-m9x4-r6x2",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 2.33.0 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    },
+    {
+      "package": "urllib3",
+      "version": "2.6.3",
+      "advisory": "GHSA-mf9v-mfxr-j63j",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 2.7.0 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    },
+    {
+      "package": "urllib3",
+      "version": "2.6.3",
+      "advisory": "GHSA-qccp-gfcp-xxvc",
+      "owner": "tradermonty",
+      "reason": "Existing Python 3.9 lock resolution; first patched version 2.7.0 requires Python >=3.10 (PyPI metadata verified 2026-09-06). Temporary compatibility debt pending #333. This remains a known vulnerability, not a claim of non-exploitability; Dependency Review still blocks newly introduced vulnerable dependencies.",
+      "expires_on": "2026-10-06"
+    }
+  ]
+}

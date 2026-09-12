@@ -2629,10 +2629,10 @@ def _select_final_three(
     )
     largest_upside = max(
         upside_pool,
-        key=lambda row: _preferred_three_year_upside(
-            _mapping(row.get("valuation")), "constant_multiple"
-        )
-        or -10_000,
+        key=lambda row: (
+            _preferred_three_year_upside(_mapping(row.get("valuation")), "constant_multiple")
+            or -10_000
+        ),
         default=None,
     )
     return {

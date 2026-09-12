@@ -1,0 +1,17 @@
+human_approved: true
+expected:
+  - monthly_decision_log
+  - rule_changes_for_next_month
+  - skill_improvement_backlog
+trade_rule_changes:
+  - Enforce the confirmed-pivot rule before any entry.
+  - Do not move a stop loss before thesis invalidation.
+  - Hold portfolio heat at or below 4R next month.
+repo_improvements:
+  - vcp-screener: add a regime-gate note to the pivot-confirmation output.
+  - trader-memory-core: surface consecutive-losses count in the monthly aggregate.
+skill_improvement_backlog:
+  - id: vcp-confirmation-regime-note
+    skill: vcp-screener
+    proposal: annotate pivot confirmation with the active market regime
+    severity: minor

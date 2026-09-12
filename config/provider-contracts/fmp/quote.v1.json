@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "quote",
+  "path": "/stable/quote",
+  "query": {"symbol": "AAPL"},
+  "contract_version": 1,
+  "recorded_on": "2026-09-05",
+  "recording": "live /stable response; no fields removed",
+  "owners": [
+    "vcp-screener",
+    "parabolic-short-trade-planner",
+    "ftd-detector",
+    "canslim-screener",
+    "market-top-detector",
+    "us-undervalued-growth-screener"
+  ],
+  "tier_notes": "single symbol per call; comma-batched multi-symbol quote returns []",
+  "required_fields": {
+    "symbol": {"types": ["str"], "nullable": false},
+    "price": {"types": ["int", "float"], "nullable": false},
+    "marketCap": {"types": ["int", "float"], "nullable": true},
+    "volume": {"types": ["int"], "nullable": false},
+    "previousClose": {"types": ["int", "float"], "nullable": false},
+    "open": {"types": ["int", "float"], "nullable": false},
+    "dayHigh": {"types": ["int", "float"], "nullable": false},
+    "dayLow": {"types": ["int", "float"], "nullable": false},
+    "priceAvg50": {"types": ["int", "float"], "nullable": false},
+    "priceAvg200": {"types": ["int", "float"], "nullable": false}
+  },
+  "optional_fields": [
+    "name",
+    "changePercentage",
+    "change",
+    "yearHigh",
+    "yearLow",
+    "exchange",
+    "timestamp"
+  ],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {"min_rows": 1, "reason": "AAPL quote must never be empty"},
+  "fixture": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "price": 319.97,
+      "changePercentage": -2.51059,
+      "change": -8.24,
+      "volume": 38272821,
+      "dayLow": 317.86,
+      "dayHigh": 328.93,
+      "yearHigh": 344.57,
+      "yearLow": 225.95,
+      "marketCap": 4699513299320,
+      "priceAvg50": 314.255,
+      "priceAvg200": 283.6075,
+      "exchange": "NASDAQ",
+      "open": 328.305,
+      "previousClose": 328.21,
+      "timestamp": 1788552001
+    }
+  ]
+}

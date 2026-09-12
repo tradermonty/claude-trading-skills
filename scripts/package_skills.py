@@ -22,6 +22,10 @@ EXCLUDED_DIR_NAMES = {"tests", "__pycache__", ".pytest_cache"}
 EXCLUDED_FILE_NAMES = {".DS_Store"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 
+# Manifest required for every skill with executable scripts (issue #330).
+# Presence is enforced here; content is enforced by check_skill_deps.py.
+REQUIREMENTS_FILE = "requirements.txt"
+
 
 def should_include(relative_path: Path) -> bool:
     """Return True when a source path should be included in a .skill archive."""
@@ -54,6 +58,28 @@ def _zip_info(archive_name: str, source_path: Path) -> ZipInfo:
     return info
 
 
+def _has_executable_scripts(skill_dir: Path) -> bool:
+    """True when the skill ships packaged Python (mirrors check_skill_deps)."""
+    scripts_dir = skill_dir / "scripts"
+    if not scripts_dir.is_dir():
+        return False
+    return any(
+        path.is_file()
+        and path.name != "__init__.py"
+        and "tests" not in path.relative_to(scripts_dir).parts
+        for path in scripts_dir.rglob("*.py")
+    )
+
+
+def _require_dependency_manifest(skill_dir: Path) -> None:
+    """Fail closed when an executable skill declares no dependencies."""
+    if _has_executable_scripts(skill_dir) and not (skill_dir / REQUIREMENTS_FILE).is_file():
+        raise ValueError(
+            f"Missing {REQUIREMENTS_FILE} in {skill_dir} "
+            "(every executable skill must declare runtime dependencies; see issue #330)"
+        )
+
+
 def package_skill(skill_dir: Path, output_dir: Path, *, dry_run: bool = False) -> Path:
     """Create one .skill archive and return its path."""
     skill_dir = skill_dir.resolve()
@@ -63,6 +89,7 @@ def package_skill(skill_dir: Path, output_dir: Path, *, dry_run: bool = False) -
         raise FileNotFoundError(f"Skill directory not found: {skill_dir}")
     if not (skill_dir / "SKILL.md").is_file():
         raise FileNotFoundError(f"Missing SKILL.md in {skill_dir}")
+    _require_dependency_manifest(skill_dir)
 
     files = iter_package_files(skill_dir)
     if not files:
@@ -115,6 +142,11 @@ def _archive_logical_contents(archive_path: Path) -> dict[str, tuple[bytes, bool
 
 def check_skill(skill_dir: Path, output_dir: Path) -> bool:
     """Return True when the committed .skill matches what packaging would produce."""
+    try:
+        _require_dependency_manifest(skill_dir.resolve())
+    except ValueError as exc:
+        print(f"DRIFT: {skill_dir.resolve().name}: {exc}")
+        return False
     archive_path = output_dir.resolve() / f"{skill_dir.resolve().name}.skill"
     if not archive_path.is_file():
         return False

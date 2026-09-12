@@ -27,6 +27,7 @@ def _make_skill(project_root: Path, skill_name: str, *, package: bool = True) ->
         f"---\nname: {skill_name}\ndescription: Demo skill.\n---\n",
         encoding="utf-8",
     )
+    (skill_dir / "requirements.txt").write_text("# stdlib-only\n", encoding="utf-8")
     (skill_dir / "scripts" / "run.py").write_text("print('ok')\n", encoding="utf-8")
     (skill_dir / "scripts" / "tests" / "test_run.py").write_text(
         "def test_run(): pass\n",

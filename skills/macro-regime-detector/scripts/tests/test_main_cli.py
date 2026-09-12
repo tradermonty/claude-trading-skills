@@ -39,6 +39,7 @@ def test_output_dir_created_when_missing(tmp_path, monkeypatch):
     mock_client.get_data_mode.return_value = "yfinance_only"
 
     with (
+        patch("macro_regime_detector.missing_required_packages", return_value=[]),
         patch("macro_regime_detector.FMPClient", return_value=mock_client),
         patch("macro_regime_detector.calculate_concentration", return_value=_fake_comp),
         patch("macro_regime_detector.calculate_yield_curve", return_value=_fake_comp),
@@ -79,6 +80,7 @@ def test_zero_available_components_fail_closed_without_reports(tmp_path, monkeyp
     }
 
     with (
+        patch("macro_regime_detector.missing_required_packages", return_value=[]),
         patch("macro_regime_detector.FMPClient", return_value=mock_client),
         patch("macro_regime_detector.calculate_concentration", return_value=unavailable),
         patch("macro_regime_detector.calculate_yield_curve", return_value=unavailable),

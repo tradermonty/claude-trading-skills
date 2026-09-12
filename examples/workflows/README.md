@@ -82,9 +82,9 @@ cross-artifact arithmetic. All files also remain subject to standard hygiene hoo
 (whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
 checks).
 
-## Executable workflow replay (Issue #294, Coverage 5/11)
+## Executable workflow replay (Issue #294, Coverage 6/11)
 
-Five of the eleven canonical workflows are generated and checked by the
+Six of the eleven canonical workflows are generated and checked by the
 executable replay harness:
 
 - `core-portfolio-weekly`
@@ -92,6 +92,7 @@ executable replay harness:
 - `stockbee-fluency-loop`
 - `stockbee-20pct-study-daily`
 - `trade-memory-loop`
+- `monthly-performance-review`
 
 ```bash
 python3 scripts/workflow_replay.py validate
@@ -116,7 +117,11 @@ Coach CLI, the Backtest Expert evaluator CLI, and the Trader Memory update and
 postmortem APIs against temporary state. All four use bundled fictional inputs
 and declared artifact bundles for workflow handoffs. The Trade Memory lessons
 step reconstructs disposable state from the SHA-bound closed-thesis snapshot
-carried by the postmortem bundle. The replays require explicit offline fixture inputs and remove API-key, token,
+carried by the postmortem bundle. The monthly-performance-review replay
+consolidates a monthly aggregate from the bundled closed-theses log and runs
+the signal-postmortem analyzer and Trade Performance Coach CLI against
+disposable fixtures, then publishes a decision log and rule-change backlog.
+The replays require explicit offline fixture inputs and remove API-key, token,
 secret, password, and proxy variables from the subprocess environment. No replay command supplies `--symbols`,
 `--fmp-universe`, or `--api-key`. This is an `offline-input-required` policy,
 not an operating-system network sandbox.
@@ -124,7 +129,11 @@ not an operating-system network sandbox.
 Human decisions remain distinct from native evidence. Stockbee lessons use
 `manual_contract`. Trade-memory root-cause, operating-rule, and lesson decisions
 are human-approved fixtures bound by SHA-256 to normalized native artifacts;
-their steps are reported as `composite`. Backtest Expert evaluates bundled
+their steps are reported as `composite`. The monthly-performance-review
+`monthly_aggregate` and `monthly_decision_log` executors are labelled
+`manual_contract`: neither invokes a real trader-memory-core aggregation for a
+synthetic month, and both carry `deferred_evidence` describing what remains
+deferred under Issue #294. Backtest Expert evaluates bundled
 aggregate metrics—it does not run a strategy backtest or natively consume the
 postmortem. Trade-memory mutates only disposable staging state. Individual
 Trader Memory state files use atomic replacement, while publication of the
@@ -149,8 +158,11 @@ python3 scripts/workflow_replay.py generate
 ```
 
 `check` always regenerates into a temporary directory before byte-comparing the
-goldens; committed goldens are never executor inputs. The coverage manifest
-freezes the other six current workflows as Coverage 5/11 deferrals linked to Issue
+goldens; committed goldens are never executor inputs. The monthly replay uses
+dedicated `replay-run/` and `replay-run-full-path/` golden trees, distinct from
+the teaching `sample-run/` and `sample-run-full-path/` fixtures covered by Issue
+#208. The coverage manifest
+freezes the other five current workflows as Coverage 6/11 deferrals linked to Issue
 #294. A newly added workflow cannot join that frozen deferral set and must ship
 both required-only and full-path replay specs. Issue #294 remains open until
 all eleven workflows and their applicable failure modes are executable.

@@ -1,0 +1,24 @@
+human_approved: true
+expected_native_classifications:
+  - thesis_quality
+  - execution
+  - market_environment
+  - randomness
+classifications:
+  - category: thesis_quality
+    pattern: entries below the confirmed pivot were repeatedly stopped out
+    count: 2
+    qualifier: confirmation rule was overridden
+  - category: execution
+    pattern: one losing trade broke the process rule
+    count: 1
+    qualifier: stop loss moved after entry
+  - category: market_environment
+    pattern: no systemic market-environment signal found
+    count: 0
+    qualifier: regime stayed in the allowed band
+  - category: randomness
+    pattern: one losing trade was noise-driven
+    count: 1
+    qualifier: no predictable edge
+summary: Confirmation discipline rather than market regime drove the month's losses.

@@ -90,6 +90,12 @@ def generate_markdown_report(
     lines.append(f"| SIGNAL_READY | {summary['signal_ready']} |")
     lines.append(f"| MONITORING | {summary['monitoring']} |")
     lines.append(f"| EXPIRED | {summary['expired']} |")
+    timing_unknown_count = metadata.get("timing_unknown_count")
+    timing_candidates_total = metadata.get("timing_candidates_total")
+    if timing_unknown_count is not None and timing_candidates_total is not None:
+        lines.append(f"| Timing unknown | {timing_unknown_count} of {timing_candidates_total} |")
+    else:
+        lines.append("| Timing unknown | n/a |")
     lines.append("")
     lines.append("---")
     lines.append("")

@@ -69,6 +69,11 @@ Parse the JSON and explain, in the user's language:
 
 - **Primary workflow** — `display_name`, `cadence`, `~estimated_minutes`,
   `api_profile`. State plainly what it does and when to run it.
+- **Routing diagnostics** — read `routing_diagnostics.status`. For
+  `ambiguous`, name every `candidate_personas` entry and explain that the
+  ordered first match was selected. For `fallback`, state that no persona
+  matched and ask the user to rephrase; never present the beginner fallback as
+  an exact intent match.
 - **Secondary workflows** — if any, how they relate (e.g. "run the regime
   check first, then this when it allows risk").
 - **Skillset** — the `skillset.id` (skills-index category).
@@ -128,6 +133,7 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 | `honest_gap` | `true` when no workflow exists for the intent |
 | `note` | Plain-language explanation for gaps / unmapped input |
 | `rationale` | Ordered list of why-this-was-recommended strings |
+| `routing_diagnostics` | `{status, selected_persona, candidate_personas, explanation}`. `status` is `exact`, `ambiguous`, or `fallback`; candidates are all pre-constraint persona matches in deterministic order |
 | `setup_path_ref` | Pointer to the setup-path reference |
 
 ## Resources
@@ -136,8 +142,12 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
   truth for routing).
 - `scripts/build_snapshot.py` — regenerates `assets/metadata_snapshot.json`
   from the SSoT; `--check` guards drift (pre-commit + CI).
+- `scripts/intent_benchmark.py` — validates the fail-closed bilingual routing
+  corpus, persona shadowing contracts, and metamorphic invariants.
 - `references/intent_routing.md` — the persona table, the 10-question contract,
   the `--no-api` credential rule, and scoring tie-breaks.
 - `references/setup_paths.md` — Claude Web App vs Claude Code setup steps.
 - `assets/metadata_snapshot.json` — generated SSoT digest for the Web App
   fallback. Never edit by hand; run `build_snapshot.py`.
+- `assets/intent_benchmark_v1.json` — 211 explicitly labeled EN/JA routing
+  cases with 1.0 precision/recall and per-persona/workflow coverage gates.

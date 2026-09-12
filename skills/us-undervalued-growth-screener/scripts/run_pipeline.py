@@ -61,6 +61,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "provider_prefilter_minimum_pool": 12,
     "provider_prefilter_per_lane": 8,
     "max_deep_dive_candidates": 3,
+    "full_snapshot_pool_size": 50,
+    "full_snapshot_deep_dive_candidates": 5,
+    "full_snapshot_max_staleness_days": 7,
+    "full_snapshot_screening_clock_skew_seconds": 300,
+    "full_snapshot_collection_clock_skew_seconds": 300,
     # Symbol -> profile pins for names the listing-frame taxonomy cannot
     # classify (e.g. BDCs filed under plain "Asset Management" whose name
     # carries no BDC marker: {"ARCC": "bdc"}).
@@ -457,6 +462,10 @@ def collect_listing_universe(
     normalized_rows = sorted(deduped.values(), key=lambda row: _symbol(row))
     audit = {
         "method": "adaptive_market_cap_bands",
+        "retrieval_scope_explicit": True,
+        "pagination_exhausted": not saturated_leaves,
+        "requested_exchanges": list(EXCHANGES),
+        "retrieved_exchanges": sorted({str(row.get("exchange") or "").upper() for row in leaves}),
         "requested_min_market_cap": min_market_cap,
         "requested_max_market_cap": max_market_cap,
         "min_price": min_price,
@@ -2024,6 +2033,481 @@ def execute_pipeline(
     return PipelineResult(summary=summary, exit_code=exit_code)
 
 
+def prepare_screen_full_snapshot(
+    snapshot_dir: Path,
+    *,
+    analysis_as_of: datetime,
+    config: Mapping[str, Any],
+    screening_started_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Read-only preflight for the current-only full-snapshot screen.
+
+    Screen-time liquidity and TTM quality probes are current provider data.
+    Historical replays must not mix that evidence into an old snapshot, so
+    this stage accepts only an ``analysis_as_of`` close to its wall-clock
+    start.  The preflight runs before FMPClient construction in ``main``;
+    invalid snapshots therefore create no cache, raw-store, or run tree.
+    """
+    started = screening_started_at or datetime.now(timezone.utc)
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    if analysis_as_of.tzinfo is None:
+        analysis_as_of = analysis_as_of.replace(tzinfo=timezone.utc)
+    skew = float(config.get("full_snapshot_screening_clock_skew_seconds", 300))
+    if skew < 0:
+        raise ValueError("full_snapshot_screening_clock_skew_seconds must be non-negative")
+    if abs((analysis_as_of - started).total_seconds()) > skew:
+        raise ValueError(
+            "screen-full-snapshot is current-only because its liquidity and quality "
+            "enrichment use current provider evidence"
+        )
+    target_pool_size = int(config.get("full_snapshot_pool_size", 50))
+    if not 30 <= target_pool_size <= 50:
+        raise ValueError("full_snapshot_pool_size must be between 30 and 50")
+    deep_dive_limit = int(config.get("full_snapshot_deep_dive_candidates", 5))
+    if deep_dive_limit != 5:
+        raise ValueError("full_snapshot_deep_dive_candidates must be 5")
+    max_staleness = float(config.get("full_snapshot_max_staleness_days", 7))
+    bundle = snapshot_store.load_verified_snapshot(
+        snapshot_dir,
+        screening_as_of=analysis_as_of,
+        max_staleness_days=max_staleness,
+        clock_skew_seconds=skew,
+    )
+    verdict = dict(bundle["verdict"])
+    verdict.update(
+        {
+            "screening_started_at": started.astimezone(timezone.utc).isoformat(),
+            "screening_clock_skew_seconds": skew,
+        }
+    )
+    bundle["verdict"] = verdict
+    if verdict.get("ready_for_screening") is not True:
+        problems = verdict.get("problems") or []
+        detail = "; ".join(str(value) for value in problems[:5]) or "readiness checks failed"
+        raise ValueError(f"snapshot is not ready for screening: {detail}")
+    enumeration = dict(verdict.get("listing_enumeration") or {})
+    frozen_minimum = float(enumeration["requested_min_market_cap"])
+    frozen_maximum = float(enumeration["requested_max_market_cap"])
+    frozen_min_price = float(enumeration["min_price"])
+    requested_minimum = float(config["min_market_cap"])
+    requested_maximum = float(config["max_market_cap"])
+    requested_min_price = float(config["min_price"])
+    if (
+        frozen_minimum > requested_minimum
+        or frozen_maximum < requested_maximum
+        or frozen_min_price > requested_min_price
+    ):
+        raise ValueError("snapshot listing enumeration does not cover the requested screen scope")
+    for row in bundle.get("rows") or []:
+        expected = snapshot_store.classify_symbol(
+            row,
+            row,
+            requires_unit_reconciliation=requires_unit_reconciliation,
+            minimum_plausible_forward_pe=float(config.get("minimum_plausible_forward_pe", 2.0)),
+        )
+        if row.get("snapshot_classification") != expected:
+            raise ValueError(
+                f"snapshot classification mismatch for {_symbol(row)}: "
+                f"recorded {row.get('snapshot_classification')!r}, expected {expected!r}"
+            )
+    return bundle
+
+
+def validate_current_snapshot_collection(
+    *,
+    analysis_as_of: datetime,
+    config: Mapping[str, Any],
+    collection_started_at: datetime | None = None,
+) -> datetime:
+    """Reject historical/future normalization bases before collection side effects."""
+    started = collection_started_at or datetime.now(timezone.utc)
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    if analysis_as_of.tzinfo is None:
+        analysis_as_of = analysis_as_of.replace(tzinfo=timezone.utc)
+    skew = float(config.get("full_snapshot_collection_clock_skew_seconds", 300))
+    if skew < 0:
+        raise ValueError("full_snapshot_collection_clock_skew_seconds must be non-negative")
+    if abs((analysis_as_of - started).total_seconds()) > skew:
+        raise ValueError(
+            "collect-estimates is current-only because analysis_as_of fixes the estimate "
+            "normalization basis"
+        )
+    return started.astimezone(timezone.utc)
+
+
+def _snapshot_lane_rows(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    lane_rows: dict[str, list[dict[str, Any]]] = {lane: [] for lane in ALLOWED_LANES}
+    for raw in rows:
+        row = dict(raw)
+        symbol = _symbol(row)
+        growth_pattern = _text(row.get("growth_pattern"))
+        is_fpi = _is_foreign_private_issuer(row)
+        for lane in lane_memberships(row, config):
+            copy = dict(row)
+            flags = set(copy.get("provider_prefilter_flags") or [])
+            if growth_pattern == "trough_recovery":
+                flags.add("earnings_recovery")
+            if is_fpi:
+                flags.add("foreign_private_issuer_review")
+            if flags:
+                copy["provider_prefilter_flags"] = sorted(flags)
+            copy["symbol"] = symbol
+            lane_rows[lane].append(copy)
+    return lane_rows
+
+
+def _attach_snapshot_attempts(
+    decisions: Sequence[Mapping[str, Any]],
+    snapshot_rows: Sequence[Mapping[str, Any]],
+    *,
+    snapshot_id: str,
+    verification_digest: str,
+) -> list[dict[str, Any]]:
+    by_symbol = {_symbol(row): row for row in snapshot_rows}
+    output: list[dict[str, Any]] = []
+    for raw in decisions:
+        row = dict(raw)
+        source = by_symbol.get(_symbol(row))
+        if source is None:
+            raise ValueError(f"universe audit symbol {_symbol(row)} is absent from snapshot")
+        row["estimate_attempt"] = {
+            "snapshot_id": snapshot_id,
+            "snapshot_verification_digest": verification_digest,
+            "shard": source.get("snapshot_shard"),
+            "retrieved_at": source.get("snapshot_retrieved_at"),
+            "classification": source.get("snapshot_classification"),
+            "served_from_cache": source.get("snapshot_served_from_cache"),
+        }
+        output.append(row)
+    return output
+
+
+def execute_screen_full_snapshot(
+    client: FMPClient,
+    config: Mapping[str, Any],
+    *,
+    analysis_as_of: datetime,
+    output_dir: Path,
+    prepared_snapshot: Mapping[str, Any],
+    include_packets: bool = True,
+) -> PipelineResult:
+    """Screen a deeply verified, current full-universe estimate snapshot."""
+    verdict = dict(prepared_snapshot.get("verdict") or {})
+    snapshot_rows = [dict(row) for row in (prepared_snapshot.get("rows") or [])]
+    verification_digest = str(prepared_snapshot.get("verification_digest") or "")
+    if (
+        verdict.get("ready_for_screening") is not True
+        or len(verification_digest) != 64
+        or not snapshot_rows
+    ):
+        raise ValueError("execute_screen_full_snapshot requires a prepared verified snapshot")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    audit_dir = output_dir / "audit"
+    packet_dir = output_dir / "candidate-packets"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+
+    snapshot_id = str(verdict.get("snapshot_id") or "")
+    universe_rows = sorted(snapshot_rows, key=_symbol)
+    evaluable_rows = [
+        dict(row) for row in universe_rows if row.get("snapshot_classification") == "evaluable"
+    ]
+    target_pool_size = int(config.get("full_snapshot_pool_size", 50))
+    # The market-wide pool target and exact-liquidity work must move together;
+    # retaining the bounded path's default 40 would silently cap a 50-name pool.
+    eligible_rows = [row for row in evaluable_rows if lane_memberships(row, config)]
+    ordered_liquidity_targets = select_liquidity_targets(
+        eligible_rows,
+        config,
+        limit=len(eligible_rows),
+    )
+    required_liquidity_days = int(config["minimum_average_volume_period_days"])
+    enriched_rows = [dict(row) for row in evaluable_rows]
+    liquidity_targets: list[str] = []
+    valid_liquidity_symbols: set[str] = set()
+    # Backfill past failed/empty histories. A short pool can claim exhaustion
+    # only after every economically eligible symbol has an explicit outcome.
+    for symbol in ordered_liquidity_targets:
+        enriched_rows = apply_symbol_liquidity(
+            client,
+            enriched_rows,
+            as_of=analysis_as_of.date(),
+            source_id=f"fmp-historical-eod-{analysis_as_of.date().isoformat()}",
+            limit=1,
+            required_days=required_liquidity_days,
+            target_symbols=[symbol],
+        )
+        liquidity_targets.append(symbol)
+        row = next(item for item in enriched_rows if _symbol(item) == symbol)
+        if (
+            _first_number(row, "average_daily_dollar_volume") is not None
+            and int(_first_number(row, "average_volume_period_days") or 0)
+            >= required_liquidity_days
+        ):
+            valid_liquidity_symbols.add(symbol)
+        if len(valid_liquidity_symbols) >= target_pool_size:
+            break
+    eligible_liquidity_exhausted = len(liquidity_targets) == len(ordered_liquidity_targets)
+
+    preliminary_pool, _ = build_pool(
+        universe_rows=universe_rows,
+        lane_rows=_snapshot_lane_rows(enriched_rows, config),
+        analysis_as_of=analysis_as_of.isoformat(),
+        source_ids=[f"snapshot:{snapshot_id}"],
+        per_lane=int(config["provider_prefilter_per_lane"]),
+        max_pool=target_pool_size,
+        minimum_pool=min(30, target_pool_size),
+        requested_min_market_cap=float(config["min_market_cap"]),
+        requested_max_market_cap=float(config["max_market_cap"]),
+        provider_exhausted=eligible_liquidity_exhausted,
+        provider_exhausted_scope=(
+            "economic_candidate_universe" if eligible_liquidity_exhausted else None
+        ),
+    )
+    probe_symbols = [_symbol(row) for row in preliminary_pool]
+    probed_rows, quality_probe_audit = apply_quality_probe(
+        client,
+        enriched_rows,
+        target_symbols=probe_symbols,
+        source_id=f"fmp-key-metrics-ttm-{analysis_as_of.date().isoformat()}",
+        analysis_as_of=analysis_as_of,
+        actual_source_id=f"fmp-income-statement-annual-{analysis_as_of.date().isoformat()}",
+    )
+    probed_rows = mark_sector_profile_exhaustion(
+        probed_rows,
+        source_id=f"fmp-key-metrics-ttm-{analysis_as_of.date().isoformat()}",
+    )
+    probed_rows = mark_unit_reconciliation_exhaustion(
+        probed_rows,
+        source_id=f"fmp-key-metrics-ttm-{analysis_as_of.date().isoformat()}",
+    )
+    # Never backfill the final pool with an unprobed name. If probes remove
+    # names from a full preliminary pool, the short-pool proof stays false and
+    # the stage fails closed instead of claiming exhaustion.
+    probed_symbol_set = set(probe_symbols)
+    final_input_rows = [row for row in probed_rows if _symbol(row) in probed_symbol_set]
+    pool, discovery_audit = build_pool(
+        universe_rows=universe_rows,
+        lane_rows=_snapshot_lane_rows(final_input_rows, config),
+        analysis_as_of=analysis_as_of.isoformat(),
+        source_ids=[f"snapshot:{snapshot_id}"],
+        per_lane=int(config["provider_prefilter_per_lane"]),
+        max_pool=target_pool_size,
+        minimum_pool=min(30, target_pool_size),
+        requested_min_market_cap=float(config["min_market_cap"]),
+        requested_max_market_cap=float(config["max_market_cap"]),
+        provider_exhausted=eligible_liquidity_exhausted,
+        provider_exhausted_scope=(
+            "economic_candidate_universe" if eligible_liquidity_exhausted else None
+        ),
+    )
+
+    pool_sha = _write_jsonl(audit_dir / "provider-prefilter-pool.jsonl", pool)
+    classification_totals = dict(verdict.get("classified_totals") or {})
+    eligible_pool_exhausted = len(pool) >= target_pool_size or eligible_liquidity_exhausted
+    discovery_audit.update(
+        {
+            "valid": bool(discovery_audit.get("valid")) and eligible_pool_exhausted,
+            "selection_method": "sharded_snapshot_multilane",
+            "artifact_path": "provider-prefilter-pool.jsonl",
+            "artifact_sha256": pool_sha,
+            "input_row_count": len(universe_rows),
+            "selected_count": len(pool),
+            "selected_symbols": sorted(_symbol(row) for row in pool),
+            "target_pool_size": target_pool_size,
+            "preliminary_pool_count": len(preliminary_pool),
+            "eligible_pool_exhausted": eligible_pool_exhausted,
+            "estimate_acquisition_mode": "sharded_snapshot",
+            "economic_attempt_count": len(universe_rows),
+            "economically_evaluable_count": len(evaluable_rows),
+            "snapshot_id": snapshot_id,
+            "snapshot_verification_digest": verification_digest,
+            "snapshot_verification": verdict,
+            "snapshot_classification_totals": classification_totals,
+            "quality_probe": quality_probe_audit,
+            "exact_liquidity_target_count": len(liquidity_targets),
+            "exact_liquidity_eligible_count": len(ordered_liquidity_targets),
+            "exact_liquidity_valid_count": len(valid_liquidity_symbols),
+            "economic_candidate_universe_exhausted": True,
+        }
+    )
+    _write_json(audit_dir / "provider-prefilter-audit.json", discovery_audit)
+    _write_json(audit_dir / "snapshot-verification.json", verdict)
+    _write_json(audit_dir / "quality-probe-audit.json", quality_probe_audit)
+    _write_jsonl(audit_dir / "enriched-estimates.jsonl", probed_rows)
+    for lane, rows in _snapshot_lane_rows(final_input_rows, config).items():
+        _write_jsonl(audit_dir / f"lane-{lane}.jsonl", rows)
+
+    screen_config = dict(SCREEN_DEFAULTS)
+    screen_config.update(config)
+    screen_config["max_deep_dive_candidates"] = int(
+        config.get("full_snapshot_deep_dive_candidates", 5)
+    )
+    enumeration = dict(verdict.get("listing_enumeration") or {})
+    universe_decisions, candidate_decisions, audit, selected, queue = run_layered(
+        universe_rows,
+        pool,
+        screen_config,
+        analysis_as_of=analysis_as_of.isoformat(),
+        universe_source_ids=[f"snapshot:{snapshot_id}"],
+        candidate_source_ids=[f"snapshot:{snapshot_id}"],
+        candidate_generation_mode="sharded_snapshot",
+        retrieval_min_market_cap=float(enumeration["requested_min_market_cap"]),
+        retrieval_max_market_cap=float(enumeration["requested_max_market_cap"]),
+        requested_min_market_cap=float(config["min_market_cap"]),
+        requested_max_market_cap=float(config["max_market_cap"]),
+        retrieval_scope_explicit=True,
+        candidate_pool_exhausted=True,
+        provider_reported_total=int(enumeration.get("row_count") or 0),
+        pages_fetched=int(enumeration.get("query_count") or 0),
+        pagination_exhausted=enumeration.get("pagination_exhausted") is True,
+        band_audit=enumeration.get("bands") or [],
+        discovery_audit=discovery_audit,
+    )
+    universe_decisions = _attach_snapshot_attempts(
+        universe_decisions,
+        universe_rows,
+        snapshot_id=snapshot_id,
+        verification_digest=verification_digest,
+    )
+
+    universe_path = audit_dir / "universe-audit-results.jsonl"
+    candidate_path = audit_dir / "broad-screen-results.jsonl"
+    queue_path = audit_dir / "enrichment-queue.json"
+    universe_path.write_text(
+        "".join(_canonical_line(row) for row in universe_decisions), encoding="utf-8"
+    )
+    candidate_path.write_text(
+        "".join(_canonical_line(row) for row in candidate_decisions), encoding="utf-8"
+    )
+    _write_json(queue_path, queue)
+    audit["universe"].update(
+        {
+            "artifact_path": universe_path.name,
+            "artifact_sha256": hashlib.sha256(universe_path.read_bytes()).hexdigest(),
+            "snapshot_classification_totals": classification_totals,
+        }
+    )
+    audit["candidate_pool"].update(
+        {
+            "artifact_path": candidate_path.name,
+            "artifact_sha256": hashlib.sha256(candidate_path.read_bytes()).hexdigest(),
+        }
+    )
+    audit["enrichment"].update(
+        {
+            "artifact_path": queue_path.name,
+            "artifact_sha256": hashlib.sha256(queue_path.read_bytes()).hexdigest(),
+        }
+    )
+    audit["snapshot_verification"] = verdict
+    audit["snapshot_verification_digest"] = verification_digest
+    _write_json(audit_dir / "broad-screen-audit.json", audit)
+
+    selected_rows = {_symbol(row): row for row in pool if _symbol(row) in set(selected)}
+    packet_paths: list[str] = []
+    if include_packets:
+        for symbol in selected:
+            packet_paths.append(str(build_fmp_packet(client, selected_rows[symbol], packet_dir)))
+
+    ranking_scope = classify_ranking_scope(
+        economic_attempt_count=len(universe_rows),
+        listing_universe_count=len(universe_rows),
+        economic_scope_complete=bool(verdict.get("ready_for_screening")),
+        unresolved_queue_count=len(queue),
+    )
+    if audit.get("conclusion_scope") != "full_listing_universe":
+        ranking_scope = "diagnostic"
+    coverage = build_coverage_block(
+        ranking_scope=ranking_scope,
+        listing_universe_count=len(universe_rows),
+        economic_attempt_count=len(universe_rows),
+        economically_evaluable_count=len(evaluable_rows),
+        quality_probe_count=_coverage_count(quality_probe_audit.get("attempted")),
+        deep_dive_count=len(selected),
+    )
+    pool_status = str(audit.get("candidate_pool_status") or "")
+    if selected and pool_status == "sufficient" and ranking_scope == "final_marketwide":
+        status = "ready_for_underwriting"
+        action = "complete_primary_source_underwriting"
+    elif (
+        not selected
+        and pool_status == "no_qualifying_candidates"
+        and ranking_scope == "final_marketwide"
+    ):
+        status = "no_candidates_in_marketwide_snapshot"
+        action = "publish_marketwide_no_candidates"
+    else:
+        status = "needs_enrichment"
+        action = "repair_snapshot_screening_contract"
+
+    common = {
+        "runtime": runtime_metadata(),
+        "run_id": output_dir.name,
+        "status": status,
+        "stage": "screen-full-snapshot",
+        "analysis_as_of": analysis_as_of.isoformat(),
+        "conclusion_scope": audit.get("conclusion_scope"),
+        "economic_screen_scope_complete": bool(verdict.get("ready_for_screening")),
+        "estimate_acquisition_mode": "sharded_snapshot",
+        "snapshot_id": snapshot_id,
+        "snapshot_verification_digest": verification_digest,
+        "snapshot_verification": verdict,
+        "snapshot_classification_totals": classification_totals,
+        **coverage,
+        "estimate_seed_count": len(universe_rows),
+        "estimate_seed_coverage_pct": 100.0,
+        "valid_estimate_count": len(evaluable_rows),
+        "valid_estimate_coverage_pct": round(len(evaluable_rows) / len(universe_rows) * 100.0, 6),
+        "provider_prefilter_pool_count": len(pool),
+        "quality_probe_count": _coverage_count(quality_probe_audit.get("attempted")),
+        "exact_liquidity_target_count": len(liquidity_targets),
+        "selected_symbols": selected,
+        "selected_candidates": [compact_candidate(selected_rows[symbol]) for symbol in selected],
+        "enrichment_queue_count": len(queue),
+        "candidate_pool_status": pool_status,
+        "selection_outcome": audit.get("selection_outcome"),
+        "provider_diagnostics": client.diagnostics(),
+    }
+    next_action = {
+        **common,
+        "action": action,
+        "symbols": selected,
+        "user_confirmation_required": False,
+        "do_not_read_bulk_provider_payloads_into_model_context": True,
+        "required_after_underwriting": [
+            "manage_run_state.py assemble",
+            "evaluate_candidates.py --strict --require-final",
+            "prepublish_audit.py",
+            "bundle_run_artifacts.py",
+        ],
+    }
+    _write_json(output_dir / "NEXT_ACTION.json", next_action)
+    summary = {
+        **common,
+        "artifacts": {
+            "run_summary": "run-summary.json",
+            "next_action": "NEXT_ACTION.json",
+            "snapshot_verification": "audit/snapshot-verification.json",
+            "provider_prefilter_audit": "audit/provider-prefilter-audit.json",
+            "broad_screen_audit": "audit/broad-screen-audit.json",
+            "candidate_packets": [str(Path(path).relative_to(output_dir)) for path in packet_paths],
+        },
+    }
+    _write_json(output_dir / "run-summary.json", summary)
+    return PipelineResult(
+        summary=summary,
+        exit_code=0
+        if status in {"ready_for_underwriting", "no_candidates_in_marketwide_snapshot"}
+        else 2,
+    )
+
+
 def execute_collect_estimates(
     client: FMPClient,
     config: Mapping[str, Any],
@@ -2033,6 +2517,7 @@ def execute_collect_estimates(
     shard_index: int,
     shard_count: int,
     resume: bool,
+    collection_started_at: datetime | None = None,
 ) -> PipelineResult:
     """Collect minimal FY1-FY3 estimates for one deterministic universe shard.
 
@@ -2046,6 +2531,11 @@ def execute_collect_estimates(
     ``ranking_scope: final_marketwide``. Budget exhaustion mid-shard leaves
     the shard honestly ``partial`` (exit code 3) and is resumable.
     """
+    validate_current_snapshot_collection(
+        analysis_as_of=analysis_as_of,
+        config=config,
+        collection_started_at=collection_started_at,
+    )
     if shard_count <= 0 or not (0 <= shard_index < shard_count):
         raise ValueError("shard_index must satisfy 0 <= shard_index < shard_count")
     if (snapshot_dir / snapshot_store.MANIFEST_NAME).exists():
@@ -2079,9 +2569,12 @@ def execute_collect_estimates(
             if pinned:
                 row["sector_profile_type"] = pinned
         manifest = snapshot_store.create_snapshot(
-            snapshot_dir, universe_rows, shard_count=shard_count, as_of=analysis_as_of
+            snapshot_dir,
+            universe_rows,
+            shard_count=shard_count,
+            as_of=analysis_as_of,
+            enumeration_audit=enumeration_audit,
         )
-        _write_json(snapshot_dir / "listing-enumeration-audit.json", enumeration_audit)
 
     shard_listings = [
         row
@@ -2145,6 +2638,7 @@ def execute_collect_estimates(
         )
         record["snapshot_shard"] = shard_index
         record["snapshot_retrieved_at"] = retrieved_at
+        record["snapshot_normalization_as_of"] = analysis_as_of.astimezone(timezone.utc).isoformat()
         record["snapshot_served_from_cache"] = served_from_cache
         buffered.append(record)
         if len(buffered) >= 25:
@@ -2157,6 +2651,8 @@ def execute_collect_estimates(
     classified: dict[str, int] = {}
     retrieved_stamps: list[str] = []
     retrieval_time_unknown = 0
+    normalization_stamps: list[str] = []
+    normalization_time_unknown = 0
     for row in all_rows:
         name = str(row.get("snapshot_classification") or "no_estimates")
         classified[name] = classified.get(name, 0) + 1
@@ -2165,6 +2661,11 @@ def execute_collect_estimates(
             retrieved_stamps.append(stamp)
         else:
             retrieval_time_unknown += 1
+        normalization_stamp = row.get("snapshot_normalization_as_of")
+        if isinstance(normalization_stamp, str) and normalization_stamp:
+            normalization_stamps.append(normalization_stamp)
+        else:
+            normalization_time_unknown += 1
     collected_this_run = len(all_rows) - len(existing)
     shard_complete = (
         len(all_rows) >= len(shard_listings) and not budget_exhausted and not fetch_failed_symbols
@@ -2192,6 +2693,9 @@ def execute_collect_estimates(
         oldest_retrieved_at=min(retrieved_stamps) if retrieved_stamps else None,
         newest_retrieved_at=max(retrieved_stamps) if retrieved_stamps else None,
         retrieval_time_unknown=retrieval_time_unknown,
+        oldest_normalization_as_of=min(normalization_stamps) if normalization_stamps else None,
+        newest_normalization_as_of=max(normalization_stamps) if normalization_stamps else None,
+        normalization_time_unknown=normalization_time_unknown,
     )
     if shard_complete:
         status_label = "shard_complete"
@@ -2215,6 +2719,7 @@ def execute_collect_estimates(
         "fetch_failed_count": len(fetch_failed_symbols),
         "fetch_failed_symbols": fetch_failed_symbols[:50],
         "retrieval_time_unknown": retrieval_time_unknown,
+        "normalization_time_unknown": normalization_time_unknown,
         "snapshot": snapshot_store.snapshot_status(manifest),
         "provider_diagnostics": client.diagnostics(),
     }
@@ -2237,11 +2742,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--skip-candidate-packets", action="store_true")
     parser.add_argument(
         "--stage",
-        choices=("discover", "collect-estimates"),
+        choices=("discover", "collect-estimates", "screen-full-snapshot"),
         default="discover",
         help=(
             "discover = the bounded pilot pipeline (default); collect-estimates = "
-            "one deterministic shard of the full-universe estimate snapshot (v3.7)"
+            "one deterministic shard of the full-universe estimate snapshot; "
+            "screen-full-snapshot = current-only screen of a deeply verified snapshot"
         ),
     )
     parser.add_argument("--shard-index", type=int, help="collect-estimates: shard to collect")
@@ -2249,7 +2755,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--snapshot-dir",
         type=Path,
-        help="collect-estimates: snapshot directory (default <output-dir>/estimate-snapshot)",
+        help=(
+            "snapshot directory (collect default: <output-dir>/estimate-snapshot; "
+            "required for screen-full-snapshot)"
+        ),
     )
     parser.add_argument(
         "--resume", action="store_true", help="collect-estimates: continue a partial shard"
@@ -2272,6 +2781,31 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if analysis_as_of.tzinfo is None:
             analysis_as_of = analysis_as_of.replace(tzinfo=timezone.utc)
+        prepared_snapshot: dict[str, Any] | None = None
+        collection_started_at: datetime | None = None
+        if args.stage == "collect-estimates":
+            if args.shard_index is None or args.shard_count is None:
+                raise ValueError(
+                    "--shard-index and --shard-count are required for --stage collect-estimates"
+                )
+            collection_started_at = validate_current_snapshot_collection(
+                analysis_as_of=analysis_as_of,
+                config=config,
+            )
+        if args.stage == "screen-full-snapshot":
+            if args.snapshot_dir is None:
+                raise ValueError("--snapshot-dir is required for --stage screen-full-snapshot")
+            if args.resume or args.shard_index is not None or args.shard_count is not None:
+                raise ValueError(
+                    "--resume/--shard-index/--shard-count are collect-estimates options"
+                )
+            # Read-only and intentionally before FMPClient construction: a bad
+            # snapshot must not create cache/raw/run artifacts.
+            prepared_snapshot = prepare_screen_full_snapshot(
+                args.snapshot_dir,
+                analysis_as_of=analysis_as_of,
+                config=config,
+            )
         run_id = f"run-{analysis_as_of.astimezone(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
         output_dir = args.output_dir / run_id
         cache_cfg = dict(config.get("cache") or {})
@@ -2288,10 +2822,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             offline=args.offline,
         ) as client:
             if args.stage == "collect-estimates":
-                if args.shard_index is None or args.shard_count is None:
-                    raise ValueError(
-                        "--shard-index and --shard-count are required for --stage collect-estimates"
-                    )
                 result = execute_collect_estimates(
                     client,
                     config,
@@ -2300,6 +2830,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     shard_index=int(args.shard_index),
                     shard_count=int(args.shard_count),
                     resume=bool(args.resume),
+                    collection_started_at=collection_started_at,
+                )
+            elif args.stage == "screen-full-snapshot":
+                if prepared_snapshot is None:  # defensive; preflight above is mandatory
+                    raise ValueError("screen-full-snapshot preflight was not completed")
+                result = execute_screen_full_snapshot(
+                    client,
+                    config,
+                    analysis_as_of=analysis_as_of,
+                    output_dir=output_dir,
+                    prepared_snapshot=prepared_snapshot,
+                    include_packets=not args.skip_candidate_packets,
                 )
             else:
                 result = execute_pipeline(

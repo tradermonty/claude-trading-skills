@@ -6,6 +6,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 ISSUE_TEMPLATE_DIR = ROOT / ".github" / "ISSUE_TEMPLATE"
 PR_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
+PRE_COMMIT_CONFIG = ROOT / ".pre-commit-config.yaml"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 
 EXPECTED_FORM_LABELS = {
     "bug_report.yml": ["bug"],
@@ -60,7 +62,8 @@ FMP_PACKAGE_DRIFT_COMMAND = (
     "--skill ftd-detector "
     "--skill canslim-screener "
     "--skill macro-regime-detector "
-    "--skill market-top-detector"
+    "--skill market-top-detector "
+    "--skill us-undervalued-growth-screener"
 )
 
 
@@ -257,10 +260,12 @@ def test_pull_request_template_matches_local_and_ci_gates() -> None:
         "python3 scripts/generate_workflow_docs.py --check",
         "python3 scripts/generate_skillset_docs.py --check",
         "python3 scripts/generate_catalog_from_index.py --check",
+        "python3 scripts/check_skill_catalog.py",
         "python3 skills/trading-skills-navigator/scripts/build_snapshot.py --check",
         "python3 scripts/generate_fmp_client.py --check",
         "python3 scripts/check_package_drift_for_changed_skills.py",
         FMP_PACKAGE_DRIFT_COMMAND,
+        "python3 scripts/check_provider_contracts.py check",
     ]
     for command in required_commands:
         assert command in template, command
@@ -280,3 +285,88 @@ def test_pull_request_template_matches_local_and_ci_gates() -> None:
     ]
     for phrase in required_phrases:
         assert phrase in template, phrase
+
+    assert "README/catalog output" not in template
+    assert "README/CLAUDE catalog output" in template
+    assert "Website EN/JA skill catalogs" in template
+
+
+def test_website_skill_catalog_guard_is_wired_to_pre_commit_and_metadata_ci() -> None:
+    config = load_yaml(PRE_COMMIT_CONFIG)
+    assert isinstance(config, dict)
+    repos = config.get("repos")
+    assert isinstance(repos, list)
+    local = next(repo for repo in repos if repo.get("repo") == "local")
+    hooks = local.get("hooks")
+    assert isinstance(hooks, list)
+    hook = next(item for item in hooks if item.get("id") == "website-skill-catalog-check")
+
+    assert hook.get("entry") == "python3 scripts/check_skill_catalog.py"
+    assert hook.get("pass_filenames") is False
+    files = hook.get("files")
+    assert isinstance(files, str)
+    pattern = re.compile(files)
+    for path in (
+        "skills-index.yaml",
+        "scripts/check_skill_catalog.py",
+        "docs/en/skill-catalog.md",
+        "docs/ja/skill-catalog.md",
+    ):
+        assert pattern.fullmatch(path), path
+
+    workflow = load_yaml(CI_WORKFLOW)
+    assert isinstance(workflow, dict)
+    jobs = workflow.get("jobs")
+    assert isinstance(jobs, dict)
+    metadata = jobs.get("metadata")
+    assert isinstance(metadata, dict)
+    steps = metadata.get("steps")
+    assert isinstance(steps, list)
+    matching_steps = [
+        step
+        for step in steps
+        if step.get("run") == "python3 scripts/generate_catalog_from_index.py --check"
+    ]
+    assert len(matching_steps) == 1
+    assert matching_steps[0].get("name") == "README catalog drift check"
+
+
+def test_fmp_package_drift_ci_step_matches_constant() -> None:
+    workflow = load_yaml(CI_WORKFLOW)
+    assert isinstance(workflow, dict)
+    jobs = workflow.get("jobs")
+    assert isinstance(jobs, dict)
+    metadata = jobs.get("metadata")
+    assert isinstance(metadata, dict)
+    steps = metadata.get("steps")
+    assert isinstance(steps, list)
+    matching_steps = [step for step in steps if step.get("name") == "FMP skill package drift check"]
+    assert len(matching_steps) == 1
+    assert matching_steps[0].get("run") == FMP_PACKAGE_DRIFT_COMMAND
+
+
+def test_fmp_package_drift_pre_commit_hook_matches_constant() -> None:
+    config = load_yaml(PRE_COMMIT_CONFIG)
+    assert isinstance(config, dict)
+    repos = config.get("repos")
+    assert isinstance(repos, list)
+    local = next(repo for repo in repos if repo.get("repo") == "local")
+    hooks = local.get("hooks")
+    assert isinstance(hooks, list)
+
+    skills = FMP_PACKAGE_DRIFT_COMMAND.split("--skill ")[1:]
+    skills = [s.strip() for s in skills]
+    assert skills  # sanity: parsed at least one skill name
+
+    package_hook = next(h for h in hooks if h.get("id") == "fmp-package-drift")
+    assert package_hook.get("entry") == FMP_PACKAGE_DRIFT_COMMAND
+    package_files = package_hook.get("files")
+    assert isinstance(package_files, str)
+    for skill in skills:
+        assert skill in package_files, skill
+
+    client_hook = next(h for h in hooks if h.get("id") == "fmp-client-drift")
+    client_files = client_hook.get("files")
+    assert isinstance(client_files, str)
+    for skill in skills:
+        assert skill in client_files, skill
