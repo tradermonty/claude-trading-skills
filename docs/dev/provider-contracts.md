@@ -137,8 +137,10 @@ the rest in `explain_empty_selection` in fixed order, first match wins):
 
 | Code | Condition | Exit |
 |---|---|---|
-| `no_earnings_rows` | the calendar returned `[]`, or rows none of which carried a `symbol` — a genuine empty window | 0 |
+| `no_earnings_rows` | the calendar returned `[]` for an inclusive date window containing zero XNYS sessions, or a non-empty response had no row carrying a `symbol` | 0 |
 | `calendar_fetch_failed` | the calendar fetch returned no usable body (`None` on transport/HTTP/rate-limit failure, or a non-list body) | 1 |
+| `earnings_calendar_empty_with_market_sessions` | the calendar returned a clean `[]`, but the identical inclusive date window sent to FMP contains at least one XNYS session; possible silent provider drop | 1 |
+| `market_calendar_unavailable` | the shared XNYS calendar could not classify a clean `[]`; dependency/query failure is not treated as a quiet window | 1 |
 | `profiles_budget_exhausted` | profile fetching raised `ApiCallBudgetExceeded` (including after partial retrieval), or profiles came back empty and the budget is exhausted (`api_stats["budget_remaining"] == 0` or `rate_limit_reached`) | 1 |
 | `no_profiles_returned` | ≥1 earnings symbol, but `get_company_profiles` returned nothing | 1 |
 | `profiles_missing_required_field:marketCap` | ≥1 profile came back, but none has a usable numeric `marketCap` (non-bool `int`/`float`, finite) | 1 |
@@ -195,19 +197,19 @@ signal above.
 Owners are validated against `skills-index.yaml` by `check` — an owner naming a
 skill directory that does not exist there is a validation error.
 
-## Deliberately out of scope: session-aware empty suspicion
+## Session-aware empty suspicion
 
-A clean HTTP 200 `[]` on a busy earnings weekday (silent drop) still exits 0
-with `no_earnings_rows`: the exit code distinguishes transport/shape failure
-(`None`/non-list) from an empty body, not a quiet window from a dropped one.
-Session-awareness was rejected for the CLI because a stdlib weekday heuristic
-false-positives on exchange holidays, and importing the shared XNYS calendar
-(`scripts/market_calendar/`) from a skill script would break clean-room
-installs (`package_skills.py` ships only the skill directory; vendoring would
-expand the #340 generator's consumer set). Async coverage stays with the
-weekly canary via the `earnings-calendar` `non_empty` contract. Session-aware
-suspicion is tracked as follow-up work in
-[Issue #356](https://github.com/tradermonty/claude-trading-skills/issues/356).
+The earnings-trade-analyzer is a generated consumer of the shared XNYS
+calendar. For a clean HTTP 200 `[]`, it counts sessions over the exact same
+inclusive `from` / `to` dates sent to FMP. Zero sessions remains the benign
+`no_earnings_rows` result. One or more sessions is a fail-closed
+`earnings_calendar_empty_with_market_sessions` anomaly, while a calendar
+dependency or query failure is `market_calendar_unavailable`. This avoids the
+exchange-holiday false positives of a weekday approximation and keeps the
+standalone `.skill` install complete through the generated runtime and pinned
+requirement. Non-empty lists whose rows carry no symbol retain the pre-#356
+`no_earnings_rows` behavior; session suspicion applies only to the provider's
+literal empty list.
 
 ## Follow-up issue: `earnings-calendar` `time` field — resolved (2026-09-06)
 

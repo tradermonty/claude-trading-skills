@@ -28,11 +28,12 @@ import argparse
 import math
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
+from _market_calendar import CalendarUnavailableError, count_sessions
 from calculators.gap_size_calculator import calculate_gap
 from calculators.ma50_calculator import calculate_ma50_position
 from calculators.ma200_calculator import calculate_ma200_position
@@ -70,6 +71,16 @@ _ZERO_RESULT_MESSAGES = {
         "The earnings calendar fetch failed (no usable response body); "
         "the provider may be down or the response shape may have changed.",
     ),
+    "earnings_calendar_empty_with_market_sessions": (
+        1,
+        "The earnings calendar returned no rows for a window containing one or more "
+        "XNYS sessions; treat this as a possible provider drop and retry or verify.",
+    ),
+    "market_calendar_unavailable": (
+        1,
+        "The XNYS calendar could not be checked, so an empty earnings response cannot "
+        "be classified safely. Install requirements and retry.",
+    ),
     "profiles_budget_exhausted": (
         1,
         "API budget was exhausted before company profile fetching completed. "
@@ -106,19 +117,31 @@ _ZERO_RESULT_MESSAGES = {
 }
 
 
-def classify_empty_calendar(earnings) -> str:
-    """Classify a falsy earnings-calendar response (issue #355).
+def classify_empty_calendar(earnings, start_date: date, end_date: date) -> str:
+    """Classify a falsy earnings-calendar response (issues #355 and #356).
 
-    Only a clean empty list is benign: the provider returns HTTP 200 with
-    ``[]`` for a window with no announcements. ``None`` (transport/HTTP
-    failure, rate limit) and any non-list body (wrong shape, including a
-    200-with-``null`` body) fail closed as ``calendar_fetch_failed``.
-    Truthy lists — including symbol-less ones — never reach this helper;
-    they fall through to ``select_candidates``/``explain_empty_selection``.
+    ``None`` (transport/HTTP failure, rate limit) and any non-list body (wrong
+    shape, including a 200-with-``null`` body) fail closed without querying the
+    exchange calendar. A clean ``[]`` is benign only when the inclusive FMP
+    query window contains zero XNYS sessions. Truthy lists — including
+    symbol-less ones — never reach this helper; they fall through to
+    ``select_candidates``/``explain_empty_selection``.
     """
-    if isinstance(earnings, list) and not earnings:
+    if not isinstance(earnings, list) or earnings:
+        return "calendar_fetch_failed"
+    try:
+        sessions = count_sessions(
+            "XNYS",
+            start_date,
+            end_date,
+            include_start=True,
+            include_end=True,
+        )
+    except CalendarUnavailableError:
+        return "market_calendar_unavailable"
+    if sessions == 0:
         return "no_earnings_rows"
-    return "calendar_fetch_failed"
+    return "earnings_calendar_empty_with_market_sessions"
 
 
 def explain_empty_selection(earnings, profiles, min_market_cap, api_stats):
@@ -343,6 +366,8 @@ def main():
     )
 
     args = parser.parse_args()
+    if args.lookback_days < 0:
+        parser.error("--lookback-days must be greater than or equal to 0")
 
     # Initialize FMP client
     try:
@@ -358,9 +383,11 @@ def main():
     # Phase 1: Fetch earnings calendar and profiles
     print("\n--- Phase 1: Fetch Earnings Calendar ---", file=sys.stderr)
 
-    today = datetime.now()
-    from_date = (today - timedelta(days=args.lookback_days)).strftime("%Y-%m-%d")
-    to_date = today.strftime("%Y-%m-%d")
+    today = datetime.now().date()
+    from_day = today - timedelta(days=args.lookback_days)
+    to_day = today
+    from_date = from_day.isoformat()
+    to_date = to_day.isoformat()
 
     print(f"Date range: {from_date} to {to_date}", file=sys.stderr)
 
@@ -372,7 +399,7 @@ def main():
 
     if not isinstance(earnings, list) or not earnings:
         api_stats = client.get_api_stats()
-        reason = classify_empty_calendar(earnings)
+        reason = classify_empty_calendar(earnings, from_day, to_day)
         exit_code, message = _ZERO_RESULT_MESSAGES.get(
             reason, (1, f"No candidates found (reason: {reason}).")
         )

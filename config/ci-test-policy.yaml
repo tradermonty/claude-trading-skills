@@ -162,6 +162,10 @@ matrix:
     requirements:
     - pandas-market-calendars==5.2.2
     reason: Exercise the pinned shared cash-equity calendar contract.
+  earnings-trade-analyzer:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise session-aware earnings-calendar empty-response classification.
   market-environment-analysis:
     requirements:
     - pandas-market-calendars==5.2.2
