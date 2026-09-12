@@ -42,16 +42,18 @@ def test_coverage_is_complete_and_six_of_eleven_deferrals_are_frozen() -> None:
         "monthly-performance-review",
         "stockbee-20pct-study-daily",
         "stockbee-fluency-loop",
+        "swing-opportunity-daily",
         "trade-memory-loop",
     ]
     assert set(summary["deferred"]) == FROZEN_DEFERRED_WORKFLOWS
-    assert len(summary["deferred"]) == 5
+    assert len(summary["deferred"]) == 4
     assert summary["variants"] == {
         "core-portfolio-weekly": ["required-only", "full-path"],
         "market-regime-daily": ["required-only", "full-path"],
         "monthly-performance-review": ["required-only", "full-path"],
         "stockbee-20pct-study-daily": ["required-only", "full-path"],
         "stockbee-fluency-loop": ["required-only", "full-path"],
+        "swing-opportunity-daily": ["required-only", "full-path"],
         "trade-memory-loop": ["required-only", "full-path"],
     }
 
@@ -65,10 +67,10 @@ def test_new_workflow_cannot_be_silently_deferred() -> None:
 
     coverage["deferred"]["new-workflow"] = {
         "issue": 294,
-        "reason": "Do not allow new coverage 6/11 deferrals.",
+        "reason": "Do not allow new coverage 7/11 deferrals.",
     }
     errors = coverage_errors(workflow_ids, coverage)
-    assert any("frozen coverage 6/11 deferred set" in error for error in errors)
+    assert any("frozen coverage 7/11 deferred set" in error for error in errors)
 
 
 def test_pilot_spec_matches_workflow_and_requires_offline_prices() -> None:
@@ -556,7 +558,7 @@ def test_check_writes_structured_report_when_executor_fails(
 
     assert any("injected execution failure" in difference for difference in differences)
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert report["coverage"] == {"covered": 6, "total": 11}
+    assert report["coverage"] == {"covered": 7, "total": 11}
     assert report["rows"][0]["status"] == "error"
     assert report["rows"][0]["completed_steps"] == [1]
 

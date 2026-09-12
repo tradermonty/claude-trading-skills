@@ -1,0 +1,46 @@
+{
+  "artifact_paths": {
+    "json": "11_pre_trade_discipline_decision.json",
+    "markdown": "11_pre_trade_discipline_decision.md"
+  },
+  "as_of": "2026-06-29T08:00:00-04:00",
+  "candidate_results": [
+    {
+      "actionable": true,
+      "checklist_answers": {
+        "actual_risk_dollars": 500.0,
+        "entry_in_written_plan": false,
+        "notes": "Fictional 200-share plan; no order submitted.",
+        "planned_risk_dollars": 500.0,
+        "size_within_plan": false,
+        "stop_predefined": false
+      },
+      "decision": "NO_GO",
+      "link_status": "skipped_no_state_dir",
+      "order_intent": "MANUAL_ORDER",
+      "reasons": [
+        "entry is not confirmed in the written plan",
+        "stop is not predefined",
+        "size is not confirmed within plan"
+      ],
+      "symbol": "EXMPL",
+      "thesis_id": "th_exmpl_gro_20260629_ab12"
+    }
+  ],
+  "generated_at": "2026-06-29T12:00:00+00:00",
+  "inputs": {
+    "circuit_breaker_decision": "01_circuit_breaker_decision.json",
+    "market_regime_decision": "00_exposure_decision.json",
+    "state_dir": null
+  },
+  "metrics": {
+    "actionable_candidates": 1,
+    "candidates_total": 1,
+    "revenge_window_hours": 24.0,
+    "theses_scanned": 0
+  },
+  "overall_decision": "NO_GO",
+  "rationale": "At least one actionable candidate violated a discipline rule; do not place the manual order.",
+  "schema_version": "1.0",
+  "warnings": []
+}

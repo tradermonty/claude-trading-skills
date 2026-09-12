@@ -1,0 +1,17 @@
+{
+  "as_of": "2026-06-29",
+  "candidates": [
+    {
+      "range_expansion_pct": 4.8,
+      "score": 81,
+      "setup": "MOMENTUM_BURST",
+      "status": "CANDIDATE_NOT_SIGNAL",
+      "symbol": "EXMPL",
+      "volume_ratio": 1.9
+    }
+  ],
+  "schema_version": "1.0",
+  "warnings": [
+    "Fictional output; chart and risk validation remain required."
+  ]
+}

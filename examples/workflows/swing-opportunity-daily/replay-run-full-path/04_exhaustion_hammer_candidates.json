@@ -1,0 +1,9 @@
+{
+  "as_of": "2026-06-29",
+  "candidates": [],
+  "schema_version": "1.0",
+  "screen_status": "COMPLETE_NO_MATCHES",
+  "warnings": [
+    "An empty optional screen is preserved; no candidate is invented."
+  ]
+}

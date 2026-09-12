@@ -1,0 +1,34 @@
+schema_version: "1.0"
+human_approved: true
+thesis_type: growth_momentum
+setup_type: fictional_vcp
+catalyst: null
+confidence: medium
+confidence_score: 0.7
+thesis_statement: EXMPL holds the fictional 50.00 pivot after a tightening VCP base.
+reason_required_only: Registered from the fictional VCP sample.
+reason_full_path: Registered from the fictional multi-screen sample.
+evidence_base: VCP contractions narrowed from 18% to 10% to 5%.
+evidence_screen_corroboration: Momentum, CANSLIM, and fictional-theme screens corroborated the candidate.
+evidence_manual: Manual weekly-chart review passed.
+kill_criteria:
+  - Close below the planned 47.50 stop invalidates the setup.
+entry_conditions:
+  - Entry must remain in the written plan.
+exit:
+  take_profit: 55.0
+  take_profit_rr: 2.0
+  stop_loss_pct: 5.0
+  time_stop_days: 10
+screening_grade: A
+screening_score: 88
+account_type: fictional_cash
+sizing_method: fixed_fractional
+market_context:
+  regime: NEW_ENTRY_ALLOWED
+  breadth_score: 70
+  top_detector_score: 35
+  sector: Fictional Technology
+monitoring:
+  review_interval_days: 1
+  next_review_date: "2026-06-30"

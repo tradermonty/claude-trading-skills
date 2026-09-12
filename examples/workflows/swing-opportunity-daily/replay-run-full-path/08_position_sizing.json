@@ -1,0 +1,27 @@
+{
+  "binding_constraint": null,
+  "calculations": {
+    "atr_based": null,
+    "fixed_fractional": {
+      "dollar_risk": 500.0,
+      "method": "fixed_fractional",
+      "risk_per_share": 2.5,
+      "shares": 200,
+      "stop_price": 47.5
+    },
+    "kelly": null
+  },
+  "constraints_applied": [],
+  "final_position_value": 10000.0,
+  "final_recommended_shares": 200,
+  "final_risk_dollars": 500.0,
+  "final_risk_pct": 0.5,
+  "mode": "shares",
+  "parameters": {
+    "account_size": 100000.0,
+    "entry_price": 50.0,
+    "risk_pct": 0.5,
+    "stop_price": 47.5
+  },
+  "schema_version": "1.0"
+}

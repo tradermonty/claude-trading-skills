@@ -1,0 +1,129 @@
+schema_version: 1
+workflow_id: swing-opportunity-daily
+fixed_timestamp: "2026-06-29T12:00:00+00:00"
+
+inputs:
+  exposure_decision: replay-inputs/exposure-decision.json
+  vcp_scan: replay-inputs/vcp-scan.json
+  momentum_burst: replay-inputs/momentum-burst.json
+  exhaustion_hammer: replay-inputs/exhaustion-hammer.json
+  canslim: replay-inputs/canslim.json
+  theme: replay-inputs/theme.json
+  validated_setups: replay-inputs/validated-setups.json
+  sizing_parameters: replay-inputs/sizing-parameters.json
+  journal: replay-inputs/journal-decision.yaml
+
+steps:
+  - step: 1
+    executor: swing_circuit_breaker
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      circuit_breaker_decision:
+        canonical: 01_circuit_breaker_decision.json
+
+  - step: 2
+    executor: swing_vcp_screen
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      vcp_candidates:
+        canonical: 02_vcp_candidates.json
+
+  - step: 3
+    executor: swing_momentum_burst
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      momentum_burst_candidates:
+        canonical: 03_momentum_burst_candidates.json
+
+  - step: 4
+    executor: swing_exhaustion_hammer
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      exhaustion_hammer_candidates:
+        canonical: 04_exhaustion_hammer_candidates.json
+
+  - step: 5
+    executor: swing_canslim
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      canslim_candidates:
+        canonical: 05_canslim_candidates.json
+
+  - step: 6
+    executor: swing_theme
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      theme_candidates:
+        canonical: 06_theme_candidates.json
+
+  - step: 7
+    executor: swing_validate_setups
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      validated_setups:
+        canonical: 07_validated_setups.json
+
+  - step: 8
+    executor: swing_position_size
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      position_sizing:
+        canonical: 08_position_sizing.json
+
+  - step: 9
+    executor: swing_build_plan
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      trade_plans:
+        canonical: 09_trade_plans.json
+
+  - step: 10
+    executor: swing_journal
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      candidate_journal_entry:
+        canonical: 10_candidate_journal_entry.yaml
+
+  - step: 11
+    executor: swing_discipline
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      pre_trade_discipline_decision:
+        canonical: 11_pre_trade_discipline_decision.json
+        companion: 11_pre_trade_discipline_decision.md
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 7
+      - 8
+      - 10
+      - 11
+    golden_dir: replay-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+    golden_dir: replay-run-full-path

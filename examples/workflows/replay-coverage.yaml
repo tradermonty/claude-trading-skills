@@ -31,8 +31,13 @@ covered:
     variants:
       - required-only
       - full-path
+  swing-opportunity-daily:
+    spec: swing-opportunity-daily/replay.yaml
+    variants:
+      - required-only
+      - full-path
 
-# Frozen Coverage 6/11 baseline. The validator rejects adding another deferral, so a
+# Frozen Coverage 7/11 baseline. The validator rejects adding another deferral, so a
 # newly introduced workflow must ship both replay variants.
 deferred:
   kanchi-dividend-weekly:
@@ -47,6 +52,3 @@ deferred:
   stockbee-ep-daily:
     issue: 294
     reason: Circuit-breaker and EP handoff failure fixtures remain deferred.
-  swing-opportunity-daily:
-    issue: 294
-    reason: Existing examples need circuit-breaker halt replay migration.

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-06-29",
+  "themes": [
+    {
+      "theme": "Fictional Cloud Efficiency",
+      "strength": "EMERGING",
+      "symbols": ["EXMPL"],
+      "evidence": [
+        "Hand-authored teaching evidence only."
+      ]
+    }
+  ],
+  "warnings": [
+    "Fictional theme; not a market claim."
+  ]
+}

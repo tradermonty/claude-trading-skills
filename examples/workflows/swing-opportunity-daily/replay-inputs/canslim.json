@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-06-29",
+  "candidates": [
+    {
+      "symbol": "EXMPL",
+      "grade": "B",
+      "score": 78,
+      "current_quarter_eps_growth_pct": 32.0,
+      "annual_eps_growth_pct": 24.0,
+      "status": "CANDIDATE_NOT_SIGNAL"
+    }
+  ],
+  "warnings": [
+    "Fictional fundamentals; not sourced from a real filing."
+  ]
+}
