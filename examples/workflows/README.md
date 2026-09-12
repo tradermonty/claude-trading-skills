@@ -82,7 +82,7 @@ cross-artifact arithmetic. All files also remain subject to standard hygiene hoo
 (whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
 checks).
 
-## Executable workflow replay (Issue #294, Coverage 6/11)
+## Executable workflow replay (Issue #294, Coverage 7/11)
 
 Six of the eleven canonical workflows are generated and checked by the
 executable replay harness:
@@ -93,6 +93,7 @@ executable replay harness:
 - `stockbee-20pct-study-daily`
 - `trade-memory-loop`
 - `monthly-performance-review`
+- `swing-opportunity-daily`
 
 ```bash
 python3 scripts/workflow_replay.py validate
@@ -121,7 +122,7 @@ carried by the postmortem bundle. The monthly-performance-review replay
 consolidates a monthly aggregate from the bundled closed-theses log and runs
 the signal-postmortem analyzer and Trade Performance Coach CLI against
 disposable fixtures, then publishes a decision log and rule-change backlog.
-The replays require explicit offline fixture inputs and remove API-key, token,
+The replay requires explicit offline fixture inputs and remove API-key, token,
 secret, password, and proxy variables from the subprocess environment. No replay command supplies `--symbols`,
 `--fmp-universe`, or `--api-key`. This is an `offline-input-required` policy,
 not an operating-system network sandbox.
@@ -162,7 +163,7 @@ goldens; committed goldens are never executor inputs. The monthly replay uses
 dedicated `replay-run/` and `replay-run-full-path/` golden trees, distinct from
 the teaching `sample-run/` and `sample-run-full-path/` fixtures covered by Issue
 #208. The coverage manifest
-freezes the other five current workflows as Coverage 6/11 deferrals linked to Issue
+freezes the other four current workflows as Coverage 7/11 deferrals linked to Issue
 #294. A newly added workflow cannot join that frozen deferral set and must ship
 both required-only and full-path replay specs. Issue #294 remains open until
 all eleven workflows and their applicable failure modes are executable.

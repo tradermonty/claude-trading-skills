@@ -51,9 +51,10 @@ def test_coverage_includes_trade_memory_at_six_of_eleven() -> None:
         "monthly-performance-review",
         "stockbee-20pct-study-daily",
         "stockbee-fluency-loop",
+        "swing-opportunity-daily",
         "trade-memory-loop",
     ]
-    assert len(summary["deferred"]) == 5
+    assert len(summary["deferred"]) == 4
     assert "trade-memory-loop" not in summary["deferred"]
 
 
@@ -453,6 +454,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
         "stockbee-20pct-study-daily:full-path",
         "stockbee-fluency-loop:required-only",
         "stockbee-fluency-loop:full-path",
+        "swing-opportunity-daily:required-only",
+        "swing-opportunity-daily:full-path",
         "trade-memory-loop:required-only",
         "trade-memory-loop:full-path",
     ]
@@ -467,6 +470,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
         "sample-run-full-path",
         "sample-run",
         "sample-run-full-path",
+        "replay-run",
+        "replay-run-full-path",
         "sample-run",
         "sample-run-full-path",
     ]

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-06-29",
+  "universe": "fictional_teaching_universe",
+  "candidates": [
+    {
+      "symbol": "EXMPL",
+      "pattern": "VCP",
+      "score": 88,
+      "pivot_price": 50.0,
+      "suggested_stop": 47.5,
+      "contractions_pct": [18.0, 10.0, 5.0],
+      "volume_dry_up": true,
+      "status": "CANDIDATE_NOT_SIGNAL"
+    }
+  ],
+  "warnings": [
+    "EXMPL is fictional; candidate generation is not a buy recommendation."
+  ]
+}

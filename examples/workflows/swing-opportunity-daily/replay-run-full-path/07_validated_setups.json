@@ -1,0 +1,32 @@
+{
+  "as_of": "2026-06-29",
+  "inputs_missing": [],
+  "inputs_provided": [
+    "vcp_candidates",
+    "momentum_burst_candidates",
+    "exhaustion_hammer_candidates",
+    "canslim_candidates",
+    "theme_candidates"
+  ],
+  "rejected": [],
+  "schema_version": "1.0",
+  "setups": [
+    {
+      "base_quality": "TIGHT",
+      "decision": "VALIDATED",
+      "entry_price": 50.0,
+      "manual_chart_review": "PASS",
+      "risk_per_share": 2.5,
+      "source_artifacts": [
+        "vcp_candidates",
+        "momentum_burst_candidates",
+        "canslim_candidates",
+        "theme_candidates"
+      ],
+      "stop_price": 47.5,
+      "symbol": "EXMPL",
+      "target_price": 55.0,
+      "weekly_trend": "STAGE_2"
+    }
+  ]
+}

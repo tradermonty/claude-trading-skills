@@ -1,0 +1,24 @@
+{
+  "as_of": "2026-06-29",
+  "candidates": [
+    {
+      "contractions_pct": [
+        18.0,
+        10.0,
+        5.0
+      ],
+      "pattern": "VCP",
+      "pivot_price": 50.0,
+      "score": 88,
+      "status": "CANDIDATE_NOT_SIGNAL",
+      "suggested_stop": 47.5,
+      "symbol": "EXMPL",
+      "volume_dry_up": true
+    }
+  ],
+  "schema_version": "1.0",
+  "universe": "fictional_teaching_universe",
+  "warnings": [
+    "EXMPL is fictional; candidate generation is not a buy recommendation."
+  ]
+}
