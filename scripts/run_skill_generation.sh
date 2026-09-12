@@ -10,6 +10,11 @@
 #   launchctl start com.trade-analysis.skill-generation-weekly
 #   # or: bash scripts/run_skill_generation.sh --mode weekly --dry-run
 
+if [ "$(uname -s)" != "Darwin" ]; then
+    echo "run_skill_generation.sh is a macOS launchd wrapper; use python3 scripts/run_skill_generation_pipeline.py instead" >&2
+    exit 2
+fi
+
 # Allow claude -p subprocess calls even when launched from a Claude Code terminal
 unset CLAUDECODE
 

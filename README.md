@@ -93,6 +93,11 @@ This path lets you review market conditions, size trades, journal decisions, and
 First time here? Read the [FAQ](docs/en/faq.md) for plan, cost, safety, and scope
 answers.
 
+Contributor tooling supports CPython 3.9–3.14 on Linux, macOS, and Windows,
+with explicit CI tiers and platform-specific automation boundaries. See the
+[platform support matrix](docs/dev/platform-support.md) before running repository
+maintenance commands.
+
 ### Use with Claude Web App
 1. Download the `.skill` file that matches the skill you want from `skill-packages/`.
 2. For an individual account, open **Settings > Capabilities** and enable **Code execution and file creation**. Team and Enterprise users may need an organization owner to enable Skills.

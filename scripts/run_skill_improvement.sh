@@ -17,6 +17,11 @@
 #
 # Override the automation checkout location with SKILL_LOOP_CHECKOUT.
 
+if [ "$(uname -s)" != "Darwin" ]; then
+    echo "run_skill_improvement.sh is a macOS launchd wrapper; run run_skill_improvement_loop.py only from an isolated clean checkout" >&2
+    exit 2
+fi
+
 set -o pipefail
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${HOME}/.local/bin:/usr/local/bin:$PATH"

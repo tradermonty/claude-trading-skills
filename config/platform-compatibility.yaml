@@ -1,0 +1,41 @@
+schema_version: 1
+python:
+  implementation: CPython
+  requires: ">=3.9,<3.15"
+  best_effort: ["3.10", "3.11", "3.12"]
+platforms:
+  linux:
+    runner: ubuntu-latest
+  windows:
+    runner: windows-latest
+  macos:
+    runner: macos-latest
+rows:
+  ubuntu-py39:
+    platform: linux
+    python: "3.9"
+  ubuntu-py314:
+    platform: linux
+    python: "3.14"
+  windows-py313:
+    platform: windows
+    python: "3.13"
+  windows-py314:
+    platform: windows
+    python: "3.14"
+  macos-py314:
+    platform: macos
+    python: "3.14"
+profiles:
+  pull_request: [ubuntu-py39, ubuntu-py314, windows-py313]
+  nightly: [ubuntu-py39, ubuntu-py314, windows-py313, windows-py314, macos-py314]
+test_paths:
+  - scripts/tests/test_platform_compatibility.py
+  - scripts/tests/test_run_all_tests.py
+  - scripts/tests/test_package_skills.py
+  - skills/macro-regime-detector/scripts/tests
+  - skills/exposure-coach/scripts/tests
+  - skills/position-sizer/scripts/tests
+  - skills/drawdown-circuit-breaker/scripts/tests
+  - skills/trader-memory-core/scripts/tests
+  - skills/trading-skills-navigator/scripts/tests

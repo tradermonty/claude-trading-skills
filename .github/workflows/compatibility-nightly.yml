@@ -1,0 +1,73 @@
+name: Platform compatibility nightly
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover nightly compatibility matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+      - name: Sync locked project environment
+        run: |
+          uv sync --locked --no-install-project --extra dev --extra ci
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Read nightly compatibility profile
+        id: matrix
+        run: |
+          matrix="$(uv run --no-sync python scripts/check_platform_compatibility.py matrix --profile nightly)"
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+  compatibility:
+    name: Nightly compatibility (${{ matrix.id }})
+    needs: discover
+    runs-on: ${{ matrix.runner }}
+    env:
+      # Prevent trader-memory's standalone launcher from starting a nested uv sync.
+      TRADER_MEMORY_CLI_INNER: "1"
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python ${{ matrix.python_version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python_version }}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+      - name: Sync locked project environment
+        run: uv sync --locked --no-install-project --extra dev --extra ci
+      - name: Verify runtime and repository contract
+        run: |
+          uv run --no-sync python scripts/check_platform_compatibility.py check --matrix-id "${{ matrix.id }}"
+          uv run --no-sync python scripts/check_platform_compatibility.py validate
+      - name: Exercise cross-platform filesystem and subprocess contract
+        run: uv run --no-sync python scripts/check_platform_compatibility.py probe
+      - name: Run critical compatibility tests
+        run: >
+          uv run --no-sync python -m pytest
+          ${{ matrix.pytest_paths }}
+          --tb=short -q
