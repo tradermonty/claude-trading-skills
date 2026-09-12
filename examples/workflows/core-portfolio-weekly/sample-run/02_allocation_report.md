@@ -4,7 +4,6 @@
 - Current cash: **10.0%**
 - Allocation total: **100.0%**
 - Largest position: **FICTA at 30.0%**
-- Decision: **REBALANCE_PROPOSED**
+- Human decision: **REBALANCE_PROPOSED**
 
-The teaching plan proposes trimming **50 FICTA shares** at the fixed reference
-price of **$100.00**, moving **$5,000.00** to cash. No order is placed.
+The allocation arithmetic was recomputed from the fictional snapshot and target fixture. The rebalance decision remains a human contract; no order is placed.

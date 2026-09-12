@@ -82,11 +82,12 @@ cross-artifact arithmetic. All files also remain subject to standard hygiene hoo
 (whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
 checks).
 
-## Executable workflow replay (Issue #294, Coverage 5/11)
+## Executable workflow replay (Issue #294, Coverage 6/11)
 
-Five of the eleven canonical workflows are generated and checked by the
+Six of the eleven canonical workflows are generated and checked by the
 executable replay harness:
 
+- `core-portfolio-weekly`
 - `market-regime-daily`
 - `stockbee-fluency-loop`
 - `stockbee-20pct-study-daily`
@@ -97,6 +98,13 @@ executable replay harness:
 python3 scripts/workflow_replay.py validate
 python3 scripts/workflow_replay.py check --report workflow-replay-report.json
 ```
+
+The core-portfolio replay recomputes allocation and projected-weight arithmetic from
+a fictional snapshot while treating target allocation, rebalance, and journal choices
+as manual contracts bound to upstream artifact SHA-256 values. Its optional full path
+runs the native Kanchi dividend rule API after joining enrichment to the exact step-1
+snapshot identity. Portfolio Manager has no offline native decision API in this path,
+Trader Memory Core is not mutated, and no broker or live API call is made.
 
 The market-regime replay runs native scorer/report APIs against complete fictional
 component fixtures, then passes those generated artifacts to the real Exposure Coach
@@ -129,7 +137,12 @@ deferred under Issue #294. Backtest Expert evaluates bundled
 aggregate metrics—it does not run a strategy backtest or natively consume the
 postmortem. Trade-memory mutates only disposable staging state. Individual
 Trader Memory state files use atomic replacement, while publication of the
-complete generated tree is transactional.
+complete generated tree is transactional. In `core-portfolio-weekly`, decision gates
+at steps 2 and 4 are `record_only`: they record human proposals but never authorize or
+submit an order. The full-path T2 warning must propagate
+`PAUSE_OPTIONAL_ADDS_PENDING_HUMAN_REVIEW` through the rebalance and journal artifacts.
+Circuit-breaker halt, provider API failure, and literal `INSUFFICIENT_EVIDENCE` modes
+are not declared by this workflow and remain applicable to other Issue #294 slices.
 
 Generated replay manifests record the overall `status`, the exact
 `completed_steps`, and any `required_steps_not_executed`. A `halted` replay
@@ -149,7 +162,7 @@ goldens; committed goldens are never executor inputs. The monthly replay uses
 dedicated `replay-run/` and `replay-run-full-path/` golden trees, distinct from
 the teaching `sample-run/` and `sample-run-full-path/` fixtures covered by Issue
 #208. The coverage manifest
-freezes the other six current workflows as Coverage 5/11 deferrals linked to Issue
+freezes the other five current workflows as Coverage 6/11 deferrals linked to Issue
 #294. A newly added workflow cannot join that frozen deferral set and must ship
 both required-only and full-path replay specs. Issue #294 remains open until
 all eleven workflows and their applicable failure modes are executable.

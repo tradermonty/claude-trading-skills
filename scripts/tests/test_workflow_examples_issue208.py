@@ -187,13 +187,20 @@ def test_core_portfolio_values_flow_to_rebalance_and_journal(variant: str) -> No
     assert journal["human_confirmation"]["execution_authorized"] is False
 
     companion = (sample_dir / "02_allocation_report.md").read_text(encoding="utf-8")
-    for value in ("$100,000.00", "100.0%", "FICTA at 30.0%", "50 FICTA shares"):
+    for value in (
+        "$100,000.00",
+        "100.0%",
+        "FICTA at 30.0%",
+        "rebalance decision remains a human contract",
+    ):
         assert value in companion
 
 
 def test_full_core_dividend_report_is_reproduced_by_rule_engine() -> None:
     sample_dir = _sample_dir("core-portfolio-weekly", "sample-run-full-path")
-    payload = _load(sample_dir / "03_dividend_monitor_input.json")
+    replay_dir = EXAMPLES / "core-portfolio-weekly" / "replay-inputs"
+    enrichment = _load(replay_dir / "dividend-enrichment.json")
+    payload = {"as_of": enrichment["as_of"], "holdings": enrichment["holdings"]}
     expected = _load(sample_dir / "03_dividend_review_findings.json")
     module = _module(
         "issue208_dividend_review",

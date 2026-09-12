@@ -33,10 +33,11 @@ COVERAGE = ROOT / "examples" / "workflows" / "replay-coverage.yaml"
 SPEC = ROOT / "examples" / "workflows" / "stockbee-fluency-loop" / "replay.yaml"
 
 
-def test_coverage_is_complete_and_five_of_eleven_deferrals_are_frozen() -> None:
+def test_coverage_is_complete_and_six_of_eleven_deferrals_are_frozen() -> None:
     summary = validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
+        "core-portfolio-weekly",
         "market-regime-daily",
         "monthly-performance-review",
         "stockbee-20pct-study-daily",
@@ -44,8 +45,9 @@ def test_coverage_is_complete_and_five_of_eleven_deferrals_are_frozen() -> None:
         "trade-memory-loop",
     ]
     assert set(summary["deferred"]) == FROZEN_DEFERRED_WORKFLOWS
-    assert len(summary["deferred"]) == 6
+    assert len(summary["deferred"]) == 5
     assert summary["variants"] == {
+        "core-portfolio-weekly": ["required-only", "full-path"],
         "market-regime-daily": ["required-only", "full-path"],
         "monthly-performance-review": ["required-only", "full-path"],
         "stockbee-20pct-study-daily": ["required-only", "full-path"],
@@ -63,10 +65,10 @@ def test_new_workflow_cannot_be_silently_deferred() -> None:
 
     coverage["deferred"]["new-workflow"] = {
         "issue": 294,
-        "reason": "Do not allow new coverage 5/11 deferrals.",
+        "reason": "Do not allow new coverage 6/11 deferrals.",
     }
     errors = coverage_errors(workflow_ids, coverage)
-    assert any("frozen coverage 5/11 deferred set" in error for error in errors)
+    assert any("frozen coverage 6/11 deferred set" in error for error in errors)
 
 
 def test_pilot_spec_matches_workflow_and_requires_offline_prices() -> None:
@@ -554,8 +556,36 @@ def test_check_writes_structured_report_when_executor_fails(
 
     assert any("injected execution failure" in difference for difference in differences)
     report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["coverage"] == {"covered": 6, "total": 11}
     assert report["rows"][0]["status"] == "error"
     assert report["rows"][0]["completed_steps"] == [1]
+
+
+def test_check_writes_fail_safe_report_when_coverage_validation_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_validation(*_args, **_kwargs):
+        raise ReplayError("injected coverage failure")
+
+    monkeypatch.setattr(replay_module, "validate_coverage", fail_validation)
+    report_path = tmp_path / "report.json"
+
+    differences = check_goldens(ROOT, COVERAGE, report_path)
+
+    assert differences == ["coverage validation error: injected coverage failure"]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["coverage"] == {"covered": 0, "total": 11}
+    assert report["rows"] == [
+        {
+            "workflow_id": None,
+            "variant": None,
+            "status": "error",
+            "stage": "validation",
+            "error": "injected coverage failure",
+            "completed_steps": [],
+        }
+    ]
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,13 @@
+schema_version: 1
+human_approved: true
+execution_authorized: false
+allocation_report_sha256: 6c06d01f787d5737957a2c2476ead8dcc478ba6e13c788bfd864b74387b28a13  # pragma: allowlist secret
+dividend_review_sha256: null
+decision: PROPOSED_MANUAL_ACTIONS
+dividend_response: null
+actions:
+  - action_id: RA-001
+    symbol: FICTA
+    action: TRIM
+    shares: 50
+    reference_price: 100.0

@@ -1,41 +1,41 @@
 {
-  "schema_version": "1.0",
-  "as_of": "2026-06-27",
-  "source": "fictional_manual_snapshot",
   "account": {
     "account_id": "SIM-****-208",
-    "status": "ACTIVE",
-    "equity": 100000.0,
+    "buying_power": 10000.0,
     "cash": 10000.0,
+    "equity": 100000.0,
     "long_market_value": 90000.0,
-    "buying_power": 10000.0
+    "status": "ACTIVE"
   },
+  "as_of": "2026-06-27",
   "positions": [
     {
-      "symbol": "FICTA",
-      "quantity": 300,
       "current_price": 100.0,
       "market_value": 30000.0,
       "portfolio_weight_pct": 30.0,
-      "sector": "Fictional Technology"
+      "quantity": 300,
+      "sector": "Fictional Technology",
+      "symbol": "FICTA"
     },
     {
-      "symbol": "FICTB",
-      "quantity": 400,
       "current_price": 75.0,
       "market_value": 30000.0,
       "portfolio_weight_pct": 30.0,
-      "sector": "Fictional Healthcare"
+      "quantity": 400,
+      "sector": "Fictional Healthcare",
+      "symbol": "FICTB"
     },
     {
-      "symbol": "FICTC",
-      "quantity": 600,
       "current_price": 50.0,
       "market_value": 30000.0,
       "portfolio_weight_pct": 30.0,
-      "sector": "Fictional Consumer Staples"
+      "quantity": 600,
+      "sector": "Fictional Consumer Staples",
+      "symbol": "FICTC"
     }
   ],
+  "schema_version": "1.0",
+  "source": "fictional_manual_snapshot",
   "warnings": [
     "Fictional teaching fixture; verify every holding against the real broker before acting."
   ]

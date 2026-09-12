@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/core-portfolio-replay-contract.schema.json",
+  "title": "Core portfolio weekly replay contracts",
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "positive_number": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "non_negative_number": {
+      "type": "number",
+      "minimum": 0
+    },
+    "holdings_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "source", "account", "positions", "warnings"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "source": {"const": "fictional_manual_snapshot"},
+        "account": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["account_id", "status", "equity", "cash", "long_market_value", "buying_power"],
+          "properties": {
+            "account_id": {"type": "string"},
+            "status": {"const": "ACTIVE"},
+            "equity": {"$ref": "#/$defs/positive_number"},
+            "cash": {"$ref": "#/$defs/non_negative_number"},
+            "long_market_value": {"$ref": "#/$defs/non_negative_number"},
+            "buying_power": {"$ref": "#/$defs/non_negative_number"}
+          }
+        },
+        "positions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["symbol", "quantity", "current_price", "market_value", "portfolio_weight_pct", "sector"],
+            "properties": {
+              "symbol": {"type": "string", "pattern": "^FICT[A-Z0-9]+$"},
+              "quantity": {"type": "integer", "minimum": 0},
+              "current_price": {"$ref": "#/$defs/positive_number"},
+              "market_value": {"$ref": "#/$defs/non_negative_number"},
+              "portfolio_weight_pct": {"type": "number", "minimum": 0, "maximum": 100},
+              "sector": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "[Ff]ictional"}
+        }
+      }
+    },
+    "allocation_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "snapshot_sha256", "targets", "human_decision"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "snapshot_sha256": {"$ref": "#/$defs/sha256"},
+        "targets": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bucket", "target_pct"],
+            "properties": {
+              "bucket": {"type": "string", "minLength": 1},
+              "target_pct": {"type": "number", "minimum": 0, "maximum": 100}
+            }
+          }
+        },
+        "human_decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["human_approved", "execution_authorized", "decision", "rationale"],
+          "properties": {
+            "human_approved": {"const": true},
+            "execution_authorized": {"const": false},
+            "decision": {"enum": ["REBALANCE_PROPOSED", "HOLD"]},
+            "rationale": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "dividend_holding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticker", "instrument_type", "dividend", "cashflow"],
+      "properties": {
+        "ticker": {"type": "string", "pattern": "^FICT[A-Z0-9]+$"},
+        "instrument_type": {"const": "stock"},
+        "dividend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["latest_regular", "prior_regular"],
+          "properties": {
+            "latest_regular": {"$ref": "#/$defs/non_negative_number"},
+            "prior_regular": {"$ref": "#/$defs/non_negative_number"}
+          }
+        },
+        "cashflow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fcf", "dividends_paid", "coverage_ratio_history"],
+          "properties": {
+            "fcf": {"$ref": "#/$defs/positive_number"},
+            "dividends_paid": {"$ref": "#/$defs/non_negative_number"},
+            "coverage_ratio_history": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/non_negative_number"}
+            }
+          }
+        }
+      }
+    },
+    "dividend_enrichment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "snapshot_sha256", "covered_tickers", "selection_reason", "holdings"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"type": "string", "format": "date"},
+        "snapshot_sha256": {"$ref": "#/$defs/sha256"},
+        "covered_tickers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^FICT[A-Z0-9]+$"}
+        },
+        "selection_reason": {"type": "string", "minLength": 1},
+        "holdings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/dividend_holding"}
+        }
+      }
+    },
+    "rebalance_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "symbol", "action", "shares", "reference_price"],
+      "properties": {
+        "action_id": {"type": "string", "pattern": "^RA-[0-9]{3}$"},
+        "symbol": {"type": "string", "pattern": "^FICT[A-Z0-9]+$"},
+        "action": {"const": "TRIM"},
+        "shares": {"type": "integer", "minimum": 1},
+        "reference_price": {"$ref": "#/$defs/positive_number"}
+      }
+    },
+    "rebalance_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "human_approved", "execution_authorized", "allocation_report_sha256", "dividend_review_sha256", "decision", "dividend_response", "actions"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "human_approved": {"const": true},
+        "execution_authorized": {"const": false},
+        "allocation_report_sha256": {"$ref": "#/$defs/sha256"},
+        "dividend_review_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "decision": {"const": "PROPOSED_MANUAL_ACTIONS"},
+        "dividend_response": {
+          "oneOf": [
+            {"const": "PAUSE_OPTIONAL_ADDS_PENDING_HUMAN_REVIEW"},
+            {"type": "null"}
+          ]
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/rebalance_action"}
+        }
+      }
+    },
+    "journal_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "human_approved", "execution_authorized", "rebalance_actions_sha256", "allocation_decision", "broker_state_verified", "disclosure_reviewed", "tax_impact_reviewed", "note"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "human_approved": {"const": true},
+        "execution_authorized": {"const": false},
+        "rebalance_actions_sha256": {"$ref": "#/$defs/sha256"},
+        "allocation_decision": {"const": "REBALANCE_PROPOSED"},
+        "broker_state_verified": {"const": false},
+        "disclosure_reviewed": {"const": false},
+        "tax_impact_reviewed": {"const": false},
+        "note": {"type": "string", "pattern": "[Nn]o broker order"}
+      }
+    }
+  }
+}

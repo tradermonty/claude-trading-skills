@@ -1,0 +1,27 @@
+{
+  "as_of": "2026-06-27",
+  "covered_tickers": [
+    "FICTC"
+  ],
+  "holdings": [
+    {
+      "cashflow": {
+        "coverage_ratio_history": [
+          0.7,
+          0.78
+        ],
+        "dividends_paid": 85.0,
+        "fcf": 80.0
+      },
+      "dividend": {
+        "latest_regular": 0.55,
+        "prior_regular": 0.5
+      },
+      "instrument_type": "stock",
+      "ticker": "FICTC"
+    }
+  ],
+  "schema_version": 1,
+  "selection_reason": "FICTC is the dividend holding selected for the optional T1-T5 review.",
+  "snapshot_sha256": "194504c3a57abd5daaecc568a3ff07647401ba1d77e83c8a9308ea4972d86a3b"
+}
