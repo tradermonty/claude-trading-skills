@@ -171,6 +171,15 @@ repos:
         files: '^(\.github/workflows/ci\.yml|config/(market-calendar-dependency|ci-test-policy)\.yaml|pyproject\.toml|scripts/(generate_market_calendar|smoke_market_calendar)\.py|scripts/market_calendar/.*|skills/(breakout-trade-planner|drawdown-circuit-breaker|market-environment-analysis|market-top-detector|parabolic-short-trade-planner|theme-detector)/(requirements\.txt|scripts/_market_calendar\.py|scripts/tests/test_market_calendar_contract\.py)|examples/weekly-trade-strategy/(\.claude/skills|skills)/market-environment-analysis/(requirements\.txt|scripts/(_market_calendar|market_utils)\.py))$'
         pass_filenames: false
 
+      - id: compat-matrix-drift
+        name: Compat matrix drift check (supported OS/Python)
+        entry: python3 scripts/check_compat_matrix.py
+        language: system
+        # Fire on the workflows, the matrix document (the declared mapping), the
+        # runtime bound, and the checker itself (so a logic change revalidates).
+        files: '^(\.github/workflows/(ci|compat-nightly)\.yml|docs/dev/compatibility-matrix\.md|pyproject\.toml|scripts/check_compat_matrix\.py|scripts/tests/test_check_compat_matrix\.py)$'
+        pass_filenames: false
+
       - id: changed-package-drift
         name: Packaged skill drift check
         entry: python3 scripts/check_package_drift_for_changed_skills.py

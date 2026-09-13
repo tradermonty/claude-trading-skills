@@ -257,6 +257,13 @@ jobs:
       - name: Packaged dependency smoke
         run: python3 scripts/check_skill_deps.py smoke --skill macro-regime-detector
 
+      # 5d. Compat matrix drift check: the job→(os, python) mapping in
+      # docs/dev/compatibility-matrix.md must match the compatibility jobs in
+      # ci.yml + compat-nightly.yml, and every job must stay inside the
+      # supported OS set / Python range.
+      - name: Compat matrix drift check
+        run: python3 scripts/check_compat_matrix.py
+
       # Note: the validator + generator unit tests already run under the
       # 'Test repo-level scripts' step in the test job above.
 
@@ -403,3 +410,55 @@ jobs:
           fail-on-severity: low
           fail-on-scopes: runtime, development, unknown
           license-check: false
+
+  # Compatibility smoke (issue #333): exercise the compatibility-sensitive
+  # suites on all three OS families at the max supported Python. This is the
+  # "supported = CI-enforced" leg that catches Windows/macOS regressions
+  # (#64) and standalone dependency gaps (#311) on every PR.
+  # Keep this bounded to the 3 OS axes; the heavy per-skill matrix stays on
+  # the primary Linux axis (test job).
+  compat-smoke:
+    name: Compat smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+
+      # Windows puts the venv on PATH via Scripts; POSIX via bin. The
+      # conditional keeps the literal ".venv/bin" substring so the
+      # supply-chain wiring test stays valid on every OS.
+      - name: Sync locked project environment
+        shell: bash
+        run: |
+          uv sync --locked --no-install-project --extra dev --extra ci
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "$PWD/.venv/Scripts" >> "$GITHUB_PATH"
+          else
+            echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install and run core risk/state/navigator suites
+        shell: bash
+        run: |
+          for id in position-sizer futures-position-sizer trader-memory-core drawdown-circuit-breaker trading-skills-navigator
+          do
+            python scripts/ci_test_matrix.py install --check "$id"
+            python scripts/ci_test_matrix.py run "$id"
+          done
+
+      - name: Run cross-platform regression tests
+        shell: bash
+        run: python -m pytest scripts/tests/test_compat_regressions.py
