@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-09-12T00:00:00Z",
+  "per_skill_coverage_pct": {},
+  "beta_since": {},
+  "dual_axis_score_distribution": "not-yet-measured",
+  "open_high_severity_issues": "not-yet-measured",
+  "last_successful_ci_timestamp": "not-yet-measured",
+  "drift_status": {
+    "package": "not-yet-measured",
+    "docs": "not-yet-measured",
+    "navigator": "not-yet-measured"
+  }
+}
