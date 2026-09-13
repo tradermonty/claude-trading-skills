@@ -692,7 +692,7 @@
         {
           "id": "public_csv",
           "requirement": "required",
-          "type": "local_file"
+          "type": "web"
         }
       ],
       "operational_role": {
@@ -754,7 +754,7 @@
         {
           "id": "public_csv",
           "requirement": "required",
-          "type": "local_file"
+          "type": "web"
         }
       ],
       "operational_role": {
@@ -1419,7 +1419,7 @@
         {
           "id": "public_csv",
           "requirement": "required",
-          "type": "local_file"
+          "type": "web"
         }
       ],
       "operational_role": {

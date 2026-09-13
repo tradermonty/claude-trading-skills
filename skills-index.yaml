@@ -1063,7 +1063,7 @@ skills:
   difficulty: beginner
   integrations:
   - id: public_csv
-    type: local_file
+    type: web
     requirement: required
     note: TraderMonty public CSV; no API key required
   inputs:
@@ -1160,7 +1160,7 @@ skills:
   difficulty: intermediate
   integrations:
   - id: public_csv
-    type: local_file
+    type: web
     requirement: required
     note: Public market data CSVs; no API key required
   inputs:
@@ -2142,7 +2142,7 @@ skills:
   difficulty: beginner
   integrations:
   - id: public_csv
-    type: local_file
+    type: web
     requirement: required
     note: Monty Uptrend Ratio Dashboard CSV; no API key required
   inputs:

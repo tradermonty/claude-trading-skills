@@ -122,6 +122,17 @@ repos:
         files: '^(skills-index\.yaml|scripts/generate_catalog_from_index\.py|README\.md|README\.ja\.md|CLAUDE\.md)$'
         pass_filenames: false
 
+      - id: quality-dashboard-drift
+        name: Quality dashboard drift check (regenerate from SSoT inputs + snapshot)
+        entry: python3 scripts/generate_quality_dashboard.py --check
+        language: system
+        # Fire on any deterministic input that shapes the dashboard, the
+        # generator, and the rendered pages themselves (catches manual edits
+        # between the auto-generated page boundaries). skills/**/scripts/tests
+        # is included because has-tests (the Tests column) is filesystem-derived.
+        files: '^(skills-index\.yaml|config/ci-test-policy\.yaml|examples/workflows/replay-coverage\.yaml|docs/assets/quality-dashboard-sources\.json|scripts/generate_quality_dashboard\.py|docs/(en|ja)/quality-dashboard\.md|skills/[^/]+/scripts/tests/.*)$'
+        pass_filenames: false
+
       - id: website-skill-catalog-check
         name: Website EN/JA skill catalog canonical-data check
         entry: python3 scripts/check_skill_catalog.py

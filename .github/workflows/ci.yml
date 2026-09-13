@@ -214,6 +214,13 @@ jobs:
       - name: README catalog drift check
         run: python3 scripts/generate_catalog_from_index.py --check
 
+      # 4b. Quality dashboard drift check: docs/{en,ja}/quality-dashboard.md
+      # must match what the generator would produce from the deterministic
+      # SSoT inputs + committed runtime snapshot. Catches manual edits to the
+      # pages and stale pages after an SSoT input changes.
+      - name: Quality dashboard drift check
+        run: python3 scripts/generate_quality_dashboard.py --check
+
       # 5. Navigator snapshot drift check: the bundled
       # skills/trading-skills-navigator/assets/metadata_snapshot.json (the
       # Claude Web App fallback) must match what build_snapshot.py would
