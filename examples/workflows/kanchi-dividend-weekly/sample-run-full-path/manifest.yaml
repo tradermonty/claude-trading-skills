@@ -81,7 +81,9 @@ execution_evidence_limitations:
   stock-note-template one-pager.
 - Screener steps 1-2 are human-approved candidate-list fixtures; no FINVIZ or FMP
   screener is called.
-- Steps 4-5 call the native tax-planning and dividend review-queue CLIs on fictional
-  holdings.
+- Step 4 calls the native tax-planning CLI on fictional holdings; account-location
+  advice remains advisory.
+- Step 5 calls the native dividend review-queue CLI on fictional holdings; a WARN/REVIEW
+  never triggers an automatic sell.
 - Step 6 calls the native trader-memory-core ingest and link_report APIs on disposable
   temporary state; every thesis stays IDEA and no order is placed or authorized.

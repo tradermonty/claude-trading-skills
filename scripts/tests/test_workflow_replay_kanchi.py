@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -212,6 +213,30 @@ def test_register_decision_rejects_active_promotion(tmp_path: Path) -> None:
             tmp_path / "out",
             input_overrides={"register_decision": override},
         )
+
+
+def test_registration_links_actual_memo_artifact(tmp_path: Path) -> None:
+    """Regression: the link target must follow the actual memo filename, not a constant."""
+    workdir = tmp_path / "kanchi-dividend-weekly"
+    shutil.copytree(SPEC.parent, workdir)
+    spec_path = workdir / "replay.yaml"
+    spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+    for step in spec["steps"]:
+        if step["step"] == 3:
+            step["output_files"]["stock_memo"]["canonical"] = "03_renamed_memo.md"
+    spec_path.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
+
+    output = tmp_path / "out"
+    report = execute_replay(ROOT, spec_path, "required-only", output)
+    assert report["status"] == "completed"
+
+    record = json.loads((output / "06_thesis_record.json").read_text(encoding="utf-8"))
+    for row in record["theses"]:
+        assert {
+            "skill": "kanchi-dividend-sop",
+            "file": "$ARTIFACT/03_renamed_memo.md",
+            "date": FIXED_DATE,
+        } in row["linked_reports"]
 
 
 def test_manifest_records_native_execution_evidence(tmp_path: Path) -> None:
