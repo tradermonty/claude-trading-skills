@@ -13,7 +13,12 @@ def workflow(name):
 
 
 def test_every_project_job_uses_locked_environment():
-    for name in ("ci.yml", "fmp-contract-canary.yml", "packaged-deps-nightly.yml"):
+    for name in (
+        "ci.yml",
+        "fmp-contract-canary.yml",
+        "packaged-deps-nightly.yml",
+        "compat-nightly.yml",
+    ):
         config = workflow(name)
         assert config["permissions"] == {"contents": "read"}
         for job_id, job in config["jobs"].items():

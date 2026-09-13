@@ -105,6 +105,13 @@ answers.
 
 > Tip: `.skill` packages are built from the source folders with tests and local build artifacts omitted. Edit a source folder if you want to customize a skill, then run `python3 scripts/package_skills.py --skill <skill-name>` before uploading to the web app.
 
+## Supported platforms
+
+The project supports Python **3.9 to 3.13** on Linux, Windows, and macOS. A combination counts as
+*supported* only if it is exercised by the project's CI; other combinations in that range are
+best-effort and unverified. See [docs/dev/compatibility-matrix.md](docs/dev/compatibility-matrix.md)
+for the exact supported matrix and how it is enforced.
+
 ## Companion Work Package
 
 Want a ready-to-run agent-style workflow? See the companion
