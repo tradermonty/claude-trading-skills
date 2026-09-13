@@ -112,6 +112,43 @@ queue, or a short pool that cannot prove exhaustion remains diagnostic and
 exits 2. A successful underwriting handoff or verified no-candidate result
 exits 0.
 
+### Budget exhaustion and partial screen diagnostics
+
+Liquidity, quality-probe, and candidate-packet enrichment are fail-closed. If
+the provider budget is exhausted, `screen-full-snapshot` exits 2 and persists
+`audit/enriched-estimates.partial.jsonl` and
+`audit/partial-run-diagnostic.json`. The diagnostic is written last as the
+commit marker and records the snapshot ID/digest, stage, target-order
+progress, interrupted symbol and provider operation, provider counters, and
+SHA-256/row-count records for the partial summary and rows. Consumers must
+verify the marker and every recorded hash before reading partial artifacts;
+without a valid marker, the preceding files are not authoritative.
+
+The current symbol is `attempted` and `interrupted`, and remains `pending`; a
+symbol is `completed` only after all provider calls required by its current
+stage finish. Quality-probe interruption preserves a current row even when its
+key-metrics call succeeded but its actual-EPS call did not. A packet interrupted
+inside an endpoint is not written as a packet; completed packets and provider
+raw/cache evidence remain available. The already-written broad-screen audit is
+rewritten as `status: incomplete`, `conclusion_scope: diagnostic`, and
+`ranking_scope: diagnostic`, with top-level, deep-dive, candidate-pool, and
+generation-audit selection commitment fields cleared. Broad-screen rows are
+rewritten from `selected` to `deferred_by_budget`, and the audit's row hash is
+updated before the diagnostic marker is written.
+
+Each screen attempt uses a new empty run directory. The CLI adds a unique
+attempt suffix to the run ID and stores provider raw responses in a sibling,
+attempt-specific `.provider-raw/<run-id>/` directory; direct callers are
+rejected if they pass a non-empty output directory. An explicitly supplied raw
+store must also remain outside the run directory. This prevents a retry from
+mixing partial output with stale final artifacts from an earlier attempt.
+
+There is no `--resume` for screening. After the budget is restored, rerun the
+same verified snapshot; successful new calls may append cache/raw records and
+the rerun may reuse existing records, but the snapshot itself remains
+read-only. Partial output never authorizes a market-wide conclusion or a real
+trade.
+
 ## Readiness and content binding
 
 Two layers, deliberately separate:

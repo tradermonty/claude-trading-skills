@@ -700,3 +700,51 @@ The discovery audit additionally carries:
 `provider_exhausted` may waive the pool row and lane floors only together with `provider_exhausted_scope` in {`economic_candidate_universe`, `full_input`}; a missing scope fails closed (no waiver), `estimate_seed` exhaustion never waives either floor, and `pool_floor_waived` / `lane_floor_waived` record the outcomes. The `sharded_snapshot` candidate-generation mode is distinct from a bounded `provider_prefilter`: it requires a screen-ready same-read snapshot bundle, a 64-character digest binding the explicit listing-enumeration audit, manifest, universe, and all shard hashes, economic attempts and classification totals exactly equal to the frozen universe, current per-row normalization provenance, and a final pool containing only `evaluable` rows. Enumeration verification recomputes continuous full-range coverage independently for every requested exchange, and the frozen market-cap/price scope must contain the later screen request. Exact-liquidity attempts continue past empty/failed histories until the 30–50 name target is met or every eligible name has an explicit outcome; only the latter can justify a short-pool exhaustion claim. That proof supports `conclusion_scope: full_listing_universe` even though deep-dive work is budgeted to the deterministic top pool. The unit gate fails closed on unknown context: a row is exempt only when PROVEN domestic (country `US`, no non-US ISIN, not an ADR/ADS, currency USD or unstated) — a missing country, non-USD currency, non-US ISIN, or ADR/ADS flag requires `unit_reconciliation_verified: true` (listing/statement currency and ordinary-shares-per-ADS evidence); without it the row carries the blocking `unit_reconciliation_required` review and, on the direct-FMP path, resolves as `unavailable_after_enrichment`. `normalize_listing` preserves `isin` and `is_adr` for this purpose. Implausible ratios (forward P/E below 2, FCF yield above 50%, reported EPS above twice the listing price) fail the broad screen as `unit_mismatch_suspected` — suspected currency/ADS-unit mismatch, never "deep value". `sector_profile_type` is inferred from an explicit FMP-taxonomy map (`INDUSTRY_PROFILE_MAP` + family-prefix rules + BDC name needles + the `sector_profile_overrides` config pin); `capital_markets` (advisory/investment banking) is labelled but deliberately not a blocked profile. The run summary and report JSON carry a tri-state `ranking_scope` (`final_marketwide` / `final_scoped` / `diagnostic`) with per-stage coverage counts and percentages (`economic_attempt_*`, `economically_evaluable_*`, `quality_probe_*`, `deep_dive_*`); `final_marketwide` requires estimate acquisition attempted for every listing-universe symbol (exact counts) — a seed-based run is at most `final_scoped` and its conclusions never generalize to the market. Sector-profile rows (`sector_profile_type` in reit / insurance / bank / asset_manager / bdc / mlp) skip the general `excessive_leverage` hard gate and instead require sector-specific valuation evidence (`sector_specific_valuation_required`). `economic_candidate_universe_exhausted` and `economic_screen_scope_complete` are true only when bulk estimates covered every listing-universe symbol (exact `covered_symbol_count == universe_symbol_count`; not a configurable ratio), or when the same exact invariant is proven by a verified `sharded_snapshot`; merely using the bulk route (from 20% coverage) does not qualify. `latest_actual_eps` must be a verified reported figure (`latest_actual_verified: true`, `latest_actual_basis`, `latest_actual_source_ids` resolving to an annual statement accepted at or before `analysis_as_of`, or a provider row marked actual whose period has ended); otherwise the actual-derived fields are null. `growth_pattern` and `current_year_growth_pct` are derived on the consensus basis from `fy0_consensus_eps` (the provider's prior-year row, never labelled actual; `growth_pattern_basis`), and `estimate_basis_likely_adjusted` flags a >15% gap between that row and the GAAP actual. Pool rows may carry `quality_probe_attempted`, `quality_probe_resolved`, `quality_probe_source_ids`, `sbc_adjusted_fcf_yield_pct`, `provider_prefilter_flags` (`weak_fcf_support`, `earnings_recovery`, `foreign_private_issuer_review`), and the growth-basis fields `latest_actual_eps`, `fy1_eps_below_latest_actual`, `current_year_growth_pct`, `eps_growth_actual_to_fy3_pct`, `growth_pattern`.
 
 `run-summary.json` / `NEXT_ACTION.json` add `listing_enumeration_complete`, `economic_screen_scope_complete`, `listing_universe_count`, `estimate_seed_count`, `estimate_seed_coverage_pct`, `valid_estimate_count`, `valid_estimate_coverage_pct`; `scope_complete` remains as a deprecated alias of listing-enumeration completeness. The contract-validated `screening_audit.scope` block is unchanged.
+
+### Full-snapshot partial budget diagnostic
+
+`screen-full-snapshot` may return exit 2 with a provider-budget diagnostic
+before it can publish a final screening result. The non-final diagnostic has
+this shape:
+
+```json
+{
+  "schema_version": 1,
+  "status": "provider_budget_exhausted",
+  "stage": "liquidity | quality_probe | candidate_packets",
+  "snapshot_id": "string",
+  "snapshot_verification_digest": "64-character SHA-256",
+  "progress": {
+    "target_symbols": ["AAA", "BBB"],
+    "attempted_symbols": ["AAA"],
+    "completed_symbols": [],
+    "pending_symbols": ["AAA", "BBB"],
+    "interrupted_symbols": ["AAA"],
+    "interrupted_at": {"symbol": "AAA", "operation": "provider_method"}
+  },
+  "no_final_marketwide_conclusion": true,
+  "artifacts": {
+    "partial_enriched_estimates": {"path": "...", "sha256": "...", "row_count": 2},
+    "run_summary": {"path": "...", "sha256": "..."},
+    "next_action": {"path": "...", "sha256": "..."}
+  },
+  "commit_marker": "audit/partial-run-diagnostic.json"
+}
+```
+
+The target and progress arrays are uppercase, duplicate-free, and retain target
+order. `completed` means all provider calls required by the stage finished;
+the interrupted current symbol can therefore be in `attempted` and `pending`.
+Consumers must verify the marker exists and every listed artifact hash and row
+count matches before reading any partial output. Screening has no resume cursor:
+rerun the same verified snapshot after restoring the provider budget. The
+snapshot is read-only; existing cache/raw records are retained, successful
+calls may append new records, and later runs may reuse them. If packet
+generation is interrupted, the broad-screen audit is explicitly non-authoritative:
+its status and ranking scope are `incomplete`/`diagnostic`, its top-level,
+deep-dive, candidate-pool, and generation-audit selection commitment fields are
+cleared, and every broad-screen row is downgraded from `selected` to
+`deferred_by_budget`. The candidate artifact hash is rewritten after this
+invalidation. Each screen attempt also requires a new empty run directory;
+the CLI adds a unique attempt suffix so retries cannot mix stale final
+artifacts with a partial run.

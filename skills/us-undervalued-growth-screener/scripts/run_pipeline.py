@@ -14,6 +14,7 @@ import json
 import math
 import os
 import re
+import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -177,6 +178,39 @@ class PipelineResult:
     exit_code: int
 
 
+def _ordered_unique_symbols(values: Sequence[Any]) -> list[str]:
+    """Return canonical, duplicate-free symbols while preserving input order."""
+    output: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value is None:
+            continue
+        symbol = str(value).strip().upper()
+        if symbol and symbol not in seen:
+            seen.add(symbol)
+            output.append(symbol)
+    return output
+
+
+class _OperationTrackingClient:
+    """Proxy provider calls so an interrupted packet identifies its operation."""
+
+    def __init__(self, client: Any) -> None:
+        self._client = client
+        self.last_operation: str | None = None
+
+    def __getattr__(self, name: str) -> Any:
+        value = getattr(self._client, name)
+        if not callable(value):
+            return value
+
+        def tracked(*args: Any, **kwargs: Any) -> Any:
+            self.last_operation = name
+            return value(*args, **kwargs)
+
+        return tracked
+
+
 def _number(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
@@ -226,6 +260,207 @@ def _write_jsonl(path: Path, rows: Sequence[Mapping[str, Any]]) -> str:
     temp.write_bytes(data)
     os.replace(temp, path)
     return hashlib.sha256(data).hexdigest()
+
+
+def _artifact_record(path: Path, *, root: Path, row_count: int | None = None) -> dict[str, Any]:
+    """Describe an existing artifact for the partial-run commit marker."""
+    relative = str(path.relative_to(root))
+    record: dict[str, Any] = {
+        "path": relative,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "bytes": path.stat().st_size,
+    }
+    if row_count is not None:
+        record["row_count"] = row_count
+    return record
+
+
+def _persist_partial_snapshot_diagnostic(
+    *,
+    output_dir: Path,
+    audit_dir: Path,
+    snapshot_id: str,
+    verification_digest: str,
+    stage: str,
+    progress: Mapping[str, Any],
+    error: str,
+    client: Any,
+    partial_rows: Sequence[Mapping[str, Any]],
+    preserved_artifact_paths: Sequence[Path] = (),
+) -> PipelineResult:
+    """Persist a fail-closed partial screen result before returning exit 2.
+
+    The diagnostic is deliberately written last.  It is the commit marker for
+    the per-file atomic writes that precede it; consumers must verify the
+    marker's hashes before reading any partial artifact.
+    """
+    partial_path = audit_dir / "enriched-estimates.partial.jsonl"
+    partial_sha = _write_jsonl(partial_path, partial_rows)
+    partial_record = _artifact_record(
+        partial_path,
+        root=output_dir,
+        row_count=len(partial_rows),
+    )
+    preserved_records = [
+        _artifact_record(path, root=output_dir)
+        for path in preserved_artifact_paths
+        if path.is_file()
+    ]
+    # Keep the explicit local variable as a guard against accidentally writing
+    # a diagnostic whose hash does not describe the bytes just committed.
+    if partial_record["sha256"] != partial_sha:
+        raise OSError("partial enrichment artifact hash changed during write")
+
+    common: dict[str, Any] = {
+        "schema_version": 1,
+        "runtime": runtime_metadata(),
+        "run_id": output_dir.name,
+        "status": "provider_budget_exhausted",
+        "stage": stage,
+        "snapshot_id": snapshot_id,
+        "snapshot_verification_digest": verification_digest,
+        "progress": dict(progress),
+        "error": error,
+        "provider_diagnostics": client.diagnostics(),
+        "no_final_marketwide_conclusion": True,
+        "recovery": {
+            "resume_supported": False,
+            "action": "rerun_screen_full_snapshot_after_provider_budget_reset",
+            "same_verified_snapshot_required": True,
+            "partial_artifact_is_not_a_final_conclusion": True,
+        },
+        "partial_diagnostic_path": "audit/partial-run-diagnostic.json",
+    }
+    summary = {
+        **common,
+        "artifacts": {
+            "partial_enriched_estimates": partial_record,
+            "preserved": preserved_records,
+            "partial_diagnostic": {"path": "audit/partial-run-diagnostic.json"},
+        },
+    }
+    next_action = {
+        **common,
+        "action": "rerun_screen_full_snapshot_after_provider_budget_reset",
+        "partial_artifacts_are_authoritative_only_after_marker_verification": True,
+        "artifacts": {
+            "partial_diagnostic": "audit/partial-run-diagnostic.json",
+            "partial_enriched_estimates": "audit/enriched-estimates.partial.jsonl",
+        },
+    }
+    run_summary_path = output_dir / "run-summary.json"
+    next_action_path = output_dir / "NEXT_ACTION.json"
+    _write_json(run_summary_path, summary)
+    _write_json(next_action_path, next_action)
+
+    diagnostic = {
+        **common,
+        "commit_marker": "audit/partial-run-diagnostic.json",
+        "artifacts": {
+            "partial_enriched_estimates": partial_record,
+            "run_summary": _artifact_record(run_summary_path, root=output_dir),
+            "next_action": _artifact_record(next_action_path, root=output_dir),
+            "preserved": preserved_records,
+        },
+    }
+    # This must remain the final write in this helper.  A missing or invalid
+    # marker makes the preceding partial summary non-authoritative.
+    _write_json(audit_dir / "partial-run-diagnostic.json", diagnostic)
+    return PipelineResult(summary=summary, exit_code=2)
+
+
+def _invalidate_final_screen_audit(audit: Mapping[str, Any]) -> dict[str, Any]:
+    """Make a pre-packet screen audit explicitly non-authoritative."""
+    invalidated = dict(audit)
+    invalidated.update(
+        {
+            "status": "incomplete",
+            "conclusion_scope": "diagnostic",
+            "ranking_scope": "diagnostic",
+            "candidate_pool_status": "incomplete_budget_exhausted",
+            "selection_outcome": "incomplete_budget_exhausted",
+            "selected_symbols": [],
+        }
+    )
+    plan = dict(invalidated.get("deep_dive_plan") or {})
+    plan.update(
+        {
+            "status": "incomplete",
+            "selected_symbols": [],
+            "selected_count": 0,
+            "selected_set_sha256": None,
+            "commitment_payload": None,
+            "selected_set_is_committed": False,
+            "budget_locked": False,
+            "lane_counts": {},
+            "selection_method": "not_committed_due_to_provider_budget",
+        }
+    )
+    invalidated["deep_dive_plan"] = plan
+    candidate_pool = dict(invalidated.get("candidate_pool") or {})
+    generation_audit = dict(candidate_pool.get("generation_audit") or {})
+    generation_audit.update(
+        {
+            "valid": False,
+            "selection_method": "not_committed_due_to_provider_budget",
+            "selected_count": 0,
+            "selected_symbols": [],
+            "actual_selected_count": 0,
+            "actual_selected_symbols": [],
+            "selected_set_sha256": None,
+            "commitment_payload": None,
+            "selection_commitment": None,
+            "lane_selected_counts": {},
+            "lane_coverage_count": 0,
+        }
+    )
+    candidate_pool.update(
+        {
+            "status": "incomplete",
+            "selected_count": 0,
+            "selection_eligible_count": 0,
+            "selection_commitment": None,
+            "generation_audit": generation_audit,
+        }
+    )
+    invalidated["candidate_pool"] = candidate_pool
+    return invalidated
+
+
+def _invalidate_candidate_decisions(
+    decisions: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Remove selection authority from the persisted broad-screen rows."""
+    invalidated: list[dict[str, Any]] = []
+    for raw in decisions:
+        row = dict(raw)
+        decision = dict(row.get("decision") or {})
+        decision["status"] = "deferred_by_budget"
+        decision["selection_eligible"] = False
+        for key in ("preselection_status", "selection_lane", "selection_reason"):
+            decision.pop(key, None)
+        row["decision"] = decision
+        row["selection_eligible"] = False
+        row.pop("selection_lane", None)
+        invalidated.append(row)
+    return invalidated
+
+
+def _require_fresh_screen_output_dir(output_dir: Path) -> None:
+    """Prevent a retry from mixing partial artifacts with a prior run."""
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise ValueError(
+            f"screen-full-snapshot output directory must be new and empty: {output_dir}"
+        )
+
+
+def _path_is_within(path: Path, parent: Path) -> bool:
+    """Return whether ``path`` resolves below ``parent``."""
+    try:
+        path.resolve().relative_to(parent.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def load_config(path: Path | None) -> dict[str, Any]:
@@ -1012,25 +1247,53 @@ def apply_quality_probe(
     source_id: str,
     analysis_as_of: datetime | None = None,
     actual_source_id: str | None = None,
+    return_partial_on_budget: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Enrich the top-ranked lane candidates with TTM quality metrics.
 
     A failed/empty probe (4xx or no data) is recorded as
     ``quality_probe_resolved: False`` on that row rather than failing the run.
+    Full-snapshot screening may opt into returning rows and progress when the
+    provider call budget is exhausted; the bounded pipeline keeps the historic
+    exception behavior by default.
     """
-    targets = {str(value).upper() for value in target_symbols}
+    ordered_targets = _ordered_unique_symbols(target_symbols)
+    targets = set(ordered_targets)
     attempted: list[str] = []
     resolved: list[str] = []
     actual_resolved: list[str] = []
     actual_calls = 0
+    completed: set[str] = set()
+    interrupted: list[str] = []
+    budget_error: str | None = None
+    interrupted_at: dict[str, str] | None = None
     output: list[dict[str, Any]] = []
+    actual_required = analysis_as_of is not None and hasattr(client, "get_income_statement")
     for raw in rows:
         row = dict(raw)
         symbol = _symbol(row)
         if symbol in targets:
+            if budget_error is not None:
+                row.setdefault("quality_probe_attempted", False)
+                row.setdefault("quality_probe_resolved", False)
+                row.setdefault("quality_probe_complete", False)
+                output.append(row)
+                continue
             attempted.append(symbol)
             row["quality_probe_attempted"] = True
-            payload = client.get_key_metrics_ttm(symbol)
+            row["quality_probe_complete"] = False
+            try:
+                payload = client.get_key_metrics_ttm(symbol)
+            except ApiCallBudgetExceeded as exc:
+                if not return_partial_on_budget:
+                    raise
+                budget_error = str(exc)
+                interrupted.append(symbol)
+                interrupted_at = {"symbol": symbol, "operation": "get_key_metrics_ttm"}
+                row["quality_probe_budget_exhausted"] = True
+                row["quality_probe_resolved"] = False
+                output.append(row)
+                continue
             bundle = payload[0] if payload else None
             if isinstance(bundle, Mapping):
                 roic = _first_number(bundle, "returnOnInvestedCapitalTTM")
@@ -1074,9 +1337,19 @@ def apply_quality_probe(
             # Verified reported EPS: one annual income-statement call, accepted
             # at or before analysis_as_of. Without it the growth-basis fields
             # stay fail-closed (unknown) rather than borrowing a consensus row.
-            if analysis_as_of is not None and hasattr(client, "get_income_statement"):
-                statements = client.get_income_statement(symbol, period="annual", limit=2)
+            if actual_required:
                 actual_calls += 1
+                try:
+                    statements = client.get_income_statement(symbol, period="annual", limit=2)
+                except ApiCallBudgetExceeded as exc:
+                    if not return_partial_on_budget:
+                        raise
+                    budget_error = str(exc)
+                    interrupted.append(symbol)
+                    interrupted_at = {"symbol": symbol, "operation": "get_income_statement"}
+                    row["quality_probe_budget_exhausted"] = True
+                    output.append(row)
+                    continue
                 actual_eps, actual_end = _verified_annual_actual(
                     statements or [], analysis_as_of=analysis_as_of
                 )
@@ -1089,19 +1362,33 @@ def apply_quality_probe(
                 )
                 if row.get("latest_actual_verified"):
                     actual_resolved.append(symbol)
+            row["quality_probe_complete"] = True
+            completed.add(symbol)
         else:
             row.setdefault("quality_probe_attempted", False)
             row.setdefault("quality_probe_resolved", False)
+            row.setdefault("quality_probe_complete", False)
         output.append(row)
+    attempted_symbols = [symbol for symbol in ordered_targets if symbol in set(attempted)]
+    completed_symbols = [symbol for symbol in ordered_targets if symbol in completed]
+    pending_symbols = [symbol for symbol in ordered_targets if symbol not in completed]
+    interrupted_symbols = [symbol for symbol in ordered_targets if symbol in set(interrupted)]
     audit = {
-        "attempted": attempted,
+        "attempted": attempted_symbols,
         "resolved": resolved,
-        "symbols": attempted,
+        "symbols": attempted_symbols,
         "source_id": source_id,
         "calls_used": len(attempted) + actual_calls,
         "actual_eps_source_id": actual_source_id,
         "actual_eps_calls": actual_calls,
         "actual_eps_resolved": actual_resolved,
+        "budget_exhausted": budget_error is not None,
+        "attempted_symbols": attempted_symbols,
+        "completed_symbols": completed_symbols,
+        "pending_symbols": pending_symbols,
+        "interrupted_symbols": interrupted_symbols,
+        "interrupted_at": interrupted_at,
+        "error": budget_error,
     }
     return output, audit
 
@@ -2207,6 +2494,7 @@ def execute_screen_full_snapshot(
     ):
         raise ValueError("execute_screen_full_snapshot requires a prepared verified snapshot")
 
+    _require_fresh_screen_output_dir(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     audit_dir = output_dir / "audit"
     packet_dir = output_dir / "candidate-packets"
@@ -2226,22 +2514,56 @@ def execute_screen_full_snapshot(
         config,
         limit=len(eligible_rows),
     )
+    ordered_liquidity_targets = _ordered_unique_symbols(ordered_liquidity_targets)
     required_liquidity_days = int(config["minimum_average_volume_period_days"])
     enriched_rows = [dict(row) for row in evaluable_rows]
     liquidity_targets: list[str] = []
+    liquidity_attempted: list[str] = []
+    liquidity_completed: set[str] = set()
     valid_liquidity_symbols: set[str] = set()
     # Backfill past failed/empty histories. A short pool can claim exhaustion
     # only after every economically eligible symbol has an explicit outcome.
     for symbol in ordered_liquidity_targets:
-        enriched_rows = apply_symbol_liquidity(
-            client,
-            enriched_rows,
-            as_of=analysis_as_of.date(),
-            source_id=f"fmp-historical-eod-{analysis_as_of.date().isoformat()}",
-            limit=1,
-            required_days=required_liquidity_days,
-            target_symbols=[symbol],
-        )
+        liquidity_attempted.append(symbol)
+        try:
+            enriched_rows = apply_symbol_liquidity(
+                client,
+                enriched_rows,
+                as_of=analysis_as_of.date(),
+                source_id=f"fmp-historical-eod-{analysis_as_of.date().isoformat()}",
+                limit=1,
+                required_days=required_liquidity_days,
+                target_symbols=[symbol],
+            )
+        except ApiCallBudgetExceeded as exc:
+            return _persist_partial_snapshot_diagnostic(
+                output_dir=output_dir,
+                audit_dir=audit_dir,
+                snapshot_id=snapshot_id,
+                verification_digest=verification_digest,
+                stage="liquidity",
+                progress={
+                    "target_symbols": ordered_liquidity_targets,
+                    "attempted_symbols": liquidity_attempted,
+                    "completed_symbols": [
+                        value for value in ordered_liquidity_targets if value in liquidity_completed
+                    ],
+                    "pending_symbols": [
+                        value
+                        for value in ordered_liquidity_targets
+                        if value not in liquidity_completed
+                    ],
+                    "interrupted_symbols": [symbol],
+                    "interrupted_at": {
+                        "symbol": symbol,
+                        "operation": "get_historical_prices",
+                    },
+                },
+                error=str(exc),
+                client=client,
+                partial_rows=enriched_rows,
+            )
+        liquidity_completed.add(symbol)
         liquidity_targets.append(symbol)
         row = next(item for item in enriched_rows if _symbol(item) == symbol)
         if (
@@ -2277,7 +2599,29 @@ def execute_screen_full_snapshot(
         source_id=f"fmp-key-metrics-ttm-{analysis_as_of.date().isoformat()}",
         analysis_as_of=analysis_as_of,
         actual_source_id=f"fmp-income-statement-annual-{analysis_as_of.date().isoformat()}",
+        return_partial_on_budget=True,
     )
+    if quality_probe_audit.get("budget_exhausted"):
+        _write_json(audit_dir / "quality-probe-audit.json", quality_probe_audit)
+        return _persist_partial_snapshot_diagnostic(
+            output_dir=output_dir,
+            audit_dir=audit_dir,
+            snapshot_id=snapshot_id,
+            verification_digest=verification_digest,
+            stage="quality_probe",
+            progress={
+                "target_symbols": _ordered_unique_symbols(probe_symbols),
+                "attempted_symbols": quality_probe_audit.get("attempted_symbols", []),
+                "completed_symbols": quality_probe_audit.get("completed_symbols", []),
+                "pending_symbols": quality_probe_audit.get("pending_symbols", []),
+                "interrupted_symbols": quality_probe_audit.get("interrupted_symbols", []),
+                "interrupted_at": quality_probe_audit.get("interrupted_at"),
+            },
+            error=str(quality_probe_audit.get("error") or "provider API call budget exhausted"),
+            client=client,
+            partial_rows=probed_rows,
+            preserved_artifact_paths=[audit_dir / "quality-probe-audit.json"],
+        )
     probed_rows = mark_sector_profile_exhaustion(
         probed_rows,
         source_id=f"fmp-key-metrics-ttm-{analysis_as_of.date().isoformat()}",
@@ -2412,8 +2756,79 @@ def execute_screen_full_snapshot(
     selected_rows = {_symbol(row): row for row in pool if _symbol(row) in set(selected)}
     packet_paths: list[str] = []
     if include_packets:
-        for symbol in selected:
-            packet_paths.append(str(build_fmp_packet(client, selected_rows[symbol], packet_dir)))
+        packet_targets = _ordered_unique_symbols(selected)
+        packet_attempted: list[str] = []
+        packet_completed: set[str] = set()
+        packet_client = _OperationTrackingClient(client)
+        for symbol in packet_targets:
+            packet_attempted.append(symbol)
+            packet_client.last_operation = None
+            try:
+                packet_paths.append(
+                    str(build_fmp_packet(packet_client, selected_rows[symbol], packet_dir))
+                )
+            except ApiCallBudgetExceeded as exc:
+                invalidated_audit = _invalidate_final_screen_audit(audit)
+                invalidated_audit["partial_run"] = {
+                    "status": "provider_budget_exhausted",
+                    "stage": "candidate_packets",
+                    "commit_marker": "audit/partial-run-diagnostic.json",
+                    "candidate_artifact_rewrite": "pending",
+                }
+                invalidated_candidates = _invalidate_candidate_decisions(candidate_decisions)
+                # Publish the non-authoritative audit first. If the process
+                # stops during the row rewrite, no audit can still authorize
+                # the old selected rows.
+                invalidated_audit["candidate_pool"]["artifact_sha256"] = None
+                _write_json(audit_dir / "broad-screen-audit.json", invalidated_audit)
+                candidate_sha = _write_jsonl(candidate_path, invalidated_candidates)
+                invalidated_audit["candidate_pool"]["decision_counts"] = {
+                    status: sum(
+                        1
+                        for row in invalidated_candidates
+                        if str((row.get("decision") or {}).get("status") or "") == status
+                    )
+                    for status in sorted(
+                        {
+                            str((row.get("decision") or {}).get("status") or "")
+                            for row in invalidated_candidates
+                        }
+                    )
+                }
+                invalidated_audit["candidate_pool"]["artifact_sha256"] = candidate_sha
+                invalidated_audit["partial_run"]["candidate_artifact_rewrite"] = "complete"
+                _write_json(audit_dir / "broad-screen-audit.json", invalidated_audit)
+                return _persist_partial_snapshot_diagnostic(
+                    output_dir=output_dir,
+                    audit_dir=audit_dir,
+                    snapshot_id=snapshot_id,
+                    verification_digest=verification_digest,
+                    stage="candidate_packets",
+                    progress={
+                        "target_symbols": packet_targets,
+                        "attempted_symbols": packet_attempted,
+                        "completed_symbols": [
+                            value for value in packet_targets if value in packet_completed
+                        ],
+                        "pending_symbols": [
+                            value for value in packet_targets if value not in packet_completed
+                        ],
+                        "interrupted_symbols": [symbol],
+                        "interrupted_at": {
+                            "symbol": symbol,
+                            "operation": packet_client.last_operation or "build_fmp_packet",
+                            "partial_packet_written": False,
+                        },
+                    },
+                    error=str(exc),
+                    client=client,
+                    partial_rows=probed_rows,
+                    preserved_artifact_paths=[
+                        *(Path(path) for path in packet_paths),
+                        audit_dir / "broad-screen-audit.json",
+                    ],
+                )
+            packet_completed.add(symbol)
 
     ranking_scope = classify_ranking_scope(
         economic_attempt_count=len(universe_rows),
@@ -2806,13 +3221,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                 analysis_as_of=analysis_as_of,
                 config=config,
             )
-        run_id = f"run-{analysis_as_of.astimezone(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+        run_id = (
+            f"run-{analysis_as_of.astimezone(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+            f"-attempt-{uuid.uuid4().hex[:12]}"
+        )
         output_dir = args.output_dir / run_id
+        if args.stage == "screen-full-snapshot":
+            _require_fresh_screen_output_dir(output_dir)
         cache_cfg = dict(config.get("cache") or {})
         cache_path = args.cache_path or Path(
             str(cache_cfg.get("path", ".cache/us-garp/fmp-cache.sqlite3"))
         )
-        raw_store_dir = args.raw_store_dir or output_dir / "provider-raw"
+        if args.raw_store_dir is not None:
+            raw_store_dir = args.raw_store_dir
+        elif args.stage == "screen-full-snapshot":
+            raw_store_dir = args.output_dir / ".provider-raw" / run_id
+        else:
+            raw_store_dir = output_dir / "provider-raw"
+        if args.stage == "screen-full-snapshot" and _path_is_within(raw_store_dir, output_dir):
+            raise ValueError("screen-full-snapshot raw store must be outside the new run directory")
         max_calls = args.max_api_calls or int(config["max_api_calls"])
         with FMPClient(
             api_key=args.api_key,

@@ -58,8 +58,25 @@ NEXT_ACTION.json
 audit/listing-enumeration-audit.json
 audit/provider-prefilter-audit.json
 audit/broad-screen-audit.json
+audit/partial-run-diagnostic.json
+audit/enriched-estimates.partial.jsonl
 candidate-packets/*.fmp-packet.json
 ```
+
+The CLI stores provider raw responses in a sibling, attempt-specific
+`.provider-raw/<run-id>/` directory so creating the FMP client cannot make a
+new run directory look stale. An explicitly supplied raw-store path must also
+remain outside the screen run directory.
+
+`audit/partial-run-diagnostic.json` is a commit marker for a budget-exhausted
+`screen-full-snapshot` attempt. Read the partial JSONL, summary, or preserved
+artifacts only after verifying the marker's recorded SHA-256 values and row
+counts. A missing or mismatched marker means the preceding files are not
+authoritative. Screening has no `--resume`; rerun the same verified snapshot
+into a new empty run directory after the provider budget is restored. The
+snapshot is read-only. Existing
+cache/raw records are not deleted or rewritten, while successful calls may add
+new records and a later rerun may reuse them.
 
 Claude must not load the raw provider-response tree into context. Open a raw file only to resolve a specific named mismatch. Provider packets remain secondary evidence; SEC/IR verification is mandatory for formal underwriting.
 
@@ -89,6 +106,8 @@ The first run may issue many HTTP requests inside one Python invocation. Later r
 <run>/audit/provider-prefilter-audit.json
 <run>/audit/broad-screen-results.jsonl
 <run>/audit/broad-screen-audit.json
+<run>/audit/partial-run-diagnostic.json   # only for budget-exhausted screen attempts
+<run>/audit/enriched-estimates.partial.jsonl
 <run>/candidate-packets/<SYMBOL>.fmp-packet.json
 <run>/provider/candidate-data/<SYMBOL>/*.json
 ```

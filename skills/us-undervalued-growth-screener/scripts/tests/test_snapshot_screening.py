@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -212,6 +213,98 @@ class BackfillScreenClient(FakeScreenClient):
         return [{"date": f"2026-08-{day:02d}", "volume": 600_000} for day in range(1, 26)]
 
 
+class BudgetOnLiquidityClient(FakeScreenClient):
+    def __init__(self, *, successful_history_calls: int) -> None:
+        super().__init__()
+        self.successful_history_calls = successful_history_calls
+        self.history_calls = 0
+
+    def get_historical_prices(self, symbol, *, from_date, to_date):
+        self.api_calls_made += 1
+        self.history_calls += 1
+        if self.history_calls > self.successful_history_calls:
+            raise PIPELINE.ApiCallBudgetExceeded("budget exhausted during liquidity")
+        return [{"date": f"2026-08-{day:02d}", "volume": 600_000} for day in range(1, 26)]
+
+
+class BudgetOnQualityClient(FakeScreenClient):
+    def __init__(self, *, successful_quality_calls: int) -> None:
+        super().__init__()
+        self.successful_quality_calls = successful_quality_calls
+        self.quality_calls = 0
+
+    def get_key_metrics_ttm(self, symbol):
+        self.api_calls_made += 1
+        self.quality_calls += 1
+        if self.quality_calls > self.successful_quality_calls:
+            raise PIPELINE.ApiCallBudgetExceeded("budget exhausted during quality probe")
+        return [
+            {
+                "returnOnInvestedCapitalTTM": 0.16,
+                "freeCashFlowYieldTTM": 0.07,
+                "evToFreeCashFlowTTM": 14.0,
+                "netDebtToEBITDATTM": 1.2,
+                "stockBasedCompensationToRevenueTTM": 0.02,
+            }
+        ]
+
+
+class BudgetOnActualEpsClient(FakeScreenClient):
+    def __init__(self, *, successful_actual_calls: int) -> None:
+        super().__init__()
+        self.successful_actual_calls = successful_actual_calls
+        self.actual_calls = 0
+
+    def get_income_statement(self, symbol, *, period="annual", limit=2):
+        self.api_calls_made += 1
+        self.actual_calls += 1
+        if self.actual_calls > self.successful_actual_calls:
+            raise PIPELINE.ApiCallBudgetExceeded("budget exhausted during actual EPS")
+        return []
+
+
+class BudgetOnPacketClient(FakeScreenClient):
+    def __init__(self, *, successful_packets: int) -> None:
+        super().__init__()
+        self.successful_packets = successful_packets
+        self.packet_profiles = 0
+
+    def get_profile(self, symbol):
+        self.packet_profiles += 1
+        self.api_calls_made += 1
+        if self.packet_profiles > self.successful_packets:
+            raise PIPELINE.ApiCallBudgetExceeded("budget exhausted during packet")
+        return {}
+
+    def get_quotes(self, symbols):
+        self.api_calls_made += 1
+        return {symbol: {} for symbol in symbols}
+
+    def get_analyst_estimates(self, symbol, *, period="annual", limit=6):
+        self.api_calls_made += 1
+        return []
+
+    def get_income_statement(self, symbol, *, period="annual", limit=6):
+        self.api_calls_made += 1
+        return []
+
+    def get_balance_sheet(self, symbol, *, period="annual", limit=6):
+        self.api_calls_made += 1
+        return []
+
+    def get_cash_flow(self, symbol, *, period="annual", limit=6):
+        self.api_calls_made += 1
+        return []
+
+    def get_ratios_ttm(self, symbol):
+        self.api_calls_made += 1
+        return []
+
+    def get_stock_peers(self, symbol):
+        self.api_calls_made += 1
+        return []
+
+
 class VerifiedSnapshotBundleTests(unittest.TestCase):
     def test_verified_rows_and_digest_come_from_one_verified_read(self) -> None:
         now = datetime.now(timezone.utc).replace(microsecond=0)
@@ -326,6 +419,276 @@ class FullSnapshotStageTests(unittest.TestCase):
             }
         )
         return config
+
+    def _assert_partial_diagnostic(self, output: Path, prepared: dict, stage: str) -> dict:
+        diagnostic_path = output / "audit" / "partial-run-diagnostic.json"
+        self.assertTrue(diagnostic_path.is_file())
+        diagnostic = json.loads(diagnostic_path.read_text())
+        self.assertEqual(diagnostic["status"], "provider_budget_exhausted")
+        self.assertEqual(diagnostic["stage"], stage)
+        self.assertEqual(diagnostic["snapshot_id"], prepared["verdict"]["snapshot_id"])
+        self.assertEqual(
+            diagnostic["snapshot_verification_digest"], prepared["verification_digest"]
+        )
+        self.assertTrue(diagnostic["no_final_marketwide_conclusion"])
+        self.assertTrue(diagnostic["commit_marker"])
+
+        partial_record = diagnostic["artifacts"]["partial_enriched_estimates"]
+        partial_path = output / partial_record["path"]
+        self.assertTrue(partial_path.is_file())
+        self.assertEqual(
+            partial_record["sha256"], hashlib.sha256(partial_path.read_bytes()).hexdigest()
+        )
+        self.assertEqual(partial_record["row_count"], len(partial_path.read_text().splitlines()))
+        for key in ("run_summary", "next_action"):
+            record = diagnostic["artifacts"][key]
+            path = output / record["path"]
+            self.assertTrue(path.is_file())
+            self.assertEqual(record["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
+        summary = json.loads((output / "run-summary.json").read_text())
+        next_action = json.loads((output / "NEXT_ACTION.json").read_text())
+        for artifact in (summary, next_action):
+            self.assertTrue(artifact["no_final_marketwide_conclusion"])
+            self.assertNotIn("selected_symbols", artifact)
+            self.assertNotEqual(artifact.get("ranking_scope"), "final_marketwide")
+        progress = diagnostic["progress"]
+        self.assertEqual(
+            progress["pending_symbols"],
+            [
+                symbol
+                for symbol in progress["target_symbols"]
+                if symbol not in progress["completed_symbols"]
+            ],
+        )
+        self.assertTrue(all(symbol == symbol.upper() for symbol in progress["target_symbols"]))
+        self.assertEqual(len(progress["target_symbols"]), len(set(progress["target_symbols"])))
+        return diagnostic
+
+    def _snapshot_bytes(self, snapshot_dir: Path) -> tuple[bytes, bytes]:
+        return (
+            (snapshot_dir / SNAP.MANIFEST_NAME).read_bytes(),
+            SNAP.shard_path(snapshot_dir, 0).read_bytes(),
+        )
+
+    def test_liquidity_budget_exhaustion_persists_progress_after_partial_work(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            prepared = PIPELINE.prepare_screen_full_snapshot(
+                snapshot_dir,
+                analysis_as_of=now,
+                config=self._config(),
+                screening_started_at=now,
+            )
+            before = self._snapshot_bytes(snapshot_dir)
+            output = root / "run"
+            result = PIPELINE.execute_screen_full_snapshot(
+                BudgetOnLiquidityClient(successful_history_calls=2),
+                self._config(),
+                analysis_as_of=now,
+                output_dir=output,
+                prepared_snapshot=prepared,
+                include_packets=False,
+            )
+            self.assertEqual(result.exit_code, 2)
+            diagnostic = self._assert_partial_diagnostic(output, prepared, "liquidity")
+            progress = diagnostic["progress"]
+            self.assertEqual(len(progress["completed_symbols"]), 2)
+            self.assertEqual(len(progress["interrupted_symbols"]), 1)
+            self.assertEqual(len(progress["attempted_symbols"]), 3)
+            self.assertEqual(before, self._snapshot_bytes(snapshot_dir))
+            self.assertFalse((output / "audit" / "broad-screen-audit.json").exists())
+
+    def test_quality_probe_budget_exhaustion_persists_progress_after_partial_work(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            prepared = PIPELINE.prepare_screen_full_snapshot(
+                snapshot_dir,
+                analysis_as_of=now,
+                config=self._config(),
+                screening_started_at=now,
+            )
+            before = self._snapshot_bytes(snapshot_dir)
+            output = root / "run"
+            result = PIPELINE.execute_screen_full_snapshot(
+                BudgetOnQualityClient(successful_quality_calls=1),
+                self._config(),
+                analysis_as_of=now,
+                output_dir=output,
+                prepared_snapshot=prepared,
+                include_packets=False,
+            )
+            self.assertEqual(result.exit_code, 2)
+            diagnostic = self._assert_partial_diagnostic(output, prepared, "quality_probe")
+            progress = diagnostic["progress"]
+            self.assertEqual(len(progress["completed_symbols"]), 1)
+            self.assertEqual(len(progress["interrupted_symbols"]), 1)
+            self.assertTrue((output / "audit" / "quality-probe-audit.json").is_file())
+            self.assertEqual(before, self._snapshot_bytes(snapshot_dir))
+
+    def test_quality_probe_actual_eps_budget_exhaustion_keeps_current_partial_row(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            prepared = PIPELINE.prepare_screen_full_snapshot(
+                snapshot_dir,
+                analysis_as_of=now,
+                config=self._config(),
+                screening_started_at=now,
+            )
+            output = root / "run"
+            result = PIPELINE.execute_screen_full_snapshot(
+                BudgetOnActualEpsClient(successful_actual_calls=1),
+                self._config(),
+                analysis_as_of=now,
+                output_dir=output,
+                prepared_snapshot=prepared,
+                include_packets=False,
+            )
+            self.assertEqual(result.exit_code, 2)
+            diagnostic = self._assert_partial_diagnostic(output, prepared, "quality_probe")
+            self.assertEqual(
+                diagnostic["progress"]["interrupted_at"]["operation"],
+                "get_income_statement",
+            )
+            rows = {
+                json.loads(line)["symbol"]: json.loads(line)
+                for line in (output / "audit" / "enriched-estimates.partial.jsonl")
+                .read_text()
+                .splitlines()
+            }
+            interrupted = diagnostic["progress"]["interrupted_symbols"][0]
+            self.assertTrue(rows[interrupted]["quality_probe_resolved"])
+            self.assertFalse(rows[interrupted]["quality_probe_complete"])
+
+    def test_zero_progress_budget_exhaustion_is_still_fail_closed(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            prepared = PIPELINE.prepare_screen_full_snapshot(
+                snapshot_dir,
+                analysis_as_of=now,
+                config=self._config(),
+                screening_started_at=now,
+            )
+            output = root / "run"
+            result = PIPELINE.execute_screen_full_snapshot(
+                BudgetOnLiquidityClient(successful_history_calls=0),
+                self._config(),
+                analysis_as_of=now,
+                output_dir=output,
+                prepared_snapshot=prepared,
+                include_packets=False,
+            )
+            self.assertEqual(result.exit_code, 2)
+            diagnostic = self._assert_partial_diagnostic(output, prepared, "liquidity")
+            self.assertEqual(diagnostic["progress"]["completed_symbols"], [])
+            self.assertEqual(len(diagnostic["progress"]["interrupted_symbols"]), 1)
+
+    def test_packet_budget_exhaustion_invalidates_nested_selection_and_keeps_packets(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            prepared = PIPELINE.prepare_screen_full_snapshot(
+                snapshot_dir,
+                analysis_as_of=now,
+                config=self._config(),
+                screening_started_at=now,
+            )
+            output = root / "run"
+            result = PIPELINE.execute_screen_full_snapshot(
+                BudgetOnPacketClient(successful_packets=1),
+                self._config(),
+                analysis_as_of=now,
+                output_dir=output,
+                prepared_snapshot=prepared,
+                include_packets=True,
+            )
+            self.assertEqual(result.exit_code, 2)
+            diagnostic = self._assert_partial_diagnostic(output, prepared, "candidate_packets")
+            self.assertEqual(diagnostic["progress"]["interrupted_at"]["operation"], "get_profile")
+            preserved = diagnostic["artifacts"]["preserved"]
+            self.assertTrue(any("candidate-packets" in item["path"] for item in preserved))
+            broad = json.loads((output / "audit" / "broad-screen-audit.json").read_text())
+            self.assertEqual(broad["status"], "incomplete")
+            self.assertEqual(broad["conclusion_scope"], "diagnostic")
+            self.assertEqual(broad["ranking_scope"], "diagnostic")
+            self.assertEqual(broad["selection_outcome"], "incomplete_budget_exhausted")
+            self.assertEqual(broad["selected_symbols"], [])
+            self.assertEqual(broad["deep_dive_plan"]["selected_symbols"], [])
+            self.assertEqual(broad["deep_dive_plan"]["selected_count"], 0)
+            self.assertIsNone(broad["deep_dive_plan"]["selected_set_sha256"])
+            self.assertIsNone(broad["deep_dive_plan"]["commitment_payload"])
+            self.assertFalse(broad["deep_dive_plan"]["selected_set_is_committed"])
+            self.assertEqual(broad["candidate_pool"]["selected_count"], 0)
+            self.assertEqual(broad["candidate_pool"]["status"], "incomplete")
+            self.assertEqual(broad["candidate_pool"]["generation_audit"]["selected_symbols"], [])
+            self.assertEqual(
+                broad["candidate_pool"]["generation_audit"]["actual_selected_symbols"], []
+            )
+            self.assertEqual(broad["candidate_pool"]["generation_audit"]["selected_count"], 0)
+            self.assertEqual(
+                broad["candidate_pool"]["generation_audit"]["actual_selected_count"], 0
+            )
+            self.assertEqual(
+                broad["candidate_pool"]["generation_audit"]["lane_selected_counts"], {}
+            )
+            self.assertFalse(broad["candidate_pool"]["generation_audit"]["valid"])
+            self.assertEqual(
+                hashlib.sha256(
+                    (output / "audit" / "broad-screen-results.jsonl").read_bytes()
+                ).hexdigest(),
+                broad["candidate_pool"]["artifact_sha256"],
+            )
+            candidate_rows = [
+                json.loads(line)
+                for line in (output / "audit" / "broad-screen-results.jsonl")
+                .read_text()
+                .splitlines()
+            ]
+            self.assertTrue(all(row["decision"]["status"] != "selected" for row in candidate_rows))
+            self.assertTrue(
+                all(row["decision"]["selection_eligible"] is False for row in candidate_rows)
+            )
+            self.assertTrue(
+                all("preselection_status" not in row["decision"] for row in candidate_rows)
+            )
+            interrupted = diagnostic["progress"]["interrupted_symbols"][0]
+            self.assertFalse(
+                (output / "candidate-packets" / f"{interrupted}.fmp-packet.json").exists()
+            )
+
+    def test_full_snapshot_rejects_reused_output_directory(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            prepared = PIPELINE.prepare_screen_full_snapshot(
+                snapshot_dir,
+                analysis_as_of=now,
+                config=self._config(),
+                screening_started_at=now,
+            )
+            output = root / "run"
+            output.mkdir()
+            sentinel = output / "run-summary.json"
+            sentinel.write_text('{"status":"ready_for_underwriting"}\n')
+            with self.assertRaisesRegex(ValueError, "must be new and empty"):
+                PIPELINE.execute_screen_full_snapshot(
+                    FakeScreenClient(),
+                    self._config(),
+                    analysis_as_of=now,
+                    output_dir=output,
+                    prepared_snapshot=prepared,
+                    include_packets=False,
+                )
+            self.assertEqual(sentinel.read_text(), '{"status":"ready_for_underwriting"}\n')
 
     def test_complete_current_snapshot_emits_consistent_marketwide_audit(self) -> None:
         now = datetime.now(timezone.utc).replace(microsecond=0)
