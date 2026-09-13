@@ -1,0 +1,47 @@
+{
+  "as_of": "2026-06-27",
+  "candidates": [
+    {
+      "reasons": [
+        "step1_pass_safety_pass"
+      ],
+      "t1_blocked": false,
+      "ticker": "EXMPL",
+      "verdict": "CLEAN-PASS"
+    },
+    {
+      "reasons": [
+        "payout_safety_caution"
+      ],
+      "t1_blocked": false,
+      "ticker": "EXMPLB",
+      "verdict": "PASS-CAUTION"
+    },
+    {
+      "reasons": [
+        "dividend_freeze_income_cash_cow"
+      ],
+      "t1_blocked": false,
+      "ticker": "EXMPLC",
+      "verdict": "CONDITIONAL-PASS"
+    }
+  ],
+  "excluded": [
+    {
+      "reasons": [
+        "step1_recheck"
+      ],
+      "ticker": "EXMPLD",
+      "verdict": "STEP1-RECHECK"
+    },
+    {
+      "reasons": [
+        "step1_fail"
+      ],
+      "ticker": "EXMPLX",
+      "verdict": "FAIL"
+    }
+  ],
+  "profile": "balanced",
+  "schema_version": 1
+}

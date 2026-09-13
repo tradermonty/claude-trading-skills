@@ -1,0 +1,92 @@
+{
+  "provenance": {
+    "components": [
+      "manual_contract",
+      "native_api"
+    ],
+    "execution_mode": "composite",
+    "limitation": "Human register decision is a fixture; no broker fill exists, so every thesis stays IDEA and no order is placed.",
+    "native_component": "trader-memory-core.thesis_ingest + thesis_store.link_report",
+    "source_date": "2026-06-27"
+  },
+  "recorded_at": "2026-06-27T16:00:00+00:00",
+  "schema_version": 1,
+  "theses": [
+    {
+      "created_at": "2026-06-27T00:00:00+00:00",
+      "linked_reports": [
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/03_stock_memo.md",
+          "skill": "kanchi-dividend-sop"
+        },
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/04_account_location_advice.md",
+          "skill": "kanchi-dividend-us-tax-accounting"
+        },
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/05_review_queue.json",
+          "skill": "kanchi-dividend-review-monitor"
+        }
+      ],
+      "next_review_date": "2026-07-27",
+      "origin_skill": "kanchi-dividend-sop",
+      "status": "IDEA",
+      "thesis_type": "dividend_income",
+      "ticker": "EXMPL"
+    },
+    {
+      "created_at": "2026-06-27T00:00:00+00:00",
+      "linked_reports": [
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/03_stock_memo.md",
+          "skill": "kanchi-dividend-sop"
+        },
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/04_account_location_advice.md",
+          "skill": "kanchi-dividend-us-tax-accounting"
+        },
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/05_review_queue.json",
+          "skill": "kanchi-dividend-review-monitor"
+        }
+      ],
+      "next_review_date": "2026-07-27",
+      "origin_skill": "kanchi-dividend-sop",
+      "status": "IDEA",
+      "thesis_type": "dividend_income",
+      "ticker": "EXMPLB"
+    },
+    {
+      "created_at": "2026-06-27T00:00:00+00:00",
+      "linked_reports": [
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/03_stock_memo.md",
+          "skill": "kanchi-dividend-sop"
+        },
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/04_account_location_advice.md",
+          "skill": "kanchi-dividend-us-tax-accounting"
+        },
+        {
+          "date": "2026-06-27",
+          "file": "$ARTIFACT/05_review_queue.json",
+          "skill": "kanchi-dividend-review-monitor"
+        }
+      ],
+      "next_review_date": "2026-07-27",
+      "origin_skill": "kanchi-dividend-sop",
+      "status": "IDEA",
+      "thesis_type": "dividend_income",
+      "ticker": "EXMPLC"
+    }
+  ],
+  "workflow_id": "kanchi-dividend-weekly"
+}

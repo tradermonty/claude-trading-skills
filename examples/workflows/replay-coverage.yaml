@@ -6,6 +6,11 @@ covered:
     variants:
       - required-only
       - full-path
+  kanchi-dividend-weekly:
+    spec: kanchi-dividend-weekly/replay.yaml
+    variants:
+      - required-only
+      - full-path
   market-regime-daily:
     spec: market-regime-daily/replay.yaml
     variants:
@@ -37,12 +42,9 @@ covered:
       - required-only
       - full-path
 
-# Frozen Coverage 7/11 baseline. The validator rejects adding another deferral, so a
+# Frozen Coverage 8/11 baseline. The validator rejects adding another deferral, so a
 # newly introduced workflow must ship both replay variants.
 deferred:
-  kanchi-dividend-weekly:
-    issue: 294
-    reason: Native and human contract adapters are not implemented yet.
   multi-asset-opportunity-daily:
     issue: 294
     reason: Provider-backed and manual hypothesis adapters remain deferred.

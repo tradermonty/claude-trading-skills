@@ -1,0 +1,63 @@
+{
+  "as_of": "2026-06-27",
+  "generated_at": "2026-06-27T16:00:00+00:00",
+  "results": [
+    {
+      "actions": [],
+      "findings": [],
+      "instrument_type": "stock",
+      "status": "OK",
+      "ticker": "EXMPL"
+    },
+    {
+      "actions": [
+        "pause_buy_adds_optional",
+        "append_next_earnings_checklist"
+      ],
+      "findings": [
+        {
+          "evidence": {
+            "cut_flag": false,
+            "freeze_flag": true,
+            "schema_version": null,
+            "special_dividend_flag": false,
+            "variable_policy_flag": false
+          },
+          "reason": "WS-1 freeze_flag set: dividend held flat (policy change); pause optional adds and re-underwrite growth thesis.",
+          "status": "WARN",
+          "trigger": "T6"
+        }
+      ],
+      "instrument_type": "stock",
+      "status": "WARN",
+      "ticker": "EXMPLB"
+    },
+    {
+      "actions": [
+        "pause_buy_adds",
+        "create_review_ticket",
+        "human_read_full_disclosure"
+      ],
+      "findings": [
+        {
+          "evidence": {
+            "is_missing": true,
+            "latest_regular": null,
+            "prior_regular": null
+          },
+          "reason": "Dividend data missing; suspension or data integrity issue possible.",
+          "status": "REVIEW",
+          "trigger": "T1"
+        }
+      ],
+      "instrument_type": "stock",
+      "status": "REVIEW",
+      "ticker": "EXMPLC"
+    }
+  ],
+  "summary": {
+    "OK": 1,
+    "REVIEW": 1,
+    "WARN": 1
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-06-27",
+  "holdings": [
+    {
+      "ticker": "EXMPL",
+      "instrument_type": "stock",
+      "dividend": {
+        "latest_regular": 2.5,
+        "prior_regular": 2.5,
+        "flags": {}
+      },
+      "cashflow": {
+        "fcf": 1000.0,
+        "dividends_paid": 300.0,
+        "coverage_ratio_history": [0.25, 0.28, 0.3]
+      },
+      "operations": {
+        "revenue_cagr_5y": 0.05,
+        "margin_trend": "stable",
+        "guidance_trend": "stable",
+        "dividend_growth_stalled": false
+      }
+    },
+    {
+      "ticker": "EXMPLB",
+      "instrument_type": "stock",
+      "dividend": {
+        "latest_regular": 2.0,
+        "prior_regular": 2.0,
+        "flags": {
+          "freeze_flag": true
+        }
+      },
+      "cashflow": {
+        "fcf": 900.0,
+        "dividends_paid": 250.0,
+        "coverage_ratio_history": [0.2, 0.22, 0.24]
+      },
+      "operations": {
+        "revenue_cagr_5y": 0.03,
+        "margin_trend": "stable",
+        "guidance_trend": "stable",
+        "dividend_growth_stalled": false
+      }
+    },
+    {
+      "ticker": "EXMPLC",
+      "instrument_type": "stock",
+      "dividend": {
+        "is_missing": true
+      },
+      "cashflow": {
+        "fcf": 800.0,
+        "dividends_paid": 200.0,
+        "coverage_ratio_history": [0.2, 0.21, 0.22]
+      },
+      "operations": {
+        "revenue_cagr_5y": 0.02,
+        "margin_trend": "stable",
+        "guidance_trend": "stable",
+        "dividend_growth_stalled": false
+      }
+    }
+  ]
+}

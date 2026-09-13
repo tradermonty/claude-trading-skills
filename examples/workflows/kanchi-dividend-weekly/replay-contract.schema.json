@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/kanchi-dividend-weekly/replay-contract.schema.json",
+  "title": "Kanchi dividend weekly replay contract",
+  "$defs": {
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "ticker": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticker", "bucket", "note"],
+      "properties": {
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "bucket": {"enum": ["unassigned", "income", "balanced", "growth"]},
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "candidate_list": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "human_approved", "source", "candidates"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "human_approved": {"const": true},
+        "source": {"enum": ["value-dividend-screener", "dividend-growth-pullback-screener"]},
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/candidate"}
+        }
+      }
+    },
+    "underwriting_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ticker",
+        "step1_verdict",
+        "safety_verdict",
+        "event_verdict_cap",
+        "event_t1_blocked",
+        "pre_order_blockers"
+      ],
+      "properties": {
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "step1_verdict": {
+          "enum": [
+            "STEP1-PASS",
+            "STEP1-RECHECK",
+            "ASSUMPTION-REQUIRED",
+            "HOLD-REVIEW",
+            "FAIL"
+          ]
+        },
+        "safety_verdict": {"enum": ["PASS", "CAUTION", "HOLD-REVIEW", "FAIL"]},
+        "event_verdict_cap": {"enum": [null, "HOLD-REVIEW"]},
+        "event_t1_blocked": {"type": "boolean"},
+        "pre_order_blockers": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "underwriting_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "candidates"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/underwriting_candidate"}
+        }
+      }
+    },
+    "underwriting_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_approved", "expected_actionable", "expected_excluded", "sop_profile"],
+      "properties": {
+        "human_approved": {"const": true},
+        "expected_actionable": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/ticker"}
+        },
+        "expected_excluded": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/ticker"}
+        },
+        "sop_profile": {"enum": ["income-now", "balanced", "growth-first"]}
+      }
+    },
+    "register_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_approved", "expected_idea", "expected_active"],
+      "properties": {
+        "human_approved": {"const": true},
+        "expected_idea": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/ticker"}
+        },
+        "expected_active": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/ticker"}
+        }
+      }
+    },
+    "kanchi_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticker", "verdict", "t1_blocked", "reasons"],
+      "properties": {
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "verdict": {
+          "enum": ["CLEAN-PASS", "PASS-CAUTION", "CONDITIONAL-PASS"]
+        },
+        "t1_blocked": {"type": "boolean"},
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "excluded_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticker", "verdict", "reasons"],
+      "properties": {
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "verdict": {
+          "enum": ["HOLD-REVIEW", "STEP1-RECHECK", "FAIL"]
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "kanchi_candidates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "profile", "candidates", "excluded"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "profile": {"enum": ["income-now", "balanced", "growth-first"]},
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/kanchi_candidate"}
+        },
+        "excluded": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/excluded_candidate"}
+        }
+      }
+    },
+    "linked_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill", "file", "date"],
+      "properties": {
+        "skill": {"type": "string", "minLength": 1},
+        "file": {"type": "string", "minLength": 1},
+        "date": {"$ref": "#/$defs/date"}
+      }
+    },
+    "thesis_record_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ticker",
+        "thesis_type",
+        "status",
+        "created_at",
+        "next_review_date",
+        "origin_skill",
+        "linked_reports"
+      ],
+      "properties": {
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "thesis_type": {"const": "dividend_income"},
+        "status": {"const": "IDEA"},
+        "created_at": {"type": "string", "minLength": 1},
+        "next_review_date": {"$ref": "#/$defs/date"},
+        "origin_skill": {"const": "kanchi-dividend-sop"},
+        "linked_reports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/linked_report"}
+        }
+      }
+    },
+    "thesis_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "workflow_id", "recorded_at", "theses", "provenance"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "workflow_id": {"const": "kanchi-dividend-weekly"},
+        "recorded_at": {"type": "string", "minLength": 1},
+        "theses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/thesis_record_entry"}
+        },
+        "provenance": {"type": "object"}
+      }
+    }
+  }
+}
