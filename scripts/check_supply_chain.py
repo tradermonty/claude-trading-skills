@@ -61,7 +61,12 @@ UniqueKeyLoader.add_constructor(
 )
 
 
-def load_exceptions(path, today=None):
+def _utc_today():
+    return dt.datetime.now(dt.timezone.utc).date()
+
+
+def _load_exception_entries(path):
+    """Validate the complete policy before reporting or accepting any entries."""
     data = read_json(Path(path).read_text())
     if not isinstance(data, dict) or set(data) != {"schema_version", "vulnerabilities"}:
         raise PolicyError("Exceptions require only schema_version and vulnerabilities")
@@ -69,7 +74,6 @@ def load_exceptions(path, today=None):
         raise PolicyError("Unsupported exceptions schema_version")
     if not isinstance(data["vulnerabilities"], list):
         raise PolicyError("vulnerabilities must be a list")
-    today = today or dt.datetime.now(dt.timezone.utc).date()
     seen = set()
     for item in data["vulnerabilities"]:
         fields = {"package", "version", "advisory", "owner", "reason", "expires_on"}
@@ -83,16 +87,75 @@ def load_exceptions(path, today=None):
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", item["expires_on"]):
             raise PolicyError("expires_on must be YYYY-MM-DD (UTC)")
         try:
-            expiry = dt.date.fromisoformat(item["expires_on"])
+            dt.date.fromisoformat(item["expires_on"])
         except ValueError as exc:
             raise PolicyError("Invalid expires_on date") from exc
-        if expiry <= today:
-            raise PolicyError("Exception expired or expires today (UTC)")
         identity = (canonicalize_name(item["package"]), item["version"], item["advisory"])
         if identity in seen:
             raise PolicyError("Duplicate vulnerability exception")
         seen.add(identity)
-    return seen
+    return data["vulnerabilities"]
+
+
+def _accepted_exceptions(entries, today):
+    for item in entries:
+        if dt.date.fromisoformat(item["expires_on"]) <= today:
+            raise PolicyError("Exception expired or expires today (UTC)")
+    return {
+        (canonicalize_name(item["package"]), item["version"], item["advisory"]) for item in entries
+    }
+
+
+def load_exceptions(path, today=None):
+    """Return exact accepted identities; expired policy always raises."""
+    entries = _load_exception_entries(path)
+    return _accepted_exceptions(entries, today or _utc_today())
+
+
+def _exception_expiry_report(entries, today):
+    """Describe validated entries without granting or renewing any exception."""
+    statuses = ("active", "warning", "urgent", "expired")
+    rows = []
+    for item in entries:
+        days = (dt.date.fromisoformat(item["expires_on"]) - today).days
+        status = (
+            "expired"
+            if days <= 0
+            else "urgent"
+            if days <= 7
+            else "warning"
+            if days <= 14
+            else "active"
+        )
+        rows.append(
+            {
+                "package": canonicalize_name(item["package"]),
+                "version": item["version"],
+                "advisory": item["advisory"],
+                "owner": item["owner"],
+                "expires_on": item["expires_on"],
+                "days_remaining": days,
+                "status": status,
+            }
+        )
+    rows.sort(key=lambda row: (row["expires_on"], row["package"], row["version"], row["advisory"]))
+    return {
+        "schema_version": 1,
+        "evaluated_on": today.isoformat(),
+        "status": max((row["status"] for row in rows), key=statuses.index, default="active"),
+        "exceptions": rows,
+    }
+
+
+def _print_expiry_warnings(report):
+    for item in report["exceptions"]:
+        if item["status"] != "active":
+            print(
+                f"{item['status'].upper()}: exception {item['package']}=={item['version']} "
+                f"{item['advisory']} owner={item['owner']} expires_on={item['expires_on']} UTC "
+                f"days_remaining={item['days_remaining']}",
+                file=sys.stderr,
+            )
 
 
 def _validate_pair(name, version):
@@ -246,8 +309,16 @@ def evaluate_report(data, expected, exceptions):
     return blocked
 
 
-def audit_lock(lock_path, exceptions, report_path):
+def _write_report(report_path, report):
+    output = Path(report_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2) + "\n")
+
+
+def audit_lock(lock_path, exceptions, report_path, *, expiry_report=None):
     report = {"dependencies": [], "batches": [], "errors": []}
+    if expiry_report is not None:
+        report["exception_expiry"] = expiry_report
     try:
         inventory = lock_inventory(lock_path)
         report["inventory"] = [{"name": n, "version": v} for n, v in sorted(inventory)]
@@ -287,9 +358,7 @@ def audit_lock(lock_path, exceptions, report_path):
         report["errors"].append(str(exc))
         return 1
     finally:
-        output = Path(report_path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(report, indent=2) + "\n")
+        _write_report(report_path, report)
 
 
 def main(argv=None):
@@ -298,15 +367,30 @@ def main(argv=None):
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--report", type=Path, default=Path("reports/supply-chain-audit.json"))
     args = parser.parse_args(argv)
+    expiry_report = None
     try:
-        exceptions = load_exceptions(args.root / "config/security-exceptions.json")
+        entries = _load_exception_entries(args.root / "config/security-exceptions.json")
+        today = _utc_today()
+        expiry_report = _exception_expiry_report(entries, today)
+        _print_expiry_warnings(expiry_report)
+        exceptions = _accepted_exceptions(entries, today)
         if args.command == "check":
             count = check_actions(args.root)
             print(f"Supply-chain policy passed: {count} action/workflow definitions")
             return 0
-        return audit_lock(args.root / "uv.lock", exceptions, args.report)
+        return audit_lock(
+            args.root / "uv.lock", exceptions, args.report, expiry_report=expiry_report
+        )
     except (PolicyError, ValueError, OSError, yaml.YAMLError) as exc:
         print(f"Supply-chain policy failed: {exc}", file=sys.stderr)
+        if args.command == "audit":
+            report = {"dependencies": [], "batches": [], "errors": [str(exc)]}
+            if expiry_report is not None:
+                report["exception_expiry"] = expiry_report
+            try:
+                _write_report(args.report, report)
+            except OSError as report_exc:
+                print(f"Cannot write supply-chain report: {report_exc}", file=sys.stderr)
         return 1
 
 

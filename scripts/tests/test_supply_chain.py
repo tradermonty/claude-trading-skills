@@ -315,3 +315,179 @@ def test_duplicate_yaml_uses_rejected(tmp_path):
     )
     with pytest.raises(policy.PolicyError, match="Duplicate YAML key"):
         policy.check_actions(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "days,status",
+    [
+        (15, "active"),
+        (14, "warning"),
+        (8, "warning"),
+        (7, "urgent"),
+        (1, "urgent"),
+        (0, "expired"),
+        (-1, "expired"),
+    ],
+)
+def test_exception_expiry_boundaries(days, status):
+    today = dt.date(2026, 9, 22)
+    item = dict(exception(), expires_on=(today + dt.timedelta(days=days)).isoformat())
+    result = policy._exception_expiry_report([item], today)
+    assert result == {
+        "schema_version": 1,
+        "evaluated_on": "2026-09-22",
+        "status": status,
+        "exceptions": [
+            {
+                "package": "demo",
+                "version": "1.0",
+                "advisory": "GHSA-demo",
+                "owner": "security",
+                "expires_on": item["expires_on"],
+                "days_remaining": days,
+                "status": status,
+            }
+        ],
+    }
+
+
+def test_expiry_report_retains_each_advisory_and_sorts():
+    today = dt.date(2026, 9, 22)
+    entries = [
+        dict(exception(), package="Some_Package", advisory="GHSA-b", expires_on="2026-10-06"),
+        dict(exception(), expires_on="2026-09-29"),
+        dict(exception(), package="Some_Package", advisory="GHSA-a", expires_on="2026-10-06"),
+    ]
+    result = policy._exception_expiry_report(entries, today)
+    assert result == policy._exception_expiry_report(list(reversed(entries)), today)
+    assert result["status"] == "urgent"
+    assert [item["advisory"] for item in result["exceptions"]] == ["GHSA-demo", "GHSA-a", "GHSA-b"]
+    assert result["exceptions"][1]["package"] == "some-package"
+    assert entries[0]["package"] == "Some_Package"
+    assert policy._exception_expiry_report([], today) == {
+        "schema_version": 1,
+        "evaluated_on": "2026-09-22",
+        "status": "active",
+        "exceptions": [],
+    }
+
+
+def cli_policy_root(tmp_path, entries):
+    root = tmp_path / "repo"
+    (root / "config").mkdir(parents=True)
+    exceptions_file(root / "config", entries).rename(root / "config/security-exceptions.json")
+    workflow(root, "actions/checkout@" + "a" * 40)
+    return root
+
+
+def freeze_utc(monkeypatch, today):
+    calls = []
+
+    class FrozenDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            calls.append(tz)
+            assert tz == dt.timezone.utc
+            return cls(today.year, today.month, today.day, tzinfo=tz)
+
+    monkeypatch.setattr(policy.dt, "datetime", FrozenDateTime)
+    return calls
+
+
+@pytest.mark.parametrize(
+    "days,status", [(15, "active"), (14, "warning"), (7, "urgent"), (0, "expired"), (-1, "expired")]
+)
+def test_check_cli_warns_and_enforces_expiry(tmp_path, monkeypatch, capsys, days, status):
+    today = dt.date(2026, 9, 22)
+    calls = freeze_utc(monkeypatch, today)
+    item = dict(exception(), expires_on=(today + dt.timedelta(days=days)).isoformat())
+    root = cli_policy_root(tmp_path, [item])
+    assert policy.main(["check", "--root", str(root)]) == (1 if days <= 0 else 0)
+    captured = capsys.readouterr()
+    assert calls == [dt.timezone.utc]  # Capture one UTC date for warning and enforcement.
+    if days > 14:
+        assert captured.err == ""
+    else:
+        assert status.upper() in captured.err
+        for value in ("demo==1.0", "GHSA-demo", "security", item["expires_on"], "UTC"):
+            assert value in captured.err
+    assert ("policy passed" in captured.out) == (days > 0)
+
+
+def test_load_exceptions_default_clock_remains_utc_and_fail_closed(tmp_path, monkeypatch):
+    calls = freeze_utc(monkeypatch, dt.date(2099, 1, 1))
+    with pytest.raises(policy.PolicyError, match="today"):
+        policy.load_exceptions(exceptions_file(tmp_path, [exception()]))
+    assert calls == [dt.timezone.utc]
+
+
+@pytest.mark.parametrize("outcome", ["clean", "blocked", "scanner_error"])
+def test_audit_cli_includes_expiry_on_all_scanner_outcomes(tmp_path, monkeypatch, outcome):
+    freeze_utc(monkeypatch, dt.date(2026, 9, 29))
+    root = cli_policy_root(tmp_path, [dict(exception(), expires_on="2026-10-06")])
+    lock_file(root)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if outcome == "scanner_error":
+            raise subprocess.TimeoutExpired(command, 600)
+        version = Path(command[command.index("-r") + 1]).read_text().strip().split("==")[1]
+        data = report([{"id": "CVE-unexcepted"}] if outcome == "blocked" else [])
+        data["dependencies"][0]["version"] = version
+        return subprocess.CompletedProcess(command, int(outcome == "blocked"), json.dumps(data), "")
+
+    monkeypatch.setattr(policy.subprocess, "run", run)
+    output = tmp_path / "audit.json"
+    assert policy.main(["audit", "--root", str(root), "--report", str(output)]) == int(
+        outcome != "clean"
+    )
+    data = json.loads(output.read_text())
+    assert calls
+    assert data["exception_expiry"]["status"] == "urgent"
+    assert data["exception_expiry"]["evaluated_on"] == "2026-09-29"
+    assert data["exception_expiry"]["exceptions"][0]["days_remaining"] == 7
+    if outcome == "clean":
+        assert data["errors"] == data["blocked"] == []
+    elif outcome == "blocked":
+        assert len(data["blocked"]) == 2
+    else:
+        assert data["errors"]
+
+
+@pytest.mark.parametrize("invalid", ["expired", "malformed", "duplicate"])
+def test_audit_policy_failure_replaces_stale_report_without_scanning(
+    tmp_path, monkeypatch, invalid
+):
+    freeze_utc(monkeypatch, dt.date(2026, 10, 6))
+    entries = [dict(exception(), expires_on="2026-10-06" if invalid == "expired" else "2099-01-01")]
+    if invalid == "malformed":
+        entries.append(dict(exception(), owner=""))
+    if invalid == "duplicate":
+        entries *= 2
+    root = cli_policy_root(tmp_path, entries)
+    monkeypatch.setattr(
+        policy.subprocess, "run", lambda *a, **k: pytest.fail("scanner must not run")
+    )
+    output = tmp_path / "audit.json"
+    output.write_text(json.dumps({"blocked": [], "errors": []}))
+    assert policy.main(["audit", "--root", str(root), "--report", str(output)]) == 1
+    data = json.loads(output.read_text())
+    assert data["errors"]
+    assert data["dependencies"] == data["batches"] == []
+    assert "blocked" not in data
+    if invalid == "expired":
+        assert data["exception_expiry"]["status"] == "expired"
+        assert data["exception_expiry"]["exceptions"][0]["days_remaining"] == 0
+    else:
+        assert "exception_expiry" not in data
+
+
+def test_expired_audit_report_write_error_returns_failure(tmp_path, monkeypatch, capsys):
+    freeze_utc(monkeypatch, dt.date(2099, 1, 1))
+    root = cli_policy_root(tmp_path, [exception()])
+    monkeypatch.setattr(
+        policy.subprocess, "run", lambda *a, **k: pytest.fail("scanner must not run")
+    )
+    assert policy.main(["audit", "--root", str(root), "--report", str(tmp_path)]) == 1
+    assert "report" in capsys.readouterr().err.lower()

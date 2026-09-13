@@ -52,6 +52,52 @@ at the start of its expiry date. Malformed, duplicate, unknown or expired entrie
 fail the offline check. An advisory alias is accepted only for the same exact
 package and version.
 
+### Approaching-expiry diagnostics
+
+Both `check` and `audit` evaluate all exception entries against one captured UTC
+date. Starting **14 days before expiry**, each affected entry is printed to
+stderr with its package/version, advisory, owner, UTC expiry date and remaining
+days. The inclusive thresholds are:
+
+| Days remaining | Status | Policy behavior |
+|---|---|---|
+| More than 14 | `active` | No expiry warning |
+| 8 through 14 | `warning` | Warn; exception remains valid |
+| 1 through 7 | `urgent` | Warn; exception remains valid |
+| 0 or fewer | `expired` | Fail with exit 1; do not run the advisory scanner |
+
+For an expiry date of October 6, warning begins September 22, urgency begins
+September 29, and the exception becomes invalid at **October 6 00:00 UTC**.
+Expiry status describes the exception deadline, not vulnerability severity or
+whether a dependency is safe.
+
+When `audit` runs, its JSON report includes `exception_expiry` with
+`schema_version: 1`, `evaluated_on` (UTC date), the most urgent overall `status`,
+and an `exceptions` array. Each row contains `package`, `version`, `advisory`,
+`owner`, `expires_on`, `days_remaining` and `status`. Rows sort by expiry date,
+normalized package name, exact version and advisory; separate advisories for the
+same package/version remain separate rows. An empty policy produces an empty
+array and `active` status. This block is present on successful scans, blocked
+vulnerability results and scanner errors; inspect the existing `errors` and
+`blocked` fields as well as the command exit code for the actual audit result.
+
+A direct `audit` invocation with an expired policy writes a failure report with
+`exception_expiry` and `errors`, exits 1, and performs no scanner calls. Invalid
+policy structure also produces an error report, without partial expiry entries.
+The output replaces any previous report at `--report`; a report-write failure
+is reported on stderr and returns exit 1.
+
+In CI, `check` runs **before** `audit`. Approaching-expiry reports are included in
+the existing audit artifact when the audit step runs. On or after expiry,
+`check` fails first and the audit step is skipped: the CI log contains the
+expiry diagnostics, but no new audit JSON artifact is guaranteed in that case.
+These are per-invocation diagnostics; they do not add a scheduled notification.
+
+This implements only the reporting part of **#387**. The reviewed supported-Python
+and dependency remediation decision, lockfile remediation, full-lock audit and
+affected standalone/compatibility validation remain open work. No deadlines are
+extended or exceptions renewed by this reporting feature.
+
 These exceptions can document existing debt for the full-lock audit. They never
 populate GitHub's global `allow-ghsas` setting: a PR introducing a vulnerability
 remains blocked by Dependency Review even if a full-lock exception exists.
