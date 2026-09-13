@@ -31,7 +31,8 @@ def test_newline_normalization_crlf(tmp_path: Path) -> None:
     crlf = b"line1\r\nline2\r\nline3\r\n"
     target = tmp_path / "crlf.txt"
     target.write_bytes(crlf)
-    text = target.read_text(encoding="utf-8", newline=None)
+    with target.open("r", encoding="utf-8", newline=None) as fh:
+        text = fh.read()
     normalized = text.replace("\r\n", "\n")
     assert normalized == "line1\nline2\nline3\n"
     assert "\r\n" not in normalized
