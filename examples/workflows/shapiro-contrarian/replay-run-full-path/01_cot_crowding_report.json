@@ -1,0 +1,18 @@
+{
+  "markets": [
+    {
+      "classification": "CROWDED_SHORT",
+      "data_date": "2026-08-07",
+      "status": "ok",
+      "symbol": "B6"
+    }
+  ],
+  "run_context": {
+    "as_of": "2026-08-12",
+    "data_date": "2026-08-07",
+    "schema_version": "1.0"
+  },
+  "schema_version": "1.0",
+  "skill": "cot-contrarian-detector",
+  "skipped": []
+}

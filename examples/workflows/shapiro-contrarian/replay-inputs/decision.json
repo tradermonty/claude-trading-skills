@@ -1,0 +1,10 @@
+{
+  "human_approved": true,
+  "symbol": "B6",
+  "as_of": "2026-08-15",
+  "entry": 1.38,
+  "account_size": 100000,
+  "risk_pct": 1,
+  "thesis_statement": "Fictional COT short crowd fails to push the market lower; weekly reversal supports a researched long fade.",
+  "kill_criterion": "Invalidate the hypothetical fade at the confirmed weekly swing stop; no actual fill exists."
+}
