@@ -239,6 +239,31 @@ def test_registration_links_actual_memo_artifact(tmp_path: Path) -> None:
         } in row["linked_reports"]
 
 
+def test_registration_preserves_nested_memo_path(tmp_path: Path) -> None:
+    """Regression: a nested memo path must not be truncated to its basename."""
+    workdir = tmp_path / "kanchi-nested"
+    shutil.copytree(SPEC.parent, workdir)
+    spec_path = workdir / "replay.yaml"
+    spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+    for step in spec["steps"]:
+        if step["step"] == 3:
+            step["output_files"]["stock_memo"]["canonical"] = "nested/03_stock_memo.md"
+    spec_path.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
+
+    output = tmp_path / "out"
+    report = execute_replay(ROOT, spec_path, "required-only", output)
+    assert report["status"] == "completed"
+    assert (output / "nested" / "03_stock_memo.md").is_file()
+
+    record = json.loads((output / "06_thesis_record.json").read_text(encoding="utf-8"))
+    for row in record["theses"]:
+        assert {
+            "skill": "kanchi-dividend-sop",
+            "file": "$ARTIFACT/nested/03_stock_memo.md",
+            "date": FIXED_DATE,
+        } in row["linked_reports"]
+
+
 def test_manifest_records_native_execution_evidence(tmp_path: Path) -> None:
     required = execute_replay(ROOT, SPEC, "required-only", tmp_path / "required")
     full = execute_replay(ROOT, SPEC, "full-path", tmp_path / "full")

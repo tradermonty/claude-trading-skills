@@ -4311,18 +4311,31 @@ def _kanchi_review_queue(
 
 
 def _kanchi_artifact_link(
-    consumed: Mapping[str, dict[str, Any]], artifact_id: str, role: str
+    consumed: Mapping[str, dict[str, Any]], artifact_id: str, role: str, stage: Path
 ) -> str:
-    """Derive a stable link token from the artifact actually handed forward."""
+    """Derive a stable link token from the artifact actually handed forward.
+
+    The token keeps the full path relative to the published staging root, so a
+    nested output such as ``nested/03_stock_memo.md`` is not truncated to its
+    basename. A target that escapes staging or does not exist fails closed.
+    """
     try:
         raw_path = Path(consumed[artifact_id]["files"][role])
     except (KeyError, TypeError) as exc:
         raise ReplayError(
             f"kanchi registration is missing the {artifact_id}.{role} handoff"
         ) from exc
-    if not raw_path.is_file():
+    resolved = raw_path.resolve()
+    stage_root = stage.resolve()
+    try:
+        relative = resolved.relative_to(stage_root)
+    except ValueError as exc:
+        raise ReplayError(
+            f"kanchi registration link target escapes staging: {artifact_id}.{role}"
+        ) from exc
+    if not resolved.is_file():
         raise ReplayError(f"kanchi registration link target does not exist: {artifact_id}.{role}")
-    return f"$ARTIFACT/{raw_path.name}"
+    return f"$ARTIFACT/{relative.as_posix()}"
 
 
 def _kanchi_register_thesis(
@@ -4365,20 +4378,20 @@ def _kanchi_register_thesis(
         raise ReplayError("native thesis ingest did not register the expected IDEA theses")
 
     linked_specs = [
-        ("kanchi-dividend-sop", _kanchi_artifact_link(consumed, "stock_memo", "canonical"))
+        ("kanchi-dividend-sop", _kanchi_artifact_link(consumed, "stock_memo", "canonical", stage))
     ]
     if "account_location_advice" in consumed:
         linked_specs.append(
             (
                 "kanchi-dividend-us-tax-accounting",
-                _kanchi_artifact_link(consumed, "account_location_advice", "markdown"),
+                _kanchi_artifact_link(consumed, "account_location_advice", "markdown", stage),
             )
         )
     if "review_queue" in consumed:
         linked_specs.append(
             (
                 "kanchi-dividend-review-monitor",
-                _kanchi_artifact_link(consumed, "review_queue", "canonical"),
+                _kanchi_artifact_link(consumed, "review_queue", "canonical", stage),
             )
         )
     for thesis in theses:
