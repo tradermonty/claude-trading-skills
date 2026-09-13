@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +24,39 @@ from workflow_replay import (  # noqa: E402
 
 SPEC = ROOT / "examples" / "workflows" / "monthly-performance-review" / "replay.yaml"
 INPUTS = SPEC.parent / "replay-inputs"
+
+_PROGRESS = (
+    "........................................................................ [ 27%]\n"
+    "........................................................................ [ 54%]\n"
+    "........................................................................ [ 82%]\n"
+    "..............................................                           [100%]"
+)
+
+# Representative local noise: pytest's session-finish GC failing on stale
+# ``pytest-of-<user>/garbage-*`` directories (random temp path, OSError context,
+# blank line before the ``-- Docs:`` terminator). The live block repeats this
+# entry; the count is not parsed, so a representative subset is sufficient.
+_RM_RF_WARNING_BLOCK = "\n".join(
+    [
+        ".venv/lib/python3.12/site-packages/_pytest/pathlib.py:95",
+        "  .venv/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: "
+        "(rm_rf) error removing /private/var/folders/ab/T/pytest-of-user/"
+        "garbage-0123abcd/test_atomic_writer_rejects_exi0",
+        "  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/ab/T/"
+        "pytest-of-user/garbage-0123abcd/test_atomic_writer_rejects_exi0'",
+        "    warnings.warn(",
+        "",
+        ".venv/lib/python3.12/site-packages/_pytest/pathlib.py:95",
+        "  .venv/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: "
+        "(rm_rf) error removing /private/var/folders/ab/T/pytest-of-user/garbage-4567efgh",
+        "  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/ab/T/"
+        "pytest-of-user/garbage-4567efgh'",
+        "    warnings.warn(",
+        "",
+    ]
+)
+
+_DOCS_LINE = "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html"
 
 
 def test_monthly_spec_has_honest_executor_evidence() -> None:
@@ -353,6 +387,10 @@ def test_native_commands_are_offline_and_do_not_launch_uv(
     reviewer_index = reviewer_indexes[0]
     reviewer_path = environments[reviewer_index]["PATH"]
     assert Path(reviewer_path).name == "python-fallback-path"
+    # Reviewer subprocess output must be uncolored so the warnings-summary anchors
+    # cannot be defeated by ANSI escapes.
+    assert environments[reviewer_index]["NO_COLOR"] == "1"
+    assert environments[reviewer_index]["PY_COLORS"] == "0"
     assert all(
         environment["PATH"] != reviewer_path
         for index, environment in enumerate(environments)
@@ -500,3 +538,181 @@ def test_monthly_goldens_are_byte_reproducible(tmp_path: Path) -> None:
         actual = tmp_path / variant
         execute_replay(ROOT, SPEC, variant, actual)
         assert compare_trees(actual, SPEC.parent / golden_name) == []
+
+
+def test_pytest_rm_rf_warning_summary_is_stripped_to_golden_tail() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=============================== warnings summary ===============================\n"
+        f"{_RM_RF_WARNING_BLOCK}\n"
+        f"{_DOCS_LINE}\n"
+        "262 passed, 6 warnings in 0.53s"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert stripped == f"{_PROGRESS}\n262 passed in 0.53s"
+    assert replay_module._normalize_elapsed(stripped) == f"{_PROGRESS}\n262 passed in <elapsed>s"
+    assert "warnings summary" not in stripped
+    assert "garbage-" not in stripped
+
+
+def test_pytest_failed_short_summary_is_preserved() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=============================== warnings summary ===============================\n"
+        f"{_RM_RF_WARNING_BLOCK}\n"
+        f"{_DOCS_LINE}\n"
+        "=========================== short test summary info ============================\n"
+        "FAILED skills/x/scripts/tests/test_a.py::test_b - assert 1 == 2\n"
+        "1 failed, 1 passed, 1 warning in 0.02s"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert "short test summary info" in stripped
+    assert "FAILED skills/x/scripts/tests/test_a.py::test_b - assert 1 == 2" in stripped
+    assert stripped.endswith("1 failed, 1 passed in 0.02s")
+
+
+def test_genuine_warning_summary_is_not_stripped() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=============================== warnings summary ===============================\n"
+        "skills/x/scripts/foo.py:10\n"
+        "  skills/x/scripts/foo.py:10: DeprecationWarning: legacy path\n"
+        "    warnings.warn(\n"
+        f"{_DOCS_LINE}\n"
+        "1 passed, 1 warning in 0.02s"
+    )
+
+    assert replay_module._strip_pytest_warning_summary(output) == output
+
+
+def test_warning_summary_without_docs_line_is_unchanged() -> None:
+    output = (
+        "x\n"
+        "=== warnings summary ===\n"
+        "  PytestWarning: (rm_rf) error removing /tmp/garbage-abcd\n"
+        "1 passed, 1 warning in 0.02s"
+    )
+
+    assert replay_module._strip_pytest_warning_summary(output) == output
+
+
+def test_output_without_warning_summary_is_unchanged() -> None:
+    output = "262 passed in 0.53s"
+
+    assert replay_module._strip_pytest_warning_summary(output) == output
+
+
+def test_pytest_mixed_warning_summary_is_not_stripped() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=== warnings summary ===\n"
+        "  PytestWarning: (rm_rf) error removing /tmp/garbage-abcd\n"
+        "  PytestWarning: some genuine pytest warning\n"
+        f"{_DOCS_LINE}\n"
+        "1 passed, 2 warnings in 0.02s"
+    )
+
+    assert replay_module._strip_pytest_warning_summary(output) == output
+
+
+def test_warnings_count_fragment_outside_status_line_is_preserved() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=== warnings summary ===\n"
+        f"{_RM_RF_WARNING_BLOCK}\n"
+        f"{_DOCS_LINE}\n"
+        'FAILED t.py::test_b - AssertionError: expected ", 5 warnings in the text"\n'
+        "1 failed, 1 warning in 0.02s"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert 'expected ", 5 warnings in the text"' in stripped
+    assert stripped.endswith("1 failed in 0.02s")
+
+
+def test_run_cli_rejects_sensitive_env_override() -> None:
+    with pytest.raises(ReplayError, match="sensitive"):
+        replay_module._run_cli(
+            [sys.executable, "-c", "pass"],
+            ROOT,
+            env_overrides={"FMP_API_KEY": "x"},
+        )
+
+
+def test_monthly_skill_review_normalizes_captured_warnings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Wiring guard: the executor itself must normalize the captured test output."""
+    registration = EXECUTORS["monthly_skill_review"]
+    dirty_report = {
+        "skill_name": "vcp-screener",
+        "auto_review": {
+            "test_status": "passed",
+            "test_command": f"{sys.executable} -m pytest skills/vcp-screener/scripts/tests -q",
+            "test_output": (
+                f"{_PROGRESS}\n"
+                "=== warnings summary ===\n"
+                f"{_RM_RF_WARNING_BLOCK}\n"
+                f"{_DOCS_LINE}\n"
+                "262 passed, 6 warnings in 0.53s"
+            ),
+            "grades": {},
+        },
+        "final_review": {"score": 93},
+    }
+
+    def fake_run_cli(command, repo_root, **kwargs):
+        output_dir = Path(command[command.index("--output-dir") + 1])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "skill_review_vcp-screener_20260913.json").write_text(
+            json.dumps(dirty_report), encoding="utf-8"
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(replay_module, "_run_cli", fake_run_cli)
+    spec = load_yaml(SPEC)
+    step = {
+        "output_files": {"skill_review_findings": {"canonical": "05_skill_review_findings.json"}}
+    }
+    inputs = replay_module.validate_spec(ROOT, SPEC)["inputs"]
+
+    artifacts = registration.run(
+        ROOT, spec, step, inputs, {}, tmp_path / "work", tmp_path / "stage"
+    )
+
+    payload = json.loads(Path(artifacts["skill_review_findings"]["files"]["canonical"]).read_text())
+    test_output = payload["review"]["auto_review"]["test_output"]
+    assert "warnings summary" not in test_output
+    assert test_output.endswith("262 passed in <elapsed>s")
+
+
+def test_review_test_output_is_normalized_before_other_replay_metadata() -> None:
+    report = {
+        "generated_at": "2026-09-11T12:34:56Z",
+        "auto_review": {
+            "test_status": "passed",
+            "test_command": f"{sys.executable} -m pytest skills/vcp-screener/scripts/tests -q",
+            "test_output": (
+                f"{_PROGRESS}\n"
+                "=============================== warnings summary "
+                "===============================\n"
+                f"{_RM_RF_WARNING_BLOCK}\n"
+                f"{_DOCS_LINE}\n"
+                "262 passed, 6 warnings in 1.23s"
+            ),
+        },
+    }
+
+    replay_module._normalize_review_test_command(report)
+    replay_module._normalize_review_test_output(report)
+    canonical = replay_module._normalize_elapsed(
+        replay_module._canonicalize(report, "2026-05-31T23:59:59Z", {str(ROOT) + "/": ""})
+    )
+
+    assert canonical["auto_review"]["test_output"] == (f"{_PROGRESS}\n262 passed in <elapsed>s")
+    assert canonical["auto_review"]["test_command"] == "pytest skills/vcp-screener/scripts/tests -q"

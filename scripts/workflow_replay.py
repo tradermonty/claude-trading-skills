@@ -641,10 +641,16 @@ def _run_cli(
     repo_root: Path,
     *,
     path_override: Path | None = None,
+    env_overrides: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     environment = _scrubbed_environment()
     if path_override is not None:
         environment["PATH"] = str(path_override)
+    if env_overrides:
+        for key in env_overrides:
+            if any(marker in key.upper() for marker in SENSITIVE_ENV_MARKERS):
+                raise ReplayError(f"env_overrides must not set a sensitive variable: {key}")
+        environment.update(env_overrides)
     completed = subprocess.run(
         command,
         cwd=repo_root,
@@ -1308,6 +1314,68 @@ def _normalize_review_test_command(report: dict[str, Any]) -> None:
     if any(marker in pytest_arguments for marker in shell_markers):
         raise ReplayError("skill review test command contains shell control syntax")
     auto_review["test_command"] = f"pytest {pytest_arguments}"
+
+
+_PYTEST_WARNINGS_HEADER_RE = re.compile(r"^=+\s*warnings summary\s*=+$")
+_PYTEST_DOCS_RE = re.compile(r"^-- Docs: https://docs\.pytest\.org/")
+_PYTEST_WARNINGS_COUNT_RE = re.compile(r", \d+ warnings?(?= in \d+\.\d+s\b)")
+_PYTEST_WARNING_TYPE_RE = re.compile(r"\b([A-Za-z_]\w*Warning):")
+_PYTEST_RM_RF_RE = re.compile(r"PytestWarning: \(rm_rf\) error removing")
+
+
+def _is_rm_rf_warnings_noise(block: str) -> bool:
+    """True when every warning entry is the known pytest temp-GC noise."""
+    warning_types = _PYTEST_WARNING_TYPE_RE.findall(block)
+    if not warning_types:
+        return False
+    if any(warning_type != "PytestWarning" for warning_type in warning_types):
+        return False
+    rm_rf_count = len(_PYTEST_RM_RF_RE.findall(block))
+    return rm_rf_count == len(warning_types)
+
+
+def _strip_pytest_warning_summary(text: str) -> str:
+    """Drop pytest's environment-specific ``(rm_rf)`` warnings summary, if present.
+
+    The summary embeds the random pytest base-temp path and fails
+    ``ENOTEMPTY`` cleanup on stale local state, so it is not reproducible and must
+    not be part of a replay golden. The block is only removed when every warning
+    entry is that known noise; genuine warnings are left intact so they still
+    surface as drift. An unrecognized layout (header without a ``-- Docs:``
+    terminator) is returned unchanged.
+    """
+    lines = text.split("\n")
+    header_index = next(
+        (index for index, line in enumerate(lines) if _PYTEST_WARNINGS_HEADER_RE.match(line)),
+        None,
+    )
+    if header_index is None:
+        return text
+    docs_index = next(
+        (
+            index
+            for index in range(header_index + 1, len(lines))
+            if _PYTEST_DOCS_RE.match(lines[index])
+        ),
+        None,
+    )
+    if docs_index is None:
+        return text
+    block = "\n".join(lines[header_index : docs_index + 1])
+    if not _is_rm_rf_warnings_noise(block):
+        return text
+    kept = lines[:header_index] + lines[docs_index + 1 :]
+    return _PYTEST_WARNINGS_COUNT_RE.sub("", "\n".join(kept))
+
+
+def _normalize_review_test_output(report: dict[str, Any]) -> None:
+    """Normalize captured pytest output in a skill-review report for replay."""
+    auto_review = report.get("auto_review")
+    if not isinstance(auto_review, dict):
+        raise ReplayError("skill review auto_review must be a mapping")
+    output = auto_review.get("test_output")
+    if isinstance(output, str):
+        auto_review["test_output"] = _strip_pytest_warning_summary(output)
 
 
 def _exact_payload_sha256(payload: Any) -> str:
@@ -3210,9 +3278,11 @@ def _monthly_skill_review(
         ],
         repo_root,
         path_override=python_fallback_path,
+        env_overrides={"NO_COLOR": "1", "PY_COLORS": "0"},
     )
     report = _load_json(_latest_report(batch, f"skill_review_{skill_name}_*.json"), "skill review")
     _normalize_review_test_command(report)
+    _normalize_review_test_output(report)
     report = _canonicalize(
         report,
         spec["fixed_timestamp"],
