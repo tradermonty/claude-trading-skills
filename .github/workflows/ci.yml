@@ -466,7 +466,7 @@ jobs:
           # missing per-skill dependency declarations via transitive packages
           # (issue #311). Import each core skill's required deps from a clean,
           # isolated environment (no project/dev extras) to fail closed.
-          python3 - <<'PYEOF'
+          python - <<'PYEOF'
           import subprocess
           import sys
           from pathlib import Path

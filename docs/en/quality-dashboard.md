@@ -29,7 +29,7 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 
 ## End-to-end replay
 
-- Workflows covered by E2E replay: 7 / 11
+- Workflows covered by E2E replay: 8 / 11
 
 ## Dependencies
 
