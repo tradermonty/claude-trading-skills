@@ -88,24 +88,41 @@ def _validate_python_bound(value: str | None) -> tuple[str, str]:
     upper = re.search(r"<\s*([0-9.]+)", value)
     if not lower or not upper:
         return "", (
-            f"{PYPROJECT} requires-python='{value}' is not a bounded range (expected '>=3.9,<3.14')"
+            f"{PYPROJECT} requires-python='{value}' is not a bounded range "
+            "(expected '>=LOWER,<UPPER')"
         )
     return value, ""
 
 
 def _matrix_os(runs_on: str | None, matrix: dict | None, python_ver: str | None) -> list[str]:
-    """Resolve the set of OS labels for a job from its matrix + runs-on."""
+    """Resolve the set of OS labels for a job from its matrix + runs-on.
+
+    A literal ``runs-on`` (not a matrix expression) IS the actual runner OS,
+    regardless of any remaining matrix axes, so it wins. Only when
+    ``runs-on`` is itself a matrix expression (``${{ matrix.os }}``) is the
+    OS set expanded from ``matrix.os``. This stops the checker from crediting
+    an OS axis that ``runs-on`` no longer actually dispatches on (hence
+    hardcoding ``runs-on: ubuntu-latest`` while leaving a stale OS matrix no
+    longer hides Windows/macOS from drift detection).
+    """
+    if isinstance(runs_on, list):
+        # Runs on a runner that matches every label, e.g. [self-hosted, linux].
+        return [str(x) for x in runs_on]
+    if runs_on and not _is_expr(runs_on):
+        return [str(runs_on)]
     if isinstance(matrix, dict) and isinstance(matrix.get("os"), list):
         return [str(x) for x in matrix["os"]]
     if runs_on:
-        return [runs_on]
+        return [str(runs_on)]
     return []
 
 
 def _matrix_python(python_ver: str | None, matrix: dict | None) -> list[str | None]:
     """Resolve the set of Python versions for a job from its setup-python step."""
-    if isinstance(matrix, dict) and isinstance(matrix.get("python"), list):
-        return [str(x) for x in matrix["python"]]
+    if isinstance(matrix, dict):
+        for axis in ("python", "python-version"):
+            if isinstance(matrix.get(axis), list):
+                return [str(x) for x in matrix[axis]]
     return [python_ver]
 
 
@@ -264,7 +281,7 @@ def _check_os_and_python_policy(
             if combo.os not in SUPPORTED_OS:
                 errors.append(f"{job_id}: OS {combo.os!r} is outside supported set")
             if combo.python is None:
-                if job_id not in NO_SETUP_PYTHON_JOBS and result.used_matrix:
+                if job_id not in NO_SETUP_PYTHON_JOBS:
                     errors.append(f"{job_id}: could not resolve a Python version")
                 continue
             if not _in_range(combo.python, lower, upper):

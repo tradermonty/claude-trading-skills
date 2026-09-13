@@ -175,9 +175,11 @@ repos:
         name: Compat matrix drift check (supported OS/Python)
         entry: python3 scripts/check_compat_matrix.py
         language: system
-        # Fire on the workflows, the matrix document (the declared mapping), the
-        # runtime bound, and the checker itself (so a logic change revalidates).
-        files: '^(\.github/workflows/(ci|compat-nightly)\.yml|docs/dev/compatibility-matrix\.md|pyproject\.toml|scripts/check_compat_matrix\.py|scripts/tests/test_check_compat_matrix\.py)$'
+        # Fire on every workflow (not just the two compat files, so a new
+        # workflow that runs an unsupported combo is rechecked), the matrix
+        # document (the declared mapping), the runtime bound, and the checker
+        # itself (so a logic change revalidates).
+        files: '^(\.github/workflows/.*|docs/dev/compatibility-matrix\.md|pyproject\.toml|scripts/check_compat_matrix\.py|scripts/tests/test_check_compat_matrix\.py)$'
         pass_filenames: false
 
       - id: changed-package-drift

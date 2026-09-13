@@ -474,10 +474,6 @@ jobs:
           sys.path.insert(0, "scripts")
           from check_skill_deps import IMPORT_TO_DIST, parse_requirements
 
-          reverse = {}
-          for top, dist in IMPORT_TO_DIST.items():
-              reverse.setdefault(dist.lower(), top)
-
           core = [
               "position-sizer",
               "futures-position-sizer",
@@ -487,7 +483,8 @@ jobs:
           ]
           failures = []
           for sid in core:
-              manifest = Path("skills") / sid / "requirements.txt"
+              skills_dir = Path("skills") / sid
+              manifest = skills_dir / "requirements.txt"
               if not manifest.exists():
                   failures.append(f"{sid}: missing requirements.txt")
                   continue
@@ -500,12 +497,25 @@ jobs:
                   print(f"OK   {sid} (stdlib-only)")
                   continue
               with_args = []
-              imports = []
               for entry in required:
                   with_args += ["--with", entry.spec]
-                  top = reverse.get(entry.dist.lower(), entry.dist.lower().replace("-", "_"))
-                  imports.append(f"import {top}")
-              code = "; ".join(imports)
+              # Import the skill's own packaged modules (not just the declared
+              # dep names) so a script that pulls an undeclared third-party
+              # package (issue #311) fails in this isolated environment.
+              scripts_dir = skills_dir / "scripts"
+              module_names = sorted(
+                  p.stem
+                  for p in scripts_dir.glob("*.py")
+                  if p.is_file() and p.stem != "__init__"
+              )
+              if module_names:
+                  code = (
+                      "import sys\n"
+                      f"sys.path.insert(0, {str(scripts_dir)!r})\n"
+                      + "".join(f"import {m}\n" for m in module_names)
+                  )
+              else:
+                  code = "import sys"
               proc = subprocess.run(
                   ["uv", "run", "--isolated", "--no-project", *with_args, "python", "-c", code],
                   capture_output=True,
@@ -513,10 +523,10 @@ jobs:
                   timeout=600,
               )
               if proc.returncode != 0:
-                  failures.append(f"{sid}: {code} -> {proc.stderr.strip()}")
+                  failures.append(f"{sid}: {code!r} -> {proc.stderr.strip()}")
                   print(f"FAIL {sid}")
               else:
-                  print(f"OK   {sid}: {code}")
+                  print(f"OK   {sid}: imported {module_names}")
           if failures:
               print("ISOLATED IMPORT FAILURES:")
               for item in failures:

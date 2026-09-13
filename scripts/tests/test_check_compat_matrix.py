@@ -312,3 +312,91 @@ def test_check_fails_on_missing_doc_supported_os(project: Path, capsys: pytest.C
     _write(project, "docs/dev/compatibility-matrix.md", doc)
     assert ccm.check(quiet=True) == 1
     assert "supported_os" in capsys.readouterr().out
+
+
+def test_matrix_os_literal_runs_on_wins_over_matrix(project: Path):
+    # P2#1: hardcoding `runs-on: ubuntu-latest` while a stale `matrix.os` lists
+    # all three must resolve the ACTUAL OS to the literal runner, not the
+    # matrix axis. Otherwise the checker would keep crediting Windows/macOS
+    # even though `runs-on` no longer dispatches on them (doc drift would pass).
+    wf = (
+        "jobs:\n"
+        "  my-job:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        "        os: [ubuntu-latest, windows-latest, macos-latest]\n"
+        "        python: ['3.9', '3.13']\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - uses: actions/setup-python@v5\n"
+        "        with:\n"
+        "          python-version: ${{ matrix.python }}\n"
+    )
+    _write(project, ".github/workflows/extra.yml", wf)
+    results = ccm._extract_jobs(ccm._load_workflow("extra.yml"))
+    assert {c.os for c in results["my-job"].combos} == {"ubuntu-latest"}
+    assert {c.python for c in results["my-job"].combos} == {"3.9", "3.13"}
+
+
+def test_matrix_os_expression_still_expands_from_matrix(project: Path):
+    # A matrix-expression `runs-on: ${{ matrix.os }}` still expands to the OS
+    # axis, so the compliant compat jobs keep resolving all three.
+    wf = (
+        "jobs:\n"
+        "  my-job:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        "        os: [ubuntu-latest, windows-latest]\n"
+        "    runs-on: ${{ matrix.os }}\n"
+        "    steps:\n"
+        "      - uses: actions/setup-python@v5\n"
+        "        with:\n"
+        "          python-version: '3.13'\n"
+    )
+    _write(project, ".github/workflows/extra.yml", wf)
+    results = ccm._extract_jobs(ccm._load_workflow("extra.yml"))
+    assert {c.os for c in results["my-job"].combos} == {"ubuntu-latest", "windows-latest"}
+
+
+def test_matrix_python_resolves_python_version_axis(project: Path):
+    # Medium#1: a `setup-python` bound to `${{ matrix.python-version }}` with a
+    # `python-version` matrix axis must resolve each version, not pass through
+    # as an unresolved expression.
+    wf = (
+        "jobs:\n"
+        "  my-job:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        "        os: [ubuntu-latest]\n"
+        "        python-version: ['3.9', '3.11']\n"
+        "    runs-on: ${{ matrix.os }}\n"
+        "    steps:\n"
+        "      - uses: actions/setup-python@v5\n"
+        "        with:\n"
+        "          python-version: ${{ matrix.python-version }}\n"
+    )
+    _write(project, ".github/workflows/extra.yml", wf)
+    results = ccm._extract_jobs(ccm._load_workflow("extra.yml"))
+    assert {c.python for c in results["my-job"].combos} == {"3.9", "3.11"}
+
+
+def test_check_fails_when_job_python_unresolvable(project: Path, capsys: pytest.CaptureFixture):
+    # Medium#1: a job with only `runs-on` (no setup-python and no matrix) must
+    # now fail closed instead of silently skipping the Python range check.
+    _compliant_tree(project)
+    extra = (
+        "jobs:\n"
+        "  rogue:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - uses: actions/checkout@v4\n"
+    )
+    _write(project, ".github/workflows/extra.yml", extra)
+    assert ccm.check(quiet=True) == 1
+    assert "rogue: could not resolve a Python version" in capsys.readouterr().out
+
+
+def test_validate_python_bound_message_not_hardcoded():
+    # Low#4: the unbounded-range error must not hardcode the current bound.
+    _, err = ccm._validate_python_bound(">=3.9")
+    assert ">=3.9,<3.14" not in err
