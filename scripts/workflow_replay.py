@@ -1321,6 +1321,11 @@ _PYTEST_DOCS_RE = re.compile(r"^-- Docs: https://docs\.pytest\.org/")
 _PYTEST_WARNINGS_COUNT_RE = re.compile(r", \d+ warnings?(?= in \d+\.\d+s\b)")
 _PYTEST_WARNING_TYPE_RE = re.compile(r"\b([A-Za-z_]\w*Warning):")
 _PYTEST_RM_RF_RE = re.compile(r"PytestWarning: \(rm_rf\) error removing")
+# Unbannered (layout B) entry: pytest 9 emits GC-time rm_rf warnings after the
+# results line, without a ``warnings summary`` header or a ``-- Docs:`` footer.
+_RM_RF_ENTRY_RE = re.compile(r".*_pytest/pathlib\.py:\d+: PytestWarning: \(rm_rf\) error removing ")
+_RM_RF_OS_ERROR_RE = re.compile(r"<class 'OSError'>: \[Errno \d+\] Directory not empty: '")
+_RM_RF_WARN_CALL_RE = re.compile(r"^\s*warnings\.warn\($")
 
 
 def _is_rm_rf_warnings_noise(block: str) -> bool:
@@ -1334,16 +1339,8 @@ def _is_rm_rf_warnings_noise(block: str) -> bool:
     return rm_rf_count == len(warning_types)
 
 
-def _strip_pytest_warning_summary(text: str) -> str:
-    """Drop pytest's environment-specific ``(rm_rf)`` warnings summary, if present.
-
-    The summary embeds the random pytest base-temp path and fails
-    ``ENOTEMPTY`` cleanup on stale local state, so it is not reproducible and must
-    not be part of a replay golden. The block is only removed when every warning
-    entry is that known noise; genuine warnings are left intact so they still
-    surface as drift. An unrecognized layout (header without a ``-- Docs:``
-    terminator) is returned unchanged.
-    """
+def _strip_banner_framed_rm_rf(text: str) -> str:
+    """Strip a ``warnings summary`` ... ``-- Docs:`` block that is all rm_rf noise."""
     lines = text.split("\n")
     header_index = next(
         (index for index, line in enumerate(lines) if _PYTEST_WARNINGS_HEADER_RE.match(line)),
@@ -1366,6 +1363,55 @@ def _strip_pytest_warning_summary(text: str) -> str:
         return text
     kept = lines[:header_index] + lines[docs_index + 1 :]
     return _PYTEST_WARNINGS_COUNT_RE.sub("", "\n".join(kept))
+
+
+def _strip_unbannered_tail_rm_rf(text: str) -> str:
+    """Strip a trailing run of unbannered ``(rm_rf)`` warning entries.
+
+    pytest 9 emits GC-time ``(rm_rf)`` warnings *after* the results line, without
+    a ``warnings summary`` header or a ``-- Docs:`` footer, so the banner-framed
+    stripper cannot observe them. Each entry is a ``pathlib.py:N: PytestWarning:
+    (rm_rf) …`` line followed by an ``OSError`` detail line and a
+    ``warnings.warn(`` call. Only a trailing block that is entirely this known
+    noise is removed; a genuine unbannered warning (e.g. a source
+    ``DeprecationWarning``) is left intact so it still surfaces as drift.
+    """
+    lines = text.split("\n")
+    last_content_index = -1
+    for index, line in enumerate(lines):
+        if line == "":
+            continue
+        rm_rf_entry = bool(_RM_RF_ENTRY_RE.match(line)) or bool(_RM_RF_OS_ERROR_RE.match(line))
+        warn_call = (
+            bool(_RM_RF_WARN_CALL_RE.match(line))
+            and index > 0
+            and bool(_RM_RF_OS_ERROR_RE.match(lines[index - 1]))
+        )
+        if rm_rf_entry or warn_call:
+            continue
+        last_content_index = index
+    block = "\n".join(lines[last_content_index + 1 :])
+    if not _RM_RF_ENTRY_RE.search(block):
+        return text
+    kept = lines[: last_content_index + 1]
+    while kept and kept[-1] == "":
+        kept.pop()
+    return _PYTEST_WARNINGS_COUNT_RE.sub("", "\n".join(kept))
+
+
+def _strip_pytest_warning_summary(text: str) -> str:
+    """Drop pytest's environment-specific ``(rm_rf)`` warnings, if present.
+
+    The warning embeds the random pytest base-temp path and fails ``ENOTEMPTY``
+    cleanup on stale local state, so it is not reproducible and must not be part
+    of a replay golden. It is removed only when every warning entry is that known
+    noise; genuine warnings are left intact so they still surface as drift. Both
+    the banner-framed ``warnings summary`` / ``-- Docs:`` layout (other pytest
+    setups) and the unbannered trailing layout (pytest 9 GC-time) are handled.
+    """
+    text = _strip_banner_framed_rm_rf(text)
+    text = _strip_unbannered_tail_rm_rf(text)
+    return text
 
 
 def _normalize_review_test_output(report: dict[str, Any]) -> None:

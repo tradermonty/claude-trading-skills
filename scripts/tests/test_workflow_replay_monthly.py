@@ -58,6 +58,26 @@ _RM_RF_WARNING_BLOCK = "\n".join(
 
 _DOCS_LINE = "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html"
 
+# pytest 9 emits GC-time ``(rm_rf)`` warnings *after* the results line, without a
+# ``warnings summary`` banner or a ``-- Docs:`` footer (layout B). Each entry is
+# a ``pathlib.py:N: PytestWarning: (rm_rf) error removing …`` line, an ``OSError``
+# detail line, and a ``warnings.warn(`` call. Mirrors the live pytest 9.0.2 shape.
+_RM_RF_UNBANNERED_TAIL = "\n".join(
+    [
+        "",
+        ".venv/lib/python3.12/site-packages/_pytest/pathlib.py:96: PytestWarning: (rm_rf) "
+        "error removing /private/var/folders/ab/T/pytest-of-user/garbage-abc0/",
+        "<class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/ab/T/"
+        "pytest-of-user/garbage-abc0/'",
+        "  warnings.warn(",
+        ".venv/lib/python3.12/site-packages/_pytest/pathlib.py:96: PytestWarning: (rm_rf) "
+        "error removing /private/var/folders/ab/T/pytest-of-user/garbage-def1",
+        "<class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/ab/T/"
+        "pytest-of-user/garbage-def1'",
+        "  warnings.warn(",
+    ]
+)
+
 
 def test_monthly_spec_has_honest_executor_evidence() -> None:
     summary = replay_module.validate_spec(ROOT, SPEC)
@@ -633,6 +653,39 @@ def test_warnings_count_fragment_outside_status_line_is_preserved() -> None:
 
     assert 'expected ", 5 warnings in the text"' in stripped
     assert stripped.endswith("1 failed in 0.02s")
+
+
+def test_pytest_unbannered_tail_rm_rf_is_stripped_to_golden_tail() -> None:
+    output = f"{_PROGRESS}\n262 passed, 6 warnings in 0.53s{_RM_RF_UNBANNERED_TAIL}"
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert stripped == f"{_PROGRESS}\n262 passed in 0.53s"
+    assert replay_module._normalize_elapsed(stripped) == f"{_PROGRESS}\n262 passed in <elapsed>s"
+    assert "garbage-" not in stripped
+    assert "(rm_rf)" not in stripped
+
+
+def test_pytest_unbannered_tail_keeps_genuine_unbannered_warning() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "1 passed, 1 warning in 0.02s\n"
+        "skills/x/scripts/foo.py:10\n"
+        "  skills/x/scripts/foo.py:10: DeprecationWarning: legacy path\n"
+        "    warnings.warn(\n"
+        f"{_RM_RF_UNBANNERED_TAIL}"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert "DeprecationWarning: legacy path" in stripped
+    assert "1 passed in 0.02s" in stripped
+    assert "(rm_rf)" not in stripped
+
+
+def test_pytest_unbannered_tail_without_rm_rf_is_unchanged() -> None:
+    output = f"{_PROGRESS}\n262 passed in 0.53s\n\n"
+    assert replay_module._strip_pytest_warning_summary(output) == output
 
 
 def test_run_cli_rejects_sensitive_env_override() -> None:
