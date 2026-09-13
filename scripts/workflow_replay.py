@@ -1319,8 +1319,14 @@ def _normalize_review_test_command(report: dict[str, Any]) -> None:
 _PYTEST_WARNINGS_HEADER_RE = re.compile(r"^=+\s*warnings summary\s*=+$")
 _PYTEST_DOCS_RE = re.compile(r"^-- Docs: https://docs\.pytest\.org/")
 _PYTEST_WARNINGS_COUNT_RE = re.compile(r", \d+ warnings?(?= in \d+\.\d+s\b)")
-_PYTEST_WARNING_TYPE_RE = re.compile(r"\b([A-Za-z_]\w*Warning):")
-_PYTEST_RM_RF_RE = re.compile(r"PytestWarning: \(rm_rf\) error removing")
+_PYTEST_WARNING_ENTRY_RE = re.compile(
+    r"^\s*(?:\S+\.py:\d+:\s*)?(?P<category>[A-Za-z_][\w.]*): (?P<message>.*)$"
+)
+_PYTEST_STATUS_LINE_RE = re.compile(
+    r"^(?:\d+ (?:passed|failed|error|errors|skipped|deselected|xfailed|xpassed"
+    r"|subtests? (?:passed|failed|skipped))|no tests ran)"
+)
+_PYTEST_LOCATION_LINE_RE = re.compile(r"^\S+\.py:\d+\s*$")
 # Unbannered (layout B) entry: pytest 9 emits GC-time rm_rf warnings after the
 # results line, without a ``warnings summary`` header or a ``-- Docs:`` footer.
 _RM_RF_ENTRY_RE = re.compile(r".*_pytest/pathlib\.py:\d+: PytestWarning: \(rm_rf\) error removing ")
@@ -1328,15 +1334,54 @@ _RM_RF_OS_ERROR_RE = re.compile(r"<class 'OSError'>: \[Errno \d+\] Directory not
 _RM_RF_WARN_CALL_RE = re.compile(r"^\s*warnings\.warn\($")
 
 
+def _remove_status_line_warnings_count(lines: list[str]) -> list[str]:
+    """Remove the ``, N warnings`` fragment from the terminal status line only."""
+    for index in range(len(lines) - 1, -1, -1):
+        if _PYTEST_STATUS_LINE_RE.match(lines[index].strip()):
+            result = list(lines)
+            result[index] = _PYTEST_WARNINGS_COUNT_RE.sub("", result[index])
+            return result
+    return lines
+
+
+def _is_warning_structural_line(line: str) -> bool:
+    """True for the non-entry scaffolding lines pytest emits around warnings."""
+    return (
+        line.strip() == ""
+        or _PYTEST_WARNINGS_HEADER_RE.match(line) is not None
+        or _PYTEST_DOCS_RE.match(line) is not None
+        or _PYTEST_LOCATION_LINE_RE.match(line) is not None
+        or _RM_RF_OS_ERROR_RE.search(line) is not None
+        or _RM_RF_WARN_CALL_RE.match(line) is not None
+    )
+
+
 def _is_rm_rf_warnings_noise(block: str) -> bool:
-    """True when every warning entry is the known pytest temp-GC noise."""
-    warning_types = _PYTEST_WARNING_TYPE_RE.findall(block)
-    if not warning_types:
+    """True when every summary entry is the known pytest temp-GC noise.
+
+    The entry category is any identifier/dotted name, so a genuine custom
+    warning class (e.g. ``DataQualityAlert``) is detected even though it does not
+    end in ``Warning`` — otherwise the noise check would wrongly pass and the
+    whole block (genuine warning included) would be deleted. Any line that is
+    neither a parsed entry nor recognized scaffolding fails closed (block kept),
+    so an unrecognized evidence line can never be silently removed.
+    """
+    entries = []
+    for line in block.split("\n"):
+        match = _PYTEST_WARNING_ENTRY_RE.match(line)
+        if match is not None:
+            entries.append(match)
+            continue
+        if not _is_warning_structural_line(line):
+            return False
+    if not entries:
         return False
-    if any(warning_type != "PytestWarning" for warning_type in warning_types):
-        return False
-    rm_rf_count = len(_PYTEST_RM_RF_RE.findall(block))
-    return rm_rf_count == len(warning_types)
+    for match in entries:
+        if match.group("category").rsplit(".", 1)[-1] != "PytestWarning":
+            return False
+        if "(rm_rf) error removing" not in match.group("message"):
+            return False
+    return True
 
 
 def _strip_banner_framed_rm_rf(text: str) -> str:
@@ -1362,7 +1407,7 @@ def _strip_banner_framed_rm_rf(text: str) -> str:
     if not _is_rm_rf_warnings_noise(block):
         return text
     kept = lines[:header_index] + lines[docs_index + 1 :]
-    return _PYTEST_WARNINGS_COUNT_RE.sub("", "\n".join(kept))
+    return "\n".join(_remove_status_line_warnings_count(kept))
 
 
 def _strip_unbannered_tail_rm_rf(text: str) -> str:
@@ -1396,7 +1441,7 @@ def _strip_unbannered_tail_rm_rf(text: str) -> str:
     kept = lines[: last_content_index + 1]
     while kept and kept[-1] == "":
         kept.pop()
-    return _PYTEST_WARNINGS_COUNT_RE.sub("", "\n".join(kept))
+    return "\n".join(_remove_status_line_warnings_count(kept))
 
 
 def _strip_pytest_warning_summary(text: str) -> str:

@@ -639,6 +639,19 @@ def test_pytest_mixed_warning_summary_is_not_stripped() -> None:
     assert replay_module._strip_pytest_warning_summary(output) == output
 
 
+def test_pytest_custom_warning_class_mixed_with_noise_is_not_stripped() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=== warnings summary ===\n"
+        f"{_RM_RF_WARNING_BLOCK}\n"
+        "  skills/x/scripts/foo.py:12: DataQualityAlert: stale dividend source\n"
+        f"{_DOCS_LINE}\n"
+        "1 passed, 2 warnings in 0.02s"
+    )
+
+    assert replay_module._strip_pytest_warning_summary(output) == output
+
+
 def test_warnings_count_fragment_outside_status_line_is_preserved() -> None:
     output = (
         f"{_PROGRESS}\n"
@@ -652,6 +665,23 @@ def test_warnings_count_fragment_outside_status_line_is_preserved() -> None:
     stripped = replay_module._strip_pytest_warning_summary(output)
 
     assert 'expected ", 5 warnings in the text"' in stripped
+    assert stripped.endswith("1 failed in 0.02s")
+
+
+def test_warnings_count_fragment_inside_failure_message_is_preserved() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=== warnings summary ===\n"
+        f"{_RM_RF_WARNING_BLOCK}\n"
+        f"{_DOCS_LINE}\n"
+        "=========================== short test summary info ============================\n"
+        'FAILED t.py::test_b - AssertionError: expected "2 passed, 5 warnings in 0.53s"\n'
+        "1 failed, 1 warning in 0.02s"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert 'expected "2 passed, 5 warnings in 0.53s"' in stripped
     assert stripped.endswith("1 failed in 0.02s")
 
 
@@ -681,6 +711,35 @@ def test_pytest_unbannered_tail_keeps_genuine_unbannered_warning() -> None:
     assert "DeprecationWarning: legacy path" in stripped
     assert "1 passed in 0.02s" in stripped
     assert "(rm_rf)" not in stripped
+
+
+def test_pytest_unbannered_tail_keeps_custom_warning_class() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "1 passed, 1 warning in 0.02s\n"
+        "skills/x/scripts/foo.py:12: DataQualityAlert: stale dividend source\n"
+        f"{_RM_RF_UNBANNERED_TAIL}"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert "DataQualityAlert: stale dividend source" in stripped
+    assert "(rm_rf)" not in stripped
+    assert "1 passed in 0.02s" in stripped
+
+
+def test_status_line_with_subtests_still_has_count_removed() -> None:
+    output = (
+        f"{_PROGRESS}\n"
+        "=== warnings summary ===\n"
+        f"{_RM_RF_WARNING_BLOCK}\n"
+        f"{_DOCS_LINE}\n"
+        "2 subtests passed, 2 warnings in 0.50s"
+    )
+
+    stripped = replay_module._strip_pytest_warning_summary(output)
+
+    assert stripped.endswith("2 subtests passed in 0.50s")
 
 
 def test_pytest_unbannered_tail_without_rm_rf_is_unchanged() -> None:
