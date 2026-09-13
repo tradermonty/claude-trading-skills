@@ -109,6 +109,10 @@ def main(argv: list[str]) -> int:
     if uv is not None:
         env = os.environ.copy()
         env[RECURSION_GUARD_ENV] = "1"
+        # Keep the child CLI's Unicode status/report output usable on
+        # Windows, where a non-console pipe may otherwise select a legacy
+        # ``charmap`` encoding for stdout/stderr.
+        env["PYTHONIOENCODING"] = "utf-8"
         cmd = [uv, "run", "--project", str(repo_root), "python", str(target), *rest]
         return subprocess.call(cmd, env=env)
 
@@ -119,7 +123,9 @@ def main(argv: list[str]) -> int:
         print(_missing_deps_error(repo_root), file=sys.stderr)
         return 3
 
-    return subprocess.call([sys.executable, str(target), *rest])
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    return subprocess.call([sys.executable, str(target), *rest], env=env)
 
 
 if __name__ == "__main__":

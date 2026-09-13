@@ -7,6 +7,7 @@ invoke it. No third-party deps; safe to run anywhere `python3` exists.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -33,6 +34,37 @@ def _run(args, *, env=None, cwd=None):
         timeout=60,
     )
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def _load_launcher_module():
+    spec = importlib.util.spec_from_file_location("trader_memory_cli", LAUNCHER)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("inner", [False, True])
+def test_launcher_forces_utf8_for_child_process(monkeypatch, inner):
+    """Child CLI output must stay UTF-8 even if the parent selects charmap."""
+    launcher = _load_launcher_module()
+    calls = []
+
+    def fake_call(command, **kwargs):
+        calls.append((command, kwargs))
+        return 0
+
+    monkeypatch.setattr(launcher.subprocess, "call", fake_call)
+    monkeypatch.setenv("PYTHONIOENCODING", "ascii")
+    if inner:
+        monkeypatch.setenv(launcher.RECURSION_GUARD_ENV, "1")
+    else:
+        monkeypatch.delenv(launcher.RECURSION_GUARD_ENV, raising=False)
+        monkeypatch.setattr(launcher.shutil, "which", lambda _: "/usr/bin/uv")
+
+    assert launcher.main(["store", "list"]) == 0
+    assert len(calls) == 1
+    assert calls[0][1]["env"]["PYTHONIOENCODING"] == "utf-8"
 
 
 def test_no_args_prints_usage_and_exits_nonzero():
