@@ -33,6 +33,11 @@ PROVIDERS = ("fmp", "finviz", "alpaca")
 # not count as a provider dependency here.
 USED_REQUIREMENTS = frozenset({"required", "recommended", "optional"})
 
+# Integration types that pull data from an external network/data source
+# (API, broker, screener, or web fetch). Integrations typed as local_file /
+# image / calculation are treated as offline / pure-calculation.
+EXTERNAL_TYPES = frozenset({"market_data", "screener", "broker", "web"})
+
 
 # ---------------------------------------------------------------------------
 # Input loaders (committed artifacts only)
@@ -114,16 +119,24 @@ def compute_metrics(project_root: Path) -> dict[str, Any]:
     executable_with_tests = sum(1 for v in has_tests_map.values() if v)
     executable_without_tests = executable - executable_with_tests
 
-    provider_counts = {"fmp": 0, "finviz": 0, "alpaca": 0, "none": 0}
+    provider_counts = {"fmp": 0, "finviz": 0, "alpaca": 0, "other_external": 0, "offline": 0}
     for s in skills:
-        uses_any = False
+        uses_paid = False
         for p in PROVIDERS:
             entry = _find_integration(s, p)
             if entry is not None and entry.get("requirement", "unknown") in USED_REQUIREMENTS:
                 provider_counts[p] += 1
-                uses_any = True
-        if not uses_any:
-            provider_counts["none"] += 1
+                uses_paid = True
+        if uses_paid:
+            continue
+        # A skill that does not use FMP/FINVIZ/Alpaca may still pull from an
+        # external source (CoinGecko, WebSearch, yfinance, SEC EDGAR, ...) or be
+        # fully offline. Distinguish the two so the "offline" count is accurate.
+        uses_external = any(
+            i.get("requirement", "unknown") in USED_REQUIREMENTS and i.get("type") in EXTERNAL_TYPES
+            for i in (s.get("integrations") or [])
+        )
+        provider_counts["other_external" if uses_external else "offline"] += 1
 
     covered = replay.get("covered") or {}
     deferred = replay.get("deferred") or {}
@@ -280,7 +293,8 @@ L = {
         "covered_workflows": "Workflows covered by E2E replay",
         "provider": "Provider",
         "count": "Count",
-        "none_provider": "none (offline / pure calculation)",
+        "none_provider": "offline (no external data source)",
+        "other_external_provider": "other external provider",
         "beta_skill": "Skill",
         "beta_days": "Days in beta",
         "skill": "Skill",
@@ -326,7 +340,8 @@ L = {
         "covered_workflows": "E2E リプレイでカバーされたワークフロー",
         "provider": "プロバイダ",
         "count": "件数",
-        "none_provider": "なし（オフライン / 純粋計算）",
+        "none_provider": "オフライン（外部データなし）",
+        "other_external_provider": "その他の外部プロバイダ",
         "beta_skill": "スキル",
         "beta_days": "ベータ経過日数",
         "skill": "スキル",
@@ -415,7 +430,10 @@ def render_page(metrics: dict[str, Any], lang: str) -> str:
     buf.append("|---|---:|")
     for p in PROVIDERS:
         buf.append(f"| {p.upper()} | {metrics['provider_counts'][p]} |")
-    buf.append(f"| {t['none_provider']} | {metrics['provider_counts']['none']} |")
+    buf.append(
+        f"| {t['other_external_provider']} | {metrics['provider_counts']['other_external']} |"
+    )
+    buf.append(f"| {t['none_provider']} | {metrics['provider_counts']['offline']} |")
     buf.append("")
 
     # Beta pipeline

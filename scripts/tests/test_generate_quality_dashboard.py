@@ -157,7 +157,13 @@ def test_compute_metrics_counts_lifecycle_and_executable(tmp_path: Path) -> None
 def test_compute_metrics_provider_counts(tmp_path: Path) -> None:
     root = make_project(tmp_path)
     m = compute_metrics(root)
-    assert m["provider_counts"] == {"fmp": 1, "finviz": 1, "alpaca": 0, "none": 1}
+    assert m["provider_counts"] == {
+        "fmp": 1,
+        "finviz": 1,
+        "alpaca": 0,
+        "other_external": 0,
+        "offline": 1,
+    }
 
 
 def test_compute_metrics_replay_coverage(tmp_path: Path) -> None:
@@ -235,6 +241,56 @@ def test_snapshot_metrics_render_values(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Rendering — content
 # ---------------------------------------------------------------------------
+
+
+def test_provider_counts_split_external_from_offline(tmp_path: Path) -> None:
+    """A skill using an external source other than FMP/FINVIZ/Alpaca (e.g.
+    CoinGecko or WebSearch) must count as "other external", not "offline".
+    Only skills with no external data source may count as offline."""
+    custom_index = """\
+schema_version: 1
+skills:
+- id: ext-coingecko
+  display_name: Ext CoinGecko
+  category: market-regime
+  status: production
+  integrations:
+  - id: coingecko
+    type: market_data
+    requirement: required
+- id: ext-websearch
+  display_name: Ext WebSearch
+  category: market-regime
+  status: production
+  integrations:
+  - id: websearch
+    type: web
+    requirement: optional
+- id: offline-calc
+  display_name: Offline Calc
+  category: market-regime
+  status: production
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+- id: paid-fmp
+  display_name: Paid FMP
+  category: market-regime
+  status: production
+  integrations:
+  - id: fmp
+    type: api
+    requirement: required
+"""
+    root = make_project(tmp_path)
+    _write(root / "skills-index.yaml", custom_index)
+    m = compute_metrics(root)
+    assert m["provider_counts"]["fmp"] == 1
+    assert m["provider_counts"]["finviz"] == 0
+    assert m["provider_counts"]["alpaca"] == 0
+    assert m["provider_counts"]["other_external"] == 2
+    assert m["provider_counts"]["offline"] == 1
 
 
 def test_render_english_includes_summary_and_skill_table(tmp_path: Path) -> None:

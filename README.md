@@ -132,7 +132,7 @@ This repository contains skills across the following areas:
 | Strategy Research | `backtest-expert`, `manifoldbt-backtester`, `edge-pipeline-orchestrator` |
 | Advanced Satellite | `parabolic-short-trade-planner`, `earnings-trade-analyzer`, `options-strategy-advisor` |
 
-The detailed catalog below is **auto-generated** from `skills-index.yaml` by `scripts/generate_catalog_from_index.py`. To update a skill's description, edit its `skills-index.yaml` entry and re-run the generator (`python3 scripts/generate_catalog_from_index.py`). For a more navigable version, use the documentation site. For an auto-generated overview of skill lifecycle, test coverage, and runtime health, see the [Quality Dashboard](/en/quality-dashboard/).
+The detailed catalog below is **auto-generated** from `skills-index.yaml` by `scripts/generate_catalog_from_index.py`. To update a skill's description, edit its `skills-index.yaml` entry and re-run the generator (`python3 scripts/generate_catalog_from_index.py`). For a more navigable version, use the documentation site. For an auto-generated overview of skill lifecycle, test coverage, and runtime health, see the [Quality Dashboard](https://tradermonty.github.io/claude-trading-skills/en/quality-dashboard/).
 
 ## Detailed Skill Catalog
 
