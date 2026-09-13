@@ -38,8 +38,8 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 | FMP | 29 |
 | FINVIZ | 4 |
 | ALPACA | 2 |
-| other external provider | 5 |
-| offline (no external data source) | 38 |
+| other external provider | 8 |
+| offline (no external data source) | 35 |
 
 ## Beta pipeline
 

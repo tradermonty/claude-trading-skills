@@ -293,6 +293,38 @@ skills:
     assert m["provider_counts"]["offline"] == 1
 
 
+def test_public_csv_counts_as_external(tmp_path: Path) -> None:
+    """A skill that fetches a public CSV over the network (public_csv, type web)
+    must count as an external provider, never as offline."""
+    custom_index = """\
+schema_version: 1
+skills:
+- id: breadth
+  display_name: Breadth
+  category: market-regime
+  status: production
+  integrations:
+  - id: public_csv
+    type: web
+    requirement: required
+    note: TraderMonty public CSV; no API key required
+- id: pure-math
+  display_name: Pure Math
+  category: market-regime
+  status: production
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+"""
+    root = make_project(tmp_path)
+    _write(root / "skills-index.yaml", custom_index)
+    m = compute_metrics(root)
+    assert m["provider_counts"]["other_external"] == 1
+    assert m["provider_counts"]["offline"] == 1
+    assert m["provider_counts"]["fmp"] == 0
+
+
 def test_render_english_includes_summary_and_skill_table(tmp_path: Path) -> None:
     root = make_project(tmp_path)
     m = compute_metrics(root)
