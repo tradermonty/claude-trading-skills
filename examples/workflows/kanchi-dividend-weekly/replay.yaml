@@ -1,0 +1,88 @@
+schema_version: 1
+workflow_id: kanchi-dividend-weekly
+fixed_timestamp: "2026-06-27T16:00:00+00:00"
+
+inputs:
+  high_yield_candidates: replay-inputs/high-yield-candidates.json
+  pullback_candidates: replay-inputs/pullback-candidates.json
+  underwriting_evidence: replay-inputs/underwriting-evidence.json
+  underwriting_decision: replay-inputs/underwriting-decision.yaml
+  tax_holdings: replay-inputs/tax-holdings.json
+  review_monitor: replay-inputs/review-monitor.json
+  register_decision: replay-inputs/register-decision.yaml
+
+steps:
+  - step: 1
+    executor: kanchi_high_yield_screen
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      high_yield_candidates:
+        canonical: 01_high_yield_candidates.json
+
+  - step: 2
+    executor: kanchi_pullback_screen
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      pullback_candidates:
+        canonical: 02_pullback_candidates.json
+
+  - step: 3
+    executor: kanchi_underwrite
+    executor_mode: composite
+    executor_components:
+      - native_cli
+      - native_api
+      - manual_contract
+    gate_policy: record_only
+    output_files:
+      kanchi_candidates:
+        canonical: 03_kanchi_candidates.json
+      stock_memo:
+        canonical: 03_stock_memo.md
+
+  - step: 4
+    executor: kanchi_tax_advice
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      account_location_advice:
+        markdown: 04_account_location_advice.md
+        csv: 04_account_location_advice.csv
+
+  - step: 5
+    executor: kanchi_review_queue
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      review_queue:
+        canonical: 05_review_queue.json
+        companion: 05_review_queue.md
+
+  - step: 6
+    executor: kanchi_register_thesis
+    executor_mode: composite
+    executor_components:
+      - manual_contract
+      - native_api
+    gate_policy: record_only
+    output_files:
+      thesis_record:
+        canonical: 06_thesis_record.json
+
+variants:
+  required-only:
+    enabled_steps:
+      - 3
+      - 6
+    golden_dir: sample-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+    golden_dir: sample-run-full-path

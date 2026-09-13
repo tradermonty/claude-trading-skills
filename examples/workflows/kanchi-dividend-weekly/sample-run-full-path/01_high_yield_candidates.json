@@ -1,0 +1,18 @@
+{
+  "as_of": "2026-06-27",
+  "candidates": [
+    {
+      "bucket": "income",
+      "note": "Fictional high-yield candidate staged as a human-approved fixture.",
+      "ticker": "EXMPL"
+    },
+    {
+      "bucket": "balanced",
+      "note": "Fictional high-yield candidate staged as a human-approved fixture.",
+      "ticker": "EXMPLB"
+    }
+  ],
+  "human_approved": true,
+  "schema_version": 1,
+  "source": "value-dividend-screener"
+}

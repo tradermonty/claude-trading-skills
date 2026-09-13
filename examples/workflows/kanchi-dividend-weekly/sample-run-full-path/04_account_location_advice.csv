@@ -1,0 +1,3 @@
+ticker,instrument_type,account_type,hold_days_in_window,classification,location_hint,note
+EXMPL,stock,taxable,70,qualified_likely,taxable_preferred,hold_days_in_window >= 61
+EXMPLB,reit,ira,,ordinary_likely,tax_advantaged_preferred,distribution may include ordinary-income style components

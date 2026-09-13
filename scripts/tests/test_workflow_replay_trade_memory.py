@@ -42,11 +42,12 @@ def test_trade_memory_spec_has_honest_executor_evidence() -> None:
     }
 
 
-def test_coverage_includes_trade_memory_at_six_of_eleven() -> None:
+def test_coverage_includes_trade_memory_at_eight_of_eleven() -> None:
     summary = replay_module.validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
         "core-portfolio-weekly",
+        "kanchi-dividend-weekly",
         "market-regime-daily",
         "monthly-performance-review",
         "stockbee-20pct-study-daily",
@@ -54,7 +55,7 @@ def test_coverage_includes_trade_memory_at_six_of_eleven() -> None:
         "swing-opportunity-daily",
         "trade-memory-loop",
     ]
-    assert len(summary["deferred"]) == 4
+    assert len(summary["deferred"]) == 3
     assert "trade-memory-loop" not in summary["deferred"]
 
 
@@ -446,6 +447,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
     assert result["generated"] == [
         "core-portfolio-weekly:required-only",
         "core-portfolio-weekly:full-path",
+        "kanchi-dividend-weekly:required-only",
+        "kanchi-dividend-weekly:full-path",
         "market-regime-daily:required-only",
         "market-regime-daily:full-path",
         "monthly-performance-review:required-only",
@@ -460,6 +463,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
         "trade-memory-loop:full-path",
     ]
     assert staged_destinations == [
+        "sample-run",
+        "sample-run-full-path",
         "sample-run",
         "sample-run-full-path",
         "sample-run",

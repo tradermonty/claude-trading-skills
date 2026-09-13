@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-06-27",
+  "candidates": [
+    {
+      "ticker": "EXMPL",
+      "step1_verdict": "STEP1-PASS",
+      "safety_verdict": "PASS",
+      "event_verdict_cap": null,
+      "event_t1_blocked": false,
+      "pre_order_blockers": []
+    },
+    {
+      "ticker": "EXMPLB",
+      "step1_verdict": "STEP1-PASS",
+      "safety_verdict": "CAUTION",
+      "event_verdict_cap": null,
+      "event_t1_blocked": false,
+      "pre_order_blockers": []
+    },
+    {
+      "ticker": "EXMPLC",
+      "step1_verdict": "HOLD-REVIEW",
+      "safety_verdict": "PASS",
+      "event_verdict_cap": null,
+      "event_t1_blocked": false,
+      "pre_order_blockers": []
+    },
+    {
+      "ticker": "EXMPLD",
+      "step1_verdict": "STEP1-RECHECK",
+      "safety_verdict": "PASS",
+      "event_verdict_cap": null,
+      "event_t1_blocked": false,
+      "pre_order_blockers": []
+    },
+    {
+      "ticker": "EXMPLX",
+      "step1_verdict": "FAIL",
+      "safety_verdict": "PASS",
+      "event_verdict_cap": null,
+      "event_t1_blocked": false,
+      "pre_order_blockers": []
+    }
+  ]
+}

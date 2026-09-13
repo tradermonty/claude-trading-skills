@@ -1,0 +1,17 @@
+{
+  "holdings": [
+    {
+      "ticker": "EXMPL",
+      "instrument_type": "stock",
+      "security_type": "common",
+      "account_type": "taxable",
+      "hold_days_in_window": 70
+    },
+    {
+      "ticker": "EXMPLB",
+      "instrument_type": "reit",
+      "security_type": "common",
+      "account_type": "ira"
+    }
+  ]
+}

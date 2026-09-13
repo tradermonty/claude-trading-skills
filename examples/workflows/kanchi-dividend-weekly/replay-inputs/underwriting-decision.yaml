@@ -1,0 +1,9 @@
+human_approved: true
+expected_actionable:
+  - EXMPL
+  - EXMPLB
+  - EXMPLC
+expected_excluded:
+  - EXMPLD
+  - EXMPLX
+sop_profile: balanced
