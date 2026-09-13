@@ -117,6 +117,47 @@ def _step_python_ver(step: dict) -> str | None:
     return with_.get("python-version")
 
 
+def _combo_matches(combo: JobCombo, item: dict) -> bool:
+    """True if ``item`` (a matrix exclude/include entry) covers ``combo``."""
+    if "os" in item and combo.os != str(item["os"]):
+        return False
+    if "python" in item and (combo.python or "none") != str(item["python"]):
+        return False
+    return True
+
+
+def _apply_matrix_extras(
+    combos: list[JobCombo], matrix: dict | None, default_python: str | None
+) -> list[JobCombo]:
+    """Apply GitHub ``matrix.exclude`` / ``matrix.include`` semantics.
+
+    GitHub computes the axis product, removes any combo matched by an
+    ``exclude`` entry, then appends any ``include`` entry not already present.
+    Matching an ``exclude`` entry with only ``os`` removes the whole OS axis.
+    """
+    if not isinstance(matrix, dict):
+        return combos
+    exclude = matrix.get("exclude") or []
+    if isinstance(exclude, list):
+        combos = [
+            c
+            for c in combos
+            if not any(_combo_matches(c, i) for i in exclude if isinstance(i, dict))
+        ]
+    include = matrix.get("include") or []
+    if isinstance(include, list):
+        seen = {c.key() for c in combos}
+        for item in include:
+            if not isinstance(item, dict) or "os" not in item:
+                continue
+            py_val = str(item["python"]) if "python" in item else default_python
+            new_combo = JobCombo(os=str(item["os"]), python=py_val)
+            if new_combo.key() not in seen:
+                combos.append(new_combo)
+                seen.add(new_combo.key())
+    return combos
+
+
 def _extract_jobs(workflow: dict) -> dict[str, JobResult]:
     """Return {job_id: JobResult} for a parsed workflow."""
     results: dict[str, JobResult] = {}
@@ -137,6 +178,7 @@ def _extract_jobs(workflow: dict) -> dict[str, JobResult]:
             for os_val in os_list
             for py_val in py_list
         ]
+        combos = _apply_matrix_extras(combos, matrix, python_ver)
         results[job_id] = JobResult(job=job_id, combos=combos, used_matrix=used_matrix)
     return results
 
@@ -242,12 +284,13 @@ def _in_range(version: str, lower: str, upper: str) -> bool:
 
 
 def _load_all_results() -> dict[str, JobResult]:
+    # Scan every workflow, not just the two known compatibility files, so a
+    # future workflow that runs a job on an unsupported OS/Python in range is
+    # caught by the policy leg instead of silently escaping the drift guard.
     all_results: dict[str, JobResult] = {}
-    for wf in WORKFLOW_FILES:
-        path = ROOT / ".github" / "workflows" / wf
-        if not path.exists():
-            continue
-        all_results.update(_extract_jobs(_load_workflow(wf)))
+    wf_dir = ROOT / ".github" / "workflows"
+    for path in sorted(wf_dir.glob("*.y*ml")):
+        all_results.update(_extract_jobs(_load_yaml_text(path)))
     return all_results
 
 
@@ -262,11 +305,15 @@ def check(quiet: bool = False, as_json: bool = False) -> int:
         errors.append(f"{DOC} missing compatible compat_matrix job mapping")
 
     header = _doc_header()
-    if header["python"] and python_expr and header["python"] != python_expr:
+    if not header["python"]:
+        errors.append(f"{DOC} missing top-level `python` declaration")
+    elif python_expr and header["python"] != python_expr:
         errors.append(
             f"{DOC} declares python {header['python']} but pyproject requires {python_expr}"
         )
-    if header["supported_os"] and header["supported_os"] != sorted(SUPPORTED_OS):
+    if not header["supported_os"]:
+        errors.append(f"{DOC} missing top-level `supported_os` declaration")
+    elif header["supported_os"] != sorted(SUPPORTED_OS):
         errors.append(
             f"{DOC} supported_os {header['supported_os']} != policy {sorted(SUPPORTED_OS)}"
         )

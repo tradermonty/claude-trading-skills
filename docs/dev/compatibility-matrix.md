@@ -19,7 +19,10 @@ requires-python = ">=3.9,<3.14"
 
 Python **3.9** is the floor and **3.13** is the ceiling. The upper bound is intentional: it makes
 the promise closed rather than open-ended, so a future 3.14 cannot silently ship as "supported"
-without the CI matrix being extended first.
+without the CI matrix being extended first. A consequence of the `<3.14` bound is that `uv sync`
+on a 3.14 interpreter will reject the project unless you pass `--no-install-project` (the pattern CI
+already uses), so local development on a newer interpreter stays possible while the supported
+runtime remains bounded.
 
 ## Supported (CI-enforced)
 
@@ -48,15 +51,18 @@ this tier is claimed to "just work" — it is simply not ruled out at the packag
 
 ## Policy
 
-Every job in `.github/workflows/ci.yml` and `.github/workflows/compat-nightly.yml` must satisfy
-the following (validated statically by `scripts/check_compat_matrix.py`):
+Every job in **every** workflow under `.github/workflows/` must satisfy the following (validated
+statically by `scripts/check_compat_matrix.py`):
 
 1. Its OS is in `{ubuntu-latest, windows-latest, macos-latest}`.
 2. Its Python version (where a `actions/setup-python` step is present) is in `[3.9, 3.14)`.
 
-`dependency-review` is a third-party-action job with no `setup-python` step, so it is OS-checked
-only. `fmp-contract-canary.yml` and `packaged-deps-nightly.yml` are separate targeted workflows and
-are explicitly **out of scope** for this drift guard.
+The drift guard globs the whole workflow directory rather than a hard-coded allowlist, so a
+brand-new workflow that runs a job on an unsupported OS / out-of-range Python is caught and not
+silently skipped. `dependency-review` is a third-party-action job with no `setup-python` step, so it
+is OS-checked only; single-runner jobs without a matrix axis are only OS-checked because no Python
+version can be pinned. Compatibility-defining jobs (`compat-smoke`, `compat-nightly`) are also
+checked against the documented axis mapping below.
 
 ## Job → (os, python) mapping
 
@@ -100,7 +106,12 @@ Two past failure classes motivated bounding the promise and testing cross-platfo
 - **#64** — a Windows default-encoding Markdown failure that would not have surfaced if the suite
   had run on a Windows runner.
 - **#311** — a standalone dependency gap discovered by running the risk/state/navigator skills
-  outside the main project venv.
+  outside the main project venv. The `compat-smoke` / `compat-nightly` jobs therefore run an extra
+  **isolated packaged-dependency import** step: each core skill's declared `requirements.txt` is
+  installed into a throwaway environment (`uv run --isolated --no-project --with <reqs>`) and the
+  skill's top-level imports are exercised there, per OS and per Python version. This catches a
+  missing dependency declaration that the shared dev environment would otherwise mask via packages
+  installed transitively.
 
 The cross-platform jobs (`compat-smoke`, `compat-nightly`) exercise the compatibility-sensitive
 suites — `position-sizer`, `futures-position-sizer`, `trader-memory-core`,

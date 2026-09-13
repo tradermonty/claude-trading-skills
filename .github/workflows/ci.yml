@@ -459,6 +459,71 @@ jobs:
             python scripts/ci_test_matrix.py run "$id"
           done
 
+      - name: Isolated packaged-dependency import (#311)
+        shell: bash
+        run: |
+          # Source tests run against the shared dev environment, which masks
+          # missing per-skill dependency declarations via transitive packages
+          # (issue #311). Import each core skill's required deps from a clean,
+          # isolated environment (no project/dev extras) to fail closed.
+          python3 - <<'PYEOF'
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "scripts")
+          from check_skill_deps import IMPORT_TO_DIST, parse_requirements
+
+          reverse = {}
+          for top, dist in IMPORT_TO_DIST.items():
+              reverse.setdefault(dist.lower(), top)
+
+          core = [
+              "position-sizer",
+              "futures-position-sizer",
+              "trader-memory-core",
+              "drawdown-circuit-breaker",
+              "trading-skills-navigator",
+          ]
+          failures = []
+          for sid in core:
+              manifest = Path("skills") / sid / "requirements.txt"
+              if not manifest.exists():
+                  failures.append(f"{sid}: missing requirements.txt")
+                  continue
+              entries, errors = parse_requirements(manifest)
+              if errors:
+                  failures.append(f"{sid}: parse_errors={errors}")
+                  continue
+              required = [e for e in entries.values() if not e.optional]
+              if not required:
+                  print(f"OK   {sid} (stdlib-only)")
+                  continue
+              with_args = []
+              imports = []
+              for entry in required:
+                  with_args += ["--with", entry.spec]
+                  top = reverse.get(entry.dist.lower(), entry.dist.lower().replace("-", "_"))
+                  imports.append(f"import {top}")
+              code = "; ".join(imports)
+              proc = subprocess.run(
+                  ["uv", "run", "--isolated", "--no-project", *with_args, "python", "-c", code],
+                  capture_output=True,
+                  text=True,
+                  timeout=600,
+              )
+              if proc.returncode != 0:
+                  failures.append(f"{sid}: {code} -> {proc.stderr.strip()}")
+                  print(f"FAIL {sid}")
+              else:
+                  print(f"OK   {sid}: {code}")
+          if failures:
+              print("ISOLATED IMPORT FAILURES:")
+              for item in failures:
+                  print("  -", item)
+              sys.exit(1)
+          PYEOF
+
       - name: Run cross-platform regression tests
         shell: bash
         run: python -m pytest scripts/tests/test_compat_regressions.py

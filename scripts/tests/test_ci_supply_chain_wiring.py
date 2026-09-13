@@ -74,6 +74,26 @@ def test_dependency_review_is_strict_pr_only_and_read_only():
     }
 
 
+def test_compat_jobs_do_isolated_packaged_import():
+    # Each compat job must import the core skills' declared dependencies from a
+    # clean, isolated environment (issue #311). Running only against the shared
+    # dev env masks missing per-skill dependency declarations, so this must be
+    # present in both the max-Python PR leg (ci.yml) and the min-Python nightly.
+    for name in ("ci.yml", "compat-nightly.yml"):
+        config = workflow(name)
+        targets = ["compat-smoke"] if name == "ci.yml" else ["compat-nightly"]
+        for job_id in targets:
+            job = config["jobs"][job_id]
+            runs = [step.get("run", "") for step in job["steps"]]
+            isolated = any(
+                "from check_skill_deps import IMPORT_TO_DIST, parse_requirements" in r
+                and '"--isolated"' in r
+                and "trader-memory-core" in r
+                for r in runs
+            )
+            assert isolated, (name, job_id)
+
+
 def test_dependabot_tracks_all_three_manifest_families_weekly():
     config = yaml.safe_load((ROOT / ".github/dependabot.yml").read_text())
     assert {(item["package-ecosystem"], item["directory"]) for item in config["updates"]} == {

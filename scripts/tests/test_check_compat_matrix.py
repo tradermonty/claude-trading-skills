@@ -230,3 +230,85 @@ def test_check_fails_on_doc_supported_os_mismatch(project: Path, capsys: pytest.
     _write(project, "docs/dev/compatibility-matrix.md", doc)
     assert ccm.check(quiet=True) == 1
     assert "supported_os" in capsys.readouterr().out
+
+
+def test_extract_matrix_exclude_removes_os(project: Path):
+    # A matrix `exclude: [{os: windows-latest}]` must drop the whole Windows
+    # axis from the resolved combos, so the declared-vs-actual match fails.
+    _write(project, ".github/workflows/ci.yml", COMPLIANT_CI)
+    ci = COMPLIANT_CI.replace(
+        "        os: [ubuntu-latest, windows-latest, macos-latest]",
+        "        os: [ubuntu-latest, windows-latest, macos-latest]\n        exclude:\n          - os: windows-latest",
+    )
+    _write(project, ".github/workflows/ci.yml", ci)
+    results = ccm._extract_jobs(ccm._load_workflow("ci.yml"))
+    assert {c.os for c in results["compat-smoke"].combos} == {"ubuntu-latest", "macos-latest"}
+
+
+def test_check_fails_on_matrix_exclude_dropping_os(project: Path, capsys: pytest.CaptureFixture):
+    # Excluding Windows from compat-smoke changes the actual OS set, which must
+    # be caught as doc drift even though runs-on stays on a supported OS.
+    _compliant_tree(project)
+    ci = COMPLIANT_CI.replace(
+        "        os: [ubuntu-latest, windows-latest, macos-latest]",
+        "        os: [ubuntu-latest, windows-latest, macos-latest]\n        exclude:\n          - os: windows-latest",
+    )
+    _write(project, ".github/workflows/ci.yml", ci)
+    assert ccm.check(quiet=True) == 1
+    assert "documented OS" in capsys.readouterr().out
+
+
+def test_extract_matrix_include_adds_os(project: Path):
+    # An `include` entry with a concrete `os`+`python` must be added even when
+    # the base product does not contain it.
+    _write(project, ".github/workflows/ci.yml", COMPLIANT_CI)
+    ci = COMPLIANT_CI.replace(
+        "        os: [ubuntu-latest, windows-latest, macos-latest]",
+        "        os: [ubuntu-latest, macos-latest]\n        include:\n          - os: windows-latest\n            python: '3.13'",
+    )
+    _write(project, ".github/workflows/ci.yml", ci)
+    results = ccm._extract_jobs(ccm._load_workflow("ci.yml"))
+    combos = {(c.os, c.python) for c in results["compat-smoke"].combos}
+    assert ("windows-latest", "3.13") in combos
+
+
+def test_check_scans_all_workflows_for_policy(project: Path, capsys: pytest.CaptureFixture):
+    # The policy leg globs every workflow, so a brand-new workflow running a job
+    # on an unsupported OS / out-of-range Python is caught, not silently skipped.
+    _compliant_tree(project)
+    extra = (
+        "jobs:\n"
+        "  extra:\n"
+        "    strategy:\n"
+        "      fail-fast: false\n"
+        "      matrix:\n"
+        "        os: [windows-latest]\n"
+        "    runs-on: ${{ matrix.os }}\n"
+        "    steps:\n"
+        "      - uses: actions/setup-python@v5\n"
+        "        with:\n"
+        "          python-version: '3.15'\n"
+    )
+    _write(project, ".github/workflows/extra-nightly.yml", extra)
+    assert ccm.check(quiet=True) == 1
+    assert "extra" in capsys.readouterr().out
+
+
+def test_check_fails_on_missing_doc_python(project: Path, capsys: pytest.CaptureFixture):
+    # A doc that omits the top-level `python:` declaration must fail closed.
+    _compliant_tree(project)
+    doc = COMPLIANT_DOC.replace('  python: ">=3.9,<3.14"\n', "")
+    _write(project, "docs/dev/compatibility-matrix.md", doc)
+    assert ccm.check(quiet=True) == 1
+    assert "python" in capsys.readouterr().out
+
+
+def test_check_fails_on_missing_doc_supported_os(project: Path, capsys: pytest.CaptureFixture):
+    # A doc that omits the top-level `supported_os:` declaration must fail closed.
+    _compliant_tree(project)
+    doc = COMPLIANT_DOC.replace(
+        "  supported_os: [ubuntu-latest, windows-latest, macos-latest]\n", ""
+    )
+    _write(project, "docs/dev/compatibility-matrix.md", doc)
+    assert ccm.check(quiet=True) == 1
+    assert "supported_os" in capsys.readouterr().out
