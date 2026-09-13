@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CLI_PATHS = {
     "breakout-trade-planner": "scripts/plan_breakout_trades.py",
     "drawdown-circuit-breaker": "scripts/check_circuit_breaker.py",
+    "earnings-trade-analyzer": "scripts/analyze_earnings_trades.py",
     "market-environment-analysis": "scripts/market_utils.py",
     "market-top-detector": "scripts/market_top_detector.py",
     "parabolic-short-trade-planner": "scripts/screen_parabolic.py",

@@ -60,6 +60,7 @@ the JPX lunch break is closed.
 | Consumer | Start | End | Reverse/past behavior |
 |---|---|---|---|
 | Market environment event countdown | inclusive | exclusive | past event returns `0` |
+| Earnings analyzer empty-response check | inclusive | inclusive | negative `--lookback-days` is rejected; `0` checks today only |
 | Market-top freshness | exclusive | inclusive | reverse returns legacy sentinel `-1` |
 | Parabolic earnings age | exclusive | inclusive | reverse keeps the legacy negative calendar-day invalid sentinel |
 | Theme/uptrend freshness | exclusive | inclusive | future source date is stale/anomalous |
@@ -67,6 +68,10 @@ the JPX lunch break is closed.
 The shared `count_sessions()` requires both inclusion flags as keyword arguments
 and rejects reverse ranges. Consumer adapters own their documented legacy
 sentinels so no ambiguous default can introduce an off-by-one error.
+The earnings analyzer creates one pair of `date` values, sends their ISO strings
+as FMP's `from` and `to` parameters, and passes those same values to
+`count_sessions()`. Its existing lookback therefore remains `N + 1` calendar
+dates with both endpoints included.
 
 ## `as-of` and point-in-time boundaries
 
@@ -90,6 +95,7 @@ created and are not inputs to signal, expiry, event, or freshness calculations.
 
 | Location | Classification and disposition |
 |---|---|
+| `earnings-trade-analyzer/analyze_earnings_trades.py` | A literal clean earnings-calendar `[]` is benign only when the identical inclusive FMP window has zero XNYS sessions; market-session empties and calendar-unavailable checks fail closed |
 | `market-environment-analysis/market_utils.py` and two example mirrors | Status, session labels, and event countdown use the shared calendar and one aware instant; weekday formatting is display-only |
 | `breakout-trade-planner/plan_breakout_trades.py` | Plan validity uses current-or-next XNYS session; default clock is aware UTC |
 | `drawdown-circuit-breaker/check_circuit_breaker.py` | Halt dates use XNYS sessions; `weekday()` remains only for calendar-week accounting |
@@ -106,5 +112,5 @@ created and are not inputs to signal, expiry, event, or freshness calculations.
 | Shanghai, Hong Kong, Singapore rows in market environment | Display-only reference text; no session/status/trading-day calculation consumes them |
 
 The drift gate covers the authority file, generated CI inventory, workflow,
-generator/smoke inventory agreement, canonical implementation, all six
+generator/smoke inventory agreement, canonical implementation, all seven
 consumers, both example mirrors, the optional extra, and CI policy.

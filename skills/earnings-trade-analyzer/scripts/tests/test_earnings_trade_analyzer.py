@@ -10,10 +10,12 @@ import json
 import os
 import sys
 import tempfile
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
 from analyze_earnings_trades import (
+    CalendarUnavailableError,
     apply_entry_filter,
     classify_empty_calendar,
     explain_empty_selection,
@@ -534,19 +536,57 @@ class TestExplainEmptySelection:
 
 
 class TestClassifyEmptyCalendar:
-    """Only a clean empty list is benign; None and non-list bodies fail closed."""
+    """Only session-free clean empty lists are benign."""
 
-    def test_empty_list_is_benign(self):
-        assert classify_empty_calendar([]) == "no_earnings_rows"
+    @patch("analyze_earnings_trades.count_sessions", return_value=0)
+    def test_empty_list_is_benign_when_window_has_no_sessions(self, mock_count):
+        start = date(2026, 9, 5)
+        end = date(2026, 9, 6)
 
-    def test_none_fails_closed(self):
-        assert classify_empty_calendar(None) == "calendar_fetch_failed"
+        assert classify_empty_calendar([], start, end) == "no_earnings_rows"
+        mock_count.assert_called_once_with("XNYS", start, end, include_start=True, include_end=True)
 
-    def test_non_list_bodies_fail_closed(self):
-        assert classify_empty_calendar({}) == "calendar_fetch_failed"
-        assert classify_empty_calendar("") == "calendar_fetch_failed"
-        assert classify_empty_calendar(0) == "calendar_fetch_failed"
-        assert classify_empty_calendar({"error": "Bad Request"}) == "calendar_fetch_failed"
+    @patch("analyze_earnings_trades.count_sessions", return_value=1)
+    def test_empty_list_fails_closed_when_window_has_market_session(self, mock_count):
+        start = date(2026, 9, 6)
+        end = date(2026, 9, 7)
+
+        assert (
+            classify_empty_calendar([], start, end)
+            == "earnings_calendar_empty_with_market_sessions"
+        )
+        mock_count.assert_called_once_with("XNYS", start, end, include_start=True, include_end=True)
+
+    @patch(
+        "analyze_earnings_trades.count_sessions",
+        side_effect=CalendarUnavailableError("fixture failure"),
+    )
+    def test_empty_list_fails_closed_when_market_calendar_unavailable(self, mock_count):
+        start = date(2026, 9, 5)
+        end = date(2026, 9, 6)
+
+        assert classify_empty_calendar([], start, end) == "market_calendar_unavailable"
+        mock_count.assert_called_once()
+
+    @patch("analyze_earnings_trades.count_sessions")
+    def test_none_fails_closed_without_market_calendar_query(self, mock_count):
+        assert (
+            classify_empty_calendar(None, date(2026, 9, 5), date(2026, 9, 6))
+            == "calendar_fetch_failed"
+        )
+        mock_count.assert_not_called()
+
+    @patch("analyze_earnings_trades.count_sessions")
+    def test_non_list_bodies_fail_closed_without_market_calendar_query(self, mock_count):
+        start = date(2026, 9, 5)
+        end = date(2026, 9, 6)
+        assert classify_empty_calendar({}, start, end) == "calendar_fetch_failed"
+        assert classify_empty_calendar("", start, end) == "calendar_fetch_failed"
+        assert classify_empty_calendar(0, start, end) == "calendar_fetch_failed"
+        assert (
+            classify_empty_calendar({"error": "Bad Request"}, start, end) == "calendar_fetch_failed"
+        )
+        mock_count.assert_not_called()
 
 
 class TestMainZeroResultExitCodes:
@@ -759,9 +799,12 @@ class TestMainZeroResultExitCodes:
         err = capsys.readouterr().err
         assert "ZERO_RESULT_REASON=no_earnings_rows" in err
 
+    @patch("analyze_earnings_trades.count_sessions", return_value=0)
     @patch("analyze_earnings_trades.FMPClient")
-    def test_empty_calendar_list_exits_0(self, mock_client_class, tmp_path, capsys):
-        """A clean empty calendar response exits 0 with api_stats observability."""
+    def test_empty_session_free_calendar_list_exits_0(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        """A clean empty response for a session-free window exits 0."""
         client = mock_client_class.return_value
         mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
         client.get_earnings_calendar.return_value = []
@@ -778,6 +821,95 @@ class TestMainZeroResultExitCodes:
         err = capsys.readouterr().err
         assert "ZERO_RESULT_REASON=no_earnings_rows" in err
         assert "budget_remaining=50" in err
+        mock_count.assert_called_once()
+
+    @patch("analyze_earnings_trades.count_sessions", return_value=1)
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_empty_calendar_with_market_session_exits_1(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert (
+            "ZERO_RESULT_REASON=earnings_calendar_empty_with_market_sessions"  # pragma: allowlist secret
+            in err
+        )
+        mock_count.assert_called_once()
+
+    @patch(
+        "analyze_earnings_trades.count_sessions",
+        side_effect=CalendarUnavailableError("fixture failure"),
+    )
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_empty_calendar_with_unavailable_market_calendar_exits_1(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "ZERO_RESULT_REASON=market_calendar_unavailable" in err
+        mock_count.assert_called_once()
+
+    @patch("analyze_earnings_trades.count_sessions", return_value=0)
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_zero_day_window_uses_same_inclusive_date_for_api_and_sessions(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--lookback-days", "0"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        api_start, api_end = client.get_earnings_calendar.call_args.args
+        count_call = mock_count.call_args
+        assert api_start == api_end
+        assert count_call.args[1].isoformat() == api_start
+        assert count_call.args[2].isoformat() == api_end
+        assert count_call.kwargs == {"include_start": True, "include_end": True}
+        assert "ZERO_RESULT_REASON=no_earnings_rows" in capsys.readouterr().err
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_negative_lookback_is_rejected_before_client_creation(
+        self, mock_client_class, tmp_path, capsys
+    ):
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--lookback-days", "-1"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 2
+        mock_client_class.assert_not_called()
+        assert "--lookback-days must be greater than or equal to 0" in capsys.readouterr().err
 
     @patch("analyze_earnings_trades.FMPClient")
     def test_failed_calendar_fetch_exits_1(self, mock_client_class, tmp_path, capsys):

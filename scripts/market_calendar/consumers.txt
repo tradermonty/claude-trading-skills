@@ -1,5 +1,6 @@
 breakout-trade-planner
 drawdown-circuit-breaker
+earnings-trade-analyzer
 market-environment-analysis
 market-top-detector
 parabolic-short-trade-planner
