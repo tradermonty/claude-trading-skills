@@ -1,0 +1,21 @@
+{
+  "as_of": "2026-08-14",
+  "manual_execution_required": true,
+  "plans": [
+    {
+      "entry_price": 57.6,
+      "entry_type": "STOP_LIMIT",
+      "limit_price": 57.89,
+      "order_status": "PROPOSED_NOT_SUBMITTED",
+      "planned_risk_dollars": 998.2,
+      "position_value": 12499.2,
+      "risk_reward_ratio": 2.6957,
+      "shares": 217,
+      "side": "BUY",
+      "stop_price": 53,
+      "symbol": "EXMPL",
+      "target_price": 70
+    }
+  ],
+  "schema_version": "1.0"
+}

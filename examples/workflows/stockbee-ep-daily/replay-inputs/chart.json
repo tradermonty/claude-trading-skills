@@ -1,0 +1,12 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-14",
+  "data": {
+    "symbol": "EXMPL",
+    "verdict": "CONFIRMED",
+    "entry_price": 57.6,
+    "stop_price": 53,
+    "target_price": 70
+  }
+}

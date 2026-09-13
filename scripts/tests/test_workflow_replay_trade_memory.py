@@ -42,7 +42,7 @@ def test_trade_memory_spec_has_honest_executor_evidence() -> None:
     }
 
 
-def test_coverage_includes_trade_memory_at_nine_of_eleven() -> None:
+def test_coverage_includes_trade_memory_at_ten_of_eleven() -> None:
     summary = replay_module.validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
@@ -52,11 +52,12 @@ def test_coverage_includes_trade_memory_at_nine_of_eleven() -> None:
         "monthly-performance-review",
         "shapiro-contrarian",
         "stockbee-20pct-study-daily",
+        "stockbee-ep-daily",
         "stockbee-fluency-loop",
         "swing-opportunity-daily",
         "trade-memory-loop",
     ]
-    assert len(summary["deferred"]) == 2
+    assert len(summary["deferred"]) == 1
     assert "trade-memory-loop" not in summary["deferred"]
 
 
@@ -458,6 +459,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
         "shapiro-contrarian:full-path",
         "stockbee-20pct-study-daily:required-only",
         "stockbee-20pct-study-daily:full-path",
+        "stockbee-ep-daily:required-only",
+        "stockbee-ep-daily:full-path",
         "stockbee-fluency-loop:required-only",
         "stockbee-fluency-loop:full-path",
         "swing-opportunity-daily:required-only",
@@ -478,6 +481,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
         "replay-run-full-path",
         "sample-run",
         "sample-run-full-path",
+        "replay-run",
+        "replay-run-full-path",
         "sample-run",
         "sample-run-full-path",
         "replay-run",

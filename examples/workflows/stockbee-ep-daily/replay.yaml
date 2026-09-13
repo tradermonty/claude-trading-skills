@@ -1,0 +1,109 @@
+schema_version: 1
+workflow_id: stockbee-ep-daily
+fixed_timestamp: '2026-08-14T20:00:00+00:00'
+inputs:
+  decision: replay-inputs/decision.json
+  exposure: replay-inputs/exposure.json
+  account_state: replay-inputs/account_state.json
+  events: replay-inputs/events.json
+  prices: replay-inputs/prices.json
+  chart: replay-inputs/chart.json
+  checklist: replay-inputs/checklist.json
+  earnings: replay-inputs/earnings.json
+  momentum: replay-inputs/momentum.json
+steps:
+- step: 1
+  executor: ep_circuit
+  executor_mode: native_cli
+  gate_policy: continue
+  output_files:
+    circuit_breaker_decision:
+      canonical: 01_circuit_breaker_decision.json
+- step: 2
+  executor: ep_screen
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    earnings_candidates:
+      canonical: 02_earnings_candidates.json
+- step: 3
+  executor: ep_screen
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    momentum_burst_candidates:
+      canonical: 03_momentum_burst_candidates.json
+- step: 4
+  executor: ep_analyze
+  executor_mode: native_cli
+  gate_policy: continue
+  output_files:
+    episodic_pivot_candidates:
+      canonical: 04_episodic_pivot_candidates.json
+    pead_handoff_candidates:
+      canonical: 04_pead_handoff_candidates.json
+    delayed_ep_watchlist:
+      canonical: 04_delayed_ep_watchlist.json
+- step: 5
+  executor: ep_validate
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    validated_ep_setups:
+      canonical: 05_validated_ep_setups.json
+- step: 6
+  executor: ep_size
+  executor_mode: native_cli
+  gate_policy: continue
+  output_files:
+    ep_position_sizing:
+      canonical: 06_ep_position_sizing.json
+- step: 7
+  executor: ep_plan
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    ep_trade_plan:
+      canonical: 07_ep_trade_plan.json
+- step: 8
+  executor: ep_journal
+  executor_mode: composite
+  gate_policy: continue
+  output_files:
+    ep_journal_entry:
+      canonical: 08_ep_journal_entry.json
+  executor_components:
+  - manual_contract
+  - native_api
+- step: 9
+  executor: ep_discipline
+  executor_mode: composite
+  gate_policy: continue
+  output_files:
+    pre_trade_discipline_decision:
+      canonical: 09_pre_trade_discipline_decision.json
+  executor_components:
+  - manual_contract
+  - native_cli
+variants:
+  required-only:
+    enabled_steps:
+    - 1
+    - 4
+    - 5
+    - 6
+    - 8
+    - 9
+    golden_dir: replay-run
+  full-path:
+    enabled_steps:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    golden_dir: replay-run-full-path

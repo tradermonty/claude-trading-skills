@@ -1,0 +1,25 @@
+{
+  "as_of": "2026-08-14",
+  "setups": [
+    {
+      "entry_price": 57.6,
+      "stop_price": 53,
+      "symbol": "EXMPL",
+      "target_price": 70,
+      "verdict": "CONFIRMED"
+    }
+  ],
+  "sources": {
+    "episodic_pivot_candidates": {
+      "file": "$ARTIFACT/04_episodic_pivot_candidates.json",
+      "sha256": "84596d5eeb5e8a64619d3c124c699fc0bc754fb38071a2479052cd74de0f0ab0"
+    }
+  },
+  "watchlist": [
+    {
+      "pead_handoff": true,
+      "state": "DELAYED_EP_WATCH",
+      "symbol": "EXWIDE"
+    }
+  ]
+}

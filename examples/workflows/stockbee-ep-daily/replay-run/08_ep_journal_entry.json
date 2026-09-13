@@ -1,0 +1,73 @@
+{
+  "created_at": "2026-08-14T20:00:00+00:00",
+  "entry": {
+    "actual_date": null,
+    "actual_price": null,
+    "conditions": [],
+    "target_price": 57.6
+  },
+  "execution_authorized": false,
+  "exit": {
+    "actual_date": null,
+    "actual_price": null,
+    "exit_reason": null,
+    "stop_loss": 53,
+    "stop_loss_pct": null,
+    "take_profit": null,
+    "take_profit_rr": null,
+    "time_stop_days": null
+  },
+  "kill_criteria": [
+    "Invalidate the reviewed setup below the fictional EP-day low."
+  ],
+  "linked_reports": [
+    {
+      "date": "2026-08-14",
+      "file": "$ARTIFACT/06_ep_position_sizing.json",
+      "skill": "position-sizer"
+    },
+    {
+      "date": "2026-08-14",
+      "file": "$ARTIFACT/05_validated_ep_setups.json",
+      "skill": "technical-analyst"
+    }
+  ],
+  "position": {
+    "account_type": null,
+    "position_value": 12499.2,
+    "raw_source": {
+      "fields": {
+        "final_position_value": 12499.2,
+        "final_recommended_shares": 217,
+        "final_risk_dollars": 998.2
+      },
+      "file": "$ARTIFACT/06_ep_position_sizing.json",
+      "skill": "position-sizer"
+    },
+    "risk_dollars": 998.2,
+    "risk_pct_of_account": 1.0,
+    "shares": 217,
+    "shares_remaining": 217,
+    "sizing_method": "fixed_fractional"
+  },
+  "sources": {
+    "ep_position_sizing": {
+      "file": "$ARTIFACT/06_ep_position_sizing.json",
+      "sha256": "a94b4228784089620a7b73b82410610444357f26ec0b79727221e246fc1e9ed7"
+    },
+    "validated_ep_setups": {
+      "file": "$ARTIFACT/05_validated_ep_setups.json",
+      "sha256": "b7deba7ab70f894e28ec85e6807b2023e5ea7ea919110b8718edb7599ae716b1"
+    }
+  },
+  "status": "IDEA",
+  "thesis_statement": "Fictional guidance catalyst confirmed by Day 1 price and volume.",
+  "ticker": "EXMPL",
+  "watchlist": [
+    {
+      "pead_handoff": true,
+      "state": "DELAYED_EP_WATCH",
+      "symbol": "EXWIDE"
+    }
+  ]
+}

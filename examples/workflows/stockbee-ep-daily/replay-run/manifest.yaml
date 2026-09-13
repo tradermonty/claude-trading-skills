@@ -1,0 +1,89 @@
+workflow_id: stockbee-ep-daily
+sample_type: required-only
+status: completed
+completed_steps:
+- 1
+- 4
+- 5
+- 6
+- 8
+- 9
+required_steps_not_executed: []
+illustrative: true
+generated_by: scripts/workflow_replay.py generate
+prompt: prompt.md
+network_policy: offline-input-required
+optional_steps_skipped:
+- step: 2
+  skill: earnings-trade-analyzer
+  reason: required-only executable replay
+- step: 3
+  skill: stockbee-momentum-burst-screener
+  reason: required-only executable replay
+- step: 7
+  skill: breakout-trade-planner
+  reason: required-only executable replay
+artifacts:
+- step: 1
+  artifact_id: circuit_breaker_decision
+  skill: drawdown-circuit-breaker
+  execution_mode: native_cli
+  files:
+    canonical: 01_circuit_breaker_decision.json
+- step: 4
+  artifact_id: delayed_ep_watchlist
+  skill: stockbee-episodic-pivot-analyzer
+  execution_mode: native_cli
+  files:
+    canonical: 04_delayed_ep_watchlist.json
+- step: 4
+  artifact_id: episodic_pivot_candidates
+  skill: stockbee-episodic-pivot-analyzer
+  execution_mode: native_cli
+  files:
+    canonical: 04_episodic_pivot_candidates.json
+- step: 4
+  artifact_id: pead_handoff_candidates
+  skill: stockbee-episodic-pivot-analyzer
+  execution_mode: native_cli
+  files:
+    canonical: 04_pead_handoff_candidates.json
+- step: 5
+  artifact_id: validated_ep_setups
+  skill: technical-analyst
+  execution_mode: manual_contract
+  files:
+    canonical: 05_validated_ep_setups.json
+- step: 6
+  artifact_id: ep_position_sizing
+  skill: position-sizer
+  execution_mode: native_cli
+  files:
+    canonical: 06_ep_position_sizing.json
+- step: 8
+  artifact_id: ep_journal_entry
+  skill: trader-memory-core
+  execution_mode: composite
+  files:
+    canonical: 08_ep_journal_entry.json
+  executor_components:
+  - manual_contract
+  - native_api
+- step: 9
+  artifact_id: pre_trade_discipline_decision
+  skill: pre-trade-discipline-gate
+  execution_mode: composite
+  files:
+    canonical: 09_pre_trade_discipline_decision.json
+  executor_components:
+  - manual_contract
+  - native_cli
+execution_evidence_limitations:
+- Native circuit breaker, EP classification and position sizing consume fictional
+  offline inputs; live providers and news verification are not executed.
+- Chart confirmation and execution checklist are human-approved fixtures; native trader-memory
+  APIs persist IDEA only in disposable state, without fills or order authorization.
+- Native discipline consumes the account history; delayed EP candidates remain non-actionable
+  watch entries.
+- Optional earnings/momentum screens and written plan are skipped; the absent written
+  plan forces NO_GO.

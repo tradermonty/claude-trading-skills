@@ -1,0 +1,11 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-14",
+  "data": {
+    "symbol": "EXMPL",
+    "entry_in_written_plan": true,
+    "stop_predefined": true,
+    "size_within_plan": true
+  }
+}
