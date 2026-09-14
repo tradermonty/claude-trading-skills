@@ -1,0 +1,25 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-14",
+  "data": {
+    "events": [
+      {
+        "symbol": "EXMPL",
+        "event_date": "2026-08-14",
+        "headline": "EXMPL raises guidance after record demand",
+        "summary": "Fictional teaching catalyst; no real issuer or news.",
+        "catalyst_type": "guidance_raise",
+        "market_cap": 5000000000
+      },
+      {
+        "symbol": "EXWIDE",
+        "event_date": "2026-08-14",
+        "headline": "Post-earnings reaction for EXWIDE",
+        "summary": "Fictional teaching catalyst; no real issuer or news.",
+        "catalyst_type": "earnings",
+        "market_cap": 5000000000
+      }
+    ]
+  }
+}

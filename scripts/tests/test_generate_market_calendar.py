@@ -33,6 +33,7 @@ def test_authority_has_exact_supported_consumer_set(generator):
     assert set(config["consumers"]) == {
         "breakout-trade-planner",
         "drawdown-circuit-breaker",
+        "earnings-trade-analyzer",
         "market-environment-analysis",
         "market-top-detector",
         "parabolic-short-trade-planner",
@@ -40,6 +41,7 @@ def test_authority_has_exact_supported_consumer_set(generator):
     }
     assert len(config["example_mirrors"]) == 2
     assert config["additional_requirements"]["drawdown-circuit-breaker"] == ["pyyaml>=6.0"]
+    assert config["additional_requirements"]["earnings-trade-analyzer"] == ["requests>=2.31.0"]
     assert "requests>=2.31.0" in config["additional_requirements"]["parabolic-short-trade-planner"]
     theme_reqs = {
         generator._split_entry("theme-detector", item)[0]
@@ -51,13 +53,16 @@ def test_authority_has_exact_supported_consumer_set(generator):
 def test_targets_cover_runtime_tests_requirements_and_examples(generator):
     rendered = generator.targets(generator.load_config())
     paths = {path.relative_to(REPO_ROOT).as_posix() for path, _ in rendered}
-    assert len(paths) == 25
+    assert len(paths) == 28
     assert "scripts/market_calendar/consumers.txt" in paths
     for skill in generator.load_config()["consumers"]:
         assert f"skills/{skill}/scripts/_market_calendar.py" in paths
         assert f"skills/{skill}/scripts/tests/test_market_calendar_contract.py" in paths
         assert f"skills/{skill}/requirements.txt" in paths
     assert all(content.endswith("\n") for _, content in rendered)
+    earnings = dict(rendered)[REPO_ROOT / "skills" / "earnings-trade-analyzer" / "requirements.txt"]
+    assert "pandas-market-calendars==5.2.2" in earnings
+    assert "requests>=2.31.0" in earnings
 
 
 def test_pyproject_and_ci_pins_match_authority(generator):

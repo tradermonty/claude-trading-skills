@@ -1,0 +1,27 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "report": {
+    "schema_version": "1.0",
+    "skill": "news-reaction-failure-analyzer",
+    "symbol": "B6",
+    "direction": "CROWDED_SHORT",
+    "expected_direction": "BULLISH",
+    "actual_reaction": "NO_REACTION",
+    "verdict": "CONFIRMED",
+    "confidence": "HIGH",
+    "verdict_reason": null,
+    "relevant_events_used": 3,
+    "aggregate": {
+      "mean_z3": 0.1,
+      "drift_stat": 0.2,
+      "responded_ratio": 0.33
+    },
+    "evidence": [],
+    "clusters": [],
+    "dropped_events": [],
+    "run_context": {
+      "as_of": "2026-08-13"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "contract_spec": {
+    "currency": "USD",
+    "multiplier": 62500,
+    "source": "cme",
+    "tick_size": 0.0001,
+    "tick_value": 6.25,
+    "verified": "2026-07-17"
+  },
+  "contracts": 2,
+  "direction": "LONG",
+  "entry": 1.38,
+  "fx_rate_used": 1.0,
+  "gate": {
+    "gate_confidence": "HIGH",
+    "report_path": "$ARTIFACT/04_contrarian_setup_gate_report.json",
+    "setup_status": "READY_FOR_PLAN",
+    "warnings": [
+      "detector_near_stale"
+    ]
+  },
+  "margin_note": "Exchange margin requirements are broker/time-dependent and NOT computed here; verify initial/maintenance margin with your broker.",
+  "max_contracts_cap_applied": false,
+  "no_trade_reason": null,
+  "risk_budget_usd": 1000.0,
+  "risk_pct_of_account": 1.0,
+  "risk_per_contract_usd": 500.0,
+  "run_context": {
+    "as_of": "2026-08-15",
+    "schema_version": "1.0",
+    "skill": "futures-position-sizer",
+    "symbol": "B6"
+  },
+  "schema_version": "1.0",
+  "sizing_status": "SIZED",
+  "stop": 1.372,
+  "stop_distance_points": 0.008,
+  "stop_distance_ticks": 80,
+  "symbol": "B6",
+  "total_risk_usd": 1000.0,
+  "warnings": []
+}

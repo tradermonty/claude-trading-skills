@@ -1,0 +1,22 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "report": {
+    "schema_version": "1.0",
+    "skill": "cot-contrarian-detector",
+    "run_context": {
+      "schema_version": "1.0",
+      "as_of": "2026-08-12",
+      "data_date": "2026-08-07"
+    },
+    "markets": [
+      {
+        "symbol": "B6",
+        "status": "ok",
+        "data_date": "2026-08-07",
+        "classification": "CROWDED_SHORT"
+      }
+    ],
+    "skipped": []
+  }
+}

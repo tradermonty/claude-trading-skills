@@ -1,0 +1,13 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-14",
+  "data": {
+    "symbol": "EXMPL",
+    "account_size": 100000,
+    "risk_pct": 1,
+    "max_ep_risk_pct": 10,
+    "thesis_statement": "Fictional guidance catalyst confirmed by Day 1 price and volume.",
+    "kill_criterion": "Invalidate the reviewed setup below the fictional EP-day low."
+  }
+}

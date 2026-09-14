@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Deterministic workflow contract replay harness (Issue #294, coverage 8/11).
+"""Deterministic workflow contract replay harness (Issue #294, coverage 10/11).
 
 The harness executes real offline CLIs for the Stockbee fluency, 20% study,
 trade-memory, market-regime, monthly-performance-review, core-portfolio,
-kanchi-dividend-weekly, and swing-opportunity-daily workflows. Human decisions
+kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily, and swing-opportunity-daily workflows. Human decisions
 and fixture-backed native API evidence are reported separately from full skill
 execution. Golden outputs are comparison targets only and are never used as
 replay inputs.
@@ -49,13 +49,11 @@ KANCHI_FORBIDDEN_REVIEW_TOKENS = frozenset(
 )
 VARIANTS = ("required-only", "full-path")
 
-# Coverage 8/11 leaves three workflows deferred. This frozen baseline prevents a
+# Coverage 10/11 leaves one workflow deferred. This frozen baseline prevents a
 # newly introduced workflow from being waved through as another deferral.
 FROZEN_DEFERRED_WORKFLOWS = frozenset(
     {
         "multi-asset-opportunity-daily",
-        "shapiro-contrarian",
-        "stockbee-ep-daily",
     }
 )
 
@@ -248,7 +246,7 @@ def coverage_errors(workflow_ids: set[str], coverage: Mapping[str, Any]) -> list
 
     if set(deferred) != FROZEN_DEFERRED_WORKFLOWS:
         errors.append(
-            "deferred workflows must match the frozen coverage 8/11 deferred set; "
+            "deferred workflows must match the frozen coverage 10/11 deferred set; "
             f"expected {sorted(FROZEN_DEFERRED_WORKFLOWS)}, got {sorted(deferred)}"
         )
     for workflow_id, entry in deferred.items():
@@ -641,10 +639,16 @@ def _run_cli(
     repo_root: Path,
     *,
     path_override: Path | None = None,
+    env_overrides: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     environment = _scrubbed_environment()
     if path_override is not None:
         environment["PATH"] = str(path_override)
+    if env_overrides:
+        for key in env_overrides:
+            if any(marker in key.upper() for marker in SENSITIVE_ENV_MARKERS):
+                raise ReplayError(f"env_overrides must not set a sensitive variable: {key}")
+        environment.update(env_overrides)
     completed = subprocess.run(
         command,
         cwd=repo_root,
@@ -1308,6 +1312,159 @@ def _normalize_review_test_command(report: dict[str, Any]) -> None:
     if any(marker in pytest_arguments for marker in shell_markers):
         raise ReplayError("skill review test command contains shell control syntax")
     auto_review["test_command"] = f"pytest {pytest_arguments}"
+
+
+_PYTEST_WARNINGS_HEADER_RE = re.compile(r"^=+\s*warnings summary\s*=+$")
+_PYTEST_DOCS_RE = re.compile(r"^-- Docs: https://docs\.pytest\.org/")
+_PYTEST_WARNINGS_COUNT_RE = re.compile(r", \d+ warnings?(?= in \d+\.\d+s\b)")
+_PYTEST_WARNING_ENTRY_RE = re.compile(
+    r"^\s*(?:\S+\.py:\d+:\s*)?(?P<category>[A-Za-z_][\w.]*): (?P<message>.*)$"
+)
+_PYTEST_STATUS_LINE_RE = re.compile(
+    r"^(?:\d+ (?:passed|failed|error|errors|skipped|deselected|xfailed|xpassed"
+    r"|subtests? (?:passed|failed|skipped))|no tests ran)"
+)
+_PYTEST_LOCATION_LINE_RE = re.compile(r"^\S+\.py:\d+\s*$")
+# Unbannered (layout B) entry: pytest 9 emits GC-time rm_rf warnings after the
+# results line, without a ``warnings summary`` header or a ``-- Docs:`` footer.
+_RM_RF_ENTRY_RE = re.compile(r".*_pytest/pathlib\.py:\d+: PytestWarning: \(rm_rf\) error removing ")
+_RM_RF_OS_ERROR_RE = re.compile(r"<class 'OSError'>: \[Errno \d+\] Directory not empty: '")
+_RM_RF_WARN_CALL_RE = re.compile(r"^\s*warnings\.warn\($")
+
+
+def _remove_status_line_warnings_count(lines: list[str]) -> list[str]:
+    """Remove the ``, N warnings`` fragment from the terminal status line only."""
+    for index in range(len(lines) - 1, -1, -1):
+        if _PYTEST_STATUS_LINE_RE.match(lines[index].strip()):
+            result = list(lines)
+            result[index] = _PYTEST_WARNINGS_COUNT_RE.sub("", result[index])
+            return result
+    return lines
+
+
+def _is_warning_structural_line(line: str) -> bool:
+    """True for the non-entry scaffolding lines pytest emits around warnings."""
+    return (
+        line.strip() == ""
+        or _PYTEST_WARNINGS_HEADER_RE.match(line) is not None
+        or _PYTEST_DOCS_RE.match(line) is not None
+        or _PYTEST_LOCATION_LINE_RE.match(line) is not None
+        or _RM_RF_OS_ERROR_RE.search(line) is not None
+        or _RM_RF_WARN_CALL_RE.match(line) is not None
+    )
+
+
+def _is_rm_rf_warnings_noise(block: str) -> bool:
+    """True when every summary entry is the known pytest temp-GC noise.
+
+    The entry category is any identifier/dotted name, so a genuine custom
+    warning class (e.g. ``DataQualityAlert``) is detected even though it does not
+    end in ``Warning`` — otherwise the noise check would wrongly pass and the
+    whole block (genuine warning included) would be deleted. Any line that is
+    neither a parsed entry nor recognized scaffolding fails closed (block kept),
+    so an unrecognized evidence line can never be silently removed.
+    """
+    entries = []
+    for line in block.split("\n"):
+        match = _PYTEST_WARNING_ENTRY_RE.match(line)
+        if match is not None:
+            entries.append(match)
+            continue
+        if not _is_warning_structural_line(line):
+            return False
+    if not entries:
+        return False
+    for match in entries:
+        if match.group("category").rsplit(".", 1)[-1] != "PytestWarning":
+            return False
+        if "(rm_rf) error removing" not in match.group("message"):
+            return False
+    return True
+
+
+def _strip_banner_framed_rm_rf(text: str) -> str:
+    """Strip a ``warnings summary`` ... ``-- Docs:`` block that is all rm_rf noise."""
+    lines = text.split("\n")
+    header_index = next(
+        (index for index, line in enumerate(lines) if _PYTEST_WARNINGS_HEADER_RE.match(line)),
+        None,
+    )
+    if header_index is None:
+        return text
+    docs_index = next(
+        (
+            index
+            for index in range(header_index + 1, len(lines))
+            if _PYTEST_DOCS_RE.match(lines[index])
+        ),
+        None,
+    )
+    if docs_index is None:
+        return text
+    block = "\n".join(lines[header_index : docs_index + 1])
+    if not _is_rm_rf_warnings_noise(block):
+        return text
+    kept = lines[:header_index] + lines[docs_index + 1 :]
+    return "\n".join(_remove_status_line_warnings_count(kept))
+
+
+def _strip_unbannered_tail_rm_rf(text: str) -> str:
+    """Strip a trailing run of unbannered ``(rm_rf)`` warning entries.
+
+    pytest 9 emits GC-time ``(rm_rf)`` warnings *after* the results line, without
+    a ``warnings summary`` header or a ``-- Docs:`` footer, so the banner-framed
+    stripper cannot observe them. Each entry is a ``pathlib.py:N: PytestWarning:
+    (rm_rf) …`` line followed by an ``OSError`` detail line and a
+    ``warnings.warn(`` call. Only a trailing block that is entirely this known
+    noise is removed; a genuine unbannered warning (e.g. a source
+    ``DeprecationWarning``) is left intact so it still surfaces as drift.
+    """
+    lines = text.split("\n")
+    last_content_index = -1
+    for index, line in enumerate(lines):
+        if line == "":
+            continue
+        rm_rf_entry = bool(_RM_RF_ENTRY_RE.match(line)) or bool(_RM_RF_OS_ERROR_RE.match(line))
+        warn_call = (
+            bool(_RM_RF_WARN_CALL_RE.match(line))
+            and index > 0
+            and bool(_RM_RF_OS_ERROR_RE.match(lines[index - 1]))
+        )
+        if rm_rf_entry or warn_call:
+            continue
+        last_content_index = index
+    block = "\n".join(lines[last_content_index + 1 :])
+    if not _RM_RF_ENTRY_RE.search(block):
+        return text
+    kept = lines[: last_content_index + 1]
+    while kept and kept[-1] == "":
+        kept.pop()
+    return "\n".join(_remove_status_line_warnings_count(kept))
+
+
+def _strip_pytest_warning_summary(text: str) -> str:
+    """Drop pytest's environment-specific ``(rm_rf)`` warnings, if present.
+
+    The warning embeds the random pytest base-temp path and fails ``ENOTEMPTY``
+    cleanup on stale local state, so it is not reproducible and must not be part
+    of a replay golden. It is removed only when every warning entry is that known
+    noise; genuine warnings are left intact so they still surface as drift. Both
+    the banner-framed ``warnings summary`` / ``-- Docs:`` layout (other pytest
+    setups) and the unbannered trailing layout (pytest 9 GC-time) are handled.
+    """
+    text = _strip_banner_framed_rm_rf(text)
+    text = _strip_unbannered_tail_rm_rf(text)
+    return text
+
+
+def _normalize_review_test_output(report: dict[str, Any]) -> None:
+    """Normalize captured pytest output in a skill-review report for replay."""
+    auto_review = report.get("auto_review")
+    if not isinstance(auto_review, dict):
+        raise ReplayError("skill review auto_review must be a mapping")
+    output = auto_review.get("test_output")
+    if isinstance(output, str):
+        auto_review["test_output"] = _strip_pytest_warning_summary(output)
 
 
 def _exact_payload_sha256(payload: Any) -> str:
@@ -3210,9 +3367,11 @@ def _monthly_skill_review(
         ],
         repo_root,
         path_override=python_fallback_path,
+        env_overrides={"NO_COLOR": "1", "PY_COLORS": "0"},
     )
     report = _load_json(_latest_report(batch, f"skill_review_{skill_name}_*.json"), "skill review")
     _normalize_review_test_command(report)
+    _normalize_review_test_output(report)
     report = _canonicalize(
         report,
         spec["fixed_timestamp"],
@@ -4447,7 +4606,802 @@ def _kanchi_register_thesis(
     return artifacts
 
 
+def _shapiro_parameters(inputs, spec):
+    data = _load_json(inputs["decision"], "Shapiro operator decision")
+    schema = load_yaml(REPO_ROOT / "examples/workflows/shapiro-contrarian/decision.schema.yaml")
+    errors = list(Draft202012Validator(schema).iter_errors(data))
+    if errors:
+        raise ReplayError(f"invalid Shapiro operator decision: {errors[0].message}")
+    _assert_finite_json(data, "Shapiro operator decision")
+    if data["as_of"] != datetime.fromisoformat(spec["fixed_timestamp"]).date().isoformat():
+        raise ReplayError("Shapiro decision as_of differs from fixed_timestamp")
+    return data
+
+
+def _shapiro_logic(repo_root):
+    return _repo_module(repo_root, "gate_logic", repo_root / "skills/contrarian-setup-gate/scripts")
+
+
+def _shapiro_detector(logic, payload, decision):
+    normalized = logic.normalize_crowding(
+        payload, None, symbol=decision["symbol"], as_of=decision["as_of"], max_age_days=10
+    )
+    if normalized.state != logic.STATE_CONFIRMED:
+        raise ReplayError(f"Shapiro crowding halted: {normalized.state}: {normalized.reason}")
+    # The replay is deliberately a single-market scenario; never silently pick
+    # one row from a duplicate or unrelated market universe.
+    if len(payload["markets"]) != 1 or payload.get("skipped"):
+        raise ReplayError("Shapiro crowding requires exactly one unambiguous market")
+    if payload["markets"][0].get("data_date") != payload["run_context"].get("data_date"):
+        raise ReplayError("Shapiro crowding dates disagree")
+    return normalized
+
+
+def _shapiro_manual(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _shapiro_parameters(inputs, spec)
+    number = step["step"]
+    names = {1: "crowding", 2: "news", 3: "price"}
+    envelope = _load_json(inputs[names[number]], "Shapiro manual report fixture")
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"human_approved", "fictional", "report"}
+        or envelope["human_approved"] is not True
+        or envelope["fictional"] is not True
+    ):
+        raise ReplayError("Shapiro reports require an approved fictional fixture envelope")
+    payload = envelope["report"]
+    _assert_finite_json(payload, "Shapiro report")
+    logic = _shapiro_logic(repo_root)
+    if number == 1:
+        _shapiro_detector(logic, payload, decision)
+    else:
+        detector = _load_json(
+            Path(consumed["cot_crowding_report"]["files"]["canonical"]), "crowding handoff"
+        )
+        normalized_detector = _shapiro_detector(logic, detector, decision)
+        normalize = logic.normalize_news if number == 2 else logic.normalize_price_action
+        normalized = normalize(
+            payload,
+            None,
+            symbol=decision["symbol"],
+            as_of=decision["as_of"],
+            max_age_days=7,
+            detector=normalized_detector,
+        )
+        if normalized.state != logic.STATE_CONFIRMED:
+            raise ReplayError(
+                f"Shapiro {names[number]} halted: {normalized.state}: {normalized.reason}"
+            )
+    if number == 3:
+        stop = _require_finite_number(
+            payload["swing_levels"]["stop_reference"], "Shapiro swing stop", minimum=0
+        )
+        handoff_stop = _require_finite_number(
+            payload["handoff"]["price_action"]["stop_reference"], "Shapiro handoff stop", minimum=0
+        )
+        if stop <= 0 or stop != handoff_stop:
+            raise ReplayError("Shapiro price-action stop fields disagree")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    for bundle in artifacts.values():
+        _write_json(Path(bundle["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _shapiro_gate(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _shapiro_parameters(inputs, spec)
+    reports = work / "reports"
+    command = [
+        sys.executable,
+        str(repo_root / "skills/contrarian-setup-gate/scripts/run_contrarian_setup_gate.py"),
+        "--symbol",
+        decision["symbol"],
+        "--as-of",
+        decision["as_of"],
+        "--output-dir",
+        str(reports),
+        "--format",
+        "json",
+    ]
+    sources = {}
+    replacements = {}
+    for artifact, flag in (
+        ("cot_crowding_report", "--detector-json"),
+        ("news_failure_verdict", "--news-json"),
+        ("price_action_confirmation_report", "--price-action-json"),
+    ):
+        path = Path(consumed[artifact]["files"]["canonical"])
+        link = _kanchi_artifact_link(consumed, artifact, "canonical", stage)
+        command += [flag, str(path)]
+        replacements[str(path)] = link
+        sources[artifact] = {"file": link, "sha256": _file_sha256(path)}
+    _run_cli(command, repo_root)
+    files = list(reports.glob("*.json"))
+    if len(files) != 1:
+        raise ReplayError("Shapiro gate expected one native report")
+    payload = _canonicalize(
+        _load_json(files[0], "native contrarian gate"), spec["fixed_timestamp"], replacements
+    )
+    if payload.get("setup_status") != "READY_FOR_PLAN":
+        raise ReplayError(f"Shapiro gate halted: {payload.get('setup_status')}")
+    payload["replay_sources"] = sources
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["contrarian_setup_gate_report"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _shapiro_size(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _shapiro_parameters(inputs, spec)
+    gate_path = Path(consumed["contrarian_setup_gate_report"]["files"]["canonical"])
+    gate = _load_json(gate_path, "Shapiro sizing gate")
+    if gate.get("symbol") != decision["symbol"] or gate.get("setup_status") != "READY_FOR_PLAN":
+        raise ReplayError("Shapiro sizing requires a matching READY_FOR_PLAN gate")
+    reports = work / "reports"
+    _run_cli(
+        [
+            sys.executable,
+            str(repo_root / "skills/futures-position-sizer/scripts/futures_position_sizer.py"),
+            "--gate-json",
+            str(gate_path),
+            "--entry",
+            str(decision["entry"]),
+            "--account-size",
+            str(decision["account_size"]),
+            "--risk-pct",
+            str(decision["risk_pct"]),
+            "--as-of",
+            decision["as_of"],
+            "--output-dir",
+            str(reports),
+            "--format",
+            "json",
+        ],
+        repo_root,
+    )
+    files = list(reports.glob("*.json"))
+    if len(files) != 1:
+        raise ReplayError("Shapiro sizing expected one native report")
+    payload = _canonicalize(
+        _load_json(files[0], "native futures sizing"),
+        spec["fixed_timestamp"],
+        {
+            str(gate_path): _kanchi_artifact_link(
+                consumed, "contrarian_setup_gate_report", "canonical", stage
+            )
+        },
+    )
+    if payload.get("sizing_status") != "SIZED":
+        raise ReplayError(f"Shapiro sizing halted: {payload.get('sizing_status')}")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["futures_position_size"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _shapiro_journal(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _shapiro_parameters(inputs, spec)
+    gate_path = Path(consumed["contrarian_setup_gate_report"]["files"]["canonical"])
+    size_path = Path(consumed["futures_position_size"]["files"]["canonical"])
+    gate = _load_json(gate_path, "Shapiro journal gate")
+    sizing = _load_json(size_path, "Shapiro journal sizing")
+    if (
+        gate.get("setup_status") != "READY_FOR_PLAN"
+        or sizing.get("sizing_status") != "SIZED"
+        or gate.get("symbol") != decision["symbol"]
+        or sizing.get("symbol") != decision["symbol"]
+        or sizing.get("direction") != gate.get("direction")
+        or sizing.get("entry") != decision["entry"]
+        or sizing.get("stop") != gate.get("invalidation_level")
+    ):
+        raise ReplayError(
+            "Shapiro journal requires matching gate, symbol, direction, entry and stop"
+        )
+    sources = gate.get("replay_sources", {})
+    expected = {"cot_crowding_report", "news_failure_verdict", "price_action_confirmation_report"}
+    if set(sources) != expected:
+        raise ReplayError("Shapiro journal requires the complete upstream evidence chain")
+    # Resolve gate-carried lineage against the actual staging tree before any
+    # native state writes. No filenames are assumed and no missing links pass.
+    for source in sources.values():
+        token = source.get("file", "")
+        if not token.startswith("$ARTIFACT/"):
+            raise ReplayError("invalid Shapiro evidence link")
+        path = _safe_relative(stage, token[len("$ARTIFACT/") :], "Shapiro evidence link")
+        if not path.is_file() or _file_sha256(path) != source.get("sha256"):
+            raise ReplayError("Shapiro evidence hash mismatch")
+    sources = dict(sources)
+    for artifact, path in (
+        ("contrarian_setup_gate_report", gate_path),
+        ("futures_position_size", size_path),
+    ):
+        sources[artifact] = {
+            "file": _kanchi_artifact_link(consumed, artifact, "canonical", stage),
+            "sha256": _file_sha256(path),
+        }
+    store = _repo_module(repo_root, "thesis_store", repo_root / "skills/trader-memory-core/scripts")
+    state = work / "state"
+    thesis_id = store.register(
+        state,
+        {
+            "ticker": decision["symbol"],
+            "thesis_type": "mean_reversion",
+            "thesis_statement": decision["thesis_statement"],
+            "kill_criteria": [decision["kill_criterion"]],
+            "_source_date": decision["as_of"],
+            "origin": {
+                "skill": "contrarian-setup-gate",
+                "output_file": sources["contrarian_setup_gate_report"]["file"],
+            },
+        },
+    )
+    store.attach_futures_position(
+        state,
+        thesis_id,
+        str(size_path),
+        expected_entry=decision["entry"],
+        expected_stop=gate["invalidation_level"],
+    )
+    producer_skills = {
+        "cot_crowding_report": "cot-contrarian-detector",
+        "news_failure_verdict": "news-reaction-failure-analyzer",
+        "price_action_confirmation_report": "technical-analyst",
+        "contrarian_setup_gate_report": "contrarian-setup-gate",
+        "futures_position_size": "futures-position-sizer",
+    }
+    for artifact, source in sorted(sources.items()):
+        store.link_report(
+            state, thesis_id, producer_skills[artifact], source["file"], decision["as_of"]
+        )
+    thesis = store.get(state, thesis_id)
+    if thesis["status"] != "IDEA" or thesis["entry"].get("actual_price") is not None:
+        raise ReplayError("Shapiro replay must never record a fill or promote to ACTIVE")
+    # The native store also attaches an ephemeral sizing-report path; replace
+    # it with the portable link in the export, retaining the native mutation.
+    payload = {
+        key: thesis[key]
+        for key in (
+            "ticker",
+            "status",
+            "created_at",
+            "position",
+            "entry",
+            "thesis_statement",
+            "kill_criteria",
+        )
+    }
+    payload["linked_reports"] = _canonicalize(
+        thesis["linked_reports"],
+        spec["fixed_timestamp"],
+        {str(size_path): sources["futures_position_size"]["file"]},
+    )
+    payload["sources"] = sources
+    payload["manual_review_required"] = True
+    payload["execution_authorized"] = False
+    payload = _canonicalize(
+        payload, spec["fixed_timestamp"], {str(size_path): sources["futures_position_size"]["file"]}
+    )
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["contrarian_thesis_entry"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _ep_input(inputs, name, spec):
+    envelope = _load_json(inputs[name], f"EP {name} fixture")
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"human_approved", "fictional", "as_of", "data"}
+        or envelope["human_approved"] is not True
+        or envelope["fictional"] is not True
+        or envelope["as_of"] != spec["fixed_timestamp"][:10]
+    ):
+        raise ReplayError(f"EP {name} requires a dated, approved fictional fixture")
+    _assert_finite_json(envelope, f"EP {name}")
+    return envelope["data"]
+
+
+def _ep_parameters(inputs, spec):
+    data = _ep_input(inputs, "decision", spec)
+    schema = load_yaml(REPO_ROOT / "examples/workflows/stockbee-ep-daily/decision.schema.yaml")
+    errors = list(Draft202012Validator(schema).iter_errors(data))
+    if errors:
+        raise ReplayError(f"invalid EP decision: {errors[0].message}")
+    return data
+
+
+def _ep_read(consumed, artifact):
+    return _load_json(Path(consumed[artifact]["files"]["canonical"]), f"EP {artifact} handoff")
+
+
+def _ep_sources(consumed, stage):
+    return {
+        key: {
+            "file": _kanchi_artifact_link(consumed, key, "canonical", stage),
+            "sha256": _file_sha256(Path(bundle["files"]["canonical"])),
+        }
+        for key, bundle in sorted(consumed.items())
+    }
+
+
+def _ep_circuit(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _ep_parameters(inputs, spec)
+    regime = _ep_input(inputs, "exposure", spec)
+    if (
+        regime.get("recommendation") != "NEW_ENTRY_ALLOWED"
+        or regime.get("generated_at") != spec["fixed_timestamp"]
+    ):
+        raise ReplayError("EP market gate requires a current NEW_ENTRY_ALLOWED decision")
+    state = _ep_input(inputs, "account_state", spec)
+    if not isinstance(state, list) or not all(isinstance(item, dict) for item in state):
+        raise ReplayError("EP account state must be an explicit thesis list")
+    ids = set()
+    for thesis in state:
+        if (
+            not isinstance(thesis.get("thesis_id"), str)
+            or not thesis["thesis_id"]
+            or thesis["thesis_id"] in ids
+            or not isinstance(thesis.get("ticker"), str)
+            or not thesis["ticker"]
+            or thesis.get("status")
+            not in {"IDEA", "ACTIVE", "PARTIALLY_CLOSED", "CLOSED", "INVALIDATED"}
+        ):
+            raise ReplayError(
+                "EP account state requires unique identified theses with valid statuses"
+            )
+        ids.add(thesis["thesis_id"])
+    state_dir = work / "state"
+    state_dir.mkdir()
+    for index, thesis in enumerate(state):
+        _write_yaml(state_dir / f"th_fixture_{index}.yaml", thesis)
+    reports = work / "reports"
+    _run_cli(
+        [
+            sys.executable,
+            str(repo_root / "skills/drawdown-circuit-breaker/scripts/check_circuit_breaker.py"),
+            "--state-dir",
+            str(state_dir),
+            "--account-size",
+            str(decision["account_size"]),
+            "--as-of",
+            spec["fixed_timestamp"],
+            "--output-dir",
+            str(reports),
+            "--json-only",
+        ],
+        repo_root,
+    )
+    payload = _canonicalize(
+        _load_json(
+            _latest_report(reports, "circuit_breaker_decision_*.json"), "EP circuit decision"
+        ),
+        spec["fixed_timestamp"],
+        {str(state_dir): "$WORK/account_state", str(reports): "$WORK/reports"},
+    )
+    if payload.get("recommendation") != "TRADING_ALLOWED":
+        raise ReplayError(f"EP circuit breaker halted: {payload.get('recommendation')}")
+    payload["replay_inputs"] = {
+        key: _file_sha256(inputs[key]) for key in ("exposure", "account_state")
+    }
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["circuit_breaker_decision"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _ep_screen(repo_root, spec, step, inputs, consumed, work, stage):
+    name = "earnings" if step["step"] == 2 else "momentum"
+    payload = _ep_input(inputs, name, spec)
+    rows = payload.get("results") if isinstance(payload, dict) else None
+    if not isinstance(rows, list) or not rows:
+        raise ReplayError(f"EP {name} requires explicit screen results")
+    events = _ep_input(inputs, "events", spec)["events"]
+    symbols = {e["symbol"] for e in events}
+    if any(not isinstance(row, dict) or row.get("symbol") not in symbols for row in rows):
+        raise ReplayError(f"EP {name} contains an unbound symbol")
+    date_key = "earnings_date" if name == "earnings" else "setup_date"
+    if any(row.get(date_key) != spec["fixed_timestamp"][:10] for row in rows):
+        raise ReplayError(f"EP {name} contains a stale date")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    for bundle in artifacts.values():
+        _write_json(Path(bundle["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _ep_analyze(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _ep_parameters(inputs, spec)
+    events = _ep_input(inputs, "events", spec)
+    prices = _ep_input(inputs, "prices", spec)
+    rows = events.get("events") if isinstance(events, dict) else None
+    if not isinstance(rows, list) or not rows or any(not isinstance(e, dict) for e in rows):
+        raise ReplayError("EP requires nonempty catalyst events")
+    symbols = [e.get("symbol") for e in rows]
+    if any(
+        not isinstance(s, str) or not re.fullmatch(r"[A-Z][A-Z0-9]{0,9}", s) for s in symbols
+    ) or len(set(symbols)) != len(symbols):
+        raise ReplayError("EP event symbols must be valid and unique")
+    bars_by_symbol = prices.get("prices") if isinstance(prices, dict) else None
+    if not isinstance(bars_by_symbol, dict) or set(bars_by_symbol) != set(symbols):
+        raise ReplayError("EP prices must cover exactly the event symbols")
+    for event in rows:
+        if event.get("event_date") != spec["fixed_timestamp"][:10] or not event.get("headline"):
+            raise ReplayError("EP requires a current explicit catalyst")
+        bars = bars_by_symbol[event["symbol"]]
+        if not isinstance(bars, list) or len(bars) < 51:
+            raise ReplayError("EP requires complete offline OHLCV history")
+        dates = []
+        for bar in bars:
+            if not isinstance(bar, dict):
+                raise ReplayError("EP invalid OHLCV row")
+            dates.append(datetime.strptime(bar["date"], "%Y-%m-%d").date().isoformat())
+            for field in ("open", "high", "low", "close", "volume"):
+                _require_finite_number(bar.get(field), f"EP {field}", minimum=0)
+            if (
+                not 0
+                < bar["low"]
+                <= min(bar["open"], bar["close"])
+                <= max(bar["open"], bar["close"])
+                <= bar["high"]
+            ):
+                raise ReplayError("EP inconsistent OHLC prices")
+        if dates != sorted(set(dates)) or dates[-1] != event["event_date"]:
+            raise ReplayError("EP history must be ordered, unique, and end on the event date")
+    event_path, prices_path = work / "events.json", work / "prices.json"
+    _write_json(event_path, events)
+    _write_json(prices_path, prices)
+    reports = work / "reports"
+    command = [
+        sys.executable,
+        str(repo_root / "skills/stockbee-episodic-pivot-analyzer/scripts/analyze_ep.py"),
+        "--events-json",
+        str(event_path),
+        "--prices-json",
+        str(prices_path),
+        "--max-api-calls",
+        "0",
+        "--max-risk-pct",
+        str(decision["max_ep_risk_pct"]),
+        "--output-dir",
+        str(reports),
+    ]
+    replacements = {str(event_path): "$INPUT/events", str(prices_path): "$INPUT/prices"}
+    for artifact, flag in (
+        ("earnings_candidates", "--earnings-json"),
+        ("momentum_burst_candidates", "--momentum-json"),
+    ):
+        if artifact in consumed:
+            path = Path(consumed[artifact]["files"]["canonical"])
+            screen = _load_json(path, artifact)
+            if any(row.get("symbol") not in symbols for row in screen["results"]):
+                raise ReplayError("EP screen handoff symbol mismatch")
+            command += [flag, str(path)]
+            replacements[str(path)] = _kanchi_artifact_link(consumed, artifact, "canonical", stage)
+    _run_cli(command, repo_root)
+    payload = _canonicalize(
+        _load_json(_latest_report(reports, "stockbee_episodic_pivot_*.json"), "native EP result"),
+        spec["fixed_timestamp"],
+        replacements,
+    )
+    if payload["metadata"].get("api_stats") is not None:
+        raise ReplayError("EP replay unexpectedly enabled live API enrichment")
+    if {r["symbol"] for r in payload["results"]} != set(symbols):
+        raise ReplayError("native EP result lost or added symbols")
+    actionable = [r["symbol"] for r in payload["results"] if r["state"] == "ACTIONABLE_DAY1"]
+    if actionable != [decision["symbol"]]:
+        raise ReplayError("EP gate requires exactly the reviewed ACTIONABLE_DAY1 candidate")
+    payload["sources"] = _ep_sources(consumed, stage)
+    payload["input_sha256"] = {key: _file_sha256(inputs[key]) for key in ("events", "prices")}
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["episodic_pivot_candidates"]["files"]["canonical"]), payload)
+    for key in ("pead_handoff_candidates", "delayed_ep_watchlist"):
+        _write_json(
+            Path(artifacts[key]["files"]["canonical"]),
+            {"candidates": payload[key], "order_authorized": False},
+        )
+    return artifacts
+
+
+def _ep_validate(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _ep_parameters(inputs, spec)
+    analysis = _ep_read(consumed, "episodic_pivot_candidates")
+    selected = [
+        r
+        for r in analysis["results"]
+        if r["symbol"] == decision["symbol"] and r["state"] == "ACTIONABLE_DAY1"
+    ]
+    if len(selected) != 1:
+        raise ReplayError("EP chart review requires the actionable native classification")
+    setup = _ep_input(inputs, "chart", spec)
+    row = selected[0]
+    if (
+        setup.get("verdict") != "CONFIRMED"
+        or setup.get("symbol") != row["symbol"]
+        or setup.get("entry_price") != row["trade_plan_inputs"]["entry_reference"]
+        or setup.get("stop_price") != row["trade_plan_inputs"]["stop_reference"]
+    ):
+        raise ReplayError("EP chart confirmation does not match the native entry/EP-day low")
+    for key in ("entry_price", "stop_price", "target_price"):
+        _require_finite_number(setup.get(key), f"EP chart {key}", minimum=0)
+    if not 0 < setup["stop_price"] < setup["entry_price"] < setup["target_price"]:
+        raise ReplayError("EP chart requires a sizeable long setup")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(
+        Path(artifacts["validated_ep_setups"]["files"]["canonical"]),
+        {
+            "as_of": spec["fixed_timestamp"][:10],
+            "setups": [setup],
+            "sources": _ep_sources(consumed, stage),
+            "watchlist": [
+                {"symbol": r["symbol"], "state": r["state"], "pead_handoff": r["pead_handoff"]}
+                for r in analysis["results"]
+                if r["state"] != "ACTIONABLE_DAY1"
+            ],
+        },
+    )
+    return artifacts
+
+
+def _ep_size(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _ep_parameters(inputs, spec)
+    validated = _ep_read(consumed, "validated_ep_setups")
+    if len(validated["setups"]) != 1 or validated["setups"][0]["symbol"] != decision["symbol"]:
+        raise ReplayError("EP sizing requires one reviewed setup")
+    setup = validated["setups"][0]
+    for key in ("entry_price", "stop_price", "target_price"):
+        _require_finite_number(setup.get(key), f"EP sizing {key}", minimum=0)
+    if not 0 < setup["stop_price"] < setup["entry_price"] < setup["target_price"]:
+        raise ReplayError("EP sizing requires a valid long setup")
+    parameters = work / "parameters.json"
+    _write_json(parameters, decision)
+    result = _swing_position_size(
+        repo_root,
+        spec,
+        dict(step, output_files={"position_sizing": step["output_files"]["ep_position_sizing"]}),
+        {"sizing_parameters": parameters},
+        {"validated_setups": consumed["validated_ep_setups"]},
+        work,
+        stage,
+    )
+    return {"ep_position_sizing": result["position_sizing"]}
+
+
+def _ep_match_size(consumed, decision):
+    setup = _ep_read(consumed, "validated_ep_setups")["setups"][0]
+    size = _ep_read(consumed, "ep_position_sizing")
+    if (
+        setup["symbol"] != decision["symbol"]
+        or size["parameters"]["entry_price"] != setup["entry_price"]
+        or size["parameters"]["stop_price"] != setup["stop_price"]
+    ):
+        raise ReplayError("EP sizing/setup mismatch")
+    shares = _require_finite_number(
+        size["final_recommended_shares"], "EP shares", integer=True, minimum=1
+    )
+    risk = _require_finite_number(size["final_risk_dollars"], "EP risk", minimum=0)
+    value = _require_finite_number(size["final_position_value"], "EP position value", minimum=0)
+    if not math.isclose(value, shares * setup["entry_price"], abs_tol=0.01):
+        raise ReplayError("EP position value disagrees with shares and entry")
+    if (
+        not math.isclose(risk, shares * (setup["entry_price"] - setup["stop_price"]), abs_tol=0.01)
+        or risk > decision["account_size"] * decision["risk_pct"] / 100 + 0.01
+    ):
+        raise ReplayError("EP sizing exceeds the reviewed risk budget")
+    return setup, size
+
+
+def _ep_plan(repo_root, spec, step, inputs, consumed, work, stage):
+    _ep_match_size(consumed, _ep_parameters(inputs, spec))
+    result = _swing_build_plan(
+        repo_root,
+        spec,
+        dict(step, output_files={"trade_plans": step["output_files"]["ep_trade_plan"]}),
+        inputs,
+        {
+            "validated_setups": consumed["validated_ep_setups"],
+            "position_sizing": consumed["ep_position_sizing"],
+        },
+        work,
+        stage,
+    )
+    return {"ep_trade_plan": result["trade_plans"]}
+
+
+def _ep_journal(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _ep_parameters(inputs, spec)
+    setup, size = _ep_match_size(consumed, decision)
+    sources = _ep_sources(consumed, stage)
+    store = _repo_module(repo_root, "thesis_store", repo_root / "skills/trader-memory-core/scripts")
+    state = work / "journal"
+    tid = store.register(
+        state,
+        {
+            "ticker": setup["symbol"],
+            "thesis_type": "growth_momentum",
+            "thesis_statement": decision["thesis_statement"],
+            "kill_criteria": [decision["kill_criterion"]],
+            "_source_date": spec["fixed_timestamp"][:10],
+            "entry": {"target_price": setup["entry_price"]},
+            "exit": {"stop_loss": setup["stop_price"]},
+            "origin": {
+                "skill": "stockbee-episodic-pivot-analyzer",
+                "output_file": sources["validated_ep_setups"]["file"],
+            },
+        },
+    )
+    path = Path(consumed["ep_position_sizing"]["files"]["canonical"])
+    store.attach_position(
+        state,
+        tid,
+        str(path),
+        expected_entry=setup["entry_price"],
+        expected_stop=setup["stop_price"],
+    )
+    producer_skills = {
+        "validated_ep_setups": "technical-analyst",
+        "ep_position_sizing": "position-sizer",
+        "ep_trade_plan": "breakout-trade-planner",
+    }
+    for artifact, source in sources.items():
+        store.link_report(
+            state, tid, producer_skills[artifact], source["file"], spec["fixed_timestamp"][:10]
+        )
+    thesis = store.get(state, tid)
+    if thesis["status"] != "IDEA" or thesis["entry"]["actual_price"] is not None:
+        raise ReplayError("EP must retain IDEA without a fill")
+    payload = {
+        k: thesis[k]
+        for k in (
+            "ticker",
+            "status",
+            "created_at",
+            "thesis_statement",
+            "kill_criteria",
+            "entry",
+            "exit",
+            "position",
+            "linked_reports",
+        )
+    }
+    payload["sources"] = sources
+    payload["watchlist"] = _ep_read(consumed, "validated_ep_setups")["watchlist"]
+    payload["execution_authorized"] = False
+    payload = _canonicalize(
+        payload, spec["fixed_timestamp"], {str(path): sources["ep_position_sizing"]["file"]}
+    )
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["ep_journal_entry"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _ep_discipline(repo_root, spec, step, inputs, consumed, work, stage):
+    decision = _ep_parameters(inputs, spec)
+    journal = _ep_read(consumed, "ep_journal_entry")
+    size = _ep_read(consumed, "ep_position_sizing")
+    circuit = _ep_read(consumed, "circuit_breaker_decision")
+    if circuit.get("recommendation") != "TRADING_ALLOWED":
+        raise ReplayError("EP discipline received a stopped circuit breaker")
+    if (
+        journal["ticker"] != decision["symbol"]
+        or journal["status"] != "IDEA"
+        or journal["position"]["shares"] != size["final_recommended_shares"]
+        or journal["position"]["risk_dollars"] != size["final_risk_dollars"]
+        or journal["entry"]["target_price"] != size["parameters"]["entry_price"]
+        or journal["exit"]["stop_loss"] != size["parameters"]["stop_price"]
+    ):
+        raise ReplayError("EP journal/sizing discipline mismatch")
+    answers = _ep_input(inputs, "checklist", spec)
+    fields = ("entry_in_written_plan", "stop_predefined", "size_within_plan")
+    if answers.get("symbol") != journal["ticker"] or any(
+        type(answers.get(k)) is not bool for k in fields
+    ):
+        raise ReplayError(
+            "EP checklist must contain explicit reviewed booleans for the same symbol"
+        )
+    candidate = {
+        "symbol": journal["ticker"],
+        "order_intent": "MANUAL_ORDER",
+        **{k: answers[k] for k in fields},
+        "planned_risk_dollars": size["final_risk_dollars"],
+        "actual_risk_dollars": size["final_risk_dollars"],
+    }
+    if "ep_trade_plan" not in consumed:
+        candidate.update({k: False for k in fields})
+    else:
+        plans = _ep_read(consumed, "ep_trade_plan").get("plans")
+        expected = {
+            "symbol": journal["ticker"],
+            "entry_price": size["parameters"]["entry_price"],
+            "stop_price": size["parameters"]["stop_price"],
+            "shares": size["final_recommended_shares"],
+            "position_value": size["final_position_value"],
+            "planned_risk_dollars": size["final_risk_dollars"],
+        }
+        if (
+            not isinstance(plans, list)
+            or len(plans) != 1
+            or any(plans[0].get(k) != v for k, v in expected.items())
+        ):
+            raise ReplayError("EP written plan does not match journal and sizing")
+    answer_path, regime_path = work / "answers.json", work / "regime.json"
+    watch_answers = [
+        {"symbol": row["symbol"], "order_intent": "WATCHLIST"} for row in journal["watchlist"]
+    ]
+    _write_json(answer_path, {"candidates": [candidate, *watch_answers]})
+    _write_json(regime_path, _ep_input(inputs, "exposure", spec))
+    circuit_path = Path(consumed["circuit_breaker_decision"]["files"]["canonical"])
+    state_dir = work / "account_state"
+    state_dir.mkdir()
+    for index, thesis in enumerate(_ep_input(inputs, "account_state", spec)):
+        _write_yaml(state_dir / f"th_fixture_{index}.yaml", thesis)
+    reports, journal_dir = work / "reports", work / "discipline_journal"
+    _run_cli(
+        [
+            sys.executable,
+            str(
+                repo_root / "skills/pre-trade-discipline-gate/scripts/check_pre_trade_discipline.py"
+            ),
+            "--state-dir",
+            str(state_dir),
+            "--answers-file",
+            str(answer_path),
+            "--as-of",
+            spec["fixed_timestamp"],
+            "--market-regime-decision",
+            str(regime_path),
+            "--circuit-breaker-decision",
+            str(circuit_path),
+            "--output-dir",
+            str(reports),
+            "--journal-dir",
+            str(journal_dir),
+        ],
+        repo_root,
+    )
+    payload = _load_json(
+        _latest_report(reports, "pre_trade_discipline_decision_*.json"), "native EP discipline"
+    )
+    payload = _canonicalize(
+        payload,
+        spec["fixed_timestamp"],
+        {
+            str(regime_path): "$INPUT/exposure",
+            str(state_dir): "$WORK/account_state",
+            str(circuit_path): _kanchi_artifact_link(
+                consumed, "circuit_breaker_decision", "canonical", stage
+            ),
+            str(reports): "$WORK/reports",
+            str(journal_dir): "$WORK/discipline_journal",
+        },
+    )
+    artifacts = _artifact_paths(stage, step["output_files"])
+    payload["artifact_paths"] = {
+        "json": _safe_relative(
+            stage,
+            step["output_files"]["pre_trade_discipline_decision"]["canonical"],
+            "EP discipline output",
+        )
+        .relative_to(stage.resolve())
+        .as_posix()
+    }
+    payload["replay_sources"] = _ep_sources(consumed, stage)
+    payload["checklist_sha256"] = _file_sha256(inputs["checklist"])
+    payload["execution_authorized"] = False
+    _write_json(Path(artifacts["pre_trade_discipline_decision"]["files"]["canonical"]), payload)
+    return artifacts
+
+
 EXECUTORS: dict[str, ExecutorRegistration] = {
+    "ep_circuit": ExecutorRegistration("native_cli", _ep_circuit),
+    "ep_screen": ExecutorRegistration("manual_contract", _ep_screen),
+    "ep_analyze": ExecutorRegistration("native_cli", _ep_analyze),
+    "ep_validate": ExecutorRegistration("manual_contract", _ep_validate),
+    "ep_size": ExecutorRegistration("native_cli", _ep_size),
+    "ep_plan": ExecutorRegistration("manual_contract", _ep_plan),
+    "ep_journal": ExecutorRegistration("composite", _ep_journal, ("manual_contract", "native_api")),
+    "ep_discipline": ExecutorRegistration(
+        "composite", _ep_discipline, ("manual_contract", "native_cli")
+    ),
+    "shapiro_manual": ExecutorRegistration("manual_contract", _shapiro_manual),
+    "shapiro_gate": ExecutorRegistration("native_cli", _shapiro_gate),
+    "shapiro_size": ExecutorRegistration("native_cli", _shapiro_size),
+    "shapiro_journal": ExecutorRegistration(
+        "composite", _shapiro_journal, ("manual_contract", "native_api")
+    ),
     "stockbee_fluency_ingest": ExecutorRegistration("native_cli", _stockbee_ingest),
     "stockbee_fluency_update": ExecutorRegistration("native_cli", _stockbee_update),
     "stockbee_fluency_summarize": ExecutorRegistration("native_cli", _stockbee_summarize),
@@ -4552,6 +5506,8 @@ def _prompt_text(workflow: Mapping[str, Any], variant: str) -> str:
             "Include the optional native dividend-rule review while keeping every "
             "rebalance action proposed, manual, and not submitted."
         )
+    elif workflow["id"] == "stockbee-ep-daily":
+        optional_text = "Include the fictional earnings and momentum handoffs and reviewed written plan. Keep delayed EP candidates on watch; never submit orders."
     elif workflow["id"] == "kanchi-dividend-weekly":
         optional_text = (
             "Include the optional screeners, tax/account-location advice, and "
@@ -4590,7 +5546,10 @@ def _write_manifest(
             "execution_mode": next(
                 item["executor_mode"] for item in report["steps"] if item["step"] == step_number
             ),
-            "files": {role: Path(path).name for role, path in bundle["files"].items()},
+            "files": {
+                role: Path(path).resolve().relative_to(stage.resolve()).as_posix()
+                for role, path in bundle["files"].items()
+            },
         }
         report_step = next(item for item in report["steps"] if item["step"] == step_number)
         if report_step.get("executor_components"):
@@ -4633,6 +5592,22 @@ def _write_manifest(
         "optional_steps_skipped": skipped,
         "artifacts": entries,
     }
+    if workflow["id"] == "stockbee-ep-daily":
+        payload["execution_evidence_limitations"] = [
+            "Native circuit breaker, EP classification and position sizing consume fictional offline inputs; live providers and news verification are not executed.",
+            "Chart confirmation and execution checklist are human-approved fixtures; native trader-memory APIs persist IDEA only in disposable state, without fills or order authorization.",
+            "Native discipline consumes the account history; delayed EP candidates remain non-actionable watch entries.",
+            "Full path includes manual-contract earnings/momentum screens and a written plan."
+            if variant == "full-path"
+            else "Optional earnings/momentum screens and written plan are skipped; the absent written plan forces NO_GO.",
+        ]
+    if workflow["id"] == "shapiro-contrarian":
+        payload["execution_evidence_limitations"] = [
+            "Steps 1-3 validate human-approved fictional report contracts; no CFTC/FMP/news provider or live chart analysis is executed.",
+            "Steps 4-5 execute the native contrarian gate and futures sizing CLIs on those actual handoffs.",
+            "Step 6 uses native register, attach_futures_position, get and link_report APIs in disposable state. It preserves IDEA without broker fills or order authorization.",
+            "Both variants execute the same six required steps because this workflow has no optional steps.",
+        ]
     if workflow["id"] == "trade-memory-loop":
         payload["execution_evidence_limitations"] = [
             "Root-cause and lesson decisions are human-approved fixtures bound by SHA-256.",

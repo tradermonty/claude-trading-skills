@@ -1,0 +1,30 @@
+{
+  "account_size": 100000.0,
+  "as_of_date": "2026-08-14",
+  "config": {
+    "cooldown_hours": 24.0,
+    "losing_streak_n": 2,
+    "max_daily_loss_pct": 2.0,
+    "monthly_drawdown_pct": 8.0,
+    "weekly_drawdown_pct": 5.0
+  },
+  "data_quality": "EMPTY_STATE",
+  "generated_at": "2026-08-14T20:00:00+00:00",
+  "metrics": {
+    "consecutive_losses": 0,
+    "last_loss_exit_at": null,
+    "realized_pnl_mtd": 0.0,
+    "realized_pnl_today": 0.0,
+    "realized_pnl_wtd": 0.0,
+    "theses_scanned": 0
+  },
+  "rationale": "No account-level circuit breaker rules are active; new trade risk may proceed.",
+  "recommendation": "TRADING_ALLOWED",
+  "replay_inputs": {
+    "account_state": "740357b24c581d4a904013fb3abdfa5a1e12c977e19ce4b2bc607d940fd5442b",
+    "exposure": "5909c842259f1f419b9be5065e0b71b5a5c65a8d61310dd1566035a738400054"
+  },
+  "schema_version": "1.0",
+  "triggered_rules": [],
+  "warnings": []
+}

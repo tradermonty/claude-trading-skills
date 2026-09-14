@@ -1,0 +1,186 @@
+{
+  "candidates": [
+    {
+      "avg_volume_50": 300000.0,
+      "catalyst_reasons": [
+        "explicit:guidance_raise"
+      ],
+      "catalyst_type": "guidance_raise",
+      "close": 57.6,
+      "close_location_pct": 92.0,
+      "component_reasons": {
+        "catalyst_quality": [
+          "base_guidance_raise:95",
+          "game_change_language:+6"
+        ],
+        "liquidity": [
+          "dollar_volume_50m_plus:+10"
+        ],
+        "neglect_revaluation": [
+          "neglected_or_not_extended:+8",
+          "cap_under_10b:+2"
+        ],
+        "price_action": [
+          "move_8pct_plus:+10",
+          "small_gap_confirmation:+2",
+          "close_near_high:+4",
+          "range_expansion:+2"
+        ],
+        "risk_distance": [
+          "wide_risk_10pct_or_less:+1.5"
+        ],
+        "volume_shock": [
+          "volume_10x_plus:+20"
+        ]
+      },
+      "component_scores": {
+        "catalyst_quality": 35.0,
+        "liquidity": 10,
+        "neglect_revaluation": 10.0,
+        "price_action": 18.0,
+        "risk_distance": 1.5,
+        "volume_shock": 20.0
+      },
+      "composite_score": 94.5,
+      "day_gain_pct": 9.3,
+      "delayed_ep_watch": false,
+      "dollar_volume": 201600000.0,
+      "ep_type": "GUIDANCE_EP",
+      "event_date": "2026-08-14",
+      "gap_pct": 2.47,
+      "headline": "EXMPL raises guidance after record demand",
+      "high": 58.0,
+      "low": 53.0,
+      "market_cap": 5000000000.0,
+      "momentum_handoff": true,
+      "open": 54.0,
+      "pead_handoff": true,
+      "prev_close": 52.7,
+      "price_event_date": "2026-08-14",
+      "prior_20d_return_pct": 1.84,
+      "range_pct": 9.49,
+      "rating": "A",
+      "raw_event": {
+        "catalyst_reasons": [
+          "explicit:guidance_raise"
+        ],
+        "catalyst_type": "guidance_raise",
+        "event_date": "2026-08-14",
+        "headline": "EXMPL raises guidance after record demand",
+        "market_cap": 5000000000,
+        "source_input": "events_json",
+        "summary": "Fictional teaching catalyst; no real issuer or news.",
+        "symbol": "EXMPL"
+      },
+      "risk_pct_to_low": 7.99,
+      "source_grade": null,
+      "source_input": "events_json",
+      "source_score": null,
+      "state": "ACTIONABLE_DAY1",
+      "state_reasons": [],
+      "summary": "Fictional teaching catalyst; no real issuer or news.",
+      "symbol": "EXMPL",
+      "trade_plan_inputs": {
+        "entry_reference": 57.6,
+        "notes": "Candidate only; require manual catalyst and chart validation before trading.",
+        "risk_pct_to_stop": 7.99,
+        "stop_basis": "ep_day_low",
+        "stop_reference": 53.0
+      },
+      "volume": 3500000.0,
+      "volume_ratio_50": 11.67
+    },
+    {
+      "avg_volume_50": 300000.0,
+      "catalyst_reasons": [
+        "explicit:earnings"
+      ],
+      "catalyst_type": "earnings",
+      "close": 57.6,
+      "close_location_pct": 96.92,
+      "component_reasons": {
+        "catalyst_quality": [
+          "base_earnings:88"
+        ],
+        "liquidity": [
+          "dollar_volume_50m_plus:+10"
+        ],
+        "neglect_revaluation": [
+          "neglected_or_not_extended:+8",
+          "cap_under_10b:+2"
+        ],
+        "price_action": [
+          "move_8pct_plus:+10",
+          "small_gap_confirmation:+2",
+          "close_near_high:+4",
+          "range_expansion:+2"
+        ],
+        "risk_distance": [
+          "too_wide_risk:0"
+        ],
+        "volume_shock": [
+          "volume_10x_plus:+20"
+        ]
+      },
+      "component_scores": {
+        "catalyst_quality": 30.8,
+        "liquidity": 10,
+        "neglect_revaluation": 10.0,
+        "price_action": 18.0,
+        "risk_distance": 0.0,
+        "volume_shock": 20.0
+      },
+      "composite_score": 88.8,
+      "day_gain_pct": 9.3,
+      "delayed_ep_watch": true,
+      "dollar_volume": 201600000.0,
+      "ep_type": "EARNINGS_EP",
+      "event_date": "2026-08-14",
+      "gap_pct": 2.47,
+      "headline": "Post-earnings reaction for EXWIDE",
+      "high": 58.0,
+      "low": 45.0,
+      "market_cap": 5000000000.0,
+      "momentum_handoff": true,
+      "open": 54.0,
+      "pead_handoff": true,
+      "prev_close": 52.7,
+      "price_event_date": "2026-08-14",
+      "prior_20d_return_pct": 1.84,
+      "range_pct": 24.67,
+      "rating": "A-",
+      "raw_event": {
+        "catalyst_reasons": [
+          "explicit:earnings"
+        ],
+        "catalyst_type": "earnings",
+        "event_date": "2026-08-14",
+        "headline": "Post-earnings reaction for EXWIDE",
+        "market_cap": 5000000000,
+        "source_input": "events_json",
+        "summary": "Fictional teaching catalyst; no real issuer or news.",
+        "symbol": "EXWIDE"
+      },
+      "risk_pct_to_low": 21.88,
+      "source_grade": null,
+      "source_input": "events_json",
+      "source_score": null,
+      "state": "DELAYED_EP_WATCH",
+      "state_reasons": [
+        "risk_too_wide_for_day1"
+      ],
+      "summary": "Fictional teaching catalyst; no real issuer or news.",
+      "symbol": "EXWIDE",
+      "trade_plan_inputs": {
+        "entry_reference": 57.6,
+        "notes": "Candidate only; require manual catalyst and chart validation before trading.",
+        "risk_pct_to_stop": 21.88,
+        "stop_basis": "ep_day_low",
+        "stop_reference": 45.0
+      },
+      "volume": 3500000.0,
+      "volume_ratio_50": 11.67
+    }
+  ],
+  "order_authorized": false
+}

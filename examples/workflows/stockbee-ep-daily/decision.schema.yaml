@@ -1,0 +1,31 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+additionalProperties: false
+required:
+- symbol
+- account_size
+- risk_pct
+- max_ep_risk_pct
+- thesis_statement
+- kill_criterion
+properties:
+  symbol:
+    type: string
+    pattern: ^[A-Z][A-Z0-9]{0,9}$
+  account_size:
+    type: number
+    exclusiveMinimum: 0
+  risk_pct:
+    type: number
+    exclusiveMinimum: 0
+    maximum: 10
+  max_ep_risk_pct:
+    type: number
+    exclusiveMinimum: 0
+    maximum: 10
+  thesis_statement:
+    type: string
+    minLength: 20
+  kill_criterion:
+    type: string
+    minLength: 20

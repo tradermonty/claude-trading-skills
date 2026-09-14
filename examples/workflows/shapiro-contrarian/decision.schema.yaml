@@ -1,0 +1,37 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+additionalProperties: false
+required:
+- human_approved
+- symbol
+- as_of
+- entry
+- account_size
+- risk_pct
+- thesis_statement
+- kill_criterion
+properties:
+  human_approved:
+    const: true
+  symbol:
+    type: string
+    pattern: ^[A-Z][A-Z0-9]{0,9}$
+  as_of:
+    type: string
+    pattern: ^\d{4}-\d{2}-\d{2}$
+  entry:
+    type: number
+    exclusiveMinimum: 0
+  account_size:
+    type: number
+    exclusiveMinimum: 0
+  risk_pct:
+    type: number
+    exclusiveMinimum: 0
+    maximum: 10
+  thesis_statement:
+    type: string
+    minLength: 20
+  kill_criterion:
+    type: string
+    minLength: 20

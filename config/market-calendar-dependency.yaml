@@ -9,6 +9,7 @@ optional_extra: market-calendar
 consumers:
   - breakout-trade-planner
   - drawdown-circuit-breaker
+  - earnings-trade-analyzer
   - market-environment-analysis
   - market-top-detector
   - parabolic-short-trade-planner
@@ -21,6 +22,8 @@ consumers:
 additional_requirements:
   drawdown-circuit-breaker:
     - pyyaml>=6.0
+  earnings-trade-analyzer:
+    - requests>=2.31.0
   market-top-detector:
     - requests>=2.31.0
     - requirement: yfinance>=0.2.0

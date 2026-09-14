@@ -1,0 +1,95 @@
+{
+  "created_at": "2026-08-15T12:00:00+00:00",
+  "entry": {
+    "actual_date": null,
+    "actual_price": null,
+    "conditions": [],
+    "target_price": null
+  },
+  "execution_authorized": false,
+  "kill_criteria": [
+    "Invalidate the hypothetical fade at the confirmed weekly swing stop; no actual fill exists."
+  ],
+  "linked_reports": [
+    {
+      "date": "2026-08-15",
+      "file": "$ARTIFACT/04_contrarian_setup_gate_report.json",
+      "skill": "contrarian-setup-gate"
+    },
+    {
+      "date": "2026-08-15",
+      "file": "$ARTIFACT/01_cot_crowding_report.json",
+      "skill": "cot-contrarian-detector"
+    },
+    {
+      "date": "2026-08-15",
+      "file": "$ARTIFACT/05_futures_position_size.json",
+      "skill": "futures-position-sizer"
+    },
+    {
+      "date": "2026-08-15",
+      "file": "$ARTIFACT/02_news_failure_verdict.json",
+      "skill": "news-reaction-failure-analyzer"
+    },
+    {
+      "date": "2026-08-15",
+      "file": "$ARTIFACT/03_price_action_confirmation_report.json",
+      "skill": "technical-analyst"
+    }
+  ],
+  "manual_review_required": true,
+  "position": {
+    "asset_type": "futures",
+    "contract_spec": {
+      "currency": "USD",
+      "multiplier": 62500,
+      "source": "cme",
+      "tick_size": 0.0001,
+      "tick_value": 6.25,
+      "verified": "2026-07-17"
+    },
+    "contract_symbol": "B6",
+    "direction": "LONG",
+    "multiplier": 62500.0,
+    "quantity": 2,
+    "quantity_remaining": 2,
+    "quantity_unit": "contracts",
+    "raw_source": {
+      "fields": {
+        "contracts": 2,
+        "risk_per_contract_usd": 500.0,
+        "total_risk_usd": 1000.0
+      },
+      "file": "$ARTIFACT/05_futures_position_size.json",
+      "skill": "futures-position-sizer"
+    },
+    "risk_pct_of_account": 1.0,
+    "risk_per_contract_usd": 500.0,
+    "total_risk_usd": 1000.0
+  },
+  "sources": {
+    "contrarian_setup_gate_report": {
+      "file": "$ARTIFACT/04_contrarian_setup_gate_report.json",
+      "sha256": "1d3eceb534694d84d78a6224a8d578b8b9347ffc572b8f3b2aea725a5b7b805c"
+    },
+    "cot_crowding_report": {
+      "file": "$ARTIFACT/01_cot_crowding_report.json",
+      "sha256": "cf2ff400d2f29838aeefe7d566cf712cb126f308720c241412f194e52008630a"
+    },
+    "futures_position_size": {
+      "file": "$ARTIFACT/05_futures_position_size.json",
+      "sha256": "4e55ff915d1c19cc25d6ec57d5c448bc184df76ecf6158e61396a40157ec5e28"
+    },
+    "news_failure_verdict": {
+      "file": "$ARTIFACT/02_news_failure_verdict.json",
+      "sha256": "0990b68c65e610650303ea22d19b308e6d10845580a32eeed54be90cd1c71197"
+    },
+    "price_action_confirmation_report": {
+      "file": "$ARTIFACT/03_price_action_confirmation_report.json",
+      "sha256": "bf1d0546375f21fcce73cb4668b59f580c4d2a904157d52cb13b35b2feb62dd1"
+    }
+  },
+  "status": "IDEA",
+  "thesis_statement": "Fictional COT short crowd fails to push the market lower; weekly reversal supports a researched long fade.",
+  "ticker": "B6"
+}

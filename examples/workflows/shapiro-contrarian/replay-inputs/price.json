@@ -1,0 +1,43 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "report": {
+    "symbol": "B6",
+    "direction": "CROWDED_SHORT",
+    "mode": "data",
+    "verdict": "CONFIRMED",
+    "confidence": "HIGH",
+    "verdict_reason": "key_reversal",
+    "checks": {
+      "weekly_key_reversal": {
+        "triggered": true,
+        "week_of": "2026-08-06",
+        "detail": ""
+      },
+      "failed_extreme": {
+        "triggered": false,
+        "week_of": null,
+        "detail": ""
+      },
+      "failed_breakout": {
+        "triggered": false,
+        "week_of": null,
+        "detail": ""
+      }
+    },
+    "swing_levels": {
+      "stop_reference": 1.372
+    },
+    "handoff": {
+      "price_action": {
+        "verdict": "CONFIRMED",
+        "confidence": "HIGH",
+        "stop_reference": 1.372
+      }
+    },
+    "run_context": {
+      "as_of": "2026-08-14",
+      "schema_version": "1.0"
+    }
+  }
+}

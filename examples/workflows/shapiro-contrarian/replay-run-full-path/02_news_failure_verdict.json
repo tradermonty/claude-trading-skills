@@ -1,0 +1,23 @@
+{
+  "actual_reaction": "NO_REACTION",
+  "aggregate": {
+    "drift_stat": 0.2,
+    "mean_z3": 0.1,
+    "responded_ratio": 0.33
+  },
+  "clusters": [],
+  "confidence": "HIGH",
+  "direction": "CROWDED_SHORT",
+  "dropped_events": [],
+  "evidence": [],
+  "expected_direction": "BULLISH",
+  "relevant_events_used": 3,
+  "run_context": {
+    "as_of": "2026-08-13"
+  },
+  "schema_version": "1.0",
+  "skill": "news-reaction-failure-analyzer",
+  "symbol": "B6",
+  "verdict": "CONFIRMED",
+  "verdict_reason": null
+}

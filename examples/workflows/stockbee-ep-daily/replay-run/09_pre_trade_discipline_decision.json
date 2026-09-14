@@ -1,0 +1,80 @@
+{
+  "artifact_paths": {
+    "json": "09_pre_trade_discipline_decision.json"
+  },
+  "as_of": "2026-08-14T16:00:00-04:00",
+  "candidate_results": [
+    {
+      "actionable": true,
+      "checklist_answers": {
+        "actual_risk_dollars": 998.2,
+        "entry_in_written_plan": false,
+        "notes": null,
+        "planned_risk_dollars": 998.2,
+        "size_within_plan": false,
+        "stop_predefined": false
+      },
+      "decision": "NO_GO",
+      "link_status": "not_requested",
+      "order_intent": "MANUAL_ORDER",
+      "reasons": [
+        "entry is not confirmed in the written plan",
+        "stop is not predefined",
+        "size is not confirmed within plan"
+      ],
+      "symbol": "EXMPL",
+      "thesis_id": null
+    },
+    {
+      "actionable": false,
+      "checklist_answers": {
+        "actual_risk_dollars": null,
+        "entry_in_written_plan": null,
+        "notes": null,
+        "planned_risk_dollars": null,
+        "size_within_plan": null,
+        "stop_predefined": null
+      },
+      "decision": "NO_ACTIONABLE_ORDERS",
+      "link_status": "not_requested",
+      "order_intent": "WATCHLIST",
+      "reasons": [
+        "order_intent WATCHLIST has no manual order to place"
+      ],
+      "symbol": "EXWIDE",
+      "thesis_id": null
+    }
+  ],
+  "checklist_sha256": "a66492cceb17cd17879012223b28a5c630a06f0f6be9dcd01c50963caae8aaf9",
+  "execution_authorized": false,
+  "generated_at": "2026-08-14T20:00:00+00:00",
+  "inputs": {
+    "circuit_breaker_decision": "$ARTIFACT/01_circuit_breaker_decision.json",
+    "market_regime_decision": "$INPUT/exposure",
+    "state_dir": "$WORK/account_state"
+  },
+  "metrics": {
+    "actionable_candidates": 1,
+    "candidates_total": 2,
+    "revenge_window_hours": 24.0,
+    "theses_scanned": 0
+  },
+  "overall_decision": "NO_GO",
+  "rationale": "At least one actionable candidate violated a discipline rule; do not place the manual order.",
+  "replay_sources": {
+    "circuit_breaker_decision": {
+      "file": "$ARTIFACT/01_circuit_breaker_decision.json",
+      "sha256": "a281a175cdbb153e2abdd6d50e343ce9cf96672a6ad37fbc7145db73dc74aadc"
+    },
+    "ep_journal_entry": {
+      "file": "$ARTIFACT/08_ep_journal_entry.json",
+      "sha256": "585dd23c197d7d3fcd5726116e91ebca800601f37eb0bc4dc2fa7d289fe4a6e7"
+    },
+    "ep_position_sizing": {
+      "file": "$ARTIFACT/06_ep_position_sizing.json",
+      "sha256": "a94b4228784089620a7b73b82410610444357f26ec0b79727221e246fc1e9ed7"
+    }
+  },
+  "schema_version": "1.0",
+  "warnings": []
+}

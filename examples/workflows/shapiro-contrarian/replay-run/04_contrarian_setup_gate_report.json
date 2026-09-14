@@ -1,0 +1,63 @@
+{
+  "direction": "LONG",
+  "entry_trigger": "price-action confirmation: key_reversal at week_of=2026-08-06",
+  "gate_confidence": "HIGH",
+  "inputs": {
+    "crowding": {
+      "age_days": 8,
+      "classification": "CROWDED_SHORT",
+      "data_date": "2026-08-07",
+      "report_path": "$ARTIFACT/01_cot_crowding_report.json",
+      "state": "CONFIRMED"
+    },
+    "news_failure": {
+      "age_days": 2,
+      "as_of": "2026-08-13",
+      "confidence": "HIGH",
+      "report_path": "$ARTIFACT/02_news_failure_verdict.json",
+      "state": "CONFIRMED",
+      "verdict": "CONFIRMED",
+      "verdict_reason": null
+    },
+    "price_action": {
+      "age_days": 1,
+      "as_of": "2026-08-14",
+      "confidence": "HIGH",
+      "report_path": "$ARTIFACT/03_price_action_confirmation_report.json",
+      "state": "CONFIRMED",
+      "stop_reference": 1.372,
+      "verdict": "CONFIRMED",
+      "verdict_reason": "key_reversal"
+    }
+  },
+  "invalidation_level": 1.372,
+  "missing_confirmations": [],
+  "replay_sources": {
+    "cot_crowding_report": {
+      "file": "$ARTIFACT/01_cot_crowding_report.json",
+      "sha256": "cf2ff400d2f29838aeefe7d566cf712cb126f308720c241412f194e52008630a"
+    },
+    "news_failure_verdict": {
+      "file": "$ARTIFACT/02_news_failure_verdict.json",
+      "sha256": "0990b68c65e610650303ea22d19b308e6d10845580a32eeed54be90cd1c71197"
+    },
+    "price_action_confirmation_report": {
+      "file": "$ARTIFACT/03_price_action_confirmation_report.json",
+      "sha256": "bf1d0546375f21fcce73cb4668b59f580c4d2a904157d52cb13b35b2feb62dd1"
+    }
+  },
+  "run_context": {
+    "as_of": "2026-08-15",
+    "max_detector_age_days": 10,
+    "max_report_age_days": 7,
+    "schema_version": "1.0",
+    "skill": "contrarian-setup-gate",
+    "symbol": "B6"
+  },
+  "schema_version": "1.0",
+  "setup_status": "READY_FOR_PLAN",
+  "symbol": "B6",
+  "warnings": [
+    "detector_near_stale"
+  ]
+}
