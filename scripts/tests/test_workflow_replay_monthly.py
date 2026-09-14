@@ -550,14 +550,70 @@ def test_skill_review_command_variants_have_identical_provenance_digest() -> Non
     assert len(set(digests)) == 1
 
 
-def test_monthly_goldens_are_byte_reproducible(tmp_path: Path) -> None:
+@pytest.mark.parametrize("symlink_root", [False, True])
+def test_monthly_goldens_are_byte_reproducible(tmp_path: Path, symlink_root: bool) -> None:
+    repo_root = ROOT
+    if symlink_root:
+        repo_root = tmp_path / "repo-link"
+        try:
+            repo_root.symlink_to(ROOT, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"directory symlinks unavailable: {exc}")
     for variant, golden_name in (
         ("required-only", "replay-run"),
         ("full-path", "replay-run-full-path"),
     ):
         actual = tmp_path / variant
-        execute_replay(ROOT, SPEC, variant, actual)
+        execute_replay(repo_root, SPEC, variant, actual)
         assert compare_trees(actual, SPEC.parent / golden_name) == []
+
+
+def test_monthly_skill_review_canonicalizes_resolved_repo_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    alias = tmp_path / "repo-link"
+    try:
+        alias.symlink_to(ROOT, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+
+    def fake_run_cli(command, repo_root, **kwargs):
+        output_dir = Path(command[command.index("--output-dir") + 1])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        resolved = repo_root.resolve()
+        report = {
+            "skill_name": "vcp-screener",
+            "auto_review": {
+                "test_status": "passed",
+                "test_command": f"{sys.executable} -m pytest skills/vcp-screener/scripts/tests -q",
+                "test_output": "262 passed in 0.53s",
+                "findings": [{"path": f"{resolved}/skills/vcp-screener/SKILL.md"}],
+                "diagnostic": f"Read '{resolved}/skills/vcp-screener/SKILL.md'",
+            },
+            "final_review": {"score": 93},
+        }
+        (output_dir / "skill_review_vcp-screener_20260913.json").write_text(
+            json.dumps(report), encoding="utf-8"
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(replay_module, "_run_cli", fake_run_cli)
+    spec = load_yaml(SPEC)
+    step = {
+        "output_files": {"skill_review_findings": {"canonical": "05_skill_review_findings.json"}}
+    }
+    inputs = replay_module.validate_spec(ROOT, SPEC)["inputs"]
+    outputs = []
+    for name, root in (("real", ROOT), ("alias", alias)):
+        artifacts = EXECUTORS["monthly_skill_review"].run(
+            root, spec, step, inputs, {}, tmp_path / name / "work", tmp_path / name / "stage"
+        )
+        outputs.append(Path(artifacts["skill_review_findings"]["files"]["canonical"]).read_bytes())
+
+    assert outputs[0] == outputs[1]
+    review = json.loads(outputs[1])["review"]["auto_review"]
+    assert review["findings"] == [{"path": "skills/vcp-screener/SKILL.md"}]
+    assert review["diagnostic"] == "Read 'skills/vcp-screener/SKILL.md'"
 
 
 def test_pytest_rm_rf_warning_summary_is_stripped_to_golden_tail() -> None:

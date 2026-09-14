@@ -33,6 +33,66 @@ COVERAGE = ROOT / "examples" / "workflows" / "replay-coverage.yaml"
 SPEC = ROOT / "examples" / "workflows" / "stockbee-fluency-loop" / "replay.yaml"
 
 
+@pytest.mark.parametrize("overlapping_spelling", [False, True])
+def test_canonicalize_symlink_path_spellings(tmp_path: Path, overlapping_spelling: bool) -> None:
+    alias = tmp_path.resolve() / "repo with spaces"
+    # Emulate /tmp being a substring of /private/tmp on every platform.
+    real = (
+        tmp_path / "private" / alias.relative_to(alias.anchor)
+        if overlapping_spelling
+        else tmp_path / "real repo"
+    )
+    real.mkdir(parents=True)
+    try:
+        alias.symlink_to(real, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+    suffix = "skills/demo/SKILL.md"
+    sibling = str(alias.with_name("repo with spaces-other")) + "/" + suffix
+    payload = {
+        "paths": [str(alias) + "/" + suffix, {"path": str(real) + "/" + suffix}],
+        "diagnostic": f"Read '{alias}/{suffix}' and '{real}/{suffix}'",
+        "outside": sibling,
+    }
+
+    canonical = replay_module._canonicalize(payload, "2026-05-31T23:59:59Z", {str(alias) + "/": ""})
+
+    assert canonical == {
+        "paths": [suffix, {"path": suffix}],
+        "diagnostic": f"Read '{suffix}' and '{suffix}'",
+        "outside": sibling,
+    }
+
+
+@pytest.mark.parametrize("file_first", [False, True])
+def test_canonicalize_specific_files_before_parent_paths(tmp_path: Path, file_first: bool) -> None:
+    root = tmp_path.resolve()
+    source = root / "input.json"
+    entries = [(str(root) + "/", "$WORK/"), (str(source), "$INPUT/source.json")]
+    if file_first:
+        entries.reverse()
+
+    canonical = replay_module._canonicalize(
+        [str(source), str(root) + "/report.json"],
+        "2026-05-31T23:59:59Z",
+        dict(entries),
+    )
+
+    assert canonical == ["$INPUT/source.json", "$WORK/report.json"]
+
+
+def test_canonicalize_retains_literal_order_timestamps_and_non_string_values() -> None:
+    timestamp = "2026-05-31T23:59:59Z"
+    payload = {"generated_at": "old", "nested": ["value", 3, None, {"ok": True}]}
+
+    canonical = replay_module._canonicalize(
+        payload, timestamp, {"value": "longer literal", "longer literal": "done"}
+    )
+
+    assert canonical == {"generated_at": timestamp, "nested": ["done", 3, None, {"ok": True}]}
+    assert payload["generated_at"] == "old"
+
+
 def test_coverage_is_complete_and_ten_of_eleven_are_covered() -> None:
     summary = validate_coverage(ROOT, COVERAGE)
 

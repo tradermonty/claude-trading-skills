@@ -558,19 +558,45 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
 
 
 def _canonicalize(value: Any, fixed_timestamp: str, replacements: Mapping[str, str]) -> Any:
+    path_replacements = {}
+    literal_replacements = {}
+    for source, replacement in replacements.items():
+        path = Path(source)
+        if not path.is_absolute():
+            literal_replacements[source] = replacement
+            continue
+        path_replacements[source] = replacement
+        resolved = str(path.resolve())
+        # Path drops the trailing separator, but directory-prefix substitutions
+        # need it to preserve relative output and avoid matching sibling names.
+        if source.endswith((os.sep, os.altsep) if os.altsep else (os.sep,)):
+            resolved = resolved.rstrip(os.sep) + source[-1]
+        path_replacements.setdefault(resolved, replacement)
+
+    # The lexical /tmp prefix can also occur inside its resolved /private/tmp
+    # spelling. Replace the longer spelling first, as well as specific files
+    # before their parent directory. Ordinary literal replacements retain order.
+    ordered_replacements = sorted(path_replacements.items(), key=lambda item: -len(item[0]))
+    ordered_replacements.extend(literal_replacements.items())
+    return _canonicalize_values(value, fixed_timestamp, ordered_replacements)
+
+
+def _canonicalize_values(
+    value: Any, fixed_timestamp: str, replacements: list[tuple[str, str]]
+) -> Any:
     if isinstance(value, dict):
         normalized: dict[str, Any] = {}
         for key, child in value.items():
             if key in TIMESTAMP_FIELDS:
                 normalized[key] = fixed_timestamp
             else:
-                normalized[key] = _canonicalize(child, fixed_timestamp, replacements)
+                normalized[key] = _canonicalize_values(child, fixed_timestamp, replacements)
         return normalized
     if isinstance(value, list):
-        return [_canonicalize(item, fixed_timestamp, replacements) for item in value]
+        return [_canonicalize_values(item, fixed_timestamp, replacements) for item in value]
     if isinstance(value, str):
         result = value
-        for source, replacement in replacements.items():
+        for source, replacement in replacements:
             result = result.replace(source, replacement)
         return result
     return value
