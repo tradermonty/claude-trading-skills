@@ -36,7 +36,7 @@ USED_REQUIREMENTS = frozenset({"required", "recommended", "optional"})
 # Integration types that pull data from an external network/data source
 # (API, broker, screener, or web fetch). Integrations typed as local_file /
 # image / calculation are treated as offline / pure-calculation.
-EXTERNAL_TYPES = frozenset({"market_data", "screener", "broker", "web"})
+EXTERNAL_TYPES = frozenset({"api", "market_data", "screener", "broker", "web"})
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +237,15 @@ def _fmt_days(value: Any) -> str:
 
 
 def _escape(text: str) -> str:
-    return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
+    return (
+        text.replace("\\", "\\\\")
+        .replace("|", "\\|")
+        .replace("*", "\\*")
+        .replace("_", "\\_")
+        .replace("`", "\\`")
+        .replace("\n", " ")
+        .strip()
+    )
 
 
 def _frontmatter(lang: str) -> str:

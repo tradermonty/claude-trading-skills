@@ -18,6 +18,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 from generate_quality_dashboard import (  # noqa: E402
     NOT_YET_MEASURED,
+    _escape,
     compute_metrics,
     load_snapshot,
     main,
@@ -323,6 +324,65 @@ skills:
     assert m["provider_counts"]["other_external"] == 1
     assert m["provider_counts"]["offline"] == 1
     assert m["provider_counts"]["fmp"] == 0
+
+
+def test_generic_api_counts_as_external_unless_not_required(tmp_path: Path) -> None:
+    custom_index = """\
+schema_version: 1
+skills:
+- id: used-api
+  display_name: Used API
+  category: market-regime
+  status: production
+  integrations:
+  - id: custom_provider
+    type: api
+    requirement: required
+- id: unused-api
+  display_name: Unused API
+  category: market-regime
+  status: production
+  integrations:
+  - id: optional_provider
+    type: api
+    requirement: not_required
+- id: offline-calc
+  display_name: Offline Calc
+  category: market-regime
+  status: production
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: required
+"""
+    root = make_project(tmp_path)
+    _write(root / "skills-index.yaml", custom_index)
+
+    m = compute_metrics(root)
+
+    assert m["provider_counts"]["other_external"] == 1
+    assert m["provider_counts"]["offline"] == 2
+
+
+def test_escape_makes_markdown_table_specials_safe() -> None:
+    text = " Back\\slash | *bold* _under_ `code`\n "
+
+    assert _escape(text) == r"Back\\slash \| \*bold\* \_under\_ \`code\`"
+
+
+def test_render_escapes_markdown_specials_in_skill_display_name(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    _write(
+        root / "skills-index.yaml",
+        INDEX_YAML.replace(
+            "display_name: Alpha", "display_name: 'Alpha | *Momentum* _Desk_ `Code`'"
+        ),
+    )
+
+    page = render_page(compute_metrics(root), "en")
+
+    assert "| **Alpha \\| \\*Momentum\\* \\_Desk\\_ \\`Code\\`** (`alpha`) |" in page
+    assert page.count("(`alpha`)") == 1
 
 
 def test_render_english_includes_summary_and_skill_table(tmp_path: Path) -> None:
