@@ -58,7 +58,15 @@ COVERAGE_FILE=coverage-data/coverage.ftd-detector .venv/bin/python -m coverage j
 The initial dependency download encountered sandbox DNS failure. Retrying the
 same locked sync with network permission succeeded, using a task-specific cache.
 The standard full-suite runner also needed that permission to fetch its build
-dependency. Its final result is recorded with the CI evidence below.
+dependency. `bash scripts/run_all_tests.sh` finished with 74/75 rows passing;
+the sole unsuccessful row was `futures-position-sizer`, interrupted by an
+agent-generated signal (`KeyboardInterrupt`), with no assertion failure.
+An isolated rerun of that exact matrix row with a task-specific temporary
+directory passed all 212 tests. All 75 discovered rows therefore have successful
+test evidence, including 1,163 passed / 1 skipped in `repo-scripts`; the original
+runner's exit status was 1 and is not represented as a clean full-run exit.
+The completed row evidence is reused rather than running the pre-push pytest
+hook again. All other applicable push hooks run normally.
 
 ## Review and CI record
 
@@ -72,9 +80,23 @@ dependency. Its final result is recorded with the CI evidence below.
   catalog/skill/workflow/skillset documentation checks, strict metadata/workflow
   validation, skillsets, navigator snapshot, quality dashboard, and
   `pre-commit run --all-files` passed.
-- Ubuntu CI evidence and waiver removal: pending; the waiver is retained until
-  the exact-head evidence is available.
+- Ubuntu/Python 3.9 evidence: [CI run 34859569722](https://github.com/tradermonty/claude-trading-skills/actions/runs/34859569722)
+  for `73a5f33cba4d7e3f070b18cbe8fba3b1904438a0`, artifact
+  `executable-code-coverage-report` (ID `10354777482`), reports
+  `ftd-detector.actual = 90.79578139980825`, `status = target_met`, and no
+  coverage violations. Its raw report confirms 947 / 1,043 statements.
+  This meets the 70% target and permits removing only the FTD waiver;
+  future CI enforces the default 70% floor.
+- Implementation review round 2: no actionable findings. The reviewer
+  independently verified the live CI run/head/artifact and loaded the changed
+  policy to confirm `floor=70`, `target=70`, and `waiver=None`.
+  Policy/dashboard tests: 54 passed. Dashboard regeneration made no changes;
+  its drift check and the final `pre-commit run --all-files` passed.
+  Final-head CI is checked on [draft PR #403](https://github.com/tradermonty/claude-trading-skills/pull/403)
+  after the policy commit; merge remains outside this job's scope.
 
-Issue #293 remains open: other per-skill waivers and the repository aggregate
-target still require their own evidence and remediation. This batch does not
-satisfy the whole issue's closure criteria.
+Issue #293 remains open because other per-skill waivers still require their own
+evidence and remediation. The same CI report measures repository aggregate
+coverage at 76.7152%, above the 75% target; its existing waiver is deliberately
+outside this single-skill batch and remains for a separate removal review.
+This batch does not satisfy the whole issue's closure criteria.

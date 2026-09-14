@@ -64,12 +64,6 @@ coverage:
       expires_on: "2026-10-31"
       issue: 293
       reason: Ratchet from the 2026-08-10 executable-code baseline.
-    ftd-detector:
-      floor: 65
-      target: 70
-      expires_on: "2026-10-31"
-      issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
     ibd-distribution-day-monitor:
       floor: 38
       target: 70
