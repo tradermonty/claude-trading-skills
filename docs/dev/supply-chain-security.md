@@ -78,14 +78,24 @@ and an `exceptions` array. Each row contains `package`, `version`, `advisory`,
 normalized package name, exact version and advisory; separate advisories for the
 same package/version remain separate rows. An empty policy produces an empty
 array and `active` status. This block is present on successful scans, blocked
-vulnerability results and scanner errors; inspect the existing `errors` and
-`blocked` fields as well as the command exit code for the actual audit result.
+vulnerability results and scanner errors. Inspect `errors` and the command exit
+code for the actual audit result, and inspect `blocked` when that field is
+present. Policy-validation and scanner failures can omit `blocked`; its absence
+means vulnerability evaluation did not complete, not that no vulnerabilities
+were blocked. Consumers must not assume every report contains `blocked` or
+`inventory`.
 
 A direct `audit` invocation with an expired policy writes a failure report with
 `exception_expiry` and `errors`, exits 1, and performs no scanner calls. Invalid
 policy structure also produces an error report, without partial expiry entries.
 The output replaces any previous report at `--report`; a report-write failure
 is reported on stderr and returns exit 1.
+
+Policy structure and duplicate identities are validated before expiration. If a
+policy is both malformed or duplicated and expired, the structural/duplicate
+error is reported first. The rejection behavior and exit code remain unchanged;
+callers should not depend on which diagnostic appears first for a policy with
+multiple defects.
 
 In CI, `check` runs **before** `audit`. Approaching-expiry reports are included in
 the existing audit artifact when the audit step runs. On or after expiry,
