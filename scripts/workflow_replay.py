@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Deterministic workflow contract replay harness (Issue #294, coverage 10/11).
+"""Deterministic workflow contract replay harness (Issue #294, coverage 11/11).
 
 The harness executes real offline CLIs for the Stockbee fluency, 20% study,
 trade-memory, market-regime, monthly-performance-review, core-portfolio,
-kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily, and swing-opportunity-daily workflows. Human decisions
-and fixture-backed native API evidence are reported separately from full skill
-execution. Golden outputs are comparison targets only and are never used as
-replay inputs.
+kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily,
+swing-opportunity-daily, and multi-asset-opportunity-daily workflows. Human
+decisions and fixture-backed native API evidence are reported separately from
+full skill execution. Golden outputs are comparison targets only and are never
+used as replay inputs.
 """
 
 from __future__ import annotations
@@ -49,13 +50,9 @@ KANCHI_FORBIDDEN_REVIEW_TOKENS = frozenset(
 )
 VARIANTS = ("required-only", "full-path")
 
-# Coverage 10/11 leaves one workflow deferred. This frozen baseline prevents a
-# newly introduced workflow from being waved through as another deferral.
-FROZEN_DEFERRED_WORKFLOWS = frozenset(
-    {
-        "multi-asset-opportunity-daily",
-    }
-)
+# All 11 canonical workflows carry executable replay coverage (Issue #294).
+# The frozen empty baseline rejects any reintroduced deferral wave.
+FROZEN_DEFERRED_WORKFLOWS: frozenset[str] = frozenset()
 
 MARKET_COMPONENT_CONFIG = {
     "breadth": {
@@ -108,7 +105,14 @@ MARKET_COMPONENT_CONFIG = {
 }
 
 TIMESTAMP_FIELDS = frozenset(
-    {"generated_at", "created_at", "updated_at", "last_outcome_update_at", "recorded_at"}
+    {
+        "generated_at",
+        "generated_at_utc",
+        "created_at",
+        "updated_at",
+        "last_outcome_update_at",
+        "recorded_at",
+    }
 )
 SENSITIVE_ENV_MARKERS = ("API_KEY", "TOKEN", "SECRET", "PASSWORD", "PROXY")
 DIGEST_ALLOWLIST_KEYS = frozenset(
@@ -246,7 +250,7 @@ def coverage_errors(workflow_ids: set[str], coverage: Mapping[str, Any]) -> list
 
     if set(deferred) != FROZEN_DEFERRED_WORKFLOWS:
         errors.append(
-            "deferred workflows must match the frozen coverage 10/11 deferred set; "
+            "deferred workflows must match the frozen empty deferral set; "
             f"expected {sorted(FROZEN_DEFERRED_WORKFLOWS)}, got {sorted(deferred)}"
         )
     for workflow_id, entry in deferred.items():
@@ -522,6 +526,19 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
         "kanchi_tax_advice": {"tax_holdings"},
         "kanchi_review_queue": {"review_monitor"},
         "kanchi_register_thesis": {"register_decision"},
+        "multi_asset_gate_context": {"exposure", "macro_brief"},
+        "multi_asset_themes": {"exposure", "themes"},
+        "multi_asset_news": {"exposure", "news"},
+        "multi_asset_hypotheses": {
+            "exposure",
+            "hypothesis_decision",
+            "raw_hypotheses",
+        },
+        "multi_asset_sizing": {"exposure", "sizing_decision"},
+        "multi_asset_journal": {
+            "exposure",
+            "hypothesis_decision",
+        },
     }
     for number, replay_step in spec_steps.items():
         required_inputs = executor_required_inputs.get(replay_step["executor"], set())
@@ -4632,6 +4649,629 @@ def _kanchi_register_thesis(
     return artifacts
 
 
+_MULTI_ASSET_REPLAY_SCHEMA = (
+    REPO_ROOT
+    / "examples"
+    / "workflows"
+    / "multi-asset-opportunity-daily"
+    / "replay-contract.schema.json"
+)
+_MULTI_ASSET_IDEATOR_SCRIPT = "skills/trade-hypothesis-ideator/scripts/run_hypothesis_ideator.py"
+_MULTI_ASSET_POSITION_SIZER_SCRIPT = "skills/position-sizer/scripts/position_sizer.py"
+_MULTI_ASSET_SIZE_SIZER_SCRIPT = "skills/position-sizer/scripts/position_sizer.py"
+
+
+def _validate_multi_asset_contract(payload: Any, definition: str) -> None:
+    schema = _load_json(_MULTI_ASSET_REPLAY_SCHEMA, "multi-asset replay contract schema")
+    selected = {
+        "$schema": schema["$schema"],
+        "$defs": schema["$defs"],
+        "$ref": f"#/$defs/{definition}",
+    }
+    errors = _schema_error_details(selected, payload)
+    if errors:
+        raise ReplayError(f"invalid multi-asset {definition} contract:\n- " + "\n- ".join(errors))
+
+
+def _multi_asset_fixed_date(spec: Mapping[str, Any]) -> str:
+    return spec["fixed_timestamp"][:10]
+
+
+def _multi_asset_envelope(
+    inputs: Mapping[str, Path], key: str, definition: str, spec: Mapping[str, Any]
+) -> dict[str, Any]:
+    fixed_date = _multi_asset_fixed_date(spec)
+    envelope = _load_json(inputs[key], f"multi-asset {key} fixture")
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"human_approved", "fictional", "as_of", "report"}
+        or envelope["human_approved"] is not True
+        or envelope["fictional"] is not True
+        or envelope["as_of"] != fixed_date
+    ):
+        raise ReplayError(f"multi-asset {key} requires a dated, approved fictional fixture")
+    _assert_finite_json(envelope, f"multi-asset {key}")
+    _validate_multi_asset_contract(envelope["report"], definition)
+    return envelope["report"]
+
+
+def _multi_asset_market_gate(inputs: Mapping[str, Path], spec: Mapping[str, Any]) -> dict[str, Any]:
+    """Fail-closed informational prerequisite from market-regime-daily.
+
+    The manifest documents the exposure_decision prerequisite as informational
+    (the cross-workflow validator does not enforce it), but this replay treats
+    it as a hard gate: a cash-priority day must stop the sweep before any
+    downstream step runs.
+    """
+    exposure = _multi_asset_envelope(inputs, "exposure", "exposure_decision", spec)
+    if exposure["generated_at"] != spec["fixed_timestamp"]:
+        raise ReplayError("multi-asset market gate requires a current exposure decision")
+    if exposure["recommendation"] != "NEW_ENTRY_ALLOWED":
+        raise ReplayError(f"multi-asset market gate halted: {exposure['recommendation']}")
+    return exposure
+
+
+def _multi_asset_sources(
+    consumed: Mapping[str, dict[str, Any]], stage: Path
+) -> dict[str, dict[str, str]]:
+    return {
+        artifact: {
+            "file": _kanchi_artifact_link(consumed, artifact, "canonical", stage),
+            "sha256": _file_sha256(Path(consumed[artifact]["files"]["canonical"])),
+        }
+        for artifact in sorted(consumed)
+    }
+
+
+def _multi_asset_gate_context(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    _work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    if consumed:
+        raise ReplayError("multi-asset macro context must not consume upstream artifacts")
+    _multi_asset_market_gate(inputs, spec)
+    macro = _multi_asset_envelope(inputs, "macro_brief", "macro_regime_brief", spec)
+    _assert_finite_json(macro, "multi-asset macro brief")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["macro_regime_brief"]["files"]["canonical"]), macro)
+    return artifacts
+
+
+def _multi_asset_themes(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    _work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    if set(consumed) != {"macro_regime_brief"}:
+        raise ReplayError(f"multi-asset themes received unexpected artifacts: {sorted(consumed)}")
+    _multi_asset_market_gate(inputs, spec)
+    macro = _load_json(Path(consumed["macro_regime_brief"]["files"]["canonical"]), "macro handoff")
+    themes = _multi_asset_envelope(inputs, "themes", "hot_themes", spec)
+    if themes["as_of"] != macro["as_of"]:
+        raise ReplayError("multi-asset themes must share the macro data date")
+    if themes["market_state"] != "CONFIRMED":
+        raise ReplayError(f"multi-asset themes halted: {themes['market_state']}")
+    if not themes.get("themes"):
+        raise ReplayError("multi-asset themes halted: no themed participation surfaced")
+    _assert_finite_json(themes, "multi-asset themes")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["hot_themes"]["files"]["canonical"]), themes)
+    return artifacts
+
+
+def _multi_asset_news(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    _work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    if set(consumed) != {"hot_themes"}:
+        raise ReplayError(f"multi-asset news received unexpected artifacts: {sorted(consumed)}")
+    _multi_asset_market_gate(inputs, spec)
+    themes = _load_json(Path(consumed["hot_themes"]["files"]["canonical"]), "themes handoff")
+    news = _multi_asset_envelope(inputs, "news", "catalyst_news_brief", spec)
+    if news["as_of"] != themes["as_of"]:
+        raise ReplayError("multi-asset news must share the themes data date")
+    if news["market_state"] != "CONFIRMED":
+        raise ReplayError(f"multi-asset news halted: {news['market_state']}")
+    if news.get("relevant_events_used", 0) < 1:
+        raise ReplayError("multi-asset news halted: no catalyst evidence referenced")
+    _assert_finite_json(news, "multi-asset news")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["catalyst_news_brief"]["files"]["canonical"]), news)
+    return artifacts
+
+
+def _multi_asset_hypothesis_decision(
+    inputs: Mapping[str, Path], spec: Mapping[str, Any]
+) -> dict[str, Any]:
+    key = "hypothesis_decision"
+    fixture = _load_json(inputs[key], f"multi-asset {key} fixture")
+    if not isinstance(fixture, dict):
+        raise ReplayError(f"multi-asset {key} fixture must be a mapping")
+    _assert_finite_json(fixture, f"multi-asset {key}")
+    _validate_multi_asset_contract(fixture, "hypothesis_decision")
+    if fixture.get("allow_entry_ready") is not False:
+        raise ReplayError(
+            "multi-asset replay must never authorize an ENTRY_READY promotion; "
+            "that transition is owned by trade-memory-loop, not this workflow"
+        )
+    if fixture.get("as_of") != _multi_asset_fixed_date(spec):
+        raise ReplayError("multi-asset hypothesis decision must match the fixed timestamp")
+    return fixture
+
+
+def _multi_asset_hypotheses(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    required = {"macro_regime_brief", "hot_themes"}
+    expected_optional = {"catalyst_news_brief"}
+    if not required <= set(consumed) or not set(consumed) <= required | expected_optional:
+        raise ReplayError(
+            f"multi-asset hypotheses received unexpected artifacts: {sorted(consumed)}"
+        )
+    _multi_asset_market_gate(inputs, spec)
+    discovery = _multi_asset_hypothesis_decision(inputs, spec)
+    macro = _load_json(Path(consumed["macro_regime_brief"]["files"]["canonical"]), "macro handoff")
+    themes = _load_json(Path(consumed["hot_themes"]["files"]["canonical"]), "themes handoff")
+
+    # Deterministic artifact-to-bundle mapping (plan §1.3). No provider call is
+    # made; the ideator receives a fully offline, hand-sealed evidence bundle.
+    bundle: dict[str, Any] = {
+        "objective": {
+            "goal": (
+                "Surface ranked, research-only multi-asset hypothesis cards from the "
+                "fictional offline sweep of regime, themes, and catalysts."
+            ),
+            "focus_area": "Multi-asset daily opportunity synthesis",
+        },
+        "strategy_context": {
+            "strategy_name": "multi-asset-opportunity-daily",
+            "summary": (
+                "Fictional offline replay synthesis sweeping macro regime context, hot "
+                "themes, and optional catalyst news into prioritized hypothesis cards."
+            ),
+            "known_pain_points": [
+                "Research-only cards must never be broker-executed without human sign-off",
+                "FX-related output is research-only and must stay out of the broker path",
+            ],
+        },
+        "constraints": {
+            "execution_constraints": [
+                "Deterministic offline replay; no live provider calls",
+                "No order submission; journal persistence stays manual",
+            ],
+            "risk_constraints": [
+                "Every card requires manual approval before any capital movement",
+                "Forex-related output is research-only; never wire it to a broker",
+            ],
+        },
+        "market_context": {
+            "summary": macro["regime_summary"],
+            "regime_tags": list(macro["regime_tags"]),
+            "observations": [
+                theme.get("tailwind_note", "") or theme.get("name", "")
+                for theme in themes.get("themes", [])
+            ],
+        },
+        "journal_snippets": [
+            {
+                "outcome": "promising",
+                "note": "Catalyst brief attached by the optional news step.",
+                "source": _kanchi_artifact_link(
+                    consumed, "catalyst_news_brief", "canonical", stage
+                ),
+            }
+        ]
+        if "catalyst_news_brief" in consumed
+        else [],
+        "market_data": {"macro_regime_brief": macro, "hot_themes": themes},
+        "feature_inventory": [theme["theme_id"] for theme in themes.get("themes", [])],
+        "qualitative_notes": [
+            "FX rows carry research_only semantics end to end; sizing is refused for them."
+        ],
+    }
+    bundle["market_data"]["fixture_boundaries"] = [
+        "macro-regime-detector and theme-detector provider sweeps are not executed",
+        "catalyst news scan is not executed"
+        if "catalyst_news_brief" in consumed
+        else "optional news step omitted; hypothesis ideation runs on macro and themes only",
+    ]
+
+    bundle_path = work / "ideator_input.json"
+    bundle_path.parent.mkdir(parents=True, exist_ok=True)
+    bundle_path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
+    raw_path = inputs["raw_hypotheses"]
+    _assert_finite_json(
+        _load_json(raw_path, "multi-asset raw hypotheses fixture"), "raw hypotheses"
+    )
+
+    pass1_dir = work / "pass1"
+    pass2_dir = work / "pass2"
+    pass1_dir.mkdir(parents=True, exist_ok=True)
+    pass2_dir.mkdir(parents=True, exist_ok=True)
+    ideator = repo_root / _MULTI_ASSET_IDEATOR_SCRIPT
+    _run_cli(
+        [sys.executable, str(ideator), "--input", str(bundle_path), "--output-dir", str(pass1_dir)],
+        repo_root,
+    )
+    if not (pass1_dir / "evidence_summary.json").is_file():
+        raise ReplayError("multi-asset ideator pass1 produced no evidence summary")
+    _run_cli(
+        [
+            sys.executable,
+            str(ideator),
+            "--input",
+            str(bundle_path),
+            "--hypotheses",
+            str(raw_path),
+            "--output-dir",
+            str(pass2_dir),
+        ],
+        repo_root,
+    )
+    bundle_out = pass2_dir / "output_bundle.json"
+    if not bundle_out.is_file():
+        raise ReplayError("multi-asset ideator pass2 produced no output bundle")
+    _assert_finite_json(_load_json(bundle_out, "multi-asset ideator bundle"), "ideator bundle")
+    payload = _canonicalize(
+        _load_json(bundle_out, "multi-asset ideator bundle"), spec["fixed_timestamp"], {}
+    )
+
+    hypothesis_decision = discovery
+    ranked_ids = [
+        card.get("hypothesis_id")
+        for card in payload.get("hypotheses", [])
+        if isinstance(card, dict)
+    ]
+    if len(ranked_ids) != len(set(ranked_ids)) or not ranked_ids:
+        raise ReplayError("multi-asset ideator bundle returned no unique hypotheses")
+    decision_cards = hypothesis_decision.get("cards") or {}
+    if set(decision_cards) != set(ranked_ids):
+        raise ReplayError(
+            "multi-asset hypothesis decision must cover exactly the ideator cards "
+            f"({sorted(set(decision_cards) ^ set(ranked_ids))})"
+        )
+    for card_id, entry in sorted(decision_cards.items()):
+        disposition = entry.get("disposition")
+        if disposition not in {"size", "research_only", "reject", "hold"}:
+            raise ReplayError(
+                f"multi-asset decision for {card_id}: unknown disposition {disposition!r}"
+            )
+        if disposition == "size":
+            if not isinstance(entry.get("entry"), (int, float)) or not isinstance(
+                entry.get("stop"), (int, float)
+            ):
+                raise ReplayError(
+                    f"multi-asset decision for {card_id}: size requires finite entry/stop"
+                )
+            if (
+                _require_finite_number(entry["entry"], "hypothesis entry") <= 0
+                or _require_finite_number(entry["stop"], "hypothesis stop") <= 0
+                or entry["stop"] >= entry["entry"]
+            ):
+                raise ReplayError(
+                    f"multi-asset decision for {card_id}: long sizing requires 0 < stop < entry"
+                )
+    payload["decisions"] = {
+        card_id: dict(entry) for card_id, entry in sorted(decision_cards.items())
+    }
+    payload["manual_review_required"] = True
+    payload["execution_authorized"] = False
+    payload["replay_sources"] = _multi_asset_sources(consumed, stage)
+    payload["decision_sha256"] = _file_sha256(inputs["hypothesis_decision"])
+    payload["provenance"] = {
+        "execution_mode": "composite",
+        "components": ["manual_contract", "native_cli"],
+        "native_component": "run_hypothesis_ideator pass1 + pass2 (raw hypotheses fixture)",
+        "manual_gate": "hypothesis_decision human fixture covers every ranked card",
+        "limitation": (
+            "Raw hypotheses are an approved fictional LLM-output fixture; no model call is made. "
+            "Cards stay research-only and require human sign-off before any capital movement."
+        ),
+    }
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["hypothesis_cards"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_sizing(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    if set(consumed) != {"hypothesis_cards"}:
+        raise ReplayError(f"multi-asset sizing received unexpected artifacts: {sorted(consumed)}")
+    _multi_asset_market_gate(inputs, spec)
+    cards_payload = _load_json(
+        Path(consumed["hypothesis_cards"]["files"]["canonical"]), "hypothesis cards handoff"
+    )
+    sizing = _load_json(inputs["sizing_decision"], "multi-asset sizing decision fixture")
+    if not isinstance(sizing, dict):
+        raise ReplayError("multi-asset sizing decision fixture must be a mapping")
+    _assert_finite_json(sizing, "multi-asset sizing decision")
+    _validate_multi_asset_contract(sizing, "sizing_decision")
+    if sizing.get("as_of") != _multi_asset_fixed_date(spec):
+        raise ReplayError("multi-asset sizing decision must match the fixed timestamp")
+
+    decisions = cards_payload.get("decisions") or {}
+    sized: list[dict[str, Any]] = []
+    research_only: list[dict[str, Any]] = []
+    held: list[dict[str, Any]] = []
+    sizer = repo_root / _MULTI_ASSET_POSITION_SIZER_SCRIPT
+    for card in cards_payload.get("hypotheses", []):
+        if not isinstance(card, dict):
+            raise ReplayError("multi-asset sizing: hypothesis card must be an object")
+        card_id = card.get("hypothesis_id")
+        symbol = card.get("symbol")
+        if not isinstance(card_id, str) or not card_id or not isinstance(symbol, str) or not symbol:
+            raise ReplayError("multi-asset sizing: card requires hypothesis_id and symbol")
+        decision = decisions.get(card_id)
+        if not isinstance(decision, dict):
+            raise ReplayError(f"multi-asset sizing: missing decision for {card_id!r}")
+        disposition = decision.get("disposition")
+        if disposition == "size":
+            if card.get("asset_class") == "FX" or card.get("research_only") is True:
+                raise ReplayError(
+                    f"multi-asset sizing forbidden for research-only/FX card {card_id!r}"
+                )
+            # One dedicated temporary report directory per card. The native CLI
+            # stamps its output filename with wall-clock time; JSON reports only
+            # are adopted and the markdown report (now-stamped) is never staged.
+            reports = work / f"reports-{card_id}"
+            reports.mkdir(parents=True, exist_ok=True)
+            _run_cli(
+                [
+                    sys.executable,
+                    str(sizer),
+                    "--account-size",
+                    str(sizing["account_size"]),
+                    "--entry",
+                    str(decision["entry"]),
+                    "--stop",
+                    str(decision["stop"]),
+                    "--risk-pct",
+                    str(sizing["risk_pct"]),
+                    "--max-position-pct",
+                    str(sizing["max_position_pct"]),
+                    "--max-sector-pct",
+                    str(sizing["max_sector_pct"]),
+                    "--sector",
+                    str(card.get("sector_label") or sizing["sector"]),
+                    "--current-sector-exposure",
+                    str(card.get("current_sector_exposure", 0.0)),
+                    "--output-dir",
+                    str(reports),
+                ],
+                repo_root,
+            )
+            report = _latest_report(reports, "position_sizer_*.json")
+            if report.suffix != ".json":
+                raise ReplayError(f"multi-asset sizing picked a non-JSON report for {card_id!r}")
+            sizer_payload = _load_json(report, f"multi-asset sizing report {card_id}")
+            _assert_finite_json(sizer_payload, f"multi-asset sizing report {card_id}")
+            if sizer_payload.get("mode") != "shares":
+                raise ReplayError(f"multi-asset sizing halted for {card_id!r}: no share sizing")
+            shares = sizer_payload.get("final_recommended_shares")
+            if not isinstance(shares, int) or shares < 1:
+                raise ReplayError(
+                    f"multi-asset sizing halted for {card_id!r}: final shares {shares!r}"
+                )
+            sized.append(
+                {
+                    "hypothesis_id": card_id,
+                    "symbol": symbol,
+                    "asset_class": card.get("asset_class", "EQUITY"),
+                    "entry": decision["entry"],
+                    "stop": decision["stop"],
+                    "final_recommended_shares": shares,
+                    "final_position_value": sizer_payload.get("final_position_value"),
+                    "final_risk_dollars": sizer_payload.get("final_risk_dollars"),
+                    "final_risk_pct": sizer_payload.get("final_risk_pct"),
+                    "binding_constraint": sizer_payload.get("binding_constraint"),
+                    "sizer_sha256": _file_sha256(report),
+                    "sizer_report": sizer_payload,
+                }
+            )
+        elif disposition == "research_only":
+            research_only.append(
+                {
+                    "hypothesis_id": card_id,
+                    "symbol": symbol,
+                    "asset_class": card.get("asset_class", "FX"),
+                    "reason": "research_only: sizing refused; recorded as journal research only",
+                }
+            )
+        else:
+            held.append({"hypothesis_id": card_id, "symbol": symbol, "disposition": disposition})
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "workflow_id": "multi-asset-opportunity-daily",
+        "as_of": _multi_asset_fixed_date(spec),
+        "account": {
+            key: sizing[key] for key in sorted(sizing) if key not in {"human_approved", "as_of"}
+        },
+        "sized_cards": sized,
+        "research_only_cards": research_only,
+        "held_cards": held,
+        "manual_review_required": True,
+        "execution_authorized": False,
+        "provenance": {
+            "execution_mode": "native_cli",
+            "native_component": "position_sizer.py CLI (risk-pct mode, JSON report only)",
+            "size_boundary": "one dedicated temporary report directory per card",
+            "limitation": (
+                "Sizing consumes a fictional approved account fixture. Symbols are "
+                "fictional; no order is submitted or authorized."
+            ),
+        },
+    }
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["sized_hypotheses"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_journal(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    if set(consumed) != {"hypothesis_cards", "sized_hypotheses"}:
+        raise ReplayError(f"multi-asset journal received unexpected artifacts: {sorted(consumed)}")
+    _multi_asset_market_gate(inputs, spec)
+    cards_payload = _load_json(
+        Path(consumed["hypothesis_cards"]["files"]["canonical"]), "journal hypothesis cards handoff"
+    )
+    sizing_payload = _load_json(
+        Path(consumed["sized_hypotheses"]["files"]["canonical"]), "journal sizing handoff"
+    )
+    hypothesis_decision = _multi_asset_hypothesis_decision(inputs, spec)
+    if cards_payload.get("decisions") != hypothesis_decision.get("cards"):
+        raise ReplayError(
+            "multi-asset journal decisions no longer match the approved decision fixture"
+        )
+    for entry in cards_payload.get("hypotheses", []):
+        if not isinstance(entry, dict):
+            raise ReplayError("multi-asset journal: hypothesis card must be an object")
+        if entry.get("promote_to_entry_ready") or entry.get("disposition") in {
+            "promote_entry_ready",
+            "entry_ready",
+        }:
+            raise ReplayError(
+                f"multi-asset journal rejected an unauthorized ENTRY_READY promotion for "
+                f"{entry.get('hypothesis_id')!r}; this must never pass"
+            )
+    card_by_id = {
+        card.get("hypothesis_id"): card
+        for card in cards_payload.get("hypotheses", [])
+        if isinstance(card, dict) and card.get("hypothesis_id")
+    }
+    sized_ids = {entry["hypothesis_id"] for entry in sizing_payload.get("sized_cards", [])}
+    research_ids = {
+        entry["hypothesis_id"] for entry in sizing_payload.get("research_only_cards", [])
+    }
+    if sized_ids | research_ids != set(card_by_id):
+        raise ReplayError(
+            "multi-asset journal: sized and research-only cards do not cover the deck"
+        )
+
+    sources = _multi_asset_sources(consumed, stage)
+    producer_skills = {
+        "hypothesis_cards": "trade-hypothesis-ideator",
+        "sized_hypotheses": "position-sizer",
+    }
+    fixed_date = _multi_asset_fixed_date(spec)
+    store = _repo_module(repo_root, "thesis_store", repo_root / "skills/trader-memory-core/scripts")
+    state = work / "state"
+    state.mkdir(parents=True, exist_ok=True)
+    entries = []
+    if "pivot_breakout" not in getattr(store, "_VALID_THESIS_TYPES", set()):
+        raise ReplayError("multi-asset journal: thesis type is not accepted by trader-memory-core")
+    for card_id in sorted(card_by_id):
+        card = card_by_id[card_id]
+        symbol = card["symbol"]
+        if card_id in sized_ids or card_id in research_ids:
+            thesis_id = store.register(
+                state,
+                {
+                    "ticker": symbol,
+                    "thesis_type": "pivot_breakout",
+                    "thesis_statement": card.get("thesis", ""),
+                    "kill_criteria": list(card.get("kill_criteria") or []),
+                    "_source_date": fixed_date,
+                    "origin": {
+                        "skill": "trade-hypothesis-ideator",
+                        "output_file": sources["hypothesis_cards"]["file"],
+                    },
+                },
+            )
+            store.link_report(
+                state,
+                thesis_id,
+                producer_skills["hypothesis_cards"],
+                sources["hypothesis_cards"]["file"],
+                fixed_date,
+            )
+            if card_id in sized_ids:
+                store.link_report(
+                    state,
+                    thesis_id,
+                    producer_skills["sized_hypotheses"],
+                    sources["sized_hypotheses"]["file"],
+                    fixed_date,
+                )
+            reload = store.get(state, thesis_id)
+            if (
+                reload.get("status") != "IDEA"
+                or not reload.get("kill_criteria")
+                or reload.get("entry", {}).get("actual_price") is not None
+            ):
+                raise ReplayError("multi-asset journal must only register unmodified IDEA theses")
+            entries.append(
+                {
+                    "hypothesis_id": card_id,
+                    "ticker": reload["ticker"],
+                    "status": reload["status"],
+                    "created_at": reload["created_at"],
+                    "kill_criteria": reload["kill_criteria"],
+                    "research_only": card_id not in sized_ids,
+                    "linked_reports": reload.get("linked_reports") or [],
+                }
+            )
+        else:
+            raise ReplayError(
+                f"multi-asset journal: card {card_id!r} has no recordable disposition"
+            )
+    entries.sort(key=lambda row: row["ticker"])
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "workflow_id": "multi-asset-opportunity-daily",
+        "recorded_at": spec["fixed_timestamp"],
+        "journal_entries": entries,
+        "sources": sources,
+        "manual_review_required": True,
+        "execution_authorized": False,
+        "provenance": {
+            "execution_mode": "composite",
+            "components": ["manual_contract", "native_api"],
+            "native_component": "trader-memory-core.thesis_store register/get/link_report",
+            "limitation": (
+                "Journal persistence uses disposable harness state. Theses stay IDEA, and no "
+                "broker intent, fill, or order is recorded."
+            ),
+        },
+    }
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["opportunity_journal_entries"]["files"]["canonical"]), payload)
+    return artifacts
+
+
 def _shapiro_parameters(inputs, spec):
     data = _load_json(inputs["decision"], "Shapiro operator decision")
     schema = load_yaml(REPO_ROOT / "examples/workflows/shapiro-contrarian/decision.schema.yaml")
@@ -5428,6 +6068,16 @@ EXECUTORS: dict[str, ExecutorRegistration] = {
     "shapiro_journal": ExecutorRegistration(
         "composite", _shapiro_journal, ("manual_contract", "native_api")
     ),
+    "multi_asset_gate_context": ExecutorRegistration("manual_contract", _multi_asset_gate_context),
+    "multi_asset_themes": ExecutorRegistration("manual_contract", _multi_asset_themes),
+    "multi_asset_news": ExecutorRegistration("manual_contract", _multi_asset_news),
+    "multi_asset_hypotheses": ExecutorRegistration(
+        "composite", _multi_asset_hypotheses, ("manual_contract", "native_cli")
+    ),
+    "multi_asset_sizing": ExecutorRegistration("native_cli", _multi_asset_sizing),
+    "multi_asset_journal": ExecutorRegistration(
+        "composite", _multi_asset_journal, ("manual_contract", "native_api")
+    ),
     "stockbee_fluency_ingest": ExecutorRegistration("native_cli", _stockbee_ingest),
     "stockbee_fluency_update": ExecutorRegistration("native_cli", _stockbee_update),
     "stockbee_fluency_summarize": ExecutorRegistration("native_cli", _stockbee_summarize),
@@ -5540,6 +6190,11 @@ def _prompt_text(workflow: Mapping[str, Any], variant: str) -> str:
             "existing-holding review while keeping every buy proposal manual and "
             "never activating a thesis."
         )
+    elif workflow["id"] == "multi-asset-opportunity-daily":
+        optional_text = (
+            "Include the optional catalyst news scan while keeping every hypothesis "
+            "card research-only, human-gated, and never promoted to ENTRY_READY."
+        )
     else:
         optional_text = (
             "Run the optional human-approved lessons step after reviewing the cohort evidence."
@@ -5626,6 +6281,14 @@ def _write_manifest(
             "Full path includes manual-contract earnings/momentum screens and a written plan."
             if variant == "full-path"
             else "Optional earnings/momentum screens and written plan are skipped; the absent written plan forces NO_GO.",
+        ]
+    if workflow["id"] == "multi-asset-opportunity-daily":
+        payload["execution_evidence_limitations"] = [
+            "Steps 1-3 are human-approved fictional fixture contracts; no macro-regime, theme, or news provider call is executed.",
+            "Step 4 runs the native trade-hypothesis-ideator pass1/pass2 CLIs against the artifact-derived offline bundle; raw hypotheses are an approved LLM-output fixture, not a model call.",
+            "Step 5 runs the native position-sizer CLI once per sized card in dedicated temporary report directories; the now-stamped markdown report is never staged.",
+            "Step 6 registers only IDEA theses via native trader-memory APIs in disposable state; no ENTRY_READY promotion occurs because trade-memory-loop owns that transition.",
+            "The market-regime exposure_decision prerequisite is an approved fixture gate, not a live market-regime replay.",
         ]
     if workflow["id"] == "shapiro-contrarian":
         payload["execution_evidence_limitations"] = [

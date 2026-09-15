@@ -1,0 +1,233 @@
+{
+  "decision_sha256": "5d401637abb05f400e139b8f59c603bb3887f96d7eac9e8b9ffa40850628003e",
+  "decisions": {
+    "hyp_zzc_energy_proxy": {
+      "disposition": "size",
+      "entry": 50.0,
+      "stop": 45.0
+    },
+    "hyp_zzfx_carry_fx": {
+      "disposition": "research_only"
+    },
+    "hyp_zzq_edge_equity": {
+      "disposition": "size",
+      "entry": 100.0,
+      "stop": 90.0
+    }
+  },
+  "execution_authorized": false,
+  "generated_at_utc": "2026-08-15T12:00:00+00:00",
+  "hypotheses": [
+    {
+      "asset_class": "EQUITY",
+      "assumptions": [
+        "Fictional breadth disclosures keep expanding",
+        "No fictional liquidity shock before the review date"
+      ],
+      "confidence": "MEDIUM",
+      "dependencies": [
+        "Requires the market-regime exposure gate to stay non-restrictive"
+      ],
+      "evidence_basis": [
+        "$ARTIFACT/01_macro_regime_brief.json broadening regime signals",
+        "$ARTIFACT/02_hot_themes.json fictional edge compute participation",
+        "$ARTIFACT/03_catalyst_news_brief.json fictional capacity outlook headline"
+      ],
+      "expected_impact": "A researched continuation candidate for the fictional swing playbook with one staged review checkpoint",
+      "hypothesis_id": "hyp_zzq_edge_equity",
+      "key_risks": [
+        "Fictional demand disclosures disappoint and theme participation contracts",
+        "Concentration reverses back toward the largest capitalization decile"
+      ],
+      "kill_criteria": [
+        "Fictional theme breadth deteriorates across two consecutive review dates",
+        "The broadening macro regime signal flips before the next review"
+      ],
+      "mechanism": "Theme breadth expansion aligns with the fictional broadening macro regime while consensus positioning in the proxy cohort remains behind the demand disclosures.",
+      "minimum_viable_experiment": {
+        "duration": "One review cycle with a fixed kill check",
+        "goal": "Track the fictional proxy cohort for one review cycle",
+        "metrics": "Fictional theme breadth and relative participation on review dates",
+        "sample_size": "Fictional 10-session review window",
+        "setup": "Fictional ZZQ recorded as an IDEA research thesis with kill criteria"
+      },
+      "priority_score": 3.9,
+      "problem_target": "Whether the fictional edge compute theme breadth persists past the next two review dates",
+      "proposed_rule_changes": [
+        "Add a fictional edge compute continuation candidate to the swing watch research list"
+      ],
+      "rationale": "Macro and theme layers align while the fictional pricing gap remains open for one review cycle.",
+      "recommendation": "pursue",
+      "research_only": false,
+      "score_components": {
+        "evidence_strength": 4,
+        "expected_payoff": 4,
+        "feasibility": 4,
+        "mechanism_clarity": 4,
+        "novelty": 3,
+        "test_efficiency": 4
+      },
+      "symbol": "ZZQ",
+      "thesis": "Fictional equity proxy ZZQ consolidates while edge compute demand breadth expands; a researched continuation favors staged fictional entries.",
+      "title": "Fictional edge compute proxy pullback continuation"
+    },
+    {
+      "asset_class": "EQUITY",
+      "assumptions": [
+        "Fictional staged buildout keeps its disclosed cadence",
+        "Fictional credit environment stays supportive"
+      ],
+      "confidence": "LOW",
+      "dependencies": [
+        "Requires the theme to survive the next review date"
+      ],
+      "evidence_basis": [
+        "$ARTIFACT/01_macro_regime_brief.json equal-weight leadership",
+        "$ARTIFACT/02_hot_themes.json fictional power infrastructure theme",
+        "$ARTIFACT/03_catalyst_news_brief.json fictional buildout agreement headline"
+      ],
+      "expected_impact": "One researched emerging-theme tracker recorded as an IDEA only",
+      "hypothesis_id": "hyp_zzc_energy_proxy",
+      "key_risks": [
+        "Fictional buildout disclosures slip into later review cycles",
+        "Emerging theme enthusiasm never reaches sustaining breadth"
+      ],
+      "kill_criteria": [
+        "Fictional theme enthusiasm downgrades to a laggard bucket at the next review",
+        "The equal-weight leadership signal fails before the next review"
+      ],
+      "mechanism": "Emerging fictional disclosures imply staged demand while the proxy cohort narrative is not yet fully priced by the fictional consensus desk.",
+      "minimum_viable_experiment": {
+        "duration": "One review cycle with a fixed kill check",
+        "goal": "Track the fictional grid equipment cohort for one review cycle",
+        "metrics": "Fictional buildout breadth and relative participation",
+        "sample_size": "Fictional 10-session review window",
+        "setup": "Fictional ZZC recorded as an IDEA research thesis with kill criteria"
+      },
+      "priority_score": 3.3,
+      "problem_target": "Whether the fictional power infrastructure theme graduates from emerging to sustaining breadth",
+      "proposed_rule_changes": [
+        "Add a fictional power infrastructure proxy line to the research review "
+      ],
+      "rationale": "Emerging theme with fictional breadth support and a clear reviewable kill criterion.",
+      "recommendation": "pursue",
+      "research_only": false,
+      "score_components": {
+        "evidence_strength": 3,
+        "expected_payoff": 3,
+        "feasibility": 4,
+        "mechanism_clarity": 3,
+        "novelty": 4,
+        "test_efficiency": 3
+      },
+      "symbol": "ZZC",
+      "thesis": "Fictional equity proxy ZZC records expanding fictional grid equipment participation; a researched accumulation thesis tracks the emerging theme.",
+      "title": "Fictional power infrastructure equity proxy accumulation"
+    },
+    {
+      "asset_class": "FX",
+      "assumptions": [
+        "Fictional funding data stays available on review dates",
+        "No fictional capital control event before review"
+      ],
+      "confidence": "LOW",
+      "dependencies": [
+        "None beyond the fictional review cadence"
+      ],
+      "evidence_basis": [
+        "$ARTIFACT/01_macro_regime_brief.json funding environment context",
+        "$ARTIFACT/02_hot_themes.json fictional carry normalization theme"
+      ],
+      "expected_impact": "A research-only forex tracking note; never wired to a broker",
+      "hypothesis_id": "hyp_zzfx_carry_fx",
+      "key_risks": [
+        "Fictional funding spreads re-widen on a liquidity event",
+        "Research-only output can drift into an actionable-looking plan if unreviewed"
+      ],
+      "kill_criteria": [
+        "Fictional funding spreads stop narrowing across two review checks",
+        "The fictional carry narrative flips before the next review"
+      ],
+      "mechanism": "Fictional cross-currency funding spreads narrow while positioning stays crowded in the fictional carry desk narrative.",
+      "minimum_viable_experiment": {
+        "duration": "One review cycle",
+        "goal": "Track the fictional funding spread proxy for one review cycle",
+        "metrics": "Fictional funding spread slope",
+        "sample_size": "Fictional 10-session review window",
+        "setup": "Research-only fictional note with comparison to the fictional baseline"
+      },
+      "priority_score": 3.05,
+      "problem_target": "Whether the fictional funding carry normalization persists into the next review cycle",
+      "proposed_rule_changes": [
+        "Record the fictional carry theme as a research-only review note"
+      ],
+      "rationale": "Interesting fictional signal but forex output remains research-only and out of the executable path.",
+      "recommendation": "park",
+      "research_only": true,
+      "score_components": {
+        "evidence_strength": 3,
+        "expected_payoff": 2,
+        "feasibility": 3,
+        "mechanism_clarity": 3,
+        "novelty": 4,
+        "test_efficiency": 4
+      },
+      "symbol": "ZZFX",
+      "thesis": "Fictional forex proxy ZZFX records narrowing fictional funding spreads; this stays a research-only forex note.",
+      "title": "Fictional funding carry normalization research note"
+    }
+  ],
+  "logging_payload": {
+    "hypothesis_ids": [
+      "hyp_zzq_edge_equity",
+      "hyp_zzc_energy_proxy",
+      "hyp_zzfx_carry_fx"
+    ],
+    "objective": "Surface ranked, research-only multi-asset hypothesis cards from the fictional offline sweep of regime, themes, and catalysts.",
+    "selected_next_actions": [
+      "Run MVE: Track the fictional proxy cohort for one review cycle",
+      "Run MVE: Track the fictional grid equipment cohort for one review cycle"
+    ],
+    "sources_used": [
+      "strategy_context",
+      "constraints",
+      "market_context",
+      "feature_inventory",
+      "journal_snippets",
+      "qualitative_notes"
+    ],
+    "warnings": []
+  },
+  "manual_review_required": true,
+  "provenance": {
+    "components": [
+      "manual_contract",
+      "native_cli"
+    ],
+    "execution_mode": "composite",
+    "limitation": "Raw hypotheses are an approved fictional LLM-output fixture; no model call is made. Cards stay research-only and require human sign-off before any capital movement.",
+    "manual_gate": "hypothesis_decision human fixture covers every ranked card",
+    "native_component": "run_hypothesis_ideator pass1 + pass2 (raw hypotheses fixture)"
+  },
+  "replay_sources": {
+    "catalyst_news_brief": {
+      "file": "$ARTIFACT/03_catalyst_news_brief.json",
+      "sha256": "2df7587820b17ae016c43132d345e1ec4ff4dcc0f048abc9ef092d3a573acdc5"
+    },
+    "hot_themes": {
+      "file": "$ARTIFACT/02_hot_themes.json",
+      "sha256": "7098acb555524573e5a236f70f7bdcd0c2b5f97dc1bbba0736d9b5ce9f0bd4cd"
+    },
+    "macro_regime_brief": {
+      "file": "$ARTIFACT/01_macro_regime_brief.json",
+      "sha256": "37e6527fafb1b8e7d8343d4d3ec08b4b1bd2a2f498a4ecb85876e39bcf42a4be"
+    }
+  },
+  "selected_next_actions": [
+    "Run MVE: Track the fictional proxy cohort for one review cycle",
+    "Run MVE: Track the fictional grid equipment cohort for one review cycle"
+  ],
+  "state_assessment": "Ranked hypotheses validated against guardrails.",
+  "summary": "Top hypothesis: hyp_zzq_edge_equity (Fictional edge compute proxy pullback continuation) with priority score 3.9.",
+  "warnings": []
+}

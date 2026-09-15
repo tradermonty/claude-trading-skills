@@ -1,0 +1,33 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-15",
+  "report": {
+    "schema_version": 1,
+    "skill": "theme-detector",
+    "as_of": "2026-08-15",
+    "market_state": "CONFIRMED",
+    "themes": [
+      {
+        "theme_id": "fictional_edge_compute",
+        "name": "Edge compute infrastructure demand",
+        "tailwind_note": "Fictional edge compute proxy cohort shows expanding participation around reported guidance.",
+        "enthusiasm_level": "SUSTAINING"
+      },
+      {
+        "theme_id": "fictional_energy_infra",
+        "name": "Power infrastructure buildout",
+        "tailwind_note": "Fictional grid equipment proxies show breadth expansion onSelector portfolio disclosures.",
+        "enthusiasm_level": "EMERGING"
+      },
+      {
+        "theme_id": "fictional_carry_unwind",
+        "name": "Funding carry normalization",
+        "tailwind_note": "Fictional cross-currency funding spreads narrow; readiness is research-only for forex proxies.",
+        "enthusiasm_level": "EMERGING"
+      }
+    ],
+    "rotation_note": "Leadership rotates from mega-cap concentration toward second-decimal breadth cohorts.",
+    "data_mode": "fictional offline fixture; no provider sweep executed"
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "account": {
+    "account_size": 100000,
+    "current_sector_exposure": 0.0,
+    "max_position_pct": 6,
+    "max_sector_pct": 25,
+    "risk_pct": 1.0,
+    "sector": "Fictional Infrastructure"
+  },
+  "as_of": "2026-08-15",
+  "execution_authorized": false,
+  "held_cards": [],
+  "manual_review_required": true,
+  "provenance": {
+    "execution_mode": "native_cli",
+    "limitation": "Sizing consumes a fictional approved account fixture. Symbols are fictional; no order is submitted or authorized.",
+    "native_component": "position_sizer.py CLI (risk-pct mode, JSON report only)",
+    "size_boundary": "one dedicated temporary report directory per card"
+  },
+  "research_only_cards": [
+    {
+      "asset_class": "FX",
+      "hypothesis_id": "hyp_zzfx_carry_fx",
+      "reason": "research_only: sizing refused; recorded as journal research only",
+      "symbol": "ZZFX"
+    }
+  ],
+  "schema_version": 1,
+  "sized_cards": [
+    {
+      "asset_class": "EQUITY",
+      "binding_constraint": "max_position_pct",
+      "entry": 100.0,
+      "final_position_value": 6000.0,
+      "final_recommended_shares": 60,
+      "final_risk_dollars": 600.0,
+      "final_risk_pct": 0.6,
+      "hypothesis_id": "hyp_zzq_edge_equity",
+      "sizer_report": {
+        "binding_constraint": "max_position_pct",
+        "calculations": {
+          "atr_based": null,
+          "fixed_fractional": {
+            "dollar_risk": 1000.0,
+            "method": "fixed_fractional",
+            "risk_per_share": 10.0,
+            "shares": 100,
+            "stop_price": 90.0
+          },
+          "kelly": null
+        },
+        "constraints_applied": [
+          {
+            "binding": true,
+            "limit": 6.0,
+            "max_shares": 60,
+            "type": "max_position_pct"
+          },
+          {
+            "binding": false,
+            "current": 0.0,
+            "limit": 25.0,
+            "max_shares": 250,
+            "type": "max_sector_pct"
+          }
+        ],
+        "final_position_value": 6000.0,
+        "final_recommended_shares": 60,
+        "final_risk_dollars": 600.0,
+        "final_risk_pct": 0.6,
+        "mode": "shares",
+        "parameters": {
+          "account_size": 100000.0,
+          "entry_price": 100.0,
+          "risk_pct": 1.0,
+          "stop_price": 90.0
+        },
+        "schema_version": "1.0"
+      },
+      "sizer_sha256": "5390a58753d1c5ebb1dfd7f5a0e9b54d01ec7d2942bcc720a86207375cc9fbd8",
+      "stop": 90.0,
+      "symbol": "ZZQ"
+    },
+    {
+      "asset_class": "EQUITY",
+      "binding_constraint": "max_position_pct",
+      "entry": 50.0,
+      "final_position_value": 6000.0,
+      "final_recommended_shares": 120,
+      "final_risk_dollars": 600.0,
+      "final_risk_pct": 0.6,
+      "hypothesis_id": "hyp_zzc_energy_proxy",
+      "sizer_report": {
+        "binding_constraint": "max_position_pct",
+        "calculations": {
+          "atr_based": null,
+          "fixed_fractional": {
+            "dollar_risk": 1000.0,
+            "method": "fixed_fractional",
+            "risk_per_share": 5.0,
+            "shares": 200,
+            "stop_price": 45.0
+          },
+          "kelly": null
+        },
+        "constraints_applied": [
+          {
+            "binding": true,
+            "limit": 6.0,
+            "max_shares": 120,
+            "type": "max_position_pct"
+          },
+          {
+            "binding": false,
+            "current": 0.0,
+            "limit": 25.0,
+            "max_shares": 500,
+            "type": "max_sector_pct"
+          }
+        ],
+        "final_position_value": 6000.0,
+        "final_recommended_shares": 120,
+        "final_risk_dollars": 600.0,
+        "final_risk_pct": 0.6,
+        "mode": "shares",
+        "parameters": {
+          "account_size": 100000.0,
+          "entry_price": 50.0,
+          "risk_pct": 1.0,
+          "stop_price": 45.0
+        },
+        "schema_version": "1.0"
+      },
+      "sizer_sha256": "3e19058af67674bbf8ba28d887ca4eca263b7483c457e89b2416e94adfe78c8d",
+      "stop": 45.0,
+      "symbol": "ZZC"
+    }
+  ],
+  "workflow_id": "multi-asset-opportunity-daily"
+}

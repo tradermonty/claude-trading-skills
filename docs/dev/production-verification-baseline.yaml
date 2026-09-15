@@ -290,6 +290,25 @@ skills:
   profile: executable_workflow_trading
 - id: macro-regime-detector
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      evidence:
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
+      - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      limitation: Macro step-1 and step-2 handoffs are human-approved fictional fixture contracts; the provider sweep itself is out of replay scope.
+    end_to_end_replay:
+      value: passed
+      rationale: Deterministic required-only and full-path replays plus gate-halt, INSUFFICIENT_EVIDENCE, invalid-card, journal-failure, and tamper fixtures pass with no partial state writes.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run-full-path
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      limitation: Macro step-1 and step-2 handoffs are human-approved fictional fixture contracts; the provider sweep itself is out of replay scope.
 - id: market-breadth-analyzer
   profile: executable_workflow_trading
 - id: market-environment-analysis
@@ -322,6 +341,25 @@ skills:
   profile: executable_workflow_trading
 - id: position-sizer
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      evidence:
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
+      - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      limitation: Position sizer runs as the native CLI; the account fixture is fictional and no order is submitted.
+    end_to_end_replay:
+      value: passed
+      rationale: Deterministic required-only and full-path replays plus gate-halt, INSUFFICIENT_EVIDENCE, invalid-card, journal-failure, and tamper fixtures pass with no partial state writes.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run-full-path
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      limitation: Position sizer runs as the native CLI; the account fixture is fictional and no order is submitted.
 - id: scenario-analyzer
   profile: knowledge_standalone_trading
   overrides:
@@ -352,10 +390,67 @@ skills:
   profile: executable_workflow_trading
 - id: theme-detector
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      evidence:
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
+      - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      limitation: Theme step-2 handoffs are human-approved fictional fixture contracts; the provider sweep itself is out of replay scope.
+    end_to_end_replay:
+      value: passed
+      rationale: Deterministic required-only and full-path replays plus gate-halt, INSUFFICIENT_EVIDENCE, invalid-card, journal-failure, and tamper fixtures pass with no partial state writes.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run-full-path
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      limitation: Theme step-2 handoffs are human-approved fictional fixture contracts; the provider sweep itself is out of replay scope.
 - id: trade-hypothesis-ideator
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      evidence:
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
+      - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      limitation: Pass-1/pass-2 CLIs run natively; raw hypotheses are an approved fictional LLM-output fixture, not a live model call.
+    end_to_end_replay:
+      value: passed
+      rationale: Deterministic required-only and full-path replays plus gate-halt, INSUFFICIENT_EVIDENCE, invalid-card, journal-failure, and tamper fixtures pass with no partial state writes.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run-full-path
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      limitation: Pass-1/pass-2 CLIs run natively; raw hypotheses are an approved fictional LLM-output fixture, not a live model call.
 - id: trader-memory-core
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      evidence:
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
+      - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      limitation: Journal registration runs via register/get/link_report in disposable state; every thesis stays IDEA, and no broker fill is recorded.
+    end_to_end_replay:
+      value: passed
+      rationale: Deterministic required-only and full-path replays plus gate-halt, INSUFFICIENT_EVIDENCE, invalid-card, journal-failure, and tamper fixtures pass with no partial state writes.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check (exit 0, Coverage 11/11)
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run
+      - path: examples/workflows/multi-asset-opportunity-daily/replay-run-full-path
+      - path: scripts/tests/test_workflow_replay_multi_asset.py
+      limitation: Journal registration runs via register/get/link_report in disposable state; every thesis stays IDEA, and no broker fill is recorded.
 - id: trading-skills-navigator
   profile: meta_standalone
 - id: uptrend-analyzer

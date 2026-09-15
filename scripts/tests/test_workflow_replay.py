@@ -93,7 +93,7 @@ def test_canonicalize_retains_literal_order_timestamps_and_non_string_values() -
     assert payload["generated_at"] == "old"
 
 
-def test_coverage_is_complete_and_ten_of_eleven_are_covered() -> None:
+def test_coverage_is_complete_and_all_eleven_are_covered() -> None:
     summary = validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
@@ -101,6 +101,7 @@ def test_coverage_is_complete_and_ten_of_eleven_are_covered() -> None:
         "kanchi-dividend-weekly",
         "market-regime-daily",
         "monthly-performance-review",
+        "multi-asset-opportunity-daily",
         "shapiro-contrarian",
         "stockbee-20pct-study-daily",
         "stockbee-ep-daily",
@@ -109,12 +110,13 @@ def test_coverage_is_complete_and_ten_of_eleven_are_covered() -> None:
         "trade-memory-loop",
     ]
     assert set(summary["deferred"]) == FROZEN_DEFERRED_WORKFLOWS
-    assert len(summary["deferred"]) == 1
+    assert len(summary["deferred"]) == 0
     assert summary["variants"] == {
         "core-portfolio-weekly": ["required-only", "full-path"],
         "kanchi-dividend-weekly": ["required-only", "full-path"],
         "market-regime-daily": ["required-only", "full-path"],
         "monthly-performance-review": ["required-only", "full-path"],
+        "multi-asset-opportunity-daily": ["required-only", "full-path"],
         "shapiro-contrarian": ["required-only", "full-path"],
         "stockbee-20pct-study-daily": ["required-only", "full-path"],
         "stockbee-ep-daily": ["required-only", "full-path"],
@@ -131,12 +133,12 @@ def test_new_workflow_cannot_be_silently_deferred() -> None:
     errors = coverage_errors(workflow_ids, coverage)
     assert any("new-workflow" in error and "missing replay coverage" in error for error in errors)
 
-    coverage["deferred"]["new-workflow"] = {
+    coverage.setdefault("deferred", {})["new-workflow"] = {
         "issue": 294,
-        "reason": "Do not allow new coverage 10/11 deferrals.",
+        "reason": "Do not allow new deferrals.",
     }
     errors = coverage_errors(workflow_ids, coverage)
-    assert any("frozen coverage 10/11 deferred set" in error for error in errors)
+    assert any("frozen empty deferral set" in error for error in errors)
 
 
 def test_pilot_spec_matches_workflow_and_requires_offline_prices() -> None:
@@ -624,7 +626,7 @@ def test_check_writes_structured_report_when_executor_fails(
 
     assert any("injected execution failure" in difference for difference in differences)
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert report["coverage"] == {"covered": 10, "total": 11}
+    assert report["coverage"] == {"covered": 11, "total": 11}
     assert report["rows"][0]["status"] == "error"
     assert report["rows"][0]["completed_steps"] == [1]
 

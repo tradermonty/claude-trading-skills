@@ -1,0 +1,70 @@
+workflow_id: multi-asset-opportunity-daily
+sample_type: full-path
+status: completed
+completed_steps:
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+required_steps_not_executed: []
+illustrative: true
+generated_by: scripts/workflow_replay.py generate
+prompt: prompt.md
+network_policy: offline-input-required
+optional_steps_skipped: []
+artifacts:
+- step: 1
+  artifact_id: macro_regime_brief
+  skill: macro-regime-detector
+  execution_mode: manual_contract
+  files:
+    canonical: 01_macro_regime_brief.json
+- step: 2
+  artifact_id: hot_themes
+  skill: theme-detector
+  execution_mode: manual_contract
+  files:
+    canonical: 02_hot_themes.json
+- step: 3
+  artifact_id: catalyst_news_brief
+  skill: market-news-analyst
+  execution_mode: manual_contract
+  files:
+    canonical: 03_catalyst_news_brief.json
+- step: 4
+  artifact_id: hypothesis_cards
+  skill: trade-hypothesis-ideator
+  execution_mode: composite
+  files:
+    canonical: 04_hypothesis_cards.json
+  executor_components:
+  - manual_contract
+  - native_cli
+- step: 5
+  artifact_id: sized_hypotheses
+  skill: position-sizer
+  execution_mode: native_cli
+  files:
+    canonical: 05_sized_hypotheses.json
+- step: 6
+  artifact_id: opportunity_journal_entries
+  skill: trader-memory-core
+  execution_mode: composite
+  files:
+    canonical: 06_opportunity_journal_entries.json
+  executor_components:
+  - manual_contract
+  - native_api
+execution_evidence_limitations:
+- Steps 1-3 are human-approved fictional fixture contracts; no macro-regime, theme,
+  or news provider call is executed.
+- Step 4 runs the native trade-hypothesis-ideator pass1/pass2 CLIs against the artifact-derived
+  offline bundle; raw hypotheses are an approved LLM-output fixture, not a model call.
+- Step 5 runs the native position-sizer CLI once per sized card in dedicated temporary
+  report directories; the now-stamped markdown report is never staged.
+- Step 6 registers only IDEA theses via native trader-memory APIs in disposable state;
+  no ENTRY_READY promotion occurs because trade-memory-loop owns that transition.
+- The market-regime exposure_decision prerequisite is an approved fixture gate, not
+  a live market-regime replay.

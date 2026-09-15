@@ -1,0 +1,18 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-15",
+  "report": {
+    "schema_version": 1,
+    "skill": "macro-regime-detector",
+    "as_of": "2026-08-15",
+    "regime_state": "BROADENING",
+    "regime_summary": "Fictional offline sweep shows participation broadening away from the largest capitalization decile, with equal-weight leadership improving.",
+    "regime_tags": ["broadening", "risk_on", "equal_weight_leader"],
+    "macro_signals": [
+      {"signal": "small-cap relative breadth", "direction": "LONG"},
+      {"signal": "credit spread compression", "direction": "LONG"}
+    ],
+    "data_mode": "fictional offline fixture; no provider sweep executed"
+  }
+}

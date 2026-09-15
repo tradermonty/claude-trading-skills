@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/multi-asset-opportunity-daily/replay-contract.schema.json",
+  "title": "Multi-asset opportunity daily replay contract",
+  "type": "object",
+  "$defs": {
+    "exposure_decision": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "skill",
+        "generated_at",
+        "recommendation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "skill": {"const": "exposure-coach"},
+        "generated_at": {"type": "string", "minLength": 1},
+        "recommendation": {"enum": ["NEW_ENTRY_ALLOWED", "REDUCE_ONLY", "CASH_PRIORITY"]},
+        "bias": {"type": "string", "minLength": 1},
+        "participation": {"type": "string", "minLength": 1}
+      }
+    },
+    "macro_regime_brief": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "skill",
+        "as_of",
+        "regime_state",
+        "regime_summary",
+        "regime_tags"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1},
+        "skill": {"const": "macro-regime-detector"},
+        "as_of": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "regime_state": {
+          "enum": ["CONCENTRATION", "BROADENING", "CONTRACTION", "INFLATIONARY", "TRANSITIONAL"]
+        },
+        "regime_summary": {"type": "string", "minLength": 1},
+        "regime_tags": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "macro_signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["signal", "direction"],
+            "additionalProperties": false,
+            "properties": {
+              "signal": {"type": "string", "minLength": 1},
+              "direction": {"enum": ["LONG", "SHORT", "NEUTRAL"]}
+            }
+          }
+        },
+        "data_mode": {"type": "string", "minLength": 1}
+      }
+    },
+    "hot_themes": {
+      "type": "object",
+      "required": ["schema_version", "skill", "as_of", "market_state", "themes"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1},
+        "skill": {"const": "theme-detector"},
+        "as_of": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "market_state": {"enum": ["CONFIRMED", "INSUFFICIENT_EVIDENCE"]},
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["theme_id", "name", "tailwind_note", "enthusiasm_level"],
+            "additionalProperties": false,
+            "properties": {
+              "theme_id": {"type": "string", "minLength": 1},
+              "name": {"type": "string", "minLength": 1},
+              "tailwind_note": {"type": "string", "minLength": 1},
+              "enthusiasm_level": {"enum": ["EMERGING", "SUSTAINING", "LATE_STAGE"]}
+            }
+          }
+        },
+        "rotation_note": {"type": "string", "minLength": 1},
+        "data_mode": {"type": "string", "minLength": 1}
+      }
+    },
+    "catalyst_news_brief": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "skill",
+        "as_of",
+        "market_state",
+        "relevant_events_used"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1},
+        "skill": {"const": "market-news-analyst"},
+        "as_of": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "market_state": {"enum": ["CONFIRMED", "INSUFFICIENT_EVIDENCE"]},
+        "relevant_events_used": {"type": "integer", "minimum": 0},
+        "headlines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["headline", "impact"],
+            "additionalProperties": false,
+            "properties": {
+              "headline": {"type": "string", "minLength": 1},
+              "impact": {"enum": ["HIGH", "MEDIUM", "LOW"]}
+            }
+          }
+        },
+        "data_mode": {"type": "string", "minLength": 1}
+      }
+    },
+    "hypothesis_decision": {
+      "type": "object",
+      "required": [
+        "human_approved",
+        "as_of",
+        "allow_entry_ready",
+        "cards"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "human_approved": {"const": true},
+        "as_of": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "allow_entry_ready": {"const": false},
+        "cards": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["disposition"],
+            "additionalProperties": false,
+            "properties": {
+              "disposition": {"enum": ["size", "research_only", "reject", "hold"]},
+              "entry": {"type": "number", "exclusiveMinimum": 0},
+              "stop": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "sizing_decision": {
+      "type": "object",
+      "required": [
+        "human_approved",
+        "as_of",
+        "account_size",
+        "risk_pct",
+        "max_position_pct",
+        "max_sector_pct",
+        "sector",
+        "current_sector_exposure"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "human_approved": {"const": true},
+        "as_of": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "account_size": {"type": "number", "exclusiveMinimum": 0},
+        "risk_pct": {"type": "number", "exclusiveMinimum": 0},
+        "max_position_pct": {"type": "number", "exclusiveMinimum": 0},
+        "max_sector_pct": {"type": "number", "exclusiveMinimum": 0},
+        "sector": {"type": "string", "minLength": 1},
+        "current_sector_exposure": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

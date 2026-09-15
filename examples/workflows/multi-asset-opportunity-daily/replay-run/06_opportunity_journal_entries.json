@@ -1,0 +1,92 @@
+{
+  "execution_authorized": false,
+  "journal_entries": [
+    {
+      "created_at": "2026-08-15T00:00:00+00:00",
+      "hypothesis_id": "hyp_zzc_energy_proxy",
+      "kill_criteria": [
+        "Fictional theme enthusiasm downgrades to a laggard bucket at the next review",
+        "The equal-weight leadership signal fails before the next review"
+      ],
+      "linked_reports": [
+        {
+          "date": "2026-08-15",
+          "file": "$ARTIFACT/04_hypothesis_cards.json",
+          "skill": "trade-hypothesis-ideator"
+        },
+        {
+          "date": "2026-08-15",
+          "file": "$ARTIFACT/05_sized_hypotheses.json",
+          "skill": "position-sizer"
+        }
+      ],
+      "research_only": false,
+      "status": "IDEA",
+      "ticker": "ZZC"
+    },
+    {
+      "created_at": "2026-08-15T00:00:00+00:00",
+      "hypothesis_id": "hyp_zzfx_carry_fx",
+      "kill_criteria": [
+        "Fictional funding spreads stop narrowing across two review checks",
+        "The fictional carry narrative flips before the next review"
+      ],
+      "linked_reports": [
+        {
+          "date": "2026-08-15",
+          "file": "$ARTIFACT/04_hypothesis_cards.json",
+          "skill": "trade-hypothesis-ideator"
+        }
+      ],
+      "research_only": true,
+      "status": "IDEA",
+      "ticker": "ZZFX"
+    },
+    {
+      "created_at": "2026-08-15T00:00:00+00:00",
+      "hypothesis_id": "hyp_zzq_edge_equity",
+      "kill_criteria": [
+        "Fictional theme breadth deteriorates across two consecutive review dates",
+        "The broadening macro regime signal flips before the next review"
+      ],
+      "linked_reports": [
+        {
+          "date": "2026-08-15",
+          "file": "$ARTIFACT/04_hypothesis_cards.json",
+          "skill": "trade-hypothesis-ideator"
+        },
+        {
+          "date": "2026-08-15",
+          "file": "$ARTIFACT/05_sized_hypotheses.json",
+          "skill": "position-sizer"
+        }
+      ],
+      "research_only": false,
+      "status": "IDEA",
+      "ticker": "ZZQ"
+    }
+  ],
+  "manual_review_required": true,
+  "provenance": {
+    "components": [
+      "manual_contract",
+      "native_api"
+    ],
+    "execution_mode": "composite",
+    "limitation": "Journal persistence uses disposable harness state. Theses stay IDEA, and no broker intent, fill, or order is recorded.",
+    "native_component": "trader-memory-core.thesis_store register/get/link_report"
+  },
+  "recorded_at": "2026-08-15T12:00:00+00:00",
+  "schema_version": 1,
+  "sources": {
+    "hypothesis_cards": {
+      "file": "$ARTIFACT/04_hypothesis_cards.json",
+      "sha256": "1d7e32b5cb7c048a196fa00e47197266a2819d4710285111343bf45267856d7f"
+    },
+    "sized_hypotheses": {
+      "file": "$ARTIFACT/05_sized_hypotheses.json",
+      "sha256": "836af443fb83a27b73560c9c6f97948dba297bd18032316b2df809d51abe70bb"
+    }
+  },
+  "workflow_id": "multi-asset-opportunity-daily"
+}

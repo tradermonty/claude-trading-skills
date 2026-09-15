@@ -1,0 +1,78 @@
+schema_version: 1
+workflow_id: multi-asset-opportunity-daily
+fixed_timestamp: '2026-08-15T12:00:00+00:00'
+inputs:
+  exposure: replay-inputs/exposure.json
+  macro_brief: replay-inputs/macro_brief.json
+  themes: replay-inputs/themes.json
+  news: replay-inputs/news.json
+  raw_hypotheses: replay-inputs/raw_hypotheses.json
+  hypothesis_decision: replay-inputs/hypothesis_decision.json
+  sizing_decision: replay-inputs/sizing_decision.json
+steps:
+- step: 1
+  executor: multi_asset_gate_context
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    macro_regime_brief:
+      canonical: 01_macro_regime_brief.json
+- step: 2
+  executor: multi_asset_themes
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    hot_themes:
+      canonical: 02_hot_themes.json
+- step: 3
+  executor: multi_asset_news
+  executor_mode: manual_contract
+  gate_policy: continue
+  output_files:
+    catalyst_news_brief:
+      canonical: 03_catalyst_news_brief.json
+- step: 4
+  executor: multi_asset_hypotheses
+  executor_mode: composite
+  gate_policy: continue
+  output_files:
+    hypothesis_cards:
+      canonical: 04_hypothesis_cards.json
+  executor_components:
+  - manual_contract
+  - native_cli
+- step: 5
+  executor: multi_asset_sizing
+  executor_mode: native_cli
+  gate_policy: continue
+  output_files:
+    sized_hypotheses:
+      canonical: 05_sized_hypotheses.json
+- step: 6
+  executor: multi_asset_journal
+  executor_mode: composite
+  gate_policy: continue
+  output_files:
+    opportunity_journal_entries:
+      canonical: 06_opportunity_journal_entries.json
+  executor_components:
+  - manual_contract
+  - native_api
+variants:
+  required-only:
+    enabled_steps:
+    - 1
+    - 2
+    - 4
+    - 5
+    - 6
+    golden_dir: replay-run
+  full-path:
+    enabled_steps:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    golden_dir: replay-run-full-path

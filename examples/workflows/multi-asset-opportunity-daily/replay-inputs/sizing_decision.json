@@ -1,0 +1,10 @@
+{
+  "human_approved": true,
+  "as_of": "2026-08-15",
+  "account_size": 100000,
+  "risk_pct": 1.0,
+  "max_position_pct": 6,
+  "max_sector_pct": 25,
+  "sector": "Fictional Infrastructure",
+  "current_sector_exposure": 0.0
+}

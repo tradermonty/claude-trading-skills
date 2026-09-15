@@ -84,9 +84,9 @@ cross-artifact arithmetic. All files also remain subject to standard hygiene hoo
 (whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
 checks).
 
-## Executable workflow replay (Issue #294, Coverage 10/11)
+## Executable workflow replay (Issue #294, Coverage 11/11)
 
-Ten of the eleven canonical workflows are generated and checked by the
+All eleven canonical workflows are generated and checked by the
 executable replay harness:
 
 - `core-portfolio-weekly`
@@ -99,6 +99,7 @@ executable replay harness:
 - `swing-opportunity-daily`
 - `shapiro-contrarian`
 - `stockbee-ep-daily`
+- `multi-asset-opportunity-daily`
 
 ```bash
 python3 scripts/workflow_replay.py validate
@@ -177,11 +178,11 @@ python3 scripts/workflow_replay.py generate
 goldens; committed goldens are never executor inputs. The monthly replay uses
 dedicated `replay-run/` and `replay-run-full-path/` golden trees, distinct from
 the teaching `sample-run/` and `sample-run-full-path/` fixtures covered by Issue
-#208. The coverage manifest
-freezes the remaining workflow as Coverage 10/11 deferrals linked to Issue
-#294. A newly added workflow cannot join that frozen deferral set and must ship
-both required-only and full-path replay specs. Issue #294 remains open until
-all eleven workflows and their applicable failure modes are executable.
+#208. The frozen deferral set in the coverage manifest is now empty (Coverage
+11/11), so a newly added workflow cannot be waved through as a deferral and must
+ship both required-only and full-path replay specs. Issue #294 acceptance is
+verified by the green replay check; the issue itself is closed manually after
+merge.
 
 Replay validation rejects a `golden_dir` that resolves to the replay spec or its
 directory, overlaps any offline-input directory, or overlaps the other
@@ -203,9 +204,7 @@ reports are linked by their actual relative paths and SHA-256 hashes.
 Negative, stale, missing or malformed confirmations abort before sizing or
 registration. A non-READY gate, NO_TRADE sizing result, inconsistent handoff,
 or journal write failure aborts publication; the previous output remains intact.
-Goldens live in `replay-run/` and `replay-run-full-path/`. The remaining
-`multi-asset-opportunity-daily` slice stays tracked by
-**OPEN Issue #294**; this slice does not close that Issue.
+Goldens live in `replay-run/` and `replay-run-full-path/`.
 
 ### Stockbee EP replay
 
@@ -224,4 +223,33 @@ passes, but neither path authorizes or submits a broker order. Invalid or stale
 inputs, symbol/price/size disagreement, stopped account gates, and persistence
 failures preserve the previous output tree. Actual nested artifact paths and hashes
 are retained. Goldens use `replay-run/` and `replay-run-full-path/`; existing teaching
-samples are unchanged. Issue #294 remains open for the remaining multi-asset slice.
+samples are unchanged.
+
+### Multi-asset opportunity daily replay
+
+`multi-asset-opportunity-daily/replay.yaml` is the final Issue #294 slice. Steps 1–2
+are human-approved fictional macro-regime and theme fixture contracts; step 3 is the
+optional catalyst news fixture, omitted by the required-only variant but required to
+stay consistent in the full path. The market-regime `exposure_decision`
+prerequisite is enforced as a fixture gate: a cash-priority (or otherwise
+restrictive) recommendation halts the sweep before any downstream step, unlike the
+non-authoritative validator treatment in the manifest.
+
+Step 4 is a composite: the offline harness builds the ideator evidence bundle from
+the actual artifact handoffs (macro brief → market data, themes → observations,
+headline brief → journal snippets), then executes the native `pass1`/`pass2` CLI
+against a fictional raw-hypotheses fixture that stands in for the LLM ideation step.
+The literal `INSUFFICIENT_EVIDENCE` fixture aborts the sweep; no sizing, entry, or
+submission follows. Sizing uses the fictional `position_sizer` CLI only on human-approved
+`size` cards, and the harness refuses to size fictional `research_only`/`FX` cards.
+Sizing is a dedicated temporary report directory per card; the native CLI's
+now-stamped markdown report is not staged. The trader-memory registration uses
+`register/get/link_report` in disposable state, and every thesis stays `IDEA` with
+kill criteria preserved and no broker fill. An unauthorized `ENTRY_READY` promotion —
+in the human decision fixture or in a replay artifact — must be rejected, and the
+`trade-memory-loop` workflow owns that transition.
+
+Goldens live in `replay-run/` and `replay-run-full-path/`; failure modes:
+cash-priority gate halt, literal `INSUFFICIENT_EVIDENCE` themes, mandatory-macro
+fixture missing (`inputs.macro_brief` replay error), invalid hypothesis card,
+journal write failure, unauthorized `ENTRY_READY` promotion.

@@ -1,5 +1,7 @@
 schema_version: 1
 
+# Frozen Coverage 11/11 baseline (Issue #294 complete). The validator rejects any
+# reintroduced deferral wave, so a newly added workflow must ship both replay variants.
 covered:
   core-portfolio-weekly:
     spec: core-portfolio-weekly/replay.yaml
@@ -51,10 +53,8 @@ covered:
     variants:
       - required-only
       - full-path
-
-# Frozen Coverage 10/11 baseline. The validator rejects adding another deferral, so a
-# newly introduced workflow must ship both replay variants.
-deferred:
   multi-asset-opportunity-daily:
-    issue: 294
-    reason: Provider-backed and manual hypothesis adapters remain deferred.
+    spec: multi-asset-opportunity-daily/replay.yaml
+    variants:
+      - required-only
+      - full-path

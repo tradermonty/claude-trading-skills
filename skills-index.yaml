@@ -990,8 +990,8 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_verified
-    end_to_end_replay: not_verified
+    workflow_contract: passed
+    end_to_end_replay: passed
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
@@ -1404,8 +1404,8 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_verified
-    end_to_end_replay: not_verified
+    workflow_contract: passed
+    end_to_end_replay: passed
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
@@ -1953,8 +1953,8 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_verified
-    end_to_end_replay: not_verified
+    workflow_contract: passed
+    end_to_end_replay: passed
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
@@ -1991,8 +1991,8 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_verified
-    end_to_end_replay: not_verified
+    workflow_contract: passed
+    end_to_end_replay: passed
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
@@ -2053,8 +2053,8 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: not_verified
-    end_to_end_replay: not_verified
+    workflow_contract: passed
+    end_to_end_replay: passed
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified

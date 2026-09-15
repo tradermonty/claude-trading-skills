@@ -1,0 +1,13 @@
+{
+  "human_approved": true,
+  "fictional": true,
+  "as_of": "2026-08-15",
+  "report": {
+    "schema_version": "1.0",
+    "skill": "exposure-coach",
+    "generated_at": "2026-08-15T12:00:00+00:00",
+    "recommendation": "NEW_ENTRY_ALLOWED",
+    "bias": "NEUTRAL",
+    "participation": "BROAD"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "human_approved": true,
+  "as_of": "2026-08-15",
+  "allow_entry_ready": false,
+  "cards": {
+    "hyp_zzq_edge_equity": {
+      "disposition": "size",
+      "entry": 100.0,
+      "stop": 90.0
+    },
+    "hyp_zzc_energy_proxy": {
+      "disposition": "size",
+      "entry": 50.0,
+      "stop": 45.0
+    },
+    "hyp_zzfx_carry_fx": {
+      "disposition": "research_only"
+    }
+  }
+}
