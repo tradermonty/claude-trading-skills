@@ -8,6 +8,14 @@
   "schema_version": 1,
   "sized": [
     {
+      "constraints_applied": [
+        {
+          "binding": false,
+          "limit": 20.0,
+          "max_shares": 200,
+          "type": "max_position_pct"
+        }
+      ],
       "entry": 100.0,
       "hypothesis_id": "H-EXMPL-01",
       "position_value": 20000.0,
@@ -17,6 +25,14 @@
       "ticker": "EXMPL"
     },
     {
+      "constraints_applied": [
+        {
+          "binding": false,
+          "limit": 20.0,
+          "max_shares": 400,
+          "type": "max_position_pct"
+        }
+      ],
       "entry": 50.0,
       "hypothesis_id": "H-EXMPL-02",
       "position_value": 20000.0,

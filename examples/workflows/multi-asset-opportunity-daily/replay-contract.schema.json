@@ -146,7 +146,6 @@
         "human_approved": {"const": true},
         "accepted": {
           "type": "array",
-          "minItems": 1,
           "items": {"type": "string", "minLength": 1}
         },
         "rejected": {
@@ -230,6 +229,61 @@
         "excluded": {
           "type": "array",
           "items": {"$ref": "#/$defs/hypothesis_card"}
+        }
+      }
+    },
+    "sized_hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_id",
+        "ticker",
+        "entry",
+        "stop",
+        "shares",
+        "position_value",
+        "risk_dollars",
+        "constraints_applied"
+      ],
+      "properties": {
+        "hypothesis_id": {"type": "string", "minLength": 1},
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "entry": {"type": "number", "exclusiveMinimum": 0},
+        "stop": {"type": "number", "exclusiveMinimum": 0},
+        "shares": {"type": "integer", "minimum": 0},
+        "position_value": {"type": "number", "minimum": 0},
+        "risk_dollars": {"type": "number", "minimum": 0},
+        "constraints_applied": {
+          "type": "array",
+          "items": {"type": "object"}
+        }
+      }
+    },
+    "sized_hypotheses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "account", "sized"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "account": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["account_size", "risk_pct", "max_position_pct"],
+          "properties": {
+            "account_size": {"type": "number", "exclusiveMinimum": 0},
+            "risk_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+            "max_position_pct": {
+              "type": ["number", "null"],
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "sized": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/sized_hypothesis"}
         }
       }
     },
