@@ -5589,6 +5589,9 @@ def _multi_hypotheses(
     raw = _validate_multi_asset_contract(
         _load_json(inputs["raw_hypotheses"], "raw hypotheses"), "raw_hypotheses"
     )
+    raw_by_id = {card["hypothesis_id"]: card for card in raw["hypotheses"]}
+    if len(raw_by_id) != len(raw["hypotheses"]):
+        raise ReplayError("raw hypotheses contain duplicate hypothesis ids")
     decision = _validate_multi_asset_contract(load_yaml(inputs["gate_decision"]), "gate_decision")
     binding = bundle["source_binding"]
     for artifact_id in ("macro_regime_brief", "hot_themes"):
@@ -5643,7 +5646,6 @@ def _multi_hypotheses(
     if "generated_at_utc" in bundle_out:
         bundle_out["generated_at_utc"] = spec["fixed_timestamp"]
     _assert_finite_json(bundle_out, "hypothesis output bundle")
-    raw_by_id = {card["hypothesis_id"]: card for card in raw["hypotheses"]}
     output_ids = [card["hypothesis_id"] for card in bundle_out["hypotheses"]]
     if set(output_ids) != set(raw_by_id):
         raise ReplayError("hypothesis output bundle does not preserve the raw hypothesis cards")
@@ -5674,6 +5676,8 @@ def _multi_hypotheses(
             raise ReplayError(
                 f"forex hypothesis {card['hypothesis_id']} must carry research_only=true"
             )
+    if not actionable:
+        raise ReplayError("hypothesis gate produced no actionable cards")
     cards = {
         "schema_version": 1,
         "as_of": _multi_asset_fixed_date(spec),
@@ -5720,23 +5724,22 @@ def _multi_position_size(
         entry = param_by_id[card["hypothesis_id"]]
         card_dir = reports / f"card-{index}"
         card_dir.mkdir(parents=True)
-        _run_cli(
-            [
-                sys.executable,
-                str(sizer),
-                "--account-size",
-                str(params["account_size"]),
-                "--entry",
-                str(entry["entry"]),
-                "--stop",
-                str(entry["stop"]),
-                "--risk-pct",
-                str(params["risk_pct"]),
-                "--output-dir",
-                str(card_dir),
-            ],
-            repo_root,
-        )
+        command = [
+            sys.executable,
+            str(sizer),
+            "--account-size",
+            str(params["account_size"]),
+            "--entry",
+            str(entry["entry"]),
+            "--stop",
+            str(entry["stop"]),
+            "--risk-pct",
+            str(params["risk_pct"]),
+        ]
+        if params.get("max_position_pct") is not None:
+            command.extend(["--max-position-pct", str(params["max_position_pct"])])
+        command.extend(["--output-dir", str(card_dir)])
+        _run_cli(command, repo_root)
         native = _load_json(
             _latest_report(card_dir, "position_sizer_*.json"), "position sizer report"
         )
@@ -5751,6 +5754,7 @@ def _multi_position_size(
                 "shares": canonical.get("final_recommended_shares"),
                 "position_value": canonical.get("final_position_value"),
                 "risk_dollars": canonical.get("final_risk_dollars"),
+                "constraints_applied": canonical.get("constraints_applied"),
             }
         )
     if any(row["shares"] is None or row["position_value"] is None for row in sized):
@@ -5771,6 +5775,7 @@ def _multi_position_size(
         },
         "sized": sized,
     }
+    _validate_multi_asset_contract(payload, "sized_hypotheses")
     artifacts = _artifact_paths(stage, step["output_files"])
     _write_json(Path(artifacts["sized_hypotheses"]["files"]["canonical"]), payload)
     return artifacts
@@ -5798,7 +5803,9 @@ def _multi_register(
         _load_json(cards_path, "hypothesis cards handoff"), "hypothesis_cards"
     )
     sized_path = Path(consumed["sized_hypotheses"]["files"]["canonical"])
-    sized_doc = _load_json(sized_path, "sized hypotheses handoff")
+    sized_doc = _validate_multi_asset_contract(
+        _load_json(sized_path, "sized hypotheses handoff"), "sized_hypotheses"
+    )
     actionable_ids = [card["hypothesis_id"] for card in cards_doc["hypotheses"]]
     excluded_ids = [card["hypothesis_id"] for card in cards_doc.get("excluded", [])]
     idea = decision["idea"]
