@@ -354,14 +354,6 @@ def test_register_partition_violation_fails_closed(tmp_path: Path) -> None:
         )
 
 
-# Items 1 and the schema field of item 3 (see Issue #412) are not applicable to the
-# merged implementation: the merged design has no auto-gate that can filter the
-# actionable set to zero (gate_decision.accepted is minItems:1 and must partition the
-# output id set exactly), and the merged multi-asset schema has no `constraints_applied`
-# field (the position cap is enforced via account.max_position_pct). The behavioral
-# value of the position cap is covered by test_sized_hypothesis_breaches_max_position_fails_closed.
-
-
 def test_raw_hypotheses_duplicate_fails_closed(tmp_path: Path) -> None:
     raw = json.loads((INPUTS / "raw-hypotheses.json").read_text(encoding="utf-8"))
     raw["hypotheses"].append({**raw["hypotheses"][0]})
@@ -422,7 +414,7 @@ def test_failed_run_into_missing_dir_creates_nothing(tmp_path: Path) -> None:
     assert not output.exists()
 
 
-def test_sized_hypothesis_breaches_max_position_fails_closed(tmp_path: Path) -> None:
+def test_sized_hypotheses_apply_max_position_cap(tmp_path: Path) -> None:
     params = json.loads((INPUTS / "sizing-params.json").read_text(encoding="utf-8"))
     params["account_size"] = 10000
     params["max_position_pct"] = 1.0
@@ -430,11 +422,26 @@ def test_sized_hypothesis_breaches_max_position_fails_closed(tmp_path: Path) -> 
     override.parent.mkdir()
     override.write_text(json.dumps(params), encoding="utf-8")
 
-    with pytest.raises(ReplayError, match="max position cap"):
-        execute_replay(
-            ROOT,
-            SPEC,
-            "required-only",
-            tmp_path / "out",
-            input_overrides={"sizing_params": override},
-        )
+    output = tmp_path / "out"
+    execute_replay(
+        ROOT,
+        SPEC,
+        "required-only",
+        output,
+        input_overrides={"sizing_params": override},
+    )
+
+    sized = json.loads((output / "05_sized_hypotheses.json").read_text(encoding="utf-8"))
+    assert [(row["shares"], row["position_value"]) for row in sized["sized"]] == [
+        (1, 100.0),
+        (2, 100.0),
+    ]
+    for row in sized["sized"]:
+        assert row["constraints_applied"] == [
+            {
+                "binding": True,
+                "limit": 1.0,
+                "max_shares": row["shares"],
+                "type": "max_position_pct",
+            }
+        ]
