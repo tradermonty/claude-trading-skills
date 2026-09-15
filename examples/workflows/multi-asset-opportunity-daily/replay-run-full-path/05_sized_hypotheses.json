@@ -1,0 +1,29 @@
+{
+  "account": {
+    "account_size": 100000,
+    "max_position_pct": 20.0,
+    "risk_pct": 1.0
+  },
+  "as_of": "2026-08-06",
+  "schema_version": 1,
+  "sized": [
+    {
+      "entry": 100.0,
+      "hypothesis_id": "H-EXMPL-01",
+      "position_value": 20000.0,
+      "risk_dollars": 1000.0,
+      "shares": 200,
+      "stop": 95.0,
+      "ticker": "EXMPL"
+    },
+    {
+      "entry": 50.0,
+      "hypothesis_id": "H-EXMPL-02",
+      "position_value": 20000.0,
+      "risk_dollars": 1000.0,
+      "shares": 400,
+      "stop": 47.5,
+      "ticker": "EXMPLB"
+    }
+  ]
+}

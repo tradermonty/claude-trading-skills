@@ -1,0 +1,76 @@
+workflow_id: multi-asset-opportunity-daily
+sample_type: required-only
+status: completed
+completed_steps:
+- 1
+- 2
+- 4
+- 5
+- 6
+required_steps_not_executed: []
+illustrative: true
+generated_by: scripts/workflow_replay.py generate
+prompt: prompt.md
+network_policy: offline-input-required
+optional_steps_skipped:
+- step: 3
+  skill: market-news-analyst
+  reason: required-only executable replay
+artifacts:
+- step: 1
+  artifact_id: macro_regime_brief
+  skill: macro-regime-detector
+  execution_mode: native_api
+  files:
+    canonical: 01_macro_regime_brief.json
+- step: 2
+  artifact_id: hot_themes
+  skill: theme-detector
+  execution_mode: manual_contract
+  files:
+    canonical: 02_hot_themes.json
+- step: 4
+  artifact_id: hypothesis_cards
+  skill: trade-hypothesis-ideator
+  execution_mode: composite
+  files:
+    canonical: 04_hypothesis_cards.json
+  executor_components:
+  - native_cli
+  - manual_contract
+- step: 5
+  artifact_id: sized_hypotheses
+  skill: position-sizer
+  execution_mode: native_cli
+  files:
+    canonical: 05_sized_hypotheses.json
+- step: 6
+  artifact_id: opportunity_journal_entries
+  skill: trader-memory-core
+  execution_mode: composite
+  files:
+    canonical: 06_opportunity_journal_entries.json
+  executor_components:
+  - manual_contract
+  - native_api
+execution_evidence:
+  native_macro_regime_api_executed: true
+  native_hypothesis_cli_executed: true
+  native_position_sizer_cli_executed: true
+  native_trader_memory_register_executed: true
+  broker_or_live_api_calls: false
+  execution_authorized: false
+execution_evidence_limitations:
+- Step 1 recomputes the native macro-regime composite, regime classification, and
+  consistency check from fixture component results; provider fetches and calculator
+  histories are not executed.
+- Step 2 themes are a human-approved fixture bound to the replayed regime brief; no
+  FINVIZ fetch is executed.
+- Step 4 runs the native trade-hypothesis-ideator CLI on a fixture bundle bound by
+  SHA-256 to the replayed upstream artifacts; hypothesis accept/reject is a human
+  gate decision.
+- Step 5 sizes actionable cards with the native position-sizer CLI on fictional entries,
+  stops, and risk; portfolio caps are fixture-enforced.
+- Step 6 calls the native trader-memory-core ingest and link_report APIs on disposable
+  temporary state; every thesis stays IDEA and no order is placed or authorized. Forex
+  output is research-only and never wired to a broker.

@@ -1,0 +1,63 @@
+{
+  "entries": [
+    {
+      "hypothesis_id": "H-EXMPL-01",
+      "linked_reports": [
+        {
+          "date": "2026-08-06",
+          "file": "$ARTIFACT/04_hypothesis_cards.json",
+          "skill": "trade-hypothesis-ideator"
+        },
+        {
+          "date": "2026-08-06",
+          "file": "$ARTIFACT/05_sized_hypotheses.json",
+          "skill": "position-sizer"
+        }
+      ],
+      "research_only": false,
+      "status": "IDEA",
+      "thesis_id": null,
+      "ticker": "EXMPL"
+    },
+    {
+      "hypothesis_id": "H-EXMPL-02",
+      "linked_reports": [
+        {
+          "date": "2026-08-06",
+          "file": "$ARTIFACT/04_hypothesis_cards.json",
+          "skill": "trade-hypothesis-ideator"
+        },
+        {
+          "date": "2026-08-06",
+          "file": "$ARTIFACT/05_sized_hypotheses.json",
+          "skill": "position-sizer"
+        }
+      ],
+      "research_only": false,
+      "status": "ENTRY_READY",
+      "thesis_id": null,
+      "ticker": "EXMPLB"
+    },
+    {
+      "hypothesis_id": "H-FX-01",
+      "linked_reports": [],
+      "research_only": true,
+      "status": "rejected",
+      "thesis_id": null,
+      "ticker": "EXMPLFX"
+    }
+  ],
+  "provenance": {
+    "components": [
+      "manual_contract",
+      "native_api"
+    ],
+    "execution_mode": "composite",
+    "limitation": "Human register decision is a fixture; no broker fill exists, so every thesis stays IDEA and no order is placed. ENTRY_READY is a recorded human decision, not a thesis transition. Thesis IDs are intentionally nulled because the state is disposable and never published.",
+    "native_component": "trader-memory-core.thesis_ingest + thesis_store.link_report",
+    "source_date": "2026-08-06"
+  },
+  "recorded_at": "2026-08-06T16:00:00+00:00",
+  "schema_version": 1,
+  "workflow_id": "multi-asset-opportunity-daily"
+}

@@ -16,6 +16,11 @@ covered:
     variants:
       - required-only
       - full-path
+  multi-asset-opportunity-daily:
+    spec: multi-asset-opportunity-daily/replay.yaml
+    variants:
+      - required-only
+      - full-path
   shapiro-contrarian:
     spec: shapiro-contrarian/replay.yaml
     variants:
@@ -52,9 +57,6 @@ covered:
       - required-only
       - full-path
 
-# Frozen Coverage 10/11 baseline. The validator rejects adding another deferral, so a
-# newly introduced workflow must ship both replay variants.
-deferred:
-  multi-asset-opportunity-daily:
-    issue: 294
-    reason: Provider-backed and manual hypothesis adapters remain deferred.
+# Frozen Coverage 11/11 baseline. All canonical workflows ship both replay
+# variants; a newly introduced workflow must do the same.
+deferred: {}

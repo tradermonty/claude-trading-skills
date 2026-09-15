@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-06",
+  "components": {
+    "concentration": {
+      "score": 65,
+      "direction": "concentrating",
+      "data_available": true,
+      "signal": "Mega-cap concentration rising"
+    },
+    "yield_curve": {
+      "score": 45,
+      "direction": "flattening",
+      "data_available": true,
+      "signal": "Curve flattening"
+    },
+    "credit_conditions": {
+      "score": 55,
+      "direction": "tightening",
+      "data_available": true,
+      "signal": "Credit spreads widening"
+    },
+    "size_factor": {
+      "score": 40,
+      "direction": "large_cap",
+      "data_available": true,
+      "signal": "Large-cap leadership"
+    },
+    "equity_bond": {
+      "score": 50,
+      "direction": "correlated",
+      "data_available": true,
+      "correlation_regime": "positive",
+      "signal": "Positive stock-bond correlation"
+    },
+    "sector_rotation": {
+      "score": 35,
+      "direction": "defensive",
+      "data_available": true,
+      "signal": "Defensive sector rotation"
+    }
+  }
+}

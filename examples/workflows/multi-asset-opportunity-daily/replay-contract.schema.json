@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/multi-asset-opportunity-daily/replay-contract.schema.json",
+  "title": "Multi-asset opportunity daily replay contract",
+  "$defs": {
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "ticker": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "macro_component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "direction", "data_available", "signal"],
+      "properties": {
+        "score": {"type": "number", "minimum": 0, "maximum": 100},
+        "direction": {"type": "string", "minLength": 1},
+        "data_available": {"type": "boolean"},
+        "signal": {"type": "string", "minLength": 1},
+        "correlation_regime": {"type": "string"}
+      }
+    },
+    "macro_components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "components"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "concentration",
+            "yield_curve",
+            "credit_conditions",
+            "size_factor",
+            "equity_bond",
+            "sector_rotation"
+          ],
+          "properties": {
+            "concentration": {"$ref": "#/$defs/macro_component"},
+            "yield_curve": {"$ref": "#/$defs/macro_component"},
+            "credit_conditions": {"$ref": "#/$defs/macro_component"},
+            "size_factor": {"$ref": "#/$defs/macro_component"},
+            "equity_bond": {"$ref": "#/$defs/macro_component"},
+            "sector_rotation": {"$ref": "#/$defs/macro_component"}
+          }
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "heat", "thesis"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "heat": {"type": "number", "minimum": 0, "maximum": 100},
+        "thesis": {"type": "string", "minLength": 1}
+      }
+    },
+    "theme_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "human_approved", "regime_label", "themes"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "human_approved": {"const": true},
+        "regime_label": {"type": "string", "minLength": 1},
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/theme"}
+        }
+      }
+    },
+    "news_brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_approved", "as_of", "catalysts", "based_on_themes"],
+      "properties": {
+        "human_approved": {"const": true},
+        "as_of": {"$ref": "#/$defs/date"},
+        "catalysts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "based_on_themes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "hypotheses_bundle": {
+      "type": "object",
+      "required": ["objective", "strategy_context", "constraints", "market_context", "source_binding"],
+      "properties": {
+        "objective": {"type": "object"},
+        "strategy_context": {"type": "object"},
+        "constraints": {"type": "object"},
+        "market_context": {"type": "object"},
+        "source_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["macro_regime_brief", "hot_themes", "catalyst_news_brief"],
+          "properties": {
+            "macro_regime_brief": {"type": "string", "minLength": 1},
+            "hot_themes": {"type": "string", "minLength": 1},
+            "catalyst_news_brief": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "raw_hypotheses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hypotheses"],
+      "properties": {
+        "hypotheses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "required": ["hypothesis_id", "ticker", "asset_class"],
+            "properties": {
+              "hypothesis_id": {"type": "string", "minLength": 1},
+              "ticker": {"$ref": "#/$defs/ticker"},
+              "asset_class": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "gate_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_approved", "accepted", "rejected"],
+      "properties": {
+        "human_approved": {"const": true},
+        "accepted": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "rejected": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "sizing_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account_size", "risk_pct", "cards"],
+      "properties": {
+        "account_size": {"type": "number", "exclusiveMinimum": 0},
+        "risk_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+        "max_position_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+        "cards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["hypothesis_id", "entry", "stop"],
+            "properties": {
+              "hypothesis_id": {"type": "string", "minLength": 1},
+              "entry": {"type": "number", "exclusiveMinimum": 0},
+              "stop": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "register_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_approved", "thesis_type", "idea", "entry_ready", "rejected"],
+      "properties": {
+        "human_approved": {"const": true},
+        "thesis_type": {
+          "enum": [
+            "dividend_income",
+            "growth_momentum",
+            "mean_reversion",
+            "earnings_drift",
+            "pivot_breakout"
+          ]
+        },
+        "idea": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "entry_ready": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "rejected": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "hypothesis_card": {
+      "type": "object",
+      "required": ["hypothesis_id"],
+      "properties": {
+        "hypothesis_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "hypothesis_cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "hypotheses", "excluded"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "hypotheses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/hypothesis_card"}
+        },
+        "excluded": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/hypothesis_card"}
+        }
+      }
+    },
+    "journal_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hypothesis_id", "ticker", "status"],
+      "properties": {
+        "hypothesis_id": {"type": "string", "minLength": 1},
+        "ticker": {"$ref": "#/$defs/ticker"},
+        "status": {"enum": ["IDEA", "ENTRY_READY", "rejected"]},
+        "thesis_id": {"type": ["string", "null"]},
+        "research_only": {"type": "boolean"},
+        "linked_reports": {"type": "array"}
+      }
+    },
+    "opportunity_journal_entries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "workflow_id", "recorded_at", "entries", "provenance"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "workflow_id": {"const": "multi-asset-opportunity-daily"},
+        "recorded_at": {"type": "string", "minLength": 1},
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/journal_entry"}
+        },
+        "provenance": {"type": "object"}
+      }
+    }
+  }
+}

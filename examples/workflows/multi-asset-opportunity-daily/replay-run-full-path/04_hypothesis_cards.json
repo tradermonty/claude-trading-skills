@@ -1,0 +1,144 @@
+{
+  "as_of": "2026-08-06",
+  "excluded": [
+    {
+      "asset_class": "forex",
+      "assumptions": [],
+      "confidence": "low",
+      "dependencies": [],
+      "evidence_basis": [
+        "Contraction regime"
+      ],
+      "expected_impact": "None",
+      "hypothesis_id": "H-FX-01",
+      "key_risks": [
+        "Not tradable via broker"
+      ],
+      "kill_criteria": [
+        "N/A"
+      ],
+      "mechanism": "Observation",
+      "minimum_viable_experiment": {
+        "duration": "1w",
+        "goal": "Observe",
+        "metrics": [
+          "none"
+        ],
+        "sample_size": "1",
+        "setup": "Paper"
+      },
+      "priority_score": 1.85,
+      "problem_target": "None",
+      "proposed_rule_changes": [],
+      "rationale": "Forex is research-only",
+      "recommendation": "reject",
+      "research_only": true,
+      "score_components": {
+        "evidence_strength": 2,
+        "expected_payoff": 1,
+        "feasibility": 2,
+        "mechanism_clarity": 2,
+        "novelty": 2,
+        "test_efficiency": 2
+      },
+      "thesis": "Currency moves are research-only.",
+      "ticker": "EXMPLFX",
+      "title": "Fictional forex observation"
+    }
+  ],
+  "hypotheses": [
+    {
+      "asset_class": "equity",
+      "assumptions": [
+        "Regime persists"
+      ],
+      "confidence": "medium",
+      "dependencies": [],
+      "evidence_basis": [
+        "Contraction regime",
+        "Defensive Staples theme"
+      ],
+      "expected_impact": "Lower drawdown",
+      "hypothesis_id": "H-EXMPL-01",
+      "key_risks": [
+        "Regime misclassification"
+      ],
+      "kill_criteria": [
+        "Staples underperform SPY by 5%"
+      ],
+      "mechanism": "Defensive earnings stability",
+      "minimum_viable_experiment": {
+        "duration": "4w",
+        "goal": "Validate",
+        "metrics": [
+          "relative"
+        ],
+        "sample_size": "10",
+        "setup": "Paper"
+      },
+      "priority_score": 3.95,
+      "problem_target": "Drawdown during contraction",
+      "proposed_rule_changes": [],
+      "rationale": "Fits contraction",
+      "recommendation": "pursue",
+      "research_only": false,
+      "score_components": {
+        "evidence_strength": 4,
+        "expected_payoff": 3,
+        "feasibility": 5,
+        "mechanism_clarity": 4,
+        "novelty": 3,
+        "test_efficiency": 4
+      },
+      "thesis": "Staples outperform in contraction.",
+      "ticker": "EXMPL",
+      "title": "Fictional defensive staples idea"
+    },
+    {
+      "asset_class": "equity",
+      "assumptions": [],
+      "confidence": "medium",
+      "dependencies": [],
+      "evidence_basis": [
+        "Contraction regime",
+        "Healthcare Resilience theme"
+      ],
+      "expected_impact": "Lower drawdown",
+      "hypothesis_id": "H-EXMPL-02",
+      "key_risks": [
+        "Policy shock"
+      ],
+      "kill_criteria": [
+        "Healthcare underperforms by 5%"
+      ],
+      "mechanism": "Defensive demand",
+      "minimum_viable_experiment": {
+        "duration": "4w",
+        "goal": "Validate",
+        "metrics": [
+          "relative"
+        ],
+        "sample_size": "10",
+        "setup": "Paper"
+      },
+      "priority_score": 3.1,
+      "problem_target": "Drawdown",
+      "proposed_rule_changes": [],
+      "rationale": "Defensive",
+      "recommendation": "pursue",
+      "research_only": false,
+      "score_components": {
+        "evidence_strength": 3,
+        "expected_payoff": 3,
+        "feasibility": 4,
+        "mechanism_clarity": 3,
+        "novelty": 2,
+        "test_efficiency": 3
+      },
+      "thesis": "Healthcare holds up.",
+      "ticker": "EXMPLB",
+      "title": "Fictional healthcare idea"
+    }
+  ],
+  "schema_version": 1
+}

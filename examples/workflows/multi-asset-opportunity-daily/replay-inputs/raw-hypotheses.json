@@ -1,0 +1,110 @@
+{
+  "hypotheses": [
+    {
+      "hypothesis_id": "H-EXMPL-01",
+      "ticker": "EXMPL",
+      "asset_class": "equity",
+      "title": "Fictional defensive staples idea",
+      "thesis": "Staples outperform in contraction.",
+      "problem_target": "Drawdown during contraction",
+      "mechanism": "Defensive earnings stability",
+      "evidence_basis": ["Contraction regime", "Defensive Staples theme"],
+      "proposed_rule_changes": [],
+      "expected_impact": "Lower drawdown",
+      "key_risks": ["Regime misclassification"],
+      "kill_criteria": ["Staples underperform SPY by 5%"],
+      "minimum_viable_experiment": {
+        "goal": "Validate",
+        "setup": "Paper",
+        "metrics": ["relative"],
+        "sample_size": "10",
+        "duration": "4w"
+      },
+      "score_components": {
+        "evidence_strength": 4,
+        "mechanism_clarity": 4,
+        "feasibility": 5,
+        "expected_payoff": 3,
+        "novelty": 3,
+        "test_efficiency": 4
+      },
+      "priority_score": 40,
+      "recommendation": "pursue",
+      "rationale": "Fits contraction",
+      "confidence": "medium",
+      "assumptions": ["Regime persists"],
+      "dependencies": []
+    },
+    {
+      "hypothesis_id": "H-EXMPL-02",
+      "ticker": "EXMPLB",
+      "asset_class": "equity",
+      "title": "Fictional healthcare idea",
+      "thesis": "Healthcare holds up.",
+      "problem_target": "Drawdown",
+      "mechanism": "Defensive demand",
+      "evidence_basis": ["Contraction regime", "Healthcare Resilience theme"],
+      "proposed_rule_changes": [],
+      "expected_impact": "Lower drawdown",
+      "key_risks": ["Policy shock"],
+      "kill_criteria": ["Healthcare underperforms by 5%"],
+      "minimum_viable_experiment": {
+        "goal": "Validate",
+        "setup": "Paper",
+        "metrics": ["relative"],
+        "sample_size": "10",
+        "duration": "4w"
+      },
+      "score_components": {
+        "evidence_strength": 3,
+        "mechanism_clarity": 3,
+        "feasibility": 4,
+        "expected_payoff": 3,
+        "novelty": 2,
+        "test_efficiency": 3
+      },
+      "priority_score": 35,
+      "recommendation": "pursue",
+      "rationale": "Defensive",
+      "confidence": "medium",
+      "assumptions": [],
+      "dependencies": []
+    },
+    {
+      "hypothesis_id": "H-FX-01",
+      "ticker": "EXMPLFX",
+      "asset_class": "forex",
+      "research_only": true,
+      "title": "Fictional forex observation",
+      "thesis": "Currency moves are research-only.",
+      "problem_target": "None",
+      "mechanism": "Observation",
+      "evidence_basis": ["Contraction regime"],
+      "proposed_rule_changes": [],
+      "expected_impact": "None",
+      "key_risks": ["Not tradable via broker"],
+      "kill_criteria": ["N/A"],
+      "minimum_viable_experiment": {
+        "goal": "Observe",
+        "setup": "Paper",
+        "metrics": ["none"],
+        "sample_size": "1",
+        "duration": "1w"
+      },
+      "score_components": {
+        "evidence_strength": 2,
+        "mechanism_clarity": 2,
+        "feasibility": 2,
+        "expected_payoff": 1,
+        "novelty": 2,
+        "test_efficiency": 2
+      },
+      "priority_score": 20,
+      "recommendation": "reject",
+      "rationale": "Forex is research-only",
+      "confidence": "low",
+      "assumptions": [],
+      "dependencies": []
+    }
+  ]
+}

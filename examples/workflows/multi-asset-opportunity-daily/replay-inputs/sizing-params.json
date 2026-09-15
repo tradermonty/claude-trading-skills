@@ -1,0 +1,9 @@
+{
+  "account_size": 100000,
+  "risk_pct": 1.0,
+  "max_position_pct": 20.0,
+  "cards": [
+    {"hypothesis_id": "H-EXMPL-01", "entry": 100.0, "stop": 95.0},
+    {"hypothesis_id": "H-EXMPL-02", "entry": 50.0, "stop": 47.5}
+  ]
+}

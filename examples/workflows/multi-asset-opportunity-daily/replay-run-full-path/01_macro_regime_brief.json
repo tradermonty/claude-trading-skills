@@ -1,0 +1,183 @@
+{
+  "components": {
+    "concentration": {
+      "data_available": true,
+      "direction": "concentrating",
+      "score": 65,
+      "signal": "Mega-cap concentration rising"
+    },
+    "credit_conditions": {
+      "data_available": true,
+      "direction": "tightening",
+      "score": 55,
+      "signal": "Credit spreads widening"
+    },
+    "equity_bond": {
+      "correlation_regime": "positive",
+      "data_available": true,
+      "direction": "correlated",
+      "score": 50,
+      "signal": "Positive stock-bond correlation"
+    },
+    "sector_rotation": {
+      "data_available": true,
+      "direction": "defensive",
+      "score": 35,
+      "signal": "Defensive sector rotation"
+    },
+    "size_factor": {
+      "data_available": true,
+      "direction": "large_cap",
+      "score": 40,
+      "signal": "Large-cap leadership"
+    },
+    "yield_curve": {
+      "data_available": true,
+      "direction": "flattening",
+      "score": 45,
+      "signal": "Curve flattening"
+    }
+  },
+  "composite": {
+    "actions": [
+      "Develop regime-change response plan",
+      "Begin gradual diversification shifts",
+      "Reduce concentrated bets",
+      "Identify new regime beneficiaries",
+      "Weekly monitoring"
+    ],
+    "component_scores": {
+      "concentration": {
+        "label": "Market Concentration (RSP/SPY)",
+        "score": 65,
+        "weight": 0.25,
+        "weighted_contribution": 16.2
+      },
+      "credit_conditions": {
+        "label": "Credit Conditions (HYG/LQD)",
+        "score": 55,
+        "weight": 0.15,
+        "weighted_contribution": 8.2
+      },
+      "equity_bond": {
+        "label": "Equity-Bond (SPY/TLT)",
+        "score": 50,
+        "weight": 0.15,
+        "weighted_contribution": 7.5
+      },
+      "sector_rotation": {
+        "label": "Sector Rotation (XLY/XLP)",
+        "score": 35,
+        "weight": 0.1,
+        "weighted_contribution": 3.5
+      },
+      "size_factor": {
+        "label": "Size Factor (IWM/SPY)",
+        "score": 40,
+        "weight": 0.15,
+        "weighted_contribution": 6.0
+      },
+      "yield_curve": {
+        "label": "Yield Curve (10Y-2Y)",
+        "score": 45,
+        "weight": 0.2,
+        "weighted_contribution": 9.0
+      }
+    },
+    "composite_score": 50.5,
+    "data_quality": {
+      "available_count": 6,
+      "label": "Complete (6/6 components)",
+      "missing_components": [],
+      "total_components": 6
+    },
+    "guidance": "Multiple indicators in transition. Begin planning portfolio adjustment.",
+    "signaling_components": 5,
+    "strongest_signal": {
+      "component": "concentration",
+      "label": "Market Concentration (RSP/SPY)",
+      "score": 65
+    },
+    "weakest_signal": {
+      "component": "sector_rotation",
+      "label": "Sector Rotation (XLY/XLP)",
+      "score": 35
+    },
+    "zone": "Transition Zone (Preparing)",
+    "zone_color": "orange"
+  },
+  "metadata": {
+    "as_of": "2026-08-06",
+    "data_mode": "offline",
+    "data_source": "fixture",
+    "generated_at": "2026-08-06T16:00:00+00:00"
+  },
+  "regime": {
+    "confidence": "moderate",
+    "consistency": {
+      "concentration": "neutral",
+      "credit_conditions": "consistent",
+      "equity_bond": "contradicting",
+      "sector_rotation": "contradicting",
+      "size_factor": "neutral",
+      "yield_curve": "consistent"
+    },
+    "current_regime": "contraction",
+    "evidence": [
+      {
+        "component": "Market Concentration (RSP/SPY)",
+        "direction": "concentrating",
+        "score": 65,
+        "signal": "Mega-cap concentration rising"
+      },
+      {
+        "component": "Credit Conditions (HYG/LQD)",
+        "direction": "tightening",
+        "score": 55,
+        "signal": "Credit spreads widening"
+      },
+      {
+        "component": "Equity-Bond (SPY/TLT)",
+        "direction": "correlated",
+        "score": 50,
+        "signal": "Positive stock-bond correlation"
+      },
+      {
+        "component": "Yield Curve (10Y-2Y)",
+        "direction": "flattening",
+        "score": 45,
+        "signal": "Curve flattening"
+      },
+      {
+        "component": "Size Factor (IWM/SPY)",
+        "direction": "large_cap",
+        "score": 40,
+        "signal": "Large-cap leadership"
+      }
+    ],
+    "portfolio_posture": "Raise cash. Duration management: short-duration Treasuries as base; add TIPS if inflation signals present; extend duration only when stock-bond correlation turns negative. Defensive sectors: prioritize Staples and Healthcare.",
+    "regime_description": "Credit tightening, defensive rotation, equity-bond shift to risk-off. Classic late-cycle deterioration.",
+    "regime_label": "Contraction",
+    "regime_scores": {
+      "broadening": 0,
+      "concentration": 2,
+      "contraction": 3,
+      "inflationary": 3,
+      "transitional": 0
+    },
+    "signaling_components": 5,
+    "tied_regimes": [
+      "contraction",
+      "inflationary"
+    ],
+    "transition_probability": {
+      "ambiguous": true,
+      "avg_component_score": 48.3,
+      "from_regime": null,
+      "level": "moderate",
+      "probability_range": "40-60%",
+      "signaling_count": 5,
+      "to_regime": null
+    }
+  }
+}

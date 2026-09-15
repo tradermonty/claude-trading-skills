@@ -1,0 +1,22 @@
+{
+  "objective": {
+    "goal": "Surface multi-asset opportunities after a non-restrictive regime read",
+    "focus_area": "US equities and equity-proxy ideas"
+  },
+  "strategy_context": {
+    "strategy_name": "multi-asset-opportunity-daily",
+    "summary": "Contraction regime with defensive rotation; staples and healthcare themes in focus."
+  },
+  "constraints": {
+    "execution_constraints": ["manual broker entry only", "no auto-execution"],
+    "risk_constraints": ["max 1% risk per position", "forex research-only"]
+  },
+  "market_context": {
+    "summary": "Fictional contraction regime fixture."
+  },
+  "source_binding": {
+    "macro_regime_brief": "2bdd7334a767fc6ca7b4685ea170d41716ffecce4c795a20f18d9298e5880b85",
+    "hot_themes": "f6af515c61f4431cec6173e0a1857b833a92dda3de6f8059c7d3d09da2695692",
+    "catalyst_news_brief": "07ea6ffe2360d2f2f53f895e9d07076db491646022eaf3ec869f9305be4ff27a"
+  }
+}

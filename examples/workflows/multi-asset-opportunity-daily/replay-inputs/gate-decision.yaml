@@ -1,0 +1,6 @@
+human_approved: true
+accepted:
+  - H-EXMPL-01
+  - H-EXMPL-02
+rejected:
+  - H-FX-01

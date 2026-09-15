@@ -1,0 +1,87 @@
+schema_version: 1
+workflow_id: multi-asset-opportunity-daily
+fixed_timestamp: "2026-08-06T16:00:00+00:00"
+
+inputs:
+  macro_components: replay-inputs/macro-components.json
+  theme_evidence: replay-inputs/theme-evidence.json
+  news_brief: replay-inputs/news-brief.yaml
+  hypotheses_bundle: replay-inputs/hypotheses-bundle.json
+  raw_hypotheses: replay-inputs/raw-hypotheses.json
+  gate_decision: replay-inputs/gate-decision.yaml
+  sizing_params: replay-inputs/sizing-params.json
+  register_decision: replay-inputs/register-decision.yaml
+
+steps:
+  - step: 1
+    executor: multi_macro_regime
+    executor_mode: native_api
+    gate_policy: continue
+    output_files:
+      macro_regime_brief:
+        canonical: 01_macro_regime_brief.json
+
+  - step: 2
+    executor: multi_theme
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      hot_themes:
+        canonical: 02_hot_themes.json
+
+  - step: 3
+    executor: multi_news_brief
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      catalyst_news_brief:
+        canonical: 03_catalyst_news_brief.json
+
+  - step: 4
+    executor: multi_hypotheses
+    executor_mode: composite
+    executor_components:
+      - native_cli
+      - manual_contract
+    gate_policy: record_only
+    output_files:
+      hypothesis_cards:
+        canonical: 04_hypothesis_cards.json
+
+  - step: 5
+    executor: multi_position_size
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      sized_hypotheses:
+        canonical: 05_sized_hypotheses.json
+
+  - step: 6
+    executor: multi_register
+    executor_mode: composite
+    executor_components:
+      - manual_contract
+      - native_api
+    gate_policy: record_only
+    output_files:
+      opportunity_journal_entries:
+        canonical: 06_opportunity_journal_entries.json
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 4
+      - 5
+      - 6
+    golden_dir: replay-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+    golden_dir: replay-run-full-path

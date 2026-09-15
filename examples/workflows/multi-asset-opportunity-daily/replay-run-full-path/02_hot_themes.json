@@ -1,0 +1,18 @@
+{
+  "as_of": "2026-08-06",
+  "human_approved": true,
+  "regime_label": "Contraction",
+  "schema_version": 1,
+  "themes": [
+    {
+      "heat": 78,
+      "name": "Defensive Staples",
+      "thesis": "Staples outperform during contraction."
+    },
+    {
+      "heat": 64,
+      "name": "Healthcare Resilience",
+      "thesis": "Healthcare demand is inelastic."
+    }
+  ]
+}
