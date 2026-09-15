@@ -262,6 +262,59 @@ def test_journal_write_failure_does_not_publish(tmp_path, monkeypatch):
     assert not (tmp_path / "out").exists()
 
 
+def test_raw_hypotheses_news_reference_rejected_in_required_only(tmp_path):
+    def mutate(payload):
+        payload["hypotheses"][0]["evidence_basis"].append(
+            "$ARTIFACT/03_catalyst_news_brief.json any headline"
+        )
+
+    with pytest.raises(replay.ReplayError, match="optional news artifact"):
+        replay.execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "out",
+            input_overrides=override(tmp_path, "raw_hypotheses", mutate),
+        )
+
+
+def test_raw_hypotheses_unknown_step_reference_rejected(tmp_path):
+    def mutate(payload):
+        payload["hypotheses"][0]["evidence_basis"].append(
+            "$ARTIFACT/07_unknown_report.json any detail"
+        )
+
+    with pytest.raises(replay.ReplayError, match="unknown upstream step"):
+        replay.execute_replay(
+            ROOT,
+            SPEC,
+            "full-path",
+            tmp_path / "out",
+            input_overrides=override(tmp_path, "raw_hypotheses", mutate),
+        )
+
+
+def test_unsafe_hypothesis_card_id_rejected_before_work_dir(tmp_path):
+    def mutate_raw(payload):
+        payload["hypotheses"][0]["hypothesis_id"] = "../escape"
+
+    def mutate_decision(payload):
+        cards = payload["cards"]
+        cards["../escape"] = cards.pop("hyp_zzq_edge_equity")
+
+    with pytest.raises(replay.ReplayError, match="unsafe hypothesis card id"):
+        replay.execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "out",
+            input_overrides={
+                **override(tmp_path, "raw_hypotheses", mutate_raw),
+                **override(tmp_path, "hypothesis_decision", mutate_decision),
+            },
+        )
+
+
 def test_generated_at_utc_is_a_canonicalized_timestamp_field():
     canonical = replay._canonicalize(
         {"generated_at_utc": "leave me"}, "2026-08-15T12:00:00+00:00", {}

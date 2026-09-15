@@ -4899,10 +4899,9 @@ def _multi_asset_hypotheses(
     bundle_path.parent.mkdir(parents=True, exist_ok=True)
     bundle_path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
     raw_path = inputs["raw_hypotheses"]
-    _assert_finite_json(
-        _load_json(raw_path, "multi-asset raw hypotheses fixture"), "raw hypotheses"
-    )
-    for hypothesis in _load_json(raw_path, "multi-asset raw hypotheses").get("hypotheses", []):
+    raw_payload = _load_json(raw_path, "multi-asset raw hypotheses fixture")
+    _assert_finite_json(raw_payload, "raw hypotheses")
+    for hypothesis in raw_payload.get("hypotheses", []):
         for token in hypothesis.get("evidence_basis") or []:
             match = re.match(r"^\$ARTIFACT/(\d+)_", token)
             if not match:
