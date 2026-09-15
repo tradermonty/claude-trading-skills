@@ -5589,6 +5589,9 @@ def _multi_hypotheses(
     raw = _validate_multi_asset_contract(
         _load_json(inputs["raw_hypotheses"], "raw hypotheses"), "raw_hypotheses"
     )
+    raw_by_id = {card["hypothesis_id"]: card for card in raw["hypotheses"]}
+    if len(raw_by_id) != len(raw["hypotheses"]):
+        raise ReplayError("raw hypotheses contain duplicate hypothesis ids")
     decision = _validate_multi_asset_contract(load_yaml(inputs["gate_decision"]), "gate_decision")
     binding = bundle["source_binding"]
     for artifact_id in ("macro_regime_brief", "hot_themes"):
@@ -5643,7 +5646,6 @@ def _multi_hypotheses(
     if "generated_at_utc" in bundle_out:
         bundle_out["generated_at_utc"] = spec["fixed_timestamp"]
     _assert_finite_json(bundle_out, "hypothesis output bundle")
-    raw_by_id = {card["hypothesis_id"]: card for card in raw["hypotheses"]}
     output_ids = [card["hypothesis_id"] for card in bundle_out["hypotheses"]]
     if set(output_ids) != set(raw_by_id):
         raise ReplayError("hypothesis output bundle does not preserve the raw hypothesis cards")

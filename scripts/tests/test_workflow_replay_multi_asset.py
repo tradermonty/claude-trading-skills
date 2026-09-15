@@ -191,3 +191,89 @@ def test_register_partition_violation_fails_closed(tmp_path: Path) -> None:
             tmp_path / "out",
             input_overrides={"register_decision": override},
         )
+
+
+# Items 1 and the schema field of item 3 (see Issue #412) are not applicable to the
+# merged implementation: the merged design has no auto-gate that can filter the
+# actionable set to zero (gate_decision.accepted is minItems:1 and must partition the
+# output id set exactly), and the merged multi-asset schema has no `constraints_applied`
+# field (the position cap is enforced via account.max_position_pct). The behavioral
+# value of the position cap is covered by test_sized_hypothesis_breaches_max_position_fails_closed.
+
+
+def test_raw_hypotheses_duplicate_fails_closed(tmp_path: Path) -> None:
+    raw = json.loads((INPUTS / "raw-hypotheses.json").read_text(encoding="utf-8"))
+    raw["hypotheses"].append({**raw["hypotheses"][0]})
+    override = tmp_path / "overrides" / "raw-hypotheses.json"
+    override.parent.mkdir()
+    override.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="duplicate hypothesis ids"):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "out",
+            input_overrides={"raw_hypotheses": override},
+        )
+
+
+def test_failed_run_preserves_existing_output_tree(tmp_path: Path) -> None:
+    output = tmp_path / "output"
+    execute_replay(ROOT, SPEC, "required-only", output)
+
+    decision = load_yaml(INPUTS / "gate-decision.yaml")
+    decision["accepted"].append("H-FX-01")
+    decision["rejected"] = []
+    override = tmp_path / "overrides" / "gate-decision.yaml"
+    override.parent.mkdir()
+    override.write_text(yaml.safe_dump(decision, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="research-only"):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            output,
+            input_overrides={"gate_decision": override},
+        )
+
+    assert compare_trees(output, SPEC.parent / "replay-run") == []
+
+
+def test_failed_run_into_missing_dir_creates_nothing(tmp_path: Path) -> None:
+    output = tmp_path / "never-created"
+    decision = load_yaml(INPUTS / "register-decision.yaml")
+    decision["idea"].append("H-FX-01")
+    override = tmp_path / "overrides" / "register-decision.yaml"
+    override.parent.mkdir()
+    override.write_text(yaml.safe_dump(decision, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ReplayError):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            output,
+            input_overrides={"register_decision": override},
+        )
+
+    assert not output.exists()
+
+
+def test_sized_hypothesis_breaches_max_position_fails_closed(tmp_path: Path) -> None:
+    params = json.loads((INPUTS / "sizing-params.json").read_text(encoding="utf-8"))
+    params["account_size"] = 10000
+    params["max_position_pct"] = 1.0
+    override = tmp_path / "overrides" / "sizing-params.json"
+    override.parent.mkdir()
+    override.write_text(json.dumps(params), encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="max position cap"):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            tmp_path / "out",
+            input_overrides={"sizing_params": override},
+        )
