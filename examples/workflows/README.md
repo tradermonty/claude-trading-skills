@@ -84,9 +84,9 @@ cross-artifact arithmetic. All files also remain subject to standard hygiene hoo
 (whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
 checks).
 
-## Executable workflow replay (Issue #294, Coverage 10/11)
+## Executable workflow replay (Issue #294, Coverage 11/11)
 
-Ten of the eleven canonical workflows are generated and checked by the
+All eleven canonical workflows are generated and checked by the
 executable replay harness:
 
 - `core-portfolio-weekly`
@@ -99,6 +99,7 @@ executable replay harness:
 - `swing-opportunity-daily`
 - `shapiro-contrarian`
 - `stockbee-ep-daily`
+- `multi-asset-opportunity-daily`
 
 ```bash
 python3 scripts/workflow_replay.py validate
@@ -178,10 +179,10 @@ goldens; committed goldens are never executor inputs. The monthly replay uses
 dedicated `replay-run/` and `replay-run-full-path/` golden trees, distinct from
 the teaching `sample-run/` and `sample-run-full-path/` fixtures covered by Issue
 #208. The coverage manifest
-freezes the remaining workflow as Coverage 10/11 deferrals linked to Issue
-#294. A newly added workflow cannot join that frozen deferral set and must ship
-both required-only and full-path replay specs. Issue #294 remains open until
-all eleven workflows and their applicable failure modes are executable.
+freezes the replay-coverage baseline; the deferral set is empty and a newly
+added workflow cannot join a frozen deferral set, so every canonical workflow
+must ship both required-only and full-path replay specs. Issue #294 is complete
+once all eleven workflows and their applicable failure modes are executable.
 
 Replay validation rejects a `golden_dir` that resolves to the replay spec or its
 directory, overlaps any offline-input directory, or overlaps the other
@@ -204,8 +205,8 @@ Negative, stale, missing or malformed confirmations abort before sizing or
 registration. A non-READY gate, NO_TRADE sizing result, inconsistent handoff,
 or journal write failure aborts publication; the previous output remains intact.
 Goldens live in `replay-run/` and `replay-run-full-path/`. The remaining
-`multi-asset-opportunity-daily` slice stays tracked by
-**OPEN Issue #294**; this slice does not close that Issue.
+`multi-asset-opportunity-daily` slice ships its own `replay-run/` and
+`replay-run-full-path/` goldens, completing Issue #294 coverage.
 
 ### Stockbee EP replay
 
@@ -224,4 +225,19 @@ passes, but neither path authorizes or submits a broker order. Invalid or stale
 inputs, symbol/price/size disagreement, stopped account gates, and persistence
 failures preserve the previous output tree. Actual nested artifact paths and hashes
 are retained. Goldens use `replay-run/` and `replay-run-full-path/`; existing teaching
-samples are unchanged. Issue #294 remains open for the remaining multi-asset slice.
+samples are unchanged.
+
+### Multi-asset opportunity replay
+
+`multi-asset-opportunity-daily/replay.yaml` executes the macro-regime gate, hot-theme
+selection, catalyst briefing, hypothesis card gate, position sizing, and opportunity
+journal against fictional offline fixtures. Steps 1–4 and 6 are **manual_contract**
+fixtures; step 5 runs the native `position_sizer` CLI. The macro-regime executor
+rejects a `CASH_PRIORITY` exposure posture. The hypothesis gate drops cards whose
+`gap_to_consensus` is not `FAVORABLE`, and raises fail-closed when a FAVORABLE card
+references a theme or symbol missing from the hot themes or when no card survives;
+an empty result halts. Sizing preserves non-binding caps, and the journal rejects
+parked cards promoted to `ENTRY_READY` and forex research-only entries before writing
+an `opportunity_journal` collection. Required-only omits the optional catalyst step;
+full-path includes it. Goldens use `replay-run/` and `replay-run-full-path/`.
+This completes Issue #294 coverage.

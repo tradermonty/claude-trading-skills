@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-06-29",
+  "source": "fictional_regime_fixture",
+  "regime": "BROADENING",
+  "regime_label": "Broadening regime; participation improving",
+  "breadth_score": 72,
+  "top_detector_score": 30,
+  "exposure_posture": "NEW_ENTRY_ALLOWED",
+  "notes": [
+    "Hand-authored teaching evidence only."
+  ],
+  "warnings": [
+    "Fictional regime; not a market claim."
+  ]
+}

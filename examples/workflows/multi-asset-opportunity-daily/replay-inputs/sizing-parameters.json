@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "account_size": 100000.0,
+  "risk_pct": 0.5,
+  "max_position_pct": 10.0,
+  "max_sector_pct": 30.0,
+  "sector": "Fictional Data Center Buildout",
+  "current_sector_exposure": 8.0,
+  "per_card": {
+    "hyp_cloudex": {"symbol": "CLOUDX", "entry": 52.0, "stop": 49.4},
+    "hyp_elergy": {"symbol": "ELECGY", "entry": 120.0, "stop": 114.0},
+    "hyp_metafx": {"symbol": "METALX", "entry": 35.0, "stop": 33.25},
+    "hyp_semifx": {"symbol": "SEMIX", "entry": 420.0, "stop": 399.0}
+  }
+}

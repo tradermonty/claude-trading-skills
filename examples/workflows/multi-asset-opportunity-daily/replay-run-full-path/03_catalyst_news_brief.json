@@ -1,0 +1,39 @@
+{
+  "as_of": "2026-06-29",
+  "asset_mix": [
+    "ELECGY",
+    "METALX",
+    "CLOUDX",
+    "SEMIX"
+  ],
+  "catalyst": "Fictional capex guidance revision",
+  "headline": "Fictional data-center capex acceleration headline",
+  "scenarios": [
+    {
+      "description": "Capex beat lifts power and metals names.",
+      "horizon_days": 30,
+      "impact": "POSITIVE",
+      "probability_pct": 60,
+      "scenario_id": "scn_up"
+    },
+    {
+      "description": "Capex cut weighs on the theme.",
+      "horizon_days": 30,
+      "impact": "NEGATIVE",
+      "probability_pct": 20,
+      "scenario_id": "scn_down"
+    },
+    {
+      "description": "No material repricing.",
+      "horizon_days": 30,
+      "impact": "MIXED",
+      "probability_pct": 20,
+      "scenario_id": "scn_flat"
+    }
+  ],
+  "schema_version": "1.0",
+  "source": "fictional_scenario_fixture",
+  "warnings": [
+    "Fictional scenario; not a market claim."
+  ]
+}

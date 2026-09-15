@@ -1,0 +1,223 @@
+{
+  "as_of": "2026-06-29",
+  "cards": [
+    {
+      "asset_type": "equity",
+      "assumptions": [
+        "Fictional assumptions."
+      ],
+      "confidence": "medium",
+      "dependencies": [
+        "Fictional dependencies."
+      ],
+      "evidence_basis": [
+        "Hand-authored teaching evidence only."
+      ],
+      "expected_impact": "Positive re-rating of cloud efficiency names.",
+      "gap_to_consensus": "FAVORABLE",
+      "hypothesis_id": "hyp_cloudex",
+      "key_risks": [
+        "Fictional demand disappointment."
+      ],
+      "kill_criteria": [
+        "Close below planned stop invalidates the idea."
+      ],
+      "mechanism": "Adoption of efficiency tooling frees budget for incremental compute.",
+      "minimum_viable_experiment": {
+        "duration": "Fictional",
+        "goal": "Confirm re-acceleration",
+        "metrics": [
+          "spend growth"
+        ],
+        "sample_size": "Fictional",
+        "setup": "Fictional cohort A"
+      },
+      "priority_score": 4,
+      "problem_target": "Enterprise cloud efficiency constraints",
+      "proposed_rule_changes": [
+        {
+          "change": "Include fictional CLOUDX cohort.",
+          "component": "universe"
+        }
+      ],
+      "rationale": "Hand-authored teaching rationale.",
+      "recommendation": "pursue",
+      "score_components": {
+        "evidence_strength": 4,
+        "expected_payoff": 3,
+        "feasibility": 5,
+        "mechanism_clarity": 4,
+        "novelty": 2,
+        "test_efficiency": 5
+      },
+      "symbol": "CLOUDX",
+      "theme": "Fictional Cloud Efficiency",
+      "thesis": "CLOUDX re-rates as enterprise cloud efficiency frees incremental budget for compute.",
+      "title": "Cloud efficiency re-acceleration"
+    },
+    {
+      "asset_type": "equity",
+      "assumptions": [
+        "Fictional assumptions."
+      ],
+      "confidence": "high",
+      "dependencies": [
+        "Fictional dependencies."
+      ],
+      "evidence_basis": [
+        "Hand-authored teaching evidence only."
+      ],
+      "expected_impact": "Positive re-rating of power names.",
+      "gap_to_consensus": "FAVORABLE",
+      "hypothesis_id": "hyp_elergy",
+      "key_risks": [
+        "Fictional regulatory delays."
+      ],
+      "kill_criteria": [
+        "Close below planned stop invalidates the idea."
+      ],
+      "mechanism": "New capacity additions backstop utilization growth.",
+      "minimum_viable_experiment": {
+        "duration": "Fictional",
+        "goal": "Confirm capacity growth",
+        "metrics": [
+          "capacity additions"
+        ],
+        "sample_size": "Fictional",
+        "setup": "Fictional cohort B"
+      },
+      "priority_score": 4,
+      "problem_target": "Grid capacity constraints",
+      "proposed_rule_changes": [
+        {
+          "change": "Include fictional ELECGY cohort.",
+          "component": "universe"
+        }
+      ],
+      "rationale": "Hand-authored teaching rationale.",
+      "recommendation": "pursue",
+      "score_components": {
+        "evidence_strength": 4,
+        "expected_payoff": 4,
+        "feasibility": 4,
+        "mechanism_clarity": 5,
+        "novelty": 2,
+        "test_efficiency": 4
+      },
+      "symbol": "ELECGY",
+      "theme": "Fictional Data Center Buildout",
+      "thesis": "ELECGY benefits from sustained data-center power buildout.",
+      "title": "Data-center power demand"
+    },
+    {
+      "asset_type": "equity",
+      "assumptions": [
+        "Fictional assumptions."
+      ],
+      "confidence": "medium",
+      "dependencies": [
+        "Fictional dependencies."
+      ],
+      "evidence_basis": [
+        "Hand-authored teaching evidence only."
+      ],
+      "expected_impact": "Modest positive re-rating.",
+      "gap_to_consensus": "FAVORABLE",
+      "hypothesis_id": "hyp_metafx",
+      "key_risks": [
+        "Fictional supply surprise."
+      ],
+      "kill_criteria": [
+        "Close below planned stop invalidates the idea."
+      ],
+      "mechanism": "Construction demand absorbs incremental supply.",
+      "minimum_viable_experiment": {
+        "duration": "Fictional",
+        "goal": "Confirm demand absorption",
+        "metrics": [
+          "price spread"
+        ],
+        "sample_size": "Fictional",
+        "setup": "Fictional cohort C"
+      },
+      "priority_score": 3,
+      "problem_target": "Industrial metals supply-demand balance",
+      "proposed_rule_changes": [
+        {
+          "change": "Include fictional METALX cohort.",
+          "component": "universe"
+        }
+      ],
+      "rationale": "Hand-authored teaching rationale.",
+      "recommendation": "park",
+      "score_components": {
+        "evidence_strength": 3,
+        "expected_payoff": 3,
+        "feasibility": 4,
+        "mechanism_clarity": 3,
+        "novelty": 3,
+        "test_efficiency": 4
+      },
+      "symbol": "METALX",
+      "theme": "Fictional Data Center Buildout",
+      "thesis": "METALX benefits from data-center construction materials demand.",
+      "title": "Industrial metals demand"
+    },
+    {
+      "asset_type": "equity",
+      "assumptions": [
+        "Fictional assumptions."
+      ],
+      "confidence": "medium",
+      "dependencies": [
+        "Fictional dependencies."
+      ],
+      "evidence_basis": [
+        "Hand-authored teaching evidence only."
+      ],
+      "expected_impact": "Positive re-rating of semis.",
+      "gap_to_consensus": "FAVORABLE",
+      "hypothesis_id": "hyp_semifx",
+      "key_risks": [
+        "Fictional end-demand softness."
+      ],
+      "kill_criteria": [
+        "Close below planned stop invalidates the idea."
+      ],
+      "mechanism": "Inventory normalization restores pricing power.",
+      "minimum_viable_experiment": {
+        "duration": "Fictional",
+        "goal": "Confirm inventory normalization",
+        "metrics": [
+          "book-to-bill"
+        ],
+        "sample_size": "Fictional",
+        "setup": "Fictional cohort D"
+      },
+      "priority_score": 3,
+      "problem_target": "Semiconductor inventory cycle",
+      "proposed_rule_changes": [
+        {
+          "change": "Include fictional SEMIX cohort.",
+          "component": "universe"
+        }
+      ],
+      "rationale": "Hand-authored teaching rationale.",
+      "recommendation": "park",
+      "score_components": {
+        "evidence_strength": 3,
+        "expected_payoff": 3,
+        "feasibility": 4,
+        "mechanism_clarity": 4,
+        "novelty": 3,
+        "test_efficiency": 4
+      },
+      "symbol": "SEMIX",
+      "theme": "Fictional Semiconductor Upturn",
+      "thesis": "SEMIX benefits from a semiconductor cyclical upturn.",
+      "title": "Semiconductor cyclical upturn"
+    }
+  ],
+  "schema_version": "1.0",
+  "source": "fictional_hypothesis_fixture"
+}

@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/claude-trading-skills/multi-asset-replay-contract.schema.json",
+  "title": "Multi-asset opportunity daily replay contracts",
+  "$defs": {
+    "ascii_symbol": {
+      "type": "string",
+      "pattern": "^[A-Z0-9.-]{1,12}$"
+    },
+    "macro_regime_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "as_of",
+        "source",
+        "regime",
+        "regime_label",
+        "breadth_score",
+        "top_detector_score",
+        "exposure_posture",
+        "notes",
+        "warnings"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "source": {"const": "fictional_regime_fixture"},
+        "regime": {
+          "enum": ["CONCENTRATION", "BROADENING", "CONTRACTION", "INFLATIONARY", "TRANSITIONAL"]
+        },
+        "regime_label": {"type": "string", "minLength": 1},
+        "breadth_score": {"type": "number", "minimum": 0, "maximum": 100},
+        "top_detector_score": {"type": "number", "minimum": 0, "maximum": 100},
+        "exposure_posture": {"enum": ["NEW_ENTRY_ALLOWED", "RESTRICTED", "CASH_PRIORITY"]},
+        "notes": {"type": "array", "items": {"type": "string"}},
+        "warnings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "[Ff]ictional"}
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["theme", "strength", "symbols", "evidence"],
+      "properties": {
+        "theme": {"type": "string", "minLength": 1},
+        "strength": {"enum": ["EMERGING", "STRENGTHENING", "PEAK", "FADING"]},
+        "symbols": {"type": "array", "items": {"$ref": "#/$defs/ascii_symbol"}},
+        "evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "screen_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "source", "themes", "warnings"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "source": {"const": "fictional_theme_fixture"},
+        "themes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/theme"}},
+        "warnings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "[Ff]ictional"}
+        }
+      }
+    },
+    "scenario_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "as_of",
+        "source",
+        "headline",
+        "catalyst",
+        "scenarios",
+        "asset_mix",
+        "warnings"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "source": {"const": "fictional_scenario_fixture"},
+        "headline": {"type": "string", "minLength": 1},
+        "catalyst": {"type": ["string", "null"]},
+        "scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scenario_id", "description", "probability_pct", "impact", "horizon_days"],
+            "properties": {
+              "scenario_id": {"type": "string", "minLength": 1},
+              "description": {"type": "string", "minLength": 1},
+              "probability_pct": {"type": "number", "minimum": 0, "maximum": 100},
+              "impact": {"enum": ["POSITIVE", "NEGATIVE", "MIXED"]},
+              "horizon_days": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "asset_mix": {"type": "array", "items": {"$ref": "#/$defs/ascii_symbol"}},
+        "warnings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "[Ff]ictional"}
+        }
+      }
+    },
+    "hypothesis_card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_id",
+        "title",
+        "thesis",
+        "problem_target",
+        "mechanism",
+        "evidence_basis",
+        "proposed_rule_changes",
+        "expected_impact",
+        "key_risks",
+        "kill_criteria",
+        "minimum_viable_experiment",
+        "score_components",
+        "priority_score",
+        "recommendation",
+        "rationale",
+        "confidence",
+        "assumptions",
+        "dependencies",
+        "symbol",
+        "theme",
+        "gap_to_consensus",
+        "asset_type"
+      ],
+      "properties": {
+        "hypothesis_id": {"type": "string", "pattern": "^hyp_[a-z0-9]+$"},
+        "title": {"type": "string", "minLength": 1},
+        "thesis": {"type": "string", "minLength": 1},
+        "problem_target": {"type": "string", "minLength": 1},
+        "mechanism": {"type": "string", "minLength": 1},
+        "evidence_basis": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "proposed_rule_changes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["component", "change"],
+            "properties": {
+              "component": {"type": "string"},
+              "change": {"type": "string"}
+            }
+          }
+        },
+        "expected_impact": {"type": "string", "minLength": 1},
+        "key_risks": {"type": "array", "items": {"type": "string"}},
+        "kill_criteria": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "minimum_viable_experiment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["goal", "setup", "metrics", "sample_size", "duration"],
+          "properties": {
+            "goal": {"type": "string"},
+            "setup": {"type": "string"},
+            "metrics": {"type": "array", "items": {"type": "string"}},
+            "sample_size": {"type": "string"},
+            "duration": {"type": "string"}
+          }
+        },
+        "score_components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_strength",
+            "mechanism_clarity",
+            "feasibility",
+            "expected_payoff",
+            "novelty",
+            "test_efficiency"
+          ],
+          "properties": {
+            "evidence_strength": {"type": "number", "minimum": 1, "maximum": 5},
+            "mechanism_clarity": {"type": "number", "minimum": 1, "maximum": 5},
+            "feasibility": {"type": "number", "minimum": 1, "maximum": 5},
+            "expected_payoff": {"type": "number", "minimum": 1, "maximum": 5},
+            "novelty": {"type": "number", "minimum": 1, "maximum": 5},
+            "test_efficiency": {"type": "number", "minimum": 1, "maximum": 5}
+          }
+        },
+        "priority_score": {"type": "number", "minimum": 1, "maximum": 5},
+        "recommendation": {"enum": ["pursue", "park", "reject"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "confidence": {"type": "string", "minLength": 1},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "dependencies": {"type": "array", "items": {"type": "string"}},
+        "symbol": {"$ref": "#/$defs/ascii_symbol"},
+        "theme": {"type": "string", "minLength": 1},
+        "gap_to_consensus": {"enum": ["FAVORABLE", "UNCLEAR", "CLOSED"]},
+        "asset_type": {"enum": ["equity", "futures", "commodity_proxy", "forex", "options"]}
+      }
+    },
+    "trade_thesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "source", "cards"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "source": {"const": "fictional_hypothesis_fixture"},
+        "cards": {"type": "array", "items": {"$ref": "#/$defs/hypothesis_card"}}
+      }
+    },
+    "position_sizing_card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_id",
+        "symbol",
+        "mode",
+        "parameters",
+        "final_recommended_shares",
+        "final_risk_dollars",
+        "final_risk_pct",
+        "final_position_value",
+        "calculations",
+        "constraints_applied",
+        "binding_constraint"
+      ],
+      "properties": {
+        "hypothesis_id": {"type": "string", "pattern": "^hyp_[a-z0-9]+$"},
+        "symbol": {"$ref": "#/$defs/ascii_symbol"},
+        "mode": {"const": "shares"},
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["account_size", "entry_price", "risk_pct", "stop_price"],
+          "properties": {
+            "account_size": {"type": "number", "exclusiveMinimum": 0},
+            "entry_price": {"type": "number", "exclusiveMinimum": 0},
+            "risk_pct": {"type": "number", "minimum": 0, "maximum": 100},
+            "stop_price": {"type": "number", "exclusiveMinimum": 0}
+          }
+        },
+        "final_recommended_shares": {"type": "integer", "minimum": 0},
+        "final_risk_dollars": {"type": "number", "minimum": 0},
+        "final_risk_pct": {"type": "number", "minimum": 0, "maximum": 100},
+        "final_position_value": {"type": "number", "minimum": 0},
+        "calculations": {"type": "object"},
+        "constraints_applied": {"type": "array", "items": {"type": "object"}},
+        "binding_constraint": {"type": ["string", "null"]}
+      }
+    },
+    "position_sizing_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "plans"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "plans": {"type": "array", "items": {"$ref": "#/$defs/position_sizing_card"}}
+      }
+    },
+    "thesis_status": {
+      "enum": ["IDEA", "ENTRY_READY", "ACTIVE", "PARTIALLY_CLOSED", "CLOSED", "INVALIDATED"]
+    },
+    "journal_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thesis_id",
+        "ticker",
+        "created_at",
+        "updated_at",
+        "thesis_type",
+        "status",
+        "status_history",
+        "thesis_statement",
+        "origin"
+      ],
+      "properties": {
+        "thesis_id": {"type": "string", "pattern": "^th_"},
+        "ticker": {"type": "string", "minLength": 1},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "thesis_type": {
+          "enum": ["dividend_income", "growth_momentum", "mean_reversion", "earnings_drift", "pivot_breakout"]
+        },
+        "status": {"$ref": "#/$defs/thesis_status"},
+        "status_history": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "at", "reason"],
+            "properties": {
+              "status": {"$ref": "#/$defs/thesis_status"},
+              "at": {"type": "string", "format": "date-time"},
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "thesis_statement": {"type": "string", "minLength": 1},
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["skill", "output_file"],
+          "properties": {
+            "skill": {"type": "string"},
+            "output_file": {"type": "string"},
+            "raw_provenance": {"type": "object"}
+          }
+        }
+      }
+    },
+    "opportunity_journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "as_of", "source", "entries"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "as_of": {"type": "string", "format": "date"},
+        "source": {"const": "fictional_journal_fixture"},
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/journal_entry"}
+        }
+      }
+    }
+  }
+}

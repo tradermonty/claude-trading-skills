@@ -1,0 +1,174 @@
+{
+  "as_of": "2026-06-29",
+  "plans": [
+    {
+      "binding_constraint": null,
+      "calculations": {
+        "atr_based": null,
+        "fixed_fractional": {
+          "dollar_risk": 500.0,
+          "method": "fixed_fractional",
+          "risk_per_share": 2.6,
+          "shares": 192,
+          "stop_price": 49.4
+        },
+        "kelly": null
+      },
+      "constraints_applied": [
+        {
+          "binding": false,
+          "limit": 10.0,
+          "max_shares": 192,
+          "type": "max_position_pct"
+        },
+        {
+          "binding": false,
+          "current": 8.0,
+          "limit": 30.0,
+          "max_shares": 423,
+          "type": "max_sector_pct"
+        }
+      ],
+      "final_position_value": 9984.0,
+      "final_recommended_shares": 192,
+      "final_risk_dollars": 499.2,
+      "final_risk_pct": 0.5,
+      "hypothesis_id": "hyp_cloudex",
+      "mode": "shares",
+      "parameters": {
+        "account_size": 100000.0,
+        "entry_price": 52.0,
+        "risk_pct": 0.5,
+        "stop_price": 49.4
+      },
+      "symbol": "CLOUDX"
+    },
+    {
+      "binding_constraint": null,
+      "calculations": {
+        "atr_based": null,
+        "fixed_fractional": {
+          "dollar_risk": 500.0,
+          "method": "fixed_fractional",
+          "risk_per_share": 6.0,
+          "shares": 83,
+          "stop_price": 114.0
+        },
+        "kelly": null
+      },
+      "constraints_applied": [
+        {
+          "binding": false,
+          "limit": 10.0,
+          "max_shares": 83,
+          "type": "max_position_pct"
+        },
+        {
+          "binding": false,
+          "current": 8.0,
+          "limit": 30.0,
+          "max_shares": 183,
+          "type": "max_sector_pct"
+        }
+      ],
+      "final_position_value": 9960.0,
+      "final_recommended_shares": 83,
+      "final_risk_dollars": 498.0,
+      "final_risk_pct": 0.5,
+      "hypothesis_id": "hyp_elergy",
+      "mode": "shares",
+      "parameters": {
+        "account_size": 100000.0,
+        "entry_price": 120.0,
+        "risk_pct": 0.5,
+        "stop_price": 114.0
+      },
+      "symbol": "ELECGY"
+    },
+    {
+      "binding_constraint": null,
+      "calculations": {
+        "atr_based": null,
+        "fixed_fractional": {
+          "dollar_risk": 500.0,
+          "method": "fixed_fractional",
+          "risk_per_share": 1.75,
+          "shares": 285,
+          "stop_price": 33.25
+        },
+        "kelly": null
+      },
+      "constraints_applied": [
+        {
+          "binding": false,
+          "limit": 10.0,
+          "max_shares": 285,
+          "type": "max_position_pct"
+        },
+        {
+          "binding": false,
+          "current": 8.0,
+          "limit": 30.0,
+          "max_shares": 628,
+          "type": "max_sector_pct"
+        }
+      ],
+      "final_position_value": 9975.0,
+      "final_recommended_shares": 285,
+      "final_risk_dollars": 498.75,
+      "final_risk_pct": 0.5,
+      "hypothesis_id": "hyp_metafx",
+      "mode": "shares",
+      "parameters": {
+        "account_size": 100000.0,
+        "entry_price": 35.0,
+        "risk_pct": 0.5,
+        "stop_price": 33.25
+      },
+      "symbol": "METALX"
+    },
+    {
+      "binding_constraint": null,
+      "calculations": {
+        "atr_based": null,
+        "fixed_fractional": {
+          "dollar_risk": 500.0,
+          "method": "fixed_fractional",
+          "risk_per_share": 21.0,
+          "shares": 23,
+          "stop_price": 399.0
+        },
+        "kelly": null
+      },
+      "constraints_applied": [
+        {
+          "binding": false,
+          "limit": 10.0,
+          "max_shares": 23,
+          "type": "max_position_pct"
+        },
+        {
+          "binding": false,
+          "current": 8.0,
+          "limit": 30.0,
+          "max_shares": 52,
+          "type": "max_sector_pct"
+        }
+      ],
+      "final_position_value": 9660.0,
+      "final_recommended_shares": 23,
+      "final_risk_dollars": 483.0,
+      "final_risk_pct": 0.48,
+      "hypothesis_id": "hyp_semifx",
+      "mode": "shares",
+      "parameters": {
+        "account_size": 100000.0,
+        "entry_price": 420.0,
+        "risk_pct": 0.5,
+        "stop_price": 399.0
+      },
+      "symbol": "SEMIX"
+    }
+  ],
+  "schema_version": "1.0"
+}

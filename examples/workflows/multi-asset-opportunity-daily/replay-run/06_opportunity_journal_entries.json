@@ -1,0 +1,113 @@
+{
+  "as_of": "2026-06-29",
+  "entries": [
+    {
+      "created_at": "2026-06-29T12:00:00+00:00",
+      "origin": {
+        "output_file": "04_hypothesis_cards.json",
+        "raw_provenance": {
+          "fixture": "fictional",
+          "hypothesis_id": "hyp_cloudex"
+        },
+        "skill": "trade-hypothesis-ideator"
+      },
+      "status": "ENTRY_READY",
+      "status_history": [
+        {
+          "at": "2026-06-29T12:00:00+00:00",
+          "reason": "Hypothesis card synthesized from macro and theme alignment.",
+          "status": "IDEA"
+        },
+        {
+          "at": "2026-06-29T12:00:00+00:00",
+          "reason": "Layer-1/2 alignment confirmed; gap open.",
+          "status": "ENTRY_READY"
+        }
+      ],
+      "thesis_id": "th_cloudx_mul_20260629_a806",
+      "thesis_statement": "CLOUDX re-rates as enterprise cloud efficiency frees incremental budget for compute.",
+      "thesis_type": "growth_momentum",
+      "ticker": "CLOUDX",
+      "updated_at": "2026-06-29T12:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-29T12:00:00+00:00",
+      "origin": {
+        "output_file": "04_hypothesis_cards.json",
+        "raw_provenance": {
+          "fixture": "fictional",
+          "hypothesis_id": "hyp_elergy"
+        },
+        "skill": "trade-hypothesis-ideator"
+      },
+      "status": "ENTRY_READY",
+      "status_history": [
+        {
+          "at": "2026-06-29T12:00:00+00:00",
+          "reason": "Hypothesis card synthesized from macro and theme alignment.",
+          "status": "IDEA"
+        },
+        {
+          "at": "2026-06-29T12:00:00+00:00",
+          "reason": "Layer-1/2 alignment confirmed; gap open.",
+          "status": "ENTRY_READY"
+        }
+      ],
+      "thesis_id": "th_elecgy_mul_20260629_7c58",
+      "thesis_statement": "ELECGY benefits from sustained data-center power buildout.",
+      "thesis_type": "growth_momentum",
+      "ticker": "ELECGY",
+      "updated_at": "2026-06-29T12:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-29T12:00:00+00:00",
+      "origin": {
+        "output_file": "04_hypothesis_cards.json",
+        "raw_provenance": {
+          "fixture": "fictional",
+          "hypothesis_id": "hyp_metafx"
+        },
+        "skill": "trade-hypothesis-ideator"
+      },
+      "status": "IDEA",
+      "status_history": [
+        {
+          "at": "2026-06-29T12:00:00+00:00",
+          "reason": "Hypothesis card synthesized from macro and theme alignment.",
+          "status": "IDEA"
+        }
+      ],
+      "thesis_id": "th_metalx_mul_20260629_02ee",
+      "thesis_statement": "METALX benefits from data-center construction materials demand.",
+      "thesis_type": "growth_momentum",
+      "ticker": "METALX",
+      "updated_at": "2026-06-29T12:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-29T12:00:00+00:00",
+      "origin": {
+        "output_file": "04_hypothesis_cards.json",
+        "raw_provenance": {
+          "fixture": "fictional",
+          "hypothesis_id": "hyp_semifx"
+        },
+        "skill": "trade-hypothesis-ideator"
+      },
+      "status": "IDEA",
+      "status_history": [
+        {
+          "at": "2026-06-29T12:00:00+00:00",
+          "reason": "Hypothesis card synthesized from macro and theme alignment.",
+          "status": "IDEA"
+        }
+      ],
+      "thesis_id": "th_semix_mul_20260629_a605",
+      "thesis_statement": "SEMIX benefits from a semiconductor cyclical upturn.",
+      "thesis_type": "growth_momentum",
+      "ticker": "SEMIX",
+      "updated_at": "2026-06-29T12:00:00+00:00"
+    }
+  ],
+  "schema_version": "1.0",
+  "source": "fictional_journal_fixture"
+}

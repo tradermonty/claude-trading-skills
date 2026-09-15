@@ -1,0 +1,16 @@
+{
+  "as_of": "2026-06-29",
+  "breadth_score": 72,
+  "exposure_posture": "NEW_ENTRY_ALLOWED",
+  "notes": [
+    "Hand-authored teaching evidence only."
+  ],
+  "regime": "BROADENING",
+  "regime_label": "Broadening regime; participation improving",
+  "schema_version": "1.0",
+  "source": "fictional_regime_fixture",
+  "top_detector_score": 30,
+  "warnings": [
+    "Fictional regime; not a market claim."
+  ]
+}

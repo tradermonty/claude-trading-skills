@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "human_approved": true,
+  "per_card": {
+    "hyp_cloudex": {
+      "status": "ENTRY_READY",
+      "reason": "Layer-1/2 alignment confirmed; gap open.",
+      "confidence": "high",
+      "confidence_score": 0.8
+    },
+    "hyp_elergy": {
+      "status": "ENTRY_READY",
+      "reason": "Layer-1/2 alignment confirmed; gap open.",
+      "confidence": "high",
+      "confidence_score": 0.8
+    },
+    "hyp_metafx": {
+      "status": "IDEA",
+      "reason": "Park pending further confirmation.",
+      "confidence": "medium",
+      "confidence_score": 0.6
+    },
+    "hyp_semifx": {
+      "status": "IDEA",
+      "reason": "Park pending further confirmation.",
+      "confidence": "medium",
+      "confidence_score": 0.6
+    }
+  }
+}

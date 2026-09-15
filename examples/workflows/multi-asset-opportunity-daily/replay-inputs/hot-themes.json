@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-06-29",
+  "source": "fictional_theme_fixture",
+  "themes": [
+    {
+      "theme": "Fictional Cloud Efficiency",
+      "strength": "EMERGING",
+      "symbols": ["CLOUDX"],
+      "evidence": ["Hand-authored teaching evidence only."]
+    },
+    {
+      "theme": "Fictional Data Center Buildout",
+      "strength": "STRENGTHENING",
+      "symbols": ["ELECGY", "METALX"],
+      "evidence": ["Hand-authored teaching evidence only."]
+    },
+    {
+      "theme": "Fictional Semiconductor Upturn",
+      "strength": "STRENGTHENING",
+      "symbols": ["SEMIX"],
+      "evidence": ["Hand-authored teaching evidence only."]
+    }
+  ],
+  "warnings": [
+    "Fictional themes; not a market claim."
+  ]
+}

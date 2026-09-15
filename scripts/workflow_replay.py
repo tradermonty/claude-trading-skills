@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Deterministic workflow contract replay harness (Issue #294, coverage 10/11).
+"""Deterministic workflow contract replay harness (Issue #294, coverage 11/11).
 
 The harness executes real offline CLIs for the Stockbee fluency, 20% study,
 trade-memory, market-regime, monthly-performance-review, core-portfolio,
-kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily, and swing-opportunity-daily workflows. Human decisions
+kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily, swing-opportunity-daily, and
+multi-asset-opportunity-daily workflows. Human decisions
 and fixture-backed native API evidence are reported separately from full skill
 execution. Golden outputs are comparison targets only and are never used as
 replay inputs.
@@ -49,13 +50,10 @@ KANCHI_FORBIDDEN_REVIEW_TOKENS = frozenset(
 )
 VARIANTS = ("required-only", "full-path")
 
-# Coverage 10/11 leaves one workflow deferred. This frozen baseline prevents a
-# newly introduced workflow from being waved through as another deferral.
-FROZEN_DEFERRED_WORKFLOWS = frozenset(
-    {
-        "multi-asset-opportunity-daily",
-    }
-)
+# Replay coverage complete: all canonical workflows ship executable replay specs.
+# This frozen baseline prevents a newly introduced workflow from being waved
+# through as an undocumented deferral.
+FROZEN_DEFERRED_WORKFLOWS: frozenset[str] = frozenset()
 
 MARKET_COMPONENT_CONFIG = {
     "breadth": {
@@ -246,7 +244,7 @@ def coverage_errors(workflow_ids: set[str], coverage: Mapping[str, Any]) -> list
 
     if set(deferred) != FROZEN_DEFERRED_WORKFLOWS:
         errors.append(
-            "deferred workflows must match the frozen coverage 10/11 deferred set; "
+            "deferred workflows must match the frozen replay-coverage baseline; "
             f"expected {sorted(FROZEN_DEFERRED_WORKFLOWS)}, got {sorted(deferred)}"
         )
     for workflow_id, entry in deferred.items():
@@ -522,6 +520,12 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
         "kanchi_tax_advice": {"tax_holdings"},
         "kanchi_review_queue": {"review_monitor"},
         "kanchi_register_thesis": {"register_decision"},
+        "multi_asset_macro_regime": {"macro_regime_fixture"},
+        "multi_asset_hot_themes": {"hot_themes_fixture"},
+        "multi_asset_catalyst_news": {"catalyst_news_fixture"},
+        "multi_asset_hypothesis": {"hypothesis_fixture"},
+        "multi_asset_size": {"sizing_parameters"},
+        "multi_asset_journal": {"journal_decision"},
     }
     for number, replay_step in spec_steps.items():
         required_inputs = executor_required_inputs.get(replay_step["executor"], set())
@@ -5411,6 +5415,274 @@ def _ep_discipline(repo_root, spec, step, inputs, consumed, work, stage):
     return artifacts
 
 
+MULTI_ASSET_SCHEMA = (
+    REPO_ROOT
+    / "examples"
+    / "workflows"
+    / "multi-asset-opportunity-daily"
+    / "replay-contract.schema.json"
+)
+
+
+def _validate_multi_asset_contract(payload: Any, definition: str) -> Mapping[str, Any]:
+    schema = _load_json(MULTI_ASSET_SCHEMA, "multi-asset replay contract schema")
+    selected: Any = {
+        "$schema": schema["$schema"],
+        "$defs": schema["$defs"],
+        "$ref": f"#/$defs/{definition}",
+    }
+    errors = _schema_error_details(selected, payload)
+    if errors:
+        raise ReplayError(f"invalid multi-asset {definition} contract:\n- " + "\n- ".join(errors))
+    _assert_finite_json(payload, f"multi-asset {definition}")
+    return payload
+
+
+def _multi_asset_macro_regime(repo_root, spec, step, inputs, consumed, work, stage):
+    if consumed:
+        raise ReplayError("macro regime must not consume upstream artifacts")
+    fixture = _load_json(inputs["macro_regime_fixture"], "macro regime fixture")
+    payload = _validate_multi_asset_contract(fixture, "macro_regime_report")
+    if payload["exposure_posture"] == "CASH_PRIORITY":
+        raise ReplayError(
+            "macro regime brief is cash-priority; the multi-asset opportunity scan is not run on"
+            " such days"
+        )
+    if payload["as_of"] != _core_date(spec):
+        raise ReplayError("macro regime brief as_of must match the replay fixed_timestamp date")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["macro_regime_brief"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_hot_themes(repo_root, spec, step, inputs, consumed, work, stage):
+    if "macro_regime_brief" not in consumed:
+        raise ReplayError("hot themes requires the macro regime brief handoff")
+    fixture = _load_json(inputs["hot_themes_fixture"], "hot themes fixture")
+    payload = _validate_multi_asset_contract(fixture, "screen_candidate")
+    if not payload["themes"]:
+        raise ReplayError("hot themes must contain at least one theme")
+    if payload["as_of"] != _core_date(spec):
+        raise ReplayError("hot themes as_of must match the replay fixed_timestamp date")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["hot_themes"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_catalyst_news(repo_root, spec, step, inputs, consumed, work, stage):
+    if "hot_themes" not in consumed:
+        raise ReplayError("catalyst news requires the hot themes handoff")
+    fixture = _load_json(inputs["catalyst_news_fixture"], "catalyst news fixture")
+    payload = _validate_multi_asset_contract(fixture, "scenario_analysis")
+    total_pct = float(sum(sc["probability_pct"] for sc in payload["scenarios"]))
+    if not _close_number(total_pct, 100.0):
+        raise ReplayError(f"catalyst scenario probability_pct must sum to 100, got {total_pct}")
+    if payload["as_of"] != _core_date(spec):
+        raise ReplayError("catalyst news as_of must match the replay fixed_timestamp date")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["catalyst_news_brief"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_hypothesis(repo_root, spec, step, inputs, consumed, work, stage):
+    for required in ("macro_regime_brief", "hot_themes"):
+        if required not in consumed:
+            raise ReplayError(f"hypothesis synthesis requires the {required} handoff")
+    theme_payload = _load_json(
+        Path(consumed["hot_themes"]["files"]["canonical"]), "hot themes handoff"
+    )
+    themes_by_name = {t["theme"]: t for t in theme_payload["themes"]}
+    fixture = _load_json(inputs["hypothesis_fixture"], "hypothesis fixture")
+    kept = []
+    for card in fixture["cards"]:
+        if card.get("gap_to_consensus") != "FAVORABLE":
+            continue
+        theme_name = card.get("theme")
+        theme = themes_by_name.get(theme_name)
+        if theme is None:
+            raise ReplayError(
+                f"hypothesis {card['hypothesis_id']} references unknown theme {theme_name!r}"
+            )
+        if card.get("symbol") not in (theme.get("symbols") or []):
+            raise ReplayError(
+                f"hypothesis {card['hypothesis_id']} symbol {card.get('symbol')!r} is not in"
+                f" theme {theme_name!r} symbols"
+            )
+        kept.append(card)
+    if not kept:
+        raise ReplayError("hypothesis gate produced no cards")
+    payload = {
+        "schema_version": fixture["schema_version"],
+        "as_of": fixture["as_of"],
+        "source": fixture["source"],
+        "cards": kept,
+    }
+    payload = _validate_multi_asset_contract(payload, "trade_thesis")
+    if payload["as_of"] != _core_date(spec):
+        raise ReplayError("hypothesis cards as_of must match the replay fixed_timestamp date")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["hypothesis_cards"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_size(repo_root, spec, step, inputs, consumed, work, stage):
+    if "hypothesis_cards" not in consumed:
+        raise ReplayError("size requires the hypothesis cards handoff")
+    cards = _load_json(
+        Path(consumed["hypothesis_cards"]["files"]["canonical"]), "hypothesis cards handoff"
+    )["cards"]
+    sizing = _load_json(inputs["sizing_parameters"], "sizing parameters")
+    per_card = sizing.get("per_card") or {}
+    plans = []
+    for card in cards:
+        h_id = card["hypothesis_id"]
+        symbol = card["symbol"]
+        sizing_entry = per_card.get(h_id)
+        if not isinstance(sizing_entry, dict):
+            raise ReplayError(f"sizing fixture missing entry for hypothesis {h_id}")
+        if sizing_entry.get("symbol") != symbol:
+            raise ReplayError(
+                f"sizing fixture symbol {sizing_entry.get('symbol')!r} != hypothesis symbol"
+                f" {symbol!r} for {h_id}"
+            )
+        reports = work / "reports" / h_id
+        reports.mkdir(parents=True, exist_ok=True)
+        command = [
+            sys.executable,
+            str(repo_root / "skills" / "position-sizer" / "scripts" / "position_sizer.py"),
+            "--account-size",
+            str(sizing["account_size"]),
+            "--entry",
+            str(sizing_entry["entry"]),
+            "--stop",
+            str(sizing_entry["stop"]),
+            "--risk-pct",
+            str(sizing["risk_pct"]),
+            "--max-position-pct",
+            str(sizing["max_position_pct"]),
+            "--max-sector-pct",
+            str(sizing["max_sector_pct"]),
+            "--sector",
+            str(sizing["sector"]),
+            "--current-sector-exposure",
+            str(sizing["current_sector_exposure"]),
+            "--output-dir",
+            str(reports),
+        ]
+        _run_cli(command, repo_root)
+        result = _load_json(
+            _latest_report(reports, "position_sizer_*.json"), f"position sizing {h_id}"
+        )
+        _assert_finite_json(result, f"position sizing {h_id}")
+        plans.append(
+            {
+                "hypothesis_id": h_id,
+                "symbol": symbol,
+                "mode": result["mode"],
+                "parameters": result["parameters"],
+                "final_recommended_shares": result["final_recommended_shares"],
+                "final_risk_dollars": result["final_risk_dollars"],
+                "final_risk_pct": result["final_risk_pct"],
+                "final_position_value": result["final_position_value"],
+                "calculations": result["calculations"],
+                "constraints_applied": result["constraints_applied"],
+                "binding_constraint": result["binding_constraint"],
+            }
+        )
+    payload = {"schema_version": "1.0", "as_of": _core_date(spec), "plans": plans}
+    payload = _validate_multi_asset_contract(payload, "position_sizing_plan")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["sized_hypotheses"]["files"]["canonical"]), payload)
+    return artifacts
+
+
+def _multi_asset_journal(repo_root, spec, step, inputs, consumed, work, stage):
+    for required in ("hypothesis_cards", "sized_hypotheses"):
+        if required not in consumed:
+            raise ReplayError(f"journal requires the {required} handoff")
+    cards = _load_json(
+        Path(consumed["hypothesis_cards"]["files"]["canonical"]), "hypothesis cards handoff"
+    )["cards"]
+    sized = _load_json(
+        Path(consumed["sized_hypotheses"]["files"]["canonical"]), "sized hypotheses handoff"
+    )
+    sized_by_hyp = {p["hypothesis_id"]: p for p in sized["plans"]}
+    fixed_ts = spec["fixed_timestamp"]
+    date = _core_date(spec)
+    decision = _load_json(inputs["journal_decision"], "journal decision")
+    per_card = decision.get("per_card") or {}
+    entries = []
+    for card in cards:
+        h_id = card["hypothesis_id"]
+        symbol = card["symbol"]
+        decision_for = per_card.get(h_id)
+        if not isinstance(decision_for, dict):
+            raise ReplayError(f"journal decision missing for hypothesis {h_id}")
+        status = decision_for.get("status")
+        if status == "REJECTED":
+            continue
+        if status not in ("IDEA", "ENTRY_READY"):
+            raise ReplayError(
+                f"hypothesis {h_id} journal status must be IDEA/ENTRY_READY/REJECTED, got {status!r}"
+            )
+        if card.get("asset_type") == "forex" and status == "ENTRY_READY":
+            raise ReplayError(f"forex hypothesis {h_id} is research-only and cannot be ENTRY_READY")
+        if status == "ENTRY_READY" and card.get("recommendation") != "pursue":
+            raise ReplayError(
+                f"hypothesis {h_id} cannot be ENTRY_READY; recommendation is not pursue"
+            )
+        if h_id not in sized_by_hyp:
+            raise ReplayError(f"journal missing sized plan for hypothesis {h_id}")
+        if sized_by_hyp[h_id]["symbol"] != symbol:
+            raise ReplayError(f"journal sized plan symbol mismatch for {h_id}")
+        suffix = hashlib.sha256(h_id.encode()).hexdigest()[:4]
+        thesis_id = f"th_{symbol.lower()}_mul_{date.replace('-', '')}_{suffix}"
+        history = [
+            {
+                "status": "IDEA",
+                "at": fixed_ts,
+                "reason": "Hypothesis card synthesized from macro and theme alignment.",
+            }
+        ]
+        if status == "ENTRY_READY":
+            history.append(
+                {
+                    "status": "ENTRY_READY",
+                    "at": fixed_ts,
+                    "reason": decision_for.get("reason") or "Reviewed and promoted.",
+                }
+            )
+        entry = {
+            "thesis_id": thesis_id,
+            "ticker": symbol,
+            "created_at": fixed_ts,
+            "updated_at": fixed_ts,
+            "thesis_type": "growth_momentum",
+            "status": status,
+            "status_history": history,
+            "thesis_statement": card["thesis"],
+            "origin": {
+                "skill": "trade-hypothesis-ideator",
+                "output_file": "04_hypothesis_cards.json",
+                "raw_provenance": {"fixture": "fictional", "hypothesis_id": h_id},
+            },
+        }
+        entry = _validate_multi_asset_contract(entry, "journal_entry")
+        entries.append(entry)
+    payload = {
+        "schema_version": "1.0",
+        "as_of": date,
+        "source": "fictional_journal_fixture",
+        "entries": entries,
+    }
+    payload = _validate_multi_asset_contract(payload, "opportunity_journal")
+    if not payload["entries"]:
+        raise ReplayError("journal decision rejected every hypothesis; nothing to record")
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["opportunity_journal_entries"]["files"]["canonical"]), payload)
+    return artifacts
+
+
 EXECUTORS: dict[str, ExecutorRegistration] = {
     "ep_circuit": ExecutorRegistration("native_cli", _ep_circuit),
     "ep_screen": ExecutorRegistration("manual_contract", _ep_screen),
@@ -5506,6 +5778,14 @@ EXECUTORS: dict[str, ExecutorRegistration] = {
         _kanchi_register_thesis,
         ("manual_contract", "native_api"),
     ),
+    "multi_asset_macro_regime": ExecutorRegistration("manual_contract", _multi_asset_macro_regime),
+    "multi_asset_hot_themes": ExecutorRegistration("manual_contract", _multi_asset_hot_themes),
+    "multi_asset_catalyst_news": ExecutorRegistration(
+        "manual_contract", _multi_asset_catalyst_news
+    ),
+    "multi_asset_hypothesis": ExecutorRegistration("manual_contract", _multi_asset_hypothesis),
+    "multi_asset_size": ExecutorRegistration("native_cli", _multi_asset_size),
+    "multi_asset_journal": ExecutorRegistration("manual_contract", _multi_asset_journal),
 }
 
 
@@ -5539,6 +5819,12 @@ def _prompt_text(workflow: Mapping[str, Any], variant: str) -> str:
             "Include the optional screeners, tax/account-location advice, and "
             "existing-holding review while keeping every buy proposal manual and "
             "never activating a thesis."
+        )
+    elif workflow["id"] == "multi-asset-opportunity-daily":
+        optional_text = (
+            "Include the optional catalyst-scenario handoff before synthesizing "
+            "hypothesis cards, while keeping the eventual journal read-only and never "
+            "submitting orders."
         )
     else:
         optional_text = (
