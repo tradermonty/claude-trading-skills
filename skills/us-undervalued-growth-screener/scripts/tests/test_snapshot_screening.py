@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
@@ -306,6 +309,59 @@ class BudgetOnPacketClient(FakeScreenClient):
 
 
 class VerifiedSnapshotBundleTests(unittest.TestCase):
+    def _replace_shard_payload(self, snapshot_dir: Path, payload: bytes) -> Path:
+        path = SNAP.shard_path(snapshot_dir, 0)
+        path.write_bytes(payload)
+        manifest = SNAP.load_manifest(snapshot_dir)
+        manifest["shards"]["0"]["shard_sha256"] = hashlib.sha256(payload).hexdigest()
+        SNAP.write_manifest(snapshot_dir, manifest)
+        return path
+
+    def _load_with_tracked_shard_read(
+        self,
+        snapshot_dir: Path,
+        *,
+        now: datetime,
+        read_error: OSError | None = None,
+    ) -> tuple[dict, int]:
+        target = SNAP.shard_path(snapshot_dir, 0)
+        original_read_bytes = Path.read_bytes
+        shard_reads = 0
+
+        def controlled_read_bytes(path: Path) -> bytes:
+            nonlocal shard_reads
+            if path == target:
+                shard_reads += 1
+                if read_error is not None:
+                    raise read_error
+            return original_read_bytes(path)
+
+        with mock.patch.object(Path, "read_bytes", controlled_read_bytes):
+            bundle = SNAP.load_verified_snapshot(
+                snapshot_dir,
+                screening_as_of=now,
+                max_staleness_days=7,
+            )
+        return bundle, shard_reads
+
+    def _assert_failed_shard_bundle(
+        self,
+        bundle: dict,
+        *,
+        path: Path,
+        diagnostic: str,
+        expected_sha: str | None,
+    ) -> None:
+        verdict = bundle["verdict"]
+        self.assertFalse(verdict["contents_verified"])
+        self.assertFalse(verdict["ready_for_screening"])
+        self.assertEqual(bundle["rows"], [])
+        self.assertTrue(
+            any(f"shard 0 ({path}): {diagnostic}" in problem for problem in verdict["problems"]),
+            verdict["problems"],
+        )
+        self.assertEqual(verdict["verification_binding"]["shard_sha256"]["0"], expected_sha)
+
     def test_verified_rows_and_digest_come_from_one_verified_read(self) -> None:
         now = datetime.now(timezone.utc).replace(microsecond=0)
         with tempfile.TemporaryDirectory() as tmp:
@@ -336,6 +392,69 @@ class VerifiedSnapshotBundleTests(unittest.TestCase):
             )
             self.assertFalse(bundle["verdict"]["ready_for_screening"])
             self.assertEqual(bundle["rows"], [])
+
+    def test_malformed_json_shard_returns_failed_verdict_with_actual_sha(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        payload = b'{"broken"\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot_dir = _build_snapshot(Path(tmp), now=now)
+            path = self._replace_shard_payload(snapshot_dir, payload)
+            bundle, shard_reads = self._load_with_tracked_shard_read(snapshot_dir, now=now)
+            self.assertEqual(shard_reads, 1)
+            self._assert_failed_shard_bundle(
+                bundle,
+                path=path,
+                diagnostic="invalid JSON",
+                expected_sha=hashlib.sha256(payload).hexdigest(),
+            )
+
+    def test_invalid_utf8_shard_returns_failed_verdict_with_actual_sha(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        payload = b"\xff\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot_dir = _build_snapshot(Path(tmp), now=now)
+            path = self._replace_shard_payload(snapshot_dir, payload)
+            bundle, shard_reads = self._load_with_tracked_shard_read(snapshot_dir, now=now)
+            self.assertEqual(shard_reads, 1)
+            self._assert_failed_shard_bundle(
+                bundle,
+                path=path,
+                diagnostic="invalid UTF-8",
+                expected_sha=hashlib.sha256(payload).hexdigest(),
+            )
+
+    def test_non_object_shard_row_returns_failed_verdict_with_actual_sha(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        payload = b"[]\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot_dir = _build_snapshot(Path(tmp), now=now)
+            path = self._replace_shard_payload(snapshot_dir, payload)
+            bundle, shard_reads = self._load_with_tracked_shard_read(snapshot_dir, now=now)
+            self.assertEqual(shard_reads, 1)
+            self._assert_failed_shard_bundle(
+                bundle,
+                path=path,
+                diagnostic="row is not a JSON object",
+                expected_sha=hashlib.sha256(payload).hexdigest(),
+            )
+
+    def test_unreadable_shard_returns_failed_verdict_with_null_sha(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot_dir = _build_snapshot(Path(tmp), now=now)
+            path = SNAP.shard_path(snapshot_dir, 0)
+            bundle, shard_reads = self._load_with_tracked_shard_read(
+                snapshot_dir,
+                now=now,
+                read_error=OSError("synthetic unreadable shard"),
+            )
+            self.assertEqual(shard_reads, 1)
+            self._assert_failed_shard_bundle(
+                bundle,
+                path=path,
+                diagnostic="read failed",
+                expected_sha=None,
+            )
 
     def test_subset_enumeration_proof_is_rejected(self) -> None:
         now = datetime.now(timezone.utc).replace(microsecond=0)
@@ -889,6 +1008,46 @@ class FullSnapshotStageTests(unittest.TestCase):
                 ]
             )
             self.assertEqual(rc, 1)
+            self.assertFalse(output.exists())
+            self.assertFalse(cache.exists())
+            self.assertFalse(raw.exists())
+
+    def test_cli_malformed_shard_fails_before_creating_output_state(self) -> None:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot_dir = _build_snapshot(root, now=now)
+            payload = b'{"broken"\n'
+            path = SNAP.shard_path(snapshot_dir, 0)
+            path.write_bytes(payload)
+            manifest = SNAP.load_manifest(snapshot_dir)
+            manifest["shards"]["0"]["shard_sha256"] = hashlib.sha256(payload).hexdigest()
+            SNAP.write_manifest(snapshot_dir, manifest)
+            output = root / "reports"
+            cache = root / "cache" / "fmp.sqlite3"
+            raw = root / "raw"
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                rc = PIPELINE.main(
+                    [
+                        "--stage",
+                        "screen-full-snapshot",
+                        "--snapshot-dir",
+                        str(snapshot_dir),
+                        "--analysis-as-of",
+                        now.isoformat(),
+                        "--output-dir",
+                        str(output),
+                        "--cache-path",
+                        str(cache),
+                        "--raw-store-dir",
+                        str(raw),
+                    ]
+                )
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(rc, 1)
+            self.assertEqual(result["status"], "failed")
+            self.assertNotIn("ranking_scope", result)
             self.assertFalse(output.exists())
             self.assertFalse(cache.exists())
             self.assertFalse(raw.exists())

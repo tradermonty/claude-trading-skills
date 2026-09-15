@@ -524,7 +524,12 @@ def load_verified_snapshot(
             if int(entry.get("attempted") or 0) > 0:
                 problems.append(f"shard {index}: file missing but manifest records rows")
             continue
-        shard_bytes = path.read_bytes()
+        try:
+            shard_bytes = path.read_bytes()
+        except OSError as exc:
+            actual_shard_hashes[str(index)] = None
+            problems.append(f"shard {index} ({path}): read failed: {exc}")
+            continue
         recorded_sha = entry.get("shard_sha256")
         actual_sha = hashlib.sha256(shard_bytes).hexdigest()
         actual_shard_hashes[str(index)] = actual_sha
@@ -538,7 +543,17 @@ def load_verified_snapshot(
         recount: dict[str, int] = {}
         shard_normalization_stamps: list[str] = []
         shard_unknown_normalization = 0
-        shard_rows = _rows_from_bytes(shard_bytes, path=path)
+        try:
+            shard_rows = _rows_from_bytes(shard_bytes, path=path)
+        except UnicodeDecodeError as exc:
+            problems.append(f"shard {index} ({path}): invalid UTF-8: {exc}")
+            continue
+        except json.JSONDecodeError as exc:
+            problems.append(f"shard {index} ({path}): invalid JSON: {exc}")
+            continue
+        except ValueError as exc:
+            problems.append(f"shard {index} ({path}): row is not a JSON object: {exc}")
+            continue
         expected_in_shard = sum(
             1 for symbol in expected_symbols if stable_shard(symbol, shard_count) == index
         )
