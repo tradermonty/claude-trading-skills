@@ -81,7 +81,7 @@
   "sources": {
     "hypothesis_cards": {
       "file": "$ARTIFACT/04_hypothesis_cards.json",
-      "sha256": "08fa93bfac16d07e4bb1f661bcf8690836d64fec1596cdef3fa63982119a1f56"
+      "sha256": "0d2d189aa37d8bf616cb49abd66e8e22ff14c0f7b2ff6dc0328da01993bc0816"
     },
     "sized_hypotheses": {
       "file": "$ARTIFACT/05_sized_hypotheses.json",

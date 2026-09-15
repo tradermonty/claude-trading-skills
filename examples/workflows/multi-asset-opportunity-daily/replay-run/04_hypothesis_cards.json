@@ -30,8 +30,7 @@
       ],
       "evidence_basis": [
         "$ARTIFACT/01_macro_regime_brief.json broadening regime signals",
-        "$ARTIFACT/02_hot_themes.json fictional edge compute participation",
-        "$ARTIFACT/03_catalyst_news_brief.json fictional capacity outlook headline"
+        "$ARTIFACT/02_hot_themes.json fictional edge compute participation"
       ],
       "expected_impact": "A researched continuation candidate for the fictional swing playbook with one staged review checkpoint",
       "hypothesis_id": "hyp_zzq_edge_equity",
@@ -83,8 +82,7 @@
       ],
       "evidence_basis": [
         "$ARTIFACT/01_macro_regime_brief.json equal-weight leadership",
-        "$ARTIFACT/02_hot_themes.json fictional power infrastructure theme",
-        "$ARTIFACT/03_catalyst_news_brief.json fictional buildout agreement headline"
+        "$ARTIFACT/02_hot_themes.json fictional power infrastructure theme"
       ],
       "expected_impact": "One researched emerging-theme tracker recorded as an IDEA only",
       "hypothesis_id": "hyp_zzc_energy_proxy",

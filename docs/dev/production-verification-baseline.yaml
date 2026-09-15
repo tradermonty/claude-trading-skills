@@ -293,7 +293,7 @@ skills:
   overrides:
     workflow_contract:
       value: passed
-      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite; the multi-asset-opportunity-daily coverage extension adds the remaining handoffs with the per-workflow replay contract schema.
       evidence:
       - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
       - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
@@ -344,7 +344,7 @@ skills:
   overrides:
     workflow_contract:
       value: passed
-      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite; the multi-asset-opportunity-daily coverage extension adds the remaining handoffs with the per-workflow replay contract schema.
       evidence:
       - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
       - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
@@ -393,7 +393,7 @@ skills:
   overrides:
     workflow_contract:
       value: passed
-      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite; the multi-asset-opportunity-daily coverage extension adds the remaining handoffs with the per-workflow replay contract schema.
       evidence:
       - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
       - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
@@ -414,7 +414,7 @@ skills:
   overrides:
     workflow_contract:
       value: passed
-      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite; the multi-asset-opportunity-daily coverage extension adds the remaining handoffs with the per-workflow replay contract schema.
       evidence:
       - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
       - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml
@@ -435,7 +435,7 @@ skills:
   overrides:
     workflow_contract:
       value: passed
-      rationale: Every canonical workflow handoff involving this skill is exercised by the executable multi-asset replay with the per-workflow replay contract schema.
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite; the multi-asset-opportunity-daily coverage extension adds the remaining handoffs with the per-workflow replay contract schema.
       evidence:
       - path: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
       - path: examples/workflows/multi-asset-opportunity-daily/replay.yaml

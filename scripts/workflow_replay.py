@@ -4658,7 +4658,6 @@ _MULTI_ASSET_REPLAY_SCHEMA = (
 )
 _MULTI_ASSET_IDEATOR_SCRIPT = "skills/trade-hypothesis-ideator/scripts/run_hypothesis_ideator.py"
 _MULTI_ASSET_POSITION_SIZER_SCRIPT = "skills/position-sizer/scripts/position_sizer.py"
-_MULTI_ASSET_SIZE_SIZER_SCRIPT = "skills/position-sizer/scripts/position_sizer.py"
 
 
 def _validate_multi_asset_contract(payload: Any, definition: str) -> None:
@@ -4903,6 +4902,21 @@ def _multi_asset_hypotheses(
     _assert_finite_json(
         _load_json(raw_path, "multi-asset raw hypotheses fixture"), "raw hypotheses"
     )
+    for hypothesis in _load_json(raw_path, "multi-asset raw hypotheses").get("hypotheses", []):
+        for token in hypothesis.get("evidence_basis") or []:
+            match = re.match(r"^\$ARTIFACT/(\d+)_", token)
+            if not match:
+                continue
+            ref_step = int(match.group(1))
+            if ref_step == 3 and "catalyst_news_brief" not in consumed:
+                raise ReplayError(
+                    "multi-asset raw hypotheses reference the optional news artifact "
+                    f"in a variant where it is omitted: {token!r}"
+                )
+            if ref_step not in (1, 2, 3):
+                raise ReplayError(
+                    f"multi-asset raw hypotheses reference unknown upstream step: {token!r}"
+                )
 
     pass1_dir = work / "pass1"
     pass2_dir = work / "pass2"
@@ -5040,6 +5054,10 @@ def _multi_asset_sizing(
             # One dedicated temporary report directory per card. The native CLI
             # stamps its output filename with wall-clock time; JSON reports only
             # are adopted and the markdown report (now-stamped) is never staged.
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", card_id):
+                raise ReplayError(
+                    f"multi-asset: unsafe hypothesis card id for work dir: {card_id!r}"
+                )
             reports = work / f"reports-{card_id}"
             reports.mkdir(parents=True, exist_ok=True)
             _run_cli(
