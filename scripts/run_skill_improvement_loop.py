@@ -542,16 +542,16 @@ def _skill_string_literals(project_root: Path, skill_name: str) -> set[str]:
     return literals
 
 
-def _repo_python_floor(project_root: Path) -> tuple[int, int] | None:
-    """Parse the `requires-python = ">=3.9"` floor from pyproject.toml -> (3, 9)."""
-    pyproject = project_root / "pyproject.toml"
-    if not pyproject.exists():
+def _standalone_python_floor(project_root: Path) -> tuple[int, int] | None:
+    """Read the packaged-skill Python floor from config/python-support.json."""
+    support = project_root / "config" / "python-support.json"
+    if not support.exists():
         return None
     try:
-        text = pyproject.read_text(encoding="utf-8")
-    except OSError:
+        value = json.loads(support.read_text(encoding="utf-8"))["standalone_skills_minimum"]
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
         return None
-    m = re.search(r'requires-python\s*=\s*"[^"]*?(\d+)\.(\d+)', text)
+    m = re.fullmatch(r"(\d+)\.(\d+)", str(value))
     if not m:
         return None
     return (int(m.group(1)), int(m.group(2)))
@@ -564,7 +564,7 @@ def check_prerequisites_faithfulness(project_root: Path, skill_name: str) -> lis
     Guards against the two error classes seen in PR #164:
       1. A known third-party library is listed (in backticks) but no skill file
          imports or references it by name.
-      2. A `Python 3.x+` floor is stated below the repo's requires-python.
+      2. A `Python 3.x+` floor is below the standalone packaged-skill floor.
     """
     skill_md = project_root / "skills" / skill_name / "SKILL.md"
     if not skill_md.exists():
@@ -602,15 +602,16 @@ def check_prerequisites_faithfulness(project_root: Path, skill_name: str) -> lis
                     f"imports or references `{import_name}`."
                 )
 
-    # 2) Python version floor must be >= the repo's requires-python.
-    repo_floor = _repo_python_floor(project_root)
+    # 2) Skill docs describe standalone packages, so compare against their
+    # explicit floor rather than the shared root development environment.
+    standalone_floor = _standalone_python_floor(project_root)
     version_match = re.search(r"Python\s+(\d+)\.(\d+)\s*\+", section)
-    if version_match and repo_floor:
+    if version_match and standalone_floor:
         stated = (int(version_match.group(1)), int(version_match.group(2)))
-        if stated < repo_floor:
+        if stated < standalone_floor:
             violations.add(
-                f"Prerequisites claim Python {stated[0]}.{stated[1]}+ but repo "
-                f"requires-python is >={repo_floor[0]}.{repo_floor[1]}."
+                f"Prerequisites claim Python {stated[0]}.{stated[1]}+ but standalone "
+                f"skills require >={standalone_floor[0]}.{standalone_floor[1]}."
             )
 
     return sorted(violations)
@@ -694,8 +695,8 @@ def apply_improvement(
             "scripts for real `import` statements. List only libraries that are actually imported; "
             "never copy a dependency list from another skill (e.g. do not list `pandas` unless a "
             "script imports it).\n"
-            "- For the Python version, use the repository's `requires-python` floor in pyproject.toml; "
-            "do not guess a lower version.\n"
+            "- For the Python version, use `standalone_skills_minimum` from "
+            "config/python-support.json; do not substitute the root project's development floor.\n"
             "- Standard-library modules (csv, json, io, ...) are not third-party dependencies; do not "
             "list them as installable requirements."
         )

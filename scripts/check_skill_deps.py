@@ -61,8 +61,8 @@ STDLIB_SENTINEL = "# stdlib-only"
 # …) are absent, so a skill importing one of those would be misreported
 # as an unmapped third-party import rather than stdlib. No current skill
 # does; the conservative direction keeps the gate fail-closed.
-# Deliberately NOT sys.stdlib_module_names: that attribute does not exist
-# on the CI-pinned Python 3.9 interpreter.
+# Deliberately NOT sys.stdlib_module_names: standalone package probes retain
+# Python 3.9 compatibility, where that attribute does not exist.
 STDLIB_39 = frozenset(
     """
 __future__ _abc _ast _asyncio _bisect _blake2 _bz2 _codecs _codecs_cn

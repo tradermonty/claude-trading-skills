@@ -25,7 +25,7 @@ and first weekly review.
 
 ## Before You Start
 
-This guide needs a Claude plan that supports Skills, Python 3.9+, `git`, `uv`, and
+This guide needs a Claude plan that supports Skills, Python 3.10+, `git`, `uv`, and
 internet access to public CSV files. It needs **no paid market-data API** and no FMP,
 FINVIZ Elite, or broker credentials.
 

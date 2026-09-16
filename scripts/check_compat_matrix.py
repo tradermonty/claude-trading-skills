@@ -10,8 +10,8 @@ policy over every job in those workflows.
 Policy enforced (static only):
   * Every job in ``ci.yml`` and ``compat-nightly.yml`` runs on an OS in
     ``{ubuntu-latest, windows-latest, macos-latest}``.
-  * Every job's Python version falls inside the supported range declared in
-    ``pyproject.toml`` (``requires-python``), validated as a bounded range.
+  * Root-project jobs use the range declared in ``pyproject.toml``; explicitly
+    listed standalone jobs may use the separate packaged-skill floor.
   * The ``compat-smoke`` / ``compat-nightly`` job axis sets match the matrix
     document exactly.
 
@@ -34,10 +34,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 WORKFLOW_FILES = ("ci.yml", "compat-nightly.yml")
 SUPPORTED_OS = {"ubuntu-latest", "windows-latest", "macos-latest"}
-DEFAULT_REQUIRES_PYTHON = ">=3.9,<3.14"
+DEFAULT_REQUIRES_PYTHON = ">=3.10,<3.14"
 COMPAT_JOBS = ("compat-smoke", "compat-nightly")
 DOC = "docs/dev/compatibility-matrix.md"
 PYPROJECT = "pyproject.toml"
+PYTHON_SUPPORT = "config/python-support.json"
 
 # Jobs that run a third-party action and have no ``actions/setup-python`` step,
 # so no Python version can be extracted; they are OS-checked only.
@@ -78,6 +79,14 @@ def _requires_python() -> str | None:
         return None
     match = re.search(r'requires-python\s*=\s*"([^"]+)"', text)
     return match.group(1) if match else None
+
+
+def _python_support() -> dict:
+    try:
+        value = json.loads((ROOT / PYTHON_SUPPORT).read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def _validate_python_bound(value: str | None) -> tuple[str, str]:
@@ -242,10 +251,11 @@ def _declared_from_doc() -> dict:
 def _actual_combo_sets(all_results: dict[str, JobResult]) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for job in COMPAT_JOBS:
-        if job not in all_results:
+        matches = [result for result in all_results.values() if result.job == job]
+        if not matches:
             out[job] = {"os": [], "python": []}
             continue
-        result = all_results[job]
+        result = matches[0]
         os_set = sorted({c.os for c in result.combos if c.os})
         py_set = sorted({c.python for c in result.combos if c.python})
         out[job] = {"os": os_set, "python": py_set}
@@ -273,20 +283,26 @@ def _bound_range(python_expr: str) -> tuple[str, str]:
 
 
 def _check_os_and_python_policy(
-    all_results: dict[str, JobResult], python_expr: str, errors: list[str]
+    all_results: dict[str, JobResult],
+    python_expr: str,
+    standalone_floor: str,
+    standalone_jobs: set[str],
+    errors: list[str],
 ) -> None:
     lower, upper = _bound_range(python_expr)
-    for job_id, result in all_results.items():
+    for qualified_job, result in all_results.items():
         for combo in result.combos:
             if combo.os not in SUPPORTED_OS:
-                errors.append(f"{job_id}: OS {combo.os!r} is outside supported set")
+                errors.append(f"{qualified_job}: OS {combo.os!r} is outside supported set")
             if combo.python is None:
-                if job_id not in NO_SETUP_PYTHON_JOBS:
-                    errors.append(f"{job_id}: could not resolve a Python version")
+                if result.job not in NO_SETUP_PYTHON_JOBS:
+                    errors.append(f"{qualified_job}: could not resolve a Python version")
                 continue
-            if not _in_range(combo.python, lower, upper):
+            job_lower = standalone_floor if qualified_job in standalone_jobs else lower
+            if not _in_range(combo.python, job_lower, upper):
                 errors.append(
-                    f"{job_id}: Python {combo.python} is outside supported range [{lower}, {upper})"
+                    f"{qualified_job}: Python {combo.python} is outside supported range "
+                    f"[{job_lower}, {upper})"
                 )
 
 
@@ -307,7 +323,8 @@ def _load_all_results() -> dict[str, JobResult]:
     all_results: dict[str, JobResult] = {}
     wf_dir = ROOT / ".github" / "workflows"
     for path in sorted(wf_dir.glob("*.y*ml")):
-        all_results.update(_extract_jobs(_load_yaml_text(path)))
+        for job_id, result in _extract_jobs(_load_yaml_text(path)).items():
+            all_results[f"{path.name}:{job_id}"] = result
     return all_results
 
 
@@ -316,6 +333,23 @@ def check(quiet: bool = False, as_json: bool = False) -> int:
     python_expr, bound_error = _validate_python_bound(_requires_python())
     if bound_error:
         errors.append(bound_error)
+    support = _python_support()
+    standalone_floor = str(support.get("standalone_skills_minimum", ""))
+    standalone_jobs_raw = support.get("standalone_workflow_jobs", [])
+    standalone_jobs = (
+        {str(item) for item in standalone_jobs_raw}
+        if isinstance(standalone_jobs_raw, list)
+        else set()
+    )
+    if support.get("root_project") != python_expr:
+        errors.append(
+            f"{PYTHON_SUPPORT} root_project {support.get('root_project')!r} "
+            f"!= {PYPROJECT} requires-python {python_expr!r}"
+        )
+    if not re.fullmatch(r"\d+\.\d+", standalone_floor):
+        errors.append(f"{PYTHON_SUPPORT} has invalid standalone_skills_minimum")
+    if not standalone_jobs:
+        errors.append(f"{PYTHON_SUPPORT} has no standalone_workflow_jobs")
 
     declared = _declared_from_doc()
     if not declared or all(not v["os"] for v in declared.values()):
@@ -343,7 +377,9 @@ def check(quiet: bool = False, as_json: bool = False) -> int:
 
     actual = _actual_combo_sets(all_results)
     _check_declared_workflow_match(declared, actual, errors)
-    _check_os_and_python_policy(all_results, python_expr, errors)
+    _check_os_and_python_policy(
+        all_results, python_expr, standalone_floor or "999", standalone_jobs, errors
+    )
 
     payload = {
         "ok": not errors,

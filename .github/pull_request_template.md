@@ -14,7 +14,7 @@
 
 ## Local validation / ローカル検証
 
-- [ ] Targeted tests passed with `python3.9 -m pytest <target> -q` (or the repository-compatible Python noted below). / 対象テストが通過しました。
+- [ ] Targeted tests passed with `python3.10 -m pytest <target> -q` (or the repository-compatible Python noted below). / 対象テストが通過しました。
 - [ ] The full skill suite passed with `bash scripts/run_all_tests.sh`, or N/A is explained below. / 全skill testまたはN/A理由を記録しました。
 - [ ] `ruff check skills/ scripts/` passed. / lintが通過しました。
 - [ ] `ruff format --check skills/ scripts/` passed. / format checkが通過しました。

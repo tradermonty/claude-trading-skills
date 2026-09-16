@@ -25,7 +25,7 @@ permalink: /ja/your-first-week/
 
 ## 始める前に
 
-必要なものは、Skills機能に対応したClaudeプラン、Python 3.9以上、`git`、`uv`、
+必要なものは、Skills機能に対応したClaudeプラン、Python 3.10以上、`git`、`uv`、
 公開CSVへ接続できるインターネット環境です。FMP、FINVIZ Elite、ブローカー認証情報などの
 **有料マーケットデータAPIは不要**です。
 

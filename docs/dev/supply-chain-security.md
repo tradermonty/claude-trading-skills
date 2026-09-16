@@ -37,14 +37,10 @@ with at most one version per normalized name. It verifies the exact report
 inventory; skipped packages, missing reports and scanner/service errors fail.
 The JSON report is uploaded by CI even when the audit fails.
 
-`config/security-exceptions.json` records seven exact advisory exceptions for
-five existing Python 3.9 dependency versions: curl-cffi 0.13.0, filelock 3.19.1,
-pytest 8.4.2, requests 2.32.5 and urllib3 2.6.3. Their first patched releases
-require Python >=3.10 (verified against PyPI release metadata on 2026-09-06).
-All expire on **2026-10-06**, are owned by `tradermonty`, and track the compatibility
-decision in #333. These remain known vulnerabilities; a passing policy result
-does not mean the lockfile is vulnerability-free. Compatible resolutions are
-upgraded rather than exempted.
+`config/security-exceptions.json` currently contains no exceptions. Issue #387 retired the seven
+Python 3.9 lock exceptions by moving the shared root environment to Python 3.10 and regenerating
+the lock with patched dependency versions. Standalone skill probes may still run on Python 3.9, but
+they do not consume `uv.lock` or install the root project.
 
 A vulnerability exception must identify an exact package, version and advisory, plus its owner,
 reason and expiry. Expiry is evaluated against the UTC date; an exception expires
@@ -103,10 +99,8 @@ the existing audit artifact when the audit step runs. On or after expiry,
 expiry diagnostics, but no new audit JSON artifact is guaranteed in that case.
 These are per-invocation diagnostics; they do not add a scheduled notification.
 
-This implements only the reporting part of **#387**. The reviewed supported-Python
-and dependency remediation decision, lockfile remediation, full-lock audit and
-affected standalone/compatibility validation remain open work. No deadlines are
-extended or exceptions renewed by this reporting feature.
+The approaching-expiry reporting was introduced before the #387 remediation and remains active
+for any future exact exception. The remediation did not extend a deadline or weaken the policy.
 
 These exceptions can document existing debt for the full-lock audit. They never
 populate GitHub's global `allow-ghsas` setting: a PR introducing a vulnerability

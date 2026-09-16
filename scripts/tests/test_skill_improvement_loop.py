@@ -908,12 +908,19 @@ def _setup_faithfulness_project(
     skill_name: str,
     prereq_body: str,
     script_src: str = "",
-    requires_python: str = ">=3.9",
+    requires_python: str = ">=3.10",
     heading: str = "Prerequisites",
 ) -> Path:
     """Build a temp project: pyproject + one skill with a Prerequisites section."""
     (tmp_path / "pyproject.toml").write_text(
         f'[project]\nname = "x"\nrequires-python = "{requires_python}"\n',
+        encoding="utf-8",
+    )
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(exist_ok=True)
+    (config_dir / "python-support.json").write_text(
+        '{"schema_version": 1, "root_project": ">=3.10,<3.14", '
+        '"standalone_skills_minimum": "3.9"}\n',
         encoding="utf-8",
     )
     skill_dir = tmp_path / "skills" / skill_name
@@ -953,20 +960,20 @@ def test_faithfulness_passes_when_library_imported(loop_module, tmp_path: Path):
     assert loop_module.check_prerequisites_faithfulness(tmp_path, "uptrend") == []
 
 
-def test_faithfulness_flags_python_floor_below_repo(loop_module, tmp_path: Path):
-    """PR #164 case: `Python 3.8+` while repo requires >=3.9."""
+def test_faithfulness_flags_python_floor_below_standalone(loop_module, tmp_path: Path):
+    """PR #164 case: `Python 3.8+` while standalone skills require >=3.9."""
     _setup_faithfulness_project(
         tmp_path,
         "uptrend",
         "- **Python 3.8+** with `requests`",
         script_src="import requests\n",
-        requires_python=">=3.9",
+        requires_python=">=3.10",
     )
     violations = loop_module.check_prerequisites_faithfulness(tmp_path, "uptrend")
     assert any("3.8" in v and "3.9" in v for v in violations)
 
 
-def test_faithfulness_passes_python_floor_at_repo(loop_module, tmp_path: Path):
+def test_faithfulness_allows_standalone_floor_below_root(loop_module, tmp_path: Path):
     _setup_faithfulness_project(
         tmp_path,
         "uptrend",
@@ -976,7 +983,7 @@ def test_faithfulness_passes_python_floor_at_repo(loop_module, tmp_path: Path):
     assert loop_module.check_prerequisites_faithfulness(tmp_path, "uptrend") == []
 
 
-def test_faithfulness_passes_python_floor_above_repo(loop_module, tmp_path: Path):
+def test_faithfulness_passes_python_floor_above_standalone(loop_module, tmp_path: Path):
     _setup_faithfulness_project(
         tmp_path,
         "uptrend",
@@ -1086,15 +1093,16 @@ def test_faithfulness_lib_referenced_as_string_literal_is_faithful(loop_module, 
     assert loop_module.check_prerequisites_faithfulness(tmp_path, "canslim") == []
 
 
-def test_repo_python_floor_parses_pyproject(loop_module, tmp_path: Path):
-    (tmp_path / "pyproject.toml").write_text(
-        '[project]\nrequires-python = ">=3.11"\n', encoding="utf-8"
+def test_standalone_python_floor_parses_support_config(loop_module, tmp_path: Path):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/python-support.json").write_text(
+        '{"standalone_skills_minimum": "3.9"}\n', encoding="utf-8"
     )
-    assert loop_module._repo_python_floor(tmp_path) == (3, 11)
+    assert loop_module._standalone_python_floor(tmp_path) == (3, 9)
 
 
-def test_repo_python_floor_missing_returns_none(loop_module, tmp_path: Path):
-    assert loop_module._repo_python_floor(tmp_path) is None
+def test_standalone_python_floor_missing_returns_none(loop_module, tmp_path: Path):
+    assert loop_module._standalone_python_floor(tmp_path) is None
 
 
 def test_apply_improvement_blocks_newly_introduced_unfaithful_prereqs(

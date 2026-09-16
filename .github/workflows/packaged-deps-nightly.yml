@@ -33,13 +33,10 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.10"
-      - name: Sync locked project environment
-        run: |
-          uv sync --locked --no-install-project --extra dev --extra ci
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-
       - name: Offline dependency declaration report
-        run: python3 scripts/check_skill_deps.py report > deps-report.json
+        run: >
+          uv run --isolated --no-project --with packaging
+          python scripts/check_skill_deps.py report > deps-report.json
 
       - name: Clean-room venv smoke per skill
         shell: bash

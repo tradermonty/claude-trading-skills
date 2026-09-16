@@ -10,7 +10,7 @@ packages = []
 name = "claude-trading-skills"
 version = "0.1.0"
 description = "Claude Skills for equity investors and traders"
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "jsonschema>=4.25.1",
     "packaging>=24.0",
@@ -46,7 +46,8 @@ ci = [
 [tool.ruff]
 line-length = 100
 target-version = "py39"
-# Keep the pre-upgrade Python scope; Markdown snippets are maintained as docs.
+# Standalone packaged skills retain Python 3.9 source compatibility even though
+# the repository's shared locked development environment starts at Python 3.10.
 extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
@@ -62,7 +63,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/conftest.py" = ["E402"]
 "**/test_*.py" = ["E402"]
-# Preserve runtime-evaluable annotations on Python 3.9 in the shared calendar.
+# Preserve runtime-evaluable annotations for the standalone Python 3.9 calendar.
 "**/_market_calendar.py" = ["UP007", "UP045"]
 "scripts/market_calendar/market_calendar.py" = ["UP007", "UP045"]
 
