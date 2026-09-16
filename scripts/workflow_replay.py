@@ -6153,6 +6153,14 @@ def _write_manifest(
         "optional_steps_skipped": skipped,
         "artifacts": entries,
     }
+    if workflow["id"] == "swing-opportunity-daily":
+        payload["execution_evidence_limitations"] = [
+            "When step 11 executes, the native discipline CLI consumes checklist answers synthesized from offline fixtures and plan/sizing consistency checks, not human checklist responses.",
+            "No live human-approval workflow is exercised and no broker order is submitted; neither fixture GO nor NO_GO authorizes a real trade.",
+            "In the bundled full-path fixture, the consistent optional written plan yields fixture GO when step 11 executes; this is not human approval."
+            if variant == "full-path"
+            else "In required-only replay, the optional written plan is absent, so step 11 returns NO_GO when executed.",
+        ]
     if workflow["id"] == "stockbee-ep-daily":
         payload["execution_evidence_limitations"] = [
             "Native circuit breaker, EP classification and position sizing consume fictional offline inputs; live providers and news verification are not executed.",
