@@ -290,6 +290,19 @@ skills:
   profile: executable_workflow_trading
 - id: macro-regime-detector
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Step 1 handoff is schema-validated before any downstream execution and the exposure gate halts on cash-priority days; provider sweep is manual-fixture based (declared limitation).
+      evidence:
+      - t
+    end_to_end_replay:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite (11/11), including the deterministic required-only and full-path variants of multi-asset-opportunity-daily added in PR #409/#412.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check; exit 0; coverage 11/11
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py (26 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
+      - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: market-breadth-analyzer
   profile: executable_workflow_trading
 - id: market-environment-analysis
@@ -322,6 +335,19 @@ skills:
   profile: executable_workflow_trading
 - id: position-sizer
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Sizing handoff is executed natively per hypothesis card with FX research-only rejection and a card-id safety guard.
+      evidence:
+      - i
+    end_to_end_replay:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite (11/11), including the deterministic required-only and full-path variants of multi-asset-opportunity-daily added in PR #409/#412.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check; exit 0; coverage 11/11
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py (26 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
+      - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: scenario-analyzer
   profile: knowledge_standalone_trading
   overrides:
@@ -352,10 +378,49 @@ skills:
   profile: executable_workflow_trading
 - id: theme-detector
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Step 2 handoff is schema-validated in the multi-asset replay; the theme screen contract is also exercised by the swing replay; provider sweep is manual-fixture based (declared limitation).
+      evidence:
+      - t
+    end_to_end_replay:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite (11/11), including the deterministic required-only and full-path variants of multi-asset-opportunity-daily added in PR #409/#412.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check; exit 0; coverage 11/11
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py (26 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
+      - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: trade-hypothesis-ideator
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Ideator pass1/pass2 native CLI runs inside the multi-asset replay with input-bundle validation and exact decision-coverage checks.
+      evidence:
+      - d
+    end_to_end_replay:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite (11/11), including the deterministic required-only and full-path variants of multi-asset-opportunity-daily added in PR #409/#412.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check; exit 0; coverage 11/11
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py (26 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
+      - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: trader-memory-core
   profile: executable_workflow_trading
+  overrides:
+    workflow_contract:
+      value: passed
+      rationale: Registration handoff uses public APIs (register/get/link_report) with IDEA-only enforcement and kill-criteria inheritance; ten other replayed workflows also exercise the state store.
+      evidence:
+      - e
+    end_to_end_replay:
+      value: passed
+      rationale: Every canonical workflow handoff involving this skill is exercised by the executable workflow replay suite (11/11), including the deterministic required-only and full-path variants of multi-asset-opportunity-daily added in PR #409/#412.
+      evidence:
+      - command: python3 scripts/workflow_replay.py check; exit 0; coverage 11/11
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py (26 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
+      - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: trading-skills-navigator
   profile: meta_standalone
 - id: uptrend-analyzer
