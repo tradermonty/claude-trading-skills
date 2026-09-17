@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +28,46 @@ def _load_yaml(path: Path) -> dict:
 
 def _resolve_axis(profile_axis: dict, override: dict | None) -> dict:
     return override if override is not None else profile_axis
+
+
+def _assert_evidence_entries(evidence: list) -> None:
+    assert isinstance(evidence, list), "evidence must be a list"
+    for entry in evidence:
+        assert isinstance(entry, dict) and entry, "evidence entries must be nonempty mappings"
+        for key, value in entry.items():
+            assert isinstance(key, str) and key.strip(), "evidence keys must be nonblank strings"
+            assert isinstance(value, str) and value.strip(), (
+                "evidence values must be nonblank strings"
+            )
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        "command",
+        ["t"],
+        [{"command": "valid command"}, "i"],
+        [{}],
+        [{"command": " "}],
+        [{"command": None}],
+        [{"command": 18}],
+        [{"": "valid command"}],
+        [{1: "valid command"}],
+    ],
+)
+def test_malformed_evidence_is_rejected(evidence: list) -> None:
+    with pytest.raises(AssertionError):
+        _assert_evidence_entries(evidence)
+
+
+def test_structured_evidence_is_accepted() -> None:
+    _assert_evidence_entries([])
+    _assert_evidence_entries(
+        [
+            {"path": ".github/workflows/ci.yml", "job": "security"},
+            {"spec + schema": "replay.yaml with replay-contract.schema.json"},
+        ]
+    )
 
 
 def test_baseline_covers_exactly_current_production_skills() -> None:
@@ -66,7 +107,7 @@ def test_baseline_covers_exactly_current_production_skills() -> None:
             resolved = _resolve_axis(profile_axes[axis], overrides.get(axis))
             assert resolved["value"] in VALUES
             assert isinstance(resolved["rationale"], str) and resolved["rationale"].strip()
-            assert isinstance(resolved["evidence"], list)
+            _assert_evidence_entries(resolved["evidence"])
             if resolved["value"] == "passed":
                 assert axis in overrides, "passed requires skill-specific evidence override"
                 assert resolved["evidence"], "passed requires auditable evidence"
