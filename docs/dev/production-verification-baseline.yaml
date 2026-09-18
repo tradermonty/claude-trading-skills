@@ -427,7 +427,7 @@ skills:
   overrides:
     workflow_contract:
       value: passed
-      rationale: Registration handoff uses public APIs (register/get/link_report) with IDEA-only enforcement and kill-criteria inheritance; ten other replayed workflows also exercise the state store.
+      rationale: The multi-asset registration handoff executes native thesis_ingest.ingest and thesis_store.link_report, validates the actionable/rejected partition, and verifies that registered theses remain in IDEA status. Other replayed workflows include schema-validated manual-contract handoffs, such as the stockbee-fluency-loop and stockbee-20pct-study-daily lesson logs; those fixtures do not execute the native trader-memory-core append API.
       evidence:
       - command: python3 scripts/validate_skills_index.py --strict-metadata --strict-workflows; exit 0
       - workflows: workflows/core-portfolio-weekly.yaml; workflows/kanchi-dividend-weekly.yaml; workflows/monthly-performance-review.yaml; workflows/multi-asset-opportunity-daily.yaml; workflows/shapiro-contrarian.yaml; workflows/stockbee-20pct-study-daily.yaml; workflows/stockbee-ep-daily.yaml; workflows/stockbee-fluency-loop.yaml; workflows/swing-opportunity-daily.yaml; workflows/trade-memory-loop.yaml
