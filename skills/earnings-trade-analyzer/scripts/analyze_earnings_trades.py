@@ -27,8 +27,11 @@ Usage:
 import argparse
 import math
 import os
+import re
 import sys
 from datetime import date, datetime, timedelta
+from typing import Optional
+from zoneinfo import ZoneInfo
 
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
@@ -55,6 +58,23 @@ def normalize_timing(time_value):
         return "amc"
     else:
         return "unknown"
+
+
+def _resolve_as_of(as_of: Optional[str], *, now: Optional[datetime] = None) -> date:
+    """America/New_York calendar date for the earnings anchor (issue #421).
+
+    An explicit ``--as-of`` wins; otherwise the current instant is converted to
+    America/New_York. ``now`` must be timezone-aware when supplied (a naive value
+    would silently use the runner's local clock, the bug this fixes); it is
+    injectable for deterministic tests.
+    """
+    if as_of is not None:
+        return date.fromisoformat(as_of)
+    if now is not None and now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    et = ZoneInfo("America/New_York")
+    instant = now if now is not None else datetime.now(et)
+    return instant.astimezone(et).date()
 
 
 # ZERO_RESULT_REASON -> (exit_code, one-line explanation). `no_earnings_rows`
@@ -340,6 +360,15 @@ def main():
         "--lookback-days", type=int, default=2, help="Days back for earnings (default: 2)"
     )
     parser.add_argument(
+        "--as-of",
+        type=str,
+        default=None,
+        help=(
+            "Anchor date YYYY-MM-DD in America/New_York; defaults to the current "
+            "ET date (use for deterministic runs/tests)."
+        ),
+    )
+    parser.add_argument(
         "--min-market-cap",
         type=float,
         default=500_000_000,
@@ -368,6 +397,13 @@ def main():
     args = parser.parse_args()
     if args.lookback_days < 0:
         parser.error("--lookback-days must be greater than or equal to 0")
+    if args.as_of is not None:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.as_of):
+            parser.error("--as-of must be a YYYY-MM-DD date")
+        try:
+            date.fromisoformat(args.as_of)
+        except ValueError:
+            parser.error("--as-of must be a valid YYYY-MM-DD date")
 
     # Initialize FMP client
     try:
@@ -383,7 +419,7 @@ def main():
     # Phase 1: Fetch earnings calendar and profiles
     print("\n--- Phase 1: Fetch Earnings Calendar ---", file=sys.stderr)
 
-    today = datetime.now().date()
+    today = _resolve_as_of(args.as_of)
     from_day = today - timedelta(days=args.lookback_days)
     to_day = today
     from_date = from_day.isoformat()

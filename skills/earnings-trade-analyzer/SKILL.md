@@ -37,6 +37,12 @@ python3 skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py \
   --top 30 \
   --output-dir reports/
 
+# Deterministic anchor date (America/New_York); the window is anchored on the
+# ET calendar date, not the runner's local clock. For reproducible runs/tests.
+python3 skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py \
+  --as-of 2026-09-15 \
+  --output-dir reports/
+
 # With entry quality filter
 python3 skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py \
   --apply-entry-filter \

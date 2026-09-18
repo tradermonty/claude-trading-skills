@@ -83,6 +83,7 @@ dates with both endpoints included.
 | Market-top detector | `YYYY-MM-DD`; historical live replay is rejected because current quotes are not point-in-time |
 | Parabolic screener | Strict `YYYY-MM-DD`; fixture runs are deterministic, while historical live runs fail because universe/profile endpoints are not PIT |
 | Theme detector | Strict `YYYY-MM-DD`; non-current live runs fail because FINVIZ, quote/profile, and uptrend sources are not PIT |
+| Earnings analyzer | Strict `YYYY-MM-DD` `--as-of`; the default anchor is the current instant converted to `America/New_York`, not the runner's local clock. A historical `--as-of` anchors only the earnings window and does not make profile/price endpoints point-in-time, so it is for determinism/tests rather than backtest replay |
 
 Provider query windows are not themselves official exchange calendars. Generated
 FMP clients may use the live date to bound a request, so consumers filter bars
@@ -95,7 +96,7 @@ created and are not inputs to signal, expiry, event, or freshness calculations.
 
 | Location | Classification and disposition |
 |---|---|
-| `earnings-trade-analyzer/analyze_earnings_trades.py` | A literal clean earnings-calendar `[]` is benign only when the identical inclusive FMP window has zero XNYS sessions; market-session empties and calendar-unavailable checks fail closed |
+| `earnings-trade-analyzer/analyze_earnings_trades.py` | A literal clean earnings-calendar `[]` is benign only when the identical inclusive FMP window has zero XNYS sessions; market-session empties and calendar-unavailable checks fail closed. The window is anchored on the `America/New_York` calendar date (aware instant via `--as-of` or current ET time), never the runner's local clock |
 | `market-environment-analysis/market_utils.py` and two example mirrors | Status, session labels, and event countdown use the shared calendar and one aware instant; weekday formatting is display-only |
 | `breakout-trade-planner/plan_breakout_trades.py` | Plan validity uses current-or-next XNYS session; default clock is aware UTC |
 | `drawdown-circuit-breaker/check_circuit_breaker.py` | Halt dates use XNYS sessions; `weekday()` remains only for calendar-week accounting |

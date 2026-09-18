@@ -10,12 +10,14 @@ import json
 import os
 import sys
 import tempfile
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from analyze_earnings_trades import (
     CalendarUnavailableError,
+    _resolve_as_of,
     apply_entry_filter,
     classify_empty_calendar,
     explain_empty_selection,
@@ -589,6 +591,81 @@ class TestClassifyEmptyCalendar:
         mock_count.assert_not_called()
 
 
+class TestResolveAsOf:
+    """Issue #421: the earnings window anchor must use the America/New_York date."""
+
+    def test_explicit_as_of_wins_and_ignores_now(self):
+        assert _resolve_as_of(
+            "2026-09-15", now=datetime(2026, 9, 1, tzinfo=ZoneInfo("UTC"))
+        ) == date(2026, 9, 15)
+
+    def test_default_converts_tokyo_instant_to_et_date(self):
+        # 2026-09-15 23:30 JST = 10:30 ET on the same day.
+        now = datetime(2026, 9, 15, 23, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+        assert _resolve_as_of(None, now=now) == date(2026, 9, 15)
+
+    def test_default_converts_utc_instant_to_previous_et_date(self):
+        # 2026-09-16 03:00 UTC = 2026-09-15 23:00 ET (previous calendar day).
+        now = datetime(2026, 9, 16, 3, 0, tzinfo=ZoneInfo("UTC"))
+        assert _resolve_as_of(None, now=now) == date(2026, 9, 15)
+
+    def test_default_rejects_naive_now(self):
+        with pytest.raises(ValueError, match="timezone-aware"):
+            _resolve_as_of(None, now=datetime(2026, 9, 15))
+
+
+class TestAsOfValidation:
+    """--as-of must be rejected (exit 2) before the FMP client is constructed."""
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_non_canonical_date_is_rejected_before_client_creation(
+        self, mock_client_class, tmp_path, capsys
+    ):
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--as-of", "2026-9-15"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 2
+        mock_client_class.assert_not_called()
+        assert "--as-of must be a YYYY-MM-DD date" in capsys.readouterr().err
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_iso_datetime_is_rejected_before_client_creation(
+        self, mock_client_class, tmp_path, capsys
+    ):
+        # date.fromisoformat on 3.11+ would accept and drop the time; the strict
+        # regex guard must reject it on every interpreter.
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--as-of", "2026-09-15T00:00:00"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 2
+        mock_client_class.assert_not_called()
+        assert "--as-of must be a YYYY-MM-DD date" in capsys.readouterr().err
+
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_impossible_date_is_rejected_before_client_creation(
+        self, mock_client_class, tmp_path, capsys
+    ):
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--as-of", "2026-13-01"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 2
+        mock_client_class.assert_not_called()
+        assert "--as-of must be a valid YYYY-MM-DD date" in capsys.readouterr().err
+
+    @staticmethod
+    def _argv(tmpdir):
+        return [
+            "analyze_earnings_trades.py",
+            "--api-key",
+            "test-key",
+            "--output-dir",
+            str(tmpdir),
+        ]
+
+
 class TestMainZeroResultExitCodes:
     """Drive main() end-to-end with a mocked FMPClient for each exit code."""
 
@@ -894,6 +971,34 @@ class TestMainZeroResultExitCodes:
         api_start, api_end = client.get_earnings_calendar.call_args.args
         count_call = mock_count.call_args
         assert api_start == api_end
+        assert count_call.args[1].isoformat() == api_start
+        assert count_call.args[2].isoformat() == api_end
+        assert count_call.kwargs == {"include_start": True, "include_end": True}
+        assert "ZERO_RESULT_REASON=no_earnings_rows" in capsys.readouterr().err
+
+    @patch("analyze_earnings_trades.count_sessions", return_value=0)
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_default_lookback_window_is_et_anchored_via_as_of(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        """The default N=2 window derived from --as-of is the ET inclusive window."""
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--as-of", "2026-09-15"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        api_start, api_end = client.get_earnings_calendar.call_args.args
+        assert api_start == "2026-09-13"
+        assert api_end == "2026-09-15"
+        count_call = mock_count.call_args
         assert count_call.args[1].isoformat() == api_start
         assert count_call.args[2].isoformat() == api_end
         assert count_call.kwargs == {"include_start": True, "include_end": True}
