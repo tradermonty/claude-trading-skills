@@ -42,7 +42,11 @@ def test_packaged_deps_python39_probe_does_not_consume_root_lock():
     assert setup["with"]["python-version"] == "3.9"
     runs = "\n".join(step.get("run", "") for step in steps)
     assert SYNC not in runs
-    assert "uv run --isolated --no-project --with packaging" in runs
+    for name in ("Offline dependency declaration report", "Clean-room venv smoke per skill"):
+        step = next(step for step in steps if step.get("name") == name)
+        assert step["run"].startswith("uv run --isolated --no-project --with packaging python "), (
+            name
+        )
 
 
 def test_matrix_only_checks_installed_requirements_and_security_uses_python311():

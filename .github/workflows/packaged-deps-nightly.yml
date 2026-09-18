@@ -5,8 +5,9 @@ name: Packaged deps nightly smoke
 # skill with third-party requirements, install ONLY the declared
 # dependencies in a fresh venv and import every required distribution.
 # PRs run the offline declaration check + golden smoke in ci.yml instead;
-# orchestration uses uv.lock; isolated standalone requirements installs are
-# intentionally unlocked compatibility probes, not project CI environments.
+# standalone orchestration declares packaging in an isolated environment;
+# requirements installs are intentionally unlocked compatibility probes,
+# not project CI environments.
 
 on:
   schedule:
@@ -41,7 +42,7 @@ jobs:
       - name: Clean-room venv smoke per skill
         shell: bash
         run: |
-          python3 - <<'PYEOF'
+          uv run --isolated --no-project --with packaging python - <<'PYEOF'
           import json
           import subprocess
           import sys
