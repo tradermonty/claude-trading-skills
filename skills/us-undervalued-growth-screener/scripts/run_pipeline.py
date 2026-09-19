@@ -17,6 +17,7 @@ import re
 import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -430,11 +431,20 @@ def _invalidate_final_screen_audit(audit: Mapping[str, Any]) -> dict[str, Any]:
 def _invalidate_candidate_decisions(
     decisions: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Remove selection authority from the persisted broad-screen rows."""
+    """Remove all active selection authority while retaining the original audit."""
     invalidated: list[dict[str, Any]] = []
     for raw in decisions:
-        row = dict(raw)
+        row = deepcopy(dict(raw))
         decision = dict(row.get("decision") or {})
+        row.setdefault("prior_decision", deepcopy(decision))
+        row.setdefault(
+            "prior_selection",
+            {
+                key: deepcopy(row[key])
+                for key in ("selection_eligible", "selection_lane")
+                if key in row
+            },
+        )
         decision["status"] = "deferred_by_budget"
         decision["selection_eligible"] = False
         for key in ("preselection_status", "selection_lane", "selection_reason"):
@@ -1255,7 +1265,9 @@ def apply_quality_probe(
     ``quality_probe_resolved: False`` on that row rather than failing the run.
     Full-snapshot screening may opt into returning rows and progress when the
     provider call budget is exhausted; the bounded pipeline keeps the historic
-    exception behavior by default.
+    exception behavior by default. Counts use FMP provider-budget counter deltas
+    (including consumed retries, excluding cache hits and unsent refusals). Clients
+    without that counter fall back to completed logical calls.
     """
     ordered_targets = _ordered_unique_symbols(target_symbols)
     targets = set(ordered_targets)
@@ -1263,6 +1275,7 @@ def apply_quality_probe(
     resolved: list[str] = []
     actual_resolved: list[str] = []
     actual_calls = 0
+    metrics_calls = 0
     completed: set[str] = set()
     interrupted: list[str] = []
     budget_error: str | None = None
@@ -1282,8 +1295,11 @@ def apply_quality_probe(
             attempted.append(symbol)
             row["quality_probe_attempted"] = True
             row["quality_probe_complete"] = False
+            calls_before = getattr(client, "api_calls_made", None)
+            completed_call = False
             try:
                 payload = client.get_key_metrics_ttm(symbol)
+                completed_call = True
             except ApiCallBudgetExceeded as exc:
                 if not return_partial_on_budget:
                     raise
@@ -1294,6 +1310,12 @@ def apply_quality_probe(
                 row["quality_probe_resolved"] = False
                 output.append(row)
                 continue
+            finally:
+                metrics_calls += (
+                    client.api_calls_made - calls_before
+                    if calls_before is not None
+                    else int(completed_call)
+                )
             bundle = payload[0] if payload else None
             if isinstance(bundle, Mapping):
                 roic = _first_number(bundle, "returnOnInvestedCapitalTTM")
@@ -1338,9 +1360,11 @@ def apply_quality_probe(
             # at or before analysis_as_of. Without it the growth-basis fields
             # stay fail-closed (unknown) rather than borrowing a consensus row.
             if actual_required:
-                actual_calls += 1
+                calls_before = getattr(client, "api_calls_made", None)
+                completed_call = False
                 try:
                     statements = client.get_income_statement(symbol, period="annual", limit=2)
+                    completed_call = True
                 except ApiCallBudgetExceeded as exc:
                     if not return_partial_on_budget:
                         raise
@@ -1350,6 +1374,12 @@ def apply_quality_probe(
                     row["quality_probe_budget_exhausted"] = True
                     output.append(row)
                     continue
+                finally:
+                    actual_calls += (
+                        client.api_calls_made - calls_before
+                        if calls_before is not None
+                        else int(completed_call)
+                    )
                 actual_eps, actual_end = _verified_annual_actual(
                     statements or [], analysis_as_of=analysis_as_of
                 )
@@ -1378,7 +1408,7 @@ def apply_quality_probe(
         "resolved": resolved,
         "symbols": attempted_symbols,
         "source_id": source_id,
-        "calls_used": len(attempted) + actual_calls,
+        "calls_used": metrics_calls + actual_calls,
         "actual_eps_source_id": actual_source_id,
         "actual_eps_calls": actual_calls,
         "actual_eps_resolved": actual_resolved,

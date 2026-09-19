@@ -778,6 +778,10 @@ class FullSnapshotStageTests(unittest.TestCase):
             self.assertTrue(
                 all("preselection_status" not in row["decision"] for row in candidate_rows)
             )
+            self.assertTrue(all("prior_decision" in row for row in candidate_rows))
+            self.assertTrue(
+                any(row["prior_decision"]["status"] == "selected" for row in candidate_rows)
+            )
             interrupted = diagnostic["progress"]["interrupted_symbols"][0]
             self.assertFalse(
                 (output / "candidate-packets" / f"{interrupted}.fmp-packet.json").exists()

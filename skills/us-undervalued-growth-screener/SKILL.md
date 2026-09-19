@@ -250,9 +250,14 @@ verified snapshot after restoring the provider budget, allowing new cache/raw
 records from successful calls and reusing existing cache/raw data without
 deleting or rewriting it. A packet-stage budget failure also marks
 `broad-screen-audit.json` incomplete/diagnostic, clears all nested selection
-commitment fields, and rewrites broad-screen rows from `selected` to
-`deferred_by_budget`; neither it nor any partial output is a final market-wide
-conclusion. Each retry uses a new empty run directory. The CLI adds a unique
+commitment fields, and rewrites **all** broad-screen rows (including rejected
+rows) to `deferred_by_budget` with selection eligibility disabled. The original
+`decision` is preserved in `prior_decision`, and original top-level selection
+fields in `prior_selection`; these archives are audit-only, never selection
+authority, and repeated invalidation retains the first archive. Neither the
+audit nor any partial output is a final market-wide conclusion. Quality-probe
+`calls_used` and `actual_eps_calls` count FMP provider-budget units: cached or
+unsent calls cost zero, and consumed retry responses remain counted. Each retry uses a new empty run directory. The CLI adds a unique
 attempt suffix and keeps raw responses in a sibling attempt directory, while
 direct callers must not reuse a non-empty output directory.
 
