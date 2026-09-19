@@ -2,8 +2,10 @@
 """Pre-commit hook: verify every skill has documentation pages.
 
 Scans skills/*/SKILL.md and checks that corresponding pages exist in
-docs/en/skills/ and docs/ja/skills/. Runs on all files (pass_filenames: false)
-since it checks overall repository consistency.
+docs/en/skills/ and docs/ja/skills/. Also flags orphan skill directories
+(a skills/*/ dir without SKILL.md, e.g. issue #432 residue) so they fail
+CI instead of hiding from SKILL.md-based discovery. Runs on all files
+(pass_filenames: false) since it checks overall repository consistency.
 """
 
 from pathlib import Path
@@ -14,11 +16,15 @@ SKIP_DIRS: set[str] = set()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def find_skills_without_docs() -> list[str]:
+def find_skills_without_docs(
+    root: Path | None = None,
+) -> list[str]:
     """Return list of error messages for skills missing documentation."""
-    skills_dir = PROJECT_ROOT / "skills"
-    docs_en_dir = PROJECT_ROOT / "docs" / "en" / "skills"
-    docs_ja_dir = PROJECT_ROOT / "docs" / "ja" / "skills"
+    project_root = root or PROJECT_ROOT
+    skills_dir = project_root / "skills"
+    docs_en_dir = project_root / "docs" / "en" / "skills"
+    docs_ja_dir = project_root / "docs" / "ja" / "skills"
+
     errors = []
 
     if not skills_dir.is_dir():
@@ -47,8 +53,34 @@ def find_skills_without_docs() -> list[str]:
     return errors
 
 
+def find_orphan_skill_dirs(root: Path | None = None) -> list[str]:
+    """Return error messages for skills/*/ dirs without SKILL.md (issue #432).
+
+    SKILL.md-based discovery (packaging, dep checks, this hook's doc scan)
+    silently ignores such dirs, so flag them explicitly.
+    """
+    skills_dir = (root or PROJECT_ROOT) / "skills"
+    errors = []
+
+    if not skills_dir.is_dir():
+        return []
+
+    for entry in sorted(skills_dir.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        if entry.name in SKIP_DIRS:
+            continue
+        if not (entry / "SKILL.md").is_file():
+            errors.append(
+                f"  skills/{entry.name}/ has no SKILL.md "
+                "(orphan dir: complete it as a skill or delete it)"
+            )
+
+    return errors
+
+
 def main() -> int:
-    errors = find_skills_without_docs()
+    errors = find_skills_without_docs() + find_orphan_skill_dirs()
 
     if errors:
         print("ERROR: Skills with missing documentation pages:")
