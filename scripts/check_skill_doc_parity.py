@@ -268,8 +268,8 @@ def _extract_commands(page: Path) -> tuple[Counter, list[str]]:
     text = page.read_text(encoding="utf-8")
     counter: Counter = Counter()
     uncompared: list[str] = []
-    for match in re.finditer(r"```(\w*)\n(.*?)```", text, re.S):
-        tag, body = match.group(1).lower(), match.group(2)
+    for match in re.finditer(r"```([^\n`]*)\n(.*?)```", text, re.S):
+        tag, body = match.group(1).strip().lower(), match.group(2)
         if tag not in SHELL_TAGS:
             continue
         found = False
@@ -285,13 +285,17 @@ def _extract_commands(page: Path) -> tuple[Counter, list[str]]:
     return counter, uncompared
 
 
+def _ja_is_stub(ja: Path) -> bool:
+    return UNTRANSLATED_BANNER in ja.read_text(encoding="utf-8")
+
+
 def check_skill(skill: str) -> list[str]:
     """Return violation messages for one skill (empty when parity holds)."""
     en = EN_DIR / f"{skill}.md"
     ja = JA_DIR / f"{skill}.md"
     if not en.is_file() or not ja.is_file():
         return []
-    if UNTRANSLATED_BANNER in ja.read_text(encoding="utf-8"):
+    if _ja_is_stub(ja):
         return []
     en_cmds, _ = _extract_commands(en)
     ja_cmds, _ = _extract_commands(ja)
@@ -311,8 +315,6 @@ def check_all(verbose: bool = False) -> tuple[list[str], list[str]]:
     for skill in skills:
         ja = JA_DIR / f"{skill}.md"
         if not ja.is_file():
-            continue
-        if UNTRANSLATED_BANNER in ja.read_text(encoding="utf-8"):
             continue
         violations.extend(check_skill(skill))
         _, notes = _extract_commands(EN_DIR / f"{skill}.md")

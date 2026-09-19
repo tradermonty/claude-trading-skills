@@ -326,9 +326,11 @@ Description (can remain in English).
 Translated pages stay useful only while their commands match the EN page.
 `scripts/check_skill_doc_parity.py` enforces this (issue #433):
 
-- **Scope:** `bash`-family fences in `docs/en/skills/*.md` vs the JA peer.
-  `json`/`text` data and output samples are out of scope.
-- **Rule (directional EN-subset-JA):** every EN shell command must appear in
+- **Scope:** `python3` commands in `bash`-family fences in
+  `docs/en/skills/*.md` vs the JA peer. `json`/`text` data, output samples,
+  and non-`python3` shell lines (`pip install`, `export`, …) are out of
+  scope.
+- **Rule (directional EN-subset-JA):** every EN `python3` command must appear in
   the JA page. JA extras are allowed. Commands are compared after joining
   `\` continuations, stripping `#` comments (quote-aware), and collapsing
   whitespace — so translated `#` comments do not break parity, but flags,

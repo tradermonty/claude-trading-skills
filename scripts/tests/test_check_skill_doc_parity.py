@@ -140,6 +140,11 @@ def _allowlisted(violation: str) -> bool:
     return parity.is_allowlisted(m.group(1), m.group(2))
 
 
+def test_allowlist_helper_matches_main_filter():
+    # The test helper must stay consistent with the checker's own filter.
+    assert parity.is_allowlisted("vcp-screener", "python3 missing.py") is False
+
+
 def test_flipped_pages_have_no_violations():
     for skill in (
         "manifoldbt-backtester",
