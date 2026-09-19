@@ -168,7 +168,7 @@ def test_yfinance_fallback_end_is_et_date(rel_path, method, monkeypatch):
             return None
 
     monkeypatch.setitem(sys.modules, "yfinance", _FakeYF)
-    client = mod.FMPClient(api_key=None)
+    client = mod.FMPClient(api_key="test-key")
     assert getattr(client, method)("SPY", 100) is None
     assert captured["end"] == et_date.isoformat()
     assert captured["start"] == (et_date - timedelta(days=int(100 * 1.5))).isoformat()
