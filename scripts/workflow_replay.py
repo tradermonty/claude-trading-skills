@@ -44,6 +44,9 @@ CORE_PORTFOLIO_SCHEMA = (
 KANCHI_REPLAY_SCHEMA = (
     REPO_ROOT / "examples" / "workflows" / "kanchi-dividend-weekly" / "replay-contract.schema.json"
 )
+EP_ANALYZE_SCHEMA = (
+    REPO_ROOT / "examples" / "workflows" / "stockbee-ep-daily" / "replay-contract.schema.json"
+)
 MULTI_ASSET_REPLAY_SCHEMA = (
     REPO_ROOT
     / "examples"
@@ -5039,6 +5042,20 @@ def _ep_screen(repo_root, spec, step, inputs, consumed, work, stage):
     return artifacts
 
 
+def _validate_ep_analyze_contract(payload: Any) -> Mapping[str, Any]:
+    schema = _load_json(EP_ANALYZE_SCHEMA, "stockbee-ep analyze replay contract schema")
+    selected = {
+        "$schema": schema["$schema"],
+        "$defs": schema["$defs"],
+        "$ref": "#/$defs/analyze_ep_report",
+    }
+    errors = _schema_error_details(selected, payload)
+    if errors:
+        raise ReplayError("invalid stockbee-ep analyze report contract:\n- " + "\n- ".join(errors))
+    _assert_finite_json(payload, "stockbee-ep analyze report")
+    return payload
+
+
 def _ep_analyze(repo_root, spec, step, inputs, consumed, work, stage):
     decision = _ep_parameters(inputs, spec)
     events = _ep_input(inputs, "events", spec)
@@ -5113,6 +5130,7 @@ def _ep_analyze(repo_root, spec, step, inputs, consumed, work, stage):
         spec["fixed_timestamp"],
         replacements,
     )
+    _validate_ep_analyze_contract(payload)
     if payload["metadata"].get("api_stats") is not None:
         raise ReplayError("EP replay unexpectedly enabled live API enrichment")
     if {r["symbol"] for r in payload["results"]} != set(symbols):
@@ -5135,6 +5153,7 @@ def _ep_analyze(repo_root, spec, step, inputs, consumed, work, stage):
 def _ep_validate(repo_root, spec, step, inputs, consumed, work, stage):
     decision = _ep_parameters(inputs, spec)
     analysis = _ep_read(consumed, "episodic_pivot_candidates")
+    _validate_ep_analyze_contract(analysis)
     selected = [
         r
         for r in analysis["results"]

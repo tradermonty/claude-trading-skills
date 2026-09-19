@@ -155,6 +155,39 @@ def test_tampered_handoff_stops_before_downstream(tmp_path, step, artifact, muta
     assert not (tmp_path / "out").exists()
 
 
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(
+            lambda p: p["results"][0].update(
+                trade_plan_inpt=p["results"][0].pop("trade_plan_inputs")
+            ),
+            id="rename-trade_plan_inputs",
+        ),
+        pytest.param(
+            lambda p: p["results"][0]["trade_plan_inputs"].update(
+                entry_ref=p["results"][0]["trade_plan_inputs"].pop("entry_reference")
+            ),
+            id="rename-entry_reference",
+        ),
+    ],
+)
+def test_native_report_contract_drift_is_replay_error_not_keyerror(tmp_path, mutate):
+    def before(number, artifacts):
+        if number == 5:
+            path = Path(artifacts["episodic_pivot_candidates"]["files"]["canonical"])
+            payload = json.loads(path.read_text())
+            mutate(payload)
+            path.write_text(json.dumps(payload))
+
+    with pytest.raises(
+        replay.ReplayError, match="invalid stockbee-ep analyze report contract"
+    ) as exc:
+        replay.execute_replay(ROOT, SPEC, "full-path", tmp_path / "out", before_step=before)
+    assert 5 not in exc.value.completed_steps
+    assert not (tmp_path / "out").exists()
+
+
 def loss(pnl):
     at = "2026-08-14T15:00:00-04:00"
     return dict(
