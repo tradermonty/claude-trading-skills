@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stockbee-ep-daily/replay-contract.schema.json",
+  "title": "stockbee-ep-daily native analyze_ep report contract",
+  "description": "Contract for the native analyze_ep.py report consumed by the stockbee-ep-daily replay harness. The harness reads specific fields by subscript; this schema turns a producer contract drift into a ReplayError with a field-specific diagnostic instead of a raw KeyError.",
+  "type": "object",
+  "$defs": {
+    "ticker": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "trade_plan_inputs": {
+      "type": "object",
+      "required": ["entry_reference", "stop_reference"],
+      "properties": {
+        "entry_reference": { "type": "number" },
+        "stop_reference": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "ep_result": {
+      "type": "object",
+      "required": ["symbol", "state", "trade_plan_inputs", "pead_handoff"],
+      "properties": {
+        "symbol": { "$ref": "#/$defs/ticker" },
+        "state": { "type": "string", "minLength": 1 },
+        "trade_plan_inputs": { "$ref": "#/$defs/trade_plan_inputs" },
+        "pead_handoff": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "pead_handoff_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ep_candidate" }
+    },
+    "delayed_ep_watchlist": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ep_candidate" }
+    },
+    "ep_candidate": {
+      "type": "object",
+      "required": ["symbol", "state", "pead_handoff"],
+      "properties": {
+        "symbol": { "$ref": "#/$defs/ticker" },
+        "state": { "type": "string", "minLength": 1 },
+        "pead_handoff": { "type": "boolean" },
+        "trade_plan_inputs": { "$ref": "#/$defs/trade_plan_inputs" }
+      },
+      "additionalProperties": true
+    },
+    "analyze_ep_report": {
+      "type": "object",
+      "required": ["schema_version", "skill", "metadata", "results"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "skill": { "const": "stockbee-episodic-pivot-analyzer" },
+        "metadata": {
+          "type": "object",
+          "properties": { "api_stats": { "type": ["object", "null"] } },
+          "additionalProperties": true
+        },
+        "results": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ep_result" }
+        },
+        "pead_handoff_candidates": { "$ref": "#/$defs/pead_handoff_candidates" },
+        "delayed_ep_watchlist": { "$ref": "#/$defs/delayed_ep_watchlist" }
+      },
+      "additionalProperties": true
+    }
+  }
+}
