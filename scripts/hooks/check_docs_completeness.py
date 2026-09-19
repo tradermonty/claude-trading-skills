@@ -68,6 +68,8 @@ def find_orphan_skill_dirs(root: Path | None = None) -> list[str]:
     for entry in sorted(skills_dir.iterdir()):
         if not entry.is_dir() or entry.name.startswith("."):
             continue
+        if entry.name == "__pycache__":
+            continue
         if entry.name in SKIP_DIRS:
             continue
         if not (entry / "SKILL.md").is_file():

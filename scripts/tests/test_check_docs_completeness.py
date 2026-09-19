@@ -43,6 +43,7 @@ def test_files_and_dotdirs_ignored(tmp_path):
     (tmp_path / "skills").mkdir(parents=True)
     (tmp_path / "skills" / ".DS_Store").write_text("x", encoding="utf-8")
     (tmp_path / "skills" / ".hidden").mkdir()
+    (tmp_path / "skills" / "__pycache__").mkdir()
     assert hook.find_orphan_skill_dirs(tmp_path) == []
 
 

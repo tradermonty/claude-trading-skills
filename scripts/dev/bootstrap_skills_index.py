@@ -73,7 +73,6 @@ CATEGORY_HINTS: list[tuple[list[str], str]] = [
             "dual-axis",
             "data-quality-checker",
             "downtrend-duration",
-            "signal-postmortem-analyzer",
             "us-stock-analysis",
             "sector-analyst",
         ],
