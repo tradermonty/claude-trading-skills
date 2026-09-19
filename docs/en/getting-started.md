@@ -42,7 +42,7 @@ plain-language reference.
 | Item | Required | Description |
 |------|----------|-------------|
 | Claude Account | Yes | Claude Web account with Skills access, or a separately eligible Claude Code account |
-| Python 3.9+ | Yes | Required for helper scripts. Most skills use Python-based data fetching |
+| Python 3.10+ | Yes | Required for the shared repository environment. Standalone packaged skills may retain Python 3.9 support. Most skills use Python-based data fetching |
 | FMP API Key | Optional | Financial Modeling Prep API. Required by screening skills (free tier available) |
 | FINVIZ Elite | Optional | Speeds up dividend screeners 70-80% and improves Theme Detector coverage |
 | Alpaca Account | Optional | Required only for Portfolio Manager skill (free paper trading available) |

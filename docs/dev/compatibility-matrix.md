@@ -1,7 +1,8 @@
 # Supported OS / Python Compatibility Matrix
 
-**Source of truth.** This document is the canonical statement of which operating systems and
-Python versions this repository supports, and how that promise is enforced. It was added by
+**Source of truth.** This document explains which operating systems and Python versions the
+repository supports. `config/python-support.json` is its machine-readable counterpart and the two
+are checked together. The policy was added by
 [issue #333](https://github.com/tradermonty/claude-trading-skills/issues/333).
 
 The rule of thumb is **"supported = CI-enforced."** A combination is *supported* only if the
@@ -14,15 +15,23 @@ as equivalent to supported.
 `pyproject.toml` declares:
 
 ```toml
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.14"
 ```
 
-Python **3.9** is the floor and **3.13** is the ceiling. The upper bound is intentional: it makes
+Python **3.10** is the root-project floor and **3.13** is the ceiling. The upper bound is intentional: it makes
 the promise closed rather than open-ended, so a future 3.14 cannot silently ship as "supported"
 without the CI matrix being extended first. A consequence of the `<3.14` bound is that `uv sync`
 on a 3.14 interpreter will reject the project unless you pass `--no-install-project` (the pattern CI
 already uses), so local development on a newer interpreter stays possible while the supported
 runtime remains bounded.
+
+## Root and standalone boundaries
+
+`config/python-support.json` is the machine-readable boundary. The shared root project and its
+`uv.lock` support Python 3.10 through 3.13. Packaged skills remain source-compatible with Python
+3.9 when their own `requirements.txt` permits it. Python 3.9 clean-room jobs must not sync the root
+lock or install the root project; they validate only standalone artifacts. Ruff therefore retains a
+`py39` syntax target across `skills/` and shared standalone scripts.
 
 ## Supported (CI-enforced)
 
@@ -30,20 +39,21 @@ Actively tested in CI:
 
 | OS | Python | Where |
 |----|--------|-------|
-| Linux (`ubuntu-latest`) | 3.9 | existing `test` / `coverage` / `workflow-replay` / `market-calendar-compat` jobs |
+| Linux (`ubuntu-latest`) | 3.10 | `test` / `coverage` / `workflow-replay` jobs |
+| Linux (`ubuntu-latest`) | 3.9 | standalone `market-calendar-compat` clean room |
 | Linux (`ubuntu-latest`) | 3.11 | existing `lint` / `metadata` / `security` / `supply-chain` jobs |
 | Linux (`ubuntu-latest`) | 3.13 | `compat-smoke` (PR) |
 | Windows (`windows-latest`) | 3.13 | `compat-smoke` (PR) |
-| Windows (`windows-latest`) | 3.9 | `compat-nightly` (daily) |
+| Windows (`windows-latest`) | 3.10 | `compat-nightly` (daily) |
 | macOS (`macos-latest`) | 3.13 | `compat-smoke` (PR) |
-| macOS (`macos-latest`) | 3.9 | `compat-nightly` (daily) |
+| macOS (`macos-latest`) | 3.10 | `compat-nightly` (daily) |
 
 The macOS runner uses the `macos-latest` label. `actions/setup-python` provisions the requested
-Python version independently of the base runner image, so the 3.9 leg is available on that label.
+Python version independently of the base runner image, so the 3.10 leg is available on that label.
 
 ## Best-effort (NOT CI-enforced)
 
-Any combination whose Python version satisfies `>=3.9,<3.14` on
+Any combination whose Python version satisfies `>=3.10,<3.14` on
 `ubuntu-latest` / `windows-latest` / `macos-latest`, **except** the CI-enforced rows above.
 
 Defined as the set-complement of the supported rows, so the two tiers never overlap. Nothing in
@@ -55,7 +65,7 @@ Every job in **every** workflow under `.github/workflows/` must satisfy the foll
 statically by `scripts/check_compat_matrix.py`):
 
 1. Its OS is in `{ubuntu-latest, windows-latest, macos-latest}`.
-2. Its Python version (where a `actions/setup-python` step is present) is in `[3.9, 3.14)`.
+2. Root-project jobs use Python in `[3.10, 3.14)`. Explicit standalone clean-room jobs may use the separately declared 3.9 floor.
 
 The drift guard globs the whole workflow directory rather than a hard-coded allowlist, so a
 brand-new workflow that runs a job on an unsupported OS / out-of-range Python is caught and not
@@ -70,7 +80,7 @@ The compatibility-defining jobs are declared here and must match the actual work
 
 ```yaml
 compat_matrix:
-  python: ">=3.9,<3.14"
+  python: ">=3.10,<3.14"
   supported_os: [ubuntu-latest, windows-latest, macos-latest]
   jobs:
     compat-smoke:
@@ -78,7 +88,7 @@ compat_matrix:
       python: ["3.13"]
     compat-nightly:
       os: [windows-latest, macos-latest]
-      python: ["3.9"]
+      python: ["3.10"]
 ```
 
 `scripts/check_compat_matrix.py` parses this block and compares it to the axis sets it infers from
@@ -123,9 +133,9 @@ classes no longer ship silently.
 
 Local verification on a macOS (aarch64) host, using `uv sync --locked`:
 
-- Python 3.9: resolves the locked environment successfully (`scipy==1.13.1`, `statsmodels==0.14.6`).
+- Python 3.10: resolves the locked environment successfully after the security-exception retirement.
 - Python 3.13: resolves the locked environment successfully (`scipy==1.17.1`, `statsmodels==0.14.6`).
-- Result: the `>=3.9,<3.14` range is viable for `--extra dev --extra ci` on this machine.
+- Result: the `>=3.10,<3.14` range is viable for `--extra dev --extra ci` on this machine.
 
 Windows and macOS runner outcomes are validated by the PR's GitHub Actions; they cannot be
 reproduced locally from a macOS host.

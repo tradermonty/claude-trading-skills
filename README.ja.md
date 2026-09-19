@@ -106,7 +106,7 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 
 ## サポート対象プラットフォーム
 
-本プロジェクトは **Python 3.9〜3.13** を、Linux / Windows / macOS でサポートします。
+共有プロジェクト環境は Linux / Windows / macOS 上の **Python 3.10〜3.13** をサポートします。パッケージ化された単体スキルは **Python 3.9** のソース互換性を維持します。
 *supported* とみなす組合せは CI で実際に検証されているものだけです。この範囲内で
 検証されていない組合せはベストエフォート扱いとなり未確認です。正確なサポート行列と
 強制方法は [docs/dev/compatibility-matrix.md](docs/dev/compatibility-matrix.md) を参照してください。

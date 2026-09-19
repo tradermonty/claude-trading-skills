@@ -60,7 +60,7 @@ body:
     attributes:
       label: Environment / 実行環境
       description: Include the OS, Python version, runner, and dependency manager. / OS、Python、実行方法、依存管理を書いてください。
-      placeholder: "macOS 15, Python 3.9, uv, Claude Code"
+      placeholder: "macOS 15, Python 3.10, uv, Claude Code"
     validations:
       required: true
   - type: textarea

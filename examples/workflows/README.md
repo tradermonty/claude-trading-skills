@@ -59,6 +59,24 @@ credentials, real account data, order submission, or investment advice.
 `market-regime-daily` prerequisite artifact; the sample stops at the manual
 pre-trade discipline gate.
 
+## Swing replay checklist evidence
+
+The executable swing outputs in
+[`replay-run/`](swing-opportunity-daily/replay-run/) and
+[`replay-run-full-path/`](swing-opportunity-daily/replay-run-full-path/)
+retain `native_cli` for step 11: the real pre-trade discipline CLI runs, but its
+checklist answers are **synthesized from offline fixtures and plan/sizing
+consistency checks**, not collected from a human. No live human-approval workflow
+is exercised and no broker order is submitted.
+
+When step 11 executes, required-only replay returns `NO_GO` because the optional
+written trade plan is absent. The bundled full-path fixture includes a consistent
+written plan and yields fixture `GO`; other inputs may produce a different
+result. Neither fixture `GO` nor `NO_GO` authorizes a real trade. Both generated
+manifests record these limitations in `execution_evidence_limitations`.
+The historical `sample-run/` and `sample-run-full-path/` teaching samples are
+separate from these executable replay outputs.
+
 ## Market-regime artifact convention
 
 The generated market-regime JSON artifacts are **workflow hand-off artifacts**,

@@ -42,7 +42,7 @@ Claude Trading Skillsのインストール方法、APIキーの設定、最初�
 | 項目 | 必須/任意 | 説明 |
 |------|-----------|------|
 | Claudeアカウント | 必須 | Skillsを利用できるClaude Webアカウント、または別途利用条件を満たすClaude Codeアカウント |
-| Python 3.9+ | 必須 | スクリプト実行用。多くのスキルが Python ヘルパーを使用 |
+| Python 3.10+ | 必須 | 共有リポジトリ環境のスクリプト実行用。単体パッケージスキルは Python 3.9 をサポートする場合があります。多くのスキルが Python ヘルパーを使用 |
 | FMP APIキー | 任意 | Financial Modeling Prep API。一部スキルで必須（無料ティアあり） |
 | FINVIZ Elite | 任意 | 配当スクリーナーの高速化、Theme Detectorの精度向上に推奨 |
 | Alpacaアカウント | 任意 | Portfolio Managerスキルで保有データ取得に必要 |

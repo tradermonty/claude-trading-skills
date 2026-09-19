@@ -16,7 +16,6 @@ def test_every_project_job_uses_locked_environment():
     for name in (
         "ci.yml",
         "fmp-contract-canary.yml",
-        "packaged-deps-nightly.yml",
         "compat-nightly.yml",
     ):
         config = workflow(name)
@@ -34,6 +33,20 @@ def test_every_project_job_uses_locked_environment():
             # Standalone smoke intentionally invokes pip only within its fresh venvs.
             assert all(not step.get("run", "").startswith("pip install") for step in steps)
             assert all("pip install -e" not in step.get("run", "") for step in steps)
+
+
+def test_packaged_deps_python39_probe_does_not_consume_root_lock():
+    job = workflow("packaged-deps-nightly.yml")["jobs"]["smoke"]
+    steps = job["steps"]
+    setup = next(step for step in steps if "actions/setup-python@" in step.get("uses", ""))
+    assert setup["with"]["python-version"] == "3.9"
+    runs = "\n".join(step.get("run", "") for step in steps)
+    assert SYNC not in runs
+    for name in ("Offline dependency declaration report", "Clean-room venv smoke per skill"):
+        step = next(step for step in steps if step.get("name") == name)
+        assert step["run"].startswith("uv run --isolated --no-project --with packaging python "), (
+            name
+        )
 
 
 def test_matrix_only_checks_installed_requirements_and_security_uses_python311():

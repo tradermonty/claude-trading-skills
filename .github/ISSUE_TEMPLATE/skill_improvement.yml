@@ -54,7 +54,7 @@ body:
     attributes:
       label: Suggested validation / 想定する検証
       description: Name targeted tests, package checks, or documentation checks. / 対象テスト、package、文書checkを書いてください。
-      placeholder: "python3.9 -m pytest skills/<skill>/scripts/tests -q"
+      placeholder: "python3.10 -m pytest skills/<skill>/scripts/tests -q"
     validations:
       required: true
   - type: textarea

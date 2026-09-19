@@ -107,7 +107,7 @@ answers.
 
 ## Supported platforms
 
-The project supports Python **3.9 to 3.13** on Linux, Windows, and macOS. A combination counts as
+The shared project environment supports Python **3.10 to 3.13** on Linux, Windows, and macOS. Packaged standalone skills retain a Python **3.9** source floor. A root-project combination counts as
 *supported* only if it is exercised by the project's CI; other combinations in that range are
 best-effort and unverified. See [docs/dev/compatibility-matrix.md](docs/dev/compatibility-matrix.md)
 for the exact supported matrix and how it is enforced.

@@ -115,6 +115,33 @@ def test_full_path_builds_trade_plan_and_corroborating_evidence(tmp_path: Path) 
     ]
 
 
+@pytest.mark.parametrize(
+    ("variant", "expected_decision", "variant_disclosure"),
+    [
+        ("required-only", "NO_GO", "optional written plan is absent"),
+        ("full-path", "GO", "bundled full-path fixture"),
+    ],
+)
+def test_swing_manifest_discloses_synthesized_checklist_evidence(
+    tmp_path: Path, variant: str, expected_decision: str, variant_disclosure: str
+) -> None:
+    output = tmp_path / variant
+    execute_replay(ROOT, SPEC, variant, output)
+    manifest = load_yaml(output / "manifest.yaml")
+    limitations = " ".join(manifest["execution_evidence_limitations"])
+
+    assert "synthesized from offline fixtures and plan/sizing consistency checks" in limitations
+    assert "not human checklist responses" in limitations
+    assert "No live human-approval workflow is exercised" in limitations
+    assert "no broker order is submitted" in limitations
+    assert "neither fixture GO nor NO_GO authorizes a real trade" in limitations
+    assert variant_disclosure in limitations
+    discipline_entry = next(item for item in manifest["artifacts"] if item["step"] == 11)
+    assert discipline_entry["execution_mode"] == "native_cli"
+    discipline = json.loads((output / "11_pre_trade_discipline_decision.json").read_text())
+    assert discipline["overall_decision"] == expected_decision
+
+
 def test_invalid_offline_input_fails_without_partial_publication(
     tmp_path: Path,
 ) -> None:

@@ -67,3 +67,10 @@ artifacts:
   files:
     canonical: 11_pre_trade_discipline_decision.json
     companion: 11_pre_trade_discipline_decision.md
+execution_evidence_limitations:
+- When step 11 executes, the native discipline CLI consumes checklist answers synthesized
+  from offline fixtures and plan/sizing consistency checks, not human checklist responses.
+- No live human-approval workflow is exercised and no broker order is submitted; neither
+  fixture GO nor NO_GO authorizes a real trade.
+- In required-only replay, the optional written plan is absent, so step 11 returns
+  NO_GO when executed.
