@@ -84,13 +84,16 @@ dates with both endpoints included.
 | Parabolic screener | Strict `YYYY-MM-DD`; fixture runs are deterministic, while historical live runs fail because universe/profile endpoints are not PIT |
 | Theme detector | Strict `YYYY-MM-DD`; non-current live runs fail because FINVIZ, quote/profile, and uptrend sources are not PIT |
 | Earnings analyzer | Strict `YYYY-MM-DD` `--as-of`; the default anchor is the current instant converted to `America/New_York`, not the runner's local clock. A historical `--as-of` anchors only the earnings window and does not make profile/price endpoints point-in-time, so it is for determinism/tests rather than backtest replay |
+| Generated FMP clients | Live query-window bound (`from`/`to`, yfinance `start`/`end`) is the current instant converted to `America/New_York` via `_et_today()`; `--as-of` is owned by the calling CLI, not the client |
 
 Provider query windows are not themselves official exchange calendars. Generated
-FMP clients may use the live date to bound a request, so consumers filter bars
-newer than `as-of`; insufficient history becomes an explicit incomplete/no-data
-result. Current quote/profile endpoints are not advertised as historical PIT
-sources. Provenance timestamps and output filenames record when an artifact was
-created and are not inputs to signal, expiry, event, or freshness calculations.
+FMP clients bound a request with the live `America/New_York` date (via
+`_et_today()`; fail-closed on missing TZ data), never the runner's local
+clock, so consumers filter bars newer than `as-of`; insufficient history
+becomes an explicit incomplete/no-data result. Current quote/profile endpoints
+are not advertised as historical PIT sources. Provenance timestamps and output
+filenames record when an artifact was created and are not inputs to signal,
+expiry, event, or freshness calculations.
 
 ## Repository audit
 

@@ -22,7 +22,8 @@ endpoints back to underscore.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _STABLE = "https://financialmodelingprep.com/stable"
 
@@ -55,6 +56,26 @@ _PATH_RENAME_NO_SYMBOL = {
 }
 
 
+def _et_today(now=None):
+    """America/New_York calendar date for provider query windows (issue #427).
+
+    An explicit aware ``now`` wins (deterministic runs/tests); otherwise the
+    current instant is converted to America/New_York. ``now`` must be
+    timezone-aware when supplied. Fail-closed: missing TZ data raises
+    RuntimeError naming the tzdata requirement instead of silently falling
+    back to the runner's local clock.
+    """
+    try:
+        tz = ZoneInfo("America/New_York")
+    except ZoneInfoNotFoundError as exc:
+        raise RuntimeError("America/New_York timezone data is missing; pip install tzdata") from exc
+    if now is not None:
+        if now.tzinfo is None:
+            raise ValueError("now must be timezone-aware")
+        return now.astimezone(tz).date()
+    return datetime.now(tz).date()
+
+
 def v3_to_stable(url: str, params: dict | None = None) -> tuple[str, dict]:
     """Rewrite a legacy FMP v3 URL to its ``/stable`` equivalent.
 
@@ -79,7 +100,7 @@ def v3_to_stable(url: str, params: dict | None = None) -> tuple[str, dict]:
         # range (2x calendar days covers N trading days with weekend headroom).
         timeseries = params.pop("timeseries", None)
         if timeseries:
-            today = date.today()
+            today = _et_today()
             params.setdefault("from", (today - timedelta(days=int(timeseries) * 2)).isoformat())
             params.setdefault("to", today.isoformat())
         return _STABLE + "/historical-price-eod/full", params
