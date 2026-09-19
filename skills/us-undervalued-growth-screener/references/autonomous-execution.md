@@ -103,6 +103,14 @@ For a minimal request, retain the default USD 500M–20B request even when execu
 
 The Broad Screen owns the selected set. Every committed selected symbol must be underwritten to a terminal verified record. The model cannot later ask whether to research two instead of three, or silently drop difficult names. Reduce the budget only by rerunning the deterministic Broad Screen and recording omitted names as `deferred_by_budget`.
 
+A packet-stage provider-budget stop invalidates the entire broad-screen selection,
+including rejected rows: every active decision becomes `deferred_by_budget`,
+selection eligibility is disabled, and active lane/reason fields are removed.
+The first original decision remains in `prior_decision`, with top-level selection
+fields in `prior_selection`. These fields preserve the selected/rejected audit
+trail only; they never authorize deep dives. Rerun in a new empty output directory
+after restoring the budget.
+
 ## Provider Fallback Hierarchy
 
 1. Use bulk listing and estimate/fundamental data when available.
