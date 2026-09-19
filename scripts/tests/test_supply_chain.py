@@ -16,15 +16,16 @@ SPEC.loader.exec_module(policy)
 
 
 def exception(**overrides):
-    return dict(
+    item = dict(
         package="demo",
         version="1.0",
         advisory="GHSA-demo",
         owner="security",
         reason="Tracked upgrade",
         expires_on="2099-01-01",
-        **overrides,
     )
+    item.update(overrides)
+    return item
 
 
 def exceptions_file(tmp_path, entries):
@@ -414,6 +415,74 @@ def test_check_cli_warns_and_enforces_expiry(tmp_path, monkeypatch, capsys, days
     assert ("policy passed" in captured.out) == (days > 0)
 
 
+def test_check_cli_consolidates_expired_diagnostics(tmp_path, monkeypatch, capsys):
+    today = dt.date(2026, 9, 22)
+    calls = freeze_utc(monkeypatch, today)
+    entries = [
+        dict(
+            exception(
+                package="urgent",
+                advisory="GHSA-urgent",
+                owner="urgent-owner",
+                expires_on=(today + dt.timedelta(days=7)).isoformat(),
+            )
+        ),
+        dict(
+            exception(
+                package="today",
+                advisory="GHSA-today",
+                owner="today-owner",
+                expires_on=today.isoformat(),
+            )
+        ),
+        dict(
+            exception(
+                package="older",
+                advisory="GHSA-old-b",
+                owner="old-owner-b",
+                expires_on=(today - dt.timedelta(days=1)).isoformat(),
+            )
+        ),
+        dict(
+            exception(
+                package="older",
+                advisory="GHSA-old-a",
+                owner="old-owner-a",
+                expires_on=(today - dt.timedelta(days=1)).isoformat(),
+            )
+        ),
+    ]
+    root = cli_policy_root(tmp_path, entries)
+
+    assert policy.main(["check", "--root", str(root)]) == 1
+
+    captured = capsys.readouterr()
+    assert calls == [dt.timezone.utc]
+    fatal_lines = [line for line in captured.err.splitlines() if "policy failed:" in line]
+    warning_lines = [line for line in captured.err.splitlines() if line.startswith("URGENT:")]
+    assert [line for line in captured.err.splitlines() if line.startswith("EXPIRED:")] == []
+    assert len(fatal_lines) == 1
+    assert len(warning_lines) == 1
+    fatal = fatal_lines[0]
+    assert fatal.count("EXPIRED:") == 3
+    for record in (
+        "older==1.0 GHSA-old-a owner=old-owner-a expires_on=2026-09-21 UTC days_remaining=-1",
+        "older==1.0 GHSA-old-b owner=old-owner-b expires_on=2026-09-21 UTC days_remaining=-1",
+        "today==1.0 GHSA-today owner=today-owner expires_on=2026-09-22 UTC days_remaining=0",
+    ):
+        assert fatal.count(record) == 1
+    records = [
+        "EXPIRED: exception older==1.0 GHSA-old-a owner=old-owner-a expires_on=2026-09-21 UTC days_remaining=-1",
+        "EXPIRED: exception older==1.0 GHSA-old-b owner=old-owner-b expires_on=2026-09-21 UTC days_remaining=-1",
+        "EXPIRED: exception today==1.0 GHSA-today owner=today-owner expires_on=2026-09-22 UTC days_remaining=0",
+    ]
+    assert [fatal.index(record) for record in records] == sorted(
+        fatal.index(record) for record in records
+    )
+    assert "GHSA-urgent" not in fatal
+    assert "GHSA-urgent" in warning_lines[0]
+
+
 def test_load_exceptions_default_clock_remains_utc_and_fail_closed(tmp_path, monkeypatch):
     calls = freeze_utc(monkeypatch, dt.date(2099, 1, 1))
     with pytest.raises(policy.PolicyError, match="today"):
@@ -481,6 +550,99 @@ def test_audit_policy_failure_replaces_stale_report_without_scanning(
         assert data["exception_expiry"]["exceptions"][0]["days_remaining"] == 0
     else:
         assert "exception_expiry" not in data
+
+
+def test_expired_audit_preserves_all_rows_and_skips_scanner(tmp_path, monkeypatch):
+    today = dt.date(2026, 10, 6)
+    freeze_utc(monkeypatch, today)
+    entries = [
+        dict(
+            exception(
+                package="active",
+                advisory="GHSA-active",
+                owner="active-owner",
+                expires_on="2026-12-31",
+            )
+        ),
+        dict(
+            exception(
+                package="urgent",
+                advisory="GHSA-urgent",
+                owner="urgent-owner",
+                expires_on=(today + dt.timedelta(days=7)).isoformat(),
+            )
+        ),
+        dict(
+            exception(
+                package="today",
+                advisory="GHSA-today",
+                owner="today-owner",
+                expires_on=today.isoformat(),
+            )
+        ),
+        dict(
+            exception(
+                package="older",
+                advisory="GHSA-old-b",
+                owner="old-owner-b",
+                expires_on=(today - dt.timedelta(days=1)).isoformat(),
+            )
+        ),
+        dict(
+            exception(
+                package="older",
+                advisory="GHSA-old-a",
+                owner="old-owner-a",
+                expires_on=(today - dt.timedelta(days=1)).isoformat(),
+            )
+        ),
+    ]
+    root = cli_policy_root(tmp_path, entries)
+    lock_file(root)
+    calls = []
+
+    def scanner_must_not_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        pytest.fail("scanner must not run")
+
+    monkeypatch.setattr(policy.subprocess, "run", scanner_must_not_run)
+    output = tmp_path / "audit.json"
+
+    assert policy.main(["audit", "--root", str(root), "--report", str(output)]) == 1
+
+    data = json.loads(output.read_text())
+    assert calls == []
+    assert data["errors"] and len(data["errors"]) == 1
+    assert "blocked" not in data
+    assert data["exception_expiry"]["evaluated_on"] == "2026-10-06"
+    assert data["exception_expiry"]["status"] == "expired"
+    assert [
+        (
+            row["package"],
+            row["version"],
+            row["advisory"],
+            row["owner"],
+            row["expires_on"],
+            row["days_remaining"],
+            row["status"],
+        )
+        for row in data["exception_expiry"]["exceptions"]
+    ] == [
+        ("older", "1.0", "GHSA-old-a", "old-owner-a", "2026-10-05", -1, "expired"),
+        ("older", "1.0", "GHSA-old-b", "old-owner-b", "2026-10-05", -1, "expired"),
+        ("today", "1.0", "GHSA-today", "today-owner", "2026-10-06", 0, "expired"),
+        ("urgent", "1.0", "GHSA-urgent", "urgent-owner", "2026-10-13", 7, "urgent"),
+        ("active", "1.0", "GHSA-active", "active-owner", "2026-12-31", 86, "active"),
+    ]
+    error = data["errors"][0]
+    assert error.count("EXPIRED:") == 3
+    for record in (
+        "EXPIRED: exception older==1.0 GHSA-old-a owner=old-owner-a expires_on=2026-10-05 UTC days_remaining=-1",
+        "EXPIRED: exception older==1.0 GHSA-old-b owner=old-owner-b expires_on=2026-10-05 UTC days_remaining=-1",
+        "EXPIRED: exception today==1.0 GHSA-today owner=today-owner expires_on=2026-10-06 UTC days_remaining=0",
+    ):
+        assert error.count(record) == 1
+    assert "GHSA-urgent" not in error and "GHSA-active" not in error
 
 
 def test_expired_audit_report_write_error_returns_failure(tmp_path, monkeypatch, capsys):

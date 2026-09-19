@@ -51,21 +51,27 @@ package and version.
 ### Approaching-expiry diagnostics
 
 Both `check` and `audit` evaluate all exception entries against one captured UTC
-date. Starting **14 days before expiry**, each affected entry is printed to
-stderr with its package/version, advisory, owner, UTC expiry date and remaining
-days. The inclusive thresholds are:
+date. Starting **14 days before expiry**, each warning or urgent entry is printed
+to stderr with its package/version, advisory, owner, UTC expiry date and
+remaining days. Expired entries are reported once, with the same per-advisory
+details, in the single fail-closed fatal diagnostic. The inclusive thresholds
+are:
 
 | Days remaining | Status | Policy behavior |
 |---|---|---|
 | More than 14 | `active` | No expiry warning |
 | 8 through 14 | `warning` | Warn; exception remains valid |
 | 1 through 7 | `urgent` | Warn; exception remains valid |
-| 0 or fewer | `expired` | Fail with exit 1; do not run the advisory scanner |
+| 0 or fewer | `expired` | Fail with exit 1; report each expired entry once; do not run the advisory scanner |
 
 For an expiry date of October 6, warning begins September 22, urgency begins
 September 29, and the exception becomes invalid at **October 6 00:00 UTC**.
 Expiry status describes the exception deadline, not vulnerability severity or
 whether a dependency is safe.
+
+`days_remaining` is a signed value calculated as
+`(expires_on - evaluated_on).days`: `0` is the expiry date, and a negative value
+is the number of whole UTC days elapsed since expiry. Values are not clamped.
 
 When `audit` runs, its JSON report includes `exception_expiry` with
 `schema_version: 1`, `evaluated_on` (UTC date), the most urgent overall `status`,

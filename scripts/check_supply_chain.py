@@ -98,9 +98,24 @@ def _load_exception_entries(path):
 
 
 def _accepted_exceptions(entries, today):
-    for item in entries:
-        if dt.date.fromisoformat(item["expires_on"]) <= today:
-            raise PolicyError("Exception expired or expires today (UTC)")
+    expired = [item for item in entries if dt.date.fromisoformat(item["expires_on"]) <= today]
+    if expired:
+        expired.sort(
+            key=lambda item: (
+                item["expires_on"],
+                canonicalize_name(item["package"]),
+                item["version"],
+                item["advisory"],
+            )
+        )
+        details = "; ".join(
+            "EXPIRED: exception "
+            f"{canonicalize_name(item['package'])}=={item['version']} "
+            f"{item['advisory']} owner={item['owner']} expires_on={item['expires_on']} UTC "
+            f"days_remaining={(dt.date.fromisoformat(item['expires_on']) - today).days}"
+            for item in expired
+        )
+        raise PolicyError(f"Exception expired or expires today (UTC): {details}")
     return {
         (canonicalize_name(item["package"]), item["version"], item["advisory"]) for item in entries
     }
@@ -149,7 +164,7 @@ def _exception_expiry_report(entries, today):
 
 def _print_expiry_warnings(report):
     for item in report["exceptions"]:
-        if item["status"] != "active":
+        if item["status"] in {"warning", "urgent"}:
             print(
                 f"{item['status'].upper()}: exception {item['package']}=={item['version']} "
                 f"{item['advisory']} owner={item['owner']} expires_on={item['expires_on']} UTC "
