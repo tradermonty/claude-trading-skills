@@ -290,7 +290,6 @@ Both files contain complete content in their respective languages. See `vcp-scre
 ### Untranslated Stub (ja/)
 
 If a Japanese translation is not yet available, create a stub page:
-
 ```markdown
 ---
 layout: default
@@ -321,6 +320,28 @@ Description (can remain in English).
 
 [English版ガイドを見る]({{ '/en/skills/skill-name/' | relative_url }}){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 ```
+
+### EN/JA Command Parity
+
+Translated pages stay useful only while their commands match the EN page.
+`scripts/check_skill_doc_parity.py` enforces this (issue #433):
+
+- **Scope:** `bash`-family fences in `docs/en/skills/*.md` vs the JA peer.
+  `json`/`text` data and output samples are out of scope.
+- **Rule (directional EN-subset-JA):** every EN shell command must appear in
+  the JA page. JA extras are allowed. Commands are compared after joining
+  `\` continuations, stripping `#` comments (quote-aware), and collapsing
+  whitespace — so translated `#` comments do not break parity, but flags,
+  paths, and arguments must be byte-identical.
+- **Stubs:** JA pages carrying the untranslated banner are skipped.
+- **Ownership:** a translated JA page flips to `generated: false`, which
+  protects it from `--overwrite`. The parity checker is then its only drift
+  guard; pre-existing divergences live in the checker's allowlist with
+  reason, issue ref, and review date.
+- **Run:** `python3 scripts/check_skill_doc_parity.py --check`
+  (also covered by `scripts/tests/test_check_skill_doc_parity.py` in CI).
+
+When you update an EN command, mirror it in the JA page in the same PR.
 
 ### Language Toggle
 
