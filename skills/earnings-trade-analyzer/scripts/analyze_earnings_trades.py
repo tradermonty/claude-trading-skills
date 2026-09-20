@@ -143,9 +143,10 @@ def classify_empty_calendar(earnings, start_date: date, end_date: date) -> str:
     ``None`` (transport/HTTP failure, rate limit) and any non-list body (wrong
     shape, including a 200-with-``null`` body) fail closed without querying the
     exchange calendar. A clean ``[]`` is benign only when the inclusive FMP
-    query window contains zero XNYS sessions. Truthy lists — including
-    symbol-less ones — never reach this helper; they fall through to
-    ``select_candidates``/``explain_empty_selection``.
+    query window contains zero XNYS exchange sessions, such as a weekend or
+    holiday. This is not a symbol-count check: truthy lists, including
+    symbol-less ones, never reach this helper and retain their existing
+    ``select_candidates``/``explain_empty_selection`` contract.
     """
     if not isinstance(earnings, list) or earnings:
         return "calendar_fetch_failed"
@@ -357,7 +358,14 @@ def main():
         "--api-key", type=str, default=None, help="FMP API key (or set FMP_API_KEY env var)"
     )
     parser.add_argument(
-        "--lookback-days", type=int, default=2, help="Days back for earnings (default: 2)"
+        "--lookback-days",
+        type=int,
+        default=2,
+        help=(
+            "Calendar days to look back from the ET as-of date (default: 2; "
+            "0 queries that date only; an empty response on an XNYS session "
+            "fails closed)"
+        ),
     )
     parser.add_argument(
         "--as-of",

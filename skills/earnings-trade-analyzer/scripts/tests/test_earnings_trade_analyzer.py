@@ -976,6 +976,41 @@ class TestMainZeroResultExitCodes:
         assert count_call.kwargs == {"include_start": True, "include_end": True}
         assert "ZERO_RESULT_REASON=no_earnings_rows" in capsys.readouterr().err
 
+    @patch("analyze_earnings_trades.count_sessions", return_value=1)
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_zero_day_window_with_market_session_fails_closed(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        """A deterministic today-only query must not treat a session-day [] as benign."""
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {
+            "budget_remaining": 50,
+            "rate_limit_reached": False,
+        }
+
+        with patch.object(
+            sys,
+            "argv",
+            self._argv(tmp_path) + ["--as-of", "2026-09-15", "--lookback-days", "0"],
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        api_start, api_end = client.get_earnings_calendar.call_args.args
+        assert (api_start, api_end) == ("2026-09-15", "2026-09-15")
+        count_call = mock_count.call_args
+        assert count_call.args[1] == date(2026, 9, 15)
+        assert count_call.args[2] == date(2026, 9, 15)
+        assert count_call.kwargs == {"include_start": True, "include_end": True}
+        assert (
+            "ZERO_RESULT_REASON=earnings_calendar_empty_with_market_sessions"  # pragma: allowlist secret
+            in (capsys.readouterr().err)
+        )
+        client.get_company_profiles.assert_not_called()
+
     @patch("analyze_earnings_trades.count_sessions", return_value=0)
     @patch("analyze_earnings_trades.FMPClient")
     def test_default_lookback_window_is_et_anchored_via_as_of(

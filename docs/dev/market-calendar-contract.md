@@ -60,7 +60,7 @@ the JPX lunch break is closed.
 | Consumer | Start | End | Reverse/past behavior |
 |---|---|---|---|
 | Market environment event countdown | inclusive | exclusive | past event returns `0` |
-| Earnings analyzer empty-response check | inclusive | inclusive | negative `--lookback-days` is rejected; `0` checks today only |
+| Earnings analyzer empty-response check | inclusive | inclusive | negative `--lookback-days` is rejected; `0` checks the single ET as-of date; a clean `[]` is benign only when the window has zero XNYS sessions |
 | Market-top freshness | exclusive | inclusive | reverse returns legacy sentinel `-1` |
 | Parabolic earnings age | exclusive | inclusive | reverse keeps the legacy negative calendar-day invalid sentinel |
 | Theme/uptrend freshness | exclusive | inclusive | future source date is stale/anomalous |
@@ -71,7 +71,12 @@ sentinels so no ambiguous default can introduce an off-by-one error.
 The earnings analyzer creates one pair of `date` values, sends their ISO strings
 as FMP's `from` and `to` parameters, and passes those same values to
 `count_sessions()`. Its existing lookback therefore remains `N + 1` calendar
-dates with both endpoints included.
+dates with both endpoints included. For `--lookback-days 0`, the pair is the
+same single ET calendar date: a clean `[]` on an XNYS session fails closed as a
+possible provider drop, while an unavailable calendar also fails closed. This
+exchange-session check applies only to the provider's literal empty list; a
+non-empty response with no `symbol` retains the separate `no_earnings_rows`
+contract documented in `docs/dev/provider-contracts.md`.
 
 ## `as-of` and point-in-time boundaries
 

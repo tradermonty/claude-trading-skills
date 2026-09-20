@@ -74,6 +74,25 @@ Then optionally enrich returned US tickers through the analyzer's stable-first F
 
 **No-candidate output pitfall:** The analyzer may print `Candidates after filtering: 0` / `No candidates found matching criteria.` and exit successfully without writing an `earnings_trade_analyzer_*.json` file. In that case, do not try to run PEAD Mode B from a nonexistent candidate file. Say explicitly that no scored analyzer JSON was produced, run the endpoint/quote enrichment fallback above if the routine needs an earnings section, and label any names as manual-review only. This success-exit path does not cover budget exhaustion during profile fetching: that case exits 1 (`ZERO_RESULT_REASON=profiles_budget_exhausted`) instead.
 
+#### Empty windows and today-only runs
+
+The earnings calendar window is inclusive and uses the `America/New_York`
+calendar date from `--as-of` (or the current ET date). A clean provider `[]`
+is a benign quiet-window result only when the shared XNYS calendar successfully
+counts zero exchange sessions in that exact window, such as a weekend or
+holiday. If the window contains an XNYS session, the same clean `[]` exits 1
+with `ZERO_RESULT_REASON=earnings_calendar_empty_with_market_sessions` so a
+provider drop is not reported as a quiet day. If the XNYS calendar cannot be
+queried, the run also exits 1 with
+`ZERO_RESULT_REASON=market_calendar_unavailable`.
+
+`--lookback-days 0` is valid and queries exactly the single ET as-of date. Use
+it after the relevant announcements have been published (normally after the
+session close); an empty response on an XNYS session remains intentionally
+fail-closed. A non-empty response whose rows do not carry a `symbol` retains
+the separate `ZERO_RESULT_REASON=no_earnings_rows` behavior; that case is not
+the literal-empty-list session check above.
+
 ### Step 2: Review Results
 
 1. Read the generated JSON and Markdown reports
