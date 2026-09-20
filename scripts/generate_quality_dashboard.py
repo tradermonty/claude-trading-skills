@@ -239,10 +239,16 @@ def _fmt_days(value: Any) -> str:
 def _escape(text: str) -> str:
     return (
         text.replace("\\", "\\\\")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
         .replace("|", "\\|")
         .replace("*", "\\*")
         .replace("_", "\\_")
         .replace("`", "\\`")
+        .replace("!", "\\!")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
         .replace("\n", " ")
         .strip()
     )
@@ -475,7 +481,7 @@ def render_page(metrics: dict[str, Any], lang: str) -> str:
         elif status == "beta":
             status_disp = t["beta"]
         else:
-            status_disp = f"{t['other']} ({status})"
+            status_disp = f"{t['other']} ({_escape(status)})"
         exec_disp = t["no"] if row["knowledge_only"] else t["yes"]
         test_disp = t["yes"] if row["has_tests"] else t["no"]
         name = _escape(row["display_name"])

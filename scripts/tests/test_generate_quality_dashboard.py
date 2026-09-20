@@ -365,24 +365,89 @@ skills:
 
 
 def test_escape_makes_markdown_table_specials_safe() -> None:
-    text = " Back\\slash | *bold* _under_ `code`\n "
+    text = " Back\\slash | *bold* _under_ `code` <img> & &lt; ![alt](url) [link](url)\n "
 
-    assert _escape(text) == r"Back\\slash \| \*bold\* \_under\_ \`code\`"
+    assert _escape(text) == (
+        r"Back\\slash \| \*bold\* \_under\_ \`code\` &lt;img&gt; &amp; &amp;lt; "
+        r"\!\[alt\](url) \[link\](url)"
+    )
 
 
-def test_render_escapes_markdown_specials_in_skill_display_name(tmp_path: Path) -> None:
+@pytest.mark.parametrize("lang", ["en", "ja"])
+def test_render_escapes_markdown_specials_in_skill_display_name(tmp_path: Path, lang: str) -> None:
     root = make_project(tmp_path)
     _write(
         root / "skills-index.yaml",
         INDEX_YAML.replace(
-            "display_name: Alpha", "display_name: 'Alpha | *Momentum* _Desk_ `Code`'"
+            "display_name: Alpha",
+            "display_name: 'Alpha | *Momentum* _Desk_ `Code` <img> & &lt; ![alt](url) [link](url)'",
         ),
     )
 
-    page = render_page(compute_metrics(root), "en")
+    page = render_page(compute_metrics(root), lang)
 
-    assert "| **Alpha \\| \\*Momentum\\* \\_Desk\\_ \\`Code\\`** (`alpha`) |" in page
+    status, yes = ("production", "yes") if lang == "en" else ("本番", "はい")
+    row = next(line for line in page.splitlines() if "(`alpha`)" in line)
+    assert row == (
+        r"| **Alpha \| \*Momentum\* \_Desk\_ \`Code\` &lt;img&gt; &amp; &amp;lt; "
+        r"\!\[alt\](url) \[link\](url)** (`alpha`) | "
+        f"{status} | {yes} | {yes} | not yet measured |"
+    )
     assert page.count("(`alpha`)") == 1
+
+
+@pytest.mark.parametrize("lang", ["en", "ja"])
+def test_render_escapes_unknown_status(tmp_path: Path, lang: str) -> None:
+    root = make_project(tmp_path)
+    _write(
+        root / "skills-index.yaml",
+        INDEX_YAML.replace(
+            "  status: production",
+            "  status: |-\n"
+            "    Future\\status | *bold* _under_ `code` <script> & &lt; ![alt](url) [link](url)\n"
+            "    next",
+            1,
+        ),
+    )
+    page = render_page(compute_metrics(root), lang)
+    other, yes = ("other", "yes") if lang == "en" else ("その他", "はい")
+    row = next(line for line in page.splitlines() if "(`alpha`)" in line)
+    assert row == (
+        f"| **Alpha** (`alpha`) | {other} ("
+        r"Future\\status \| \*bold\* \_under\_ \`code\` &lt;script&gt; &amp; &amp;lt; "
+        r"\!\[alt\](url) \[link\](url) next) | "
+        f"{yes} | {yes} | not yet measured |"
+    )
+    beta = "beta" if lang == "en" else "ベータ"
+    assert f"| **Beta Skill** (`beta-skill`) | {beta} |" in page
+
+
+def test_paid_provider_takes_precedence_over_generic_api(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    _write(
+        root / "skills-index.yaml",
+        """\
+schema_version: 1
+skills:
+- id: mixed-provider
+  display_name: Mixed Provider
+  status: production
+  integrations:
+  - id: fmp
+    type: api
+    requirement: required
+  - id: custom_provider
+    type: api
+    requirement: required
+""",
+    )
+    assert compute_metrics(root)["provider_counts"] == {
+        "fmp": 1,
+        "finviz": 0,
+        "alpaca": 0,
+        "other_external": 0,
+        "offline": 0,
+    }
 
 
 def test_render_english_includes_summary_and_skill_table(tmp_path: Path) -> None:
