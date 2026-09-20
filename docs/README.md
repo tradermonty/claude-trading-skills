@@ -339,7 +339,8 @@ Translated pages stay useful only while their commands match the EN page.
 - **Ownership:** a translated JA page flips to `generated: false`, which
   protects it from `--overwrite`. The parity checker is then its only drift
   guard; pre-existing divergences live in the checker's allowlist with
-  reason, issue ref, and review date.
+  reason, issue ref, and review date. Expired allowlist entries
+  (`review_by` past) fail `--check`, so old exemptions cannot hide forever.
 - **Run:** `python3 scripts/check_skill_doc_parity.py --check`
   (also covered by `scripts/tests/test_check_skill_doc_parity.py` in CI).
 

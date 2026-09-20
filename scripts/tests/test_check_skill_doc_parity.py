@@ -145,6 +145,54 @@ def test_allowlist_helper_matches_main_filter():
     assert parity.is_allowlisted("vcp-screener", "python3 missing.py") is False
 
 
+def _allow_entry(skill, review_by):
+    return parity.AllowEntry(
+        skill=skill,
+        commands=["python3 x.py"],
+        reason="test",
+        issue_ref="#433",
+        review_by=review_by,
+    )
+
+
+def test_expired_allowlist_past_date(monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("s", "2020-01-01")])
+    expired = parity.expired_allowlist_entries(today=date(2026, 9, 20))
+    assert len(expired) == 1
+    assert "[s]" in expired[0] and "2020-01-01" in expired[0]
+
+
+def test_expired_allowlist_future_date_ok(monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("s", "2099-01-01")])
+    assert parity.expired_allowlist_entries(today=date(2026, 9, 20)) == []
+
+
+def test_expired_allowlist_invalid_date(monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("s", "not-a-date")])
+    expired = parity.expired_allowlist_entries(today=date(2026, 9, 20))
+    assert len(expired) == 1
+    assert "invalid review_by" in expired[0]
+
+
+def test_main_check_fails_on_expired_allowlist(monkeypatch, tmp_path, capsys):
+
+    monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("s", "2020-01-01")])
+    en_dir = tmp_path / "en"
+    ja_dir = tmp_path / "ja"
+    en_dir.mkdir()
+    ja_dir.mkdir()
+    monkeypatch.setattr(parity, "EN_DIR", en_dir)
+    monkeypatch.setattr(parity, "JA_DIR", ja_dir)
+    assert parity.main(["--check"]) == 1
+    assert "EXPIRED" in capsys.readouterr().out
+
+
 def test_flipped_pages_have_no_violations():
     for skill in (
         "manifoldbt-backtester",

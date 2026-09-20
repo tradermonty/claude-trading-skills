@@ -18,6 +18,7 @@ import argparse
 import re
 from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -200,6 +201,28 @@ def is_allowlisted(skill: str, command: str) -> bool:
     return False
 
 
+def expired_allowlist_entries(today: date | None = None) -> list[str]:
+    """Report allowlist entries past their review_by date (or with a bad date).
+
+    Expired entries fail ``--check`` so pre-existing divergences cannot hide
+    behind the allowlist forever.
+    """
+    today = today or date.today()
+    expired = []
+    for entry in _ALLOWLIST:
+        try:
+            deadline = date.fromisoformat(entry.review_by)
+        except ValueError:
+            expired.append(f"  [{entry.skill}] invalid review_by: {entry.review_by!r}")
+            continue
+        if today > deadline:
+            expired.append(
+                f"  [{entry.skill}] allowlist expired since {entry.review_by}: "
+                f"{entry.reason} (see {entry.issue_ref})"
+            )
+    return expired
+
+
 def _strip_inline_comment(line: str) -> str:
     """Remove a trailing ``#`` comment, respecting single/double quotes."""
     out: list[str] = []
@@ -350,7 +373,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     for line in effective:
         print(line)
-    if args.check and effective:
+    expired = expired_allowlist_entries()
+    for line in expired:
+        print(f"EXPIRED: {line}")
+    if args.check and (effective or expired):
         return 1
     return 0
 
