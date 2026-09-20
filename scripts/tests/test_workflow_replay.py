@@ -64,6 +64,55 @@ def test_canonicalize_symlink_path_spellings(tmp_path: Path, overlapping_spellin
     }
 
 
+@pytest.mark.parametrize("alias_first", [False, True])
+def test_canonicalize_rejects_conflicting_symlink_replacements(
+    tmp_path: Path, alias_first: bool
+) -> None:
+    real = tmp_path / "real repo"
+    real.mkdir()
+    alias = tmp_path / "repo alias"
+    try:
+        alias.symlink_to(real, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+
+    entries = (
+        [(str(alias), "$ALIAS"), (str(real), "$REAL")]
+        if alias_first
+        else [(str(real), "$REAL"), (str(alias), "$ALIAS")]
+    )
+    previous, current = ("$ALIAS", "$REAL") if alias_first else ("$REAL", "$ALIAS")
+    resolved_real = str(real.resolve())
+
+    with pytest.raises(ReplayError) as exc_info:
+        replay_module._canonicalize([str(alias), str(real)], "fixed", dict(entries))
+
+    assert str(exc_info.value) == (
+        f"conflicting path replacement for {resolved_real}: {previous} vs {current}"
+    )
+
+
+@pytest.mark.parametrize("replacement", ["$ROOT", ""])
+def test_canonicalize_allows_duplicate_symlink_replacements(
+    tmp_path: Path, replacement: str
+) -> None:
+    real = tmp_path / "real repo"
+    real.mkdir()
+    alias = tmp_path / "repo alias"
+    try:
+        alias.symlink_to(real, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+
+    canonical = replay_module._canonicalize(
+        [str(alias), str(real)],
+        "fixed",
+        {str(alias): replacement, str(real): replacement},
+    )
+
+    assert canonical == [replacement, replacement]
+
+
 @pytest.mark.parametrize("file_first", [False, True])
 def test_canonicalize_specific_files_before_parent_paths(tmp_path: Path, file_first: bool) -> None:
     root = tmp_path.resolve()

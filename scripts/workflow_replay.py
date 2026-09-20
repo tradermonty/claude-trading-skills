@@ -572,18 +572,27 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
 
 def _canonicalize(value: Any, fixed_timestamp: str, replacements: Mapping[str, str]) -> Any:
     path_replacements = {}
+    resolved_replacements = {}
     literal_replacements = {}
     for source, replacement in replacements.items():
         path = Path(source)
         if not path.is_absolute():
             literal_replacements[source] = replacement
             continue
-        path_replacements[source] = replacement
         resolved = str(path.resolve())
         # Path drops the trailing separator, but directory-prefix substitutions
         # need it to preserve relative output and avoid matching sibling names.
         if source.endswith((os.sep, os.altsep) if os.altsep else (os.sep,)):
             resolved = resolved.rstrip(os.sep) + source[-1]
+        if resolved in resolved_replacements:
+            previous = resolved_replacements[resolved]
+            if previous != replacement:
+                raise ReplayError(
+                    f"conflicting path replacement for {resolved}: {previous} vs {replacement}"
+                )
+        resolved_replacements[resolved] = replacement
+        # Keep both lexical and resolved spellings: output may contain either.
+        path_replacements[source] = replacement
         path_replacements.setdefault(resolved, replacement)
 
     # The lexical /tmp prefix can also occur inside its resolved /private/tmp

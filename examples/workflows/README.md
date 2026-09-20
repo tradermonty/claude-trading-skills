@@ -208,6 +208,9 @@ Replay validation rejects a `golden_dir` that resolves to the replay spec or its
 directory, overlaps any offline-input directory, or overlaps the other
 variant's output tree. Generation fails before publication in those cases, so
 a malformed spec cannot replace its own source or input fixtures.
+Symlink path canonicalization relies on POSIX absolute-path semantics
+(`Path("/tmp/x").is_absolute()` is false on Windows); replay is currently
+supported only on macOS/Linux, matching CI.
 
 ### Shapiro contrarian replay
 
