@@ -39,7 +39,7 @@ dev = [
 ci = [
     "beautifulsoup4",
     "lxml",
-    "statsmodels>=0.14,<0.15",
+    "statsmodels>=0.14,<0.16",
     "pandas-market-calendars==5.2.2",
 ]
 
