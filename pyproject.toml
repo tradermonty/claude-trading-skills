@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 market-calendar = [
-    "pandas-market-calendars==5.2.2",
+    "pandas-market-calendars==5.4.0",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -40,7 +40,7 @@ ci = [
     "beautifulsoup4",
     "lxml",
     "statsmodels>=0.14,<0.15",
-    "pandas-market-calendars==5.2.2",
+    "pandas-market-calendars==5.4.0",
 ]
 
 [tool.ruff]
