@@ -19,7 +19,7 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 
 | Total | production | beta | Knowledge-only | Executable | With tests | Without tests |
 |---:|---:|---:|---:|---:|---:|---:|
-| 74 | 58 | 16 | 3 | 71 | 71 | 0 |
+| 74 | 62 | 12 | 3 | 71 | 71 | 0 |
 
 ## Test coverage
 
@@ -45,14 +45,10 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 
 | Skill | Days in beta |
 |---|---:|
-| `contrarian-setup-gate` | not yet measured |
 | `crypto-regime-analyzer` | not yet measured |
-| `drawdown-circuit-breaker` | not yet measured |
-| `futures-position-sizer` | not yet measured |
 | `fxmacrodata-calendar` | not yet measured |
 | `manifoldbt-backtester` | not yet measured |
 | `mt5-robot-tester` | not yet measured |
-| `pre-trade-discipline-gate` | not yet measured |
 | `residual-edge-analyzer` | not yet measured |
 | `stockbee-20pct-study` | not yet measured |
 | `stockbee-episodic-pivot-analyzer` | not yet measured |
@@ -70,13 +66,13 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 | **Breadth Chart Analyst** (`breadth-chart-analyst`) | production | yes | yes | not yet measured |
 | **Breakout Trade Planner** (`breakout-trade-planner`) | production | yes | yes | not yet measured |
 | **CANSLIM Screener** (`canslim-screener`) | production | yes | yes | not yet measured |
-| **Contrarian Setup Gate** (`contrarian-setup-gate`) | beta | yes | yes | not yet measured |
+| **Contrarian Setup Gate** (`contrarian-setup-gate`) | production | yes | yes | not yet measured |
 | **COT Contrarian Detector** (`cot-contrarian-detector`) | production | yes | yes | not yet measured |
 | **Crypto Regime Analyzer** (`crypto-regime-analyzer`) | beta | yes | yes | not yet measured |
 | **Data Quality Checker** (`data-quality-checker`) | production | yes | yes | not yet measured |
 | **Dividend Growth Pullback Screener** (`dividend-growth-pullback-screener`) | production | yes | yes | not yet measured |
 | **Downtrend Duration Analyzer** (`downtrend-duration-analyzer`) | production | yes | yes | not yet measured |
-| **Drawdown Circuit Breaker** (`drawdown-circuit-breaker`) | beta | yes | yes | not yet measured |
+| **Drawdown Circuit Breaker** (`drawdown-circuit-breaker`) | production | yes | yes | not yet measured |
 | **Dual Axis Skill Reviewer** (`dual-axis-skill-reviewer`) | production | yes | yes | not yet measured |
 | **Earnings Calendar** (`earnings-calendar`) | production | yes | yes | not yet measured |
 | **Earnings Trade Analyzer** (`earnings-trade-analyzer`) | production | yes | yes | not yet measured |
@@ -91,7 +87,7 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 | **Exposure Coach** (`exposure-coach`) | production | yes | yes | not yet measured |
 | **Finviz Screener** (`finviz-screener`) | production | yes | yes | not yet measured |
 | **FTD Detector** (`ftd-detector`) | production | yes | yes | not yet measured |
-| **Futures Position Sizer** (`futures-position-sizer`) | beta | yes | yes | not yet measured |
+| **Futures Position Sizer** (`futures-position-sizer`) | production | yes | yes | not yet measured |
 | **FXMacroData Calendar** (`fxmacrodata-calendar`) | beta | yes | yes | not yet measured |
 | **IBD Distribution Day Monitor** (`ibd-distribution-day-monitor`) | production | yes | yes | not yet measured |
 | **Institutional Flow Tracker** (`institutional-flow-tracker`) | production | yes | yes | not yet measured |
@@ -112,7 +108,7 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 | **PEAD Screener** (`pead-screener`) | production | yes | yes | not yet measured |
 | **Portfolio Manager** (`portfolio-manager`) | production | yes | yes | not yet measured |
 | **Position Sizer** (`position-sizer`) | production | yes | yes | not yet measured |
-| **Pre-Trade Discipline Gate** (`pre-trade-discipline-gate`) | beta | yes | yes | not yet measured |
+| **Pre-Trade Discipline Gate** (`pre-trade-discipline-gate`) | production | yes | yes | not yet measured |
 | **Residual Edge Analyzer** (`residual-edge-analyzer`) | beta | yes | yes | not yet measured |
 | **Scenario Analyzer** (`scenario-analyzer`) | production | no | no | not yet measured |
 | **Sector Analyst** (`sector-analyst`) | production | yes | yes | not yet measured |

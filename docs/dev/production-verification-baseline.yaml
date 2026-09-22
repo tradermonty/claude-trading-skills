@@ -242,6 +242,8 @@ skills:
   profile: executable_workflow_trading
 - id: canslim-screener
   profile: executable_workflow_trading
+- id: contrarian-setup-gate
+  profile: executable_workflow_trading
 - id: cot-contrarian-detector
   profile: executable_workflow_trading
 - id: data-quality-checker
@@ -250,6 +252,8 @@ skills:
   profile: executable_workflow_trading
 - id: downtrend-duration-analyzer
   profile: executable_standalone_trading
+- id: drawdown-circuit-breaker
+  profile: executable_workflow_trading
 - id: dual-axis-skill-reviewer
   profile: meta_workflow
 - id: earnings-calendar
@@ -278,6 +282,8 @@ skills:
   profile: executable_standalone_trading
 - id: ftd-detector
   profile: executable_standalone_trading
+- id: futures-position-sizer
+  profile: executable_workflow_trading
 - id: ibd-distribution-day-monitor
   profile: executable_standalone_trading
 - id: institutional-flow-tracker
@@ -358,6 +364,8 @@ skills:
       - tests: scripts/tests/test_workflow_replay_multi_asset.py (18 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
       - execution: scripts/workflow_replay.py _multi_position_size; native_cli; skills/position-sizer/scripts/position_sizer.py
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
+- id: pre-trade-discipline-gate
+  profile: executable_workflow_trading
 - id: scenario-analyzer
   profile: knowledge_standalone_trading
   overrides:

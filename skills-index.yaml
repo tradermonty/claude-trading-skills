@@ -141,7 +141,16 @@ skills:
 - id: contrarian-setup-gate
   display_name: Contrarian Setup Gate
   category: trade-planning
-  status: beta
+  status: production
+  verification:
+    instruction_contract: not_verified
+    unit_tests: not_verified
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
+    data_provenance: not_verified
+    financial_logic_review: not_verified
+    empirical_validation: not_verified
+    security_review: not_verified
   operational_role:
     type: workflow_step
   summary: Offline synthesis gate that combines COT crowding, news-reaction failure, and weekly
@@ -323,7 +332,16 @@ skills:
 - id: drawdown-circuit-breaker
   display_name: Drawdown Circuit Breaker
   category: trade-planning
-  status: beta
+  status: production
+  verification:
+    instruction_contract: not_verified
+    unit_tests: not_verified
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
+    data_provenance: not_verified
+    financial_logic_review: not_verified
+    empirical_validation: not_verified
+    security_review: not_verified
   operational_role:
     type: workflow_step
   summary: Account-level circuit breaker that reads trader-memory-core state and decides whether
@@ -801,7 +819,16 @@ skills:
 - id: futures-position-sizer
   display_name: Futures Position Sizer
   category: trade-planning
-  status: beta
+  status: production
+  verification:
+    instruction_contract: not_verified
+    unit_tests: not_verified
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
+    data_provenance: not_verified
+    financial_logic_review: not_verified
+    empirical_validation: not_verified
+    security_review: not_verified
   operational_role:
     type: workflow_step
   summary: Calculate contract-based futures position sizes from a direction, entry, and stop-loss,
@@ -1434,7 +1461,16 @@ skills:
 - id: pre-trade-discipline-gate
   display_name: Pre-Trade Discipline Gate
   category: trade-planning
-  status: beta
+  status: production
+  verification:
+    instruction_contract: not_verified
+    unit_tests: not_verified
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
+    data_provenance: not_verified
+    financial_logic_review: not_verified
+    empirical_validation: not_verified
+    security_review: not_verified
   operational_role:
     type: workflow_step
   summary: Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk,

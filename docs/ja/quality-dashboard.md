@@ -19,7 +19,7 @@ generated: true
 
 | 合計 | 本番 | ベータ | 知識のみ | 実行可能 | テストあり | テストなし |
 |---:|---:|---:|---:|---:|---:|---:|
-| 74 | 58 | 16 | 3 | 71 | 71 | 0 |
+| 74 | 62 | 12 | 3 | 71 | 71 | 0 |
 
 ## テストカバレッジ
 
@@ -45,14 +45,10 @@ generated: true
 
 | スキル | ベータ経過日数 |
 |---|---:|
-| `contrarian-setup-gate` | not yet measured |
 | `crypto-regime-analyzer` | not yet measured |
-| `drawdown-circuit-breaker` | not yet measured |
-| `futures-position-sizer` | not yet measured |
 | `fxmacrodata-calendar` | not yet measured |
 | `manifoldbt-backtester` | not yet measured |
 | `mt5-robot-tester` | not yet measured |
-| `pre-trade-discipline-gate` | not yet measured |
 | `residual-edge-analyzer` | not yet measured |
 | `stockbee-20pct-study` | not yet measured |
 | `stockbee-episodic-pivot-analyzer` | not yet measured |
@@ -70,13 +66,13 @@ generated: true
 | **Breadth Chart Analyst** (`breadth-chart-analyst`) | 本番 | はい | はい | not yet measured |
 | **Breakout Trade Planner** (`breakout-trade-planner`) | 本番 | はい | はい | not yet measured |
 | **CANSLIM Screener** (`canslim-screener`) | 本番 | はい | はい | not yet measured |
-| **Contrarian Setup Gate** (`contrarian-setup-gate`) | ベータ | はい | はい | not yet measured |
+| **Contrarian Setup Gate** (`contrarian-setup-gate`) | 本番 | はい | はい | not yet measured |
 | **COT Contrarian Detector** (`cot-contrarian-detector`) | 本番 | はい | はい | not yet measured |
 | **Crypto Regime Analyzer** (`crypto-regime-analyzer`) | ベータ | はい | はい | not yet measured |
 | **Data Quality Checker** (`data-quality-checker`) | 本番 | はい | はい | not yet measured |
 | **Dividend Growth Pullback Screener** (`dividend-growth-pullback-screener`) | 本番 | はい | はい | not yet measured |
 | **Downtrend Duration Analyzer** (`downtrend-duration-analyzer`) | 本番 | はい | はい | not yet measured |
-| **Drawdown Circuit Breaker** (`drawdown-circuit-breaker`) | ベータ | はい | はい | not yet measured |
+| **Drawdown Circuit Breaker** (`drawdown-circuit-breaker`) | 本番 | はい | はい | not yet measured |
 | **Dual Axis Skill Reviewer** (`dual-axis-skill-reviewer`) | 本番 | はい | はい | not yet measured |
 | **Earnings Calendar** (`earnings-calendar`) | 本番 | はい | はい | not yet measured |
 | **Earnings Trade Analyzer** (`earnings-trade-analyzer`) | 本番 | はい | はい | not yet measured |
@@ -91,7 +87,7 @@ generated: true
 | **Exposure Coach** (`exposure-coach`) | 本番 | はい | はい | not yet measured |
 | **Finviz Screener** (`finviz-screener`) | 本番 | はい | はい | not yet measured |
 | **FTD Detector** (`ftd-detector`) | 本番 | はい | はい | not yet measured |
-| **Futures Position Sizer** (`futures-position-sizer`) | ベータ | はい | はい | not yet measured |
+| **Futures Position Sizer** (`futures-position-sizer`) | 本番 | はい | はい | not yet measured |
 | **FXMacroData Calendar** (`fxmacrodata-calendar`) | ベータ | はい | はい | not yet measured |
 | **IBD Distribution Day Monitor** (`ibd-distribution-day-monitor`) | 本番 | はい | はい | not yet measured |
 | **Institutional Flow Tracker** (`institutional-flow-tracker`) | 本番 | はい | はい | not yet measured |
@@ -112,7 +108,7 @@ generated: true
 | **PEAD Screener** (`pead-screener`) | 本番 | はい | はい | not yet measured |
 | **Portfolio Manager** (`portfolio-manager`) | 本番 | はい | はい | not yet measured |
 | **Position Sizer** (`position-sizer`) | 本番 | はい | はい | not yet measured |
-| **Pre-Trade Discipline Gate** (`pre-trade-discipline-gate`) | ベータ | はい | はい | not yet measured |
+| **Pre-Trade Discipline Gate** (`pre-trade-discipline-gate`) | 本番 | はい | はい | not yet measured |
 | **Residual Edge Analyzer** (`residual-edge-analyzer`) | ベータ | はい | はい | not yet measured |
 | **Scenario Analyzer** (`scenario-analyzer`) | 本番 | いいえ | いいえ | not yet measured |
 | **Sector Analyst** (`sector-analyst`) | 本番 | はい | はい | not yet measured |
