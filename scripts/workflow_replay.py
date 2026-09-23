@@ -24,7 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -5585,6 +5585,24 @@ def _multi_news_brief(
     return artifacts
 
 
+def _require_unique_ids(ids: Sequence[str], label: str) -> None:
+    """Fail closed when a hypothesis id list contains duplicates.
+
+    Primary guard for lists the schema cannot constrain: native ideator
+    output and uniqueness across the actionable + excluded arrays. The human
+    decision lists also carry schema uniqueItems, which fires first; calling
+    it there too keeps the partition checks correct if that schema is relaxed.
+    """
+    seen: set[str] = set()
+    dups: set[str] = set()
+    for value in ids:
+        if value in seen:
+            dups.add(value)
+        seen.add(value)
+    if dups:
+        raise ReplayError(f"{label} contain duplicate hypothesis ids: {sorted(dups)}")
+
+
 def _multi_hypotheses(
     repo_root: Path,
     spec: Mapping[str, Any],
@@ -5666,10 +5684,13 @@ def _multi_hypotheses(
         bundle_out["generated_at_utc"] = spec["fixed_timestamp"]
     _assert_finite_json(bundle_out, "hypothesis output bundle")
     output_ids = [card["hypothesis_id"] for card in bundle_out["hypotheses"]]
-    if set(output_ids) != set(raw_by_id):
+    _require_unique_ids(output_ids, "hypothesis output bundle")
+    if set(output_ids) != set(raw_by_id) or len(output_ids) != len(raw_by_id):
         raise ReplayError("hypothesis output bundle does not preserve the raw hypothesis cards")
     accepted = decision["accepted"]
     rejected = decision["rejected"]
+    _require_unique_ids(accepted, "gate_decision.accepted")
+    _require_unique_ids(rejected, "gate_decision.rejected")
     if set(accepted) | set(rejected) != set(output_ids) or set(accepted) & set(rejected):
         raise ReplayError("gate decision must partition exactly the output hypothesis cards")
     actionable: list[dict[str, Any]] = []
@@ -5726,6 +5747,13 @@ def _multi_position_size(
     cards_doc = _validate_multi_asset_contract(
         _load_json(cards_path, "hypothesis cards handoff"), "hypothesis_cards"
     )
+    # The schema cannot express cross-array uniqueness, so the union of
+    # actionable and excluded ids is checked here explicitly.
+    _require_unique_ids(
+        [card["hypothesis_id"] for card in cards_doc["hypotheses"]]
+        + [card["hypothesis_id"] for card in cards_doc.get("excluded", [])],
+        "hypothesis cards handoff",
+    )
     params = _validate_multi_asset_contract(
         _load_json(inputs["sizing_params"], "sizing parameters"), "sizing_params"
     )
@@ -5778,6 +5806,9 @@ def _multi_position_size(
         )
     if any(row["shares"] is None or row["position_value"] is None for row in sized):
         raise ReplayError("position sizer report is missing shares or position value")
+    # Defense in depth: re-verify the sizer's cap instead of trusting its
+    # output. An absent max_position_pct means the sizer applies no cap, so
+    # this check falls back to 100% of account (no leverage).
     max_position_value = params["account_size"] * params.get("max_position_pct", 100.0) / 100.0
     for row in sized:
         if row["position_value"] > max_position_value + 1e-9:
@@ -5821,6 +5852,13 @@ def _multi_register(
     cards_doc = _validate_multi_asset_contract(
         _load_json(cards_path, "hypothesis cards handoff"), "hypothesis_cards"
     )
+    # The schema cannot express cross-array uniqueness, so the union of
+    # actionable and excluded ids is checked here explicitly.
+    _require_unique_ids(
+        [card["hypothesis_id"] for card in cards_doc["hypotheses"]]
+        + [card["hypothesis_id"] for card in cards_doc.get("excluded", [])],
+        "hypothesis cards handoff",
+    )
     sized_path = Path(consumed["sized_hypotheses"]["files"]["canonical"])
     sized_doc = _validate_multi_asset_contract(
         _load_json(sized_path, "sized hypotheses handoff"), "sized_hypotheses"
@@ -5830,6 +5868,13 @@ def _multi_register(
     idea = decision["idea"]
     entry_ready = decision["entry_ready"]
     rejected = decision["rejected"]
+    # Duplicates are otherwise caught only incidentally by the sorted-list
+    # comparisons below; check explicitly for a clear failure message.
+    _require_unique_ids(idea, "register_decision.idea")
+    _require_unique_ids(entry_ready, "register_decision.entry_ready")
+    _require_unique_ids(rejected, "register_decision.rejected")
+    if set(idea) & set(entry_ready):
+        raise ReplayError("register_decision.idea and register_decision.entry_ready overlap")
     if sorted(idea + entry_ready) != sorted(actionable_ids) or len(
         set(idea) | set(entry_ready)
     ) != len(actionable_ids):
@@ -6301,6 +6346,13 @@ def _cleanup_backup(path: Path) -> None:
 def _publish_tree(stage: Path, destination: Path) -> None:
     destination = destination.resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
+    # Defense in depth mirroring _publish_trees_transactionally: today
+    # _validate_runtime_output rejects a non-directory output_dir before
+    # execution, and execute_replay is the only call site, so this branch is
+    # unreachable in practice. It guards against a file destination if that
+    # invariant is ever relaxed or this function is called from elsewhere.
+    if destination.exists() and not destination.is_dir():
+        raise ReplayError(f"publish destination must be a directory: {destination}")
     candidate = Path(
         tempfile.mkdtemp(prefix=f".{destination.name}.candidate-", dir=destination.parent)
     )

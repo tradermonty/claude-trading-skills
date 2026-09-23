@@ -146,11 +146,13 @@
         "human_approved": {"const": true},
         "accepted": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
         },
         "rejected": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
         }
       }
     },
@@ -195,15 +197,18 @@
         },
         "idea": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
         },
         "entry_ready": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
         },
         "rejected": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
         }
       }
     },
@@ -232,6 +237,18 @@
         }
       }
     },
+    "sizer_constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "limit", "max_shares", "binding"],
+      "properties": {
+        "type": {"enum": ["max_position_pct", "max_sector_pct"]},
+        "limit": {"type": "number"},
+        "current": {"type": "number"},
+        "max_shares": {"type": "number", "minimum": 0},
+        "binding": {"type": "boolean"}
+      }
+    },
     "sized_hypothesis": {
       "type": "object",
       "additionalProperties": false,
@@ -255,7 +272,7 @@
         "risk_dollars": {"type": "number", "minimum": 0},
         "constraints_applied": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {"$ref": "#/$defs/sizer_constraint"}
         }
       }
     },

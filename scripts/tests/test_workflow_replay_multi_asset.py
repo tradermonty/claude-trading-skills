@@ -414,6 +414,227 @@ def test_failed_run_into_missing_dir_creates_nothing(tmp_path: Path) -> None:
     assert not output.exists()
 
 
+def test_gate_decision_duplicate_accepted_ids_fail_closed(tmp_path: Path) -> None:
+    decision = load_yaml(INPUTS / "gate-decision.yaml")
+    decision["accepted"] = ["H-EXMPL-01", "H-EXMPL-01"]
+    decision["rejected"] = ["H-EXMPL-02", "H-FX-01"]
+    override = tmp_path / "overrides" / "gate-decision.yaml"
+    override.parent.mkdir()
+    override.write_text(yaml.safe_dump(decision, sort_keys=False), encoding="utf-8")
+
+    output = tmp_path / "out"
+    with pytest.raises(ReplayError, match="non-unique elements"):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            output,
+            input_overrides={"gate_decision": override},
+        )
+    assert not output.exists()
+
+
+def test_register_decision_duplicate_idea_ids_fail_closed(tmp_path: Path) -> None:
+    decision = load_yaml(INPUTS / "register-decision.yaml")
+    decision["idea"] = ["H-EXMPL-01", "H-EXMPL-01"]
+    decision["entry_ready"] = []
+    override = tmp_path / "overrides" / "register-decision.yaml"
+    override.parent.mkdir()
+    override.write_text(yaml.safe_dump(decision, sort_keys=False), encoding="utf-8")
+
+    output = tmp_path / "out"
+    with pytest.raises(ReplayError, match="non-unique elements"):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "required-only",
+            output,
+            input_overrides={"register_decision": override},
+        )
+    assert not output.exists()
+
+
+def test_native_output_bundle_duplicate_card_fails_before_sizing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "published"
+    execute_replay(ROOT, SPEC, "required-only", output)
+    snapshot = {
+        path.relative_to(output).as_posix(): path.read_bytes()
+        for path in output.rglob("*")
+        if path.is_file()
+    }
+
+    original_load_json = replay_module._load_json
+
+    def duplicate_output_bundle(path: Path, label: str):
+        payload = original_load_json(path, label)
+        if label == "hypothesis output bundle":
+            payload["hypotheses"] = [*payload["hypotheses"], dict(payload["hypotheses"][0])]
+        return payload
+
+    monkeypatch.setattr(replay_module, "_load_json", duplicate_output_bundle)
+    with pytest.raises(ReplayError, match="hypothesis output bundle contain duplicate"):
+        execute_replay(ROOT, SPEC, "required-only", output)
+
+    for name, content in snapshot.items():
+        assert (output / name).read_bytes() == content
+
+
+def test_hypothesis_cards_handoff_duplicate_across_hypotheses_and_excluded_fails_closed(
+    tmp_path: Path,
+) -> None:
+    cards = json.loads(
+        (SPEC.parent / "replay-run" / "04_hypothesis_cards.json").read_text(encoding="utf-8")
+    )
+    cards["excluded"] = [*cards["excluded"], dict(cards["hypotheses"][0])]
+    cards_path = tmp_path / "04_hypothesis_cards.json"
+    cards_path.write_text(json.dumps(cards), encoding="utf-8")
+    spec = load_yaml(SPEC)
+    step = next(row for row in spec["steps"] if row["step"] == 5)
+    consumed = {"hypothesis_cards": {"files": {"canonical": str(cards_path)}}}
+
+    with pytest.raises(ReplayError, match="hypothesis cards handoff contain duplicate"):
+        replay_module._multi_position_size(
+            ROOT,
+            spec,
+            step,
+            {"sizing_params": INPUTS / "sizing-params.json"},
+            consumed,
+            tmp_path / "work",
+            tmp_path / "stage",
+        )
+
+
+def test_constraints_applied_schema_rejects_malformed_constraint(tmp_path: Path) -> None:
+    payload = json.loads(
+        (SPEC.parent / "replay-run" / "05_sized_hypotheses.json").read_text(encoding="utf-8")
+    )
+    del payload["sized"][0]["constraints_applied"][0]["binding"]
+
+    with pytest.raises(ReplayError, match="invalid multi-asset sized_hypotheses contract"):
+        replay_module._validate_multi_asset_contract(payload, "sized_hypotheses")
+
+
+def test_sized_hypotheses_golden_still_validates_against_constraint_schema() -> None:
+    payload = json.loads(
+        (SPEC.parent / "replay-run" / "05_sized_hypotheses.json").read_text(encoding="utf-8")
+    )
+    validated = replay_module._validate_multi_asset_contract(payload, "sized_hypotheses")
+    assert validated == payload
+
+
+def test_sizing_without_max_position_pct_leaves_cap_null(tmp_path: Path) -> None:
+    params = json.loads((INPUTS / "sizing-params.json").read_text(encoding="utf-8"))
+    del params["max_position_pct"]
+    override = tmp_path / "overrides" / "sizing-params.json"
+    override.parent.mkdir()
+    override.write_text(json.dumps(params), encoding="utf-8")
+
+    output = tmp_path / "out"
+    execute_replay(
+        ROOT,
+        SPEC,
+        "required-only",
+        output,
+        input_overrides={"sizing_params": override},
+    )
+
+    sized = json.loads((output / "05_sized_hypotheses.json").read_text(encoding="utf-8"))
+    assert sized["account"]["max_position_pct"] is None
+
+
+@pytest.mark.parametrize("drop_cap", [False, True], ids=["explicit-cap", "absent-cap-100pct"])
+def test_sized_output_exceeding_cap_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, drop_cap: bool
+) -> None:
+    # absent-cap-100pct pins the documented policy: without max_position_pct
+    # the harness post-check still caps position value at 100% of account.
+    params = json.loads((INPUTS / "sizing-params.json").read_text(encoding="utf-8"))
+    if drop_cap:
+        del params["max_position_pct"]
+    params_path = tmp_path / "sizing-params.json"
+    params_path.write_text(json.dumps(params), encoding="utf-8")
+    cards = json.loads(
+        (SPEC.parent / "replay-run" / "04_hypothesis_cards.json").read_text(encoding="utf-8")
+    )
+    cards_path = tmp_path / "04_hypothesis_cards.json"
+    cards_path.write_text(json.dumps(cards), encoding="utf-8")
+    consumed = {"hypothesis_cards": {"files": {"canonical": str(cards_path)}}}
+    spec = load_yaml(SPEC)
+    step = next(row for row in spec["steps"] if row["step"] == 5)
+
+    monkeypatch.setattr(replay_module, "_run_cli", lambda *_args, **_kwargs: None)
+    inflated = {
+        "final_recommended_shares": 100000,
+        "final_position_value": 10_000_000.0,
+        "final_risk_dollars": 1000.0,
+        "constraints_applied": [],
+    }
+    monkeypatch.setattr(
+        replay_module, "_latest_report", lambda *_args, **_kwargs: tmp_path / "unused.json"
+    )
+    original_load_json = replay_module._load_json
+
+    def fake_load_json(path: Path, label: str):
+        if label == "position sizer report":
+            return dict(inflated)
+        return original_load_json(path, label)
+
+    monkeypatch.setattr(replay_module, "_load_json", fake_load_json)
+
+    with pytest.raises(ReplayError, match="breaches the max position cap"):
+        replay_module._multi_position_size(
+            ROOT,
+            spec,
+            step,
+            {"sizing_params": params_path},
+            consumed,
+            tmp_path / "work",
+            tmp_path / "stage",
+        )
+
+
+def test_publish_tree_rejects_file_destination(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    (stage / "artifact.txt").write_text("staged\n", encoding="utf-8")
+    destination = tmp_path / "destination.txt"
+    destination.write_text("original\n", encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="must be a directory"):
+        replay_module._publish_tree(stage, destination)
+
+    assert destination.read_text(encoding="utf-8") == "original\n"
+
+
+def test_full_path_rejects_mismatched_news_binding(tmp_path: Path) -> None:
+    bundle = json.loads((INPUTS / "hypotheses-bundle.json").read_text(encoding="utf-8"))
+    bundle["source_binding"]["catalyst_news_brief"] = "0" * 64
+    override = tmp_path / "overrides" / "hypotheses-bundle.json"
+    override.parent.mkdir()
+    override.write_text(json.dumps(bundle), encoding="utf-8")
+
+    with pytest.raises(ReplayError, match="source_binding mismatch for catalyst_news_brief"):
+        execute_replay(
+            ROOT,
+            SPEC,
+            "full-path",
+            tmp_path / "out",
+            input_overrides={"hypotheses_bundle": override},
+        )
+
+    # Required-only never validates the shared bundle's catalyst binding
+    # because it skips optional step 3 entirely; this is the documented gap.
+    execute_replay(
+        ROOT,
+        SPEC,
+        "required-only",
+        tmp_path / "required-out",
+        input_overrides={"hypotheses_bundle": override},
+    )
+
+
 def test_sized_hypotheses_apply_max_position_cap(tmp_path: Path) -> None:
     params = json.loads((INPUTS / "sizing-params.json").read_text(encoding="utf-8"))
     params["account_size"] = 10000

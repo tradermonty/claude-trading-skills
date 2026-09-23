@@ -240,6 +240,42 @@ research-only forex cards never reach sizing or registration. Every thesis stays
 IDEA and no order is placed or authorized. Goldens use `replay-run/` and
 `replay-run-full-path/`; Issue #294 is closed by this eleventh workflow.
 
+Absent `max_position_pct` in `sizing_params` means the sizer applies no
+position cap; the harness's own post-check then treats the account's
+sizing headroom as 100% (no leverage) instead of skipping the check.
+
+**Source-binding refresh procedure.** The hypotheses bundle's
+`source_binding` pins SHA-256 digests of the upstream macro regime, hot
+themes, and catalyst news brief artifacts; `check` fails closed on
+`source_binding mismatch` if the macro scorer/reporter or any of the three
+fixtures changes shape. A failed run publishes nothing, so read the new
+digest from the error instead of hashing an output file. To refresh only this
+workflow's goldens:
+
+```bash
+SPEC=examples/workflows/multi-asset-opportunity-daily/replay.yaml
+GOLD=examples/workflows/multi-asset-opportunity-daily
+python3 scripts/workflow_replay.py run --spec "$SPEC" \
+  --variant full-path --output-dir /tmp/multi-asset-full
+# -> "source_binding mismatch for <artifact>: expected <old>, actual <new>"
+# Copy <new> into replay-inputs/hypotheses-bundle.json's source_binding and
+# repeat until the run completes (one artifact is reported per failure).
+python3 scripts/workflow_replay.py run --spec "$SPEC" \
+  --variant required-only --output-dir /tmp/multi-asset-required
+rsync -a --delete /tmp/multi-asset-full/ "$GOLD/replay-run-full-path/"
+rsync -a --delete /tmp/multi-asset-required/ "$GOLD/replay-run/"
+python3 scripts/workflow_replay.py check
+```
+
+Do not use `workflow_replay.py generate` for this: it regenerates the goldens
+of every covered workflow, not just this one.
+
+**Required-only binding gap.** Required-only skips optional step 3, so the
+shared bundle's `catalyst_news_brief` digest is never checked in that
+variant; a skipped step's binding is not claimed as executed or verified.
+Full-path enforces it (`test_full_path_rejects_mismatched_news_binding`
+covers the mismatch and documents the required-only gap explicitly).
+
 ### Stockbee EP replay
 
 `stockbee-ep-daily/replay.yaml` executes the native circuit breaker, EP analyzer,
