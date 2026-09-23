@@ -3852,6 +3852,12 @@ def _swing_build_plan(
     return artifacts
 
 
+def _swing_thesis_date(spec: Mapping[str, Any]) -> str:
+    """Return YYYYMMDD in the RFC3339 timestamp's declared offset, without UTC conversion."""
+    fixed = _parse_rfc3339(spec["fixed_timestamp"], "fixed_timestamp")
+    return fixed.strftime("%Y%m%d")
+
+
 def _swing_journal(
     repo_root: Path,
     spec: Mapping[str, Any],
@@ -3920,7 +3926,8 @@ def _swing_journal(
         idea_reason = decision["reason_required_only"]
         entry_ready_reason = "Weekly setup and position size were reviewed."
         thesis_suffix = "_ab12"
-    thesis_id = f"th_{symbol.lower()}_gro_20260629{thesis_suffix}"
+    thesis_date = _swing_thesis_date(spec)
+    thesis_id = f"th_{symbol.lower()}_gro_{thesis_date}{thesis_suffix}"
 
     payload = {
         "thesis_id": thesis_id,

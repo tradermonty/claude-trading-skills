@@ -116,6 +116,52 @@ def test_full_path_builds_trade_plan_and_corroborating_evidence(tmp_path: Path) 
 
 
 @pytest.mark.parametrize(
+    ("variant", "expected_id"),
+    [
+        ("required-only", "th_exmpl_gro_20260630_ab12"),
+        ("full-path", "th_exmpl_gro_20260630_cd34"),
+    ],
+)
+def test_swing_thesis_id_uses_fixed_timestamp_declared_offset_date(
+    tmp_path: Path, variant: str, expected_id: str
+) -> None:
+    scenario = tmp_path / "scenario"
+    shutil.copytree(SPEC.parent, scenario)
+    spec = scenario / "replay.yaml"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "2026-06-29T12:00:00+00:00", "2026-06-30T00:30:00+14:00"
+        ),
+        encoding="utf-8",
+    )
+    for fixture in (scenario / "replay-inputs").iterdir():
+        if not fixture.is_file():
+            continue
+        text = fixture.read_text(encoding="utf-8")
+        text = text.replace("2026-06-29T12:00:00+00:00", "2026-06-30T00:30:00+14:00")
+        text = text.replace("2026-06-29", "2026-06-30")
+        fixture.write_text(text, encoding="utf-8")
+    journal_decision = scenario / "replay-inputs" / "journal-decision.yaml"
+    journal_decision.write_text(
+        journal_decision.read_text(encoding="utf-8").replace(
+            'next_review_date: "2026-06-30"', 'next_review_date: "2026-07-01"'
+        ),
+        encoding="utf-8",
+    )
+
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    execute_replay(ROOT, spec, variant, first)
+    execute_replay(ROOT, spec, variant, second)
+
+    journal = load_yaml(first / "10_candidate_journal_entry.yaml")
+    discipline = json.loads((first / "11_pre_trade_discipline_decision.json").read_text())
+    assert journal["thesis_id"] == expected_id
+    assert discipline["candidate_results"][0]["thesis_id"] == expected_id
+    assert compare_trees(first, second) == []
+
+
+@pytest.mark.parametrize(
     ("variant", "expected_decision", "variant_disclosure"),
     [
         ("required-only", "NO_GO", "optional written plan is absent"),
