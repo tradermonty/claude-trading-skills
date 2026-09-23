@@ -39,12 +39,19 @@ The existing matrix runner and `coverage json --omit='*/tests/*'` produce:
 | Before this batch, Python 3.9 | 56 passed | 689 / 1,043 | 66.0594% |
 | After this batch, locked Python 3.9 environment | 85 passed | 947 / 1,043 | 90.7958% |
 
-The production statement count remains 1,043. The orchestrator reaches 100%
-and the report generator 99.59%; these measure execution, not proof of trading
-correctness or live-provider compatibility. Existing pytest temporary-directory
-cleanup warnings appeared after successful tests; unrelated temporary data was
-not changed. The new assertions verify artifact contents and failure outcomes,
-including quote/history separation and absence of internal rally-day arrays.
+The production statement count remains 1,043. A later Issue #424 audit clarified
+the file-level figures for the two test modules introduced by this batch. Without
+the repository coverage exclusions, the orchestrator is 99.23% (129/130
+statements), with only its `__main__` entry-point call missed. The repository
+coverage configuration excludes that entry-point guard, so the same run reports
+the orchestrator as 100% (128/128). Coverage.py reports the generator as 99.59%
+(241/242): the intended skip-index branch is exercised, but its control-only
+`continue` line remains untraced. These measurements describe execution, not
+proof of trading correctness or live-provider compatibility. Existing pytest
+temporary-directory cleanup warnings appeared after successful tests; unrelated
+temporary data was not changed. The new assertions verify artifact contents and
+failure outcomes, including quote/history separation and absence of internal
+rally-day arrays.
 
 Reproduce with the lockfile environment:
 

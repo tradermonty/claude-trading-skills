@@ -2,6 +2,7 @@
 
 import copy
 import json
+from collections import Counter
 from datetime import date, timedelta
 
 import ftd_detector
@@ -72,6 +73,7 @@ def read_reports(tmp_path):
     [
         ("dual", "FTD_CONFIRMED", 100),
         ("single", "FTD_CONFIRMED", 95),
+        ("nasdaq_single", "FTD_CONFIRMED", 95),
         ("invalidated", "FTD_INVALIDATED", 0),
         ("window", "FTD_WINDOW", 0),
     ],
@@ -79,7 +81,10 @@ def read_reports(tmp_path):
 def test_main_writes_real_decision_reports(
     monkeypatch, tmp_path, scenario, expected_state, expected_score
 ):
-    sp500 = market_history(confirmed=scenario != "window", invalidated=scenario == "invalidated")
+    sp500 = market_history(
+        confirmed=scenario not in {"nasdaq_single", "window"},
+        invalidated=scenario == "invalidated",
+    )
     qqq = market_history(
         peak=400,
         confirmed=scenario not in {"single", "window"},
@@ -93,12 +98,14 @@ def test_main_writes_real_decision_reports(
     ftd_detector.main()
 
     report, markdown = read_reports(tmp_path)
-    assert client.calls == [
-        ("history", "^GSPC", 80),
-        ("history", "QQQ", 80),
-        ("quote", "^GSPC"),
-        ("quote", "QQQ"),
-    ]
+    assert Counter((call[0], call[1]) for call in client.calls) == Counter(
+        {
+            ("history", "^GSPC"): 1,
+            ("history", "QQQ"): 1,
+            ("quote", "^GSPC"): 1,
+            ("quote", "QQQ"): 1,
+        }
+    )
     assert histories == original
     assert report["metadata"]["api_calls"] == {"api_calls_made": 4, "cache_entries": 0}
     assert report["metadata"]["index_prices"] == {"sp500": 101.25, "qqq": 405.5}
@@ -121,9 +128,10 @@ def test_main_writes_real_decision_reports(
         assert "## FTD Signal" not in markdown
         assert "Do not buy ahead of FTD confirmation" in markdown
     else:
-        assert report["sp500"]["ftd"]["ftd_date"] == "2026-03-30"
-        assert report["sp500"]["ftd"]["ftd_day_number"] == 5
-        assert report["sp500"]["ftd"]["gain_pct"] == 2.1
+        confirmed_index = report["nasdaq"] if scenario == "nasdaq_single" else report["sp500"]
+        assert confirmed_index["ftd"]["ftd_date"] == "2026-03-30"
+        assert confirmed_index["ftd"]["ftd_day_number"] == 5
+        assert confirmed_index["ftd"]["gain_pct"] == 2.1
         assert "## FTD Signal" in markdown
     if scenario == "invalidated":
         invalidation = report["ftd_invalidation"]
@@ -141,6 +149,14 @@ def test_main_writes_real_decision_reports(
     elif scenario == "single":
         assert "| **FTD Index** | S&P 500 |" in markdown
         assert "YES (S&P 500 + NASDAQ)" not in markdown
+    elif scenario == "nasdaq_single":
+        assert report["sp500"]["ftd"]["ftd_detected"] is False
+        assert report["nasdaq"]["ftd"]["ftd_detected"] is True
+        assert report["market_state"]["dual_confirmation"] is False
+        assert report["market_state"]["ftd_index"] == "NASDAQ"
+        assert "| **FTD Index** | NASDAQ |" in markdown
+        assert "### NASDAQ/QQQ FTD" in markdown
+        assert "### S&P 500 FTD" not in markdown
 
 
 @pytest.mark.parametrize("qqq_available", [True, False])
@@ -183,7 +199,7 @@ def test_missing_mandatory_history_exits_without_reports(monkeypatch, tmp_path, 
         ftd_detector.main()
     assert exc.value.code == 1
     assert "Cannot proceed without S&P 500 data" in capsys.readouterr().err
-    assert client.calls == [("history", "^GSPC", 80)]
+    assert [(call[0], call[1]) for call in client.calls] == [("history", "^GSPC")]
     assert list(tmp_path.iterdir()) == []
 
 

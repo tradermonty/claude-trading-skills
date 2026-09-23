@@ -74,6 +74,38 @@ def test_unconfirmed_states_never_use_confirmed_guidance(tmp_path, state, expect
     assert "Gradually increase exposure with each successful breakout" not in markdown
 
 
+def test_no_signal_renders_uptrend_status_and_normal_market_guidance(tmp_path):
+    markdown = render(
+        tmp_path,
+        {
+            "market_state": {"combined_state": "NO_SIGNAL"},
+            "quality_score": {"total_score": 100},
+        },
+    )
+    assert "| **Current State** | ⚪ **No Signal (Uptrend)** |" in markdown
+    assert "No correction detected - normal market conditions" in markdown
+    assert "FTD monitoring not applicable in uptrend" in markdown
+    assert "Aggressively increase equity exposure" not in markdown
+    assert "Gradually increase exposure with each successful breakout" not in markdown
+
+
+def test_rally_details_skip_index_without_an_active_rally(tmp_path):
+    markdown = render(
+        tmp_path,
+        {
+            "market_state": {"combined_state": "RALLY_ATTEMPT"},
+            "sp500": {},
+            "nasdaq": {
+                "swing_low": {"date": "2026-03-23", "price": 380, "decline_pct": -5},
+                "rally_attempt": {"day1_date": "2026-03-24", "current_day_count": 2},
+            },
+            "quality_score": {"total_score": 0},
+        },
+    )
+    assert "### NASDAQ/QQQ" in markdown
+    assert "### S&P 500" not in markdown
+
+
 def test_minimal_report_handles_absent_optional_analysis(tmp_path):
     markdown = render(tmp_path, {})
     assert "**Generated:** N/A" in markdown
