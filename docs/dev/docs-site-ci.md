@@ -18,6 +18,11 @@ for 14 days. This build-and-link gate complements the skill-catalog parity gate
 from #327: catalog parity checks source completeness, while this gate checks the
 site Jekyll actually emits.
 
+Both internal and external validation require an existing build directory with
+at least one HTML file. Missing, empty, or non-HTML build output fails before
+external network requests or cache/report writes. Rendered `.md` links must point
+to a real Markdown asset; a same-name `.html` file does not satisfy that URL.
+
 ## Locked Pages toolchain
 
 CI uses Ruby 3.3.9 and the committed `docs/Gemfile.lock`. The Gemfile constrains

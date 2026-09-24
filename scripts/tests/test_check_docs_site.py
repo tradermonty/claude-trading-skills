@@ -196,6 +196,103 @@ def test_internal_reports_missing_target_anchor_asset_and_traversal(tmp_path):
     assert any("path traversal" in error for error in errors)
 
 
+@pytest.mark.parametrize("tail", ["", "?download=1#heading"])
+def test_internal_does_not_rewrite_missing_markdown_to_html(tmp_path, tail):
+    site = tmp_path / "site"
+    _write_html(site / "index.html", f'<a href="page.md{tail}">page</a>')
+    _write_html(site / "page.html", '<h1 id="heading">Page</h1>')
+    errors = docs_check.validate_internal(site, CONFIG)
+    assert len(errors) == 1
+    assert "target does not exist" in errors[0]
+    # A real downloadable Markdown asset is still a valid target.
+    (site / "page.md").write_text("# heading\n", encoding="utf-8")
+    assert docs_check.validate_internal(site, CONFIG) == []
+
+
+@pytest.mark.parametrize("kind", ["missing", "file", "empty", "css-only", "html-directory"])
+def test_invalid_build_fails_before_external_side_effects(tmp_path, kind, capsys):
+    site = tmp_path / "site"
+    if kind == "file":
+        site.write_text("not a directory", encoding="utf-8")
+    elif kind != "missing":
+        site.mkdir()
+        if kind == "css-only":
+            (site / "style.css").write_text("body {}", encoding="utf-8")
+        elif kind == "html-directory":
+            (site / "index.html").mkdir()
+    cache, report = tmp_path / "cache.json", tmp_path / "report.json"
+    for path in (cache, report):
+        path.write_text("sentinel", encoding="utf-8")
+
+    def unexpected_call(*args, **kwargs):
+        pytest.fail("invalid site must not perform network operations")
+
+    with pytest.raises(ValueError, match="built site"):
+        docs_check.validate_internal(site, CONFIG)
+    with pytest.raises(ValueError, match="built site"):
+        docs_check.validate_external(
+            site,
+            CONFIG,
+            allowlist_path=tmp_path / "missing-allowlist.json",
+            cache_path=cache,
+            report_path=report,
+            cache_ttl_hours=24,
+            retries=0,
+            timeout=1,
+            max_redirects=1,
+            max_bytes=8,
+            requester=unexpected_call,
+            resolver=unexpected_call,
+        )
+    for command in ("internal", "external"):
+        extra = ["--cache", str(cache), "--report", str(report)] if command == "external" else []
+        assert (
+            docs_check.main(
+                [
+                    command,
+                    "--site-dir",
+                    str(site),
+                    "--config",
+                    str(ROOT / "docs/_config.yml"),
+                    *extra,
+                ]
+            )
+            == 1
+        )
+        assert "built site" in capsys.readouterr().err
+    assert cache.read_text(encoding="utf-8") == "sentinel"
+    assert report.read_text(encoding="utf-8") == "sentinel"
+
+
+def test_valid_site_without_external_links_passes_without_network(tmp_path):
+    site = tmp_path / "site"
+    _write_html(site / "nested" / "index.html", "<h1>Valid page</h1>")
+    allowlist = tmp_path / "allowlist.json"
+    _allowlist(allowlist)
+
+    def unexpected_call(*args, **kwargs):
+        pytest.fail("site without external links must not perform network operations")
+
+    assert docs_check.validate_internal(site, CONFIG) == []
+    assert (
+        docs_check.validate_external(
+            site,
+            CONFIG,
+            allowlist_path=allowlist,
+            cache_path=tmp_path / "cache.json",
+            report_path=tmp_path / "report.json",
+            cache_ttl_hours=24,
+            retries=0,
+            timeout=1,
+            max_redirects=1,
+            max_bytes=8,
+            requester=unexpected_call,
+            resolver=unexpected_call,
+        )
+        == []
+    )
+
+
 def test_same_site_absolute_is_internal_and_excluded_from_external(tmp_path):
     site = tmp_path / "site"
     _write_html(

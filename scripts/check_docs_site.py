@@ -421,9 +421,7 @@ def _target_candidates(site_dir: Path, path: str) -> list[Path]:
     else:
         candidates.append(target)
         suffix = PurePosixPath(relative).suffix
-        if suffix == ".md":
-            candidates.append(target.with_suffix(".html"))
-        elif not suffix:
+        if not suffix:
             candidates.extend([target.with_suffix(".html"), target / "index.html"])
     return candidates
 
@@ -446,7 +444,15 @@ def _resolve_internal_target(site_dir: Path, normalized: str) -> tuple[Path | No
     return None, "target does not exist"
 
 
+def _validate_built_site(site_dir: Path) -> None:
+    if not site_dir.is_dir():
+        raise ValueError(f"built site directory does not exist or is not a directory: {site_dir}")
+    if not any(path.is_file() for path in site_dir.rglob("*.html")):
+        raise ValueError(f"built site contains no HTML files: {site_dir}")
+
+
 def validate_internal(site_dir: Path, config: SiteConfig) -> list[str]:
+    _validate_built_site(site_dir)
     errors: list[str] = []
     anchor_cache: dict[Path, set[str]] = {}
     for reference in _iter_site_references(site_dir):
@@ -775,6 +781,7 @@ def validate_external(
     resolver: Callable[..., Any] = socket.getaddrinfo,
     sleep: Callable[[float], None] = time.sleep,
 ) -> list[str]:
+    _validate_built_site(site_dir)
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     errors: list[str] = []
     allowed, allowlist_errors = load_allowlist(allowlist_path, today=now.date())
