@@ -7,8 +7,8 @@ of the beginner trading workflow or the documentation-site navigation.
 - [Back to README](../../README.md)
 - [日本語版](skill-automation.ja.md)
 - [Maintenance runbook](maintenance-runbook.md)
-- [Self-improvement implementation details](../../CLAUDE.md#skill-self-improvement-loop)
-- [Generation implementation details](../../CLAUDE.md#skill-auto-generation-pipeline)
+- [Self-improvement implementation details](https://github.com/tradermonty/claude-trading-skills/blob/main/CLAUDE.md#skill-self-improvement-loop)
+- [Generation implementation details](https://github.com/tradermonty/claude-trading-skills/blob/main/CLAUDE.md#skill-auto-generation-pipeline)
 
 Run every command below from the repository root. For environment setup,
 drift gates, recovery procedures, and scheduled-job troubleshooting, use the

@@ -41,7 +41,7 @@ generated: false
 
 - Python 3.9以降を使用します。
 - 同じ行にISO日付、戦略リターン、すべてのベースラインリターンを含むCSVを1件用意します。
-- [references/input-contract.md](references/input-contract.md) に従ったJSON仕様を用意します。
+- [入力contract](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/residual-edge-analyzer/references/input-contract.md) に従ったJSON仕様を用意します。
 - 実際の期間リターンを指定します。CAGR、シャープレシオ、累積損益などの要約指標で代用しません。
 
 ---

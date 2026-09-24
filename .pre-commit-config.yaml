@@ -25,7 +25,7 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: [--skip, ".venv,*.json,*.csv,*.baseline,skill-packages,*.pyc,__pycache__",
+        args: [--skip, ".venv,*.json,*.csv,*.baseline,skill-packages,*.pyc,__pycache__,docs/Gemfile.lock",
                --ignore-words-list, "trough,ore,cna,acn,blok,hims,pont,claus,theses",
                --ignore-regex, "(Depósito|Deposito) inicial"]
 
@@ -59,6 +59,20 @@ repos:
         entry: python3 scripts/hooks/check_docs_completeness.py
         language: system
         files: 'skills/.*/SKILL\.md$|docs/.*/skills/.*\.md$'
+        pass_filenames: false
+
+      - id: docs-site-source
+        name: Validate docs permalinks and language peers
+        entry: python3 scripts/check_docs_site.py source
+        language: system
+        files: '^(docs/|scripts/check_docs_site\.py|scripts/tests/test_check_docs_site\.py)'
+        pass_filenames: false
+
+      - id: docs-site-allowlist
+        name: Validate docs external-link allowlist policy
+        entry: python3 scripts/check_docs_site.py allowlist
+        language: system
+        files: '^(config/docs-external-link-allowlist\.json|scripts/check_docs_site\.py|scripts/tests/test_check_docs_site\.py)$'
         pass_filenames: false
 
       - id: validate-skills-index

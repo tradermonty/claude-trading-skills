@@ -5,7 +5,9 @@ description: >-
 baseurl: /claude-trading-skills
 url: https://tradermonty.github.io
 
-remote_theme: just-the-docs/just-the-docs@v0.12.0
+# Immutable commit for just-the-docs v0.12.0. The remote-theme plugin still
+# downloads this exact revision during each build.
+remote_theme: just-the-docs/just-the-docs@2ed4c0af735e95af5c0dcf7a605b07d903005b4e
 
 plugins:
   - jekyll-remote-theme

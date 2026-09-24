@@ -4,11 +4,11 @@
 2つのリポジトリ自動化パイプラインを説明します。初心者向けトレード導線や
 ドキュメントサイトのナビゲーションには含まれません。
 
-- [READMEへ戻る](../../README.ja.md)
+- [READMEへ戻る](https://github.com/tradermonty/claude-trading-skills/blob/main/README.ja.md)
 - [English](skill-automation.md)
 - [メンテナンスrunbook（英語）](maintenance-runbook.md)
-- [自己改善の実装詳細（英語）](../../CLAUDE.md#skill-self-improvement-loop)
-- [自動生成の実装詳細（英語）](../../CLAUDE.md#skill-auto-generation-pipeline)
+- [自己改善の実装詳細（英語）](https://github.com/tradermonty/claude-trading-skills/blob/main/CLAUDE.md#skill-self-improvement-loop)
+- [自動生成の実装詳細（英語）](https://github.com/tradermonty/claude-trading-skills/blob/main/CLAUDE.md#skill-auto-generation-pipeline)
 
 以下のコマンドはすべてリポジトリルートから実行します。環境構築、drift gate、
 復旧手順、定期jobのトラブルシューティングは
