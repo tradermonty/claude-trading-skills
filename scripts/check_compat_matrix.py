@@ -34,6 +34,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 WORKFLOW_FILES = ("ci.yml", "compat-nightly.yml")
 SUPPORTED_OS = {"ubuntu-latest", "windows-latest", "macos-latest"}
+SELF_HOSTED_PLATFORM_LABELS = {"linux", "windows", "macos"}
+RECOGNIZED_SELF_HOSTED_CATEGORIES = {
+    f"self-hosted-{platform}" for platform in SELF_HOSTED_PLATFORM_LABELS
+} | {"self-hosted-unknown", "self-hosted-ambiguous"}
 DEFAULT_REQUIRES_PYTHON = ">=3.10,<3.14"
 COMPAT_JOBS = ("compat-smoke", "compat-nightly")
 DOC = "docs/dev/compatibility-matrix.md"
@@ -103,7 +107,9 @@ def _validate_python_bound(value: str | None) -> tuple[str, str]:
     return value, ""
 
 
-def _matrix_os(runs_on: str | None, matrix: dict | None, python_ver: str | None) -> list[str]:
+def _matrix_os(
+    runs_on: str | list | None, matrix: dict | None, python_ver: str | None
+) -> list[str]:
     """Resolve the set of OS labels for a job from its matrix + runs-on.
 
     A literal ``runs-on`` (not a matrix expression) IS the actual runner OS,
@@ -115,8 +121,24 @@ def _matrix_os(runs_on: str | None, matrix: dict | None, python_ver: str | None)
     longer hides Windows/macOS from drift detection).
     """
     if isinstance(runs_on, list):
-        # Runs on a runner that matches every label, e.g. [self-hosted, linux].
-        return [str(x) for x in runs_on]
+        # A list is a conjunction of runner labels, not a list of operating
+        # systems. Keep self-hosted platforms distinct from GitHub-hosted
+        # images: ``linux`` does not imply ``ubuntu-latest``.
+        labels = [str(item).strip() for item in runs_on]
+        normalized = {label.casefold() for label in labels}
+        if "self-hosted" in normalized:
+            if any(_is_expr(label) for label in labels):
+                return ["self-hosted-unknown"]
+            platforms = normalized & SELF_HOSTED_PLATFORM_LABELS
+            if len(platforms) == 1:
+                return [f"self-hosted-{next(iter(platforms))}"]
+            if not platforms:
+                return ["self-hosted-unknown"]
+            return ["self-hosted-ambiguous"]
+        # GitHub documents list-form runs-on for self-hosted label matching.
+        # A list without that marker is not a hosted-image declaration, so
+        # retain an explicitly unsupported category and fail closed later.
+        return ["runner-labels-unsupported"]
     if runs_on and not _is_expr(runs_on):
         return [str(runs_on)]
     if isinstance(matrix, dict) and isinstance(matrix.get("os"), list):
@@ -287,13 +309,16 @@ def _check_os_and_python_policy(
     python_expr: str,
     standalone_floor: str,
     standalone_jobs: set[str],
+    allowed_self_hosted: set[str],
     errors: list[str],
 ) -> None:
     lower, upper = _bound_range(python_expr)
     for qualified_job, result in all_results.items():
         for combo in result.combos:
-            if combo.os not in SUPPORTED_OS:
-                errors.append(f"{qualified_job}: OS {combo.os!r} is outside supported set")
+            if combo.os not in SUPPORTED_OS and combo.os not in allowed_self_hosted:
+                errors.append(
+                    f"{qualified_job}: runner target {combo.os!r} is outside supported set"
+                )
             if combo.python is None:
                 if result.job not in NO_SETUP_PYTHON_JOBS:
                     errors.append(f"{qualified_job}: could not resolve a Python version")
@@ -341,6 +366,12 @@ def check(quiet: bool = False, as_json: bool = False) -> int:
         if isinstance(standalone_jobs_raw, list)
         else set()
     )
+    allowed_self_hosted_raw = support.get("allowed_self_hosted_runner_categories")
+    allowed_self_hosted = (
+        {str(item) for item in allowed_self_hosted_raw}
+        if isinstance(allowed_self_hosted_raw, list)
+        else set()
+    )
     if support.get("root_project") != python_expr:
         errors.append(
             f"{PYTHON_SUPPORT} root_project {support.get('root_project')!r} "
@@ -350,6 +381,14 @@ def check(quiet: bool = False, as_json: bool = False) -> int:
         errors.append(f"{PYTHON_SUPPORT} has invalid standalone_skills_minimum")
     if not standalone_jobs:
         errors.append(f"{PYTHON_SUPPORT} has no standalone_workflow_jobs")
+    if not isinstance(allowed_self_hosted_raw, list):
+        errors.append(f"{PYTHON_SUPPORT} has invalid allowed_self_hosted_runner_categories")
+    unknown_self_hosted = allowed_self_hosted - RECOGNIZED_SELF_HOSTED_CATEGORIES
+    if unknown_self_hosted:
+        errors.append(
+            f"{PYTHON_SUPPORT} has unknown self-hosted runner categories: "
+            f"{sorted(unknown_self_hosted)}"
+        )
 
     declared = _declared_from_doc()
     if not declared or all(not v["os"] for v in declared.values()):
@@ -378,13 +417,19 @@ def check(quiet: bool = False, as_json: bool = False) -> int:
     actual = _actual_combo_sets(all_results)
     _check_declared_workflow_match(declared, actual, errors)
     _check_os_and_python_policy(
-        all_results, python_expr, standalone_floor or "999", standalone_jobs, errors
+        all_results,
+        python_expr,
+        standalone_floor or "999",
+        standalone_jobs,
+        allowed_self_hosted,
+        errors,
     )
 
     payload = {
         "ok": not errors,
         "errors": errors,
         "python_requires": python_expr or DEFAULT_REQUIRES_PYTHON,
+        "allowed_self_hosted_runner_categories": sorted(allowed_self_hosted),
         "declared": declared,
         "actual": actual,
     }

@@ -177,9 +177,9 @@ repos:
         language: system
         # Fire on every workflow (not just the two compat files, so a new
         # workflow that runs an unsupported combo is rechecked), the matrix
-        # document (the declared mapping), the runtime bound, and the checker
-        # itself (so a logic change revalidates).
-        files: '^(\.github/workflows/.*|docs/dev/compatibility-matrix\.md|pyproject\.toml|scripts/check_compat_matrix\.py|scripts/tests/test_check_compat_matrix\.py)$'
+        # document (the declared mapping), the runtime/policy bounds, and the
+        # checker itself (so a logic change revalidates).
+        files: '^(\.github/workflows/.*|config/python-support\.json|docs/dev/compatibility-matrix\.md|pyproject\.toml|scripts/check_compat_matrix\.py|scripts/tests/test_check_compat_matrix\.py)$'
         pass_filenames: false
 
       - id: changed-package-drift

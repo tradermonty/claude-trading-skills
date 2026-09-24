@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "timeout_seconds": 600,
+  "skills": {
+    "position-sizer": {
+      "modules": [
+        "position_sizer"
+      ]
+    },
+    "futures-position-sizer": {
+      "modules": [
+        "futures_position_sizer",
+        "futures_sizing"
+      ]
+    },
+    "trader-memory-core": {
+      "modules": [
+        "trader_memory_cli",
+        "thesis_store",
+        "thesis_ingest",
+        "thesis_review"
+      ]
+    },
+    "drawdown-circuit-breaker": {
+      "modules": [
+        "check_circuit_breaker"
+      ]
+    },
+    "trading-skills-navigator": {
+      "modules": [
+        "recommend",
+        "build_snapshot",
+        "intent_benchmark"
+      ]
+    }
+  }
+}

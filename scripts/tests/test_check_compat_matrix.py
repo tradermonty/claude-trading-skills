@@ -99,7 +99,7 @@ def _compliant_tree(root: Path) -> None:
     _write(
         root,
         "config/python-support.json",
-        '{"schema_version":1,"root_project":">=3.10,<3.14","standalone_skills_minimum":"3.9","standalone_workflow_jobs":["ci.yml:market-calendar-compat","packaged-deps-nightly.yml:smoke"]}\n',
+        '{"schema_version":1,"root_project":">=3.10,<3.14","standalone_skills_minimum":"3.9","allowed_self_hosted_runner_categories":[],"standalone_workflow_jobs":["ci.yml:market-calendar-compat","packaged-deps-nightly.yml:smoke"]}\n',
     )
     _write(root, ".github/workflows/ci.yml", COMPLIANT_CI)
     _write(root, ".github/workflows/compat-nightly.yml", COMPLIANT_NIGHTLY)
@@ -394,6 +394,77 @@ def test_matrix_os_expression_still_expands_from_matrix(project: Path):
     _write(project, ".github/workflows/extra.yml", wf)
     results = ccm._extract_jobs(ccm._load_workflow("extra.yml"))
     assert {c.os for c in results["my-job"].combos} == {"ubuntu-latest", "windows-latest"}
+
+
+@pytest.mark.parametrize(
+    ("runs_on", "expected"),
+    [
+        (["self-hosted", "linux", "x64"], "self-hosted-linux"),
+        (["SELF-HOSTED", "Windows", "gpu"], "self-hosted-windows"),
+        (["self-hosted", "macos", "arm64", "custom"], "self-hosted-macos"),
+        (["self-hosted", "x64"], "self-hosted-unknown"),
+        (["self-hosted", "linux", "windows"], "self-hosted-ambiguous"),
+        (["self-hosted", "${{ inputs.platform }}"], "self-hosted-unknown"),
+        (["linux", "x64"], "runner-labels-unsupported"),
+    ],
+)
+def test_matrix_os_classifies_list_form_runner_labels(runs_on, expected):
+    assert ccm._matrix_os(runs_on, None, "3.13") == [expected]
+
+
+def test_self_hosted_runner_category_is_default_deny(project: Path, capsys: pytest.CaptureFixture):
+    _compliant_tree(project)
+    _write(
+        project,
+        ".github/workflows/self-hosted.yml",
+        """jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+""",
+    )
+    assert ccm.check(quiet=True) == 1
+    assert "self-hosted-linux" in capsys.readouterr().out
+
+
+def test_self_hosted_runner_category_must_be_explicitly_allowed(project: Path):
+    _compliant_tree(project)
+    _write(
+        project,
+        "config/python-support.json",
+        '{"schema_version":1,"root_project":">=3.10,<3.14","standalone_skills_minimum":"3.9","allowed_self_hosted_runner_categories":["self-hosted-linux"],"standalone_workflow_jobs":["ci.yml:market-calendar-compat","packaged-deps-nightly.yml:smoke"]}\n',
+    )
+    _write(
+        project,
+        ".github/workflows/self-hosted.yml",
+        """jobs:
+  probe:
+    runs-on: [self-hosted, LiNuX, x64, gpu]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+""",
+    )
+    assert ccm.check(quiet=True) == 0
+
+
+def test_unknown_self_hosted_policy_category_fails(project: Path, capsys: pytest.CaptureFixture):
+    _compliant_tree(project)
+    support = (
+        (project / "config/python-support.json")
+        .read_text(encoding="utf-8")
+        .replace(
+            '"allowed_self_hosted_runner_categories":[]',
+            '"allowed_self_hosted_runner_categories":["self-hosted-solaris"]',
+        )
+    )
+    _write(project, "config/python-support.json", support)
+    assert ccm.check(quiet=True) == 1
+    assert "unknown self-hosted runner categories" in capsys.readouterr().out
 
 
 def test_matrix_python_resolves_python_version_axis(project: Path):

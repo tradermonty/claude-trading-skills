@@ -98,13 +98,10 @@ def test_compat_jobs_do_isolated_packaged_import():
         for job_id in targets:
             job = config["jobs"][job_id]
             runs = [step.get("run", "") for step in job["steps"]]
-            isolated = any(
-                "from check_skill_deps import IMPORT_TO_DIST, parse_requirements" in r
-                and '"--isolated"' in r
-                and "trader-memory-core" in r
-                for r in runs
+            assert runs.count("python scripts/check_isolated_skill_imports.py") == 1, (
+                name,
+                job_id,
             )
-            assert isolated, (name, job_id)
 
 
 def test_dependabot_tracks_all_three_manifest_families_weekly():

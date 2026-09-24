@@ -2,6 +2,7 @@
   "schema_version": 1,
   "root_project": ">=3.10,<3.14",
   "standalone_skills_minimum": "3.9",
+  "allowed_self_hosted_runner_categories": [],
   "standalone_workflow_jobs": [
     "ci.yml:market-calendar-compat",
     "packaged-deps-nightly.yml:smoke"

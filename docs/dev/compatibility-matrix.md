@@ -105,6 +105,14 @@ parts:
    if any workflow job leaves the supported OS set / Python range.
 2. **Declaring only supported combinations** in the workflow itself.
 
+GitHub's list-form `runs-on` syntax is a conjunction of self-hosted runner
+labels, not an OS matrix. The checker classifies a list such as
+`[self-hosted, linux, x64]` as `self-hosted-linux`; it never treats `linux` as
+`ubuntu-latest`. Self-hosted categories are default-deny and must be listed in
+`config/python-support.json` before a job may use them. Unknown, ambiguous,
+dynamic, or non-self-hosted label lists fail closed. These runner categories
+remain separate from the documented GitHub-hosted OS set above.
+
 A *runtime* rejection of "this unsupported combination reached a runner" is **out of scope** for a
 static checker: a static tool cannot observe the live runner. This is a deliberate, documented
 reduction so the gap between "enforce" and the current implementation is explicit.
@@ -119,9 +127,14 @@ Two past failure classes motivated bounding the promise and testing cross-platfo
   outside the main project venv. The `compat-smoke` / `compat-nightly` jobs therefore run an extra
   **isolated packaged-dependency import** step: each core skill's declared `requirements.txt` is
   installed into a throwaway environment (`uv run --isolated --no-project --with <reqs>`) and the
-  skill's top-level imports are exercised there, per OS and per Python version. This catches a
-  missing dependency declaration that the shared dev environment would otherwise mask via packages
-  installed transitively.
+  entry modules listed in `config/compat-import-smoke.json` are imported independently with a
+  bounded timeout, per OS and per Python version. Stdlib-only skills run the same isolated import
+  without any `--with` arguments; they are not skipped. The explicit inventory avoids executing a
+  newly added helper merely because it matches `scripts/*.py`, while still covering each documented
+  CLI/resource entry point. This catches a missing dependency declaration that the shared dev
+  environment would otherwise mask via transitively installed packages. Function-local and dynamic
+  imports remain the responsibility of the repository-wide `scripts/check_skill_deps.py` AST gate;
+  the runtime smoke is intentionally scoped to configured import-safe entry modules.
 
 The cross-platform jobs (`compat-smoke`, `compat-nightly`) exercise the compatibility-sensitive
 suites — `position-sizer`, `futures-position-sizer`, `trader-memory-core`,
