@@ -686,3 +686,119 @@ def test_check_cli_reports_malformed_contract_cleanly_instead_of_a_traceback(
     captured = capsys.readouterr()
     assert "ERROR:" in captured.err
     assert "malformed JSON" in captured.err
+
+
+@pytest.mark.parametrize("row_count", [1, 3])
+def test_profile_all_null_market_cap_is_fatal(row_count):
+    contract = CONTRACTS["profile"]
+    row = copy.deepcopy(contract.fixture[0])
+    row["marketCap"] = None
+    result = validate_rows(contract, [copy.deepcopy(row) for _ in range(row_count)])
+    assert [a.code for a in result.fatal_anomalies] == ["all_null_required_field:marketCap"]
+    assert not result.ok
+
+
+@pytest.mark.parametrize("value", [0, 1, 123.5])
+def test_profile_mixed_null_and_populated_market_cap_is_allowed(value):
+    contract = CONTRACTS["profile"]
+    rows = [copy.deepcopy(contract.fixture[0]) for _ in range(2)]
+    rows[0]["marketCap"] = None
+    rows[1]["marketCap"] = value
+    assert validate_rows(contract, rows).ok
+
+
+@pytest.mark.parametrize("policy", [False, "absent"])
+def test_all_null_rejection_is_opt_in(policy):
+    contract = copy.deepcopy(CONTRACTS["profile"])
+    if policy == "absent":
+        contract.required_fields["marketCap"].pop("reject_all_null")
+    else:
+        contract.required_fields["marketCap"]["reject_all_null"] = policy
+    contract.fixture[0]["marketCap"] = None
+    assert validate_rows(contract, contract.fixture).ok
+
+
+def test_all_null_unreported_earnings_values_remain_allowed():
+    contract = CONTRACTS["earnings-calendar"]
+    rows = copy.deepcopy(contract.fixture)
+    for row in rows:
+        for name, spec in contract.required_fields.items():
+            if spec.get("nullable", False):
+                row[name] = None
+    assert validate_rows(contract, rows).ok
+
+
+@pytest.mark.parametrize(
+    "bad_row,expected",
+    [
+        ({}, "missing_required_field:marketCap"),
+        (None, "row_not_object"),
+        ({"marketCap": "null"}, "wrong_type:marketCap:str"),
+    ],
+)
+def test_all_null_rule_does_not_hide_other_response_defects(bad_row, expected):
+    contract = CONTRACTS["profile"]
+    row = copy.deepcopy(contract.fixture[0])
+    row["marketCap"] = None
+    result = validate_rows(contract, [row, bad_row])
+    codes = [a.code for a in result.fatal_anomalies]
+    assert expected in codes
+    assert "all_null_required_field:marketCap" not in codes
+    assert not result.ok
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "true", "false", [], {}])
+@pytest.mark.parametrize("rows", [[], None, {}, "fixture"])
+def test_invalid_all_null_policy_fails_even_on_empty_response(value, rows):
+    contract = copy.deepcopy(CONTRACTS["profile"])
+    contract.required_fields["marketCap"]["reject_all_null"] = value
+    contract.non_empty["min_rows"] = 0
+    payload = contract.fixture if rows == "fixture" else rows
+    result = validate_rows(contract, payload)
+    assert not result.ok
+    assert "invalid_contract_rule:marketCap:reject_all_null" in [
+        a.code for a in result.fatal_anomalies
+    ]
+    assert any(
+        "invalid_contract_rule:marketCap:reject_all_null" in error
+        for error in validate_contract_file(contract, SKILL_IDS)
+    )
+
+
+def test_empty_response_retains_its_original_anomaly():
+    result = validate_rows(CONTRACTS["profile"], [])
+    assert [a.code for a in result.fatal_anomalies] == ["empty_response"]
+
+
+def test_offline_check_rejects_all_null_fixture(monkeypatch, capsys):
+    contracts = copy.deepcopy(CONTRACTS)
+    contracts["profile"].fixture[0]["marketCap"] = None
+    monkeypatch.setattr(check_provider_contracts, "load_contracts", lambda root: contracts)
+    assert check_provider_contracts.main(["check"]) == 1
+    assert "all_null_required_field:marketCap" in capsys.readouterr().err
+
+
+def test_canary_all_null_profile_reports_fatal_and_exits_one(tmp_path, monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "FAKEKEY123")
+
+    def fetch(path, query):
+        status, rows = _stub_fetch_ok(path, query)
+        if path == "/stable/profile":
+            for row in rows:
+                row["marketCap"] = None
+        return status, rows
+
+    monkeypatch.setattr(check_provider_contracts, "_build_requests_fetch", lambda key: fetch)
+    report_path = tmp_path / "all_null.json"
+    assert check_provider_contracts.main(["canary", "--report", str(report_path)]) == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["ok"] is False
+    assert report["contracts"]["profile"] == {
+        "status": 200,
+        "rows": len(PROFILE_FIXTURE),
+        "anomalies": [{"code": "all_null_required_field:marketCap", "severity": "fatal"}],
+        "deprecations": [],
+        "ok": False,
+    }
+    assert all(entry["ok"] for key, entry in report["contracts"].items() if key != "profile")
+    assert report["budget"] == {"max": len(CONTRACTS), "used": len(CONTRACTS)}

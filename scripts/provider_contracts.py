@@ -250,10 +250,14 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
     Anomaly codes and severities are fixed (see ``docs/dev/provider-contracts.md``):
     ``empty_response``, ``not_a_list``, ``row_not_object``,
     ``missing_required_field:<f>``, ``null_required_field:<f>``,
-    ``wrong_type:<f>:<got>`` and ``canonical_absent_legacy_present:<legacy>-><canonical>``
+    ``wrong_type:<f>:<got>``, ``all_null_required_field:<f>``,
+    ``invalid_contract_rule:<f>:reject_all_null`` and ``canonical_absent_legacy_present:<legacy>-><canonical>``
     are FATAL; ``legacy_alias_present:<legacy>` is a non-fatal DEPRECATION.
     """
     anomalies: list[Anomaly] = []
+    for field_name, spec in contract.required_fields.items():
+        if not isinstance(spec.get("reject_all_null", False), bool):
+            anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:reject_all_null", FATAL))
     min_rows = int((contract.non_empty or {}).get("min_rows", 0) or 0)
 
     if rows is None or (isinstance(rows, list) and len(rows) == 0):
@@ -264,6 +268,15 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
     if not isinstance(rows, list):
         anomalies.append(Anomaly("not_a_list", FATAL))
         return RowValidation(anomalies)
+
+    # Individual nulls can be legitimate while an entire probe losing a
+    # populated field is provider drift. Missing keys / malformed rows have
+    # their own fatal codes below; do not mislabel them as explicit nulls.
+    for field_name, spec in contract.required_fields.items():
+        if spec.get("reject_all_null", False) is True and all(
+            isinstance(row, dict) and field_name in row and row[field_name] is None for row in rows
+        ):
+            anomalies.append(Anomaly(f"all_null_required_field:{field_name}", FATAL))
 
     legacy_for_canonical: dict[str, list[str]] = {}
     for legacy_key, meta in contract.legacy_aliases.items():

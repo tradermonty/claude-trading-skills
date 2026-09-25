@@ -52,7 +52,7 @@ Location follows `config/ci-test-policy.yaml`'s convention: data lives under
   "tier_notes": "served on free tier; comma-batched symbol returns []",
   "required_fields": {
     "symbol": {"types": ["str"], "nullable": false},
-    "marketCap": {"types": ["int", "float"], "nullable": true},
+    "marketCap": {"types": ["int", "float"], "nullable": true, "reject_all_null": true},
     "exchange": {"types": ["str"], "nullable": false}
   },
   "optional_fields": ["beta", "lastDividend", "..."],
@@ -72,6 +72,14 @@ Field semantics:
   declares `types` (JSON-ish type names: `str`, `int`, `float`, `bool`, `list`,
   `dict`) and `nullable` (whether the provider is known to legitimately return
   `null` for this field, e.g. `epsActual` before an earnings report is filed).
+  The optional boolean `reject_all_null` (default `false`) additionally rejects
+  a non-empty response when every row explicitly has `null` for that field.
+  Individual nulls alongside a non-null value still follow `nullable`; missing
+  keys and malformed rows retain their existing fatal anomaly codes. Only
+  `profile.marketCap` opts in: the AAPL probe should have a populated market cap.
+  Earnings fields such as `epsActual` may legitimately be all-null before
+  reporting and do not opt in. Non-boolean policy values fail both the offline
+  fixture check and canary validation, including on empty responses.
 - **`optional_fields`** — every other field observed live but not read by any
   in-scope consumer. Informational only; not validated.
 - **`legacy_aliases`** — a field name the provider used to use (`mktCap`,
@@ -111,6 +119,8 @@ Produced by `validate_rows()` in `scripts/provider_contracts.py`:
 | `row_not_object` | fatal | a list entry is not a JSON object |
 | `missing_required_field:<f>` | fatal | required key absent from a row, and no legacy alias is present either |
 | `null_required_field:<f>` | fatal | required key is `null` and `nullable: false` |
+| `all_null_required_field:<f>` | fatal | every row explicitly has null for a field with `reject_all_null: true` |
+| `invalid_contract_rule:<f>:reject_all_null` | fatal | the opt-in policy value is not a JSON boolean |
 | `wrong_type:<f>:<got>` | fatal | required key's value type is outside its declared `types` |
 | `canonical_absent_legacy_present:<legacy>-><canonical>` | fatal | **the #328 signature** — the legacy field name showed up instead of the canonical one |
 | `legacy_alias_present:<legacy>` | deprecation (non-fatal) | both the legacy and canonical keys are present; informational only |
@@ -370,6 +380,18 @@ endpoints, and are excluded.
 This table defines slice 2's completion criteria: every row marked ❌ needs its own
 contract file (and, for `company-screener`, the field-usage inventory across its
 nine ad-hoc consumers) before slice 2 can close.
+
+## All-null detection follow-up (#332)
+
+The profile contract now detects all-null `marketCap` responses in the offline
+fixture gate and the canary report, while preserving per-row nullability. This
+adds a probe policy without changing the recorded provider shape, fixture capture
+date, or contract version. Tests use synthetic mutations of the recorded fixture;
+this follow-up does not claim a new live capture or live canary run.
+
+Issue #332 remains open: non-FMP providers, the remaining FMP endpoint contracts,
+other consumer reason codes, and canary promotion remain outstanding. The
+scheduled canary remains report-only.
 
 ## Out of scope (this slice)
 

@@ -18,7 +18,7 @@
   "tier_notes": "served on free tier; comma-batched symbol returns []",
   "required_fields": {
     "symbol": {"types": ["str"], "nullable": false},
-    "marketCap": {"types": ["int", "float"], "nullable": true},
+    "marketCap": {"types": ["int", "float"], "nullable": true, "reject_all_null": true},
     "exchange": {"types": ["str"], "nullable": false},
     "companyName": {"types": ["str"], "nullable": false},
     "price": {"types": ["int", "float"], "nullable": false},
