@@ -125,7 +125,7 @@ def generate_postmortem(
 
     content = _render_postmortem(thesis)
     pm_path = j_dir / f"pm_{thesis_id}.md"
-    pm_path.write_text(content, encoding="utf-8")
+    pm_path.write_text(content, encoding="utf-8", newline="\n")
 
     logger.info("Generated postmortem: %s", pm_path)
     return str(pm_path)

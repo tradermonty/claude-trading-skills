@@ -32,6 +32,7 @@ def _write_json(path: Path, payload: object) -> Path:
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return path
 
@@ -146,7 +147,7 @@ def test_invalid_snapshot_fails_before_publication(
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     with pytest.raises(ReplayError, match=message) as exc_info:
         execute_replay(
@@ -243,7 +244,7 @@ def test_invalid_dividend_enrichment_fails_closed(
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     with pytest.raises(ReplayError, match=message) as exc_info:
         execute_replay(
@@ -262,7 +263,7 @@ def test_invalid_dividend_enrichment_fails_closed(
 def test_corrupt_allocation_handoff_stops_before_rebalance(tmp_path: Path) -> None:
     output = tmp_path / "published"
     output.mkdir()
-    (output / "keep.txt").write_text("keep\n", encoding="utf-8")
+    (output / "keep.txt").write_bytes(b"keep\n")
 
     def corrupt(step: int, artifacts: dict[str, dict]) -> None:
         if step == 2:
@@ -281,7 +282,7 @@ def test_corrupt_allocation_handoff_stops_before_rebalance(tmp_path: Path) -> No
 def test_tampered_dividend_handoff_stops_before_rebalance(tmp_path: Path) -> None:
     output = tmp_path / "published"
     output.mkdir()
-    (output / "keep.txt").write_text("keep\n", encoding="utf-8")
+    (output / "keep.txt").write_bytes(b"keep\n")
 
     def corrupt(step: int, artifacts: dict[str, dict]) -> None:
         if step == 3:
@@ -349,7 +350,7 @@ def test_halted_full_path_does_not_claim_native_dividend_execution(tmp_path: Pat
 def test_final_journal_tamper_is_not_published(tmp_path: Path) -> None:
     output = tmp_path / "published"
     output.mkdir()
-    (output / "keep.txt").write_text("keep\n", encoding="utf-8")
+    (output / "keep.txt").write_bytes(b"keep\n")
 
     def corrupt(step: int, artifacts: dict[str, dict]) -> None:
         if step == 5:
@@ -379,7 +380,7 @@ def test_journal_failure_preserves_existing_destination(
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     def fail_journal(*_args, **_kwargs):
         raise ReplayError("injected journal write failure")

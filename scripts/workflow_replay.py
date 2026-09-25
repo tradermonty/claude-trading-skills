@@ -629,6 +629,7 @@ def _write_json(path: Path, payload: Any) -> None:
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -671,7 +672,7 @@ def _normalize_jsonl_file(
         + "\n"
         for record in records
     )
-    destination.write_text(text, encoding="utf-8")
+    destination.write_text(text, encoding="utf-8", newline="\n")
 
 
 def _scrubbed_environment() -> dict[str, str]:
@@ -981,7 +982,7 @@ def _manual_lessons(
     artifacts = _artifact_paths(stage, step["output_files"])
     output = Path(artifacts["accepted_lessons_log"]["files"]["canonical"])
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(_dump_yaml_with_digest_allowlist(payload), encoding="utf-8")
+    output.write_text(_dump_yaml_with_digest_allowlist(payload), encoding="utf-8", newline="\n")
     return artifacts
 
 
@@ -1265,7 +1266,7 @@ def _manual_twenty_pct_lessons(
     artifacts = _artifact_paths(stage, step["output_files"])
     output = Path(artifacts["accepted_lessons_log"]["files"]["canonical"])
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(_dump_yaml_with_digest_allowlist(payload), encoding="utf-8")
+    output.write_text(_dump_yaml_with_digest_allowlist(payload), encoding="utf-8", newline="\n")
     return artifacts
 
 
@@ -1531,7 +1532,7 @@ def _write_yaml(path: Path, payload: Any, *, digest_allowlist: bool = False) -> 
         text = _dump_yaml_with_digest_allowlist(payload)
     else:
         text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def _require_mapping_keys(
@@ -2656,7 +2657,9 @@ def _core_portfolio_allocation(
     artifacts = _artifact_paths(stage, step["output_files"])
     files = artifacts["allocation_report"]["files"]
     _write_json(Path(files["canonical"]), payload)
-    Path(files["companion"]).write_text(_core_allocation_markdown(payload), encoding="utf-8")
+    Path(files["companion"]).write_text(
+        _core_allocation_markdown(payload), encoding="utf-8", newline="\n"
+    )
     return artifacts
 
 
@@ -4165,7 +4168,7 @@ def _swing_discipline(
     if not markdown_sources:
         raise ReplayError("pre-trade discipline markdown report was not produced")
     Path(artifacts["pre_trade_discipline_decision"]["files"]["companion"]).write_text(
-        markdown_sources[-1].read_text(encoding="utf-8"), encoding="utf-8"
+        markdown_sources[-1].read_text(encoding="utf-8"), encoding="utf-8", newline="\n"
     )
     return artifacts
 
@@ -4197,7 +4200,9 @@ def _kanchi_fixed_date(spec: Mapping[str, Any]) -> str:
 
 def _normalize_text_file(path: Path) -> None:
     """Keep generated text artifacts byte-stable under the end-of-file fixer."""
-    path.write_text(path.read_text(encoding="utf-8").rstrip("\n") + "\n", encoding="utf-8")
+    path.write_text(
+        path.read_text(encoding="utf-8").rstrip("\n") + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def _kanchi_candidate_screen(
@@ -4442,8 +4447,8 @@ def _kanchi_tax_advice(
     artifacts = _artifact_paths(stage, step["output_files"])
     markdown_out = Path(artifacts["account_location_advice"]["files"]["markdown"])
     csv_out = Path(artifacts["account_location_advice"]["files"]["csv"])
-    markdown_out.write_text(markdown.read_text(encoding="utf-8"), encoding="utf-8")
-    csv_out.write_text(csv_file.read_text(encoding="utf-8"), encoding="utf-8")
+    markdown_out.write_text(markdown.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+    csv_out.write_text(csv_file.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
     _normalize_text_file(markdown_out)
     _normalize_text_file(csv_out)
     return artifacts
@@ -4519,7 +4524,7 @@ def _kanchi_review_queue(
     if isinstance(generated_at, str) and generated_at:
         markdown = markdown.replace(generated_at, spec["fixed_timestamp"])
     review_markdown = Path(artifacts["review_queue"]["files"]["companion"])
-    review_markdown.write_text(markdown, encoding="utf-8")
+    review_markdown.write_text(markdown, encoding="utf-8", newline="\n")
     _normalize_text_file(review_markdown)
     return artifacts
 
@@ -6350,9 +6355,11 @@ def _write_manifest(
         ]
         payload["execution_evidence_limitations"] = limitations
     (stage / "manifest.yaml").write_text(
-        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8"
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8", newline="\n"
     )
-    (stage / "prompt.md").write_text(_prompt_text(workflow, variant), encoding="utf-8")
+    (stage / "prompt.md").write_text(
+        _prompt_text(workflow, variant), encoding="utf-8", newline="\n"
+    )
 
 
 def _cleanup_backup(path: Path) -> None:

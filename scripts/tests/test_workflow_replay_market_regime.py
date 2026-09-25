@@ -117,7 +117,7 @@ def test_invalid_breadth_fixture_fails_before_publication(
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     with pytest.raises(ReplayError, match=message) as exc_info:
         execute_replay(
@@ -193,7 +193,7 @@ def test_corrupt_handoff_stops_before_exposure_and_preserves_destination(tmp_pat
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     def corrupt_after_uptrend(step: int, artifacts: dict[str, dict]) -> None:
         if step == 2:
@@ -217,7 +217,7 @@ def test_corrupt_final_handoff_stops_before_publication(tmp_path: Path) -> None:
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     def corrupt_after_exposure(step: int, artifacts: dict[str, dict]) -> None:
         if step == 4:
@@ -299,7 +299,7 @@ def test_native_api_failures_do_not_publish(
     monkeypatch.setattr(replay_module, "_market_modules", broken_modules)
     output = tmp_path / "published"
     output.mkdir()
-    (output / "keep.txt").write_text("keep\n", encoding="utf-8")
+    (output / "keep.txt").write_bytes(b"keep\n")
 
     with pytest.raises(ReplayError):
         execute_replay(ROOT, SPEC, "required-only", output)
@@ -336,7 +336,7 @@ def test_successful_exposure_cli_with_bad_outputs_fails_closed(
     monkeypatch.setattr(replay_module, "_run_cli", bad_run)
     output = tmp_path / "published"
     output.mkdir()
-    (output / "keep.txt").write_text("keep\n", encoding="utf-8")
+    (output / "keep.txt").write_bytes(b"keep\n")
     with pytest.raises(ReplayError):
         execute_replay(ROOT, SPEC, "required-only", output)
     assert {path.name for path in output.iterdir()} == {"keep.txt"}
@@ -354,7 +354,7 @@ def test_exposure_cli_nonzero_failure_preserves_destination(
     output = tmp_path / "published"
     output.mkdir()
     sentinel = output / "keep.txt"
-    sentinel.write_text("keep\n", encoding="utf-8")
+    sentinel.write_bytes(b"keep\n")
 
     with pytest.raises(ReplayError, match="native CLI failed") as exc_info:
         execute_replay(ROOT, SPEC, "required-only", output)
