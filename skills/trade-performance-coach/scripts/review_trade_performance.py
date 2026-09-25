@@ -777,7 +777,7 @@ def main(argv: list[str] | None = None) -> int:
             "monthly": {"trades": [load_record(p) for p in input_paths]},
             "journal": {"reflection": "Multiple records supplied for aggregate review."},
         }
-    report = build_review(record, [str(p) for p in input_paths])
+    report = build_review(record, [p.as_posix() for p in input_paths])
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

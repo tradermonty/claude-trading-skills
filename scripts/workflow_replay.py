@@ -1835,7 +1835,8 @@ def _trade_memory_coach(
     coach = _canonicalize(
         coach,
         spec["fixed_timestamp"],
-        {str(input_path): "$INPUT/coach-input.json"},
+        # The coach records source paths with forward slashes on every platform.
+        {input_path.as_posix(): "$INPUT/coach-input.json"},
     )
 
     decision = load_yaml(inputs["coach_decision"])
