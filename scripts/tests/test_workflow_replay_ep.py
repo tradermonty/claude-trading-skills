@@ -206,6 +206,10 @@ def loss(pnl):
 
 
 def test_native_account_halt_never_analyzes(tmp_path):
+    pytest.importorskip(
+        "pandas_market_calendars",
+        reason="Account-halt cooldown requires pandas-market-calendars; install the market-calendar or ci extra",
+    )
     with pytest.raises(replay.ReplayError, match="circuit breaker halted") as exc:
         replay.execute_replay(
             ROOT,
