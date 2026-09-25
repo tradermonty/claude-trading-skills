@@ -271,7 +271,7 @@ def _verify_and_copy_artifact(
     target = audit_dir / target_name
     shutil.copyfile(source_path, target)
     normalized = dict(section)
-    normalized["artifact_path"] = str(target.relative_to(run_dir))
+    normalized["artifact_path"] = target.relative_to(run_dir).as_posix()
     normalized["artifact_sha256"] = actual_sha
     return normalized
 
