@@ -17,8 +17,9 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.6
     hooks:
-      # The FMP client templates carry a python3 shebang, so pre-commit tags
-      # them as Python, but their @@...@@ placeholders are not valid Python.
+      # The FMP client templates carry a python3 shebang. On Windows, where
+      # every file counts as executable, pre-commit reads it and tags them as
+      # Python, but their @@...@@ placeholders are not valid Python.
       - id: ruff
         args: [--fix]
         exclude: '\.tmpl$'
