@@ -288,7 +288,10 @@ def test_lock_takes_over_stale_pid(tmp_path):
     lock.write_text("999999999")
     handle = acquire_lock(lock)
     assert handle is not None
-    assert lock.read_text().strip() == str(os.getpid())
+    # Read through the owning handle: on Windows the msvcrt byte lock is
+    # mandatory, so a second handle cannot read the file while it is held.
+    handle.seek(0)
+    assert handle.read().decode().strip() == str(os.getpid())
     release_lock(handle)
 
 

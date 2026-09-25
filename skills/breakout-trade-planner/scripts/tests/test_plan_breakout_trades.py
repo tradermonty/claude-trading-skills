@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import tempfile
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -95,30 +93,26 @@ def _make_input_data(results: list[dict]) -> dict:
 
 
 class TestLoadInput:
-    def test_missing_schema_version_raises(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"results": []}, f)
-            f.flush()
-            with pytest.raises(ValueError, match="schema_version"):
-                load_input(f.name)
-            os.unlink(f.name)
+    # tmp_path instead of NamedTemporaryFile: Windows cannot delete a file
+    # while the writer still holds it open.
+    def test_missing_schema_version_raises(self, tmp_path):
+        path = tmp_path / "input.json"
+        path.write_text(json.dumps({"results": []}), encoding="utf-8")
+        with pytest.raises(ValueError, match="schema_version"):
+            load_input(str(path))
 
-    def test_wrong_schema_version_raises(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"schema_version": "99.0", "results": []}, f)
-            f.flush()
-            with pytest.raises(ValueError, match="Unsupported"):
-                load_input(f.name)
-            os.unlink(f.name)
+    def test_wrong_schema_version_raises(self, tmp_path):
+        path = tmp_path / "input.json"
+        path.write_text(json.dumps({"schema_version": "99.0", "results": []}), encoding="utf-8")
+        with pytest.raises(ValueError, match="Unsupported"):
+            load_input(str(path))
 
-    def test_valid_input_loads(self):
+    def test_valid_input_loads(self, tmp_path):
         data = _make_input_data([_make_vcp_result()])
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(data, f)
-            f.flush()
-            loaded = load_input(f.name)
-            assert len(loaded["results"]) == 1
-            os.unlink(f.name)
+        path = tmp_path / "input.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = load_input(str(path))
+        assert len(loaded["results"]) == 1
 
 
 class TestValidateResult:

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import tempfile
 import time
 import unittest
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -506,6 +508,21 @@ class _StubResponse:
 class Http200ErrorPayloadTests(unittest.TestCase):
     """Round-3 review P0: HTTP-200 error objects are failures, never data."""
 
+    @contextlib.contextmanager
+    def _tmpdir(self) -> Iterator[str]:
+        """Yield a temporary directory, closing the SQLite caches opened in it first.
+
+        Windows cannot delete the cache file while its connection is open. Only
+        the cache is closed because the tests replace the HTTP session with a stub.
+        """
+        self._open_clients = []
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                yield tmp
+            finally:
+                for client in self._open_clients:
+                    client.cache.close()
+
     def _client(self, tmp: str, *, offline: bool = False, session_get=None):
         from fmp_client import FMPClient
 
@@ -516,6 +533,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
             raw_store_dir=Path(tmp) / "raw",
             offline=offline,
         )
+        self._open_clients.append(client)
         if session_get is not None:
             import types
 
@@ -532,7 +550,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
 
     def test_http200_error_object_is_failure_and_never_cached(self) -> None:
         payload = {"Error Message": "plan limit reached"}
-        with tempfile.TemporaryDirectory() as tmp:
+        with self._tmpdir() as tmp:
             client = self._client(
                 tmp, session_get=lambda url, params=None, timeout=None: _StubResponse(200, payload)
             )
@@ -543,7 +561,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
             self.assertIsNone(client.cache.get(self._stable_key(client, "AAA"), 10**9))
 
     def test_previously_cached_error_object_is_purged_and_failed(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with self._tmpdir() as tmp:
             client = self._client(tmp, offline=True)
             key = self._stable_key(client, "AAA")
             client.cache.put(key, {"Error Message": "poisoned"})
@@ -557,7 +575,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
         # Round-4 review P0: [{"Error Message": ...}] hid the outage one
         # level down and was accepted (and cached) as data.
         payload = [{"Error Message": "plan limit reached"}]
-        with tempfile.TemporaryDirectory() as tmp:
+        with self._tmpdir() as tmp:
             client = self._client(
                 tmp, session_get=lambda url, params=None, timeout=None: _StubResponse(200, payload)
             )
@@ -569,7 +587,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
 
     def test_poisoned_cache_is_purged_and_refetched_online(self) -> None:
         good = _estimate_rows()
-        with tempfile.TemporaryDirectory() as tmp:
+        with self._tmpdir() as tmp:
             client = self._client(
                 tmp, session_get=lambda url, params=None, timeout=None: _StubResponse(200, good)
             )
@@ -593,7 +611,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
             # round-6: an analyst COUNT is not an estimate value
             [{"date": "2026-12-31", "epsAvg": None, "revenueAvg": None, "numAnalystsEps": 4}],
         ):
-            with tempfile.TemporaryDirectory() as tmp:
+            with self._tmpdir() as tmp:
                 client = self._client(
                     tmp,
                     session_get=lambda url, params=None, timeout=None, p=payload: _StubResponse(
@@ -612,7 +630,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
                 return _StubResponse(500, None)
             return _StubResponse(200, [])
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with self._tmpdir() as tmp:
             snapshot_dir = Path(tmp) / "snap"
             SNAP.create_snapshot(snapshot_dir, [_listing("AAA")], shard_count=1, as_of=AS_OF)
             client = self._client(tmp, session_get=_get)
@@ -630,7 +648,7 @@ class Http200ErrorPayloadTests(unittest.TestCase):
             self.assertEqual(result.summary["shard_classified"], {"no_estimates": 1})
 
     def test_cached_error_object_becomes_fetch_failure_in_collect(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with self._tmpdir() as tmp:
             snapshot_dir = Path(tmp) / "snap"
             SNAP.create_snapshot(snapshot_dir, [_listing("AAA")], shard_count=1, as_of=AS_OF)
             client = self._client(tmp, offline=True)
@@ -660,7 +678,7 @@ class CacheProvenanceTests(unittest.TestCase):
         # One hour ago: old enough to differ from "now", young enough to
         # survive the estimates cache TTL.
         fixed_created_at = float(int(_time.time() - 3600.0))
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, contextlib.ExitStack() as stack:
             snapshot_dir = Path(tmp) / "snap"
             SNAP.create_snapshot(snapshot_dir, [_listing("CPV")], shard_count=1, as_of=AS_OF)
             client = FMPClient(
@@ -669,6 +687,8 @@ class CacheProvenanceTests(unittest.TestCase):
                 cache_path=Path(tmp) / "cache.sqlite",
                 raw_store_dir=Path(tmp) / "raw",
             )
+            # Close the SQLite cache before the directory is removed (Windows locks it).
+            stack.callback(client.cache.close)
             import types
 
             client.session = types.SimpleNamespace(
@@ -678,7 +698,7 @@ class CacheProvenanceTests(unittest.TestCase):
                 f"{client.V3_URL}/analyst-estimates/CPV", {"period": "annual", "limit": 6}
             )
             client.cache.put(v3_key, _estimate_rows())
-            with _sqlite3.connect(str(client.cache.path)) as connection:
+            with contextlib.closing(_sqlite3.connect(str(client.cache.path))) as connection:
                 connection.execute(
                     "UPDATE responses SET created_at = ? WHERE cache_key = ?",
                     (fixed_created_at, v3_key),
