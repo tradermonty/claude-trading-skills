@@ -3426,7 +3426,9 @@ def _monthly_skill_review(
     report = _canonicalize(
         report,
         spec["fixed_timestamp"],
-        {str(repo_root) + "/": ""},
+        # The reviewer serializes paths with forward slashes on every platform, so
+        # both the lexical and the resolved root are stripped in that spelling.
+        {repo_root.as_posix() + "/": "", repo_root.resolve().as_posix() + "/": ""},
     )
     report = _normalize_elapsed(report)
     payload = {

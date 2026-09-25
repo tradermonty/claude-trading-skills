@@ -502,7 +502,7 @@ def test_skill_review_command_is_normalized_before_other_replay_metadata() -> No
         "generated_at": "2026-09-11T12:34:56Z",
         "auto_review": {
             "test_status": "passed",
-            "test_command": f"{sys.executable} -m pytest {raw_target} -q",
+            "test_command": f"{sys.executable} -m pytest {raw_target.as_posix()} -q",
             "test_output": "262 passed in 1.23s",
         },
     }
@@ -511,7 +511,7 @@ def test_skill_review_command_is_normalized_before_other_replay_metadata() -> No
     canonical = replay_module._canonicalize(
         report,
         "2026-05-31T23:59:59Z",
-        {str(ROOT) + "/": ""},
+        {ROOT.as_posix() + "/": ""},
     )
     canonical = replay_module._normalize_elapsed(canonical)
 

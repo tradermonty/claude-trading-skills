@@ -381,7 +381,9 @@ def test_exposure_cli_scrubs_sensitive_env_and_uses_no_provider_flags(
 
     assert len(captured) == 1
     command, env = captured[0]
-    assert command[1].endswith("skills/exposure-coach/scripts/calculate_exposure.py")
+    assert (
+        Path(command[1]).as_posix().endswith("skills/exposure-coach/scripts/calculate_exposure.py")
+    )
     assert "--api-key" not in command
     assert not any("API_KEY" in key or "PROXY" in key for key in env)
 

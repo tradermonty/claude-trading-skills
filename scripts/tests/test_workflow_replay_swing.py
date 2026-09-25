@@ -329,7 +329,7 @@ def test_native_commands_use_only_offline_inputs_and_scrub_sensitive_env(
     monkeypatch.setattr(replay_module.subprocess, "run", capture_run)
     execute_replay(ROOT, SPEC, "required-only", tmp_path / "published")
 
-    assert [command[1].split("/")[-1] for command, _env in captured] == [
+    assert [Path(command[1]).name for command, _env in captured] == [
         "check_circuit_breaker.py",
         "position_sizer.py",
         "check_pre_trade_discipline.py",

@@ -295,7 +295,7 @@ def test_native_ep_command_uses_only_offline_handoffs(tmp_path, monkeypatch):
 
     monkeypatch.setattr(replay, "_run_cli", capture)
     replay.execute_replay(ROOT, SPEC, "full-path", tmp_path / "out")
-    command = next(c for c in calls if c[1].endswith("/analyze_ep.py"))
+    command = next(c for c in calls if Path(c[1]).as_posix().endswith("/analyze_ep.py"))
     assert command[command.index("--max-api-calls") + 1] == "0"
     for flag in ["--events-json", "--prices-json", "--earnings-json", "--momentum-json"]:
         assert flag in command
