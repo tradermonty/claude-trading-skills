@@ -112,7 +112,7 @@ class TestMarkdownReportWithDelta:
 
         try:
             generate_markdown_report(analysis, path)
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
             assert "Δ" in content
             assert "↑" in content

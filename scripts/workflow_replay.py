@@ -691,6 +691,9 @@ def _run_cli(
     env_overrides: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     environment = _scrubbed_environment()
+    # Native CLIs print Unicode status lines. On Windows a pipe otherwise uses
+    # the legacy code page, which cannot encode them, so pin stdio to UTF-8.
+    environment["PYTHONIOENCODING"] = "utf-8"
     if path_override is not None:
         environment["PATH"] = str(path_override)
     if env_overrides:
@@ -705,6 +708,7 @@ def _run_cli(
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip() or "no CLI output"

@@ -69,7 +69,7 @@ class TestGeneratePlan:
         assert rc == 0
         out_files = sorted(p.name for p in tmp_path.iterdir() if p.suffix == ".json")
         plan_file = next(f for f in out_files if "plan" in f)
-        report = json.loads((tmp_path / plan_file).read_text())
+        report = json.loads((tmp_path / plan_file).read_text(encoding="utf-8"))
         assert report["schema_version"] == "1.0"
         assert report["phase"] == "pre_market_plan"
         assert len(report["plans"]) == 1
@@ -103,7 +103,7 @@ class TestGeneratePlan:
         )
         assert rc == 0
         plan_file = next(p for p in tmp_path.iterdir() if "plan" in p.name and p.suffix == ".json")
-        report = json.loads(plan_file.read_text())
+        report = json.loads(plan_file.read_text(encoding="utf-8"))
         # Default tradable-min-grade is B → C is filtered
         assert report["plans"] == []
 
@@ -143,7 +143,7 @@ class TestGeneratePlan:
         # Day 1 state file: ticker XYZ, as_of 2026-04-30.
         state_d1 = ssr_dir / "ssr_state_XYZ_2026-04-30.json"
         assert state_d1.exists(), "Day-1 SSR state file should have been written"
-        d1_payload = json.loads(state_d1.read_text())
+        d1_payload = json.loads(state_d1.read_text(encoding="utf-8"))
         # Force the trigger flag so Day 2 has a non-trivial carryover input.
         d1_payload["ssr_triggered_today"] = True
         state_d1.write_text(json.dumps(d1_payload), encoding="utf-8")
@@ -170,7 +170,7 @@ class TestGeneratePlan:
         )
         assert rc == 0
         day2_report_path = tmp_path / f"parabolic_short_plan_day2_{day2}.json"
-        report = json.loads(day2_report_path.read_text())
+        report = json.loads(day2_report_path.read_text(encoding="utf-8"))
         assert report["as_of"] == day2, "--as-of must override the Phase 1 JSON's as_of"
         assert len(report["plans"]) == 1
         ssr_state = report["plans"][0]["ssr_state"]
@@ -196,7 +196,7 @@ class TestGeneratePlan:
         )
         assert rc == 0
         plan_file = next(p for p in tmp_path.iterdir() if "plan" in p.name and p.suffix == ".json")
-        report = json.loads(plan_file.read_text())
+        report = json.loads(plan_file.read_text(encoding="utf-8"))
         assert report["plans"][0]["ssr_state"]["uptick_rule_active"] is False
         # prior_close inheritance is the key contract
         assert report["plans"][0]["ssr_state"]["prior_regular_close"] == 78.45

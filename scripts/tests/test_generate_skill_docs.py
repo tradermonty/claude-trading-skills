@@ -78,15 +78,16 @@ def tmp_skill(tmp_path):
         ### Step 2: Review results
 
         Check the output in reports/ directory.
-        """)
+        """),
+        encoding="utf-8",
     )
     refs_dir = skill_dir / "references"
     refs_dir.mkdir()
-    (refs_dir / "methodology.md").write_text("# Methodology\n")
+    (refs_dir / "methodology.md").write_text("# Methodology\n", encoding="utf-8")
 
     scripts_dir = skill_dir / "scripts"
     scripts_dir.mkdir()
-    (scripts_dir / "test_runner.py").write_text("#!/usr/bin/env python3\n")
+    (scripts_dir / "test_runner.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
 
     return tmp_path
 
@@ -115,7 +116,8 @@ def tmp_claude_md(tmp_path):
         ```bash
         python3 skills/test-skill/scripts/test_runner.py --output-dir reports/
         ```
-        """)
+        """),
+        encoding="utf-8",
     )
     return claude_md
 
@@ -139,7 +141,7 @@ class TestParseSkillMd:
 
     def test_no_frontmatter_returns_empty(self, tmp_path):
         md = tmp_path / "SKILL.md"
-        md.write_text("# Just a title\n\nSome content.")
+        md.write_text("# Just a title\n\nSome content.", encoding="utf-8")
         data = parse_skill_md(md)
         assert data["frontmatter"] == {}
 
@@ -383,7 +385,9 @@ class TestMain:
         # Create a skill that matches HAND_WRITTEN
         hw_skill = tmp_skill / "skills" / "backtest-expert"
         hw_skill.mkdir()
-        (hw_skill / "SKILL.md").write_text("---\nname: backtest-expert\ndescription: test\n---\n")
+        (hw_skill / "SKILL.md").write_text(
+            "---\nname: backtest-expert\ndescription: test\n---\n", encoding="utf-8"
+        )
 
         docs_dir = tmp_skill / "docs"
         (docs_dir / "en" / "skills").mkdir(parents=True)
@@ -411,7 +415,7 @@ class TestMain:
         en_path = docs_dir / "en" / "skills" / "test-skill.md"
         en_path.parent.mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
-        en_path.write_text("old hand-maintained content")
+        en_path.write_text("old hand-maintained content", encoding="utf-8")
 
         main(
             [
@@ -424,7 +428,7 @@ class TestMain:
                 "--overwrite",
             ]
         )
-        assert en_path.read_text() == "old hand-maintained content"
+        assert en_path.read_text(encoding="utf-8") == "old hand-maintained content"
 
     def test_main_updates_index(self, tmp_skill, tmp_claude_md):
         docs_dir = tmp_skill / "docs"
@@ -433,10 +437,12 @@ class TestMain:
         en_index.parent.mkdir(parents=True)
         ja_index.parent.mkdir(parents=True)
         en_index.write_text(
-            "## Guides\n\n| Skill | Desc | API |\n|---|---|---|\n| old | old | old |\n\nFooter\n"
+            "## Guides\n\n| Skill | Desc | API |\n|---|---|---|\n| old | old | old |\n\nFooter\n",
+            encoding="utf-8",
         )
         ja_index.write_text(
-            "## ガイド\n\n| スキル | 概要 | API |\n|---|---|---|\n| old | old | old |\n\nFooter\n"
+            "## ガイド\n\n| スキル | 概要 | API |\n|---|---|---|\n| old | old | old |\n\nFooter\n",
+            encoding="utf-8",
         )
 
         main(
@@ -449,12 +455,12 @@ class TestMain:
                 str(tmp_claude_md),
             ]
         )
-        en_content = en_index.read_text()
+        en_content = en_index.read_text(encoding="utf-8")
         assert "Test Skill" in en_content
         assert "old | old" not in en_content
         assert "Footer" in en_content
 
-        ja_content = ja_index.read_text()
+        ja_content = ja_index.read_text(encoding="utf-8")
         assert "Test Skill" in ja_content
 
     def test_skips_dir_without_skill_md(self, tmp_skill, tmp_claude_md):
@@ -511,18 +517,20 @@ class TestOwnershipGuardAndCheck:
         en.parent.mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
         body = "---\ntitle: x\ngenerated: false\n---\nhand body\n"
-        en.write_text(body)
+        en.write_text(body, encoding="utf-8")
         main(_base_args(tmp_skill, tmp_claude_md) + ["--overwrite"])
-        assert en.read_text() == body
+        assert en.read_text(encoding="utf-8") == body
 
     def test_overwrite_rewrites_generated_true(self, tmp_skill, tmp_claude_md):
         docs_dir = tmp_skill / "docs"
         en = docs_dir / "en" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
-        en.write_text("---\ntitle: x\ngenerated: true\n---\nstale generated body\n")
+        en.write_text(
+            "---\ntitle: x\ngenerated: true\n---\nstale generated body\n", encoding="utf-8"
+        )
         main(_base_args(tmp_skill, tmp_claude_md) + ["--overwrite"])
-        out = en.read_text()
+        out = en.read_text(encoding="utf-8")
         assert "stale generated body" not in out
         assert "Test Skill" in out
         assert _doc_is_generated(en) is True
@@ -532,16 +540,18 @@ class TestOwnershipGuardAndCheck:
         en = docs_dir / "en" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
-        en.write_text("hand body, no marker")
+        en.write_text("hand body, no marker", encoding="utf-8")
         main(_base_args(tmp_skill, tmp_claude_md) + ["--overwrite", "--force"])
-        out = en.read_text()
+        out = en.read_text(encoding="utf-8")
         assert "hand body, no marker" not in out
         assert "Test Skill" in out
 
     def test_hand_written_missing_not_generated_normal(self, tmp_skill, tmp_claude_md):
         hw = tmp_skill / "skills" / "backtest-expert"
         hw.mkdir()
-        (hw / "SKILL.md").write_text("---\nname: backtest-expert\ndescription: t\n---\n")
+        (hw / "SKILL.md").write_text(
+            "---\nname: backtest-expert\ndescription: t\n---\n", encoding="utf-8"
+        )
         docs_dir = tmp_skill / "docs"
         (docs_dir / "en" / "skills").mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
@@ -551,7 +561,9 @@ class TestOwnershipGuardAndCheck:
     def test_hand_written_missing_generated_with_force(self, tmp_skill, tmp_claude_md):
         hw = tmp_skill / "skills" / "backtest-expert"
         hw.mkdir()
-        (hw / "SKILL.md").write_text("---\nname: backtest-expert\ndescription: t\n---\n")
+        (hw / "SKILL.md").write_text(
+            "---\nname: backtest-expert\ndescription: t\n---\n", encoding="utf-8"
+        )
         docs_dir = tmp_skill / "docs"
         (docs_dir / "en" / "skills").mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
@@ -561,14 +573,16 @@ class TestOwnershipGuardAndCheck:
     def test_hand_written_existing_protected_under_overwrite(self, tmp_skill, tmp_claude_md):
         hw = tmp_skill / "skills" / "backtest-expert"
         hw.mkdir()
-        (hw / "SKILL.md").write_text("---\nname: backtest-expert\ndescription: t\n---\n")
+        (hw / "SKILL.md").write_text(
+            "---\nname: backtest-expert\ndescription: t\n---\n", encoding="utf-8"
+        )
         docs_dir = tmp_skill / "docs"
         en = docs_dir / "en" / "skills" / "backtest-expert.md"
         en.parent.mkdir(parents=True)
         (docs_dir / "ja" / "skills").mkdir(parents=True)
-        en.write_text("hand-written guide body")
+        en.write_text("hand-written guide body", encoding="utf-8")
         main(_base_args(tmp_skill, tmp_claude_md) + ["--overwrite"])
-        assert en.read_text() == "hand-written guide body"
+        assert en.read_text(encoding="utf-8") == "hand-written guide body"
 
     def test_mixed_ownership_en_owned_ja_protected(self, tmp_skill, tmp_claude_md):
         docs_dir = tmp_skill / "docs"
@@ -576,13 +590,13 @@ class TestOwnershipGuardAndCheck:
         ja = docs_dir / "ja" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
-        en.write_text("---\ntitle: x\ngenerated: true\n---\nstale en\n")
+        en.write_text("---\ntitle: x\ngenerated: true\n---\nstale en\n", encoding="utf-8")
         ja_body = "---\ntitle: x\n---\n# 手動翻訳された日本語ページ\n"
-        ja.write_text(ja_body)
+        ja.write_text(ja_body, encoding="utf-8")
         main(_base_args(tmp_skill, tmp_claude_md) + ["--overwrite"])
-        assert "stale en" not in en.read_text()
-        assert "Test Skill" in en.read_text()
-        assert ja.read_text() == ja_body  # JA hand-translation byte-unchanged
+        assert "stale en" not in en.read_text(encoding="utf-8")
+        assert "Test Skill" in en.read_text(encoding="utf-8")
+        assert ja.read_text(encoding="utf-8") == ja_body  # JA hand-translation byte-unchanged
 
     def test_brand_new_one_side_non_hand_written(self, tmp_skill, tmp_claude_md):
         docs_dir = tmp_skill / "docs"
@@ -591,12 +605,12 @@ class TestOwnershipGuardAndCheck:
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
         ja_body = "---\ntitle: x\n---\n# 既存の手動翻訳\n"
-        ja.write_text(ja_body)
+        ja.write_text(ja_body, encoding="utf-8")
         # EN missing, JA exists & protected, NORMAL run (no --overwrite)
         main(_base_args(tmp_skill, tmp_claude_md))
         assert en.exists()
         assert _doc_is_generated(en) is True
-        assert ja.read_text() == ja_body  # JA untouched
+        assert ja.read_text(encoding="utf-8") == ja_body  # JA untouched
 
     def test_check_protects_hand_written_even_with_generated_true(self, tmp_skill, tmp_claude_md):
         # A HAND_WRITTEN page is ALWAYS protected, even if it carries
@@ -604,18 +618,26 @@ class TestOwnershipGuardAndCheck:
         # content-compare it.
         hw = tmp_skill / "skills" / "backtest-expert"
         hw.mkdir()
-        (hw / "SKILL.md").write_text("---\nname: backtest-expert\ndescription: t\n---\n")
+        (hw / "SKILL.md").write_text(
+            "---\nname: backtest-expert\ndescription: t\n---\n", encoding="utf-8"
+        )
         docs_dir = tmp_skill / "docs"
         en = docs_dir / "en" / "skills" / "backtest-expert.md"
         ja = docs_dir / "ja" / "skills" / "backtest-expert.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
-        en.write_text("---\ntitle: x\ngenerated: true\n---\nwildly divergent hand body\n")
-        ja.write_text("---\ntitle: x\ngenerated: true\n---\n手動の全く違う本文\n")
+        en.write_text(
+            "---\ntitle: x\ngenerated: true\n---\nwildly divergent hand body\n", encoding="utf-8"
+        )
+        ja.write_text("---\ntitle: x\ngenerated: true\n---\n手動の全く違う本文\n", encoding="utf-8")
         # tmp_skill always creates skills/test-skill too; give it protected
         # pages so existence checks don't trip (focus is the HW assertion).
-        (docs_dir / "en" / "skills" / "test-skill.md").write_text("protected en\n")
-        (docs_dir / "ja" / "skills" / "test-skill.md").write_text("protected ja\n")
+        (docs_dir / "en" / "skills" / "test-skill.md").write_text(
+            "protected en\n", encoding="utf-8"
+        )
+        (docs_dir / "ja" / "skills" / "test-skill.md").write_text(
+            "protected ja\n", encoding="utf-8"
+        )
         rc = main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
         assert rc == 0
 
@@ -625,8 +647,8 @@ class TestOwnershipGuardAndCheck:
         ja = docs_dir / "ja" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
-        en.write_text("wildly different EN, no marker\n")
-        ja.write_text("全く違う日本語、マーカーなし\n")
+        en.write_text("wildly different EN, no marker\n", encoding="utf-8")
+        ja.write_text("全く違う日本語、マーカーなし\n", encoding="utf-8")
         rc = main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
         assert rc == 0
 
@@ -636,8 +658,8 @@ class TestOwnershipGuardAndCheck:
         ja = docs_dir / "ja" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
-        en.write_text("---\ntitle: x\ngenerated: true\n---\nstale owned body\n")
-        ja.write_text("---\ntitle: x\n---\nhand ja\n")
+        en.write_text("---\ntitle: x\ngenerated: true\n---\nstale owned body\n", encoding="utf-8")
+        ja.write_text("---\ntitle: x\n---\nhand ja\n", encoding="utf-8")
         rc = main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
         assert rc == 1
         assert "DRIFT:" in capsys.readouterr().err
@@ -657,8 +679,8 @@ class TestOwnershipGuardAndCheck:
         ja = docs_dir / "ja" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
-        en.write_text("---\ntitle: x\ngenerated: maybe\n---\nbody\n")
-        ja.write_text("---\ntitle: x\n---\nbody\n")
+        en.write_text("---\ntitle: x\ngenerated: maybe\n---\nbody\n", encoding="utf-8")
+        ja.write_text("---\ntitle: x\n---\nbody\n", encoding="utf-8")
         rc = main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
         assert rc == 1
         assert "invalid 'generated:' marker" in capsys.readouterr().err
@@ -677,23 +699,31 @@ class TestOwnershipGuardAndCheck:
         ja = docs_dir / "ja" / "skills" / "test-skill.md"
         en.parent.mkdir(parents=True)
         ja.parent.mkdir(parents=True)
-        en.write_text("protected en\n")
-        ja.write_text("protected ja\n")
-        before = (en.read_text(), ja.read_text(), en.stat().st_mtime_ns)
+        en.write_text("protected en\n", encoding="utf-8")
+        ja.write_text("protected ja\n", encoding="utf-8")
+        before = (
+            en.read_text(encoding="utf-8"),
+            ja.read_text(encoding="utf-8"),
+            en.stat().st_mtime_ns,
+        )
         main(_base_args(tmp_skill, tmp_claude_md) + ["--check"])
-        assert (en.read_text(), ja.read_text(), en.stat().st_mtime_ns) == before
+        assert (
+            en.read_text(encoding="utf-8"),
+            ja.read_text(encoding="utf-8"),
+            en.stat().st_mtime_ns,
+        ) == before
         # No index/catalog created as a side effect of --check
         assert not (docs_dir / "en" / "skills" / "index.md").exists()
 
     def test_doc_is_generated_helper(self, tmp_path):
         true_p = tmp_path / "t.md"
-        true_p.write_text("---\ntitle: a: b\ngenerated: true\n---\nx")
+        true_p.write_text("---\ntitle: a: b\ngenerated: true\n---\nx", encoding="utf-8")
         false_p = tmp_path / "f.md"
-        false_p.write_text("---\ngenerated: false\n---\nx")
+        false_p.write_text("---\ngenerated: false\n---\nx", encoding="utf-8")
         absent_p = tmp_path / "a.md"
-        absent_p.write_text("---\ntitle: x\n---\nx")
+        absent_p.write_text("---\ntitle: x\n---\nx", encoding="utf-8")
         invalid_p = tmp_path / "i.md"
-        invalid_p.write_text("---\ngenerated: maybe\n---\nx")
+        invalid_p.write_text("---\ngenerated: maybe\n---\nx", encoding="utf-8")
         missing_p = tmp_path / "nope.md"
         assert _doc_is_generated(true_p) is True
         assert _doc_is_generated(false_p) is False
@@ -716,13 +746,14 @@ class TestUpdateIndexPages:
         en_index = docs_dir / "en" / "skills" / "index.md"
         en_index.parent.mkdir(parents=True)
         en_index.write_text(
-            "# Title\n\n| Skill | Desc | API |\n|---|---|---|\n| stale | stale | stale |\n\nFooter\n"
+            "# Title\n\n| Skill | Desc | API |\n|---|---|---|\n| stale | stale | stale |\n\nFooter\n",
+            encoding="utf-8",
         )
 
         api_reqs = parse_api_requirements(tmp_claude_md)
         update_index_pages(tmp_skill / "skills", docs_dir, api_reqs)
 
-        content = en_index.read_text()
+        content = en_index.read_text(encoding="utf-8")
         assert "stale" not in content
         assert "Test Skill" in content
         assert "Footer" in content
@@ -734,13 +765,14 @@ class TestUpdateIndexPages:
         en_index.write_text(
             "---\ntitle: Index\n---\n\n# Heading\n\n"
             "| Skill | Desc | API |\n|---|---|---|\n| old | row | here |\n\n"
-            "★ = detailed guide\n"
+            "★ = detailed guide\n",
+            encoding="utf-8",
         )
 
         api_reqs = parse_api_requirements(tmp_claude_md)
         update_index_pages(tmp_skill / "skills", docs_dir, api_reqs)
 
-        content = en_index.read_text()
+        content = en_index.read_text(encoding="utf-8")
         assert "title: Index" in content
         assert "# Heading" in content
         assert "★ = detailed guide" in content
@@ -779,7 +811,7 @@ class TestButtons:
         """When .skill file exists, both Download and Source buttons appear."""
         pkg_dir = tmp_path / "skill-packages"
         pkg_dir.mkdir()
-        (pkg_dir / "my-skill.skill").write_text("zip content")
+        (pkg_dir / "my-skill.skill").write_text("zip content", encoding="utf-8")
 
         result = _generate_buttons("my-skill", pkg_dir, "en")
         assert "Download Skill Package (.skill)" in result
@@ -802,7 +834,7 @@ class TestButtons:
         """JA buttons use Japanese text."""
         pkg_dir = tmp_path / "skill-packages"
         pkg_dir.mkdir()
-        (pkg_dir / "my-skill.skill").write_text("zip content")
+        (pkg_dir / "my-skill.skill").write_text("zip content", encoding="utf-8")
 
         result = _generate_buttons("my-skill", pkg_dir, "ja")
         assert "スキルパッケージをダウンロード (.skill)" in result
@@ -885,7 +917,7 @@ class TestGenerateEnFullPage:
         data = parse_skill_md(tmp_skill / "skills" / "test-skill" / "SKILL.md")
         pkg_dir = tmp_path / "pkg"
         pkg_dir.mkdir()
-        (pkg_dir / "test-skill.skill").write_text("zip")
+        (pkg_dir / "test-skill.skill").write_text("zip", encoding="utf-8")
 
         page = generate_en_full_page(
             "test-skill",
@@ -988,7 +1020,8 @@ class TestUpdateCatalogApiMatrix:
             | Existing Skill | Required | -- | -- |
 
             "--" means not required.
-            """)
+            """),
+            encoding="utf-8",
         )
         return catalog
 
@@ -1009,7 +1042,8 @@ class TestUpdateCatalogApiMatrix:
             | その他すべてのスキル | - | - | - |
 
             「-」は不要を意味します。
-            """)
+            """),
+            encoding="utf-8",
         )
         return catalog
 
@@ -1025,7 +1059,7 @@ class TestUpdateCatalogApiMatrix:
             ),
         ]
         update_catalog_api_matrix(docs_dir, all_skills)
-        content = catalog.read_text()
+        content = catalog.read_text(encoding="utf-8")
         assert "New Skill" in content
         assert "Existing Skill" in content
 
@@ -1041,7 +1075,7 @@ class TestUpdateCatalogApiMatrix:
             ),
         ]
         update_catalog_api_matrix(docs_dir, all_skills)
-        content = catalog.read_text()
+        content = catalog.read_text(encoding="utf-8")
         # Should still have exactly one "Existing Skill" row
         assert content.count("Existing Skill") == 1
 
@@ -1057,7 +1091,7 @@ class TestUpdateCatalogApiMatrix:
             ),
         ]
         update_catalog_api_matrix(docs_dir, all_skills)
-        content = catalog.read_text()
+        content = catalog.read_text(encoding="utf-8")
         lines = content.splitlines()
         # Find "New Skill" and "その他すべてのスキル"
         new_idx = None
@@ -1094,7 +1128,8 @@ class TestUpdateCatalogApiMatrix:
             | Other Skill | -- | -- | -- |
 
             "--" means not required.
-            """)
+            """),
+            encoding="utf-8",
         )
         all_skills = [
             (
@@ -1104,7 +1139,7 @@ class TestUpdateCatalogApiMatrix:
             ),
         ]
         update_catalog_api_matrix(docs_dir, all_skills)
-        content = catalog.read_text()
+        content = catalog.read_text(encoding="utf-8")
         # my-skill is in category table but NOT in matrix — should be added to matrix
         assert content.count("My Skill") == 2  # once in category, once in matrix
 
@@ -1120,7 +1155,7 @@ class TestUpdateCatalogApiMatrix:
             ),
         ]
         update_catalog_api_matrix(docs_dir, all_skills)
-        content = catalog.read_text()
+        content = catalog.read_text(encoding="utf-8")
         # free-skill should not be added to JA because all values are "-"
         assert "Free Skill" not in content
 
@@ -1168,7 +1203,8 @@ class TestSkillFlagNavOrderAssignment:
             ```bash
             python3 scripts/run.py
             ```
-            """)
+            """),
+            encoding="utf-8",
         )
 
     def test_skill_flag_assigns_full_scan_nav_order_not_start(self, tmp_path):
@@ -1180,7 +1216,7 @@ class TestSkillFlagNavOrderAssignment:
         skills_dir = tmp_path / "skills"
         docs_dir = tmp_path / "docs"
         claude_md = tmp_path / "CLAUDE.md"
-        claude_md.write_text("# CLAUDE.md\n\n#### API Requirements by Skill\n\n")
+        claude_md.write_text("# CLAUDE.md\n\n#### API Requirements by Skill\n\n", encoding="utf-8")
 
         for name in ["alpha-skill", "beta-skill", "gamma-target"]:
             self._make_skill(skills_dir, name)
@@ -1201,7 +1237,7 @@ class TestSkillFlagNavOrderAssignment:
         )
         assert exit_code == 0
 
-        page = (docs_dir / "en" / "skills" / "gamma-target.md").read_text()
+        page = (docs_dir / "en" / "skills" / "gamma-target.md").read_text(encoding="utf-8")
         expected_nav_order = NAV_ORDER_START + 2  # alpha=0, beta=1, gamma-target=2
         assert f"nav_order: {expected_nav_order}" in page
         assert f"nav_order: {NAV_ORDER_START}\n" not in page
@@ -1226,7 +1262,7 @@ class TestSkillFlagNavOrderAssignment:
         skills_dir = tmp_path / "skills"
         docs_dir = tmp_path / "docs"
         claude_md = tmp_path / "CLAUDE.md"
-        claude_md.write_text("# CLAUDE.md\n\n#### API Requirements by Skill\n\n")
+        claude_md.write_text("# CLAUDE.md\n\n#### API Requirements by Skill\n\n", encoding="utf-8")
 
         for name in ["alpha-skill", "beta-skill", "gamma-target"]:
             self._make_skill(skills_dir, name)

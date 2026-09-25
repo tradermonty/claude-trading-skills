@@ -158,24 +158,24 @@ class TestScriptStructure:
         assert SCRIPT_PATH.exists(), f"Main script missing: {SCRIPT_PATH}"
 
     def test_script_has_main_guard(self):
-        source = SCRIPT_PATH.read_text()
+        source = SCRIPT_PATH.read_text(encoding="utf-8")
         assert 'if __name__ == "__main__"' in source or "if __name__ == '__main__'" in source, (
             "Script should have a __main__ guard"
         )
 
     def test_script_references_fmp_api(self):
-        source = SCRIPT_PATH.read_text()
+        source = SCRIPT_PATH.read_text(encoding="utf-8")
         assert "FMP_API_KEY" in source or "fmp_api_key" in source or "fmp-api-key" in source, (
             "Script should reference FMP_API_KEY"
         )
 
     def test_script_references_rsi(self):
-        source = SCRIPT_PATH.read_text()
+        source = SCRIPT_PATH.read_text(encoding="utf-8")
         assert "rsi" in source.lower(), "Script should implement or reference RSI"
 
     def test_output_dir_argument(self):
         """Script should accept --output-dir for report placement."""
-        source = SCRIPT_PATH.read_text()
+        source = SCRIPT_PATH.read_text(encoding="utf-8")
         assert "output" in source.lower(), "Script should support an output directory argument"
 
 

@@ -134,7 +134,7 @@ def _run_phase2(tmp_path, phase1: dict, **cli_overrides) -> dict:
         args.extend([f"--{k.replace('_', '-')}", str(v)])
     g2.main(args)
     plan_file = next(p for p in tmp_path.iterdir() if "plan" in p.name and p.suffix == ".json")
-    return json.loads(plan_file.read_text())
+    return json.loads(plan_file.read_text(encoding="utf-8"))
 
 
 class TestPhase1CandidateShape:

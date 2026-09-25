@@ -3250,7 +3250,7 @@ class TestPhase5ReportFormat:
         with tempfile.TemporaryDirectory() as tmpdir:
             md_file = os.path.join(tmpdir, "test.md")
             generate_markdown_report([stock], metadata, md_file)
-            with open(md_file) as f:
+            with open(md_file, encoding="utf-8") as f:
                 content = f.read()
         assert "★" in content
         assert "State Cap applied" in content
