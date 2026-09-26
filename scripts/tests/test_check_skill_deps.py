@@ -281,3 +281,33 @@ def test_smoke_verifies_packaged_manifest(tmp_path: Path) -> None:
 def test_smoke_rejects_unsafe_skill_id() -> None:
     assert deps.run_smoke("../evil", REPO_ROOT) == 1
     assert deps.run_smoke("", REPO_ROOT) == 1
+
+
+def _skill_root(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "repo"
+    skill_dir = root / "skills" / "demo"
+    (skill_dir / "scripts").mkdir(parents=True)
+    return root, skill_dir
+
+
+def test_required_integration_declared_but_missing_fails_closed(tmp_path: Path) -> None:
+    """skills-index required integration absent from requirements.txt is a hard error."""
+    root, skill_dir = _skill_root(tmp_path)
+    (skill_dir / "requirements.txt").write_text("# stdlib-only\n", encoding="utf-8")
+    (skill_dir / "scripts" / "run.py").write_text("import json\n", encoding="utf-8")
+    integrations = {"demo": [("yfinance", "required")]}
+    report = deps.check_skill("demo", root, integrations)
+    assert not report.ok
+    assert any("required integration" in e and "yfinance" in e for e in report.errors)
+
+
+def test_required_integration_satisfied_passes(tmp_path: Path) -> None:
+    """A declared, imported, and listed required integration still passes."""
+    root, skill_dir = _skill_root(tmp_path)
+    (skill_dir / "requirements.txt").write_text("yfinance>=0.2.30\n", encoding="utf-8")
+    (skill_dir / "scripts" / "run.py").write_text(
+        "import yfinance\nprint(yfinance)\n", encoding="utf-8"
+    )
+    integrations = {"demo": [("yfinance", "required")]}
+    report = deps.check_skill("demo", root, integrations)
+    assert report.ok, report.errors
