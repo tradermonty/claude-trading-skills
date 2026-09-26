@@ -2,7 +2,7 @@ name: FMP contract canary
 
 # Weekly live probe for issue #332 (report-only until a promotion issue
 # makes it fail-closed — mirrors the packaged-deps-nightly / #349 pattern):
-# probes the four FMP endpoints covered by config/provider-contracts/fmp/
+# probes the five FMP endpoints covered by config/provider-contracts/fmp/
 # and scores the live response against the recorded contract, catching the
 # #328 failure class (HTTP 200, field renamed/removed) before a consumer
 # skill goes silently empty. PRs run the offline `check` subcommand instead

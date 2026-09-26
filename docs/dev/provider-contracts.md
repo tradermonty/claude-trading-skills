@@ -1,4 +1,4 @@
-# Provider response contracts (FMP, slice 1)
+# Provider response contracts (FMP, slice 1 + 2a)
 
 Tracking: [Issue #332](https://github.com/tradermonty/claude-trading-skills/issues/332).
 
@@ -25,6 +25,7 @@ static rule for legacy field names is not viable. Contracts are per endpoint.
 ```
 config/provider-contracts/
   fmp/
+    company-screener.v1.json
     profile.v1.json
     quote.v1.json
     historical-price-eod-full.v1.json
@@ -197,15 +198,51 @@ signal above.
 
 ## Ownership table (this slice)
 
-| Endpoint | Owners (skills whose generated `fmp_client.py` calls it) |
+| Endpoint | Owners (skills that call it) |
 |---|---|
 | `profile` | earnings-trade-analyzer, pead-screener, ibd-distribution-day-monitor, parabolic-short-trade-planner, canslim-screener, us-undervalued-growth-screener |
 | `quote` | vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, market-top-detector, us-undervalued-growth-screener |
 | `historical-price-eod-full` | all 10 generated clients: pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor, vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, macro-regime-detector, market-top-detector, us-undervalued-growth-screener |
 | `earnings-calendar` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor |
+| `company-screener` (slice 2a) | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener — note these are **ad-hoc consumers**, not generated clients: eight scripts carry their own inline FMP fetch layer and only `us-undervalued-growth-screener` rides the generated garp client (`get_company_screener`) |
 
 Owners are validated against `skills-index.yaml` by `check` — an owner naming a
 skill directory that does not exist there is a validation error.
+
+## `company-screener` field-usage inventory (slice 2a prerequisite)
+
+`/stable/company-screener` (legacy alias for callers: v3 `/stock-screener`,
+which returns the same fields for legacy keys) is read by 9 call sites — one
+per skill, no shared helper — across 9 skills. Recorded below is what each
+consumer actually reads from the
+response rows, per grep-verified call sites:
+
+| Skill | Fields read from screener rows |
+|---|---|
+| dividend-growth-pullback-screener | `symbol`, `price`, `companyName`, `marketCap` |
+| downtrend-duration-analyzer | `symbol`, `sector`, `marketCap` |
+| institutional-flow-tracker | `symbol`, `companyName`, `isEtf`, `isFund`, `isActivelyTrading`, `sector` |
+| pair-trade-screener | `symbol`, `companyName`, `marketCap`, `sector`, `exchangeShortName`, `isActivelyTrading` |
+| stockbee-20pct-study | `symbol`, `exchangeShortName`, `type` (defaults to `"stock"` — a key `/stable` rows do not carry), `price`, `isEtf`, `isFund` |
+| stockbee-exhaustion-hammer-screener | `symbol`, `isEtf`, `isFund`, `marketCap` (defensive fallback `mktCap`) |
+| stockbee-momentum-burst-screener | `symbol`, `isEtf`, `isFund`, `marketCap` (defensive fallback `mktCap`) |
+| us-undervalued-growth-screener | `symbol`, `companyName`, `exchange` OR `exchangeShortName`, `sector`, `industry`, `price`, `marketCap`, `volume`, `isEtf`, `isFund`, `isActivelyTrading` (client pins the three flags server-side; `normalize_listing` re-checks them client-side) |
+| value-dividend-screener | `symbol`, `price`, `lastAnnualDividend`, `marketCap`, `isEtf`, `isFund` |
+
+Two semantic notes the contract encodes:
+
+- **`exchange` vs `exchangeShortName`.** On `/stable`, `exchange` carries the
+  full venue name (`"NASDAQ Global Select"`) and `exchangeShortName` the
+  exchange code (`"NASDAQ"`). They are different concepts, not aliases — the
+  contract marks `exchange` optional and `exchangeShortName` required, and
+  does NOT map one to the other.
+- **`type` is absent on `/stable` rows.** Only stockbee-20pct-study reads it,
+  and only with a default, so it is left out of `required_fields` (and the
+  fixture records what the provider actually returned).
+
+This inventory is slice 2a's deliverable: it is what makes the `company-screener`
+contract's `required_fields` auditable, and it is what slice 2b's consumer
+zero-result reason codes must reuse.
 
 ## Session-aware empty suspicion
 
@@ -269,6 +306,23 @@ curl --get "https://financialmodelingprep.com/stable/earnings-calendar" \
   --data-urlencode "apikey=$FMP_API_KEY"
 ```
 
+For `company-screener`, replay the contract's recorded query verbatim:
+
+```bash
+curl --get "https://financialmodelingprep.com/stable/company-screener" \
+  --data-urlencode "marketCapMoreThan=200000000000" \
+  --data-urlencode "exchange=NASDAQ,NYSE" \
+  --data-urlencode "limit=5" \
+  --data-urlencode "apikey=$FMP_API_KEY"
+```
+
+On refresh, re-judge two required fields before lowering their guard rule:
+`sector` (nullable:false rests on the US-listed universe; FMP may legitimately
+null it for odd listings) and `lastAnnualDividend` (non-payers are observed to
+emit `0`, not `null` — a first-ever `null` should flip it to nullable:true with
+a re-recorded fixture). See `company-screener.v1.json`'s `tier_notes` for the
+same triggers.
+
 Sanitization checklist before pasting the result into a `fixture` array:
 
 1. Strip free-text / PII-adjacent fields: `description`, `website`, `image`,
@@ -296,7 +350,7 @@ days; default local path `reports/fmp_canary_<YYYY-MM-DD>.json`, override with
 ```json
 {
   "generated_at": "2026-09-05T12:00:00+00:00",
-  "budget": {"max": 4, "used": 4},
+  "budget": {"max": 5, "used": 5},
   "ok": true,
   "contracts": {
     "profile": {
@@ -365,7 +419,7 @@ endpoints, and are excluded.
 | `quote` | ✅ `quote.v1.json` | see ownership table above | — |
 | `historical-price-eod/full` | ✅ `historical-price-eod-full.v1.json` | see ownership table above | — |
 | `earnings-calendar` (v3 alias: `earning_calendar`) | ✅ `earnings-calendar.v1.json` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor call `get_earnings_calendar`; vcp-screener/parabolic-short-trade-planner vendor the same v3→stable compat rename but do not call it | — |
-| `company-screener` | ❌ | dividend-growth-pullback-screener, downtrend-duration-analyzer, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, value-dividend-screener | slice 2 (needs a field-usage inventory across its 9 ad-hoc consumers first — see plan §I) |
+| `company-screener` | ✅ `company-screener.v1.json` | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener | consumer reason codes → slice 2b |
 | `sp500-constituent` (v3 alias: `sp500_constituent`) | ❌ | vcp-screener, parabolic-short-trade-planner call `get_sp500_constituents`; pead-screener/earnings-trade-analyzer/ibd-distribution-day-monitor vendor the compat rename but do not call it | slice 2 |
 | `income-statement` | ❌ | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener | slice 2 |
 | `ratios` | ❌ | value-dividend-screener | slice 2 |
@@ -378,8 +432,12 @@ endpoints, and are excluded.
 | `commitment-of-traders-report` | ❌ | cot-contrarian-detector | slice 2 |
 
 This table defines slice 2's completion criteria: every row marked ❌ needs its own
-contract file (and, for `company-screener`, the field-usage inventory across its
-nine ad-hoc consumers) before slice 2 can close.
+contract file before slice 2 can close. `company-screener` (✅ as of slice 2a)
+also carries the field-usage inventory across its nine ad-hoc consumers, and the
+headings above now name the two remaining deferred pieces for that endpoint:
+consumer zero-result reason codes (slice 2b) and the remaining ❌ rows (each its
+own endpoint contract; several need dynamic-date or weekly-report recording
+windows for the canary query, e.g. `economic-calendar` / `commitment-of-traders-report`).
 
 ## All-null detection follow-up (#332)
 
@@ -391,17 +449,18 @@ this follow-up does not claim a new live capture or live canary run.
 
 Issue #332 remains open: non-FMP providers, the remaining FMP endpoint contracts,
 other consumer reason codes, and canary promotion remain outstanding. The
-scheduled canary remains report-only.
+scheduled canary remains report-only. Slice 2a (`company-screener` contract +
+its field-usage inventory) has landed; slice 2b is the consumer reason codes for
+the nine `company-screener` consumers.
 
 ## Out of scope (this slice)
 
 - Non-FMP providers.
 - Every `/stable` endpoint above marked ❌ in the "Covered in slice 1" column.
-- `company-screener` and its nine ad-hoc consumers specifically (needs its own
-  field-usage inventory — different consumers read different subsets of a wide,
-  inconsistent response shape).
+- Zero-result reason codes for the `company-screener` consumers (slice 2b — the
+  inventory above is 2b's prerequisite and was delivered in 2a).
 - Zero-result reason codes for consumers other than earnings-trade-analyzer and
-  pead-screener.
+  pead-screener (outside the slice-1 scope note below).
 - Fixing the `earnings-calendar` `time` gap (#352) — only documented here.
 - Promoting the canary to fail-closed.
 - `skills-index.yaml` schema changes.
