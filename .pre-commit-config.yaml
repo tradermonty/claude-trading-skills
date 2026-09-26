@@ -131,6 +131,17 @@ repos:
         files: '^(skills/[^/]+/SKILL\.md|skills/[^/]+/references/.*|skills/[^/]+/scripts/.*\.py|scripts/generate_skill_docs\.py|CLAUDE\.md|skill-packages/.*\.skill|docs/(en|ja)/skills/[^/]+\.md)$'
         pass_filenames: false
 
+      - id: docs-cli-examples
+        name: Validate documented CLI examples (issue #336)
+        entry: python3 scripts/check_doc_cli_examples.py validate
+        language: system
+        # Fire on the example-bearing docs (markdown targets of the gate,
+        # including every SKILL.md), the checker, and its tests. Always
+        # validates every configured target (offline, deterministic,
+        # stdlib-only).
+        files: '^(CLAUDE\.md|README\.md|README\.ja\.md|skills/[^/]+/SKILL\.md|scripts/check_doc_cli_examples\.py|scripts/tests/test_check_doc_cli_examples\.py)$'
+        pass_filenames: false
+
       - id: catalog-drift
         name: README + CLAUDE.md catalog drift check (regenerate from skills-index.yaml)
         entry: python3 scripts/generate_catalog_from_index.py --check

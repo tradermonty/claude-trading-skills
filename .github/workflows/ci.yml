@@ -44,6 +44,37 @@ jobs:
       - name: Codespell
         run: codespell --toml pyproject.toml skills/ scripts/
 
+  docs-cli-examples:
+    name: Documented CLI examples (issue #336)
+    runs-on: ubuntu-latest
+    # The gate is stdlib-only and offline, but the job still uses the project's
+    # locked environment for consistency with every other project job.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.10"
+      - name: Sync locked project environment
+        run: |
+          uv sync --locked --no-install-project --extra dev --extra ci
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Validate documented CLI examples
+        run: python3 scripts/check_doc_cli_examples.py validate
+
+      # Execute only examples explicitly marked `offline ci`; each runs in an
+      # isolated temp cwd and API-key env vars are stripped. Fails on any
+      # marked example that errors or mutates the repo.
+      - name: Execute offline CI examples
+        run: python3 scripts/check_doc_cli_examples.py execute --ci
+
   discover-tests:
     name: Discover test matrix
     runs-on: ubuntu-latest
