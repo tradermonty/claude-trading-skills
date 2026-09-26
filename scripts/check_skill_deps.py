@@ -125,7 +125,8 @@ EXTRA_DIST_REQUIRED: dict[str, dict[str, str]] = {
 }
 
 # skills-index.yaml integrations id -> distribution package, used for the
-# warn-only bidirectional consistency lint (promoted to error separately).
+# fail-closed bidirectional consistency lint (missing required dists are
+# hard errors in the offline declaration check).
 INTEGRATION_TO_DIST = {
     "yfinance": "yfinance",
 }
@@ -450,7 +451,8 @@ def check_skill(
     for iid, req in integrations.get(skill_id, []) or []:
         dist = INTEGRATION_TO_DIST.get(iid)
         if dist and req == "required" and dist.lower() not in declared:
-            report.warnings.append(
+            report.ok = False
+            report.errors.append(
                 f"skills-index declares required integration {iid!r} "
                 f"but requirements.txt lacks {dist}"
             )

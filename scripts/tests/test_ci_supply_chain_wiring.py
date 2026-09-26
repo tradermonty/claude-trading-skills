@@ -44,9 +44,24 @@ def test_packaged_deps_python39_probe_does_not_consume_root_lock():
     assert SYNC not in runs
     for name in ("Offline dependency declaration report", "Clean-room venv smoke per skill"):
         step = next(step for step in steps if step.get("name") == name)
-        assert step["run"].startswith("uv run --isolated --no-project --with packaging python "), (
-            name
-        )
+        run = step["run"]
+        # Both steps probe in an isolated environment that must not consume
+        # the repository's locked root environment (--isolated --no-project).
+        assert run.startswith("uv run --isolated --no-project --with ")
+        assert "packaging" in run
+    # The declaration report parses skills-index.yaml (load_integrations ->
+    # import yaml), so it needs pyyaml. Each package must be its own --with
+    # flag: "--with packaging pyyaml" would treat pyyaml as the command to run.
+    report = next(
+        step for step in steps if step.get("name") == "Offline dependency declaration report"
+    )
+    run = report["run"]
+    # The folded YAML loads as one line: deps first, then the command. Verify
+    # both the dependency args and the executed command precisely.
+    assert run.strip() == (
+        "uv run --isolated --no-project --with packaging --with pyyaml "
+        "python scripts/check_skill_deps.py report > deps-report.json"
+    )
 
 
 def test_matrix_only_checks_installed_requirements_and_security_uses_python311():

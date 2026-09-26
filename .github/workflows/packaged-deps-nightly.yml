@@ -36,7 +36,7 @@ jobs:
           version: "0.12.10"
       - name: Offline dependency declaration report
         run: >
-          uv run --isolated --no-project --with packaging
+          uv run --isolated --no-project --with packaging --with pyyaml
           python scripts/check_skill_deps.py report > deps-report.json
 
       - name: Clean-room venv smoke per skill
