@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "company-screener",
+  "path": "/stable/company-screener",
+  "query": {
+    "marketCapMoreThan": "200000000000",
+    "exchange": "NASDAQ,NYSE",
+    "limit": "5"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-09-26",
+  "recording": "live /stable/company-screener response; full-sector field set kept verbatim, apikey query param never recorded",
+  "owners": [
+    "dividend-growth-pullback-screener",
+    "downtrend-duration-analyzer",
+    "institutional-flow-tracker",
+    "pair-trade-screener",
+    "stockbee-20pct-study",
+    "stockbee-exhaustion-hammer-screener",
+    "stockbee-momentum-burst-screener",
+    "us-undervalued-growth-screener",
+    "value-dividend-screener"
+  ],
+  "tier_notes": "Recorded on a paid key; a free-tier subset may return fewer names so min_rows is only validated against this recorded query. Legacy-key users fall back to v3 /stock-screener on the consumer side and it returns the same fields (verified live 2026-09-26). /stable rows carry no 'type' key; stockbee-20pct-study defaults it to 'stock'. 'exchange' on /stable is the full venue name ('NASDAQ Global Select') while 'exchangeShortName' is the code ('NASDAQ') \u2014 distinct concepts, not aliases. Maintenance triggers: re-judge 'sector' outright and 'lastAnnualDividend' (non-payers emit 0, not null) on the first appearance of a null during fixture refresh; if the megacap set ever drops below $200B total cap, refresh the fixture instead of trusting min_rows.",
+  "required_fields": {
+    "symbol": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "companyName": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "marketCap": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false
+    },
+    "price": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false
+    },
+    "sector": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "exchangeShortName": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "isEtf": {
+      "types": [
+        "bool"
+      ],
+      "nullable": false
+    },
+    "isFund": {
+      "types": [
+        "bool"
+      ],
+      "nullable": false
+    },
+    "isActivelyTrading": {
+      "types": [
+        "bool"
+      ],
+      "nullable": false
+    },
+    "lastAnnualDividend": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false
+    }
+  },
+  "optional_fields": [
+    "industry",
+    "exchange",
+    "country",
+    "beta",
+    "volume",
+    "avgVolume"
+  ],
+  "legacy_aliases": {
+    "mktCap": {
+      "canonical": "marketCap"
+    }
+  },
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "the >$200B US listing set always exists"
+  },
+  "fixture": [
+    {
+      "avgVolume": 124633855,
+      "beta": 2.217,
+      "companyName": "NVIDIA Corporation",
+      "country": "US",
+      "exchange": "NASDAQ Global Select",
+      "exchangeShortName": "NASDAQ",
+      "industry": "Semiconductors",
+      "isActivelyTrading": true,
+      "isEtf": false,
+      "isFund": false,
+      "lastAnnualDividend": 0.28,
+      "marketCap": 5451420470000,
+      "price": 225.07,
+      "sector": "Technology",
+      "symbol": "NVDA",
+      "volume": 87931936
+    },
+    {
+      "avgVolume": 48076820,
+      "beta": 1.085,
+      "companyName": "Apple Inc.",
+      "country": "US",
+      "exchange": "NASDAQ Global Select",
+      "exchangeShortName": "NASDAQ",
+      "industry": "Consumer Electronics",
+      "isActivelyTrading": true,
+      "isEtf": false,
+      "isFund": false,
+      "lastAnnualDividend": 1.06,
+      "marketCap": 5009416510920,
+      "price": 341.07,
+      "sector": "Technology",
+      "symbol": "AAPL",
+      "volume": 29649787
+    },
+    {
+      "avgVolume": 18270244,
+      "beta": 1.215,
+      "companyName": "Alphabet Inc.",
+      "country": "US",
+      "exchange": "NASDAQ Global Select",
+      "exchangeShortName": "NASDAQ",
+      "industry": "Internet Content & Information",
+      "isActivelyTrading": true,
+      "isEtf": false,
+      "isFund": false,
+      "lastAnnualDividend": 0.86,
+      "marketCap": 4139313608328,
+      "price": 341.08,
+      "sector": "Communication Services",
+      "symbol": "GOOG",
+      "volume": 13336367
+    },
+    {
+      "avgVolume": 29841620,
+      "beta": 1.108,
+      "companyName": "Microsoft Corporation",
+      "country": "US",
+      "exchange": "NASDAQ Global Select",
+      "exchangeShortName": "NASDAQ",
+      "industry": "Software - Infrastructure",
+      "isActivelyTrading": true,
+      "isEtf": false,
+      "isFund": false,
+      "lastAnnualDividend": 3.64,
+      "marketCap": 3832846143500,
+      "price": 516.17,
+      "sector": "Technology",
+      "symbol": "MSFT",
+      "volume": 37985485
+    },
+    {
+      "avgVolume": 40937987,
+      "beta": 1.443,
+      "companyName": "Amazon.com, Inc.",
+      "country": "US",
+      "exchange": "NASDAQ Global Select",
+      "exchangeShortName": "NASDAQ",
+      "industry": "Specialty Retail",
+      "isActivelyTrading": true,
+      "isEtf": false,
+      "isFund": false,
+      "lastAnnualDividend": 0,
+      "marketCap": 2685725157000,
+      "price": 249.67,
+      "sector": "Consumer Cyclical",
+      "symbol": "AMZN",
+      "volume": 32976800
+    }
+  ]
+}

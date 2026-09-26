@@ -53,8 +53,9 @@ SKILL_IDS = _skill_ids()
 # ---------------------------------------------------------------------------
 
 
-def test_four_contracts_are_present():
+def test_expected_contracts_are_present():
     assert set(CONTRACTS) == {
+        "company-screener",
         "profile",
         "quote",
         "historical-price-eod-full",
@@ -95,20 +96,21 @@ def _contracts_with_legacy_aliases():
     return [name for name, c in CONTRACTS.items() if c.legacy_aliases]
 
 
-def test_only_profile_declares_legacy_aliases():
-    assert _contracts_with_legacy_aliases() == ["profile"]
+def test_expected_legacy_alias_holders():
+    assert sorted(_contracts_with_legacy_aliases()) == ["company-screener", "profile"]
 
 
 @pytest.mark.parametrize(
-    "legacy_key,canonical",
+    "contract_name,legacy_key,canonical",
     [
-        (k, v["canonical"])
-        for k, v in CONTRACTS["profile"].legacy_aliases.items()
-        if v["canonical"] in CONTRACTS["profile"].required_fields
+        (name, k, v["canonical"])
+        for name in _contracts_with_legacy_aliases()
+        for k, v in CONTRACTS[name].legacy_aliases.items()
+        if v["canonical"] in CONTRACTS[name].required_fields
     ],
 )
-def test_rename_canonical_to_legacy_is_a_fatal_anomaly(legacy_key, canonical):
-    contract = CONTRACTS["profile"]
+def test_rename_canonical_to_legacy_is_a_fatal_anomaly(contract_name, legacy_key, canonical):
+    contract = CONTRACTS[contract_name]
     row = copy.deepcopy(contract.fixture[0])
     row[legacy_key] = row.pop(canonical)
     result = validate_rows(contract, [row])
@@ -228,6 +230,7 @@ HIST_FIXTURE = CONTRACTS["historical-price-eod-full"].fixture
 QUOTE_FIXTURE = CONTRACTS["quote"].fixture
 PROFILE_FIXTURE = CONTRACTS["profile"].fixture
 EARNINGS_FIXTURE = CONTRACTS["earnings-calendar"].fixture
+SCREENER_FIXTURE = CONTRACTS["company-screener"].fixture
 
 
 def _assert_hist_row(row):
@@ -368,14 +371,17 @@ def test_earnings_calendar_missing_time_field_is_a_fatal_regression():
     assert any(a.code == "missing_required_field:time" for a in result.fatal_anomalies)
 
 
-def test_earnings_calendar_query_values_are_all_strings():
+def test_contract_query_values_are_all_strings():
     """check_provider_contracts.py sends `dict(contract.query)` straight into
     requests' `params=`; a JSON boolean for includeReportTimes would be sent
     as Python `True`, which the API rejects with HTTP 400 (only the strings
-    "true"/"false" are accepted)."""
-    contract = CONTRACTS["earnings-calendar"]
-    for key, value in contract.query.items():
-        assert isinstance(value, str), f"{key}={value!r} is not a str"
+    "true"/"false" are accepted). The same guard applies to every contract:
+    the canary runs offline-statically recorded string queries, never int/
+    bool fast paths."""
+    for name in sorted(CONTRACTS):
+        contract = CONTRACTS[name]
+        for key, value in contract.query.items():
+            assert isinstance(value, str), f"{name}: {key}={value!r} is not a str"
 
 
 # --- specials: canslim, macro, market-top, us-undervalued-growth-screener ---
@@ -457,6 +463,47 @@ def test_us_undervalued_growth_screener_historical_profile_quotes_accept_fixture
     assert "marketCap" in quotes["AAPL"]
 
 
+def test_us_undervalued_growth_screener_company_screener_accepts_fixture(monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
+    mod = _load_client_module("skills/us-undervalued-growth-screener/scripts/fmp_client.py")
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    captured: dict = {}
+
+    def fake_request_json(url, params=None, **kwargs):
+        captured["url"] = url
+        captured["params"] = dict(params or {})
+        if "company-screener" in url:
+            return copy.deepcopy(SCREENER_FIXTURE)
+        return None
+
+    monkeypatch.setattr(client, "_request_json", fake_request_json)
+
+    universe = client.get_company_screener(
+        exchange="NASDAQ",
+        min_market_cap=200_000_000_000,
+        max_market_cap=6_000_000_000_000,
+        min_price=1.0,
+        limit=10,
+    )
+
+    # The client routes the screener to /stable. Only the generated garp
+    # client pins the isEtf/isFund/isActivelyTrading filters server-side;
+    # the ad-hoc consumers filter on response-row fields client-side.
+    assert "company-screener" in captured["url"]
+    assert captured["params"]["exchange"] == "NASDAQ"
+    assert captured["params"]["marketCapMoreThan"] == 200_000_000_000
+    assert captured["params"]["marketCapLowerThan"] == 6_000_000_000_000
+    assert captured["params"]["isEtf"] == "false"
+    assert captured["params"]["isFund"] == "false"
+    assert captured["params"]["isActivelyTrading"] == "true"
+
+    assert isinstance(universe, list) and len(universe) == len(SCREENER_FIXTURE)
+    assert all(isinstance(row, dict) for row in universe)
+    for row in universe:
+        assert row["symbol"]
+        assert "marketCap" in row
+
+
 # ---------------------------------------------------------------------------
 # D5: `check` is network-free
 # ---------------------------------------------------------------------------
@@ -503,6 +550,8 @@ def test_module_imports_with_requests_blocked():
 
 
 def _stub_fetch_ok(path, query):
+    if "company-screener" in path:
+        return 200, copy.deepcopy(SCREENER_FIXTURE)
     if "profile" in path:
         return 200, copy.deepcopy(PROFILE_FIXTURE)
     if "quote" in path:
@@ -527,6 +576,7 @@ def test_canary_success_writes_report_and_never_leaks_the_key(tmp_path, monkeypa
     assert report_path.exists()
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert set(report["contracts"]) == {
+        "company-screener",
         "profile",
         "quote",
         "historical-price-eod-full",
@@ -594,7 +644,7 @@ def test_redact_url_strips_apikey():
 
 def test_canary_default_max_calls_is_number_of_loaded_contracts(tmp_path, monkeypatch):
     # No --max-calls given: the budget defaults to len(contracts), so probing
-    # exactly the real four contracts must NOT refuse to start.
+    # exactly the loaded contracts must NOT refuse to start.
     monkeypatch.setenv("FMP_API_KEY", "FAKEKEY123")
     monkeypatch.setattr(
         check_provider_contracts, "_build_requests_fetch", lambda api_key: _stub_fetch_ok
