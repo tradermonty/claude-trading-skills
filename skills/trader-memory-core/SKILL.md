@@ -334,6 +334,29 @@ Lightweight index for fast queries without loading full YAML files.
 
 Postmortem markdown reports: `pm_{thesis_id}.md`.
 
+## Supported Python Read and Validation API
+
+Use these public functions from `scripts/thesis_store.py` for replay and other
+Python consumers:
+
+```python
+from pathlib import Path
+import thesis_store
+
+thesis = thesis_store.get(Path("state/theses"), thesis_id)
+thesis_store.validate_thesis(thesis)
+```
+
+- `get(state_dir, thesis_id)` loads fresh YAML data without modifying the thesis
+  file or index. It does not validate the loaded content. Missing files raise
+  `FileNotFoundError`; malformed YAML raises `yaml.YAMLError`.
+- `validate_thesis(thesis)` checks the JSON Schema and business invariants,
+  returns `None` on success, and raises `ValueError` on validation failure.
+  It does not mutate the input or write state.
+- Validate loaded or normalized records explicitly before relying on their
+  schema and business invariants. Keep consumers on these supported functions;
+  underscore-prefixed helpers are internal implementation details.
+
 ## Key Principles
 
 - **Forward-only transitions**: IDEA → ENTRY_READY → ACTIVE → CLOSED (no backtracking)

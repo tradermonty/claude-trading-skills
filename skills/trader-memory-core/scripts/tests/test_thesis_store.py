@@ -52,6 +52,55 @@ def _index_file_hash(state_dir) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+# -- Tests: supported read and validation API ----------------------------------
+
+
+def test_public_get_is_read_only_and_returns_fresh_data(tmp_path: Path):
+    tid, expected = _register_and_get(tmp_path)
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    loaded = thesis_store.get(tmp_path, tid)
+    assert loaded == expected
+    loaded["origin"]["skill"] = "changed-in-memory"
+    assert thesis_store.get(tmp_path, tid) == expected
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
+
+
+def test_public_get_missing_does_not_create_state(tmp_path: Path):
+    state_dir = tmp_path / "absent"
+    with pytest.raises(FileNotFoundError, match="Thesis not found"):
+        thesis_store.get(state_dir, "missing")
+    assert not state_dir.exists()
+
+
+def test_public_get_preserves_load_only_contract(tmp_path: Path):
+    path = tmp_path / "legacy.yaml"
+    path.write_text("ticker: AAPL\n", encoding="utf-8")
+    assert thesis_store.get(tmp_path, "legacy") == {"ticker": "AAPL"}
+    path.write_text("ticker: [\n", encoding="utf-8")
+    with pytest.raises(yaml.YAMLError):
+        thesis_store.get(tmp_path, "legacy")
+
+
+@pytest.mark.parametrize("invalid", [None, "schema", "business"])
+def test_public_validate_thesis_is_read_only(tmp_path: Path, invalid):
+    _, thesis = _register_and_get(tmp_path)
+    if invalid == "schema":
+        thesis["ticker"] = None
+    elif invalid == "business":
+        thesis["status"] = "ACTIVE"
+        thesis["entry"]["actual_price"] = None
+    before_input = json.dumps(thesis, sort_keys=True)
+    before_disk = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    if invalid:
+        message = "Schema validation failed" if invalid == "schema" else "ACTIVE thesis requires"
+        with pytest.raises(ValueError, match=message):
+            thesis_store.validate_thesis(thesis)
+    else:
+        assert thesis_store.validate_thesis(thesis) is None
+    assert json.dumps(thesis, sort_keys=True) == before_input
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before_disk
+
+
 # -- Tests: register + get ----------------------------------------------------
 
 

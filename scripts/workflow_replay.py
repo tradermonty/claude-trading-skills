@@ -1602,7 +1602,7 @@ def _trade_memory_close(
     )
     thesis_store, _review = _trader_memory_modules(repo_root)
     try:
-        thesis_store._validate_thesis(active)
+        thesis_store.validate_thesis(active)
     except Exception as exc:
         raise ReplayError(f"invalid active thesis: {exc}") from exc
     if active.get("status") != "ACTIVE":
@@ -1636,7 +1636,7 @@ def _trade_memory_close(
     )
     closed = load_yaml(source)
     try:
-        thesis_store._validate_thesis(closed)
+        thesis_store.validate_thesis(closed)
     except Exception as exc:
         raise ReplayError(f"native close produced invalid thesis: {exc}") from exc
     if closed.get("status") != "CLOSED":
@@ -1647,7 +1647,7 @@ def _trade_memory_close(
     canonical = _canonicalize(closed, spec["fixed_timestamp"], {str(state_dir): "$STATE"})
     canonical["created_at"] = closed["created_at"]
     try:
-        thesis_store._validate_thesis(canonical)
+        thesis_store.validate_thesis(canonical)
     except Exception as exc:
         raise ReplayError(f"normalized close artifact is invalid: {exc}") from exc
     _write_yaml(output, canonical)
@@ -2064,7 +2064,7 @@ def _trade_memory_lessons(
     if not isinstance(closed, dict):
         raise ReplayError("postmortem closed thesis snapshot must be a mapping")
     try:
-        thesis_store._validate_thesis(closed)
+        thesis_store.validate_thesis(closed)
     except Exception as exc:
         raise ReplayError(f"postmortem closed thesis snapshot is invalid: {exc}") from exc
     expected_closed_sha = (
@@ -2111,7 +2111,7 @@ def _trade_memory_lessons(
     normalized = _canonicalize(updated, spec["fixed_timestamp"], {str(state_dir): "$STATE"})
     normalized["created_at"] = closed["created_at"]
     try:
-        thesis_store._validate_thesis(normalized)
+        thesis_store.validate_thesis(normalized)
     except Exception as exc:
         raise ReplayError(f"normalized lessons state is invalid: {exc}") from exc
     _write_yaml(Path(artifacts["lessons_log_entry"]["files"]["state"]), normalized)
@@ -4599,7 +4599,7 @@ def _kanchi_register_thesis(
     thesis_ids = thesis_ingest.ingest("kanchi-dividend-sop", str(candidates_path), str(state_dir))
     if not thesis_ids:
         raise ReplayError("native thesis ingest registered no theses")
-    theses = [thesis_store._load_thesis(state_dir, thesis_id) for thesis_id in thesis_ids]
+    theses = [thesis_store.get(state_dir, thesis_id) for thesis_id in thesis_ids]
     if sorted(row["ticker"] for row in theses) != sorted(decision["expected_idea"]):
         raise ReplayError("native thesis ingest did not register the expected IDEA theses")
 
@@ -4626,7 +4626,7 @@ def _kanchi_register_thesis(
 
     entries = []
     for thesis in theses:
-        reloaded = thesis_store._load_thesis(state_dir, thesis["thesis_id"])
+        reloaded = thesis_store.get(state_dir, thesis["thesis_id"])
         if reloaded["status"] != "IDEA":
             raise ReplayError("kanchi registration must never leave IDEA status")
         if decision["expected_active"]:
@@ -5937,7 +5937,7 @@ def _multi_register(
     thesis_ids = thesis_ingest.ingest("manual", str(ingest_path), str(state_dir))
     if len(thesis_ids) != len(records):
         raise ReplayError("native thesis ingest did not register every expected thesis")
-    theses = [thesis_store._load_thesis(state_dir, thesis_id) for thesis_id in thesis_ids]
+    theses = [thesis_store.get(state_dir, thesis_id) for thesis_id in thesis_ids]
     if sorted(row["ticker"] for row in theses) != sorted(
         card_by_id[hypothesis_id]["ticker"] for hypothesis_id in idea + entry_ready
     ):
@@ -5964,7 +5964,7 @@ def _multi_register(
     for hypothesis_id in actionable_ids:
         card = card_by_id[hypothesis_id]
         status = "ENTRY_READY" if hypothesis_id in set(entry_ready) else "IDEA"
-        reloaded = thesis_store._load_thesis(state_dir, thesis_id_by_ticker[card["ticker"]])
+        reloaded = thesis_store.get(state_dir, thesis_id_by_ticker[card["ticker"]])
         if reloaded["status"] != "IDEA":
             raise ReplayError("multi-asset registration must never leave IDEA status")
         if card.get("asset_class") == "forex" and not card.get("research_only"):
