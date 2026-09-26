@@ -473,6 +473,7 @@ python3 skills/pead-screener/scripts/screen_pead.py \
 ```
 
 **Options Strategy Advisor:** 🟡 FMP API optional
+<!-- exec: skip reason="black_scholes CLI is a research entry point with no argparse parser, so it would silently ignore the documented flags; implement argparse or drop the example as follow-up" owner=@tradermonty expires=2026-12-31 -->
 ```bash
 # Calculate Black-Scholes price and Greeks
 python3 options-strategy-advisor/scripts/black_scholes.py \
@@ -512,6 +513,7 @@ python3 skills/portfolio-manager/scripts/check_alpaca_connection.py
 ```
 
 **Position Sizer:** No API key required
+<!-- exec: offline ci -->
 ```bash
 # Basic: stop-loss based sizing
 python3 skills/position-sizer/scripts/position_sizer.py \
