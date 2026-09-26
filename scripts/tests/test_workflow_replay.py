@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import shutil
@@ -730,3 +731,18 @@ def test_committed_goldens_are_reproducible_and_not_executor_inputs(
     regenerated = tmp_path / "regenerated"
     execute_replay(ROOT, SPEC, variant, regenerated)
     assert compare_trees(generated, regenerated) == []
+
+
+def test_replay_uses_supported_thesis_read_and_validation_api() -> None:
+    tree = ast.parse((ROOT / "scripts" / "workflow_replay.py").read_text(encoding="utf-8"))
+    private_names = {"_load_thesis", "_validate_thesis"}
+    violations = [
+        node.lineno
+        for node in ast.walk(tree)
+        if (isinstance(node, ast.Attribute) and node.attr in private_names)
+        or (
+            isinstance(node, ast.ImportFrom)
+            and any(alias.name in private_names for alias in node.names)
+        )
+    ]
+    assert violations == [], f"Replay depends on private thesis APIs at lines {violations}"

@@ -1074,12 +1074,27 @@ def register(state_dir: Path, thesis_data: dict) -> str:
 
 
 def get(state_dir: Path, thesis_id: str) -> dict:
-    """Load a thesis by ID.
+    """Supported read API: load thesis YAML by ID without modifying state.
+
+    Return freshly parsed data without schema or business validation. Call
+    validate_thesis() explicitly when consuming persisted or legacy content.
 
     Raises:
         FileNotFoundError: If thesis does not exist.
+        yaml.YAMLError: If the stored YAML cannot be parsed.
     """
     return _load_thesis(state_dir, thesis_id)
+
+
+def validate_thesis(thesis: dict) -> None:
+    """Supported validation API: check schema and business invariants.
+
+    Return None on success without modifying the input or persisted state.
+
+    Raises:
+        ValueError: If schema validation or a business invariant fails.
+    """
+    _validate_thesis(thesis)
 
 
 def query(
