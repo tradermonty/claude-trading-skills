@@ -478,7 +478,7 @@ def run_execute(
                     env = dict(os.environ)
                     for k in API_KEY_ENV_VARS:
                         env.pop(k, None)
-                    cmd = ["python3", str(script)] + toks[2:]
+                    cmd = [sys.executable, str(script)] + toks[2:]
                     if ci_only:
                         cmd.insert(1, "-S")
                     try:

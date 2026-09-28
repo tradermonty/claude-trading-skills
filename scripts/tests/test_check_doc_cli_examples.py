@@ -340,7 +340,7 @@ def test_ci_execute_runs_stdlib_only():
         gate.subprocess.run = orig_run
         gate._git_status_snapshot = orig_snapshot
     assert errors == []
-    assert captured and captured[0][:2] == ["python3", "-S"]
+    assert captured and captured[0][:2] == [sys.executable, "-S"]
 
 
 def tmp_path_on_demand():
@@ -368,7 +368,7 @@ def test_plain_execute_does_not_use_S_flag(tmp_path):
     try:
         (tmp_path / "tool.py").write_text("print('hi')\n", encoding="utf-8")
         (tmp_path / "doc.md").write_text(
-            f"<!-- exec: offline -->\n```bash\npython3 {tmp_path / 'tool.py'}\n```\n",
+            f"<!-- exec: offline -->\n```bash\npython3 {(tmp_path / 'tool.py').as_posix()}\n```\n",
             encoding="utf-8",
         )
         ran, errors = gate.run_execute(["doc.md"], ci_only=False, root=tmp_path)
@@ -376,9 +376,7 @@ def test_plain_execute_does_not_use_S_flag(tmp_path):
         gate.subprocess.run = orig_run
         gate._git_status_snapshot = orig_snapshot
     assert errors == []
-    assert (
-        captured and captured[0][:2] == ["python3", "--0"] if False else captured[0][0] == "python3"
-    )
+    assert captured and captured[0][0] == sys.executable
     assert "-S" not in captured[0]
 
 
