@@ -454,7 +454,8 @@ def run_execute(
       catches any write that escapes the temp cwd by other means (absolute
       repo paths, ``../`` arguments, or absolute target args) and fails the
       block that caused it. The delta check is skipped for non-git roots.
-    ``ci_only`` runs additionally execute under ``python3 -S`` (stdlib only),
+    ``ci_only`` runs additionally execute under the running interpreter
+    (``sys.executable``) with ``-S`` (stdlib only),
     so a block marked ``offline ci`` cannot quietly rely on an undeclared
     third-party dependency present in the CI environment.
     """

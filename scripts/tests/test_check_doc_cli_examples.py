@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 import tempfile
 from pathlib import Path
@@ -368,7 +369,7 @@ def test_plain_execute_does_not_use_S_flag(tmp_path):
     try:
         (tmp_path / "tool.py").write_text("print('hi')\n", encoding="utf-8")
         (tmp_path / "doc.md").write_text(
-            f"<!-- exec: offline -->\n```bash\npython3 {(tmp_path / 'tool.py').as_posix()}\n```\n",
+            f"<!-- exec: offline -->\n```bash\npython3 {shlex.quote((tmp_path / 'tool.py').as_posix())}\n```\n",
             encoding="utf-8",
         )
         ran, errors = gate.run_execute(["doc.md"], ci_only=False, root=tmp_path)

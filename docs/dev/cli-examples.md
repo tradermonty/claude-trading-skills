@@ -70,8 +70,9 @@ python3 skills/position-sizer/scripts/position_sizer.py \
   `git status --porcelain --untracked-files=all` in the origin repository
   before and after each block: any delta fails that block with
   `mutated the repository`. The guard is skipped for non-git roots (tests).
-- **Stdlib-only CI execution.** `execute --ci` runs blocks under
-  `python3 -S` (site-packages disabled), so a block marked `offline ci`
+- **Stdlib-only CI execution.** `execute --ci` runs blocks under the
+  interpreter running the checker (`sys.executable`) with `-S`
+  (site-packages disabled), so a block marked `offline ci`
   cannot depend on a third-party package that happens to be installed in the
   CI environment without being declared in the skill's `requirements.txt`.
 - **Only mark what runs in a fresh clone.** `offline` means runnable offline
