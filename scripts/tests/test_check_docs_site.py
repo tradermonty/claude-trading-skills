@@ -599,7 +599,7 @@ def test_docs_workflow_is_pinned_and_covers_issue_contract():
         "ruby/setup-ruby": "762794c140bbeda0f1224786aa33b4b46783a6c1",  # pragma: allowlist secret
         "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",  # pragma: allowlist secret
         "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",  # pragma: allowlist secret
-        "actions/cache": "0057852bfaa89a56745cba8c7296529d2fc39830",  # pragma: allowlist secret
+        "actions/cache": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",  # pragma: allowlist secret
     }
     raw_uses = __import__("re").findall(r"uses:\s+([^\s#]+)", workflow_text)
     all_uses = []
