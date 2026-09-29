@@ -595,7 +595,7 @@ def test_docs_workflow_is_pinned_and_covers_issue_contract():
     expected_actions = {
         "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # pragma: allowlist secret
         "actions/setup-python": "5fda3b95a4ea91299a34e894583c3862153e4b97",  # pragma: allowlist secret
-        "astral-sh/setup-uv": "bec219d24cd3e171d82865faccec33120bb574f4",  # pragma: allowlist secret
+        "astral-sh/setup-uv": "c18668ad3cf93ea998bef934396af7bb5c839dc7",  # pragma: allowlist secret
         "ruby/setup-ruby": "762794c140bbeda0f1224786aa33b4b46783a6c1",  # pragma: allowlist secret
         "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",  # pragma: allowlist secret
         "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",  # pragma: allowlist secret
