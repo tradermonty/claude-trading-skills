@@ -336,14 +336,23 @@ def _fmt_input(value) -> str:
 # ----------------------------------------------------------------------------
 
 
-def find_terminal(explicit: str | None = None, configured: str | None = None) -> Path | None:
+def supplied_terminal_sources(explicit: str | None, configured: str | None) -> list[str]:
+    """Non-empty terminal sources the caller supplied, highest precedence first.
+
+    Precedence is ``--terminal-path``, then ``config.terminal_path``, then
+    ``$MT5_TERMINAL_PATH`` (the deliberate per-project config beats a possibly
+    stale shell env var). Only the highest-precedence supplied source is used; a
+    trailing source (e.g. a stray env var) never silently substitutes for a
+    higher one that is missing.
+    """
+    env = os.environ.get("MT5_TERMINAL_PATH")
+    return [s for s in (explicit, configured, env) if s]
+
+
+def auto_candidates() -> list[Path]:
+    """Candidate ``terminal64.exe`` paths under Program Files (for discovery
+    and for surfacing to the user in error messages)."""
     candidates: list[Path] = []
-    if explicit:
-        candidates.append(Path(explicit))
-    if os.environ.get("MT5_TERMINAL_PATH"):
-        candidates.append(Path(os.environ["MT5_TERMINAL_PATH"]))
-    if configured:
-        candidates.append(Path(configured))
     for base in (
         os.environ.get("ProgramFiles", r"C:\Program Files"),
         os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
@@ -352,9 +361,31 @@ def find_terminal(explicit: str | None = None, configured: str | None = None) ->
             continue
         candidates.append(Path(base) / "MetaTrader 5" / "terminal64.exe")
         candidates.extend(Path(base).glob("*/terminal64.exe"))
-    for path in candidates:
-        if path and path.exists():
-            return path
+    return candidates
+
+
+def find_terminal(
+    explicit: str | None = None, configured: str | None = None, allow_auto: bool = False
+) -> Path | None:
+    """Resolve a terminal64.exe path without ever silently selecting one.
+
+    If the caller supplied a terminal source, the highest-precedence supplied
+    source (explicit > config > env) is used, and only if it **exists**. If that
+    source is missing, ``None`` is returned regardless of ``allow_auto`` — a bad
+    explicit/config path must never fall through to a lower-precedence source or
+    to auto-discovery, either of which could be a live terminal.
+
+    Auto-discovery under Program Files runs only when **no** source was supplied
+    at all **and** ``allow_auto`` is set; otherwise ``None`` is returned.
+    """
+    sources = supplied_terminal_sources(explicit, configured)
+    if sources:
+        path = Path(sources[0])
+        return path if path.exists() else None
+    if allow_auto:
+        for path in auto_candidates():
+            if path.exists():
+                return path
     return None
 
 
@@ -1261,7 +1292,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", help="Pipeline configuration JSON.")
     parser.add_argument("--candidates-dir", help="Override the candidate-bot folder.")
     parser.add_argument("--output-dir", default="reports/mt5_pipeline")
-    parser.add_argument("--terminal-path", default=None)
+    parser.add_argument(
+        "--terminal-path",
+        default=None,
+        help=(
+            "Explicit terminal64.exe path (required unless set via "
+            "$MT5_TERMINAL_PATH, config.terminal_path, or --allow-auto-detect)."
+        ),
+    )
+    parser.add_argument(
+        "--allow-auto-detect",
+        action="store_true",
+        help=(
+            "Allow auto-discovery of terminal64.exe under Program Files. Off by "
+            "default so a live terminal on the same machine is never silently selected."
+        ),
+    )
     parser.add_argument("--timeout", type=int, default=None)
     parser.add_argument("--portable", action="store_true")
     parser.add_argument(
@@ -1324,13 +1370,33 @@ def main(argv: list[str] | None = None) -> int:
         print("Rounds 2 and 3 require real results; rerun without --dry-run.")
         return 0
 
-    terminal = find_terminal(args.terminal_path, config.get("terminal_path"))
+    terminal = find_terminal(
+        args.terminal_path, config.get("terminal_path"), args.allow_auto_detect
+    )
     if terminal is None:
-        print(
-            "error: terminal64.exe was not found. Use --terminal-path, "
-            "$MT5_TERMINAL_PATH, or config.terminal_path.",
-            file=sys.stderr,
-        )
+        supplied = supplied_terminal_sources(args.terminal_path, config.get("terminal_path"))
+        if supplied:
+            print(
+                "error: the supplied terminal64.exe path was not found and will not "
+                "fall back to another source. Check --terminal-path, "
+                "config.terminal_path, or $MT5_TERMINAL_PATH.",
+                file=sys.stderr,
+            )
+        elif args.allow_auto_detect:
+            print(
+                "error: terminal64.exe was not found under Program Files.",
+                file=sys.stderr,
+            )
+        else:
+            message = (
+                "error: no terminal specified and auto-detection is disabled for safety. "
+                "Pass --terminal-path, $MT5_TERMINAL_PATH, or config.terminal_path "
+                "(or --allow-auto-detect to restore Program Files discovery)."
+            )
+            detected = [str(c) for c in auto_candidates() if c.exists()]
+            if detected:
+                message += " Detected candidate(s): " + ", ".join(detected)
+            print(message, file=sys.stderr)
         return 1
 
     # Prevent concurrent runs: two pipelines share one MT5 data folder and would

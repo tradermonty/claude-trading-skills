@@ -76,7 +76,9 @@ python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
 
 ### ステップ1 — 設定
 
-`assets/pipeline_config.template.json` をコピーし、3つのフォルダパスと（任意で）`terminal_path` を記入します。実際の個人パスはコミットせず、実行時に渡します。デフォルトには合意済み設定がエンコードされています（2020.01.01→2026.06.30、H1、Model=4、10000 USD、1:100、ゲートと閾値）。
+`assets/pipeline_config.template.json` をコピーし、3つのフォルダパスを記入します。実行時には `--terminal-path`、設定の `terminal_path`、または `$MT5_TERMINAL_PATH` で端末パスを明示する必要があります。実際の個人パスはコミットせず、実行時に渡します。デフォルトには合意済み設定がエンコードされています（2020.01.01→2026.06.30、H1、Model=4、10000 USD、1:100、ゲートと閾値）。
+
+> **端末の自動検出は既定で無効です。** ブローカーのライブ端末を誤って起動し、テスト終了時に閉じることを避けるため、テスト専用のポータブル端末を指定してください。`--allow-auto-detect` を明示した場合のみ、どのパスも指定されていなければ自動検出します。指定したパスが存在しない場合は、別の指定元や自動検出に切り替えずエラーになります。
 
 ### ステップ2 — ドライラン（任意）
 
@@ -91,7 +93,8 @@ python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
 
 ```bash
 python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
-  --config my_config.json --output-dir reports/mt5_pipeline
+  --config my_config.json --output-dir reports/mt5_pipeline \
+  --terminal-path "C:\Program Files\MetaTrader 5\tester\terminal64.exe"
 ```
 
 各ボットは R1 → R2 → R3 → ファイナリスト判定と流れます。進捗は毎ステップ `state.json` と `run.log` に書き込まれます。
@@ -100,7 +103,8 @@ python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
 
 ```bash
 python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
-  --config my_config.json --output-dir reports/mt5_pipeline --resume
+  --config my_config.json --output-dir reports/mt5_pipeline --resume \
+  --terminal-path "C:\Program Files\MetaTrader 5\tester\terminal64.exe"
 ```
 
 `--resume` は完了ボットをスキップし、完了ラウンドは実行コンフィグ・EAバイナリ・入力 `.set` のフィンガープリントが一致する間のみ再利用します。期間、シンボルリスト、バイナリ、`.set` の変更があったボットは安全に再スタートします。

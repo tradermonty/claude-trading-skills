@@ -2,7 +2,7 @@
   "_comment": "mt5-robot-tester pipeline config. Copy this file, fill in the paths, do not commit personal paths, and pass it with --config. All three folders must be under MQL5\\Experts so the tester can run them.",
 
   "terminal_path": null,
-  "_terminal_path_help": "Terminal lookup order: --terminal-path, $MT5_TERMINAL_PATH, this terminal_path value, then common install paths.",
+  "_terminal_path_help": "Precedence, highest to lowest: --terminal-path, this terminal_path value, then $MT5_TERMINAL_PATH. Set this to a portable, tester-only terminal64.exe path; the highest-precedence supplied path is used and errors out rather than falling through if missing. Auto-discovery under Program Files is OFF by default for safety; only --allow-auto-detect restores it, and never when a path is already supplied.",
 
   "folders": {
     "candidates": "<MT5_DATA_DIR>/MQL5/Experts/candidate bots",

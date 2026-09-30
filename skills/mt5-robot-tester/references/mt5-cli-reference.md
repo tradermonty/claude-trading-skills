@@ -126,6 +126,14 @@ FTMO-Demo account:
   when names or comments contain non-ASCII text.
 - **Market Watch:** `Optimization=3` tests exactly the visible Market Watch
   symbols. Add or remove symbols there to control that universe.
-- **Terminal discovery:** `--terminal-path` takes precedence, followed by
-  `$MT5_TERMINAL_PATH`, `config.terminal_path`, and common `Program Files`
-  installations.
+- **Terminal discovery:** a terminal path is required via `--terminal-path`,
+  `config.terminal_path`, or `$MT5_TERMINAL_PATH` (precedence in that order; the
+  deliberate per-project config beats a shell env var). Only the
+  highest-precedence supplied path is used, and if it does not exist the
+  pipeline errors out rather than silently falling back to a lower-precedence
+  source or to auto-discovery. Auto-discovery under common `Program Files`
+  installations is **off by default**; restore it with `--allow-auto-detect`,
+  which applies only when no `--terminal-path` / `config.terminal_path` /
+  `$MT5_TERMINAL_PATH` is set. Point the path at a **portable, tester-only**
+  install (a `/portable` folder with its own data directory) so the pipeline
+  never borrows a live terminal.

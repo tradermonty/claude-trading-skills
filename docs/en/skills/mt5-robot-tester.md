@@ -94,9 +94,22 @@ python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
 ### Step 1 — Configure
 
 Copy `assets/pipeline_config.template.json`, fill in the three folder paths and
-(optionally) `terminal_path`. Never commit real personal paths — pass the config
-at run time. Defaults already encode the agreed settings (2020.01.01→2026.06.30,
-H1, Model=4, 10000 USD, 1:100, gates and thresholds).
+set `terminal_path` to an explicit `terminal64.exe` path. A terminal path is
+**required** — pass it via config `terminal_path`, `--terminal-path`, or
+`$MT5_TERMINAL_PATH`. Never commit real personal paths — pass the config at run
+time. Defaults already encode the agreed settings (2020.01.01→2026.06.30, H1,
+Model=4, 10000 USD, 1:100, gates and thresholds).
+
+> **Terminal selection is opt-in.** For safety, the pipeline never auto-discovers
+> `terminal64.exe` under Program Files. On a machine that also trades live, the
+> auto-detected terminal is often the broker's **live** terminal; the generated
+> INI has no `Login`, so it wakes on whatever account was last used, and
+> `ShutdownTerminal=1` closes it at the end. To avoid silently borrowing (and
+> closing) a live terminal, pass an explicit path to a **portable, tester-only
+> install** (a `/portable` folder with its own data directory). If you
+> explicitly accept the risk, `--allow-auto-detect` restores Program Files
+> discovery only when no `--terminal-path` / `$MT5_TERMINAL_PATH` /
+> `config.terminal_path` is set.
 
 ### Step 2 — Dry-run (optional)
 
@@ -111,7 +124,8 @@ python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
 
 ```bash
 python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
-  --config my_config.json --output-dir reports/mt5_pipeline
+  --config my_config.json --output-dir reports/mt5_pipeline \
+  --terminal-path "C:\Program Files\MetaTrader 5\tester\terminal64.exe"
 ```
 
 Each bot flows R1 → R2 → R3 → finalist decision. Progress is written to
@@ -121,7 +135,8 @@ Each bot flows R1 → R2 → R3 → finalist decision. Progress is written to
 
 ```bash
 python3 skills/mt5-robot-tester/scripts/mt5_batch_tester.py \
-  --config my_config.json --output-dir reports/mt5_pipeline --resume
+  --config my_config.json --output-dir reports/mt5_pipeline --resume \
+  --terminal-path "C:\Program Files\MetaTrader 5\tester\terminal64.exe"
 ```
 
 `--resume` skips completed bots and reuses finished rounds only while the
