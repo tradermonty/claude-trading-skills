@@ -84,8 +84,8 @@ data_provenance:
 
 ## Validation
 
-Use the shared validator in skill tests today. It is also intended for use in
-workflow E2E replay harnesses once criterion 4 is wired (see Scope and rollout):
+Use the shared validator in skill tests and in workflow E2E replay handoffs.
+The replay declaration below supports incremental producer adoption:
 
 ```bash
 # On a JSON report
@@ -119,6 +119,53 @@ Implementation is incremental (see issue #297 acceptance criteria):
 
 - **Done here:** provenance schema documented and versioned (this file).
 - **Done here:** the shared validator + its tests.
-- **Not here (follow-up slices):** every FMP-required skill emitting the block
-  in its JSON output, and the workflow E2E replay harness validating provenance
-  on artifact handoffs.
+- **Done here:** replay validation of present canonical provenance blocks,
+  with optional declarations that require the block at every handoff.
+- **Follow-up slices:** every FMP-required skill emitting the block and opting
+  canonical workflow artifacts into mandatory replay validation. Existing
+  bundled workflows do not yet declare `required_provenance`; criterion 4 is
+  partially addressed by this gate infrastructure, not fully completed.
+
+
+## Workflow replay handoff gate
+
+A producer step can require provenance for its canonical artifacts in the
+replay spec (`examples/workflows/<workflow>/replay.yaml`):
+
+```yaml
+steps:
+  - step: 1
+    executor: fixture_producer
+    executor_mode: manual_contract
+    gate_policy: continue
+    required_provenance: [holdings_snapshot]
+    output_files:
+      holdings_snapshot:
+        canonical: 01_holdings_snapshot.json
+```
+
+This is a declaration example, not an enabled bundled workflow. Each declared
+ID must be produced by that step and have a canonical `.json`, `.yaml`, or
+`.yml` file containing a top-level object with `data_provenance`. Unknown IDs,
+duplicate declarations, missing canonical roles and other file types fail spec
+validation before execution. Producer declarations follow the artifact into
+consumers and final validation, independent of mutable runtime bundles.
+
+`scripts/workflow_replay.py` calls the shared validator before completing the
+producer, immediately before a consuming executor runs, and before publication
+(including a halted replay). Missing or invalid mandatory provenance stops the
+replay; a missing canonical role also fails even when companion files remain.
+Errors identify the artifact and step boundary. Existing published output is
+preserved on failure. Optional producers skipped in the selected variant do not
+require an artifact that was never produced.
+
+All canonical JSON/YAML objects that already contain `data_provenance` are
+validated even without a declaration. Undeclared objects without the block and
+valid non-object legacy payloads remain compatible. Companion Markdown, JSONL,
+CSV, nested objects and separate audit `provenance` blocks are outside this
+specific gate. Unsupported formats cannot be opted in. JSON/YAML parse failures
+are replay errors. Fields are checked for schema compatibility; the validator
+does not independently verify a provider claim or temporal relationships.
+Keep unknown quality flags `false`, and quote YAML date/timestamp values as
+strings as required by the common contract. Do not add fictional metadata to
+real skill outputs merely to satisfy the gate.
