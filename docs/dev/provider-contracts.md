@@ -1,4 +1,4 @@
-# Provider response contracts (FMP, slice 1 + 2a)
+# Provider response contracts (FMP)
 
 Tracking: [Issue #332](https://github.com/tradermonty/claude-trading-skills/issues/332).
 
@@ -26,6 +26,7 @@ static rule for legacy field names is not viable. Contracts are per endpoint.
 config/provider-contracts/
   fmp/
     company-screener.v1.json
+    sp500-constituent.v1.json
     profile.v1.json
     quote.v1.json
     historical-price-eod-full.v1.json
@@ -204,6 +205,7 @@ signal above.
 | `quote` | vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, market-top-detector, us-undervalued-growth-screener |
 | `historical-price-eod-full` | all 10 generated clients: pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor, vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, macro-regime-detector, market-top-detector, us-undervalued-growth-screener |
 | `earnings-calendar` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor |
+| `sp500-constituent` | vcp-screener, parabolic-short-trade-planner |
 | `company-screener` (slice 2a) | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener — note these are **ad-hoc consumers**, not generated clients: eight scripts carry their own inline FMP fetch layer and only `us-undervalued-growth-screener` rides the generated garp client (`get_company_screener`) |
 
 Owners are validated against `skills-index.yaml` by `check` — an owner naming a
@@ -413,14 +415,14 @@ Discovered via `grep -rhoE '/stable/[A-Za-z0-9_/-]+' skills/*/scripts`. `/stable
 and `/stable/some-bulk-endpoint` are test-fixture placeholder strings, not real
 endpoints, and are excluded.
 
-| `/stable/...` path | Covered in slice 1 | Owners (grep-discovered) | Deferred to |
+| `/stable/...` path | Recorded contract | Owners (grep-discovered) | Deferred to |
 |---|---|---|---|
 | `profile` | ✅ `profile.v1.json` | see ownership table above | — |
 | `quote` | ✅ `quote.v1.json` | see ownership table above | — |
 | `historical-price-eod/full` | ✅ `historical-price-eod-full.v1.json` | see ownership table above | — |
 | `earnings-calendar` (v3 alias: `earning_calendar`) | ✅ `earnings-calendar.v1.json` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor call `get_earnings_calendar`; vcp-screener/parabolic-short-trade-planner vendor the same v3→stable compat rename but do not call it | — |
 | `company-screener` | ✅ `company-screener.v1.json` | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener | consumer reason codes → slice 2b |
-| `sp500-constituent` (v3 alias: `sp500_constituent`) | ❌ | vcp-screener, parabolic-short-trade-planner call `get_sp500_constituents`; pead-screener/earnings-trade-analyzer/ibd-distribution-day-monitor vendor the compat rename but do not call it | slice 2 |
+| `sp500-constituent` (v3 alias: `sp500_constituent`) | ✅ `sp500-constituent.v1.json` | vcp-screener, parabolic-short-trade-planner call `get_sp500_constituents`; pead-screener/earnings-trade-analyzer/ibd-distribution-day-monitor vendor the compat rename but do not call it | covered |
 | `income-statement` | ❌ | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener | slice 2 |
 | `ratios` | ❌ | value-dividend-screener | slice 2 |
 | `profile-bulk` | ❌ | parabolic-short-trade-planner | slice 2 |
@@ -480,3 +482,31 @@ python3 scripts/check_provider_contracts.py check
 # is not ok.
 python3 scripts/check_provider_contracts.py canary [--max-calls N] [--report PATH]
 ```
+
+## S&P 500 constituent recording and consumer boundary
+
+The 2026-10-03 authenticated `/stable/sp500-constituent` probe returned HTTP
+200 and 504 rows. The contract retains the first five public company records,
+without credentials or request URLs. The key's subscription tier was not
+established; this recording does not demonstrate free-tier availability.
+Membership count is variable, so the contract requires only one or more rows.
+
+Both owners consume `symbol` for universe membership. VCP also reads `name` and
+`sector` for report labels. Although VCP defaults missing labels at runtime,
+these three fields are required non-null strings in the raw provider contract
+to detect label degradation. `subSector`, `headQuarter`, `dateFirstAdded`,
+`cik`, and `founded` are optional; their fixture values are retained for context.
+
+The generated clients retain their public CSV fallback when FMP is unavailable
+or empty, including symbol dot-to-hyphen normalization and caching. Offline
+tests cover both owners' clients with the recorded response and simulated tier
+denials; these denied statuses are test scenarios, not live tier observations.
+The raw canary has no CSV fallback: it requires HTTP 200 as well as valid rows.
+Other statuses produce a fatal `http_status:<status>` anomaly even if their
+payload matches the schema; HTTP 200 with no rows retains `empty_response`.
+The existing weekly report-only workflow discovers all six contracts and makes
+one request per contract with its dynamically computed call budget.
+
+This endpoint completes another part of Issue #332. Other uncovered endpoints
+in the inventory, cross-provider contracts, and production consumer reason
+codes remain separate work; this change does not close the Issue.

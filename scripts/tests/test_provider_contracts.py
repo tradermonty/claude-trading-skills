@@ -56,6 +56,7 @@ SKILL_IDS = _skill_ids()
 def test_expected_contracts_are_present():
     assert set(CONTRACTS) == {
         "company-screener",
+        "sp500-constituent",
         "profile",
         "quote",
         "historical-price-eod-full",
@@ -231,6 +232,7 @@ QUOTE_FIXTURE = CONTRACTS["quote"].fixture
 PROFILE_FIXTURE = CONTRACTS["profile"].fixture
 EARNINGS_FIXTURE = CONTRACTS["earnings-calendar"].fixture
 SCREENER_FIXTURE = CONTRACTS["company-screener"].fixture
+SP500_FIXTURE = CONTRACTS["sp500-constituent"].fixture
 
 
 def _assert_hist_row(row):
@@ -550,6 +552,8 @@ def test_module_imports_with_requests_blocked():
 
 
 def _stub_fetch_ok(path, query):
+    if path == "/stable/sp500-constituent":
+        return 200, copy.deepcopy(SP500_FIXTURE)
     if "company-screener" in path:
         return 200, copy.deepcopy(SCREENER_FIXTURE)
     if "profile" in path:
@@ -577,6 +581,7 @@ def test_canary_success_writes_report_and_never_leaks_the_key(tmp_path, monkeypa
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert set(report["contracts"]) == {
         "company-screener",
+        "sp500-constituent",
         "profile",
         "quote",
         "historical-price-eod-full",
@@ -852,3 +857,153 @@ def test_canary_all_null_profile_reports_fatal_and_exits_one(tmp_path, monkeypat
     }
     assert all(entry["ok"] for key, entry in report["contracts"].items() if key != "profile")
     assert report["budget"] == {"max": len(CONTRACTS), "used": len(CONTRACTS)}
+
+
+# S&P 500 constituent contract and existing fallback boundary.
+@pytest.fixture
+def sp500_offline(monkeypatch):
+    import requests
+
+    monkeypatch.delenv("FMP_API_KEY", raising=False)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unexpected HTTP request")
+
+    monkeypatch.setattr(requests.sessions.Session, "request", forbidden)
+
+
+@pytest.mark.parametrize("field", ["symbol", "name", "sector"])
+@pytest.mark.parametrize("mutation", ["missing", "null", "wrong_type"])
+def test_sp500_required_fields_detect_drift(field, mutation, sp500_offline):
+    rows = copy.deepcopy(SP500_FIXTURE)
+    if mutation == "missing":
+        del rows[0][field]
+        code = f"missing_required_field:{field}"
+    elif mutation == "null":
+        rows[0][field] = None
+        code = f"null_required_field:{field}"
+    else:
+        rows[0][field] = 123
+        code = f"wrong_type:{field}:int"
+    result = validate_rows(CONTRACTS["sp500-constituent"], rows)
+    assert not result.ok
+    assert code in [a.code for a in result.fatal_anomalies]
+
+
+@pytest.mark.parametrize("status", [402, 403, 429, 500, -1])
+@pytest.mark.parametrize("name", sorted(CONTRACTS))
+def test_canary_rejects_http_failure_even_with_valid_rows(name, status, sp500_offline):
+    contract = CONTRACTS[name]
+    result = check_provider_contracts.run_canary(
+        {name: contract}, lambda path, query: (status, copy.deepcopy(contract.fixture))
+    )[name]
+    assert result["status"] == status
+    assert not result["ok"]
+    assert result["anomalies"] == [{"code": f"http_status:{status}", "severity": "fatal"}]
+
+
+def test_sp500_canary_empty_response_is_not_masked(sp500_offline):
+    result = check_provider_contracts.run_canary(
+        {"sp500-constituent": CONTRACTS["sp500-constituent"]}, lambda path, query: (200, [])
+    )["sp500-constituent"]
+    assert not result["ok"]
+    assert result["anomalies"] == [{"code": "empty_response", "severity": "fatal"}]
+
+
+@pytest.mark.parametrize("skill", ["vcp-screener", "parabolic-short-trade-planner"])
+def test_sp500_clients_accept_recording_and_cache(skill, monkeypatch, sp500_offline):
+    mod = _load_client_module(f"skills/{skill}/scripts/fmp_client.py")
+    client = mod.FMPClient(api_key="offline")
+    calls = []
+
+    def fetch(url, params):
+        calls.append((url, params))
+        return copy.deepcopy(SP500_FIXTURE)
+
+    monkeypatch.setattr(client, "_rate_limited_get", fetch)
+    rows = client.get_sp500_constituents()
+    assert rows == SP500_FIXTURE
+    assert validate_rows(CONTRACTS["sp500-constituent"], rows).ok
+    assert client.get_sp500_constituents() is rows
+    assert len(calls) == 1
+    assert calls[0][0] == "https://financialmodelingprep.com/stable/sp500-constituent"
+
+
+@pytest.mark.parametrize("skill", ["vcp-screener", "parabolic-short-trade-planner"])
+@pytest.mark.parametrize("status", [200, 402, 403])
+def test_sp500_clients_fallback_after_empty_or_denied_response(
+    skill, status, monkeypatch, sp500_offline
+):
+    from types import SimpleNamespace
+
+    mod = _load_client_module(f"skills/{skill}/scripts/fmp_client.py")
+    client = mod.FMPClient(api_key="offline")
+    monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
+    provider_calls = []
+    csv_calls = []
+
+    def provider_get(url, **kwargs):
+        provider_calls.append(url)
+        return SimpleNamespace(status_code=status, text="tier unavailable", json=lambda: [])
+
+    def csv_get(url, **kwargs):
+        csv_calls.append((url, kwargs))
+        return SimpleNamespace(
+            status_code=200,
+            text="Symbol,Security,GICS Sector,GICS Sub-Industry\n"
+            "BRK.B,Berkshire Hathaway,Financials,Multi-Sector Holdings\n",
+        )
+
+    monkeypatch.setattr(client.session, "get", provider_get)
+    monkeypatch.setattr(mod.requests, "get", csv_get)
+    rows = client.get_sp500_constituents()
+    assert rows == [
+        {
+            "symbol": "BRK-B",
+            "name": "Berkshire Hathaway",
+            "sector": "Financials",
+            "subSector": "Multi-Sector Holdings",
+        }
+    ]
+    assert client.get_sp500_constituents() is rows
+    assert len(provider_calls) == len(csv_calls) == 1
+    assert csv_calls[0] == (
+        "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
+        {"timeout": 30},
+    )
+
+
+def test_sp500_recording_reaches_parabolic_universe_resolver(sp500_offline):
+    # Isolate calculator imports from other skill modules in the repo test process.
+    code = """
+import argparse
+import importlib.util
+import json
+import sys
+import requests
+from pathlib import Path
+
+def forbidden(*args, **kwargs):
+    raise AssertionError('unexpected HTTP request')
+requests.sessions.Session.request = forbidden
+root = Path.cwd()
+spec = importlib.util.spec_from_file_location(
+    'sp500_screen', root / 'skills/parabolic-short-trade-planner/scripts/screen_parabolic.py')
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+from fmp_client import FMPClient
+rows = json.loads(sys.stdin.read())
+client = FMPClient(api_key='offline')
+client._rate_limited_get = lambda *args, **kwargs: rows
+assert mod._resolve_universe(argparse.Namespace(universe='sp500'), client) == [
+    'VYLR', 'BE', 'ILMN', 'P', 'RDDT']
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        input=json.dumps(SP500_FIXTURE),
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr

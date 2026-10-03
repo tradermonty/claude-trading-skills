@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "sp500-constituent",
+  "path": "/stable/sp500-constituent",
+  "query": {},
+  "contract_version": 1,
+  "recorded_on": "2026-10-03",
+  "recording": "Live authenticated /stable/sp500-constituent HTTP 200 response (504 rows); first five rows retained with public company fields only. Credentials and request URL not recorded.",
+  "owners": [
+    "vcp-screener",
+    "parabolic-short-trade-planner"
+  ],
+  "tier_notes": "Recorded successfully with the current authenticated key; its subscription tier was not established. Existing consumers use a public CSV fallback when FMP returns no data, including tier-denied responses. This raw-provider contract and canary do not use that fallback: HTTP errors and empty responses remain anomalies. VCP defaults missing name/sector labels at runtime, but this contract requires them to detect provider label-quality degradation. Observed five-row field types are not a guarantee about all constituents; refresh and reassess on new null/type observations.",
+  "required_fields": {
+    "symbol": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "name": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "sector": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    }
+  },
+  "optional_fields": [
+    "subSector",
+    "headQuarter",
+    "dateFirstAdded",
+    "cik",
+    "founded"
+  ],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "The constituent universe must contain at least one member; exact membership count changes over time."
+  },
+  "fixture": [
+    {
+      "symbol": "VYLR",
+      "name": "Vylor Inc.",
+      "sector": "Basic Materials",
+      "subSector": "Agricultural Inputs",
+      "headQuarter": "Johnston, Iowa",
+      "dateFirstAdded": "2026-10-01",
+      "cik": "0002012866",
+      "founded": "2026-10-01"
+    },
+    {
+      "symbol": "BE",
+      "name": "Bloom Energy Corporation",
+      "sector": "Industrials",
+      "subSector": "Electrical Equipment & Parts",
+      "headQuarter": "San Jose, California",
+      "dateFirstAdded": "2026-09-21",
+      "cik": "0001664703",
+      "founded": "2000-12-31"
+    },
+    {
+      "symbol": "ILMN",
+      "name": "Illumina, Inc.",
+      "sector": "Healthcare",
+      "subSector": "Medical - Diagnostics & Research",
+      "headQuarter": "San Diego, California",
+      "dateFirstAdded": "2026-09-21",
+      "cik": "0001110803",
+      "founded": "1998-01-01"
+    },
+    {
+      "symbol": "P",
+      "name": "Everpure, Inc.",
+      "sector": "Technology",
+      "subSector": "Computer Hardware",
+      "headQuarter": "Santa Clara, California",
+      "dateFirstAdded": "2026-09-21",
+      "cik": "0001474432",
+      "founded": "2008-12-31"
+    },
+    {
+      "symbol": "RDDT",
+      "name": "Reddit, Inc.",
+      "sector": "Communication Services",
+      "subSector": "Internet Content & Information",
+      "headQuarter": "San Francisco, CA",
+      "dateFirstAdded": "2026-08-18",
+      "cik": "0001713445",
+      "founded": "2005-06-23"
+    }
+  ]
+}

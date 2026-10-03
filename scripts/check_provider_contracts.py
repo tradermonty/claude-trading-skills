@@ -132,12 +132,15 @@ def run_canary(contracts: dict[str, Contract], fetch: FetchFn) -> dict[str, Any]
             rows = len(data)
         else:
             rows = 1
+        anomalies = [a.as_dict() for a in row_validation.fatal_anomalies]
+        if status != 200:
+            anomalies.append({"code": f"http_status:{status}", "severity": "fatal"})
         results[name] = {
             "status": status,
             "rows": rows,
-            "anomalies": [a.as_dict() for a in row_validation.fatal_anomalies],
+            "anomalies": anomalies,
             "deprecations": [a.as_dict() for a in row_validation.deprecations],
-            "ok": row_validation.ok,
+            "ok": row_validation.ok and status == 200,
         }
     return results
 
