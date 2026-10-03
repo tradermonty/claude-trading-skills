@@ -47,6 +47,11 @@
             "items": {"enum": ["native_cli", "native_api", "manual_contract"]}
           },
           "gate_policy": {"enum": ["continue", "halt", "record_only"]},
+          "required_provenance": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
           "output_files": {
             "type": "object",
             "minProperties": 1,

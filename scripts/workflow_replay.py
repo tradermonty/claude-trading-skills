@@ -32,6 +32,7 @@ from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
+from validate_provenance import validate_provenance
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_COVERAGE = REPO_ROOT / "examples" / "workflows" / "replay-coverage.yaml"
@@ -421,6 +422,14 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
                 f"step {number} output_files must match produces: "
                 f"expected {sorted(expected_outputs)}, got {sorted(configured_outputs)}"
             )
+        for artifact_id in replay_step.get("required_provenance", []):
+            roles = replay_step["output_files"].get(artifact_id)
+            canonical = roles.get("canonical") if roles else None
+            if not canonical or Path(canonical).suffix.lower() not in {".json", ".yaml", ".yml"}:
+                raise ReplayError(
+                    f"step {number} required_provenance {artifact_id!r} must name a produced "
+                    "artifact with a canonical JSON/YAML file"
+                )
         expected_policy = (
             {"record_only", "continue", "halt"} if step.get("decision_gate") else {"continue"}
         )
@@ -769,6 +778,45 @@ def _validate_artifact_files(
                     f"{previous} and {artifact_id}.{role}"
                 )
             seen[path] = f"{artifact_id}.{role}"
+
+
+def _validate_artifact_provenance(
+    artifacts: Mapping[str, dict[str, Any]],
+    required: Mapping[str, int],
+    label: str,
+) -> None:
+    """Validate canonical provenance; declarations survive mutable artifact bundles."""
+    for artifact_id, bundle in artifacts.items():
+        producer = required.get(artifact_id)
+        context = f"{label} artifact {artifact_id!r}"
+        if producer is not None:
+            context += f" (provenance required by producer step {producer})"
+        canonical = bundle["files"].get("canonical")
+        if not canonical:
+            if producer is not None:
+                raise ReplayError(f"{context}: missing canonical role for data_provenance")
+            continue
+        path = Path(canonical)
+        suffix = path.suffix.lower()
+        if suffix not in {".json", ".yaml", ".yml"}:
+            if producer is not None:
+                raise ReplayError(f"{context}: data_provenance requires canonical JSON/YAML")
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+            payload = json.loads(text) if suffix == ".json" else yaml.safe_load(text)
+        except (OSError, UnicodeError, ValueError, yaml.YAMLError) as exc:
+            raise ReplayError(
+                f"{context}: cannot parse canonical provenance payload: {exc}"
+            ) from exc
+        has_block = isinstance(payload, dict) and "data_provenance" in payload
+        if not has_block:
+            if producer is not None:
+                raise ReplayError(f"{context}: missing data_provenance object")
+            continue
+        errors = validate_provenance(payload["data_provenance"])
+        if errors:
+            raise ReplayError(f"{context}: invalid data_provenance:\n- " + "\n- ".join(errors))
 
 
 def _artifact_file_digests(
@@ -6734,6 +6782,11 @@ def execute_replay(
     workflow = load_yaml(repo_root / "workflows" / f"{spec['workflow_id']}.yaml")
     workflow_steps = {int(item["step"]): item for item in workflow["steps"]}
     spec_steps = {int(item["step"]): item for item in spec["steps"]}
+    provenance_requirements = {
+        artifact_id: number
+        for number, step in spec_steps.items()
+        for artifact_id in step.get("required_provenance", [])
+    }
     inputs = dict(validation["inputs"])
     for name, path in (input_overrides or {}).items():
         if name not in inputs:
@@ -6771,6 +6824,9 @@ def execute_replay(
                             f"step {number} missing required consumed artifact {artifact_id!r}",
                             completed_steps,
                         )
+                _validate_artifact_provenance(
+                    consumed, provenance_requirements, f"step {number} consumed"
+                )
                 executor_name = replay_step["executor"]
                 registration = EXECUTORS.get(executor_name)
                 if registration is None:
@@ -6795,6 +6851,9 @@ def execute_replay(
                 candidate_artifacts = dict(artifacts)
                 candidate_artifacts.update(produced)
                 _validate_artifact_files(stage, candidate_artifacts, f"step {number} output")
+                _validate_artifact_provenance(
+                    produced, provenance_requirements, f"step {number} output"
+                )
                 produced_digests = _artifact_file_digests(produced)
                 duplicate_seals = set(produced_digests) & set(sealed_artifact_digests)
                 if duplicate_seals:
@@ -6824,6 +6883,9 @@ def execute_replay(
                     break
 
             _validate_artifact_files(stage, artifacts, "final artifact store")
+            _validate_artifact_provenance(
+                artifacts, provenance_requirements, "final artifact store"
+            )
             final_digests = _artifact_file_digests(artifacts)
             changed_artifacts = sorted(
                 artifact_id
