@@ -160,6 +160,369 @@ class SkillReport:
     optional: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class SmokeContract:
+    """One declarative clean-room smoke invocation for a skill (issue #349).
+
+    The nightly runner (scripts/smoke_contracts_runner.py) executes contracts
+    inside the per-skill clean-room venv; this module only declares and
+    validates them and MUST stay free of subprocess/network imports
+    (cf. test_check_module_has_no_network_surface).
+    """
+
+    script: str  # repo-relative; "" marks a recorded skip
+    args: tuple[str, ...] = ()
+    expect_exit: int = 0
+    expect_out: tuple[str, ...] = ()  # substrings required in captured output
+    fixture: str = ""  # repo-relative file backing the expectation
+    skip_reason: str = ""
+
+
+# Wave 1 (issue #349): contracts dry-run on the 2026-10-03 worktree.
+# ``--help`` contracts assert exit 0 plus a distinctive usage/option
+# substring (the fixture expectation). Wave 2 (see PENDING_SMOKE_CONTRACTS)
+# adds the remaining third-party skills and richer fixture runs.
+SMOKE_CONTRACTS: dict[str, list[SmokeContract]] = {
+    "breakout-trade-planner": [
+        SmokeContract(
+            "skills/breakout-trade-planner/scripts/plan_breakout_trades.py",
+            ("--help",),
+            expect_out=("usage:", "--account-size"),
+        )
+    ],
+    "canslim-screener": [
+        SmokeContract(
+            "skills/canslim-screener/scripts/screen_canslim.py",
+            ("--help",),
+            expect_out=("usage:", "--api-key"),
+        )
+    ],
+    "cot-contrarian-detector": [
+        SmokeContract(
+            "skills/cot-contrarian-detector/scripts/screen_cot_crowding.py",
+            ("--help",),
+            expect_out=("usage:", "--lookback-weeks"),
+        )
+    ],
+    "crypto-regime-analyzer": [
+        SmokeContract(
+            "skills/crypto-regime-analyzer/scripts/crypto_regime_analyzer.py",
+            ("--help",),
+            expect_out=("usage:", "--input-json"),
+        )
+    ],
+    "dividend-growth-pullback-screener": [
+        SmokeContract(
+            "skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py",
+            ("--help",),
+            expect_out=("usage:", "--min-div-growth"),
+        )
+    ],
+    "downtrend-duration-analyzer": [
+        SmokeContract(
+            "skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py",
+            ("--help",),
+            expect_out=("usage:", "--lookback-years"),
+        )
+    ],
+    "earnings-calendar": [
+        SmokeContract(
+            "skills/earnings-calendar/scripts/fetch_earnings_fmp.py",
+            ("--help",),
+            expect_out=("Usage:", "START_DATE"),
+        )
+    ],
+    "earnings-trade-analyzer": [
+        SmokeContract(
+            "skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py",
+            ("--help",),
+            expect_out=("usage:", "--lookback-days"),
+        )
+    ],
+    "edge-strategy-reviewer": [
+        SmokeContract(
+            "skills/edge-strategy-reviewer/scripts/review_strategy_drafts.py",
+            ("--help",),
+            expect_out=("usage:", "--drafts-dir"),
+        )
+    ],
+    "ftd-detector": [
+        SmokeContract(
+            "skills/ftd-detector/scripts/ftd_detector.py",
+            ("--help",),
+            expect_out=("usage:", "--api-key"),
+        )
+    ],
+    "ibd-distribution-day-monitor": [
+        SmokeContract(
+            "skills/ibd-distribution-day-monitor/scripts/ibd_monitor.py",
+            ("--help",),
+            expect_out=("usage:", "--lookback-days"),
+        )
+    ],
+    "institutional-flow-tracker": [
+        SmokeContract(
+            "skills/institutional-flow-tracker/scripts/track_institutional_flow.py",
+            ("--help",),
+            expect_out=("usage:", "--min-market-cap"),
+        )
+    ],
+    "macro-regime-detector": [
+        SmokeContract(
+            "skills/macro-regime-detector/scripts/macro_regime_detector.py",
+            ("--help",),
+            expect_out=("usage:", "--api-key"),
+        )
+    ],
+    "market-breadth-analyzer": [
+        SmokeContract(
+            "skills/market-breadth-analyzer/scripts/market_breadth_analyzer.py",
+            ("--help",),
+            expect_out=("usage:", "--summary-url"),
+        )
+    ],
+    "market-top-detector": [
+        SmokeContract(
+            "skills/market-top-detector/scripts/market_top_detector.py",
+            ("--help",),
+            expect_out=("usage:", "--breadth-200dma"),
+        )
+    ],
+    "pair-trade-screener": [
+        SmokeContract(
+            "skills/pair-trade-screener/scripts/analyze_spread.py",
+            ("--help",),
+            expect_out=("usage:", "--stock-a"),
+        )
+    ],
+    "parabolic-short-trade-planner": [
+        SmokeContract(
+            "skills/parabolic-short-trade-planner/scripts/screen_parabolic.py",
+            ("--help",),
+            expect_out=("usage:", "--mode"),
+        ),
+        SmokeContract(
+            "skills/parabolic-short-trade-planner/scripts/generate_pre_market_plan.py",
+            ("--help",),
+            expect_out=("usage:", "--candidates-json"),
+        ),
+    ],
+    "pead-screener": [
+        SmokeContract(
+            "skills/pead-screener/scripts/screen_pead.py",
+            ("--help",),
+            expect_out=("usage:", "--watch-weeks"),
+        )
+    ],
+    "portfolio-manager": [
+        SmokeContract(
+            "",
+            skip_reason=(
+                "check_alpaca_connection.py has no --help gate: it starts a "
+                "live Alpaca connection probe immediately (would exercise "
+                "broker credentials from a clean room); no offline CLI shape "
+                "is available yet."
+            ),
+        )
+    ],
+    "signal-postmortem": [
+        SmokeContract(
+            "skills/signal-postmortem/scripts/postmortem_recorder.py",
+            ("--help",),
+            expect_out=("usage:", "--signals-file"),
+        )
+    ],
+    "stockbee-20pct-study": [
+        SmokeContract(
+            "skills/stockbee-20pct-study/scripts/run_20pct_study.py",
+            ("--help",),
+            expect_out=("usage:", "scan"),
+        )
+    ],
+    "stockbee-episodic-pivot-analyzer": [
+        SmokeContract(
+            "skills/stockbee-episodic-pivot-analyzer/scripts/analyze_ep.py",
+            ("--help",),
+            expect_out=("usage:", "--events-json"),
+        )
+    ],
+    "stockbee-exhaustion-hammer-screener": [
+        SmokeContract(
+            "skills/stockbee-exhaustion-hammer-screener/scripts/screen_exhaustion_hammer.py",
+            ("--help",),
+            expect_out=("usage:", "--fmp-universe"),
+        )
+    ],
+    "stockbee-momentum-burst-screener": [
+        SmokeContract(
+            "skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py",
+            ("--help",),
+            expect_out=("usage:", "--fmp-universe"),
+        )
+    ],
+    "stockbee-setup-fluency-trainer": [
+        SmokeContract(
+            "skills/stockbee-setup-fluency-trainer/scripts/build_model_book.py",
+            ("--help",),
+            expect_out=("usage:", "ingest"),
+        )
+    ],
+    "technical-analyst": [
+        SmokeContract(
+            "skills/technical-analyst/scripts/check_weekly_price_action.py",
+            ("--help",),
+            expect_out=("usage:", "--symbol"),
+        )
+    ],
+    "theme-detector": [
+        SmokeContract(
+            "skills/theme-detector/scripts/theme_detector.py",
+            ("--help",),
+            expect_out=("usage:", "--finviz-mode"),
+        )
+    ],
+    "trade-performance-coach": [
+        SmokeContract(
+            "skills/trade-performance-coach/scripts/review_trade_performance.py",
+            ("--help",),
+            expect_out=("usage:", "--input"),
+        )
+    ],
+    "trader-memory-core": [
+        SmokeContract(
+            "skills/trader-memory-core/scripts/trader_memory_cli.py",
+            ("--help",),
+            expect_out=("usage:", "ingest"),
+        )
+    ],
+    "trading-skills-navigator": [
+        SmokeContract(
+            "skills/trading-skills-navigator/scripts/recommend.py",
+            ("--help",),
+            expect_out=("usage:", "--query"),
+        )
+    ],
+    "uptrend-analyzer": [
+        SmokeContract(
+            "skills/uptrend-analyzer/scripts/uptrend_analyzer.py",
+            ("--help",),
+            expect_out=("usage:", "--output-dir"),
+        )
+    ],
+    "us-undervalued-growth-screener": [
+        SmokeContract(
+            "skills/us-undervalued-growth-screener/scripts/manage_run_state.py",
+            ("--help",),
+            expect_out=("usage:", "Checkpoint"),
+        )
+    ],
+    "value-dividend-screener": [
+        SmokeContract(
+            "skills/value-dividend-screener/scripts/screen_dividend_stocks.py",
+            ("--help",),
+            expect_out=("usage:", "--fmp-api-key"),
+        )
+    ],
+    "vcp-screener": [
+        SmokeContract(
+            "skills/vcp-screener/scripts/screen_vcp.py",
+            ("--help",),
+            expect_out=("usage:", "--full-sp500"),
+        )
+    ],
+    "weekly-performance-digest": [
+        SmokeContract(
+            "skills/weekly-performance-digest/scripts/generate_weekly_digest.py",
+            ("--help",),
+            expect_out=("usage:", "--state-dir"),
+        )
+    ],
+}
+
+# Third-party skills intentionally deferred to wave 2 (dry-run each before
+# promoting; issue #349 follow-up note). Everything third-party NOT listed
+# here is covered by SMOKE_CONTRACTS.
+PENDING_SMOKE_CONTRACTS: tuple[str, ...] = (
+    "breadth-chart-analyst",
+    "drawdown-circuit-breaker",
+    "dual-axis-skill-reviewer",
+    "edge-candidate-agent",
+    "edge-concept-synthesizer",
+    "edge-hint-extractor",
+    "edge-pipeline-orchestrator",
+    "edge-signal-aggregator",
+    "edge-strategy-designer",
+    "kanchi-dividend-sop",
+    "manifoldbt-backtester",
+    "market-environment-analysis",
+    "news-reaction-failure-analyzer",
+    "options-strategy-advisor",
+    "pre-trade-discipline-gate",
+    "skill-idea-miner",
+    "strategy-pivot-designer",
+    "trade-hypothesis-ideator",
+)
+
+# Argument fragments that suggest the contract would drive network I/O or
+# mutate the environment; table validation rejects them outright.
+_FORBIDDEN_ARG_FRAGMENTS = (
+    "install",
+    "curl",
+    "wget",
+    "http://",
+    "https://",
+)
+
+
+def validate_smoke_contracts(root: Path = ROOT) -> list[str]:
+    """Fail-closed table validation: shapes, paths, skip reasons, coverage.
+
+    Execution is never performed here; returns a list of human-readable
+    problems (empty list means the table is well-formed and wave-1 complete).
+    """
+    problems: list[str] = []
+    for skill_id, contracts in SMOKE_CONTRACTS.items():
+        skill_dir = root / "skills" / skill_id
+        if not skill_dir.is_dir():
+            problems.append(f"contract for unknown skill {skill_id!r}")
+            continue
+        for contract in contracts:
+            if contract.skip_reason:
+                if contract.script or contract.args:
+                    problems.append(f"{skill_id}: skip entry must not carry script/args")
+                continue
+            if contract.script and not (root / contract.script).is_file():
+                problems.append(f"{skill_id}: contract script missing: {contract.script}")
+            if not contract.script.startswith(f"skills/{skill_id}/scripts/"):
+                problems.append(
+                    f"{skill_id}: contract script must live in the skill: {contract.script}"
+                )
+            if not contract.args:
+                problems.append(f"{skill_id}: executed contract needs non-empty args")
+                continue
+            joined = " ".join(contract.args)
+            for fragment in _FORBIDDEN_ARG_FRAGMENTS:
+                if fragment in joined.lower():
+                    problems.append(f"{skill_id}: forbidden arg fragment {fragment!r}")
+    for skill_id in PENDING_SMOKE_CONTRACTS:
+        if skill_id in SMOKE_CONTRACTS:
+            problems.append(f"{skill_id} listed both as contract and pending")
+    return problems
+
+
+def pending_contract_gaps(root: Path = ROOT) -> list[str]:
+    """Third-party-required executable skills missing from both sets."""
+    gap: list[str] = []
+    for manifest in sorted((root / "skills").glob("*/requirements.txt")):
+        entries, errors = parse_requirements(manifest)
+        if errors or not any(not entry.optional for entry in entries.values()):
+            continue
+        skill_id = manifest.parent.name
+        if skill_id not in SMOKE_CONTRACTS and skill_id not in PENDING_SMOKE_CONTRACTS:
+            gap.append(skill_id)
+    return gap
+
+
 def executable_skill_ids(root: Path = ROOT) -> list[str]:
     """Return executable skill ids from the canonical CI inventory."""
     sys.path.insert(0, str(root / "scripts"))
@@ -592,6 +955,13 @@ def run_smoke(skill_id: str, root: Path = ROOT) -> int:
             except (SyntaxError, UnicodeDecodeError) as exc:
                 print(f"FAIL {skill_id}: {name} does not compile: {exc}")
                 return 1
+    problems = [
+        problem for problem in validate_smoke_contracts(root) if problem.startswith(f"{skill_id}:")
+    ]
+    if problems:
+        for problem in problems:
+            print(f"FAIL {skill_id}: smoke contract invalid: {problem}")
+        return 1
     print(f"OK {skill_id}: packaged manifest matches source; {len(scripts)} scripts compile")
     return 0
 

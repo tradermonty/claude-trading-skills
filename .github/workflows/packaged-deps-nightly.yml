@@ -5,9 +5,14 @@ name: Packaged deps nightly smoke
 # skill with third-party requirements, install ONLY the declared
 # dependencies in a fresh venv and import every required distribution.
 # PRs run the offline declaration check + golden smoke in ci.yml instead;
-# standalone orchestration declares packaging in an isolated environment;
-# requirements installs are intentionally unlocked compatibility probes,
-# not project CI environments.
+# orchestration uses uv.lock; isolated standalone requirements installs are
+# intentionally unlocked compatibility probes, not project CI environments.
+# This run also executes the declarative per-skill smoke contracts from
+# check_skill_deps.SMOKE_CONTRACTS via scripts/smoke_contracts_runner.py
+# (issue #349 checklist item 2) and that runner exits nonzero on failure;
+# `continue-on-error` stays true because the 2-week green-run precondition
+# (checklist item 1, complete from 2026-09-27) is observed before the
+# fail-closed flip in the follow-up PR (checklist item 4).
 
 on:
   schedule:
@@ -42,75 +47,8 @@ jobs:
       - name: Clean-room venv smoke per skill
         shell: bash
         run: |
-          uv run --isolated --no-project --with packaging python - <<'PYEOF'
-          import json
-          import subprocess
-          import sys
-          import venv
-          from pathlib import Path
-
-          sys.path.insert(0, "scripts")
-          from check_skill_deps import IMPORT_TO_DIST, parse_requirements
-
-          reverse = {}
-          for top, dist in IMPORT_TO_DIST.items():
-              reverse.setdefault(dist.lower(), top)
-
-          results = []
-          for manifest in sorted(Path("skills").glob("*/requirements.txt")):
-              skill_id = manifest.parent.name
-              entries, errors = parse_requirements(manifest)
-              required = [e for e in entries.values() if not e.optional]
-              if errors or not required:
-                  continue  # parse errors gate in ci.yml; stdlib-only needs no venv
-              venv_dir = Path(f"/tmp/venv-{skill_id}")
-              row = {"id": skill_id, "ok": True, "errors": []}
-              try:
-                  venv.create(venv_dir, with_pip=True)
-                  python = venv_dir / "bin" / "python"
-                  subprocess.run(
-                      [str(python), "-m", "pip", "install", "-q", "-r", str(manifest)],
-                      check=True,
-                      timeout=600,
-                  )
-                  for entry in required:
-                      top = reverse.get(entry.dist.lower(), entry.dist)
-                      proc = subprocess.run(
-                          [str(python), "-c", f"import {top}"],
-                          capture_output=True,
-                          text=True,
-                          timeout=120,
-                      )
-                      if proc.returncode != 0:
-                          row["ok"] = False
-                          row["errors"].append(f"cannot import {top}: {proc.stderr.strip()}")
-                  if skill_id == "macro-regime-detector":
-                      proc = subprocess.run(
-                          [
-                              str(python),
-                              "skills/macro-regime-detector/scripts/macro_regime_detector.py",
-                              "--help",
-                          ],
-                          capture_output=True,
-                          text=True,
-                          timeout=120,
-                      )
-                      if proc.returncode != 0:
-                          row["ok"] = False
-                          row["errors"].append("--help failed in clean room")
-              except Exception as exc:  # noqa: BLE001 - report-only harness
-                  row["ok"] = False
-                  row["errors"].append(f"harness error: {exc}")
-              results.append(row)
-              print(("OK " if row["ok"] else "FAIL ") + skill_id)
-
-          Path("deps-nightly-smoke.json").write_text(
-              json.dumps({"skills": results}, indent=2, sort_keys=True) + "\n"
-          )
-          failed = [row["id"] for row in results if not row["ok"]]
-          if failed:
-              print(f"clean-room failures (report-only): {', '.join(failed)}")
-          PYEOF
+          uv run --isolated --no-project --with packaging \
+            python scripts/smoke_contracts_runner.py --output deps-nightly-smoke.json
 
       - name: Upload nightly smoke evidence
         if: always()
