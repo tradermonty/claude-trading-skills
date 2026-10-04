@@ -37,6 +37,8 @@ Run an end-to-end US undervalued-growth/GARP screen from a minimal request. Find
 
 Treat a request such as **“use this skill to screen for undervalued-growth stocks” as complete**. Resolve defaults, collect current data, choose a viable acquisition path, checkpoint the work, repair obtainable blockers, and return the finished result in the same task. Never ask the user to supply a ticker list, API-plan details, output path, or a separate “continue” instruction unless the user explicitly narrows the scope.
 
+**Deep-dive budget and lane coverage:** The bounded direct-FMP path defaults to `max_deep_dive_candidates: 3`. Three selected names cannot represent all four research lanes. The default lane targets are core GARP 2, high-growth exception 1, quality near miss 1, and cyclical normalization 1 (five slots total). A three-name run prioritizes candidates across lanes; it does not promise one name per lane. For a five-slot lane-first selection, set `max_deep_dive_candidates: 5` in a local copy of `assets/claude-code-config.example.json` and rerun the bounded pipeline with that config. Eligible candidates and diversification preferences still determine actual lane representation. The separate full-snapshot path requires `full_snapshot_deep_dive_candidates: 5`. See `references/claude-code-execution.md` for selection and budget-change details.
+
 ---
 
 ## 2. When to Use

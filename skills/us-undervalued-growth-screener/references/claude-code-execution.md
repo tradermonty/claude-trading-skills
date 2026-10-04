@@ -125,3 +125,13 @@ The first run may issue many HTTP requests inside one Python invocation. Later r
 7. run strict evaluation, prepublication audit, and bundling.
 
 A helper exit code 2 is an internal continuation signal. It is not a reason to ask the user for another turn.
+
+## Deep-dive budget versus lane coverage
+
+The bounded direct-FMP example config keeps `max_deep_dive_candidates: 3` to limit downstream underwriting work. This is a total candidate limit, not a promise of coverage across all four research lanes. The default lane targets are core GARP 2, high-growth exception 1, quality near miss 1, and cyclical normalization 1: five slots in total.
+
+When the limit is below that total, the first selection pass walks candidates in priority order and applies each lane target as a cap. With a limit of three, at least one lane must be absent. At a limit of five or more, the first pass fills lane targets in lane order. In either case, later passes fill unused slots by priority without lane caps; the final pass can relax the sector preference if it would otherwise leave slots unused. Targets and the two-name sector preference therefore do not guarantee the final lane counts or sector counts. Only eligible candidates can be selected.
+
+To allow the five-slot plan on the bounded path, copy `assets/claude-code-config.example.json` to your run configuration, set `max_deep_dive_candidates` to `5`, and pass that copy to `run_pipeline.py --config`. This allows more underwriting work but does not guarantee that every lane has an eligible selected name. Rerun the broad screen through the pipeline to establish the new selected set; when reducing the limit, omitted eligible names must become `deferred_by_budget`. Do not simply stop underwriting part of an already committed set: every selected symbol must be resolved.
+
+The full-snapshot path uses the separate `full_snapshot_deep_dive_candidates` setting and requires it to equal `5`. Changing the bounded-path limit does not change that requirement. Neither a three-name nor a five-name deep-dive set alone establishes market-wide economic coverage; that depends on the full-snapshot verification contract.
