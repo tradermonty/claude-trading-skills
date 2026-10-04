@@ -47,12 +47,23 @@ def _base(root, monkeypatch, created=None):
         (lambda path: created.append(path) or path) if created is not None else (lambda path: path),
     )
     monkeypatch.setattr(runner, "run_command", lambda cmd, timeout=120: (0, "usage: demo"))
+    # Fake roots must not see the real table; tests install their own subset.
+    monkeypatch.setattr(deps, "SMOKE_CONTRACTS", {})
+    monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ())
+
+
+def _demo_script(root: Path) -> Path:
+    script = root / "skills/demo/scripts/run.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("print('demo')\n", encoding="utf-8")
+    return script
 
 
 def test_main_exit_zero_all_ok(tmp_path, monkeypatch):
     root = tmp_path / "repo"
     created = []
     _base(root, monkeypatch, created)
+    _demo_script(root)
     monkeypatch.setattr(
         deps,
         "SMOKE_CONTRACTS",
@@ -79,6 +90,7 @@ def test_main_exit_zero_all_ok(tmp_path, monkeypatch):
 def test_main_exit_one_on_contract_expectation_miss(tmp_path, monkeypatch):
     root = tmp_path / "repo"
     _base(root, monkeypatch)
+    _demo_script(root)
     monkeypatch.setattr(
         deps,
         "SMOKE_CONTRACTS",
@@ -101,6 +113,7 @@ def test_main_exit_one_on_harness_error(tmp_path, monkeypatch):
         raise RuntimeError("venv boom")
 
     monkeypatch.setattr(runner, "create_venv", broken_create)
+    monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ("demo",))
     output = tmp_path / "evidence.json"
     assert runner.main(["--output", str(output), "--root", str(root)]) == 1
     evidence = json.loads(output.read_text())
@@ -109,10 +122,51 @@ def test_main_exit_one_on_harness_error(tmp_path, monkeypatch):
     assert any("harness error" in err for err in demo_row["errors"])
 
 
+def test_main_exit_one_on_expect_out_mismatch(tmp_path, monkeypatch):
+    root = tmp_path / "repo"
+    _base(root, monkeypatch)
+    _demo_script(root)
+    monkeypatch.setattr(
+        deps,
+        "SMOKE_CONTRACTS",
+        {
+            "demo": [
+                deps.SmokeContract(
+                    script="skills/demo/scripts/run.py",
+                    args=("--help",),
+                    expect_out=("usage:", "--required-flag-that-is-absent"),
+                )
+            ]
+        },
+    )
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 1
+    evidence = json.loads(output.read_text())
+    (demo_row,) = [row for row in evidence["skills"] if row["id"] == "demo"]
+    (contract,) = demo_row["contracts"]
+    assert contract["expect_out_match"] is False
+    assert any("missing expected output" in err for err in demo_row["errors"])
+
+
+def test_main_exit_one_on_table_validation_problem(tmp_path, monkeypatch):
+    root = tmp_path / "repo"
+    _manifest(root, "demo", "demothirdparty>=1.0\n")
+    (root / "scripts").mkdir()
+    monkeypatch.setattr(
+        deps,
+        "SMOKE_CONTRACTS",
+        {"nosuchskill": [deps.SmokeContract(script="", args=(), skip_reason="x")]},
+    )
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 1
+    evidence = json.loads(output.read_text())
+    assert any("unknown skill" in p for p in evidence["table_problems"])
+
+
 def test_pending_skills_recorded_without_contract_failure(tmp_path, monkeypatch):
     root = tmp_path / "repo"
     _base(root, monkeypatch)
-    monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ["demo"])
+    monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ("demo",))
     output = tmp_path / "evidence.json"
     assert runner.main(["--output", str(output), "--root", str(root)]) == 0
     evidence = json.loads(output.read_text())
@@ -124,6 +178,7 @@ def test_pending_skills_recorded_without_contract_failure(tmp_path, monkeypatch)
 def test_skip_contract_recorded_as_skipped(tmp_path, monkeypatch):
     root = tmp_path / "repo"
     _base(root, monkeypatch)
+    _demo_script(root)
     monkeypatch.setattr(
         deps,
         "SMOKE_CONTRACTS",

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess  # runner-only; check_skill_deps.py must never import this
 import sys
 import venv
@@ -38,6 +39,16 @@ def create_venv(path: Path) -> Path:
     """Isolated behind a module function for unit-test substitution."""
     venv.create(path, with_pip=True)
     return path
+
+
+def reset_venv_dir(path: Path) -> None:
+    """Remove a stale smoke venv so (re-)runs never hit dirty state.
+
+    Isolated behind a module function for unit-test substitution; a
+    half-created venv from a crashed run would otherwise surface as harness
+    errors for every subsequent nightly."""
+    if path.exists():
+        shutil.rmtree(path)
 
 
 def run_command(cmd: list[str], timeout: int = 120) -> tuple[int, str]:
@@ -87,6 +98,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = args.root or REPO_ROOT
 
+    table_problems = deps.validate_smoke_contracts(root)
+    table_problems += deps.pending_contract_gaps(root)
+    if table_problems:
+        Path(args.output).write_text(
+            json.dumps({"table_problems": table_problems}, indent=2) + "\n"
+        )
+        for problem in table_problems:
+            print(f"TABLE PROBLEM: {problem}")
+        print("smoke contract table failed validation")
+        return 1
+
     reverse = {}
     for top, dist in deps.IMPORT_TO_DIST.items():
         reverse.setdefault(dist.lower(), top)
@@ -106,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
             "contracts_status": "executed",
         }
         try:
+            reset_venv_dir(venv_dir)
             python = create_venv(venv_dir) / "bin" / "python"
             code, out = run_command(
                 [str(python), "-m", "pip", "install", "-q", "-r", str(manifest)],
