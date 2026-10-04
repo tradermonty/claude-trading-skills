@@ -206,7 +206,11 @@ signal above.
 | `historical-price-eod-full` | all 10 generated clients: pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor, vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, macro-regime-detector, market-top-detector, us-undervalued-growth-screener |
 | `earnings-calendar` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor |
 | `sp500-constituent` | vcp-screener, parabolic-short-trade-planner |
+| `income-statement` | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener — ad-hoc consumers (their own inline FMP fetch layer) |
+| `ratios` | value-dividend-screener — ad-hoc consumer |
 | `company-screener` (slice 2a) | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener — note these are **ad-hoc consumers**, not generated clients: eight scripts carry their own inline FMP fetch layer and only `us-undervalued-growth-screener` rides the generated garp client (`get_company_screener`) |
+| `income-statement` (this slice) | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener — ad-hoc consumers (their own inline FMP fetch layer) |
+| `ratios` (this slice) | value-dividend-screener — ad-hoc consumer |
 
 Owners are validated against `skills-index.yaml` by `check` — an owner naming a
 skill directory that does not exist there is a validation error.
@@ -423,8 +427,8 @@ endpoints, and are excluded.
 | `earnings-calendar` (v3 alias: `earning_calendar`) | ✅ `earnings-calendar.v1.json` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor call `get_earnings_calendar`; vcp-screener/parabolic-short-trade-planner vendor the same v3→stable compat rename but do not call it | — |
 | `company-screener` | ✅ `company-screener.v1.json` | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener | consumer reason codes → slice 2b |
 | `sp500-constituent` (v3 alias: `sp500_constituent`) | ✅ `sp500-constituent.v1.json` | vcp-screener, parabolic-short-trade-planner call `get_sp500_constituents`; pead-screener/earnings-trade-analyzer/ibd-distribution-day-monitor vendor the compat rename but do not call it | covered |
-| `income-statement` | ❌ | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener | slice 2 |
-| `ratios` | ❌ | value-dividend-screener | slice 2 |
+| `income-statement` | ✅ `income-statement.v1.json` | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener — ad-hoc consumers (their own inline FMP fetch layer) | — |
+| `ratios` | ✅ `ratios.v1.json` | value-dividend-screener — ad-hoc consumer | — |
 | `profile-bulk` | ❌ | parabolic-short-trade-planner | slice 2 |
 | `aftermarket-quote` | ❌ | parabolic-short-trade-planner | slice 2 |
 | `institutional-ownership/symbol-positions-summary` | ❌ | canslim-screener | slice 2 |
@@ -448,6 +452,26 @@ fixture gate and the canary report, while preserving per-row nullability. This
 adds a probe policy without changing the recorded provider shape, fixture capture
 date, or contract version. Tests use synthetic mutations of the recorded fixture;
 this follow-up does not claim a new live capture or live canary run.
+
+## `income-statement` + `ratios` contract notes (#332 slice)
+
+Authenticated `/stable/income-statement` (query `symbol=JNJ, limit=5`) and
+`/stable/ratios` (query `symbol=JNJ, limit=3`) probes recorded 2026-10-03 and
+sanitized to the fields the consumers read. Both endpoints return a flat list of
+period records (one dict per reporting period), so the contract fixture is a
+flat list of record dicts and `non_empty.min_rows=1` applies.
+
+- `income-statement` `required_fields`: `symbol`/`date` non-nullable (str),
+  `revenue` non-nullable (number); `netIncome` and `eps` nullable because a given
+  period can legitimately report null for one, and `canslim-screener` falls back
+  to `epsdiluted`. `dividendsPaid` is intentionally NOT on this contract — it is a
+  cash-flow-statement field (exposed via the `netDividendsPaid` stabilize shim in
+  the ad-hoc consumers), and listing it here would FATAL `missing_required_field`.
+- `ratios` `required_fields`: `symbol`/`date` non-nullable; `priceToEarningsRatio`
+  and `priceToBookRatio` are nullable with `reject_all_null` so a probe losing both
+  is flagged while an individual null (negative-EPS / zero-book-value name) is not
+  — matching the consumer's own `if pe is None or pb is None: continue` guard.
+  `returnOnEquity` etc. are optional (observed null on the recorded fixture).
 
 Issue #332 remains open: non-FMP providers, the remaining FMP endpoint contracts,
 other consumer reason codes, and canary promotion remain outstanding. The

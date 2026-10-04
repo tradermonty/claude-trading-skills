@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "income-statement",
+  "path": "/stable/income-statement",
+  "query": {
+    "symbol": "JNJ",
+    "limit": "5"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-10-03",
+  "recording": "Authenticated live /stable/income-statement probe (query symbol=JNJ, limit=5), sanitized to the fields the severed consumers read. 2026-10-03.",
+  "owners": [
+    "canslim-screener",
+    "dividend-growth-pullback-screener",
+    "value-dividend-screener"
+  ],
+  "tier_notes": "Free tier: per-symbol income statements are individually addressable (not a bulk endpoint); the call is repeated once per candidate symbol.",
+  "required_fields": {
+    "symbol": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "date": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "revenue": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false
+    },
+    "netIncome": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    },
+    "eps": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    }
+  },
+  "optional_fields": [
+    "epsDiluted",
+    "costOfRevenue",
+    "grossProfit",
+    "incomeTaxExpense",
+    "fiscalYear"
+  ],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "a symbol income-statement probe must never be empty"
+  },
+  "fixture": [
+    {
+      "symbol": "JNJ",
+      "date": "2025-12-28",
+      "revenue": 94193000000,
+      "netIncome": 26804000000,
+      "eps": 11.03,
+      "epsDiluted": 11.03,
+      "costOfRevenue": 30256000000,
+      "grossProfit": 63937000000,
+      "incomeTaxExpense": 5777000000,
+      "fiscalYear": "2025"
+    },
+    {
+      "symbol": "JNJ",
+      "date": "2024-12-29",
+      "revenue": 88821000000,
+      "netIncome": 14066000000,
+      "eps": 5.84,
+      "epsDiluted": 5.79,
+      "costOfRevenue": 27471000000,
+      "grossProfit": 61350000000,
+      "incomeTaxExpense": 2621000000,
+      "fiscalYear": "2024"
+    },
+    {
+      "symbol": "JNJ",
+      "date": "2023-12-31",
+      "revenue": 85159000000,
+      "netIncome": 35153000000,
+      "eps": 13.88,
+      "epsDiluted": 13.72,
+      "costOfRevenue": 26553000000,
+      "grossProfit": 58606000000,
+      "incomeTaxExpense": 1736000000,
+      "fiscalYear": "2023"
+    },
+    {
+      "symbol": "JNJ",
+      "date": "2023-01-01",
+      "revenue": 79990000000,
+      "netIncome": 17941000000,
+      "eps": 6.83,
+      "epsDiluted": 6.73,
+      "costOfRevenue": 24596000000,
+      "grossProfit": 55394000000,
+      "incomeTaxExpense": 2989000000,
+      "fiscalYear": "2022"
+    },
+    {
+      "symbol": "JNJ",
+      "date": "2022-01-02",
+      "revenue": 78740000000,
+      "netIncome": 20878000000,
+      "eps": 7.93,
+      "epsDiluted": 7.81,
+      "costOfRevenue": 23402000000,
+      "grossProfit": 55338000000,
+      "incomeTaxExpense": 1377000000,
+      "fiscalYear": "2021"
+    }
+  ]
+}

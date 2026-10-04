@@ -61,6 +61,8 @@ def test_expected_contracts_are_present():
         "quote",
         "historical-price-eod-full",
         "earnings-calendar",
+        "income-statement",
+        "ratios",
     }
 
 
@@ -206,6 +208,71 @@ def test_row_not_object_is_fatal():
 
 
 # ---------------------------------------------------------------------------
+# D2b: income-statement + ratios (Issue #332 slice) drift on the real fixtures
+# ---------------------------------------------------------------------------
+
+
+def test_income_statement_required_fields_are_present_in_fixture():
+    contract = CONTRACTS["income-statement"]
+    assert contract.non_empty.get("min_rows", 0) >= 1
+    for field in ("symbol", "date", "revenue"):
+        assert field in contract.required_fields
+        assert contract.required_fields[field]["nullable"] is False
+    result = validate_rows(contract, contract.fixture)
+    assert result.ok is True
+
+
+def test_income_statement_dropped_field_is_missing_required_field():
+    contract = CONTRACTS["income-statement"]
+    row = copy.deepcopy(contract.fixture[0])
+    del row["revenue"]
+    result = validate_rows(contract, [row])
+    assert result.ok is False
+    assert any(a.code == "missing_required_field:revenue" for a in result.fatal_anomalies)
+
+
+def test_ratios_required_fields_are_present_in_fixture():
+    contract = CONTRACTS["ratios"]
+    assert contract.non_empty.get("min_rows", 0) >= 1
+    for field in ("symbol", "date", "priceToEarningsRatio", "priceToBookRatio"):
+        assert field in contract.required_fields
+    assert contract.required_fields["priceToEarningsRatio"].get("reject_all_null") is True
+    assert contract.required_fields["priceToBookRatio"].get("reject_all_null") is True
+    result = validate_rows(contract, contract.fixture)
+    assert result.ok is True
+
+
+def test_ratios_null_pe_pb_rows_are_all_null_required_field():
+    contract = CONTRACTS["ratios"]
+    rows = copy.deepcopy(contract.fixture)
+    for row in rows:
+        row["priceToEarningsRatio"] = None
+        row["priceToBookRatio"] = None
+    result = validate_rows(contract, rows)
+    assert result.ok is False
+    assert any(
+        a.code == "all_null_required_field:priceToEarningsRatio" for a in result.fatal_anomalies
+    )
+
+
+def test_ratios_wrong_type_is_fatal():
+    contract = CONTRACTS["ratios"]
+    row = copy.deepcopy(contract.fixture[0])
+    row["priceToEarningsRatio"] = "not-a-number"
+    result = validate_rows(contract, [row])
+    assert result.ok is False
+    assert any(a.code.startswith("wrong_type:priceToEarningsRatio") for a in result.fatal_anomalies)
+
+
+def test_ratios_empty_list_is_fatal_empty_response():
+    contract = CONTRACTS["ratios"]
+    assert contract.non_empty.get("min_rows", 0) >= 1
+    result = validate_rows(contract, [])
+    assert result.ok is False
+    assert any(a.code == "empty_response" for a in result.fatal_anomalies)
+
+
+# ---------------------------------------------------------------------------
 # D3: the ten generated fmp_client.py clients exercised on the real fixtures
 # ---------------------------------------------------------------------------
 
@@ -233,6 +300,8 @@ PROFILE_FIXTURE = CONTRACTS["profile"].fixture
 EARNINGS_FIXTURE = CONTRACTS["earnings-calendar"].fixture
 SCREENER_FIXTURE = CONTRACTS["company-screener"].fixture
 SP500_FIXTURE = CONTRACTS["sp500-constituent"].fixture
+INCOME_FIXTURE = CONTRACTS["income-statement"].fixture
+RATIOS_FIXTURE = CONTRACTS["ratios"].fixture
 
 
 def _assert_hist_row(row):
@@ -564,6 +633,10 @@ def _stub_fetch_ok(path, query):
         return 200, copy.deepcopy(HIST_FIXTURE)
     if "earnings-calendar" in path:
         return 200, copy.deepcopy(EARNINGS_FIXTURE)
+    if "income-statement" in path:
+        return 200, copy.deepcopy(INCOME_FIXTURE)
+    if "ratios" in path:
+        return 200, copy.deepcopy(RATIOS_FIXTURE)
     return 404, None
 
 
@@ -586,6 +659,8 @@ def test_canary_success_writes_report_and_never_leaks_the_key(tmp_path, monkeypa
         "quote",
         "historical-price-eod-full",
         "earnings-calendar",
+        "income-statement",
+        "ratios",
     }
     for entry in report["contracts"].values():
         assert entry["ok"] is True

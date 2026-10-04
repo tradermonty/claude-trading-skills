@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "ratios",
+  "path": "/stable/ratios",
+  "query": {
+    "symbol": "JNJ",
+    "limit": "3"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-10-03",
+  "recording": "Authenticated live /stable/ratios probe (query symbol=JNJ, limit=3), sanitized to the fields value-dividend-screener reads. 2026-10-03.",
+  "owners": [
+    "value-dividend-screener"
+  ],
+  "tier_notes": "Free tier: per-symbol ratio snapshots are individually addressable (not a bulk endpoint); the call is repeated once per candidate symbol. Some ratio fields (e.g. returnOnEquity) can legitimately be null.",
+  "required_fields": {
+    "symbol": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "date": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "priceToEarningsRatio": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true,
+      "reject_all_null": true
+    },
+    "priceToBookRatio": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true,
+      "reject_all_null": true
+    }
+  },
+  "optional_fields": [
+    "dividendPayoutRatio",
+    "dividendYieldPercentage",
+    "returnOnEquity"
+  ],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "a symbol ratios probe must never be empty"
+  },
+  "fixture": [
+    {
+      "symbol": "JNJ",
+      "date": "2025-12-28",
+      "priceToEarningsRatio": 18.817769718948323,
+      "priceToBookRatio": 6.181695967821053,
+      "dividendPayoutRatio": 0.46190867034770927,
+      "dividendYieldPercentage": 2.456156700266134,
+      "returnOnEquity": null
+    },
+    {
+      "symbol": "JNJ",
+      "date": "2024-12-29",
+      "priceToEarningsRatio": 24.544520547945208,
+      "priceToBookRatio": 4.826722366764582,
+      "dividendPayoutRatio": 0.8405374662306271,
+      "dividendYieldPercentage": 3.4263369804246,
+      "returnOnEquity": null
+    },
+    {
+      "symbol": "JNJ",
+      "date": "2023-12-31",
+      "priceToEarningsRatio": 11.292507204610951,
+      "priceToBookRatio": 5.773995841451712,
+      "dividendPayoutRatio": 0.3348220635507638,
+      "dividendYieldPercentage": 2.9639830230506465,
+      "returnOnEquity": null
+    }
+  ]
+}
