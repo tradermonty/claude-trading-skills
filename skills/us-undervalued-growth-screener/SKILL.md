@@ -13,6 +13,8 @@ Run an end-to-end US undervalued-growth/GARP screen from a minimal request. Find
 
 Treat a request such as **“use this skill to screen for undervalued-growth stocks” as complete**. Resolve defaults, collect current data, choose a viable acquisition path, checkpoint the work, repair obtainable blockers, and return the finished result in the same task. Never ask the user to supply a ticker list, API-plan details, output path, or a separate “continue” instruction unless the user explicitly narrows the scope.
 
+**Deep-dive budget and lane coverage:** The bounded direct-FMP path defaults to `max_deep_dive_candidates: 3`. Three selected names cannot represent all four research lanes. The default lane targets are core GARP 2, high-growth exception 1, quality near miss 1, and cyclical normalization 1 (five slots total). A three-name run prioritizes candidates across lanes; it does not promise one name per lane. For a five-slot lane-first selection, set `max_deep_dive_candidates: 5` in a local copy of `assets/claude-code-config.example.json` and rerun the bounded pipeline with that config. Eligible candidates and diversification preferences still determine actual lane representation. The separate full-snapshot path requires `full_snapshot_deep_dive_candidates: 5`. See `references/claude-code-execution.md` for selection and budget-change details.
+
 ## Non-Negotiable Runtime Preflight
 
 Before reading or reusing any prior run artifact, verify the installed runtime:
@@ -141,7 +143,7 @@ Unless the user specifies otherwise:
 - Minimum price: USD 5.
 - Preferred average daily dollar volume: USD 5 million; hard floor USD 1 million.
 - Claude Code provider-prefilter pool: target 30 symbols after code-side economics and verified liquidity; bounded per-symbol fallback may inspect up to 80 names without loading their provider payloads into model context.
-- Deep-dive budget: three symbols by default in Claude Code, allocated across four deterministic research lanes. Once selected, every symbol must be resolved; lower the budget only by rerunning the broad screen so omitted names become `deferred_by_budget`.
+- Deep-dive budget: three symbols by default on the bounded Claude Code path, selected from four deterministic research lanes; three slots cannot represent all four lanes. Once selected, every symbol must be resolved; lower the budget only by rerunning the broad screen so omitted names become `deferred_by_budget`.
 - Maximum ranked output: ten, though the verified deep-dive set may be smaller.
 - Minimum formal constant-multiple upside: 30% over a supported two- or three-year horizon.
 - Multiple-contraction stress: current forward multiple reduced by 20%.
