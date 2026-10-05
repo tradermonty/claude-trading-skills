@@ -586,7 +586,8 @@ def test_current_policy_has_no_allowed_failures_and_enforces_all_tiers():
     assert entries["position-sizer"].coverage_waiver is None
     assert entries["mt5-robot-tester"].coverage_target == 70
     assert entries["options-strategy-advisor"].coverage_floor == 70
-    assert entries["signal-postmortem"].coverage_floor == 40
+    assert entries["signal-postmortem"].coverage_floor == 70
+    assert entries["signal-postmortem"].coverage_waiver is None
     assert entries["pair-trade-screener"].requirements == ("statsmodels>=0.14,<0.15",)
     assert entries["market-news-analyst"].coverage_target is None
 
