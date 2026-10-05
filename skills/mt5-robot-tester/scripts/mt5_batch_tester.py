@@ -1296,15 +1296,17 @@ def main(argv: list[str] | None = None) -> int:
         "--terminal-path",
         default=None,
         help=(
-            "Explicit terminal64.exe path (required unless set via "
-            "$MT5_TERMINAL_PATH, config.terminal_path, or --allow-auto-detect)."
+            "Terminal path for tester execution (not required for --dry-run). "
+            "Precedence: --terminal-path > config.terminal_path > MT5_TERMINAL_PATH. "
+            "A missing supplied path is an error; no fallback to another source."
         ),
     )
     parser.add_argument(
         "--allow-auto-detect",
         action="store_true",
         help=(
-            "Allow auto-discovery of terminal64.exe under Program Files. Off by "
+            "Allow auto-discovery of terminal64.exe under Program Files only when no "
+            "CLI, config, or environment path is supplied. Off by "
             "default so a live terminal on the same machine is never silently selected."
         ),
     )
@@ -1314,7 +1316,9 @@ def main(argv: list[str] | None = None) -> int:
         "--resume", action="store_true", help="Resume from state.json without repeating work."
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="Generate Round 1 INIs without launching MT5."
+        "--dry-run",
+        action="store_true",
+        help="Generate Round 1 INIs without resolving or launching MT5; no terminal path required.",
     )
     args = parser.parse_args(argv)
 
@@ -1376,10 +1380,19 @@ def main(argv: list[str] | None = None) -> int:
     if terminal is None:
         supplied = supplied_terminal_sources(args.terminal_path, config.get("terminal_path"))
         if supplied:
+            source = next(
+                name
+                for name, value in (
+                    ("--terminal-path", args.terminal_path),
+                    ("config.terminal_path", config.get("terminal_path")),
+                    ("MT5_TERMINAL_PATH", os.environ.get("MT5_TERMINAL_PATH")),
+                )
+                if value
+            )
             print(
                 "error: the supplied terminal64.exe path was not found and will not "
-                "fall back to another source. Check --terminal-path, "
-                "config.terminal_path, or $MT5_TERMINAL_PATH.",
+                f"fall back to another source. Selected {source}: {supplied[0]!r}. "
+                "Fix or remove this setting, or supply a valid higher-precedence path.",
                 file=sys.stderr,
             )
         elif args.allow_auto_detect:
