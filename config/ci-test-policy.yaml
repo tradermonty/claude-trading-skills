@@ -82,12 +82,6 @@ coverage:
       expires_on: "2026-10-31"
       issue: 293
       reason: Ratchet from the 2026-08-10 executable-code baseline.
-    skill-idea-miner:
-      floor: 60
-      target: 70
-      expires_on: "2026-10-31"
-      issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
     stockbee-episodic-pivot-analyzer:
       floor: 59
       target: 70
