@@ -274,7 +274,9 @@ class TestFetchCalendar:
     )
     def test_response_read_error_is_sanitized_runtime_error(self, monkeypatch, read_error):
         monkeypatch.setenv("FXMACRODATA_API_KEY", "PURE_SECRET")
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _ReadErrorResponse(read_error),
         )
 
@@ -296,16 +298,14 @@ class TestFetchCalendar:
 
     def test_numeric_tier_filter(self, monkeypatch):
         payload = _payload(_events([1, 2, 3]))
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
         result = fetch_calendar.fetch_calendar("usd", 50, 1)
         assert [e["market_tier"] for e in result["events"]] == [1]
 
     @pytest.mark.parametrize("tier", [0, -1, 4, 99, True, "2", "HIGH", None])
     def test_out_of_contract_tier_fails_closed(self, monkeypatch, tier):
         payload = _payload(_events([tier]))
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
 
         with pytest.raises(RuntimeError, match="invalid market_tier"):
             fetch_calendar.fetch_calendar("usd", 50, 3)
@@ -322,27 +322,29 @@ class TestFetchCalendar:
 
     def test_limit_clamped_above_100(self, monkeypatch):
         payload = _payload(_events([1] * 150))
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
         result = fetch_calendar.fetch_calendar("usd", 500, None)
         assert len(result["events"]) == 100
 
     def test_limit_clamped_below_1(self, monkeypatch):
         payload = _payload(_events([1] * 5))
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
         result = fetch_calendar.fetch_calendar("usd", 0, None)
         assert len(result["events"]) == 1
 
     def test_valid_empty_data_returns_empty_events(self, monkeypatch):
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _FakeResponse(_payload()),
         )
         result = fetch_calendar.fetch_calendar("usd", 50, 1)
         assert result["events"] == []
 
     def test_malformed_payload_not_dict_fails_closed(self, monkeypatch):
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _FakeResponse(["not", "a", "dict"]),
         )
 
@@ -352,7 +354,9 @@ class TestFetchCalendar:
     def test_missing_data_fails_closed(self, monkeypatch):
         payload = _payload()
         del payload["data"]
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _FakeResponse(payload),
         )
 
@@ -362,16 +366,14 @@ class TestFetchCalendar:
     def test_malformed_payload_data_not_list_fails_closed(self, monkeypatch):
         payload = _payload()
         payload["data"] = "not-a-list"
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
 
         with pytest.raises(RuntimeError, match="data field must be an array"):
             fetch_calendar.fetch_calendar("usd", 50, 1)
 
     def test_malformed_payload_data_list_of_non_dicts_fails_closed(self, monkeypatch):
         payload = _payload(["oops", 3, None])
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
 
         with pytest.raises(RuntimeError, match=r"data\[0\] must be an object"):
             fetch_calendar.fetch_calendar("usd", 50, 1)
@@ -388,8 +390,7 @@ class TestFetchCalendar:
                 }
             ]
         )
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
 
         with pytest.raises(RuntimeError, match="non-finite number"):
             fetch_calendar.fetch_calendar("usd", 50, 1)
@@ -535,7 +536,9 @@ class TestMainErrorHandling:
         self, monkeypatch, capsys, read_error
     ):
         monkeypatch.setenv("FXMACRODATA_API_KEY", "CLI_SECRET")
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _ReadErrorResponse(read_error),
         )
         monkeypatch.setattr(sys, "argv", ["fetch_calendar.py", "--currency", "usd"])
@@ -628,7 +631,9 @@ class TestMainErrorHandling:
         ],
     )
     def test_contract_violation_exits_nonzero_without_traceback(self, monkeypatch, capsys, payload):
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _FakeResponse(payload),
         )
         monkeypatch.setattr(sys, "argv", ["fetch_calendar.py", "--currency", "usd"])
@@ -646,7 +651,9 @@ class TestMainErrorHandling:
         payload = _payload()
         payload["extra"] = _deeply_nested(1.0, 1_500)
         monkeypatch.setattr(fetch_calendar.json, "load", lambda *a, **k: payload)
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _FakeResponse(_payload()),
         )
         monkeypatch.setattr(sys, "argv", ["fetch_calendar.py", "--currency", "usd"])
@@ -663,7 +670,9 @@ class TestMainErrorHandling:
         payload = _payload()
         payload["extra"] = _deeply_nested(float("inf"), 1_500)
         monkeypatch.setattr(fetch_calendar.json, "load", lambda *a, **k: payload)
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: _FakeResponse(_payload()),
         )
         monkeypatch.setattr(sys, "argv", ["fetch_calendar.py", "--currency", "usd"])
@@ -696,7 +705,9 @@ class TestMainErrorHandling:
             # to keep the CLI error contract deterministic across runtimes.
             raise RecursionError("maximum recursion depth exceeded while decoding JSON")
 
-        monkeypatch.setattr(fetch_calendar, "_urlopen",
+        monkeypatch.setattr(
+            fetch_calendar,
+            "_urlopen",
             lambda *a, **k: RawResponse(),
         )
         monkeypatch.setattr(fetch_calendar.json, "load", decoder_limit)
@@ -722,8 +733,7 @@ class TestMainErrorHandling:
                 }
             ]
         )
-        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload)
-        )
+        monkeypatch.setattr(fetch_calendar, "_urlopen", lambda *a, **k: _FakeResponse(payload))
         monkeypatch.setattr(sys, "argv", ["fetch_calendar.py", "--currency", "usd"])
 
         with pytest.raises(SystemExit) as exc_info:

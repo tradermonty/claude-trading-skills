@@ -196,9 +196,7 @@ def fetch_calendar(currency: str, limit: int, min_tier: int | None) -> dict[str,
     if api_key:
         if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in api_key):
             # http.client would reject the header and echo its value.
-            raise RuntimeError(
-                "FXMACRODATA_API_KEY contains whitespace or control characters"
-            )
+            raise RuntimeError("FXMACRODATA_API_KEY contains whitespace or control characters")
         headers["X-API-Key"] = api_key
 
     try:
