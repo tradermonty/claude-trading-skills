@@ -413,6 +413,7 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
     composite_steps: list[int] = []
     executor_components: dict[int, list[str]] = {}
     output_path_owners: dict[Path, str] = {}
+    provenance_declaration_owners: dict[str, int] = {}
     for number, step in workflow_steps.items():
         replay_step = spec_steps[number]
         expected_outputs = set(step.get("produces") or [])
@@ -430,6 +431,13 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
                     f"step {number} required_provenance {artifact_id!r} must name a produced "
                     "artifact with a canonical JSON/YAML file"
                 )
+            previous_step = provenance_declaration_owners.get(artifact_id)
+            if previous_step is not None:
+                raise ReplayError(
+                    f"duplicate required_provenance declaration for artifact {artifact_id!r}: "
+                    f"step {previous_step} and step {number}"
+                )
+            provenance_declaration_owners[artifact_id] = number
         expected_policy = (
             {"record_only", "continue", "halt"} if step.get("decision_gate") else {"continue"}
         )

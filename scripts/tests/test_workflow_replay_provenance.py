@@ -239,6 +239,91 @@ def test_unexecuted_optional_producer_does_not_require_artifact(scenario):
     assert consumed == []
 
 
+def _add_second_source_output(repo, spec_path):
+    workflow_path = repo / "workflows" / "test-provenance.yaml"
+    workflow = yaml.safe_load(workflow_path.read_text())
+    workflow["steps"][1]["produces"].append("source")
+    workflow_path.write_text(yaml.safe_dump(workflow))
+    spec = yaml.safe_load(spec_path.read_text())
+    spec["steps"][1]["output_files"]["source"] = {"canonical": "source-second.json"}
+    return spec
+
+
+@pytest.mark.parametrize("optional", [False, True])
+@pytest.mark.parametrize("variant", ["required-only", "full-path"])
+def test_cross_step_duplicate_declarations_fail_before_execution(
+    scenario, monkeypatch, optional, variant
+):
+    repo, spec_path, output, consumed = scenario({"data_provenance": _block()}, optional=optional)
+    spec = _add_second_source_output(repo, spec_path)
+    spec["steps"][1]["required_provenance"] = ["source"]
+    spec_path.write_text(yaml.safe_dump(spec))
+    message = "duplicate required_provenance declaration for artifact 'source': step 1 and step 2"
+    with pytest.raises(replay.ReplayError, match=message):
+        replay.validate_spec(repo, spec_path)
+
+    calls = []
+
+    def unexpected_executor(*args):
+        calls.append(args)
+        pytest.fail("invalid spec must fail before any executor runs")
+
+    for name in ("test_provenance_producer", "test_provenance_consumer"):
+        monkeypatch.setitem(
+            replay.EXECUTORS,
+            name,
+            replay.ExecutorRegistration(mode="manual_contract", run=unexpected_executor),
+        )
+    (output / "nested").mkdir()
+    (output / "nested" / "existing.json").write_bytes(b'{"previous": true}\n')
+    before = {
+        path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
+    }
+    with pytest.raises(replay.ReplayError, match=message) as error:
+        replay.execute_replay(repo, spec_path, variant, output)
+    assert error.value.completed_steps == []
+    assert calls == []
+    assert consumed == []
+    assert {
+        path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
+    } == before
+    assert (output / "nested").is_dir()
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_repeated_production_without_duplicate_declaration_still_validates(scenario, required):
+    repo, spec_path, _, _ = scenario({}, required=required)
+    spec = _add_second_source_output(repo, spec_path)
+    spec_path.write_text(yaml.safe_dump(spec))
+    assert replay.validate_spec(repo, spec_path)["workflow_id"] == "test-provenance"
+
+
+def test_distinct_required_declarations_execute_successfully(scenario, monkeypatch):
+    payload = {"data_provenance": _block(), "value": 1}
+    repo, spec_path, output, consumed = scenario(payload)
+    spec = yaml.safe_load(spec_path.read_text())
+    spec["steps"][1]["required_provenance"] = ["receipt"]
+    spec_path.write_text(yaml.safe_dump(spec))
+    original = replay.EXECUTORS["test_provenance_consumer"].run
+    receipt = {"data_provenance": _block(), "received": True}
+
+    def consumer_with_provenance(*args):
+        artifacts = original(*args)
+        Path(artifacts["receipt"]["files"]["canonical"]).write_text(json.dumps(receipt))
+        return artifacts
+
+    monkeypatch.setitem(
+        replay.EXECUTORS,
+        "test_provenance_consumer",
+        replay.ExecutorRegistration(mode="manual_contract", run=consumer_with_provenance),
+    )
+    assert replay.validate_spec(repo, spec_path)["workflow_id"] == "test-provenance"
+    report = replay.execute_replay(repo, spec_path, "required-only", output)
+    assert report["status"] == "completed"
+    assert consumed == [payload]
+    assert json.loads((output / "receipt.json").read_text()) == receipt
+
+
 @pytest.mark.parametrize("suffix,text", [(".json", "{"), (".yaml", "[unclosed")])
 def test_parse_errors_preserve_existing_publication(scenario, suffix, text):
     repo, spec, output, consumed = scenario({"data_provenance": _block()}, suffix=suffix)
