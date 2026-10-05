@@ -467,7 +467,7 @@ class TestFetchCalendar:
 
         assert seen[0].get_header("X-api-key") is None
 
-    @pytest.mark.parametrize("bad_key", ["EMBEDDED SECRET", "EMBEDDED\nSECRET", "EMB\x00SECRET"])
+    @pytest.mark.parametrize("bad_key", ["EMBEDDED SECRET", "EMBEDDED\nSECRET", "EMB\tSECRET"])
     def test_malformed_key_fails_before_request_without_echo(self, monkeypatch, bad_key):
         def unexpected_urlopen(*args, **kwargs):
             pytest.fail("urlopen must not run for a malformed key")
