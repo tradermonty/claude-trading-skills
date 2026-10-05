@@ -528,7 +528,7 @@ denials; these denied statuses are test scenarios, not live tier observations.
 The raw canary has no CSV fallback: it requires HTTP 200 as well as valid rows.
 Other statuses produce a fatal `http_status:<status>` anomaly even if their
 payload matches the schema; HTTP 200 with no rows retains `empty_response`.
-The existing weekly report-only workflow discovers all six contracts and makes
+The existing weekly report-only workflow discovers all eight contracts and makes
 one request per contract with its dynamically computed call budget.
 
 This endpoint completes another part of Issue #332. Other uncovered endpoints
