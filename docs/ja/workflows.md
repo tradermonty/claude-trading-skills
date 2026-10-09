@@ -67,7 +67,7 @@ permalink: /ja/workflows/
 
 - 入力: `holdings_snapshot`
 - 出力: `allocation_report`
-- **判断:** セクター別および個別銘柄の集中度は目標範囲内か。範囲外の場合、トレーダーはどのような具体的な再配分を提案するか。
+- **判断:** 資産配分の確認前に、同一口座の完全なブローカー保有情報とACTIVE・ PARTIALLY_CLOSEDのメモリ残数量をreconcile_positions.pyで照合し、 JSON・Markdownのreconciliation_reportを保存する。can_continueがfalse、または網羅性・口座帰属・鮮度が未確認ならここで停止する。一致を確認後、セクター別および個別銘柄の集中度は目標範囲内か。範囲外の場合、トレーダーはどのような具体的な再配分を提案するか。
 
 **ステップ 3: 配当の健全性を確認する（T1-T5異常チェック）** （任意） → `kanchi-dividend-review-monitor`
 
@@ -87,6 +87,8 @@ permalink: /ja/workflows/
 
 **手動レビュー:**
 
+- 資産配分・リバランスの確認前に照合レポートの一致を確認し、不一致は手動で解決して再照合する。
+- 照合は現時点で手動ゲートであり、既存replayのfixtureはこのゲートを実行・強制しない。
 - 保有銘柄のスナップショットが実際の証券口座（AlpacaまたはCSV）の状態を反映していることを確認する。
 - リバランス注文はブローカーで手動入力し、自動執行されないことを確認する。
 - dividend_review_findings がT1-T5の問題を示した場合、解決するまで買い増しを見送る。

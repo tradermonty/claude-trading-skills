@@ -22,3 +22,13 @@ Each `manifest.yaml` maps workflow steps and artifact IDs to files. The
 holdings, allocation, rebalance plan, and journal entry use identical values so
 the focused contract test can recompute totals and detect hand-off drift.
 Nothing here places or schedules an order.
+
+## Reconciliation preparation (Issue #493)
+
+The current workflow requires a manual broker / trader-memory reconciliation
+before allocation review. Follow the
+[normalization and comparison guide](../../../skills/portfolio-manager/references/position-reconciliation.md)
+(from the repository root, under `skills/portfolio-manager/references/`).
+These historical replay fixtures do not execute or enforce the new gate; their
+passing status is regression evidence for the earlier contracts only. Automatic
+exports, account attribution and replay gating remain follow-up work.
