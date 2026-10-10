@@ -111,8 +111,10 @@ This path lets you review market conditions, size trades, journal decisions, and
 First time here? Read the [FAQ](docs/en/faq.md) for plan, cost, safety, and scope
 answers.
 
+See the [Changelog](CHANGELOG.md) for changes and the [release compatibility and migration policy](docs/dev/release-compatibility.md) before updating an installed skill.
+
 ### Use with Claude Web App
-1. Download the `.skill` file that matches the skill you want from `skill-packages/`.
+1. Open the [latest GitHub Release](https://github.com/tradermonty/claude-trading-skills/releases/latest) and download the `.skill` asset that matches the skill you want, plus `SHA256SUMS`. Verify its hash as described in the [release policy](docs/dev/release-compatibility.md). If the Releases page is empty, follow the source-folder installation path below or build a local package with `scripts/package_skills.py`.
 2. For an individual account, open **Settings > Capabilities** and enable **Code execution and file creation**. Team and Enterprise users may need an organization owner to enable Skills.
 3. Open **Customize > Skills**, upload the ZIP, confirm it appears in the list, and enable it if needed (see Anthropic's [current Skills help](https://support.claude.com/en/articles/12512180-use-skills-in-claude)).
 

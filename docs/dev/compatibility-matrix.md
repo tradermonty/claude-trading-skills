@@ -69,9 +69,10 @@ statically by `scripts/check_compat_matrix.py`):
 
 The drift guard globs the whole workflow directory rather than a hard-coded allowlist, so a
 brand-new workflow that runs a job on an unsupported OS / out-of-range Python is caught and not
-silently skipped. `dependency-review` is a third-party-action job with no `setup-python` step, so it
-is OS-checked only; single-runner jobs without a matrix axis are only OS-checked because no Python
-version can be pinned. Compatibility-defining jobs (`compat-smoke`, `compat-nightly`) are also
+silently skipped. `ci.yml:dependency-review` (a third-party-action job) and
+`fmp-contract-canary.yml:preflight` (a shell-only gate job) have no `setup-python` step, so they
+are OS-checked only; single-runner jobs without a matrix axis are only OS-checked because no
+Python version can be pinned. Compatibility-defining jobs (`compat-smoke`, `compat-nightly`) are also
 checked against the documented axis mapping below.
 
 ## Job → (os, python) mapping

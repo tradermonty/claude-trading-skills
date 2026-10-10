@@ -44,9 +44,11 @@ DOC = "docs/dev/compatibility-matrix.md"
 PYPROJECT = "pyproject.toml"
 PYTHON_SUPPORT = "config/python-support.json"
 
-# Jobs that run a third-party action and have no ``actions/setup-python`` step,
-# so no Python version can be extracted; they are OS-checked only.
-NO_SETUP_PYTHON_JOBS = {"dependency-review"}
+# Jobs that have no ``actions/setup-python`` step, so no Python version can be
+# extracted; they are OS-checked only. ``dependency-review`` runs a third-party
+# action; ``preflight`` is a shell-only gate job. Keyed ``<workflow file>:<job id>``
+# so a same-named job in another workflow is not exempt.
+NO_SETUP_PYTHON_JOBS = {"ci.yml:dependency-review", "fmp-contract-canary.yml:preflight"}
 
 
 @dataclass
@@ -320,7 +322,7 @@ def _check_os_and_python_policy(
                     f"{qualified_job}: runner target {combo.os!r} is outside supported set"
                 )
             if combo.python is None:
-                if result.job not in NO_SETUP_PYTHON_JOBS:
+                if qualified_job not in NO_SETUP_PYTHON_JOBS:
                     errors.append(f"{qualified_job}: could not resolve a Python version")
                 continue
             job_lower = standalone_floor if qualified_job in standalone_jobs else lower

@@ -21,7 +21,14 @@ def test_every_project_job_uses_locked_environment():
         config = workflow(name)
         assert config["permissions"] == {"contents": "read"}
         for job_id, job in config["jobs"].items():
-            if job_id in {"market-calendar-compat", "dependency-review"}:
+            # Exemptions are keyed by (workflow, job) so a same-named job elsewhere
+            # is still checked. `preflight` (fmp-contract-canary.yml) is a bash-only
+            # gate: it runs no Python and has no project environment to lock.
+            if (name, job_id) in {
+                ("ci.yml", "market-calendar-compat"),
+                ("ci.yml", "dependency-review"),
+                ("fmp-contract-canary.yml", "preflight"),
+            }:
                 continue
             steps = job["steps"]
             sync_steps = [step for step in steps if SYNC in step.get("run", "")]

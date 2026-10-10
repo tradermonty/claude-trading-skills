@@ -509,3 +509,38 @@ def test_validate_python_bound_message_not_hardcoded():
     # Low#4: the unbounded-range error must not hardcode the current bound.
     _, err = ccm._validate_python_bound(">=3.10")
     assert ">=3.10,<3.14" not in err
+
+
+BASH_ONLY_PREFLIGHT = """\
+name: FMP contract canary
+on: workflow_dispatch
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - id: gate
+        run: echo "run_canary=true" >> "$GITHUB_OUTPUT"
+"""
+
+
+def test_check_accepts_bash_only_preflight_job(project: Path, capsys: pytest.CaptureFixture):
+    _compliant_tree(project)
+    _write(project, ".github/workflows/fmp-contract-canary.yml", BASH_ONLY_PREFLIGHT)
+    assert ccm.check(quiet=True) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_check_rejects_unlisted_job_without_python(project: Path, capsys: pytest.CaptureFixture):
+    _compliant_tree(project)
+    _write(
+        project,
+        ".github/workflows/fmp-contract-canary.yml",
+        BASH_ONLY_PREFLIGHT.replace("preflight:", "other:"),
+    )
+    assert ccm.check(quiet=True) == 1
+
+
+def test_check_rejects_preflight_in_other_workflow(project: Path):
+    _compliant_tree(project)
+    _write(project, ".github/workflows/other.yml", BASH_ONLY_PREFLIGHT)
+    assert ccm.check(quiet=True) == 1

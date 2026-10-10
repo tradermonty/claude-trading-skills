@@ -15,9 +15,16 @@ one GET per contract (query-param auth via ``requests`` ``params=``, never
 string-formatted into a URL) and writes a JSON report. The report and every
 line this CLI logs redact ``apikey=``/``api_key=`` from any URL.
 
+``summarize`` — renders a canary report as GitHub step-summary markdown and,
+with ``--github``, workflow-command annotations. Stdlib only; it reports and
+never gates on report problems (exit 0 for a missing or malformed report;
+argument or write errors exit non-zero).
+
 Usage:
     python3 scripts/check_provider_contracts.py check
     python3 scripts/check_provider_contracts.py canary [--max-calls N] [--report PATH]
+    python3 scripts/check_provider_contracts.py summarize --report PATH
+        [--summary-file PATH] [--github]
 
 See ``docs/dev/provider-contracts.md`` for the full contract schema and the
 manual fixture-refresh procedure.
@@ -205,6 +212,134 @@ def cmd_canary(args: argparse.Namespace) -> int:
     return 0 if all_ok else 1
 
 
+# --- summarize ------------------------------------------------------------
+
+_ANNOTATION_CAP = 10  # GitHub shows at most 10 annotations per type per step
+_ERROR_TITLE = "FMP contract anomaly"
+_WARNING_TITLE = "FMP contract deprecation"
+_NO_REPORT_TITLE = "FMP canary report missing"
+_NO_REPORT_MESSAGE = (
+    "No canary report was produced; the canary step did not complete. See the job log."
+)
+
+
+def load_report(path: Path) -> dict[str, Any] | None:
+    """Return the parsed report, or ``None`` if it is missing, unreadable, or not an object."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _clean(value: Any) -> str:
+    return redact_url(str(value))
+
+
+def _escape_data(text: str) -> str:
+    """Escape a workflow-command message (``%`` must be replaced first)."""
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _escape_property(text: str) -> str:
+    return _escape_data(text).replace(":", "%3A").replace(",", "%2C")
+
+
+def _cell(value: Any) -> str:
+    text = _clean(value).replace("\r", " ").replace("\n", " ")
+    return text.replace("|", "\\|")
+
+
+def _codes(items: Any) -> list[str]:
+    if not isinstance(items, list):
+        return []
+    return [_clean(i.get("code", "?")) for i in items if isinstance(i, dict)]
+
+
+def _contract_entries(report: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    contracts = report.get("contracts")
+    if not isinstance(contracts, dict):
+        return []
+    return [(str(n), e) for n, e in sorted(contracts.items()) if isinstance(e, dict)]
+
+
+def render_summary(report: dict[str, Any] | None) -> str:
+    """Render a canary report as markdown for ``$GITHUB_STEP_SUMMARY``."""
+    if report is None:
+        return f"## FMP contract canary\n\n**{_NO_REPORT_MESSAGE}**\n"
+
+    entries = _contract_entries(report)
+    all_ok = bool(report.get("ok")) and all(e.get("ok") for _, e in entries)
+    budget = report.get("budget") if isinstance(report.get("budget"), dict) else {}
+    lines = [
+        f"## FMP contract canary: {'OK' if all_ok else 'ANOMALIES'}",
+        "",
+        f"Generated at {_cell(report.get('generated_at', 'unknown'))}. "
+        f"Budget used {_cell(budget.get('used', '?'))}/{_cell(budget.get('max', '?'))}.",
+        "",
+        "| Contract | HTTP | Rows | Fatal anomalies | Deprecations | OK |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for name, entry in entries:
+        fatal = ", ".join(_codes(entry.get("anomalies")))
+        if not fatal and entry.get("ok") is False:
+            fatal = "not ok (no anomaly codes recorded)"
+        fatal = fatal or "-"
+        deprecated = ", ".join(_codes(entry.get("deprecations"))) or "-"
+        lines.append(
+            f"| {_cell(name)} | {_cell(entry.get('status', '?'))} | "
+            f"{_cell(entry.get('rows', '?'))} | {_cell(fatal)} | {_cell(deprecated)} | "
+            f"{'yes' if entry.get('ok') else 'no'} |"
+        )
+    flagged = any(_codes(e.get("anomalies")) or e.get("ok") is False for _, e in entries)
+    if report.get("ok") is False and not flagged:
+        lines += ["", "Report-level ok is false but no contract entry is flagged."]
+    return "\n".join(lines) + "\n"
+
+
+def _capped(severity: str, title: str, messages: list[str]) -> list[str]:
+    """Format messages as annotations, aggregating overflow into one ``+N more``."""
+    if len(messages) > _ANNOTATION_CAP:
+        keep = _ANNOTATION_CAP - 1
+        messages = messages[:keep] + [f"+{len(messages) - keep} more (see the step summary)"]
+    prefix = f"::{severity} title={_escape_property(title)}::"
+    return [prefix + _escape_data(m) for m in messages]
+
+
+def annotations(report: dict[str, Any] | None) -> list[str]:
+    """Workflow-command lines: errors for fatal anomalies, warnings for deprecations."""
+    if report is None:
+        return _capped("error", _NO_REPORT_TITLE, [_NO_REPORT_MESSAGE])
+    errors: list[str] = []
+    warnings: list[str] = []
+    for name, entry in _contract_entries(report):
+        fatal = _codes(entry.get("anomalies"))
+        if fatal:
+            errors.append(f"{_clean(name)}: {', '.join(fatal)}")
+        elif entry.get("ok") is False:
+            errors.append(f"{_clean(name)}: not ok")
+        deprecated = _codes(entry.get("deprecations"))
+        if deprecated:
+            warnings.append(f"{_clean(name)}: {', '.join(deprecated)}")
+    if report.get("ok") is False and not errors:
+        errors.append("report-level ok is false but no contract entry is flagged")
+    return _capped("error", _ERROR_TITLE, errors) + _capped("warning", _WARNING_TITLE, warnings)
+
+
+def cmd_summarize(args: argparse.Namespace) -> int:
+    report = load_report(Path(args.report))
+    markdown = render_summary(report)
+    if args.summary_file:
+        with open(args.summary_file, "a", encoding="utf-8") as handle:
+            handle.write(markdown)
+    else:
+        print(markdown, end="")
+    if args.github:
+        for line in annotations(report):
+            print(line)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -229,6 +364,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="report output path (default reports/fmp_canary_<YYYY-MM-DD>.json)",
     )
     canary_parser.set_defaults(func=cmd_canary)
+
+    summarize_parser = sub.add_parser(
+        "summarize", help="render a canary report as step-summary markdown (never gates)"
+    )
+    summarize_parser.add_argument("--report", type=str, required=True, help="canary report path")
+    summarize_parser.add_argument(
+        "--summary-file",
+        type=str,
+        default=None,
+        help="append markdown here (e.g. $GITHUB_STEP_SUMMARY); default: stdout",
+    )
+    summarize_parser.add_argument(
+        "--github",
+        action="store_true",
+        help="also print ::error/::warning workflow annotations to stdout",
+    )
+    summarize_parser.set_defaults(func=cmd_summarize)
 
     return parser
 
