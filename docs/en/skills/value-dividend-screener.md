@@ -217,10 +217,12 @@ stocks = data['stocks']
 - Basic info: `symbol`, `company_name`, `sector`, `market_cap`, `price`
 - Valuation: `dividend_yield`, `pe_ratio`, `pb_ratio`
 - Growth metrics: `dividend_cagr_3y`, `revenue_cagr_3y`, `eps_cagr_3y`
-- Sustainability: `payout_ratio`, `fcf_payout_ratio`, `dividend_sustainable`
+- Sustainability: `payout_ratio`, `fcf_payout_ratio`, `fcf_amount`, `fcf_status`, `fcf_coverage_status`, `sustainability_basis`, `dividend_sustainable`, `sustainability_bonus`, `sustainability_note`
 - Financial health: `debt_to_equity`, `current_ratio`, `financially_healthy`
 - Quality: `roe`, `profit_margin`, `quality_score`
 - Overall ranking: `composite_score`
+
+For non-REITs, the 10-point sustainability bonus requires an earnings payout below 80% and observed FCF strictly above dividends. `fcf_status` distinguishes positive, zero, negative, and missing FCF; `fcf_coverage_status` additionally distinguishes an insufficient positive FCF, exact coverage without a buffer (`AT_LIMIT`), missing dividend data, and no dividend. A negative or zero FCF is an observed shortfall, not a prediction of a dividend cut. For a confirmed REIT, `sustainability_basis: FFO` identifies the sector-specific test; the FCF observation remains visible but is not a veto. Include `sustainability_note` and both statuses in the human report, especially when data is missing.
 
 ### Step 4: Generate Markdown Report
 
