@@ -24,7 +24,7 @@ Snapshot as of: `2026-09-12T00:00:00Z`
 ## Test coverage
 
 - Aggregate coverage target: 75.0%
-- Aggregate coverage floor: 72.0%
+- Aggregate coverage floor: 75.0%
 - Allowed failures: 0 (target 0)
 
 ## End-to-end replay
