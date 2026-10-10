@@ -217,10 +217,12 @@ stocks = data['stocks']
 - 基本情報: `symbol`, `company_name`, `sector`, `market_cap`, `price`
 - バリュエーション: `dividend_yield`, `pe_ratio`, `pb_ratio`
 - 成長指標: `dividend_cagr_3y`, `revenue_cagr_3y`, `eps_cagr_3y`
-- 持続可能性: `payout_ratio`, `fcf_payout_ratio`, `dividend_sustainable`
+- 持続可能性: `payout_ratio`, `fcf_payout_ratio`, `fcf_amount`, `fcf_status`, `fcf_coverage_status`, `sustainability_basis`, `dividend_sustainable`, `sustainability_bonus`, `sustainability_note`
 - 財務健全性: `debt_to_equity`, `current_ratio`, `financially_healthy`
 - 品質: `roe`, `profit_margin`, `quality_score`
 - 総合ランキング: `composite_score`
+
+非REITの持続可能性10点は、利益に対する配当性向が80%未満で、観測されたFCFが配当額を厳密に上回る場合だけ付与します。`fcf_status` はFCFの正・ゼロ・負・欠損を区別し、`fcf_coverage_status` は正のFCFの不足、余裕のない同額カバー（`AT_LIMIT`）、配当データ欠損、配当ゼロも区別します。FCFの赤字やゼロは観測された不足を示しますが、将来の減配を断定するものではありません。確認できたREITでは `sustainability_basis: FFO` を判定基準とし、FCFの状態は参考情報として残します。人向けレポートにも両状態と `sustainability_note` を記載してください。
 
 ### ステップ4: Markdownレポートの生成
 
