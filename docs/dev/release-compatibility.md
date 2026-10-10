@@ -2,7 +2,7 @@
 
 The repository uses stable SemVer tags `vMAJOR.MINOR.PATCH` for the **whole repository**. A tagged release includes every `.skill` archive from that tag, its matching `workflows/` and `skillsets/` source, release notes, and `SHA256SUMS`. Skill packages have no separate versions. Prerelease tags are not published by the automated workflow; GitHub's latest Release therefore points to a stable version.
 
-Increase MAJOR for incompatible skill inputs/outputs, metadata, or workflow contracts; MINOR for backward-compatible skills or workflows; PATCH for backward-compatible fixes and documentation. While major is zero, explain any incompatible change explicitly in the migration guide. Preserve a dated version section in [CHANGELOG.md](../../CHANGELOG.md) with **Skills**, **Workflows**, and **Breaking metadata** entries, even when a category has no changes.
+Increase MAJOR for incompatible skill inputs/outputs, metadata, or workflow contracts; MINOR for backward-compatible skills or workflows; PATCH for backward-compatible fixes and documentation. While major is zero, explain any incompatible change explicitly in the migration guide. Preserve a dated version section in [CHANGELOG.md](https://github.com/tradermonty/claude-trading-skills/blob/main/CHANGELOG.md) with **Skills**, **Workflows**, and **Breaking metadata** entries, even when a category has no changes.
 
 ## Package and manifest compatibility
 
