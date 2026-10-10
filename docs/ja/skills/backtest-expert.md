@@ -276,7 +276,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 | `quality_score` | 品質スコア（`total_score` と同じ0-100点）。採用可否を単独では決めない |
 | `decision` | 採用可否の正式な判定（DEPLOY / REFINE / ABANDON / REJECT / RISK_LIMIT_EXCEEDED / VALIDATION_REQUIRED / NOT_EVALUABLE） |
 | `blocking_reasons` | 判定を止めた理由のID一覧 |
-| `verdict` | 互換性のための従来の Deploy / Refine / Abandon。阻止条件がある場合は Deploy にしない |
+| `verdict` | 互換性のための従来の Deploy / Refine / Abandon。阻止条件がある場合は Deploy にせず、スコアベースの判定より良くならない |
 | `dimensions` | 5次元の個別スコア（各0-20） |
 | `red_flags` | 検出されたレッドフラグのリスト |
 | `expectancy` | 期待値（%/トレード） |
@@ -296,7 +296,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 - **40-69点**: 阻止条件がない場合は `REFINE`
 - **0-39点**: 阻止条件がない場合は `ABANDON`
 
-期待値がゼロ以下、または最大DDが50%以上なら `REJECT`。利用者が設定した50%未満のDD上限を超えた場合は `RISK_LIMIT_EXCEEDED`。30トレード未満は `NOT_EVALUABLE`、スリッページ・コストの検証不足または5年未満の検証は `VALIDATION_REQUIRED` です。個別のDD上限と等しい場合は超過扱いしません。入力が不正、または数値精度の範囲で計算不能な場合は終了コード2となり、成功レポートは生成しません。
+30トレード未満は他のどの条件よりも優先して `NOT_EVALUABLE` になります。それ以外で、期待値がゼロ以下（浮動小数点誤差 1e-9 を許容）または最大DDが50%以上なら `REJECT`。利用者が設定した50%未満のDD上限を超えた場合は `RISK_LIMIT_EXCEEDED`。スリッページ・コストの検証不足または5年未満の検証は `VALIDATION_REQUIRED` です。個別のDD上限と等しい場合は超過扱いしません。入力が不正、または数値精度の範囲で計算不能な場合は終了コード1となり、成功レポートは生成しません。
 
 ---
 

@@ -633,6 +633,57 @@ class TestDecisionGates:
         assert "zero_expectancy" in result["blocking_reasons"]
         assert "negative_expectancy" not in result["blocking_reasons"]
 
+    @pytest.mark.parametrize(
+        ("win_rate", "avg_win", "avg_loss"),
+        [(40, 3, 2), (30, 7, 3)],
+    )
+    def test_float_noise_breakeven_is_zero_expectancy(
+        self, evaluator_module, win_rate, avg_win, avg_loss
+    ):
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=500,
+                win_rate=win_rate,
+                avg_win_pct=avg_win,
+                avg_loss_pct=avg_loss,
+                num_parameters=3,
+            )
+        )
+        assert result["decision"] != "DEPLOY"
+        assert result["decision"] == "REJECT"
+        assert "zero_expectancy" in result["blocking_reasons"]
+        assert "negative_expectancy" not in result["blocking_reasons"]
+        assert result["profit_factor"] == pytest.approx(1.0)
+        # Float-noise profit factor must not earn profit-factor score points.
+        assert evaluator_module.score_risk_management(10, win_rate, avg_win, avg_loss) == 12
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {
+                "total_trades": 0,
+                "win_rate": 40,
+                "avg_win_pct": 1,
+                "avg_loss_pct": 2,
+                "years_tested": 0,
+                "num_parameters": 20,
+                "slippage_tested": False,
+                "max_drawdown_pct": 45,
+            },
+        ],
+    )
+    def test_legacy_verdict_not_better_than_score(self, evaluator_module, overrides):
+        result = evaluator_module.evaluate(**self.inputs(**overrides))
+        assert result["decision"] == "NOT_EVALUABLE"
+        assert evaluator_module.get_verdict(result["quality_score"]) == "Abandon"
+        assert result["verdict"] == "Abandon"
+
+    def test_legacy_verdict_caps_deploy_to_refine(self, evaluator_module):
+        result = evaluator_module.evaluate(**self.inputs(slippage_tested=False))
+        assert result["decision"] == "VALIDATION_REQUIRED"
+        assert evaluator_module.get_verdict(result["quality_score"]) == "Deploy"
+        assert result["verdict"] == "Refine"
+
     @pytest.mark.parametrize("drawdown", [50, 60])
     def test_hard_drawdown_ceiling(self, evaluator_module, drawdown):
         result = evaluator_module.evaluate(
@@ -820,6 +871,6 @@ class TestDecisionGates:
             text=True,
             check=False,
         )
-        assert completed.returncode == 2
+        assert completed.returncode == 1
         assert "NOT_EVALUABLE" in completed.stderr
         assert not list(tmp_path.iterdir())

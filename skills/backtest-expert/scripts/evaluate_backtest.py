@@ -44,6 +44,17 @@ def score_sample_size(total_trades: int) -> int:
     return 20
 
 
+# Float noise (e.g. expectancy 2.2e-16 for 40/3/2, profit factor 1.0000000000000002)
+# must not turn a break-even strategy into a passing one. Metrics are snapped to 9
+# decimals ONLY when compared against thresholds; reported values stay raw.
+_METRIC_DECIMALS = 9
+
+
+def _snap(value: float) -> float:
+    """Round a derived metric for threshold comparison (inf passes through)."""
+    return round(value, _METRIC_DECIMALS)
+
+
 def calc_profit_factor(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -> float:
     """Calculate profit factor: (win_rate * avg_win) / (loss_rate * avg_loss).
 
@@ -74,7 +85,7 @@ def score_expectancy(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -
     0.5..1.5  -> 10..18 (linear)
     >=1.5     -> 20
     """
-    exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
+    exp = _snap(calc_expectancy(win_rate, avg_win_pct, avg_loss_pct))
     if exp <= 0:
         return 0
     if exp < 0.5:
@@ -113,7 +124,7 @@ def score_risk_management(
 
     # Profit factor component (0-8)
     # Continuous: PF 1.0→3.0 maps linearly to 0→8, capped at 8 for PF≥3.0
-    pf = calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct)
+    pf = _snap(calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct))
     if pf < 1.0:
         pf_score = 0
     elif pf >= 3.0:
@@ -246,7 +257,7 @@ def detect_red_flags(
             }
         )
 
-    exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
+    exp = _snap(calc_expectancy(win_rate, avg_win_pct, avg_loss_pct))
     if exp < 0:
         flags.append(
             {
@@ -382,9 +393,10 @@ def evaluate(
         blocking_reasons.append("profit_factor_overflow")
     if total_trades < 30:
         blocking_reasons.append("small_sample")
-    if expectancy < 0:
+    gate_expectancy = _snap(expectancy)
+    if gate_expectancy < 0:
         blocking_reasons.append("negative_expectancy")
-    elif expectancy == 0:
+    elif gate_expectancy == 0:
         blocking_reasons.append("zero_expectancy")
     if max_drawdown_pct >= 50:
         blocking_reasons.append("excessive_drawdown")
@@ -409,12 +421,14 @@ def evaluate(
     else:
         decision = get_verdict(total).upper()
 
+    score_verdict = get_verdict(total)
     if decision == "REJECT":
         verdict = "Abandon"
     elif decision in ("NOT_EVALUABLE", "RISK_LIMIT_EXCEEDED", "VALIDATION_REQUIRED"):
-        verdict = "Refine"
+        # Never better than the score-based verdict: Deploy -> Refine, Abandon stays.
+        verdict = "Abandon" if score_verdict == "Abandon" else "Refine"
     else:
-        verdict = get_verdict(total)
+        verdict = score_verdict
 
     if gross_loss == 0 and gross_profit > 0:
         reported_profit_factor = None
@@ -612,7 +626,7 @@ def main() -> int:
         )
     except ValueError as exc:
         print(f"NOT_EVALUABLE: {exc}", file=sys.stderr)
-        return 2
+        return 1
 
     output_dir = Path(args.output_dir)
     json_path, md_path = write_outputs(result, output_dir)

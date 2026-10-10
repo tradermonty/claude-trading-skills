@@ -99,7 +99,7 @@ The script scores across 5 dimensions and returns `decision` plus `blocking_reas
    - **Robustness (20):** Number of parameters and years tested. Fewer parameters (4 or fewer) and longer test periods (10+ years) score highest.
    - **Execution Realism (20):** Whether slippage and friction were modeled. Testing with slippage is worth full marks; skipping it caps the score.
 3. **Detect red flags** -- Checks too few trades (<30), negative expectancy, over-optimization (7+ parameters), excessive drawdown (>=50%), untested slippage, short test period (<5 years), and unusually good results.
-4. **Apply decision gates** -- `REJECT` for non-positive expectancy or drawdown >=50%; `RISK_LIMIT_EXCEEDED` for a tighter personal cap; `NOT_EVALUABLE` for too few trades or an overflowing profit-factor ratio; `VALIDATION_REQUIRED` for missing slippage/friction testing or a short test period. Only then can the score yield `DEPLOY`, `REFINE`, or `ABANDON`. `DEPLOY` is an analysis result that still needs independent human risk review.
+4. **Apply decision gates** -- `NOT_EVALUABLE` for too few trades (checked first, so it takes precedence over `REJECT`) or an overflowing profit-factor ratio; then `REJECT` for non-positive expectancy or drawdown >=50%; `RISK_LIMIT_EXCEEDED` for a tighter personal cap; `VALIDATION_REQUIRED` for missing slippage/friction testing or a short test period. Only then can the score yield `DEPLOY`, `REFINE`, or `ABANDON`. `DEPLOY` is an analysis result that still needs independent human risk review.
 5. **Output reports** -- JSON and Markdown files are saved to the output directory.
 
 ---
@@ -254,9 +254,9 @@ After execution, the script produces a JSON and Markdown report containing:
 
 4. **Red Flags** -- A list of detected issues, each with severity (Critical, Warning, or Info) and a description.
 5. **Quality Score** -- Sum of all 5 dimensions (0-100), retained even when a safety gate blocks adoption.
-6. **Decision and blocking reasons** -- `DEPLOY`, `REFINE`, `ABANDON`, `REJECT`, `RISK_LIMIT_EXCEEDED`, `VALIDATION_REQUIRED`, or `NOT_EVALUABLE`. Use these fields for the next action. The older `verdict` field remains Deploy/Refine/Abandon for compatibility and never says Deploy when a gate blocks adoption.
+6. **Decision and blocking reasons** -- `DEPLOY`, `REFINE`, `ABANDON`, `REJECT`, `RISK_LIMIT_EXCEEDED`, `VALIDATION_REQUIRED`, or `NOT_EVALUABLE`. Use these fields for the next action. The older `verdict` field remains Deploy/Refine/Abandon for compatibility, never says Deploy when a gate blocks adoption, and is never better than the score-based verdict.
 
-Non-positive expectancy and a drawdown of at least 50% cause `REJECT`. A personal drawdown cap below 50% causes `RISK_LIMIT_EXCEEDED` only when exceeded. Fewer than 30 trades or a profit-factor ratio overflow cause `NOT_EVALUABLE`; missing slippage/friction validation or fewer than five years cause `VALIDATION_REQUIRED`. The score cannot override these gates. `profit_factor: null` with `profit_factor_status: NO_LOSSES` means positive gross profit and no gross losses; `UNDEFINED_ZERO_GROSS` means neither gross profit nor gross losses; `OVERFLOW` means a ratio overflow despite nonzero losses. Invalid or unrepresentable numeric inputs exit with status 2 and no report.
+Fewer than 30 trades or a profit-factor ratio overflow cause `NOT_EVALUABLE`, and this takes precedence over every other gate. Otherwise, non-positive expectancy (within a 1e-9 float tolerance) and a drawdown of at least 50% cause `REJECT`. A personal drawdown cap below 50% causes `RISK_LIMIT_EXCEEDED` only when exceeded. Missing slippage/friction validation or fewer than five years cause `VALIDATION_REQUIRED`. The score cannot override these gates. `profit_factor: null` with `profit_factor_status: NO_LOSSES` means positive gross profit and no gross losses; `UNDEFINED_ZERO_GROSS` means neither gross profit nor gross losses; `OVERFLOW` means a ratio overflow despite nonzero losses. Invalid or unrepresentable numeric inputs exit with status 1 and no report.
 
 ---
 
@@ -344,7 +344,7 @@ Non-positive expectancy and a drawdown of at least 50% cause `REJECT`. A persona
 | Verdict | Meaning | Typical Action |
 |---------|---------|---------------|
 | Deploy | Legacy summary for `decision: DEPLOY` | Consider paper validation and independent human risk review |
-| Refine | Legacy summary for a refinement, personal cap, missing evidence, or unevaluable result | Read `decision` and `blocking_reasons` before acting |
+| Refine | Legacy summary for a refinement, personal cap, missing evidence, or unevaluable result whose score is not in the Abandon range (a score-based Abandon stays Abandon) | Read `decision` and `blocking_reasons` before acting |
 | Abandon | Legacy summary for a rejection or low-score result | Read `decision` and `blocking_reasons` before acting |
 
 ### Common Red Flags
