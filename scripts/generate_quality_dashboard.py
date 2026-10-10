@@ -146,7 +146,8 @@ def compute_metrics(project_root: Path) -> dict[str, Any]:
     allowed_failures = policy.get("allowed_failures") or {}
     agg = policy.get("aggregate_coverage") or {}
     agg_target = agg.get("target")
-    agg_floor = (agg.get("waiver") or {}).get("floor")
+    waiver = agg.get("waiver")
+    agg_floor = waiver.get("floor") if waiver else agg_target
 
     as_of = snapshot.get("as_of", NOT_YET_MEASURED)
     as_of_date = _parse_date(as_of)

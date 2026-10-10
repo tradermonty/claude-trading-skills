@@ -182,6 +182,18 @@ def test_compute_metrics_allowed_failures_from_policy(tmp_path: Path) -> None:
     assert m["aggregate_coverage_floor"] == 72
 
 
+def test_retired_aggregate_waiver_falls_back_to_target(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    _write(
+        root / "config/ci-test-policy.yaml",
+        "aggregate_coverage:\n  target: 75\n  waiver: null\nallowed_failures: {}\n",
+    )
+    m = compute_metrics(root)
+    assert m["aggregate_coverage_target"] == 75
+    assert m["aggregate_coverage_floor"] == 75
+    assert "75.0%" in render_page(m, "en")
+
+
 def test_missing_aggregate_metrics_render_not_yet_measured(tmp_path: Path) -> None:
     root = make_project(tmp_path)
     _write(root / "config/ci-test-policy.yaml", "allowed_failures: {}\n")

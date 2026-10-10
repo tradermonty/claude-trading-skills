@@ -15,6 +15,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from importlib import metadata
 from pathlib import Path
+from typing import TextIO
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -24,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = Path("config/ci-test-policy.yaml")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 POLICY_GATE_ID = "executable-test-policy"
+EXPIRY_URGENT_DAYS = 7
+EXPIRY_WARNING_DAYS = 14
 
 
 class MatrixError(ValueError):
@@ -643,6 +646,7 @@ def _write_reports(
     skill_rows: list[dict[str, object]],
     skipped_allowed_failures: list[str],
     violations: list[str],
+    exception_expiry: list[dict[str, object]],
 ) -> None:
     summary = {
         "schema_version": 1,
@@ -652,6 +656,7 @@ def _write_reports(
         "skills": skill_rows,
         "skipped_allowed_failures": skipped_allowed_failures,
         "violations": violations,
+        "exception_expiry": exception_expiry,
     }
     (output / "per-skill-coverage.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -692,6 +697,12 @@ def _write_reports(
                 *[f"- {entry_id}" for entry_id in skipped_allowed_failures],
             ]
         )
+    expiring = [row for row in exception_expiry if row["status"] != "active"]
+    lines.extend(["", "## Exception expiry", ""])
+    if expiring:
+        lines.extend(f"- {row['status']}: {_expiry_message(row)}" for row in expiring)
+    else:
+        lines.append("No exceptions expire within 14 days.")
     if violations:
         lines.extend(["", "## Violations", "", *[f"- {item}" for item in violations]])
     (output / "per-skill-coverage.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -707,6 +718,72 @@ def _format_exception(value: object) -> str:
     if not isinstance(value, dict):
         return "-"
     return f"#{value['issue']} until {value['expires_on']}"
+
+
+def exception_expiry_report(policy: TestPolicy, today: date) -> list[dict[str, object]]:
+    """List every dated exception with its remaining days and expiry status.
+
+    Unlike the supply-chain exceptions, day 0 is still valid here because ``_expiry``
+    accepts ``expires_on == today``; it is reported as urgent rather than expired.
+    """
+    dated: list[tuple[str, str, DatedException]] = []
+    if policy.aggregate_waiver is not None:
+        dated.append(("aggregate_waiver", "repository", policy.aggregate_waiver))
+    dated.extend(("coverage_waiver", key, item) for key, item in policy.coverage_waivers.items())
+    dated.extend(("allowed_failure", key, item) for key, item in policy.allowed_failures.items())
+    rows: list[dict[str, object]] = []
+    for kind, exception_id, item in dated:
+        # Never negative in practice: load_policy rejects already-expired entries.
+        days = (item.expires_on - today).days
+        if days <= EXPIRY_URGENT_DAYS:
+            status = "urgent"
+        elif days <= EXPIRY_WARNING_DAYS:
+            status = "warning"
+        else:
+            status = "active"
+        rows.append(
+            {
+                "kind": kind,
+                "id": exception_id,
+                "issue": item.issue,
+                "expires_on": item.expires_on.isoformat(),
+                "days_remaining": days,
+                "status": status,
+            }
+        )
+    return sorted(rows, key=lambda row: (row["expires_on"], row["kind"], row["id"]))
+
+
+def _expiry_message(row: dict[str, object]) -> str:
+    return (
+        f"{row['kind'].replace('_', ' ')} {row['id']} (#{row['issue']}) expires on "
+        f"{row['expires_on']} ({row['days_remaining']} days remaining)"
+    )
+
+
+def _escape_workflow_data(value: str) -> str:
+    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _emit_expiry_warnings(rows: list[dict[str, object]], stream: TextIO) -> None:
+    """Print warnings for exceptions nearing expiry; never affects exit codes.
+
+    The runner parses workflow commands on stderr as well, and stderr keeps stdout
+    (captured by CI for the matrix JSON) clean.
+    """
+    on_github = os.environ.get("GITHUB_ACTIONS") == "true"
+    for row in rows:
+        if row["status"] == "active":
+            continue
+        message = _expiry_message(row)
+        if on_github:
+            print(
+                "::warning title=Coverage exception expiring::" + _escape_workflow_data(message),
+                file=stream,
+            )
+        else:
+            label = "URGENT" if row["status"] == "urgent" else "WARNING"
+            print(f"{label}: {message}", file=stream)
 
 
 def aggregate(
@@ -860,6 +937,7 @@ def aggregate(
             }
         )
 
+    expiry_rows = exception_expiry_report(policy, today)
     aggregate_waiver = policy.aggregate_waiver
     aggregate_floor = aggregate_waiver.floor if aggregate_waiver else policy.aggregate_target
     aggregate_actual = (
@@ -894,7 +972,9 @@ def aggregate(
         skill_rows=skill_rows,
         skipped_allowed_failures=skipped_allowed_failures,
         violations=violations,
+        exception_expiry=expiry_rows,
     )
+    _emit_expiry_warnings(expiry_rows, sys.stderr)
     for violation in violations:
         print(f"ERROR: {violation}", file=sys.stderr)
     return 1 if violations else 0
@@ -907,7 +987,7 @@ def _entry(entries: dict[str, TestEntry], entry_id: str) -> TestEntry:
         raise MatrixError(f"unknown test id: {entry_id}") from exc
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, today: date | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("matrix")
@@ -924,12 +1004,14 @@ def main(argv: list[str] | None = None) -> int:
     aggregate_parser.add_argument("--artifacts", type=Path, required=True)
     aggregate_parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
+    today = date.today() if today is None else today
 
     try:
-        policy = load_policy(ROOT)
+        policy = load_policy(ROOT, today=today)
         metadata = load_skill_metadata(ROOT)
         entries = build_entries(ROOT, policy, metadata)
         if args.command == "matrix":
+            _emit_expiry_warnings(exception_expiry_report(policy, today), sys.stderr)
             print(json.dumps(matrix(entries), separators=(",", ":")))
         elif args.command == "list":
             for entry in entries.values():
@@ -941,7 +1023,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "run":
             return run(_entry(entries, args.id), ROOT, args.coverage_dir)
         elif args.command == "aggregate":
-            return aggregate(entries, policy, args.artifacts, args.output)
+            return aggregate(entries, policy, args.artifacts, args.output, today=today)
     except (MatrixError, OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         if args.command == "matrix":
