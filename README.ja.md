@@ -110,8 +110,10 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 初めて利用する場合は、プラン・費用・安全性・機能範囲をまとめた
 [よくある質問](docs/ja/faq.md)を先に確認してください。
 
+更新時は [変更履歴](CHANGELOG.md) と [リリース互換性・移行ポリシー](docs/dev/release-compatibility.md) を確認してください。
+
 ### Claudeウェブアプリで使う場合
-1. 利用したいスキルに対応する`.skill`ファイルを`skill-packages/`からダウンロードします。
+1. [最新のGitHub Release](https://github.com/tradermonty/claude-trading-skills/releases/latest)から利用したいスキルの`.skill`アセットと`SHA256SUMS`をダウンロードし、[リリースポリシー](docs/dev/release-compatibility.md)に従ってハッシュを確認します。Releasesページが空の場合は、下記のソースフォルダの導入方法を使うか、`scripts/package_skills.py`でローカルパッケージを生成してください。
 2. 個人アカウントでは**Settings > Capabilities**を開き、**Code execution and file creation**を有効にします。Team/Enterpriseでは組織オーナーによる有効化が必要な場合があります。
 3. **Customize > Skills**でZIPをアップロードし、一覧への表示を確認して、必要に応じて有効化します（Anthropicの[最新のSkillsヘルプ](https://support.claude.com/en/articles/12512180-use-skills-in-claude)も参照）。
 
