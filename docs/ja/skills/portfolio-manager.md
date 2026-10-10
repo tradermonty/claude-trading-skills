@@ -179,6 +179,17 @@ WebSearchまたは利用可能なマーケットデータAPIで取得：
 
 ---
 
+## 週次レビュー前の読み取り専用照合
+
+`core-portfolio-weekly`では、同一口座の完全なブローカー保有情報と
+ACTIVE・PARTIALLY_CLOSEDのメモリ残数量を、
+[照合ガイド](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/portfolio-manager/references/position-reconciliation.md)
+に従って準備します。`skills/portfolio-manager/scripts/reconcile_positions.py`を
+ローカル実行し、JSON・Markdownのレポートを確認します。`can_continue`がfalse、
+または網羅性・口座帰属・鮮度が未確認なら資産配分・リバランスの確認を停止します。
+この手動ゲートは注文を許可せず、メモリを変更しません。自動exportとreplayへの
+組込みは#493の残作業です。
+
 ## 6. リソース
 
 **リファレンス：**

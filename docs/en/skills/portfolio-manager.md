@@ -177,6 +177,17 @@ Analyze current allocation across multiple dimensions:
 - US vs International vs Emerging Markets
 - Domestic concentration risk assessment
 
+## Read-only reconciliation before weekly review
+
+For `core-portfolio-weekly`, prepare complete, same-account broker and ACTIVE /
+PARTIALLY_CLOSED memory snapshots using the
+[position reconciliation guide](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/portfolio-manager/references/position-reconciliation.md).
+Run `skills/portfolio-manager/scripts/reconcile_positions.py` locally to obtain
+JSON and Markdown reports. Stop allocation and rebalance review when
+`can_continue` is false or completeness, account attribution or freshness is
+unresolved. This offline manual gate does not authorize orders or modify theses;
+automatic exports and replay enforcement remain follow-up work under #493.
+
 **Output Format:**
 ```markdown
 
