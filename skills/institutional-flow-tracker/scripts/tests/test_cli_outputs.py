@@ -53,7 +53,13 @@ def test_missing_key_exits_without_provider_or_files(
     with pytest.raises(SystemExit) as exc:
         module.main()
     assert exc.value.code == 1
-    assert "FMP API key required" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.splitlines() == [
+        "Error: FMP API key required",
+        "Set FMP_API_KEY environment variable or pass --api-key argument",
+        "Get free API key at: https://financialmodelingprep.com/developer/docs",
+    ]
     assert list(tmp_path.iterdir()) == []
 
 
