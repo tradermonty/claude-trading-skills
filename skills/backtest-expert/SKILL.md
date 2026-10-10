@@ -129,7 +129,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
   --output-dir reports/
 ```
 
-The script scores across 5 dimensions (Sample Size, Expectancy, Risk Management, Robustness, Execution Realism), detects red flags, and outputs a Deploy/Refine/Abandon verdict.
+The script scores across 5 dimensions (Sample Size, Expectancy, Risk Management, Robustness, Execution Realism). Treat the machine-readable `decision` and `blocking_reasons` as authoritative. The 0–100 `quality_score` is diagnostic: even a high score cannot override non-positive expectancy, a 50% or greater drawdown, a stricter user-supplied drawdown limit, insufficient trades, missing slippage/friction validation, or a test period shorter than five years. `verdict` remains a conservative Deploy/Refine/Abandon compatibility field. Use `--max-acceptable-drawdown-pct` to set a personal limit below the hard 50% ceiling; equality with the personal limit is allowed. Invalid inputs exit without a report.
 
 ## Key Testing Principles
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Detect backtest iteration stagnation for strategy pivot decisions.
 
-Runs four deterministic triggers against an iteration history file and
-returns a diagnosis with a recommendation of *continue*, *pivot*, or
-*abandon*.  See ``references/stagnation_triggers.md`` for the full
+Runs five deterministic triggers against an iteration history file and
+returns a diagnosis with a recommendation of *continue*, *pivot*,
+*abandon*, or *review_required*. See ``references/stagnation_triggers.md`` for the full
 specification.
 """
 
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -158,8 +159,23 @@ def detect_cost_defeat(eval_data: dict[str, Any]) -> dict | None:
     """
     expectancy = eval_data.get("expectancy", 999)
     profit_factor = eval_data.get("profit_factor", 999)
+    profit_factor_status = eval_data.get("profit_factor_status")
     inputs = eval_data.get("inputs", {})
     slippage_tested = inputs.get("slippage_tested", False)
+
+    if (
+        profit_factor is None
+        or not isinstance(profit_factor, (int, float))
+        or not math.isfinite(profit_factor)
+    ):
+        if profit_factor_status == "NO_LOSSES":
+            return None
+        return {
+            "trigger": "insufficient_profit_factor",
+            "severity": "high",
+            "evidence": {"profit_factor_status": profit_factor_status or "UNKNOWN"},
+            "message": "Profit factor is undefined or overflowed; cost resilience cannot be assessed",
+        }
 
     if expectancy < 0.3 and profit_factor < 1.3 and slippage_tested:
         return {
@@ -214,14 +230,22 @@ def _determine_recommendation(
     triggers_fired: list[dict],
     score_trajectory: list[int],
     iteration_count: int,
+    latest_decision: str = "",
 ) -> str:
     """Apply the recommendation decision table (priority order).
 
-    1. ``abandon`` -- iterations >= 3, latest score < 30, last-3 monotonically
+    1. ``review_required`` -- latest evaluation is not evaluable or its profit
+       factor cannot be assessed.
+    2. ``abandon`` -- iterations >= 3, latest score < 30, last-3 monotonically
        non-increasing.
-    2. ``pivot`` -- at least one trigger fired.
-    3. ``continue`` -- default.
+    3. ``pivot`` -- at least one actionable trigger fired.
+    4. ``continue`` -- default.
     """
+    if latest_decision == "NOT_EVALUABLE" or any(
+        trigger["trigger"] == "insufficient_profit_factor" for trigger in triggers_fired
+    ):
+        return "review_required"
+
     # Priority 1: abandon
     if iteration_count >= 3 and score_trajectory[-1] < 30 and len(score_trajectory) >= 3:
         last_3 = score_trajectory[-3:]
@@ -276,7 +300,9 @@ def run_all_triggers(
     score_trajectory = [it["eval"]["total_score"] for it in iterations]
 
     # Recommendation
-    recommendation = _determine_recommendation(triggers_fired, score_trajectory, len(iterations))
+    recommendation = _determine_recommendation(
+        triggers_fired, score_trajectory, len(iterations), latest_eval.get("decision", "")
+    )
 
     # Dimension scores summary from latest eval
     dim_scores: dict[str, int] = {}
@@ -285,7 +311,7 @@ def run_all_triggers(
 
     return {
         "strategy_id": history["strategy_id"],
-        "stagnation_detected": recommendation != "continue",
+        "stagnation_detected": recommendation in ("pivot", "abandon"),
         "triggers_fired": triggers_fired,
         "iteration_count": len(iterations),
         "score_trajectory": score_trajectory,
@@ -296,6 +322,9 @@ def run_all_triggers(
             "red_flag_ids": get_red_flag_ids(latest_eval),
             "expectancy": latest_eval.get("expectancy"),
             "profit_factor": latest_eval.get("profit_factor"),
+            "profit_factor_status": latest_eval.get("profit_factor_status"),
+            "decision": latest_eval.get("decision"),
+            "blocking_reasons": latest_eval.get("blocking_reasons", []),
             "max_drawdown_pct": latest_inputs.get("max_drawdown_pct"),
             "slippage_tested": latest_inputs.get("slippage_tested"),
         },

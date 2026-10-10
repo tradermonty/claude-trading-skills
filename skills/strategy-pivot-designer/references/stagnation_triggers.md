@@ -1,6 +1,6 @@
 # Stagnation Triggers
 
-Four deterministic triggers detect when a strategy's backtest iteration loop has stalled. Each trigger maps directly to fields in `evaluate_backtest.py` output accumulated in an iteration history file.
+Five deterministic triggers detect when a strategy's backtest iteration loop has stalled. Each trigger maps directly to fields in `evaluate_backtest.py` output accumulated in an iteration history file.
 
 ## Field Reference Mapping
 
@@ -12,7 +12,8 @@ Four deterministic triggers detect when a strategy's backtest iteration loop has
 | Robustness dim score | `eval.dimensions` (lookup by `name == "Robustness"`) | int |
 | red_flag IDs | `[f["id"] for f in eval.red_flags]` | list[str] |
 | expectancy | `eval.expectancy` | float |
-| profit_factor | `eval.profit_factor` | float |
+| profit_factor | `eval.profit_factor` | float or null |
+| profit_factor_status | `eval.profit_factor_status` | `FINITE`, `NO_LOSSES`, `UNDEFINED_ZERO_GROSS`, or `OVERFLOW` |
 | slippage_tested | `eval.inputs.slippage_tested` | bool |
 | max_drawdown_pct | `eval.inputs.max_drawdown_pct` | float |
 
@@ -69,9 +70,22 @@ Four deterministic triggers detect when a strategy's backtest iteration loop has
 
 **Minimum iterations**: 2 (requires slippage to have been tested, which implies at least one refinement cycle).
 
+If `profit_factor` is null with `NO_LOSSES`, this trigger does not fire: positive gross profit with no gross losses is not evidence of cost defeat. Other null, non-finite, or unknown profit-factor values cannot support the ratio comparison and instead fire `insufficient_profit_factor` (high severity). This includes zero gross wins/losses and ratio overflow. Older evaluations without `profit_factor_status` are treated as unknown when their ratio is null.
+
 ---
 
-## Trigger 4: Tail Risk
+## Trigger 4: Insufficient Profit Factor
+
+**ID**: `insufficient_profit_factor`
+**Severity**: high
+
+**Condition**: At least two iterations and the latest profit factor is unavailable or non-finite, except an explicit `NO_LOSSES` result.
+
+**Rationale**: The cost-defeat comparison cannot be made reliably. The reported status is retained as evidence for manual review. The diagnosis recommends `review_required`, with `stagnation_detected: false`, and pivot generation stops until a valid evaluation is available.
+
+---
+
+## Trigger 5: Tail Risk
 
 **ID**: `tail_risk`
 **Severity**: high
@@ -92,8 +106,9 @@ Evaluated in priority order (first match wins):
 
 | Priority | Condition | Recommendation |
 |----------|-----------|---------------|
-| 1 | Latest `total_score` < 30 AND `iterations >= 3` AND score trajectory (last 3) is monotonically non-increasing | `abandon` |
-| 2 | `triggers_fired` has at least 1 entry | `pivot` |
-| 3 | None of the above | `continue` |
+| 1 | Latest evaluation has `decision: NOT_EVALUABLE` or `insufficient_profit_factor` | `review_required` |
+| 2 | Latest `total_score` < 30 AND `iterations >= 3` AND score trajectory (last 3) is monotonically non-increasing | `abandon` |
+| 3 | An actionable trigger fired | `pivot` |
+| 4 | None of the above | `continue` |
 
 **Note**: `abandon` is evaluated first. This catches cases where scores are consistently terrible but may not trip any specific trigger threshold (e.g., all scores hovering around 25 with no single trigger matching).
