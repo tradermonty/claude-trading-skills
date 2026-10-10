@@ -19,6 +19,7 @@ import json
 import math
 import sys
 from datetime import datetime
+from decimal import Decimal, localcontext
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -45,14 +46,20 @@ def score_sample_size(total_trades: int) -> int:
 
 
 # Float noise (e.g. expectancy 2.2e-16 for 40/3/2, profit factor 1.0000000000000002)
-# must not turn a break-even strategy into a passing one. Metrics are snapped to 9
-# decimals ONLY when compared against thresholds; reported values stay raw.
-_METRIC_DECIMALS = 9
+# must not turn a break-even strategy into a passing one. Cancellation error grows
+# with input magnitude, so no fixed tolerance is safe: the sign is computed exactly
+# in decimal from the inputs as the user wrote them. Reported values stay raw floats.
+def _exact(value: float) -> Decimal:
+    return Decimal(repr(float(value)))
 
 
-def _snap(value: float) -> float:
-    """Round a derived metric for threshold comparison (inf passes through)."""
-    return round(value, _METRIC_DECIMALS)
+def expectancy_sign(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -> int:
+    """Exact sign (-1, 0, 1) of win_rate * avg_win - (100 - win_rate) * avg_loss."""
+    wr = _exact(win_rate)
+    with localcontext() as ctx:
+        ctx.prec = 100
+        value = wr * _exact(avg_win_pct) - (Decimal(100) - wr) * _exact(avg_loss_pct)
+    return (value > 0) - (value < 0)
 
 
 def calc_profit_factor(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -> float:
@@ -85,9 +92,9 @@ def score_expectancy(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -
     0.5..1.5  -> 10..18 (linear)
     >=1.5     -> 20
     """
-    exp = _snap(calc_expectancy(win_rate, avg_win_pct, avg_loss_pct))
-    if exp <= 0:
+    if expectancy_sign(win_rate, avg_win_pct, avg_loss_pct) <= 0:
         return 0
+    exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
     if exp < 0.5:
         return 5 + int(exp / 0.5 * 5)
     if exp < 1.5:
@@ -124,8 +131,9 @@ def score_risk_management(
 
     # Profit factor component (0-8)
     # Continuous: PF 1.0→3.0 maps linearly to 0→8, capped at 8 for PF≥3.0
-    pf = _snap(calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct))
-    if pf < 1.0:
+    # PF > 1 exactly when expectancy > 0, so the break-even edge uses the exact sign.
+    pf = calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct)
+    if expectancy_sign(win_rate, avg_win_pct, avg_loss_pct) <= 0:
         pf_score = 0
     elif pf >= 3.0:
         pf_score = 8
@@ -257,8 +265,8 @@ def detect_red_flags(
             }
         )
 
-    exp = _snap(calc_expectancy(win_rate, avg_win_pct, avg_loss_pct))
-    if exp < 0:
+    exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
+    if expectancy_sign(win_rate, avg_win_pct, avg_loss_pct) < 0:
         flags.append(
             {
                 "id": "negative_expectancy",
@@ -393,10 +401,10 @@ def evaluate(
         blocking_reasons.append("profit_factor_overflow")
     if total_trades < 30:
         blocking_reasons.append("small_sample")
-    gate_expectancy = _snap(expectancy)
-    if gate_expectancy < 0:
+    sign = expectancy_sign(win_rate, avg_win_pct, avg_loss_pct)
+    if sign < 0:
         blocking_reasons.append("negative_expectancy")
-    elif gate_expectancy == 0:
+    elif sign == 0:
         blocking_reasons.append("zero_expectancy")
     if max_drawdown_pct >= 50:
         blocking_reasons.append("excessive_drawdown")

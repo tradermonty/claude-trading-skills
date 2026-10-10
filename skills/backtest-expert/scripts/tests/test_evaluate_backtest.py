@@ -635,7 +635,13 @@ class TestDecisionGates:
 
     @pytest.mark.parametrize(
         ("win_rate", "avg_win", "avg_loss"),
-        [(40, 3, 2), (30, 7, 3)],
+        [
+            (40, 3, 2),
+            (30, 7, 3),
+            # Large magnitudes: cancellation error exceeds any fixed absolute tolerance.
+            (30, 3_500_000_000, 1_500_000_000),
+            (40.1, 59.9, 40.1),
+        ],
     )
     def test_float_noise_breakeven_is_zero_expectancy(
         self, evaluator_module, win_rate, avg_win, avg_loss
@@ -656,6 +662,33 @@ class TestDecisionGates:
         assert result["profit_factor"] == pytest.approx(1.0)
         # Float-noise profit factor must not earn profit-factor score points.
         assert evaluator_module.score_risk_management(10, win_rate, avg_win, avg_loss) == 12
+        assert evaluator_module.score_expectancy(win_rate, avg_win, avg_loss) == 0
+
+    def test_tiny_true_positive_expectancy_is_not_blocked(self, evaluator_module):
+        # 0.4 * 3 - 0.6 * 1.9999999999 = 6e-11 > 0: a sign test must not round it away.
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=500,
+                win_rate=40,
+                avg_win_pct=3,
+                avg_loss_pct=1.9999999999,
+                num_parameters=3,
+            )
+        )
+        assert "zero_expectancy" not in result["blocking_reasons"]
+        assert "negative_expectancy" not in result["blocking_reasons"]
+
+    def test_tiny_true_negative_expectancy_is_negative(self, evaluator_module):
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=500,
+                win_rate=40,
+                avg_win_pct=3,
+                avg_loss_pct=2.0000000001,
+                num_parameters=3,
+            )
+        )
+        assert "negative_expectancy" in result["blocking_reasons"]
 
     @pytest.mark.parametrize(
         "overrides",
