@@ -1,13 +1,24 @@
 name: FMP contract canary
 
-# Weekly live probe for issue #332 (report-only until a promotion issue
-# makes it fail-closed — mirrors the packaged-deps-nightly / #349 pattern):
-# probes the FMP endpoints covered by config/provider-contracts/fmp/
+# Weekly live probe for issue #332 (drift is report-only until a promotion
+# issue makes it fail-closed — mirrors the packaged-deps-nightly / #349
+# pattern): probes the FMP endpoints covered by config/provider-contracts/fmp/
 # and scores the live response against the recorded contract, catching the
 # #328 failure class (HTTP 200, field renamed/removed) before a consumer
 # skill goes silently empty. PRs run the offline `check` subcommand instead
 # (see ci.yml's "Provider contract check" step); this workflow is the only
 # place that calls the live FMP API for this gate.
+#
+# Three visible states, never a silent green:
+#   * configured     FMP_API_KEY secret set      -> `canary` probes; anomalies
+#                    are report-only (continue-on-error) but surfaced as a step
+#                    summary table plus ::error / ::warning annotations.
+#   * disabled       secret unset and repository variable FMP_CANARY_ENABLED is
+#                    false/0 (any case) -> `preflight` passes with a notice.
+#   * not configured secret unset and no opt-out -> `preflight` FAILS (red run,
+#                    so GitHub's scheduled-workflow failure notice fires).
+# `preflight` is skipped on forks (repository guard below; update the slug if
+# the repository is renamed or transferred), which also skips `canary`.
 
 on:
   schedule:
@@ -18,8 +29,55 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    name: Canary configuration check
+    if: github.repository == 'tradermonty/claude-trading-skills'
+    runs-on: ubuntu-latest
+    outputs:
+      run_canary: ${{ steps.gate.outputs.run_canary }}
+      state: ${{ steps.gate.outputs.state }}
+    steps:
+      - name: Decide whether the live canary can run
+        id: gate
+        env:
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+          FMP_CANARY_ENABLED: ${{ vars.FMP_CANARY_ENABLED }}
+        run: |
+          if [ -n "$FMP_API_KEY" ]; then
+            echo "run_canary=true" >> "$GITHUB_OUTPUT"
+            echo "state=configured" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "run_canary=false" >> "$GITHUB_OUTPUT"
+          enabled="$(printf '%s' "$FMP_CANARY_ENABLED" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          if [ "$enabled" = "false" ] || [ "$enabled" = "0" ]; then
+            echo "state=disabled" >> "$GITHUB_OUTPUT"
+            echo "::notice title=FMP canary disabled::FMP_CANARY_ENABLED is false; no live contract probe ran"
+            {
+              echo "## FMP contract canary: disabled"
+              echo
+              echo "FMP_API_KEY is not set and the repository variable FMP_CANARY_ENABLED opts out. No live contract probe ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "state=not_configured" >> "$GITHUB_OUTPUT"
+          echo "::error title=FMP canary not configured::FMP_API_KEY secret is not set; no live contract probe ran"
+          {
+            echo "## FMP contract canary: NOT CONFIGURED"
+            echo
+            echo "No live contract probe ran because the FMP_API_KEY secret is not set."
+            echo
+            echo "Fix it in one of two ways:"
+            echo
+            echo "- Add a repository secret named FMP_API_KEY (a dedicated low-quota key is recommended)."
+            echo "- Or opt out explicitly with a repository variable FMP_CANARY_ENABLED set to false."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
   canary:
     name: Live FMP contract probe (report-only)
+    needs: preflight
+    if: needs.preflight.result == 'success' && needs.preflight.outputs.run_canary == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -30,38 +88,34 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Check FMP_API_KEY secret is present
-        id: key_check
-        env:
-          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
-        run: |
-          if [ -z "$FMP_API_KEY" ]; then
-            echo "SKIPPED: FMP_API_KEY secret not set"
-            echo "has_key=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_key=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Set up uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.10"
       - name: Sync locked project environment
-        if: steps.key_check.outputs.has_key == 'true'
         run: |
           uv sync --locked --no-install-project --extra dev --extra ci
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run canary
-        if: steps.key_check.outputs.has_key == 'true'
         env:
           FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
         run: |
           python3 scripts/check_provider_contracts.py canary \
             --report reports/fmp-canary-report.json
 
+      - name: Summarize canary report
+        if: always()
+        # Stdlib-only subcommand: runs with plain python3 even if the uv sync failed.
+        run: |
+          python3 scripts/check_provider_contracts.py summarize \
+            --report reports/fmp-canary-report.json \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --github \
+            || echo "::error title=FMP canary summarize failed::see job log"
+
       - name: Upload canary report
-        if: always() && steps.key_check.outputs.has_key == 'true'
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fmp-canary-report

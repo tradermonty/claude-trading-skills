@@ -344,10 +344,27 @@ Sanitization checklist before pasting the result into a `fixture` array:
 
 `.github/workflows/fmp-contract-canary.yml` runs
 `python3 scripts/check_provider_contracts.py canary` weekly (Monday 12:00 UTC) plus
-on `workflow_dispatch`. It is **report-only** (`continue-on-error: true`,
-mirroring the `packaged-deps-nightly` / #349 pattern): a live anomaly does not fail
-CI on its own today. If `secrets.FMP_API_KEY` is unset, the job prints
-`SKIPPED: FMP_API_KEY secret not set` and exits 0 without probing anything.
+on `workflow_dispatch`. Drift is **report-only** (the `canary` job has
+`continue-on-error: true`, mirroring the `packaged-deps-nightly` / #349 pattern): a
+live anomaly does not fail CI on its own today. It is still visible: a `summarize` step
+(`if: always()`) writes a per-contract table to the run summary and emits `::error` /
+`::warning` annotations (capped at 10 per severity, overflow aggregated as `+N more`).
+
+The workflow has two jobs and three visible states, so "not configured" can never look
+like a pass:
+
+| State | Condition | `preflight` result |
+|---|---|---|
+| configured | `secrets.FMP_API_KEY` is set | passes; `canary` probes |
+| disabled | secret unset and repository variable `FMP_CANARY_ENABLED` is `false` or `0` (any case) | passes with a `::notice`; `canary` is skipped |
+| not configured | secret unset, no opt-out | **fails** with `::error` and a step-summary how-to; the run turns red |
+
+Setup: add a repository secret `FMP_API_KEY` (a dedicated low-quota key is
+recommended), or opt out explicitly with the repository variable
+`FMP_CANARY_ENABLED=false`. `preflight` carries a repository guard
+(`github.repository == 'tradermonty/claude-trading-skills'`) so forks with schedules
+enabled are not red every Monday; update the slug if the repository is renamed or
+transferred. If `preflight` is skipped or fails, `canary` does not run.
 
 Report (`reports/fmp-canary-report.json` in CI, uploaded as an artifact for 30
 days; default local path `reports/fmp_canary_<YYYY-MM-DD>.json`, override with
@@ -505,6 +522,12 @@ python3 scripts/check_provider_contracts.py check
 # auth), scores the response, writes a JSON report, exits 1 if any contract
 # is not ok.
 python3 scripts/check_provider_contracts.py canary [--max-calls N] [--report PATH]
+
+# Render a canary report as markdown (stdout, or appended to --summary-file such as
+# $GITHUB_STEP_SUMMARY). --github also prints ::error / ::warning annotations to
+# stdout. Stdlib only. Exits 0 for missing/malformed reports (report problems never gate);
+# argument or write errors exit non-zero.
+python3 scripts/check_provider_contracts.py summarize --report PATH [--summary-file PATH] [--github]
 ```
 
 ## S&P 500 constituent recording and consumer boundary
