@@ -264,6 +264,45 @@ def test_main_refuses_specified_missing_even_with_auto_detect(tmp_path, monkeypa
     assert "was not found and will not fall back to another source" in captured.err
 
 
+@pytest.mark.parametrize("source", ["--terminal-path", "config.terminal_path", "MT5_TERMINAL_PATH"])
+def test_main_missing_terminal_reports_winning_source_without_fallback(
+    tmp_path, monkeypatch, capsys, source
+):
+    existing = _program_files_terminal(tmp_path, monkeypatch)
+    config = _bot_config(tmp_path)
+    missing = str(tmp_path / "missing folder" / "terminal64.exe")
+    cfg = json.loads(config.read_text(encoding="utf-8"))
+    args = [
+        "--config",
+        str(config),
+        "--output-dir",
+        str(tmp_path / "output"),
+        "--allow-auto-detect",
+    ]
+    if source == "--terminal-path":
+        args.extend(["--terminal-path", missing])
+        cfg["terminal_path"] = str(existing)
+        monkeypatch.setenv("MT5_TERMINAL_PATH", str(existing))
+    elif source == "config.terminal_path":
+        cfg["terminal_path"] = missing
+        monkeypatch.setenv("MT5_TERMINAL_PATH", str(existing))
+    else:
+        monkeypatch.setenv("MT5_TERMINAL_PATH", missing)
+    config.write_text(json.dumps(cfg), encoding="utf-8")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Missing supplied path must never discover or launch a terminal")
+
+    monkeypatch.setattr(batch, "auto_candidates", forbidden)
+    monkeypatch.setattr(batch.subprocess, "Popen", forbidden)
+    assert main(args) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert f"Selected {source}: {missing!r}" in captured.err
+    assert "will not fall back" in captured.err
+    assert not (tmp_path / "output" / "state.json").exists()
+
+
 # --- finalist decision ---------------------------------------------------
 
 
@@ -382,7 +421,18 @@ def test_backtest_ini_optimization_0_with_inputs(tmp_path):
     assert "StopLossCoef1=1" in ini
 
 
-def test_dry_run_generates_per_symbol_backtests_with_relative_reports(tmp_path):
+@pytest.mark.parametrize("supplied_path", [False, True])
+def test_dry_run_generates_per_symbol_backtests_with_relative_reports(
+    tmp_path, monkeypatch, supplied_path
+):
+    monkeypatch.delenv("MT5_TERMINAL_PATH", raising=False)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Dry-run must not resolve or launch a terminal")
+
+    monkeypatch.setattr(batch, "find_terminal", forbidden)
+    monkeypatch.setattr(batch, "auto_candidates", forbidden)
+    monkeypatch.setattr(batch.subprocess, "Popen", forbidden)
     candidates = tmp_path / "MQL5" / "Experts" / "candidates"
     candidates.mkdir(parents=True)
     (candidates / "Bot.ex5").write_bytes(b"")
@@ -398,7 +448,10 @@ def test_dry_run_generates_per_symbol_backtests_with_relative_reports(tmp_path):
     )
     output = tmp_path / "output"
 
-    assert main(["--config", str(config), "--output-dir", str(output), "--dry-run"]) == 0
+    args = ["--config", str(config), "--output-dir", str(output), "--dry-run"]
+    if supplied_path:
+        args.extend(["--terminal-path", str(tmp_path / "missing" / "terminal64.exe")])
+    assert main(args) == 0
 
     inis = sorted((output / "mt5_ini").glob("*.ini"))
     assert [path.name for path in inis] == [

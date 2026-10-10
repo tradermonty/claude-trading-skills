@@ -512,9 +512,11 @@ Examples:
 
     # Validate API key
     if not args.api_key:
-        print("Error: FMP API key required")
-        print("Set FMP_API_KEY environment variable or pass --api-key argument")
-        print("Get free API key at: https://financialmodelingprep.com/developer/docs")
+        print("Error: FMP API key required", file=sys.stderr)
+        print("Set FMP_API_KEY environment variable or pass --api-key argument", file=sys.stderr)
+        print(
+            "Get free API key at: https://financialmodelingprep.com/developer/docs", file=sys.stderr
+        )
         sys.exit(1)
 
     # Initialize tracker

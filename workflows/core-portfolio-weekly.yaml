@@ -69,9 +69,18 @@ steps:
       - allocation_report
     decision_gate: true
     decision_question: >-
-      Are sector and single-name concentrations within target bands? If not,
+      Before allocation review, run portfolio-manager/scripts/reconcile_positions.py
+      on complete, same-account broker and ACTIVE / PARTIALLY_CLOSED memory snapshots
+      per portfolio-manager/references/position-reconciliation.md. Retain the JSON
+      and Markdown reconciliation_report. Stop here if can_continue is false or
+      completeness, account attribution or freshness is unresolved. After a verified
+      match, are sector and single-name concentrations within target bands? If not,
       what specific reallocation does the trader propose?
     decision_question_ja: >-
+      資産配分の確認前に、同一口座の完全なブローカー保有情報とACTIVE・
+      PARTIALLY_CLOSEDのメモリ残数量をreconcile_positions.pyで照合し、
+      JSON・Markdownのreconciliation_reportを保存する。can_continueがfalse、
+      または網羅性・口座帰属・鮮度が未確認ならここで停止する。一致を確認後、
       セクター別および個別銘柄の集中度は目標範囲内か。範囲外の場合、
       トレーダーはどのような具体的な再配分を提案するか。
 
@@ -114,10 +123,14 @@ steps:
     decision_gate: false
 
 manual_review:
+  - Require a verified reconciliation_report before allocation or rebalance review; resolve discrepancies manually and rerun the comparison.
+  - Reconciliation is currently a manual gate; historical replay fixtures do not execute or enforce it.
   - Confirm holdings snapshot reflects the actual brokerage state (Alpaca or CSV).
   - Confirm rebalance actions are entered manually at the broker, not auto-executed.
   - If dividend_review_findings flags T1-T5 issues, defer additional buys until resolved.
 manual_review_ja:
+  - 資産配分・リバランスの確認前に照合レポートの一致を確認し、不一致は手動で解決して再照合する。
+  - 照合は現時点で手動ゲートであり、既存replayのfixtureはこのゲートを実行・強制しない。
   - 保有銘柄のスナップショットが実際の証券口座（AlpacaまたはCSV）の状態を反映していることを確認する。
   - リバランス注文はブローカーで手動入力し、自動執行されないことを確認する。
   - dividend_review_findings がT1-T5の問題を示した場合、解決するまで買い増しを見送る。

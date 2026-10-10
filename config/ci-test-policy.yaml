@@ -4,12 +4,7 @@ schema_version: 1
 # are excluded from both per-skill and repository aggregates.
 aggregate_coverage:
   target: 75
-  waiver:
-    floor: 72
-    target: 75
-    expires_on: "2026-10-31"
-    issue: 293
-    reason: Cross-platform executable-code coverage is below the 75% target.
+  waiver: null
 
 coverage:
   default_target: 70
@@ -25,93 +20,87 @@ coverage:
     breadth-chart-analyst:
       floor: 25
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     canslim-screener:
       floor: 48
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     dividend-growth-pullback-screener:
       floor: 39
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     downtrend-duration-analyzer:
       floor: 46
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     edge-candidate-agent:
       floor: 40
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     edge-strategy-designer:
       floor: 47
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     ibd-distribution-day-monitor:
-      floor: 38
+      floor: 44
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     pair-trade-screener:
       floor: 56
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
-    signal-postmortem:
-      floor: 40
-      target: 70
-      expires_on: "2026-10-31"
-      issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     skill-designer:
       floor: 47
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     stockbee-episodic-pivot-analyzer:
       floor: 59
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     stockbee-exhaustion-hammer-screener:
       floor: 59
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     stockbee-momentum-burst-screener:
       floor: 57
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     stockbee-setup-fluency-trainer:
       floor: 53
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     value-dividend-screener:
       floor: 34
       target: 70
-      expires_on: "2026-10-31"
+      expires_on: "2027-01-31"
       issue: 293
-      reason: Ratchet from the 2026-08-10 executable-code baseline.
+      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
 
 # Runtime exceptions are data, not code. Every entry must carry a future
 # expiry, linked issue, and reason. There are currently no allowed failures.

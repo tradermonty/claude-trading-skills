@@ -148,7 +148,12 @@ This is a declaration example, not an enabled bundled workflow. Each declared
 ID must be produced by that step and have a canonical `.json`, `.yaml`, or
 `.yml` file containing a top-level object with `data_provenance`. Unknown IDs,
 duplicate declarations, missing canonical roles and other file types fail spec
-validation before execution. Producer declarations follow the artifact into
+validation before execution. Each ID may be declared only once across the entire
+replay spec, including optional steps that the selected variant does not execute.
+Cross-step duplicates report the artifact ID and both declaring step numbers,
+even when their canonical output paths differ. This declaration check adds no
+restriction to ordinary workflow `produces` entries; existing runtime artifact
+integrity checks still apply. Producer declarations follow the artifact into
 consumers and final validation, independent of mutable runtime bundles.
 
 `scripts/workflow_replay.py` calls the shared validator before completing the

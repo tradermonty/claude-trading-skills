@@ -22,7 +22,9 @@ import argparse
 import csv
 import io
 import json
+import math
 import os
+import re
 import sys
 import time
 from datetime import datetime, timedelta
@@ -455,25 +457,35 @@ class StockAnalyzer:
     """Analyzes stock data and calculates scores"""
 
     @staticmethod
+    def _finite_amount(value: object) -> Optional[float]:
+        """Return a financial amount only when it is numeric and finite."""
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        try:
+            amount = float(value)
+        except OverflowError:
+            return None
+        return amount if math.isfinite(amount) else None
+
+    @staticmethod
     def is_reit(stock_data: dict) -> bool:
         """
-        Determine if a stock is a REIT based on sector/industry.
+        Determine if a stock is a REIT from an explicit flag or industry.
 
         Args:
-            stock_data: Dict containing sector and/or industry fields
+            stock_data: Dict containing isReit and/or industry fields
 
         Returns:
             True if the stock is likely a REIT
         """
-        sector = stock_data.get("sector", "") or ""
         industry = stock_data.get("industry", "") or ""
 
-        sector_lower = sector.lower()
         industry_lower = industry.lower()
-
-        if "real estate" in sector_lower:
+        if stock_data.get("isReit") is True:
             return True
-        if "reit" in industry_lower:
+        if re.search(
+            r"\breits?\b|\breal estate investment trusts?\b", industry_lower
+        ) and not re.search(r"\bnon[- ]reits?\b", industry_lower):
             return True
 
         return False
@@ -495,13 +507,12 @@ class StockAnalyzer:
             return None
 
         latest_cf = cash_flows[0]
-        net_income = latest_cf.get("netIncome", 0)
-        depreciation = latest_cf.get("depreciationAndAmortization", 0)
-
-        if net_income == 0 and depreciation == 0:
+        net_income = StockAnalyzer._finite_amount(latest_cf.get("netIncome"))
+        depreciation = StockAnalyzer._finite_amount(latest_cf.get("depreciationAndAmortization"))
+        if net_income is None or depreciation is None:
             return None
-
-        return net_income + depreciation
+        ffo = net_income + depreciation
+        return ffo if math.isfinite(ffo) else None
 
     @staticmethod
     def calculate_ffo_payout_ratio(cash_flows: list[dict]) -> Optional[float]:
@@ -524,12 +535,11 @@ class StockAnalyzer:
             return None
 
         latest_cf = cash_flows[0]
-        dividends_paid = abs(latest_cf.get("dividendsPaid", 0))
-
-        if dividends_paid <= 0:
+        raw_dividends = StockAnalyzer._finite_amount(latest_cf.get("dividendsPaid"))
+        if raw_dividends is None or raw_dividends == 0:
             return None
-
-        return round((dividends_paid / ffo) * 100, 1)
+        payout = (abs(raw_dividends) / ffo) * 100
+        return payout if math.isfinite(payout) else None
 
     @staticmethod
     def calculate_cagr(start_value: float, end_value: float, years: int) -> Optional[float]:
@@ -664,42 +674,125 @@ class StockAnalyzer:
         Returns:
             Dict with payout_ratio, fcf_payout_ratio, and sustainable flag
         """
-        result = {"payout_ratio": None, "fcf_payout_ratio": None, "sustainable": False}
+        result = {
+            "payout_ratio": None,
+            "fcf_payout_ratio": None,
+            "fcf_amount": None,
+            "fcf_status": "MISSING_DATA",
+            "fcf_coverage_status": "MISSING_DATA",
+            "sustainability_basis": "FFO" if is_reit else "EARNINGS_AND_FCF",
+            "sustainable": False,
+            "sustainability_note": "Required cash-flow data is unavailable; sustainability cannot be confirmed.",
+        }
 
         if not cash_flows:
             return result
 
         latest_cf = cash_flows[0]
-        dividends_paid = abs(latest_cf.get("dividendsPaid", 0))
+        raw_dividends = StockAnalyzer._finite_amount(latest_cf.get("dividendsPaid"))
+        dividends_paid = abs(raw_dividends) if raw_dividends is not None else None
+
+        operating_cf = StockAnalyzer._finite_amount(latest_cf.get("operatingCashFlow"))
+        capex = StockAnalyzer._finite_amount(latest_cf.get("capitalExpenditure"))
+        if operating_cf is not None and capex is not None:
+            fcf = operating_cf - abs(capex)
+            if math.isfinite(fcf):
+                result["fcf_amount"] = fcf
+                result["fcf_status"] = "POSITIVE" if fcf > 0 else "NEGATIVE" if fcf < 0 else "ZERO"
+
+        if dividends_paid is None:
+            result["sustainability_note"] = (
+                "Dividend payment data is unavailable; sustainability cannot be confirmed."
+            )
+            return result
+        if dividends_paid == 0:
+            result["fcf_coverage_status"] = "NO_DIVIDEND"
+            result["sustainability_note"] = (
+                "No dividend payment was reported; no sustainability bonus is awarded."
+            )
+            return result
+
+        fcf = result["fcf_amount"]
+        if fcf is not None:
+            if fcf < 0:
+                result["fcf_coverage_status"] = "NEGATIVE_FCF"
+            elif fcf == 0:
+                result["fcf_coverage_status"] = "ZERO_FCF"
+            elif fcf < dividends_paid:
+                result["fcf_coverage_status"] = "INSUFFICIENT_FCF"
+            elif fcf == dividends_paid:
+                result["fcf_coverage_status"] = "AT_LIMIT"
+            else:
+                result["fcf_coverage_status"] = "COVERED"
+            if fcf > 0:
+                fcf_payout = (dividends_paid / fcf) * 100
+                if math.isfinite(fcf_payout):
+                    result["fcf_payout_ratio"] = fcf_payout
 
         # For REITs, use FFO-based payout ratio
         if is_reit:
             ffo_payout = StockAnalyzer.calculate_ffo_payout_ratio(cash_flows)
             if ffo_payout is not None:
                 result["payout_ratio"] = ffo_payout
+                result["sustainable"] = ffo_payout < 80
+                result["sustainability_note"] = (
+                    "Dividend payout is below 80% of FFO; FCF status is informational for this REIT."
+                    if result["sustainable"]
+                    else "FFO payout does not meet the under-80% threshold; this does not establish a future dividend cut."
+                )
+            else:
+                result["sustainability_note"] = (
+                    "FFO coverage cannot be assessed from available data; FCF status is informational for this REIT."
+                )
         else:
             # For non-REITs, use traditional net income-based payout ratio
             if income_statements:
                 latest_income = income_statements[0]
-                net_income = latest_income.get("netIncome", 0)
+                net_income = StockAnalyzer._finite_amount(latest_income.get("netIncome"))
+                if net_income is not None and net_income > 0:
+                    payout = (dividends_paid / net_income) * 100
+                    if math.isfinite(payout):
+                        result["payout_ratio"] = payout
 
-                if net_income > 0 and dividends_paid > 0:
-                    result["payout_ratio"] = (dividends_paid / net_income) * 100
-
-        # FCF payout ratio (same for both REIT and non-REIT)
-        operating_cf = latest_cf.get("operatingCashFlow", 0)
-        capex = abs(latest_cf.get("capitalExpenditure", 0))
-        fcf = operating_cf - capex
-
-        if fcf > 0 and dividends_paid > 0:
-            result["fcf_payout_ratio"] = (dividends_paid / fcf) * 100
-
-        # Sustainable if payout ratio < 80% and FCF covers dividends
-        if result["payout_ratio"] and result["fcf_payout_ratio"]:
-            result["sustainable"] = result["payout_ratio"] < 80 and result["fcf_payout_ratio"] < 100
-        elif result["payout_ratio"]:
-            # If FCF payout is not available, just check payout ratio
-            result["sustainable"] = result["payout_ratio"] < 80
+            result["sustainable"] = (
+                result["payout_ratio"] is not None
+                and result["payout_ratio"] < 80
+                and result["fcf_coverage_status"] == "COVERED"
+                and result["fcf_payout_ratio"] is not None
+                and result["fcf_payout_ratio"] < 100
+            )
+            if result["fcf_coverage_status"] == "NEGATIVE_FCF":
+                result["sustainability_note"] = (
+                    "Observed negative free cash flow does not cover dividends; a future cut is not certain."
+                )
+            elif result["fcf_coverage_status"] == "ZERO_FCF":
+                result["sustainability_note"] = (
+                    "Observed zero free cash flow does not cover dividends; a future cut is not certain."
+                )
+            elif result["fcf_coverage_status"] == "INSUFFICIENT_FCF":
+                result["sustainability_note"] = (
+                    "Observed free cash flow is below dividends; a future cut is not certain."
+                )
+            elif result["fcf_coverage_status"] == "AT_LIMIT":
+                result["sustainability_note"] = (
+                    "Free cash flow exactly equals dividends, leaving no coverage buffer."
+                )
+            elif result["fcf_coverage_status"] == "MISSING_DATA":
+                result["sustainability_note"] = (
+                    "Free cash flow cannot be calculated from available data."
+                )
+            elif result["payout_ratio"] is None:
+                result["sustainability_note"] = (
+                    "Earnings payout cannot be assessed from available data."
+                )
+            elif result["payout_ratio"] >= 80:
+                result["sustainability_note"] = (
+                    "Earnings payout does not meet the under-80% threshold."
+                )
+            else:
+                result["sustainability_note"] = (
+                    "Earnings payout is below 80% and free cash flow covers dividends with a buffer."
+                )
 
         return result
 
@@ -1202,7 +1295,8 @@ def screen_value_dividend_stocks(
         composite_score += stability_score * 0.2  # Max 20 points from stability (100 * 0.2)
         composite_score += min((revenue_cagr or 0) / 10 * 10, 10)  # Max 10 points for revenue
         composite_score += min((eps_cagr or 0) / 15 * 10, 10)  # Max 10 points for EPS
-        composite_score += 10 if sustainability["sustainable"] else 0
+        sustainability_bonus = 10 if sustainability["sustainable"] else 0
+        composite_score += sustainability_bonus
         composite_score += 10 if financial_health["healthy"] else 0
         composite_score += quality["quality_score"] * 0.25  # Max 25 points from quality
 
@@ -1233,9 +1327,15 @@ def screen_value_dividend_stocks(
             if sustainability["payout_ratio"]
             else None,
             "fcf_payout_ratio": round(sustainability["fcf_payout_ratio"], 1)
-            if sustainability["fcf_payout_ratio"]
+            if sustainability["fcf_payout_ratio"] is not None
             else None,
+            "fcf_amount": sustainability["fcf_amount"],
+            "fcf_status": sustainability["fcf_status"],
+            "fcf_coverage_status": sustainability["fcf_coverage_status"],
+            "sustainability_basis": sustainability["sustainability_basis"],
+            "sustainability_note": sustainability["sustainability_note"],
             "dividend_sustainable": sustainability["sustainable"],
+            "sustainability_bonus": sustainability_bonus,
             "debt_to_equity": round(financial_health["debt_to_equity"], 2)
             if financial_health["debt_to_equity"]
             else None,
@@ -1419,7 +1519,7 @@ Environment Variables:
                 "dividend_stability": "max 20 points (stable, growing)",
                 "revenue_growth": "max 10 points (10%+ CAGR)",
                 "eps_growth": "max 10 points (15%+ CAGR)",
-                "dividend_sustainable": "10 points",
+                "dividend_sustainable": "10 points only when sector-appropriate coverage is confirmed",
                 "financial_health": "10 points",
                 "quality_score": "max 25 points",
             },

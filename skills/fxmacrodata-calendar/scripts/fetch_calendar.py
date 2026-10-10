@@ -38,6 +38,26 @@ class _NonFiniteJSONValue(ValueError):
     """Raised when the JSON decoder encounters NaN or Infinity."""
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects instead of following them.
+
+    urllib copies request headers onto the redirected request, so following a
+    redirect would forward the X-API-Key header to whatever host or scheme the
+    Location names. A refused redirect surfaces as an HTTPError.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirectHandler)
+
+
+def _urlopen(request: urllib.request.Request, timeout: float):
+    """Open a request without following redirects."""
+    return _OPENER.open(request, timeout=timeout)
+
+
 def _normalize_currency(value: str) -> str:
     """Return a safe three-letter currency code without echoing bad input."""
     normalized = value.strip().lower()
@@ -155,9 +175,8 @@ def _validate_calendar_payload(payload: Any, expected_currency: str) -> dict[str
 def _redact(text: str) -> str:
     """Redact an api_key query-param value from a string, as a backup.
 
-    Primary defense against key leakage is never referencing the built
-    request URL or HTTPError.url in error messages; this is a backup for
-    any string that might still carry the key.
+    The key is sent in the X-API-Key header and never placed in the URL;
+    this is a backup for any string that might still carry one.
     """
     if "api_key=" not in text:
         return text
@@ -172,16 +191,18 @@ def fetch_calendar(currency: str, limit: int, min_tier: int | None) -> dict[str,
         raise RuntimeError("min_tier must be one of 1, 2, or 3")
     limit_count = max(1, min(int(limit), 100))
     params = {"limit": str(limit_count)}
-    api_key = os.getenv("FXMACRODATA_API_KEY")
+    headers = {"User-Agent": "claude-trading-skills-fxmacrodata/1.0"}
+    api_key = (os.getenv("FXMACRODATA_API_KEY") or "").strip()
     if api_key:
-        params["api_key"] = api_key
+        if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in api_key):
+            # http.client would reject the header and echo its value.
+            raise RuntimeError("FXMACRODATA_API_KEY contains whitespace or control characters")
+        headers["X-API-Key"] = api_key
 
     try:
         url = f"{FXMACRODATA_BASE_URL}/calendar/{normalized_currency}?{urlencode(params)}"
-        request = urllib.request.Request(
-            url, headers={"User-Agent": "claude-trading-skills-fxmacrodata/1.0"}
-        )
-        with urllib.request.urlopen(request, timeout=20) as response:
+        request = urllib.request.Request(url, headers=headers)
+        with _urlopen(request, timeout=20) as response:
             payload = json.load(response, parse_constant=_reject_non_finite_constant)
     except urllib.error.HTTPError as exc:
         raise RuntimeError(

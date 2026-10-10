@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import stat
 import sys
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
+
+import pytest
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -96,3 +99,55 @@ def test_package_skill_allows_script_free_skill_without_manifest(tmp_path: Path)
 
     output_path = package_skill(skill_dir, tmp_path / "skill-packages")
     assert output_path.is_file()
+
+
+@pytest.mark.parametrize("bad_name", ["demo-skill/../evil", "other/SKILL.md", "demo-skill\\evil"])
+def test_check_skill_rejects_unsafe_zip_member(tmp_path: Path, bad_name: str) -> None:
+    skill_dir = tmp_path / "skills" / "demo-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("demo\n")
+    output_dir = tmp_path / "packages"
+    archive_path = package_skill(skill_dir, output_dir)
+    with ZipFile(archive_path, "a") as archive:
+        archive.writestr(bad_name, b"bad")
+    assert not check_skill(skill_dir, output_dir)
+
+
+def test_check_skill_rejects_duplicate_zip_member(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skills" / "demo-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("demo\n")
+    output_dir = tmp_path / "packages"
+    archive_path = package_skill(skill_dir, output_dir)
+    with ZipFile(archive_path, "a") as archive:
+        archive.writestr("demo-skill/SKILL.md", b"demo\n")
+    assert not check_skill(skill_dir, output_dir)
+
+
+def test_check_skill_rejects_symlink_member(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skills" / "demo-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("demo\n")
+    output_dir = tmp_path / "packages"
+    archive_path = package_skill(skill_dir, output_dir)
+    with ZipFile(archive_path, "a") as archive:
+        info = ZipInfo("demo-skill/link")
+        info.create_system = 3
+        info.external_attr = 0o120777 << 16
+        archive.writestr(info, "../../secret")
+    assert not check_skill(skill_dir, output_dir)
+
+
+def test_check_skill_rejects_special_file_member(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skills" / "demo-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("demo\n")
+    output_dir = tmp_path / "packages"
+    archive_path = output_dir / "demo-skill.skill"
+    output_dir.mkdir()
+    with ZipFile(archive_path, "w") as archive:
+        info = ZipInfo("demo-skill/SKILL.md")
+        info.create_system = 3
+        info.external_attr = (stat.S_IFIFO | 0o644) << 16
+        archive.writestr(info, b"demo\n")
+    assert not check_skill(skill_dir, output_dir)

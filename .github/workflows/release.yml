@@ -1,0 +1,68 @@
+name: Release skills
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Verify stable tag and main ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/release_assets.py prepare --tag "$RELEASE_TAG" --output-dir dist
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          tag_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main
+          remote_tag="$(git ls-remote --refs origin "refs/tags/$RELEASE_TAG" | awk '{print $1}')"
+          local_tag="$(git rev-parse "refs/tags/$RELEASE_TAG")"
+          test -n "$remote_tag" && test "$remote_tag" = "$local_tag"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already exists for $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      - name: Create private draft with verified assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" --draft --verify-tag \
+            --notes-file dist/RELEASE_NOTES.md dist/SHA256SUMS dist/*.skill
+
+      - name: Verify uploaded bytes before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          mkdir downloaded
+          gh release download "$RELEASE_TAG" --dir downloaded
+          python scripts/release_assets.py verify --local-dir dist --downloaded-dir downloaded
+          remote_tag="$(git ls-remote --refs origin "refs/tags/$RELEASE_TAG" | awk '{print $1}')"
+          local_tag="$(git rev-parse "refs/tags/$RELEASE_TAG")"
+          test -n "$remote_tag" && test "$remote_tag" = "$local_tag"
+          gh release edit "$RELEASE_TAG" --draft=false

@@ -120,6 +120,18 @@ Fallback REST endpoint:
 - Check for any stale or inactive positions
 - Handle edge cases (fractional shares, options, crypto if supported)
 
+### Reconcile holdings before weekly allocation review
+
+For `core-portfolio-weekly`, follow
+[`references/position-reconciliation.md`](references/position-reconciliation.md)
+to compare complete broker and ACTIVE / PARTIALLY_CLOSED memory snapshots using
+`scripts/reconcile_positions.py`. Generate the JSON and Markdown reconciliation
+reports. Stop allocation and rebalance review if `can_continue` is false or if
+snapshot completeness, account attribution or freshness cannot be established.
+Keep discrepancies for manual resolution; never place orders or modify theses
+through reconciliation. This is an offline, manually prepared gate; existing
+weekly replay fixtures do not yet execute it.
+
 ### Step 2: Enrich Position Data
 
 For each position in the portfolio, gather additional market data and fundamentals:

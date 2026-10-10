@@ -67,7 +67,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - consumes: `holdings_snapshot`
 - produces: `allocation_report`
-- **Decision:** Are sector and single-name concentrations within target bands? If not, what specific reallocation does the trader propose?
+- **Decision:** Before allocation review, run portfolio-manager/scripts/reconcile_positions.py on complete, same-account broker and ACTIVE / PARTIALLY_CLOSED memory snapshots per portfolio-manager/references/position-reconciliation.md. Retain the JSON and Markdown reconciliation_report. Stop here if can_continue is false or completeness, account attribution or freshness is unresolved. After a verified match, are sector and single-name concentrations within target bands? If not, what specific reallocation does the trader propose?
 
 **Step 3: Check dividend health (T1-T5 anomaly check)** (optional) → `kanchi-dividend-review-monitor`
 
@@ -87,6 +87,8 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Manual review:**
 
+- Require a verified reconciliation_report before allocation or rebalance review; resolve discrepancies manually and rerun the comparison.
+- Reconciliation is currently a manual gate; historical replay fixtures do not execute or enforce it.
 - Confirm holdings snapshot reflects the actual brokerage state (Alpaca or CSV).
 - Confirm rebalance actions are entered manually at the broker, not auto-executed.
 - If dividend_review_findings flags T1-T5 issues, defer additional buys until resolved.

@@ -126,7 +126,7 @@ FTMO-Demo account:
   when names or comments contain non-ASCII text.
 - **Market Watch:** `Optimization=3` tests exactly the visible Market Watch
   symbols. Add or remove symbols there to control that universe.
-- **Terminal discovery:** a terminal path is required via `--terminal-path`,
+- **Terminal discovery:** actual tester execution requires a terminal path via `--terminal-path`,
   `config.terminal_path`, or `$MT5_TERMINAL_PATH` (precedence in that order; the
   deliberate per-project config beats a shell env var). Only the
   highest-precedence supplied path is used, and if it does not exist the
@@ -137,3 +137,10 @@ FTMO-Demo account:
   `$MT5_TERMINAL_PATH` is set. Point the path at a **portable, tester-only**
   install (a `/portable` folder with its own data directory) so the pipeline
   never borrows a live terminal.
+
+- **Migration:** config now outranks the environment variable. A stale
+  `config.terminal_path` blocks a valid `MT5_TERMINAL_PATH`; fix/remove the stale
+  setting or override it with a valid `--terminal-path`. Missing-path stderr
+  identifies the selected source and path.
+- **Offline dry-run:** `--dry-run` generates Round-1 INIs without resolving or
+  launching a terminal. No terminal path or installed MT5 is required.
