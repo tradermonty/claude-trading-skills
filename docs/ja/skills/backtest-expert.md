@@ -30,7 +30,7 @@ permalink: /ja/skills/backtest-expert/
 
 ## 1. 概要
 
-Backtest Expertは、トレーディング戦略のバックテスト結果を体系的に評価し、実戦投入すべきか（Deploy）、改善すべきか（Refine）、放棄すべきか（Abandon）を判定するスキルです。
+Backtest Expertは、トレーディング戦略のバックテスト結果を体系的に評価します。品質スコアと採用可否の判定を分け、阻止条件がある場合は高得点でも採用可能とは表示しません。
 
 **核心哲学:**
 > 「最も利益の出る戦略」ではなく「最も壊れにくい戦略」を見つける
@@ -38,7 +38,7 @@ Backtest Expertは、トレーディング戦略のバックテスト結果を�
 **主な特徴:**
 - 5次元スコアリング（各20点、合計100点）
 - 10以上のレッドフラグ自動検出
-- Deploy（70点以上）/ Refine（40-69点）/ Abandon（39点以下）の3段階判定
+- 点数と独立した `decision`・`blocking_reasons` による判定。従来の3段階 `verdict` は互換用
 - API不要、外部データ依存なし（指標はユーザーが提供）
 - JSON + Markdownレポートの同時出力
 
@@ -77,7 +77,7 @@ Claudeにバックテスト結果を伝えるだけで評価できます：
 Claudeが以下の流れで処理します：
 1. 5次元スコアの計算（サンプルサイズ、期待値、リスク管理、堅牢性、実行リアリズム）
 2. レッドフラグの自動検出
-3. Deploy/Refine/Abandonの判定
+3. 点数とは独立した採用可否の判定と阻止理由の確認
 4. 改善が必要な次元の具体的なアドバイス
 
 CLIで直接実行する場合：
@@ -115,21 +115,23 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 
 - **サンプルサイズ**: 30未満=0点、100で15点、200+で満点。30未満は統計的に無意味
 - **期待値**: 勝率 x 平均利益 - 負率 x 平均損失。0以下なら0点（トレードすべきでない）
-- **リスク管理**: ドローダウン（12点）+ Profit Factor（8点）。DD 50%超は全体0点にオーバーライド
+- **リスク管理**: ドローダウン（12点）+ Profit Factor（8点）。DD 50%以上はこの次元0点かつ採用不可
 - **堅牢性**: テスト期間（15点、5年未満=0）+ パラメータ数（5点、4以下=5、8以上=0）
 - **実行リアリズム**: スリッページテスト済み=20点、未テスト=0点（二値判定）
 
-### 判定基準
+### 判定基準（阻止条件がない場合の点数帯）
 
 | 合計スコア | 判定 | アクション |
 |-----------|------|-----------|
-| 70-100 | **Deploy** | ストレステストを全て通過。実戦投入可能 |
-| 40-69 | **Refine** | 核心ロジックは健全だがパラメータ調整が必要 |
-| 0-39 | **Abandon** | ストレステストに失敗。脆弱な前提に依存 |
+| 70-100 | **DEPLOY** | 追加の人によるリスク確認・ペーパー検証の候補 |
+| 40-69 | **REFINE** | 改善して再評価 |
+| 0-39 | **ABANDON** | 仮説を見直す |
+
+期待値がゼロ以下、DD 50%以上、利用者のDD上限超過、30トレード未満、スリッページ未検証、5年未満は点数より優先されます。採用可否は `decision` と `blocking_reasons` で確認してください。
 
 ### レッドフラグ検出
 
-自動検出される主なレッドフラグ: トレード数30未満（高）、スリッページ未テスト（高）、ドローダウン50%超（高）、パラメータ7以上（中）、テスト期間5年未満（中）、負の期待値（高）、勝率90%超+DD5%未満（中、「結果が良すぎる」）。
+自動検出される主なレッドフラグ: トレード数30未満（高）、スリッページ未テスト（高）、ドローダウン50%以上（高）、パラメータ7以上（中）、テスト期間5年未満（中）、負の期待値（高）、勝率90%超+DD5%未満（中、「結果が良すぎる」）。
 
 ---
 
@@ -271,11 +273,14 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 | フィールド | 説明 |
 |-----------|------|
 | `total_score` | 合計スコア（0-100） |
-| `verdict` | Deploy / Refine / Abandon |
+| `quality_score` | 品質スコア（`total_score` と同じ0-100点）。採用可否を単独では決めない |
+| `decision` | 採用可否の正式な判定（DEPLOY / REFINE / ABANDON / REJECT / RISK_LIMIT_EXCEEDED / VALIDATION_REQUIRED / NOT_EVALUABLE） |
+| `blocking_reasons` | 判定を止めた理由のID一覧 |
+| `verdict` | 互換性のための従来の Deploy / Refine / Abandon。阻止条件がある場合は Deploy にせず、スコアベースの判定より良くならない |
 | `dimensions` | 5次元の個別スコア（各0-20） |
 | `red_flags` | 検出されたレッドフラグのリスト |
-| `metrics.expectancy` | 期待値（%/トレード） |
-| `metrics.profit_factor` | Profit Factor |
+| `expectancy` | 期待値（%/トレード） |
+| `profit_factor` / `profit_factor_status` | Profit Factor。損失なし・損益ともゼロの場合は `null` と状態IDで表す |
 
 ### Markdownレポートの構成
 
@@ -287,9 +292,11 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 
 ### スコアの解釈指針
 
-- **70+点（Deploy）**: 実戦投入可能。80+はほぼ全次元で高評価
-- **40-69点（Refine）**: 核心ロジックは健全だが特定の次元（多くの場合、実行リアリズムやサンプルサイズ）に改善余地
-- **0-39点（Abandon）**: 根本的な問題あり。複数の次元で不足
+- **70+点**: 阻止条件がない場合に限り `DEPLOY` の候補
+- **40-69点**: 阻止条件がない場合は `REFINE`
+- **0-39点**: 阻止条件がない場合は `ABANDON`
+
+30トレード未満は他のどの条件よりも優先して `NOT_EVALUABLE` になります。それ以外で、期待値がゼロ以下、または最大DDが50%以上なら `REJECT`。利用者が設定した50%未満のDD上限を超えた場合は `RISK_LIMIT_EXCEEDED`。スリッページ・コストの検証不足または5年未満の検証は `VALIDATION_REQUIRED` です。個別のDD上限と等しい場合は超過扱いしません。入力が不正、または数値精度の範囲で計算不能な場合は終了コード1となり、成功レポートは生成しません。
 
 ---
 
@@ -332,7 +339,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 
 ### Backtest Expert → Position Sizer
 
-Deploy判定済みの勝率・平均損益をKelly Criterionに入力し、最適リスク配分を計算。
+`decision: DEPLOY` を確認した後に勝率・平均損益をKelly Criterionの検討材料にし、人によるリスク確認を続けます。
 
 ### PEAD Screener → Backtest Expert
 
@@ -390,6 +397,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py [OPTIONS]
 | `--years-tested` | バックテスト期間（年数）（必須） | - |
 | `--num-parameters` | 戦略のチューナブルパラメータ数（必須） | - |
 | `--slippage-tested` | スリッページ/フリクションがテスト済みか（フラグ） | false |
+| `--max-acceptable-drawdown-pct` | 利用者が許容する最大DD（%）。50%以上のハード上限は解除不可 | `50` |
 | `--output-dir` | レポート出力先ディレクトリ | `reports/` |
 
 ### スコアリング早見表

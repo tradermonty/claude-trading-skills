@@ -1,4 +1,6 @@
 {
+  "blocking_reasons": [],
+  "decision": "DEPLOY",
   "dimensions": [
     {
       "max_score": 20,
@@ -30,6 +32,7 @@
   "inputs": {
     "avg_loss_pct": 6.1,
     "avg_win_pct": 14.6,
+    "max_acceptable_drawdown_pct": 50,
     "max_drawdown_pct": 18.0,
     "num_parameters": 4,
     "slippage_tested": true,
@@ -38,6 +41,7 @@
     "years_tested": 6
   },
   "profit_factor": 3.305230288836846,
+  "profit_factor_status": "FINITE",
   "provenance": {
     "adapter_bound_source_sha256": {
       "postmortem_source_sha256": "3272ce966dcbad845619cfbbf53afd3e616286b00d2bf785544862a84e9c7c18"
@@ -46,6 +50,7 @@
     "limitation": "The native CLI evaluated supplied aggregate metrics; it did not run a strategy backtest or consume the postmortem.",
     "metrics_source": "bundled fictional aggregate metrics"
   },
+  "quality_score": 85,
   "red_flags": [],
   "total_score": 85,
   "verdict": "Deploy"

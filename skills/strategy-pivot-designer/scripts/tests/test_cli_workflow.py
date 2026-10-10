@@ -161,6 +161,37 @@ def test_no_trigger_diagnosis_is_saved_but_generator_creates_no_proposals(
     assert "No triggers fired" in capsys.readouterr().out
 
 
+def test_review_required_diagnosis_does_not_generate_pivots(tmp_path, monkeypatch, capsys):
+    diagnosis_path = tmp_path / "diagnosis.json"
+    diagnosis_path.write_text(
+        json.dumps(
+            {
+                "strategy_id": "demo",
+                "recommendation": "review_required",
+                "triggers_fired": [{"trigger": "insufficient_profit_factor", "severity": "high"}],
+            }
+        )
+    )
+    source = tmp_path / "draft.yaml"
+    source.write_text(yaml.safe_dump(_source_draft("demo")))
+    output = tmp_path / "proposals"
+    assert (
+        _run(
+            generator,
+            monkeypatch,
+            "--diagnosis",
+            diagnosis_path,
+            "--strategy",
+            source,
+            "--output-dir",
+            output,
+        )
+        == 0
+    )
+    assert not output.exists()
+    assert "Evaluation needs review" in capsys.readouterr().out
+
+
 def test_detector_cli_threshold_override_changes_plateau_decision(
     tmp_path, monkeypatch, sample_iteration_history
 ):

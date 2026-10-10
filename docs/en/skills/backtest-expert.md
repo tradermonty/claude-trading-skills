@@ -11,7 +11,7 @@ permalink: /en/skills/backtest-expert/
 # Backtest Expert
 {: .no_toc }
 
-Expert guidance for systematic backtesting of trading strategies. Scores backtest quality across 5 dimensions (0-100), detects 10+ red flags, and delivers a Deploy/Refine/Abandon verdict. Core philosophy: find strategies that break the least.
+Expert guidance for systematic backtesting of trading strategies. Scores backtest quality across 5 dimensions (0-100), checks decision gates, and reports a separate decision with blocking reasons. Core philosophy: find strategies that break the least.
 {: .fs-6 .fw-300 }
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/backtest-expert.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
@@ -33,14 +33,14 @@ Backtest Expert applies a systematic, adversarial methodology to evaluate tradin
 **What it solves:**
 - Replaces subjective "looks good" backtest evaluations with a quantitative 5-dimension scoring framework
 - Detects common red flags that indicate fragile or misleading backtests
-- Provides a clear Deploy/Refine/Abandon verdict with specific reasoning
+- Provides a decision and explicit blocking reasons alongside the quality score
 - Forces honest assessment of parameter sensitivity, sample size, and execution costs
 - Prevents the most dangerous backtesting pitfalls: curve-fitting, look-ahead bias, and survivorship bias
 
 **Key capabilities:**
 - 5-dimension scoring (0-100): Sample Size, Expectancy, Risk Management, Robustness, Execution Realism
-- 10+ automated red flag detections (too few trades, negative expectancy, over-optimization, excessive drawdown, and more)
-- Deploy/Refine/Abandon verdict based on composite score and red flag severity
+- Automated red flag detections (too few trades, negative expectancy, over-optimization, excessive drawdown, and more)
+- Decision gates that prevent a favorable score from overriding unsafe or unverified conditions
 - Parameter robustness evaluation (plateau vs. spike analysis)
 - Slippage and friction stress testing at 1.5-2x typical estimates
 
@@ -85,7 +85,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
   --output-dir reports/
 ```
 
-The script scores across 5 dimensions, flags any concerns, and delivers a Deploy/Refine/Abandon verdict. That is all you need to get started.
+The script scores across 5 dimensions and returns `decision` plus `blocking_reasons`. Read those before considering the legacy `verdict` or the numeric score.
 
 ---
 
@@ -93,16 +93,13 @@ The script scores across 5 dimensions, flags any concerns, and delivers a Deploy
 
 1. **Collect metrics** -- The script takes 8 inputs: total trades, win rate, average win %, average loss %, max drawdown %, years tested, number of tunable parameters, and whether slippage was modeled.
 2. **Score 5 dimensions** -- Each dimension is scored independently on a 0-20 scale:
-   - **Sample Size (20):** Based on total trades and trades-per-year density. 200+ trades scores highest; <30 trades scores near zero.
+   - **Sample Size (20):** Based on total trades. 200+ trades scores highest; <30 trades scores zero.
    - **Expectancy (20):** Derived from profit factor (win rate x avg win / loss rate x avg loss). A profit factor of 1.0 means breakeven; 1.5+ is healthy.
    - **Risk Management (20):** Max drawdown severity and profit factor together determine this score. Drawdowns under 15% score best; over 40% scores near zero.
    - **Robustness (20):** Number of parameters and years tested. Fewer parameters (4 or fewer) and longer test periods (10+ years) score highest.
    - **Execution Realism (20):** Whether slippage and friction were modeled. Testing with slippage is worth full marks; skipping it caps the score.
-3. **Detect red flags** -- The script checks for over 10 warning patterns: too few trades (<30), negative expectancy, over-optimization (7+ parameters), extreme drawdown (>40%), untested slippage, short test period (<3 years), and more.
-4. **Deliver verdict** -- Based on composite score and red flag severity:
-   - **Deploy:** High score, no critical red flags. Strategy is ready for live trading.
-   - **Refine:** Moderate score or non-critical red flags. Core logic is sound but needs adjustment.
-   - **Abandon:** Low score or critical red flags. Strategy is fundamentally flawed.
+3. **Detect red flags** -- Checks too few trades (<30), negative expectancy, over-optimization (7+ parameters), excessive drawdown (>=50%), untested slippage, short test period (<5 years), and unusually good results.
+4. **Apply decision gates** -- `NOT_EVALUABLE` for too few trades (checked first, so it takes precedence over `REJECT`) or an overflowing profit-factor ratio; then `REJECT` for non-positive expectancy or drawdown >=50%; `RISK_LIMIT_EXCEEDED` for a tighter personal cap; `VALIDATION_REQUIRED` for missing slippage/friction testing or a short test period. Only then can the score yield `DEPLOY`, `REFINE`, or `ABANDON`. `DEPLOY` is an analysis result that still needs independent human risk review.
 5. **Output reports** -- JSON and Markdown files are saved to the output directory.
 
 ---
@@ -256,8 +253,10 @@ After execution, the script produces a JSON and Markdown report containing:
 | Execution Realism | 20 | Whether slippage and friction were modeled |
 
 4. **Red Flags** -- A list of detected issues, each with severity (Critical, Warning, or Info) and a description.
-5. **Composite Score** -- Sum of all 5 dimensions (0-100).
-6. **Verdict** -- Deploy, Refine, or Abandon with reasoning.
+5. **Quality Score** -- Sum of all 5 dimensions (0-100), retained even when a safety gate blocks adoption.
+6. **Decision and blocking reasons** -- `DEPLOY`, `REFINE`, `ABANDON`, `REJECT`, `RISK_LIMIT_EXCEEDED`, `VALIDATION_REQUIRED`, or `NOT_EVALUABLE`. Use these fields for the next action. The older `verdict` field remains Deploy/Refine/Abandon for compatibility, never says Deploy when a gate blocks adoption, and is never better than the score-based verdict.
+
+Fewer than 30 trades or a profit-factor ratio overflow cause `NOT_EVALUABLE`, and this takes precedence over every other gate. Otherwise, non-positive expectancy (sign computed exactly from the inputs, so float rounding cannot hide a break-even) and a drawdown of at least 50% cause `REJECT`. A personal drawdown cap below 50% causes `RISK_LIMIT_EXCEEDED` only when exceeded. Missing slippage/friction validation or fewer than five years cause `VALIDATION_REQUIRED`. The score cannot override these gates. `profit_factor: null` with `profit_factor_status: NO_LOSSES` means positive gross profit and no gross losses; `UNDEFINED_ZERO_GROSS` means neither gross profit nor gross losses; `OVERFLOW` means a ratio overflow despite nonzero losses. Invalid or unrepresentable numeric inputs exit with status 1 and no report.
 
 ---
 
@@ -268,7 +267,7 @@ After execution, the script produces a JSON and Markdown report containing:
 - **Require at least 100 trades.** The absolute minimum is 30, but 100+ is preferred and 200+ provides high confidence. Small samples cannot distinguish skill from luck.
 - **Test across multiple market regimes.** A strategy that only works in bull markets is not an edge -- it is a leveraged bet on direction. Require positive expectancy in the majority of years tested.
 - **Keep parameters to 4 or fewer.** Each parameter adds a degree of freedom that can fit noise. The script flags 7+ parameters as over-optimization.
-- **Always test slippage.** Running without `--slippage-tested` caps the Execution Realism dimension. Use 1.5-2x typical slippage estimates.
+- **Always test slippage.** Running without `--slippage-tested` requires more validation regardless of the score. Use 1.5-2x typical slippage estimates.
 - **Separate idea generation from validation.** Intuition generates hypotheses; validation must be purely data-driven.
 
 ---
@@ -277,9 +276,9 @@ After execution, the script produces a JSON and Markdown report containing:
 
 | Workflow | How to Combine |
 |----------|---------------|
-| **Strategy development pipeline** | Design strategy with domain knowledge, then run Backtest Expert to score it. Use the verdict to decide whether to deploy, refine, or abandon |
+| **Strategy development pipeline** | Design strategy with domain knowledge, then run Backtest Expert to score it. Use `decision` and `blocking_reasons` for the next action |
 | **Earnings momentum validation** | After Earnings Trade Analyzer identifies a pattern, backtest it systematically and use Backtest Expert to evaluate robustness before committing capital |
-| **Position sizing calibration** | Once a strategy passes with Deploy verdict, feed the win rate and payoff ratio into Position Sizer's Kelly Criterion for optimal capital allocation |
+| **Position sizing calibration** | Only after the result has `decision: DEPLOY`, consider feeding win rate and payoff ratio into Position Sizer; retain independent human risk review |
 | **Screener validation** | CANSLIM, VCP, and Dividend screener strategies should be backtested periodically. Run the historical results through Backtest Expert to confirm the edge persists |
 | **Risk management review** | If max drawdown from the backtest exceeds your tolerance, use Position Sizer to reduce risk per trade until the expected drawdown is acceptable |
 
@@ -291,7 +290,7 @@ After execution, the script produces a JSON and Markdown report containing:
 
 **Cause:** The strategy may have positive returns but critical structural weaknesses: too few trades for statistical confidence, too many parameters (curve-fitting risk), or untested execution costs.
 
-**Fix:** Address the specific red flags. If sample size is low, test over a longer period or broader universe. If parameters are too many, simplify the strategy. If slippage was not tested, re-run with 1.5x typical friction.
+**Fix:** Read `decision` and `blocking_reasons` first. A high quality score cannot override a rejection or missing validation. If sample size is low, test over a longer period or broader universe. If parameters are too many, simplify the strategy. If slippage was not tested, re-run with 1.5x typical friction.
 
 ### Win rate is high but score is mediocre
 
@@ -303,7 +302,7 @@ After execution, the script produces a JSON and Markdown report containing:
 
 **Cause:** The scoring framework is intentionally conservative. It is designed to prevent deployment of fragile strategies, not to validate wishful thinking.
 
-**Fix:** This is the intended behavior. The philosophy is "find strategies that break the least." A score of 60-70 with a Refine verdict is actually a good result -- it means the core logic is sound but needs specific improvements identified in the red flags.
+**Fix:** The score measures dimensions, while `decision` governs the next action. A score of 60-70 may need further work; check blocking reasons before interpreting the result.
 
 ### "Over-optimization" red flag with only 5 parameters
 
@@ -327,6 +326,7 @@ After execution, the script produces a JSON and Markdown report containing:
 | `--years-tested` | Yes | -- | Number of years in backtest period |
 | `--num-parameters` | Yes | -- | Number of tunable parameters in strategy |
 | `--slippage-tested` | No | `false` | Flag indicating whether slippage/friction was modeled |
+| `--max-acceptable-drawdown-pct` | No | `50` | Personal drawdown limit in percent; cannot override the hard 50% ceiling |
 | `--output-dir` | No | `reports/` | Output directory for JSON and Markdown reports |
 
 ### 5-Dimension Scoring Summary
@@ -335,7 +335,7 @@ After execution, the script produces a JSON and Markdown report containing:
 |-----------|--------|---------------|
 | Sample Size | 0-20 | 200+ trades = full marks; <30 = near zero |
 | Expectancy | 0-20 | Profit factor 1.5+ = healthy; <1.0 = negative edge |
-| Risk Management | 0-20 | Drawdown <15% = best; >40% = near zero |
+| Risk Management | 0-20 | Drawdown <20% = best; >=50% = zero and a hard decision block |
 | Robustness | 0-20 | 4 or fewer params + 10+ years = best; 7+ params = over-optimization flag |
 | Execution Realism | 0-20 | Slippage tested = full marks; untested = capped |
 
@@ -343,9 +343,9 @@ After execution, the script produces a JSON and Markdown report containing:
 
 | Verdict | Meaning | Typical Action |
 |---------|---------|---------------|
-| Deploy | Survives all stress tests with acceptable performance | Proceed to paper trading, then live with small size |
-| Refine | Core logic sound but needs parameter adjustment or more testing | Address specific red flags, re-evaluate |
-| Abandon | Fails stress tests or relies on fragile assumptions | Stop development, move to next hypothesis |
+| Deploy | Legacy summary for `decision: DEPLOY` | Consider paper validation and independent human risk review |
+| Refine | Legacy summary for a refinement, personal cap, missing evidence, or unevaluable result whose score is not in the Abandon range (a score-based Abandon stays Abandon) | Read `decision` and `blocking_reasons` before acting |
+| Abandon | Legacy summary for a rejection or low-score result | Read `decision` and `blocking_reasons` before acting |
 
 ### Common Red Flags
 
@@ -354,6 +354,6 @@ After execution, the script produces a JSON and Markdown report containing:
 | Too few trades | < 30 total trades |
 | Negative expectancy | Profit factor < 1.0 |
 | Over-optimization | 7+ tunable parameters |
-| Extreme drawdown | > 40% max drawdown |
-| Short test period | < 3 years tested |
+| Excessive drawdown | >= 50% max drawdown; a stricter personal cap produces `RISK_LIMIT_EXCEEDED` |
+| Short test period | < 5 years tested |
 | Untested slippage | `--slippage-tested` not set |

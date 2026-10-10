@@ -35,8 +35,8 @@ Detect when a strategy's backtest iteration loop has stalled and propose structu
 ## Workflow
 
 1. Accumulate backtest evaluation results into an iteration history file using `--append-eval`.
-2. Run stagnation detection on the history to identify triggers (plateau, overfitting, cost defeat, tail risk).
-3. If stagnation detected, generate pivot proposals using three techniques: assumption inversion, archetype switch, objective reframe.
+2. Run stagnation detection on the history to identify triggers (plateau, overfitting, cost defeat, insufficient profit factor, tail risk). A no-loss profit factor is not cost defeat; an undefined or overflowed ratio requires review.
+3. If the diagnosis says `review_required`, repair or re-evaluate the underlying metrics first; do not generate pivots. If stagnation is confirmed, generate pivot proposals using three techniques: assumption inversion, archetype switch, objective reframe.
 4. Review ranked proposals (scored by quality potential + novelty).
 5. For exportable proposals, ticket YAML is ready for edge-candidate-agent pipeline.
 6. For research_only proposals, manual strategy design needed before pipeline integration.

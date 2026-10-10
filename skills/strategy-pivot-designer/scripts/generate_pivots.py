@@ -973,6 +973,9 @@ def main() -> int:
     source_draft["_source_path"] = str(strategy_path)
 
     triggers_fired = diagnosis.get("triggers_fired", [])
+    if diagnosis.get("recommendation") == "review_required":
+        print("[INFO] Evaluation needs review before pivot proposals can be generated")
+        return 0
     if not triggers_fired:
         print("[INFO] No triggers fired -- no pivots to generate")
         return 0

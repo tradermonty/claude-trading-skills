@@ -1,5 +1,9 @@
 {
   "evaluation": {
+    "blocking_reasons": [
+      "negative_expectancy"
+    ],
+    "decision": "REJECT",
     "dimensions": [
       {
         "max_score": 20,
@@ -31,6 +35,7 @@
     "inputs": {
       "avg_loss_pct": 3.0,
       "avg_win_pct": 6.5,
+      "max_acceptable_drawdown_pct": 50,
       "max_drawdown_pct": 18.0,
       "num_parameters": 4,
       "slippage_tested": true,
@@ -39,6 +44,8 @@
       "years_tested": 5
     },
     "profit_factor": 0.01001272520259862,
+    "profit_factor_status": "FINITE",
+    "quality_score": 59,
     "red_flags": [
       {
         "id": "negative_expectancy",
@@ -47,7 +54,7 @@
       }
     ],
     "total_score": 59,
-    "verdict": "Refine"
+    "verdict": "Abandon"
   },
   "hypothesis_id": "confirmation-pivot-entry",
   "schema_version": 1,

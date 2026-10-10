@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import math
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -340,6 +343,9 @@ class TestProfitFactor:
         pf = evaluator_module.calc_profit_factor(win_rate=100, avg_win_pct=2.0, avg_loss_pct=1.0)
         assert pf == float("inf")
 
+    def test_zero_gross_profit_factor(self, evaluator_module):
+        assert evaluator_module.calc_profit_factor(0, 0, 0) == 0.0
+
 
 # ---------------------------------------------------------------------------
 # 8b. PF score boundary smoothness
@@ -591,3 +597,313 @@ class TestFileOutput:
         md_text = md_path.read_text(encoding="utf-8")
         assert "# Backtest Evaluation Report" in md_text
         assert result["verdict"] in md_text
+
+
+class TestDecisionGates:
+    @staticmethod
+    def inputs(**overrides):
+        values = dict(
+            total_trades=200,
+            win_rate=60,
+            avg_win_pct=2.0,
+            avg_loss_pct=1.0,
+            max_drawdown_pct=10,
+            years_tested=10,
+            num_parameters=4,
+            slippage_tested=True,
+        )
+        values.update(overrides)
+        return values
+
+    def test_negative_expectancy_cannot_deploy_at_72_points(self, evaluator_module):
+        result = evaluator_module.evaluate(
+            **self.inputs(win_rate=40, avg_win_pct=1.0, avg_loss_pct=1.0)
+        )
+        assert result["total_score"] == result["quality_score"] == 72
+        assert result["expectancy"] == pytest.approx(-0.2)
+        assert result["decision"] == "REJECT"
+        assert result["verdict"] == "Abandon"
+        assert "negative_expectancy" in result["blocking_reasons"]
+
+    def test_zero_expectancy_has_distinct_blocker(self, evaluator_module):
+        result = evaluator_module.evaluate(
+            **self.inputs(win_rate=50, avg_win_pct=1, avg_loss_pct=1)
+        )
+        assert result["decision"] == "REJECT"
+        assert "zero_expectancy" in result["blocking_reasons"]
+        assert "negative_expectancy" not in result["blocking_reasons"]
+
+    @pytest.mark.parametrize(
+        ("win_rate", "avg_win", "avg_loss"),
+        [
+            (40, 3, 2),
+            (30, 7, 3),
+            # Large magnitudes: cancellation error exceeds any fixed absolute tolerance.
+            (30, 3_500_000_000, 1_500_000_000),
+            (40.1, 59.9, 40.1),
+        ],
+    )
+    def test_float_noise_breakeven_is_zero_expectancy(
+        self, evaluator_module, win_rate, avg_win, avg_loss
+    ):
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=500,
+                win_rate=win_rate,
+                avg_win_pct=avg_win,
+                avg_loss_pct=avg_loss,
+                num_parameters=3,
+            )
+        )
+        assert result["decision"] != "DEPLOY"
+        assert result["decision"] == "REJECT"
+        assert "zero_expectancy" in result["blocking_reasons"]
+        assert "negative_expectancy" not in result["blocking_reasons"]
+        assert result["profit_factor"] == pytest.approx(1.0)
+        # Float-noise profit factor must not earn profit-factor score points.
+        assert evaluator_module.score_risk_management(10, win_rate, avg_win, avg_loss) == 12
+        assert evaluator_module.score_expectancy(win_rate, avg_win, avg_loss) == 0
+
+    def test_tiny_true_positive_expectancy_is_not_blocked(self, evaluator_module):
+        # 0.4 * 3 - 0.6 * 1.9999999999 = 6e-11 > 0: a sign test must not round it away.
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=500,
+                win_rate=40,
+                avg_win_pct=3,
+                avg_loss_pct=1.9999999999,
+                num_parameters=3,
+            )
+        )
+        assert "zero_expectancy" not in result["blocking_reasons"]
+        assert "negative_expectancy" not in result["blocking_reasons"]
+
+    def test_tiny_true_negative_expectancy_is_negative(self, evaluator_module):
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=500,
+                win_rate=40,
+                avg_win_pct=3,
+                avg_loss_pct=2.0000000001,
+                num_parameters=3,
+            )
+        )
+        assert "negative_expectancy" in result["blocking_reasons"]
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {
+                "total_trades": 0,
+                "win_rate": 40,
+                "avg_win_pct": 1,
+                "avg_loss_pct": 2,
+                "years_tested": 0,
+                "num_parameters": 20,
+                "slippage_tested": False,
+                "max_drawdown_pct": 45,
+            },
+        ],
+    )
+    def test_legacy_verdict_not_better_than_score(self, evaluator_module, overrides):
+        result = evaluator_module.evaluate(**self.inputs(**overrides))
+        assert result["decision"] == "NOT_EVALUABLE"
+        assert evaluator_module.get_verdict(result["quality_score"]) == "Abandon"
+        assert result["verdict"] == "Abandon"
+
+    def test_legacy_verdict_caps_deploy_to_refine(self, evaluator_module):
+        result = evaluator_module.evaluate(**self.inputs(slippage_tested=False))
+        assert result["decision"] == "VALIDATION_REQUIRED"
+        assert evaluator_module.get_verdict(result["quality_score"]) == "Deploy"
+        assert result["verdict"] == "Refine"
+
+    @pytest.mark.parametrize("drawdown", [50, 60])
+    def test_hard_drawdown_ceiling(self, evaluator_module, drawdown):
+        result = evaluator_module.evaluate(
+            **self.inputs(max_drawdown_pct=drawdown, max_acceptable_drawdown_pct=90)
+        )
+        assert result["decision"] == "REJECT"
+        assert result["verdict"] == "Abandon"
+        assert "excessive_drawdown" in result["blocking_reasons"]
+        assert "excessive_drawdown" in [flag["id"] for flag in result["red_flags"]]
+
+    def test_personal_drawdown_limit_equality_and_breach(self, evaluator_module):
+        equal = evaluator_module.evaluate(
+            **self.inputs(max_drawdown_pct=15, max_acceptable_drawdown_pct=15)
+        )
+        breach = evaluator_module.evaluate(
+            **self.inputs(max_drawdown_pct=16, max_acceptable_drawdown_pct=15)
+        )
+        assert equal["decision"] == "DEPLOY"
+        assert breach["decision"] == "RISK_LIMIT_EXCEEDED"
+        assert breach["verdict"] == "Refine"
+        assert "risk_limit_exceeded" in breach["blocking_reasons"]
+
+    def test_hard_and_personal_drawdown_reasons_both_recorded(self, evaluator_module):
+        result = evaluator_module.evaluate(
+            **self.inputs(max_drawdown_pct=60, max_acceptable_drawdown_pct=15)
+        )
+        assert result["decision"] == "REJECT"
+        assert {"excessive_drawdown", "risk_limit_exceeded"} <= set(result["blocking_reasons"])
+
+    @pytest.mark.parametrize(
+        ("overrides", "decision", "reason"),
+        [
+            ({"slippage_tested": False}, "VALIDATION_REQUIRED", "no_slippage_test"),
+            ({"years_tested": 3}, "VALIDATION_REQUIRED", "short_test_period"),
+            ({"total_trades": 20}, "NOT_EVALUABLE", "small_sample"),
+        ],
+    )
+    def test_evidence_gates(self, evaluator_module, overrides, decision, reason):
+        result = evaluator_module.evaluate(**self.inputs(**overrides))
+        assert result["decision"] == decision
+        assert result["verdict"] != "Deploy"
+        assert reason in result["blocking_reasons"]
+
+    def test_multiple_blockers_are_preserved(self, evaluator_module):
+        result = evaluator_module.evaluate(
+            **self.inputs(
+                total_trades=20,
+                win_rate=40,
+                avg_win_pct=1,
+                avg_loss_pct=1,
+                max_drawdown_pct=60,
+                years_tested=3,
+                slippage_tested=False,
+            )
+        )
+        assert result["decision"] == "NOT_EVALUABLE"
+        assert set(result["blocking_reasons"]) == {
+            "small_sample",
+            "negative_expectancy",
+            "excessive_drawdown",
+            "no_slippage_test",
+            "short_test_period",
+        }
+
+    def test_clean_high_score_remains_deploy(self, evaluator_module):
+        result = evaluator_module.evaluate(**self.inputs())
+        assert result["decision"] == "DEPLOY"
+        assert result["verdict"] == "Deploy"
+        assert result["blocking_reasons"] == []
+
+    @pytest.mark.parametrize(
+        ("overrides", "field"),
+        [
+            ({"win_rate": math.nan}, "win_rate"),
+            ({"avg_win_pct": math.inf}, "avg_win_pct"),
+            ({"avg_win_pct": 10**1000}, "avg_win_pct"),
+            ({"avg_loss_pct": 5e-324}, "avg_loss_pct"),
+            ({"max_drawdown_pct": 101}, "max_drawdown_pct"),
+            ({"max_acceptable_drawdown_pct": math.nan}, "max_acceptable_drawdown_pct"),
+            ({"slippage_tested": "false"}, "slippage_tested"),
+            ({"total_trades": 5.0}, "total_trades"),
+            ({"years_tested": math.nan}, "years_tested"),
+        ],
+    )
+    def test_invalid_inputs_are_unevaluable(self, evaluator_module, overrides, field):
+        with pytest.raises(ValueError, match=field):
+            evaluator_module.evaluate(**self.inputs(**overrides))
+
+    def test_positive_loss_cannot_underflow_into_no_losses(self, evaluator_module):
+        with pytest.raises(ValueError, match="unrepresentable gross loss"):
+            evaluator_module.evaluate(200, 50, 2, 5e-324, 10, 10, 4, True)
+
+    @pytest.mark.parametrize(
+        ("overrides", "status", "factor"),
+        [
+            ({"win_rate": 100}, "NO_LOSSES", None),
+            ({"win_rate": 0, "avg_win_pct": 0, "avg_loss_pct": 0}, "UNDEFINED_ZERO_GROSS", None),
+        ],
+    )
+    def test_nonfinite_profit_factor_is_strict_json(
+        self, evaluator_module, tmp_path, overrides, status, factor
+    ):
+        result = evaluator_module.evaluate(**self.inputs(**overrides))
+        assert result["profit_factor_status"] == status
+        assert result["profit_factor"] == factor
+        json_path, markdown_path = evaluator_module.write_outputs(result, tmp_path)
+        assert json.loads(json_path.read_text(), parse_constant=lambda value: pytest.fail(value))
+        assert "Profit Factor" in markdown_path.read_text()
+
+    def test_ratio_overflow_is_not_mislabeled_no_losses(self, evaluator_module, tmp_path):
+        result = evaluator_module.evaluate(
+            **self.inputs(win_rate=50, avg_win_pct=1e300, avg_loss_pct=1e-9)
+        )
+        assert result["profit_factor"] is None
+        assert result["profit_factor_status"] == "OVERFLOW"
+        assert result["decision"] == "NOT_EVALUABLE"
+        assert result["verdict"] != "Deploy"
+        assert "profit_factor_overflow" in result["blocking_reasons"]
+        json_path, markdown_path = evaluator_module.write_outputs(result, tmp_path)
+        assert json.loads(json_path.read_text(), parse_constant=lambda value: pytest.fail(value))
+        assert "Overflow" in markdown_path.read_text()
+
+    def test_markdown_and_cli_show_gated_decision(self, evaluator_module, tmp_path):
+        result = evaluator_module.evaluate(
+            **self.inputs(win_rate=40, avg_win_pct=1, avg_loss_pct=1)
+        )
+        report = evaluator_module.to_markdown(result)
+        assert "Decision: REJECT" in report
+        assert "negative_expectancy" in report
+        assert "Verdict: Deploy" not in report
+
+        script = Path(evaluator_module.__file__)
+        command = [
+            sys.executable,
+            str(script),
+            "--total-trades",
+            "200",
+            "--win-rate",
+            "40",
+            "--avg-win-pct",
+            "1",
+            "--avg-loss-pct",
+            "1",
+            "--max-drawdown-pct",
+            "10",
+            "--years-tested",
+            "10",
+            "--num-parameters",
+            "4",
+            "--slippage-tested",
+            "--output-dir",
+            str(tmp_path),
+        ]
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        assert completed.returncode == 0
+        assert "Decision: REJECT" in completed.stdout
+        written = list(tmp_path.glob("backtest_eval_*.json"))
+        assert len(written) == 1
+        assert json.loads(written[0].read_text())["decision"] == "REJECT"
+
+    def test_invalid_cli_writes_no_report(self, evaluator_module, tmp_path):
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(Path(evaluator_module.__file__)),
+                "--total-trades",
+                "200",
+                "--win-rate",
+                "nan",
+                "--avg-win-pct",
+                "1",
+                "--avg-loss-pct",
+                "1",
+                "--max-drawdown-pct",
+                "10",
+                "--years-tested",
+                "10",
+                "--num-parameters",
+                "4",
+                "--slippage-tested",
+                "--output-dir",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 1
+        assert "NOT_EVALUABLE" in completed.stderr
+        assert not list(tmp_path.iterdir())

@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import sys
 from datetime import datetime
+from decimal import Decimal, localcontext
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -42,16 +45,34 @@ def score_sample_size(total_trades: int) -> int:
     return 20
 
 
+# Float noise (e.g. expectancy 2.2e-16 for 40/3/2, profit factor 1.0000000000000002)
+# must not turn a break-even strategy into a passing one. Cancellation error grows
+# with input magnitude, so no fixed tolerance is safe: the sign is computed exactly
+# in decimal from the inputs as the user wrote them. Reported values stay raw floats.
+def _exact(value: float) -> Decimal:
+    return Decimal(repr(float(value)))
+
+
+def expectancy_sign(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -> int:
+    """Exact sign (-1, 0, 1) of win_rate * avg_win - (100 - win_rate) * avg_loss."""
+    wr = _exact(win_rate)
+    with localcontext() as ctx:
+        ctx.prec = 100
+        value = wr * _exact(avg_win_pct) - (Decimal(100) - wr) * _exact(avg_loss_pct)
+    return (value > 0) - (value < 0)
+
+
 def calc_profit_factor(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -> float:
     """Calculate profit factor: (win_rate * avg_win) / (loss_rate * avg_loss).
 
-    Returns float('inf') when loss component is zero.
+    Returns infinity for positive gross profit with no losses, or zero for 0/0.
     """
     wr = win_rate / 100.0
+    profit_component = wr * avg_win_pct
     loss_component = (1 - wr) * avg_loss_pct
     if loss_component == 0:
-        return float("inf")
-    return (wr * avg_win_pct) / loss_component
+        return float("inf") if profit_component > 0 else 0.0
+    return profit_component / loss_component
 
 
 def calc_expectancy(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -> float:
@@ -71,9 +92,9 @@ def score_expectancy(win_rate: float, avg_win_pct: float, avg_loss_pct: float) -
     0.5..1.5  -> 10..18 (linear)
     >=1.5     -> 20
     """
-    exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
-    if exp <= 0:
+    if expectancy_sign(win_rate, avg_win_pct, avg_loss_pct) <= 0:
         return 0
+    exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
     if exp < 0.5:
         return 5 + int(exp / 0.5 * 5)
     if exp < 1.5:
@@ -110,8 +131,9 @@ def score_risk_management(
 
     # Profit factor component (0-8)
     # Continuous: PF 1.0→3.0 maps linearly to 0→8, capped at 8 for PF≥3.0
+    # PF > 1 exactly when expectancy > 0, so the break-even edge uses the exact sign.
     pf = calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct)
-    if pf < 1.0:
+    if expectancy_sign(win_rate, avg_win_pct, avg_loss_pct) <= 0:
         pf_score = 0
     elif pf >= 3.0:
         pf_score = 8
@@ -216,12 +238,12 @@ def detect_red_flags(
             }
         )
 
-    if max_drawdown_pct > 50:
+    if max_drawdown_pct >= 50:
         flags.append(
             {
                 "id": "excessive_drawdown",
                 "severity": "high",
-                "message": f"Max drawdown {max_drawdown_pct}% exceeds 50% threshold — catastrophic risk.",
+                "message": f"Max drawdown {max_drawdown_pct}% meets or exceeds the 50% hard ceiling — catastrophic risk.",
             }
         )
 
@@ -244,7 +266,7 @@ def detect_red_flags(
         )
 
     exp = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
-    if exp < 0:
+    if expectancy_sign(win_rate, avg_win_pct, avg_loss_pct) < 0:
         flags.append(
             {
                 "id": "negative_expectancy",
@@ -278,8 +300,32 @@ def validate_inputs(
     max_drawdown_pct: float,
     years_tested: int,
     num_parameters: int,
+    slippage_tested: bool,
+    max_acceptable_drawdown_pct: float,
 ) -> None:
     """Validate evaluation inputs at system boundary. Raises ValueError."""
+    for name, value in (
+        ("total_trades", total_trades),
+        ("years_tested", years_tested),
+        ("num_parameters", num_parameters),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{name} must be an integer")
+    for name, value in (
+        ("win_rate", win_rate),
+        ("avg_win_pct", avg_win_pct),
+        ("avg_loss_pct", avg_loss_pct),
+        ("max_drawdown_pct", max_drawdown_pct),
+        ("max_acceptable_drawdown_pct", max_acceptable_drawdown_pct),
+    ):
+        try:
+            finite = math.isfinite(value)
+        except (TypeError, OverflowError):
+            finite = False
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not finite:
+            raise ValueError(f"{name} must be a finite number")
+    if not isinstance(slippage_tested, bool):
+        raise ValueError("slippage_tested must be boolean")
     if total_trades < 0:
         raise ValueError("total_trades must be >= 0")
     if not (0 <= win_rate <= 100):
@@ -288,12 +334,20 @@ def validate_inputs(
         raise ValueError("avg_win_pct must be >= 0")
     if avg_loss_pct < 0:
         raise ValueError("avg_loss_pct must be >= 0")
-    if max_drawdown_pct < 0:
-        raise ValueError("max_drawdown_pct must be >= 0")
+    if not (0 <= max_drawdown_pct <= 100):
+        raise ValueError("max_drawdown_pct must be between 0 and 100")
+    if not (0 <= max_acceptable_drawdown_pct <= 100):
+        raise ValueError("max_acceptable_drawdown_pct must be between 0 and 100")
     if years_tested < 0:
         raise ValueError("years_tested must be >= 0")
     if num_parameters < 0:
         raise ValueError("num_parameters must be >= 0")
+    win_fraction = win_rate / 100.0
+    loss_fraction = 1.0 - win_fraction
+    if win_rate > 0 and avg_win_pct > 0 and win_fraction * avg_win_pct == 0:
+        raise ValueError("win_rate and avg_win_pct produce an unrepresentable gross profit")
+    if win_rate < 100 and avg_loss_pct > 0 and loss_fraction * avg_loss_pct == 0:
+        raise ValueError("avg_loss_pct produces an unrepresentable gross loss")
 
 
 def evaluate(
@@ -305,6 +359,7 @@ def evaluate(
     years_tested: int,
     num_parameters: int,
     slippage_tested: bool,
+    max_acceptable_drawdown_pct: float = 50,
 ) -> dict:
     """Run full 5-dimension evaluation and return structured result."""
     validate_inputs(
@@ -315,6 +370,8 @@ def evaluate(
         max_drawdown_pct,
         years_tested,
         num_parameters,
+        slippage_tested,
+        max_acceptable_drawdown_pct,
     )
     d1 = score_sample_size(total_trades)
     d2 = score_expectancy(win_rate, avg_win_pct, avg_loss_pct)
@@ -325,9 +382,81 @@ def evaluate(
     total = d1 + d2 + d3 + d4 + d5
     total = max(0, min(100, total))
 
+    expectancy = calc_expectancy(win_rate, avg_win_pct, avg_loss_pct)
+    profit_factor = calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct)
+    gross_profit = (win_rate / 100.0) * avg_win_pct
+    gross_loss = (1 - win_rate / 100.0) * avg_loss_pct
+    red_flags = detect_red_flags(
+        total_trades,
+        win_rate,
+        avg_win_pct,
+        avg_loss_pct,
+        max_drawdown_pct,
+        years_tested,
+        num_parameters,
+        slippage_tested,
+    )
+    blocking_reasons = []
+    if gross_loss > 0 and math.isinf(profit_factor):
+        blocking_reasons.append("profit_factor_overflow")
+    if total_trades < 30:
+        blocking_reasons.append("small_sample")
+    sign = expectancy_sign(win_rate, avg_win_pct, avg_loss_pct)
+    if sign < 0:
+        blocking_reasons.append("negative_expectancy")
+    elif sign == 0:
+        blocking_reasons.append("zero_expectancy")
+    if max_drawdown_pct >= 50:
+        blocking_reasons.append("excessive_drawdown")
+    if max_acceptable_drawdown_pct < 50 and max_drawdown_pct > max_acceptable_drawdown_pct:
+        blocking_reasons.append("risk_limit_exceeded")
+    if not slippage_tested:
+        blocking_reasons.append("no_slippage_test")
+    if years_tested < 5:
+        blocking_reasons.append("short_test_period")
+
+    if "small_sample" in blocking_reasons or "profit_factor_overflow" in blocking_reasons:
+        decision = "NOT_EVALUABLE"
+    elif any(
+        reason in blocking_reasons
+        for reason in ("negative_expectancy", "zero_expectancy", "excessive_drawdown")
+    ):
+        decision = "REJECT"
+    elif "risk_limit_exceeded" in blocking_reasons:
+        decision = "RISK_LIMIT_EXCEEDED"
+    elif any(reason in blocking_reasons for reason in ("no_slippage_test", "short_test_period")):
+        decision = "VALIDATION_REQUIRED"
+    else:
+        decision = get_verdict(total).upper()
+
+    score_verdict = get_verdict(total)
+    if decision == "REJECT":
+        verdict = "Abandon"
+    elif decision in ("NOT_EVALUABLE", "RISK_LIMIT_EXCEEDED", "VALIDATION_REQUIRED"):
+        # Never better than the score-based verdict: Deploy -> Refine, Abandon stays.
+        verdict = "Abandon" if score_verdict == "Abandon" else "Refine"
+    else:
+        verdict = score_verdict
+
+    if gross_loss == 0 and gross_profit > 0:
+        reported_profit_factor = None
+        profit_factor_status = "NO_LOSSES"
+    elif gross_loss == 0 and gross_profit == 0:
+        reported_profit_factor = None
+        profit_factor_status = "UNDEFINED_ZERO_GROSS"
+    elif math.isinf(profit_factor):
+        reported_profit_factor = None
+        profit_factor_status = "OVERFLOW"
+    else:
+        reported_profit_factor = profit_factor
+        profit_factor_status = "FINITE"
+
     return {
         "total_score": total,
-        "verdict": get_verdict(total),
+        "quality_score": total,
+        "decision": decision,
+        "blocking_reasons": blocking_reasons,
+        "verdict": verdict,
         "dimensions": [
             {"name": "Sample Size", "score": d1, "max_score": 20},
             {"name": "Expectancy", "score": d2, "max_score": 20},
@@ -335,18 +464,10 @@ def evaluate(
             {"name": "Robustness", "score": d4, "max_score": 20},
             {"name": "Execution Realism", "score": d5, "max_score": 20},
         ],
-        "red_flags": detect_red_flags(
-            total_trades,
-            win_rate,
-            avg_win_pct,
-            avg_loss_pct,
-            max_drawdown_pct,
-            years_tested,
-            num_parameters,
-            slippage_tested,
-        ),
-        "profit_factor": calc_profit_factor(win_rate, avg_win_pct, avg_loss_pct),
-        "expectancy": calc_expectancy(win_rate, avg_win_pct, avg_loss_pct),
+        "red_flags": red_flags,
+        "profit_factor": reported_profit_factor,
+        "profit_factor_status": profit_factor_status,
+        "expectancy": expectancy,
         "inputs": {
             "total_trades": total_trades,
             "win_rate": win_rate,
@@ -356,6 +477,7 @@ def evaluate(
             "years_tested": years_tested,
             "num_parameters": num_parameters,
             "slippage_tested": slippage_tested,
+            "max_acceptable_drawdown_pct": max_acceptable_drawdown_pct,
         },
     }
 
@@ -372,9 +494,14 @@ def to_markdown(result: dict) -> str:
         "",
         f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         "",
-        f"## Verdict: {result['verdict']}",
+        f"## Decision: {result['decision']}",
         "",
-        f"**Total Score: {result['total_score']} / 100**",
+        f"**Quality Score: {result['quality_score']} / 100**",
+        f"**Legacy Verdict: {result['verdict']}**",
+        "",
+        "## Blocking Reasons",
+        "",
+        *([f"- {reason}" for reason in result["blocking_reasons"]] or ["None."]),
         "",
         "## Dimension Scores",
         "",
@@ -389,9 +516,15 @@ def to_markdown(result: dict) -> str:
             "",
             "## Key Metrics",
             "",
-            f"- **Profit Factor**: {result['profit_factor']:.2f}"
-            if result["profit_factor"] != float("inf")
-            else "- **Profit Factor**: Inf (no losing trades)",
+            (
+                f"- **Profit Factor**: {result['profit_factor']:.2f}"
+                if result["profit_factor_status"] == "FINITE"
+                else "- **Profit Factor**: Inf (no losing trades)"
+                if result["profit_factor_status"] == "NO_LOSSES"
+                else "- **Profit Factor**: Undefined (zero gross wins and losses)"
+                if result["profit_factor_status"] == "UNDEFINED_ZERO_GROSS"
+                else "- **Profit Factor**: Overflow (nonzero gross losses; evaluation required)"
+            ),
             f"- **Expectancy**: {result['expectancy']:.3f}% per trade",
         ]
     )
@@ -428,7 +561,7 @@ def write_outputs(result: dict, output_dir: Path) -> tuple[Path, Path]:
     md_path = output_dir / f"{stem}.md"
 
     json_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2, default=str),
+        json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False),
         encoding="utf-8",
     )
     md_path.write_text(to_markdown(result), encoding="utf-8")
@@ -473,6 +606,12 @@ def parse_args() -> argparse.Namespace:
         "--slippage-tested", action="store_true", help="Whether slippage/friction was modeled"
     )
     parser.add_argument(
+        "--max-acceptable-drawdown-pct",
+        type=float,
+        default=50,
+        help="Personal maximum drawdown in percent (hard ceiling remains 50%%)",
+    )
+    parser.add_argument(
         "--output-dir", default="reports/", help="Output directory (default: reports/)"
     )
     return parser.parse_args()
@@ -481,21 +620,31 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    result = evaluate(
-        total_trades=args.total_trades,
-        win_rate=args.win_rate,
-        avg_win_pct=args.avg_win_pct,
-        avg_loss_pct=args.avg_loss_pct,
-        max_drawdown_pct=args.max_drawdown_pct,
-        years_tested=args.years_tested,
-        num_parameters=args.num_parameters,
-        slippage_tested=args.slippage_tested,
-    )
+    try:
+        result = evaluate(
+            total_trades=args.total_trades,
+            win_rate=args.win_rate,
+            avg_win_pct=args.avg_win_pct,
+            avg_loss_pct=args.avg_loss_pct,
+            max_drawdown_pct=args.max_drawdown_pct,
+            years_tested=args.years_tested,
+            num_parameters=args.num_parameters,
+            slippage_tested=args.slippage_tested,
+            max_acceptable_drawdown_pct=args.max_acceptable_drawdown_pct,
+        )
+    except ValueError as exc:
+        print(f"NOT_EVALUABLE: {exc}", file=sys.stderr)
+        return 1
 
     output_dir = Path(args.output_dir)
     json_path, md_path = write_outputs(result, output_dir)
 
-    print(f"Score: {result['total_score']}/100 — Verdict: {result['verdict']}")
+    print(
+        f"Quality score: {result['quality_score']}/100 — Decision: {result['decision']}"
+        f" (legacy verdict: {result['verdict']})"
+    )
+    if result["blocking_reasons"]:
+        print(f"Blocking reasons: {', '.join(result['blocking_reasons'])}")
     if result["red_flags"]:
         print(f"Red flags: {len(result['red_flags'])}")
         for flag in result["red_flags"]:
