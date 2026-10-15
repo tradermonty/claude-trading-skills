@@ -153,6 +153,27 @@ Seven waivers remain, all expiring on 2027-01-31 under Issue #293:
 | `ibd-distribution-day-monitor` | 51.27% | 51 |
 | `skill-designer` | 47.46% | 47 |
 
+### Status as of 2026-10-15 (second batch)
+
+Three more waivers are removed: `canslim-screener`,
+`edge-strategy-designer` and `ibd-distribution-day-monitor`. Their local
+measurements, taken with the same `ci_test_matrix.py run` command as CI, are
+98.92%, 99.31% and 98.67%. The PR-head CI run is authoritative.
+
+`canslim-screener` previously pinned CI to three of its five test files
+through `matrix.canslim-screener.test_paths`, so `test_canslim_fixes.py` and
+`test_leadership_rs.py` never ran in CI. The pin is removed and CI now runs the
+whole `scripts/tests` directory.
+
+Four waivers remain, all expiring on 2027-01-31 under Issue #293:
+
+| Skill | CI actual | Floor |
+|---|---:|---:|
+| `breadth-chart-analyst` | 25.76% | 25 |
+| `downtrend-duration-analyzer` | 46.24% | 46 |
+| `edge-candidate-agent` | 41.17% | 40 |
+| `skill-designer` | 47.46% | 47 |
+
 ### Expiry warnings
 
 `ci_test_matrix.py` reports every dated exception (aggregate waiver, coverage

@@ -23,12 +23,6 @@ coverage:
       expires_on: "2027-01-31"
       issue: 293
       reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    canslim-screener:
-      floor: 48
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     downtrend-duration-analyzer:
       floor: 46
       target: 70
@@ -41,18 +35,6 @@ coverage:
       expires_on: "2027-01-31"
       issue: 293
       reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    edge-strategy-designer:
-      floor: 47
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    ibd-distribution-day-monitor:
-      floor: 51
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Ratcheted 2026-10-14 to floor(actual) on CI evidence (runs 38657819385/38457103114/38413379371 measured 51.27/51.09/51.09%); waiver kept until the 70% target is met.
     skill-designer:
       floor: 47
       target: 70
@@ -94,14 +76,10 @@ matrix:
     - pandas-market-calendars==5.2.2
     reason: Exercise the pinned shared cash-equity calendar contract.
   canslim-screener:
-    test_paths:
-    - skills/canslim-screener/scripts/tests/test_fmp_fallback.py
-    - skills/canslim-screener/scripts/tests/test_fmp_stable_migration.py
-    - skills/canslim-screener/scripts/tests/test_institutional_fallback.py
     requirements:
     - beautifulsoup4
     - lxml
-    reason: Preserve the focused FMP contract suite and optional dependencies.
+    reason: Install the HTML parsing dependencies finviz_stock_client.py imports.
   pair-trade-screener:
     requirements:
     - statsmodels>=0.14,<0.15
