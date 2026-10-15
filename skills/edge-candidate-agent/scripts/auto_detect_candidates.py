@@ -1696,7 +1696,11 @@ def main() -> int:
     news_path = Path(args.news_reactions).resolve() if args.news_reactions else None
     futures_path = Path(args.futures_ohlcv).resolve() if args.futures_ohlcv else None
     futures_map_path = Path(args.futures_map).resolve() if args.futures_map else None
-    as_of_date = parse_as_of_date(args.as_of)
+    try:
+        as_of_date = parse_as_of_date(args.as_of)
+    except AutoDetectError as exc:
+        print(f"[ERROR] {exc}")
+        return 1
 
     if not ohlcv_path.exists():
         print(f"[ERROR] OHLCV file not found: {ohlcv_path}")
