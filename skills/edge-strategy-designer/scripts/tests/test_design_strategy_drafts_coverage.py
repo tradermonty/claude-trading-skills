@@ -331,12 +331,10 @@ def test_build_draft_exportable_families_override_allows_export() -> None:
     assert draft["export_ready_v1"] is True
 
 
-def test_build_draft_export_flag_false_blocks_even_known_family() -> None:
-    draft = dsd.build_draft(
-        _concept(export=True, family="pivot_breakout"), "core", "balanced", None
-    )
-    assert draft["export_ready_v1"] is True
-    # Known family in template but concept not export-ready: draft flag still follows template
+def test_build_draft_ignores_concept_export_flag_for_known_family() -> None:
+    # Characterization, not intended behavior: the draft flag follows ENTRY_TEMPLATE
+    # membership only, so a concept marked not export-ready still yields an
+    # export-ready draft when its recommended family is a template family.
     concept = _concept(export=False, family="pivot_breakout")
     draft2 = dsd.build_draft(concept, "research_probe", "balanced", None)
     assert draft2["entry_family"] == "pivot_breakout"

@@ -597,7 +597,7 @@ class TestLeadershipCalculator:
         result = calculate_leadership(prices, sp500_historical=bench, rs_benchmark="QQQ")
         assert result["available_periods"] == ["3m", "6m", "12m"]
         assert result["rs_benchmark"] == "QQQ"
-        assert result["weighted_relative_performance"] is not None
+        assert result["weighted_relative_performance"] > 0
         assert result["rs_12m_return"] > result["benchmark_12m_return"]
         assert result["rs_benchmark_relative_return"] == result["rel_12m"]
         assert result["score"] == result["rs_component_score"]
