@@ -69,6 +69,11 @@ matrix:
     requirements:
     - pandas-market-calendars==5.2.2
     reason: Exercise the pinned shared cash-equity calendar contract.
+  breadth-chart-analyst:
+    requirements:
+    - opencv-python-headless
+    - pillow
+    reason: Install the image libraries the chart detectors and extractor import; versions come from uv.lock.
   canslim-screener:
     requirements:
     - beautifulsoup4

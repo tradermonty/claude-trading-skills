@@ -173,6 +173,10 @@ authoritative. The skill's `conftest.py` pointed the sample-chart fixtures at
 `scripts/assets/` instead of the skill's `assets/`, so every test that uses a
 sample chart was silently skipped in CI. The path is fixed and those tests now
 run.
+CI's locked environment also lacked `opencv-python-headless` and Pillow, so
+the detectors were only imported through their `cv2` ImportError fallback.
+Both are now in the `ci` extra (versions from `uv.lock`) and listed under
+`matrix.breadth-chart-analyst.requirements`.
 
 Three waivers remain, all expiring on 2027-01-31 under Issue #293:
 
