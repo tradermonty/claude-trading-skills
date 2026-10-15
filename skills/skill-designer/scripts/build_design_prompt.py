@@ -113,7 +113,14 @@ def main() -> int:
         print(f"Error: idea JSON not found: {idea_path}", file=sys.stderr)
         return 1
 
-    idea = json.loads(idea_path.read_text(encoding="utf-8"))
+    try:
+        idea = json.loads(idea_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"Error: idea JSON is not valid JSON: {idea_path}: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(idea, dict):
+        print(f"Error: idea JSON must be an object: {idea_path}", file=sys.stderr)
+        return 1
 
     # Load references — all 3 are required (no silent degrade on partial miss)
     refs = load_references(REFERENCES_DIR)

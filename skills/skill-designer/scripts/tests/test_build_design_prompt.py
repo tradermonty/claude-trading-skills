@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import build_design_prompt as bdp
+import pytest
 from build_design_prompt import (
     REFERENCES_DIR,
     build_prompt,
@@ -131,6 +132,24 @@ def test_main_missing_idea_file(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     assert rc == 1
     assert "idea JSON not found" in captured.err
+    assert captured.out == ""
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("{not json", "idea JSON is not valid JSON"),
+        ("[1, 2]", "idea JSON must be an object"),
+    ],
+)
+def test_main_rejects_unusable_idea_json(tmp_path, monkeypatch, capsys, content, message):
+    idea = tmp_path / "idea.json"
+    idea.write_text(content, encoding="utf-8")
+    rc = _run_main(monkeypatch, ["--idea-json", str(idea), "--skill-name", "s"])
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert message in captured.err
+    assert "Traceback" not in captured.err
     assert captured.out == ""
 
 
