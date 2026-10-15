@@ -40,6 +40,6 @@ python3 scripts/check_coverage_waiver_expiry.py --output /tmp/coverage-waiver-ex
 ```
 
 `--notify OWNER/REPO` explicitly opts into writing the tracking comment. Do not
-use that option for local validation. Issue #523 stays open: the 14 waivers still
+use that option for local validation. Issue #523 stays open: the remaining waivers still
 need individual coverage improvements or justified renewals, and delivery needs
 verification after merge. This notification slice does not claim those are done.

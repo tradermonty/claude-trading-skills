@@ -70,7 +70,7 @@ repository effective floor was the lower cross-platform baseline rounded down
 to 72%, with a 75% target; that aggregate waiver has since been retired (see
 below). Per-skill floors follow the same cross-platform rule.
 
-### Status as of 2026-10-10
+### Re-dating on 2026-10-10
 
 All waivers originally expired on 2026-10-31, and the loader fails closed after
 the expiry date, so every `ci_test_matrix.py` command would have failed from
@@ -106,6 +106,32 @@ CI runs (Ubuntu/Python 3.10): 38043262308, 37331242157 and 37257679899.
 
 `value-dividend-screener` stays at 34 because a floor of 35 would leave 0.07
 points of headroom and block almost any edit to that skill.
+
+### Status as of 2026-10-14
+
+Four waived skills now exceed the 70% target, so their waivers are removed:
+`dividend-growth-pullback-screener`, `stockbee-episodic-pivot-analyzer`,
+`stockbee-exhaustion-hammer-screener` and `value-dividend-screener`. Their
+local measurements, taken with the same `ci_test_matrix.py run` command as CI,
+are 98.90%, 99.55%, 98.89% and 98.90%. The PR-head CI run is authoritative.
+
+`ibd-distribution-day-monitor` is ratcheted from 44 to 51. It measured 51.27%,
+51.09% and 51.09% in main runs 38657819385, 38457103114 and 38413379371.
+
+Ten waivers remain, all expiring on 2027-01-31 under Issue #293:
+
+| Skill | CI actual | Floor |
+|---|---:|---:|
+| `breadth-chart-analyst` | 25.76% | 25 |
+| `canslim-screener` | 48.82% | 48 |
+| `downtrend-duration-analyzer` | 46.24% | 46 |
+| `edge-candidate-agent` | 41.17% | 40 |
+| `edge-strategy-designer` | 47.59% | 47 |
+| `ibd-distribution-day-monitor` | 51.27% | 51 |
+| `pair-trade-screener` | 56.54% | 56 |
+| `skill-designer` | 47.46% | 47 |
+| `stockbee-momentum-burst-screener` | 57.23% | 57 |
+| `stockbee-setup-fluency-trainer` | 53.95% | 53 |
 
 ### Expiry warnings
 

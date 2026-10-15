@@ -29,12 +29,6 @@ coverage:
       expires_on: "2027-01-31"
       issue: 293
       reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    dividend-growth-pullback-screener:
-      floor: 39
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     downtrend-duration-analyzer:
       floor: 46
       target: 70
@@ -71,18 +65,6 @@ coverage:
       expires_on: "2027-01-31"
       issue: 293
       reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    stockbee-episodic-pivot-analyzer:
-      floor: 59
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    stockbee-exhaustion-hammer-screener:
-      floor: 59
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     stockbee-momentum-burst-screener:
       floor: 57
       target: 70
@@ -91,12 +73,6 @@ coverage:
       reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     stockbee-setup-fluency-trainer:
       floor: 53
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    value-dividend-screener:
-      floor: 34
       target: 70
       expires_on: "2027-01-31"
       issue: 293
