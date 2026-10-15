@@ -23,12 +23,6 @@ coverage:
       expires_on: "2027-01-31"
       issue: 293
       reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    edge-candidate-agent:
-      floor: 40
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     skill-designer:
       floor: 47
       target: 70

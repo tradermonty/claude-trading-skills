@@ -186,6 +186,14 @@ Three waivers remain, all expiring on 2027-01-31 under Issue #293:
 | `edge-candidate-agent` | 41.17% | 40 |
 | `skill-designer` | 47.46% | 47 |
 
+### Status as of 2026-10-15 (edge-candidate-agent)
+
+The `edge-candidate-agent` waiver is removed. Its local measurement, taken with
+the same `ci_test_matrix.py run` command as CI, is 99.25% (target 70%). The
+PR-head CI run is authoritative. The new tests also surfaced one bug:
+`auto_detect_candidates.py --as-of` with a malformed date raised an uncaught
+`AutoDetectError` traceback instead of printing `[ERROR] ...` and exiting 1.
+
 ### Expiry warnings
 
 `ci_test_matrix.py` reports every dated exception (aggregate waiver, coverage
