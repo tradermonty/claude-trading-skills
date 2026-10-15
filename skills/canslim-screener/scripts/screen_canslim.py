@@ -430,7 +430,11 @@ def main():
         vix_quote=vix_quote[0] if vix_quote else None,
     )
 
-    print(f"S&P 500: ${market_data['sp500_price']:.2f}")
+    _sp500 = market_data.get("sp500_price")
+    if isinstance(_sp500, (int, float)):
+        print(f"S&P 500: ${_sp500:.2f}")
+    else:
+        print(f"S&P 500: N/A ({market_data.get('error', 'price unavailable')})")
     _dist = market_data.get("distance_from_ema_pct")
     if isinstance(_dist, (int, float)):
         print(f"Distance from 50-EMA: {_dist:+.2f}%")

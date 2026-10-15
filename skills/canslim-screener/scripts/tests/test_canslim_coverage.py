@@ -1682,15 +1682,9 @@ class TestMain:
         # strong uptrend (90) with no VIX bonus
         assert report["metadata"]["market_condition"]["M_score"] == 90
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "main() prints market_data['sp500_price'], but calculate_market_direction omits "
-            "that key when the ^GSPC quote has no price, so a null/zero price crashes with "
-            "KeyError instead of degrading to the documented neutral M=50"
-        ),
-    )
-    def test_sp500_quote_without_price_degrades_gracefully(self, monkeypatch, tmp_path):
+    def test_sp500_quote_without_price_degrades_gracefully(self, monkeypatch, tmp_path, capsys):
+        # Regression: main() indexed market_data["sp500_price"], which the error dict
+        # omits, so a ^GSPC quote without a price crashed with KeyError.
         market = default_market()
         market["quotes"]["^GSPC"] = [{"symbol": "^GSPC", "price": None}]
         run_main(
@@ -1700,6 +1694,7 @@ class TestMain:
         )
         report, _ = read_reports(tmp_path)
         assert report["metadata"]["market_condition"]["M_score"] == 50
+        assert "S&P 500: N/A (S&P 500 price missing)" in capsys.readouterr().out
 
     def test_api_key_flag_is_forwarded_to_client(self, monkeypatch, tmp_path):
         seen = {}
