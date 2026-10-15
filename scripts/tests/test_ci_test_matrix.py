@@ -662,7 +662,8 @@ def test_current_policy_survives_the_october_31_cliff():
     assert policy.aggregate_waiver is None
     expiries = [w.expires_on for w in policy.coverage_waivers.values()]
     expiries += [a.expires_on for a in policy.allowed_failures.values()]
-    assert min(expiries) >= date(2026, 11, 2)
+    # The waiver list may be empty once every skill meets its target.
+    assert all(expiry >= date(2026, 11, 2) for expiry in expiries)
     for skill_id, waiver in policy.coverage_waivers.items():
         assert waiver.issue == 293, skill_id
 

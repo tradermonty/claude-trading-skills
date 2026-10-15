@@ -182,12 +182,22 @@ run is authoritative.
   are now in the `ci` extra (versions from `uv.lock`) and listed under
   `matrix.breadth-chart-analyst.requirements`.
 
-Two waivers remain, both expiring on 2027-01-31 under Issue #293:
+### Status as of 2026-10-15 (final batch)
 
-| Skill | CI actual | Floor |
-|---|---:|---:|
-| `downtrend-duration-analyzer` | 46.24% | 46 |
-| `skill-designer` | 47.46% | 47 |
+The last two waivers are removed: `downtrend-duration-analyzer` and
+`skill-designer`. Their local measurements, taken with the same
+`ci_test_matrix.py run` command as CI, are 85.30% and 100.00%. The PR-head CI
+run is authoritative.
+
+`downtrend-duration-analyzer` is tested on its calculation, report and
+histogram layers. Its tests mock `fetch_stock_list` and
+`fetch_historical_prices` at module level, because Issue #495 will replace the
+FMP fetch layer with the vendored client. The remaining uncovered lines are
+that fetch layer.
+
+No per-skill coverage waivers remain (`coverage.waivers: {}`). Every skill
+must now meet its tier target: 85% for core skills and 70% for the rest. The
+waiver and renewal rules below still apply if a new waiver is ever needed.
 
 ### Expiry warnings
 
