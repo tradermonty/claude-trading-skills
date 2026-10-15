@@ -99,12 +99,13 @@ def test_client_exits_when_requests_missing(monkeypatch, capsys):
 def test_request_success_counts_call_and_sleeps(client, monkeypatch):
     slept = []
     monkeypatch.setattr(smb.time, "sleep", slept.append)
-    client.last_call_time = smb.time.time()
+    monkeypatch.setattr(smb.time, "time", lambda: 1000.0)
+    client.last_call_time = 999.9
     client.session.get.return_value = _resp(200, {"ok": 1})
     assert client._request("http://x", {"a": 1}) == {"ok": 1}
     assert client.api_calls_made == 1
     assert len(slept) == 1
-    assert 0 < slept[0] <= client.RATE_LIMIT_DELAY
+    assert slept[0] == pytest.approx(client.RATE_LIMIT_DELAY - 0.1)
 
 
 def test_request_budget_exhausted(client):

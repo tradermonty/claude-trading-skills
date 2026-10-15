@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime
 
 import analyze_spread
 import find_pairs
@@ -470,7 +471,7 @@ def test_test_cointegration_reports_critical_values_and_spread():
 
     result = find_pairs.test_cointegration(a, b, beta)
 
-    assert bool(result["is_cointegrated"]) is True
+    assert result["is_cointegrated"] is True
     assert result["critical_value_1pct"] < result["critical_value_5pct"]
     assert result["critical_value_5pct"] < result["critical_value_10pct"] < 0
     assert result["adf_statistic"] < result["critical_value_1pct"]
@@ -483,7 +484,7 @@ def test_test_cointegration_independent_walks_not_cointegrated():
 
     result = find_pairs.test_cointegration(a, b, beta)
 
-    assert bool(result["is_cointegrated"]) is False
+    assert result["is_cointegrated"] is False
     assert result["p_value"] >= 0.05
 
 
@@ -594,7 +595,7 @@ def test_analyze_pair_signal_and_strength_rules(monkeypatch, zscore, p_value, si
     assert result["critical_value_5pct"] == -2.8765
     assert result["half_life_days"] == 7.0
     assert result["current_zscore"] == round(zscore, 2)
-    assert result["timestamp"]
+    assert datetime.fromisoformat(result["timestamp"])
 
 
 def test_analyze_pair_skips_half_life_when_not_cointegrated(monkeypatch):
@@ -604,7 +605,7 @@ def test_analyze_pair_skips_half_life_when_not_cointegrated(monkeypatch):
 
     assert half_life_calls == []
     assert result["half_life_days"] is None
-    assert bool(result["is_cointegrated"]) is False
+    assert result["is_cointegrated"] is False
 
 
 def test_analyze_pair_rejects_low_correlation(monkeypatch):
@@ -644,11 +645,12 @@ def test_analyze_pair_end_to_end_on_real_series():
 
     result = find_pairs.analyze_pair("AAA", "BBB", a, b, min_correlation=0.5)
 
-    assert bool(result["is_cointegrated"]) is True
+    assert result["is_cointegrated"] is True
     assert result["strength"] == "★★★"
     assert result["beta"] == pytest.approx(1.2, abs=0.05)
     assert result["half_life_days"] > 0
-    assert result["signal"] in {"NONE", "SHORT", "LONG"}
+    z = result["current_zscore"]
+    assert result["signal"] == ("SHORT" if z > 2.0 else "LONG" if z < -2.0 else "NONE")
 
 
 def test_analyze_pair_reports_independent_walks_as_not_cointegrated():
@@ -657,7 +659,7 @@ def test_analyze_pair_reports_independent_walks_as_not_cointegrated():
     result = find_pairs.analyze_pair("AAA", "BBB", a, b, min_correlation=0.0)
 
     assert result is not None
-    assert bool(result["is_cointegrated"]) is False
+    assert result["is_cointegrated"] is False
     assert result["half_life_days"] is None
 
 
@@ -985,7 +987,7 @@ def test_analyze_spread_test_cointegration_independent_walks():
 
     result = analyze_spread.test_cointegration(spread)
 
-    assert bool(result["is_cointegrated"]) is False
+    assert result["is_cointegrated"] is False
     assert set(result["critical_values"]) == {"1%", "5%", "10%"}
 
 
