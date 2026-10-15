@@ -367,13 +367,13 @@ def format_human(result: AnalysisResult) -> str:
     # Sector Summary
     if result.sectors:
         lines.append("--- Sector Summary ---")
-        overbought = [s for s in result.sectors if s.get("status", "").lower() == "overbought"]
-        oversold = [s for s in result.sectors if s.get("status", "").lower() == "oversold"]
+        overbought = [s for s in result.sectors if (s.get("status") or "").lower() == "overbought"]
+        oversold = [s for s in result.sectors if (s.get("status") or "").lower() == "oversold"]
         uptrend_sectors = [
-            s for s in result.sectors if s.get("trend", "").lower() in ("up", "uptrend")
+            s for s in result.sectors if (s.get("trend") or "").lower() in ("up", "uptrend")
         ]
         downtrend_sectors = [
-            s for s in result.sectors if s.get("trend", "").lower() in ("down", "downtrend")
+            s for s in result.sectors if (s.get("trend") or "").lower() in ("down", "downtrend")
         ]
 
         if overbought:

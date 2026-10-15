@@ -728,6 +728,15 @@ class UptrendRatioDetector:
             cv2.imwrite(mask_path, self.debug_info["red_mask"])
 
 
+def _json_default(obj: Any) -> Any:
+    """Make numpy values in debug_info JSON-serializable (arrays become a shape marker)."""
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return f"<ndarray shape={list(obj.shape)}>"
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
 def format_result_for_human(result: dict[str, Any]) -> str:
     """Format the detection result for human-readable output."""
     lines = []
@@ -792,7 +801,7 @@ Examples:
         result = detector.detect(debug=args.debug)
 
         if args.json:
-            print(json.dumps(result, indent=2))
+            print(json.dumps(result, indent=2, default=_json_default))
         else:
             print(format_result_for_human(result))
 
