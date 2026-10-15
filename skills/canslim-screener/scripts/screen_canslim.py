@@ -430,11 +430,16 @@ def main():
         vix_quote=vix_quote[0] if vix_quote else None,
     )
 
-    _sp500 = market_data.get("sp500_price")
-    if isinstance(_sp500, (int, float)):
-        print(f"S&P 500: ${_sp500:.2f}")
-    else:
-        print(f"S&P 500: N/A ({market_data.get('error', 'price unavailable')})")
+    # A quote without a usable price is as unusable as no quote: fail closed rather
+    # than rank candidates on a fabricated neutral M score.
+    if market_data.get("sp500_price") is None:
+        print(
+            f"ERROR: Unable to determine market direction: {market_data.get('error')}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"S&P 500: ${market_data['sp500_price']:.2f}")
     _dist = market_data.get("distance_from_ema_pct")
     if isinstance(_dist, (int, float)):
         print(f"Distance from 50-EMA: {_dist:+.2f}%")
@@ -509,6 +514,8 @@ def main():
             "trend": market_data["trend"],
             "M_score": market_data["score"],
             "warning": market_data.get("warning"),
+            # Set when the M score is a neutral fallback rather than a measured trend.
+            "error": market_data.get("error"),
         },
     }
 

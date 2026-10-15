@@ -1663,12 +1663,18 @@ class TestMain:
         assert "^GSPC historical data unavailable" in out
         assert "Distance from 50-EMA: N/A (insufficient history)" in out
         assert "Trend: unknown" in out
-        report, _ = read_reports(tmp_path)
+        report, md = read_reports(tmp_path)
+        # The run still publishes, but both artifacts say the M component is degraded.
         assert report["metadata"]["market_condition"] == {
             "trend": "unknown",
             "M_score": 50,
             "warning": None,
+            "error": "Insufficient S&P 500 history for 50-day EMA",
         }
+        assert (
+            "- **⚠️ Data quality:** DEGRADED - M component: "
+            "Insufficient S&P 500 history for 50-day EMA"
+        ) in md
 
     def test_missing_vix_quote_is_tolerated(self, monkeypatch, tmp_path):
         market = default_market()
@@ -1682,19 +1688,23 @@ class TestMain:
         # strong uptrend (90) with no VIX bonus
         assert report["metadata"]["market_condition"]["M_score"] == 90
 
-    def test_sp500_quote_without_price_degrades_gracefully(self, monkeypatch, tmp_path, capsys):
+    @pytest.mark.parametrize("quote", [{"symbol": "^GSPC", "price": None}, {}])
+    def test_sp500_quote_without_price_fails_closed(self, monkeypatch, tmp_path, capsys, quote):
         # Regression: main() indexed market_data["sp500_price"], which the error dict
-        # omits, so a ^GSPC quote without a price crashed with KeyError.
+        # omits, so a ^GSPC quote without a price crashed with KeyError. Like a missing
+        # quote, it must stop with exit 1 and publish nothing, not rank candidates on
+        # a fabricated neutral M score.
         market = default_market()
-        market["quotes"]["^GSPC"] = [{"symbol": "^GSPC", "price": None}]
-        run_main(
-            monkeypatch,
-            ["--universe", "AAA", "--output-dir", str(tmp_path)],
-            FakeFMP({"AAA": strong_stock("AAA")}, market=market),
-        )
-        report, _ = read_reports(tmp_path)
-        assert report["metadata"]["market_condition"]["M_score"] == 50
-        assert "S&P 500: N/A (S&P 500 price missing)" in capsys.readouterr().out
+        market["quotes"]["^GSPC"] = [quote]
+        with pytest.raises(SystemExit) as exc:
+            run_main(
+                monkeypatch,
+                ["--universe", "AAA", "--output-dir", str(tmp_path)],
+                FakeFMP({"AAA": strong_stock("AAA")}, market=market),
+            )
+        assert exc.value.code == 1
+        assert "ERROR: Unable to determine market direction" in capsys.readouterr().err
+        assert list(tmp_path.iterdir()) == []
 
     def test_api_key_flag_is_forwarded_to_client(self, monkeypatch, tmp_path):
         seen = {}

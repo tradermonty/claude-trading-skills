@@ -85,6 +85,9 @@ def generate_markdown_report(results: list[dict], metadata: dict, output_file: s
         if market.get("warning"):
             lines.append(f"- **⚠️ Warning:** {market['warning']}")
 
+        if market.get("error"):
+            lines.append(f"- **⚠️ Data quality:** DEGRADED - M component: {market['error']}")
+
         lines.append("")
         lines.append("---")
         lines.append("")
