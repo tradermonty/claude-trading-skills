@@ -17,12 +17,6 @@ coverage:
       - position-sizer
       - trader-memory-core
   waivers:
-    breadth-chart-analyst:
-      floor: 25
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     downtrend-duration-analyzer:
       floor: 46
       target: 70

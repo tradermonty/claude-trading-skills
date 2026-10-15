@@ -165,11 +165,19 @@ through `matrix.canslim-screener.test_paths`, so `test_canslim_fixes.py` and
 `test_leadership_rs.py` never ran in CI. The pin is removed and CI now runs the
 whole `scripts/tests` directory.
 
-Four waivers remain, all expiring on 2027-01-31 under Issue #293:
+### Status as of 2026-10-15 (third batch)
+
+The `breadth-chart-analyst` waiver is removed. Its local measurement with the
+same `ci_test_matrix.py run` command as CI is 99.24%. The PR-head CI run is
+authoritative. The skill's `conftest.py` pointed the sample-chart fixtures at
+`scripts/assets/` instead of the skill's `assets/`, so every test that uses a
+sample chart was silently skipped in CI. The path is fixed and those tests now
+run.
+
+Three waivers remain, all expiring on 2027-01-31 under Issue #293:
 
 | Skill | CI actual | Floor |
 |---|---:|---:|
-| `breadth-chart-analyst` | 25.76% | 25 |
 | `downtrend-duration-analyzer` | 46.24% | 46 |
 | `edge-candidate-agent` | 41.17% | 40 |
 | `skill-designer` | 47.46% | 47 |
