@@ -53,26 +53,8 @@ coverage:
       expires_on: "2027-01-31"
       issue: 293
       reason: Ratcheted 2026-10-14 to floor(actual) on CI evidence (runs 38657819385/38457103114/38413379371 measured 51.27/51.09/51.09%); waiver kept until the 70% target is met.
-    pair-trade-screener:
-      floor: 56
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
     skill-designer:
       floor: 47
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    stockbee-momentum-burst-screener:
-      floor: 57
-      target: 70
-      expires_on: "2027-01-31"
-      issue: 293
-      reason: Re-dated 2026-10-10 on CI evidence (runs 38043262308/37331242157/37257679899, identical per-skill results); floor is floor(actual) unless that leaves under 0.1pt of headroom.
-    stockbee-setup-fluency-trainer:
-      floor: 53
       target: 70
       expires_on: "2027-01-31"
       issue: 293

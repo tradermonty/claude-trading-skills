@@ -133,6 +133,26 @@ Ten waivers remain, all expiring on 2027-01-31 under Issue #293:
 | `stockbee-momentum-burst-screener` | 57.23% | 57 |
 | `stockbee-setup-fluency-trainer` | 53.95% | 53 |
 
+### Status as of 2026-10-15
+
+Three more waived skills exceed the 70% target, so their waivers are removed:
+`pair-trade-screener`, `stockbee-momentum-burst-screener` and
+`stockbee-setup-fluency-trainer`. Their local measurements, taken with the
+same `ci_test_matrix.py run` command as CI, are 100.00%, 99.68% and 100.00%.
+The PR-head CI run is authoritative.
+
+Seven waivers remain, all expiring on 2027-01-31 under Issue #293:
+
+| Skill | CI actual | Floor |
+|---|---:|---:|
+| `breadth-chart-analyst` | 25.76% | 25 |
+| `canslim-screener` | 48.82% | 48 |
+| `downtrend-duration-analyzer` | 46.24% | 46 |
+| `edge-candidate-agent` | 41.17% | 40 |
+| `edge-strategy-designer` | 47.59% | 47 |
+| `ibd-distribution-day-monitor` | 51.27% | 51 |
+| `skill-designer` | 47.46% | 47 |
+
 ### Expiry warnings
 
 `ci_test_matrix.py` reports every dated exception (aggregate waiver, coverage
