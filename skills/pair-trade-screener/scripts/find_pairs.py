@@ -288,7 +288,7 @@ def test_cointegration(prices_a, prices_b, beta):
             "critical_value_1pct": critical_values["1%"],
             "critical_value_5pct": critical_values["5%"],
             "critical_value_10pct": critical_values["10%"],
-            "is_cointegrated": p_value < 0.05,
+            "is_cointegrated": bool(p_value < 0.05),
             "spread": spread,
         }
     except Exception:

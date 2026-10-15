@@ -161,7 +161,7 @@ def test_cointegration(spread):
             "adf_statistic": result[0],
             "p_value": result[1],
             "critical_values": result[4],
-            "is_cointegrated": result[1] < 0.05,
+            "is_cointegrated": bool(result[1] < 0.05),
         }
     except Exception as e:
         print(f"ERROR: Cointegration test failed: {e}")
@@ -213,7 +213,8 @@ def generate_ascii_chart(zscore, width=60, height=15):
 
     # Create chart
     lines = []
-    lines.append(f"\n{'Z-Score History (Last {len(valid_z)} days)':^{width}}")
+    title = f"Z-Score History (Last {len(valid_z)} days)"
+    lines.append(f"\n{title:^{width}}")
     lines.append("-" * width)
 
     # Y-axis levels

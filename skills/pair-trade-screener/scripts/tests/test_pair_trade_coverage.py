@@ -848,28 +848,32 @@ def test_find_pairs_sector_mode_normalizes_symbols_and_fetches(monkeypatch, tmp_
     assert [p["pair"] for p in payload["pairs"]] == ["AAA/BBB"]
 
 
-def test_find_pairs_real_result_is_not_json_serializable(monkeypatch, tmp_path):
-    # Suspicious production behavior, pinned as-is: analyze_pair() returns
-    # numpy.bool_ for "is_cointegrated", which json.dump rejects, so a real
-    # run with a cointegrated pair crashes in save_results with a TypeError
-    # (not caught by cli(), which only handles RuntimeError/ValueError).
+def test_find_pairs_real_result_is_json_serializable(monkeypatch, tmp_path):
+    # Regression: analyze_pair() used to return numpy.bool_ for
+    # "is_cointegrated", so a real run with a cointegrated pair crashed in
+    # save_results with "Object of type bool is not JSON serializable".
     a, b = cointegrated_prices()
     monkeypatch.setattr(find_pairs, "fetch_price_data_batch", lambda *_a: {"AAA": a, "BBB": b})
+    out = tmp_path / "real.json"
 
-    with pytest.raises(TypeError, match="not JSON serializable"):
-        run_find_pairs(
-            monkeypatch,
-            [
-                "--symbols",
-                "AAA,BBB",
-                "--api-key",
-                "k",
-                "--min-correlation",
-                "0.5",
-                "--output",
-                str(tmp_path / "real.json"),
-            ],
-        )
+    run_find_pairs(
+        monkeypatch,
+        [
+            "--symbols",
+            "AAA,BBB",
+            "--api-key",
+            "k",
+            "--min-correlation",
+            "0.5",
+            "--output",
+            str(out),
+        ],
+    )
+
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert [p["pair"] for p in payload["pairs"]] == ["AAA/BBB"]
+    assert payload["pairs"][0]["is_cointegrated"] is True
+    assert payload["metadata"]["cointegrated_pairs"] == 1
 
 
 def test_find_pairs_symbols_are_uppercased_and_stripped(monkeypatch, tmp_path):
@@ -1023,7 +1027,7 @@ def test_ascii_chart_layout_and_markers():
     chart = analyze_spread.generate_ascii_chart(zscore, width=40, height=9)
 
     lines = chart.split("\n")
-    assert "Z-Score History (Last {len(valid_z)} days)" in lines[1]  # literal: not an f-string
+    assert "Z-Score History (Last 120 days)" in lines[1]
     assert lines[2] == "-" * 40
     rows = lines[3:12]
     assert len(rows) == 9
@@ -1170,7 +1174,7 @@ def test_analyze_spread_main_end_to_end_prints_report(monkeypatch, capsys):
     assert "PAIR TRADE ANALYSIS: AAA / BBB" in out
     assert "Result: ✅ COINTEGRATED" in out
     assert "Entry Threshold: ±1.0" in out
-    assert "Exit Threshold: ±0.2" in out or "Exit Threshold: ±0.3" in out
+    assert "Exit Threshold: ±0.2" in out  # .1f display rounds 0.25 down
 
 
 def test_analyze_spread_main_missing_prices_exit_1(monkeypatch):
