@@ -11,7 +11,7 @@ permalink: /en/skills/market-top-detector/
 # Market Top Detector
 {: .no_toc }
 
-Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation. Generates a 0-100 composite score with risk zone classification. Use when user asks about market top risk, distribution days, defensive rotation, leadership breakdown, or whether to reduce equity exposure. Focuses on 2-8 week tactical timing signals for 10-20% corrections.
+Assesses heuristic market top risk using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation. Generates a 0-100 composite score with risk zone classification. Use when user asks about market top risk, distribution days, defensive rotation, leadership breakdown, or whether to reduce equity exposure. Focuses on 2-8 week tactical timing signals for 10-20% corrections.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">No API</span>
@@ -30,6 +30,10 @@ Detects market top probability using O'Neil Distribution Days, Minervini Leading
 
 ## 1. Overview
 
+The 0-100 score is a heuristic risk score, not an estimated event probability. Risk budgets are policy heuristics. Historical vectors are retrospective illustrations. Missing evidence or weighted RMS distance above 15 yields no comparable episode. No measured point-in-time calibration results are supplied.
+
+[Point-in-time evaluation protocol](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/market-top-detector/references/point_in_time_evaluation.md)
+
 # Market Top Detector Skill
 
 ---
@@ -42,7 +46,7 @@ Detects market top probability using O'Neil Distribution Days, Minervini Leading
 - User observes defensive sectors outperforming growth
 - User sees leading stocks breaking down while indices hold
 - User asks about reducing equity exposure timing
-- User wants to assess correction probability for the next 2-8 weeks
+- User wants to assess correction risk for the next 2-8 weeks
 
 
 ---

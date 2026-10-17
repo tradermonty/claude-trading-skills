@@ -761,7 +761,7 @@
         "type": "workflow_step"
       },
       "status": "production",
-      "summary": "Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation.",
+      "summary": "Assesses heuristic market top risk using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation.",
       "timeframe": "daily"
     },
     {

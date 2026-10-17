@@ -43,14 +43,16 @@ class TestCompareToHistorical:
         """All zeros should be closest to 2018 (lowest overall scores)."""
         scores = {k: 0 for k in COMPONENT_KEYS}
         result = compare_to_historical(scores)
-        assert "2018" in result["closest_match"]
+        assert result["closest_match"] is None
+        assert "2018" in result["nearest_candidate"]
         assert len(result["comparisons"]) == 4
 
     def test_all_100_closest(self):
         """All 100 should be closest to 2000 (highest overall scores)."""
         scores = {k: 100 for k in COMPONENT_KEYS}
         result = compare_to_historical(scores)
-        assert "2000" in result["closest_match"]
+        assert result["closest_match"] is None
+        assert "2000" in result["nearest_candidate"]
 
     def test_ssd_ordering(self):
         """Comparisons should be sorted by SSD ascending."""
@@ -64,7 +66,7 @@ class TestCompareToHistorical:
         scores = {k: 0 for k in COMPONENT_KEYS}
         scores["distribution_days"] = 100  # Very different from any top
         result = compare_to_historical(scores)
-        assert "Distribution Days" in result["narrative"] or "lower" in result["narrative"]
+        assert result["status"] == "no_comparable_episode"
 
     def test_narrative_close_match(self):
         """Scores close to a pattern should produce 'closely matches' text."""
@@ -73,3 +75,34 @@ class TestCompareToHistorical:
         result = compare_to_historical(scores)
         assert result["closest_ssd"] == 0.0
         assert "closely matches" in result["narrative"]
+
+
+def test_incomplete_and_invalid_evidence():
+    import json
+
+    base = dict(HISTORICAL_TOPS["2018 (Q4 Correction)"])
+    cases = [{}] + [
+        {**base, "sentiment": v} for v in [None, True, "55", float("nan"), float("inf"), -1, 101]
+    ]
+    for scores in cases:
+        result = compare_to_historical(scores)
+        assert result["closest_match"] is None
+        assert result["closest_ssd"] is None
+        assert result["nearest_candidate"] is None
+        assert result["comparisons"] == []
+        json.dumps(result, allow_nan=False)
+    result = compare_to_historical(base, {"sentiment": False})
+    assert result["status"] == "no_comparable_episode"
+    assert "sentiment" in result["narrative"]
+
+
+def test_unrounded_rms_boundary(monkeypatch):
+    import historical_comparator as comparator
+
+    monkeypatch.setattr(comparator, "HISTORICAL_TOPS", {"fixture": {k: 50 for k in COMPONENT_KEYS}})
+    for difference, expected in [
+        (15, "comparable_illustration"),
+        (15.00001, "no_comparable_episode"),
+    ]:
+        result = compare_to_historical({k: 50 + difference for k in COMPONENT_KEYS})
+        assert result["status"] == expected

@@ -1,19 +1,31 @@
 ---
 name: market-top-detector
-description: Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation. Generates a 0-100 composite score with risk zone classification. Use when user asks about market top risk, distribution days, defensive rotation, leadership breakdown, or whether to reduce equity exposure. Focuses on 2-8 week tactical timing signals for 10-20% corrections.
+description: Assesses heuristic market top risk using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation. Generates a 0-100 composite score with risk zone classification. Use when user asks about market top risk, distribution days, defensive rotation, leadership breakdown, or whether to reduce equity exposure. Focuses on 2-8 week tactical timing signals for 10-20% corrections.
 ---
 
 # Market Top Detector Skill
 
 ## Purpose
 
-Detect the probability of a market top formation using a quantitative 6-component scoring system (0-100). Integrates three proven market top detection methodologies:
+Assess heuristic market top risk using a 6-component scoring system (0-100). Integrates three market risk methodologies:
 
 1. **O'Neil** - Distribution Day accumulation (institutional selling)
 2. **Minervini** - Leading stock deterioration pattern
 3. **Monty** - Defensive sector rotation signal
 
 Unlike the Bubble Detector (macro/multi-month evaluation), this skill focuses on **tactical 2-8 week timing signals** that precede 10-20% market corrections.
+
+## Score interpretation
+
+Treat the 0-100 composite as a **heuristic risk score**, not an estimated event
+probability. A score of 70 does not mean a 70% chance of a top. Risk-budget
+percentages are policy heuristics, not measured outcome frequencies.
+Historical patterns are retrospective estimates, not point-in-time evidence.
+Report **no comparable episode** when any component is unavailable/invalid or
+nearest-pattern weighted RMS exceeds 15 points. This tolerance is a predeclared
+heuristic, not an empirically validated similarity threshold.
+Follow [the point-in-time evaluation protocol](references/point_in_time_evaluation.md)
+before making calibration claims. No measured calibration results are supplied.
 
 ## When to Use This Skill
 
@@ -23,7 +35,7 @@ Unlike the Bubble Detector (macro/multi-month evaluation), this skill focuses on
 - User observes defensive sectors outperforming growth
 - User sees leading stocks breaking down while indices hold
 - User asks about reducing equity exposure timing
-- User wants to assess correction probability for the next 2-8 weeks
+- User wants to assess correction risk for the next 2-8 weeks
 
 **Japanese:**
 - 「天井が近い？」「今は利確すべき？」
@@ -156,8 +168,8 @@ Present the generated Markdown report to the user, highlighting:
 | 0-20 | Green (Normal) | 100% | Normal operations |
 | 21-40 | Yellow (Early Warning) | 80-90% | Tighten stops, reduce new entries |
 | 41-60 | Orange (Elevated Risk) | 60-75% | Profit-taking on weak positions |
-| 61-80 | Red (High Probability Top) | 40-55% | Aggressive profit-taking |
-| 81-100 | Critical (Top Formation) | 20-35% | Maximum defense, hedging |
+| 61-80 | Red (High Risk) | 40-55% | Aggressive profit-taking |
+| 81-100 | Critical (Very High Risk) | 20-35% | Maximum defense, hedging |
 
 ---
 
@@ -193,7 +205,7 @@ quote endpoints are not point-in-time sources.
 ### `references/historical_tops.md`
 - Analysis of 2000, 2007, 2018, 2022 market tops
 - Component score patterns during historical tops
-- Lessons learned and calibration data
+- Lessons learned and retrospective illustrative estimates
 
 ### When to Load References
 - **First use:** Load `market_top_methodology.md` for full framework understanding

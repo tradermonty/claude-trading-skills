@@ -3,7 +3,7 @@
 Market Top Detector - Main Orchestrator
 
 Integrates O'Neil (Distribution Days), Minervini (Leading Stock Deterioration),
-and Monty (Defensive Sector Rotation) approaches to detect market top probability.
+and Monty (Defensive Sector Rotation) approaches to assess heuristic market top risk.
 
 Usage:
     # With FMP API (recommended):
@@ -589,7 +589,8 @@ def main(argv: Optional[list[str]] = None):
 
     composite = calculate_composite_score(component_scores, data_availability)
 
-    print(f"  Composite Score: {composite['composite_score']}/100")
+    print(f"  Heuristic Risk Score: {composite['composite_score']}/100")
+    print("  Risk score, not an estimated event probability; budgets are policy heuristics.")
     print(f"  Risk Zone: {composite['zone']}")
     print(f"  Risk Budget: {composite['risk_budget']}")
     print(
@@ -635,8 +636,8 @@ def main(argv: Optional[list[str]] = None):
     print("Step 5: Historical Comparison & Scenarios")
     print("-" * 70)
 
-    historical_comparison = compare_to_historical(component_scores)
-    print(f"  Closest historical pattern: {historical_comparison['closest_match']}")
+    historical_comparison = compare_to_historical(component_scores, data_availability)
+    print(f"  Historical comparison: {historical_comparison['narrative']}")
 
     scenarios = generate_scenarios(component_scores, data_availability)
     print(f"  Generated {len(scenarios)} what-if scenarios")
@@ -708,7 +709,8 @@ def main(argv: Optional[list[str]] = None):
     print("=" * 70)
     print("Market Top Detection Complete")
     print("=" * 70)
-    print(f"  Composite Score: {composite['composite_score']}/100")
+    print(f"  Heuristic Risk Score: {composite['composite_score']}/100")
+    print("  Risk score, not an estimated event probability; budgets are policy heuristics.")
     print(f"  Risk Zone: {composite['zone']}")
     print(f"  Risk Budget: {composite['risk_budget']}")
     print(f"  JSON Report: {json_file}")

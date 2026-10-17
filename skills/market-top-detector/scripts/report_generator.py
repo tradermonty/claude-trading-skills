@@ -60,7 +60,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     zone_emoji = _zone_emoji(composite.get("zone_color", ""))
     lines.append("| Metric | Value |")
     lines.append("|--------|-------|")
-    lines.append(f"| **Composite Score** | **{score}/100** |")
+    lines.append(f"| **Heuristic Risk Score** | **{score}/100** |")
     lines.append(f"| **Risk Zone** | {zone_emoji} {zone} |")
     lines.append(f"| **Risk Budget** | {risk_budget} |")
     strongest = composite.get("strongest_warning", {})
@@ -74,6 +74,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     dq = composite.get("data_quality", {})
     if dq:
         lines.append(f"| **Data Quality** | {dq.get('label', 'N/A')} |")
+    lines.append("")
+
+    lines.append(
+        "> Risk score, not an estimated event probability. Risk budgets are policy heuristics."
+    )
     lines.append("")
 
     # Guidance
@@ -356,8 +361,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("## Historical Comparison")
         lines.append("")
         lines.append(
-            f"**Closest Pattern:** {hist_comp.get('closest_match', 'N/A')} "
-            f"(SSD: {hist_comp.get('closest_ssd', 'N/A')})"
+            f"**Closest Pattern:** {hist_comp.get('closest_match') or 'No comparable episode'} "
+            f"(SSD: {hist_comp.get('closest_ssd') if hist_comp.get('closest_ssd') is not None else 'N/A'})"
         )
         lines.append("")
         lines.append(f"> {hist_comp.get('narrative', '')}")

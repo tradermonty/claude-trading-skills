@@ -2,7 +2,7 @@
 
 ## Overview
 
-Analysis of major market tops through the lens of the 6-component Market Top Detector framework. These historical cases provide calibration data for the scoring system.
+Analysis of major market tops through the lens of the 6-component Market Top Detector framework. These historical cases are retrospective illustrations with estimated component scores, not point-in-time calibration data.
 
 ## 2000: Dot-Com Bubble Top (March 2000)
 
@@ -117,13 +117,13 @@ ARKK (leading stock proxy) peaked 11 months before S&P 500. This is a textbook M
 3. **Recovery time:** 2018 recovered in 4 months, 2000 took 7 years (NASDAQ)
 4. **Breadth divergence timing:** 2000 had 2-year divergence, 2022 had months
 
-### Scoring Calibration:
-- **Orange Zone (41-60):** Correction likely (2018-type, -10-20%)
-- **Red Zone (61-80):** Major decline likely (2007, 2022-type, -20-35%)
-- **Critical (81-100):** Extreme bubble top (2000-type, -40%+)
+### Illustrative Score Patterns:
+- **Orange Zone (41-60):** Retrospective correction illustration (2018-type, -10-20%)
+- **Red Zone (61-80):** Retrospective major-decline illustration (2007, 2022-type, -20-35%)
+- **Critical (81-100):** Retrospective bubble-top illustration (2000-type, -40%+)
 
 ### Important Caveat:
-Historical calibration is imperfect. Each market environment is unique. The composite score should be used as one input into investment decisions, not as a definitive prediction. Markets can remain in "warning" zones for extended periods before actually declining.
+These retrospective examples do not establish measured calibration. Each market environment is unique. The composite score should be used as one input into investment decisions, not as a definitive prediction. Markets can remain in "warning" zones for extended periods before actually declining.
 
 ---
 

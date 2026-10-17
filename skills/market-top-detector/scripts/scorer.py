@@ -17,8 +17,8 @@ Risk Zone Mapping:
   0-20:  Green  (Normal)              - Risk Budget: 100%
   21-40: Yellow (Early Warning)       - Risk Budget: 80-90%
   41-60: Orange (Elevated Risk)       - Risk Budget: 60-75%
-  61-80: Red    (High Probability Top)- Risk Budget: 40-55%
-  81-100:Critical(Top Formation)      - Risk Budget: 20-35%
+  61-80: Red    (High Risk)- Risk Budget: 40-55%
+  81-100:Critical(Very High Risk)      - Risk Budget: 20-35%
 """
 
 from typing import Optional
@@ -91,7 +91,7 @@ def calculate_composite_score(
     component_scores: dict[str, float], data_availability: Optional[dict[str, bool]] = None
 ) -> dict:
     """
-    Calculate weighted composite market top probability score.
+    Calculate weighted composite heuristic market top risk score.
 
     Args:
         component_scores: Dict with keys matching COMPONENT_WEIGHTS,
@@ -192,6 +192,10 @@ def calculate_composite_score(
         weakest_dict = {"component": None, "label": "N/A", "score": 0}
 
     return {
+        "score_kind": "heuristic_risk_score",
+        "score_version": "market-top-risk-v1",
+        "calibrated_probability": False,
+        "interpretation": "Risk score, not an estimated event probability. Risk budgets are policy heuristics.",
         "composite_score": composite,
         "zone": zone_info["zone"],
         "zone_color": zone_info["color"],
@@ -260,10 +264,10 @@ def _interpret_zone(composite: float) -> dict:
         }
     elif composite <= 80:
         return {
-            "zone": "Red (High Probability Top)",
+            "zone": "Red (High Risk)",
             "color": "red",
             "risk_budget": "40-55%",
-            "guidance": "High probability of market top. Aggressive profit-taking recommended.",
+            "guidance": "High heuristic market top risk. Aggressive profit-taking recommended.",
             "actions": [
                 "Aggressive profit-taking (sell 40-50% of positions)",
                 "Maximum cash allocation",
@@ -274,10 +278,10 @@ def _interpret_zone(composite: float) -> dict:
         }
     else:
         return {
-            "zone": "Critical (Top Formation)",
+            "zone": "Critical (Very High Risk)",
             "color": "critical",
             "risk_budget": "20-35%",
-            "guidance": "Top formation in progress. Maximum defensive posture.",
+            "guidance": "Very high heuristic market top risk. Maximum defensive posture.",
             "actions": [
                 "Sell most positions (keep only 20-35% invested)",
                 "Full hedge implementation",

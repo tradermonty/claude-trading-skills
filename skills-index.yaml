@@ -1184,7 +1184,7 @@ skills:
     security_review: not_verified
   operational_role:
     type: workflow_step
-  summary: Detects market top probability using O'Neil Distribution Days, Minervini Leading Stock Deterioration,
+  summary: Assesses heuristic market top risk using O'Neil Distribution Days, Minervini Leading Stock Deterioration,
     and Monty Defensive Sector Rotation.
   timeframe: daily
   difficulty: intermediate

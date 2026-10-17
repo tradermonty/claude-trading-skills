@@ -7,6 +7,12 @@ historical market tops (2000, 2007, 2018, 2022) using Sum of Squared
 Differences (SSD) to find the closest match.
 """
 
+import math
+from typing import Optional
+
+# Predeclared heuristic tolerance, not fitted or calibrated on outcomes.
+MAX_COMPARABLE_RMS = 15.0
+
 # Component weights (must match scorer.py)
 COMPONENT_WEIGHTS = {
     "distribution_days": 0.25,
@@ -78,7 +84,9 @@ def _compute_ssd(current: dict[str, float], historical: dict[str, float]) -> flo
     return ssd
 
 
-def compare_to_historical(current_scores: dict[str, float]) -> dict:
+def compare_to_historical(
+    current_scores: dict[str, float], data_availability: Optional[dict[str, bool]] = None
+) -> dict:
     """
     Compare current scores to historical top patterns.
 
@@ -88,6 +96,28 @@ def compare_to_historical(current_scores: dict[str, float]) -> dict:
     Returns:
         Dict with closest_match, all_comparisons, narrative
     """
+    invalid = [
+        key
+        for key in COMPONENT_KEYS
+        if (data_availability is not None and not data_availability.get(key, True))
+        or isinstance(current_scores.get(key), bool)
+        or not isinstance(current_scores.get(key), (int, float))
+        or not math.isfinite(current_scores[key])
+        or not 0 <= current_scores[key] <= 100
+    ]
+    if invalid:
+        return {
+            "status": "no_comparable_episode",
+            "closest_match": None,
+            "closest_ssd": None,
+            "nearest_candidate": None,
+            "nearest_rms": None,
+            "comparisons": [],
+            "max_comparable_rms": MAX_COMPARABLE_RMS,
+            "narrative": "No comparable episode: unavailable or invalid components: "
+            + ", ".join(invalid)
+            + ".",
+        }
     comparisons = []
     for name, hist_scores in HISTORICAL_TOPS.items():
         ssd = _compute_ssd(current_scores, hist_scores)
@@ -95,18 +125,30 @@ def compare_to_historical(current_scores: dict[str, float]) -> dict:
             {
                 "name": name,
                 "ssd": round(ssd, 1),
+                "rms": math.sqrt(ssd),
                 "scores": hist_scores,
             }
         )
 
-    comparisons.sort(key=lambda x: x["ssd"])
+    comparisons.sort(key=lambda x: x["rms"])
     closest = comparisons[0]
 
-    narrative = _generate_narrative(current_scores, closest)
+    comparable = closest["rms"] <= MAX_COMPARABLE_RMS
+    narrative = (
+        _generate_narrative(current_scores, closest)
+        if comparable
+        else "No comparable episode: nearest illustrative pattern exceeds the heuristic "
+        f"{MAX_COMPARABLE_RMS:g}-point weighted RMS tolerance."
+    )
+    narrative += " Historical patterns are retrospective estimates, not calibration evidence."
 
     return {
-        "closest_match": closest["name"],
-        "closest_ssd": closest["ssd"],
+        "status": "comparable_illustration" if comparable else "no_comparable_episode",
+        "closest_match": closest["name"] if comparable else None,
+        "closest_ssd": closest["ssd"] if comparable else None,
+        "nearest_candidate": closest["name"],
+        "nearest_rms": closest["rms"],
+        "max_comparable_rms": MAX_COMPARABLE_RMS,
         "comparisons": comparisons,
         "narrative": narrative,
     }

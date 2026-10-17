@@ -2,7 +2,7 @@
 
 ## Overview
 
-This framework integrates three proven approaches to market top detection, each targeting different aspects of institutional behavior that precede significant market declines (10-20% corrections).
+This framework integrates three approaches to market top detection, each targeting different aspects of institutional behavior that precede significant market declines (10-20% corrections).
 
 ## The Three Pillars
 
@@ -158,9 +158,9 @@ No single indicator perfectly predicts market tops. Each pillar captures a diffe
 - **Technicals (15%):** Structural integrity check
 - **Sentiment (10%):** Context and extremes (less reliable alone)
 
-### Calibration Principle
+### Heuristic Design Targets
 
-The scoring is calibrated so that:
+The heuristic scoring was designed around the following illustrative targets; these are not measured calibration results:
 - A "normal" healthy market scores 10-20
 - An "early warning" market scores 25-40
 - A market in the "initial to middle stage of top formation" scores 40-55
