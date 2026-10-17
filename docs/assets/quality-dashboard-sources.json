@@ -1,14 +1,155 @@
 {
-  "schema_version": 1,
-  "as_of": "2026-09-12T00:00:00Z",
-  "per_skill_coverage_pct": {},
+  "as_of": "2026-10-17T07:11:43Z",
   "beta_since": {},
+  "drift_status": {},
   "dual_axis_score_distribution": "not-yet-measured",
-  "open_high_severity_issues": "not-yet-measured",
-  "last_successful_ci_timestamp": "not-yet-measured",
-  "drift_status": {
-    "package": "not-yet-measured",
-    "docs": "not-yet-measured",
-    "navigator": "not-yet-measured"
-  }
+  "executed_smoke_count": "not-yet-measured",
+  "input_provenance": {
+    "catalog": {
+      "commit": "b29c6dfc2d4dc82bdfcfc13891e490863283405f",
+      "content_sha256": "6cc95013b6d60b3ef9f2a18ed1299d6afebdaaabdab2053c6f3199e469d0c138",
+      "measured_at": "2026-10-17T07:11:43Z",
+      "source": "skills-index.yaml; config/ci-test-policy.yaml; examples/workflows/replay-coverage.yaml"
+    },
+    "last_successful_ci_timestamp": {
+      "commit": "b29c6dfc2d4dc82bdfcfc13891e490863283405f",
+      "measured_at": "2026-10-16T11:46:22Z",
+      "source": "https://github.com/tradermonty/claude-trading-skills/actions/runs/38895293520"
+    },
+    "open_high_severity_issues": {
+      "commit": "not applicable (live issue state)",
+      "measured_at": "2026-10-17T07:11:43Z",
+      "source": "https://github.com/tradermonty/claude-trading-skills/issues"
+    },
+    "per_skill_coverage_pct": {
+      "commit": "b29c6dfc2d4dc82bdfcfc13891e490863283405f",
+      "measured_at": "2026-10-16T11:46:22Z",
+      "source": "https://github.com/tradermonty/claude-trading-skills/actions/runs/38895293520/artifacts/12043243687"
+    },
+    "production_verification_declarations": {
+      "commit": "b29c6dfc2d4dc82bdfcfc13891e490863283405f",
+      "content_sha256": "6cc95013b6d60b3ef9f2a18ed1299d6afebdaaabdab2053c6f3199e469d0c138",
+      "measured_at": "2026-10-17T07:11:43Z",
+      "source": "skills-index.yaml; config/ci-test-policy.yaml; examples/workflows/replay-coverage.yaml"
+    }
+  },
+  "last_successful_ci_timestamp": "2026-10-16T11:46:22Z",
+  "latest_successful_live_sample": "not-yet-measured",
+  "open_high_severity_issues": 5,
+  "per_skill_coverage_pct": {
+    "backtest-expert": 87.4015748031496,
+    "breadth-chart-analyst": 99.24078091106291,
+    "breakout-trade-planner": 78.84231536926147,
+    "canslim-screener": 98.92268694550063,
+    "contrarian-setup-gate": 98.3132530120482,
+    "cot-contrarian-detector": 77.8705636743215,
+    "crypto-regime-analyzer": 82.4074074074074,
+    "data-quality-checker": 78.47025495750708,
+    "dividend-growth-pullback-screener": 98.9010989010989,
+    "downtrend-duration-analyzer": 85.30465949820788,
+    "drawdown-circuit-breaker": 89.40809968847353,
+    "dual-axis-skill-reviewer": 73.17554240631164,
+    "earnings-calendar": 75.73872472783826,
+    "earnings-trade-analyzer": 84.6078431372549,
+    "economic-calendar-fetcher": 83.64779874213836,
+    "edge-candidate-agent": 99.25163704396633,
+    "edge-concept-synthesizer": 91.89944134078212,
+    "edge-hint-extractor": 74.16974169741698,
+    "edge-pipeline-orchestrator": 91.83673469387755,
+    "edge-signal-aggregator": 79.45544554455445,
+    "edge-strategy-designer": 99.3103448275862,
+    "edge-strategy-reviewer": 92.00913242009132,
+    "exposure-coach": 84.75452196382429,
+    "finviz-screener": 97.72727272727273,
+    "ftd-detector": 89.78644382544104,
+    "futures-position-sizer": 93.53348729792148,
+    "fxmacrodata-calendar": 96.0,
+    "ibd-distribution-day-monitor": 98.67310012062727,
+    "institutional-flow-tracker": 75.69832402234637,
+    "kanchi-dividend-review-monitor": 82.23140495867769,
+    "kanchi-dividend-sop": 76.18048268625394,
+    "kanchi-dividend-us-tax-accounting": 70.51282051282051,
+    "macro-regime-detector": 86.06557377049181,
+    "manifoldbt-backtester": 82.22222222222223,
+    "market-breadth-analyzer": 80.77348066298343,
+    "market-environment-analysis": 89.5582329317269,
+    "market-top-detector": 86.20865139949109,
+    "mt5-robot-tester": 79.03123008285532,
+    "news-reaction-failure-analyzer": 82.74509803921569,
+    "options-strategy-advisor": 80.12048192771084,
+    "pair-trade-screener": 100.0,
+    "parabolic-short-trade-planner": 76.58198614318707,
+    "pead-screener": 89.33074684772066,
+    "portfolio-manager": 95.89041095890411,
+    "position-sizer": 89.32806324110672,
+    "pre-trade-discipline-gate": 85.27472527472527,
+    "residual-edge-analyzer": 82.43727598566308,
+    "sector-analyst": 81.6,
+    "signal-postmortem": 90.31531531531532,
+    "skill-designer": 100.0,
+    "skill-idea-miner": 85.50955414012739,
+    "skill-integration-tester": 70.48458149779735,
+    "stanley-druckenmiller-investment": 82.58258258258259,
+    "stockbee-20pct-study": 74.32296890672016,
+    "stockbee-episodic-pivot-analyzer": 99.54682779456193,
+    "stockbee-exhaustion-hammer-screener": 98.88888888888889,
+    "stockbee-momentum-burst-screener": 99.67845659163987,
+    "stockbee-setup-fluency-trainer": 100.0,
+    "strategy-pivot-designer": 95.89322381930185,
+    "technical-analyst": 90.87048832271762,
+    "theme-detector": 86.36363636363636,
+    "trade-hypothesis-ideator": 73.644578313253,
+    "trade-performance-coach": 96.16519174041298,
+    "trader-memory-core": 88.46949327817994,
+    "trading-skills-navigator": 85.34946236559139,
+    "uptrend-analyzer": 89.84924623115577,
+    "us-market-bubble-detector": 96.12903225806451,
+    "us-undervalued-growth-screener": 79.32266172774176,
+    "value-dividend-screener": 98.90260631001372,
+    "vcp-screener": 76.1038961038961,
+    "weekly-performance-digest": 94.1717791411043
+  },
+  "production_verification_declarations": {
+    "data_provenance": {
+      "not_applicable": 1,
+      "not_verified": 61,
+      "passed": 0
+    },
+    "empirical_validation": {
+      "not_applicable": 8,
+      "not_verified": 54,
+      "passed": 0
+    },
+    "end_to_end_replay": {
+      "not_applicable": 25,
+      "not_verified": 32,
+      "passed": 5
+    },
+    "financial_logic_review": {
+      "not_applicable": 1,
+      "not_verified": 61,
+      "passed": 0
+    },
+    "instruction_contract": {
+      "not_applicable": 0,
+      "not_verified": 62,
+      "passed": 0
+    },
+    "security_review": {
+      "not_applicable": 0,
+      "not_verified": 62,
+      "passed": 0
+    },
+    "unit_tests": {
+      "not_applicable": 3,
+      "not_verified": 59,
+      "passed": 0
+    },
+    "workflow_contract": {
+      "not_applicable": 25,
+      "not_verified": 32,
+      "passed": 5
+    }
+  },
+  "schema_version": 2
 }

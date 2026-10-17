@@ -489,7 +489,8 @@ def test_render_japanese_frontmatter_and_labels(tmp_path: Path) -> None:
     assert "テストカバレッジ" in page
     assert "依存関係" in page
     assert "Alpha" in page
-    assert "production" not in page.replace("`production`", "").replace("production ", "")
+    assert "| production |" not in page
+    assert "| 本番 |" in page
 
 
 def test_render_english_frontmatter(tmp_path: Path) -> None:
@@ -601,3 +602,71 @@ def test_distinct_snapshot_dates_recompute_days_in_beta_only(
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+@pytest.mark.parametrize("lang", ["en", "ja"])
+def test_input_evidence_does_not_relabel_historical_coverage(tmp_path: Path, lang: str) -> None:
+    import json
+
+    root = make_project(tmp_path, snapshot=True)
+    path = root / "docs/assets/quality-dashboard-sources.json"
+    snapshot = json.loads(path.read_text())
+    snapshot["as_of"] = "2026-10-17T12:00:00Z"
+    snapshot["input_provenance"] = {
+        "per_skill_coverage_pct": {
+            "commit": "a" * 40,
+            "measured_at": "2026-10-10T12:00:00Z",
+            "source": "CI | <untrusted>",
+        }
+    }
+    snapshot["production_verification_declarations"] = {
+        "unit_tests": {"passed": 0, "not_verified": 1, "not_applicable": 1}
+    }
+    path.write_text(json.dumps(snapshot))
+    page = render_page(compute_metrics(root), lang)
+    assert "2026-10-17T12:00:00Z" in page
+    assert "2026-10-10T12:00:00Z" in page
+    assert "a" * 40 in page
+    assert r"CI \| &lt;untrusted&gt;" in page
+    assert r"| unit\_tests | 0 | 1 | 1 |" in page
+    assert "Executed smoke count" in page or "スモーク実行件数" in page
+    assert "not-yet-measured" in page
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        "skills-index.yaml",
+        "config/ci-test-policy.yaml",
+        "examples/workflows/replay-coverage.yaml",
+        "tests",
+    ],
+)
+def test_changed_static_inputs_invalidate_catalog_attribution_only(
+    tmp_path: Path, changed: str
+) -> None:
+    import json
+
+    from generate_quality_dashboard import catalog_fingerprint
+
+    root = make_project(tmp_path, snapshot=True)
+    path = root / "docs/assets/quality-dashboard-sources.json"
+    snapshot = json.loads(path.read_text())
+    source = {"commit": "a" * 40, "measured_at": "2026-10-10T12:00:00Z", "source": "index"}
+    snapshot["input_provenance"] = {
+        "catalog": {**source, "content_sha256": catalog_fingerprint(root)},
+        "production_verification_declarations": source,
+    }
+    path.write_text(json.dumps(snapshot))
+    assert "catalog" in compute_metrics(root)["input_provenance"]
+    if changed == "tests":
+        (root / "skills/alpha/scripts/tests/test_alpha.py").unlink()
+    else:
+        target = root / changed
+        target.write_text(target.read_text() + "\n# changed input\n")
+    metrics = compute_metrics(root)
+    assert "catalog" not in metrics["input_provenance"]
+    assert metrics["input_provenance"]["production_verification_declarations"] == source
+    assert r"| catalog | not-yet-measured | not-yet-measured | not-yet-measured |" in render_page(
+        metrics, "en"
+    )

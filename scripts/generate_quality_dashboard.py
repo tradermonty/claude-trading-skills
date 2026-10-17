@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import date
@@ -96,6 +97,24 @@ def _has_tests(project_root: Path, skill_id: str) -> bool:
     return any(p.suffix == ".py" for p in tests_dir.iterdir())
 
 
+def catalog_fingerprint(project_root: Path) -> str:
+    """Bind provenance to every static input consumed by this generator."""
+    digest = hashlib.sha256()
+    for relative in (
+        "skills-index.yaml",
+        "config/ci-test-policy.yaml",
+        "examples/workflows/replay-coverage.yaml",
+    ):
+        path = project_root / relative
+        digest.update(relative.encode() + b"\0")
+        digest.update(path.read_bytes() if path.exists() else b"<missing>")
+        digest.update(b"\0")
+    for skill in load_index(project_root).get("skills", []):
+        if skill.get("knowledge_only") is not True:
+            digest.update(json.dumps([skill["id"], _has_tests(project_root, skill["id"])]).encode())
+    return digest.hexdigest()
+
+
 def compute_metrics(project_root: Path) -> dict[str, Any]:
     """Return all dashboard metrics, resolved from committed sources + snapshot."""
     index = load_index(project_root)
@@ -104,6 +123,12 @@ def compute_metrics(project_root: Path) -> dict[str, Any]:
     snapshot = load_snapshot(project_root)
 
     skills = index.get("skills") or []
+    provenance = dict(snapshot.get("input_provenance") or {})
+    catalog_source = provenance.get("catalog") or {}
+    if catalog_source.get("content_sha256") != catalog_fingerprint(project_root):
+        # Static metrics below use the current files, not the historical snapshot.
+        # Old snapshots without a fingerprint cannot attribute those current files.
+        provenance.pop("catalog", None)
 
     production = sum(1 for s in skills if s.get("status") == "production")
     beta = sum(1 for s in skills if s.get("status") == "beta")
@@ -190,6 +215,10 @@ def compute_metrics(project_root: Path) -> dict[str, Any]:
 
     return {
         "as_of": as_of,
+        "input_provenance": provenance,
+        "verification_declarations": snapshot.get("production_verification_declarations") or {},
+        "executed_smoke_count": snapshot_value("executed_smoke_count"),
+        "latest_successful_live_sample": snapshot_value("latest_successful_live_sample"),
         "skills_meta": skills_meta,
         "total_skills": len(skills),
         "production": production,
@@ -305,7 +334,7 @@ L = {
         "agg_waiver": "Aggregate waiver floor",
         "allowed_failures": "Allowed failures",
         "target_zero": "target 0",
-        "covered_workflows": "Workflows covered by E2E replay",
+        "covered_workflows": "Workflows listed in replay inventory (not an execution measurement)",
         "provider": "Provider",
         "count": "Count",
         "none_provider": "offline (no external data source)",
@@ -352,7 +381,7 @@ L = {
         "agg_waiver": "全体カバレッジ免除下限",
         "allowed_failures": "許容失敗",
         "target_zero": "目標 0",
-        "covered_workflows": "E2E リプレイでカバーされたワークフロー",
+        "covered_workflows": "リプレイ一覧のワークフロー数（実行結果の測定ではありません）",
         "provider": "プロバイダ",
         "count": "件数",
         "none_provider": "オフライン（外部データなし）",
@@ -491,8 +520,79 @@ def render_page(metrics: dict[str, Any], lang: str) -> str:
         )
     buf.append("")
 
+    # Input freshness is independent of generated-page drift.
+    english = lang == "en"
+    buf.append("## Input evidence" if english else "## 入力証跡")
+    buf.append("")
+    buf.append(
+        "Collection time above is not the measurement time of every input. "
+        "A matching generated page only proves reproducibility, not fresh evidence."
+        if english
+        else "上記の収集日時は各入力の測定日時とは異なります。生成ページの一致は再現性の確認であり、証跡の鮮度を保証しません。"
+    )
+    buf.append("")
+    buf.append(
+        "| Input | Measured commit | Measured / run updated at | Source |"
+        if english
+        else "| 入力 | 測定コミット | 測定 / 実行更新日時 | 出典 |"
+    )
+    buf.append("|---|---|---|---|")
+    for key in (
+        "catalog",
+        "per_skill_coverage_pct",
+        "beta_since",
+        "dual_axis_score_distribution",
+        "open_high_severity_issues",
+        "last_successful_ci_timestamp",
+        "drift_status",
+        "production_verification_declarations",
+        "executed_smoke_count",
+        "latest_successful_live_sample",
+    ):
+        source = metrics["input_provenance"].get(key) or {}
+        values = [source.get(k, NOT_YET_MEASURED) for k in ("commit", "measured_at", "source")]
+        buf.append("| " + " | ".join(_escape(str(v)) for v in [key, *values]) + " |")
+    buf.append("")
+    buf.append("## Production verification declarations" if english else "## 本番スキルの検証宣言")
+    buf.append("")
+    buf.append(
+        "Catalog declarations only; this collection does not re-run the underlying audits."
+        if english
+        else "カタログ上の宣言です。この収集処理は元の監査を再実行しません。"
+    )
+    buf.append("")
+    buf.append("| Axis | passed | not_verified | not_applicable |")
+    buf.append("|---|---:|---:|---:|")
+    declarations = metrics["verification_declarations"]
+    if not declarations:
+        buf.append(
+            f"| {NOT_YET_MEASURED} | {NOT_YET_MEASURED} | {NOT_YET_MEASURED} | {NOT_YET_MEASURED} |"
+        )
+    for axis, counts in sorted(declarations.items()):
+        buf.append(
+            "| "
+            + " | ".join(
+                _escape(str(v))
+                for v in [
+                    axis,
+                    *(
+                        counts.get(k, NOT_YET_MEASURED)
+                        for k in ("passed", "not_verified", "not_applicable")
+                    ),
+                ]
+            )
+            + " |"
+        )
+    buf.append("")
+
     # Runtime metrics
     buf.append(f"## {t['runtime']}")
+    buf.append("")
+    buf.append(
+        "High-severity count is a repository-wide P0/P1 title/label proxy, not per-skill release clearance."
+        if english
+        else "高深刻度件数はリポジトリ全体の P0/P1 タイトル・ラベルによる集計であり、各スキルのリリース承認ではありません。"
+    )
     buf.append("")
     buf.append(f"| {t['metric']} | {t['value']} |")
     buf.append("|---|---|")
@@ -504,6 +604,14 @@ def render_page(metrics: dict[str, Any], lang: str) -> str:
         (t["pkg_drift"], metrics["drift_status"]["package"]),
         (t["docs_drift"], metrics["drift_status"]["docs"]),
         (t["nav_drift"], metrics["drift_status"]["navigator"]),
+        (
+            "Executed smoke count" if english else "スモーク実行件数",
+            metrics["executed_smoke_count"],
+        ),
+        (
+            "Latest successful live-data sample" if english else "直近の成功ライブデータサンプル",
+            metrics["latest_successful_live_sample"],
+        ),
     ]
     for label, value in rows:
         buf.append(f"| {label} | {_escape(str(value))} |")

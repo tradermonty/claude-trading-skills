@@ -1,0 +1,90 @@
+name: Quality dashboard refresh
+
+on:
+  schedule:
+    - cron: "43 9 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: quality-dashboard-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.10"
+      - name: Sync locked environment
+        run: uv sync --locked --no-install-project --extra dev
+      # GITHUB_TOKEN-created PRs do not normally trigger other workflows.
+      - name: Validate refresh code
+        run: |
+          uv run --locked --no-sync pytest scripts/tests/test_refresh_quality_dashboard.py scripts/tests/test_generate_quality_dashboard.py
+          uv run --locked --no-sync ruff check scripts/refresh_quality_dashboard.py scripts/generate_quality_dashboard.py scripts/tests/test_refresh_quality_dashboard.py scripts/tests/test_generate_quality_dashboard.py
+          uv run --locked --no-sync ruff format --check scripts/refresh_quality_dashboard.py scripts/generate_quality_dashboard.py scripts/tests/test_refresh_quality_dashboard.py scripts/tests/test_generate_quality_dashboard.py
+      - name: Collect evidence and regenerate both pages
+        run: |
+          uv run --locked --no-sync python scripts/refresh_quality_dashboard.py --repo "$GH_REPO"
+          uv run --locked --no-sync python scripts/generate_quality_dashboard.py
+          uv run --locked --no-sync python scripts/generate_quality_dashboard.py --check
+          uv run --locked --no-sync python scripts/check_docs_site.py source
+      - name: Upload proposed snapshot and pages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: quality-dashboard-refresh
+          path: |
+            docs/assets/quality-dashboard-sources.json
+            docs/en/quality-dashboard.md
+            docs/ja/quality-dashboard.md
+          if-no-files-found: error
+          retention-days: 30
+      - name: Propose reviewed update
+        env:
+          REFRESH_BRANCH: automation/quality-dashboard-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          pending="$(gh pr list --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("automation/quality-dashboard-"))] | length' --limit 1000)"
+          if [ "$pending" != "0" ]; then
+            echo "A dashboard update PR is already open; evidence is available in this run artifact." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$REFRESH_BRANCH"
+          git add docs/assets/quality-dashboard-sources.json docs/en/quality-dashboard.md docs/ja/quality-dashboard.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'docs: refresh quality dashboard evidence (#298)'
+          git push origin "$REFRESH_BRANCH"
+          cat > "$RUNNER_TEMP/dashboard-pr.md" <<'EOF'
+          Refresh measured inputs and regenerate both quality dashboards for #298.
+
+          Read the input evidence table for each metric's commit and measurement time.
+          Unknown inputs remain unmeasured. Coverage refers to the selected historical
+          successful main CI run; collection time does not make that coverage current.
+
+          Collector/generator tests, lint, drift and docs source checks ran in the
+          refresh workflow. PRs opened with GITHUB_TOKEN do not normally trigger
+          other workflows. Run the remaining required checks before merging.
+          This PR requires review and merge; it does not deploy or auto-merge.
+          EOF
+          gh pr create --base main --head "$REFRESH_BRANCH" --title 'docs: refresh quality dashboard evidence (#298)' --body-file "$RUNNER_TEMP/dashboard-pr.md"
