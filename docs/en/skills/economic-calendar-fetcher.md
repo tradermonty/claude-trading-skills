@@ -360,3 +360,10 @@ If the user requested specific filters, note at the top:
 
 - `skills/economic-calendar-fetcher/scripts/get_economic_calendar.py`
 - `skills/economic-calendar-fetcher/scripts/fmp_client.py`
+
+
+## Response validation and empty results
+
+The script validates event fields, types, UTC timestamps and finite numeric readings before reporting or opening an output file. Normal null readings are accepted. Invalid rows emit `ZERO_RESULT_REASON=economic_calendar_schema_drift` on stderr and exit 1. Acquisition failures emit `ZERO_RESULT_REASON=calendar_fetch_failed` (including HTTP-200 null or invalid JSON after the generated client's bounded retry).
+
+A clean empty array emits `ZERO_RESULT_REASON=empty_calendar_unverified` and exits 1. It does not prove that no events are scheduled. Check the provider and date window before reporting a quiet calendar. These failures preserve existing output files. Successful JSON/text output is unchanged.

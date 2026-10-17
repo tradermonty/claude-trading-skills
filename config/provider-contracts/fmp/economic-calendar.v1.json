@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "economic-calendar",
+  "path": "/stable/economic-calendar",
+  "query": {
+    "from": "2026-10-01",
+    "to": "2026-10-07"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-10-17",
+  "recording": "Live HTTP 200 /stable/economic-calendar response recorded 2026-10-17; three unmodified public macro-event rows selected from 568 rows. Request credentials are not recorded.",
+  "owners": [
+    "economic-calendar-fetcher"
+  ],
+  "tier_notes": "HTTP 200 observed with the recording credential; this does not establish free-tier entitlement. HTTP 402 remains an acquisition failure. The canary probes a known populated historical window; arbitrary future/weekend windows may genuinely be empty.",
+  "required_fields": {
+    "date": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "country": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "event": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "currency": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "impact": {
+      "types": [
+        "str"
+      ],
+      "nullable": false
+    },
+    "previous": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    },
+    "estimate": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    },
+    "actual": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    },
+    "change": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    },
+    "changePercentage": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": true
+    }
+  },
+  "optional_fields": [
+    "unit"
+  ],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "The recorded 2026-10-01 through 2026-10-07 historical window is known to contain economic events; empty live results here are anomalous."
+  },
+  "fixture": [
+    {
+      "date": "2026-10-07 19:00:00",
+      "country": "US",
+      "event": "Consumer Credit Change (Aug)",
+      "currency": "USD",
+      "previous": 17.74,
+      "estimate": 15,
+      "actual": 8.28,
+      "change": -9.46,
+      "impact": "Low",
+      "changePercentage": -53.326,
+      "unit": "B"
+    },
+    {
+      "date": "2026-10-07 20:00:00",
+      "country": "AE",
+      "event": "Private sector loans YoY (Jul)",
+      "currency": "AED",
+      "previous": 18.14,
+      "estimate": null,
+      "actual": null,
+      "change": null,
+      "impact": "Low",
+      "changePercentage": null,
+      "unit": "%"
+    },
+    {
+      "date": "2026-10-07 00:00:00",
+      "country": "LA",
+      "event": "Bank of Laosablishment Day",
+      "currency": "LAK",
+      "previous": null,
+      "estimate": null,
+      "actual": null,
+      "change": null,
+      "impact": "None",
+      "changePercentage": 0,
+      "unit": null
+    }
+  ]
+}

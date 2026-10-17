@@ -31,6 +31,9 @@ config/provider-contracts/
     quote.v1.json
     historical-price-eod-full.v1.json
     earnings-calendar.v1.json
+    income-statement.v1.json
+    ratios.v1.json
+    economic-calendar.v1.json
 ```
 
 Location follows `config/ci-test-policy.yaml`'s convention: data lives under
@@ -129,6 +132,39 @@ Produced by `validate_rows()` in `scripts/provider_contracts.py`:
 
 A contract result is `ok = True` when it has zero fatal anomalies (a
 deprecation-only result is still `ok`).
+
+## Economic calendar contract (#332)
+
+`economic-calendar.v1.json` records three unmodified public macro-event rows
+from a 2026-10-17 HTTP 200 response (568 rows) for 2026-10-01 through 2026-10-07.
+The probe uses the singular `/stable/economic-calendar` endpoint and that known
+populated historical window. It joins the existing scheduled canary automatically,
+adding one request to its default budget (now nine contracts). Entitlement is not
+inferred from a successful recording credential: HTTP 402 remains a failure.
+
+The owning standalone consumer checks every row before reporting or opening an
+output file. It requires date/country/event/currency/impact strings and the five
+nullable numeric readings (previous/estimate/actual/change/changePercentage).
+An absent key is not equivalent to null. All-null readings are allowed; `unit`
+and unknown additional fields are preserved. Consumer validation also rejects
+blank strings, unparsable `YYYY-MM-DD HH:MM:SS` timestamps, booleans and nonfinite
+numeric values. It does not constrain the impact string to High/Medium/Low:
+the recording includes the valid string `"None"`.
+
+| CLI reason | Exit | Meaning |
+|---|---:|---|
+| `economic_calendar_schema_drift` | 1 | Malformed event rows, missing/renamed/retyped fields, invalid dates/numbers, or the generated client's explicit non-array JSON shape error |
+| `calendar_fetch_failed` | 1 | HTTP/tier/network failure, or a generic generated-client acquisition failure (including HTTP-200 null and invalid JSON after its existing bounded retry) |
+| `empty_calendar_unverified` | 1 | Clean empty array; no trusted completeness classifier proves this is a quiet calendar |
+
+These failures preserve existing output files and do not write a successful
+empty report. The low-level Python fetch still returns a validated empty list,
+allowing callers with an independent completeness policy to decide what to do.
+The canary's `min_rows: 1` applies to its populated historical probe, not to every
+arbitrary query window. No global economic-calendar holiday rule is assumed.
+
+This slice does not promote the existing report-only canary, configure secrets,
+or complete #332's remaining provider/endpoint inventory.
 
 ## Consumer zero-result reason codes
 
@@ -450,7 +486,7 @@ endpoints, and are excluded.
 | `aftermarket-quote` | ❌ | parabolic-short-trade-planner | slice 2 |
 | `institutional-ownership/symbol-positions-summary` | ❌ | canslim-screener | slice 2 |
 | `etf/holdings` | ❌ | theme-detector | slice 2 |
-| `economic-calendar` | ❌ | economic-calendar-fetcher | slice 2 |
+| `economic-calendar` | ✅ | economic-calendar-fetcher | recorded contract + consumer validation; #332 economic-calendar slice |
 | `historical-price-eod/light` | ❌ | news-reaction-failure-analyzer | slice 2 |
 | `commitment-of-traders-report` | ❌ | cot-contrarian-detector | slice 2 |
 
@@ -551,7 +587,7 @@ denials; these denied statuses are test scenarios, not live tier observations.
 The raw canary has no CSV fallback: it requires HTTP 200 as well as valid rows.
 Other statuses produce a fatal `http_status:<status>` anomaly even if their
 payload matches the schema; HTTP 200 with no rows retains `empty_response`.
-The existing weekly report-only workflow discovers all eight contracts and makes
+The existing weekly report-only workflow discovers all loaded contracts and makes
 one request per contract with its dynamically computed call budget.
 
 This endpoint completes another part of Issue #332. Other uncovered endpoints

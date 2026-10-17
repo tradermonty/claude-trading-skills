@@ -367,6 +367,9 @@ If user requested specific filters, note at top:
 5. Use smaller ranges (1-7 days) for real-time event monitoring
 
 **Error Handling:**
+- Malformed event rows, missing/renamed fields, changed types, invalid UTC event timestamps, and non-finite readings fail before formatting or opening the output file. Stderr contains `ZERO_RESULT_REASON=economic_calendar_schema_drift`; exit code is 1. Normal null readings are supported, and impact `"None"` is a valid provider string.
+- An empty provider array is **unverified**, not proof that no events are scheduled: stderr contains `ZERO_RESULT_REASON=empty_calendar_unverified`; exit code is 1 and any existing output file is preserved. Check the provider/date window before writing a quiet-calendar report.
+- Acquisition failures emit `ZERO_RESULT_REASON=calendar_fetch_failed` and exit 1. This includes HTTP/tier/network failures and the generated client's generic failure cases (HTTP-200 null or invalid JSON after its bounded retry). A non-null, non-array JSON response is schema drift. Error diagnostics redact API keys; they do not print malformed event values.
 - API key errors: Clear user guidance for obtaining free key
 - Rate limits (429): Suggest waiting or upgrading FMP tier; re-run the script after the wait
 - Restricted endpoint (402): Script raises a clear error — the FMP subscription tier lacks access to this endpoint; direct the user to upgrade at https://financialmodelingprep.com/. Do not fall back to the legacy v3 endpoint (retired 2025-08-31, returns 403).

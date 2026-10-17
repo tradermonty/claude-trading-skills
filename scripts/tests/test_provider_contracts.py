@@ -61,6 +61,7 @@ def test_expected_contracts_are_present():
         "quote",
         "historical-price-eod-full",
         "earnings-calendar",
+        "economic-calendar",
         "income-statement",
         "ratios",
     }
@@ -302,6 +303,7 @@ SCREENER_FIXTURE = CONTRACTS["company-screener"].fixture
 SP500_FIXTURE = CONTRACTS["sp500-constituent"].fixture
 INCOME_FIXTURE = CONTRACTS["income-statement"].fixture
 RATIOS_FIXTURE = CONTRACTS["ratios"].fixture
+ECONOMIC_FIXTURE = CONTRACTS["economic-calendar"].fixture
 
 
 def _assert_hist_row(row):
@@ -633,6 +635,8 @@ def _stub_fetch_ok(path, query):
         return 200, copy.deepcopy(HIST_FIXTURE)
     if "earnings-calendar" in path:
         return 200, copy.deepcopy(EARNINGS_FIXTURE)
+    if path == "/stable/economic-calendar":
+        return 200, copy.deepcopy(ECONOMIC_FIXTURE)
     if "income-statement" in path:
         return 200, copy.deepcopy(INCOME_FIXTURE)
     if "ratios" in path:
@@ -659,6 +663,7 @@ def test_canary_success_writes_report_and_never_leaks_the_key(tmp_path, monkeypa
         "quote",
         "historical-price-eod-full",
         "earnings-calendar",
+        "economic-calendar",
         "income-statement",
         "ratios",
     }
@@ -1082,3 +1087,89 @@ assert mod._resolve_universe(argparse.Namespace(universe='sp500'), client) == [
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
+
+
+# Economic-calendar (#332): the recorded contract must exercise its real consumer.
+
+
+def _economic_consumer():
+    from unittest.mock import patch
+
+    client_module = _load_client_module("skills/economic-calendar-fetcher/scripts/fmp_client.py")
+    with patch.dict(sys.modules, {"fmp_client": client_module}):
+        return _load_client_module(
+            "skills/economic-calendar-fetcher/scripts/get_economic_calendar.py"
+        )
+
+
+def test_economic_calendar_contract_matches_standalone_required_fields():
+    consumer = _economic_consumer()
+    contract = CONTRACTS["economic-calendar"]
+    assert set(contract.required_fields) == set(consumer.REQUIRED_TEXT_FIELDS) | set(
+        consumer.NULLABLE_NUMBER_FIELDS
+    )
+    for field in consumer.REQUIRED_TEXT_FIELDS:
+        assert contract.required_fields[field] == {"types": ["str"], "nullable": False}
+    for field in consumer.NULLABLE_NUMBER_FIELDS:
+        assert contract.required_fields[field] == {"types": ["int", "float"], "nullable": True}
+
+
+def test_economic_calendar_recording_reaches_consumer(monkeypatch):
+    consumer = _economic_consumer()
+    calls = []
+
+    def fake(self, url, params=None, quiet=False):
+        calls.append((url, params))
+        return copy.deepcopy(ECONOMIC_FIXTURE)
+
+    monkeypatch.setattr(consumer.FMPClient, "_rate_limited_get", fake)
+    rows = consumer.fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+    assert rows == ECONOMIC_FIXTURE
+    assert calls == [
+        (
+            "https://financialmodelingprep.com/stable/economic-calendar",
+            CONTRACTS["economic-calendar"].query,
+        )
+    ]
+    assert "None" in {r["impact"] for r in rows}  # provider's string, not JSON null
+
+
+@pytest.mark.parametrize("field", sorted(CONTRACTS["economic-calendar"].required_fields))
+def test_economic_calendar_renamed_fields_fail_contract_and_consumer(monkeypatch, field):
+    consumer = _economic_consumer()
+    row = copy.deepcopy(ECONOMIC_FIXTURE[0])
+    row["renamed_" + field] = row.pop(field)
+    assert not validate_rows(CONTRACTS["economic-calendar"], [row]).ok
+    monkeypatch.setattr(consumer.FMPClient, "_rate_limited_get", lambda *a, **k: [row])
+    with pytest.raises(consumer.EconomicCalendarSchemaError):
+        consumer.fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+
+
+@pytest.mark.parametrize("field", sorted(CONTRACTS["economic-calendar"].required_fields))
+def test_economic_calendar_retyped_fields_fail_contract_and_consumer(monkeypatch, field):
+    consumer = _economic_consumer()
+    row = copy.deepcopy(ECONOMIC_FIXTURE[0])
+    row[field] = {"wrong": "type"}
+    assert not validate_rows(CONTRACTS["economic-calendar"], [row]).ok
+    monkeypatch.setattr(consumer.FMPClient, "_rate_limited_get", lambda *a, **k: [row])
+    with pytest.raises(consumer.EconomicCalendarSchemaError):
+        consumer.fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+
+
+def test_economic_calendar_all_null_readings_are_valid():
+    consumer = _economic_consumer()
+    rows = copy.deepcopy(ECONOMIC_FIXTURE)
+    for row in rows:
+        for field in consumer.NULLABLE_NUMBER_FIELDS:
+            row[field] = None
+    assert validate_rows(CONTRACTS["economic-calendar"], rows).ok
+    consumer.validate_economic_events(rows)
+
+
+def test_economic_calendar_canary_flags_known_populated_window_empty():
+    from scripts.check_provider_contracts import run_canary
+
+    contract = CONTRACTS["economic-calendar"]
+    result = run_canary({"economic-calendar": contract}, lambda path, query: (200, []))
+    assert not result["economic-calendar"]["ok"]
+    assert any(a["code"] == "empty_response" for a in result["economic-calendar"]["anomalies"])

@@ -6,12 +6,66 @@ Retrieves economic events and data releases for specified date range
 
 import argparse
 import json
+import math
 import os
+import re
 import sys
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fmp_client import FMPClient
+
+# Mirror the versioned economic-calendar contract without a repo-only import:
+# this script also runs inside the standalone .skill archive. Repository tests
+# bind these names/types/nullability to the recorded provider contract.
+REQUIRED_TEXT_FIELDS = ("date", "country", "event", "currency", "impact")
+NULLABLE_NUMBER_FIELDS = ("previous", "estimate", "actual", "change", "changePercentage")
+
+
+class EconomicCalendarSchemaError(ValueError):
+    """A response cannot be safely presented as economic event data."""
+
+
+def validate_economic_events(events: list[dict]) -> None:
+    """Validate all rows before formatting or opening any output file.
+
+    Null readings are normal for scheduled/unreported events. Rejecting a
+    malformed row rather than dropping it prevents schema drift from quietly
+    reducing the event set. Errors contain only trusted field names/row indexes,
+    never provider values or payloads.
+    """
+    if not isinstance(events, list):
+        raise EconomicCalendarSchemaError("Economic calendar response must be a JSON array")
+    for index, row in enumerate(events):
+        if not isinstance(row, dict):
+            raise EconomicCalendarSchemaError(f"Economic calendar row {index} must be an object")
+        for field in REQUIRED_TEXT_FIELDS:
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise EconomicCalendarSchemaError(
+                    f"Economic calendar row {index}: missing or invalid {field}"
+                )
+        timestamp = row["date"]
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", timestamp):
+            raise EconomicCalendarSchemaError(f"Economic calendar row {index}: invalid date")
+        try:
+            datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            raise EconomicCalendarSchemaError(
+                f"Economic calendar row {index}: invalid date"
+            ) from None
+        for field in NULLABLE_NUMBER_FIELDS:
+            if field not in row:
+                raise EconomicCalendarSchemaError(f"Economic calendar row {index}: missing {field}")
+            value = row[field]
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or (isinstance(value, float) and not math.isfinite(value))
+            ):
+                raise EconomicCalendarSchemaError(
+                    f"Economic calendar row {index}: invalid numeric {field}"
+                )
 
 
 def get_api_key() -> Optional[str]:
@@ -52,7 +106,20 @@ def fetch_economic_calendar(from_date: str, to_date: str, api_key: str) -> list[
             is restricted (402)
     """
     client = FMPClient(api_key=api_key)
-    return client.get_economic_calendar(from_date, to_date)
+    try:
+        events = client.get_economic_calendar(from_date, to_date)
+    except ValueError as exc:
+        # The generated client reports non-null, non-list HTTP-200 JSON shapes
+        # explicitly. Null and malformed JSON use its generic acquisition-failure
+        # API and remain calendar_fetch_failed; do not pretend we can distinguish
+        # their underlying HTTP/body state here.
+        if str(exc).startswith("Unexpected API response format:"):
+            raise EconomicCalendarSchemaError(
+                "Unexpected API response format: economic calendar must be a JSON array"
+            ) from None
+        raise
+    validate_economic_events(events)
+    return events
 
 
 def validate_date_range(from_date: str, to_date: str) -> None:
@@ -213,7 +280,23 @@ Examples:
             f"Fetching economic calendar from {args.from_date} to {args.to_date}...",
             file=sys.stderr,
         )
-        events = fetch_economic_calendar(args.from_date, args.to_date, api_key)
+        try:
+            events = fetch_economic_calendar(args.from_date, args.to_date, api_key)
+        except EconomicCalendarSchemaError:
+            print("ZERO_RESULT_REASON=economic_calendar_schema_drift", file=sys.stderr)
+            raise
+        except Exception:
+            print("ZERO_RESULT_REASON=calendar_fetch_failed", file=sys.stderr)
+            raise
+        if not events:
+            print(
+                "ZERO_RESULT_REASON=empty_calendar_unverified",  # pragma: allowlist secret
+                file=sys.stderr,
+            )
+            raise ValueError(
+                "FMP returned no economic events; completeness is unverified. "
+                "Check the provider and date window before reporting a quiet calendar."
+            )
 
         print(f"Retrieved {len(events)} events", file=sys.stderr)
 

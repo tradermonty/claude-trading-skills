@@ -330,3 +330,158 @@ class TestMain:
 
         assert exc.value.code == 1
         assert "Error: bad" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Issue #332: HTTP-200 event contract and safe CLI failures
+# ---------------------------------------------------------------------------
+
+
+def test_schema_preserves_normal_nulls_negative_values_and_extra_fields(monkeypatch):
+    import copy
+
+    rows = copy.deepcopy(SAMPLE_EVENTS)
+    rows[0].update({"actual": -0.25, "unit": "%", "future_field": {"kept": True}, "impact": "None"})
+    patch_get(monkeypatch, rows)
+    result = fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+    assert result is rows
+    assert result[0]["future_field"] == {"kept": True}
+
+
+@pytest.mark.parametrize(
+    "field", [*_script_mod.REQUIRED_TEXT_FIELDS, *_script_mod.NULLABLE_NUMBER_FIELDS]
+)
+def test_each_missing_required_field_is_rejected(monkeypatch, field):
+    row = dict(SAMPLE_EVENTS[0])
+    del row[field]
+    patch_get(monkeypatch, [row])
+    with pytest.raises(_script_mod.EconomicCalendarSchemaError, match=field):
+        fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+
+
+@pytest.mark.parametrize("field", _script_mod.NULLABLE_NUMBER_FIELDS)
+@pytest.mark.parametrize("value", [True, "2.7", float("nan"), float("inf"), float("-inf"), {}])
+def test_numeric_schema_rejects_type_and_nonfinite_drift(monkeypatch, field, value):
+    row = {**SAMPLE_EVENTS[0], field: value}
+    patch_get(monkeypatch, [row])
+    with pytest.raises(_script_mod.EconomicCalendarSchemaError, match=field):
+        fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+
+
+@pytest.mark.parametrize("field", _script_mod.REQUIRED_TEXT_FIELDS)
+@pytest.mark.parametrize("value", [None, "", "  ", 123, False])
+def test_required_text_cannot_disappear_or_change_type(monkeypatch, field, value):
+    patch_get(monkeypatch, [{**SAMPLE_EVENTS[0], field: value}])
+    with pytest.raises(_script_mod.EconomicCalendarSchemaError, match=field):
+        fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-02-30 10:00:00",
+        "2026-10-07 24:00:00",
+        "2026-1-1 1:00:00",
+        "not-a-date",
+        "2026-10-07T10:00:00Z",
+    ],
+)
+def test_invalid_event_timestamp_is_rejected(monkeypatch, value):
+    patch_get(monkeypatch, [{**SAMPLE_EVENTS[0], "date": value}])
+    with pytest.raises(_script_mod.EconomicCalendarSchemaError, match="invalid date"):
+        fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+
+
+@pytest.mark.parametrize("row", [None, "provider-secret", 123, ["row"]])
+def test_malformed_row_is_rejected_without_echoing_provider_values(monkeypatch, row):
+    patch_get(monkeypatch, [row])
+    with pytest.raises(_script_mod.EconomicCalendarSchemaError) as error:
+        fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key")
+    assert "provider-secret" not in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "case,reason",
+    [
+        ("object", "economic_calendar_schema_drift"),
+        ("string", "economic_calendar_schema_drift"),
+        ("null", "calendar_fetch_failed"),
+        ("invalid-json", "calendar_fetch_failed"),
+        ("402", "calendar_fetch_failed"),
+        ("503", "calendar_fetch_failed"),
+        ("connection", "calendar_fetch_failed"),
+        ("empty", "empty_calendar_unverified"),
+        ("renamed", "economic_calendar_schema_drift"),
+        ("bad-number", "economic_calendar_schema_drift"),
+    ],
+)
+def test_real_client_transport_failures_preserve_output(
+    monkeypatch, tmp_path, capsys, case, reason
+):
+    api_key = "economic-test-secret"  # pragma: allowlist secret
+    output = tmp_path / "calendar.json"
+    output.write_text("prior successful output", encoding="utf-8")
+    calls = []
+
+    class Response:
+        status_code = int(case) if case in {"402", "503"} else 200
+        text = f"Provider echoed {api_key}"
+
+        def json(self):
+            if case == "invalid-json":
+                raise ValueError(f"Invalid JSON body echoed {api_key}")
+            if case == "object":
+                return {"error": api_key}
+            if case == "string":
+                return api_key
+            if case == "null":
+                return None
+            if case == "empty":
+                return []
+            row = dict(SAMPLE_EVENTS[0])
+            if case == "renamed":
+                row["releaseName"] = row.pop("event")
+            elif case == "bad-number":
+                row["estimate"] = api_key
+            return [row]
+
+    def fake_get(session, url, params=None, timeout=None):
+        calls.append((url, params, timeout))
+        assert api_key not in url
+        assert session.headers["apikey"] == api_key
+        if case == "connection":
+            raise requests.exceptions.ConnectionError(f"Connection failed: {api_key}")
+        return Response()
+
+    monkeypatch.setattr(requests.Session, "get", fake_get)
+    monkeypatch.setattr(_script_mod.FMPClient, "RATE_LIMIT_DELAY", 0)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "get_economic_calendar.py",
+            "--api-key",
+            api_key,
+            "--from",
+            "2026-10-01",
+            "--to",
+            "2026-10-07",
+            "--output",
+            str(output),
+        ],
+    )
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count(f"ZERO_RESULT_REASON={reason}") == 1
+    assert api_key not in captured.err
+    assert output.read_text(encoding="utf-8") == "prior successful output"
+    assert len(calls) == (2 if case == "invalid-json" else 1)
+    assert all(timeout == 30 for _, _, timeout in calls)
+
+
+def test_empty_fetch_api_still_allows_caller_policy(monkeypatch):
+    patch_get(monkeypatch, [])
+    assert fetch_economic_calendar("2026-10-01", "2026-10-07", "test-key") == []

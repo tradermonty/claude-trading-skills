@@ -281,3 +281,10 @@ python3 skills/economic-calendar-fetcher/scripts/get_economic_calendar.py \
 - `skills/economic-calendar-fetcher/scripts/get_economic_calendar.py`
 
 - `skills/economic-calendar-fetcher/scripts/fmp_client.py`
+
+
+## 応答検証と空の結果
+
+イベントの必須フィールド、型、UTC日時、有限の数値を検証してから表示や出力ファイルの書き込みを行います。通常の null の指標値は受け入れます。不正な行は標準エラーに `ZERO_RESULT_REASON=economic_calendar_schema_drift` を出し、終了コード1で停止します。取得失敗は `ZERO_RESULT_REASON=calendar_fetch_failed` です。HTTP 200 の null や、生成クライアントの回数制限付き再試行後も不正なJSONの場合も取得失敗に含みます。
+
+空の配列は `ZERO_RESULT_REASON=empty_calendar_unverified` を出して終了コード1で停止します。予定イベントがないことを証明する結果ではありません。提供元と取得期間を確認してからイベントなしと報告してください。これらの失敗では既存の出力ファイルを保持します。正常時のJSON・テキスト形式は従来どおりです。
