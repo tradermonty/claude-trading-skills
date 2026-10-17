@@ -1,6 +1,7 @@
 """Coverage for FINVIZ/FMP clients, analyzers, the screening pipeline, and CLI."""
 
 import json
+import time
 from datetime import date, timedelta
 from unittest.mock import MagicMock
 
@@ -82,7 +83,7 @@ class TestFMPRequest:
 
     def test_429_retries_once_then_succeeds(self, monkeypatch):
         sleeps = []
-        monkeypatch.setattr(mod.time, "sleep", lambda s: sleeps.append(s))
+        monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
         client, session = self._client(_resp(429), _resp(200, [1]))
         assert client._request("u", {}) == [1]
         assert 60 in sleeps
@@ -104,26 +105,25 @@ class TestFMPRequest:
         assert client._request("u", {}, quiet=True) is None
         assert capsys.readouterr().err == ""
 
-    def test_exception_reports_unless_quiet(self, capsys):
+    def test_transport_exceptions_use_shared_visible_diagnostics(self, capsys):
         client = FMPClient("k")
         client.session = MagicMock()
         client.session.get.side_effect = requests.exceptions.Timeout("slow")
         assert client._request("u", {}) is None
         assert "slow" in capsys.readouterr().err
         assert client._request("u", {}, quiet=True) is None
-        assert capsys.readouterr().err == ""
+        assert "slow" in capsys.readouterr().err
 
-    def test_get_falls_back_to_v3_when_stable_fails(self):
-        client, session = self._client(_resp(403), _resp(200, [{"revenue": 5}]))
-        assert client.get_income_statement("AAPL") == [{"revenue": 5}]
-        urls = [c[0][0] for c in session.get.call_args_list]
-        assert "/stable/income-statement" in urls[0]
-        assert "/api/v3/income-statement/AAPL" in urls[1]
-
-    def test_get_unmapped_endpoint_uses_v3_only(self):
-        client, session = self._client(_resp(200, {"x": 1}))
-        assert client._get("some-other/thing") == {"x": 1}
+    def test_stable_failure_has_no_retired_fallback(self):
+        client, session = self._client(_resp(403))
+        assert client.get_income_statement("AAPL") == []
         assert session.get.call_count == 1
+        assert "/stable/income-statement" in session.get.call_args[0][0]
+
+    def test_unmapped_endpoint_fails_without_http(self):
+        client, session = self._client()
+        assert client._get("some-other/thing") is None
+        assert session.get.call_count == 0
 
     def test_helper_getters_default_to_empty(self):
         client = FMPClient("k")
@@ -226,48 +226,41 @@ class TestHistoricalPrices:
         params = session.get.call_args[1]["params"]
         assert params["symbol"] == "AAPL" and "from" in params and "to" in params
 
-    def test_empty_stable_list_falls_back_to_v3_historical(self):
-        hist = [{"close": 1}, {"close": 2}]
-        client, session = self._client(_resp(200, []), _resp(200, {"historical": hist}))
-        assert client.get_historical_prices("AAPL", days=30) == hist
-        assert client._endpoint_failures[mod._FMP_HIST_ENDPOINTS[0][0]] == 1
-        assert "/api/v3/historical-price-full/AAPL" in session.get.call_args[0][0]
+    def test_empty_stable_history_does_not_try_v3(self):
+        client, session = self._client(_resp(200, []))
+        assert client.get_historical_prices("AAPL", days=30) == []
+        assert client._endpoint_failures[f"{FMPClient.STABLE_URL}/historical-price-eod/full"] == 1
+        assert session.get.call_count == 1
 
-    def test_historical_stock_list_matches_dash_symbol(self):
-        payload = {
-            "historicalStockList": [
-                {"symbol": "OTHER", "historical": [{"close": 9}]},
-                {"symbol": "BRK.B", "historical": [{"close": 1}, {"close": 2}, {"close": 3}]},
-            ]
-        }
-        client, _ = self._client(_resp(500), _resp(200, payload))
-        assert client.get_historical_prices("BRK-B", days=2) == [{"close": 1}, {"close": 2}]
+    def test_retired_wrapper_shape_is_not_a_valid_stable_history(self):
+        client, session = self._client(
+            _resp(200, {"historicalStockList": [{"symbol": "BRK.B", "historical": [{"close": 1}]}]})
+        )
+        assert client.get_historical_prices("BRK-B", days=2) == []
+        assert session.get.call_count == 1
 
     def test_unrecognised_payload_returns_empty_and_counts_failures(self):
-        client, _ = self._client(_resp(200, {"weird": 1}), _resp(200, {"weird": 1}))
+        client, session = self._client(_resp(200, {"weird": 1}))
         assert client.get_historical_prices("AAPL") == []
-        for base_url, _ in mod._FMP_HIST_ENDPOINTS:
-            assert client._endpoint_failures[base_url] == 1
+        assert client._endpoint_failures[f"{FMPClient.STABLE_URL}/historical-price-eod/full"] == 1
+        assert session.get.call_count == 1
 
     def test_exception_is_recorded_and_returns_empty(self):
         client = FMPClient("k")
         client.session = MagicMock()
-        client.session.get.side_effect = RuntimeError("bad json")
+        client.session.get.side_effect = requests.exceptions.Timeout("slow")
         assert client.get_historical_prices("AAPL") == []
         assert all(v == 1 for v in client._endpoint_failures.values())
 
     def test_endpoint_disabled_after_threshold(self):
         client = FMPClient("k")
-        stable = mod._FMP_HIST_ENDPOINTS[0][0]
+        stable = f"{FMPClient.STABLE_URL}/historical-price-eod/full"
         for _ in range(FMPClient._ENDPOINT_FAILURE_THRESHOLD):
             client._record_endpoint_failure(stable)
         assert stable in client._disabled_endpoints
         client.session = MagicMock()
-        client.session.get.return_value = _resp(200, {"historical": [{"close": 1}]})
-        assert client.get_historical_prices("AAPL") == [{"close": 1}]
-        # Only the v3 endpoint was contacted.
-        assert client.session.get.call_count == 1
-        assert "/api/v3/" in client.session.get.call_args[0][0]
+        assert client.get_historical_prices("AAPL") == []
+        assert client.session.get.call_count == 0
 
 
 # --------------------------------------------------------------------------

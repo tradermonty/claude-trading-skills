@@ -288,3 +288,18 @@ Run this skill first, then hand off outputs:
 - `references/sector-step2-modules.md`: Step 2 safety indicators by sector.
 - `references/valuation-and-one-off-checks.md`: Step 3 valuation + Step 4 one-off.
 - `references/stock-note-template.md`: one-page memo + provenance block.
+
+
+## Shared FMP client
+
+FMP data access uses the bundled generated `scripts/fmp_client.py`. Existing CLI
+key/environment precedence, financial calculations and successful output shapes
+are preserved. The migrated paths use stable endpoints only; a denied or failed
+stable request does not fall back to retired v3 URLs. The shared client masks raw
+and URL-encoded key echoes, retries malformed JSON once, and retries a 429 once
+with a 60-second wait before stopping on a repeated rate limit. FINVIZ, where
+used, remains a separate client.
+
+The Python client retains `sleep_seconds`, `timeout` and `api_calls`. Sleep now
+sets the minimum interval between requests; accounting includes retried HTTP
+responses. Quote/profile retrieval remains one symbol per request.

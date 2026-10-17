@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ def mod():
 
 @pytest.fixture(autouse=True)
 def no_sleep(mod, monkeypatch):
-    monkeypatch.setattr(mod.time, "sleep", lambda *_a, **_k: None)
+    monkeypatch.setattr(time, "sleep", lambda *_a, **_k: None)
 
 
 class FakeResponse:
@@ -34,6 +35,7 @@ class FakeResponse:
         self.status_code = status_code
         self._payload = payload
         self.content = content
+        self.text = content.decode("utf-8")
 
     def json(self):
         if isinstance(self._payload, Exception):
@@ -114,7 +116,7 @@ class TestFmpRequest:
 
     def test_rate_limit_retries_once_then_succeeds(self, mod, monkeypatch):
         sleeps = []
-        monkeypatch.setattr(mod.time, "sleep", lambda s: sleeps.append(s))
+        monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
         client = self._client(mod, [FakeResponse(429), FakeResponse(200, {"ok": True})])
         assert client._request("http://x", {}) == {"ok": True}
         assert 60 in sleeps
@@ -134,36 +136,42 @@ class TestFmpRequest:
         assert client._request("http://x", {}, quiet=True) is None
         assert capsys.readouterr().err == ""
         assert client._request("http://y", {}) is None
-        assert "API request failed (500)" in capsys.readouterr().err
+        assert "HTTP 500" in capsys.readouterr().err
 
-    def test_exception_is_swallowed(self, mod, capsys):
-        client = self._client(mod, [RuntimeError("net down"), RuntimeError("quiet one")])
+    def test_transport_exceptions_use_shared_visible_diagnostics(self, mod, capsys):
+        client = self._client(
+            mod,
+            [
+                mod.requests.exceptions.Timeout("net down"),
+                mod.requests.exceptions.Timeout("quiet one"),
+            ],
+        )
         assert client._request("http://x", {}) is None
         assert "net down" in capsys.readouterr().err
         assert client._request("http://x", {}, quiet=True) is None
-        assert capsys.readouterr().err == ""
+        assert "quiet one" in capsys.readouterr().err
 
 
 class TestFmpGetAndWrappers:
-    def test_get_falls_back_from_stable_to_v3(self, mod):
+    def test_get_stable_failure_never_tries_retired_v3(self, mod):
         client = mod.FMPClient("k")
-        client.session = FakeSession([FakeResponse(403), FakeResponse(200, [{"x": 1}])])
-        assert client._get("income-statement/AAPL", {"limit": 2}) == [{"x": 1}]
-        stable_call, v3_call = client.session.calls
-        assert stable_call[0].endswith("/stable/income-statement")
-        assert stable_call[1] == {"limit": 2, "symbol": "AAPL"}
-        assert v3_call[0].endswith("/api/v3/income-statement/AAPL")
+        client.session = FakeSession([FakeResponse(403)])
+        assert client._get("income-statement/AAPL", {"limit": 2}) is None
+        assert len(client.session.calls) == 1
+        url, query = client.session.calls[0]
+        assert url.endswith("/stable/income-statement")
+        assert query == {"limit": 2, "symbol": "AAPL"}
 
     def test_get_returns_none_when_all_attempts_fail(self, mod):
         client = mod.FMPClient("k")
         client.session = FakeSession([FakeResponse(500), FakeResponse(500)])
         assert client._get("profile/AAPL") is None
 
-    def test_get_without_stable_equivalent_uses_v3_only(self, mod):
+    def test_unsupported_endpoint_never_attempts_http(self, mod):
         client = mod.FMPClient("k")
-        client.session = FakeSession([FakeResponse(200, {"k": "v"})])
-        assert client._get("something-else/1") == {"k": "v"}
-        assert len(client.session.calls) == 1
+        client.session = FakeSession([])
+        assert client._get("something-else/1") is None
+        assert client.session.calls == []
 
     def test_normalize_dividends_wraps_flat_list(self, mod):
         out = mod.FMPClient._normalize(
@@ -264,37 +272,26 @@ class TestHistoricalPrices:
         assert params["symbol"] == "AAPL"
         assert params["from"] < params["to"]
 
-    def test_falls_back_to_v3_historical_dict(self, mod):
+    def test_failed_stable_history_has_no_retired_fallback(self, mod):
         client = mod.FMPClient("k")
-        client.session = FakeSession(
-            [FakeResponse(403), FakeResponse(200, {"historical": self._bars(5)})]
-        )
-        out = client.get_historical_prices("AAPL", days=30)
-        assert len(out) == 5
-        assert client.session.calls[1][1] == {"timeseries": 30}
+        client.session = FakeSession([FakeResponse(403)])
+        assert client.get_historical_prices("AAPL", days=30) is None
+        assert len(client.session.calls) == 1
+        assert "/api/v3/" not in client.session.calls[0][0]
 
-    def test_historical_stock_list_matches_symbol_with_dash(self, mod):
-        payload = {
-            "historicalStockList": [
-                {"symbol": "OTHER", "historical": [{"close": 1}]},
-                {"symbol": "BRK.B", "historical": [{"close": 2}]},
-            ]
-        }
+    def test_retired_wrapper_is_not_valid_stable_history(self, mod):
         client = mod.FMPClient("k")
-        client.session = FakeSession([FakeResponse(200, []), FakeResponse(200, payload)])
-        assert client.get_historical_prices("BRK-B") == [{"close": 2}]
+        client.session = FakeSession([FakeResponse(200, {"historicalStockList": []})])
+        assert client.get_historical_prices("BRK-B") is None
+        assert len(client.session.calls) == 1
 
     def test_all_failures_return_none_and_disable_endpoint(self, mod):
         client = mod.FMPClient("k")
-        stable = mod._FMP_HIST_ENDPOINTS[0][0]
-        responses = []
-        for _ in range(3):
-            responses += [FakeResponse(500), RuntimeError("bad")]
-        client.session = FakeSession(responses)
+        stable = f"{mod.FMPClient.STABLE_URL}/historical-price-eod/full"
+        client.session = FakeSession([FakeResponse(500)] * 3)
         for _ in range(3):
             assert client.get_historical_prices("AAPL") is None
         assert stable in client._disabled_endpoints
-        # Disabled endpoints are skipped entirely on later calls.
         client.session = FakeSession([])
         assert client.get_historical_prices("AAPL") is None
         assert client.session.calls == []
@@ -303,7 +300,9 @@ class TestHistoricalPrices:
         client = mod.FMPClient("k")
         client.session = FakeSession([FakeResponse(200, {"unexpected": 1})] * 2)
         assert client.get_historical_prices("AAPL") is None
-        assert client._endpoint_failures[mod._FMP_HIST_ENDPOINTS[0][0]] == 1
+        assert (
+            client._endpoint_failures[f"{mod.FMPClient.STABLE_URL}/historical-price-eod/full"] == 1
+        )
 
 
 # ---------------------------------------------------------------------------

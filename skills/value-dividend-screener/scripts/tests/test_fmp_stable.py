@@ -2,7 +2,7 @@
 
 The retired v3 endpoints 403 for keys issued after 2025-08-31. FMPClient._get
 now routes the legacy v3 path-style endpoint strings to their /stable
-query-style equivalents (with a v3 fallback) and normalizes the responses back
+query-style equivalents (stable-only) and normalizes the responses back
 to the v3 shapes callers expect:
 
 - historical-price-full/stock_dividend/{sym} -> dividends?symbol= (flat list
@@ -91,17 +91,14 @@ class TestGetRouting:
         result = client.get_historical_prices("AAPL", days=30)
         assert result == bars  # flat list returned directly, close field intact
 
-    def test_v3_fallback_when_stable_fails(self):
+    def test_stable_failure_never_tries_retired_v3(self):
         def router(url, params=None, timeout=None):
-            if "/stable/" in url:
-                return _resp(403, {})
-            return _resp(200, [{"symbol": "AAPL", "sector": "Tech"}])
+            assert "/api/v3/" not in url
+            return _resp(403, {})
 
         client, session = _client(router)
-        profile = client.get_company_profile("AAPL")
-        assert profile["sector"] == "Tech"
-        urls = [c[0][0] for c in session.get.call_args_list]
-        assert any(u.endswith("/api/v3/profile/AAPL") for u in urls)
+        assert client.get_company_profile("AAPL") is None
+        assert session.get.call_count == 1
 
 
 class TestDividendGrowthTTM:

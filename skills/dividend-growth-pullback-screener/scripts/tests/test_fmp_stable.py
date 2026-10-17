@@ -2,7 +2,7 @@
 
 Keys issued after 2025-08-31 lose v3 access (403). FMPClient._get now routes
 the legacy v3 path-style endpoints to their /stable query-style equivalents
-(with a v3 fallback) and normalizes responses to the v3 shapes callers expect:
+(stable-only) and normalizes responses to the v3 shapes callers expect:
 
 - historical-price-full/stock_dividend/{sym} -> dividends?symbol= (flat list
   wrapped as {"historical": [...]})
@@ -15,6 +15,7 @@ get_historical_prices is also fixed to /stable/historical-price-eod/full
 
 import os
 import sys
+import time
 
 import pytest
 
@@ -22,13 +23,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from unittest.mock import MagicMock  # noqa: E402
 
-import screen_dividend_growth_rsi as mod  # noqa: E402
 from screen_dividend_growth_rsi import FMPClient  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
-    monkeypatch.setattr(mod.time, "sleep", lambda *_a, **_k: None)
+    monkeypatch.setattr(time, "sleep", lambda *_a, **_k: None)
 
 
 def _resp(status_code, payload):
@@ -74,16 +74,14 @@ class TestGetRouting:
         client, _ = _client(lambda *a, **k: _resp(200, [{"netDividendsPaid": -8_000_000}]))
         assert client.get_cash_flow("AAPL", limit=1)[0]["dividendsPaid"] == -8_000_000
 
-    def test_v3_fallback_when_stable_fails(self):
+    def test_stable_failure_never_tries_retired_v3(self):
         def router(url, params=None, timeout=None):
-            if "/stable/" in url:
-                return _resp(403, {})
-            return _resp(200, [{"symbol": "AAPL", "sector": "Tech"}])
+            assert "/api/v3/" not in url
+            return _resp(403, {})
 
         client, session = _client(router)
-        assert client.get_company_profile("AAPL")["sector"] == "Tech"
-        urls = [c[0][0] for c in session.get.call_args_list]
-        assert any(u.endswith("/api/v3/profile/AAPL") for u in urls)
+        assert client.get_company_profile("AAPL") is None
+        assert session.get.call_count == 1
 
 
 class TestHistoricalPrices:

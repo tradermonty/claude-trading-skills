@@ -198,6 +198,9 @@ class FMPClient:
 # @@ELSE
         self.session.headers.update({"apikey": self.api_key})
 # @@ENDIF
+# @@IF configurable_timeout
+        self.timeout = 30
+# @@ENDIF
         self.cache = {}
         self.last_call_time = 0
         self.rate_limit_reached = False
@@ -256,7 +259,11 @@ class FMPClient:
             time.sleep(self.RATE_LIMIT_DELAY - elapsed)
 
         try:
+# @@IF configurable_timeout
+            response = self.session.get(url, params=params, timeout=self.timeout)
+# @@ELSE
             response = self.session.get(url, params=params, timeout=30)
+# @@ENDIF
             self.last_call_time = time.time()
             self.api_calls_made += 1
 

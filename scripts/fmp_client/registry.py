@@ -42,6 +42,7 @@ class SkillConfig:
     extensions: tuple[str, ...]  # extension module names appended to the FMPClient body
     batch_days: int = 260  # get_batch_historical default `days` (family A only)
     standalone_template: str | None = None  # full-file template for PR2 special clients
+    configurable_timeout: bool = False  # new targets may retain a per-instance timeout
     query_auth: bool = False  # send FMP API key as ?apikey= instead of a header
 
 
@@ -265,5 +266,48 @@ SKILLS: dict[str, SkillConfig] = {
         ),
         class_constants=(),
         extensions=("cot_reports",),
+    ),
+    # ---- Issue #495 Batch B ----
+    "value-dividend-screener": SkillConfig(
+        skill="value-dividend-screener",
+        title="FMP API Client for value-dividend-screener",
+        family="B",
+        has_quote=False,
+        budget=False,
+        hist_days=30,
+        hist_return_list=True,
+        has_compat=False,
+        configurable_timeout=True,
+        feature_lines=("- Stable-only dividend/value routing and response aliases",),
+        class_constants=(("STABLE_URL", '"https://financialmodelingprep.com/stable"'),),
+        extensions=("dividend_stable",),
+    ),
+    "dividend-growth-pullback-screener": SkillConfig(
+        skill="dividend-growth-pullback-screener",
+        title="FMP API Client for dividend-growth-pullback-screener",
+        family="B",
+        has_quote=False,
+        budget=False,
+        hist_days=30,
+        hist_return_list=True,
+        has_compat=False,
+        configurable_timeout=True,
+        feature_lines=("- Stable-only dividend/value routing and response aliases",),
+        class_constants=(("STABLE_URL", '"https://financialmodelingprep.com/stable"'),),
+        extensions=("dividend_stable",),
+    ),
+    "kanchi-dividend-sop": SkillConfig(
+        skill="kanchi-dividend-sop",
+        title="FMP API Client for kanchi-dividend-sop",
+        family="B",
+        has_quote=False,
+        budget=False,
+        hist_days=30,
+        hist_return_list=True,
+        has_compat=False,
+        configurable_timeout=True,
+        feature_lines=("- Stable-only dividend/value routing and response aliases",),
+        class_constants=(("STABLE_URL", '"https://financialmodelingprep.com/stable"'),),
+        extensions=("dividend_stable",),
     ),
 }

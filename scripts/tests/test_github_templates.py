@@ -67,7 +67,10 @@ FMP_PACKAGE_DRIFT_COMMAND = (
     "--skill earnings-calendar "
     "--skill economic-calendar-fetcher "
     "--skill institutional-flow-tracker "
-    "--skill cot-contrarian-detector"
+    "--skill cot-contrarian-detector "
+    "--skill value-dividend-screener "
+    "--skill dividend-growth-pullback-screener "
+    "--skill kanchi-dividend-sop"
 )
 
 

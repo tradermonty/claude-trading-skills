@@ -1,0 +1,81 @@
+    def _request(self, url: str, params: dict, quiet: bool = False):
+        """Compatibility entry point; HTTP/retry/redaction stays in the shared core."""
+        return self._rate_limited_get(url, params=params, quiet=quiet)
+
+    def _get(self, endpoint: str, params: Optional[dict] = None):
+        """Route the dividend callers' existing names to supported stable endpoints."""
+        if self.rate_limit_reached:
+            return None
+        query = dict(params or {})
+        is_dividend = endpoint.startswith("historical-price-full/stock_dividend/")
+        if is_dividend:
+            name = "dividends"
+            query["symbol"] = endpoint.rsplit("/", 1)[-1]
+        elif endpoint == "stock-screener":
+            name = "company-screener"
+        else:
+            name, separator, symbol = endpoint.partition("/")
+            if separator:
+                query["symbol"] = symbol
+        allowed = {
+            "company-screener",
+            "income-statement",
+            "balance-sheet-statement",
+            "cash-flow-statement",
+            "key-metrics",
+            "ratios",
+            "profile",
+            "quote",
+            "dividends",
+        }
+        if name not in allowed:
+            # Endpoint strings are internal, but never interpolate an unknown
+            # caller value into the URL or error text.
+            print("ERROR: Unsupported dividend client endpoint", file=sys.stderr)
+            return None
+        data = self._request(f"{self.STABLE_URL}/{name}", query)
+        if data is None:
+            return None
+        return self._normalize(endpoint, data)
+
+    @staticmethod
+    def _normalize(endpoint: str, data):
+        """Keep legacy reader aliases without changing provider scale or sign."""
+        if data is None:
+            return None
+        if endpoint.startswith("historical-price-full/stock_dividend/"):
+            return {"historical": data} if isinstance(data, list) else data
+        name = endpoint.partition("/")[0]
+        if isinstance(data, list):
+            for record in data:
+                if not isinstance(record, dict):
+                    continue
+                if name == "key-metrics" and "roe" not in record and "returnOnEquity" in record:
+                    record["roe"] = record["returnOnEquity"]
+                if (
+                    name == "cash-flow-statement"
+                    and "dividendsPaid" not in record
+                    and "netDividendsPaid" in record
+                ):
+                    record["dividendsPaid"] = record["netDividendsPaid"]
+        return data
+
+    def get_dividend_prices(self, symbol: str, days: int = 30) -> Optional[list[dict]]:
+        """Most-recent-first history for the dividend adapters; no retired v3 retry."""
+        url = f"{self.STABLE_URL}/historical-price-eod/full"
+        if url in self._disabled_endpoints:
+            return None
+        today = _et_today()
+        data = self._request(
+            url,
+            {
+                "symbol": symbol,
+                "from": (today - timedelta(days=days * 2 + 10)).isoformat(),
+                "to": today.isoformat(),
+            },
+        )
+        if isinstance(data, list) and data:
+            self._endpoint_failures[url] = 0
+            return data[:days]
+        self._record_endpoint_failure(url)
+        return None

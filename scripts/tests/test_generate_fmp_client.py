@@ -16,6 +16,9 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.provider_contracts import _APIKEY_RE
 
 GENERATED_SKILLS = {
+    "value-dividend-screener",
+    "dividend-growth-pullback-screener",
+    "kanchi-dividend-sop",
     "pead-screener",
     "earnings-trade-analyzer",
     "ibd-distribution-day-monitor",
@@ -34,6 +37,9 @@ GENERATED_SKILLS = {
     "cot-contrarian-detector",
 }
 NO_COMPAT_SKILLS = {
+    "value-dividend-screener",
+    "dividend-growth-pullback-screener",
+    "kanchi-dividend-sop",
     "ftd-detector",
     "canslim-screener",
     "macro-regime-detector",
@@ -45,6 +51,9 @@ NO_COMPAT_SKILLS = {
     "cot-contrarian-detector",
 }
 NO_BUDGET_FAMILY_B = {
+    "value-dividend-screener",
+    "dividend-growth-pullback-screener",
+    "kanchi-dividend-sop",
     "earnings-calendar",
     "economic-calendar-fetcher",
     "institutional-flow-tracker",
@@ -91,7 +100,7 @@ def test_family_b_no_quote_has_budget(gen):
             continue
         out = gen.render_fmp_client(cfg)
         assert "def get_quote" not in out
-        assert '"quote"' not in out  # no quote entry in _FMP_ENDPOINTS
+        assert '"quote": [' not in out  # no quote fallback entry in _FMP_ENDPOINTS
         if cfg.skill in NO_BUDGET_FAMILY_B:
             # Issue #495 Batch A: no per-run budget surface.
             assert "ApiCallBudgetExceeded" not in out
@@ -276,3 +285,20 @@ def test_redaction_has_one_shared_template_definition(gen):
     assert fragment.count("def _redact_secret") == 1
     for cfg in _skills(gen).values():
         assert gen.render_fmp_client(cfg).count(fragment.rstrip()) == 1
+
+
+def test_batch_b_timeout_option_is_scoped_to_new_targets(gen):
+    new_targets = {
+        "value-dividend-screener",
+        "dividend-growth-pullback-screener",
+        "kanchi-dividend-sop",
+    }
+    for skill, cfg in _skills(gen).items():
+        assert cfg.configurable_timeout is (skill in new_targets)
+        output = gen.render_fmp_client(cfg)
+        if skill in new_targets:
+            assert "timeout=self.timeout" in output
+            assert 'self.session.headers.update({"apikey": self.api_key})' in output
+        elif cfg.family != "special":
+            assert "timeout=self.timeout" not in output
+            assert "timeout=30" in output

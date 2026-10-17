@@ -204,6 +204,9 @@ ADDITIONAL_CORE_CLIENTS = [
         "economic-calendar-fetcher",
         "institutional-flow-tracker",
         "cot-contrarian-detector",
+        "value-dividend-screener",
+        "dividend-growth-pullback-screener",
+        "kanchi-dividend-sop",
     )
 ]
 GENERATED_CLIENTS = ALL_CLIENTS + ADDITIONAL_CORE_CLIENTS

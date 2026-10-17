@@ -566,3 +566,14 @@ python3 scripts/screen_dividend_stocks.py --use-finviz --finviz-api-key your_key
 
 - **v1.1** (November 2025): Added FINVIZ Elite integration for two-stage screening
 - **v1.0** (November 2025): Initial release with comprehensive multi-phase screening
+
+
+## Shared FMP client
+
+FMP data access uses the bundled generated `scripts/fmp_client.py`. Existing CLI
+key/environment precedence, financial calculations and successful output shapes
+are preserved. The migrated paths use stable endpoints only; a denied or failed
+stable request does not fall back to retired v3 URLs. The shared client masks raw
+and URL-encoded key echoes, retries malformed JSON once, and retries a 429 once
+with a 60-second wait before stopping on a repeated rate limit. FINVIZ, where
+used, remains a separate client.

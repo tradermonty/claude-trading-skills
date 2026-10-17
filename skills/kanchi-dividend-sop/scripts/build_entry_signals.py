@@ -7,24 +7,16 @@ import argparse
 import csv
 import json
 import os
-import sys
-import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 from dividend_basis import analyze_dividends, step1_decision
 from event_scanner import ScanResult, apply_event_cap
+from fmp_client import FMPClient as SharedFMPClient
 from payout_safety import assess_payout_safety
 from thresholds import SCHEMA_VERSION, VERDICTS
 from verdict import build_run_context, synthesize_verdict
-
-# FMP /stable (the legacy /api/v3 paths now return 403 "Legacy Endpoint" for
-# keys issued after 2025-08-31). Endpoints are query-style (?symbol=...) and
-# comma-batched quote/profile requests silently return [], so they are fetched
-# one symbol per request below.
-FMP_BASE_URL = "https://financialmodelingprep.com/stable"
 
 
 def parse_ticker_csv(raw: str) -> list[str]:
@@ -112,49 +104,18 @@ def average(values: list[float]) -> float | None:
     return sum(values) / len(values)
 
 
-class FMPClient:
+class FMPClient(SharedFMPClient):
+    """Kanchi domain methods backed by the generated shared transport."""
+
     def __init__(self, api_key: str, sleep_seconds: float = 0.15, timeout: int = 30):
-        self.api_key = api_key
+        super().__init__(api_key=api_key)
         self.sleep_seconds = sleep_seconds
+        self.RATE_LIMIT_DELAY = sleep_seconds
         self.timeout = timeout
-        self.session = requests.Session()
-        self.api_calls = 0
 
-    def _get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any | None:
-        # The API key is sent via header (not query string) so it never appears
-        # in a URL — including any URL embedded in a raised exception message.
-        query = dict(params or {})
-        url = f"{FMP_BASE_URL}/{endpoint}"
-        headers = {"apikey": self.api_key}
-        attempts = 0
-
-        while attempts < 2:
-            attempts += 1
-            try:
-                response = self.session.get(
-                    url, params=query, headers=headers, timeout=self.timeout
-                )
-                self.api_calls += 1
-            except requests.RequestException as exc:
-                print(f"WARNING: Request error for {endpoint}: {exc}", file=sys.stderr)
-                return None
-
-            if response.status_code == 200:
-                if self.sleep_seconds > 0:
-                    time.sleep(self.sleep_seconds)
-                return response.json()
-
-            if response.status_code == 429 and attempts < 2:
-                time.sleep(2.0)
-                continue
-
-            print(
-                f"WARNING: FMP request failed ({response.status_code}) for {endpoint}",
-                file=sys.stderr,
-            )
-            return None
-
-        return None
+    @property
+    def api_calls(self) -> int:
+        return self.api_calls_made
 
     def get_batch_quotes(self, tickers: list[str]) -> dict[str, dict[str, Any]]:
         """Fetch quotes for all tickers (one /stable quote request per symbol).

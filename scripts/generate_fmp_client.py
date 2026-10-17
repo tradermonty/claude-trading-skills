@@ -42,7 +42,14 @@ SPECIAL_BANNER = (
 )
 
 # Flags referenced by ``# @@IF <flag>`` markers in the template.
-FLAGS = ("has_quote", "budget", "has_compat", "hist_return_list", "query_auth")
+FLAGS = (
+    "has_quote",
+    "budget",
+    "has_compat",
+    "hist_return_list",
+    "query_auth",
+    "configurable_timeout",
+)
 
 
 def _load_registry() -> dict:

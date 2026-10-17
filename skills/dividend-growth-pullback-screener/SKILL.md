@@ -346,3 +346,14 @@ python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_
 ---
 
 **Disclaimer:** This screening tool is for informational purposes only. Past dividend growth does not guarantee future performance. Conduct thorough due diligence before making investment decisions. RSI oversold conditions do not guarantee price reversals - stocks can remain oversold for extended periods.
+
+
+## Shared FMP client
+
+FMP data access uses the bundled generated `scripts/fmp_client.py`. Existing CLI
+key/environment precedence, financial calculations and successful output shapes
+are preserved. The migrated paths use stable endpoints only; a denied or failed
+stable request does not fall back to retired v3 URLs. The shared client masks raw
+and URL-encoded key echoes, retries malformed JSON once, and retries a 429 once
+with a 60-second wait before stopping on a repeated rate limit. FINVIZ, where
+used, remains a separate client.
