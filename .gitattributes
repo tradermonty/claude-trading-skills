@@ -1,0 +1,12 @@
+# Check out text files as LF on every OS. Packaged .skill archives are
+# byte-compared against fresh builds, so a CRLF checkout (core.autocrlf=true
+# on Windows) makes every package look stale to the drift gates.
+* text=auto eol=lf
+
+# Binary artifacts: never normalize.
+*.skill binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.parquet binary
