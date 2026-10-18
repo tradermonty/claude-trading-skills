@@ -473,7 +473,7 @@ class TestReportGeneratorRSColumn:
 
         try:
             generate_markdown_report(results, metadata, output_file)
-            with open(output_file) as f:
+            with open(output_file, encoding="utf-8") as f:
                 content = f.read()
 
             assert "## Summary Table" in content
@@ -503,7 +503,7 @@ class TestReportGeneratorRSColumn:
             output_file = f.name
         try:
             generate_markdown_report(results, metadata, output_file)
-            with open(output_file) as f:
+            with open(output_file, encoding="utf-8") as f:
                 content = f.read()
             assert "RS Disabled" in content
             assert "Skipped via --disable-rs" in content

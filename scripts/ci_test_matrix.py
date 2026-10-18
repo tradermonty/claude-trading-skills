@@ -24,6 +24,7 @@ from yaml.resolver import BaseResolver
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = Path("config/ci-test-policy.yaml")
+POLICY_LABEL = POLICY_PATH.as_posix()
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 POLICY_GATE_ID = "executable-test-policy"
 EXPIRY_URGENT_DAYS = 7
@@ -245,7 +246,7 @@ def load_skill_metadata(root: Path = ROOT) -> dict[str, SkillMetadata]:
 
 def load_policy(root: Path = ROOT, *, today: date | None = None) -> TestPolicy:
     today = date.today() if today is None else today
-    payload = _mapping(_load_yaml(root / POLICY_PATH, str(POLICY_PATH)), str(POLICY_PATH))
+    payload = _mapping(_load_yaml(root / POLICY_PATH, POLICY_LABEL), POLICY_LABEL)
     _strict_keys(
         payload,
         required={
@@ -255,10 +256,10 @@ def load_policy(root: Path = ROOT, *, today: date | None = None) -> TestPolicy:
             "allowed_failures",
             "matrix",
         },
-        context=str(POLICY_PATH),
+        context=POLICY_LABEL,
     )
     if payload["schema_version"] != 1:
-        raise MatrixError(f"{POLICY_PATH}.schema_version must be 1")
+        raise MatrixError(f"{POLICY_LABEL}.schema_version must be 1")
 
     aggregate = _mapping(payload["aggregate_coverage"], "aggregate_coverage")
     _strict_keys(aggregate, required={"target", "waiver"}, context="aggregate_coverage")
@@ -589,7 +590,7 @@ def install(entry: TestEntry, *, check: bool = False, root: Path = ROOT) -> None
             if requirement.url or requirement.extras:
                 raise MatrixError(f"cannot verify installed requirement: {raw}")
             hint = (
-                f"; edit {POLICY_PATH} matrix.{entry.id}.requirements "
+                f"; edit {POLICY_LABEL} matrix.{entry.id}.requirements "
                 "(drop the version if it only duplicates uv.lock; for a deliberate contract pin, "
                 "update every row that pins it, see docs/dev/ci-test-coverage-policy.md)"
             )

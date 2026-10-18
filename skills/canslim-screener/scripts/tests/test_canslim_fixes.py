@@ -381,7 +381,7 @@ class TestReportGeneratorTopParameter:
         try:
             generate_markdown_report(results, metadata, output_file)
 
-            with open(output_file) as f:
+            with open(output_file, encoding="utf-8") as f:
                 content = f.read()
 
             # Check that the header says "Top 30" not "Top 20"
@@ -423,7 +423,7 @@ class TestReportGeneratorTopParameter:
         try:
             generate_markdown_report(results, metadata, output_file)
 
-            with open(output_file) as f:
+            with open(output_file, encoding="utf-8") as f:
                 content = f.read()
 
             assert "Top 5" in content, "Report header should say 'Top 5'"
@@ -526,7 +526,7 @@ class TestBenchmarkScaleConsistency:
 
         screen_file = os.path.join(SCRIPTS_DIR, "screen_canslim.py")
 
-        with open(screen_file) as f:
+        with open(screen_file, encoding="utf-8") as f:
             content = f.read()
 
         # Find all get_historical_prices calls for S&P 500 / market data

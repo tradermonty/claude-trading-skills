@@ -116,7 +116,10 @@ def test_symlink_escape_and_dangling_link(tmp_path):
     folder = skill(tmp_path, "references/outside.md\nreferences/dangling.md")
     (folder / "references").mkdir()
     (tmp_path / "outside.md").touch()
-    (folder / "references/outside.md").symlink_to(tmp_path / "outside.md")
+    try:
+        (folder / "references/outside.md").symlink_to(tmp_path / "outside.md")
+    except OSError as exc:  # Windows without Developer Mode / admin
+        pytest.skip(f"symlinks unavailable: {exc}")
     (folder / "references/dangling.md").symlink_to(folder / "references/absent.md")
     errors = checker.check(tmp_path)
     assert len(errors) == 2

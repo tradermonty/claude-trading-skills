@@ -241,6 +241,9 @@ def test_cli_rejects_hardlinked_output(tmp_path, capsys, extension, source_name)
         (b"[" * 20000 + b"]" * 20000, "JSON too deeply nested"),
         (b'{"quantity":1e999999999999999999999}', "invalid JSON"),
     ],
+    # Explicit ids: the auto-generated id for the 40 KB nesting payload lands in
+    # PYTEST_CURRENT_TEST and exceeds Windows' 32767-character env-var limit.
+    ids=["missing", "bad-utf8", "bad-json", "duplicate-key", "deep-nesting", "overflow"],
 )
 def test_cli_read_failure_class_and_side(tmp_path, capsys, side, content, cause):
     paths = {name: tmp_path / f"PRIVATE_PATH_{name}.json" for name in ("broker", "memory")}

@@ -63,7 +63,7 @@ def check(root: Path) -> list[str]:
     if not documents:
         return ["skills/: no SKILL.md files found"]
     for document in documents:
-        label = document.relative_to(root)
+        label = document.relative_to(root).as_posix()
         try:
             content = document.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
