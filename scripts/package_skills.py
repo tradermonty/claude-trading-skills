@@ -9,9 +9,11 @@ security-scanner noise when users install .skill archives in Claude Web App.
 from __future__ import annotations
 
 import argparse
+import functools
 import lzma
 import os
 import stat
+import subprocess
 import zlib
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
@@ -24,6 +26,10 @@ FIXED_ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 EXCLUDED_DIR_NAMES = {"tests", "__pycache__", ".pytest_cache"}
 EXCLUDED_FILE_NAMES = {".DS_Store"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
+
+# Windows os.stat() never reports the exec bit on .py files, so there the git
+# index (core.fileMode=false) is the only record of which scripts are 100755.
+FILESYSTEM_TRACKS_EXEC_BIT = os.name != "nt"
 
 # Manifest required for every skill with executable scripts (issue #330).
 # Presence is enforced here; content is enforced by check_skill_deps.py.
@@ -53,11 +59,43 @@ def iter_package_files(skill_dir: Path) -> list[Path]:
     )
 
 
-def _zip_info(archive_name: str, source_path: Path) -> ZipInfo:
+@functools.cache
+def _git_executable_paths(directory: Path) -> frozenset[Path]:
+    """Resolved paths under ``directory`` that the git index records as 100755.
+
+    Empty when git is unavailable or ``directory`` is not inside a work tree.
+    """
+    try:
+        listing = subprocess.run(
+            ["git", "ls-files", "-s", "-z", "--", "."],
+            cwd=directory,
+            capture_output=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return frozenset()
+    executables = set()
+    for entry in listing.split(b"\0"):
+        meta, _, name = entry.partition(b"\t")
+        if meta.startswith(b"100755 "):
+            executables.add((directory / os.fsdecode(name)).resolve())
+    return frozenset(executables)
+
+
+def _file_mode(source_path: Path, skill_dir: Path) -> int:
+    """Permission bits to record for ``source_path`` in the archive."""
+    mode = source_path.stat().st_mode & 0o777
+    if not FILESYSTEM_TRACKS_EXEC_BIT and source_path.resolve() in _git_executable_paths(
+        skill_dir.resolve()
+    ):
+        mode |= 0o111
+    return mode
+
+
+def _zip_info(archive_name: str, source_path: Path, skill_dir: Path) -> ZipInfo:
     info = ZipInfo(archive_name, FIXED_ZIP_DATE)
     info.compress_type = ZIP_DEFLATED
-    mode = source_path.stat().st_mode
-    info.external_attr = (mode & 0o777) << 16
+    info.external_attr = _file_mode(source_path, skill_dir) << 16
     return info
 
 
@@ -109,7 +147,9 @@ def package_skill(skill_dir: Path, output_dir: Path, *, dry_run: bool = False) -
             for source_path in files:
                 rel = source_path.relative_to(skill_dir)
                 archive_name = f"{skill_dir.name}/{rel.as_posix()}"
-                archive.writestr(_zip_info(archive_name, source_path), source_path.read_bytes())
+                archive.writestr(
+                    _zip_info(archive_name, source_path, skill_dir), source_path.read_bytes()
+                )
         os.replace(tmp_path, output_path)
     finally:
         if tmp_path.exists():
@@ -125,7 +165,10 @@ def _source_logical_contents(skill_dir: Path) -> dict[str, tuple[bytes, bool]]:
     for source_path in iter_package_files(skill_dir):
         rel = source_path.relative_to(skill_dir)
         name = f"{skill_dir.name}/{rel.as_posix()}"
-        contents[name] = (source_path.read_bytes(), bool(source_path.stat().st_mode & 0o111))
+        contents[name] = (
+            source_path.read_bytes(),
+            bool(_file_mode(source_path, skill_dir) & 0o111),
+        )
     return contents
 
 
