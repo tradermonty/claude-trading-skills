@@ -8,6 +8,9 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+        # Tracked symlink: with core.symlinks=false (Windows default) it checks
+        # out as a plain file holding the link target, which must stay newline-free.
+        exclude: '^examples/daily-market-dashboard/\.claude/skills$'
       - id: check-yaml
       - id: check-toml
       - id: check-merge-conflict
