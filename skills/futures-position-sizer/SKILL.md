@@ -61,7 +61,9 @@ python3 skills/futures-position-sizer/scripts/futures_position_sizer.py \
 | `SIZED` | `contracts` >= 1; `total_risk_usd`/`risk_pct_of_account` are the actual risk taken |
 | `NO_TRADE` | Never a crash -- always carries `no_trade_reason`. See the reason glossary below |
 
-A `NO_TRADE` result from `risk_below_one_contract` still reports the full risk math (risk per contract, risk budget, stop distance) -- the account simply cannot afford one contract at this risk percentage and stop distance; widen the stop, increase risk %, or skip the trade.
+A `NO_TRADE` result from `risk_below_one_contract` still reports the full risk math (risk per contract, risk budget, stop distance) -- the account simply cannot afford one contract at this risk percentage and stop distance. Consider a smaller contract (e.g. a micro), deliberately reassess the risk percentage within your existing risk policy, or skip the trade. Keep the stop at the setup-defined invalidation level: widening it increases risk per contract and makes affordability worse; do not tighten it merely to fit the budget.
+
+For a smaller contract, use its own symbol and verified specifications; if it is outside the core table, supply `--multiplier`, `--tick-size`, and `--contract-currency` together (plus `--fx-rate` for non-USD quotes). Do not lower an existing symbol's multiplier to simulate a micro. In mode B, use a `READY_FOR_PLAN` gate for that same smaller-contract symbol; do not relabel the original gate to bypass the symbol check.
 
 ### Step 3: Check Warnings
 
