@@ -1,4 +1,5 @@
-action: accept_rules
+source_review_id: monthly_2026-05_fictional
+action: modify_rules
 accepted_rules:
   - require the confirmed pivot before any entry
   - move the stop loss only after the thesis is invalidated

@@ -151,6 +151,9 @@ steps:
     skill: trader-memory-core
     consumes:
       - aggregate_postmortem
+      - monthly_performance_coach_report
+      - monthly_behavior_patterns
+      - next_month_operating_rules
       - hypothesis_revalidation
       - skill_review_findings
     produces:
@@ -160,10 +163,13 @@ steps:
     decision_gate: true
     decision_question: >-
       Based on this month's evidence, what specific rules will change next
-      month? Trade-side rules vs repo-side improvements should stay separate.
+      month? Record the coach accept/modify/defer/journal-only decision when
+      coaching ran; final approval preserves that decision without activating
+      rules. Trade-side rules vs repo-side improvements should stay separate.
     decision_question_ja: >-
       当月の証拠に基づき、翌月に変更する具体的なルールは何か。取引側のルールと
-      リポジトリ側の改善は分けて扱う。
+      リポジトリ側の改善は分けて扱う。コーチング実施時は採用・修正・保留・記録のみの
+      判断を最終承認して保存する。この成果物だけではルールを有効化しない。
 
 manual_review:
   - Distinguish process improvements (rule changes) from outcome accidents (randomness).

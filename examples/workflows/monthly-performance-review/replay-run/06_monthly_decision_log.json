@@ -1,10 +1,14 @@
 {
+  "coach_rule_decision": null,
   "monthly_aggregate_root_cause": "Confirmation discipline rather than market regime drove the month's losses.",
   "provenance": {
     "aggregate_postmortem": "1fdcf82d121fa869ab3df0a2314fe56ccc3679b7723fe7e2eff30946cfa25a04",
     "deferred_evidence": "Decision log is transcribed from the human rule-change decision; native trader-memory-core decision/journal persistence remains deferred (issue 294).",
     "execution_mode": "manual_contract",
     "hypothesis_revalidation": null,
+    "monthly_behavior_patterns": null,
+    "monthly_performance_coach_report": null,
+    "next_month_operating_rules": null,
     "skill_review_findings": null
   },
   "repo_improvements": [
@@ -15,6 +19,7 @@
       "trader-memory-core": "surface consecutive-losses count in the monthly aggregate."
     }
   ],
+  "rule_activation": "not_performed",
   "rule_changes": [
     "Enforce the confirmed-pivot rule before any entry.",
     "Do not move a stop loss before thesis invalidation.",

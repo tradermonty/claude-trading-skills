@@ -128,6 +128,10 @@ def test_required_only_aggregates_and_documents_rule_changes(tmp_path: Path) -> 
     assert postmortem["provenance"]["postmortem_records"] == 5
 
     assert rule_changes["schema_version"] == 1
+    assert rule_changes["coach_rule_decision"] is None
+    log = json.loads((output / "06_monthly_decision_log.json").read_text())
+    assert log["coach_rule_decision"] is None
+    assert all(log["provenance"][key] is None for key in replay_module._MONTHLY_COACH_ARTIFACTS)
     assert rule_changes["trade_rule_changes"][0].startswith("Enforce the confirmed-pivot rule")
     assert any(
         "regime-gate" in note
@@ -178,12 +182,34 @@ def test_full_path_runs_coach_backtest_and_reviews_skill(tmp_path: Path) -> None
     decision = json.loads((output / "06_monthly_decision_log.json").read_text())
     assert set(decision["provenance"].keys()) == {
         "aggregate_postmortem",
+        "monthly_performance_coach_report",
+        "monthly_behavior_patterns",
+        "next_month_operating_rules",
         "hypothesis_revalidation",
         "skill_review_findings",
         "execution_mode",
         "deferred_evidence",
     }
     assert len(decision["rule_changes"]) == 3
+    carried = decision["coach_rule_decision"]
+    assert carried == load_yaml(output / "03_next_month_operating_rules.yaml")
+    assert carried["action"] == "modify_rules"
+    assert carried["source_review_id"] == coach["review_id"]
+    final_rules = load_yaml(output / "06_rule_changes_for_next_month.yaml")
+    assert final_rules["coach_rule_decision"] == carried
+    assert final_rules["rule_activation"] == decision["rule_activation"] == "not_performed"
+    for artifact_id, filename in {
+        "monthly_performance_coach_report": "03_monthly_performance_coach_report.json",
+        "monthly_behavior_patterns": "03_monthly_behavior_patterns.json",
+        "next_month_operating_rules": "03_next_month_operating_rules.yaml",
+    }.items():
+        assert decision["provenance"][artifact_id] == replay_module._payload_sha256(
+            load_yaml(output / filename), load_yaml(SPEC)["fixed_timestamp"]
+        )
+    assert report["steps"][-1]["consumed"] == sorted(
+        {"aggregate_postmortem", "hypothesis_revalidation", "skill_review_findings"}
+        | replay_module._MONTHLY_COACH_ARTIFACTS
+    )
 
 
 def test_missing_period_in_closed_theses_fails_without_publication(tmp_path: Path) -> None:
@@ -914,6 +940,7 @@ def test_monthly_coach_scrubs_absolute_source_records(monkeypatch, tmp_path: Pat
             json.dumps(
                 {
                     "source_records": records,
+                    "review_id": decision["source_review_id"],
                     "human_decision_gate": {"allowed_actions": [decision["action"]]},
                     "notes": "/external/reports/external.json",
                 }
@@ -944,3 +971,148 @@ def test_monthly_coach_scrubs_absolute_source_records(monkeypatch, tmp_path: Pat
         *records[7:],
     ]
     assert result["notes"] == "/external/reports/external.json"
+
+
+@pytest.mark.parametrize("action", ["accept_rules", "modify_rules", "defer", "journal_only"])
+def test_monthly_coach_actions_preserve_manual_decision(action: str) -> None:
+    coach = json.loads(
+        (
+            SPEC.parent / "replay-run-full-path" / "03_monthly_performance_coach_report.json"
+        ).read_text()
+    )
+    decision = {
+        "source_review_id": coach["review_id"],
+        "action": action,
+        "accepted_rules": (
+            [coach["next_session_operating_rules"][0]["rule"]]
+            if action == "accept_rules"
+            else ["A fictional rewritten rule"]
+            if action == "modify_rules"
+            else []
+        ),
+        "human_notes": "Fictional manual decision; no rule activation.",
+    }
+    assert replay_module._validate_monthly_coach_decision(decision, coach) == decision
+
+
+@pytest.mark.parametrize(
+    "mutation, message",
+    [
+        ({"action": "accept_rules"}, "native coach proposals"),
+        ({"accepted_rules": []}, "non-empty accepted_rules"),
+        ({"accepted_rules": [""]}, "non-empty string"),
+        ({"accepted_rules": ["one", " one "]}, "unique"),
+        ({"accepted_rules": [True]}, "non-empty string"),
+        ({"accepted_rules": "one"}, "must be a list"),
+        ({"action": "defer"}, "cannot contain accepted_rules"),
+        ({"action": "journal_only"}, "cannot contain accepted_rules"),
+        ({"source_review_id": "previous-month"}, "source_review_id"),
+        ({"human_notes": ""}, "non-empty string"),
+    ],
+)
+def test_monthly_invalid_coach_decisions_rejected(mutation: dict, message: str) -> None:
+    coach = json.loads(
+        (
+            SPEC.parent / "replay-run-full-path" / "03_monthly_performance_coach_report.json"
+        ).read_text()
+    )
+    decision = load_yaml(INPUTS / "coach_decision.yaml")
+    decision.update(mutation)
+    with pytest.raises(ReplayError, match=message):
+        replay_module._validate_monthly_coach_decision(decision, coach)
+
+
+def _direct_monthly_final(tmp_path: Path):
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    source = SPEC.parent / "replay-run-full-path"
+    consumed = {}
+    for artifact_id, filename in {
+        "aggregate_postmortem": "02_aggregate_postmortem.json",
+        "monthly_performance_coach_report": "03_monthly_performance_coach_report.json",
+        "monthly_behavior_patterns": "03_monthly_behavior_patterns.json",
+        "next_month_operating_rules": "03_next_month_operating_rules.yaml",
+    }.items():
+        path = stage / filename
+        path.write_bytes((source / filename).read_bytes())
+        consumed[artifact_id] = {"files": {"canonical": str(path)}}
+    # Build the new decision contract independently of regenerated goldens.
+    rules_path = Path(consumed["next_month_operating_rules"]["files"]["canonical"])
+    rules_path.write_text(
+        yaml.safe_dump({"schema_version": 1, **load_yaml(INPUTS / "coach_decision.yaml")})
+    )
+    spec = load_yaml(SPEC)
+    step = next(item for item in spec["steps"] if item["step"] == 6)
+    inputs = {name: SPEC.parent / value for name, value in spec["inputs"].items()}
+    return stage, consumed, spec, step, inputs
+
+
+@pytest.mark.parametrize("action", ["accept_rules", "modify_rules", "defer", "journal_only"])
+def test_final_step_preserves_all_manual_actions(tmp_path: Path, action: str) -> None:
+    stage, consumed, spec, step, inputs = _direct_monthly_final(tmp_path)
+    path = Path(consumed["next_month_operating_rules"]["files"]["canonical"])
+    decision = load_yaml(path)
+    coach = load_yaml(Path(consumed["monthly_performance_coach_report"]["files"]["canonical"]))
+    decision["action"] = action
+    decision["accepted_rules"] = (
+        [coach["next_session_operating_rules"][0]["rule"]]
+        if action == "accept_rules"
+        else ["A fictional modified rule"]
+        if action == "modify_rules"
+        else []
+    )
+    path.write_text(yaml.safe_dump(decision))
+    replay_module._monthly_decision_log(ROOT, spec, step, inputs, consumed, tmp_path, stage)
+    for filename in ["06_monthly_decision_log.json", "06_rule_changes_for_next_month.yaml"]:
+        result = load_yaml(stage / filename)
+        assert result["coach_rule_decision"] == decision
+        assert result["rule_activation"] == "not_performed"
+
+
+@pytest.mark.parametrize(
+    "mutation, message",
+    [
+        ("missing_rules", "complete coach artifact group"),
+        ("missing_report", "complete coach artifact group"),
+        ("missing_behavior", "complete coach artifact group"),
+        ("stale_rules", "source_review_id"),
+        ("stale_behavior", "review_id"),
+        ("unapproved", "human_approved"),
+    ],
+)
+def test_final_step_rejects_bad_handoff_before_writes(
+    tmp_path: Path, mutation: str, message: str
+) -> None:
+    stage, consumed, spec, step, inputs = _direct_monthly_final(tmp_path)
+    if mutation.startswith("missing_"):
+        key = {
+            "missing_rules": "next_month_operating_rules",
+            "missing_report": "monthly_performance_coach_report",
+            "missing_behavior": "monthly_behavior_patterns",
+        }[mutation]
+        del consumed[key]
+    elif mutation in {"stale_rules", "stale_behavior"}:
+        key, field = (
+            ("next_month_operating_rules", "source_review_id")
+            if mutation == "stale_rules"
+            else ("monthly_behavior_patterns", "review_id")
+        )
+        path = Path(consumed[key]["files"]["canonical"])
+        payload = load_yaml(path)
+        payload[field] = "previous-month"
+        path.write_text(yaml.safe_dump(payload))
+    else:
+        path = tmp_path / "unapproved.yaml"
+        payload = load_yaml(inputs["rule_change_decision"])
+        payload["human_approved"] = False
+        path.write_text(yaml.safe_dump(payload))
+        inputs["rule_change_decision"] = path
+    with pytest.raises(ReplayError, match=message):
+        replay_module._monthly_decision_log(ROOT, spec, step, inputs, consumed, tmp_path, stage)
+    assert not list(stage.glob("06_*"))
+
+
+def test_monthly_workflow_requires_coach_handoff_contract() -> None:
+    workflow = load_yaml(ROOT / "workflows" / "monthly-performance-review.yaml")
+    final_step = next(step for step in workflow["steps"] if step["step"] == 6)
+    assert replay_module._MONTHLY_COACH_ARTIFACTS <= set(final_step["consumes"])

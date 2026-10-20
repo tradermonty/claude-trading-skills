@@ -1,4 +1,14 @@
 schema_version: 1
+coach_rule_decision:
+  schema_version: 1
+  source_review_id: monthly_2026-05_fictional
+  action: modify_rules
+  accepted_rules:
+  - require the confirmed pivot before any entry
+  - move the stop loss only after the thesis is invalidated
+  - keep portfolio heat at or below 4R
+  human_notes: Carry the confirmation and stop-discipline rules into the next month.
+rule_activation: not_performed
 trade_rule_changes:
 - Enforce the confirmed-pivot rule before any entry.
 - Do not move a stop loss before thesis invalidation.

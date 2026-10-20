@@ -1,4 +1,6 @@
 schema_version: 1
+coach_rule_decision: null
+rule_activation: not_performed
 trade_rule_changes:
 - Enforce the confirmed-pivot rule before any entry.
 - Do not move a stop loss before thesis invalidation.

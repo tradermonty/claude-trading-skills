@@ -3347,6 +3347,54 @@ def _canonical_source_record(record: Any) -> Any:
     return record
 
 
+_MONTHLY_COACH_ARTIFACTS = {
+    "monthly_performance_coach_report",
+    "monthly_behavior_patterns",
+    "next_month_operating_rules",
+}
+
+
+def _validate_monthly_coach_decision(
+    payload: Any, coach: Mapping[str, Any], *, published: bool = False
+) -> dict[str, Any]:
+    decision = _require_mapping_keys(
+        payload,
+        label="coach decision",
+        required={"source_review_id", "action", "accepted_rules", "human_notes"}
+        | ({"schema_version"} if published else set()),
+    )
+    review_id = _require_non_empty_string(coach.get("review_id"), "coach review_id")
+    if decision["source_review_id"] != review_id:
+        raise ReplayError("coach decision source_review_id must match the coach report")
+    if published and decision["schema_version"] != 1:
+        raise ReplayError("coach decision schema_version must be 1")
+    action = decision["action"]
+    allowed_actions = {"accept_rules", "modify_rules", "defer", "journal_only"}
+    native_actions = (coach.get("human_decision_gate") or {}).get("allowed_actions") or []
+    if not isinstance(action, str) or action not in allowed_actions or action not in native_actions:
+        raise ReplayError("coach decision action not in coach allowed actions")
+    rules = decision["accepted_rules"]
+    if not isinstance(rules, list):
+        raise ReplayError("coach decision accepted_rules must be a list")
+    for rule in rules:
+        _require_non_empty_string(rule, "coach decision accepted_rule")
+    if len({rule.strip() for rule in rules}) != len(rules):
+        raise ReplayError("coach decision accepted_rules must be unique")
+    if action in {"accept_rules", "modify_rules"} and not rules:
+        raise ReplayError("coach decision accept/modify requires non-empty accepted_rules")
+    if action in {"defer", "journal_only"} and rules:
+        raise ReplayError("coach decision defer/journal_only cannot contain accepted_rules")
+    native_rules = {
+        row["rule"]
+        for row in coach.get("next_session_operating_rules", [])
+        if isinstance(row, dict) and isinstance(row.get("rule"), str)
+    }
+    if action == "accept_rules" and not set(rules).issubset(native_rules):
+        raise ReplayError("coach decision accept_rules must come from native coach proposals")
+    _require_non_empty_string(decision["human_notes"], "coach decision human_notes")
+    return dict(decision)
+
+
 def _monthly_coach(
     repo_root: Path,
     spec: Mapping[str, Any],
@@ -3383,24 +3431,7 @@ def _monthly_coach(
     if isinstance(source_records, list):
         coach["source_records"] = [_canonical_source_record(rec) for rec in source_records]
 
-    gate = coach.get("human_decision_gate") or {}
-    allowed_actions = gate.get("allowed_actions") or []
-    decision = _require_mapping_keys(
-        load_yaml(inputs["coach_decision"]),
-        label="coach decision",
-        required={"action", "accepted_rules", "human_notes"},
-    )
-    action = decision["action"]
-    if action not in allowed_actions:
-        raise ReplayError(
-            f"coach decision action {action!r} not in coach allowed actions {sorted(allowed_actions)}"
-        )
-    accepted = decision["accepted_rules"]
-    if not isinstance(accepted, list):
-        raise ReplayError("coach decision accepted_rules must be a list")
-    for rule in accepted:
-        _require_non_empty_string(rule, "coach decision accepted_rule")
-    _require_non_empty_string(decision["human_notes"], "coach decision human_notes")
+    decision = _validate_monthly_coach_decision(load_yaml(inputs["coach_decision"]), coach)
 
     artifacts = _artifact_paths(stage, step["output_files"])
     _write_json(Path(artifacts["monthly_performance_coach_report"]["files"]["canonical"]), coach)
@@ -3415,9 +3446,7 @@ def _monthly_coach(
         Path(artifacts["next_month_operating_rules"]["files"]["canonical"]),
         {
             "schema_version": 1,
-            "action": action,
-            "accepted_rules": accepted,
-            "human_notes": decision["human_notes"],
+            **decision,
         },
     )
     return artifacts
@@ -3566,6 +3595,10 @@ def _monthly_decision_log(
     stage: Path,
 ) -> dict[str, dict[str, Any]]:
     expected = {"aggregate_postmortem"}
+    coach_artifacts = set(consumed) & _MONTHLY_COACH_ARTIFACTS
+    if coach_artifacts and coach_artifacts != _MONTHLY_COACH_ARTIFACTS:
+        raise ReplayError("monthly decision log requires the complete coach artifact group")
+    expected.update(coach_artifacts)
     if "hypothesis_revalidation" in consumed:
         expected.add("hypothesis_revalidation")
     if "skill_review_findings" in consumed:
@@ -3588,15 +3621,38 @@ def _monthly_decision_log(
     for key in ("trade_rule_changes", "repo_improvements", "skill_improvement_backlog", "expected"):
         if not isinstance(decision[key], list):
             raise ReplayError(f"rule change decision {key} must be a list")
+    coach_decision = None
+    coach_hashes = dict.fromkeys(sorted(_MONTHLY_COACH_ARTIFACTS))
+    if coach_artifacts:
+        payloads = {}
+        for artifact_id in sorted(coach_artifacts):
+            path = Path(consumed[artifact_id]["files"]["canonical"])
+            payloads[artifact_id] = load_yaml(path)
+            coach_hashes[artifact_id] = _payload_sha256(
+                payloads[artifact_id], spec["fixed_timestamp"]
+            )
+        coach = payloads["monthly_performance_coach_report"]
+        if not isinstance(coach, dict):
+            raise ReplayError("monthly coach report must be a mapping")
+        coach_decision = _validate_monthly_coach_decision(
+            payloads["next_month_operating_rules"], coach, published=True
+        )
+        behavior = payloads["monthly_behavior_patterns"]
+        if not isinstance(behavior, dict) or behavior.get("review_id") != coach["review_id"]:
+            raise ReplayError("monthly behavior review_id must match the coach report")
+
     postmortem_path = Path(consumed["aggregate_postmortem"]["files"]["canonical"])
     postmortem = _load_json(postmortem_path, "aggregate postmortem")
 
     log_entry = {
         "schema_version": 1,
+        "coach_rule_decision": coach_decision,
+        "rule_activation": "not_performed",
         "monthly_aggregate_root_cause": postmortem.get("summary", "unknown"),
         "rule_changes": decision["trade_rule_changes"],
         "repo_improvements": decision["repo_improvements"],
         "provenance": {
+            **coach_hashes,
             "aggregate_postmortem": _payload_sha256(
                 _load_json(postmortem_path, "aggregate postmortem"), spec["fixed_timestamp"]
             ),
@@ -3635,6 +3691,8 @@ def _monthly_decision_log(
         Path(artifacts["rule_changes_for_next_month"]["files"]["canonical"]),
         {
             "schema_version": 1,
+            "coach_rule_decision": coach_decision,
+            "rule_activation": "not_performed",
             "trade_rule_changes": decision["trade_rule_changes"],
             "repo_improvements": decision["repo_improvements"],
         },

@@ -287,9 +287,9 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Step 6: Produce decision log and rule changes** (decision gate) → `trader-memory-core`
 
-- consumes: `aggregate_postmortem`, `hypothesis_revalidation`, `skill_review_findings`
+- consumes: `aggregate_postmortem`, `monthly_performance_coach_report`, `monthly_behavior_patterns`, `next_month_operating_rules`, `hypothesis_revalidation`, `skill_review_findings`
 - produces: `monthly_decision_log`, `rule_changes_for_next_month`, `skill_improvement_backlog`
-- **Decision:** Based on this month's evidence, what specific rules will change next month? Trade-side rules vs repo-side improvements should stay separate.
+- **Decision:** Based on this month's evidence, what specific rules will change next month? Record the coach accept/modify/defer/journal-only decision when coaching ran; final approval preserves that decision without activating rules. Trade-side rules vs repo-side improvements should stay separate.
 
 **Manual review:**
 

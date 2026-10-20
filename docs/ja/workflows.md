@@ -287,9 +287,9 @@ permalink: /ja/workflows/
 
 **ステップ 6: 判断記録とルール変更を作成する** （判断ゲート） → `trader-memory-core`
 
-- 入力: `aggregate_postmortem`, `hypothesis_revalidation`, `skill_review_findings`
+- 入力: `aggregate_postmortem`, `monthly_performance_coach_report`, `monthly_behavior_patterns`, `next_month_operating_rules`, `hypothesis_revalidation`, `skill_review_findings`
 - 出力: `monthly_decision_log`, `rule_changes_for_next_month`, `skill_improvement_backlog`
-- **判断:** 当月の証拠に基づき、翌月に変更する具体的なルールは何か。取引側のルールとリポジトリ側の改善は分けて扱う。
+- **判断:** 当月の証拠に基づき、翌月に変更する具体的なルールは何か。取引側のルールとリポジトリ側の改善は分けて扱う。コーチング実施時は採用・修正・保留・記録のみの判断を最終承認して保存する。この成果物だけではルールを有効化しない。
 
 **手動レビュー:**
 

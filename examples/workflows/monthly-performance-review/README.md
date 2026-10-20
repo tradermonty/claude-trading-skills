@@ -20,3 +20,22 @@ full path contains all ten workflow artifacts, including the optional
 Trade-side operating rules and repo-side skill improvements remain separate.
 Every decision and backlog entry points to an upstream evidence ID so tests can
 detect invented or dangling rationales.
+
+## Coach decision handoff (offline replay)
+
+The full replay passes all three step-3 coach artifacts to step 6. The final
+human approval preserves the exact `coach_rule_decision` (source review ID,
+action, accepted/modified text, and human notes) in the decision log and the
+next-month rules artifact. The log records hashes of all three coach inputs.
+`accept_rules` may select only original coach proposals; rewritten text uses
+`modify_rules`. `defer` and `journal_only` carry no accepted rules. Duplicate
+rule text, stale review IDs, and incomplete coach artifact groups fail validation.
+When coaching is skipped, the coach decision and its source hashes are null.
+
+The replay decision fixtures are fictional human inputs. Final `human_approved`
+ratifies that recorded coach decision and the separate postmortem-driven
+`trade_rule_changes`; these suggestions are not automatically active rules.
+Both final artifacts report `rule_activation: not_performed`. The local approved
+rule ledger, effective dates, expiry/supersession, pre-trade integration, and next
+month's adherence review remain unimplemented under #514. Neither a successful
+replay nor its final approval places trades or writes broker state.
