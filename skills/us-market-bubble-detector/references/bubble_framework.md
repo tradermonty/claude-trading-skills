@@ -38,7 +38,7 @@ True bubbles are determined not by **price levels** but by **the phase of crowd 
 
 Modern version of Joe Kennedy selling before the 1929 crash after hearing a shoeshine boy talk stocks.
 
-**Why this is a decisive signal:**
+**Why this is a warning signal to investigate:**
 - Information reaches the final tier = cascade complete
 - "Last buyer" cohort enters = demand exhaustion near
 - "Sure to profit" perception without expertise = peak risk ignorance
@@ -319,8 +319,10 @@ Check every morning before market open:
 1. **"See process, not price"**
    Evaluate bubbles not by levels but by crowd psychology phase transitions
 
-2. **"When taxi drivers talk stocks, exit"**
-   Last buyer cohort entry = demand exhaustion near
+2. **"When taxi drivers talk stocks, run the full quantitative assessment"**
+   Social anecdotes alone establish neither a phase nor an exit decision.
+   Complete Phase 1 data collection, Phase 2 quantitative scoring, and the
+   evidence-based Phase 3 adjustments in SKILL.md before using the final score.
 
 3. **"'This time is different' is always the same"**
    When "This time is different" becomes the mantra, be very cautious

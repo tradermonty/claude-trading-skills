@@ -270,3 +270,37 @@ def test_cli_emits_json_and_fails_closed_on_invalid_input(monkeypatch, capsys) -
     monkeypatch.setattr("sys.argv", ["bubble_scorer.py"])
     assert module.main() == 1
     assert "specify --manual or --scores" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("path", QUICK_REFERENCES, ids=lambda path: path.name)
+def test_emergency_questions_require_full_evaluation_before_verdict(path) -> None:
+    text = path.read_text(encoding="utf-8")
+    emergency = text.split("## Emergency Assessment: 3 Questions", 1)[1].split("\n---", 1)[0]
+
+    assert "All 3 YES → Strong warning signal" in emergency
+    assert "Phase 1 data collection" in emergency
+    assert "Phase 2 quantitative scoring" in emergency
+    assert "Phase 3 evidence-based adjustments" in emergency
+    assert "Critical requires a final score of 13-15" in emergency
+    assert "leave the assessment incomplete" in emergency
+    assert "YES/NO answers alone establish neither a phase nor an action" in emergency
+    for shortcut in ("Critical zone", "Euphoria stage", "Still early", "healthy state"):
+        assert shortcut not in emergency
+    assert "When taxi drivers talk stocks, exit" not in text
+
+
+def test_framework_social_signal_requires_quantitative_assessment() -> None:
+    text = (SKILL_DIR / "references" / "bubble_framework.md").read_text(encoding="utf-8")
+    assert "When taxi drivers talk stocks, exit" not in text
+    assert "When taxi drivers talk stocks, run the full quantitative assessment" in text
+    assert "Social anecdotes alone establish neither a phase nor an exit decision" in text
+
+
+def test_japanese_emergency_example_is_warning_only() -> None:
+    guide = SKILL_DIR.parents[1] / "docs" / "ja" / "skills" / "us-market-bubble-detector.md"
+    text = guide.read_text(encoding="utf-8")
+    emergency = text.split("**緊急時の簡易チェック：**", 1)[1].split("\n---", 1)[0]
+    assert "警戒シグナル" in emergency
+    assert "Phase 1" in emergency and "Phase 2" in emergency and "Phase 3" in emergency
+    assert "3質問だけでフェーズや売買アクションを決めません" in emergency
+    assert "データが不足する場合は評価未完了" in emergency

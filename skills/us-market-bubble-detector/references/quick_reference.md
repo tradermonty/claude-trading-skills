@@ -24,21 +24,28 @@
 
 ## Emergency Assessment: 3 Questions
 
-When uncertain about investment decisions, answer these 3 questions:
+Use these questions to flag concerns that need a full evaluation:
 
-### Q1: "Are non-investors recommending?"
-- YES → Mass penetration complete, likely late stage
-- NO → Still early-to-mid stage
+### Q1: "Are non-investors recommending it?"
+- YES → Record specific, independent recommendations for verification
+- NO → No social-penetration concern identified by this question
 
 ### Q2: "Has the narrative become 'common sense'?"
-- YES → Euphoria stage, dissent socially unacceptable
-- NO → Skeptical views still tolerated, healthy state
+- YES → Record examples of consensus and treatment of dissent for verification
+- NO → No consensus concern identified by this question
 
-### Q3: "Is 'this time is different' the mantra?"
-- YES → Historically typical bubble sign
-- NO → Healthy caution still functioning
+### Q3: "Is 'this time is different' the catchphrase?"
+- YES → Record specific media examples for verification
+- NO → No narrative concern identified by this question
 
-**All 3 YES → Critical zone, prioritize profit-taking/exit**
+**All 3 YES → Strong warning signal: run the full quantitative evaluation before acting.**
+
+YES/NO answers alone establish neither a phase nor an action, including when all
+answers are NO. Complete Phase 1 data collection and Phase 2 quantitative scoring,
+then apply Phase 3 evidence-based adjustments under the strict criteria in
+`../SKILL.md`. Use the final score for the phase and action matrix below;
+Critical requires a final score of 13-15. If required data are missing, leave the assessment incomplete
+and request the missing inputs instead of assigning a phase or action.
 
 ---
 
@@ -321,7 +328,7 @@ Q: VIX surge +30%+?
 
 1. **See process, not price**
 
-2. **When taxi drivers talk stocks, exit**
+2. **When taxi drivers talk stocks, run the full quantitative assessment**
 
 3. **"This time is different" is always the same**
 
