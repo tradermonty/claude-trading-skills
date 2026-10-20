@@ -28,6 +28,25 @@ Alpaca MCPサーバーと連携し、保有銘柄やポジションを取得し�
 
 ---
 
+## 限定的なオフラインCSVレビュー
+
+Python 3.9以降で、リポジトリのルートから次を実行します。認証情報は不要です。
+
+```bash
+python3 skills/portfolio-manager/scripts/review_csv.py \
+  --input skills/portfolio-manager/assets/fictional_holdings.csv \
+  --as-of 2026-10-20T12:00:00Z --output-dir reports
+```
+
+架空のUSD株式からJSON・Markdownの配分レポートを作成します。例の保有総額は
+80 USD、符号付き純保有額は20 USDです。実データを使う前に
+[CSV仕様と出力契約](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/portfolio-manager/references/csv-holdings-review.md)
+を確認し、元データの時刻を指定してください。取得単価が不明なら損益も不明です。
+現金・レバレッジ・過去成績・売買提案は扱いません。個人の保有情報とレポートは
+ローカルに保持してください。Alpacaは包括的なブローカー分析で必要です。
+#512の基礎実装であり、Navigator・workflow・replay連携とAPI経路との契約統一は
+未完了です。CSVからの`core-portfolio-weekly`実行や照合ゲートの代用はできません。
+
 ## 1. 概要
 
 Alpaca MCPサーバーと連携してリアルタイムの保有データを取得し、資産配分・分散度・リスク指標・個別ポジション評価・リバランス提案を含む投資ポートフォリオの総合分析・管理を行います。詳細なポートフォリオレポートとアクション可能なインサイトを生成します。

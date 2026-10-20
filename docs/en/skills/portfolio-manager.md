@@ -14,7 +14,7 @@ permalink: /en/skills/portfolio-manager/
 Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze asset allocation, risk metrics, individual stock positions, diversification, and generate rebalancing recommendations. Use when user requests portfolio review, position analysis, risk assessment, performance evaluation, or rebalancing suggestions for their brokerage account.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-api">Alpaca Required</span>
+<span class="badge badge-api">Alpaca Required for Full Analysis</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/portfolio-manager.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/portfolio-manager){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -27,6 +27,22 @@ Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch ho
 </details>
 
 ---
+
+## Limited Offline CSV Review
+
+Run `python3 skills/portfolio-manager/scripts/review_csv.py --input
+skills/portfolio-manager/assets/fictional_holdings.csv --as-of
+2026-10-20T12:00:00Z --output-dir reports` from the repository root with Python
+3.9+. No credentials are needed. This fictional example writes JSON and Markdown
+allocation reports with gross holdings value 80 USD and signed net value 20 USD.
+
+Read the [CSV schema and output contract](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/portfolio-manager/references/csv-holdings-review.md)
+before supplying a local snapshot. Missing costs mean unavailable P&L; cash,
+leverage, historical performance and trading recommendations are unavailable.
+Reports contain sensitive holdings: keep personal inputs and reports local.
+This is a standalone foundation for #512; Navigator/workflow/replay integration
+and API/CSV contract alignment remain outstanding. It does not make
+`core-portfolio-weekly` runnable from CSV or bypass reconciliation.
 
 ## 1. Overview
 

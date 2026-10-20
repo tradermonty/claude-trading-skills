@@ -9,7 +9,7 @@ description: Comprehensive portfolio analysis using Alpaca MCP Server integratio
 
 Analyze and manage investment portfolios by integrating with Alpaca MCP Server to fetch real-time holdings data, then performing comprehensive analysis covering asset allocation, diversification, risk metrics, individual position evaluation, and rebalancing recommendations. Generate detailed portfolio reports with actionable insights.
 
-This skill leverages Alpaca's brokerage API through MCP (Model Context Protocol) to access live portfolio data, ensuring analysis is based on actual current positions rather than manually entered data.
+The full brokerage analysis uses Alpaca's API through MCP for live portfolio data. A separate limited CSV allocation review is available offline; it does not provide the full brokerage analysis or workflow.
 
 ## When to Use
 
@@ -26,9 +26,19 @@ Invoke this skill when the user requests:
 
 ## Prerequisites
 
-### Alpaca MCP Server Setup
+### Limited Offline CSV Review
 
-This skill requires Alpaca MCP Server to be configured and connected. The MCP server provides access to:
+For a local USD equity holdings snapshot without credentials, read
+`references/csv-holdings-review.md` and run `scripts/review_csv.py` with an explicit
+source timestamp. Use the bundled fictional CSV to verify offline execution.
+This produces gross allocation and per-position unrealized P&L only; it cannot
+measure account exposure, leverage or historical performance. Keep personal
+holdings and reports local. Do not fetch brokerage data or continue the full
+workflow for this limited mode. Navigator/workflow integration remains unshipped.
+
+### Alpaca MCP Server Setup (Full Brokerage Analysis)
+
+The full brokerage analysis requires Alpaca MCP Server to be configured and connected. The MCP server provides access to:
 - Current portfolio positions
 - Account equity and buying power
 - Historical positions and transactions
