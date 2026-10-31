@@ -443,8 +443,9 @@ skills:
       - command: python3 scripts/ci_test_matrix.py install position-sizer && python3 scripts/ci_test_matrix.py run position-sizer
       - tests: skills/position-sizer/scripts/tests/test_position_sizer.py
       - provenance: skills/<id>/scripts/tests (skill-local) validate this skill's own output schema and fail-closed behavior; repo-level tests are NOT cited as schema evidence
-      - assessed_commit: 52c932329e25a614eea9e55f7aa8e7677e8c0b84  # pragma: allowlist secret
-      - assessed_date: '2026-10-25'
+      - assessed_commit: 1d3d56850143804e639898dcf8117a5ec7ebd09b  # pragma: allowlist secret
+      - assessed_date: '2026-10-28'
+      - regression: TestRiskReporting verifies the selected ATR stop after constraints and Kelly stop availability when unused ATR inputs are supplied; 46 skill-local tests passed.
     workflow_contract:
       value: passed
       rationale: Sizing handoff is executed natively per hypothesis card with FX research-only rejection and a card-id safety guard.

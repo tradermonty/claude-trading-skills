@@ -288,15 +288,14 @@ def calculate_position(params: SizingParameters) -> dict:
     result["final_recommended_shares"] = final_shares
     result["final_position_value"] = round(final_shares * params.entry_price, 2)
 
-    # Calculate actual risk for final shares
-    if params.stop_price:
-        risk_per_share = params.entry_price - params.stop_price
-        result["final_risk_dollars"] = round(final_shares * risk_per_share, 2)
-        result["final_risk_pct"] = round(
-            final_shares * risk_per_share / params.account_size * 100, 2
-        )
-    elif params.atr:
+    # Report risk using the same method that determined the share count.
+    risk_per_share = None
+    if calculations["atr_based"] is not None:
         risk_per_share = params.atr * params.atr_multiplier
+    elif params.stop_price is not None:
+        risk_per_share = params.entry_price - params.stop_price
+
+    if risk_per_share is not None:
         result["final_risk_dollars"] = round(final_shares * risk_per_share, 2)
         result["final_risk_pct"] = round(
             final_shares * risk_per_share / params.account_size * 100, 2

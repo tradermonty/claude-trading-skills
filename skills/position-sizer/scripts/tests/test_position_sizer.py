@@ -378,6 +378,53 @@ class TestFractionalShares:
         assert result["final_position_value"] <= 80.0
 
 
+# ─── Test: Risk Reporting ────────────────────────────────────────────────────
+
+
+class TestRiskReporting:
+    @pytest.mark.parametrize(
+        ("max_position_pct", "shares", "risk"),
+        [(None, 50, 100.0), (10.0, 10, 20.0)],
+    )
+    def test_final_risk_uses_selected_atr_stop(self, max_position_pct, shares, risk):
+        params = SizingParameters(
+            account_size=10_000,
+            entry_price=100.0,
+            stop_price=90.0,
+            risk_pct=1.0,
+            atr=1.0,
+            max_position_pct=max_position_pct,
+        )
+        result = calculate_position(params)
+
+        assert result["parameters"]["stop_price"] == 98.0
+        assert result["final_recommended_shares"] == shares
+        assert result["final_risk_dollars"] == risk
+        assert result["final_risk_pct"] == risk / 100
+
+    @pytest.mark.parametrize("stop_price", [None, 90.0])
+    def test_kelly_risk_uses_selected_stop(self, stop_price):
+        params = SizingParameters(
+            account_size=10_000,
+            entry_price=100.0,
+            stop_price=stop_price,
+            win_rate=0.55,
+            avg_win=2.5,
+            avg_loss=1.0,
+            atr=1.0,
+        )
+        result = calculate_position(params)
+
+        assert result["calculations"]["atr_based"] is None
+        if stop_price is None:
+            assert result["final_risk_dollars"] is None
+            assert result["final_risk_pct"] is None
+            assert "risk_note" in result
+        else:
+            assert result["final_risk_dollars"] == 1_850.0
+            assert result["final_risk_pct"] == 18.5
+
+
 # ─── Test: Input Validation ──────────────────────────────────────────────────
 
 
