@@ -477,6 +477,9 @@ class TestRiskReporting:
         result = calculate_position(params)
 
         assert result["mode"] == "shares"
+        assert result["final_recommended_shares"] == 185
+        assert result["final_risk_dollars"] == 1_850.0
+        assert result["final_risk_pct"] == 18.5
         assert result["final_risk_dollars"] == round(result["final_recommended_shares"] * 10.0, 2)
         assert result["final_risk_pct"] == round(
             result["final_risk_dollars"] / params.account_size * 100, 2
