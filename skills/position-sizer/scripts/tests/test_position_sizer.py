@@ -424,6 +424,64 @@ class TestRiskReporting:
             assert result["final_risk_dollars"] == 1_850.0
             assert result["final_risk_pct"] == 18.5
 
+    def test_final_risk_decimal_half_up_atr(self):
+        """Fractional ATR: reported risk uses exact Decimal math, half-up.
+
+        atr=1.15, mult=1.5 -> 1.725 exact; float noise gives 1.7249999...
+        1 share (dollar risk 2.00 / 1.725 -> floor 1).
+        Current float code reports 1.72; Decimal half-up reports 1.73.
+        """
+        params = SizingParameters(
+            account_size=10_000,
+            entry_price=100.0,
+            stop_price=90.0,
+            risk_pct=0.02,
+            atr=1.15,
+            atr_multiplier=1.5,
+        )
+        result = calculate_position(params)
+
+        assert result["final_recommended_shares"] == 1
+        assert result["final_risk_dollars"] == 1.73
+        assert result["final_risk_pct"] == 0.02
+
+    def test_final_risk_decimal_half_up_atr_second(self):
+        """Fractional ATR again: 1.03 * 1.5 = 1.545 exact; 3 shares -> 4.635.
+
+        Current float code reports 4.63; Decimal half-up reports 4.64.
+        """
+        params = SizingParameters(
+            account_size=10_000,
+            entry_price=100.0,
+            stop_price=90.0,
+            risk_pct=0.05,
+            atr=1.03,
+            atr_multiplier=1.5,
+        )
+        result = calculate_position(params)
+
+        assert result["final_recommended_shares"] == 3
+        assert result["final_risk_dollars"] == 4.64
+        assert result["final_risk_pct"] == 0.05
+
+    def test_kelly_risk_stop_branch_uses_same_rule(self):
+        """Lock: Kelly shares mode with entry+stop reports entry-stop risk."""
+        params = SizingParameters(
+            account_size=10_000,
+            entry_price=100.0,
+            stop_price=90.0,
+            win_rate=0.55,
+            avg_win=2.5,
+            avg_loss=1.0,
+        )
+        result = calculate_position(params)
+
+        assert result["mode"] == "shares"
+        assert result["final_risk_dollars"] == round(result["final_recommended_shares"] * 10.0, 2)
+        assert result["final_risk_pct"] == round(
+            result["final_risk_dollars"] / params.account_size * 100, 2
+        )
+
 
 # ─── Test: Input Validation ──────────────────────────────────────────────────
 
@@ -438,6 +496,31 @@ class TestValidation:
             risk_pct=1.0,
         )
         with pytest.raises(ValueError, match="stop_price must be below entry_price"):
+            validate_parameters(params)
+
+    @pytest.mark.parametrize("stop_price", [0.0, -1.0])
+    def test_stop_must_be_positive(self, stop_price):
+        """stop <= 0 -> ValueError (long stop at or below zero is meaningless)."""
+        params = SizingParameters(
+            account_size=10_000,
+            entry_price=100.0,
+            stop_price=stop_price,
+            risk_pct=1.0,
+        )
+        with pytest.raises(ValueError, match="stop_price must be positive"):
+            validate_parameters(params)
+
+    @pytest.mark.parametrize("stop_price", [0.0, -1.0])
+    def test_stop_must_be_positive_kelly_budget(self, stop_price):
+        """stop <= 0 is rejected in Kelly budget mode as well."""
+        params = SizingParameters(
+            account_size=10_000,
+            stop_price=stop_price,
+            win_rate=0.55,
+            avg_win=2.5,
+            avg_loss=1.0,
+        )
+        with pytest.raises(ValueError, match="stop_price must be positive"):
             validate_parameters(params)
 
     def test_zero_risk_error(self):

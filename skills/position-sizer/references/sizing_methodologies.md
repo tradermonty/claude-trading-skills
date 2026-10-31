@@ -109,6 +109,8 @@ shares         = int(dollar_risk / risk_per_share)
 
 ### ATR Multiplier Guidance
 
+When both a stop price and ATR inputs are provided, sizing and the reported risk (`final_risk_*`) follow the ATR-based method — the method that set the share count — and the explicit stop is ignored for risk reporting. Risk dollars and percentage round half-up (ties report the larger risk); other rounded outputs in this skill use Python's default half-even `round()`, and only `final_risk_*` rounds half-up by design.
+
 | Multiplier | Stop Width | Style |
 |-----------|-----------|-------|
 | 1.0x | Tight | Day trading, very short-term |

@@ -13,7 +13,9 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import ROUND_FLOOR, Decimal, localcontext
+from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal, localcontext
+
+CENT = Decimal("0.01")
 
 
 @dataclass
@@ -41,6 +43,8 @@ def validate_parameters(params: SizingParameters) -> None:
         raise ValueError("account_size must be positive")
     if params.entry_price is not None and params.entry_price <= 0:
         raise ValueError("entry_price must be positive")
+    if params.stop_price is not None and params.stop_price <= 0:
+        raise ValueError("stop_price must be positive (and below entry_price) for long trades")
     if params.stop_price is not None and params.entry_price is not None:
         if params.stop_price >= params.entry_price:
             raise ValueError("stop_price must be below entry_price for long trades")
@@ -258,7 +262,7 @@ def calculate_position(params: SizingParameters) -> dict:
         budget = (
             to_decimal(params.account_size) * to_decimal(kelly["half_kelly_pct"]) / Decimal(100)
         )
-        if params.stop_price:
+        if params.stop_price is not None:
             risk_per_share = to_decimal(params.entry_price) - to_decimal(params.stop_price)
             risk_shares = floor_share_quantity(budget / risk_per_share, params)
             result["parameters"]["stop_price"] = params.stop_price
@@ -289,16 +293,23 @@ def calculate_position(params: SizingParameters) -> dict:
     result["final_position_value"] = round(final_shares * params.entry_price, 2)
 
     # Report risk using the same method that determined the share count.
-    risk_per_share = None
+    # Exact Decimal math; the monetized outputs round half-up so a tie never
+    # understates risk (the float->Decimal switch also removes binary noise
+    # from near-tie products such as 1.15 * 1.5). Deliberately applies to the
+    # final_risk_* outputs only; other rounded outputs keep half-even round().
+    risk_per_share: Decimal | None = None
     if calculations["atr_based"] is not None:
-        risk_per_share = params.atr * params.atr_multiplier
+        risk_per_share = to_decimal(params.atr) * to_decimal(params.atr_multiplier)
     elif params.stop_price is not None:
-        risk_per_share = params.entry_price - params.stop_price
+        risk_per_share = to_decimal(params.entry_price) - to_decimal(params.stop_price)
 
     if risk_per_share is not None:
-        result["final_risk_dollars"] = round(final_shares * risk_per_share, 2)
-        result["final_risk_pct"] = round(
-            final_shares * risk_per_share / params.account_size * 100, 2
+        risk_total = to_decimal(final_shares) * risk_per_share
+        result["final_risk_dollars"] = float(risk_total.quantize(CENT, rounding=ROUND_HALF_UP))
+        result["final_risk_pct"] = float(
+            (risk_total / to_decimal(params.account_size) * Decimal(100)).quantize(
+                CENT, rounding=ROUND_HALF_UP
+            )
         )
     else:
         # Kelly shares mode without stop/ATR: risk per share is undefined
