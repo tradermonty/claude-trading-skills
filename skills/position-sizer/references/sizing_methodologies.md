@@ -109,7 +109,7 @@ shares         = int(dollar_risk / risk_per_share)
 
 ### ATR Multiplier Guidance
 
-When both a stop price and ATR inputs are provided in risk-percentage mode, sizing and the reported risk (`final_risk_*`) follow the ATR-based method — the method that set the share count — and the explicit stop is ignored for risk reporting. In Kelly mode the stop (or entry price) drives shares and risk instead, and ATR inputs are ignored. Risk dollars and percentage round half-up (ties report the larger risk); other rounded outputs in this skill use Python's default half-even `round()`, and only `final_risk_*` rounds half-up by design.
+When both a stop price and ATR inputs are provided in risk-percentage mode, sizing and the reported risk (`final_risk_*`) follow the ATR-based method — the method that set the share count — and the explicit stop is ignored for risk reporting. In Kelly shares mode the stop (or entry price) drives shares and risk instead, and ATR inputs are ignored (Kelly budget mode takes no prices and reports no risk figures). Risk dollars and percentage round half-up (ties report the larger risk); other rounded outputs in this skill use Python's default half-even `round()`, and only `final_risk_*` rounds half-up by design.
 
 | Multiplier | Stop Width | Style |
 |-----------|-----------|-------|
