@@ -4,6 +4,10 @@ This directory contains deterministic required-only and full-path replays for
 [`market-regime-daily`](../../../workflows/market-regime-daily.yaml). The data is
 fictional, fixed at `2026-01-15T13:08:00+00:00`, and is not investment advice.
 
+For an interactive fictional run with a human decision gate, run-scoped hashes,
+and resume, see the [guided runner](../../../docs/dev/guided-market-regime-daily.md).
+Its journal output is a local handoff; it is not delivered to trader-memory-core.
+
 ## Evidence boundary
 
 Steps 1–3 execute the native scorer and JSON report APIs for
