@@ -38,6 +38,7 @@ Collect from the user:
 - **Mode A (Fixed Fractional)**: Entry price, stop price, risk percentage (default 1%)
 - **Mode B (ATR-Based)**: Entry price, ATR value, ATR multiplier (default 2.0x), risk percentage
 - **Mode C (Kelly Criterion)**: Win rate, average win, average loss; optionally entry and stop for share calculation
+- **Stop constraint**: `--stop` must be positive and below `--entry`
 - **Optional constraints**: Max position % of account, max sector %, current sector exposure
 - **Optional share mode**: Whole shares by default, or fractional shares with `--fractional --share-precision N` when supported by the broker
 
@@ -135,6 +136,8 @@ Present the final recommendation including:
 - Small-account reminders: fractional shares do not remove broker minimums, spread/slippage, commissions/fees, margin limits, borrow availability, or day-trading controls
 
 ## Output Format
+
+In risk-percentage mode (no Kelly inputs), when both `--stop` and `--atr` are supplied, the shares and `final_risk_*` figures follow the ATR-based method (the method that sized the trade); the explicit `--stop` is ignored for risk reporting and the ATR-derived stop appears in `parameters.stop_price`. In Kelly shares mode the stop (or entry price) drives shares and risk instead, and ATR inputs are ignored (Kelly budget mode takes no prices and reports no risk figures). Risk dollars and percentage round half-up (ties report the larger risk).
 
 ### JSON Report
 
