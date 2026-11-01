@@ -96,7 +96,7 @@ Claudeが以下の流れで処理します：
 - 選択されたフィルターを表形式で表示し、ユーザーに確認を求める
 
 **Step 4: スクリプト実行**
-- `scripts/open_finviz_screener.py` でURL構築とChromeオープン
+- `skills/finviz-screener/scripts/open_finviz_screener.py` でURL構築とChromeオープン
 - `$FINVIZ_API_KEY` が設定されていれば `elite.finviz.com`、なければ `finviz.com` のURLを生成（環境変数はURL切替フラグとして機能）
 
 **Step 5: 結果レポート**
@@ -523,7 +523,7 @@ FinVizのテーマフィルターで個別銘柄を確認し、Theme Detectorで
 ### CLIオプション一覧
 
 ```bash
-python3 scripts/open_finviz_screener.py [OPTIONS]
+python3 skills/finviz-screener/scripts/open_finviz_screener.py [OPTIONS]
 ```
 
 | オプション | 説明 | デフォルト |

@@ -324,6 +324,16 @@ Description (can remain in English).
 ### EN/JA Command Parity
 
 Translated pages stay useful only while their commands match the EN page.
+
+Run bundled script examples from the repository root and use full paths such
+as `python3 skills/<skill-name>/scripts/<script>.py`. The offline
+`python3 scripts/check_doc_cli_examples.py validate` gate scans every Markdown
+page recursively under `docs/en/` and `docs/ja/`. It checks bundled script paths
+in unmarked shell examples and validates options in `exec:`-marked examples;
+it does not run commands or prove that API data, required inputs, or runtime
+dependencies are available. Docs-only edits trigger this check in pre-commit.
+Site pages are not added to the default `execute --ci` scope; execution still
+requires a separate explicit opt-in.
 `scripts/check_skill_doc_parity.py` enforces this (issue #433):
 
 - **Scope:** `python3` commands in `bash`-family fences in

@@ -77,19 +77,11 @@ Example requests:
 ## 4. Quick Start
 
 ```bash
-# Calculate Black-Scholes price and Greeks
-python3 options-strategy-advisor/scripts/black_scholes.py \
-  --ticker AAPL \
-  --strike 150 \
-  --days-to-expiry 30 \
-  --option-type call
-
-# Analyze covered call strategy
-python3 options-strategy-advisor/scripts/black_scholes.py \
-  --ticker AAPL \
-  --strategy covered_call \
-  --stock-price 155
+# Run the built-in Black-Scholes demonstration
+python3 skills/options-strategy-advisor/scripts/black_scholes.py
 ```
+
+The script currently runs a built-in demonstration and does not parse command-line pricing or strategy flags. For custom inputs, use its `OptionPricer` Python API; the workflow below describes the inputs to collect.
 
 ---
 

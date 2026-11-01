@@ -73,10 +73,10 @@ API key will be requested during skill execution (stored only for current sessio
 
 ```bash
 # Date range (positional START_DATE END_DATE); API key from FMP_API_KEY
-python3 earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
+python3 skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
 
 # Pass the API key as the optional third positional argument
-python3 earnings-calendar/scripts/fetch_earnings_fmp.py \
+python3 skills/earnings-calendar/scripts/fetch_earnings_fmp.py \
   2025-11-03 2025-11-09 YOUR_KEY
 ```
 
@@ -205,19 +205,19 @@ Use the Python script to fetch earnings data from FMP API.
 
 **Script Location**:
 ```
-scripts/fetch_earnings_fmp.py
+skills/earnings-calendar/scripts/fetch_earnings_fmp.py
 ```
 
 **Execution**:
 
 **Option A: With Environment Variable (CLI)**:
 ```bash
-python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
+python skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
 ```
 
 **Option B: With Session API Key (Desktop/Web)**:
 ```bash
-python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}"
+python skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}"
 ```
 
 **Script Workflow** (automatic):
@@ -252,12 +252,12 @@ python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}"
 
 **Save to file** (recommended for use with report generator):
 ```bash
-python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}" > earnings_data.json
+python skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}" > earnings_data.json
 ```
 
 Or capture to variable:
 ```bash
-earnings_data=$(python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}")
+earnings_data=$(python skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 "${API_KEY}")
 ```
 
 **Error Handling**:
@@ -341,19 +341,19 @@ Use the report generation script to create a formatted markdown report from the 
 
 **Script Location**:
 ```
-scripts/generate_report.py
+skills/earnings-calendar/scripts/generate_report.py
 ```
 
 **Execution**:
 
 **Option A: Output to stdout**:
 ```bash
-python scripts/generate_report.py earnings_data.json
+python skills/earnings-calendar/scripts/generate_report.py earnings_data.json
 ```
 
 **Option B: Save to file**:
 ```bash
-python scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-02.md
+python skills/earnings-calendar/scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-02.md
 ```
 
 **What the script does**:
