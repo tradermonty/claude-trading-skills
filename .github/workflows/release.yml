@@ -4,9 +4,10 @@ on:
   push:
     tags:
       - "v*"
+      - "!v*-*"
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 permissions:
@@ -70,4 +71,6 @@ jobs:
           # Separate commands: set -e ignores failures inside an && list.
           test -n "$remote_tag"
           test "$remote_tag" = "$local_tag"
-          gh release edit "$RELEASE_TAG" --draft=false
+          gh release list --exclude-drafts --limit 1000 --json tagName --jq '.[].tagName' > "$RUNNER_TEMP/published-tags.txt"
+          latest_flag="$(python scripts/release_assets.py latest-flag --tag "$RELEASE_TAG" --published-tags-file "$RUNNER_TEMP/published-tags.txt")"
+          gh release edit "$RELEASE_TAG" --draft=false "$latest_flag"
