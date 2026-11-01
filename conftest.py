@@ -12,8 +12,140 @@ conflicting module names and push the current skill's ``scripts/``
 directory to the front of ``sys.path``.
 """
 
+import ipaddress
+import socket
 import sys
 from pathlib import Path
+
+import pytest
+
+
+class _OfflineNetworkGuard:
+    """Session-wide Python socket policy with an audit of swallowed failures."""
+
+    def __init__(self):
+        self.patch = pytest.MonkeyPatch()
+        self.active_item = None
+        self.attempts = []
+        self.outside_attempts = []
+
+    @staticmethod
+    def _loopback(host):
+        if isinstance(host, bytes):
+            host = host.decode("ascii", errors="replace")
+        if isinstance(host, str) and host.lower() in {"localhost", "localhost."}:
+            return True
+        try:
+            address = ipaddress.ip_address(host)
+        except (ValueError, TypeError):
+            return False
+        return address.is_loopback
+
+    def check(self, operation, host, *, unix=False):
+        if self.active_item is not None and self.active_item.get_closest_marker("network"):
+            return
+        if unix or self._loopback(host):
+            return
+        message = (
+            f"Outbound network blocked: {operation} destination={host!r}. "
+            "Unit tests must mock the external boundary; use @pytest.mark.network "
+            "only for deliberate live tests."
+        )
+        target = self.attempts if self.active_item is not None else self.outside_attempts
+        target.append(message)
+        pytest.fail(message, pytrace=False)
+
+    def install(self):
+        methods = ["connect", "connect_ex", "sendto"]
+        if hasattr(socket.socket, "sendmsg"):
+            methods.append("sendmsg")
+        for name in methods:
+            original = getattr(socket.socket, name)
+
+            def guarded(sock, *args, _name=name, _original=original, **kwargs):
+                # sendto(data, [flags,] address) uses the final argument.
+                if _name == "sendmsg":
+                    address = args[3] if len(args) > 3 else kwargs.get("address")
+                    if address is None:  # Already-connected socket; connect was checked.
+                        return _original(sock, *args, **kwargs)
+                else:
+                    address = args[-1] if args else kwargs.get("address")
+                host = address[0] if isinstance(address, tuple) and address else address
+                self.check(_name, host, unix=sock.family == getattr(socket, "AF_UNIX", None))
+                return _original(sock, *args, **kwargs)
+
+            self.patch.setattr(socket.socket, name, guarded)
+
+        for name in (
+            "getaddrinfo",
+            "gethostbyname",
+            "gethostbyname_ex",
+            "gethostbyaddr",
+            "getnameinfo",
+            "create_connection",
+        ):
+            original = getattr(socket, name)
+
+            def guarded(*args, _name=name, _original=original, **kwargs):
+                address = args[0] if args else kwargs.get("host", kwargs.get("address"))
+                host = address[0] if isinstance(address, tuple) and address else address
+                # getaddrinfo(None, ...) is local bind-address discovery.
+                if not (_name == "getaddrinfo" and host is None):
+                    self.check(_name, host)
+                return _original(*args, **kwargs)
+
+            self.patch.setattr(socket, name, guarded)
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "network: explicit live network authorization for a test and its fixture phases"
+    )
+
+
+def pytest_sessionstart(session):
+    guard = _OfflineNetworkGuard()
+    session.config._offline_network_guard = guard
+    guard.install()
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_protocol(item, nextitem):
+    guard = item.config._offline_network_guard
+    guard.active_item = item
+    guard.attempts = []
+    try:
+        yield
+    finally:
+        guard.active_item = None
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    guard = item.config._offline_network_guard
+    if guard.attempts:
+        report.outcome = "failed"
+        if hasattr(report, "wasxfail"):
+            del report.wasxfail
+        report.longrepr = "\n".join(guard.attempts)
+        guard.attempts = []
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    guard = session.config._offline_network_guard
+    guard.patch.undo()
+    if guard.outside_attempts:
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+        if reporter:
+            reporter.write_sep("=", "Outbound network blocked outside a test")
+            for message in guard.outside_attempts:
+                reporter.write_line(message)
+        if session.exitstatus == 0:
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
 
 _SKILLS_MARKER = f"{Path.cwd()}/skills/"
 

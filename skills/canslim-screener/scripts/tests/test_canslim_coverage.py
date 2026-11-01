@@ -13,6 +13,7 @@ import runpy
 import sys
 import types
 from datetime import date, datetime, timedelta, timezone
+from unittest.mock import Mock
 
 import check_institutional_endpoint as cie
 import finviz_stock_client as fsc
@@ -1360,7 +1361,9 @@ class TestAnalyzeStock:
         assert sc.analyze_stock("AAA", FakeFMP({"AAA": stock}), market_result()) is None
         assert "Quote unavailable" in capsys.readouterr().out
 
-    def test_missing_statements_and_prices_use_defaults(self):
+    def test_missing_statements_and_prices_use_defaults(self, monkeypatch):
+        fallback = Mock(return_value=None)
+        monkeypatch.setattr(fsc.FinvizStockClient, "get_institutional_ownership", fallback)
         stock = strong_stock("AAA")
         stock["quarterly"] = None
         stock["annual"] = None
@@ -1375,6 +1378,7 @@ class TestAnalyzeStock:
         assert result["l_component"]["error"] == "No 52-week price history"
         assert result["l_component"]["rs_benchmark"] == "^GSPC"
         assert result["i_component"]["score"] == 0
+        fallback.assert_called_once_with("AAA")
 
     def test_profile_defaults_when_fields_missing(self):
         stock = strong_stock("AAA")
