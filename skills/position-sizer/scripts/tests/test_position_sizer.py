@@ -490,6 +490,67 @@ class TestRiskReporting:
 
 
 class TestValidation:
+    @pytest.mark.parametrize(
+        "multiplier", [0.0, -0.0, -2.0, float("nan"), float("inf"), -float("inf")]
+    )
+    @pytest.mark.parametrize("entry_point", [validate_parameters, calculate_position])
+    def test_invalid_atr_multiplier(self, multiplier, entry_point):
+        params = SizingParameters(
+            account_size=100_000,
+            entry_price=100.0,
+            risk_pct=1.0,
+            atr=1.0,
+            atr_multiplier=multiplier,
+            max_position_pct=10.0,
+        )
+        with pytest.raises(ValueError, match="atr_multiplier must be finite and positive"):
+            entry_point(params)
+
+    @pytest.mark.parametrize("multiplier", ["0", "-0.0", "-2.0", "nan", "inf", "-inf"])
+    def test_cli_invalid_atr_multiplier_creates_no_reports(self, multiplier, tmp_path):
+        script = Path(__file__).resolve().parents[1] / "position_sizer.py"
+        output_dir = tmp_path / "reports"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--account-size",
+                "100000",
+                "--entry",
+                "100",
+                "--risk-pct",
+                "1",
+                "--atr",
+                "1",
+                f"--atr-multiplier={multiplier}",
+                "--max-position-pct",
+                "10",
+                "--output-dir",
+                str(output_dir),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 1
+        assert result.stderr.strip() == "Error: atr_multiplier must be finite and positive"
+        assert "Traceback" not in result.stderr
+        assert result.stdout == ""
+        assert not output_dir.exists()
+
+    @pytest.mark.parametrize(
+        "mode_parameters",
+        [
+            {"entry_price": 100.0, "stop_price": 95.0, "risk_pct": 1.0},
+            {"win_rate": 0.55, "avg_win": 2.5, "avg_loss": 1.0},
+        ],
+        ids=["fixed_fractional", "kelly_budget"],
+    )
+    def test_unused_invalid_atr_multiplier_is_still_rejected(self, mode_parameters):
+        params = SizingParameters(account_size=100_000, atr_multiplier=0, **mode_parameters)
+        with pytest.raises(ValueError, match="atr_multiplier must be finite and positive"):
+            calculate_position(params)
+
     def test_stop_above_entry_error(self):
         """stop > entry -> ValueError."""
         params = SizingParameters(
