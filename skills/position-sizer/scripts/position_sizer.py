@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -52,6 +53,8 @@ def validate_parameters(params: SizingParameters) -> None:
         raise ValueError("risk_pct must be positive")
     if params.atr is not None and params.atr <= 0:
         raise ValueError("atr must be positive")
+    if not math.isfinite(params.atr_multiplier) or params.atr_multiplier <= 0:
+        raise ValueError("atr_multiplier must be finite and positive")
     if params.win_rate is not None:
         if params.win_rate <= 0 or params.win_rate > 1.0:
             raise ValueError("win_rate must be between 0 (exclusive) and 1.0 (inclusive)")
@@ -406,7 +409,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--atr-multiplier",
         type=float,
         default=2.0,
-        help="ATR multiplier for stop distance (default: 2.0)",
+        help="Finite, positive ATR multiplier for stop distance (default: 2.0)",
     )
     parser.add_argument(
         "--win-rate",

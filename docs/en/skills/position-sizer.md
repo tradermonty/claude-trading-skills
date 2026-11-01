@@ -301,6 +301,8 @@ After execution, the script produces a JSON and Markdown report containing:
 
 ### Key JSON Fields
 
+In risk-percentage mode (without Kelly inputs), supplying both `--stop` and `--atr` uses ATR for share sizing and `final_risk_*` reporting, ignores the explicit stop for those calculations, and reports the ATR-derived stop in `parameters.stop_price`. Only `final_risk_dollars` and `final_risk_pct` round decimal values half-up to two places (ties report the larger risk); other rounded outputs keep their existing rounding rules.
+
 | Field | Description |
 |-------|-------------|
 | `mode` | `shares` (entry/stop provided) or `budget` (Kelly only, no entry) |
@@ -375,7 +377,7 @@ After execution, the script produces a JSON and Markdown report containing:
 | `--stop` | No | -- | Stop-loss price per share |
 | `--risk-pct` | No | -- | Risk percentage per trade (e.g., 1.0 for 1%) |
 | `--atr` | No | -- | Average True Range value for ATR-based sizing |
-| `--atr-multiplier` | No | `2.0` | ATR multiplier for stop distance |
+| `--atr-multiplier` | No | `2.0` | Finite, positive ATR multiplier for stop distance |
 | `--win-rate` | No | -- | Historical win rate (0-1) for Kelly Criterion |
 | `--avg-win` | No | -- | Average win amount for Kelly Criterion |
 | `--avg-loss` | No | -- | Average loss amount for Kelly Criterion |
