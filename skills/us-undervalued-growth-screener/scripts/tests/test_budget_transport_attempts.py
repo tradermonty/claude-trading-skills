@@ -116,15 +116,23 @@ def test_cache_hit_consumes_zero(tmp_path):
 
 
 def test_paces_next_call_after_timeout(tmp_path):
-    """A consumed attempt advances last_call_time even on the error path."""
-    client, transport = _timeout_client(tmp_path)
+    """A consumed attempt advances last_call_time and paces the next dispatch,
+    even when the attempt failed with a transport exception."""
+    client = _client(tmp_path, max_api_calls=2, rate_limit_delay=1.0)
+    transport = mock.Mock(side_effect=CLIENT.requests.ReadTimeout("fictional timeout"))
 
-    with mock.patch.object(client.session, "get", transport):
-        with pytest.raises(CLIENT.ApiCallBudgetExceeded):
-            client.get_profile("AAA")
+    with (
+        mock.patch.object(client.session, "get", transport),
+        mock.patch.object(CLIENT.time, "sleep") as sleep,
+    ):
+        # Stable attempt (last_call_time init 0 -> no pacing), then the v3
+        # fallback dispatch sees elapsed ~0 << delay and must sleep.
+        assert client.get_profile("AAA") is None
 
-    assert transport.call_count == 1
-    assert client.api_calls_made == 1
+    paced = [call.args[0] for call in sleep.call_args_list if call.args]
+    assert paced and all(0 < value <= 1.0 for value in paced)
+    assert transport.call_count == 2
+    assert client.api_calls_made == 2
     assert client.last_call_time > 0
 
 
@@ -137,6 +145,11 @@ def test_success_path_for_three_symbols_counts_three(tmp_path):
     with mock.patch.object(client.session, "get", transport):
         for symbol in ("AAA", "BBB", "CCC"):
             assert client.get_profile(symbol) == {"symbol": "S"}
+        assert client.cache_hits == 0
+        # The three responses were cached; a re-read is served from cache
+        # before the (now exhausted) budget guard is reached.
+        assert client.get_profile("AAA") == {"symbol": "S"}
+        assert client.cache_hits == 1
 
     assert transport.call_count == 3
     assert client.api_calls_made == 3
