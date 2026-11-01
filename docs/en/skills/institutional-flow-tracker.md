@@ -64,7 +64,7 @@ Use this skill when:
 ## 4. Quick Start
 
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --top 50 \
   --min-change-percent 10
 ```
@@ -79,21 +79,21 @@ Execute the main screening script to find stocks with notable institutional acti
 
 **Quick scan (top 50 stocks by institutional change):**
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --top 50 \
   --min-change-percent 10
 ```
 
 **Sector-focused scan:**
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --sector Technology \
   --min-institutions 20
 ```
 
 **Custom screening:**
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --min-market-cap 2000000000 \
   --min-change-percent 15 \
   --top 100 \
@@ -113,7 +113,7 @@ python3 scripts/track_institutional_flow.py \
 For detailed analysis of a specific stock's institutional ownership:
 
 ```bash
-python3 scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 ```
 
 **This generates:**
@@ -138,7 +138,7 @@ python3 scripts/analyze_single_stock.py AAPL
 **Alternative approach — use `analyze_single_stock.py` to check if a specific institution holds a stock:**
 ```bash
 # Analyze a stock and look for a specific institution in the output
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 # Then search the report for "Berkshire" or "ARK" in the Top 20 holders table
 ```
 

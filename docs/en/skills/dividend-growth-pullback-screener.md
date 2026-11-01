@@ -66,13 +66,13 @@ Use this skill when:
 
 ```bash
 # Two-stage screening with RSI filter (RECOMMENDED)
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
 
 # FMP-only screening (limited to ~40 stocks due to API limits)
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
 
 # Custom RSI threshold and dividend growth requirements
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py \
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py \
   --use-finviz \
   --rsi-max 35 \
   --min-div-growth 15
@@ -114,8 +114,7 @@ export FMP_API_KEY=your_key_here
 **Two-Stage Screening (RECOMMENDED):**
 
 ```bash
-cd dividend-growth-pullback-screener/scripts
-python3 screen_dividend_growth_rsi.py --use-finviz
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
 ```
 
 This executes:
@@ -125,20 +124,20 @@ This executes:
 **FMP-Only Screening:**
 
 ```bash
-python3 screen_dividend_growth_rsi.py --max-candidates 40
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
 ```
 
 **Customization Options:**
 
 ```bash
 # Two-stage with custom parameters
-python3 screen_dividend_growth_rsi.py --use-finviz --min-yield 2.0 --min-div-growth 15.0 --rsi-max 35
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz --min-yield 2.0 --min-div-growth 15.0 --rsi-max 35
 
 # FMP-only with custom parameters
-python3 screen_dividend_growth_rsi.py --min-yield 2.0 --min-div-growth 10.0 --max-candidates 30
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --min-yield 2.0 --min-div-growth 10.0 --max-candidates 30
 
 # Provide API keys as arguments (instead of environment variables)
-python3 screen_dividend_growth_rsi.py --use-finviz --fmp-api-key YOUR_FMP_KEY --finviz-api-key YOUR_FINVIZ_KEY
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz --fmp-api-key YOUR_FMP_KEY --finviz-api-key YOUR_FINVIZ_KEY
 ```
 
 ### Step 3: Review Results

@@ -73,10 +73,10 @@ export FMP_API_KEY="your-api-key-here"
 
 ```bash
 # 日付範囲を位置引数 START_DATE END_DATE で指定。APIキーは FMP_API_KEY から取得
-python3 earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
+python3 skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
 
 # APIキーは任意の第3位置引数としても渡せる
-python3 earnings-calendar/scripts/fetch_earnings_fmp.py \
+python3 skills/earnings-calendar/scripts/fetch_earnings_fmp.py \
   2025-11-03 2025-11-09 YOUR_KEY
 ```
 
@@ -142,7 +142,7 @@ fi
 Pythonスクリプトを使用してFMP APIから決算データを取得します。
 
 ```bash
-python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
+python skills/earnings-calendar/scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
 ```
 
 **スクリプトのワークフロー**（自動）：
@@ -169,7 +169,7 @@ python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09
 レポート生成スクリプトを使用して、JSONデータからフォーマット済みマークダウンレポートを作成します。
 
 ```bash
-python scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-02.md
+python skills/earnings-calendar/scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-02.md
 ```
 
 ---
