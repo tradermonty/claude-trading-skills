@@ -21,6 +21,22 @@ test the published standalone dependency ranges, not the root project's locked
 environment. Their install results are compatibility evidence, not lockfile
 reproducibility evidence. Release checksums and SBOMs remain outside this change.
 
+## Lockfile revision maintenance
+
+The repository keeps `revision = 5` in `uv.lock`. Both the CI-pinned uv 0.12.10
+and local uv 0.12.17 can rewrite that field to `revision = 3` during `uv lock`,
+even when resolved packages do not change. For dependency-metadata cleanup or
+lock-only PRs, retain `revision = 5` to avoid unrelated format churn. Review an
+intentional lock-format migration separately.
+
+After regenerating the lock, compare the full diff: package versions, dependency
+edges, sources, artifact hashes, and resolution markers must change only when
+the PR intends to change them. Restore the revision field if it is the only
+unintended change, then run `uv lock --check` with the CI-pinned uv version.
+Repeat the check after local test scripts that invoke `uv run`, since those
+commands can update the lock. `uv lock --check` verifies freshness without
+rewriting the file; passing it does not replace reviewing the dependency diff.
+
 ## Audit and exceptions
 
 Run from the repository root with the locked Python 3.11 environment:
