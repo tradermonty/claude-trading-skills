@@ -438,18 +438,21 @@ skills:
   overrides:
     unit_tests:
       value: passed
-      rationale: "TestOutput asserts the skill's own result JSON keys (schema_version/mode/parameters/calculations/final_recommended_shares); 11 invalid-input error tests plus CLI missing-args non-zero returncode; boundary fixtures for penny stocks, large accounts, fractional precision, and Kelly negative expectancy."
+      rationale: "TestOutput asserts the skill's own result JSON keys (schema_version/mode/parameters/calculations/final_recommended_shares); invalid-input errors include nonpositive and nonfinite ATR multipliers, with CLI stderr and no-report assertions; boundary fixtures for penny stocks, large accounts, fractional precision, and Kelly negative expectancy."
       evidence:
       - command: python3 scripts/ci_test_matrix.py install position-sizer && python3 scripts/ci_test_matrix.py run position-sizer
       - tests: skills/position-sizer/scripts/tests/test_position_sizer.py
       - provenance: skills/<id>/scripts/tests (skill-local) validate this skill's own output schema and fail-closed behavior; repo-level tests are NOT cited as schema evidence
-      - assessed_commit: 382538e1645fb66a955b0ab28442ab90f2ef4538  # pragma: allowlist secret
+      - assessed_source_blob: 7ca8bd39172f1c7933b5b3784225561f959fa099  # pragma: allowlist secret
       - assessed_date: '2026-10-31'
-      - regression: TestRiskReporting verifies the selected ATR stop after constraints, exact-Decimal half-up fractional-ATR risk (1.15x1.5 -> 1.73, 1.03x1.5 -> 4.64; TDD discriminators red on the prior float code), and Kelly stop availability when unused ATR inputs are supplied; TestValidation rejects stop<=0; 53 skill-local tests passed.
+      - regression: TestRiskReporting verifies the selected ATR stop after constraints, exact-Decimal half-up fractional-ATR risk (1.15x1.5 -> 1.73, 1.03x1.5 -> 4.64), and Kelly stop availability when unused ATR inputs are supplied; TestValidation rejects stop<=0 and nonpositive/nonfinite ATR multipliers; 73 skill-local tests passed with Python 3.9 and the locked Python 3.12 environment.
+      - command: python3.9 -m pytest skills/position-sizer/scripts/tests -q; exit 0; 73 passed; 20 new multiplier cases failed before the fix (Issue 601).
+      - source_identity: assessed_source_blob is the Git blob of skills/position-sizer/scripts/position_sizer.py, identifying the tested implementation without a self-referential commit.
     workflow_contract:
       value: passed
       rationale: Sizing handoff is executed natively per hypothesis card with FX research-only rejection and a card-id safety guard.
       evidence:
+      - revalidated: '2026-10-31; position_sizer.py source blob 7ca8bd39172f1c7933b5b3784225561f959fa099; strict metadata/workflow validation exit 0; recorded replay test set 89 passed.' # pragma: allowlist secret
       - command: python3 scripts/validate_skills_index.py --strict-metadata --strict-workflows; exit 0
       - workflows: workflows/multi-asset-opportunity-daily.yaml; workflows/stockbee-ep-daily.yaml; workflows/swing-opportunity-daily.yaml
       - spec: examples/workflows/multi-asset-opportunity-daily/replay.yaml
@@ -459,8 +462,9 @@ skills:
       value: passed
       rationale: Multi-asset step 5 executes the native_cli position sizer for actionable cards using fictional entries, stops, and risk in both replay variants. Rejected cards are excluded and portfolio caps are fixture-enforced; this does not exercise live portfolio or broker integration.
       evidence:
-      - command: python3 scripts/workflow_replay.py check; exit 0; aggregate workflow coverage 11/11 (not per-skill native coverage)
-      - tests: scripts/tests/test_workflow_replay_multi_asset.py (18 passed); test_workflow_replay.py frozen 11/11 set; test_workflow_replay_trade_memory.py
+      - command: python3 scripts/workflow_replay.py check; exit 0; aggregate workflow coverage 12/12 (not per-skill native coverage)
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py; scripts/tests/test_workflow_replay.py frozen 12/12 set; scripts/tests/test_workflow_replay_trade_memory.py; 89 passed together with locked Python 3.12 and the repo-scripts dependency policy (pyarrow installed).
+      - revalidated: '2026-10-31; position_sizer.py source blob 7ca8bd39172f1c7933b5b3784225561f959fa099; all replay goldens current; required-only and full-path variants exercised.' # pragma: allowlist secret
       - execution: scripts/workflow_replay.py _multi_position_size; native_cli; skills/position-sizer/scripts/position_sizer.py
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: pre-trade-discipline-gate

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CLI for provider response contracts: FMP JSON and public CSVs (Issue #332).
 
-Two subcommands:
+Subcommands:
 
 ``check`` — offline CI gate. Loads every contract under
 ``config/provider-contracts/``, validates its structure and fixture rows,
@@ -20,12 +20,17 @@ with ``--github``, workflow-command annotations. Stdlib only; it reports and
 never gates on report problems (exit 0 for a missing or malformed report;
 argument or write errors exit non-zero).
 
+``health`` — stdlib-only operational gate for complete probe evidence and at
+least one nonempty HTTP 200 response. Contract drift remains report-only.
+
 Usage:
     python3 scripts/check_provider_contracts.py check
     python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,all}]
         [--max-calls N] [--report PATH]
     python3 scripts/check_provider_contracts.py summarize --report PATH
         [--summary-file PATH] [--github]
+    python3 scripts/check_provider_contracts.py health --report PATH
+        --probe-outcome {success,failure} --probe-exit-code {0,1}
 
 See ``docs/dev/provider-contracts.md`` for the full contract schema and the
 manual fixture-refresh procedure.
@@ -35,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import html
 import json
 import os
 import sys
@@ -432,7 +438,7 @@ def _escape_property(text: str) -> str:
 
 def _cell(value: Any) -> str:
     text = _clean(value).replace("\r", " ").replace("\n", " ")
-    return text.replace("|", "\\|")
+    return html.escape(text, quote=False).replace("|", "\\|")
 
 
 def _codes(items: Any) -> list[str]:
@@ -469,7 +475,7 @@ def render_summary(report: dict[str, Any] | None, provider: str | None = None) -
         return f"## {titles['heading']}\n\n**{_NO_REPORT_MESSAGE}**\n"
 
     entries = _contract_entries(report)
-    all_ok = bool(report.get("ok")) and all(e.get("ok") for _, e in entries)
+    all_ok = bool(entries) and bool(report.get("ok")) and all(e.get("ok") for _, e in entries)
     budget = report.get("budget") if isinstance(report.get("budget"), dict) else {}
     lines = [
         f"## {titles['heading']}: {'OK' if all_ok else 'ANOMALIES'}",
@@ -480,6 +486,8 @@ def render_summary(report: dict[str, Any] | None, provider: str | None = None) -
         "| Contract | HTTP | Rows | Fatal anomalies | Deprecations | OK |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
+    if not entries:
+        lines.insert(2, "No contracts found in the canary report.\n")
     for name, entry in entries:
         fatal = ", ".join(_counted_codes(entry.get("anomalies")))
         if not fatal and entry.get("ok") is False:
@@ -511,6 +519,9 @@ def annotations(report: dict[str, Any] | None, provider: str | None = None) -> l
     titles = _titles(report, provider)
     if report is None:
         return _capped("error", titles["missing"], [_NO_REPORT_MESSAGE])
+    if not _contract_entries(report):
+        title = titles["missing"].replace("report missing", "report has no contracts")
+        return _capped("error", title, ["No contracts found in the canary report."])
     errors: list[str] = []
     warnings: list[str] = []
     for name, entry in _contract_entries(report):
@@ -540,6 +551,104 @@ def cmd_summarize(args: argparse.Namespace) -> int:
     if args.github:
         for line in annotations(report, args.provider):
             print(line)
+    return 0
+
+
+def _integer(value: Any, minimum: int = 0) -> bool:
+    return type(value) is int and value >= minimum
+
+
+def health_errors(
+    report: dict | None,
+    expected: set[str],
+    provider: str,
+    probe_outcome: str,
+    probe_exit_code: int,
+) -> list[str]:
+    """Validate operational evidence, independently of contract field drift.
+
+    Nonempty HTTP 200 responses are usable for diagnosing drift, including
+    field/type/nullability anomalies. This does not certify market-data quality.
+    Diagnostics intentionally contain no raw report values or exception text.
+    """
+    if not isinstance(report, dict):
+        return ["Canary report missing, unreadable, or malformed."]
+    if report.get("provider", "fmp") != provider:
+        return ["Canary report provider does not match the selected provider."]
+    try:
+        timestamp = datetime.fromisoformat(report["generated_at"].replace("Z", "+00:00"))
+        if timestamp.utcoffset() is None:
+            raise ValueError("timezone required")
+    except (KeyError, AttributeError, TypeError, ValueError):
+        return ["Canary report has no valid generation timestamp."]
+    entries = report.get("contracts")
+    if not expected or not isinstance(entries, dict) or not entries:
+        return ["Canary report has no contracts."]
+    if set(entries) != expected:
+        return ["Canary report contract set is incomplete or unexpected."]
+    budget = report.get("budget")
+    if (
+        not isinstance(budget, dict)
+        or not _integer(budget.get("used"), 1)
+        or not _integer(budget.get("max"), 1)
+        or budget["used"] != len(expected)
+        or budget["max"] < budget["used"]
+    ):
+        return ["Canary report has inconsistent probe budget evidence."]
+    usable = False
+    for entry in entries.values():
+        if not isinstance(entry, dict) or type(entry.get("ok")) is not bool:
+            return ["Canary report has a malformed contract entry."]
+        status = entry.get("status")
+        if not (type(status) is int and (status == -1 or 100 <= status <= 599)):
+            return ["Canary report has an invalid HTTP status."]
+        if not _integer(entry.get("rows")):
+            return ["Canary report has an invalid row count."]
+        for evidence_key, severity in (("anomalies", "fatal"), ("deprecations", "deprecation")):
+            items = entry.get(evidence_key)
+            if not isinstance(items, list) or any(
+                not isinstance(item, dict)
+                or not isinstance(item.get("code"), str)
+                or not item["code"]
+                or item.get("severity") != severity
+                or not _integer(item.get("count", 1), 1)
+                for item in items
+            ):
+                return ["Canary report has malformed anomaly evidence."]
+        if entry["ok"] != (status == 200 and not entry["anomalies"]):
+            return ["Canary report contract status contradicts its anomalies."]
+        usable |= status == 200 and entry["rows"] > 0
+    if type(report.get("ok")) is not bool or report["ok"] != all(
+        entry["ok"] for entry in entries.values()
+    ):
+        return ["Canary report overall status contradicts its contract entries."]
+    expected_code = 0 if report["ok"] else 1
+    expected_outcome = "success" if expected_code == 0 else "failure"
+    if probe_exit_code != expected_code or probe_outcome != expected_outcome:
+        return ["Canary probe did not complete with the expected report/exit status."]
+    if not usable:
+        return ["Canary returned no nonempty HTTP 200 response; no usable probe evidence."]
+    return []
+
+
+def cmd_health(args: argparse.Namespace) -> int:
+    try:
+        expected = set(_select_contracts(load_contracts(_REPO_ROOT), args.provider))
+    except (ContractLoadError, OSError, ValueError):
+        errors = ["Cannot load expected provider contracts for the health gate."]
+    else:
+        errors = health_errors(
+            load_report(Path(args.report)),
+            expected,
+            args.provider,
+            args.probe_outcome,
+            args.probe_exit_code,
+        )
+    if errors:
+        for line in _capped("error", "Canary infrastructure failure", errors):
+            print(line)
+        return 1
+    print("Canary operational evidence is usable; contract drift remains report-only.")
     return 0
 
 
@@ -598,6 +707,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="also print ::error/::warning workflow annotations to stdout",
     )
     summarize_parser.set_defaults(func=cmd_summarize)
+
+    health_parser = sub.add_parser(
+        "health", help="gate probe execution and usable response evidence"
+    )
+    health_parser.add_argument("--report", required=True)
+    health_parser.add_argument("--provider", choices=_PROVIDER_CHOICES, default="fmp")
+    health_parser.add_argument("--probe-outcome", required=True)
+    health_parser.add_argument("--probe-exit-code", required=True, type=int)
+    health_parser.set_defaults(func=cmd_health)
 
     return parser
 

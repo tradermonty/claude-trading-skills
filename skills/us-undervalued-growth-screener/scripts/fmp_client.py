@@ -392,12 +392,18 @@ class FMPClient:
                     f"FMP API call budget exhausted: {self.api_calls_made}/{self.max_api_calls}"
                 )
             attempts += 1
+            # An attempt is consumed when dispatched (#607): the upstream
+            # server may have received the request even if the client times
+            # out, so a ReadTimeout must consume the same budget and pace
+            # the next call as a successful response. Exception paths
+            # return None; the stable->v3 fallback and later symbols then
+            # meet the exhausted-budget guard instead of the transport.
+            self.api_calls_made += 1
+            self.last_call_time = time.time()
             try:
                 response = self.session.get(
                     url, params=request_params, timeout=self.timeout_seconds
                 )
-                self.last_call_time = time.time()
-                self.api_calls_made += 1
             except requests.RequestException as exc:
                 self._record_failure(url, f"request_exception:{exc.__class__.__name__}")
                 if not quiet:

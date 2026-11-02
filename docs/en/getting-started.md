@@ -91,8 +91,13 @@ git clone https://github.com/tradermonty/claude-trading-skills.git
 mkdir -p ~/.claude/skills
 cp -r claude-trading-skills/skills/finviz-screener ~/.claude/skills/
 
-# 3. Restart only if the top-level skills directory was created after startup
+# 3. Enter the checkout for the Python commands below
+cd claude-trading-skills
+
+# 4. Restart only if the top-level skills directory was created after startup
 ```
+
+Run the following repository commands from this checkout root.
 
 > Claude Code can also discover project-only skills from
 > `.claude/skills/`. See the
@@ -124,7 +129,7 @@ The primary data API used by most screening skills for fundamentals, quotes, and
 export FMP_API_KEY=your_key_here
 
 # Or pass as a command-line argument when running scripts
-python3 scripts/screen_canslim.py --api-key YOUR_KEY
+python3 skills/canslim-screener/scripts/screen_canslim.py --api-key YOUR_KEY
 ```
 
 ### FINVIZ Elite

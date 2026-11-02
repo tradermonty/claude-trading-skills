@@ -77,19 +77,11 @@ permalink: /ja/skills/options-strategy-advisor/
 ## 4. クイックスタート
 
 ```bash
-# ブラック-ショールズの価格とグリークスを計算
-python3 options-strategy-advisor/scripts/black_scholes.py \
-  --ticker AAPL \
-  --strike 150 \
-  --days-to-expiry 30 \
-  --option-type call
-
-# カバードコール戦略を分析
-python3 options-strategy-advisor/scripts/black_scholes.py \
-  --ticker AAPL \
-  --strategy covered_call \
-  --stock-price 155
+# 組み込みのブラック-ショールズ計算例を実行
+python3 skills/options-strategy-advisor/scripts/black_scholes.py
 ```
+
+このスクリプトは組み込みの計算例を実行し、価格計算や戦略のCLI引数を解釈しません。独自の入力には Python の `OptionPricer` API を使用してください。必要な入力は以下のワークフローで確認できます。
 
 ---
 

@@ -6,7 +6,7 @@ script, #311 required API key). Enforces, offline and deterministically,
 that examples explicitly marked as executable keep referencing an
 existing script, passing options that the script actually accepts, and
 staying consistent across EN/JA paired pages. Unmarked bash examples in
-the three root command documents receive a path-only check. Nothing is
+the root command documents and EN/JA site pages receive a path-only check. Nothing is
 executed by ``validate``; optional offline execution lives in the opt-in
 ``execute`` subcommand.
 
@@ -51,7 +51,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKER_RE = re.compile(r"<!--\s*exec:\s*(.*?)\s*-->")
 VALID_MODES = ("offline", "api", "skip")
 SKIP_KEYS = ("reason", "owner", "expires")
-DEFAULT_TARGETS = ["CLAUDE.md", "README.md", "README.ja.md", "skills/*/SKILL.md"]
+DEFAULT_EXECUTE_TARGETS = ("CLAUDE.md", "README.md", "README.ja.md", "skills/*/SKILL.md")
+DEFAULT_TARGETS = [*DEFAULT_EXECUTE_TARGETS, "docs/en/**/*.md", "docs/ja/**/*.md"]
 ROOT_DOC_TARGETS = {"CLAUDE.md", "README.md", "README.ja.md"}
 # EN/JA command-parity pairs, ":":-separated file paths relative to ROOT.
 DEFAULT_EN_JA_PAIRS = ["README.md:README.ja.md"]
@@ -146,7 +147,7 @@ def scan_targets(paths: list[Path]) -> list[tuple[Path, list[tuple[Marker, str]]
 
 
 def validate_unmarked_script_paths(path: Path, findings: list[Finding], root: Path = ROOT) -> None:
-    """Check root-relative Python script paths in unmarked bash examples.
+    """Check root-relative Python script paths in unmarked shell examples.
 
     Marked examples keep their existing full validation and optional execution
     behavior. This pass never executes a command and does not change which
@@ -646,11 +647,14 @@ def _git_status_snapshot(root: Path) -> str | None:
     return proc.stdout
 
 
-def _is_root_doc(path: Path, root: Path) -> bool:
+def _checks_unmarked_paths(path: Path, root: Path) -> bool:
     try:
-        return path.relative_to(root).as_posix() in ROOT_DOC_TARGETS
+        relative = path.relative_to(root)
     except ValueError:
         return False
+    return relative.as_posix() in ROOT_DOC_TARGETS or (
+        relative.parts[:2] in {("docs", "en"), ("docs", "ja")} and relative.suffix == ".md"
+    )
 
 
 def run_validate(targets: list[str], en_ja_pairs: list[str], root: Path = ROOT) -> list[Finding]:
@@ -661,7 +665,7 @@ def run_validate(targets: list[str], en_ja_pairs: list[str], root: Path = ROOT) 
             continue
         for path_, blocks in scan_targets([path]):
             validate_target(path_, blocks, findings, root=root)
-        if _is_root_doc(path, root):
+        if _checks_unmarked_paths(path, root):
             validate_unmarked_script_paths(path, findings, root=root)
     validate_en_ja_pairs(en_ja_pairs, findings, root=root)
     return findings
@@ -753,7 +757,7 @@ def main(argv: list[str] | None = None) -> int:
     pv.add_argument("--en-ja-pairs", nargs="*", default=DEFAULT_EN_JA_PAIRS)
 
     pe = sub.add_parser("execute", help="run offline examples in a temp cwd (opt-in)")
-    pe.add_argument("--targets", nargs="*", default=DEFAULT_TARGETS)
+    pe.add_argument("--targets", nargs="*", default=list(DEFAULT_EXECUTE_TARGETS))
     pe.add_argument("--ci", action="store_true", help="only run blocks marked `offline ci`")
 
     args = parser.parse_args(argv)
