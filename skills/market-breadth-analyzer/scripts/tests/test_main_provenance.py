@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta
 from unittest import mock
 
+import csv_client
 import market_breadth_analyzer as analyzer
 import pytest
 
@@ -18,8 +19,15 @@ def run_main(output, rows, run_id=None, detail_url=None):
         mock.patch.object(analyzer, "fetch_detail_csv", return_value=rows),
         mock.patch.object(analyzer, "fetch_summary_csv", return_value={}),
         mock.patch("sys.argv", argv),
+        mock.patch.object(
+            csv_client.requests,
+            "head",
+            return_value=mock.Mock(headers={"Last-Modified": "Wed, 08 Jan 2025 12:30:00 GMT"}),
+        ) as head,
     ):
         analyzer.main()
+    head.assert_called_once()
+    assert head.call_args.kwargs == {"timeout": 10, "allow_redirects": True}
     report = next(p for p in output.glob("market_breadth_*.json") if "history" not in p.name)
     return json.loads(report.read_text())["data_provenance"]
 
