@@ -17,11 +17,18 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import coverage_semantics as COV  # noqa: E402
 import estimate_snapshot as SNAP  # noqa: E402
+import pytest
 import run_pipeline as PIPELINE  # noqa: E402
 from fmp_client import ApiCallBudgetExceeded  # noqa: E402
 from screen_universe import requires_unit_reconciliation  # noqa: E402
 
 AS_OF = datetime.now(timezone.utc).replace(microsecond=0)
+
+
+@pytest.fixture(autouse=True)
+def current_analysis_basis(monkeypatch):
+    """Root collection can precede this suite by more than the live 5-minute window."""
+    monkeypatch.setitem(globals(), "AS_OF", datetime.now(timezone.utc).replace(microsecond=0))
 
 
 def _listing(symbol: str, **overrides) -> dict:
