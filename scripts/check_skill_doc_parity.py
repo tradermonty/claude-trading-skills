@@ -95,15 +95,6 @@ _ALLOWLIST: list[AllowEntry] = [
         review_by="2026-12-31",
     ),
     AllowEntry(
-        skill="downtrend-duration-analyzer",
-        commands=[
-            'python3 skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py --sector "Technology" --lookback-years 5 --output-dir reports/',
-        ],
-        reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
-        review_by="2026-12-31",
-    ),
-    AllowEntry(
         skill="exposure-coach",
         commands=[
             "python3 skills/exposure-coach/scripts/calculate_exposure.py --breadth reports/breadth_latest.json --uptrend reports/uptrend_latest.json --regime reports/regime_latest.json --top-risk reports/top_risk_latest.json --ftd reports/ftd_latest.json --theme reports/theme_latest.json --sector reports/sector_latest.json --institutional reports/institutional_latest.json --output-dir reports/",

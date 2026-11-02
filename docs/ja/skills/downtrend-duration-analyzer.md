@@ -91,6 +91,15 @@ python3 skills/downtrend-duration-analyzer/scripts/generate_histogram_html.py \
 4. セクター、時価総額、深さなどで集計する
 5. JSON、Markdown、HTML ヒストグラムを確認する
 
+ワークフローでFMPから再取得する場合も、次のコマンドを使います。実行には `FMP_API_KEY` が必要です。
+
+```bash
+python3 skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py \
+  --sector "Technology" \
+  --lookback-years 5 \
+  --output-dir reports/
+```
+
 短い調整、標準的なセクターローテーション、長期のトレンド転換を混同しないよう、期間と下落率をセットで見ます。
 
 ---

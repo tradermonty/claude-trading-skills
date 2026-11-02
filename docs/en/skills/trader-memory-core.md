@@ -33,9 +33,8 @@ Persistent state layer that tracks investment theses from screening idea to clos
 Trader Memory Core answers the question: "What did I think, what happened, and what did I learn?" It provides a persistent, file-based state layer that follows each investment thesis through its entire lifecycle:
 
 ```
-Screener Output → IDEA → ENTRY_READY → ACTIVE → CLOSED
-                    │          │            │
-                    └──────────┴────────────┴──→ INVALIDATED
+Screener Output → IDEA → ENTRY_READY → ACTIVE → PARTIALLY_CLOSED → CLOSED
+IDEA / ENTRY_READY / ACTIVE / PARTIALLY_CLOSED → INVALIDATED
 ```
 
 **What it solves:**
@@ -46,14 +45,14 @@ Screener Output → IDEA → ENTRY_READY → ACTIVE → CLOSED
 - Schedules periodic reviews so no position is forgotten
 
 **Key capabilities:**
-- 7 screener adapters: kanchi-dividend-sop, earnings-trade-analyzer, vcp-screener, pead-screener, canslim-screener, edge-candidate-agent, edge-concept-synthesizer
-- Forward-only state machine with 5 statuses
+- 7 ingestion adapters: kanchi-dividend-sop, earnings-trade-analyzer, vcp-screener, pead-screener, canslim-screener, edge-candidate-agent, manual
+- Forward-only state machine with 6 statuses, including partial closes
 - Fingerprint-based deduplication (same screener output never registers twice)
 - Position sizing attachment from Position Sizer skill
-- Review scheduling with escalation ladder (OK → WARN → REVIEW)
+- Review scheduling with user-selected outcomes (OK, WARN, REVIEW)
 - Postmortem generation with optional MAE/MFE via FMP API
 
-**Phase 1 scope:** Single-ticker theses only. Pair trades and options strategies are planned for Phase 2.
+**Phase 1 scope:** Single-instrument equity and USD futures theses. Pair trades and options strategies are not supported.
 
 ---
 
@@ -72,7 +71,7 @@ Screener Output → IDEA → ENTRY_READY → ACTIVE → CLOSED
 
 ## 3. Prerequisites
 
-- **Python 3.9+** with `pyyaml` and `jsonschema` (both in project dependencies)
+- **Python 3.11–3.13** for this repository, with `pyyaml` and `jsonschema` (both in project dependencies)
 - **FMP API key:** Optional -- only needed for MAE/MFE calculation in postmortem reports. Core features (register, transition, close, review) work completely offline
 - **State directory:** `state/theses/` is created automatically on first use
 
@@ -82,6 +81,8 @@ Screener Output → IDEA → ENTRY_READY → ACTIVE → CLOSED
 ---
 
 ## 4. Quick Start
+
+Run from the repository root after installing the skill dependencies. Python examples use an existing thesis: replace `REPLACE_WITH_EXISTING_THESIS_ID` with its ID and adjust report paths/dates before lifecycle updates. For the historical sequence below, the initial thesis history must start on or before March 15, 2026; history timestamps must remain chronological. The launcher forwards store/ingest/review arguments and uses `uv run --project` when uv is available.
 
 ```bash
 # Step 1: Register screener output as thesis
@@ -123,14 +124,21 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py ingest \
 
 Each candidate in the JSON becomes an `IDEA` thesis. Registration is **idempotent** -- running the same input twice produces no duplicates (fingerprint-based dedup).
 
-**Supported sources:** `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`
+**Supported sources:** `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`, `manual`
 
 ### Step 2: Link analysis reports
 
 After performing deeper analysis (US Stock Analysis, Technical Analyst, etc.), link the report to the thesis:
 
 ```python
-from skills.trader_memory_core.scripts.thesis_store import link_report
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("skills/trader-memory-core/scripts").resolve()))
+from thesis_store import link_report
+
+state_dir = Path("state/theses/")
+thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 
 link_report(state_dir, thesis_id,
             skill="us-stock-analysis",
@@ -143,10 +151,18 @@ link_report(state_dir, thesis_id,
 After validating the thesis with analysis, promote it:
 
 ```python
-from skills.trader_memory_core.scripts.thesis_store import transition
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("skills/trader-memory-core/scripts").resolve()))
+from thesis_store import transition
+
+state_dir = Path("state/theses/")
+thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 
 transition(state_dir, thesis_id, "ENTRY_READY",
-           reason="Technical confirmation: above 200-day MA with volume")
+           reason="Technical confirmation: above 200-day MA with volume",
+           event_date="2026-03-15T00:00:00+00:00")
 ```
 
 > `transition()` only allows IDEA → ENTRY_READY. All other transitions use dedicated functions.
@@ -157,11 +173,19 @@ transition(state_dir, thesis_id, "ENTRY_READY",
 When you execute the trade, record the actual entry:
 
 ```python
-from skills.trader_memory_core.scripts.thesis_store import open_position
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("skills/trader-memory-core/scripts").resolve()))
+from thesis_store import open_position
+
+state_dir = Path("state/theses/")
+thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 
 open_position(state_dir, thesis_id,
               actual_price=155.50,
-              actual_date="2026-03-16T10:30:00-04:00")
+              actual_date="2026-03-16T10:30:00-04:00",
+              event_date="2026-03-16T10:30:00-04:00")
 ```
 
 This is the **only path to ACTIVE status**. Requires both `actual_price` and `actual_date` (RFC 3339 format with timezone).
@@ -171,10 +195,17 @@ This is the **only path to ACTIVE status**. Requires both `actual_price` and `ac
 Link the Position Sizer output to record how many shares and the risk parameters:
 
 ```python
-from skills.trader_memory_core.scripts.thesis_store import attach_position
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("skills/trader-memory-core/scripts").resolve()))
+from thesis_store import attach_position
+
+state_dir = Path("state/theses/")
+thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 
 attach_position(state_dir, thesis_id,
-                report_path="reports/position_sizer_AAPL_2026-03-16.json")
+                position_report_path="reports/position_sizer_AAPL_2026-03-16.json")
 ```
 
 The report must have `mode: "shares"` (budget mode is rejected).
@@ -188,10 +219,17 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
   --state-dir state/theses/ review-due --as-of 2026-04-15
 ```
 
-Record a review with escalation support:
+Record a review with an explicitly chosen outcome:
 
 ```python
-from skills.trader_memory_core.scripts.thesis_store import mark_reviewed
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("skills/trader-memory-core/scripts").resolve()))
+from thesis_store import mark_reviewed
+
+state_dir = Path("state/theses/")
+thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 
 mark_reviewed(state_dir, thesis_id,
               review_date="2026-04-15",
@@ -205,12 +243,19 @@ The `next_review_date` is automatically advanced based on the review interval.
 When you exit the position:
 
 ```python
-from skills.trader_memory_core.scripts.thesis_store import close
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("skills/trader-memory-core/scripts").resolve()))
+from thesis_store import close
+
+state_dir = Path("state/theses/")
+thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 
 close(state_dir, thesis_id,
-      exit_reason="target_reached",
-      exit_price=172.00,
-      exit_date="2026-05-01T15:45:00-04:00")
+      exit_reason="target_hit",
+      actual_price=172.00,
+      actual_date="2026-05-01T15:45:00-04:00")
 ```
 
 Then generate the postmortem:
@@ -221,6 +266,58 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 ```
 
 The postmortem includes P&L, holding days, and (with FMP API key) MAE/MFE metrics. Output is saved to `state/journal/pm_{thesis_id}.md`.
+
+---
+
+### Partial equity exits
+
+Record a confirmed partial fill against an ACTIVE equity thesis. Set `THESIS_ID` to an existing thesis with sufficient remaining shares. A partial trim moves it to `PARTIALLY_CLOSED`; selling the entire remainder closes it. Final close adds to realized P&L from prior trims. `--event-date` can set the history timestamp when backfilling.
+
+```bash
+THESIS_ID="REPLACE_WITH_EXISTING_THESIS_ID"
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ trim "$THESIS_ID" \
+  --shares-sold 0.5 --price 160.00 --date 2026-04-20
+```
+
+### Futures positions
+
+Use a separate single-instrument thesis. Attach a verified futures-position-sizer `SIZED` report while it is IDEA or ENTRY_READY; an ACTIVE futures position cannot be re-attached. The report must contain a positive integer contract count, multiplier, LONG/SHORT direction, and USD currency. Transition the thesis to ENTRY_READY before recording a confirmed fill. This sequence assumes that prerequisite, a thesis history starting no later than the example entry date, and a matching SHORT report file. Set all dates to your actual fills; use `--event-date` to keep backfilled history chronological.
+
+```bash
+THESIS_ID="REPLACE_WITH_EXISTING_THESIS_ID"
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ attach-futures-position "$THESIS_ID" \
+  --report reports/futures_position_es.json
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ open-position "$THESIS_ID" \
+  --actual-price 5000 --actual-date 2026-05-10 --event-date 2026-05-10
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ trim "$THESIS_ID" \
+  --contracts-sold 1 --price 4950 --date 2026-05-12
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ close "$THESIS_ID" \
+  --exit-reason target_hit --actual-price 4900 --actual-date 2026-05-15
+```
+
+The example needs more than one original contract so the trim leaves a remainder. Close dispatches by asset type. Futures P&L uses price difference × multiplier × contracts × direction sign; non-USD contracts are rejected. For direct open without a report, supply `--contracts`, `--multiplier`, `--direction`, `--contract-symbol`, and `--contract-currency USD`.
+
+### CLI flag reference
+
+| Flags | Purpose |
+|---|---|
+| `--source`, `--input` | Ingest source and input JSON |
+| `--state-dir` | Local thesis state directory |
+| `--ticker`, `--status`, `--type` | Store list filters |
+| `--reason`, `--event-date` | Transition reason and history timestamp |
+| `--actual-price`, `--actual-date`, `--shares` | Confirmed equity fill and entry quantity |
+| `--shares-sold`, `--contracts-sold`, `--price`, `--date` | Trim quantity and fill price/date |
+| `--report` | Position sizing report to attach |
+| `--contracts`, `--multiplier`, `--direction` | Direct futures entry specification |
+| `--contract-symbol`, `--contract-currency` | Futures identity and required USD currency |
+| `--exit-reason`, `--terminal-status` | Close reason or terminate destination |
+| `--as-of` | Review evaluation date |
+
 
 ---
 
@@ -257,9 +354,9 @@ Each thesis is stored as a YAML file in `state/theses/`:
 - **Register early, decide later.** Ingest all screener output as IDEAs. You can invalidate what you don't pursue.
 - **Idempotency is your friend.** Running the same ingest command twice is safe -- fingerprints prevent duplicates.
 - **Use RFC 3339 dates.** All date-time fields require timezone (e.g., `2026-03-16T10:30:00-04:00`). Naive datetimes and space separators are rejected.
-- **Invalidate rather than delete.** Use `terminate(thesis_id, "INVALIDATED", ...)` instead of manually removing YAML files. This preserves the audit trail.
-- **Review schedule matters.** Default review interval is 7 days. Overdue theses surface via `review-due`, preventing forgotten positions.
-- **Escalation ladder.** Reviews go OK → WARN → REVIEW. Consecutive WARN outcomes escalate automatically.
+- **Invalidate rather than delete.** Use `terminate(state_dir, thesis_id, "INVALIDATED", exit_reason="thesis invalidated")` instead of manually removing YAML files. This preserves the audit trail.
+- **Review schedule matters.** Default review interval is 30 days. Overdue theses surface via `review-due`, preventing forgotten positions.
+- **Review outcomes.** Choose OK, WARN, or REVIEW explicitly. Recording a review stores that outcome and advances the next review date; repeated WARN outcomes do not escalate automatically.
 - **Link reports generously.** The more analysis you cross-reference, the richer the postmortem.
 - **Git-track state/.** The `state/` directory is designed to be committed, giving you a full audit trail with `git log` and `git blame`.
 - **Postmortem without FMP.** MAE/MFE are nice-to-have. P&L, holding days, and lessons learned work without any API.
@@ -276,9 +373,9 @@ Each thesis is stored as a YAML file in `state/theses/`:
 | **pead-screener** | Register | `thesis_ingest.py --source pead-screener` |
 | **canslim-screener** | Register | `thesis_ingest.py --source canslim-screener` |
 | **edge-candidate-agent** | Register | `thesis_ingest.py --source edge-candidate-agent` |
-| **US Stock Analysis** | Link report | `link_report(thesis_id, skill="us-stock-analysis", ...)` |
-| **Technical Analyst** | Link report | `link_report(thesis_id, skill="technical-analyst", ...)` |
-| **Position Sizer** | Attach sizing | `attach_position(thesis_id, report_path)` |
+| **US Stock Analysis** | Link report | `link_report(state_dir, thesis_id, skill="us-stock-analysis", file="reports/analysis.md", date="2026-03-15")` |
+| **Technical Analyst** | Link report | `link_report(state_dir, thesis_id, skill="technical-analyst", file="reports/technical.md", date="2026-03-15")` |
+| **Position Sizer** | Attach sizing | `attach_position(state_dir, thesis_id, report_path)` |
 | **Portfolio Manager** | Execute trades | Open/close positions, then update thesis |
 | **kanchi-dividend-review-monitor** | Review triggers | T1-T5 anomaly detection feeds `mark_reviewed()` |
 
@@ -290,8 +387,8 @@ Each thesis is stored as a YAML file in `state/theses/`:
 |-------|-------|-----|
 | `ValidationError: ... is not a 'date-time'` | Date field missing timezone or using space separator | Use RFC 3339 format: `2026-03-16T10:30:00-04:00` |
 | `ValueError: Cannot transition from terminal status CLOSED` | Attempting to modify a closed/invalidated thesis | Terminal statuses are permanent. Create a new thesis if needed. |
-| `ValueError: Use open_position() to transition to ACTIVE` | Called `transition()` with `ACTIVE` target | Use `open_position(thesis_id, actual_price, actual_date)` instead |
-| `ValueError: Budget mode not supported` | Position sizer report has `mode: "budget"` | Re-run Position Sizer with `--entry` and `--stop` to get shares mode |
+| `ValueError: Use open_position() to transition to ACTIVE` | Called `transition()` with `ACTIVE` target | Use `open_position(state_dir, thesis_id, actual_price, actual_date)` instead |
+| `ValueError: Position report mode is 'budget', expected 'shares'. ...` | Position sizer report has `mode: "budget"` | Re-run Position Sizer with `--entry` and `--stop` to get shares mode |
 | `ValueError: Missing required field: ticker` | Screener JSON missing expected fields | Check that the input matches the source adapter's expected format |
 | Duplicate thesis not created | Fingerprint matches existing thesis | This is intentional (idempotency). The existing thesis_id is returned. |
 
