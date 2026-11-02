@@ -76,12 +76,27 @@ Example requests:
 
 ## 4. Quick Start
 
-```bash
-# Run the built-in Black-Scholes demonstration
-python3 skills/options-strategy-advisor/scripts/black_scholes.py
-```
+Run this library example from the repository root after installing
+`skills/options-strategy-advisor/requirements.txt`. It uses fictional inputs and
+requires no API key or ticker lookup. `T` is time in years; `r`, `sigma` and `q`
+are annual decimals. The European Black-Scholes model assumes constant
+volatility/rates and a continuous dividend yield. This is a calculation example,
+not a trading recommendation. The module's fixed research demonstration does
+not parse pricing or strategy flags; use `OptionPricer` for custom inputs.
 
-The script currently runs a built-in demonstration and does not parse command-line pricing or strategy flags. For custom inputs, use its `OptionPricer` Python API; the workflow below describes the inputs to collect.
+<!-- options-library-example -->
+```python
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path("skills/options-strategy-advisor/scripts").resolve()))
+from black_scholes import OptionPricer
+
+# Fictional European option; T is years, r/sigma/q are annual decimals.
+pricer = OptionPricer(S=100.0, K=100.0, T=1.0, r=0.0, sigma=0.2, q=0.0)
+greeks = pricer.get_all_greeks("call")
+print(greeks)
+```
 
 ---
 
