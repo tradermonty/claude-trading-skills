@@ -233,7 +233,6 @@ market-calendar = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.9.0" },
     { name = "beautifulsoup4", marker = "extra == 'ci'" },
     { name = "codespell", marker = "extra == 'dev'", specifier = ">=2.3.0" },
