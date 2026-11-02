@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,7 +67,7 @@ def python_blocks(text: str):
     lines = text.splitlines()
     i = 0
     while i < len(lines):
-        match = re.fullmatch(r"(`{3,}|~{3,})(?:python|python3|py)\s*", lines[i].strip())
+        match = re.fullmatch(r"(`{3,}|~{3,})(?:python|python3|py)(?:\s+.*)?\s*", lines[i].strip())
         if not match:
             i += 1
             continue
@@ -80,7 +81,7 @@ def python_blocks(text: str):
         ):
             body.append(lines[i])
             i += 1
-        yield first, "\n".join(body)
+        yield first, textwrap.dedent("\n".join(body))
         i += 1
 
 

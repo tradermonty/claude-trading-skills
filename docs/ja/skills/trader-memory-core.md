@@ -34,8 +34,7 @@ Trader Memory Coreは「何を考え、何が起き、何を学んだか」を�
 
 ```
 スクリーナー出力 → IDEA → ENTRY_READY → ACTIVE → PARTIALLY_CLOSED → CLOSED
-                    │          │            │
-                    └──────────┴────────────┴──→ INVALIDATED
+IDEA / ENTRY_READY / ACTIVE / PARTIALLY_CLOSED → INVALIDATED
 ```
 
 **解決する課題:**
@@ -46,11 +45,11 @@ Trader Memory Coreは「何を考え、何が起き、何を学んだか」を�
 - 定期レビューのスケジューリングで放置ポジションを防止
 
 **主要機能:**
-- 7種のスクリーナーアダプター: kanchi-dividend-sop, earnings-trade-analyzer, vcp-screener, pead-screener, canslim-screener, edge-candidate-agent, edge-concept-synthesizer
+- 7種の取り込みアダプター: kanchi-dividend-sop, earnings-trade-analyzer, vcp-screener, pead-screener, canslim-screener, edge-candidate-agent, manual
 - 部分決済を含む6つのステータスによる前進限定ステートマシン
 - フィンガープリントベースの重複排除（同じ入力で二重登録なし）
 - Position Sizerからのポジションサイジング付与
-- エスカレーション付きレビュースケジュール (OK → WARN → REVIEW)
+- 利用者が結果を選ぶレビュースケジュール (OK, WARN, REVIEW)
 - FMP API によるオプションの MAE/MFE 算出
 
 **Phase 1 スコープ:** 株式または米ドル建て先物の単一商品。ペアトレードとオプション戦略は対象外です。
@@ -72,7 +71,7 @@ Trader Memory Coreは「何を考え、何が起き、何を学んだか」を�
 
 ## 3. 前提条件
 
-- **Python 3.9+** と `pyyaml`, `jsonschema`（プロジェクト依存に含まれます）
+- **Python 3.11〜3.13**（このリポジトリの対応範囲）と `pyyaml`, `jsonschema`（プロジェクト依存に含まれます）
 - **FMP API キー:** オプション — ポストモーテムの MAE/MFE 算出にのみ使用。コア機能（登録、遷移、決済、レビュー）は完全オフラインで動作
 - **ステートディレクトリ:** `state/theses/` は初回使用時に自動作成
 
@@ -127,7 +126,7 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py ingest \
 
 JSONの各候補が `IDEA` ステータスの thesis になります。登録は**冪等**です — 同じ入力を2回実行しても重複は生じません（フィンガープリントによる重複排除）。
 
-**対応ソース:** `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`
+**対応ソース:** `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`, `manual`
 
 ### ステップ 2: 分析レポートのリンク
 
@@ -222,7 +221,7 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
   --state-dir state/theses/ review-due --as-of 2026-04-15
 ```
 
-レビューを記録（エスカレーション対応）:
+結果を明示的に選択してレビューを記録:
 
 ```python
 from pathlib import Path
@@ -322,7 +321,6 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
 | `--contract-symbol`, `--contract-currency` | 先物の識別と必須通貨USD |
 | `--exit-reason`, `--terminal-status` | 決済理由または終了状態 |
 | `--as-of` | レビュー基準日 |
-| `--project` | uvラッパーのプロジェクト指定（store引数ではない） |
 
 
 ---
@@ -360,9 +358,9 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
 - **早めに登録、判断は後で。** スクリーナー出力はすべて IDEA として取り込みましょう。追わないものは後で invalidate できます。
 - **冪等性を活用。** 同じインジェストコマンドの再実行は安全です — フィンガープリントが重複を防ぎます。
 - **RFC 3339 日付形式を使用。** すべての日時フィールドにタイムゾーンが必要です（例: `2026-03-16T10:30:00-04:00`）。ナイーブな日時やスペース区切りは拒否されます。
-- **削除より無効化。** YAMLファイルを手動削除するのではなく `terminate(thesis_id, "INVALIDATED", ...)` を使いましょう。監査証跡が保持されます。
-- **レビュースケジュールを重視。** デフォルトのレビュー間隔は7日です。`review-due` で期限超過の thesis を確認し、放置ポジションを防ぎましょう。
-- **エスカレーションラダー。** レビュー結果は OK → WARN → REVIEW とエスカレートします。連続 WARN は自動的にエスカレーションされます。
+- **削除より無効化。** YAMLファイルを手動削除するのではなく `terminate(state_dir, thesis_id, "INVALIDATED", exit_reason="thesis invalidated")` を使いましょう。監査証跡が保持されます。
+- **レビュースケジュールを重視。** デフォルトのレビュー間隔は30日です。`review-due` で期限超過の thesis を確認し、放置ポジションを防ぎましょう。
+- **レビュー結果。** OK、WARN、REVIEWを明示的に選択します。記録時にその結果を保存し、次回レビュー日を進めます。連続WARNによる自動エスカレーションはありません。
 - **レポートリンクは積極的に。** 紐付ける分析が多いほど、ポストモーテムが充実します。
 - **state/ を Git 追跡。** `state/` ディレクトリはコミットする設計です。`git log` と `git blame` で完全な監査証跡が得られます。
 - **FMP なしでもポストモーテム可能。** MAE/MFEはあると便利ですが、P&L、保有日数、振り返りは API なしで動作します。
@@ -379,9 +377,9 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
 | **pead-screener** | 登録 | `thesis_ingest.py --source pead-screener` |
 | **canslim-screener** | 登録 | `thesis_ingest.py --source canslim-screener` |
 | **edge-candidate-agent** | 登録 | `thesis_ingest.py --source edge-candidate-agent` |
-| **US Stock Analysis** | レポートリンク | `link_report(thesis_id, skill="us-stock-analysis", ...)` |
-| **Technical Analyst** | レポートリンク | `link_report(thesis_id, skill="technical-analyst", ...)` |
-| **Position Sizer** | サイジング付与 | `attach_position(thesis_id, report_path)` |
+| **US Stock Analysis** | レポートリンク | `link_report(state_dir, thesis_id, skill="us-stock-analysis", file="reports/analysis.md", date="2026-03-15")` |
+| **Technical Analyst** | レポートリンク | `link_report(state_dir, thesis_id, skill="technical-analyst", file="reports/technical.md", date="2026-03-15")` |
+| **Position Sizer** | サイジング付与 | `attach_position(state_dir, thesis_id, report_path)` |
 | **Portfolio Manager** | トレード執行 | ポジション開設/決済後に thesis を更新 |
 | **kanchi-dividend-review-monitor** | レビュートリガー | T1-T5 異常検知が `mark_reviewed()` にフィード |
 
@@ -393,8 +391,8 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
 |--------|------|--------|
 | `ValidationError: ... is not a 'date-time'` | 日時フィールドにタイムゾーンがない、またはスペース区切り | RFC 3339形式を使用: `2026-03-16T10:30:00-04:00` |
 | `ValueError: Cannot transition from terminal status CLOSED` | 決済/無効化済みの thesis を変更しようとした | ターミナルステータスは永続的です。必要なら新しい thesis を作成してください。 |
-| `ValueError: Use open_position() to transition to ACTIVE` | `transition()` で ACTIVE を指定した | `open_position(thesis_id, actual_price, actual_date)` を使用 |
-| `ValueError: Budget mode not supported` | Position Sizer レポートが `mode: "budget"` | `--entry` と `--stop` を指定して shares モードで再実行 |
+| `ValueError: Use open_position() to transition to ACTIVE` | `transition()` で ACTIVE を指定した | `open_position(state_dir, thesis_id, actual_price, actual_date)` を使用 |
+| `ValueError: Position report mode is 'budget', expected 'shares'. ...` | Position Sizer レポートが `mode: "budget"` | `--entry` と `--stop` を指定して shares モードで再実行 |
 | `ValueError: Missing required field: ticker` | スクリーナーJSONに必要なフィールドがない | 入力がソースアダプターの期待するフォーマットに合っているか確認 |
 | 重複 thesis が作成されない | フィンガープリントが既存 thesis と一致 | 意図的な動作（冪等性）です。既存の thesis_id が返されます。 |
 

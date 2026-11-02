@@ -235,3 +235,21 @@ def test_workflow_is_read_only_full_history_and_keeps_drift_report_only():
     assert "GITHUB_STEP_SUMMARY" in text and "actions/upload-artifact@" in text
     assert "secrets." not in text and "pull-requests: write" not in text
     assert "continue-on-error" not in text  # operational failures must remain visible
+
+
+@pytest.mark.parametrize("fence", ["```python", "```python title=example", "~~~python3 {#example}"])
+def test_indented_fences_keep_source_lines_and_check_imports(tmp_path, dates, fence):
+    closing = fence[:3]
+    _repo(
+        tmp_path,
+        text=f"--alpha --beta\n\n- Example:\n\n    {fence}\n    from skills.nope import x\n    {closing}\n",
+    )
+    page = drift.build_report(tmp_path)["pages"][0]
+    assert [f["category"] for f in page["findings"]] == ["missing_repository_import"]
+    assert list(
+        drift.python_blocks(f"intro\n  {fence}\n  from skills.nope import x\n  {closing}")
+    ) == [(3, "from skills.nope import x")]
+
+
+def test_non_python_fence_is_ignored():
+    assert list(drift.python_blocks("```pythonish\nnot python\n```\n```bash\necho ok\n```")) == []

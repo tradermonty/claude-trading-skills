@@ -3,6 +3,8 @@
 import ast
 import json
 import os
+import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -89,8 +91,9 @@ fixture_id = store.register(fixture_state, {{
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.parametrize("language", ["en", "ja"])
 @pytest.mark.parametrize("asset", ["equity", "futures"])
-def test_documented_launcher_trim_close_lifecycle(tmp_path, asset):
+def test_documented_launcher_trim_close_lifecycle(tmp_path, asset, language):
     """Run the published command shapes through the launcher, offline."""
     env = {**os.environ, "TRADER_MEMORY_CLI_INNER": "1"}
     state_dir = tmp_path / "theses"
@@ -120,16 +123,28 @@ print(tid)
     )
     tid = result.stdout.strip().splitlines()[-1]
 
-    def run(*args):
+    guide = (ROOT / f"docs/{language}/skills/trader-memory-core.md").read_text()
+    commands = []
+    for block in re.findall(r"```bash\n(.*?)```", guide, re.DOTALL):
+        if "--contracts-sold" not in block and "--shares-sold" not in block:
+            continue
+        if ("--contracts-sold" in block) != (asset == "futures"):
+            continue
+        for line in block.replace("\\\n", " ").splitlines():
+            if not line.startswith("python3 "):
+                continue
+            argv = shlex.split(line)
+            substitutions = {
+                "$THESIS_ID": tid,
+                "state/theses/": str(state_dir),
+                "reports/futures_position_es.json": str(tmp_path / "futures.json"),
+            }
+            commands.append([substitutions.get(arg, arg) for arg in argv[2:]])
+    assert len(commands) == (4 if asset == "futures" else 1)
+
+    def run(args):
         return subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPTS / "trader_memory_cli.py"),
-                "store",
-                "--state-dir",
-                str(state_dir),
-                *args,
-            ],
+            [sys.executable, str(SCRIPTS / "trader_memory_cli.py"), *args],
             env=env,
             cwd=ROOT,
             capture_output=True,
@@ -157,39 +172,84 @@ print(tid)
                 }
             )
         )
-        run("attach-futures-position", tid, "--report", str(report))
-        run(
-            "open-position",
-            tid,
-            "--actual-price",
-            "5000",
-            "--actual-date",
-            "2026-05-10",
-            "--event-date",
-            "2026-05-10",
-        )
-        run("trim", tid, "--contracts-sold", "1", "--price", "4950", "--date", "2026-05-12")
-        price, date, expected_pnl = "4900", "2026-05-15", 7500
+        expected_pnl = 7500
     else:
+        # The equity guide's trim needs an already open position. These setup
+        # and final-close calls are fixtures; the trim argv comes from the page.
         run(
-            "open-position",
-            tid,
-            "--actual-price",
-            "150",
-            "--actual-date",
-            "2026-03-16",
-            "--shares",
-            "2.5",
-            "--event-date",
-            "2026-03-16",
+            [
+                "store",
+                "--state-dir",
+                str(state_dir),
+                "open-position",
+                tid,
+                "--actual-price",
+                "150",
+                "--actual-date",
+                "2026-03-16",
+                "--shares",
+                "2.5",
+                "--event-date",
+                "2026-03-16",
+            ]
         )
-        run("trim", tid, "--shares-sold", "0.5", "--price", "160.00", "--date", "2026-04-20")
-        price, date, expected_pnl = "172", "2026-05-01", 49
+        expected_pnl = 49
     import yaml
 
     thesis_path = state_dir / f"{tid}.yaml"
-    assert yaml.safe_load(thesis_path.read_text())["status"] == "PARTIALLY_CLOSED"
-    run("close", tid, "--exit-reason", "target_hit", "--actual-price", price, "--actual-date", date)
+    for args in commands:
+        if "close" in args:
+            assert yaml.safe_load(thesis_path.read_text())["status"] == "PARTIALLY_CLOSED"
+        run(args)
+    if asset == "equity":
+        assert yaml.safe_load(thesis_path.read_text())["status"] == "PARTIALLY_CLOSED"
+        run(
+            [
+                "store",
+                "--state-dir",
+                str(state_dir),
+                "close",
+                tid,
+                "--exit-reason",
+                "target_hit",
+                "--actual-price",
+                "172",
+                "--actual-date",
+                "2026-05-01",
+            ]
+        )
     closed = yaml.safe_load(thesis_path.read_text())
     assert closed["status"] == "CLOSED"
     assert closed["outcome"]["pnl_dollars"] == expected_pnl
+
+
+@pytest.mark.parametrize("language", ["en", "ja"])
+def test_inline_api_examples_bind_actual_signatures(language):
+    guide = (ROOT / f"docs/{language}/skills/trader-memory-core.md").read_text()
+    # Inline call examples are complete; zero-argument mentions in quoted error
+    # messages and prose are names, not executable examples.
+    calls = []
+    for inline in re.findall(r"(?<!`)`([^`\n]+)`(?!`)", guide):
+        if not re.match(r"(?:terminate|link_report|attach_position|open_position)\(", inline):
+            continue
+        call = ast.parse(inline, mode="eval").body
+        if not call.args and not call.keywords:
+            continue
+        assert not any(isinstance(n, ast.Constant) and n.value is Ellipsis for n in ast.walk(call))
+        # Replace values, preserving argument count and keyword names.
+        values = ["None" for _ in call.args] + [f"{kw.arg}=None" for kw in call.keywords]
+        calls.append(f"inspect.signature(store.{call.func.id}).bind({', '.join(values)})")
+    assert len(calls) == 5
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"import sys, inspect\nsys.path.insert(0, {str(SCRIPTS)!r})\nimport thesis_store as store\n"
+            + "\n".join(calls),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
