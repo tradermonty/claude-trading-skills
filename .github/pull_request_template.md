@@ -11,6 +11,7 @@
 - [ ] This PR does not provide financial advice, buy/sell signals, profit guarantees, or broker execution. / 金融助言、売買推奨、利益保証、発注実行を含みません。
 - [ ] I removed secrets, API keys, personal information, brokerage account data, and proprietary customer data. / 秘密情報、APIキー、個人情報、証券口座情報、顧客固有情報を含みません。
 - [ ] This PR contains no unsafe live write and does not mix unrelated cleanup. / 危険なlive writeや無関係な整理を含みません。
+- [ ] A user-visible change has an entry under `## [Unreleased]` in `CHANGELOG.md`, or N/A is explained below. / 利用者に見える変更は `CHANGELOG.md` の `## [Unreleased]` に記録しました。対象外の場合は理由を下に書きました。
 
 ## Local validation / ローカル検証
 
