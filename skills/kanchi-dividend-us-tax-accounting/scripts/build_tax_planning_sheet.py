@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -39,8 +40,10 @@ def classify_holding(holding: dict[str, Any]) -> PlanningRow:
     hold_days: int | None
     if hold_days_raw is None:
         hold_days = None
+    elif type(hold_days_raw) is not int or hold_days_raw < 0:
+        raise ValueError("hold_days_in_window must be a non-negative integer or null")
     else:
-        hold_days = int(hold_days_raw)
+        hold_days = hold_days_raw
 
     if instrument_type in {"reit", "bdc"}:
         return PlanningRow(
@@ -167,7 +170,11 @@ def main() -> int:
     if not isinstance(holdings, list) or not holdings:
         raise SystemExit("Input JSON must include a non-empty holdings list.")
 
-    rows = [classify_holding(item) for item in holdings]
+    try:
+        rows = [classify_holding(item) for item in holdings]
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
