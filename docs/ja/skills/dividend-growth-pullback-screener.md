@@ -66,13 +66,13 @@ permalink: /ja/skills/dividend-growth-pullback-screener/
 
 ```bash
 # RSIフィルター付き2段階スクリーニング（推奨）
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
 
 # FMPのみのスクリーニング（APIリミットにより最大約40銘柄）
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
 
 # カスタムRSI閾値と配当成長要件
-python3 dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py \
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py \
   --use-finviz \
   --rsi-max 35 \
   --min-div-growth 15
@@ -114,8 +114,7 @@ export FMP_API_KEY=your_key_here
 **2段階スクリーニング（推奨）:**
 
 ```bash
-cd dividend-growth-pullback-screener/scripts
-python3 screen_dividend_growth_rsi.py --use-finviz
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz
 ```
 
 以下を実行します：
@@ -125,7 +124,20 @@ python3 screen_dividend_growth_rsi.py --use-finviz
 **FMPのみのスクリーニング:**
 
 ```bash
-python3 screen_dividend_growth_rsi.py --max-candidates 40
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --max-candidates 40
+```
+
+**カスタマイズ:**
+
+```bash
+# 2段階スクリーニングの条件を変更
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz --min-yield 2.0 --min-div-growth 15.0 --rsi-max 35
+
+# FMPのみで取得件数と条件を変更
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --min-yield 2.0 --min-div-growth 10.0 --max-candidates 30
+
+# 環境変数の代わりにAPIキーを引数で指定
+python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py --use-finviz --fmp-api-key YOUR_FMP_KEY --finviz-api-key YOUR_FINVIZ_KEY
 ```
 
 ### ステップ3: 結果のレビュー

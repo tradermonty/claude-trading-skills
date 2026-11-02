@@ -147,10 +147,10 @@ repos:
         entry: python3 scripts/check_doc_cli_examples.py validate
         language: system
         # Fire on the example-bearing docs (markdown targets of the gate,
-        # including every SKILL.md), the checker, and its tests. Always
+        # including every SKILL.md and EN/JA site page), the checker, and its tests. Always
         # validates every configured target (offline, deterministic,
         # stdlib-only).
-        files: '^(CLAUDE\.md|README\.md|README\.ja\.md|skills/[^/]+/SKILL\.md|scripts/check_doc_cli_examples\.py|scripts/tests/test_check_doc_cli_examples\.py)$'
+        files: '^(CLAUDE\.md|README\.md|README\.ja\.md|skills/[^/]+/SKILL\.md|docs/(en|ja)/.*\.md|scripts/check_doc_cli_examples\.py|scripts/tests/test_check_doc_cli_examples\.py)$'
         pass_filenames: false
 
       - id: catalog-drift

@@ -11,14 +11,16 @@ name: FMP contract canary
 #
 # Three visible states, never a silent green:
 #   * configured     FMP_API_KEY secret set      -> `canary` probes; anomalies
-#                    are report-only (continue-on-error) but surfaced as a step
-#                    summary table plus ::error / ::warning annotations.
+#                    are report-only at the probe step, with a summary and
+#                    annotations. Infrastructure/no-response failures fail the job.
 #   * disabled       secret unset and repository variable FMP_CANARY_ENABLED is
 #                    false/0 (any case) -> `preflight` passes with a notice.
 #   * not configured secret unset and no opt-out -> `preflight` FAILS (red run,
 #                    so GitHub's scheduled-workflow failure notice fires).
 # `preflight` is skipped on forks (repository guard below; update the slug if
 # the repository is renamed or transferred), which also skips `canary`.
+# A configured secret wins over FMP_CANARY_ENABLED=false; the variable opts out
+# only when the secret is absent.
 
 on:
   schedule:
@@ -27,6 +29,10 @@ on:
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   preflight:
@@ -56,30 +62,29 @@ jobs:
             {
               echo "## FMP contract canary: disabled"
               echo
-              echo "FMP_API_KEY is not set and the repository variable FMP_CANARY_ENABLED opts out. No live contract probe ran."
+              echo "The API key secret is not set and the repository variable FMP_CANARY_ENABLED opts out. No live contract probe ran."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           echo "state=not_configured" >> "$GITHUB_OUTPUT"
-          echo "::error title=FMP canary not configured::FMP_API_KEY secret is not set; no live contract probe ran"
+          echo "::error title=FMP canary not configured::API key secret is not set; no live contract probe ran"
           {
             echo "## FMP contract canary: NOT CONFIGURED"
             echo
-            echo "No live contract probe ran because the FMP_API_KEY secret is not set."
+            echo "No live contract probe ran because the API key secret is not set."
             echo
             echo "Fix it in one of two ways:"
             echo
-            echo "- Add a repository secret named FMP_API_KEY (a dedicated low-quota key is recommended)."
+            echo "- Add the repository API key secret documented in the provider-contract runbook."
             echo "- Or opt out explicitly with a repository variable FMP_CANARY_ENABLED set to false."
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
   canary:
-    name: Live FMP contract probe (report-only)
+    name: Live FMP probe (drift report-only; operational health required)
     needs: preflight
     if: needs.preflight.result == 'success' && needs.preflight.outputs.run_canary == 'true'
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -98,11 +103,20 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run canary
+        id: probe
+        continue-on-error: true
         env:
           FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
         run: |
-          python3 scripts/check_provider_contracts.py canary \
-            --report reports/fmp-canary-report.json
+          rm -f reports/fmp-canary-report.json
+          if python3 scripts/check_provider_contracts.py canary \
+            --report reports/fmp-canary-report.json; then
+            code=0
+          else
+            code=$?
+          fi
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
 
       - name: Summarize canary report
         if: always()
@@ -111,8 +125,18 @@ jobs:
           python3 scripts/check_provider_contracts.py summarize \
             --report reports/fmp-canary-report.json \
             --summary-file "$GITHUB_STEP_SUMMARY" \
-            --github \
-            || echo "::error title=FMP canary summarize failed::see job log"
+            --github
+
+      - name: Require completed probe with usable response evidence
+        if: always()
+        env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+          PROBE_EXIT_CODE: ${{ steps.probe.outputs.exit_code }}
+        run: |
+          python3 scripts/check_provider_contracts.py health \
+            --report reports/fmp-canary-report.json \
+            --probe-outcome "${PROBE_OUTCOME:-skipped}" \
+            --probe-exit-code "${PROBE_EXIT_CODE:-2}"
 
       - name: Upload canary report
         if: always()

@@ -971,6 +971,8 @@ When skills are ready for distribution:
 
 ZIP packages allow Claude web app users to upload and use skills without cloning the repository.
 
+Repository releases are tag-driven. Update `CHANGELOG.md` and the compatibility table, merge to `main`, then push a stable `vMAJOR.MINOR.PATCH` tag. The workflow marks `releases/latest` by SemVer order, so an older-line patch tag does not move it. See [docs/dev/release-compatibility.md](docs/dev/release-compatibility.md) for the procedure and the required tag ruleset.
+
 **Runtime Dependency Declaration (issue #330):**
 
 Every skill with executable Python (`skills/<id>/scripts/*.py` outside `tests/`)

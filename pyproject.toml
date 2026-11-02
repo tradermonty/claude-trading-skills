@@ -27,7 +27,7 @@ market-calendar = [
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
-    "ruff==0.17.2",
+    "ruff==0.17.3",
     "bandit[toml]>=1.7.0",
     "detect-secrets>=1.5.0",
     "codespell>=2.3.0",
@@ -38,7 +38,7 @@ dev = [
 ci = [
     "beautifulsoup4",
     "lxml",
-    "pyarrow==25.0.1",
+    "pyarrow==26.0.0",
     "statsmodels>=0.14,<0.15",
     "pandas-market-calendars==5.2.2",
     "opencv-python-headless>=4.8",

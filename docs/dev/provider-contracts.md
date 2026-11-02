@@ -472,11 +472,41 @@ The remainder of this section describes the FMP canary.
 
 `.github/workflows/fmp-contract-canary.yml` runs
 `python3 scripts/check_provider_contracts.py canary` weekly (Monday 12:00 UTC) plus
-on `workflow_dispatch`. Drift is **report-only** (the `canary` job has
-`continue-on-error: true`, mirroring the `packaged-deps-nightly` / #349 pattern): a
-live anomaly does not fail CI on its own today. It is still visible: a `summarize` step
+on `workflow_dispatch`. Drift is **report-only**: only the live probe step has
+`continue-on-error: true`; setup failures and the operational health gate fail
+the job. A contract anomaly does not fail CI on its own today. It is still visible: a `summarize` step
 (`if: always()`) writes a per-contract table to the run summary and emits `::error` /
 `::warning` annotations (capped at 10 per severity, overflow aggregated as `+N more`).
+
+The always-running, stdlib-only `health` command requires a complete report for
+the current FMP contract set, consistent probe exit/status/budget evidence, and
+at least one nonempty HTTP 200 response. Missing, malformed, empty, incomplete or
+wrong-provider reports, a skipped/crashed probe, all non-200 responses, and all
+empty responses fail the run. The probe removes any old report before execution.
+Summary write errors also fail the job; available reports are still uploaded.
+
+A nonempty HTTP 200 response is usable **for diagnosing contract drift**, even
+when fields are renamed, null or have the wrong type. It does not certify that
+the data is suitable for trading. Partial endpoint availability remains
+report-only: if one endpoint supplies that evidence, failures of other endpoints
+remain visible in the summary and annotations. This gate does not promote all
+contract drift to a blocking failure. The public CSV workflow's policy is unchanged.
+
+To inspect an FMP report offline after a probe (whose exit code is 0 for no fatal
+anomalies or 1 for anomalies), run:
+
+```bash
+python3 scripts/check_provider_contracts.py health \
+  --report reports/fmp-canary-report.json \
+  --probe-outcome success --probe-exit-code 0
+```
+
+Use `--probe-outcome failure --probe-exit-code 1` when the probe returned 1.
+The health command needs only Python's standard library, so it can report missing
+evidence even after dependency setup failed. For a failed run, check setup logs,
+the probe's recorded exit code, then its retained report; do not treat an empty
+summary table or a missing artifact as a successful live check. Local fault tests
+simulate these workflow paths without provider requests or real credentials.
 
 The workflow has two jobs and three visible states, so "not configured" can never look
 like a pass:
@@ -486,6 +516,12 @@ like a pass:
 | configured | `secrets.FMP_API_KEY` is set | passes; `canary` probes |
 | disabled | secret unset and repository variable `FMP_CANARY_ENABLED` is `false` or `0` (any case) | passes with a `::notice`; `canary` is skipped |
 | not configured | secret unset, no opt-out | **fails** with `::error` and a step-summary how-to; the run turns red |
+
+A configured `FMP_API_KEY` secret takes precedence over
+`FMP_CANARY_ENABLED=false`. The repository variable opts out only when the secret
+is absent. Shell steps receive secrets only via `env`; tests reject key-variable
+references in `run` bodies except the exact preflight nonempty check, and reject
+environment-dump commands.
 
 Setup: add a repository secret `FMP_API_KEY` (a dedicated low-quota key is
 recommended), or opt out explicitly with the repository variable

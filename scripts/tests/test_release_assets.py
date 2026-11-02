@@ -12,7 +12,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 from package_skills import package_skill  # noqa: E402
-from release_assets import ReleaseError, main, prepare, verify  # noqa: E402
+from release_assets import ReleaseError, latest_flag, main, prepare, verify  # noqa: E402
 
 
 @pytest.fixture
@@ -197,3 +197,64 @@ def test_non_utf8_changelog_blocks_cli_without_traceback(source: Path, capsys) -
     assert "CHANGELOG.md must be UTF-8" in output.err
     assert "Traceback" not in output.err
     assert not (source / "dist").exists()
+
+
+@pytest.mark.parametrize(
+    ("tag", "published", "expected"),
+    [
+        ("v1.0.0", [], "--latest"),
+        ("v1.0.1", ["v1.1.0"], "--latest=false"),
+        ("v1.1.0", ["v1.0.0"], "--latest"),
+        ("v1.10.0", ["v1.9.0"], "--latest"),
+        ("v1.9.1", ["v1.10.0"], "--latest=false"),
+        ("v10.0.0", ["v9.9.9"], "--latest"),
+        ("v9.9.9", ["v10.0.0"], "--latest=false"),
+        ("v1.2.0", ["v1.2.0-rc1", "latest", "", "  v1.0.0  ", "v1.1.0"], "--latest"),
+        ("v1.0.5", ["v1.2.0-rc1", "  v1.0.0  "], "--latest"),
+        ("v1.0.5", ["  v1.1.0\n"], "--latest=false"),
+    ],
+)
+def test_latest_flag_uses_numeric_semver_order(
+    tag: str, published: list[str], expected: str
+) -> None:
+    assert latest_flag(tag, published) == expected
+
+
+def test_latest_flag_rejects_already_published_and_invalid_tag() -> None:
+    with pytest.raises(ReleaseError, match="already"):
+        latest_flag("v1.0.0", ["v1.0.0"])
+    with pytest.raises(ReleaseError, match="stable SemVer"):
+        latest_flag("v1.0.0-rc1", [])
+
+
+def test_latest_flag_cli_prints_only_token(tmp_path: Path, capsys) -> None:
+    listing = tmp_path / "published.txt"
+    listing.write_text("v1.1.0\nv1.0.0\n", encoding="utf-8")
+    args = ["latest-flag", "--published-tags-file", str(listing), "--tag"]
+    assert main([*args, "v1.0.1"]) == 0
+    assert capsys.readouterr().out == "--latest=false\n"
+    assert main([*args, "v1.2.0"]) == 0
+    assert capsys.readouterr().out == "--latest\n"
+
+
+def test_latest_flag_cli_errors_without_traceback(tmp_path: Path, capsys) -> None:
+    listing = tmp_path / "published.txt"
+    listing.write_text("", encoding="utf-8")
+    assert main(["latest-flag", "--tag", "v1.0", "--published-tags-file", str(listing)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Release blocked:" in captured.err
+    assert "Traceback" not in captured.err
+    missing = tmp_path / "missing.txt"
+    assert main(["latest-flag", "--tag", "v1.0.0", "--published-tags-file", str(missing)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Release blocked:" in captured.err
+    assert "Traceback" not in captured.err
+    non_utf8 = tmp_path / "non_utf8.txt"
+    non_utf8.write_bytes(b"v1.0.0\n\xff\xfe\n")
+    assert main(["latest-flag", "--tag", "v1.1.0", "--published-tags-file", str(non_utf8)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Release blocked:" in captured.err
+    assert "Traceback" not in captured.err

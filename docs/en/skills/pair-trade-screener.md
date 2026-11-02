@@ -79,13 +79,13 @@ Example user requests:
 
 ```bash
 # Screen for pairs in specific sector
-python3 pair-trade-screener/scripts/find_pairs.py --sector Technology
+python3 skills/pair-trade-screener/scripts/find_pairs.py --sector Technology
 
 # Analyze specific pair
-python3 pair-trade-screener/scripts/analyze_spread.py --stock-a AAPL --stock-b MSFT
+python3 skills/pair-trade-screener/scripts/analyze_spread.py --stock-a AAPL --stock-b MSFT
 
 # Custom cointegration parameters
-python3 pair-trade-screener/scripts/find_pairs.py \
+python3 skills/pair-trade-screener/scripts/find_pairs.py \
   --sector Financials \
   --min-correlation 0.7 \
   --lookback-days 365
@@ -155,8 +155,11 @@ GET /v3/historical-price-full/{symbol}?apikey=YOUR_API_KEY
 - Log data quality issues
 
 **Script Execution:**
+
+Price retrieval is built into `find_pairs.py`; this command runs the complete screening pipeline rather than a separate download helper.
 ```bash
-python scripts/fetch_price_data.py --sector Technology --lookback 730
+python3 skills/pair-trade-screener/scripts/find_pairs.py \
+  --sector Technology --lookback-days 730 --output reports/pair-trade/technology.json
 ```
 
 ### Step 3: Calculate Correlation and Beta

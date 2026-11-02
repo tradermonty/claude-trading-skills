@@ -97,7 +97,7 @@ periods costs decide whether an edge survives.
 ### 2. 実行する
 
 ```bash
-python3 scripts/run_backtest.py \
+python3 skills/manifoldbt-backtester/scripts/run_backtest.py \
   --spec strategy.json \
   --data bars.csv \
   --symbol BTCUSDT \

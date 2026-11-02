@@ -66,13 +66,13 @@ permalink: /ja/skills/value-dividend-screener/
 
 ```bash
 # 2段階スクリーニング（推奨 - 70-80%高速）
-python3 value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz
 
 # FMPのみスクリーニング（FINVIZ不要）
-python3 value-dividend-screener/scripts/screen_dividend_stocks.py
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py
 
 # カスタムパラメータ
-python3 value-dividend-screener/scripts/screen_dividend_stocks.py \
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py \
   --use-finviz \
   --top 50 \
   --output custom_results.json
@@ -131,24 +131,24 @@ FINVIZでプレスクリーニング、FMPで詳細分析：
 
 **デフォルト実行（上位20銘柄）：**
 ```bash
-python3 scripts/screen_dividend_stocks.py --use-finviz
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz
 ```
 
 **明示的なAPIキー指定：**
 ```bash
-python3 scripts/screen_dividend_stocks.py --use-finviz \
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz \
   --fmp-api-key $FMP_API_KEY \
   --finviz-api-key $FINVIZ_API_KEY
 ```
 
 **カスタム上位N件：**
 ```bash
-python3 scripts/screen_dividend_stocks.py --use-finviz --top 50
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz --top 50
 ```
 
 **カスタム出力先：**
 ```bash
-python3 scripts/screen_dividend_stocks.py --use-finviz --output /path/to/results.json
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --use-finviz --output /path/to/results.json
 ```
 
 **スクリプトの動作（2段階）：**
@@ -178,12 +178,12 @@ FMP Stock Screener APIのみを使用（API使用量が多い）：
 
 **デフォルト実行：**
 ```bash
-python3 scripts/screen_dividend_stocks.py
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py
 ```
 
 **明示的なAPIキー指定：**
 ```bash
-python3 scripts/screen_dividend_stocks.py --fmp-api-key $FMP_API_KEY
+python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --fmp-api-key $FMP_API_KEY
 ```
 
 **スクリプトの動作（FMPのみ）：**

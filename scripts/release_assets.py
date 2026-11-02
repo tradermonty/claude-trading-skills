@@ -8,6 +8,7 @@ import hashlib
 import re
 import shutil
 import sys
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 
@@ -30,6 +31,26 @@ def validate_tag(tag: str) -> str:
     if not TAG_RE.fullmatch(tag):
         raise ReleaseError("Release tag must be stable SemVer vMAJOR.MINOR.PATCH")
     return tag[1:]
+
+
+def _version(tag: str) -> tuple[int, int, int]:
+    match = TAG_RE.fullmatch(tag)
+    if not match:
+        raise ReleaseError("Release tag must be stable SemVer vMAJOR.MINOR.PATCH")
+    major, minor, patch = (int(part) for part in match.groups())
+    return major, minor, patch
+
+
+def latest_flag(tag: str, published_tags: Iterable[str]) -> str:
+    """Return the `gh release edit` flag that keeps `latest` on the highest stable SemVer."""
+    candidate = _version(tag)
+    published = [entry.strip() for entry in published_tags]
+    if tag in published:
+        raise ReleaseError(f"Release already published for {tag}")
+    stable = [_version(entry) for entry in published if TAG_RE.fullmatch(entry)]
+    if not stable or candidate > max(stable):
+        return "--latest"
+    return "--latest=false"
 
 
 def _sha256(path: Path) -> str:
@@ -210,11 +231,20 @@ def main(argv: list[str] | None = None) -> int:
     check = subparsers.add_parser("verify")
     check.add_argument("--local-dir", required=True, type=Path)
     check.add_argument("--downloaded-dir", required=True, type=Path)
+    flag = subparsers.add_parser("latest-flag")
+    flag.add_argument("--tag", required=True)
+    flag.add_argument("--published-tags-file", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
             assets = prepare(args.root, args.tag, args.output_dir)
             print(f"Prepared {len(assets)} skill assets and SHA256SUMS")
+        elif args.command == "latest-flag":
+            try:
+                listing = args.published_tags_file.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                raise ReleaseError(f"Published tags file must be UTF-8: {exc}") from exc
+            print(latest_flag(args.tag, listing.splitlines()))
         else:
             verify(args.local_dir, args.downloaded_dir)
             print("Uploaded Release assets match staged bytes and SHA256SUMS")
