@@ -64,7 +64,7 @@ permalink: /ja/skills/institutional-flow-tracker/
 ## 4. クイックスタート
 
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --top 50 \
   --min-change-percent 10
 ```
@@ -79,21 +79,21 @@ python3 scripts/track_institutional_flow.py \
 
 **クイックスキャン（機関変動上位50銘柄）:**
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --top 50 \
   --min-change-percent 10
 ```
 
 **セクターフォーカスのスキャン:**
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --sector Technology \
   --min-institutions 20
 ```
 
 **カスタムスクリーニング:**
 ```bash
-python3 scripts/track_institutional_flow.py \
+python3 skills/institutional-flow-tracker/scripts/track_institutional_flow.py \
   --min-market-cap 2000000000 \
   --min-change-percent 15 \
   --top 100 \
@@ -113,7 +113,7 @@ python3 scripts/track_institutional_flow.py \
 特定銘柄の機関投資家保有状況の詳細分析:
 
 ```bash
-python3 scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 ```
 
 **生成される内容:**
@@ -138,7 +138,7 @@ python3 scripts/analyze_single_stock.py AAPL
 **代替アプローチ — `analyze_single_stock.py` で特定の機関が銘柄を保有しているか確認:**
 ```bash
 # 銘柄を分析し、出力から特定の機関を検索
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 # レポートの上位20保有者テーブルで "Berkshire" や "ARK" を検索
 ```
 

@@ -3,14 +3,114 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import check_doc_cli_examples as gate  # noqa: E402
+
+
+def _root_documents(root: Path) -> None:
+    for name in ("CLAUDE.md", "README.md", "README.ja.md"):
+        (root / name).write_text("# Root guide\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("language", ["en", "ja"])
+@pytest.mark.parametrize(
+    "relative", ["getting-started.md", "skills/demo.md", "playbooks/deep/demo.md"]
+)
+def test_default_targets_check_recursive_site_script_paths(tmp_path, language, relative):
+    _root_documents(tmp_path)
+    page = tmp_path / "docs" / language / relative
+    page.parent.mkdir(parents=True)
+    page.write_text("# Guide\n\n```bash\npython3 skills/demo/scripts/missing.py\n```\n")
+    findings = gate.run_validate(gate.DEFAULT_TARGETS, [], root=tmp_path)
+    assert len(findings) == 1
+    assert findings[0].file == str(page)
+    assert findings[0].line_no == 4
+    assert "script does not exist: skills/demo/scripts/missing.py" in findings[0].message
+
+
+@pytest.mark.parametrize("fence", ["bash", "sh", "shell", "console"])
+def test_site_path_validation_is_static_and_accepts_root_commands(tmp_path, monkeypatch, fence):
+    _root_documents(tmp_path)
+    script = tmp_path / "skills/demo/scripts/tool.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("raise RuntimeError('must never execute')\n")
+    page = tmp_path / "docs/en/skills/demo.md"
+    page.parent.mkdir(parents=True)
+    prefix = "$ " if fence == "console" else ""
+    page.write_text(f"```{fence}\n{prefix}python3 skills/demo/scripts/tool.py\n```\n")
+
+    def unexpected_execution(*args, **kwargs):
+        raise AssertionError("validate must never execute a subprocess")
+
+    monkeypatch.setattr(gate.subprocess, "run", unexpected_execution)
+    assert gate.run_validate(gate.DEFAULT_TARGETS, [], root=tmp_path) == []
+    script.unlink()
+    assert any(
+        "script does not exist" in f.message
+        for f in gate.run_validate(gate.DEFAULT_TARGETS, [], root=tmp_path)
+    )
+
+
+def test_site_marker_rules_still_reject_expired_skips_and_bad_options(tmp_path):
+    _root_documents(tmp_path)
+    script = tmp_path / "skills/demo/scripts/tool.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("import argparse\np = argparse.ArgumentParser()\np.add_argument('--valid')\n")
+    page = tmp_path / "docs/ja/skills/demo.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        '<!-- exec: skip reason="temporary" owner="maintainer" expires=2000-01-01 -->\n'
+        "```bash\npython3 missing.py\n```\n\n"
+        "<!-- exec: api -->\n```bash\npython3 skills/demo/scripts/tool.py --invalid\n```\n"
+    )
+    findings = gate.run_validate(gate.DEFAULT_TARGETS, [], root=tmp_path)
+    assert any("skip is expired" in f.message for f in findings)
+    assert any("option not accepted" in f.message for f in findings)
+
+
+def test_site_docs_trigger_pre_commit_cli_validation():
+    config = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / ".pre-commit-config.yaml").read_text()
+    )
+    hook = next(
+        hook
+        for repo in config["repos"]
+        for hook in repo["hooks"]
+        if hook["id"] == "docs-cli-examples"
+    )
+    for page in (
+        "docs/en/getting-started.md",
+        "docs/ja/skills/demo.md",
+        "docs/en/playbooks/deep/demo.md",
+    ):
+        assert re.search(hook["files"], page), page
+    assert hook["entry"] == "python3 scripts/check_doc_cli_examples.py validate"
+    assert hook["pass_filenames"] is False
+
+
+def test_public_execute_cli_keeps_prior_default_scope(monkeypatch):
+    captured = []
+
+    def capture(targets, ci_only):
+        captured.append((list(targets), ci_only))
+        return [], []
+
+    monkeypatch.setattr(gate, "run_execute", capture)
+    assert gate.main(["execute", "--ci"]) == 0
+    assert captured == [(["CLAUDE.md", "README.md", "README.ja.md", "skills/*/SKILL.md"], True)]
+    captured.clear()
+    assert gate.main(["execute", "--ci", "--targets", "docs/en/guide.md"]) == 0
+    assert captured == [(["docs/en/guide.md"], True)]
 
 
 def test_parse_marker_offline_and_ci():

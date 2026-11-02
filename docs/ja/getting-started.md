@@ -91,8 +91,13 @@ git clone https://github.com/tradermonty/claude-trading-skills.git
 mkdir -p ~/.claude/skills
 cp -r claude-trading-skills/skills/finviz-screener ~/.claude/skills/
 
-# 3. 起動後に最上位skillsディレクトリを作った場合だけ再起動
+# 3. 以下のPythonコマンドを実行するため、リポジトリへ移動
+cd claude-trading-skills
+
+# 4. 起動後に最上位skillsディレクトリを作った場合だけ再起動
 ```
+
+以降のリポジトリ用コマンドは、このルートディレクトリから実行してください。
 
 > プロジェクト内だけで使うスキルは`.claude/skills/`からも検出されます。
 > 対応アカウントとインストール方法は
@@ -124,7 +129,7 @@ cp -r claude-trading-skills/skills/finviz-screener ~/.claude/skills/
 export FMP_API_KEY=your_key_here
 
 # または、スクリプト実行時に引数で指定
-python3 scripts/screen_canslim.py --api-key YOUR_KEY
+python3 skills/canslim-screener/scripts/screen_canslim.py --api-key YOUR_KEY
 ```
 
 ### FINVIZ Elite

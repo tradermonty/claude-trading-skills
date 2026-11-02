@@ -79,13 +79,13 @@ permalink: /ja/skills/pair-trade-screener/
 
 ```bash
 # 特定セクターでペアをスクリーニング
-python3 pair-trade-screener/scripts/find_pairs.py --sector Technology
+python3 skills/pair-trade-screener/scripts/find_pairs.py --sector Technology
 
 # 特定のペアを分析
-python3 pair-trade-screener/scripts/analyze_spread.py --stock-a AAPL --stock-b MSFT
+python3 skills/pair-trade-screener/scripts/analyze_spread.py --stock-a AAPL --stock-b MSFT
 
 # カスタム共和分パラメータ
-python3 pair-trade-screener/scripts/find_pairs.py \
+python3 skills/pair-trade-screener/scripts/find_pairs.py \
   --sector Financials \
   --min-correlation 0.7 \
   --lookback-days 365
@@ -145,8 +145,11 @@ GET /v3/historical-price-full/{symbol}?apikey=YOUR_API_KEY
 - データ品質の問題をログに記録
 
 **スクリプト実行:**
+
+価格取得は `find_pairs.py` に組み込まれています。このコマンドは独立した取得処理ではなく、スクリーニング全体を実行します。
 ```bash
-python scripts/fetch_price_data.py --sector Technology --lookback 730
+python3 skills/pair-trade-screener/scripts/find_pairs.py \
+  --sector Technology --lookback-days 730 --output reports/pair-trade/technology.json
 ```
 
 ### ステップ3: 相関とベータの計算
