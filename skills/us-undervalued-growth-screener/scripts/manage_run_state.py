@@ -376,8 +376,15 @@ def cmd_set_screening_audit(args: argparse.Namespace) -> int:
     planned = sorted({_validate_symbol(value) for value in deep_plan.get("selected_symbols", [])})
     if planned != normalized["selected_symbols"]:
         raise RunStateError("deep_dive_plan.selected_symbols must match selected_symbols")
-    if int(deep_plan.get("selected_count") or -1) != len(normalized["selected_symbols"]):
-        raise RunStateError("deep_dive_plan.selected_count must match selected_symbols")
+    selected_count = deep_plan.get("selected_count")
+    if (
+        type(selected_count) is not int
+        or selected_count < 0
+        or selected_count != len(normalized["selected_symbols"])
+    ):
+        raise RunStateError(
+            "deep_dive_plan.selected_count must be a non-negative integer matching selected_symbols"
+        )
     for key in (
         "all_selected_must_be_resolved",
         "budget_locked",
