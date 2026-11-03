@@ -161,7 +161,7 @@ HV = returns.std() * np.sqrt(252)  # 252 trading days
 
 **User Can Override:**
 - Provide IV from broker platform (ThinkorSwim, TastyTrade, etc.)
-- Script accepts `--iv 28.0` parameter
+- Pass broker IV of 28% as `sigma=0.28` to `OptionPricer`
 
 ### Step 3: Price Options Using Black-Scholes
 
