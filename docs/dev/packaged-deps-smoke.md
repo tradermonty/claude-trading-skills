@@ -18,7 +18,7 @@ fail-closed.
 - `scripts/smoke_contracts_runner.py` executes the table: fresh venv per skill,
   declared-requirements-only install, reverse import probes, contract
   commands. It writes `deps-nightly-smoke.json` and exits **nonzero on any
-  failure** — this exit-code fix is what makes the checklist item 4 flip
+  failure or incomplete coverage** — this exit-code fix is what makes the checklist item 4 flip
   meaningful.
 - `--root` allows running the same runner against an alternate checkout.
 
@@ -38,7 +38,7 @@ fail-closed.
 
 1. This PR (contracts + runner + exit codes) keeps
    `continue-on-error: true` — report-only promotion trial.
-2. Trigger one `workflow_dispatch` run; confirm every contract row is `ok`
+2. Trigger one `workflow_dispatch` run; confirm the aggregate `outcome` is `pass` and every skill row is `ok: true`
    in the `packaged-deps-nightly-report` artifacts.
 3. After the 2-week green window completes (effective green from 2026-09-27,
    so ≥ 2026-10-10/11) a follow-up PR removes `continue-on-error: true` and
@@ -53,3 +53,43 @@ fail-closed.
 2. Add the `SmokeContract` entry with a distinctive `expect_out` token.
 3. If coverage would move a skill out of `PENDING_SMOKE_CONTRACTS`, remove it
    from there in the same change — the partition test fails otherwise.
+
+## Evidence outcomes (issue #507 partial implementation)
+
+The runner distinguishes execution success from incomplete coverage. Its JSON
+contains `skills`, aggregate `outcome`, and `summary` counts of skill outcomes:
+
+| Outcome | Skill `ok` | Exit code | Meaning |
+|---|---|---|---|
+| `pass` | `true` | 0 | Every eligible skill installed, imported, and executed every declared contract successfully |
+| `fail` | `false` | 1 | Table/manifest validation, setup, import, command, or assertion failed |
+| `incomplete` | `null` | 2 | Pending, empty, or skipped contracts; or no eligible skills |
+
+A skill with both executed and skipped contracts is `incomplete` with
+`contracts_status: partial`. Other incomplete statuses are `pending_wave2`,
+`missing` (empty contract list), and `skipped`. Errors take precedence over
+incomplete coverage, both within a skill and in the aggregate. A setup failure
+has `contracts_status: not_run`, an empty `contracts` list, and outcome `fail`.
+
+Malformed requirements are a table failure before any subprocess runs, even
+when another skill could pass. Table failures include `table_problems`,
+`skills: []`, aggregate `outcome: fail`, and zero summary counts because no
+skill was executed. An empty eligible inventory likewise has zero counts but
+aggregate `outcome: incomplete`. Only skills with required third-party
+requirements are eligible; these counts do not cover all repository skills.
+
+Incomplete coverage prints GitHub `::warning::` annotations and never prints
+the all-passed message. Consumers must check `outcome == "pass"` or
+`ok is True`; `ok: null` is unverified, not successful evidence. Existing
+consumers that only inspect the old boolean field must adopt these semantics.
+
+The nightly job still has `continue-on-error: true` under #349. GitHub's job
+conclusion may remain green despite a nonzero runner exit; inspect annotations
+and the uploaded JSON. This change does not promote the job or establish a
+green observation window. It does not unpack `.skill` archives; the existing
+runner executes checkout scripts with isolated declared dependencies.
+
+The remaining #507 work includes per-skill HTTP fault injection and redaction,
+keyless optional-provider runs, synthetic personal-state CLI smokes, unified
+smoke/sample coverage inventory, archive execution, calendar/intraday replays,
+and sampled LLM checks. No scheduled or live run is claimed here.

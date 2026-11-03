@@ -313,3 +313,21 @@ Schedule the checker independently (for example daily from a separate watchdog)
 and inspect its nonzero exit. Running it only inside the monitored agents will
 not detect agents that have stopped firing. No LaunchAgent is installed or
 notification enabled by this repository change.
+
+
+## Smoke evidence layers (issue #507)
+
+| Layer | Current evidence / remaining work |
+|---|---|
+| PR CI | Offline dependency declarations, table/runner regression tests, provider fixtures, and workflow replay; not proof of every CLI failure path |
+| Nightly | Packaged dependency runner records `pass`, `fail`, or `incomplete`; job remains report-only under #349. Keyless optional-provider coverage and actual archive execution remain follow-ups |
+| Weekly sample | #506 tracks the separate live happy-path sample; it cannot establish fallback, personal-state, or failure-path coverage |
+| Monthly LLM sample | Instruction-only and model-driven checks remain planned under #507; they need separate runtime/cost authorization |
+
+Read the nightly artifact's aggregate `outcome` and per-skill rows, not only the
+GitHub conclusion. Exit 2 and `ok: null` mean incomplete coverage; warnings
+identify pending/skip cases. Exit 1 means a failure and overrides incomplete
+coverage. A report-only green job is not evidence of complete smoke success.
+See [packaged smoke outcomes](packaged-deps-smoke.md#evidence-outcomes-issue-507-partial-implementation)
+for the schema and remaining acceptance gaps. Issue #507 remains open until
+its full set of layers and coverage requirements is met.

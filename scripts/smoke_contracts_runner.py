@@ -9,8 +9,9 @@ executes, per third-party-required executable skill:
 3. each recorded contract command (args, expected exit, expected output
    substrings), or records a pending/skip row when no contract exists yet.
 
-Writes machine-readable evidence JSON and exits nonzero when any row fails —
-the nightly is promoted to fail-closed (checklist item 4) only together with
+Writes machine-readable evidence JSON: exit 0 for complete success, 1 for
+failure, and 2 for incomplete coverage (pending, skipped, or empty).
+The nightly is promoted to fail-closed (checklist item 4) only together with
 this exit-code fix; flipping `continue-on-error` alone does nothing.
 
 PRs do NOT run this file: the PR path stays network-free via
@@ -100,9 +101,19 @@ def main(argv: list[str] | None = None) -> int:
 
     table_problems = deps.validate_smoke_contracts(root)
     table_problems += deps.pending_contract_gaps(root)
+    manifests = sorted((root / "skills").glob("*/requirements.txt"))
+    eligible = []
+    for manifest in manifests:
+        entries, errors = deps.parse_requirements(manifest)
+        table_problems.extend(f"{manifest.parent.name}: {error}" for error in errors)
+        if any(not entry.optional for entry in entries.values()):
+            eligible.append((manifest, entries))
     if table_problems:
         Path(args.output).write_text(
-            json.dumps({"table_problems": table_problems}, indent=2) + "\n"
+            json.dumps(
+                {**_evidence([], table_problems), "table_problems": table_problems}, indent=2
+            )
+            + "\n"
         )
         for problem in table_problems:
             print(f"TABLE PROBLEM: {problem}")
@@ -114,18 +125,16 @@ def main(argv: list[str] | None = None) -> int:
         reverse.setdefault(dist.lower(), top)
 
     results = []
-    for manifest in sorted((root / "skills").glob("*/requirements.txt")):
+    for manifest, entries in eligible:
         skill_id = manifest.parent.name
-        entries, errors = deps.parse_requirements(manifest)
         required = [e for e in entries.values() if not e.optional]
-        if errors or not required:
-            continue  # parse errors gate in ci.yml; stdlib-only needs no venv
         venv_dir = root / f".venv-smoke-{skill_id}"
         row = {
             "id": skill_id,
             "ok": True,
             "errors": [],
-            "contracts_status": "executed",
+            "contracts_status": "not_run",
+            "contracts": [],
         }
         try:
             reset_venv_dir(venv_dir)
@@ -146,24 +155,57 @@ def main(argv: list[str] | None = None) -> int:
             if contract_errors:
                 row["ok"] = False
                 row["errors"].extend(contract_errors)
-            row["contracts"] = contract_rows
             if contract_rows == [{"contracts_status": "pending_wave2"}]:
                 row["contracts_status"] = "pending_wave2"
-                row["contracts"] = []
+            else:
+                row["contracts"] = contract_rows
+                executed = sum(not contract["skipped"] for contract in contract_rows)
+                if not contract_rows:
+                    row["contracts_status"] = "missing"
+                elif executed == len(contract_rows):
+                    row["contracts_status"] = "executed"
+                else:
+                    row["contracts_status"] = "partial" if executed else "skipped"
         except Exception as exc:  # noqa: BLE001 - evidence harness must record
             row["ok"] = False
             row["errors"].append(f"harness error: {exc}")
+        if not row["ok"]:
+            row["outcome"] = "fail"
+        elif row["contracts_status"] != "executed":
+            row["outcome"] = "incomplete"
+            row["ok"] = None
+        else:
+            row["outcome"] = "pass"
+        if row["outcome"] == "incomplete":
+            print(f"::warning::Smoke coverage incomplete for {skill_id}: {row['contracts_status']}")
         results.append(row)
-        print(("OK " if row["ok"] else "FAIL ") + skill_id + _status_suffix(row))
+        print(row["outcome"].upper() + " " + skill_id + _status_suffix(row))
 
-    evidence = {"skills": results}
+    evidence = _evidence(results)
     Path(args.output).write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
-    failed = [row["id"] for row in results if not row["ok"]]
+    failed = [row["id"] for row in results if row["outcome"] == "fail"]
     if failed:
         print(f"clean-room failures: {', '.join(failed)}")
         return 1
-    print("all clean-room smoke rows ok")
+    if evidence["outcome"] == "incomplete":
+        print("::warning::Clean-room smoke incomplete; pending, skipped, or no eligible skills")
+        return 2
+    print("all clean-room smoke rows passed")
     return 0
+
+
+def _evidence(rows: list[dict], table_problems: list[str] | None = None) -> dict:
+    summary = {
+        outcome: sum(row["outcome"] == outcome for row in rows)
+        for outcome in ("pass", "fail", "incomplete")
+    }
+    if table_problems or summary["fail"]:
+        outcome = "fail"
+    elif not rows or summary["incomplete"]:
+        outcome = "incomplete"
+    else:
+        outcome = "pass"
+    return {"skills": rows, "summary": summary, "outcome": outcome}
 
 
 def _status_suffix(row: dict) -> str:
