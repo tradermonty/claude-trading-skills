@@ -210,5 +210,23 @@ class TestGenerateChecklist:
         assert "Gold" in result
 
 
+class TestWindowsConsoleEncoding:
+    """main() must not crash on a legacy cp1252 console (default on Windows)."""
+
+    def test_main_survives_cp1252_stdout(self, monkeypatch):
+        import io
+
+        raw = io.BytesIO()
+        cp1252_stdout = io.TextIOWrapper(raw, encoding="cp1252")
+        monkeypatch.setattr(sys, "stdout", cp1252_stdout)
+
+        assert main(["--as-of", "2026-07-06T14:00:00Z"]) == 0
+
+        sys.stdout.flush()
+        output = raw.getvalue().decode("utf-8")
+        assert "Market Analysis Utility" in output
+        assert "📊" in output
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

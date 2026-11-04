@@ -8,6 +8,7 @@ This script provides common functions for market analysis report creation.
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -176,7 +177,24 @@ def generate_checklist():
 """
 
 
+def _ensure_utf8_output() -> None:
+    """Make stdout/stderr UTF-8 safe; Windows consoles default to cp1252.
+
+    Falls back to replacing unencodable characters if the stream cannot be
+    switched to UTF-8, so the emoji in the report never crash the script.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):
+            try:
+                stream.reconfigure(errors="replace")  # type: ignore[attr-defined]
+            except (AttributeError, ValueError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _ensure_utf8_output()
     parser = argparse.ArgumentParser(description="Show calendar-aware market environment details")
     parser.add_argument(
         "--as-of",
