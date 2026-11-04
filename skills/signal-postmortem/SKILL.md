@@ -69,13 +69,28 @@ python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
 For manual outcome recording (when price data is already available):
 
 ```bash
+# Look up the signal (ticker, date, direction, entry price, regime) by ID
 python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
   --signal-id sig_aapl_20260310_abc \
+  --signals-file state/signals/aggregated_signals_2026-03-10.json \
   --exit-price 178.50 \
   --exit-date 2026-03-15 \
   --outcome-notes "Closed at target, +3.2% in 5 days" \
   --output-dir reports/
+
+# No signal file: pass the signal fields as flags (they also override file values)
+python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
+  --signal-id trade_aapl_0310 \
+  --ticker AAPL --signal-date 2026-03-10 --direction LONG \
+  --source-skill technical-analyst --entry-price 172.50 \
+  --exit-price 178.50 --exit-date 2026-03-15 \
+  --output-dir reports/
 ```
+
+Manual records store the actual entry-to-exit return as `realized_returns.exit` and
+classify on it. Without an entry price (no signal found, no `--entry-price`), the
+record is written without returns, classified `NEUTRAL`, and a warning is printed.
+A `--signal-id` missing from the given `--signals-file`/`--signals-dir` is an error.
 
 ### Step 3: Classify Outcomes
 

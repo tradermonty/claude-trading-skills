@@ -136,8 +136,9 @@ def create_postmortem_record(
     entry_price = signal.get("entry_price", 0.0)
     regime_at_signal = signal.get("regime", "UNKNOWN")
 
-    # Use 5-day return for primary classification
-    primary_return = realized_returns.get("5d", 0.0)
+    # Use 5-day return for primary classification; manual records only carry
+    # the actual entry-to-exit return under "exit"
+    primary_return = realized_returns.get("5d", realized_returns.get("exit", 0.0))
 
     outcome_category = classify_outcome(
         predicted_direction, primary_return, regime_at_signal, regime_at_exit
@@ -281,6 +282,39 @@ def list_ready_signals(signals_dir: str, min_days: int = 5) -> list:
     return ready
 
 
+def load_signals(json_file: Path) -> list:
+    """
+    Load signals from a JSON file (a list or an object with a "signals" key).
+    """
+    with open(json_file) as f:
+        data = json.load(f)
+    return data if isinstance(data, list) else data.get("signals", [])
+
+
+def find_signal(
+    signal_id: str, signals_file: Optional[str] = None, signals_dir: Optional[str] = None
+) -> Optional[dict]:
+    """
+    Find a signal by ID in a signals file or in the JSON files of a signals directory.
+    """
+    files = []
+    if signals_file:
+        files.append(Path(signals_file))
+    if signals_dir:
+        files.extend(sorted(Path(signals_dir).glob("*.json")))
+
+    for json_file in files:
+        try:
+            signals = load_signals(json_file)
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"Warning: Error reading {json_file}: {e}", file=sys.stderr)
+            continue
+        for signal in signals:
+            if signal.get("signal_id") == signal_id:
+                return dict(signal)
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Record post-trade outcomes for signals")
     parser.add_argument("--signals-file", help="JSON file containing signals to process")
@@ -296,6 +330,21 @@ def main():
     )
     parser.add_argument(
         "--exit-date", help="Manual exit date (YYYY-MM-DD) for single signal recording"
+    )
+    parser.add_argument(
+        "--entry-price", type=float, help="Entry price for manual recording (overrides signal)"
+    )
+    parser.add_argument("--ticker", help="Ticker for manual recording (overrides signal)")
+    parser.add_argument(
+        "--signal-date", help="Signal date (YYYY-MM-DD) for manual recording (overrides signal)"
+    )
+    parser.add_argument(
+        "--direction",
+        choices=["LONG", "SHORT"],
+        help="Predicted direction for manual recording (overrides signal)",
+    )
+    parser.add_argument(
+        "--source-skill", help="Source skill for manual recording (overrides signal)"
     )
     parser.add_argument("--outcome-notes", default="", help="Notes about the outcome")
     parser.add_argument(
@@ -346,20 +395,66 @@ def main():
             )
             sys.exit(1)
 
-        # Create minimal signal record
-        signal = {
-            "signal_id": args.signal_id,
-            "ticker": args.signal_id.split("_")[1] if "_" in args.signal_id else "UNKNOWN",
-            "signal_date": args.signal_id.split("_")[2]
-            if args.signal_id.count("_") >= 2
-            else datetime.now().strftime("%Y-%m-%d"),
-            "predicted_direction": "LONG",
-            "source_skill": "manual",
-            "entry_price": 0.0,
+        if args.signal_date:
+            try:
+                datetime.strptime(args.signal_date, "%Y-%m-%d")
+            except ValueError:
+                print(
+                    f"Error: Invalid --signal-date {args.signal_date} (expected YYYY-MM-DD)",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        if args.signals_file or args.signals_dir:
+            if args.signals_file and not Path(args.signals_file).exists():
+                print(f"Error: Signals file not found: {args.signals_file}", file=sys.stderr)
+                sys.exit(1)
+            signal = find_signal(args.signal_id, args.signals_file, args.signals_dir)
+            if signal is None:
+                print(
+                    f"Error: Signal {args.signal_id} not found in the given signals file/dir",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            # Create minimal signal record
+            signal = {
+                "signal_id": args.signal_id,
+                "ticker": args.signal_id.split("_")[1] if "_" in args.signal_id else "UNKNOWN",
+                "signal_date": args.signal_id.split("_")[2]
+                if args.signal_id.count("_") >= 2
+                else datetime.now().strftime("%Y-%m-%d"),
+                "predicted_direction": "LONG",
+                "source_skill": "manual",
+                "entry_price": 0.0,
+            }
+
+        overrides = {
+            "ticker": args.ticker,
+            "signal_date": args.signal_date,
+            "predicted_direction": args.direction,
+            "source_skill": args.source_skill,
+            "entry_price": args.entry_price,
         }
+        signal.update({key: value for key, value in overrides.items() if value is not None})
+
+        realized_returns = {}
+        entry_price = signal.get("entry_price") or 0.0
+        if entry_price > 0:
+            realized_returns["exit"] = calculate_return(entry_price, args.exit_price)
+        else:
+            print(
+                f"Warning: No entry price for {args.signal_id}; recording without returns "
+                "(pass --entry-price, --signals-file or --signals-dir)",
+                file=sys.stderr,
+            )
 
         postmortem = create_postmortem_record(
-            signal, {}, args.exit_price, args.exit_date, outcome_notes=args.outcome_notes
+            signal,
+            realized_returns,
+            args.exit_price,
+            args.exit_date,
+            outcome_notes=args.outcome_notes,
         )
 
         # Save postmortem
@@ -381,10 +476,7 @@ def main():
         print(f"Error: Signals file not found: {args.signals_file}", file=sys.stderr)
         sys.exit(1)
 
-    with open(signals_path) as f:
-        data = json.load(f)
-
-    signals = data if isinstance(data, list) else data.get("signals", [])
+    signals = load_signals(signals_path)
 
     if not signals:
         print("No signals found in input file", file=sys.stderr)
