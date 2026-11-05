@@ -25,3 +25,5 @@ Broker adjustments (Trade Republic):
 - 1 € per executed order: show fees as % of planned risk; flag trades where round-trip fees exceed ~3% of risk
 
 End with a table of GO candidates: ticker, entry, stop, target, shares, risk €, fees, and the exact Trade Republic orders to place. All orders are placed manually.
+
+Then list the reports from this run, one line per report, with the `.md` and `.html` links side by side as clickable local paths, e.g. `VCP: [md](reports/<file>.md) · [html](reports/<file>.html)`. Never replace a link with a note like "HTML version alongside"; a report with no HTML gets only its `.md` link.

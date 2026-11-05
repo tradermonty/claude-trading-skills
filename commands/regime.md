@@ -19,5 +19,4 @@ Save reports to `reports/`. End with a short summary:
 - Exposure decision: **allow / restrict / cash-priority** (posture, not a buy/sell signal)
 - The 2–3 numbers that drove it
 - Next step: on `allow`, suggest `/swing`; otherwise say no new swing risk today
-- Human-readable reports: always link both explained HTML reports from this run as clickable local paths — `reports/market_breadth_<ts>.html` and `reports/uptrend_analysis_<ts>.html` (every metric with a plain-language "What it measures" / "Today" explanation)
-- Human-readable reports: always link both explained HTML reports from this run as clickable local paths — `reports/market_breadth_<ts>.html` and `reports/uptrend_analysis_<ts>.html` (every metric with a plain-language "What it measures" / "Today" explanation)
+- Reports: one line per report from this run, with the `.md` and `.html` links side by side as clickable local paths, e.g. `Uptrend: [md](reports/uptrend_analysis_<ts>.md) · [html](reports/uptrend_analysis_<ts>.html)`. The HTML versions (market_breadth, uptrend_analysis) explain every metric in plain language ("What it measures" / "Today"). Never replace a link with a note like "HTML version alongside"; a report with no HTML gets only its `.md` link
