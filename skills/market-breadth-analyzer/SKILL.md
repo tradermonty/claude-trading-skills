@@ -79,6 +79,8 @@ Present the generated Markdown report to the user, highlighting:
 - Key breadth levels to watch
 - Any data freshness warnings
 
+Always offer the generated HTML report (`market_breadth_<ts>.html`) to the user as a clickable local link. It is the human-readable version: every metric comes with a plain-language "What it measures" and "Today" explanation, so a beginner can read it without the methodology reference.
+
 ---
 
 ## 6-Component Scoring System
@@ -123,6 +125,7 @@ Both are publicly hosted on GitHub Pages - no authentication required.
 
 - JSON: `market_breadth_YYYY-MM-DD_HHMMSS.json`
 - Markdown: `market_breadth_YYYY-MM-DD_HHMMSS.md`
+- HTML: `market_breadth_YYYY-MM-DD_HHMMSS.html` (same data, with "what it measures" and a plain-language reading of today's value next to every number — the version for human readers)
 - History: `market_breadth_history.json` (persists across runs, max 20 entries)
 
 ## Reference Documents

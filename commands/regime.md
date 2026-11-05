@@ -19,3 +19,5 @@ Save reports to `reports/`. End with a short summary:
 - Exposure decision: **allow / restrict / cash-priority** (posture, not a buy/sell signal)
 - The 2–3 numbers that drove it
 - Next step: on `allow`, suggest `/swing`; otherwise say no new swing risk today
+- Human-readable reports: always link both explained HTML reports from this run as clickable local paths — `reports/market_breadth_<ts>.html` and `reports/uptrend_analysis_<ts>.html` (every metric with a plain-language "What it measures" / "Today" explanation)
+- Human-readable reports: always link both explained HTML reports from this run as clickable local paths — `reports/market_breadth_<ts>.html` and `reports/uptrend_analysis_<ts>.html` (every metric with a plain-language "What it measures" / "Today" explanation)

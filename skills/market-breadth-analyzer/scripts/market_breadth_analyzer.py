@@ -21,6 +21,7 @@ Usage:
 Output:
     - JSON: market_breadth_YYYY-MM-DD_HHMMSS.json
     - Markdown: market_breadth_YYYY-MM-DD_HHMMSS.md
+    - HTML: market_breadth_YYYY-MM-DD_HHMMSS.html
 """
 
 import argparse
@@ -46,6 +47,7 @@ from csv_client import (
     fetch_summary_csv,
 )
 from history_tracker import append_history, get_trend_summary
+from html_report import generate_html_report
 from provenance_contract import build_provenance, safe_source_url
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
@@ -255,9 +257,11 @@ def main():
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     json_file = os.path.join(args.output_dir, f"market_breadth_{timestamp}.json")
     md_file = os.path.join(args.output_dir, f"market_breadth_{timestamp}.md")
+    html_file = os.path.join(args.output_dir, f"market_breadth_{timestamp}.html")
 
     generate_json_report(analysis, json_file)
     generate_markdown_report(analysis, md_file)
+    generate_html_report(analysis, html_file)
 
     print()
     print("=" * 70)
@@ -268,6 +272,7 @@ def main():
     print(f"  Equity Exposure: {composite['exposure_guidance']}")
     print(f"  JSON Report: {json_file}")
     print(f"  Markdown Report: {md_file}")
+    print(f"  HTML Report: {html_file}")
     print()
 
 

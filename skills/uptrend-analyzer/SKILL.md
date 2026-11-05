@@ -68,6 +68,8 @@ Present the generated Markdown report to the user, highlighting:
 - Sector heatmap showing strongest and weakest sectors
 - Key momentum and rotation signals
 
+Always offer the generated HTML report (`uptrend_analysis_<ts>.html`) to the user as a clickable local link. It is the human-readable version, with a plain-language "What it measures" and "Today" explanation next to every metric.
+
 ---
 
 ## 5-Component Scoring System
