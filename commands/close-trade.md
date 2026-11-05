@@ -17,4 +17,6 @@ Steps:
 4. Skip `backtest-expert` unless I ask
 5. `trader-memory-core` — append lessons to the journal
 
+List every report from this run, one line per report, with the `.md` and `.html` links side by side as clickable local paths, e.g. `Postmortem: [md](reports/<file>.md) · [html](reports/<file>.html)`. Never replace a link with a note like "HTML version alongside"; a report with no HTML gets only its `.md` link.
+
 Be honest about luck vs. skill, on winners too. If this was the last open thesis of the month, suggest running the `monthly-performance-review` workflow.
