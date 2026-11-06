@@ -28,7 +28,7 @@ This skill provides comprehensive options strategy analysis and education using 
 
 **Optional:**
 - FMP API key (for real-time stock prices and historical volatility)
-  - Set via `FMP_API_KEY` environment variable or `--api-key` argument
+  - Supply the key to the optional Python data-fetching helpers; no pricing CLI flags are supported
   - Without API key: Use manual inputs for stock price and volatility
 
 **Installation:**
@@ -37,18 +37,24 @@ pip install numpy scipy requests
 ```
 
 **Quick Start Examples:**
-```bash
-# Basic call option pricing (no API key needed)
-python3 scripts/black_scholes.py
+Run from the installed skill directory after installing `requirements.txt`.
+Use the library for custom inputs; the module's fixed research demonstration does
+not parse ticker, pricing or strategy flags. This fictional European option uses
+`T` in years and annual decimal rates/volatility/dividend yield. The model assumes
+constant volatility/rates and continuous dividends; it is not a trading recommendation.
 
-# With FMP API key for real-time data
-python3 scripts/black_scholes.py --ticker AAPL --api-key $FMP_API_KEY
+<!-- options-library-example -->
+```python
+import sys
+from pathlib import Path
 
-# Custom option parameters
-python3 scripts/black_scholes.py --stock-price 180 --strike 185 --days 30 --volatility 0.25
+sys.path.insert(0, str(Path("scripts").resolve()))
+from black_scholes import OptionPricer
 
-# Put option analysis
-python3 scripts/black_scholes.py --stock-price 180 --strike 175 --days 30 --option-type put
+# Fictional European option; T is years, r/sigma/q are annual decimals.
+pricer = OptionPricer(S=100.0, K=100.0, T=1.0, r=0.0, sigma=0.2, q=0.0)
+greeks = pricer.get_all_greeks("call")
+print(greeks)
 ```
 
 ## When to Use This Skill
@@ -155,7 +161,7 @@ HV = returns.std() * np.sqrt(252)  # 252 trading days
 
 **User Can Override:**
 - Provide IV from broker platform (ThinkorSwim, TastyTrade, etc.)
-- Script accepts `--iv 28.0` parameter
+- Pass broker IV of 28% as `sigma=0.28` to `OptionPricer`
 
 ### Step 3: Price Options Using Black-Scholes
 
