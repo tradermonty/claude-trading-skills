@@ -29,7 +29,11 @@ Use `manage_run_state.py init` with live market context, source ledger, price ba
 
 ## Attach the Audit
 
-Use `attach-audit` only with a contract-3.5 audit whose runtime fingerprint matches the installed skill. The manager independently hashes the listing and candidate artifacts and checks their row counts and decisions.
+Use `set-screening-audit` only with a contract-3.5 audit whose runtime fingerprint matches the installed skill. The manager independently hashes the listing and candidate artifacts and checks their row counts and decisions.
+
+Attaching or replacing an audit is all-or-nothing. The manager validates the metadata and hashes staged copies of every artifact before touching the run, then commits the artifacts, audit, event log, and `run_state.json` together, restoring all of them if any step fails. A rejected command leaves the prior checkpoint byte-identical and exits 1.
+
+If the error says the prior checkpoint could not be fully restored, the prior files remain in the `.set-screening-audit-*` directory it names. A process killed during the commit cannot roll back: `prepublish_audit.py` rejects the resulting hash mismatch, and rerunning `set-screening-audit` repairs the run.
 
 ## Save Every Selected Candidate
 
