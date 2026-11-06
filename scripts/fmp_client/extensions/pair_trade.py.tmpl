@@ -1,0 +1,74 @@
+    # Pair-trade adapters retain latest-N-row semantics for sparse/delisted
+    # symbols: fetch available history without a current-date window.
+    def fetch_pair_history(self, symbol: str) -> Optional[dict]:
+        return self._request_with_fallback("historical", symbol)
+
+    def fetch_pair_screener_rows(self, params: dict) -> Optional[list]:
+        """Stable-only company screener with a controlled malformed-body failure."""
+        data = self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/company-screener", params=dict(params)
+        )
+        if isinstance(data, list) and all(
+            isinstance(row, dict) and isinstance(row.get("symbol"), str) and row["symbol"].strip()
+            for row in data
+        ):
+            return data
+        if data is not None:
+            self._last_error = "unexpected screener response shape"
+            print("ERROR: FMP returned an unexpected screener response shape", file=sys.stderr)
+        return None
+
+    @staticmethod
+    def _pair_history_issue(data, symbol: str) -> Optional[str]:
+        """Validate this target's data before shared normalization can inspect it."""
+        import math
+
+        if isinstance(data, list):
+            histories = [data]
+        elif isinstance(data, dict):
+            if data.get("symbol") is not None and not isinstance(data["symbol"], str):
+                return "non-string response symbol"
+            response_symbol = data.get("symbol")
+            if response_symbol and response_symbol.replace("-", ".") != symbol.replace("-", "."):
+                return "response symbol mismatch"
+            if "historical" in data:
+                histories = [data["historical"]]
+            elif "historicalStockList" in data:
+                entries = data["historicalStockList"]
+                if not isinstance(entries, list):
+                    return "historicalStockList is not a list"
+                histories = []
+                for entry in entries:
+                    if not isinstance(entry, dict) or not isinstance(entry.get("symbol"), str):
+                        return "invalid historicalStockList entry"
+                    if entry["symbol"].replace("-", ".") == symbol.replace("-", "."):
+                        histories.append(entry.get("historical", []))
+            else:
+                return "missing historical rows"
+        else:
+            return "unexpected historical response shape"
+        for history in histories:
+            if not isinstance(history, list):
+                return "historical rows are not a list"
+            for row in history:
+                if not isinstance(row, dict):
+                    return "historical row is not an object"
+                if row.get("symbol") is not None and not isinstance(row["symbol"], str):
+                    return "non-string historical row symbol"
+                day = row.get("date")
+                if not isinstance(day, str):
+                    return "invalid historical date"
+                try:
+                    if datetime.strptime(day, "%Y-%m-%d").strftime("%Y-%m-%d") != day:
+                        return "invalid historical date"
+                except ValueError:
+                    return "invalid historical date"
+                value = row.get("adjClose") or row.get("close")
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    return "invalid historical price"
+                try:
+                    if not math.isfinite(value):
+                        return "invalid historical price"
+                except OverflowError:
+                    return "invalid historical price"
+        return None

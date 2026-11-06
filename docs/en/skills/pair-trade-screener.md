@@ -145,7 +145,8 @@ Narrow focus to specific industry within sector:
 
 **FMP API Endpoint:**
 ```
-GET /v3/historical-price-full/{symbol}?apikey=YOUR_API_KEY
+GET /stable/historical-price-eod/full?symbol={symbol}
+Header: apikey: <FMP_API_KEY>
 ```
 
 **Data Validation:**

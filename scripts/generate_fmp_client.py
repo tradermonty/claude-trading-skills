@@ -49,6 +49,7 @@ FLAGS = (
     "hist_return_list",
     "query_auth",
     "configurable_timeout",
+    "pair_history_validation",
 )
 
 

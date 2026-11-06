@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.provider_contracts import _APIKEY_RE
 
 GENERATED_SKILLS = {
+    "pair-trade-screener",
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
     "kanchi-dividend-sop",
@@ -50,6 +51,7 @@ STOCKBEE_SKILLS = {
     "stockbee-setup-fluency-trainer",
 }
 NO_COMPAT_SKILLS = {
+    "pair-trade-screener",
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
     "kanchi-dividend-sop",
@@ -66,6 +68,7 @@ NO_COMPAT_SKILLS = {
     *STOCKBEE_SKILLS,
 }
 NO_BUDGET_FAMILY_B = {
+    "pair-trade-screener",
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
     "kanchi-dividend-sop",
@@ -335,3 +338,11 @@ def test_stockbee_stable_extension_is_scoped_to_stockbee_clients(gen):
             assert "stockbee_stable" not in cfg.extensions
             assert "def fetch_eod_rows" not in out
             assert "def _stable_rows" not in out
+
+
+def test_pair_history_guard_is_scoped_to_new_target(gen):
+    for skill, config in _skills(gen).items():
+        output = gen.render_fmp_client(config)
+        assert config.pair_history_validation is (skill == "pair-trade-screener")
+        assert ("def _pair_history_issue" in output) is (skill == "pair-trade-screener")
+        assert ("issue = self._pair_history_issue" in output) is (skill == "pair-trade-screener")

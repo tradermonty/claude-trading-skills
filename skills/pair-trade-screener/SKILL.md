@@ -114,7 +114,8 @@ Narrow focus to specific industry within sector:
 
 **FMP API Endpoint:**
 ```
-GET /v3/historical-price-full/{symbol}?apikey=YOUR_API_KEY
+GET /stable/historical-price-eod/full?symbol={symbol}
+Header: apikey: <FMP_API_KEY>
 ```
 
 **Data Validation:**
@@ -584,7 +585,7 @@ Deep dive into cointegration testing:
 - **Statistical foundation**: No discretionary interpretation
 - **Market neutral focus**: Minimize directional beta exposure
 - **Data quality critical**: Garbage in, garbage out
-- **Requires FMP API key**: Free tier sufficient for basic screening
+- **Requires FMP API key**: Access to company-screener and historical-price endpoints depends on your subscription.
 - **Python dependencies**: pandas, numpy, scipy, requests, and `statsmodels>=0.14,<0.15`
 
 ## Common Use Cases
@@ -655,10 +656,11 @@ Solutions:
 
 ## API Requirements
 
-- **Required**: FMP API key (free tier sufficient)
-- **Rate Limits**: ~250 requests/day on free tier
-- **Data Usage**: ~2 requests per symbol for 2-year history
-- **Upgrade**: Professional plan ($29/mo) recommended for frequent screening
+- **Required**: FMP API key with access to the company screener and historical-price endpoints.
+- **Transport**: Generated client; screener uses `/stable/company-screener` only. Historical prices try stable first, then the canonical legacy fallback.
+- **History**: Available history is fetched without a current-date bound, then the latest requested number of rows is retained. `adjClose` is preferred when supplied; otherwise `close` is used.
+- **Failures**: Invalid provider shapes fail with a diagnostic; an empty/failed sector request exits instead of producing a candidate list. Historical failures return no series.
+- **Access and quotas**: Depend on the provider plan; this migration does not verify free-tier availability, current pricing or quotas.
 
 ## Resources
 

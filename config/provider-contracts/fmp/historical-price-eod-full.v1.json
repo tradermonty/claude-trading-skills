@@ -22,7 +22,8 @@
     "stockbee-episodic-pivot-analyzer",
     "stockbee-exhaustion-hammer-screener",
     "stockbee-momentum-burst-screener",
-    "stockbee-setup-fluency-trainer"
+    "stockbee-setup-fluency-trainer",
+    "pair-trade-screener"
   ],
   "tier_notes": "flat list (not the legacy {symbol, historical} wrapper); the generated client's fallback normalizer rewraps it",
   "required_fields": {

@@ -135,7 +135,8 @@ python3 skills/pair-trade-screener/scripts/find_pairs.py \
 
 **FMP APIエンドポイント:**
 ```
-GET /v3/historical-price-full/{symbol}?apikey=YOUR_API_KEY
+GET /stable/historical-price-eod/full?symbol={symbol}
+Header: apikey: <FMP_API_KEY>
 ```
 
 **データ検証:**

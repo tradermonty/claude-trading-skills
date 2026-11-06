@@ -28,6 +28,7 @@ MODULES = (find_pairs, analyze_spread)
 class FakeResponse:
     def __init__(self, status_code=200, payload=None, json_error=False):
         self.status_code = status_code
+        self.text = "synthetic response"
         self._payload = payload
         self._json_error = json_error
 
@@ -38,18 +39,26 @@ class FakeResponse:
 
 
 def install_http(monkeypatch, module, handler):
-    """Route module.requests.get to handler(url, **kwargs) and record calls."""
+    """Route the actual generated Session transport and record header auth."""
+    import inspect
+
     calls = []
 
-    def fake_get(url, **kwargs):
-        calls.append((url, kwargs))
-        result = handler(url, **kwargs)
-        if isinstance(result, Exception):
-            raise result
-        return result
+    class Session:
+        def __init__(self):
+            self.headers = {}
 
-    monkeypatch.setattr(module.requests, "get", fake_get)
-    monkeypatch.setattr(module, "_endpoint_failures", {})
+        def get(self, url, **kwargs):
+            kwargs["headers"] = dict(self.headers)
+            calls.append((url, kwargs))
+            result = handler(url, **kwargs)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    generated = inspect.getmodule(module.FMPClient)
+    monkeypatch.setattr(generated.requests, "Session", Session)
+    monkeypatch.setattr(generated.time, "sleep", lambda _: None)
     return calls
 
 
@@ -206,17 +215,16 @@ def test_fetch_sector_stocks_filters_inactive_and_maps_fields(monkeypatch):
     assert kwargs["params"]["marketCapMoreThan"] == 1_000
 
 
-def test_fetch_sector_stocks_falls_back_through_failures(monkeypatch, capsys):
+def test_fetch_sector_stocks_can_recover_on_a_later_call(monkeypatch, capsys):
     responses = iter(
         [requests.exceptions.ConnectionError("boom"), FakeResponse(200, [{"symbol": "ZZZ"}])]
     )
     calls = install_http(monkeypatch, find_pairs, lambda url, **kw: next(responses))
-
-    stocks = find_pairs.fetch_sector_stocks("Energy", "key")
-
-    assert [s["symbol"] for s in stocks] == ["ZZZ"]
-    assert calls[1][0].endswith("/api/v3/stock-screener")
-    assert "screener request failed" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        find_pairs.fetch_sector_stocks("Energy", "key")
+    assert [s["symbol"] for s in find_pairs.fetch_sector_stocks("Energy", "key")] == ["ZZZ"]
+    assert all(call[0].endswith("/stable/company-screener") for call in calls)
+    assert "Request exception" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -227,14 +235,20 @@ def test_fetch_sector_stocks_falls_back_through_failures(monkeypatch, capsys):
         FakeResponse(200, []),
     ),
 )
-def test_fetch_sector_stocks_skips_bad_first_endpoint(monkeypatch, first):
+def test_fetch_sector_stocks_rejects_bad_responses(monkeypatch, first):
     responses = iter([first, FakeResponse(200, [{"symbol": "OK"}])])
     calls = install_http(monkeypatch, find_pairs, lambda url, **kw: next(responses))
 
-    stocks = find_pairs.fetch_sector_stocks("Energy", "key")
-
-    assert [s["symbol"] for s in stocks] == ["OK"]
-    assert len(calls) == 2
+    if first._json_error:
+        # Malformed JSON is retried once by the canonical transport.
+        assert [stock["symbol"] for stock in find_pairs.fetch_sector_stocks("Energy", "key")] == [
+            "OK"
+        ]
+        assert len(calls) == 2
+    else:
+        with pytest.raises(SystemExit):
+            find_pairs.fetch_sector_stocks("Energy", "key")
+        assert len(calls) == 1
 
 
 def test_fetch_sector_stocks_exits_when_nothing_found(monkeypatch, capsys):
@@ -260,12 +274,12 @@ def test_raw_historical_stable_endpoint_uses_symbol_query(monkeypatch, module):
         monkeypatch, module, lambda url, **kw: FakeResponse(200, history_payload())
     )
 
-    data = module._fetch_raw_historical("AAA", "key", params={"x": 1})
+    data = module.FMPClient(api_key="key").fetch_pair_history("AAA")
 
     assert len(data["historical"]) == 5
     url, kwargs = calls[0]
     assert url.endswith("/stable/historical-price-eod/full")
-    assert kwargs["params"] == {"x": 1, "symbol": "AAA"}
+    assert kwargs["params"] == {"symbol": "AAA"}
     assert kwargs["headers"] == {"apikey": "key"}  # pragma: allowlist secret
 
 
@@ -274,16 +288,17 @@ def test_raw_historical_falls_back_to_v3_path(monkeypatch, module):
     def handler(url, **kw):
         if "stable" in url:
             return FakeResponse(404, None)
-        return FakeResponse(200, history_payload())
+        payload = history_payload()
+        payload["symbol"] = "BRK.B"
+        return FakeResponse(200, payload)
 
     calls = install_http(monkeypatch, module, handler)
 
-    data = module._fetch_raw_historical("BRK-B", "key")
+    data = module.FMPClient(api_key="key").fetch_pair_history("BRK-B")
 
-    assert data["symbol"] == "AAA"
+    assert data["symbol"] == "BRK.B"
     assert calls[1][0].endswith("/api/v3/historical-price-full/BRK-B")
     assert calls[1][1]["params"] == {}
-    assert module._endpoint_failures[module._FMP_HIST_ENDPOINTS[0][0]] == 1
 
 
 @pytest.mark.parametrize("module", MODULES)
@@ -296,7 +311,7 @@ def test_raw_historical_unwraps_historical_stock_list(monkeypatch, module):
     }
     install_http(monkeypatch, module, lambda url, **kw: FakeResponse(200, payload))
 
-    data = module._fetch_raw_historical("BRK-B", "key")
+    data = module.FMPClient(api_key="key").fetch_pair_history("BRK-B")
 
     assert data == {"symbol": "BRK.B", "historical": [{"date": "2025-01-02", "close": 2}]}
 
@@ -309,34 +324,33 @@ def test_raw_historical_returns_none_for_unrecognized_payloads(monkeypatch, modu
         lambda url, **kw: FakeResponse(200, {"historicalStockList": [{"symbol": "X"}]}),
     )
 
-    assert module._fetch_raw_historical("AAA", "key") is None
+    client = module.FMPClient(api_key="key")  # pragma: allowlist secret
+    assert client.fetch_pair_history("AAA") is None
     assert len(calls) == 2
-    assert all(count == 1 for count in module._endpoint_failures.values())
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_raw_historical_circuit_breaker_skips_failing_endpoint(monkeypatch, module):
-    calls = install_http(
-        monkeypatch,
-        module,
-        lambda url, **kw: requests.exceptions.Timeout("slow"),
-    )
-
+def test_generated_client_circuit_breaker_is_instance_scoped(monkeypatch, module):
+    calls = install_http(monkeypatch, module, lambda url, **kw: requests.exceptions.Timeout("slow"))
+    client = module.FMPClient(api_key="key")
     for _ in range(3):
-        assert module._fetch_raw_historical("AAA", "key") is None
+        assert client.fetch_pair_history("AAA") is None
     assert len(calls) == 6
-    assert module._fetch_raw_historical("AAA", "key") is None
-    assert len(calls) == 6  # both endpoints tripped, no further requests
+    assert client.fetch_pair_history("AAA") is None
+    assert len(calls) == 6
+    # A separate public call creates a fresh client; earlier failures cannot disable it.
+    assert module.fetch_historical_prices("AAA", "key") is None
+    assert len(calls) == 8
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_raw_historical_success_resets_failure_counter(monkeypatch, module):
+def test_generated_historical_success_resets_failure_counter(monkeypatch, module):
     install_http(monkeypatch, module, lambda url, **kw: FakeResponse(200, history_payload()))
-    stable = module._FMP_HIST_ENDPOINTS[0][0]
-    module._endpoint_failures[stable] = 2
-
-    assert module._fetch_raw_historical("AAA", "key") is not None
-    assert module._endpoint_failures[stable] == 0
+    client = module.FMPClient(api_key="key")
+    stable = "https://financialmodelingprep.com/stable/historical-price-eod/full"
+    client._endpoint_failures[stable] = 2
+    assert client.fetch_pair_history("AAA") is not None
+    assert client._endpoint_failures[stable] == 0
 
 
 @pytest.mark.parametrize("module", MODULES)
