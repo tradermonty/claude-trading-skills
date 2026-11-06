@@ -25,6 +25,6 @@ Enable B904/B007/B017 and C901 with a fixed 128 ceiling. Resolve 22 skill/script
 
 ## Operational boundaries
 
-No provider requests, broker actions, personal-state access, repository settings changes, workflow dispatch or merge. Test dependency installation alone used network access. Original checkout remains unchanged. GitHub CLI auth is unavailable; use the connected GitHub tools for current metadata/PR creation and the existing SSH origin for the branch push.
+No provider requests, broker actions, personal-state access, repository settings changes, workflow dispatch or merge. Test dependency installation alone used network access. Original checkout remains unchanged. Sandboxed GitHub CLI authentication checks failed because network access was restricted; network-enabled authentication verification passed with the existing account. The connected GitHub integration rejected PR creation with 403 and browser control was unavailable, so publication uses the authenticated CLI. Branch push uses the existing SSH origin.
 
 All Issue acceptance criteria are implemented. The PR may carry Closes #618 after final gates pass; no Issue is closed directly. Original worktree remains on its original branch/head. Independent active PR #635 retains its separate pytest inventory scope; this PR leaves testpaths and root conftest untouched.
