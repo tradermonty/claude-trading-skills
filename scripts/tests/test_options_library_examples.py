@@ -23,6 +23,7 @@ PAGES = [
 def _example(page):
     text = (ROOT / page).read_text()
     assert "black_scholes CLI is a research entry point" not in text
+    assert "--iv" not in text, f"{page} documents a flag black_scholes.py does not parse"
     assert not re.search(
         r"python3?\s+(?:skills/options-strategy-advisor/)?scripts/black_scholes\.py", text
     )
