@@ -3,7 +3,7 @@ Tests for postmortem_analyzer.py
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from postmortem_analyzer import (
@@ -104,7 +104,7 @@ def large_postmortem_set():
                 "outcome_category": outcome,
                 "regime_at_signal": "RISK_OFF" if i >= 20 and i < 28 else "RISK_ON",
                 "realized_returns": {"5d": ret},
-                "recorded_at": datetime.utcnow().isoformat() + "Z",
+                "recorded_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             }
         )
 
@@ -130,7 +130,7 @@ def large_postmortem_set():
                 "outcome_category": outcome,
                 "regime_at_signal": "RISK_ON",
                 "realized_returns": {"5d": ret},
-                "recorded_at": datetime.utcnow().isoformat() + "Z",
+                "recorded_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             }
         )
 

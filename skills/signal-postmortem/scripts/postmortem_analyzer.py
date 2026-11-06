@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -182,7 +182,7 @@ def generate_weight_feedback(
 
     return {
         "schema_version": "1.0",
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
         "analysis_period": {"days_back": 90, "total_postmortems": total_samples},
         "skill_adjustments": adjustments,
         "confidence": confidence,
@@ -197,7 +197,7 @@ def generate_improvement_backlog(
     Generate skill improvement backlog entries.
     """
     entries = []
-    now = datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
 
     for skill, data in metrics.items():
         if data["sample_size"] < min_sample_size:

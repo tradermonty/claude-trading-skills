@@ -5,10 +5,13 @@ per-symbol retry, symbol-level fallback, and backend stats.
 """
 
 from datetime import date
+from json import JSONDecodeError
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
+import requests
 from etf_scanner import ETFScanner, _frame_on_or_before
 
 
@@ -318,7 +321,7 @@ class TestFMPQuoteFetch:
     def test_api_error_returns_empty(self, mock_requests):
         """API error returns empty dict."""
         scanner = self._make_scanner()
-        mock_requests.get.side_effect = Exception("Connection error")
+        mock_requests.get.side_effect = requests.ConnectionError("Connection error")
 
         result = scanner._fetch_fmp_quotes(["AAPL"])
         assert result == {}
@@ -471,7 +474,7 @@ class TestFMPHistoricalFetch:
     def test_api_error_returns_empty(self, mock_requests):
         """Total failure returns empty dict."""
         scanner = self._make_scanner()
-        mock_requests.get.side_effect = Exception("Timeout")
+        mock_requests.get.side_effect = requests.Timeout("Timeout")
 
         result = scanner._fetch_fmp_historical(["AAPL"], timeseries=20)
         assert result == {}
@@ -553,7 +556,7 @@ class TestBatchStockMetricsFMP:
         hist_resp = MagicMock()
         hist_resp.status_code = 200
         hist_resp.json.return_value = {"historicalStockList": []}
-        mock_requests.get.side_effect = [quote_resp, hist_resp]
+        mock_requests.get.side_effect = [quote_resp] + [hist_resp] * 20
 
         results = scanner._batch_stock_metrics_fmp(["AAPL"])
         assert results[0]["dist_from_52w_high"] == round((200 - 150) / 200, 4)
@@ -598,7 +601,7 @@ class TestBatchStockMetricsFMP:
         hist_resp = MagicMock()
         hist_resp.status_code = 200
         hist_resp.json.return_value = {"historicalStockList": []}
-        mock_requests.get.side_effect = [quote_resp, hist_resp]
+        mock_requests.get.side_effect = [quote_resp] + [hist_resp] * 20
 
         results = scanner._batch_stock_metrics_fmp(["AAPL"])
         assert results[0]["pe_ratio"] is None
@@ -903,7 +906,7 @@ class TestBackendStats:
             # Per-symbol retry for MSFT fails
             MagicMock(status_code=500),
             MagicMock(status_code=500),
-        ]
+        ] + [MagicMock(status_code=503)] * 20
 
         mock_df = pd.DataFrame(
             {
@@ -922,3 +925,130 @@ class TestBackendStats:
         stats = scanner.backend_stats()
         assert stats["yf_fallbacks"] == 1
         assert stats["yf_calls"] == 1
+
+
+@pytest.mark.parametrize("failure", [requests.Timeout("secret-url"), ValueError("secret-json")])
+def test_fmp_expected_failure_warns_and_retains_fallback(monkeypatch, capsys, failure):
+    import etf_scanner
+
+    scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
+    response = MagicMock(status_code=200)
+    response.json.return_value = [{"symbol": "AAPL"}]
+    get = MagicMock(side_effect=[failure, response])
+    monkeypatch.setattr(etf_scanner._requests_lib, "get", get)
+    assert scanner._fmp_request("quote", "AAPL") == [{"symbol": "AAPL"}]
+    assert scanner.backend_stats()["fmp_failures"] == 1
+    err = capsys.readouterr().err
+    assert "degraded" in err.lower()
+    assert "secret" not in err and "test_key" not in err
+
+
+def test_fmp_programming_error_propagates(monkeypatch):
+    import etf_scanner
+
+    monkeypatch.setattr(etf_scanner._requests_lib, "get", MagicMock(side_effect=AssertionError))
+    with pytest.raises(AssertionError):
+        ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)._fmp_request("quote", "AAPL")
+
+
+@pytest.mark.parametrize(
+    "failure", [requests.ConnectionError("secret-pe"), requests.Timeout("secret-url")]
+)
+def test_pe_expected_failure_warns(monkeypatch, capsys, failure):
+    import etf_scanner
+
+    monkeypatch.setattr(etf_scanner.yf, "Ticker", MagicMock(side_effect=failure))
+    assert ETFScanner(rate_limit_sec=0)._get_pe_ratio("FAKE") is None
+    err = capsys.readouterr().err
+    assert "degraded" in err.lower() and "secret" not in err
+
+
+def test_pe_programming_error_propagates(monkeypatch):
+    import etf_scanner
+
+    monkeypatch.setattr(etf_scanner.yf, "Ticker", MagicMock(side_effect=AssertionError))
+    with pytest.raises(AssertionError):
+        ETFScanner(rate_limit_sec=0)._get_pe_ratio("FAKE")
+
+
+@pytest.mark.parametrize("value", ["invalid", {}, []])
+def test_invalid_pe_conversion_warns(monkeypatch, capsys, value):
+    import etf_scanner
+
+    monkeypatch.setattr(
+        etf_scanner.yf, "Ticker", MagicMock(return_value=MagicMock(info={"trailingPE": value}))
+    )
+    assert ETFScanner(rate_limit_sec=0)._get_pe_ratio("FAKE") is None
+    assert "Degraded" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("family", ["curl", "yfinance", "json"])
+def test_yfinance_provider_exception_families(monkeypatch, capsys, family):
+    import etf_scanner
+    from curl_cffi.requests.exceptions import RequestException
+    from yfinance.exceptions import YFException
+
+    failure = {
+        "curl": RequestException("secret-transport"),
+        "yfinance": YFException("secret-provider"),
+        "json": JSONDecodeError("secret-response", "secret-body", 0),
+    }[family]
+    monkeypatch.setattr(etf_scanner.yf, "Ticker", MagicMock(side_effect=failure))
+    assert ETFScanner(rate_limit_sec=0)._get_pe_ratio("FAKE") is None
+    err = capsys.readouterr().err
+    assert "Degraded" in err and "secret" not in err
+
+
+def test_curl_cffi_absence_preserves_requests_fallback(monkeypatch, capsys):
+    """Optional curl-cffi absence must not prevent offline/FMP use."""
+    import builtins
+    import importlib.util
+    from pathlib import Path
+
+    real_import = builtins.__import__
+
+    def without_curl(name, *args, **kwargs):
+        if name.startswith("curl_cffi"):
+            raise ImportError("fictional absent optional transport")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_curl)
+    spec = importlib.util.spec_from_file_location(
+        "scanner_without_curl", Path(__file__).parents[1] / "etf_scanner.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.HAS_REQUESTS
+    assert not any(error.__module__.startswith("curl_cffi") for error in module._YF_ERRORS)
+    monkeypatch.setattr(module.yf, "Ticker", MagicMock(side_effect=requests.Timeout("private")))
+    assert module.ETFScanner(rate_limit_sec=0)._get_pe_ratio("FAKE") is None
+    assert "Degraded" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("missing", ["yfinance", "yfinance.exceptions"])
+def test_optional_yfinance_imports_preserve_fmp(monkeypatch, missing):
+    import builtins
+    import importlib.util
+    from pathlib import Path
+
+    original = builtins.__import__
+
+    def without_optional(name, *args, **kwargs):
+        if name == missing:
+            raise ImportError("fictional optional absence")
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_optional)
+    spec = importlib.util.spec_from_file_location(
+        "scanner_without_yf", Path(__file__).parents[1] / "etf_scanner.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.HAS_REQUESTS
+    assert module.HAS_YFINANCE is (missing != "yfinance")
+    response = MagicMock(status_code=200)
+    response.json.return_value = [{"symbol": "FAKE"}]
+    monkeypatch.setattr(module._requests_lib, "get", MagicMock(return_value=response))
+    assert module.ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)._fmp_request(
+        "quote", "FAKE"
+    ) == [{"symbol": "FAKE"}]

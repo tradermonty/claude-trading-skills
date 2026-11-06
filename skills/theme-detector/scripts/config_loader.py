@@ -80,7 +80,7 @@ def _load_yaml(path: str) -> dict:
     except ImportError:
         raise RuntimeError(
             "PyYAML is required but not installed. Install with: pip install pyyaml>=6.0"
-        )
+        ) from None
 
     with open(path) as f:
         return yaml.safe_load(f)

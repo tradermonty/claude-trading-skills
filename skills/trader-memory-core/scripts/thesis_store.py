@@ -98,7 +98,7 @@ def _check_datetime(value):
     try:
         dt = datetime.fromisoformat(normalized)
     except ValueError:
-        raise ValueError(f"Invalid date-time: {value}")
+        raise ValueError(f"Invalid date-time: {value}") from None
     # RFC 3339 requires timezone offset
     if dt.tzinfo is None:
         raise ValueError(f"date-time must include timezone offset: {value}")
@@ -1275,7 +1275,7 @@ def transition(
     try:
         new_idx = _STATUS_ORDER.index(new_status)
     except ValueError:
-        raise ValueError(f"Invalid status: {new_status}")
+        raise ValueError(f"Invalid status: {new_status}") from None
     if new_idx <= current_idx:
         raise ValueError(f"Cannot transition backward from {current} to {new_status}")
 
@@ -3491,4 +3491,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        raise SystemExit(1)
+        raise SystemExit(1) from None
