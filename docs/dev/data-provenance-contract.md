@@ -233,7 +233,7 @@ Quality flags remain false because the provider's PIT, adjustment and universe
 properties have not been established. All-skipped output explicitly identifies
 its as-of date as a request cutoff with no analyzed observations. Invalid dates
 in analyzed rows fail before JSON output is replaced. See the skill's
-[output contract](../../skills/cot-contrarian-detector/references/output-contract.md).
+[output contract](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/cot-contrarian-detector/references/output-contract.md).
 
 Shapiro's replay requires provenance on `cot_crowding_report` at every existing
 handoff/publication boundary. Its input metadata identifies an approved
