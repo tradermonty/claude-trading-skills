@@ -30,6 +30,7 @@ config/provider-contracts/
     profile.v1.json
     quote.v1.json
     historical-price-eod-full.v1.json
+    historical-price-eod-light.v1.json
     earnings-calendar.v1.json
     income-statement.v1.json
     ratios.v1.json
@@ -615,7 +616,7 @@ endpoints, and are excluded.
 | `institutional-ownership/symbol-positions-summary` | ❌ | canslim-screener | slice 2 |
 | `etf/holdings` | ❌ | theme-detector | slice 2 |
 | `economic-calendar` | ✅ | economic-calendar-fetcher | recorded contract + consumer validation; #332 economic-calendar slice |
-| `historical-price-eod/light` | ❌ | news-reaction-failure-analyzer | slice 2 |
+| `historical-price-eod/light` | ✅ | news-reaction-failure-analyzer | recorded SPY window; finite price contract |
 | `commitment-of-traders-report` | ❌ | cot-contrarian-detector | slice 2 |
 
 This table defines slice 2's completion criteria: every row marked ❌ needs its own
@@ -731,3 +732,44 @@ one request per contract with its dynamically computed call budget.
 This endpoint completes another part of Issue #332. Other uncovered endpoints
 in the inventory, cross-provider contracts, and production consumer reason
 codes remain separate work; this change does not close the Issue.
+
+
+## Light EOD endpoint contract (#332)
+
+`historical-price-eod-light.v1.json` records five SPY rows returned by one
+HTTP 200 `/stable/historical-price-eod/light` GET on 2026-11-06 UTC for
+2026-10-26 through 2026-10-30. Only public `symbol`, `date`, `price`, and
+`volume` values are retained. The subscription tier was not established;
+this observation proves neither free-tier availability nor futures coverage.
+HTTP denials and malformed response cases in tests are synthetic.
+
+The sole owner is `news-reaction-failure-analyzer`. Its required fields are
+non-null `date` (string) and `price` (int/float); `symbol` and `volume` are
+informational. The light endpoint uses `price`. A synthetic rename to `close`
+is rejected; `close` is not claimed as a historical provider alias. The
+existing generic series helper still supports full-endpoint `close` rows.
+
+The additive field rule `finite: true` requires numeric-only declared types
+and rejects NaN, infinity, and integers outside finite float range with fatal
+`non_finite_required_field:<field>`. Non-boolean policies or use with nonnumeric
+types produce `invalid_contract_rule:<field>:finite`, including on empty bodies.
+Existing contracts without this opt-in retain their current behavior. Nullable
+fields, if any, still follow their separate nullability rule.
+
+The consumer additionally checks canonical ISO dates before sorting and strips
+any extra `close` field so it cannot override the validated light `price`. Malformed
+bodies, rows, or required fields return static `schema_drift:<reason>` errors;
+values are not echoed. A literal empty list retains attempt status `0 rows`.
+A valid series containing only dates after `as_of` reports
+`no_rows_before_as_of`. Both cases advance the source chain; exhausting it
+retains `no_price_source` and the existing insufficient-evidence verdict.
+
+The scheduled FMP canary discovers the new contract and adds one GET to its
+computed budget. It reuses the fixed recorded SPY window to test shape and
+nonemptiness, without holiday-dependent empty windows; it does not measure
+current-data freshness. Probe errors remain unmasked by consumer fallbacks.
+The existing operational-health versus report-only schema-drift policy is
+unchanged. No workflow was dispatched or repository secret configured here.
+
+Issue #332 remains open for other uncovered endpoints/providers, broader
+consumer reason codes and remaining operational acceptance.

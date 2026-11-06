@@ -19,7 +19,16 @@ it's an endpoint-wide quirk, not an asset-class difference. Missing this
 would silently produce an all-rows-dropped empty series (every symbol
 would look like a `no_price_source` failure) rather than an obvious error.
 `reaction_math.build_sorted_series()` handles this by accepting `close`
-first, falling back to `price`.
+first, falling back to `price`. The live HTTP boundary now requires the actual
+light shape: a list of object rows with canonical ISO `date` and finite numeric
+`price` (booleans rejected). An extra `close` field is ignored at this endpoint
+boundary so it cannot override the validated `price`. A malformed response records
+`error: schema_drift:<reason>` and advances the fallback chain without logging
+raw values. Literal empty data retains `0 rows`; rows entirely beyond the
+`as_of` cutoff record `no_rows_before_as_of`. Exhausting the chain still gives
+`no_price_source` and `INSUFFICIENT_EVIDENCE`. The 2026-11-06 SPY recording under
+`config/provider-contracts/fmp/` verifies shape for one historical ETF window;
+it does not refresh the futures coverage table below.
 
 The chain constant lives in `scripts/analyze_news_reaction.py`
 (`PRICE_SOURCE_CHAINS`); this document records the verified status of each

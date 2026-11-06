@@ -356,6 +356,7 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
     ``missing_required_field:<f>``, ``null_required_field:<f>``,
     ``wrong_type:<f>:<got>``, ``all_null_required_field:<f>``,
     ``missing_required_value:<col>=<val>`` (a ``required_values`` entry no row carries),
+    ``non_finite_required_field:<f>``, ``invalid_contract_rule:<f>:finite``,
     ``invalid_contract_rule:<f>:reject_all_null`` and ``canonical_absent_legacy_present:<legacy>-><canonical>``
     are FATAL; ``legacy_alias_present:<legacy>` is a non-fatal DEPRECATION.
     """
@@ -363,6 +364,20 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
     for field_name, spec in contract.required_fields.items():
         if not isinstance(spec.get("reject_all_null", False), bool):
             anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:reject_all_null", FATAL))
+        finite = spec.get("finite", False)
+        types = spec.get("types", [])
+        if not isinstance(finite, bool) or (
+            finite
+            and (
+                not isinstance(types, list)
+                or not types
+                or any(not isinstance(t, str) or t not in {"int", "float"} for t in types)
+            )
+        ):
+            anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:finite", FATAL))
+    if any(a.code.endswith(":finite") for a in anomalies):
+        # Invalid policies cannot safely validate a response body, regardless of shape.
+        return RowValidation(anomalies)
     min_rows = int((contract.non_empty or {}).get("min_rows", 0) or 0)
 
     if rows is None or (isinstance(rows, list) and len(rows) == 0):
@@ -419,6 +434,13 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
             got = _type_name(value)
             if got not in allowed_types:
                 anomalies.append(Anomaly(f"wrong_type:{field_name}:{got}", FATAL))
+            elif spec.get("finite", False) is True and got in {"int", "float"}:
+                try:
+                    finite_value = math.isfinite(value)
+                except OverflowError:
+                    finite_value = False
+                if not finite_value:
+                    anomalies.append(Anomaly(f"non_finite_required_field:{field_name}", FATAL))
 
         for legacy_key, meta in contract.legacy_aliases.items():
             canonical = meta.get("canonical")

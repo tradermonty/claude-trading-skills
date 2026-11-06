@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -220,6 +221,40 @@ def _request_with_backoff(
     return None, error
 
 
+def _validate_light_rows(data: Any) -> str | None:
+    """Validate raw light-endpoint fields without leaking response values.
+
+    The generic series builder accepts close for other endpoints. This HTTP
+    boundary requires the actual light endpoint's price field and canonical dates.
+    """
+    if not isinstance(data, list):
+        return "schema_drift:not_a_list"
+    for row in data:
+        if not isinstance(row, dict):
+            return "schema_drift:row_not_object"
+        if "date" not in row:
+            return "schema_drift:missing_date"
+        raw_date = row["date"]
+        if not isinstance(raw_date, str):
+            return "schema_drift:invalid_date"
+        try:
+            if date.fromisoformat(raw_date).isoformat() != raw_date:
+                return "schema_drift:invalid_date"
+        except ValueError:
+            return "schema_drift:invalid_date"
+        if "price" not in row:
+            return "schema_drift:missing_price"
+        price = row["price"]
+        if isinstance(price, bool) or not isinstance(price, (int, float)):
+            return "schema_drift:invalid_price"
+        try:
+            if not math.isfinite(price):
+                return "schema_drift:invalid_price"
+        except OverflowError:
+            return "schema_drift:invalid_price"
+    return None
+
+
 class PriceClient:
     """Thin client for FMP's stable EOD price endpoint with rate limiting."""
 
@@ -242,7 +277,7 @@ class PriceClient:
         """Fetch daily EOD rows for one symbol. Returns (rows, None) on
         success -- rows may be an EMPTY list (a distinct, documented failure
         mode, e.g. VXUSD on this key: 200 OK but zero rows) -- or
-        (None, error) on an HTTP/transport failure."""
+        (None, error) on an HTTP/transport failure or malformed endpoint schema."""
         elapsed = time.time() - self.last_call_time
         if elapsed < self.sleep_seconds:
             time.sleep(self.sleep_seconds - elapsed)
@@ -252,7 +287,12 @@ class PriceClient:
         self.api_calls_made += 1
         if error:
             return None, error
-        return data if isinstance(data, list) else [], None
+        schema_error = _validate_light_rows(data)
+        if schema_error:
+            return None, schema_error
+        # The generic series helper prioritizes close for full-endpoint callers.
+        # Light's validated price must not be shadowed by an unrelated extra field.
+        return [{key: value for key, value in row.items() if key != "close"} for row in data], None
 
 
 def fetch_price_series(
@@ -298,7 +338,9 @@ def fetch_price_series(
         series = build_sorted_series(rows)
         series = [(d, c) for d, c in series if d <= as_of]
         if not series:
-            attempts.append({"price_symbol": price_symbol, "kind": kind, "status": "0 rows"})
+            attempts.append(
+                {"price_symbol": price_symbol, "kind": kind, "status": "no_rows_before_as_of"}
+            )
             continue
         attempts.append({"price_symbol": price_symbol, "kind": kind, "status": "ok"})
         return {
