@@ -179,3 +179,30 @@ def test_nested_paths_resolve_in_journal_and_manifest(tmp_path):
     for artifact in yaml.safe_load((output / "manifest.yaml").read_text())["artifacts"]:
         for path in artifact["files"].values():
             assert (output / path).is_file()
+
+
+@pytest.mark.parametrize("variant", ["required-only", "full-path"])
+@pytest.mark.parametrize("change", ["missing", "schema", "timestamp", "flag"])
+def test_cot_provenance_required_before_shapiro_handoff(tmp_path, variant, change):
+    def mutate(payload):
+        if change == "missing":
+            payload["report"].pop("data_provenance", None)
+        else:
+            block = payload["report"].setdefault("data_provenance", {})
+            field, value = {
+                "schema": ("schema_version", "99"),
+                "timestamp": ("retrieved_at", "not-a-time"),
+                "flag": ("point_in_time", "unknown"),
+            }[change]
+            block[field] = value
+
+    output = tmp_path / "published"
+    output.mkdir()
+    (output / "previous.json").write_bytes(b'{"preserve": true}\n')
+    with pytest.raises(replay.ReplayError, match="provenance") as error:
+        replay.execute_replay(
+            ROOT, SPEC, variant, output, input_overrides=override(tmp_path, "crowding", mutate)
+        )
+    assert error.value.completed_steps == []
+    assert sorted(p.name for p in output.iterdir()) == ["previous.json"]
+    assert (output / "previous.json").read_bytes() == b'{"preserve": true}\n'

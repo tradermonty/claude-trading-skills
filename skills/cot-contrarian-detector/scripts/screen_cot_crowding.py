@@ -42,7 +42,7 @@ import json
 import os
 import re
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -321,6 +321,7 @@ def build_run_context(
         "schema_version": SCHEMA_VERSION,
         "skill": SKILL_NAME,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "retrieved_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "as_of": args.as_of,
         "data_date": data_date,
         "universe_mode": universe_mode,
@@ -331,6 +332,48 @@ def build_run_context(
             "threshold_high": args.threshold_high,
             "threshold_low": args.threshold_low,
         },
+    }
+
+
+def build_data_provenance(
+    results: list[dict[str, Any]], run_context: dict[str, Any]
+) -> dict[str, Any]:
+    """Describe collected COT vintages without asserting historical availability.
+
+    The request cutoff is only a query reference when no markets were analyzed.
+    An analyzed row with an unknown vintage must never use that fallback.
+    """
+    market_dates = {}
+    for result in results:
+        if result["status"] != "ok":
+            continue
+        value = result.get("data_date")
+        try:
+            valid = isinstance(value, str) and date.fromisoformat(value).isoformat() == value
+        except ValueError:
+            valid = False
+        if not valid:
+            raise ValueError("Analyzed COT market requires a valid YYYY-MM-DD data_date")
+        # Repeated symbols may return different vintages during one collection.
+        # Preserve the oldest observation instead of silently refreshing it.
+        symbol = result["symbol"]
+        market_dates[symbol] = min(market_dates.get(symbol, value), value)
+
+    return {
+        "schema_version": "1.0",
+        "provider": "fmp",
+        "endpoint": "commitment-of-traders-report",
+        "retrieved_at": run_context["retrieved_at"],
+        "as_of": min(market_dates.values()) if market_dates else run_context["as_of"],
+        "timezone": "America/New_York",
+        "adjusted": False,
+        "point_in_time": False,
+        "survivorship_free": False,
+        "corporate_actions_handled": False,
+        "as_of_basis": (
+            "oldest_analyzed_market_report" if market_dates else "request_cutoff_no_analyzed_data"
+        ),
+        "market_data_dates": market_dates,
     }
 
 
@@ -345,6 +388,7 @@ def generate_json_report(
         "schema_version": SCHEMA_VERSION,
         "skill": SKILL_NAME,
         "run_context": run_context,
+        "data_provenance": build_data_provenance(results, run_context),
         "markets": ok_results,
         "skipped": skipped,
     }
@@ -582,10 +626,14 @@ def main() -> None:
     json_path = os.path.join(args.output_dir, f"cot_crowding_{args.as_of}.json")
     md_path = os.path.join(args.output_dir, f"cot_crowding_{args.as_of}.md")
 
-    if args.format in ("json", "both"):
-        generate_json_report(results, run_context, json_path)
-    if args.format in ("md", "both"):
-        generate_markdown_report(results, run_context, md_path)
+    try:
+        if args.format in ("json", "both"):
+            generate_json_report(results, run_context, json_path)
+        if args.format in ("md", "both"):
+            generate_markdown_report(results, run_context, md_path)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     ok_results = [r for r in results if r["status"] == "ok"]
     skipped = [r for r in results if r["status"] == "skipped"]

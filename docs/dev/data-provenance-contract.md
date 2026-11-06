@@ -223,3 +223,22 @@ fixture sources, fixed retrieval and fixture as-of dates; they do not claim a
 live fetch. Separate mocked-fetch main tests verify actual producer adoption.
 The existing publication transaction preserves previously published output on
 provenance failure. No live trading or API operation is needed for these checks.
+
+## Adopted producer and replay boundary: COT crowding
+
+The COT screener now emits the common block in its JSON output. UTC retrieval
+completion is independent of a historical request cutoff; the oldest analyzed
+market date bounds the reported vintage, with each market date retained.
+Quality flags remain false because the provider's PIT, adjustment and universe
+properties have not been established. All-skipped output explicitly identifies
+its as-of date as a request cutoff with no analyzed observations. Invalid dates
+in analyzed rows fail before JSON output is replaced. See the skill's
+[output contract](../../skills/cot-contrarian-detector/references/output-contract.md).
+
+Shapiro's replay requires provenance on `cot_crowding_report` at every existing
+handoff/publication boundary. Its input metadata identifies an approved
+fictional fixture, and both replay variants retain manual-contract evidence for
+the crowding step. This is not a live API acceptance test or a new strict
+provenance gate in native downstream consumers. Existing detector vintage
+checks remain distinct from the common schema's shape validation. This slice
+advances #297; the other FMP producers and workflows remain follow-up work.
