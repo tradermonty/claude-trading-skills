@@ -26,7 +26,7 @@ import math
 import os
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 try:
@@ -1331,7 +1331,7 @@ Environment Variables:
     # Add metadata
     output_data = {
         "metadata": {
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             "criteria": {
                 "dividend_yield_min": 3.0,
                 "pe_ratio_max": 20,

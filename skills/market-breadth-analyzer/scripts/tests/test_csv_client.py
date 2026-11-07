@@ -223,3 +223,24 @@ def test_check_last_modified_formats_header_and_swallows_head_failure(monkeypatc
 
     head.side_effect = requests.RequestException("offline")
     assert csv_client._check_last_modified("https://example.test/detail.csv") is None
+
+
+@pytest.mark.parametrize("failure", [requests.Timeout("secret-url"), ValueError("secret-header")])
+def test_head_expected_failure_warns_without_sensitive_text(monkeypatch, capsys, failure):
+    monkeypatch.setattr(csv_client.requests, "head", Mock(side_effect=failure))
+    assert csv_client._check_last_modified("https://example.test/detail.csv") is None
+    err = capsys.readouterr().err
+    assert "degraded" in err.lower() and "secret" not in err
+
+
+def test_head_programming_error_propagates(monkeypatch):
+    monkeypatch.setattr(csv_client.requests, "head", Mock(side_effect=AssertionError))
+    with pytest.raises(AssertionError):
+        csv_client._check_last_modified("https://example.test/detail.csv")
+
+
+def test_missing_head_metadata_marks_freshness_degraded(monkeypatch):
+    monkeypatch.setattr(csv_client, "_check_last_modified", Mock(return_value=None))
+    result = csv_client.check_data_freshness([{"Date": datetime.now().strftime("%Y-%m-%d")}])
+    assert result["is_fresh"] is True
+    assert "degraded" in result["warning"].lower()

@@ -100,6 +100,7 @@ winsound wsgiref xml xmlrpc zipapp zipfile zipimport zlib zoneinfo
 # Third-party top-level import name -> distribution package name.
 IMPORT_TO_DIST = {
     "requests": "requests",
+    "curl_cffi": "curl-cffi",
     "yfinance": "yfinance",
     "pandas": "pandas",
     "numpy": "numpy",
