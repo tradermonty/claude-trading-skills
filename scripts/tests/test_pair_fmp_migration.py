@@ -38,8 +38,11 @@ else:
 class Session:
     def __init__(self): self.headers = {}
     def get(self, url, params=None, timeout=None):
-        assert url.endswith("/stable/historical-price-eod/full")
         assert params == {"symbol": symbol}
+        if url.endswith("/stable/historical-price-eod/dividend-adjusted"):
+            # Unavailable on this key: the adapter must fall back to the full endpoint.
+            return SimpleNamespace(status_code=402, json=lambda: {}, text="")
+        assert url.endswith("/stable/historical-price-eod/full")
         return SimpleNamespace(status_code=200, json=lambda: payload, text="")
 client_module.requests.Session = Session
 series = module.fetch_historical_prices(symbol, "fixture-only", lookback_days=1)
