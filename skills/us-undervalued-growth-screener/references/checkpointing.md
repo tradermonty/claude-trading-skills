@@ -31,6 +31,8 @@ Use `manage_run_state.py init` with live market context, source ledger, price ba
 
 Use `set-screening-audit` only with a contract-3.5 audit whose runtime fingerprint matches the installed skill. The manager independently hashes the listing and candidate artifacts and checks their row counts and decisions.
 
+Once a run contains any candidate at stage `verified`, `set-screening-audit` rejects every attachment, including the identical audit, with exit 1 before changing any files. Verification belongs to the existing audit and must not silently carry over to new evidence. To rescreen, initialize a new run, attach its audit, and verify its candidates again. A run containing only draft candidates can still replace its audit; drafts remain unfinished and selected symbols must still be verified.
+
 Attaching or replacing an audit is all-or-nothing. The manager validates the metadata and hashes staged copies of every artifact before touching the run, then commits the artifacts, audit, event log, and `run_state.json` together, restoring all of them if any step fails. A rejected command leaves the prior checkpoint byte-identical and exits 1.
 
 Details of the commit:
@@ -41,7 +43,7 @@ Details of the commit:
 - Backups are deleted only after the commit succeeded or the restore finished with no failures. A restore that fails or is interrupted keeps the `.set-screening-audit-*` directory, and the command continues restoring the remaining files before it reports. If the directory cannot be removed after a clean outcome, the command prints a warning naming it; delete it by hand.
 - Non-finite numbers (`Infinity`), deeply nested JSON, and other malformed values are reported as `ERROR:` with exit 1 and no file changes.
 
-If the error says the prior checkpoint could not be fully restored, each failure line names the target and the `backup-N.tmp` file in the kept `.set-screening-audit-*` directory that holds its prior bytes. Copy that backup over the target by hand. Targets with no backup were new files and can be deleted. A process killed during the commit cannot roll back: `prepublish_audit.py` rejects the resulting hash mismatch, and rerunning `set-screening-audit` repairs the run.
+If the error says the prior checkpoint could not be fully restored, each failure line names the target and the `backup-N.tmp` file in the kept `.set-screening-audit-*` directory that holds its prior bytes. Copy that backup over the target by hand. Targets with no backup were new files and can be deleted. A process killed during the commit cannot roll back: `prepublish_audit.py` rejects the resulting hash mismatch. Rerunning `set-screening-audit` repairs a run without verified candidates. For a legacy interrupted replacement in a run with verified candidates, restore the prior checkpoint from backups or initialize a new run and verify again; reattachment is rejected.
 
 Limits that are documented rather than handled:
 
