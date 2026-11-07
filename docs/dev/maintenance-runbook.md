@@ -28,15 +28,19 @@ Related references (this runbook links rather than duplicates):
 ## 1. Environment setup
 
 ```bash
-uv sync --extra dev                                  # runtime + dev deps (pytest, jsonschema, pre-commit, ruff, ...)
+uv sync --extra dev --extra ci                       # runtime + dev deps + ci deps (PIL, statsmodels, ...)
 pre-commit install && pre-commit install --hook-type pre-push
 ```
+
+The `ci` extra is required for a full root run: with only `--extra dev`, root
+collection fails on missing imports such as `PIL` and `statsmodels`. This
+matches `.github/workflows/ci.yml`.
 
 Run tests:
 
 ```bash
-uv run pytest -q                                     # full suite
-uv run --extra dev pytest <path>                     # a subset
+uv run --extra dev --extra ci pytest -q              # full suite
+uv run --extra dev pytest <path>                     # a subset (dev extra is enough for most skills)
 bash scripts/run_all_tests.sh                        # per-skill isolation = the pre-push gate
 ```
 
@@ -45,8 +49,9 @@ or agent orchestration, use
 [`knowledge-skill-test-contract.md`](knowledge-skill-test-contract.md) as the
 minimum test contract instead of skipping tests.
 
-A fresh `git worktree` has its own venv — run `uv sync --extra dev` in it
-before `uv run pytest`, or collection fails with import errors.
+A fresh `git worktree` has its own venv — run `uv sync --extra dev --extra ci`
+in it before a full `uv run --extra dev --extra ci pytest -q`, or collection
+fails with import errors.
 
 ---
 

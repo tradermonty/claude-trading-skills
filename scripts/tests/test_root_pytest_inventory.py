@@ -120,3 +120,32 @@ def test_namespace_package_isolated_from_foreign_regular_package(tmp_path, monke
     finally:
         sys.modules.pop("shared_namespace.child", None)
         sys.modules.pop("shared_namespace", None)
+
+
+def test_runbook_full_suite_command_includes_ci_extra():
+    """The documented full root run must install and use the ci extra (PIL, statsmodels)."""
+    text = (ROOT / "docs/dev/maintenance-runbook.md").read_text(encoding="utf-8")
+    assert "uv sync --extra dev --extra ci" in text
+    assert "uv run --extra dev --extra ci pytest -q" in text
+    stripped = text.replace("uv sync --extra dev --extra ci", "")
+    assert "uv sync --extra dev" not in stripped
+    assert "uv run pytest -q" not in text
+
+
+def test_activate_skill_does_not_touch_unrelated_modules(monkeypatch):
+    """_activate_skill must check the module name before reading attributes."""
+    spec = importlib.util.spec_from_file_location("conftest_under_test", ROOT / "conftest.py")
+    conf = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(conf)
+    touched = []
+
+    class Lazy(ModuleType):
+        def __getattr__(self, attr):
+            touched.append(attr)
+            raise RuntimeError("lazy module attribute access")
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setitem(sys.modules, "unrelated_lazy_module_xyz", Lazy("unrelated_lazy_module_xyz"))
+    skill = ROOT / "skills" / "position-sizer"
+    conf._activate_skill(skill, str(skill / "scripts" / "tests"))
+    assert touched == []

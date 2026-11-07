@@ -192,10 +192,13 @@ def _activate_skill(skill: Path, test_dir: str) -> None:
     # Preserve each skill's module objects: collected tests may retain classes
     # that must remain identical to classes returned by later lazy imports.
     for name, module in list(sys.modules.items()):
+        # Check the name first so unrelated (possibly lazy) modules are never touched.
+        if name.split(".")[0] not in _CONFLICTING_BASENAMES:
+            continue
         filename = getattr(module, "__file__", None) or next(
             iter(getattr(module, "__path__", ())), ""
         )
-        if name.split(".")[0] not in _CONFLICTING_BASENAMES or _SKILLS_MARKER not in filename:
+        if _SKILLS_MARKER not in filename:
             continue
         owner = _skill_root(Path(filename) / "__init__.py")
         if owner is not None:
