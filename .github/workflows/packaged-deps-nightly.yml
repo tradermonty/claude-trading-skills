@@ -51,13 +51,11 @@ jobs:
       - name: Clean-room venv smoke per skill
         shell: bash
         run: |
-          # Runner exit codes: 0 pass, 1 fail, 2 incomplete coverage.
-          # Capture the code explicitly because the default shell is `bash -e`.
-          set +e
           uv run --isolated --no-project --with packaging \
-            python scripts/smoke_contracts_runner.py --output deps-nightly-smoke.json
-          status=$?
-          set -e
+            python scripts/smoke_contracts_runner.py --output deps-nightly-smoke.json || status=$?
+          # Runner exit codes: 0 pass, 1 fail, 2 incomplete coverage.
+          # `|| status=$?` captures the code because the default shell is `bash -e`.
+          status="${status:-0}"
           if [ "$status" -eq 2 ]; then
             echo "::warning::Clean-room smoke incomplete (runner exit 2); see aggregate outcome in deps-nightly-smoke.json"
             exit 0
