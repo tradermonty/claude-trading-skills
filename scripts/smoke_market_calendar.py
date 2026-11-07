@@ -19,6 +19,7 @@ CLI_PATHS = {
     "market-top-detector": "scripts/market_top_detector.py",
     "parabolic-short-trade-planner": "scripts/screen_parabolic.py",
     "theme-detector": "scripts/theme_detector.py",
+    "stockbee-momentum-burst-screener": "scripts/screen_momentum_burst.py",
 }
 RUNTIME_IMPORTS = {
     "parabolic-short-trade-planner": ("fmp_client",),

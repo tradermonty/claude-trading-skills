@@ -47,6 +47,10 @@ matrix:
     requirements:
     - pandas-market-calendars==5.2.2
     reason: Exercise the pinned shared cash-equity calendar contract.
+  stockbee-momentum-burst-screener:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    reason: Exercise the completed-session freshness gate and shared calendar contract.
   theme-detector:
     requirements:
     - pandas-market-calendars==5.2.2

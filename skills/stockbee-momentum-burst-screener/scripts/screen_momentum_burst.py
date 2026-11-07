@@ -26,14 +26,36 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 try:
     import requests
 except ImportError:  # pragma: no cover - environment guard
     requests = None
+
+
+def _load_calendar():
+    """Use this standalone bundle's sibling even when loaded by file path."""
+    name = "_stockbee_momentum_burst_screener_market_calendar"
+    module = sys.modules.get(name)
+    if module is None:
+        path = Path(__file__).resolve().parent / "_market_calendar.py"
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+    return module
+
+
+calendar = _load_calendar()
 
 
 @dataclass
@@ -154,6 +176,7 @@ class FMPClient:
             "priceMoreThan": min_price,
             "volumeMoreThan": int(min_volume),
             "exchange": "NASDAQ,NYSE,AMEX",
+            "isActivelyTrading": "true",
             "limit": 10000,
         }
         data = self._call(self._client.fetch_screener_rows, params)
@@ -167,7 +190,7 @@ class FMPClient:
             symbol = normalize_symbol(item.get("symbol", ""))
             if not symbol:
                 continue
-            if item.get("isEtf") or item.get("isFund"):
+            if item.get("isEtf") or item.get("isFund") or item.get("isActivelyTrading") is False:
                 continue
             item = dict(item)
             item["symbol"] = symbol
@@ -186,7 +209,9 @@ class FMPClient:
             return self.cache[cache_key]
 
         rows = self._call(self._client.fetch_eod_rows, symbol, days, pad_days=10)
-        bars = normalize_fmp_historical_response(rows, symbol, days)
+        # Keep every supplied row for date validation; apply the requested
+        # history length only after the completed-session cutoff in analysis.
+        bars = normalize_fmp_historical_response(rows, symbol, None)
         if rows is not None:
             # Only a provider answer is cached; a transport failure may recover.
             self.cache[cache_key] = bars
@@ -234,9 +259,97 @@ def safe_round(value: Any, digits: int = 2) -> float:
     return round(to_float(value), digits)
 
 
+def _iso_date(value: str) -> date:
+    try:
+        parsed = date.fromisoformat(value)
+        if parsed.isoformat() != value:
+            raise ValueError
+        return parsed
+    except (TypeError, ValueError) as exc:
+        raise ValueError("date must be canonical YYYY-MM-DD") from exc
+
+
+def _date_arg(value: str) -> str:
+    try:
+        _iso_date(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return value
+
+
+def _age_arg(value: str) -> int:
+    try:
+        count = int(value)
+        if count < 0:
+            raise ValueError
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("bar age must be a non-negative integer") from exc
+    return count
+
+
+def resolve_expected_session(as_of: str | None, *, now: datetime | None = None) -> date:
+    """Freeze the latest completed NYSE session, or an earlier explicit cutoff."""
+    now = calendar.require_aware(now if now is not None else datetime.now(timezone.utc))
+    today = now.astimezone(ZoneInfo("America/New_York")).date()
+    completed = calendar.previous_session_on_or_before("XNYS", today)
+    if completed.market_close > now:
+        completed = calendar.previous_session_before("XNYS", completed.session_date)
+    if as_of is None:
+        return completed.session_date
+    requested = calendar.previous_session_on_or_before("XNYS", _iso_date(as_of)).session_date
+    if requested > completed.session_date:
+        raise ValueError("as-of exceeds the latest completed NYSE session")
+    return requested
+
+
+@lru_cache(maxsize=512)
+def _bar_age(day: date, expected: date) -> int | None:
+    # Many symbols share a date; cache deterministic exchange-calendar queries.
+    if calendar.session_for_date("XNYS", day) is None:
+        return None
+    return calendar.count_sessions("XNYS", day, expected, include_start=False, include_end=True)
+
+
+def _eligible_bars(bars: list[Bar], args: argparse.Namespace):
+    expected = getattr(args, "_expected_session", None)
+    if expected is None:
+        expected = resolve_expected_session(getattr(args, "as_of", None))
+    allowed = getattr(args, "max_bar_age_sessions", 0)
+    if type(allowed) is not int or allowed < 0:
+        raise ValueError("max_bar_age_sessions must be a non-negative integer")
+    info = {
+        "expected_session": expected.isoformat(),
+        "max_bar_age_sessions": allowed,
+        "latest_bar_date": None,
+        "bar_age_sessions": None,
+    }
+    try:
+        for bar in bars:
+            _iso_date(bar.date)
+    except ValueError:
+        return [], info, ["invalid_price_date"]
+    eligible = sorted(
+        (bar for bar in bars if bar.date <= info["expected_session"]),
+        key=lambda bar: bar.date,
+        reverse=True,
+    )
+    history_days = getattr(args, "history_days", None)
+    if history_days is not None:
+        eligible = eligible[:history_days]
+    if not eligible:
+        return [], info, ["no_completed_price_data"]
+    info["latest_bar_date"] = eligible[0].date
+    age = _bar_age(_iso_date(eligible[0].date), expected)
+    info["bar_age_sessions"] = age
+    if age is None:
+        return eligible, info, ["invalid_price_date"]
+    return eligible, info, ["stale_price_data"] if age > allowed else []
+
+
 def normalize_bars(raw_bars: list[dict[str, Any]], limit: int | None = None) -> list[Bar]:
     """Normalize raw OHLCV dicts into most-recent-first Bar objects."""
     bars: list[Bar] = []
+    invalid_dates: list[Bar] = []
     for row in raw_bars or []:
         if not isinstance(row, dict):
             continue
@@ -248,7 +361,14 @@ def normalize_bars(raw_bars: list[dict[str, Any]], limit: int | None = None) -> 
             close=to_float(row.get("close") or row.get("adjClose")),
             volume=to_int(row.get("volume")),
         )
-        if not bar.date or min(bar.open, bar.high, bar.low, bar.close) <= 0:
+        try:
+            _iso_date(bar.date)
+        except ValueError:
+            # Keep unplaceable rows even when OHLC is unusable or beyond the limit.
+            # Analysis must reject the symbol rather than silently hide bad dates.
+            invalid_dates.append(bar)
+            continue
+        if min(bar.open, bar.high, bar.low, bar.close) <= 0:
             continue
         if bar.high < bar.low:
             continue
@@ -257,10 +377,12 @@ def normalize_bars(raw_bars: list[dict[str, Any]], limit: int | None = None) -> 
     bars.sort(key=lambda b: b.date, reverse=True)
     if limit is not None:
         bars = bars[:limit]
-    return bars
+    return invalid_dates + bars
 
 
-def normalize_fmp_historical_response(data: Any, symbol: str, limit: int) -> list[dict[str, Any]]:
+def normalize_fmp_historical_response(
+    data: Any, symbol: str, limit: int | None
+) -> list[dict[str, Any]]:
     """Normalize FMP stable/v3 historical responses to raw bar dicts."""
     if not data:
         return []
@@ -653,14 +775,17 @@ def score_to_state(score: int, market_gate: str, hard_rejected: bool) -> str:
 def analyze_symbol(symbol: str, bars: list[Bar], args: argparse.Namespace) -> dict[str, Any]:
     """Analyze one symbol and return a structured result."""
     symbol = normalize_symbol(symbol)
-    reject_reasons: list[str] = []
-    if len(bars) < max(25, args.min_base_days + 3):
+    bars, freshness, reject_reasons = _eligible_bars(bars, args)
+    if reject_reasons or len(bars) < max(25, args.min_base_days + 3):
         return {
             "symbol": symbol,
             "state": "REJECTED",
             "rating": "Reject",
             "setup_score": 0,
-            "reject_reasons": ["insufficient_history"],
+            "reject_reasons": reject_reasons or ["insufficient_history"],
+            "date": freshness["latest_bar_date"],
+            **freshness,
+            "downstream_action": downstream_action("REJECTED", "Reject"),
         }
 
     latest = bars[0]
@@ -717,6 +842,7 @@ def analyze_symbol(symbol: str, bars: list[Bar], args: argparse.Namespace) -> di
     return {
         "symbol": symbol,
         "date": latest.date,
+        **freshness,
         "state": state,
         "rating": rating,
         "setup_score": composite_score if not hard_rejected else 0,
@@ -779,6 +905,18 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--symbols", nargs="*", default=[], help="Explicit symbols to scan")
     parser.add_argument("--universe-file", help="CSV, JSON, or TXT file containing symbols")
     parser.add_argument("--prices-json", help="Offline OHLCV JSON keyed by symbol")
+
+    parser.add_argument(
+        "--as-of",
+        type=_date_arg,
+        help="Completed daily cutoff YYYY-MM-DD; default: latest completed NYSE session",
+    )
+    parser.add_argument(
+        "--max-bar-age-sessions",
+        type=_age_arg,
+        default=0,
+        help="Allowed age in NYSE sessions (default: 0)",
+    )
 
     # API / universe controls
     parser.add_argument("--max-symbols", type=int, default=300, help="Maximum symbols to process")
@@ -869,7 +1007,7 @@ def collect_price_data(
         except ApiCallBudgetExceeded:
             print(f"WARNING: API budget exhausted at {symbol}. Processing collected data.")
             break
-        bars = normalize_bars(raw, limit=args.history_days)
+        bars = normalize_bars(raw)
         if bars:
             price_data[symbol] = bars
 
@@ -963,6 +1101,9 @@ def generate_markdown_report(
         f"- Symbols processed: {metadata['symbols_processed']}",
         f"- Non-rejected candidates: {len(actionable)}",
         f"- Rejected candidates: {len(rejected)}",
+        f"- Expected completed NYSE session: {metadata.get('expected_session', 'unavailable')}",
+        f"- Maximum bar age (sessions): {metadata.get('max_bar_age_sessions', 0)}",
+        f"- Stale price data rejected: {metadata.get('stale_price_data_count', 0)}",
         "",
         "| State | Count |",
         "|---|---:|",
@@ -999,8 +1140,9 @@ def main() -> None:
     print("=" * 72)
 
     try:
+        args._expected_session = resolve_expected_session(args.as_of)
         price_data, api_stats = collect_price_data(args)
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, calendar.CalendarUnavailableError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -1010,8 +1152,12 @@ def main() -> None:
 
     print(f"  Symbols with price data: {len(price_data)}")
     results = []
-    for symbol, bars in price_data.items():
-        results.append(analyze_symbol(symbol, bars, args))
+    try:
+        for symbol, bars in price_data.items():
+            results.append(analyze_symbol(symbol, bars, args))
+    except (ValueError, calendar.CalendarUnavailableError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     results = sort_results(results)
     input_mode = (
@@ -1022,6 +1168,11 @@ def main() -> None:
         "input_mode": input_mode,
         "symbols_processed": len(price_data),
         "market_gate": args.market_gate,
+        "as_of": args.as_of,
+        "expected_session": args._expected_session.isoformat(),
+        "max_bar_age_sessions": args.max_bar_age_sessions,
+        "latest_bar_dates": {r["symbol"]: r["latest_bar_date"] for r in results},
+        "stale_price_data_count": sum("stale_price_data" in r["reject_reasons"] for r in results),
         "thresholds": {
             "four_pct_threshold": args.four_pct_threshold,
             "dollar_threshold": args.dollar_threshold,

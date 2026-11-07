@@ -3,6 +3,7 @@
 import json
 import sys
 from argparse import Namespace
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -23,6 +24,8 @@ from screen_momentum_burst import (  # noqa: E402
 
 def _args(**overrides):
     base = dict(
+        as_of="2026-01-30",
+        max_bar_age_sessions=0,
         min_price=5.0,
         min_volume=100_000,
         four_pct_threshold=4.0,
@@ -50,7 +53,14 @@ def _bar(d, o, h, low, c, v=200_000):
 def _flat_bars(n=30, close=100.0, volume=200_000):
     """Most-recent-first flat bars with distinct dates."""
     return [
-        Bar(f"2026-01-{n - i:02d}", close, close + 0.5, close - 0.5, close, volume)
+        Bar(
+            (date(2026, 1, 30) - timedelta(days=i)).isoformat(),
+            close,
+            close + 0.5,
+            close - 0.5,
+            close,
+            volume,
+        )
         for i in range(n)
     ]
 
@@ -241,6 +251,7 @@ def test_get_universe_filters_sorts_caches(client):
         "priceMoreThan": 5.0,
         "volumeMoreThan": 100_000,
         "exchange": "NASDAQ,NYSE,AMEX",
+        "isActivelyTrading": "true",
         "limit": 10000,
     }
     calls = client.api_calls_made
@@ -358,12 +369,13 @@ def test_normalize_bars_filters_sorts_limits():
         {"date": "2026-01-05", "open": 1, "high": 1, "low": 2, "close": 1},  # high < low
         {"date": "2026-01-02", "open": 1, "high": 2, "low": 1, "close": 1.2, "volume": "5"},
     ]
-    bars = smb.normalize_bars(raw)
+    unplaceable, *bars = smb.normalize_bars(raw)
+    assert unplaceable.date == ""  # retained for fail-closed analysis, never silently dropped
     assert [b.date for b in bars] == ["2026-01-03", "2026-01-02", "2026-01-01"]
     assert bars[0].close == 1.5
     assert bars[0].volume == 0
     assert bars[1].volume == 5
-    assert [b.date for b in smb.normalize_bars(raw, limit=1)] == ["2026-01-03"]
+    assert [b.date for b in smb.normalize_bars(raw, limit=1)] == ["", "2026-01-03"]
     assert smb.normalize_bars(None) == []
 
 
@@ -753,6 +765,12 @@ def test_downstream_action_for_each_state():
 def test_analyze_symbol_insufficient_history_skeleton():
     res = smb.analyze_symbol("x.y", _flat_bars(10), _args())
     assert res == {
+        "date": "2026-01-30",
+        "latest_bar_date": "2026-01-30",
+        "expected_session": "2026-01-30",
+        "max_bar_age_sessions": 0,
+        "bar_age_sessions": 0,
+        "downstream_action": smb.downstream_action("REJECTED", "Reject"),
         "symbol": "X-Y",
         "state": "REJECTED",
         "rating": "Reject",
@@ -826,7 +844,14 @@ def test_analyze_symbol_restrictive_gate_goes_manual_review_only():
 def test_analyze_symbol_soft_failure_tags_prior_runup():
     closes = [105, 100, 98, 96, 94, 92] + [90] * 24
     bars = [
-        Bar(f"2026-02-{30 - i:02d}", c, c + 0.5, c - 0.5, c, 200_000 if i else 500_000)
+        Bar(
+            (date(2026, 1, 30) - timedelta(days=i)).isoformat(),
+            c,
+            c + 0.5,
+            c - 0.5,
+            c,
+            200_000 if i else 500_000,
+        )
         for i, c in enumerate(closes)
     ]
     res = smb.analyze_symbol("RUN", bars, _args())
@@ -976,7 +1001,7 @@ def _col_args(**kw):
 def _price_rows(n=30, c=100.0):
     return [
         {
-            "date": f"2026-03-{n - i:02d}",
+            "date": (date(2026, 3, 30) - timedelta(days=i)).isoformat(),
             "open": c,
             "high": c + 1,
             "low": c - 1,
@@ -1093,7 +1118,7 @@ def _breakout_rows():
 
 
 def _run_main(monkeypatch, argv):
-    monkeypatch.setattr(sys, "argv", ["prog", *argv])
+    monkeypatch.setattr(sys, "argv", ["prog", "--as-of", "2026-03-30", *argv])
     smb.main()
 
 

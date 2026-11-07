@@ -52,7 +52,8 @@ Screen US stocks for Stockbee-style short-term Momentum Burst setups using 4% br
   ```bash
   export FMP_API_KEY=your_api_key_here
   ```
-- Optional no-API path: provide `--prices-json` containing daily OHLCV bars by symbol.
+- Install `requirements.txt`, including the pinned exchange-calendar dependency.
+- Optional no-API path: provide `--prices-json` containing daily OHLCV bars by symbol; historical fixtures need an explicit completed `--as-of YYYY-MM-DD`.
 - Run only after the market-regime workflow allows new swing risk, or mark output as manual-review-only.
 
 ---
@@ -93,8 +94,43 @@ python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py
 ```bash
 python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py \
   --prices-json data/daily_ohlcv.json \
+  --as-of 2026-11-06 \
   --output-dir reports/
 ```
+
+### Completed-session freshness gate
+
+Every input mode must pass the same freshness gate before scoring. The default
+cutoff is the most recently **completed NYSE session**, frozen before collection
+using the New York exchange calendar. Before the close, today's unfinished bar is
+excluded; weekends, holidays, DST and early closes follow the shared calendar.
+
+- `--as-of YYYY-MM-DD` selects the last session on/before that date. It must not
+  exceed the actual latest completed session, even if today was specified before
+  the close. Historical dates only clip the available input window: live FMP
+  requests do not guarantee that older data will be available or point-in-time.
+- `--max-bar-age-sessions N` permits at most N subsequent exchange sessions
+  (nonnegative integer; default **0**). A wider tolerance deliberately admits
+  older observations; it does not make them current. Keep the default for Day 1
+  screening.
+- Bars after the cutoff are excluded. Missing/noncanonical dates anywhere in
+  supplied rows produce `REJECTED` / `invalid_price_date`; a latest eligible bar
+  on a non-session day is also rejected. No eligible bar produces
+  `no_completed_price_data`. Too-old bars produce `stale_price_data`, score 0 and
+  a do-not-trade downstream action. Short usable history stays rejected.
+- Calendar failure exits 1 before reports are written; invalid flag syntax exits
+  2. A future/uncompleted as-of exits 1 before any provider request. Neither path
+  replaces existing reports. The FMP universe additionally requests active
+  equities and discards rows explicitly marked inactive; absent flags never
+  substitute for the bar freshness gate.
+
+JSON candidates include `latest_bar_date` (null if unplaceable/no eligible bar),
+`expected_session`, `bar_age_sessions` (null when unknown) and
+`max_bar_age_sessions`. Report metadata includes the expected session, allowed age,
+`latest_bar_dates` by symbol and `stale_price_data_count`. The Markdown summary
+shows cutoff, tolerance and stale count even without `--include-rejected`.
+Dates and freshness do not establish provider identity, completeness, adjustment
+or historical availability, and this screen never authorizes an order.
 
 ### Step 2: Run the Screening Pass
 
@@ -146,5 +182,6 @@ Use the output conservatively:
 
 **Scripts:**
 
+- `skills/stockbee-momentum-burst-screener/scripts/_market_calendar.py`
 - `skills/stockbee-momentum-burst-screener/scripts/fmp_client.py`
 - `skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py`
