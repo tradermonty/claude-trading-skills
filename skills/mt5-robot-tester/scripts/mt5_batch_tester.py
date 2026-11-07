@@ -482,7 +482,7 @@ def run_tester(
     except BaseException:
         if not terminate_child_process(proc):
             _quarantine_reports(data_dir, report_name, exts)
-            raise TerminalTerminationError(proc.pid, "interrupted")
+            raise TerminalTerminationError(proc.pid, "interrupted") from None
         raise
     timed_out = proc.poll() is None
     if timed_out:
