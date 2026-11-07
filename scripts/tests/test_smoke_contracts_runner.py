@@ -82,6 +82,9 @@ def test_main_exit_zero_all_ok(tmp_path, monkeypatch):
     evidence = json.loads(output.read_text())
     (demo_row,) = [row for row in evidence["skills"] if row["id"] == "demo"]
     assert demo_row["ok"] is True
+    assert demo_row["outcome"] == "pass"
+    assert evidence["outcome"] == "pass"
+    assert evidence["summary"] == {"pass": 1, "fail": 0, "incomplete": 0}
     (contract,) = demo_row["contracts"]
     assert contract["expect_out_match"] is True
     assert created == [root / ".venv-smoke-demo"]
@@ -161,18 +164,22 @@ def test_main_exit_one_on_table_validation_problem(tmp_path, monkeypatch):
     assert runner.main(["--output", str(output), "--root", str(root)]) == 1
     evidence = json.loads(output.read_text())
     assert any("unknown skill" in p for p in evidence["table_problems"])
+    assert evidence["outcome"] == "fail"
+    assert evidence["summary"] == {"pass": 0, "fail": 0, "incomplete": 0}
 
 
-def test_pending_skills_recorded_without_contract_failure(tmp_path, monkeypatch):
+def test_pending_skills_are_incomplete(tmp_path, monkeypatch):
     root = tmp_path / "repo"
     _base(root, monkeypatch)
     monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ("demo",))
     output = tmp_path / "evidence.json"
-    assert runner.main(["--output", str(output), "--root", str(root)]) == 0
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 2
     evidence = json.loads(output.read_text())
-    (demo_row,) = [row for row in evidence["skills"] if row["id"] == "demo"]
+    (demo_row,) = evidence["skills"]
     assert demo_row["contracts_status"] == "pending_wave2"
-    assert demo_row["ok"] is True
+    assert demo_row["ok"] is None
+    assert demo_row["outcome"] == "incomplete"
+    assert evidence["outcome"] == "incomplete"
 
 
 def test_skip_contract_recorded_as_skipped(tmp_path, monkeypatch):
@@ -185,9 +192,107 @@ def test_skip_contract_recorded_as_skipped(tmp_path, monkeypatch):
         {"demo": [deps.SmokeContract(script="", args=(), skip_reason="windows-only MT5 terminal")]},
     )
     output = tmp_path / "evidence.json"
-    assert runner.main(["--output", str(output), "--root", str(root)]) == 0
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 2
     evidence = json.loads(output.read_text())
-    (demo_row,) = [row for row in evidence["skills"] if row["id"] == "demo"]
-    assert demo_row["ok"] is True
+    (demo_row,) = evidence["skills"]
+    assert demo_row["ok"] is None
+    assert demo_row["outcome"] == "incomplete"
     (skip,) = demo_row["contracts"]
     assert skip["skipped"] is True and skip["skip_reason"]
+
+
+def test_mixed_skipped_and_executed_contracts_are_incomplete(tmp_path, monkeypatch, capsys):
+    root = tmp_path / "repo"
+    _base(root, monkeypatch)
+    _demo_script(root)
+    monkeypatch.setattr(
+        deps,
+        "SMOKE_CONTRACTS",
+        {
+            "demo": [
+                deps.SmokeContract(script="skills/demo/scripts/run.py", args=("--help",)),
+                deps.SmokeContract(script="", skip_reason="requires a terminal"),
+            ]
+        },
+    )
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 2
+    evidence = json.loads(output.read_text())
+    assert evidence["outcome"] == "incomplete"
+    assert evidence["summary"] == {"pass": 0, "fail": 0, "incomplete": 1}
+    assert evidence["skills"][0]["contracts_status"] == "partial"
+    assert evidence["skills"][0]["ok"] is None
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_failure_dominates_incomplete_coverage(tmp_path, monkeypatch):
+    root = tmp_path / "repo"
+    _base(root, monkeypatch)
+    _demo_script(root)
+    _manifest(root, "pending", "demothirdparty>=1.0\n")
+    monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ("pending",))
+    monkeypatch.setattr(
+        deps,
+        "SMOKE_CONTRACTS",
+        {
+            "demo": [
+                deps.SmokeContract(script="skills/demo/scripts/run.py", args=("--help",)),
+                deps.SmokeContract(script="", skip_reason="requires a terminal"),
+            ]
+        },
+    )
+    monkeypatch.setattr(runner, "run_command", _fake_cmds({"help": (1, "boom")}))
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 1
+    evidence = json.loads(output.read_text())
+    assert evidence["outcome"] == "fail"
+    assert evidence["summary"] == {"pass": 0, "fail": 1, "incomplete": 1}
+    assert evidence["skills"][0]["ok"] is False
+
+
+def test_empty_inventory_cannot_pass(tmp_path, monkeypatch, capsys):
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(deps, "SMOKE_CONTRACTS", {})
+    monkeypatch.setattr(deps, "PENDING_SMOKE_CONTRACTS", ())
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 2
+    evidence = json.loads(output.read_text())
+    assert evidence["outcome"] == "incomplete"
+    assert evidence["summary"] == {"pass": 0, "fail": 0, "incomplete": 0}
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_empty_contract_list_is_incomplete(tmp_path, monkeypatch):
+    root = tmp_path / "repo"
+    _base(root, monkeypatch)
+    monkeypatch.setattr(deps, "SMOKE_CONTRACTS", {"demo": []})
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 2
+    evidence = json.loads(output.read_text())
+    assert evidence["outcome"] == "incomplete"
+    assert evidence["skills"][0]["ok"] is None
+
+
+def test_malformed_manifest_cannot_hide_behind_passing_skill(tmp_path, monkeypatch):
+    root = tmp_path / "repo"
+    created = []
+    _base(root, monkeypatch, created)
+    _demo_script(root)
+    _manifest(root, "malformed", "requests @ https://example.invalid/pkg.whl\n")
+    monkeypatch.setattr(
+        deps,
+        "SMOKE_CONTRACTS",
+        {
+            "demo": [
+                deps.SmokeContract(script="skills/demo/scripts/run.py", args=("--help",)),
+            ]
+        },
+    )
+    output = tmp_path / "evidence.json"
+    assert runner.main(["--output", str(output), "--root", str(root)]) == 1
+    evidence = json.loads(output.read_text())
+    assert evidence["outcome"] == "fail"
+    assert any("malformed" in problem for problem in evidence["table_problems"])
+    assert evidence["skills"] == []
+    assert created == []
