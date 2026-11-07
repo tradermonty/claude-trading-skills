@@ -162,6 +162,13 @@ Field semantics:
   Earnings fields such as `epsActual` may legitimately be all-null before
   reporting and do not opt in. Non-boolean policy values fail both the offline
   fixture check and canary validation, including on empty responses.
+  Two more opt-in boolean policies exist, both default `false`. `finite: true`
+  requires numeric-only `types` (`int`/`float`) and rejects NaN, infinity and
+  integers outside finite float range. `iso_date: true` requires `types` to be
+  exactly `["str"]` and rejects any value that is not a canonical `YYYY-MM-DD`
+  calendar date. Only the light EOD contract opts in. A malformed policy value
+  fails the offline fixture check and canary validation, including on empty
+  responses.
 - **`optional_fields`** — every other field observed live but not read by any
   in-scope consumer. Informational only; not validated.
 - **`legacy_aliases`** — a field name the provider used to use (`mktCap`,
@@ -204,6 +211,10 @@ Produced by `validate_rows()` in `scripts/provider_contracts.py`:
 | `all_null_required_field:<f>` | fatal | every row explicitly has null for a field with `reject_all_null: true` |
 | `invalid_contract_rule:<f>:reject_all_null` | fatal | the opt-in policy value is not a JSON boolean |
 | `wrong_type:<f>:<got>` | fatal | required key's value type is outside its declared `types` |
+| `non_finite_required_field:<f>` | fatal | a value is NaN, infinity or out of float range for a field with `finite: true` |
+| `invalid_contract_rule:<f>:finite` | fatal | the `finite` policy is not a boolean, or its `types` are not numeric-only |
+| `invalid_date_format:<f>` | fatal | a value is not a canonical `YYYY-MM-DD` date for a field with `iso_date: true` |
+| `invalid_contract_rule:<f>:iso_date` | fatal | the `iso_date` policy is not a boolean, or `types` is not exactly `["str"]` |
 | `missing_required_value:<col>=<val>` | fatal | a `required_values` entry (for example `worksheet=all`) appears in no row |
 | `canonical_absent_legacy_present:<legacy>-><canonical>` | fatal | **the #328 signature** — the legacy field name showed up instead of the canonical one |
 | `legacy_alias_present:<legacy>` | deprecation (non-fatal) | both the legacy and canonical keys are present; informational only |
@@ -756,10 +767,22 @@ types produce `invalid_contract_rule:<field>:finite`, including on empty bodies.
 Existing contracts without this opt-in retain their current behavior. Nullable
 fields, if any, still follow their separate nullability rule.
 
+The contract's `date` field opts in to `iso_date: true`, so the canary flags a
+row dated `10/30/2026` with `invalid_date_format:date`, matching the consumer.
 The consumer additionally checks canonical ISO dates before sorting and strips
 any extra `close` field so it cannot override the validated light `price`. Malformed
 bodies, rows, or required fields return static `schema_drift:<reason>` errors;
-values are not echoed. A literal empty list retains attempt status `0 rows`.
+values are not echoed. Information cutoff: a row whose `date` parses as canonical
+ISO and is strictly after `as_of` is ignored by validation and dropped before
+analysis, so a malformed bar the run would discard cannot change which source is
+used. A row whose date cannot be parsed still counts as drift, because it cannot
+be placed relative to the cutoff. Non-list bodies and non-object rows are always
+drift, and any malformed row dated at or before `as_of` rejects the whole source.
+The reason is reported in `run_context.price_attempts` (JSON) and a `Price attempts`
+line (Markdown) as a static code: `schema_drift:<reason>`, `http_<NNN>`,
+`invalid_json`, `request_exception`, `0 rows`, `no_rows_before_as_of` or `ok`.
+Response text and the API key are never emitted. A literal empty list retains
+attempt status `0 rows`.
 A valid series containing only dates after `as_of` reports
 `no_rows_before_as_of`. Both cases advance the source chain; exhausting it
 retains `no_price_source` and the existing insufficient-evidence verdict.

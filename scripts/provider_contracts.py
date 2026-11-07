@@ -27,6 +27,7 @@ import io
 import math
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -348,6 +349,16 @@ def validate_contract_file(contract: Contract, skills_index_ids: Any) -> list[st
     return errors
 
 
+def _is_canonical_iso_date(value: Any) -> bool:
+    """True for a string in canonical YYYY-MM-DD form naming a real calendar day."""
+    if not isinstance(value, str):
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
 def validate_rows(contract: Contract, rows: Any) -> RowValidation:
     """Validate ``rows`` (a live or fixture response body) against ``contract``.
 
@@ -357,6 +368,7 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
     ``wrong_type:<f>:<got>``, ``all_null_required_field:<f>``,
     ``missing_required_value:<col>=<val>`` (a ``required_values`` entry no row carries),
     ``non_finite_required_field:<f>``, ``invalid_contract_rule:<f>:finite``,
+    ``invalid_date_format:<f>``, ``invalid_contract_rule:<f>:iso_date``,
     ``invalid_contract_rule:<f>:reject_all_null`` and ``canonical_absent_legacy_present:<legacy>-><canonical>``
     are FATAL; ``legacy_alias_present:<legacy>` is a non-fatal DEPRECATION.
     """
@@ -375,7 +387,10 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
             )
         ):
             anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:finite", FATAL))
-    if any(a.code.endswith(":finite") for a in anomalies):
+        iso_date = spec.get("iso_date", False)
+        if not isinstance(iso_date, bool) or (iso_date and types != ["str"]):
+            anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:iso_date", FATAL))
+    if any(a.code.endswith((":finite", ":iso_date")) for a in anomalies):
         # Invalid policies cannot safely validate a response body, regardless of shape.
         return RowValidation(anomalies)
     min_rows = int((contract.non_empty or {}).get("min_rows", 0) or 0)
@@ -441,6 +456,8 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
                     finite_value = False
                 if not finite_value:
                     anomalies.append(Anomaly(f"non_finite_required_field:{field_name}", FATAL))
+            elif spec.get("iso_date", False) is True and not _is_canonical_iso_date(value):
+                anomalies.append(Anomaly(f"invalid_date_format:{field_name}", FATAL))
 
         for legacy_key, meta in contract.legacy_aliases.items():
             canonical = meta.get("canonical")

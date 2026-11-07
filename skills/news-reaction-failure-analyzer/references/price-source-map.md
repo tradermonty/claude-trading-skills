@@ -23,8 +23,16 @@ first, falling back to `price`. The live HTTP boundary now requires the actual
 light shape: a list of object rows with canonical ISO `date` and finite numeric
 `price` (booleans rejected). An extra `close` field is ignored at this endpoint
 boundary so it cannot override the validated `price`. A malformed response records
-`error: schema_drift:<reason>` and advances the fallback chain without logging
-raw values. Literal empty data retains `0 rows`; rows entirely beyond the
+`schema_drift:<reason>` and advances the fallback chain without logging
+raw values. Information cutoff: a row whose date is canonical ISO and strictly
+after `as_of` is ignored by validation and dropped before analysis, so it cannot
+change which source is chosen; a row whose date cannot be parsed still counts as
+drift, and any malformed row at or before `as_of` rejects the whole source. Each
+attempt is reported in `run_context.price_attempts` (and a `Price attempts` line
+in the Markdown report) as `{symbol, price_symbol, kind, status}`, where `status` is
+a static code: `ok`, `0 rows`, `no_rows_before_as_of`, `schema_drift:<reason>`,
+`http_<NNN>`, `invalid_json`, `request_exception` or `error`. Response text and
+the API key are never included. Literal empty data retains `0 rows`; rows entirely beyond the
 `as_of` cutoff record `no_rows_before_as_of`. Exhausting the chain still gives
 `no_price_source` and `INSUFFICIENT_EVIDENCE`. The 2026-11-06 SPY recording under
 `config/provider-contracts/fmp/` verifies shape for one historical ETF window;

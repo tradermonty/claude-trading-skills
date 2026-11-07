@@ -20,7 +20,8 @@
       "types": [
         "str"
       ],
-      "nullable": false
+      "nullable": false,
+      "iso_date": true
     },
     "price": {
       "types": [

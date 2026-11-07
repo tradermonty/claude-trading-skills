@@ -164,7 +164,7 @@ def test_mixed_as_of_rows_are_clipped(contract, nrf):
 def test_denied_http_status_is_not_accepted(contract, nrf, status):
     result = series(nrf, client_with(nrf, contract.fixture, status))
     assert result["error"] == "no_price_source"
-    assert f"HTTP {status}" in result["attempts"][0]["status"]
+    assert result["attempts"][0]["status"] == f"http_{status}"
     probe = run_canary({ENDPOINT: contract}, lambda path, query: (status, contract.fixture))[
         ENDPOINT
     ]
@@ -227,3 +227,92 @@ def test_invalid_finite_rule_does_not_crash_on_nonempty_rows(types):
     )
     probe = run_canary({ENDPOINT: contract}, lambda path, query: (200, contract.fixture))[ENDPOINT]
     assert probe["ok"] is False
+
+
+# --- Date-format rule (iso_date) -------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["10/30/2026", "20261030", "2026-02-30", "2026-10-30T00:00:00", ""])
+def test_light_contract_flags_non_iso_dates_in_canary(contract, bad):
+    rows = copy.deepcopy(contract.fixture)
+    rows[2]["date"] = bad
+    result = validate_rows(contract, rows)
+    assert any(a.code == "invalid_date_format:date" for a in result.fatal_anomalies)
+    probe = run_canary({ENDPOINT: contract}, lambda path, query: (200, rows))[ENDPOINT]
+    assert probe["ok"] is False
+
+
+@pytest.mark.parametrize("value", ["true", 1, None])
+def test_malformed_iso_date_policy_is_fatal(value):
+    contract = copy.deepcopy(load_contracts(ROOT)[ENDPOINT])
+    contract.required_fields["date"]["iso_date"] = value
+    result = validate_rows(contract, contract.fixture)
+    assert any(a.code == "invalid_contract_rule:date:iso_date" for a in result.fatal_anomalies)
+
+
+def test_iso_date_requires_exactly_str_type():
+    contract = copy.deepcopy(load_contracts(ROOT)[ENDPOINT])
+    contract.required_fields["price"]["iso_date"] = True
+    result = validate_rows(contract, contract.fixture)
+    assert any(a.code == "invalid_contract_rule:price:iso_date" for a in result.fatal_anomalies)
+
+
+def test_iso_date_is_opt_in_for_existing_contracts():
+    contract = copy.deepcopy(load_contracts(ROOT)[ENDPOINT])
+    contract.required_fields["date"].pop("iso_date")
+    rows = copy.deepcopy(contract.fixture)
+    rows[0]["date"] = "10/30/2026"
+    assert validate_rows(contract, rows).ok
+
+
+# --- Mutation-resistance tests ----------------------------------------------
+
+
+@pytest.mark.parametrize("position", [0, 2, 4])
+@pytest.mark.parametrize("bad", [{"price": None}, {"date": "10/30/2026"}, {"price": "x"}])
+def test_consumer_checks_every_row_not_just_first_or_last(nrf, contract, position, bad):
+    rows = copy.deepcopy(contract.fixture)
+    rows[position].update(bad)
+    result = series(nrf, client_with(nrf, rows))
+    assert result["error"] == "no_price_source"
+    assert result["attempts"][0]["status"].startswith("schema_drift:")
+
+
+def test_consumer_flags_missing_date_key(nrf, contract):
+    rows = copy.deepcopy(contract.fixture)
+    del rows[3]["date"]
+    result = series(nrf, client_with(nrf, rows))
+    assert result["attempts"][0]["status"] == "schema_drift:missing_date"
+
+
+@pytest.mark.parametrize("position", [0, 2, 4])
+@pytest.mark.parametrize("price", [float("nan"), float("inf"), 10**400])
+def test_finite_rule_is_applied_to_every_row(contract, position, price):
+    rows = copy.deepcopy(contract.fixture)
+    rows[position]["price"] = price
+    codes = [a.code for a in validate_rows(contract, rows).fatal_anomalies]
+    assert codes == ["non_finite_required_field:price"]
+
+
+@pytest.mark.parametrize("position", [0, 2, 4])
+def test_close_is_stripped_from_every_row(nrf, contract, position):
+    rows = copy.deepcopy(contract.fixture)
+    rows[position]["close"] = 999
+    result = series(nrf, client_with(nrf, rows))
+    expected = sorted((row["date"], row["price"]) for row in contract.fixture)
+    assert result["series"] == expected
+
+
+def test_integer_prices_are_accepted(nrf, contract):
+    rows = copy.deepcopy(contract.fixture)
+    for row in rows:
+        row["price"] = 100
+    assert validate_rows(contract, rows).ok
+    result = series(nrf, client_with(nrf, rows))
+    assert result["error"] is None
+    assert all(price == 100 for _, price in result["series"])
+
+
+def test_fixture_has_exactly_the_documented_fields(contract):
+    for row in contract.fixture:
+        assert set(row) == {"symbol", "date", "price", "volume"}
