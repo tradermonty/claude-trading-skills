@@ -210,9 +210,12 @@ def check_data_freshness(
     last_modified = _check_last_modified(detail_url)
 
     warning = None
+    if last_modified is None:
+        warning = "Degraded freshness check: HTTP Last-Modified unavailable; using CSV date only."
     if not is_fresh:
         warning = (
-            f"Data is {days_old} days old (latest: {latest_date_str}). "
+            (warning + " " if warning else "")
+            + f"Data is {days_old} days old (latest: {latest_date_str}). "
             f"Threshold: {max_stale_days} days. Results may not reflect current conditions."
         )
 
@@ -236,8 +239,8 @@ def _check_last_modified(url: str) -> Optional[str]:
 
             dt = parsedate_to_datetime(lm)
             return dt.strftime("%Y-%m-%d %H:%M UTC")
-    except Exception:
-        pass
+    except (requests.RequestException, ValueError, TypeError, OverflowError):
+        print("WARN: Degraded freshness check; HTTP Last-Modified unavailable", file=sys.stderr)
     return None
 
 

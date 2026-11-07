@@ -31,6 +31,8 @@ additional_requirements:
   parabolic-short-trade-planner:
     - requests>=2.31.0
   theme-detector:
+    - requirement: curl-cffi>=0.7.0
+      optional: yfinance transport exception support; FMP remains available without it
     - requirement: finvizfinance>=1.0.0
       optional: FINVIZ client degrades to static config (HAS_FINVIZFINANCE)
     - numpy>=1.26.0

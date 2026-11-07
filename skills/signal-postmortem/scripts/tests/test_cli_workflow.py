@@ -20,7 +20,7 @@ class FixedDatetime(datetime):
 
     @classmethod
     def utcnow(cls):
-        return NOW
+        raise AssertionError("Use timezone-aware UTC now")
 
 
 @pytest.fixture(autouse=True)
