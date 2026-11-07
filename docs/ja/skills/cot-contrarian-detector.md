@@ -134,6 +134,7 @@ python3 skills/cot-contrarian-detector/scripts/screen_cot_crowding.py --output-d
 **リファレンス:**
 
 - `skills/cot-contrarian-detector/references/cot-index-calculation.md`
+- `skills/cot-contrarian-detector/references/output-contract.md`
 - `skills/cot-contrarian-detector/references/shapiro-methodology.md`
 
 **スクリプト:**

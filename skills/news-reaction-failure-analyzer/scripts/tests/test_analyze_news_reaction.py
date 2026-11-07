@@ -60,7 +60,7 @@ class _FakeSession:
 
 
 def make_eod_rows(dates, closes):
-    return [{"symbol": "X", "date": d, "close": c} for d, c in zip(dates, closes)]
+    return [{"symbol": "X", "date": d, "price": c} for d, c in zip(dates, closes)]
 
 
 TRADING_DATES = [f"2026-06-{i:02d}" for i in range(1, 30)]

@@ -1,4 +1,20 @@
 {
+  "data_provenance": {
+    "adjusted": false,
+    "as_of": "2026-08-07",
+    "as_of_basis": "oldest_analyzed_market_report",
+    "corporate_actions_handled": false,
+    "endpoint": "synthetic-cot-crowding",
+    "market_data_dates": {
+      "B6": "2026-08-07"
+    },
+    "point_in_time": false,
+    "provider": "fictional-fixture",
+    "retrieved_at": "2026-08-12T12:00:00Z",
+    "schema_version": "1.0",
+    "survivorship_free": false,
+    "timezone": "America/New_York"
+  },
   "markets": [
     {
       "classification": "CROWDED_SHORT",

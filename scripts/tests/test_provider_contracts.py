@@ -63,6 +63,7 @@ def test_expected_contracts_are_present():
         "quote",
         "historical-price-eod-full",
         "historical-price-eod-dividend-adjusted",
+        "historical-price-eod-light",
         "earnings-calendar",
         "economic-calendar",
         "income-statement",
@@ -638,6 +639,8 @@ def test_module_imports_with_requests_blocked():
 
 
 def _stub_fetch_ok(path, query):
+    if path == "/stable/historical-price-eod/light":
+        return 200, copy.deepcopy(CONTRACTS["historical-price-eod-light"].fixture)
     if path == "/stable/sp500-constituent":
         return 200, copy.deepcopy(SP500_FIXTURE)
     if "company-screener" in path:
@@ -680,6 +683,7 @@ def test_canary_success_writes_report_and_never_leaks_the_key(tmp_path, monkeypa
         "quote",
         "historical-price-eod-full",
         "historical-price-eod-dividend-adjusted",
+        "historical-price-eod-light",
         "earnings-calendar",
         "economic-calendar",
         "income-statement",

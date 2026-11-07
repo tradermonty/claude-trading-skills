@@ -160,6 +160,7 @@ confirm first.
 **References:**
 
 - `skills/cot-contrarian-detector/references/cot-index-calculation.md`
+- `skills/cot-contrarian-detector/references/output-contract.md`
 - `skills/cot-contrarian-detector/references/shapiro-methodology.md`
 
 **Scripts:**

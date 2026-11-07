@@ -8,6 +8,7 @@ inputs:
   decision: replay-inputs/decision.json
 steps:
 - step: 1
+  required_provenance: [cot_crowding_report]
   executor: shapiro_manual
   executor_mode: manual_contract
   gate_policy: continue
