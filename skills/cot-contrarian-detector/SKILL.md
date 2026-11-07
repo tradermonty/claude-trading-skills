@@ -112,7 +112,10 @@ confirm first.
 
 - **JSON:** `reports/cot_crowding_<as-of-date>.json` — machine-readable, with
   a `run_context` block (schema_version, params, universe, data_date) plus
-  `markets` (ranked results) and `skipped` (never silently dropped).
+  `markets` (ranked results) and `skipped` (never silently dropped). A top-level
+  `data_provenance` block records actual UTC retrieval time, conservative market
+  vintage and unverified quality flags. See `references/output-contract.md`
+  for the schema and the explicit all-skipped/no-observations case.
 - **Markdown:** `reports/cot_crowding_<as-of-date>.md` — human-readable
   report with Crowded Long / Crowded Short / Full Ranking / Week-over-Week
   Swings / Skipped Markets / Methodology sections.
@@ -155,6 +158,11 @@ report's non-commercial = large-speculator fields), and a glossary of the FMP
 COT API field names consumed by `scripts/cot_index.py`.
 
 Vendored client: `scripts/fmp_client.py` (generated) owns FMP transport — rate limiting, single 429 retry, header auth (the key never appears in a URL), and apikey redaction on `(data, error)` results (Issue #495).
+
+### `references/output-contract.md`
+JSON output and provenance fields, date semantics, failure behavior, and the
+fictional Shapiro replay boundary. Load when passing reports to another skill
+or explaining data freshness.
 
 ### When to Load References
 - **First use / explaining the methodology:** Load

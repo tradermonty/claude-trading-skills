@@ -70,11 +70,11 @@
   "sources": {
     "contrarian_setup_gate_report": {
       "file": "$ARTIFACT/04_contrarian_setup_gate_report.json",
-      "sha256": "1d3eceb534694d84d78a6224a8d578b8b9347ffc572b8f3b2aea725a5b7b805c"
+      "sha256": "99d4ce0ec2d0c7e2a312097dfd0b3e9e29fec6a4da4074678661092760781682"
     },
     "cot_crowding_report": {
       "file": "$ARTIFACT/01_cot_crowding_report.json",
-      "sha256": "cf2ff400d2f29838aeefe7d566cf712cb126f308720c241412f194e52008630a"
+      "sha256": "b9ef8c8df437dbaef4e5043f9279ebc47aa63a040d6971e8e0d5e2924d041d00"
     },
     "futures_position_size": {
       "file": "$ARTIFACT/05_futures_position_size.json",

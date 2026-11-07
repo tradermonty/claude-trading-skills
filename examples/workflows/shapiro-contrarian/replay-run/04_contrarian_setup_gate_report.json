@@ -35,7 +35,7 @@
   "replay_sources": {
     "cot_crowding_report": {
       "file": "$ARTIFACT/01_cot_crowding_report.json",
-      "sha256": "cf2ff400d2f29838aeefe7d566cf712cb126f308720c241412f194e52008630a"
+      "sha256": "b9ef8c8df437dbaef4e5043f9279ebc47aa63a040d6971e8e0d5e2924d041d00"
     },
     "news_failure_verdict": {
       "file": "$ARTIFACT/02_news_failure_verdict.json",
