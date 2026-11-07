@@ -904,7 +904,7 @@
       "integrations": [
         {
           "id": "alpaca",
-          "requirement": "required",
+          "requirement": "optional",
           "type": "broker"
         }
       ],
@@ -1725,7 +1725,7 @@
   ],
   "workflows": [
     {
-      "api_profile": "mixed",
+      "api_profile": "alpaca-required",
       "cadence": "weekly",
       "difficulty": "beginner",
       "display_name": "Core Portfolio Weekly",
@@ -1844,6 +1844,23 @@
         "part-time-swing-trader",
         "growth-investor",
         "macro-discretionary-trader"
+      ]
+    },
+    {
+      "api_profile": "no-api-basic",
+      "cadence": "weekly",
+      "difficulty": "beginner",
+      "display_name": "Offline Holdings Review",
+      "estimated_minutes": 15,
+      "id": "portfolio-holdings-review",
+      "optional_skills": [],
+      "prerequisite_workflows": [],
+      "required_skills": [
+        "portfolio-manager"
+      ],
+      "target_users": [
+        "long-term-investor",
+        "beginner"
       ]
     },
     {

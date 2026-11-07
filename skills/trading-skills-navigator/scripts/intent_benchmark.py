@@ -81,6 +81,10 @@ def load_benchmark(path: Path) -> dict[str, Any]:
             raise BenchmarkError(f"{case_id}: expected_candidate_personas must be a list")
         if not isinstance(case["tags"], list):
             raise BenchmarkError(f"{case_id}: tags must be a list")
+        if "target_workflow" in case and (
+            not isinstance(case["target_workflow"], str) or not case["target_workflow"].strip()
+        ):
+            raise BenchmarkError(f"{case_id}: target_workflow must be a non-empty string")
         options = case.get("options", {})
         if not isinstance(options, dict) or set(options) - {"no_api"}:
             raise BenchmarkError(f"{case_id}: unsupported recommendation options")
@@ -355,16 +359,33 @@ def evaluate_benchmark(benchmark: dict[str, Any], metadata: dict[str, Any]) -> d
                 )
             elif actual_selected == expected_neighbor:
                 persona_coverage[target]["neighbor_cases"] += 1
-            target_workflow = persona_by_name[target].primary
-            if target_workflow in workflow_coverage:
-                workflow_coverage[target_workflow]["hard_negative_cases"] += 1
+
         else:
             persona_coverage[target]["positive_languages"].add(case["language"])
             if target not in actual_candidates:
                 failures.append(f"{case_id}: target persona {target!r} did not match")
+
+        # Dynamic sub-routes can share a persona with a broader workflow. An
+        # explicit workflow guard counts the pinned expected route/fallthrough,
+        # while all candidate/persona/actual-route assertions above still apply.
+        if "target_workflow" in case:
+            target_workflow = case["target_workflow"]
+            if not isinstance(target_workflow, str) or target_workflow not in workflow_coverage:
+                failures.append(f"{case_id}: unknown target workflow {target_workflow!r}")
+            else:
+                guard = (
+                    "positive_cases"
+                    if case["expected_primary_workflow"] == target_workflow
+                    else "hard_negative_cases"
+                )
+                workflow_coverage[target_workflow][guard] += 1
+        else:
             target_workflow = persona_by_name[target].primary
             if target_workflow in workflow_coverage:
-                workflow_coverage[target_workflow]["positive_cases"] += 1
+                guard = (
+                    "hard_negative_cases" if case["label"] == "hard_negative" else "positive_cases"
+                )
+                workflow_coverage[target_workflow][guard] += 1
 
         if case["neighbor_of"] is not None and case["label"] != "hard_negative":
             neighbor = case["neighbor_of"]

@@ -118,9 +118,11 @@ Parse the JSON and explain, in the user's language:
   `goal_match.runnability: unshipped` means no dedicated workflow ships;
   `blocked` means the matching workflow cannot run under this request. Present
   `alternative_workflow` only as a different-goal on-ramp. CSV portfolio
-  review remains unavailable until #512 ships. Any CSV mention counts as
-  the portfolio source unless it is clearly an output (export/save/send) with
-  no input wording.
+  sources select `portfolio-holdings-review`, a limited gross-allocation route
+  without credentials. Supply the real file and an aware source timestamp to
+  its CLI; Navigator does not inspect or validate files. Explicit CSV output
+  (export/save/send), without input wording, keeps the full brokerage route.
+  If the offline workflow is absent from metadata, report that gap.
 - **Dropped secondaries** — under no-API mode, paid-API follow-on workflows
   are removed and listed in `dropped_secondary_workflows` (`{id, reason}`).
   Tell the user which steps were omitted; they do not block the goal.

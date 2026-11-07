@@ -11,7 +11,8 @@ For the full schema, error codes, and validator rules, see [`docs/dev/metadata-a
 | Workflow | Cadence | API profile | Anchor skills |
 |---|---|---|---|
 | [`market-regime-daily.yaml`](market-regime-daily.yaml) | daily (~15 min) | no-api-basic | market-breadth-analyzer, uptrend-analyzer, exposure-coach |
-| [`core-portfolio-weekly.yaml`](core-portfolio-weekly.yaml) | weekly (~60 min) | mixed | portfolio-manager, kanchi-dividend-review-monitor, trader-memory-core |
+| [`portfolio-holdings-review.yaml`](portfolio-holdings-review.yaml) | weekly (~15 min) | no-api-basic | portfolio-manager |
+| [`core-portfolio-weekly.yaml`](core-portfolio-weekly.yaml) | weekly (~60 min) | alpaca-required | portfolio-manager, kanchi-dividend-review-monitor, trader-memory-core |
 | [`swing-opportunity-daily.yaml`](swing-opportunity-daily.yaml) | daily (~40 min) | fmp-required | vcp-screener, drawdown-circuit-breaker, position-sizer, pre-trade-discipline-gate |
 | [`multi-asset-opportunity-daily.yaml`](multi-asset-opportunity-daily.yaml) | daily (~45 min) | mixed | macro-regime-detector, theme-detector, trade-hypothesis-ideator |
 | [`stockbee-ep-daily.yaml`](stockbee-ep-daily.yaml) | daily (~40 min) | mixed | drawdown-circuit-breaker, stockbee-episodic-pivot-analyzer, position-sizer, pre-trade-discipline-gate |
@@ -36,7 +37,7 @@ A workflow manifest has these main sections:
 
 Below the steps:
 - **`manual_review` / `manual_review_ja`** — item-aligned checklists the human must confirm. Workflows are semi-automated, not auto-execution. Human judgment remains in the loop.
-- **`journal_destination`** — which skill captures the workflow's outcome (always `trader-memory-core` here).
+- **`journal_destination`** — which skill captures the workflow's outcome when applicable. The read-only holdings workflow has no journal destination.
 - **`final_outputs`** — only on `monthly-performance-review`. Separates trade-side improvements from repo-side improvements and pairs `description` with `description_ja`.
 
 All human-facing Japanese fields are mandatory under `--strict-workflows`

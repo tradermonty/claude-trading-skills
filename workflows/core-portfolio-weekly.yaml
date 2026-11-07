@@ -8,7 +8,7 @@ target_users:
   - long-term-investor
   - dividend-investor
 difficulty: beginner
-api_profile: mixed
+api_profile: alpaca-required
 
 when_to_run: >-
   Once per week, typically on Saturday or Sunday before next week's market

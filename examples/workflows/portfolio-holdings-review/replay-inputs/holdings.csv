@@ -1,0 +1,3 @@
+symbol,asset_type,quantity,direction,price,currency,cost_basis
+FICTA,equity,2.5,LONG,20,USD,15
+FICTB,equity,1,SHORT,30,USD,40

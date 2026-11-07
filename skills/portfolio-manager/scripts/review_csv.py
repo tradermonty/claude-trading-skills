@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Produce a limited, offline equity-holdings allocation report from CSV."""
+"""Review limited USD equity allocation from CSV or saved Alpaca positions."""
 
 from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import re
 import sys
@@ -17,12 +18,12 @@ from typing import TextIO
 REQUIRED = {"symbol", "asset_type", "quantity", "direction", "price", "currency"}
 OPTIONAL = {"cost_basis", "account"}
 LIMITATIONS = [
-    "Local CSV assertions only; identity, completeness and price freshness are unverified.",
+    "Local snapshot assertions only; identity, completeness and price freshness are unverified.",
     "USD equities only. Weights use gross holdings value, not account equity.",
     "Cash, leverage, sector/beta, historical returns and trading recommendations are unavailable.",
     "P&L is per position only; missing per-share cost basis means unavailable, not zero.",
     "No broker access, order execution, or trader-memory changes. Not a reconciliation gate.",
-    "Navigator and workflow integration remain unshipped (#512).",
+    "Limited portfolio-holdings-review path only; full brokerage review requires reconciliation.",
 ]
 
 
@@ -136,12 +137,69 @@ def build_report(stream: TextIO, as_of: str) -> dict:
     }
 
 
+def build_alpaca_report(payload: object, as_of: str) -> dict:
+    """Normalize a saved /v2/positions list through the CSV analysis contract.
+
+    This adapter does not fetch positions or trust provider-calculated totals.
+    Only required holding fields and optional per-share entry prices survive.
+    """
+    if not isinstance(payload, list) or not payload:
+        raise CsvError("Alpaca snapshot must contain at least one position")
+    if len(payload) > 10000:
+        raise CsvError("Alpaca row limit is 10000 holdings")
+    stream = io.StringIO(newline="")
+    writer = csv.writer(stream)
+    writer.writerow(
+        ["symbol", "asset_type", "quantity", "direction", "price", "currency", "cost_basis"]
+    )
+    for index, position in enumerate(payload, 1):
+        if not isinstance(position, dict):
+            raise CsvError(f"position {index}: expected a position object")
+        for field in ("symbol", "asset_class", "qty", "side", "current_price"):
+            if not isinstance(position.get(field), str):
+                raise CsvError(f"position {index}: missing or invalid {field}")
+        if position["asset_class"] != "us_equity" or position.get("currency", "USD") != "USD":
+            raise CsvError(f"position {index}: only USD us_equity positions are supported")
+        side = position["side"]
+        quantity = position["qty"]
+        if side == "short":
+            if not quantity.startswith("-"):
+                raise CsvError(f"position {index}: short qty must be negative")
+            quantity = quantity[1:]
+        elif side != "long":
+            raise CsvError(f"position {index}: side must be long or short")
+        # Validate the magnitude before passing it to the unsigned CSV contract.
+        _number(quantity, index, "qty")
+        basis = position.get("avg_entry_price")
+        if basis is not None and not isinstance(basis, str):
+            raise CsvError(f"position {index}: invalid avg_entry_price")
+        writer.writerow(
+            [
+                position["symbol"],
+                "equity",
+                quantity,
+                side.upper(),
+                position["current_price"],
+                "USD",
+                basis if basis is not None else "",
+            ]
+        )
+    stream.seek(0)
+    report = build_report(stream, as_of)
+    report["provenance"]["source"] = "alpaca_positions_snapshot"
+    return report
+
+
 def render_markdown(report: dict) -> str:
     """Render only validated fields, never the input filename or account column."""
     lines = [
-        "# Offline CSV holdings review",
+        (
+            "# Offline CSV holdings review"
+            if report["provenance"]["source"] == "local_csv"
+            else "# Offline saved-position holdings review"
+        ),
         "",
-        f"Source: local_csv; as-of: {report['provenance']['as_of']} (operator asserted)",
+        f"Source: {report['provenance']['source']}; as-of: {report['provenance']['as_of']} (operator asserted)",
         "",
         f"Gross holdings value (USD): {report['gross_holdings_value']}",
         f"Signed net holdings value (USD): {report['net_holdings_value']}",
@@ -163,11 +221,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--as-of", required=True)
+    parser.add_argument("--input-format", choices=["csv", "alpaca-json"], default="csv")
     parser.add_argument("--output-dir", type=Path, default=Path("reports"))
     args = parser.parse_args(argv)
     try:
         with args.input.open(encoding="utf-8-sig", newline="") as stream:
-            report = build_report(stream, args.as_of)
+            if args.input_format == "alpaca-json":
+                try:
+                    payload = json.load(stream)
+                except (ValueError, RecursionError) as exc:
+                    raise CsvError("malformed Alpaca JSON snapshot") from exc
+                report = build_alpaca_report(payload, args.as_of)
+            else:
+                report = build_report(stream, args.as_of)
         targets = [args.output_dir / f"portfolio_csv_review.{ext}" for ext in ("json", "md")]
         if any(
             path.resolve() == args.input.resolve() or (path.exists() and path.samefile(args.input))

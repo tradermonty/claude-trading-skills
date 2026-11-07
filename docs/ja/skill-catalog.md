@@ -186,7 +186,7 @@ permalink: /ja/skill-catalog/
 
 | スキル | 説明 | API要件 |
 |--------|------|---------|
-| **Portfolio Manager** | Alpaca MCP Serverでリアルタイム保有データを取得。資産配分、リスク指標、HOLD/ADD/TRIM/SELL推奨を生成 | <span class="badge badge-api">Alpaca必須</span> |
+| **Portfolio Manager** | Alpaca MCP Serverでリアルタイム保有データを取得。資産配分、リスク指標、HOLD/ADD/TRIM/SELL推奨を生成 | <span class="badge badge-api">包括分析はAlpaca必須</span> |
 | **[Trader Memory Core]({{ '/ja/skills/trader-memory-core/' | relative_url }})** | 投資仮説のライフサイクルを永続追跡。スクリーナー出力をIDEAとして登録し、ENTRY_READY→ACTIVE→CLOSEDのステート遷移、ポジションサイジング付与、レビュースケジュール、MAE/MFE付きポストモーテム生成をサポート | <span class="badge badge-optional">FMP任意</span> |
 | **[Trade Performance Coach]({{ '/ja/skills/trade-performance-coach/' | relative_url }})** | クローズドトレード・部分クローズ・月次集計をプロセス／リスク／執行／行動パターン／レビュー品質の5軸でレビューし、OK/WARN/REVIEW_REQUIRED/RULE_VIOLATION/COOL_DOWN の verdict と次セッション運用ルール、人間判断ゲートを生成するポストトレードコーチ。Beta。 | <span class="badge badge-free">API不要</span> |
 | **[Drawdown Circuit Breaker]({{ '/ja/skills/drawdown-circuit-breaker/' | relative_url }})** | trader-memory-coreの状態を読み、実現損益・連敗・週次/月次ドローダウンから TRADING_ALLOWED / COOLDOWN / HALTED を返す口座レベルの新規リスクゲート | <span class="badge badge-free">API不要</span> |
@@ -345,7 +345,7 @@ permalink: /ja/skill-catalog/
 | Pair Trade Screener | 必須 | - | - |
 | Parabolic Short Trade Planner | 必須 | - | 任意 |
 | PEAD Screener | 必須 | - | - |
-| Portfolio Manager | - | - | 必須 |
+| Portfolio Manager | - | - | 任意 |
 | Position Sizer | - | - | - |
 | Pre-Trade Discipline Gate | - | - | - |
 | Residual Edge Analyzer | - | - | - |

@@ -709,6 +709,7 @@ PERSONAS: tuple[Persona, ...] = (
             "保有銘柄",
             "保有を見直",
             "ポートフォリオを見直",
+            "ポートフォリオを確認",
             "長期投資",
             "長期保有",
             "リバランス",
@@ -1162,7 +1163,16 @@ def recommend(
             routing_diagnostics["explanation"] = (
                 f"No-API intent is a constraint; selected goal persona '{substantive.name}'."
             )
+    csv_portfolio_input = (
+        matched is not None
+        and matched.primary == "core-portfolio-weekly"
+        and _wants_csv_portfolio_input(norm)
+    )
+    csv_workflow_id = "portfolio-holdings-review"
+    csv_workflow_available = csv_workflow_id in workflows_by_id
     goal_workflow_id = matched.primary if matched is not None else None
+    if csv_portfolio_input and csv_workflow_available:
+        goal_workflow_id = csv_workflow_id
     goal_workflow = workflows_by_id.get(goal_workflow_id) if goal_workflow_id else None
     goal_match: dict[str, Any] = {
         "persona": matched.name if matched is not None else None,
@@ -1189,8 +1199,20 @@ def recommend(
             honest_gap = True
             gap_category = matched.gap_category
         else:
-            primary_id = matched.primary
-            secondary_ids = list(matched.secondary)
+            primary_id = goal_workflow_id
+            secondary_ids = [] if csv_portfolio_input else list(matched.secondary)
+            if csv_portfolio_input and csv_workflow_available:
+                note = (
+                    "Limited offline holdings allocation and per-position P&L only; "
+                    "this is not a full account risk or brokerage review. Supply an actual "
+                    "local CSV path and a timezone-aware --as-of timestamp to "
+                    "portfolio-manager/scripts/review_csv.py. Navigator does not read or "
+                    "validate holdings files; workflow eligibility is a recommendation, "
+                    "not confirmation of valid, complete or fresh input."
+                )
+                rationale.append(
+                    "CSV portfolio source selects the limited offline holdings workflow"
+                )
     else:
         # Truly unmapped input: graceful beginner default (NOT honest-gap).
         primary_id = "market-regime-daily"
@@ -1267,24 +1289,15 @@ def recommend(
                 dropped_secondary.append({"id": wid, "reason": f"requires paid API: {drop_reason}"})
         secondary_ids = kept_secondary
 
-    # CSV portfolio review is a separate, unshipped capability (#512). The
-    # Navigator accepts no file input, so a CSV *source* request cannot make
-    # the Alpaca-backed portfolio workflow runnable, even if a path is in
-    # prose. Merely mentioning CSV (e.g. exporting results) is not a gap.
-    if goal_workflow_id == "core-portfolio-weekly" and _wants_csv_portfolio_input(norm):
-        missing_requirements.extend(
-            [
-                {
-                    "kind": "missing_input",
-                    "id": "portfolio_csv_path",
-                    "detail": "Navigator has no portfolio CSV input parameter",
-                },
-                {
-                    "kind": "unsupported_capability",
-                    "id": "portfolio_csv_review",
-                    "detail": "No shipped CSV portfolio-review workflow (#512)",
-                },
-            ]
+    # A stale or incomplete snapshot must not silently send a CSV source to
+    # the broader brokerage workflow. The recommender itself never reads files.
+    if csv_portfolio_input and not csv_workflow_available:
+        missing_requirements.append(
+            {
+                "kind": "unsupported_capability",
+                "id": "portfolio_csv_review",
+                "detail": "No shipped CSV portfolio-review workflow in the loaded metadata (#512)",
+            }
         )
 
     if missing_requirements:

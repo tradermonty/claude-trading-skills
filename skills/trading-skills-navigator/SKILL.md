@@ -18,7 +18,7 @@ concrete recommendation: which **workflow** to run, which **skillset**
 (skills-index category) it belongs to, the **API requirement**, and the
 **setup path** for Claude Web App or Claude Code.
 
-A new user faces 74 skills + 12 workflows with no router. This skill is that
+A new user faces 74 skills + 13 workflows with no router. This skill is that
 router. It is **deterministic** — a Python recommender (`scripts/recommend.py`)
 consumes the repo metadata; this SKILL.md narrates the result conversationally.
 
@@ -101,11 +101,16 @@ Parse the JSON and explain, in the user's language:
 - **Honest gap** — `honest_gap: true` means no usable path for this goal. If
   `goal_match.runnability` is `unshipped`, no dedicated workflow exists and
   `suggested_skills` may help. If it is `blocked`, a matching workflow exists
-  but is unavailable: explain each missing requirement. CSV portfolio review
-  is not shipped; offering a CSV as the portfolio source does not make it
-  runnable. Any CSV mention is read as the source unless it is clearly an
-  output (export/save/send; CSVに出力) with no input wording; naming Alpaca
-  alone never clears the gap.
+  but is unavailable: explain each missing requirement. A CSV portfolio source
+  selects `portfolio-holdings-review`, a limited offline allocation/P&L path.
+  Relay its `note`: the user must supply the actual CSV and source `--as-of`;
+  Navigator does not read or validate holdings files. Eligibility does not
+  establish ownership, completeness, freshness or suitability for trading.
+  Full account risk, brokerage review and reconciliation remain outside this
+  limited path. Any CSV mention is read as the source unless it is clearly an
+  output (export/save/send; CSVに出力) with no input wording. CSV output requests
+  retain the full brokerage route. If loaded metadata lacks the CSV workflow,
+  report the unsupported-capability gap instead of claiming it is runnable.
 - **Backtest execution request** — relay the `note` when the research workflow
   is recommended for a request containing backtest terms. It can evaluate
   separately measured metrics but does not execute the backtest. Its

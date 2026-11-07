@@ -1,0 +1,19 @@
+workflow_id: portfolio-holdings-review
+sample_type: required-only
+status: completed
+completed_steps:
+- 1
+required_steps_not_executed: []
+illustrative: true
+generated_by: scripts/workflow_replay.py generate
+prompt: prompt.md
+network_policy: offline-input-required
+optional_steps_skipped: []
+artifacts:
+- step: 1
+  artifact_id: holdings_allocation_report
+  skill: portfolio-manager
+  execution_mode: native_cli
+  files:
+    canonical: 01_holdings_allocation_report.json
+    markdown: 01_holdings_allocation_report.md

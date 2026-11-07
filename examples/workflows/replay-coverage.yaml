@@ -1,6 +1,11 @@
 schema_version: 1
 
 covered:
+  portfolio-holdings-review:
+    spec: portfolio-holdings-review/replay.yaml
+    variants:
+      - required-only
+      - full-path
   core-portfolio-weekly:
     spec: core-portfolio-weekly/replay.yaml
     variants:

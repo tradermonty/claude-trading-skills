@@ -273,7 +273,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **PEAD Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Pair Trade Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | 🟡 Optional | Financial Modeling Prep API |
-| **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Alpaca brokerage MCP/API |
+| **Portfolio Manager** | ❌ Not used | ❌ Not used | 🟡 Optional | Required for full brokerage analysis; local CSV/saved-position allocation review needs no credentials |
 | **Position Sizer** | ❌ Not used | ❌ Not used | ❌ Not used | Pure calculation; works offline |
 | **Pre-Trade Discipline Gate** | ❌ Not used | ❌ Not used | ❌ Not used | Reads local checklist, workflow artifacts, and trader-memory-core state; works offline |
 | **Residual Edge Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Analyzes aligned local CSV and JSON inputs; works offline |
