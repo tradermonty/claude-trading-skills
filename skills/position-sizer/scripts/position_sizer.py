@@ -38,8 +38,29 @@ class SizingParameters:
     share_precision: int = 4
 
 
+FLOAT_FIELDS = (
+    "account_size",
+    "entry_price",
+    "stop_price",
+    "risk_pct",
+    "atr",
+    "win_rate",
+    "avg_win",
+    "avg_loss",
+    "max_position_pct",
+    "max_sector_pct",
+    "current_sector_exposure",
+)
+
+
 def validate_parameters(params: SizingParameters) -> None:
     """Validate input parameters. Raise ValueError on invalid input."""
+    # NaN passes every `<= 0` check below and infinities overflow the share
+    # math, so reject non-finite values before any range check.
+    for name in FLOAT_FIELDS:
+        value = getattr(params, name)
+        if value is not None and not math.isfinite(value):
+            raise ValueError(f"{name} must be finite")
     if params.account_size <= 0:
         raise ValueError("account_size must be positive")
     if params.entry_price is not None and params.entry_price <= 0:
@@ -56,8 +77,9 @@ def validate_parameters(params: SizingParameters) -> None:
     if not math.isfinite(params.atr_multiplier) or params.atr_multiplier <= 0:
         raise ValueError("atr_multiplier must be finite and positive")
     if params.win_rate is not None:
-        if params.win_rate <= 0 or params.win_rate > 1.0:
-            raise ValueError("win_rate must be between 0 (exclusive) and 1.0 (inclusive)")
+        # win_rate=1.0 makes full Kelly 100% of the account (half Kelly 50%).
+        if params.win_rate <= 0 or params.win_rate >= 1.0:
+            raise ValueError("win_rate must be between 0 and 1 (exclusive)")
     if params.avg_win is not None and params.avg_win <= 0:
         raise ValueError("avg_win must be positive")
     if params.avg_loss is not None and params.avg_loss <= 0:
@@ -386,6 +408,17 @@ def generate_markdown_report(result: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def finite_float(value: str) -> float:
+    """argparse type: a float that is not NaN or +/-infinity."""
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid float value: {value!r}") from None
+    if not math.isfinite(number):
+        raise argparse.ArgumentTypeError(f"{value!r} must be a finite number")
+    return number
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI usage."""
     parser = argparse.ArgumentParser(
@@ -393,53 +426,53 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--account-size",
-        type=float,
+        type=finite_float,
         required=True,
         help="Total account value in dollars",
     )
-    parser.add_argument("--entry", type=float, help="Entry price per share")
-    parser.add_argument("--stop", type=float, help="Stop-loss price per share")
+    parser.add_argument("--entry", type=finite_float, help="Entry price per share")
+    parser.add_argument("--stop", type=finite_float, help="Stop-loss price per share")
     parser.add_argument(
         "--risk-pct",
-        type=float,
+        type=finite_float,
         help="Risk percentage per trade (e.g. 1.0 for 1%%)",
     )
-    parser.add_argument("--atr", type=float, help="Average True Range value")
+    parser.add_argument("--atr", type=finite_float, help="Average True Range value")
     parser.add_argument(
         "--atr-multiplier",
-        type=float,
+        type=finite_float,
         default=2.0,
         help="Finite, positive ATR multiplier for stop distance (default: 2.0)",
     )
     parser.add_argument(
         "--win-rate",
-        type=float,
-        help="Historical win rate (0-1) for Kelly criterion",
+        type=finite_float,
+        help="Historical win rate, between 0 and 1 (exclusive), for Kelly criterion",
     )
     parser.add_argument(
         "--avg-win",
-        type=float,
+        type=finite_float,
         help="Average win amount for Kelly criterion",
     )
     parser.add_argument(
         "--avg-loss",
-        type=float,
+        type=finite_float,
         help="Average loss amount for Kelly criterion",
     )
     parser.add_argument(
         "--max-position-pct",
-        type=float,
+        type=finite_float,
         help="Maximum single position as %% of account",
     )
     parser.add_argument(
         "--max-sector-pct",
-        type=float,
+        type=finite_float,
         help="Maximum sector exposure as %% of account",
     )
     parser.add_argument("--sector", type=str, help="Sector name for concentration check")
     parser.add_argument(
         "--current-sector-exposure",
-        type=float,
+        type=finite_float,
         default=0.0,
         help="Current sector exposure as %% of account",
     )
