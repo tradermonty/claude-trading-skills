@@ -300,7 +300,7 @@ def run_review_loop(
         # Prepare drafts dir for this iteration's review
         iter_drafts_dir = review_output_base / f"review_input_iter_{iteration}"
         iter_drafts_dir.mkdir(parents=True, exist_ok=True)
-        for draft_id, (draft_data, orig_path) in current_drafts.items():
+        for draft_id, (draft_data, _orig_path) in current_drafts.items():
             iter_draft_path = iter_drafts_dir / f"{draft_id}.yaml"
             iter_draft_path.write_text(
                 yaml.safe_dump(draft_data, sort_keys=False), encoding="utf-8"

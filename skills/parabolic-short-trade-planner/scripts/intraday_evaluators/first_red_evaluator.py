@@ -66,7 +66,7 @@ def evaluate(
     out["session_low"] = bars[0]["l"]
     out["last_bar_ts"] = bars[0]["ts_et"]
 
-    for i, bar in enumerate(bars):
+    for _i, bar in enumerate(bars):
         out["last_bar_ts"] = bar["ts_et"]
         out["session_high"] = max(out["session_high"], bar["h"])
         out["session_low"] = min(out["session_low"], bar["l"])

@@ -263,7 +263,7 @@ def test_pair_trade_statsmodels_bound_preserved() -> None:
 def test_real_tree_theme_detector_optionals_pass() -> None:
     report = deps.check_skill("theme-detector", REPO_ROOT)
     assert report.ok, report.errors
-    assert set(report.optional) == {"finvizfinance", "yfinance"}
+    assert set(report.optional) == {"finvizfinance", "yfinance", "curl-cffi"}
 
 
 def test_real_tree_all_executable_skills_pass() -> None:

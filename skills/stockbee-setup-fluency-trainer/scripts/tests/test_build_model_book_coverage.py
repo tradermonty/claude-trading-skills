@@ -770,15 +770,15 @@ def test_is_promote_and_downgrade_thresholds():
 
 def test_summarize_model_book_downgrade_threshold_and_sorting():
     recs = []
-    for i in range(5):
+    for _i in range(5):
         r = make_matured("FAILED_FADE", r5=-3)
         r["rating"] = "C"
         recs.append(r)
-    for i in range(3):
+    for _i in range(3):
         r = make_matured("WORKED", r5=5)
         r["rating"] = "B"
         recs.append(r)
-    for i in range(2):  # below min_sample -> dropped
+    for _i in range(2):  # below min_sample -> dropped
         r = make_matured("WORKED", r5=9)
         r["rating"] = "A"
         recs.append(r)
