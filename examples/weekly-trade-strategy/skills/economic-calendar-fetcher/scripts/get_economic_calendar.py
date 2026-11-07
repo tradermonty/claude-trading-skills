@@ -70,9 +70,9 @@ def fetch_economic_calendar(from_date: str, to_date: str, api_key: str) -> list[
         error_body = e.read().decode("utf-8") if e.fp else "No error details"
         raise urllib.error.HTTPError(
             e.url, e.code, f"FMP API error: {e.reason}. Details: {error_body}", e.hdrs, e.fp
-        )
+        ) from None
     except urllib.error.URLError as e:
-        raise ValueError(f"Network error: {e.reason}")
+        raise ValueError(f"Network error: {e.reason}") from None
 
 
 def validate_date_range(from_date: str, to_date: str) -> None:
@@ -90,7 +90,7 @@ def validate_date_range(from_date: str, to_date: str) -> None:
         start = datetime.strptime(from_date, "%Y-%m-%d")
         end = datetime.strptime(to_date, "%Y-%m-%d")
     except ValueError as e:
-        raise ValueError(f"Invalid date format. Use YYYY-MM-DD: {e}")
+        raise ValueError(f"Invalid date format. Use YYYY-MM-DD: {e}") from None
 
     if start > end:
         raise ValueError(f"Start date {from_date} is after end date {to_date}")

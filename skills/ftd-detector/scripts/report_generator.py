@@ -89,7 +89,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
 
     # ── Rally Attempt Details ─────────────────────────────────────────────
     has_rally = False
-    for label, data in [("S&P 500", sp500), ("NASDAQ/QQQ", nasdaq)]:
+    for _label, data in [("S&P 500", sp500), ("NASDAQ/QQQ", nasdaq)]:
         rally = data.get("rally_attempt", {})
         if rally and rally.get("day1_date"):
             has_rally = True

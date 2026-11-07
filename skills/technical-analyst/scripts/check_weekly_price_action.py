@@ -259,7 +259,7 @@ def fetch_price_series(
                  "attempts": [...]}
     """
     attempts: list[dict[str, Any]] = []
-    for price_symbol, kind, invert in chain:
+    for price_symbol, kind, _invert in chain:
         rows, error = client.get_eod_rows(price_symbol, from_date, to_date)
         if error:
             attempts.append(

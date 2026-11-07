@@ -49,7 +49,7 @@ generated: false
 ## 3. 前提条件
 
 - Python 3.9以降
-- `pip install manifoldbt` (Apache 2.0 with Commons Clause。このスキルが行うことはすべて無料枠でまかなえます)
+- `pip install manifoldbt` (Python パッケージは Apache 2.0、コンパイル済みエンジンは無料の Manifold-BT Engine License。このスキルが行うことはすべて無料枠でまかなえます)
 - カラム `timestamp, open, high, low, close, volume` を持つCSVまたはParquet形式のOHLCVバー
 - APIキー不要
 

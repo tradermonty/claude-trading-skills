@@ -27,7 +27,8 @@ flags, and this skill does not duplicate them.
 ## Prerequisites
 
 - Python 3.9+
-- `pip install manifoldbt` (Apache 2.0 with Commons Clause; the free tier covers
+- `pip install manifoldbt` (the Python package is Apache 2.0, the compiled
+  engine ships under the free Manifold-BT Engine License; the free tier covers
   everything this skill does)
 - OHLCV bars as CSV or Parquet with columns `timestamp, open, high, low, close, volume`
 - No API key required

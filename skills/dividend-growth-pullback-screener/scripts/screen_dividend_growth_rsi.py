@@ -29,7 +29,7 @@ import math
 import os
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 import requests
@@ -973,7 +973,7 @@ def generate_markdown_report(results: list[dict], criteria: dict, output_path: s
 
     report = f"""# Dividend Growth Pullback Screening Report
 
-**Generated:** {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
+**Generated:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")} UTC
 **Data Source:** Financial Modeling Prep API
 
 ## Executive Summary
@@ -1185,7 +1185,7 @@ High dividend growth stocks (12%+ CAGR) compound wealth through rising dividends
 
 **Disclaimer:** This report is for informational purposes only. Past dividend growth does not guarantee future performance. RSI oversold conditions do not guarantee price reversals. Conduct thorough due diligence and consult a financial advisor before making investment decisions.
 
-**Report Generated:** {datetime.utcnow().isoformat()}Z
+**Report Generated:** {datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}Z
 """
 
     # Write report
@@ -1318,7 +1318,7 @@ Environment Variables:
     # JSON output
     json_output = {
         "metadata": {
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             "criteria": criteria,
             "total_results": len(results),
         },

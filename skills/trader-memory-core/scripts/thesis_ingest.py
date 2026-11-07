@@ -651,4 +651,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        raise SystemExit(1)
+        raise SystemExit(1) from None
