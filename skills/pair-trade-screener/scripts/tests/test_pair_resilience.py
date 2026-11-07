@@ -211,6 +211,40 @@ def test_bad_adjusted_row_outside_window_is_ignored(routed):
     assert len(prices) == 730 and prices.attrs["price_basis"] == "dividend_adjusted"
 
 
+@pytest.mark.parametrize("bad_value", [0, 0.0, -1.5])
+def test_non_positive_adjusted_price_falls_back_without_crashing(routed, bad_value):
+    rows = adjusted_rows("AAA", n=300)
+    rows[5]["adjClose"] = bad_value
+    routed["handlers"][ADJUSTED] = lambda p: Response(rows)
+    routed["handlers"][FULL] = lambda p: Response(full_rows("AAA", n=300))
+
+    prices = find_pairs.fetch_historical_prices("AAA", TOKEN)
+
+    assert prices is not None and prices.attrs["price_basis"] == "close"
+
+
+def test_non_string_symbol_outside_window_is_controlled_not_a_crash(routed):
+    rows = full_rows("AAA", n=800)
+    rows[799]["symbol"] = 123
+    routed["handlers"][ADJUSTED] = lambda p: Response(status=402)
+    routed["handlers"][FULL] = lambda p: Response(rows)
+    routed["handlers"]["/api/v3/historical-price-full/AAA"] = lambda p: Response(status=403)
+
+    assert find_pairs.fetch_historical_prices("AAA", TOKEN) is None
+
+
+def test_foreign_rows_do_not_shift_the_validated_window(routed):
+    # 730 foreign rows sit first, so the target's rows are all past raw index 730
+    # but are the ones actually used after normalization.
+    rows = full_rows("OTHER", n=730) + full_rows("AAA", n=300)
+    rows[730 + 10]["close"] = None
+    routed["handlers"][ADJUSTED] = lambda p: Response(status=402)
+    routed["handlers"][FULL] = lambda p: Response(rows)
+    routed["handlers"]["/api/v3/historical-price-full/AAA"] = lambda p: Response(status=403)
+
+    assert find_pairs.fetch_historical_prices("AAA", TOKEN) is None
+
+
 def test_midnight_datetime_dates_are_accepted(routed):
     rows = [dict(r, date=r["date"] + " 00:00:00") for r in full_rows("AAA", n=300)]
     routed["handlers"][ADJUSTED] = lambda p: Response(status=402)

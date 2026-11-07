@@ -449,7 +449,9 @@ class FMPClient:
                 return None, "response symbol mismatch"
             in_window = self._pair_window is None or len(rows) < self._pair_window
             day, value = row.get("date"), row.get("adjClose")
-            if not (self._pair_valid_date(day) and self._pair_valid_price(value)):
+            # Positive only: consumers read `adjClose or close`, and these rows carry
+            # no close, so a zero here would raise at the consumer.
+            if not (self._pair_valid_date(day) and self._pair_valid_price(value) and value > 0):
                 if in_window:
                     return None, "invalid date or adjClose in requested window"
                 continue  # rows beyond the requested window are never used
@@ -542,12 +544,26 @@ class FMPClient:
         for history in histories:
             if not isinstance(history, list):
                 return "historical rows are not a list"
-            # Rows are newest first; rows beyond the caller's window are never used.
-            for row in history[: self._pair_window] if self._pair_window else history:
+            # Rows are newest first. Row structure is checked everywhere because the
+            # shared normalizer reads every row. Date and price are checked only for
+            # the rows the caller will use: flat responses are filtered to the target
+            # before the window applies, so foreign rows must not consume it.
+            used = 0
+            target = symbol.replace("-", ".")
+            for row in history:
                 if not isinstance(row, dict):
                     return "historical row is not an object"
                 if row.get("symbol") is not None and not isinstance(row["symbol"], str):
                     return "non-string historical row symbol"
+                if (
+                    isinstance(data, list)
+                    and row.get("symbol")
+                    and row["symbol"].replace("-", ".") != target
+                ):
+                    continue
+                if self._pair_window and used >= self._pair_window:
+                    continue
+                used += 1
                 if not self._pair_valid_date(row.get("date")):
                     return "invalid historical date"
                 if not self._pair_valid_price(row.get("adjClose") or row.get("close")):
