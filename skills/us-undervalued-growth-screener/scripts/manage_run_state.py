@@ -9,11 +9,13 @@ consistent. It performs no network access.
 from __future__ import annotations
 
 import argparse
+import filecmp
 import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -58,6 +60,8 @@ class RunStateError(ValueError):
 
 class _RollbackIncomplete(RunStateError):
     """A failed commit could not restore every file; its backups must be kept."""
+
+    keep_staging = True
 
 
 def _now() -> str:
@@ -274,7 +278,11 @@ def _stage_artifact(
     if not source_path.is_file():
         raise RunStateError(f"{label} artifact not found: {source_path}")
     target = f"audit/{target_name}"
-    if target == AUDIT_DOCUMENT or target in staged:
+    # Compare case-insensitively: on a case-insensitive filesystem two names that
+    # differ only by case are one file.
+    folded = target.casefold()
+    existing = next((name for name in staged if name.casefold() == folded), None)
+    if folded == AUDIT_DOCUMENT.casefold() or (existing is not None and existing != target):
         raise RunStateError(f"{label} artifact name collides with another file: {target_name}")
     staged_path = staging_dir / f"artifact-{len(staged)}.tmp"
     shutil.copyfile(source_path, staged_path)
@@ -282,7 +290,13 @@ def _stage_artifact(
     expected_sha = _text(section.get("artifact_sha256"))
     if expected_sha != actual_sha:
         raise RunStateError(f"{label} artifact SHA-256 does not match audit JSON")
-    staged[target] = staged_path
+    if existing is not None:
+        # The same name twice is one artifact, but only if the bytes agree.
+        if hashlib.sha256(staged[existing].read_bytes()).hexdigest() != actual_sha:
+            raise RunStateError(f"{label} artifact name collides with another file: {target_name}")
+        staged_path.unlink()
+    else:
+        staged[target] = staged_path
     normalized = dict(section)
     normalized["artifact_path"] = target
     normalized["artifact_sha256"] = actual_sha
@@ -307,17 +321,39 @@ def _resolve_artifact_argument(
     return candidate
 
 
-def _restore_files(applied: Sequence[tuple[Path, Path]]) -> list[str]:
+def _restore_one(target: Path, backup: Path) -> None:
+    """Put one target back; tolerate a target whose rename never happened."""
+    if backup.is_file():
+        if target.is_file() and filecmp.cmp(backup, target, shallow=False):
+            return  # Never moved (or already restored): the prior bytes are live.
+        os.replace(backup, target)
+    elif target.is_dir() and not target.is_symlink():
+        return  # A directory in the way is never ours to remove.
+    else:
+        try:
+            target.unlink()
+        except FileNotFoundError:
+            pass  # A new file that was never moved into place.
+
+
+def _restore_files(
+    applied: Sequence[tuple[Path, Path]],
+) -> tuple[list[str], BaseException | None]:
+    """Restore every applied target; return the failures and the first interrupt.
+
+    One failure or interrupt must not skip the remaining files, so every file is
+    attempted. The caller re-raises the interrupt once the loop has finished.
+    """
     failures: list[str] = []
+    interrupt: BaseException | None = None
     for target, backup in reversed(applied):
         try:
-            if backup.is_file():
-                os.replace(backup, target)
-            else:
-                target.unlink()
-        except OSError as exc:
-            failures.append(f"{target}: {exc}")
-    return failures
+            _restore_one(target, backup)
+        except BaseException as exc:  # noqa: BLE001 - see docstring
+            failures.append(f"{target}: {exc} (prior bytes are in {backup.name})")
+            if not isinstance(exc, Exception) and interrupt is None:
+                interrupt = exc
+    return failures, interrupt
 
 
 def _commit_files(run_dir: Path, staging_dir: Path, staged: Mapping[str, Path]) -> None:
@@ -326,7 +362,8 @@ def _commit_files(run_dir: Path, staging_dir: Path, staged: Mapping[str, Path]) 
     Mapping order is commit order; run_state.json goes last because it is what
     a resumed run trusts. A process killed outright cannot run this rollback:
     prepublish_audit then rejects the hash mismatch, and rerunning the command
-    repairs the run.
+    repairs the run. An exception that leaves a file unrestored carries
+    keep_staging = True so the caller does not delete the backups.
     """
     pending: list[tuple[Path, Path, Path]] = []
     for index, (relative, source) in enumerate(staged.items()):
@@ -334,15 +371,33 @@ def _commit_files(run_dir: Path, staging_dir: Path, staged: Mapping[str, Path]) 
         target.parent.mkdir(parents=True, exist_ok=True)
         backup = staging_dir / f"backup-{index}.tmp"
         if target.is_file():
-            shutil.copy2(target, backup)
+            # copyfile + copymode: copy2 would also copy BSD flags such as
+            # immutable, which would make the backup impossible to delete.
+            shutil.copyfile(target, backup)
+            shutil.copymode(target, backup)
+            # Keep the live file's permissions across the replacement.
+            os.chmod(source, stat.S_IMODE(target.stat().st_mode))
         pending.append((source, target, backup))
     applied: list[tuple[Path, Path]] = []
     try:
         for source, target, backup in pending:
-            os.replace(source, target)
+            # Recorded before the rename so a rename followed by an interrupt
+            # is still restored.
             applied.append((target, backup))
+            os.replace(source, target)
     except BaseException as exc:
-        failures = _restore_files(applied)
+        failures, interrupt = _restore_files(applied)
+        if interrupt is not None:
+            if failures:
+                interrupt.keep_staging = True  # type: ignore[attr-defined]
+                print(
+                    "WARNING: restore was interrupted; prior files are kept in "
+                    f"{staging_dir}: " + "; ".join(failures),
+                    file=sys.stderr,
+                )
+            if interrupt is exc:
+                raise
+            raise interrupt from exc
         if failures:
             raise _RollbackIncomplete(
                 f"commit failed ({exc}) and the prior checkpoint could not be fully restored: "
@@ -440,7 +495,7 @@ def cmd_set_screening_audit(args: argparse.Namespace) -> int:
         return _attach_screening_audit(args)
     except RunStateError:
         raise
-    except (AttributeError, TypeError, ValueError) as exc:
+    except (AttributeError, OverflowError, RecursionError, TypeError, ValueError) as exc:
         raise RunStateError(f"screening audit is malformed: {exc}") from exc
 
 
@@ -587,12 +642,19 @@ def _attach_screening_audit(args: argparse.Namespace) -> int:
         staged["run_state.json"] = staged_state
 
         _commit_files(run_dir, staging_dir, staged)
-    except _RollbackIncomplete:
-        keep_staging = True
+    except BaseException as exc:
+        # Backups are deleted only after a commit or a restore that finished cleanly.
+        keep_staging = bool(getattr(exc, "keep_staging", False))
         raise
     finally:
         if not keep_staging:
             shutil.rmtree(staging_dir, ignore_errors=True)
+            if staging_dir.exists():
+                print(
+                    f"WARNING: could not remove the staging directory {staging_dir}; "
+                    "delete it by hand once the run is verified",
+                    file=sys.stderr,
+                )
     print(f"attached: {run_dir / AUDIT_DOCUMENT}")
     return 0
 

@@ -33,7 +33,20 @@ Use `set-screening-audit` only with a contract-3.5 audit whose runtime fingerpri
 
 Attaching or replacing an audit is all-or-nothing. The manager validates the metadata and hashes staged copies of every artifact before touching the run, then commits the artifacts, audit, event log, and `run_state.json` together, restoring all of them if any step fails. A rejected command leaves the prior checkpoint byte-identical and exits 1.
 
-If the error says the prior checkpoint could not be fully restored, the prior files remain in the `.set-screening-audit-*` directory it names. A process killed during the commit cannot roll back: `prepublish_audit.py` rejects the resulting hash mismatch, and rerunning `set-screening-audit` repairs the run.
+Details of the commit:
+
+- Artifact names are compared case-insensitively, so `UNIVERSE-AUDIT-RESULTS.JSONL` collides with `universe-audit-results.jsonl` on every filesystem. An enrichment entry and a generation entry may point at the same file only when the SHA-256 is identical.
+- A replaced file keeps its existing permission bits. New files get the default mode.
+- Backups are plain copies with the permission bits only, so a macOS immutable flag on a live file is not copied to the backup.
+- Backups are deleted only after the commit succeeded or the restore finished with no failures. A restore that fails or is interrupted keeps the `.set-screening-audit-*` directory, and the command continues restoring the remaining files before it reports. If the directory cannot be removed after a clean outcome, the command prints a warning naming it; delete it by hand.
+- Non-finite numbers (`Infinity`), deeply nested JSON, and other malformed values are reported as `ERROR:` with exit 1 and no file changes.
+
+If the error says the prior checkpoint could not be fully restored, each failure line names the target and the `backup-N.tmp` file in the kept `.set-screening-audit-*` directory that holds its prior bytes. Copy that backup over the target by hand. Targets with no backup were new files and can be deleted. A process killed during the commit cannot roll back: `prepublish_audit.py` rejects the resulting hash mismatch, and rerunning `set-screening-audit` repairs the run.
+
+Limits that are documented rather than handled:
+
+- The command assumes one writer. An event appended to `events.ndjson` by another process while the command runs is lost when the staged copy replaces the log.
+- A live file that is a symbolic link is replaced by a regular file, and a rollback restores a regular file, not the link.
 
 ## Save Every Selected Candidate
 
