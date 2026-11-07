@@ -3,18 +3,18 @@
 Multiple skills ship identically-named modules (scorer.py, calculators/,
 fmp_client.py, report_generator.py).  When pytest collects every test
 directory in one process, conftest-level ``sys.path.insert`` calls
-accumulate and the first match in *sys.path* (or the cached entry in
-*sys.modules*) wins – which is almost always the **wrong** skill.
+accumulate and can resolve a module from the wrong skill.
 
 This conftest hooks into ``pytest_collectstart`` (collection phase) and
 ``pytest_runtest_setup`` (execution phase) to evict **only** the known
 conflicting module names and push the current skill's ``scripts/``
-directory to the front of ``sys.path``.
+directory to the front of ``sys.path`` while retaining per-skill module identity.
 """
 
 import ipaddress
 import socket
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -147,21 +147,26 @@ def pytest_sessionfinish(session, exitstatus):
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
-_SKILLS_MARKER = f"{Path.cwd()}/skills/"
+_ROOT = Path(__file__).resolve().parent
+_SKILLS_MARKER = f"{_ROOT}/skills/"
 
-# Module basenames that exist in more than one skill's scripts/ directory.
-# Only these are evicted; unique names (e.g. analyze_single_stock) are kept.
-_CONFLICTING_BASENAMES = frozenset(
-    {
-        "calculators",  # 8 skills
-        "fmp_client",  # 7 skills
-        "helpers",  # 5 skills (test helpers)
-        "report_generator",  # 11 skills
-        "scorer",  # 10 skills
-    }
-)
 
-# Track last activated skill to skip redundant evictions.
+def _conflicting_basenames():
+    """Discover top-level script modules, packages, and test helpers shared by skills."""
+    owners = Counter()
+    for scripts in (_ROOT / "skills").glob("*/scripts"):
+        names = set()
+        for folder in (scripts, scripts / "tests"):
+            if folder.is_dir():
+                names.update(p.stem for p in folder.glob("*.py") if p.stem != "__init__")
+                names.update(p.name for p in folder.iterdir() if p.is_dir() and any(p.glob("*.py")))
+        owners.update(names)
+    return frozenset(name for name, count in owners.items() if count > 1)
+
+
+_CONFLICTING_BASENAMES = _conflicting_basenames()
+_skill_modules = {}
+_skill_paths = {}
 _last_skill: "str | None" = None
 
 
@@ -174,7 +179,7 @@ def _skill_root(filepath: Path) -> "Path | None":
 
 
 def _activate_skill(skill: Path, test_dir: str) -> None:
-    """Evict conflicting modules and adjust sys.path for *skill*."""
+    """Restore conflicting modules and import paths belonging to *skill*."""
     global _last_skill  # noqa: PLW0603
     skill_prefix = str(skill)
 
@@ -184,16 +189,37 @@ def _activate_skill(skill: Path, test_dir: str) -> None:
 
     scripts_dir = str(skill / "scripts")
 
-    # 1. Evict only known-conflicting modules from OTHER skills.
-    stale = [
-        name
-        for name in list(sys.modules)
-        if name.split(".")[0] in _CONFLICTING_BASENAMES
-        and skill_prefix not in (getattr(sys.modules[name], "__file__", None) or "")
-        and _SKILLS_MARKER in (getattr(sys.modules[name], "__file__", None) or "")
-    ]
-    for name in stale:
-        del sys.modules[name]
+    # Preserve each skill's module objects: collected tests may retain classes
+    # that must remain identical to classes returned by later lazy imports.
+    for name, module in list(sys.modules.items()):
+        # Check the name first so unrelated (possibly lazy) modules are never touched.
+        if name.split(".")[0] not in _CONFLICTING_BASENAMES:
+            continue
+        filename = getattr(module, "__file__", None) or next(
+            iter(getattr(module, "__path__", ())), ""
+        )
+        if _SKILLS_MARKER not in filename:
+            continue
+        owner = _skill_root(Path(filename) / "__init__.py")
+        if owner is not None:
+            _skill_modules.setdefault(str(owner), {})[name] = module
+            del sys.modules[name]
+    sys.modules.update(_skill_modules.get(skill_prefix, {}))
+
+    # A namespace package in this skill must not lose to a regular package
+    # left on sys.path by another skill's conftest (e.g. CANSLIM calculators).
+    retained = []
+    for path in sys.path:
+        resolved = str(Path(path).resolve())
+        if _SKILLS_MARKER not in resolved:
+            retained.append(path)
+            continue
+        owner = _skill_root(Path(resolved) / "__path_entry__")
+        if owner is not None:
+            paths = _skill_paths.setdefault(str(owner), [])
+            if path not in paths:
+                paths.append(path)
+    sys.path[:] = _skill_paths.get(skill_prefix, []) + retained
 
     # 2. Ensure this skill's scripts dir is first on sys.path.
     try:
@@ -244,34 +270,3 @@ def pytest_runtest_setup(item) -> None:
     if skill is None:
         return
     _activate_skill(skill, str(fspath.parent))
-
-
-# ---------------------------------------------------------------------------
-# Ignore patterns – skip known-failing skills in bulk runs but allow
-# explicit targeting (e.g. ``pytest skills/theme-detector/scripts/tests``).
-# ---------------------------------------------------------------------------
-
-_BULK_SKIP_GLOBS = [
-    "skills/canslim-screener/*",  # requires bs4 (optional dep)
-    "skills/theme-detector/scripts/tests/*",  # 27+ pre-existing failures
-]
-
-
-def pytest_ignore_collect(collection_path, config):  # noqa: ANN001
-    """Skip known-failing skills in bulk runs; allow explicit targeting."""
-    import fnmatch
-
-    try:
-        rel = str(collection_path.relative_to(Path.cwd()))
-    except ValueError:
-        return None
-
-    for glob_pat in _BULK_SKIP_GLOBS:
-        if fnmatch.fnmatch(rel, glob_pat):
-            # If user explicitly targeted a path containing this skill, allow it
-            skill_name = glob_pat.split("/")[1]
-            if any(skill_name in str(a) for a in config.args):
-                return None  # don't skip
-            return True  # skip in bulk run
-
-    return None

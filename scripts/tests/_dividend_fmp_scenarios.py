@@ -4,6 +4,7 @@ import contextlib
 import importlib
 import io
 import sys
+from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import quote
 
@@ -11,8 +12,24 @@ import requests
 
 
 def run_scenarios(folder, module_name):
-    with patch("time.sleep", lambda _: None):
-        _run_scenarios(folder, module_name)
+    folder = Path(folder)
+    # Both the consumer subclass and transport must come from this folder.
+    # Restore pre-existing imports even when a scenario raises an assertion.
+    original_path = sys.path[:]
+    names = {p.stem for p in folder.glob("*.py")}
+    names.update(p.name for p in folder.iterdir() if (p / "__init__.py").is_file())
+    saved = {n: m for n, m in sys.modules.items() if n.split(".")[0] in names}
+    for name in saved:
+        del sys.modules[name]
+    try:
+        with patch("time.sleep", lambda _: None):
+            _run_scenarios(folder, module_name)
+    finally:
+        sys.path[:] = original_path
+        for name in list(sys.modules):
+            if name.split(".")[0] in names:
+                del sys.modules[name]
+        sys.modules.update(saved)
 
 
 def _run_scenarios(folder, module_name):
