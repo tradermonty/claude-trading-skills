@@ -457,6 +457,14 @@ def main():
         sys.exit(exit_code)
 
     print(f"Raw earnings announcements: {len(earnings)}", file=sys.stderr)
+    calendar_dates_covered = sorted(
+        {e.get("date") for e in earnings if isinstance(e, dict) and e.get("date")}
+    )
+    print(
+        f"Calendar dates covered: {len(calendar_dates_covered)} of "
+        f"{args.lookback_days + 1} requested",
+        file=sys.stderr,
+    )
 
     # Get unique symbols (non-dict rows are ignored, never dereferenced).
     symbols = list(
@@ -627,6 +635,8 @@ def main():
         "timing_unknown_count": timing_unknown_count,
         "timing_candidates_total": timing_candidates_total,
         "timing_source": "fmp_stable_includeReportTimes",
+        "calendar_rows": len(earnings),
+        "calendar_dates_covered": calendar_dates_covered,
     }
 
     os.makedirs(args.output_dir, exist_ok=True)

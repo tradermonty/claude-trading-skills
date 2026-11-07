@@ -44,8 +44,14 @@ def test_generated_client_caches_report_time_calendar(monkeypatch):
     monkeypatch.setattr(client, "_rate_limited_get", fake_get)
     first = client.get_earnings_calendar("2026-10-12", "2026-10-13")
     assert client.get_earnings_calendar("2026-10-12", "2026-10-13") is first
-    assert len(calls) == 1
-    assert calls[0][1]["includeReportTimes"] == "true"
+    # One request per day of the window (gh-672 chunking); the whole range
+    # comes back from the cache on the second call.
+    assert len(calls) == 2
+    assert calls[0][1]["from"] == "2026-10-12"
+    assert calls[0][1]["to"] == "2026-10-12"
+    assert calls[1][1]["from"] == "2026-10-13"
+    assert calls[1][1]["to"] == "2026-10-13"
+    assert all(params["includeReportTimes"] == "true" for _, params in calls)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────
