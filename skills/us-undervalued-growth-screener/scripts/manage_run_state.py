@@ -502,6 +502,11 @@ def cmd_set_screening_audit(args: argparse.Namespace) -> int:
 def _attach_screening_audit(args: argparse.Namespace) -> int:
     run_dir: Path = args.run_dir
     state = _load_state(run_dir)
+    if _verified_symbols(state):
+        raise RunStateError(
+            "cannot attach a screening audit to a run with verified candidates; "
+            "initialize a new run and verify candidates against the new audit"
+        )
     audit = _read_json(args.audit)
     if not isinstance(audit, Mapping):
         raise RunStateError("audit file must contain a JSON object")

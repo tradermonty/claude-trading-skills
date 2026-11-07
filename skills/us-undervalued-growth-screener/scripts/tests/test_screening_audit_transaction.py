@@ -691,3 +691,79 @@ def test_success_updates_timestamp_and_status(attached_run, replacement):
     after = json.loads(state_path.read_text(encoding="utf-8"))
     assert after["status"] == "partial"
     assert after["updated_at"] > "2000-01-01T00:00:00+00:00"
+
+
+@pytest.mark.parametrize("changed_audit", [False, True], ids=["same-audit", "new-evidence"])
+def test_verified_checkpoint_rejects_audit_reattachment(
+    attached_run, replacement, tmp_path, capsys, changed_audit
+):
+    example = json.loads((ASSETS / "candidate-input.example.json").read_text(encoding="utf-8"))
+    candidate = tmp_path / "ACME.json"
+    candidate.write_text(json.dumps(example["candidates"][0]), encoding="utf-8")
+    assert (
+        RUN_STATE.main(
+            [
+                "save-candidate",
+                "--run-dir",
+                str(attached_run),
+                "--candidate",
+                str(candidate),
+                "--stage",
+                "verified",
+            ]
+        )
+        == 0
+    )
+    assert RUN_STATE.main(["status", "--run-dir", str(attached_run), "--strict"]) == 0
+    before = _snapshot(attached_run)
+    args = (
+        replacement.args(attached_run)
+        if changed_audit
+        else _attach_args(
+            attached_run,
+            ASSETS / "broad-screen-audit.example.json",
+            ASSETS / "universe-audit-results.example.jsonl",
+            ASSETS / "broad-screen-results.example.jsonl",
+        )
+    )
+    capsys.readouterr()
+
+    assert RUN_STATE.main(args) == 1
+
+    error = capsys.readouterr().err
+    assert "ERROR:" in error
+    assert "verified candidates" in error
+    assert "new run" in error
+    assert _snapshot(attached_run) == before
+    assert not _staging_dirs(attached_run)
+    assert RUN_STATE.main(["status", "--run-dir", str(attached_run), "--strict"]) == 0
+
+
+def test_draft_checkpoint_allows_audit_replacement(attached_run, replacement, tmp_path):
+    example = json.loads((ASSETS / "candidate-input.example.json").read_text(encoding="utf-8"))
+    candidate = tmp_path / "ACME.json"
+    candidate.write_text(json.dumps(example["candidates"][0]), encoding="utf-8")
+    assert (
+        RUN_STATE.main(
+            [
+                "save-candidate",
+                "--run-dir",
+                str(attached_run),
+                "--candidate",
+                str(candidate),
+                "--stage",
+                "draft",
+            ]
+        )
+        == 0
+    )
+    saved = (attached_run / "candidates" / "ACME.json").read_bytes()
+
+    assert RUN_STATE.main(replacement.args(attached_run)) == 0
+
+    assert (attached_run / "candidates" / "ACME.json").read_bytes() == saved
+    state = json.loads((attached_run / "run_state.json").read_text(encoding="utf-8"))
+    assert state["candidates"]["ACME"]["stage"] == "draft"
+    assert "ACME" in state["unprocessed_candidates"]
+    assert state["screening_funnel"]["deep_dive_completed_count"] == 0
+    assert RUN_STATE.main(["status", "--run-dir", str(attached_run), "--strict"]) == 0
