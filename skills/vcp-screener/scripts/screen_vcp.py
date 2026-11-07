@@ -773,7 +773,7 @@ def main():
     print("  Applying 7-point Trend Template...", end=" ", flush=True)
     trend_passed = []
 
-    for sym, likelihood, quote in candidates:
+    for sym, _likelihood, quote in candidates:
         hist = candidate_histories.get(sym, [])
         if not hist or len(hist) < 50:
             continue

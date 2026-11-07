@@ -1011,7 +1011,7 @@ def deduplicate_signals(signals: list[dict], config: dict) -> tuple[list[dict], 
         merged_signal["contributing_skills"] = [_contributor_entry(sig)]
         merged_signal["merged_from"] = []
 
-        for dup_idx, dup in duplicates:
+        for _dup_idx, dup in duplicates:
             merged_signal["contributing_skills"].append(_contributor_entry(dup))
             merged_signal["merged_from"].append(f"{dup['skill']}:{dup['signal_ref']}")
             if dup.get("score_scale_assumed"):

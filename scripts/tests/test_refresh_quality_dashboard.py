@@ -283,9 +283,12 @@ def test_workflow_validates_bot_updates_without_recursive_ci():
         "ruff format --check",
         "--check",
         "check_docs_site.py source",
-        "gh pr create",
-        "gh pr list",
+        "bash scripts/propose_quality_dashboard.sh",
+        "test_propose_quality_dashboard.py",
     ):
         assert required in scripts
     assert "--force" not in scripts
-    assert "--body-file" in scripts
+    publisher = (Path(__file__).resolve().parents[1] / "propose_quality_dashboard.sh").read_text()
+    assert "--body-file" in publisher
+    assert "--force " not in publisher
+    assert "--force-with-lease=" in publisher

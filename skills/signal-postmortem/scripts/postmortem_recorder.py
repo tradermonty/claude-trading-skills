@@ -10,7 +10,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -170,7 +170,7 @@ def create_postmortem_record(
         "regime_at_signal": regime_at_signal,
         "regime_at_exit": regime_at_exit,
         "outcome_notes": outcome_notes,
-        "recorded_at": datetime.utcnow().isoformat() + "Z",
+        "recorded_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
     }
 
 
@@ -410,7 +410,7 @@ def main():
     summary_file = output_dir / f"postmortem_batch_{timestamp}.json"
     summary = {
         "schema_version": "1.0",
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
         "source_file": str(signals_path),
         "total_signals": len(signals),
         "processed": len(results),

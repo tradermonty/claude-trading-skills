@@ -52,14 +52,15 @@ target-version = "py39"
 extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP", "B"]
+select = ["E", "F", "I", "W", "UP", "B", "C901"]
 ignore = [
     "E501",  # line-too-long (handled by formatter)
     "E402",  # module-level import not at top (sys.path manipulation in conftest)
-    "B904",  # raise-without-from-inside-except (fix incrementally)
-    "B007",  # unused-loop-control-variable (fix incrementally)
-    "B017",  # assert-raises-exception (fix incrementally)
 ]
+
+# Fixed ceiling for existing production complexity; lower as debt is removed.
+[tool.ruff.lint.mccabe]
+max-complexity = 128
 
 [tool.ruff.lint.per-file-ignores]
 "**/conftest.py" = ["E402"]
@@ -69,11 +70,12 @@ ignore = [
 "scripts/market_calendar/market_calendar.py" = ["UP007", "UP045"]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 # importlib mode resolves conftest/module name collisions across skills
 # (each skill has its own scorer.py, calculators/, helpers.py).
 # With importlib, a single `pytest` invocation discovers all tests safely.
 # scripts/run_all_tests.sh is kept for backward compatibility.
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib -p scripts.pytest_firstparty_warnings"
 # Keep aligned with scripts.ci_test_matrix.discover (guarded by root pytest tests).
 testpaths = [
     "scripts/tests",

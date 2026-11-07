@@ -472,20 +472,25 @@ python3 skills/pead-screener/scripts/screen_pead.py \
 ```
 
 **Options Strategy Advisor:** 🟡 FMP API optional
-<!-- exec: skip reason="black_scholes CLI is a research entry point with no argparse parser, so it would silently ignore the documented flags; implement argparse or drop the example as follow-up" owner=@tradermonty expires=2026-12-31 -->
-```bash
-# Calculate Black-Scholes price and Greeks
-python3 skills/options-strategy-advisor/scripts/black_scholes.py \
-  --ticker AAPL \
-  --strike 150 \
-  --days-to-expiry 30 \
-  --option-type call
+Use the `OptionPricer` library from the repository root after installing
+`skills/options-strategy-advisor/requirements.txt`. The fictional example below
+uses supplied numeric inputs without a ticker lookup or API key. Prices and
+Greeks assume the European Black-Scholes model, constant volatility/rates and a
+continuous dividend yield. The module's fixed research demonstration does not
+parse pricing or strategy flags.
 
-# Analyze covered call strategy
-python3 skills/options-strategy-advisor/scripts/black_scholes.py \
-  --ticker AAPL \
-  --strategy covered_call \
-  --stock-price 155
+<!-- options-library-example -->
+```python
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path("skills/options-strategy-advisor/scripts").resolve()))
+from black_scholes import OptionPricer
+
+# Fictional European option; T is years, r/sigma/q are annual decimals.
+pricer = OptionPricer(S=100.0, K=100.0, T=1.0, r=0.0, sigma=0.2, q=0.0)
+greeks = pricer.get_all_greeks("call")
+print(greeks)
 ```
 
 **Theme Detector:** 🟡 FINVIZ Elite optional; FMP optional
