@@ -44,10 +44,10 @@ The source's lagged COT dates are retained without guessing a release date.
 In the bundled Shapiro replay, `cot_crowding_report` requires a schema-valid
 provenance block at production, consumer handoff and publication boundaries.
 The replay uses an approved **fictional manual-contract fixture**, not a live
-FMP fetch. The existing consumer, `contrarian-setup-gate`, checks the
-consensus `run_context.data_date` only. A single stale market inside an otherwise fresh report is not rejected by
-them: `data_provenance` records the oldest vintage, but nothing at those
-consumers enforces it, and a per-row divergence only adds a warning.
+FMP fetch. The `contrarian-setup-gate` consumer checks only the consensus
+`run_context.data_date`, so it does not reject a single stale market inside an
+otherwise fresh report: `data_provenance` records the oldest vintage, but the
+gate does not enforce it, and a per-row divergence only adds a warning.
 The shared validator checks metadata shape; it does not independently establish
 the provider's claims, run identity or temporal consistency. Native consumers
 outside replay keep their existing contracts; this slice adds no new strict
