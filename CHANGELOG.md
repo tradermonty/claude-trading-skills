@@ -26,7 +26,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - market-top-detector: label the risk score as heuristic and reject weak historical analogues (#574).
 - pair-trade-screener: cointegration results serialize to JSON, and the ASCII chart title renders correctly (#562).
 - portfolio-manager: add an offline CSV allocation review for users without broker credentials (#583, part of #512). Reconciliation errors name the failing source without exposing input contents (#563).
-- position-sizer: risk is reported for the method that sized the trade (#596). A stop price of zero or below is rejected, and risk is computed exactly and rounded half-up (#602).
+- position-sizer: risk is reported for the method that sized the trade (#596). A stop price of zero or below is rejected, and risk is computed exactly and rounded half-up (#602). `nan`, `inf` or `-inf` for any numeric argument exits 2 with an error naming the argument, and `--win-rate 1.0` is rejected instead of recommending half the account (#656).
 - breadth-chart-analyst: `detect_uptrend_ratio --json` no longer crashes on numpy values, and blank sector status no longer crashes the CSV report (#565).
 - skill-designer: a malformed idea JSON prints a one-line error and exits 1 (#567).
 - trading-skills-navigator: keep goal matches whose workflow is unavailable, and report paid-API secondary workflows dropped under `--no-api` (#526).

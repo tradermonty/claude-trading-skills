@@ -378,7 +378,7 @@ In risk-percentage mode (without Kelly inputs), supplying both `--stop` and `--a
 | `--risk-pct` | No | -- | Risk percentage per trade (e.g., 1.0 for 1%) |
 | `--atr` | No | -- | Average True Range value for ATR-based sizing |
 | `--atr-multiplier` | No | `2.0` | Finite, positive ATR multiplier for stop distance |
-| `--win-rate` | No | -- | Historical win rate (0-1) for Kelly Criterion |
+| `--win-rate` | No | -- | Historical win rate for Kelly Criterion, between 0 and 1 (both exclusive) |
 | `--avg-win` | No | -- | Average win amount for Kelly Criterion |
 | `--avg-loss` | No | -- | Average loss amount for Kelly Criterion |
 | `--max-position-pct` | No | -- | Maximum single position as % of account |
@@ -388,6 +388,8 @@ In risk-percentage mode (without Kelly inputs), supplying both `--stop` and `--a
 | `--fractional` | No | `false` | Enable fractional share output |
 | `--share-precision` | No | `4` | Decimal places for fractional shares, 0-8 |
 | `--output-dir` | No | `reports/` | Output directory for JSON and Markdown reports |
+
+Every numeric argument must be a finite number. `nan`, `inf` or `-inf` exits with code 2 and an error naming the argument, before any report is written.
 
 ### Sizing Method Comparison
 
