@@ -51,10 +51,20 @@ def transport(monkeypatch):
 
 
 def rows(symbol="AAA"):
+    """Flat /stable/historical-price-eod/full rows: unadjusted close, no adjClose."""
     return [
-        {"symbol": symbol, "date": "2026-10-30", "close": 12.0, "adjClose": 22.0},
-        {"symbol": symbol, "date": "2026-10-29", "close": 11.0, "adjClose": 21.0},
-        {"symbol": symbol, "date": "2026-10-28", "close": 10.0, "adjClose": 20.0},
+        {"symbol": symbol, "date": "2026-10-30", "close": 12.0},
+        {"symbol": symbol, "date": "2026-10-29", "close": 11.0},
+        {"symbol": symbol, "date": "2026-10-28", "close": 10.0},
+    ]
+
+
+def adj_rows(symbol="AAA"):
+    """Flat /stable/historical-price-eod/dividend-adjusted rows, newest first."""
+    return [
+        {"symbol": symbol, "date": "2026-10-30", "adjClose": 22.0, "volume": 3},
+        {"symbol": symbol, "date": "2026-10-29", "adjClose": 21.0, "volume": 2},
+        {"symbol": symbol, "date": "2026-10-28", "adjClose": 20.0, "volume": 1},
     ]
 
 
@@ -94,17 +104,44 @@ def test_sector_filters_and_mapping_use_generated_session(transport):
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_flat_history_keeps_adjustment_and_last_n_rows(module, transport):
+def test_dividend_adjusted_history_is_preferred_and_trimmed(module, transport):
     responses, calls = transport
-    responses.append(Response(rows()))
+    responses.append(Response(adj_rows()))
     result = module.fetch_historical_prices("AAA", TOKEN, lookback_days=2)
     assert result.tolist() == [21.0, 22.0]
     assert result.index.strftime("%Y-%m-%d").tolist() == ["2026-10-29", "2026-10-30"]
     assert result.name == "AAA"
-    assert len(calls) == 1 and calls[0][0].endswith("/stable/historical-price-eod/full")
-    assert calls[0][1]["symbol"] == "AAA"
+    assert result.attrs["price_basis"] == "dividend_adjusted"
+    # One request: neither the unadjusted `full` endpoint nor v3 is touched.
+    assert len(calls) == 1
+    assert calls[0][0].endswith("/stable/historical-price-eod/dividend-adjusted")
     assert calls[0][1] == {"symbol": "AAA"}
     assert calls[0][2] == {"apikey": TOKEN} and calls[0][3] == 30
+
+
+@pytest.mark.parametrize("module", MODULES)
+@pytest.mark.parametrize("adjusted", [Response(status=402), Response([])])
+def test_unavailable_adjusted_endpoint_falls_back_to_close_and_warns(
+    module, adjusted, transport, capsys
+):
+    responses, calls = transport
+    responses.extend([adjusted, Response(rows())])
+    result = module.fetch_historical_prices("AAA", TOKEN, lookback_days=2)
+    assert result.tolist() == [11.0, 12.0]
+    assert result.attrs["price_basis"] == "close"
+    assert [c[0].rsplit("/", 1)[1] for c in calls] == ["dividend-adjusted", "full"]
+    err = capsys.readouterr().err
+    assert err.count("AAA: using raw close prices that are NOT dividend-adjusted") == 1
+
+
+@pytest.mark.parametrize("module", MODULES)
+def test_fallback_uses_adjclose_when_supplied_without_warning(module, transport, capsys):
+    responses, _ = transport
+    responses.extend([Response(status=402), Response({"symbol": "AAA", "historical": adj_rows()})])
+    result = module.fetch_historical_prices("AAA", TOKEN, lookback_days=3)
+    assert result.tolist() == [20.0, 21.0, 22.0]
+    assert result.attrs["price_basis"] == "adj_close"
+    assert "NOT dividend-adjusted" not in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(("module", "default"), [(find_pairs, 730), (analyze_spread, 365)])
@@ -118,11 +155,12 @@ def test_public_history_defaults_remain_distinct(module, default, transport):
         }
         for i in range(800)
     ][::-1]
-    responses.append(Response(old_rows))
+    responses.extend([Response(status=402), Response(old_rows)])
     result = module.fetch_historical_prices("AAA", TOKEN)
     assert len(result) == default
     assert result.tolist() == [row["close"] for row in old_rows[:default]][::-1]
-    assert calls[0][1] == {"symbol": "AAA"}
+    assert calls[1][0].endswith("/stable/historical-price-eod/full")
+    assert calls[1][1] == {"symbol": "AAA"}
 
 
 @pytest.mark.parametrize("module", MODULES)
@@ -130,14 +168,15 @@ def test_canonical_historical_fallback_and_symbol_alias(module, transport):
     responses, calls = transport
     responses.extend(
         [
+            Response(status=402),
             Response(status=403),
             Response({"historicalStockList": [{"symbol": "BRK.B", "historical": rows("BRK.B")}]}),
         ]
     )
     result = module.fetch_historical_prices("BRK-B", TOKEN, lookback_days=2)
-    assert result.tolist() == [21.0, 22.0]
-    assert calls[1][0].endswith("/api/v3/historical-price-full/BRK-B")
-    assert calls[1][1] == {}
+    assert result.tolist() == [11.0, 12.0]
+    assert calls[2][0].endswith("/api/v3/historical-price-full/BRK-B")
+    assert calls[2][1] == {}
 
 
 @pytest.mark.parametrize(

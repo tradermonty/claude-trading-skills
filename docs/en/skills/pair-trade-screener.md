@@ -140,12 +140,13 @@ Narrow focus to specific industry within sector:
 **Data Requirements:**
 - Timeframe: 2 years (minimum 252 trading days)
 - Frequency: Daily closing prices
-- Adjustments: Adjusted for splits and dividends
+- Adjustments: Dividend-adjusted `adjClose` from `/stable/historical-price-eod/dividend-adjusted` when available. The fallback `full` endpoint serves unadjusted `close`; the run then warns per symbol and records `price_basis: close`
 - Clean data: No gaps or missing values
 
 **FMP API Endpoint:**
 ```
-GET /stable/historical-price-eod/full?symbol={symbol}
+GET /stable/historical-price-eod/dividend-adjusted?symbol={symbol}   # preferred, adjClose
+GET /stable/historical-price-eod/full?symbol={symbol}                  # fallback, unadjusted close
 Header: apikey: <FMP_API_KEY>
 ```
 

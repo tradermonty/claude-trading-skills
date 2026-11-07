@@ -374,29 +374,147 @@ class FMPClient:
 
     # Pair-trade adapters retain latest-N-row semantics for sparse/delisted
     # symbols: fetch available history without a current-date window.
-    def fetch_pair_history(self, symbol: str) -> Optional[dict]:
-        return self._request_with_fallback("historical", symbol)
+    #
+    # Price basis: `/stable/historical-price-eod/full` serves dividend-unadjusted
+    # `close` (no `adjClose`). Pair statistics need dividend-adjusted prices, so
+    # the dividend-adjusted endpoint is tried first and the legacy path is only a
+    # fallback. Every result carries `price_basis`:
+    #   "dividend_adjusted" - dedicated dividend-adjusted endpoint (adjClose)
+    #   "adj_close"         - provider-supplied adjClose on the fallback path
+    #   "close"             - raw close; NOT dividend-adjusted (warned once per symbol)
+    _PAIR_ADJUSTED_URL = (
+        "https://financialmodelingprep.com/stable/historical-price-eod/dividend-adjusted"
+    )
+    _pair_window = None  # rows the caller will use; bounds history validation
+    _pair_warned_unadjusted = None
+
+    def fetch_pair_history(
+        self, symbol: str, lookback_days: Optional[int] = None
+    ) -> Optional[dict]:
+        self._pair_window = lookback_days if lookback_days and lookback_days > 0 else None
+        try:
+            data = self._fetch_pair_adjusted(symbol)
+            if data is None and not self.rate_limit_reached:
+                data = self._request_with_fallback("historical", symbol)
+                if data:
+                    data["price_basis"] = self._pair_price_basis(data["historical"])
+        finally:
+            self._pair_window = None
+        if data and data.get("price_basis") == "close":
+            if self._pair_warned_unadjusted is None:
+                self._pair_warned_unadjusted = set()
+            if symbol not in self._pair_warned_unadjusted:
+                self._pair_warned_unadjusted.add(symbol)
+                print(
+                    f"WARN: {symbol}: using raw close prices that are NOT dividend-adjusted "
+                    "(dividend-adjusted history unavailable); hedge ratios and half-lives "
+                    "may be distorted",
+                    file=sys.stderr,
+                )
+        return data
+
+    def _fetch_pair_adjusted(self, symbol: str) -> Optional[dict]:
+        """Dividend-adjusted history, or None so the caller can fall back."""
+        url = self._PAIR_ADJUSTED_URL
+        if url in self._disabled_endpoints:
+            return None
+        raw = self._rate_limited_get(url, {"symbol": symbol}, quiet=True)
+        if self.rate_limit_reached:
+            return None  # quota is spent: fail fast, do not count against the endpoint
+        rows, reason = self._pair_adjusted_rows(raw, symbol)
+        if rows is None:
+            reason = self._last_error or reason
+            self._record_endpoint_failure(url)
+            print(
+                f"WARN: {url} unusable for {symbol} ({reason}); falling back to the legacy endpoint",
+                file=sys.stderr,
+            )
+            return None
+        self._endpoint_failures[url] = 0
+        return {"symbol": symbol, "historical": rows, "price_basis": "dividend_adjusted"}
+
+    def _pair_adjusted_rows(self, raw, symbol: str):
+        """Return (rows, None) from a flat dividend-adjusted list, else (None, reason)."""
+        if not isinstance(raw, list) or not raw:
+            return None, "empty or non-list response"
+        target = symbol.replace("-", ".")
+        rows = []
+        for row in raw:
+            if not isinstance(row, dict):
+                return None, "row is not an object"
+            row_symbol = row.get("symbol")
+            if row_symbol is not None and (
+                not isinstance(row_symbol, str) or row_symbol.replace("-", ".") != target
+            ):
+                return None, "response symbol mismatch"
+            in_window = self._pair_window is None or len(rows) < self._pair_window
+            day, value = row.get("date"), row.get("adjClose")
+            if not (self._pair_valid_date(day) and self._pair_valid_price(value)):
+                if in_window:
+                    return None, "invalid date or adjClose in requested window"
+                continue  # rows beyond the requested window are never used
+            rows.append({"date": day, "adjClose": value})
+        if not rows:
+            return None, "no usable rows"
+        return rows, None
+
+    def _pair_price_basis(self, rows) -> str:
+        """'adj_close' only when every row the caller will use carries adjClose."""
+        used = rows[: self._pair_window] if self._pair_window else rows
+        if used and all(isinstance(r, dict) and r.get("adjClose") for r in used):
+            return "adj_close"
+        return "close"
 
     def fetch_pair_screener_rows(self, params: dict) -> Optional[list]:
-        """Stable-only company screener with a controlled malformed-body failure."""
+        """Stable-only company screener; rows without a usable symbol are dropped."""
         data = self._rate_limited_get(
             "https://financialmodelingprep.com/stable/company-screener", params=dict(params)
         )
-        if isinstance(data, list) and all(
-            isinstance(row, dict) and isinstance(row.get("symbol"), str) and row["symbol"].strip()
-            for row in data
-        ):
-            return data
+        if isinstance(data, list):
+            rows = [
+                row
+                for row in data
+                if isinstance(row, dict)
+                and isinstance(row.get("symbol"), str)
+                and row["symbol"].strip()
+            ]
+            if len(rows) != len(data):
+                print(
+                    f"WARN: dropped {len(data) - len(rows)} screener row(s) without a usable symbol",
+                    file=sys.stderr,
+                )
+            return rows
         if data is not None:
             self._last_error = "unexpected screener response shape"
             print("ERROR: FMP returned an unexpected screener response shape", file=sys.stderr)
         return None
 
     @staticmethod
-    def _pair_history_issue(data, symbol: str) -> Optional[str]:
-        """Validate this target's data before shared normalization can inspect it."""
+    def _pair_valid_date(day) -> bool:
+        """Accept YYYY-MM-DD, optionally followed by ' HH:MM:SS'."""
+        if not isinstance(day, str):
+            return False
+        for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
+            try:
+                parsed = datetime.strptime(day, fmt)
+            except ValueError:
+                continue
+            return parsed.strftime(fmt) == day
+        return False
+
+    @staticmethod
+    def _pair_valid_price(value) -> bool:
         import math
 
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            return math.isfinite(value)
+        except OverflowError:
+            return False
+
+    def _pair_history_issue(self, data, symbol: str) -> Optional[str]:
+        """Validate this target's requested window before shared normalization runs."""
         if isinstance(data, list):
             histories = [data]
         elif isinstance(data, dict):
@@ -424,26 +542,15 @@ class FMPClient:
         for history in histories:
             if not isinstance(history, list):
                 return "historical rows are not a list"
-            for row in history:
+            # Rows are newest first; rows beyond the caller's window are never used.
+            for row in history[: self._pair_window] if self._pair_window else history:
                 if not isinstance(row, dict):
                     return "historical row is not an object"
                 if row.get("symbol") is not None and not isinstance(row["symbol"], str):
                     return "non-string historical row symbol"
-                day = row.get("date")
-                if not isinstance(day, str):
+                if not self._pair_valid_date(row.get("date")):
                     return "invalid historical date"
-                try:
-                    if datetime.strptime(day, "%Y-%m-%d").strftime("%Y-%m-%d") != day:
-                        return "invalid historical date"
-                except ValueError:
-                    return "invalid historical date"
-                value = row.get("adjClose") or row.get("close")
-                if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    return "invalid historical price"
-                try:
-                    if not math.isfinite(value):
-                        return "invalid historical price"
-                except OverflowError:
+                if not self._pair_valid_price(row.get("adjClose") or row.get("close")):
                     return "invalid historical price"
         return None
 

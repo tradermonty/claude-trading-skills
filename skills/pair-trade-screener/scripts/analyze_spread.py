@@ -52,9 +52,16 @@ def get_api_key(args_api_key):
     return api_key
 
 
-def fetch_historical_prices(symbol, api_key, lookback_days=365):
-    """Fetch historical adjusted close prices for a symbol"""
-    data = FMPClient(api_key=api_key).fetch_pair_history(symbol)
+def fetch_historical_prices(symbol, api_key, lookback_days=365, client=None):
+    """Fetch historical dividend-adjusted prices for a symbol.
+
+    Pass a shared ``client`` so both legs of the pair keep the daily-limit latch
+    and endpoint failure state. The returned Series carries
+    ``attrs["price_basis"]``: "dividend_adjusted", "adj_close" or raw "close".
+    """
+    if client is None:
+        client = FMPClient(api_key=api_key)
+    data = client.fetch_pair_history(symbol, lookback_days=lookback_days)
     if not data:
         print(f"ERROR: No data found for {symbol}")
         return None
@@ -69,6 +76,7 @@ def fetch_historical_prices(symbol, api_key, lookback_days=365):
         index=[pd.to_datetime(item["date"]) for item in historical],
         name=symbol,
     )
+    prices.attrs["price_basis"] = data.get("price_basis", "unknown")
 
     return prices
 
@@ -403,12 +411,26 @@ def main():
     # Fetch price data
     print(f"\nFetching price data for {args.stock_a} and {args.stock_b}...")
 
-    prices_a = fetch_historical_prices(args.stock_a, api_key, args.lookback_days)
-    time.sleep(0.3)  # Rate limiting
-    prices_b = fetch_historical_prices(args.stock_b, api_key, args.lookback_days)
+    client = FMPClient(api_key=api_key)  # shared by both legs
+    prices_a = fetch_historical_prices(args.stock_a, api_key, args.lookback_days, client=client)
+    if not client.rate_limit_reached:
+        time.sleep(0.3)  # Rate limiting
+    prices_b = fetch_historical_prices(args.stock_b, api_key, args.lookback_days, client=client)
 
     if prices_a is None or prices_b is None:
         sys.exit(1)
+
+    basis_a = prices_a.attrs.get("price_basis", "unknown")
+    basis_b = prices_b.attrs.get("price_basis", "unknown")
+    print(f"Price basis: {args.stock_a}={basis_a}, {args.stock_b}={basis_b}")
+    if "close" in (basis_a, basis_b):
+        print(
+            "WARN: raw close prices (not dividend-adjusted) are in use; "
+            "hedge ratio and half-life may be distorted by dividends.",
+            file=sys.stderr,
+        )
+        if basis_a != basis_b:
+            print("WARN: mixed price bases between the two legs.", file=sys.stderr)
 
     # Calculate hedge ratio
     beta_result = calculate_hedge_ratio(prices_a, prices_b)

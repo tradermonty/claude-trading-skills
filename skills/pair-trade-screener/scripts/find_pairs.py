@@ -98,9 +98,16 @@ def fetch_sector_stocks(sector, api_key, min_market_cap=2_000_000_000):
     return stocks
 
 
-def fetch_historical_prices(symbol, api_key, lookback_days=730):
-    """Fetch historical adjusted close prices for a symbol"""
-    data = FMPClient(api_key=api_key).fetch_pair_history(symbol)
+def fetch_historical_prices(symbol, api_key, lookback_days=730, client=None):
+    """Fetch historical dividend-adjusted prices for a symbol.
+
+    Pass one shared ``client`` across a batch so the daily-limit latch and the
+    endpoint failure state survive between symbols. The returned Series carries
+    ``attrs["price_basis"]``: "dividend_adjusted", "adj_close" or raw "close".
+    """
+    if client is None:
+        client = FMPClient(api_key=api_key)
+    data = client.fetch_pair_history(symbol, lookback_days=lookback_days)
     if not data:
         return None
 
@@ -114,8 +121,29 @@ def fetch_historical_prices(symbol, api_key, lookback_days=730):
         index=[pd.to_datetime(item["date"]) for item in historical],
         name=symbol,
     )
+    prices.attrs["price_basis"] = data.get("price_basis", "unknown")
 
     return prices
+
+
+def summarize_price_basis(price_data):
+    """Map symbol -> price basis for a fetched batch."""
+    return {
+        symbol: series.attrs.get("price_basis", "unknown") for symbol, series in price_data.items()
+    }
+
+
+def warn_on_mixed_price_basis(price_basis):
+    """Warn when adjusted and raw-close series are mixed in one run."""
+    raw = sorted(s for s, basis in price_basis.items() if basis == "close")
+    adjusted = [s for s, b in price_basis.items() if b in ("dividend_adjusted", "adj_close")]
+    if raw and adjusted:
+        print(
+            "WARN: mixed price bases in one run: raw close (not dividend-adjusted) for "
+            f"{', '.join(raw)}; adjusted prices for {len(adjusted)} other symbol(s). "
+            "Cross-symbol statistics are not comparable.",
+            file=sys.stderr,
+        )
 
 
 def fetch_price_data_batch(symbols, api_key, lookback_days=730):
@@ -124,11 +152,18 @@ def fetch_price_data_batch(symbols, api_key, lookback_days=730):
 
     price_data = {}
     failed_symbols = []
+    client = FMPClient(api_key=api_key)  # shared: keeps the rate-limit latch and breakers
 
     for i, symbol in enumerate(symbols, 1):
+        if client.rate_limit_reached:
+            # Quota is spent: fail the rest immediately, with no HTTP and no sleep.
+            failed_symbols.extend(symbols[i - 1 :])
+            print("\n  → Daily API limit reached; skipping remaining symbols")
+            break
+
         print(f"  [{i}/{len(symbols)}] Fetching {symbol}...", end="", flush=True)
 
-        prices = fetch_historical_prices(symbol, api_key, lookback_days)
+        prices = fetch_historical_prices(symbol, api_key, lookback_days, client=client)
 
         if prices is not None and len(prices) >= 250:  # Require at least 250 days
             price_data[symbol] = prices
@@ -138,11 +173,14 @@ def fetch_price_data_batch(symbols, api_key, lookback_days=730):
             print(" ✗ (insufficient data)")
 
         # Rate limiting
-        time.sleep(0.3)
+        if not client.rate_limit_reached:
+            time.sleep(0.3)
 
     print(f"\n  → Successfully fetched {len(price_data)} stocks")
     if failed_symbols:
         print(f"  → Failed: {', '.join(failed_symbols)}")
+
+    warn_on_mixed_price_basis(summarize_price_basis(price_data))
 
     return price_data
 
@@ -391,8 +429,12 @@ def rank_pairs(pairs):
 # =============================================================================
 
 
-def save_results(pairs, output_file):
-    """Save results to JSON file"""
+def save_results(pairs, output_file, price_basis=None):
+    """Save results to JSON file.
+
+    ``price_basis`` (symbol -> "dividend_adjusted" | "adj_close" | "close") is
+    recorded under ``metadata.price_basis`` when given.
+    """
     print(f"\n[5/5] Saving results to {output_file}...")
 
     output_data = {
@@ -404,6 +446,8 @@ def save_results(pairs, output_file):
         },
         "pairs": pairs,
     }
+    if price_basis is not None:
+        output_data["metadata"]["price_basis"] = dict(price_basis)
 
     output_path = Path(output_file)
     try:
@@ -567,7 +611,7 @@ Examples:
         ranked_pairs = rank_pairs(pairs)
 
     # Save results
-    save_results(ranked_pairs, args.output)
+    save_results(ranked_pairs, args.output, summarize_price_basis(price_data))
 
     # Print summary
     print_summary(ranked_pairs)

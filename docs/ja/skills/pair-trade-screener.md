@@ -130,12 +130,13 @@ python3 skills/pair-trade-screener/scripts/find_pairs.py \
 **データ要件:**
 - 期間: 2年（最低252取引日）
 - 頻度: 日次終値
-- 調整: 分割・配当調整済み
+- 調整: 利用可能な場合は `/stable/historical-price-eod/dividend-adjusted` の配当調整済み `adjClose` を使用。フォールバック先の `full` は未調整の `close` を返すため、その場合は銘柄ごとに警告し、`price_basis: close` を記録する
 - クリーンデータ: ギャップや欠損値なし
 
 **FMP APIエンドポイント:**
 ```
-GET /stable/historical-price-eod/full?symbol={symbol}
+GET /stable/historical-price-eod/dividend-adjusted?symbol={symbol}   # preferred, adjClose
+GET /stable/historical-price-eod/full?symbol={symbol}                  # fallback, unadjusted close
 Header: apikey: <FMP_API_KEY>
 ```
 

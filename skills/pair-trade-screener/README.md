@@ -19,7 +19,7 @@ The Pair Trade Screener finds statistically significant pair trading opportuniti
 ✅ **Statistical rigor** - Cointegration tests (ADF), correlation analysis
 ✅ **Mean-reversion metrics** - Half-life calculation, z-score tracking
 ✅ **Trade signals** - Automatic entry/exit recommendations
-✅ **FMP API integration** - Free tier sufficient for screening
+✅ **FMP API integration** - Requires an FMP key; plan access to each endpoint is unverified
 ✅ **JSON output** - Structured results for further analysis
 
 ## Installation
@@ -27,7 +27,7 @@ The Pair Trade Screener finds statistically significant pair trading opportuniti
 ### Prerequisites
 
 - Python 3.9+
-- FMP API key (free tier: 250 requests/day)
+- FMP API key with access to the company screener and historical price endpoints (plan limits and tiers are not verified here)
 
 ### Install Dependencies
 
@@ -270,10 +270,9 @@ uv run --with 'statsmodels>=0.14,<0.15' python skills/pair-trade-screener/script
 
 ## API Usage & Rate Limits
 
-**Free Tier:**
-- 250 API requests/day
-- ~2 requests per stock for price data
-- Can screen ~60 stocks/day (= 1,770 pairs)
+**Request budget (plan limits unverified):**
+- About 1 request per stock for price data, more when the dividend-adjusted endpoint is unavailable and the fallback path is used
+- Daily quota depends on your FMP plan; check your account
 
 **Screening Costs:**
 ```
@@ -342,9 +341,9 @@ Individual pair analysis:
 ### API rate limit exceeded
 
 **Solutions:**
-- Wait 24 hours (free tier resets daily)
+- Wait for your plan's daily quota to reset
 - Cache screening results (JSON files)
-- Upgrade to paid plan ($14/mo Starter tier)
+- Upgrade your FMP plan (see FMP pricing)
 
 ### All z-scores near zero
 
@@ -384,8 +383,8 @@ Individual pair analysis:
 
 **FMP API:**
 - API Docs: https://financialmodelingprep.com/developer/docs
-- Historical Price API: `/v3/historical-price-full/{symbol}`
-- Stock Screener API: `/v3/stock-screener`
+- Historical Price API: `/stable/historical-price-eod/dividend-adjusted` (preferred, `adjClose`), falling back to `/stable/historical-price-eod/full` (unadjusted `close`) and v3
+- Stock Screener API: `/stable/company-screener`
 
 **Academic Papers:**
 - Engle & Granger (1987): "Co-Integration and Error Correction"
@@ -400,4 +399,4 @@ Educational and research use. Trade at your own risk. Past performance does not 
 **Version:** 1.0
 **Last Updated:** 2025-11-08
 **Dependencies:** Python 3.9+, pandas, numpy, scipy, requests, `statsmodels>=0.14,<0.15`
-**API:** FMP API (free tier sufficient)
+**API:** FMP API (key required; plan access unverified)

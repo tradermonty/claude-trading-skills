@@ -109,12 +109,13 @@ Narrow focus to specific industry within sector:
 **Data Requirements:**
 - Timeframe: 2 years (minimum 252 trading days)
 - Frequency: Daily closing prices
-- Adjustments: Adjusted for splits and dividends
+- Adjustments: Dividend-adjusted `adjClose` from `/stable/historical-price-eod/dividend-adjusted` when available. The fallback `full` endpoint serves unadjusted `close`; the run then warns per symbol and records `price_basis: close`
 - Clean data: No gaps or missing values
 
 **FMP API Endpoint:**
 ```
-GET /stable/historical-price-eod/full?symbol={symbol}
+GET /stable/historical-price-eod/dividend-adjusted?symbol={symbol}   # preferred, adjClose
+GET /stable/historical-price-eod/full?symbol={symbol}                  # fallback, unadjusted close
 Header: apikey: <FMP_API_KEY>
 ```
 
@@ -657,10 +658,10 @@ Solutions:
 ## API Requirements
 
 - **Required**: FMP API key with access to the company screener and historical-price endpoints.
-- **Transport**: Generated client; screener uses `/stable/company-screener` only. Historical prices try stable first, then the canonical legacy fallback.
-- **History**: Available history is fetched without a current-date bound, then the latest requested number of rows is retained. `adjClose` is preferred when supplied; otherwise `close` is used.
+- **Transport**: Generated client; screener uses `/stable/company-screener` only. Historical prices try the dividend-adjusted stable endpoint first, then the canonical stable `full` and v3 fallback.
+- **History**: Available history is fetched without a current-date bound, then the latest requested number of rows is retained. `adjClose` is used when supplied; otherwise raw `close`, which is not dividend-adjusted. Each symbol's basis is recorded as `price_basis` (`dividend_adjusted`, `adj_close` or `close`) in the `find_pairs` JSON `metadata` and printed by `analyze_spread`, and a stderr warning names every symbol on raw `close`. Mixed bases in one run warn separately.
 - **Failures**: Invalid provider shapes fail with a diagnostic; an empty/failed sector request exits instead of producing a candidate list. Historical failures return no series.
-- **Access and quotas**: Depend on the provider plan; this migration does not verify free-tier availability, current pricing or quotas.
+- **Access and quotas**: Depend on the provider plan; this migration does not verify free-tier availability, plan access to the dividend-adjusted endpoint, current pricing or quotas (all unverified). Once the daily limit is reached, a batch stops requesting immediately.
 
 ## Resources
 

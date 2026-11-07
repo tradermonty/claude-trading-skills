@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "historical-price-eod-dividend-adjusted",
+  "path": "/stable/historical-price-eod/dividend-adjusted",
+  "query": {"symbol": "SPY", "from": "2026-10-26", "to": "2026-10-30"},
+  "contract_version": 1,
+  "recorded_on": "2026-11-07",
+  "recording": "live /stable response; flat list, descending date, no fields removed",
+  "owners": [
+    "pair-trade-screener"
+  ],
+  "tier_notes": "dividend-adjusted OHLC under adj* names; unlike historical-price-eod/full there is no unadjusted close field. Plan-tier availability is unverified: the pair client falls back to historical-price-eod/full (unadjusted close) when this endpoint is unavailable",
+  "required_fields": {
+    "symbol": {"types": ["str"], "nullable": false},
+    "date": {"types": ["str"], "nullable": false},
+    "adjOpen": {"types": ["int", "float"], "nullable": false},
+    "adjHigh": {"types": ["int", "float"], "nullable": false},
+    "adjLow": {"types": ["int", "float"], "nullable": false},
+    "adjClose": {"types": ["int", "float"], "nullable": false},
+    "volume": {"types": ["int"], "nullable": false}
+  },
+  "optional_fields": [],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {"min_rows": 1, "reason": "SPY dividend-adjusted EOD must never be empty"},
+  "fixture": [
+    {
+      "symbol": "SPY",
+      "date": "2026-10-30",
+      "adjOpen": 761.38,
+      "adjHigh": 761.46,
+      "adjLow": 750.36,
+      "adjClose": 755.72,
+      "volume": 77696500
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-29",
+      "adjOpen": 768.79,
+      "adjHigh": 770.76,
+      "adjLow": 766.62,
+      "adjClose": 769.36,
+      "volume": 40299600
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-28",
+      "adjOpen": 771.43,
+      "adjHigh": 773.36,
+      "adjLow": 769.24,
+      "adjClose": 772.31,
+      "volume": 30133804
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-27",
+      "adjOpen": 767.34,
+      "adjHigh": 771.14,
+      "adjLow": 765.21,
+      "adjClose": 769.66,
+      "volume": 28631700
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-26",
+      "adjOpen": 762.25,
+      "adjHigh": 767.73,
+      "adjLow": 761.63,
+      "adjClose": 765.37,
+      "volume": 31737800
+    }
+  ]
+}

@@ -30,6 +30,7 @@ config/provider-contracts/
     profile.v1.json
     quote.v1.json
     historical-price-eod-full.v1.json
+    historical-price-eod-dividend-adjusted.v1.json
     earnings-calendar.v1.json
     income-statement.v1.json
     ratios.v1.json
@@ -317,6 +318,7 @@ signal above.
 | `profile` | earnings-trade-analyzer, pead-screener, ibd-distribution-day-monitor, parabolic-short-trade-planner, canslim-screener, us-undervalued-growth-screener |
 | `quote` | vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, market-top-detector, us-undervalued-growth-screener, stockbee-exhaustion-hammer-screener (generated client `fetch_quote_row`) |
 | `historical-price-eod-full` | 15 generated-client owners: pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor, vcp-screener, parabolic-short-trade-planner, ftd-detector, canslim-screener, macro-regime-detector, market-top-detector, us-undervalued-growth-screener, plus the five stockbee clients (#495 Batch C): stockbee-20pct-study, stockbee-episodic-pivot-analyzer, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, stockbee-setup-fluency-trainer |
+| `historical-price-eod-dividend-adjusted` | pair-trade-screener (generated client `fetch_pair_history`, tried before `historical-price-eod/full`; falls back to the unadjusted `close` with a stderr warning and a `price_basis` record) |
 | `earnings-calendar` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor |
 | `sp500-constituent` | vcp-screener, parabolic-short-trade-planner |
 | `income-statement` | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener — ad-hoc consumers (their own inline FMP fetch layer) |
@@ -605,6 +607,7 @@ endpoints, and are excluded.
 | `profile` | ✅ `profile.v1.json` | see ownership table above | — |
 | `quote` | ✅ `quote.v1.json` | see ownership table above | — |
 | `historical-price-eod/full` | ✅ `historical-price-eod-full.v1.json` | see ownership table above | — |
+| `historical-price-eod/dividend-adjusted` | ✅ `historical-price-eod-dividend-adjusted.v1.json` | pair-trade-screener (SPY fixture window 2026-10-26..2026-10-30; plan-tier availability unverified) | — |
 | `earnings-calendar` (v3 alias: `earning_calendar`) | ✅ `earnings-calendar.v1.json` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor call `get_earnings_calendar`; vcp-screener/parabolic-short-trade-planner vendor the same v3→stable compat rename but do not call it | — |
 | `company-screener` | ✅ `company-screener.v1.json` | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener — the stockbee three are generated-client consumers (`fetch_screener_rows`, stable-only, no v3 fallback) | consumer reason codes → slice 2b |
 | `sp500-constituent` (v3 alias: `sp500_constituent`) | ✅ `sp500-constituent.v1.json` | vcp-screener, parabolic-short-trade-planner call `get_sp500_constituents`; pead-screener/earnings-trade-analyzer/ibd-distribution-day-monitor vendor the compat rename but do not call it | covered |

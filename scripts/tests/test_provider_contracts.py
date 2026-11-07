@@ -62,6 +62,7 @@ def test_expected_contracts_are_present():
         "profile",
         "quote",
         "historical-price-eod-full",
+        "historical-price-eod-dividend-adjusted",
         "earnings-calendar",
         "economic-calendar",
         "income-statement",
@@ -309,6 +310,7 @@ def _load_client_module(rel_path: str):
 
 
 HIST_FIXTURE = CONTRACTS["historical-price-eod-full"].fixture
+HIST_ADJUSTED_FIXTURE = CONTRACTS["historical-price-eod-dividend-adjusted"].fixture
 QUOTE_FIXTURE = CONTRACTS["quote"].fixture
 PROFILE_FIXTURE = CONTRACTS["profile"].fixture
 EARNINGS_FIXTURE = CONTRACTS["earnings-calendar"].fixture
@@ -644,6 +646,8 @@ def _stub_fetch_ok(path, query):
         return 200, copy.deepcopy(PROFILE_FIXTURE)
     if "quote" in path:
         return 200, copy.deepcopy(QUOTE_FIXTURE)
+    if path.endswith("/dividend-adjusted"):
+        return 200, copy.deepcopy(HIST_ADJUSTED_FIXTURE)
     if "historical-price-eod" in path:
         return 200, copy.deepcopy(HIST_FIXTURE)
     if "earnings-calendar" in path:
@@ -675,6 +679,7 @@ def test_canary_success_writes_report_and_never_leaks_the_key(tmp_path, monkeypa
         "profile",
         "quote",
         "historical-price-eod-full",
+        "historical-price-eod-dividend-adjusted",
         "earnings-calendar",
         "economic-calendar",
         "income-statement",
