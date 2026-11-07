@@ -9,12 +9,15 @@ consistent. It performs no network access.
 from __future__ import annotations
 
 import argparse
+import filecmp
 import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,10 +51,17 @@ RUN_STATE_SCHEMA_VERSION = 2
 SNAPSHOT_SCHEMA_VERSION = 3
 AUDIT_SCHEMA_VERSION = 3
 SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-^]{1,20}$")
+AUDIT_DOCUMENT = "audit/broad-screen-audit.json"
 
 
 class RunStateError(ValueError):
     pass
+
+
+class _RollbackIncomplete(RunStateError):
+    """A failed commit could not restore every file; its backups must be kept."""
+
+    keep_staging = True
 
 
 def _now() -> str:
@@ -85,10 +95,13 @@ def _atomic_write_json(path: Path, value: Any) -> None:
     os.replace(temp, path)
 
 
-def _append_event(run_dir: Path, event: Mapping[str, Any]) -> None:
-    path = run_dir / "events.ndjson"
+def _append_event_line(path: Path, event: Mapping[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(event), ensure_ascii=False) + "\n")
+
+
+def _append_event(run_dir: Path, event: Mapping[str, Any]) -> None:
+    _append_event_line(run_dir / "events.ndjson", event)
 
 
 def _state_path(run_dir: Path) -> Path:
@@ -253,25 +266,39 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def _verify_and_copy_artifact(
-    run_dir: Path,
+def _stage_artifact(
+    staging_dir: Path,
+    staged: dict[str, Path],
     section: Mapping[str, Any],
     source_path: Path,
     target_name: str,
     label: str,
 ) -> dict[str, Any]:
+    """Copy an artifact into staging and verify the bytes that will be committed."""
     if not source_path.is_file():
         raise RunStateError(f"{label} artifact not found: {source_path}")
-    actual_sha = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    target = f"audit/{target_name}"
+    # Compare case-insensitively: on a case-insensitive filesystem two names that
+    # differ only by case are one file.
+    folded = target.casefold()
+    existing = next((name for name in staged if name.casefold() == folded), None)
+    if folded == AUDIT_DOCUMENT.casefold() or (existing is not None and existing != target):
+        raise RunStateError(f"{label} artifact name collides with another file: {target_name}")
+    staged_path = staging_dir / f"artifact-{len(staged)}.tmp"
+    shutil.copyfile(source_path, staged_path)
+    actual_sha = hashlib.sha256(staged_path.read_bytes()).hexdigest()
     expected_sha = _text(section.get("artifact_sha256"))
     if expected_sha != actual_sha:
         raise RunStateError(f"{label} artifact SHA-256 does not match audit JSON")
-    audit_dir = run_dir / "audit"
-    audit_dir.mkdir(parents=True, exist_ok=True)
-    target = audit_dir / target_name
-    shutil.copyfile(source_path, target)
+    if existing is not None:
+        # The same name twice is one artifact, but only if the bytes agree.
+        if hashlib.sha256(staged[existing].read_bytes()).hexdigest() != actual_sha:
+            raise RunStateError(f"{label} artifact name collides with another file: {target_name}")
+        staged_path.unlink()
+    else:
+        staged[target] = staged_path
     normalized = dict(section)
-    normalized["artifact_path"] = target.relative_to(run_dir).as_posix()
+    normalized["artifact_path"] = target
     normalized["artifact_sha256"] = actual_sha
     return normalized
 
@@ -294,78 +321,98 @@ def _resolve_artifact_argument(
     return candidate
 
 
-def cmd_set_screening_audit(args: argparse.Namespace) -> int:
-    run_dir: Path = args.run_dir
-    state = _load_state(run_dir)
-    audit = _read_json(args.audit)
-    if not isinstance(audit, Mapping):
-        raise RunStateError("audit file must contain a JSON object")
-    audit = dict(audit)
-    if audit.get("audit_schema_version") != AUDIT_SCHEMA_VERSION:
-        raise RunStateError(f"audit_schema_version must be {AUDIT_SCHEMA_VERSION}")
-    if (_text(audit.get("contract_revision")) or "") != CONTRACT_REVISION:
-        raise RunStateError(f"contract_revision must be {CONTRACT_REVISION!r}")
-    runtime = _mapping(audit.get("runtime"))
-    expected_runtime = runtime_metadata()
-    for key in (
-        "skill_name",
-        "skill_version",
-        "schema_version",
-        "contract_revision",
-        "runtime_fingerprint",
-    ):
-        if runtime.get(key) != expected_runtime.get(key):
+def _restore_one(target: Path, backup: Path) -> None:
+    """Put one target back; tolerate a target whose rename never happened."""
+    if backup.is_file():
+        if target.is_file() and filecmp.cmp(backup, target, shallow=False):
+            return  # Never moved (or already restored): the prior bytes are live.
+        os.replace(backup, target)
+    elif target.is_dir() and not target.is_symlink():
+        return  # A directory in the way is never ours to remove.
+    else:
+        try:
+            target.unlink()
+        except FileNotFoundError:
+            pass  # A new file that was never moved into place.
+
+
+def _restore_files(
+    applied: Sequence[tuple[Path, Path]],
+) -> tuple[list[str], BaseException | None]:
+    """Restore every applied target; return the failures and the first interrupt.
+
+    One failure or interrupt must not skip the remaining files, so every file is
+    attempted. The caller re-raises the interrupt once the loop has finished.
+    """
+    failures: list[str] = []
+    interrupt: BaseException | None = None
+    for target, backup in reversed(applied):
+        try:
+            _restore_one(target, backup)
+        except BaseException as exc:  # noqa: BLE001 - see docstring
+            failures.append(f"{target}: {exc} (prior bytes are in {backup.name})")
+            if not isinstance(exc, Exception) and interrupt is None:
+                interrupt = exc
+    return failures, interrupt
+
+
+def _commit_files(run_dir: Path, staging_dir: Path, staged: Mapping[str, Path]) -> None:
+    """Move staged files over their live paths, restoring all of them if any move fails.
+
+    Mapping order is commit order; run_state.json goes last because it is what
+    a resumed run trusts. A process killed outright cannot run this rollback:
+    prepublish_audit then rejects the hash mismatch, and rerunning the command
+    repairs the run. An exception that leaves a file unrestored carries
+    keep_staging = True so the caller does not delete the backups.
+    """
+    pending: list[tuple[Path, Path, Path]] = []
+    for index, (relative, source) in enumerate(staged.items()):
+        target = run_dir / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        backup = staging_dir / f"backup-{index}.tmp"
+        if target.is_file():
+            # copyfile + copymode: copy2 would also copy BSD flags such as
+            # immutable, which would make the backup impossible to delete.
+            shutil.copyfile(target, backup)
+            shutil.copymode(target, backup)
+            # Keep the live file's permissions across the replacement.
+            os.chmod(source, stat.S_IMODE(target.stat().st_mode))
+        pending.append((source, target, backup))
+    applied: list[tuple[Path, Path]] = []
+    try:
+        for source, target, backup in pending:
+            # Recorded before the rename so a rename followed by an interrupt
+            # is still restored.
+            applied.append((target, backup))
+            os.replace(source, target)
+    except BaseException as exc:
+        failures, interrupt = _restore_files(applied)
+        if interrupt is not None:
+            if failures:
+                interrupt.keep_staging = True  # type: ignore[attr-defined]
+                print(
+                    "WARNING: restore was interrupted; prior files are kept in "
+                    f"{staging_dir}: " + "; ".join(failures),
+                    file=sys.stderr,
+                )
+            if interrupt is exc:
+                raise
+            raise interrupt from exc
+        if failures:
+            raise _RollbackIncomplete(
+                f"commit failed ({exc}) and the prior checkpoint could not be fully restored: "
+                + "; ".join(failures)
+                + f"; prior files are kept in {staging_dir}"
+            ) from exc
+        if isinstance(exc, OSError):
             raise RunStateError(
-                f"audit runtime {key} does not match installed skill v{SKILL_VERSION}"
-            )
+                f"cannot commit screening audit: {exc}; prior checkpoint restored"
+            ) from exc
+        raise
 
-    universe_section = _mapping(audit.get("universe"))
-    candidate_section = _mapping(audit.get("candidate_pool"))
-    listing_path = _resolve_artifact_argument(
-        args.universe_artifact or args.listing_artifact,
-        universe_section,
-        args.audit,
-        label="universe",
-    )
-    candidate_path = _resolve_artifact_argument(
-        args.candidate_artifact or args.artifact,
-        candidate_section,
-        args.audit,
-        label="candidate-pool",
-    )
 
-    normalized = dict(audit)
-    normalized["universe"] = _verify_and_copy_artifact(
-        run_dir, universe_section, listing_path, "universe-audit-results.jsonl", "universe"
-    )
-    normalized["candidate_pool"] = _verify_and_copy_artifact(
-        run_dir, candidate_section, candidate_path, "broad-screen-results.jsonl", "candidate-pool"
-    )
-    # The discovery-stage artifacts (enrichment queue, provider-prefilter pool)
-    # are referenced by bare file names relative to the audit JSON. Copy them
-    # into run/audit/ and rewrite their paths to the same run-relative base as
-    # universe/candidate_pool, so prepublish_audit --artifact-root <run> resolves
-    # every artifact from one root.
-    enrichment_section = _mapping(normalized.get("enrichment"))
-    if _text(enrichment_section.get("artifact_path")):
-        enrichment_path = _resolve_artifact_argument(
-            None, enrichment_section, args.audit, label="enrichment"
-        )
-        normalized["enrichment"] = _verify_and_copy_artifact(
-            run_dir, enrichment_section, enrichment_path, enrichment_path.name, "enrichment"
-        )
-    generation_section = _mapping(normalized["candidate_pool"].get("generation_audit"))
-    if generation_section and _text(generation_section.get("artifact_path")):
-        generation_path = _resolve_artifact_argument(
-            None, generation_section, args.audit, label="candidate-pool generation"
-        )
-        normalized["candidate_pool"]["generation_audit"] = _verify_and_copy_artifact(
-            run_dir,
-            generation_section,
-            generation_path,
-            generation_path.name,
-            "candidate-pool generation",
-        )
+def _validate_selection(normalized: dict[str, Any], audit: Mapping[str, Any]) -> tuple[str, str]:
+    """Validate the committed selection and store its normalized symbols; touches no files."""
     selected = audit.get("selected_symbols")
     if not isinstance(selected, list) or not all(
         isinstance(value, str) and value.strip() for value in selected
@@ -439,39 +486,176 @@ def cmd_set_screening_audit(args: argparse.Namespace) -> int:
         and normalized["selected_symbols"]
     ):
         raise RunStateError(f"candidate_pool_status={pool_status} cannot have selected symbols")
+    return pool_status, outcome
 
-    _atomic_write_json(run_dir / "audit" / "broad-screen-audit.json", normalized)
-    state["screening_audit"] = normalized
-    state["screening_funnel"] = {
-        "universe_count": int(_mapping(normalized.get("universe")).get("row_count") or 0),
-        "listing_in_scope_count": int(
-            _mapping(normalized.get("universe")).get("in_scope_count") or 0
-        ),
-        "candidate_pool_count": int(
-            _mapping(normalized.get("candidate_pool")).get("row_count") or 0
-        ),
-        "discovery_evaluable_count": int(
-            _mapping(normalized.get("candidate_pool")).get("discovery_evaluable_count") or 0
-        ),
-        "deep_dive_selected_count": len(normalized["selected_symbols"]),
-        "preflight_passed_count": 0,
-        "deep_dive_completed_count": 0,
-    }
-    selected_set = set(normalized["selected_symbols"])
-    state["unprocessed_candidates"] = sorted(selected_set - _verified_symbols(state))
-    state["status"] = "partial"
-    _save_state(run_dir, state)
-    _append_event(
-        run_dir,
-        {
-            "at": _now(),
-            "event": "screening_audit_attached",
-            "selected_symbols": normalized["selected_symbols"],
-            "selection_outcome": outcome,
-            "candidate_pool_status": pool_status,
-        },
+
+def cmd_set_screening_audit(args: argparse.Namespace) -> int:
+    """Replace a run's audit bundle all-or-nothing; any failure leaves the run unchanged."""
+    try:
+        return _attach_screening_audit(args)
+    except RunStateError:
+        raise
+    except (AttributeError, OverflowError, RecursionError, TypeError, ValueError) as exc:
+        raise RunStateError(f"screening audit is malformed: {exc}") from exc
+
+
+def _attach_screening_audit(args: argparse.Namespace) -> int:
+    run_dir: Path = args.run_dir
+    state = _load_state(run_dir)
+    audit = _read_json(args.audit)
+    if not isinstance(audit, Mapping):
+        raise RunStateError("audit file must contain a JSON object")
+    audit = dict(audit)
+    if audit.get("audit_schema_version") != AUDIT_SCHEMA_VERSION:
+        raise RunStateError(f"audit_schema_version must be {AUDIT_SCHEMA_VERSION}")
+    if (_text(audit.get("contract_revision")) or "") != CONTRACT_REVISION:
+        raise RunStateError(f"contract_revision must be {CONTRACT_REVISION!r}")
+    runtime = _mapping(audit.get("runtime"))
+    expected_runtime = runtime_metadata()
+    for key in (
+        "skill_name",
+        "skill_version",
+        "schema_version",
+        "contract_revision",
+        "runtime_fingerprint",
+    ):
+        if runtime.get(key) != expected_runtime.get(key):
+            raise RunStateError(
+                f"audit runtime {key} does not match installed skill v{SKILL_VERSION}"
+            )
+
+    normalized = dict(audit)
+    pool_status, outcome = _validate_selection(normalized, audit)
+
+    universe_section = _mapping(audit.get("universe"))
+    candidate_section = _mapping(audit.get("candidate_pool"))
+    listing_path = _resolve_artifact_argument(
+        args.universe_artifact or args.listing_artifact,
+        universe_section,
+        args.audit,
+        label="universe",
     )
-    print(f"attached: {run_dir / 'audit' / 'broad-screen-audit.json'}")
+    candidate_path = _resolve_artifact_argument(
+        args.candidate_artifact or args.artifact,
+        candidate_section,
+        args.audit,
+        label="candidate-pool",
+    )
+
+    # Inside the run directory so the commit's renames stay on one filesystem.
+    # The .tmp names keep a leftover from a killed process out of audit bundles.
+    staging_dir = Path(tempfile.mkdtemp(prefix=".set-screening-audit-", dir=run_dir))
+    keep_staging = False
+    try:
+        staged: dict[str, Path] = {}
+        normalized["universe"] = _stage_artifact(
+            staging_dir,
+            staged,
+            universe_section,
+            listing_path,
+            "universe-audit-results.jsonl",
+            "universe",
+        )
+        normalized["candidate_pool"] = _stage_artifact(
+            staging_dir,
+            staged,
+            candidate_section,
+            candidate_path,
+            "broad-screen-results.jsonl",
+            "candidate-pool",
+        )
+        # The discovery-stage artifacts (enrichment queue, provider-prefilter pool)
+        # are referenced by bare file names relative to the audit JSON. Copy them
+        # into run/audit/ and rewrite their paths to the same run-relative base as
+        # universe/candidate_pool, so prepublish_audit --artifact-root <run> resolves
+        # every artifact from one root.
+        enrichment_section = _mapping(normalized.get("enrichment"))
+        if _text(enrichment_section.get("artifact_path")):
+            enrichment_path = _resolve_artifact_argument(
+                None, enrichment_section, args.audit, label="enrichment"
+            )
+            normalized["enrichment"] = _stage_artifact(
+                staging_dir,
+                staged,
+                enrichment_section,
+                enrichment_path,
+                enrichment_path.name,
+                "enrichment",
+            )
+        generation_section = _mapping(normalized["candidate_pool"].get("generation_audit"))
+        if generation_section and _text(generation_section.get("artifact_path")):
+            generation_path = _resolve_artifact_argument(
+                None, generation_section, args.audit, label="candidate-pool generation"
+            )
+            normalized["candidate_pool"]["generation_audit"] = _stage_artifact(
+                staging_dir,
+                staged,
+                generation_section,
+                generation_path,
+                generation_path.name,
+                "candidate-pool generation",
+            )
+
+        state["screening_audit"] = normalized
+        state["screening_funnel"] = {
+            "universe_count": int(_mapping(normalized.get("universe")).get("row_count") or 0),
+            "listing_in_scope_count": int(
+                _mapping(normalized.get("universe")).get("in_scope_count") or 0
+            ),
+            "candidate_pool_count": int(
+                _mapping(normalized.get("candidate_pool")).get("row_count") or 0
+            ),
+            "discovery_evaluable_count": int(
+                _mapping(normalized.get("candidate_pool")).get("discovery_evaluable_count") or 0
+            ),
+            "deep_dive_selected_count": len(normalized["selected_symbols"]),
+            "preflight_passed_count": 0,
+            "deep_dive_completed_count": 0,
+        }
+        selected_set = set(normalized["selected_symbols"])
+        state["unprocessed_candidates"] = sorted(selected_set - _verified_symbols(state))
+        state["status"] = "partial"
+        state["updated_at"] = _now()
+
+        staged_audit = staging_dir / "audit-document.tmp"
+        _atomic_write_json(staged_audit, normalized)
+        staged[AUDIT_DOCUMENT] = staged_audit
+
+        staged_events = staging_dir / "events.tmp"
+        live_events = run_dir / "events.ndjson"
+        if live_events.exists():
+            shutil.copyfile(live_events, staged_events)
+        _append_event_line(
+            staged_events,
+            {
+                "at": _now(),
+                "event": "screening_audit_attached",
+                "selected_symbols": normalized["selected_symbols"],
+                "selection_outcome": outcome,
+                "candidate_pool_status": pool_status,
+            },
+        )
+        staged["events.ndjson"] = staged_events
+
+        staged_state = staging_dir / "run-state.tmp"
+        _atomic_write_json(staged_state, state)
+        staged["run_state.json"] = staged_state
+
+        _commit_files(run_dir, staging_dir, staged)
+    except BaseException as exc:
+        # Backups are deleted only after a commit or a restore that finished cleanly.
+        keep_staging = bool(getattr(exc, "keep_staging", False))
+        raise
+    finally:
+        if not keep_staging:
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            if staging_dir.exists():
+                print(
+                    f"WARNING: could not remove the staging directory {staging_dir}; "
+                    "delete it by hand once the run is verified",
+                    file=sys.stderr,
+                )
+    print(f"attached: {run_dir / AUDIT_DOCUMENT}")
     return 0
 
 
