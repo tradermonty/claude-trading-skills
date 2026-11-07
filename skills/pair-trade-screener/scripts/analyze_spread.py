@@ -32,7 +32,7 @@ import time
 
 import numpy as np
 import pandas as pd
-import requests
+from pair_fmp_client import FMPClient
 from scipy import stats
 from statsmodels_support import require_statsmodels
 
@@ -52,53 +52,16 @@ def get_api_key(args_api_key):
     return api_key
 
 
-# --- FMP endpoint fallback: stable (new users) -> v3 (legacy users) ---
-_FMP_HIST_ENDPOINTS = [
-    ("https://financialmodelingprep.com/stable/historical-price-eod/full", True),
-    ("https://financialmodelingprep.com/api/v3/historical-price-full", False),
-]
-_endpoint_failures: dict[str, int] = {}
-_BREAKER_THRESHOLD = 3
+def fetch_historical_prices(symbol, api_key, lookback_days=365, client=None):
+    """Fetch historical dividend-adjusted prices for a symbol.
 
-
-def _fetch_raw_historical(symbol, api_key, params=None):
-    """Try stable endpoint first, fall back to v3. Returns dict or None."""
-    for base_url, is_stable in _FMP_HIST_ENDPOINTS:
-        if _endpoint_failures.get(base_url, 0) >= _BREAKER_THRESHOLD:
-            continue
-        if is_stable:
-            url = base_url
-            req_params = dict(params or {})
-            req_params["symbol"] = symbol
-        else:
-            url = f"{base_url}/{symbol}"
-            req_params = dict(params or {})
-        try:
-            resp = requests.get(url, headers={"apikey": api_key}, params=req_params, timeout=30)
-            if resp.status_code != 200:
-                _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-                continue
-            data = resp.json()
-            if isinstance(data, dict) and "historical" in data:
-                _endpoint_failures[base_url] = 0
-                return data
-            if isinstance(data, dict) and "historicalStockList" in data:
-                for entry in data["historicalStockList"]:
-                    if entry.get("symbol", "").replace("-", ".") == symbol.replace("-", "."):
-                        _endpoint_failures[base_url] = 0
-                        return {
-                            "symbol": entry["symbol"],
-                            "historical": entry.get("historical", []),
-                        }
-            _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-        except requests.exceptions.RequestException:
-            _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-    return None
-
-
-def fetch_historical_prices(symbol, api_key, lookback_days=365):
-    """Fetch historical adjusted close prices for a symbol"""
-    data = _fetch_raw_historical(symbol, api_key)
+    Pass a shared ``client`` so both legs of the pair keep the daily-limit latch
+    and endpoint failure state. The returned Series carries
+    ``attrs["price_basis"]``: "dividend_adjusted", "adj_close" or raw "close".
+    """
+    if client is None:
+        client = FMPClient(api_key=api_key)
+    data = client.fetch_pair_history(symbol, lookback_days=lookback_days)
     if not data:
         print(f"ERROR: No data found for {symbol}")
         return None
@@ -113,6 +76,7 @@ def fetch_historical_prices(symbol, api_key, lookback_days=365):
         index=[pd.to_datetime(item["date"]) for item in historical],
         name=symbol,
     )
+    prices.attrs["price_basis"] = data.get("price_basis", "unknown")
 
     return prices
 
@@ -447,12 +411,26 @@ def main():
     # Fetch price data
     print(f"\nFetching price data for {args.stock_a} and {args.stock_b}...")
 
-    prices_a = fetch_historical_prices(args.stock_a, api_key, args.lookback_days)
-    time.sleep(0.3)  # Rate limiting
-    prices_b = fetch_historical_prices(args.stock_b, api_key, args.lookback_days)
+    client = FMPClient(api_key=api_key)  # shared by both legs
+    prices_a = fetch_historical_prices(args.stock_a, api_key, args.lookback_days, client=client)
+    if not client.rate_limit_reached:
+        time.sleep(0.3)  # Rate limiting
+    prices_b = fetch_historical_prices(args.stock_b, api_key, args.lookback_days, client=client)
 
     if prices_a is None or prices_b is None:
         sys.exit(1)
+
+    basis_a = prices_a.attrs.get("price_basis", "unknown")
+    basis_b = prices_b.attrs.get("price_basis", "unknown")
+    print(f"Price basis: {args.stock_a}={basis_a}, {args.stock_b}={basis_b}")
+    if "close" in (basis_a, basis_b):
+        print(
+            "WARN: raw close prices (not dividend-adjusted) are in use; "
+            "hedge ratio and half-life may be distorted by dividends.",
+            file=sys.stderr,
+        )
+        if basis_a != basis_b:
+            print("WARN: mixed price bases between the two legs.", file=sys.stderr)
 
     # Calculate hedge ratio
     beta_result = calculate_hedge_ratio(prices_a, prices_b)

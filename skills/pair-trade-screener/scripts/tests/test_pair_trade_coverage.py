@@ -28,6 +28,7 @@ MODULES = (find_pairs, analyze_spread)
 class FakeResponse:
     def __init__(self, status_code=200, payload=None, json_error=False):
         self.status_code = status_code
+        self.text = "synthetic response"
         self._payload = payload
         self._json_error = json_error
 
@@ -38,19 +39,46 @@ class FakeResponse:
 
 
 def install_http(monkeypatch, module, handler):
-    """Route module.requests.get to handler(url, **kwargs) and record calls."""
+    """Route the actual generated Session transport and record header auth."""
+    import inspect
+
     calls = []
 
-    def fake_get(url, **kwargs):
-        calls.append((url, kwargs))
-        result = handler(url, **kwargs)
-        if isinstance(result, Exception):
-            raise result
-        return result
+    class Session:
+        def __init__(self):
+            self.headers = {}
 
-    monkeypatch.setattr(module.requests, "get", fake_get)
-    monkeypatch.setattr(module, "_endpoint_failures", {})
+        def get(self, url, **kwargs):
+            kwargs["headers"] = dict(self.headers)
+            calls.append((url, kwargs))
+            result = handler(url, **kwargs)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    generated = inspect.getmodule(module.FMPClient)
+    monkeypatch.setattr(generated.requests, "Session", Session)
+    monkeypatch.setattr(generated.time, "sleep", lambda _: None)
     return calls
+
+
+ADJUSTED_PATH = "/stable/historical-price-eod/dividend-adjusted"
+
+
+def legacy_only(handler):
+    """Make the dividend-adjusted endpoint unavailable so the legacy path is exercised."""
+
+    def wrapped(url, **kwargs):
+        if url.endswith(ADJUSTED_PATH):
+            return FakeResponse(402, None)
+        return handler(url, **kwargs)
+
+    return wrapped
+
+
+def legacy_calls(calls):
+    """Drop dividend-adjusted probes from a recorded call list."""
+    return [call for call in calls if not call[0].endswith(ADJUSTED_PATH)]
 
 
 def history_payload(n=5, adj=True):
@@ -206,17 +234,16 @@ def test_fetch_sector_stocks_filters_inactive_and_maps_fields(monkeypatch):
     assert kwargs["params"]["marketCapMoreThan"] == 1_000
 
 
-def test_fetch_sector_stocks_falls_back_through_failures(monkeypatch, capsys):
+def test_fetch_sector_stocks_can_recover_on_a_later_call(monkeypatch, capsys):
     responses = iter(
         [requests.exceptions.ConnectionError("boom"), FakeResponse(200, [{"symbol": "ZZZ"}])]
     )
     calls = install_http(monkeypatch, find_pairs, lambda url, **kw: next(responses))
-
-    stocks = find_pairs.fetch_sector_stocks("Energy", "key")
-
-    assert [s["symbol"] for s in stocks] == ["ZZZ"]
-    assert calls[1][0].endswith("/api/v3/stock-screener")
-    assert "screener request failed" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        find_pairs.fetch_sector_stocks("Energy", "key")
+    assert [s["symbol"] for s in find_pairs.fetch_sector_stocks("Energy", "key")] == ["ZZZ"]
+    assert all(call[0].endswith("/stable/company-screener") for call in calls)
+    assert "Request exception" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -227,14 +254,20 @@ def test_fetch_sector_stocks_falls_back_through_failures(monkeypatch, capsys):
         FakeResponse(200, []),
     ),
 )
-def test_fetch_sector_stocks_skips_bad_first_endpoint(monkeypatch, first):
+def test_fetch_sector_stocks_rejects_bad_responses(monkeypatch, first):
     responses = iter([first, FakeResponse(200, [{"symbol": "OK"}])])
     calls = install_http(monkeypatch, find_pairs, lambda url, **kw: next(responses))
 
-    stocks = find_pairs.fetch_sector_stocks("Energy", "key")
-
-    assert [s["symbol"] for s in stocks] == ["OK"]
-    assert len(calls) == 2
+    if first._json_error:
+        # Malformed JSON is retried once by the canonical transport.
+        assert [stock["symbol"] for stock in find_pairs.fetch_sector_stocks("Energy", "key")] == [
+            "OK"
+        ]
+        assert len(calls) == 2
+    else:
+        with pytest.raises(SystemExit):
+            find_pairs.fetch_sector_stocks("Energy", "key")
+        assert len(calls) == 1
 
 
 def test_fetch_sector_stocks_exits_when_nothing_found(monkeypatch, capsys):
@@ -257,15 +290,15 @@ def test_fetch_sector_stocks_exits_when_nothing_found(monkeypatch, capsys):
 @pytest.mark.parametrize("module", MODULES)
 def test_raw_historical_stable_endpoint_uses_symbol_query(monkeypatch, module):
     calls = install_http(
-        monkeypatch, module, lambda url, **kw: FakeResponse(200, history_payload())
+        monkeypatch, module, legacy_only(lambda url, **kw: FakeResponse(200, history_payload()))
     )
 
-    data = module._fetch_raw_historical("AAA", "key", params={"x": 1})
+    data = module.FMPClient(api_key="key").fetch_pair_history("AAA")
 
     assert len(data["historical"]) == 5
-    url, kwargs = calls[0]
+    url, kwargs = legacy_calls(calls)[0]
     assert url.endswith("/stable/historical-price-eod/full")
-    assert kwargs["params"] == {"x": 1, "symbol": "AAA"}
+    assert kwargs["params"] == {"symbol": "AAA"}
     assert kwargs["headers"] == {"apikey": "key"}  # pragma: allowlist secret
 
 
@@ -274,16 +307,18 @@ def test_raw_historical_falls_back_to_v3_path(monkeypatch, module):
     def handler(url, **kw):
         if "stable" in url:
             return FakeResponse(404, None)
-        return FakeResponse(200, history_payload())
+        payload = history_payload()
+        payload["symbol"] = "BRK.B"
+        return FakeResponse(200, payload)
 
-    calls = install_http(monkeypatch, module, handler)
+    all_calls = install_http(monkeypatch, module, handler)
 
-    data = module._fetch_raw_historical("BRK-B", "key")
+    data = module.FMPClient(api_key="key").fetch_pair_history("BRK-B")
 
-    assert data["symbol"] == "AAA"
+    assert data["symbol"] == "BRK.B"
+    calls = legacy_calls(all_calls)
     assert calls[1][0].endswith("/api/v3/historical-price-full/BRK-B")
     assert calls[1][1]["params"] == {}
-    assert module._endpoint_failures[module._FMP_HIST_ENDPOINTS[0][0]] == 1
 
 
 @pytest.mark.parametrize("module", MODULES)
@@ -294,11 +329,15 @@ def test_raw_historical_unwraps_historical_stock_list(monkeypatch, module):
             {"symbol": "BRK.B", "historical": [{"date": "2025-01-02", "close": 2}]},
         ]
     }
-    install_http(monkeypatch, module, lambda url, **kw: FakeResponse(200, payload))
+    install_http(monkeypatch, module, legacy_only(lambda url, **kw: FakeResponse(200, payload)))
 
-    data = module._fetch_raw_historical("BRK-B", "key")
+    data = module.FMPClient(api_key="key").fetch_pair_history("BRK-B")
 
-    assert data == {"symbol": "BRK.B", "historical": [{"date": "2025-01-02", "close": 2}]}
+    assert data == {
+        "symbol": "BRK.B",
+        "historical": [{"date": "2025-01-02", "close": 2}],
+        "price_basis": "close",
+    }
 
 
 @pytest.mark.parametrize("module", MODULES)
@@ -306,37 +345,40 @@ def test_raw_historical_returns_none_for_unrecognized_payloads(monkeypatch, modu
     calls = install_http(
         monkeypatch,
         module,
-        lambda url, **kw: FakeResponse(200, {"historicalStockList": [{"symbol": "X"}]}),
+        legacy_only(
+            lambda url, **kw: FakeResponse(200, {"historicalStockList": [{"symbol": "X"}]})
+        ),
     )
 
-    assert module._fetch_raw_historical("AAA", "key") is None
-    assert len(calls) == 2
-    assert all(count == 1 for count in module._endpoint_failures.values())
+    client = module.FMPClient(api_key="key")  # pragma: allowlist secret
+    assert client.fetch_pair_history("AAA") is None
+    assert len(legacy_calls(calls)) == 2
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_raw_historical_circuit_breaker_skips_failing_endpoint(monkeypatch, module):
-    calls = install_http(
-        monkeypatch,
-        module,
-        lambda url, **kw: requests.exceptions.Timeout("slow"),
-    )
-
+def test_generated_client_circuit_breaker_is_instance_scoped(monkeypatch, module):
+    calls = install_http(monkeypatch, module, lambda url, **kw: requests.exceptions.Timeout("slow"))
+    client = module.FMPClient(api_key="key")
     for _ in range(3):
-        assert module._fetch_raw_historical("AAA", "key") is None
-    assert len(calls) == 6
-    assert module._fetch_raw_historical("AAA", "key") is None
-    assert len(calls) == 6  # both endpoints tripped, no further requests
+        assert client.fetch_pair_history("AAA") is None
+    # dividend-adjusted + stable full + v3, three times; every breaker is now open
+    assert len(calls) == 9
+    assert client.fetch_pair_history("AAA") is None
+    assert len(calls) == 9
+    # A separate public call without a shared client builds a fresh one; earlier
+    # failures cannot disable it.
+    assert module.fetch_historical_prices("AAA", "key") is None
+    assert len(calls) == 12
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_raw_historical_success_resets_failure_counter(monkeypatch, module):
+def test_generated_historical_success_resets_failure_counter(monkeypatch, module):
     install_http(monkeypatch, module, lambda url, **kw: FakeResponse(200, history_payload()))
-    stable = module._FMP_HIST_ENDPOINTS[0][0]
-    module._endpoint_failures[stable] = 2
-
-    assert module._fetch_raw_historical("AAA", "key") is not None
-    assert module._endpoint_failures[stable] == 0
+    client = module.FMPClient(api_key="key")
+    stable = "https://financialmodelingprep.com/stable/historical-price-eod/full"
+    client._endpoint_failures[stable] = 2
+    assert client.fetch_pair_history("AAA") is not None
+    assert client._endpoint_failures[stable] == 0
 
 
 @pytest.mark.parametrize("module", MODULES)
@@ -382,7 +424,7 @@ def test_fetch_price_data_batch_keeps_only_sufficient_history(monkeypatch, capsy
     short_series = long_series.iloc[:249]
     lookup = {"LONG": long_series, "SHORT": short_series, "NONE": None}
     monkeypatch.setattr(
-        find_pairs, "fetch_historical_prices", lambda symbol, key, days: lookup[symbol]
+        find_pairs, "fetch_historical_prices", lambda symbol, key, days, **_kw: lookup[symbol]
     )
 
     result = find_pairs.fetch_price_data_batch(["LONG", "SHORT", "NONE"], "key", 500)
@@ -1167,7 +1209,7 @@ def test_analyze_spread_main_end_to_end_prints_report(monkeypatch, capsys):
     a, b = cointegrated_prices()
     lookup = {"AAA": a, "BBB": b}
     monkeypatch.setattr(
-        analyze_spread, "fetch_historical_prices", lambda symbol, key, days: lookup[symbol]
+        analyze_spread, "fetch_historical_prices", lambda symbol, key, days, **_kw: lookup[symbol]
     )
 
     run_analyze(monkeypatch, ["--entry-zscore", "1.0", "--exit-zscore", "0.25"])
@@ -1182,7 +1224,7 @@ def test_analyze_spread_main_end_to_end_prints_report(monkeypatch, capsys):
 def test_analyze_spread_main_missing_prices_exit_1(monkeypatch):
     a, _ = cointegrated_prices()
     results = iter([a, None])
-    monkeypatch.setattr(analyze_spread, "fetch_historical_prices", lambda *_a: next(results))
+    monkeypatch.setattr(analyze_spread, "fetch_historical_prices", lambda *_a, **_kw: next(results))
 
     with pytest.raises(SystemExit) as excinfo:
         run_analyze(monkeypatch)
@@ -1193,7 +1235,7 @@ def test_analyze_spread_main_missing_prices_exit_1(monkeypatch):
 def test_analyze_spread_main_cointegration_failure_exit_1(monkeypatch):
     a, b = cointegrated_prices()
     results = iter([a, b])
-    monkeypatch.setattr(analyze_spread, "fetch_historical_prices", lambda *_a: next(results))
+    monkeypatch.setattr(analyze_spread, "fetch_historical_prices", lambda *_a, **_kw: next(results))
     monkeypatch.setattr(analyze_spread, "test_cointegration", lambda _s: None)
 
     with pytest.raises(SystemExit) as excinfo:
@@ -1206,7 +1248,7 @@ def test_analyze_spread_main_short_history_raises_zscore_error(monkeypatch, caps
     a, b = cointegrated_prices(length=60)  # fewer than the 90-day z-score window
     lookup = {"AAA": a, "BBB": b}
     monkeypatch.setattr(
-        analyze_spread, "fetch_historical_prices", lambda symbol, key, days: lookup[symbol]
+        analyze_spread, "fetch_historical_prices", lambda symbol, key, days, **_kw: lookup[symbol]
     )
     monkeypatch.setattr(
         sys, "argv", ["analyze_spread.py", "--stock-a", "AAA", "--stock-b", "BBB", "--api-key", "k"]

@@ -109,12 +109,14 @@ Narrow focus to specific industry within sector:
 **Data Requirements:**
 - Timeframe: 2 years (minimum 252 trading days)
 - Frequency: Daily closing prices
-- Adjustments: Adjusted for splits and dividends
+- Adjustments: Dividend-adjusted `adjClose` from `/stable/historical-price-eod/dividend-adjusted` when available. The fallback `full` endpoint serves unadjusted `close`; the run then warns per symbol and records `price_basis: close`
 - Clean data: No gaps or missing values
 
 **FMP API Endpoint:**
 ```
-GET /v3/historical-price-full/{symbol}?apikey=YOUR_API_KEY
+GET /stable/historical-price-eod/dividend-adjusted?symbol={symbol}   # preferred, adjClose
+GET /stable/historical-price-eod/full?symbol={symbol}                  # fallback, unadjusted close
+Header: apikey: <FMP_API_KEY>
 ```
 
 **Data Validation:**
@@ -584,7 +586,7 @@ Deep dive into cointegration testing:
 - **Statistical foundation**: No discretionary interpretation
 - **Market neutral focus**: Minimize directional beta exposure
 - **Data quality critical**: Garbage in, garbage out
-- **Requires FMP API key**: Free tier sufficient for basic screening
+- **Requires FMP API key**: Access to company-screener and historical-price endpoints depends on your subscription.
 - **Python dependencies**: pandas, numpy, scipy, requests, and `statsmodels>=0.14,<0.15`
 
 ## Common Use Cases
@@ -655,10 +657,11 @@ Solutions:
 
 ## API Requirements
 
-- **Required**: FMP API key (free tier sufficient)
-- **Rate Limits**: ~250 requests/day on free tier
-- **Data Usage**: ~2 requests per symbol for 2-year history
-- **Upgrade**: Professional plan ($29/mo) recommended for frequent screening
+- **Required**: FMP API key with access to the company screener and historical-price endpoints.
+- **Transport**: Generated client; screener uses `/stable/company-screener` only. Historical prices try the dividend-adjusted stable endpoint first, then the canonical stable `full` and v3 fallback.
+- **History**: Available history is fetched without a current-date bound, then the latest requested number of rows is retained. `adjClose` is used when supplied; otherwise raw `close`, which is not dividend-adjusted. Each symbol's basis is recorded as `price_basis` (`dividend_adjusted`, `adj_close` or `close`) in the `find_pairs` JSON `metadata` and printed by `analyze_spread`, and a stderr warning names every symbol on raw `close`. Mixed bases in one run warn separately.
+- **Failures**: Invalid provider shapes fail with a diagnostic; an empty/failed sector request exits instead of producing a candidate list. Historical failures return no series.
+- **Access and quotas**: Depend on the provider plan; this migration does not verify free-tier availability, plan access to the dividend-adjusted endpoint, current pricing or quotas (all unverified). Once the daily limit is reached, a batch stops requesting immediately.
 
 ## Resources
 

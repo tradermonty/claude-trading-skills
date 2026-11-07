@@ -275,6 +275,7 @@ def test_find_pairs_writes_empty_json_when_no_pairs_are_found(monkeypatch, tmp_p
         "total_pairs": 0,
         "cointegrated_pairs": 0,
         "active_signals": 0,
+        "price_basis": {"AAA": "unknown", "BBB": "unknown"},
     }
     assert payload["pairs"] == []
 

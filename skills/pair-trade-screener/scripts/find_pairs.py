@@ -48,7 +48,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
+from pair_fmp_client import FMPClient
 from scipy import stats
 from statsmodels_support import require_statsmodels
 
@@ -72,36 +72,9 @@ def fetch_sector_stocks(sector, api_key, min_market_cap=2_000_000_000):
     """Fetch stocks in a sector from FMP API"""
     print(f"\n[1/5] Fetching {sector} sector stocks from FMP API...")
 
-    # Stock screener: stable /company-screener, with a v3 /stock-screener
-    # fallback for legacy keys. Both accept the same query params and return
-    # the same fields (symbol, companyName, marketCap, sector,
-    # exchangeShortName, isActivelyTrading).
-    params = {
-        "sector": sector,
-        "marketCapMoreThan": min_market_cap,
-        "limit": 1000,
-    }
-    endpoints = [
-        "https://financialmodelingprep.com/stable/company-screener",
-        "https://financialmodelingprep.com/api/v3/stock-screener",
-    ]
-
-    data = None
-    for url in endpoints:
-        try:
-            response = requests.get(url, params=params, headers={"apikey": api_key}, timeout=30)
-        except requests.exceptions.RequestException as e:
-            print(f"  WARNING: screener request failed ({url}): {e}")
-            continue
-        if response.status_code != 200:
-            continue
-        try:
-            payload = response.json()
-        except ValueError:
-            continue
-        if payload:
-            data = payload
-            break
+    data = FMPClient(api_key=api_key).fetch_pair_screener_rows(
+        {"sector": sector, "marketCapMoreThan": min_market_cap, "limit": 1000}
+    )
 
     if not data:
         print(f"ERROR: No stocks found in {sector} sector with market cap > ${min_market_cap:,}")
@@ -125,56 +98,16 @@ def fetch_sector_stocks(sector, api_key, min_market_cap=2_000_000_000):
     return stocks
 
 
-# --- FMP endpoint fallback: stable (new users) -> v3 (legacy users) ---
-_FMP_HIST_ENDPOINTS = [
-    (
-        "https://financialmodelingprep.com/stable/historical-price-eod/full",
-        True,
-    ),  # stable: symbol in query
-    ("https://financialmodelingprep.com/api/v3/historical-price-full", False),  # v3: symbol in path
-]
-_endpoint_failures: dict[str, int] = {}
-_BREAKER_THRESHOLD = 3
+def fetch_historical_prices(symbol, api_key, lookback_days=730, client=None):
+    """Fetch historical dividend-adjusted prices for a symbol.
 
-
-def _fetch_raw_historical(symbol, api_key, params=None):
-    """Try stable endpoint first, fall back to v3. Returns dict or None."""
-    for base_url, is_stable in _FMP_HIST_ENDPOINTS:
-        if _endpoint_failures.get(base_url, 0) >= _BREAKER_THRESHOLD:
-            continue
-        if is_stable:
-            url = base_url
-            req_params = dict(params or {})
-            req_params["symbol"] = symbol
-        else:
-            url = f"{base_url}/{symbol}"
-            req_params = dict(params or {})
-        try:
-            resp = requests.get(url, headers={"apikey": api_key}, params=req_params, timeout=30)
-            if resp.status_code != 200:
-                _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-                continue
-            data = resp.json()
-            if isinstance(data, dict) and "historical" in data:
-                _endpoint_failures[base_url] = 0
-                return data
-            if isinstance(data, dict) and "historicalStockList" in data:
-                for entry in data["historicalStockList"]:
-                    if entry.get("symbol", "").replace("-", ".") == symbol.replace("-", "."):
-                        _endpoint_failures[base_url] = 0
-                        return {
-                            "symbol": entry["symbol"],
-                            "historical": entry.get("historical", []),
-                        }
-            _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-        except requests.exceptions.RequestException:
-            _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-    return None
-
-
-def fetch_historical_prices(symbol, api_key, lookback_days=730):
-    """Fetch historical adjusted close prices for a symbol"""
-    data = _fetch_raw_historical(symbol, api_key)
+    Pass one shared ``client`` across a batch so the daily-limit latch and the
+    endpoint failure state survive between symbols. The returned Series carries
+    ``attrs["price_basis"]``: "dividend_adjusted", "adj_close" or raw "close".
+    """
+    if client is None:
+        client = FMPClient(api_key=api_key)
+    data = client.fetch_pair_history(symbol, lookback_days=lookback_days)
     if not data:
         return None
 
@@ -188,8 +121,29 @@ def fetch_historical_prices(symbol, api_key, lookback_days=730):
         index=[pd.to_datetime(item["date"]) for item in historical],
         name=symbol,
     )
+    prices.attrs["price_basis"] = data.get("price_basis", "unknown")
 
     return prices
+
+
+def summarize_price_basis(price_data):
+    """Map symbol -> price basis for a fetched batch."""
+    return {
+        symbol: series.attrs.get("price_basis", "unknown") for symbol, series in price_data.items()
+    }
+
+
+def warn_on_mixed_price_basis(price_basis):
+    """Warn when adjusted and raw-close series are mixed in one run."""
+    raw = sorted(s for s, basis in price_basis.items() if basis == "close")
+    adjusted = [s for s, b in price_basis.items() if b in ("dividend_adjusted", "adj_close")]
+    if raw and adjusted:
+        print(
+            "WARN: mixed price bases in one run: raw close (not dividend-adjusted) for "
+            f"{', '.join(raw)}; adjusted prices for {len(adjusted)} other symbol(s). "
+            "Cross-symbol statistics are not comparable.",
+            file=sys.stderr,
+        )
 
 
 def fetch_price_data_batch(symbols, api_key, lookback_days=730):
@@ -198,11 +152,18 @@ def fetch_price_data_batch(symbols, api_key, lookback_days=730):
 
     price_data = {}
     failed_symbols = []
+    client = FMPClient(api_key=api_key)  # shared: keeps the rate-limit latch and breakers
 
     for i, symbol in enumerate(symbols, 1):
+        if client.rate_limit_reached:
+            # Quota is spent: fail the rest immediately, with no HTTP and no sleep.
+            failed_symbols.extend(symbols[i - 1 :])
+            print("\n  → Daily API limit reached; skipping remaining symbols")
+            break
+
         print(f"  [{i}/{len(symbols)}] Fetching {symbol}...", end="", flush=True)
 
-        prices = fetch_historical_prices(symbol, api_key, lookback_days)
+        prices = fetch_historical_prices(symbol, api_key, lookback_days, client=client)
 
         if prices is not None and len(prices) >= 250:  # Require at least 250 days
             price_data[symbol] = prices
@@ -212,11 +173,14 @@ def fetch_price_data_batch(symbols, api_key, lookback_days=730):
             print(" ✗ (insufficient data)")
 
         # Rate limiting
-        time.sleep(0.3)
+        if not client.rate_limit_reached:
+            time.sleep(0.3)
 
     print(f"\n  → Successfully fetched {len(price_data)} stocks")
     if failed_symbols:
         print(f"  → Failed: {', '.join(failed_symbols)}")
+
+    warn_on_mixed_price_basis(summarize_price_basis(price_data))
 
     return price_data
 
@@ -465,8 +429,12 @@ def rank_pairs(pairs):
 # =============================================================================
 
 
-def save_results(pairs, output_file):
-    """Save results to JSON file"""
+def save_results(pairs, output_file, price_basis=None):
+    """Save results to JSON file.
+
+    ``price_basis`` (symbol -> "dividend_adjusted" | "adj_close" | "close") is
+    recorded under ``metadata.price_basis`` when given.
+    """
     print(f"\n[5/5] Saving results to {output_file}...")
 
     output_data = {
@@ -478,6 +446,8 @@ def save_results(pairs, output_file):
         },
         "pairs": pairs,
     }
+    if price_basis is not None:
+        output_data["metadata"]["price_basis"] = dict(price_basis)
 
     output_path = Path(output_file)
     try:
@@ -641,7 +611,7 @@ Examples:
         ranked_pairs = rank_pairs(pairs)
 
     # Save results
-    save_results(ranked_pairs, args.output)
+    save_results(ranked_pairs, args.output, summarize_price_basis(price_data))
 
     # Print summary
     print_summary(ranked_pairs)

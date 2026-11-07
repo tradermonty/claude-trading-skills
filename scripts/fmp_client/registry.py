@@ -43,6 +43,7 @@ class SkillConfig:
     batch_days: int = 260  # get_batch_historical default `days` (family A only)
     standalone_template: str | None = None  # full-file template for PR2 special clients
     configurable_timeout: bool = False  # new targets may retain a per-instance timeout
+    pair_history_validation: bool = False  # target-scoped guard before shared normalization
     query_auth: bool = False  # send FMP API key as ?apikey= instead of a header
 
 
@@ -340,3 +341,20 @@ for _cfg in (
 ):
     SKILLS[_cfg.skill] = _cfg
 del _cfg
+
+
+# ---- Issue #495 Batch D: pair-trade public adapters ----
+SKILLS["pair-trade-screener"] = SkillConfig(
+    skill="pair-trade-screener",
+    title="FMP API Client for Pair Trade Screener",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=730,
+    hist_return_list=False,
+    has_compat=False,
+    pair_history_validation=True,
+    feature_lines=("- Pair screener and unbounded historical transport adapters",),
+    class_constants=(),
+    extensions=("pair_trade",),
+)
