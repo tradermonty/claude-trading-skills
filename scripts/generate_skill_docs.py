@@ -274,6 +274,8 @@ def api_badges(api_info: dict | None) -> str:
     if "Required" in alpaca:
         badges.append('<span class="badge badge-api">Alpaca Required</span>')
         has_required = True
+    elif "Optional" in alpaca:
+        badges.append('<span class="badge badge-optional">Alpaca Optional</span>')
 
     if not badges:
         badges.append('<span class="badge badge-free">No API</span>')
@@ -309,6 +311,8 @@ def api_badges_ja(api_info: dict | None) -> str:
     if "Required" in alpaca:
         badges.append('<span class="badge badge-api">Alpaca必須</span>')
         has_required = True
+    elif "Optional" in alpaca:
+        badges.append('<span class="badge badge-optional">Alpaca任意</span>')
 
     if not badges:
         badges.append('<span class="badge badge-free">API不要</span>')

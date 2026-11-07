@@ -397,8 +397,8 @@ permalink: /ja/workflows/
 
 | 入力 | 必須 | 使用ステップ | スキーマ参照 | 説明 |
 |---|---|---|---|---|
-| `holdings_input` | なし | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | 同じ限定分析用のUSD株式CSV、または保存済みAlpacaポジションJSON。 |
-| `source_as_of` | なし | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | 利用者が指定するタイムゾーン付きスナップショット時刻。鮮度や網羅性は推測しない。 |
+| `holdings_input` | あり | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | 同じ限定分析用のUSD株式CSV、または保存済みAlpacaポジションJSON。 |
+| `source_as_of` | あり | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | 利用者が指定するタイムゾーン付きスナップショット時刻。鮮度や網羅性は推測しない。 |
 
 **成果物一覧:**
 

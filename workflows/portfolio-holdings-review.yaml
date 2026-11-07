@@ -29,11 +29,13 @@ required_skills:
 optional_skills: []
 manual_inputs:
   - id: holdings_input
+    required: true
     used_by_steps: [1]
     schema_ref: skills/portfolio-manager/references/csv-holdings-review.md
     description: Local validated USD-equity CSV, or a saved Alpaca positions JSON for the same limited analysis.
     description_ja: 同じ限定分析用のUSD株式CSV、または保存済みAlpacaポジションJSON。
   - id: source_as_of
+    required: true
     used_by_steps: [1]
     schema_ref: skills/portfolio-manager/references/csv-holdings-review.md
     description: Operator-supplied timezone-aware snapshot timestamp; no freshness or completeness is inferred.

@@ -14,7 +14,7 @@ permalink: /en/skills/portfolio-manager/
 Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze asset allocation, risk metrics, individual stock positions, diversification, and generate rebalancing recommendations. Use when user requests portfolio review, position analysis, risk assessment, performance evaluation, or rebalancing suggestions for their brokerage account.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-api">Alpaca for full analysis for Full Analysis</span>
+<span class="badge badge-api">Alpaca for full analysis</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/portfolio-manager.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/portfolio-manager){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -32,7 +32,7 @@ Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch ho
 
 Use [Offline Holdings Review](../workflows.md#portfolio-holdings-review) without
 credentials to analyze a local CSV or saved Alpaca positions JSON. Navigator
-recommends this path for CSV portfolio source requests. Supply the actual file
+recommends this path for CSV and saved-positions source requests. Supply the actual file
 and aware snapshot timestamp; Navigator does not inspect input. The CLI computes
 gross holdings weights and per-position unrealized P&L only. See the
 [CSV and shared output contract](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/portfolio-manager/references/csv-holdings-review.md)

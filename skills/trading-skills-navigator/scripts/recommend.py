@@ -1107,7 +1107,48 @@ _CSV_OUTPUT_PATTERNS = (
     r"csv\s*(?:に|で)\s*(?:出力|保存|書き出|エクスポート)",
     r"csv\s*を\s*(?:出力|エクスポート|書き出)",
 )
-_NEGATED_CSV_RE = re.compile(r"\b(?:not|without|no)\s+(?:from\s+)?(?:an?\s+|any\s+)?csv\b")
+_LOCAL_SOURCE = r"(?:csv|json|snapshot|saved\s+(?:positions?|holdings))"
+# Matching is keyword based. A misread negation falls through to the full route,
+# which is safer than telling someone to supply a file they said they lack.
+_NEGATED_SOURCE_RE = re.compile(
+    # Cue before the source, unless the clause turns to something else first:
+    # "I don't have Alpaca so use my CSV" still names the CSV as the source.
+    r"\b(?:not|without|no|never|lack|instead\s+of|rather\s+than"
+    r"|(?:don|doesn|won|can|haven|hasn|didn)['’]?t|cannot)\b"
+    r"(?:(?!alpaca|\bapi\b|broker|account|\bbut\b|\bso\b|\bjust\b|\bonly\b)[^.;,!?]){0,40}?"
+    + _LOCAL_SOURCE
+    + r"\b"
+    # Cue after the source.
+    r"|\b" + _LOCAL_SOURCE + r"\s+(?:file\s+)?(?:is\s+|are\s+)?"
+    r"(?:not\b|isn['’]?t\b|aren['’]?t\b|unavailable\b|unnecessary\b)"
+    # Japanese places the negation after the source.
+    r"|(?:csv|json|保存.{0,6}(?:ポジション|保有))\s*(?:ファイル)?\s*(?:から)?\s*(?:の用意)?\s*"
+    r"(?:は|を|が)?\s*"
+    r"(?:使わ|使用せず|使用しない|使いたくない|なし|無し|ない|無い|ありません"
+    r"|持っていません|持ってない|持っていない|不要|以外|ではなく|じゃなく)"
+)
+_SAVED_FILE_PATTERNS = (
+    r"\bsaved\s+(?:(?:alpaca|broker|brokerage|portfolio|local)\s+){0,2}"
+    r"(?:positions?|holdings|snapshot|json)\b",
+    r"\b(?:positions?|holdings|snapshot)[\w-]*\.json\b",
+    r"保存.{0,15}(?:ポジション|保有|json|スナップショット)",
+)
+_JSON_SOURCE_PATTERNS = (
+    r"\bfrom\s+(?:an?\s+|my\s+|the\s+)?(?:[\w-]+\s+){0,3}json\b",
+    r"json\s*(?:から|を取り込|を取込|を読み込|を読込|の保有|のポジション)",
+    r"(?:保有|ポジション).{0,15}json",
+)
+_LIVE_JSON_RE = re.compile(
+    r"\b(?:live|api|feed|stream|pull(?:ing)?|fetch(?:ing)?)\b|ライブ|リアルタイム"
+)
+_JSON_OUTPUT_RE = re.compile(
+    r"\b(?:export|save|write|send|output|email)\b[^.;]{0,30}json\b"
+    r"|\bto\s+[\w/\\.-]*json\b"
+    r"|json\s*(?:に|で)\s*(?:出力|保存|書き出|エクスポート)"
+)
+_HOLDINGS_GOAL_RE = re.compile(
+    r"\b(?:holdings?|portfolio|positions?)\b|保有|ポートフォリオ|ポジション"
+)
 
 
 def _wants_csv_portfolio_input(norm: str) -> bool:
@@ -1116,14 +1157,27 @@ def _wants_csv_portfolio_input(norm: str) -> bool:
     Any CSV mention defaults to "input", because Navigator cannot read files.
     The exception is a CSV that is clearly an output (export/save/send, JA
     CSVに出力) with no input pattern anywhere; input patterns win. A negated
-    CSV ("not from a CSV") is ignored. Naming Alpaca never matters on its own.
+    CSV ("not from a CSV", "don't use a CSV", CSVは使わず) is ignored. Naming
+    Alpaca never matters on its own.
     """
-    text = _NEGATED_CSV_RE.sub(" ", norm)
+    text = _NEGATED_SOURCE_RE.sub(" ", norm)
     if "csv" not in text:
         return False
     if any(re.search(pat, text) for pat in _CSV_INPUT_PATTERNS):
         return True
     return not any(re.search(pat, text) for pat in _CSV_OUTPUT_PATTERNS)
+
+
+def _wants_saved_positions_input(norm: str) -> bool:
+    """True when a saved positions file, not a live account, is the source."""
+    text = _NEGATED_SOURCE_RE.sub(" ", norm)
+    if _JSON_OUTPUT_RE.search(text):
+        return False
+    if any(re.search(pat, text) for pat in _SAVED_FILE_PATTERNS):
+        return True
+    if _LIVE_JSON_RE.search(text):
+        return False
+    return any(re.search(pat, text) for pat in _JSON_SOURCE_PATTERNS)
 
 
 def recommend(
@@ -1163,16 +1217,16 @@ def recommend(
             routing_diagnostics["explanation"] = (
                 f"No-API intent is a constraint; selected goal persona '{substantive.name}'."
             )
-    csv_portfolio_input = (
+    local_portfolio_input = (
         matched is not None
         and matched.primary == "core-portfolio-weekly"
-        and _wants_csv_portfolio_input(norm)
+        and (_wants_csv_portfolio_input(norm) or _wants_saved_positions_input(norm))
     )
-    csv_workflow_id = "portfolio-holdings-review"
-    csv_workflow_available = csv_workflow_id in workflows_by_id
+    offline_workflow_id = "portfolio-holdings-review"
+    offline_workflow_available = offline_workflow_id in workflows_by_id
     goal_workflow_id = matched.primary if matched is not None else None
-    if csv_portfolio_input and csv_workflow_available:
-        goal_workflow_id = csv_workflow_id
+    if local_portfolio_input and offline_workflow_available:
+        goal_workflow_id = offline_workflow_id
     goal_workflow = workflows_by_id.get(goal_workflow_id) if goal_workflow_id else None
     goal_match: dict[str, Any] = {
         "persona": matched.name if matched is not None else None,
@@ -1200,18 +1254,19 @@ def recommend(
             gap_category = matched.gap_category
         else:
             primary_id = goal_workflow_id
-            secondary_ids = [] if csv_portfolio_input else list(matched.secondary)
-            if csv_portfolio_input and csv_workflow_available:
+            secondary_ids = [] if local_portfolio_input else list(matched.secondary)
+            if local_portfolio_input and offline_workflow_available:
                 note = (
                     "Limited offline holdings allocation and per-position P&L only; "
                     "this is not a full account risk or brokerage review. Supply an actual "
-                    "local CSV path and a timezone-aware --as-of timestamp to "
-                    "portfolio-manager/scripts/review_csv.py. Navigator does not read or "
+                    "local file path and a timezone-aware --as-of timestamp to "
+                    "portfolio-manager/scripts/review_csv.py; add --input-format alpaca-json "
+                    "for a saved Alpaca positions file. Navigator does not read or "
                     "validate holdings files; workflow eligibility is a recommendation, "
                     "not confirmation of valid, complete or fresh input."
                 )
                 rationale.append(
-                    "CSV portfolio source selects the limited offline holdings workflow"
+                    "Local portfolio file selects the limited offline holdings workflow"
                 )
     else:
         # Truly unmapped input: graceful beginner default (NOT honest-gap).
@@ -1291,7 +1346,7 @@ def recommend(
 
     # A stale or incomplete snapshot must not silently send a CSV source to
     # the broader brokerage workflow. The recommender itself never reads files.
-    if csv_portfolio_input and not csv_workflow_available:
+    if local_portfolio_input and not offline_workflow_available:
         missing_requirements.append(
             {
                 "kind": "unsupported_capability",
@@ -1309,7 +1364,25 @@ def recommend(
             "is unavailable: " + "; ".join(item["detail"] for item in missing_requirements)
         )
         rationale.append(routing_diagnostics["explanation"])
-        if no_api:
+        limited = workflows_by_id.get(offline_workflow_id)
+        if (
+            no_api
+            and goal_workflow_id == "core-portfolio-weekly"
+            and limited is not None
+            and workflow_paid_api_reason(limited, skills_by_id) is None
+            and _HOLDINGS_GOAL_RE.search(norm)
+            and not _NEGATED_SOURCE_RE.search(norm)
+        ):
+            alternative_workflow = {
+                "workflow": _workflow_public_view(limited),
+                "relationship": "limited_alternative",
+                "no_api_path": True,
+                "explanation": (
+                    "Reviews a local CSV or saved positions JSON for gross allocation and "
+                    "per-position P&L; not a full brokerage review"
+                ),
+            }
+        elif no_api:
             fallback = workflows_by_id.get("market-regime-daily")
             if fallback is not None and workflow_paid_api_reason(fallback, skills_by_id) is None:
                 alternative_workflow = {
@@ -1562,8 +1635,13 @@ def render_text(result: dict[str, Any]) -> str:
     lines.append(f"No-API mode requested: {result['no_api']}")
     alternative = result["alternative_workflow"]
     if alternative is not None:
+        label = (
+            "Limited alternative"
+            if alternative["relationship"] == "limited_alternative"
+            else "Different-goal alternative"
+        )
         lines.append(
-            f"Different-goal alternative: {alternative['workflow']['display_name']} "
+            f"{label}: {alternative['workflow']['display_name']} "
             f"({alternative['workflow']['id']}) — {alternative['explanation']}"
         )
     if result["note"]:

@@ -61,8 +61,8 @@ Only the following fields enter the common CSV validator/calculator:
 | `asset_class` | String, exactly `us_equity`, mapped to `equity` |
 | `qty` | String; strictly positive for `side=long`, strictly negative for `side=short`; its unsigned magnitude follows CSV numeric limits |
 | `side` | String, exactly `long` or `short`, mapped to `LONG` or `SHORT` |
-| `current_price` | String, positive USD per-share price, mapped to `price` |
-| `avg_entry_price` | Optional string, nonnegative per-share acquisition price mapped to `cost_basis`; null, empty or missing means unavailable |
+| `current_price` | String, positive USD per-share price with at most 12 decimal places, mapped to `price` |
+| `avg_entry_price` | Optional string, nonnegative per-share acquisition price with at most 12 decimal places, mapped to `cost_basis`; null, empty or missing means unavailable |
 | `currency` | If supplied, exactly `USD`; `us_equity` snapshots without this field are treated as USD only |
 
 See [Alpaca's positions reference](https://docs.alpaca.markets/us/reference/getallopenpositions)
@@ -130,7 +130,7 @@ cost data; keep inputs/reports local and do not commit or upload personal data.
 This is field minimization, not anonymization. CLI arguments/paths can remain in
 shell history. Never pass secrets in a command, CSV or saved JSON.
 
-The `portfolio-holdings-review` workflow and Navigator's CSV-input route use
+The `portfolio-holdings-review` workflow and Navigator's local-file route use
 this limited review. Navigator recommends the workflow without reading or
 validating your file; actual execution requires `--input` and an aware `--as-of`
 and may reject unsupported or malformed input. Its native replay uses fictional

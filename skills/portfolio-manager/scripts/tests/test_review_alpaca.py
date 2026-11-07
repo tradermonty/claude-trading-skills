@@ -190,3 +190,31 @@ def test_alpaca_cli_is_offline_and_uses_existing_output_names(tmp_path, monkeypa
     captured = capsys.readouterr()
     assert "private" not in captured.err + captured.out
     assert {p.name: p.read_bytes() for p in output.iterdir()} == before
+
+
+def test_breakeven_short_has_unsigned_zero_pnl():
+    positions = copy.deepcopy(POSITIONS)
+    positions[1]["avg_entry_price"] = positions[1]["current_price"]
+    assert build_alpaca_report(positions, STAMP)["positions"][1]["unrealized_pnl"] == "0"
+
+
+@pytest.mark.parametrize(
+    "field,value,message",
+    [
+        ("qty", "-2.5", "position 2: invalid qty"),
+        ("current_price", "0", "position 2: invalid current_price"),
+        ("avg_entry_price", "-1", "position 2: invalid avg_entry_price"),
+        ("symbol", "[bad]", "position 2: invalid equity symbol"),
+    ],
+)
+def test_diagnostics_use_one_position_number_and_native_names(field, value, message):
+    positions = [copy.deepcopy(POSITIONS[0]), {**POSITIONS[0], "symbol": "OTHER", field: value}]
+    with pytest.raises(CsvError) as error:
+        build_alpaca_report(positions, STAMP)
+    assert str(error.value) == message
+
+
+def test_csv_diagnostics_keep_row_numbers():
+    text = "symbol,asset_type,quantity,direction,price,currency\nAAA,equity,1,LONG,0,USD\n"
+    with pytest.raises(CsvError, match="row 2: invalid price"):
+        build_report(io.StringIO(text), STAMP)

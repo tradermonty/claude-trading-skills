@@ -6583,6 +6583,8 @@ def _prompt_text(workflow: Mapping[str, Any], variant: str) -> str:
             "Include the optional news/catalyst brief while keeping every hypothesis "
             "card manual-review-gated and never wiring forex output to a broker."
         )
+    elif workflow["id"] == "portfolio-holdings-review":
+        optional_text = "This workflow has no optional steps; run its single required step."
     else:
         optional_text = (
             "Run the optional human-approved lessons step after reviewing the cohort evidence."

@@ -47,6 +47,8 @@ def _number(raw: str, row: int, field: str, *, zero: bool = False) -> Decimal:
 
 
 def _text(value: Decimal) -> str:
+    if value == 0:
+        return "0"
     result = format(value, "f")
     return result.rstrip("0").rstrip(".") if "." in result else result
 
@@ -137,6 +139,20 @@ def build_report(stream: TextIO, as_of: str) -> dict:
     }
 
 
+def _alpaca_diagnostic(message: str) -> str:
+    """Restate a shared-validator row error in the snapshot's own terms."""
+    match = re.fullmatch(r"row (\d+): (.*)", message)
+    if match is None:
+        return message
+    detail = match.group(2)
+    for csv_name, native_name in (
+        ("invalid price", "invalid current_price"),
+        ("invalid cost_basis", "invalid avg_entry_price"),
+    ):
+        detail = detail.replace(csv_name, native_name)
+    return f"position {int(match.group(1)) - 1}: {detail}"
+
+
 def build_alpaca_report(payload: object, as_of: str) -> dict:
     """Normalize a saved /v2/positions list through the CSV analysis contract.
 
@@ -169,7 +185,10 @@ def build_alpaca_report(payload: object, as_of: str) -> dict:
         elif side != "long":
             raise CsvError(f"position {index}: side must be long or short")
         # Validate the magnitude before passing it to the unsigned CSV contract.
-        _number(quantity, index, "qty")
+        try:
+            _number(quantity, index, "qty")
+        except CsvError as exc:
+            raise CsvError(f"position {index}: invalid qty") from exc
         basis = position.get("avg_entry_price")
         if basis is not None and not isinstance(basis, str):
             raise CsvError(f"position {index}: invalid avg_entry_price")
@@ -185,7 +204,10 @@ def build_alpaca_report(payload: object, as_of: str) -> dict:
             ]
         )
     stream.seek(0)
-    report = build_report(stream, as_of)
+    try:
+        report = build_report(stream, as_of)
+    except CsvError as exc:
+        raise CsvError(_alpaca_diagnostic(str(exc))) from exc
     report["provenance"]["source"] = "alpaca_positions_snapshot"
     return report
 

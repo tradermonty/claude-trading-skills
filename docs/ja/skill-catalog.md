@@ -33,6 +33,7 @@ permalink: /ja/skill-catalog/
 | <span class="badge badge-api">FMP必須</span> | FMP APIキーが必要 |
 | <span class="badge badge-optional">FMP任意</span> | FMP APIキーがあると機能強化 |
 | <span class="badge badge-optional">FINVIZ任意</span> | FINVIZ Eliteがあると高速化・精度向上 |
+| <span class="badge badge-optional">Alpaca任意</span> | Alpacaはスキルの一部でのみ必要で、資格情報なしで使えるローカル経路があります |
 | <span class="badge badge-api">Alpaca必須</span> | Alpaca証券口座が必要 |
 | <span class="badge badge-workflow">ワークフロー</span> | 他スキルと連携するワークフロースキル |
 

@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -82,3 +83,17 @@ def test_native_executor_is_exercised(tmp_path, monkeypatch):
     assert Path(calls[0][1]).name == "review_csv.py"
     assert "--as-of" in calls[0]
     assert not any("alpaca" in arg.lower() for arg in calls[0])
+
+
+def test_full_path_prompt_does_not_invent_an_optional_step():
+    prompt = (SPEC.parent / "replay-run-full-path/prompt.md").read_text()
+    assert "lessons step" not in prompt
+    assert "no optional steps" in prompt
+
+
+def test_workflow_marks_its_cli_inputs_required():
+    manifest = yaml.safe_load((ROOT / "workflows/portfolio-holdings-review.yaml").read_text())
+    assert {item["id"]: item.get("required") for item in manifest["manual_inputs"]} == {
+        "holdings_input": True,
+        "source_as_of": True,
+    }

@@ -62,7 +62,7 @@ For saved Alpaca positions JSON, add `--input-format alpaca-json`; this reads a
 local file and never connects to the broker. Both formats share the limited
 analysis schema. Read [the input/output contract](references/csv-holdings-review.md)
 for validation, fractional/short quantities, provenance and privacy rules.
-Navigator routes CSV portfolio input requests to this workflow; it does not
+Navigator routes CSV and saved-positions input requests to this workflow; it does not
 inspect or validate the file. Cash, leverage, performance, dividends and trading
 recommendations require other evidence and are unavailable in this mode.
 

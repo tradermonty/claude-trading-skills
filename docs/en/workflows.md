@@ -397,8 +397,8 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 | Input | Required | Used by steps | Schema reference | Description |
 |---|---|---|---|---|
-| `holdings_input` | no | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | Local validated USD-equity CSV, or a saved Alpaca positions JSON for the same limited analysis. |
-| `source_as_of` | no | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | Operator-supplied timezone-aware snapshot timestamp; no freshness or completeness is inferred. |
+| `holdings_input` | yes | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | Local validated USD-equity CSV, or a saved Alpaca positions JSON for the same limited analysis. |
+| `source_as_of` | yes | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | Operator-supplied timezone-aware snapshot timestamp; no freshness or completeness is inferred. |
 
 **Artifacts:**
 

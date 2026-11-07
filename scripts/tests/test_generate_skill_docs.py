@@ -1303,3 +1303,9 @@ class TestSkillFlagNavOrderAssignment:
             line.startswith("OK:") and "gamma-target.md matches" in line for line in check_lines
         )
         assert not any(line.startswith("DRIFT:") and "gamma-target" in line for line in check_lines)
+
+
+def test_optional_alpaca_is_not_shown_as_only_no_api():
+    info = {"fmp": "❌ Not used", "finviz": "❌ Not used", "alpaca": "🟡 Optional"}
+    assert "Alpaca Optional" in api_badges(info)
+    assert "Alpaca任意" in api_badges_ja(info)

@@ -80,7 +80,7 @@ constraints are applied. The first candidate remains the selected persona for
 backward compatibility. One match is `exact`; multiple matches are
 `ambiguous`; no matches are `fallback` with `selected_persona: null`.
 
-The versioned corpus requires all 17 personas and all 12 workflows to carry
+The versioned corpus requires all 17 personas and all 13 workflows to carry
 positive and hard-negative coverage in both English and Japanese. Its
 metamorphic cases cover EN case/punctuation/word-order/orthographic changes and
 JA punctuation/word-order/orthographic/particle/conjugation changes. Candidate
@@ -172,8 +172,9 @@ A workflow needs a paid key if **either**:
 `api_profile: mixed` is **never** trusted on its own — the required-skill
 credentials are always inspected. Consequences:
 
-- `core-portfolio-weekly` is `mixed` but its required `portfolio-manager`
-  needs Alpaca (`required`) → excluded under `--no-api`.
+- `core-portfolio-weekly` is `alpaca-required` → excluded under `--no-api`,
+  even though `portfolio-manager` lists Alpaca as `optional` for its offline
+  mode.
 - `swing-opportunity-daily` is `fmp-required` → excluded.
 - `market-regime-daily` is `no-api-basic`; its required skills use
   `public_csv` at `required` — **not a paid key** → kept.
@@ -184,17 +185,28 @@ When `--no-api` blocks the matched workflow, the engine keeps that workflow
 in `goal_match` with `runnability: blocked` and the paid integration in
 `missing_requirements`. The requested goal has `primary_workflow: null`,
 `honest_gap: true`, `no_api_path: null`, and an empty `setup_bundle`.
-`market-regime-daily` may appear separately as a different-goal
-`alternative_workflow`; it never becomes an exact portfolio/swing match.
+`market-regime-daily` may appear separately as a `different_goal`
+`alternative_workflow`; it never becomes an exact portfolio/swing match. When
+the blocked goal is `core-portfolio-weekly` and the query names holdings, a
+portfolio or positions, `portfolio-holdings-review` appears instead as a
+`limited_alternative`. The goal stays blocked, because that workflow is not a
+full brokerage review.
+
 For core-portfolio-weekly, any CSV mention ("from a CSV file", "I have a csv",
 "portfolio review csv", "CSVファイルで管理している…") is read as the portfolio
-*source* and stays blocked because #512 has not shipped a CSV workflow.
-Navigator accepts no CSV path argument. The one exception is a CSV that is
-clearly an output ("export/save/send … csv", "CSVに出力") with no input
-pattern present; input patterns win, a negated CSV ("not from a CSV") is
-ignored, and naming or negating Alpaca never changes the outcome by itself.
-Known limitation: a CSV query with no portfolio wording (for example "I have
-a CSV") does not match the portfolio persona and falls back to
+*source* and selects `portfolio-holdings-review`. So does a saved positions file
+("from a saved Alpaca positions json", "positions.json", "AlpacaのJSONから").
+Navigator accepts no file path argument and does not read files. The exception
+is a CSV that is clearly an output ("export/save/send … csv", "CSVに出力") with
+no input pattern present; input patterns win. Common negated wording ("not from a
+CSV", "don't use a CSV", "CSVは使わず") is ignored, and naming or negating Alpaca
+never changes the outcome by itself. Live-data wording ("live positions as json",
+"from the JSON feed") does not select the offline path. Matching is keyword based,
+so unusual wording can still be misread; a misread negation falls through to the
+full route.
+Known limitation: a CSV or saved-file query with no portfolio wording, or a
+Japanese phrasing the persona does not recognize (for example "I have a CSV" or
+"保有ポートフォリオを保存したJSONから確認"), does not match the portfolio persona and falls back to
 market-regime-daily; goal matching is unchanged here.
 
 Under `--no-api`, paid-API *secondary* workflows are removed from
@@ -251,7 +263,7 @@ constraints allow the path, not proof that data is ready), `blocked` (a matching
 workflow exists but the request cannot use it), `unshipped` (no dedicated
 workflow), or `unmatched` (unmapped input and a beginner fallback). A blocked
 result has `routing_diagnostics.status: unavailable`, typed
-`missing_requirements`, and no primary/setup bundle. A different-goal
+`missing_requirements`, and no primary/setup bundle. An
 `alternative_workflow` is shown independently.
 
 When a query combines a substantive goal with a phrase such as "without API",

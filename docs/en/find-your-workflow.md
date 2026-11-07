@@ -113,8 +113,8 @@ single source of truth that powers this page.
 
 ## Local holdings without credentials
 
-For a CSV portfolio source, choose [Offline Holdings Review](workflows.md#portfolio-holdings-review).
-Provide the actual CSV path and timezone-aware source timestamp to Portfolio Manager's
+For a CSV or saved Alpaca positions JSON source, choose [Offline Holdings Review](workflows.md#portfolio-holdings-review).
+Provide the actual file path and timezone-aware source timestamp to Portfolio Manager's
 `review_csv.py`. It reports gross holdings weights and per-position P&L only;
 account-wide exposure, leverage and trading decisions remain outside this path.
 Navigator recommends the workflow but does not validate files.

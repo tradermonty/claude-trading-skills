@@ -33,6 +33,7 @@ A comprehensive catalog of all 74 Claude Trading Skills organized by category. B
 | <span class="badge badge-api">FMP Required</span> | Requires a Financial Modeling Prep API key |
 | <span class="badge badge-optional">FMP Optional</span> | FMP key enhances functionality but is not required |
 | <span class="badge badge-optional">FINVIZ Optional</span> | FINVIZ Elite improves speed and coverage |
+| <span class="badge badge-optional">Alpaca Optional</span> | Alpaca is needed only for part of the skill; a local path works without credentials |
 | <span class="badge badge-api">Alpaca Required</span> | Requires an Alpaca brokerage account |
 | <span class="badge badge-workflow">Workflow</span> | Workflow skill that coordinates other skills |
 
