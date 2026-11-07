@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "provider": "fmp",
+  "endpoint": "historical-price-eod-light",
+  "path": "/stable/historical-price-eod/light",
+  "query": {
+    "symbol": "SPY",
+    "from": "2026-10-26",
+    "to": "2026-10-30"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-11-06",
+  "recording": "Authenticated live response captured 2026-11-06T11:25:26.755774+00:00; retained public symbol/date/price/volume fields only; no request URL or credentials retained.",
+  "owners": [
+    "news-reaction-failure-analyzer"
+  ],
+  "tier_notes": "Subscription tier not established. This recording proves only this key and SPY window; free-tier and futures availability are unverified. HTTP denial scenarios are synthetic tests.",
+  "required_fields": {
+    "date": {
+      "types": [
+        "str"
+      ],
+      "nullable": false,
+      "iso_date": true
+    },
+    "price": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false,
+      "finite": true
+    }
+  },
+  "optional_fields": [
+    "symbol",
+    "volume"
+  ],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "The recorded SPY 2026-10-26 through 2026-10-30 window must remain nonempty; arbitrary futures windows may legitimately lack coverage."
+  },
+  "fixture": [
+    {
+      "symbol": "SPY",
+      "date": "2026-10-30",
+      "price": 755.72,
+      "volume": 77696500
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-29",
+      "price": 769.36,
+      "volume": 40299600
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-28",
+      "price": 772.31,
+      "volume": 30133804
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-27",
+      "price": 769.66,
+      "volume": 28631700
+    },
+    {
+      "symbol": "SPY",
+      "date": "2026-10-26",
+      "price": 765.37,
+      "volume": 31737800
+    }
+  ]
+}

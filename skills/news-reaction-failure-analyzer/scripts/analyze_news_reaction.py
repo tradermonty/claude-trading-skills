@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -220,6 +221,95 @@ def _request_with_backoff(
     return None, error
 
 
+_SCHEMA_DRIFT_REASONS = frozenset(
+    {
+        "not_a_list",
+        "row_not_object",
+        "missing_date",
+        "invalid_date",
+        "missing_price",
+        "invalid_price",
+    }
+)
+
+
+def _canonical_iso_date(raw_date: Any) -> bool:
+    """True when raw_date is a string in canonical YYYY-MM-DD form."""
+    if not isinstance(raw_date, str):
+        return False
+    try:
+        return date.fromisoformat(raw_date).isoformat() == raw_date
+    except ValueError:
+        return False
+
+
+def _is_after_cutoff(row: Any, as_of: str | None) -> bool:
+    """True for an object row whose date is canonical ISO and strictly after as_of.
+
+    Such a row is outside the information cutoff: it can neither validate nor
+    invalidate a source. A row whose date cannot be parsed is NOT after the
+    cutoff -- it cannot be placed, so it stays subject to validation.
+    """
+    return (
+        as_of is not None
+        and isinstance(row, dict)
+        and _canonical_iso_date(row.get("date"))
+        and row["date"] > as_of
+    )
+
+
+def _validate_light_rows(data: Any, as_of: str | None = None) -> str | None:
+    """Validate raw light-endpoint fields without leaking response values.
+
+    The generic series builder accepts close for other endpoints. This HTTP
+    boundary requires the actual light endpoint's price field and canonical dates.
+    With `as_of`, rows dated strictly after it are ignored (see _is_after_cutoff);
+    any malformed row at or before it still rejects the whole response.
+    """
+    if not isinstance(data, list):
+        return "schema_drift:not_a_list"
+    for row in data:
+        if not isinstance(row, dict):
+            return "schema_drift:row_not_object"
+        if "date" not in row:
+            return "schema_drift:missing_date"
+        if not _canonical_iso_date(row["date"]):
+            return "schema_drift:invalid_date"
+        if _is_after_cutoff(row, as_of):
+            continue
+        if "price" not in row:
+            return "schema_drift:missing_price"
+        price = row["price"]
+        if isinstance(price, bool) or not isinstance(price, (int, float)):
+            return "schema_drift:invalid_price"
+        try:
+            if not math.isfinite(price):
+                return "schema_drift:invalid_price"
+        except OverflowError:
+            return "schema_drift:invalid_price"
+    return None
+
+
+def _status_code_for_error(error: str) -> str:
+    """Map a fetch error string to a static, response-free reason code.
+
+    Raw error text can carry response bodies or exception text, so only the
+    status family survives: schema_drift:<reason> from the validator, http_<NNN>,
+    invalid_json, request_exception, or a generic `error`.
+    """
+    prefix = "schema_drift:"
+    if error.startswith(prefix) and error[len(prefix) :] in _SCHEMA_DRIFT_REASONS:
+        return error
+    http_match = re.match(r"HTTP (\d{3})\b", error)
+    if http_match:
+        return f"http_{http_match.group(1)}"
+    if error.startswith("invalid JSON response"):
+        return "invalid_json"
+    if error.startswith("request exception"):
+        return "request_exception"
+    return "error"
+
+
 class PriceClient:
     """Thin client for FMP's stable EOD price endpoint with rate limiting."""
 
@@ -237,12 +327,18 @@ class PriceClient:
         self.api_calls_made = 0
 
     def get_eod_rows(
-        self, symbol: str, from_date: str, to_date: str
+        self, symbol: str, from_date: str, to_date: str, as_of: str | None = None
     ) -> tuple[list[dict[str, Any]] | None, str | None]:
         """Fetch daily EOD rows for one symbol. Returns (rows, None) on
         success -- rows may be an EMPTY list (a distinct, documented failure
         mode, e.g. VXUSD on this key: 200 OK but zero rows) -- or
-        (None, error) on an HTTP/transport failure."""
+        (None, error) on an HTTP/transport failure or malformed endpoint schema.
+
+        With `as_of` (the information cutoff), a row whose date parses as
+        canonical ISO and is strictly after it is ignored by validation and, if
+        malformed, dropped from the result. Valid rows after the cutoff are
+        still returned so the caller can tell "all rows are future" from an
+        empty response. Without `as_of` every row is validated (strict)."""
         elapsed = time.time() - self.last_call_time
         if elapsed < self.sleep_seconds:
             time.sleep(self.sleep_seconds - elapsed)
@@ -252,7 +348,18 @@ class PriceClient:
         self.api_calls_made += 1
         if error:
             return None, error
-        return data if isinstance(data, list) else [], None
+        schema_error = _validate_light_rows(data, as_of)
+        if schema_error:
+            return None, schema_error
+        # The generic series helper prioritizes close for full-endpoint callers.
+        # Light's validated price must not be shadowed by an unrelated extra field.
+        # A malformed row after the cutoff was ignored above; drop it here so it
+        # cannot reach series building.
+        return [
+            {key: value for key, value in row.items() if key != "close"}
+            for row in data
+            if not _is_after_cutoff(row, as_of) or _validate_light_rows([row]) is None
+        ], None
 
 
 def fetch_price_series(
@@ -263,9 +370,10 @@ def fetch_price_series(
     as_of: str,
 ) -> dict[str, Any]:
     """Try each (price_symbol, kind, invert) in `chain` in order. A source
-    fails on HTTP error OR `rows == 0` (a distinct, documented failure mode
-    -- some symbols return 200 with an empty body rather than an HTTP
-    error). First success wins.
+    fails on an HTTP/transport error, a malformed response (schema drift in
+    any row dated at or before `as_of`), `rows == 0` (a distinct, documented
+    failure mode -- some symbols return 200 with an empty body rather than an
+    HTTP error), or no rows at or before `as_of`. First success wins.
 
     `as_of` is an INFORMATION CUTOFF, not just a report label: any bar
     dated after it is dropped before a source is considered successful.
@@ -281,15 +389,22 @@ def fetch_price_series(
                 "source_kind", "proxy_used", "inverted", "attempts": [...]}
       all fail: {"error": "no_price_source", "series": [], "price_symbol": None,
                  "attempts": [...]}
-    `attempts` is a list of {"price_symbol", "kind", "status"} for
-    transparency (used in the report's run_context / dropped reasoning).
+    `attempts` is a list of {"price_symbol", "kind", "status"}. `status` is
+    always a static reason code (`ok`, `0 rows`, `no_rows_before_as_of`,
+    `schema_drift:<reason>`, `http_<NNN>`, `invalid_json`, `request_exception`,
+    `error`) and never carries response text. main() copies it into
+    run_context.price_attempts.
     """
     attempts: list[dict[str, Any]] = []
     for price_symbol, kind, invert in chain:
-        rows, error = client.get_eod_rows(price_symbol, from_date, to_date)
+        rows, error = client.get_eod_rows(price_symbol, from_date, to_date, as_of=as_of)
         if error:
             attempts.append(
-                {"price_symbol": price_symbol, "kind": kind, "status": f"error: {error}"}
+                {
+                    "price_symbol": price_symbol,
+                    "kind": kind,
+                    "status": _status_code_for_error(error),
+                }
             )
             continue
         if not rows:
@@ -298,7 +413,9 @@ def fetch_price_series(
         series = build_sorted_series(rows)
         series = [(d, c) for d, c in series if d <= as_of]
         if not series:
-            attempts.append({"price_symbol": price_symbol, "kind": kind, "status": "0 rows"})
+            attempts.append(
+                {"price_symbol": price_symbol, "kind": kind, "status": "no_rows_before_as_of"}
+            )
             continue
         attempts.append({"price_symbol": price_symbol, "kind": kind, "status": "ok"})
         return {
@@ -561,6 +678,7 @@ def build_run_context(
     as_of: str,
     detector_json: str | None,
     detector_age_days: int | None,
+    price_attempts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     return {
         "price_symbol": price_symbol,
@@ -575,6 +693,7 @@ def build_run_context(
         "as_of": as_of,
         "detector_json": detector_json,
         "detector_age_days": detector_age_days,
+        "price_attempts": price_attempts or [],
     }
 
 
@@ -588,6 +707,14 @@ def _fmt(value: Any, digits: int = 2) -> str:
     if isinstance(value, float):
         return f"{value:.{digits}f}"
     return str(value)
+
+
+def _price_attempts_lines(run_context: dict[str, Any]) -> list[str]:
+    attempts = run_context.get("price_attempts") or []
+    if not attempts:
+        return []
+    parts = [f"`{a.get('price_symbol')}` {a.get('status')}" for a in attempts]
+    return [f"Price attempts: {'; '.join(parts)}"]
 
 
 def generate_markdown_report(output: dict[str, Any], output_path: str) -> None:
@@ -605,6 +732,7 @@ def generate_markdown_report(output: dict[str, Any], output_path: str) -> None:
         f"As-of date: {run_context.get('as_of')}",
         f"Price source: `{run_context.get('price_symbol')}` "
         f"({run_context.get('price_source')}, proxy_used={run_context.get('proxy_used')})",
+        *_price_attempts_lines(run_context),
         "",
         "## Verdict",
         "",
@@ -682,7 +810,7 @@ def generate_markdown_report(output: dict[str, Any], output_path: str) -> None:
             "## Proxy Data Caveat",
             "",
             f"Price data for this analysis used an ETF proxy (`{run_context.get('price_symbol')}`) "
-            "because the underlying futures symbol had no usable price feed on this key. ETF "
+            "because the underlying futures symbol returned no usable price data (see price attempts). ETF "
             "proxies carry tracking error, expense drag, and roll-timing differences versus the "
             "actual futures contract -- treat the reaction-direction read as approximate.",
         ]
@@ -974,6 +1102,9 @@ def main() -> None:
         args.as_of,
         args.detector_json,
         detector_age_days,
+        price_attempts=[
+            {"symbol": symbol, **attempt} for attempt in price_result.get("attempts", [])
+        ],
     )
 
     if price_result["error"]:

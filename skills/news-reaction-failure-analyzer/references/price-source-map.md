@@ -19,7 +19,24 @@ it's an endpoint-wide quirk, not an asset-class difference. Missing this
 would silently produce an all-rows-dropped empty series (every symbol
 would look like a `no_price_source` failure) rather than an obvious error.
 `reaction_math.build_sorted_series()` handles this by accepting `close`
-first, falling back to `price`.
+first, falling back to `price`. The live HTTP boundary now requires the actual
+light shape: a list of object rows with canonical ISO `date` and finite numeric
+`price` (booleans rejected). An extra `close` field is ignored at this endpoint
+boundary so it cannot override the validated `price`. A malformed response records
+`schema_drift:<reason>` and advances the fallback chain without logging
+raw values. Information cutoff: a row whose date is canonical ISO and strictly
+after `as_of` is ignored by validation and dropped before analysis, so it cannot
+change which source is chosen; a row whose date cannot be parsed still counts as
+drift, and any malformed row at or before `as_of` rejects the whole source. Each
+attempt is reported in `run_context.price_attempts` (and a `Price attempts` line
+in the Markdown report) as `{symbol, price_symbol, kind, status}`, where `status` is
+a static code: `ok`, `0 rows`, `no_rows_before_as_of`, `schema_drift:<reason>`,
+`http_<NNN>`, `invalid_json`, `request_exception` or `error`. Response text and
+the API key are never included. Literal empty data retains `0 rows`; rows entirely beyond the
+`as_of` cutoff record `no_rows_before_as_of`. Exhausting the chain still gives
+`no_price_source` and `INSUFFICIENT_EVIDENCE`. The 2026-11-06 SPY recording under
+`config/provider-contracts/fmp/` verifies shape for one historical ETF window;
+it does not refresh the futures coverage table below.
 
 The chain constant lives in `scripts/analyze_news_reaction.py`
 (`PRICE_SOURCE_CHAINS`); this document records the verified status of each
