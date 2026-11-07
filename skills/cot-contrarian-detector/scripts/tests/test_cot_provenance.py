@@ -213,3 +213,77 @@ def test_cli_duplicate_symbols_keep_oldest_observed_vintage(tmp_path, monkeypatc
     assert [row["data_date"] for row in payload["markets"]] == ["2026-06-30", "2026-07-07"]
     assert payload["data_provenance"]["as_of"] == "2026-06-30"
     assert payload["data_provenance"]["market_data_dates"] == {"ES": "2026-06-30"}
+
+
+def test_compact_date_is_rejected(tmp_path, monkeypatch):
+    # Python 3.11+ fromisoformat accepts "20260707"; the canonical check must not.
+    with pytest.raises(ValueError, match="data_date"):
+        write_report(tmp_path, monkeypatch, [market("ES", "20260707")])
+
+
+def test_invalid_vintage_error_names_symbol_and_truncated_value(tmp_path, monkeypatch):
+    rows = [market("ES", "2026-07-07"), market("GC", "x" * 100), market("CL", "2026-07-07")]
+    with pytest.raises(ValueError) as error:
+        write_report(tmp_path, monkeypatch, rows)
+    message = str(error.value)
+    assert "GC" in message
+    assert "ES" not in message and "CL" not in message
+    assert "x" * 41 not in message
+
+
+def test_cli_invalid_vintage_error_on_stderr_names_symbol(tmp_path, monkeypatch, capsys):
+    args = args_for(tmp_path)
+    monkeypatch.setattr(screener, "parse_arguments", lambda: args)
+    monkeypatch.setattr(screener, "CotClient", lambda **kwargs: object())
+    rows = [market("ES", "2026-07-07"), market("GC", "not-a-date"), market("CL", "2026-07-07")]
+    monkeypatch.setattr(
+        screener, "collect_results", lambda *a: (rows, ["ES", "GC", "CL"], "explicit_symbols")
+    )
+    with pytest.raises(SystemExit) as error:
+        screener.main()
+    assert error.value.code == 1
+    assert "GC" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_all_skipped_provenance_as_of_is_canonical(tmp_path, monkeypatch):
+    monkeypatch.setattr(screener, "datetime", Clock)
+    args = args_for(tmp_path)
+    args.as_of = "2026-7-7"
+    context = screener.build_run_context(args, ["ES"], "explicit_symbols", None)
+    block = screener.build_data_provenance([], context)
+    assert block["as_of"] == "2026-07-07"
+    assert block["as_of_basis"] == "request_cutoff_no_analyzed_data"
+    assert validator.validate_provenance(block) == []
+    assert context["as_of"] == "2026-7-7"
+
+
+def test_cli_markdown_only_keeps_previous_behavior_with_bad_date(tmp_path, monkeypatch):
+    args = args_for(tmp_path)
+    args.format = "md"
+    monkeypatch.setattr(screener, "parse_arguments", lambda: args)
+
+    class Client:
+        api_calls_made = 1
+
+        def __init__(self, **kwargs):
+            pass
+
+        def get_report(self, *args):
+            return [
+                {
+                    "date": "2026-06-30",
+                    "noncommPositionsLongAll": 20,
+                    "noncommPositionsShortAll": 10,
+                },
+                {
+                    "date": "not-a-date",
+                    "noncommPositionsLongAll": 21,
+                    "noncommPositionsShortAll": 10,
+                },
+            ], None
+
+    monkeypatch.setattr(screener, "CotClient", Client)
+    screener.main()
+    assert (tmp_path / "cot_crowding_2026-07-07.md").exists()
+    assert not (tmp_path / "cot_crowding_2026-07-07.json").exists()

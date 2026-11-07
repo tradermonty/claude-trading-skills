@@ -21,11 +21,14 @@ Common Trading Data Contract version `1.0` (repository documentation:
 remains the consensus date for backward compatibility. Consult individual
 market dates before assuming all markets have the same vintage. If a symbol
 is requested repeatedly and yields different dates, the map retains its oldest
-date; all original rows remain in `markets`. An analyzed
-market with a missing, malformed or noncanonical `YYYY-MM-DD` date stops JSON
-report generation before writing. The CLI exits 1, prints a controlled error to
-stderr, and leaves existing JSON/Markdown files unchanged when using `--format
-both`. Markdown-only output retains its previous behavior.
+date; all original rows remain in `markets`. The vintage of an analyzed market is
+the newest analyzed row's `date`, truncated to its first 10 characters. If that
+value is missing or is not a canonical `YYYY-MM-DD` date, JSON report generation
+stops before writing. A longer string such as `2026-07-07-garbage` is truncated
+to `2026-07-07` first and is therefore accepted. Older analyzed rows are not
+validated. The CLI exits 1, prints a controlled error to stderr that names the
+symbol and the rejected value, and leaves existing JSON/Markdown files unchanged
+when using `--format both`. Markdown-only output retains its previous behavior.
 
 An all-skipped report still records the real retrieval instant and skipped
 reasons. Its provenance `as_of` is only the query cutoff, explicitly labeled by
@@ -41,7 +44,10 @@ The source's lagged COT dates are retained without guessing a release date.
 In the bundled Shapiro replay, `cot_crowding_report` requires a schema-valid
 provenance block at production, consumer handoff and publication boundaries.
 The replay uses an approved **fictional manual-contract fixture**, not a live
-FMP fetch. Existing crowding-date checks reject stale/future report dates.
+FMP fetch. The existing consumer, `contrarian-setup-gate`, checks the
+consensus `run_context.data_date` only. A single stale market inside an otherwise fresh report is not rejected by
+them: `data_provenance` records the oldest vintage, but nothing at those
+consumers enforces it, and a per-row divergence only adds a warning.
 The shared validator checks metadata shape; it does not independently establish
 the provider's claims, run identity or temporal consistency. Native consumers
 outside replay keep their existing contracts; this slice adds no new strict

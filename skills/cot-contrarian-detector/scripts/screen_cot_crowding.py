@@ -353,7 +353,13 @@ def build_data_provenance(
         except ValueError:
             valid = False
         if not valid:
-            raise ValueError("Analyzed COT market requires a valid YYYY-MM-DD data_date")
+            shown = repr(value)
+            if len(shown) > 40:
+                shown = shown[:40] + "..."
+            raise ValueError(
+                f"Analyzed COT market {result.get('symbol')!s} requires a valid "
+                f"YYYY-MM-DD data_date, got {shown}"
+            )
         # Repeated symbols may return different vintages during one collection.
         # Preserve the oldest observation instead of silently refreshing it.
         symbol = result["symbol"]
@@ -364,7 +370,11 @@ def build_data_provenance(
         "provider": "fmp",
         "endpoint": "commitment-of-traders-report",
         "retrieved_at": run_context["retrieved_at"],
-        "as_of": min(market_dates.values()) if market_dates else run_context["as_of"],
+        "as_of": (
+            min(market_dates.values())
+            if market_dates
+            else datetime.strptime(run_context["as_of"], "%Y-%m-%d").date().isoformat()
+        ),
         "timezone": "America/New_York",
         "adjusted": False,
         "point_in_time": False,
