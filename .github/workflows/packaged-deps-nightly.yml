@@ -13,7 +13,8 @@ name: Packaged deps nightly smoke
 # 2 (incomplete: pending/skipped contracts, tracked under #507). The step
 # fails on 1 or any other nonzero code and stays green with a warning on 2,
 # so green-window evidence reflects real failures only; the aggregate
-# `outcome` is in the uploaded JSON. `continue-on-error` stays true because the 2-week green-run precondition
+# `outcome` is in the uploaded JSON. `continue-on-error` stays true because
+# the 2-week green-run precondition
 # (checklist item 1, complete from 2026-09-27) is observed before the
 # fail-closed flip in the follow-up PR (checklist item 4).
 
