@@ -40,13 +40,15 @@ class TestEarningsCalendarMigration:
         client.session.get = mock_get
         result = client.get_earnings_calendar("2026-06-01", "2026-06-08")
 
-        assert len(seen) == 1
-        url, params = seen[0]
-        # underscore /stable form 404s for all tiers; the hyphenated name is the live one
-        assert "/stable/earnings-calendar" in url
-        assert "/api/v3/" not in url
-        assert params.get("from") == "2026-06-01"
-        assert params.get("to") == "2026-06-08"
+        # gh-672: one request per day of the window, all on the stable
+        # hyphenated endpoint (the underscore form 404s for all tiers).
+        assert len(seen) == 8
+        for url, params in seen:
+            assert "/stable/earnings-calendar" in url
+            assert "/api/v3/" not in url
+            assert params.get("from") == params.get("to")
+        assert seen[0][1].get("from") == "2026-06-01"
+        assert seen[-1][1].get("to") == "2026-06-08"
         assert result == [{"symbol": "AAPL", "date": "2026-06-01"}]
 
 

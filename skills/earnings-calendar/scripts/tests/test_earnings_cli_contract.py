@@ -89,9 +89,10 @@ def test_fetch_failure_emits_no_json(monkeypatch, capsys, failure, message):
     # The calendar GET carries no apikey query param (header auth, Issue #495);
     # the key travels only in the client session headers and RateFailure does
     # the rest.
+    # The first of the per-day requests (gh-672 chunking): from == to.
     assert calls[0]["params"] == {
         "from": "2026-09-07",
-        "to": "2026-09-11",
+        "to": "2026-09-07",
         "includeReportTimes": "true",
     }
     assert calls[0]["client"].session.headers.get("apikey") == "fixture-key"
@@ -125,15 +126,17 @@ def test_fetch_to_report_pipeline(monkeypatch, tmp_path, capsys):
     }
     seen = []
 
+    earnings_by_date = {}
+    for row in earnings:
+        earnings_by_date.setdefault(row["date"], []).append(row)
+
     def fake_rate(self, url, params=None, quiet=False):
         if url.endswith("/earnings-calendar"):
-            assert params == {
-                "from": "2026-09-07",
-                "to": "2026-09-11",
-                "includeReportTimes": "true",
-            }
+            # One request per day of the window (gh-672 chunking).
+            assert params["from"] == params["to"]
+            assert params["includeReportTimes"] == "true"
             self._last_error = None
-            return earnings
+            return earnings_by_date.get(params["from"], [])
         # /stable/profile?symbol=SYMBOL per-symbol (v3 path symbol is
         # rewritten to the query param by _fmp_compat).
         assert url.endswith("/stable/profile")
@@ -181,10 +184,12 @@ def test_fetch_to_report_pipeline(monkeypatch, tmp_path, capsys):
 
 @pytest.mark.parametrize("has_earnings", [False, True])
 def test_empty_fetch_outputs_array(monkeypatch, capsys, has_earnings):
-    rows = [{"symbol": "MISSING", "date": "2026-09-07"}] if has_earnings else []
-    # has_earnings=True: call 1 = calendar row, call 2 = a profile request
-    # returning no profile row (so the empty-result path triggers).
-    replies = [rows, []] if has_earnings else [rows]
+    # gh-672: one calendar request per day of the 2026-09-07..2026-09-11
+    # window (5 days), then one profile request when a symbol was found.
+    day_rows = [{"symbol": "MISSING", "date": "2026-09-07"}] if has_earnings else []
+    replies = [day_rows and list(day_rows) or [] for _ in range(5)]
+    if has_earnings:
+        replies.append([])  # the profile request finds no row
     expected_calls = len(replies)
     calls = patch_rate_get(monkeypatch, replies)
     fetch_args(monkeypatch, "fixture-key")

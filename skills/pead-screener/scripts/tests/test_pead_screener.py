@@ -2056,8 +2056,13 @@ class TestMainZeroResultExitCodes:
         get = MagicMock(side_effect=respond)
         monkeypatch.setattr(client.session, "get", get)
         with patch("screen_pead.FMPClient", return_value=client):
+            # gh-672: the calendar endpoint now costs one call per day, so a
+            # zero-lookback window keeps it at exactly one call and the budget
+            # still exhausts mid-profile-fetch, which is what this test pins.
             with patch.object(
-                sys, "argv", self._argv(tmp_path, ["--max-api-calls", str(max_calls)])
+                sys,
+                "argv",
+                self._argv(tmp_path, ["--lookback-days", "0", "--max-api-calls", str(max_calls)]),
             ):
                 with pytest.raises(SystemExit) as exc_info:
                     main()
