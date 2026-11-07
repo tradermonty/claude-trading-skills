@@ -9,8 +9,11 @@ name: Packaged deps nightly smoke
 # intentionally unlocked compatibility probes, not project CI environments.
 # This run also executes the declarative per-skill smoke contracts from
 # check_skill_deps.SMOKE_CONTRACTS via scripts/smoke_contracts_runner.py
-# (issue #349 checklist item 2) and that runner exits nonzero on failure;
-# `continue-on-error` stays true because the 2-week green-run precondition
+# (issue #349 checklist item 2). The runner exits 0 (pass), 1 (fail) or
+# 2 (incomplete: pending/skipped contracts, tracked under #507). The step
+# fails on 1 or any other nonzero code and stays green with a warning on 2,
+# so green-window evidence reflects real failures only; the aggregate
+# `outcome` is in the uploaded JSON. `continue-on-error` stays true because the 2-week green-run precondition
 # (checklist item 1, complete from 2026-09-27) is observed before the
 # fail-closed flip in the follow-up PR (checklist item 4).
 
@@ -47,8 +50,18 @@ jobs:
       - name: Clean-room venv smoke per skill
         shell: bash
         run: |
+          # Runner exit codes: 0 pass, 1 fail, 2 incomplete coverage.
+          # Capture the code explicitly because the default shell is `bash -e`.
+          set +e
           uv run --isolated --no-project --with packaging \
             python scripts/smoke_contracts_runner.py --output deps-nightly-smoke.json
+          status=$?
+          set -e
+          if [ "$status" -eq 2 ]; then
+            echo "::warning::Clean-room smoke incomplete (runner exit 2); see aggregate outcome in deps-nightly-smoke.json"
+            exit 0
+          fi
+          exit "$status"
 
       - name: Upload nightly smoke evidence
         if: always()

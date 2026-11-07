@@ -326,8 +326,11 @@ notification enabled by this repository change.
 
 Read the nightly artifact's aggregate `outcome` and per-skill rows, not only the
 GitHub conclusion. Exit 2 and `ok: null` mean incomplete coverage; warnings
-identify pending/skip cases. Exit 1 means a failure and overrides incomplete
-coverage. A report-only green job is not evidence of complete smoke success.
+identify pending/skip cases. The nightly step stays green on exit 2 with a
+warning annotation and fails on exit 1 or any other nonzero code, which
+overrides incomplete coverage. Today exit 2 is expected every night because
+19 skills are incomplete, so a green step is not evidence of complete smoke
+success.
 See [packaged smoke outcomes](packaged-deps-smoke.md#evidence-outcomes-issue-507-partial-implementation)
 for the schema and remaining acceptance gaps. Issue #507 remains open until
 its full set of layers and coverage requirements is met.
