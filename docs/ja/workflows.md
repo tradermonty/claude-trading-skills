@@ -20,11 +20,12 @@ permalink: /ja/workflows/
 
 | ワークフロー | 頻度 | 目安（分） | API プロファイル | 難易度 |
 |---|---|---|---|---|
-| [`core-portfolio-weekly`](#core-portfolio-weekly) — コア・ポートフォリオ週次レビュー | 毎週 | 60 | mixed | 初級 |
+| [`core-portfolio-weekly`](#core-portfolio-weekly) — コア・ポートフォリオ週次レビュー | 毎週 | 60 | alpaca-required | 初級 |
 | [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi式配当銘柄の週次選定 | 毎週 | 60 | mixed | 中級 |
 | [`market-regime-daily`](#market-regime-daily) — 市場レジーム日次確認 | 毎日 | 15 | no-api-basic | 初級 |
 | [`monthly-performance-review`](#monthly-performance-review) — 月次パフォーマンスレビュー | 毎月 | 90 | no-api-basic | 中級 |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — マルチアセット投資機会の日次確認 | 毎日 | 45 | mixed | 中級 |
+| [`portfolio-holdings-review`](#portfolio-holdings-review) — オフライン保有配分レビュー | 毎週 | 15 | no-api-basic | 初級 |
 | [`shapiro-contrarian`](#shapiro-contrarian) — Shapiro式COT逆張り | 毎週 | 60 | fmp-required | 上級 |
 | [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20%値動き日次研究 | 毎日 | 30 | mixed | 上級 |
 | [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP日次確認 | 毎日 | 40 | mixed | 上級 |
@@ -37,7 +38,7 @@ permalink: /ja/workflows/
 
 ## コア・ポートフォリオ週次レビュー {#core-portfolio-weekly}
 
-**`core-portfolio-weekly`** · 毎週 · 約60分 · mixed · 初級
+**`core-portfolio-weekly`** · 毎週 · 約60分 · alpaca-required · 初級
 
 **実行タイミング:** 毎週1回、通常は土曜日または日曜日の翌週市場開始前に実行する。長期保有銘柄、配当ポジション、ポートフォリオ全体の配分を確認する。
 
@@ -377,6 +378,47 @@ permalink: /ja/workflows/
 - IDEA から ENTRY_READY への移行が明示され、レビュー済みであることを確認する。
 
 **記録先:** `trader-memory-core`
+
+---
+
+## オフライン保有配分レビュー {#portfolio-holdings-review}
+
+**`portfolio-holdings-review`** · 毎週 · 約15分 · no-api-basic · 初級
+
+**実行タイミング:** 資格情報なしでUSD株式のCSVまたは保存済みAlpacaポジションを確認する。実ファイルとタイムゾーン付き取得元時刻をreview_csv.pyに渡し、限定的な配分レポートを読む。
+
+**実行してはいけないとき:** 口座全体のリスク・現金・純資産・レバレッジ・運用成績・配当健全性・売買判断・ブローカーとメモリの照合には使用しない。証券口座全体の分析には照合済みの core-portfolio-weeklyを使用する。
+
+**必須スキル:** `portfolio-manager`
+
+**任意スキル:** （なし）
+
+**手動入力契約:**
+
+| 入力 | 必須 | 使用ステップ | スキーマ参照 | 説明 |
+|---|---|---|---|---|
+| `holdings_input` | あり | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | 同じ限定分析用のUSD株式CSV、または保存済みAlpacaポジションJSON。 |
+| `source_as_of` | あり | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | 利用者が指定するタイムゾーン付きスナップショット時刻。鮮度や網羅性は推測しない。 |
+
+**成果物一覧:**
+
+| 成果物 | 生成ステップ | 必須 | 下流ヒント |
+|---|---|---|---|
+| `holdings_allocation_report` | 1 | あり | — |
+
+**ステップ:**
+
+**ステップ 1: ローカル保有情報を検証して総保有額の配分を確認する** → `portfolio-manager`
+
+- 出力: `holdings_allocation_report`
+
+**手動レビュー:**
+
+- review_csv.pyに--input PATH --as-of TIMESTAMP --output-dir reports/UNIQUE-RUNを指定する。保存済みAlpacaデータだけ--input-format alpaca-jsonを指定する。
+- 銘柄・取得元時刻・価格・単一口座の範囲は手動確認する。Navigatorはファイルを読まない。
+- JSON・Markdownの制約を読む。総保有額を分母とする比率は口座エクスポージャーや売買許可ではない。
+- ブローカーツール・注文・trader-memory更新を行わず、全体レビューの照合ゲートを迂回しない。
+- 個人の入力・レポートはローカルに保管する。付属replayの入力は架空データ。
 
 ---
 

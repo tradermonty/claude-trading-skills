@@ -517,6 +517,7 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
             "market_top_risk_components",
         },
         "core_portfolio_snapshot": {"holdings_snapshot"},
+        "portfolio_holdings_review": {"holdings_csv", "review_context"},
         "core_portfolio_allocation": {"allocation_decision"},
         "core_portfolio_dividend": {"dividend_enrichment"},
         "core_portfolio_rebalance": {
@@ -2644,6 +2645,39 @@ def _core_consumed_path(consumed: Mapping[str, dict[str, Any]], artifact_id: str
         return Path(consumed[artifact_id]["files"]["canonical"])
     except (KeyError, TypeError) as exc:
         raise ReplayError(f"missing canonical {artifact_id} handoff") from exc
+
+
+def _portfolio_holdings_review(repo_root, spec, step, inputs, consumed, work, stage):
+    """Execute the offline CSV analyzer; no broker or journal step is involved."""
+    if consumed:
+        raise ReplayError("offline holdings review must not consume prior artifacts")
+    context = _require_mapping_keys(
+        _load_json(inputs["review_context"], "holdings review context"),
+        label="holdings review context",
+        required={"fictional", "as_of"},
+    )
+    if context["fictional"] is not True:
+        raise ReplayError("holdings replay requires explicitly fictional input")
+    stamp = _require_non_empty_string(context["as_of"], "holdings source as_of")
+    reports = work / "reports"
+    _run_cli(
+        [
+            sys.executable,
+            str(repo_root / "skills/portfolio-manager/scripts/review_csv.py"),
+            "--input",
+            str(inputs["holdings_csv"]),
+            "--as-of",
+            stamp,
+            "--output-dir",
+            str(reports),
+        ],
+        repo_root,
+    )
+    artifacts = _artifact_paths(stage, step["output_files"])
+    roles = artifacts["holdings_allocation_report"]["files"]
+    for role, suffix in (("canonical", "json"), ("markdown", "md")):
+        Path(roles[role]).write_bytes((reports / f"portfolio_csv_review.{suffix}").read_bytes())
+    return artifacts
 
 
 def _core_portfolio_snapshot(
@@ -6393,6 +6427,7 @@ def _strategy_research_hold(
 
 
 EXECUTORS: dict[str, ExecutorRegistration] = {
+    "portfolio_holdings_review": ExecutorRegistration("native_cli", _portfolio_holdings_review),
     "strategy_research_detect_initial": ExecutorRegistration(
         "native_cli", _strategy_research_detect_initial
     ),
@@ -6548,6 +6583,8 @@ def _prompt_text(workflow: Mapping[str, Any], variant: str) -> str:
             "Include the optional news/catalyst brief while keeping every hypothesis "
             "card manual-review-gated and never wiring forex output to a broker."
         )
+    elif workflow["id"] == "portfolio-holdings-review":
+        optional_text = "This workflow has no optional steps; run its single required step."
     else:
         optional_text = (
             "Run the optional human-approved lessons step after reviewing the cohort evidence."

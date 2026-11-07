@@ -33,6 +33,7 @@ A comprehensive catalog of all 74 Claude Trading Skills organized by category. B
 | <span class="badge badge-api">FMP Required</span> | Requires a Financial Modeling Prep API key |
 | <span class="badge badge-optional">FMP Optional</span> | FMP key enhances functionality but is not required |
 | <span class="badge badge-optional">FINVIZ Optional</span> | FINVIZ Elite improves speed and coverage |
+| <span class="badge badge-optional">Alpaca Optional</span> | Alpaca is needed only for part of the skill; a local path works without credentials |
 | <span class="badge badge-api">Alpaca Required</span> | Requires an Alpaca brokerage account |
 | <span class="badge badge-workflow">Workflow</span> | Workflow skill that coordinates other skills |
 
@@ -186,7 +187,7 @@ A comprehensive catalog of all 74 Claude Trading Skills organized by category. B
 
 | Skill | Description | API Requirements |
 |-------|-------------|-----------------|
-| **Portfolio Manager** | Portfolio analysis with Alpaca MCP Server integration. Asset allocation, sector diversification, risk metrics, HOLD/ADD/TRIM/SELL recommendations, rebalancing plans | <span class="badge badge-api">Alpaca Required</span> |
+| **Portfolio Manager** | Portfolio analysis with Alpaca MCP Server integration. Asset allocation, sector diversification, risk metrics, HOLD/ADD/TRIM/SELL recommendations, rebalancing plans | <span class="badge badge-api">Alpaca for full analysis</span> |
 | **[Trader Memory Core]({{ '/en/skills/trader-memory-core/' | relative_url }})** | Persistent thesis lifecycle tracker: register screener outputs as IDEA, manage state transitions through ENTRY_READY → ACTIVE → CLOSED, attach position sizing, schedule reviews, and generate postmortem reports with MAE/MFE | <span class="badge badge-optional">FMP Optional</span> |
 | **[Trade Performance Coach]({{ '/en/skills/trade-performance-coach/' | relative_url }})** | Post-trade coach: reviews closed trades, partial exits, and monthly aggregates across 5 axes (process, risk, execution, behavior patterns, review quality), emits OK/WARN/REVIEW_REQUIRED/RULE_VIOLATION/COOL_DOWN verdict and next-session operating rules with human decision gate. Beta. | <span class="badge badge-free">No API</span> |
 | **[Drawdown Circuit Breaker]({{ '/en/skills/drawdown-circuit-breaker/' | relative_url }})** | Account-level risk gate that reads trader-memory-core state and returns TRADING_ALLOWED / COOLDOWN / HALTED from realized P&L, losing-streak, and weekly/monthly drawdown rules | <span class="badge badge-free">No API</span> |
@@ -348,7 +349,7 @@ A comprehensive catalog of all 74 Claude Trading Skills organized by category. B
 | Pair Trade Screener | Required | -- | -- |
 | Parabolic Short Trade Planner | Required | -- | Optional |
 | PEAD Screener | Required | -- | -- |
-| Portfolio Manager | -- | -- | Required |
+| Portfolio Manager | -- | -- | Optional |
 | Position Sizer | -- | -- | -- |
 | Pre-Trade Discipline Gate | -- | -- | -- |
 | Residual Edge Analyzer | -- | -- | -- |

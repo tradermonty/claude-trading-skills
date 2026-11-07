@@ -20,11 +20,12 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 | Workflow | Cadence | Est. min | API profile | Difficulty |
 |---|---|---|---|---|
-| [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | mixed | beginner |
+| [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | alpaca-required | beginner |
 | [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi Dividend Weekly | weekly | 60 | mixed | intermediate |
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
+| [`portfolio-holdings-review`](#portfolio-holdings-review) — Offline Holdings Review | weekly | 15 | no-api-basic | beginner |
 | [`shapiro-contrarian`](#shapiro-contrarian) — Shapiro COT Contrarian | weekly | 60 | fmp-required | advanced |
 | [`stockbee-20pct-study-daily`](#stockbee-20pct-study-daily) — Stockbee 20% Study Daily | daily | 30 | mixed | advanced |
 | [`stockbee-ep-daily`](#stockbee-ep-daily) — Stockbee EP Daily | daily | 40 | mixed | advanced |
@@ -37,7 +38,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 ## Core Portfolio Weekly {#core-portfolio-weekly}
 
-**`core-portfolio-weekly`** · weekly · ~60 min · mixed · beginner
+**`core-portfolio-weekly`** · weekly · ~60 min · alpaca-required · beginner
 
 **When to run:** Once per week, typically on Saturday or Sunday before next week's market open. Reviews long-term holdings, dividend positions, and overall allocation.
 
@@ -377,6 +378,47 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm IDEA → ENTRY_READY transitions are explicit and reviewed.
 
 **Journal destination:** `trader-memory-core`
+
+---
+
+## Offline Holdings Review {#portfolio-holdings-review}
+
+**`portfolio-holdings-review`** · weekly · ~15 min · no-api-basic · beginner
+
+**When to run:** Review a local USD-equity CSV or saved Alpaca positions snapshot without credentials. Supply the actual file and an aware source timestamp to portfolio-manager/scripts/review_csv.py; read the limited allocation report.
+
+**When NOT to run:** Not for full account risk, cash/equity/leverage, performance, dividend health, trade recommendations or broker/memory reconciliation. Use the reconciled core-portfolio-weekly workflow for full brokerage analysis.
+
+**Required skills:** `portfolio-manager`
+
+**Optional skills:** (none)
+
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `holdings_input` | yes | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | Local validated USD-equity CSV, or a saved Alpaca positions JSON for the same limited analysis. |
+| `source_as_of` | yes | 1 | `skills/portfolio-manager/references/csv-holdings-review.md` | Operator-supplied timezone-aware snapshot timestamp; no freshness or completeness is inferred. |
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `holdings_allocation_report` | 1 | yes | — |
+
+**Steps:**
+
+**Step 1: Validate local holdings and review gross allocation** → `portfolio-manager`
+
+- produces: `holdings_allocation_report`
+
+**Manual review:**
+
+- Run review_csv.py with --input PATH --as-of TIMESTAMP --output-dir reports/UNIQUE-RUN; choose --input-format alpaca-json only for saved Alpaca data.
+- Confirm the input identity, source date, prices and single-account scope manually; Navigator does not inspect files.
+- Read JSON and Markdown limitations. Gross holdings weights are not account exposure and do not authorize trading.
+- Do not call broker tools, place orders, write trader-memory records, or bypass the full workflow's reconciliation gate.
+- Keep personal inputs and reports local; bundled replay inputs are fictional.
 
 ---
 

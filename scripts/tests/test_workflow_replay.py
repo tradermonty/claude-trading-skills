@@ -143,7 +143,7 @@ def test_canonicalize_retains_literal_order_timestamps_and_non_string_values() -
     assert payload["generated_at"] == "old"
 
 
-def test_coverage_is_complete_and_twelve_of_twelve_are_covered() -> None:
+def test_coverage_is_complete_including_new_holdings_workflow() -> None:
     summary = validate_coverage(ROOT, COVERAGE)
 
     assert summary["covered"] == [
@@ -152,6 +152,7 @@ def test_coverage_is_complete_and_twelve_of_twelve_are_covered() -> None:
         "market-regime-daily",
         "monthly-performance-review",
         "multi-asset-opportunity-daily",
+        "portfolio-holdings-review",
         "shapiro-contrarian",
         "stockbee-20pct-study-daily",
         "stockbee-ep-daily",
@@ -168,6 +169,7 @@ def test_coverage_is_complete_and_twelve_of_twelve_are_covered() -> None:
         "market-regime-daily": ["required-only", "full-path"],
         "monthly-performance-review": ["required-only", "full-path"],
         "multi-asset-opportunity-daily": ["required-only", "full-path"],
+        "portfolio-holdings-review": ["required-only", "full-path"],
         "shapiro-contrarian": ["required-only", "full-path"],
         "stockbee-20pct-study-daily": ["required-only", "full-path"],
         "stockbee-ep-daily": ["required-only", "full-path"],
@@ -678,7 +680,10 @@ def test_check_writes_structured_report_when_executor_fails(
 
     assert any("injected execution failure" in difference for difference in differences)
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert report["coverage"] == {"covered": 12, "total": 12}
+    assert report["coverage"] == {
+        "covered": len(load_yaml(COVERAGE)["covered"]),
+        "total": len(list((ROOT / "workflows").glob("*.yaml"))),
+    }
     assert report["rows"][0]["status"] == "error"
     assert report["rows"][0]["completed_steps"] == [1]
 
@@ -697,7 +702,10 @@ def test_check_writes_fail_safe_report_when_coverage_validation_fails(
 
     assert differences == ["coverage validation error: injected coverage failure"]
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert report["coverage"] == {"covered": 0, "total": 12}
+    assert report["coverage"] == {
+        "covered": 0,
+        "total": len(list((ROOT / "workflows").glob("*.yaml"))),
+    }
     assert report["rows"] == [
         {
             "workflow_id": None,

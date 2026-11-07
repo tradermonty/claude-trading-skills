@@ -1,0 +1,66 @@
+schema_version: 1
+id: portfolio-holdings-review
+display_name: Offline Holdings Review
+display_name_ja: オフライン保有配分レビュー
+cadence: weekly
+estimated_minutes: 15
+target_users:
+  - long-term-investor
+  - beginner
+difficulty: beginner
+api_profile: no-api-basic
+when_to_run: >-
+  Review a local USD-equity CSV or saved Alpaca positions snapshot without
+  credentials. Supply the actual file and an aware source timestamp to
+  portfolio-manager/scripts/review_csv.py; read the limited allocation report.
+when_to_run_ja: >-
+  資格情報なしでUSD株式のCSVまたは保存済みAlpacaポジションを確認する。
+  実ファイルとタイムゾーン付き取得元時刻をreview_csv.pyに渡し、限定的な配分レポートを読む。
+when_not_to_run: >-
+  Not for full account risk, cash/equity/leverage, performance, dividend health,
+  trade recommendations or broker/memory reconciliation. Use the reconciled
+  core-portfolio-weekly workflow for full brokerage analysis.
+when_not_to_run_ja: >-
+  口座全体のリスク・現金・純資産・レバレッジ・運用成績・配当健全性・売買判断・
+  ブローカーとメモリの照合には使用しない。証券口座全体の分析には照合済みの
+  core-portfolio-weeklyを使用する。
+required_skills:
+  - portfolio-manager
+optional_skills: []
+manual_inputs:
+  - id: holdings_input
+    required: true
+    used_by_steps: [1]
+    schema_ref: skills/portfolio-manager/references/csv-holdings-review.md
+    description: Local validated USD-equity CSV, or a saved Alpaca positions JSON for the same limited analysis.
+    description_ja: 同じ限定分析用のUSD株式CSV、または保存済みAlpacaポジションJSON。
+  - id: source_as_of
+    required: true
+    used_by_steps: [1]
+    schema_ref: skills/portfolio-manager/references/csv-holdings-review.md
+    description: Operator-supplied timezone-aware snapshot timestamp; no freshness or completeness is inferred.
+    description_ja: 利用者が指定するタイムゾーン付きスナップショット時刻。鮮度や網羅性は推測しない。
+artifacts:
+  - id: holdings_allocation_report
+    produced_by_step: 1
+    required: true
+steps:
+  - step: 1
+    name: Validate local holdings and review gross allocation
+    name_ja: ローカル保有情報を検証して総保有額の配分を確認する
+    skill: portfolio-manager
+    produces:
+      - holdings_allocation_report
+    decision_gate: false
+manual_review:
+  - Run review_csv.py with --input PATH --as-of TIMESTAMP --output-dir reports/UNIQUE-RUN; choose --input-format alpaca-json only for saved Alpaca data.
+  - Confirm the input identity, source date, prices and single-account scope manually; Navigator does not inspect files.
+  - Read JSON and Markdown limitations. Gross holdings weights are not account exposure and do not authorize trading.
+  - Do not call broker tools, place orders, write trader-memory records, or bypass the full workflow's reconciliation gate.
+  - Keep personal inputs and reports local; bundled replay inputs are fictional.
+manual_review_ja:
+  - review_csv.pyに--input PATH --as-of TIMESTAMP --output-dir reports/UNIQUE-RUNを指定する。保存済みAlpacaデータだけ--input-format alpaca-jsonを指定する。
+  - 銘柄・取得元時刻・価格・単一口座の範囲は手動確認する。Navigatorはファイルを読まない。
+  - JSON・Markdownの制約を読む。総保有額を分母とする比率は口座エクスポージャーや売買許可ではない。
+  - ブローカーツール・注文・trader-memory更新を行わず、全体レビューの照合ゲートを迂回しない。
+  - 個人の入力・レポートはローカルに保管する。付属replayの入力は架空データ。

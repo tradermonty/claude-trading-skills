@@ -108,3 +108,10 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 - [スキル一覧](skill-catalog.md) — 全スキルのアルファベット順カタログ
 - [ワークフロー](workflows.md) — 全ワークフローの自動生成 manifest リファレンス
 - [スキルセット](skillsets.md) — 目的別インストールバンドル
+
+## 資格情報を使わないローカル保有確認
+
+CSVまたは保存済みAlpacaポジションJSONからのポートフォリオ確認には[オフライン保有配分レビュー](workflows.md#portfolio-holdings-review)を使用します。
+Portfolio Managerの`review_csv.py`に実ファイルとタイムゾーン付き取得元時刻を渡してください。
+総保有額ベースの配分と個別損益を計算します。口座エクスポージャー・レバレッジ・売買判断は対象外です。
+Navigatorはワークフローを推薦するだけで、ファイルは検証しません。

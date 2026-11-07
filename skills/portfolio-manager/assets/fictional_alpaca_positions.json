@@ -1,0 +1,18 @@
+[
+  {
+    "symbol": "FICTA",
+    "asset_class": "us_equity",
+    "qty": "2.5",
+    "side": "long",
+    "current_price": "20",
+    "avg_entry_price": "15"
+  },
+  {
+    "symbol": "FICTB",
+    "asset_class": "us_equity",
+    "qty": "-1",
+    "side": "short",
+    "current_price": "30",
+    "avg_entry_price": "40"
+  }
+]

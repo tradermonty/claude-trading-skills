@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "benchmark_version": "2026-10-10.issue-511",
+  "benchmark_version": "2026-11-06.issue-512",
   "description": "Manually labeled EN/JA gold corpus for deterministic Navigator routing, including the no-API constraint exception.",
   "baseline": {
     "candidate_precision": 1,
@@ -4812,27 +4812,25 @@
         "dividend-long-term-investor"
       ],
       "expected_selected_persona": "dividend-long-term-investor",
-      "expected_primary_workflow": null,
-      "expected_honest_gap": true,
-      "expected_no_api_path": null,
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
       "neighbor_of": null,
       "base_id": null,
       "transformation": null,
       "tags": [
         "issue-511",
-        "availability"
+        "availability",
+        "issue-512"
       ],
       "options": {
         "no_api": true
       },
-      "expected_runnability": "blocked",
-      "expected_routing_status": "unavailable",
-      "expected_alternative_workflow": "market-regime-daily",
-      "expected_missing_requirement_kinds": [
-        "paid_api",
-        "missing_input",
-        "unsupported_capability"
-      ]
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     },
     {
       "id": "availability-csv-ja",
@@ -4844,27 +4842,25 @@
         "dividend-long-term-investor"
       ],
       "expected_selected_persona": "dividend-long-term-investor",
-      "expected_primary_workflow": null,
-      "expected_honest_gap": true,
-      "expected_no_api_path": null,
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
       "neighbor_of": null,
       "base_id": null,
       "transformation": null,
       "tags": [
         "issue-511",
-        "availability"
+        "availability",
+        "issue-512"
       ],
       "options": {
         "no_api": true
       },
-      "expected_runnability": "blocked",
-      "expected_routing_status": "unavailable",
-      "expected_alternative_workflow": "market-regime-daily",
-      "expected_missing_requirement_kinds": [
-        "paid_api",
-        "missing_input",
-        "unsupported_capability"
-      ]
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     },
     {
       "id": "availability-phrase-portfolio-en",
@@ -4889,7 +4885,7 @@
       ],
       "expected_runnability": "blocked",
       "expected_routing_status": "unavailable",
-      "expected_alternative_workflow": "market-regime-daily",
+      "expected_alternative_workflow": "portfolio-holdings-review",
       "expected_missing_requirement_kinds": [
         "paid_api"
       ]
@@ -4941,12 +4937,14 @@
       "tags": [
         "issue-511",
         "availability",
-        "csv-output-not-input"
+        "csv-output-not-input",
+        "issue-512"
       ],
       "expected_runnability": "eligible",
       "expected_routing_status": "exact",
       "expected_alternative_workflow": null,
-      "expected_missing_requirement_kinds": []
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     },
     {
       "id": "availability-csv-export-ja",
@@ -4967,12 +4965,14 @@
       "tags": [
         "issue-511",
         "availability",
-        "csv-output-not-input"
+        "csv-output-not-input",
+        "issue-512"
       ],
       "expected_runnability": "eligible",
       "expected_routing_status": "exact",
       "expected_alternative_workflow": null,
-      "expected_missing_requirement_kinds": []
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     },
     {
       "id": "availability-csv-bare-en",
@@ -4990,18 +4990,17 @@
       "tags": [
         "issue-511",
         "availability",
-        "csv-input-default"
+        "csv-input-default",
+        "issue-512"
       ],
-      "expected_primary_workflow": null,
-      "expected_honest_gap": true,
-      "expected_no_api_path": null,
-      "expected_runnability": "blocked",
-      "expected_routing_status": "unavailable",
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
       "expected_alternative_workflow": null,
-      "expected_missing_requirement_kinds": [
-        "missing_input",
-        "unsupported_capability"
-      ]
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     },
     {
       "id": "availability-csv-managed-ja",
@@ -5019,18 +5018,17 @@
       "tags": [
         "issue-511",
         "availability",
-        "csv-input-default"
+        "csv-input-default",
+        "issue-512"
       ],
-      "expected_primary_workflow": null,
-      "expected_honest_gap": true,
-      "expected_no_api_path": null,
-      "expected_runnability": "blocked",
-      "expected_routing_status": "unavailable",
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
       "expected_alternative_workflow": null,
-      "expected_missing_requirement_kinds": [
-        "missing_input",
-        "unsupported_capability"
-      ]
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     },
     {
       "id": "availability-csv-send-after-alpaca-en",
@@ -5048,7 +5046,8 @@
       "tags": [
         "issue-511",
         "availability",
-        "csv-input-default"
+        "csv-input-default",
+        "issue-512"
       ],
       "expected_primary_workflow": "core-portfolio-weekly",
       "expected_honest_gap": false,
@@ -5056,7 +5055,8 @@
       "expected_runnability": "eligible",
       "expected_routing_status": "exact",
       "expected_alternative_workflow": null,
-      "expected_missing_requirement_kinds": []
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
     }
   ]
 }

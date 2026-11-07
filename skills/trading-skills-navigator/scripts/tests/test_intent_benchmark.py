@@ -194,3 +194,38 @@ def test_loader_fails_closed_on_duplicate_case_ids(tmp_path: Path) -> None:
     )
     with pytest.raises(BenchmarkError, match="duplicate case id"):
         load_benchmark(path)
+
+
+def test_explicit_workflow_guard_counts_dynamic_route_and_fallthrough(repo_metadata: dict) -> None:
+    benchmark = deepcopy(load_benchmark(BENCHMARK_PATH))
+    baseline = evaluate_benchmark(benchmark, repo_metadata)
+    for case in benchmark["cases"]:
+        if case["id"] == "availability-csv-export-en":
+            case["target_workflow"] = "market-regime-daily"
+        elif case["id"] == "twentypct-n01":
+            case["target_workflow"] = "core-portfolio-weekly"
+    report = evaluate_benchmark(benchmark, repo_metadata)
+    assert report["coverage"]["workflows"]["market-regime-daily"]["hard_negative_cases"] == (
+        baseline["coverage"]["workflows"]["market-regime-daily"]["hard_negative_cases"] + 1
+    )
+    assert report["coverage"]["workflows"]["stockbee-20pct-study-daily"]["hard_negative_cases"] == (
+        baseline["coverage"]["workflows"]["stockbee-20pct-study-daily"]["hard_negative_cases"] - 1
+    )
+    assert report["metrics"] == baseline["metrics"]
+
+
+def test_explicit_workflow_guard_rejects_unknown_target(repo_metadata: dict) -> None:
+    benchmark = deepcopy(load_benchmark(BENCHMARK_PATH))
+    benchmark["cases"][0]["target_workflow"] = "not-shipped"
+    report = evaluate_benchmark(benchmark, repo_metadata)
+    assert any("unknown target workflow" in failure for failure in report["failures"])
+
+
+@pytest.mark.parametrize("target", [None, "", [], 123])
+def test_explicit_workflow_guard_has_nonempty_string_type(tmp_path: Path, target) -> None:
+    benchmark = deepcopy(load_benchmark(BENCHMARK_PATH))
+    benchmark["cases"][0]["target_workflow"] = target
+    path = tmp_path / "benchmark.json"
+    path.write_text(json.dumps(benchmark))
+    with pytest.raises(BenchmarkError, match="target_workflow"):
+        load_benchmark(path)

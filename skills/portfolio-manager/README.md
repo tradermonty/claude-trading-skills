@@ -46,15 +46,25 @@ This skill requires:
      export ALPACA_PAPER="true"  # or "false" for live trading
      ```
 
-### Optional: Manual Data Entry
+### Offline holdings review
 
-If Alpaca MCP Server is unavailable, you can provide portfolio data manually via CSV:
+No Alpaca credentials are required for `portfolio-holdings-review`. From the
+repository root, validate the bundled fictional USD-equity CSV and write its
+limited allocation report:
 
-```csv
-symbol,quantity,cost_basis,current_price
-AAPL,100,150.00,175.50
-MSFT,50,280.00,310.25
+```bash
+python3 skills/portfolio-manager/scripts/review_csv.py \
+  --input skills/portfolio-manager/assets/fictional_holdings.csv \
+  --as-of 2026-10-20T12:00:00Z --output-dir reports/holdings-demo
 ```
+
+For saved Alpaca positions JSON, add `--input-format alpaca-json`; this reads a
+local file and never connects to the broker. Both formats share the limited
+analysis schema. Read [the input/output contract](references/csv-holdings-review.md)
+for validation, fractional/short quantities, provenance and privacy rules.
+Navigator routes CSV and saved-positions input requests to this workflow; it does not
+inspect or validate the file. Cash, leverage, performance, dividends and trading
+recommendations require other evidence and are unavailable in this mode.
 
 ## Installation
 
@@ -67,7 +77,8 @@ MSFT,50,280.00,310.25
 
 2. **Restart Claude** to detect the skill
 
-3. **Configure Alpaca credentials** (see Prerequisites)
+3. **Choose a mode:** local holdings review needs no credentials; configure
+   Alpaca only for full brokerage analysis (see Prerequisites).
 
 ### For Claude Web App Users
 
@@ -79,7 +90,7 @@ MSFT,50,280.00,310.25
    - Select "Upload Skill"
    - Choose `portfolio-manager.skill`
 
-3. **Note:** Alpaca MCP Server may not be available in web version; use manual CSV data entry
+3. **Note:** Alpaca MCP Server may not be available in web version; use the documented offline holdings review
 
 ## Usage
 

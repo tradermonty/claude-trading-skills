@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "report_type": "holdings_allocation_only",
+  "provenance": {
+    "source": "local_csv",
+    "as_of": "2026-10-20T12:00:00+00:00",
+    "freshness": "operator_asserted"
+  },
+  "currency": "USD",
+  "gross_holdings_value": "80",
+  "net_holdings_value": "20",
+  "positions": [
+    {
+      "symbol": "FICTA",
+      "asset_type": "equity",
+      "direction": "LONG",
+      "quantity": "2.5",
+      "price": "20",
+      "currency": "USD",
+      "cost_basis": "15",
+      "gross_market_value": "50",
+      "net_market_value": "50",
+      "unrealized_pnl": "12.5",
+      "gross_weight_pct": "62.5"
+    },
+    {
+      "symbol": "FICTB",
+      "asset_type": "equity",
+      "direction": "SHORT",
+      "quantity": "1",
+      "price": "30",
+      "currency": "USD",
+      "cost_basis": "40",
+      "gross_market_value": "30",
+      "net_market_value": "-30",
+      "unrealized_pnl": "10",
+      "gross_weight_pct": "37.5"
+    }
+  ],
+  "limitations": [
+    "Local snapshot assertions only; identity, completeness and price freshness are unverified.",
+    "USD equities only. Weights use gross holdings value, not account equity.",
+    "Cash, leverage, sector/beta, historical returns and trading recommendations are unavailable.",
+    "P&L is per position only; missing per-share cost basis means unavailable, not zero.",
+    "No broker access, order execution, or trader-memory changes. Not a reconciliation gate.",
+    "Limited portfolio-holdings-review path only; full brokerage review requires reconciliation."
+  ]
+}

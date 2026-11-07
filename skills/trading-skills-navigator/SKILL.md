@@ -18,7 +18,7 @@ concrete recommendation: which **workflow** to run, which **skillset**
 (skills-index category) it belongs to, the **API requirement**, and the
 **setup path** for Claude Web App or Claude Code.
 
-A new user faces 74 skills + 12 workflows with no router. This skill is that
+A new user faces 74 skills + 13 workflows with no router. This skill is that
 router. It is **deterministic** — a Python recommender (`scripts/recommend.py`)
 consumes the repo metadata; this SKILL.md narrates the result conversationally.
 
@@ -80,7 +80,8 @@ Parse the JSON and explain, in the user's language:
   `missing_requirements` before describing a recommendation. `eligible` means
   metadata and specified constraints permit that workflow; it does not confirm
   that data or input files are ready. If `alternative_workflow` is present,
-  label it a **different-goal** on-ramp.
+  label it by `relationship`: `different_goal` is a **different-goal** on-ramp;
+  `limited_alternative` is a narrower offline path for the same holdings.
 - **Secondary workflows** — if any, how they relate (e.g. "run the regime
   check first, then this when it allows risk"). If `dropped_secondary_workflows`
   is non-empty, say which follow-on workflows were omitted under no-API mode
@@ -101,11 +102,17 @@ Parse the JSON and explain, in the user's language:
 - **Honest gap** — `honest_gap: true` means no usable path for this goal. If
   `goal_match.runnability` is `unshipped`, no dedicated workflow exists and
   `suggested_skills` may help. If it is `blocked`, a matching workflow exists
-  but is unavailable: explain each missing requirement. CSV portfolio review
-  is not shipped; offering a CSV as the portfolio source does not make it
-  runnable. Any CSV mention is read as the source unless it is clearly an
-  output (export/save/send; CSVに出力) with no input wording; naming Alpaca
-  alone never clears the gap.
+  but is unavailable: explain each missing requirement. A CSV portfolio source
+  or saved positions file selects `portfolio-holdings-review`, a limited offline
+  allocation/P&L path. Relay its `note`: the user must supply the actual file and
+  source `--as-of`;
+  Navigator does not read or validate holdings files. Eligibility does not
+  establish ownership, completeness, freshness or suitability for trading.
+  Full account risk, brokerage review and reconciliation remain outside this
+  limited path. Any CSV mention is read as the source unless it is clearly an
+  output (export/save/send; CSVに出力) with no input wording. CSV output requests
+  retain the full brokerage route. If loaded metadata lacks the CSV workflow,
+  report the unsupported-capability gap instead of claiming it is runnable.
 - **Backtest execution request** — relay the `note` when the research workflow
   is recommended for a request containing backtest terms. It can evaluate
   separately measured metrics but does not execute the backtest. Its
@@ -150,7 +157,7 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 | `no_api_path` | Path-side: does the **whole** recommendation (primary + every secondary) work without paid API keys? `true`/`false`; `null` on an honest gap. This is the DoD's API-vs-no-API separation — narrate it explicitly |
 | `honest_gap` | `true` when no usable workflow can serve the matched goal (`unshipped` or `blocked`) |
 | `goal_match` | Original `{persona, workflow, runnability, missing_requirements}`; `eligible` only means metadata/constraint eligibility |
-| `alternative_workflow` | Separate `{workflow, relationship: different_goal, no_api_path, explanation}` or `null`; never substitutes for the goal |
+| `alternative_workflow` | Separate `{workflow, relationship: different_goal or limited_alternative, no_api_path, explanation}` or `null`; never substitutes for the goal |
 | `dropped_secondary_workflows` | `[{id, reason}]` — secondary workflows removed because they need a paid API under `--no-api`; `[]` otherwise. Not a blocker: narrate it so the user knows a follow-on step was omitted |
 | `note` | Plain-language explanation for gaps / unmapped input |
 | `rationale` | Ordered list of why-this-was-recommended strings |

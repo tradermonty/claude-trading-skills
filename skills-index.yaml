@@ -1418,15 +1418,18 @@ skills:
   integrations:
   - id: alpaca
     type: broker
-    requirement: required
-    note: Alpaca brokerage MCP/API
+    requirement: optional
+    note: Required for full brokerage analysis; local CSV/saved-position allocation review needs no credentials
   inputs:
   - alpaca_holdings
+  - local_holdings_snapshot
   outputs:
   - allocation_report
+  - holdings_allocation_report
   - rebalance_actions
   workflows:
   - core-portfolio-weekly
+  - portfolio-holdings-review
 - id: position-sizer
   display_name: Position Sizer
   category: trade-planning

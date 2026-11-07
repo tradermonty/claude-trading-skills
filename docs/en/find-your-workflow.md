@@ -110,3 +110,11 @@ single source of truth that powers this page.
 - [Workflows](workflows.md) — auto-generated manifest reference for every
   workflow
 - [Skillsets](skillsets.md) — goal-oriented install bundles
+
+## Local holdings without credentials
+
+For a CSV or saved Alpaca positions JSON source, choose [Offline Holdings Review](workflows.md#portfolio-holdings-review).
+Provide the actual file path and timezone-aware source timestamp to Portfolio Manager's
+`review_csv.py`. It reports gross holdings weights and per-position P&L only;
+account-wide exposure, leverage and trading decisions remain outside this path.
+Navigator recommends the workflow but does not validate files.

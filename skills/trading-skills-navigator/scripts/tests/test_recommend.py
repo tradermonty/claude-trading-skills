@@ -527,61 +527,73 @@ def test_no_api_excludes_fmp_required_swing(repo_metadata: dict[str, Any]) -> No
 def test_no_api_excludes_alpaca_required_core_portfolio(
     repo_metadata: dict[str, Any],
 ) -> None:
-    # core-portfolio-weekly is api_profile: mixed, but its required
-    # portfolio-manager needs Alpaca (required) -> must be excluded.
+    # The full brokerage workflow has an explicit Alpaca requirement even
+    # though the skill also exposes a separate offline mode.
     r = recommend("I want to review holdings this week", repo_metadata, no_api=True)
     assert r["primary_workflow"] is None
     assert r["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
     assert r["goal_match"]["runnability"] == "blocked"
-    assert any(
-        "core-portfolio-weekly" in x and "portfolio-manager" in x and "alpaca" in x
-        for x in r["rationale"]
-    )
+    assert any("core-portfolio-weekly" in x and "alpaca" in x for x in r["rationale"])
 
 
-def test_csv_portfolio_goal_is_not_disguised_as_exact_fallback(
-    repo_metadata: dict[str, Any],
-) -> None:
-    query = "Review my portfolio from a CSV file"
-    result = recommend(query, repo_metadata, no_api=True)
-    assert result["honest_gap"] is True
-    assert result["primary_workflow"] is None
+def test_csv_portfolio_routes_to_limited_offline_workflow(repo_metadata: dict[str, Any]) -> None:
+    result = recommend("Review my portfolio from a CSV file", repo_metadata, no_api=True)
+    assert result["honest_gap"] is False
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
     assert result["goal_match"]["persona"] == "dividend-long-term-investor"
-    assert result["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
-    assert [item["kind"] for item in result["goal_match"]["missing_requirements"]] == [
-        "paid_api",
-        "missing_input",
-        "unsupported_capability",
-    ]
-    assert result["routing_diagnostics"]["status"] == "unavailable"
-    assert result["alternative_workflow"]["relationship"] == "different_goal"
+    assert result["goal_match"]["workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert result["goal_match"]["missing_requirements"] == []
+    assert result["no_api_path"] is True
+    assert result["alternative_workflow"] is None
     assert result["setup_bundle"] == {
-        "required": [],
+        "required": ["portfolio-manager"],
         "recommended": [],
         "optional": [],
-        "sources": [],
+        "sources": ["workflow:portfolio-holdings-review"],
     }
-    assert "none usable" in render_text(result)
-    assert "Different-goal alternative" in render_text(result)
+    assert "--as-of" in result["note"]
+    assert "not read or validate" in result["note"]
+    assert "account risk" in result["note"]
 
 
 def test_csv_portfolio_cli_json_and_text(capsys: pytest.CaptureFixture[str]) -> None:
     args = ["--query", "Review my portfolio from a CSV file", "--no-api"]
     assert main([*args, "--format", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["goal_match"]["runnability"] == "blocked"
-    assert payload["routing_diagnostics"]["status"] == "unavailable"
+    assert payload["goal_match"]["runnability"] == "eligible"
+    assert payload["primary_workflow"]["id"] == "portfolio-holdings-review"
     assert main([*args, "--format", "text"]) == 0
     output = capsys.readouterr().out
-    assert "Missing requirement (missing_input)" in output
-    assert "Different-goal alternative" in output
+    assert "portfolio-holdings-review" in output
+    assert "--as-of" in output
+    assert "Different-goal alternative" not in output
 
 
-def test_csv_portfolio_remains_blocked_with_path_in_prose(repo_metadata: dict[str, Any]) -> None:
+def test_csv_path_in_prose_is_not_file_validation(repo_metadata: dict[str, Any]) -> None:
     result = recommend("Review my portfolio from a CSV file at /tmp/holdings.csv", repo_metadata)
-    assert result["goal_match"]["runnability"] == "blocked"
-    assert result["alternative_workflow"] is None
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+    assert "not read or validate" in result["note"]
+
+
+@pytest.mark.parametrize("no_api", [False, True])
+def test_csv_workflow_missing_from_metadata_still_fails_closed(
+    repo_metadata: dict[str, Any], no_api: bool
+) -> None:
+    metadata = dict(repo_metadata)
+    metadata["workflows"] = [
+        workflow
+        for workflow in metadata["workflows"]
+        if workflow["id"] != "portfolio-holdings-review"
+    ]
+    result = recommend("Review my portfolio from a CSV file", metadata, no_api=no_api)
     assert result["primary_workflow"] is None
+    assert result["goal_match"]["runnability"] == "blocked"
+    assert result["honest_gap"] is True
+    assert "unsupported_capability" in {
+        item["kind"] for item in result["goal_match"]["missing_requirements"]
+    }
 
 
 def test_no_api_phrase_is_constraint_on_portfolio_goal(repo_metadata: dict[str, Any]) -> None:
@@ -591,7 +603,7 @@ def test_no_api_phrase_is_constraint_on_portfolio_goal(repo_metadata: dict[str, 
     assert result["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
     assert result["goal_match"]["runnability"] == "blocked"
     assert result["routing_diagnostics"]["status"] == "unavailable"
-    assert result["alternative_workflow"]["relationship"] == "different_goal"
+    assert result["alternative_workflow"]["relationship"] == "limited_alternative"
     swing = recommend("Find swing candidates without API", repo_metadata)
     assert swing["goal_match"]["workflow"]["id"] == "swing-opportunity-daily"
     assert swing["goal_match"]["runnability"] == "blocked"
@@ -1240,10 +1252,14 @@ def test_csv_export_mention_is_not_csv_input_gap(repo_metadata: dict[str, Any], 
         "Review my portfolio with Alpaca, import my CSV and export results to csv",
     ],
 )
-def test_csv_as_portfolio_source_stays_blocked(repo_metadata: dict[str, Any], query: str) -> None:
+def test_csv_as_portfolio_source_routes_to_limited_review(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
     result = recommend(query, repo_metadata)
-    assert result["goal_match"]["runnability"] == "blocked"
-    assert result["honest_gap"] is True
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+    assert result["honest_gap"] is False
+    assert result["no_api_path"] is True
 
 
 _NO_API_SWING_QUERY = (
@@ -1279,3 +1295,173 @@ def test_no_api_dropped_secondary_cli_json_and_text(capsys: pytest.CaptureFixtur
 def test_blocked_text_output_names_skillset(repo_metadata: dict[str, Any]) -> None:
     result = recommend("Review my portfolio from a CSV file", repo_metadata)
     assert f"Skillset: {result['skillset']['id']}" in render_text(result)
+
+
+def test_documented_japanese_csv_confirmation_routes_offline(repo_metadata: dict[str, Any]) -> None:
+    """The exact Japanese portfolio guide example must select its promised path."""
+    result = recommend("CSVからポートフォリオを確認", repo_metadata, no_api=True)
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert result["no_api_path"] is True
+    assert result["setup_bundle"]["required"] == ["portfolio-manager"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "review my portfolio, don't use a CSV",
+        "review my portfolio, I don't have a CSV",
+        "review my portfolio without using a CSV",
+        "review my portfolio, do not import a CSV",
+        "CSVは使わずポートフォリオを確認",
+        "CSVなしでポートフォリオを確認",
+        "CSVではなくポートフォリオを確認",
+    ],
+)
+def test_negated_csv_is_not_the_portfolio_source(repo_metadata: dict[str, Any], query: str) -> None:
+    result = recommend(query, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "review my portfolio from a saved Alpaca positions json",
+        "Review my holdings from a saved positions snapshot",
+        "review my holdings in positions.json",
+        "保有銘柄をAlpacaのJSONから確認",
+        "保存済みのポジションでポートフォリオを確認",
+    ],
+)
+@pytest.mark.parametrize("no_api", [False, True])
+def test_saved_positions_route_to_limited_review(
+    repo_metadata: dict[str, Any], query: str, no_api: bool
+) -> None:
+    result = recommend(query, repo_metadata, no_api=no_api)
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert "--input-format alpaca-json" in result["note"]
+    assert "not read or validate" in result["note"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Review my portfolio with Alpaca and export results to json",
+        "Review my portfolio with Alpaca, not from a saved positions json",
+    ],
+)
+def test_json_output_or_negation_keeps_full_route(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    result = recommend(query, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I don't have Alpaca. Review my holdings",
+        "Alpacaなしで保有銘柄を確認したい",
+        "Review my portfolio without API",
+    ],
+)
+def test_blocked_holdings_goal_names_limited_offline_alternative(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    result = recommend(query, repo_metadata, no_api=True)
+    assert result["primary_workflow"] is None
+    assert result["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
+    assert result["goal_match"]["runnability"] == "blocked"
+    alternative = result["alternative_workflow"]
+    assert alternative["workflow"]["id"] == "portfolio-holdings-review"
+    assert alternative["relationship"] == "limited_alternative"
+    assert alternative["no_api_path"] is True
+    assert "not a full" in alternative["explanation"]
+    text = render_text(result)
+    assert "Limited alternative: Offline Holdings Review" in text
+    assert "Different-goal alternative" not in text
+
+
+def test_dividend_search_does_not_offer_the_holdings_alternative(
+    repo_metadata: dict[str, Any],
+) -> None:
+    result = recommend("find dividend stocks", repo_metadata, no_api=True)
+    assert result["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
+    assert result["alternative_workflow"]["workflow"]["id"] == "market-regime-daily"
+    assert result["alternative_workflow"]["relationship"] == "different_goal"
+
+
+def test_limited_alternative_absent_from_metadata_falls_back(repo_metadata: dict[str, Any]) -> None:
+    metadata = dict(repo_metadata)
+    metadata["workflows"] = [
+        workflow
+        for workflow in metadata["workflows"]
+        if workflow["id"] != "portfolio-holdings-review"
+    ]
+    result = recommend("I don't have Alpaca. Review my holdings", metadata, no_api=True)
+    assert result["alternative_workflow"]["workflow"]["id"] == "market-regime-daily"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "review my portfolio holdings; no need for csv",
+        "review my portfolio holdings, csv not needed",
+        "review my portfolio holdings, don't want to upload a csv",
+        "review my portfolio holdings, I lack a csv",
+        "review my portfolio holdings, I haven't got a csv",
+        "review my portfolio holdings, csv is not available",
+        "review my portfolio holdings, instead of a csv use alpaca",
+        "review my portfolio holdings, I don't have to use a csv",
+        "portfolio holdings review, no saved positions",
+        "保有ポートフォリオを確認。CSVの用意がない",
+        "保有ポートフォリオを確認。CSVは持っていません",
+        "保有ポートフォリオを確認。CSVは不要",
+        "保有ポートフォリオを確認。CSV以外で",
+        "保有ポートフォリオを確認。CSVを使いたくない",
+        "保有ポートフォリオを確認。保存済みポジションは使わない",
+        "保有ポートフォリオを確認。保存したポジションはない",
+    ],
+)
+def test_more_negated_sources_keep_full_route(repo_metadata: dict[str, Any], query: str) -> None:
+    result = recommend(query, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "review my portfolio holdings by pulling live positions from the Alpaca API as json",
+        "portfolio holdings review from json api",
+        "weekly portfolio review, then export holdings to holdings.json",
+        "portfolio holdings review; saved alerts for my positions",
+        "review my portfolio from the JSON feed of Alpaca",
+    ],
+)
+def test_live_or_output_json_is_not_a_saved_file(repo_metadata: dict[str, Any], query: str) -> None:
+    result = recommend(query, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I don't have Alpaca so use my CSV to review my portfolio",
+        "Review my portfolio without Alpaca, from a CSV",
+        "No API, review my portfolio from my csv",
+    ],
+)
+def test_negating_alpaca_does_not_negate_the_file(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    result = recommend(query, repo_metadata, no_api=True)
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+
+
+def test_user_without_a_file_is_not_offered_the_file_workflow(
+    repo_metadata: dict[str, Any],
+) -> None:
+    result = recommend("review my portfolio, I don't have a CSV", repo_metadata, no_api=True)
+    assert result["goal_match"]["runnability"] == "blocked"
+    assert result["alternative_workflow"]["relationship"] == "different_goal"
