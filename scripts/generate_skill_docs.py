@@ -1169,7 +1169,7 @@ def update_catalog_api_matrix(
 
         # Collect new rows
         new_rows: list[str] = []
-        for skill_name, skill_data, api_info in all_skills:
+        for skill_name, _skill_data, api_info in all_skills:
             slug = _slugify(skill_name)
             if slug in existing_slugs:
                 continue

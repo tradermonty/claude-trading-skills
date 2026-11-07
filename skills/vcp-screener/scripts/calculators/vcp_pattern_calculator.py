@@ -448,7 +448,7 @@ def _build_contractions_from(
         if duration < min_contraction_days:
             # Find the next swing high after current_high to bound the search
             next_high_boundary = None
-            for idx, val in swing_highs:
+            for idx, _val in swing_highs:
                 if idx > current_high_idx:
                     next_high_boundary = idx
                     break

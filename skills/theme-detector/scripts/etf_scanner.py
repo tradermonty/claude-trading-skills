@@ -12,6 +12,7 @@ FMP API key is optional; without it, yfinance is used exclusively.
 import sys
 import time
 from datetime import date, timedelta
+from json import JSONDecodeError
 from typing import Any, Optional
 
 try:
@@ -28,12 +29,30 @@ try:
 except ImportError:
     HAS_YFINANCE = False
 
+# yfinance uses curl_cffi, whose transport errors are unrelated to requests.
+_YF_ERRORS: tuple = ()
+try:
+    from yfinance.exceptions import YFException
+
+    _YF_ERRORS += (YFException,)
+except ImportError:
+    pass
+try:
+    from curl_cffi.requests.exceptions import RequestException as CurlRequestException
+
+    _YF_ERRORS += (CurlRequestException,)
+except ImportError:
+    pass
+
 try:
     import requests as _requests_lib
+    from requests.exceptions import RequestException
 
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
+
+_REQUEST_ERRORS: tuple = (RequestException,) if HAS_REQUESTS else ()
 
 
 # ---------------------------------------------------------------------------
@@ -256,8 +275,8 @@ class ETFScanner:
                         # Reset failure count on success
                         self._endpoint_failures[base_url] = 0
                         return data
-            except Exception:
-                pass
+            except (*_REQUEST_ERRORS, ValueError):
+                print("WARN: Degraded FMP request; trying available fallback", file=sys.stderr)
 
             self._stats[ctx]["fmp_failures"] += 1
             failures = self._endpoint_failures.get(base_url, 0) + 1
@@ -742,11 +761,15 @@ class ETFScanner:
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
-            pe = info.get("trailingPE")
-            if pe is not None:
+        except (*_YF_ERRORS, *_REQUEST_ERRORS, JSONDecodeError):
+            print("WARN: Degraded P/E lookup; provider unavailable", file=sys.stderr)
+            return None
+        pe = info.get("trailingPE")
+        if pe is not None:
+            try:
                 return round(float(pe), 2)
-        except Exception:
-            pass
+            except (TypeError, ValueError, OverflowError):
+                print("WARN: Degraded P/E lookup; invalid numeric value", file=sys.stderr)
         return None
 
     def _get_cached(self, symbol: str, period: str = "6mo") -> Optional[pd.DataFrame]:

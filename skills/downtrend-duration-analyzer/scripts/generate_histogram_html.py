@@ -11,6 +11,7 @@ import argparse
 import json
 import sys
 from datetime import datetime
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -112,7 +113,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="container">
         <h1>Downtrend Duration Analysis</h1>
         <div class="subtitle">
-            Analysis Date: {analysis_date} | Lookback: {lookback_years} years | Total Downtrends: {total_downtrends:,}
+            Analysis Date: {analysis_date} | Lookback: {lookback_years} years | Total Downtrends: {total_downtrends}
         </div>
 
         <div class="controls">
@@ -192,37 +193,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         function updateStats(stats) {{
             const grid = document.getElementById('statsGrid');
-            if (!stats) {{
-                grid.innerHTML = '<div class="stat-card"><div class="stat-value">-</div><div class="stat-label">No Data</div></div>';
-                return;
-            }}
+            const cards = stats ? [
+                [stats.count.toLocaleString(), 'Downtrends'],
+                [Math.round(stats.median), 'Median (days)'],
+                [stats.mean.toFixed(1), 'Mean (days)'],
+                [stats.p25, 'P25 (days)'],
+                [stats.p75, 'P75 (days)'],
+                [stats.p90, 'P90 (days)']
+            ] : [['-', 'No Data']];
 
-            grid.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value">${{stats.count.toLocaleString()}}</div>
-                    <div class="stat-label">Downtrends</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${{Math.round(stats.median)}}</div>
-                    <div class="stat-label">Median (days)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${{stats.mean.toFixed(1)}}</div>
-                    <div class="stat-label">Mean (days)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${{stats.p25}}</div>
-                    <div class="stat-label">P25 (days)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${{stats.p75}}</div>
-                    <div class="stat-label">P75 (days)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${{stats.p90}}</div>
-                    <div class="stat-label">P90 (days)</div>
-                </div>
-            `;
+            // Input-derived values must remain text, including malformed durations.
+            grid.replaceChildren(...cards.map(([value, label]) => {{
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                const valueNode = document.createElement('div');
+                valueNode.className = 'stat-value';
+                valueNode.textContent = String(value);
+                const labelNode = document.createElement('div');
+                labelNode.className = 'stat-label';
+                labelNode.textContent = label;
+                card.append(valueNode, labelNode);
+                return card;
+            }}));
         }}
 
         function updateCharts() {{
@@ -303,7 +295,10 @@ def load_analysis_data(input_path: Path) -> dict[str, Any]:
 def generate_sector_options(downtrends: list[dict]) -> str:
     """Generate HTML options for sector dropdown."""
     sectors = sorted(set(d.get("sector", "Unknown") for d in downtrends))
-    return "\n".join(f'                    <option value="{s}">{s}</option>' for s in sectors)
+    return "\n".join(
+        f'                    <option value="{escape(str(s), quote=True)}">{escape(str(s))}</option>'
+        for s in sectors
+    )
 
 
 def generate_html(data: dict[str, Any]) -> str:
@@ -315,13 +310,15 @@ def generate_html(data: dict[str, Any]) -> str:
     sector_options = generate_sector_options(downtrends)
 
     html = HTML_TEMPLATE.format(
-        analysis_date=data.get("analysis_date", "Unknown")[:10],
-        lookback_years=params.get("lookback_years", "?"),
-        total_downtrends=summary.get("total_downtrends", 0),
-        peak_window=params.get("peak_window", 20),
-        min_depth=params.get("min_depth_pct", 5.0),
+        analysis_date=escape(data.get("analysis_date", "Unknown")[:10]),
+        lookback_years=escape(str(params.get("lookback_years", "?"))),
+        total_downtrends=escape(format(summary.get("total_downtrends", 0), ",")),
+        peak_window=escape(str(params.get("peak_window", 20))),
+        min_depth=escape(str(params.get("min_depth_pct", 5.0))),
         sector_options=sector_options,
-        downtrends_json=json.dumps(downtrends),
+        # HTML parses script boundaries before JavaScript parses JSON. Escaping
+        # every '<' also prevents HTML comment/script escaped-state transitions.
+        downtrends_json=json.dumps(downtrends).replace("<", "\\u003c"),
     )
 
     return html

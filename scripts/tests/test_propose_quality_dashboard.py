@@ -17,6 +17,16 @@ PAGES = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _isolate_from_hook_git_env(monkeypatch):
+    """Pre-push hooks export GIT_DIR/GIT_INDEX_FILE; without this scrub the
+    fixture's ``git init --bare``/``git config``/``git add`` act on the real
+    repository, flipping ``core.bare`` and replacing its identity and index
+    (mirrors test_package_skills)."""
+    for key in [k for k in os.environ if k.startswith("GIT_")]:
+        monkeypatch.delenv(key, raising=False)
+
+
 def git(cwd, *args, check=True):
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=check)
 

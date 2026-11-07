@@ -7,6 +7,7 @@ import os
 import tempfile
 
 import pytest
+import yaml
 from config_loader import (
     _extract_etf_catalog,
     _get_bundled_yaml_path,
@@ -73,7 +74,7 @@ class TestLoadYaml:
     def test_invalid_yaml_raises(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = _write_yaml(tmpdir, "cross_sector: [{{invalid")
-            with pytest.raises(Exception):
+            with pytest.raises(yaml.YAMLError):
                 _load_yaml(path)
 
 
@@ -213,7 +214,7 @@ class TestLoadThemesConfig:
         """Explicit path with invalid YAML -> fail-fast."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = _write_yaml(tmpdir, "cross_sector: [{{invalid")
-            with pytest.raises(Exception):
+            with pytest.raises(yaml.YAMLError):
                 load_themes_config(yaml_path=path)
 
     def test_bundled_yaml_fallback_to_inline(self, monkeypatch):
