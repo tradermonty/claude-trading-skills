@@ -37,6 +37,7 @@ def test_authority_has_exact_supported_consumer_set(generator):
         "market-environment-analysis",
         "market-top-detector",
         "parabolic-short-trade-planner",
+        "stockbee-momentum-burst-screener",
         "theme-detector",
     }
     assert len(config["example_mirrors"]) == 2
@@ -53,7 +54,7 @@ def test_authority_has_exact_supported_consumer_set(generator):
 def test_targets_cover_runtime_tests_requirements_and_examples(generator):
     rendered = generator.targets(generator.load_config())
     paths = {path.relative_to(REPO_ROOT).as_posix() for path, _ in rendered}
-    assert len(paths) == 28
+    assert len(paths) == 31
     assert "scripts/market_calendar/consumers.txt" in paths
     for skill in generator.load_config()["consumers"]:
         assert f"skills/{skill}/scripts/_market_calendar.py" in paths

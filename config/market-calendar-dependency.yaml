@@ -13,6 +13,7 @@ consumers:
   - market-environment-analysis
   - market-top-detector
   - parabolic-short-trade-planner
+  - stockbee-momentum-burst-screener
   - theme-detector
 
 # Existing imports needed for a true standalone ``--help`` smoke. The shared
@@ -29,6 +30,8 @@ additional_requirements:
     - requirement: yfinance>=0.2.0
       optional: FMP success path never depends on it; fallback returns None
   parabolic-short-trade-planner:
+    - requests>=2.31.0
+  stockbee-momentum-burst-screener:
     - requests>=2.31.0
   theme-detector:
     - requirement: curl-cffi>=0.7.0

@@ -18,6 +18,7 @@ CLI_PATHS = {
     "market-environment-analysis": "scripts/market_utils.py",
     "market-top-detector": "scripts/market_top_detector.py",
     "parabolic-short-trade-planner": "scripts/screen_parabolic.py",
+    "stockbee-momentum-burst-screener": "scripts/screen_momentum_burst.py",
     "theme-detector": "scripts/theme_detector.py",
 }
 RUNTIME_IMPORTS = {

@@ -113,6 +113,7 @@ python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py
 ```bash
 python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py \
   --prices-json data/daily_ohlcv.json \
+  --as-of 2026-11-06 \
   --output-dir reports/
 ```
 
@@ -149,3 +150,27 @@ python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py
 スクリプト:
 
 - `skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py`
+
+## 確定セッションとデータ鮮度
+
+全入力モードで採点前に鮮度を検証します。既定の基準は、取得開始前に固定した
+NYSEの直近確定セッションです。取引時間中の未確定バーは除外し、週末・祝日・
+夏時間・短縮取引日は共通カレンダーに従います。
+
+- `--as-of YYYY-MM-DD` は指定日以前の最終セッションを選びます。実際の直近確定
+  セッションを超える指定は、当日の引け前も含めてエラーです。過去日付は取得済み
+  データの範囲を制限するだけで、ライブFMPの過去取得やPITデータを保証しません。
+- `--max-bar-age-sessions N` は許容する経過セッション数です。非負整数、既定値0。
+  大きい値を指定しても古い観測が現在のデータになるわけではありません。
+- 日付は正規の`YYYY-MM-DD`が必要です。日付欠落・不正、最新対象バーが休場日なら
+  `invalid_price_date`、基準日以前にバーがなければ`no_completed_price_data`、
+  古すぎれば`stale_price_data`として`REJECTED`になり、売買計画へ送りません。
+- カレンダー障害・未来または未確定の日付指定は終了1、引数構文エラーは終了2。
+  これらの失敗では既存レポートを変更しません。FMPのuniverse取得ではactive銘柄を
+  要求し、明示的にinactiveとされた行も除外します。
+
+JSONには銘柄別の`latest_bar_date`、`expected_session`、`bar_age_sessions`、
+`max_bar_age_sessions`を追加します。判定不能な値はnullです。metadataには
+`latest_bar_dates`と`stale_price_data_count`もあり、Markdownの集計にも基準日・
+許容日数・古いデータによる除外数を表示します。過去の架空データの検証には、
+例えば`--as-of 2026-11-06`を明示してください。鮮度の検証は売買承認ではありません。

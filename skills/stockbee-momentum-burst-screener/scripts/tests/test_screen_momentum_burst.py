@@ -19,6 +19,8 @@ from screen_momentum_burst import (  # noqa: E402
 
 def _args(**overrides):
     base = dict(
+        as_of="2026-06-18",
+        max_bar_age_sessions=0,
         min_price=5.0,
         min_volume=100_000,
         four_pct_threshold=4.0,
@@ -42,7 +44,7 @@ def _args(**overrides):
 def _good_bars():
     rows = [
         {
-            "date": "2026-06-20",
+            "date": "2026-06-18",
             "open": 100.0,
             "high": 105.0,
             "low": 101.0,
@@ -50,7 +52,7 @@ def _good_bars():
             "volume": 600_000,
         },
         {
-            "date": "2026-06-19",
+            "date": "2026-06-17",
             "open": 99.8,
             "high": 100.8,
             "low": 99.1,
@@ -58,7 +60,7 @@ def _good_bars():
             "volume": 120_000,
         },
         {
-            "date": "2026-06-18",
+            "date": "2026-06-16",
             "open": 100.1,
             "high": 100.9,
             "low": 99.3,
@@ -66,7 +68,7 @@ def _good_bars():
             "volume": 130_000,
         },
         {
-            "date": "2026-06-17",
+            "date": "2026-06-15",
             "open": 99.5,
             "high": 100.4,
             "low": 98.8,
@@ -74,7 +76,7 @@ def _good_bars():
             "volume": 125_000,
         },
         {
-            "date": "2026-06-16",
+            "date": "2026-06-12",
             "open": 99.6,
             "high": 100.3,
             "low": 98.7,
@@ -82,7 +84,7 @@ def _good_bars():
             "volume": 115_000,
         },
         {
-            "date": "2026-06-15",
+            "date": "2026-06-11",
             "open": 100.0,
             "high": 100.6,
             "low": 99.2,
@@ -188,7 +190,7 @@ def test_include_rejected_handles_insufficient_history(tmp_path):
     skeleton = analyze_symbol(
         "SHORT",
         normalize_bars(
-            [{"date": "2026-06-20", "open": 10, "high": 11, "low": 9, "close": 10.5, "volume": 500}]
+            [{"date": "2026-06-18", "open": 10, "high": 11, "low": 9, "close": 10.5, "volume": 500}]
         ),
         _args(),
     )

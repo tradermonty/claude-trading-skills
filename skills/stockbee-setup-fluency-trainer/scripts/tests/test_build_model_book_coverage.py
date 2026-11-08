@@ -495,6 +495,21 @@ def test_load_screener_filters_rejects_and_attaches_source(tmp_path):
     assert [c["symbol"] for c in allc] == ["OK", "R1", "R2", "R3"]
 
 
+def test_load_screener_drops_per_symbol_metadata_maps(tmp_path):
+    bar_dates = {f"SYM{i:04d}": "2026-11-06" for i in range(1500)}
+    meta = {"src": "x", "expected_session": "2026-11-06", "latest_bar_dates": bar_dates}
+    p = tmp_path / "r.json"
+    p.write_text(
+        json.dumps({"metadata": meta, "candidates": [cand(symbol="OK")]}),
+        encoding="utf-8",
+    )
+    loaded = bmb.load_screener_candidates([p])
+    assert loaded[0]["_source_metadata"] == {"src": "x", "expected_session": "2026-11-06"}
+    records, _ = bmb.make_studyable_records(loaded)
+    assert "latest_bar_dates" not in json.dumps(records)
+    assert len(json.dumps(records)) < 5_000
+
+
 def test_load_screener_non_dict_metadata_becomes_empty(tmp_path):
     p = tmp_path / "r.json"
     p.write_text(json.dumps({"metadata": "str", "candidates": [cand()]}), encoding="utf-8")

@@ -363,7 +363,7 @@ response rows, per grep-verified call sites:
 | pair-trade-screener | `symbol`, `companyName`, `marketCap`, `sector`, `exchangeShortName`, `isActivelyTrading` |
 | stockbee-20pct-study | `symbol`, `exchangeShortName`, `type` (defaults to `"stock"` — a key `/stable` rows do not carry), `price`, `isEtf`, `isFund` |
 | stockbee-exhaustion-hammer-screener | `symbol`, `isEtf`, `isFund`, `marketCap` (defensive fallback `mktCap`) |
-| stockbee-momentum-burst-screener | `symbol`, `isEtf`, `isFund`, `marketCap` (defensive fallback `mktCap`) |
+| stockbee-momentum-burst-screener | `symbol`, `isEtf`, `isFund`, `isActivelyTrading` (requested as `isActivelyTrading=true` and re-checked client-side), `marketCap` (defensive fallback `mktCap`) |
 | us-undervalued-growth-screener | `symbol`, `companyName`, `exchange` OR `exchangeShortName`, `sector`, `industry`, `price`, `marketCap`, `volume`, `isEtf`, `isFund`, `isActivelyTrading` (client pins the three flags server-side; `normalize_listing` re-checks them client-side) |
 | value-dividend-screener | `symbol`, `price`, `lastAnnualDividend`, `marketCap`, `isEtf`, `isFund` |
 
