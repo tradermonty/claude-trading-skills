@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -1465,3 +1466,114 @@ def test_user_without_a_file_is_not_offered_the_file_workflow(
     result = recommend("review my portfolio, I don't have a CSV", repo_metadata, no_api=True)
     assert result["goal_match"]["runnability"] == "blocked"
     assert result["alternative_workflow"]["relationship"] == "different_goal"
+
+
+COMBINED_SAVED_JSON_QUERIES = [
+    "review my holdings in positions.json and export the review to JSON",
+    "保存済みのポジションでポートフォリオを確認してJSONに出力",
+    "Review my portfolio from a saved Alpaca positions JSON and export the review to JSON",
+    "Export the review to JSON, using saved Alpaca positions to review my portfolio",
+    "Review my portfolio from positions.json and export the review to JSON",
+    "Review my portfolio from a saved positions JSON without API and export to JSON",
+    "Review my portfolio from a saved positions JSON exported from Alpaca API and export to JSON",
+    "保有銘柄を保存済みのポジションJSONから確認してJSONに出力",
+    "JSONに出力して、保有銘柄を保存済みのポジションJSONから確認",
+    "保有銘柄をAlpacaのJSONから確認してJSONに出力",
+]
+
+
+def assert_offline_saved_json_result(result: dict[str, Any]) -> None:
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert result["goal_match"]["missing_requirements"] == []
+    assert result["no_api_path"] is True
+    assert result["setup_bundle"] == {
+        "required": ["portfolio-manager"],
+        "recommended": [],
+        "optional": [],
+        "sources": ["workflow:portfolio-holdings-review"],
+    }
+    assert "--input-format alpaca-json" in result["note"]
+    assert "not read or validate" in result["note"]
+
+
+@pytest.mark.parametrize("query", COMBINED_SAVED_JSON_QUERIES)
+@pytest.mark.parametrize("no_api", [False, True])
+def test_saved_json_input_wins_over_output(
+    repo_metadata: dict[str, Any], query: str, no_api: bool
+) -> None:
+    assert_offline_saved_json_result(recommend(query, repo_metadata, no_api=no_api))
+
+
+@pytest.mark.parametrize("query", [COMBINED_SAVED_JSON_QUERIES[2], COMBINED_SAVED_JSON_QUERIES[7]])
+@pytest.mark.parametrize("no_api", [False, True])
+def test_saved_json_output_public_cli(query: str, no_api: bool) -> None:
+    args = [
+        sys.executable,
+        str(Path(__file__).resolve().parents[1] / "recommend.py"),
+        "--query",
+        query,
+        "--format",
+        "json",
+    ]
+    if no_api:
+        args.append("--no-api")
+    completed = subprocess.run(args, check=True, capture_output=True, text=True)
+    assert_offline_saved_json_result(json.loads(completed.stdout))
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Review my portfolio, not from a saved Alpaca positions JSON, and export to JSON",
+        "Review my portfolio; saved Alpaca positions JSON is not available; export to JSON",
+        "Review my portfolio; saved Alpaca positions JSON is unavailable; export to JSON",
+        "Review my portfolio and export saved positions to JSON",
+        "Review my portfolio and export to holdings.json",
+        "Review my portfolio from the Alpaca API and export to holdings.json",
+        "Review my portfolio from the JSON feed of Alpaca and export to JSON",
+        "保有銘柄を確認してJSONに出力",
+        "保有銘柄を保存済みのポジションJSONは使わずに確認してJSONに出力",
+    ],
+)
+@pytest.mark.parametrize("no_api", [False, True])
+def test_json_output_keeps_full_route_without_positive_saved_input(
+    repo_metadata: dict[str, Any], query: str, no_api: bool
+) -> None:
+    result = recommend(query, repo_metadata, no_api=no_api)
+    assert result["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
+    if no_api:
+        assert result["primary_workflow"] is None
+        assert result["goal_match"]["runnability"] == "blocked"
+    else:
+        assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+        assert result["no_api_path"] is False
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "not from a saved Alpaca positions JSON",
+        "saved Alpaca positions JSON is not available",
+        "saved Alpaca positions JSON is unavailable",
+    ],
+)
+def test_negated_alpaca_saved_input_without_output(
+    repo_metadata: dict[str, Any], source: str
+) -> None:
+    result = recommend("Review my portfolio; " + source, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Review my portfolio and save JSON in holdings.json",
+        "Review my portfolio and output JSON in positions.json",
+        "保有銘柄を確認し保存したポジションJSONで出力",
+    ],
+)
+def test_json_output_destination_is_not_an_input(repo_metadata: dict[str, Any], query: str) -> None:
+    result = recommend(query, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"

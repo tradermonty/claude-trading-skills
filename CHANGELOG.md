@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- trading-skills-navigator: preserve offline saved-position input when JSON output is also requested, while retaining output-only, live-source and negated-file routing (#668).
+
 - theme-detector: prefer authenticated FINVIZ group export with safe public fallback, require finvizfinance>=1.5.0 for Python3.10+ public scraping, and merge overlapping ETF holdings without a missing-score crash (#671).
 
 Changes merged to `main` since the release process landed in #505 (2026-10-10). No GitHub Release has been published yet.
