@@ -12,7 +12,7 @@ regime report that ``exposure-coach`` consumed as valid input).
 
 Requirement-line grammar (single canonical form)::
 
-    <PEP 508 requirement without URL or environment marker>[  # optional: <reason>]
+    <PEP 508 requirement without URL or environment marker (except the narrow #671 case below)>[  # optional: <reason>]
 
 ``# optional:`` marks a package the skill degrades without (fallback
 path plus an absence test are then mandatory). Everything else is a
@@ -717,7 +717,14 @@ def parse_requirements(path: Path) -> tuple[dict[str, RequirementEntry], list[st
         if parsed.url is not None:
             errors.append(f"line {lineno}: direct URL references are rejected")
             continue
-        if parsed.marker is not None:
+        # #671: finvizfinance 1.5 drops Python3.9. Only this optional theme
+        # fallback can be omitted there; Elite groups remain requests-only.
+        theme_public_marker = (
+            path.parent.name == "theme-detector"
+            and optional
+            and str(parsed) == 'finvizfinance>=1.5.0; python_version >= "3.10"'
+        )
+        if parsed.marker is not None and not theme_public_marker:
             errors.append(
                 f"line {lineno}: environment markers are rejected; "
                 "use '# optional: <reason>' instead"

@@ -608,9 +608,14 @@ def main(argv: list[str] | None = None) -> int:
     # Step 1: Fetch FINVIZ industry performance
     # -----------------------------------------------------------------------
     print("Fetching FINVIZ industry performance...", file=sys.stderr)
-    raw_industries = get_industry_performance()
+    raw_industries = get_industry_performance(
+        api_key=args.finviz_api_key if finviz_mode == "elite" else ""
+    )
     if not raw_industries:
-        print("ERROR: No industry data from FINVIZ. Exiting.", file=sys.stderr)
+        print(
+            "ERROR: No industry data from FINVIZ. Use Python 3.10+ with finvizfinance>=1.5.0 or configure FINVIZ_API_KEY for Elite; check provider access. Exiting.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     metadata["data_sources"]["finviz_industries"] = len(raw_industries)

@@ -3,14 +3,19 @@
 Theme Detector - FINVIZ Performance Client
 
 Fetches sector and industry performance data from FINVIZ using the
-finvizfinance library. No API key required (public data).
+authenticated Elite CSV export when configured, with a public finvizfinance fallback.
 
 Data Source: finvizfinance.group.performance
 """
 
+import csv
+import io
 import math
+import os
 import sys
 from typing import Optional
+
+import requests
 
 try:
     from finvizfinance.group import performance as fvperf
@@ -180,48 +185,95 @@ def cap_outlier_performances(industries: list[dict], z_threshold: float = 3.0) -
     return industries
 
 
-def get_sector_performance() -> list[dict]:
-    """Fetch sector-level performance data from FINVIZ.
+GROUP_EXPORT_URL = "https://elite.finviz.com/grp_export"
+ELITE_COLUMNS = {
+    "Performance (Week)": "perf_1w",
+    "Performance (Month)": "perf_1m",
+    "Performance (Quarter)": "perf_3m",
+    "Performance (Half Year)": "perf_6m",
+    "Performance (Year)": "perf_1y",
+    "Performance (Year To Date)": "perf_ytd",
+}
 
-    Returns:
-        List of dicts with keys: name, perf_1w, perf_1m, perf_3m,
-        perf_6m, perf_1y, perf_ytd. Values are floats in decimal
-        form (e.g., 0.05 = 5%).
-    """
-    if not HAS_FINVIZFINANCE:
+
+def _elite_csv_rows(text: str) -> list[dict]:
+    """Normalize percentage-point CSV to the public client's decimal ratios."""
+    reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")), strict=True)
+    required = {"Name", *ELITE_COLUMNS}
+    if not reader.fieldnames or not required.issubset(reader.fieldnames):
+        raise ValueError("missing group columns")
+    if len(reader.fieldnames) != len(set(reader.fieldnames)):
+        raise ValueError("duplicate group columns")
+    rows = []
+    for row in reader:
+        if None in row or any(row.get(column) is None for column in required):
+            raise ValueError("malformed group row")
+        name = row["Name"].strip()
+        if not name:
+            continue
+        entry = {"name": name}
+        for column, key in ELITE_COLUMNS.items():
+            value = row[column].strip()
+            if value in {"", "-", "N/A"}:
+                entry[key] = None
+                continue
+            number = float(value.removesuffix("%").replace(",", "")) / 100
+            if not math.isfinite(number):
+                raise ValueError("nonfinite group performance")
+            entry[key] = number
+        if any(entry[key] is not None for key in ELITE_COLUMNS.values()):
+            rows.append(entry)
+    return rows
+
+
+def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
+    key = os.environ.get("FINVIZ_API_KEY", "") if api_key is None else api_key
+    if key:
+        try:
+            response = requests.get(
+                GROUP_EXPORT_URL,
+                params={"g": group.lower(), "v": "140", "o": "name", "auth": key},
+                timeout=15,
+                allow_redirects=False,
+            )
+            if response.status_code == 200:
+                rows = _elite_csv_rows(response.text)
+                if rows:
+                    return rows
+        except (requests.RequestException, ValueError, csv.Error):
+            pass  # Report only static text: exceptions and bodies may contain auth.
         print(
-            "WARNING: finvizfinance not installed. Install with: pip install finvizfinance",
+            "WARNING: FINVIZ Elite group export unavailable; trying public fallback.",
             file=sys.stderr,
         )
-        return []
 
+    guidance = (
+        "Use Python 3.10+ and install theme-detector requirements "
+        "(finvizfinance>=1.5.0), or configure FINVIZ_API_KEY for Elite."
+    )
+    if sys.version_info < (3, 10) or not HAS_FINVIZFINANCE:
+        print(f"WARNING: FINVIZ public group data unavailable. {guidance}", file=sys.stderr)
+        return []
     try:
-        perf = fvperf.Performance()
-        df = perf.screener_view(group="Sector")
-        return _dataframe_to_dicts(df)
-    except Exception as e:
-        print(f"WARNING: Failed to fetch sector performance: {e}", file=sys.stderr)
-        return []
+        rows = _dataframe_to_dicts(fvperf.Performance().screener_view(group=group))
+        if rows:
+            return rows
+    except Exception:
+        # Third-party scraper exceptions may embed full request URLs/bodies.
+        # Keep its failure soft and diagnostic entirely independent of values.
+        pass
+    print(f"WARNING: FINVIZ public group fetch failed. {guidance}", file=sys.stderr)
+    return []
 
 
-def get_industry_performance() -> list[dict]:
-    """Fetch industry-level performance data from FINVIZ.
+def get_sector_performance(api_key: Optional[str] = None) -> list[dict]:
+    """Sector decimal ratios: prefer Elite key, then public Python3.10+ scraper.
 
-    Returns:
-        List of dicts with same structure as get_sector_performance().
-        Typically 140+ industries.
+    None resolves FINVIZ_API_KEY; an explicit empty string forces public-only.
     """
-    if not HAS_FINVIZFINANCE:
-        print(
-            "WARNING: finvizfinance not installed. Install with: pip install finvizfinance",
-            file=sys.stderr,
-        )
-        return []
+    return _get_performance("Sector", api_key)
 
-    try:
-        perf = fvperf.Performance()
-        df = perf.screener_view(group="Industry")
-        return _dataframe_to_dicts(df)
-    except Exception as e:
-        print(f"WARNING: Failed to fetch industry performance: {e}", file=sys.stderr)
-        return []
+
+def get_industry_performance(api_key: Optional[str] = None) -> list[dict]:
+    """Industry decimal ratios with the same source/key policy as sectors."""
+    return _get_performance("Industry", api_key)
