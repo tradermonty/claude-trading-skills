@@ -594,10 +594,14 @@ def _has_unsupported_equity_short(thesis: dict) -> bool:
         raw = origin.get("raw_provenance")
         if isinstance(raw, dict):
             values.append(raw.get("direction"))
+    # Any SHORT/SELL token marks short intent ("Short position", "short sale",
+    # "SELL"), mirroring how "Long position" / "BUY" stay long.
+    short_tokens = {"SHORT", "SELL", "SELLSHORT"}
     return any(
         isinstance(value, str)
-        and "_".join(value.strip().upper().replace("-", " ").replace("_", " ").split())
-        in {"SHORT", "SELL_SHORT", "SELLSHORT"}
+        and not short_tokens.isdisjoint(
+            value.strip().upper().replace("-", " ").replace("_", " ").split()
+        )
         for value in values
     )
 

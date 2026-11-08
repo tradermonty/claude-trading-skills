@@ -116,7 +116,7 @@ remain provenance only; authoritative fills still come from `open-position`.
 For a backfill with a profit-protecting stop, open the long with its initial stop,
 then update the current stop after activation.
 
-Explicit legacy SHORT / SELL_SHORT equity records are refused before new
+Explicit legacy short equity records (any SHORT or SELL word, such as SELL_SHORT, Short position or SELL) are refused before new
 accounting or MAE/MFE/postmortem calculations. They can still be marked reviewed
 or terminated as INVALIDATED without an exit price; these bookkeeping actions
 preserve all existing monetary fields and provenance. Summary statistics and

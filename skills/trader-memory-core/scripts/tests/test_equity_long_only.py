@@ -421,7 +421,20 @@ def test_legacy_manual_nonshort_provenance_keeps_long_accounting(tmp_path, direc
     assert "20.0" in report
 
 
-@pytest.mark.parametrize("direction", ["SHORT", "SELL_SHORT", "sell short", "sell-short"])
+@pytest.mark.parametrize(
+    "direction",
+    [
+        "SHORT",
+        "SELL_SHORT",
+        "sell short",
+        "sell-short",
+        "SELL",
+        "Short position",
+        "short sale",
+        "SHORT SELL",
+        "short-sell",
+    ],
+)
 def test_legacy_explicit_short_aliases_are_excluded_without_poisoning_valid_trades(
     tmp_path, direction
 ):
