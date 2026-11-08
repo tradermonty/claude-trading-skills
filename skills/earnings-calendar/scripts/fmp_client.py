@@ -396,7 +396,6 @@ class FMPClient:
             f"{self.BASE_URL}/earning_calendar",
             {"from": from_date, "to": to_date, "includeReportTimes": "true"},
         )
-
         # The provider caps the earnings-calendar response at 4000 rows and
         # keeps the newest dates, so one request over a multi-day window
         # silently drops the oldest days (#672). Fetch one day at a time,
@@ -404,23 +403,17 @@ class FMPClient:
         try:
             start = datetime.strptime(from_date, "%Y-%m-%d").date()
             end = datetime.strptime(to_date, "%Y-%m-%d").date()
-        except ValueError as e:
-            print(
-                f"ERROR: invalid earnings calendar range "
-                f"{from_date!r}..{to_date!r}: {e}",
-                file=sys.stderr,
-            )
+        except (ValueError, TypeError) as e:
+            self._last_error = f"invalid earnings calendar range {from_date!r}..{to_date!r}: {e}"
+            print(f"ERROR: {self._last_error}", file=sys.stderr)
             return None
         if end < start:
-            print(
-                f"ERROR: earnings calendar range end {to_date} is before "
-                f"start {from_date}",
-                file=sys.stderr,
-            )
+            self._last_error = f"earnings calendar range end {to_date} is before start {from_date}"
+            print(f"ERROR: {self._last_error}", file=sys.stderr)
             return None
 
-        rows: list[dict] = []
-        seen: set[tuple] = set()
+        rows: list = []
+        seen: set = set()
         truncated_days: list[str] = []
         day = start
         while day <= end:
@@ -435,10 +428,14 @@ class FMPClient:
             if len(data) >= 4000:
                 truncated_days.append(day.isoformat())
             for row in data:
-                key = (row.get("symbol"), row.get("date"))
-                if key not in seen:
+                # Non-dict rows are passed through untouched (callers skip
+                # them); rows without a symbol are never deduped.
+                if isinstance(row, dict) and row.get("symbol"):
+                    key = (row.get("symbol"), row.get("date"))
+                    if key in seen:
+                        continue
                     seen.add(key)
-                    rows.append(row)
+                rows.append(row)
             day += timedelta(days=1)
 
         if truncated_days:

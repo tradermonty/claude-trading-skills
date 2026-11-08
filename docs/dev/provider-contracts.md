@@ -301,6 +301,7 @@ when `candidates` is non-empty):
 |---|---|---|---|
 | `no_earnings_rows` | Mode A: the FMP earnings calendar returned no rows (or no rows carried a `symbol`) for the lookback window | 0 | WARNING |
 | `calendar_fetch_failed` | Mode A: the calendar fetch returned no usable body (`None` on transport/HTTP/rate-limit failure, or a non-list body); non-dict rows are ignored, never dereferenced | 1 | ERROR |
+| `calendar_budget_exhausted` | Mode A: the per-day calendar fetch (`lookback_days + 1` calls) raised `ApiCallBudgetExceeded`; raise `--max-api-calls` or lower `--lookback-days` | 1 | ERROR |
 | `profiles_budget_exhausted` | Mode A: profile fetching raised `ApiCallBudgetExceeded` (including after partial retrieval), or profiles came back empty and the budget is exhausted (`budget_remaining == 0` or `rate_limit_reached`) | 1 | ERROR |
 | `no_profiles_returned` | Mode A: ≥1 symbol, but `get_company_profiles` returned nothing and the budget is not exhausted | 1 | ERROR |
 | `profiles_missing_required_field:marketCap` | Mode A: no candidate passed the cap filter **and** no profile has a coercible `marketCap` *or* `mktCap` — see the value-based nuance below | 1 | ERROR |

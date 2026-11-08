@@ -7,17 +7,14 @@ hits the cap. The transport is mocked; no API key or network is used.
 
 import os
 import sys
-
-import requests
 from datetime import date, timedelta
 from unittest.mock import MagicMock
 
-import pytest
+import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from fmp_client import FMPClient
-
 
 PROVIDER_CAP = 4000
 
@@ -49,7 +46,7 @@ def _patch_provider_cap(monkeypatch):
         day = frm
         index = 0
         while day <= to:
-            for n in range(3):
+            for _ in range(3):
                 all_rows.append(
                     {
                         "symbol": f"S{index % 7}",
@@ -106,7 +103,11 @@ def test_duplicates_across_days_are_deduped(monkeypatch):
         frm = date.fromisoformat(params["from"])
         # The same announcement reported on two consecutive days.
         row = {"symbol": "S0", "date": "2026-10-26", "eps": 1.0, "time": "bmo"}
-        rows = [row] if frm <= date(2026, 10, 26) else [row, {"symbol": "S1", "date": "2026-10-27", "eps": 2.0, "time": None}]
+        rows = (
+            [row]
+            if frm <= date(2026, 10, 26)
+            else [row, {"symbol": "S1", "date": "2026-10-27", "eps": 2.0, "time": None}]
+        )
         return _response(rows)
 
     client.session.get = MagicMock(side_effect=fake_get)
@@ -119,8 +120,50 @@ def test_duplicates_across_days_are_deduped(monkeypatch):
 
 def test_transport_failure_still_returns_none(monkeypatch):
     client = _make_client()
-    client.session.get = MagicMock(
-        side_effect=requests.exceptions.ConnectionError("network down")
-    )
+    client.session.get = MagicMock(side_effect=requests.exceptions.ConnectionError("network down"))
 
     assert client.get_earnings_calendar("2026-10-24", "2026-10-26") is None
+
+
+def test_non_dict_rows_are_passed_through_without_raising():
+    client = _make_client()
+    day_rows = [{"symbol": "AAA", "date": "2026-10-26", "eps": 1.0}, "junk", None]
+    client.session.get = MagicMock(return_value=_response(day_rows))
+
+    rows = client.get_earnings_calendar("2026-10-26", "2026-10-26")
+
+    assert rows is not None
+    assert {"symbol": "AAA", "date": "2026-10-26", "eps": 1.0} in rows
+    assert "junk" in rows and None in rows
+
+
+def test_symbolless_rows_are_not_deduped():
+    client = _make_client()
+    day_rows = [
+        {"date": "2026-10-26", "eps": 1.0},
+        {"date": "2026-10-26", "eps": 2.0},
+        {"symbol": "", "date": "2026-10-26", "eps": 3.0},
+    ]
+    client.session.get = MagicMock(return_value=_response(day_rows))
+
+    rows = client.get_earnings_calendar("2026-10-26", "2026-10-26")
+
+    assert len(rows) == 3
+
+
+def test_end_before_start_sets_last_error():
+    client = _make_client()
+    client.session.get = MagicMock()
+
+    assert client.get_earnings_calendar("2026-10-27", "2026-10-26") is None
+    assert "before start" in client._last_error
+    client.session.get.assert_not_called()
+
+
+def test_invalid_date_sets_last_error():
+    client = _make_client()
+    client.session.get = MagicMock()
+
+    assert client.get_earnings_calendar("not-a-date", "2026-10-26") is None
+    assert "invalid earnings calendar range" in client._last_error
+    client.session.get.assert_not_called()
