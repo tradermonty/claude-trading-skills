@@ -254,3 +254,6 @@ def test_manual_required_fmp_skill_guides_match_declarations(skill, locale):
     assert 'badge-free">API不要' not in text
     assert "**API Key:** None required" not in text
     assert "**APIキー:** 不要" not in text
+    # Prose that makes the key optional contradicts a required declaration.
+    assert "API なしでも" not in text and "APIなしでも" not in text
+    assert "FMP API を使う場合" not in text and "FMP APIを使う場合" not in text

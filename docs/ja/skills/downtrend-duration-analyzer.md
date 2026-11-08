@@ -57,8 +57,8 @@ Downtrend Duration Analyzer は、銘柄の過去データから下落期間を�
 
 - Python 3.9+
 - 過去 OHLC データ
-- FMP API を使う場合は `FMP_API_KEY`
-- ローカルデータがある場合は API なしでも分析可能
+- FMP API キーが必須です。環境変数 `FMP_API_KEY` か `--api-key` で指定します
+- 必要なパッケージ: `requests`、`pandas`、`numpy`
 
 このスキルは将来の反発を予測するものではありません。過去の調整期間の分布を使って、期待値と時間軸を現実的にするための補助ツールです。
 
