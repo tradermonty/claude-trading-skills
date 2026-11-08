@@ -15,7 +15,7 @@ generated: false
 過去の下落局面を peak-to-trough で抽出し、セクター別・時価総額別に「典型的な調整期間」を可視化するスキルです。押し目戦略や平均回帰戦略の保有期間設計に使います。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">API不要</span>
+<span class="badge badge-api">FMP必須</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/downtrend-duration-analyzer.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/downtrend-duration-analyzer){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -57,8 +57,8 @@ Downtrend Duration Analyzer は、銘柄の過去データから下落期間を�
 
 - Python 3.9+
 - 過去 OHLC データ
-- FMP API を使う場合は `FMP_API_KEY`
-- ローカルデータがある場合は API なしでも分析可能
+- FMP API キーが必須です。環境変数 `FMP_API_KEY` か `--api-key` で指定します
+- 必要なパッケージ: `requests`、`pandas`、`numpy`
 
 このスキルは将来の反発を予測するものではありません。過去の調整期間の分布を使って、期待値と時間軸を現実的にするための補助ツールです。
 

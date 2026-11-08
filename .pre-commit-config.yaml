@@ -91,6 +91,13 @@ repos:
         files: '^(config/docs-external-link-allowlist\.json|scripts/check_docs_site\.py|scripts/tests/test_check_docs_site\.py)$'
         pass_filenames: false
 
+      - id: api-requirements
+        name: Validate credential readers and no-API workflow declarations
+        entry: python3 scripts/check_api_requirements.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: validate-skills-index
         name: Validate skills-index.yaml against skills/ folder
         entry: python3 scripts/validate_skills_index.py

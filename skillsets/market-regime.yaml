@@ -4,7 +4,7 @@ display_name: Market Regime
 category: market-regime
 timeframe: daily
 difficulty: beginner
-api_profile: no-api-basic
+api_profile: mixed
 target_users:
   - part-time-swing-trader
   - growth-investor

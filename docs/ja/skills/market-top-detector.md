@@ -14,7 +14,7 @@ permalink: /ja/skills/market-top-detector/
 オニールのディストリビューションデー、ミネルヴィニの先導株劣化、モンティのディフェンシブセクターローテーションを使用して市場天井のヒューリスティックなリスクを評価します。リスクゾーン分類付きの0-100コンポジットスコアを生成します。市場天井リスク、ディストリビューションデー、ディフェンシブローテーション、リーダーシップ崩壊、またはエクイティエクスポージャーを縮小すべきかについて聞かれた際に使用します。10-20%の調整に対する2〜8週間の戦術的タイミングシグナルに焦点を当てます。
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">API不要</span>
+<span class="badge badge-api">FMP必須</span>
 
 [スキルパッケージをダウンロード (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/market-top-detector.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [GitHubでソースを見る](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/market-top-detector){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -51,7 +51,7 @@ permalink: /ja/skills/market-top-detector/
 
 ## 3. 前提条件
 
-- **APIキー:** 不要
+- **APIキー:** FMP必須。`FMP_API_KEY`または`--api-key`で指定します。TraderMontyのブレッドスCSVは公開データですが、FMPの指数・ETF・株価データの代わりにはなりません。
 - **Python 3.9+** 推奨
 
 ---

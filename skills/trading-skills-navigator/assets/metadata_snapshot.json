@@ -197,9 +197,9 @@
       "id": "downtrend-duration-analyzer",
       "integrations": [
         {
-          "id": "local_calculation",
-          "requirement": "not_required",
-          "type": "calculation"
+          "id": "fmp",
+          "requirement": "required",
+          "type": "market_data"
         }
       ],
       "operational_role": {
@@ -752,8 +752,13 @@
       "id": "market-top-detector",
       "integrations": [
         {
-          "id": "public_csv",
+          "id": "fmp",
           "requirement": "required",
+          "type": "market_data"
+        },
+        {
+          "id": "public_csv",
+          "requirement": "optional",
           "type": "web"
         }
       ],
@@ -1020,6 +1025,11 @@
           "id": "local_calculation",
           "requirement": "not_required",
           "type": "calculation"
+        },
+        {
+          "id": "fmp",
+          "requirement": "optional",
+          "type": "market_data"
         }
       ],
       "operational_role": {
@@ -1608,7 +1618,7 @@
       "timeframe": "weekly"
     },
     {
-      "api_profile": "no-api-basic",
+      "api_profile": "mixed",
       "category": "market-regime",
       "difficulty": "beginner",
       "display_name": "Market Regime",
@@ -1772,7 +1782,7 @@
       ]
     },
     {
-      "api_profile": "no-api-basic",
+      "api_profile": "mixed",
       "cadence": "daily",
       "difficulty": "beginner",
       "display_name": "Market Regime Daily",

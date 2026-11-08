@@ -101,7 +101,16 @@ def test_navigator_command_returns_the_documented_no_api_workflow(guide: Path) -
     )
     recommendation = json.loads(result.stdout)
     assert recommendation["primary_workflow"]["id"] == "market-regime-daily"
-    assert recommendation["primary_workflow"]["api_profile"] == "no-api-basic"
+    assert recommendation["primary_workflow"]["api_profile"] == "mixed"
+    required = recommendation["primary_workflow"]["required_skills"]
+    assert required == ["market-breadth-analyzer", "uptrend-analyzer", "exposure-coach"]
+    skills = {s["id"]: s for s in yaml.safe_load(_read(ROOT / "skills-index.yaml"))["skills"]}
+    for skill_id in required:
+        assert not any(
+            integration["id"] in {"fmp", "finviz", "alpaca"}
+            and integration["requirement"] == "required"
+            for integration in skills[skill_id]["integrations"]
+        )
     assert recommendation["no_api_path"] is True
 
 

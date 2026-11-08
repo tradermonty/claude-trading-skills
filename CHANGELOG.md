@@ -8,6 +8,10 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 Changes merged to `main` since the release process landed in #505 (2026-10-10). No GitHub Release has been published yet.
 
+### Metadata and API contracts
+
+- Correct market-top-detector and downtrend-duration-analyzer to FMP required, signal-postmortem to FMP optional, and market-regime-daily and its skillset to mixed profiles with a key-free base. Add an offline credential-read/no-API-workflow gate and generate EN/JA catalog provider badges/API matrix values from the index (#653).
+
 ### Maintenance
 
 - Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.

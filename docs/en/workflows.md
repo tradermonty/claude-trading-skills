@@ -22,7 +22,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 |---|---|---|---|---|
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | alpaca-required | beginner |
 | [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi Dividend Weekly | weekly | 60 | mixed | intermediate |
-| [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
+| [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | mixed | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
 | [`portfolio-holdings-review`](#portfolio-holdings-review) — Offline Holdings Review | weekly | 15 | no-api-basic | beginner |
@@ -182,7 +182,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 ## Market Regime Daily {#market-regime-daily}
 
-**`market-regime-daily`** · daily · ~15 min · no-api-basic · beginner
+**`market-regime-daily`** · daily · ~15 min · mixed · beginner
 
 **When to run:** Before considering new swing-trade risk for the day. Run before market open or in the first 30 minutes after.
 
@@ -211,7 +211,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - produces: `uptrend_report`
 
-**Step 3: Check market top risk** (optional) → `market-top-detector`
+**Step 3: Check market top risk (optional FMP key required)** (optional) → `market-top-detector`
 
 - produces: `top_risk_report`
 

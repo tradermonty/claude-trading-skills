@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Regenerate README catalog sections from skills-index.yaml.
 
-The generator rewrites ONLY the content between paired sentinel comments:
+The generator rewrites catalog sentinel regions and website API cells:
 
     <!-- skills-index:start name="catalog-en" -->
     ...generated content...
     <!-- skills-index:end name="catalog-en" -->
 
-Anything outside the markers is untouched. Each marker pair maps to one
+Outside those regions, only API requirement cells in the two website catalogs
+are generated; localized identities/descriptions and non-provider badges are retained. Each marker pair maps to one
 region renderer keyed by `name`. Currently:
 
     catalog-en  → README.md  Detailed Skill Catalog (English)
@@ -27,7 +28,13 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from check_skill_catalog import CatalogError, validate_catalogs
+from check_skill_catalog import (
+    LOCALES,
+    CatalogError,
+    _load_skills,
+    rewrite_catalog,
+    validate_catalogs,
+)
 
 # ---------------------------------------------------------------------------
 # Sentinels
@@ -415,6 +422,12 @@ def main(argv: list[str] | None = None) -> int:
     skills = index.get("skills") or []
 
     drift = False
+    planned = []
+    try:
+        by_id, by_name = _load_skills(args.project_root / "skills-index.yaml")
+    except CatalogError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     for rel, expected in TARGETS:
         path = args.project_root / rel
         if not path.is_file():
@@ -422,7 +435,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         try:
             current, regenerated = rewrite_file(path, skills)
-        except SentinelError as e:
+            spec = next((item for item in LOCALES if item.path == rel), None)
+            if spec:
+                regenerated = rewrite_catalog(regenerated, spec, by_id, by_name)
+        except (SentinelError, CatalogError) as e:
             print(f"ERROR: {e}", file=sys.stderr)
             return 1
 
@@ -436,6 +452,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
+        planned.append((path, current, regenerated))
+
+    # Preflight every target before writing any generated content.
+    for path, current, regenerated in planned:
         if args.check:
             if current != regenerated:
                 print(f"DRIFT: {path} differs from regenerated output", file=sys.stderr)

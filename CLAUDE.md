@@ -239,7 +239,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Crypto Regime Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Free public API, no key; universe, price history, BTC dominance; Public futures endpoint for perp funding; component skipped if unreachable; Offline snapshot path (--input-json); schema in references |
 | **Data Quality Checker** | ❌ Not used | ❌ Not used | ❌ Not used | Local markdown validation; works offline |
 | **Dividend Growth Pullback Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API |
-| **Downtrend Duration Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Duration analysis from market data; pure calculation |
+| **Downtrend Duration Analyzer** | ✅ Required | ❌ Not used | ❌ Not used | FMP stock universe and historical prices; an API key is required |
 | **Drawdown Circuit Breaker** | ❌ Not used | ❌ Not used | ❌ Not used | Reads trader-memory-core thesis YAML files; pure calculation, works offline |
 | **Dual Axis Skill Reviewer** | ❌ Not used | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 | **Earnings Calendar** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
@@ -267,7 +267,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Market Breadth Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | TraderMonty public CSV; no API key required |
 | **Market Environment Analysis** | ❌ Not used | ❌ Not used | ❌ Not used | Global market data via WebSearch / WebFetch; Optional chart image inputs for technical interpretation |
 | **Market News Analyst** | ❌ Not used | ❌ Not used | ❌ Not used | Web search / fetch |
-| **Market Top Detector** | ❌ Not used | ❌ Not used | ❌ Not used | Public market data CSVs; no API key required |
+| **Market Top Detector** | ✅ Required | ❌ Not used | ❌ Not used | FMP index, ETF and stock data; an API key is required |
 | **News Reaction Failure Analyzer** | ✅ Required | ❌ Not used | ❌ Not used | Historical EOD price data; per-symbol coverage varies (ETF proxy fallback documented) |
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **PEAD Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
@@ -279,7 +279,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Residual Edge Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Analyzes aligned local CSV and JSON inputs; works offline |
 | **Scenario Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Headline / news search via WebSearch |
 | **Sector Analyst** | ❌ Not used | ❌ Not used | ❌ Not used | Chart screenshot input |
-| **Signal Postmortem** | ❌ Not used | ❌ Not used | ❌ Not used | Postmortem framework; pure calculation |
+| **Signal Postmortem** | 🟡 Optional | ❌ Not used | ❌ Not used | Optional FMP price enrichment; manual recording works without a key |
 | **Skill Designer** | ❌ Not used | ❌ Not used | ❌ Not used | Generates skill scaffolding from idea specs |
 | **Skill Idea Miner** | ❌ Not used | ❌ Not used | ❌ Not used | Mines session logs for skill ideas |
 | **Skill Integration Tester** | ❌ Not used | ❌ Not used | ❌ Not used | Validates multi-skill workflow contracts |
