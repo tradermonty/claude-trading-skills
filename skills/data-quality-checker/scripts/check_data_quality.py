@@ -391,11 +391,14 @@ def check_dates(
             )
 
     # ---- Japanese: "1月1日（木）" or "1月1日（木曜日）" ----
-    ja_pat = re.compile(r"(\d{1,2})月(\d{1,2})日[（(]([月火水木金土日])(?:曜日)?[）)]")
+    ja_pat = re.compile(
+        r"(\d{1,2})月(\d{1,2})日[ \t]*(?:(?P<ja_open>\()|（)"
+        r"(?P<ja_weekday>[月火水木金土日])(?:曜日)?(?(ja_open)\)|）)"
+    )
     for m in ja_pat.finditer(content):
         month_val = int(m.group(1))
         day_val = int(m.group(2))
-        weekday_char = m.group(3)
+        weekday_char = m.group("ja_weekday")
 
         year = infer_year(month_val, day_val, as_of, content, filepath)
         try:
@@ -411,7 +414,7 @@ def check_dates(
             line_num = content[: m.start()].count("\n") + 1
             findings.append(
                 Finding(
-                    severity="WARNING",
+                    severity="ERROR",
                     category="dates",
                     message=(
                         f"Date-weekday mismatch: {m.group(0)} "
@@ -422,35 +425,47 @@ def check_dates(
                 )
             )
 
-    # ---- Japanese slash format: "1/1(木)" ----
-    ja_slash_pat = re.compile(r"(\d{1,2})/(\d{1,2})[（(]([月火水木金土日])[）)]")
-    for m in ja_slash_pat.finditer(content):
-        month_val = int(m.group(1))
-        day_val = int(m.group(2))
-        weekday_char = m.group(3)
-
-        year = infer_year(month_val, day_val, as_of, content, filepath)
+    # One matcher owns numeric dates so an explicit-year suffix is never
+    # checked a second time as M/D with an inferred, potentially different year.
+    english_days = "|".join(sorted(WEEKDAY_MAP_EN, key=len, reverse=True))
+    numeric_pat = re.compile(
+        r"(?<![0-9A-Za-z_./-])(?:(?P<year>[0-9]{4})(?P<sep>[-/]))?"
+        r"(?P<month>[0-9]{1,2})(?(year)(?P=sep)|/)(?P<day>[0-9]{1,2})"
+        r"[ \t]*(?:(?P<ascii_open>\()|（)"
+        rf"(?P<weekday>{english_days}|[月火水木金土日](?:曜日)?)(?(ascii_open)\)|）)",
+        re.IGNORECASE | re.ASCII,
+    )
+    for m in numeric_pat.finditer(content):
+        explicit_year = m.group("year")
+        if explicit_year is None and re.search(r"[0-9]{4}[-/][ \t]*$", content[: m.start()]):
+            continue  # Do not salvage M/D from a malformed spaced year prefix.
+        month_val, day_val = int(m.group("month")), int(m.group("day"))
+        year = (
+            int(explicit_year)
+            if explicit_year
+            else infer_year(month_val, day_val, as_of, content, filepath)
+        )
         try:
             d = date(year, month_val, day_val)
         except ValueError:
-            continue
-
-        actual_weekday = d.weekday()
-        stated_weekday = WEEKDAY_MAP_JA.get(weekday_char)
-
-        if stated_weekday is not None and stated_weekday != actual_weekday:
-            ja_names = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
-            line_num = content[: m.start()].count("\n") + 1
+            continue  # Preserve the existing weekday check's invalid-date policy.
+        weekday = m.group("weekday")
+        stated = WEEKDAY_MAP_JA.get(weekday[0])
+        if stated is None:
+            stated = WEEKDAY_MAP_EN[weekday.lower()]
+        if stated != d.weekday():
+            actual = (
+                calendar.day_name[d.weekday()]
+                if weekday.isascii()
+                else "月火水木金土日"[d.weekday()]
+            )
+            inference = f" (inferred year: {year})" if explicit_year is None else ""
             findings.append(
                 Finding(
-                    severity="WARNING",
+                    severity="ERROR",
                     category="dates",
-                    message=(
-                        f"Date-weekday mismatch: {m.group(0)} "
-                        f"-- actual weekday is {ja_names[actual_weekday]} "
-                        f"(inferred year: {year})"
-                    ),
-                    line_number=line_num,
+                    message=f"Date-weekday mismatch: {m.group(0)} -- actual weekday is {actual}{inference}",
+                    line_number=content[: m.start()].count("\n") + 1,
                 )
             )
 

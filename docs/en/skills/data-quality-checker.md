@@ -158,3 +158,17 @@ base. Suggest specific corrections for each issue.
 **Scripts:**
 
 - `skills/data-quality-checker/scripts/check_data_quality.py`
+
+### Supported weekday checks
+
+The checker accepts `YYYY-MM-DD`, `YYYY/MM/DD`, `M/D` and Japanese
+`M月D日` dates followed by a weekday. Numeric dates accept English three-letter
+or full names (case-insensitive), or Japanese `火` / `火曜日` style labels.
+Use matching ASCII `(Tue)` or full-width `（火）` parentheses, optionally
+preceded by spaces or tabs. Invalid calendar dates and unrecognized labels
+are outside this weekday check and are skipped, not reported as valid dates.
+An explicit numeric year always wins. Yearless forms reuse `--as-of` year
+inference (including the existing six-month rollover), then document year,
+filename year, or current year. Supply `--as-of` for reproducible checks.
+Every computed mismatch is an advisory **ERROR**, including Japanese forms
+that previously produced WARNING. Findings still leave the CLI exit status 0.
