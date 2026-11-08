@@ -329,25 +329,6 @@ def test_unsupported_parabolic_source_is_not_documented_or_accepted(tmp_path):
     assert not state.exists()
 
 
-@pytest.mark.parametrize("operation", ["summary", "monthly"])
-@pytest.mark.parametrize("manual_provenance", [False, True])
-def test_unsupported_legacy_equity_short_not_aggregated_or_published(
-    tmp_path, operation, manual_provenance
-):
-    state = tmp_path / "theses"
-    tid = active(state)
-    store.close(state, tid, "manual", 120, END, event_date=END)
-    corrupt_short(state, tid, manual_provenance)
-    before = snapshot(tmp_path)
-    with pytest.raises(ValueError, match="long-only"):
-        if operation == "summary":
-            review.summary_stats(str(state))
-        else:
-            review.monthly_report(str(state), "2026-01", journal_dir=str(tmp_path / "journal"))
-    assert snapshot(tmp_path) == before
-    assert not (tmp_path / "journal").exists()
-
-
 def test_cli_equity_open_does_not_ignore_short_flag(tmp_path):
     state = tmp_path / "theses"
     tid = ready(state)
@@ -399,3 +380,143 @@ def test_generic_origin_update_cannot_erase_legacy_short_intent(tmp_path):
     with pytest.raises(ValueError, match="long-only"):
         store.update(tmp_path, tid, {"origin": {"skill": "test", "raw_provenance": {}}})
     assert snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize(
+    "status,manual_provenance", [("IDEA", True), ("ACTIVE", False), ("ACTIVE", True)]
+)
+def test_legacy_short_can_be_invalidated_without_accounting(tmp_path, manual_provenance, status):
+    tid = active(tmp_path) if status == "ACTIVE" else store.register(tmp_path, data())
+    prior = corrupt_short(tmp_path, tid, manual_provenance)
+    result = store.terminate(tmp_path, tid, "INVALIDATED", "unsupported legacy equity short")
+    assert result["status"] == "INVALIDATED"
+    assert result["outcome"] == prior["outcome"]
+    assert result.get("position") == prior.get("position")
+    assert result["origin"] == prior["origin"]
+    assert store.list_review_due(tmp_path, "2099-01-01") == []
+
+
+@pytest.mark.parametrize("manual_provenance", [False, True])
+def test_legacy_short_can_be_marked_reviewed_without_changing_money(tmp_path, manual_provenance):
+    tid = active(tmp_path)
+    prior = corrupt_short(tmp_path, tid, manual_provenance)
+    result = store.mark_reviewed(tmp_path, tid, review_date="2026-01-03", outcome="WARN")
+    assert result["monitoring"]["last_review_date"] == "2026-01-03"
+    assert result["outcome"] == prior["outcome"]
+    assert result["position"] == prior["position"]
+
+
+@pytest.mark.parametrize("direction", ["BUY", "Long position", "buy", "", "unclassified"])
+def test_legacy_manual_nonshort_provenance_keeps_long_accounting(tmp_path, direction):
+    state = tmp_path / "theses"
+    tid = active(state)
+    thesis = store.get(state, tid)
+    thesis["origin"].update({"skill": "manual", "raw_provenance": {"direction": direction}})
+    (state / f"{tid}.yaml").write_text(yaml.safe_dump(thesis), encoding="utf-8")
+    result = store.close(state, tid, "manual", 120, END, event_date=END)
+    assert result["outcome"]["pnl_dollars"] == 200
+    assert result["origin"]["raw_provenance"]["direction"] == direction
+    assert review.summary_stats(str(state))["count"] == 1
+    report = Path(review.monthly_report(str(state), "2026-01")).read_text(encoding="utf-8")
+    assert "20.0" in report
+
+
+@pytest.mark.parametrize("direction", ["SHORT", "SELL_SHORT", "sell short", "sell-short"])
+def test_legacy_explicit_short_aliases_are_excluded_without_poisoning_valid_trades(
+    tmp_path, direction
+):
+    state = tmp_path / "theses"
+    bad_id = active(state)
+    store.close(state, bad_id, "manual", 90, END, event_date=END)
+    bad = store.get(state, bad_id)
+    bad["origin"].update({"skill": "manual", "raw_provenance": {"direction": direction}})
+    (state / f"{bad_id}.yaml").write_text(yaml.safe_dump(bad), encoding="utf-8")
+    good_id = store.register(
+        state,
+        data(
+            ticker="GOOD",
+            _source_date="2026-01-01",
+            entry={"target_price": 100},
+            exit={"stop_loss": 90},
+        ),
+    )
+    store.transition(state, good_id, "ENTRY_READY", "ready", event_date=DATE)
+    store.open_position(state, good_id, 100, DATE, shares=10, event_date=DATE)
+    store.close(state, good_id, "manual", 120, END, event_date=END)
+    before = snapshot(state)
+    summary = review.summary_stats(str(state))
+    assert summary["count"] == 1 and summary["avg_pnl_pct"] == 20
+    assert summary["excluded_unsupported_equity_shorts"] == 1
+    report = Path(review.monthly_report(str(state), "2026-01")).read_text(encoding="utf-8")
+    assert "Excluded unsupported equity shorts: 1" in report
+    assert "GOOD" in report and "TEST" not in report
+    assert snapshot(state) == before
+
+
+@pytest.mark.parametrize("direction,expected_count", [("BUY", 1), ("SHORT", 0), ("SELL_SHORT", 0)])
+def test_review_summary_cli_handles_legacy_labels(tmp_path, direction, expected_count):
+    tid = active(tmp_path)
+    store.close(tmp_path, tid, "manual", 120, END, event_date=END)
+    thesis = store.get(tmp_path, tid)
+    thesis["origin"].update({"skill": "manual", "raw_provenance": {"direction": direction}})
+    (tmp_path / f"{tid}.yaml").write_text(yaml.safe_dump(thesis), encoding="utf-8")
+    before = snapshot(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(store.__file__).with_name("trader_memory_cli.py")),
+            "review",
+            "--state-dir",
+            str(tmp_path),
+            "summary",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    summary = json.loads(result.stdout)
+    assert summary["count"] == expected_count
+    assert summary.get("excluded_unsupported_equity_shorts", 0) == 1 - expected_count
+    assert snapshot(tmp_path) == before
+
+
+def test_partially_closed_legacy_short_can_be_retired_without_rewriting_ledger(tmp_path):
+    tid = active(tmp_path)
+    store.trim(tmp_path, tid, 5, 110, END, "trim", event_date=END)
+    prior = corrupt_short(tmp_path, tid)
+    result = store.terminate(tmp_path, tid, "INVALIDATED", "unsupported")
+    assert result["status"] == "INVALIDATED"
+    assert result["outcome"] == prior["outcome"]
+    assert result["position"] == prior["position"]
+
+
+@pytest.mark.parametrize("futures", [False, True])
+def test_reports_exclude_equity_position_short_but_keep_futures_short(tmp_path, futures):
+    state = tmp_path / "theses"
+    if futures:
+        tid = ready(state, stop=110)
+        store.open_position(
+            state,
+            tid,
+            100,
+            DATE,
+            contracts=1,
+            multiplier=10,
+            direction="SHORT",
+            contract_symbol="ES",
+            contract_currency="USD",
+            event_date=DATE,
+        )
+        store.close(state, tid, "manual", 90, END, event_date=END)
+    else:
+        tid = active(state)
+        store.close(state, tid, "manual", 90, END, event_date=END)
+        corrupt_short(state, tid)
+    before = snapshot(state)
+    summary = review.summary_stats(str(state))
+    assert summary["count"] == int(futures)
+    assert summary.get("excluded_unsupported_equity_shorts", 0) == int(not futures)
+    content = Path(review.monthly_report(str(state), "2026-01")).read_text(encoding="utf-8")
+    assert ("TEST" in content) == futures
+    assert snapshot(state) == before

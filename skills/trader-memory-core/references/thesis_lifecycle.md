@@ -130,9 +130,14 @@ remain provenance only; authoritative fills still come from `open-position`.
 For a backfill with a profit-protecting stop, open the long with its initial stop,
 then update the current stop after activation.
 
-Explicit unsupported equity-short direction in legacy position/manual provenance
-is refused before new accounting, financial summary/monthly reporting, or
-MAE/MFE/postmortem writes. Read-only inspection
-remains available; no old outcomes are migrated or re-signed. Ambiguous legacy
-records without a direction cannot be classified from a trailing stop alone.
+Explicit legacy SHORT / SELL_SHORT equity records are refused before new
+accounting or MAE/MFE/postmortem calculations. They can still be marked reviewed
+or terminated as INVALIDATED without an exit price; these bookkeeping actions
+preserve all existing monetary fields and provenance. Summary statistics and
+monthly reports skip explicit shorts and report their excluded count
+(`excluded_unsupported_equity_shorts` in summary JSON when nonzero).
+Old manual provenance was free text: BUY, Long position and other non-short
+labels retain legacy long accounting. New direction inputs remain strictly LONG.
+Read-only inspection remains available; no old outcomes are migrated or re-signed.
+Ambiguous legacy records cannot be classified from a trailing stop alone.
 Keep short-equity journals external; never relabel one as a futures contract.

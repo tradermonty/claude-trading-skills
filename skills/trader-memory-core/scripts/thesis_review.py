@@ -242,9 +242,12 @@ def summary_stats(state_dir: str) -> dict:
         "by_type": {},
     }
 
+    excluded = 0
     for entry in all_terminal:
         thesis = thesis_store.get(state_path, entry["thesis_id"])
-        thesis_store._validate_equity_long_only(thesis)
+        if thesis_store._has_unsupported_equity_short(thesis):
+            excluded += 1
+            continue
         pnl_pct = thesis.get("outcome", {}).get("pnl_pct")
         if pnl_pct is None:
             continue
@@ -280,6 +283,8 @@ def summary_stats(state_dir: str) -> dict:
             "avg_pnl_pct": round(ts["total_pnl_pct"] / ts["count"], 2) if ts["count"] else None,
         }
 
+    if excluded:
+        result["excluded_unsupported_equity_shorts"] = excluded
     return result
 
 
@@ -389,15 +394,20 @@ def monthly_report(
         state_path, status="INVALIDATED"
     )
     theses = []
+    excluded = 0
     for entry in terminal_entries:
         thesis = thesis_store.get(state_path, entry["thesis_id"])
         event_date = _terminal_event_date(thesis)
         if event_date and start <= event_date <= end:
-            thesis_store._validate_equity_long_only(thesis)
+            if thesis_store._has_unsupported_equity_short(thesis):
+                excluded += 1
+                continue
             theses.append((event_date, thesis))
     theses.sort(key=lambda item: (item[0], item[1]["ticker"]))
 
     content = _render_monthly_report(month, start, end, theses)
+    if excluded:
+        content += f"\nExcluded unsupported equity shorts: {excluded}\n"
     if output:
         out_path = Path(output)
     else:
