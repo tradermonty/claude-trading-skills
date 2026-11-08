@@ -434,7 +434,7 @@ python3 skills/position-sizer/scripts/position_sizer.py [OPTIONS]
 | `--risk-pct` | 1トレードあたりのリスク%（例: 1.0） | - |
 | `--atr` | Average True Range値 | - |
 | `--atr-multiplier` | 有限かつ正のATR乗数 | 2.0 |
-| `--win-rate` | 勝率（0-1）、Kelly Criterion用 | - |
+| `--win-rate` | 勝率（0より大きく1未満）、Kelly Criterion用 | - |
 | `--avg-win` | 平均利益額、Kelly Criterion用 | - |
 | `--avg-loss` | 平均損失額、Kelly Criterion用 | - |
 | `--max-position-pct` | 1銘柄の最大ポジション比率（%） | - |
@@ -444,6 +444,8 @@ python3 skills/position-sizer/scripts/position_sizer.py [OPTIONS]
 | `--fractional` | 小数株出力を有効化 | false |
 | `--share-precision` | 小数株を切り捨てる桁数（0-8） | 4 |
 | `--output-dir` | レポート出力先ディレクトリ | `reports/` |
+
+数値オプションはすべて有限の数値である必要があります。`nan`、`inf`、`-inf`を指定すると、レポートを書き出す前に終了コード2で終了し、該当オプション名をエラーに表示します。
 
 ### 手法比較表
 
