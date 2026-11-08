@@ -971,9 +971,7 @@ class TestMainZeroResultExitCodes:
             "rate_limit_reached": False,
         }
 
-        with patch.object(
-            sys, "argv", self._argv(tmp_path) + ["--lookback-days", "0"]
-        ):
+        with patch.object(sys, "argv", self._argv(tmp_path) + ["--lookback-days", "0"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
