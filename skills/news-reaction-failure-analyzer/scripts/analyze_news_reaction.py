@@ -459,6 +459,26 @@ def load_json_file(
         return None, f"invalid JSON in {path}: {exc}", "parse_error"
 
 
+def _market_vintage_values(
+    detector: dict[str, Any], row: dict[str, Any], symbol: str
+) -> list[Any] | None:
+    """Selected dates only; absent legacy fields are allowed, malformed containers are not."""
+    values = [row["data_date"]] if "data_date" in row else []
+    if "data_provenance" not in detector:
+        return values
+    provenance = detector["data_provenance"]
+    if not isinstance(provenance, dict):
+        return None
+    if "market_data_dates" not in provenance:
+        return values
+    dates = provenance["market_data_dates"]
+    if not isinstance(dates, dict):
+        return None
+    if symbol in dates:
+        values.append(dates[symbol])
+    return values
+
+
 def resolve_direction_from_detector(
     detector_data: Any,
     symbol: str,
@@ -481,6 +501,10 @@ def resolve_direction_from_detector(
         missing data_date -- doing so would let stale COT data masquerade
         as fresh (age computed against as_of would come out 0). Older than
         --max-detector-age-days vs --as-of -> reason `detector_json_stale`.
+
+    (d) Apply the same date guards to each explicitly supplied selected row/map
+        vintage. Absent legacy fields fall back to the report; explicit invalid
+        dates never fall back. The oldest validated date determines context age.
 
     `detector_data` is untrusted, parsed JSON: valid JSON but the wrong
     shape (top-level list/string/null, `markets`/`skipped` not lists, list
@@ -527,6 +551,27 @@ def resolve_direction_from_detector(
         return None, "detector_future_data_date", ctx
     if age_days > max_age_days:
         return None, "detector_json_stale", ctx
+
+    market_dates = _market_vintage_values(detector_data, market_row, symbol)
+    if market_dates is None:
+        return None, "detector_invalid_data_date", ctx
+    for candidate in market_dates:
+        if candidate is None or candidate == "":
+            return None, "detector_missing_data_date", ctx
+        if not isinstance(candidate, str):
+            return None, "detector_invalid_data_date", ctx
+        try:
+            market_dt = datetime.strptime(candidate[:10], "%Y-%m-%d").date()
+        except ValueError:
+            return None, "detector_invalid_data_date", ctx
+        market_age = (as_of_dt - market_dt).days
+        if market_age < 0 or market_age > max_age_days:
+            ctx.update(data_date=candidate, detector_age_days=market_age)
+            reason = "detector_future_data_date" if market_age < 0 else "detector_json_stale"
+            return None, reason, ctx
+        if market_age > age_days:
+            age_days = market_age
+            ctx.update(data_date=candidate, detector_age_days=market_age)
 
     classification = market_row.get("classification")
     if classification == "NEUTRAL":
