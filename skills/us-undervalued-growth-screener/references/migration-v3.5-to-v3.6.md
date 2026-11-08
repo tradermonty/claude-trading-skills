@@ -26,8 +26,9 @@ The runner keeps bulk FMP responses on disk, uses a persistent SQLite cache, nor
 
 ## Reused central infrastructure
 
-The skill's `fmp_client.py` is generated from the repository-level `scripts/fmp_client/` source of truth. Regenerate and verify it with:
+The skill's `fmp_client.py` is generated from the repository-level `scripts/fmp_client/` source of truth. Run the following repository-maintenance commands from the repository root:
 
+<!-- exec: offline -->
 ```bash
 python3 scripts/generate_fmp_client.py
 python3 scripts/generate_fmp_client.py --check

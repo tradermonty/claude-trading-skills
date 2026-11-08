@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Extend static CLI option validation to unmarked skill instructions and nested references, trigger it on reference-only changes, and correct rejected flags and paths without executing documented commands (#661).
+
 - theme-detector: prefer authenticated FINVIZ group export with safe public fallback, require finvizfinance>=1.5.0 for Python3.10+ public scraping, and merge overlapping ETF holdings without a missing-score crash (#671).
 
 Changes merged to `main` since the release process landed in #505 (2026-10-10). No GitHub Release has been published yet.

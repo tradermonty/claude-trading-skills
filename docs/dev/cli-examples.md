@@ -12,7 +12,18 @@ the regressions described in issue #336:
 - the English and Japanese versions of a paired document drift apart in the
   commands they document.
 
-The full script-and-option gate is opt-in through an HTML `<!-- exec: ... -->`
+Unmarked shell blocks in `skills/*/SKILL.md` and
+`skills/*/references/**/*.md` receive static script-and-option validation too.
+Skill-local `scripts/foo.py` resolves from the owning skill, including nested
+references; repository-qualified `skills/.../scripts/foo.py` resolves from the
+repository root. Local paths never silently fall back to an unrelated root script.
+Explicit `<!-- exec: ... -->` examples retain their repository-root resolution;
+use such a marker for repository-maintenance commands in skill references.
+Validation parses AST declarations without importing or executing scripts, including
+literal `SUBCOMMAND_TO_SCRIPT` launcher dispatch and explicit successful
+`--version` early-return branches. Placeholders may be argument values.
+
+Elsewhere, the full script-and-option gate is opt-in through an HTML `<!-- exec: ... -->`
 comment. In the three root command-reference files (`CLAUDE.md`, `README.md`,
 and `README.ja.md`), `validate` also checks repository-relative Python script
 paths in unmarked fenced `bash`, `sh`, `shell`, and `console` examples. That path-only check does not run the
@@ -23,7 +34,7 @@ of that block is skipped because its working directory is unknown. Heredoc
 bodies are ignored. `console` blocks check only `$ ` prompt commands (including
 continuations). Simple `sudo`, `time`, and `nohup` wrappers are accepted.
 `uv run --directory` commands are skipped; `--project` retains the root context.
-These rules apply to unmarked path checks; marked execution remains bash-only.
+These shell-scanning limits also apply to unmarked skill option checks; marked execution remains bash-only.
 
 ## Targets
 
@@ -33,6 +44,10 @@ By default `validate` / `execute` scan the following files:
 - `README.md`
 - `README.ja.md`
 - every `skills/*/SKILL.md`
+
+`validate` additionally scans `docs/en/**/*.md`, `docs/ja/**/*.md` and
+`skills/*/references/**/*.md`; the default `execute` scope is unchanged.
+Reference-only changes also trigger the pre-commit validation hook.
 
 The `EN/JA parity` rule applies only to the paired `README.md` / `README.ja.md`.
 `CLAUDE.md` and the `SKILL.md` pages are single-language and are not paired.

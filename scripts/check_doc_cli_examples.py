@@ -6,7 +6,8 @@ script, #311 required API key). Enforces, offline and deterministically,
 that examples explicitly marked as executable keep referencing an
 existing script, passing options that the script actually accepts, and
 staying consistent across EN/JA paired pages. Unmarked bash examples in
-the root command documents and EN/JA site pages receive a path-only check. Nothing is
+the root command documents and EN/JA site pages receive a path-only check.
+Unmarked skill instructions/references also receive static option checks. Nothing is
 executed by ``validate``; optional offline execution lives in the opt-in
 ``execute`` subcommand.
 
@@ -52,7 +53,12 @@ MARKER_RE = re.compile(r"<!--\s*exec:\s*(.*?)\s*-->")
 VALID_MODES = ("offline", "api", "skip")
 SKIP_KEYS = ("reason", "owner", "expires")
 DEFAULT_EXECUTE_TARGETS = ("CLAUDE.md", "README.md", "README.ja.md", "skills/*/SKILL.md")
-DEFAULT_TARGETS = [*DEFAULT_EXECUTE_TARGETS, "docs/en/**/*.md", "docs/ja/**/*.md"]
+DEFAULT_TARGETS = [
+    *DEFAULT_EXECUTE_TARGETS,
+    "docs/en/**/*.md",
+    "docs/ja/**/*.md",
+    "skills/*/references/**/*.md",
+]
 ROOT_DOC_TARGETS = {"CLAUDE.md", "README.md", "README.ja.md"}
 # EN/JA command-parity pairs, ":":-separated file paths relative to ROOT.
 DEFAULT_EN_JA_PAIRS = ["README.md:README.ja.md"]
@@ -272,10 +278,11 @@ def _validate_script_command(
         if token not in (";", "&&", "||", "|", "&"):
             segment.append(token)
             continue
-        script = _python_script_operand(segment)
+        invocation = _python_script_invocation(segment)
         segment = []
-        if script is None:
+        if invocation is None:
             continue
+        script, *arguments = invocation
         if script.startswith("./"):
             script = script[2:]
         if script.startswith(("/", "~", "$", "<", "..")) or not script.endswith(".py"):
@@ -283,12 +290,17 @@ def _validate_script_command(
         if not (script.startswith("scripts/") or "/scripts/" in script):
             continue
         resolved_root = root.resolve()
-        resolved_script = (root / script).resolve()
+        skill_root = _skill_document_root(path, root)
+        base = skill_root if skill_root and script.startswith("scripts/") else root
+        resolved_script = (base / script).resolve()
         if not resolved_script.is_relative_to(resolved_root):
             findings.append(Finding(str(path), command_line, f"script escapes root: {script}"))
             continue
         if not resolved_script.is_file():
             findings.append(Finding(str(path), command_line, f"script does not exist: {script}"))
+            continue
+        if skill_root:
+            _validate_static_options(path, command_line, resolved_script, arguments, findings, root)
 
 
 _UV_RUN_VALUE_OPTIONS = frozenset(
@@ -310,7 +322,12 @@ _UV_RUN_VALUE_OPTIONS = frozenset(
 
 
 def _python_script_operand(tokens: list[str]) -> str | None:
-    """Return a Python script operand from a shell command, not display text."""
+    invocation = _python_script_invocation(tokens)
+    return invocation[0] if invocation else None
+
+
+def _python_script_invocation(tokens: list[str]) -> list[str] | None:
+    """Return script and arguments from a shell command, not display text."""
     if not tokens:
         return None
     index = 0
@@ -345,7 +362,7 @@ def _python_script_operand(tokens: list[str]) -> str | None:
             else:
                 index += 1
         if index < len(tokens) and tokens[index].endswith(".py"):
-            return tokens[index]
+            return tokens[index:]
     if index >= len(tokens) or not re.fullmatch(r"python(?:3(?:\.\d+)?)?", tokens[index]):
         return None
     index += 1
@@ -357,11 +374,11 @@ def _python_script_operand(tokens: list[str]) -> str | None:
             index += 2
             continue
         if option == "--":
-            return tokens[index + 1] if index + 1 < len(tokens) else None
+            return tokens[index + 1 :] if index + 1 < len(tokens) else None
         if option.startswith("-"):
             index += 1
             continue
-        return option
+        return tokens[index:]
     return None
 
 
@@ -438,6 +455,15 @@ def collect_options(script: Path) -> tuple[set[str], bool]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             name = _call_name(node)
+            if name in ("ArgumentParser", "add_parser"):
+                has_parser = True
+                if not any(
+                    kw.arg == "add_help"
+                    and isinstance(kw.value, ast.Constant)
+                    and kw.value.value is False
+                    for kw in node.keywords
+                ):
+                    accepted.update({"-h", "--help"})
             if name in ("add_argument", "add_option", "add_parser"):
                 has_parser = True
                 for arg in node.args:
@@ -647,6 +673,94 @@ def _git_status_snapshot(root: Path) -> str | None:
     return proc.stdout
 
 
+def _skill_document_root(path: Path, root: Path) -> Path | None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return None
+    parts = relative.parts
+    if (
+        len(parts) >= 3
+        and parts[0] == "skills"
+        and (parts[2:] == ("SKILL.md",) or (parts[2] == "references" and path.suffix == ".md"))
+    ):
+        return root / "skills" / parts[1]
+    return None
+
+
+def _validate_static_options(
+    path: Path, line: int, script: Path, arguments: list[str], findings: list[Finding], root: Path
+) -> None:
+    # The stdlib-only launcher declares its dispatch table as literal data.
+    # Follow only the selected sibling script; never import the launcher.
+    try:
+        tree = ast.parse(script.read_text(encoding="utf-8"))
+    except SyntaxError:
+        tree = None
+    for node in tree.body if tree else []:
+        if not isinstance(node, ast.Assign) or not any(
+            isinstance(target, ast.Name) and target.id == "SUBCOMMAND_TO_SCRIPT"
+            for target in node.targets
+        ):
+            continue
+        try:
+            mapping = ast.literal_eval(node.value)
+        except (ValueError, TypeError):
+            break
+        if isinstance(mapping, dict) and arguments and isinstance(mapping.get(arguments[0]), str):
+            target = (script.parent / mapping[arguments[0]]).resolve()
+            if not target.is_relative_to(root.resolve()) or not target.is_file():
+                findings.append(Finding(str(path), line, f"invalid launcher target: {target.name}"))
+                return
+            script, arguments = target, arguments[1:]
+            try:
+                tree = ast.parse(script.read_text(encoding="utf-8"))
+            except SyntaxError:
+                tree = None
+        break
+    accepted, has_parser = collect_options(script)
+    options = documented_options(["python3", str(script), *arguments])
+    # Some shipped CLIs implement --version before argparse validation. Recognize
+    # their explicit successful early return, not arbitrary flag-like strings.
+    if tree and any(
+        isinstance(node, ast.If)
+        and isinstance(node.test, ast.Compare)
+        and isinstance(node.test.left, ast.Constant)
+        and node.test.left.value == "--version"
+        and len(node.test.ops) == 1
+        and isinstance(node.test.ops[0], ast.In)
+        and isinstance(node.test.comparators[0], ast.Name)
+        and node.test.comparators[0].id in {"argv", "raw_argv"}
+        and any(
+            isinstance(child, ast.Return)
+            and isinstance(child.value, ast.Constant)
+            and child.value.value == 0
+            for child in node.body
+        )
+        for node in ast.walk(tree)
+    ):
+        accepted.add("--version")
+        has_parser = True
+    if options and not has_parser:
+        findings.append(
+            Finding(
+                str(path),
+                line,
+                f"{script.relative_to(root.resolve())} defines no argparse parser but documented options are passed: {' '.join(options)}",
+            )
+        )
+        return
+    for option in options:
+        if option not in accepted:
+            findings.append(
+                Finding(
+                    str(path),
+                    line,
+                    f"option not accepted by {script.relative_to(root.resolve())}: {option}",
+                )
+            )
+
+
 def _checks_unmarked_paths(path: Path, root: Path) -> bool:
     try:
         relative = path.relative_to(root)
@@ -665,7 +779,7 @@ def run_validate(targets: list[str], en_ja_pairs: list[str], root: Path = ROOT) 
             continue
         for path_, blocks in scan_targets([path]):
             validate_target(path_, blocks, findings, root=root)
-        if _checks_unmarked_paths(path, root):
+        if _checks_unmarked_paths(path, root) or _skill_document_root(path, root):
             validate_unmarked_script_paths(path, findings, root=root)
     validate_en_ja_pairs(en_ja_pairs, findings, root=root)
     return findings
