@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Install all maintenance agents from the repository root:
+     python3 scripts/install_launchd.py
+     Add the load option to activate schedules.
+     Existing customized plists are preserved; see docs/dev/maintenance-runbook.md. -->
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>$HOME</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>Label</key>
+	<string>com.trade-analysis.skill-heartbeat</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>$PROJECT_DIR/scripts/run_skill_heartbeat.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>$PROJECT_DIR/logs/launchd_skill_heartbeat_error.log</string>
+	<key>StandardOutPath</key>
+	<string>$PROJECT_DIR/logs/launchd_skill_heartbeat.log</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>8</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>$PROJECT_DIR</string>
+</dict>
+</plist>
