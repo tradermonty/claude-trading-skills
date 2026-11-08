@@ -497,6 +497,7 @@ class RepresentativeStockSelector:
                     {
                         "symbol": ticker,
                         "source": "etf_holdings",
+                        "composite_score": 0,
                         "market_cap": _parse_market_cap(item.get("marketValue")),
                         "change": None,
                         "volume": None,
@@ -636,11 +637,16 @@ class RepresentativeStockSelector:
                         merged[sym]["matched_industries"].append(ind)
                 merged[sym]["reasons"].extend(c.get("reasons", []))
                 merged[sym]["composite_score"] = max(
-                    merged[sym]["composite_score"],
+                    merged[sym].get("composite_score", 0),
                     c.get("composite_score", 0),
                 )
             else:
-                merged[sym] = dict(c)
+                merged[sym] = {
+                    **c,
+                    "composite_score": c.get("composite_score", 0),
+                    "matched_industries": list(c.get("matched_industries", [])),
+                    "reasons": list(c.get("reasons", [])),
+                }
 
         ranked = sorted(
             merged.values(),

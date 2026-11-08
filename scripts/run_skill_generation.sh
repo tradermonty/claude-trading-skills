@@ -1,10 +1,10 @@
 #!/bin/bash
 # Thin launcher for launchd -> run_skill_generation_pipeline.py
 #
-# Install as launchd agent:
-#   cp launchd/com.trade-analysis.skill-generation-weekly.plist ~/Library/LaunchAgents/
-#   launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-generation-weekly.plist
-#   launchctl list | grep skill-generation
+# Install all maintenance agents from the repository root:
+#   python3 scripts/install_launchd.py
+# Add --load to activate schedules.
+# Existing customized plists are preserved; see docs/dev/maintenance-runbook.md.
 #
 # Manual test:
 #   launchctl start com.trade-analysis.skill-generation-weekly

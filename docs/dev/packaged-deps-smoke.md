@@ -124,3 +124,16 @@ The remaining #507 work includes per-skill HTTP fault injection and redaction,
 keyless optional-provider runs, synthetic personal-state CLI smokes, unified
 smoke/sample coverage inventory, archive execution, calendar/intraday replays,
 and sampled LLM checks. No scheduled or live run is claimed here.
+
+## Python-specific public FINVIZ fallback (#671)
+
+The declaration gate otherwise rejects environment markers. Its sole scoped
+exception is theme-detector's optional
+`finvizfinance>=1.5.0; python_version >= "3.10"` declaration. Upstream 1.5.0
+requires Python>=3.10. This marker lets the existing Python3.9 clean-room install
+retain requests-based Elite operation; public group acquisition is explicitly
+unavailable there, including environments that retain an older scraper.
+Other skills, specifiers, markers and required dependencies remain rejected.
+The authority is `config/market-calendar-dependency.yaml`; regenerate with
+`scripts/generate_market_calendar.py`. Tests exercise marker evaluation and
+rejected near-matches, library absence, Python3.9 public refusal and Elite success.

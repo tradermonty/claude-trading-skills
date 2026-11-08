@@ -1110,3 +1110,41 @@ class TestProperties:
         assert "elite" in states
         assert "public" in states
         assert "fmp" in states
+
+
+def test_overlapping_etfs_merge_through_actual_fallback(monkeypatch):
+    """Two ETF responses sharing a ticker must retain both reasons without a score crash."""
+    from unittest.mock import Mock
+
+    import representative_stock_selector as selector_module
+
+    response = Mock(status_code=200)
+    response.json.return_value = [{"asset": "FICT", "marketValue": 100}]
+    get = Mock(return_value=response)
+    monkeypatch.setattr(selector_module.requests, "get", get)
+    selector = RepresentativeStockSelector(fmp_api_key="fictional-key", rate_limit_sec=0)
+    theme = {"direction": "bullish", "matching_industries": [], "proxy_etfs": ["FUND1", "FUND2"]}
+    first = selector.select_stocks(theme, max_stocks=10)
+    assert len(first) == 1
+    assert first[0]["composite_score"] == 0
+    assert first[0]["reasons"] == ["Held by FUND1", "Held by FUND2"]
+    assert selector.select_stocks(theme, max_stocks=10) == first
+    assert get.call_count == 2
+
+
+@pytest.mark.parametrize("order", ["etf-first", "scored-first"])
+def test_mixed_unscored_and_scored_candidates_keep_max_score(order):
+    selector = RepresentativeStockSelector()
+    etf = {"symbol": "FICT", "source": "etf_holdings", "reasons": ["ETF"], "matched_industries": []}
+    scored = {
+        "symbol": "FICT",
+        "source": "finviz_public",
+        "composite_score": 0.8,
+        "reasons": ["Public"],
+        "matched_industries": ["Industry"],
+    }
+    candidates = [etf, scored] if order == "etf-first" else [scored, etf]
+    result = selector._merge_and_rank(candidates, 1)
+    assert result[0]["composite_score"] == 0.8
+    assert set(result[0]["reasons"]) == {"ETF", "Public"}
+    assert result[0]["matched_industries"] == ["Industry"]

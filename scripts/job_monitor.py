@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in automation failure notifications and offline success heartbeat checks."""
+"""Automation failure notifications and independent success heartbeat checks."""
 
 from __future__ import annotations
 
@@ -27,10 +27,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def notify_failure(job, exit_code):
     """Best effort; never send command output, paths, or exception details."""
-    mode = os.environ.get("SKILL_LOOP_NOTIFY", "")
-    if not mode:
+    _notify(f"Skill automation {job} failed (exit {exit_code}). Check local logs.")
+
+
+def _notify(message, default_mode=""):
+    mode = os.environ.get("SKILL_LOOP_NOTIFY", default_mode)
+    if not mode or mode == "off":
         return
-    message = f"Skill automation {job} failed (exit {exit_code}). Check local logs."
     try:
         if mode == "macos":
             subprocess.run(
@@ -102,6 +105,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--check-heartbeat", action="store_true")
+    action.add_argument("--notify-heartbeat", action="store_true")
     action.add_argument("--notify-failure", choices=[*JOBS, "generation"])
     parser.add_argument("--exit-code", type=int, default=1)
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
@@ -112,6 +116,11 @@ def main():
     results = heartbeat_checks(args.project_root)
     for job, status in results:
         print(f"{job}: {status}")
+        if args.notify_heartbeat and status != "ok":
+            _notify(
+                f"Skill automation {job} has no fresh success heartbeat. Check local logs.",
+                default_mode="macos",
+            )
     return int(any(status != "ok" for _, status in results))
 
 

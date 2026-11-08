@@ -4,13 +4,21 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- theme-detector: prefer authenticated FINVIZ group export with safe public fallback, require finvizfinance>=1.5.0 for Python3.10+ public scraping, and merge overlapping ETF holdings without a missing-score crash (#671).
+
 Changes merged to `main` since the release process landed in #505 (2026-10-10). No GitHub Release has been published yet.
 
 ### Metadata and API contracts
 
 - Correct market-top-detector and downtrend-duration-analyzer to FMP required, signal-postmortem to FMP optional, and market-regime-daily and its skillset to mixed profiles with a key-free base. Add an offline credential-read/no-API-workflow gate and generate EN/JA catalog provider badges/API matrix values from the index (#653).
 
+### Maintenance
+
+- Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.
+
 ### Skills
+
+- Reject stale, future or invalid selected-market COT dates in the setup gate, news failure analyzer and technical confirmation, in addition to the report date. Validate optional per-market provenance dates, use the oldest validated age, and preserve absent-field legacy compatibility (#649). An unusable crowding input reaches the futures sizer as NO_TRADE.
 
 - stockbee-momentum-burst-screener: reject stale or unplaceable daily bars before scoring; freeze the latest completed NYSE session, add explicit as-of/session-age controls, active-universe filtering and auditable freshness metadata (#670). A tolerated stale bar is capped at `MANUAL_REVIEW`, and an all-stale universe adds a top-level report warning. stockbee-setup-fluency-trainer drops the per-symbol `latest_bar_dates` map when ingesting screener metadata.
 - Prepare verified `.skill` assets and SHA-256 checksums from a tagged repository revision.

@@ -81,8 +81,8 @@ A consistency failure marks the **exhibiting input** `INVALID` with a named reas
 | `detector_malformed` | INVALID | Valid JSON but the top level is not an object |
 | `detector_schema_unsupported` | INVALID | `schema_version` major is not `1` |
 | `detector_missing_symbol` | INSUFFICIENT | Symbol absent from `markets[]`, or present in `skipped[]` |
-| `detector_missing_data_date` | INVALID | `run_context.data_date` missing or empty |
-| `detector_invalid_data_date` | INVALID | `data_date` not a string, or unparsable |
+| `detector_missing_data_date` | INVALID | Required report date or explicitly supplied selected row/map date missing or empty |
+| `detector_invalid_data_date` | INVALID | Report/selected-market date not a string or unparsable; supplied provenance/map container malformed |
 | `detector_future_data_date` | INVALID | `data_date` is after `--as-of` |
 | `detector_json_stale` | INVALID | `data_date` age exceeds `--max-detector-age-days` |
 | `detector_unknown_classification` | INVALID | `classification` is not a string, or is a string not one of `CROWDED_LONG` / `CROWDED_SHORT` / `NEUTRAL`. Type-checked before the allowlist membership test -- an unhashable value (a JSON list/dict) would otherwise crash that check instead of failing closed (PR #249 P1-1) |
@@ -131,7 +131,7 @@ The fix is a whole-file scan (`run_contrarian_setup_gate.py`'s `_contains_non_fi
 
 - `price_action_confidence_medium` / `news_confidence_medium` -- fires only at `READY_FOR_PLAN` when that input's confidence is `MEDIUM` (single-signal weakness).
 - `<input>_near_stale` -- fires when an input's age is within 2 days of its configured max age (and not already over it, which would instead be `INVALID`/`_json_stale`).
-- `detector_data_date_divergence` -- the crowding market row's own `data_date` differs from `run_context.data_date` (the run's vintage, which is what staleness is evaluated against).
+- `detector_data_date_divergence` -- a validated selected row/map date differs from `run_context.data_date`; every supplied date must pass freshness first, and the oldest drives audit age.
 - `out_of_order_price_action` -- see rule 5 above.
 
 ## Worked Example: Real B6 REJECTED Case
@@ -144,3 +144,15 @@ Regenerated live against `cot-contrarian-detector` on 2026-07-12 (`--symbols B6,
 - `direction` remains `LONG` in the output (crowding was confirmed, even though the overall setup was rejected) -- an audit trail of what crowd was being faded, not an actionable signal.
 
 Running the same detector report with `--as-of` set to a later date pushes the detector's age past `--max-detector-age-days`, which instead produces `INSUFFICIENT_EVIDENCE` with reason `detector_json_stale` -- crowding itself becomes unusable at step 1, before news is ever inspected.
+
+Validate `run_context.data_date` and every supplied vintage for the selected market:
+`markets[].data_date` and `data_provenance.market_data_dates[symbol]`. Each must
+be nonempty, parseable, not after `--as-of`, and no older than
+`--max-detector-age-days` (the boundary itself is accepted). Use the oldest
+validated date for the audit age; keep the original run context unchanged.
+Legacy reports may omit row/map dates and fall back to the report date. A
+present invalid/null/empty date or malformed provenance/map container fails
+closed using the existing missing/invalid/future/stale reason codes. Other
+symbols' row/map dates do not replace the selected market's vintage. Existing
+first-10-character date parsing remains compatible; this is not a stricter
+full-timestamp or provenance-schema validator.

@@ -44,11 +44,24 @@ The source's lagged COT dates are retained without guessing a release date.
 In the bundled Shapiro replay, `cot_crowding_report` requires a schema-valid
 provenance block at production, consumer handoff and publication boundaries.
 The replay uses an approved **fictional manual-contract fixture**, not a live
-FMP fetch. The `contrarian-setup-gate` consumer checks only the consensus
-`run_context.data_date`, so it does not reject a single stale market inside an
-otherwise fresh report: `data_provenance` records the oldest vintage, but the
-gate does not enforce it, and a per-row divergence only adds a warning.
+FMP fetch. The three native consumers (`contrarian-setup-gate`,
+`news-reaction-failure-analyzer`, and technical-analyst's weekly confirmation)
+validate the consensus `run_context.data_date` and every supplied selected-market
+date in `markets[].data_date` and `data_provenance.market_data_dates[symbol]`.
+A stale or future selected market is rejected even inside a fresh report; a
+fresh selected row cannot bypass an invalid consensus date. The oldest validated
+date determines audit age. A fresh ES is not rejected solely because an unrelated
+GC row/map date is stale, provided the consensus itself is valid. The map's
+oldest duplicate-request date is therefore enforced when supplied.
+
+Legacy reports may omit row/map dates; consumers then use the report date (or
+selected map date when available). Explicit null/empty/invalid dates and malformed
+provenance/map containers fail closed with existing detector date reason codes.
+First matching row/classification behavior and first-10-character date parsing
+remain unchanged. A valid in-window row/map divergence may still warn at the gate;
+a stale divergence now rejects. Futures Position Sizer consumes the resulting
+gate, not raw COT JSON; an unusable crowding input prevents READY_FOR_PLAN and
+produces gate_not_ready / NO_TRADE downstream.
 The shared validator checks metadata shape; it does not independently establish
-the provider's claims, run identity or temporal consistency. Native consumers
-outside replay keep their existing contracts; this slice adds no new strict
-provenance mode to those consumers.
+the provider's claims, run identity or temporal consistency. Consumers outside replay apply the selected-vintage checks above without
+requiring a complete provenance block or adding a strict-provenance mode.
