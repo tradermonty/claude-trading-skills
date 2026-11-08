@@ -755,6 +755,11 @@
           "id": "fmp",
           "requirement": "required",
           "type": "market_data"
+        },
+        {
+          "id": "public_csv",
+          "requirement": "optional",
+          "type": "web"
         }
       ],
       "operational_role": {

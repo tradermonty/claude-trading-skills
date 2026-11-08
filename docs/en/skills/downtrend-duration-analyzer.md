@@ -14,7 +14,7 @@ permalink: /en/skills/downtrend-duration-analyzer/
 Analyze historical downtrend durations and generate interactive HTML histograms showing typical correction lengths by sector and market cap.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">No API</span>
+<span class="badge badge-api">FMP Required</span>
 
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/downtrend-duration-analyzer){: .btn .fs-5 .mb-4 .mb-md-0 }
 

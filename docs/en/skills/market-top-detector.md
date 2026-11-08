@@ -14,7 +14,7 @@ permalink: /en/skills/market-top-detector/
 Assesses heuristic market top risk using O'Neil Distribution Days, Minervini Leading Stock Deterioration, and Monty Defensive Sector Rotation. Generates a 0-100 composite score with risk zone classification. Use when user asks about market top risk, distribution days, defensive rotation, leadership breakdown, or whether to reduce equity exposure. Focuses on 2-8 week tactical timing signals for 10-20% corrections.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-free">No API</span>
+<span class="badge badge-api">FMP Required</span>
 
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/market-top-detector.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/market-top-detector){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -53,7 +53,7 @@ The 0-100 score is a heuristic risk score, not an estimated event probability. R
 
 ## 3. Prerequisites
 
-- **API Key:** None required
+- **API Key:** FMP required; set `FMP_API_KEY` or pass `--api-key`. TraderMonty breadth CSV data is public and does not replace FMP index, ETF and stock data.
 - **Python 3.9+** recommended
 
 ---

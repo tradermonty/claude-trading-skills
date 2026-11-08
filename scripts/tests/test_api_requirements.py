@@ -241,3 +241,16 @@ def test_market_regime_skillset_matches_mixed_workflow_without_paid_base():
     assert skillset["required_skills"] == workflow["required_skills"]
     assert "market-top-detector" in skillset["recommended_skills"]
     assert "downtrend-duration-analyzer" in skillset["optional_skills"]
+
+
+@pytest.mark.parametrize("skill", ["market-top-detector", "downtrend-duration-analyzer"])
+@pytest.mark.parametrize("locale", ["en", "ja"])
+def test_manual_required_fmp_skill_guides_match_declarations(skill, locale):
+    """Manual pages are outside the doc generator; keep the reported gap guarded."""
+    text = (ROOT / "docs" / locale / "skills" / f"{skill}.md").read_text(encoding="utf-8")
+    expected = "FMP Required" if locale == "en" else "FMP必須"
+    assert f'<span class="badge badge-api">{expected}</span>' in text
+    assert 'badge-free">No API' not in text
+    assert 'badge-free">API不要' not in text
+    assert "**API Key:** None required" not in text
+    assert "**APIキー:** 不要" not in text

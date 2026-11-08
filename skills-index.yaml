@@ -1193,6 +1193,10 @@ skills:
     type: market_data
     requirement: required
     note: FMP index, ETF and stock data; an API key is required
+  - id: public_csv
+    type: web
+    requirement: optional
+    note: Public TraderMonty breadth CSV supplement; FMP credentials remain required
   inputs:
   - public_market_data_csv
   outputs:
