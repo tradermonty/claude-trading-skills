@@ -75,7 +75,7 @@ Confirm these fields in the JSON:
 
 ```text
 primary_workflow.id = market-regime-daily
-primary_workflow.api_profile = no-api-basic
+primary_workflow.api_profile = mixed
 no_api_path = true
 ```
 
@@ -108,7 +108,8 @@ test -n "$breadth_json" && test -f "$breadth_json"
 test -n "$uptrend_json" && test -f "$uptrend_json"
 ```
 
-The workflow's market-top step is optional, so the minimal path skips it. Pass only
+The profile is `mixed` because the optional market-top step requires an FMP key.
+The minimal three-skill path skips that step and still needs no paid key. Pass only
 the two available artifacts to Exposure Coach:
 
 ```bash

@@ -10,7 +10,7 @@ For the full schema, error codes, and validator rules, see [`docs/dev/metadata-a
 
 | Workflow | Cadence | API profile | Anchor skills |
 |---|---|---|---|
-| [`market-regime-daily.yaml`](market-regime-daily.yaml) | daily (~15 min) | no-api-basic | market-breadth-analyzer, uptrend-analyzer, exposure-coach |
+| [`market-regime-daily.yaml`](market-regime-daily.yaml) | daily (~15 min) | mixed (key-free base; optional FMP step) | market-breadth-analyzer, uptrend-analyzer, exposure-coach |
 | [`portfolio-holdings-review.yaml`](portfolio-holdings-review.yaml) | weekly (~15 min) | no-api-basic | portfolio-manager |
 | [`core-portfolio-weekly.yaml`](core-portfolio-weekly.yaml) | weekly (~60 min) | alpaca-required | portfolio-manager, kanchi-dividend-review-monitor, trader-memory-core |
 | [`swing-opportunity-daily.yaml`](swing-opportunity-daily.yaml) | daily (~40 min) | fmp-required | vcp-screener, drawdown-circuit-breaker, position-sizer, pre-trade-discipline-gate |
@@ -65,7 +65,7 @@ Running `market-regime-daily` looks like this in practice:
 [ Step 2 ] Run uptrend-analyzer
               → produces: uptrend_report
 
-[ Step 3 ] (optional) Run market-top-detector
+[ Step 3 ] (optional; FMP key required) Run market-top-detector
               → produces: top_risk_report
 
 [ Step 4 ] Run exposure-coach (decision gate)

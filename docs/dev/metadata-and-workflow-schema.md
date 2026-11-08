@@ -535,3 +535,42 @@ python3 scripts/validate_skills_index.py --strict-metadata
 - Removed fields: marked `deprecated` in this doc for one cycle before deletion.
 
 See also: project memory `feedback_schema_evolution.md` — "Add new schema fields, never mutate existing ones for backward compat".
+
+## API declarations versus credential reads (#653)
+
+Run `python3 scripts/check_api_requirements.py` (also an always-run pre-commit
+hook and metadata CI step). The offline gate never imports or invokes skills,
+reads credential values, or contacts providers. It recursively parses non-test
+Python under each indexed, non-deprecated skill's `scripts/`, including vendored
+clients. Syntax/read failures fail closed (`API003`). Literal `os.getenv`,
+`os.environ.get` and `os.environ[...]` reads, including imported aliases, require
+a matching active `fmp`, `finviz` or `alpaca` integration (`API001`). Active means
+`required`, `recommended` or `optional`; absent/`not_required`/`unknown` fail.
+ALPACA/APCA credential names are explicitly listed in the checker; non-credential
+settings such as `ALPACA_PAPER` and string mentions in docs/regexes do not count.
+
+This is a bounded presence check, not data-flow analysis: computed environment
+keys, reassignment aliases, external packages, CLI-only keys and dynamically
+loaded code are not inferred. A read alone cannot establish required versus
+optional behavior. Executable no-network tests characterize the two required-key
+CLIs and the optional manual postmortem route; maintain equivalent behavioral
+tests when changing those declarations. The gate intentionally rejects any
+recognized credential reader declared `not_required`, including a CLI that would
+otherwise exit for a missing key. Do not run arbitrary skill CLIs from the gate.
+
+`no-api-basic` workflows may not contain any step (even optional) whose skill
+declares a paid integration as `required` (`API002`). Use `mixed` for a key-free
+base with an optional paid extension. `market-regime-daily` keeps its three
+required CSV/local skills and optional top-risk step; only that extension needs
+FMP. Its market-regime skillset also declares mixed because it recommends
+market-top and optionally includes downtrend; the three required skills remain
+key-free. Navigator inspects required skills for mixed profiles, so `--no-api` still
+selects the base path. Paid requirements remain documented on individual skills.
+
+The catalog generator now owns provider badges and API matrix values in both
+website catalogs, in addition to existing sentinel sections. Hand-written
+identity, description, ordering, Weekly Trade Strategy helper, and non-provider
+badges remain protected. It preflights all target identities/table shapes before
+writing; `--check` detects any generated-cell drift. The standalone catalog
+checker also rejects category/matrix disagreements and required-plus-No-API
+contradictions. Regenerate with `python3 scripts/generate_catalog_from_index.py`.

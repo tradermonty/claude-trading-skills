@@ -381,11 +381,80 @@ def _record_skill(seen: dict[str, str], skill: Skill, context: str, section_name
     seen[skill.skill_id] = section_name
 
 
+PROVIDER_LABELS = {"fmp": "FMP", "finviz": "FINVIZ", "alpaca": "Alpaca"}
+REQUIREMENT_LABELS = {
+    "en": {"required": "Required", "recommended": "Recommended", "optional": "Optional"},
+    "ja": {"required": "必須", "recommended": "推奨", "optional": "任意"},
+}
+BADGE_RE = re.compile(r"<span\b[^>]*>.*?</span>", re.DOTALL)
+PAID_RE = re.compile(
+    r"(FMP|FINVIZ(?: Elite)?|Alpaca)\s*(Required|Recommended|Optional|必須|推奨|任意)",
+    re.IGNORECASE,
+)
+
+
+def _validate_category_api(cell: str, skill: Skill, context: str) -> None:
+    text = re.sub(r"<[^>]+>", "", cell)
+    actual = {}
+    for match in PAID_RE.finditer(text):
+        provider = match[1].lower().split()[0]
+        requirement = next(
+            key
+            for labels in REQUIREMENT_LABELS.values()
+            for key, label in labels.items()
+            if label.casefold() == match[2].casefold()
+        )
+        if provider in actual:
+            raise CatalogError(f"{context}: duplicate category API badge {provider}")
+        actual[provider] = requirement
+    expected = {p: r for p, r in skill.requirements.items() if r != "not_required"}
+    if actual != expected or (
+        "required" in actual.values() and re.search(r"No API|API不要", text, re.IGNORECASE)
+    ):
+        raise CatalogError(
+            f"{context}: category API badges {actual!r} must match {expected!r} without contradictory No API claims"
+        )
+    # A provider name without a recognized requirement must not hide as free text.
+    rest = PAID_RE.sub("", text)
+    if re.search(r"(?:FMP|FINVIZ|Alpaca)(?![a-z])", rest, re.IGNORECASE):
+        raise CatalogError(f"{context}: unrecognized category API badge")
+
+
+def category_api_cell(skill: Skill, spec: LocaleSpec, original: str) -> str:
+    parts = []
+    for provider in TARGET_PROVIDERS:
+        requirement = skill.requirements.get(provider, "not_required")
+        if requirement == "not_required":
+            continue
+        label = REQUIREMENT_LABELS[spec.locale][requirement]
+        spacer = " " if spec.locale == "en" else ""
+        style = "api" if requirement == "required" else "optional"
+        parts.append(
+            f'<span class="badge badge-{style}">{PROVIDER_LABELS[provider]}{spacer}{label}</span>'
+        )
+    if not parts:
+        label = "No API" if spec.locale == "en" else "API不要"
+        parts.append(f'<span class="badge badge-free">{label}</span>')
+    # Preserve non-provider badges and annotations, e.g. offline Local JSON.
+    extras = []
+    for match in BADGE_RE.finditer(original):
+        text = re.sub(r"<[^>]+>", "", match[0])
+        if not re.search(r"FMP|FINVIZ|Alpaca|No API|API不要", text, re.IGNORECASE):
+            extras.append(match[0])
+    residual = BADGE_RE.sub("", original)
+    residual = PAID_RE.sub("", residual)
+    residual = re.sub(r"No API|API不要", "", residual, flags=re.IGNORECASE).strip(" +")
+    if residual:
+        extras.append(residual)
+    return " ".join(parts + extras)
+
+
 def _validate_category_tables(
     lines: list[str],
     spec: LocaleSpec,
     by_id: dict[str, Skill],
     by_name: dict[str, Skill],
+    validate_values: bool = True,
 ) -> None:
     start_matches = [i for i, line in enumerate(lines) if re.fullmatch(r"## 1\. .+", line)]
     if len(start_matches) != 1:
@@ -421,6 +490,8 @@ def _validate_category_tables(
                 weekly_count += 1
             else:
                 _record_skill(seen, skill, context, heading_text)
+                if validate_values:
+                    _validate_category_api(row[2], skill, context)
 
     expected = set(by_id)
     missing = sorted(expected - set(seen))
@@ -438,6 +509,7 @@ def _validate_api_table(
     spec: LocaleSpec,
     by_id: dict[str, Skill],
     by_name: dict[str, Skill],
+    validate_values: bool = True,
 ) -> None:
     heading = _unique_line(lines, spec.api_heading, f"{spec.locale} API matrix")
     following = [
@@ -468,7 +540,7 @@ def _validate_api_table(
             for provider in TARGET_PROVIDERS
         )
         actual_values = tuple(row[1:])
-        if actual_values != expected_values:
+        if validate_values and actual_values != expected_values:
             raise CatalogError(
                 f"{context}: {skill.display_name} API values {actual_values!r} "
                 f"must be {expected_values!r}"
@@ -477,6 +549,49 @@ def _validate_api_table(
     missing = sorted(set(by_id) - set(seen))
     if missing:
         raise CatalogError(f"{spec.locale} API matrix: missing skills: {', '.join(missing)}")
+
+
+def rewrite_catalog(
+    text: str, spec: LocaleSpec, by_id: dict[str, Skill], by_name: dict[str, Skill]
+) -> str:
+    """Regenerate API cells only, after validating every identity/table boundary."""
+    lines = text.splitlines()
+    _validate_count(text, spec, len(by_id))
+    _validate_category_tables(lines, spec, by_id, by_name, validate_values=False)
+    _validate_api_table(lines, spec, by_id, by_name, validate_values=False)
+    start = next(i for i, line in enumerate(lines) if re.fullmatch(r"## 1\. .+", line))
+    end = _unique_line(lines, spec.category_end, "categories")
+    api_start = _unique_line(lines, spec.api_heading, "API matrix")
+    api_end = next(
+        (i for i in range(api_start + 1, len(lines)) if lines[i].startswith("## ")), len(lines)
+    )
+    for first, last, header in (
+        (start, end, spec.category_header),
+        (api_start, api_end, spec.api_header),
+    ):
+        for i in range(first, last):
+            if not lines[i].lstrip().startswith("|"):
+                continue
+            row = _split_table_row(lines[i], f"{spec.locale} line {i + 1}")
+            if tuple(row) == header or _is_separator(row):
+                continue
+            skill = _identity(row[0], spec.locale, by_id, by_name, "API generation")
+            if skill is None:
+                continue
+            if first == start:
+                new_row = row[:2] + [category_api_cell(skill, spec, row[2])]
+            else:
+                new_row = row[:1] + [
+                    spec.api_values[skill.requirements[p]]
+                    if p in skill.requirements
+                    else spec.missing_api_value
+                    for p in TARGET_PROVIDERS
+                ]
+            if row != new_row:
+                lines[i] = "| " + " | ".join(new_row) + " |"
+    _validate_category_tables(lines, spec, by_id, by_name)
+    _validate_api_table(lines, spec, by_id, by_name)
+    return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
 
 
 def _validate_count(text: str, spec: LocaleSpec, canonical_count: int) -> None:

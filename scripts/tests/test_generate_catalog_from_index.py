@@ -118,8 +118,50 @@ def write_all_targets(project_root: Path) -> None:
     ):
         path = project_root / "docs" / lang / "skill-catalog.md"
         path.parent.mkdir(parents=True, exist_ok=True)
+        index_path = project_root / "skills-index.yaml"
+        skills = yaml.safe_load(index_path.read_text())["skills"] if index_path.exists() else []
+        category_end = "Which Skill Should I Use?" if lang == "en" else "どのスキルを使うべき？"
+        api_heading = "API Requirements Matrix" if lang == "en" else "API要件マトリクス"
+        category_header = (
+            "Skill | Description | API Requirements" if lang == "en" else "スキル | 説明 | API要件"
+        )
+        api_header = (
+            "Skill | FMP | FINVIZ Elite | Alpaca"
+            if lang == "en"
+            else "スキル | FMP | FINVIZ Elite | Alpaca"
+        )
+        count = (
+            f"all {len(skills)} Claude Trading Skills"
+            if lang == "en"
+            else f"全{len(skills)}個のClaude Trading Skills"
+        )
+        rows = "\n".join(
+            f"| **{item['display_name']}** | Description | No API |" for item in skills
+        )
+        matrix = "\n".join(
+            f"| {item['display_name']} | {'--' if lang == 'en' else '-'} | {'--' if lang == 'en' else '-'} | {'--' if lang == 'en' else '-'} |"
+            for item in skills
+        )
         path.write_text(
             f"""# Catalog
+{count}
+
+## 1. Test
+| {category_header} |
+|---|---|---|
+{rows}
+| **Weekly Trade Strategy** | Helper | No API |
+
+## {category_end}
+
+## {api_heading}
+| {api_header} |
+|---|---|---|---|
+{matrix}
+
+## Roles
+
+
 
 <!-- skills-index:start name="{sentinel}" -->
 PLACEHOLDER — will be regenerated.
@@ -528,3 +570,18 @@ def test_main_fails_on_missing_index(tmp_path: Path) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_ambiguous_last_catalog_does_not_write_earlier_targets(tmp_path):
+    write_minimal_index(tmp_path, [make_skill("a-skill", category="market-regime")])
+    write_all_targets(tmp_path)
+    path = tmp_path / "docs/ja/skill-catalog.md"
+    path.write_text(
+        path.read_text().replace(
+            "| **A Skill** | Description | No API |",
+            "| **A Skill** | Description | No API |\n| **A Skill** | duplicate | No API |",
+        )
+    )
+    before = {tmp_path / rel: (tmp_path / rel).read_bytes() for rel, _ in catalog_generator.TARGETS}
+    assert main(["--project-root", str(tmp_path)]) == 1
+    assert before == {p: p.read_bytes() for p in before}

@@ -74,7 +74,7 @@ JSON内の次のフィールドを確認します。
 
 ```text
 primary_workflow.id = market-regime-daily
-primary_workflow.api_profile = no-api-basic
+primary_workflow.api_profile = mixed
 no_api_path = true
 ```
 
@@ -107,7 +107,8 @@ test -n "$breadth_json" && test -f "$breadth_json"
 test -n "$uptrend_json" && test -f "$uptrend_json"
 ```
 
-workflowのmarket-top手順は任意なので、この最小導線では省略します。取得できた2つの
+profileは`mixed`です。任意のmarket-top手順にはFMPキーが必要ですが、
+この最小の3スキル導線では省略するため、有料キーは不要です。取得できた2つの
 artifactだけをExposure Coachへ渡します。
 
 ```bash

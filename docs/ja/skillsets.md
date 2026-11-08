@@ -23,7 +23,7 @@ permalink: /ja/skillsets/
 | スキルセット | タイムフレーム | API プロファイル | 難易度 | 関連ワークフロー |
 |---|---|---|---|---|
 | [`core-portfolio`](#core-portfolio) — Core Portfolio | weekly | mixed | beginner | `core-portfolio-weekly` |
-| [`market-regime`](#market-regime) — Market Regime | daily | no-api-basic | beginner | `market-regime-daily` |
+| [`market-regime`](#market-regime) — Market Regime | daily | mixed | beginner | `market-regime-daily` |
 | [`strategy-research`](#strategy-research) — Strategy Research | research | no-api-basic | advanced | `strategy-research-pipeline` |
 | [`swing-opportunity`](#swing-opportunity) — Swing Opportunity | daily | fmp-required | intermediate | `swing-opportunity-daily` |
 | [`trade-memory`](#trade-memory) — Trade Memory | event-driven | no-api-basic | beginner | `trade-memory-loop`, `monthly-performance-review` |
@@ -52,7 +52,7 @@ permalink: /ja/skillsets/
 
 ## Market Regime {#market-regime}
 
-**`market-regime`** · daily · no-api-basic · beginner
+**`market-regime`** · daily · mixed · beginner
 
 **使用するとき:** The shared risk layer for every trading day. Use before considering new swing-trade risk to decide today's exposure posture (allow / restrict / cash-priority) from breadth, uptrend participation, and top-risk signals. Operationalized daily by the market-regime-daily workflow.
 

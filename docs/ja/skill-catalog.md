@@ -132,10 +132,10 @@ permalink: /ja/skill-catalog/
 | **VCP Screener** | Mark MinerviniのVolatility Contraction Pattern を検出。Stage 2上昇トレンド銘柄のボラティリティ収縮とブレイクアウトポイントを識別 | <span class="badge badge-api">FMP必須</span> |
 | **Stockbee Momentum Burst Screener** | Stockbee型の短期モメンタムバースト候補をスクリーニング。4%ブレイクアウト、ドルブレイクアウト、レンジ拡大トリガーをセットアップ品質・リスク幅で0-100点（A/B/Watch）評価。候補生成専用で technical-analyst / position-sizer に接続 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">ローカルJSON任意</span> |
 | **[Stockbee Exhaustion Hammer Screener]({{ '/ja/skills/stockbee-exhaustion-hammer-screener/' | relative_url }})** | Stockbee型の売り枯れハンマー候補をスクリーニング。流動性、直前モメンタム、押し目の深さ、undercut/reclaim、長い下ヒゲ、終値位置、ストップまでのリスクを評価する候補生成専用スキル | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">ローカルJSON任意</span> |
-| **Finviz Screener** | 自然言語（日本語/英語）でFinVizスクリーニング条件を構築。500以上のフィルターコードに対応し、Chromeで結果を表示。**テーマクロス検索**（30以上のテーマ × 268サブテーマ）で「AI × 物流」「データセンター × 電力」等のナラティブベース検索が可能 | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FINVIZ任意</span> |
-| **Value Dividend Screener** | 高配当バリュー株をスクリーニング。P/E、P/B、配当利回り、3年成長トレンドで多段階フィルタリング | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ任意</span> |
+| **Finviz Screener** | 自然言語（日本語/英語）でFinVizスクリーニング条件を構築。500以上のフィルターコードに対応し、Chromeで結果を表示。**テーマクロス検索**（30以上のテーマ × 268サブテーマ）で「AI × 物流」「データセンター × 電力」等のナラティブベース検索が可能 | <span class="badge badge-optional">FINVIZ任意</span> |
+| **Value Dividend Screener** | 高配当バリュー株をスクリーニング。P/E、P/B、配当利回り、3年成長トレンドで多段階フィルタリング | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ推奨</span> |
 | **[US Undervalued Growth Screener]({{ '/ja/skills/us-undervalued-growth-screener/' | relative_url }})** | Claude Code向け米国中小型GARPスクリーナー。FMP直接取得パイプラインとローカルキャッシュ、FY1予想正規化、流動性検証、フォワード同一基準バリュエーション、SBC調整FCF、公開前監査、自己完結型エビデンスバンドル | <span class="badge badge-optional">FMP推奨</span> |
-| **Dividend Growth Pullback Screener** | 年間配当成長12%以上の高品質配当成長株で、RSI 40以下のプルバック中の銘柄を検出 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ任意</span> |
+| **Dividend Growth Pullback Screener** | 年間配当成長12%以上の高品質配当成長株で、RSI 40以下のプルバック中の銘柄を検出 | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">FINVIZ推奨</span> |
 | **Earnings Trade Analyzer** | 直近決算銘柄を5要素加重スコアリング（ギャップ、トレンド、出来高、MA200、MA50）でA-Dグレード評価 | <span class="badge badge-api">FMP必須</span> |
 | **PEAD Screener** | 決算ギャップアップ銘柄のPost-Earnings Announcement Drift パターンを週足分析。MONITORING→SIGNAL_READY→BREAKOUTのステージ管理 | <span class="badge badge-api">FMP必須</span> |
 | **FTD Detector** | William O'Neilの手法でFollow-Through Day シグナルを検出。市場底打ち確認のためのデュアルインデックス追跡 | <span class="badge badge-api">FMP必須</span> |
@@ -149,14 +149,14 @@ permalink: /ja/skill-catalog/
 |--------|------|---------|
 | **Sector Analyst** | セクター・業種パフォーマンスチャートを分析し、マーケットサイクル理論に基づくローテーションパターンを評価 | <span class="badge badge-free">API不要</span> |
 | **Breadth Chart Analyst** | S&P 500ブレッドインデックスと上昇トレンド比率チャートで市場の健全性を診断 | <span class="badge badge-free">API不要</span> |
-| **Technical Analyst** | 週足チャートの純粋テクニカル分析。トレンド、サポート/レジスタンス、チャートパターン、モメンタム指標を識別 | <span class="badge badge-free">API不要</span> |
+| **Technical Analyst** | 週足チャートの純粋テクニカル分析。トレンド、サポート/レジスタンス、チャートパターン、モメンタム指標を識別 | <span class="badge badge-optional">FMP任意</span> |
 | **[Market News Analyst]({{ '/ja/skills/market-news-analyst/' | relative_url }})** | WebSearch/WebFetchで過去10日間のニュースを収集。定量的インパクトスコアリングでランキング | <span class="badge badge-free">API不要</span> |
 | **Market Environment Analysis** | グローバルマクロブリーフィング。株式指数、為替、コモディティ、金利、センチメントを網羅 | <span class="badge badge-free">API不要</span> |
 | **[Market Breadth Analyzer]({{ '/ja/skills/market-breadth-analyzer/' | relative_url }})** | TraderMontyの公開CSVデータで6コンポーネントスコアリング（0-100）の市場幅評価 | <span class="badge badge-free">API不要</span> |
 | **Uptrend Analyzer** | 約2,800銘柄・11セクターの上昇トレンド比率を5コンポーネント複合スコアで診断 | <span class="badge badge-free">API不要</span> |
-| **Macro Regime Detector** | クロスアセット比率分析で構造的マクロレジーム転換（1-2年ホライズン）を検出 | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span> |
+| **Macro Regime Detector** | クロスアセット比率分析で構造的マクロレジーム転換（1-2年ホライズン）を検出 | <span class="badge badge-optional">FMP任意</span> |
 | **[US Market Bubble Detector]({{ '/ja/skills/us-market-bubble-detector/' | relative_url }})** | ミンスキー/キンドルバーガーフレームワークの8指標バブルメーター。ステージ別プレイブック付き | <span class="badge badge-free">API不要</span> |
-| **Market Top Detector** | O'NeilのDistribution Days、MinerviniのLeading Stock劣化、Defensive Rotationで天井確率を検出 | <span class="badge badge-free">API不要</span> |
+| **Market Top Detector** | O'NeilのDistribution Days、MinerviniのLeading Stock劣化、Defensive Rotationで天井確率を検出 | <span class="badge badge-api">FMP必須</span> |
 | **[IBD Distribution Day Monitor]({{ '/ja/skills/ibd-distribution-day-monitor/' | relative_url }})** | QQQ/SPYのIBD式Distribution Dayを日次検出。25セッション失効・5%上昇無効化を追跡し、d5/d15/d25クラスタからNORMAL/CAUTION/HIGH/SEVERE判定とTQQQ/QQQエクスポージャ推奨を生成 | <span class="badge badge-api">FMP必須</span> |
 | **[Downtrend Duration Analyzer]({{ '/ja/skills/downtrend-duration-analyzer/' | relative_url }})** | 過去の下落トレンド期間（ピーク→トラフ）を分析し、セクター・時価総額別のインタラクティブヒストグラムを生成 | <span class="badge badge-api">FMP必須</span> |
 | **[COT Contrarian Detector]({{ '/ja/skills/cot-contrarian-detector/' | relative_url }})** | COT Indexにより65のCFTC先物市場における大口投機筋の偏ったポジションを検出。ジェイソン・シャピロ式逆張り手法のステップ1 | <span class="badge badge-api">FMP必須</span> |
@@ -170,7 +170,7 @@ permalink: /ja/skill-catalog/
 
 | スキル | 説明 | API要件 |
 |--------|------|---------|
-| **Theme Detector** | FINVIZの業種データで上昇・下落テーマを3次元スコアリング（Heat、Lifecycle、Confidence）で検出 | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FMP任意</span> <span class="badge badge-optional">FINVIZ任意</span> |
+| **Theme Detector** | FINVIZの業種データで上昇・下落テーマを3次元スコアリング（Heat、Lifecycle、Confidence）で検出 | <span class="badge badge-optional">FMP任意</span> <span class="badge badge-optional">FINVIZ推奨</span> |
 | **[Scenario Analyzer]({{ '/ja/skills/scenario-analyzer/' | relative_url }})** | ニュースヘッドラインから18ヶ月シナリオ分析。1次・2次・3次影響と推奨銘柄を生成 | <span class="badge badge-free">API不要</span> |
 | **[Backtest Expert]({{ '/ja/skills/backtest-expert/' | relative_url }})** | 戦略仮説のパラメータ堅牢性検証、ウォークフォワード検証を含むプロフェッショナルグレード検証フレームワーク | <span class="badge badge-free">API不要</span> |
 | **[manifoldbt Backtester]({{ '/ja/skills/manifoldbt-backtester/' | relative_url }})** | Runs a declarative strategy spec over OHLCV bars with the manifoldbt Rust engine and emits the eight inputs backtest-expert scores _(EN, awaiting translation)_ | <span class="badge badge-free">API不要</span> |
@@ -187,7 +187,7 @@ permalink: /ja/skill-catalog/
 
 | スキル | 説明 | API要件 |
 |--------|------|---------|
-| **Portfolio Manager** | Alpaca MCP Serverでリアルタイム保有データを取得。資産配分、リスク指標、HOLD/ADD/TRIM/SELL推奨を生成 | <span class="badge badge-api">包括分析はAlpaca必須</span> |
+| **Portfolio Manager** | Alpaca MCP Serverでリアルタイム保有データを取得。資産配分、リスク指標、HOLD/ADD/TRIM/SELL推奨を生成 | <span class="badge badge-optional">Alpaca任意</span> |
 | **[Trader Memory Core]({{ '/ja/skills/trader-memory-core/' | relative_url }})** | 投資仮説のライフサイクルを永続追跡。スクリーナー出力をIDEAとして登録し、ENTRY_READY→ACTIVE→CLOSEDのステート遷移、ポジションサイジング付与、レビュースケジュール、MAE/MFE付きポストモーテム生成をサポート | <span class="badge badge-optional">FMP任意</span> |
 | **[Trade Performance Coach]({{ '/ja/skills/trade-performance-coach/' | relative_url }})** | クローズドトレード・部分クローズ・月次集計をプロセス／リスク／執行／行動パターン／レビュー品質の5軸でレビューし、OK/WARN/REVIEW_REQUIRED/RULE_VIOLATION/COOL_DOWN の verdict と次セッション運用ルール、人間判断ゲートを生成するポストトレードコーチ。Beta。 | <span class="badge badge-free">API不要</span> |
 | **[Drawdown Circuit Breaker]({{ '/ja/skills/drawdown-circuit-breaker/' | relative_url }})** | trader-memory-coreの状態を読み、実現損益・連敗・週次/月次ドローダウンから TRADING_ALLOWED / COOLDOWN / HALTED を返す口座レベルの新規リスクゲート | <span class="badge badge-free">API不要</span> |
@@ -196,11 +196,11 @@ permalink: /ja/skill-catalog/
 | **[Futures Position Sizer]({{ '/ja/skills/futures-position-sizer/' | relative_url }})** | 方向・エントリー・ストップから先物のコントラクト数を計算。検証済みの23銘柄契約仕様テーブル（乗数・ティックサイズ・ティック価値）を使用し、明示フラグまたはcontrarian-setup-gateのREADY_FOR_PLAN引き継ぎに対応。Beta。オフラインで動作 | <span class="badge badge-free">API不要</span> |
 | **[Breakout Trade Planner]({{ '/ja/skills/breakout-trade-planner/' | relative_url }})** | VCPスクリーナー出力からミネルヴィニ式ブレイクアウトトレードプランを生成。worst-case entryベースのGate、stop-limit bracketテンプレート（pre_place / post_confirm）、ポートフォリオヒート管理 | <span class="badge badge-free">API不要</span> |
 | **[Parabolic Short Trade Planner]({{ '/ja/skills/parabolic-short-trade-planner/' | relative_url }})** | Parabolic Short 候補の日次スクリーナー（5因子加重スコア）と寄り前プラン生成器。候補ごとに3種類のトリガー（5min ORL ブレイク / First Red 5-min / VWAP fail）を条件付きプランとして出力。Alpaca ETB-only ショート確認は `requests` 直叩き（SDK 非依存）、SEC Rule 201 SSR トラッカー、blocking / advisory 分離型 manual confirmation | <span class="badge badge-api">FMP必須</span> <span class="badge badge-optional">Alpaca任意</span> |
-| **[Exposure Coach]({{ '/ja/skills/exposure-coach/' | relative_url }})** | ブレッド、レジーム、トップリスク、フローの各スキル出力を統合し、エクスポージャー上限（0-100%）、グロース/バリュー傾斜、NEW_ENTRY_ALLOWED / REDUCE_ONLY / CASH_PRIORITY推奨を含むマーケットポスチャーサマリーを生成 | <span class="badge badge-optional">FMP任意</span> |
+| **[Exposure Coach]({{ '/ja/skills/exposure-coach/' | relative_url }})** | ブレッド、レジーム、トップリスク、フローの各スキル出力を統合し、エクスポージャー上限（0-100%）、グロース/バリュー傾斜、NEW_ENTRY_ALLOWED / REDUCE_ONLY / CASH_PRIORITY推奨を含むマーケットポスチャーサマリーを生成 | <span class="badge badge-free">API不要</span> |
 | **[US Stock Analysis]({{ '/ja/skills/us-stock-analysis/' | relative_url }})** | ファンダメンタル、テクニカル、同業比較を網羅した包括的米国株リサーチアシスタント | <span class="badge badge-free">API不要</span> |
 | **Earnings Calendar** | FMP APIで今後の決算発表を取得。時価総額$2B以上の中大型株に焦点 | <span class="badge badge-api">FMP必須</span> |
 | **Economic Calendar Fetcher** | FMP APIで7-90日間の経済イベントを取得。インパクト評価付き時系列レポート | <span class="badge badge-api">FMP必須</span> |
-| **[FXMacroData Calendar]({{ '/ja/skills/fxmacrodata-calendar/' | relative_url }})** | FXMacroDataを使い公式ソースのマクロ発表カレンダーイベントを取得。トレードプランニングとイベントリスクフィルタに利用。USDの公開カレンダー行はキーなしで動作。Beta | <span class="badge badge-optional">FXMacroDataキー任意</span> |
+| **[FXMacroData Calendar]({{ '/ja/skills/fxmacrodata-calendar/' | relative_url }})** | FXMacroDataを使い公式ソースのマクロ発表カレンダーイベントを取得。トレードプランニングとイベントリスクフィルタに利用。USDの公開カレンダー行はキーなしで動作。Beta | <span class="badge badge-free">API不要</span> <span class="badge badge-optional">FXMacroDataキー任意</span> |
 | **[Pre-Trade Discipline Gate]({{ '/ja/skills/pre-trade-discipline-gate/' | relative_url }})** | 注文計画を進める前に決定論的な事前チェックリストとフェイルクローズド判断ゲートを適用 | <span class="badge badge-free">API不要</span> |
 
 ---
@@ -209,8 +209,8 @@ permalink: /ja/skill-catalog/
 
 | スキル | 説明 | API要件 |
 |--------|------|---------|
-| **Kanchi Dividend SOP** | かんち式5ステップを米国株向け再現可能ワークフローに変換。閾値表、評価基準、銘柄メモテンプレを収録 | <span class="badge badge-free">API不要</span> |
-| **Kanchi Dividend Review Monitor** | T1-T5トリガーで異常検知。OK/WARN/REVIEWの機械判定で強制点検キューを生成 | <span class="badge badge-free">API不要</span> |
+| **Kanchi Dividend SOP** | かんち式5ステップを米国株向け再現可能ワークフローに変換。閾値表、評価基準、銘柄メモテンプレを収録 | <span class="badge badge-optional">FMP推奨</span> |
+| **Kanchi Dividend Review Monitor** | T1-T5トリガーで異常検知。OK/WARN/REVIEWの機械判定で強制点検キューを生成 | <span class="badge badge-optional">FMP推奨</span> |
 | **Kanchi Dividend US Tax Accounting** | qualified/ordinaryの前提整理、保有期間チェック、口座配置の意思決定を支援 | <span class="badge badge-free">API不要</span> |
 
 ---
@@ -219,7 +219,7 @@ permalink: /ja/skill-catalog/
 
 | スキル | 説明 | API要件 |
 |--------|------|---------|
-| **Edge Candidate Agent** | 日次マーケット観察をリサーチチケットに変換。`strategy.yaml` + `metadata.json`をエクスポート | <span class="badge badge-free">API不要</span> |
+| **Edge Candidate Agent** | 日次マーケット観察をリサーチチケットに変換。`strategy.yaml` + `metadata.json`をエクスポート | <span class="badge badge-optional">FMP任意</span> |
 | **Edge Hint Extractor** | マーケットサマリーとアノマリーからヒントを抽出し `hints.yaml` を生成 | <span class="badge badge-free">API不要</span> |
 | **Edge Concept Synthesizer** | リサーチチケットとヒントからエッジコンセプトを統合し `edge_concepts.yaml` を生成 | <span class="badge badge-free">API不要</span> |
 | **Edge Strategy Designer** | エッジコンセプトから戦略ドラフト（`strategy_drafts/*.yaml`）を設計 | <span class="badge badge-free">API不要</span> |
@@ -311,7 +311,7 @@ permalink: /ja/skill-catalog/
 | Crypto Regime Analyzer | - | - | - |
 | Data Quality Checker | - | - | - |
 | Dividend Growth Pullback Screener | 必須 | 推奨 | - |
-| Downtrend Duration Analyzer | - | - | - |
+| Downtrend Duration Analyzer | 必須 | - | - |
 | Drawdown Circuit Breaker | - | - | - |
 | Dual Axis Skill Reviewer | - | - | - |
 | Earnings Calendar | 必須 | - | - |
@@ -339,7 +339,7 @@ permalink: /ja/skill-catalog/
 | Market Breadth Analyzer | - | - | - |
 | Market Environment Analysis | - | - | - |
 | Market News Analyst | - | - | - |
-| Market Top Detector | - | - | - |
+| Market Top Detector | 必須 | - | - |
 | MT5 Robot Tester | - | - | - |
 | News Reaction Failure Analyzer | 必須 | - | - |
 | Options Strategy Advisor | 任意 | - | - |
@@ -352,7 +352,7 @@ permalink: /ja/skill-catalog/
 | Residual Edge Analyzer | - | - | - |
 | Scenario Analyzer | - | - | - |
 | Sector Analyst | - | - | - |
-| Signal Postmortem | - | - | - |
+| Signal Postmortem | 任意 | - | - |
 | Skill Designer | - | - | - |
 | Skill Idea Miner | - | - | - |
 | Skill Integration Tester | - | - | - |

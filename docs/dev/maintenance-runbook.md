@@ -339,3 +339,13 @@ success.
 See [packaged smoke outcomes](packaged-deps-smoke.md#evidence-outcomes-issue-507-partial-implementation)
 for the schema and remaining acceptance gaps. Issue #507 remains open until
 its full set of layers and coverage requirements is met.
+
+## API metadata contract maintenance
+
+After changing a skill's credentials or API modes, update its `integrations`
+in `skills-index.yaml`, run `python3 scripts/check_api_requirements.py`, and
+regenerate with `python3 scripts/generate_catalog_from_index.py`. This also
+regenerates website category provider badges and API matrix cells while keeping
+localized descriptions/non-provider badges. Update any workflow profile and
+regenerate workflow docs and Navigator snapshot/package when inputs change.
+See [API declaration coverage and limits](metadata-and-workflow-schema.md#api-declarations-versus-credential-reads-653).

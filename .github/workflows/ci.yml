@@ -203,6 +203,9 @@ jobs:
       - name: Validate skills-index (default)
         run: python3 scripts/validate_skills_index.py
 
+      - name: Validate API integration contracts
+        run: python3 scripts/check_api_requirements.py
+
       # 2. Strict workflow validation — workflow files exist, schema rules
       # pass (artifact parity, required_skills coverage, decision-gate
       # questions, no deprecated skills in required_skills, etc.).

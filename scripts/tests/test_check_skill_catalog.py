@@ -54,6 +54,18 @@ def _api_values(requirement: str | None, locale: str) -> tuple[str, str, str]:
 
 
 def _catalog(locale: str, requirement: str | None = "required") -> str:
+    labels = (
+        {"required": "Required", "recommended": "Recommended", "optional": "Optional"}
+        if locale == "en"
+        else {"required": "必須", "recommended": "推奨", "optional": "任意"}
+    )
+    label = labels.get(requirement)
+    alpha_badge = (
+        f'<span class="badge badge-api">FMP{(" " if locale == "en" else "")}{label}</span>'
+        if label
+        else "No API"
+    )
+
     if locale == "en":
         count = "A comprehensive catalog of all 2 Claude Trading Skills."
         category_heading = "## 1. Test Category"
@@ -79,7 +91,7 @@ def _catalog(locale: str, requirement: str | None = "required") -> str:
 
 {category_header}
 |---|---|---|
-| **[Alpha Skill]({{{{ '/{locale}/skills/alpha-skill/' | relative_url }}}})** | Alpha description | No API |
+| **[Alpha Skill]({{{{ '/{locale}/skills/alpha-skill/' | relative_url }}}})** | Alpha description | {alpha_badge} |
 | **Beta Skill** | Beta description | No API |
 | **Weekly Trade Strategy** | {weekly_description} | No API |
 
@@ -385,3 +397,80 @@ def test_cli_returns_nonzero_for_drift(tmp_path: Path, capsys: pytest.CaptureFix
     _replace(tmp_path, "en", "all 2 Claude Trading Skills", "all 1 Claude Trading Skills")
     assert main(["--project-root", str(tmp_path)]) == 1
     assert "ERROR:" in capsys.readouterr().err
+
+
+def test_category_badge_disagreement_and_no_api_contradiction_fail(tmp_path):
+    _write_project(tmp_path)
+    _replace(tmp_path, "en", "FMP Required</span>", "FMP Optional</span>")
+    with pytest.raises(CatalogError, match="category.*API"):
+        validate_catalogs(tmp_path)
+    _write_project(tmp_path)
+    _replace(tmp_path, "en", "FMP Required</span>", "FMP Required</span> No API")
+    with pytest.raises(CatalogError, match="category.*API"):
+        validate_catalogs(tmp_path)
+
+
+def test_website_rewrite_changes_only_api_cells_and_is_idempotent(tmp_path):
+    import check_skill_catalog as catalog
+
+    _write_project(tmp_path)
+    _replace(
+        tmp_path,
+        "en",
+        "FMP Required</span>",
+        'FMP Optional</span> <span class="badge badge-optional">Local JSON Optional</span>',
+    )
+    path = tmp_path / "docs/en/skill-catalog.md"
+    original = path.read_text()
+    updated = catalog.rewrite_catalog(
+        original, catalog.LOCALES[0], *catalog._load_skills(tmp_path / "skills-index.yaml")
+    )
+    assert "FMP Required</span>" in updated
+    assert "Local JSON Optional</span>" in updated
+    assert "Alpha description" in updated and "Workflow \\| publication helper" in updated
+    assert "{{ '/en/skills/alpha-skill/' | relative_url }}" in updated
+    assert updated == catalog.rewrite_catalog(
+        updated, catalog.LOCALES[0], *catalog._load_skills(tmp_path / "skills-index.yaml")
+    )
+
+
+def test_rewrite_rejects_ambiguous_identity_before_writing(tmp_path):
+    import check_skill_catalog as catalog
+
+    _write_project(tmp_path)
+    _replace(
+        tmp_path,
+        "en",
+        "| **Beta Skill** | Beta description | No API |",
+        "| **Beta Skill** | Beta description | No API |\n| **Beta Skill** | duplicate | No API |",
+    )
+    path = tmp_path / "docs/en/skill-catalog.md"
+    before = path.read_bytes()
+    with pytest.raises(CatalogError, match="duplicate"):
+        catalog.rewrite_catalog(
+            before.decode(),
+            catalog.LOCALES[0],
+            *catalog._load_skills(tmp_path / "skills-index.yaml"),
+        )
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "locale,labels",
+    [
+        ("en", ["FMP Required", "FINVIZ Recommended", "Alpaca Optional"]),
+        ("ja", ["FMP必須", "FINVIZ推奨", "Alpaca任意"]),
+    ],
+)
+def test_generated_badges_cover_all_providers_and_preserve_local_badges(locale, labels):
+    import check_skill_catalog as catalog
+
+    skill = catalog.Skill(
+        "example", "Example", {"fmp": "required", "finviz": "recommended", "alpaca": "optional"}
+    )
+    spec = next(s for s in catalog.LOCALES if s.locale == locale)
+    original = '<span class="badge badge-free">No API</span> <span class="badge badge-optional">Local JSON Optional</span>'
+    cell = catalog.category_api_cell(skill, spec, original)
+    assert all(label in cell for label in labels)
+    assert "Local JSON Optional" in cell and "No API" not in cell
+    catalog._validate_category_api(cell, skill, "test category")

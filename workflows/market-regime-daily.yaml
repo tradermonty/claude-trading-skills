@@ -8,7 +8,7 @@ target_users:
   - part-time-swing-trader
   - growth-investor
 difficulty: beginner
-api_profile: no-api-basic
+api_profile: mixed
 
 when_to_run: >-
   Before considering new swing-trade risk for the day. Run before market open
@@ -68,8 +68,8 @@ steps:
     decision_gate: false
 
   - step: 3
-    name: Check market top risk
-    name_ja: 市場天井のリスクを確認する
+    name: Check market top risk (optional FMP key required)
+    name_ja: 市場天井のリスクを確認する（任意ステップ・FMPキー必須）
     skill: market-top-detector
     optional: true
     produces:

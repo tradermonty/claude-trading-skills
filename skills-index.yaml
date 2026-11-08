@@ -320,10 +320,10 @@ skills:
   timeframe: research
   difficulty: intermediate
   integrations:
-  - id: local_calculation
-    type: calculation
-    requirement: not_required
-    note: Duration analysis from market data; pure calculation
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: FMP stock universe and historical prices; an API key is required
   inputs:
   - historical_correction_data
   outputs:
@@ -1189,10 +1189,10 @@ skills:
   timeframe: daily
   difficulty: intermediate
   integrations:
-  - id: public_csv
-    type: web
+  - id: fmp
+    type: market_data
     requirement: required
-    note: Public market data CSVs; no API key required
+    note: FMP index, ETF and stock data; an API key is required
   inputs:
   - public_market_data_csv
   outputs:
@@ -1606,7 +1606,11 @@ skills:
   - id: local_calculation
     type: calculation
     requirement: not_required
-    note: Postmortem framework; pure calculation
+    note: Manual postmortem recording works offline
+  - id: fmp
+    type: market_data
+    requirement: optional
+    note: Optional FMP price enrichment; manual recording works without a key
   inputs:
   - closed_thesis_record
   outputs:

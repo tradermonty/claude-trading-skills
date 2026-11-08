@@ -6,6 +6,10 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 Changes merged to `main` since the release process landed in #505 (2026-10-10). No GitHub Release has been published yet.
 
+### Metadata and API contracts
+
+- Correct market-top-detector and downtrend-duration-analyzer to FMP required, signal-postmortem to FMP optional, and market-regime-daily and its skillset to mixed profiles with a key-free base. Add an offline credential-read/no-API-workflow gate and generate EN/JA catalog provider badges/API matrix values from the index (#653).
+
 ### Skills
 
 - stockbee-momentum-burst-screener: reject stale or unplaceable daily bars before scoring; freeze the latest completed NYSE session, add explicit as-of/session-age controls, active-universe filtering and auditable freshness metadata (#670). A tolerated stale bar is capped at `MANUAL_REVIEW`, and an all-stale universe adds a top-level report warning. stockbee-setup-fluency-trainer drops the per-symbol `latest_bar_dates` map when ingesting screener metadata.

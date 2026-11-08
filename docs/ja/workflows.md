@@ -22,7 +22,7 @@ permalink: /ja/workflows/
 |---|---|---|---|---|
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — コア・ポートフォリオ週次レビュー | 毎週 | 60 | alpaca-required | 初級 |
 | [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi式配当銘柄の週次選定 | 毎週 | 60 | mixed | 中級 |
-| [`market-regime-daily`](#market-regime-daily) — 市場レジーム日次確認 | 毎日 | 15 | no-api-basic | 初級 |
+| [`market-regime-daily`](#market-regime-daily) — 市場レジーム日次確認 | 毎日 | 15 | mixed | 初級 |
 | [`monthly-performance-review`](#monthly-performance-review) — 月次パフォーマンスレビュー | 毎月 | 90 | no-api-basic | 中級 |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — マルチアセット投資機会の日次確認 | 毎日 | 45 | mixed | 中級 |
 | [`portfolio-holdings-review`](#portfolio-holdings-review) — オフライン保有配分レビュー | 毎週 | 15 | no-api-basic | 初級 |
@@ -182,7 +182,7 @@ permalink: /ja/workflows/
 
 ## 市場レジーム日次確認 {#market-regime-daily}
 
-**`market-regime-daily`** · 毎日 · 約15分 · no-api-basic · 初級
+**`market-regime-daily`** · 毎日 · 約15分 · mixed · 初級
 
 **実行タイミング:** その日の新規スイング取引リスクを検討する前に実行する。市場開始前、または開始後30分以内に実行する。
 
@@ -211,7 +211,7 @@ permalink: /ja/workflows/
 
 - 出力: `uptrend_report`
 
-**ステップ 3: 市場天井のリスクを確認する** （任意） → `market-top-detector`
+**ステップ 3: 市場天井のリスクを確認する（任意ステップ・FMPキー必須）** （任意） → `market-top-detector`
 
 - 出力: `top_risk_report`
 
