@@ -167,3 +167,36 @@ def test_invalid_date_sets_last_error():
     assert client.get_earnings_calendar("not-a-date", "2026-10-26") is None
     assert "invalid earnings calendar range" in client._last_error
     client.session.get.assert_not_called()
+
+
+def test_non_list_body_is_a_fetch_failure():
+    for body in ("oops", 5):
+        client = _make_client()
+        client.session.get = MagicMock(return_value=_response(body))
+
+        assert client.get_earnings_calendar("2026-10-26", "2026-10-26") is None
+        assert "unexpected earnings calendar body" in client._last_error
+
+
+def test_same_day_rows_for_one_symbol_are_kept():
+    # Two sessions (bmo/amc) for one symbol on one day are distinct rows;
+    # dedupe applies only to a row repeated on a later queried day.
+    client = _make_client()
+    day_rows = [
+        {"symbol": "AAA", "date": "2026-10-26", "time": "bmo"},
+        {"symbol": "AAA", "date": "2026-10-26", "time": "amc"},
+    ]
+    client.session.get = MagicMock(return_value=_response(day_rows))
+
+    rows = client.get_earnings_calendar("2026-10-26", "2026-10-26")
+
+    assert len(rows) == 2
+
+
+def test_provider_error_payload_sets_last_error():
+    client = _make_client()
+    payload = {"Error Message": "Invalid API KEY."}
+    client.session.get = MagicMock(return_value=_response(payload))
+
+    assert client.get_earnings_calendar("2026-10-26", "2026-10-27") == payload
+    assert "Invalid API KEY." in client._last_error

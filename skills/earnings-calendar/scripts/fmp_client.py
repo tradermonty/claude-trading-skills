@@ -424,18 +424,29 @@ class FMPClient:
             if isinstance(data, dict):
                 # A provider error payload ({"Error Message": ...}); pass it
                 # through so the caller reports it instead of iterating keys.
+                self._last_error = f"earnings calendar provider error: {data}"
                 return data
+            if not isinstance(data, list):
+                self._last_error = (
+                    f"unexpected earnings calendar body type {type(data).__name__} "
+                    f"for {day.isoformat()}"
+                )
+                return None
             if len(data) >= 4000:
                 truncated_days.append(day.isoformat())
+            day_keys: set = set()
             for row in data:
                 # Non-dict rows are passed through untouched (callers skip
-                # them); rows without a symbol are never deduped.
+                # them); rows without a symbol are never deduped. Dedupe only
+                # drops a row already returned for an earlier queried day, so
+                # same-day rows (e.g. bmo and amc) are all kept.
                 if isinstance(row, dict) and row.get("symbol"):
                     key = (row.get("symbol"), row.get("date"))
                     if key in seen:
                         continue
-                    seen.add(key)
+                    day_keys.add(key)
                 rows.append(row)
+            seen |= day_keys
             day += timedelta(days=1)
 
         if truncated_days:
