@@ -79,7 +79,10 @@ excluded; weekends, holidays, DST and early closes follow the shared calendar.
   a do-not-trade downstream action. Short usable history stays rejected.
 - With `--max-bar-age-sessions` above 0, a setup on an older (but tolerated) bar is
   capped at `MANUAL_REVIEW` with a `stale_bar_tolerated` soft tag, never
-  `ACTIONABLE_DAY1`. When every processed symbol is stale (typically FMP has not
+  `ACTIONABLE_DAY1`. The cap changes only `state`; `rating` and `setup_score`
+  keep their computed values, and the tag is added only when the cap applies.
+  Treat `bar_age_sessions > 0` as the authoritative stale-bar signal, and do not
+  route on `rating` alone. When every processed symbol is stale (typically FMP has not
   yet published today's EOD data), the report carries a top-level `warnings`
   entry and a `## Warnings` section in the markdown.
 - Calendar failure exits 1 before reports are written; invalid flag syntax exits

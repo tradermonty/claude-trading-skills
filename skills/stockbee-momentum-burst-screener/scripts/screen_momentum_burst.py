@@ -1039,9 +1039,10 @@ def report_warnings(metadata: dict[str, Any]) -> list[str]:
     if processed > 0 and stale == processed:
         return [
             f"All {processed} processed symbols have stale price bars (expected session "
-            f"{metadata.get('expected_session', 'unknown')}). FMP has likely not published "
-            "today's EOD data yet; rerun later, or pass --max-bar-age-sessions to accept "
-            "older bars deliberately. Zero candidates here does not mean no setups."
+            f"{metadata.get('expected_session', 'unknown')}). The provider may not have "
+            "published that session's EOD bar yet, or the input data or --as-of does not "
+            "cover it; rerun later, or pass --max-bar-age-sessions to accept older bars "
+            "deliberately. Zero candidates here does not mean no setups."
         ]
     return []
 
