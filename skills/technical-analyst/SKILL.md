@@ -235,6 +235,18 @@ Analyst:
 
 ## Contrarian Confirmation Mode (Shapiro Step 3)
 
+Validate `run_context.data_date` and every supplied vintage for the selected market:
+`markets[].data_date` and `data_provenance.market_data_dates[symbol]`. Each must
+be nonempty, parseable, not after `--as-of`, and no older than
+`--max-detector-age-days` (the boundary itself is accepted). Use the oldest
+validated date for the audit age; keep the original run context unchanged.
+Legacy reports may omit row/map dates and fall back to the report date. A
+present invalid/null/empty date or malformed provenance/map container fails
+closed using the existing missing/invalid/future/stale reason codes. Other
+symbols' row/map dates do not replace the selected market's vintage. Existing
+first-10-character date parsing remains compatible; this is not a stricter
+full-timestamp or provenance-schema validator.
+
 This is an ADDITIVE mode, separate from the pure chart-analysis workflow
 above. It activates only on an explicit contrarian-confirmation request —
 typically after `cot-contrarian-detector` (step 1) has flagged a market

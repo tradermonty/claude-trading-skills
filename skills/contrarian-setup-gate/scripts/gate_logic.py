@@ -318,6 +318,26 @@ def _build_entry_trigger(raw_data: dict[str, Any], verdict_reason: Any) -> str |
 # --- Per-step normalization -------------------------------------------------
 
 
+def _market_vintage_values(
+    detector: dict[str, Any], row: dict[str, Any], symbol: str
+) -> list[Any] | None:
+    """Selected dates only; absent legacy fields are allowed, malformed containers are not."""
+    values = [row["data_date"]] if "data_date" in row else []
+    if "data_provenance" not in detector:
+        return values
+    provenance = detector["data_provenance"]
+    if not isinstance(provenance, dict):
+        return None
+    if "market_data_dates" not in provenance:
+        return values
+    dates = provenance["market_data_dates"]
+    if not isinstance(dates, dict):
+        return None
+    if symbol in dates:
+        values.append(dates[symbol])
+    return values
+
+
 def normalize_crowding(
     raw_data: Any,
     load_error: str | None,
@@ -427,11 +447,39 @@ def normalize_crowding(
         )
 
     assert age_days is not None  # status == "ok" always sets age_days
+    report_data_date = data_date
+    market_dates = _market_vintage_values(raw_data, market_row, symbol)
+    if market_dates is None:
+        return NormalizedInput(
+            kind=kind,
+            state=STATE_INVALID,
+            reason="detector_invalid_data_date",
+            report_path=report_path,
+        )
+    for candidate in market_dates:
+        market_status, market_age = _resolve_vintage(candidate, as_of_dt, max_age_days)
+        if market_status != "ok":
+            reason = {
+                "missing": "detector_missing_data_date",
+                "invalid": "detector_invalid_data_date",
+                "future": "detector_future_data_date",
+                "stale": "detector_json_stale",
+            }[market_status]
+            return NormalizedInput(
+                kind=kind,
+                state=STATE_INVALID,
+                reason=reason,
+                data_date=candidate if market_status in ("future", "stale") else None,
+                age_days=market_age,
+                report_path=report_path,
+            )
+        assert market_age is not None
+        if market_age > age_days:
+            data_date, age_days = candidate, market_age
     warnings: list[str] = []
     if _near_stale(age_days, max_age_days):
         warnings.append("detector_near_stale")
-    row_data_date = market_row.get("data_date")
-    if isinstance(row_data_date, str) and row_data_date and row_data_date != data_date:
+    if any(value != report_data_date for value in market_dates):
         warnings.append("detector_data_date_divergence")
 
     classification = market_row.get("classification")
