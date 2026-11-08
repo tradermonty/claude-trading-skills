@@ -37,8 +37,8 @@ def test_authority_has_exact_supported_consumer_set(generator):
         "market-environment-analysis",
         "market-top-detector",
         "parabolic-short-trade-planner",
-        "theme-detector",
         "stockbee-momentum-burst-screener",
+        "theme-detector",
     }
     assert len(config["example_mirrors"]) == 2
     assert config["additional_requirements"]["drawdown-circuit-breaker"] == ["pyyaml>=6.0"]

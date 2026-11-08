@@ -838,6 +838,10 @@ def analyze_symbol(symbol: str, bars: list[Bar], args: argparse.Namespace) -> di
     hard_rejected = bool(reject_reasons)
     rating = score_to_rating(composite_score if not hard_rejected else 0)
     state = score_to_state(composite_score, args.market_gate, hard_rejected)
+    if freshness["bar_age_sessions"] and state == "ACTIONABLE_DAY1":
+        # A tolerated stale bar is never a Day 1 signal; require manual review.
+        state = "MANUAL_REVIEW"
+        soft_failure_tags = [*soft_failure_tags, "stale_bar_tolerated"]
 
     return {
         "symbol": symbol,
@@ -1028,12 +1032,27 @@ def sort_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
+def report_warnings(metadata: dict[str, Any]) -> list[str]:
+    """Top-level report warnings (empty when nothing needs the reader's attention)."""
+    processed = metadata.get("symbols_processed", 0)
+    stale = metadata.get("stale_price_data_count", 0)
+    if processed > 0 and stale == processed:
+        return [
+            f"All {processed} processed symbols have stale price bars (expected session "
+            f"{metadata.get('expected_session', 'unknown')}). FMP has likely not published "
+            "today's EOD data yet; rerun later, or pass --max-bar-age-sessions to accept "
+            "older bars deliberately. Zero candidates here does not mean no setups."
+        ]
+    return []
+
+
 def generate_json_report(
     results: list[dict[str, Any]], metadata: dict[str, Any], output_path: str
 ) -> None:
     payload = {
         "schema_version": "1.0",
         "skill": "stockbee-momentum-burst-screener",
+        "warnings": report_warnings(metadata),
         "metadata": metadata,
         "candidates": results,
     }
@@ -1116,6 +1135,11 @@ def generate_markdown_report(
         "REJECTED",
     ]:
         lines.append(f"| {state} | {counts.get(state, 0)} |")
+
+    warnings = report_warnings(metadata)
+    if warnings:
+        lines.extend(["", "## Warnings", ""])
+        lines.extend(f"- WARNING: {w}" for w in warnings)
 
     lines.extend(["", "## Candidates", ""])
     if actionable:

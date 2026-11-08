@@ -882,6 +882,7 @@ def test_generate_json_report_roundtrip(tmp_path):
     assert data == {
         "schema_version": "1.0",
         "skill": "stockbee-momentum-burst-screener",
+        "warnings": [],
         "metadata": {"k": "v"},
         "candidates": [{"symbol": "A"}],
     }

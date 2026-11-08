@@ -68,7 +68,7 @@ def test_stale_strong_breakout_is_rejected_and_fresh_score_is_preserved():
     assert fresh["bar_age_sessions"] == 0
 
 
-@pytest.mark.parametrize("limit,state", [(0, "REJECTED"), (1, "ACTIONABLE_DAY1")])
+@pytest.mark.parametrize("limit,state", [(0, "REJECTED"), (1, "MANUAL_REVIEW")])
 def test_exact_session_age_boundary(limit, state):
     result = analyze("2026-11-05", max_bar_age_sessions=limit)
     assert result["state"] == state
@@ -172,6 +172,32 @@ def test_cli_metadata_and_markdown_expose_staleness_without_reject_flag(tmp_path
     assert meta["max_bar_age_sessions"] == 0
     assert "Stale price data rejected: 1" in md
     assert "2026-11-06" in md
+
+
+def test_all_stale_universe_emits_publish_lag_warning(tmp_path, monkeypatch):
+    payload, md = cli(tmp_path, monkeypatch, {"A": rows("2026-11-05"), "B": rows("2026-11-05")})
+    assert payload["metadata"]["stale_price_data_count"] == 2
+    assert len(payload["warnings"]) == 1
+    assert "all" in payload["warnings"][0].lower()
+    assert "EOD" in payload["warnings"][0]
+    assert "## Warnings" in md
+    assert payload["warnings"][0] in md
+
+
+def test_partial_stale_universe_has_no_all_stale_warning(tmp_path, monkeypatch):
+    payload, md = cli(tmp_path, monkeypatch, {"A": rows(), "B": rows("2026-11-05")})
+    assert payload["warnings"] == []
+    assert "## Warnings" not in md
+
+
+def test_one_session_old_bar_is_capped_at_manual_review():
+    result = analyze("2026-11-05", max_bar_age_sessions=1)
+    assert result["bar_age_sessions"] == 1
+    assert result["state"] == "MANUAL_REVIEW"
+    assert "stale_bar_tolerated" in result["soft_failure_tags"]
+    fresh = analyze(max_bar_age_sessions=1)
+    assert fresh["state"] == "ACTIONABLE_DAY1"
+    assert "stale_bar_tolerated" not in fresh["soft_failure_tags"]
 
 
 @pytest.mark.parametrize(

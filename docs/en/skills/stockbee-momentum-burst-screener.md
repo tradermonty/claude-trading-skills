@@ -114,10 +114,17 @@ excluded; weekends, holidays, DST and early closes follow the shared calendar.
   older observations; it does not make them current. Keep the default for Day 1
   screening.
 - Bars after the cutoff are excluded. Missing/noncanonical dates anywhere in
-  supplied rows produce `REJECTED` / `invalid_price_date`; a latest eligible bar
+  supplied rows produce `REJECTED` / `invalid_price_date`. In `--prices-json`,
+  each row's `date` (or `timestamp`) must be exactly `YYYY-MM-DD`; values such as
+  `2026-11-06 00:00:00` or `2026-11-06T00:00:00Z` are rejected. A latest eligible bar
   on a non-session day is also rejected. No eligible bar produces
   `no_completed_price_data`. Too-old bars produce `stale_price_data`, score 0 and
   a do-not-trade downstream action. Short usable history stays rejected.
+- With `--max-bar-age-sessions` above 0, a setup on an older (but tolerated) bar is
+  capped at `MANUAL_REVIEW` with a `stale_bar_tolerated` soft tag, never
+  `ACTIONABLE_DAY1`. When every processed symbol is stale (typically FMP has not
+  yet published today's EOD data), the report carries a top-level `warnings`
+  entry and a `## Warnings` section in the markdown.
 - Calendar failure exits 1 before reports are written; invalid flag syntax exits
   2. A future/uncompleted as-of exits 1 before any provider request. Neither path
   replaces existing reports. The FMP universe additionally requests active

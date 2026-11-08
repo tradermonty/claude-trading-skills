@@ -321,6 +321,9 @@ def upsert_records(
     return list(by_id.values()), {"inserted": inserted, "updated": updated, "total": len(by_id)}
 
 
+_PER_SYMBOL_METADATA_KEYS = frozenset({"latest_bar_dates"})
+
+
 def load_screener_candidates(
     paths: Iterable[str | Path], include_rejects: bool = False
 ) -> list[dict[str, Any]]:
@@ -332,6 +335,9 @@ def load_screener_candidates(
         if not isinstance(report_candidates, list):
             raise ValueError(f"{path} does not look like a stockbee momentum burst JSON report")
         metadata = data.get("metadata", {}) if isinstance(data.get("metadata", {}), dict) else {}
+        # Per-symbol maps (one entry per screened symbol) would be copied into
+        # every persisted model-book row; candidates carry their own values.
+        metadata = {k: v for k, v in metadata.items() if k not in _PER_SYMBOL_METADATA_KEYS}
         for c in report_candidates:
             if not isinstance(c, dict):
                 continue
