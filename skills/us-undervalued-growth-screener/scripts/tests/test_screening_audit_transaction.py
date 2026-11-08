@@ -767,3 +767,90 @@ def test_draft_checkpoint_allows_audit_replacement(attached_run, replacement, tm
     assert "ACME" in state["unprocessed_candidates"]
     assert state["screening_funnel"]["deep_dive_completed_count"] == 0
     assert RUN_STATE.main(["status", "--run-dir", str(attached_run), "--strict"]) == 0
+
+
+def _save(run: Path, candidate: Path, stage: str, *extra: str) -> int:
+    return RUN_STATE.main(
+        [
+            "save-candidate",
+            "--run-dir",
+            str(run),
+            "--candidate",
+            str(candidate),
+            "--stage",
+            stage,
+            *extra,
+        ]
+    )
+
+
+def _candidate_file(tmp_path: Path, symbol: str = "ACME") -> Path:
+    example = json.loads((ASSETS / "candidate-input.example.json").read_text(encoding="utf-8"))
+    data = dict(example["candidates"][0])
+    data["identity"] = {**data["identity"], "symbol": symbol}
+    candidate = tmp_path / f"{symbol}.json"
+    candidate.write_text(json.dumps(data), encoding="utf-8")
+    return candidate
+
+
+def _pending_audit(item: Replacement) -> None:
+    item.audit["candidate_pool_status"] = "sufficient_pending_enrichment"
+    item.audit["selection_outcome"] = "selected_pending_enrichment"
+
+
+def test_pending_pool_workflow_is_recoverable(tmp_path, capsys):
+    run = tmp_path / "run"
+    _init(run)
+    pending = Replacement(tmp_path)
+    _pending_audit(pending)
+    assert RUN_STATE.main(pending.args(run)) == 0
+    candidate = _candidate_file(tmp_path)
+
+    assert _save(run, candidate, "draft") == 0
+    before = _snapshot(run)
+    capsys.readouterr()
+    assert _save(run, candidate, "verified") == 1
+    error = capsys.readouterr().err
+    assert "ERROR:" in error
+    assert "sufficient_pending_enrichment" in error
+    assert "draft" in error
+    assert _snapshot(run) == before
+
+    args = _attach_args(
+        run,
+        ASSETS / "broad-screen-audit.example.json",
+        ASSETS / "universe-audit-results.example.jsonl",
+        ASSETS / "broad-screen-results.example.jsonl",
+    )
+    assert RUN_STATE.main(args) == 0
+    for symbol in ("ACME", "CYCLE", "STALE"):
+        assert _save(run, _candidate_file(tmp_path, symbol), "verified") == 0
+    assert RUN_STATE.main(["set-status", "--run-dir", str(run), "complete"]) == 0
+
+
+def test_verified_candidate_cannot_be_downgraded_to_draft(attached_run, tmp_path, capsys):
+    candidate = _candidate_file(tmp_path)
+    assert _save(attached_run, candidate, "verified") == 0
+    before = _snapshot(attached_run)
+    capsys.readouterr()
+
+    assert _save(attached_run, candidate, "draft") == 1
+
+    error = capsys.readouterr().err
+    assert "ERROR:" in error
+    assert "downgrade" in error
+    assert _snapshot(attached_run) == before
+
+
+def test_reattach_guard_blocks_verified_candidate_outside_selection(
+    attached_run, replacement, tmp_path, capsys
+):
+    outside = _candidate_file(tmp_path, "OUTSIDE")
+    assert _save(attached_run, outside, "verified", "--allow-unselected") == 0
+    before = _snapshot(attached_run)
+    capsys.readouterr()
+
+    assert RUN_STATE.main(replacement.args(attached_run)) == 1
+
+    assert "verified candidates" in capsys.readouterr().err
+    assert _snapshot(attached_run) == before

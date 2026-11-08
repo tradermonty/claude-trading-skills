@@ -361,8 +361,9 @@ def _commit_files(run_dir: Path, staging_dir: Path, staged: Mapping[str, Path]) 
 
     Mapping order is commit order; run_state.json goes last because it is what
     a resumed run trusts. A process killed outright cannot run this rollback:
-    prepublish_audit then rejects the hash mismatch, and rerunning the command
-    repairs the run. An exception that leaves a file unrestored carries
+    prepublish_audit then rejects the hash mismatch. Rerunning the command
+    repairs the run only when it has no verified candidates; otherwise restore
+    from backups or start a new run directory. An exception that leaves a file unrestored carries
     keep_staging = True so the caller does not delete the backups.
     """
     pending: list[tuple[Path, Path, Path]] = []
@@ -505,7 +506,7 @@ def _attach_screening_audit(args: argparse.Namespace) -> int:
     if _verified_symbols(state):
         raise RunStateError(
             "cannot attach a screening audit to a run with verified candidates; "
-            "initialize a new run and verify candidates against the new audit"
+            "initialize a new run directory and verify candidates against the new audit"
         )
     audit = _read_json(args.audit)
     if not isinstance(audit, Mapping):
@@ -618,7 +619,8 @@ def _attach_screening_audit(args: argparse.Namespace) -> int:
             "deep_dive_completed_count": 0,
         }
         selected_set = set(normalized["selected_symbols"])
-        state["unprocessed_candidates"] = sorted(selected_set - _verified_symbols(state))
+        # No candidate is verified here: the guard above rejects verified runs.
+        state["unprocessed_candidates"] = sorted(selected_set)
         state["status"] = "partial"
         state["updated_at"] = _now()
 
@@ -678,6 +680,20 @@ def cmd_save_candidate(args: argparse.Namespace) -> int:
     selected = _selected_symbols(state)
     if symbol not in selected and not args.allow_unselected:
         raise RunStateError(f"candidate {symbol} was not selected by the verified screening audit")
+    audit_section = _mapping(state.get("screening_audit"))
+    pool_status = (_text(audit_section.get("candidate_pool_status")) or "").lower()
+    if args.stage == "verified" and pool_status == "sufficient_pending_enrichment":
+        raise RunStateError(
+            "cannot save a verified candidate while candidate_pool_status is "
+            "sufficient_pending_enrichment; save as draft until the pool is resolved "
+            "and the resolved screening audit is attached"
+        )
+    previous = _mapping(_mapping(state.get("candidates")).get(symbol))
+    if previous.get("stage") == "verified" and args.stage != "verified":
+        raise RunStateError(
+            f"cannot downgrade verified candidate {symbol} to {args.stage}; "
+            "verification is tied to the attached audit"
+        )
     candidate = dict(candidate)
     candidate.setdefault("identity", {})["symbol"] = symbol
     target = run_dir / "candidates" / f"{symbol}.json"
