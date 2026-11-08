@@ -23,6 +23,11 @@ def load_script(name):
     return module
 
 
+def clean_git_env():
+    # Hooks export repository/index/config variables. -C alone cannot isolate Git.
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
 def git(root, *args):
     return subprocess.run(
         ["git", "-c", "core.hooksPath=/dev/null", "-C", str(root), *args],
@@ -30,10 +35,38 @@ def git(root, *args):
         capture_output=True,
         text=True,
         timeout=30,
+        env=clean_git_env(),
     ).stdout
 
 
-def test_real_wrapper_symlinks_reach_scoring_twice(tmp_path):
+@pytest.mark.parametrize("hook_env", [False, True])
+def test_real_wrapper_symlinks_reach_scoring_twice(tmp_path, monkeypatch, hook_env):
+    # A disposable outer repository models pre-push variables, never the user's
+    # checkout. Assert its HEAD, index and configuration survive the entire test.
+    outer = tmp_path / "outer"
+    outer.mkdir()
+    git(outer, "init", "-b", "main")
+    (outer / "sentinel").write_text("outside fixture")
+    git(outer, "add", ".")
+    git(
+        outer,
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "-m",
+        "sentinel",
+    )
+    before_head = git(outer, "rev-parse", "HEAD")
+    before = {name: (outer / ".git" / name).read_bytes() for name in ("index", "config")}
+    if hook_env:
+        monkeypatch.setenv("GIT_DIR", str(outer / ".git"))
+        monkeypatch.setenv("GIT_WORK_TREE", str(outer))
+        monkeypatch.setenv("GIT_INDEX_FILE", str(outer / ".git/index"))
+        monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+        monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.bare")
+        monkeypatch.setenv("GIT_CONFIG_VALUE_0", "true")
     primary = tmp_path / "primary"
     primary.mkdir()
     git(primary, "init", "-b", "main")
@@ -68,12 +101,19 @@ with (r / 'reports' / 'synthetic-scores.txt').open('a') as f:
     )
     remote = tmp_path / "remote.git"
     subprocess.run(
-        ["git", "clone", "--bare", str(primary), str(remote)], check=True, capture_output=True
+        ["git", "clone", "--bare", str(primary), str(remote)],
+        check=True,
+        capture_output=True,
+        env=clean_git_env(),
+        timeout=30,
     )
     git(primary, "remote", "add", "origin", str(remote))
     bot = tmp_path / "bot"
     env = dict(
-        os.environ, SKILL_LOOP_CHECKOUT=str(bot), SKILL_LOOP_NOTIFY="off", GIT_CONFIG_NOSYSTEM="1"
+        clean_git_env(),
+        SKILL_LOOP_CHECKOUT=str(bot),
+        SKILL_LOOP_NOTIFY="off",
+        GIT_CONFIG_NOSYSTEM="1",
     )
     for _ in range(2):
         result = subprocess.run(
@@ -102,10 +142,14 @@ with (r / 'reports' / 'synthetic-scores.txt').open('a') as f:
         cwd=bot / "scripts",
         capture_output=True,
         text=True,
+        env=clean_git_env(),
+        timeout=30,
     )
     # Use the root explicitly; importing safety from scripts must not change the Git target.
     assert check.returncode == 1
     assert "untracked file: unsafe.py" in check.stderr
+    assert git(outer, "rev-parse", "HEAD") == before_head
+    assert before == {name: (outer / ".git" / name).read_bytes() for name in before}
 
 
 def heartbeat_state(root, stamp):
