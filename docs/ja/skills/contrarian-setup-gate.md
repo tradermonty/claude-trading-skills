@@ -37,6 +37,13 @@ generated: false
 
 ---
 
+COT入力では、レポート全体の`run_context.data_date`に加え、対象市場の
+`markets[].data_date`と`data_provenance.market_data_dates[symbol]`を、指定されている場合に検査します。
+各日付が未来・期限超過であれば拒否し、監査上の古さには有効な日付のうち最古のものを使います。
+元のrun contextは変更しません。旧形式で市場別日付の項目がない場合は全体日付へフォールバックしますが、
+明示されたnull・空・不正日付や不正なprovenance/mapは拒否します。他市場の日付は代用しません。
+既存の先頭10文字による日付解析と、期限ちょうどの日付を受理する仕様は維持します。
+
 ## 2. 使用タイミング
 
 - cot-contrarian-detectorの実行後。このスキルは常に必須で、パイプラインの起点となります

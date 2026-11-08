@@ -59,7 +59,7 @@ This skill detects and ranks trending market themes by analyzing cross-sector mo
 ## Prerequisites
 
 **Required:**
-- Python 3.9+ with core dependencies.
+- Python 3.9+ for core/Elite execution; public FINVIZ requires Python 3.10+ and `finvizfinance>=1.5.0`.
   ```bash
   pip install -r skills/theme-detector/requirements.txt
   ```
@@ -69,7 +69,7 @@ This skill detects and ranks trending market themes by analyzing cross-sector mo
 uv run --python 3.12 \
   --with requests --with beautifulsoup4 --with lxml \
   --with pandas --with numpy --with yfinance \
-  --with finvizfinance --with PyYAML \
+  --with 'finvizfinance>=1.5.0' --with PyYAML \
   python skills/theme-detector/scripts/theme_detector.py \
   --finviz-api-key "$FINVIZ_API_KEY" \
   --fmp-api-key "$FMP_API_KEY" \
@@ -89,8 +89,10 @@ FMP API (optional, for P/E ratio valuation data):
 export FMP_API_KEY=your_fmp_api_key_here
 ```
 
-The requirements include `finvizfinance`, PyYAML, pandas/numpy, requests, and
-yfinance because normal public-mode execution imports or uses each of them.
+The generated requirements retain core dependencies and the shared calendar pin.
+`finvizfinance>=1.5.0` is installed only on Python 3.10+; Python 3.9 skips
+that optional package and supports Elite group export through requests. Public
+group fetch is disabled on Python 3.9 even if an older scraper remains installed.
 
 Without FINVIZ Elite, the skill uses public FINVIZ scraping (limited to ~20 stocks per industry, slower rate limits).
 
@@ -104,7 +106,7 @@ Check that API keys are configured (see Prerequisites):
 
 ```bash
 # Verify FINVIZ Elite API key (optional but recommended)
-echo $FINVIZ_API_KEY
+test -n "${FINVIZ_API_KEY:-}" && echo "FINVIZ key configured"
 
 # Verify FMP API key (optional)
 echo $FMP_API_KEY
@@ -438,6 +440,30 @@ rather than PIT snapshots, a non-current `--as-of-date` fails closed. Freshness
 counts XNYS sessions and excludes future-dated source rows.
 
 ## Important Notes
+
+### FINVIZ group source and failure behavior
+
+With a configured `FINVIZ_API_KEY` or `--finviz-api-key`, industry and sector
+performance prefer the authenticated Elite group CSV export. A non-200,
+unreadable, empty or malformed export warns and falls back to the public
+`finvizfinance>=1.5.0` scraper on Python 3.10+. `--finviz-mode public` forces
+public-only operation even when a key is configured. Without a key, public
+scraping remains the normal path; provider blocking is still possible.
+
+CSV percentage points, including values below 1%, are normalized to decimal
+ratios at the client boundary and converted to percentage points once by the
+pipeline. Missing, nonfinite or malformed required export data cannot appear as
+a successful empty scan. If neither source supplies industry data, the CLI
+exits 1 with upgrade/key/access guidance instead of producing a report. These
+source failures do not print keys, response bodies, request URLs or raw exception
+messages. Library callers retain the list-returning interface; an explicit
+empty `api_key` selects public-only and an omitted key reads `FINVIZ_API_KEY`.
+
+Dynamic representative-stock selection safely merges overlapping proxy ETF
+holdings, keeps both reasons, and retains the maximum available composite score;
+unscored ETF/static candidates use zero. This remains candidate research, with
+no broker execution or guarantee of provider access. The repair's regression
+fixtures are synthetic; a successful test is not live provider acceptance.
 
 ### FINVIZ Mode Differences
 

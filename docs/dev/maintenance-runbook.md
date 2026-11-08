@@ -152,7 +152,7 @@ drift `--check`) then `bash scripts/run_all_tests.sh`.
 
 ## 5. Scheduled self-maintenance jobs
 
-Three shipped `launchd` **templates** under `launchd/` automate repo
+Four shipped `launchd` **templates** under `launchd/` automate repo
 self-maintenance. They are templates (paths use a `$PROJECT_DIR` placeholder);
 whether they are loaded is **local machine state**, so verify with `launchctl`
 rather than assuming.
@@ -162,6 +162,48 @@ rather than assuming.
 | `com.trade-analysis.skill-improvement.plist` | `com.trade-analysis.skill-improvement` | daily 05:00 | `scripts/run_skill_improvement.sh` → `run_skill_improvement_loop.py` |
 | `com.trade-analysis.skill-generation-daily.plist` | `com.trade-analysis.skill-generation-daily` | daily 07:00 | `scripts/run_skill_generation.sh` (daily) → `run_skill_generation_pipeline.py` |
 | `com.trade-analysis.skill-generation-weekly.plist` | `com.trade-analysis.skill-generation-weekly` | Saturday 06:00 | `scripts/run_skill_generation.sh` (weekly: mine + score) |
+| `com.trade-analysis.skill-heartbeat.plist` | `com.trade-analysis.skill-heartbeat` | daily 08:00 | `scripts/run_skill_heartbeat.sh` (independent success watchdog) |
+
+Install all four maintenance templates from the repository root with one command:
+
+```bash
+python3 scripts/install_launchd.py
+```
+
+The stdlib installer replaces `$HOME` and `$PROJECT_DIR` structurally, creates
+`logs/`, and writes the rendered plists to `~/Library/LaunchAgents`. It validates
+all four templates and existing destinations before writing anything. An
+identical installed plist is retained; a differing/customized plist is refused.
+Plain `cp` leaves literal placeholders and is not a supported installation.
+Use `--output-dir <temporary-directory>` to inspect rendered files without
+loading jobs (this also creates the repository's log directory).
+
+Activate all four schedules explicitly:
+
+```bash
+python3 scripts/install_launchd.py --load
+```
+
+`--load` bootstraps into the current user's GUI domain on macOS; it does not
+stop/restart existing services or run scoring immediately. It requires a logged-in
+GUI session. Rendering is idempotent, but bootstrapping an already loaded service
+fails with update guidance. Some earlier services may have loaded before a later
+bootstrap failure; inspect `launchctl print` for each exact label.
+
+For an existing installation, first check that no maintenance job is running,
+then unload the exact four maintenance services before rerunning `--load`:
+
+```bash
+for job in skill-improvement skill-generation-daily skill-generation-weekly skill-heartbeat; do
+  launchctl bootout "gui/$(id -u)/com.trade-analysis.$job"
+done
+```
+
+A service not yet loaded can report an error. If the installer refuses an
+existing customized plist, move only that file to a backup outside
+`~/Library/LaunchAgents`, rerun the installer, and reapply intended local settings.
+Keep webhook URLs private. Never delete logs/state to fix installation conflicts.
+The installer does not automatically unload agents or overwrite customizations.
 
 For a concise explanation of what each mode reads and writes, including why
 `--dry-run` is not filesystem-read-only, see the
@@ -195,6 +237,14 @@ The launcher instead maintains a dedicated checkout at
 `clean` deliberately omits `-x` so gitignored paths survive, and `logs/` and
 `reports/` are symlinked back to the primary repo so round-robin state,
 run logs, and daily summaries stay in one place.
+
+The isolation fix on 2026-07-31 was followed by a second stall, observed from
+2026-08-01 through the 2026-11-07 audit (#652). Git's directory-only `logs/`
+and `reports/` ignore patterns did not cover the symlinks created by the wrapper;
+the safety check rejected them as untracked. Root-only `/logs` and `/reports`
+ignore entries now cover both directories and symlinks without relaxing source
+safety. Deployment and a subsequent real scheduled score must still be verified
+on the maintainer machine; local fixtures are not evidence of operational recovery.
 
 Consequences worth knowing:
 
@@ -273,8 +323,8 @@ re-run `pre-commit run --all-files`.
 ## Automation failure notifications and heartbeat
 
 Both `scripts/run_skill_improvement.sh` and `scripts/run_skill_generation.sh`
-notify on a nonzero exit when `SKILL_LOOP_NOTIFY` is configured. Default is a
-silent no-op. Notifications contain only the job name, exit code, and a prompt
+notify on a nonzero exit when `SKILL_LOOP_NOTIFY` is configured. Those immediate
+failure notifications remain opt-in. Notifications contain only the job name, exit code, and a prompt
 to read local logs; command output and exception text are never sent.
 
 - Set `SKILL_LOOP_NOTIFY=macos` for a local macOS notification (`osascript`).
@@ -314,10 +364,24 @@ lock skips, and failures do not refresh it. A failed improvement attempt returns
 nonzero even when scoring and the summary succeeded. Success is recorded after
 normal cleanup; it does not prove that a PR was merged or deployed.
 
-Schedule the checker independently (for example daily from a separate watchdog)
-and inspect its nonzero exit. Running it only inside the monitored agents will
-not detect agents that have stopped firing. No LaunchAgent is installed or
-notification enabled by this repository change.
+The fourth template schedules `run_skill_heartbeat.sh` independently at 08:00
+local time. It runs `job_monitor.py --notify-heartbeat`, checks the same success
+thresholds, and defaults to a local macOS notification without opt-in. Each
+unhealthy job produces one generic notification per watchdog invocation; healthy
+jobs do not notify. Missing, invalid and future timestamps also notify. Delivery
+failure remains best effort and never turns stale health into a successful exit.
+The ordinary `--check-heartbeat` command above stays silent and read-only.
+
+For an explicit opt-out, set `SKILL_LOOP_NOTIFY=off` in the installed heartbeat
+plist's `EnvironmentVariables`, then unload/reload that exact watchdog service.
+`macos` and `webhook` remain supported. The watchdog does not source `.envrc`, so
+webhook settings must reach its process through its private local LaunchAgent
+environment. It does not modify success state or start the monitored jobs.
+Do not put webhook secrets into committed templates. Local macOS delivery depends
+on OS notification permissions and the GUI session. A sleeping/offline machine or
+an unloaded watchdog cannot deliver a notification; verification requires checking
+its own `launchctl print`/logs as well. No agents are installed by merely checking
+out this change; activate them with the installer only when ready.
 
 
 ## Smoke evidence layers (issue #507)

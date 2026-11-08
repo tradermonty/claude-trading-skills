@@ -28,6 +28,8 @@ env/
 
 # Logs & temp
 logs/
+# Root output paths may be symlinks in the automation checkout.
+/logs
 *.log
 *.tmp
 
@@ -36,6 +38,7 @@ logs/
 
 # Generated reports
 reports/
+/reports
 reviews/
 
 # Stray screener reports if a script is run with --output-dir . (default is reports/)

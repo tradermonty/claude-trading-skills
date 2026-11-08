@@ -304,3 +304,17 @@ the other mode's insufficiency rather than treating it as a disagreement.
 - **A single-signal MEDIUM verdict is weak evidence** — see the
   Confidence section above. Do not treat it the same as a HIGH-confidence,
   2-signal or full-window-extreme confirmation.
+
+## Selected COT market freshness
+
+Validate `run_context.data_date` and every supplied vintage for the selected market:
+`markets[].data_date` and `data_provenance.market_data_dates[symbol]`. Each must
+be nonempty, parseable, not after `--as-of`, and no older than
+`--max-detector-age-days` (the boundary itself is accepted). Use the oldest
+validated date for the audit age; keep the original run context unchanged.
+Legacy reports may omit row/map dates and fall back to the report date. A
+present invalid/null/empty date or malformed provenance/map container fails
+closed using the existing missing/invalid/future/stale reason codes. Other
+symbols' row/map dates do not replace the selected market's vintage. Existing
+first-10-character date parsing remains compatible; this is not a stricter
+full-timestamp or provenance-schema validator.

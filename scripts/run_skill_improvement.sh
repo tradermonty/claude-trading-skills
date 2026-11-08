@@ -7,10 +7,10 @@
 # origin/main on every invocation. logs/ and reports/ are symlinked back to
 # the primary repo so round-robin state and summaries stay in one place.
 #
-# Install as launchd agent:
-#   cp launchd/com.trade-analysis.skill-improvement.plist ~/Library/LaunchAgents/
-#   launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-improvement.plist
-#   launchctl list | grep skill-improvement
+# Install all maintenance agents from the repository root:
+#   python3 scripts/install_launchd.py
+# Add --load to activate schedules.
+# Existing customized plists are preserved; see docs/dev/maintenance-runbook.md.
 #
 # Manual dry-run test:
 #   bash scripts/run_skill_improvement.sh --dry-run

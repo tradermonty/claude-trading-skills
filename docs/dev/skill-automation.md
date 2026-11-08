@@ -93,9 +93,10 @@ uv run skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py \
 The loop runs daily at 05:00 local time via macOS `launchd`:
 
 ```bash
-# Install the agent
-cp launchd/com.trade-analysis.skill-improvement.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-improvement.plist
+# Render all four maintenance agents (no activation)
+python3 scripts/install_launchd.py
+# Activate explicitly
+python3 scripts/install_launchd.py --load
 
 # Verify
 launchctl list | grep skill-improvement
@@ -103,6 +104,15 @@ launchctl list | grep skill-improvement
 # Manual trigger
 launchctl start com.trade-analysis.skill-improvement
 ```
+
+This installs the independent 08:00 heartbeat watchdog as well. It defaults to
+macOS notifications when daily success is over 48 hours old (weekly generation:
+14 days), missing, invalid or future-dated. Set `SKILL_LOOP_NOTIFY=off` in the
+private installed watchdog plist to opt out. The watchdog does not source `.envrc`.
+For existing installations, unload the exact maintenance services before `--load`;
+customized plists are preserved and require a manual backup/move before replacement.
+See the [installation and update procedure](maintenance-runbook.md#5-scheduled-self-maintenance-jobs).
+Checking out this code does not install jobs or demonstrate a healthy scheduled run.
 
 ### Key Files
 
@@ -150,11 +160,10 @@ python3 scripts/run_skill_generation_pipeline.py --mode daily
 Two `launchd` agents handle the weekly and daily schedules:
 
 ```bash
-# Install both agents
-cp launchd/com.trade-analysis.skill-generation-weekly.plist ~/Library/LaunchAgents/
-cp launchd/com.trade-analysis.skill-generation-daily.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-generation-weekly.plist
-launchctl load ~/Library/LaunchAgents/com.trade-analysis.skill-generation-daily.plist
+# Render all four maintenance agents (no activation)
+python3 scripts/install_launchd.py
+# Activate explicitly
+python3 scripts/install_launchd.py --load
 
 # Verify
 launchctl list | grep skill-generation

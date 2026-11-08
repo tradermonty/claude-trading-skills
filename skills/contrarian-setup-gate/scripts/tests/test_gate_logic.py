@@ -464,7 +464,7 @@ def test_normalize_crowding_near_stale_warning() -> None:
 
 
 def test_normalize_crowding_data_date_divergence_warning() -> None:
-    data = detector_fixture(data_date="2026-07-01", run_context_data_date="2026-07-07")
+    data = detector_fixture(data_date="2026-07-06", run_context_data_date="2026-07-07")
     result = gl.normalize_crowding(data, None, symbol=SYMBOL, as_of=AS_OF, max_age_days=10)
     assert "detector_data_date_divergence" in result.warnings
 
