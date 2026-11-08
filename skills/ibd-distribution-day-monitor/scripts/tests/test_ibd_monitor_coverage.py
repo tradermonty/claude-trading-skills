@@ -1211,13 +1211,16 @@ def test_get_historical_prices_failure_is_not_cached():
 
 def test_get_earnings_calendar_uses_stable_url_and_caches():
     rows = [{"symbol": "AAPL", "date": "2026-05-01", "time": "amc"}]
-    client = make_client(FakeResponse(200, rows))
+    # One request per day (#672): first day has the row, the other six are empty.
+    client = make_client(FakeResponse(200, rows), *[FakeResponse(200, []) for _ in range(6)])
     assert client.get_earnings_calendar("2026-05-01", "2026-05-07") == rows
+    assert len(client.session.calls) == 7
     url, params = client.session.calls[0]
     assert url == "https://financialmodelingprep.com/stable/earnings-calendar"
-    assert params == {"from": "2026-05-01", "to": "2026-05-07", "includeReportTimes": "true"}
+    assert params == {"from": "2026-05-01", "to": "2026-05-01", "includeReportTimes": "true"}
+    assert client.session.calls[-1][1]["from"] == client.session.calls[-1][1]["to"] == "2026-05-07"
     assert client.get_earnings_calendar("2026-05-01", "2026-05-07") == rows
-    assert len(client.session.calls) == 1
+    assert len(client.session.calls) == 7
 
 
 def test_get_earnings_calendar_failure_returns_none_uncached():

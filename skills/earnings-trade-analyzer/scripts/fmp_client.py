@@ -418,10 +418,72 @@ class FMPClient:
             f"{self.BASE_URL}/earning_calendar",
             {"from": from_date, "to": to_date, "includeReportTimes": "true"},
         )
-        data = self._rate_limited_get(url, params)
-        if data:
-            self.cache[cache_key] = data
-        return data
+        # The provider caps the earnings-calendar response at 4000 rows and
+        # keeps the newest dates, so one request over a multi-day window
+        # silently drops the oldest days (#672). Fetch one day at a time,
+        # concatenate, and dedupe on (symbol, date).
+        try:
+            start = datetime.strptime(from_date, "%Y-%m-%d").date()
+            end = datetime.strptime(to_date, "%Y-%m-%d").date()
+        except (ValueError, TypeError) as e:
+            self._last_error = f"invalid earnings calendar range {from_date!r}..{to_date!r}: {e}"
+            print(f"ERROR: {self._last_error}", file=sys.stderr)
+            return None
+        if end < start:
+            self._last_error = f"earnings calendar range end {to_date} is before start {from_date}"
+            print(f"ERROR: {self._last_error}", file=sys.stderr)
+            return None
+
+        rows: list = []
+        seen: set = set()
+        truncated_days: list[str] = []
+        day = start
+        while day <= end:
+            day_params = {**params, "from": day.isoformat(), "to": day.isoformat()}
+            data = self._rate_limited_get(url, day_params)
+            if data is None:
+                return None
+            if isinstance(data, dict):
+                # A provider error payload ({"Error Message": ...}); pass it
+                # through so the caller reports it instead of iterating keys.
+                error_text = self._redact_secret(f"earnings calendar provider error: {data}")
+                self._last_error = error_text[:200]
+                return data
+            if not isinstance(data, list):
+                self._last_error = (
+                    f"unexpected earnings calendar body type {type(data).__name__} "
+                    f"for {day.isoformat()}"
+                )
+                return None
+            if len(data) >= 4000:
+                truncated_days.append(day.isoformat())
+            day_keys: set = set()
+            for row in data:
+                # Non-dict rows are passed through untouched (callers skip
+                # them); rows without a symbol are never deduped. Dedupe only
+                # drops a row already returned for an earlier queried day, so
+                # same-day rows (e.g. bmo and amc) are all kept.
+                if isinstance(row, dict) and row.get("symbol"):
+                    key = (row.get("symbol"), row.get("date"))
+                    if key in seen:
+                        continue
+                    day_keys.add(key)
+                rows.append(row)
+            seen |= day_keys
+            day += timedelta(days=1)
+
+        if truncated_days:
+            print(
+                "WARNING: earnings calendar hit the 4000-row provider cap on: "
+                f"{', '.join(truncated_days)}; rows beyond the cap are missing",
+                file=sys.stderr,
+            )
+
+        # An empty range stays an empty list: None means the fetch itself
+        # failed, which is a different contract for the callers.
+        if rows:
+            self.cache[cache_key] = rows
+        return rows
 
     def get_company_profiles(self, symbols: list[str]) -> dict[str, dict]:
         """Fetch company profiles for multiple symbols.

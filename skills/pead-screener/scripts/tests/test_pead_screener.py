@@ -1496,6 +1496,24 @@ class TestModeACandidates:
         assert result[0]["earnings_timing"] == "amc"
         assert result[0]["gap_pct"] is None
 
+    def test_calendar_budget_exhaustion_is_a_zero_result_reason(self):
+        """Per-day calendar chunking (#672) costs lookback+1 calls; a small
+        --max-api-calls must not escape as a traceback."""
+        client = FMPClient(api_key="test_key", max_api_calls=5)
+        client.RATE_LIMIT_DELAY = 0
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = []
+        client.session.get = MagicMock(return_value=resp)
+
+        result, reason = _get_candidates_mode_a(client, self._args(lookback_days=14))
+
+        assert result == []
+        assert reason == "calendar_budget_exhausted"
+        exit_code, _level, message = _ZERO_RESULT_REASONS[reason]
+        assert exit_code == 1
+        assert "--max-api-calls" in message
+
     def test_legacy_v3_profile_is_kept(self):
         client = self._client(
             {"symbol": "AAPL", "mktCap": 3_500_000_000_000, "exchangeShortName": "NASDAQ"}
@@ -2056,8 +2074,13 @@ class TestMainZeroResultExitCodes:
         get = MagicMock(side_effect=respond)
         monkeypatch.setattr(client.session, "get", get)
         with patch("screen_pead.FMPClient", return_value=client):
+            # gh-672: the calendar endpoint now costs one call per day, so a
+            # zero-lookback window keeps it at exactly one call and the budget
+            # still exhausts mid-profile-fetch, which is what this test pins.
             with patch.object(
-                sys, "argv", self._argv(tmp_path, ["--max-api-calls", str(max_calls)])
+                sys,
+                "argv",
+                self._argv(tmp_path, ["--lookback-days", "0", "--max-api-calls", str(max_calls)]),
             ):
                 with pytest.raises(SystemExit) as exc_info:
                     main()

@@ -772,7 +772,15 @@ class TestMainZeroResultExitCodes:
 
         with patch("analyze_earnings_trades.FMPClient", return_value=client) as mock_client_class:
             mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
-            argv = self._argv(tmp_path) + ["--max-api-calls", str(max_calls)]
+            # gh-672: the calendar endpoint now costs one call per day, so a
+            # zero-lookback window keeps it at exactly one call and the budget
+            # still exhausts mid-profile-fetch, which is what this test pins.
+            argv = self._argv(tmp_path) + [
+                "--lookback-days",
+                "0",
+                "--max-api-calls",
+                str(max_calls),
+            ]
             with patch.object(sys, "argv", argv):
                 with pytest.raises(SystemExit) as exc_info:
                     main()

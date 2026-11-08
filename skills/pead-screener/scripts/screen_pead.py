@@ -674,6 +674,13 @@ _ZERO_RESULT_REASONS = {
         "The earnings calendar fetch failed (no usable response body); "
         "the provider may be down or the response shape may have changed.",
     ),
+    "calendar_budget_exhausted": (
+        1,
+        "ERROR",
+        "API budget was exhausted while fetching the earnings calendar "
+        "(one call per day in the lookback window). "
+        "Increase --max-api-calls or reduce --lookback-days and retry.",
+    ),
     "profiles_budget_exhausted": (
         1,
         "ERROR",
@@ -718,7 +725,11 @@ def _get_candidates_mode_a(client: FMPClient, args) -> tuple[list[dict], Optiona
 
     print(f"  Fetching earnings calendar: {from_date} to {to_date}")
 
-    earnings = client.get_earnings_calendar(from_date, to_date)
+    try:
+        earnings = client.get_earnings_calendar(from_date, to_date)
+    except ApiCallBudgetExceeded:
+        # The calendar is fetched one day at a time (lookback_days + 1 calls).
+        return [], "calendar_budget_exhausted"
     if not isinstance(earnings, list):
         print("  ERROR: Earnings calendar fetch failed (no usable response body)")
         return [], "calendar_fetch_failed"
