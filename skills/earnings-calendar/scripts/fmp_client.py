@@ -424,7 +424,8 @@ class FMPClient:
             if isinstance(data, dict):
                 # A provider error payload ({"Error Message": ...}); pass it
                 # through so the caller reports it instead of iterating keys.
-                self._last_error = f"earnings calendar provider error: {data}"
+                error_text = self._redact_secret(f"earnings calendar provider error: {data}")
+                self._last_error = error_text[:200]
                 return data
             if not isinstance(data, list):
                 self._last_error = (

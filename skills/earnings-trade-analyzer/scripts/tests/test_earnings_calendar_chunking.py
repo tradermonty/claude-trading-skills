@@ -200,3 +200,13 @@ def test_provider_error_payload_sets_last_error():
 
     assert client.get_earnings_calendar("2026-10-26", "2026-10-27") == payload
     assert "Invalid API KEY." in client._last_error
+
+
+def test_provider_error_payload_redacts_api_key():
+    client = _make_client()
+    payload = {"Error Message": "Invalid API KEY: test_key"}
+    client.session.get = MagicMock(return_value=_response(payload))
+
+    client.get_earnings_calendar("2026-10-26", "2026-10-26")
+
+    assert "test_key" not in client._last_error
