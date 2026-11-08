@@ -54,6 +54,30 @@ If the launcher reports that `jsonschema` is not importable AND `uv` is not on `
 
 Do **not** treat the thesis store as unavailable and do **not** mutate `state/theses/*.yaml` by hand to work around a missing dependency — schema validation is part of thesis state integrity.
 
+Equity accounting is long-only. Do not ingest parabolic-short plans or record
+short-equity trades through `manual`; there is no adapter for those plans.
+Explicit SHORT directions are rejected before they can be discarded by raw
+registration, manual ingest, equity opening or shares-report attachment. Generic
+registration does not import a raw position: use validated futures attachment or
+`open-position --contracts` for futures LONG/SHORT.
+
+When both initial prices are supplied, they must be finite numeric/non-bool
+values. Positive initial stop > positive entry is rejected at manual ingest,
+shares-report attachment and equity activation (using the actual fill). Absent
+optional pairs and existing finite nonpositive-price behavior remain compatible.
+Do not apply this initial-entry rule to an ACTIVE/PARTIALLY_CLOSED long's stop:
+a profitable long may update its stop above original entry. Manual source prices
+remain provenance only; authoritative fills still come from `open-position`.
+For a backfill with a profit-protecting stop, open the long with its initial stop,
+then update the current stop after activation.
+
+Explicit unsupported equity-short direction in legacy position/manual provenance
+is refused before new accounting, financial summary/monthly reporting, or
+MAE/MFE/postmortem writes. Read-only inspection
+remains available; no old outcomes are migrated or re-signed. Ambiguous legacy
+records without a direction cannot be classified from a trailing stop alone.
+Keep short-equity journals external; never relabel one as a futures contract.
+
 ## Workflow
 
 ### 1. Register — Ingest screener output as thesis

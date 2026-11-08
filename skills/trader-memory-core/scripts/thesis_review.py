@@ -33,6 +33,7 @@ def compute_mae_mfe(thesis: dict, price_adapter: Any | None = None) -> dict[str,
     Returns:
         {"mae_pct": float|None, "mfe_pct": float|None, "mae_mfe_source": str|None}
     """
+    thesis_store._validate_equity_long_only(thesis)
     result = {"mae_pct": None, "mfe_pct": None, "mae_mfe_source": None}
 
     if price_adapter is None:
@@ -243,6 +244,7 @@ def summary_stats(state_dir: str) -> dict:
 
     for entry in all_terminal:
         thesis = thesis_store.get(state_path, entry["thesis_id"])
+        thesis_store._validate_equity_long_only(thesis)
         pnl_pct = thesis.get("outcome", {}).get("pnl_pct")
         if pnl_pct is None:
             continue
@@ -391,6 +393,7 @@ def monthly_report(
         thesis = thesis_store.get(state_path, entry["thesis_id"])
         event_date = _terminal_event_date(thesis)
         if event_date and start <= event_date <= end:
+            thesis_store._validate_equity_long_only(thesis)
             theses.append((event_date, thesis))
     theses.sort(key=lambda item: (item[0], item[1]["ticker"]))
 
