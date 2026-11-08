@@ -406,7 +406,19 @@ def test_legacy_short_can_be_marked_reviewed_without_changing_money(tmp_path, ma
     assert result["position"] == prior["position"]
 
 
-@pytest.mark.parametrize("direction", ["BUY", "Long position", "buy", "", "unclassified"])
+@pytest.mark.parametrize(
+    "direction",
+    [
+        "BUY",
+        "Long position",
+        "buy",
+        "",
+        "unclassified",
+        "Sell to close",
+        "Long (sell calls)",
+        "Buy, sell at target",
+    ],
+)
 def test_legacy_manual_nonshort_provenance_keeps_long_accounting(tmp_path, direction):
     state = tmp_path / "theses"
     tid = active(state)
@@ -433,6 +445,9 @@ def test_legacy_manual_nonshort_provenance_keeps_long_accounting(tmp_path, direc
         "short sale",
         "SHORT SELL",
         "short-sell",
+        "Short.",
+        "Shorted",
+        "sell short, 100 sh",
     ],
 )
 def test_legacy_explicit_short_aliases_are_excluded_without_poisoning_valid_trades(

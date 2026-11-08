@@ -584,7 +584,7 @@ def _validate_equity_initial_stop(entry: Any, stop: Any) -> None:
 
 
 def _has_unsupported_equity_short(thesis: dict) -> bool:
-    """Identify explicit short intent; opaque legacy provenance is not a side enum."""
+    """Identify explicit short intent in the side enum or legacy manual labels."""
     position = thesis.get("position")
     if isinstance(position, dict) and _is_futures(thesis):
         return False
@@ -594,16 +594,22 @@ def _has_unsupported_equity_short(thesis: dict) -> bool:
         raw = origin.get("raw_provenance")
         if isinstance(raw, dict):
             values.append(raw.get("direction"))
-    # Any SHORT/SELL token marks short intent ("Short position", "short sale",
-    # "SELL"), mirroring how "Long position" / "BUY" stay long.
-    short_tokens = {"SHORT", "SELL", "SELLSHORT"}
-    return any(
-        isinstance(value, str)
-        and not short_tokens.isdisjoint(
-            value.strip().upper().replace("-", " ").replace("_", " ").split()
-        )
-        for value in values
-    )
+    return any(isinstance(value, str) and _is_short_label(value) for value in values)
+
+
+_SHORT_WORDS = frozenset({"SHORT", "SHORTED", "SHORTING", "SELLSHORT"})
+
+
+def _is_short_label(value: str) -> bool:
+    """Classify a free-text legacy side label.
+
+    A SHORT word ("Short position", "short sale", "Short.") or a bare "SELL"
+    means short, mirroring how "Long position" / "BUY" stay long. SELL inside
+    a longer label ("Sell to close", "Long (sell calls)") describes an exit or
+    an overlay on a long, so it is not treated as short intent.
+    """
+    words = re.findall(r"[A-Z]+", value.upper())
+    return words == ["SELL"] or not _SHORT_WORDS.isdisjoint(words)
 
 
 def _validate_equity_long_only(thesis: dict) -> None:
@@ -615,7 +621,7 @@ def _validate_equity_long_only(thesis: dict) -> None:
         return
     _require_long_equity_direction((position or {}).get("direction"))
     # Historical raw_provenance was free text (e.g. BUY / Long position).
-    # New ingress remains strict; do not reinterpret old opaque labels as shorts.
+    # New ingress remains strict; only explicit short labels are refused here.
     if _has_unsupported_equity_short(thesis):
         raise ValueError("Equity accounting is long-only; unsupported short direction")
 
