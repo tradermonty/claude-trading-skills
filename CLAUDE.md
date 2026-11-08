@@ -903,7 +903,7 @@ The blocks below are informal sketches kept for skills not yet covered by a YAML
 3. `generate_pre_market_plan.py` (Phase 2) → reads Phase 1 JSON, filters by `--tradable-min-grade B`, looks up Alpaca short inventory (or `ManualBrokerAdapter` when env vars missing), inherits `prior_close` for SSR Rule 201 evaluation, splits manual-confirmation reasons into blocking vs advisory, and emits three trigger plans per candidate (5-min ORL break, first red 5-min, VWAP fail).
 4. Trader confirms `blocking_manual_reasons` are cleared at the broker (HTB locate, premarket high/low resolved, etc.).
 5. `monitor_intraday_trigger.py` (Phase 3) → reads the Phase 2 plan, fetches 5-min bars (Alpaca live or fixture), walks each plan's FSM forward by one step (per-trigger evaluator: ORL break, first red, VWAP fail), and writes `parabolic_short_intraday_<date>.json` with `state` (armed/triggered/invalidated/...), bar-derived transition timestamps, and `size_recipe_resolved.shares_actual` when triggered. One-shot — wrap in `watch -n 60 'python3 ...'` or 5-min cron during market hours. Replay-deterministic: re-runs against the same `--now-et` produce byte-identical output.
-6. Optional: `trader-memory-core` `thesis_ingest.py --source parabolic-short-trade-planner --input reports/parabolic_short_plan_<date>.json` to register theses for postmortem tracking.
+Short-equity plans are not supported by trader-memory-core ingestion or accounting. Keep their journal outside this long-equity/USD-futures ledger until a dedicated short-equity contract exists; do not route these plans through the manual adapter.
 
 ## Important Conventions
 

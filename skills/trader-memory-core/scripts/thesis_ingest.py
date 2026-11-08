@@ -150,6 +150,13 @@ def ingest_manual(record: dict, input_file: str) -> dict:
             f"Expected one of {', '.join(_VALID_THESIS_TYPES)}"
         )
 
+    # Manual records seed long-equity IDEA theses, not short-equity accounting.
+    # Keep source prices in provenance; this only rejects unsupported intent.
+    thesis_store._require_long_equity_direction(record.get("direction"), normalize=True)
+    thesis_store._validate_equity_initial_stop(
+        record.get("entry_price"), record.get("stop_loss", record.get("stop_price"))
+    )
+
     thesis_data = {
         "ticker": ticker,
         "thesis_type": thesis_type,

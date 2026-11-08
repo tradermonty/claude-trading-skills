@@ -554,8 +554,82 @@ def _validate_equity_position_fields(position: dict) -> None:
             )
 
 
-def _validate_equity_actual_prices(thesis: dict) -> None:
-    """Reject invalid stored equity prices before save or lifecycle math."""
+def _require_long_equity_direction(value: Any, *, normalize: bool = False) -> None:
+    """Equity sign is fixed LONG; normalize ingress, never persisted schema data."""
+    if value is None:
+        return
+    if normalize and isinstance(value, str):
+        value = value.strip().upper()
+    if not isinstance(value, str) or value != "LONG":
+        raise ValueError(
+            "Equity accounting is long-only; unsupported direction. "
+            "For futures use attach_futures_position() or open_position(contracts=...)."
+        )
+
+
+def _validate_equity_initial_stop(entry: Any, stop: Any) -> None:
+    """Check a supplied initial pair, not an ACTIVE long's trailing stop."""
+    if entry is None or stop is None:
+        return
+    valid_entry = _valid_finite_number(entry)
+    valid_stop = _valid_finite_number(stop)
+    if valid_entry is None or valid_stop is None:
+        raise ValueError(
+            "Equity accounting is long-only; initial entry/stop must be finite numbers"
+        )
+    # Preserve #257's finite nonpositive-price compatibility. A positive
+    # initial stop above a positive fill describes unsupported short geometry.
+    if valid_entry > 0 and valid_stop > valid_entry:
+        raise ValueError("Equity accounting is long-only; an initial stop cannot exceed entry")
+
+
+def _has_unsupported_equity_short(thesis: dict) -> bool:
+    """Identify explicit short intent in the side enum or legacy manual labels."""
+    position = thesis.get("position")
+    if isinstance(position, dict) and _is_futures(thesis):
+        return False
+    values = [position.get("direction")] if isinstance(position, dict) else []
+    origin = thesis.get("origin")
+    if isinstance(origin, dict) and origin.get("skill") == "manual":
+        raw = origin.get("raw_provenance")
+        if isinstance(raw, dict):
+            values.append(raw.get("direction"))
+    return any(isinstance(value, str) and _is_short_label(value) for value in values)
+
+
+_SHORT_WORDS = frozenset({"SHORT", "SHORTED", "SHORTING", "SELLSHORT"})
+
+
+def _is_short_label(value: str) -> bool:
+    """Classify a free-text legacy side label.
+
+    A SHORT word ("Short position", "short sale", "Short.") or a bare "SELL"
+    means short, mirroring how "Long position" / "BUY" stay long. SELL inside
+    a longer label ("Sell to close", "Long (sell calls)") describes an exit or
+    an overlay on a long, so it is not treated as short intent.
+    """
+    words = re.findall(r"[A-Z]+", value.upper())
+    return words == ["SELL"] or not _SHORT_WORDS.isdisjoint(words)
+
+
+def _validate_equity_long_only(thesis: dict) -> None:
+    """Reject explicit legacy short intent before accounting/review or saving."""
+    position = thesis.get("position")
+    if position is not None and not isinstance(position, dict):
+        raise ValueError("Equity accounting is long-only; position must be a mapping")
+    if _is_futures(thesis):
+        return
+    _require_long_equity_direction((position or {}).get("direction"))
+    # Historical raw_provenance was free text (e.g. BUY / Long position).
+    # New ingress remains strict; only explicit short labels are refused here.
+    if _has_unsupported_equity_short(thesis):
+        raise ValueError("Equity accounting is long-only; unsupported short direction")
+
+
+def _validate_equity_actual_prices(thesis: dict, *, allow_legacy_short: bool = False) -> None:
+    """Reject unsupported side and invalid prices before save or lifecycle math."""
+    if not allow_legacy_short:
+        _validate_equity_long_only(thesis)
     for section_name in ("entry", "exit"):
         section = thesis.get(section_name)
         if not isinstance(section, dict):
@@ -568,7 +642,7 @@ def _validate_equity_actual_prices(thesis: dict) -> None:
             )
 
 
-def _validate_thesis(thesis: dict) -> None:
+def _validate_thesis(thesis: dict, *, allow_legacy_short: bool = False) -> None:
     """JSON Schema + business invariants. Called by _save_thesis()."""
     schema = _get_schema()
     validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
@@ -587,7 +661,7 @@ def _validate_thesis(thesis: dict) -> None:
         # Python. Check both equity price fields at the common save
         # chokepoint so update() and future load-mutate-save paths cannot
         # persist a thesis that later becomes uncloseable.
-        _validate_equity_actual_prices(thesis)
+        _validate_equity_actual_prices(thesis, allow_legacy_short=allow_legacy_short)
         if position and position.get("shares") is not None:
             # Issue #254: the equity analog of the futures branch above — any
             # thesis with a shares-shaped position gets the same
@@ -844,9 +918,9 @@ def _load_thesis(state_dir: Path, thesis_id: str) -> dict:
         return yaml.safe_load(f)
 
 
-def _save_thesis(state_dir: Path, thesis: dict) -> None:
+def _save_thesis(state_dir: Path, thesis: dict, *, allow_legacy_short: bool = False) -> None:
     """Validate and save a thesis YAML file atomically."""
-    _validate_thesis(thesis)
+    _validate_thesis(thesis, allow_legacy_short=allow_legacy_short)
     path = state_dir / f"{thesis['thesis_id']}.yaml"
     _atomic_write_yaml(path, thesis)
 
@@ -961,6 +1035,14 @@ def _build_thesis_for_registration(thesis_data: dict) -> dict:
         raise ValueError("Missing required field: origin.skill")
     if not origin.get("output_file"):
         raise ValueError("Missing required field: origin.output_file")
+
+    # These unsupported direction fields would otherwise be silently dropped
+    # by template copying. Registration does not import a raw position; futures
+    # SHORT intent belongs on the validated futures attach/direct-open boundary.
+    _require_long_equity_direction(thesis_data.get("direction"), normalize=True)
+    raw_position = thesis_data.get("position")
+    if isinstance(raw_position, dict):
+        _require_long_equity_direction(raw_position.get("direction"), normalize=True)
 
     # Build thesis from template + provided data
     fingerprint = _compute_origin_fingerprint(thesis_data)
@@ -1154,6 +1236,7 @@ def update(state_dir: Path, thesis_id: str, fields: dict) -> dict:
             not owned by the review workflow.
     """
     thesis = _load_thesis(state_dir, thesis_id)
+    _validate_equity_long_only(thesis)  # Do not erase unsupported legacy intent in a merge.
     now = _now_iso()
 
     # Issue #255: position is lifecycle-owned for both equities and
@@ -1328,8 +1411,19 @@ def attach_position(
             "Budget mode does not produce shares/value/risk fields."
         )
 
+    # A shares report must not silently discard a short direction or use
+    # short-style initial geometry. Inspect report prices, not the original
+    # cost of an ACTIVE long whose protective stop may have moved higher.
+    _require_long_equity_direction(report.get("direction"), normalize=True)
+    params = report.get("parameters")
+    if params is None:
+        params = {}
+    if not isinstance(params, dict):
+        raise ValueError("Equity long-only position report parameters must be a mapping")
+    _require_long_equity_direction(params.get("direction"), normalize=True)
+    _validate_equity_initial_stop(params.get("entry_price"), params.get("stop_price"))
+
     # Validate expected entry/stop
-    params = report.get("parameters", {})
     if expected_entry is not None:
         actual_entry = params.get("entry_price")
         if actual_entry is not None and abs(actual_entry - expected_entry) > 0.01:
@@ -1366,6 +1460,10 @@ def attach_position(
             "that already has a futures position — use attach_futures_position() "
             "instead, or register a fresh thesis"
         )
+
+    # Validate loaded intent before replacing position: a save-time check on
+    # the new shares dict alone would lose a legacy SHORT marker.
+    _validate_equity_long_only(thesis)
 
     # attach_position() (re)writes position incl. shares_remaining == shares
     # — see the module-level _ATTACH_ALLOWED docstring for why this status
@@ -2454,6 +2552,8 @@ def open_position(
             event_date=event_date,
         )
 
+    _require_long_equity_direction(direction, normalize=True)
+
     if thesis["status"] != "ENTRY_READY":
         raise ValueError(f"open_position() requires ENTRY_READY status, got {thesis['status']}")
 
@@ -2466,6 +2566,8 @@ def open_position(
             "open_position() requires a finite actual_price for an equity thesis, "
             f"got {actual_price!r}"
         )
+
+    _validate_equity_initial_stop(actual_price, thesis.get("exit", {}).get("stop_loss"))
 
     now = _now_iso()
     thesis["entry"]["actual_price"] = actual_price
@@ -2679,7 +2781,14 @@ def terminate(
     # INVALIDATED permits an omitted price, but a provided equity price
     # and any stored prices must be finite before outcome calculation or
     # exit/status mutation. Futures were dispatched above.
-    _validate_equity_actual_prices(thesis)
+    legacy_short = _has_unsupported_equity_short(thesis)
+    if legacy_short and actual_price is not None:
+        raise ValueError(
+            "Equity accounting is long-only; invalidate legacy shorts without an exit price"
+        )
+    # A no-price invalidation only retires the record, preserving all money
+    # fields and provenance. It must not manufacture a long-side outcome.
+    _validate_equity_actual_prices(thesis, allow_legacy_short=legacy_short)
     if actual_price is not None and _valid_finite_number(actual_price) is None:
         raise ValueError(
             "terminate() requires a finite actual_price for an equity thesis "
@@ -2781,7 +2890,7 @@ def terminate(
 
     thesis["updated_at"] = now
 
-    _save_thesis(state_dir, thesis)
+    _save_thesis(state_dir, thesis, allow_legacy_short=legacy_short)
 
     index = _load_index(state_dir)
     _update_index_entry(index, thesis)
@@ -2919,7 +3028,8 @@ def mark_reviewed(
 
     thesis["updated_at"] = _now_iso()
 
-    _save_thesis(state_dir, thesis)
+    # Review scheduling changes no financial fields or direction.
+    _save_thesis(state_dir, thesis, allow_legacy_short=True)
 
     index = _load_index(state_dir)
     _update_index_entry(index, thesis)

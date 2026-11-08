@@ -126,6 +126,35 @@ Each candidate in the JSON becomes an `IDEA` thesis. Registration is **idempoten
 
 **Supported sources:** `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`, `manual`
 
+Equity accounting is long-only. Do not ingest parabolic-short plans or record
+short-equity trades through `manual`; there is no adapter for those plans.
+Explicit SHORT directions are rejected before they can be discarded by raw
+registration, manual ingest, equity opening or shares-report attachment. Generic
+registration does not import a raw position: use validated futures attachment or
+`open-position --contracts` for futures LONG/SHORT.
+
+When both initial prices are supplied, they must be finite numeric/non-bool
+values. Positive initial stop > positive entry is rejected at manual ingest,
+shares-report attachment and equity activation (using the actual fill). Absent
+optional pairs and existing finite nonpositive-price behavior remain compatible.
+Do not apply this initial-entry rule to an ACTIVE/PARTIALLY_CLOSED long's stop:
+a profitable long may update its stop above original entry. Manual source prices
+remain provenance only; authoritative fills still come from `open-position`.
+For a backfill with a profit-protecting stop, open the long with its initial stop,
+then update the current stop after activation.
+
+Explicit legacy short equity records (a SHORT word or a bare SELL, such as SELL_SHORT, Short position or SELL; labels such as Sell to close stay long) are refused before new
+accounting or MAE/MFE/postmortem calculations. They can still be marked reviewed
+or terminated as INVALIDATED without an exit price; these bookkeeping actions
+preserve all existing monetary fields and provenance. Summary statistics and
+monthly reports skip explicit shorts and report their excluded count
+(`excluded_unsupported_equity_shorts` in summary JSON when nonzero).
+Old manual provenance was free text: BUY, Long position and other non-short
+labels retain legacy long accounting. New direction inputs remain strictly LONG.
+Read-only inspection remains available; no old outcomes are migrated or re-signed.
+Ambiguous legacy records cannot be classified from a trailing stop alone.
+Keep short-equity journals external; never relabel one as a futures contract.
+
 ### Step 2: Link analysis reports
 
 After performing deeper analysis (US Stock Analysis, Technical Analyst, etc.), link the report to the thesis:

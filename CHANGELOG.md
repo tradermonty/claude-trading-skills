@@ -18,6 +18,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Skills
 
+- trader-memory-core keeps equity accounting long-only: reject explicit short-equity intent and incompatible initial stop geometry before wrong P&L can be recorded, while preserving futures LONG/SHORT and active long profit-protecting stops. Remove the unsupported parabolic-short ingest instruction (#662).
 - Reject stale, future or invalid selected-market COT dates in the setup gate, news failure analyzer and technical confirmation, in addition to the report date. Validate optional per-market provenance dates, use the oldest validated age, and preserve absent-field legacy compatibility (#649). An unusable crowding input reaches the futures sizer as NO_TRADE.
 
 - stockbee-momentum-burst-screener: reject stale or unplaceable daily bars before scoring; freeze the latest completed NYSE session, add explicit as-of/session-age controls, active-universe filtering and auditable freshness metadata (#670). A tolerated stale bar is capped at `MANUAL_REVIEW`, and an all-stale universe adds a top-level report warning. stockbee-setup-fluency-trainer drops the per-symbol `latest_bar_dates` map when ingesting screener metadata.

@@ -128,6 +128,25 @@ JSONの各候補が `IDEA` ステータスの thesis になります。登録は
 
 **対応ソース:** `kanchi-dividend-sop`, `earnings-trade-analyzer`, `vcp-screener`, `pead-screener`, `canslim-screener`, `edge-candidate-agent`, `manual`
 
+株式の会計はロング限定です。parabolic-short計画の取り込みアダプターはなく、
+`manual`経由で株式ショートを記録することもできません。明示的なSHORT指定は、
+登録で消えてしまう前、手動取り込み、株式建玉開始、sharesレポート付与で拒否します。
+先物のLONG/SHORTは従来どおり、検証済みの先物レポート付与または`--contracts`で記録します。
+
+初期entry/stopの両方がある場合は有限の数値でなければならず、正のstopが正のentryを
+上回る構成は拒否します。株式の開始時は実際の約定価格と比較します。任意項目の欠落と、
+既存の有限なゼロ・負価格の互換性は維持します。稼働後のロングが利益保護ストップを
+取得価格より上へ更新することは可能です。手動価格は出典情報のままで、約定は`open-position`
+で記録します。利益保護ストップ付きで過去の取引を登録する場合は、初期stopで開始してから
+現在のstopへ更新してください。
+
+旧データの明示的なショート記録は、SHORTの語を含むものか、SELLだけのものを指します。例はSELL_SHORT、Short position、SELLで、Sell to closeなどはロングのままです。こうした記録は、新たな損益・MAE/MFE・ポストモーテム計算を拒否します。
+ただし終了価格を渡さないINVALIDATEDへの無効化とレビュー済み更新は可能で、既存の金額・出典情報は保持します。
+集計・月次レポートは明示的なショートを除外し、除外件数を表示します。summary JSONでは非ゼロ時に
+`excluded_unsupported_equity_shorts`を返します。過去の手動出典にあるBUY・Long positionなどの自由記述は
+従来のロング会計として扱い、新規direction入力は引き続きLONG限定です。過去の損益を自動補正せず、
+ストップ位置だけで旧記録の方向を推測しません。株式ショートの記録は外部に保管し、先物として偽って登録しないでください。
+
 ### ステップ 2: 分析レポートのリンク
 
 深掘り分析（US Stock Analysis、Technical Analyst等）の結果を thesis に紐付けます:
