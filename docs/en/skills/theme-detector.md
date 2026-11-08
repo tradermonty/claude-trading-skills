@@ -51,10 +51,10 @@ The Theme Detector identifies which market themes (AI & Semiconductors, Clean En
 
 ## 2. Prerequisites
 
-**Core functionality requires no API keys.** The skill uses FINVIZ public screener data and yfinance for ETF/stock metrics.
+Public FINVIZ operation requires Python 3.10+ and finvizfinance>=1.5.0; provider access can still be blocked. With a configured key, group performance prefers authenticated Elite export.
 
 **Python Dependencies:**
-- Python 3.9+
+- Python 3.9+ for core/Elite; Python 3.10+ for public FINVIZ
 - `requests`
 - `beautifulsoup4`
 - `lxml`
@@ -67,7 +67,7 @@ pip install requests beautifulsoup4 lxml pandas numpy yfinance
 ```
 
 **Optional Python packages:**
-- `finvizfinance` (for FINVIZ Elite mode)
+- `finvizfinance>=1.5.0` (public scraping on Python 3.10+; not needed for Elite groups)
 - `PyYAML` (for `--themes-config` custom themes)
 
 **Optional APIs for enhanced results:**
@@ -401,3 +401,22 @@ WebSearch-based narrative confirmation depends on internet connectivity and sear
 | Infrastructure | Engineering & Construction, Building Materials, Heavy Machinery, Steel | PAVE, IFRA |
 | Gold & Precious Metals | Gold, Silver, Mining | GLD, GDX, SIL |
 | Defense & Aerospace | Aerospace & Defense, Communication Equipment | ITA, XAR, PPA |
+
+## Group export reliability
+
+Install `skills/theme-detector/requirements.txt` to get the supported public
+scraper and pinned calendar. On Python 3.9 the optional scraper is skipped; use
+Elite or a modern Python interpreter for public data. Industry/sector group
+performance prefers the configured FINVIZ Elite key and falls back to the public
+scraper after a failed, empty or malformed CSV. `--finviz-mode public` disables
+Elite requests even if `FINVIZ_API_KEY` is present.
+
+The client normalizes CSV percentage points to decimal ratios, including 0.12%
+and negative/zero values; the pipeline converts those ratios once. If both
+sources fail, the CLI exits 1 with upgrade/key/access guidance and writes no
+new report. Diagnostics contain no key, response body, request URL or raw
+exception. Overlapping proxy ETF holdings retain both reasons without a missing
+composite-score crash; unscored holdings use zero.
+
+Regression tests use synthetic CSV/ETF fixtures and mocked transport, not live
+FINVIZ acceptance or trading validation.

@@ -311,3 +311,32 @@ def test_required_integration_satisfied_passes(tmp_path: Path) -> None:
     integrations = {"demo": [("yfinance", "required")]}
     report = deps.check_skill("demo", root, integrations)
     assert report.ok, report.errors
+
+
+def test_theme_public_python_marker_is_the_only_allowed_exception(tmp_path):
+    from packaging.requirements import Requirement
+
+    folder = tmp_path / "theme-detector"
+    folder.mkdir()
+    manifest = folder / "requirements.txt"
+    spec = 'finvizfinance>=1.5.0; python_version >= "3.10"'
+    manifest.write_text(
+        spec + "  # optional: Public fallback needs Python3.10; Elite uses requests\n"
+    )
+    entries, errors = deps.parse_requirements(manifest)
+    assert errors == []
+    assert set(entries) == {"finvizfinance"}
+    marker = Requirement(entries["finvizfinance"].spec).marker
+    assert not marker.evaluate({"python_version": "3.9"})
+    assert marker.evaluate({"python_version": "3.10"})
+    for line in [
+        spec,
+        spec.replace("3.10", "3.11") + "  # optional: test",
+        spec.replace("1.5.0", "1.0.0") + "  # optional: test",
+        spec.replace("finvizfinance", "requests") + "  # optional: test",
+    ]:
+        manifest.write_text(line + "\n")
+        assert deps.parse_requirements(manifest)[1]
+    other = tmp_path / "requirements.txt"
+    other.write_text(spec + "  # optional: test\n")
+    assert deps.parse_requirements(other)[1]

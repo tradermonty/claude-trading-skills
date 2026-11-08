@@ -4,10 +4,14 @@ Tests the full flow: raw industries -> rank -> classify -> score -> report
 without network calls (all I/O is mocked).
 """
 
+import csv
+import io
 import json
 import sys
 from datetime import date
+from unittest.mock import Mock
 
+import pytest
 from calculators.heat_calculator import (
     breadth_signal_score,
     calculate_theme_heat,
@@ -244,7 +248,8 @@ class TestThemeDetectorE2E:
         assert ai["theme_origin"] == "seed"
         assert ai["name_confidence"] == "high"
 
-    def test_cli_scan_hits_history_no_update(self, monkeypatch, tmp_path, capsys):
+    @pytest.mark.parametrize("mode", ["public", "elite"])
+    def test_cli_scan_hits_history_no_update(self, monkeypatch, tmp_path, capsys, mode):
         """CLI run emits leadership/history sections without mutating history."""
         import etf_scanner
         import finviz_performance_client
@@ -257,7 +262,24 @@ class TestThemeDetectorE2E:
             _make_raw_industry("Software - Infrastructure", "Technology", 0.035, 0.09, 0.18),
             _make_raw_industry("Banks - Diversified", "Financial", 0.01, 0.02, 0.03),
         ]
-        monkeypatch.setattr(finviz_performance_client, "get_industry_performance", lambda: raw)
+        if mode == "elite":
+            body = io.StringIO()
+            writer = csv.writer(body)
+            columns = finviz_performance_client.ELITE_COLUMNS
+            writer.writerow(["Name", *columns])
+            for industry in raw:
+                writer.writerow(
+                    [
+                        industry["name"],
+                        *[str(industry.get(key, 0) * 100) + "%" for key in columns.values()],
+                    ]
+                )
+            group_http = Mock(return_value=Mock(status_code=200, text=body.getvalue()))
+            monkeypatch.setattr(finviz_performance_client.requests, "get", group_http)
+        else:
+            monkeypatch.setattr(
+                finviz_performance_client, "get_industry_performance", lambda **_kwargs: raw
+            )
         monkeypatch.setattr(
             finviz_performance_client, "cap_outlier_performances", lambda rows: rows
         )
@@ -347,6 +369,10 @@ class TestThemeDetectorE2E:
             "argv",
             [
                 "theme_detector.py",
+                "--finviz-mode",
+                mode,
+                "--finviz-api-key",
+                "fictional-elite-key",
                 "--output-dir",
                 str(tmp_path),
                 "--scan-hits",
@@ -364,6 +390,10 @@ class TestThemeDetectorE2E:
         theme_detector.main()
         captured = capsys.readouterr()
         report = json.loads(captured.out)
+        if mode == "elite":
+            group_http.assert_called_once()
+            assert group_http.call_args.kwargs["params"]["auth"] == "fictional-elite-key"
+            assert "fictional-elite-key" not in captured.out + captured.err
         top_theme = report["themes"]["all"][0]
         assert top_theme["leadership_score"] is not None
         assert top_theme["leadership_counts"]["ep9m"] == 1

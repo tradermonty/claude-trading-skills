@@ -2,7 +2,7 @@
 # Source of truth: scripts/market_calendar/ and config/market-calendar-dependency.yaml.
 pandas-market-calendars==5.2.2
 curl-cffi>=0.7.0  # optional: yfinance transport exception support; FMP remains available without it
-finvizfinance>=1.0.0  # optional: FINVIZ client degrades to static config (HAS_FINVIZFINANCE)
+finvizfinance>=1.5.0; python_version >= "3.10"  # optional: Public FINVIZ needs Python3.10+; Elite groups use requests
 numpy>=1.26.0
 pandas>=2.0.0
 pyyaml>=6.0

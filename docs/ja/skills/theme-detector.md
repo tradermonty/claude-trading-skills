@@ -64,14 +64,14 @@ Theme Detectorは、FINVIZの業種・セクターパフォーマンスデータ
 
 | 項目 | 要否 | 説明 |
 |------|------|------|
-| Python 3.9+ | 必須 | スクリプト実行用 |
+| Python 3.9+ | 必須 | core/Elite経路。公開FINVIZはPython 3.10以上が必要 |
 | `requests` | 必須 | HTTP通信 |
 | `beautifulsoup4` | 必須 | FINVIZ HTMLスクレイピング |
 | `lxml` | 必須 | HTML解析 |
 | `pandas` | 必須 | データ集計・分析 |
 | `numpy` | 必須 | 数値計算 |
 | `yfinance` | 必須 | ETFデータ取得 |
-| `finvizfinance` | 任意 | FINVIZ Eliteモード用 |
+| `finvizfinance>=1.5.0` | 任意 | Python 3.10以上での公開スクレイピング用。Eliteの業種取得には不要 |
 | `PyYAML` | 任意 | `--themes-config` カスタムテーマ用 |
 | FINVIZ Elite APIキー | 任意 | 高速モード（2-3分 vs 5-8分）、全業種フルカバレッジ |
 | FMP APIキー | 任意 | P/Eバリュエーションデータの取得 |
@@ -516,3 +516,22 @@ python3 skills/theme-detector/scripts/theme_detector.py [OPTIONS]
 | `skills/theme-detector/scripts/theme_classifier.py` | テーマ分類エンジン |
 | `skills/theme-detector/scripts/finviz_industry_scanner.py` | FINVIZデータ収集 |
 | `skills/theme-detector/scripts/calculators/lifecycle_calculator.py` | ライフサイクル評価 |
+
+## 業種データ取得と失敗時の動作
+
+`skills/theme-detector/requirements.txt`を使って対応依存と固定カレンダーを
+インストールしてください。公開FINVIZはPython 3.10以上とfinvizfinance>=1.5.0が必要です。
+Python 3.9ではこの任意依存を省略し、Elite経路を利用できます。古いライブラリが
+残っていても、Python 3.9の公開グループ取得は使用しません。
+
+キーが設定されていれば、業種・セクターのパフォーマンスは認証付きElite CSVを優先します。
+失敗・空データ・不正CSVは警告し、対応Python上の公開スクレイピングへ移ります。
+`--finviz-mode public`は、環境変数FINVIZ_API_KEYがあってもEliteへ送信しません。
+CSVの百分率は0.12%・負数・ゼロも含め比率へ正規化し、パイプラインで一度だけ百分率へ戻します。
+
+両方の取得元が失敗した場合は、依存更新・キー・アクセス確認を案内して終了1になります。
+新規レポートは作らず、診断にキー・応答本文・リクエストURL・例外原文は出しません。
+同じ銘柄を持つ複数のproxy ETFも、理由を両方保持して安全に統合します。
+未採点の保有銘柄はcomposite_scoreを0とし、存在する最大スコアは維持します。
+
+回帰検証は架空CSVとETF応答を使用し、ライブFINVIZへの接続成功や売買性能は保証しません。
