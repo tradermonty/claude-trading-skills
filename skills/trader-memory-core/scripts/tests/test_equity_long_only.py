@@ -320,7 +320,9 @@ def test_manual_invalid_side_is_checked_before_idempotency(tmp_path):
 
 def test_unsupported_parabolic_source_is_not_documented_or_accepted(tmp_path):
     root = Path(__file__).resolve().parents[4]
-    assert "--source parabolic-short-trade-planner" not in (root / "CLAUDE.md").read_text()
+    assert "--source parabolic-short-trade-planner" not in (root / "CLAUDE.md").read_text(
+        encoding="utf-8"
+    )
     state = tmp_path / "theses"
     with pytest.raises(ValueError, match="Unknown source"):
         ingest.ingest("parabolic-short-trade-planner", str(tmp_path / "plan.json"), str(state))
