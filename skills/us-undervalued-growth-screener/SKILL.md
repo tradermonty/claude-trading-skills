@@ -539,6 +539,8 @@ python3 skills/us-undervalued-growth-screener/scripts/manage_run_state.py save-c
   --stage verified
 ```
 
+While `candidate_pool_status` is `sufficient_pending_enrichment`, `--stage verified` is refused. Deep dives may proceed, but save them with `--stage draft`. Finish enrichment, rerun the broad screen, and reattach the resolved audit with `set-screening-audit`, then save each candidate as `verified`. A verified candidate cannot be downgraded to draft, and `set-screening-audit` is rejected once any candidate is verified.
+
 ### Step 5 — Complete and assemble
 
 ```bash

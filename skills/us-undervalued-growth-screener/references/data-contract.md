@@ -434,7 +434,7 @@ The source IDs must resolve in the ledger.
 - one or more selected rows;
 - unresolved rows or unverified exhaustion remain.
 
-Deep dives may start, but formal final output is prohibited.
+Deep dives may start, but candidates are saved only as `draft`: `save-candidate --stage verified` is refused while the pool is pending. Formal final output is prohibited. Resolve the pool, reattach the resolved audit with `set-screening-audit`, and then save the candidates as `verified`.
 
 ### `no_qualifying_candidates / no_candidates`
 
