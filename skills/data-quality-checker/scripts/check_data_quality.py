@@ -392,8 +392,8 @@ def check_dates(
 
     # ---- Japanese: "1月1日（木）" or "1月1日（木曜日）" ----
     ja_pat = re.compile(
-        r"(\d{1,2})月(\d{1,2})日[ \t]*(?:(?P<ja_open>\()|（)"
-        r"(?P<ja_weekday>[月火水木金土日])(?:曜日)?(?(ja_open)\)|）)"
+        r"(\d{1,2})月(\d{1,2})日[ \t]*[（(]"
+        r"(?P<ja_weekday>[月火水木金土日])(?:曜日)?[)）]"
     )
     for m in ja_pat.finditer(content):
         month_val = int(m.group(1))
@@ -429,15 +429,19 @@ def check_dates(
     # checked a second time as M/D with an inferred, potentially different year.
     english_days = "|".join(sorted(WEEKDAY_MAP_EN, key=len, reverse=True))
     numeric_pat = re.compile(
-        r"(?<![0-9A-Za-z_./-])(?:(?P<year>[0-9]{4})(?P<sep>[-/]))?"
-        r"(?P<month>[0-9]{1,2})(?(year)(?P=sep)|/)(?P<day>[0-9]{1,2})"
+        # A closing weekday bracket may separate tightly joined date ranges.
+        # Keep ASCII identifier guards but allow CJK prose next to a date.
+        r"(?:(?<![\dA-Za-z_./-])|(?<=[)）][/-]))(?:(?P<year>\d{4})(?P<sep>[-/]))?"
+        r"(?P<month>\d{1,2})(?(year)(?P=sep)|/)(?P<day>\d{1,2})"
         r"[ \t]*(?:(?P<ascii_open>\()|（)"
-        rf"(?P<weekday>{english_days}|[月火水木金土日](?:曜日)?)(?(ascii_open)\)|）)",
-        re.IGNORECASE | re.ASCII,
+        # Scope ASCII case folding to English labels, preserving Unicode digits
+        # and legacy mixed-width Japanese parentheses without accepting ſ or İ.
+        rf"(?:(?P<en_weekday>(?ai:{english_days}))(?(ascii_open)\)|）)"
+        r"|(?P<ja_weekday>[月火水木金土日](?:曜日)?)[)）])"
     )
     for m in numeric_pat.finditer(content):
         explicit_year = m.group("year")
-        if explicit_year is None and re.search(r"[0-9]{4}[-/][ \t]*$", content[: m.start()]):
+        if explicit_year is None and re.search(r"\d{4}[-/][ \t]*$", content[: m.start()]):
             continue  # Do not salvage M/D from a malformed spaced year prefix.
         month_val, day_val = int(m.group("month")), int(m.group("day"))
         year = (
@@ -449,7 +453,7 @@ def check_dates(
             d = date(year, month_val, day_val)
         except ValueError:
             continue  # Preserve the existing weekday check's invalid-date policy.
-        weekday = m.group("weekday")
+        weekday = m.group("en_weekday") or m.group("ja_weekday")
         stated = WEEKDAY_MAP_JA.get(weekday[0])
         if stated is None:
             stated = WEEKDAY_MAP_EN[weekday.lower()]

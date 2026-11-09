@@ -140,7 +140,7 @@ JSONの各候補が `IDEA` ステータスの thesis になります。登録は
 で記録します。利益保護ストップ付きで過去の取引を登録する場合は、初期stopで開始してから
 現在のstopへ更新してください。
 
-旧データの明示的なショート記録は、SHORTの語を含むものか、SELLだけのものを指します。例はSELL_SHORT、Short position、SELLで、Sell to closeなどはロングのままです。こうした記録は、新たな損益・MAE/MFE・ポストモーテム計算を拒否します。
+旧データの明示的なショート記録は、SHORTの語を含むものか、SELLだけのものを指します。例はSELL_SHORT、Short position、SELLで、Sell to closeなどはロングのままです。こうした記録は、新たな損益・MAE/MFE計算を拒否します。CLOSED/INVALIDATEDなら参考用のポストモーテムを生成できます。損益・MAE/MFE・評価額・リスクは「—」とし、未対応の旧ショート記録である理由を明記します。価格取得は行わず、thesis/index・既存の損益・出典情報も変更しません。過去の数値の妥当性を保証したり補正したりする機能ではありません。ACTIVE/PARTIALLY_CLOSEDでは引き続き生成を拒否します。
 ただし終了価格を渡さないINVALIDATEDへの無効化とレビュー済み更新は可能で、既存の金額・出典情報は保持します。
 集計・月次レポートは明示的なショートを除外し、除外件数を表示します。summary JSONでは非ゼロ時に
 `excluded_unsupported_equity_shorts`を返します。過去の手動出典にあるBUY・Long positionなどの自由記述は

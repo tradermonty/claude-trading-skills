@@ -244,9 +244,7 @@ def test_legacy_explicit_equity_short_cannot_write_wrong_accounting(
 
 
 @pytest.mark.parametrize("manual_provenance", [False, True])
-def test_review_rejects_unsupported_equity_short_before_network_or_journal(
-    tmp_path, manual_provenance
-):
+def test_mae_mfe_rejects_unsupported_equity_short_before_network(tmp_path, manual_provenance):
     state = tmp_path / "theses"
     tid = active(state)
     store.close(state, tid, "manual", 120, END)
@@ -256,8 +254,6 @@ def test_review_rejects_unsupported_equity_short_before_network_or_journal(
     before = snapshot(tmp_path)
     with pytest.raises(ValueError, match="long-only"):
         review.compute_mae_mfe(thesis, adapter)
-    with pytest.raises(ValueError, match="long-only"):
-        review.generate_postmortem(tid, str(state), adapter, journal_dir=str(tmp_path / "journal"))
     adapter.get_daily_closes.assert_not_called()
     assert snapshot(tmp_path) == before
     assert not (tmp_path / "journal").exists()
@@ -281,6 +277,12 @@ def test_futures_short_plan_can_be_registered_then_opened_and_closed(tmp_path):
     assert result["position"]["asset_type"] == "futures"
     assert result["position"]["direction"] == "SHORT"
     assert result["outcome"]["pnl_dollars"] == 100
+    content = Path(
+        review.generate_postmortem(tid, str(tmp_path), journal_dir=str(tmp_path / "journal"))
+    ).read_text(encoding="utf-8")
+    assert "Historical record only" not in content
+    assert "| Contracts | 1 |" in content
+    assert f"| P&L ($) | {result['outcome']['pnl_dollars']} |" in content
 
 
 def test_persisted_lowercase_equity_direction_does_not_relax_schema(tmp_path):
@@ -548,3 +550,107 @@ def test_reports_exclude_equity_position_short_but_keep_futures_short(tmp_path, 
     content = Path(review.monthly_report(str(state), "2026-01")).read_text(encoding="utf-8")
     assert ("TEST" in content) == futures
     assert snapshot(state) == before
+
+
+@pytest.mark.parametrize("status", ["CLOSED", "INVALIDATED"])
+@pytest.mark.parametrize("manual_provenance", [False, True])
+@pytest.mark.parametrize("direction", ["SHORT", "SELL"])
+@pytest.mark.parametrize("with_adapter", [False, True])
+def test_legacy_short_postmortem_is_historical_and_preserves_state(
+    tmp_path, status, manual_provenance, direction, with_adapter
+):
+    state = tmp_path / "theses"
+    tid = active(state)
+    if status == "CLOSED":
+        store.close(state, tid, "manual", 120, END)
+    else:
+        store.terminate(state, tid, "INVALIDATED", "retired legacy record")
+    thesis = corrupt_short(state, tid, manual_provenance)
+    if manual_provenance:
+        thesis["origin"]["raw_provenance"]["direction"] = direction
+    else:
+        thesis["position"]["direction"] = direction
+    thesis["outcome"].update(
+        pnl_dollars=777.0,
+        pnl_pct=888.0,
+        mae_pct=-999.0,
+        mfe_pct=999.0,
+        mae_mfe_source="old_untrusted",
+    )
+    thesis["outcome"]["lessons_learned"] = "Preserve original thesis evidence"
+    (state / f"{tid}.yaml").write_text(yaml.safe_dump(thesis), encoding="utf-8")
+    adapter = Mock()
+    adapter.get_daily_closes.side_effect = AssertionError("provider forbidden")
+    before = snapshot(state)
+    path = review.generate_postmortem(tid, str(state), adapter if with_adapter else None)
+    content = Path(path).read_text(encoding="utf-8")
+    assert Path(path) == tmp_path / "journal" / f"pm_{tid}.md"
+    assert "Historical record only" in content
+    assert "unsupported legacy equity short" in content
+    assert "stored values were not changed or validated" in content
+    assert "Preserve original thesis evidence" in content
+    assert status in content
+    for metric in ("P&L ($)", "P&L (%)", "MAE (%)", "MFE (%)", "Position Value", "Risk ($)"):
+        assert f"| {metric} | — |" in content
+    assert "777.0" not in content
+    assert "888.0" not in content
+    assert "999.0" not in content
+    assert snapshot(state) == before
+    adapter.get_daily_closes.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["CLOSED", "INVALIDATED"])
+def test_legacy_short_postmortem_public_cli(tmp_path, status):
+    state = tmp_path / "theses"
+    tid = active(state)
+    if status == "CLOSED":
+        store.close(state, tid, "manual", 120, END)
+    corrupt_short(state, tid)
+    if status == "INVALIDATED":
+        store.terminate(state, tid, "INVALIDATED", "legacy short")
+    before = snapshot(state)
+    journal = tmp_path / "custom-journal"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            review.__file__,
+            "--state-dir",
+            str(state),
+            "postmortem",
+            tid,
+            "--journal-dir",
+            str(journal),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "Postmortem generated:" in completed.stdout
+    assert "Historical record only" in (journal / f"pm_{tid}.md").read_text(encoding="utf-8")
+    assert snapshot(state) == before
+
+
+@pytest.mark.parametrize("status", ["ACTIVE", "PARTIALLY_CLOSED"])
+def test_nonterminal_short_cannot_generate_historical_postmortem(tmp_path, status):
+    state = tmp_path / "theses"
+    tid = active(state)
+    if status == "PARTIALLY_CLOSED":
+        store.trim(state, tid, 5, 120, END, "synthetic trim")
+    corrupt_short(state, tid)
+    before = snapshot(tmp_path)
+    with pytest.raises(ValueError, match="CLOSED or INVALIDATED"):
+        review.generate_postmortem(tid, str(state))
+    assert snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize("direction", ["BUY", "Long position"])
+def test_legacy_nonshort_postmortem_retains_accounting(tmp_path, direction):
+    state = tmp_path / "theses"
+    tid = active(state)
+    store.close(state, tid, "manual", 120, END)
+    thesis = store.get(state, tid)
+    thesis["origin"].update(skill="manual", raw_provenance={"direction": direction})
+    (state / f"{tid}.yaml").write_text(yaml.safe_dump(thesis), encoding="utf-8")
+    content = Path(review.generate_postmortem(tid, str(state))).read_text(encoding="utf-8")
+    assert "Historical record only" not in content
+    assert f"| P&L ($) | {thesis['outcome']['pnl_dollars']} |" in content

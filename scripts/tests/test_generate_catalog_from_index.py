@@ -86,6 +86,10 @@ PLACEHOLDER — will be regenerated.
 <!-- skills-index:end name="{sentinel}" -->
 
 Some pre-existing content below that must remain untouched.
+
+<!-- skills-index:start name="api-requirements-{"ja" if name == "README.ja.md" else "en"}" -->
+PLACEHOLDER API guidance.
+<!-- skills-index:end name="api-requirements-{"ja" if name == "README.ja.md" else "en"}" -->
 """
     (project_root / name).write_text(body, encoding="utf-8")
 
@@ -585,3 +589,91 @@ def test_ambiguous_last_catalog_does_not_write_earlier_targets(tmp_path):
     before = {tmp_path / rel: (tmp_path / rel).read_bytes() for rel, _ in catalog_generator.TARGETS}
     assert main(["--project-root", str(tmp_path)]) == 1
     assert before == {p: p.read_bytes() for p in before}
+
+
+@pytest.mark.parametrize("language,filename", [("en", "README.md"), ("ja", "README.ja.md")])
+def test_readme_api_guidance_is_generated_and_drift_checked(
+    tmp_path, monkeypatch, language, filename
+):
+    monkeypatch.setattr(catalog_generator, "validate_catalogs", lambda _root: None)
+    write_minimal_index(tmp_path, [make_skill("a-skill")])
+    write_all_targets(tmp_path)
+    assert main(["--project-root", str(tmp_path)]) == 0
+    path = tmp_path / filename
+    text = path.read_text(encoding="utf-8")
+    region = next(
+        m for m in SENTINEL_RE.finditer(text) if m.group(2) == f"api-requirements-{language}"
+    )
+    body = region.group(3)
+    assert f"docs/{language}/skill-catalog.md#" in body
+    assert "skills-index.yaml" in body
+    assert f"docs/{language}/skills/" in body
+    assert "Some pre-existing content below that must remain untouched." in text
+    assert main(["--project-root", str(tmp_path), "--check"]) == 0
+    path.write_text(text.replace(body, "Wrong API prerequisites.\n"), encoding="utf-8")
+    assert main(["--project-root", str(tmp_path), "--check"]) == 1
+
+
+@pytest.mark.parametrize("language,filename", [("en", "README.md"), ("ja", "README.ja.md")])
+def test_readme_api_guidance_sentinels_are_required(tmp_path, monkeypatch, language, filename):
+    monkeypatch.setattr(catalog_generator, "validate_catalogs", lambda _root: None)
+    write_minimal_index(tmp_path, [make_skill("a-skill")])
+    write_all_targets(tmp_path)
+    assert main(["--project-root", str(tmp_path)]) == 0
+    path = tmp_path / filename
+    text = path.read_text(encoding="utf-8")
+    text = SENTINEL_RE.sub(
+        lambda m: "" if m.group(2) == f"api-requirements-{language}" else m.group(0), text
+    )
+    path.write_text(text, encoding="utf-8")
+    assert main(["--project-root", str(tmp_path), "--check"]) == 1
+
+
+@pytest.mark.parametrize("change", ["requirement", "added-skill"])
+def test_index_api_changes_cannot_escape_generated_catalog_check(tmp_path, monkeypatch, change):
+    monkeypatch.setattr(catalog_generator, "validate_catalogs", lambda _root: None)
+    skills = [
+        make_skill(
+            "a-skill",
+            integrations=[{"id": "fmp", "type": "market_data", "requirement": "optional"}],
+        )
+    ]
+    write_minimal_index(tmp_path, skills)
+    write_all_targets(tmp_path)
+    assert main(["--project-root", str(tmp_path)]) == 0
+    if change == "requirement":
+        skills[0]["integrations"][0]["requirement"] = "required"
+    else:
+        skills.append(
+            make_skill(
+                "new-fmp-skill",
+                integrations=[{"id": "fmp", "type": "market_data", "requirement": "required"}],
+            )
+        )
+    write_minimal_index(tmp_path, skills)
+    if change == "added-skill":
+        # New skills also need hand-maintained website identities/counts. Keep
+        # those valid so this exercises drift in the old generated README data.
+        preserved = {
+            name: (tmp_path / name).read_bytes()
+            for name in ("README.md", "README.ja.md", "CLAUDE.md")
+        }
+        write_all_targets(tmp_path)
+        for name, content in preserved.items():
+            (tmp_path / name).write_bytes(content)
+    assert main(["--project-root", str(tmp_path), "--check"]) == 1
+    assert main(["--project-root", str(tmp_path)]) == 0
+    for filename in ("README.md", "README.ja.md", "CLAUDE.md"):
+        assert "required" in (tmp_path / filename).read_text(encoding="utf-8").lower()
+
+
+def test_readme_api_guidance_links_have_language_correct_targets():
+    root = SCRIPTS_DIR.parent
+    for lang, heading in [("en", "API Requirements Matrix"), ("ja", "API要件マトリクス")]:
+        body = catalog_generator.RENDERERS[f"api-requirements-{lang}"]([])
+        anchor = heading.lower().replace(" ", "-")
+        assert f"docs/{lang}/skill-catalog.md#{anchor}" in body
+        assert f"## {heading}" in (root / "docs" / lang / "skill-catalog.md").read_text(
+            encoding="utf-8"
+        )
+        assert (root / "docs" / lang / "skills" / "index.md").is_file()

@@ -203,7 +203,9 @@ The checker accepts `YYYY-MM-DD`, `YYYY/MM/DD`, `M/D` and Japanese
 `M月D日` dates followed by a weekday. Numeric dates accept English three-letter
 or full names (case-insensitive), or Japanese `火` / `火曜日` style labels.
 Use matching ASCII `(Tue)` or full-width `（火）` parentheses, optionally
-preceded by spaces or tabs. Invalid calendar dates and unrecognized labels
+preceded by spaces or tabs. Japanese weekday labels also accept mixed-width
+parentheses for compatibility. Dates accept Unicode decimal digits, including
+full-width digits. Tight ranges such as `11/10(火)-11/12(水)` check both dates. Invalid calendar dates and unrecognized labels
 are outside this weekday check and are skipped, not reported as valid dates.
 An explicit numeric year always wins. Yearless forms reuse `--as-of` year
 inference (including the existing six-month rollover), then document year,

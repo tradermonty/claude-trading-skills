@@ -103,3 +103,67 @@ def test_cli_emits_findings_but_remains_advisory(tmp_path):
 @pytest.mark.parametrize("weekday", ["ſun", "Frİday"])
 def test_unicode_casefold_is_not_an_english_weekday(weekday):
     assert check_dates(f"2026-11-10 ({weekday})", as_of=date(2026, 11, 7)) == []
+
+
+@pytest.mark.parametrize("separator", ["-", "/"])
+@pytest.mark.parametrize("brackets", [("(", ")"), ("（", "）")])
+@pytest.mark.parametrize(
+    "dates", [("11/10", "11/12"), ("2026-11-10", "2026-11-12"), ("2026/11/10", "2026/11/12")]
+)
+@pytest.mark.parametrize("wrong", [(True, False), (False, True), (True, True), (False, False)])
+def test_tight_ranges_check_both_endpoints(separator, brackets, dates, wrong):
+    opening, closing = brackets
+    first, second = dates
+    first_day = "Wed" if wrong[0] else "Tue"
+    second_day = "Wed" if wrong[1] else "Thu"
+    text = f"{first}{opening}{first_day}{closing}{separator}{second}{opening}{second_day}{closing}"
+    findings = check_dates(text, as_of=date(2026, 11, 7))
+    assert len(findings) == sum(wrong)
+    for value, is_wrong in zip(dates, wrong):
+        assert any(value in row.message for row in findings) == is_wrong
+
+
+@pytest.mark.parametrize("value", ["11月10日", "11/10", "2026-11-10", "2026/11/10"])
+@pytest.mark.parametrize("brackets", [("（", ")"), ("(", "）")])
+@pytest.mark.parametrize("weekday,expected", [("水", 1), ("水曜日", 1), ("火", 0)])
+def test_japanese_weekdays_preserve_mixed_parentheses(value, brackets, weekday, expected):
+    opening, closing = brackets
+    findings = check_dates(f"{value}{opening}{weekday}{closing}", as_of=date(2026, 11, 7))
+    assert len(findings) == expected
+
+
+@pytest.mark.parametrize(
+    "value", ["１１/１０", "２０２６/１１/１０", "２０２６-１１-１０", "１１月１０日"]
+)
+@pytest.mark.parametrize("weekday,expected", [("水", 1), ("火", 0)])
+def test_fullwidth_date_digits(value, weekday, expected):
+    findings = check_dates(f"{value}（{weekday}）", as_of=date(2026, 11, 7))
+    assert len(findings) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "１２０２６/１１/１０（水）",
+        "２０２６/ １１/１０（水）",
+        "２０２６-１１/１０（水）",
+        "２０２６/１１-１０（水）",
+        "v１１/１０（水）",
+    ],
+)
+def test_fullwidth_digits_do_not_allow_suffix_salvage(text):
+    assert check_dates(text, as_of=date(2026, 11, 7)) == []
+
+
+def test_fullwidth_explicit_year_wins():
+    assert check_dates("２０２６/１１/１０（火）", as_of=date(2027, 11, 7)) == []
+    assert len(check_dates("２０２６/１１/１０（水）", as_of=date(2027, 11, 7))) == 1
+
+
+@pytest.mark.parametrize("separator", ["-", "/"])
+@pytest.mark.parametrize("closing", [")", "）"])
+def test_japanese_tight_range_regression(separator, closing):
+    text = f"11/10（火{closing}{separator}11/12（水）"
+    findings = check_dates(text, as_of=date(2026, 11, 7))
+    assert len(findings) == 1
+    assert "11/12（水）" in findings[0].message
