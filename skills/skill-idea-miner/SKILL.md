@@ -36,7 +36,7 @@ python3 scripts/mine_session_logs.py --output-dir reports/
 # Score existing candidates
 python3 scripts/score_ideas.py \
   --candidates reports/raw_candidates.yaml \
-  --output-dir logs/
+  --backlog logs/.skill_generation_backlog.yaml
 ```
 
 ### Stage 1: Session Log Mining

@@ -55,7 +55,7 @@ source ~/.bashrc
 ### Method 2: Command-Line Argument
 
 ```bash
-python3 scripts/screen_dividend_stocks.py --api-key your_api_key_here
+python3 scripts/screen_dividend_stocks.py --fmp-api-key your_api_key_here
 ```
 
 ## Key Endpoints Used
