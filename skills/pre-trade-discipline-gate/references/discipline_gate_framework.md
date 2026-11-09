@@ -45,8 +45,13 @@ An actionable candidate is `NO_GO` when:
 - `size_within_plan` is not true
 - `actual_risk_dollars` is greater than `planned_risk_dollars`
 - A losing exit or partial trim exists inside the revenge window
-- Market-regime recommendation is `REDUCE_ONLY` or `CASH_PRIORITY`
 - Circuit-breaker recommendation is `COOLDOWN`, `HALTED`, or `TRADING_HALTED`
+
+## Restrictive Regime Warning
+
+Market-regime recommendation `REDUCE_ONLY` or `CASH_PRIORITY` is a warning, not a block. The result carries a `regime_warning` string and the markdown report shows it in bold above the rationale. Each actionable candidate is `REVIEW_REQUIRED` until it sets `regime_override_confirmed: true` (literal boolean only). A confirmed candidate can reach `GO`, records the confirmation in `checklist_answers`, and keeps a per-candidate entry in `warnings`. The override does not bypass any other rule.
+
+Why the warning exists: breakouts fail more often during distribution and defensive rotation, position sizes from position-sizer and breakout-trade-planner ignore the exposure-coach ceiling, and losses on new longs taken against a weak tape tend to cluster.
 
 Market-regime recommendation `NEW_ENTRY_ALLOWED` and circuit-breaker recommendation `TRADING_ALLOWED` are the only explicit pass values. Unknown or missing upstream artifacts produce `REVIEW_REQUIRED` for actionable orders.
 

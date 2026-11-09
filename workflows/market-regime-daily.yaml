@@ -98,10 +98,21 @@ steps:
 manual_review:
   - Confirm output is not used as a buy/sell signal.
   - Confirm whether exposure should be reduced, unchanged, or increased.
-  - If exposure_decision is restrictive, defer running swing-opportunity-daily.
+  - >-
+    **WARNING:** if exposure_decision is restrictive or cash-priority,
+    swing-opportunity-daily can still run, but breakouts fail more often,
+    sizing ignores the exposure ceiling, losses cluster, and
+    pre-trade-discipline-gate requires an extra per-candidate confirmation
+    (regime_override_confirmed: true) before any order can be GO. Without it,
+    treat the output as a watchlist only.
 manual_review_ja:
   - 出力を売買シグナルとして使用していないことを確認する。
   - エクスポージャーを減らすか、維持するか、増やすかを確認する。
-  - exposure_decision が restrictive の場合、swing-opportunity-daily の実行を見送る。
+  - >-
+    **警告：** exposure_decision が restrictive または cash-priority の場合も
+    swing-opportunity-daily は実行できるが、ブレイクアウトの失敗が増え、サイズ算出は
+    エクスポージャー上限を無視し、損失が集中しやすく、pre-trade-discipline-gate は
+    発注を GO にする前に候補ごとの追加確認（regime_override_confirmed: true）を求める。
+    確認がない場合、出力はウォッチリストとしてのみ扱う。
 
 journal_destination: trader-memory-core

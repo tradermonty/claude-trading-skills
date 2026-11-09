@@ -17,9 +17,11 @@
         "size_within_plan": true,
         "planned_risk_dollars": 500.0,
         "actual_risk_dollars": 500.0,
-        "notes": "Fictional 200-share plan; no order submitted."
+        "notes": "Fictional 200-share plan; no order submitted.",
+        "regime_override_confirmed": null
       },
-      "link_status": "skipped_no_state_dir"
+      "link_status": "skipped_no_state_dir",
+      "warnings": []
     }
   ],
   "metrics": {
@@ -38,5 +40,6 @@
     "markdown": "11_pre_trade_discipline_decision.md"
   },
   "warnings": [],
+  "regime_warning": null,
   "rationale": "All actionable manual-order candidates passed the pre-trade discipline gate."
 }

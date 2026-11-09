@@ -1,6 +1,6 @@
 ---
 name: pre-trade-discipline-gate
-description: Evaluate a local pre-trade checklist before manual order entry, blocking planless, oversized, revenge-risk, market-regime-blocked, or circuit-breaker-blocked entries while journaling the decision for trader-memory-core review.
+description: Evaluate a local pre-trade checklist before manual order entry, blocking planless, oversized, revenge-risk, or circuit-breaker-blocked entries, warning on entries against a restrictive market regime unless explicitly confirmed, while journaling the decision for trader-memory-core review.
 ---
 
 # Pre-Trade Discipline Gate
@@ -45,6 +45,7 @@ Create a JSON or YAML file with candidate answers. Only actionable manual-order 
       "size_within_plan": true,
       "planned_risk_dollars": 500,
       "actual_risk_dollars": 500,
+      "regime_override_confirmed": false,
       "notes": "Entry matches the journaled breakout plan."
     }
   ]
@@ -96,8 +97,9 @@ The gate blocks an actionable candidate when:
 - Either risk-dollar field is missing or is not a finite, non-negative number (`REVIEW_REQUIRED`)
 - `actual_risk_dollars` exceeds `planned_risk_dollars`
 - trader-memory-core has a losing exit or partial loss inside the revenge window
-- exposure-coach recommendation is `REDUCE_ONLY` or `CASH_PRIORITY`
 - drawdown-circuit-breaker recommendation is `COOLDOWN`, `HALTED`, or `TRADING_HALTED`
+
+**Restrictive market regime (warning + extra confirmation):** when the exposure-coach recommendation is `REDUCE_ONLY` or `CASH_PRIORITY`, the gate does not block outright. The report shows a bold **WARNING** (breakouts fail more often during distribution and defensive rotation, position sizes ignore the exposure-coach ceiling, losses on new longs tend to cluster) and every actionable candidate is `REVIEW_REQUIRED` until its checklist entry sets `regime_override_confirmed: true` (literal boolean). A confirmed candidate can reach `GO` but keeps a per-candidate warning, and the result carries `regime_warning`. The override lifts only the regime rule; every other rule still applies. Confirm the override only after deliberately accepting the regime risk, ideally with smaller size than the default.
 
 Missing or unreadable market-regime or circuit-breaker artifacts produce `REVIEW_REQUIRED` for actionable orders. If no actionable order exists, the result remains `NO_ACTIONABLE_ORDERS`.
 
@@ -109,7 +111,7 @@ The script writes:
 - A matching markdown report unless `--json-only` is set
 - A JSONL journal row under `state/journal/pre-trade-discipline/` when `--journal-dir` is provided
 
-Each candidate result includes a `checklist_answers` object with the written-plan, stop, size, risk-dollar, and notes answers used for the decision, so later reviews can audit what was answered at order time. Invalid risk-dollar values are stored as JSON `null`. Valid JSON decimals that cannot round-trip through a binary float are retained as numeric strings so underflow or precision loss cannot change the gate decision.
+Each candidate result includes a `checklist_answers` object with the written-plan, stop, size, risk-dollar, regime-override, and notes answers used for the decision, so later reviews can audit what was answered at order time. Invalid risk-dollar values are stored as JSON `null`. Valid JSON decimals that cannot round-trip through a binary float are retained as numeric strings so underflow or precision loss cannot change the gate decision.
 
 If a candidate includes `thesis_id` and `--state-dir` is provided, the JSON report is linked into the thesis `linked_reports` list using trader-memory-core `link_report`. The skill does not call `mark_reviewed` and does not change monitoring review dates.
 

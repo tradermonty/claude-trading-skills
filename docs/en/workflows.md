@@ -224,7 +224,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - Confirm output is not used as a buy/sell signal.
 - Confirm whether exposure should be reduced, unchanged, or increased.
-- If exposure_decision is restrictive, defer running swing-opportunity-daily.
+- **WARNING:** if exposure_decision is restrictive or cash-priority, swing-opportunity-daily can still run, but breakouts fail more often, sizing ignores the exposure ceiling, losses cluster, and pre-trade-discipline-gate requires an extra per-candidate confirmation (regime_override_confirmed: true) before any order can be GO. Without it, treat the output as a watchlist only.
 
 **Journal destination:** `trader-memory-core`
 
@@ -731,9 +731,9 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **`swing-opportunity-daily`** · daily · ~40 min · fmp-required · intermediate
 
-**When to run:** Only after market-regime-daily has produced a non-restrictive exposure decision. Identifies swing trade candidates and builds entry plans.
+**When to run:** Best after market-regime-daily has produced a non-restrictive exposure decision. Identifies swing trade candidates and builds entry plans.
 
-**When NOT to run:** Do not run when the latest market-regime-daily exposure_decision is cash-priority or restrictive. Do not use as a standalone screener without the regime gate.
+**When NOT to run:** **WARNING (not a hard stop):** running while the latest market-regime-daily exposure_decision is restrictive or cash-priority introduces problems. (1) Breakouts fail more often during distribution and defensive rotation, so stop-outs and false signals rise. (2) position-sizer and breakout-trade-planner still size at the full default risk, which adds exposure above the exposure-coach ceiling. (3) New longs are correlated with the weak tape, so losses tend to cluster. (4) pre-trade-discipline-gate marks every actionable order REVIEW_REQUIRED while exposure-coach says REDUCE_ONLY or CASH_PRIORITY, until the candidate sets regime_override_confirmed: true; confirmed orders can reach GO but keep the warning. Without that extra confirmation, treat the output as a watchlist, not an order list. Running without any regime check removes this context entirely.
 
 **Required skills:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
@@ -741,7 +741,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Prerequisite workflows (informational):**
 
-- `market-regime-daily` expects `exposure_decision` — New swing trade risk requires a non-restrictive exposure decision. Skip this workflow on cash-priority or restrictive days.
+- `market-regime-daily` expects `exposure_decision` — The exposure decision gives the regime context for new swing risk. On cash-priority or restrictive days the workflow can still run, but see the warning in when_not_to_run.
 
 **Artifacts:**
 

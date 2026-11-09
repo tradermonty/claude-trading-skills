@@ -39,6 +39,12 @@ CHECKLIST_ANSWER_FIELDS = (
     "planned_risk_dollars",
     "actual_risk_dollars",
     "notes",
+    "regime_override_confirmed",
+)
+RESTRICTIVE_REGIME_RECOMMENDATIONS = {"REDUCE_ONLY", "CASH_PRIORITY"}
+REGIME_RISKS = (
+    "breakouts fail more often during distribution and defensive rotation, "
+    "position sizes ignore the exposure-coach ceiling, and losses on new longs tend to cluster"
 )
 RISK_DOLLAR_FIELDS = ("planned_risk_dollars", "actual_risk_dollars")
 DECISION_RANK = {
@@ -68,6 +74,7 @@ class CandidateResult:
     reasons: list[str] = field(default_factory=list)
     checklist_answers: dict[str, Any] = field(default_factory=dict)
     link_status: str = "not_requested"
+    warnings: list[str] = field(default_factory=list)
 
 
 def _parse_datetime(
@@ -293,12 +300,20 @@ def _artifact_decision(path: Path | None, *, artifact_name: str) -> tuple[str | 
     return None, [f"{artifact_name} artifact has no recommendation field"]
 
 
+def regime_warning_text(decision: str) -> str:
+    return (
+        f"WARNING: market_regime recommendation is {decision}. Entering new risk against "
+        f"the regime is allowed only with an explicit per-candidate confirmation: {REGIME_RISKS}."
+    )
+
+
 def evaluate_market_regime(path: Path | None) -> tuple[str, list[str]]:
+    """Return (status, reasons). ``WARN`` means restrictive but overridable per candidate."""
     decision, warnings = _artifact_decision(path, artifact_name="market_regime")
     if decision == "NEW_ENTRY_ALLOWED":
         return "OK", []
-    if decision in {"REDUCE_ONLY", "CASH_PRIORITY"}:
-        return "NO_GO", [f"market_regime recommendation is {decision}"]
+    if decision in RESTRICTIVE_REGIME_RECOMMENDATIONS:
+        return "WARN", [decision]
     if decision is not None:
         return "REVIEW_REQUIRED", [f"market_regime recommendation is unknown: {decision}"]
     return "REVIEW_REQUIRED", warnings
@@ -500,6 +515,7 @@ def evaluate_pre_trade_gate(
         _evaluate_candidate_checklist(candidate, result)
 
     warnings: list[str] = []
+    regime_warning: str | None = None
     theses, thesis_warnings = load_theses(state_dir)
     warnings.extend(thesis_warnings)
 
@@ -515,8 +531,26 @@ def evaluate_pre_trade_gate(
         warnings.extend(loss_warnings)
 
         external_rules: list[tuple[str, str]] = []
-        for reason in market_reasons:
-            external_rules.append((market_status, reason))
+        if market_status == "WARN":
+            regime_decision = market_reasons[0]
+            regime_warning = regime_warning_text(regime_decision)
+            for candidate in actionable_candidates:
+                if _is_true(candidate.checklist_answers.get("regime_override_confirmed")):
+                    candidate.warnings.append(
+                        f"WARNING: entering against market_regime {regime_decision} "
+                        "(override confirmed by regime_override_confirmed: true)"
+                    )
+                else:
+                    _raise_candidate_decision(
+                        candidate,
+                        "REVIEW_REQUIRED",
+                        f"WARNING: market_regime recommendation is {regime_decision}; "
+                        "set regime_override_confirmed: true for this candidate to "
+                        "proceed against the regime",
+                    )
+        else:
+            for reason in market_reasons:
+                external_rules.append((market_status, reason))
         for reason in circuit_reasons:
             external_rules.append((circuit_status, reason))
         for reason in _recent_loss_reasons(losses, revenge_window_hours):
@@ -550,6 +584,7 @@ def evaluate_pre_trade_gate(
         },
         "artifact_paths": {},
         "warnings": warnings,
+        "regime_warning": regime_warning,
         "rationale": "",
     }
     json_path, md_path = _planned_artifact_paths(result, output_dir, json_only)
@@ -578,6 +613,11 @@ def finalize_links(
 def build_rationale(result: dict[str, Any]) -> str:
     decision = result["overall_decision"]
     if decision == "GO":
+        if result.get("regime_warning"):
+            return (
+                "All actionable manual-order candidates passed the pre-trade discipline gate, "
+                "but only through a confirmed override of a restrictive market regime."
+            )
         return "All actionable manual-order candidates passed the pre-trade discipline gate."
     if decision == "NO_ACTIONABLE_ORDERS":
         return "No actionable manual orders were present; nothing should be placed at the broker."
@@ -592,6 +632,11 @@ def generate_markdown_report(result: dict[str, Any]) -> str:
         f"**As of:** {result['as_of']}",
         f"**Decision:** {result['overall_decision']}",
         "",
+    ]
+    if result.get("regime_warning"):
+        warning_body = result["regime_warning"].removeprefix("WARNING:").strip()
+        lines.extend([f"> **WARNING:** {warning_body}", ""])
+    lines += [
         "## Rationale",
         "",
         result["rationale"],
@@ -602,7 +647,8 @@ def generate_markdown_report(result: dict[str, Any]) -> str:
         "|--------|--------|------------|----------|---------|------|",
     ]
     for candidate in result["candidate_results"]:
-        reasons = "<br>".join(candidate["reasons"]) if candidate["reasons"] else "None"
+        notes = list(candidate["reasons"]) + list(candidate.get("warnings") or [])
+        reasons = "<br>".join(notes) if notes else "None"
         lines.append(
             "| {symbol} | {intent} | {actionable} | {decision} | {reasons} | {link} |".format(
                 symbol=candidate["symbol"],

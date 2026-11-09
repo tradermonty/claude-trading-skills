@@ -224,7 +224,7 @@ permalink: /ja/workflows/
 
 - 出力を売買シグナルとして使用していないことを確認する。
 - エクスポージャーを減らすか、維持するか、増やすかを確認する。
-- exposure_decision が restrictive の場合、swing-opportunity-daily の実行を見送る。
+- **警告：** exposure_decision が restrictive または cash-priority の場合も swing-opportunity-daily は実行できるが、ブレイクアウトの失敗が増え、サイズ算出は エクスポージャー上限を無視し、損失が集中しやすく、pre-trade-discipline-gate は 発注を GO にする前に候補ごとの追加確認（regime_override_confirmed: true）を求める。 確認がない場合、出力はウォッチリストとしてのみ扱う。
 
 **記録先:** `trader-memory-core`
 
@@ -731,9 +731,9 @@ permalink: /ja/workflows/
 
 **`swing-opportunity-daily`** · 毎日 · 約40分 · fmp-required · 中級
 
-**実行タイミング:** market-regime-daily が非制限的なエクスポージャー判断を出した後にのみ実行する。スイング取引候補を抽出し、エントリー計画を作成する。
+**実行タイミング:** market-regime-daily が非制限的なエクスポージャー判断を出した後に実行するのが最適。スイング取引候補を抽出し、エントリー計画を作成する。
 
-**実行してはいけないとき:** 最新の market-regime-daily の exposure_decision が cash-priority または restrictive の場合は実行しない。レジームゲートを通さず、単独のスクリーナーとして使用しない。
+**実行してはいけないとき:** **警告（実行停止ではない）：** 最新の market-regime-daily の exposure_decision が restrictive または cash-priority の状態で実行すると問題が生じる。 (1) ディストリビューションやディフェンシブへのローテーション局面ではブレイクアウトの失敗が増え、ストップ到達やダマシが増える。(2) position-sizer と breakout-trade-planner は既定のリスクで満額サイズを算出するため、exposure-coach の上限を超えるエクスポージャーになる。 (3) 新規ロングは弱い地合いと相関するため、損失が集中しやすい。 (4) exposure-coach が REDUCE_ONLY または CASH_PRIORITY の間、pre-trade-discipline-gate は候補が regime_override_confirmed: true を設定するまですべての発注を REVIEW_REQUIRED にする。確認済みの発注は GO になり得るが警告は残る。この追加確認がない場合、結果は発注リストではなくウォッチリストとして扱う。レジーム確認なしで実行すると、この文脈自体が失われる。
 
 **必須スキル:** `vcp-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
 
@@ -741,7 +741,7 @@ permalink: /ja/workflows/
 
 **前提ワークフロー（参考情報）:**
 
-- `market-regime-daily` が期待する成果物 `exposure_decision` — 新規スイング取引のリスクを取るには、非制限的なエクスポージャー判断が必要である。 cash-priority または restrictive の日はこのワークフローを見送る。
+- `market-regime-daily` が期待する成果物 `exposure_decision` — エクスポージャー判断は新規スイング取引リスクのレジーム文脈を与える。 cash-priority または restrictive の日も実行はできるが、when_not_to_run の警告を参照する。
 
 **成果物一覧:**
 

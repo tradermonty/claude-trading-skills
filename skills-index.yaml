@@ -1613,7 +1613,8 @@ skills:
   operational_role:
     type: workflow_step
   summary: Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk,
-    market-regime-blocked, or circuit-breaker-blocked entries and journals the result.
+    or circuit-breaker-blocked entries, warns on entries against a restrictive market regime
+    unless explicitly confirmed, and journals the result.
   timeframe: event-driven
   difficulty: intermediate
   integrations:

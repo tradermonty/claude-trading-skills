@@ -11,6 +11,7 @@ import yaml
 from check_pre_trade_discipline import (
     evaluate_pre_trade_gate,
     finalize_links,
+    generate_markdown_report,
     load_candidates,
     main,
     parse_as_of,
@@ -144,6 +145,7 @@ def test_go_when_all_checks_pass(tmp_path: Path):
         "planned_risk_dollars": 500,
         "actual_risk_dollars": 500,
         "notes": "Plan checked before open",
+        "regime_override_confirmed": None,
     }
 
 
@@ -422,19 +424,102 @@ def test_missing_market_and_circuit_artifacts_require_review_for_actionable_orde
     assert "circuit_breaker artifact not provided" in reasons
 
 
-def test_market_reduce_only_and_cash_priority_block_orders(tmp_path: Path):
-    for recommendation in ("REDUCE_ONLY", "cash-priority"):
-        market = write_json(tmp_path / f"{recommendation}.json", {"recommendation": recommendation})
-        circuit = write_json(
-            tmp_path / f"{recommendation}_circuit.json", {"recommendation": "TRADING_ALLOWED"}
-        )
-        result = evaluate(
-            tmp_path,
-            [base_candidate(symbol=recommendation)],
-            market_regime_decision=market,
-            circuit_breaker_decision=circuit,
-        )
-        assert result["overall_decision"] == "NO_GO"
+def _restrictive_artifacts(tmp_path: Path, recommendation: str) -> tuple[Path, Path]:
+    market = write_json(tmp_path / f"{recommendation}.json", {"recommendation": recommendation})
+    circuit = write_json(
+        tmp_path / f"{recommendation}_circuit.json", {"recommendation": "TRADING_ALLOWED"}
+    )
+    return market, circuit
+
+
+@pytest.mark.parametrize("recommendation", ["REDUCE_ONLY", "cash-priority"])
+def test_restrictive_regime_warns_and_requires_confirmation(tmp_path: Path, recommendation: str):
+    market, circuit = _restrictive_artifacts(tmp_path, recommendation)
+    result = evaluate(
+        tmp_path,
+        [base_candidate()],
+        market_regime_decision=market,
+        circuit_breaker_decision=circuit,
+    )
+
+    candidate = result["candidate_results"][0]
+    assert result["overall_decision"] == "REVIEW_REQUIRED"
+    assert candidate["decision"] == "REVIEW_REQUIRED"
+    assert any("regime_override_confirmed" in reason for reason in candidate["reasons"])
+    assert result["regime_warning"].startswith("WARNING:")
+    normalized = recommendation.upper().replace("-", "_")
+    assert normalized in result["regime_warning"]
+
+
+@pytest.mark.parametrize("recommendation", ["REDUCE_ONLY", "CASH_PRIORITY"])
+def test_confirmed_regime_override_allows_go_with_warning(tmp_path: Path, recommendation: str):
+    market, circuit = _restrictive_artifacts(tmp_path, recommendation)
+    result = evaluate(
+        tmp_path,
+        [base_candidate(regime_override_confirmed=True)],
+        market_regime_decision=market,
+        circuit_breaker_decision=circuit,
+    )
+
+    candidate = result["candidate_results"][0]
+    assert result["overall_decision"] == "GO"
+    assert candidate["decision"] == "GO"
+    assert candidate["checklist_answers"]["regime_override_confirmed"] is True
+    assert any(
+        "override confirmed" in warning and recommendation in warning
+        for warning in candidate["warnings"]
+    )
+    assert result["regime_warning"].startswith("WARNING:")
+    assert "confirmed override" in result["rationale"]
+
+
+def test_regime_override_does_not_bypass_other_rules(tmp_path: Path):
+    market, circuit = _restrictive_artifacts(tmp_path, "REDUCE_ONLY")
+    result = evaluate(
+        tmp_path,
+        [base_candidate(regime_override_confirmed=True, stop_predefined=False)],
+        market_regime_decision=market,
+        circuit_breaker_decision=circuit,
+    )
+
+    assert result["overall_decision"] == "NO_GO"
+    assert "stop is not predefined" in result["candidate_results"][0]["reasons"]
+
+
+def test_regime_override_requires_literal_true(tmp_path: Path):
+    market, circuit = _restrictive_artifacts(tmp_path, "REDUCE_ONLY")
+    result = evaluate(
+        tmp_path,
+        [base_candidate(regime_override_confirmed="yes")],
+        market_regime_decision=market,
+        circuit_breaker_decision=circuit,
+    )
+
+    assert result["overall_decision"] == "REVIEW_REQUIRED"
+
+
+def test_allowed_regime_has_no_warning(tmp_path: Path):
+    result = evaluate(tmp_path, [base_candidate()])
+
+    assert result["regime_warning"] is None
+    assert result["candidate_results"][0]["warnings"] == []
+
+
+def test_markdown_report_shows_bold_regime_warning(tmp_path: Path):
+    market, circuit = _restrictive_artifacts(tmp_path, "REDUCE_ONLY")
+    result = evaluate(
+        tmp_path,
+        [base_candidate(regime_override_confirmed=True)],
+        market_regime_decision=market,
+        circuit_breaker_decision=circuit,
+    )
+    result["rationale"] = "x"
+
+    markdown = generate_markdown_report(result)
+
+    assert "**WARNING:**" in markdown
+    assert markdown.index("**WARNING:**") < markdown.index("## Candidates")
+    assert "override confirmed" in markdown
 
 
 def test_circuit_breaker_cooldown_and_halted_block_orders(tmp_path: Path):
