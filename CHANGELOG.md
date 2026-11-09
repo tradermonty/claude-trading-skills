@@ -5,6 +5,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 ## [Unreleased]
 
 - trader-memory-core: generate historical-only postmortems for retired legacy equity shorts without fetching prices or changing state; suppress unsupported accounting values and explain their omission (#682).
+- exposure-coach: consume canonical theme-detector reports with a documented directional-heat adapter, validate row/quality contracts, preserve upstream warnings and distinguish supplied unparsable theme inputs from omitted files (#673).
 
 - theme-detector: prefer authenticated FINVIZ group export with safe public fallback, require finvizfinance>=1.5.0 for Python3.10+ public scraping, and merge overlapping ETF holdings without a missing-score crash (#671).
 
