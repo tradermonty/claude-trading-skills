@@ -409,7 +409,10 @@ its full set of layers and coverage requirements is met.
 After changing a skill's credentials or API modes, update its `integrations`
 in `skills-index.yaml`, run `python3 scripts/check_api_requirements.py`, and
 regenerate with `python3 scripts/generate_catalog_from_index.py`. This also
-regenerates website category provider badges and API matrix cells while keeping
+regenerates the required EN/JA README API-guidance blocks linking to the canonical
+matrices and individual guides. `--check` rejects edits or missing guidance
+sentinels, in addition to index-derived catalog drift. It also regenerates
+website category provider badges and API matrix cells while keeping
 localized descriptions/non-provider badges. Update any workflow profile and
 regenerate workflow docs and Navigator snapshot/package when inputs change.
 See [API declaration coverage and limits](metadata-and-workflow-schema.md#api-declarations-versus-credential-reads-653).
