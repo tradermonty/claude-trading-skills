@@ -257,6 +257,11 @@
           "id": "fmp",
           "requirement": "required",
           "type": "market_data"
+        },
+        {
+          "id": "yfinance",
+          "requirement": "optional",
+          "type": "market_data"
         }
       ],
       "operational_role": {
@@ -264,7 +269,7 @@
         "type": "standalone"
       },
       "status": "production",
-      "summary": "This skill retrieves upcoming earnings announcements for US stocks using the Financial Modeling Prep (FMP) API.",
+      "summary": "This skill retrieves upcoming earnings announcements for US stocks using the Financial Modeling Prep (FMP) API, and for European (EU + UK) large caps using yfinance.",
       "timeframe": "event-driven"
     },
     {
@@ -1080,7 +1085,7 @@
         "type": "workflow_step"
       },
       "status": "production",
-      "summary": "Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk, market-regime-blocked, or circuit-breaker-blocked entries and journals the result.",
+      "summary": "Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk, or circuit-breaker-blocked entries, warns on entries against a restrictive market regime unless explicitly confirmed, and journals the result.",
       "timeframe": "event-driven"
     },
     {

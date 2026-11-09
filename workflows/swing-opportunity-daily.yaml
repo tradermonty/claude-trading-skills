@@ -10,18 +10,36 @@ difficulty: intermediate
 api_profile: fmp-required
 
 when_to_run: >-
-  Only after market-regime-daily has produced a non-restrictive exposure
+  Best after market-regime-daily has produced a non-restrictive exposure
   decision. Identifies swing trade candidates and builds entry plans.
 when_to_run_ja: >-
-  market-regime-daily が非制限的なエクスポージャー判断を出した後にのみ実行する。
+  market-regime-daily が非制限的なエクスポージャー判断を出した後に実行するのが最適。
   スイング取引候補を抽出し、エントリー計画を作成する。
 when_not_to_run: >-
-  Do not run when the latest market-regime-daily exposure_decision is
-  cash-priority or restrictive. Do not use as a standalone screener without
-  the regime gate.
+  **WARNING (not a hard stop):** running while the latest market-regime-daily
+  exposure_decision is restrictive or cash-priority introduces problems.
+  (1) Breakouts fail more often during distribution and defensive rotation,
+  so stop-outs and false signals rise. (2) position-sizer and
+  breakout-trade-planner still size at the full default risk, which adds
+  exposure above the exposure-coach ceiling. (3) New longs are correlated
+  with the weak tape, so losses tend to cluster. (4) pre-trade-discipline-gate
+  marks every actionable order REVIEW_REQUIRED while exposure-coach says
+  REDUCE_ONLY or CASH_PRIORITY, until the candidate sets
+  regime_override_confirmed: true; confirmed orders can reach GO but keep the
+  warning. Without that extra confirmation, treat the output as a watchlist,
+  not an order list. Running without any
+  regime check removes this context entirely.
 when_not_to_run_ja: >-
-  最新の market-regime-daily の exposure_decision が cash-priority または
-  restrictive の場合は実行しない。レジームゲートを通さず、単独のスクリーナーとして使用しない。
+  **警告（実行停止ではない）：** 最新の market-regime-daily の exposure_decision が
+  restrictive または cash-priority の状態で実行すると問題が生じる。
+  (1) ディストリビューションやディフェンシブへのローテーション局面ではブレイクアウトの
+  失敗が増え、ストップ到達やダマシが増える。(2) position-sizer と breakout-trade-planner は
+  既定のリスクで満額サイズを算出するため、exposure-coach の上限を超えるエクスポージャーになる。
+  (3) 新規ロングは弱い地合いと相関するため、損失が集中しやすい。
+  (4) exposure-coach が REDUCE_ONLY または CASH_PRIORITY の間、pre-trade-discipline-gate は
+  候補が regime_override_confirmed: true を設定するまですべての発注を REVIEW_REQUIRED にする。
+  確認済みの発注は GO になり得るが警告は残る。この追加確認がない場合、結果は
+  発注リストではなくウォッチリストとして扱う。レジーム確認なしで実行すると、この文脈自体が失われる。
 
 required_skills:
   - vcp-screener
@@ -43,11 +61,12 @@ prerequisite_workflows:
   - id: market-regime-daily
     artifact: exposure_decision
     rationale: >-
-      New swing trade risk requires a non-restrictive exposure decision.
-      Skip this workflow on cash-priority or restrictive days.
+      The exposure decision gives the regime context for new swing risk.
+      On cash-priority or restrictive days the workflow can still run, but
+      see the warning in when_not_to_run.
     rationale_ja: >-
-      新規スイング取引のリスクを取るには、非制限的なエクスポージャー判断が必要である。
-      cash-priority または restrictive の日はこのワークフローを見送る。
+      エクスポージャー判断は新規スイング取引リスクのレジーム文脈を与える。
+      cash-priority または restrictive の日も実行はできるが、when_not_to_run の警告を参照する。
 
 artifacts:
   - id: circuit_breaker_decision

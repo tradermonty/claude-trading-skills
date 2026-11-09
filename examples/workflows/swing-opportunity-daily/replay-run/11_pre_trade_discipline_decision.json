@@ -12,6 +12,7 @@
         "entry_in_written_plan": false,
         "notes": "Fictional 200-share plan; no order submitted.",
         "planned_risk_dollars": 500.0,
+        "regime_override_confirmed": null,
         "size_within_plan": false,
         "stop_predefined": false
       },
@@ -24,7 +25,8 @@
         "size is not confirmed within plan"
       ],
       "symbol": "EXMPL",
-      "thesis_id": "th_exmpl_gro_20260629_ab12"
+      "thesis_id": "th_exmpl_gro_20260629_ab12",
+      "warnings": []
     }
   ],
   "generated_at": "2026-06-29T12:00:00+00:00",
@@ -41,6 +43,7 @@
   },
   "overall_decision": "NO_GO",
   "rationale": "At least one actionable candidate violated a discipline rule; do not place the manual order.",
+  "regime_warning": null,
   "schema_version": "1.0",
   "warnings": []
 }

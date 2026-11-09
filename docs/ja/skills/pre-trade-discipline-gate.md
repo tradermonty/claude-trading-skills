@@ -12,7 +12,7 @@ generated: false
 # Pre-Trade Discipline Gate
 {: .no_toc }
 
-手動注文をブローカーに入れる直前に、計画外エントリー、過大サイズ、リベンジトレード、市場レジームやサーキットブレーカーによる停止をチェックし、結果を記録します。
+手動注文をブローカーに入れる直前に、計画外エントリー、過大サイズ、リベンジトレード、サーキットブレーカーによる停止をチェックし、制限的な市場レジームでは明示的な確認がない限り警告を出し、結果を記録します。
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">API不要</span>
@@ -83,6 +83,8 @@ python3 skills/pre-trade-discipline-gate/scripts/check_pre_trade_discipline.py \
 | `REVIEW_REQUIRED` | 入力不足、未知値、記録リンク失敗などで確認が必要 |
 | `NO_GO` | 規律ルールまたは上流ゲートにより注文不可 |
 | `NO_ACTIONABLE_ORDERS` | ブローカーに入れる注文がない |
+
+**制限的なレジーム：** exposure-coach が `REDUCE_ONLY` または `CASH_PRIORITY` の場合、レポートに太字の **警告** が表示され、各注文候補はチェックリストで `regime_override_confirmed: true` を設定するまで `REVIEW_REQUIRED` になります。確認済みの候補は `GO` になり得ますが警告は残ります。この確認で解除されるのはレジームルールのみです。
 
 シェル自動化で非`GO`を終了コード`2`にしたい場合は `--fail-on-non-go` を使います。
 

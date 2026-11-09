@@ -12,7 +12,7 @@ generated: false
 # Pre-Trade Discipline Gate
 {: .no_toc }
 
-Check a local pre-trade discipline checklist before manual broker entry, blocking planless, oversized, revenge-risk, market-regime-blocked, or circuit-breaker-blocked orders while journaling the result.
+Check a local pre-trade discipline checklist before manual broker entry, blocking planless, oversized, revenge-risk, or circuit-breaker-blocked orders, warning on orders against a restrictive market regime unless explicitly confirmed, while journaling the result.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">No API</span>
@@ -83,6 +83,8 @@ Both `planned_risk_dollars` and `actual_risk_dollars` are required for actionabl
 | `REVIEW_REQUIRED` | Missing, unknown, or failed journaling inputs need review |
 | `NO_GO` | A discipline or upstream gate rule blocked an actionable order |
 | `NO_ACTIONABLE_ORDERS` | The file contains no broker order to place |
+
+**Restrictive regime:** when exposure-coach says `REDUCE_ONLY` or `CASH_PRIORITY`, the report shows a bold **WARNING** and each actionable candidate is `REVIEW_REQUIRED` until its checklist sets `regime_override_confirmed: true`. A confirmed candidate can reach `GO` but keeps the warning; the override lifts only the regime rule.
 
 Use `--fail-on-non-go` when shell automation should return exit code `2` for non-`GO` decisions.
 

@@ -12,6 +12,7 @@
         "entry_in_written_plan": true,
         "notes": "Fictional 200-share plan; no order submitted.",
         "planned_risk_dollars": 500.0,
+        "regime_override_confirmed": null,
         "size_within_plan": true,
         "stop_predefined": true
       },
@@ -20,7 +21,8 @@
       "order_intent": "MANUAL_ORDER",
       "reasons": [],
       "symbol": "EXMPL",
-      "thesis_id": "th_exmpl_gro_20260629_cd34"
+      "thesis_id": "th_exmpl_gro_20260629_cd34",
+      "warnings": []
     }
   ],
   "generated_at": "2026-06-29T12:00:00+00:00",
@@ -37,6 +39,7 @@
   },
   "overall_decision": "GO",
   "rationale": "All actionable manual-order candidates passed the pre-trade discipline gate.",
+  "regime_warning": null,
   "schema_version": "1.0",
   "warnings": []
 }

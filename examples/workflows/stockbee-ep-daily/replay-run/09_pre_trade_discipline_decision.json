@@ -11,6 +11,7 @@
         "entry_in_written_plan": false,
         "notes": null,
         "planned_risk_dollars": 998.2,
+        "regime_override_confirmed": null,
         "size_within_plan": false,
         "stop_predefined": false
       },
@@ -23,7 +24,8 @@
         "size is not confirmed within plan"
       ],
       "symbol": "EXMPL",
-      "thesis_id": null
+      "thesis_id": null,
+      "warnings": []
     },
     {
       "actionable": false,
@@ -32,6 +34,7 @@
         "entry_in_written_plan": null,
         "notes": null,
         "planned_risk_dollars": null,
+        "regime_override_confirmed": null,
         "size_within_plan": null,
         "stop_predefined": null
       },
@@ -42,7 +45,8 @@
         "order_intent WATCHLIST has no manual order to place"
       ],
       "symbol": "EXWIDE",
-      "thesis_id": null
+      "thesis_id": null,
+      "warnings": []
     }
   ],
   "checklist_sha256": "a66492cceb17cd17879012223b28a5c630a06f0f6be9dcd01c50963caae8aaf9",
@@ -61,6 +65,7 @@
   },
   "overall_decision": "NO_GO",
   "rationale": "At least one actionable candidate violated a discipline rule; do not place the manual order.",
+  "regime_warning": null,
   "replay_sources": {
     "circuit_breaker_decision": {
       "file": "$ARTIFACT/01_circuit_breaker_decision.json",
