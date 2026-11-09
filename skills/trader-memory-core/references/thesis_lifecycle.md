@@ -122,13 +122,37 @@ registration does not import a raw position: use validated futures attachment or
 
 When both initial prices are supplied, they must be finite numeric/non-bool
 values. Positive initial stop > positive entry is rejected at manual ingest,
-shares-report attachment and equity activation (using the actual fill). Absent
+shares-report attachment and default equity activation (using the actual fill). Absent
 optional pairs and existing finite nonpositive-price behavior remain compatible.
 Do not apply this initial-entry rule to an ACTIVE/PARTIALLY_CLOSED long's stop:
 a profitable long may update its stop above original entry. Manual source prices
 remain provenance only; authoritative fills still come from `open-position`.
 For a backfill with a profit-protecting stop, open the long with its initial stop,
 then update the current stop after activation.
+
+For a real long that gaps and fills below its planned stop, keep the default
+refusal unless explicitly acknowledging the actual fill with
+`open-position --allow-gap-fill` (API: `allow_gap_fill=True`). This opt-in only
+bypasses the positive fill-below-positive-stop geometry guard for equity;
+SHORT intent, invalid prices/quantities/state and all ingest/attachment validation
+still refuse. Futures reject this equity-only option. A normal/equal fill adds
+no gap annotation. The flag must be a Python bool in API calls.
+
+Preserve the target, planned stop, sizing audit fields and provenance. Store the
+actual fill and append a `gap fill acknowledged` entry to the protected ACTIVE
+`status_history.reason`, including exact actual fill and stop values. A supplied
+reason must remain a string. This audit survives later stop changes; inspect
+status history when reviewing the gap. Closing/trimming uses the actual fill
+for long-side P&L. This records a fill that already occurred, not approval to
+open a new trade or retain a breached stop. Planned sizing fields are not
+recalculated by this acknowledgement.
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ open-position <id> \
+  --actual-price 88 --actual-date 2026-11-01 --shares 10 \
+  --allow-gap-fill --reason "record actual broker fill"
+```
 
 Explicit legacy short equity records (a SHORT word or a bare SELL, such as SELL_SHORT, Short position or SELL; labels such as Sell to close stay long) are refused before new
 accounting or MAE/MFE calculations. CLOSED/INVALIDATED legacy shorts can produce

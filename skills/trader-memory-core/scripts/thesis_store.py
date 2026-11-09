@@ -2482,6 +2482,7 @@ def open_position(
     direction: str | None = None,
     contract_symbol: str | None = None,
     contract_currency: str | None = None,
+    allow_gap_fill: bool = False,
 ) -> dict:
     """Transition thesis from ENTRY_READY to ACTIVE with entry data.
 
@@ -2515,12 +2516,20 @@ def open_position(
             open with no currency, or a non-USD currency, is rejected
             rather than silently treated as USD.
 
+        allow_gap_fill: Explicit equity-only acknowledgement of a positive
+            actual fill below the existing positive planned stop. Leaves the
+            plan intact and records the stop/fill in protected status history.
+            Does not permit explicit equity SHORT intent or alter sizing.
+
     Returns:
         Updated thesis dict.
 
     Raises:
         ValueError: If thesis is not ENTRY_READY.
     """
+    if not isinstance(allow_gap_fill, bool):
+        raise ValueError("allow_gap_fill must be a bool")
+
     # P3-2: providing both is never meaningful (one silently overrides or
     # gets ignored depending on dispatch order) — fail loud instead of
     # silently picking one.
@@ -2531,6 +2540,8 @@ def open_position(
         )
 
     thesis = _load_thesis(state_dir, thesis_id)
+    if allow_gap_fill and (contracts is not None or _is_futures(thesis)):
+        raise ValueError("--allow-gap-fill is equity-only; futures keep their existing contract")
 
     # Dispatch at function entry (D2/D4 non-negotiable, see _is_futures
     # docstring). `contracts is not None` covers a direct futures open with
@@ -2567,7 +2578,29 @@ def open_position(
             f"got {actual_price!r}"
         )
 
-    _validate_equity_initial_stop(actual_price, thesis.get("exit", {}).get("stop_loss"))
+    stop_loss = thesis.get("exit", {}).get("stop_loss")
+    gap_fill = (
+        _valid_finite_positive(actual_price) is not None
+        and _valid_finite_positive(stop_loss) is not None
+        and actual_price < stop_loss
+    )
+    if gap_fill:
+        if not allow_gap_fill:
+            raise ValueError(
+                "Equity accounting is long-only; fill is below the planned stop. "
+                "Use --allow-gap-fill only to record an acknowledged long fill "
+                "without rewriting its plan."
+            )
+        if not isinstance(reason, str):
+            raise ValueError("gap-fill acknowledgement requires a string reason")
+        # Status history is immutable through generic update(). Preserve exact
+        # stop/fill values here even if a later lifecycle update changes stop_loss.
+        reason += (
+            f"; gap fill acknowledged: actual_price={actual_price!r}, "
+            f"planned_stop_loss={stop_loss!r}"
+        )
+    else:
+        _validate_equity_initial_stop(actual_price, stop_loss)
 
     now = _now_iso()
     thesis["entry"]["actual_price"] = actual_price
@@ -3334,6 +3367,11 @@ def main(argv: list[str] | None = None) -> int:
     op_p.add_argument(
         "--actual-price", type=_strict_finite_float, required=True, help="Entry price"
     )
+    op_p.add_argument(
+        "--allow-gap-fill",
+        action="store_true",
+        help="Record an acknowledged equity long fill below its planned stop without rewriting the plan (not for futures)",
+    )
     op_p.add_argument("--actual-date", required=True, help="Entry date (YYYY-MM-DD or ISO)")
     op_p.add_argument(
         "--shares", type=_strict_shares, default=None, help="Share count (fractional ok)"
@@ -3508,6 +3546,7 @@ def main(argv: list[str] | None = None) -> int:
             direction=args.direction,
             contract_symbol=args.contract_symbol,
             contract_currency=args.contract_currency,
+            allow_gap_fill=args.allow_gap_fill,
         )
         pos = t.get("position") or {}
         if pos.get("quantity_unit") == "contracts":
