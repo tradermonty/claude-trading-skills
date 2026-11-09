@@ -8,6 +8,7 @@ skillset.id / honest_gap against the REAL repo SSoT.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -1508,19 +1509,36 @@ def test_saved_json_input_wins_over_output(
 
 @pytest.mark.parametrize("query", [COMBINED_SAVED_JSON_QUERIES[2], COMBINED_SAVED_JSON_QUERIES[7]])
 @pytest.mark.parametrize("no_api", [False, True])
-def test_saved_json_output_public_cli(query: str, no_api: bool) -> None:
+@pytest.mark.parametrize("stdio_encoding", ["utf-8", "cp1252"])
+@pytest.mark.parametrize("output_format", ["json", "text"])
+def test_saved_json_output_public_cli(
+    query: str, no_api: bool, stdio_encoding: str, output_format: str
+) -> None:
     args = [
         sys.executable,
         str(Path(__file__).resolve().parents[1] / "recommend.py"),
         "--query",
         query,
         "--format",
-        "json",
+        output_format,
     ]
     if no_api:
         args.append("--no-api")
-    completed = subprocess.run(args, check=True, capture_output=True, text=True)
-    assert_offline_saved_json_result(json.loads(completed.stdout))
+    completed = subprocess.run(
+        args,
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": stdio_encoding},
+    )
+    if output_format == "json":
+        result = json.loads(completed.stdout)
+        assert result["query"] == query
+        assert_offline_saved_json_result(result)
+    else:
+        assert f"Query: {query}\n" in completed.stdout
+        assert "portfolio-holdings-review" in completed.stdout
+        assert "--input-format alpaca-json" in completed.stdout
 
 
 @pytest.mark.parametrize(

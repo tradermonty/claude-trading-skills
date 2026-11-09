@@ -1737,6 +1737,11 @@ def main(argv: list[str] | None = None) -> int:
     # stdout so SSoT vs snapshot output stays byte-identical (parity invariant).
     print(f"metadata source: {source}", file=sys.stderr)
 
+    # Redirected Windows stdout can use a legacy code page that cannot encode
+    # Japanese queries. Keep both CLI formats in UTF-8, including pipes.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
     if args.format == "json":
         sys.stdout.write(dumps(result))
     else:
