@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
+
 - Generate EN/JA README API guidance linking to the canonical index-derived requirements matrix and detailed mode instructions; reject stale or missing guidance with the catalog drift gate (#654).
 - trader-memory-core: generate historical-only postmortems for retired legacy equity shorts without fetching prices or changing state; suppress unsupported accounting values and explain their omission (#682).
 

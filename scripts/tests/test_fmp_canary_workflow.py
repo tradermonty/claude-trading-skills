@@ -400,3 +400,21 @@ def test_actual_workflow_steps_distinguish_infrastructure_from_drift(
         assert "::error" in health_result.stdout
     if scenario == "missing":
         assert not report_path.exists()
+
+
+def test_drift_tracking_is_serialized_and_least_privilege(config):
+    assert config["concurrency"] == {
+        "group": "fmp-contract-canary-${{ github.repository }}",
+        "cancel-in-progress": "false",
+    }
+    job = config["jobs"]["canary"]
+    assert job["permissions"] == {"contents": "read", "issues": "write"}
+    assert "permissions" not in config["jobs"]["preflight"]
+    health = next(s for s in job["steps"] if s.get("id") == "health")
+    assert health["if"] == "always()"
+    notification = next(s for s in job["steps"] if "notify_provider_drift.py" in s.get("run", ""))
+    assert notification["if"] == "always() && steps.health.outcome == 'success'"
+    assert notification["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert "--apply" in notification["run"]
+    assert "continue-on-error" not in notification
+    assert job["steps"].index(notification) > job["steps"].index(health)

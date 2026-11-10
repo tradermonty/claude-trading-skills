@@ -800,3 +800,56 @@ unchanged. No workflow was dispatched or repository secret configured here.
 
 Issue #332 remains open for other uncovered endpoints/providers, broader
 consumer reason codes and remaining operational acceptance.
+
+
+## Persistent fatal-drift tracking (#659)
+
+`quote.v1` accepts finite `int` or `float` volume. FMP returned float volume in
+weekly canaries; the declared clients preserve numeric values. VCP's liquidity
+filter compares numeric volume with a threshold, and CANSLIM's new-high calculator
+uses a volume ratio; neither requires an integer runtime type. Contract tests
+exercise float propagation through the shared quote clients. Booleans, strings,
+null, NaN and infinity remain fatal. The recorded fixture and `recorded_on` date
+are historical evidence and are unchanged; this is not a new live capture.
+
+After operational health succeeds, `notify_provider_drift.py --apply` records
+fatal anomalies from the canonical FMP report. Drift remains report-only at the
+probe step. Healthy/deprecation-only reports make no GitHub calls and do not close
+existing tickets. Notification or invalid-report failures fail the job visibly;
+no-response/transport failures still fail the existing health gate.
+
+One tracking issue per `(contract, anomaly code)` is found by exact SHA256 managed
+markers, using paginated all-state issue listing (PRs excluded). New issues are
+assigned to the repository's User owner, so creating a report also notifies a
+maintainer. Organization-owned repositories require an explicit notification
+policy before this script can create tickets; it fails visibly rather than
+silently leaving an unassigned ticket. Repeated new runs add one observation
+comment and update the managed region. Maintainer notes outside that region,
+labels and assignees are preserved. A new fatal run reopens a closed issue;
+retrying the same or an older run preserves manual closure and newer evidence. Healthy runs never auto-close.
+
+Comments precede body updates. If a comment fails, retry can post it; if the body
+update fails after a successful comment, retry finds the observation marker and
+updates without another comment. A failed create with an unknown response can be
+retried: the issue listing finds its managed marker. Duplicate tracking markers
+or damaged managed regions require manual reconciliation and fail visibly.
+Workflow concurrency serializes scheduled and manual runs without cancellation;
+do not run multiple manual `--apply` processes concurrently. GitHub may coalesce
+queued workflow runs; this is persistent triage, not a lossless event ledger.
+
+The workflow retains top-level `contents: read`; only the trusted canary job gets
+`issues: write`. Its `GH_TOKEN` uses the workflow token. Fork guards and explicit
+disable behavior are unchanged. The script pins `gh api` to `github.com`, uses
+JSON stdin with no shell, and never prints raw API errors, rows or credentials.
+Only validated identifiers, counts and a repository-bound run link are published.
+
+Local validation is read-only by default, requires no token and calls no API:
+
+```bash
+python3 scripts/notify_provider_drift.py --report reports/fmp-canary-report.json
+```
+
+Applying requires `--apply`, `GH_TOKEN`, and `GITHUB_REPOSITORY`/`GITHUB_RUN_ID`
+(or explicit `--repository`/`--run-url`). Run URLs must identify an Actions run in
+the target repository. Tests use fake API/gh responses only; local green tests
+do not establish that a future scheduled notification reached a maintainer.
