@@ -105,17 +105,21 @@ def generate_postmortem(
             f"Postmortem requires CLOSED or INVALIDATED thesis, got status={thesis['status']}"
         )
 
-    # Compute MAE/MFE if possible
-    mae_mfe = compute_mae_mfe(thesis, price_adapter)
-    outcome_update = {
-        "mae_pct": mae_mfe["mae_pct"],
-        "mfe_pct": mae_mfe["mfe_pct"],
-        "mae_mfe_source": mae_mfe["mae_mfe_source"],
-    }
-    thesis["outcome"].update(outcome_update)
+    # Unsupported legacy shorts remain inspectable after retirement. Do not
+    # calculate long-side metrics or relax update()'s write-time validation.
+    # Their historical report masks untrusted accounting without changing state.
+    if not thesis_store._has_unsupported_equity_short(thesis):
+        # Compute MAE/MFE if possible
+        mae_mfe = compute_mae_mfe(thesis, price_adapter)
+        outcome_update = {
+            "mae_pct": mae_mfe["mae_pct"],
+            "mfe_pct": mae_mfe["mfe_pct"],
+            "mae_mfe_source": mae_mfe["mae_mfe_source"],
+        }
+        thesis["outcome"].update(outcome_update)
 
-    # Update thesis with MAE/MFE
-    thesis_store.update(state_path, thesis_id, {"outcome": outcome_update})
+        # Update thesis with MAE/MFE
+        thesis_store.update(state_path, thesis_id, {"outcome": outcome_update})
 
     # Generate postmortem from template
     if journal_dir:
@@ -138,6 +142,24 @@ def _render_postmortem(thesis: dict) -> str:
     exit_data = thesis.get("exit", {})
     outcome = thesis.get("outcome", {})
     position = thesis.get("position") or {}
+
+    accounting_note = ""
+    if thesis_store._has_unsupported_equity_short(thesis):
+        # Mask only the rendering view. Persisted outcomes/provenance are audit
+        # evidence, and may contain old long-side values for a legacy short.
+        outcome = {
+            **outcome,
+            "pnl_dollars": None,
+            "pnl_pct": None,
+            "mae_pct": None,
+            "mfe_pct": None,
+        }
+        position = {**position, "position_value": None, "risk_dollars": None}
+        accounting_note = (
+            "Historical record only: unsupported legacy equity short. "
+            "P&L, MAE/MFE, position valuation and risk are unavailable (—); "
+            "stored values were not changed or validated.\n\n"
+        )
 
     evidence_list = "\n".join(f"- {e}" for e in thesis.get("evidence", [])) or "- (none recorded)"
 
@@ -186,7 +208,7 @@ def _render_postmortem(thesis: dict) -> str:
 
 ## Outcome
 
-| Metric | Value |
+{accounting_note}| Metric | Value |
 |--------|-------|
 | P&L ($) | {_fmt(outcome.get("pnl_dollars"))} |
 | P&L (%) | {_fmt(outcome.get("pnl_pct"), "%")} |

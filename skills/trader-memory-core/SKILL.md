@@ -72,7 +72,12 @@ For a backfill with a profit-protecting stop, open the long with its initial sto
 then update the current stop after activation.
 
 Explicit legacy short equity records (a SHORT word or a bare SELL, such as SELL_SHORT, Short position or SELL; labels such as Sell to close stay long) are refused before new
-accounting or MAE/MFE/postmortem calculations. They can still be marked reviewed
+accounting or MAE/MFE calculations. CLOSED/INVALIDATED legacy shorts can produce
+historical-only postmortems: P&L, MAE/MFE, position valuation and risk are shown as
+unavailable (—), with an explicit unsupported-short explanation. This report
+fetches no prices and leaves thesis/index state, stored outcomes and provenance
+unchanged; old values are not validated or corrected. ACTIVE/PARTIALLY_CLOSED
+records still cannot generate postmortems. They can still be marked reviewed
 or terminated as INVALIDATED without an exit price; these bookkeeping actions
 preserve all existing monetary fields and provenance. Summary statistics and
 monthly reports skip explicit shorts and report their excluded count

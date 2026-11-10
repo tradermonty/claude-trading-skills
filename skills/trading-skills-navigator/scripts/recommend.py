@@ -1189,11 +1189,10 @@ def _wants_saved_positions_input(norm: str) -> bool:
     text = _NEGATED_SOURCE_RE.sub(" ", norm)
     if _EXPLICIT_SAVED_INPUT_RE.search(text):
         return True
-    # Generic JSON source cues retain the live/API/feed guard. Saved files may
-    # mention API provenance or "without API", so the explicit check is above it.
-    if not _LIVE_JSON_RE.search(text) and any(
-        re.search(pat, text) for pat in _JSON_SOURCE_PATTERNS[:2]
-    ):
+    # A Japanese source particle binds directly to JSON. The English generic
+    # source pattern can span "from Alpaca to JSON", so keep it below the
+    # output check. Retain the live/API/feed guard for unsaved JSON sources.
+    if not _LIVE_JSON_RE.search(text) and re.search(_JSON_SOURCE_PATTERNS[1], text):
         return True
     if _JSON_OUTPUT_RE.search(text):
         return False
