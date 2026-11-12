@@ -294,6 +294,15 @@ def infer_year(
     return date.today().year
 
 
+# The first endpoint of a tightly joined range: a complete bare date at a
+# token boundary, optionally with a time, followed by the range separator.
+_BARE_RANGE_START = re.compile(
+    r"(?:^|(?<![\dA-Za-z_./-]))"
+    r"(?:\d{4}-\d{1,2}-\d{1,2}|\d{4}/\d{1,2}/\d{1,2}|\d{1,2}/\d{1,2})"
+    r"(?:[ \t]+\d{1,2}:\d{2})?[-/]$"
+)
+
+
 def check_dates(
     content: str, as_of: date | None = None, filepath: str | None = None
 ) -> list[Finding]:
@@ -391,11 +400,14 @@ def check_dates(
             )
 
     # ---- Japanese: "1月1日（木）" or "1月1日（木曜日）" ----
-    ja_pat = re.compile(r"(\d{1,2})月(\d{1,2})日[（(]([月火水木金土日])(?:曜日)?[）)]")
+    ja_pat = re.compile(
+        r"(\d{1,2})月(\d{1,2})日[ \t]*[（(]"
+        r"(?P<ja_weekday>[月火水木金土日])(?:曜日)?[)）]"
+    )
     for m in ja_pat.finditer(content):
         month_val = int(m.group(1))
         day_val = int(m.group(2))
-        weekday_char = m.group(3)
+        weekday_char = m.group("ja_weekday")
 
         year = infer_year(month_val, day_val, as_of, content, filepath)
         try:
@@ -411,7 +423,7 @@ def check_dates(
             line_num = content[: m.start()].count("\n") + 1
             findings.append(
                 Finding(
-                    severity="WARNING",
+                    severity="ERROR",
                     category="dates",
                     message=(
                         f"Date-weekday mismatch: {m.group(0)} "
@@ -422,35 +434,113 @@ def check_dates(
                 )
             )
 
-    # ---- Japanese slash format: "1/1(木)" ----
-    ja_slash_pat = re.compile(r"(\d{1,2})/(\d{1,2})[（(]([月火水木金土日])[）)]")
-    for m in ja_slash_pat.finditer(content):
-        month_val = int(m.group(1))
-        day_val = int(m.group(2))
-        weekday_char = m.group(3)
-
-        year = infer_year(month_val, day_val, as_of, content, filepath)
+    # One matcher owns numeric dates so an explicit-year suffix is never
+    # checked a second time as M/D with an inferred, potentially different year.
+    english_days = "|".join(sorted(WEEKDAY_MAP_EN, key=len, reverse=True))
+    numeric_pat = re.compile(
+        # A closing weekday bracket or a bare first date may separate tightly
+        # joined date ranges such as 12/9-12/10. Keep ASCII identifier guards
+        # but allow CJK prose next to a date.
+        r"(?:(?<![\dA-Za-z_./-])|(?<=[)）\d][/-]))"
+        r"(?:(?P<year>\d{4})(?P<sep>[-/]))?"
+        r"(?P<month>\d{1,2})(?(year)(?P=sep)|/)(?P<day>\d{1,2})"
+        r"[ \t]*(?:(?P<ascii_open>\()|（)"
+        # Scope ASCII case folding to English labels, preserving Unicode digits
+        # and legacy mixed-width Japanese parentheses without accepting ſ or İ.
+        rf"(?:(?P<en_weekday>(?ai:{english_days}))(?(ascii_open)\)|）)"
+        r"|(?P<ja_weekday>[月火水木金土日](?:曜日)?)[)）])"
+    )
+    checked_day_ends: set[int] = set()
+    for m in numeric_pat.finditer(content):
+        explicit_year = m.group("year")
+        # A bounded window keeps these checks linear in document size.
+        prefix = content[max(0, m.start() - 64) : m.start()]
+        start = m.start()
+        if start >= 2 and content[start - 1] in "/-" and content[start - 2].isdigit():
+            # Digit-joined start: accept it only as the second endpoint of a
+            # range whose first endpoint is a complete bare date, as in
+            # 12/9-12/10 or 2026-12-09-2026-12-10. This rejects 12/10/26,
+            # 1/2/10, 100/3/4, 3-2/10 and path segments.
+            if not _BARE_RANGE_START.search(prefix):
+                continue
+        if explicit_year is None and re.search(r"\d{4}[-/][ \t]*$", prefix):
+            continue  # Do not salvage M/D from a malformed spaced year prefix.
+        checked_day_ends.add(m.end("day"))
+        month_val, day_val = int(m.group("month")), int(m.group("day"))
+        year = (
+            int(explicit_year)
+            if explicit_year
+            else infer_year(month_val, day_val, as_of, content, filepath)
+        )
         try:
             d = date(year, month_val, day_val)
         except ValueError:
-            continue
-
-        actual_weekday = d.weekday()
-        stated_weekday = WEEKDAY_MAP_JA.get(weekday_char)
-
-        if stated_weekday is not None and stated_weekday != actual_weekday:
-            ja_names = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
-            line_num = content[: m.start()].count("\n") + 1
+            continue  # Preserve the existing weekday check's invalid-date policy.
+        weekday = m.group("en_weekday") or m.group("ja_weekday")
+        stated = WEEKDAY_MAP_JA.get(weekday[0])
+        if stated is None:
+            stated = WEEKDAY_MAP_EN[weekday.lower()]
+        if stated != d.weekday():
+            actual = (
+                calendar.day_name[d.weekday()]
+                if weekday.isascii()
+                else "月火水木金土日"[d.weekday()]
+            )
+            inference = f" (inferred year: {year})" if explicit_year is None else ""
             findings.append(
                 Finding(
-                    severity="WARNING",
+                    severity="ERROR",
+                    category="dates",
+                    message=f"Date-weekday mismatch: {m.group(0)} -- actual weekday is {actual}{inference}",
+                    line_number=content[: m.start()].count("\n") + 1,
+                )
+            )
+
+    # Legacy "M/D(曜)" check, unchanged from before #657 apart from severity.
+    # It has no identifier guards, so it still catches dates inside ranges,
+    # Markdown emphasis and labels such as FOMC12/10(金). Dates the matcher
+    # above already evaluated are skipped, so nothing is reported twice and an
+    # explicit year still wins over an inferred one.
+    ja_slash_pat = re.compile(r"(\d{1,2})/(\d{1,2})[（(]([月火水木金土日])[）)]")
+    for m in ja_slash_pat.finditer(content):
+        if m.end(2) in checked_day_ends:
+            continue
+        month_val, day_val = int(m.group(1)), int(m.group(2))
+        stated = WEEKDAY_MAP_JA[m.group(3)]
+        prefix = content[max(0, m.start() - 64) : m.start()]
+        # FOMC2026/12/10(金): a well-formed YYYY/ prefix is the written year.
+        written = re.search(r"(?<!\d)(\d{4})/$", prefix)
+        # 2025-11/10(水): a malformed prefix may or may not be the year, so
+        # report only a weekday that is wrong under both readings.
+        malformed = None if written else re.search(r"(\d{4})[-/][ \t]*$", prefix)
+        if written:
+            years = [int(written.group(1))]
+        else:
+            years = [infer_year(month_val, day_val, as_of, content, filepath)]
+            if malformed:
+                years.append(int(malformed.group(1)))
+        readings = []
+        for y in years:
+            try:
+                readings.append((y, date(y, month_val, day_val).weekday()))
+            except ValueError:
+                continue  # Only valid readings count, as in the matcher above.
+        if not readings:
+            continue
+        years = [y for y, _ in readings]
+        actual_days = [w for _, w in readings]
+        if stated not in actual_days:
+            label = "year" if written else "inferred year"
+            findings.append(
+                Finding(
+                    severity="ERROR",
                     category="dates",
                     message=(
                         f"Date-weekday mismatch: {m.group(0)} "
-                        f"-- actual weekday is {ja_names[actual_weekday]} "
-                        f"(inferred year: {year})"
+                        f"-- actual weekday is {'月火水木金土日'[actual_days[0]]} "
+                        f"({label}: {years[0]})"
                     ),
-                    line_number=line_num,
+                    line_number=content[: m.start()].count("\n") + 1,
                 )
             )
 
