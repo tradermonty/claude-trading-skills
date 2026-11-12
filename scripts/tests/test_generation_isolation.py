@@ -36,10 +36,28 @@ sys.exit(int(os.environ.get("TEST_EXIT", "0")))
 """
 
 
+def fixture_git_env():
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
 def git(root, *args):
     return subprocess.run(
-        [REAL_GIT, *args], cwd=root, check=True, capture_output=True, text=True
+        [REAL_GIT, *args],
+        cwd=root,
+        env=fixture_git_env(),
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
+
+
+def init_bare(path):
+    subprocess.run(
+        [REAL_GIT, "init", "--bare", "--initial-branch=main", str(path)],
+        env=fixture_git_env(),
+        check=True,
+        capture_output=True,
+    )
 
 
 def snapshot(primary):
@@ -53,14 +71,19 @@ def snapshot(primary):
     }
 
 
+@pytest.fixture(autouse=True)
+def clean_fixture_git_environment(monkeypatch):
+    # Push hooks export GIT_DIR and related repository selectors. Clear them
+    # before even fixture init/config; explicit attack tests set their own later.
+    for key in list(os.environ):
+        if key.startswith("GIT_"):
+            monkeypatch.delenv(key)
+
+
 @pytest.fixture
 def repos(tmp_path, monkeypatch):
     remote = tmp_path / "remote.git"
-    subprocess.run(
-        [REAL_GIT, "init", "--bare", "--initial-branch=main", str(remote)],
-        check=True,
-        capture_output=True,
-    )
+    init_bare(remote)
     primary = tmp_path / "primary"
     primary.mkdir()
     git(primary, "init", "--initial-branch=main")
@@ -477,3 +500,36 @@ def test_global_origin_override_is_not_silently_followed(repos, monkeypatch):
     with pytest.raises(isolated.LaunchError):
         isolated.launch(primary, "daily", True)
     assert not (primary / "logs/proof.json").exists()
+
+
+def test_fixture_git_setup_cannot_mutate_push_hook_repository(tmp_path, monkeypatch):
+    outer = tmp_path / "hook-repository"
+    outer.mkdir()
+    git(outer, "init", "--initial-branch=main")
+    git(outer, "config", "user.name", "Outer fixture")
+    git(outer, "config", "user.email", "outer@example.test")
+    (outer / "README").write_text("preserve outer repository")
+    git(outer, "add", "README")
+    git(outer, "commit", "-m", "outer fixture")
+    before = {name: (outer / ".git" / name).read_bytes() for name in ("config", "HEAD", "index")}
+    for key, value in {
+        "GIT_DIR": str(outer / ".git"),
+        "GIT_WORK_TREE": str(outer),
+        "GIT_COMMON_DIR": str(outer / ".git"),
+        "GIT_INDEX_FILE": str(outer / ".git/index"),
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "remote.origin.url",
+        "GIT_CONFIG_VALUE_0": "unexpected-hook-origin",
+    }.items():
+        monkeypatch.setenv(key, value)
+    remote = tmp_path / "disposable-origin.git"
+    init_bare(remote)
+    inner = tmp_path / "disposable-primary"
+    inner.mkdir()
+    git(inner, "init", "--initial-branch=main")
+    git(inner, "config", "user.name", "Inner fixture")
+    git(inner, "config", "user.email", "inner@example.test")
+    git(inner, "remote", "add", "origin", str(remote))
+    assert git(inner, "config", "user.name") == "Inner fixture"
+    assert {name: (outer / ".git" / name).read_bytes() for name in before} == before
+    assert (outer / "README").read_text() == "preserve outer repository"
