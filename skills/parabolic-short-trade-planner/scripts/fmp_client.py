@@ -48,6 +48,12 @@ except ModuleNotFoundError:  # loaded by file path (e.g. repo-level contract tes
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from _fmp_compat import v3_to_stable
 
+try:
+    from _alpaca_data import AlpacaDailyBars
+except ModuleNotFoundError:  # loaded by file path (e.g. repo-level contract tests)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _alpaca_data import AlpacaDailyBars
+
 # --- FMP endpoint fallback: stable (new users) -> v3 (legacy users) ---
 
 
@@ -189,6 +195,9 @@ class FMPClient:
         # so _request_with_fallback can surface suppressed errors even when
         # an endpoint was called with quiet=True.
         self._last_error: Optional[str] = None
+        # Alpaca is the default source for US daily bars / price quotes; None
+        # when unconfigured or MARKET_DATA_SOURCE=fmp (FMP-only behavior).
+        self._alpaca = AlpacaDailyBars.from_env()
 
     def _redact_secret(self, text) -> str:
         """Mask raw and URL-encoded key echoes before diagnostics are truncated."""
@@ -396,6 +405,12 @@ class FMPClient:
         if failures >= self._ENDPOINT_FAILURE_THRESHOLD:
             self._disabled_endpoints.add(base_url)
 
+    def _alpaca_history(self, symbol: str, days: int) -> Optional[list[dict]]:
+        """Most-recent-first rows from Alpaca, or None to fall back to FMP."""
+        if self._alpaca is None:
+            return None
+        return self._alpaca.daily_bars([symbol], days).get(symbol) or None
+
     # Public-dataset fallback for keys where no FMP tier serves constituents:
     # /stable/sp500-constituent 402s (Restricted Endpoint) on the free tier
     # and /api/v3/sp500_constituent 403s (Legacy Endpoint) for keys created
@@ -465,7 +480,21 @@ class FMPClient:
         return data
 
     def get_quote(self, symbols: str) -> Optional[list[dict]]:
-        """Fetch real-time quote data for one or more symbols (comma-separated)"""
+        """Quotes for one or more symbols (comma-separated).
+
+        US symbols come from Alpaca (price fields derived from daily bars);
+        the rest, and any symbol Alpaca misses, come from FMP.
+        """
+        wanted = [s for s in symbols.split(",") if s]
+        found = self._alpaca.quotes(wanted) if self._alpaca is not None else {}
+        rows = [found[s] for s in wanted if s in found]
+        missing = [s for s in wanted if s not in found]
+        if missing:
+            rows.extend(self._fmp_get_quote(",".join(missing)) or [])
+        return rows or None
+
+    def _fmp_get_quote(self, symbols: str) -> Optional[list[dict]]:
+        """Fetch quote data from FMP for one or more symbols (comma-separated)"""
         cache_key = f"quote_{symbols}"
         if cache_key in self.cache:
             return self.cache[cache_key]
@@ -476,13 +505,14 @@ class FMPClient:
         return data
 
     def get_batch_quotes(self, symbols: list[str]) -> dict[str, dict]:
-        """Fetch quotes for a list of symbols, batching up to 5 per request"""
-        results = {}
+        """Quotes for a list of symbols: Alpaca first, FMP in batches of 5 for the rest"""
+        results = dict(self._alpaca.quotes(symbols)) if self._alpaca is not None else {}
+        missing = [s for s in symbols if s not in results]
         batch_size = 5
-        for i in range(0, len(symbols), batch_size):
-            batch = symbols[i : i + batch_size]
+        for i in range(0, len(missing), batch_size):
+            batch = missing[i : i + batch_size]
             batch_str = ",".join(batch)
-            quotes = self.get_quote(batch_str)
+            quotes = self._fmp_get_quote(batch_str)
             if quotes:
                 for q in quotes:
                     results[q["symbol"]] = q
@@ -490,6 +520,8 @@ class FMPClient:
 
     def get_batch_historical(self, symbols: list[str], days: int = 260) -> dict[str, list[dict]]:
         """Fetch historical prices for multiple symbols"""
+        if self._alpaca is not None:
+            self._alpaca.daily_bars(symbols, days)  # one multi-symbol prefetch
         results = {}
         for symbol in symbols:
             data = self.get_historical_prices(symbol, days=days)
@@ -622,6 +654,12 @@ class FMPClient:
         cache_key = f"prices_{symbol}_{days}"
         if cache_key in self.cache:
             return self.cache[cache_key]
+
+        alpaca_rows = self._alpaca_history(symbol, days)
+        if alpaca_rows:
+            data = {"symbol": symbol, "historical": alpaca_rows}
+            self.cache[cache_key] = data
+            return data
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
         if data:

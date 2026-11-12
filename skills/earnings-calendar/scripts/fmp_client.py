@@ -48,6 +48,12 @@ except ModuleNotFoundError:  # loaded by file path (e.g. repo-level contract tes
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from _fmp_compat import v3_to_stable
 
+try:
+    from _alpaca_data import AlpacaDailyBars
+except ModuleNotFoundError:  # loaded by file path (e.g. repo-level contract tests)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _alpaca_data import AlpacaDailyBars
+
 # --- FMP endpoint fallback: stable (new users) -> v3 (legacy users) ---
 
 
@@ -174,6 +180,9 @@ class FMPClient:
         # so _request_with_fallback can surface suppressed errors even when
         # an endpoint was called with quiet=True.
         self._last_error: Optional[str] = None
+        # Alpaca is the default source for US daily bars / price quotes; None
+        # when unconfigured or MARKET_DATA_SOURCE=fmp (FMP-only behavior).
+        self._alpaca = AlpacaDailyBars.from_env()
 
     def _redact_secret(self, text) -> str:
         """Mask raw and URL-encoded key echoes before diagnostics are truncated."""
@@ -370,6 +379,12 @@ class FMPClient:
         if failures >= self._ENDPOINT_FAILURE_THRESHOLD:
             self._disabled_endpoints.add(base_url)
 
+    def _alpaca_history(self, symbol: str, days: int) -> Optional[list[dict]]:
+        """Most-recent-first rows from Alpaca, or None to fall back to FMP."""
+        if self._alpaca is None:
+            return None
+        return self._alpaca.daily_bars([symbol], days).get(symbol) or None
+
     def get_earnings_calendar(self, from_date: str, to_date: str) -> Optional[list[dict]]:
         """Fetch earnings calendar for a date range.
 
@@ -449,6 +464,12 @@ class FMPClient:
         cache_key = f"prices_{symbol}_{days}"
         if cache_key in self.cache:
             return self.cache[cache_key]
+
+        alpaca_rows = self._alpaca_history(symbol, days)
+        if alpaca_rows:
+            data = {"symbol": symbol, "historical": alpaca_rows}
+            self.cache[cache_key] = data
+            return data
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
         if data:

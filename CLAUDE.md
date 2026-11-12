@@ -346,6 +346,24 @@ export ALPACA_PAPER="true"  # or "false" for live trading
 # See portfolio-manager/references/alpaca-mcp-setup.md for detailed setup guide
 ```
 
+**Market data routing (Alpaca first for US prices):**
+When `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` are set, every generated
+`fmp_client.py` (see `scripts/generate_fmp_client.py`) serves US equity/ETF
+daily bars (`get_historical_prices`) and price quotes (`get_quote`,
+`get_batch_quotes`) from Alpaca via the vendored `_alpaca_data.py`. Quotes are
+derived from split-adjusted daily bars (price, previous close, change, volume,
+50-day average volume, 52-week high/low, 50/200-day averages) and carry
+`dataSource: "alpaca"`; fundamentals such as `marketCap` are never fabricated.
+FMP (or the yfinance fallback) still serves everything Alpaca does not carry:
+non-US symbols (`RHM.DE`), indices (`^GSPC`), fundamentals, profiles,
+calendars, constituents, and any symbol Alpaca returns no bars for.
+```bash
+export MARKET_DATA_SOURCE=fmp   # opt out: FMP-only behavior
+export ALPACA_DATA_FEED=iex     # default sip; a 403 retries once on iex
+```
+Tests default to `MARKET_DATA_SOURCE=fmp` via the root `conftest.py`, so they
+never reach the live Alpaca API.
+
 #### API Pricing and Access
 
 **Financial Modeling Prep (FMP):**

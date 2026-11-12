@@ -218,6 +218,13 @@ class SQLiteJsonCache:
         self._connection.close()
 
 
+try:
+    from _alpaca_data import AlpacaDailyBars
+except ModuleNotFoundError:  # loaded by file path (e.g. repo-level contract tests)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _alpaca_data import AlpacaDailyBars
+
+
 class FMPClient:
     """Stable-first FMP client with persistent caching and compact diagnostics."""
 
@@ -264,6 +271,9 @@ class FMPClient:
         if self.raw_store_dir:
             self.raw_store_dir.mkdir(parents=True, exist_ok=True)
         self.session = requests.Session()
+        # Alpaca is the default source for US daily bars / price quotes; None
+        # when unconfigured or MARKET_DATA_SOURCE=fmp (FMP-only behavior).
+        self._alpaca = AlpacaDailyBars.from_env()
         self.last_call_time = 0.0
         self.api_calls_made = 0
         self.cache_hits = 0
@@ -527,6 +537,11 @@ class FMPClient:
         from_date: str,
         to_date: str,
     ) -> list[dict[str, Any]]:
+        # Alpaca first for US symbols (oldest-first rows, FMP field names).
+        if self._alpaca is not None and not self.offline:
+            rows = self._alpaca.daily_bars_between(symbol, from_date, to_date)
+            if rows:
+                return list(reversed(rows))  # FMP order: most-recent-first
         data = self._stable_then_v3(
             "historical-price-eod/full",
             {"symbol": symbol, "from": from_date, "to": to_date},

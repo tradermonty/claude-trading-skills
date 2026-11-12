@@ -153,6 +153,13 @@ def _normalize_eod_flat_list(data, symbols_str: str, limit: Optional[int] = None
     return {"symbol": matched_symbol or symbols_str, "historical": historical}
 
 
+try:
+    from _alpaca_data import AlpacaDailyBars
+except ModuleNotFoundError:  # loaded by file path (e.g. repo-level contract tests)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _alpaca_data import AlpacaDailyBars
+
+
 class FMPClient:
     """Client for Financial Modeling Prep API with rate limiting and caching"""
 
@@ -200,6 +207,9 @@ class FMPClient:
             )
 
         self.session = requests.Session()
+        # Alpaca is the default source for US daily bars / price quotes; None
+        # when unconfigured or MARKET_DATA_SOURCE=fmp (FMP-only behavior).
+        self._alpaca = AlpacaDailyBars.from_env()
         self.session.headers.update({"apikey": self.api_key})
         self.cache = {}  # Simple in-memory cache for session
         self.last_call_time = 0
@@ -383,6 +393,20 @@ class FMPClient:
         return data
 
     def get_quote(self, symbols: str) -> Optional[list[dict]]:
+        """Quotes for one or more symbols (comma-separated).
+
+        US symbols come from Alpaca (price fields derived from daily bars);
+        the rest, and any symbol Alpaca misses, come from FMP.
+        """
+        wanted = [s for s in symbols.split(",") if s]
+        found = self._alpaca.quotes(wanted) if self._alpaca is not None else {}
+        rows = [found[s] for s in wanted if s in found]
+        missing = [s for s in wanted if s not in found]
+        if missing:
+            rows.extend(self._fmp_get_quote(",".join(missing)) or [])
+        return rows or None
+
+    def _fmp_get_quote(self, symbols: str) -> Optional[list[dict]]:
         """
         Fetch real-time quote data
 
@@ -411,6 +435,12 @@ class FMPClient:
 
         return data
 
+    def _alpaca_history(self, symbol: str, days: int) -> Optional[list[dict]]:
+        """Most-recent-first rows from Alpaca, or None to fall back to FMP."""
+        if self._alpaca is None:
+            return None
+        return self._alpaca.daily_bars([symbol], days).get(symbol) or None
+
     def get_historical_prices(self, symbol: str, days: int = 365) -> Optional[dict]:
         """
         Fetch historical daily price data
@@ -431,6 +461,12 @@ class FMPClient:
 
         if cache_key in self.cache:
             return self.cache[cache_key]
+
+        alpaca_rows = self._alpaca_history(symbol, days)
+        if alpaca_rows:
+            data = {"symbol": symbol, "historical": alpaca_rows}
+            self.cache[cache_key] = data
+            return data
 
         data = self._request_with_fallback("historical", symbol, {"timeseries": days})
 

@@ -15,6 +15,8 @@ directory to the front of ``sys.path``.
 import sys
 from pathlib import Path
 
+import pytest
+
 _SKILLS_MARKER = f"{Path.cwd()}/skills/"
 
 # Module basenames that exist in more than one skill's scripts/ directory.
@@ -143,3 +145,11 @@ def pytest_ignore_collect(collection_path, config):  # noqa: ANN001
             return True  # skip in bulk run
 
     return None
+
+
+@pytest.fixture(autouse=True)
+def _fmp_only_market_data(monkeypatch):
+    """Keep tests offline: generated FMP clients route US bars/quotes to Alpaca
+    when ALPACA_* keys are set, so default every test to FMP-only behavior.
+    Tests that exercise the Alpaca path delete MARKET_DATA_SOURCE themselves."""
+    monkeypatch.setenv("MARKET_DATA_SOURCE", "fmp")
