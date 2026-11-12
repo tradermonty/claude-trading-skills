@@ -24,6 +24,8 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Maintenance
 
+- Isolate daily/weekly skill generation in a dedicated validated clone, serialize shared state and checkout operations with inherited resource locks, preserve dirty/off-main recovery evidence, and stop evaluating primary `.envrc` (#658).
+
 - Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.
 
 ### Skills
