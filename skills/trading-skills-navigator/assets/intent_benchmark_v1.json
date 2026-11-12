@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "benchmark_version": "2026-11-06.issue-512",
+  "benchmark_version": "2026-11-08.issue-668",
   "description": "Manually labeled EN/JA gold corpus for deterministic Navigator routing, including the no-API constraint exception.",
   "baseline": {
     "candidate_precision": 1,
@@ -5052,6 +5052,252 @@
       "expected_primary_workflow": "core-portfolio-weekly",
       "expected_honest_gap": false,
       "expected_no_api_path": false,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
+    },
+    {
+      "id": "saved-json-output-en-noapi-false",
+      "language": "en",
+      "query": "Review my portfolio from a saved Alpaca positions JSON and export the review to JSON",
+      "label": "positive",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "saved-json-input-output"
+      ],
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review",
+      "options": {
+        "no_api": false
+      }
+    },
+    {
+      "id": "saved-json-output-en-noapi-true",
+      "language": "en",
+      "query": "Review my portfolio from a saved Alpaca positions JSON and export the review to JSON",
+      "label": "positive",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "saved-json-input-output"
+      ],
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review",
+      "options": {
+        "no_api": true
+      }
+    },
+    {
+      "id": "saved-json-output-ja-noapi-false",
+      "language": "ja",
+      "query": "保有銘柄を保存済みのポジションJSONから確認してJSONに出力",
+      "label": "positive",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "saved-json-input-output"
+      ],
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review",
+      "options": {
+        "no_api": false
+      }
+    },
+    {
+      "id": "saved-json-output-ja-noapi-true",
+      "language": "ja",
+      "query": "保有銘柄を保存済みのポジションJSONから確認してJSONに出力",
+      "label": "positive",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "saved-json-input-output"
+      ],
+      "expected_primary_workflow": "portfolio-holdings-review",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review",
+      "options": {
+        "no_api": true
+      }
+    },
+    {
+      "id": "json-output-control-filename-en",
+      "language": "en",
+      "label": "positive",
+      "query": "Review my portfolio and export to holdings.json",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "json-output-control"
+      ],
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
+    },
+    {
+      "id": "json-output-control-live-en",
+      "language": "en",
+      "label": "positive",
+      "query": "Review my portfolio from the JSON feed of Alpaca and export to JSON",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "json-output-control"
+      ],
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
+    },
+    {
+      "id": "json-output-control-negated-en",
+      "language": "en",
+      "label": "positive",
+      "query": "Review my portfolio, not from a saved Alpaca positions JSON, and export to JSON",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "json-output-control"
+      ],
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
+    },
+    {
+      "id": "json-output-control-unavailable-en",
+      "language": "en",
+      "label": "positive",
+      "query": "Review my portfolio; saved Alpaca positions JSON is not available; export to JSON",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "json-output-control"
+      ],
+      "expected_runnability": "eligible",
+      "expected_routing_status": "exact",
+      "expected_alternative_workflow": null,
+      "expected_missing_requirement_kinds": [],
+      "target_workflow": "portfolio-holdings-review"
+    },
+    {
+      "id": "json-output-control-output-ja",
+      "language": "ja",
+      "label": "positive",
+      "query": "保有銘柄を確認してJSONに出力",
+      "target_persona": "dividend-long-term-investor",
+      "expected_candidate_personas": [
+        "dividend-long-term-investor"
+      ],
+      "expected_selected_persona": "dividend-long-term-investor",
+      "expected_primary_workflow": "core-portfolio-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "issue-668",
+        "json-output-control"
+      ],
       "expected_runnability": "eligible",
       "expected_routing_status": "exact",
       "expected_alternative_workflow": null,

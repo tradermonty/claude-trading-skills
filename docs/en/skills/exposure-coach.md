@@ -108,6 +108,20 @@ The script accepts partial inputs; missing files reduce confidence but do not bl
 
 Canonical macro-regime reports must include nested `regime.confidence` and `composite.data_quality` with valid integer component counts. Missing or malformed availability metadata, `very_low` confidence, and zero usable components are treated as missing critical input. They do not contribute a regime score or bias, and the normal missing-input haircut and confidence cap apply. Never override this degradation by manually copying the report's regime label into the exposure decision.
 
+Canonical theme reports use only `themes.all` with valid bullish/bearish heat
+in [0,100] and `data_quality` (`ok`/`warning`, string-list flags). Exposure Coach
+owns the uncalibrated mapping `round(50 + mean(signed_heat)/2)`, bullish positive
+and bearish negative (nearest integer, ties to even). Heat 80 yields 90 bullish
+or 10 bearish; equal opposing heat yields 50. Legacy theme fields remain supported.
+Missing/invalid rows or quality make the whole theme input unparsable.
+
+Check `inputs_provided`, `inputs_missing`, `inputs_unparseable` and `input_warnings`.
+The diagnostic fields appear only when nonempty; ordinary calls retain their existing JSON shape.
+A supplied but unusable theme file is excluded, warned on stderr, and listed as
+unparsable rather than omitted. Upstream theme quality flags appear in JSON,
+Markdown and stderr. Confidence measures input completeness, not freshness,
+verified data quality or forecast accuracy; do not manually restore rejected data.
+
 ### Step 3: Interpret the Market Posture Summary
 
 Review the generated posture report containing:

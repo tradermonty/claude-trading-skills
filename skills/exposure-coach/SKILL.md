@@ -67,9 +67,22 @@ treated as missing critical input. They do not contribute a regime score or bias
 and the normal missing-input haircut and confidence cap apply. Never override this
 degradation by manually copying the report's regime label into the exposure decision.
 
-**Verification pitfall:** After each run, inspect the generated JSON fields `inputs_provided` and `inputs_missing`. If a file you passed on the CLI still appears in `inputs_missing` (for example a theme-detector JSON that the exposure engine did not recognize), report the affected dimension as degraded and keep confidence capped; do not assume the supplied input was incorporated just because the CLI argument was present.
+**Theme input contract:** Consume canonical `report_type: theme_detector` reports
+from `themes.all` once; ignore duplicate sorted groups. Require finite numeric
+non-boolean heat in [0,100], bullish/bearish direction, and `data_quality` with
+`ok`/`warning` status and string-list flags. The consumer maps to
+`round(50 + mean(signed_heat)/2)` (bullish positive, bearish negative; nearest
+integer, ties to even). This is an uncalibrated integration heuristic, not a
+forecast or freshness guarantee. Legacy numeric theme_score and recognized
+theme_strength labels remain supported; see references/exposure_framework.md.
 
-**Theme-detector ingestion caveat:** The theme detector commonly emits `theme_detector_YYYY-MM-DD_HHMMSS.json` with a `themes` object. If that file is not recognized by `calculate_exposure.py` and `theme` remains in `inputs_missing`, do not fold theme strength into the exposure ceiling manually. Instead, keep the Exposure Coach confidence capped, state that the theme dimension was not incorporated, and summarize theme/sector findings separately in the broader trading brief.
+**Verification pitfall:** Inspect `inputs_provided`, `inputs_missing`,
+`inputs_unparseable` and `input_warnings` (diagnostic fields appear only when nonempty). Omitted theme input is missing;
+supplied but invalid/unreadable theme input is unparsable, excluded and warned
+on stderr. Never fold a rejected theme into exposure manually. Upstream quality
+flags remain visible in JSON/Markdown/stderr. Confidence measures input
+completeness, not freshness, verified quality or prediction accuracy. Do not
+interpret eligibility or a numerical score as validation of upstream data.
 
 ### Step 3: Interpret the Market Posture Summary
 
@@ -114,8 +127,8 @@ Map the posture recommendation to portfolio actions:
     "sector_score": 70,
     "institutional_score": 75
   },
-  "inputs_provided": ["breadth", "uptrend", "regime", "top_risk"],
-  "inputs_missing": ["ftd", "theme", "sector", "institutional"],
+  "inputs_provided": ["breadth", "uptrend", "regime", "top_risk", "ftd", "theme", "sector", "institutional"],
+  "inputs_missing": [],
   "rationale": "Broad participation with low top risk supports elevated exposure."
 }
 ```
