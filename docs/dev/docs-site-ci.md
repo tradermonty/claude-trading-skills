@@ -88,3 +88,41 @@ site links. Same-host absolute links within this project's configured `baseurl`
 are normalized and checked against the current build on every pull request;
 links outside that baseurl may target another GitHub Pages project and go
 through the scheduled external check.
+
+
+### Scoped HTTP exceptions
+
+For a known automated-client block, prefer an exact status-scoped entry over a
+legacy unconditional exclusion. For example, the FMP developer documentation
+entry for [#660](https://github.com/tradermonty/claude-trading-skills/issues/660)
+contains `"statuses": [403]`, owner `tradermonty`, and expiry `2026-12-31`.
+The latest weekly failure and a bounded public-document recheck observed 403;
+this does not prove the link is healthy or accessible in a browser.
+
+`statuses` must be a nonempty list of unique integer HTTP 4xx/5xx codes. Unknown
+entry fields, booleans, strings, invalid dates and expired entries fail the gate.
+The other metadata fields remain required. A rule without `statuses` retains the
+legacy behavior of skipping its exact URL entirely; no new broad exclusion was
+added for FMP. Do not use wildcard/host-wide exceptions or renew expiry without
+reviewing the linked issue and current response.
+
+Scoped URLs are probed on every run, even if a fresh successful cache entry
+exists. HEAD 403 still falls back to bounded GET: GET 200 is genuine success,
+GET 404 fails, and only GET 403 can match this rule. The original requested URL
+and final response URL must both exactly equal the configured URL (fragments
+are not sent over HTTP). A redirect to another URL, including another path on
+the same host, cannot inherit the exception. DNS, transport, unsafe redirect and
+TLS failures remain errors; the existing public-address validation, pinned
+connections, retries and response limits are unchanged.
+
+A matching failure has `outcome: unverifiable`, its HTTP status and attempts,
+and exception reason/owner/issue/expiry in the JSON report. A NOTICE is printed
+and the report summary counts it separately from `passed` and `allowlisted`.
+Unverifiable results never enter the success cache, and any previous success
+entry is removed. Ordinary links retain the existing success-cache policy.
+Revisit the exception before expiry; an expired rule makes validation fail.
+
+Offline tests simulate recurring 403s and real 404s. They do not establish the
+Issue's two-consecutive-scheduled-green acceptance criterion. Confirm that from
+future post-merge `Docs site` scheduled runs and retain their run URLs; a green
+run with an unverifiable link is an operational result, not proof of link health.
