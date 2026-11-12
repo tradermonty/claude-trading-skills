@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Validate a ``data_provenance`` block against the versioned common trading data
-contract (issue #297).
+"""Validate standalone ``data_provenance`` blocks or JSON/YAML reports against
+the versioned common trading data contract (issue #297).
 
 The contract (see ``docs/dev/data-provenance-contract.md``) mandates that every
 data-fetching, screening, and backtesting skill emits an honest provenance block
@@ -12,7 +12,7 @@ Usage:
     python3 validate_provenance.py --file report.yaml
     python3 validate_provenance.py --stdin
 
-Exit code 0 when the block is valid, 1 when it is invalid, 2 on I/O or device errors.
+Exit code 0 when the block is valid, 1 when it is invalid, 2 on I/O or parse errors.
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ def validate_provenance(block: Any, schema_version: str = SCHEMA_VERSION) -> lis
 
 
 def load_block(path: Path) -> Any:
-    """Load a provenance block from JSON or YAML by file suffix."""
+    """Load a standalone block or whole report from JSON/YAML by file suffix."""
     text = path.read_text(encoding="utf-8")
     suffix = path.suffix.lower()
     if suffix == ".json":
@@ -135,11 +135,11 @@ def load_block(path: Path) -> Any:
 def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint."""
     parser = argparse.ArgumentParser(
-        description="Validate a data_provenance block against the common trading data contract.",
+        description="Validate a standalone data_provenance block or a report containing one.",
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--file", help="Path to a JSON or YAML file containing the block")
-    source.add_argument("--stdin", action="store_true", help="Read the block from stdin")
+    source.add_argument("--file", help="Path to a JSON or YAML standalone block or report")
+    source.add_argument("--stdin", action="store_true", help="Read a JSON or YAML block or report")
     args = parser.parse_args(argv)
 
     try:
@@ -155,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    if isinstance(block, dict) and "data_provenance" in block:
+        block = block["data_provenance"]
     errors = validate_provenance(block)
     if errors:
         print("INVALID data_provenance block")
