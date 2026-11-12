@@ -262,127 +262,19 @@ Z-Score = (Current_Spread - Mean_Spread) / Std_Dev_Spread
 
 **Objective:** Provide actionable trading signals with clear rules.
 
-**Entry Conditions:**
-
-**Conservative Approach (Z ≥ ±2.0):**
-```
-LONG Signal:
-- Z-score < -2.0 (spread 2+ std devs below mean)
-- Spread is mean-reverting (cointegration p < 0.05)
-- Half-life < 60 days
-→ Action: Buy Stock A, Short Stock B (hedge ratio = beta)
-
-SHORT Signal:
-- Z-score > +2.0 (spread 2+ std devs above mean)
-- Spread is mean-reverting (cointegration p < 0.05)
-- Half-life < 60 days
-→ Action: Short Stock A, Buy Stock B (hedge ratio = beta)
-```
-
-**Aggressive Approach (Z ≥ ±1.5):**
-- Lower threshold for more frequent trades
-- Higher win rate but smaller avg profit per trade
-- Requires tighter risk management
-
-**Exit Conditions:**
-
-**Primary Exit: Mean Reversion (Z = 0)**
-```
-Exit when spread returns to mean (z-score crosses 0)
-→ Close both legs simultaneously
-```
-
-**Secondary Exit: Partial Profit Take**
-```
-Exit 50% when z-score reaches ±1.0
-Exit remaining 50% at z-score = 0
-```
-
-**Stop Loss:**
-```
-Exit if z-score extends beyond ±3.0 (extreme divergence)
-Risk: Possible structural break in relationship
-```
-
-**Time-Based Exit:**
-```
-Exit after 90 days if no mean-reversion
-Prevents holding broken pairs indefinitely
-```
+Read `references/trade_rules_and_reporting.md` (section "Step 6 detail: Entry and Exit Conditions") when generating entry and exit recommendations. It holds the conservative and aggressive entry rules, mean-reversion, partial-profit, stop-loss and time-based exits.
 
 ### Step 7: Position Sizing and Risk Management
 
 **Objective:** Determine dollar amounts for market-neutral exposure.
 
-**Market Neutral Sizing:**
-
-For a pair (Stock A, Stock B) with beta = β:
-
-**Equal Dollar Exposure:**
-```
-If portfolio size = $10,000 allocated to this pair:
-- Long $5,000 of Stock A
-- Short $5,000 × β of Stock B
-
-Example (β = 1.2):
-- Long $5,000 Stock A
-- Short $6,000 Stock B
-→ Market neutral, beta = 0
-```
-
-**Position Sizing Considerations:**
-- Total pair allocation: 10-20% of portfolio per pair
-- Maximum pairs: 5-8 active pairs for diversification
-- Correlation across pairs: Avoid highly correlated pairs
-
-**Risk Metrics:**
-- Maximum loss per pair: 2-3% of total portfolio
-- Stop loss trigger: Z-score > ±3.0 or -5% loss on spread
-- Portfolio-level risk: Sum of all pair risks ≤ 10%
+Read `references/trade_rules_and_reporting.md` (section "Step 7 detail: Position Sizing and Risk Management") when sizing a pair. It holds market-neutral sizing, position sizing considerations and risk metrics.
 
 ### Step 8: Generate Pair Analysis Report
 
 **Objective:** Create structured markdown report with findings and recommendations.
 
-**Report Sections:**
-
-1. **Executive Summary**
-   - Total pairs analyzed
-   - Number of cointegrated pairs found
-   - Top 5 opportunities ranked by statistical strength
-
-2. **Cointegrated Pairs Table**
-   - Pair name (Stock A / Stock B)
-   - Correlation coefficient
-   - Cointegration p-value
-   - Current z-score
-   - Trade signal (Long/Short/None)
-   - Half-life
-
-3. **Detailed Analysis (Top 10 Pairs)**
-   - Pair description
-   - Statistical metrics
-   - Current spread position
-   - Entry/exit recommendations
-   - Position sizing
-   - Risk assessment
-
-4. **Spread Charts (Text-Based)**
-   - Historical z-score plot (ASCII art)
-   - Entry/exit levels marked
-   - Current position indicator
-
-5. **Risk Warnings**
-   - Pairs with deteriorating correlation
-   - Structural breaks detected
-   - Low liquidity warnings
-
-**File Naming Convention:**
-```
-pair_trade_analysis_[SECTOR]_[YYYY-MM-DD].md
-```
-
-Example: `pair_trade_analysis_Technology_2025-11-08.md`
+Read `references/trade_rules_and_reporting.md` (section "Step 8 detail: Pair Analysis Report") when writing the report. It holds the report sections, a markdown template and the file naming convention.
 
 ## Output
 
@@ -434,100 +326,7 @@ lookback windows, and duplicate symbols before making API requests. Missing
 
 ## Available Scripts
 
-### scripts/find_pairs.py
-
-**Purpose:** Screen for cointegrated pairs within a sector or custom list.
-
-**Usage:**
-```bash
-# Sector-based screening
-uv run --with 'statsmodels>=0.14,<0.15' python \
-  skills/pair-trade-screener/scripts/find_pairs.py \
-  --sector Technology \
-  --min-correlation 0.70 \
-  --output /tmp/pair-trade/technology.json
-
-# Custom stock list
-uv run --with 'statsmodels>=0.14,<0.15' python \
-  skills/pair-trade-screener/scripts/find_pairs.py \
-  --symbols AAPL,MSFT,GOOGL,META \
-  --min-correlation 0.75 \
-  --output /tmp/pair-trade/custom.json
-
-# Full options
-uv run --with 'statsmodels>=0.14,<0.15' python \
-  skills/pair-trade-screener/scripts/find_pairs.py \
-  --sector Financials \
-  --min-correlation 0.70 \
-  --min-market-cap 2000000000 \
-  --lookback-days 730 \
-  --output /tmp/pair-trade/financials.json
-```
-
-**Parameters:**
-- `--sector`: Sector name (Technology, Financials, etc.)
-- `--symbols`: Comma-separated list of tickers (alternative to sector)
-- `--min-correlation`: Minimum correlation threshold (default: 0.70)
-- `--min-market-cap`: Minimum market cap filter (default: $2B)
-- `--lookback-days`: Historical data period (default: 730 days)
-- `--output`: Output JSON file (default: `pair_analysis.json`)
-- `--api-key`: FMP API key (or set FMP_API_KEY env var)
-
-**Output:**
-```json
-[
-  {
-    "pair": "AAPL/MSFT",
-    "stock_a": "AAPL",
-    "stock_b": "MSFT",
-    "correlation": 0.87,
-    "beta": 1.15,
-    "cointegration_pvalue": 0.012,
-    "adf_statistic": -3.45,
-    "half_life_days": 42,
-    "current_zscore": -2.3,
-    "signal": "LONG",
-    "strength": "Strong"
-  }
-]
-```
-
-### scripts/analyze_spread.py
-
-**Purpose:** Analyze a specific pair's spread behavior and generate trading signals.
-
-**Usage:**
-```bash
-# Analyze specific pair
-uv run --with 'statsmodels>=0.14,<0.15' python \
-  skills/pair-trade-screener/scripts/analyze_spread.py \
-  --stock-a AAPL \
-  --stock-b MSFT
-
-# Custom lookback period
-uv run --with 'statsmodels>=0.14,<0.15' python \
-  skills/pair-trade-screener/scripts/analyze_spread.py \
-  --stock-a JPM \
-  --stock-b BAC \
-  --lookback-days 365 \
-  --entry-zscore 2.0 \
-  --exit-zscore 0.5
-```
-
-**Parameters:**
-- `--stock-a`: First stock ticker
-- `--stock-b`: Second stock ticker
-- `--lookback-days`: Analysis period (default: 365)
-- `--entry-zscore`: Z-score threshold for entry (default: 2.0)
-- `--exit-zscore`: Z-score threshold for exit (default: 0.0)
-- `--api-key`: FMP API key
-
-**Output:**
-- Current spread analysis
-- Z-score calculation
-- Entry/exit recommendations
-- Position sizing
-- Historical z-score chart (text)
+Read `references/script_usage.md` for full CLI usage, options and output formats of `find_pairs.py` and `analyze_spread.py`.
 
 ## Reference Documentation
 
@@ -553,32 +352,7 @@ Deep dive into cointegration testing:
 
 ## Integration with Other Skills
 
-**Sector Analyst Integration:**
-- Use Sector Analyst to identify sectors in rotation
-- Screen for pairs within outperforming sectors
-- Pairs in leading sectors may have stronger trends
-
-**Technical Analyst Integration:**
-- Confirm pair entry/exit with individual stock technicals
-- Check support/resistance levels before entry
-- Validate trend direction aligns with spread signal
-
-**Backtest Expert Integration:**
-- Feed pair candidates to Backtest Expert for validation
-- Test historical z-score entry/exit rules
-- Optimize threshold parameters (entry z-score, stop loss)
-- Walk-forward analysis for robustness
-
-**Market Environment Analysis Integration:**
-- Avoid pair trading during extreme volatility (VIX > 30)
-- Correlations break down in crisis periods
-- Prefer pair trading in sideways/range-bound markets
-
-**Portfolio Manager Integration:**
-- Track multiple pair positions
-- Monitor overall market-neutral exposure
-- Calculate portfolio-level pair trading P/L
-- Rebalance hedge ratios periodically
+Read `references/skill_integrations.md` for how to combine this skill with Sector Analyst, Technical Analyst, Backtest Expert, Market Environment Analysis and Portfolio Manager.
 
 ## Important Notes
 
@@ -591,44 +365,7 @@ Deep dive into cointegration testing:
 
 ## Common Use Cases
 
-**Use Case 1: Technology Sector Pairs**
-```
-User: "Find pair trading opportunities in tech stocks"
-
-Workflow:
-1. Screen Technology sector for stocks with market cap > $10B
-2. Calculate all pairwise correlations
-3. Filter pairs with correlation ≥ 0.75
-4. Run cointegration tests
-5. Identify current z-score extremes (|z| > 2.0)
-6. Generate top 10 pairs report
-```
-
-**Use Case 2: Specific Pair Analysis**
-```
-User: "Analyze AAPL and MSFT as a pair trade"
-
-Workflow:
-1. Fetch 2-year price history for AAPL and MSFT
-2. Calculate correlation and beta
-3. Test for cointegration
-4. Calculate current spread and z-score
-5. Generate entry/exit recommendation
-6. Provide position sizing guidance
-```
-
-**Use Case 3: Regional Bank Pairs**
-```
-User: "Screen for pairs among regional banks"
-
-Workflow:
-1. Filter Financials sector for industry = "Regional Banks"
-2. Exclude banks with <$5B market cap
-3. Calculate pairwise statistics
-4. Rank by cointegration strength
-5. Focus on pairs with half-life < 45 days
-6. Report top 5 mean-reverting pairs
-```
+Read `references/common_use_cases.md` for three worked use cases: technology sector pairs, a specific pair, regional bank pairs.
 
 ## Troubleshooting
 

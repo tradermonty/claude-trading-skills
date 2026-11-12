@@ -47,6 +47,12 @@ Do NOT invoke for:
   Phase 3 emits a `triggered` state with concrete entry/stop/share
   count, but the trader fires the order manually.
 
+## Prerequisites
+
+- **FMP API key:** Required. Set `FMP_API_KEY` or pass `--api-key` for the Phase 1 screener.
+- **Alpaca API keys:** Optional. Set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` for live borrow checks in Phase 2 and for live 5-minute bars in Phase 3. Without them Phase 2 falls back to `ManualBrokerAdapter` and marks candidates `watch_only`; `--dry-run --fixture` runs the pipeline offline.
+- **Python:** 3.9+ with `pandas-market-calendars==5.2.2` and `requests>=2.31.0` (see `requirements.txt`).
+
 ## Workflow
 
 ### Phase 1 — daily screener

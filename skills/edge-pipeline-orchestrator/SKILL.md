@@ -14,6 +14,12 @@ Coordinate all edge research stages into a single automated pipeline run.
 - Review and revise existing strategy drafts with feedback loop
 - Dry-run the pipeline to preview results without exporting
 
+## Prerequisites
+
+- **API keys:** None required. The index lists local calculation only; the orchestrator runs the edge pipeline subskills through subprocess calls.
+- **Python:** 3.9+ with `PyYAML>=6.0` (see `requirements.txt`).
+- **Inputs:** A tickets directory, an OHLCV CSV for `--from-ohlcv`, or an existing drafts directory, depending on the mode shown under CLI Usage.
+
 ## Workflow
 
 1. Load pipeline configuration from CLI arguments

@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Split nine oversized SKILL.md files (options-strategy-advisor, portfolio-manager, breadth-chart-analyst, market-news-analyst, earnings-calendar, pair-trade-screener, canslim-screener, us-undervalued-growth-screener, value-dividend-screener) to 305-474 lines by moving long tables, examples and CLI reference blocks verbatim into linked `references/*.md` files, and add a `Prerequisites` section matching `skills-index.yaml` integrations to ten skills that lacked one; repackage the affected `.skill` files and refresh two generated EN doc pages (#501).
 - trading-skills-navigator: preserve offline saved-position input when JSON output is also requested, while retaining output-only, live-source and negated-file routing (#668).
 - Generate EN/JA README API guidance linking to the canonical index-derived requirements matrix and detailed mode instructions; reject stale or missing guidance with the catalog drift gate (#654).
 - trader-memory-core: generate historical-only postmortems for retired legacy equity shorts without fetching prices or changing state; suppress unsupported accounting values and explain their omission (#682).

@@ -34,6 +34,12 @@ consumes the repo metadata; this SKILL.md narrates the result conversationally.
 Do **not** use this skill to execute trades, place orders, or auto-run other
 skills. It recommends and explains only.
 
+## Prerequisites
+
+- **API keys:** None required. The recommender reads local repository metadata and does not use the network.
+- **Python:** 3.9+ with `PyYAML>=6.0` (see `requirements.txt`).
+- **Data:** `skills-index.yaml` and `workflows/*.yaml`, or the bundled snapshot when the skill runs outside the repository.
+
 ## Workflow
 
 ### Step 1 — Capture the goal and constraints
