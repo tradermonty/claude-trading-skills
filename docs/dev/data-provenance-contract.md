@@ -6,6 +6,11 @@
 
 ## Purpose
 
+Evaluation completeness has a separate versioned
+[`evaluation_coverage` contract](evaluation-coverage-contract.md). Provenance
+describes source semantics; coverage distinguishes a measured negative result
+from an inability to evaluate the declared universe.
+
 Eighteen skills require the FMP API, and endpoint-drift checks already exist for
 API *clients*. But there is no shared standard for the **meaning and
 time-consistency of the data the consumers actually read**. This contract is the
