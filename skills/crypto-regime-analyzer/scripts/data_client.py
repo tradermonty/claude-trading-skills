@@ -247,6 +247,8 @@ class DataClient:
                 perp = f"{sym}USDT"
                 if perp in by_symbol:
                     funding[perp] = float(by_symbol[perp]["lastFundingRate"])
+        except MissingDependencyError:
+            raise  # a missing dependency is fatal (exit 2), not a best-effort skip
         except Exception as exc:  # funding is best-effort
             self._log(f"  WARN: funding fetch failed ({exc}); component will be skipped")
         self._store(cache_key, funding)
@@ -267,6 +269,8 @@ class DataClient:
                 closes = self.fetch_history(coin["id"])
                 _validate_price_series(coin["symbol"], closes)
                 series[coin["symbol"]] = closes
+            except MissingDependencyError:
+                raise
             except Exception as exc:
                 self._log(f"  WARN: {coin['symbol']} history failed ({exc}); skipping coin")
 
@@ -275,6 +279,8 @@ class DataClient:
             self.fetch_dominance()
             dominance_series = self.load_dominance_series()
             _validate_dominance_series(dominance_series)
+        except MissingDependencyError:
+            raise
         except Exception as exc:
             self._log(f"  WARN: dominance fetch failed ({exc}); component will be skipped")
             dominance_series = []

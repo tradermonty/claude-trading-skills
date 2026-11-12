@@ -97,16 +97,22 @@ def parse_aware_datetime(value: str) -> datetime:
     return require_aware(parsed, name="as-of")
 
 
+def _missing_dependency_message() -> str:
+    """Hint naming this skill's requirements.txt (generic when the file is absent)."""
+    requirements = Path(__file__).resolve().parents[1] / "requirements.txt"
+    target = str(requirements) if requirements.is_file() else "<this skill's>/requirements.txt"
+    return (
+        "pandas-market-calendars library not found (pandas-market-calendars==5.2.2 is "
+        f"required). Install this skill's dependencies: pip install -r {target}"
+    )
+
+
 def _provider_calendar(venue: str) -> tuple[str, str, Any]:
     normalized, provider_name, timezone_name = _venue_contract(venue)
     try:
         import pandas_market_calendars as market_calendars
     except (ImportError, TypeError) as exc:
-        raise CalendarDependencyMissingError(
-            "pandas-market-calendars library not found (pandas-market-calendars==5.2.2 is "
-            "required). Install this skill's dependencies: "
-            f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
-        ) from exc
+        raise CalendarDependencyMissingError(_missing_dependency_message()) from exc
     try:
         calendar = market_calendars.get_calendar(provider_name)
     except Exception as exc:

@@ -32,7 +32,6 @@ from data_client import (
     DataClient,
     MissingDependencyError,
     load_snapshot_from_json,
-    require_requests,
     validate_snapshot,
 )
 from report_generator import generate_json_report, generate_markdown_report, print_summary
@@ -85,7 +84,6 @@ def main() -> int:
         if args.input_json:
             snapshot = load_snapshot_from_json(args.input_json)
         else:
-            require_requests()  # live mode needs requests; fail fast with exit 2
             client = DataClient(args.cache_dir, top_n=args.top_n, quiet=args.quiet)
             snapshot = client.build_snapshot()
     except MissingDependencyError as exc:

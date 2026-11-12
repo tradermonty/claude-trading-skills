@@ -29,7 +29,11 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from _market_calendar import next_session_after, next_session_on_or_after
+from _market_calendar import (
+    CalendarDependencyMissingError,
+    next_session_after,
+    next_session_on_or_after,
+)
 
 ET = ZoneInfo("America/New_York")
 TERMINAL_STATUSES = {"CLOSED", "INVALIDATED"}
@@ -834,6 +838,9 @@ def main(argv: list[str] | None = None) -> int:
             initial_warnings=warnings,
         )
         json_path, md_path = write_reports(result, args.output_dir, args.json_only)
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     except Exception as exc:  # noqa: BLE001 - CLI should return a clear message.
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -848,10 +855,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    from _market_calendar import CalendarDependencyMissingError
-
-    try:
-        raise SystemExit(main())
-    except CalendarDependencyMissingError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(2) from None
+    sys.exit(main())

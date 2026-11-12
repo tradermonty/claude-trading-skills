@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -97,6 +98,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def _resolve_broker(args: argparse.Namespace):
     if args.broker == "none":
+        return ManualBrokerAdapter()
+    # Check credentials before importing the adapter: without credentials the run
+    # falls back to the manual checklist anyway, so ``requests`` is not needed.
+    if not (
+        (args.alpaca_api_key or os.getenv("ALPACA_API_KEY"))
+        and (args.alpaca_secret or os.getenv("ALPACA_SECRET_KEY"))
+    ):
+        logger.warning(
+            "Alpaca not configured (ALPACA_API_KEY and ALPACA_SECRET_KEY must be set); "
+            "falling back to manual"
+        )
         return ManualBrokerAdapter()
     try:
         from alpaca_inventory_adapter import AlpacaInventoryAdapter
