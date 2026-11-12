@@ -9,6 +9,13 @@ Retrieve official-source macro release-calendar events from FXMacroData. Use
 this skill when a trade plan needs event timing, confirmed release dates, or a
 top-tier macro risk check.
 
+## Prerequisites
+
+- **FXMacroData API key:** Optional. Set `FXMACRODATA_API_KEY` for authenticated endpoints. Public USD calendar rows can be fetched without a key.
+- **Other API keys:** None used.
+- **Python:** 3.9+ with the standard library only (see `requirements.txt`).
+- **Network:** Access to `https://api.fxmacrodata.com/v1`.
+
 ## Workflow
 
 1. Run the calendar script:

@@ -37,6 +37,14 @@ Use this skill when:
 
 ---
 
+## Prerequisites
+
+- **API keys:** None required. The user provides the indicator values as input.
+- **Python:** 3.9+ with the standard library only for the bundled `bubble_scorer.py` (see `requirements.txt`).
+- **Inputs:** Measured indicator values supplied by the user or collected from the sources under Data Sources. Phase 1 requires measured data, not impressions.
+
+---
+
 ## Evaluation Process (Strict Order)
 
 ### Phase 1: Mandatory Quantitative Data Collection

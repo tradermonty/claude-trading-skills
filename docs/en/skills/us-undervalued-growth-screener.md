@@ -283,6 +283,7 @@ Both commands must exit `0`. Present the self-contained ZIP together with the re
 - `skills/us-undervalued-growth-screener/references/autonomous-execution.md`
 - `skills/us-undervalued-growth-screener/references/checkpointing.md`
 - `skills/us-undervalued-growth-screener/references/claude-code-execution.md`
+- `skills/us-undervalued-growth-screener/references/data-acquisition-layers.md`
 - `skills/us-undervalued-growth-screener/references/data-contract.md`
 - `skills/us-undervalued-growth-screener/references/full-universe-snapshot.md`
 - `skills/us-undervalued-growth-screener/references/methodology-ja.md`
@@ -302,6 +303,7 @@ Both commands must exit `0`. Present the self-contained ZIP together with the re
 - `skills/us-undervalued-growth-screener/references/review-regression-matrix.md`
 - `skills/us-undervalued-growth-screener/references/scoring-rubric.md`
 - `skills/us-undervalued-growth-screener/references/sector-kpis.md`
+- `skills/us-undervalued-growth-screener/references/source-evidence-and-financial-controls.md`
 
 **Scripts:**
 

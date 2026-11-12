@@ -118,22 +118,7 @@ python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py
 | 4 (LAST RESORT) | ~~LLM visual reading~~ | ~~Emergency only~~ | LOW |
 
 **Expected Output**:
-```
-============================================================
-Breadth Data (CSV) - 2026-02-13
-============================================================
---- Market Breadth (S&P 500) ---
-200-Day MA: 62.26% (healthy (>=60%))
-8-Day MA:   67.56% (healthy_bullish (60-73%))
-8MA vs 200MA: +5.30pt (8MA ABOVE -- NO dead cross)
-Trend: UPTREND
---- Uptrend Ratio (All Markets) ---
-Current: 33.03% GREEN (neutral_bullish)
-10MA: 32.65%, Slope: +0.0055, Trend: UP
---- Sector Summary ---
-...
-============================================================
-```
+Read `references/csv_and_two_stage_details.md` (section "Step 0 detail: expected CSV fetch output") to compare against the expected CSV fetch output.
 
 **Validation**: After running CSV fetch, verify:
 - [ ] CSV data retrieved successfully
@@ -182,24 +167,7 @@ Then, extract and analyze the **rightmost 25%** of the chart to accurately deter
 python3 skills/breadth-chart-analyst/scripts/extract_chart_right_edge.py <image_path> --percent 25
 ```
 
-#### Why Two-Stage Analysis is Mandatory
-
-| Stage | Purpose | What to Extract |
-|-------|---------|-----------------|
-| **Stage 1 (Full)** | Historical context, trend cycles | Overall patterns, past troughs/peaks |
-| **Stage 2 (Right Edge)** | **Current values (CRITICAL)** | 8MA value, 200MA value, current color, current slope |
-
-**Common Error This Prevents:**
-- LLM reads 2025 mid-year dip (8MA ~25-30%) instead of current value (8MA ~60-65%)
-- By isolating the right edge, the "current" data is unambiguous
-
-#### Analysis Protocol
-
-1. **Read full chart** → Document historical context
-2. **Run extraction script** → Generate right edge image
-3. **Read right edge image** → Document current values with HIGH CONFIDENCE
-4. **Cross-check**: If Stage 1 and Stage 2 values differ significantly, **Stage 2 (right edge) takes precedence**
-5. **Report both**: Include Stage 1 context AND Stage 2 current values in analysis
+Read `references/csv_and_two_stage_details.md` (section "Step 1.5 detail: Why Two-Stage Analysis is Mandatory") for the rationale table, the common error this prevents and the full analysis protocol.
 
 ### Step 2: Load Breadth Chart Methodology
 
@@ -251,79 +219,7 @@ From the chart image, identify:
 
 **This step is MANDATORY to avoid misreading recent trend changes.**
 
-**CRITICAL WARNING**: Charts can be deceptive. The MAJORITY of analysis errors occur because the analyst:
-1. Confuses the 8MA (orange) with the 200MA (green)
-2. Reads historical trends instead of the CURRENT rightmost data points
-3. Misidentifies which line is rising vs falling
-
-**BEFORE analyzing trend direction, FIRST confirm line colors**:
-- ✓ **8MA = ORANGE line** (fast-moving, more volatile)
-- ✓ **200MA = GREEN line** (slow-moving, smoother)
-- If unsure which is which, STOP and re-examine the chart legend/colors
-
-Focus intensively on the **rightmost 3-5 data points** of the chart (most recent weeks):
-
-**For 8MA (Orange Line) - Analyze the very latest trajectory**:
-1. **Identify the absolute latest position**: Where is the 8MA at the rightmost edge of the chart?
-2. **Trace back 3-5 data points** (approximately 3-5 weeks):
-   - What was the 8MA level 1 week ago?
-   - What was the 8MA level 2 weeks ago?
-   - What was the 8MA level 3 weeks ago?
-3. **Calculate the directional change**:
-   - Is the latest value HIGHER or LOWER than 1 week ago?
-   - Is the latest value HIGHER or LOWER than 2 weeks ago?
-   - What is the trend: consistently rising, consistently falling, or mixed?
-4. **Determine the CURRENT slope** (not historical slope):
-   - **Rising**: Latest data point is higher than previous 2-3 points AND shows upward curvature
-   - **Falling**: Latest data point is lower than previous 2-3 points AND shows downward curvature
-   - **Flat**: Latest data point is approximately equal to previous points (within 2-3%)
-
-**Critical Questions to Answer**:
-- [ ] Is the 8MA currently moving UP or DOWN at the rightmost edge?
-- [ ] If there was a recent trough, has the 8MA **sustained** the upward move, or has it rolled over?
-- [ ] Count consecutive periods of increase: How many consecutive periods has 8MA risen? (Need 2-3 for confirmation)
-- [ ] Count consecutive periods of decrease: How many consecutive periods has 8MA fallen? (Indicates failed reversal if declining after trough)
-
-**For 200MA (Green Line) - Analyze the very latest trajectory**:
-1. **Identify the absolute latest position**: Where is the 200MA at the rightmost edge?
-2. **Trace back 4-6 weeks**:
-   - What was the 200MA level 2 weeks ago?
-   - What was the 200MA level 4 weeks ago?
-3. **Determine the CURRENT slope**:
-   - Is it rising, falling, or flat in the most recent period?
-
-**Failed Reversal Detection** (CRITICAL):
-If an 8MA trough (purple ▼) was recently identified:
-- [ ] Did the 8MA rise for only 1-2 periods and then turn back down?
-- [ ] Did the 8MA fail to reach 60% before turning down?
-- [ ] Is the 8MA currently declining again after the bounce?
-- **If YES to any**: This is a **FAILED REVERSAL** - DO NOT ENTER, signal is INVALID
-
-**Example Analysis Format**:
-```
-Latest 8MA Data Points (rightmost to left):
-- Current (Week 0): 48%
-- 1 week ago: 52%
-- 2 weeks ago: 55%
-- 3 weeks ago: 50%
-
-Analysis: 8MA is FALLING. It rose from 50% to 55% (weeks 3-2), but has since declined to 48%.
-This shows a failed reversal pattern - bounce was temporary, downtrend has resumed.
-SLOPE: Falling (not rising!)
-```
-
-**MANDATORY CROSS-CHECK** (to catch misreadings):
-After determining the trend, ask yourself:
-- [ ] "If I claimed 8MA is RISING, but it's actually been FALLING for weeks, what would that look like?"
-  - Answer: The rightmost data points would be LOWER than previous points (confirming FALLING)
-- [ ] "Does my analysis match the visual slope of the orange line at the rightmost edge?"
-  - If orange line visually slopes DOWN at the right edge → It's FALLING
-  - If orange line visually slopes UP at the right edge → It's RISING
-- [ ] "Is there any pink background shading (downtrend) near the rightmost edge?"
-  - If YES → This confirms downtrend conditions, 8MA is likely FALLING
-- [ ] "Are the 8MA and 200MA converging (getting closer) or diverging?"
-  - Converging from below → Potential death cross forming → BEARISH
-  - Converging from above → Potential golden cross forming → BULLISH
+Read `references/trend_analysis_protocol.md` before judging trend direction from a chart image. It holds the line-colour check, the rightmost data-point trace for the 8MA and 200MA, failed reversal detection, an example format and the mandatory cross-check questions.
 
 #### 4.2 Identify Signal Markers
 
@@ -459,27 +355,7 @@ Create a positioning matrix:
 
 #### 6.2 Scenario Classification
 
-Determine which of the four scenarios applies:
-
-**Scenario 1: Both Bullish**
-- Chart 1: 8MA rising, 200MA not yet peaked
-- Chart 2: Green (uptrend), ratio rising from oversold
-- Implication: Maximum bullish stance, aggressive positioning
-
-**Scenario 2: Strategic Bullish, Tactical Bearish**
-- Chart 1: 8MA rising, 200MA not yet peaked
-- Chart 2: Red (downtrend), ratio falling or elevated
-- Implication: Hold core long positions, wait for tactical entry
-
-**Scenario 3: Strategic Bearish, Tactical Bullish**
-- Chart 1: 200MA peaked or declining
-- Chart 2: Green (uptrend), ratio rising
-- Implication: Short-term tactical trades only, tight stops
-
-**Scenario 4: Both Bearish**
-- Chart 1: Both MAs declining
-- Chart 2: Red (downtrend), ratio falling
-- Implication: Defensive positioning, cash or shorts
+Determine which of the four scenarios applies: Read `references/combined_scenarios.md` (section "Step 6.2 detail: the four combined scenarios") to classify the combined scenario. It holds the four scenarios with their Chart 1 and Chart 2 conditions and implications.
 
 #### 6.3 Unified Recommendation
 
@@ -552,190 +428,19 @@ Before finalizing the report, verify:
 
 ## Quality Standards
 
-### Objectivity Requirements
-
-- Base all analysis strictly on observable chart data
-- Do not incorporate external information (news, fundamentals) unless specifically relevant
-- Use precise technical terminology consistently
-- Distinguish clearly between factual observations and probabilistic forecasts
-- Acknowledge uncertainty when signals are ambiguous
-
-### Completeness Requirements
-
-- Address all relevant sections of the analysis template
-- Provide specific numerical values for all key metrics
-- Justify probability estimates with technical factors
-- Include invalidation levels for each scenario
-- Compare current readings to historical patterns visible on the charts
-
-### Clarity Requirements
-
-- Write in professional, analytical English
-- Use clear section headings and structure
-- Present information in tables where appropriate
-- Make recommendations specific and actionable
-- Avoid jargon without explanation
-
-### Strategy Adherence Requirements
-
-- Apply backtested strategy rules correctly
-- Distinguish between strategic (Chart 1) and tactical (Chart 2) signals
-- Provide clear position status (Long/Flat/Entering/Exiting)
-- Include specific entry/exit levels when applicable
-- Address risk management (stop losses, position sizing)
+Read `references/quality_and_error_prevention.md` (section "Quality Standards") for the objectivity, completeness, clarity and strategy adherence requirements.
 
 ## Common Analysis Errors and How to Avoid Them
 
-### Error 1: Confusing 8MA with 200MA
-
-**Symptom**: Report claims 8MA is rising when it's actually the 200MA that's rising
-
-**Prevention**:
-- ALWAYS verify: 8MA = ORANGE, 200MA = GREEN
-- Check line volatility: 8MA moves faster with more volatility
-- If unsure, state: "Based on line color, I identify the [orange/green] line as [8MA/200MA]"
-
-### Error 2: Reading Historical Trends Instead of Current Direction
-
-**Symptom**: Report describes what happened 1-2 months ago, not what's happening NOW
-
-**Prevention**:
-- Focus ONLY on rightmost 3-5 data points
-- Explicitly write: "At the CURRENT rightmost edge, 8MA is at X% and is [rising/falling]"
-- Ignore what happened in September if we're analyzing November
-
-### Error 3: Missing Death Cross or Golden Cross Formation
-
-**Symptom**: Report is bullish when 8MA and 200MA are about to death cross (bearish)
-
-**Prevention**:
-- ALWAYS check: "Are 8MA and 200MA getting closer (converging) or further apart (diverging)?"
-- If converging with 8MA above 200MA → Potential death cross → BEARISH
-- If converging with 8MA below 200MA → Potential golden cross → BULLISH
-- Explicitly state: "8MA is currently [above/below] 200MA, and they are [converging/diverging]"
-
-### Error 4: Ignoring Pink Background Shading
-
-**Symptom**: Report claims bullish setup when chart shows pink downtrend background
-
-**Prevention**:
-- Check for pink shading at the rightmost edge
-- Pink background = Downtrend period = Bearish conditions
-- If pink shading present, report MUST acknowledge bearish conditions
-
-### Error 5: Claiming Reversal Too Early
-
-**Symptom**: Report says "BUY signal confirmed" after only 1 week of increase
-
-**Prevention**:
-- Require 2-3 CONSECUTIVE weeks of 8MA increase for confirmation
-- If only 1 week: Signal is "DEVELOPING", not "CONFIRMED"
-- If 8MA rises then falls again: Signal is "FAILED", not valid
+Read `references/quality_and_error_prevention.md` (section "Common Analysis Errors and How to Avoid Them") before finalizing a report. It holds the five common errors with symptoms and prevention.
 
 ## Example Usage Scenarios
 
-### Example 1: CSV-Only Analysis (No Charts)
-
-```
-User: "breadth分析して" (Analyze breadth)
-[No chart images provided]
-
-Breadth Analyst:
-1. Executes fetch_breadth_csv.py to get latest CSV data
-2. Reads breadth_chart_methodology.md
-3. Analyzes CSV data:
-   - 200MA: 62.26% (healthy)
-   - 8MA: 67.56% (healthy_bullish)
-   - 8MA vs 200MA: +5.30pt (NO dead cross)
-   - Uptrend Ratio: 33.03% GREEN (neutral_bullish)
-   - Sector summary with overbought/oversold sectors
-4. Assesses market regime based on CSV values
-5. Generates report: breadth_combined_analysis_2026-03-16.md
-```
-
-### Example 2: Strategic Breadth Analysis (Chart 1 Only)
-
-```
-User: "Please analyze this S&P 500 breadth chart and tell me where we are in the market cycle."
-[Provides Chart 1 image: 200MA Breadth Index]
-
-Breadth Analyst (thinking in English):
-1. Executes CSV fetch for authoritative numerical values
-2. Confirms receipt of Chart 1 (200MA-based breadth index)
-3. Reads breadth_chart_methodology.md for Chart 1 guidance
-4. Two-stage analysis: full chart → right edge extraction
-5. Cross-checks CSV values with chart readings
-6. Generates comprehensive report in English
-```
-
-### Example 3: Combined Strategic + Tactical Analysis (Both Charts)
-
-```
-User: "Analyze both of these breadth charts and give me your overall market view."
-[Provides both Chart 1 and Chart 2 images]
-
-Breadth Analyst (thinking in English):
-1. Executes CSV fetch as PRIMARY source
-2. Confirms receipt of both charts
-3. Reads full breadth_chart_methodology.md
-4. Two-stage analysis for each chart
-5. Cross-checks all values against CSV data
-6. Combined assessment and unified recommendation
-7. Generates comprehensive combined report
-```
+Read `references/example_usage_scenarios.md` for worked example flows: CSV-only analysis, Chart 1 only, and both charts.
 
 ## Resources
 
-This skill includes the following bundled resources:
-
-### references/breadth_chart_methodology.md
-
-Comprehensive methodology covering:
-- **Chart 1 (200MA Breadth)**: Components, interpretation, market regimes, backtested strategy, analysis checklist
-- **Chart 2 (Uptrend Ratio)**: Components, interpretation, market conditions, swing trading strategy, analysis checklist
-- **Combined Analysis**: Alignment scenarios, integrated decision-making
-- **Common Pitfalls**: Mistakes to avoid for each chart type
-
-**Usage**: Read this file before conducting any breadth chart analysis to ensure systematic, accurate interpretation.
-
-### assets/breadth_analysis_template.md
-
-Structured template for breadth analysis reports in English.
-
-**Usage**: Use this template structure for every analysis report.
-
-### assets/SP500_Breadth_Index_200MA_8MA.jpeg
-
-Sample Chart 1 image for format reference.
-
-### assets/US_Stock_Market_Uptrend_Ratio.jpeg
-
-Sample Chart 2 image for format reference.
-
-### scripts/fetch_breadth_csv.py
-
-**PRIMARY data source**. Fetches market breadth, uptrend ratio, and sector summary data from public CSV sources. Uses only stdlib (urllib + csv) -- no external dependencies.
-
-```bash
-python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py        # Human-readable
-python3 skills/breadth-chart-analyst/scripts/fetch_breadth_csv.py --json  # JSON output
-```
-
-### scripts/extract_chart_right_edge.py
-
-Extracts the rightmost portion of chart images to help focus on latest data points. Requires PIL/Pillow.
-
-```bash
-python3 skills/breadth-chart-analyst/scripts/extract_chart_right_edge.py <image_path> --percent 25
-```
-
-### scripts/detect_uptrend_ratio.py (DEPRECATED)
-
-OpenCV-based uptrend ratio detection. Superseded by CSV fetch. Requires opencv-python + numpy.
-
-### scripts/detect_breadth_values.py (DEPRECATED)
-
-OpenCV-based breadth value detection. Superseded by CSV fetch. Requires opencv-python + numpy.
+Read `references/resource_index.md` for the description and usage of each bundled reference, asset and script.
 
 ## Special Notes
 

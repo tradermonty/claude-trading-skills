@@ -19,6 +19,12 @@ Do NOT use this skill to:
 - Execute trades or modify orders.
 - Generate discretionary market predictions outside of the IBD ruleset.
 
+## Prerequisites
+
+- **FMP API key:** Required. Pass `--api-key`, set `config.data.api_key`, or set the `FMP_API_KEY` environment variable, in that priority order.
+- **Other API keys:** None used.
+- **Python:** 3.9+ with `PyYAML>=6.0` and `requests>=2.31.0` (see `requirements.txt`).
+
 ## Inputs
 - Symbols (default: QQQ, SPY) and lookback (default 80 trading sessions).
 - Optional `--as-of YYYY-MM-DD` for backtesting against a historical session.
