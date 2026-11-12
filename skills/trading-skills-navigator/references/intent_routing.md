@@ -138,7 +138,9 @@ trade-planning / trade-memory; only the first (`vcp-screener` →
 manifest ships (the manifest `id` == the skills-index category, so the lookup
 is a direct match — carried as the `skillsets` list in the SSoT / bundled
 snapshot). Today the shipped set is `market-regime`, `core-portfolio`,
-`swing-opportunity`, `trade-memory`, `strategy-research` → those report `active`.
+`dividend-income`, `swing-opportunity`, `trade-memory`, `strategy-research` →
+those report `active` for a workflow the manifest names in `related_workflows`
+(`dividend-income` backs `kanchi-dividend-weekly`, persona #12).
 Categories with no manifest — including the honest-gap category
 `advanced-satellite` for #7 — report `deferred`. The skillset object shape is
 unchanged (`{id, source, manifest_status}`); only the status value reflects

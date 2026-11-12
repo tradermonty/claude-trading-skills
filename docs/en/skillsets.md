@@ -21,6 +21,7 @@ Purpose-specific skillset bundles for the solo-trader OS. A skillset is a catego
 | Skillset | Timeframe | API profile | Difficulty | Related workflows |
 |---|---|---|---|---|
 | [`core-portfolio`](#core-portfolio) — Core Portfolio | weekly | mixed | beginner | `core-portfolio-weekly` |
+| [`dividend-income`](#dividend-income) — Dividend Income | weekly | mixed | intermediate | `kanchi-dividend-weekly` |
 | [`market-regime`](#market-regime) — Market Regime | daily | mixed | beginner | `market-regime-daily` |
 | [`strategy-research`](#strategy-research) — Strategy Research | research | no-api-basic | advanced | `strategy-research-pipeline` |
 | [`swing-opportunity`](#swing-opportunity) — Swing Opportunity | daily | fmp-required | intermediate | `swing-opportunity-daily` |
@@ -45,6 +46,26 @@ Purpose-specific skillset bundles for the solo-trader OS. A skillset is a catego
 **Optional skills:** `dividend-growth-pullback-screener`, `kanchi-dividend-sop`
 
 **Related workflows:** `core-portfolio-weekly`
+
+---
+
+## Dividend Income {#dividend-income}
+
+**`dividend-income`** · weekly · mixed · intermediate
+
+**When to use:** Source and underwrite new US-listed dividend candidates once a week with Kanchi's 5-step method: screen for yield and quality, deep-dive the strongest names, and register a fully documented candidate thesis before any entry. Operationalized by the kanchi-dividend-weekly workflow (v1 covers US-listed dividend stocks only).
+
+**When NOT to use:** Do not use this bundle for Japanese or other non-US-listed dividend stocks, and do not treat Kanchi-style screening as a buy signal or a claim of profitability. It is not for maintaining an existing holding; that is the core-portfolio sleeve. No order is placed automatically; every buy is entered manually at the broker.
+
+**Target users:** `long-term-investor`, `dividend-investor`
+
+**Required skills:** `kanchi-dividend-sop`, `trader-memory-core`
+
+**Recommended skills:** `value-dividend-screener`, `dividend-growth-pullback-screener`
+
+**Optional skills:** `kanchi-dividend-us-tax-accounting`, `kanchi-dividend-review-monitor`
+
+**Related workflows:** `kanchi-dividend-weekly`
 
 ---
 

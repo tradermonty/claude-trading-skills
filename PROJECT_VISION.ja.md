@@ -267,7 +267,7 @@ Phase 1 の責任範囲は、AI による対話的推薦です。ユーザーの
 
 ### Phase 2: Skillsets — ✅ 一部完了: コア 4 skillset 実装済み (2026-05-17)
 
-> **状況:** `skillsets/` に `market-regime` / `core-portfolio` / `swing-opportunity` / `trade-memory` の manifest（および `skillsets/README.md`）を実装。`validate-skillsets` + `skillset-docs-drift` ゲートで保護し、Navigator が参照。残りの skillset 候補（`dividend-income` / `strategy-research` / `advanced-satellite`）は後続。
+> **状況:** `skillsets/` に `market-regime` / `core-portfolio` / `dividend-income` / `swing-opportunity` / `trade-memory` / `strategy-research` の manifest（および `skillsets/README.md`）を実装。`validate-skillsets` + `skillset-docs-drift` ゲートで保護し、Navigator が参照。`dividend-income` は `kanchi-dividend-weekly` が支える正式な `skills-index.yaml` カテゴリ。残りの skillset 候補 `advanced-satellite` は後続で、[#715](https://github.com/tradermonty/claude-trading-skills/issues/715) で追跡。
 
 目的別にスキルを束ねる manifest を作ります。
 
@@ -442,7 +442,7 @@ Plan -> Trade -> Record -> Review -> Improve -> Adjust Workflow
 - ✅ **完了 (2026-05-09)**: ワークフロー doc ページの自動生成 (PR #86)
 - ✅ **完了**: 現在 index に登録されている全スキルに `timeframe` / `difficulty` / `inputs` / `outputs` を付与し、`--strict-metadata` を CI + pre-push hook で enforce
 - ✅ **完了**: Trading Skills Navigator v0（決定論的 recommender + Web App snapshot fallback + manifest 駆動 setup）
-- **一部完了**: 主要 skillsets の YAML 定義 — コア 4 skillset 実装済み（`market-regime` / `core-portfolio` / `swing-opportunity` / `trade-memory`）。残りの skillset 候補（`dividend-income` / `strategy-research` / `advanced-satellite`）は後続
+- **一部完了**: 主要 skillsets の YAML 定義 — 6 skillset 実装済み（`market-regime` / `core-portfolio` / `dividend-income` / `swing-opportunity` / `trade-memory` / `strategy-research`）。`advanced-satellite` は後続で、[#715](https://github.com/tradermonty/claude-trading-skills/issues/715) で追跡
 - **Next**: Advanced ワークフロー manifest（`risk-off-short-daily` / `earnings-weekly` / `strategy-research-pipeline`）を追加 — [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) で追跡
 - ✅ **完了 (2026-05-24)**: "Find Your Workflow" ドキュメント（[EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md)、PR #142）
 - ✅ **完了 (2026-05-24)**: 公開可能な end-to-end 実行サンプル — `examples/workflows/` に `market-regime-daily` と `trade-memory-loop` の sample-run / sample-run-full-path を収録（PR #141）

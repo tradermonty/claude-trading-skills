@@ -88,8 +88,8 @@ Parse the JSON and explain, in the user's language:
   and why; they never make the goal blocked.
 - **Skillset** — the `skillset.id` (skills-index category).
   `manifest_status: active` means a curated `skillsets/<id>.yaml` bundle ships
-  for this category (market-regime, core-portfolio, swing-opportunity,
-  trade-memory, strategy-research) — mention it as the install bundle for the
+  for this category (market-regime, core-portfolio, dividend-income,
+  swing-opportunity, trade-memory, strategy-research) — mention it as the install bundle for the
   recommended workflow. `manifest_status: deferred` means no manifest yet
   (e.g. honest-gap categories); the recommendation is workflow-based only.
 - **No-API vs API** — read `no_api_path`: `true` → the entire recommended path

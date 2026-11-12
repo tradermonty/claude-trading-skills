@@ -267,9 +267,9 @@ Definition of done:
 - It can separate API-key and no-API paths
 - It can explain setup paths for Claude Web App and Claude Code
 
-### Phase 2: Skillsets — ✅ partial: 5 skillsets implemented
+### Phase 2: Skillsets — ✅ partial: 6 skillsets implemented
 
-> **Status:** `skillsets/` ships `market-regime`, `core-portfolio`, `swing-opportunity`, `trade-memory`, and `strategy-research` manifests (with `skillsets/README.md`), guarded by `validate-skillsets` + the `skillset-docs-drift` gate, and consumed by the Navigator. The remaining skillset candidates (`dividend-income`, `advanced-satellite`) are deferred.
+> **Status:** `skillsets/` ships `market-regime`, `core-portfolio`, `swing-opportunity`, `dividend-income`, `trade-memory`, and `strategy-research` manifests (with `skillsets/README.md`), guarded by `validate-skillsets` + the `skillset-docs-drift` gate, and consumed by the Navigator. `dividend-income` is a canonical `skills-index.yaml` category backed by `kanchi-dividend-weekly`. The remaining skillset candidate, `advanced-satellite`, is deferred and tracked in [#715](https://github.com/tradermonty/claude-trading-skills/issues/715).
 
 Create purpose-specific manifests that bundle skills.
 
@@ -445,7 +445,7 @@ Near-term work should proceed in this order:
 - ✅ **Done (2026-05-09)**: Auto-generated workflow doc pages (PR #86)
 - ✅ **Done**: All indexed skills carry `timeframe` / `difficulty` / `inputs` / `outputs`; `--strict-metadata` enforced in CI + the pre-push hook
 - ✅ **Done**: Trading Skills Navigator v0 (deterministic recommender + Web App snapshot fallback + manifest-driven setup)
-- **Partial**: Major skillsets in YAML — 5 skillsets shipped (`market-regime`, `core-portfolio`, `swing-opportunity`, `trade-memory`, `strategy-research`); `dividend-income` and `advanced-satellite` deferred
+- **Partial**: Major skillsets in YAML — 6 skillsets shipped (`market-regime`, `core-portfolio`, `dividend-income`, `swing-opportunity`, `trade-memory`, `strategy-research`); `advanced-satellite` deferred and tracked in [#715](https://github.com/tradermonty/claude-trading-skills/issues/715)
 - **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`) — tracked in [#216](https://github.com/tradermonty/claude-trading-skills/issues/216)
 - ✅ **Done (2026-05-24)**: Create "Find Your Workflow" documentation ([EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md), PR #142)
 - ✅ **Done (2026-05-24)**: Public end-to-end sample operating examples — both `sample-run/` (required-only) and `sample-run-full-path/` (with optional step) under [`examples/workflows/`](examples/workflows/) for `market-regime-daily` and `trade-memory-loop` (PR #141; required-only path shipped earlier in PR #118)

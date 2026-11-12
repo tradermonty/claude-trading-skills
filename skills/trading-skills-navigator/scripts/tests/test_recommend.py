@@ -359,9 +359,11 @@ def test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow(
 # ---------------------------------------------------------------------------
 
 _KANCHI_EXPECTED_REQUIRED = {"kanchi-dividend-sop", "trader-memory-core"}
-_KANCHI_EXPECTED_OPTIONAL = {
+_KANCHI_EXPECTED_RECOMMENDED = {
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
+}
+_KANCHI_EXPECTED_OPTIONAL = {
     "kanchi-dividend-us-tax-accounting",
     "kanchi-dividend-review-monitor",
 }
@@ -392,15 +394,12 @@ def test_kanchi_dividend_weekly_routes_with_full_bundle(
     repo_metadata: dict[str, Any], query: str
 ) -> None:
     """Regression (Issue #260): Kanchi-intent EN/JA queries must route to
-    kanchi-dividend-weekly with its full required+optional 6-skill bundle,
-    not fall through to core-portfolio-weekly (existing-holdings
-    maintenance) via the broad dividend-long-term-investor persona. The
-    dominant-category skillset (core-portfolio) must defer rather than
-    replace the bundle (same mechanism as shapiro-contrarian /
-    market-regime — see test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow),
-    since skillsets/core-portfolio.yaml deliberately does NOT list
-    kanchi-dividend-weekly in related_workflows (would fail SK010: its
-    required_skills aren't a subset of core-portfolio.yaml's)."""
+    kanchi-dividend-weekly, not fall through to core-portfolio-weekly
+    (existing-holdings maintenance) via the broad dividend-long-term-investor
+    persona. The workflow's first required skill (kanchi-dividend-sop) is in
+    the dividend-income category, whose skillsets/dividend-income.yaml
+    manifest names kanchi-dividend-weekly in related_workflows, so the
+    skillset is active and the bundle comes from the manifest tiers."""
     r = recommend(query, repo_metadata)
     assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
     assert r["primary_workflow"]["id"] == "kanchi-dividend-weekly", (
@@ -408,16 +407,19 @@ def test_kanchi_dividend_weekly_routes_with_full_bundle(
         f"{r['primary_workflow']['id']!r}"
     )
     assert r["honest_gap"] is False
-    assert r["skillset"]["id"] == "core-portfolio"
-    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["skillset"]["id"] == "dividend-income"
+    assert r["skillset"]["manifest_status"] == "active"
     sb = r["setup_bundle"]
     assert set(sb["required"]) == _KANCHI_EXPECTED_REQUIRED, (
         f"query {query!r} setup_bundle.required = {sb['required']}"
     )
+    assert set(sb["recommended"]) == _KANCHI_EXPECTED_RECOMMENDED, (
+        f"query {query!r} setup_bundle.recommended = {sb['recommended']}"
+    )
     assert set(sb["optional"]) == _KANCHI_EXPECTED_OPTIONAL, (
         f"query {query!r} setup_bundle.optional = {sb['optional']}"
     )
-    assert sb["sources"] == ["workflow:kanchi-dividend-weekly"]
+    assert sb["sources"] == ["skillset:dividend-income"]
 
 
 def test_kanchi_persona_does_not_regress_core_portfolio_routing(
@@ -882,6 +884,7 @@ def test_no_api_path_none_on_honest_gap(repo_metadata: dict[str, Any]) -> None:
 SHIPPED_SKILLSETS = {
     "market-regime",
     "core-portfolio",
+    "dividend-income",
     "swing-opportunity",
     "trade-memory",
     "strategy-research",

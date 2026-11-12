@@ -2,6 +2,7 @@ schema_version: 1
 categories:
 - market-regime
 - core-portfolio
+- dividend-income
 - swing-opportunity
 - trade-planning
 - trade-memory
@@ -266,7 +267,7 @@ skills:
   workflows: []
 - id: dividend-growth-pullback-screener
   display_name: Dividend Growth Pullback Screener
-  category: core-portfolio
+  category: dividend-income
   status: production
   verification:
     instruction_contract: not_verified
@@ -920,7 +921,7 @@ skills:
   workflows: []
 - id: kanchi-dividend-review-monitor
   display_name: Kanchi Dividend Review Monitor
-  category: core-portfolio
+  category: dividend-income
   status: production
   verification:
     instruction_contract: not_verified
@@ -952,7 +953,7 @@ skills:
   - kanchi-dividend-weekly
 - id: kanchi-dividend-sop
   display_name: Kanchi Dividend SOP
-  category: core-portfolio
+  category: dividend-income
   status: production
   verification:
     instruction_contract: not_verified
@@ -983,7 +984,7 @@ skills:
   - kanchi-dividend-weekly
 - id: kanchi-dividend-us-tax-accounting
   display_name: Kanchi Dividend US Tax Accounting
-  category: core-portfolio
+  category: dividend-income
   status: production
   verification:
     instruction_contract: not_verified
@@ -2267,7 +2268,7 @@ skills:
   workflows: []
 - id: value-dividend-screener
   display_name: Value Dividend Screener
-  category: core-portfolio
+  category: dividend-income
   status: production
   verification:
     instruction_contract: not_verified

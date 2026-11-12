@@ -191,12 +191,17 @@ The detailed catalog below is **auto-generated** from `skills-index.yaml` by `sc
 
 | Skill | Summary | Integrations | Role | Status |
 |---|---|---|---|---|
+| **Portfolio Manager** (`portfolio-manager`) | Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze asset allocation, risk metrics, individual stock positions, diversification, and generate rebalancing recommendations. | `alpaca` optional | workflow_step | production |
+| **US Undervalued Growth Screener** (`us-undervalued-growth-screener`) | Screen and rank US-listed small- and mid-cap undervalued-growth stocks with a generated stable-first FMP client, persistent SQLite cache, adaptive listing enumeration, FY1 estimate normalization, verified 20-day liquidity, deterministic four-lane discovery, forward same-basis valuation, standard and SBC-adjusted FCF, dilution, peer, cycle and LOE controls, strict final evaluation, prepublication audit, and a self-contained evidence bundle. | `fmp` _recommended_, `alternate_market_data` optional, `sec_edgar` **required**, `company_ir` **required**, `official_macro` **required**, `local_calculation` — | standalone | beta |
+
+### Dividend Income
+
+| Skill | Summary | Integrations | Role | Status |
+|---|---|---|---|---|
 | **Dividend Growth Pullback Screener** (`dividend-growth-pullback-screener`) | Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1.5%+ yield) that are experiencing temporary pullbacks, identified by RSI oversold conditions (RSI ≤40). | `fmp` **required**, `finviz` _recommended_ | workflow_step | production |
 | **Kanchi Dividend Review Monitor** (`kanchi-dividend-review-monitor`) | Monitor dividend portfolios with Kanchi-style forced-review triggers (T1-T5) and convert anomalies into OK/WARN/REVIEW states without auto-selling. | `fmp` _recommended_ | workflow_step | production |
 | **Kanchi Dividend SOP** (`kanchi-dividend-sop`) | Convert Kanchi-style dividend investing into a repeatable US-stock operating procedure. | `fmp` _recommended_ | workflow_step | production |
 | **Kanchi Dividend US Tax Accounting** (`kanchi-dividend-us-tax-accounting`) | Provide US dividend tax and account-location workflow for Kanchi-style income portfolios. | `local_calculation` — | workflow_step | production |
-| **Portfolio Manager** (`portfolio-manager`) | Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze asset allocation, risk metrics, individual stock positions, diversification, and generate rebalancing recommendations. | `alpaca` optional | workflow_step | production |
-| **US Undervalued Growth Screener** (`us-undervalued-growth-screener`) | Screen and rank US-listed small- and mid-cap undervalued-growth stocks with a generated stable-first FMP client, persistent SQLite cache, adaptive listing enumeration, FY1 estimate normalization, verified 20-day liquidity, deterministic four-lane discovery, forward same-basis valuation, standard and SBC-adjusted FCF, dilution, peer, cycle and LOE controls, strict final evaluation, prepublication audit, and a self-contained evidence bundle. | `fmp` _recommended_, `alternate_market_data` optional, `sec_edgar` **required**, `company_ir` **required**, `official_macro` **required**, `local_calculation` — | standalone | beta |
 | **Value Dividend Screener** (`value-dividend-screener`) | Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E ratio under 20, P/B ratio under 2), attractive yields (3% or higher), and consistent growth (dividend/revenue/EPS trending up over 3 years). | `fmp` **required**, `finviz` _recommended_ | workflow_step | production |
 
 ### Swing Opportunity

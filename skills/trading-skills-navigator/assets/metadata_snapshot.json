@@ -167,7 +167,7 @@
       "timeframe": "event-driven"
     },
     {
-      "category": "core-portfolio",
+      "category": "dividend-income",
       "difficulty": "intermediate",
       "display_name": "Dividend Growth Pullback Screener",
       "id": "dividend-growth-pullback-screener",
@@ -579,7 +579,7 @@
       "timeframe": "research"
     },
     {
-      "category": "core-portfolio",
+      "category": "dividend-income",
       "difficulty": "beginner",
       "display_name": "Kanchi Dividend Review Monitor",
       "id": "kanchi-dividend-review-monitor",
@@ -598,7 +598,7 @@
       "timeframe": "weekly"
     },
     {
-      "category": "core-portfolio",
+      "category": "dividend-income",
       "difficulty": "intermediate",
       "display_name": "Kanchi Dividend SOP",
       "id": "kanchi-dividend-sop",
@@ -617,7 +617,7 @@
       "timeframe": "weekly"
     },
     {
-      "category": "core-portfolio",
+      "category": "dividend-income",
       "difficulty": "intermediate",
       "display_name": "Kanchi Dividend US Tax Accounting",
       "id": "kanchi-dividend-us-tax-accounting",
@@ -1525,7 +1525,7 @@
       "timeframe": "weekly"
     },
     {
-      "category": "core-portfolio",
+      "category": "dividend-income",
       "difficulty": "intermediate",
       "display_name": "Value Dividend Screener",
       "id": "value-dividend-screener",
@@ -1609,6 +1609,33 @@
       ],
       "required_skills": [
         "portfolio-manager",
+        "trader-memory-core"
+      ],
+      "target_users": [
+        "long-term-investor",
+        "dividend-investor"
+      ],
+      "timeframe": "weekly"
+    },
+    {
+      "api_profile": "mixed",
+      "category": "dividend-income",
+      "difficulty": "intermediate",
+      "display_name": "Dividend Income",
+      "id": "dividend-income",
+      "optional_skills": [
+        "kanchi-dividend-us-tax-accounting",
+        "kanchi-dividend-review-monitor"
+      ],
+      "recommended_skills": [
+        "value-dividend-screener",
+        "dividend-growth-pullback-screener"
+      ],
+      "related_workflows": [
+        "kanchi-dividend-weekly"
+      ],
+      "required_skills": [
+        "kanchi-dividend-sop",
         "trader-memory-core"
       ],
       "target_users": [
