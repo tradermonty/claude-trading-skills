@@ -23,6 +23,8 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Skills
 
+- signal-postmortem: skip batch signals without observed finite entry/5d exit evidence, preserve genuine flat outcomes, expose skipped counts and fail zero-success batches instead of inventing NEUTRAL records (#702).
+
 - trader-memory-core keeps equity accounting long-only: reject explicit short-equity intent and incompatible initial stop geometry before wrong P&L can be recorded, while preserving futures LONG/SHORT and active long profit-protecting stops. Remove the unsupported parabolic-short ingest instruction (#662).
 - Reject stale, future or invalid selected-market COT dates in the setup gate, news failure analyzer and technical confirmation, in addition to the report date. Validate optional per-market provenance dates, use the oldest validated age, and preserve absent-field legacy compatibility (#649). An unusable crowding input reaches the futures sizer as NO_TRADE.
 
