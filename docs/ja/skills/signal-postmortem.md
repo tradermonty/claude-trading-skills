@@ -141,7 +141,10 @@ APIキーや実測価格がない場合はNEUTRALを生成せず、対象シグ�
 python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
   --signals-file state/signals/aggregated_signals_2026-03-10.json \
   --signal-id sig_aapl_20260310_abc \
-  --exit-price 178.50 --exit-date 2026-03-15 --output-dir reports/
+  --exit-price 178.50 \
+  --exit-date 2026-03-15 \
+  --outcome-notes "Closed at target, +3.2% in 5 days" \
+  --output-dir reports/
 ```
 
 エントリー・決済価格は有限の正数、日付は `YYYY-MM-DD` が必要です。決済日が
