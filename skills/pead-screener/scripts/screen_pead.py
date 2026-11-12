@@ -731,7 +731,7 @@ def _get_candidates_mode_a(client: FMPClient, args) -> tuple[list[dict], Optiona
         # The calendar is fetched one day at a time (lookback_days + 1 calls).
         return [], "calendar_budget_exhausted"
     if not isinstance(earnings, list):
-        print("  ERROR: Earnings calendar fetch failed (no usable response body)")
+        print("  ERROR: Earnings calendar fetch failed (no usable response body)", file=sys.stderr)
         return [], "calendar_fetch_failed"
     if not earnings:
         print("  WARNING: No earnings data returned")

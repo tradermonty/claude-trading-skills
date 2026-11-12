@@ -70,7 +70,8 @@ than adopting files from another run. Hashes detect corruption and unintended
 edits; this local manifest is not a signed or tamper-proof audit record.
 
 The current implementation shares the market fixture validation and scorer
-helpers in `workflow_replay.py`. Changes to those helpers, the runner, workflow,
+helpers in `workflow_replay.py` and its `workflow_replay_pkg` package; the
+source fingerprint covers both. Changes to those helpers, the runner, workflow,
 fixtures, or relevant native skill scripts require a new run directory. The
 existing deterministic replays remain the independent numeric baseline.
 

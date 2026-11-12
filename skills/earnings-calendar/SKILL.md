@@ -346,7 +346,7 @@ Read `references/use_cases.md` for four worked use cases: weekly review, a speci
 
 **Solutions**:
 - Verify Python 3 is installed: `python3 --version`
-- Install requests library: `pip install requests`
+- Install the skill's dependencies: `pip install -r skills/earnings-calendar/requirements.txt` (a missing `requests` makes the script print "ERROR: requests library not found" to stderr and exit with status 2, with the full `requirements.txt` path in the message)
 - Check script has execute permissions: `chmod +x fetch_earnings_fmp.py`
 - Run with python3 explicitly: `python3 fetch_earnings_fmp.py ...`
 

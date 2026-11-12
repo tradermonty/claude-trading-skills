@@ -21,6 +21,7 @@ permalink: /ja/workflows/
 | ワークフロー | 頻度 | 目安（分） | API プロファイル | 難易度 |
 |---|---|---|---|---|
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — コア・ポートフォリオ週次レビュー | 毎週 | 60 | alpaca-required | 初級 |
+| [`earnings-weekly`](#earnings-weekly) — 決算モメンタムの週次確認 | 毎週 | 60 | fmp-required | 中級 |
 | [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi式配当銘柄の週次選定 | 毎週 | 60 | mixed | 中級 |
 | [`market-regime-daily`](#market-regime-daily) — 市場レジーム日次確認 | 毎日 | 15 | mixed | 初級 |
 | [`monthly-performance-review`](#monthly-performance-review) — 月次パフォーマンスレビュー | 毎月 | 90 | no-api-basic | 中級 |
@@ -93,6 +94,91 @@ permalink: /ja/workflows/
 - 保有銘柄のスナップショットが実際の証券口座（AlpacaまたはCSV）の状態を反映していることを確認する。
 - リバランス注文はブローカーで手動入力し、自動執行されないことを確認する。
 - dividend_review_findings がT1-T5の問題を示した場合、解決するまで買い増しを見送る。
+
+**記録先:** `trader-memory-core`
+
+---
+
+## 決算モメンタムの週次確認 {#earnings-weekly}
+
+**`earnings-weekly`** · 毎週 · 約60分 · fmp-required · 中級
+
+**実行タイミング:** 決算シーズンの毎週、market-regime-daily が非制限的なエクスポージャー判断を出した後に実行する。PEADの監視期間である約5週間分の米国決算反応を採点し、強い銘柄を決算後ドリフト（PEAD）の週足セットアップとして絞り込み、チャートを手動で確認し、ポジションサイズを計算して、手動注文の前に候補を記録する。
+
+**実行してはいけないとき:** 最新の market-regime-daily の exposure_decision が cash-priority または restrictive の場合、または口座のサーキットブレーカーが解除されていない場合は実行しない。決算当日のギャップを追うためには使わない。それは stockbee-ep-daily の役割である。単独のスクリーナーではなく、スコアやステージは買いシグナルではない。注文は自動発注しない。
+
+**必須スキル:** `earnings-trade-analyzer`, `pead-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
+
+**任意スキル:** （なし）
+
+**前提ワークフロー（参考情報）:**
+
+- `market-regime-daily` が期待する成果物 `exposure_decision` — 新規の決算モメンタムのリスクを取るには、非制限的なエクスポージャー判断が必要である。 cash-priority または restrictive の日はこのワークフローを見送る。
+
+**成果物一覧:**
+
+| 成果物 | 生成ステップ | 必須 | 下流ヒント |
+|---|---|---|---|
+| `circuit_breaker_decision` | 1 | あり | — |
+| `earnings_trade_analysis` | 2 | あり | — |
+| `pead_screen` | 3 | あり | — |
+| `validated_earnings_setups` | 4 | あり | — |
+| `earnings_position_sizing` | 5 | あり | — |
+| `earnings_journal_entry` | 6 | あり | `trade-memory-loop` |
+| `pre_trade_discipline_decision` | 7 | あり | — |
+
+**ステップ:**
+
+**ステップ 1: 口座のサーキットブレーカーを確認する** （判断ゲート） → `drawdown-circuit-breaker`
+
+- 出力: `circuit_breaker_decision`
+- **判断:** 今週の新規の決算モメンタムのリスクについて、口座のサーキットブレーカーは TRADING_ALLOWED になっているか。
+
+**ステップ 2: 直近の決算反応を採点する** → `earnings-trade-analyzer`
+
+- 出力: `earnings_trade_analysis`
+
+**ステップ 3: 採点済み候補をPEADの週足セットアップで絞り込む** （判断ゲート） → `pead-screener`
+
+- 入力: `earnings_trade_analysis`
+- 出力: `pead_screen`
+- **判断:** 採点済みの銘柄のうち、チャート確認に値する BREAKOUT または SIGNAL_READY の段階にあるのはどれか。MONITORING や EXPIRED の銘柄は監視リストに残すか除外するか。スクリーナーはステップ2のJSONに対するモードBで、意図して選んだ最低グレードで実行したか。
+
+**ステップ 4: 週足チャートを手動で確認する** （判断ゲート） → `technical-analyst`
+
+- 入力: `pead_screen`
+- 出力: `validated_earnings_setups`
+- **判断:** 週足チャートは、赤いローソク足の安値を妥当なストップとして、きれいな決算後ドリフトを示しているか。流動性は許容でき、投資仮説を崩すニュースはないか。ステージとスコアが良くても、チャートが不明確なセットアップは却下する。
+
+**ステップ 5: ポジションサイズを計算する** → `position-sizer`
+
+- 入力: `validated_earnings_setups`
+- 出力: `earnings_position_sizing`
+
+**ステップ 6: 決算ドリフトの投資仮説を登録する** （判断ゲート） → `trader-memory-core`
+
+- 入力: `pead_screen`, `validated_earnings_setups`, `earnings_position_sizing`
+- 出力: `earnings_journal_entry`
+- **判断:** 検証済みの銘柄のうち、文章化したエントリー、ストップ、サイズを伴う決算ドリフトの投資仮説を登録するのはどれか。監視リストに残すのはどれか。登録した仮説は IDEA にとどまり、注文の承認ではない。
+
+**ステップ 7: 手動執行の規律ゲートを実行する** （判断ゲート） → `pre-trade-discipline-gate`
+
+- 入力: `circuit_breaker_decision`, `earnings_position_sizing`, `earnings_journal_entry`
+- 出力: `pre_trade_discipline_decision`
+- **判断:** ブローカーへ手動注文を出す前に、実行可能な各候補は、文章化された計画、事前設定したストップ、ポジションサイズ、直近損失、市場レジーム、サーキットブレーカーの規律チェックを通過しているか。監視リストの銘柄は注文承認ではなく、取引なしの記録として扱う。
+
+**手動レビュー:**
+
+- 実行前に market-regime-daily の exposure_decision が新規リスクを許可していることを確認する。
+- 新規候補の採点やサイズ計算の前に circuit_breaker_decision が TRADING_ALLOWED であることを確認する。
+- 各決算結果とガイダンスを手動で確認する。このワークフローはニュースの発見や検証を行わない。
+- earnings-trade-analyzer は PEAD の監視期間をカバーできる長さの遡及日数（約28〜35日）で実行する。1週間だけでは、赤いローソク足がまだ現れない若い銘柄しか見つからない。--max-api-calls を明示的に設定し、--min-market-cap も検討する。アナライザーの既定の予算は200回で、そのクライアントは期間の暦日ごとに1回、時価総額フィルターの前に報告銘柄ごとに1回リクエストし、PEADは候補ごとに1回使うため、長い期間では既定を使い切り、ZERO_RESULT_REASON=profiles_budget_exhausted で終了することがある。実運用に必要な呼び出し数と、FMPプランの上限で足りるかどうかは、ここでは測定していないため、自分のプランで確認する。
+- pead-screener はステップ2のJSONに対するモードBで実行する。モードAは米国以外の上場銘柄にAPI予算を使うことがあり、この手順には含めない。
+- MONITORING と EXPIRED の段階は監視リストに残すか除外し、BREAKOUT と SIGNAL_READY の銘柄だけをチャート確認へ進める。
+- 決算グレードとPEADステージを通過していても、週足チャートが不明確な候補は却下する。
+- 赤いローソク足の安値をストップにするのは、その距離で現実的なサイズを設定できる場合だけとし、注文前にポートフォリオ全体のリスク量を確認する。
+- ブローカーへ手動注文を出す前に pre_trade_discipline_decision が GO であることを確認する。
+- すべての注文はブローカーで手動入力し、自動執行しない。
 
 **記録先:** `trader-memory-core`
 

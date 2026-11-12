@@ -246,7 +246,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             report, report_markdown=markdown, artifact_root=args.artifact_root
         )
     except (AuditError, OSError) as exc:
-        print(f"ERROR: {exc}")
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     payload = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
     if args.output:

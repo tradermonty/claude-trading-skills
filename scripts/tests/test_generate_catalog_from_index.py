@@ -60,6 +60,7 @@ def write_minimal_index(project_root: Path, skills: list[dict]) -> None:
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",

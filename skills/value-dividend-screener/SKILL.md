@@ -217,9 +217,11 @@ Read `references/advanced_usage.md` to customize criteria, screen a sector, excl
 ## Troubleshooting
 
 ### "ERROR: requests library not found"
-**Solution:** Install requests library
+The script prints this error to stderr and exits with status 2. The message includes the full path of this skill's `requirements.txt`, so the hint works from any directory.
+
+**Solution:** Install the skill's dependencies
 ```bash
-pip install requests
+pip install -r skills/value-dividend-screener/requirements.txt
 ```
 
 ### "ERROR: FMP API key required"

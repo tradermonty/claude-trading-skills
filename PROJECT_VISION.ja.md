@@ -267,7 +267,7 @@ Phase 1 の責任範囲は、AI による対話的推薦です。ユーザーの
 
 ### Phase 2: Skillsets — ✅ 一部完了: コア 4 skillset 実装済み (2026-05-17)
 
-> **状況:** `skillsets/` に `market-regime` / `core-portfolio` / `swing-opportunity` / `trade-memory` の manifest（および `skillsets/README.md`）を実装。`validate-skillsets` + `skillset-docs-drift` ゲートで保護し、Navigator が参照。残りの skillset 候補（`dividend-income` / `strategy-research` / `advanced-satellite`）は後続。
+> **状況:** `skillsets/` に `market-regime` / `core-portfolio` / `dividend-income` / `swing-opportunity` / `trade-memory` / `strategy-research` の manifest（および `skillsets/README.md`）を実装。`validate-skillsets` + `skillset-docs-drift` ゲートで保護し、Navigator が参照。`dividend-income` は `kanchi-dividend-weekly` が支える正式な `skills-index.yaml` カテゴリ。残りの skillset 候補 `advanced-satellite` は後続で、[#715](https://github.com/tradermonty/claude-trading-skills/issues/715) で追跡。
 
 目的別にスキルを束ねる manifest を作ります。
 
@@ -292,7 +292,7 @@ Phase 1 の責任範囲は、AI による対話的推薦です。ユーザーの
 
 ### Phase 3: Workflows — ✅ 一部完了 (2026-05-09)
 
-> **状況:** PR #85 で 5 本の Core + Satellite manifest（`core-portfolio-weekly` / `market-regime-daily` / `swing-opportunity-daily` / `trade-memory-loop` / `monthly-performance-review`）を `workflows/` に追加し、`--strict-workflows` で検証。Advanced 系 (`risk-off-short-daily` / `earnings-weekly` / `strategy-research-pipeline`) は後続。
+> **状況:** PR #85 で 5 本の Core + Satellite manifest（`core-portfolio-weekly` / `market-regime-daily` / `swing-opportunity-daily` / `trade-memory-loop` / `monthly-performance-review`）を `workflows/` に追加し、`--strict-workflows` で検証。Advanced 系のうち `strategy-research-pipeline` と `earnings-weekly` は追加済みで、`risk-off-short-daily` は後続であり、[#715](https://github.com/tradermonty/claude-trading-skills/issues/715) で追跡。
 
 Skillset だけでは実運用には足りません。実際のトレードでは、順番、判断ゲート、成果物の受け渡しが必要です。
 
@@ -442,8 +442,9 @@ Plan -> Trade -> Record -> Review -> Improve -> Adjust Workflow
 - ✅ **完了 (2026-05-09)**: ワークフロー doc ページの自動生成 (PR #86)
 - ✅ **完了**: 現在 index に登録されている全スキルに `timeframe` / `difficulty` / `inputs` / `outputs` を付与し、`--strict-metadata` を CI + pre-push hook で enforce
 - ✅ **完了**: Trading Skills Navigator v0（決定論的 recommender + Web App snapshot fallback + manifest 駆動 setup）
-- **一部完了**: 主要 skillsets の YAML 定義 — コア 4 skillset 実装済み（`market-regime` / `core-portfolio` / `swing-opportunity` / `trade-memory`）。残りの skillset 候補（`dividend-income` / `strategy-research` / `advanced-satellite`）は後続
-- **Next**: Advanced ワークフロー manifest（`risk-off-short-daily` / `earnings-weekly` / `strategy-research-pipeline`）を追加 — [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) で追跡
+- **一部完了**: 主要 skillsets の YAML 定義 — 6 skillset 実装済み（`market-regime` / `core-portfolio` / `dividend-income` / `swing-opportunity` / `trade-memory` / `strategy-research`）。`advanced-satellite` は後続で、[#715](https://github.com/tradermonty/claude-trading-skills/issues/715) で追跡
+- ✅ **完了**: `dividend-income` skillset と `earnings-weekly` ワークフローを追加（[#216](https://github.com/tradermonty/claude-trading-skills/issues/216) の残り範囲）
+- **Next**: ショート側ロードマップ — `advanced-satellite` skillset と `risk-off-short-daily` ワークフロー — [#715](https://github.com/tradermonty/claude-trading-skills/issues/715) で追跡
 - ✅ **完了 (2026-05-24)**: "Find Your Workflow" ドキュメント（[EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md)、PR #142）
 - ✅ **完了 (2026-05-24)**: 公開可能な end-to-end 実行サンプル — `examples/workflows/` に `market-regime-daily` と `trade-memory-loop` の sample-run / sample-run-full-path を収録（PR #141）
 - ✅ **完了 (2026-05-24)**: 併走プロジェクト [Hermes Trading Research Agent Work Package](https://github.com/tradermonty/hermes-trading-research-agent-work-package) を README からリンク（PR #140）
@@ -494,7 +495,7 @@ Plan -> Trade -> Record -> Review -> Improve -> Adjust Workflow
 - [#211](https://github.com/tradermonty/claude-trading-skills/issues/211) テスト未整備スキルへのテスト追加
 - [#213](https://github.com/tradermonty/claude-trading-skills/issues/213) 小口座サポート（PDT ルール / 端株サイジング / 取引摩擦コスト）
 - [#215](https://github.com/tradermonty/claude-trading-skills/issues/215) 日本の税制スキル（NISA / 特定口座 / 外国税額控除）
-- [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) 未着手の skillset と Advanced ワークフロー manifest
+- [#715](https://github.com/tradermonty/claude-trading-skills/issues/715) ショート側ロードマップ: `advanced-satellite` skillset と `risk-off-short-daily` ワークフロー（#216 から分割）
 
 ## 16. コミュニティと運営方針
 

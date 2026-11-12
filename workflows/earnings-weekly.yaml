@@ -1,0 +1,220 @@
+schema_version: 1
+id: earnings-weekly
+display_name: Earnings Momentum Weekly
+display_name_ja: 決算モメンタムの週次確認
+cadence: weekly
+estimated_minutes: 60
+target_users:
+  - part-time-swing-trader
+  - growth-investor
+difficulty: intermediate
+api_profile: fmp-required
+
+when_to_run: >-
+  Weekly during earnings season, after market-regime-daily has produced a
+  non-restrictive exposure decision. Score recent US earnings reactions
+  across the PEAD watch window of about five weeks, screen the strongest
+  names for post-earnings-drift (PEAD) weekly-candle setups, confirm the
+  chart by hand, size the position, and journal the candidate before any
+  manual order.
+when_to_run_ja: >-
+  決算シーズンの毎週、market-regime-daily が非制限的なエクスポージャー判断を出した後に
+  実行する。PEADの監視期間である約5週間分の米国決算反応を採点し、強い銘柄を決算後ドリフト（PEAD）の
+  週足セットアップとして絞り込み、チャートを手動で確認し、ポジションサイズを計算して、
+  手動注文の前に候補を記録する。
+when_not_to_run: >-
+  Do not run when the latest market-regime-daily exposure_decision is
+  cash-priority or restrictive, or when the account circuit breaker is not
+  clear. Do not use it to chase a Day 1 earnings gap; that is
+  stockbee-ep-daily's job. It is not a standalone screener: a score or stage
+  is never a buy signal, and no order is placed automatically.
+when_not_to_run_ja: >-
+  最新の market-regime-daily の exposure_decision が cash-priority または
+  restrictive の場合、または口座のサーキットブレーカーが解除されていない場合は実行しない。
+  決算当日のギャップを追うためには使わない。それは stockbee-ep-daily の役割である。
+  単独のスクリーナーではなく、スコアやステージは買いシグナルではない。
+  注文は自動発注しない。
+
+required_skills:
+  - earnings-trade-analyzer
+  - pead-screener
+  - drawdown-circuit-breaker
+  - technical-analyst
+  - position-sizer
+  - trader-memory-core
+  - pre-trade-discipline-gate
+optional_skills: []
+
+# Informational only — validator does NOT enforce inter-workflow ordering.
+# See docs/dev/metadata-and-workflow-schema.md § 2.4.
+prerequisite_workflows:
+  - id: market-regime-daily
+    artifact: exposure_decision
+    rationale: >-
+      New earnings-momentum risk requires a non-restrictive exposure decision.
+      Skip this workflow on cash-priority or restrictive days.
+    rationale_ja: >-
+      新規の決算モメンタムのリスクを取るには、非制限的なエクスポージャー判断が必要である。
+      cash-priority または restrictive の日はこのワークフローを見送る。
+
+artifacts:
+  - id: circuit_breaker_decision
+    produced_by_step: 1
+    required: true
+  - id: earnings_trade_analysis
+    produced_by_step: 2
+    required: true
+  - id: pead_screen
+    produced_by_step: 3
+    required: true
+  - id: validated_earnings_setups
+    produced_by_step: 4
+    required: true
+  - id: earnings_position_sizing
+    produced_by_step: 5
+    required: true
+  - id: earnings_journal_entry
+    produced_by_step: 6
+    required: true
+    downstream_hints:
+      - trade-memory-loop
+  - id: pre_trade_discipline_decision
+    produced_by_step: 7
+    required: true
+
+steps:
+  - step: 1
+    name: Check account circuit breaker
+    name_ja: 口座のサーキットブレーカーを確認する
+    skill: drawdown-circuit-breaker
+    produces:
+      - circuit_breaker_decision
+    decision_gate: true
+    decision_question: >-
+      Is the account circuit breaker clear (TRADING_ALLOWED) for new
+      earnings-momentum risk this week?
+    decision_question_ja: >-
+      今週の新規の決算モメンタムのリスクについて、口座のサーキットブレーカーは
+      TRADING_ALLOWED になっているか。
+
+  - step: 2
+    name: Score recent earnings reactions
+    name_ja: 直近の決算反応を採点する
+    skill: earnings-trade-analyzer
+    produces:
+      - earnings_trade_analysis
+    decision_gate: false
+
+  - step: 3
+    name: Screen graded candidates for PEAD weekly setups
+    name_ja: 採点済み候補をPEADの週足セットアップで絞り込む
+    skill: pead-screener
+    consumes:
+      - earnings_trade_analysis
+    produces:
+      - pead_screen
+    decision_gate: true
+    decision_question: >-
+      Which graded names are in a BREAKOUT or SIGNAL_READY stage worth a chart
+      review, and which MONITORING or EXPIRED names stay on the watchlist or
+      are dropped? Was the screener run in Mode B on step 2's JSON with a
+      minimum grade chosen on purpose?
+    decision_question_ja: >-
+      採点済みの銘柄のうち、チャート確認に値する BREAKOUT または SIGNAL_READY の段階にあるのは
+      どれか。MONITORING や EXPIRED の銘柄は監視リストに残すか除外するか。スクリーナーは
+      ステップ2のJSONに対するモードBで、意図して選んだ最低グレードで実行したか。
+
+  - step: 4
+    name: Confirm the weekly chart by hand
+    name_ja: 週足チャートを手動で確認する
+    skill: technical-analyst
+    consumes:
+      - pead_screen
+    produces:
+      - validated_earnings_setups
+    decision_gate: true
+    decision_question: >-
+      Does the weekly chart confirm a clean post-earnings drift with the red
+      candle low as a sensible stop, acceptable liquidity, and no
+      thesis-breaking news? Reject any setup where the chart is unclear even
+      if the stage and score look good.
+    decision_question_ja: >-
+      週足チャートは、赤いローソク足の安値を妥当なストップとして、きれいな決算後ドリフトを
+      示しているか。流動性は許容でき、投資仮説を崩すニュースはないか。ステージとスコアが
+      良くても、チャートが不明確なセットアップは却下する。
+
+  - step: 5
+    name: Calculate position size
+    name_ja: ポジションサイズを計算する
+    skill: position-sizer
+    consumes:
+      - validated_earnings_setups
+    produces:
+      - earnings_position_sizing
+    decision_gate: false
+
+  - step: 6
+    name: Register the earnings-drift thesis
+    name_ja: 決算ドリフトの投資仮説を登録する
+    skill: trader-memory-core
+    consumes:
+      - pead_screen
+      - validated_earnings_setups
+      - earnings_position_sizing
+    produces:
+      - earnings_journal_entry
+    decision_gate: true
+    decision_question: >-
+      Which validated names deserve a registered earnings-drift thesis with the
+      written entry, stop, and size, and which stay on the watchlist? A
+      registered thesis is IDEA only; it is not an order approval.
+    decision_question_ja: >-
+      検証済みの銘柄のうち、文章化したエントリー、ストップ、サイズを伴う決算ドリフトの
+      投資仮説を登録するのはどれか。監視リストに残すのはどれか。登録した仮説は IDEA に
+      とどまり、注文の承認ではない。
+
+  - step: 7
+    name: Run manual execution discipline gate
+    name_ja: 手動執行の規律ゲートを実行する
+    skill: pre-trade-discipline-gate
+    consumes:
+      - circuit_breaker_decision
+      - earnings_position_sizing
+      - earnings_journal_entry
+    produces:
+      - pre_trade_discipline_decision
+    decision_gate: true
+    decision_question: >-
+      Before placing any manual broker order, does each actionable candidate
+      pass the written-plan, predefined-stop, position-size, recent-loss,
+      market-regime, and circuit-breaker discipline checks? Treat watchlist
+      names as no-action journal entries, not order approvals.
+    decision_question_ja: >-
+      ブローカーへ手動注文を出す前に、実行可能な各候補は、文章化された計画、事前設定した
+      ストップ、ポジションサイズ、直近損失、市場レジーム、サーキットブレーカーの
+      規律チェックを通過しているか。監視リストの銘柄は注文承認ではなく、取引なしの記録として扱う。
+
+manual_review:
+  - Confirm market-regime-daily exposure_decision allows new risk before acting.
+  - Confirm circuit_breaker_decision is TRADING_ALLOWED before scoring or sizing new candidates.
+  - Verify each earnings result and any guidance by hand; this workflow does not discover or validate the news itself.
+  - Run earnings-trade-analyzer with a lookback long enough to cover the PEAD watch window (about 28 to 35 days); a one-week lookback only finds names too young to show a red candle. Set --max-api-calls explicitly, and consider --min-market-cap: the analyzer's default budget is 200 calls, its client spends one request per calendar day of the window plus one per reporting symbol before the market-cap filter, and PEAD spends one per candidate, so a long window can exhaust the default and exit with ZERO_RESULT_REASON=profiles_budget_exhausted. The call volume a live run needs, and whether your FMP plan quota covers it, are unmeasured here; check your plan.
+  - Run pead-screener in Mode B on step 2's JSON. Mode A can spend the API budget on non-US listings and is not part of this routine.
+  - Treat MONITORING and EXPIRED stages as watchlist or drop; only BREAKOUT and SIGNAL_READY names reach chart review.
+  - Reject any candidate where the weekly chart is unclear, even if the earnings grade and PEAD stage passed.
+  - Use the red candle low as the stop only when the distance is realistically sizeable; verify total portfolio heat before any order.
+  - Confirm pre_trade_discipline_decision is GO before placing any manual broker order.
+  - All orders are placed manually at the broker; no auto-execution.
+manual_review_ja:
+  - 実行前に market-regime-daily の exposure_decision が新規リスクを許可していることを確認する。
+  - 新規候補の採点やサイズ計算の前に circuit_breaker_decision が TRADING_ALLOWED であることを確認する。
+  - 各決算結果とガイダンスを手動で確認する。このワークフローはニュースの発見や検証を行わない。
+  - earnings-trade-analyzer は PEAD の監視期間をカバーできる長さの遡及日数（約28〜35日）で実行する。1週間だけでは、赤いローソク足がまだ現れない若い銘柄しか見つからない。--max-api-calls を明示的に設定し、--min-market-cap も検討する。アナライザーの既定の予算は200回で、そのクライアントは期間の暦日ごとに1回、時価総額フィルターの前に報告銘柄ごとに1回リクエストし、PEADは候補ごとに1回使うため、長い期間では既定を使い切り、ZERO_RESULT_REASON=profiles_budget_exhausted で終了することがある。実運用に必要な呼び出し数と、FMPプランの上限で足りるかどうかは、ここでは測定していないため、自分のプランで確認する。
+  - pead-screener はステップ2のJSONに対するモードBで実行する。モードAは米国以外の上場銘柄にAPI予算を使うことがあり、この手順には含めない。
+  - MONITORING と EXPIRED の段階は監視リストに残すか除外し、BREAKOUT と SIGNAL_READY の銘柄だけをチャート確認へ進める。
+  - 決算グレードとPEADステージを通過していても、週足チャートが不明確な候補は却下する。
+  - 赤いローソク足の安値をストップにするのは、その距離で現実的なサイズを設定できる場合だけとし、注文前にポートフォリオ全体のリスク量を確認する。
+  - ブローカーへ手動注文を出す前に pre_trade_discipline_decision が GO であることを確認する。
+  - すべての注文はブローカーで手動入力し、自動執行しない。
+
+journal_destination: trader-memory-core

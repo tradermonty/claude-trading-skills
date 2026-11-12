@@ -22,6 +22,7 @@ For the full schema, error codes, and validator rules, see [`docs/dev/metadata-a
 | [`monthly-performance-review.yaml`](monthly-performance-review.yaml) | monthly (~90 min) | no-api-basic | trader-memory-core, signal-postmortem, backtest-expert |
 | [`shapiro-contrarian.yaml`](shapiro-contrarian.yaml) | weekly (~60 min) | fmp-required | cot-contrarian-detector, news-reaction-failure-analyzer, technical-analyst, contrarian-setup-gate, futures-position-sizer, trader-memory-core |
 | [`kanchi-dividend-weekly.yaml`](kanchi-dividend-weekly.yaml) | weekly (~60 min) | mixed | kanchi-dividend-sop, value-dividend-screener, dividend-growth-pullback-screener, trader-memory-core |
+| [`earnings-weekly.yaml`](earnings-weekly.yaml) | weekly (~60 min) | fmp-required | earnings-trade-analyzer, pead-screener, drawdown-circuit-breaker, technical-analyst, position-sizer, trader-memory-core, pre-trade-discipline-gate |
 | [`strategy-research-pipeline.yaml`](strategy-research-pipeline.yaml) | ad-hoc (~60 min) | no-api-basic | edge-candidate-agent, edge-hint-extractor, backtest-expert |
 
 ## How to read a manifest

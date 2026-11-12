@@ -293,7 +293,7 @@ def test_export_main_returns_error_exit_code(monkeypatch, capsys, tmp_path: Path
         "sys.argv", ["export", "--ticket", str(ticket), "--strategies-dir", str(tmp_path / "s")]
     )
     assert ec.main() == 1
-    assert "[ERROR] Ticket validation failed" in capsys.readouterr().out
+    assert "[ERROR] Ticket validation failed" in capsys.readouterr().err
 
 
 def test_export_main_handles_non_mapping_yaml(monkeypatch, capsys, tmp_path: Path) -> None:
@@ -301,7 +301,7 @@ def test_export_main_handles_non_mapping_yaml(monkeypatch, capsys, tmp_path: Pat
     ticket.write_text("- 1\n", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["export", "--ticket", str(ticket)])
     assert ec.main() == 1
-    assert "YAML root must be a mapping" in capsys.readouterr().out
+    assert "YAML root must be a mapping" in capsys.readouterr().err
 
 
 # --- validate_candidate -----------------------------------------------------
@@ -312,7 +312,7 @@ def test_validate_main_reports_unreadable_yaml(monkeypatch, capsys, tmp_path: Pa
     strategy.write_text("- not a mapping\n", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["validate", "--strategy", str(strategy)])
     assert vc.main() == 1
-    assert "[ERROR] failed to read strategy YAML" in capsys.readouterr().out
+    assert "[ERROR] failed to read strategy YAML" in capsys.readouterr().err
 
 
 def test_validate_main_lists_contract_errors(monkeypatch, capsys, tmp_path: Path) -> None:
@@ -321,8 +321,9 @@ def test_validate_main_lists_contract_errors(monkeypatch, capsys, tmp_path: Path
     strategy = _write(cand_dir / "strategy.yaml", _spec())
     monkeypatch.setattr("sys.argv", ["validate", "--strategy", str(strategy)])
     assert vc.main() == 1
-    out = capsys.readouterr().out
-    assert "Candidate validation failed" in out
+    captured = capsys.readouterr()
+    out = captured.err
+    assert "Candidate validation failed" in captured.err
     assert "candidate_id=wrong_name, id=edge_t1" in out
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import statistics
+import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -746,10 +747,10 @@ def main() -> int:
         ef_override = {f.strip() for f in args.exportable_families.split(",") if f.strip()}
 
     if not tickets_dir.exists():
-        print(f"[ERROR] tickets dir not found: {tickets_dir}")
+        print(f"[ERROR] tickets dir not found: {tickets_dir}", file=sys.stderr)
         return 1
     if hints_path is not None and not hints_path.exists():
-        print(f"[ERROR] hints file not found: {hints_path}")
+        print(f"[ERROR] hints file not found: {hints_path}", file=sys.stderr)
         return 1
 
     try:
@@ -842,7 +843,7 @@ def main() -> int:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     except ConceptSynthesisError as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     synth_msg = f" synthetic_tickets={len(synthetic_tickets)}" if synthetic_tickets else ""

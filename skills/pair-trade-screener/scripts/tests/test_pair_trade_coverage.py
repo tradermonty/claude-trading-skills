@@ -187,7 +187,7 @@ def test_get_api_key_missing_exits_with_code_1(monkeypatch, capsys, module):
         module.get_api_key(None)
 
     assert excinfo.value.code == 1
-    assert "FMP_API_KEY not found" in capsys.readouterr().out
+    assert "FMP_API_KEY not found" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ def test_fetch_sector_stocks_exits_when_nothing_found(monkeypatch, capsys):
 
     assert excinfo.value.code == 1
     assert "No stocks found in Nowhere sector with market cap > $5,000,000" in (
-        capsys.readouterr().out
+        capsys.readouterr().err
     )
 
 
@@ -414,7 +414,7 @@ def test_analyze_spread_fetch_historical_prices_reports_missing_data(monkeypatch
     install_http(monkeypatch, analyze_spread, lambda url, **kw: FakeResponse(500, None))
 
     assert analyze_spread.fetch_historical_prices("AAA", "key") is None
-    assert "ERROR: No data found for AAA" in capsys.readouterr().out
+    assert "ERROR: No data found for AAA" in capsys.readouterr().err
 
 
 def test_fetch_price_data_batch_keeps_only_sufficient_history(monkeypatch, capsys):
@@ -950,7 +950,7 @@ def test_find_pairs_exits_when_too_few_price_series(monkeypatch, capsys, tmp_pat
         )
 
     assert excinfo.value.code == 1
-    assert "Need at least 2 stocks with valid data" in capsys.readouterr().out
+    assert "Need at least 2 stocks with valid data" in capsys.readouterr().err
     assert not out.exists()
 
 
@@ -1040,7 +1040,7 @@ def test_analyze_spread_test_cointegration_prints_error_on_failure(monkeypatch, 
     monkeypatch.setattr(analyze_spread, "require_statsmodels", lambda: (None, failing_adf))
 
     assert analyze_spread.test_cointegration(pd.Series([1.0, 2.0])) is None
-    assert "Cointegration test failed: nope" in capsys.readouterr().out
+    assert "Cointegration test failed: nope" in capsys.readouterr().err
 
 
 def test_zscore_series_is_nan_until_window_filled():

@@ -36,8 +36,8 @@ def check_institutional_endpoint():
     api_key = os.environ.get("FMP_API_KEY")
 
     if not api_key:
-        print("ERROR: FMP_API_KEY environment variable not set")
-        print("Please set it with: export FMP_API_KEY=your_key")
+        print("ERROR: FMP_API_KEY environment variable not set", file=sys.stderr)
+        print("Please set it with: export FMP_API_KEY=your_key", file=sys.stderr)
         return False
 
     print(f"Testing /stable institutional-ownership with API key (length: {len(api_key)})...")
@@ -79,7 +79,7 @@ def check_institutional_endpoint():
         return False
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ ERROR: Request failed - {e}")
+        print(f"❌ ERROR: Request failed - {e}", file=sys.stderr)
         return False
 
 

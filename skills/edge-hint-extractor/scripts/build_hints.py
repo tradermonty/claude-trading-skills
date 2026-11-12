@@ -8,6 +8,7 @@ import csv
 import json
 import shlex
 import subprocess
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -469,7 +470,7 @@ def main() -> int:
 
     for path in [market_summary_path, anomalies_path, news_path]:
         if path is not None and not path.exists():
-            print(f"[ERROR] file not found: {path}")
+            print(f"[ERROR] file not found: {path}", file=sys.stderr)
             return 1
 
     try:
@@ -501,7 +502,7 @@ def main() -> int:
         if args.llm_ideas_file:
             llm_hints_path = Path(args.llm_ideas_file).resolve()
             if not llm_hints_path.exists():
-                print(f"[ERROR] --llm-ideas-file not found: {llm_hints_path}")
+                print(f"[ERROR] --llm-ideas-file not found: {llm_hints_path}", file=sys.stderr)
                 return 1
             llm_hints = load_llm_hints_from_file(llm_hints_path)
         else:
@@ -523,7 +524,7 @@ def main() -> int:
         }
         output_path.write_text(yaml.safe_dump(output_payload, sort_keys=False), encoding="utf-8")
     except HintExtractionError as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     print(f"[OK] hints={len(hints)} output={output_path}")

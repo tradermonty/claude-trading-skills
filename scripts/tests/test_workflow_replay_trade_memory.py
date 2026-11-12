@@ -47,6 +47,7 @@ def test_coverage_includes_trade_memory_and_holdings_review() -> None:
 
     assert summary["covered"] == [
         "core-portfolio-weekly",
+        "earnings-weekly",
         "kanchi-dividend-weekly",
         "market-regime-daily",
         "monthly-performance-review",
@@ -452,6 +453,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
     assert result["generated"] == [
         "core-portfolio-weekly:required-only",
         "core-portfolio-weekly:full-path",
+        "earnings-weekly:required-only",
+        "earnings-weekly:full-path",
         "kanchi-dividend-weekly:required-only",
         "kanchi-dividend-weekly:full-path",
         "market-regime-daily:required-only",
@@ -480,6 +483,8 @@ def test_generate_stages_all_covered_goldens_without_publishing(
     assert staged_destinations == [
         "sample-run",
         "sample-run-full-path",
+        "replay-run",
+        "replay-run-full-path",
         "sample-run",
         "sample-run-full-path",
         "sample-run",

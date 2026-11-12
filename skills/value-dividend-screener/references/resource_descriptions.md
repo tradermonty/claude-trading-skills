@@ -14,7 +14,7 @@ Comprehensive screening script that:
 - Ranks stocks by composite scoring system
 - Outputs structured JSON results
 
-**Dependencies:** `requests` library (install via `pip install requests`)
+**Dependencies:** `requests` library (install via `pip install -r skills/value-dividend-screener/requirements.txt`)
 
 **Rate limiting:** Built-in delays to respect FMP API limits (250 requests/day free tier)
 
