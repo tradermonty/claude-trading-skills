@@ -134,9 +134,7 @@ Compare collected news against historical patterns to:
 
 **Impact Assessment Framework:**
 
-For each news item, evaluate across three dimensions:
-
-Read `references/impact_assessment_framework.md` (section "Step 3 detail: Impact Assessment Framework") when scoring events. It holds the three dimensions (asset price impact, breadth, forward-looking significance) with their thresholds.
+For each news item, evaluate across three dimensions: Read `references/impact_assessment_framework.md` (section "Step 3 detail: Impact Assessment Framework") when scoring events. It holds the three dimensions (asset price impact, breadth, forward-looking significance) with their thresholds.
 
 **Impact Score Calculation:**
 
@@ -242,9 +240,7 @@ Read `references/correlation_causation_assessment.md` when separating direct imp
 
 **Objective:** Create structured English Markdown report ranked by market impact.
 
-**Report Structure:**
-
-Read `references/report_template.md` when writing the final report. It holds the full Markdown report structure.
+**Report Structure:** Read `references/report_template.md` when writing the final report. It holds the full Markdown report structure.
 
 **File Naming Convention:**
 `market_news_analysis_[START_DATE]_to_[END_DATE].md`

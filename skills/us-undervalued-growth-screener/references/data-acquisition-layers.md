@@ -2,7 +2,7 @@
 
 Moved verbatim from `SKILL.md`.
 
-### Layer 1 — Listing-Universe Audit
+## Layer 1 — Listing-Universe Audit
 
 Collect only fields suitable for broad coverage:
 
@@ -17,7 +17,7 @@ Do not substitute a share-volume floor for an ADDV threshold. If an API can filt
 
 Target at least 95% listing-field completeness. Prove enumeration using provider totals and exhausted pagination or exhausted gap-free market-cap bands. Matching only the requested lower and upper market-cap endpoints is not proof of completeness.
 
-### Layer 2 — Economic Candidate Pool
+## Layer 2 — Economic Candidate Pool
 
 Choose the best route in this order:
 
@@ -32,7 +32,7 @@ State the economic scope honestly. `run-summary.json` separates `listing_enumera
 
 Do not stop because a TTM or statement endpoint is plan-gated. Switch routes automatically.
 
-#### Deterministic broad-screen rules
+### Deterministic broad-screen rules
 
 - Revenue growth, per-share growth, ROIC, leverage, and preferred valuation levels are guidelines, not isolated hard cutoffs.
 - Store soft misses in `guideline_misses`.
@@ -44,6 +44,6 @@ Do not stop because a TTM or statement endpoint is plan-gated. Switch routes aut
 - Banks, insurers, REITs, BDCs, MLPs, and auto dealers remain blocked until sector-appropriate valuation or leverage evidence is available.
 - Use the script-generated shortlist as authoritative. Do not remove GDDY-like near misses or KGS/AMKR-like cyclicals by applying an informal revenue-growth or cycle gate after the script runs.
 
-### Layer 3 — Primary-Source Deep Dive
+## Layer 3 — Primary-Source Deep Dive
 
 For selected symbols only, verify material facts with SEC filings and company IR. Vendors may supply discovery and consensus data, but primary sources must support actual revenue, cash flow, debt, shares, SBC, guidance, corporate actions, and accounting adjustments whenever available.

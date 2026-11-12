@@ -88,9 +88,7 @@ This guide contains:
 
 Detect API key availability based on environment.
 
-**Multi-Environment API Key Detection**:
-
-Read `references/api_key_setup_flow.md` when no `FMP_API_KEY` environment variable is found. It holds the environment check, the AskUserQuestion prompt, the free-key instructions and the session-only key handling.
+**Multi-Environment API Key Detection**: Read `references/api_key_setup_flow.md` when no `FMP_API_KEY` environment variable is found. It holds the environment check, the AskUserQuestion prompt, the free-key instructions and the session-only key handling.
 
 ### Step 4: Retrieve Earnings Data via FMP API
 
@@ -163,9 +161,7 @@ If script returns errors:
 
 ### Step 5: Process and Organize Data
 
-Once earnings data is retrieved (JSON format), process and organize it:
-
-Read `references/data_processing_steps.md` when parsing and organizing the fetched earnings JSON (steps 5.1 to 5.6).
+Once earnings data is retrieved (JSON format), process and organize it: Read `references/data_processing_steps.md` when parsing and organizing the fetched earnings JSON (steps 5.1 to 5.6).
 
 ### Step 6: Generate Markdown Report
 
@@ -203,9 +199,7 @@ The script automatically handles all formatting including:
 - EPS and revenue formatting
 - Summary statistics calculation
 
-**Report Structure**:
-
-Read `references/report_template.md` for the full markdown report structure.
+**Report Structure**: Read `references/report_template.md` for the full markdown report structure.
 
 **Formatting Best Practices**:
 - Use markdown tables for clean presentation

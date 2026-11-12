@@ -277,9 +277,7 @@ For **Above Average stocks (60-69 points)**:
 
 Create a concise, actionable summary for the user:
 
-**Report Format:**
-
-Read `references/report_template.md` for the user-facing report template.
+**Report Format:** Read `references/report_template.md` for the user-facing report template.
 
 ---
 

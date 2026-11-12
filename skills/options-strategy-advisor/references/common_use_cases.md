@@ -7,7 +7,7 @@ Typical request flows, moved verbatim from `SKILL.md`.
 User: "Explain a covered call"
 
 Workflow:
-1. Read the strategy descriptions in this document and the pricing methodology
+1. Read the "Supported Strategies" section of SKILL.md and the pricing methodology
    in references/black_scholes_methodology.md
 2. Explain concept, risk/reward, when to use
 3. Simulate example on AAPL

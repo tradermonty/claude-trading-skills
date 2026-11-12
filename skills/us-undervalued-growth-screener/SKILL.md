@@ -217,8 +217,7 @@ universe shard first, then screen the verified snapshot:
 python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
   --stage collect-estimates --shard-index 0 --shard-count 8 \
   --snapshot-dir .cache/us-garp/snapshot-current \
-  --config skills/us-undervalued-growth-screener/assets/claude-code-config.example.json \
-  --resume
+  --config skills/us-undervalued-growth-screener/assets/claude-code-config.example.json
 
 python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
   --stage screen-full-snapshot \
@@ -227,13 +226,22 @@ python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
   --output-dir reports/us-undervalued-growth-screener
 ```
 
-Read `references/full-universe-snapshot.md` (section "Execution notes moved from SKILL.md: shards, partial runs and budget exhaustion") for the shard collection order, partial-run diagnostic marker, budget-exhaustion handling and the bulk-versus-per-symbol fallback.
+Run each shard once without `--resume`; use `--resume` only to continue an existing partial shard. If the provider call budget is exhausted during screen enrichment, `screen-full-snapshot` exits 2 and writes `audit/partial-run-diagnostic.json`; it has no `--resume`. Restore the provider budget and rerun the same verified snapshot in a new empty run directory. Read a partial artifact only when that diagnostic marker exists and its recorded hashes and row counts verify. A packet-stage budget failure also rewrites all broad-screen rows to `deferred_by_budget`; neither the audit nor any partial output is a final market-wide conclusion.
 
-Read `references/data-acquisition-layers.md` for the Layer 1 listing-universe audit, the Layer 2 candidate pool routes, the deterministic broad-screen rules and the Layer 3 primary-source deep dive.
+Read `references/full-universe-snapshot.md` (section "Execution notes: shards, partial runs and budget exhaustion") before acting on any exit 2 or partial artifact from these commands. It also covers the shard collection order and the bulk-versus-per-symbol fallback.
+
+Before building or screening the candidate pool (Step 2), and before any manual pool route, read `references/data-acquisition-layers.md`. It holds the Layer 1 listing-universe audit, the Layer 2 candidate pool routes, the deterministic broad-screen rules and the Layer 3 primary-source deep dive. Its mandatory rules, in summary:
+
+- Do not substitute a share-volume floor for an ADDV threshold; calculate `price × average volume` locally and apply the dollar-liquidity rule.
+- Matching only the requested lower and upper market-cap endpoints is not proof of enumeration completeness; target at least 95% listing-field completeness.
+- Do not stop because a TTM or statement endpoint is plan-gated. Switch routes automatically.
+- Use the script-generated shortlist as authoritative. Do not remove GDDY-like near misses or KGS/AMKR-like cyclicals by applying an informal revenue-growth or cycle gate after the script runs.
+- Banks, insurers, REITs, BDCs, MLPs, and auto dealers remain blocked until sector-appropriate valuation or leverage evidence is available.
+- Describe a bounded per-symbol result as "N seeded names evaluated with consensus estimates", never as a market-wide conclusion.
 
 ## Source and Evidence Rules
 
-Read `references/source-evidence-and-financial-controls.md` (section "Source and Evidence Rules") before underwriting any selected symbol. It holds the source hierarchy and source record requirements, then the Financial and Forecast Controls (standard FCF, cash classification, driver-derived forecast bridge, GAAP vs adjusted, ROIC and EBITDA) and the Sector and Cycle Controls (commercial biopharma, cyclicals and peak-profit risk).
+Read the whole of `references/source-evidence-and-financial-controls.md` before underwriting any selected symbol. It holds the source hierarchy and source record requirements, then the Financial and Forecast Controls (standard FCF, cash classification, driver-derived forecast bridge, GAAP vs adjusted, ROIC and EBITDA) and the Sector and Cycle Controls (commercial biopharma, cyclicals and peak-profit risk).
 
 ## Workflow
 

@@ -192,7 +192,7 @@ over 4 days. After the initial build, only incremental refresh is needed
 `run_pipeline` (discovery) and `evaluate_candidates` (final evaluation) import
 it, so the tri-state semantics cannot drift between the two sides.
 
-## Execution notes moved from SKILL.md: shards, partial runs and budget exhaustion
+## Execution notes: shards, partial runs and budget exhaustion
 
 Run each shard once without `--resume`; use `--resume` only to continue an
 existing partial shard. Both collection and screening are current-only:
@@ -202,9 +202,8 @@ listing-enumeration audit into the snapshot manifest. Screening performs a
 read-only content/freshness preflight before creating provider or run
 artifacts, carries a digest binding the enumeration proof and every verified
 shard into downstream audits, backfills liquidity failures until 50 valid
-names or full eligible exhaustion, and commits five probed deep-dive names. Read
-`references/full-universe-snapshot.md` for the full collection and screening
-contract.
+names or full eligible exhaustion, and commits five probed deep-dive names. The full collection and screening
+contract is described in the sections above.
 
 If the provider call budget is exhausted during screen enrichment, the command
 exits 2 and writes `audit/partial-run-diagnostic.json` plus

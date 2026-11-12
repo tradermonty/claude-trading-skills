@@ -229,9 +229,7 @@ Read `references/strategy_analysis_examples.md` (section "Step 6 detail: Generat
 
 ### Step 7: Strategy-Specific Analysis
 
-Provide tailored guidance based on strategy type:
-
-Read `references/strategy_analysis_examples.md` (section "Step 7 detail: Strategy-Specific Analysis") when writing strategy-specific guidance. It holds the worked Covered Call, Protective Put and Iron Condor examples.
+Provide tailored guidance based on strategy type: Read `references/strategy_analysis_examples.md` (section "Step 7 detail: Strategy-Specific Analysis") when writing strategy-specific guidance. It holds the worked Covered Call, Protective Put and Iron Condor examples.
 
 ### Step 8: Earnings Strategy Analysis
 
@@ -311,7 +309,11 @@ Read `references/common_use_cases.md` when planning the workflow for a typical r
 ## Resources
 
 **References:**
-- `references/black_scholes_methodology.md` - Black-Scholes formulas, Greeks, and interpretation
+- `references/black_scholes_methodology.md` - Black-Scholes formulas, Greeks, and interpretation, plus the Step 3 and Step 4 implementation detail
+- `references/strategy_analysis_examples.md` - P/L diagram, strategy-specific, earnings strategy and risk management examples (Steps 6 to 9)
+- `references/analysis_report_template.md` - Full analysis report template and file naming
+- `references/pricing_and_volatility_guidance.md` - Theoretical pricing limitations and volatility guidance
+- `references/common_use_cases.md` - Four worked request flows
 
 **Scripts:**
 - `scripts/black_scholes.py` - Pricing engine and Greeks

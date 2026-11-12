@@ -140,13 +140,9 @@ Max Contracts = (Account Risk $) / (Max Loss per Contract)
 | Theta | +$50/day | +$150/day | +$300/day |
 | Vega | ±$200 | ±$500 | ±$1000 |
 
-## References
-
-- Black, F. & Scholes, M. (1973). "The Pricing of Options and Corporate Liabilities"
-- Hull, J.C. "Options, Futures, and Other Derivatives"
-- CBOE Education: https://www.cboe.com/education/
-
 ## Step 3 detail: Price Options Using Black-Scholes
+
+Note: the formulas below are the plain textbook form. The implementation in `scripts/black_scholes.py` and the Black-Scholes Formula section above use a continuous dividend yield `q`, which replaces the "subtract present value of dividends from S" adjustment.
 
 **Black-Scholes Model:**
 
@@ -275,3 +271,9 @@ vega_position = (1 * vega_long) + (-1 * vega_short)
 | **Theta** | Daily time decay | Θ = -$5 → Lose $5/day from time passing |
 | **Vega** | Volatility sensitivity | ν = $10 → Gain $10 if IV increases 1% |
 | **Rho** | Interest rate sensitivity | ρ = $2 → Gain $2 if rates increase 1% |
+
+## References
+
+- Black, F. & Scholes, M. (1973). "The Pricing of Options and Corporate Liabilities"
+- Hull, J.C. "Options, Futures, and Other Derivatives"
+- CBOE Education: https://www.cboe.com/education/

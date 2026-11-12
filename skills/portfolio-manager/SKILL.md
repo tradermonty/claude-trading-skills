@@ -327,15 +327,11 @@ Create comprehensive markdown report saved to repository root:
 
 **Filename:** `portfolio_analysis_YYYY-MM-DD.md`
 
-**Report Structure:**
-
-Read `references/report-section-templates.md` (section "Step 6: Portfolio Analysis Report structure") for the full report structure, from Executive Summary to Appendix.
+**Report Structure:** Read `references/report-section-templates.md` (section "Step 6: Portfolio Analysis Report structure") for the full report structure, from Executive Summary to Appendix.
 
 ### Step 7: Interactive Follow-up
 
-Be prepared to answer follow-up questions:
-
-Read `references/follow-up-and-advanced.md` (section "Step 7 detail: Interactive Follow-up") when answering follow-up questions. It holds the common questions with answer guidance.
+Be prepared to answer follow-up questions: Read `references/follow-up-and-advanced.md` (section "Step 7 detail: Interactive Follow-up") when answering follow-up questions. It holds the common questions with answer guidance.
 
 ## Analysis Frameworks
 

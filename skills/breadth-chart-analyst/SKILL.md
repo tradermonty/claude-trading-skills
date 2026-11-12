@@ -355,9 +355,7 @@ Create a positioning matrix:
 
 #### 6.2 Scenario Classification
 
-Determine which of the four scenarios applies:
-
-Read `references/combined_scenarios.md` (section "Step 6.2 detail: the four combined scenarios") to classify the combined scenario. It holds the four scenarios with their Chart 1 and Chart 2 conditions and implications.
+Determine which of the four scenarios applies: Read `references/combined_scenarios.md` (section "Step 6.2 detail: the four combined scenarios") to classify the combined scenario. It holds the four scenarios with their Chart 1 and Chart 2 conditions and implications.
 
 #### 6.3 Unified Recommendation
 
