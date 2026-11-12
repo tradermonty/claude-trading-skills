@@ -8,6 +8,7 @@ Fetches realized returns (5-day, 20-day) and classifies outcomes.
 
 import argparse
 import json
+import math
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -26,6 +27,40 @@ except ImportError:
 def get_fmp_api_key() -> Optional[str]:
     """Get FMP API key from environment or return None."""
     return os.environ.get("FMP_API_KEY")
+
+
+def positive_finite_price(value) -> bool:
+    """Prices must be real finite positive numbers, never booleans/coerced strings."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value) and value > 0
+    except OverflowError:
+        return False
+
+
+def observed_prices(rows, start_date: str, end_date: str) -> dict:
+    """Accept only unambiguous dated closing-price evidence."""
+    if not isinstance(rows, list):
+        return {}
+    prices = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            return {}
+        day = row.get("date")
+        price = row.get("close")
+        if not isinstance(day, str) or not positive_finite_price(price):
+            return {}
+        try:
+            if datetime.strptime(day, "%Y-%m-%d").strftime("%Y-%m-%d") != day:
+                return {}
+        except ValueError:
+            return {}
+        if day in prices:
+            return {}
+        if start_date <= day <= end_date:
+            prices[day] = price
+    return prices
 
 
 def fetch_price_data(ticker: str, start_date: str, end_date: str, api_key: str) -> dict:
@@ -53,7 +88,7 @@ def fetch_price_data(ticker: str, start_date: str, end_date: str, api_key: str) 
             if resp.status_code != 200:
                 continue
             data = resp.json()
-            historical = None
+            historical = data if isinstance(data, list) else None
             if isinstance(data, dict) and "historical" in data:
                 historical = data["historical"]
             elif isinstance(data, dict) and "historicalStockList" in data:
@@ -62,7 +97,9 @@ def fetch_price_data(ticker: str, start_date: str, end_date: str, api_key: str) 
                         historical = entry.get("historical", [])
                         break
             if historical is not None:
-                return {item["date"]: item["close"] for item in historical}
+                prices = observed_prices(historical, start_date, end_date)
+                if prices:
+                    return prices
         except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
             continue
 
@@ -199,8 +236,15 @@ def process_signal(
         print(f"Warning: Invalid signal date: {signal_date}", file=sys.stderr)
         return None
 
-    max_period = max(holding_periods)
-    end_dt = sig_dt + timedelta(days=max_period + 5)  # Buffer for weekends
+    if not holding_periods or any(type(p) is not int or p <= 0 for p in holding_periods):
+        print("Warning: Invalid holding periods", file=sys.stderr)
+        return None
+    try:
+        max_period = max(holding_periods)
+        end_dt = sig_dt + timedelta(days=max_period + 5)  # Buffer for weekends
+    except OverflowError:
+        print("Warning: Holding period exceeds supported date range", file=sys.stderr)
+        return None
 
     # Fetch price data if API key available
     prices = {}
@@ -208,46 +252,45 @@ def process_signal(
         prices = fetch_price_data(ticker, signal_date, end_dt.strftime("%Y-%m-%d"), api_key)
 
     # Get entry price
-    if entry_price <= 0:
-        entry_price = prices.get(signal_date, 0.0)
+    if entry_price is None or (type(entry_price) in (int, float) and entry_price == 0):
+        entry_price = prices.get(signal_date)
 
-    if entry_price <= 0:
+    if not positive_finite_price(entry_price):
         print(f"Warning: No entry price for {ticker} on {signal_date}", file=sys.stderr)
         return None
 
-    # Calculate realized returns for each holding period
+    # The classifier and downstream metrics use 5d. A secondary observation
+    # must never stand in for an unavailable primary outcome.
     realized_returns = {}
-    exit_price = manual_exit_price
-    exit_date = manual_exit_date
-
+    primary_exit = None
     for period in holding_periods:
         target_dt = sig_dt + timedelta(days=period)
-
-        # Find closest trading day
-        for offset in range(5):  # Check up to 5 days forward for weekends
+        for offset in range(5):
             check_date = (target_dt + timedelta(days=offset)).strftime("%Y-%m-%d")
-            if check_date in prices:
-                period_price = prices[check_date]
-                realized_returns[f"{period}d"] = calculate_return(entry_price, period_price)
-
-                # Use first period's exit as default
-                if exit_price is None:
-                    exit_price = period_price
-                    exit_date = check_date
+            period_price = prices.get(check_date)
+            if not positive_finite_price(period_price):
+                continue
+            result = calculate_return(entry_price, period_price)
+            if not math.isfinite(result):
+                # This horizon has an observed but unrepresentable return;
+                # a later price must not hide it as a different outcome.
                 break
+            realized_returns[f"{period}d"] = result
+            if period == 5:
+                primary_exit = (period_price, check_date)
+            break
 
-    # Use manual exit if provided
+    if primary_exit is None:
+        print(f"Warning: No observed 5d exit for {ticker}; signal skipped", file=sys.stderr)
+        return None
+
+    exit_price, exit_date = primary_exit
     if manual_exit_price is not None:
         exit_price = manual_exit_price
     if manual_exit_date is not None:
         exit_date = manual_exit_date
-
-    if exit_price is None:
-        exit_price = entry_price  # No change if no data
-    if exit_date is None:
-        exit_date = (sig_dt + timedelta(days=holding_periods[0])).strftime("%Y-%m-%d")
-
-    return create_postmortem_record(signal, realized_returns, exit_price, exit_date)
+    resolved_signal = {**signal, "entry_price": entry_price}
+    return create_postmortem_record(resolved_signal, realized_returns, exit_price, exit_date)
 
 
 def list_ready_signals(signals_dir: str, min_days: int = 5) -> list:
@@ -317,7 +360,12 @@ def main():
     api_key = args.api_key or get_fmp_api_key()
 
     # Parse holding periods
-    holding_periods = [int(p.strip()) for p in args.holding_periods.split(",")]
+    try:
+        holding_periods = [int(p.strip()) for p in args.holding_periods.split(",")]
+        if not holding_periods or any(p <= 0 for p in holding_periods):
+            raise ValueError
+    except ValueError:
+        parser.error("--holding-periods must be comma-separated positive integers")
 
     # Create output directory
     output_dir = Path(args.output_dir)
@@ -391,7 +439,10 @@ def main():
         sys.exit(1)
 
     if not api_key:
-        print("Warning: No FMP API key available. Using manual entry prices only.", file=sys.stderr)
+        print(
+            "Warning: No FMP API key available. Batch signals without observed prices will be skipped.",
+            file=sys.stderr,
+        )
 
     # Process signals
     results = []
@@ -414,6 +465,7 @@ def main():
         "source_file": str(signals_path),
         "total_signals": len(signals),
         "processed": len(results),
+        "skipped": len(signals) - len(results),
         "postmortems": results,
     }
 
@@ -430,7 +482,11 @@ def main():
     print("Outcome distribution:")
     for cat, count in sorted(outcomes.items()):
         print(f"  {cat}: {count}")
+    print(f"Skipped {len(signals) - len(results)}/{len(signals)} signals")
     print(f"Saved batch summary: {summary_file}")
+    if not results:
+        print("Error: No signals had sufficient observed price evidence", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
