@@ -519,10 +519,16 @@ def check_dates(
             years = [infer_year(month_val, day_val, as_of, content, filepath)]
             if malformed:
                 years.append(int(malformed.group(1)))
-        try:
-            actual_days = [date(y, month_val, day_val).weekday() for y in years]
-        except ValueError:
+        readings = []
+        for y in years:
+            try:
+                readings.append((y, date(y, month_val, day_val).weekday()))
+            except ValueError:
+                continue  # Only valid readings count, as in the matcher above.
+        if not readings:
             continue
+        years = [y for y, _ in readings]
+        actual_days = [w for _, w in readings]
         if stated not in actual_days:
             label = "year" if written else "inferred year"
             findings.append(

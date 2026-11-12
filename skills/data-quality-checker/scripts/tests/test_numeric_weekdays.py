@@ -301,3 +301,11 @@ def test_labelled_explicit_year_wins_over_inferred_year():
 def test_malformed_year_prefix_reports_only_weekdays_wrong_under_both_years(text, flagged):
     findings = check_dates(text, as_of=date(2026, 11, 7))
     assert bool(findings) is flagged
+
+
+def test_ambiguous_year_prefix_uses_only_valid_readings():
+    # 2025-02-29 does not exist; 2028-02-29 is a Tuesday.
+    findings = check_dates("2025-2/29(月)", as_of=date(2028, 3, 1))
+    assert len(findings) == 1
+    assert "(inferred year: 2028)" in findings[0].message
+    assert check_dates("2025-2/29(火)", as_of=date(2028, 3, 1)) == []
