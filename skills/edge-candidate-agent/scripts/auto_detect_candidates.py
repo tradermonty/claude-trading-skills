@@ -9,6 +9,7 @@ import math
 import re
 import shlex
 import subprocess
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -1705,23 +1706,23 @@ def main() -> int:
     try:
         as_of_date = parse_as_of_date(args.as_of)
     except AutoDetectError as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     if not ohlcv_path.exists():
-        print(f"[ERROR] OHLCV file not found: {ohlcv_path}")
+        print(f"[ERROR] OHLCV file not found: {ohlcv_path}", file=sys.stderr)
         return 1
     if hints_path is not None and not hints_path.exists():
-        print(f"[ERROR] hints file not found: {hints_path}")
+        print(f"[ERROR] hints file not found: {hints_path}", file=sys.stderr)
         return 1
     if news_path is not None and not news_path.exists():
-        print(f"[ERROR] news reactions file not found: {news_path}")
+        print(f"[ERROR] news reactions file not found: {news_path}", file=sys.stderr)
         return 1
     if futures_path is not None and not futures_path.exists():
-        print(f"[ERROR] futures OHLCV file not found: {futures_path}")
+        print(f"[ERROR] futures OHLCV file not found: {futures_path}", file=sys.stderr)
         return 1
     if futures_map_path is not None and not futures_map_path.exists():
-        print(f"[ERROR] futures map file not found: {futures_map_path}")
+        print(f"[ERROR] futures map file not found: {futures_map_path}", file=sys.stderr)
         return 1
 
     try:
@@ -1837,7 +1838,7 @@ def main() -> int:
             skipped_modules=skipped_modules,
         )
     except AutoDetectError as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     print(f"[OK] as_of={resolved_date.isoformat()} regime={regime_label}")
@@ -1869,12 +1870,12 @@ def main() -> int:
                 pipeline_stage=args.pipeline_stage,
             )
         except Exception as exc:  # pragma: no cover - integration error path
-            print(f"[ERROR] export/validation integration failed: {exc}")
+            print(f"[ERROR] export/validation integration failed: {exc}", file=sys.stderr)
             return 1
 
         print(f"[OK] exported_strategies={len(exported)} dir={strategies_dir}")
         if validation_errors:
-            print("[ERROR] exported strategies failed pipeline validation:")
+            print("[ERROR] exported strategies failed pipeline validation:", file=sys.stderr)
             for strategy_id, errors in validation_errors.items():
                 for error in errors:
                     print(f"  - {strategy_id}: {error}")

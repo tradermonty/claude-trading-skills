@@ -25,8 +25,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 try:
     import requests
 except ImportError:
-    print("ERROR: requests library not found. Install with: pip install requests", file=sys.stderr)
-    sys.exit(1)
+    print(
+        "ERROR: requests library not found. Install this skill's dependencies: "
+        "pip install -r requirements.txt",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 # Mirror of scripts/provider_contracts.py::redact_url (clients are standalone).
 # Requires a `?`/`&` prefix, so this masks apikey=/api_key= in URL query

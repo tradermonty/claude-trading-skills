@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import json
+import sys
 from datetime import datetime
 from typing import Optional
 
@@ -339,10 +340,10 @@ def main() -> int:
         try:
             quantitative_scores, qualitative_scores = _scores_from_json(args.scores)
         except (json.JSONDecodeError, ValueError) as exc:
-            print(f"Error: {exc}")
+            print(f"Error: {exc}", file=sys.stderr)
             return 1
     else:
-        print("Error: specify --manual or --scores")
+        print("Error: specify --manual or --scores", file=sys.stderr)
         print("\nGuidelines:")
         print(scorer.get_scoring_guidelines())
         return 1
@@ -350,7 +351,7 @@ def main() -> int:
     try:
         result = scorer.calculate_score(quantitative_scores, qualitative_scores)
     except ValueError as exc:
-        print(f"Error: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     if args.output == "json":

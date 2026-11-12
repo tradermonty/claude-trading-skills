@@ -430,7 +430,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             provider_exhausted_scope=args.provider_exhausted_scope,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        print(f"ERROR: {exc}")
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     args.output_dir.mkdir(parents=True, exist_ok=True)
     pool_path = args.output_dir / "provider-prefilter-pool.jsonl"

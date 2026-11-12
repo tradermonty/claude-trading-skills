@@ -29,6 +29,8 @@ Author: Claude Trading Skills
 Version: 1.0
 """
 
+import sys
+
 import numpy as np
 import requests
 from scipy.stats import norm
@@ -370,7 +372,7 @@ def fetch_historical_prices_for_hv(symbol, api_key, days=90):
         except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
             continue
 
-    print(f"Error fetching prices for {symbol}: all endpoints failed")
+    print(f"Error fetching prices for {symbol}: all endpoints failed", file=sys.stderr)
     return None
 
 
@@ -404,7 +406,7 @@ def get_current_stock_price(symbol, api_key):
         except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
             continue
 
-    print(f"Error fetching current price for {symbol}: all endpoints failed")
+    print(f"Error fetching current price for {symbol}: all endpoints failed", file=sys.stderr)
     return None
 
 

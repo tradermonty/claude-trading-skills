@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from candidate_contract import read_yaml, validate_interface_contract
@@ -115,13 +116,13 @@ def main() -> int:
     args = parse_args()
     strategy_path = Path(args.strategy).resolve()
     if not strategy_path.exists():
-        print(f"[ERROR] strategy not found: {strategy_path}")
+        print(f"[ERROR] strategy not found: {strategy_path}", file=sys.stderr)
         return 1
 
     try:
         strategy_payload = read_yaml(strategy_path)
     except (OSError, ValueError) as exc:
-        print(f"[ERROR] failed to read strategy YAML: {exc}")
+        print(f"[ERROR] failed to read strategy YAML: {exc}", file=sys.stderr)
         return 1
 
     candidate_id = args.candidate_id or strategy_path.parent.name
@@ -144,7 +145,7 @@ def main() -> int:
 
     all_errors = errors + pipeline_errors
     if all_errors:
-        print("[ERROR] Candidate validation failed:")
+        print("[ERROR] Candidate validation failed:", file=sys.stderr)
         for error in all_errors:
             print(f"  - {error}")
         return 1

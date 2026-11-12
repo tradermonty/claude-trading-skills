@@ -675,7 +675,7 @@ class TestCheckInstitutionalEndpoint:
     def test_missing_key(self, monkeypatch, capsys):
         monkeypatch.delenv("FMP_API_KEY", raising=False)
         assert cie.check_institutional_endpoint() is False
-        assert "FMP_API_KEY environment variable not set" in capsys.readouterr().out
+        assert "FMP_API_KEY environment variable not set" in capsys.readouterr().err
 
     def test_available(self, monkeypatch, capsys):
         monkeypatch.setenv("FMP_API_KEY", TEST_KEY)
@@ -728,7 +728,7 @@ class TestCheckInstitutionalEndpoint:
 
         monkeypatch.setattr(cie.requests, "get", boom)
         assert cie.check_institutional_endpoint() is False
-        assert "Request failed - timed out" in capsys.readouterr().out
+        assert "Request failed - timed out" in capsys.readouterr().err
 
     @pytest.mark.parametrize("key,code", [(None, 1), (TEST_KEY, 0)])
     def test_script_entrypoint_exit_codes(self, monkeypatch, capsys, key, code):
@@ -1431,7 +1431,7 @@ class TestAnalyzeStock:
             sc.analyze_stock("AAA", Exploding({"AAA": strong_stock("AAA")}), market_result())
             is None
         )
-        assert "Error: kaput" in capsys.readouterr().out
+        assert "Error: kaput" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------- parse_arguments / main
