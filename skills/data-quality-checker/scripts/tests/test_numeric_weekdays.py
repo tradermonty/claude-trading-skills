@@ -141,17 +141,18 @@ def test_fullwidth_date_digits(value, weekday, expected):
     assert len(findings) == expected
 
 
+def test_fullwidth_digits_do_not_allow_suffix_salvage():
+    assert check_dates("２０２６/１１-１０（水）", as_of=date(2026, 11, 7)) == []
+
+
 @pytest.mark.parametrize(
     "text",
-    [
-        "１２０２６/１１/１０（水）",
-        "２０２６/ １１/１０（水）",
-        "２０２６-１１/１０（水）",
-        "２０２６/１１-１０（水）",
-    ],
+    ["１２０２６/１１/１０（水）", "２０２６/ １１/１０（水）", "２０２６-１１/１０（水）"],
 )
-def test_fullwidth_digits_do_not_allow_suffix_salvage(text):
-    assert check_dates(text, as_of=date(2026, 11, 7)) == []
+def test_fullwidth_malformed_year_still_reports_a_weekday_wrong_in_every_reading(text):
+    # 2026-11-10 is a Tuesday, the written and the inferred year agree.
+    assert len(check_dates(text, as_of=date(2026, 11, 7))) == 1
+    assert check_dates(text.replace("水", "火"), as_of=date(2026, 11, 7)) == []
 
 
 def test_fullwidth_explicit_year_wins():
@@ -209,7 +210,6 @@ def test_many_dates_stay_fast():
 @pytest.mark.parametrize(
     "text",
     [
-        "2026-11/10（水）",
         "2026/ 11/10 (Wed)",
         "2026-11/10 (Wed)",
         "v1.2.3/11/10 (Wed)",
@@ -264,3 +264,40 @@ def test_explicit_year_is_not_reported_twice_by_the_legacy_pattern():
     # 2025-11-10 is a Monday; the inferred 2026 would make 11/10(月) wrong.
     assert check_dates("2025/11/10(月)", as_of=date(2026, 11, 7)) == []
     assert len(check_dates("2025/11/10(火)", as_of=date(2026, 11, 7))) == 1
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "FOMC2026/12/10(金)",
+        "_2026/12/10(金)_",
+        "...2026/12/10(金)",
+        "日程-2026/12/10(金)",
+        "2026/12/9(水) 22:00-2026/12/10(金)",
+        "2026/12/9 (水) 10:00-2026/12/10(金)",
+    ],
+)
+def test_labelled_explicit_year_dates_are_checked_with_the_written_year(text):
+    # 2026-12-10 is a Thursday.
+    findings = check_dates(text, as_of=date(2026, 11, 7))
+    assert len(findings) == 1
+    assert "(year: 2026)" in findings[0].message
+
+
+def test_labelled_explicit_year_wins_over_inferred_year():
+    # 2025-11-10 is a Monday; the inferred year 2026 would make it a Tuesday.
+    assert check_dates("FOMC2025/11/10(月)", as_of=date(2026, 11, 7)) == []
+
+
+@pytest.mark.parametrize(
+    "text,flagged",
+    [
+        ("2025-11/10(水)", True),  # Monday in 2025, Tuesday in 2026
+        ("2025-11/10(月)", False),  # right if 2025 is the year
+        ("2025-11/10(火)", False),  # right if the inferred 2026 is the year
+        ("2026/ 12/10(月)", True),
+    ],
+)
+def test_malformed_year_prefix_reports_only_weekdays_wrong_under_both_years(text, flagged):
+    findings = check_dates(text, as_of=date(2026, 11, 7))
+    assert bool(findings) is flagged

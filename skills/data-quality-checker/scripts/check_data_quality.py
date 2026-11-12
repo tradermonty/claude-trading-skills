@@ -505,25 +505,34 @@ def check_dates(
     for m in ja_slash_pat.finditer(content):
         if m.end(2) in checked_day_ends:
             continue
-        # A malformed year such as 2025-11/10 may disagree with the inferred
-        # year, so do not salvage M/D from it.
-        if re.search(r"\d{4}[-/][ \t]*$", content[max(0, m.start() - 64) : m.start()]):
-            continue
         month_val, day_val = int(m.group(1)), int(m.group(2))
-        year = infer_year(month_val, day_val, as_of, content, filepath)
+        stated = WEEKDAY_MAP_JA[m.group(3)]
+        prefix = content[max(0, m.start() - 64) : m.start()]
+        # FOMC2026/12/10(金): a well-formed YYYY/ prefix is the written year.
+        written = re.search(r"(?<!\d)(\d{4})/$", prefix)
+        # 2025-11/10(水): a malformed prefix may or may not be the year, so
+        # report only a weekday that is wrong under both readings.
+        malformed = None if written else re.search(r"(\d{4})[-/][ \t]*$", prefix)
+        if written:
+            years = [int(written.group(1))]
+        else:
+            years = [infer_year(month_val, day_val, as_of, content, filepath)]
+            if malformed:
+                years.append(int(malformed.group(1)))
         try:
-            d = date(year, month_val, day_val)
+            actual_days = [date(y, month_val, day_val).weekday() for y in years]
         except ValueError:
             continue
-        if WEEKDAY_MAP_JA[m.group(3)] != d.weekday():
+        if stated not in actual_days:
+            label = "year" if written else "inferred year"
             findings.append(
                 Finding(
                     severity="ERROR",
                     category="dates",
                     message=(
                         f"Date-weekday mismatch: {m.group(0)} "
-                        f"-- actual weekday is {'月火水木金土日'[d.weekday()]} "
-                        f"(inferred year: {year})"
+                        f"-- actual weekday is {'月火水木金土日'[actual_days[0]]} "
+                        f"({label}: {years[0]})"
                     ),
                     line_number=content[: m.start()].count("\n") + 1,
                 )
