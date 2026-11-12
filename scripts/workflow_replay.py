@@ -635,6 +635,12 @@ class _ReplayShimModule(types.ModuleType):
     caller rebinds a name on this shim, every package module whose global of
     the same name is still the object the shim held is rebound too, matching
     the single-namespace behavior of the former monolithic module.
+
+    Patch through this shim (``monkeypatch.setattr(workflow_replay, ...)``).
+    Patching one package module directly does not reach the others, and only
+    rebinding is forwarded, not ``delattr``. Every new submodule of
+    ``workflow_replay_pkg`` must be added to ``_PACKAGE_MODULES``; a test
+    enforces this.
     """
 
     def __setattr__(self, name: str, value: Any) -> None:
