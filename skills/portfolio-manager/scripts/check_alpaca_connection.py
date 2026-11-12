@@ -20,9 +20,12 @@ import sys
 try:
     import requests
 except ImportError:
-    print("ERROR: requests library not installed")
-    print("Install with: pip install requests")
-    sys.exit(1)
+    print("ERROR: requests library not installed", file=sys.stderr)
+    print(
+        "Install with: pip install -r skills/portfolio-manager/requirements.txt",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 REQUEST_TIMEOUT_SECONDS = 30
 
@@ -34,7 +37,7 @@ def load_credentials():
     paper = os.environ.get("ALPACA_PAPER", "true").lower() == "true"
 
     if not api_key or not secret_key:
-        print("ERROR: Alpaca API credentials not found")
+        print("ERROR: Alpaca API credentials not found", file=sys.stderr)
         print("\nPlease set environment variables:")
         print("  export ALPACA_API_KEY='your_api_key_id'")  # pragma: allowlist secret
         print("  export ALPACA_SECRET_KEY='your_secret_key'")  # pragma: allowlist secret
@@ -231,7 +234,7 @@ def test_positions(api_key, secret_key, base_url):
             return True
 
         else:
-            print(f"✗ Error fetching positions: HTTP {response.status_code}")
+            print(f"✗ Error fetching positions: HTTP {response.status_code}", file=sys.stderr)
             return False
 
     except requests.exceptions.RequestException:

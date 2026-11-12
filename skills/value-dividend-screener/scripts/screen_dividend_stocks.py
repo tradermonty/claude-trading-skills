@@ -32,8 +32,12 @@ from typing import Optional
 try:
     import requests
 except ImportError:
-    print("ERROR: requests library not found. Install with: pip install requests", file=sys.stderr)
-    sys.exit(1)
+    print(
+        "ERROR: requests library not found. Install with: "
+        "pip install -r skills/value-dividend-screener/requirements.txt",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 class FINVIZClient:

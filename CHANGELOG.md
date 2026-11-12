@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Add `scripts/check_cli_error_conventions.py`, an AST lint gate (pre-commit and CI) for stdout error prints, missing-dependency `sys.exit(1)` and untimed network calls in skill scripts, with a reasoned, stale-checked allowlist in `config/cli-error-allowlist.json`; route `Error` diagnostics to stderr in pead-screener, edge-hint-extractor, edge-concept-synthesizer and portfolio-manager, and exit 2 with a `requirements.txt` hint for missing dependencies in portfolio-manager, theme-detector and value-dividend-screener; remaining violations are allow-listed for a #497 follow-up (#497).
 - trading-skills-navigator: preserve offline saved-position input when JSON output is also requested, while retaining output-only, live-source and negated-file routing (#668).
 - Generate EN/JA README API guidance linking to the canonical index-derived requirements matrix and detailed mode instructions; reject stale or missing guidance with the catalog drift gate (#654).
 - trader-memory-core: generate historical-only postmortems for retired legacy equity shorts without fetching prices or changing state; suppress unsupported accounting values and explain their omission (#682).

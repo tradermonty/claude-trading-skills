@@ -19,8 +19,12 @@ try:
     import numpy as np
     import pandas as pd
 except ImportError:
-    print("ERROR: pandas/numpy not found. Install with: pip install pandas numpy", file=sys.stderr)
-    sys.exit(1)
+    print(
+        "ERROR: pandas/numpy not found. Install with: "
+        "pip install -r skills/theme-detector/requirements.txt",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 try:
     import yfinance as yf
