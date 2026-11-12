@@ -111,7 +111,11 @@ Parse the JSON and explain, in the user's language:
   Full account risk, brokerage review and reconciliation remain outside this
   limited path. Any CSV mention is read as the source unless it is clearly an
   output (export/save/send; CSVに出力) with no input wording. CSV output requests
-  retain the full brokerage route. If loaded metadata lacks the CSV workflow,
+  retain the full brokerage route. Explicit saved-file input (for example,
+  "from a saved Alpaca positions JSON") keeps the offline route when JSON
+  output is also requested, even with API provenance or "without API" wording.
+  JSON output alone, live API/feed input, or a negated file source does not
+  select the offline route. If loaded metadata lacks the CSV workflow,
   report the unsupported-capability gap instead of claiming it is runnable.
 - **Backtest execution request** — relay the `note` when the research workflow
   is recommended for a request containing backtest terms. It can evaluate

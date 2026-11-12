@@ -1107,7 +1107,11 @@ _CSV_OUTPUT_PATTERNS = (
     r"csv\s*(?:に|で)\s*(?:出力|保存|書き出|エクスポート)",
     r"csv\s*を\s*(?:出力|エクスポート|書き出)",
 )
-_LOCAL_SOURCE = r"(?:csv|json|snapshot|saved\s+(?:positions?|holdings))"
+_SAVED_SOURCE = (
+    r"saved\s+(?:(?:alpaca|broker|brokerage|portfolio|local)\s+){0,2}"
+    r"(?:positions?|holdings|snapshot|json)(?:\s+(?:snapshot|json))?(?:\s+file)?"
+)
+_LOCAL_SOURCE = rf"(?:{_SAVED_SOURCE}|csv|json|snapshot)"
 # Matching is keyword based. A misread negation falls through to the full route,
 # which is safer than telling someone to supply a file they said they lack.
 _NEGATED_SOURCE_RE = re.compile(
@@ -1132,6 +1136,18 @@ _SAVED_FILE_PATTERNS = (
     r"(?:positions?|holdings|snapshot|json)\b",
     r"\b(?:positions?|holdings|snapshot)[\w-]*\.json\b",
     r"保存.{0,15}(?:ポジション|保有|json|スナップショット)",
+)
+# With output wording present, require a source cue: a bare saved noun or
+# holdings.json can instead name the requested output. Do not reorder the broad
+# saved-file patterns above the output check.
+_EXPLICIT_SAVED_INPUT_RE = re.compile(
+    r"\b(?:from|using|use|read|load|import)\s+(?:an?\s+|my\s+|the\s+)?"
+    rf"(?:{_SAVED_SOURCE}\b|(?:positions?|holdings|snapshot)[\w-]*\.json\b)"
+    r"|\b(?:holdings|positions|portfolio)\s+in\s+(?:my\s+|the\s+)?"
+    r"(?:positions?|holdings|snapshot)[\w-]*\.json\b"
+    r"|保存[^。；、,;.!?]{0,15}(?:ポジション|保有|json|スナップショット)"
+    r"(?:json)?\s*(?:から|で\s*(?:(?:ポートフォリオ|保有(?:銘柄)?|ポジション)を?\s*)?"
+    r"(?:確認|見直|レビュー|分析)|を読み込|を読込|を取り込|を取込)"
 )
 _JSON_SOURCE_PATTERNS = (
     r"\bfrom\s+(?:an?\s+|my\s+|the\s+)?(?:[\w-]+\s+){0,3}json\b",
@@ -1171,6 +1187,13 @@ def _wants_csv_portfolio_input(norm: str) -> bool:
 def _wants_saved_positions_input(norm: str) -> bool:
     """True when a saved positions file, not a live account, is the source."""
     text = _NEGATED_SOURCE_RE.sub(" ", norm)
+    if _EXPLICIT_SAVED_INPUT_RE.search(text):
+        return True
+    # A Japanese source particle binds directly to JSON. The English generic
+    # source pattern can span "from Alpaca to JSON", so keep it below the
+    # output check. Retain the live/API/feed guard for unsaved JSON sources.
+    if not _LIVE_JSON_RE.search(text) and re.search(_JSON_SOURCE_PATTERNS[1], text):
+        return True
     if _JSON_OUTPUT_RE.search(text):
         return False
     if any(re.search(pat, text) for pat in _SAVED_FILE_PATTERNS):
@@ -1712,6 +1735,11 @@ def main(argv: list[str] | None = None) -> int:
     # Source is environment info, NOT part of the recommendation — keep it off
     # stdout so SSoT vs snapshot output stays byte-identical (parity invariant).
     print(f"metadata source: {source}", file=sys.stderr)
+
+    # Redirected Windows stdout can use a legacy code page that cannot encode
+    # Japanese queries. Keep both CLI formats in UTF-8, including pipes.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
     if args.format == "json":
         sys.stdout.write(dumps(result))

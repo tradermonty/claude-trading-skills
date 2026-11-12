@@ -204,6 +204,17 @@ never changes the outcome by itself. Live-data wording ("live positions as json"
 "from the JSON feed") does not select the offline path. Matching is keyword based,
 so unusual wording can still be misread; a misread negation falls through to the
 full route.
+Explicit saved input wins over JSON output, in either order: "Review my portfolio
+from a saved Alpaca positions JSON and export the review to JSON" and
+"保有銘柄を保存済みのポジションJSONから確認してJSONに出力" retain the offline route,
+with or without `--no-api`. A saved file can mention API provenance or "without
+API" without becoming live input. Generic "from JSON" retains the live/API/feed
+guard. A filename appearing only as an output destination ("export to
+holdings.json"), saved output ("export saved positions to JSON"), or a negated
+saved input (including "saved Alpaca positions JSON is not available") does not
+select the offline route. These are bounded keyword heuristics, not a parser for
+arbitrary conflicting source instructions.
+
 Known limitation: a CSV or saved-file query with no portfolio wording, or a
 Japanese phrasing the persona does not recognize (for example "I have a CSV" or
 "保有ポートフォリオを保存したJSONから確認"), does not match the portfolio persona and falls back to
