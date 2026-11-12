@@ -389,7 +389,7 @@ out this change; activate them with the installer only when ready.
 | Layer | Current evidence / remaining work |
 |---|---|
 | PR CI | Offline dependency declarations, table/runner regression tests, provider fixtures, and workflow replay; not proof of every CLI failure path |
-| Nightly | Packaged dependency runner records `pass`, `fail`, or `incomplete`; job remains report-only under #349. Keyless optional-provider coverage and actual archive execution remain follow-ups |
+| Nightly | Packaged dependency runner records `pass`, `fail`, or `incomplete`; the job is fail-closed since #349, so a `fail` turns the run red. Keyless optional-provider coverage and actual archive execution remain follow-ups |
 | Weekly sample | #506 tracks the separate live happy-path sample; it cannot establish fallback, personal-state, or failure-path coverage |
 | Monthly LLM sample | Instruction-only and model-driven checks remain planned under #507; they need separate runtime/cost authorization |
 

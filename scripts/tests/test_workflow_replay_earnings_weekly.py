@@ -243,7 +243,7 @@ def test_shim_charges_profiles_per_symbol_and_exhausts_the_default_budget() -> N
 
 
 def test_replay_passes_an_explicit_api_budget_to_both_clis() -> None:
-    source = (ROOT / "scripts/workflow_replay.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts/workflow_replay_pkg/steps_earnings.py").read_text(encoding="utf-8")
     assert source.count("EARNINGS_MAX_API_CALLS") >= 3
 
 

@@ -80,6 +80,7 @@ def source_fingerprint():
     paths = [
         ROOT / "workflows/market-regime-daily.yaml",
         ROOT / "scripts/workflow_replay.py",
+        *sorted((ROOT / "scripts/workflow_replay_pkg").glob("*.py")),
         ROOT / "scripts/validate_provenance.py",
         Path(__file__).resolve(),
         EXAMPLE / "replay.yaml",

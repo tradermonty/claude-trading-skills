@@ -31,9 +31,22 @@ def smoke_step(config):
     return next(step for step in steps if step.get("name") == STEP_NAME)
 
 
-def test_job_stays_report_only(config):
-    # Removing continue-on-error is #349's follow-up, not this change.
-    assert config["jobs"]["smoke"]["continue-on-error"] == "true"
+def test_job_is_fail_closed(config):
+    # #349: after the green window, a failing smoke must turn the run red.
+    job = config["jobs"]["smoke"]
+    assert "continue-on-error" not in job
+    assert "report-only" not in job["name"].lower()
+    assert "fail-closed" in job["name"].lower()
+
+
+def test_workflow_comments_do_not_claim_report_only():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "continue-on-error" not in text
+    assert "report-only" not in text.lower()
+
+
+def test_smoke_runs_even_if_the_declaration_report_crashes(smoke_step):
+    assert smoke_step["if"] == "${{ !cancelled() }}"
 
 
 def test_step_uses_bash_and_runs_runner(smoke_step):
