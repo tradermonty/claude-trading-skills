@@ -165,7 +165,9 @@ def _exec_parts(namespace: dict[str, Any]) -> None:
     for name in _PART_FILES:
         path = parts_dir / name
         source = path.read_text(encoding="utf-8")
-        exec(compile(source, str(path), "exec", dont_inherit=True), namespace)
+        # Bandit B102 is suppressed: this runs only this package's own fragment
+        # files listed in _PART_FILES, never user input.
+        exec(compile(source, str(path), "exec", dont_inherit=True), namespace)  # nosec B102
 
 
 _exec_parts(globals())
