@@ -189,7 +189,7 @@ class TestDates:
         findings = check_dates(content, as_of=date(2026, 1, 15))
         assert len(findings) >= 1
         f = findings[0]
-        assert f.severity == "WARNING"
+        assert f.severity == "ERROR"
         assert f.category == "dates"
         assert "木" in f.message  # actual weekday is Thursday = 木
 
