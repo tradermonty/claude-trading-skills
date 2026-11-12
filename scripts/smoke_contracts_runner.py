@@ -11,8 +11,8 @@ executes, per third-party-required executable skill:
 
 Writes machine-readable evidence JSON: exit 0 for complete success, 1 for
 failure, and 2 for incomplete coverage (pending, skipped, or empty).
-The nightly is promoted to fail-closed (checklist item 4) only together with
-this exit-code fix; flipping `continue-on-error` alone does nothing.
+The nightly was promoted to fail-closed in #349 (checklist item 4), relying
+on these exit codes; flipping `continue-on-error` alone would do nothing.
 
 PRs do NOT run this file: the PR path stays network-free via
 ``check_skill_deps.py check`` and the golden ``smoke`` subcommand in ci.yml.
