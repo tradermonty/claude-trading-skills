@@ -167,3 +167,68 @@ def test_japanese_tight_range_regression(separator, closing):
     findings = check_dates(text, as_of=date(2026, 11, 7))
     assert len(findings) == 1
     assert "11/12（水）" in findings[0].message
+
+
+@pytest.mark.parametrize("separator", ["-", "/"])
+@pytest.mark.parametrize("brackets", [("(", ")"), ("（", "）")])
+def test_range_without_first_weekday_checks_second_date(separator, brackets):
+    # 2026-12-10 is a Thursday. main flagged this second endpoint before #657.
+    opening, closing = brackets
+    bad = f"FOMC 12/9{separator}12/10{opening}金{closing}"
+    findings = check_dates(bad, as_of=date(2026, 11, 7))
+    assert len(findings) == 1
+    assert "12/10" in findings[0].message
+    good = f"FOMC 12/9{separator}12/10{opening}木{closing}"
+    assert check_dates(good, as_of=date(2026, 11, 7)) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "12/9 10:00-12/10(金)",
+        "１２/９-１２/１０（金）",
+        "2026/12/9-12/10(金)",
+        "2026-12-09-2026-12-10 (Fri)",
+        "2026/12/09-2026/12/10 (Fri)",
+    ],
+)
+def test_digit_joined_range_variants_check_second_date(text):
+    # 2026-12-10 is a Thursday.
+    findings = check_dates(text, as_of=date(2026, 11, 7))
+    assert len(findings) == 1
+
+
+def test_many_dates_stay_fast():
+    import time
+
+    doc = "".join(f"Line {i}: 11/10(火) and 2026-11-10 (Tue).\n" for i in range(5000))
+    started = time.perf_counter()
+    assert check_dates(doc, as_of=date(2026, 11, 7)) == []
+    assert time.perf_counter() - started < 5
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2026-11/10（水）",
+        "2026/ 11/10 (Wed)",
+        "2026-11/10 (Wed)",
+        "v1.2.3/11/10 (Wed)",
+        "a1-11/10 (Wed)",
+        # Digit-joined tokens that are not the second endpoint of a range.
+        "12/10/26 (Thu)",
+        "1/2/10 (Sat)",
+        "abc123/11/10 (Wed)",
+        "a123-11/10 (Wed)",
+        "1.234/11/10 (Wed)",
+        "https://x.com/p/123/11/10 (Wed)",
+        "ratio 100/3/4 (Mon)",
+        "score 3-2/10 (Thu)",
+        "１２３/１１/１０ (Wed)",
+        "#3-11/10 (Wed)",
+        "Week 45-11/10 (Wed)",
+        "11/9-10/11/10 (Wed)",
+    ],
+)
+def test_digit_joined_prefix_does_not_salvage_malformed_dates(text):
+    assert check_dates(text, as_of=date(2026, 11, 7)) == []

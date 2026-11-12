@@ -294,6 +294,15 @@ def infer_year(
     return date.today().year
 
 
+# The first endpoint of a tightly joined range: a complete bare date at a
+# token boundary, optionally with a time, followed by the range separator.
+_BARE_RANGE_START = re.compile(
+    r"(?:^|(?<![\dA-Za-z_./-]))"
+    r"(?:\d{4}-\d{1,2}-\d{1,2}|\d{4}/\d{1,2}/\d{1,2}|\d{1,2}/\d{1,2})"
+    r"(?:[ \t]+\d{1,2}:\d{2})?[-/]$"
+)
+
+
 def check_dates(
     content: str, as_of: date | None = None, filepath: str | None = None
 ) -> list[Finding]:
@@ -429,9 +438,11 @@ def check_dates(
     # checked a second time as M/D with an inferred, potentially different year.
     english_days = "|".join(sorted(WEEKDAY_MAP_EN, key=len, reverse=True))
     numeric_pat = re.compile(
-        # A closing weekday bracket may separate tightly joined date ranges.
-        # Keep ASCII identifier guards but allow CJK prose next to a date.
-        r"(?:(?<![\dA-Za-z_./-])|(?<=[)）][/-]))(?:(?P<year>\d{4})(?P<sep>[-/]))?"
+        # A closing weekday bracket or a bare first date may separate tightly
+        # joined date ranges such as 12/9-12/10. Keep ASCII identifier guards
+        # but allow CJK prose next to a date.
+        r"(?:(?<![\dA-Za-z_./-])|(?<=[)）\d][/-]))"
+        r"(?:(?P<year>\d{4})(?P<sep>[-/]))?"
         r"(?P<month>\d{1,2})(?(year)(?P=sep)|/)(?P<day>\d{1,2})"
         r"[ \t]*(?:(?P<ascii_open>\()|（)"
         # Scope ASCII case folding to English labels, preserving Unicode digits
@@ -441,7 +452,17 @@ def check_dates(
     )
     for m in numeric_pat.finditer(content):
         explicit_year = m.group("year")
-        if explicit_year is None and re.search(r"\d{4}[-/][ \t]*$", content[: m.start()]):
+        # A bounded window keeps these checks linear in document size.
+        prefix = content[max(0, m.start() - 64) : m.start()]
+        start = m.start()
+        if start >= 2 and content[start - 1] in "/-" and content[start - 2].isdigit():
+            # Digit-joined start: accept it only as the second endpoint of a
+            # range whose first endpoint is a complete bare date, as in
+            # 12/9-12/10 or 2026-12-09-2026-12-10. This rejects 12/10/26,
+            # 1/2/10, 100/3/4, 3-2/10 and path segments.
+            if not _BARE_RANGE_START.search(prefix):
+                continue
+        if explicit_year is None and re.search(r"\d{4}[-/][ \t]*$", prefix):
             continue  # Do not salvage M/D from a malformed spaced year prefix.
         month_val, day_val = int(m.group("month")), int(m.group("day"))
         year = (
