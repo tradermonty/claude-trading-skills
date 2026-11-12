@@ -145,7 +145,9 @@ def _check_date(value):
 # attributes, functions keep ``__module__ == __name__``, and loading this file
 # by path under another module name (pre-trade-discipline-gate and several
 # tests do) still yields a fully independent copy with no sys.path change.
-# Import ``thesis_store``; do not import the fragments directly.
+# Import ``thesis_store``; never import the fragments at runtime. The
+# ``if TYPE_CHECKING:`` block after _exec_parts names fragment modules only so
+# linters and readers can see where main()'s names are defined; it never runs.
 
 _PART_FILES = (
     "validation.py",

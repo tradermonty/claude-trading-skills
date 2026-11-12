@@ -180,4 +180,6 @@ show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.",
+    # Lint-only declaration blocks (trader-memory-core thesis_store fragments) never run.
+    "if TYPE_CHECKING:",
 ]
