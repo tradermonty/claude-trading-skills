@@ -148,7 +148,6 @@ def test_fullwidth_date_digits(value, weekday, expected):
         "２０２６/ １１/１０（水）",
         "２０２６-１１/１０（水）",
         "２０２６/１１-１０（水）",
-        "v１１/１０（水）",
     ],
 )
 def test_fullwidth_digits_do_not_allow_suffix_salvage(text):
@@ -232,3 +231,36 @@ def test_many_dates_stay_fast():
 )
 def test_digit_joined_prefix_does_not_salvage_malformed_dates(text):
     assert check_dates(text, as_of=date(2026, 11, 7)) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # main flagged these through its unguarded M/D(曜) pattern.
+        "12/9(水) 22:00-12/10(金)",
+        "12/9 (水) 10:00-12/10(金)",
+        "22:00-12/10(金)",
+        "12/8-12/9-12/10(金)",
+        "12/9 9:30:00-12/10(金)",
+        "12/9 9時-12/10(金)",
+        "_12/10(金)_",
+        "__12/10(金)__",
+        "FOMC12/10(金)",
+        "CPI発表日/12/10(金)",
+        "日程-12/10(金)",
+        "Q4-12/10(金)",
+        "...12/10(金)",
+        "v１２/１０（金）",
+    ],
+)
+def test_legacy_japanese_slash_dates_keep_main_coverage(text):
+    # 2026-12-10 is a Thursday.
+    findings = check_dates(text, as_of=date(2026, 11, 7))
+    assert len(findings) == 1
+    assert "12/10" in findings[0].message or "１２/１０" in findings[0].message
+
+
+def test_explicit_year_is_not_reported_twice_by_the_legacy_pattern():
+    # 2025-11-10 is a Monday; the inferred 2026 would make 11/10(月) wrong.
+    assert check_dates("2025/11/10(月)", as_of=date(2026, 11, 7)) == []
+    assert len(check_dates("2025/11/10(火)", as_of=date(2026, 11, 7))) == 1

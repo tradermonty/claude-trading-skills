@@ -450,6 +450,7 @@ def check_dates(
         rf"(?:(?P<en_weekday>(?ai:{english_days}))(?(ascii_open)\)|）)"
         r"|(?P<ja_weekday>[月火水木金土日](?:曜日)?)[)）])"
     )
+    checked_day_ends: set[int] = set()
     for m in numeric_pat.finditer(content):
         explicit_year = m.group("year")
         # A bounded window keeps these checks linear in document size.
@@ -464,6 +465,7 @@ def check_dates(
                 continue
         if explicit_year is None and re.search(r"\d{4}[-/][ \t]*$", prefix):
             continue  # Do not salvage M/D from a malformed spaced year prefix.
+        checked_day_ends.add(m.end("day"))
         month_val, day_val = int(m.group("month")), int(m.group("day"))
         year = (
             int(explicit_year)
@@ -490,6 +492,39 @@ def check_dates(
                     severity="ERROR",
                     category="dates",
                     message=f"Date-weekday mismatch: {m.group(0)} -- actual weekday is {actual}{inference}",
+                    line_number=content[: m.start()].count("\n") + 1,
+                )
+            )
+
+    # Legacy "M/D(曜)" check, unchanged from before #657 apart from severity.
+    # It has no identifier guards, so it still catches dates inside ranges,
+    # Markdown emphasis and labels such as FOMC12/10(金). Dates the matcher
+    # above already evaluated are skipped, so nothing is reported twice and an
+    # explicit year still wins over an inferred one.
+    ja_slash_pat = re.compile(r"(\d{1,2})/(\d{1,2})[（(]([月火水木金土日])[）)]")
+    for m in ja_slash_pat.finditer(content):
+        if m.end(2) in checked_day_ends:
+            continue
+        # A malformed year such as 2025-11/10 may disagree with the inferred
+        # year, so do not salvage M/D from it.
+        if re.search(r"\d{4}[-/][ \t]*$", content[max(0, m.start() - 64) : m.start()]):
+            continue
+        month_val, day_val = int(m.group(1)), int(m.group(2))
+        year = infer_year(month_val, day_val, as_of, content, filepath)
+        try:
+            d = date(year, month_val, day_val)
+        except ValueError:
+            continue
+        if WEEKDAY_MAP_JA[m.group(3)] != d.weekday():
+            findings.append(
+                Finding(
+                    severity="ERROR",
+                    category="dates",
+                    message=(
+                        f"Date-weekday mismatch: {m.group(0)} "
+                        f"-- actual weekday is {'月火水木金土日'[d.weekday()]} "
+                        f"(inferred year: {year})"
+                    ),
                     line_number=content[: m.start()].count("\n") + 1,
                 )
             )
