@@ -26,6 +26,12 @@ Invoke this skill when the user requests:
 - "Screen for sustainable high-yield stocks"
 - Any request combining dividend yield, valuation metrics, and fundamental analysis
 
+## Prerequisites
+
+- **FMP API key:** Required. Set `FMP_API_KEY` or pass `--fmp-api-key`.
+- **FINVIZ Elite API key:** Recommended, not required. Set `FINVIZ_API_KEY` or pass `--finviz-api-key` and use `--use-finviz` for two-stage screening. Without it the screener runs FMP-only and uses more API calls.
+- **Python:** 3.9+ with `requests>=2.31.0` (see `requirements.txt`).
+
 ## Workflow
 
 ### Step 1: Verify API Key Availability
@@ -174,96 +180,7 @@ Create structured markdown report for user with following sections:
 
 #### Report Structure
 
-```markdown
-# Value Dividend Stock Screening Report
-
-**Generated:** [Timestamp]
-**Screening Criteria:**
-- Dividend Yield: >= 3.5%
-- P/E Ratio: <= 20
-- P/B Ratio: <= 2
-- Dividend Growth (3Y CAGR): >= 5%
-- Revenue Trend: Positive over 3 years
-- EPS Trend: Positive over 3 years
-
-**Total Results:** [N] stocks
-
----
-
-## Top 20 Stocks Ranked by Composite Score
-
-| Rank | Symbol | Company | Yield | P/E | Div Growth | Score |
-|------|--------|---------|-------|-----|------------|-------|
-| 1 | [TICKER] | [Name] | [%] | [X.X] | [%] | [XX.X] |
-| ... |
-
----
-
-## Detailed Analysis
-
-### 1. [SYMBOL] - [Company Name] (Score: XX.X)
-
-**Sector:** [Sector Name]
-**Market Cap:** $[X.XX]B
-**Current Price:** $[XX.XX]
-
-**Valuation Metrics:**
-- Dividend Yield: [X.X]%
-- P/E Ratio: [XX.X]
-- P/B Ratio: [X.X]
-
-**Growth Profile (3-Year):**
-- Dividend CAGR: [X.X]% [✓ Consistent / ⚠ One cut]
-- Revenue CAGR: [X.X]%
-- EPS CAGR: [X.X]%
-
-**Dividend Sustainability:**
-- Payout Ratio: [XX]%
-- FCF Payout Ratio: [XX]%
-- FCF Observed: [amount or unavailable] ([POSITIVE / ZERO / NEGATIVE / MISSING_DATA])
-- FCF Coverage: [COVERED / AT_LIMIT / INSUFFICIENT_FCF / ZERO_FCF / NEGATIVE_FCF / MISSING_DATA / NO_DIVIDEND]
-- Decision Basis: [EARNINGS_AND_FCF / FFO]
-- Status: [✓ Sustainable / ⚠ Not confirmed]; Bonus: [0 / 10] points
-- Explanation: [sustainability_note]
-
-**Financial Health:**
-- Debt-to-Equity: [X.XX]
-- Current Ratio: [X.XX]
-- Status: [✓ Healthy / ⚠ Caution]
-
-**Quality Metrics:**
-- ROE: [XX]%
-- Net Profit Margin: [XX]%
-- Quality Score: [XX]/100
-
-**Investment Considerations:**
-- [Key strength 1]
-- [Key strength 2]
-- [Risk factor or consideration]
-
----
-
-[Repeat for other top stocks]
-
----
-
-## Portfolio Construction Guidance
-
-**Diversification Recommendations:**
-- Sector breakdown of top 20 results
-- Suggested allocation strategy
-- Concentration risk warnings
-
-**Monitoring Recommendations:**
-- Key metrics to track quarterly
-- Warning signs for each position
-- Rebalancing triggers
-
-**Risk Considerations:**
-- Market cap concentration
-- Sector biases in results
-- Economic sensitivity warnings
-```
+Read `references/report_template.md` for the full markdown report template.
 
 In the human report, keep observed FCF and dividend coverage separate. Negative FCF means an observed shortfall; zero FCF means no cash coverage; `MISSING_DATA` means the source fields were unavailable. None proves a future dividend cut. `AT_LIMIT` means FCF equals dividends with no buffer and earns no bonus. For confirmed REITs, use FFO as the decision basis and show FCF status as context even when it is negative; do not apply FFO treatment to a company solely because its sector is Real Estate. Copy `sustainability_note` into the explanation rather than replacing an unknown status with a sustainability claim.
 
@@ -287,183 +204,24 @@ Load `references/screening_methodology.md` to provide detailed explanations of:
 
 ### Step 6: Answer Follow-up Questions
 
-Anticipate common user questions:
-
-**"Why did [stock] not make the list?"**
-- Check which criteria it failed (yield, valuation, growth, sustainability)
-- Explain the specific filter that excluded it
-
-**"Can I screen for specific sectors?"**
-- Filtering capability exists in script (modify line 383-388)
-- Suggest re-running with sector parameter additions
-
-**"What if I want higher/lower yield threshold?"**
-- Script parameters are adjustable
-- Trade-offs between yield and growth
-- Recommend re-screening with new parameters
-
-**"How often should I re-run this screen?"**
-- Quarterly recommended (aligns with earnings cycles)
-- Semi-annually sufficient for long-term holders
-- Market conditions may warrant more frequent checks
-
-**"How many stocks should I buy?"**
-- Diversification guidance: minimum 10-15 for dividend portfolio
-- Sector balance considerations
-- Position sizing based on risk tolerance
+Read `references/follow_up_questions.md` for answers to common follow-up questions.
 
 ## Resources
 
-### scripts/screen_dividend_stocks.py
-
-Comprehensive screening script that:
-- Interfaces with FMP API for data retrieval
-- Implements multi-phase filtering logic
-- Calculates growth rates (CAGR) over 3-year periods
-- Evaluates dividend sustainability via payout ratios and FCF coverage
-- Assesses financial health (debt-to-equity, current ratio)
-- Computes quality scores (ROE, profit margins)
-- Ranks stocks by composite scoring system
-- Outputs structured JSON results
-
-**Dependencies:** `requests` library (install via `pip install requests`)
-
-**Rate limiting:** Built-in delays to respect FMP API limits (250 requests/day free tier)
-
-**Error handling:** Graceful degradation for missing data, rate limit retries, API errors
-
-### references/screening_methodology.md
-
-Comprehensive documentation of screening approach:
-
-**Phase 1: Initial Quantitative Filters**
-- Dividend yield >= 3.5% rationale and calculation
-- P/E ratio <= 20 threshold justification
-- P/B ratio <= 2 valuation logic
-
-**Phase 2: Growth Quality Filters**
-- Dividend growth (3-year CAGR >= 5%)
-- Revenue positive trend analysis
-- EPS positive trend analysis
-
-**Phase 3: Quality & Sustainability Analysis**
-- Dividend sustainability metrics (payout ratios, FCF coverage)
-- Financial health indicators (D/E, current ratio)
-- Quality scoring methodology (ROE, profit margins)
-
-**Composite Scoring System (0-100 points)**
-- Score component breakdown and weighting
-- Interpretation guidelines
-
-**Investment Philosophy**
-- Why this approach works
-- What this strategy avoids (dividend traps, value traps)
-- Ideal candidate profile
-
-**Usage Notes & Limitations**
-- Best practices for portfolio construction
-- When to sell criteria
-- Historical context for threshold selection
-
-### references/fmp_api_guide.md
-
-Complete guide for Financial Modeling Prep API:
-
-**API Key Setup**
-- Obtaining free API key
-- Setting environment variables
-- Free tier limits (250 requests/day)
-
-**Key Endpoints Used**
-- Stock Screener API
-- Income Statement API
-- Balance Sheet API
-- Cash Flow Statement API
-- Key Metrics API
-- Historical Dividend API
-
-**Rate Limiting Strategy**
-- Built-in protection in script
-- Request budget management
-- Best practices for free tier
-
-**Error Handling**
-- Common errors and solutions
-- Debugging techniques
-
-**Data Quality Considerations**
-- Data freshness and gaps
-- Data accuracy caveats
-- When to verify with SEC filings
+Read `references/resource_descriptions.md` for the description of the screening script and of each reference file.
 
 ## Advanced Usage
 
-### Customizing Screening Criteria
-
-Modify thresholds in `scripts/screen_dividend_stocks.py`:
-
-**Line 383-388** - Initial screening parameters:
-```python
-candidates = client.screen_stocks(
-    dividend_yield_min=3.5,  # Adjust yield threshold
-    pe_max=20,               # Adjust P/E threshold
-    pb_max=2,                # Adjust P/B threshold
-    market_cap_min=2_000_000_000  # Minimum $2B market cap
-)
-```
-
-**Line 423** - Dividend CAGR threshold:
-```python
-if not div_cagr or div_cagr < 5.0:  # Adjust growth threshold
-```
-
-### Sector-Specific Screening
-
-Add sector filtering after initial screening:
-
-```python
-# Filter for specific sectors
-target_sectors = ['Consumer Defensive', 'Utilities', 'Healthcare']
-candidates = [s for s in candidates if s.get('sector') in target_sectors]
-```
-
-### Excluding REITs and Financials
-
-REITs and financial stocks have different dividend characteristics (higher payouts, different metrics):
-
-```python
-# Exclude REITs and Financials
-exclude_sectors = ['Real Estate', 'Financial Services']
-candidates = [s for s in candidates if s.get('sector') not in exclude_sectors]
-```
-
-### Exporting to CSV
-
-Convert JSON results to CSV for Excel analysis:
-
-```python
-import json
-import csv
-
-with open('dividend_screener_results.json', 'r') as f:
-    data = json.load(f)
-
-stocks = data['stocks']
-
-with open('screening_results.csv', 'w', newline='') as csvfile:
-    if stocks:
-        fieldnames = stocks[0].keys()
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(stocks)
-```
+Read `references/advanced_usage.md` to customize criteria, screen a sector, exclude REITs and financials or export CSV.
 
 ## Troubleshooting
 
 ### "ERROR: requests library not found"
-**Solution:** Install requests library
+The script prints this error to stderr and exits with status 2. The message includes the full path of this skill's `requirements.txt`, so the hint works from any directory.
+
+**Solution:** Install the skill's dependencies
 ```bash
-pip install requests
+pip install -r skills/value-dividend-screener/requirements.txt
 ```
 
 ### "ERROR: FMP API key required"
@@ -530,37 +288,7 @@ python3 scripts/screen_dividend_stocks.py --use-finviz --finviz-api-key your_key
 
 ## Performance & Cost Optimization
 
-### API Call Comparison
-
-**Two-Stage Screening (FINVIZ + FMP):**
-- FINVIZ: 1 API call
-- FMP Quote API: ~30-50 calls (one per pre-screened symbol)
-- FMP Financial Data: ~150-250 calls (5 endpoints × 30-50 symbols)
-- **Total FMP calls: ~180-300**
-
-**FMP-Only Screening:**
-- FMP Stock Screener: 1 call (returns 100-1000 stocks)
-- FMP Financial Data: ~500-5000 calls (5 endpoints × 100-1000 symbols)
-- **Total FMP calls: ~500-5000**
-
-**Savings: 60-94% reduction in FMP API usage**
-
-### Cost Analysis
-
-**FINVIZ Elite:**
-- Monthly: $39.50
-- Annual: $299.50 (~$24.96/month)
-
-**FMP API:**
-- Free tier: 250 calls/day (sufficient for two-stage screening)
-- Starter tier: $29.99/month for 750 calls/day
-- Professional tier: $79.99/month for 2000 calls/day
-
-**Recommendation:**
-- **For free FMP tier users**: Use two-stage screening (FINVIZ + FMP free tier)
-- **For paid FMP tier users**: Either approach works; two-stage is faster
-- **Budget option**: FMP-only with free tier (run screening every few days)
-- **Optimal option**: FINVIZ Elite ($330/year) + FMP free tier = Complete solution
+Read `references/performance_and_cost.md` for API call comparison and cost analysis.
 
 ## Version History
 

@@ -63,7 +63,10 @@ def get_api_key(args_api_key):
         return args_api_key
     api_key = os.environ.get("FMP_API_KEY")
     if not api_key:
-        print("ERROR: FMP_API_KEY not found. Set environment variable or use --api-key")
+        print(
+            "ERROR: FMP_API_KEY not found. Set environment variable or use --api-key",
+            file=sys.stderr,
+        )
         sys.exit(1)
     return api_key
 
@@ -77,7 +80,10 @@ def fetch_sector_stocks(sector, api_key, min_market_cap=2_000_000_000):
     )
 
     if not data:
-        print(f"ERROR: No stocks found in {sector} sector with market cap > ${min_market_cap:,}")
+        print(
+            f"ERROR: No stocks found in {sector} sector with market cap > ${min_market_cap:,}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Extract symbols and basic info
@@ -594,7 +600,7 @@ Examples:
     price_data = fetch_price_data_batch(symbols, api_key, args.lookback_days)
 
     if len(price_data) < 2:
-        print("\nERROR: Need at least 2 stocks with valid data")
+        print("\nERROR: Need at least 2 stocks with valid data", file=sys.stderr)
         sys.exit(1)
 
     # Screen all pairs

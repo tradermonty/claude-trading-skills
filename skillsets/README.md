@@ -25,11 +25,24 @@ For the full schema, error codes, and validator rules, see
 | [`swing-opportunity.yaml`](swing-opportunity.yaml) | fmp-required | swing-opportunity-daily | vcp-screener, technical-analyst, position-sizer, trader-memory-core |
 | [`trade-memory.yaml`](trade-memory.yaml) | no-api-basic | trade-memory-loop, monthly-performance-review | trader-memory-core, signal-postmortem |
 | [`strategy-research.yaml`](strategy-research.yaml) | no-api-basic | strategy-research-pipeline | edge-candidate-agent, edge-hint-extractor, backtest-expert |
+| [`dividend-income.yaml`](dividend-income.yaml) | mixed | kanchi-dividend-weekly | kanchi-dividend-sop, trader-memory-core |
 
-These five categories have shipped workflows. `advanced-satellite` remains
-deferred until a dedicated workflow backs it; the Navigator returns an honest
-gap (`manifest_status: deferred`) for short strategies. `dividend-income` also
-remains deferred because it is not yet a canonical `skills-index.yaml` category.
+These six categories have shipped workflows. `advanced-satellite` remains
+deferred until a dedicated workflow backs it, together with the
+`risk-off-short-daily` workflow; both are tracked in
+[#715](https://github.com/tradermonty/claude-trading-skills/issues/715). The
+Navigator returns an honest gap (`manifest_status: deferred`) for short
+strategies.
+
+`dividend-income` is a canonical `skills-index.yaml` category holding the five
+dividend skills (`kanchi-dividend-sop`, `kanchi-dividend-review-monitor`,
+`kanchi-dividend-us-tax-accounting`, `value-dividend-screener`,
+`dividend-growth-pullback-screener`). The Navigator derives a workflow's
+skillset from the category of its first required skill, so
+`kanchi-dividend-weekly` (first required skill `kanchi-dividend-sop`) resolves
+to this manifest. `core-portfolio-weekly` still resolves to `core-portfolio`
+(first required skill `portfolio-manager`) and keeps its dividend skills in its
+`recommended` / `optional` tiers.
 
 ## Naming: category id is canonical
 

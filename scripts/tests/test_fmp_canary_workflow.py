@@ -418,3 +418,10 @@ def test_drift_tracking_is_serialized_and_least_privilege(config):
     assert "--apply" in notification["run"]
     assert "continue-on-error" not in notification
     assert job["steps"].index(notification) > job["steps"].index(health)
+
+
+def test_canary_checkout_does_not_persist_write_token(config):
+    checkout = next(
+        s for s in config["jobs"]["canary"]["steps"] if "actions/checkout@" in s.get("uses", "")
+    )
+    assert checkout["with"]["persist-credentials"] == "false"

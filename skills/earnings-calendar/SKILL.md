@@ -88,76 +88,7 @@ This guide contains:
 
 Detect API key availability based on environment.
 
-**Multi-Environment API Key Detection**:
-
-#### 3.1 Check Environment Variable (CLI/Desktop)
-
-```bash
-if [ ! -z "$FMP_API_KEY" ]; then
-  echo "✓ API key found in environment"
-  API_KEY=$FMP_API_KEY
-fi
-```
-
-If environment variable is set, proceed to Step 4.
-
-#### 3.2 Prompt User for API Key (Desktop/Web)
-
-If environment variable not found, use AskUserQuestion tool:
-
-**Question Configuration**:
-```
-Question: "This skill requires an FMP API key to retrieve earnings data. Do you have an FMP API key?"
-Header: "API Key"
-Options:
-  1. "Yes, I'll provide it now" → Proceed to 3.3
-  2. "No, get free key" → Show instructions (3.2.1)
-  3. "Skip API, use manual entry" → Jump to Step 8 (fallback mode)
-```
-
-**3.2.1 If user chooses "No, get free key"**:
-
-Provide instructions:
-```
-To get a free FMP API key:
-
-1. Visit: https://site.financialmodelingprep.com/developer/docs
-2. Click "Get Free API Key" or "Sign Up"
-3. Create account (email + password)
-4. Receive API key immediately
-5. Free tier includes 250 API calls/day (sufficient for daily use)
-
-Once you have your API key, please select "Yes, I'll provide it now" to continue.
-```
-
-#### 3.3 Request API Key Input
-
-If user has API key, request input:
-
-**Prompt**:
-```
-Please paste your FMP API key below:
-
-(Your API key will only be stored for this conversation session and will be forgotten when the session ends. For regular use, consider setting the FMP_API_KEY environment variable.)
-```
-
-**Store API key in session variable**:
-```
-API_KEY = [user_input]
-```
-
-**Confirm with user**:
-```
-✓ API key received and stored for this session.
-
-Security Note:
-- API key is stored only in current conversation context
-- Not saved to disk or persistent storage
-- Will be forgotten when session ends
-- Do not share this conversation if it contains your API key
-
-Proceeding with earnings data retrieval...
-```
+**Multi-Environment API Key Detection**: Read `references/api_key_setup_flow.md` when no `FMP_API_KEY` environment variable is found. It holds the environment check, the AskUserQuestion prompt, the free-key instructions and the session-only key handling.
 
 ### Step 4: Retrieve Earnings Data via FMP API
 
@@ -230,70 +161,7 @@ If script returns errors:
 
 ### Step 5: Process and Organize Data
 
-Once earnings data is retrieved (JSON format), process and organize it:
-
-#### 5.1 Parse JSON Data
-
-Load JSON data from script output:
-```python
-import json
-earnings_data = json.loads(earnings_json_string)
-```
-
-Or if saved to file:
-```python
-with open('earnings_data.json', 'r') as f:
-    earnings_data = json.load(f)
-```
-
-#### 5.2 Verify Data Structure
-
-Confirm data includes required fields:
-- ✓ symbol
-- ✓ companyName
-- ✓ date
-- ✓ timing (BMO/AMC/TAS)
-- ✓ marketCap
-- ✓ sector
-
-#### 5.3 Group by Date
-
-Group all earnings announcements by date:
-- Sunday, [Full Date] (if applicable)
-- Monday, [Full Date]
-- Tuesday, [Full Date]
-- Wednesday, [Full Date]
-- Thursday, [Full Date]
-- Friday, [Full Date]
-- Saturday, [Full Date] (if applicable)
-
-#### 5.4 Sub-Group by Timing
-
-Within each date, create three sub-sections:
-1. **Before Market Open (BMO)**
-2. **After Market Close (AMC)**
-3. **Time Not Announced (TAS)**
-
-Data is already sorted by timing from the script, so maintain this order.
-
-#### 5.5 Within Each Timing Group
-
-Companies are already sorted by market cap descending (script output):
-- Mega-cap (>$200B) first
-- Large-cap ($10B-$200B) second
-- Mid-cap ($2B-$10B) third
-
-This prioritization ensures the most market-moving companies are listed first.
-
-#### 5.6 Calculate Summary Statistics
-
-Compute:
-- **Total Companies**: Count of all companies in dataset
-- **Mega/Large Cap Count**: Count where marketCap >= $10B
-- **Mid Cap Count**: Count where marketCap between $2B and $10B
-- **Peak Day**: Day of week with most earnings announcements
-- **Sector Distribution**: Count by sector (Technology, Healthcare, Financial, etc.)
-- **Highest Market Cap Companies**: Top 5 companies by market cap
+Once earnings data is retrieved (JSON format), process and organize it: Read `references/data_processing_steps.md` when parsing and organizing the fetched earnings JSON (steps 5.1 to 5.6).
 
 ### Step 6: Generate Markdown Report
 
@@ -331,109 +199,7 @@ The script automatically handles all formatting including:
 - EPS and revenue formatting
 - Summary statistics calculation
 
-**Report Structure**:
-
-```markdown
-# Upcoming Earnings Calendar - Week of [START_DATE] to [END_DATE]
-
-**Report Generated**: [Current Date]
-**Data Source**: FMP API (Mid-cap and above, >$2B market cap)
-**Coverage Period**: Next 7 days
-**Total Companies**: [COUNT]
-
----
-
-## Executive Summary
-
-- **Total Companies Reporting**: [TOTAL_COUNT]
-- **Mega/Large Cap (>$10B)**: [LARGE_CAP_COUNT]
-- **Mid Cap ($2B-$10B)**: [MID_CAP_COUNT]
-- **Peak Day**: [DAY_WITH_MOST_EARNINGS]
-
----
-
-## [Day Name], [Full Date]
-
-### Before Market Open (BMO)
-
-| Ticker | Company | Market Cap | Sector | EPS Est. | Revenue Est. |
-|--------|---------|------------|--------|----------|--------------|
-| [TICKER] | [COMPANY] | [MCAP] | [SECTOR] | [EPS] | [REV] |
-
-### After Market Close (AMC)
-
-| Ticker | Company | Market Cap | Sector | EPS Est. | Revenue Est. |
-|--------|---------|------------|--------|----------|--------------|
-| [TICKER] | [COMPANY] | [MCAP] | [SECTOR] | [EPS] | [REV] |
-
-### Time Not Announced (TAS)
-
-| Ticker | Company | Market Cap | Sector | EPS Est. | Revenue Est. |
-|--------|---------|------------|--------|----------|--------------|
-| [TICKER] | [COMPANY] | [MCAP] | [SECTOR] | [EPS] | [REV] |
-
----
-
-[Repeat for each day of week]
-
----
-
-## Key Observations
-
-### Highest Market Cap Companies This Week
-1. [COMPANY] ([TICKER]) - [MCAP] - [DATE] [TIME]
-2. [COMPANY] ([TICKER]) - [MCAP] - [DATE] [TIME]
-3. [COMPANY] ([TICKER]) - [MCAP] - [DATE] [TIME]
-
-### Sector Distribution
-- **Technology**: [COUNT] companies
-- **Healthcare**: [COUNT] companies
-- **Financial**: [COUNT] companies
-- **Consumer**: [COUNT] companies
-- **Other**: [COUNT] companies
-
-### Trading Considerations
-- **Days with Heavy Volume**: [DATES with multiple large-cap earnings]
-- **Pre-Market Focus**: [BMO companies that may move markets]
-- **After-Hours Focus**: [AMC companies that may move markets]
-
----
-
-## Timing Reference
-
-- **BMO (Before Market Open)**: Announcements typically around 6:00-8:00 AM ET before market opens at 9:30 AM ET
-- **AMC (After Market Close)**: Announcements typically around 4:00-5:00 PM ET after market closes at 4:00 PM ET
-- **TAS (Time Not Announced)**: Specific time not yet disclosed - monitor company investor relations
-
----
-
-## Data Notes
-
-- **Market Cap Categories**:
-  - Mega Cap: >$200B
-  - Large Cap: $10B-$200B
-  - Mid Cap: $2B-$10B
-
-- **Filter Criteria**: This report includes companies with market cap $2B and above (mid-cap+) with earnings scheduled for the next week.
-
-- **Data Source**: Financial Modeling Prep (FMP) API
-
-- **Data Freshness**: Earnings dates and times can change. Verify critical dates through company investor relations websites for the most current information.
-
-- **EPS and Revenue Estimates**: Analyst consensus estimates from FMP API. Actual results will be reported on earnings date.
-
----
-
-## Additional Resources
-
-- **FMP API Documentation**: https://site.financialmodelingprep.com/developer/docs
-- **Seeking Alpha Calendar**: https://seekingalpha.com/earnings/earnings-calendar
-- **Yahoo Finance Calendar**: https://finance.yahoo.com/calendar/earnings
-
----
-
-*Report generated using FMP Earnings Calendar API with mid-cap+ filter (>$2B market cap). Data current as of report generation time. Always verify earnings dates through official company sources.*
-```
+**Report Structure**: Read `references/report_template.md` for the full markdown report structure.
 
 **Formatting Best Practices**:
 - Use markdown tables for clean presentation
@@ -539,62 +305,7 @@ I will format this into the standard earnings calendar report.
 
 ## Use Cases and Examples
 
-### Use Case 1: Weekly Review (Primary Use Case)
-
-**User Request**: "Get next week's earnings calendar"
-
-**Workflow**:
-1. Get current date (e.g., November 2, 2025)
-2. Calculate target week (November 3-9, 2025)
-3. Load FMP API guide
-4. Detect/request API key
-5. Fetch earnings data:
-   ```bash
-   python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 > earnings_data.json
-   ```
-6. Generate markdown report:
-   ```bash
-   python scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-02.md
-   ```
-7. Notify user with summary
-
-**Complete One-Liner**:
-```bash
-python scripts/fetch_earnings_fmp.py 2025-11-03 2025-11-09 > earnings_data.json && \
-python scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-02.md
-```
-
-### Use Case 2: Focused on Specific Day
-
-**User Request**: "What earnings are coming out Monday?"
-
-**Workflow**:
-1. Get current date and identify next Monday (e.g., November 4, 2025)
-2. Fetch full week data (same as Use Case 1)
-3. Generate full report but highlight Monday section
-4. Provide verbal summary of Monday's earnings with emphasis
-
-### Use Case 3: Mega-Cap Focus
-
-**User Request**: "Show me earnings for companies over $100B market cap next week"
-
-**Workflow**:
-1. Fetch full earnings data (script already filters >$2B)
-2. Process and organize as normal
-3. When generating report, add a "Mega-Cap Focus" section at top
-4. Filter tables to show only companies >$100B
-5. Note: Still include full data in appendix for reference
-
-### Use Case 4: Sector-Specific
-
-**User Request**: "What tech companies have earnings next week?"
-
-**Workflow**:
-1. Fetch full earnings data
-2. Process and organize as normal
-3. Filter results by sector = "Technology"
-4. Generate report with focus on technology sector
-5. Note: Template structure remains the same; content is filtered
+Read `references/use_cases.md` for four worked use cases: weekly review, a specific day, mega-cap focus, sector focus.
 
 ## Troubleshooting
 
@@ -635,82 +346,21 @@ python scripts/generate_report.py earnings_data.json earnings_calendar_2025-11-0
 
 **Solutions**:
 - Verify Python 3 is installed: `python3 --version`
-- Install requests library: `pip install requests`
+- Install the skill's dependencies: `pip install -r skills/earnings-calendar/requirements.txt` (a missing `requests` makes the script print "ERROR: requests library not found" to stderr and exit with status 2, with the full `requirements.txt` path in the message)
 - Check script has execute permissions: `chmod +x fetch_earnings_fmp.py`
 - Run with python3 explicitly: `python3 fetch_earnings_fmp.py ...`
 
 ## Best Practices
 
-### Do's
-✓ Always get current date first before any data retrieval
-✓ Use FMP API as primary source for reliability
-✓ Store API key in environment variable for CLI usage
-✓ Sort by market cap to prioritize high-impact companies
-✓ Group by date then timing for logical organization
-✓ Include summary statistics for quick overview
-✓ Credit data sources in report footer
-✓ Use clean markdown tables for readability
-✓ Provide timing reference section for clarity
-✓ Note data freshness and potential for changes
-✓ Include EPS and revenue estimates when available
-
-### Don'ts
-✗ Don't assume "next week" without calculating from current date
-✗ Don't omit timing information (BMO/AMC/TAS)
-✗ Don't mix date formats within report (stay consistent)
-✗ Don't include micro/small-cap unless specifically requested
-✗ Don't forget to sort by market cap within sections
-✗ Don't share API key in conversations or reports
-✗ Don't include earnings from current week or past dates
-✗ Don't generate report without quality assurance checks
-✗ Don't commit API keys to version control
+Read `references/best_practices_and_security.md` (section "Best Practices") for the Do's and Don'ts list.
 
 ## Security Notes
 
-### API Key Security
-
-**Important Reminders**:
-1. ✓ Use free tier API keys for testing
-2. ✓ Rotate keys regularly
-3. ✓ Don't share conversations containing API keys
-4. ✓ Set API key as environment variable for CLI
-5. ✓ Keys provided in chat are session-only (forgotten after session ends)
-6. ✗ Never commit API keys to Git repositories
-7. ✗ Never use production API keys with sensitive data access
-
-**Best Practice**:
-For Claude Code (CLI), always use environment variable:
-```bash
-# Add to ~/.zshrc or ~/.bashrc
-export FMP_API_KEY="your-key-here"
-```
-
-For Claude Web, understand that:
-- API key entered in chat is temporary
-- Stored only in conversation context
-- Not saved to disk
-- Forgotten when session ends
+Read `references/best_practices_and_security.md` (section "Security Notes: API Key Security") for API key handling guidance per environment.
 
 ## Resources
 
-**FMP API**:
-- Main Documentation: https://site.financialmodelingprep.com/developer/docs
-- Get API Key: https://site.financialmodelingprep.com/developer/docs
-- Earnings Calendar API: https://site.financialmodelingprep.com/developer/docs/earnings-calendar-api
-- Company Profile API: https://site.financialmodelingprep.com/developer/docs/companies-key-metrics-api
-- Pricing/Rate Limits: https://site.financialmodelingprep.com/developer/docs/pricing
-
-**Supplementary Sources** (for verification):
-- Seeking Alpha: https://seekingalpha.com/earnings/earnings-calendar
-- Yahoo Finance: https://finance.yahoo.com/calendar/earnings
-- MarketWatch: https://www.marketwatch.com/tools/earnings-calendar
-
-**Skill Resources**:
-- FMP API Guide: `references/fmp_api_guide.md`
-- Python Script: `scripts/fetch_earnings_fmp.py`
-- Vendored FMP Compat: `scripts/_fmp_compat.py` (v3→stable rewrite shim)
-- Vendored FMP Client: `scripts/fmp_client.py` (generated; handles rate limiting, single 429 retry, and header auth) — note: HTTP failures print one generic `ERROR: API request failed: …` client line plus the script's mapped `❌ ERROR:` message
-- Report Template: `assets/earnings_report_template.md`
+Read `references/resource_links.md` for FMP documentation links, supplementary sources and the skill resource list.
 
 ---
 

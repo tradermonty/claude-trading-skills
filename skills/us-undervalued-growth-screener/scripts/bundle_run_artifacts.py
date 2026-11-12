@@ -126,7 +126,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = build_bundle(args.run_dir, args.report_json, args.report_md, args.output)
     except (AuditError, OSError, ValueError) as exc:
-        print(f"ERROR: {exc}")
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

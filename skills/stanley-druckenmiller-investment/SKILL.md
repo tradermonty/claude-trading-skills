@@ -28,6 +28,14 @@ Synthesize outputs from 8 upstream analysis skills (5 required + 3 optional) int
 
 ---
 
+## Prerequisites
+
+- **API keys:** None required. The skill is a meta-skill that reads JSON reports produced by upstream skills; those skills may need their own keys.
+- **Python:** 3.9+ with the standard library only (see `requirements.txt`).
+- **Inputs:** Recent JSON reports in `reports/` from the five required upstream skills listed under Input Requirements. The three optional skills improve the result when present.
+
+---
+
 ## Input Requirements
 
 ### Required Skills (5)

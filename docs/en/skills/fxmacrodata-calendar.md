@@ -37,8 +37,10 @@ Fetch official FXMacroData macro release-calendar events for trade planning, mac
 
 ## 2. Prerequisites
 
-- FXMacroData REST API; public USD calendar rows work without a key
-- Python 3.9+ recommended
+- **FXMacroData API key:** Optional. Set `FXMACRODATA_API_KEY` for authenticated endpoints. Public USD calendar rows can be fetched without a key.
+- **Other API keys:** None used.
+- **Python:** 3.9+ with the standard library only (see `requirements.txt`).
+- **Network:** Access to `https://api.fxmacrodata.com/v1`.
 
 ---
 

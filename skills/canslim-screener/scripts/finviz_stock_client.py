@@ -231,4 +231,4 @@ if __name__ == "__main__":
     )
 
     if data.get("error"):
-        print(f"  Error: {data['error']}")
+        print(f"  Error: {data['error']}", file=sys.stderr)

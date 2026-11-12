@@ -42,6 +42,15 @@ Translate natural-language stock screening requests into FinViz screener filter 
 
 ---
 
+## Prerequisites
+
+- **FINVIZ Elite API key:** Optional. The public screener works without a key. Set `FINVIZ_API_KEY` to enable Elite mode, or pass `--elite` to force it.
+- **Other API keys:** None used.
+- **Python:** 3.9+ with the standard library only (see `requirements.txt`).
+- **Browser:** Chrome is used first to open the screener URL. Use `--url-only` to print the URL instead.
+
+---
+
 ## Workflow
 
 ### Step 1: Load Filter Reference

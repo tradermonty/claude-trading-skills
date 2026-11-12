@@ -79,48 +79,7 @@ file or place orders.
 
 Use Alpaca MCP Server tools to gather current portfolio information when available. In scheduled Hermes jobs, MCP tools may not be exposed even when Alpaca credentials are present; in that case, use the Alpaca REST API directly with `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`, and `ALPACA_PAPER`.
 
-**1.1 Get Account Information:**
-```
-Preferred: use mcp__alpaca__get_account_info to fetch:
-- Account equity (total portfolio value)
-- Cash balance
-- Buying power
-- Account status
-
-Fallback REST endpoints:
-- paper: https://paper-api.alpaca.markets/v2/account
-- live:  https://api.alpaca.markets/v2/account
-Headers:
-- APCA-API-KEY-ID=$ALPACA_API_KEY
-- APCA-API-SECRET-KEY=$ALPACA_SECRET_KEY
-```
-
-**1.2 Get Current Positions:**
-```
-Preferred: use mcp__alpaca__get_positions to fetch all holdings:
-- Symbol ticker
-- Quantity held
-- Average entry price (cost basis)
-- Current market price
-- Current market value
-- Unrealized P&L ($ and %)
-- Position size as % of portfolio
-
-Fallback REST endpoints:
-- paper: https://paper-api.alpaca.markets/v2/positions
-- live:  https://api.alpaca.markets/v2/positions
-```
-
-**1.3 Get Portfolio History (Optional):**
-```
-Preferred: use mcp__alpaca__get_portfolio_history for performance analysis:
-- Historical equity values
-- Time-weighted return calculation
-- Drawdown analysis
-
-Fallback REST endpoint:
-- /v2/account/portfolio/history
-```
+Read `references/alpaca-data-fetch.md` (section "Step 1 detail: account, positions and portfolio history requests") when fetching data. It holds the MCP tool and REST fallback endpoints and headers for steps 1.1 to 1.3.
 
 **Scheduled-job fallback discipline:**
 - Clearly label the source as `Alpaca REST fallback` rather than MCP.
@@ -201,22 +160,7 @@ Analyze current allocation across multiple dimensions:
 - Domestic concentration risk assessment
 
 **Output Format (illustrative values):**
-```markdown
-## Asset Allocation
-
-### Current Allocation vs Target
-| Asset Class | Current | Target | Variance |
-|-------------|---------|--------|----------|
-| US Equities | 70.0% | 60.0% | +10.0 pp |
-
-### Sector Breakdown
-[Pie chart description or table with sector percentages]
-
-### Top 10 Holdings
-| Rank | Symbol | % of Portfolio | Sector |
-|------|--------|----------------|--------|
-| 1 | AAPL | 8.5% | Technology |
-```
+Read `references/report-section-templates.md` (section "Asset Allocation output template") for the asset allocation output template.
 
 #### 3.2 Diversification Analysis
 
@@ -244,25 +188,7 @@ Evaluate portfolio diversification quality:
 - Flag if under-diversified (<10 stocks) or over-diversified (>50 stocks)
 
 **Output (illustrative values):**
-```markdown
-## Diversification Assessment
-
-**Concentration Risk:** [Low / Medium / High]
-- Top 5 holdings represent 42% of portfolio
-- Largest single position: AAPL at 12%
-
-**Sector Diversification:** [Excellent / Good / Fair / Poor]
-- Dominant sector: Technology at 31%
-- [Assessment of balance across sectors]
-
-**Position Count:** [Optimal / Under-diversified / Over-diversified]
-- Total positions: 18 stocks
-- [Recommendation]
-
-**Correlation Concerns:**
-- [List any highly correlated position pairs]
-- [Diversification improvement suggestions]
-```
+Read `references/report-section-templates.md` (section "Diversification Assessment output template") for the diversification output template.
 
 #### 3.3 Risk Analysis
 
@@ -291,29 +217,7 @@ Calculate and interpret key risk metrics:
 - Sector-specific event risk
 
 **Output (illustrative values):**
-```markdown
-## Risk Assessment
-
-**Overall Risk Profile:** [Conservative / Moderate / Aggressive]
-
-**Portfolio Beta:** 1.12 (vs market at 1.00)
-- Interpretation: Portfolio is [more/less] volatile than market
-
-**Maximum Drawdown:** -14.2% (from $125,000 to $107,250)
-- Current drawdown from peak: -6.3%
-
-**High-Risk Positions:**
-| Symbol | % of Portfolio | Beta | Risk Factor |
-|--------|----------------|------|-------------|
-| NVDA | 11% | 1.65 | High volatility |
-
-**Risk Concentrations:**
-- 31% in a single sector (Technology)
-- 18% in stocks with beta above 1.5
-- [Other concentration risks]
-
-**Risk Score:** 68/100 (Medium risk)
-```
+Read `references/report-section-templates.md` (section "Risk Assessment output template") for the risk assessment output template.
 
 #### 3.4 Performance Analysis
 
@@ -336,28 +240,7 @@ Evaluate portfolio performance using available data:
 - Positions near 52-week highs/lows
 
 **Output (illustrative values):**
-```markdown
-## Performance Review
-
-**Total Portfolio Value:** $100,000
-**Total Unrealized P&L:** $8,500 (+9.3%)
-**Cash Balance:** $5,000 (5% of portfolio)
-
-**Best Performers:**
-| Symbol | Gain | Position Value |
-|--------|------|----------------|
-| AAPL | +22.4% | $12,240 |
-
-**Worst Performers:**
-| Symbol | Loss | Position Value |
-|--------|------|----------------|
-| INTC | -12.0% | $6,600 |
-
-**Performance vs Benchmark (illustrative values):**
-- Portfolio return: +9.3%
-- S&P 500 return: +7.8%
-- Alpha: +1.5 percentage points
-```
+Read `references/report-section-templates.md` (section "Performance Review output template") for the performance review output template.
 
 ### Step 4: Individual Position Analysis
 
@@ -396,35 +279,7 @@ For each significant position:
 - **SELL** - Thesis broken, better opportunities elsewhere
 
 **Output per position (illustrative values):**
-```markdown
-### AAPL - Apple Inc. (8.5% of portfolio)
-
-**Position Details:**
-- Shares: 50
-- Avg Cost: $150.00
-- Current Price: $170.00
-- Market Value: $8,500
-- Unrealized P/L: $1,000 (+13.3%)
-
-**Fundamental Snapshot:**
-- Sector: [Sector]
-- Market Cap: $3.2T
-- P/E: 31.4 | Dividend Yield: 0.5%
-- Recent developments: [Key news or earnings]
-
-**Technical Status:**
-- Trend: [Uptrend / Downtrend / Sideways]
-- Price vs 50-day MA: Above by 4.2%
-- Support: $162.00 | Resistance: $176.00
-
-**Position Assessment:**
-- **Thesis Status:** [Intact / Weakening / Broken / Strengthening]
-- **Valuation:** [Undervalued / Fair / Overvalued]
-- **Position Sizing:** [Optimal / Overweight / Underweight]
-
-**Recommendation:** [HOLD / ADD / TRIM / SELL]
-**Rationale:** [1-2 sentence explanation]
-```
+Read `references/report-section-templates.md` (section "Per-position output template") for the per-position output template.
 
 ### Step 5: Rebalancing Recommendations
 
@@ -464,43 +319,7 @@ Rank rebalancing actions by priority:
 4. **Low Priority** - Fine-tuning and opportunistic adjustments
 
 **Output (illustrative values):**
-```markdown
-## Rebalancing Recommendations
-
-### Summary
-- **Rebalancing Needed:** [Yes / No / Optional]
-- **Primary Reason:** [Concentration risk / Sector drift / Cash deployment / etc]
-- **Estimated Trades:** 2 sell orders, 3 buy orders
-
-### Recommended Actions
-
-#### HIGH PRIORITY: Risk Reduction
-**TRIM NVDA** from 18% to 12% of portfolio
-- **Shares to Sell:** 25 shares (about $3,000)
-- **Rationale:** [Overweight / Valuation extended / etc]
-- **Tax Impact:** $600 capital gain (estimate)
-
-#### MEDIUM PRIORITY: Asset Allocation
-**ADD investment-grade bond exposure**
-- **Target:** Increase from 10% to 20%
-- **Suggested Securities:** [Select liquid securities that fit the user's mandate]
-- **Amount to Invest:** About $10,000
-
-#### CASH DEPLOYMENT
-**Current Cash:** $5,000 (5% of portfolio)
-- **Recommendation:** [Deploy / Keep for opportunities / Reduce to target]
-- **Suggested Allocation:** [Distribution across sectors/stocks]
-
-### Implementation Plan
-1. [First action - highest priority]
-2. [Second action]
-3. [Third action]
-...
-
-**Timing Considerations:**
-- [Tax year-end planning / Earnings season / Market conditions]
-- [Suggested phasing if applicable]
-```
+Read `references/report-section-templates.md` (section "Rebalancing Recommendations output template") for the rebalancing output template.
 
 ### Step 6: Generate Portfolio Report
 
@@ -508,118 +327,11 @@ Create comprehensive markdown report saved to repository root:
 
 **Filename:** `portfolio_analysis_YYYY-MM-DD.md`
 
-**Report Structure:**
-
-```markdown
-# Portfolio Analysis Report
-
-**Account:** [Account type if available]
-**Report Date:** 2026-07-25
-**Portfolio Value:** $100,000
-**Total P&L:** $8,500 (+9.3%)
-
----
-
-## Executive Summary
-
-[3-5 bullet points summarizing key findings]
-- Overall portfolio health assessment
-- Major strengths
-- Key risks or concerns
-- Primary recommendations
-
----
-
-## Holdings Overview
-
-[Summary table of all positions]
-
----
-
-## Asset Allocation
-[Section from Step 3.1]
-
----
-
-## Diversification Analysis
-[Section from Step 3.2]
-
----
-
-## Risk Assessment
-[Section from Step 3.3]
-
----
-
-## Performance Review
-[Section from Step 3.4]
-
----
-
-## Position Analysis
-[Detailed analysis of top 10-15 positions from Step 4]
-
----
-
-## Rebalancing Recommendations
-[Section from Step 5]
-
----
-
-## Action Items
-
-**Immediate Actions:**
-- [ ] [Action 1]
-- [ ] [Action 2]
-
-**Medium-Term Actions:**
-- [ ] [Action 3]
-- [ ] [Action 4]
-
-**Monitoring Priorities:**
-- [ ] [Watch list item 1]
-- [ ] [Watch list item 2]
-
----
-
-## Appendix: Full Holdings
-
-[Complete table with all positions and metrics]
-```
+**Report Structure:** Read `references/report-section-templates.md` (section "Step 6: Portfolio Analysis Report structure") for the full report structure, from Executive Summary to Appendix.
 
 ### Step 7: Interactive Follow-up
 
-Be prepared to answer follow-up questions:
-
-**Common Questions:**
-
-**"Why should I sell [SYMBOL]?"**
-- Explain specific concerns (valuation, thesis breakdown, concentration)
-- Provide supporting data
-- Offer alternative positions if applicable
-
-**"What should I buy instead?"**
-- Suggest specific stocks to improve allocation
-- Explain how they address portfolio gaps
-- Provide brief investment thesis
-
-**"What's my biggest risk?"**
-- Identify primary risk factor (concentration, sector exposure, volatility)
-- Quantify the risk
-- Suggest mitigation strategies
-
-**"How does my portfolio compare to [benchmark]?"**
-- Compare allocation, sector weights, risk metrics
-- Highlight key differences
-- Assess if differences are justified
-
-**"Should I rebalance now or wait?"**
-- Consider market conditions, tax implications, transaction costs
-- Provide timing recommendation with rationale
-
-**"Can you analyze [specific position] in more detail?"**
-- Perform deep-dive analysis using us-stock-analysis skill if needed
-- Integrate findings back into portfolio context
+Be prepared to answer follow-up questions: Read `references/follow-up-and-advanced.md` (section "Step 7 detail: Interactive Follow-up") when answering follow-up questions. It holds the common questions with answer guidance.
 
 ## Analysis Frameworks
 
@@ -681,39 +393,7 @@ If user's target allocation is unknown, assess appropriate risk profile based on
 
 ## Resources
 
-Load these references as needed during analysis:
-
-**references/alpaca-mcp-setup.md**
-- When: User needs help setting up Alpaca MCP Server
-- Contains: Installation instructions, API key configuration, MCP server connection steps, troubleshooting
-
-**references/asset-allocation.md**
-- When: Analyzing portfolio allocation or creating rebalancing plan
-- Contains: Asset allocation theory, optimal allocation by risk profile, sector allocation guidelines, rebalancing triggers
-
-**references/diversification-principles.md**
-- When: Assessing portfolio diversification quality
-- Contains: Modern portfolio theory basics, correlation concepts, optimal position count, concentration risk thresholds, diversification metrics
-
-**references/portfolio-risk-metrics.md**
-- When: Calculating risk scores or interpreting volatility
-- Contains: Beta calculation, standard deviation, Sharpe ratio, maximum drawdown, Value at Risk (VaR), risk-adjusted return metrics
-
-**references/position-evaluation.md**
-- When: Analyzing individual holdings for buy/hold/sell decisions
-- Contains: Position analysis framework, thesis validation checklist, position sizing guidelines, sell discipline criteria
-
-**references/rebalancing-strategies.md**
-- When: Developing rebalancing recommendations
-- Contains: Rebalancing methodologies (calendar-based, threshold-based, tactical), tax optimization strategies, transaction cost considerations, implementation timing
-
-**references/target-allocations.md**
-- When: Need benchmark allocations for comparison
-- Contains: Model portfolios for conservative/moderate/growth/aggressive investors, sector target ranges, market cap distributions
-
-**references/risk-profile-questionnaire.md**
-- When: User hasn't specified risk tolerance or target allocation
-- Contains: Risk assessment questions, scoring methodology, risk profile classification
+Read `references/resource-index.md` to decide which reference file to load. It holds the per-file When/Contains index.
 
 ## Error Handling
 
@@ -741,67 +421,11 @@ Load these references as needed during analysis:
 
 ## Advanced Features
 
-### Tax-Loss Harvesting Opportunities
-
-Identify positions with unrealized losses suitable for tax-loss harvesting:
-- Positions with losses >5%
-- Holding period considerations (avoid wash sale rule)
-- Replacement security suggestions (similar but not substantially identical)
-
-### Dividend Income Analysis
-
-For portfolios with dividend-paying stocks:
-- Estimate annual dividend income
-- Dividend growth rate trajectory
-- Dividend coverage and sustainability
-- Yield on cost for long-term holdings
-
-### Correlation Matrix
-
-For portfolios with 5-20 positions:
-- Estimate correlation between major positions
-- Identify redundant positions (correlation >0.8)
-- Suggest diversification improvements
-
-### Scenario Analysis
-
-Model portfolio behavior under different scenarios:
-- **Bull Market** (+20% equity appreciation)
-- **Bear Market** (-20% equity decline)
-- **Sector Rotation** (Tech weakness, Value strength)
-- **Rising Rates** (Impact on growth stocks and bonds)
+Read `references/follow-up-and-advanced.md` (section "Advanced Features") when the user asks for tax-loss harvesting, dividend income, correlation or scenario analysis.
 
 ## Example Queries
 
-**Basic Portfolio Review:**
-- "Analyze my portfolio"
-- "Review my positions"
-- "How's my portfolio doing?"
-
-**Allocation Analysis:**
-- "What's my asset allocation?"
-- "Am I too concentrated in tech?"
-- "Show me my sector breakdown"
-
-**Risk Assessment:**
-- "Is my portfolio too risky?"
-- "What's my portfolio beta?"
-- "What are my biggest risks?"
-
-**Rebalancing:**
-- "Should I rebalance?"
-- "What should I buy or sell?"
-- "How can I improve diversification?"
-
-**Performance:**
-- "What are my best and worst positions?"
-- "How am I performing vs the market?"
-- "Which stocks are winning and losing?"
-
-**Position-Specific:**
-- "Should I sell [SYMBOL]?"
-- "Is [SYMBOL] overweight in my portfolio?"
-- "What should I do with [SYMBOL]?"
+Read `references/follow-up-and-advanced.md` (section "Example Queries") for example queries grouped by analysis type.
 
 ## Limitations and Disclaimers
 

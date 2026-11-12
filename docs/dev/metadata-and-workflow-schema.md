@@ -23,6 +23,7 @@ schema_version: 1
 categories:
   - market-regime
   - core-portfolio
+  - dividend-income
   - swing-opportunity
   - trade-planning
   - trade-memory
@@ -574,3 +575,44 @@ badges remain protected. It preflights all target identities/table shapes before
 writing; `--check` detects any generated-cell drift. The standalone catalog
 checker also rejects category/matrix disagreements and required-plus-No-API
 contradictions. Regenerate with `python3 scripts/generate_catalog_from_index.py`.
+
+## Theme-detector input contract (#673)
+
+Exposure-coach owns the consumer adapter; theme-detector does not emit a new
+financial score. A canonical input has `report_type: "theme_detector"`, a nonempty
+`themes.all` list, and `data_quality: {status: "ok"|"warning", flags: [string, ...]}`.
+Use `themes.all` once; `bullish`, `bearish`, and `match_ranked` duplicate those
+entries and must not be counted again. Each row requires `direction` equal to
+`bullish` or `bearish` and numeric finite non-boolean `heat` in [0,100]. Missing or
+invalid rows/quality metadata reject the whole theme input, without dropping bad
+rows or manufacturing zero heat. Extra flat score aliases do not override a
+canonical report.
+
+The version-one integration heuristic is:
+
+```text
+signed_heat = +heat for bullish, -heat for bearish
+score = round(50 + mean(signed_heat) / 2)
+```
+
+Rounding uses Python's nearest integer (ties to even). Bullish heat 80 gives 90;
+bearish heat 80 gives 10; equal opposing heat cancels to 50. All rows have equal
+weight. This is an uncalibrated adapter, not a validated forecast, breadth
+measure, freshness check or production financial verification. Existing 5% theme
+weight, renormalization, bias thresholds and critical-input controls are unchanged.
+Usable new theme evidence can therefore change the composite/bias recommendation.
+
+Valid legacy `theme_score` numeric values in [0,100] retain integer conversion;
+recognized `theme_strength` labels retain strong=85, stable=65, rotating=40,
+collapsing=20. Invalid scalar types/nonfinite/range/unknown labels are unparsable.
+
+An omitted `--theme` is in `inputs_missing`. A supplied unreadable, empty or
+unsupported file is excluded from scoring, warned on stderr and listed in
+`inputs_unparseable`, not `inputs_missing` or `inputs_provided`. Unusable inputs
+still count as unavailable internally for confidence/renormalization; diagnostics
+cannot improve confidence. Canonical nonempty upstream flags are preserved in
+`input_warnings.theme`, Markdown and stderr. A `warning` status is not itself a
+rejection: some flags concern unrelated enrichment. Confidence describes input
+completeness, not freshness, upstream verification or forecast accuracy. Diagnostic fields are emitted only when nonempty, preserving the established
+strict output shape for ordinary/legacy calls without diagnostics. Other
+input extractors retain their existing contracts in this change.

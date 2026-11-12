@@ -1,0 +1,36 @@
+schema_version: 1
+id: dividend-income
+display_name: Dividend Income
+category: dividend-income
+timeframe: weekly
+difficulty: intermediate
+api_profile: mixed
+target_users:
+  - long-term-investor
+  - dividend-investor
+
+when_to_use: >-
+  Source and underwrite new US-listed dividend candidates once a week with
+  Kanchi's 5-step method: screen for yield and quality, deep-dive the
+  strongest names, and register a fully documented candidate thesis before
+  any entry. Operationalized by the kanchi-dividend-weekly workflow (v1
+  covers US-listed dividend stocks only).
+when_not_to_use: >-
+  Do not use this bundle for Japanese or other non-US-listed dividend stocks,
+  and do not treat Kanchi-style screening as a buy signal or a claim of
+  profitability. It is not for maintaining an existing holding; that is the
+  core-portfolio sleeve. No order is placed automatically; every buy is
+  entered manually at the broker.
+
+required_skills:
+  - kanchi-dividend-sop
+  - trader-memory-core
+recommended_skills:
+  - value-dividend-screener
+  - dividend-growth-pullback-screener
+optional_skills:
+  - kanchi-dividend-us-tax-accounting
+  - kanchi-dividend-review-monitor
+
+related_workflows:
+  - kanchi-dividend-weekly

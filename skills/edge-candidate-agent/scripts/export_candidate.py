@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -341,7 +342,7 @@ def main() -> int:
             generator_version=args.generator_version,
         )
     except (ExportError, ValueError) as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     print(f"[OK] Candidate id: {spec['id']}")

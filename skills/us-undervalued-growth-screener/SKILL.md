@@ -217,8 +217,7 @@ universe shard first, then screen the verified snapshot:
 python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
   --stage collect-estimates --shard-index 0 --shard-count 8 \
   --snapshot-dir .cache/us-garp/snapshot-current \
-  --config skills/us-undervalued-growth-screener/assets/claude-code-config.example.json \
-  --resume
+  --config skills/us-undervalued-growth-screener/assets/claude-code-config.example.json
 
 python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
   --stage screen-full-snapshot \
@@ -227,182 +226,22 @@ python3 skills/us-undervalued-growth-screener/scripts/run_pipeline.py \
   --output-dir reports/us-undervalued-growth-screener
 ```
 
-Run each shard once without `--resume`; use `--resume` only to continue an
-existing partial shard. Both collection and screening are current-only:
-collection fixes the estimate-normalization basis, while screening adds exact
-liquidity and TTM quality evidence. The first collection binds the exhausted
-listing-enumeration audit into the snapshot manifest. Screening performs a
-read-only content/freshness preflight before creating provider or run
-artifacts, carries a digest binding the enumeration proof and every verified
-shard into downstream audits, backfills liquidity failures until 50 valid
-names or full eligible exhaustion, and commits five probed deep-dive names. Read
-`references/full-universe-snapshot.md` for the full collection and screening
-contract.
+Run each shard once without `--resume`; use `--resume` only to continue an existing partial shard. If the provider call budget is exhausted during screen enrichment, `screen-full-snapshot` exits 2 and writes `audit/partial-run-diagnostic.json`; it has no `--resume`. Restore the provider budget and rerun the same verified snapshot in a new empty run directory. Read a partial artifact only when that diagnostic marker exists and its recorded hashes and row counts verify. A packet-stage budget failure also rewrites all broad-screen rows to `deferred_by_budget`; neither the audit nor any partial output is a final market-wide conclusion.
 
-If the provider call budget is exhausted during screen enrichment, the command
-exits 2 and writes `audit/partial-run-diagnostic.json` plus
-`audit/enriched-estimates.partial.jsonl`. The diagnostic is the last atomic
-commit marker and records the snapshot ID/digest, stage, deterministic
-attempted/completed/pending/interrupted symbols, interrupted provider
-operation, provider counters, and hashes for the partial artifacts. Read a
-partial artifact only when that marker exists and its recorded hashes and row
-counts verify; a missing or mismatched marker makes the partial output
-non-authoritative. `screen-full-snapshot` has no `--resume`: rerun the same
-verified snapshot after restoring the provider budget, allowing new cache/raw
-records from successful calls and reusing existing cache/raw data without
-deleting or rewriting it. A packet-stage budget failure also marks
-`broad-screen-audit.json` incomplete/diagnostic, clears all nested selection
-commitment fields, and rewrites **all** broad-screen rows (including rejected
-rows) to `deferred_by_budget` with selection eligibility disabled. The original
-`decision` is preserved in `prior_decision`, and original top-level selection
-fields in `prior_selection`; these archives are audit-only, never selection
-authority, and repeated invalidation retains the first archive. Neither the
-audit nor any partial output is a final market-wide conclusion. Quality-probe
-`calls_used` and `actual_eps_calls` count FMP provider-budget units: cached or
-unsent calls cost zero, and consumed retry responses remain counted. Each retry uses a new empty run directory. The CLI adds a unique
-attempt suffix and keeps raw responses in a sibling attempt directory, while
-direct callers must not reuse a non-empty output directory.
+Read `references/full-universe-snapshot.md` (section "Execution notes: shards, partial runs and budget exhaustion") before acting on any exit 2 or partial artifact from these commands. It also covers the shard collection order and the bulk-versus-per-symbol fallback.
 
-The direct runner first attempts bulk ratios, key metrics, estimate, and EOD datasets. It falls back to bounded per-symbol enrichment only when bulk access is unavailable; a plan-gated (402/403) bulk endpoint is remembered in the cache for 30 days so later runs do not spend calls re-probing it. On the fallback path the estimate seed is a stratified sector × market-cap sample (√-weighted Hamilton quota, liquidity-ranked within cells, hash tie-break) whose size is derived from the remaining call budget; `audit/seed-audit.json` states the selection basis. Before pool selection, the top lane candidates receive a `key-metrics-ttm` quality probe (ROIC, FCF yield, EV/FCF, leverage, SBC) and a probe-resolved row with SBC-adjusted FCF yield below 1% cannot enter any lane except `high_growth_exception`. Exact 20-day ADDV work is prioritized by the four economic lanes, not by ticker order. Read `references/claude-code-execution.md` and `references/migration-v3.6-to-v3.6.1.md` for the full execution contract.
+Before building or screening the candidate pool (Step 2), and before any manual pool route, read `references/data-acquisition-layers.md`. It holds the Layer 1 listing-universe audit, the Layer 2 candidate pool routes, the deterministic broad-screen rules and the Layer 3 primary-source deep dive. Its mandatory rules, in summary:
 
-### Layer 1 — Listing-Universe Audit
-
-Collect only fields suitable for broad coverage:
-
-- symbol and exchange,
-- active/common-stock status,
-- price and quote timestamp,
-- market capitalization,
-- average daily dollar volume or enough data to calculate it,
-- sector and industry when available.
-
-Do not substitute a share-volume floor for an ADDV threshold. If an API can filter only by share volume, fetch broadly, calculate `price × average volume`, and apply the dollar-liquidity rule locally.
-
-Target at least 95% listing-field completeness. Prove enumeration using provider totals and exhausted pagination or exhausted gap-free market-cap bands. Matching only the requested lower and upper market-cap endpoints is not proof of completeness.
-
-### Layer 2 — Economic Candidate Pool
-
-Choose the best route in this order:
-
-1. Multi-lane provider prefilter built with `build_provider_prefilter_pool.py`. Retrieve broad rows separately for core GARP, P/E 21–30 high growth, low-P/E quality near misses, and cyclicals requiring normalization; union and audit the lanes instead of using one narrow `P/E≤20 + revenue≥8% + low-cycle` query.
-2. Available estimates/fundamentals already attached to listing rows, then apply the same four-lane tags.
-3. Stratified discovery fallback with `build_discovery_pool.py`, followed by enrichment.
-4. User-supplied pool only when explicitly supplied.
-
-For a bounded live run, target at least 30 resolved pool rows and at least three represented lanes unless the provider is demonstrably exhausted. A smaller convenience pool may be diagnostic but should not be described as a high-recall GARP search.
-
-State the economic scope honestly. `run-summary.json` separates `listing_enumeration_complete` from `economic_screen_scope_complete` and reports `estimate_seed_coverage_pct` / `valid_estimate_coverage_pct`; on the bounded per-symbol fallback path the economic scope is never complete and the discovery audit records `provider_exhausted_scope: estimate_seed`. Describe such a result as "N seeded names evaluated with consensus estimates", never as a market-wide conclusion. Only `screen-full-snapshot` with a deeply verified full-universe classification and bound verification digest may emit `final_marketwide` on the per-symbol route.
-
-Do not stop because a TTM or statement endpoint is plan-gated. Switch routes automatically.
-
-#### Deterministic broad-screen rules
-
-- Revenue growth, per-share growth, ROIC, leverage, and preferred valuation levels are guidelines, not isolated hard cutoffs.
-- Store soft misses in `guideline_misses`.
-- Use `screen_fail_reasons` only for severe disqualifiers such as non-positive standard FCF when required, negative ROIC, excessive leverage, extreme valuation unsupported by growth, or negative forward growth.
-- Permit `near_miss_review` when valuation is attractive and per-share growth remains credible despite a soft revenue-growth miss.
-- Permit P/E 21–30 high-growth exceptions when growth and evidence justify review.
-- For cyclicality score 3–5, add `mid_cycle_normalization_required`; do not automatically reject the row.
-- If `peak_profit_risk=true`, require normalization regardless of the numeric cyclicality score.
-- Banks, insurers, REITs, BDCs, MLPs, and auto dealers remain blocked until sector-appropriate valuation or leverage evidence is available.
+- Do not substitute a share-volume floor for an ADDV threshold; calculate `price × average volume` locally and apply the dollar-liquidity rule.
+- Matching only the requested lower and upper market-cap endpoints is not proof of enumeration completeness; target at least 95% listing-field completeness.
+- Do not stop because a TTM or statement endpoint is plan-gated. Switch routes automatically.
 - Use the script-generated shortlist as authoritative. Do not remove GDDY-like near misses or KGS/AMKR-like cyclicals by applying an informal revenue-growth or cycle gate after the script runs.
-
-### Layer 3 — Primary-Source Deep Dive
-
-For selected symbols only, verify material facts with SEC filings and company IR. Vendors may supply discovery and consensus data, but primary sources must support actual revenue, cash flow, debt, shares, SBC, guidance, corporate actions, and accounting adjustments whenever available.
+- Banks, insurers, REITs, BDCs, MLPs, and auto dealers remain blocked until sector-appropriate valuation or leverage evidence is available.
+- Describe a bounded per-symbol result as "N seeded names evaluated with consensus estimates", never as a market-wide conclusion.
 
 ## Source and Evidence Rules
 
-Use this hierarchy:
-
-1. SEC filings.
-2. Company IR.
-3. Official macro/statistical sources.
-4. Market-data and consensus vendors.
-5. Reputable news and third-party transcripts as supplementary context only.
-6. Analyst calculations and assumptions, explicitly labeled.
-
-Every source requires:
-
-```text
-unique source ID
-tier and kind
-publication timestamp
-retrieval timestamp
-data_as_of when different
-URL
-non-empty supports[] array
-```
-
-Official-source labels must match official domains. A third-party transcript is never company IR. Dynamic market fields are tested against their underlying data date, not just retrieval time.
-
-## Financial and Forecast Controls
-
-### Standard FCF and TTM evidence
-
-Use:
-
-```text
-standard FCF = operating cash flow − capex cash outflow
-```
-
-Capex is a positive cash outflow. Build TTM cash flow through one documented method:
-
-- reported TTM,
-- four discrete quarters, or
-- latest FY + current YTD − prior-year YTD.
-
-Every component period must have resolving source IDs. Do not double-count cumulative 10-Q cash-flow values.
-
-### Cash classification
-
-For ordinary operating companies, normalize reported cash and equivalents to `corporate_cash`; separately identify eligible marketable securities. For payments, custodial, marketplace, broker, or money-movement businesses, explicitly separate corporate cash from settlement/customer funds and restricted cash. Enterprise value and net debt use only shareholder-available cash.
-
-### Driver-derived forecast bridge
-
-Do not validate a forecast by dividing a numerator that was merely set equal to `EPS × shares`.
-
-For EPS, independently reconstruct:
-
-```text
-forecast operating income = forecast revenue × forecast operating margin
-forecast pretax income = operating income + net interest/other income
-forecast GAAP net income = pretax income × (1 − tax rate)
-forecast adjusted net income = GAAP net income + sourced after-tax adjustments
-forecast EPS = forecast net income ÷ forecast diluted shares
-```
-
-For FCF per share, derive standard FCF from OCF and capex or a fully sourced revenue/FCF-margin model, then divide by forecast diluted shares.
-
-The driver result must tie to the claimed metric within tolerance. Supplied numerator/denominator fields are cross-checks only. Adjusted periods must also tie the driver-derived GAAP metric and after-tax adjustments to the GAAP reconciliation.
-
-### GAAP and adjusted metrics
-
-Store the basis separately for current, year 2, and year 3. Mixed bases block the formal scenario. Recurrent “one-time” exclusions, SBC, acquisition costs, and intangible amortization must be described and reflected in quality/risk assessment.
-
-### ROIC, EBITDA, and quality evidence
-
-ROIC and EBITDA used in scoring or leverage calculations require source-linked inputs or a transparent analyst calculation. Missing evidence caps data quality and blocks an unsupported 100 score.
-
-## Sector and Cycle Controls
-
-### Commercial biopharma and royalty/drug-delivery platforms
-
-Normalize aliases such as `biopharma`, `pharma`, `biotechnology`, `royalty_biopharma`, and `drug_delivery_platform` to `commercial_biopharma` when the company has commercial product/royalty exposure.
-
-Require:
-
-- product or royalty concentration,
-- nearest material LOE/patent event,
-- years to LOE,
-- resolving source IDs,
-- configured 6x and 8x LOE stress scenarios when material.
-
-Missing structural-risk evidence produces `review_required` and a quality cap.
-
-### Cyclicals and peak-profit risk
-
-If cyclicality is 3–5 **or** `peak_profit_risk=true`, require a sourced normalization object with mid-cycle revenue/margin/EPS/FCF or a documented reason the current economics are sustainable. A risk flag without normalization is not enough for `eligible`.
+Read the whole of `references/source-evidence-and-financial-controls.md` before underwriting any selected symbol. It holds the source hierarchy and source record requirements, then the Financial and Forecast Controls (standard FCF, cash classification, driver-derived forecast bridge, GAAP vs adjusted, ROIC and EBITDA) and the Sector and Cycle Controls (commercial biopharma, cyclicals and peak-profit risk).
 
 ## Workflow
 

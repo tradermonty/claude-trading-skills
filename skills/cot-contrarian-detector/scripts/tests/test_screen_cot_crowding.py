@@ -710,3 +710,18 @@ class TestInvalidJsonContract:
         assert by_symbol["ES"]["status"] == "skipped"
         assert "invalid JSON response" in by_symbol["ES"]["reason"]
         assert "NQ" in by_symbol
+
+
+def test_client_exits_2_with_requirements_hint_when_requests_missing(monkeypatch, capsys):
+    import importlib
+
+    mod = importlib.import_module("screen_cot_crowding")
+    monkeypatch.setattr(mod, "requests", None)
+    with pytest.raises(SystemExit) as exc:
+        mod.CotClient(api_key="k")
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "requests library not found" in captured.err
+    assert "pip install -r" in captured.err
+    assert "requirements.txt" in captured.err

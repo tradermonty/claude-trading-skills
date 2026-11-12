@@ -82,6 +82,7 @@ without writing.
 | `scripts/validate_skills_index.py` | `python3 scripts/validate_skills_index.py [--strict-workflows] [--strict-metadata]` | `skills-index.yaml` ↔ `skills/` bijection, enums, workflow artifact flow. Default = warn on best-effort fields; `--strict-metadata` requires `timeframe`/`difficulty`/`inputs`/`outputs`; `--strict-workflows` errors on workflow issues, including incomplete Japanese prose (`WF014`). |
 | `scripts/validate_skillsets.py` | `python3 scripts/validate_skillsets.py` | `skillsets/*.yaml` manifests (SK001–SK013) + `related_workflows` coherence. Always strict. |
 | `scripts/check_provider_contracts.py` | `python3 scripts/check_provider_contracts.py check` (offline, CI) · `canary` (live, weekly, report-only: `--provider fmp` via `.github/workflows/fmp-contract-canary.yml` needs `FMP_API_KEY`; `--provider trader-monty` via `.github/workflows/public-csv-contract-canary.yml` needs no key) | `config/provider-contracts/{fmp,trader-monty}/*.v*.json` structure + fixtures vs. `skills-index.yaml` owners (`check`); live response vs. contract, redacting any key (`canary`). See [`docs/dev/provider-contracts.md`](provider-contracts.md). |
+| `scripts/notify_provider_drift.py` | `python3 scripts/notify_provider_drift.py --report reports/fmp-canary-report.json` (offline/read-only); scheduled FMP canary uses explicit `--apply` after health succeeds | Persists HTTP 200 fatal drift to bot-authored assigned tracking issues; validates mixed HTTP/transport evidence without mislabeling it as drift. Apply requires the Actions bot token and repository/run identifiers; use `workflow_dispatch` for manual probes, not a local user PAT. Delivery remains unverified until a real scheduled notification. See [provider contracts](provider-contracts.md#persistent-fatal-drift-tracking-659). |
 
 ### Skill-doc ownership (the `generated:` marker)
 
@@ -389,7 +390,7 @@ out this change; activate them with the installer only when ready.
 | Layer | Current evidence / remaining work |
 |---|---|
 | PR CI | Offline dependency declarations, table/runner regression tests, provider fixtures, and workflow replay; not proof of every CLI failure path |
-| Nightly | Packaged dependency runner records `pass`, `fail`, or `incomplete`; job remains report-only under #349. Keyless optional-provider coverage and actual archive execution remain follow-ups |
+| Nightly | Packaged dependency runner records `pass`, `fail`, or `incomplete`; the job is fail-closed since #349, so a `fail` turns the run red. Keyless optional-provider coverage and actual archive execution remain follow-ups |
 | Weekly sample | #506 tracks the separate live happy-path sample; it cannot establish fallback, personal-state, or failure-path coverage |
 | Monthly LLM sample | Instruction-only and model-driven checks remain planned under #507; they need separate runtime/cost authorization |
 

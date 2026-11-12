@@ -24,6 +24,26 @@ def identifier(value):
     return value
 
 
+def anomaly_code(value):
+    if isinstance(value, str) and value.startswith("canonical_absent_legacy_present:"):
+        parts = value.removeprefix("canonical_absent_legacy_present:").split("->")
+        if len(parts) != 2:
+            raise NotificationError("Invalid report identifier")
+        for part in parts:
+            identifier(part)
+        return value
+    return identifier(value)
+
+
+def authored_by_bot(item):
+    user = item.get("user")
+    return (
+        isinstance(user, dict)
+        and user.get("login") == "github-actions[bot]"
+        and user.get("type") == "Bot"
+    )
+
+
 def parse_report(data):
     """Validate the entire envelope before allowing even the first API write."""
     if (
@@ -40,9 +60,14 @@ def parse_report(data):
         identifier(name)
         if not isinstance(result, dict) or type(result.get("ok")) is not bool:
             raise NotificationError("Invalid contract result")
-        for field in ("status", "rows"):
-            if type(result.get(field)) is not int or result[field] < 0:
-                raise NotificationError("Invalid response evidence")
+        status = result.get("status")
+        if (
+            type(status) is not int
+            or not (status == -1 or 100 <= status <= 599)
+            or type(result.get("rows")) is not int
+            or result["rows"] < 0
+        ):
+            raise NotificationError("Invalid response evidence")
         anomalies = result.get("anomalies")
         deprecations = result.get("deprecations")
         if not isinstance(anomalies, list) or not isinstance(deprecations, list):
@@ -51,18 +76,18 @@ def parse_report(data):
             for item in entries:
                 if not isinstance(item, dict):
                     raise NotificationError("Invalid anomaly")
-                code = identifier(item.get("code"))
+                code = anomaly_code(item.get("code"))
                 if (
                     item.get("severity") != severity
                     or type(item.get("count")) is not int
                     or item["count"] < 1
                 ):
                     raise NotificationError("Invalid anomaly severity/count")
-                if severity == "fatal":
+                if severity == "fatal" and status == 200:
                     fatal[name, code] += item["count"]
-        if result["ok"] != (not anomalies):
+        if result["ok"] != (status == 200 and not anomalies):
             raise NotificationError("Inconsistent contract outcome")
-    if data["ok"] != (not fatal):
+    if data["ok"] != all(result["ok"] for result in contracts.values()):
         raise NotificationError("Inconsistent report outcome")
     return [(name, code, count) for (name, code), count in sorted(fatal.items())]
 
@@ -141,7 +166,11 @@ def notify(data, repository, run_url, api=gh_api):
     for contract, code, count in anomalies:
         key = hashlib.sha256(f"{contract}\0{code}".encode()).hexdigest()
         start, end = f"<!-- fmp-drift:{key}:start -->", f"<!-- fmp-drift:{key}:end -->"
-        matches = [i for i in issues if "pull_request" not in i and start in (i.get("body") or "")]
+        matches = [
+            i
+            for i in issues
+            if "pull_request" not in i and authored_by_bot(i) and start in (i.get("body") or "")
+        ]
         if len(matches) > 1:
             raise NotificationError("Multiple issues match one drift key; resolve manually")
         managed = (
@@ -202,7 +231,10 @@ def notify(data, repository, run_url, api=gh_api):
             continue
         comments_path = f"{base}/issues/{issue['number']}/comments"
         marker = f"<!-- fmp-drift-observation:{key}:{run_url.rsplit('/', 1)[1]} -->"
-        if not any(marker in (comment.get("body") or "") for comment in pages(api, comments_path)):
+        if not any(
+            authored_by_bot(comment) and marker in (comment.get("body") or "")
+            for comment in pages(api, comments_path)
+        ):
             api("POST", comments_path, {"body": f"{marker}\nFatal drift observed again: {run_url}"})
         api(
             "PATCH",

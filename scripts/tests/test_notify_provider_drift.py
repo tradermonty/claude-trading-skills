@@ -14,6 +14,7 @@ from notify_provider_drift import NotificationError, notify, parse_report
 
 REPO = "example/project"
 RUN = f"https://github.com/{REPO}/actions/runs/123"
+BOT = {"login": "github-actions[bot]", "type": "Bot"}
 
 
 def report(code="wrong_type:volume:float", count=1):
@@ -51,10 +52,10 @@ class API:
         if method == "GET":
             return copy.deepcopy(self.issues) if "page=1&" in path else []
         if method == "POST" and path.endswith("/comments"):
-            self.comments.append({"body": payload["body"]})
+            self.comments.append({"body": payload["body"], "user": dict(BOT)})
             return {}
         if method == "POST":
-            item = {"number": len(self.issues) + 1, "state": "open", **payload}
+            item = {"number": len(self.issues) + 1, "state": "open", "user": dict(BOT), **payload}
             self.issues.append(item)
             return item
         if method == "PATCH":
@@ -300,3 +301,143 @@ def test_comment_marker_on_second_page_avoids_duplicate_after_failed_patch():
     notify(report(), REPO, RUN + "4", paged)
     assert len(api.comments) == 1
     assert RUN + "4" in api.issues[0]["body"]
+
+
+@pytest.mark.parametrize(
+    "author",
+    [
+        None,
+        {},
+        {"login": "outsider", "type": "User"},
+        {"login": "github-actions[bot]", "type": "User"},
+    ],
+)
+@pytest.mark.parametrize("future", [False, True])
+def test_untrusted_issue_marker_cannot_suppress_or_redirect_notifications(author, future):
+    api = API()
+    notify(report(), REPO, RUN, api)
+    forged = api.issues.pop()
+    forged["user"] = author
+    if future:
+        forged["body"] = forged["body"].replace(RUN, RUN + "999999999")
+    api.issues.append(forged)
+    notify(report(), REPO, RUN, api)
+    assert len(api.issues) == 2
+    assert api.issues[0] == forged
+    assert api.issues[1]["user"] == BOT
+    # A copied marker must not cause duplicate-target failure either.
+    notify(report(), REPO, RUN, api)
+
+
+def test_untrusted_observation_marker_cannot_suppress_bot_comment():
+    api = API()
+    notify(report(), REPO, RUN, api)
+    api.fail = "PATCH"
+    with pytest.raises(NotificationError):
+        notify(report(), REPO, RUN + "4", api)
+    api.comments[0]["user"] = {"login": "outsider", "type": "User"}
+    notify(report(), REPO, RUN + "4", api)
+    assert len(api.comments) == 2
+    assert api.comments[1]["user"] == BOT
+
+
+def test_real_rename_code_is_published():
+    api = API()
+    code = "canonical_absent_legacy_present:mktCap->marketCap"
+    notify(report(code), REPO, RUN, api)
+    assert code in api.issues[0]["body"]
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "x>y",
+        "x->y",
+        "canonical_absent_legacy_present:x->y->z",
+        "canonical_absent_legacy_present:x->@someone",
+    ],
+)
+def test_arrows_only_accepted_in_canonical_rename_codes(code):
+    api = API()
+    with pytest.raises(NotificationError):
+        notify(report(code), REPO, RUN, api)
+    assert not api.calls
+
+
+@pytest.mark.parametrize("status", [-1, 402, 429, 503])
+def test_infrastructure_failure_does_not_hide_real_drift_or_create_schema_issues(status):
+    data = report()
+    failed = copy.deepcopy(data["contracts"]["quote"])
+    failed.update(status=status, rows=0)
+    failed["anomalies"] = [
+        {"code": "not_a_list", "severity": "fatal", "count": 1},
+        {"code": f"http_status:{status}", "severity": "fatal", "count": 1},
+    ]
+    data["contracts"]["profile"] = failed
+    api = API()
+    notify(data, REPO, RUN, api)
+    assert len(api.issues) == 1
+    assert "wrong_type:volume:float" in api.issues[0]["body"]
+    del data["contracts"]["quote"]
+    api.calls.clear()
+    notify(data, REPO, RUN, api)
+    assert not api.calls
+
+
+@pytest.mark.parametrize("status", [-2, 0, 99, 600, True])
+def test_invalid_http_status_rejected_before_api(status):
+    data = report()
+    data["contracts"]["quote"]["status"] = status
+    api = API()
+    with pytest.raises(NotificationError):
+        notify(data, REPO, RUN, api)
+    assert not api.calls
+
+
+def test_malformed_non200_evidence_still_rejected_before_api():
+    data = report()
+    data["contracts"]["profile"] = copy.deepcopy(data["contracts"]["quote"])
+    data["contracts"]["profile"]["status"] = 429
+    data["contracts"]["profile"]["anomalies"][0]["count"] = False
+    api = API()
+    with pytest.raises(NotificationError):
+        notify(data, REPO, RUN, api)
+    assert not api.calls
+
+
+@pytest.mark.parametrize("status", [-1, 402, 429])
+def test_producer_report_with_real_rename_and_infrastructure_failure(status):
+    from scripts.check_provider_contracts import health_errors, run_canary
+    from scripts.provider_contracts import load_contracts
+
+    contracts = {
+        k: v
+        for k, v in load_contracts(Path(__file__).resolve().parents[2]).items()
+        if v.provider == "fmp"
+    }
+
+    def fetch(path, query):
+        if path.endswith("/quote"):
+            return status, None
+        contract = next(c for c in contracts.values() if c.endpoint_path == path)
+        rows = copy.deepcopy(contract.fixture)
+        if path.endswith("/profile"):
+            for row in rows:
+                row["mktCap"] = row.pop("marketCap")
+        return 200, rows
+
+    data = {
+        "provider": "fmp",
+        "ok": False,
+        "generated_at": "2026-11-12T00:00:00+00:00",
+        "budget": {"used": len(contracts), "max": len(contracts)},
+        "contracts": run_canary(contracts, fetch),
+    }
+    assert health_errors(data, set(contracts), "fmp", "failure", 1) == []
+    assert data["contracts"]["quote"]["status"] == status
+    api = API()
+    notify(data, REPO, RUN, api)
+    assert any(
+        "canonical_absent_legacy_present:mktCap->marketCap" in issue["body"] for issue in api.issues
+    )
+    assert all("Contract: `profile`" in issue["body"] for issue in api.issues)

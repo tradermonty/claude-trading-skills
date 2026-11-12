@@ -19,8 +19,14 @@ try:
     import numpy as np
     import pandas as pd
 except ImportError:
-    print("ERROR: pandas/numpy not found. Install with: pip install pandas numpy", file=sys.stderr)
-    sys.exit(1)
+    from pathlib import Path as _Path
+
+    print(
+        "ERROR: pandas/numpy library not found. Install this skill's dependencies: "
+        f"pip install -r {_Path(__file__).resolve().parents[1] / 'requirements.txt'}",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 try:
     import yfinance as yf

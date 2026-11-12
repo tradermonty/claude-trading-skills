@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -955,17 +956,17 @@ def main() -> int:
     strategy_path = Path(args.strategy).resolve()
 
     if not diagnosis_path.exists():
-        print(f"[ERROR] diagnosis file not found: {diagnosis_path}")
+        print(f"[ERROR] diagnosis file not found: {diagnosis_path}", file=sys.stderr)
         return 1
     if not strategy_path.exists():
-        print(f"[ERROR] strategy file not found: {strategy_path}")
+        print(f"[ERROR] strategy file not found: {strategy_path}", file=sys.stderr)
         return 1
 
     diagnosis = json.loads(diagnosis_path.read_text())
     source_draft = yaml.safe_load(strategy_path.read_text())
 
     if not isinstance(source_draft, dict):
-        print("[ERROR] strategy file must be a YAML mapping")
+        print("[ERROR] strategy file must be a YAML mapping", file=sys.stderr)
         return 1
 
     # Tag source paths for manifest

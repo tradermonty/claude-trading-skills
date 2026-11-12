@@ -49,6 +49,7 @@ def write_index(project_root: Path, skills: list[dict]) -> None:
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",
@@ -283,6 +284,7 @@ def test_idx010_missing_schema_version(tmp_path: Path) -> None:
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",
@@ -306,6 +308,7 @@ def test_idx010_wrong_schema_version(tmp_path: Path) -> None:
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",
@@ -364,6 +367,7 @@ def test_idx011_categories_with_duplicate(tmp_path: Path) -> None:
             "market-regime",
             "market-regime",  # duplicated — set() would still equal VALID_CATEGORIES
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",
@@ -1607,6 +1611,7 @@ def test_categories_rejects_unhashable_items_without_crashing(tmp_path: Path) ->
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",

@@ -18,7 +18,7 @@ concrete recommendation: which **workflow** to run, which **skillset**
 (skills-index category) it belongs to, the **API requirement**, and the
 **setup path** for Claude Web App or Claude Code.
 
-A new user faces 74 skills + 13 workflows with no router. This skill is that
+A new user faces 74 skills + 14 workflows with no router. This skill is that
 router. It is **deterministic** — a Python recommender (`scripts/recommend.py`)
 consumes the repo metadata; this SKILL.md narrates the result conversationally.
 
@@ -33,6 +33,12 @@ consumes the repo metadata; this SKILL.md narrates the result conversationally.
 
 Do **not** use this skill to execute trades, place orders, or auto-run other
 skills. It recommends and explains only.
+
+## Prerequisites
+
+- **API keys:** None required. The recommender reads local repository metadata and does not use the network.
+- **Python:** 3.9+ with `PyYAML>=6.0` (see `requirements.txt`).
+- **Data:** `skills-index.yaml` and `workflows/*.yaml`, or the bundled snapshot when the skill runs outside the repository.
 
 ## Workflow
 
@@ -88,8 +94,8 @@ Parse the JSON and explain, in the user's language:
   and why; they never make the goal blocked.
 - **Skillset** — the `skillset.id` (skills-index category).
   `manifest_status: active` means a curated `skillsets/<id>.yaml` bundle ships
-  for this category (market-regime, core-portfolio, swing-opportunity,
-  trade-memory, strategy-research) — mention it as the install bundle for the
+  for this category (market-regime, core-portfolio, dividend-income,
+  swing-opportunity, trade-memory, strategy-research) — mention it as the install bundle for the
   recommended workflow. `manifest_status: deferred` means no manifest yet
   (e.g. honest-gap categories); the recommendation is workflow-based only.
 - **No-API vs API** — read `no_api_path`: `true` → the entire recommended path
@@ -111,7 +117,11 @@ Parse the JSON and explain, in the user's language:
   Full account risk, brokerage review and reconciliation remain outside this
   limited path. Any CSV mention is read as the source unless it is clearly an
   output (export/save/send; CSVに出力) with no input wording. CSV output requests
-  retain the full brokerage route. If loaded metadata lacks the CSV workflow,
+  retain the full brokerage route. Explicit saved-file input (for example,
+  "from a saved Alpaca positions JSON") keeps the offline route when JSON
+  output is also requested, even with API provenance or "without API" wording.
+  JSON output alone, live API/feed input, or a negated file source does not
+  select the offline route. If loaded metadata lacks the CSV workflow,
   report the unsupported-capability gap instead of claiming it is runnable.
 - **Backtest execution request** — relay the `note` when the research workflow
   is recommended for a request containing backtest terms. It can evaluate
@@ -177,5 +187,5 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 - `references/setup_paths.md` — Claude Web App vs Claude Code setup steps.
 - `assets/metadata_snapshot.json` — generated SSoT digest for the Web App
   fallback. Never edit by hand; run `build_snapshot.py`.
-- `assets/intent_benchmark_v1.json` — 211 explicitly labeled EN/JA routing
+- `assets/intent_benchmark_v1.json` — 246 explicitly labeled EN/JA routing
   cases with 1.0 precision/recall and per-persona/workflow coverage gates.
