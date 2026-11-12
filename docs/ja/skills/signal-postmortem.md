@@ -59,7 +59,7 @@ Signal Postmortem は、発生したシグナルがその後どうなったか�
 - Python 3.9+
 - シグナル記録 JSON
 - FMP API キーは任意。価格データを自動取得する場合のみ使います。
-- 手元に exit price / exit date がある場合は API なしで記録できます。
+- 元シグナルJSONに有効な entry_price があり、exit price / exit date が分かる場合は API なしで手動記録できます。
 
 ---
 
@@ -128,5 +128,30 @@ APIキーや実測価格がない場合はNEUTRALを生成せず、対象シグ�
 診断用のバッチ概要のみを書き、終了コード1になります。一部成功時は有効な記録を
 保存して終了コード0になります。スキップした対象の既存記録は上書きしません。
 過去に保存された不正な記録は自動修復・自動除外されないため、分析前に確認が必要です。
-この修正はバッチ処理が対象です。手動記録の制限は
-[Issue #700](https://github.com/tradermonty/claude-trading-skills/issues/700) に残っています。
+
+
+
+## 元シグナルに基づく手動記録
+
+手動記録では `--signals-file` と `--signal-id` を併せて指定します。ファイル中の
+一致するシグナルがちょうど1件であることが必要です。IDから銘柄・日付を推測せず、
+元の銘柄、日付、スキル、方向、エントリー価格を保持します。API通信はしません。
+
+```bash
+python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
+  --signals-file state/signals/aggregated_signals_2026-03-10.json \
+  --signal-id sig_aapl_20260310_abc \
+  --exit-price 178.50 --exit-date 2026-03-15 --output-dir reports/
+```
+
+エントリー・決済価格は有限の正数、日付は `YYYY-MM-DD` が必要です。決済日が
+シグナル日より前の場合、一致がない・重複している場合、計算結果が非有限の場合も
+記録せずエラーになります。入力と出力が同一ファイルの場合も、symlink・hardlinkを
+含めて拒否します。検証失敗時に既存の実績ファイルは上書きしません。
+
+実際の価格変化率 `(exit - entry) / entry` を `realized_returns.actual` として保存し、
+`return_basis: actual_exit` と保有した暦日数を記録します。元のLONG/SHORT方向で
+分類し、数量・レバレッジ・手数料を含む損益とは区別します。5日・20日の比較用
+リターンは捏造しません。分析時は元のスキル・月の成績に加えますが、5日平均は
+観測値だけで計算します。観測数は `return_samples_5d`、未観測はnull/N/Aです。
+過去に保存済みの不正な実績は自動修復されないため、別途確認してください。
