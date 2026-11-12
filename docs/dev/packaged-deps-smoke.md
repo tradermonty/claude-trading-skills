@@ -3,7 +3,7 @@
 Context: #330 requires every executable skill to declare its runtime
 dependencies in `skills/<id>/requirements.txt`. The nightly
 `.github/workflows/packaged-deps-nightly.yml` smoke-tests those declarations in
-clean-room venvs. Issue #349 promotes that pipeline from report-only toward
+clean-room venvs. Issue #349 promoted that pipeline from report-only to
 fail-closed.
 
 ## Structure
@@ -36,18 +36,19 @@ fail-closed.
 
 ## Rollout (maintainer sequencing from #349)
 
-1. This PR (contracts + runner + exit codes) keeps
+1. Done: the contracts, runner and exit-code PR kept
    `continue-on-error: true` — report-only promotion trial.
 2. Trigger one `workflow_dispatch` run; confirm no skill row is `fail`
    (`ok: false`) and the aggregate `outcome` is `pass` or `incomplete`, and
    review the incomplete list in the `packaged-deps-nightly-report` artifacts.
    Aggregate `pass` is not reachable until the incomplete skills are resolved
    (see "Promotion gate" below).
-3. After the 2-week green window completes (effective green from 2026-09-27,
-   so ≥ 2026-10-10/11) a follow-up PR removes `continue-on-error: true` and
-   renames the job to fail-closed. The nightly `report` step stays exit-0:
-   declaration enforcement already fails `ci.yml` via `run_check`; the report
-   is evidence, not a gate.
+3. Done: after the 2-week green window (all 46 runs from 2026-09-27 to
+   2026-11-11 were green at job and step level), the follow-up PR removed
+   `continue-on-error: true` and renamed the job to fail-closed. The nightly
+   `report` step exits 0 on declaration findings, because declaration
+   enforcement already fails `ci.yml` via `run_check`; a crash of that step
+   does fail the run. The smoke step still runs after such a crash.
 
 ## Adding a contract (wave 2)
 
@@ -104,10 +105,9 @@ The nightly step maps the runner exit code as follows:
 
 So the gate for #349 is: no skill `fail`, aggregate `pass` or `incomplete`,
 and the incomplete list reviewed. Because the step stays green on incomplete,
-the green window and the eventual removal of `continue-on-error` are not
-blocked by the pending list, but a green step is not proof of complete
-coverage: read aggregate `outcome` and the per-skill rows in the uploaded
-JSON. `scripts/tests/test_packaged_deps_nightly_workflow.py` pins this mapping.
+the fail-closed job is not blocked by the pending list, but a green step is
+not proof of complete coverage: read aggregate `outcome` and the per-skill
+rows in the uploaded JSON. `scripts/tests/test_packaged_deps_nightly_workflow.py` pins this mapping.
 
 Closing the incomplete list is tracked under #507, not #349. The
 `portfolio-manager` skip reason is that `check_alpaca_connection.py` has no
@@ -115,9 +115,8 @@ offline CLI shape: it starts a live Alpaca connection probe immediately (see
 `scripts/check_skill_deps.py`), so it cannot run in a clean room until a
 synthetic-state CLI exists.
 
-The nightly job still has `continue-on-error: true` under #349. Removing it is
-#349's follow-up, not this change. This change does not establish a green
-observation window. It does not unpack `.skill` archives; the existing
+The nightly job is fail-closed since #349, so a skill `fail` or a runner crash
+turns the scheduled run red. It does not unpack `.skill` archives; the existing
 runner executes checkout scripts with isolated declared dependencies.
 
 The remaining #507 work includes per-skill HTTP fault injection and redaction,
