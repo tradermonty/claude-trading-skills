@@ -744,11 +744,15 @@ def test_committed_goldens_are_reproducible_and_not_executor_inputs(
 
 
 def test_replay_uses_supported_thesis_read_and_validation_api() -> None:
-    tree = ast.parse((ROOT / "scripts" / "workflow_replay.py").read_text(encoding="utf-8"))
+    sources = [
+        ROOT / "scripts" / "workflow_replay.py",
+        *sorted((ROOT / "scripts" / "workflow_replay_pkg").glob("*.py")),
+    ]
     private_names = {"_load_thesis", "_validate_thesis"}
     violations = [
-        node.lineno
-        for node in ast.walk(tree)
+        f"{source.name}:{node.lineno}"
+        for source in sources
+        for node in ast.walk(ast.parse(source.read_text(encoding="utf-8")))
         if (isinstance(node, ast.Attribute) and node.attr in private_names)
         or (
             isinstance(node, ast.ImportFrom)
