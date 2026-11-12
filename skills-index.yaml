@@ -362,6 +362,7 @@ skills:
   outputs:
   - circuit_breaker_decision
   workflows:
+  - earnings-weekly
   - stockbee-ep-daily
   - swing-opportunity-daily
 - id: dual-axis-skill-reviewer
@@ -455,6 +456,7 @@ skills:
   - scored_candidates
   - five_factor_grades
   workflows:
+  - earnings-weekly
   - stockbee-ep-daily
 - id: economic-calendar-fetcher
   display_name: Economic Calendar Fetcher
@@ -1399,6 +1401,7 @@ skills:
   - pead_signal_list
   - breakout_triggers
   workflows:
+  - earnings-weekly
   - stockbee-ep-daily
 - id: portfolio-manager
   display_name: Portfolio Manager
@@ -1466,6 +1469,7 @@ skills:
   - share_count
   - risk_amount
   workflows:
+  - earnings-weekly
   - multi-asset-opportunity-daily
   - stockbee-ep-daily
   - swing-opportunity-daily
@@ -1501,6 +1505,7 @@ skills:
   outputs:
   - pre_trade_discipline_decision
   workflows:
+  - earnings-weekly
   - stockbee-ep-daily
   - swing-opportunity-daily
 - id: residual-edge-analyzer
@@ -1994,6 +1999,7 @@ skills:
   - technical_assessment_report
   - price_action_confirmation_report
   workflows:
+  - earnings-weekly
   - shapiro-contrarian
   - stockbee-ep-daily
   - swing-opportunity-daily
@@ -2130,6 +2136,7 @@ skills:
   - journal_entry
   workflows:
   - core-portfolio-weekly
+  - earnings-weekly
   - kanchi-dividend-weekly
   - monthly-performance-review
   - multi-asset-opportunity-daily

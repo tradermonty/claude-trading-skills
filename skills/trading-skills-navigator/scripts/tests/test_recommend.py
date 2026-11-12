@@ -422,6 +422,84 @@ def test_kanchi_dividend_weekly_routes_with_full_bundle(
     assert sb["sources"] == ["skillset:dividend-income"]
 
 
+# ---------------------------------------------------------------------------
+# Earnings momentum weekly routine (Issue #216)
+# ---------------------------------------------------------------------------
+
+_EARNINGS_EXPECTED_REQUIRED = {
+    "earnings-trade-analyzer",
+    "pead-screener",
+    "drawdown-circuit-breaker",
+    "technical-analyst",
+    "position-sizer",
+    "trader-memory-core",
+    "pre-trade-discipline-gate",
+}
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Run my weekly earnings momentum routine",
+        "I want to screen post-earnings drift setups",
+        "Find PEAD candidates after earnings",
+        "Score this week's earnings reactions",
+        "決算モメンタムを毎週確認したい",
+        "決算後のドリフトを狙いたい",
+        "PEADの候補を探したい",
+        "今週の決算反応を採点したい",
+    ],
+    ids=[
+        "en-weekly-routine",
+        "en-post-earnings-drift",
+        "en-pead",
+        "en-earnings-reactions",
+        "ja-momentum-weekly",
+        "ja-drift",
+        "ja-pead",
+        "ja-reaction-scoring",
+    ],
+)
+def test_earnings_weekly_routes_with_its_workflow_bundle(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    """EN/JA earnings-momentum intents route to earnings-weekly with its seven
+    required skills. The workflow's first required skill is in the
+    advanced-satellite category, which has no manifest, so the skillset
+    defers and the bundle comes from the workflow. It is fmp-required, so it
+    is not a no-API path."""
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
+    assert r["primary_workflow"]["id"] == "earnings-weekly", (
+        f"query {query!r} routed to {r['primary_workflow']['id']!r}"
+    )
+    assert r["honest_gap"] is False
+    assert r["skillset"]["id"] == "advanced-satellite"
+    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["no_api_path"] is False
+    sb = r["setup_bundle"]
+    assert set(sb["required"]) == _EARNINGS_EXPECTED_REQUIRED
+    assert sb["optional"] == []
+    assert sb["sources"] == ["workflow:earnings-weekly"]
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("Classify Day 1 episodic pivot candidates after earnings", "stockbee-ep-daily"),
+        ("決算後のDay 1エピソディックピボット候補を分類したい", "stockbee-ep-daily"),
+        ("Find ordinary swing trade setups", "swing-opportunity-daily"),
+        ("I want to find dividend stocks", "core-portfolio-weekly"),
+    ],
+    ids=["en-ep", "ja-ep", "swing", "dividend"],
+)
+def test_earnings_persona_does_not_swallow_neighbouring_intents(
+    repo_metadata: dict[str, Any], query: str, expected: str
+) -> None:
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"]["id"] == expected
+
+
 def test_kanchi_persona_does_not_regress_core_portfolio_routing(
     repo_metadata: dict[str, Any],
 ) -> None:

@@ -1,0 +1,187 @@
+{
+  "metadata": {
+    "api_stats": {
+      "api_calls_made": 3,
+      "budget_remaining": 197,
+      "cache_entries": 0,
+      "max_api_calls": 200,
+      "rate_limit_reached": false
+    },
+    "generated_at": "2026-11-06T21:00:00+00:00",
+    "input_file": "02_earnings_trade_analysis.json",
+    "lookback_days": null,
+    "min_gap": null,
+    "min_grade": "B",
+    "min_market_cap": null,
+    "mode": "B",
+    "timing_candidates_total": null,
+    "timing_source": null,
+    "timing_unknown_count": null,
+    "watch_weeks": 5
+  },
+  "results": [
+    {
+      "adv20_dollar": 164241279.0,
+      "breakout_pct": 4.05,
+      "components": {
+        "breakout_strength": {
+          "label": "Breakout Strength",
+          "score": 100.0,
+          "weight": 0.25,
+          "weighted": 25.0
+        },
+        "liquidity": {
+          "label": "Liquidity",
+          "score": 100.0,
+          "weight": 0.25,
+          "weighted": 25.0
+        },
+        "risk_reward": {
+          "label": "Risk/Reward",
+          "score": 70.0,
+          "weight": 0.2,
+          "weighted": 14.0
+        },
+        "setup_quality": {
+          "label": "Setup Quality",
+          "score": 90.0,
+          "weight": 0.3,
+          "weighted": 27.0
+        }
+      },
+      "composite_score": 91.0,
+      "current_price": 69.3,
+      "earnings_date": "2026-10-15",
+      "earnings_timing": "amc",
+      "entry_price": 69.3,
+      "gap_pct": 7.97,
+      "guidance": "High-conviction PEAD trade, full position size",
+      "rating": "Strong Setup",
+      "red_candle": {
+        "close": 63.9,
+        "high": 66.6,
+        "low": 63.5,
+        "lower_wick_pct": 12.9,
+        "open": 66.2,
+        "volume_vs_avg": 1.17,
+        "week_index": 2,
+        "week_start": "2026-10-19"
+      },
+      "risk_pct": 8.37,
+      "risk_reward_ratio": 2.0,
+      "stage": "BREAKOUT",
+      "stop_price": 63.5,
+      "symbol": "EXMA",
+      "target_price": 80.9,
+      "weeks_since_earnings": 3
+    },
+    {
+      "adv20_dollar": 84803320.0,
+      "breakout_pct": -1.84,
+      "components": {
+        "breakout_strength": {
+          "label": "Breakout Strength",
+          "score": 0.0,
+          "weight": 0.25,
+          "weighted": 0.0
+        },
+        "liquidity": {
+          "label": "Liquidity",
+          "score": 85.0,
+          "weight": 0.25,
+          "weighted": 21.2
+        },
+        "risk_reward": {
+          "label": "Risk/Reward",
+          "score": 70.0,
+          "weight": 0.2,
+          "weighted": 14.0
+        },
+        "setup_quality": {
+          "label": "Setup Quality",
+          "score": 70.0,
+          "weight": 0.3,
+          "weighted": 21.0
+        }
+      },
+      "composite_score": 56.2,
+      "current_price": 42.6,
+      "earnings_date": "2026-10-22",
+      "earnings_timing": "amc",
+      "entry_price": 42.6,
+      "gap_pct": 6.0,
+      "guidance": "Watchlist, wait for cleaner breakout",
+      "rating": "Developing",
+      "red_candle": {
+        "close": 41.0,
+        "high": 43.4,
+        "low": 40.7,
+        "lower_wick_pct": 11.1,
+        "open": 43.2,
+        "volume_vs_avg": 1.4,
+        "week_index": 1,
+        "week_start": "2026-10-26"
+      },
+      "risk_pct": 4.46,
+      "risk_reward_ratio": 2.0,
+      "stage": "SIGNAL_READY",
+      "stop_price": 40.7,
+      "symbol": "EXMB",
+      "target_price": 46.4,
+      "weeks_since_earnings": 2
+    },
+    {
+      "adv20_dollar": 163765620.0,
+      "breakout_pct": 0.0,
+      "components": {
+        "breakout_strength": {
+          "label": "Breakout Strength",
+          "score": 0.0,
+          "weight": 0.25,
+          "weighted": 0.0
+        },
+        "liquidity": {
+          "label": "Liquidity",
+          "score": 100.0,
+          "weight": 0.25,
+          "weighted": 25.0
+        },
+        "risk_reward": {
+          "label": "Risk/Reward",
+          "score": 25.0,
+          "weight": 0.2,
+          "weighted": 5.0
+        },
+        "setup_quality": {
+          "label": "Setup Quality",
+          "score": 65.0,
+          "weight": 0.3,
+          "weighted": 19.5
+        }
+      },
+      "composite_score": 49.5,
+      "current_price": 89.5,
+      "earnings_date": "2026-11-03",
+      "earnings_timing": "bmo",
+      "entry_price": 89.5,
+      "gap_pct": 9.0,
+      "guidance": "Not actionable",
+      "rating": "Weak",
+      "red_candle": null,
+      "risk_pct": 0.0,
+      "risk_reward_ratio": 0.0,
+      "stage": "MONITORING",
+      "stop_price": 0.0,
+      "symbol": "EXMC",
+      "target_price": 0.0,
+      "weeks_since_earnings": 0
+    }
+  ],
+  "summary": {
+    "breakout": 1,
+    "expired": 0,
+    "monitoring": 1,
+    "signal_ready": 1,
+    "total_screened": 3
+  }
+}

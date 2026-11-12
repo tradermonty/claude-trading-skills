@@ -21,6 +21,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | Workflow | Cadence | Est. min | API profile | Difficulty |
 |---|---|---|---|---|
 | [`core-portfolio-weekly`](#core-portfolio-weekly) — Core Portfolio Weekly | weekly | 60 | alpaca-required | beginner |
+| [`earnings-weekly`](#earnings-weekly) — Earnings Momentum Weekly | weekly | 60 | fmp-required | intermediate |
 | [`kanchi-dividend-weekly`](#kanchi-dividend-weekly) — Kanchi Dividend Weekly | weekly | 60 | mixed | intermediate |
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | mixed | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
@@ -93,6 +94,91 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm holdings snapshot reflects the actual brokerage state (Alpaca or CSV).
 - Confirm rebalance actions are entered manually at the broker, not auto-executed.
 - If dividend_review_findings flags T1-T5 issues, defer additional buys until resolved.
+
+**Journal destination:** `trader-memory-core`
+
+---
+
+## Earnings Momentum Weekly {#earnings-weekly}
+
+**`earnings-weekly`** · weekly · ~60 min · fmp-required · intermediate
+
+**When to run:** Weekly during earnings season, after market-regime-daily has produced a non-restrictive exposure decision. Score recent US earnings reactions across the PEAD watch window of about five weeks, screen the strongest names for post-earnings-drift (PEAD) weekly-candle setups, confirm the chart by hand, size the position, and journal the candidate before any manual order.
+
+**When NOT to run:** Do not run when the latest market-regime-daily exposure_decision is cash-priority or restrictive, or when the account circuit breaker is not clear. Do not use it to chase a Day 1 earnings gap; that is stockbee-ep-daily's job. It is not a standalone screener: a score or stage is never a buy signal, and no order is placed automatically.
+
+**Required skills:** `earnings-trade-analyzer`, `pead-screener`, `drawdown-circuit-breaker`, `technical-analyst`, `position-sizer`, `trader-memory-core`, `pre-trade-discipline-gate`
+
+**Optional skills:** (none)
+
+**Prerequisite workflows (informational):**
+
+- `market-regime-daily` expects `exposure_decision` — New earnings-momentum risk requires a non-restrictive exposure decision. Skip this workflow on cash-priority or restrictive days.
+
+**Artifacts:**
+
+| Artifact | Produced by step | Required | Downstream hints |
+|---|---|---|---|
+| `circuit_breaker_decision` | 1 | yes | — |
+| `earnings_trade_analysis` | 2 | yes | — |
+| `pead_screen` | 3 | yes | — |
+| `validated_earnings_setups` | 4 | yes | — |
+| `earnings_position_sizing` | 5 | yes | — |
+| `earnings_journal_entry` | 6 | yes | `trade-memory-loop` |
+| `pre_trade_discipline_decision` | 7 | yes | — |
+
+**Steps:**
+
+**Step 1: Check account circuit breaker** (decision gate) → `drawdown-circuit-breaker`
+
+- produces: `circuit_breaker_decision`
+- **Decision:** Is the account circuit breaker clear (TRADING_ALLOWED) for new earnings-momentum risk this week?
+
+**Step 2: Score recent earnings reactions** → `earnings-trade-analyzer`
+
+- produces: `earnings_trade_analysis`
+
+**Step 3: Screen graded candidates for PEAD weekly setups** (decision gate) → `pead-screener`
+
+- consumes: `earnings_trade_analysis`
+- produces: `pead_screen`
+- **Decision:** Which graded names are in a BREAKOUT or SIGNAL_READY stage worth a chart review, and which MONITORING or EXPIRED names stay on the watchlist or are dropped? Was the screener run in Mode B on step 2's JSON with a minimum grade chosen on purpose?
+
+**Step 4: Confirm the weekly chart by hand** (decision gate) → `technical-analyst`
+
+- consumes: `pead_screen`
+- produces: `validated_earnings_setups`
+- **Decision:** Does the weekly chart confirm a clean post-earnings drift with the red candle low as a sensible stop, acceptable liquidity, and no thesis-breaking news? Reject any setup where the chart is unclear even if the stage and score look good.
+
+**Step 5: Calculate position size** → `position-sizer`
+
+- consumes: `validated_earnings_setups`
+- produces: `earnings_position_sizing`
+
+**Step 6: Register the earnings-drift thesis** (decision gate) → `trader-memory-core`
+
+- consumes: `pead_screen`, `validated_earnings_setups`, `earnings_position_sizing`
+- produces: `earnings_journal_entry`
+- **Decision:** Which validated names deserve a registered earnings-drift thesis with the written entry, stop, and size, and which stay on the watchlist? A registered thesis is IDEA only; it is not an order approval.
+
+**Step 7: Run manual execution discipline gate** (decision gate) → `pre-trade-discipline-gate`
+
+- consumes: `circuit_breaker_decision`, `earnings_position_sizing`, `earnings_journal_entry`
+- produces: `pre_trade_discipline_decision`
+- **Decision:** Before placing any manual broker order, does each actionable candidate pass the written-plan, predefined-stop, position-size, recent-loss, market-regime, and circuit-breaker discipline checks? Treat watchlist names as no-action journal entries, not order approvals.
+
+**Manual review:**
+
+- Confirm market-regime-daily exposure_decision allows new risk before acting.
+- Confirm circuit_breaker_decision is TRADING_ALLOWED before scoring or sizing new candidates.
+- Verify each earnings result and any guidance by hand; this workflow does not discover or validate the news itself.
+- Run earnings-trade-analyzer with a lookback long enough to cover the PEAD watch window (about 28 to 35 days); a one-week lookback only finds names too young to show a red candle.
+- Run pead-screener in Mode B on step 2's JSON. Mode A can spend the API budget on non-US listings and is not part of this routine.
+- Treat MONITORING and EXPIRED stages as watchlist or drop; only BREAKOUT and SIGNAL_READY names reach chart review.
+- Reject any candidate where the weekly chart is unclear, even if the earnings grade and PEAD stage passed.
+- Use the red candle low as the stop only when the distance is realistically sizeable; verify total portfolio heat before any order.
+- Confirm pre_trade_discipline_decision is GO before placing any manual broker order.
+- All orders are placed manually at the broker; no auto-execution.
 
 **Journal destination:** `trader-memory-core`
 

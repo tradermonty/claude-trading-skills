@@ -104,9 +104,9 @@ cross-artifact arithmetic. All files also remain subject to standard hygiene hoo
 (whitespace, YAML syntax, `detect-secrets`, `no-absolute-paths`, and related
 checks).
 
-## Executable workflow replay (Issue #294, Coverage 12/12)
+## Executable workflow replay (Issue #294, Coverage 14/14)
 
-All twelve canonical workflows are generated and checked by the
+All fourteen canonical workflows are generated and checked by the
 executable replay harness:
 
 - `core-portfolio-weekly`
@@ -121,6 +121,8 @@ executable replay harness:
 - `stockbee-ep-daily`
 - `multi-asset-opportunity-daily`
 - `strategy-research-pipeline`
+- `portfolio-holdings-review`
+- `earnings-weekly`
 
 ```bash
 python3 scripts/workflow_replay.py validate
@@ -200,7 +202,7 @@ goldens; committed goldens are never executor inputs. The monthly replay uses
 dedicated `replay-run/` and `replay-run-full-path/` golden trees, distinct from
 the teaching `sample-run/` and `sample-run-full-path/` fixtures covered by Issue
 #208. The coverage manifest
-holds all twelve workflows at Coverage 12/12 with no deferrals. A newly added
+holds all fourteen workflows at Coverage 14/14 with no deferrals. A newly added
 workflow cannot join a deferral set and must ship
 both required-only and full-path replay specs. Issue #294 is closed by the
 multi-asset slice completing the eleventh workflow.
@@ -212,6 +214,20 @@ detector. The fictional metrics fixture has a period that does not match the
 selected ticket and lacks independent bias review. Step 4 records `HOLD` with
 the reasons and never invokes the scoring CLI or emits a verdict. Both replay
 variants execute all four required steps.
+
+The earnings-weekly replay executes the real earnings-trade-analyzer and
+pead-screener CLIs unchanged against a fictional local fixture
+(`replay-inputs/fmp-fixture.json`: five invented symbols, 250 daily bars each,
+generated deterministically with fixed seeds and no market data). Only the
+`FMPClient` is replaced, by `scripts/replay_offline_fmp_cli.py`, a read-only
+reader of that fixture that also blocks every HTTP request. PEAD runs in Mode B
+on the analyzer JSON. The chart review is a human-approved fictional fixture
+that must name a PEAD `BREAKOUT` and reuse its entry and stop; every PEAD
+candidate needs exactly one disposition. Registration calls the native
+trader-memory-core `pead-screener` ingest on disposable state and leaves the
+thesis `IDEA`. The native discipline gate returns a fixture `GO`, which is not an
+order approval. This workflow has no optional steps, so both variants execute
+the same seven steps.
 
 Replay validation rejects a `golden_dir` that resolves to the replay spec or its
 directory, overlaps any offline-input directory, or overlaps the other

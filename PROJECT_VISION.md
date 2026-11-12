@@ -294,7 +294,7 @@ Definition of done:
 
 ### Phase 3: Workflows — ✅ partially complete (2026-05-09)
 
-> **Status:** PR #85 shipped the 5 Core + Satellite manifests (`core-portfolio-weekly`, `market-regime-daily`, `swing-opportunity-daily`, `trade-memory-loop`, `monthly-performance-review`) under `workflows/`, validated by `--strict-workflows`. The offline `strategy-research-pipeline` manifest is also shipped; `risk-off-short-daily` and `earnings-weekly` remain follow-up.
+> **Status:** PR #85 shipped the 5 Core + Satellite manifests (`core-portfolio-weekly`, `market-regime-daily`, `swing-opportunity-daily`, `trade-memory-loop`, `monthly-performance-review`) under `workflows/`, validated by `--strict-workflows`. The offline `strategy-research-pipeline` and the weekly `earnings-weekly` manifests are also shipped; `risk-off-short-daily` remains follow-up, tracked in [#715](https://github.com/tradermonty/claude-trading-skills/issues/715).
 
 Skillsets are not enough for real operations. Trading requires sequence, decision gates, and artifact handoffs.
 
@@ -446,7 +446,8 @@ Near-term work should proceed in this order:
 - ✅ **Done**: All indexed skills carry `timeframe` / `difficulty` / `inputs` / `outputs`; `--strict-metadata` enforced in CI + the pre-push hook
 - ✅ **Done**: Trading Skills Navigator v0 (deterministic recommender + Web App snapshot fallback + manifest-driven setup)
 - **Partial**: Major skillsets in YAML — 6 skillsets shipped (`market-regime`, `core-portfolio`, `dividend-income`, `swing-opportunity`, `trade-memory`, `strategy-research`); `advanced-satellite` deferred and tracked in [#715](https://github.com/tradermonty/claude-trading-skills/issues/715)
-- **Next**: Add advanced workflow manifests (`risk-off-short-daily`, `earnings-weekly`) — tracked in [#216](https://github.com/tradermonty/claude-trading-skills/issues/216)
+- ✅ **Done**: `dividend-income` skillset and `earnings-weekly` workflow shipped (the remaining scope of [#216](https://github.com/tradermonty/claude-trading-skills/issues/216))
+- **Next**: Short-side roadmap — the `advanced-satellite` skillset and the `risk-off-short-daily` workflow — tracked in [#715](https://github.com/tradermonty/claude-trading-skills/issues/715)
 - ✅ **Done (2026-05-24)**: Create "Find Your Workflow" documentation ([EN](docs/en/find-your-workflow.md) / [JA](docs/ja/find-your-workflow.md), PR #142)
 - ✅ **Done (2026-05-24)**: Public end-to-end sample operating examples — both `sample-run/` (required-only) and `sample-run-full-path/` (with optional step) under [`examples/workflows/`](examples/workflows/) for `market-regime-daily` and `trade-memory-loop` (PR #141; required-only path shipped earlier in PR #118)
 - ✅ **Done (2026-05-24)**: Companion work package — [Hermes Trading Research Agent](https://github.com/tradermonty/hermes-trading-research-agent-work-package) link added to README (PR #140)
@@ -497,7 +498,7 @@ The guiding observation: the analysis and screening layers are already strong, w
 - [#211](https://github.com/tradermonty/claude-trading-skills/issues/211) Test suites for skills that have none
 - [#213](https://github.com/tradermonty/claude-trading-skills/issues/213) Small-account support (PDT rule / fractional shares / friction costs)
 - [#215](https://github.com/tradermonty/claude-trading-skills/issues/215) Japan tax skill (NISA / tokutei-kouza / foreign tax credit)
-- [#216](https://github.com/tradermonty/claude-trading-skills/issues/216) Deferred skillsets and advanced workflow manifests
+- [#715](https://github.com/tradermonty/claude-trading-skills/issues/715) Short-side roadmap: `advanced-satellite` skillset and `risk-off-short-daily` workflow (split from #216)
 
 ## 16. Community and Governance
 

@@ -36,8 +36,13 @@
     },
     {
       "target_persona": "stockbee-episodic-pivot-trader",
-      "allowed_selected_personas": ["swing-trader"],
-      "rationale": "Distinguish catalyst-specific EP analysis from generic swing screening."
+      "allowed_selected_personas": ["swing-trader", "earnings-momentum-trader"],
+      "rationale": "Distinguish catalyst-specific EP analysis from generic swing screening and from week-scale post-earnings drift."
+    },
+    {
+      "target_persona": "earnings-momentum-trader",
+      "allowed_selected_personas": ["stockbee-episodic-pivot-trader"],
+      "rationale": "Distinguish weekly post-earnings drift from Day 1 catalyst-specific EP analysis."
     },
     {
       "target_persona": "stockbee-fluency-learner",
@@ -97,7 +102,7 @@
   ],
   "shadowing_contracts": [
     {
-      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"swing\",13,\"swing-trader\",\"swing\",\"equal\"]",
+      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"swing\",14,\"swing-trader\",\"swing\",\"equal\"]",
       "winner": "part-time-swing-trader-regime-gated",
       "rationale": "Specific regime-gated swing intent must precede generic swing intent",
       "ambiguous_case_ids": [
@@ -106,7 +111,7 @@
       ]
     },
     {
-      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"スイング\",13,\"swing-trader\",\"スイング\",\"equal\"]",
+      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"スイング\",14,\"swing-trader\",\"スイング\",\"equal\"]",
       "winner": "part-time-swing-trader-regime-gated",
       "rationale": "Specific regime-gated swing intent must precede generic swing intent",
       "ambiguous_case_ids": [
@@ -115,7 +120,7 @@
       ]
     },
     {
-      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"スイング\",13,\"swing-trader\",\"スイングトレード\",\"earlier_in_later\"]",
+      "fingerprint": "[8,\"part-time-swing-trader-regime-gated\",\"スイング\",14,\"swing-trader\",\"スイングトレード\",\"earlier_in_later\"]",
       "winner": "part-time-swing-trader-regime-gated",
       "rationale": "Specific regime-gated swing intent must precede generic swing intent",
       "ambiguous_case_ids": [
@@ -286,7 +291,7 @@
       ]
     },
     {
-      "fingerprint": "[15,\"monthly-reviewer\",\"今月の振り返り\",16,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
+      "fingerprint": "[16,\"monthly-reviewer\",\"今月の振り返り\",17,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
       "winner": "monthly-reviewer",
       "rationale": "Specific monthly Japanese review phrases must precede generic reflection language",
       "ambiguous_case_ids": [
@@ -294,7 +299,7 @@
       ]
     },
     {
-      "fingerprint": "[15,\"monthly-reviewer\",\"先月の振り返り\",16,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
+      "fingerprint": "[16,\"monthly-reviewer\",\"先月の振り返り\",17,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
       "winner": "monthly-reviewer",
       "rationale": "Specific monthly Japanese review phrases must precede generic reflection language",
       "ambiguous_case_ids": [
@@ -302,11 +307,19 @@
       ]
     },
     {
-      "fingerprint": "[15,\"monthly-reviewer\",\"月次の振り返り\",16,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
+      "fingerprint": "[16,\"monthly-reviewer\",\"月次の振り返り\",17,\"trade-journaler\",\"振り返り\",\"later_in_earlier\"]",
       "winner": "monthly-reviewer",
       "rationale": "Specific monthly Japanese review phrases must precede generic reflection language",
       "ambiguous_case_ids": [
         "amb-monthly-ja"
+      ]
+    },
+    {
+      "fingerprint": "[13,\"earnings-momentum-trader\",\"決算モメンタム\",14,\"swing-trader\",\"モメンタム\",\"later_in_earlier\"]",
+      "winner": "earnings-momentum-trader",
+      "rationale": "Specific earnings-momentum intent must precede the generic momentum term of swing-trader",
+      "ambiguous_case_ids": [
+        "amb-earn-ja"
       ]
     }
   ],
@@ -1833,6 +1846,327 @@
         "gold",
         "hard-negative",
         "neighbor"
+      ]
+    },
+    {
+      "id": "earn-p01",
+      "language": "en",
+      "label": "positive",
+      "query": "Run my weekly earnings momentum routine",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p02",
+      "language": "en",
+      "label": "positive",
+      "query": "Screen post-earnings drift setups",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p03",
+      "language": "en",
+      "label": "positive",
+      "query": "Find PEAD candidates",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p04",
+      "language": "en",
+      "label": "positive",
+      "query": "Score this week's earnings reactions",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p05",
+      "language": "ja",
+      "label": "positive",
+      "query": "決算シーズンの毎週の確認を実行したい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p06",
+      "language": "ja",
+      "label": "positive",
+      "query": "決算後のドリフトを狙いたい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p07",
+      "language": "ja",
+      "label": "positive",
+      "query": "PEADの候補を探したい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-p08",
+      "language": "ja",
+      "label": "positive",
+      "query": "今週の決算反応を採点したい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "positive"
+      ]
+    },
+    {
+      "id": "earn-m01",
+      "language": "en",
+      "label": "positive",
+      "query": "RUN MY WEEKLY EARNINGS MOMENTUM ROUTINE",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "earn-p01",
+      "transformation": "case",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "earn-m02",
+      "language": "ja",
+      "label": "positive",
+      "query": "決算シーズンの、毎週の確認を実行したい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": null,
+      "base_id": "earn-p05",
+      "transformation": "punctuation",
+      "tags": [
+        "gold",
+        "metamorphic"
+      ]
+    },
+    {
+      "id": "earn-n01",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Classify Day 1 episodic pivot candidates after earnings",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "earnings-momentum-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "earn-n02",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "決算後のDay 1エピソディックピボット候補を分類したい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "stockbee-episodic-pivot-trader"
+      ],
+      "expected_selected_persona": "stockbee-episodic-pivot-trader",
+      "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "earnings-momentum-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "ep-n03",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Follow a post-earnings drift setup over the next weeks",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-episodic-pivot-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "ep-n04",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "決算後のドリフトの週足セットアップを追いたい",
+      "target_persona": "stockbee-episodic-pivot-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "stockbee-episodic-pivot-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "amb-earn-ja",
+      "language": "ja",
+      "label": "ambiguous",
+      "query": "決算モメンタムの銘柄を探したい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "earnings-momentum-trader",
+        "swing-trader"
+      ],
+      "expected_selected_persona": "earnings-momentum-trader",
+      "expected_primary_workflow": "earnings-weekly",
+      "expected_honest_gap": false,
+      "expected_no_api_path": false,
+      "neighbor_of": "swing-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "ambiguous",
+        "shadowing"
       ]
     },
     {

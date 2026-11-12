@@ -1,0 +1,93 @@
+schema_version: 1
+workflow_id: earnings-weekly
+fixed_timestamp: "2026-11-06T21:00:00+00:00"
+
+inputs:
+  fmp_fixture: replay-inputs/fmp-fixture.json
+  sizing_parameters: replay-inputs/sizing-parameters.json
+  exposure_decision: replay-inputs/exposure-decision.json
+  technical_review: replay-inputs/technical-review.json
+  journal_decision: replay-inputs/journal-decision.yaml
+
+steps:
+  - step: 1
+    executor: earnings_circuit
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      circuit_breaker_decision:
+        canonical: 01_circuit_breaker_decision.json
+
+  - step: 2
+    executor: earnings_analyze
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      earnings_trade_analysis:
+        canonical: 02_earnings_trade_analysis.json
+
+  - step: 3
+    executor: earnings_pead
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      pead_screen:
+        canonical: 03_pead_screen.json
+
+  - step: 4
+    executor: earnings_validate
+    executor_mode: manual_contract
+    gate_policy: continue
+    output_files:
+      validated_earnings_setups:
+        canonical: 04_validated_earnings_setups.json
+
+  - step: 5
+    executor: earnings_size
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      earnings_position_sizing:
+        canonical: 05_earnings_position_sizing.json
+
+  - step: 6
+    executor: earnings_journal
+    executor_mode: composite
+    executor_components:
+      - manual_contract
+      - native_api
+    gate_policy: continue
+    output_files:
+      earnings_journal_entry:
+        canonical: 06_earnings_journal_entry.json
+
+  - step: 7
+    executor: earnings_discipline
+    executor_mode: native_cli
+    gate_policy: continue
+    output_files:
+      pre_trade_discipline_decision:
+        canonical: 07_pre_trade_discipline_decision.json
+        companion: 07_pre_trade_discipline_decision.md
+
+variants:
+  required-only:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+    golden_dir: replay-run
+  full-path:
+    enabled_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+    golden_dir: replay-run-full-path

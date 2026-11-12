@@ -1784,6 +1784,31 @@
       ]
     },
     {
+      "api_profile": "fmp-required",
+      "cadence": "weekly",
+      "difficulty": "intermediate",
+      "display_name": "Earnings Momentum Weekly",
+      "estimated_minutes": 60,
+      "id": "earnings-weekly",
+      "optional_skills": [],
+      "prerequisite_workflows": [
+        "market-regime-daily"
+      ],
+      "required_skills": [
+        "earnings-trade-analyzer",
+        "pead-screener",
+        "drawdown-circuit-breaker",
+        "technical-analyst",
+        "position-sizer",
+        "trader-memory-core",
+        "pre-trade-discipline-gate"
+      ],
+      "target_users": [
+        "part-time-swing-trader",
+        "growth-investor"
+      ]
+    },
+    {
       "api_profile": "mixed",
       "cadence": "weekly",
       "difficulty": "intermediate",
