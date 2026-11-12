@@ -18,7 +18,7 @@ concrete recommendation: which **workflow** to run, which **skillset**
 (skills-index category) it belongs to, the **API requirement**, and the
 **setup path** for Claude Web App or Claude Code.
 
-A new user faces 74 skills + 13 workflows with no router. This skill is that
+A new user faces 74 skills + 14 workflows with no router. This skill is that
 router. It is **deterministic** — a Python recommender (`scripts/recommend.py`)
 consumes the repo metadata; this SKILL.md narrates the result conversationally.
 
@@ -88,8 +88,8 @@ Parse the JSON and explain, in the user's language:
   and why; they never make the goal blocked.
 - **Skillset** — the `skillset.id` (skills-index category).
   `manifest_status: active` means a curated `skillsets/<id>.yaml` bundle ships
-  for this category (market-regime, core-portfolio, swing-opportunity,
-  trade-memory, strategy-research) — mention it as the install bundle for the
+  for this category (market-regime, core-portfolio, dividend-income,
+  swing-opportunity, trade-memory, strategy-research) — mention it as the install bundle for the
   recommended workflow. `manifest_status: deferred` means no manifest yet
   (e.g. honest-gap categories); the recommendation is workflow-based only.
 - **No-API vs API** — read `no_api_path`: `true` → the entire recommended path
@@ -181,5 +181,5 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 - `references/setup_paths.md` — Claude Web App vs Claude Code setup steps.
 - `assets/metadata_snapshot.json` — generated SSoT digest for the Web App
   fallback. Never edit by hand; run `build_snapshot.py`.
-- `assets/intent_benchmark_v1.json` — 211 explicitly labeled EN/JA routing
+- `assets/intent_benchmark_v1.json` — 246 explicitly labeled EN/JA routing
   cases with 1.0 precision/recall and per-persona/workflow coverage gates.

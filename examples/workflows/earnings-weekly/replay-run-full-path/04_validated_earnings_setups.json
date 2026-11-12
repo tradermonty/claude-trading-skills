@@ -1,0 +1,35 @@
+{
+  "as_of": "2026-11-06",
+  "provenance": {
+    "execution": "manual_contract",
+    "limitation": "The chart review is a fictional human-approved fixture bound to the PEAD screener output; no chart image was analyzed."
+  },
+  "rejected": [
+    {
+      "pead_stage": "SIGNAL_READY",
+      "reason": "Weekly close is still below the red candle high; keep on the watchlist until it closes above.",
+      "symbol": "EXMB"
+    },
+    {
+      "pead_stage": "MONITORING",
+      "reason": "Only the earnings week exists; no red candle has formed yet.",
+      "symbol": "EXMC"
+    }
+  ],
+  "schema_version": "1.0",
+  "setups": [
+    {
+      "chart_notes": "Fictional review: gap held, one orderly red week, then a weekly close above the red candle high on rising volume.",
+      "decision": "VALIDATED",
+      "entry_price": 69.3,
+      "manual_chart_review": "PASS",
+      "pead_stage": "BREAKOUT",
+      "risk_per_share": 5.8,
+      "source_artifact": "pead_screen",
+      "stop_price": 63.5,
+      "symbol": "EXMA",
+      "target_price": 80.9,
+      "weekly_trend": "UP"
+    }
+  ]
+}

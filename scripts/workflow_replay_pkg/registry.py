@@ -10,6 +10,14 @@ from .steps_core_portfolio import (
     _core_portfolio_rebalance,
     _core_portfolio_snapshot,
 )
+from .steps_earnings import (
+    _earnings_analyze,
+    _earnings_discipline,
+    _earnings_journal,
+    _earnings_pead,
+    _earnings_size,
+    _earnings_validate,
+)
 from .steps_ep import (
     _ep_analyze,
     _ep_circuit,
@@ -102,6 +110,15 @@ EXECUTORS: dict[str, ExecutorRegistration] = {
         "native_cli", _strategy_research_detect_final
     ),
     "strategy_research_hold": ExecutorRegistration("manual_contract", _strategy_research_hold),
+    "earnings_circuit": ExecutorRegistration("native_cli", _swing_circuit_breaker),
+    "earnings_analyze": ExecutorRegistration("native_cli", _earnings_analyze),
+    "earnings_pead": ExecutorRegistration("native_cli", _earnings_pead),
+    "earnings_validate": ExecutorRegistration("manual_contract", _earnings_validate),
+    "earnings_size": ExecutorRegistration("native_cli", _earnings_size),
+    "earnings_journal": ExecutorRegistration(
+        "composite", _earnings_journal, ("manual_contract", "native_api")
+    ),
+    "earnings_discipline": ExecutorRegistration("native_cli", _earnings_discipline),
     "ep_circuit": ExecutorRegistration("native_cli", _ep_circuit),
     "ep_screen": ExecutorRegistration("manual_contract", _ep_screen),
     "ep_analyze": ExecutorRegistration("native_cli", _ep_analyze),

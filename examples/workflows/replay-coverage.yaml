@@ -11,6 +11,11 @@ covered:
     variants:
       - required-only
       - full-path
+  earnings-weekly:
+    spec: earnings-weekly/replay.yaml
+    variants:
+      - required-only
+      - full-path
   kanchi-dividend-weekly:
     spec: kanchi-dividend-weekly/replay.yaml
     variants:
@@ -67,6 +72,6 @@ covered:
       - required-only
       - full-path
 
-# Frozen Coverage 12/12 baseline. All canonical workflows ship both replay
+# Frozen Coverage 14/14 baseline. All canonical workflows ship both replay
 # variants; a newly introduced workflow must do the same.
 deferred: {}

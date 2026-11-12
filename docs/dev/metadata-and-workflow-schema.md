@@ -23,6 +23,7 @@ schema_version: 1
 categories:
   - market-regime
   - core-portfolio
+  - dividend-income
   - swing-opportunity
   - trade-planning
   - trade-memory

@@ -1,0 +1,52 @@
+{
+  "order_intent": "MANUAL_ORDER",
+  "order_submitted": false,
+  "plan": {
+    "account_type": "fictional_cash",
+    "position_value": 5959.8,
+    "risk_dollars": 498.8,
+    "shares": 86
+  },
+  "provenance": {
+    "components": [
+      "manual_contract",
+      "native_api"
+    ],
+    "execution_mode": "composite",
+    "limitation": "Human register decision is a fixture; no broker fill exists, so every thesis stays IDEA and no order is placed.",
+    "native_component": "trader-memory-core.thesis_ingest + thesis_store.link_report",
+    "source_date": "2026-11-06"
+  },
+  "recorded_at": "2026-11-06T21:00:00+00:00",
+  "schema_version": "1.0",
+  "theses": [
+    {
+      "created_at": "2026-11-06T00:00:00+00:00",
+      "entry_target_price": 69.3,
+      "linked_reports": [
+        {
+          "date": "2026-11-06",
+          "file": "03_pead_screen.json",
+          "skill": "pead-screener"
+        },
+        {
+          "date": "2026-11-06",
+          "file": "04_validated_earnings_setups.json",
+          "skill": "technical-analyst"
+        },
+        {
+          "date": "2026-11-06",
+          "file": "05_earnings_position_sizing.json",
+          "skill": "position-sizer"
+        }
+      ],
+      "next_review_date": "2026-12-06",
+      "origin_skill": "pead-screener",
+      "status": "IDEA",
+      "stop_loss": 63.5,
+      "thesis_type": "earnings_drift",
+      "ticker": "EXMA"
+    }
+  ],
+  "workflow_id": "earnings-weekly"
+}

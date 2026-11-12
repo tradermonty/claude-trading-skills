@@ -62,6 +62,7 @@ def write_index(tmp_path: Path) -> Callable[..., Path]:
             "categories": [
                 "market-regime",
                 "core-portfolio",
+                "dividend-income",
                 "swing-opportunity",
                 "trade-planning",
                 "trade-memory",

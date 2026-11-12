@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-11-06",
+  "setups": [
+    {
+      "symbol": "EXMA",
+      "pead_stage": "BREAKOUT",
+      "weekly_trend": "UP",
+      "manual_chart_review": "PASS",
+      "decision": "VALIDATED",
+      "entry_price": 69.3,
+      "stop_price": 63.5,
+      "target_price": 80.9,
+      "risk_per_share": 5.8,
+      "chart_notes": "Fictional review: gap held, one orderly red week, then a weekly close above the red candle high on rising volume."
+    }
+  ],
+  "rejected": [
+    {
+      "symbol": "EXMB",
+      "pead_stage": "SIGNAL_READY",
+      "reason": "Weekly close is still below the red candle high; keep on the watchlist until it closes above."
+    },
+    {
+      "symbol": "EXMC",
+      "pead_stage": "MONITORING",
+      "reason": "Only the earnings week exists; no red candle has formed yet."
+    }
+  ]
+}

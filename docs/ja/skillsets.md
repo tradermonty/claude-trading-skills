@@ -23,6 +23,7 @@ permalink: /ja/skillsets/
 | スキルセット | タイムフレーム | API プロファイル | 難易度 | 関連ワークフロー |
 |---|---|---|---|---|
 | [`core-portfolio`](#core-portfolio) — Core Portfolio | weekly | mixed | beginner | `core-portfolio-weekly` |
+| [`dividend-income`](#dividend-income) — Dividend Income | weekly | mixed | intermediate | `kanchi-dividend-weekly` |
 | [`market-regime`](#market-regime) — Market Regime | daily | mixed | beginner | `market-regime-daily` |
 | [`strategy-research`](#strategy-research) — Strategy Research | research | no-api-basic | advanced | `strategy-research-pipeline` |
 | [`swing-opportunity`](#swing-opportunity) — Swing Opportunity | daily | fmp-required | intermediate | `swing-opportunity-daily` |
@@ -47,6 +48,26 @@ permalink: /ja/skillsets/
 **任意スキル:** `dividend-growth-pullback-screener`, `kanchi-dividend-sop`
 
 **関連ワークフロー:** `core-portfolio-weekly`
+
+---
+
+## Dividend Income {#dividend-income}
+
+**`dividend-income`** · weekly · mixed · intermediate
+
+**使用するとき:** Source and underwrite new US-listed dividend candidates once a week with Kanchi's 5-step method: screen for yield and quality, deep-dive the strongest names, and register a fully documented candidate thesis before any entry. Operationalized by the kanchi-dividend-weekly workflow (v1 covers US-listed dividend stocks only).
+
+**使用してはいけないとき:** Do not use this bundle for Japanese or other non-US-listed dividend stocks, and do not treat Kanchi-style screening as a buy signal or a claim of profitability. It is not for maintaining an existing holding; that is the core-portfolio sleeve. No order is placed automatically; every buy is entered manually at the broker.
+
+**対象ユーザー:** `long-term-investor`, `dividend-investor`
+
+**必須スキル:** `kanchi-dividend-sop`, `trader-memory-core`
+
+**推奨スキル:** `value-dividend-screener`, `dividend-growth-pullback-screener`
+
+**任意スキル:** `kanchi-dividend-us-tax-accounting`, `kanchi-dividend-review-monitor`
+
+**関連ワークフロー:** `kanchi-dividend-weekly`
 
 ---
 

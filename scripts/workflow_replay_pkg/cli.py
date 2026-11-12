@@ -1,4 +1,4 @@
-"""Deterministic workflow contract replay harness (Issue #294, coverage 12/12).
+"""Deterministic workflow contract replay harness (Issue #294, coverage 14/14).
 
 The harness executes real offline CLIs for the Stockbee fluency, 20% study,
 trade-memory, market-regime, monthly-performance-review, core-portfolio,

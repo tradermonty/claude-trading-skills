@@ -59,6 +59,11 @@ def _prompt_text(workflow: Mapping[str, Any], variant: str) -> str:
             "Include the optional news/catalyst brief while keeping every hypothesis "
             "card manual-review-gated and never wiring forex output to a broker."
         )
+    elif workflow["id"] == "earnings-weekly":
+        optional_text = (
+            "This workflow has no optional steps; run all seven required steps, keep the "
+            "chart review and register decisions human-approved, and never submit orders."
+        )
     elif workflow["id"] == "portfolio-holdings-review":
         optional_text = "This workflow has no optional steps; run its single required step."
     else:
@@ -155,6 +160,22 @@ def _write_manifest(
             "Full path includes manual-contract earnings/momentum screens and a written plan."
             if variant == "full-path"
             else "Optional earnings/momentum screens and written plan are skipped; the absent written plan forces NO_GO.",
+        ]
+    if workflow["id"] == "earnings-weekly":
+        payload["execution_evidence"] = {
+            "native_earnings_trade_analyzer_cli_executed": True,
+            "native_pead_screener_cli_executed": True,
+            "native_trader_memory_register_executed": True,
+            "broker_or_live_api_calls": False,
+            "execution_authorized": False,
+        }
+        payload["execution_evidence_limitations"] = [
+            "Steps 2-3 execute the real earnings-trade-analyzer and pead-screener CLIs unchanged; only their FMPClient is replaced by a read-only reader of a fictional local fixture (scripts/replay_offline_fmp_cli.py). Live FMP responses, field drift, and rate limits are not exercised.",
+            "Step 4 is a human-approved fictional chart review bound to the PEAD screener output; no chart image is analyzed.",
+            "Step 6 calls the native trader-memory-core pead-screener ingest and link_report APIs on disposable temporary state; the thesis stays IDEA and no fill is recorded.",
+            "Step 7 consumes checklist answers synthesized from offline fixtures and plan/sizing consistency checks, not human checklist responses; a fixture GO is not an order approval.",
+            "Both variants execute the same seven required steps because this workflow has no optional steps.",
+            "The replay does not measure real FMP API volume: the offline fixture has five symbols, while a live 28-day window makes one calendar request per day plus one profile request per reporting symbol. The explicit --max-api-calls value is not a measured requirement.",
         ]
     if workflow["id"] == "shapiro-contrarian":
         payload["execution_evidence_limitations"] = [

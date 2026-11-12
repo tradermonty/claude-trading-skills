@@ -37,7 +37,7 @@ def coverage_errors(workflow_ids: set[str], coverage: Mapping[str, Any]) -> list
 
     if set(deferred) != FROZEN_DEFERRED_WORKFLOWS:
         errors.append(
-            "deferred workflows must match the frozen coverage 12/12 deferred set; "
+            "deferred workflows must match the frozen coverage 14/14 deferred set; "
             f"expected {sorted(FROZEN_DEFERRED_WORKFLOWS)}, got {sorted(deferred)}"
         )
     for workflow_id, entry in deferred.items():
@@ -271,6 +271,13 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
         "strategy_research_detect_initial": {"ohlcv"},
         "strategy_research_detect_final": {"ohlcv"},
         "strategy_research_hold": {"backtest_metrics"},
+        "earnings_circuit": {"sizing_parameters"},
+        "earnings_analyze": {"fmp_fixture"},
+        "earnings_pead": {"fmp_fixture"},
+        "earnings_validate": {"technical_review"},
+        "earnings_size": {"sizing_parameters"},
+        "earnings_journal": {"journal_decision"},
+        "earnings_discipline": {"exposure_decision"},
         "trade_memory_lessons": {"lessons_required", "lessons_full"},
         "market_regime_breadth": {"market_breadth_components"},
         "market_regime_uptrend": {"market_uptrend_components"},

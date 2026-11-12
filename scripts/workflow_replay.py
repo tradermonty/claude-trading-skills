@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Deterministic workflow contract replay harness (Issue #294, coverage 12/12).
+"""Deterministic workflow contract replay harness (Issue #294, coverage 14/14).
 
 The harness executes real offline CLIs for the Stockbee fluency, 20% study,
 trade-memory, market-regime, monthly-performance-review, core-portfolio,
 kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily, swing-opportunity-daily,
-multi-asset-opportunity-daily, and strategy-research-pipeline workflows. Human decisions
+multi-asset-opportunity-daily, strategy-research-pipeline, and earnings-weekly workflows. Human decisions
 and fixture-backed native API evidence are reported separately from full skill
 execution. Golden outputs are comparison targets only and are never used as
 replay inputs.
@@ -71,6 +71,9 @@ from workflow_replay_pkg import (
 )
 from workflow_replay_pkg import (
     steps_core_portfolio as _steps_core_portfolio,
+)
+from workflow_replay_pkg import (
+    steps_earnings as _steps_earnings,
 )
 from workflow_replay_pkg import (
     steps_ep as _steps_ep,
@@ -237,6 +240,16 @@ from workflow_replay_pkg.steps_core_portfolio import (
     _validate_core_allocation_handoff,
     _validate_core_contract,
     _validate_core_snapshot,
+)
+from workflow_replay_pkg.steps_earnings import (
+    EARNINGS_MAX_API_CALLS,
+    _earnings_analyze,
+    _earnings_discipline,
+    _earnings_fmp_cli,
+    _earnings_journal,
+    _earnings_pead,
+    _earnings_size,
+    _earnings_validate,
 )
 from workflow_replay_pkg.steps_ep import (
     _ep_analyze,
@@ -582,6 +595,14 @@ __all__ = [
     "_strategy_research_hints",
     "_strategy_research_detect_final",
     "_strategy_research_hold",
+    "EARNINGS_MAX_API_CALLS",
+    "_earnings_fmp_cli",
+    "_earnings_analyze",
+    "_earnings_pead",
+    "_earnings_validate",
+    "_earnings_size",
+    "_earnings_journal",
+    "_earnings_discipline",
     "EXECUTORS",
     "coverage_errors",
     "validate_coverage",
@@ -620,6 +641,7 @@ _PACKAGE_MODULES = (
     _steps_ep,
     _steps_multi_asset,
     _steps_strategy_research,
+    _steps_earnings,
     _registry,
     _manifest,
     _execution,

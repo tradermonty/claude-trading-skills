@@ -30,6 +30,7 @@ def _write_index(root: Path, skills: list[dict]) -> None:
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",
@@ -133,6 +134,32 @@ def test_real_shipped_manifests_validate_clean() -> None:
     repo = Path(__file__).resolve().parents[2]
     findings = [f for f in validate(repo) if f.severity == "error"]
     assert findings == [], [f.format() for f in findings]
+
+
+def test_dividend_income_is_a_real_category_with_a_backing_manifest() -> None:
+    """dividend-income is canonical: the manifest exists, its backing workflow
+    is kanchi-dividend-weekly, and the workflow's first required skill (the
+    Navigator's dominant-category source) carries the same category."""
+    repo = Path(__file__).resolve().parents[2]
+    manifest = yaml.safe_load((repo / "skillsets" / "dividend-income.yaml").read_text("utf-8"))
+    assert manifest["id"] == manifest["category"] == "dividend-income"
+    assert manifest["related_workflows"] == ["kanchi-dividend-weekly"]
+
+    index = yaml.safe_load((repo / "skills-index.yaml").read_text("utf-8"))
+    assert "dividend-income" in index["categories"]
+    category_of = {s["id"]: s["category"] for s in index["skills"]}
+    workflow = yaml.safe_load(
+        (repo / "workflows" / "kanchi-dividend-weekly.yaml").read_text("utf-8")
+    )
+    assert category_of[workflow["required_skills"][0]] == "dividend-income"
+    for sid in (
+        "kanchi-dividend-sop",
+        "kanchi-dividend-review-monitor",
+        "kanchi-dividend-us-tax-accounting",
+        "value-dividend-screener",
+        "dividend-growth-pullback-screener",
+    ):
+        assert category_of[sid] == "dividend-income", sid
 
 
 # ---------------------------------------------------------------------------

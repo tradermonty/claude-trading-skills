@@ -2,7 +2,7 @@
 
 `scripts/recommend.py` is the **single source of truth** for routing. This
 document explains the engine; `assets/intent_benchmark_v1.json` is the
-explicitly labeled 211-case EN/JA gold corpus, and
+explicitly labeled 246-case EN/JA gold corpus, and
 `scripts/intent_benchmark.py` is its fail-closed evaluator.
 
 ## Engine overview
@@ -49,10 +49,11 @@ otherwise encodes precedence:
 | 11 | `separate-core-satellite` | "separate / split long-term from short-term risk" (not "dividend") | `market-regime-daily` + `core-portfolio-weekly` |
 | 12 | `kanchi-dividend-investor` | "Kanchi / high-dividend screening" | `kanchi-dividend-weekly` |
 | 13 | `dividend-long-term-investor` | "dividend / holdings / rebalance / long-term investor" | `core-portfolio-weekly` |
-| 14 | `swing-trader` | "swing / breakout" (no regime gate) | `swing-opportunity-daily` |
-| 15 | `beginner-onramp` | "beginner / where do I start / getting started" | `market-regime-daily` |
-| 16 | `monthly-reviewer` | "monthly review / end of month / performance review" | `monthly-performance-review` |
-| 17 | `trade-journaler` | "journal / postmortem / closed trade / lessons learned" | `trade-memory-loop` |
+| 14 | `earnings-momentum-trader` | "earnings momentum / post-earnings drift / PEAD / 決算モメンタム" | `earnings-weekly` |
+| 15 | `swing-trader` | "swing / breakout" (no regime gate) | `swing-opportunity-daily` |
+| 16 | `beginner-onramp` | "beginner / where do I start / getting started" | `market-regime-daily` |
+| 17 | `monthly-reviewer` | "monthly review / end of month / performance review" | `monthly-performance-review` |
+| 18 | `trade-journaler` | "journal / postmortem / closed trade / lessons learned" | `trade-memory-loop` |
 
 **Critical orderings**
 
@@ -69,7 +70,10 @@ otherwise encodes precedence:
   short-term risk" → regime/core split, not the dividend bucket.
 - #12 before #13: specific Kanchi candidate sourcing wins over broad dividend
   portfolio maintenance while both candidates remain visible in diagnostics.
-- #16 before #17: specific JA monthly phrases such as 「今月の振り返り」 win
+- #14 before #15: the JA term 「決算モメンタム」 contains the generic swing term
+  「モメンタム」, so the earnings routine must win; the registered shadowing
+  contract covers it. Day 1 episodic-pivot phrasing stays with #6.
+- #17 before #18: specific JA monthly phrases such as 「今月の振り返り」 win
   over the generic journal term 「振り返り」.
 
 ## Routing diagnostics and benchmark gate
@@ -80,7 +84,7 @@ constraints are applied. The first candidate remains the selected persona for
 backward compatibility. One match is `exact`; multiple matches are
 `ambiguous`; no matches are `fallback` with `selected_persona: null`.
 
-The versioned corpus requires all 17 personas and all 13 workflows to carry
+The versioned corpus requires all 18 personas and all 14 workflows to carry
 positive and hard-negative coverage in both English and Japanese. Its
 metamorphic cases cover EN case/punctuation/word-order/orthographic changes and
 JA punctuation/word-order/orthographic/particle/conjugation changes. Candidate
@@ -138,9 +142,12 @@ trade-planning / trade-memory; only the first (`vcp-screener` →
 manifest ships (the manifest `id` == the skills-index category, so the lookup
 is a direct match — carried as the `skillsets` list in the SSoT / bundled
 snapshot). Today the shipped set is `market-regime`, `core-portfolio`,
-`swing-opportunity`, `trade-memory`, `strategy-research` → those report `active`.
+`dividend-income`, `swing-opportunity`, `trade-memory`, `strategy-research` →
+those report `active` for a workflow the manifest names in `related_workflows`
+(`dividend-income` backs `kanchi-dividend-weekly`, persona #12).
 Categories with no manifest — including the honest-gap category
-`advanced-satellite` for #7 — report `deferred`. The skillset object shape is
+`advanced-satellite` for #7, which is also the category of `earnings-weekly`'s
+first required skill (`earnings-trade-analyzer`) — report `deferred`. The skillset object shape is
 unchanged (`{id, source, manifest_status}`); only the status value reflects
 manifest presence.
 

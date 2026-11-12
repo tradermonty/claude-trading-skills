@@ -719,6 +719,58 @@ PERSONAS: tuple[Persona, ...] = (
             "dividend / long-term investor — weekly core-portfolio review and dividend candidates"
         ),
     ),
+    # Weekly earnings-momentum routine (Issue #216): score the past week's
+    # earnings reactions, screen PEAD weekly setups, then size and journal.
+    # Distinct from stockbee-ep-daily (Day 1 catalyst classification). Must precede
+    # swing-trader: its generic JA term "モメンタム" is a substring of "決算モメンタム".
+    Persona(
+        name="earnings-momentum-trader",
+        any_terms=(
+            "earnings momentum",
+            "earnings-momentum",
+            "post-earnings",
+            "post earnings",
+            "earnings drift",
+            "earnings reaction",
+            "earnings season",
+            "pead",
+            # JA
+            "決算モメンタム",
+            "決算後のドリフト",
+            "決算後ドリフト",
+            "決算ドリフト",
+            "決算反応",
+            "決算シーズン",
+        ),
+        # Substring matching: these terms are broad, so journaling, calendar,
+        # options and short intents must keep their pre-persona routing.
+        exclude_terms=(
+            "journal",
+            "postmortem",
+            "post-mortem",
+            "closed trade",
+            "lessons",
+            "review of my",
+            "calendar",
+            "season dates",
+            "upcoming",
+            "option",
+            "short",
+            "振り返り",
+            "反省",
+            "ジャーナル",
+            "カレンダー",
+            "日程",
+            "オプション",
+            "ショート",
+        ),
+        primary="earnings-weekly",
+        rationale=(
+            "earnings-momentum trader — weekly scoring of earnings reactions, "
+            "PEAD weekly-candle screening, chart confirmation, sizing, and "
+            "journaling behind the regime and discipline gates"
+        ),
+    ),
     # Q5 — generic swing trading (no regime gate; AFTER Q1 persona).
     Persona(
         name="swing-trader",

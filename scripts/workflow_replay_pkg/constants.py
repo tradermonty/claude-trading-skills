@@ -55,7 +55,7 @@ KANCHI_FORBIDDEN_REVIEW_TOKENS = frozenset(
 VARIANTS = ("required-only", "full-path")
 
 
-# Coverage 12/12 leaves no workflow deferred. This frozen baseline prevents a
+# Coverage 14/14 leaves no workflow deferred. This frozen baseline prevents a
 # newly introduced workflow from being waved through as another deferral.
 FROZEN_DEFERRED_WORKFLOWS = frozenset()
 

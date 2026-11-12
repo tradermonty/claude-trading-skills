@@ -47,7 +47,8 @@ CATEGORY_HINTS: list[tuple[list[str], str]] = [
         ],
         "market-regime",
     ),
-    (["portfolio", "kanchi", "dividend"], "core-portfolio"),
+    (["kanchi", "dividend"], "dividend-income"),
+    (["portfolio"], "core-portfolio"),
     (["vcp", "canslim", "breakout", "theme"], "swing-opportunity"),
     (["position-sizer", "technical-analyst"], "trade-planning"),
     (["memory", "postmortem", "journal", "trade-hypothesis"], "trade-memory"),
@@ -355,6 +356,7 @@ def build_index(project_root: Path) -> dict[str, Any]:
         "categories": [
             "market-regime",
             "core-portfolio",
+            "dividend-income",
             "swing-opportunity",
             "trade-planning",
             "trade-memory",
