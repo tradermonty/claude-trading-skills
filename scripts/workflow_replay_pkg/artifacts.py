@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from evaluation_coverage import validate_evaluation_coverage
 from validate_provenance import validate_provenance
 
 from .common import ReplayError
@@ -95,6 +96,12 @@ def _validate_artifact_provenance(
             raise ReplayError(
                 f"{context}: cannot parse canonical provenance payload: {exc}"
             ) from exc
+        if isinstance(payload, dict) and "evaluation_coverage" in payload:
+            errors = validate_evaluation_coverage(payload["evaluation_coverage"])
+            if errors:
+                raise ReplayError(
+                    f"{context}: invalid evaluation_coverage:\n- " + "\n- ".join(errors)
+                )
         has_block = isinstance(payload, dict) and "data_provenance" in payload
         if not has_block:
             if producer is not None:

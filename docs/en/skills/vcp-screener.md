@@ -212,6 +212,14 @@ NVDA (Score: 92.1 - Textbook VCP)
 
 ## 6. Understanding the Output
 
+Read `evaluation_coverage` first: reports show evaluated / total and a verdict of
+`complete`, `partial` or `not_evaluable`. With incomplete coverage, zero candidates
+means **undetermined**, not no opportunities. Valid filter rejections count as
+evaluated; missing data, provider/plan failures and candidate-cap exclusions do
+not. Full candidate evaluation needs 253 usable stock and benchmark history rows.
+Displayed top-N and mode filters do not change these counts. This applies to
+cross-sectional screening, not the historical single-ticker mode.
+
 The screener generates:
 - `vcp_screener_YYYY-MM-DD_HHMMSS.json` -- Structured results for programmatic use
 - `vcp_screener_YYYY-MM-DD_HHMMSS.md` -- Human-readable report

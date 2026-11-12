@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from evaluation_coverage import evaluation_input_usable
 from provenance_contract import validate_market_inputs
 
 # Component weights for composite score
@@ -49,7 +50,7 @@ def _regime_input_is_usable(data: Optional[dict]) -> bool:
     canonical macro-regime-detector reports, explicit very-low confidence,
     zero usable components, or malformed availability metadata fail closed.
     """
-    if not isinstance(data, dict):
+    if not evaluation_input_usable(data):
         return False
 
     regime = data.get("regime")
@@ -106,7 +107,7 @@ def load_json_file(path: Optional[Path]) -> Optional[dict]:
 
 def extract_breadth_score(data: Optional[dict]) -> Optional[int]:
     """Extract breadth score from breadth analyzer output."""
-    if data is None:
+    if not evaluation_input_usable(data):
         return None
     # Support various field names from upstream skill
     if "breadth_score" in data:
@@ -151,7 +152,7 @@ def extract_uptrend_score(data: Optional[dict]) -> Optional[int]:
     top level) and the nested shape emitted by uptrend-analyzer, which stores
     its result under a ``composite`` sub-object.
     """
-    if data is None:
+    if not evaluation_input_usable(data):
         return None
     if "uptrend_score" in data:
         return int(data["uptrend_score"])
@@ -213,7 +214,7 @@ def extract_regime_name(data: Optional[dict]) -> str:
 
 def extract_top_risk_score(data: Optional[dict]) -> Optional[int]:
     """Extract top risk score (inverted - high risk = low score)."""
-    if data is None:
+    if not evaluation_input_usable(data):
         return None
     if "top_risk_score" in data:
         return int(data["top_risk_score"])
@@ -247,7 +248,7 @@ def extract_ftd_score(data: Optional[dict]) -> Optional[int]:
     (``total_score``); a confirmed Follow-Through Day is a bullish
     bottom-confirmation signal, so the score is used directly (no inversion).
     """
-    if data is None:
+    if not evaluation_input_usable(data):
         return None
     if "ftd_score" in data:
         return int(data["ftd_score"])
@@ -278,7 +279,7 @@ def extract_theme_score(data: Optional[dict]) -> Optional[int]:
     Bullish heat is positive, bearish negative. Every themes.all row must be
     valid; quality warnings are preserved by the CLI, not evidence of freshness.
     """
-    if not isinstance(data, dict):
+    if not evaluation_input_usable(data):
         return None
     if data.get("report_type") == "theme_detector":
         quality = data.get("data_quality")
@@ -316,7 +317,7 @@ def extract_theme_score(data: Optional[dict]) -> Optional[int]:
 
 def extract_sector_score(data: Optional[dict]) -> Optional[int]:
     """Extract sector condition score."""
-    if data is None:
+    if not evaluation_input_usable(data):
         return None
     if "sector_score" in data:
         return int(data["sector_score"])
@@ -336,7 +337,7 @@ def extract_sector_score(data: Optional[dict]) -> Optional[int]:
 
 def extract_institutional_score(data: Optional[dict]) -> Optional[int]:
     """Extract institutional flow score."""
-    if data is None:
+    if not evaluation_input_usable(data):
         return None
     if "institutional_score" in data:
         return int(data["institutional_score"])
@@ -684,6 +685,32 @@ def main():
     theme_data = load_json_file(args.theme)
     sector_data = load_json_file(args.sector)
     institutional_data = load_json_file(args.institutional)
+
+    for name, data in (
+        ("breadth", breadth_data),
+        ("uptrend", uptrend_data),
+        ("regime", regime_data),
+        ("top_risk", top_risk_data),
+        ("ftd", ftd_data),
+        ("theme", theme_data),
+        ("sector", sector_data),
+        ("institutional", institutional_data),
+    ):
+        if (
+            isinstance(data, dict)
+            and "evaluation_coverage" in data
+            and not evaluation_input_usable(data)
+        ):
+            print(
+                f"Warning: {name} evaluation_coverage is incomplete or invalid; input excluded as missing.",
+                file=sys.stderr,
+            )
+
+    # These two raw inputs also influence bias/participation independently of scores.
+    if not evaluation_input_usable(sector_data):
+        sector_data = None
+    if not evaluation_input_usable(institutional_data):
+        institutional_data = None
 
     lineage = None
     if args.require_provenance:

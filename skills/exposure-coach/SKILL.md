@@ -60,6 +60,11 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 
 The script accepts partial inputs; missing files reduce confidence but do not block execution.
 
+When an input declares `evaluation_coverage`, require valid schema 1.0 counts and
+`verdict: complete`. Partial, not-evaluable or malformed coverage is excluded as
+missing, with a stderr warning; never restore its score or bias manually.
+Legacy inputs without the block remain supported without a coverage guarantee.
+
 Canonical macro-regime reports must include nested `regime.confidence` and
 `composite.data_quality` with valid integer component counts. Missing or malformed
 availability metadata, `very_low` confidence, and zero usable components are
