@@ -19,9 +19,11 @@ try:
     import numpy as np
     import pandas as pd
 except ImportError:
+    from pathlib import Path as _Path
+
     print(
-        "ERROR: pandas/numpy not found. Install with: "
-        "pip install -r skills/theme-detector/requirements.txt",
+        "ERROR: pandas/numpy library not found. Install this skill's dependencies: "
+        f"pip install -r {_Path(__file__).resolve().parents[1] / 'requirements.txt'}",
         file=sys.stderr,
     )
     sys.exit(2)

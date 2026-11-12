@@ -118,8 +118,11 @@ def test_client_exits_when_requests_missing(monkeypatch, capsys):
     monkeypatch.setattr(smb, "requests", None)
     with pytest.raises(SystemExit) as exc:
         FMPClient(api_key="k")
-    assert exc.value.code == 1
-    assert "requests library not found" in capsys.readouterr().err
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "requests library not found" in err
+    assert "pip install -r" in err
+    assert "requirements.txt" in err
 
 
 def test_shared_module_is_cached_and_registered(shared):

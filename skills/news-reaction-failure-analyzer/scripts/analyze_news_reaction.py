@@ -316,10 +316,11 @@ class PriceClient:
     def __init__(self, api_key: str, sleep_seconds: float = 0.25):
         if requests is None:
             print(
-                "ERROR: requests library not found. Install with: pip install requests",
+                "ERROR: requests library not found. Install this skill's dependencies: "
+                f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}",
                 file=sys.stderr,
             )
-            sys.exit(1)
+            sys.exit(2)
         self.api_key = api_key
         self.sleep_seconds = sleep_seconds
         self.session = requests.Session()

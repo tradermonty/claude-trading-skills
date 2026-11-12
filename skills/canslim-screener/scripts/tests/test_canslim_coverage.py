@@ -675,7 +675,10 @@ class TestCheckInstitutionalEndpoint:
     def test_missing_key(self, monkeypatch, capsys):
         monkeypatch.delenv("FMP_API_KEY", raising=False)
         assert cie.check_institutional_endpoint() is False
-        assert "FMP_API_KEY environment variable not set" in capsys.readouterr().err
+        captured = capsys.readouterr()
+        assert "FMP_API_KEY environment variable not set" in captured.err
+        assert "export FMP_API_KEY=your_key" in captured.err
+        assert captured.out == ""
 
     def test_available(self, monkeypatch, capsys):
         monkeypatch.setenv("FMP_API_KEY", TEST_KEY)

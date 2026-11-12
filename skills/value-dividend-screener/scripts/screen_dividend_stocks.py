@@ -32,9 +32,11 @@ from typing import Optional
 try:
     import requests
 except ImportError:
+    from pathlib import Path as _Path
+
     print(
-        "ERROR: requests library not found. Install with: "
-        "pip install -r skills/value-dividend-screener/requirements.txt",
+        "ERROR: requests library not found. Install this skill's dependencies: "
+        f"pip install -r {_Path(__file__).resolve().parents[1] / 'requirements.txt'}",
         file=sys.stderr,
     )
     sys.exit(2)

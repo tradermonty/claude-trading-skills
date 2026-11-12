@@ -318,9 +318,9 @@ def test_main_pipeline_validation_pass_and_fail(monkeypatch, capsys, ohlcv, tmp_
     )
     assert run_main(monkeypatch, *args, "--force-export") == 1
     captured = capsys.readouterr()
-    stdout = captured.out
     assert "[ERROR] exported strategies failed pipeline validation:" in captured.err
-    assert "  - edge_auto_vcp_brk_20260220: schema says no" in stdout
+    assert "  - edge_auto_vcp_brk_20260220: schema says no" in captured.err
+    assert "schema says no" not in captured.out
 
 
 @pytest.mark.parametrize("reverse_export_order", [False, True])

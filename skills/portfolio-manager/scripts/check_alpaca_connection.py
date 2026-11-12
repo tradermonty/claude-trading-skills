@@ -20,9 +20,11 @@ import sys
 try:
     import requests
 except ImportError:
-    print("ERROR: requests library not installed", file=sys.stderr)
+    from pathlib import Path as _Path
+
     print(
-        "Install with: pip install -r skills/portfolio-manager/requirements.txt",
+        "ERROR: requests library not found. Install this skill's dependencies: "
+        f"pip install -r {_Path(__file__).resolve().parents[1] / 'requirements.txt'}",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -38,15 +40,21 @@ def load_credentials():
 
     if not api_key or not secret_key:
         print("ERROR: Alpaca API credentials not found", file=sys.stderr)
-        print("\nPlease set environment variables:")
-        print("  export ALPACA_API_KEY='your_api_key_id'")  # pragma: allowlist secret
-        print("  export ALPACA_SECRET_KEY='your_secret_key'")  # pragma: allowlist secret
-        print("  export ALPACA_PAPER='true'  # or 'false' for live trading")
-        print("\nOr add to your shell config file (~/.bashrc or ~/.zshrc):")
-        print("  echo 'export ALPACA_API_KEY=\"your_key\"' >> ~/.bashrc")
-        print("  echo 'export ALPACA_SECRET_KEY=\"your_secret\"' >> ~/.bashrc")
-        print("  echo 'export ALPACA_PAPER=\"true\"' >> ~/.bashrc")
-        print("  source ~/.bashrc")
+        print("\nPlease set environment variables:", file=sys.stderr)
+        print(
+            "  export ALPACA_API_KEY='your_api_key_id'",  # pragma: allowlist secret
+            file=sys.stderr,
+        )
+        print(
+            "  export ALPACA_SECRET_KEY='your_secret_key'",  # pragma: allowlist secret
+            file=sys.stderr,
+        )
+        print("  export ALPACA_PAPER='true'  # or 'false' for live trading", file=sys.stderr)
+        print("\nOr add to your shell config file (~/.bashrc or ~/.zshrc):", file=sys.stderr)
+        print("  echo 'export ALPACA_API_KEY=\"your_key\"' >> ~/.bashrc", file=sys.stderr)
+        print("  echo 'export ALPACA_SECRET_KEY=\"your_secret\"' >> ~/.bashrc", file=sys.stderr)
+        print("  echo 'export ALPACA_PAPER=\"true\"' >> ~/.bashrc", file=sys.stderr)
+        print("  source ~/.bashrc", file=sys.stderr)
         sys.exit(1)
 
     return api_key, secret_key, paper

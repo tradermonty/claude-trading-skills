@@ -344,8 +344,8 @@ def main() -> int:
             return 1
     else:
         print("Error: specify --manual or --scores", file=sys.stderr)
-        print("\nGuidelines:")
-        print(scorer.get_scoring_guidelines())
+        print("\nGuidelines:", file=sys.stderr)
+        print(scorer.get_scoring_guidelines(), file=sys.stderr)
         return 1
 
     try:

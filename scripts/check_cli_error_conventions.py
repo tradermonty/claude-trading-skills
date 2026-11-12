@@ -9,11 +9,20 @@ module and flags:
     with ``Error``, ``ERROR`` or ``FATAL`` (leading whitespace, emoji and
     punctuation are ignored) and that has no ``file=...stderr`` keyword.
 ``import-error-exit1``
-    A module-level ``except ImportError`` (or ``ModuleNotFoundError``) handler
-    that calls ``sys.exit(1)``. Missing runtime dependencies must exit 2.
+    An ``except ImportError`` (or ``ModuleNotFoundError``) handler, at module
+    or function scope, that exits 1: ``sys.exit(1)``, ``raise SystemExit(1)``,
+    or ``sys.exit("msg")`` / ``raise SystemExit("msg")`` (a string argument
+    means exit status 1). Missing runtime dependencies must exit 2. A bare
+    ``raise`` after printing a hint is left unflagged. Limitation: guards of
+    the form ``if requests is None: ... sys.exit(1)`` are not detected.
 ``network-timeout``
     ``urlopen(...)``, ``requests.<verb>(...)`` or ``<session>.<verb>(...)``
-    without a ``timeout=`` keyword (or with ``timeout=None``).
+    without a ``timeout=`` keyword (or with ``timeout=None``). A receiver
+    counts as an HTTP session when its last name component is assigned from
+    ``requests.Session()`` / ``Session()`` in the same module, or is exactly
+    ``session`` / ``sess`` / ``*_session`` and the call has at least one
+    positional argument or ``url=``. So ``session_state.get("k")`` and
+    ``cache.get(key)`` are not flagged.
 
 Intentional exceptions live in ``config/cli-error-allowlist.json``. Each entry
 needs ``path``, ``rule``, ``scope`` (the enclosing function qualname, or
@@ -100,11 +109,28 @@ def _is_exit_one(node: ast.AST) -> bool:
     )
 
 
+def _is_str_arg(node: ast.expr) -> bool:
+    """True for a str literal or f-string (an exit with it means status 1)."""
+    return isinstance(node, ast.JoinedStr) or (
+        isinstance(node, ast.Constant) and isinstance(node.value, str)
+    )
+
+
+def _is_exit_string(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    if ast.unparse(node.func) not in {"sys.exit", "exit", "quit"}:
+        return False
+    return len(node.args) == 1 and _is_str_arg(node.args[0])
+
+
 def _is_raise_systemexit_one(node: ast.AST) -> bool:
     if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
         if ast.unparse(node.exc.func) == "SystemExit" and len(node.exc.args) == 1:
             arg = node.exc.args[0]
-            return isinstance(arg, ast.Constant) and arg.value == 1
+            if isinstance(arg, ast.Constant) and arg.value == 1 and not isinstance(arg.value, bool):
+                return True
+            return _is_str_arg(arg)
     return False
 
 
@@ -128,7 +154,44 @@ def _walk_no_defs(nodes: list[ast.stmt]):
                 stack.append(child)
 
 
-def _network_call_name(call: ast.Call) -> str | None:
+SESSION_FACTORIES = {"requests.Session", "requests.session", "Session"}
+
+
+def _last_name(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _session_names(tree: ast.AST) -> set[str]:
+    """Last name components assigned from ``requests.Session()`` in the module."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if isinstance(value, ast.Call) and ast.unparse(value.func) in SESSION_FACTORIES:
+            for target in targets:
+                name = _last_name(target)
+                if name:
+                    names.add(name)
+    return names
+
+
+def _looks_like_session_name(last: str) -> bool:
+    return last in {"session", "sess"} or last.endswith("_session")
+
+
+def _has_url_argument(call: ast.Call) -> bool:
+    return bool(call.args) or any(kw.arg == "url" for kw in call.keywords)
+
+
+def _network_call_name(call: ast.Call, sessions: frozenset[str] = frozenset()) -> str | None:
     func = call.func
     if isinstance(func, ast.Name) and func.id == "urlopen":
         return "urlopen"
@@ -136,9 +199,12 @@ def _network_call_name(call: ast.Call) -> str | None:
         if func.attr == "urlopen":
             return ast.unparse(func)
         if func.attr in HTTP_VERBS:
-            receiver = ast.unparse(func.value)
-            last = receiver.split(".")[-1].lower()
-            if last == "requests" or "session" in last:
+            last = (_last_name(func.value) or "").lower()
+            if last == "requests":
+                return ast.unparse(func)
+            if _last_name(func.value) in sessions:
+                return ast.unparse(func)
+            if _looks_like_session_name(last) and _has_url_argument(call):
                 return ast.unparse(func)
     return None
 
@@ -153,8 +219,9 @@ def _timeout_missing(call: ast.Call) -> bool:
 
 
 class _Visitor(ast.NodeVisitor):
-    def __init__(self, rel: str) -> None:
+    def __init__(self, rel: str, sessions: frozenset[str] = frozenset()) -> None:
         self.rel = rel
+        self._sessions = sessions
         self.findings: list[Finding] = []
         self._scope: list[str] = []
 
@@ -174,6 +241,25 @@ class _Visitor(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._enter(node, node.name)
 
+    def visit_Try(self, node: ast.Try) -> None:
+        for handler in node.handlers:
+            if not _catches_import_error(handler):
+                continue
+            for inner in _walk_no_defs(handler.body):
+                if _is_exit_one(inner) or _is_exit_string(inner) or _is_raise_systemexit_one(inner):
+                    self.findings.append(
+                        Finding(
+                            self.rel,
+                            inner.lineno,
+                            RULE_IMPORT,
+                            self._scope_name(),
+                            "missing dependency exits 1; exit 2 with a requirements.txt hint",
+                        )
+                    )
+        self.generic_visit(node)
+
+    visit_TryStar = visit_Try  # type: ignore[assignment]
+
     def visit_Call(self, node: ast.Call) -> None:
         if isinstance(node.func, ast.Name) and node.func.id == "print" and node.args:
             text = _leading_text(node.args[0])
@@ -187,7 +273,7 @@ class _Visitor(ast.NodeVisitor):
                         "error message printed to stdout; add file=sys.stderr",
                     )
                 )
-        name = _network_call_name(node)
+        name = _network_call_name(node, self._sessions)
         if name and _timeout_missing(node):
             self.findings.append(
                 Finding(
@@ -201,36 +287,14 @@ class _Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _module_import_findings(tree: ast.Module, rel: str) -> list[Finding]:
-    out: list[Finding] = []
-    for node in _walk_no_defs(tree.body):
-        if not isinstance(node, ast.Try):
-            continue
-        for handler in node.handlers:
-            if not _catches_import_error(handler):
-                continue
-            for inner in _walk_no_defs(handler.body):
-                if _is_exit_one(inner) or _is_raise_systemexit_one(inner):
-                    out.append(
-                        Finding(
-                            rel,
-                            inner.lineno,
-                            RULE_IMPORT,
-                            MODULE_SCOPE,
-                            "missing dependency exits 1; exit 2 with a requirements.txt hint",
-                        )
-                    )
-    return out
-
-
 def scan_file(path: Path, rel: str) -> list[Finding]:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel)
     except SyntaxError as exc:
         return [Finding(rel, exc.lineno or 1, "syntax-error", MODULE_SCOPE, str(exc.msg))]
-    visitor = _Visitor(rel)
+    visitor = _Visitor(rel, frozenset(_session_names(tree)))
     visitor.visit(tree)
-    findings = visitor.findings + _module_import_findings(tree, rel)
+    findings = visitor.findings
     return sorted(findings, key=lambda f: (f.line, f.rule))
 
 

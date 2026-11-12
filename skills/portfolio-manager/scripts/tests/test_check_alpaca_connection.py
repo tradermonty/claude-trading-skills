@@ -76,7 +76,12 @@ def test_load_credentials_rejects_missing_values_without_leaking(monkeypatch, ca
     with pytest.raises(SystemExit, match="1"):
         alpaca.load_credentials()
 
-    _assert_secrets_hidden(capsys.readouterr())
+    captured = capsys.readouterr()
+    _assert_secrets_hidden(captured)
+    assert captured.out == ""
+    assert "credentials not found" in captured.err
+    assert "Please set environment variables" in captured.err
+    assert "export ALPACA_PAPER" in captured.err
 
 
 def test_account_success_masks_account_and_uses_timeout(monkeypatch, capsys):

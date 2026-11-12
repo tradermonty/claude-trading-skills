@@ -322,7 +322,7 @@ def test_validate_main_lists_contract_errors(monkeypatch, capsys, tmp_path: Path
     monkeypatch.setattr("sys.argv", ["validate", "--strategy", str(strategy)])
     assert vc.main() == 1
     captured = capsys.readouterr()
-    out = captured.out
+    out = captured.err
     assert "Candidate validation failed" in captured.err
     assert "candidate_id=wrong_name, id=edge_t1" in out
 

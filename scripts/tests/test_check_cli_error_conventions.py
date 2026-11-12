@@ -114,7 +114,7 @@ def test_import_error_other_handlers_ok(tmp_path, body):
     assert _scan(tmp_path, source) == []
 
 
-def test_import_error_inside_function_not_module_level(tmp_path):
+def test_function_scope_import_error_exit1_flagged(tmp_path):
     findings = _scan(
         tmp_path,
         """
@@ -123,6 +123,54 @@ def test_import_error_inside_function_not_module_level(tmp_path):
             try:
                 import requests
             except ImportError:
+                sys.exit(1)
+        """,
+    )
+    assert _rules(findings) == [cec.RULE_IMPORT]
+    assert findings[0].scope == "load"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'sys.exit("requests missing")',
+        'raise SystemExit("requests missing")',
+        'sys.exit(f"{name} missing")',
+        "raise SystemExit(1)",
+    ],
+)
+def test_import_error_string_or_systemexit_exit_flagged(tmp_path, body):
+    source = (
+        "import sys\nname = 1\ndef f():\n    try:\n        import x\n"
+        f"    except ImportError:\n        {body}\n"
+    )
+    assert _rules(_scan(tmp_path, source)) == [cec.RULE_IMPORT]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'print("hint", file=sys.stderr)\n        raise',
+        'print("hint", file=sys.stderr)\n        sys.exit(2)',
+        "x = None",
+    ],
+)
+def test_function_scope_import_error_ok(tmp_path, body):
+    source = (
+        "import sys\ndef f():\n    try:\n        import x\n"
+        f"    except ImportError:\n        {body}\n"
+    )
+    assert _scan(tmp_path, source) == []
+
+
+def test_requests_is_none_guard_is_a_documented_limitation(tmp_path):
+    findings = _scan(
+        tmp_path,
+        """
+        import sys
+        requests = None
+        def f():
+            if requests is None:
                 sys.exit(1)
         """,
     )
@@ -159,11 +207,31 @@ def test_untimed_network_call_flagged(tmp_path, call):
         "requests.get(url, **kwargs)",
         "cache.get(key)",
         "d.get('k')",
+        "session_state.get('key')",
+        "self.session_state.get('key')",
+        "session.get()",
     ],
 )
 def test_timed_or_unrelated_call_ok(tmp_path, call):
-    source = f"req = url = session = p = key = kwargs = TIMEOUT = 1\n{call}\n"
+    source = f"req = url = session = session_state = p = key = kwargs = TIMEOUT = 1\n{call}\n"
     assert _scan(tmp_path, source) == []
+
+
+def test_assigned_session_receiver_flagged_whatever_its_name(tmp_path):
+    findings = _scan(
+        tmp_path,
+        """
+        import requests
+        http = requests.Session()
+        http.get()
+        """,
+    )
+    assert _rules(findings) == [cec.RULE_TIMEOUT]
+
+
+def test_session_named_url_keyword_flagged(tmp_path):
+    findings = _scan(tmp_path, "sess = 1\nsess.post(url='http://x')\n")
+    assert _rules(findings) == [cec.RULE_TIMEOUT]
 
 
 # --- allowlist and tree scanning -------------------------------------------

@@ -269,7 +269,10 @@ def test_cli_emits_json_and_fails_closed_on_invalid_input(monkeypatch, capsys) -
 
     monkeypatch.setattr("sys.argv", ["bubble_scorer.py"])
     assert module.main() == 1
-    assert "specify --manual or --scores" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "specify --manual or --scores" in captured.err
+    assert "Guidelines:" in captured.err
+    assert captured.out == ""
 
 
 @pytest.mark.parametrize("path", QUICK_REFERENCES, ids=lambda path: path.name)

@@ -1878,7 +1878,7 @@ def main() -> int:
             print("[ERROR] exported strategies failed pipeline validation:", file=sys.stderr)
             for strategy_id, errors in validation_errors.items():
                 for error in errors:
-                    print(f"  - {strategy_id}: {error}")
+                    print(f"  - {strategy_id}: {error}", file=sys.stderr)
             return 1
         if pipeline_root is not None:
             print(

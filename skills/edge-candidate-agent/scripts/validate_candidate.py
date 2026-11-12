@@ -147,7 +147,7 @@ def main() -> int:
     if all_errors:
         print("[ERROR] Candidate validation failed:", file=sys.stderr)
         for error in all_errors:
-            print(f"  - {error}")
+            print(f"  - {error}", file=sys.stderr)
         return 1
 
     print(f"[OK] Candidate validation passed: {strategy_path}")

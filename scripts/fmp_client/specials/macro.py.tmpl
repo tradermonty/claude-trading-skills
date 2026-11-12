@@ -24,9 +24,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 try:
     import requests
 except ImportError:
+    from pathlib import Path as _Path
+
     print(
         "ERROR: requests library not found. Install this skill's dependencies: "
-        "pip install -r requirements.txt",
+        f"pip install -r {_Path(__file__).resolve().parents[1] / 'requirements.txt'}",
         file=sys.stderr,
     )
     sys.exit(2)

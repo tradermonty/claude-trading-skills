@@ -200,7 +200,7 @@ def test_main_strict_pipeline_requires_root(monkeypatch, capsys, tmp_path: Path)
         ["validate_candidate.py", "--strategy", str(strategy_path), "--strict-pipeline"],
     )
     rc = validate_candidate.main()
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert rc == 1
     assert "--strict-pipeline requires --pipeline-root" in out
 
@@ -235,6 +235,6 @@ def test_main_pipeline_root_uses_schema_validator(monkeypatch, capsys, tmp_path:
         ],
     )
     rc = validate_candidate.main()
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert rc == 1
     assert "forced pipeline error" in out

@@ -137,3 +137,35 @@ def test_build_strategy_maps_indicators_condition_and_brackets():
     ]
     assert strategy.calls[4][0] == "size"
     assert strategy.calls[-2:] == [("stop_loss", 2.0), ("take_profit", 4.0)]
+
+
+def test_main_missing_manifoldbt_exits_2_with_stderr_hint(tmp_path, monkeypatch, capsys):
+    import json
+    import sys
+
+    import run_backtest
+
+    spec = {
+        "name": "sma_cross",
+        "indicators": {
+            "fast": {"type": "sma", "period": 20},
+            "slow": {"type": "sma", "period": 60},
+        },
+        "entry": {"left": "fast", "op": ">", "right": "slow"},
+    }
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    monkeypatch.setitem(sys.modules, "manifoldbt", None)  # makes `import manifoldbt` fail
+    monkeypatch.setattr(
+        sys, "argv", ["run_backtest.py", "--spec", str(spec_path), "--data", "unused.csv"]
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_backtest.main()
+
+    captured = capsys.readouterr()
+    assert excinfo.value.code == 2
+    assert captured.out == ""
+    assert "manifoldbt library not found" in captured.err
+    assert "pip install -r" in captured.err
+    assert "requirements.txt" in captured.err
