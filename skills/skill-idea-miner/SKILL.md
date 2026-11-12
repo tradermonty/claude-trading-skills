@@ -26,17 +26,19 @@ prioritized backlog for downstream skill generation.
 
 ### Quick Start
 
+Run these from the repository root, so the backlog is the one the pipeline reads.
+
 ```bash
 # Dry-run: preview mined candidates without LLM scoring
-python3 scripts/mine_session_logs.py --dry-run --output-dir reports/
+python3 skills/skill-idea-miner/scripts/mine_session_logs.py --dry-run --output-dir reports/
 
 # Full mining with scoring (requires Claude CLI)
-python3 scripts/mine_session_logs.py --output-dir reports/
+python3 skills/skill-idea-miner/scripts/mine_session_logs.py --output-dir reports/
 
 # Score existing candidates
-python3 scripts/score_ideas.py \
+python3 skills/skill-idea-miner/scripts/score_ideas.py \
   --candidates reports/raw_candidates.yaml \
-  --output-dir logs/
+  --backlog logs/.skill_generation_backlog.yaml
 ```
 
 ### Stage 1: Session Log Mining

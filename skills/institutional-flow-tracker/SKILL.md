@@ -127,7 +127,7 @@ python3 scripts/analyze_single_stock.py AAPL
 **Alternative approach — use `analyze_single_stock.py` to check if a specific institution holds a stock:**
 ```bash
 # Analyze a stock and look for a specific institution in the output
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+python3 skills/institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
 # Then search the report for "Berkshire" or "ARK" in the Top 20 holders table
 ```
 
