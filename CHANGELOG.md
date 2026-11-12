@@ -4,10 +4,10 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
-- signal-postmortem: skip batch signals without observed finite entry/5d exit evidence, preserve genuine flat outcomes, expose skipped counts and fail zero-success batches instead of inventing NEUTRAL records (#702).
-
+- trading-skills-navigator: preserve offline saved-position input when JSON output is also requested, while retaining output-only, live-source and negated-file routing (#668).
 - Generate EN/JA README API guidance linking to the canonical index-derived requirements matrix and detailed mode instructions; reject stale or missing guidance with the catalog drift gate (#654).
 - trader-memory-core: generate historical-only postmortems for retired legacy equity shorts without fetching prices or changing state; suppress unsupported accounting values and explain their omission (#682).
+- exposure-coach: consume canonical theme-detector reports with a documented directional-heat adapter, validate row/quality contracts, preserve upstream warnings and distinguish supplied unparsable theme inputs from omitted files (#673).
 
 - theme-detector: prefer authenticated FINVIZ group export with safe public fallback, require finvizfinance>=1.5.0 for Python3.10+ public scraping, and merge overlapping ETF holdings without a missing-score crash (#671).
 
@@ -22,6 +22,8 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.
 
 ### Skills
+
+- signal-postmortem: skip batch signals without observed finite entry/5d exit evidence, preserve genuine flat outcomes, expose skipped counts and fail zero-success batches instead of inventing NEUTRAL records (#702).
 
 - trader-memory-core keeps equity accounting long-only: reject explicit short-equity intent and incompatible initial stop geometry before wrong P&L can be recorded, while preserving futures LONG/SHORT and active long profit-protecting stops. Remove the unsupported parabolic-short ingest instruction (#662).
 - Reject stale, future or invalid selected-market COT dates in the setup gate, news failure analyzer and technical confirmation, in addition to the report date. Validate optional per-market provenance dates, use the oldest validated age, and preserve absent-field legacy compatibility (#649). An unusable crowding input reaches the futures sizer as NO_TRADE.
