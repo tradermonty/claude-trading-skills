@@ -21,15 +21,17 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 
-try:
-    import requests
-except ImportError as e:  # pragma: no cover - environment check
-    raise RuntimeError("alpaca_inventory_adapter requires the `requests` package") from e
-
 from broker_short_inventory_adapter import (
     BrokerNotConfiguredError,
     BrokerShortInventoryAdapter,
+    MissingDependencyError,
+    missing_requests_message,
 )
+
+try:
+    import requests
+except ImportError as e:  # pragma: no cover - environment check
+    raise MissingDependencyError(missing_requests_message("alpaca_inventory_adapter")) from e
 
 PAPER_BASE_URL = "https://paper-api.alpaca.markets"
 LIVE_BASE_URL = "https://api.alpaca.markets"

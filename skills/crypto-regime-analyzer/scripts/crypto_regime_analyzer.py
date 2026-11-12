@@ -12,7 +12,8 @@ Usage:
   # Offline mode from a snapshot file (schema in references/)
   python3 crypto_regime_analyzer.py --input-json snapshot.json --output-dir reports/
 
-Exit codes: 0 = success, 1 = fatal error (no BTC data / bad input).
+Exit codes: 0 = success, 1 = fatal error (no BTC data / bad input),
+2 = missing runtime dependency (requests, live mode only).
 """
 
 import argparse
@@ -27,7 +28,13 @@ from calculators.dominance_calculator import calculate_dominance_regime
 from calculators.drawdown_vol_calculator import calculate_drawdown_vol
 from calculators.funding_calculator import calculate_funding_regime
 from calculators.momentum_thrust_calculator import calculate_momentum_thrust
-from data_client import DataClient, load_snapshot_from_json, validate_snapshot
+from data_client import (
+    DataClient,
+    MissingDependencyError,
+    load_snapshot_from_json,
+    require_requests,
+    validate_snapshot,
+)
 from report_generator import generate_json_report, generate_markdown_report, print_summary
 from scorer import calculate_composite_score
 
@@ -78,8 +85,12 @@ def main() -> int:
         if args.input_json:
             snapshot = load_snapshot_from_json(args.input_json)
         else:
+            require_requests()  # live mode needs requests; fail fast with exit 2
             client = DataClient(args.cache_dir, top_n=args.top_n, quiet=args.quiet)
             snapshot = client.build_snapshot()
+    except MissingDependencyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     except Exception as exc:
         print(f"ERROR: could not build data snapshot: {exc}", file=sys.stderr)
         return 1

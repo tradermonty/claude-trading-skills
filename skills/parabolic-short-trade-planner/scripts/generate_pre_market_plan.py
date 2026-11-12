@@ -42,6 +42,7 @@ for _p in (
 from broker_short_inventory_adapter import (  # noqa: E402
     BrokerNotConfiguredError,
     ManualBrokerAdapter,
+    MissingDependencyError,
 )
 from first_red_plan_builder import build_first_red_plan  # noqa: E402
 from manual_reasons import (  # noqa: E402
@@ -310,7 +311,14 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--as-of/Phase 1 as_of must be zero-padded YYYY-MM-DD")
     candidates = phase1.get("candidates", [])
 
-    broker = _resolve_broker(args)
+    try:
+        broker = _resolve_broker(args)
+    except MissingDependencyError as exc:
+        print(
+            f"ERROR: {exc}. Alternatively pass --broker none for the manual checklist.",
+            file=sys.stderr,
+        )
+        return 2
     data_source = "FMP+Alpaca" if isinstance(broker, ManualBrokerAdapter) is False else "FMP+manual"
 
     plans = []
@@ -345,4 +353,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from _market_calendar import CalendarDependencyMissingError
+
+    try:
+        raise SystemExit(main())
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None

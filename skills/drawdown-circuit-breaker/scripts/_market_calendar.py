@@ -12,12 +12,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 
 class CalendarUnavailableError(RuntimeError):
     """Raised when an exchange calendar cannot be loaded or queried safely."""
+
+
+class CalendarDependencyMissingError(CalendarUnavailableError):
+    """Raised when pandas-market-calendars is not installed.
+
+    CLIs that catch ``CalendarUnavailableError`` should map this subclass to
+    exit status 2 (missing runtime dependency) instead of 1.
+    """
 
 
 @dataclass(frozen=True)
@@ -95,8 +104,10 @@ def _provider_calendar(venue: str) -> tuple[str, str, Any]:
     try:
         import pandas_market_calendars as market_calendars
     except (ImportError, TypeError) as exc:
-        raise CalendarUnavailableError(
-            "pandas-market-calendars==5.2.2 is required; install the skill's requirements.txt"
+        raise CalendarDependencyMissingError(
+            "pandas-market-calendars library not found (pandas-market-calendars==5.2.2 is "
+            "required). Install this skill's dependencies: "
+            f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
         ) from exc
     try:
         calendar = market_calendars.get_calendar(provider_name)

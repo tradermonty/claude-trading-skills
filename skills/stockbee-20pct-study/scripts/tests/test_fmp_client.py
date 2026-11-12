@@ -298,7 +298,7 @@ def test_explicit_key_beats_env(monkeypatch):
 def test_missing_requests_still_raises(monkeypatch):
     monkeypatch.setattr(mod, "requests", None)
 
-    with pytest.raises(RuntimeError, match="requests is not installed"):
+    with pytest.raises(RuntimeError, match="requests library not found"):
         mod.FMPClient(api_key="k")
 
 

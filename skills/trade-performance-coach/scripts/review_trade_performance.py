@@ -93,6 +93,10 @@ class BehaviorTag:
         }
 
 
+class MissingDependencyError(RuntimeError):
+    """A runtime dependency required by the selected input format is not installed."""
+
+
 def load_record(path: Path) -> dict[str, Any]:
     """Load JSON, or YAML if PyYAML is available."""
     text = path.read_text(encoding="utf-8")
@@ -100,8 +104,11 @@ def load_record(path: Path) -> dict[str, Any]:
         try:
             import yaml  # type: ignore
         except ImportError as exc:  # pragma: no cover - environment dependent
-            raise RuntimeError(
-                "PyYAML is required for YAML input; use JSON or install pyyaml"
+            raise MissingDependencyError(
+                "PyYAML library not found (required for YAML input). "
+                "Install this skill's dependencies: "
+                f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'} "
+                "or supply the record as JSON"
             ) from exc
         data = yaml.safe_load(text)
     else:
@@ -793,6 +800,9 @@ def main(argv: list[str] | None = None) -> int:
         records = [load_record(path) for path in input_paths]
         for source_record in records:
             validate_numeric_inputs(source_record)
+    except MissingDependencyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
