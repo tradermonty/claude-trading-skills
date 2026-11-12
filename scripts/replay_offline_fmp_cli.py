@@ -18,6 +18,11 @@ Fixture shape (all values fictional):
      "profiles": {"<symbol>": {...}},
      "prices": {"<symbol>": [{"date", "open", "high", "low", "close", ...}]}}
 ``prices`` rows are most-recent-first, the order the FMP endpoint returns.
+
+Budget accounting mirrors the real client's request counts: one call per calendar
+day for the earnings calendar, one per requested profile symbol, and one per price
+history (a lower bound; the real client may retry across endpoints). Real API
+volume for live symbol counts is not measured here.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ import json
 import os
 import runpy
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -72,7 +78,12 @@ def _fixture_client_class(fmp_module: Any, fixture: dict[str, Any], price_shape:
             self.api_calls_made += 1
 
         def get_earnings_calendar(self, from_date: str, to_date: str) -> list[dict[str, Any]]:
-            self._spend()
+            # The real client issues one request per calendar day, inclusive.
+            day = date.fromisoformat(from_date)
+            end = date.fromisoformat(to_date)
+            while day <= end:
+                self._spend()
+                day += timedelta(days=1)
             return [
                 copy.deepcopy(row)
                 for row in fixture["earnings_calendar"]
@@ -80,12 +91,14 @@ def _fixture_client_class(fmp_module: Any, fixture: dict[str, Any], price_shape:
             ]
 
         def get_company_profiles(self, symbols: list[str]) -> dict[str, dict[str, Any]]:
-            self._spend()
-            return {
-                symbol: copy.deepcopy(fixture["profiles"][symbol])
-                for symbol in symbols
-                if symbol in fixture["profiles"]
-            }
+            # The real client issues one request per requested symbol, before any
+            # market-cap filtering.
+            found: dict[str, dict[str, Any]] = {}
+            for symbol in symbols:
+                self._spend()
+                if symbol in fixture["profiles"]:
+                    found[symbol] = copy.deepcopy(fixture["profiles"][symbol])
+            return found
 
         def get_historical_prices(self, symbol: str, days: int = 90) -> Any:
             self._spend()

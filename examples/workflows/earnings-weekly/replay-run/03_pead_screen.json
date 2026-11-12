@@ -2,9 +2,9 @@
   "metadata": {
     "api_stats": {
       "api_calls_made": 3,
-      "budget_remaining": 197,
+      "budget_remaining": 597,
       "cache_entries": 0,
-      "max_api_calls": 200,
+      "max_api_calls": 600,
       "rate_limit_reached": false
     },
     "generated_at": "2026-11-06T21:00:00+00:00",

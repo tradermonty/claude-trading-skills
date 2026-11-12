@@ -82,3 +82,6 @@ execution_evidence_limitations:
   approval.
 - Both variants execute the same seven required steps because this workflow has no
   optional steps.
+- 'The replay does not measure real FMP API volume: the offline fixture has five symbols,
+  while a live 28-day window makes one calendar request per day plus one profile request
+  per reporting symbol. The explicit --max-api-calls value is not a measured requirement.'

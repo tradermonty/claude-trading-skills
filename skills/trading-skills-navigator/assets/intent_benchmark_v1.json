@@ -41,8 +41,8 @@
     },
     {
       "target_persona": "earnings-momentum-trader",
-      "allowed_selected_personas": ["stockbee-episodic-pivot-trader"],
-      "rationale": "Distinguish weekly post-earnings drift from Day 1 catalyst-specific EP analysis."
+      "allowed_selected_personas": ["stockbee-episodic-pivot-trader", "trade-journaler"],
+      "rationale": "Distinguish weekly post-earnings drift from Day 1 catalyst-specific EP analysis and from journaling or reviewing a closed trade."
     },
     {
       "target_persona": "stockbee-fluency-learner",
@@ -2091,6 +2091,50 @@
       ],
       "expected_selected_persona": "stockbee-episodic-pivot-trader",
       "expected_primary_workflow": "stockbee-ep-daily",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "earnings-momentum-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "earn-n03",
+      "language": "en",
+      "label": "hard_negative",
+      "query": "Post-earnings review of my closed trade",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
+      "expected_honest_gap": false,
+      "expected_no_api_path": true,
+      "neighbor_of": "earnings-momentum-trader",
+      "base_id": null,
+      "transformation": null,
+      "tags": [
+        "gold",
+        "hard-negative",
+        "neighbor"
+      ]
+    },
+    {
+      "id": "earn-n04",
+      "language": "ja",
+      "label": "hard_negative",
+      "query": "決算反応を振り返りたい",
+      "target_persona": "earnings-momentum-trader",
+      "expected_candidate_personas": [
+        "trade-journaler"
+      ],
+      "expected_selected_persona": "trade-journaler",
+      "expected_primary_workflow": "trade-memory-loop",
       "expected_honest_gap": false,
       "expected_no_api_path": true,
       "neighbor_of": "earnings-momentum-trader",

@@ -742,6 +742,28 @@ PERSONAS: tuple[Persona, ...] = (
             "決算反応",
             "決算シーズン",
         ),
+        # Substring matching: these terms are broad, so journaling, calendar,
+        # options and short intents must keep their pre-persona routing.
+        exclude_terms=(
+            "journal",
+            "postmortem",
+            "post-mortem",
+            "closed trade",
+            "lessons",
+            "review of my",
+            "calendar",
+            "season dates",
+            "upcoming",
+            "option",
+            "short",
+            "振り返り",
+            "反省",
+            "ジャーナル",
+            "カレンダー",
+            "日程",
+            "オプション",
+            "ショート",
+        ),
         primary="earnings-weekly",
         rationale=(
             "earnings-momentum trader — weekly scoring of earnings reactions, "

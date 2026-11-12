@@ -104,7 +104,7 @@ This path lets you review market conditions, size trades, journal decisions, and
 - `skill-packages/` – Pre-built `.skill` archives ready to upload to Claude's web app **Skills** tab.
 - `docs/` – Documentation site content, generated skill pages, and `docs/dev/metadata-and-workflow-schema.md` (schema spec).
 - `scripts/` – Repository-level automation, including the schema validator and one-shot bootstrap helper.
-- `skillsets/` – Purpose-specific install bundles defining required / recommended / optional skills for major goals (5 skillsets shipped: market-regime, core-portfolio, swing-opportunity, trade-memory, strategy-research; consumed by the Navigator).
+- `skillsets/` – Purpose-specific install bundles defining required / recommended / optional skills for major goals (6 skillsets shipped: market-regime, core-portfolio, dividend-income, swing-opportunity, trade-memory, strategy-research; consumed by the Navigator).
 
 ## Getting Started
 
@@ -152,7 +152,8 @@ This repository contains skills across the following areas:
 | Area | Example Skills |
 | --- | --- |
 | Market Regime | `market-breadth-analyzer`, `uptrend-analyzer`, `exposure-coach` |
-| Core Portfolio | `portfolio-manager`, `value-dividend-screener`, `kanchi-dividend-sop` |
+| Core Portfolio | `portfolio-manager`, `us-undervalued-growth-screener` |
+| Dividend Income | `kanchi-dividend-sop`, `value-dividend-screener`, `dividend-growth-pullback-screener` |
 | Swing Opportunities | `vcp-screener`, `canslim-screener`, `breakout-trade-planner` |
 | Trade Planning | `position-sizer`, `technical-analyst`, `pre-trade-discipline-gate` |
 | Trade Memory | `trader-memory-core`, `signal-postmortem` |

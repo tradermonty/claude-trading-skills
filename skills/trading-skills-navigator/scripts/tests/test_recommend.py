@@ -486,6 +486,38 @@ def test_earnings_weekly_routes_with_its_workflow_bundle(
 @pytest.mark.parametrize(
     "query,expected",
     [
+        ("post-earnings analysis of my closed trade", "trade-memory-loop"),
+        ("post-earnings review of my closed trade", "trade-memory-loop"),
+        ("今月の決算反応の振り返り", "trade-memory-loop"),
+        ("決算反応を振り返りたい", "trade-memory-loop"),
+        ("journal my earnings season trades", "trade-memory-loop"),
+        ("earnings season calendar", "market-regime-daily"),
+        ("show upcoming earnings season dates", "market-regime-daily"),
+        ("決算シーズンの日程を知りたい", "market-regime-daily"),
+        ("options strategy around earnings season", "market-regime-daily"),
+        ("options earnings season straddle", "market-regime-daily"),
+        ("決算反応のオプション戦略", "market-regime-daily"),
+        ("earnings reaction short", "market-regime-daily"),
+        ("post-earnings gap fade short", "market-regime-daily"),
+        ("決算反応のショートを狙いたい", "market-regime-daily"),
+    ],
+)
+def test_earnings_persona_keeps_journal_calendar_options_and_short_intents_out(
+    repo_metadata: dict[str, Any], query: str, expected: str
+) -> None:
+    """These routed to trade-memory-loop / the market-regime fallback before the
+    earnings persona existed; its broad terms must not capture them."""
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"]["id"] == expected, query
+    assert r["honest_gap"] is False
+    assert "earnings-momentum-trader" not in (
+        r["routing_diagnostics"].get("candidate_personas") or []
+    ), query
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
         ("Classify Day 1 episodic pivot candidates after earnings", "stockbee-ep-daily"),
         ("決算後のDay 1エピソディックピボット候補を分類したい", "stockbee-ep-daily"),
         ("Find ordinary swing trade setups", "swing-opportunity-daily"),

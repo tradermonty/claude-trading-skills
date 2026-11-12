@@ -172,7 +172,7 @@ permalink: /ja/workflows/
 - 実行前に market-regime-daily の exposure_decision が新規リスクを許可していることを確認する。
 - 新規候補の採点やサイズ計算の前に circuit_breaker_decision が TRADING_ALLOWED であることを確認する。
 - 各決算結果とガイダンスを手動で確認する。このワークフローはニュースの発見や検証を行わない。
-- earnings-trade-analyzer は PEAD の監視期間をカバーできる長さの遡及日数（約28〜35日）で実行する。1週間だけでは、赤いローソク足がまだ現れない若い銘柄しか見つからない。
+- earnings-trade-analyzer は PEAD の監視期間をカバーできる長さの遡及日数（約28〜35日）で実行する。1週間だけでは、赤いローソク足がまだ現れない若い銘柄しか見つからない。--max-api-calls を明示的に設定し、--min-market-cap も検討する。アナライザーの既定の予算は200回で、そのクライアントは期間の暦日ごとに1回、時価総額フィルターの前に報告銘柄ごとに1回リクエストし、PEADは候補ごとに1回使うため、長い期間では既定を使い切り、ZERO_RESULT_REASON=profiles_budget_exhausted で終了することがある。実運用に必要な呼び出し数と、FMPプランの上限で足りるかどうかは、ここでは測定していないため、自分のプランで確認する。
 - pead-screener はステップ2のJSONに対するモードBで実行する。モードAは米国以外の上場銘柄にAPI予算を使うことがあり、この手順には含めない。
 - MONITORING と EXPIRED の段階は監視リストに残すか除外し、BREAKOUT と SIGNAL_READY の銘柄だけをチャート確認へ進める。
 - 決算グレードとPEADステージを通過していても、週足チャートが不明確な候補は却下する。

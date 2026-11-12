@@ -2,7 +2,7 @@
 
 `scripts/recommend.py` is the **single source of truth** for routing. This
 document explains the engine; `assets/intent_benchmark_v1.json` is the
-explicitly labeled 244-case EN/JA gold corpus, and
+explicitly labeled 246-case EN/JA gold corpus, and
 `scripts/intent_benchmark.py` is its fail-closed evaluator.
 
 ## Engine overview

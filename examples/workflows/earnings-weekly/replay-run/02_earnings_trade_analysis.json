@@ -1,10 +1,10 @@
 {
   "metadata": {
     "api_stats": {
-      "api_calls_made": 6,
-      "budget_remaining": 194,
+      "api_calls_made": 38,
+      "budget_remaining": 562,
       "cache_entries": 0,
-      "max_api_calls": 200,
+      "max_api_calls": 600,
       "rate_limit_reached": false
     },
     "calendar_dates_covered": [

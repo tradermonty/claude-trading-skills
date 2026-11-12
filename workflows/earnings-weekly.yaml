@@ -198,7 +198,7 @@ manual_review:
   - Confirm market-regime-daily exposure_decision allows new risk before acting.
   - Confirm circuit_breaker_decision is TRADING_ALLOWED before scoring or sizing new candidates.
   - Verify each earnings result and any guidance by hand; this workflow does not discover or validate the news itself.
-  - Run earnings-trade-analyzer with a lookback long enough to cover the PEAD watch window (about 28 to 35 days); a one-week lookback only finds names too young to show a red candle.
+  - Run earnings-trade-analyzer with a lookback long enough to cover the PEAD watch window (about 28 to 35 days); a one-week lookback only finds names too young to show a red candle. Set --max-api-calls explicitly, and consider --min-market-cap: the analyzer's default budget is 200 calls, its client spends one request per calendar day of the window plus one per reporting symbol before the market-cap filter, and PEAD spends one per candidate, so a long window can exhaust the default and exit with ZERO_RESULT_REASON=profiles_budget_exhausted. The call volume a live run needs, and whether your FMP plan quota covers it, are unmeasured here; check your plan.
   - Run pead-screener in Mode B on step 2's JSON. Mode A can spend the API budget on non-US listings and is not part of this routine.
   - Treat MONITORING and EXPIRED stages as watchlist or drop; only BREAKOUT and SIGNAL_READY names reach chart review.
   - Reject any candidate where the weekly chart is unclear, even if the earnings grade and PEAD stage passed.
@@ -209,7 +209,7 @@ manual_review_ja:
   - 実行前に market-regime-daily の exposure_decision が新規リスクを許可していることを確認する。
   - 新規候補の採点やサイズ計算の前に circuit_breaker_decision が TRADING_ALLOWED であることを確認する。
   - 各決算結果とガイダンスを手動で確認する。このワークフローはニュースの発見や検証を行わない。
-  - earnings-trade-analyzer は PEAD の監視期間をカバーできる長さの遡及日数（約28〜35日）で実行する。1週間だけでは、赤いローソク足がまだ現れない若い銘柄しか見つからない。
+  - earnings-trade-analyzer は PEAD の監視期間をカバーできる長さの遡及日数（約28〜35日）で実行する。1週間だけでは、赤いローソク足がまだ現れない若い銘柄しか見つからない。--max-api-calls を明示的に設定し、--min-market-cap も検討する。アナライザーの既定の予算は200回で、そのクライアントは期間の暦日ごとに1回、時価総額フィルターの前に報告銘柄ごとに1回リクエストし、PEADは候補ごとに1回使うため、長い期間では既定を使い切り、ZERO_RESULT_REASON=profiles_budget_exhausted で終了することがある。実運用に必要な呼び出し数と、FMPプランの上限で足りるかどうかは、ここでは測定していないため、自分のプランで確認する。
   - pead-screener はステップ2のJSONに対するモードBで実行する。モードAは米国以外の上場銘柄にAPI予算を使うことがあり、この手順には含めない。
   - MONITORING と EXPIRED の段階は監視リストに残すか除外し、BREAKOUT と SIGNAL_READY の銘柄だけをチャート確認へ進める。
   - 決算グレードとPEADステージを通過していても、週足チャートが不明確な候補は却下する。

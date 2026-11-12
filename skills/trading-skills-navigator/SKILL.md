@@ -181,5 +181,5 @@ The JSON the recommender emits (stable, idempotent, `sort_keys`):
 - `references/setup_paths.md` — Claude Web App vs Claude Code setup steps.
 - `assets/metadata_snapshot.json` — generated SSoT digest for the Web App
   fallback. Never edit by hand; run `build_snapshot.py`.
-- `assets/intent_benchmark_v1.json` — 211 explicitly labeled EN/JA routing
+- `assets/intent_benchmark_v1.json` — 246 explicitly labeled EN/JA routing
   cases with 1.0 precision/recall and per-persona/workflow coverage gates.

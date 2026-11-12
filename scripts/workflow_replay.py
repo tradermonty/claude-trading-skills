@@ -6433,6 +6433,12 @@ def _strategy_research_hold(
     return artifacts
 
 
+# The analyzer's default budget (200) cannot cover a 28-day window on a real key:
+# the real client spends one request per calendar day plus one per reporting symbol.
+# The value mirrors the analyzer SKILL.md example; real volume is not measured here.
+EARNINGS_MAX_API_CALLS = "600"
+
+
 def _earnings_fmp_cli(
     repo_root: Path,
     skill: str,
@@ -6488,6 +6494,8 @@ def _earnings_analyze(
             "--apply-entry-filter",
             "--top",
             "20",
+            "--max-api-calls",
+            EARNINGS_MAX_API_CALLS,
             "--output-dir",
             str(reports),
         ],
@@ -6540,6 +6548,8 @@ def _earnings_pead(
             str(candidates),
             "--min-grade",
             "B",
+            "--max-api-calls",
+            EARNINGS_MAX_API_CALLS,
             "--output-dir",
             str(reports),
         ],
@@ -7201,6 +7211,7 @@ def _write_manifest(
             "Step 6 calls the native trader-memory-core pead-screener ingest and link_report APIs on disposable temporary state; the thesis stays IDEA and no fill is recorded.",
             "Step 7 consumes checklist answers synthesized from offline fixtures and plan/sizing consistency checks, not human checklist responses; a fixture GO is not an order approval.",
             "Both variants execute the same seven required steps because this workflow has no optional steps.",
+            "The replay does not measure real FMP API volume: the offline fixture has five symbols, while a live 28-day window makes one calendar request per day plus one profile request per reporting symbol. The explicit --max-api-calls value is not a measured requirement.",
         ]
     if workflow["id"] == "shapiro-contrarian":
         payload["execution_evidence_limitations"] = [

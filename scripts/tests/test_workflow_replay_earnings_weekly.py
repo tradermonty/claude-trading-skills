@@ -202,3 +202,59 @@ def test_offline_runner_refuses_unknown_scripts() -> None:
     )
     assert unknown.returncode != 0
     assert "unsupported script" in unknown.stderr
+
+
+def _fixture_client(symbol_count: int, max_calls: int):
+    import types
+
+    import replay_offline_fmp_cli as runner
+
+    class Budget(Exception):
+        pass
+
+    class Real:
+        pass
+
+    module = types.SimpleNamespace(FMPClient=Real, ApiCallBudgetExceeded=Budget)
+    symbols = [f"EXM{i:03d}" for i in range(symbol_count)]
+    fixture = {
+        "earnings_calendar": [
+            {"symbol": sym, "date": "2026-10-20", "time": "amc"} for sym in symbols
+        ],
+        "profiles": {sym: {"symbol": sym} for sym in symbols},
+        "prices": {sym: [] for sym in symbols},
+    }
+    client = runner._fixture_client_class(module, fixture, "list")(max_api_calls=max_calls)
+    return client, Budget, symbols
+
+
+def test_shim_charges_the_calendar_per_day_like_the_real_client() -> None:
+    client, _budget, _symbols = _fixture_client(1, 200)
+    client.get_earnings_calendar("2026-10-09", "2026-11-06")
+    assert client.api_calls_made == 29  # inclusive 28-day window, one request per day
+
+
+def test_shim_charges_profiles_per_symbol_and_exhausts_the_default_budget() -> None:
+    client, budget, symbols = _fixture_client(180, 200)
+    client.get_earnings_calendar("2026-10-09", "2026-11-06")
+    with pytest.raises(budget):
+        client.get_company_profiles(symbols)
+    assert client.api_calls_made == 200
+
+
+def test_replay_passes_an_explicit_api_budget_to_both_clis() -> None:
+    source = (ROOT / "scripts/workflow_replay.py").read_text(encoding="utf-8")
+    assert source.count("EARNINGS_MAX_API_CALLS") >= 3
+
+
+def test_committed_fixture_is_reproduced_byte_for_byte_by_the_generator(tmp_path: Path) -> None:
+    output = tmp_path / "fmp-fixture.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/generate_earnings_weekly_fixture.py"),
+            str(output),
+        ],
+        check=True,
+    )
+    assert output.read_bytes() == FIXTURE.read_bytes()

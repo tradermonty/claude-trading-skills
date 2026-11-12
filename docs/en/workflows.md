@@ -172,7 +172,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Confirm market-regime-daily exposure_decision allows new risk before acting.
 - Confirm circuit_breaker_decision is TRADING_ALLOWED before scoring or sizing new candidates.
 - Verify each earnings result and any guidance by hand; this workflow does not discover or validate the news itself.
-- Run earnings-trade-analyzer with a lookback long enough to cover the PEAD watch window (about 28 to 35 days); a one-week lookback only finds names too young to show a red candle.
+- {'Run earnings-trade-analyzer with a lookback long enough to cover the PEAD watch window (about 28 to 35 days); a one-week lookback only finds names too young to show a red candle. Set --max-api-calls explicitly, and consider --min-market-cap': "the analyzer's default budget is 200 calls, its client spends one request per calendar day of the window plus one per reporting symbol before the market-cap filter, and PEAD spends one per candidate, so a long window can exhaust the default and exit with ZERO_RESULT_REASON=profiles_budget_exhausted. The call volume a live run needs, and whether your FMP plan quota covers it, are unmeasured here; check your plan."}
 - Run pead-screener in Mode B on step 2's JSON. Mode A can spend the API budget on non-US listings and is not part of this routine.
 - Treat MONITORING and EXPIRED stages as watchlist or drop; only BREAKOUT and SIGNAL_READY names reach chart review.
 - Reject any candidate where the weekly chart is unclear, even if the earnings grade and PEAD stage passed.
