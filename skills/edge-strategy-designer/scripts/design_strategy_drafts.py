@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -432,7 +433,7 @@ def main() -> int:
         ef_override = {f.strip() for f in args.exportable_families.split(",") if f.strip()}
 
     if not concepts_path.exists():
-        print(f"[ERROR] concepts file not found: {concepts_path}")
+        print(f"[ERROR] concepts file not found: {concepts_path}", file=sys.stderr)
         return 1
 
     try:
@@ -491,7 +492,7 @@ def main() -> int:
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
         )
     except StrategyDesignError as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     print(

@@ -340,7 +340,7 @@ def analyze_stock(
         }
 
     except Exception as e:
-        print(f"✗ Error: {e}")
+        print(f"✗ Error: {e}", file=sys.stderr)
         return None
 
 

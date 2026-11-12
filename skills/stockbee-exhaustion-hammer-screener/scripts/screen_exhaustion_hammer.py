@@ -155,10 +155,11 @@ class FMPClient:
     def __init__(self, api_key: str | None = None, max_api_calls: int = 700):
         if requests is None:
             print(
-                "ERROR: requests library not found. Install with: pip install requests",
+                "ERROR: requests library not found. Install this skill's dependencies: "
+                f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}",
                 file=sys.stderr,
             )
-            sys.exit(1)
+            sys.exit(2)
         self.api_key = api_key or os.getenv("FMP_API_KEY")
         if not self.api_key:
             raise ValueError(

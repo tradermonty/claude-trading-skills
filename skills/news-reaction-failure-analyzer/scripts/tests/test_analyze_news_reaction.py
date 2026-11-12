@@ -1162,3 +1162,18 @@ class TestPriceClientRedaction:
         assert "***REDACTED***" in error
         captured = capsys.readouterr()
         assert self.SECRET not in captured.err
+
+
+def test_client_exits_2_with_requirements_hint_when_requests_missing(monkeypatch, capsys):
+    import importlib
+
+    mod = importlib.import_module("analyze_news_reaction")
+    monkeypatch.setattr(mod, "requests", None)
+    with pytest.raises(SystemExit) as exc:
+        mod.PriceClient(api_key="k")
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "requests library not found" in captured.err
+    assert "pip install -r" in captured.err
+    assert "requirements.txt" in captured.err

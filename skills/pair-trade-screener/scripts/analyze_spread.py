@@ -47,7 +47,10 @@ def get_api_key(args_api_key):
         return args_api_key
     api_key = os.environ.get("FMP_API_KEY")
     if not api_key:
-        print("ERROR: FMP_API_KEY not found. Set environment variable or use --api-key")
+        print(
+            "ERROR: FMP_API_KEY not found. Set environment variable or use --api-key",
+            file=sys.stderr,
+        )
         sys.exit(1)
     return api_key
 
@@ -63,7 +66,7 @@ def fetch_historical_prices(symbol, api_key, lookback_days=365, client=None):
         client = FMPClient(api_key=api_key)
     data = client.fetch_pair_history(symbol, lookback_days=lookback_days)
     if not data:
-        print(f"ERROR: No data found for {symbol}")
+        print(f"ERROR: No data found for {symbol}", file=sys.stderr)
         return None
 
     # Extract historical prices
@@ -128,7 +131,7 @@ def test_cointegration(spread):
             "is_cointegrated": bool(result[1] < 0.05),
         }
     except Exception as e:
-        print(f"ERROR: Cointegration test failed: {e}")
+        print(f"ERROR: Cointegration test failed: {e}", file=sys.stderr)
         return None
 
 

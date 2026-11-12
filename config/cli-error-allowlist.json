@@ -1,0 +1,4 @@
+{
+  "_comment": "Allowlist for scripts/check_cli_error_conventions.py (issue #497). Each entry needs path, rule, scope (enclosing function qualname or <module>) and a reason. Stale entries fail the check.",
+  "entries": []
+}

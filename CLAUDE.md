@@ -205,6 +205,7 @@ pre-commit install && pre-commit install --hook-type pre-push
 | no-absolute-paths | local | `/Users/username/` path leaks in public repo |
 | skill-frontmatter | local | SKILL.md `name` matches directory, `description` exists |
 | docs-completeness | local | Every `skills/*/SKILL.md` has EN + JA doc pages |
+| cli-error-conventions | local | Skill scripts print errors to stderr, exit 2 with a `requirements.txt` hint for a missing dependency, and set network timeouts (`scripts/check_cli_error_conventions.py`) |
 
 **Pre-push hook:**
 

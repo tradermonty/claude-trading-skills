@@ -76,7 +76,12 @@ def test_load_credentials_rejects_missing_values_without_leaking(monkeypatch, ca
     with pytest.raises(SystemExit, match="1"):
         alpaca.load_credentials()
 
-    _assert_secrets_hidden(capsys.readouterr())
+    captured = capsys.readouterr()
+    _assert_secrets_hidden(captured)
+    assert captured.out == ""
+    assert "credentials not found" in captured.err
+    assert "Please set environment variables" in captured.err
+    assert "export ALPACA_PAPER" in captured.err
 
 
 def test_account_success_masks_account_and_uses_timeout(monkeypatch, capsys):
@@ -200,7 +205,7 @@ def test_positions_http_and_network_errors(monkeypatch, capsys):
     assert alpaca.test_positions(API_KEY, SECRET_KEY, alpaca.get_base_url()) is False
 
     captured = capsys.readouterr()
-    assert "HTTP 503" in captured.out
+    assert "HTTP 503" in captured.err
     assert "Network error" in captured.out
     _assert_secrets_hidden(captured)
 
@@ -303,3 +308,16 @@ def test_main_exit_contract_and_secret_redaction(
     assert alpaca.main() == expected
 
     _assert_secrets_hidden(capsys.readouterr())
+
+
+def test_missing_requests_exits_2_with_requirements_hint(monkeypatch, capsys):
+    import runpy
+
+    monkeypatch.setitem(__import__("sys").modules, "requests", None)
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_path(alpaca.__file__, run_name="alpaca_import_probe")
+
+    assert excinfo.value.code == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "requirements.txt" in captured.err

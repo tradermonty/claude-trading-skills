@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -434,29 +435,29 @@ def main() -> int:
     # --- Append mode ---
     if args.append_eval:
         if not args.strategy_id:
-            print("[ERROR] --strategy-id required when using --append-eval")
+            print("[ERROR] --strategy-id required when using --append-eval", file=sys.stderr)
             return 1
         eval_path = Path(args.append_eval).resolve()
         if not eval_path.exists():
-            print(f"[ERROR] eval file not found: {eval_path}")
+            print(f"[ERROR] eval file not found: {eval_path}", file=sys.stderr)
             return 1
         try:
             history = append_eval(eval_path, history_path, args.strategy_id, args.changes)
         except (ValueError, json.JSONDecodeError) as exc:
-            print(f"[ERROR] {exc}")
+            print(f"[ERROR] {exc}", file=sys.stderr)
             return 1
         print(f"[OK] Appended iteration {len(history['iterations'])} to {history_path}")
         return 0
 
     # --- Detection mode ---
     if not history_path.exists():
-        print(f"[ERROR] history file not found: {history_path}")
+        print(f"[ERROR] history file not found: {history_path}", file=sys.stderr)
         return 1
 
     try:
         history = json.loads(history_path.read_text())
     except json.JSONDecodeError as exc:
-        print(f"[ERROR] Invalid JSON in history file: {exc}")
+        print(f"[ERROR] Invalid JSON in history file: {exc}", file=sys.stderr)
         return 1
 
     try:
@@ -466,7 +467,7 @@ def main() -> int:
             plateau_threshold=args.plateau_threshold,
         )
     except ValueError as exc:
-        print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
     output_dir = Path(args.output_dir).resolve()
