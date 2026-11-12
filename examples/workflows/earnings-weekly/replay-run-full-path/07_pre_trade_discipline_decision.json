@@ -1,0 +1,42 @@
+{
+  "artifact_paths": {
+    "json": "07_pre_trade_discipline_decision.json",
+    "markdown": "07_pre_trade_discipline_decision.md"
+  },
+  "as_of": "2026-11-06T16:00:00-05:00",
+  "candidate_results": [
+    {
+      "actionable": true,
+      "checklist_answers": {
+        "actual_risk_dollars": 498.8,
+        "entry_in_written_plan": true,
+        "notes": "Fictional 86-share plan; no order submitted.",
+        "planned_risk_dollars": 498.8,
+        "size_within_plan": true,
+        "stop_predefined": true
+      },
+      "decision": "GO",
+      "link_status": "not_requested",
+      "order_intent": "MANUAL_ORDER",
+      "reasons": [],
+      "symbol": "EXMA",
+      "thesis_id": null
+    }
+  ],
+  "generated_at": "2026-11-06T21:00:00+00:00",
+  "inputs": {
+    "circuit_breaker_decision": "01_circuit_breaker_decision.json",
+    "market_regime_decision": "00_exposure_decision.json",
+    "state_dir": null
+  },
+  "metrics": {
+    "actionable_candidates": 1,
+    "candidates_total": 1,
+    "revenge_window_hours": 24.0,
+    "theses_scanned": 0
+  },
+  "overall_decision": "GO",
+  "rationale": "All actionable manual-order candidates passed the pre-trade discipline gate.",
+  "schema_version": "1.0",
+  "warnings": []
+}

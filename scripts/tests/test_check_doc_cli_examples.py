@@ -726,3 +726,103 @@ def test_non_shell_fence_and_cd_arguments(tmp_path):
     )
     findings = gate.run_validate(["CLAUDE.md"], [], root=tmp_path)
     assert [f.message for f in findings] == ["script does not exist: scripts/missing.py"]
+
+
+@pytest.mark.parametrize("doc", ["SKILL.md", "references/guide.md", "references/nested/guide.md"])
+@pytest.mark.parametrize("operand", ["scripts/tool.py", "skills/demo/scripts/tool.py"])
+def test_unmarked_skill_options_are_checked_without_execution(tmp_path, doc, operand):
+    skill = tmp_path / "skills/demo"
+    (skill / "scripts").mkdir(parents=True)
+    (skill / "scripts/tool.py").write_text(
+        "raise AssertionError('must not execute')\n"
+        "import argparse\np=argparse.ArgumentParser()\np.add_argument('--input')\n"
+    )
+    path = skill / doc
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"Heading\n```bash\npython3 {operand} --input <file> --bad=YOUR_KEY\n```\n")
+    findings = gate.run_validate(
+        [t for t in gate.DEFAULT_TARGETS if t.startswith("skills/")], [], root=tmp_path
+    )
+    assert len(findings) == 1
+    assert findings[0].line_no == 3
+    assert "option not accepted" in findings[0].message
+    assert "--bad" in findings[0].message
+    path.write_text(f"```bash\nenv MODE=x uv run python3 {operand} --input <file>\n```\n")
+    assert (
+        gate.run_validate(
+            [t for t in gate.DEFAULT_TARGETS if t.startswith("skills/")], [], root=tmp_path
+        )
+        == []
+    )
+    assert gate.run_execute([str(path)], ci_only=False, root=tmp_path) == ([], [])
+
+
+def test_reference_only_edit_triggers_cli_hook():
+    import re
+
+    import yaml
+
+    config = yaml.safe_load((gate.ROOT / ".pre-commit-config.yaml").read_text())
+    hook = next(
+        h for repo in config["repos"] for h in repo["hooks"] if h["id"] == "docs-cli-examples"
+    )
+    assert re.search(hook["files"], "skills/demo/references/nested/guide.md")
+
+
+def test_static_skill_launcher_dispatch_is_validated(tmp_path):
+    scripts = tmp_path / "skills/demo/scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "launcher.py").write_text(
+        "SUBCOMMAND_TO_SCRIPT = {'review': 'review.py'}\nraise AssertionError('do not execute')\n"
+    )
+    (scripts / "review.py").write_text(
+        "import argparse\np=argparse.ArgumentParser()\np.add_argument('--input')\n"
+    )
+    doc = scripts.parent / "SKILL.md"
+    doc.write_text("```bash\npython3 scripts/launcher.py review --bad\n```\n")
+    findings = gate.run_validate(
+        [t for t in gate.DEFAULT_TARGETS if t.startswith("skills/")], [], root=tmp_path
+    )
+    assert len(findings) == 1
+    assert "--bad" in findings[0].message
+    doc.write_text("```bash\npython3 scripts/launcher.py review --input YOUR_FILE\n```\n")
+    assert (
+        gate.run_validate(
+            [t for t in gate.DEFAULT_TARGETS if t.startswith("skills/")], [], root=tmp_path
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "branch,valid",
+    [
+        ('if "--version" in raw_argv:\n    print("1.0")\n    return 0', True),
+        ('if "--version" in raw_argv:\n    raise ValueError("not supported")', False),
+    ],
+)
+def test_manual_version_fastpath_is_static_not_a_string_exemption(tmp_path, branch, valid):
+    scripts = tmp_path / "skills/demo/scripts"
+    scripts.mkdir(parents=True)
+    source = (
+        "def main(raw_argv):\n" + "\n".join("    " + line for line in branch.splitlines()) + "\n"
+    )
+    (scripts / "tool.py").write_text(source)
+    (scripts.parent / "SKILL.md").write_text("```bash\npython3 scripts/tool.py --version\n```\n")
+    findings = gate.run_validate(["skills/*/SKILL.md"], [], root=tmp_path)
+    assert (findings == []) is valid
+
+
+@pytest.mark.parametrize("option", ["--help", "-h"])
+@pytest.mark.parametrize("add_help", [True, False])
+def test_unmarked_skill_implicit_argparse_help(tmp_path, option, add_help):
+    scripts = tmp_path / "skills/demo/scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "tool.py").write_text(
+        "import argparse\n"
+        f"p=argparse.ArgumentParser(add_help={add_help})\n"
+        "p.add_argument('--input')\n"
+    )
+    (scripts.parent / "SKILL.md").write_text(f"```bash\npython3 scripts/tool.py {option}\n```\n")
+    findings = gate.run_validate(["skills/*/SKILL.md"], [], root=tmp_path)
+    assert (findings == []) is add_help

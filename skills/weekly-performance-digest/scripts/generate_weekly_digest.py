@@ -173,9 +173,11 @@ def calculate_holding_days(thesis: dict) -> int | None:
 
 
 def calculate_r_multiple(thesis: dict) -> float | None:
-    """R-multiple = realized P&L / initial risk.
+    """R-multiple = realized P&L / positive risk from the recorded stop.
 
-    initial risk = (entry.actual_price - exit.stop_loss) * position.shares.
+    Risk = (entry.actual_price - exit.stop_loss) * position.shares.
+    The recorded stop may have moved since entry. Gap fills or raised stops
+    can imply nonpositive risk; omit R rather than reverse the P&L sign.
     Note: stop_loss lives under ``exit`` in the real schema (not ``entry``).
     """
     pnl_dollars, _ = calculate_pnl(thesis)
@@ -185,7 +187,7 @@ def calculate_r_multiple(thesis: dict) -> float | None:
     if None in (pnl_dollars, entry_price, stop_loss, shares):
         return None
     risk = (entry_price - stop_loss) * shares
-    if risk == 0:
+    if risk <= 0:
         return None
     return round(pnl_dollars / risk, 4)
 

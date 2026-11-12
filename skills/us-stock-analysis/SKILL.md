@@ -9,6 +9,12 @@ description: Comprehensive US stock analysis including fundamental analysis (fin
 
 Perform comprehensive analysis of US stocks covering fundamental analysis (financials, business quality, valuation), technical analysis (indicators, trends, patterns), peer comparisons, and generate detailed investment reports. Fetch real-time market data via web search tools and apply structured analytical frameworks.
 
+## Prerequisites
+
+- **API keys:** None required.
+- **Data:** The skill works from data the user provides, and uses web search tools to fetch current market data when they are available.
+- **Python:** No executable scripts, so no `requirements.txt`.
+
 ## Data Sources
 
 Always use web search tools to gather current market data:

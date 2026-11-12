@@ -47,6 +47,13 @@ def _run_main(monkeypatch, capsys, *argv: str) -> tuple[int, str]:
     return rc, capsys.readouterr().out
 
 
+def _run_main_err(monkeypatch, capsys, *argv: str) -> tuple[int, str]:
+    """Like _run_main but returns stderr, where error messages are emitted."""
+    monkeypatch.setattr(sys, "argv", ["design_strategy_drafts.py", *argv])
+    rc = dsd.main()
+    return rc, capsys.readouterr().err
+
+
 # --- sanitize_identifier / safe_float ---
 
 
@@ -444,7 +451,7 @@ def test_parse_args_requires_concepts(monkeypatch, capsys) -> None:
 
 def test_main_missing_concepts_file(tmp_path, monkeypatch, capsys) -> None:
     missing = tmp_path / "nope.yaml"
-    rc, out = _run_main(
+    rc, out = _run_main_err(
         monkeypatch, capsys, "--concepts", str(missing), "--output-dir", str(tmp_path / "o")
     )
     assert rc == 1
@@ -455,7 +462,7 @@ def test_main_missing_concepts_file(tmp_path, monkeypatch, capsys) -> None:
 
 def test_main_empty_concepts_list_errors(tmp_path, monkeypatch, capsys) -> None:
     path = _write_concepts(tmp_path / "c.yaml", [])
-    rc, out = _run_main(
+    rc, out = _run_main_err(
         monkeypatch, capsys, "--concepts", str(path), "--output-dir", str(tmp_path / "o")
     )
     assert rc == 1
@@ -466,7 +473,7 @@ def test_main_empty_concepts_list_errors(tmp_path, monkeypatch, capsys) -> None:
 def test_main_non_mapping_concepts_errors(tmp_path, monkeypatch, capsys) -> None:
     path = tmp_path / "c.yaml"
     path.write_text("- 1\n- 2\n", encoding="utf-8")
-    rc, out = _run_main(
+    rc, out = _run_main_err(
         monkeypatch, capsys, "--concepts", str(path), "--output-dir", str(tmp_path / "o")
     )
     assert rc == 1

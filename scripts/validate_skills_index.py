@@ -29,6 +29,7 @@ VALID_CATEGORIES = frozenset(
     {
         "market-regime",
         "core-portfolio",
+        "dividend-income",
         "swing-opportunity",
         "trade-planning",
         "trade-memory",

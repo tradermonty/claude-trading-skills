@@ -8,7 +8,9 @@ skillset.id / honest_gap against the REAL repo SSoT.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -357,9 +359,11 @@ def test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow(
 # ---------------------------------------------------------------------------
 
 _KANCHI_EXPECTED_REQUIRED = {"kanchi-dividend-sop", "trader-memory-core"}
-_KANCHI_EXPECTED_OPTIONAL = {
+_KANCHI_EXPECTED_RECOMMENDED = {
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
+}
+_KANCHI_EXPECTED_OPTIONAL = {
     "kanchi-dividend-us-tax-accounting",
     "kanchi-dividend-review-monitor",
 }
@@ -390,15 +394,12 @@ def test_kanchi_dividend_weekly_routes_with_full_bundle(
     repo_metadata: dict[str, Any], query: str
 ) -> None:
     """Regression (Issue #260): Kanchi-intent EN/JA queries must route to
-    kanchi-dividend-weekly with its full required+optional 6-skill bundle,
-    not fall through to core-portfolio-weekly (existing-holdings
-    maintenance) via the broad dividend-long-term-investor persona. The
-    dominant-category skillset (core-portfolio) must defer rather than
-    replace the bundle (same mechanism as shapiro-contrarian /
-    market-regime — see test_skillset_can_be_deferred_for_a_shipped_non_gap_workflow),
-    since skillsets/core-portfolio.yaml deliberately does NOT list
-    kanchi-dividend-weekly in related_workflows (would fail SK010: its
-    required_skills aren't a subset of core-portfolio.yaml's)."""
+    kanchi-dividend-weekly, not fall through to core-portfolio-weekly
+    (existing-holdings maintenance) via the broad dividend-long-term-investor
+    persona. The workflow's first required skill (kanchi-dividend-sop) is in
+    the dividend-income category, whose skillsets/dividend-income.yaml
+    manifest names kanchi-dividend-weekly in related_workflows, so the
+    skillset is active and the bundle comes from the manifest tiers."""
     r = recommend(query, repo_metadata)
     assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
     assert r["primary_workflow"]["id"] == "kanchi-dividend-weekly", (
@@ -406,16 +407,129 @@ def test_kanchi_dividend_weekly_routes_with_full_bundle(
         f"{r['primary_workflow']['id']!r}"
     )
     assert r["honest_gap"] is False
-    assert r["skillset"]["id"] == "core-portfolio"
-    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["skillset"]["id"] == "dividend-income"
+    assert r["skillset"]["manifest_status"] == "active"
     sb = r["setup_bundle"]
     assert set(sb["required"]) == _KANCHI_EXPECTED_REQUIRED, (
         f"query {query!r} setup_bundle.required = {sb['required']}"
     )
+    assert set(sb["recommended"]) == _KANCHI_EXPECTED_RECOMMENDED, (
+        f"query {query!r} setup_bundle.recommended = {sb['recommended']}"
+    )
     assert set(sb["optional"]) == _KANCHI_EXPECTED_OPTIONAL, (
         f"query {query!r} setup_bundle.optional = {sb['optional']}"
     )
-    assert sb["sources"] == ["workflow:kanchi-dividend-weekly"]
+    assert sb["sources"] == ["skillset:dividend-income"]
+
+
+# ---------------------------------------------------------------------------
+# Earnings momentum weekly routine (Issue #216)
+# ---------------------------------------------------------------------------
+
+_EARNINGS_EXPECTED_REQUIRED = {
+    "earnings-trade-analyzer",
+    "pead-screener",
+    "drawdown-circuit-breaker",
+    "technical-analyst",
+    "position-sizer",
+    "trader-memory-core",
+    "pre-trade-discipline-gate",
+}
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Run my weekly earnings momentum routine",
+        "I want to screen post-earnings drift setups",
+        "Find PEAD candidates after earnings",
+        "Score this week's earnings reactions",
+        "決算モメンタムを毎週確認したい",
+        "決算後のドリフトを狙いたい",
+        "PEADの候補を探したい",
+        "今週の決算反応を採点したい",
+    ],
+    ids=[
+        "en-weekly-routine",
+        "en-post-earnings-drift",
+        "en-pead",
+        "en-earnings-reactions",
+        "ja-momentum-weekly",
+        "ja-drift",
+        "ja-pead",
+        "ja-reaction-scoring",
+    ],
+)
+def test_earnings_weekly_routes_with_its_workflow_bundle(
+    repo_metadata: dict[str, Any], query: str
+) -> None:
+    """EN/JA earnings-momentum intents route to earnings-weekly with its seven
+    required skills. The workflow's first required skill is in the
+    advanced-satellite category, which has no manifest, so the skillset
+    defers and the bundle comes from the workflow. It is fmp-required, so it
+    is not a no-API path."""
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"] is not None, f"query {query!r} did not route to a workflow"
+    assert r["primary_workflow"]["id"] == "earnings-weekly", (
+        f"query {query!r} routed to {r['primary_workflow']['id']!r}"
+    )
+    assert r["honest_gap"] is False
+    assert r["skillset"]["id"] == "advanced-satellite"
+    assert r["skillset"]["manifest_status"] == "deferred"
+    assert r["no_api_path"] is False
+    sb = r["setup_bundle"]
+    assert set(sb["required"]) == _EARNINGS_EXPECTED_REQUIRED
+    assert sb["optional"] == []
+    assert sb["sources"] == ["workflow:earnings-weekly"]
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("post-earnings analysis of my closed trade", "trade-memory-loop"),
+        ("post-earnings review of my closed trade", "trade-memory-loop"),
+        ("今月の決算反応の振り返り", "trade-memory-loop"),
+        ("決算反応を振り返りたい", "trade-memory-loop"),
+        ("journal my earnings season trades", "trade-memory-loop"),
+        ("earnings season calendar", "market-regime-daily"),
+        ("show upcoming earnings season dates", "market-regime-daily"),
+        ("決算シーズンの日程を知りたい", "market-regime-daily"),
+        ("options strategy around earnings season", "market-regime-daily"),
+        ("options earnings season straddle", "market-regime-daily"),
+        ("決算反応のオプション戦略", "market-regime-daily"),
+        ("earnings reaction short", "market-regime-daily"),
+        ("post-earnings gap fade short", "market-regime-daily"),
+        ("決算反応のショートを狙いたい", "market-regime-daily"),
+    ],
+)
+def test_earnings_persona_keeps_journal_calendar_options_and_short_intents_out(
+    repo_metadata: dict[str, Any], query: str, expected: str
+) -> None:
+    """These routed to trade-memory-loop / the market-regime fallback before the
+    earnings persona existed; its broad terms must not capture them."""
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"]["id"] == expected, query
+    assert r["honest_gap"] is False
+    assert "earnings-momentum-trader" not in (
+        r["routing_diagnostics"].get("candidate_personas") or []
+    ), query
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("Classify Day 1 episodic pivot candidates after earnings", "stockbee-ep-daily"),
+        ("決算後のDay 1エピソディックピボット候補を分類したい", "stockbee-ep-daily"),
+        ("Find ordinary swing trade setups", "swing-opportunity-daily"),
+        ("I want to find dividend stocks", "core-portfolio-weekly"),
+    ],
+    ids=["en-ep", "ja-ep", "swing", "dividend"],
+)
+def test_earnings_persona_does_not_swallow_neighbouring_intents(
+    repo_metadata: dict[str, Any], query: str, expected: str
+) -> None:
+    r = recommend(query, repo_metadata)
+    assert r["primary_workflow"]["id"] == expected
 
 
 def test_kanchi_persona_does_not_regress_core_portfolio_routing(
@@ -880,6 +994,7 @@ def test_no_api_path_none_on_honest_gap(repo_metadata: dict[str, Any]) -> None:
 SHIPPED_SKILLSETS = {
     "market-regime",
     "core-portfolio",
+    "dividend-income",
     "swing-opportunity",
     "trade-memory",
     "strategy-research",
@@ -1465,3 +1580,135 @@ def test_user_without_a_file_is_not_offered_the_file_workflow(
     result = recommend("review my portfolio, I don't have a CSV", repo_metadata, no_api=True)
     assert result["goal_match"]["runnability"] == "blocked"
     assert result["alternative_workflow"]["relationship"] == "different_goal"
+
+
+COMBINED_SAVED_JSON_QUERIES = [
+    "review my holdings in positions.json and export the review to JSON",
+    "保存済みのポジションでポートフォリオを確認してJSONに出力",
+    "Review my portfolio from a saved Alpaca positions JSON and export the review to JSON",
+    "Export the review to JSON, using saved Alpaca positions to review my portfolio",
+    "Review my portfolio from positions.json and export the review to JSON",
+    "Review my portfolio from a saved positions JSON without API and export to JSON",
+    "Review my portfolio from a saved positions JSON exported from Alpaca API and export to JSON",
+    "保有銘柄を保存済みのポジションJSONから確認してJSONに出力",
+    "JSONに出力して、保有銘柄を保存済みのポジションJSONから確認",
+    "保有銘柄をAlpacaのJSONから確認してJSONに出力",
+]
+
+
+def assert_offline_saved_json_result(result: dict[str, Any]) -> None:
+    assert result["primary_workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["workflow"]["id"] == "portfolio-holdings-review"
+    assert result["goal_match"]["runnability"] == "eligible"
+    assert result["goal_match"]["missing_requirements"] == []
+    assert result["no_api_path"] is True
+    assert result["setup_bundle"] == {
+        "required": ["portfolio-manager"],
+        "recommended": [],
+        "optional": [],
+        "sources": ["workflow:portfolio-holdings-review"],
+    }
+    assert "--input-format alpaca-json" in result["note"]
+    assert "not read or validate" in result["note"]
+
+
+@pytest.mark.parametrize("query", COMBINED_SAVED_JSON_QUERIES)
+@pytest.mark.parametrize("no_api", [False, True])
+def test_saved_json_input_wins_over_output(
+    repo_metadata: dict[str, Any], query: str, no_api: bool
+) -> None:
+    assert_offline_saved_json_result(recommend(query, repo_metadata, no_api=no_api))
+
+
+@pytest.mark.parametrize("query", [COMBINED_SAVED_JSON_QUERIES[2], COMBINED_SAVED_JSON_QUERIES[7]])
+@pytest.mark.parametrize("no_api", [False, True])
+@pytest.mark.parametrize("stdio_encoding", ["utf-8", "cp1252"])
+@pytest.mark.parametrize("output_format", ["json", "text"])
+def test_saved_json_output_public_cli(
+    query: str, no_api: bool, stdio_encoding: str, output_format: str
+) -> None:
+    args = [
+        sys.executable,
+        str(Path(__file__).resolve().parents[1] / "recommend.py"),
+        "--query",
+        query,
+        "--format",
+        output_format,
+    ]
+    if no_api:
+        args.append("--no-api")
+    completed = subprocess.run(
+        args,
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": stdio_encoding},
+    )
+    if output_format == "json":
+        result = json.loads(completed.stdout)
+        assert result["query"] == query
+        assert_offline_saved_json_result(result)
+    else:
+        assert f"Query: {query}\n" in completed.stdout
+        assert "portfolio-holdings-review" in completed.stdout
+        assert "--input-format alpaca-json" in completed.stdout
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Review my portfolio, not from a saved Alpaca positions JSON, and export to JSON",
+        "Review my portfolio; saved Alpaca positions JSON is not available; export to JSON",
+        "Review my portfolio; saved Alpaca positions JSON is unavailable; export to JSON",
+        "Review my portfolio and export saved positions to JSON",
+        "Review my portfolio and export to holdings.json",
+        "Review my portfolio from the Alpaca API and export to holdings.json",
+        "Review my portfolio from the JSON feed of Alpaca and export to JSON",
+        "Export my portfolio positions from Alpaca to JSON",
+        "Review my portfolio from Alpaca to JSON",
+        "Review my portfolio from my account to JSON",
+        "Review my portfolio from my broker account to JSON",
+        "保有銘柄を確認してJSONに出力",
+        "保有銘柄を保存済みのポジションJSONは使わずに確認してJSONに出力",
+    ],
+)
+@pytest.mark.parametrize("no_api", [False, True])
+def test_json_output_keeps_full_route_without_positive_saved_input(
+    repo_metadata: dict[str, Any], query: str, no_api: bool
+) -> None:
+    result = recommend(query, repo_metadata, no_api=no_api)
+    assert result["goal_match"]["workflow"]["id"] == "core-portfolio-weekly"
+    if no_api:
+        assert result["primary_workflow"] is None
+        assert result["goal_match"]["runnability"] == "blocked"
+    else:
+        assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+        assert result["no_api_path"] is False
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "not from a saved Alpaca positions JSON",
+        "saved Alpaca positions JSON is not available",
+        "saved Alpaca positions JSON is unavailable",
+    ],
+)
+def test_negated_alpaca_saved_input_without_output(
+    repo_metadata: dict[str, Any], source: str
+) -> None:
+    result = recommend("Review my portfolio; " + source, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Review my portfolio and save JSON in holdings.json",
+        "Review my portfolio and output JSON in positions.json",
+        "保有銘柄を確認し保存したポジションJSONで出力",
+    ],
+)
+def test_json_output_destination_is_not_an_input(repo_metadata: dict[str, Any], query: str) -> None:
+    result = recommend(query, repo_metadata)
+    assert result["primary_workflow"]["id"] == "core-portfolio-weekly"

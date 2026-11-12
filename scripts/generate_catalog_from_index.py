@@ -53,6 +53,7 @@ SENTINEL_RE = re.compile(
 CATEGORY_LABELS_EN = {
     "market-regime": "Market Regime",
     "core-portfolio": "Core Portfolio",
+    "dividend-income": "Dividend Income",
     "swing-opportunity": "Swing Opportunity",
     "trade-planning": "Trade Planning",
     "trade-memory": "Trade Memory",
@@ -64,6 +65,7 @@ CATEGORY_LABELS_EN = {
 CATEGORY_LABELS_JA = {
     "market-regime": "相場環境（Market Regime）",
     "core-portfolio": "コアポートフォリオ（Core Portfolio）",
+    "dividend-income": "配当インカム（Dividend Income）",
     "swing-opportunity": "スイング候補（Swing Opportunity）",
     "trade-planning": "トレード計画（Trade Planning）",
     "trade-memory": "トレード記録（Trade Memory）",
@@ -148,6 +150,7 @@ def render_catalog_en(skills: list[dict]) -> str:
     for cat in [
         "market-regime",
         "core-portfolio",
+        "dividend-income",
         "swing-opportunity",
         "trade-planning",
         "trade-memory",
@@ -186,6 +189,7 @@ def render_catalog_ja(skills: list[dict]) -> str:
     for cat in [
         "market-regime",
         "core-portfolio",
+        "dividend-income",
         "swing-opportunity",
         "trade-planning",
         "trade-memory",

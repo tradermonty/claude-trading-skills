@@ -15,6 +15,10 @@ factor, R-multiple, MAE/MFE), breaks results down across several pattern dimensi
 surfaces the week's biggest winners, losers, and lessons. Output is a JSON record plus
 a human-readable Markdown report. Pure calculation — no API key required.
 
+R-multiples require positive risk from the recorded stop. Gap fills at/below the
+stop and stops raised to/above entry have no R-multiple; these trades remain in
+P&L and win/loss statistics but are excluded from R averages.
+
 ## When to Use
 
 - At the end of a trading week to review aggregate realized performance
@@ -69,7 +73,11 @@ review process.
 - **Win/loss.** `outcome.pnl_dollars > 0` is a winner, `< 0` a loser, `== 0` breakeven;
   `win_rate = winners / total_trades`.
 - **R-multiple.** `pnl_dollars / ((entry.actual_price − exit.stop_loss) × position.shares)`.
-  (Stop-loss is read from `exit.stop_loss`, per the real thesis schema.)
+  Calculated only when the denominator is positive. A gap fill at/below the
+  recorded stop or a stop raised to/above entry makes R unavailable (`null` in
+  JSON, `n/a` in Markdown), so it is excluded from R averages. The trade still
+  counts in P&L, win/loss statistics, and top wins/losses. The recorded stop is
+  read from `exit.stop_loss` and may differ from the initial planned stop.
 - **Double-counting safeguard.** A CLOSED thesis's `outcome.pnl_dollars` is the
   *cumulative* realized P&L across all trims plus the final leg. Headline metrics use
   that cumulative value over CLOSED theses only. The separate `partial_trims` block

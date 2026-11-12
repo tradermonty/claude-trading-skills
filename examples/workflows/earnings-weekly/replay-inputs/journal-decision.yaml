@@ -1,0 +1,7 @@
+schema_version: "1.0"
+human_approved: true
+register:
+  - EXMA
+order_intent: MANUAL_ORDER
+account_type: fictional_cash
+notes: Fictional register decision; the thesis stays IDEA and no order is placed.

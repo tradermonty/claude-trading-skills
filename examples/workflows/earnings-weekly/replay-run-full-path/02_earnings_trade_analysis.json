@@ -1,0 +1,225 @@
+{
+  "metadata": {
+    "api_stats": {
+      "api_calls_made": 38,
+      "budget_remaining": 562,
+      "cache_entries": 0,
+      "max_api_calls": 600,
+      "rate_limit_reached": false
+    },
+    "calendar_dates_covered": [
+      "2026-10-15",
+      "2026-10-20",
+      "2026-10-22",
+      "2026-10-28",
+      "2026-11-03"
+    ],
+    "calendar_rows": 5,
+    "entry_filter_applied": true,
+    "generated_at": "2026-11-06T21:00:00+00:00",
+    "generator": "earnings-trade-analyzer",
+    "generator_version": "1.0.0",
+    "lookback_days": 28,
+    "min_gap": 0,
+    "min_market_cap": 500000000.0,
+    "timing_candidates_total": 4,
+    "timing_source": "fmp_stable_includeReportTimes",
+    "timing_unknown_count": 0,
+    "total_screened": 4
+  },
+  "results": [
+    {
+      "company_name": "Example Alpha Systems Inc.",
+      "components": {
+        "gap_size": {
+          "base_price": 60.2,
+          "gap_pct": 7.97,
+          "gap_price": 65.0,
+          "gap_type": "up",
+          "score": 85.0,
+          "timing_used": "amc"
+        },
+        "ma200_position": {
+          "above_ma200": true,
+          "distance_pct": 36.9,
+          "ma200": 50.62,
+          "score": 100.0
+        },
+        "ma50_position": {
+          "above_ma50": true,
+          "distance_pct": 18.93,
+          "ma50": 58.27,
+          "score": 100.0
+        },
+        "pre_earnings_trend": {
+          "return_20d_pct": 14.6,
+          "score": 85.0,
+          "trend_direction": "up"
+        },
+        "volume_trend": {
+          "longer_avg_volume": 1835358,
+          "recent_avg_volume": 2513958,
+          "score": 60.0,
+          "vol_ratio_20_60": 1.37
+        }
+      },
+      "composite_score": 83.8,
+      "current_price": 69.3,
+      "earnings_date": "2026-10-15",
+      "earnings_timing": "amc",
+      "gap_pct": 7.97,
+      "grade": "B",
+      "market_cap": 4800000000,
+      "sector": "Technology",
+      "symbol": "EXMA"
+    },
+    {
+      "company_name": "Example Gamma Health Inc.",
+      "components": {
+        "gap_size": {
+          "base_price": 80.0,
+          "gap_pct": 9.0,
+          "gap_price": 87.2,
+          "gap_type": "up",
+          "score": 85.0,
+          "timing_used": "bmo"
+        },
+        "ma200_position": {
+          "above_ma200": true,
+          "distance_pct": 26.66,
+          "ma200": 70.66,
+          "score": 100.0
+        },
+        "ma50_position": {
+          "above_ma50": true,
+          "distance_pct": 16.04,
+          "ma50": 77.13,
+          "score": 100.0
+        },
+        "pre_earnings_trend": {
+          "return_20d_pct": 14.75,
+          "score": 85.0,
+          "trend_direction": "up"
+        },
+        "volume_trend": {
+          "longer_avg_volume": 1642060,
+          "recent_avg_volume": 1987950,
+          "score": 60.0,
+          "vol_ratio_20_60": 1.21
+        }
+      },
+      "composite_score": 83.8,
+      "current_price": 89.5,
+      "earnings_date": "2026-11-03",
+      "earnings_timing": "bmo",
+      "gap_pct": 9.0,
+      "grade": "B",
+      "market_cap": 6100000000,
+      "sector": "Healthcare",
+      "symbol": "EXMC"
+    },
+    {
+      "company_name": "Example Beta Devices Inc.",
+      "components": {
+        "gap_size": {
+          "base_price": 40.0,
+          "gap_pct": 6.0,
+          "gap_price": 42.4,
+          "gap_type": "up",
+          "score": 70.0,
+          "timing_used": "amc"
+        },
+        "ma200_position": {
+          "above_ma200": true,
+          "distance_pct": 21.29,
+          "ma200": 35.12,
+          "score": 100.0
+        },
+        "ma50_position": {
+          "above_ma50": true,
+          "distance_pct": 10.21,
+          "ma50": 38.65,
+          "score": 100.0
+        },
+        "pre_earnings_trend": {
+          "return_20d_pct": 7.12,
+          "score": 70.0,
+          "trend_direction": "up"
+        },
+        "volume_trend": {
+          "longer_avg_volume": 1696567,
+          "recent_avg_volume": 2055724,
+          "score": 60.0,
+          "vol_ratio_20_60": 1.21
+        }
+      },
+      "composite_score": 75.5,
+      "current_price": 42.6,
+      "earnings_date": "2026-10-22",
+      "earnings_timing": "amc",
+      "gap_pct": 6.0,
+      "grade": "B",
+      "market_cap": 2300000000,
+      "sector": "Technology",
+      "symbol": "EXMB"
+    },
+    {
+      "company_name": "Example Delta Retail Inc.",
+      "components": {
+        "gap_size": {
+          "base_price": 36.0,
+          "gap_pct": 1.11,
+          "gap_price": 36.4,
+          "gap_type": "up",
+          "score": 35.0,
+          "timing_used": "amc"
+        },
+        "ma200_position": {
+          "above_ma200": false,
+          "distance_pct": -17.77,
+          "ma200": 43.61,
+          "score": 15.0
+        },
+        "ma50_position": {
+          "above_ma50": false,
+          "distance_pct": -6.77,
+          "ma50": 38.47,
+          "score": 15.0
+        },
+        "pre_earnings_trend": {
+          "return_20d_pct": -9.82,
+          "score": 15.0,
+          "trend_direction": "down"
+        },
+        "volume_trend": {
+          "longer_avg_volume": 1493257,
+          "recent_avg_volume": 1551855,
+          "score": 40.0,
+          "vol_ratio_20_60": 1.04
+        }
+      },
+      "composite_score": 25.0,
+      "current_price": 35.86,
+      "earnings_date": "2026-10-20",
+      "earnings_timing": "amc",
+      "gap_pct": 1.11,
+      "grade": "D",
+      "market_cap": 1900000000,
+      "sector": "Consumer Cyclical",
+      "symbol": "EXMD"
+    }
+  ],
+  "schema_version": "1.0",
+  "sector_distribution": {
+    "Consumer Cyclical": 1,
+    "Healthcare": 1,
+    "Technology": 2
+  },
+  "summary": {
+    "grade_a": 0,
+    "grade_b": 3,
+    "grade_c": 0,
+    "grade_d": 1,
+    "total": 4
+  }
+}

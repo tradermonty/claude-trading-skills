@@ -195,6 +195,30 @@ class TestCalculateRMultiple:
         # risk=(200-190)*10=100, pnl=-50 -> R=-0.5
         assert gwd.calculate_r_multiple(loser) == -0.5
 
+    @pytest.mark.parametrize("stop", [88.0, 90.0, 92.0])
+    @pytest.mark.parametrize("exit_price, pnl", [(85.0, -30.0), (95.0, 70.0)])
+    def test_nonpositive_risk_omits_r_without_dropping_trade(self, winner, stop, exit_price, pnl):
+        trade = make_thesis(
+            entry={"actual_price": 88.0},
+            exit={"stop_loss": stop, "actual_price": exit_price},
+            outcome={"pnl_dollars": pnl, "pnl_pct": round(pnl / 880 * 100, 4)},
+        )
+        assert gwd.calculate_r_multiple(trade) is None
+        only_trade = gwd.calculate_metrics([trade])
+        assert only_trade["metrics"]["r_multiple_avg"] is None
+        assert only_trade["metrics"]["r_multiple_stdev"] is None
+        combined = gwd.calculate_metrics([winner, trade])
+        assert combined["metrics"]["r_multiple_avg"] == 1.0
+        assert combined["summary"]["total_trades"] == 2
+        assert combined["summary"]["total_realized_pnl"] == 100 + pnl
+        assert combined["summary"]["winners"] == (2 if pnl > 0 else 1)
+        assert combined["summary"]["losers"] == (1 if pnl < 0 else 0)
+        lessons = gwd.extract_lessons([trade])
+        rows = lessons["top_wins" if pnl > 0 else "top_losses"]
+        assert len(rows) == 1
+        assert rows[0]["pnl_dollars"] == pnl
+        assert rows[0]["r_multiple"] is None
+
     def test_missing_stop_loss(self):
         t = make_thesis()
         t["exit"].pop("stop_loss")

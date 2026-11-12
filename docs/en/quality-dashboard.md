@@ -29,7 +29,7 @@ Snapshot as of: `2026-10-17T07:11:43Z`
 
 ## End-to-end replay
 
-- Workflows listed in replay inventory (not an execution measurement): 13 / 13
+- Workflows listed in replay inventory (not an execution measurement): 14 / 14
 
 ## Dependencies
 

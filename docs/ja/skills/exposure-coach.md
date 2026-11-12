@@ -93,9 +93,18 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 | action recommendation | 新規リスク可否 |
 | growth/value bias | グロース寄りかバリュー寄りか |
 | participation breadth | 上昇が広いか狭いか |
-| confidence | 入力の充足度とシグナル一致度 |
+| confidence | 入力の充足度（鮮度・品質検証・予測精度ではない） |
 
-`inputs_provided` と `inputs_missing` は必ず確認します。CLI に渡したファイルが `inputs_missing` に残っている場合、そのシグナルは計算に入っていません。
+`inputs_provided`・`inputs_missing`・`inputs_unparseable`・`input_warnings`を確認します。
+診断フィールドは内容がある場合のみ出力し、通常の既存JSON形式を維持します。
+テーマ入力の未指定はmissing、指定済みでも読めない・不正な場合はunparseableとして除外し、stderrへ警告します。
+上流の品質警告はJSON・Markdown・stderrに保持します。
+
+正規theme-detectorレポートは`themes.all`を一度だけ使用します。方向はbullish/bearish、heatは有限な数値0〜100（真偽値は不可）、
+`data_quality`はstatusがok/warningでflagsが文字列リストであることが必須です。行や品質情報が欠ける・不正なら全体を除外します。
+変換規則は`round(50 + mean(signed_heat)/2)`で、bullishは正、bearishは負です（最近接整数、ちょうど中間なら偶数へ）。
+heat 80ならbullishは90、bearishは10、同じ強さの対立テーマは50です。消費側の未較正の補助規則であり、鮮度や予測の正しさを保証しません。
+旧theme_scoreと既知のtheme_strengthも引き続き利用できます。
 
 ---
 

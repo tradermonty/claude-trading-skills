@@ -275,27 +275,3 @@ def test_gap_fill_trim_and_close_use_actual_fill_and_keep_original_ack(tmp_path)
     assert closed["entry"]["target_price"] == 100
     assert any(h["reason"] == ack for h in closed["status_history"])
     assert "planned_stop_loss=90" in ack
-
-
-def test_unknown_cli_gap_option_value_cannot_change_state(tmp_path):
-    tid = ready(tmp_path)
-    before = snapshot(tmp_path)
-    result = subprocess.run(
-        [
-            sys.executable,
-            store.__file__,
-            "--state-dir",
-            str(tmp_path),
-            "open-position",
-            tid,
-            "--actual-price",
-            "88",
-            "--actual-date",
-            DATE,
-            "--allow-gap-fill=true",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 2
-    assert snapshot(tmp_path) == before

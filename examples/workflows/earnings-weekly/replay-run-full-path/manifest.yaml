@@ -1,0 +1,87 @@
+workflow_id: earnings-weekly
+sample_type: full-path
+status: completed
+completed_steps:
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+required_steps_not_executed: []
+illustrative: true
+generated_by: scripts/workflow_replay.py generate
+prompt: prompt.md
+network_policy: offline-input-required
+optional_steps_skipped: []
+artifacts:
+- step: 1
+  artifact_id: circuit_breaker_decision
+  skill: drawdown-circuit-breaker
+  execution_mode: native_cli
+  files:
+    canonical: 01_circuit_breaker_decision.json
+- step: 2
+  artifact_id: earnings_trade_analysis
+  skill: earnings-trade-analyzer
+  execution_mode: native_cli
+  files:
+    canonical: 02_earnings_trade_analysis.json
+- step: 3
+  artifact_id: pead_screen
+  skill: pead-screener
+  execution_mode: native_cli
+  files:
+    canonical: 03_pead_screen.json
+- step: 4
+  artifact_id: validated_earnings_setups
+  skill: technical-analyst
+  execution_mode: manual_contract
+  files:
+    canonical: 04_validated_earnings_setups.json
+- step: 5
+  artifact_id: earnings_position_sizing
+  skill: position-sizer
+  execution_mode: native_cli
+  files:
+    canonical: 05_earnings_position_sizing.json
+- step: 6
+  artifact_id: earnings_journal_entry
+  skill: trader-memory-core
+  execution_mode: composite
+  files:
+    canonical: 06_earnings_journal_entry.json
+  executor_components:
+  - manual_contract
+  - native_api
+- step: 7
+  artifact_id: pre_trade_discipline_decision
+  skill: pre-trade-discipline-gate
+  execution_mode: native_cli
+  files:
+    canonical: 07_pre_trade_discipline_decision.json
+    companion: 07_pre_trade_discipline_decision.md
+execution_evidence:
+  native_earnings_trade_analyzer_cli_executed: true
+  native_pead_screener_cli_executed: true
+  native_trader_memory_register_executed: true
+  broker_or_live_api_calls: false
+  execution_authorized: false
+execution_evidence_limitations:
+- Steps 2-3 execute the real earnings-trade-analyzer and pead-screener CLIs unchanged;
+  only their FMPClient is replaced by a read-only reader of a fictional local fixture
+  (scripts/replay_offline_fmp_cli.py). Live FMP responses, field drift, and rate limits
+  are not exercised.
+- Step 4 is a human-approved fictional chart review bound to the PEAD screener output;
+  no chart image is analyzed.
+- Step 6 calls the native trader-memory-core pead-screener ingest and link_report
+  APIs on disposable temporary state; the thesis stays IDEA and no fill is recorded.
+- Step 7 consumes checklist answers synthesized from offline fixtures and plan/sizing
+  consistency checks, not human checklist responses; a fixture GO is not an order
+  approval.
+- Both variants execute the same seven required steps because this workflow has no
+  optional steps.
+- 'The replay does not measure real FMP API volume: the offline fixture has five symbols,
+  while a live 28-day window makes one calendar request per day plus one profile request
+  per reporting symbol. The explicit --max-api-calls value is not a measured requirement.'

@@ -119,9 +119,12 @@ def main() -> int:
         from manifoldbt import indicators as ind_mod
         from manifoldbt.helpers import Interval, Slippage
     except ImportError:
-        raise SystemExit(
-            "manifoldbt is not installed. Install it with: pip install manifoldbt"
-        ) from None
+        print(
+            "ERROR: manifoldbt library not found. Install this skill's dependencies: "
+            f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     df = load_bars(args.data)
     tmp = tempfile.mkdtemp(prefix="mbt-skill-")

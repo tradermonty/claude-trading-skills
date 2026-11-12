@@ -14,6 +14,13 @@ Coordinate all edge research stages into a single automated pipeline run.
 - Review and revise existing strategy drafts with feedback loop
 - Dry-run the pipeline to preview results without exporting
 
+## Prerequisites
+
+- **API keys:** None required. The orchestrator runs the edge pipeline subskills through subprocess calls.
+- **Sibling skills:** The orchestrator resolves `skills/edge-candidate-agent`, `skills/edge-hint-extractor`, `skills/edge-concept-synthesizer`, `skills/edge-strategy-designer` and `skills/edge-strategy-reviewer` by repository path. Install or check out all of them together; a standalone install of this skill alone will not run.
+- **Python:** 3.9+ with `PyYAML>=6.0` (see `requirements.txt`).
+- **Inputs:** A tickets directory, an OHLCV CSV for `--from-ohlcv`, or an existing drafts directory, depending on the mode shown under CLI Usage.
+
 ## Workflow
 
 1. Load pipeline configuration from CLI arguments

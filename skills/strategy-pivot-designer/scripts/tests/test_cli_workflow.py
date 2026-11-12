@@ -281,7 +281,7 @@ def test_detector_input_errors_leave_no_output(tmp_path, monkeypatch, case, mess
         history.write_text("{" if case == "json" else "{}")
     output = tmp_path / "diagnoses"
     assert _run(detector, monkeypatch, "--history", history, "--output-dir", output) == 1
-    assert message in capsys.readouterr().out
+    assert message in capsys.readouterr().err
     assert not output.exists()
 
 
@@ -305,7 +305,7 @@ def test_append_errors_preserve_history(tmp_path, monkeypatch, case, message, ca
     if case != "id":
         arguments += ["--strategy-id", "other" if case == "mismatch" else "existing"]
     assert _run(detector, monkeypatch, *arguments) == 1
-    assert message in capsys.readouterr().out
+    assert message in capsys.readouterr().err
     assert history.read_bytes() == original
 
 
@@ -338,5 +338,5 @@ def test_generator_input_errors_leave_no_output(tmp_path, monkeypatch, case, mes
         )
         == 1
     )
-    assert message in capsys.readouterr().out
+    assert message in capsys.readouterr().err
     assert not output.exists()

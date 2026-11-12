@@ -289,6 +289,11 @@ jobs:
       - name: Skill dependency declaration check
         run: python3 scripts/check_skill_deps.py check
 
+      # 5b'. CLI error convention lint (offline, issue #497): stderr
+      # diagnostics, exit 2 for missing dependencies, bounded network timeouts.
+      - name: CLI error convention check
+        run: python3 scripts/check_cli_error_conventions.py
+
       # 5c. Packaged dependency smoke (offline, issue #330): the committed
       # .skill carries byte-identical requirements.txt and compilable scripts.
       - name: Packaged dependency smoke
@@ -305,7 +310,7 @@ jobs:
       # 'Test repo-level scripts' step in the test job above.
 
   workflow-replay:
-    name: Workflow replay (Coverage 12/12)
+    name: Workflow replay (Coverage 14/14)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

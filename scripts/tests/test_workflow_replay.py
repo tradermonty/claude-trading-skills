@@ -148,6 +148,7 @@ def test_coverage_is_complete_including_new_holdings_workflow() -> None:
 
     assert summary["covered"] == [
         "core-portfolio-weekly",
+        "earnings-weekly",
         "kanchi-dividend-weekly",
         "market-regime-daily",
         "monthly-performance-review",
@@ -165,6 +166,7 @@ def test_coverage_is_complete_including_new_holdings_workflow() -> None:
     assert len(summary["deferred"]) == 0
     assert summary["variants"] == {
         "core-portfolio-weekly": ["required-only", "full-path"],
+        "earnings-weekly": ["required-only", "full-path"],
         "kanchi-dividend-weekly": ["required-only", "full-path"],
         "market-regime-daily": ["required-only", "full-path"],
         "monthly-performance-review": ["required-only", "full-path"],
@@ -189,10 +191,10 @@ def test_new_workflow_cannot_be_silently_deferred() -> None:
 
     coverage["deferred"]["new-workflow"] = {
         "issue": 294,
-        "reason": "Do not allow new coverage 12/12 deferrals.",
+        "reason": "Do not allow new coverage 14/14 deferrals.",
     }
     errors = coverage_errors(workflow_ids, coverage)
-    assert any("frozen coverage 12/12 deferred set" in error for error in errors)
+    assert any("frozen coverage 14/14 deferred set" in error for error in errors)
 
 
 def test_pilot_spec_matches_workflow_and_requires_offline_prices() -> None:
@@ -743,12 +745,35 @@ def test_committed_goldens_are_reproducible_and_not_executor_inputs(
     assert compare_trees(generated, regenerated) == []
 
 
+def test_shim_forwards_to_every_package_module() -> None:
+    import workflow_replay as shim
+
+    package_dir = ROOT / "scripts" / "workflow_replay_pkg"
+    on_disk = {p.stem for p in package_dir.glob("*.py") if p.stem != "__init__"}
+    assert on_disk, "workflow_replay_pkg has no modules; was it renamed?"
+    registered = {m.__name__.rsplit(".", 1)[-1] for m in shim._PACKAGE_MODULES}
+    assert registered == on_disk
+    # Every name a package module shares with the shim must be the same object,
+    # or a shim monkeypatch would silently miss that module.
+    for module in shim._PACKAGE_MODULES:
+        for name, value in vars(module).items():
+            if name.startswith("__") or name not in vars(shim):
+                continue
+            if callable(value) or isinstance(value, (dict, list, tuple, set)):
+                assert vars(shim)[name] is value, f"{module.__name__}.{name}"
+
+
 def test_replay_uses_supported_thesis_read_and_validation_api() -> None:
-    tree = ast.parse((ROOT / "scripts" / "workflow_replay.py").read_text(encoding="utf-8"))
+    sources = [
+        ROOT / "scripts" / "workflow_replay.py",
+        *sorted((ROOT / "scripts" / "workflow_replay_pkg").glob("*.py")),
+    ]
+    assert len(sources) > 1, "workflow_replay_pkg has no modules; was it renamed?"
     private_names = {"_load_thesis", "_validate_thesis"}
     violations = [
-        node.lineno
-        for node in ast.walk(tree)
+        f"{source.name}:{node.lineno}"
+        for source in sources
+        for node in ast.walk(ast.parse(source.read_text(encoding="utf-8")))
         if (isinstance(node, ast.Attribute) and node.attr in private_names)
         or (
             isinstance(node, ast.ImportFrom)

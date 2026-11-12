@@ -195,26 +195,26 @@ def test_main_missing_optional_inputs(monkeypatch, capsys, ohlcv, tmp_path, flag
     out = tmp_path / "out"
     rc = run_main(monkeypatch, *base_args(ohlcv, out), flag, str(tmp_path / "missing.file"))
     assert rc == 1
-    assert message in capsys.readouterr().out
+    assert message in capsys.readouterr().err
     assert not out.exists()
 
 
 def test_main_missing_ohlcv(monkeypatch, capsys, tmp_path) -> None:
     rc = run_main(monkeypatch, "--ohlcv", str(tmp_path / "none.parquet"))
     assert rc == 1
-    assert "[ERROR] OHLCV file not found" in capsys.readouterr().out
+    assert "[ERROR] OHLCV file not found" in capsys.readouterr().err
 
 
 def test_main_invalid_as_of_is_reported_not_raised(monkeypatch, capsys, ohlcv, tmp_path) -> None:
     rc = run_main(monkeypatch, *base_args(ohlcv, tmp_path / "out"), "--as-of", "20260220")
     assert rc == 1
-    assert "[ERROR] invalid --as-of format" in capsys.readouterr().out
+    assert "[ERROR] invalid --as-of format" in capsys.readouterr().err
 
 
 def test_main_as_of_before_data_returns_error(monkeypatch, capsys, ohlcv, tmp_path) -> None:
     rc = run_main(monkeypatch, *base_args(ohlcv, tmp_path / "out"), "--as-of", "2001-01-02")
     assert rc == 1
-    assert "[ERROR] no OHLCV data at or before as_of=2001-01-02" in capsys.readouterr().out
+    assert "[ERROR] no OHLCV data at or before as_of=2001-01-02" in capsys.readouterr().err
 
 
 def test_main_as_of_selects_earlier_session(monkeypatch, capsys, ohlcv, tmp_path) -> None:
@@ -233,7 +233,7 @@ def test_main_returns_error_when_llm_command_fails(monkeypatch, capsys, ohlcv, t
     )
     rc = run_main(monkeypatch, *base_args(ohlcv, tmp_path / "out"), "--llm-ideas-cmd", "bad-llm")
     assert rc == 1
-    assert "[ERROR] LLM ideas command failed: llm exploded" in capsys.readouterr().out
+    assert "[ERROR] LLM ideas command failed: llm exploded" in capsys.readouterr().err
 
 
 def test_main_returns_error_for_invalid_news_schema(monkeypatch, capsys, ohlcv, tmp_path) -> None:
@@ -242,7 +242,7 @@ def test_main_returns_error_for_invalid_news_schema(monkeypatch, capsys, ohlcv, 
     rc = run_main(monkeypatch, *base_args(ohlcv, tmp_path / "out"), "--news-reactions", str(news))
     assert rc == 1
     assert (
-        "news reactions file must include symbol,timestamp,reaction_1d" in capsys.readouterr().out
+        "news reactions file must include symbol,timestamp,reaction_1d" in capsys.readouterr().err
     )
 
 
@@ -251,7 +251,7 @@ def test_main_returns_error_for_invalid_hints_yaml(monkeypatch, capsys, ohlcv, t
     hints.write_text("a plain string\n", encoding="utf-8")
     rc = run_main(monkeypatch, *base_args(ohlcv, tmp_path / "out"), "--hints", str(hints))
     assert rc == 1
-    assert "[ERROR] invalid hints format" in capsys.readouterr().out
+    assert "[ERROR] invalid hints format" in capsys.readouterr().err
 
 
 def test_main_returns_error_when_no_symbol_is_tradable(
@@ -259,7 +259,7 @@ def test_main_returns_error_when_no_symbol_is_tradable(
 ) -> None:
     rc = run_main(monkeypatch, *base_args(ohlcv, tmp_path / "out"), "--min-price", "1000000")
     assert rc == 1
-    assert "[ERROR] no tradable symbols remain" in capsys.readouterr().out
+    assert "[ERROR] no tradable symbols remain" in capsys.readouterr().err
 
 
 # --- export integration ---------------------------------------------------------
@@ -283,7 +283,7 @@ def test_main_export_strategies_and_force(monkeypatch, capsys, ohlcv, tmp_path) 
 
     # Re-export without --force is refused and reported as an integration error.
     assert run_main(monkeypatch, *args) == 1
-    assert "[ERROR] export/validation integration failed" in capsys.readouterr().out
+    assert "[ERROR] export/validation integration failed" in capsys.readouterr().err
     assert run_main(monkeypatch, *args, "--force-export") == 0
 
 
@@ -317,9 +317,10 @@ def test_main_pipeline_validation_pass_and_fail(monkeypatch, capsys, ohlcv, tmp_
         lambda **kw: ["schema says no"],
     )
     assert run_main(monkeypatch, *args, "--force-export") == 1
-    stdout = capsys.readouterr().out
-    assert "[ERROR] exported strategies failed pipeline validation:" in stdout
-    assert "  - edge_auto_vcp_brk_20260220: schema says no" in stdout
+    captured = capsys.readouterr()
+    assert "[ERROR] exported strategies failed pipeline validation:" in captured.err
+    assert "  - edge_auto_vcp_brk_20260220: schema says no" in captured.err
+    assert "schema says no" not in captured.out
 
 
 @pytest.mark.parametrize("reverse_export_order", [False, True])
@@ -386,7 +387,7 @@ def test_main_news_research_does_not_abort_export(
             "panic_reversal",
         }
         assert run_main(monkeypatch, *args) == 1
-        assert "export/validation integration failed" in capsys.readouterr().out
+        assert "export/validation integration failed" in capsys.readouterr().err
 
 
 def test_main_news_respects_shared_research_cap(monkeypatch, ohlcv, tmp_path):

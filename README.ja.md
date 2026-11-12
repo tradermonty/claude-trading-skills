@@ -103,7 +103,7 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 - `skill-packages/` – Claudeウェブアプリの**Skills**タブへそのままアップロードできる`.skill`パッケージ置き場。
 - `docs/` – ドキュメントサイトのコンテンツ、生成済みスキルページ、`docs/dev/metadata-and-workflow-schema.md`（スキーマ仕様書）。
 - `scripts/` – リポジトリ全体の自動化・保守スクリプト。validator や bootstrap helper を含む。
-- `skillsets/` – 目的別のインストール単位。主要 goal ごとに required / recommended / optional skills を定義します（5 skillset 実装済み: market-regime, core-portfolio, swing-opportunity, trade-memory, strategy-research。Navigator が参照）。
+- `skillsets/` – 目的別のインストール単位。主要 goal ごとに required / recommended / optional skills を定義します（6 skillset 実装済み: market-regime, core-portfolio, dividend-income, swing-opportunity, trade-memory, strategy-research。Navigator が参照）。
 
 ## はじめに
 
@@ -152,7 +152,8 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 | 領域 | 代表スキル |
 | --- | --- |
 | Market Regime | `market-breadth-analyzer`, `uptrend-analyzer`, `exposure-coach` |
-| Core Portfolio | `portfolio-manager`, `value-dividend-screener`, `kanchi-dividend-sop` |
+| Core Portfolio | `portfolio-manager`, `us-undervalued-growth-screener` |
+| Dividend Income | `kanchi-dividend-sop`, `value-dividend-screener`, `dividend-growth-pullback-screener` |
 | Swing Opportunities | `vcp-screener`, `canslim-screener`, `breakout-trade-planner` |
 | Trade Planning | `position-sizer`, `technical-analyst`, `pre-trade-discipline-gate` |
 | Trade Memory | `trader-memory-core`, `signal-postmortem` |
@@ -193,12 +194,17 @@ FMP / FINVIZ / Alpaca の有料サブスクをまだ持っていない場合は�
 
 | スキル | サマリ | 依存 | 運用ロール | ステータス |
 |---|---|---|---|---|
+| **Portfolio Manager** (`portfolio-manager`) | Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze asset allocation, risk metrics, individual stock positions, diversification, and generate rebalancing recommendations. | `alpaca` optional | workflow_step | production |
+| **US Undervalued Growth Screener** (`us-undervalued-growth-screener`) | Screen and rank US-listed small- and mid-cap undervalued-growth stocks with a generated stable-first FMP client, persistent SQLite cache, adaptive listing enumeration, FY1 estimate normalization, verified 20-day liquidity, deterministic four-lane discovery, forward same-basis valuation, standard and SBC-adjusted FCF, dilution, peer, cycle and LOE controls, strict final evaluation, prepublication audit, and a self-contained evidence bundle. | `fmp` _recommended_, `alternate_market_data` optional, `sec_edgar` **required**, `company_ir` **required**, `official_macro` **required**, `local_calculation` — | standalone | beta |
+
+### 配当インカム（Dividend Income）
+
+| スキル | サマリ | 依存 | 運用ロール | ステータス |
+|---|---|---|---|---|
 | **Dividend Growth Pullback Screener** (`dividend-growth-pullback-screener`) | Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1.5%+ yield) that are experiencing temporary pullbacks, identified by RSI oversold conditions (RSI ≤40). | `fmp` **required**, `finviz` _recommended_ | workflow_step | production |
 | **Kanchi Dividend Review Monitor** (`kanchi-dividend-review-monitor`) | Monitor dividend portfolios with Kanchi-style forced-review triggers (T1-T5) and convert anomalies into OK/WARN/REVIEW states without auto-selling. | `fmp` _recommended_ | workflow_step | production |
 | **Kanchi Dividend SOP** (`kanchi-dividend-sop`) | Convert Kanchi-style dividend investing into a repeatable US-stock operating procedure. | `fmp` _recommended_ | workflow_step | production |
 | **Kanchi Dividend US Tax Accounting** (`kanchi-dividend-us-tax-accounting`) | Provide US dividend tax and account-location workflow for Kanchi-style income portfolios. | `local_calculation` — | workflow_step | production |
-| **Portfolio Manager** (`portfolio-manager`) | Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and positions, then analyze asset allocation, risk metrics, individual stock positions, diversification, and generate rebalancing recommendations. | `alpaca` optional | workflow_step | production |
-| **US Undervalued Growth Screener** (`us-undervalued-growth-screener`) | Screen and rank US-listed small- and mid-cap undervalued-growth stocks with a generated stable-first FMP client, persistent SQLite cache, adaptive listing enumeration, FY1 estimate normalization, verified 20-day liquidity, deterministic four-lane discovery, forward same-basis valuation, standard and SBC-adjusted FCF, dilution, peer, cycle and LOE controls, strict final evaluation, prepublication audit, and a self-contained evidence bundle. | `fmp` _recommended_, `alternate_market_data` optional, `sec_edgar` **required**, `company_ir` **required**, `official_macro` **required**, `local_calculation` — | standalone | beta |
 | **Value Dividend Screener** (`value-dividend-screener`) | Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E ratio under 20, P/B ratio under 2), attractive yields (3% or higher), and consistent growth (dividend/revenue/EPS trending up over 3 years). | `fmp` **required**, `finviz` _recommended_ | workflow_step | production |
 
 ### スイング候補（Swing Opportunity）

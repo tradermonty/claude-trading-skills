@@ -122,7 +122,13 @@ Parse the JSON and explain, in the user's language:
   without credentials. Supply the real file and an aware source timestamp to
   its CLI; Navigator does not inspect or validate files. Explicit CSV output
   (export/save/send), without input wording, keeps the full brokerage route.
-  If the offline workflow is absent from metadata, report that gap.
+  An explicit saved-file source keeps the offline route when JSON output is
+  also requested ("from a saved Alpaca positions JSON and export to JSON"),
+  with or without `--no-api`. API provenance and "without API" do not negate
+  that source. JSON output alone, live API/feed input, and negated saved sources
+  retain the full route; an output filename such as `holdings.json` is not input.
+  Routing uses bounded keyword heuristics. If the offline workflow is absent
+  from metadata, report that gap.
 - **Dropped secondaries** — under no-API mode, paid-API follow-on workflows
   are removed and listed in `dropped_secondary_workflows` (`{id, reason}`).
   Tell the user which steps were omitted; they do not block the goal.

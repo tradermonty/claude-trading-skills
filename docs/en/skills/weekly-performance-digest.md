@@ -39,6 +39,10 @@ factor, R-multiple, MAE/MFE), breaks results down across several pattern dimensi
 surfaces the week's biggest winners, losers, and lessons. Output is a JSON record plus
 a human-readable Markdown report. Pure calculation — no API key required.
 
+R-multiples require positive risk from the recorded stop. Gap fills at/below the
+stop and stops raised to/above entry have no R-multiple; these trades remain in
+P&L and win/loss statistics but are excluded from R averages.
+
 ---
 
 ## 2. When to Use

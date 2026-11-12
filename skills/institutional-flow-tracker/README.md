@@ -58,27 +58,29 @@ pip install requests
 
 ## Usage
 
+Run the examples below from the `skills/institutional-flow-tracker` directory.
+
 ### 1. Screen for Stocks with Institutional Changes
 
 Find stocks with significant institutional activity:
 
 **Quick scan (top 50 stocks):**
 ```bash
-python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
+python3 scripts/track_institutional_flow.py \
   --top 50 \
   --min-change-percent 10
 ```
 
 **Sector-focused screening:**
 ```bash
-python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
+python3 scripts/track_institutional_flow.py \
   --sector Technology \
   --min-institutions 20
 ```
 
 **Custom screening:**
 ```bash
-python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
+python3 scripts/track_institutional_flow.py \
   --min-market-cap 2000000000 \
   --min-change-percent 15 \
   --top 100 \
@@ -92,12 +94,12 @@ python3 institutional-flow-tracker/scripts/track_institutional_flow.py \
 Comprehensive analysis of institutional ownership for a single stock:
 
 ```bash
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py AAPL
+python3 scripts/analyze_single_stock.py AAPL
 ```
 
 **Extended history (12 quarters):**
 ```bash
-python3 institutional-flow-tracker/scripts/analyze_single_stock.py MSFT --quarters 12
+python3 scripts/analyze_single_stock.py MSFT --quarters 12
 ```
 
 **Output:** Detailed report with quarterly trends, new/increased/decreased/closed positions, concentration analysis
@@ -108,12 +110,12 @@ Follow portfolio changes of specific hedge funds or investment firms:
 
 ```bash
 # Track Warren Buffett's Berkshire Hathaway
-python3 institutional-flow-tracker/scripts/track_institution_portfolio.py \
+python3 scripts/track_institution_portfolio.py \
   --cik 0001067983 \
   --name "Berkshire Hathaway"
 
 # Track Cathie Wood's ARK Investment Management
-python3 institutional-flow-tracker/scripts/track_institution_portfolio.py \
+python3 scripts/track_institution_portfolio.py \
   --cik 0001579982 \
   --name "ARK Investment Management"
 ```

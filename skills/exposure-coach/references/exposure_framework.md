@@ -70,7 +70,17 @@ High failure-to-deliver anomalies indicate stress:
 
 ### Theme Score
 
-Based on theme strength and rotation patterns:
+Canonical theme-detector reports use `themes.all` once and require valid
+`data_quality` (`ok`/`warning` plus string-list flags). Each theme must have a
+bullish/bearish direction and finite numeric non-boolean heat in [0,100]. Compute
+`round(50 + mean(signed_heat)/2)`, with bullish positive and bearish negative
+(Python nearest integer, ties to even). Heat 80 maps to 90 bullish / 10 bearish;
+equal opposing heat maps to 50. This equally weighted integration heuristic is
+uncalibrated, not a forecast or freshness check. Upstream flags remain visible.
+Invalid/missing rows or quality reject the whole input; don't substitute zeros.
+
+Legacy theme-strength labels retain the following qualitative mapping (exact
+scores: strong=85, stable=65, rotating=40, collapsing=20):
 
 | Theme Status | Score |
 |--------------|-------|

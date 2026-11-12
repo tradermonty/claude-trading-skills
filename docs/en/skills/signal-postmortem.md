@@ -96,6 +96,22 @@ python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
   --output-dir reports/
 ```
 
+Batch recording requires observed finite positive entry and 5-day exit prices.
+The exit uses the first usable price from day 5 through day 9 (calendar days),
+with the observed date recorded. Without a key or usable prices, signals are
+skipped instead of being classified as NEUTRAL. A real observed flat return is
+still NEUTRAL. Missing/non-finite secondary returns (such as 20d) are omitted;
+missing/non-finite 5d returns skip the signal. Include `5` in `--holding-periods`
+for batch classification; reordering periods does not change the primary exit.
+
+The batch summary reports `processed` and `skipped`. A batch with zero processed
+signals exits 1 and writes only a diagnostic batch summary; mixed batches save
+valid records and exit 0. Check skipped counts before using the results. Skipped
+signals do not overwrite existing records. Previously saved records are not
+repaired or excluded automatically; review older records before analyzing them.
+This change covers batch recording; the manual recording limitation in Issue
+[#700](https://github.com/tradermonty/claude-trading-skills/issues/700) remains open.
+
 For manual outcome recording (when price data is already available):
 
 ```bash

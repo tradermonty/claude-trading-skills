@@ -191,3 +191,42 @@ over 4 days. After the initial build, only incremental refresh is needed
 `derive_ranking_scope_from_audit` / `validate_coverage_block`; both
 `run_pipeline` (discovery) and `evaluate_candidates` (final evaluation) import
 it, so the tri-state semantics cannot drift between the two sides.
+
+## Execution notes: shards, partial runs and budget exhaustion
+
+Run each shard once without `--resume`; use `--resume` only to continue an
+existing partial shard. Both collection and screening are current-only:
+collection fixes the estimate-normalization basis, while screening adds exact
+liquidity and TTM quality evidence. The first collection binds the exhausted
+listing-enumeration audit into the snapshot manifest. Screening performs a
+read-only content/freshness preflight before creating provider or run
+artifacts, carries a digest binding the enumeration proof and every verified
+shard into downstream audits, backfills liquidity failures until 50 valid
+names or full eligible exhaustion, and commits five probed deep-dive names. The full collection and screening
+contract is described in the sections above.
+
+If the provider call budget is exhausted during screen enrichment, the command
+exits 2 and writes `audit/partial-run-diagnostic.json` plus
+`audit/enriched-estimates.partial.jsonl`. The diagnostic is the last atomic
+commit marker and records the snapshot ID/digest, stage, deterministic
+attempted/completed/pending/interrupted symbols, interrupted provider
+operation, provider counters, and hashes for the partial artifacts. Read a
+partial artifact only when that marker exists and its recorded hashes and row
+counts verify; a missing or mismatched marker makes the partial output
+non-authoritative. `screen-full-snapshot` has no `--resume`: rerun the same
+verified snapshot after restoring the provider budget, allowing new cache/raw
+records from successful calls and reusing existing cache/raw data without
+deleting or rewriting it. A packet-stage budget failure also marks
+`broad-screen-audit.json` incomplete/diagnostic, clears all nested selection
+commitment fields, and rewrites **all** broad-screen rows (including rejected
+rows) to `deferred_by_budget` with selection eligibility disabled. The original
+`decision` is preserved in `prior_decision`, and original top-level selection
+fields in `prior_selection`; these archives are audit-only, never selection
+authority, and repeated invalidation retains the first archive. Neither the
+audit nor any partial output is a final market-wide conclusion. Quality-probe
+`calls_used` and `actual_eps_calls` count FMP provider-budget units: cached or
+unsent calls cost zero, and consumed retry responses remain counted. Each retry uses a new empty run directory. The CLI adds a unique
+attempt suffix and keeps raw responses in a sibling attempt directory, while
+direct callers must not reuse a non-empty output directory.
+
+The direct runner first attempts bulk ratios, key metrics, estimate, and EOD datasets. It falls back to bounded per-symbol enrichment only when bulk access is unavailable; a plan-gated (402/403) bulk endpoint is remembered in the cache for 30 days so later runs do not spend calls re-probing it. On the fallback path the estimate seed is a stratified sector × market-cap sample (√-weighted Hamilton quota, liquidity-ranked within cells, hash tie-break) whose size is derived from the remaining call budget; `audit/seed-audit.json` states the selection basis. Before pool selection, the top lane candidates receive a `key-metrics-ttm` quality probe (ROIC, FCF yield, EV/FCF, leverage, SBC) and a probe-resolved row with SBC-adjusted FCF yield below 1% cannot enter any lane except `high_growth_exception`. Exact 20-day ADDV work is prioritized by the four economic lanes, not by ticker order. Read `references/claude-code-execution.md` and `references/migration-v3.6-to-v3.6.1.md` for the full execution contract.
