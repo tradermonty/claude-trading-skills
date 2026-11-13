@@ -52,6 +52,33 @@ Market-regime recommendation `NEW_ENTRY_ALLOWED` and circuit-breaker recommendat
 
 Both `planned_risk_dollars` and `actual_risk_dollars` are required for an actionable candidate. Each field accepts a finite, non-negative number or numeric string, including zero. A missing value, boolean, non-numeric string, `NaN`, infinity, or negative value produces `REVIEW_REQUIRED`; the audit copy is normalized to JSON `null`. When both fields are valid and actual risk exceeds planned risk, the candidate is `NO_GO`. An explicit `NO_GO` rule remains higher priority than a simultaneous invalid-risk review.
 
+## Approved Operating Rules
+
+With `--approved-rules-ledger`, the gate reads a local ledger of rules approved in a monthly review (managed with `manage_approved_rules.py`). Rules are free text. The gate does not evaluate them against the trade; it requires a human acknowledgement per applied rule and records it. Acknowledgement is recorded, not verified.
+
+Computed state, using the America/New_York date of `--as-of`:
+
+| State | Condition | Applied |
+|---|---|---|
+| `not_yet_effective` | active, date before `effective_date` | no |
+| `effective` | active, `effective_date <= date <= review_after`, not expired | yes |
+| `review_due` | active, date after `review_after`, not expired | yes, with a warning |
+| `expired` | active, `expires_on` set and date after it | no, with a warning |
+| `superseded`, `retired` | stored status | no |
+
+A `review_due` rule keeps applying because the monthly review runs after the month ends; dropping rules on the review date would leave a gap in which the gate returns `GO` with no rules. `expires_on` is the optional hard stop. State is computed from the current stored status, so a past `--as-of` does not reconstruct an earlier ledger. The ledger is a single-user local file; concurrent writers are not supported.
+
+Per actionable candidate and applied rule, `approved_rule_checks` entries behave as follows:
+
+| Answer | Effect |
+|---|---|
+| `followed`, `not_applicable` | none |
+| `exception` with a non-empty `note` | `REVIEW_REQUIRED` carrying the note |
+| no entry, `exception` without note, unknown status | `REVIEW_REQUIRED`: not acknowledged |
+| malformed `approved_rule_checks` | `REVIEW_REQUIRED`; nothing from the value is trusted |
+
+An `exception` is a terminal `REVIEW_REQUIRED` for that run: the gate cannot approve an exception. Either do not place the order, or change the ledger explicitly (`retire`, `supersede`) and rerun. `NO_GO` still outranks `REVIEW_REQUIRED`. Non-actionable candidates are never required to acknowledge rules; supplied checks are validated and recorded. If the ledger is missing, unreadable, or invalid, every actionable candidate is `REVIEW_REQUIRED` and the report and journal are still written. Without the flag the output is unchanged.
+
 ## Trader Memory Integration
 
 Revenge-risk detection reads trader-memory-core thesis YAML files:

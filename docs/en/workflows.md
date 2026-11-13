@@ -384,6 +384,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Trade-side rule changes apply to the trader's behavior next month.
 - Skill-side improvements are repo-improvement candidates and may or may not be acted on.
 - Be willing to delete or downgrade rules that aren't working — not just add new ones.
+- The step-6 artifact does not activate rules; activation is the explicit `manage_approved_rules.py activate` follow-up in pre-trade-discipline-gate.
 
 **Final outputs:**
 
