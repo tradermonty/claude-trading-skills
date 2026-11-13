@@ -196,18 +196,22 @@ ELITE_COLUMNS = {
 }
 
 
+class _GroupCSVError(ValueError):
+    """A fixed validation reason that never includes provider-controlled text."""
+
+
 def _elite_csv_rows(text: str) -> list[dict]:
     """Normalize percentage-point CSV to the public client's decimal ratios."""
     reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")), strict=True)
     required = {"Name", *ELITE_COLUMNS}
     if not reader.fieldnames or not required.issubset(reader.fieldnames):
-        raise ValueError("missing group columns")
+        raise _GroupCSVError("missing_columns")
     if len(reader.fieldnames) != len(set(reader.fieldnames)):
-        raise ValueError("duplicate group columns")
+        raise _GroupCSVError("duplicate_columns")
     rows = []
     for row in reader:
         if None in row or any(row.get(column) is None for column in required):
-            raise ValueError("malformed group row")
+            raise _GroupCSVError("malformed_row")
         name = row["Name"].strip()
         if not name:
             continue
@@ -217,16 +221,25 @@ def _elite_csv_rows(text: str) -> list[dict]:
             if value in {"", "-", "N/A"}:
                 entry[key] = None
                 continue
-            number = float(value.removesuffix("%").replace(",", "")) / 100
+            try:
+                number = float(value.removesuffix("%").replace(",", "")) / 100
+            except ValueError:
+                raise _GroupCSVError("invalid_performance") from None
             if not math.isfinite(number):
-                raise ValueError("nonfinite group performance")
+                raise _GroupCSVError("nonfinite_performance")
             entry[key] = number
         if any(entry[key] is not None for key in ELITE_COLUMNS.values()):
             rows.append(entry)
     return rows
 
 
-def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
+def _get_performance(
+    group: str, api_key: Optional[str], provenance: Optional[dict] = None
+) -> list[dict]:
+    # Preserve the list-returning API; callers can opt into per-fetch provenance.
+    if provenance is None:
+        provenance = {}
+    provenance.update(source="unavailable", fallback_reason=None)
     key = os.environ.get("FINVIZ_API_KEY", "") if api_key is None else api_key
     if key:
         try:
@@ -239,11 +252,20 @@ def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
             if response.status_code == 200:
                 rows = _elite_csv_rows(response.text)
                 if rows:
+                    provenance["source"] = "elite"
                     return rows
-        except (requests.RequestException, ValueError, csv.Error):
-            pass  # Report only static text: exceptions and bodies may contain auth.
+                provenance["fallback_reason"] = "no_usable_rows"
+            else:
+                provenance["fallback_reason"] = "http_status"
+        except requests.RequestException:
+            provenance["fallback_reason"] = "request_failed"
+        except _GroupCSVError as exc:
+            provenance["fallback_reason"] = str(exc)
+        except csv.Error:
+            provenance["fallback_reason"] = "malformed_csv"
         print(
-            "WARNING: FINVIZ Elite group export unavailable; trying public fallback.",
+            "WARNING: FINVIZ Elite group export unavailable "
+            f"({provenance['fallback_reason']}); trying public fallback.",
             file=sys.stderr,
         )
 
@@ -257,6 +279,7 @@ def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
     try:
         rows = _dataframe_to_dicts(fvperf.Performance().screener_view(group=group))
         if rows:
+            provenance["source"] = "public"
             return rows
     except Exception:
         # Third-party scraper exceptions may embed full request URLs/bodies.
@@ -266,14 +289,20 @@ def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
     return []
 
 
-def get_sector_performance(api_key: Optional[str] = None) -> list[dict]:
+def get_sector_performance(
+    api_key: Optional[str] = None, *, provenance: Optional[dict] = None
+) -> list[dict]:
     """Sector decimal ratios: prefer Elite key, then public Python3.10+ scraper.
 
     None resolves FINVIZ_API_KEY; an explicit empty string forces public-only.
+    If supplied, provenance receives source (elite/public/unavailable) and a
+    safe fallback_reason (None when Elite did not fail).
     """
-    return _get_performance("Sector", api_key)
+    return _get_performance("Sector", api_key, provenance)
 
 
-def get_industry_performance(api_key: Optional[str] = None) -> list[dict]:
+def get_industry_performance(
+    api_key: Optional[str] = None, *, provenance: Optional[dict] = None
+) -> list[dict]:
     """Industry decimal ratios with the same source/key policy as sectors."""
-    return _get_performance("Industry", api_key)
+    return _get_performance("Industry", api_key, provenance)

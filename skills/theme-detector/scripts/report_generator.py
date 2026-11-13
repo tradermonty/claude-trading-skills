@@ -431,6 +431,12 @@ def _assess_data_quality(
                     pass
 
     sources = metadata.get("data_sources", {})
+    industry_source = sources.get("finviz_industry_performance", {})
+    if industry_source.get("source") == "public" and industry_source.get("fallback_reason"):
+        flags.append(
+            "FINVIZ industry performance used public fallback "
+            f"({industry_source['fallback_reason']})"
+        )
     if sources.get("finviz_error"):
         flags.append(f"FINVIZ error: {sources['finviz_error']}")
     if sources.get("uptrend_error"):
