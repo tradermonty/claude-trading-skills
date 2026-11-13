@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from analyze_earnings_trades import (
+    CalendarDependencyMissingError,
     CalendarUnavailableError,
     _resolve_as_of,
     apply_entry_filter,
@@ -932,6 +933,28 @@ class TestMainZeroResultExitCodes:
             in err
         )
         mock_count.assert_called_once()
+
+    @patch(
+        "analyze_earnings_trades.count_sessions",
+        side_effect=CalendarDependencyMissingError("pandas-market-calendars requirements.txt"),
+    )
+    @patch("analyze_earnings_trades.FMPClient")
+    def test_empty_calendar_with_missing_calendar_dependency_exits_2(
+        self, mock_client_class, mock_count, tmp_path, capsys
+    ):
+        client = mock_client_class.return_value
+        mock_client_class.US_EXCHANGES = FMPClient.US_EXCHANGES
+        client.get_earnings_calendar.return_value = []
+        client.get_api_stats.return_value = {"budget_remaining": 50, "rate_limit_reached": False}
+
+        with patch.object(sys, "argv", self._argv(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "requirements.txt" in err
+        assert "ZERO_RESULT_REASON" not in err
 
     @patch(
         "analyze_earnings_trades.count_sessions",

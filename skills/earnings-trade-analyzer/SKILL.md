@@ -51,7 +51,7 @@ python3 skills/earnings-trade-analyzer/scripts/analyze_earnings_trades.py \
 
 #### Degraded endpoint / budget fallback for scheduled reviews
 
-If the analyzer reports a 404, an implausible empty earnings calendar, or exhausts its API-call budget before producing scored candidates during a scheduled after-close/pre-market run, do not report "no earnings reactions" immediately. A clean empty response over a date window containing at least one XNYS session exits 1 with `ZERO_RESULT_REASON=earnings_calendar_empty_with_market_sessions`. If the shared XNYS calendar cannot classify the window, it exits 1 with `ZERO_RESULT_REASON=market_calendar_unavailable`. Budget or daily rate-limit exhaustion during profile fetching exits 1 with `ZERO_RESULT_REASON=profiles_budget_exhausted`. Treat each as a failed run to retry or fall back on, not a quiet day. Only a clean empty response over a zero-session window exits 0 as `ZERO_RESULT_REASON=no_earnings_rows`.
+If the analyzer reports a 404, an implausible empty earnings calendar, or exhausts its API-call budget before producing scored candidates during a scheduled after-close/pre-market run, do not report "no earnings reactions" immediately. A clean empty response over a date window containing at least one XNYS session exits 1 with `ZERO_RESULT_REASON=earnings_calendar_empty_with_market_sessions`. If the shared XNYS calendar cannot classify the window, it exits 1 with `ZERO_RESULT_REASON=market_calendar_unavailable`; if `pandas-market-calendars` is not installed, it exits 2 with a requirements.txt hint instead. Budget or daily rate-limit exhaustion during profile fetching exits 1 with `ZERO_RESULT_REASON=profiles_budget_exhausted`. Treat each as a failed run to retry or fall back on, not a quiet day. Only a clean empty response over a zero-session window exits 0 as `ZERO_RESULT_REASON=no_earnings_rows`.
 
 1. First retry once with a narrower liquid-universe configuration so the full 5-factor scorer has a chance to complete, for example:
 
@@ -84,7 +84,8 @@ holiday. If the window contains an XNYS session, the same clean `[]` exits 1
 with `ZERO_RESULT_REASON=earnings_calendar_empty_with_market_sessions` so a
 provider drop is not reported as a quiet day. If the XNYS calendar cannot be
 queried, the run also exits 1 with
-`ZERO_RESULT_REASON=market_calendar_unavailable`.
+`ZERO_RESULT_REASON=market_calendar_unavailable`. A missing
+`pandas-market-calendars` package exits 2 with a requirements.txt hint.
 
 `--lookback-days 0` is valid and queries exactly the single ET as-of date. Use
 it after the relevant announcements have been published (normally after the
