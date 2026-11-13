@@ -1,0 +1,320 @@
+{
+  "_comment": "Ratchet allowlist for scripts/check_price_bar_defaults.py (issue #655). Each entry is keyed by path + scope (enclosing qualname or <module>) + field; count must equal the findings for that key. Migrate sites, then lower or remove the entry. Never add new entries.",
+  "entries": [
+    {
+      "path": "skills/canslim-screener/scripts/calculators/leadership_calculator.py",
+      "scope": "calculate_leadership",
+      "field": "close",
+      "count": 4,
+      "reason": "pending #655 migration: canslim-screener"
+    },
+    {
+      "path": "skills/canslim-screener/scripts/calculators/leadership_calculator.py",
+      "scope": "slice_period_return",
+      "field": "close",
+      "count": 2,
+      "reason": "pending #655 migration: canslim-screener"
+    },
+    {
+      "path": "skills/edge-candidate-agent/scripts/auto_detect_candidates.py",
+      "scope": "build_ticket_payload",
+      "field": "close",
+      "count": 1,
+      "reason": "not a price bar (pending rewrite)"
+    },
+    {
+      "path": "skills/edge-candidate-agent/scripts/auto_detect_candidates.py",
+      "scope": "score_breakout_candidate",
+      "field": "close",
+      "count": 1,
+      "reason": "not a price bar (pending rewrite)"
+    },
+    {
+      "path": "skills/edge-candidate-agent/scripts/auto_detect_candidates.py",
+      "scope": "score_gap_candidate",
+      "field": "close",
+      "count": 1,
+      "reason": "not a price bar (pending rewrite)"
+    },
+    {
+      "path": "skills/edge-candidate-agent/scripts/auto_detect_candidates.py",
+      "scope": "score_reversal_candidate",
+      "field": "close",
+      "count": 1,
+      "reason": "not a price bar (pending rewrite)"
+    },
+    {
+      "path": "skills/macro-regime-detector/scripts/calculators/utils.py",
+      "scope": "downsample_to_monthly",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: macro-regime-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/defensive_rotation_calculator.py",
+      "scope": "_calc_return",
+      "field": "adjClose",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/distribution_day_calculator.py",
+      "scope": "_count_distribution_days",
+      "field": "adjClose",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/distribution_day_calculator.py",
+      "scope": "_count_distribution_days",
+      "field": "volume",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/index_technical_calculator.py",
+      "scope": "_detect_gap_down",
+      "field": "adjClose",
+      "count": 1,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/index_technical_calculator.py",
+      "scope": "_detect_gap_down",
+      "field": "open",
+      "count": 1,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/index_technical_calculator.py",
+      "scope": "_detect_gap_down",
+      "field": "volume",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/index_technical_calculator.py",
+      "scope": "_evaluate_index",
+      "field": "adjClose",
+      "count": 1,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/index_technical_calculator.py",
+      "scope": "_evaluate_index",
+      "field": "close",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/index_technical_calculator.py",
+      "scope": "_evaluate_index",
+      "field": "volume",
+      "count": 1,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/leading_stock_calculator.py",
+      "scope": "_detect_lower_highs",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/calculators/leading_stock_calculator.py",
+      "scope": "_evaluate_etf",
+      "field": "adjClose",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/scorer.py",
+      "scope": "detect_follow_through_day",
+      "field": "close",
+      "count": 8,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/market-top-detector/scripts/scorer.py",
+      "scope": "detect_follow_through_day",
+      "field": "volume",
+      "count": 2,
+      "reason": "pending #655 migration: market-top-detector"
+    },
+    {
+      "path": "skills/pead-screener/scripts/calculators/breakout_calculator.py",
+      "scope": "_check_volume_confirmation",
+      "field": "volume",
+      "count": 2,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/calculators/liquidity_calculator.py",
+      "scope": "calculate_liquidity",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/calculators/liquidity_calculator.py",
+      "scope": "calculate_liquidity",
+      "field": "volume",
+      "count": 2,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/calculators/weekly_candle_calculator.py",
+      "scope": "daily_to_weekly",
+      "field": "volume",
+      "count": 1,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/report_generator.py",
+      "scope": "_format_stock_entry",
+      "field": "high",
+      "count": 1,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/report_generator.py",
+      "scope": "_format_stock_entry",
+      "field": "low",
+      "count": 1,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/screen_pead.py",
+      "scope": "calculate_price_gap",
+      "field": "close",
+      "count": 2,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/screen_pead.py",
+      "scope": "calculate_price_gap",
+      "field": "open",
+      "count": 2,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/pead-screener/scripts/screen_pead.py",
+      "scope": "main",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: pead-screener"
+    },
+    {
+      "path": "skills/technical-analyst/scripts/weekly_price_action.py",
+      "scope": "build_sorted_daily_series",
+      "field": "volume",
+      "count": 1,
+      "reason": "pending #655 migration: technical-analyst"
+    },
+    {
+      "path": "skills/technical-analyst/scripts/weekly_price_action.py",
+      "scope": "resample_weekly",
+      "field": "volume",
+      "count": 1,
+      "reason": "pending #655 migration: technical-analyst"
+    },
+    {
+      "path": "skills/value-dividend-screener/scripts/screen_dividend_stocks.py",
+      "scope": "screen_value_dividend_stocks",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: value-dividend-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/calculators/relative_strength_calculator.py",
+      "scope": "calculate_relative_strength",
+      "field": "adjClose",
+      "count": 2,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/calculators/trend_template_calculator.py",
+      "scope": "calculate_trend_template",
+      "field": "adjClose",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/calculators/vcp_pattern_calculator.py",
+      "scope": "calculate_vcp_pattern",
+      "field": "close",
+      "count": 3,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/calculators/volume_pattern_calculator.py",
+      "scope": "calculate_volume_pattern",
+      "field": "adjClose",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/calculators/volume_pattern_calculator.py",
+      "scope": "calculate_volume_pattern",
+      "field": "volume",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/historical_scanner.py",
+      "scope": "build_quote_from_history",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/historical_scanner.py",
+      "scope": "build_quote_from_history",
+      "field": "high",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/historical_scanner.py",
+      "scope": "build_quote_from_history",
+      "field": "low",
+      "count": 2,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/historical_scanner.py",
+      "scope": "build_quote_from_history",
+      "field": "volume",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/screen_vcp.py",
+      "scope": "is_stale_price",
+      "field": "close",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/screen_vcp.py",
+      "scope": "is_stale_price",
+      "field": "high",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/screen_vcp.py",
+      "scope": "is_stale_price",
+      "field": "low",
+      "count": 1,
+      "reason": "pending #655 migration: vcp-screener"
+    },
+    {
+      "path": "skills/vcp-screener/scripts/screen_vcp.py",
+      "scope": "pre_filter_stock",
+      "field": "volume",
+      "count": 1,
+      "reason": "not a price bar (pending rewrite)"
+    }
+  ]
+}

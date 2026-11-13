@@ -92,6 +92,9 @@ def calculate_bottom_confirmation(signals: dict) -> float:
         "CORRECTION": 35,
         "FTD_INVALIDATED": 15,
         "RALLY_FAILED": 10,
+        # ftd-detector data gap (issue #655): no usable confirmation, scored as
+        # low as a failed rally so a gap can never raise bottom confirmation.
+        "DATA_GAP": 10,
     }
 
     base = state_scores.get(state, 40)
@@ -197,6 +200,10 @@ def calculate_signal_convergence(signals: dict) -> float:
         required_scores.append(macro.get("composite_score", 50))
 
     ftd = signals.get("ftd_detector", {})
+    # A DATA_GAP report contributes quality 0, exactly what a healed failed /
+    # invalidated / no-FTD run contributes. Leaving it out instead was measured
+    # to RAISE convergence (and the composite) versus the healed run in ~15% of
+    # gapped cases (issue #655), because removing a 0 outlier tightens agreement.
     if ftd:
         required_scores.append(ftd.get("quality_score", 50))
 

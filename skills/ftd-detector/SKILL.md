@@ -117,6 +117,7 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 | 60-79 | Moderate FTD | 50-75% |
 | 40-59 | Weak FTD | 25-50% |
 | <40 | No FTD / Failed | 0-25% |
+| 0 | Unavailable: data gap | 0-25% |
 
 ---
 
@@ -130,6 +131,17 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 
 - JSON: `ftd_detector_YYYY-MM-DD_HHMMSS.json`
 - Markdown: `ftd_detector_YYYY-MM-DD_HHMMSS.md`
+
+### Data gaps (missing or invalid price bars)
+
+A missing or non-finite close/volume (or a non-positive close) is never read as 0, and bars are never dropped. Bar fields are read through the vendored `scripts/_price_bars.py` helper.
+
+- **JSON `data_gap`** (bool, every run, at the top level and in `market_state`): true when an index's 60-session window or a post-FTD check hit a bad bar.
+- **JSON `data_quality`** (every run): per index, the window check (`window_sessions`, `bad_bars`, `bad_dates`, `latest_bad`) plus `sp500.power_trend_bad_bars` for the power-trend input (counted only when the power trend runs, 50+ bars). Each index block also carries its own `data_quality`, and `error` when the analysis failed ("Insufficient data" or "Data gap: ...").
+- **Gapped index:** `NO_SIGNAL` with `current_price` / `lookback_high` / `correction_depth_pct` set to `null`; no rally or FTD logic runs for it. With any gapped index the run's `combined_state` is reported as `NO_SIGNAL` with `data_gap: true`, meaning *state unavailable* (not an uptrend), with `ftd_index: null` and no post-FTD checks. The other index is never promoted, because the gap could be hiding the gapped index's own (possibly invalidated) FTD. Each index's own analysis stays in the JSON. The Markdown headline reads "State unavailable (data gap)".
+- **Unavailable score:** if any index is gapped, or the post-FTD distribution or invalidation check has a gap, `quality_score` is `total_score: 0` (always an int, never `null`), `signal: "Unavailable: data gap"`, `exposure_range: "0-25%"`, `data_gap: true`. Treat this as "no usable confirmation": do not increase exposure on it. A gapped distribution check keeps `distribution_count: 0` (int) with `data_gap: true`; a gapped invalidation check reports `invalidated: null`. A post-FTD gap also reports the combined state as `NO_SIGNAL` with `data_gap: true` (state unavailable), since the FTD can be neither confirmed nor invalidated.
+- **Power trend:** a bad close anywhere in its input gives `power_trend: null` with a `reason`; this alone does not set `data_gap` or change the score.
+- **Volume 0 is a data gap.** For ^GSPC and QQQ a zero session volume is provider missing data, so a missing, invalid or zero volume inside the 60-session window (or the post-FTD checks) marks a data gap. This is a behavior change from earlier versions, which read volume 0 as real.
 
 ## Reference Documents
 
