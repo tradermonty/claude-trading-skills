@@ -59,6 +59,8 @@ def write_thesis(
     history: list[dict] | None = None,
     pnl_dollars: float | None = None,
     exit_date: str | None = None,
+    thesis_statement: str | None = None,
+    lessons_learned: str | None = None,
 ) -> Path:
     state_dir.mkdir(parents=True, exist_ok=True)
     if history is None:
@@ -81,9 +83,11 @@ def write_thesis(
         "thesis_type": "growth_momentum",
         "status": status,
         "status_history": default_history,
-        "thesis_statement": f"{ticker} test thesis",
+        "thesis_statement": thesis_statement or f"{ticker} test thesis",
         "origin": {"skill": "test", "output_file": "fixture.json"},
     }
+    if lessons_learned is not None:
+        thesis["lessons_learned"] = lessons_learned
     if pnl_dollars is not None:
         thesis["outcome"] = {"pnl_dollars": pnl_dollars, "pnl_pct": pnl_dollars / 1000}
     if exit_date is not None:
@@ -100,7 +104,10 @@ def write_thesis(
         }
 
     path = state_dir / f"{thesis_id}.yaml"
-    path.write_text(yaml.safe_dump(thesis, sort_keys=False), encoding="utf-8")
+    # Match the producer (trader-memory-core writes UTF-8 with allow_unicode=True):
+    # the raw file must hold non-ASCII bytes, or a locale-encoding read bug
+    # would stay invisible in this fixture.
+    path.write_text(yaml.safe_dump(thesis, sort_keys=False, allow_unicode=True), encoding="utf-8")
     return path
 
 
@@ -372,6 +379,48 @@ def test_malformed_yaml_sets_partial_quality_and_halts(tmp_path: Path):
     assert "active until None" not in markdown
     assert "active until null" not in markdown
     json.dumps(result, allow_nan=False)
+
+
+def test_non_ascii_thesis_is_read_not_skipped(tmp_path: Path):
+    """Non-ASCII thesis YAML must load and count (issue #737).
+
+    trader-memory-core writes thesis files as UTF-8 with allow_unicode=True.
+    On Windows the readers decoded them with the locale code page (cp1252),
+    where bytes such as 0x81/0x8D/0x90 are undefined, so a Japanese thesis
+    raised UnicodeDecodeError and was silently skipped from the drawdown
+    computation. The fixture below carries those bytes; run the suite under
+    a non-UTF-8 locale (or on Windows) to see it fail without the fix.
+    """
+    state_dir = tmp_path / "theses"
+    write_thesis(
+        state_dir,
+        "th_nonascii_gm_20260702_0001",
+        status="PARTIALLY_CLOSED",
+        history=[
+            {
+                "status": "PARTIALLY_CLOSED",
+                "at": "2026-07-02T11:00:00-04:00",
+                "reason": "trim",
+                "realized_pnl": -500.0,
+            }
+        ],
+        thesis_statement="日本株の決算が好調で、増益見通し",
+        lessons_learned="損切りを徹底し、ポジションを縮小する",
+    )
+
+    theses, quality, warnings = load_theses(state_dir)
+    assert quality == "OK"
+    assert warnings == []
+    assert len(theses) == 1
+    assert theses[0]["thesis_statement"] == "日本株の決算が好調で、増益見通し"
+    assert theses[0]["lessons_learned"] == "損切りを徹底し、ポジションを縮小する"
+
+    result = evaluate_state(state_dir)
+
+    assert result["data_quality"] == "OK"
+    assert result["metrics"]["theses_scanned"] == 1
+    assert result["metrics"]["realized_pnl_today"] == -500.0
+    assert result["recommendation"] == "TRADING_ALLOWED"
 
 
 def test_duplicate_thesis_ids_are_excluded_fail_closed_with_real_paths(tmp_path: Path):
