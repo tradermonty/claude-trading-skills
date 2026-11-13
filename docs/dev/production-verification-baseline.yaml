@@ -556,15 +556,15 @@ skills:
   overrides:
     unit_tests:
       value: passed
-      rationale: "thesis.schema.json validated with Draft7Validator directly; JSON-schema rejections for nonpositive shares and out-of-range confidence; rebuild_index skips schema-invalid entries; unknown subcommand and invalid report exit cleanly; happy and boundary paths in each script-dedicated test module. All 515 skill-local tests pass, including strict new equity SHORT rejection, initial stop geometry, legacy-marker preservation, no-price legacy SHORT invalidation and bookkeeping without money changes, legacy BUY/free-text long compatibility, explicit-short exclusion counts in summary/monthly reporting, active long profit stops, unchanged futures LONG/SHORT paths, and historical-only terminal legacy-short postmortems without network calls or state mutation; untrusted monetary metrics are suppressed."
+      rationale: "thesis.schema.json validated with Draft7Validator directly; JSON-schema rejections for nonpositive shares and out-of-range confidence; rebuild_index skips schema-invalid entries; unknown subcommand and invalid report exit cleanly; happy and boundary paths in each script-dedicated test module. All 549 skill-local tests pass, including strict new equity SHORT rejection, initial stop geometry, legacy-marker preservation, no-price legacy SHORT invalidation and bookkeeping without money changes, legacy BUY/free-text long compatibility, explicit-short exclusion counts in summary/monthly reporting, active long profit stops, unchanged futures LONG/SHORT paths, and historical-only terminal legacy-short postmortems without network calls or state mutation; untrusted monetary metrics are suppressed."
       evidence:
       - command: python3 scripts/ci_test_matrix.py install trader-memory-core && python3 scripts/ci_test_matrix.py run trader-memory-core
-      - tests: skills/trader-memory-core/scripts/tests/test_thesis_store.py + test_thesis_store_futures.py + test_thesis_ingest.py + test_thesis_review.py + test_trader_memory_cli.py + test_fmp_price_adapter.py + test_equity_long_only.py
+      - tests: skills/trader-memory-core/scripts/tests/test_thesis_store.py + test_thesis_store_futures.py + test_thesis_ingest.py + test_thesis_review.py + test_trader_memory_cli.py + test_fmp_price_adapter.py + test_equity_long_only.py + test_record_lessons.py
       - thesis_review_sha256: e44121dd08cec61a620c7222d6216244abc049fd9ce12445ba0147ac4fd2ebfd  # pragma: allowlist secret
       - provenance: skills/<id>/scripts/tests (skill-local) validate this skill's own output schema and fail-closed behavior; repo-level tests are NOT cited as schema evidence
-      - assessed_base_commit: 84fa61270e75a6d99d6eba1f2ccee12bc876e30e  # pragma: allowlist secret
-      - assessed_change: Issue 682 historical-only legacy-short postmortems; recorded commands rerun with this change
-      - assessed_date: '2026-11-08'
+      - assessed_base_commit: 3bd4b7a2c7329ffb5efef95db2e53d1125b3dc40  # pragma: allowlist secret
+      - assessed_change: Issue 701 record-lessons CLI and explicit UTF-8 thesis reads; recorded commands rerun with this change
+      - assessed_date: '2026-11-13'
     workflow_contract:
       value: passed
       rationale: The multi-asset registration handoff executes native thesis_ingest.ingest and thesis_store.link_report, validates the actionable/rejected partition, and verifies that registered theses remain in IDEA status. Other replayed workflows include schema-validated manual-contract handoffs, such as the stockbee-fluency-loop and stockbee-20pct-study-daily lesson logs; those fixtures do not execute the native trader-memory-core append API.
@@ -574,20 +574,20 @@ skills:
       - spec: examples/workflows/multi-asset-opportunity-daily/replay.yaml
       - schema: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
       - tests: scripts/tests/test_workflow_replay_multi_asset.py; scripts/tests/test_workflow_replay.py; scripts/tests/test_workflow_replay_trade_memory.py
-      - assessed_base_commit: 84fa61270e75a6d99d6eba1f2ccee12bc876e30e  # pragma: allowlist secret
-      - assessed_change: Issue 682 historical-only legacy-short postmortems; recorded commands rerun with this change
-      - assessed_date: '2026-11-08'
+      - assessed_base_commit: 3bd4b7a2c7329ffb5efef95db2e53d1125b3dc40  # pragma: allowlist secret
+      - assessed_change: Issue 701 record-lessons CLI and explicit UTF-8 thesis reads; recorded commands rerun with this change
+      - assessed_date: '2026-11-13'
     end_to_end_replay:
       value: passed
       rationale: Multi-asset step 6 combines manual_contract registration decisions with native_api thesis_ingest.ingest and thesis_store.link_report on temporary state in both replay variants; stored theses remain IDEA. Stockbee fluency and 20pct-study lesson logs are manual_contract fixtures without native append execution. The separate trade-memory-loop includes native persistence within its composite lesson step.
       evidence:
       - command: python3 scripts/workflow_replay.py check; exit 0; aggregate workflow coverage 13/13 (not per-skill native coverage)
-      - tests: scripts/tests/test_workflow_replay_multi_asset.py; test_workflow_replay.py; test_workflow_replay_trade_memory.py; these suites plus test_production_verification_baseline.py pass 101 tests
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py; test_workflow_replay.py; test_workflow_replay_trade_memory.py; these suites plus test_production_verification_baseline.py pass 102 tests
       - execution: scripts/workflow_replay.py _multi_register; composite manual_contract + native_api; skills/trader-memory-core/scripts/thesis_ingest.py and thesis_store.py
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
-      - assessed_base_commit: 84fa61270e75a6d99d6eba1f2ccee12bc876e30e  # pragma: allowlist secret
-      - assessed_change: Issue 682 historical-only legacy-short postmortems; recorded commands rerun with this change
-      - assessed_date: '2026-11-08'
+      - assessed_base_commit: 3bd4b7a2c7329ffb5efef95db2e53d1125b3dc40  # pragma: allowlist secret
+      - assessed_change: Issue 701 record-lessons CLI and explicit UTF-8 thesis reads; recorded commands rerun with this change
+      - assessed_date: '2026-11-13'
 - id: trading-skills-navigator
   profile: meta_standalone
 - id: uptrend-analyzer

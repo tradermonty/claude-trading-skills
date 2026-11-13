@@ -82,8 +82,8 @@ Any non-terminal status can transition to `INVALIDATED`:
 ## CLI Access
 
 Every lifecycle operation is also a `thesis_store.py` subcommand:
-`transition`, `open-position`, `attach-position`, `close`, `terminate`
-(alongside `list` / `get` / `review-due` / `rebuild-index` / `doctor` /
+`transition`, `open-position`, `attach-position`, `close`, `terminate`,
+`record-lessons` (alongside `list` / `get` / `review-due` / `rebuild-index` / `doctor` /
 `mark-reviewed`). No Python required to walk a thesis through its lifecycle.
 
 ### Backdating an existing position (`--event-date`)

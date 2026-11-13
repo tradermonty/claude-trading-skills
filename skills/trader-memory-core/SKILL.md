@@ -337,6 +337,16 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 
 Generate a structured postmortem in `state/journal/`. If FMP API key is available, includes MAE/MFE (Maximum Adverse/Favorable Excursion) metrics.
 
+Record the lessons learned on a CLOSED or INVALIDATED thesis with `record-lessons`. This produces the `lessons_log_entry` of the `trade-memory-loop` lessons step; the text lands in `outcome.lessons_learned`.
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ record-lessons th_aapl_div_20260314_a3f1 \
+  --text "Sized too large into earnings; cut the position before the print."
+```
+
+Use `--file PATH` (UTF-8) instead of `--text` for multi-line text, and `--text="..."` when the text starts with `-`. If a lesson already exists the command refuses; pass `--append` to add a line or `--replace` to overwrite. Keep one plain paragraph per lesson, because lists and blank lines render as separate Markdown blocks in the monthly report. Re-run `review postmortem` afterwards to refresh the journal report; `review monthly-report --month YYYY-MM` lists the lessons under "Top Lessons".
+
 **Summary statistics:**
 
 ```bash
