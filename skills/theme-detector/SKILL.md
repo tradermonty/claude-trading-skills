@@ -297,13 +297,18 @@ The skill generates two output files in the `reports/` directory:
   "generated_at": "2026-04-18 10:30:00",
   "metadata": {
     "generated_at": "2026-04-18 10:30:00",
-    "data_mode": "full",
+    "data_mode": "FINVIZ-Elite+FMP",
     "finviz_mode": "elite",
+    "finviz_mode_requested": "elite",
     "fmp_available": true,
     "max_themes": 14,
     "max_stocks_per_theme": 5,
     "data_sources": {
       "finviz_industries": 152,
+      "finviz_industry_performance": {
+        "source": "elite",
+        "fallback_reason": null
+      },
       "yfinance_stocks": 68,
       "etf_volume": 24
     }
@@ -449,6 +454,20 @@ unreadable, empty or malformed export warns and falls back to the public
 `finvizfinance>=1.5.0` scraper on Python 3.10+. `--finviz-mode public` forces
 public-only operation even when a key is configured. Without a key, public
 scraping remains the normal path; provider blocking is still possible.
+
+Report metadata distinguishes `finviz_mode_requested` from `finviz_mode`, the
+source that actually supplied industry performance. `data_mode` uses that
+actual source together with FMP key availability; it does not prove FMP fetch
+success. `data_sources.finviz_industry_performance` records `source` and a safe
+`fallback_reason` (`null` without an Elite failure). Public fallback is also
+listed in report quality flags. Dynamic stock selection keeps its own source
+policy and per-stock provenance; an industry fallback does not disable Elite
+stock requests. The existing `finviz_industries` row count is unchanged.
+
+Fallback reasons identify HTTP/request failures or a failed CSV validation
+check without including keys, URLs, response bodies or raw exception text.
+Row counts describe received data, not completeness: a syntactically valid
+partial export is still accepted; no minimum-universe threshold is enforced.
 
 CSV percentage points, including values below 1%, are normalized to decimal
 ratios at the client boundary and converted to percentage points once by the
