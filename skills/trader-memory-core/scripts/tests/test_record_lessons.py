@@ -323,6 +323,35 @@ def test_legacy_short_closed_thesis_refused(tmp_path):
 
 
 def test_surrogate_in_text_rejected(tmp_path):
+    """Inject surrogate text after process startup so every OS tests the CLI handler."""
+    state = tmp_path / "theses"
+    tid = _closed(state)
+    before = _snapshot(state)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import runpy, sys; "
+            "from pathlib import Path; "
+            "script, state, tid = sys.argv[1:]; "
+            "sys.path.insert(0, str(Path(script).parent)); "
+            "sys.argv = [script, '--state-dir', state, 'record-lessons', tid, "
+            "'--text', 'bad\\udcff']; "
+            "runpy.run_path(script, run_name='__main__')",
+            str(STORE_PY),
+            str(state),
+            tid,
+        ],
+        capture_output=True,
+        timeout=60,
+    )
+    err = proc.stderr.decode("utf-8", "replace")
+    _assert_clean_error(proc.returncode, err, contains="UTF-8")
+    assert _snapshot(state) == before
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Invalid byte argv uses POSIX surrogateescape")
+def test_posix_invalid_byte_argv_rejected(tmp_path):
     state = tmp_path / "theses"
     tid = _closed(state)
     before = _snapshot(state)
@@ -338,6 +367,7 @@ def test_surrogate_in_text_rejected(tmp_path):
             b"bad\xff",
         ],
         capture_output=True,
+        timeout=60,
     )
     err = proc.stderr.decode("utf-8", "replace")
     _assert_clean_error(proc.returncode, err, contains="UTF-8")
