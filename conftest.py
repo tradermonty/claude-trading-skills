@@ -237,6 +237,12 @@ def _activate_skill(skill: Path, test_dir: str) -> None:
     sys.path.insert(0, test_dir)
 
 
+def _forget_active_skill() -> None:
+    """A file outside every skill may import a skill's module; make the next skill re-check."""
+    global _last_skill  # noqa: PLW0603
+    _last_skill = None
+
+
 # ---------------------------------------------------------------------------
 # Collection hook – fires before each test *module* is imported.
 # ---------------------------------------------------------------------------
@@ -251,6 +257,7 @@ def pytest_collectstart(collector) -> None:
         return
     skill = _skill_root(fspath)
     if skill is None:
+        _forget_active_skill()
         return
     _activate_skill(skill, str(fspath.parent))
 
@@ -268,5 +275,6 @@ def pytest_runtest_setup(item) -> None:
     fspath = Path(fspath)
     skill = _skill_root(fspath)
     if skill is None:
+        _forget_active_skill()
         return
     _activate_skill(skill, str(fspath.parent))
