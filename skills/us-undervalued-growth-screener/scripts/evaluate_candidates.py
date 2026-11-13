@@ -20,6 +20,8 @@ scenarios, routes candidates fail-closed, and writes audit-ready JSON/Markdown.
 # Every name the monolithic module defined is re-exported here. A stage function
 # reads globals from its own module, so a monkeypatch on this module does not
 # reach callers inside the stages; patch the defining stage module instead.
+# Copies of this file loaded under another name (spec_from_file_location)
+# share the same stage modules from sys.modules, so stage state is shared.
 
 from __future__ import annotations
 
