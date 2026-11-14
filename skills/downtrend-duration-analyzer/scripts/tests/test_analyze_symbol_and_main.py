@@ -202,6 +202,30 @@ class TestMain:
         monkeypatch.setattr(sys, "argv", argv)
         adt.main()
 
+    def test_analysis_date_is_real_utc_not_local_time_with_z(self, monkeypatch, tmp_path):
+        """Issue #667: the `Z` marker must label an actual UTC instant."""
+        from datetime import datetime as real_datetime
+        from datetime import timedelta, timezone
+
+        instant = real_datetime(2026, 1, 2, 3, 4, 5, 123456, tzinfo=timezone.utc)
+        local_plus9 = timezone(timedelta(hours=9))  # fixed offset: red even on a UTC runner
+
+        class FakeDatetime(real_datetime):
+            @classmethod
+            def now(cls, tz=None):
+                if tz is None:
+                    return instant.astimezone(local_plus9).replace(tzinfo=None)
+                return instant.astimezone(tz)
+
+        monkeypatch.setattr(adt, "datetime", FakeDatetime)
+        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: STOCKS)
+        monkeypatch.setattr(adt, "fetch_historical_prices", lambda *a, **k: make_prices(CLOSES))
+        self._run(monkeypatch, tmp_path)
+        (path,) = list((tmp_path / "out").glob("downtrend_analysis_*.json"))
+        assert json.loads(path.read_text())["analysis_date"] == "2026-01-02T03:04:05.123456Z"
+        (md,) = list((tmp_path / "out").glob("downtrend_analysis_*.md"))
+        assert "**Date**: 2026-01-02" in md.read_text()
+
     def test_end_to_end_writes_json_and_markdown(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: STOCKS)
         monkeypatch.setattr(adt, "fetch_historical_prices", lambda *a, **k: make_prices(CLOSES))

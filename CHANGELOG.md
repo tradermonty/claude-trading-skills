@@ -68,6 +68,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - portfolio-manager: add an offline CSV allocation review for users without broker credentials (#583, part of #512). Reconciliation errors name the failing source without exposing input contents (#563).
 - position-sizer: risk is reported for the method that sized the trade (#596). A stop price of zero or below is rejected, and risk is computed exactly and rounded half-up (#602). `nan`, `inf` or `-inf` for any numeric argument exits 2 with an error naming the argument, and `--win-rate 1.0` is rejected instead of recommending half the account (#656).
 - breadth-chart-analyst: `detect_uptrend_ratio --json` no longer crashes on numpy values, and blank sector status no longer crashes the CSV report (#565).
+- downtrend-duration-analyzer: `analysis_date` is now a real UTC timestamp (`datetime.now(timezone.utc)`, same `…Z` shape) instead of local wall-clock time with a `Z` suffix, so the report's Date line is the UTC date. Output filenames and the fetch window still use local time. Also removed an empty data-quality-checker test and made the breadth-chart-analyst debug-image test assert the image it writes (#667, items 1 and 3).
 - skill-designer: a malformed idea JSON prints a one-line error and exits 1 (#567).
 - trading-skills-navigator: keep goal matches whose workflow is unavailable, and report paid-API secondary workflows dropped under `--no-api` (#526).
 - us-market-bubble-detector: the quick check no longer issues a verdict without the quantitative evaluation (#582).
