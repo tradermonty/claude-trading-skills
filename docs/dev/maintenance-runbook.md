@@ -44,6 +44,12 @@ uv run --extra dev pytest <path>                     # a subset (dev extra is en
 bash scripts/run_all_tests.sh                        # per-skill isolation = the pre-push gate
 ```
 
+`run_all_tests.sh` runs every row with `--extra dev --extra ci`, like CI, so
+optional-dependency tests (for example the edge-candidate-agent pyarrow
+modules) run instead of skipping silently. It uses `install --check` as CI
+does. On an Intel Mac with macOS 13, the first sync may build opencv from
+source because its wheel needs macOS 14.
+
 For skills that are primarily instructions, references, image-input workflows,
 or agent orchestration, use
 [`knowledge-skill-test-contract.md`](knowledge-skill-test-contract.md) as the
@@ -126,11 +132,16 @@ drift `--check`) then `bash scripts/run_all_tests.sh`.
 **CI** (`.github/workflows/ci.yml`): `Lint`, `Test`, `Security`, and
 `Metadata + Workflow checks` (runs the validators + every drift `--check`).
 
-**Known test skips** (`scripts/run_all_tests.sh` `KNOWN_SKIP`): `theme-detector`
-(pre-existing failures) and `canslim-screener` (needs optional `bs4`). CI runs
-`theme-detector` as a non-blocking `continue-on-error` step; it does not run a
-`canslim-screener` test step today. A green local maintenance run reports
-`46/46 passed, 2 skipped`.
+**Non-blocking rows and skipped tests** (`scripts/run_all_tests.sh`): the
+script has no skip list. Rows that CI treats as non-blocking are reported as
+`KNOWN FAILURE` and do not fail the run (decided by
+`ci_test_matrix.py allowed-failure`, from `config/ci-test-policy.yaml`). Each
+row runs pytest with `-rfEs`; after `=== Summary: X/Y passed ===` the script
+prints `=== Skipped tests: N ===`, where N sums pytest's grouped `[n]` counts,
+followed by one `<row id>: SKIPPED [n] ...` line per skip group, including
+module-level `importorskip` skips. Skips are reported
+but never change the exit code. A skip that CI would not have is a sign the
+local environment is missing an extra.
 
 ### Clearing a failing gate
 
