@@ -2265,7 +2265,11 @@ skills:
   - id: user_input
     type: local_file
     requirement: required
-    note: User provides data
+    note: User provides the ticker or question, optionally own data
+  - id: websearch
+    type: web
+    requirement: required
+    note: Current market data via web search
   inputs:
   - ticker
   - fundamentals_data

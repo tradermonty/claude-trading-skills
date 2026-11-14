@@ -28,6 +28,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 ### Metadata and API contracts
 
 - Correct market-top-detector and downtrend-duration-analyzer to FMP required, signal-postmortem to FMP optional, and market-regime-daily and its skillset to mixed profiles with a key-free base. Add an offline credential-read/no-API-workflow gate and generate EN/JA catalog provider badges/API matrix values from the index (#653).
+- us-stock-analysis: declare the required web search integration in `skills-index.yaml` (the index listed only `user_input`, although the skill always fetches current market data through web search) and align the SKILL.md Prerequisites with it. Regenerated the README / README.ja / CLAUDE.md integration tables, the quality dashboard (other-external 7 → 8, offline 33 → 32), the navigator metadata snapshot, and the us-stock-analysis and trading-skills-navigator packages (#732).
 
 ### Maintenance
 
