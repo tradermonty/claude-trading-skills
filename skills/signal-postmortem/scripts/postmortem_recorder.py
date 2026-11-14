@@ -16,13 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-# For FMP API calls
-try:
-    import requests
-
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
+from postmortem_fmp_client import fetch_price_rows, price_data_session
 
 
 def get_fmp_api_key() -> Optional[str]:
@@ -65,49 +59,26 @@ def observed_prices(rows, start_date: str, end_date: str) -> dict:
 
 
 def fetch_price_data(ticker: str, start_date: str, end_date: str, api_key: str) -> dict:
-    """
-    Fetch historical price data from FMP API (stable with v3 fallback).
-
-    Returns dict mapping date string to close price.
-    """
-    if not HAS_REQUESTS:
-        return {}
-
-    endpoints = [
-        ("https://financialmodelingprep.com/stable/historical-price-eod/full", True),
-        ("https://financialmodelingprep.com/api/v3/historical-price-full", False),
-    ]
-    for base_url, is_stable in endpoints:
-        try:
-            if is_stable:
-                url = base_url
-                params = {"symbol": ticker, "from": start_date, "to": end_date, "apikey": api_key}
-            else:
-                url = f"{base_url}/{ticker}"
-                params = {"from": start_date, "to": end_date, "apikey": api_key}
-            resp = requests.get(url, params=params, timeout=30)
-            if resp.status_code != 200:
-                continue
-            data = resp.json()
-            historical = data if isinstance(data, list) else None
-            if isinstance(data, dict) and "historical" in data:
-                historical = data["historical"]
-            elif isinstance(data, dict) and "historicalStockList" in data:
-                for entry in data["historicalStockList"]:
-                    if entry.get("symbol", "").replace("-", ".") == ticker.replace("-", "."):
-                        historical = entry.get("historical", [])
-                        break
-            if historical is not None:
-                prices = observed_prices(historical, start_date, end_date)
-                if prices:
-                    return prices
-        except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
-            continue
-
-    print(
-        f"Warning: Failed to fetch price data for {ticker}: all endpoints failed", file=sys.stderr
-    )
-    return {}
+    """Fetch exact-range observed prices through the shared generated transport."""
+    data = fetch_price_rows(ticker, start_date, end_date, api_key)
+    historical = data if isinstance(data, list) else None
+    if isinstance(data, dict):
+        if "historical" in data:
+            historical = data["historical"]
+        elif isinstance(data.get("historicalStockList"), list):
+            matches = [
+                entry
+                for entry in data["historicalStockList"]
+                if isinstance(entry, dict)
+                and isinstance(entry.get("symbol"), str)
+                and entry["symbol"].replace("-", ".") == ticker.replace("-", ".")
+            ]
+            if len(matches) == 1:
+                historical = matches[0].get("historical")
+    prices = observed_prices(historical, start_date, end_date)
+    if not prices:
+        print("Warning: Historical price evidence unavailable", file=sys.stderr)
+    return prices
 
 
 def calculate_return(entry_price: float, exit_price: float) -> float:
@@ -520,15 +491,16 @@ def main():
 
     # Process signals
     results = []
-    for signal in signals:
-        postmortem = process_signal(signal, holding_periods, api_key)
-        if postmortem:
-            results.append(postmortem)
+    with price_data_session(api_key):
+        for signal in signals:
+            postmortem = process_signal(signal, holding_periods, api_key)
+            if postmortem:
+                results.append(postmortem)
 
-            # Save individual postmortem
-            output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(postmortem, f, indent=2)
+                # Save individual postmortem
+                output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(postmortem, f, indent=2)
 
     # Save batch summary
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")

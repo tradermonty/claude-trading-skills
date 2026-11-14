@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import postmortem_recorder as recorder
 import pytest
+import requests
 
 
 @pytest.fixture
@@ -91,7 +92,7 @@ def test_fetch_accepts_observed_provider_shapes(monkeypatch, shape):
         "stocklist": {"historicalStockList": [{"symbol": "FICTION", "historical": rows}]},
     }[shape]
     monkeypatch.setattr(
-        recorder.requests,
+        requests.sessions.Session,
         "get",
         lambda *a, **kw: SimpleNamespace(status_code=200, json=lambda: data),
     )
@@ -113,7 +114,7 @@ def test_fetch_accepts_observed_provider_shapes(monkeypatch, shape):
 )
 def test_fetch_rejects_bad_evidence(monkeypatch, rows):
     monkeypatch.setattr(
-        recorder.requests,
+        requests.sessions.Session,
         "get",
         lambda *a, **kw: SimpleNamespace(status_code=200, json=lambda: {"historical": rows}),
     )

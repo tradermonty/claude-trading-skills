@@ -358,3 +358,19 @@ SKILLS["pair-trade-screener"] = SkillConfig(
     class_constants=(),
     extensions=("pair_trade",),
 )
+
+# ---- Issue #495 Batch D: signal-postmortem exact-range evidence ----
+SKILLS["signal-postmortem"] = SkillConfig(
+    skill="signal-postmortem",
+    title="FMP API Client for Signal Postmortem",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=30,
+    hist_return_list=False,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Exact-range raw historical evidence for postmortems",),
+    class_constants=(),
+    extensions=("postmortem_history",),
+)
