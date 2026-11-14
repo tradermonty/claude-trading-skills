@@ -522,7 +522,7 @@ def test_allowlist_requires_complete_unexpired_entries(tmp_path):
         ],
     )
     allowed, errors = docs_check.load_allowlist(path, today=datetime(2026, 9, 23).date())
-    assert allowed == set()
+    assert allowed == {}
     assert any("expired" in error for error in errors)
 
 
@@ -619,3 +619,267 @@ def test_docs_workflow_is_pinned_and_covers_issue_contract():
 def test_repository_external_allowlist_is_valid():
     path = ROOT / "config" / "docs-external-link-allowlist.json"
     assert docs_check.validate_allowlist(path, today=datetime(2026, 9, 23).date()) == []
+
+
+FMP_DOCS = "https://site.financialmodelingprep.com/developer/docs"
+SCOPED_NOW = datetime(2026, 11, 12, 12, tzinfo=timezone.utc)
+
+
+def scoped_rule(**overrides):
+    return {
+        "url": FMP_DOCS,
+        "statuses": [403],
+        "reason": "Bot-blocked; health is unverifiable",
+        "owner": "tradermonty",
+        "issue": "https://github.com/tradermonty/claude-trading-skills/issues/660",
+        "expires_on": "2026-12-31",
+        **overrides,
+    }
+
+
+def scoped_run(
+    tmp_path,
+    responses,
+    *,
+    urls=None,
+    entries=None,
+    now=SCOPED_NOW,
+    cached=False,
+    resolver=_public_resolver,
+):
+    site = tmp_path / "site"
+    _write_html(
+        site / "index.html", "".join(f'<a href="{url}">docs</a>' for url in (urls or [FMP_DOCS]))
+    )
+    allowlist = tmp_path / "allowlist.json"
+    _allowlist(allowlist, entries if entries is not None else [scoped_rule()])
+    cache = tmp_path / "cache.json"
+    if cached:
+        cache.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "entries": {
+                        FMP_DOCS: {
+                            "outcome": "passed",
+                            "status": 200,
+                            "checked_at": now.isoformat(),
+                            "final_url": FMP_DOCS,
+                        }
+                    },
+                }
+            )
+        )
+    requester = FakeRequester(responses)
+    report = tmp_path / "report.json"
+    errors = docs_check.validate_external(
+        site,
+        CONFIG,
+        allowlist_path=allowlist,
+        cache_path=cache,
+        report_path=report,
+        cache_ttl_hours=168,
+        retries=0,
+        timeout=1,
+        max_redirects=3,
+        max_bytes=8,
+        now=now,
+        requester=requester,
+        resolver=resolver,
+        sleep=lambda _: None,
+    )
+    return errors, json.loads(report.read_text()), json.loads(cache.read_text()), requester
+
+
+def test_scoped_403_is_visible_unverifiable_not_passed_or_cached(tmp_path, capsys):
+    errors, report, cache, requester = scoped_run(tmp_path, [_response(403), _response(403)])
+    assert errors == []
+    result = report["results"][FMP_DOCS]
+    assert result["outcome"] == "unverifiable"
+    assert (result["status"], result["final_url"], result["attempts"]) == (403, FMP_DOCS, 1)
+    assert result["exception"]["owner"] == "tradermonty"
+    assert result["exception"]["expires_on"] == "2026-12-31"
+    assert report["summary"]["unverifiable"] == 1
+    assert report["summary"]["passed"] == 0
+    assert report["summary"]["allowlisted"] == 0
+    assert cache["entries"] == {}
+    assert [call[0] for call in requester.calls] == ["HEAD", "GET"]
+    assert "unverifiable" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("status", [404, 410, 429, 500, 503])
+def test_scoped_rule_never_hides_other_http_failures(tmp_path, status):
+    errors, report, cache, _ = scoped_run(tmp_path, [_response(status)])
+    assert any(f"HTTP {status}" in error for error in errors)
+    assert report["results"][FMP_DOCS]["outcome"] == "failed"
+    assert report["results"][FMP_DOCS]["status"] == status
+    assert cache["entries"] == {}
+
+
+def test_head_403_then_get_404_is_not_exempt(tmp_path):
+    errors, report, _, _ = scoped_run(tmp_path, [_response(403), _response(404)])
+    assert errors
+    assert report["results"][FMP_DOCS]["status"] == 404
+
+
+def test_head_403_then_get_200_is_real_recovery(tmp_path):
+    errors, report, cache, _ = scoped_run(tmp_path, [_response(403), _response(200)])
+    assert errors == []
+    assert report["results"][FMP_DOCS]["outcome"] == "passed"
+    assert cache["entries"][FMP_DOCS]["status"] == 200
+
+
+@pytest.mark.parametrize("status", [403, 404])
+def test_scoped_links_bypass_and_evict_previous_success_cache(tmp_path, status):
+    responses = [_response(403), _response(403)] if status == 403 else [_response(status)]
+    errors, report, cache, requester = scoped_run(tmp_path, responses, cached=True)
+    assert bool(errors) == (status != 403)
+    assert requester.calls
+    assert report["summary"]["cached"] == 0
+    assert FMP_DOCS not in cache["entries"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        FMP_DOCS + "/other",
+        FMP_DOCS + "?x=1",
+        FMP_DOCS.replace("https:", "http:"),
+        "https://other.example/developer/docs",
+    ],
+)
+def test_exact_url_scope_does_not_spread(tmp_path, url):
+    errors, report, _, _ = scoped_run(tmp_path, [_response(403), _response(403)], urls=[url])
+    assert errors
+    assert report["results"][url]["outcome"] == "failed"
+
+
+def test_scoped_exception_does_not_cover_redirected_403(tmp_path):
+    errors, report, _, _ = scoped_run(
+        tmp_path,
+        [_response(302, location="https://other.example/docs"), _response(403), _response(403)],
+    )
+    assert errors
+    assert report["results"][FMP_DOCS]["final_url"] == "https://other.example/docs"
+    assert report["results"][FMP_DOCS]["outcome"] == "failed"
+
+
+def test_scoped_rule_does_not_bypass_unsafe_redirect(tmp_path):
+    def resolver(host, *_args, **_kwargs):
+        address = "127.0.0.1" if host == "127.0.0.1" else "93.184.216.34"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 443))]
+
+    errors, report, _, requester = scoped_run(
+        tmp_path, [_response(302, location="http://127.0.0.1/private")], resolver=resolver
+    )
+    assert errors
+    assert report["results"][FMP_DOCS]["outcome"] == "failed"
+    assert len(requester.calls) == 1
+
+
+def test_network_error_text_cannot_impersonate_status(tmp_path, monkeypatch):
+    def failure(*args, **kwargs):
+        raise OSError("HTTP 403")
+
+    monkeypatch.setattr(FakeRequester, "__call__", failure)
+    errors, report, _, _ = scoped_run(tmp_path, [])
+    assert errors
+    assert report["results"][FMP_DOCS]["outcome"] == "failed"
+    assert "status" not in report["results"][FMP_DOCS]
+
+
+@pytest.mark.parametrize("statuses", [None, 403, [], [True], [403, 403], ["403"], [200], [600]])
+def test_invalid_status_policy_is_rejected(tmp_path, statuses):
+    path = tmp_path / "allowlist.json"
+    _allowlist(path, [scoped_rule(statuses=statuses)])
+    rules, errors = docs_check.load_allowlist(path, today=SCOPED_NOW.date())
+    assert errors
+    assert not rules
+
+
+def test_unknown_policy_field_is_not_silently_unconditional(tmp_path):
+    entry = scoped_rule()
+    entry["status"] = entry.pop("statuses")
+    path = tmp_path / "allowlist.json"
+    _allowlist(path, [entry])
+    rules, errors = docs_check.load_allowlist(path, today=SCOPED_NOW.date())
+    assert errors and not rules
+
+
+def test_expiry_is_canonical_and_boundary_enforced(tmp_path):
+    path = tmp_path / "allowlist.json"
+    _allowlist(path, [scoped_rule(expires_on="20261231")])
+    assert docs_check.validate_allowlist(path, today=SCOPED_NOW.date())
+    _allowlist(path, [scoped_rule()])
+    assert docs_check.validate_allowlist(path, today=datetime(2026, 12, 31).date()) == []
+    assert docs_check.validate_allowlist(path, today=datetime(2027, 1, 1).date())
+    errors, report, _, _ = scoped_run(
+        tmp_path, [_response(403), _response(403)], now=datetime(2027, 1, 1, tzinfo=timezone.utc)
+    )
+    assert any("expired" in error for error in errors)
+    assert report["results"][FMP_DOCS]["outcome"] == "failed"
+
+
+def test_two_simulated_runs_probe_again_and_preserve_unverifiable(tmp_path):
+    for _ in range(2):
+        errors, report, cache, requester = scoped_run(tmp_path, [_response(403), _response(403)])
+        assert errors == []
+        assert report["summary"]["unverifiable"] == 1
+        assert not cache["entries"]
+        assert len(requester.calls) == 2
+
+
+def test_legacy_unconditional_entry_remains_offline(tmp_path):
+    entry = scoped_rule()
+    del entry["statuses"]
+    errors, report, _, requester = scoped_run(tmp_path, [], entries=[entry])
+    assert errors == []
+    assert report["results"][FMP_DOCS]["outcome"] == "allowlisted"
+    assert requester.calls == []
+
+
+def test_committed_fmp_exception_is_exact_scoped_and_expiring(tmp_path):
+    entries = json.loads((ROOT / "config/docs-external-link-allowlist.json").read_text())["entries"]
+    assert len(entries) == 1
+    assert entries[0]["url"] == FMP_DOCS
+    assert entries[0]["statuses"] == [403]
+    assert entries[0]["owner"] == "tradermonty"
+    assert entries[0]["expires_on"] == "2026-12-31"
+    errors, report, _, _ = scoped_run(tmp_path, [_response(403), _response(403)], entries=entries)
+    assert errors == []
+    assert report["summary"]["unverifiable"] == 1
+
+
+@pytest.mark.parametrize("statuses,exit_code", [([403, 403], 0), ([403, 404], 1), ([403, 200], 0)])
+def test_scoped_cli_exit_and_report(tmp_path, monkeypatch, statuses, exit_code):
+    scoped_run(tmp_path, [_response(200)])
+    original = docs_check.validate_external
+
+    def offline(*args, **kwargs):
+        kwargs.update(
+            now=SCOPED_NOW,
+            requester=FakeRequester([_response(s) for s in statuses]),
+            resolver=_public_resolver,
+            sleep=lambda _: None,
+        )
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(docs_check, "validate_external", offline)
+    result = docs_check.main(
+        [
+            "external",
+            "--site-dir",
+            str(tmp_path / "site"),
+            "--config",
+            str(ROOT / "docs/_config.yml"),
+            "--allowlist",
+            str(tmp_path / "allowlist.json"),
+            "--cache",
+            str(tmp_path / "cache.json"),
+            "--report",
+            str(tmp_path / "report.json"),
+            "--retries",
+            "0",
+        ]
+    )
+    assert result == exit_code

@@ -21,7 +21,7 @@
     "symbol": {"types": ["str"], "nullable": false},
     "price": {"types": ["int", "float"], "nullable": false},
     "marketCap": {"types": ["int", "float"], "nullable": true},
-    "volume": {"types": ["int"], "nullable": false},
+    "volume": {"types": ["int", "float"], "nullable": false, "finite": true},
     "previousClose": {"types": ["int", "float"], "nullable": false},
     "open": {"types": ["int", "float"], "nullable": false},
     "dayHigh": {"types": ["int", "float"], "nullable": false},
