@@ -144,15 +144,23 @@ Self-Improvement Loop to continuously expand the skill catalog.
 
 ### Manual Execution
 
+Use the wrapper, which runs in a separate generation clone and preserves a dirty
+primary checkout. It does not source primary `.envrc`; inherit the correct
+GitHub/SSH credentials and optional notification settings from the operator or
+private LaunchAgent environment. It refuses `--project-root` overrides.
+See [generation isolation](maintenance-runbook.md#the-generation-pipeline-runs-in-its-own-checkout)
+for lock, shared-state and non-destructive recovery details. A dry run may fetch
+and write local output/state; it is not filesystem-read-only.
+
 ```bash
 # Weekly: mine ideas from session logs and score them
-python3 scripts/run_skill_generation_pipeline.py --mode weekly --dry-run
+bash scripts/run_skill_generation.sh --mode weekly --dry-run
 
 # Daily: design a skill from the highest-scoring backlog idea
-python3 scripts/run_skill_generation_pipeline.py --mode daily --dry-run
+bash scripts/run_skill_generation.sh --mode daily --dry-run
 
 # Full daily run (creates branch, designs skill, opens PR)
-python3 scripts/run_skill_generation_pipeline.py --mode daily
+bash scripts/run_skill_generation.sh --mode daily
 ```
 
 ### launchd Setup (macOS)
@@ -178,7 +186,8 @@ launchctl start com.trade-analysis.skill-generation-daily
 | File | Purpose |
 | --- | --- |
 | `scripts/run_skill_generation_pipeline.py` | Orchestration script (mining, selection, design, review, PR) |
-| `scripts/run_skill_generation.sh` | Thin shell wrapper for launchd |
+| `scripts/run_skill_generation.sh` | Isolated launchd/manual entry point |
+| `scripts/run_skill_generation_isolated.py` | Dedicated clone validation, sync and resource locks |
 | `launchd/com.trade-analysis.skill-generation-weekly.plist` | Weekly mining schedule (Saturday 06:00) |
 | `launchd/com.trade-analysis.skill-generation-daily.plist` | Daily generation schedule (07:00) |
 | `skills/skill-idea-miner/` | Mining and scoring skill |

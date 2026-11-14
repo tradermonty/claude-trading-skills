@@ -494,24 +494,28 @@ def _parse_utc(value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def load_allowlist(path: Path, *, today: date) -> tuple[set[str], list[str]]:
+def load_allowlist(path: Path, *, today: date) -> tuple[dict[str, dict[str, Any]], list[str]]:
     errors: list[str] = []
     try:
         raw = _load_yaml_mapping(path)
     except ValueError as exc:
-        return set(), [str(exc)]
+        return {}, [str(exc)]
     if raw.get("schema_version") != 1:
         errors.append(f"{path}: schema_version must be 1")
     entries = raw.get("entries")
     if not isinstance(entries, list):
-        return set(), errors + [f"{path}: entries must be a list"]
-    allowed: set[str] = set()
+        return {}, errors + [f"{path}: entries must be a list"]
+    allowed: dict[str, dict[str, Any]] = {}
     for index, entry in enumerate(entries):
         prefix = f"{path}: entries[{index}]"
         if not isinstance(entry, dict):
             errors.append(f"{prefix} must be a mapping")
             continue
         required = {"url", "reason", "owner", "issue", "expires_on"}
+        unknown = set(entry) - required - {"statuses"}
+        if unknown:
+            errors.append(f"{prefix} has unknown fields: {', '.join(sorted(map(str, unknown)))}")
+            continue
         missing = sorted(required - set(entry))
         if missing:
             errors.append(f"{prefix} missing fields: {', '.join(missing)}")
@@ -532,13 +536,26 @@ def load_allowlist(path: Path, *, today: date) -> tuple[set[str], list[str]]:
         except ValueError:
             errors.append(f"{prefix}.expires_on must use YYYY-MM-DD")
             continue
+        if expires_on.isoformat() != entry["expires_on"]:
+            errors.append(f"{prefix}.expires_on must use YYYY-MM-DD")
+            continue
+        if "statuses" in entry:
+            statuses = entry["statuses"]
+            if (
+                not isinstance(statuses, list)
+                or not statuses
+                or any(type(status) is not int or not 400 <= status <= 599 for status in statuses)
+                or len(set(statuses)) != len(statuses)
+            ):
+                errors.append(f"{prefix}.statuses must be unique HTTP 4xx/5xx integers")
+                continue
         if expires_on < today:
             errors.append(f"{prefix} expired on {expires_on.isoformat()}")
             continue
         if url in allowed:
             errors.append(f"{prefix}.url duplicates another entry: {url}")
             continue
-        allowed.add(url)
+        allowed[url] = {**entry, "url": url}
     return allowed, errors
 
 
@@ -609,9 +626,18 @@ def validate_public_url(
 
 
 class LinkCheckFailure(RuntimeError):
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        retryable: bool = False,
+        status: int | None = None,
+        final_url: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.status = status
+        self.final_url = final_url
 
 
 class _PinnedHTTPConnection(http.client.HTTPConnection):
@@ -719,7 +745,12 @@ def _check_url_once(
                 continue
             if 200 <= status < 400:
                 return status, current
-            raise LinkCheckFailure(f"HTTP {status}", retryable=status in TRANSIENT_STATUSES)
+            raise LinkCheckFailure(
+                f"HTTP {status}",
+                retryable=status in TRANSIENT_STATUSES,
+                status=status,
+                final_url=current,
+            )
         except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
             raise LinkCheckFailure(str(exc), retryable=True) from exc
     raise LinkCheckFailure(f"redirect limit ({max_redirects}) exceeded")
@@ -756,11 +787,10 @@ def check_url(
             }
         except LinkCheckFailure as exc:
             if not exc.retryable or attempts > retries:
-                return {
-                    "attempts": attempts,
-                    "error": str(exc),
-                    "outcome": "failed",
-                }
+                result = {"attempts": attempts, "error": str(exc), "outcome": "failed"}
+                if exc.status is not None:
+                    result.update(status=exc.status, final_url=exc.final_url)
+                return result
             sleep(min(2 ** (attempts - 1), 8))
 
 
@@ -795,10 +825,13 @@ def validate_external(
     results: dict[str, dict[str, Any]] = {}
     updated_cache = dict(cache)
     for url in urls:
-        if url in allowed:
+        rule = allowed.get(url)
+        if rule is not None and "statuses" not in rule:
             results[url] = {"outcome": "allowlisted"}
             continue
-        cached = cache.get(url)
+        # Scoped exceptions must observe this run's actual HTTP status. A past
+        # success cannot mask a new broken link or become proof of verification.
+        cached = cache.get(url) if rule is None else None
         if isinstance(cached, dict) and cached.get("outcome") == "passed":
             try:
                 checked_at = _parse_utc(cached["checked_at"])
@@ -823,6 +856,20 @@ def validate_external(
             max_bytes=max_bytes,
             sleep=sleep,
         )
+        if (
+            rule is not None
+            and result["outcome"] == "failed"
+            and result.get("status") in rule["statuses"]
+            and result.get("final_url") == url
+        ):
+            result["outcome"] = "unverifiable"
+            result["exception"] = {
+                key: rule[key] for key in ("reason", "owner", "issue", "expires_on")
+            }
+            print(
+                f"NOTICE: {url} is temporarily unverifiable (HTTP {result['status']}; "
+                f"owner {rule['owner']}; expires {rule['expires_on']})"
+            )
         results[url] = result
         if result["outcome"] == "passed":
             updated_cache[url] = {
@@ -832,7 +879,8 @@ def validate_external(
                 "status": result["status"],
             }
         else:
-            errors.append(f"{url}: {result.get('error', 'external check failed')}")
+            if result["outcome"] != "unverifiable":
+                errors.append(f"{url}: {result.get('error', 'external check failed')}")
             updated_cache.pop(url, None)
 
     report = {
@@ -842,6 +890,7 @@ def validate_external(
         "schema_version": 1,
         "summary": {
             "allowlisted": sum(r["outcome"] == "allowlisted" for r in results.values()),
+            "unverifiable": sum(r["outcome"] == "unverifiable" for r in results.values()),
             "cached": sum(r["outcome"] == "cached" for r in results.values()),
             "failed": sum(r["outcome"] == "failed" for r in results.values()),
             "passed": sum(r["outcome"] == "passed" for r in results.values()),

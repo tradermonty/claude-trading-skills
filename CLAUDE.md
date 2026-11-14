@@ -709,7 +709,8 @@ An automated pipeline that mines session logs for skill ideas (weekly) and desig
 - `skills/skill-idea-miner/` — mining and scoring scripts
 - `skills/skill-designer/` — design prompt builder with quality references
 - `skills/dual-axis-skill-reviewer/` — scoring engine (reused from improvement loop)
-- `scripts/run_skill_generation.sh` — thin shell wrapper for launchd
+- `scripts/run_skill_generation.sh` — isolated launchd entry point
+- `scripts/run_skill_generation_isolated.py` — dedicated clone validation, synchronization, shared outputs and inherited resource locks
 - `launchd/com.trade-analysis.skill-generation-weekly.plist` — weekly mining (Saturday 06:00)
 - `launchd/com.trade-analysis.skill-generation-daily.plist` — daily generation (07:00)
 
@@ -723,16 +724,25 @@ An automated pipeline that mines session logs for skill ideas (weekly) and desig
 - Atomic backlog updates via `tempfile` + `os.replace()`
 - `created_branch` flag prevents spurious `git checkout main` in finally block
 
-**Running manually:**
+**Running manually:** Use the wrapper; it never evaluates primary `.envrc`. Supply
+GitHub/SSH credentials in the inherited operator or LaunchAgent environment. The
+dedicated generation clone defaults to `~/.local/share/claude-trading-skills-generation-bot`
+(`SKILL_GENERATION_CHECKOUT` override), separate from improvement. Dirty/off-main
+checkouts and unpublished commits are preserved and refused, never reset/cleaned.
+Shared logs/reports retain state in the primary repo. Daily/weekly use shared-state
+and checkout locks inherited by the pipeline child. See the maintenance runbook
+for recovery and the required post-deployment launchd dry-run. Direct pipeline
+invocation is for an explicitly managed isolated `--project-root` only.
+
 ```bash
 # Weekly: mine ideas from session logs and score them
-python3 scripts/run_skill_generation_pipeline.py --mode weekly --dry-run
+bash scripts/run_skill_generation.sh --mode weekly --dry-run
 
 # Daily: design a skill from the highest-scoring backlog idea
-python3 scripts/run_skill_generation_pipeline.py --mode daily --dry-run
+bash scripts/run_skill_generation.sh --mode daily --dry-run
 
 # Full daily run (creates branch, designs skill, opens PR)
-python3 scripts/run_skill_generation_pipeline.py --mode daily
+bash scripts/run_skill_generation.sh --mode daily
 ```
 
 **State and output files:**
