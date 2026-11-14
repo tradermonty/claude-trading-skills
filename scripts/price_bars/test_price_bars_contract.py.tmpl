@@ -1,0 +1,39 @@
+"""Generated contract tests for the vendored price-bar helper (issue #655)."""
+
+import math
+
+import _price_bars as price_bars
+import pytest
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, True, "1.5", math.nan, math.inf, -math.inf, 0, 0.0, -1],
+)
+def test_invalid_values_are_missing_not_zero(value):
+    assert price_bars.read_price({"close": value}, "close") is None
+
+
+def test_missing_key_and_non_mapping_are_missing():
+    assert price_bars.read_price({}, "close") is None
+    assert price_bars.read_price(None, "close") is None
+
+
+def test_valid_values_are_returned_unchanged():
+    assert price_bars.read_price({"close": 101.5}, "close") == 101.5
+    assert price_bars.read_price({"volume": 0}, "volume", allow_zero=True) == 0
+
+
+def test_gap_report_in_both_orders():
+    bars = [{"date": "d0", "close": 1.0}, {"date": "d1"}, {"date": "d2", "close": 2.0}]
+    chrono = price_bars.find_bar_gaps(bars, ("close",), order="chronological")
+    assert chrono["bad_indices"] == [1]
+    assert chrono["latest_bad"] == "d1"
+    newest = price_bars.find_bar_gaps(bars[::-1], ("close",), order="newest_first")
+    assert newest["bad_indices"] == [1]
+    assert newest["checked_bars"] == 3
+
+
+def test_order_is_validated():
+    with pytest.raises(ValueError):
+        price_bars.find_bar_gaps([], ("close",), order="sideways")

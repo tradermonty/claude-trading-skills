@@ -6,6 +6,10 @@ Generates JSON and Markdown reports for FTD detection analysis.
 """
 
 import json
+import math
+
+# Headline for a run whose combined state is unavailable (issue #655)
+DATA_GAP_STATE_LABEL = "State unavailable (data gap)"
 
 
 def generate_json_report(analysis: dict, output_file: str):
@@ -30,6 +34,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     combined_state = ms.get("combined_state", "UNKNOWN")
     total_score = quality.get("total_score", 0)
     signal = quality.get("signal", "N/A")
+    # Issue #655: the quality score is Unavailable (int 0) when its inputs had a gap
+    quality_gap = bool(quality.get("data_gap"))
+    # Under a data gap the combined state is reported as NO_SIGNAL = unavailable
+    state_gap = quality_gap or bool(analysis.get("data_gap")) or bool(ms.get("data_gap"))
+    data_quality_line = _data_quality_line(analysis)
 
     # Header
     lines.append("# FTD Detector Report")
@@ -48,10 +57,14 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("## Market Timing Status")
     lines.append("")
 
-    state_emoji = _state_emoji(combined_state)
     lines.append("| Metric | Value |")
     lines.append("|--------|-------|")
-    lines.append(f"| **Current State** | {state_emoji} **{_state_label(combined_state)}** |")
+    if state_gap:
+        # Never the green/normal "No Signal (Uptrend)" label for a gapped run
+        lines.append(f"| **Current State** | ⚠️ **{DATA_GAP_STATE_LABEL}** |")
+    else:
+        state_emoji = _state_emoji(combined_state)
+        lines.append(f"| **Current State** | {state_emoji} **{_state_label(combined_state)}** |")
     lines.append(f"| **Quality Score** | **{total_score}/100** |")
     lines.append(f"| **Signal** | {signal} |")
     lines.append(f"| **Exposure Guidance** | {quality.get('exposure_range', 'N/A')} |")
@@ -63,6 +76,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
 
     lines.append(f"> **Guidance:** {quality.get('guidance', 'N/A')}")
     lines.append("")
+    if data_quality_line:
+        lines.append(data_quality_line)
+        lines.append("")
 
     # ── Index Status Table ────────────────────────────────────────────────
     lines.append("---")
@@ -174,7 +190,12 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("## Post-FTD Health")
         lines.append("")
 
-        if post_dist:
+        if post_dist and post_dist.get("data_gap"):
+            lines.append(
+                "- **Distribution Days Since FTD:** "
+                f"Unavailable ({post_dist.get('reason', 'data gap')})"
+            )
+        elif post_dist:
             dist_count = post_dist.get("distribution_count", 0)
             monitored = post_dist.get("days_monitored", 0)
             lines.append(
@@ -190,16 +211,21 @@ def generate_markdown_report(analysis: dict, output_file: str):
             if inv.get("invalidated"):
                 lines.append(
                     f"- **FTD INVALIDATED** on {inv.get('invalidation_date')} "
-                    f"(Day {inv.get('days_after_ftd')}, close ${inv.get('invalidation_close', 0):.2f} "
-                    f"below FTD low ${inv.get('ftd_low', 0):.2f})"
+                    f"(Day {inv.get('days_after_ftd')}, close "
+                    f"{_money(inv.get('invalidation_close'))} "
+                    f"below FTD low {_money(inv.get('ftd_low'))})"
                 )
+            elif "invalidated" in inv and inv["invalidated"] is None:
+                lines.append(f"- **FTD Valid:** Unavailable ({inv.get('reason', 'data gap')})")
             else:
                 lines.append(
                     f"- **FTD Valid:** {inv.get('days_since_ftd', 0)} days since FTD "
-                    f"(FTD low: ${inv.get('ftd_low', 0):.2f})"
+                    f"(FTD low: {_money(inv.get('ftd_low'))})"
                 )
 
-        if pt:
+        if pt and "power_trend" in pt and pt["power_trend"] is None:
+            lines.append(f"- **Power Trend:** Unavailable ({pt.get('reason', 'data gap')})")
+        elif pt:
             pt_status = "YES" if pt.get("power_trend") else "No"
             lines.append(
                 f"- **Power Trend:** {pt_status} ({pt.get('conditions_met', 0)}/3 conditions)"
@@ -226,7 +252,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(f"**Recommended Exposure:** {exposure}")
     lines.append("")
 
-    if combined_state == "FTD_CONFIRMED" and total_score >= 80:
+    if state_gap:
+        # Checked first: a gapped signal must never read as a buy or "normal" market
+        lines.append(
+            "- Data gap: confirmation unavailable — do not increase exposure on this signal"
+        )
+        lines.append(f"- Reason: {quality.get('reason', 'missing or invalid price data')}")
+        lines.append("- Stay at defensive exposure until a clean data run confirms the state")
+        lines.append("- Re-run once the data provider has backfilled the missing bars")
+    elif combined_state == "FTD_CONFIRMED" and total_score >= 80:
         lines.append("- Aggressively increase equity exposure")
         lines.append("- Buy leading stocks breaking out of proper bases")
         lines.append("- Use FTD day's low as stop-loss reference")
@@ -343,6 +377,43 @@ def generate_markdown_report(analysis: dict, output_file: str):
         f.write("\n".join(lines))
 
     print(f"  Markdown report saved to: {output_file}")
+
+
+def _money(value) -> str:
+    """Format a price, rendering a missing or non-finite value as N/A (never None)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return "$N/A"
+    return f"${value:.2f}"
+
+
+def _data_quality_line(analysis: dict) -> str:
+    """One-line data-quality note, or "" on a clean run (keeps clean Markdown unchanged)."""
+    data_quality = analysis.get("data_quality") or {}
+    parts = []
+    for label, key in (("S&P 500", "sp500"), ("NASDAQ", "nasdaq")):
+        index = analysis.get(key) or {}
+        dq = data_quality.get(key) or index.get("data_quality") or {}
+        notes = []
+        if index.get("data_gap") and index.get("error"):
+            notes.append(index["error"])
+        elif dq.get("bad_bars"):
+            notes.append(
+                f"{dq['bad_bars']} bad bar(s) in the {dq.get('window_sessions')}-session window "
+                f"(latest bad: {dq.get('latest_bad')})"
+            )
+        if dq.get("power_trend_bad_bars"):
+            notes.append(
+                f"{dq['power_trend_bad_bars']} bad close(s) in the power-trend input "
+                "(power trend unavailable)"
+            )
+        if notes:
+            parts.append(f"{label}: " + "; ".join(notes))
+    if not parts and not analysis.get("data_gap"):
+        return ""
+    if analysis.get("data_gap") and not parts:
+        reason = (analysis.get("quality_score") or {}).get("reason")
+        parts.append(reason or "missing or invalid price data")
+    return "> **Data quality:** " + " | ".join(parts)
 
 
 def _state_emoji(state: str) -> str:

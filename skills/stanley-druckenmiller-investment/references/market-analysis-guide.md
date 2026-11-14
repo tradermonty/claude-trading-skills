@@ -81,7 +81,7 @@ The Strategy Synthesizer uses the following rules to convert multi-skill signals
 - Breadth composite < 40 **OR** Uptrend zone = Bear
 - Market Top score >= 60 (elevated/high risk)
 - Macro Regime = contraction
-- FTD state = RALLY_FAILED
+- FTD state = RALLY_FAILED or DATA_GAP (ftd-detector reported missing or invalid price data: treated as no usable confirmation, never as an FTD)
 - **Action:** 0-30% equity, high cash, no new entries
 
 ### Pattern-Specific Overrides

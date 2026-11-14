@@ -115,6 +115,8 @@ Load appropriate reference documents to provide philosophical context:
 | 6 | Setup Availability | **10%** | VCP + CANSLIM | Quality stock setups |
 | 7 | Signal Convergence | **12%** | All 5 required | Cross-skill agreement |
 
+**FTD data gaps:** when the ftd-detector report carries `data_gap: true` (top level or `market_state`) or a quality signal starting with `Unavailable`, the FTD state is read as `DATA_GAP` with quality 0. Bottom Confirmation scores it 10, the same as `RALLY_FAILED`; it never counts as a confirmed FTD, and in Signal Convergence it contributes quality 0, the same as a healed failed or no-FTD run.
+
 ## 4 Pattern Classifications
 
 | Pattern | Trigger Conditions | Druckenmiller Principle |
