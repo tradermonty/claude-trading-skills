@@ -4,7 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
-- downtrend-duration-analyzer: `analysis_date` is now a real UTC timestamp (`datetime.now(timezone.utc)`, same `…Z` shape) instead of local wall-clock time with a `Z` suffix, so the report's Date line is the UTC date. Output filenames and the fetch window still use local time. Also removed an empty data-quality-checker test and made the breadth-chart-analyst debug-image test assert the image it writes (#667, items 1 and 3).
+- FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
 - Raise the root development environment's Python floor from 3.11 to 3.11.5 and update soupsieve 2.9.2 to 4.1, fixing GHSA-4j63-6c4x-wfg4 and GHSA-mmhr-3c5m-f64f. soupsieve 4 requires Python 3.11.5, so the old floor kept a vulnerable 2.10 in the lock. Packaged skills keep their Python 3.9 floor.
 - edge-candidate-agent `auto_detect_candidates.py` now exits 2 with the `pip install -r <requirements.txt>` hint when pandas/numpy are missing; canslim-screener's optional Finviz fallback keeps degrading but its stderr message and `ImportError` now name the skill's requirements.txt instead of `pip install finviz`. With these, every missing-dependency path in `skills/*/scripts` exits 2 or degrades with a stderr hint, apart from trader-memory-core's documented exit 3 (#497).
 - Finish the missing-dependency exit convention for the sites #719 left open: stockbee-20pct-study, stockbee-setup-fluency-trainer, crypto-regime-analyzer (live mode; a warm same-day cache still runs without `requests`), pair-trade-screener (`statsmodels`), trade-performance-coach (YAML input), theme-detector (explicit `--themes-config`) and the parabolic-short-trade-planner Alpaca adapters now raise a `MissingDependencyError` that the CLI converts to stderr plus exit 2 with the `pip install -r <requirements.txt>` hint. The parabolic-short plan generator only requires `requests` when Alpaca credentials are set; without them it falls back to the manual checklist as before. stockbee-episodic-pivot-analyzer and the theme-detector bundled config keep their degraded behavior (stderr warning naming requirements.txt; an explicit `--api-key` exits 2). The shared market calendar raises `CalendarDependencyMissingError` (regenerated into all consumers; the hint names the skill's requirements.txt, or says so generically when imported from the canonical location). The breakout, drawdown, market-top, parabolic-short, theme-detector, momentum-burst and earnings-trade-analyzer CLIs exit 2 on it; earnings-trade-analyzer keeps exit 1 for calendar query failures. `track_institution_portfolio.py` now writes its guidance to stderr only. The CLI lint also flags `return 1` inside `main` from an `except ImportError` handler (#497).
@@ -30,9 +30,13 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Maintenance
 
+- Docs external links: scope the expiring FMP bot-block exception to observed 403 responses on the exact requested/final URL, report them as unverifiable without caching, and keep 404/transport/redirect failures visible (#660).
+
 - Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.
 
 ### Skills
+
+- signal-postmortem: require exact saved-signal evidence for manual exits, classify actual price returns without inventing 5d benchmarks, and exclude missing 5d observations from averages with null/N/A coverage (#700).
 
 - signal-postmortem: skip batch signals without observed finite entry/5d exit evidence, preserve genuine flat outcomes, expose skipped counts and fail zero-success batches instead of inventing NEUTRAL records (#702).
 
@@ -60,6 +64,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - portfolio-manager: add an offline CSV allocation review for users without broker credentials (#583, part of #512). Reconciliation errors name the failing source without exposing input contents (#563).
 - position-sizer: risk is reported for the method that sized the trade (#596). A stop price of zero or below is rejected, and risk is computed exactly and rounded half-up (#602). `nan`, `inf` or `-inf` for any numeric argument exits 2 with an error naming the argument, and `--win-rate 1.0` is rejected instead of recommending half the account (#656).
 - breadth-chart-analyst: `detect_uptrend_ratio --json` no longer crashes on numpy values, and blank sector status no longer crashes the CSV report (#565).
+- downtrend-duration-analyzer: `analysis_date` is now a real UTC timestamp (`datetime.now(timezone.utc)`, same `…Z` shape) instead of local wall-clock time with a `Z` suffix, so the report's Date line is the UTC date. Output filenames and the fetch window still use local time. Also removed an empty data-quality-checker test and made the breadth-chart-analyst debug-image test assert the image it writes (#667, items 1 and 3).
 - skill-designer: a malformed idea JSON prints a one-line error and exits 1 (#567).
 - trading-skills-navigator: keep goal matches whose workflow is unavailable, and report paid-API secondary workflows dropped under `--no-api` (#526).
 - us-market-bubble-detector: the quick check no longer issues a verdict without the quantitative evaluation (#582).
