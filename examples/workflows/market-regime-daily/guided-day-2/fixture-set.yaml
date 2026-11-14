@@ -1,0 +1,9 @@
+schema_version: 1
+workflow_id: market-regime-daily
+fixture_set: day-2
+fixed_timestamp: "2026-01-16T13:08:00+00:00"
+
+inputs:
+  market_breadth_components: breadth-components.json
+  market_uptrend_components: uptrend-components.json
+  market_top_risk_components: top-risk-components.json
