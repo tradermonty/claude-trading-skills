@@ -2266,6 +2266,10 @@ skills:
     type: local_file
     requirement: required
     note: User provides data
+  - id: websearch
+    type: web
+    requirement: optional
+    note: Web search / fetch when available
   inputs:
   - ticker
   - fundamentals_data
