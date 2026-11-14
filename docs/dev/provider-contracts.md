@@ -278,7 +278,7 @@ the rest in `explain_empty_selection` in fixed order, first match wins):
 | `no_earnings_rows` | the calendar returned `[]` for an inclusive date window containing zero XNYS sessions, or a non-empty response had no row carrying a `symbol` | 0 |
 | `calendar_fetch_failed` | the calendar fetch returned no usable body (`None` on transport/HTTP/rate-limit failure, or a non-list body) | 1 |
 | `earnings_calendar_empty_with_market_sessions` | the calendar returned a clean `[]`, but the identical inclusive date window sent to FMP contains at least one XNYS session; possible silent provider drop | 1 |
-| `market_calendar_unavailable` | the shared XNYS calendar could not classify a clean `[]`; dependency/query failure is not treated as a quiet window | 1 |
+| `market_calendar_unavailable` | the shared XNYS calendar could not classify a clean `[]`; query failure is not treated as a quiet window (a missing `pandas-market-calendars` package is not a zero-result reason: it exits 2 with a requirements.txt hint) | 1 |
 | `profiles_budget_exhausted` | profile fetching raised `ApiCallBudgetExceeded` (including after partial retrieval), or profiles came back empty and the budget is exhausted (`api_stats["budget_remaining"] == 0` or `rate_limit_reached`) | 1 |
 | `no_profiles_returned` | ≥1 earnings symbol, but `get_company_profiles` returned nothing | 1 |
 | `profiles_missing_required_field:marketCap` | ≥1 profile came back, but none has a usable numeric `marketCap` (non-bool `int`/`float`, finite) | 1 |
@@ -390,7 +390,7 @@ calendar. For a clean HTTP 200 `[]`, it counts sessions over the exact same
 inclusive `from` / `to` dates sent to FMP. Zero sessions remains the benign
 `no_earnings_rows` result. One or more sessions is a fail-closed
 `earnings_calendar_empty_with_market_sessions` anomaly, while a calendar
-dependency or query failure is `market_calendar_unavailable`. This avoids the
+query failure is `market_calendar_unavailable` (a missing dependency exits 2 with a hint). This avoids the
 exchange-holiday false positives of a weekday approximation and keeps the
 standalone `.skill` install complete through the generated runtime and pinned
 requirement. Non-empty lists whose rows carry no symbol retain the pre-#356

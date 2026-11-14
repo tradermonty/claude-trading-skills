@@ -12,7 +12,8 @@ module and flags:
     An ``except ImportError`` (or ``ModuleNotFoundError``) handler, at module
     or function scope, that exits 1: ``sys.exit(1)``, ``raise SystemExit(1)``,
     or ``sys.exit("msg")`` / ``raise SystemExit("msg")`` (a string argument
-    means exit status 1). Missing runtime dependencies must exit 2. A bare
+    means exit status 1), or ``return 1`` inside a function named ``main``.
+    Missing runtime dependencies must exit 2. A bare
     ``raise`` after printing a hint is left unflagged. Limitation: guards of
     the form ``if requests is None: ... sys.exit(1)`` are not detected.
 ``network-timeout``
@@ -134,6 +135,16 @@ def _is_raise_systemexit_one(node: ast.AST) -> bool:
     return False
 
 
+def _is_return_one(node: ast.AST) -> bool:
+    """True for ``return 1`` (an int constant, not ``True``)."""
+    return (
+        isinstance(node, ast.Return)
+        and isinstance(node.value, ast.Constant)
+        and node.value.value == 1
+        and not isinstance(node.value.value, bool)
+    )
+
+
 def _catches_import_error(handler: ast.ExceptHandler) -> bool:
     if handler.type is None:
         return False
@@ -246,7 +257,12 @@ class _Visitor(ast.NodeVisitor):
             if not _catches_import_error(handler):
                 continue
             for inner in _walk_no_defs(handler.body):
-                if _is_exit_one(inner) or _is_exit_string(inner) or _is_raise_systemexit_one(inner):
+                if (
+                    _is_exit_one(inner)
+                    or _is_exit_string(inner)
+                    or _is_raise_systemexit_one(inner)
+                    or (self._scope and self._scope[-1] == "main" and _is_return_one(inner))
+                ):
                     self.findings.append(
                         Finding(
                             self.rel,

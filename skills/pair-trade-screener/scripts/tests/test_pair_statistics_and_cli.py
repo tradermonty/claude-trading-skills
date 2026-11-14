@@ -371,3 +371,37 @@ def test_analyze_spread_main_produces_report_contract(monkeypatch):
     analyze_spread.main()
 
     report.assert_called_once()
+
+
+@pytest.mark.parametrize("module", (find_pairs, analyze_spread))
+def test_cli_missing_statsmodels_exits_2_with_requirements_hint(monkeypatch, capsys, module):
+    """The real require_statsmodels() failure maps to exit 2 (#497)."""
+    prices_a, prices_b = _cointegrated_prices()
+    monkeypatch.setitem(sys.modules, "statsmodels.tsa.ar_model", None)
+    if module is find_pairs:
+        monkeypatch.setattr(
+            sys, "argv", ["find_pairs.py", "--symbols", "AAA,BBB", "--api-key", "key"]
+        )
+        monkeypatch.setattr(
+            find_pairs,
+            "fetch_price_data_batch",
+            lambda *_args: {"AAA": prices_a, "BBB": prices_b},
+        )
+    else:
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["analyze_spread.py", "--stock-a", "AAA", "--stock-b", "BBB", "--api-key", "key"],
+        )
+        monkeypatch.setattr(
+            analyze_spread,
+            "fetch_historical_prices",
+            MagicMock(side_effect=(prices_a, prices_b)),
+        )
+
+    assert module.cli() == 2
+
+    captured = capsys.readouterr()
+    assert "requirements.txt" in captured.err
+    assert "pip install -r" in captured.err
+    assert "Traceback" not in captured.err

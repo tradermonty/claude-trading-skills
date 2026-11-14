@@ -562,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
     # Lazy imports: these modules depend on pandas/numpy/yfinance/finvizfinance
     # and are only needed at runtime, not when importing helpers for testing.
     from calculators.theme_classifier import deduplicate_themes, enrich_vertical_themes
-    from config_loader import load_themes_config
+    from config_loader import MissingDependencyError, load_themes_config
     from etf_scanner import ETFScanner
     from finviz_performance_client import cap_outlier_performances, get_industry_performance
     from uptrend_client import fetch_sector_uptrend_data, is_data_stale
@@ -574,7 +574,11 @@ def main(argv: list[str] | None = None) -> int:
     # -----------------------------------------------------------------------
     # Step 0: Load theme configuration (YAML or inline fallback)
     # -----------------------------------------------------------------------
-    themes_config, etf_catalog = load_themes_config(args.themes_config)
+    try:
+        themes_config, etf_catalog = load_themes_config(args.themes_config)
+    except MissingDependencyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     start_time = time.time()
 
     # Determine data mode
@@ -1121,4 +1125,10 @@ def _average_industry_perfs(industries: list[dict]) -> dict:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from _market_calendar import CalendarDependencyMissingError
+
+    try:
+        raise SystemExit(main())
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None
