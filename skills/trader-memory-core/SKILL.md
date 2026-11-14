@@ -78,6 +78,7 @@ bypasses the positive fill-below-positive-stop geometry guard for equity;
 SHORT intent, invalid prices/quantities/state and all ingest/attachment validation
 still refuse. Futures reject this equity-only option. A normal/equal fill adds
 no gap annotation. The flag must be a Python bool in API calls.
+The acknowledgement still requires a share count: pass `--shares` or attach a sized position.
 
 Preserve the target, planned stop, sizing audit fields and provenance. Store the
 actual fill and append a `gap fill acknowledged` entry to the protected ACTIVE
@@ -212,10 +213,14 @@ Python: `thesis_store.transition(state_dir, thesis_id, "ENTRY_READY", reason, ev
 
 ```bash
 python3 .../trader_memory_cli.py store --state-dir state/theses/ open-position <id> \
-  --actual-price 142.10 --actual-date 2026-05-02 [--shares 7.86] [--event-date 2026-05-02]
+  --actual-price 142.10 --actual-date 2026-05-02 --shares 7.86 [--event-date 2026-05-02]
 ```
 
-`--shares` accepts **fractional** quantities. Python:
+`--shares` is **required for an equity thesis** unless `attach-position` already
+recorded a share count; otherwise `open-position` exits 1 with
+`ERROR: open_position() requires a share count ...` and nothing is saved.
+ACTIVE theses recorded before this check without shares still close on the
+legacy per-share path. `--shares` accepts **fractional** quantities. Python:
 `thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, shares=..., event_date=...)`.
 `shares` (and `shares_remaining`, when present) must be a **finite, positive
 number no greater than 10<sup>12</sup>** (a sanity bound, not an economic
@@ -227,6 +232,9 @@ report) are rejected with a clean error at save time, on `open-position`,
 For a **futures** thesis, use `--contracts` instead of `--shares` (see
 "Futures positions" below) — if `attach-futures-position` already populated
 the position, omit `--contracts` and only pass `--actual-price`/`--actual-date`.
+
+`store doctor` validates file/index consistency, prints a JSON report, and exits 1
+when `ok` is false or the state directory is missing or not a directory.
 
 **Trim — partial close** (ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED, or →
 CLOSED when the whole remainder is sold):
@@ -360,6 +368,16 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 ```
 
 Generate a structured postmortem in `state/journal/`. If FMP API key is available, includes MAE/MFE (Maximum Adverse/Favorable Excursion) metrics.
+
+Record the lessons learned on a CLOSED or INVALIDATED thesis with `record-lessons`. This produces the `lessons_log_entry` of the `trade-memory-loop` lessons step; the text lands in `outcome.lessons_learned`.
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ record-lessons th_aapl_div_20260314_a3f1 \
+  --text "Sized too large into earnings; cut the position before the print."
+```
+
+Use `--file PATH` (UTF-8) instead of `--text` for multi-line text, and `--text="..."` when the text starts with `-`. If a lesson already exists the command refuses; pass `--append` to add a line or `--replace` to overwrite. Keep one plain paragraph per lesson, because lists and blank lines render as separate Markdown blocks in the monthly report. Re-run `review postmortem` afterwards to refresh the journal report; `review monthly-report --month YYYY-MM` lists the lessons under "Top Lessons".
 
 **Summary statistics:**
 

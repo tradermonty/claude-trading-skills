@@ -14,6 +14,10 @@ Related references (this runbook links rather than duplicates):
 - [`skill-automation.md`](skill-automation.md) ([日本語](skill-automation.ja.md))
   → maintainer quickstart, manual commands, scheduling, and the mode-by-mode
   side-effect boundary for the self-improvement and generation pipelines.
+- [`guided-market-regime-daily.md`](guided-market-regime-daily.md)
+  ([日本語](guided-market-regime-daily.ja.md)) → the guided fictional
+  market-regime run, its decision diff, current limits, and the maintainer
+  measurement routine.
 - `CLAUDE.md` → *Pre-commit Hooks*, *Creating a New Skill*, *Creating
   Documentation Site Pages*, *Skill Self-Improvement Loop*, and *Skill
   Auto-Generation Pipeline* implementation details and test commands.

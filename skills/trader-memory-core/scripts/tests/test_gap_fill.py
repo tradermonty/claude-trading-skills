@@ -36,7 +36,7 @@ def ready(state, activate=True, stop=90):
     return tid
 
 
-@pytest.mark.parametrize("position_mode", ["none", "direct", "attached"])
+@pytest.mark.parametrize("position_mode", ["direct", "attached"])
 def test_acknowledged_gap_preserves_plan_audit_and_actual_pnl(tmp_path, position_mode):
     state = tmp_path / "theses"
     tid = ready(state)
@@ -84,9 +84,18 @@ def test_acknowledged_gap_preserves_plan_audit_and_actual_pnl(tmp_path, position
         store.update(state, tid, {"status_history": []})
     assert snapshot(state) == saved
     closed = store.close(state, tid, "manual", 95, END)
-    assert closed["outcome"]["pnl_dollars"] == (7 if position_mode == "none" else 70)
+    assert closed["outcome"]["pnl_dollars"] == 70
     assert closed["outcome"]["pnl_pct"] == pytest.approx(7.95)
     assert closed["exit"]["stop_loss"] == 90
+
+
+def test_gap_acknowledgement_cannot_open_without_equity_quantity(tmp_path):
+    """The gap acknowledgement must retain #703's quantity-required contract."""
+    tid = ready(tmp_path)
+    before = snapshot(tmp_path)
+    with pytest.raises(ValueError, match="requires a share count"):
+        store.open_position(tmp_path, tid, 88, DATE, allow_gap_fill=True)
+    assert snapshot(tmp_path) == before
 
 
 @pytest.mark.parametrize("kwargs", [{}, {"allow_gap_fill": False}])
@@ -158,7 +167,7 @@ def test_gap_acknowledgement_never_bypasses_legacy_short(tmp_path, marker):
 def test_gap_acknowledgement_requires_ready_state(tmp_path, active):
     tid = ready(tmp_path, activate=active)
     if active:
-        store.open_position(tmp_path, tid, 100, DATE)
+        store.open_position(tmp_path, tid, 100, DATE, shares=10)
     before = snapshot(tmp_path)
     with pytest.raises(ValueError, match="ENTRY_READY"):
         store.open_position(tmp_path, tid, 88, DATE, allow_gap_fill=True)
@@ -168,7 +177,9 @@ def test_gap_acknowledgement_requires_ready_state(tmp_path, active):
 @pytest.mark.parametrize("price", [90, 100])
 def test_gap_option_does_not_label_normal_fill_as_gap(tmp_path, price):
     tid = ready(tmp_path)
-    result = store.open_position(tmp_path, tid, price, DATE, allow_gap_fill=True, reason="normal")
+    result = store.open_position(
+        tmp_path, tid, price, DATE, shares=10, allow_gap_fill=True, reason="normal"
+    )
     assert result["status_history"][-1]["reason"] == "normal"
 
 

@@ -202,7 +202,7 @@ def test_transition_forward_path(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
 
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "validated")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T10:00:00+00:00", shares=10)
 
     thesis = thesis_store.get(tmp_path, tid)
     assert thesis["status"] == "ACTIVE"
@@ -216,7 +216,7 @@ def test_transition_backward_raises(tmp_path: Path):
     """ACTIVE → IDEA should raise ValueError."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "validated")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T10:00:00+00:00", shares=10)
 
     with pytest.raises(ValueError, match="Cannot transition backward"):
         thesis_store.transition(tmp_path, tid, "IDEA", "oops")
@@ -280,7 +280,7 @@ def test_terminate_active_invalidated_with_price(tmp_path: Path):
     """terminate ACTIVE→INVALIDATED with price should compute P&L."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10)
 
     thesis = thesis_store.terminate(
         tmp_path,
@@ -299,7 +299,7 @@ def test_terminate_active_invalidated_no_price(tmp_path: Path):
     """terminate ACTIVE→INVALIDATED without price should leave P&L null."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10)
 
     thesis = thesis_store.terminate(tmp_path, tid, "INVALIDATED", "kill criteria")
     assert thesis["status"] == "INVALIDATED"
@@ -317,7 +317,7 @@ def test_terminate_closed_delegates(tmp_path: Path):
     """terminate with CLOSED should delegate to close()."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10)
 
     thesis = thesis_store.terminate(
         tmp_path,
@@ -455,11 +455,10 @@ def test_close_computes_pnl_and_holding_days(tmp_path: Path):
 
     # Advance to ACTIVE via open_position
     thesis_store.transition(state_dir, tid, "ENTRY_READY", "validated")
-    thesis_store.open_position(state_dir, tid, 150.00, "2026-03-01T10:00:00+00:00")
-
-    # Attach position for pnl_dollars calculation
+    # Attach position first: open_position() needs a share count (issue #703)
     report_path = _make_position_report(tmp_path)
     thesis_store.attach_position(state_dir, tid, report_path)
+    thesis_store.open_position(state_dir, tid, 150.00, "2026-03-01T10:00:00+00:00")
 
     # Close
     thesis = thesis_store.close(
@@ -494,7 +493,7 @@ def test_close_with_invalid_exit_reason_fails(tmp_path: Path):
     state_dir = tmp_path / "theses"
     tid, _ = _register_and_get(state_dir)
     thesis_store.transition(state_dir, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(state_dir, tid, 150.0, "2026-03-01T10:00:00+00:00")
+    thesis_store.open_position(state_dir, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10)
 
     with pytest.raises(ValueError):
         thesis_store.close(state_dir, tid, "banana", 160.0, "2026-04-01T00:00:00+00:00")
@@ -518,7 +517,7 @@ def test_exit_date_before_entry_date_fails(tmp_path: Path):
     state_dir = tmp_path / "theses"
     tid, _ = _register_and_get(state_dir)
     thesis_store.transition(state_dir, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(state_dir, tid, 150.0, "2026-04-01T10:00:00+00:00")
+    thesis_store.open_position(state_dir, tid, 150.0, "2026-04-01T10:00:00+00:00", shares=10)
 
     with pytest.raises(ValueError, match="exit.actual_date must be >= entry.actual_date"):
         thesis_store.close(state_dir, tid, "manual", 155.0, "2026-03-01T10:00:00+00:00")
@@ -615,7 +614,7 @@ def test_list_active(tmp_path: Path):
     tid1 = thesis_store.register(tmp_path, _make_thesis_data(ticker="AAPL"))
     thesis_store.register(tmp_path, _make_thesis_data(ticker="MSFT"))
     thesis_store.transition(tmp_path, tid1, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid1, 150.0, "2026-03-14T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid1, 150.0, "2026-03-14T10:00:00+00:00", shares=10)
 
     active = thesis_store.list_active(tmp_path)
     assert len(active) == 1
@@ -768,8 +767,8 @@ def test_open_position_bad_date_format_fails(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
 
-    with pytest.raises(ValueError):
-        thesis_store.open_position(tmp_path, tid, 150.0, "not-a-date")
+    with pytest.raises(ValueError, match=r"'not-a-date' is not a 'date-time'"):
+        thesis_store.open_position(tmp_path, tid, 150.0, "not-a-date", shares=10)
 
 
 def test_format_checker_rejects_no_timezone(tmp_path: Path):
@@ -777,8 +776,8 @@ def test_format_checker_rejects_no_timezone(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
 
-    with pytest.raises(ValueError):
-        thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T09:00:00")
+    with pytest.raises(ValueError, match=r"'2026-03-14T09:00:00' is not a 'date-time'"):
+        thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T09:00:00", shares=10)
 
 
 def test_format_checker_rejects_space_separator(tmp_path: Path):
@@ -786,8 +785,8 @@ def test_format_checker_rejects_space_separator(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
 
-    with pytest.raises(ValueError):
-        thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14 09:00:00+00:00")
+    with pytest.raises(ValueError, match=r"'2026-03-14 09:00:00\+00:00' is not a 'date-time'"):
+        thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14 09:00:00+00:00", shares=10)
 
 
 def test_close_bad_date_format_fails(tmp_path: Path):
@@ -795,7 +794,7 @@ def test_close_bad_date_format_fails(tmp_path: Path):
     state_dir = tmp_path / "theses"
     tid, _ = _register_and_get(state_dir)
     thesis_store.transition(state_dir, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(state_dir, tid, 150.0, "2026-03-01T10:00:00+00:00")
+    thesis_store.open_position(state_dir, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10)
 
     with pytest.raises(ValueError):
         thesis_store.close(state_dir, tid, "manual", 160.0, "not-a-date")
@@ -808,7 +807,7 @@ def test_transition_to_closed_raises(tmp_path: Path):
     """transition() to CLOSED should raise — use close() instead."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14T10:00:00+00:00", shares=10)
 
     with pytest.raises(ValueError, match="terminal status"):
         thesis_store.transition(tmp_path, tid, "CLOSED", "bad")
@@ -829,7 +828,7 @@ def test_terminate_invalidated_exit_before_entry_fails(tmp_path: Path):
     """INVALIDATED with exit_date < entry_date should fail validation."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-10T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-10T10:00:00+00:00", shares=10)
 
     with pytest.raises(ValueError, match="exit.actual_date must be >= entry.actual_date"):
         thesis_store.terminate(
@@ -846,7 +845,7 @@ def test_terminate_invalidated_holding_days_nonnegative(tmp_path: Path):
     """INVALIDATED with valid dates should have non-negative holding_days."""
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00")
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-01T10:00:00+00:00", shares=10)
 
     thesis = thesis_store.terminate(
         tmp_path,
@@ -945,7 +944,7 @@ def test_open_position_backfill_event_date(tmp_path: Path):
     # Use a future date that is after the IDEA/ENTRY_READY timestamps
     backfill_date = "2027-06-15T10:00:00+00:00"
     thesis = thesis_store.open_position(
-        tmp_path, tid, 150.0, "2027-06-15T10:00:00+00:00", event_date=backfill_date
+        tmp_path, tid, 150.0, "2027-06-15T10:00:00+00:00", event_date=backfill_date, shares=10
     )
 
     active_entry = thesis["status_history"][-1]
@@ -961,7 +960,7 @@ def test_cross_timezone_exit_after_entry_succeeds(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
     # entry: 2026-03-01 00:30 JST = 2026-02-28 15:30 UTC
-    thesis_store.open_position(tmp_path, tid, 100.0, "2026-03-01T00:30:00+09:00")
+    thesis_store.open_position(tmp_path, tid, 100.0, "2026-03-01T00:30:00+09:00", shares=10)
     # exit: 2026-02-28 23:00 UTC — this is AFTER entry in real time
     thesis = thesis_store.close(tmp_path, tid, "target_hit", 110.0, "2026-02-28T23:00:00+00:00")
     assert thesis["status"] == "CLOSED"
@@ -973,7 +972,7 @@ def test_cross_timezone_exit_before_entry_fails(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
     # entry: 2026-03-01 00:30 JST = 2026-02-28 15:30 UTC
-    thesis_store.open_position(tmp_path, tid, 100.0, "2026-03-01T00:30:00+09:00")
+    thesis_store.open_position(tmp_path, tid, 100.0, "2026-03-01T00:30:00+09:00", shares=10)
     # exit: 2026-02-28 10:00 UTC — this is BEFORE entry in real time
     with pytest.raises(ValueError, match="exit.actual_date must be >= entry.actual_date"):
         thesis_store.close(tmp_path, tid, "stop_hit", 95.0, "2026-02-28T10:00:00+00:00")
@@ -1147,6 +1146,7 @@ def test_event_date_before_previous_history_fails(tmp_path: Path):
             150.0,
             "2020-01-01T10:00:00+00:00",
             event_date="2020-01-01T10:00:00+00:00",
+            shares=10,
         )
 
 
@@ -2009,7 +2009,9 @@ def test_trim_guards(tmp_path: Path):
         100.0,
         "2026-05-01T00:00:00+00:00",
         event_date="2026-05-01T00:00:00+00:00",
+        shares=1,
     )
+    _strip_position_directly(tmp_path, tid2)  # simulates a pre-#703 record
     with pytest.raises(ValueError, match="requires a recorded position"):
         thesis_store.trim(tmp_path, tid2, 1, 100.0, "2026-05-10")
     # shares_sold > remaining and <= 0
@@ -2133,6 +2135,14 @@ def _write_actual_price_directly(state_dir: Path, thesis_id: str, section_name: 
     """Simulate a legacy or hand-edited thesis that bypassed save validation."""
     thesis = thesis_store.get(state_dir, thesis_id)
     thesis[section_name]["actual_price"] = value
+    yaml_path = state_dir / f"{thesis_id}.yaml"
+    yaml_path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
+
+
+def _strip_position_directly(state_dir: Path, thesis_id: str) -> None:
+    """Rewrite an ACTIVE thesis as a pre-#703 record: no recorded position."""
+    thesis = thesis_store.get(state_dir, thesis_id)
+    thesis["position"] = None
     yaml_path = state_dir / f"{thesis_id}.yaml"
     yaml_path.write_text(yaml.dump(thesis, default_flow_style=False), encoding="utf-8")
 
@@ -2285,7 +2295,9 @@ def test_equity_no_position_close_rejects_directly_written_huge_entry_price(
         100.0,
         "2026-05-01T00:00:00+00:00",
         event_date="2026-05-01T00:00:00+00:00",
+        shares=1,
     )
+    _strip_position_directly(tmp_path, tid)  # simulates a pre-#703 record
     _write_actual_price_directly(tmp_path, tid, "entry", 10**400)
     before_state = _state_file_hash(tmp_path, tid)
     before_index = _index_file_hash(tmp_path)
@@ -2329,6 +2341,7 @@ def test_equity_lifecycle_accepts_finite_nonpositive_prices(
         entry_price,
         "2026-05-01T00:00:00+00:00",
         event_date="2026-05-01T00:00:00+00:00",
+        shares=10,
     )
     assert opened["entry"]["actual_price"] == entry_price
 

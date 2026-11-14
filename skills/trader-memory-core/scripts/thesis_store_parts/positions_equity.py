@@ -44,6 +44,15 @@ if TYPE_CHECKING:
     logger = thesis_store.logger
 
 
+_EQUITY_OPEN_QUANTITY_REQUIRED = (
+    "open_position() requires a share count for an equity thesis: pass --shares "
+    "(API: shares=...) or attach a position-sizer report with attach-position "
+    "before opening; for futures use --contracts or attach-futures-position. "
+    "Refusing to open without a quantity because close() would record "
+    "per-share P&L."
+)
+
+
 def attach_position(
     state_dir: Path,
     thesis_id: str,
@@ -601,7 +610,8 @@ def open_position(
         actual_price: Entry price.
         actual_date: Entry date (ISO format).
         reason: Transition reason.
-        shares: Optional share count to record (equity).
+        shares: Share count (equity). Required unless an attached position
+            already records `shares`.
         event_date: Optional ISO timestamp for status_history.at (for backfilling).
         contracts: Optional contract count to record (futures; P2-1). If a
             futures position was already attached via
@@ -632,7 +642,8 @@ def open_position(
         Updated thesis dict.
 
     Raises:
-        ValueError: If thesis is not ENTRY_READY.
+        ValueError: If thesis is not ENTRY_READY, or an equity open has no
+            share count (neither `shares` nor an attached position's shares).
     """
     if not isinstance(allow_gap_fill, bool):
         raise ValueError("allow_gap_fill must be a bool")
@@ -708,6 +719,16 @@ def open_position(
         )
     else:
         _validate_equity_initial_stop(actual_price, stop_loss)
+
+    # Issue #703: an equity ACTIVE thesis with no recorded quantity makes
+    # close() fall back to the legacy per-share P&L path. Checked last so
+    # every existing error keeps its priority. Validity of the value itself
+    # stays with the save-time validator.
+    effective_shares = (
+        shares if shares is not None else (thesis.get("position") or {}).get("shares")
+    )
+    if effective_shares is None:
+        raise ValueError(_EQUITY_OPEN_QUANTITY_REQUIRED)
 
     now = _now_iso()
     thesis["entry"]["actual_price"] = actual_price
