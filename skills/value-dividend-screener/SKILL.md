@@ -32,6 +32,15 @@ Invoke this skill when the user requests:
 - **FINVIZ Elite API key:** Recommended, not required. Set `FINVIZ_API_KEY` or pass `--finviz-api-key` and use `--use-finviz` for two-stage screening. Without it the screener runs FMP-only and uses more API calls.
 - **Python:** 3.9+ with `requests>=2.31.0` (see `requirements.txt`).
 
+## Price-history quality
+
+RSI screening needs at least 20 returned closing-price observations. Every close
+in that history must be numeric, finite and positive. A candidate with missing
+or invalid closes is skipped with `RSI unavailable` on stderr; valid candidates
+continue. The full chronology and raw-close price basis are preserved. This
+exclusion means the candidate could not be evaluated, not that it passed or
+failed the oversold test.
+
 ## Workflow
 
 ### Step 1: Verify API Key Availability
