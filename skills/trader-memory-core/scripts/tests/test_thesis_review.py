@@ -33,7 +33,7 @@ def _create_active_thesis(
     data = _make_thesis_data(thesis_statement=f"test thesis #{_ACTIVE_COUNTER}")
     tid = thesis_store.register(state_dir, data)
     thesis_store.transition(state_dir, tid, "ENTRY_READY", "ok")
-    thesis_store.open_position(state_dir, tid, entry_price, entry_date)
+    thesis_store.open_position(state_dir, tid, entry_price, entry_date, shares=10)
     return tid
 
 

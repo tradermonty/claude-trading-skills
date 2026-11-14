@@ -341,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("rebuild-index", help="Rebuild _index.json from YAML files")
 
     # doctor
-    sub.add_parser("doctor", help="Validate file/index consistency")
+    sub.add_parser("doctor", help="Validate file/index consistency (exit 1 when ok is false)")
 
     # mark-reviewed
     mr_p = sub.add_parser("mark-reviewed", help="Record a review")
@@ -493,8 +493,12 @@ def main(argv: list[str] | None = None) -> int:
         idx = rebuild_index(state_dir)
         print(f"Rebuilt index: {len(idx['theses'])} theses")
     elif args.command == "doctor":
+        if not state_dir.is_dir():
+            raise FileNotFoundError(f"state directory not found or not a directory: {state_dir}")
         result = validate_state(state_dir)
         print(json.dumps(result, indent=2))
+        if not result["ok"]:
+            return 1
     elif args.command == "mark-reviewed":
         t = mark_reviewed(
             state_dir,
@@ -545,7 +549,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"x {pos.get('quantity')} contracts"
             )
         else:
-            print(f"{args.thesis_id} → {t['status']} @ {args.actual_price} x {args.shares}")
+            print(f"{args.thesis_id} → {t['status']} @ {args.actual_price} x {pos.get('shares')}")
     elif args.command == "attach-position":
         t = attach_position(
             state_dir,

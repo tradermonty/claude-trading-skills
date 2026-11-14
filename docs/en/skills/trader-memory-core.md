@@ -219,10 +219,11 @@ thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 open_position(state_dir, thesis_id,
               actual_price=155.50,
               actual_date="2026-03-16T10:30:00-04:00",
+              shares=10,
               event_date="2026-03-16T10:30:00-04:00")
 ```
 
-This is the **only path to ACTIVE status**. Requires both `actual_price` and `actual_date` (RFC 3339 format with timezone).
+This is the **only path to ACTIVE status**. Requires both `actual_price` and `actual_date` (RFC 3339 format with timezone). An equity thesis also needs a quantity: pass `shares`, or run `attach_position()` (Step 5) while the thesis is still ENTRY_READY and omit `shares`. Without either, the call is rejected, because `close()` would otherwise record per-share P&L.
 
 ### Step 5: Attach position sizing
 
@@ -242,7 +243,7 @@ attach_position(state_dir, thesis_id,
                 position_report_path="reports/position_sizer_AAPL_2026-03-16.json")
 ```
 
-The report must have `mode: "shares"` (budget mode is rejected).
+The report must have `mode: "shares"` (budget mode is rejected). Attaching on an ACTIVE thesis replaces the recorded quantity with the report's.
 
 ### Step 6: Periodic review
 
@@ -421,7 +422,9 @@ Each thesis is stored as a YAML file in `state/theses/`:
 |-------|-------|-----|
 | `ValidationError: ... is not a 'date-time'` | Date field missing timezone or using space separator | Use RFC 3339 format: `2026-03-16T10:30:00-04:00` |
 | `ValueError: Cannot transition from terminal status CLOSED` | Attempting to modify a closed/invalidated thesis | Terminal statuses are permanent. Create a new thesis if needed. |
-| `ValueError: Use open_position() to transition to ACTIVE` | Called `transition()` with `ACTIVE` target | Use `open_position(state_dir, thesis_id, actual_price, actual_date)` instead |
+| `ValueError: Use open_position() to transition to ACTIVE` | Called `transition()` with `ACTIVE` target | Use `open_position(state_dir, thesis_id, actual_price, actual_date, shares=shares)` instead |
+| `ValueError: open_position() requires a share count for an equity thesis ...` | Equity open with no `shares` and no share count from `attach_position()` | Pass `shares` (CLI: `--shares`), or attach a position-sizer report while ENTRY_READY. Futures use `--contracts` or `attach-futures-position`. |
+| `store doctor` exits 1 | The JSON report has `"ok": false`, or the state directory is missing or not a directory (`ERROR: state directory not found or not a directory`) | Read the JSON report (`missing_in_index`, `orphaned_in_index`, `field_mismatches`, `schema_errors`); run `rebuild-index` for index drift |
 | `ValueError: Position report mode is 'budget', expected 'shares'. ...` | Position sizer report has `mode: "budget"` | Re-run Position Sizer with `--entry` and `--stop` to get shares mode |
 | `ValueError: Missing required field: ticker` | Screener JSON missing expected fields | Check that the input matches the source adapter's expected format |
 | Duplicate thesis not created | Fingerprint matches existing thesis | This is intentional (idempotency). The existing thesis_id is returned. |
