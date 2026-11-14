@@ -321,16 +321,16 @@ class TestDebugOutput:
         assert isinstance(result, dict)
 
     def test_debug_creates_output_image(self, sample_uptrend_chart, tmp_path):
-        """When debug=True, should create debug image."""
+        """When debug=True, the detector writes <base>_debug_detection.jpeg."""
+        pytest.importorskip("cv2")
         from detect_uptrend_ratio import UptrendRatioDetector
 
         detector = UptrendRatioDetector(sample_uptrend_chart)
         detector.detect(debug=True, debug_output_dir=str(tmp_path))
 
-        # Check that a debug image was created
-        list(tmp_path.glob("*_debug*.jpeg")) + list(tmp_path.glob("*_debug*.png"))
-        # This test may pass or fail depending on implementation
-        # It's acceptable if debug output is not implemented initially
+        debug_image = tmp_path / "US_Stock_Market_Uptrend_Ratio_debug_detection.jpeg"
+        assert debug_image.is_file()
+        assert debug_image.stat().st_size > 0
 
 
 # =============================================================================
