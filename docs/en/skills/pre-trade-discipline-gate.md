@@ -135,4 +135,6 @@ Lifecycle commands are `activate`, `list`, `supersede`, `retire`, `extend`, and 
 | `review_due` (after `review_after`) | yes, with a warning |
 | `not_yet_effective`, `expired` (after `expires_on`), `superseded`, `retired` | no |
 
+`supersede` replaces the rule immediately. Its `--effective-date` must be today or earlier in America/New_York; a future date is refused without changing the ledger. Re-run on or after the intended effective date. Backdating does not reconstruct past state or rewrite earlier reports.
+
 The ledger is a single-user local file; concurrent writers are not supported. State is computed from the current stored status, so a past `--as-of` does not reconstruct an earlier ledger. If the ledger cannot be read, actionable candidates become `REVIEW_REQUIRED` and the report and journal are still written. Without `--approved-rules-ledger` the output is unchanged.

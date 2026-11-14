@@ -66,6 +66,8 @@ Computed state, using the America/New_York date of `--as-of`:
 | `expired` | active, `expires_on` set and date after it | no, with a warning |
 | `superseded`, `retired` | stored status | no |
 
+`supersede` is immediate: its effective date must be today or earlier in America/New_York. A future date is refused and the ledger remains unchanged; re-run on or after the intended effective date. Backdating does not reconstruct past state or rewrite earlier reports.
+
 A `review_due` rule keeps applying because the monthly review runs after the month ends; dropping rules on the review date would leave a gap in which the gate returns `GO` with no rules. `expires_on` is the optional hard stop. State is computed from the current stored status, so a past `--as-of` does not reconstruct an earlier ledger. The ledger is a single-user local file; concurrent writers are not supported.
 
 Per actionable candidate and applied rule, `approved_rule_checks` entries behave as follows:

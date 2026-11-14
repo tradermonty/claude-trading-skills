@@ -218,10 +218,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_list)
 
-    p = sub.add_parser("supersede", parents=[common], help="Replace an active rule")
+    p = sub.add_parser("supersede", parents=[common], help="Replace an active rule immediately")
     p.add_argument("--rule-id", required=True)
     p.add_argument("--text", required=True)
-    p.add_argument("--effective-date", required=True)
+    p.add_argument(
+        "--effective-date",
+        required=True,
+        help="YYYY-MM-DD, no later than today in America/New_York; scheduling is refused",
+    )
     p.add_argument("--review-after", required=True)
     p.add_argument("--expires-on")
     p.add_argument("--reason", required=True)

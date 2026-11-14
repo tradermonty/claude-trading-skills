@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 SCHEMA_VERSION = 1
 DATE_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
@@ -780,6 +781,7 @@ def supersede_rule(
     reason: str,
     now: datetime,
 ) -> tuple[dict[str, Any], str]:
+    """Replace immediately; scheduling a successor must not disable today's rule."""
     new = copy.deepcopy(ledger)
     if not _is_nonempty_str(text):
         raise LedgerError("--text must be a non-empty string")
@@ -798,6 +800,15 @@ def supersede_rule(
             "instead of supersede"
         )
     effective_date = norm_date(effective_date, "--effective-date")
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise LedgerError("supersede requires a timezone-aware current timestamp")
+    today_et = now.astimezone(ZoneInfo("America/New_York")).date()
+    if date.fromisoformat(effective_date) > today_et:
+        raise LedgerError(
+            "future --effective-date is not supported by immediate supersession "
+            f"(today is {today_et.isoformat()} in America/New_York); "
+            "the existing rule is unchanged. Re-run on or after the effective date"
+        )
     review_after = norm_date(review_after, "--review-after")
     expires_on = None if expires_on is None else norm_date(expires_on, "--expires-on")
     new["rules"].append(

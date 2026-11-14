@@ -135,4 +135,6 @@ python3 skills/pre-trade-discipline-gate/scripts/check_pre_trade_discipline.py \
 | `review_due`（`review_after` の翌日以降） | 警告付きで適用する |
 | `not_yet_effective`, `expired`（`expires_on` の翌日以降）, `superseded`, `retired` | 適用しない |
 
+`supersede` はルールを即時に置き換えます。`--effective-date` は America/New_York の当日以前に限り、将来日付は台帳を変更せず拒否します。予定した適用日以降に再実行してください。過去日付を指定しても、過去の状態の再現や既存レポートの書き換えは行いません。
+
 台帳は単一ユーザー向けのローカルファイルで、同時書き込みには対応しません。状態は現在の保存済みstatusから計算するため、過去の `--as-of` を指定しても以前の台帳は再現されません。台帳を読めない場合、注文対象の候補は `REVIEW_REQUIRED` になり、reportとjournalは書き出されます。`--approved-rules-ledger` を指定しない場合、出力は従来と変わりません。
