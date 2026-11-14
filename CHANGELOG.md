@@ -30,6 +30,8 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Maintenance
 
+- Docs external links: scope the expiring FMP bot-block exception to observed 403 responses on the exact requested/final URL, report them as unverifiable without caching, and keep 404/transport/redirect failures visible (#660).
+
 - Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.
 
 ### Skills
