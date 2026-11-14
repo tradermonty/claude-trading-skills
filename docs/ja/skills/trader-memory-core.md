@@ -140,6 +140,26 @@ JSONの各候補が `IDEA` ステータスの thesis になります。登録は
 で記録します。利益保護ストップ付きで過去の取引を登録する場合は、初期stopで開始してから
 現在のstopへ更新してください。
 
+実際のロング約定が予定ストップを下回った場合、既定では引き続き拒否します。
+実約定の記録を明示的に承認する場合のみ`open-position --allow-gap-fill`
+（APIは`allow_gap_fill=True`）を使用します。正の有限な実約定価格と予定ストップの位置関係だけを例外とし、
+SHORT方向・不正な価格や数量・状態の検証は維持します。先物ではこのオプションを拒否します。
+この承認でも株数は必須です。`--shares`で指定するか、サイズ計算済みのポジションを添付してください。
+
+目標価格・予定ストップ・サイズ計算時の監査値・出典は書き換えません。実約定価格を保存し、保護された
+`status_history.reason`へ承認内容と当時の実約定価格・予定ストップを追記します。
+後でstopを更新しても当初の承認履歴は残ります。通常・同値の約定にgap注記は付きません。
+APIの許可値は真偽値、reasonは文字列が必要です。決済・部分決済の損益は実約定価格から計算します。
+既に起きた約定の記録であり、新規取引やストップ違反の放置を承認する機能ではありません。
+サイズ計算時の監査値も再計算しません。
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ open-position <id> \
+  --actual-price 88 --actual-date 2026-11-01 --shares 10 \
+  --allow-gap-fill --reason "record actual broker fill"
+```
+
 旧データの明示的なショート記録は、SHORTの語を含むものか、SELLだけのものを指します。例はSELL_SHORT、Short position、SELLで、Sell to closeなどはロングのままです。こうした記録は、新たな損益・MAE/MFE計算を拒否します。CLOSED/INVALIDATEDなら参考用のポストモーテムを生成できます。損益・MAE/MFE・評価額・リスクは「—」とし、未対応の旧ショート記録である理由を明記します。価格取得は行わず、thesis/index・既存の損益・出典情報も変更しません。過去の数値の妥当性を保証したり補正したりする機能ではありません。ACTIVE/PARTIALLY_CLOSEDでは引き続き生成を拒否します。
 ただし終了価格を渡さないINVALIDATEDへの無効化とレビュー済み更新は可能で、既存の金額・出典情報は保持します。
 集計・月次レポートは明示的なショートを除外し、除外件数を表示します。summary JSONでは非ゼロ時に

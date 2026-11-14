@@ -377,6 +377,11 @@ def main(argv: list[str] | None = None) -> int:
     op_p.add_argument(
         "--actual-price", type=_strict_finite_float, required=True, help="Entry price"
     )
+    op_p.add_argument(
+        "--allow-gap-fill",
+        action="store_true",
+        help="Record an acknowledged equity long fill below its planned stop without rewriting the plan (not for futures)",
+    )
     op_p.add_argument("--actual-date", required=True, help="Entry date (YYYY-MM-DD or ISO)")
     op_p.add_argument(
         "--shares", type=_strict_shares, default=None, help="Share count (fractional ok)"
@@ -568,6 +573,7 @@ def main(argv: list[str] | None = None) -> int:
             direction=args.direction,
             contract_symbol=args.contract_symbol,
             contract_currency=args.contract_currency,
+            allow_gap_fill=args.allow_gap_fill,
         )
         pos = t.get("position") or {}
         if pos.get("quantity_unit") == "contracts":
