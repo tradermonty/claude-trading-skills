@@ -19,7 +19,7 @@ Retrying in 60 seconds...
 1. **Wait and Retry**: Script auto-retries after 60s
 2. **Reduce Universe**: Use `--max-candidates 30` to lower API usage
 3. **Check Daily Usage**: Free tier resets at midnight UTC
-4. **Upgrade Plan**: FMP Starter ($29.99/month) provides 750 calls/day
+4. **Upgrade Plan**: see `site.financialmodelingprep.com/pricing-plans` in a browser for current plans and limits
 
 ### Issue 2: Missing Required Libraries
 

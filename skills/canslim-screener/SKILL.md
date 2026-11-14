@@ -55,7 +55,7 @@ Read `references/scoring_overview.md` for the Phase 3.1 component weights, the w
 ## Prerequisites
 
 **API Requirements:**
-- **FMP API key** (free tier: 250 calls/day, sufficient for 35 stocks; Starter tier $29.99/mo for 40+ stocks)
+- **FMP API key** (free tier: 250 calls/day, sufficient for 35 stocks; a paid FMP plan for 40+ stocks; see `site.financialmodelingprep.com/pricing-plans`)
   - Sign up: https://site.financialmodelingprep.com/developer/docs
   - Set via environment variable: `export FMP_API_KEY=your_key_here`
 
@@ -152,7 +152,7 @@ User can provide sector-focused list (Technology, Healthcare, etc.)
   - Finviz: ~1.8 calls/stock (institutional ownership fallback, 2s rate limit, not counted in FMP budget)
 - Market data (^GSPC quote, ^VIX quote, ^GSPC 52-week history): 3 FMP calls
 - Total: ~283 FMP calls per screening run (exceeds 250 free tier)
-- **Recommendation**: Use `--max-candidates 35` for free tier (35 × 7 + 3 = 248 calls), or upgrade to FMP Starter tier ($29.99/mo, 750 calls/day) for full 40-stock screening
+- **Recommendation**: Use `--max-candidates 35` for free tier (35 × 7 + 3 = 248 calls), or use a paid FMP plan (see `site.financialmodelingprep.com/pricing-plans` in a browser) for full 40-stock screening
 
 ### Step 3: Execute CANSLIM Screening Script
 
@@ -348,7 +348,7 @@ Read `references/implementation_notes.md` for Phase 3 implementation status, Fin
 
 **Version:** Phase 3.1 (multi-period RS)
 **Last Updated:** 2026-05-03
-**API Requirements:** FMP API (free tier: up to 35 stocks; Starter tier recommended for 40 stocks) + BeautifulSoup/requests/lxml for Finviz
+**API Requirements:** FMP API (free tier: up to 35 stocks; a paid plan recommended for 40 stocks) + BeautifulSoup/requests/lxml for Finviz
 **Execution Time:** ~2 minutes for 40 stocks
 **Output Formats:** JSON + Markdown (now includes Summary Table and `schema_version: "3.1"`)
 **Components Implemented:** C, A, N, S, L, I, M (7 of 7, 100% coverage)

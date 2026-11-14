@@ -572,7 +572,7 @@ superinvestor_present = any(
 - L component: +1 call per stock (365-day historical prices, separate cache key from 90-day)
 - S&P 500 historical data: shared between M (EMA) and L (RS benchmark)
 
-**Free Tier Workaround**: Use `--max-candidates 35` (35 × 7 + 3 = 248 calls, within 250 limit). For full 40-stock screening, upgrade to FMP Starter tier ($29.99/mo, 750 calls/day).
+**Free Tier Workaround**: Use `--max-candidates 35` (35 × 7 + 3 = 248 calls, within 250 limit). For full 40-stock screening, use a paid FMP plan (see `site.financialmodelingprep.com/pricing-plans` in a browser).
 
 **Note on `mktCap` field**: FMP profile API returns `mktCap` (not `marketCap`). The screener handles both field names for compatibility.
 
@@ -612,7 +612,7 @@ def handle_rate_limit(response):
 1. **Batch calls where possible**: Use comma-separated symbols in quote endpoint
 2. **Cache market data**: Fetch S&P 500/VIX once, reuse for all stocks
 3. **Skip optional calls**: News endpoint can be omitted to save 40 calls
-4. **Limit universe**: Analyze top 35 stocks for free tier, or 40 with Starter tier
+4. **Limit universe**: Analyze top 35 stocks for free tier, or 40 with a paid plan
 5. **Progressive filtering**: Apply cheap filters first (market cap, sector) before expensive API calls
 
 ---
@@ -720,12 +720,11 @@ curl "https://financialmodelingprep.com/api/v3/quote/%5EVIX&apikey=YOUR_KEY"
 - **Total: ~283 calls (exceeds 250 quota)** ⚠️
 - **Workaround**: Use `--max-candidates 35` (35 × 7 + 3 = 248 calls)
 
-### Paid Tiers
+### Paid Plans
 
-- **Starter ($29.99/month)**: 750 requests/day → ~106 stocks/run ((750 - 3) / 7)
-- **Professional ($79.99/month)**: 2000 requests/day → ~285 stocks/run ((2000 - 3) / 7)
+Prices and limits change; see `site.financialmodelingprep.com/pricing-plans` in a browser. With a request limit of N per run, the universe size is about (N - 3) / 7 stocks.
 
-**Recommendation for Phase 3**: Free tier supports up to 35 stocks (`--max-candidates 35`). For the default 40-stock universe, upgrade to Starter tier ($29.99/mo).
+**Recommendation for Phase 3**: Free tier supports up to 35 stocks (`--max-candidates 35`). For the default 40-stock universe, use a paid FMP plan.
 
 ---
 
