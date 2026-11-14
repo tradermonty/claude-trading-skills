@@ -196,18 +196,22 @@ ELITE_COLUMNS = {
 }
 
 
+class _GroupExportError(ValueError):
+    """Elite export rejected; the message is static and safe to print."""
+
+
 def _elite_csv_rows(text: str) -> list[dict]:
     """Normalize percentage-point CSV to the public client's decimal ratios."""
     reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")), strict=True)
     required = {"Name", *ELITE_COLUMNS}
     if not reader.fieldnames or not required.issubset(reader.fieldnames):
-        raise ValueError("missing group columns")
+        raise _GroupExportError("missing group columns")
     if len(reader.fieldnames) != len(set(reader.fieldnames)):
-        raise ValueError("duplicate group columns")
+        raise _GroupExportError("duplicate group columns")
     rows = []
     for row in reader:
         if None in row or any(row.get(column) is None for column in required):
-            raise ValueError("malformed group row")
+            raise _GroupExportError("malformed group row")
         name = row["Name"].strip()
         if not name:
             continue
@@ -217,18 +221,24 @@ def _elite_csv_rows(text: str) -> list[dict]:
             if value in {"", "-", "N/A"}:
                 entry[key] = None
                 continue
-            number = float(value.removesuffix("%").replace(",", "")) / 100
+            try:
+                number = float(value.removesuffix("%").replace(",", "")) / 100
+            except ValueError:
+                # float() messages embed the offending cell; keep it out.
+                raise _GroupExportError("unparsable performance value") from None
             if not math.isfinite(number):
-                raise ValueError("nonfinite group performance")
+                raise _GroupExportError("nonfinite group performance")
             entry[key] = number
         if any(entry[key] is not None for key in ELITE_COLUMNS.values()):
             rows.append(entry)
     return rows
 
 
-def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
+def _fetch_performance(group: str, api_key: Optional[str]) -> tuple[list[dict], str]:
+    """Return (rows, source); source is "elite", "public", or "" if neither gave rows."""
     key = os.environ.get("FINVIZ_API_KEY", "") if api_key is None else api_key
     if key:
+        reason = ""
         try:
             response = requests.get(
                 GROUP_EXPORT_URL,
@@ -236,14 +246,22 @@ def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
                 timeout=15,
                 allow_redirects=False,
             )
-            if response.status_code == 200:
+            if response.status_code != 200:
+                reason = f"HTTP status {response.status_code}"
+            else:
                 rows = _elite_csv_rows(response.text)
                 if rows:
-                    return rows
-        except (requests.RequestException, ValueError, csv.Error):
-            pass  # Report only static text: exceptions and bodies may contain auth.
+                    return rows, "elite"
+                reason = "no usable rows"
+        except requests.RequestException as exc:
+            # Report only static text: exceptions and bodies may contain auth.
+            reason = f"request failed ({type(exc).__name__})"
+        except _GroupExportError as exc:
+            reason = str(exc)
+        except (ValueError, csv.Error):
+            reason = "malformed CSV"
         print(
-            "WARNING: FINVIZ Elite group export unavailable; trying public fallback.",
+            f"WARNING: FINVIZ Elite group export unavailable ({reason}); trying public fallback.",
             file=sys.stderr,
         )
 
@@ -253,17 +271,21 @@ def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
     )
     if sys.version_info < (3, 10) or not HAS_FINVIZFINANCE:
         print(f"WARNING: FINVIZ public group data unavailable. {guidance}", file=sys.stderr)
-        return []
+        return [], ""
     try:
         rows = _dataframe_to_dicts(fvperf.Performance().screener_view(group=group))
         if rows:
-            return rows
+            return rows, "public"
     except Exception:
         # Third-party scraper exceptions may embed full request URLs/bodies.
         # Keep its failure soft and diagnostic entirely independent of values.
         pass
     print(f"WARNING: FINVIZ public group fetch failed. {guidance}", file=sys.stderr)
-    return []
+    return [], ""
+
+
+def _get_performance(group: str, api_key: Optional[str]) -> list[dict]:
+    return _fetch_performance(group, api_key)[0]
 
 
 def get_sector_performance(api_key: Optional[str] = None) -> list[dict]:
@@ -277,3 +299,8 @@ def get_sector_performance(api_key: Optional[str] = None) -> list[dict]:
 def get_industry_performance(api_key: Optional[str] = None) -> list[dict]:
     """Industry decimal ratios with the same source/key policy as sectors."""
     return _get_performance("Industry", api_key)
+
+
+def get_industry_performance_with_source(api_key: Optional[str] = None) -> tuple[list[dict], str]:
+    """Like get_industry_performance, also returning the source used ("elite"/"public"/"")."""
+    return _fetch_performance("Industry", api_key)

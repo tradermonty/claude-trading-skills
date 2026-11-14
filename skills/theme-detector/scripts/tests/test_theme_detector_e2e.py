@@ -248,9 +248,11 @@ class TestThemeDetectorE2E:
         assert ai["theme_origin"] == "seed"
         assert ai["name_confidence"] == "high"
 
-    @pytest.mark.parametrize("mode", ["public", "elite"])
+    @pytest.mark.parametrize("mode", ["public", "elite", "elite-fallback"])
     def test_cli_scan_hits_history_no_update(self, monkeypatch, tmp_path, capsys, mode):
         """CLI run emits leadership/history sections without mutating history."""
+        monkeypatch.delenv("FMP_API_KEY", raising=False)
+        cli_mode = "elite" if mode.startswith("elite") else "public"
         import etf_scanner
         import finviz_performance_client
         import theme_detector
@@ -278,7 +280,9 @@ class TestThemeDetectorE2E:
             monkeypatch.setattr(finviz_performance_client.requests, "get", group_http)
         else:
             monkeypatch.setattr(
-                finviz_performance_client, "get_industry_performance", lambda **_kwargs: raw
+                finviz_performance_client,
+                "get_industry_performance_with_source",
+                lambda **_kwargs: (raw, "public"),
             )
         monkeypatch.setattr(
             finviz_performance_client, "cap_outlier_performances", lambda rows: rows
@@ -370,7 +374,7 @@ class TestThemeDetectorE2E:
             [
                 "theme_detector.py",
                 "--finviz-mode",
-                mode,
+                cli_mode,
                 "--finviz-api-key",
                 "fictional-elite-key",
                 "--output-dir",
@@ -390,6 +394,14 @@ class TestThemeDetectorE2E:
         theme_detector.main()
         captured = capsys.readouterr()
         report = json.loads(captured.out)
+        metadata = report["metadata"]
+        expected_source = "elite" if mode == "elite" else "public"
+        assert metadata["data_sources"]["finviz_industries_source"] == expected_source
+        assert metadata["finviz_mode"] == expected_source
+        assert metadata["data_mode"] == ("FINVIZ-Elite" if mode == "elite" else "FINVIZ-Public")
+        if mode == "elite-fallback":
+            assert metadata["finviz_mode_requested"] == "elite"
+            assert report["themes"]["all"][0]["data_mode"] == "FINVIZ-Public"
         if mode == "elite":
             group_http.assert_called_once()
             assert group_http.call_args.kwargs["params"]["auth"] == "fictional-elite-key"

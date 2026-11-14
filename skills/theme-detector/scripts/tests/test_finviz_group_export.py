@@ -124,6 +124,70 @@ def test_failed_elite_falls_back_without_key_or_payload_leak(
     assert "public" in output.err.lower()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="public fallback requires Python3.10+")
+@pytest.mark.parametrize(
+    "case,expected",
+    [
+        ("403", "HTTP status 403"),
+        ("timeout", "request failed (Timeout)"),
+        ("unparsable", "unparsable performance value"),
+        ("headers", "missing group columns"),
+        ("duplicate", "duplicate group columns"),
+        ("malformed-row", "malformed group row"),
+        ("nonfinite", "nonfinite group performance"),
+        ("all-null", "no usable rows"),
+        ("csv-error", "malformed CSV"),
+    ],
+)
+def test_fallback_warning_names_the_failed_check(case, expected, http, public, capsys):
+    marker = "UNTRUSTED-BODY-" + KEY
+    if case == "timeout":
+        http.side_effect = requests.Timeout(marker)
+    else:
+        if case == "403":
+            response = Mock(status_code=403, text=marker)
+        else:
+            text = {
+                "unparsable": csv_body([marker] * 6),
+                "headers": "Name,Old Column\n" + marker + ",1\n",
+                "duplicate": ",".join([*HEADERS, "Name"]) + "\n",
+                "malformed-row": ",".join(HEADERS) + "\n" + marker + "\n",
+                "nonfinite": csv_body(["inf"] * 6),
+                "all-null": csv_body(["-"] * 6),
+                "csv-error": ",".join(HEADERS) + '\n"' + marker + '"x\n',
+            }[case]
+            response = Mock(status_code=200, text=text)
+        http.return_value = response
+    rows = client.get_industry_performance(api_key=KEY)
+    assert rows[0]["name"] == "Public Industry"
+    output = capsys.readouterr()
+    assert expected in output.err
+    assert KEY not in output.out + output.err
+    assert marker not in output.out + output.err
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="public fallback requires Python3.10+")
+def test_get_industry_performance_with_source(monkeypatch, http, public):
+    rows, source = client.get_industry_performance_with_source(api_key=KEY)
+    assert (rows[0]["name"], source) == ("Fictional Industry", "elite")
+
+    http.return_value = Mock(status_code=403, text="")
+    rows, source = client.get_industry_performance_with_source(api_key=KEY)
+    assert (rows[0]["name"], source) == ("Public Industry", "public")
+
+    http.reset_mock()
+    rows, source = client.get_industry_performance_with_source(api_key="")
+    assert (rows[0]["name"], source) == ("Public Industry", "public")
+    http.assert_not_called()
+
+    monkeypatch.delenv("FINVIZ_API_KEY", raising=False)
+    assert client.get_industry_performance_with_source()[1] == "public"
+
+    public.screener_view.side_effect = RuntimeError(KEY)
+    http.return_value = Mock(status_code=403, text="")
+    assert client.get_industry_performance_with_source(api_key=KEY) == ([], "")
+
+
 def test_both_sources_fail_with_actionable_safe_guidance(http, public, capsys):
     http.side_effect = requests.Timeout(KEY)
     public.screener_view.side_effect = RuntimeError(KEY)

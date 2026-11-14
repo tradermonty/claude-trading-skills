@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- theme-detector: record the FINVIZ source used for industry data in `metadata.data_sources.finviz_industries_source`, report `public` in `metadata.finviz_mode` and `data_mode` when the Elite export falls back (the request stays in `finviz_mode_requested`), and name the failed check in the fallback warning without printing the key or body (#685).
 - FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
 - Raise the root development environment's Python floor from 3.11 to 3.11.5 and update soupsieve 2.9.2 to 4.1, fixing GHSA-4j63-6c4x-wfg4 and GHSA-mmhr-3c5m-f64f. soupsieve 4 requires Python 3.11.5, so the old floor kept a vulnerable 2.10 in the lock. Packaged skills keep their Python 3.9 floor.
 - edge-candidate-agent `auto_detect_candidates.py` now exits 2 with the `pip install -r <requirements.txt>` hint when pandas/numpy are missing; canslim-screener's optional Finviz fallback keeps degrading but its stderr message and `ImportError` now name the skill's requirements.txt instead of `pip install finviz`. With these, every missing-dependency path in `skills/*/scripts` exits 2 or degrades with a stderr hint, apart from trader-memory-core's documented exit 3 (#497).

@@ -564,7 +564,10 @@ def main(argv: list[str] | None = None) -> int:
     from calculators.theme_classifier import deduplicate_themes, enrich_vertical_themes
     from config_loader import MissingDependencyError, load_themes_config
     from etf_scanner import ETFScanner
-    from finviz_performance_client import cap_outlier_performances, get_industry_performance
+    from finviz_performance_client import (
+        cap_outlier_performances,
+        get_industry_performance_with_source,
+    )
     from uptrend_client import fetch_sector_uptrend_data, is_data_stale
 
     output_dir = _resolve_output_dir(args.output_dir)
@@ -612,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
     # Step 1: Fetch FINVIZ industry performance
     # -----------------------------------------------------------------------
     print("Fetching FINVIZ industry performance...", file=sys.stderr)
-    raw_industries = get_industry_performance(
+    raw_industries, industry_source = get_industry_performance_with_source(
         api_key=args.finviz_api_key if finviz_mode == "elite" else ""
     )
     if not raw_industries:
@@ -623,6 +626,16 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(1)
 
     metadata["data_sources"]["finviz_industries"] = len(raw_industries)
+    metadata["data_sources"]["finviz_industries_source"] = industry_source
+    if finviz_mode == "elite" and industry_source != "elite":
+        metadata["finviz_mode_requested"] = finviz_mode
+        metadata["finviz_mode"] = industry_source
+        data_mode = determine_data_mode(fmp_available, False)
+        metadata["data_mode"] = data_mode
+        print(
+            f"  FINVIZ industry data came from the {industry_source} source (Elite requested)",
+            file=sys.stderr,
+        )
     print(f"  Got {len(raw_industries)} industries", file=sys.stderr)
 
     # Convert decimal to percentage, filter outliers, and add sector info
