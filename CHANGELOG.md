@@ -34,6 +34,8 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Skills
 
+- signal-postmortem: require exact saved-signal evidence for manual exits, classify actual price returns without inventing 5d benchmarks, and exclude missing 5d observations from averages with null/N/A coverage (#700).
+
 - signal-postmortem: skip batch signals without observed finite entry/5d exit evidence, preserve genuine flat outcomes, expose skipped counts and fail zero-success batches instead of inventing NEUTRAL records (#702).
 
 - trader-memory-core keeps equity accounting long-only: reject explicit short-equity intent and incompatible initial stop geometry before wrong P&L can be recorded, while preserving futures LONG/SHORT and active long profit-protecting stops. Remove the unsupported parabolic-short ingest instruction (#662).
