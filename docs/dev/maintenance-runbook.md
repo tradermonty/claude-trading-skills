@@ -187,12 +187,14 @@ python3 scripts/install_launchd.py --load
 
 `--load` bootstraps into the current user's GUI domain on macOS; it does not
 stop/restart existing services or run scoring immediately. It requires a logged-in
-GUI session. Rendering is idempotent, but bootstrapping an already loaded service
-fails with update guidance. Some earlier services may have loaded before a later
-bootstrap failure; inspect `launchctl print` for each exact label.
+GUI session. Already loaded services are skipped, so rerunning `--load` adds
+missing services without interrupting existing jobs. Some earlier services may
+have loaded before a later bootstrap failure; inspect `launchctl print` for each
+exact label.
 
-For an existing installation, first check that no maintenance job is running,
-then unload the exact four maintenance services before rerunning `--load`:
+To reload changed service definitions, first check that no maintenance job is
+running, then unload the affected services before rerunning `--load`. To reload
+all four:
 
 ```bash
 for job in skill-improvement skill-generation-daily skill-generation-weekly skill-heartbeat; do

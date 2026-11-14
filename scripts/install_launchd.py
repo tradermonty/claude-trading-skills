@@ -88,10 +88,19 @@ def install(root, output, home, *, load=False):
             with target.open("xb") as stream:
                 plistlib.dump(data, stream)
     if load:
+        domain = f"gui/{os.getuid()}"
         for target, data in rendered:
             try:
+                loaded = subprocess.run(
+                    ["launchctl", "print", f"{domain}/{data['Label']}"],
+                    check=False,
+                    capture_output=True,
+                    timeout=15,
+                )
+                if loaded.returncode == 0:
+                    continue
                 subprocess.run(
-                    ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(target)],
+                    ["launchctl", "bootstrap", domain, str(target)],
                     check=True,
                     capture_output=True,
                     timeout=15,
