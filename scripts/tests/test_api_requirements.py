@@ -175,12 +175,31 @@ def test_optional_postmortem_cli_without_key_is_offline(tmp_path, monkeypatch):
     monkeypatch.delenv("FMP_API_KEY", raising=False)
     blocked = Mock(side_effect=AssertionError("network forbidden"))
     monkeypatch.setattr(socket.socket, "connect", blocked)
+    signals_file = tmp_path / "signals.json"
+    signals_file.write_text(
+        json.dumps(
+            {
+                "signals": [
+                    {
+                        "signal_id": "manual_AAPL_2026-01-01",
+                        "ticker": "AAPL",
+                        "signal_date": "2026-01-01",
+                        "source_skill": "offline-fixture",
+                        "predicted_direction": "LONG",
+                        "entry_price": 100.0,
+                    }
+                ]
+            }
+        )
+    )
     script = ROOT / "skills/signal-postmortem/scripts/postmortem_recorder.py"
     monkeypatch.setattr(
         sys,
         "argv",
         [
             str(script),
+            "--signals-file",
+            str(signals_file),
             "--signal-id",
             "manual_AAPL_2026-01-01",
             "--exit-price",
@@ -194,7 +213,13 @@ def test_optional_postmortem_cli_without_key_is_offline(tmp_path, monkeypatch):
     runpy.run_path(str(script), run_name="__main__")
     records = list((tmp_path / "postmortems").glob("*.json"))
     assert len(records) == 1
-    assert json.loads(records[0].read_text())["ticker"] == "AAPL"
+    record = json.loads(records[0].read_text())
+    assert record["ticker"] == "AAPL"
+    assert record["entry_price"] == 100
+    assert record["holding_days"] == 9
+    assert record["outcome_category"] == "TRUE_POSITIVE"
+    assert record["realized_returns"]["actual"] == pytest.approx(0.01)
+    assert "5d" not in record["realized_returns"]
     blocked.assert_not_called()
 
 

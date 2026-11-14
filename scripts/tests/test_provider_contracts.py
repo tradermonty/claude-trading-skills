@@ -1899,3 +1899,29 @@ def test_public_fetch_extra_cells_reported(monkeypatch):
     result = _public_fetch()
     assert result.rows == [{"a": 1}]
     assert [a.code for a in result.extra_anomalies] == ["extra_cells"]
+
+
+@pytest.mark.parametrize("volume", [123, 123.5, 0.0])
+def test_quote_accepts_finite_numeric_volume(volume):
+    contract = CONTRACTS["quote"]
+    row = copy.deepcopy(contract.fixture[0])
+    row["volume"] = volume
+    assert validate_rows(contract, [row]).ok
+
+
+@pytest.mark.parametrize("volume", [True, "123", None, float("nan"), float("inf"), -float("inf")])
+def test_quote_rejects_invalid_volume(volume):
+    contract = CONTRACTS["quote"]
+    row = copy.deepcopy(contract.fixture[0])
+    row["volume"] = volume
+    assert not validate_rows(contract, [row]).ok
+
+
+@pytest.mark.parametrize("skill", QUOTE_CLIENTS)
+def test_quote_clients_preserve_float_volume(monkeypatch, skill):
+    mod = _load_client_module(f"skills/{skill}/scripts/fmp_client.py")
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    fixture = copy.deepcopy(QUOTE_FIXTURE)
+    fixture[0]["volume"] = 38272821.5
+    monkeypatch.setattr(client, "_rate_limited_get", lambda *a, **k: copy.deepcopy(fixture))
+    assert client.get_quote("AAPL")[0]["volume"] == 38272821.5
