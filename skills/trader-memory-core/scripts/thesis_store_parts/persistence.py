@@ -93,12 +93,17 @@ def _find_by_fingerprint(state_dir: Path, fingerprint: str) -> str | None:
     # Always fall back to YAML scan (index may be partial)
     for yaml_path in state_dir.glob("th_*.yaml"):
         try:
-            thesis = yaml.safe_load(yaml_path.read_text())
+            thesis = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
             if thesis and thesis.get("origin_fingerprint") == fingerprint:
                 return thesis["thesis_id"]
-        except (OSError, yaml.YAMLError, KeyError):
+        except (OSError, UnicodeDecodeError, yaml.YAMLError, KeyError):
             continue
     return None
+
+
+# Shared with record_lessons(), whose round-trip pre-check must dump exactly as
+# the writer does.
+_YAML_DUMP_KWARGS = {"default_flow_style": False, "allow_unicode": True, "sort_keys": False}
 
 
 def _atomic_write_yaml(path: Path, data: dict) -> None:
@@ -106,7 +111,7 @@ def _atomic_write_yaml(path: Path, data: dict) -> None:
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            yaml.dump(data, f, **_YAML_DUMP_KWARGS)
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -136,7 +141,7 @@ def _load_index(state_dir: Path) -> dict:
     """Load _index.json or return empty index."""
     idx_path = state_dir / INDEX_FILE
     if idx_path.exists():
-        with open(idx_path) as f:
+        with open(idx_path, encoding="utf-8") as f:
             return json.load(f)
     return {"version": 1, "theses": {}}
 
@@ -151,7 +156,7 @@ def _load_thesis(state_dir: Path, thesis_id: str) -> dict:
     path = state_dir / f"{thesis_id}.yaml"
     if not path.exists():
         raise FileNotFoundError(f"Thesis not found: {thesis_id}")
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -264,7 +269,7 @@ def rebuild_index(state_dir: Path) -> dict:
     index = {"version": 1, "theses": {}}
     for yaml_path in sorted(state_dir.glob("th_*.yaml")):
         try:
-            thesis = yaml.safe_load(yaml_path.read_text())
+            thesis = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
             if thesis and "thesis_id" in thesis:
                 _validate_thesis(thesis)
                 _update_index_entry(index, thesis)
