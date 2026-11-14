@@ -43,7 +43,7 @@ https://financialmodelingprep.com/stable/earnings-calendar?apikey=YOUR_API_KEY&f
 
 - **Maximum Records**: 4000 records per request
 - **Maximum Date Range**: 90 days
-- **Rate Limiting**: Free tier = 250 calls/day, Premium = 750-2500 calls/day
+- **Rate Limiting**: Free tier = 250 calls/day; paid plans differ (see `site.financialmodelingprep.com/pricing-plans` in a browser)
 - **Date Format**: YYYY-MM-DD (ISO 8601)
 
 ### Example Request

@@ -279,10 +279,9 @@ python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_
 - FMP resets at UTC midnight
 
 **4. Upgrade to FMP Paid Plan**
-- Starter ($14/month): 500 requests/day
-- Professional ($29/month): 1,000 requests/day
+- See `site.financialmodelingprep.com/pricing-plans` in a browser for current plans and limits
 
-**Note:** FINVIZ Elite subscription ($40/month) + FMP free tier is more cost-effective than FMP paid plans for this use case.
+**Note:** The FINVIZ RSI pre-filter typically narrows the universe to 10-30 symbols, which keeps the analysis within the FMP free tier limits.
 
 ### RSI Calculation Errors
 

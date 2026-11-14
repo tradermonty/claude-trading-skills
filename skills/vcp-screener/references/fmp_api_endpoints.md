@@ -34,7 +34,7 @@
 ## Rate Limits
 
 - **Free tier:** 250 API calls/day - Default screening fits within this limit
-- **Starter tier ($29.99/mo):** 750 calls/day
+- **Paid plans:** limits and prices change; see `site.financialmodelingprep.com/pricing-plans` in a browser
 - **Rate limiting:** 0.3s delay between requests, automatic retry on 429
 - **Caching:** In-memory session cache prevents duplicate requests
 

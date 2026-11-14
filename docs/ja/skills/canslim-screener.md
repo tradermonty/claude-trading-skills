@@ -55,7 +55,7 @@ CANSLIM Screenerは、William O'Neilが著書「How to Make Money in Stocks」�
 
 ## 2. 前提条件
 
-> FMP APIキーが必須です。無料ティア（250回/日）で35銘柄のスクリーニングが可能です。40銘柄フルスクリーニングにはStarterティア（$29.99/月）が推奨されます。
+> FMP APIキーが必須です。無料ティア（250回/日）で35銘柄のスクリーニングが可能です。40銘柄フルスクリーニングには有料プランが推奨されます。最新の料金と上限は [FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照してください。
 {: .api_required }
 
 | 項目 | 要否 | 説明 |
@@ -83,7 +83,7 @@ export FMP_API_KEY=your_key_here
 | 対象銘柄数 | FMPコール数 | 無料ティア対応 |
 |-----------|------------|---------------|
 | 35銘柄 | 約248回 | 対応（250回/日制限内） |
-| 40銘柄 | 約283回 | 超過（Starterティア推奨） |
+| 40銘柄 | 約283回 | 超過（有料プラン推奨） |
 
 1銘柄あたり7回のFMP APIコール（profile, quote, income x2, historical_90d, historical_365d, institutional）に加え、マーケットデータ3回（S&P 500 quote, VIX quote, S&P 500 52週履歴）が必要です。
 

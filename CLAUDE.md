@@ -346,8 +346,7 @@ export ALPACA_PAPER="true"  # or "false" for live trading
 
 **Financial Modeling Prep (FMP):**
 - **Free Tier:** 250 API calls/day (sufficient for occasional use)
-- **Starter Tier:** $29.99/month - 750 calls/day
-- **Professional Tier:** $79.99/month - 2,000 calls/day
+- **Paid plans:** see the dated [FMP plans note](https://tradermonty.github.io/claude-trading-skills/en/getting-started/#fmp-plans) for current prices and rate limits (the only place prices are listed)
 - **Sign up:** https://site.financialmodelingprep.com/developer/docs
 
 **FINVIZ Elite:**
