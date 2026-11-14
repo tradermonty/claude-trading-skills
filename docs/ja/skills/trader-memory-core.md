@@ -206,10 +206,11 @@ thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 open_position(state_dir, thesis_id,
               actual_price=155.50,
               actual_date="2026-03-16T10:30:00-04:00",
+              shares=10,
               event_date="2026-03-16T10:30:00-04:00")
 ```
 
-これが **ACTIVE ステータスへの唯一の経路**です。`actual_price` と `actual_date`（RFC 3339形式、タイムゾーン必須）が必要です。
+これが **ACTIVE ステータスへの唯一の経路**です。`actual_price` と `actual_date`（RFC 3339形式、タイムゾーン必須）が必要です。株式 thesis にはさらに数量が必要です。`shares` を渡すか、thesis が ENTRY_READY のうちに `attach_position()`（ステップ 5）を実行して `shares` を省略してください。どちらもない場合、`close()` が1株あたりの損益を記録してしまうため、呼び出しは拒否されます。
 
 ### ステップ 5: ポジションサイジングの付与
 
@@ -229,7 +230,7 @@ attach_position(state_dir, thesis_id,
                 position_report_path="reports/position_sizer_AAPL_2026-03-16.json")
 ```
 
-レポートの `mode` は `"shares"` である必要があります（budget モードは拒否されます）。
+レポートの `mode` は `"shares"` である必要があります（budget モードは拒否されます）。ACTIVE の thesis に付与すると、記録済みの数量がレポートの値で置き換わります。
 
 ### ステップ 6: 定期レビュー
 
@@ -420,7 +421,9 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
 |--------|------|--------|
 | `ValidationError: ... is not a 'date-time'` | 日時フィールドにタイムゾーンがない、またはスペース区切り | RFC 3339形式を使用: `2026-03-16T10:30:00-04:00` |
 | `ValueError: Cannot transition from terminal status CLOSED` | 決済/無効化済みの thesis を変更しようとした | ターミナルステータスは永続的です。必要なら新しい thesis を作成してください。 |
-| `ValueError: Use open_position() to transition to ACTIVE` | `transition()` で ACTIVE を指定した | `open_position(state_dir, thesis_id, actual_price, actual_date)` を使用 |
+| `ValueError: Use open_position() to transition to ACTIVE` | `transition()` で ACTIVE を指定した | `open_position(state_dir, thesis_id, actual_price, actual_date, shares=shares)` を使用 |
+| `ValueError: open_position() requires a share count for an equity thesis ...` | `shares` も `attach_position()` 由来の株数もない状態で株式を open した | `shares`（CLI は `--shares`）を渡すか、ENTRY_READY のうちに Position Sizer レポートを付与する。先物は `--contracts` か `attach-futures-position` を使用 |
+| `store doctor` が終了コード 1 | JSON レポートが `"ok": false`、または state ディレクトリが存在しない（`ERROR: state directory not found or not a directory`） | JSON レポート（`missing_in_index`、`orphaned_in_index`、`field_mismatches`、`schema_errors`）を確認し、インデックスのずれは `rebuild-index` で修復 |
 | `ValueError: Position report mode is 'budget', expected 'shares'. ...` | Position Sizer レポートが `mode: "budget"` | `--entry` と `--stop` を指定して shares モードで再実行 |
 | `ValueError: Missing required field: ticker` | スクリーナーJSONに必要なフィールドがない | 入力がソースアダプターの期待するフォーマットに合っているか確認 |
 | 重複 thesis が作成されない | フィンガープリントが既存 thesis と一致 | 意図的な動作（冪等性）です。既存の thesis_id が返されます。 |

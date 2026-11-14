@@ -58,7 +58,7 @@ Any non-terminal status can transition to `INVALIDATED`:
 |-----------|----------------|--------|
 | `register()` | — | Creates thesis with `IDEA` status (idempotent via fingerprint) |
 | `transition()` | Any non-terminal (IDEA → ENTRY_READY only) | Advances status, appends to `status_history` |
-| `open_position()` | `ENTRY_READY` | Sets entry data + `shares_remaining`, transitions to `ACTIVE` (only path to ACTIVE) |
+| `open_position()` | `ENTRY_READY` | Sets entry data + `shares_remaining`, transitions to `ACTIVE` (only path to ACTIVE); an equity open requires `shares` or an attached share count |
 | `attach_position()` | `IDEA` / `ENTRY_READY` / `ACTIVE` | Attaches position sizing data (sets `shares` + `shares_remaining == shares`); rejected on PARTIALLY_CLOSED / CLOSED / INVALIDATED (would corrupt the trim ledger) |
 | `trim()` | `ACTIVE` / `PARTIALLY_CLOSED` | Sells part; appends a ledger entry, decrements `shares_remaining`; → `PARTIALLY_CLOSED` (or `CLOSED` if remainder hits 0) |
 | `link_report()` | Any | Adds linked report reference |
@@ -72,7 +72,9 @@ Any non-terminal status can transition to `INVALIDATED`:
 - `transition()` only allows `IDEA → ENTRY_READY`; `ACTIVE` and
   `PARTIALLY_CLOSED` are blocked (use `open_position()` / `trim()`), as are
   all terminal statuses.
-- Use `open_position()` to reach `ACTIVE` (requires `actual_price` and `actual_date`).
+- Use `open_position()` to reach `ACTIVE` (requires `actual_price` and `actual_date`;
+  an equity thesis also needs `shares` or a share count already recorded by
+  `attach_position()`).
 - Use `trim()` to reach `PARTIALLY_CLOSED` (requires `shares_sold`, `price`, `date`).
 - Use `close()` (from `ACTIVE` or `PARTIALLY_CLOSED`), `trim()` selling the
   whole remainder, or `terminate(terminal_status="CLOSED")` to reach `CLOSED`.
@@ -85,6 +87,8 @@ Every lifecycle operation is also a `thesis_store.py` subcommand:
 `transition`, `open-position`, `attach-position`, `close`, `terminate`,
 `record-lessons` (alongside `list` / `get` / `review-due` / `rebuild-index` / `doctor` /
 `mark-reviewed`). No Python required to walk a thesis through its lifecycle.
+`doctor` prints its JSON report and exits 1 when `ok` is false or the state
+directory is missing or not a directory.
 
 ### Backdating an existing position (`--event-date`)
 

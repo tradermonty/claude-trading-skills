@@ -188,10 +188,14 @@ Python: `thesis_store.transition(state_dir, thesis_id, "ENTRY_READY", reason, ev
 
 ```bash
 python3 .../trader_memory_cli.py store --state-dir state/theses/ open-position <id> \
-  --actual-price 142.10 --actual-date 2026-05-02 [--shares 7.86] [--event-date 2026-05-02]
+  --actual-price 142.10 --actual-date 2026-05-02 --shares 7.86 [--event-date 2026-05-02]
 ```
 
-`--shares` accepts **fractional** quantities. Python:
+`--shares` is **required for an equity thesis** unless `attach-position` already
+recorded a share count; otherwise `open-position` exits 1 with
+`ERROR: open_position() requires a share count ...` and nothing is saved.
+ACTIVE theses recorded before this check without shares still close on the
+legacy per-share path. `--shares` accepts **fractional** quantities. Python:
 `thesis_store.open_position(state_dir, thesis_id, actual_price, actual_date, shares=..., event_date=...)`.
 `shares` (and `shares_remaining`, when present) must be a **finite, positive
 number no greater than 10<sup>12</sup>** (a sanity bound, not an economic
@@ -203,6 +207,9 @@ report) are rejected with a clean error at save time, on `open-position`,
 For a **futures** thesis, use `--contracts` instead of `--shares` (see
 "Futures positions" below) — if `attach-futures-position` already populated
 the position, omit `--contracts` and only pass `--actual-price`/`--actual-date`.
+
+`store doctor` validates file/index consistency, prints a JSON report, and exits 1
+when `ok` is false or the state directory is missing or not a directory.
 
 **Trim — partial close** (ACTIVE/PARTIALLY_CLOSED → PARTIALLY_CLOSED, or →
 CLOSED when the whole remainder is sold):
