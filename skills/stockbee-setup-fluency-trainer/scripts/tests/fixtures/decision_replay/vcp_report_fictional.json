@@ -1,0 +1,380 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "generated_at": "2026-11-06 18:30:00",
+    "universe": "fictional"
+  },
+  "results": [
+    {
+      "symbol": "ZZEN",
+      "company_name": "Fictional ZZEN Corp",
+      "sector": "Technology",
+      "price": 100.0,
+      "market_cap": 5000000000,
+      "composite_score": 85.0,
+      "quality_rating": "Strong",
+      "rating": "Strong VCP",
+      "rating_description": "Fictional commentary that must stay hidden.",
+      "guidance": "Fictional guidance: buy the breakout.",
+      "valid_vcp": true,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "Fictional reason text"
+      ],
+      "pattern_type": "Classic VCP",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 20.5,
+      "distance_from_pivot_pct": -1.5,
+      "entry_ready": true,
+      "trend_template": {
+        "score": 92.0,
+        "passed": true
+      },
+      "vcp_pattern": {
+        "valid_vcp": true,
+        "num_contractions": 3,
+        "pivot_price": 101.5,
+        "contractions": [
+          {
+            "label": "T1",
+            "high_date": "2026-09-14",
+            "high_price": 112.0,
+            "low_date": "2026-09-28",
+            "low_price": 94.0,
+            "depth_pct": 16.1
+          },
+          {
+            "label": "T2",
+            "high_date": "2026-10-05",
+            "high_price": 108.0,
+            "low_date": "2026-10-14",
+            "low_price": 98.0,
+            "depth_pct": 9.3
+          },
+          {
+            "label": "T3",
+            "high_date": "N/A",
+            "high_price": 101.5,
+            "low_date": "day-3",
+            "low_price": 97.5,
+            "depth_pct": 3.9
+          }
+        ]
+      },
+      "volume_pattern": {
+        "dry_up_ratio": 0.6,
+        "score": 80
+      },
+      "pivot_proximity": {
+        "pivot_price": 101.5,
+        "stop_loss_price": 95.0,
+        "risk_pct": 5.0,
+        "trade_status": "WATCH"
+      },
+      "relative_strength": {
+        "rs_rank_estimate": 88,
+        "score": 90
+      }
+    },
+    {
+      "symbol": "ZZWT",
+      "company_name": "Fictional ZZWT Corp",
+      "sector": "Technology",
+      "price": 100.0,
+      "market_cap": 5000000000,
+      "composite_score": 85.0,
+      "quality_rating": "Strong",
+      "rating": "Strong VCP",
+      "rating_description": "Fictional commentary that must stay hidden.",
+      "guidance": "Fictional guidance: buy the breakout.",
+      "valid_vcp": true,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "Fictional reason text"
+      ],
+      "pattern_type": "Classic VCP",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 20.5,
+      "distance_from_pivot_pct": 4.0,
+      "entry_ready": false,
+      "trend_template": {
+        "score": 92.0,
+        "passed": true
+      },
+      "vcp_pattern": {
+        "valid_vcp": true,
+        "num_contractions": 3,
+        "pivot_price": 101.5,
+        "contractions": [
+          {
+            "label": "T1",
+            "high_date": "2026-09-14",
+            "high_price": 112.0,
+            "low_date": "2026-09-28",
+            "low_price": 94.0,
+            "depth_pct": 16.1
+          },
+          {
+            "label": "T2",
+            "high_date": "2026-10-05",
+            "high_price": 108.0,
+            "low_date": "2026-10-14",
+            "low_price": 98.0,
+            "depth_pct": 9.3
+          },
+          {
+            "label": "T3",
+            "high_date": "N/A",
+            "high_price": 101.5,
+            "low_date": "day-3",
+            "low_price": 97.5,
+            "depth_pct": 3.9
+          }
+        ]
+      },
+      "volume_pattern": {
+        "dry_up_ratio": 0.6,
+        "score": 80
+      },
+      "pivot_proximity": {
+        "pivot_price": 101.5,
+        "stop_loss_price": 95.0,
+        "risk_pct": 5.0,
+        "trade_status": "WATCH"
+      },
+      "relative_strength": {
+        "rs_rank_estimate": 88,
+        "score": 90
+      }
+    },
+    {
+      "symbol": "ZZDV",
+      "company_name": "Fictional ZZDV Corp",
+      "sector": "Technology",
+      "price": 100.0,
+      "market_cap": 5000000000,
+      "composite_score": 85.0,
+      "quality_rating": "Strong",
+      "rating": "Strong VCP",
+      "rating_description": "Fictional commentary that must stay hidden.",
+      "guidance": "Fictional guidance: buy the breakout.",
+      "valid_vcp": false,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "Fictional reason text"
+      ],
+      "pattern_type": "Classic VCP",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 20.5,
+      "distance_from_pivot_pct": -1.5,
+      "entry_ready": false,
+      "trend_template": {
+        "score": 92.0,
+        "passed": true
+      },
+      "vcp_pattern": {
+        "valid_vcp": false,
+        "num_contractions": 3,
+        "pivot_price": 101.5,
+        "contractions": [
+          {
+            "label": "T1",
+            "high_date": "2026-09-14",
+            "high_price": 112.0,
+            "low_date": "2026-09-28",
+            "low_price": 94.0,
+            "depth_pct": 16.1
+          },
+          {
+            "label": "T2",
+            "high_date": "2026-10-05",
+            "high_price": 108.0,
+            "low_date": "2026-10-14",
+            "low_price": 98.0,
+            "depth_pct": 9.3
+          },
+          {
+            "label": "T3",
+            "high_date": "N/A",
+            "high_price": 101.5,
+            "low_date": "day-3",
+            "low_price": 97.5,
+            "depth_pct": 3.9
+          }
+        ]
+      },
+      "volume_pattern": {
+        "dry_up_ratio": 0.6,
+        "score": 80
+      },
+      "pivot_proximity": {
+        "pivot_price": 101.5,
+        "stop_loss_price": 95.0,
+        "risk_pct": 5.0,
+        "trade_status": "WATCH"
+      },
+      "relative_strength": {
+        "rs_rank_estimate": 88,
+        "score": 90
+      }
+    },
+    {
+      "symbol": "ZZST",
+      "company_name": "Fictional ZZST Corp",
+      "sector": "Technology",
+      "price": 100.0,
+      "market_cap": 5000000000,
+      "composite_score": 85.0,
+      "quality_rating": "Strong",
+      "rating": "Strong VCP",
+      "rating_description": "Fictional commentary that must stay hidden.",
+      "guidance": "Fictional guidance: buy the breakout.",
+      "valid_vcp": true,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "Fictional reason text"
+      ],
+      "pattern_type": "Classic VCP",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 20.5,
+      "distance_from_pivot_pct": -1.5,
+      "entry_ready": true,
+      "trend_template": {
+        "score": 92.0,
+        "passed": true
+      },
+      "vcp_pattern": {
+        "valid_vcp": true,
+        "num_contractions": 3,
+        "pivot_price": 101.5,
+        "contractions": [
+          {
+            "label": "T1",
+            "high_date": "2026-09-14",
+            "high_price": 112.0,
+            "low_date": "2026-09-28",
+            "low_price": 94.0,
+            "depth_pct": 16.1
+          },
+          {
+            "label": "T2",
+            "high_date": "2026-10-05",
+            "high_price": 108.0,
+            "low_date": "2026-10-14",
+            "low_price": 98.0,
+            "depth_pct": 9.3
+          },
+          {
+            "label": "T3",
+            "high_date": "N/A",
+            "high_price": 101.5,
+            "low_date": "day-3",
+            "low_price": 97.5,
+            "depth_pct": 3.9
+          }
+        ]
+      },
+      "volume_pattern": {
+        "dry_up_ratio": 0.6,
+        "score": 80
+      },
+      "pivot_proximity": {
+        "pivot_price": 101.5,
+        "stop_loss_price": 95.0,
+        "risk_pct": 5.0,
+        "trade_status": "WATCH"
+      },
+      "relative_strength": {
+        "rs_rank_estimate": 88,
+        "score": 90
+      }
+    },
+    {
+      "symbol": "ZZPS",
+      "company_name": "Fictional ZZPS Corp",
+      "sector": "Technology",
+      "price": 100.0,
+      "market_cap": 5000000000,
+      "composite_score": 85.0,
+      "quality_rating": "Strong",
+      "rating": "Strong VCP",
+      "rating_description": "Fictional commentary that must stay hidden.",
+      "guidance": "Fictional guidance: buy the breakout.",
+      "valid_vcp": true,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "Fictional reason text"
+      ],
+      "pattern_type": "Classic VCP",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 20.5,
+      "distance_from_pivot_pct": -1.5,
+      "entry_ready": true,
+      "trend_template": {
+        "score": 92.0,
+        "passed": true
+      },
+      "vcp_pattern": {
+        "valid_vcp": true,
+        "num_contractions": 3,
+        "pivot_price": 101.5,
+        "contractions": [
+          {
+            "label": "T1",
+            "high_date": "2026-09-14",
+            "high_price": 112.0,
+            "low_date": "2026-09-28",
+            "low_price": 94.0,
+            "depth_pct": 16.1
+          },
+          {
+            "label": "T2",
+            "high_date": "2026-10-05",
+            "high_price": 108.0,
+            "low_date": "2026-10-14",
+            "low_price": 98.0,
+            "depth_pct": 9.3
+          },
+          {
+            "label": "T3",
+            "high_date": "N/A",
+            "high_price": 101.5,
+            "low_date": "day-3",
+            "low_price": 97.5,
+            "depth_pct": 3.9
+          }
+        ]
+      },
+      "volume_pattern": {
+        "dry_up_ratio": 0.6,
+        "score": 80
+      },
+      "pivot_proximity": {
+        "pivot_price": 101.5,
+        "stop_loss_price": 95.0,
+        "risk_pct": 5.0,
+        "trade_status": "WATCH"
+      },
+      "relative_strength": {
+        "rs_rank_estimate": 88,
+        "score": 90
+      }
+    }
+  ],
+  "summary": {
+    "total": 5
+  },
+  "sector_distribution": {
+    "Technology": 5
+  }
+}

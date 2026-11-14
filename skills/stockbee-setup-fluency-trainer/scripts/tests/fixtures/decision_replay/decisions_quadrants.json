@@ -1,0 +1,22 @@
+[
+  {
+    "symbol": "ZZEN",
+    "decision": "enter",
+    "reason": "Tight T3, at pivot, volume dry-up."
+  },
+  {
+    "symbol": "ZZWT",
+    "decision": "pass",
+    "reason": "Too far above the pivot."
+  },
+  {
+    "symbol": "ZZDV",
+    "decision": "enter",
+    "reason": "Feels strong anyway."
+  },
+  {
+    "symbol": "ZZST",
+    "decision": "pass",
+    "reason": "Not in the mood today."
+  }
+]
