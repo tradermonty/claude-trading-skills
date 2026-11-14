@@ -40,7 +40,7 @@ Weekly Performance Digest は、1週間にクローズしたトレードを 1 �
 - 勝率
 - 期待値
 - profit factor
-- R multiple
+- R multiple（分母が正の場合のみ。約定価格がstop以下のgap fillや、stopを約定価格以上に引き上げた取引は算出不可としてR平均から除外し、損益・勝敗・最大勝ち負けには残します）
 - MAE / MFE
 - source skill、exit reason、thesis type、sector、mechanism tag、screening grade 別の内訳
 - 週の最大勝ち、最大負け、主な学び

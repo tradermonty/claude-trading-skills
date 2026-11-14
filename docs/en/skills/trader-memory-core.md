@@ -135,13 +135,38 @@ registration does not import a raw position: use validated futures attachment or
 
 When both initial prices are supplied, they must be finite numeric/non-bool
 values. Positive initial stop > positive entry is rejected at manual ingest,
-shares-report attachment and equity activation (using the actual fill). Absent
+shares-report attachment and default equity activation (using the actual fill). Absent
 optional pairs and existing finite nonpositive-price behavior remain compatible.
 Do not apply this initial-entry rule to an ACTIVE/PARTIALLY_CLOSED long's stop:
 a profitable long may update its stop above original entry. Manual source prices
 remain provenance only; authoritative fills still come from `open-position`.
 For a backfill with a profit-protecting stop, open the long with its initial stop,
 then update the current stop after activation.
+
+For a real long that gaps and fills below its planned stop, keep the default
+refusal unless explicitly acknowledging the actual fill with
+`open-position --allow-gap-fill` (API: `allow_gap_fill=True`). This opt-in only
+bypasses the positive fill-below-positive-stop geometry guard for equity;
+SHORT intent, invalid prices/quantities/state and all ingest/attachment validation
+still refuse. Futures reject this equity-only option. A normal/equal fill adds
+no gap annotation. The flag must be a Python bool in API calls.
+The acknowledgement still requires a share count: pass `--shares` or attach a sized position.
+
+Preserve the target, planned stop, sizing audit fields and provenance. Store the
+actual fill and append a `gap fill acknowledged` entry to the protected ACTIVE
+`status_history.reason`, including exact actual fill and stop values. A supplied
+reason must remain a string. This audit survives later stop changes; inspect
+status history when reviewing the gap. Closing/trimming uses the actual fill
+for long-side P&L. This records a fill that already occurred, not approval to
+open a new trade or retain a breached stop. Planned sizing fields are not
+recalculated by this acknowledgement.
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ open-position <id> \
+  --actual-price 88 --actual-date 2026-11-01 --shares 10 \
+  --allow-gap-fill --reason "record actual broker fill"
+```
 
 Explicit legacy short equity records (a SHORT word or a bare SELL, such as SELL_SHORT, Short position or SELL; labels such as Sell to close stay long) are refused before new
 accounting or MAE/MFE calculations. CLOSED/INVALIDATED legacy shorts can produce
@@ -219,10 +244,11 @@ thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 open_position(state_dir, thesis_id,
               actual_price=155.50,
               actual_date="2026-03-16T10:30:00-04:00",
+              shares=10,
               event_date="2026-03-16T10:30:00-04:00")
 ```
 
-This is the **only path to ACTIVE status**. Requires both `actual_price` and `actual_date` (RFC 3339 format with timezone).
+This is the **only path to ACTIVE status**. Requires both `actual_price` and `actual_date` (RFC 3339 format with timezone). An equity thesis also needs a quantity: pass `shares`, or run `attach_position()` (Step 5) while the thesis is still ENTRY_READY and omit `shares`. Without either, the call is rejected, because `close()` would otherwise record per-share P&L.
 
 ### Step 5: Attach position sizing
 
@@ -242,7 +268,7 @@ attach_position(state_dir, thesis_id,
                 position_report_path="reports/position_sizer_AAPL_2026-03-16.json")
 ```
 
-The report must have `mode: "shares"` (budget mode is rejected).
+The report must have `mode: "shares"` (budget mode is rejected). Attaching on an ACTIVE thesis replaces the recorded quantity with the report's.
 
 ### Step 6: Periodic review
 
@@ -300,6 +326,16 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 ```
 
 The postmortem includes P&L, holding days, and (with FMP API key) MAE/MFE metrics. Output is saved to `state/journal/pm_{thesis_id}.md`.
+
+Record the lessons learned on a CLOSED or INVALIDATED thesis, then re-run the postmortem to refresh the journal report:
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ record-lessons th_aapl_div_20260314_a3f1 \
+  --text "Sized too large into earnings; cut the position before the print."
+```
+
+Use `--file PATH` (UTF-8) for multi-line text. If a lesson already exists, pass `--append` or `--replace`. Lessons also appear under "Top Lessons" in `review monthly-report`.
 
 ---
 
@@ -421,7 +457,9 @@ Each thesis is stored as a YAML file in `state/theses/`:
 |-------|-------|-----|
 | `ValidationError: ... is not a 'date-time'` | Date field missing timezone or using space separator | Use RFC 3339 format: `2026-03-16T10:30:00-04:00` |
 | `ValueError: Cannot transition from terminal status CLOSED` | Attempting to modify a closed/invalidated thesis | Terminal statuses are permanent. Create a new thesis if needed. |
-| `ValueError: Use open_position() to transition to ACTIVE` | Called `transition()` with `ACTIVE` target | Use `open_position(state_dir, thesis_id, actual_price, actual_date)` instead |
+| `ValueError: Use open_position() to transition to ACTIVE` | Called `transition()` with `ACTIVE` target | Use `open_position(state_dir, thesis_id, actual_price, actual_date, shares=shares)` instead |
+| `ValueError: open_position() requires a share count for an equity thesis ...` | Equity open with no `shares` and no share count from `attach_position()` | Pass `shares` (CLI: `--shares`), or attach a position-sizer report while ENTRY_READY. Futures use `--contracts` or `attach-futures-position`. |
+| `store doctor` exits 1 | The JSON report has `"ok": false`, or the state directory is missing or not a directory (`ERROR: state directory not found or not a directory`) | Read the JSON report (`missing_in_index`, `orphaned_in_index`, `field_mismatches`, `schema_errors`); run `rebuild-index` for index drift |
 | `ValueError: Position report mode is 'budget', expected 'shares'. ...` | Position sizer report has `mode: "budget"` | Re-run Position Sizer with `--entry` and `--stop` to get shares mode |
 | `ValueError: Missing required field: ticker` | Screener JSON missing expected fields | Check that the input matches the source adapter's expected format |
 | Duplicate thesis not created | Fingerprint matches existing thesis | This is intentional (idempotency). The existing thesis_id is returned. |

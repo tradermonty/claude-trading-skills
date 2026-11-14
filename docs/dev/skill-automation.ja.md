@@ -140,15 +140,21 @@ unloadしてください。独自設定のplistは上書きせず拒否するた
 
 ### 手動実行
 
+wrapperは生成専用cloneで実行し、primaryのdirtyな作業を保持します。
+primaryの`.envrc`は実行しません。GitHub/SSH資格情報と通知設定は起動環境または
+ローカルのLaunchAgent環境から継承させてください。`--project-root`の上書きは拒否します。
+[隔離・ロック・状態共有・復旧](maintenance-runbook.md#the-generation-pipeline-runs-in-its-own-checkout)
+を確認してください。dry-runでもfetchやローカル状態・出力の保存を行います。
+
 ```bash
 # 週次: セッションログからアイデアをマイニング・スコアリング
-python3 scripts/run_skill_generation_pipeline.py --mode weekly --dry-run
+bash scripts/run_skill_generation.sh --mode weekly --dry-run
 
 # 日次: バックログの最高スコアアイデアからスキルを設計
-python3 scripts/run_skill_generation_pipeline.py --mode daily --dry-run
+bash scripts/run_skill_generation.sh --mode daily --dry-run
 
 # フルラン（ブランチ作成、スキル設計、PR作成）
-python3 scripts/run_skill_generation_pipeline.py --mode daily
+bash scripts/run_skill_generation.sh --mode daily
 ```
 
 ### launchd設定 (macOS)
@@ -174,7 +180,8 @@ launchctl start com.trade-analysis.skill-generation-daily
 | ファイル | 用途 |
 | --- | --- |
 | `scripts/run_skill_generation_pipeline.py` | オーケストレーションスクリプト（マイニング、選択、設計、レビュー、PR） |
-| `scripts/run_skill_generation.sh` | launchd用シェルラッパー |
+| `scripts/run_skill_generation.sh` | launchd・手動実行の隔離エントリ |
+| `scripts/run_skill_generation_isolated.py` | 専用cloneの検証・同期・リソースロック |
 | `launchd/com.trade-analysis.skill-generation-weekly.plist` | 週次マイニングスケジュール（土曜06:00） |
 | `launchd/com.trade-analysis.skill-generation-daily.plist` | 日次生成スケジュール（07:00） |
 | `skills/skill-idea-miner/` | マイニング＆スコアリングスキル |

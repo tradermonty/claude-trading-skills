@@ -278,6 +278,11 @@ jobs:
       - name: Shared market calendar drift check
         run: python3 scripts/generate_market_calendar.py --check
 
+      # Vendored price-bar helper (issue #655): every consumer's
+      # _price_bars.py + contract test must match scripts/price_bars/.
+      - name: Shared price-bar helper drift check
+        run: python3 scripts/generate_price_bars.py --check
+
       - name: Packaged skill drift check
         run: python3 scripts/check_package_drift_for_changed_skills.py
 
@@ -293,6 +298,11 @@ jobs:
       # diagnostics, exit 2 for missing dependencies, bounded network timeouts.
       - name: CLI error convention check
         run: python3 scripts/check_cli_error_conventions.py
+
+      # 5b''. Price-bar zero-default lint (offline, issue #655): no new
+      # get("<ohlcv>", 0) reads; the allowlist only ratchets down.
+      - name: Price-bar zero-default check
+        run: python3 scripts/check_price_bar_defaults.py
 
       # 5c. Packaged dependency smoke (offline, issue #330): the committed
       # .skill carries byte-identical requirements.txt and compilable scripts.

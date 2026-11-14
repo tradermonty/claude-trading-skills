@@ -1,4 +1,13 @@
 {
   "schema_version": 1,
-  "entries": []
+  "entries": [
+    {
+      "url": "https://site.financialmodelingprep.com/developer/docs",
+      "statuses": [403],
+      "reason": "Repeated HEAD/GET 403 from automated clients (weekly runs through 2026-11-09 and bounded recheck 2026-11-12); bot-blocked and unverifiable, not proof of link health. Revisit before expiry.",
+      "owner": "tradermonty",
+      "issue": "https://github.com/tradermonty/claude-trading-skills/issues/660",
+      "expires_on": "2026-12-31"
+    }
+  ]
 }

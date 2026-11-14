@@ -116,12 +116,6 @@ Run the following repository commands from this checkout root.
 
 The primary data API used by most screening skills for fundamentals, quotes, and historical prices.
 
-| Plan | Cost | API Calls/Day | Best For |
-|------|------|---------------|----------|
-| Free | $0 | 250 | Occasional screening, small universes |
-| Starter | $29.99/mo | 750 | Full CANSLIM screening (40 stocks) |
-| Professional | $79.99/mo | 2,000 | Large-scale screening, multiple skills |
-
 **Sign up:** [https://site.financialmodelingprep.com/developer/docs](https://site.financialmodelingprep.com/developer/docs)
 
 ```bash
@@ -131,6 +125,20 @@ export FMP_API_KEY=your_key_here
 # Or pass as a command-line argument when running scripts
 python3 skills/canslim-screener/scripts/screen_canslim.py --api-key YOUR_KEY
 ```
+
+#### FMP plans (as of 2026-11)
+{: #fmp-plans }
+
+Prices and limits below were read on 2026-11-14 from the Personal Use tab of FMP's pricing page (open `site.financialmodelingprep.com/pricing-plans` in a browser). They cover personal-use plans only. FMP changes plans and runs promotions, so check the page for current prices and for commercial plans. This is the only place in this repository that lists FMP prices; other pages link here.
+
+| Plan | Monthly | Billed annually | Rate limit | Notes |
+|------|---------|-----------------|------------|-------|
+| Basic (free) | Free | -- | 250 calls/day | End-of-day data, profile and reference data |
+| Starter | $29/month | $19.00/month | 300 calls/minute | Up to 5 years of history, US coverage |
+| Premium | $69/month | $49.00/month | 750 calls/minute | Up to 30 years of history |
+| Ultimate | $139/month | $99.00/month | 3,000 calls/minute | Full history, global coverage |
+
+The free plan is enough for small universes. The paid plans state their limits per minute; the page also lists other plan limits, so check it before sizing a large run.
 
 ### FINVIZ Elite
 
@@ -245,4 +253,4 @@ ERROR: 429 Too Many Requests - Rate limit exceeded
 1. The script automatically retries after 60 seconds.
 2. If you hit the free tier limit (250 calls/day), it resets at midnight UTC.
 3. Reduce the analysis scope with `--max-candidates` to lower API usage.
-4. For frequent use, consider upgrading to FMP Starter ($29.99/mo, 750 calls/day).
+4. For frequent use, consider a paid FMP plan. See [FMP plans](#fmp-plans) for current prices and limits.
