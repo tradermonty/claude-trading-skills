@@ -17,6 +17,7 @@ Usage:
 
 import sys
 import time
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -24,7 +25,8 @@ try:
     from bs4 import BeautifulSoup
 except ImportError as _exc:
     raise ImportError(
-        "required libraries not found. Install with: pip install beautifulsoup4 requests lxml"
+        "requests/beautifulsoup4 libraries not found. Install this skill's dependencies: "
+        f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
     ) from _exc
 
 

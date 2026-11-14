@@ -13,6 +13,7 @@ Error handling:
 import copy
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
 # Build tuple of catchable YAML errors (yaml may not be installed)
@@ -23,6 +24,11 @@ try:
     _YAML_ERRORS = (yaml.YAMLError,)
 except ImportError:
     pass
+
+
+class MissingDependencyError(RuntimeError):
+    """PyYAML is not installed. Fatal for an explicit --themes-config (CLI exit 2);
+    the bundled-config path degrades to the inline fallback with a warning."""
 
 
 def load_themes_config(
@@ -69,7 +75,7 @@ def _load_yaml(path: str) -> dict:
 
     Raises:
         FileNotFoundError: If file doesn't exist.
-        RuntimeError: If PyYAML is not installed.
+        MissingDependencyError: If PyYAML is not installed.
         yaml.YAMLError: If YAML is malformed.
     """
     if not os.path.exists(path):
@@ -78,8 +84,9 @@ def _load_yaml(path: str) -> dict:
     try:
         import yaml
     except ImportError:
-        raise RuntimeError(
-            "PyYAML is required but not installed. Install with: pip install pyyaml>=6.0"
+        raise MissingDependencyError(
+            "PyYAML library not found. Install this skill's dependencies: "
+            f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
         ) from None
 
     with open(path) as f:

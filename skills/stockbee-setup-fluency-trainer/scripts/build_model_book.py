@@ -36,6 +36,19 @@ try:
 except ImportError:  # pragma: no cover - optional FMP path
     requests = None
 
+
+class MissingDependencyError(RuntimeError):
+    """A runtime dependency required by the selected CLI path is not installed."""
+
+
+def _missing_requests_message() -> str:
+    return (
+        "requests library not found. Install this skill's dependencies: "
+        f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'} "
+        "(or use --prices-json to avoid live FMP calls)"
+    )
+
+
 SCHEMA_VERSION = "1.0"
 SKILL_NAME = "stockbee-setup-fluency-trainer"
 DEFAULT_HORIZONS = (3, 5)
@@ -92,7 +105,7 @@ class FMPClient:
 
     def __init__(self, api_key: str | None = None, max_api_calls: int = 200):
         if requests is None:
-            raise RuntimeError("requests is not installed; use --prices-json or install requests")
+            raise MissingDependencyError(_missing_requests_message())
         self.api_key = api_key or os.getenv("FMP_API_KEY")
         if not self.api_key:
             raise ValueError("FMP API key required. Set FMP_API_KEY or pass --api-key.")
@@ -1030,7 +1043,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except MissingDependencyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":  # pragma: no cover

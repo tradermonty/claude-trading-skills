@@ -17,13 +17,18 @@ import logging
 import os
 from datetime import datetime, timedelta
 
+from broker_short_inventory_adapter import (
+    BrokerNotConfiguredError,
+    MissingDependencyError,
+    missing_requests_message,
+)
+
 try:
     import requests
 except ImportError as e:  # pragma: no cover - environment check
-    raise RuntimeError("alpaca_market_data_adapter requires the `requests` package") from e
+    raise MissingDependencyError(missing_requests_message("alpaca_market_data_adapter")) from e
 
 from _market_calendar import Session, session_for_date
-from broker_short_inventory_adapter import BrokerNotConfiguredError
 from market_clock import ET, to_utc
 from market_data_adapter import MarketDataAdapter
 
