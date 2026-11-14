@@ -84,8 +84,8 @@ Any non-terminal status can transition to `INVALIDATED`:
 ## CLI Access
 
 Every lifecycle operation is also a `thesis_store.py` subcommand:
-`transition`, `open-position`, `attach-position`, `close`, `terminate`
-(alongside `list` / `get` / `review-due` / `rebuild-index` / `doctor` /
+`transition`, `open-position`, `attach-position`, `close`, `terminate`,
+`record-lessons` (alongside `list` / `get` / `review-due` / `rebuild-index` / `doctor` /
 `mark-reviewed`). No Python required to walk a thesis through its lifecycle.
 `doctor` prints its JSON report and exits 1 when `ok` is false or the state
 directory is missing or not a directory.

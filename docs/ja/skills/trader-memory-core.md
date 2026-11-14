@@ -289,6 +289,16 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 
 P&L、保有日数、（FMP APIキーがあれば）MAE/MFEを含むレポートが `state/journal/pm_{thesis_id}.md` に保存されます。
 
+CLOSEDまたはINVALIDATEDのthesisに学びを記録し、ポストモーテムを再生成してジャーナルを更新します:
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ record-lessons th_aapl_div_20260314_a3f1 \
+  --text "Sized too large into earnings; cut the position before the print."
+```
+
+複数行の場合は `--file PATH`（UTF-8）を使います。既に記録がある場合は `--append` または `--replace` を指定します。記録した学びは `review monthly-report` の「Top Lessons」にも表示されます。
+
 ---
 
 ### 株式の部分決済

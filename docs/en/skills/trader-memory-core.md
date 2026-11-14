@@ -302,6 +302,16 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 
 The postmortem includes P&L, holding days, and (with FMP API key) MAE/MFE metrics. Output is saved to `state/journal/pm_{thesis_id}.md`.
 
+Record the lessons learned on a CLOSED or INVALIDATED thesis, then re-run the postmortem to refresh the journal report:
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ record-lessons th_aapl_div_20260314_a3f1 \
+  --text "Sized too large into earnings; cut the position before the print."
+```
+
+Use `--file PATH` (UTF-8) for multi-line text. If a lesson already exists, pass `--append` or `--replace`. Lessons also appear under "Top Lessons" in `review monthly-report`.
+
 ---
 
 ### Partial equity exits

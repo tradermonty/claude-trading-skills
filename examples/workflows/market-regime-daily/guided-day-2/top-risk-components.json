@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "top_risk",
+  "as_of": "2026-01-15T21:00:00+00:00",
+  "max_age_days": 2,
+  "component_scores": {
+    "distribution_days": 65,
+    "leading_stocks": 25,
+    "defensive_rotation": 40,
+    "breadth_divergence": 35,
+    "index_technical": 45,
+    "sentiment": 50
+  },
+  "data_availability": {
+    "distribution_days": true,
+    "leading_stocks": true,
+    "defensive_rotation": true,
+    "breadth_divergence": true,
+    "index_technical": true,
+    "sentiment": true
+  },
+  "warning_flags": {}
+}

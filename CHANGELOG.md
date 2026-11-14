@@ -18,6 +18,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 - trading-skills-navigator: preserve offline saved-position input when JSON output is also requested, while retaining output-only, live-source and negated-file routing (#668).
 - Generate EN/JA README API guidance linking to the canonical index-derived requirements matrix and detailed mode instructions; reject stale or missing guidance with the catalog drift gate (#654).
 - trader-memory-core: generate historical-only postmortems for retired legacy equity shorts without fetching prices or changing state; suppress unsupported accounting values and explain their omission (#682).
+- trader-memory-core: add `thesis_store.py store record-lessons <id> (--text | --file) [--append | --replace]` (and `record_lessons()`) to write `outcome.lessons_learned` on CLOSED/INVALIDATED theses, closing the CLI gap for the `trade-memory-loop` lessons step. Existing lessons are never overwritten silently; the text is capped at 10,000 characters. Thesis and index YAML/JSON reads in `thesis_store` now use UTF-8 explicitly so non-ASCII lessons round-trip on Windows. Other skills' thesis readers (drawdown-circuit-breaker, pre-trade-discipline-gate) still use the locale encoding, tracked in #737 (#701).
 - Extend static CLI option validation to unmarked skill instructions and nested references, trigger it on reference-only changes, and correct rejected flags and paths without executing documented commands (#661).
 - exposure-coach: consume canonical theme-detector reports with a documented directional-heat adapter, validate row/quality contracts, preserve upstream warnings and distinguish supplied unparsable theme inputs from omitted files (#673).
 
@@ -31,6 +32,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 
 ### Maintenance
 
+- Isolate daily/weekly skill generation in a dedicated validated clone, serialize shared state and checkout operations with inherited resource locks, preserve dirty/off-main recovery evidence, and stop evaluating primary `.envrc` (#658).
 - Docs external links: scope the expiring FMP bot-block exception to observed 403 responses on the exact requested/final URL, report them as unverifiable without caching, and keep 404/transport/redirect failures visible (#660).
 
 - Restore the skill-improvement launcher past its shared logs/reports symlinks, add an independent daily success-heartbeat watchdog with default local macOS alerts and an explicit opt-out, and provide one validated LaunchAgent installer that preserves existing customizations (#652). Live scheduler recovery remains subject to deployment and the next scheduled score.
@@ -76,6 +78,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - The release workflow sets `releases/latest` from SemVer ordering, so an older-line patch tag no longer moves it. Prerelease tags start no run, and release runs are serialized (#597). Metadata and archive validation are hardened (#537).
 - `monthly-performance-review`: the final review step consumes the coach artifacts, so the accept/modify/defer decision reaches the decision log and next-month rules (#584).
 - `market-regime-daily`: the canonical replay requires provenance for the breadth and uptrend inputs (#576).
+- market-regime-daily guided runner: `--previous-run-dir` (or `--previous-runs-root` for the most recent completed run under a dedicated root) produces a read-only `decision_diff.json` that classifies user-recorded revisit conditions as changed, unchanged or not_evaluable. Missing or non-refreshed inputs are never unchanged. `--revisit-conditions` records the decision with `revisit_conditions`, `data_as_of` and `unevaluated` (journal schema 2), and `--fixture-set day-2` adds a second fictional fixture set. Fictional offline only; runs without the new options are unchanged except that a run directory can no longer be created inside another run; the paused-run resume hint now mentions `--revisit-conditions`; replay goldens unchanged (#709).
 
 ### Repository and CI
 
