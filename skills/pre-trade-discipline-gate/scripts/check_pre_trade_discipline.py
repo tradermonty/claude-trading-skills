@@ -121,7 +121,7 @@ def _parse_exact_json_float(text: str) -> float | str:
 
 
 def _load_structured_file(path: Path, *, preserve_json_floats: bool = False) -> Any:
-    with path.open() as f:
+    with path.open(encoding="utf-8") as f:
         if path.suffix.lower() in {".yaml", ".yml"}:
             return yaml.safe_load(f)
         if preserve_json_floats:
@@ -175,7 +175,7 @@ def _nonnegative_finite_decimal_or_none(value: Any) -> Decimal | None:
 
 
 def _load_thesis_file(path: Path) -> dict[str, Any]:
-    with path.open() as f:
+    with path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f)
     if not isinstance(data, dict):
         raise ValueError("thesis file must contain a YAML object")
