@@ -344,7 +344,11 @@ def main(argv: list[str] | None = None) -> int:
         ]
 
     # FMP client
-    api_key = resolve_api_key(args.api_key, config)
+    try:
+        api_key = resolve_api_key(args.api_key, config)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
     client = build_fmp_client(api_key=api_key)
 
     rule = _build_rule(config)
