@@ -101,17 +101,23 @@ If the stock gapped significantly at open due to overnight news:
 - Include `gap_pct` in postmortem
 - Consider separate analysis for gap-driven outcomes
 
-### Multiple Holding Periods
+### Multiple Holding Periods and Manual Exits
 
-The skill tracks both 5-day and 20-day returns:
+Batch records keep observed `5d` and optional `20d` returns. The outcome category
+uses the 5d return; a missing usable 5d observation skips the signal. A 20d return
+is supplementary evidence and does not replace the primary outcome.
 
-| Metric | 5-Day | 20-Day |
-|--------|-------|--------|
-| Purpose | Short-term edge validation | Medium-term edge validation |
-| Threshold | 0.5% | 1.0% |
-| Weight for feedback | 60% | 40% |
+Manual recording requires a unique matching source signal and finite positive
+entry/exit prices. It classifies the finite raw price change between actual entry
+and exit, preserves the source LONG/SHORT direction, and records elapsed calendar
+holding days. `realized_returns.actual` and `return_basis: actual_exit` distinguish
+this observation from a 5d/20d benchmark. The same neutral/direction thresholds
+apply. Actual price change is not quantity-, leverage- or fee-adjusted P&L.
 
-A signal can be TRUE_POSITIVE at 5 days but FALSE_POSITIVE at 20 days (or vice versa). Both are recorded.
+The analyzer includes manual categories in accuracy/source/month counts. The 5d
+mean uses only finite observed 5d values; `return_samples_5d` records coverage and
+an absent mean is null/N/A. Actual exits do not silently supply zero 5d returns.
+Historical records are not automatically corrected.
 
 ## Classification Decision Tree
 
