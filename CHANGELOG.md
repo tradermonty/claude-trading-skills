@@ -93,6 +93,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - Add trader-monty public CSV provider contracts and a keyless weekly canary (#589).
 - Production unit-test verification evidence is inventoried and narrowed to 12 evidence-verified skills (#559, #588).
 - The local gates and test suite pass on Windows. Checkouts use LF line endings (#575).
+- `scripts/run_all_tests.sh` now runs every row with `--extra dev --extra ci` and `install --check`, like CI, so optional-dependency tests such as the edge-candidate-agent pyarrow modules no longer skip silently on a local run or pre-push. The pytest runner adds `-rfEs`, and the script prints a `=== Skipped tests: N ===` summary after the pass count. Skips stay non-fatal. Rewrote the stale "Known test skips" paragraph in the maintenance runbook (#664).
 - The root development environment now requires Python 3.11 or later. Packaged skills keep their Python 3.9 floor (#595).
 - The repo-scripts pyarrow pin is derived from `uv.lock` (#535), and pandas-market-calendars is held at the Python 3.9 floor (#550).
 - Dependency updates: pyarrow 25.0.1 (#487), ruff 0.17.2 (#551, #593), and pinned GitHub Actions (#548, #592, #594).

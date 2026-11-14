@@ -1061,3 +1061,16 @@ def test_expiry_warning_remaining_days(monkeypatch, capsys, days, expected, on_g
     assert f"({expected})" in warning
     assert "0 days remaining" not in warning
     assert "1 days remaining" not in warning
+
+
+def test_run_reports_failures_errors_and_skips_in_short_summary(monkeypatch, tmp_path):
+    seen = {}
+
+    def fake_run(command, cwd, env, check):
+        seen["command"] = command
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("scripts.ci_test_matrix.subprocess.run", fake_run)
+
+    assert run(TestEntry("alpha", ("tests",), "scripts"), tmp_path, None) == 0
+    assert "-rfEs" in seen["command"]
