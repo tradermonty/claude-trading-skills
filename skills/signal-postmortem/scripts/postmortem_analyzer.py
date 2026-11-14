@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from statistics import mean
 
 
 def load_postmortems(
@@ -64,6 +66,19 @@ def load_postmortems(
     return postmortems
 
 
+def finite_number(value) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
+def format_return(value) -> str:
+    return "N/A" if value is None else f"{value:.2%}"
+
+
 def calculate_skill_metrics(postmortems: list) -> dict:
     """
     Calculate accuracy and other metrics by source skill.
@@ -78,7 +93,6 @@ def calculate_skill_metrics(postmortems: list) -> dict:
             "regime_mismatch": 0,
             "neutral": 0,
             "total": 0,
-            "total_return_5d": 0.0,
             "returns": [],
         }
     )
@@ -86,11 +100,12 @@ def calculate_skill_metrics(postmortems: list) -> dict:
     for pm in postmortems:
         skill = pm.get("source_skill", "unknown")
         outcome = pm.get("outcome_category", "UNKNOWN")
-        returns_5d = pm.get("realized_returns", {}).get("5d", 0.0)
+        returns = pm.get("realized_returns")
+        returns_5d = returns.get("5d") if isinstance(returns, dict) else None
 
         skill_data[skill]["total"] += 1
-        skill_data[skill]["total_return_5d"] += returns_5d
-        skill_data[skill]["returns"].append(returns_5d)
+        if finite_number(returns_5d):
+            skill_data[skill]["returns"].append(returns_5d)
 
         if outcome == "TRUE_POSITIVE":
             skill_data[skill]["true_positive"] += 1
@@ -109,7 +124,10 @@ def calculate_skill_metrics(postmortems: list) -> dict:
         total_decisions = data["true_positive"] + data["false_positive"]
         accuracy = data["true_positive"] / total_decisions if total_decisions > 0 else 0.0
         fp_rate = data["false_positive"] / data["total"] if data["total"] > 0 else 0.0
-        avg_return = data["total_return_5d"] / data["total"] if data["total"] > 0 else 0.0
+        # statistics.mean avoids an overflowing float sum before division.
+        avg_return = mean(data["returns"]) if data["returns"] else None
+        if not finite_number(avg_return):
+            avg_return = None
 
         metrics[skill] = {
             "sample_size": data["total"],
@@ -121,6 +139,7 @@ def calculate_skill_metrics(postmortems: list) -> dict:
             "accuracy": accuracy,
             "false_positive_rate": fp_rate,
             "avg_return_5d": avg_return,
+            "return_samples_5d": len(data["returns"]),
         }
 
     return metrics
@@ -360,7 +379,7 @@ def generate_summary(metrics: dict, postmortems: list, group_by: list) -> str:
 
         for skill, data in sorted(metrics.items(), key=lambda x: x[1]["sample_size"], reverse=True):
             lines.append(
-                f"| {skill} | {data['sample_size']} | {data['accuracy']:.1%} | {data['false_positive_rate']:.1%} | {data['avg_return_5d']:.2%} |"
+                f"| {skill} | {data['sample_size']} | {data['accuracy']:.1%} | {data['false_positive_rate']:.1%} | {format_return(data['avg_return_5d'])} |"
             )
 
         lines.append("")
@@ -531,7 +550,7 @@ def main():
             print(f"  Samples: {data['sample_size']}")
             print(f"  Accuracy: {data['accuracy']:.1%}")
             print(f"  FP Rate: {data['false_positive_rate']:.1%}")
-            print(f"  Avg Return (5d): {data['avg_return_5d']:.2%}")
+            print(f"  Avg Return (5d): {format_return(data['avg_return_5d'])}")
 
 
 if __name__ == "__main__":
