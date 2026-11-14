@@ -4,7 +4,6 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
-- us-stock-analysis: declare the required web search integration in `skills-index.yaml` (the index listed only `user_input`, although the skill always fetches current market data through web search) and align the SKILL.md Prerequisites with it. Regenerated the README / README.ja / CLAUDE.md integration tables, the quality dashboard (other-external 7 → 8, offline 33 → 32), the navigator metadata snapshot, and the us-stock-analysis and trading-skills-navigator packages (#732).
 - FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
 - Raise the root development environment's Python floor from 3.11 to 3.11.5 and update soupsieve 2.9.2 to 4.1, fixing GHSA-4j63-6c4x-wfg4 and GHSA-mmhr-3c5m-f64f. soupsieve 4 requires Python 3.11.5, so the old floor kept a vulnerable 2.10 in the lock. Packaged skills keep their Python 3.9 floor.
 - edge-candidate-agent `auto_detect_candidates.py` now exits 2 with the `pip install -r <requirements.txt>` hint when pandas/numpy are missing; canslim-screener's optional Finviz fallback keeps degrading but its stderr message and `ImportError` now name the skill's requirements.txt instead of `pip install finviz`. With these, every missing-dependency path in `skills/*/scripts` exits 2 or degrades with a stderr hint, apart from trader-memory-core's documented exit 3 (#497).
@@ -28,6 +27,7 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 ### Metadata and API contracts
 
 - Correct market-top-detector and downtrend-duration-analyzer to FMP required, signal-postmortem to FMP optional, and market-regime-daily and its skillset to mixed profiles with a key-free base. Add an offline credential-read/no-API-workflow gate and generate EN/JA catalog provider badges/API matrix values from the index (#653).
+- us-stock-analysis: declare the required web search integration in `skills-index.yaml` (the index listed only `user_input`, although the skill always fetches current market data through web search) and align the SKILL.md Prerequisites with it. Regenerated the README / README.ja / CLAUDE.md integration tables, the quality dashboard (other-external 7 → 8, offline 33 → 32), the navigator metadata snapshot, and the us-stock-analysis and trading-skills-navigator packages (#732).
 
 ### Maintenance
 
