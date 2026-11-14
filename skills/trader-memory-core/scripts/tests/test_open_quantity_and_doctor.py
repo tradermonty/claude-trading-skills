@@ -121,7 +121,9 @@ def _cli(args, **kwargs):
         [sys.executable, str(CLI), *args],
         env=env,
         capture_output=True,
-        text=True,
+        # The launcher forces PYTHONIOENCODING=utf-8 for the child, so decode
+        # as UTF-8 rather than the locale code page (cp1252 on Windows).
+        encoding="utf-8",
         timeout=60,
         **kwargs,
     )
