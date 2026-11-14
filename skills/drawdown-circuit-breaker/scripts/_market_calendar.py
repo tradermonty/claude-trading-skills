@@ -12,12 +12,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 
 class CalendarUnavailableError(RuntimeError):
     """Raised when an exchange calendar cannot be loaded or queried safely."""
+
+
+class CalendarDependencyMissingError(CalendarUnavailableError):
+    """Raised when pandas-market-calendars is not installed.
+
+    CLIs that catch ``CalendarUnavailableError`` should map this subclass to
+    exit status 2 (missing runtime dependency) instead of 1.
+    """
 
 
 @dataclass(frozen=True)
@@ -90,14 +99,22 @@ def parse_aware_datetime(value: str) -> datetime:
     return require_aware(parsed, name="as-of")
 
 
+def _missing_dependency_message() -> str:
+    """Hint naming this skill's requirements.txt (generic when the file is absent)."""
+    requirements = Path(__file__).resolve().parents[1] / "requirements.txt"
+    target = str(requirements) if requirements.is_file() else "<this skill's>/requirements.txt"
+    return (
+        "pandas-market-calendars library not found (pandas-market-calendars==5.2.2 is "
+        f"required). Install this skill's dependencies: pip install -r {target}"
+    )
+
+
 def _provider_calendar(venue: str) -> tuple[str, str, Any]:
     normalized, provider_name, timezone_name = _venue_contract(venue)
     try:
         import pandas_market_calendars as market_calendars
     except (ImportError, TypeError) as exc:
-        raise CalendarUnavailableError(
-            "pandas-market-calendars==5.2.2 is required; install the skill's requirements.txt"
-        ) from exc
+        raise CalendarDependencyMissingError(_missing_dependency_message()) from exc
     try:
         calendar = market_calendars.get_calendar(provider_name)
     except Exception as exc:
