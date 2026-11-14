@@ -4,8 +4,6 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
-- weekly-performance-digest: omit R-multiples when the recorded stop implies zero or negative risk, including acknowledged gap fills, while retaining P&L and win/loss statistics (#683).
-- trader-memory-core: allow an explicitly acknowledged actual long gap fill below its planned stop with `--allow-gap-fill`, preserve the plan and sizing provenance, and retain exact fill/stop acknowledgement in protected history; default and short-equity refusals remain (#683).
 - FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
 - Raise the root development environment's Python floor from 3.11 to 3.11.5 and update soupsieve 2.9.2 to 4.1, fixing GHSA-4j63-6c4x-wfg4 and GHSA-mmhr-3c5m-f64f. soupsieve 4 requires Python 3.11.5, so the old floor kept a vulnerable 2.10 in the lock. Packaged skills keep their Python 3.9 floor.
 - edge-candidate-agent `auto_detect_candidates.py` now exits 2 with the `pip install -r <requirements.txt>` hint when pandas/numpy are missing; canslim-screener's optional Finviz fallback keeps degrading but its stderr message and `ImportError` now name the skill's requirements.txt instead of `pip install finviz`. With these, every missing-dependency path in `skills/*/scripts` exits 2 or degrades with a stderr hint, apart from trader-memory-core's documented exit 3 (#497).
@@ -43,6 +41,8 @@ Changes merged to `main` since the release process landed in #505 (2026-10-10). 
 - signal-postmortem: skip batch signals without observed finite entry/5d exit evidence, preserve genuine flat outcomes, expose skipped counts and fail zero-success batches instead of inventing NEUTRAL records (#702).
 
 - trader-memory-core keeps equity accounting long-only: reject explicit short-equity intent and incompatible initial stop geometry before wrong P&L can be recorded, while preserving futures LONG/SHORT and active long profit-protecting stops. Remove the unsupported parabolic-short ingest instruction (#662).
+- weekly-performance-digest: omit R-multiples when the recorded stop implies zero or negative risk, including acknowledged gap fills, while retaining P&L and win/loss statistics (#683).
+- trader-memory-core: allow an explicitly acknowledged actual long gap fill below its planned stop with `--allow-gap-fill`, preserve the plan and sizing provenance, and retain exact fill/stop acknowledgement in protected history; default and short-equity refusals remain (#683).
 - Reject stale, future or invalid selected-market COT dates in the setup gate, news failure analyzer and technical confirmation, in addition to the report date. Validate optional per-market provenance dates, use the oldest validated age, and preserve absent-field legacy compatibility (#649). An unusable crowding input reaches the futures sizer as NO_TRADE.
 
 - stockbee-momentum-burst-screener: reject stale or unplaceable daily bars before scoring; freeze the latest completed NYSE session, add explicit as-of/session-age controls, active-universe filtering and auditable freshness metadata (#670). A tolerated stale bar is capped at `MANUAL_REVIEW`, and an all-stale universe adds a top-level report warning. stockbee-setup-fluency-trainer drops the per-symbol `latest_bar_dates` map when ingesting screener metadata.
