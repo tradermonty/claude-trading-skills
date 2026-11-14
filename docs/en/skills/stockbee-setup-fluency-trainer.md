@@ -12,7 +12,7 @@ generated: true
 # Stockbee Setup Fluency Trainer
 {: .no_toc }
 
-Build a Stockbee-style setup model book from momentum-burst screener candidates, then update 3-day and 5-day forward outcomes with MFE/MAE, stop-hit status, outcome tags, and cohort statistics. Use when the user wants to study Stockbee Momentum Burst examples, track failed candidates, build setup fluency, review A/B setup quality, or convert screener outputs into a learning loop rather than immediate trade signals.
+Build a Stockbee-style setup model book from momentum-burst screener candidates, then update 3-day and 5-day forward outcomes with MFE/MAE, stop-hit status, outcome tags, and cohort statistics. Use when the user wants to study Stockbee Momentum Burst examples, track failed candidates, build setup fluency, review A/B setup quality, or convert screener outputs into a learning loop rather than immediate trade signals. Also supports blind replay of the user's own enter/wait/pass decisions on vcp-screener candidates, scoring rule adherence separately from outcome.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">No API</span> <span class="badge badge-optional">FMP Optional</span>
@@ -43,6 +43,7 @@ Build a Stockbee-style setup model book from momentum-burst screener candidates,
 - User wants 3-day / 5-day forward returns, MFE, MAE, and stop-hit outcomes
 - User wants to improve setup recognition before increasing position size
 - User asks which Stockbee tags should be promoted, downgraded, or filtered
+- User wants a weekly blind replay of their own VCP enter/wait/pass decisions, with rule adherence scored separately from the later price path
 
 ---
 
@@ -52,6 +53,7 @@ Build a Stockbee-style setup model book from momentum-burst screener candidates,
 - A `stockbee-momentum-burst-screener` JSON report, or compatible candidate JSON
 - Optional: FMP API key for outcome updates when offline OHLCV JSON is not supplied
 - Recommended local state path: `state/stockbee/model_book.jsonl`
+- For blind replay: a `vcp-screener` JSON report generated after the close, and offline OHLCV JSON at reveal time (stdlib only, no API key)
 
 ---
 
@@ -130,12 +132,50 @@ For cohorts with enough examples:
 - Inspect representative charts manually before changing trade rules
 - Log accepted lessons in `trader-memory-core` or the monthly review process
 
+### Step 5: Blind Replay of Your Own VCP Decisions
+
+Use `decision_replay.py` to practice on your own past VCP decisions without hindsight. It supports the "screen after the close, capture the same evening" routine only. The result is practice feedback, not a trade recommendation.
+
+Capture after each screen. The decisions file is a JSON list of `{symbol, decision, reason}` covering every candidate in the set, with `decision` one of `enter`, `wait`, `pass` and a one-line reason. Pass `--market-gate open` or `closed` as your own attestation.
+
+```bash
+python3 skills/stockbee-setup-fluency-trainer/scripts/decision_replay.py capture \
+  --screener-json reports/vcp_screener_YYYY-MM-DD_HHMMSS.json \
+  --decisions decisions_YYYY-MM-DD.json \
+  --market-gate open \
+  --store-dir state/decision_replay/
+```
+
+On the weekend, draw a blind sample. Set `--decided-on-or-before` at least a week back so the 5-day window has matured.
+
+```bash
+python3 skills/stockbee-setup-fluency-trainer/scripts/decision_replay.py replay \
+  --sample-size 10 \
+  --decided-on-or-before YYYY-MM-DD \
+  --store-dir state/decision_replay/ \
+  --output-dir reports/
+```
+
+The user records enter, wait or pass plus a one-line reason for every case in `answers.json` (`[{case_id, decision, reason}]`) before running `reveal`. While answering, do not fetch charts, news or prices for these symbols and do not comment on the setups.
+
+```bash
+python3 skills/stockbee-setup-fluency-trainer/scripts/decision_replay.py reveal \
+  --session-id replay-0123456789ab \
+  --answers answers.json \
+  --prices-json data/daily_ohlcv.json \
+  --store-dir state/decision_replay/ \
+  --output-dir reports/
+```
+
+Reveal shows the original and the replay decision side by side with the recorded rule result and the later path, and counts the four quadrants separately for each: followed or deviated from the rule, favorable or adverse outcome. A rule-compliant decision with an adverse outcome is reported as such; adherence and outcome are never merged. Cases captured after the first later bar, with unverified as-of prices, or without enough bars are excluded and counted. Use `replay --abandon SESSION_ID --reason TEXT` to drop a pending session, `--include-seen` to re-admit revealed cases, and `reconcile-ledger` to repair a missing ledger line. See `references/decision_replay.md` for the schema, guarantees and limits.
+
 ---
 
 ## 6. Resources
 
 **References:**
 
+- `skills/stockbee-setup-fluency-trainer/references/decision_replay.md`
 - `skills/stockbee-setup-fluency-trainer/references/model_book_schema.md`
 - `skills/stockbee-setup-fluency-trainer/references/outcome_tags.md`
 - `skills/stockbee-setup-fluency-trainer/references/review_workflow.md`
@@ -143,4 +183,5 @@ For cohorts with enough examples:
 **Scripts:**
 
 - `skills/stockbee-setup-fluency-trainer/scripts/build_model_book.py`
+- `skills/stockbee-setup-fluency-trainer/scripts/decision_replay.py`
 - `skills/stockbee-setup-fluency-trainer/scripts/fmp_client.py`
