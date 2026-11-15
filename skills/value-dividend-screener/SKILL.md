@@ -14,7 +14,7 @@ This skill identifies high-quality dividend stocks that combine value characteri
 
 Screen US equities based on quantitative criteria including valuation ratios, dividend metrics, financial health, and profitability. Generate comprehensive reports ranking stocks by composite quality scores with detailed fundamental analysis.
 
-**Efficiency Advantage**: Using FINVIZ pre-screening can reduce FMP API calls by 90%, making this approach ideal for free-tier API users.
+**Efficiency Advantage**: Using FINVIZ pre-screening can reduce FMP API calls by 90% and keeps API usage low. The stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11); use `--use-finviz` or a plan that includes it (see `docs/en/getting-started.md#fmp-plans`).
 
 ## When to Use
 
@@ -28,7 +28,7 @@ Invoke this skill when the user requests:
 
 ## Prerequisites
 
-- **FMP API key:** Required. Set `FMP_API_KEY` or pass `--fmp-api-key`.
+- **FMP API key:** Required. Set `FMP_API_KEY` or pass `--fmp-api-key`. The stock-screener endpoint is not on the free plan (2026-11); use `--use-finviz` or an FMP plan that includes it (see `docs/en/getting-started.md#fmp-plans`).
 - **FINVIZ Elite API key:** Recommended, not required. Set `FINVIZ_API_KEY` or pass `--finviz-api-key` and use `--use-finviz` for two-stage screening. Without it the screener runs FMP-only and uses more API calls.
 - **Python:** 3.9+ with `requests>=2.31.0` (see `requirements.txt`).
 

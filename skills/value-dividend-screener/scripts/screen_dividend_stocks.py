@@ -114,6 +114,31 @@ class FINVIZClient:
 
 from fmp_client import FMPClient as SharedFMPClient
 
+_PLAN_RESTRICTION_MARKERS = (
+    "http 402",
+    "subscription",
+    "legacy endpoint",
+    "restricted endpoint",
+    "premium query",
+    "not available under your current",
+)
+
+
+class FMPPlanRestrictedError(RuntimeError):
+    """The FMP plan does not serve an endpoint this screen requires."""
+
+
+def _is_plan_restriction(error: Optional[str]) -> bool:
+    """Return True when an FMP failure looks like plan/endpoint gating.
+
+    The shared client records the redacted status/body in ``_last_error``.
+    The shared client does not expose a plan flag, and 403 is also used for
+    invalid keys or WAF blocks, so only the observed legacy/subscription/
+    premium/restricted phrasings are treated as plan gating.
+    """
+    text = (error or "").lower()
+    return any(marker in text for marker in _PLAN_RESTRICTION_MARKERS)
+
 
 class FMPClient(SharedFMPClient):
     """Domain adapters backed by the generated shared FMP transport."""
@@ -159,6 +184,14 @@ class FMPClient(SharedFMPClient):
             )
             or []
         )
+
+        if not universe and _is_plan_restriction(self._last_error):
+            raise FMPPlanRestrictedError(
+                "FMP plan does not include the stock screener endpoint required "
+                "for FMP-only screening (HTTP 402/403). Use --use-finviz, or "
+                "switch to an FMP plan that includes the screener. See "
+                "docs/en/getting-started.md#fmp-plans."
+            )
 
         # Gate 1: dividend yield, estimated from screener fields (no extra calls).
         yield_candidates = []
@@ -936,6 +969,7 @@ def screen_value_dividend_stocks(
         # Convert FINVIZ symbols to candidate format for FMP analysis
         # Fetch quote + profile to get sector information
         candidates = []
+        plan_restricted = False
         print("Fetching quote and profile data from FMP for FINVIZ symbols...", file=sys.stderr)
         for symbol in finviz_symbols:
             quote = client._get(f"quote/{symbol}")
@@ -958,12 +992,24 @@ def screen_value_dividend_stocks(
                     stock_data["priceToBook"] = ratios[0].get("priceToBookRatio")
                 candidates.append(stock_data)
 
+            if _is_plan_restriction(getattr(client, "_last_error", None)):
+                plan_restricted = True
+
             if client.rate_limit_reached:
                 print(
                     f"⚠️  FMP rate limit reached while fetching quotes. Using {len(candidates)} symbols.",
                     file=sys.stderr,
                 )
                 break
+
+        if not candidates and plan_restricted:
+            raise FMPPlanRestrictedError(
+                "FMP plan does not include the quote endpoint required to enrich "
+                "FINVIZ candidates (HTTP 402/403); the ratios/profile lookups that "
+                "depend on it are unavailable too. --use-finviz is already active; "
+                "switch to an FMP plan that includes quote access. See "
+                "docs/en/getting-started.md#fmp-plans."
+            )
 
         print(
             f"Retrieved quote and profile data for {len(candidates)} symbols from FMP",
@@ -1323,12 +1369,16 @@ Environment Variables:
         print(f"{'=' * 60}\n", file=sys.stderr)
 
     # Run detailed screening
-    results = screen_value_dividend_stocks(
-        fmp_api_key,
-        top_n=args.top,
-        finviz_symbols=finviz_symbols,
-        max_candidates=args.max_candidates,
-    )
+    try:
+        results = screen_value_dividend_stocks(
+            fmp_api_key,
+            top_n=args.top,
+            finviz_symbols=finviz_symbols,
+            max_candidates=args.max_candidates,
+        )
+    except FMPPlanRestrictedError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if not results:
         print("\nNo stocks found matching all criteria.", file=sys.stderr)

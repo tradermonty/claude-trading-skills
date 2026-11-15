@@ -37,7 +37,7 @@ permalink: /ja/skills/value-dividend-screener/
 
 バリュエーション比率、配当指標、財務健全性、収益性などの定量基準に基づいて米国株をスクリーニングし、複合品質スコアによるランキングと詳細なファンダメンタル分析を含む包括的なレポートを生成します。
 
-**効率面のメリット**: FINVIZプレスクリーニングによりFMP API呼び出しを90%削減でき、無料ティアのAPIユーザーに最適です。
+**効率面のメリット**: FINVIZプレスクリーニングによりFMP API呼び出しを90%削減できます。FMPのみのモードが使う stock-screener エンドポイントは無料プランに含まれません（2026-11）。`--use-finviz` か、screener を含むプランを使用してください（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）。
 
 ---
 

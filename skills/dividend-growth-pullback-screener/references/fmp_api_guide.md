@@ -16,8 +16,8 @@ This screener supports two screening modes:
 
 **2. FMP-Only (Original Method)**
 - **Single Stage**: FMP stock-screener + detailed analysis
-- **Limitation**: FMP free tier (250 requests/day) limits to ~40 stocks
-- **Cost**: FMP free tier (upgrades available)
+- **Limitation**: FMP-only needs the stock-screener endpoint, which is not on the free plan (2026-11); use two-stage screening or a plan that includes it
+- **Cost**: An FMP plan that includes the stock screener (upgrades available)
 
 **Recommended**: Two-stage approach for regular screening (daily/weekly) to maximize coverage while minimizing costs.
 
@@ -35,7 +35,7 @@ This screener supports two screening modes:
 - **250 requests per day**
 - **Rate limit**: ~5 requests per second
 - **No credit card required**
-- Sufficient for daily/weekly screening runs
+- Sufficient for daily/weekly two-stage runs; the stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11)
 
 ### Paid Plans (Optional)
 
@@ -113,13 +113,13 @@ When using `--use-finviz`, the screener applies these filters via FINVIZ Elite A
 - 5%+ EPS/sales growth captures growing businesses (not just mature dividend payers)
 - 0.5-3% yield range excludes mature high-yielders (>4%) and focuses on growth stocks
 - Reduces FINVIZ candidates from ~90 to ~30-50 stocks
-- Stays within FMP free tier limits with efficient analysis (250 requests/day)
+- Keeps FMP API usage low with efficient analysis (250 requests/day); the stock-screener endpoint used by FMP-only mode is plan-gated (see `docs/en/getting-started.md#fmp-plans`)
 
 ## Key Endpoints Used
 
 ### 1. Stock Screener
 
-**Endpoint:** `/v3/stock-screener`
+**Endpoint:** `/stable/company-screener`
 
 **Purpose:** Initial filtering by market cap and exchange
 
@@ -132,7 +132,7 @@ When using `--use-finviz`, the screener applies these filters via FINVIZ Elite A
 
 **Example Request:**
 ```
-https://financialmodelingprep.com/api/v3/stock-screener?
+https://financialmodelingprep.com/stable/company-screener?
   marketCapMoreThan=2000000000&
   exchange=NASDAQ,NYSE&
   limit=1000&
@@ -382,18 +382,18 @@ When using FINVIZ pre-screening (`--use-finviz`):
 **Total FMP requests**:
 - 10 symbols: 10 + (6 × 10) = 70 requests
 - 30 symbols: 30 + (6 × 30) = 210 requests
-- 50 symbols: 50 + (6 × 50) = 350 requests (exceeds free tier)
+- 50 symbols: 50 + (6 × 50) = 350 requests (exceeds the free plan's daily rate limit)
 
-**Advantage**: FINVIZ's RSI filter typically returns 10-30 stocks (not 1000), making FMP analysis feasible within free tier limits.
+**Advantage**: FINVIZ's RSI filter typically returns 10-30 stocks (not 1000), keeping FMP analysis within the free plan's daily rate limit for endpoints it serves. (FMP-only mode still needs the plan-gated stock screener.)
 
 **Cost comparison:**
 - **Paid FMP plan** (see `site.financialmodelingprep.com/pricing-plans`): see the page for current limits
-- **FINVIZ Elite + FMP Free** ($40/month, 250 FMP requests): ~30 stocks/day with RSI pre-filtering
+- **FINVIZ Elite + FMP Free** ($40/month, 250 FMP requests): ~30 stocks/day with RSI pre-filtering (two-stage only; FMP-only needs the plan-gated stock screener)
 - **Result**: FINVIZ approach provides higher-quality candidates (RSI pre-filtered) despite lower volume
 
 ### Best Practices
 
-1. **Use FINVIZ two-stage for regular screening**: Maximizes candidate quality, stays within FMP free tier
+1. **Use FINVIZ two-stage for regular screening**: Maximizes candidate quality and keeps FMP request counts low (FMP-only needs the plan-gated stock screener)
 2. **Run FMP-only for one-time analysis**: Good for testing or when FINVIZ subscription not available
 3. **Run during off-peak hours**: Lower chance of rate limits
 4. **Space out runs**: Once daily or weekly, not multiple times per hour

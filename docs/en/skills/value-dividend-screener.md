@@ -37,7 +37,7 @@ This skill identifies high-quality dividend stocks that combine value characteri
 
 Screen US equities based on quantitative criteria including valuation ratios, dividend metrics, financial health, and profitability. Generate comprehensive reports ranking stocks by composite quality scores with detailed fundamental analysis.
 
-**Efficiency Advantage**: Using FINVIZ pre-screening can reduce FMP API calls by 90%, making this approach ideal for free-tier API users.
+**Efficiency Advantage**: Using FINVIZ pre-screening can reduce FMP API calls by 90% and keeps API usage low. The stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11); use `--use-finviz` or a plan that includes it (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)).
 
 ---
 

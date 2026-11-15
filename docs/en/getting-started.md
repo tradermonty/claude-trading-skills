@@ -138,7 +138,12 @@ Prices and limits below were read on 2026-11-14 from the Personal Use tab of FMP
 | Premium | $69/month | $49.00/month | 750 calls/minute | Up to 30 years of history |
 | Ultimate | $139/month | $99.00/month | 3,000 calls/minute | Full history, global coverage |
 
-The free plan is enough for small universes. The paid plans state their limits per minute; the page also lists other plan limits, so check it before sizing a large run.
+The free plan is enough for small universes that use endpoints included in Basic. The stock screener is not included in Basic (see below). The paid plans state their limits per minute; the page also lists other plan limits, so check it before sizing a large run.
+
+Plan-gated endpoints (as of 2026-11):
+The stock/company screener and economic calendar endpoints returned HTTP 402 on a Basic key.
+
+Institutional-ownership (13F) data was also unavailable on the same key; it was an unavailable dataset, not an HTTP refusal. Skills that rely on these endpoints need a plan that includes them; check `site.financialmodelingprep.com/pricing-plans`.
 
 ### FINVIZ Elite
 
