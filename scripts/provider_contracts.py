@@ -510,15 +510,29 @@ def _coerce_cell(cell: str | None) -> Any:
 def parse_csv_rows(text: str) -> tuple[list[dict[str, Any]], list[Anomaly]]:
     """Parse CSV text into coerced rows plus parse-level anomalies (stdlib ``csv``).
 
-    Strips a UTF-8 BOM, reads the header, and coerces each cell with
-    ``_coerce_cell``. A short row maps its missing cells to ``None``. A row
+    Strips a UTF-8 BOM, rejects blank/duplicate header names, and coerces
+    each cell with ``_coerce_cell``. NUL input and malformed quoting raise
+    ``csv.Error``; callers must discard the response, including any valid
+    prefix. A short row maps its missing cells to ``None``. A row
     with extra cells yields one FATAL ``extra_cells`` anomaly and keeps only
     the header keys, so no ``None`` key ever reaches ``validate_rows``.
     A header-only (or empty) body returns ``[]``.
     """
     if text.startswith("\ufeff"):
         text = text[1:]
-    reader = csv.DictReader(io.StringIO(text), restkey=_CSV_EXTRA_KEY)
+    if "\x00" in text:
+        raise csv.Error("NUL byte in CSV input")
+    reader = csv.DictReader(io.StringIO(text), restkey=_CSV_EXTRA_KEY, strict=True)
+    # DictReader otherwise silently overwrites duplicate columns before any
+    # required-field/type check sees them. Keep field identity exact: neither
+    # strip nor casefold provider names to make a malformed header look valid.
+    header = reader.fieldnames
+    if header is None:
+        return [], []
+    if not header or any(not name.strip() for name in header):
+        return [], [Anomaly("blank_header", FATAL)]
+    if len(set(header)) != len(header):
+        return [], [Anomaly("duplicate_header", FATAL)]
     rows: list[dict[str, Any]] = []
     anomalies: list[Anomaly] = []
     for raw in reader:

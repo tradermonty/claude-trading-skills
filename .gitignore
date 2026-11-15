@@ -61,3 +61,16 @@ htmlcov/
 .coverage
 /_site/
 # .secrets.baseline is tracked — needed by detect-secrets pre-commit hook
+# Canonical private roots (also block a file or symlink with these names).
+/state
+/reviews
+/.cache
+/.claude
+/.staging
+/private-backups
+/.aws
+/.ssh
+/.env
+/.env.*
+/.envrc*
+/.mcp.json*

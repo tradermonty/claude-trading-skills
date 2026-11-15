@@ -45,6 +45,8 @@ Select a preview to open the full-size SVG; on a phone, zoom after opening.
 
 **Review completed trades:** [Weekly Performance Digest]({{ '/en/skills/weekly-performance-digest/' | relative_url }}) summarizes outcomes and lessons.
 
+**Make your first report:** Follow the [Offline Quick Start]({{ '/en/offline-quickstart/' | relative_url }}) after these previews. It uses fictional inputs without provider keys, then helps you choose a path with the Navigator.
+
 ---
 
 ## Prerequisites

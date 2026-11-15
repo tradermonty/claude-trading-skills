@@ -41,6 +41,12 @@ Screen US equities based on quantitative criteria including valuation ratios, di
 
 ---
 
+**Price-history quality:** RSI screening needs at least 20 returned closing-price
+observations, all numeric, finite and positive. Missing or invalid closes cause
+the candidate to be skipped with an `RSI unavailable` diagnostic; processing of
+valid candidates continues. The full chronology and raw-close price basis stay
+intact. A skipped candidate is unevaluated, rather than an oversold-test result.
+
 ## 2. When to Use
 
 Invoke this skill when the user requests:

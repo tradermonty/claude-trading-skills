@@ -60,6 +60,62 @@ Create two local JSON files with this contract (fictional example):
   Symbol comparison trims surrounding whitespace and uppercases symbols; confirm
   symbol/asset identity manually for renamed tickers or multiple share classes.
 
+## Normalize a saved Alpaca positions list
+
+`normalize_alpaca_positions.py` converts a saved native `/v2/positions` JSON list
+into the broker snapshot contract above. It does not fetch positions. Obtain the
+complete list through your existing read-only broker connection, freeze the
+comparison view, and verify the account and actual capture instant yourself.
+
+The following uses the bundled **fictional** source. Choose an existing private
+output directory; `reports/` below must already exist and the output file must
+be new. Replace the source, alias and timestamp with verified values for your own
+capture, rather than relabeling an older file.
+
+```bash
+python3 skills/portfolio-manager/scripts/normalize_alpaca_positions.py \
+  --positions-json skills/portfolio-manager/assets/fictional_alpaca_positions.json \
+  --account-scope paper_demo --as-of 2026-10-20T12:00:00Z \
+  --confirm-complete --output reports/broker-normalized.json
+```
+
+- All three assertions are required: `--account-scope`, timezone-aware `--as-of`
+  and `--confirm-complete`. They remain operator assertions, not evidence the
+  tool authenticated the account or proved capture completeness/freshness.
+- Every row must be `asset_class: us_equity`. If currency is supplied it must be
+  `USD`; absent currency follows the native US-equity scope. No unsupported
+  instrument is filtered out. Do not remove positions to obtain a match.
+- Native `side` must be `long` or `short`, with respectively positive or negative
+  `qty`. The quantity must be a plain decimal string up to 64 characters: no
+  exponent, whitespace, leading plus, Boolean or JSON-number coercion. Bounds
+  remain 1e-12..1e12 absolute shares. Positive absolute decimal shares are emitted
+  exactly, including fractions, with no aggregation or netting.
+- Prices and acquisition costs are not needed for position reconciliation.
+  Symbols are normalized by the shared reconciliation contract; duplicate
+  identities block export. Unknown fields, account/asset IDs and provider P&L
+  are discarded. Output contains only the snapshot fields above and sorted
+  symbol/asset_type/direction/quantity positions.
+- `[]` is accepted only with the explicit completeness confirmation. An error
+  object, missing list, malformed JSON or duplicate JSON keys is not an empty
+  account. Inputs must be UTF-8 JSON and remain unchanged.
+- Without `--output`, JSON goes to stdout. With `--output`, only a fixed success
+  message is printed; the complete JSON is atomically published as a new file.
+  Existing files, input aliases, hardlinks and symlinks are never replaced.
+  The parent directory must exist and support hardlinks; otherwise writing fails
+  without an overwrite fallback. Staging files are cleaned on normal failure.
+- POSIX files are created with owner-only permissions (0600, subject to umask).
+  Windows permissions follow inherited ACLs: use a private directory. Symbols,
+  quantities and the operator alias still reveal holdings; this is field
+  minimization, not anonymization. Keep source/snapshot/report files local.
+- Success exits 0, validation/read/write errors exit 1, and argument errors exit
+  2. Diagnostics omit paths and raw data. Check the exit code; an existing file
+  is not proof a new attempt succeeded. Use a new output path for each capture.
+
+The bundled native fixture includes a short position. It demonstrates conversion,
+not a successful match against current long-only memory. Review its direction
+mismatch manually; it never authorizes orders. After normalization, prepare the
+complete ACTIVE/PARTIALLY_CLOSED memory snapshot above and run the comparison.
+
 ## Compare and stop on unresolved differences
 
 ```bash
@@ -116,8 +172,10 @@ broker or trader-memory lifecycle actions, then capture and compare again.
 ## Preparation status
 
 This is an offline comparison tool plus a documented manual workflow gate.
-Automatic broker export, automatic complete memory export/account attribution,
-and machine-enforced replay gating remain follow-up work under Issue #493.
+Saved native broker lists can now be normalized locally with the explicit
+operator assertions above. Live broker capture, automatic complete memory
+export/account attribution, and machine-enforced replay gating remain follow-up
+work under Issue #493.
 The existing `core-portfolio-weekly` replay fixtures demonstrate the earlier
 holdings/allocation/dividend/rebalance/journal contracts; they do **not** execute
 or verify this new reconciliation gate. Passing those historical replays is

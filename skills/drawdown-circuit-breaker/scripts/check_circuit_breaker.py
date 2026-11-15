@@ -247,7 +247,7 @@ def build_config(args: argparse.Namespace) -> CircuitConfig:
 
 
 def _load_thesis_file(path: Path) -> dict:
-    with path.open() as f:
+    with path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f)
     if not isinstance(data, dict):
         raise ValueError("thesis file must contain a YAML object")

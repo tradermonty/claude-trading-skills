@@ -45,6 +45,8 @@ Claude Trading Skillsのインストール方法、APIキーの設定、最初�
 
 **決済済み取引を振り返る:** [Weekly Performance Digest]({{ '/ja/skills/weekly-performance-digest/' | relative_url }})が成果と改善点を整理します。
 
+**最初のレポートを作る:** プレビューの次は[オフライン・クイックスタート]({{ '/ja/offline-quickstart/' | relative_url }})へ進みます。APIキーなしで架空データを試し、Navigatorで次の経路を選べます。
+
 ---
 
 ## 必要なもの

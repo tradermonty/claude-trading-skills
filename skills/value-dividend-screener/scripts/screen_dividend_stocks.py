@@ -29,6 +29,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from _price_bars import read_price
+
 try:
     import requests
 except ImportError:
@@ -283,6 +285,8 @@ class RSICalculator:
         """
         if len(prices) < period + 1:
             return None
+        if any(read_price({"close": price}, "close") is None for price in prices):
+            return None
 
         # Calculate price changes
         changes = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
@@ -307,6 +311,8 @@ class RSICalculator:
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
 
+        if not math.isfinite(rsi):
+            return None
         return round(rsi, 1)
 
 
@@ -1080,11 +1086,16 @@ def screen_value_dividend_stocks(
         rsi = None
         if historical_prices and len(historical_prices) >= 20:
             # Prices come newest first, reverse for RSI calculation
-            prices = [p.get("close", 0) for p in reversed(historical_prices)]
+            prices = [read_price(p, "close") for p in reversed(historical_prices)]
+            if any(price is None for price in prices):
+                print("  ⚠️  RSI unavailable: missing or invalid close data", file=sys.stderr)
+                continue
             rsi = rsi_calc.calculate_rsi(prices, period=14)
 
         if rsi is None:
-            print("  ⚠️  RSI calculation failed (insufficient price data)", file=sys.stderr)
+            print(
+                "  ⚠️  RSI calculation failed (insufficient or invalid price data)", file=sys.stderr
+            )
             continue
 
         # Store RSI for later filtering
