@@ -1844,11 +1844,12 @@ def test_public_fetch_undecodable_body_is_decode_error(monkeypatch):
 
 
 def test_public_fetch_nul_byte_body_never_aborts(monkeypatch):
-    # Python >= 3.11 parses NUL; older csv raises. Either way no exception escapes.
+    # Reject NUL explicitly even when the Python CSV parser would accept it.
     _patch_get(monkeypatch, _FakeResponse(200, b"a,b\n1,\x002\n"))
     result = _public_fetch()
     assert result.status == 200
-    assert result.rows is not None or [a.code for a in result.extra_anomalies] == ["parse_error"]
+    assert result.rows is None
+    assert [a.code for a in result.extra_anomalies] == ["parse_error"]
 
 
 def test_public_fetch_oversized_field_is_parse_error(monkeypatch):

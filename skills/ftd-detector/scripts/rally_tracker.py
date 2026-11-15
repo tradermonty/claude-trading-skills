@@ -3,7 +3,7 @@
 FTD Detector - Rally Tracker (State Machine)
 
 Implements a state machine for tracking market correction → rally attempt → FTD sequence.
-Supports dual-index tracking (S&P 500 + NASDAQ/QQQ).
+Supports dual-index tracking (S&P 500 + NASDAQ Composite or explicit ETF proxy).
 
 States:
   NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
@@ -13,7 +13,7 @@ States:
 O'Neil's FTD Rules:
 - Swing low: 3%+ decline from recent high with 3+ down days
 - Day 1: first up close (or close in top 50% of range) after swing low
-- Day 2-3: close must not breach Day 1 intraday low
+- Day 2 onward: intraday low must not breach the recorded Day 1 low
 - Day 4-10: FTD requires >=1.25% gain on volume > previous day
 
 Data gaps (issue #655): a missing or non-finite close/volume is never read as 0
@@ -27,6 +27,7 @@ from enum import Enum
 from typing import Optional
 
 from _price_bars import find_bar_gaps, read_price
+from ftd_lifecycle import assess_lifecycle
 
 
 class MarketState(Enum):
@@ -161,13 +162,13 @@ def _find_all_swing_lows(history: list[dict], max_count: int = 6) -> list[dict]:
     return results
 
 
-def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
+def track_rally_attempt(history: list[dict], swing_low_idx: int, *, restarted=False) -> dict:
     """
     Track rally attempt starting after swing low.
 
     Day 1: First up close OR close in top 50% of day's range after swing low.
-    Day 2-3: Close must not breach Day 1 intraday low.
-    Invalidation: Close below swing low resets the attempt.
+    Every subsequent session must not undercut the Day 1 intraday low.
+    Invalidation: an intraday breach of the explicit Day 1 low fails the attempt.
 
     Args:
         history: Daily OHLCV in chronological order
@@ -210,8 +211,9 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
         prev_close = history[i - 1]["close"]
 
         # Check invalidation first: close below swing low
-        if curr_close < swing_low_price:
+        if curr_close < swing_low_price and not restarted:
             result["invalidated"] = True
+            result["restart_idx"] = i
             result["invalidation_reason"] = (
                 f"Close ${curr_close:.2f} below swing low ${swing_low_price:.2f} "
                 f"on {history[i].get('date', 'N/A')}"
@@ -238,7 +240,10 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
     if day1_idx is None:
         return result
 
-    day1_low = _low_or_close(history[day1_idx])
+    day1_low = read_price(history[day1_idx], "low")
+    if day1_low is None:
+        result.update(data_gap=True, reason="Data gap: Day 1 low unavailable")
+        return result
     result["day1_idx"] = day1_idx
     result["day1_date"] = history[day1_idx].get("date", "N/A")
     result["day1_low"] = day1_low
@@ -261,22 +266,17 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
         curr_volume = history[i]["volume"]
         prev_volume = history[i - 1]["volume"]
 
-        # Invalidation: close below swing low
-        if curr_close < swing_low_price:
-            result["invalidated"] = True
-            result["invalidation_reason"] = (
-                f"Close ${curr_close:.2f} below swing low ${swing_low_price:.2f} "
-                f"on {history[i].get('date', 'N/A')}"
-            )
-            break
-
-        # Day 2-3 special check: close must not breach Day 1 intraday low
+        current_low = read_price(history[i], "low")
+        if current_low is None:
+            result.update(data_gap=True, reason="Data gap: Rally intraday low unavailable")
+            return result
         day_count += 1
-        if day_count <= 3 and curr_close < day1_low:
+        if current_low < day1_low:
             result["invalidated"] = True
+            result["restart_idx"] = i
             result["invalidation_reason"] = (
-                f"Day {day_count} close ${curr_close:.2f} below Day 1 low "
-                f"${day1_low:.2f} on {history[i].get('date', 'N/A')}"
+                f"Intraday low ${current_low:.2f} below Day 1 low ${day1_low:.2f} "
+                f"on {history[i].get('date', 'N/A')}"
             )
             break
 
@@ -335,8 +335,6 @@ def detect_ftd(history: list[dict], rally_data: dict) -> dict:
         "_ftd_idx": None,
     }
 
-    if rally_data.get("invalidated"):
-        return result
     if rally_data.get("data_gap"):
         result["data_gap"] = True
         result["reason"] = rally_data.get("reason", "Data gap in rally attempt")
@@ -429,6 +427,44 @@ def window_quality(gaps: dict) -> dict:
     }
 
 
+def track_current_rally(history: list[dict], swing_low_idx: int) -> dict:
+    """Restart after a failed session, without requiring a new closing-price pivot.
+
+    A failure session cannot also count as the new Day 1. Search begins on the
+    following session, using normal up-close/upper-half criteria. Retain failed
+    FTD evidence separately and never count qualifying days across the break.
+    """
+    attempt = track_rally_attempt(history, swing_low_idx)
+    previous = []
+    origin = swing_low_idx
+    resets = 0
+    while attempt.get("invalidated") and not attempt.get("data_gap"):
+        boundary = attempt.get("restart_idx")
+        if boundary is None or boundary <= origin or boundary >= len(history) - 1:
+            break
+        event = detect_ftd(history, attempt)
+        candidate = track_rally_attempt(history, boundary, restarted=True)
+        if candidate.get("day1_idx") is None and not candidate.get("data_gap"):
+            break
+        if event.get("ftd_detected"):
+            previous.append(
+                {
+                    "ftd": {key: value for key, value in event.items() if not key.startswith("_")},
+                    "status": "FTD_INVALIDATED",
+                    "day1_date": attempt["day1_date"],
+                    "day1_low": attempt["day1_low"],
+                    "failure_date": history[boundary].get("date"),
+                    "reason": attempt.get("invalidation_reason"),
+                }
+            )
+        attempt = candidate
+        origin = boundary
+        resets += 1
+    attempt["reset_count"] = resets
+    attempt["prior_ftd_events"] = previous
+    return attempt
+
+
 def analyze_single_index(history: list[dict], index_name: str) -> dict:
     """
     Run full FTD analysis for a single index.
@@ -497,8 +533,29 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     result["swing_low"] = most_recent_sl
     result["state"] = MarketState.CORRECTION.value
 
-    rally = track_rally_attempt(analysis_window, most_recent_sl["swing_low_idx"])
+    rally = track_current_rally(analysis_window, most_recent_sl["swing_low_idx"])
     result["rally_attempt"] = rally
+
+    if rally.get("data_gap"):
+        result.update(state=MarketState.NO_SIGNAL.value, data_gap=True, error=rally.get("reason"))
+        return result
+
+    historical_ftd = detect_ftd(analysis_window, rally)
+    if historical_ftd["ftd_detected"]:
+        result["ftd"] = historical_ftd
+        lifecycle = assess_lifecycle(analysis_window, historical_ftd["_ftd_idx"], rally["day1_low"])
+        result["ftd_lifecycle"] = lifecycle
+        if lifecycle.get("data_gap"):
+            result.update(
+                state=MarketState.NO_SIGNAL.value, data_gap=True, error=lifecycle["reason"]
+            )
+        else:
+            result["state"] = (
+                MarketState.FTD_INVALIDATED
+                if lifecycle["invalidated"]
+                else MarketState.FTD_CONFIRMED
+            ).value
+        return result
 
     if rally["invalidated"]:
         result["state"] = MarketState.RALLY_FAILED.value
@@ -510,24 +567,8 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
             result["state"] = MarketState.RALLY_ATTEMPT.value
         else:
             result["state"] = MarketState.FTD_WINDOW.value
-            ftd = detect_ftd(analysis_window, rally)
-            result["ftd"] = ftd
-            if ftd["ftd_detected"]:
-                # Inline invalidation check
-                ftd_idx = ftd.get("_ftd_idx")
-                if ftd_idx is not None:
-                    ftd_low = _low_or_close(analysis_window[ftd_idx])
-                    invalidated = any(
-                        analysis_window[j]["close"] < ftd_low
-                        for j in range(ftd_idx + 1, len(analysis_window))
-                    )
-                    if not invalidated:
-                        result["state"] = MarketState.FTD_CONFIRMED.value
-                    else:
-                        result["state"] = MarketState.FTD_INVALIDATED.value
-                else:
-                    result["state"] = MarketState.FTD_CONFIRMED.value
-            elif day_count > FTD_DAY_END:
+            result["ftd"] = historical_ftd
+            if day_count > FTD_DAY_END:
                 result["state"] = MarketState.RALLY_FAILED.value
 
     # If Step 1 found FTD context (confirmed or invalidated), return immediately
@@ -538,12 +579,17 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         return result
 
     # ── Step 2: Search older swing lows for a valid FTD ──
-    # Handles post-FTD pullback: new swing low exists but FTD low not breached
+    # Handles post-FTD pullback: new swing low exists but rally Day 1 low not breached
     current_state = result["state"]
 
     for older_sl in swing_lows[1:]:
         older_rally = track_rally_attempt(analysis_window, older_sl["swing_low_idx"])
-        if older_rally["invalidated"] or older_rally["day1_idx"] is None:
+        if older_rally.get("data_gap"):
+            result.update(
+                state=MarketState.NO_SIGNAL.value, data_gap=True, error=older_rally["reason"]
+            )
+            return result
+        if older_rally["day1_idx"] is None:
             continue
         if older_rally["current_day_count"] < FTD_DAY_START:
             continue
@@ -555,12 +601,15 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         ftd_idx = older_ftd.get("_ftd_idx")
         if ftd_idx is None:
             continue
-        ftd_low = _low_or_close(analysis_window[ftd_idx])
-        invalidated = any(
-            analysis_window[j]["close"] < ftd_low for j in range(ftd_idx + 1, len(analysis_window))
-        )
-
+        lifecycle = assess_lifecycle(analysis_window, ftd_idx, older_rally["day1_low"])
+        if lifecycle.get("data_gap"):
+            result.update(
+                state=MarketState.NO_SIGNAL.value, data_gap=True, error=lifecycle["reason"]
+            )
+            return result
+        invalidated = lifecycle["invalidated"]
         if not invalidated:
+            result["ftd_lifecycle"] = lifecycle
             # Valid FTD still active through post-FTD pullback
             result["swing_low"] = older_sl
             result["rally_attempt"] = older_rally
@@ -574,7 +623,27 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
                 MarketState.RALLY_ATTEMPT.value,
                 MarketState.FTD_WINDOW.value,
             )
+            if current_state in active_states:
+                previous = result["rally_attempt"].setdefault("prior_ftd_events", [])
+                if not any(
+                    item["ftd"].get("ftd_date") == older_ftd.get("ftd_date") for item in previous
+                ):
+                    previous.append(
+                        {
+                            "ftd": {
+                                key: value
+                                for key, value in older_ftd.items()
+                                if not key.startswith("_")
+                            },
+                            "status": "FTD_INVALIDATED",
+                            "day1_date": older_rally["day1_date"],
+                            "day1_low": older_rally["day1_low"],
+                            "failure_date": lifecycle.get("invalidation_date"),
+                            "reason": lifecycle.get("failure_basis"),
+                        }
+                    )
             if current_state not in active_states:
+                result["ftd_lifecycle"] = lifecycle
                 result["swing_low"] = older_sl
                 result["rally_attempt"] = older_rally
                 result["ftd"] = older_ftd
@@ -584,7 +653,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     return result
 
 
-def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> dict:
+def get_market_state(
+    sp500_history: list[dict], nasdaq_history: list[dict], nasdaq_label="NASDAQ"
+) -> dict:
     """
     Analyze both indices and produce a merged market state assessment.
 
@@ -595,7 +666,7 @@ def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> d
 
     Args:
         sp500_history: S&P 500 daily OHLCV, most recent first (API format)
-        nasdaq_history: NASDAQ/QQQ daily OHLCV, most recent first (API format)
+        nasdaq_history: NASDAQ Composite or explicit ETF proxy daily OHLCV, most recent first (API format)
 
     Returns:
         Combined market state with both index analyses
@@ -605,7 +676,7 @@ def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> d
     nasdaq_chrono = list(reversed(nasdaq_history)) if nasdaq_history else []
 
     sp500_analysis = analyze_single_index(sp500_chrono, "S&P 500")
-    nasdaq_analysis = analyze_single_index(nasdaq_chrono, "NASDAQ")
+    nasdaq_analysis = analyze_single_index(nasdaq_chrono, nasdaq_label)
 
     sp500_state = MarketState(sp500_analysis["state"])
     nasdaq_state = MarketState(nasdaq_analysis["state"])
@@ -643,11 +714,11 @@ def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> d
     if sp500_ftd:
         ftd_index = "S&P 500"
     if nasdaq_ftd:
-        ftd_index = "NASDAQ" if ftd_index is None else "Both"
+        ftd_index = nasdaq_label if ftd_index is None else "Both"
 
     # Also track invalidated FTD index for reporting
     if ftd_index is None and combined_state == MarketState.FTD_INVALIDATED.value:
-        for label, analysis in [("S&P 500", sp500_analysis), ("NASDAQ", nasdaq_analysis)]:
+        for label, analysis in [("S&P 500", sp500_analysis), (nasdaq_label, nasdaq_analysis)]:
             if analysis.get("state") == MarketState.FTD_INVALIDATED.value:
                 ftd_index = label
                 break

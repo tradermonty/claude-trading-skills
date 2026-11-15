@@ -27,7 +27,7 @@ def market_history(*, peak=100, confirmed=True, invalidated=False):
         ftd_gain_pct=2.1,
     )
     if invalidated:
-        bars.append(make_bar(bars[ftd_idx]["low"] - 0.1, volume=2_000_000))
+        bars.append(make_bar(min(b["low"] for b in bars) - 0.1, volume=2_000_000))
     session = date(2026, 3, 2)
     for bar in bars:
         bar["date"] = session.isoformat()
@@ -90,9 +90,9 @@ def test_main_writes_real_decision_reports(
         confirmed=scenario not in {"single", "window"},
         invalidated=scenario == "invalidated",
     )
-    histories = {"^GSPC": {"historical": sp500}, "QQQ": {"historical": qqq}}
+    histories = {"^GSPC": {"historical": sp500}, "^IXIC": {"historical": qqq}}
     original = copy.deepcopy(histories)
-    client = FixtureClient(histories, {"^GSPC": [{"price": 101.25}], "QQQ": [{"price": 405.5}]})
+    client = FixtureClient(histories, {"^GSPC": [{"price": 101.25}], "^IXIC": [{"price": 405.5}]})
     install_client(monkeypatch, tmp_path, client)
 
     ftd_detector.main()
@@ -101,16 +101,16 @@ def test_main_writes_real_decision_reports(
     assert Counter((call[0], call[1]) for call in client.calls) == Counter(
         {
             ("history", "^GSPC"): 1,
-            ("history", "QQQ"): 1,
+            ("history", "^IXIC"): 1,
             ("quote", "^GSPC"): 1,
-            ("quote", "QQQ"): 1,
+            ("quote", "^IXIC"): 1,
         }
     )
     assert histories == original
     assert report["metadata"]["api_calls"] == {"api_calls_made": 4, "cache_entries": 0}
-    assert report["metadata"]["index_prices"] == {"sp500": 101.25, "qqq": 405.5}
+    assert report["metadata"]["index_prices"] == {"sp500": 101.25, "nasdaq": 405.5}
     assert "**S&P 500:** $101.25" in markdown
-    assert "**QQQ:** $405.50" in markdown
+    assert "**Nasdaq Composite (^IXIC):** $405.50" in markdown
     assert report["market_state"]["combined_state"] == expected_state
     assert report["market_state"]["dual_confirmation"] is (scenario == "dual")
     assert report["quality_score"]["total_score"] == expected_score
@@ -126,7 +126,7 @@ def test_main_writes_real_decision_reports(
         assert report["sp500"]["ftd"]["ftd_detected"] is False
         assert report["quality_score"]["signal"] == "No FTD"
         assert "## FTD Signal" not in markdown
-        assert "Do not buy ahead of FTD confirmation" in markdown
+        assert "Rally attempt is not FTD confirmation" in markdown
     else:
         confirmed_index = report["nasdaq"] if scenario == "nasdaq_single" else report["sp500"]
         assert confirmed_index["ftd"]["ftd_date"] == "2026-03-30"
@@ -140,22 +140,22 @@ def test_main_writes_real_decision_reports(
         assert invalidation["days_after_ftd"] == 4
         assert report["post_ftd_distribution"]["distribution_count"] == 1
         assert report["quality_score"]["signal"] == "Failed/Invalidated"
-        assert report["quality_score"]["exposure_range"] == "0-25%"
-        assert "Reduce exposure back to defensive levels" in markdown
+        assert report["quality_score"]["exposure_range"] == "Not assessed"
+        assert "Recorded rally reference breached" in markdown
         assert "Aggressively increase equity exposure" not in markdown
     elif scenario == "dual":
-        assert "YES (S&P 500 + NASDAQ)" in markdown
+        assert "YES (S&P 500 + Nasdaq Composite (^IXIC))" in markdown
         assert report["ftd_invalidation"]["invalidated"] is False
     elif scenario == "single":
         assert "| **FTD Index** | S&P 500 |" in markdown
-        assert "YES (S&P 500 + NASDAQ)" not in markdown
+        assert "YES (S&P 500 + Nasdaq Composite (^IXIC))" not in markdown
     elif scenario == "nasdaq_single":
         assert report["sp500"]["ftd"]["ftd_detected"] is False
         assert report["nasdaq"]["ftd"]["ftd_detected"] is True
         assert report["market_state"]["dual_confirmation"] is False
-        assert report["market_state"]["ftd_index"] == "NASDAQ"
-        assert "| **FTD Index** | NASDAQ |" in markdown
-        assert "### NASDAQ/QQQ FTD" in markdown
+        assert report["market_state"]["ftd_index"] == "Nasdaq Composite (^IXIC)"
+        assert "| **FTD Index** | Nasdaq Composite (^IXIC) |" in markdown
+        assert "### Nasdaq Composite (^IXIC) FTD" in markdown
         assert "### S&P 500 FTD" not in markdown
 
 
@@ -166,8 +166,8 @@ def test_missing_quotes_use_latest_historical_close_in_real_reports(
     sp500 = market_history()
     qqq = market_history(peak=400) if qqq_available else []
     client = FixtureClient(
-        {"^GSPC": {"historical": sp500}, "QQQ": {"historical": qqq}},
-        {"^GSPC": None, "QQQ": []},
+        {"^GSPC": {"historical": sp500}, "^IXIC": {"historical": qqq}},
+        {"^GSPC": None, "^IXIC": []},
     )
     install_client(monkeypatch, tmp_path, client)
 
@@ -176,19 +176,19 @@ def test_missing_quotes_use_latest_historical_close_in_real_reports(
     report, markdown = read_reports(tmp_path)
     assert report["metadata"]["index_prices"] == {
         "sp500": sp500[0]["close"],
-        "qqq": qqq[0]["close"] if qqq else None,
+        "nasdaq": qqq[0]["close"] if qqq else None,
     }
     assert f"**S&P 500:** ${sp500[0]['close']:.2f}" in markdown
     output = capsys.readouterr().out
     assert output.count("Using historical close as current price") == 2
     if qqq_available:
-        assert f"**QQQ:** ${qqq[0]['close']:.2f}" in markdown
+        assert f"**Nasdaq Composite (^IXIC):** ${qqq[0]['close']:.2f}" in markdown
     else:
         assert "NASDAQ data unavailable, using S&P 500 only" in output
         assert report["nasdaq"]["current_price"] is None
         assert report["market_state"]["dual_confirmation"] is False
         assert report["market_state"]["ftd_index"] == "S&P 500"
-        assert "**QQQ:**" not in markdown
+        assert "**Nasdaq Composite (^IXIC):**" not in markdown
 
 
 @pytest.mark.parametrize("history", [None, {}, {"historical": []}])
@@ -221,3 +221,74 @@ def test_cli_parses_explicit_arguments(monkeypatch, tmp_path):
     args = ftd_detector.parse_arguments()
     assert args.api_key == "fixture-only"  # pragma: allowlist secret
     assert args.output_dir == str(tmp_path)
+
+
+@pytest.mark.parametrize("symbol", ["^IXIC", "QQQ"])
+def test_instrument_identity_keeps_price_and_volume_on_selected_series(
+    monkeypatch, tmp_path, symbol
+):
+    client = FixtureClient(
+        {
+            "^GSPC": {"historical": market_history()},
+            "^IXIC": {"historical": market_history(peak=1000)},
+            "QQQ": {"historical": market_history(peak=400)},
+        },
+        {"^GSPC": [{"price": 101}], "^IXIC": [{"price": 1001}], "QQQ": [{"price": 401}]},
+    )
+    install_client(monkeypatch, tmp_path, client)
+    monkeypatch.setattr(
+        "sys.argv", ["ftd_detector.py", "--output-dir", str(tmp_path), "--nasdaq-symbol", symbol]
+    )
+    ftd_detector.main()
+    report, markdown = read_reports(tmp_path)
+    identity = report["metadata"]["instruments"]["nasdaq"]
+    assert identity["symbol"] == symbol
+    assert identity["kind"] == ("index" if symbol == "^IXIC" else "etf_proxy")
+    assert report["metadata"]["index_prices"]["nasdaq"] == (1001 if symbol == "^IXIC" else 401)
+    assert all(call[1] in ("^GSPC", symbol) for call in client.calls)
+    assert identity["label"] in markdown
+    assert "Aggressively increase" not in markdown
+    assert report["quality_score"]["exposure_range"] == "Not assessed"
+
+
+def test_explicit_qqq_identity_reaches_all_public_fields(monkeypatch, tmp_path):
+    client = FixtureClient(
+        {
+            "^GSPC": {"historical": market_history(confirmed=False)},
+            "QQQ": {"historical": market_history(peak=400)},
+        },
+        {"^GSPC": [], "QQQ": []},
+    )
+    install_client(monkeypatch, tmp_path, client)
+    monkeypatch.setattr(
+        "sys.argv", ["ftd_detector.py", "--output-dir", str(tmp_path), "--nasdaq-symbol", "QQQ"]
+    )
+    ftd_detector.main()
+    report, markdown = read_reports(tmp_path)
+    label = report["metadata"]["instruments"]["nasdaq"]["label"]
+    assert report["market_state"]["ftd_index"] == label
+    assert report["quality_score"]["ftd_source"] == label
+    assert f"FTD Index** | {label}" in markdown
+
+
+def test_dual_report_exposes_both_day1_failure_levels(monkeypatch, tmp_path):
+    client = FixtureClient(
+        {
+            "^GSPC": {"historical": market_history()},
+            "^IXIC": {"historical": market_history(peak=200)},
+        },
+        {"^GSPC": [], "^IXIC": []},
+    )
+    install_client(monkeypatch, tmp_path, client)
+    ftd_detector.main()
+    report, markdown = read_reports(tmp_path)
+    levels = markdown.split("## Key Watch Levels", 1)[1].split("## Methodology", 1)[0]
+    for key, label in [("sp500", "S&P 500"), ("nasdaq", "Nasdaq Composite (^IXIC)")]:
+        section = levels.split(f"**{label}:**", 1)[1].split("\n\n", 1)[0]
+        rally = report[key]["rally_attempt"]
+        assert f"Rally Day 1: {rally['day1_date']}" in section
+        assert (
+            f"Day 1 Low (rally failure level; intraday breach): ${rally['day1_low']:.2f}" in section
+        )
+        assert "Swing Low:" in section
+        assert "FTD Day Low (warning level):" in section

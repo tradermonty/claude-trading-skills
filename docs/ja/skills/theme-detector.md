@@ -519,6 +519,14 @@ python3 skills/theme-detector/scripts/theme_detector.py [OPTIONS]
 
 ## 業種データ取得と失敗時の動作
 
+レポートの`metadata.finviz_mode`と
+`metadata.data_sources.finviz_industry_performance.source`には、実際に業種データを
+取得したソースを記録します。要求モードは`metadata.finviz_mode_requested`に残します。
+`data_mode`は業種ソースとFMPキーの有無を反映し、FMP取得の成功を保証しません。
+Eliteから公開データに切り替わった場合は、安全な`fallback_reason`と品質警告を
+JSON・Markdownに出力します。動的な代表銘柄選択は独立した取得方針と銘柄別ソースを維持します。
+`finviz_industries`は取得行数のままで、完全性を保証しません。有効な部分CSVは引き続き受理します。
+
 `skills/theme-detector/requirements.txt`を使って対応依存と固定カレンダーを
 インストールしてください。公開FINVIZはPython 3.10以上とfinvizfinance>=1.5.0が必要です。
 Python 3.9ではこの任意依存を省略し、Elite経路を利用できます。古いライブラリが
