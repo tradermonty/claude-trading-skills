@@ -61,3 +61,17 @@ source. Older-swing data gaps propagate before candidate skipping. Reference
 examples, Power Trend, common mistakes and companion-tool material were restored
 from the base, with only contradictory rules, unsupported rates and automatic
 sizing prescriptions revised.
+
+## Intraday reset and aggregate priority
+
+When a session fails the Day 1 reference, that session cannot also count as the
+new Day 1. Search restarts on the following session using the normal up-close
+or upper-half-close rule, without requiring a new closing-price local minimum.
+The new attempt has its own day count and reference; failed FTD evidence is
+retained in prior_ftd_events. Missing new-reference data stays unavailable.
+
+A historical failed FTD is not the active quality source when either index has
+a new RALLY_ATTEMPT or FTD_WINDOW. Its per-index evidence stays visible, while
+the aggregate retains the new rally state and no current confirmed-FTD source.
+Both indices' Day 1 date and low are displayed separately from closing swing
+lows and FTD-candle warning levels.

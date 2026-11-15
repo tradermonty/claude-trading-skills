@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FTD follow-up: restart rally tracking after an intraday reference breach without requiring a new closing pivot, preserve active unconfirmed rallies over historical failed events, and display both indices' Day 1 failure levels separately from swing/FTD warning levels (#765, #766).
+
 - Align packaged FTD reference instructions with all-session intraday Day 1 failure, distinct FTD-candle pressure, and unassessed portfolio sizing; remove residual unsupported rate/reliability claims and normalize per-index missing-lifecycle state to NO_SIGNAL (#765, #766).
 
 - FTD review follow-up: propagate older-rally low gaps, cap pressure quality at 59 for numeric consumers, select a valid FTD consistently across mixed index health, and propagate explicit instrument names. Restore unaffected methodology teaching material and preserve custom DD display names alongside canonical identity (#765, #766).

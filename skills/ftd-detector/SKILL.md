@@ -44,11 +44,11 @@ Detect Follow-Through Day (FTD) signals that confirm a market bottom, using an e
 
 | Aspect | FTD Detector | Market Top Detector |
 |--------|-------------|-------------------|
-| Focus | Bottom confirmation (offensive) | Top detection (defensive) |
+| Focus | Rally-event confirmation | Market deterioration assessment |
 | Trigger | Market correction (3%+ decline) | Market at/near highs |
-| Signal | Rally attempt → FTD → Re-entry | Distribution → Deterioration → Exit |
-| Score | 0-100 FTD quality | 0-100 top probability |
-| Action | When to increase exposure | When to reduce exposure |
+| Signal | Rally attempt → FTD → health assessment | Distribution → deterioration evidence |
+| Score | 0-100 heuristic FTD quality | Separate heuristic market-risk score |
+| Action | When technical confirmation appears | When deterioration appears |
 
 ---
 
@@ -88,7 +88,7 @@ Based on the market state, provide additional guidance:
 **If FTD Confirmed (score 60+):**
 - Suggest looking at leading stocks in proper bases
 - Reference CANSLIM screener for candidate stocks
-- Remind about position sizing and stops
+- State that portfolio sizing and stop placement are not assessed by this score
 
 **If Rally Attempt (Day 1-3):**
 - Advise patience, do not buy ahead of FTD
@@ -160,9 +160,9 @@ A missing or non-finite close/volume (or a non-positive close) is never read as 
 - Historical FTD examples (2020 March, 2022 October)
 
 ### `skills/ftd-detector/references/post_ftd_guide.md`
-- Post-FTD distribution day failure rates
+- Post-FTD distribution timing and heuristic penalties
 - Power Trend definition and conditions
-- Success vs failure pattern comparison
+- Qualitative favorable/adverse context (not calibrated outcome predictors)
 
 ### When to Load References
 - **First use:** Load `skills/ftd-detector/references/ftd_methodology.md` for full understanding

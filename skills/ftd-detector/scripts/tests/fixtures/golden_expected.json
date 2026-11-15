@@ -89,6 +89,8 @@
     "rally_attempt": {
       "day1_date": "2026-06-10",
       "day1_low": 94.9991,
+      "reset_count": 0,
+      "prior_ftd_events": [],
       "current_day_count": 11,
       "invalidated": false,
       "invalidation_reason": null
@@ -140,6 +142,8 @@
     "rally_attempt": {
       "day1_date": "2026-06-10",
       "day1_low": 379.9966,
+      "reset_count": 0,
+      "prior_ftd_events": [],
       "current_day_count": 11,
       "invalidated": false,
       "invalidation_reason": null

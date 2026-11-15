@@ -18,7 +18,7 @@
 
 > **Guidance:** Strong technical FTD; breadth, leadership and portfolio risk still require assessment.
 
-**Rally failure reference:** Day 1 low $95.00; intraday breach required.
+**Rally failure reference (S&P 500):** Day 1 low $95.00; intraday breach required.
 
 **Position sizing:** Not assessed. Breadth, leadership and portfolio risk are outside this technical score.
 
@@ -109,12 +109,16 @@
 ## Key Watch Levels
 
 **S&P 500:**
+- Rally Day 1: 2026-06-10
+- Day 1 Low (rally failure level; intraday breach): $95.00
 - Swing Low: $95.00 (2026-06-09)
 - FTD Day: 2026-06-16
 - FTD Day Low (warning level): $97.87
 - Lookback High: $100.00
 
 **QQQ (Nasdaq-100 ETF proxy):**
+- Rally Day 1: 2026-06-10
+- Day 1 Low (rally failure level; intraday breach): $380.00
 - Swing Low: $380.00 (2026-06-09)
 - FTD Day: 2026-06-16
 - FTD Day Low (warning level): $391.48
@@ -127,7 +131,7 @@
 This analysis uses William O'Neil's Follow-Through Day (FTD) methodology to confirm market bottoms:
 
 1. **Swing Low Detection:** 3%+ decline from recent high with 3+ down days
-2. **Rally Attempt:** Day 1 (first up close), Day 2-3 must hold Day 1 low
+2. **Rally Attempt:** Day 1 (up close or upper-half close); all subsequent sessions must hold its intraday low
 3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day
 4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, volume, dual-index, post-FTD health)
 5. **Post-FTD Monitoring:** Distribution day tracking, invalidation check, Power Trend confirmation

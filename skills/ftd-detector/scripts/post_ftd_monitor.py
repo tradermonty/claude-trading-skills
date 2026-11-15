@@ -465,6 +465,9 @@ def assess_post_ftd_health(
         ``data_quality`` per index. A power-trend-only gap leaves ``data_gap``
         False and shows up as ``power_trend: None`` with a reason.
     """
+    # Recompute primary-event health; never reuse a past evaluation's fields.
+    market_state.pop("post_ftd_distribution", None)
+    market_state.pop("ftd_invalidation", None)
     data_gap = bool(market_state.get("data_gap"))
     index_gap = any((market_state.get(key) or {}).get("data_gap") for key in ("sp500", "nasdaq"))
 

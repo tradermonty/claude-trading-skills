@@ -162,7 +162,7 @@ def _find_all_swing_lows(history: list[dict], max_count: int = 6) -> list[dict]:
     return results
 
 
-def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
+def track_rally_attempt(history: list[dict], swing_low_idx: int, *, restarted=False) -> dict:
     """
     Track rally attempt starting after swing low.
 
@@ -211,8 +211,9 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
         prev_close = history[i - 1]["close"]
 
         # Check invalidation first: close below swing low
-        if curr_close < swing_low_price:
+        if curr_close < swing_low_price and not restarted:
             result["invalidated"] = True
+            result["restart_idx"] = i
             result["invalidation_reason"] = (
                 f"Close ${curr_close:.2f} below swing low ${swing_low_price:.2f} "
                 f"on {history[i].get('date', 'N/A')}"
@@ -272,6 +273,7 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
         day_count += 1
         if current_low < day1_low:
             result["invalidated"] = True
+            result["restart_idx"] = i
             result["invalidation_reason"] = (
                 f"Intraday low ${current_low:.2f} below Day 1 low ${day1_low:.2f} "
                 f"on {history[i].get('date', 'N/A')}"
@@ -425,6 +427,44 @@ def window_quality(gaps: dict) -> dict:
     }
 
 
+def track_current_rally(history: list[dict], swing_low_idx: int) -> dict:
+    """Restart after a failed session, without requiring a new closing-price pivot.
+
+    A failure session cannot also count as the new Day 1. Search begins on the
+    following session, using normal up-close/upper-half criteria. Retain failed
+    FTD evidence separately and never count qualifying days across the break.
+    """
+    attempt = track_rally_attempt(history, swing_low_idx)
+    previous = []
+    origin = swing_low_idx
+    resets = 0
+    while attempt.get("invalidated") and not attempt.get("data_gap"):
+        boundary = attempt.get("restart_idx")
+        if boundary is None or boundary <= origin or boundary >= len(history) - 1:
+            break
+        event = detect_ftd(history, attempt)
+        candidate = track_rally_attempt(history, boundary, restarted=True)
+        if candidate.get("day1_idx") is None and not candidate.get("data_gap"):
+            break
+        if event.get("ftd_detected"):
+            previous.append(
+                {
+                    "ftd": {key: value for key, value in event.items() if not key.startswith("_")},
+                    "status": "FTD_INVALIDATED",
+                    "day1_date": attempt["day1_date"],
+                    "day1_low": attempt["day1_low"],
+                    "failure_date": history[boundary].get("date"),
+                    "reason": attempt.get("invalidation_reason"),
+                }
+            )
+        attempt = candidate
+        origin = boundary
+        resets += 1
+    attempt["reset_count"] = resets
+    attempt["prior_ftd_events"] = previous
+    return attempt
+
+
 def analyze_single_index(history: list[dict], index_name: str) -> dict:
     """
     Run full FTD analysis for a single index.
@@ -493,7 +533,7 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     result["swing_low"] = most_recent_sl
     result["state"] = MarketState.CORRECTION.value
 
-    rally = track_rally_attempt(analysis_window, most_recent_sl["swing_low_idx"])
+    rally = track_current_rally(analysis_window, most_recent_sl["swing_low_idx"])
     result["rally_attempt"] = rally
 
     if rally.get("data_gap"):
@@ -583,6 +623,25 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
                 MarketState.RALLY_ATTEMPT.value,
                 MarketState.FTD_WINDOW.value,
             )
+            if current_state in active_states:
+                previous = result["rally_attempt"].setdefault("prior_ftd_events", [])
+                if not any(
+                    item["ftd"].get("ftd_date") == older_ftd.get("ftd_date") for item in previous
+                ):
+                    previous.append(
+                        {
+                            "ftd": {
+                                key: value
+                                for key, value in older_ftd.items()
+                                if not key.startswith("_")
+                            },
+                            "status": "FTD_INVALIDATED",
+                            "day1_date": older_rally["day1_date"],
+                            "day1_low": older_rally["day1_low"],
+                            "failure_date": lifecycle.get("invalidation_date"),
+                            "reason": lifecycle.get("failure_basis"),
+                        }
+                    )
             if current_state not in active_states:
                 result["ftd_lifecycle"] = lifecycle
                 result["swing_low"] = older_sl

@@ -92,7 +92,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("")
     if inv.get("rally_low") is not None:
         lines.append(
-            f"**Rally failure reference:** Day 1 low {_money(inv.get('rally_low'))}; intraday breach required."
+            f"**Rally failure reference ({quality.get('ftd_source', 'source unavailable')}):** Day 1 low {_money(inv.get('rally_low'))}; intraday breach required."
         )
         lines.append("")
     lines.append(
@@ -312,11 +312,17 @@ def generate_markdown_report(analysis: dict, output_file: str):
     for label, data in [("S&P 500", sp500), (nasdaq_label, nasdaq)]:
         swing = data.get("swing_low", {})
         ftd_data = data.get("ftd", {})
+        rally = data.get("rally_attempt") or {}
 
-        if not swing and not ftd_data:
+        if not swing and not ftd_data and not rally:
             continue
 
         lines.append(f"**{label}:**")
+        if rally.get("day1_date"):
+            lines.append(f"- Rally Day 1: {rally['day1_date']}")
+            lines.append(
+                f"- Day 1 Low (rally failure level; intraday breach): {_money(rally.get('day1_low'))}"
+            )
         if swing:
             lines.append(f"- Swing Low: ${swing.get('price', 0):.2f} ({swing.get('date', 'N/A')})")
         if ftd_data and ftd_data.get("ftd_detected"):
@@ -338,7 +344,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
     )
     lines.append("")
     lines.append("1. **Swing Low Detection:** 3%+ decline from recent high with 3+ down days")
-    lines.append("2. **Rally Attempt:** Day 1 (first up close), Day 2-3 must hold Day 1 low")
+    lines.append(
+        "2. **Rally Attempt:** Day 1 (up close or upper-half close); all subsequent sessions must hold its intraday low"
+    )
     lines.append("3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day")
     lines.append(
         "4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, "

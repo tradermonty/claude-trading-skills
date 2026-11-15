@@ -312,6 +312,8 @@ def _serialize_index(idx_data: dict) -> dict:
         result["rally_attempt"] = {
             "day1_date": rally.get("day1_date"),
             "day1_low": rally.get("day1_low"),
+            "reset_count": rally.get("reset_count", 0),
+            "prior_ftd_events": rally.get("prior_ftd_events", []),
             "current_day_count": rally.get("current_day_count"),
             "invalidated": rally.get("invalidated"),
             "invalidation_reason": rally.get("invalidation_reason"),

@@ -269,3 +269,26 @@ def test_explicit_qqq_identity_reaches_all_public_fields(monkeypatch, tmp_path):
     assert report["market_state"]["ftd_index"] == label
     assert report["quality_score"]["ftd_source"] == label
     assert f"FTD Index** | {label}" in markdown
+
+
+def test_dual_report_exposes_both_day1_failure_levels(monkeypatch, tmp_path):
+    client = FixtureClient(
+        {
+            "^GSPC": {"historical": market_history()},
+            "^IXIC": {"historical": market_history(peak=200)},
+        },
+        {"^GSPC": [], "^IXIC": []},
+    )
+    install_client(monkeypatch, tmp_path, client)
+    ftd_detector.main()
+    report, markdown = read_reports(tmp_path)
+    levels = markdown.split("## Key Watch Levels", 1)[1].split("## Methodology", 1)[0]
+    for key, label in [("sp500", "S&P 500"), ("nasdaq", "Nasdaq Composite (^IXIC)")]:
+        section = levels.split(f"**{label}:**", 1)[1].split("\n\n", 1)[0]
+        rally = report[key]["rally_attempt"]
+        assert f"Rally Day 1: {rally['day1_date']}" in section
+        assert (
+            f"Day 1 Low (rally failure level; intraday breach): ${rally['day1_low']:.2f}" in section
+        )
+        assert "Swing Low:" in section
+        assert "FTD Day Low (warning level):" in section
