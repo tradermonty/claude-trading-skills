@@ -4,6 +4,15 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FTD follow-up: restart rally tracking after an intraday reference breach without requiring a new closing pivot, preserve active unconfirmed rallies over historical failed events, and display both indices' Day 1 failure levels separately from swing/FTD warning levels (#765, #766).
+
+- Align packaged FTD reference instructions with all-session intraday Day 1 failure, distinct FTD-candle pressure, and unassessed portfolio sizing; remove residual unsupported rate/reliability claims and normalize per-index missing-lifecycle state to NO_SIGNAL (#765, #766).
+
+- FTD review follow-up: propagate older-rally low gaps, cap pressure quality at 59 for numeric consumers, select a valid FTD consistently across mixed index health, and propagate explicit instrument names. Restore unaffected methodology teaching material and preserve custom DD display names alongside canonical identity (#765, #766).
+
+- FTD/DD: separate FTD-candle-low pressure from failure at the explicitly recorded rally Day 1 intraday low; retain event evidence and report missing lows as unavailable. Default FTD Nasdaq data to ^IXIC, label explicit QQQ ETF proxies, and stop deriving portfolio percentages from FTD quality. DD reports identify their ETF/index evidence basis (#765).
+
+- trader-memory-core: reject non-finite or boolean equity expected prices and missing or invalid report prices before attaching a position; preserve finite zero/negative prices and integer comparison precision. Equity CLI expected-price flags now reject non-finite values (#759).
 - FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
 - Raise the root development environment's Python floor from 3.11 to 3.11.5 and update soupsieve 2.9.2 to 4.1, fixing GHSA-4j63-6c4x-wfg4 and GHSA-mmhr-3c5m-f64f. soupsieve 4 requires Python 3.11.5, so the old floor kept a vulnerable 2.10 in the lock. Packaged skills keep their Python 3.9 floor.
 - edge-candidate-agent `auto_detect_candidates.py` now exits 2 with the `pip install -r <requirements.txt>` hint when pandas/numpy are missing; canslim-screener's optional Finviz fallback keeps degrading but its stderr message and `ImportError` now name the skill's requirements.txt instead of `pip install finviz`. With these, every missing-dependency path in `skills/*/scripts` exits 2 or degrades with a stderr hint, apart from trader-memory-core's documented exit 3 (#497).

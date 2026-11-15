@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     _valid_finite_number = thesis_store._valid_finite_number
     _valid_finite_positive = thesis_store._valid_finite_positive
     _validate_equity_actual_prices = thesis_store._validate_equity_actual_prices
+    _validate_equity_expected_price_match = thesis_store._validate_equity_expected_price_match
     _validate_equity_initial_stop = thesis_store._validate_equity_initial_stop
     _validate_equity_long_only = thesis_store._validate_equity_long_only
     logger = thesis_store.logger
@@ -64,8 +65,9 @@ def attach_position(
 
     Validates:
       1. Report mode must be "shares" (budget mode has no shares/value/risk).
-      2. If expected_entry is provided, must match report's entry_price.
-      3. If expected_stop is provided, must match report's stop_price.
+      2. If expected_entry is provided, both prices must be finite numbers
+         (non-bool) and match within 0.01; zero/negative prices are allowed.
+      3. The same check applies to expected_stop and report's stop_price.
 
     Raises:
         ValueError: If validation fails.
@@ -96,21 +98,9 @@ def attach_position(
     if not isinstance(params, dict):
         raise ValueError("Equity long-only position report parameters must be a mapping")
     _require_long_equity_direction(params.get("direction"), normalize=True)
+    _validate_equity_expected_price_match("entry", expected_entry, params.get("entry_price"))
+    _validate_equity_expected_price_match("stop", expected_stop, params.get("stop_price"))
     _validate_equity_initial_stop(params.get("entry_price"), params.get("stop_price"))
-
-    # Validate expected entry/stop
-    if expected_entry is not None:
-        actual_entry = params.get("entry_price")
-        if actual_entry is not None and abs(actual_entry - expected_entry) > 0.01:
-            raise ValueError(
-                f"Entry price mismatch: thesis expects {expected_entry}, report has {actual_entry}"
-            )
-    if expected_stop is not None:
-        actual_stop = params.get("stop_price")
-        if actual_stop is not None and abs(actual_stop - expected_stop) > 0.01:
-            raise ValueError(
-                f"Stop price mismatch: thesis expects {expected_stop}, report has {actual_stop}"
-            )
 
     thesis = _load_thesis(state_dir, thesis_id)
 

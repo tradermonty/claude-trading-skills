@@ -200,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     def _strict_finite_float(value: str) -> float:
-        """Argparse type= for --actual-price/--price (P1-3, user
+        """Argparse type= for --actual-price/--price and equity expected prices (P1-3, user
         independent review, money-critical): a finite float. Plain
         `type=float` accepts "inf"/"-inf"/"nan" as valid Python float
         literals — a NaN/Infinity price would otherwise persist into
@@ -264,10 +264,8 @@ def main(argv: list[str] | None = None) -> int:
         --price flags — see its docstring). An expected futures price is
         never legitimately 0 or negative, so this rejects those too,
         matching _validate_expected_price_match()'s own finite-AND-positive
-        requirement on the Python side. Does NOT touch attach-position's
-        (equity) --expected-entry/--expected-stop, which keep the original
-        plain type=float behavior — cross-attach and price-fail-open fixes
-        in this PR are scoped to futures only."""
+        requirement on the Python side. Equity --expected-entry/--expected-stop
+        use _strict_finite_float to preserve finite zero/negative prices."""
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:
@@ -417,8 +415,18 @@ def main(argv: list[str] | None = None) -> int:
     ap_p = sub.add_parser("attach-position", help="Attach a position-sizer report")
     ap_p.add_argument("thesis_id", help="Thesis ID")
     ap_p.add_argument("--report", required=True, help="Path to position-sizer JSON report")
-    ap_p.add_argument("--expected-entry", type=float, default=None, help="Expected entry price")
-    ap_p.add_argument("--expected-stop", type=float, default=None, help="Expected stop price")
+    ap_p.add_argument(
+        "--expected-entry",
+        type=_strict_finite_float,
+        default=None,
+        help="Expected finite entry price",
+    )
+    ap_p.add_argument(
+        "--expected-stop",
+        type=_strict_finite_float,
+        default=None,
+        help="Expected finite stop price",
+    )
 
     # attach-futures-position (futures-position-sizer SIZED report)
     afp_p = sub.add_parser(
