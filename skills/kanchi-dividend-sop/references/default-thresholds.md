@@ -99,3 +99,38 @@ using the otherwise-positive adjusted anchor. This differs from the previous
 one-off interpretation and is not a claim that adjusted earnings are negative.
 CET1 values use fraction units (0.125 = 12.5%); 12.5 itself is invalid/CAUTION,
 not silently rescaled. Issue #772's future input path must normalize source units.
+
+## Original-currency evidence gate (schema 4 follow-up)
+
+A material decrease in USD-converted payments is an observation, not proof of a
+board-declared cut. Every compared regular record must carry explicit
+`original_dividend` (finite positive number), `original_currency` (consistent
+three-letter code), and `original_dividend_source` (nonempty issuer/source
+reference). Generic quote/profile currency is never substituted for this evidence.
+The producer/caller is responsible for verifying that the cited source actually
+contains those issuer-currency amounts; the presence of a string is not an
+independent source-verification service.
+
+With complete evidence, material-cut and variable-policy calculations use the
+original-currency series (including semiannual annual-total comparison), while
+USD current yield still uses the original USD cash field and quote. A native
+cut hidden by FX remains a cut; an unchanged native rate with falling USD cash
+does not become a cut or a variable-payment policy. Other independent yield,
+suspension, or policy failures still apply.
+
+Without complete, consistent evidence, an observed material USD decrease sets
+`dividend_cut_currency_basis_unconfirmed`: Step 1 returns HOLD-REVIEW, the order
+blocker is exported, and CLEAN-PASS is unavailable. It does not assert
+`cut_flag=True` or hard-fail merely because of that converted-rate decline.
+Existing synthetic cut fixtures explicitly include issuer-currency evidence;
+their FAIL assertions remain active rather than being weakened.
+
+`dividend_basis.cut_confirmation_required` explicitly marks the review gate.
+`dividend_basis.cut_amount_basis` is `original_currency` or `unconfirmed`, and
+`original_dividend_currency` records the evidence unit; CSV exposes both fields.
+Schema 4 reserves the updated provenance/decision contract while the independent
+#769 / PR #775 schema-3 target-basis change is pending. When integrating both,
+retain schema 4 and regenerate the shared distributable from combined source.
+The standard provider path does not yet acquire these original-currency fields;
+it therefore routes ambiguous declines to manual review. This does not fetch or
+guess native amounts and does not implement #770's increase/TTM changes.

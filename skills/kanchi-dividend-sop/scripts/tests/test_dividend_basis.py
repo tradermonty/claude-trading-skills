@@ -24,6 +24,9 @@ def _series(start: date, n: int, amounts, step_days: int = 91, label="cash"):
             {
                 "date": (start + timedelta(days=step_days * i)).isoformat(),
                 "dividend": amt,
+                "original_dividend": amt,
+                "original_currency": "USD",
+                "original_dividend_source": "synthetic issuer declaration",
                 "label": label,
             }
         )

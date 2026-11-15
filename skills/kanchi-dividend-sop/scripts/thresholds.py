@@ -12,7 +12,7 @@ can detect and tolerate schema evolution.
 from __future__ import annotations
 
 # JSON output contract version (WS-1 / MJ-10).
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 # --- Step 1: yield floor + entry alpha ---
 DEFAULT_ALPHA_PP = 0.5

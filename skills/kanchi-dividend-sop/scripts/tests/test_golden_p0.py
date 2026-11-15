@@ -27,6 +27,9 @@ def _q(start: date, n: int, amounts, step=91):
             "date": (start + timedelta(days=step * i)).isoformat(),
             "dividend": (amounts[i] if isinstance(amounts, list) else amounts),
             "label": "cash",
+            "original_dividend": (amounts[i] if isinstance(amounts, list) else amounts),
+            "original_currency": "USD",
+            "original_dividend_source": "synthetic issuer declaration",
         }
         for i in range(n)
     ]
