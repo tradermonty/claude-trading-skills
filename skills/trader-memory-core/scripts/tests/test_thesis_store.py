@@ -767,7 +767,11 @@ def test_open_position_bad_date_format_fails(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
 
-    with pytest.raises(ValueError, match=r"'not-a-date' is not a 'date-time'"):
+    # Issue #760: _coerce_dt() widens the value before validation, so the
+    # schema error quotes the coerced string; the rejection itself stands.
+    with pytest.raises(
+        ValueError, match=r"'not-a-dateT00:00:00\+00:00' is not a 'date-time'"
+    ):
         thesis_store.open_position(tmp_path, tid, 150.0, "not-a-date", shares=10)
 
 
@@ -785,7 +789,12 @@ def test_format_checker_rejects_space_separator(tmp_path: Path):
     tid, _ = _register_and_get(tmp_path)
     thesis_store.transition(tmp_path, tid, "ENTRY_READY", "ok")
 
-    with pytest.raises(ValueError, match=r"'2026-03-14 09:00:00\+00:00' is not a 'date-time'"):
+    # Issue #760: _coerce_dt() widens the value before validation, so the
+    # schema error quotes the coerced string; the rejection itself stands.
+    with pytest.raises(
+        ValueError,
+        match=r"'2026-03-14 09:00:00\+00:00T00:00:00\+00:00' is not a 'date-time'",
+    ):
         thesis_store.open_position(tmp_path, tid, 150.0, "2026-03-14 09:00:00+00:00", shares=10)
 
 
@@ -798,6 +807,74 @@ def test_close_bad_date_format_fails(tmp_path: Path):
 
     with pytest.raises(ValueError):
         thesis_store.close(state_dir, tid, "manual", 160.0, "not-a-date")
+
+
+# -- Tests: date-only normalization (Issue #760) ------------------------------
+#
+# open_position()/close() must normalize a bare YYYY-MM-DD actual_date /
+# event_date to midnight UTC, as transition()/trim() and the CLI already do
+# via _coerce_dt(). Without it the date-time schema check rejects the
+# verbatim value at save time.
+
+
+def _backdated_entry_ready(tmp_path: Path):
+    """Register (IDEA @ 2026-05-01) and move to ENTRY_READY @ 2026-05-01,
+    so backdated May-2026 opens/closes stay status_history-monotonic."""
+    tid, _ = _register_and_get(tmp_path, _source_date="2026-05-01")
+    thesis_store.transition(
+        tmp_path, tid, "ENTRY_READY", "ok", event_date="2026-05-01T00:00:00+00:00"
+    )
+    return tid
+
+
+def test_open_position_normalizes_date_only_actual_date(tmp_path: Path):
+    """open_position with a date-only actual_date persists midnight UTC."""
+    tid = _backdated_entry_ready(tmp_path)
+    thesis = thesis_store.open_position(tmp_path, tid, 150.0, "2026-05-03", shares=10)
+
+    assert thesis["status"] == "ACTIVE"
+    assert thesis["entry"]["actual_date"] == "2026-05-03T00:00:00+00:00"
+
+
+def test_open_position_normalizes_date_only_event_date(tmp_path: Path):
+    """open_position with a date-only event_date stamps midnight UTC."""
+    tid = _backdated_entry_ready(tmp_path)
+    thesis = thesis_store.open_position(
+        tmp_path, tid, 151.0, "2026-05-03T10:00:00+00:00", shares=10,
+        event_date="2026-05-03",
+    )
+
+    assert thesis["status"] == "ACTIVE"
+    assert thesis["entry"]["actual_date"] == "2026-05-03T10:00:00+00:00"
+    assert thesis["status_history"][-1]["at"] == "2026-05-03T00:00:00+00:00"
+
+
+def test_close_normalizes_date_only_actual_date(tmp_path: Path):
+    """close() with a date-only actual_date persists midnight UTC."""
+    tid = _backdated_entry_ready(tmp_path)
+    thesis_store.open_position(tmp_path, tid, 150.0, "2026-05-03", shares=10)
+
+    thesis = thesis_store.close(tmp_path, tid, "target_hit", 160.0, "2026-05-10")
+
+    assert thesis["status"] == "CLOSED"
+    assert thesis["exit"]["actual_date"] == "2026-05-10T00:00:00+00:00"
+
+
+def test_close_normalizes_date_only_event_date(tmp_path: Path):
+    """close() with a date-only event_date stamps midnight UTC."""
+    tid = _backdated_entry_ready(tmp_path)
+    thesis_store.open_position(
+        tmp_path, tid, 150.0, "2026-05-03", shares=10, event_date="2026-05-03"
+    )
+
+    thesis = thesis_store.close(
+        tmp_path, tid, "target_hit", 160.0, "2026-05-10T10:00:00+00:00",
+        event_date="2026-05-10",
+    )
+
+    assert thesis["status"] == "CLOSED"
+    assert thesis["exit"]["actual_date"] == "2026-05-10T10:00:00+00:00"
+    assert thesis["status_history"][-1]["at"] == "2026-05-10T00:00:00+00:00"
 
 
 # -- Tests: transition terminal block (Step 2) --------------------------------
