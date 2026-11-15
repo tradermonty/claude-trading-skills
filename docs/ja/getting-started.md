@@ -140,7 +140,12 @@ python3 skills/canslim-screener/scripts/screen_canslim.py --api-key YOUR_KEY
 | Premium | $69/月 | $49.00/月 | 750 回/分 | 最大 30 年分の履歴 |
 | Ultimate | $139/月 | $99.00/月 | 3,000 回/分 | 全期間の履歴、グローバル市場 |
 
-無料プランは少数銘柄のスクリーニングに十分です。有料プランの上限は分あたりで示されています。料金ページにはほかの制限も載っているので、大きな実行の前に確認してください。
+無料プランは、Basic に含まれるエンドポイントを使う少数銘柄のスクリーニングには十分です。株価スクリーナーは Basic に含まれません（下記参照）。有料プランの上限は分あたりで示されています。料金ページにはほかの制限も載っているので、大きな実行の前に確認してください。
+
+プラン限定エンドポイント（2026-11 時点）:
+stock/company screener と economic calendar のエンドポイントは Basic キーで HTTP 402 を返しました。
+
+institutional-ownership（13F）データも同じキーでは利用できませんでした。データ自体が提供されない扱いで、HTTP エラーではありません。これらのエンドポイントに依存するスキルは、それらを含むプランが必要です。`site.financialmodelingprep.com/pricing-plans` を確認してください。
 
 ### FINVIZ Elite
 

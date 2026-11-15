@@ -12,6 +12,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 - FTD/DD: separate FTD-candle-low pressure from failure at the explicitly recorded rally Day 1 intraday low; retain event evidence and report missing lows as unavailable. Default FTD Nasdaq data to ^IXIC, label explicit QQQ ETF proxies, and stop deriving portfolio percentages from FTD quality. DD reports identify their ETF/index evidence basis (#765).
 
+- value-dividend-screener and dividend-growth-pullback-screener now report an FMP plan that refuses the stock-screener endpoint as a plan restriction (exit 1) instead of a market-looking zero-candidate result; the FINVIZ enrichment path reports quote access refusal separately. The FMP plans note records the observed Basic-key endpoint gating, and both skills' docs point there (#707).
 - trader-memory-core: reject non-finite or boolean equity expected prices and missing or invalid report prices before attaching a position; preserve finite zero/negative prices and integer comparison precision. Equity CLI expected-price flags now reject non-finite values (#759).
 
 - theme-detector: report the actual FINVIZ industry source after Elite-to-public fallback, retain the requested mode separately, and expose safe fallback reasons in metadata and report quality flags (#685).
