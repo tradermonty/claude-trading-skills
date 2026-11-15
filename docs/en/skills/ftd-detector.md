@@ -30,7 +30,7 @@ Detects Follow-Through Day (FTD) signals for market bottom confirmation using Wi
 
 ## 1. Overview
 
-FTD Detector identifies market bottom signals using William O'Neil's Follow-Through Day methodology. It tracks S&P 500 and NASDAQ/QQQ simultaneously through a state machine that progresses from correction to rally attempt to FTD confirmation, with post-FTD health monitoring including distribution day counting, invalidation detection, and power trend analysis.
+FTD Detector identifies market bottom signals using William O'Neil's Follow-Through Day methodology. It tracks S&P 500 and Nasdaq Composite (^IXIC), or an explicitly selected QQQ proxy simultaneously through a state machine that progresses from correction to rally attempt to FTD confirmation, with post-FTD health monitoring including distribution day counting, invalidation detection, and power trend analysis.
 
 ---
 
@@ -72,7 +72,7 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 ```
 
 The script will:
-1. Fetch S&P 500 and QQQ historical data (60+ trading days) from FMP API
+1. Fetch S&P 500 (^GSPC) and Nasdaq Composite (^IXIC) historical data (60+ trading days) from FMP API
 2. Fetch current quotes for both indices
 3. Run dual-index state machine (correction → rally → FTD detection)
 4. Assess post-FTD health (distribution days, invalidation, power trend)
@@ -86,7 +86,7 @@ The script will:
 Present the generated Markdown report to the user, highlighting:
 - Current market state (correction, rally attempt, FTD confirmed, etc.)
 - Quality score and signal strength
-- Recommended exposure level
+- Exposure not assessed; breadth, leadership and portfolio context are separate
 - Key watch levels (swing low, FTD day low)
 - Post-FTD health (distribution days, power trend)
 
@@ -95,7 +95,7 @@ Present the generated Markdown report to the user, highlighting:
 - `data_gap` (bool, top level and in `market_state`): true when an index's 60-session window or a post-FTD check hit a bad bar.
 - `data_quality`: per index, the window check (`window_sessions`, `bad_bars`, `bad_dates`, `latest_bad`), plus `sp500.power_trend_bad_bars` for the power-trend input (counted only when the power trend runs, 50+ bars). Each index block also has `error` when its analysis failed ("Insufficient data" or "Data gap: ...").
 
-A gapped index is reported as `NO_SIGNAL` with null prices, and no FTD logic runs for it. The run's `combined_state` is then reported as `NO_SIGNAL` with `data_gap: true`, meaning state unavailable rather than uptrend, with no FTD index and no post-FTD checks. The other index is never promoted, because the gap could hide the gapped index's own, possibly invalidated, FTD. Each index's own analysis stays in the JSON, and the Markdown headline reads "State unavailable (data gap)". If any index or a post-FTD check is gapped, the quality score is **Unavailable**: `total_score` 0 (always an int), signal `Unavailable: data gap`, exposure `0-25%`. The Markdown shows "Unavailable (reason)" and an Action Guidance line "Data gap: confirmation unavailable — do not increase exposure on this signal". A power-trend-only gap shows the power trend as Unavailable without changing the score. A zero volume counts as missing data (for ^GSPC and QQQ it is a provider gap), unlike earlier versions.
+A gapped index is reported as `NO_SIGNAL` with null prices, and no FTD logic runs for it. The run's `combined_state` is then reported as `NO_SIGNAL` with `data_gap: true`, meaning state unavailable rather than uptrend, with no FTD index and no post-FTD checks. The other index is never promoted, because the gap could hide the gapped index's own, possibly invalidated, FTD. Each index's own analysis stays in the JSON, and the Markdown headline reads "State unavailable (data gap)". If any index or a post-FTD check is gapped, the quality score is **Unavailable**: `total_score` 0 (always an int), signal `Unavailable: data gap`, exposure `Not assessed`. The Markdown shows "Unavailable (reason)" and an Action Guidance line "Data gap: confirmation unavailable — do not increase exposure on this signal". A power-trend-only gap shows the power trend as Unavailable without changing the score. A zero volume counts as missing data (for the selected index/ETF instruments it is a provider gap), unlike earlier versions.
 
 ### Phase 3: Contextual Guidance
 

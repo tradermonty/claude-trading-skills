@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FTD/DD: separate FTD-candle-low pressure from failure at the explicitly recorded rally Day 1 intraday low; retain event evidence and report missing lows as unavailable. Default FTD Nasdaq data to ^IXIC, label explicit QQQ ETF proxies, and stop deriving portfolio percentages from FTD quality. DD reports identify their ETF/index evidence basis (#765).
+
 - trader-memory-core: reject non-finite or boolean equity expected prices and missing or invalid report prices before attaching a position; preserve finite zero/negative prices and integer comparison precision. Equity CLI expected-price flags now reject non-finite values (#759).
 - FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
 - Raise the root development environment's Python floor from 3.11 to 3.11.5 and update soupsieve 2.9.2 to 4.1, fixing GHSA-4j63-6c4x-wfg4 and GHSA-mmhr-3c5m-f64f. soupsieve 4 requires Python 3.11.5, so the old floor kept a vulnerable 2.10 in the lock. Packaged skills keep their Python 3.9 floor.

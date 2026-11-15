@@ -26,6 +26,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     ms = analysis.get("market_state", {})
     sp500 = analysis.get("sp500", {})
     nasdaq = analysis.get("nasdaq", {})
+    nasdaq_label = (
+        metadata.get("instruments", {})
+        .get("nasdaq", {})
+        .get("label", "Nasdaq instrument unspecified")
+    )
     quality = analysis.get("quality_score", {})
     post_dist = analysis.get("post_ftd_distribution", {})
     inv = analysis.get("ftd_invalidation", {})
@@ -47,6 +52,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
     prices = metadata.get("index_prices", {})
     if prices.get("sp500"):
         lines.append(f"**S&P 500:** ${prices['sp500']:.2f}")
+    if prices.get("nasdaq"):
+        lines.append(f"**{nasdaq_label}:** ${prices['nasdaq']:.2f}")
     if prices.get("qqq"):
         lines.append(f"**QQQ:** ${prices['qqq']:.2f}")
     lines.append("")
@@ -80,6 +87,21 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append(data_quality_line)
         lines.append("")
 
+    if inv.get("warning"):
+        lines.append(
+            f"**Warning:** close below FTD-day low on {inv.get('warning_date')}; this alone does not fail the rally."
+        )
+        lines.append("")
+    if inv.get("rally_low") is not None:
+        lines.append(
+            f"**Rally failure reference:** Day 1 low {_money(inv.get('rally_low'))}; intraday breach required."
+        )
+        lines.append("")
+    lines.append(
+        "**Position sizing:** Not assessed. Breadth, leadership and portfolio risk are outside this technical score."
+    )
+    lines.append("")
+
     # ── Index Status Table ────────────────────────────────────────────────
     lines.append("---")
     lines.append("")
@@ -88,7 +110,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("| Index | State | Current | High | Correction | Swing Low |")
     lines.append("|-------|-------|---------|------|------------|-----------|")
 
-    for label, data in [("S&P 500", sp500), ("NASDAQ/QQQ", nasdaq)]:
+    for label, data in [("S&P 500", sp500), (nasdaq_label, nasdaq)]:
         state = data.get("state", "N/A")
         current = f"${data['current_price']:.2f}" if data.get("current_price") else "N/A"
         high = f"${data['lookback_high']:.2f}" if data.get("lookback_high") else "N/A"
@@ -105,7 +127,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
 
     # ── Rally Attempt Details ─────────────────────────────────────────────
     has_rally = False
-    for _label, data in [("S&P 500", sp500), ("NASDAQ/QQQ", nasdaq)]:
+    for _label, data in [("S&P 500", sp500), (nasdaq_label, nasdaq)]:
         rally = data.get("rally_attempt", {})
         if rally and rally.get("day1_date"):
             has_rally = True
@@ -116,7 +138,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("## Rally Attempt Details")
         lines.append("")
 
-        for label, data in [("S&P 500", sp500), ("NASDAQ/QQQ", nasdaq)]:
+        for label, data in [("S&P 500", sp500), (nasdaq_label, nasdaq)]:
             rally = data.get("rally_attempt", {})
             swing = data.get("swing_low", {})
             if not rally or not rally.get("day1_date"):
@@ -146,7 +168,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("## FTD Signal")
         lines.append("")
 
-        for label, ftd_data in [("S&P 500", sp_ftd), ("NASDAQ/QQQ", nq_ftd)]:
+        for label, ftd_data in [("S&P 500", sp_ftd), (nasdaq_label, nq_ftd)]:
             if not ftd_data or not ftd_data.get("ftd_detected"):
                 continue
 
@@ -211,9 +233,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
             if inv.get("invalidated"):
                 lines.append(
                     f"- **FTD INVALIDATED** on {inv.get('invalidation_date')} "
-                    f"(Day {inv.get('days_after_ftd')}, close "
-                    f"{_money(inv.get('invalidation_close'))} "
-                    f"below FTD low {_money(inv.get('ftd_low'))})"
+                    f"(Day {inv.get('days_after_ftd')}, intraday low "
+                    f"{_money(inv.get('invalidation_low'))} "
+                    f"below Day 1 low {_money(inv.get('rally_low'))})"
                 )
             elif "invalidated" in inv and inv["invalidated"] is None:
                 lines.append(f"- **FTD Valid:** Unavailable ({inv.get('reason', 'data gap')})")
@@ -249,7 +271,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("")
 
     exposure = quality.get("exposure_range", "N/A")
-    lines.append(f"**Recommended Exposure:** {exposure}")
+    lines.append(f"**Position Sizing:** {exposure}")
     lines.append("")
 
     if state_gap:
@@ -260,51 +282,18 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append(f"- Reason: {quality.get('reason', 'missing or invalid price data')}")
         lines.append("- Stay at defensive exposure until a clean data run confirms the state")
         lines.append("- Re-run once the data provider has backfilled the missing bars")
-    elif combined_state == "FTD_CONFIRMED" and total_score >= 80:
-        lines.append("- Aggressively increase equity exposure")
-        lines.append("- Buy leading stocks breaking out of proper bases")
-        lines.append("- Use FTD day's low as stop-loss reference")
-        lines.append("- Monitor for distribution days (early distribution = caution)")
-    elif combined_state == "FTD_CONFIRMED" and total_score >= 60:
-        lines.append("- Gradually increase exposure with each successful breakout")
-        lines.append("- Start with half positions, add on confirmation")
-        lines.append("- Use FTD day's low as invalidation level")
-        lines.append("- Watch for distribution within 3 days (bearish)")
     elif combined_state == "FTD_CONFIRMED":
-        lines.append("- Cautious exposure increase with tight stops")
-        lines.append("- Only buy highest-quality setups")
-        lines.append("- Small position sizes (25-50% of normal)")
-        lines.append("- Be prepared for FTD failure")
-    elif combined_state == "FTD_WINDOW":
-        lines.append("- WATCH MODE: FTD window is open (Day 4-10)")
-        lines.append("- Prepare buy lists of leading stocks in bases")
-        lines.append("- Do not buy ahead of FTD confirmation")
-        lines.append("- Monitor daily for qualifying FTD day")
-    elif combined_state == "RALLY_ATTEMPT":
-        lines.append("- Rally attempt in progress (Day 1-3)")
-        lines.append("- Too early to act - wait for Day 4+")
-        lines.append("- Prepare watchlists, research leaders")
-        lines.append("- Monitor for rally failure (close below swing low)")
-    elif combined_state == "CORRECTION":
-        lines.append("- Market in correction, no rally attempt yet")
-        lines.append("- Stay defensive, preserve capital")
-        lines.append("- Build watchlists of relative strength leaders")
-        lines.append("- Wait for first up day to start rally count")
+        lines.append("- FTD event remains confirmed; review warning evidence separately")
+        lines.append("- Monitor Day 1 low for rally failure and FTD-day low for pressure")
+        lines.append(
+            "- Evaluate breadth, leadership and portfolio constraints before any allocation decision"
+        )
     elif combined_state == "FTD_INVALIDATED":
-        lines.append("- FTD has been invalidated - signal failed")
-        lines.append("- Reduce exposure back to defensive levels")
-        lines.append("- Wait for new swing low and fresh rally attempt")
-        lines.append("- Do not try to anticipate next FTD")
-    elif combined_state == "RALLY_FAILED":
-        lines.append("- Rally attempt failed (broke below swing low)")
-        lines.append("- Remain in cash/defensive")
-        lines.append("- New swing low may form - reset cycle")
-        lines.append("- Patience is key; do not force entries")
+        lines.append("- Recorded rally reference breached; historical FTD event is retained")
+    elif combined_state in ("RALLY_ATTEMPT", "FTD_WINDOW"):
+        lines.append("- Rally attempt is not FTD confirmation; monitor the explicit reference low")
     else:
-        lines.append("- No correction detected - normal market conditions")
-        lines.append("- FTD monitoring not applicable in uptrend")
-        lines.append("- Focus on individual stock setups")
-        lines.append("- Use Market Top Detector for defensive signals")
+        lines.append("- No active confirmed FTD is established by this model")
 
     lines.append("")
 
@@ -314,7 +303,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("## Key Watch Levels")
     lines.append("")
 
-    for label, data in [("S&P 500", sp500), ("NASDAQ/QQQ", nasdaq)]:
+    for label, data in [("S&P 500", sp500), (nasdaq_label, nasdaq)]:
         swing = data.get("swing_low", {})
         ftd_data = data.get("ftd", {})
 
@@ -327,7 +316,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         if ftd_data and ftd_data.get("ftd_detected"):
             lines.append(f"- FTD Day: {ftd_data.get('ftd_date', 'N/A')}")
             if ftd_data.get("ftd_low"):
-                lines.append(f"- FTD Day Low (invalidation level): ${ftd_data['ftd_low']:.2f}")
+                lines.append(f"- FTD Day Low (warning level): ${ftd_data['ftd_low']:.2f}")
         if data.get("lookback_high"):
             lines.append(f"- Lookback High: ${data['lookback_high']:.2f}")
         lines.append("")
@@ -367,8 +356,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("")
     lines.append(
         "**Disclaimer:** This analysis is for educational and informational purposes only. "
-        "Not investment advice. Follow-Through Days have approximately a 25% success rate "
-        "historically. Always use proper risk management and position sizing. "
+        "Not investment advice. FTD quality is a technical heuristic, not a success probability "
+        "or portfolio allocation. Assess breadth, leadership and portfolio constraints separately. "
         "Consult a financial advisor before making investment decisions."
     )
     lines.append("")

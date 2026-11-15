@@ -2,7 +2,7 @@
 
 **Generated:** 2026-11-13 09:30:00
 **S&P 500:** $101.25
-**QQQ:** $405.50
+**QQQ (Nasdaq-100 ETF proxy):** $405.50
 
 ---
 
@@ -13,10 +13,14 @@
 | **Current State** | 🟢 **FTD Confirmed** |
 | **Quality Score** | **100/100** |
 | **Signal** | Strong FTD |
-| **Exposure Guidance** | 75-100% |
+| **Exposure Guidance** | Not assessed |
 | **Dual Confirmation** | YES (S&P 500 + NASDAQ) |
 
-> **Guidance:** Aggressively increase exposure to 75-100%.
+> **Guidance:** Strong technical FTD; breadth, leadership and portfolio risk still require assessment.
+
+**Rally failure reference:** Day 1 low $95.00; intraday breach required.
+
+**Position sizing:** Not assessed. Breadth, leadership and portfolio risk are outside this technical score.
 
 ---
 
@@ -25,7 +29,7 @@
 | Index | State | Current | High | Correction | Swing Low |
 |-------|-------|---------|------|------------|-----------|
 | S&P 500 | FTD_CONFIRMED | $99.35 | $100.00 | -0.7% | 2026-06-09 ($95.00) |
-| NASDAQ/QQQ | FTD_CONFIRMED | $397.39 | $400.00 | -0.7% | 2026-06-09 ($380.00) |
+| QQQ (Nasdaq-100 ETF proxy) | FTD_CONFIRMED | $397.39 | $400.00 | -0.7% | 2026-06-09 ($380.00) |
 
 ---
 
@@ -37,7 +41,7 @@
 - **Rally Day 1:** 2026-06-10
 - **Current Day Count:** 11
 
-### NASDAQ/QQQ
+### QQQ (Nasdaq-100 ETF proxy)
 
 - **Swing Low:** 2026-06-09 ($380.00, -5.0% decline)
 - **Rally Day 1:** 2026-06-10
@@ -56,7 +60,7 @@
 | **Price Gain** | +2.10% (strong) |
 | **Volume** | Above 50-day avg |
 
-### NASDAQ/QQQ FTD
+### QQQ (Nasdaq-100 ETF proxy) FTD
 
 | Metric | Value |
 |--------|-------|
@@ -94,12 +98,11 @@
 
 ## Action Guidance
 
-**Recommended Exposure:** 75-100%
+**Position Sizing:** Not assessed
 
-- Aggressively increase equity exposure
-- Buy leading stocks breaking out of proper bases
-- Use FTD day's low as stop-loss reference
-- Monitor for distribution days (early distribution = caution)
+- FTD event remains confirmed; review warning evidence separately
+- Monitor Day 1 low for rally failure and FTD-day low for pressure
+- Evaluate breadth, leadership and portfolio constraints before any allocation decision
 
 ---
 
@@ -108,13 +111,13 @@
 **S&P 500:**
 - Swing Low: $95.00 (2026-06-09)
 - FTD Day: 2026-06-16
-- FTD Day Low (invalidation level): $97.87
+- FTD Day Low (warning level): $97.87
 - Lookback High: $100.00
 
-**NASDAQ/QQQ:**
+**QQQ (Nasdaq-100 ETF proxy):**
 - Swing Low: $380.00 (2026-06-09)
 - FTD Day: 2026-06-16
-- FTD Day Low (invalidation level): $391.48
+- FTD Day Low (warning level): $391.48
 - Lookback High: $400.00
 
 ---
@@ -135,4 +138,4 @@ For detailed methodology, see `references/ftd_methodology.md`.
 
 ---
 
-**Disclaimer:** This analysis is for educational and informational purposes only. Not investment advice. Follow-Through Days have approximately a 25% success rate historically. Always use proper risk management and position sizing. Consult a financial advisor before making investment decisions.
+**Disclaimer:** This analysis is for educational and informational purposes only. Not investment advice. FTD quality is a technical heuristic, not a success probability or portfolio allocation. Assess breadth, leadership and portfolio constraints separately. Consult a financial advisor before making investment decisions.

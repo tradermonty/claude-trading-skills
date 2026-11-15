@@ -480,7 +480,7 @@ def test_main_symbols_filter_selects_configured_index(monkeypatch, tmp_path):
     payload, _ = read_report(out)
     results = payload["market_distribution_state"]["index_results"]
     assert [r["symbol"] for r in results] == ["SPY"]
-    assert results[0]["benchmark_name"] == "S&P500 Proxy"
+    assert results[0]["benchmark_name"] == "SPY (S&P 500 ETF proxy)"
     assert payload["market_distribution_state"]["primary_signal_symbol"] == "SPY"
 
 
@@ -599,7 +599,8 @@ def test_main_config_file_override_and_key_redacted_in_report(monkeypatch, tmp_p
     assert client.requested == [("QQQ", 75)]
     payload, json_path = read_report(out)
     assert (
-        payload["market_distribution_state"]["index_results"][0]["benchmark_name"] == "Custom Bench"
+        payload["market_distribution_state"]["index_results"][0]["benchmark_name"]
+        == "QQQ (Nasdaq-100 ETF proxy; not Nasdaq Composite)"
     )
     assert payload["portfolio_action"]["current_exposure_pct"] == 80
     # config-supplied key must never reach the written artifacts

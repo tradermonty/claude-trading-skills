@@ -35,7 +35,7 @@ def _load(monkeypatch, skill: str, module: str, local_deps: tuple[str, ...] = ()
 
 @pytest.fixture
 def ftd_monitor(monkeypatch):
-    return _load(monkeypatch, "ftd-detector", "post_ftd_monitor", ("_price_bars",))
+    return _load(monkeypatch, "ftd-detector", "post_ftd_monitor", ("_price_bars", "ftd_lifecycle"))
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def test_druckenmiller_and_exposure_coach_read_gap_as_no_confirmation(
     assert signal["state"] == "DATA_GAP"
     assert signal["quality_score"] == 0
     assert signal["post_ftd_distribution_count"] == 0
-    assert signal["exposure_range"] == "0-25%"
+    assert signal["exposure_range"] == "Not assessed"
     bottom = scorer.calculate_bottom_confirmation({"ftd_detector": signal})
     # DATA_GAP scores as low as RALLY_FAILED, below FTD_INVALIDATED (15)
     assert bottom == 10
