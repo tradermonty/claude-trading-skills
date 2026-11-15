@@ -73,8 +73,8 @@ def test_golden_ori_special_not_variable():
     assert row["verdict"] != "FAIL"  # not wrongly killed as variable
 
 
-# --- CMCSA: 2026 freeze + strong safety -> CONDITIONAL-PASS (income cash-cow) ---
-def test_golden_cmcsa_freeze_conditional_pass():
+# --- Freeze safety remains valid, but an unavailable regular entry basis blocks orders. ---
+def test_golden_cmcsa_freeze_with_unavailable_regular_entry_basis():
     hist = _q(date(2022, 3, 1), 13, 0.33)  # multi-year flat
     row = _verdict(
         ticker="CMCSA",
@@ -92,7 +92,10 @@ def test_golden_cmcsa_freeze_conditional_pass():
         event_scan=_CLEAN,
     )
     assert row["dividend_basis"]["freeze_flag"] is True
-    assert row["verdict"] == "CONDITIONAL-PASS"
+    assert row["verdict"] == "HOLD-REVIEW"
+    assert row["target_withheld_reason"] == "regular_only_average_unavailable"
+    assert row["buy_target_price"] is None
+    assert row["t1_blocked"]
 
 
 # --- MKC: pending mega-merger -> HOLD-REVIEW + T1 blocked ---

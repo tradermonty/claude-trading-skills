@@ -236,7 +236,7 @@ def build_entry_row(
     # profile.lastDiv (which is a trailing/TTM figure that lagged the latest
     # declared raise -> defect D5 -- and silently bundled specials -> D4).
     basis = None
-    if dividend_history:
+    if dividend_history is not None:
         basis = analyze_dividends(
             dividend_history,
             price,
@@ -254,6 +254,23 @@ def build_entry_row(
     yields_5y = normalize_metrics_yields(key_metrics, max_points=5)
     avg_yield_5y_pct_raw = average(yields_5y)
     avg_yield_5y_pct = round(avg_yield_5y_pct_raw, 2) if avg_yield_5y_pct_raw is not None else None
+
+    # Provider annual ratios have no regular/special split or matching price
+    # evidence. Absence of a detected special in a partial history is not proof.
+    provider_avg_yield = avg_yield_5y_pct
+    numerator_basis = (
+        "regular_only"
+        if (basis is not None and basis.latest_declared_annualized is not None)
+        else "provider_total_unverified"
+    )
+    target_withheld_reason = None
+    if basis is not None:
+        target_withheld_reason = (
+            "regular_only_average_unavailable"
+            if numerator_basis == "regular_only"
+            else "regular_dividend_unavailable"
+        )
+        avg_yield_5y_pct = None
 
     target_yield_pct = (
         round(avg_yield_5y_pct + alpha_pp, 2) if avg_yield_5y_pct is not None else None
@@ -286,8 +303,16 @@ def build_entry_row(
     elif len(yields_5y) < 5:
         notes.append(f"avg_5y_yield_points={len(yields_5y)}")
 
+    if target_withheld_reason:
+        notes.append(target_withheld_reason)
+
     row: dict[str, Any] = {
         "ticker": ticker,
+        "annual_dividend_basis": numerator_basis,
+        "historical_yield_basis": "provider_total_unverified",
+        "yield_basis": "unavailable" if target_withheld_reason else "provider_total_unverified",
+        "target_withheld_reason": target_withheld_reason,
+        "provider_avg_5y_yield_pct": provider_avg_yield,
         "signal": signal,
         "price": round(price, 2) if price is not None else None,
         "annual_dividend_per_share": round(annual_dividend, 4)
@@ -299,7 +324,8 @@ def build_entry_row(
         "target_yield_pct": target_yield_pct,
         "buy_target_price": buy_target_price,
         "drop_needed_pct": drop_needed_pct,
-        "yield_observation_count": len(yields_5y),
+        "yield_observation_count": 0 if target_withheld_reason else len(yields_5y),
+        "provider_yield_observation_count": len(yields_5y),
         "notes": notes,
     }
 
@@ -342,6 +368,8 @@ def build_entry_row(
             notes.append("floor_borderline")
 
     pre_order_blockers: list[str] = []
+    if target_withheld_reason:
+        pre_order_blockers.append(target_withheld_reason)
     if basis is not None:
         # freeze_flag is intentionally NOT a blocker here: its disposition
         # (CONDITIONAL-PASS vs HOLD-REVIEW) is decided by synthesize_verdict
@@ -429,7 +457,7 @@ def build_entry_row(
         pre_order_blockers=sorted(set(pre_order_blockers)),
     )
     row["verdict"] = final.verdict
-    row["t1_blocked"] = final.t1_blocked
+    row["t1_blocked"] = final.t1_blocked or bool(target_withheld_reason)
     row["verdict_reasons"] = final.reasons
     row["provenance"] = {
         "price_source": "fmp_quote" if quote else None,
@@ -511,6 +539,17 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
             )
         )
 
+    for row in rows:
+        if row.get("target_withheld_reason"):
+            lines.extend(
+                [
+                    "",
+                    f"- {row['ticker']}: target withheld: "
+                    f"`{row['target_withheld_reason']}`; numerator "
+                    f"`{row['annual_dividend_basis']}`, historical average "
+                    f"`{row['historical_yield_basis']}`.",
+                ]
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -538,6 +577,12 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
         "buy_target_price",
         "drop_needed_pct",
         "yield_observation_count",
+        "annual_dividend_basis",
+        "historical_yield_basis",
+        "yield_basis",
+        "target_withheld_reason",
+        "provider_avg_5y_yield_pct",
+        "provider_yield_observation_count",
         "notes",
     ]
 
