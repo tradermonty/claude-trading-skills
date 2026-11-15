@@ -257,7 +257,9 @@ def analyze_dividends(
     # --- freeze / cut via year-over-year per-pay RATE (frequency-independent,
     #     robust to rolling-window pay-count drift; v2.1 R-2) ---
     eps = DIVIDEND_EQUALITY_EPS
-    cut_flag = False
+    cut_flag = len(regular) >= 2 and regular[-1][1] < regular[-2][1] - eps
+    if cut_flag:
+        reasons.append("sequential_regular_rate_cut")
     freeze_flag = False
     cur_rate = regular[-1][1]
     prior_idx = len(regular) - 1 - ppy if ppy else -1

@@ -49,8 +49,8 @@ SPECIAL_REVERT_MULTIPLE = 1.2
 # payer (e.g. CALM pays ~1/3 of net income).
 VARIABLE_POLICY_COV = 0.35
 
-# Equality epsilon for freeze/cut comparison of annualized dividend totals
-# (absolute USD per share). Below this, two annual totals are "equal".
+# Equality epsilon for freeze/cut comparisons of regular per-payment rates
+# (absolute USD per share). Differences within this tolerance are "equal".
 DIVIDEND_EQUALITY_EPS = 0.005
 
 # Grace period (days) added to the inferred increase cadence before a
@@ -69,6 +69,8 @@ FCF_PAYOUT_MAX = 0.80
 FCF_PAYOUT_HIGH_RISK = 1.00
 
 # Sector-module thresholds (5th-review F2 — deepen bank/utility/insurer).
+# Screening floor, not an issuer-specific regulatory compliance test. Fraction units.
+BANK_CET1_MIN = 0.07
 BANK_DEPOSIT_BETA_HIGH = 0.50  # deposit cost passes through fast -> margin risk
 UTILITY_FFO_DEBT_MIN = 0.13  # below this, regulated leverage is stretched
 INSURER_OP_EPS_PAYOUT_MAX = 0.85  # operating-EPS payout hard ceiling

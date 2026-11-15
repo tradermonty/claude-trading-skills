@@ -70,3 +70,9 @@ Use these as practical defaults:
 - High-yield bucket (REIT/telecom/utilities combined): `<= 35%`.
 
 Override only when user explicitly chooses a different policy.
+
+## Issue #768 safety guards
+
+- `BANK_CET1_MIN`: 0.07 (fraction units); below the screening floor is CAUTION, invalid/missing values also block CLEAN-PASS. This is not an issuer-specific regulatory requirement; see sector-step2-modules.md.
+- Latest regular payment falling by more than `DIVIDEND_EQUALITY_EPS` (0.005 USD per share) versus the immediately preceding regular payment sets `cut_flag`, even if the year-over-year rate grew. Specials are removed first; the year-over-year check remains.
+- Non-positive supplied EPS/consumer FCF yields HOLD-REVIEW, never a negative payout interpreted as safe. The utility FCF exemption is preserved.
