@@ -307,18 +307,18 @@ def test_invalidation_gap_makes_quality_unavailable(breaker, where):
     quality = market_state["quality_score"]
     assert quality["total_score"] == 0
     assert quality["signal"] == "Unavailable: data gap"
-    assert quality["exposure_range"] == "0-25%"
+    assert quality["exposure_range"] == "Not assessed"
     assert quality["breakdown"] == {}
     assert quality["data_gap"] is True
     assert "Data gap" in quality["guidance"]
 
 
-def test_invalidation_low_falls_back_to_close():
+def test_missing_ftd_low_is_unavailable():
     bars, ftd_idx = make_long_ftd_history(post_days=2)
     bars[ftd_idx]["low"] = math.nan
-    inv = check_ftd_invalidation(bars, ftd_idx)
-    assert inv["invalidated"] is False
-    assert inv["ftd_low"] == bars[ftd_idx]["close"]
+    inv = check_ftd_invalidation(bars, ftd_idx, rally_low=90)
+    assert inv["invalidated"] is None
+    assert inv["data_gap"] is True
 
 
 # --- 7. count_post_ftd_distribution ------------------------------------------------
@@ -414,7 +414,7 @@ def test_sp500_gapped_nasdaq_confirmed_is_unavailable():
     quality = market_state["quality_score"]
     assert quality["total_score"] == 0
     assert quality["signal"] == "Unavailable: data gap"
-    assert quality["exposure_range"] == "0-25%"
+    assert quality["exposure_range"] == "Not assessed"
     assert quality["data_gap"] is True
     assert "S&P 500" in quality["guidance"]
 
@@ -422,7 +422,7 @@ def test_sp500_gapped_nasdaq_confirmed_is_unavailable():
 def invalidated_history():
     """S&P FTD on day 5, then a close below the FTD low (test_ftd_detector pattern)."""
     bars, _, _, ftd_idx = make_rally_history(rally_days=8, ftd_day=5, ftd_gain_pct=2.1)
-    bars.append(make_bar(bars[ftd_idx]["low"] - 0.1, volume=2_000_000))
+    bars.append(make_bar(min(b["low"] for b in bars) - 0.1, volume=2_000_000))
     return assign_session_dates(bars)
 
 
@@ -437,16 +437,18 @@ def test_gap_never_raises_score_over_invalidated_sp500(breaker, field):
     """
     nq = dated_history(peak=400)
     healed = assess(invalidated_history(), copy.deepcopy(nq))
-    assert healed["combined_state"] == "FTD_INVALIDATED"
-    assert healed["quality_score"]["total_score"] == 0
-    assert healed["quality_score"]["signal"] == "Failed/Invalidated"
+    assert healed["combined_state"] == (
+        "FTD_CONFIRMED" if healed["nasdaq"]["state"] == "FTD_CONFIRMED" else "RALLY_ATTEMPT"
+    )
+    assert healed["quality_score"]["total_score"] > 0
+    assert healed["quality_score"]["ftd_source"] == "NASDAQ"
 
     gapped = assess(broken(invalidated_history(), 12, field, breaker), nq)
     quality = gapped["quality_score"]
     assert quality["total_score"] == 0
     assert quality["total_score"] <= healed["quality_score"]["total_score"]
     assert quality["signal"] == "Unavailable: data gap"
-    assert quality["exposure_range"] == "0-25%"
+    assert quality["exposure_range"] == "Not assessed"
     assert gapped["data_gap"] is True
 
 
@@ -490,7 +492,9 @@ def rally_attempt_history(peak=400):
 def test_gap_never_makes_headline_state_more_bullish(breaker, field, nasdaq, promoted):
     """Healed: S&P FTD_INVALIDATED wins. Gapped S&P used to promote NASDAQ's state."""
     healed = assess(invalidated_history(), nasdaq())
-    assert healed["combined_state"] == "FTD_INVALIDATED"
+    assert healed["combined_state"] == (
+        "FTD_CONFIRMED" if healed["nasdaq"]["state"] == "FTD_CONFIRMED" else "RALLY_ATTEMPT"
+    )
     assert healed["nasdaq"]["state"] == promoted
 
     gapped = assess(broken(invalidated_history(), 12, field, breaker), nasdaq())
@@ -527,7 +531,7 @@ def test_gapped_index_without_any_confirmation_is_unavailable(both):
     quality = market_state["quality_score"]
     assert quality["total_score"] == 0
     assert quality["signal"] == "Unavailable: data gap"
-    assert quality["exposure_range"] == "0-25%"
+    assert quality["exposure_range"] == "Not assessed"
     assert quality["data_gap"] is True
     assert market_state["data_gap"] is True
 
@@ -577,7 +581,9 @@ def test_quality_gate_on_selected_index_and_missing_invalidation():
         "nasdaq": {},
         "post_ftd_distribution": {"distribution_count": 0, "days_monitored": 3},
     }
-    # ftd_invalidation absent (FTD date not found): not a gap
+    # Missing lifecycle evidence is unavailable, never implicitly healthy.
+    assert calculate_ftd_quality_score(copy.deepcopy(base))["signal"] == "Unavailable: data gap"
+    base["ftd_invalidation"] = {"invalidated": False, "rally_low": 90}
     assert calculate_ftd_quality_score(copy.deepcopy(base))["total_score"] == 85
     flagged = copy.deepcopy(base)
     flagged["sp500"]["data_gap"] = True
@@ -597,7 +603,7 @@ def test_quality_gate_on_selected_index_and_missing_invalidation():
 
 
 @BREAKERS
-def test_day1_low_falls_back_to_close_for_breach_check(breaker):
+def test_missing_day1_low_is_unavailable(breaker):
     bars, _ = make_correction_history()
     sl = len(bars) - 1
     price = bars[sl]["close"]
@@ -606,8 +612,8 @@ def test_day1_low_falls_back_to_close_for_breach_check(breaker):
     bars.append(day1)
     bars.append(make_bar(price * 1.002))  # below Day-1 close, above swing low
     result = track_rally_attempt(bars, sl)
-    assert result["invalidated"] is True
-    assert result["day1_low"] == day1["close"]
+    assert result["data_gap"] is True
+    assert result["day1_low"] is None
 
 
 # --- functions without production callers ------------------------------------------

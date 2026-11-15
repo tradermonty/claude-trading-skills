@@ -5,6 +5,10 @@ description: Detect IBD-style Distribution Days for QQQ/SPY (close down at least
 
 # IBD Distribution Day Monitor
 
+## Instrument identity (#765)
+
+QQQ is a Nasdaq-100 ETF proxy, not the Nasdaq Composite (`^IXIC`). SPY is an ETF proxy, not `^GSPC`. DD counts use the named symbol's own price and volume; ETF counts are not official index counts. Select explicit symbols with `--symbols`; missing data must not trigger substitution or a mixed series. The risk classes and TQQQ policy are this tool's separate heuristics, not a calibrated FTD success probability (calibration remains #676).
+
 ## Purpose
 Detect IBD-style Distribution Days for major market ETFs (QQQ as Nasdaq proxy, SPY as S&P 500 proxy) and produce a daily market deterioration signal plus a TQQQ/QQQ exposure recommendation. Designed for post-market review.
 
