@@ -52,6 +52,9 @@ VARIABLE_POLICY_COV = 0.35
 # Equality epsilon for freeze/cut comparisons of regular per-payment rates
 # (absolute USD per share). Differences within this tolerance are "equal".
 DIVIDEND_EQUALITY_EPS = 0.005
+# Material cut screen; independent of the finer raise/freeze tolerance (#770).
+DIVIDEND_CUT_REL_TOL = 0.05
+DIVIDEND_CUT_LOOKBACK_DAYS = 365
 
 # Grace period (days) added to the inferred increase cadence before a
 # same-amount window is treated as a freeze rather than "just hasn't raised

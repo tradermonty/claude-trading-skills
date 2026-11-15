@@ -116,3 +116,52 @@ def test_cet1_floor_boundary():
             bank_metrics={"cet1": cet1, "cre_concentration": "low"},
         )
         assert a.safety_verdict == expected
+
+
+def dividend_fixture(amounts, days=91):
+    return [
+        {"date": (date(2023, 1, 1) + timedelta(days=days * i)).isoformat(), "dividend": value}
+        for i, value in enumerate(amounts)
+    ]
+
+
+@pytest.mark.parametrize("n", [1, 2, 3])
+def test_recent_cut_persists_through_flat_payments(n):
+    b = analyze_dividends(
+        dividend_fixture([0.25] * 4 + [0.4] + [0.35] * n), price=20.0, floor_pct=1.0
+    )
+    assert b.cut_flag
+    assert step1_decision(b, 1.0)[0] == "FAIL"
+
+
+def test_small_fx_like_decline_does_not_hard_fail_as_cut():
+    b = analyze_dividends(dividend_fixture([0.53] * 4 + [0.55, 0.53]), price=20.0, floor_pct=1.0)
+    assert not b.cut_flag
+    assert step1_decision(b, 1.0)[0] != "FAIL"
+
+
+def test_repeated_semiannual_interim_final_pattern_is_not_a_cut():
+    b = analyze_dividends(
+        dividend_fixture([0.4, 0.6] * 4 + [0.4], days=182), price=20.0, floor_pct=1.0
+    )
+    assert b.cadence == "semiannual"
+    assert not b.cut_flag
+    assert not b.variable_policy_flag
+    assert step1_decision(b, 1.0)[0] != "FAIL"
+
+
+@pytest.mark.parametrize("latest,cut", [(0.381, False), (0.38, False), (0.379, True)])
+def test_material_cut_relative_boundary(latest, cut):
+    b = analyze_dividends(dividend_fixture([0.25] * 4 + [0.4, latest]), price=20.0)
+    assert b.cut_flag is cut
+
+
+def test_cut_expires_outside_trailing_year_and_clears_on_recovery():
+    for amounts in ([0.25] * 4 + [0.4] + [0.35] * 6, [0.25] * 4 + [0.4, 0.35, 0.4]):
+        b = analyze_dividends(dividend_fixture(amounts), price=20.0)
+        assert not b.cut_flag
+
+
+def test_semiannual_material_annual_reduction_is_still_detected():
+    b = analyze_dividends(dividend_fixture([0.4, 0.6] * 4 + [0.3], days=182), price=20.0)
+    assert b.cut_flag

@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from thresholds import (
+    DIVIDEND_CUT_LOOKBACK_DAYS,
+    DIVIDEND_CUT_REL_TOL,
     DIVIDEND_EQUALITY_EPS,
     FLOOR_FRESHNESS_BAND_PP,
     FREEZE_GRACE_DAYS,
@@ -257,9 +259,25 @@ def analyze_dividends(
     # --- freeze / cut via year-over-year per-pay RATE (frequency-independent,
     #     robust to rolling-window pay-count drift; v2.1 R-2) ---
     eps = DIVIDEND_EQUALITY_EPS
-    cut_flag = len(regular) >= 2 and regular[-1][1] < regular[-2][1] - eps
+    # Keep a material reduction visible through subsequent flat payments.
+    # Semiannual interim/final payments can differ seasonally: compare their
+    # rolling annual sums instead of comparing the larger final with interim.
+    cutoff = regular[-1][0] - timedelta(days=DIVIDEND_CUT_LOOKBACK_DAYS)
+    if cadence == "semiannual":
+        recent_rates = [
+            regular[i - 1][1] + regular[i][1]
+            for i in range(1, len(regular))
+            if regular[i][0] >= cutoff
+        ]
+        current_rate = regular[-2][1] + regular[-1][1]
+    else:
+        recent_rates = [amount for day, amount in regular if day >= cutoff]
+        current_rate = regular[-1][1]
+    peak_rate = max(recent_rates)
+    cut_flag = current_rate < peak_rate * (1 - DIVIDEND_CUT_REL_TOL)
     if cut_flag:
         reasons.append("sequential_regular_rate_cut")
+        reasons.append("material_cut_below_trailing_year_peak")
     freeze_flag = False
     cur_rate = regular[-1][1]
     prior_idx = len(regular) - 1 - ppy if ppy else -1
@@ -268,7 +286,7 @@ def analyze_dividends(
         issuer_language and any(k in issuer_language.lower() for k in _MAINTAIN_KEYWORDS)
     )
     if prior_rate is not None:
-        if cur_rate < prior_rate - eps:
+        if cur_rate < prior_rate * (1 - DIVIDEND_CUT_REL_TOL):
             cut_flag = True
         elif abs(cur_rate - prior_rate) <= eps:
             cadence_days = {"monthly": 30, "quarterly": 91, "semiannual": 182}.get(cadence, 365)
