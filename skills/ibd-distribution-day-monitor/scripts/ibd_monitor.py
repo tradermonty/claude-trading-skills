@@ -334,14 +334,31 @@ def main(argv: list[str] | None = None) -> int:
 
     # Symbols / benchmark mapping
     indexes_cfg: list[dict] = config.get("indexes") or [
-        {"symbol": "QQQ", "benchmark_name": "Nasdaq Proxy"},
-        {"symbol": "SPY", "benchmark_name": "S&P500 Proxy"},
+        {"symbol": "QQQ", "benchmark_name": "QQQ (Nasdaq-100 ETF proxy; not Nasdaq Composite)"},
+        {"symbol": "SPY", "benchmark_name": "SPY (S&P 500 ETF proxy)"},
     ]
     if config.get("symbols_override"):
         wanted = {s.upper() for s in config["symbols_override"]}
         indexes_cfg = [i for i in indexes_cfg if i["symbol"].upper() in wanted] or [
             {"symbol": s, "benchmark_name": f"{s} proxy"} for s in config["symbols_override"]
         ]
+
+    # Known ETFs must never inherit an ambiguous index label from config.
+    identities = {
+        "QQQ": "QQQ (Nasdaq-100 ETF proxy; not Nasdaq Composite)",
+        "SPY": "SPY (S&P 500 ETF proxy)",
+        "^IXIC": "Nasdaq Composite (^IXIC)",
+        "^GSPC": "S&P 500 (^GSPC)",
+    }
+    indexes_cfg = [
+        dict(
+            item,
+            instrument_name=identities.get(
+                item["symbol"].upper(), item.get("benchmark_name", item["symbol"])
+            ),
+        )
+        for item in indexes_cfg
+    ]
 
     # FMP client
     api_key = resolve_api_key(args.api_key, config)
@@ -409,6 +426,7 @@ def main(argv: list[str] | None = None) -> int:
         "lookback_days": lookback,
         "symbols_requested": [i["symbol"] for i in indexes_cfg],
         "symbols_loaded": symbols_loaded,
+        "instrument_identity": indexes_cfg,
         "skipped_sessions": skipped_sessions_all,
         "audit_flags": sorted(set(aggregate_audit_flags)),
         "generated_at": generated_at,
