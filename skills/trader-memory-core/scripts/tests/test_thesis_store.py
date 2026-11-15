@@ -769,9 +769,7 @@ def test_open_position_bad_date_format_fails(tmp_path: Path):
 
     # Issue #760: _coerce_dt() widens the value before validation, so the
     # schema error quotes the coerced string; the rejection itself stands.
-    with pytest.raises(
-        ValueError, match=r"'not-a-dateT00:00:00\+00:00' is not a 'date-time'"
-    ):
+    with pytest.raises(ValueError, match=r"'not-a-dateT00:00:00\+00:00' is not a 'date-time'"):
         thesis_store.open_position(tmp_path, tid, 150.0, "not-a-date", shares=10)
 
 
@@ -840,7 +838,11 @@ def test_open_position_normalizes_date_only_event_date(tmp_path: Path):
     """open_position with a date-only event_date stamps midnight UTC."""
     tid = _backdated_entry_ready(tmp_path)
     thesis = thesis_store.open_position(
-        tmp_path, tid, 151.0, "2026-05-03T10:00:00+00:00", shares=10,
+        tmp_path,
+        tid,
+        151.0,
+        "2026-05-03T10:00:00+00:00",
+        shares=10,
         event_date="2026-05-03",
     )
 
@@ -868,7 +870,11 @@ def test_close_normalizes_date_only_event_date(tmp_path: Path):
     )
 
     thesis = thesis_store.close(
-        tmp_path, tid, "target_hit", 160.0, "2026-05-10T10:00:00+00:00",
+        tmp_path,
+        tid,
+        "target_hit",
+        160.0,
+        "2026-05-10T10:00:00+00:00",
         event_date="2026-05-10",
     )
 
