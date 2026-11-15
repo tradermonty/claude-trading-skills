@@ -200,22 +200,21 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     def _strict_finite_float(value: str) -> float:
-        """Argparse type= for --actual-price/--price (P1-3, user
-        independent review, money-critical): a finite float. Plain
-        `type=float` accepts "inf"/"-inf"/"nan" as valid Python float
-        literals — a NaN/Infinity price would otherwise persist into
-        thesis state and NaN-poison every downstream P&L computation.
-        Modeled on futures-position-sizer's strict_positive_float /
-        _strict_float_type, but deliberately does NOT also require > 0
-        here (unlike that helper): this flag is shared between the equity
-        and futures CLI paths, and a $0 equity exit price is a legitimate
-        real-world value (e.g. a delisted/bankrupt position) — an actual
-        downstream consumer test (drawdown-circuit-breaker) exercises
-        exactly this. The futures-only finite-AND-positive constraint is
-        enforced separately at the Python level by _valid_finite_positive()
-        inside _open_futures_position()/_close_futures()/_trim_futures()/
-        _terminate_futures() — this CLI guard only needs to close the
-        nan/inf hole, not re-litigate positivity for a shared flag."""
+        """Argparse type= for --actual-price/--price and the equity
+        attach-position --expected-entry/--expected-stop (P1-3, user
+        independent review, money-critical; Issue #759): a finite float.
+        Plain `type=float` accepts "inf"/"-inf"/"nan" as valid Python float
+        literals — a NaN/Infinity price would otherwise persist into thesis
+        state and NaN-poison every downstream P&L computation. Modeled on
+        futures-position-sizer's strict_positive_float / _strict_float_type,
+        but deliberately does NOT require > 0: a $0 equity exit price is a
+        legitimate real-world value (e.g. a delisted/bankrupt position), and
+        equity expected prices keep #257's finite-nonpositive compatibility.
+        The futures-only finite-AND-positive constraint is enforced by
+        _strict_positive_finite_float for attach-futures-position and at the
+        Python level by _valid_finite_positive() inside the futures
+        open/close/trim/terminate paths — this CLI guard only closes the
+        nan/inf hole."""
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:
@@ -264,10 +263,9 @@ def main(argv: list[str] | None = None) -> int:
         --price flags — see its docstring). An expected futures price is
         never legitimately 0 or negative, so this rejects those too,
         matching _validate_expected_price_match()'s own finite-AND-positive
-        requirement on the Python side. Does NOT touch attach-position's
-        (equity) --expected-entry/--expected-stop, which keep the original
-        plain type=float behavior — cross-attach and price-fail-open fixes
-        in this PR are scoped to futures only."""
+        requirement on the Python side. Equity attach-position deliberately
+        uses _strict_finite_float instead (Issue #759): it rejects nan/inf
+        but preserves #257's finite-nonpositive compatibility."""
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:
@@ -417,8 +415,12 @@ def main(argv: list[str] | None = None) -> int:
     ap_p = sub.add_parser("attach-position", help="Attach a position-sizer report")
     ap_p.add_argument("thesis_id", help="Thesis ID")
     ap_p.add_argument("--report", required=True, help="Path to position-sizer JSON report")
-    ap_p.add_argument("--expected-entry", type=float, default=None, help="Expected entry price")
-    ap_p.add_argument("--expected-stop", type=float, default=None, help="Expected stop price")
+    ap_p.add_argument(
+        "--expected-entry", type=_strict_finite_float, default=None, help="Expected entry price"
+    )
+    ap_p.add_argument(
+        "--expected-stop", type=_strict_finite_float, default=None, help="Expected stop price"
+    )
 
     # attach-futures-position (futures-position-sizer SIZED report)
     afp_p = sub.add_parser(

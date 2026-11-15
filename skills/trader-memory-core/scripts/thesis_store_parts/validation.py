@@ -275,6 +275,52 @@ def _validate_expected_price_match(
         )
 
 
+def _validate_equity_expected_price_match(
+    field_name: str, expected: Any, report_value: Any, tolerance: float = 0.01
+) -> None:
+    """Validate an equity --expected-entry/--expected-stop value against the
+    position-sizer report (Issue #759). Same fail-closed intent as
+    ``_validate_expected_price_match`` above, but a separate helper because
+    equity deliberately preserves #257's finite nonpositive-price
+    compatibility: a $0 (delisted/bankrupt) entry/stop is a legitimate
+    stored value, so this must not require a strictly positive price the
+    way the futures helper does.
+
+    Contract:
+      1. expected is None -> no check (caller did not ask to verify).
+      2. expected is given -> must be finite and non-bool; strings, NaN and
+         +-inf are rejected.
+      3. Once expected is given, report_value is MANDATORY: missing, bool,
+         string, mapping, list, NaN/inf or a too-large int is a failure,
+         never a silent pass.
+      4. Both valid -> ``abs(report_value - expected)`` compared to
+         ``tolerance``.
+      5. Every rejection names the field and the offending value.
+
+    Called before ``_load_thesis()`` in ``attach_position()`` so a rejection
+    never mutates thesis state. Report geometry is checked first by
+    ``_validate_equity_initial_stop()``; when both legs are present and
+    geometrically invalid, that report-side error takes precedence.
+    """
+    if expected is None:
+        return
+    valid_expected = _valid_finite_number(expected)
+    if valid_expected is None:
+        raise ValueError(f"expected_{field_name} must be a finite number, got {expected!r}")
+    valid_report_value = _valid_finite_number(report_value)
+    if valid_report_value is None:
+        raise ValueError(
+            f"Position report {field_name} is invalid or missing "
+            f"(required to verify against expected_{field_name}={valid_expected}): "
+            f"{report_value!r}"
+        )
+    if abs(valid_report_value - valid_expected) > tolerance:
+        raise ValueError(
+            f"{field_name.capitalize()} price mismatch: thesis expects "
+            f"{valid_expected}, report has {valid_report_value}"
+        )
+
+
 def _contains_non_finite(value: Any) -> bool:
     """Iteratively (not recursively — see contrarian-setup-gate's
     run_contrarian_setup_gate.py::_contains_non_finite for the full

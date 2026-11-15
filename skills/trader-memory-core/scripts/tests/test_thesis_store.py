@@ -395,6 +395,255 @@ def test_attach_position_budget_mode_raises(tmp_path: Path):
         thesis_store.attach_position(state_dir, tid, report_path)
 
 
+# -- Tests: attach_position expected-price fail-closed (Issue #759) ------------
+
+
+@pytest.mark.parametrize("bad_expected", [float("nan"), float("inf"), float("-inf"), True, "150"])
+def test_attach_position_rejects_invalid_expected_entry(tmp_path: Path, bad_expected):
+    """expected_entry must be finite; NaN/inf/bool/string must not pass."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path)
+
+    with pytest.raises(ValueError, match="expected_entry must be a finite number"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_entry=bad_expected)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+@pytest.mark.parametrize("bad_expected", [float("nan"), float("inf"), float("-inf"), True, "142"])
+def test_attach_position_rejects_invalid_expected_stop(tmp_path: Path, bad_expected):
+    """expected_stop must be finite; NaN/inf/bool/string must not pass."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path)
+
+    with pytest.raises(ValueError, match="expected_stop must be a finite number"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_stop=bad_expected)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_rejects_missing_report_entry_when_expected(tmp_path: Path):
+    """An unverifiable expectation is a failure, never a silent pass."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path, parameters={"stop_price": 142.0})
+
+    with pytest.raises(ValueError, match="Position report entry is invalid or missing"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_entry=150.0)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_rejects_missing_report_stop_when_expected(tmp_path: Path):
+    """Same guard for expected_stop / report stop."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path, parameters={"entry_price": 150.0})
+
+    with pytest.raises(ValueError, match="Position report stop is invalid or missing"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_stop=142.0)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_rejects_non_numeric_entry_without_stop(tmp_path: Path):
+    """String entry + missing stop used to reach abs(str - float) -> TypeError."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path, parameters={"entry_price": "150.00"})
+
+    with pytest.raises(ValueError, match="Position report entry is invalid or missing"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_entry=150.0)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_rejects_non_numeric_stop_without_entry(tmp_path: Path):
+    """Symmetric stop-side TypeError path."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path, parameters={"stop_price": "142.00"})
+
+    with pytest.raises(ValueError, match="Position report stop is invalid or missing"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_stop=142.0)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+@pytest.mark.parametrize(
+    "bad_report_value", [float("nan"), float("inf"), float("-inf"), True, {}, [], 10**400]
+)
+def test_attach_position_rejects_wrong_report_types_when_expected(tmp_path: Path, bad_report_value):
+    """The sibling leg is absent so _validate_equity_initial_stop cannot
+    preempt; this exercises the helper's _valid_finite_number branch."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(tmp_path, parameters={"entry_price": bad_report_value})
+
+    with pytest.raises(ValueError, match="Position report entry is invalid or missing"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_entry=150.0)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_allows_nonpositive_expected_price_compat(tmp_path: Path):
+    """#257 compatibility: a $0 equity entry/stop remains attachable."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 0.0, "stop_price": 142.0}
+    )
+
+    thesis = thesis_store.attach_position(state_dir, tid, report_path, expected_entry=0.0)
+    assert thesis["position"]["shares"] == 125
+
+
+def test_attach_position_normal_expected_price_match_no_regression(tmp_path: Path):
+    """Ordinary matching expected entry/stop still succeeds."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    report_path = _make_position_report(tmp_path)
+
+    thesis = thesis_store.attach_position(
+        state_dir, tid, report_path, expected_entry=150.0, expected_stop=142.0
+    )
+    assert thesis["position"]["shares"] == 125
+
+
+def test_attach_position_expected_entry_within_tolerance_succeeds(tmp_path: Path):
+    """abs(10.0 - 10.01) is 0.00999... in float64, under the 0.01 tolerance."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 10.0, "stop_price": 9.0}
+    )
+
+    thesis = thesis_store.attach_position(state_dir, tid, report_path, expected_entry=10.01)
+    assert thesis["position"]["shares"] == 125
+
+
+def test_attach_position_expected_entry_exceeds_tolerance_raises(tmp_path: Path):
+    """Clearly beyond tolerance is a mismatch."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 5000.0, "stop_price": 4980.0}
+    )
+
+    with pytest.raises(ValueError, match="Entry price mismatch"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_entry=5000.015)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_expected_stop_within_tolerance_succeeds(tmp_path: Path):
+    """abs(4980.0 - 4979.991) is 0.009000... in float64."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 5000.0, "stop_price": 4980.0}
+    )
+
+    thesis = thesis_store.attach_position(state_dir, tid, report_path, expected_stop=4979.991)
+    assert thesis["position"]["shares"] == 125
+
+
+def test_attach_position_expected_stop_exceeds_tolerance_raises(tmp_path: Path):
+    """Same mismatch guard for expected_stop."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 5000.0, "stop_price": 4980.0}
+    )
+
+    with pytest.raises(ValueError, match="Stop price mismatch"):
+        thesis_store.attach_position(state_dir, tid, report_path, expected_stop=4980.5)
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_attach_position_report_geometry_error_precedes_expected_check(tmp_path: Path):
+    """Report-side geometry validation runs before the expected-price checks."""
+    state_dir = tmp_path / "theses"
+    tid, _ = _register_and_get(state_dir)
+    before = _state_file_hash(state_dir, tid)
+    before_index = _index_file_hash(state_dir)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 10.0, "stop_price": 20.0}
+    )
+
+    with pytest.raises(ValueError, match="initial stop cannot exceed entry"):
+        thesis_store.attach_position(
+            state_dir, tid, report_path, expected_entry=10.0, expected_stop=20.0
+        )
+    assert _state_file_hash(state_dir, tid) == before
+    assert _index_file_hash(state_dir) == before_index
+
+
+def test_cli_attach_position_rejects_nan_expected_entry(tmp_path: Path):
+    """The equity CLI parser rejects nan/inf at the boundary (exit 2)."""
+    tid, _ = _register_and_get(tmp_path)
+    report_path = _make_position_report(tmp_path)
+    with pytest.raises(SystemExit) as exc_info:
+        thesis_store.main(
+            [
+                "--state-dir",
+                str(tmp_path),
+                "attach-position",
+                tid,
+                "--report",
+                report_path,
+                "--expected-entry",
+                "nan",
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
+def test_cli_attach_position_accepts_zero_expected_entry(tmp_path: Path):
+    """Equity keeps #257 nonpositive compatibility: --expected-entry 0 is valid."""
+    tid, _ = _register_and_get(tmp_path)
+    report_path = _make_position_report(
+        tmp_path, parameters={"entry_price": 0.0, "stop_price": 142.0}
+    )
+    assert (
+        thesis_store.main(
+            [
+                "--state-dir",
+                str(tmp_path),
+                "attach-position",
+                tid,
+                "--report",
+                report_path,
+                "--expected-entry",
+                "0",
+            ]
+        )
+        == 0
+    )
+    assert thesis_store.get(tmp_path, tid)["position"]["shares"] == 125
+
+
 # -- Tests: close --------------------------------------------------------------
 
 
