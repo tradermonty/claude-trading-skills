@@ -180,3 +180,32 @@ def test_fresh_cli_outside_repo_without_site_packages(tmp_path, json_mode):
     else:
         assert "Hint:" in result.stdout
         assert "Skillset readiness" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "requirement,version,expected",
+    [
+        (">=3.11.5,<3.14", (3, 11, 4), "warning"),
+        (">=3.11.5,<3.14", (3, 11, 5), "ok"),
+        (">=3.11.5,<3.14", (3, 11, 6), "ok"),
+        (">=3.11.5,<3.14", (3, 14, 0), "warning"),
+        (">=3.11,<3.12.6", (3, 12, 5), "ok"),
+        (">=3.11,<3.12.6", (3, 12, 6), "warning"),
+        (">=3.11.5,<3.12.6", (3, 11, 5), "ok"),
+        (">=3.11.5,<3.11.4", (3, 11, 5), "unknown"),
+    ],
+)
+def test_patch_level_policy_boundaries(root, requirement, version, expected):
+    (root / "config/python-support.json").write_text(
+        json.dumps({"root_project": requirement}), encoding="utf-8"
+    )
+    item = doctor.python_check(root, version)
+    assert item["status"] == expected
+    if expected != "unknown":
+        assert f"Python {'.'.join(map(str, version))};" in item["detail"]
+
+
+def test_canonical_policy_parses_and_enforces_patch_minimum():
+    assert doctor.python_check(doctor.ROOT, (3, 11, 4))["status"] == "warning"
+    assert doctor.python_check(doctor.ROOT, (3, 11, 5))["status"] == "ok"
+    assert doctor.python_check(doctor.ROOT, (3, 14, 0))["status"] == "warning"

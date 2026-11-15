@@ -24,11 +24,11 @@ Moved verbatim from `SKILL.md`.
 - Annual: $299.50 (~$24.96/month)
 
 **FMP API:**
-- Free tier: 250 calls/day (sufficient for two-stage screening)
+- Free tier: 250 calls/day rate limit. The stock-screener endpoint used by FMP-only screening is not on the free plan (2026-11); use two-stage screening or a plan that includes it. See `docs/en/getting-started.md#fmp-plans`.
 - Paid plans: prices and limits change; see `site.financialmodelingprep.com/pricing-plans` in a browser
 
 **Recommendation:**
-- **For free FMP tier users**: Use two-stage screening (FINVIZ + FMP free tier)
+- **For free FMP tier users**: Use two-stage screening (FINVIZ + FMP free tier); FMP-only needs the plan-gated stock screener
 - **For paid FMP tier users**: Either approach works; two-stage is faster
-- **Budget option**: FMP-only with free tier (run screening every few days)
-- **Optimal option**: FINVIZ Elite ($330/year) + FMP free tier = Complete solution
+- **Budget option**: FMP-only on a plan that includes the stock screener (the free plan does not)
+- **Optimal option**: FINVIZ Elite ($330/year) + FMP free tier for two-stage screening

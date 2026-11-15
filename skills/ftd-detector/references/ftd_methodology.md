@@ -1,10 +1,22 @@
 # Follow-Through Day (FTD) Methodology
 
+## Current implementation contract (#765)
+
+Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
+Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
+4–10 window is this model's bounded choice. Day 1 low is an explicit failure
+anchor, potentially stricter than the generic IBD downtrend-low description;
+these are not claimed identical. Missing reference/low data is unavailable.
+FTD-day-low close breach is pressure, not failure. Its published score is capped
+at 59 so numerical consumers see the weakening; this cap is not calibrated.
+Portfolio allocation is not assessed. Historical examples below are retained
+illustrations, not newly verified data or statistical evidence.
+
 ## Overview
 
-The Follow-Through Day (FTD) is William O'Neil's market timing signal for confirming a new uptrend after a correction. It is the **single most important signal** for re-entering the market after a decline. Without an FTD, no new bull market or sustained rally has ever begun (per IBD historical analysis).
+The Follow-Through Day (FTD) is an O'Neil-style technical signal of renewed demand after a correction. This implementation reports the event and its health, not a guaranteed bottom or a portfolio allocation.
 
-**Key Insight:** FTD is a necessary but not sufficient condition. Historically, approximately 25% of FTDs lead to sustained uptrends. The remaining 75% fail, which is why quality scoring and post-FTD monitoring are critical.
+**Key Insight:** An FTD is technical evidence, not a calibrated success probability or an allocation instruction.
 
 ---
 
@@ -18,7 +30,7 @@ A correction must meet these criteria before FTD analysis begins:
 - **Index scope:** S&P 500 and/or NASDAQ Composite (either suffices)
 
 ### Swing Low Definition
-The swing low is the lowest closing price during the correction that becomes the reference point for the rally attempt:
+The swing low is a qualifying closing-price minimum used to search for Day 1. It is not this model's intraday rally-failure reference:
 
 - Must be preceded by 3%+ decline from a recent high (within 40 trading days)
 - Must have at least 3 down days between the high and the low
@@ -29,7 +41,7 @@ The swing low is the lowest closing price during the correction that becomes the
 
 ---
 
-## Step 2: Rally Attempt (Day 1-3)
+## Step 2: Rally Attempt and Day 1 Reference
 
 ### Day 1 Detection
 Day 1 marks the beginning of a rally attempt. It occurs on the **first qualifying up day** after the swing low:
@@ -40,18 +52,17 @@ Day 1 marks the beginning of a rally attempt. It occurs on the **first qualifyin
 - Formula: (Close - Low) / (High - Low) >= 0.50
 - This captures days where the market recovers significantly from intraday lows even if it doesn't close above the prior day's close
 
-### Day 2-3 Integrity Check
-For the rally attempt to remain valid through Day 2-3:
+### Integrity Check: Every Session After Day 1
 
-- **Close must not breach Day 1's intraday low** (not the close, the *low*)
-- This is a strict rule; even a single day closing below Day 1's low invalidates the attempt
-- Day 2 and Day 3 do NOT need to be up days; they just cannot close below Day 1's low
+- Every subsequent session's **intraday low** must hold the recorded Day 1 low, including sessions after FTD confirmation.
+- A strict intraday breach fails the rally even if the close recovers above that reference. Equality holds.
+- This rule is not limited to Day 2–3. Missing low/reference evidence makes the state unavailable.
+- The FTD candle low is a different reference: a close below it warns but does not itself fail the rally.
 
 ### Rally Invalidation (Reset)
-The rally attempt resets completely if:
+A later intraday low strictly below the recorded Day 1 low fails this implementation's rally. The failed event remains in the evidence.
 
-1. **Any day's close falls below the swing low price** → Start over from new potential swing low
-2. **Day 2 or Day 3 closes below Day 1's intraday low** → Wait for new Day 1
+Separately, a close below the FTD candle low warns, but does not itself fail or reset the rally.
 
 When a rally resets, the new lower price may become the new swing low, and the cycle begins again.
 
@@ -65,7 +76,7 @@ A Follow-Through Day must satisfy ALL of these conditions:
 1. **Day 4-10** of the rally attempt (Day 4-7 is the prime window; Day 8-10 still valid)
 2. **Price gain >= 1.25%** (minimum threshold)
    - 1.25-1.49%: Minimum qualifying gain
-   - 1.50-1.99%: Recommended gain (higher reliability)
+   - 1.50-1.99%: Higher model gain tier (not a measured reliability estimate)
    - 2.00%+: Strong signal
 3. **Volume > previous day's volume** (mandatory)
    - This confirms institutional participation
@@ -80,33 +91,33 @@ A Follow-Through Day must satisfy ALL of these conditions:
 ### Prime vs Late Window
 
 **Day 4-7 (Prime):**
-- Historically higher success rate
+- Preferred timing tier in this model; no measured success-rate advantage is asserted
 - Base quality score: 60 points
-- Institutional buyers are more likely to have conviction
+- The weighting is heuristic, not evidence of institutional conviction
 
 **Day 8-10 (Late):**
-- Still valid but statistically weaker
+- Still qualifies; receives a lower heuristic base weight
 - Base quality score: 50 points
-- May indicate hesitant institutional buying
+- This weighting does not establish buyer intent
 
 **After Day 10:**
-- No longer qualifies as a traditional FTD
+- Outside this implementation's bounded qualification window; not a universal IBD upper limit
 - Rally without FTD by Day 10 is a warning sign
-- May still develop into an uptrend but reliability drops significantly
+- A later rally may still develop; no reliability estimate is supplied
 
 ---
 
 ## Step 4: Dual-Index Confirmation
 
 ### Single-Index FTD
-An FTD on either the S&P 500 or NASDAQ is sufficient to trigger the signal. The signal is actionable on a single-index confirmation.
+An FTD on either the S&P 500 or NASDAQ is sufficient to trigger the signal. A single-index event is reported, without prescribing a trade.
 
 ### Dual-Index FTD
 When both S&P 500 and NASDAQ produce FTDs (within a few days of each other):
-- Significantly higher reliability
+- Broader confirmation evidence; no calibrated reliability uplift is asserted
 - Quality score bonus: +15 points
-- Indicates broader institutional conviction
-- Both growth and value participants are buying
+- Provides confirmation across the selected instruments
+- Does not identify which investor groups are buying
 
 ### Index Discrepancy
 When one index confirms FTD but the other is still in rally attempt or correction:
@@ -138,12 +149,16 @@ When one index confirms FTD but the other is still in rally attempt or correctio
 
 ### Interpretation
 
-| Score | Signal | Recommended Exposure |
-|-------|--------|---------------------|
-| 80-100 | Strong FTD | 75-100% equity |
-| 60-79 | Moderate FTD | 50-75% equity |
-| 40-59 | Weak FTD | 25-50% equity |
-| < 40 | No FTD / Failed | 0-25% equity |
+| Score | Signal | Portfolio sizing |
+|---|---|---|
+| 80–100 | Strong FTD | Not assessed |
+| 60–79 | Moderate FTD | Not assessed |
+| 40–59 | Weak FTD | Not assessed |
+| below 40 | Very weak FTD (not automatically failed) | Not assessed |
+
+A warning caps the published score at 59 (an explicit uncalibrated heuristic),
+so score-only consumers do not treat pressure as strong confirmation. A true
+reference breach returns failed quality; missing evidence returns unavailable.
 
 ---
 

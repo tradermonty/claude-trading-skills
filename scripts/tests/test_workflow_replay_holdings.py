@@ -78,11 +78,16 @@ def test_native_executor_is_exercised(tmp_path, monkeypatch):
         return original(command, *args, **kwargs)
 
     monkeypatch.setattr(replay, "_run_cli", track)
-    replay.execute_replay(ROOT, SPEC, "required-only", tmp_path / "out")
+    replay.execute_replay(ROOT, SPEC, "required-only", tmp_path / "alpaca-csv-offline")
     assert len(calls) == 1
     assert Path(calls[0][1]).name == "review_csv.py"
     assert "--as-of" in calls[0]
-    assert not any("alpaca" in arg.lower() for arg in calls[0])
+    # Directory names may contain "alpaca" (e.g. a reconciliation worktree).
+    # Verify the actual input/mode rather than substrings of filesystem paths.
+    command = calls[0]
+    assert Path(command[command.index("--input") + 1]).name == "holdings.csv"
+    if "--input-format" in command:
+        assert command[command.index("--input-format") + 1] == "csv"
 
 
 def test_full_path_prompt_does_not_invent_an_optional_step():
