@@ -15,10 +15,18 @@ O'Neil's FTD Rules:
 - Day 1: first up close (or close in top 50% of range) after swing low
 - Day 2-3: close must not breach Day 1 intraday low
 - Day 4-10: FTD requires >=1.25% gain on volume > previous day
+
+Data gaps (issue #655): a missing or non-finite close/volume is never read as 0
+and bars are never dropped (the state machine compares positionally adjacent
+sessions, so dropping a bar can fabricate an FTD). Each function validates the
+exact slice it reads and returns its conservative degraded shape with
+``data_gap: True`` and a ``reason`` instead of comparing missing operands.
 """
 
 from enum import Enum
 from typing import Optional
+
+from _price_bars import find_bar_gaps, read_price
 
 
 class MarketState(Enum):
@@ -43,23 +51,51 @@ FTD_GAIN_MINIMUM = 1.25
 FTD_GAIN_RECOMMENDED = 1.5
 FTD_GAIN_STRONG = 2.0
 
+# Rally-tracker windows look back 60 sessions
+ANALYSIS_LOOKBACK = 60
+CLOSE_VOLUME = ("close", "volume")
+
+
+def bar_gaps(bars: list[dict], required: tuple = CLOSE_VOLUME) -> dict:
+    """Gap report for a chronological slice.
+
+    Volume 0 is invalid here: for the indices this skill reads (^GSPC, QQQ) a
+    zero session volume is provider missing data, and treating it as real can
+    hide a distribution day or an invalidated FTD.
+    """
+    return find_bar_gaps(bars, required, order="chronological")
+
+
+def gap_reason(gaps: dict, where: str) -> str:
+    """Human-readable data-gap reason for a find_bar_gaps report."""
+    return (
+        f"Data gap: {gaps['bad_bars']} bar(s) with missing or invalid "
+        f"{'/'.join(gaps['required'])} {where} (latest bad: {gaps['latest_bad']})"
+    )
+
+
+def _low_or_close(bar: dict) -> float:
+    """Intraday low, falling back to the (already validated) close."""
+    return read_price(bar, "low") or bar["close"]
+
 
 def _is_swing_low(history: list[dict], i: int) -> Optional[dict]:
     """Check if index i in history qualifies as a swing low.
 
-    Returns dict with swing low details, or None.
+    Returns dict with swing low details, or None. A bar with a missing or
+    invalid close in the range this check reads means "not a swing low".
     """
     n = len(history)
-    low_close = history[i].get("close", 0)
-    if low_close <= 0:
+    search_start = max(0, i - 40)
+    if bar_gaps(history[search_start : i + 2], ("close",))["bad_bars"]:
         return None
+    low_close = history[i]["close"]
 
     # Look back up to 40 days for a recent high
-    search_start = max(0, i - 40)
     recent_high = 0
     recent_high_idx = search_start
     for j in range(search_start, i):
-        c = history[j].get("close", 0)
+        c = history[j]["close"]
         if c > recent_high:
             recent_high = c
             recent_high_idx = j
@@ -75,29 +111,23 @@ def _is_swing_low(history: list[dict], i: int) -> Optional[dict]:
     # Count down days from high to this point
     down_days = 0
     for j in range(recent_high_idx + 1, i + 1):
-        prev_c = history[j - 1].get("close", 0)
-        curr_c = history[j].get("close", 0)
-        if prev_c > 0 and curr_c < prev_c:
+        if history[j]["close"] < history[j - 1]["close"]:
             down_days += 1
 
     if down_days < MIN_DOWN_DAYS:
         return None
 
     # Verify it's a local minimum (not lower closes immediately adjacent)
-    if i > 0:
-        prev_close = history[i - 1].get("close", 0)
-        if prev_close > 0 and prev_close < low_close:
-            return None
-    if i + 1 < n:
-        next_close = history[i + 1].get("close", 0)
-        if next_close > 0 and next_close < low_close:
-            return None
+    if i > 0 and history[i - 1]["close"] < low_close:
+        return None
+    if i + 1 < n and history[i + 1]["close"] < low_close:
+        return None
 
     return {
         "swing_low_idx": i,
         "swing_low_price": low_close,
         "swing_low_date": history[i].get("date", "N/A"),
-        "swing_low_low": history[i].get("low", low_close),
+        "swing_low_low": read_price(history[i], "low") or low_close,
         "recent_high_price": recent_high,
         "recent_high_idx": recent_high_idx,
         "recent_high_date": history[recent_high_idx].get("date", "N/A"),
@@ -145,9 +175,11 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
 
     Returns:
         Dict with day1_idx, current_day, rally_days list, invalidated flag, etc.
+        On a missing or invalid close/volume between the swing low and the
+        latest bar, the "no rally" shape with ``data_gap: True`` and a
+        ``reason``; no rally day is ever counted across a gap.
     """
     n = len(history)
-    swing_low_price = history[swing_low_idx].get("close", 0)
 
     result = {
         "day1_idx": None,
@@ -160,16 +192,22 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
         "reset_count": 0,
     }
 
+    gaps = bar_gaps(history[swing_low_idx:])
+    if gaps["bad_bars"]:
+        result["data_gap"] = True
+        result["reason"] = gap_reason(gaps, "since the swing low")
+        return result
+
     if swing_low_idx >= n - 1:
         return result
+
+    swing_low_price = history[swing_low_idx]["close"]
 
     # Find Day 1
     day1_idx = None
     for i in range(swing_low_idx + 1, n):
-        curr_close = history[i].get("close", 0)
-        prev_close = history[i - 1].get("close", 0)
-        curr_high = history[i].get("high", curr_close)
-        curr_low = history[i].get("low", curr_close)
+        curr_close = history[i]["close"]
+        prev_close = history[i - 1]["close"]
 
         # Check invalidation first: close below swing low
         if curr_close < swing_low_price:
@@ -181,11 +219,17 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
             return result
 
         # Day 1: up close OR close in top 50% of range
-        day_range = curr_high - curr_low
-        if prev_close > 0 and curr_close > prev_close:
+        if curr_close > prev_close:
             day1_idx = i
             break
-        elif day_range > 0:
+        # The range rule needs a real high and low; without either, only an
+        # up close can qualify Day 1 (a missing high must not fake the top 50%).
+        curr_high = read_price(history[i], "high")
+        curr_low = read_price(history[i], "low")
+        if curr_high is None or curr_low is None:
+            continue
+        day_range = curr_high - curr_low
+        if day_range > 0:
             close_position = (curr_close - curr_low) / day_range
             if close_position >= 0.5:
                 day1_idx = i
@@ -194,7 +238,7 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
     if day1_idx is None:
         return result
 
-    day1_low = history[day1_idx].get("low", history[day1_idx].get("close", 0))
+    day1_low = _low_or_close(history[day1_idx])
     result["day1_idx"] = day1_idx
     result["day1_date"] = history[day1_idx].get("date", "N/A")
     result["day1_low"] = day1_low
@@ -206,15 +250,16 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
             "day": 1,
             "idx": day1_idx,
             "date": history[day1_idx].get("date", "N/A"),
-            "close": history[day1_idx].get("close", 0),
-            "volume": history[day1_idx].get("volume", 0),
+            "close": history[day1_idx]["close"],
+            "volume": history[day1_idx]["volume"],
         }
     ]
 
     for i in range(day1_idx + 1, n):
-        curr_close = history[i].get("close", 0)
-        prev_close = history[i - 1].get("close", 0)
-        curr_volume = history[i].get("volume", 0)
+        curr_close = history[i]["close"]
+        prev_close = history[i - 1]["close"]
+        curr_volume = history[i]["volume"]
+        prev_volume = history[i - 1]["volume"]
 
         # Invalidation: close below swing low
         if curr_close < swing_low_price:
@@ -235,9 +280,7 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
             )
             break
 
-        change_pct = 0
-        if prev_close > 0:
-            change_pct = (curr_close - prev_close) / prev_close * 100
+        change_pct = (curr_close - prev_close) / prev_close * 100
 
         rally_days.append(
             {
@@ -248,9 +291,7 @@ def track_rally_attempt(history: list[dict], swing_low_idx: int) -> dict:
                 "volume": curr_volume,
                 "change_pct": round(change_pct, 2),
                 "volume_vs_prev": (
-                    round((curr_volume / history[i - 1].get("volume", 1) - 1) * 100, 1)
-                    if history[i - 1].get("volume", 0) > 0
-                    else 0
+                    round((curr_volume / prev_volume - 1) * 100, 1) if prev_volume > 0 else 0
                 ),
             }
         )
@@ -276,6 +317,9 @@ def detect_ftd(history: list[dict], rally_data: dict) -> dict:
 
     Returns:
         Dict with ftd_detected, ftd_day_number, gain_pct, volume details, etc.
+        ``ftd_detected: False`` with ``data_gap: True`` and a ``reason`` when a
+        bar it would read (a candidate day, the day before it, or the volume
+        lookback) has a missing or invalid value.
     """
     result = {
         "ftd_detected": False,
@@ -293,22 +337,40 @@ def detect_ftd(history: list[dict], rally_data: dict) -> dict:
 
     if rally_data.get("invalidated"):
         return result
+    if rally_data.get("data_gap"):
+        result["data_gap"] = True
+        result["reason"] = rally_data.get("reason", "Data gap in rally attempt")
+        return result
 
     rally_days = rally_data.get("rally_days", [])
+    candidates = [
+        d for d in rally_days if FTD_DAY_START <= d["day"] <= FTD_DAY_END and d["idx"] > 0
+    ]
+    if candidates:
+        first_idx = min(d["idx"] for d in candidates)
+        last_idx = max(d["idx"] for d in candidates)
+        for gaps, where in (
+            (bar_gaps(history[first_idx - 1 : last_idx + 1]), "in the FTD window"),
+            (
+                bar_gaps(history[max(0, first_idx - 50) : last_idx], ("volume",)),
+                "in the 50-day volume lookback",
+            ),
+        ):
+            if gaps["bad_bars"]:
+                result["data_gap"] = True
+                result["reason"] = gap_reason(gaps, where)
+                return result
 
-    for day_info in rally_days:
-        day_num = day_info.get("day", 0)
-        if day_num < FTD_DAY_START or day_num > FTD_DAY_END:
-            continue
-
-        change_pct = day_info.get("change_pct", 0)
+    for day_info in candidates:
+        day_num = day_info["day"]
+        change_pct = day_info["change_pct"]
         if change_pct < FTD_GAIN_MINIMUM:
             continue
 
         # Volume must be higher than previous day
-        idx = day_info.get("idx", 0)
-        curr_volume = day_info.get("volume", 0)
-        prev_volume = history[idx - 1].get("volume", 0) if idx > 0 else 0
+        idx = day_info["idx"]
+        curr_volume = day_info["volume"]
+        prev_volume = history[idx - 1]["volume"]
 
         if prev_volume <= 0 or curr_volume <= prev_volume:
             continue
@@ -323,7 +385,7 @@ def detect_ftd(history: list[dict], rally_data: dict) -> dict:
 
         # Point-in-time 50-day average volume (no look-ahead)
         lookback_bars = history[max(0, idx - 50) : idx]
-        volumes = [d.get("volume", 0) for d in lookback_bars if d.get("volume", 0) > 0]
+        volumes = [d["volume"] for d in lookback_bars if d["volume"] > 0]
         pit_avg = sum(volumes) / len(volumes) if volumes else 0
         volume_above_avg = curr_volume > pit_avg if pit_avg > 0 else None
 
@@ -332,8 +394,8 @@ def detect_ftd(history: list[dict], rally_data: dict) -> dict:
                 "ftd_detected": True,
                 "ftd_day_number": day_num,
                 "ftd_date": day_info.get("date", "N/A"),
-                "ftd_price": day_info.get("close", 0),
-                "ftd_low": history[idx].get("low", day_info.get("close", 0)),
+                "ftd_price": day_info["close"],
+                "ftd_low": read_price(history[idx], "low") or day_info["close"],
                 "gain_pct": change_pct,
                 "volume": curr_volume,
                 "prev_day_volume": prev_volume,
@@ -351,8 +413,20 @@ def calculate_avg_volume(history: list[dict], period: int = 50) -> float:
     """Calculate average volume over the specified period (most recent data)."""
     if not history:
         return 0
-    volumes = [d.get("volume", 0) for d in history[-period:] if d.get("volume", 0) > 0]
+    volumes = [read_price(d, "volume") for d in history[-period:]]
+    volumes = [v for v in volumes if v is not None]  # missing, invalid and 0 are skipped
     return sum(volumes) / len(volumes) if volumes else 0
+
+
+def window_quality(gaps: dict) -> dict:
+    """Compact data-quality summary of a find_bar_gaps report for the JSON output."""
+    return {
+        "window_sessions": gaps["checked_bars"],
+        "bad_bars": gaps["bad_bars"],
+        "bad_dates": gaps["bad_dates"],
+        "latest_bad": gaps["latest_bad"],
+        "required": gaps["required"],
+    }
 
 
 def analyze_single_index(history: list[dict], index_name: str) -> dict:
@@ -364,7 +438,11 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         index_name: Label (e.g., "S&P 500", "NASDAQ")
 
     Returns:
-        Complete analysis dict for this index
+        Complete analysis dict for this index. ``data_quality`` summarizes the
+        close/volume check of the 60-session window. If any bar in that window
+        has a missing or invalid close or volume, the result is the early-exit
+        shape (``NO_SIGNAL``, prices ``None``) with ``data_gap: True`` and an
+        ``error`` naming the gap; no rally or FTD logic runs.
     """
     result = {
         "index": index_name,
@@ -377,21 +455,27 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         "correction_depth_pct": None,
     }
 
+    # Use last 60 trading days for analysis (the only bars the state machine reads)
+    lookback = min(ANALYSIS_LOOKBACK, len(history or []))
+    analysis_window = history[-lookback:] if lookback else []
+    gaps = bar_gaps(analysis_window)
+    result["data_quality"] = window_quality(gaps)
+
     if not history or len(history) < 10:
         result["error"] = "Insufficient data"
         return result
 
-    # Use last 60 trading days for analysis
-    lookback = min(60, len(history))
-    analysis_window = history[-lookback:]
-    len(analysis_window)
+    if gaps["bad_bars"]:
+        result["error"] = gap_reason(gaps, f"in the last {lookback} sessions")
+        result["data_gap"] = True
+        return result
 
-    result["current_price"] = analysis_window[-1].get("close", 0)
+    result["current_price"] = analysis_window[-1]["close"]
 
     # Find the highest close in the window
     max_close = 0
     for d in analysis_window:
-        c = d.get("close", 0)
+        c = d["close"]
         if c > max_close:
             max_close = c
     result["lookback_high"] = max_close
@@ -432,11 +516,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
                 # Inline invalidation check
                 ftd_idx = ftd.get("_ftd_idx")
                 if ftd_idx is not None:
-                    ftd_low = analysis_window[ftd_idx].get(
-                        "low", analysis_window[ftd_idx].get("close", 0)
-                    )
+                    ftd_low = _low_or_close(analysis_window[ftd_idx])
                     invalidated = any(
-                        analysis_window[j].get("close", 0) < ftd_low
+                        analysis_window[j]["close"] < ftd_low
                         for j in range(ftd_idx + 1, len(analysis_window))
                     )
                     if not invalidated:
@@ -473,10 +555,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         ftd_idx = older_ftd.get("_ftd_idx")
         if ftd_idx is None:
             continue
-        ftd_low = analysis_window[ftd_idx].get("low", analysis_window[ftd_idx].get("close", 0))
+        ftd_low = _low_or_close(analysis_window[ftd_idx])
         invalidated = any(
-            analysis_window[j].get("close", 0) < ftd_low
-            for j in range(ftd_idx + 1, len(analysis_window))
+            analysis_window[j]["close"] < ftd_low for j in range(ftd_idx + 1, len(analysis_window))
         )
 
         if not invalidated:
@@ -571,10 +652,23 @@ def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> d
                 ftd_index = label
                 break
 
+    # True when either index's 60-session window has a missing/invalid bar
+    data_gap = bool(sp500_analysis.get("data_gap") or nasdaq_analysis.get("data_gap"))
+    if data_gap:
+        # A gapped index drops its own FTD context, so promoting the other
+        # index could report a state more bullish than the healed data (e.g. an
+        # invalidated S&P FTD hidden behind a NASDAQ confirmation). The combined
+        # state is therefore unavailable: NO_SIGNAL with data_gap, no FTD source.
+        # Each index's own analysis stays in the output for transparency.
+        combined_state = MarketState.NO_SIGNAL.value
+        dual_confirmation = False
+        ftd_index = None
+
     return {
         "combined_state": combined_state,
         "dual_confirmation": dual_confirmation,
         "ftd_index": ftd_index,
         "sp500": sp500_analysis,
         "nasdaq": nasdaq_analysis,
+        "data_gap": data_gap,
     }

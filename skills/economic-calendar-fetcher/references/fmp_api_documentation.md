@@ -199,8 +199,8 @@ Rate limits depend on your FMP subscription tier:
 | Tier | Requests/Day | Requests/Second |
 |------|--------------|-----------------|
 | Free | 250 | 5 |
-| Starter | 500 | 10 |
-| Professional | 1,000+ | 20+ |
+
+Paid plans use different limits; see `site.financialmodelingprep.com/pricing-plans` in a browser for current values.
 
 If you exceed rate limits, the API returns HTTP 429 (Too Many Requests).
 

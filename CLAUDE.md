@@ -298,7 +298,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Trader Memory Core** | 🟡 Optional | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Trading Skills Navigator** | ❌ Not used | ❌ Not used | ❌ Not used | Reads local skills-index.yaml + workflows/*.yaml (or bundled snapshot); no network |
 | **US Market Bubble Detector** | ❌ Not used | ❌ Not used | ❌ Not used | User provides indicators |
-| **US Stock Analysis** | ❌ Not used | ❌ Not used | ❌ Not used | User provides data |
+| **US Stock Analysis** | ❌ Not used | ❌ Not used | ❌ Not used | User provides the ticker or question, optionally own data; Current market data via web search |
 | **US Undervalued Growth Screener** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Claude Code-native direct REST path using FMP_API_KEY. Bulk responses are cached and written to local artifacts; only compact screening results are returned to the model. Plan-gated bulk endpoints use bounded per-symbol fallbacks. |
 | **Uptrend Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Monty Uptrend Ratio Dashboard CSV; no API key required |
 | **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | S&P 500 OHLCV via FMP |
@@ -346,8 +346,7 @@ export ALPACA_PAPER="true"  # or "false" for live trading
 
 **Financial Modeling Prep (FMP):**
 - **Free Tier:** 250 API calls/day (sufficient for occasional use)
-- **Starter Tier:** $29.99/month - 750 calls/day
-- **Professional Tier:** $79.99/month - 2,000 calls/day
+- **Paid plans:** see the dated [FMP plans note](https://tradermonty.github.io/claude-trading-skills/en/getting-started/#fmp-plans) for current prices and rate limits (the only place prices are listed)
 - **Sign up:** https://site.financialmodelingprep.com/developer/docs
 
 **FINVIZ Elite:**

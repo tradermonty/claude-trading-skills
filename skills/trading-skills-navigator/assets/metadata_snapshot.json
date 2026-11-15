@@ -1469,6 +1469,11 @@
           "id": "user_input",
           "requirement": "required",
           "type": "local_file"
+        },
+        {
+          "id": "websearch",
+          "requirement": "required",
+          "type": "web"
         }
       ],
       "operational_role": {

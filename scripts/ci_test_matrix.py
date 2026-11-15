@@ -622,7 +622,7 @@ def install(entry: TestEntry, *, check: bool = False, root: Path = ROOT) -> None
 
 
 def run(entry: TestEntry, root: Path, coverage_dir: Path | None) -> int:
-    command = [sys.executable, "-m", "pytest", *entry.test_paths, "--tb=short", "-q"]
+    command = [sys.executable, "-m", "pytest", *entry.test_paths, "--tb=short", "-q", "-rfEs"]
     manifest = None
     coverage_file = None
     if coverage_dir is not None:

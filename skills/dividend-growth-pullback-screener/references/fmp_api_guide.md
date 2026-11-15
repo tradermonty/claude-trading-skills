@@ -37,11 +37,9 @@ This screener supports two screening modes:
 - **No credit card required**
 - Sufficient for daily/weekly screening runs
 
-### Paid Tiers (Optional)
+### Paid Plans (Optional)
 
-- **Starter ($14/month)**: 500 requests/day
-- **Professional ($29/month)**: 1,000 requests/day
-- **Enterprise ($99/month)**: 10,000 requests/day
+Prices and limits change; see `site.financialmodelingprep.com/pricing-plans` in a browser for current plans.
 
 ## Setting API Key
 
@@ -389,7 +387,7 @@ When using FINVIZ pre-screening (`--use-finviz`):
 **Advantage**: FINVIZ's RSI filter typically returns 10-30 stocks (not 1000), making FMP analysis feasible within free tier limits.
 
 **Cost comparison:**
-- **FMP Starter Plan** ($14/month, 500 requests): ~80 stocks/day
+- **Paid FMP plan** (see `site.financialmodelingprep.com/pricing-plans`): see the page for current limits
 - **FINVIZ Elite + FMP Free** ($40/month, 250 FMP requests): ~30 stocks/day with RSI pre-filtering
 - **Result**: FINVIZ approach provides higher-quality candidates (RSI pre-filtered) despite lower volume
 
@@ -400,7 +398,7 @@ When using FINVIZ pre-screening (`--use-finviz`):
 3. **Run during off-peak hours**: Lower chance of rate limits
 4. **Space out runs**: Once daily or weekly, not multiple times per hour
 5. **Cache results**: Save JSON output and analyze locally
-6. **Upgrade if needed**: If screening >30 stocks daily, consider FMP Starter ($14/month)
+6. **Upgrade if needed**: If screening >30 stocks daily, consider a paid FMP plan (see `site.financialmodelingprep.com/pricing-plans` in a browser)
 
 ## Error Handling
 
@@ -617,7 +615,7 @@ prices = ticker.history(period="1mo")
 **Solutions:**
 - Wait 24 hours for rate limit reset
 - Use `--max-candidates 30` to conserve requests
-- Upgrade to paid tier ($14/month for 500 requests/day)
+- Upgrade to a paid FMP plan (see `site.financialmodelingprep.com/pricing-plans` in a browser)
 - Check current usage in FMP dashboard
 
 ### "RSI Calculation Errors"

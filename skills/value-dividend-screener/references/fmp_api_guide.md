@@ -20,11 +20,9 @@ Financial Modeling Prep provides comprehensive financial data APIs for stocks, f
 - **No credit card required**
 - Sufficient for daily/weekly screening runs
 
-### Paid Tiers (Optional)
+### Paid Plans (Optional)
 
-- **Starter ($14/month)**: 500 requests/day
-- **Professional ($29/month)**: 1,000 requests/day
-- **Enterprise ($99/month)**: 10,000 requests/day
+Prices and limits change; see `site.financialmodelingprep.com/pricing-plans` in a browser for current plans.
 
 ## Setting API Key
 

@@ -37,10 +37,21 @@ if TYPE_CHECKING:
     _trim_futures = thesis_store._trim_futures
     _update_index_entry = thesis_store._update_index_entry
     _valid_finite_number = thesis_store._valid_finite_number
+    _valid_finite_positive = thesis_store._valid_finite_positive
     _validate_equity_actual_prices = thesis_store._validate_equity_actual_prices
+    _validate_equity_expected_price_match = thesis_store._validate_equity_expected_price_match
     _validate_equity_initial_stop = thesis_store._validate_equity_initial_stop
     _validate_equity_long_only = thesis_store._validate_equity_long_only
     logger = thesis_store.logger
+
+
+_EQUITY_OPEN_QUANTITY_REQUIRED = (
+    "open_position() requires a share count for an equity thesis: pass --shares "
+    "(API: shares=...) or attach a position-sizer report with attach-position "
+    "before opening; for futures use --contracts or attach-futures-position. "
+    "Refusing to open without a quantity because close() would record "
+    "per-share P&L."
+)
 
 
 def attach_position(
@@ -54,8 +65,9 @@ def attach_position(
 
     Validates:
       1. Report mode must be "shares" (budget mode has no shares/value/risk).
-      2. If expected_entry is provided, must match report's entry_price.
-      3. If expected_stop is provided, must match report's stop_price.
+      2. If expected_entry is provided, both prices must be finite numbers
+         (non-bool) and match within 0.01; zero/negative prices are allowed.
+      3. The same check applies to expected_stop and report's stop_price.
 
     Raises:
         ValueError: If validation fails.
@@ -86,21 +98,9 @@ def attach_position(
     if not isinstance(params, dict):
         raise ValueError("Equity long-only position report parameters must be a mapping")
     _require_long_equity_direction(params.get("direction"), normalize=True)
+    _validate_equity_expected_price_match("entry", expected_entry, params.get("entry_price"))
+    _validate_equity_expected_price_match("stop", expected_stop, params.get("stop_price"))
     _validate_equity_initial_stop(params.get("entry_price"), params.get("stop_price"))
-
-    # Validate expected entry/stop
-    if expected_entry is not None:
-        actual_entry = params.get("entry_price")
-        if actual_entry is not None and abs(actual_entry - expected_entry) > 0.01:
-            raise ValueError(
-                f"Entry price mismatch: thesis expects {expected_entry}, report has {actual_entry}"
-            )
-    if expected_stop is not None:
-        actual_stop = params.get("stop_price")
-        if actual_stop is not None and abs(actual_stop - expected_stop) > 0.01:
-            raise ValueError(
-                f"Stop price mismatch: thesis expects {expected_stop}, report has {actual_stop}"
-            )
 
     thesis = _load_thesis(state_dir, thesis_id)
 
@@ -588,6 +588,7 @@ def open_position(
     direction: str | None = None,
     contract_symbol: str | None = None,
     contract_currency: str | None = None,
+    allow_gap_fill: bool = False,
 ) -> dict:
     """Transition thesis from ENTRY_READY to ACTIVE with entry data.
 
@@ -599,7 +600,8 @@ def open_position(
         actual_price: Entry price.
         actual_date: Entry date (ISO format).
         reason: Transition reason.
-        shares: Optional share count to record (equity).
+        shares: Share count (equity). Required unless an attached position
+            already records `shares`.
         event_date: Optional ISO timestamp for status_history.at (for backfilling).
         contracts: Optional contract count to record (futures; P2-1). If a
             futures position was already attached via
@@ -621,12 +623,21 @@ def open_position(
             open with no currency, or a non-USD currency, is rejected
             rather than silently treated as USD.
 
+        allow_gap_fill: Explicit equity-only acknowledgement of a positive
+            actual fill below the existing positive planned stop. Leaves the
+            plan intact and records the stop/fill in protected status history.
+            Does not permit explicit equity SHORT intent or alter sizing.
+
     Returns:
         Updated thesis dict.
 
     Raises:
-        ValueError: If thesis is not ENTRY_READY.
+        ValueError: If thesis is not ENTRY_READY, or an equity open has no
+            share count (neither `shares` nor an attached position's shares).
     """
+    if not isinstance(allow_gap_fill, bool):
+        raise ValueError("allow_gap_fill must be a bool")
+
     # P3-2: providing both is never meaningful (one silently overrides or
     # gets ignored depending on dispatch order) — fail loud instead of
     # silently picking one.
@@ -637,6 +648,8 @@ def open_position(
         )
 
     thesis = _load_thesis(state_dir, thesis_id)
+    if allow_gap_fill and (contracts is not None or _is_futures(thesis)):
+        raise ValueError("--allow-gap-fill is equity-only; futures keep their existing contract")
 
     # Dispatch at function entry (D2/D4 non-negotiable, see _is_futures
     # docstring). `contracts is not None` covers a direct futures open with
@@ -673,7 +686,39 @@ def open_position(
             f"got {actual_price!r}"
         )
 
-    _validate_equity_initial_stop(actual_price, thesis.get("exit", {}).get("stop_loss"))
+    stop_loss = thesis.get("exit", {}).get("stop_loss")
+    gap_fill = (
+        _valid_finite_positive(actual_price) is not None
+        and _valid_finite_positive(stop_loss) is not None
+        and actual_price < stop_loss
+    )
+    if gap_fill:
+        if not allow_gap_fill:
+            raise ValueError(
+                "Equity accounting is long-only; fill is below the planned stop. "
+                "Use --allow-gap-fill only to record an acknowledged long fill "
+                "without rewriting its plan."
+            )
+        if not isinstance(reason, str):
+            raise ValueError("gap-fill acknowledgement requires a string reason")
+        # Status history is immutable through generic update(). Preserve exact
+        # stop/fill values here even if a later lifecycle update changes stop_loss.
+        reason += (
+            f"; gap fill acknowledged: actual_price={actual_price!r}, "
+            f"planned_stop_loss={stop_loss!r}"
+        )
+    else:
+        _validate_equity_initial_stop(actual_price, stop_loss)
+
+    # Issue #703: an equity ACTIVE thesis with no recorded quantity makes
+    # close() fall back to the legacy per-share P&L path. Checked last so
+    # every existing error keeps its priority. Validity of the value itself
+    # stays with the save-time validator.
+    effective_shares = (
+        shares if shares is not None else (thesis.get("position") or {}).get("shares")
+    )
+    if effective_shares is None:
+        raise ValueError(_EQUITY_OPEN_QUANTITY_REQUIRED)
 
     now = _now_iso()
     thesis["entry"]["actual_price"] = actual_price
