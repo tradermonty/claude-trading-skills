@@ -121,7 +121,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Screen US stocks using William O'Neil's CANSLIM growth stock methodology.
@@ -185,7 +185,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Detects crowded speculative (large-speculator) positioning in CFTC futures markets using
@@ -277,7 +277,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Use this skill to find high-quality dividend growth stocks (12%+ annual dividend growth, 1.5%+
@@ -313,7 +313,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: research_only
   summary: Analyze historical downtrend durations and generate interactive HTML histograms showing typical
@@ -407,7 +407,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_applicable
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Fetches an earnings calendar as an independent event-planning utility."
@@ -438,7 +438,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Analyze recent post-earnings stocks using a 5-factor scoring system (Gap Size, Pre-Earnings
@@ -470,7 +470,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_applicable
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Fetches economic events as an independent planning utility."
@@ -521,7 +521,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Generate and prioritize US equity long-side edge research tickets from EOD observations, then
@@ -773,7 +773,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Builds a screener URL directly from a user's standalone screening request."
@@ -803,7 +803,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Runs an independent follow-through-day assessment when requested."
@@ -870,7 +870,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Runs an independent distribution-day risk assessment for QQQ or SPY."
@@ -902,7 +902,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Produces an independent institutional ownership and flow assessment on demand."
@@ -933,7 +933,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Monitor dividend portfolios with Kanchi-style forced-review triggers (T1-T5) and convert anomalies
@@ -965,7 +965,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Convert Kanchi-style dividend investing into a repeatable US-stock operating procedure.
@@ -1028,7 +1028,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Detect structural macro regime transitions (1-2 year horizon) using cross-asset ratio analysis.
@@ -1184,7 +1184,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Assesses heuristic market top risk using O'Neil Distribution Days, Minervini Leading Stock Deterioration,
@@ -1246,7 +1246,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Judges whether a market failed to react to news favorable to a crowded speculative
@@ -1283,7 +1283,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Provides self-contained options education, pricing, and scenario analysis."
@@ -1316,7 +1316,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Screens and analyzes pair-trade candidates as a self-contained tool."
@@ -1347,7 +1347,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: standalone
     rationale: "Runs its own screening and conditional short-planning lifecycle."
@@ -1383,7 +1383,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Screen post-earnings gap-up stocks for PEAD (Post-Earnings Announcement Drift) patterns.
@@ -1415,7 +1415,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Comprehensive portfolio analysis using Alpaca MCP Server integration to fetch holdings and
@@ -1606,7 +1606,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Record and analyze post-trade outcomes for signals generated by edge pipeline and other skills.
@@ -1977,7 +1977,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: This skill should be used when analyzing weekly price charts for stocks, stock indices, cryptocurrencies,
@@ -2015,7 +2015,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Detect and analyze trending market themes across sectors.
@@ -2115,7 +2115,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Track investment theses across their lifecycle — from screening idea to closed position with
@@ -2289,7 +2289,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Screen US stocks for high-quality dividend opportunities combining value characteristics (P/E
@@ -2326,7 +2326,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: not_verified
+    security_review: passed
   operational_role:
     type: workflow_step
   summary: Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP).
