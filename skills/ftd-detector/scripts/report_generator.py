@@ -54,8 +54,6 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append(f"**S&P 500:** ${prices['sp500']:.2f}")
     if prices.get("nasdaq"):
         lines.append(f"**{nasdaq_label}:** ${prices['nasdaq']:.2f}")
-    if prices.get("qqq"):
-        lines.append(f"**QQQ:** ${prices['qqq']:.2f}")
     lines.append("")
 
     # ── Market Timing Status ─────────────────────────────────────────────
@@ -76,7 +74,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(f"| **Signal** | {signal} |")
     lines.append(f"| **Exposure Guidance** | {quality.get('exposure_range', 'N/A')} |")
     if ms.get("dual_confirmation"):
-        lines.append("| **Dual Confirmation** | YES (S&P 500 + NASDAQ) |")
+        lines.append(f"| **Dual Confirmation** | YES (S&P 500 + {nasdaq_label}) |")
     elif ms.get("ftd_index"):
         lines.append(f"| **FTD Index** | {ms['ftd_index']} |")
     lines.append("")
@@ -292,6 +290,14 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("- Recorded rally reference breached; historical FTD event is retained")
     elif combined_state in ("RALLY_ATTEMPT", "FTD_WINDOW"):
         lines.append("- Rally attempt is not FTD confirmation; monitor the explicit reference low")
+    elif combined_state == "CORRECTION":
+        lines.append(
+            "- Correction detected; identify a new Day 1 reference before evaluating a rally"
+        )
+    elif combined_state == "RALLY_FAILED":
+        lines.append(
+            "- Rally reference failed or the model qualification window expired; reassess a fresh attempt"
+        )
     else:
         lines.append("- No active confirmed FTD is established by this model")
 
@@ -344,7 +350,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     )
     lines.append("")
     lines.append(
-        "Dual-index tracking (S&P 500 + NASDAQ) provides stronger confirmation "
+        f"Dual-instrument tracking (S&P 500 + {nasdaq_label}) provides additional evidence "
         "than single-index analysis."
     )
     lines.append("")
@@ -379,7 +385,10 @@ def _data_quality_line(analysis: dict) -> str:
     """One-line data-quality note, or "" on a clean run (keeps clean Markdown unchanged)."""
     data_quality = analysis.get("data_quality") or {}
     parts = []
-    for label, key in (("S&P 500", "sp500"), ("NASDAQ", "nasdaq")):
+    for label, key in (
+        ("S&P 500", "sp500"),
+        (analysis.get("nasdaq", {}).get("index", "Nasdaq instrument unspecified"), "nasdaq"),
+    ):
         index = analysis.get(key) or {}
         dq = data_quality.get(key) or index.get("data_quality") or {}
         notes = []

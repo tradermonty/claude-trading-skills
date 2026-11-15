@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FTD review follow-up: propagate older-rally low gaps, cap pressure quality at 59 for numeric consumers, select a valid FTD consistently across mixed index health, and propagate explicit instrument names. Restore unaffected methodology teaching material and preserve custom DD display names alongside canonical identity (#765, #766).
+
 - FTD/DD: separate FTD-candle-low pressure from failure at the explicitly recorded rally Day 1 intraday low; retain event evidence and report missing lows as unavailable. Default FTD Nasdaq data to ^IXIC, label explicit QQQ ETF proxies, and stop deriving portfolio percentages from FTD quality. DD reports identify their ETF/index evidence basis (#765).
 
 - trader-memory-core: reject non-finite or boolean equity expected prices and missing or invalid report prices before attaching a position; preserve finite zero/negative prices and integer comparison precision. Equity CLI expected-price flags now reject non-finite values (#759).

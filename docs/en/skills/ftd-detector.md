@@ -9,6 +9,16 @@ permalink: /en/skills/ftd-detector/
 ---
 
 # FTD Detector
+
+## Lifecycle and quality contract (#765 review)
+
+The explicit failure anchor is the rally Day 1 intraday low. This may be stricter
+than the generic IBD downtrend-low description; the two are not claimed identical.
+A close below the FTD candle low warns rather than fails the rally. Pressure caps
+the published numerical quality score at 59, a conservative heuristic rather than
+an empirically calibrated threshold. Below 40 is Very weak FTD, not automatic failure.
+Portfolio sizing remains Not assessed. All source identities follow the selected
+index or explicit ETF proxy. Missing older-rally reference evidence is unavailable.
 {: .no_toc }
 
 Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's methodology. Dual-index tracking (S&P 500 + NASDAQ) with state machine for rally attempt, FTD qualification, and post-FTD health monitoring. Use when user asks about market bottom signals, follow-through days, rally attempts, re-entry timing after corrections, or whether it's safe to increase equity exposure. Complementary to market-top-detector (defensive) - this skill is offensive (bottom confirmation).

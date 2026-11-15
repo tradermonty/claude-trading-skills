@@ -28,9 +28,9 @@ FTD under pressure is distinguished by signal and lifecycle warning, while its
 market state remains FTD_CONFIRMED. Failure uses FTD_INVALIDATED and retains the
 FTD date. Missing lifecycle evidence yields unavailable quality and NO_SIGNAL.
 
-DD keeps its explicit QQQ/SPY strategy defaults. Known instrument labels now
+DD keeps its explicit QQQ/SPY strategy defaults. Canonical instrument identities now
 identify the ETFs, and audit metadata/report text make the evidence basis
-explicit even if a configuration supplies an ambiguous custom benchmark name.
+explicit without overwriting a configured display name.
 The mechanical DD counters and TQQQ policy thresholds are unchanged.
 
 ## Regression evidence
@@ -50,3 +50,14 @@ and unsupported success-rate claims.
 The supplied local November 14 report is not modified or revalidated against
 fresh provider data by this implementation. No provider/broker live action was
 used to establish these regression results.
+
+## Review corrections
+
+Pressure caps numerical quality at 59, an explicit conservative heuristic, not
+a calibrated success probability. Score-only downstream consumers therefore
+receive a weaker score. A single shared event-selection rule prefers a still-valid
+FTD over a failed event in either index; state, health and quality use the same
+source. Older-swing data gaps propagate before candidate skipping. Reference
+examples, Power Trend, common mistakes and companion-tool material were restored
+from the base, with only contradictory rules, unsupported rates and automatic
+sizing prescriptions revised.

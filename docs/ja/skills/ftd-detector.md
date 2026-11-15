@@ -34,7 +34,7 @@ FTDの発生と現在の健全性を分けます。FTD当日の安値を終値�
 
 Nasdaqの既定は総合指数 `^IXIC` です。`--nasdaq-symbol QQQ` はNasdaq-100 ETFの明示的な代替分析で、指数と同じ出来高・DD件数とは扱いません。価格・出来高は同一銘柄のものを使います。
 
-技術スコアは成功確率ではありません。`exposure_range` は常に `Not assessed` とし、市場の広がり、主導銘柄、ポートフォリオの制約を別途確認します。FTD成立だけから保有比率を提案しません。4〜10日目という上限はこのモデル固有の設定です。
+警戒時は公開スコアを59点以下に制限し、数値だけを読む下流にも弱まりを伝えます。この上限は保守的なモデル方針であり、統計的な校正値ではありません。技術スコアは成功確率ではありません。`exposure_range` は常に `Not assessed` とし、市場の広がり、主導銘柄、ポートフォリオの制約を別途確認します。FTD成立だけから保有比率を提案しません。4〜10日目という上限はこのモデル固有の設定です。
 
 ## 1. 概要
 
@@ -126,7 +126,7 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 | **現在の市場状態** | CORRECTION / RALLY_ATTEMPT / FTD_WINDOW / FTD_CONFIRMED / FTD_INVALIDATED |
 | **品質スコア** | 0-100（ベース + ゲイン + 出来高 + デュアル確認 + FTD後健全性） |
 | **シグナル強度** | Strong FTD / Moderate FTD / Weak FTD / Failed |
-| **推奨エクスポージャー** | Not assessed / Not assessed / Not assessed / Not assessed |
+| **保有比率の評価** | 未評価（技術スコアだけから比率を算出しません） |
 | **キーウォッチレベル** | スイングロー、Day 1安値（失敗判定）とFTD当日の安値（警戒水準） |
 | **FTD後の健全性** | ディストリビューションデー数、パワートレンド有無 |
 

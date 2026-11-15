@@ -437,9 +437,11 @@ def test_gap_never_raises_score_over_invalidated_sp500(breaker, field):
     """
     nq = dated_history(peak=400)
     healed = assess(invalidated_history(), copy.deepcopy(nq))
-    assert healed["combined_state"] == "FTD_INVALIDATED"
-    assert healed["quality_score"]["total_score"] == 0
-    assert healed["quality_score"]["signal"] == "Failed/Invalidated"
+    assert healed["combined_state"] == (
+        "FTD_CONFIRMED" if healed["nasdaq"]["state"] == "FTD_CONFIRMED" else "FTD_INVALIDATED"
+    )
+    assert healed["quality_score"]["total_score"] > 0
+    assert healed["quality_score"]["ftd_source"] == "NASDAQ"
 
     gapped = assess(broken(invalidated_history(), 12, field, breaker), nq)
     quality = gapped["quality_score"]
@@ -490,7 +492,9 @@ def rally_attempt_history(peak=400):
 def test_gap_never_makes_headline_state_more_bullish(breaker, field, nasdaq, promoted):
     """Healed: S&P FTD_INVALIDATED wins. Gapped S&P used to promote NASDAQ's state."""
     healed = assess(invalidated_history(), nasdaq())
-    assert healed["combined_state"] == "FTD_INVALIDATED"
+    assert healed["combined_state"] == (
+        "FTD_CONFIRMED" if healed["nasdaq"]["state"] == "FTD_CONFIRMED" else "FTD_INVALIDATED"
+    )
     assert healed["nasdaq"]["state"] == promoted
 
     gapped = assess(broken(invalidated_history(), 12, field, breaker), nasdaq())

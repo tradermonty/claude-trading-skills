@@ -125,7 +125,7 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 | 80-100 | Strong FTD | Not assessed |
 | 60-79 | Moderate FTD | Not assessed |
 | 40-59 | Weak FTD | Not assessed |
-| <40 | No FTD / Failed | Not assessed |
+| <40 | Very weak FTD (unless explicitly invalidated) | Not assessed |
 | 0 | Unavailable: data gap | Not assessed |
 
 ---
@@ -168,3 +168,5 @@ A missing or non-finite close/volume (or a non-positive close) is never read as 
 - **First use:** Load `skills/ftd-detector/references/ftd_methodology.md` for full understanding
 - **Post-FTD questions:** Load `skills/ftd-detector/references/post_ftd_guide.md`
 - **Regular execution:** References not needed - script handles analysis
+
+FTD-day-low pressure caps published quality at 59 (uncalibrated conservative heuristic); it does not erase the event or imply rally failure.

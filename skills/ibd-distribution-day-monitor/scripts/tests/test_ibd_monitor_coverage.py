@@ -599,8 +599,7 @@ def test_main_config_file_override_and_key_redacted_in_report(monkeypatch, tmp_p
     assert client.requested == [("QQQ", 75)]
     payload, json_path = read_report(out)
     assert (
-        payload["market_distribution_state"]["index_results"][0]["benchmark_name"]
-        == "QQQ (Nasdaq-100 ETF proxy; not Nasdaq Composite)"
+        payload["market_distribution_state"]["index_results"][0]["benchmark_name"] == "Custom Bench"
     )
     assert payload["portfolio_action"]["current_exposure_pct"] == 80
     # config-supplied key must never reach the written artifacts

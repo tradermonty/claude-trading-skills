@@ -124,7 +124,7 @@ def main():
     print("Step 2: Analyzing Market State")
     print("-" * 70)
 
-    market_state = get_market_state(sp500_history, qqq_history)
+    market_state = get_market_state(sp500_history, qqq_history, nasdaq_label=nasdaq_label)
 
     market_state["nasdaq"]["index"] = nasdaq_label
     sp500_state = market_state["sp500"]["state"]

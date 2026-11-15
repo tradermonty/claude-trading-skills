@@ -542,6 +542,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
 
     for older_sl in swing_lows[1:]:
         older_rally = track_rally_attempt(analysis_window, older_sl["swing_low_idx"])
+        if older_rally.get("data_gap"):
+            result.update(data_gap=True, error=older_rally["reason"])
+            return result
         if older_rally["day1_idx"] is None:
             continue
         if older_rally["current_day_count"] < FTD_DAY_START:
@@ -585,7 +588,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     return result
 
 
-def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> dict:
+def get_market_state(
+    sp500_history: list[dict], nasdaq_history: list[dict], nasdaq_label="NASDAQ"
+) -> dict:
     """
     Analyze both indices and produce a merged market state assessment.
 
@@ -606,7 +611,7 @@ def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> d
     nasdaq_chrono = list(reversed(nasdaq_history)) if nasdaq_history else []
 
     sp500_analysis = analyze_single_index(sp500_chrono, "S&P 500")
-    nasdaq_analysis = analyze_single_index(nasdaq_chrono, "NASDAQ")
+    nasdaq_analysis = analyze_single_index(nasdaq_chrono, nasdaq_label)
 
     sp500_state = MarketState(sp500_analysis["state"])
     nasdaq_state = MarketState(nasdaq_analysis["state"])
@@ -644,11 +649,11 @@ def get_market_state(sp500_history: list[dict], nasdaq_history: list[dict]) -> d
     if sp500_ftd:
         ftd_index = "S&P 500"
     if nasdaq_ftd:
-        ftd_index = "NASDAQ" if ftd_index is None else "Both"
+        ftd_index = nasdaq_label if ftd_index is None else "Both"
 
     # Also track invalidated FTD index for reporting
     if ftd_index is None and combined_state == MarketState.FTD_INVALIDATED.value:
-        for label, analysis in [("S&P 500", sp500_analysis), ("NASDAQ", nasdaq_analysis)]:
+        for label, analysis in [("S&P 500", sp500_analysis), (nasdaq_label, nasdaq_analysis)]:
             if analysis.get("state") == MarketState.FTD_INVALIDATED.value:
                 ftd_index = label
                 break

@@ -145,6 +145,10 @@ def render_markdown(payload: dict) -> str:
     lines.append("")
     lines.append(f"- **Data Source:** {audit.get('data_source', 'N/A')}")
     lines.append(f"- **Symbols:** {', '.join(audit.get('symbols_loaded', []) or [])}")
+    for item in audit.get("instrument_identity", []):
+        lines.append(
+            f"- **Instrument {item['symbol']}:** {item.get('instrument_name', item['symbol'])}"
+        )
     lines.append(
         "- **Evidence basis:** price and volume belong to each named symbol. ETF DD counts are not Nasdaq Composite or S&P 500 index counts."
     )

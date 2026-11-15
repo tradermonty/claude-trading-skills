@@ -353,7 +353,7 @@ def main(argv: list[str] | None = None) -> int:
     indexes_cfg = [
         dict(
             item,
-            benchmark_name=identities.get(
+            instrument_name=identities.get(
                 item["symbol"].upper(), item.get("benchmark_name", item["symbol"])
             ),
         )

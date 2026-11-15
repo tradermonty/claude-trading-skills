@@ -144,17 +144,17 @@ def test_main_writes_real_decision_reports(
         assert "Recorded rally reference breached" in markdown
         assert "Aggressively increase equity exposure" not in markdown
     elif scenario == "dual":
-        assert "YES (S&P 500 + NASDAQ)" in markdown
+        assert "YES (S&P 500 + Nasdaq Composite (^IXIC))" in markdown
         assert report["ftd_invalidation"]["invalidated"] is False
     elif scenario == "single":
         assert "| **FTD Index** | S&P 500 |" in markdown
-        assert "YES (S&P 500 + NASDAQ)" not in markdown
+        assert "YES (S&P 500 + Nasdaq Composite (^IXIC))" not in markdown
     elif scenario == "nasdaq_single":
         assert report["sp500"]["ftd"]["ftd_detected"] is False
         assert report["nasdaq"]["ftd"]["ftd_detected"] is True
         assert report["market_state"]["dual_confirmation"] is False
-        assert report["market_state"]["ftd_index"] == "NASDAQ"
-        assert "| **FTD Index** | NASDAQ |" in markdown
+        assert report["market_state"]["ftd_index"] == "Nasdaq Composite (^IXIC)"
+        assert "| **FTD Index** | Nasdaq Composite (^IXIC) |" in markdown
         assert "### Nasdaq Composite (^IXIC) FTD" in markdown
         assert "### S&P 500 FTD" not in markdown
 
@@ -249,3 +249,23 @@ def test_instrument_identity_keeps_price_and_volume_on_selected_series(
     assert identity["label"] in markdown
     assert "Aggressively increase" not in markdown
     assert report["quality_score"]["exposure_range"] == "Not assessed"
+
+
+def test_explicit_qqq_identity_reaches_all_public_fields(monkeypatch, tmp_path):
+    client = FixtureClient(
+        {
+            "^GSPC": {"historical": market_history(confirmed=False)},
+            "QQQ": {"historical": market_history(peak=400)},
+        },
+        {"^GSPC": [], "QQQ": []},
+    )
+    install_client(monkeypatch, tmp_path, client)
+    monkeypatch.setattr(
+        "sys.argv", ["ftd_detector.py", "--output-dir", str(tmp_path), "--nasdaq-symbol", "QQQ"]
+    )
+    ftd_detector.main()
+    report, markdown = read_reports(tmp_path)
+    label = report["metadata"]["instruments"]["nasdaq"]["label"]
+    assert report["market_state"]["ftd_index"] == label
+    assert report["quality_score"]["ftd_source"] == label
+    assert f"FTD Index** | {label}" in markdown

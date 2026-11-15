@@ -160,7 +160,7 @@
       "base": "Day 5 FTD: +60 (prime window)",
       "gain": "+2.10% gain: +15 (strong)",
       "volume": "Above 50-day avg volume: +10",
-      "dual_confirm": "Both S&P 500 + NASDAQ confirmed: +15",
+      "dual_confirm": "Both S&P 500 + QQQ (Nasdaq-100 ETF proxy) confirmed: +15",
       "post_ftd": "No post-FTD distribution (5 days clean): +10"
     },
     "signal": "Strong FTD",

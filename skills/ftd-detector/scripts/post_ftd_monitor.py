@@ -15,7 +15,7 @@ with ``data_gap: True`` and a ``reason``. The quality score then stays an int:
 """
 
 from _price_bars import find_bar_gaps
-from ftd_lifecycle import assess_lifecycle
+from ftd_lifecycle import assess_lifecycle, select_ftd_source
 
 UNAVAILABLE_SIGNAL = "Unavailable: data gap"
 
@@ -232,7 +232,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     # Fail closed on any gapped index, before an FTD source is chosen
     gapped_indices = [
         f"{label}: {idx_data.get('error', 'Data gap')}"
-        for label, idx_data in (("S&P 500", sp500), ("NASDAQ", nasdaq))
+        for label, idx_data in (("S&P 500", sp500), (nasdaq.get("index", "NASDAQ"), nasdaq))
         if idx_data.get("data_gap") is True
     ]
     if gapped_indices:
@@ -241,12 +241,11 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     # Use whichever index confirmed FTD
     ftd_data = None
     ftd_source = None
-    for label, idx_data in [("S&P 500", sp500), ("NASDAQ", nasdaq)]:
-        ftd = idx_data.get("ftd", {})
-        if ftd and ftd.get("ftd_detected"):
-            ftd_data = ftd
-            ftd_source = label
-            break
+    selected = select_ftd_source(market_state)
+    if selected:
+        idx_data = market_state[selected]
+        ftd_data = idx_data["ftd"]
+        ftd_source = idx_data.get("index", "S&P 500" if selected == "sp500" else "NASDAQ")
 
     if ftd_data is None:
         return {
@@ -316,7 +315,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     # 4. Dual index confirmation
     if dual:
         dual_bonus = 15
-        breakdown["dual_confirm"] = "Both S&P 500 + NASDAQ confirmed: +15"
+        breakdown["dual_confirm"] = f"Both S&P 500 + {nasdaq.get('index', 'NASDAQ')} confirmed: +15"
     else:
         dual_bonus = 0
         breakdown["dual_confirm"] = f"Single index ({ftd_source}): +0"
@@ -373,7 +372,11 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
 
     # A warning weakens the event, but does not erase or fail the rally.
     if inv.get("warning"):
-        breakdown["warning"] = "Close below FTD-day low; rally reference remains distinct"
+        raw_score = score
+        score = min(score, 59)
+        breakdown["warning"] = (
+            f"FTD-day low breached: cap 59 (raw {raw_score}); heuristic, not failure"
+        )
 
     # Determine signal and guidance
     if score >= 80:
@@ -393,7 +396,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
         guidance = "Weak technical FTD; assess breadth, leadership and portfolio risk separately."
         exposure = "Not assessed"
     else:
-        signal = "Weak FTD"
+        signal = "Very weak FTD"
         guidance = "Weak technical quality; use the explicit rally reference to assess failure."
         exposure = "Not assessed"
 
@@ -476,7 +479,10 @@ def assess_post_ftd_health(
             ("nasdaq", market_state.get("nasdaq", {}), nasdaq_history),
         ]
     )
+    selected = select_ftd_source(market_state)
     for _label, idx_data, hist in candidates:
+        if _label != selected:
+            continue
         ftd = idx_data.get("ftd", {})
         if ftd and ftd.get("ftd_detected") and hist:
             # Find FTD index in history

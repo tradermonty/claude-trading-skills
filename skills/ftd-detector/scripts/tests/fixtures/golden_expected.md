@@ -14,7 +14,7 @@
 | **Quality Score** | **100/100** |
 | **Signal** | Strong FTD |
 | **Exposure Guidance** | Not assessed |
-| **Dual Confirmation** | YES (S&P 500 + NASDAQ) |
+| **Dual Confirmation** | YES (S&P 500 + QQQ (Nasdaq-100 ETF proxy)) |
 
 > **Guidance:** Strong technical FTD; breadth, leadership and portfolio risk still require assessment.
 
@@ -80,7 +80,7 @@
 | Base | Day 5 FTD: +60 (prime window) |
 | Gain | +2.10% gain: +15 (strong) |
 | Volume | Above 50-day avg volume: +10 |
-| Dual Confirm | Both S&P 500 + NASDAQ confirmed: +15 |
+| Dual Confirm | Both S&P 500 + QQQ (Nasdaq-100 ETF proxy) confirmed: +15 |
 | Post Ftd | No post-FTD distribution (5 days clean): +10 |
 
 ---
@@ -132,7 +132,7 @@ This analysis uses William O'Neil's Follow-Through Day (FTD) methodology to conf
 4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, volume, dual-index, post-FTD health)
 5. **Post-FTD Monitoring:** Distribution day tracking, invalidation check, Power Trend confirmation
 
-Dual-index tracking (S&P 500 + NASDAQ) provides stronger confirmation than single-index analysis.
+Dual-instrument tracking (S&P 500 + QQQ (Nasdaq-100 ETF proxy)) provides additional evidence than single-index analysis.
 
 For detailed methodology, see `references/ftd_methodology.md`.
 
