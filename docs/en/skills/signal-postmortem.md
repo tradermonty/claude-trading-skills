@@ -75,7 +75,7 @@ Gather closed or matured signal records. Each record should include:
 - `signal_date`: Date signal was generated
 - `predicted_direction`: LONG or SHORT
 - `source_skill`: Which skill generated the signal
-- `entry_price`: Price at signal generation (optional, for manual override)
+- `entry_price`: Price at signal generation (required for manual recording; batch may fetch it)
 
 ```bash
 # Example: List signals ready for postmortem (5+ days old)
@@ -109,19 +109,35 @@ signals exits 1 and writes only a diagnostic batch summary; mixed batches save
 valid records and exit 0. Check skipped counts before using the results. Skipped
 signals do not overwrite existing records. Previously saved records are not
 repaired or excluded automatically; review older records before analyzing them.
-This change covers batch recording; the manual recording limitation in Issue
-[#700](https://github.com/tradermonty/claude-trading-skills/issues/700) remains open.
 
 For manual outcome recording (when price data is already available):
 
 ```bash
 python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
+  --signals-file state/signals/aggregated_signals_2026-03-10.json \
   --signal-id sig_aapl_20260310_abc \
   --exit-price 178.50 \
   --exit-date 2026-03-15 \
   --outcome-notes "Closed at target, +3.2% in 5 days" \
   --output-dir reports/
 ```
+
+Manual mode requires exactly one matching saved signal; it never infers metadata
+from the ID or fetches prices. Entry and exit must be finite positive prices,
+dates must be canonical `YYYY-MM-DD`, and exit cannot precede signal date.
+Missing/ambiguous source evidence or an unrepresentable return fails without
+writing or replacing an outcome. Source and output must be different files,
+including symlink/hardlink aliases. Supply the source file when using the manual
+example; an ID and exit alone are insufficient.
+
+Manual classification uses `(exit - entry) / entry`, the saved LONG/SHORT
+direction and existing thresholds. The record carries `return_basis: actual_exit`
+and `realized_returns.actual`; `holding_days` is elapsed calendar days. This is
+raw price change, not position-sized, leveraged or fee-adjusted P&L. Actual exit
+returns do not populate the 5d/20d benchmark fields. The analyzer counts their
+outcomes and months but averages only observed finite 5d values, with
+`return_samples_5d` coverage and null/N/A when none exist. Existing fabricated
+records are not automatically repaired; review historical data separately.
 
 ### Step 3: Classify Outcomes
 

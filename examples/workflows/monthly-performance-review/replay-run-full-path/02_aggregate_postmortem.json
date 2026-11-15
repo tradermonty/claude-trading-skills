@@ -41,6 +41,7 @@
       "false_positive_severe": 0,
       "neutral": 1,
       "regime_mismatch": 0,
+      "return_samples_5d": 2,
       "sample_size": 2,
       "true_positive": 1
     },
@@ -52,6 +53,7 @@
       "false_positive_severe": 0,
       "neutral": 0,
       "regime_mismatch": 0,
+      "return_samples_5d": 1,
       "sample_size": 1,
       "true_positive": 1
     },
@@ -63,6 +65,7 @@
       "false_positive_severe": 0,
       "neutral": 0,
       "regime_mismatch": 1,
+      "return_samples_5d": 2,
       "sample_size": 2,
       "true_positive": 0
     }

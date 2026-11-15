@@ -323,24 +323,6 @@ class TestAllocations:
         findings = check_allocations(content)
         assert len(findings) == 0
 
-    def test_allocation_range_notation_invalid(self):
-        """Range notation where sum_mins > 100 -> WARNING."""
-        # sum_mins = 60+30+10 = 100, sum_maxs = 65+35+15 = 115
-        # sum_mins == 100 which is <= 100.5, sum_maxs = 115 >= 99.5
-        # Actually this should be OK since 100 IS contained in the range.
-        # Wait, re-read the spec: "sum_mins=100, sum_maxs=115, min>100 so WARNING"
-        # But 100 is not > 100. Let me re-read...
-        # The spec says: "sum_mins=100, sum_maxs=115, min>100 so WARNING"
-        # This seems like a spec error. Let me follow the implementation logic:
-        # sum_mins > 100.5 OR sum_maxs < 99.5 -> WARNING
-        # 100 > 100.5? No. 115 < 99.5? No. So no warning.
-        # But the spec explicitly says WARNING. Let me adjust the values.
-        # Actually I need to re-read the spec more carefully:
-        # "- A: 60-65%\n- B: 30-35%\n- C: 10-15%" -> sum_mins=100, sum_maxs=115
-        # The original prompt says "min>100 so WARNING" but 100 is not > 100.
-        # I'll change the test values to make sum_mins clearly > 100.
-        pass
-
     def test_allocation_range_notation_invalid_v2(self):
         """Range notation where sum_mins > 100.5 -> WARNING."""
         content = "## 配分\n- A: 60-65%\n- B: 30-35%\n- C: 15-20%\n"

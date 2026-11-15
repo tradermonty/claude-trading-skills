@@ -978,12 +978,20 @@ def test_producer_legacy_close_outcome_falls_back_to_drawdown_metrics(tmp_path: 
                 "100",
                 "--actual-date",
                 "2026-07-01",
+                "--shares",
+                "1",
                 "--event-date",
                 "2026-07-01",
             ]
         )
         == 0
     )
+    # Simulate a pre-#703 record: ACTIVE with no recorded position. The CLI
+    # now refuses to open without a quantity, so rewrite the YAML directly.
+    legacy_path = state_dir / f"{thesis_id}.yaml"
+    legacy = yaml.safe_load(legacy_path.read_text(encoding="utf-8"))
+    legacy["position"] = None
+    legacy_path.write_text(yaml.safe_dump(legacy, sort_keys=False), encoding="utf-8")
     assert (
         thesis_store.main(
             [
@@ -1043,12 +1051,20 @@ def test_producer_legacy_invalidated_outcome_falls_back_to_drawdown_metrics(tmp_
                 "100",
                 "--actual-date",
                 "2026-07-01",
+                "--shares",
+                "1",
                 "--event-date",
                 "2026-07-01",
             ]
         )
         == 0
     )
+    # Simulate a pre-#703 record: ACTIVE with no recorded position. The CLI
+    # now refuses to open without a quantity, so rewrite the YAML directly.
+    legacy_path = state_dir / f"{thesis_id}.yaml"
+    legacy = yaml.safe_load(legacy_path.read_text(encoding="utf-8"))
+    legacy["position"] = None
+    legacy_path.write_text(yaml.safe_dump(legacy, sort_keys=False), encoding="utf-8")
     assert (
         thesis_store.main(
             [

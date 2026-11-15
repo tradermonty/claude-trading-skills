@@ -140,6 +140,26 @@ JSONの各候補が `IDEA` ステータスの thesis になります。登録は
 で記録します。利益保護ストップ付きで過去の取引を登録する場合は、初期stopで開始してから
 現在のstopへ更新してください。
 
+実際のロング約定が予定ストップを下回った場合、既定では引き続き拒否します。
+実約定の記録を明示的に承認する場合のみ`open-position --allow-gap-fill`
+（APIは`allow_gap_fill=True`）を使用します。正の有限な実約定価格と予定ストップの位置関係だけを例外とし、
+SHORT方向・不正な価格や数量・状態の検証は維持します。先物ではこのオプションを拒否します。
+この承認でも株数は必須です。`--shares`で指定するか、サイズ計算済みのポジションを添付してください。
+
+目標価格・予定ストップ・サイズ計算時の監査値・出典は書き換えません。実約定価格を保存し、保護された
+`status_history.reason`へ承認内容と当時の実約定価格・予定ストップを追記します。
+後でstopを更新しても当初の承認履歴は残ります。通常・同値の約定にgap注記は付きません。
+APIの許可値は真偽値、reasonは文字列が必要です。決済・部分決済の損益は実約定価格から計算します。
+既に起きた約定の記録であり、新規取引やストップ違反の放置を承認する機能ではありません。
+サイズ計算時の監査値も再計算しません。
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ open-position <id> \
+  --actual-price 88 --actual-date 2026-11-01 --shares 10 \
+  --allow-gap-fill --reason "record actual broker fill"
+```
+
 旧データの明示的なショート記録は、SHORTの語を含むものか、SELLだけのものを指します。例はSELL_SHORT、Short position、SELLで、Sell to closeなどはロングのままです。こうした記録は、新たな損益・MAE/MFE計算を拒否します。CLOSED/INVALIDATEDなら参考用のポストモーテムを生成できます。損益・MAE/MFE・評価額・リスクは「—」とし、未対応の旧ショート記録である理由を明記します。価格取得は行わず、thesis/index・既存の損益・出典情報も変更しません。過去の数値の妥当性を保証したり補正したりする機能ではありません。ACTIVE/PARTIALLY_CLOSEDでは引き続き生成を拒否します。
 ただし終了価格を渡さないINVALIDATEDへの無効化とレビュー済み更新は可能で、既存の金額・出典情報は保持します。
 集計・月次レポートは明示的なショートを除外し、除外件数を表示します。summary JSONでは非ゼロ時に
@@ -206,10 +226,11 @@ thesis_id = "REPLACE_WITH_EXISTING_THESIS_ID"
 open_position(state_dir, thesis_id,
               actual_price=155.50,
               actual_date="2026-03-16T10:30:00-04:00",
+              shares=10,
               event_date="2026-03-16T10:30:00-04:00")
 ```
 
-これが **ACTIVE ステータスへの唯一の経路**です。`actual_price` と `actual_date`（RFC 3339形式、タイムゾーン必須）が必要です。
+これが **ACTIVE ステータスへの唯一の経路**です。`actual_price` と `actual_date`（RFC 3339形式、タイムゾーン必須）が必要です。株式 thesis にはさらに数量が必要です。`shares` を渡すか、thesis が ENTRY_READY のうちに `attach_position()`（ステップ 5）を実行して `shares` を省略してください。どちらもない場合、`close()` が1株あたりの損益を記録してしまうため、呼び出しは拒否されます。
 
 ### ステップ 5: ポジションサイジングの付与
 
@@ -229,7 +250,7 @@ attach_position(state_dir, thesis_id,
                 position_report_path="reports/position_sizer_AAPL_2026-03-16.json")
 ```
 
-レポートの `mode` は `"shares"` である必要があります（budget モードは拒否されます）。
+レポートの `mode` は `"shares"` である必要があります（budget モードは拒否されます）。ACTIVE の thesis に付与すると、記録済みの数量がレポートの値で置き換わります。
 
 ### ステップ 6: 定期レビュー
 
@@ -287,6 +308,16 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
 ```
 
 P&L、保有日数、（FMP APIキーがあれば）MAE/MFEを含むレポートが `state/journal/pm_{thesis_id}.md` に保存されます。
+
+CLOSEDまたはINVALIDATEDのthesisに学びを記録し、ポストモーテムを再生成してジャーナルを更新します:
+
+```bash
+python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
+  --state-dir state/theses/ record-lessons th_aapl_div_20260314_a3f1 \
+  --text "Sized too large into earnings; cut the position before the print."
+```
+
+複数行の場合は `--file PATH`（UTF-8）を使います。既に記録がある場合は `--append` または `--replace` を指定します。記録した学びは `review monthly-report` の「Top Lessons」にも表示されます。
 
 ---
 
@@ -410,7 +441,9 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py store \
 |--------|------|--------|
 | `ValidationError: ... is not a 'date-time'` | 日時フィールドにタイムゾーンがない、またはスペース区切り | RFC 3339形式を使用: `2026-03-16T10:30:00-04:00` |
 | `ValueError: Cannot transition from terminal status CLOSED` | 決済/無効化済みの thesis を変更しようとした | ターミナルステータスは永続的です。必要なら新しい thesis を作成してください。 |
-| `ValueError: Use open_position() to transition to ACTIVE` | `transition()` で ACTIVE を指定した | `open_position(state_dir, thesis_id, actual_price, actual_date)` を使用 |
+| `ValueError: Use open_position() to transition to ACTIVE` | `transition()` で ACTIVE を指定した | `open_position(state_dir, thesis_id, actual_price, actual_date, shares=shares)` を使用 |
+| `ValueError: open_position() requires a share count for an equity thesis ...` | `shares` も `attach_position()` 由来の株数もない状態で株式を open した | `shares`（CLI は `--shares`）を渡すか、ENTRY_READY のうちに Position Sizer レポートを付与する。先物は `--contracts` か `attach-futures-position` を使用 |
+| `store doctor` が終了コード 1 | JSON レポートが `"ok": false`、または state ディレクトリが存在しない（`ERROR: state directory not found or not a directory`） | JSON レポート（`missing_in_index`、`orphaned_in_index`、`field_mismatches`、`schema_errors`）を確認し、インデックスのずれは `rebuild-index` で修復 |
 | `ValueError: Position report mode is 'budget', expected 'shares'. ...` | Position Sizer レポートが `mode: "budget"` | `--entry` と `--stop` を指定して shares モードで再実行 |
 | `ValueError: Missing required field: ticker` | スクリーナーJSONに必要なフィールドがない | 入力がソースアダプターの期待するフォーマットに合っているか確認 |
 | 重複 thesis が作成されない | フィンガープリントが既存 thesis と一致 | 意図的な動作（冪等性）です。既存の thesis_id が返されます。 |

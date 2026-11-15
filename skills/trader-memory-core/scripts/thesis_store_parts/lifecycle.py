@@ -16,11 +16,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import thesis_store
+    import yaml
 
     _STATUS_ORDER = thesis_store._STATUS_ORDER
     _TERMINAL_STATUSES = thesis_store._TERMINAL_STATUSES
     _UPDATE_OUTCOME_FIELDS = thesis_store._UPDATE_OUTCOME_FIELDS
     _VALID_THESIS_TYPES = thesis_store._VALID_THESIS_TYPES
+    _YAML_DUMP_KWARGS = thesis_store._YAML_DUMP_KWARGS
     _coerce_dt = thesis_store._coerce_dt
     _compute_origin_fingerprint = thesis_store._compute_origin_fingerprint
     _default_thesis = thesis_store._default_thesis
@@ -271,6 +273,105 @@ def update(state_dir: Path, thesis_id: str, fields: dict) -> dict:
     _save_index(state_dir, index)
 
     return thesis
+
+
+_LESSONS_ALLOWED_STATUSES = ("CLOSED", "INVALIDATED")
+_LESSONS_MAX_CHARS = 10_000
+_LESSONS_MODES = ("error", "append", "replace")
+
+
+def _yaml_round_trips(value: str) -> bool:
+    """True if the YAML writer stores ``value`` and reads it back unchanged.
+
+    Some characters (e.g. NEL U+0085) are altered by YAML. Dumps with the same
+    options as _atomic_write_yaml (_YAML_DUMP_KWARGS) so the two cannot drift.
+    """
+    return yaml.safe_load(yaml.dump(value, **_YAML_DUMP_KWARGS)) == value
+
+
+def record_lessons(
+    state_dir: Path, thesis_id: str, text: str, *, mode: str = "error"
+) -> tuple[dict, str]:
+    """Record post-trade lessons in ``outcome.lessons_learned`` (Issue #701).
+
+    Only CLOSED / INVALIDATED theses are accepted, the statuses that the
+    postmortem and monthly-report renderers cover. Validates, then delegates to
+    update(), so there is no second write path.
+
+    Args:
+        text: Lesson text (stripped; non-empty; at most 10_000 characters).
+            One plain paragraph per lesson renders best in reports.
+        mode: What to do when a non-empty lesson is already stored. "error"
+            refuses, "append" joins with a single newline, "replace"
+            overwrites. With no stored lesson every mode stores the text.
+
+    Returns:
+        (updated thesis, effective action "new" | "append" | "replace").
+
+    Raises:
+        ValueError: Invalid mode or text, status not CLOSED/INVALIDATED,
+            existing lesson in "error" mode, or a legacy unsupported short.
+        FileNotFoundError: Unknown thesis_id.
+    """
+    if mode not in _LESSONS_MODES:
+        raise ValueError(f"Invalid mode: {mode!r}. Must be one of {list(_LESSONS_MODES)}")
+    if not isinstance(text, str):
+        raise ValueError(f"lessons text must be a string, got {type(text).__name__}")
+    new_text = text.strip()
+    if not new_text:
+        raise ValueError("lessons text is empty")
+    try:
+        new_text.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError(
+            "lessons text is not valid UTF-8 (undecodable bytes in --text?); use --file"
+        ) from None
+    if len(new_text) > _LESSONS_MAX_CHARS:
+        raise ValueError(
+            f"lessons text is {len(new_text)} characters; limit is {_LESSONS_MAX_CHARS}"
+        )
+
+    thesis = _load_thesis(state_dir, thesis_id)
+    status = thesis["status"]
+    if status not in _LESSONS_ALLOWED_STATUSES:
+        raise ValueError(
+            f"Cannot record lessons for {thesis_id}: status is {status}; "
+            f"allowed statuses are {list(_LESSONS_ALLOWED_STATUSES)}"
+        )
+
+    existing = (thesis.get("outcome") or {}).get("lessons_learned")
+    has_existing = isinstance(existing, str) and bool(existing.strip())
+    if not has_existing:
+        action, stored = "new", new_text
+    elif mode == "error":
+        raise ValueError(
+            f"{thesis_id} already has lessons recorded; "
+            "pass --append to add to them or --replace to overwrite"
+        )
+    elif mode == "append":
+        if not _yaml_round_trips(existing):
+            raise ValueError(
+                f"the lesson already stored on {thesis_id} contains characters that do not "
+                "round-trip through YAML (for example U+0085), so it cannot be appended to; "
+                "use --replace to overwrite it"
+            )
+        action, stored = "append", f"{existing}\n{new_text}"
+    else:
+        action, stored = "replace", new_text
+
+    if len(stored) > _LESSONS_MAX_CHARS:
+        raise ValueError(
+            f"total lessons would be {len(stored)} characters after {action}; "
+            f"limit is {_LESSONS_MAX_CHARS}"
+        )
+    if not _yaml_round_trips(stored):
+        raise ValueError(
+            "lessons text contains characters that do not round-trip through YAML "
+            "(for example U+0085); remove them"
+        )
+
+    updated = update(state_dir, thesis_id, {"outcome": {"lessons_learned": stored}})
+    return updated, action
 
 
 def transition(

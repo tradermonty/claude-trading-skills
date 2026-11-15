@@ -25,8 +25,7 @@ Moved verbatim from `SKILL.md`.
 
 **FMP API:**
 - Free tier: 250 calls/day (sufficient for two-stage screening)
-- Starter tier: $29.99/month for 750 calls/day
-- Professional tier: $79.99/month for 2000 calls/day
+- Paid plans: prices and limits change; see `site.financialmodelingprep.com/pricing-plans` in a browser
 
 **Recommendation:**
 - **For free FMP tier users**: Use two-stage screening (FINVIZ + FMP free tier)

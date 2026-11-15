@@ -12,7 +12,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -514,7 +514,7 @@ def main() -> None:
     # Build result
     result = {
         "schema_version": "1.0",
-        "analysis_date": datetime.now().isoformat() + "Z",
+        "analysis_date": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "parameters": {
             "lookback_years": args.lookback_years,
             "sector_filter": args.sector,

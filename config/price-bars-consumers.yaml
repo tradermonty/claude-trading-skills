@@ -1,0 +1,5 @@
+# Consumers of the vendored price-bar helper (issue #655).
+# scripts/generate_price_bars.py writes skills/<id>/scripts/_price_bars.py and
+# skills/<id>/scripts/tests/test_price_bars_contract.py for every id below.
+# Add a skill here when its migration lands.
+- ftd-detector

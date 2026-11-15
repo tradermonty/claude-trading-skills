@@ -15,7 +15,7 @@ generated: false
 Screen US stocks for Stockbee-style selling-exhaustion hammer candidates: liquid/high-quality stocks with prior momentum, a controlled pullback, undercut/reclaim behavior, long lower-wick reversal geometry, and manageable risk to the day low.
 {: .fs-6 .fw-300 }
 
-<span class="badge badge-api">FMP required</span>
+<span class="badge badge-api">FMP Required</span>
 
 [Download skill package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/stockbee-exhaustion-hammer-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/stockbee-exhaustion-hammer-screener){: .btn .fs-5 .mb-4 .mb-md-0 }

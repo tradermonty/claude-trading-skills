@@ -122,6 +122,13 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 | **キーウォッチレベル** | スイングロー、FTDデーの安値（無効化判定基準） |
 | **FTD後の健全性** | ディストリビューションデー数、パワートレンド有無 |
 
+**データ欠損の扱い。** 終値や出来高が欠けている、または NaN などの非有限値である場合、その値を 0 として読むことはありません。バーを間引くこともしません。間引くと FTD を誤って作り出すおそれがあるためです。毎回の出力に次の項目が入ります。
+
+- `data_gap`（真偽値）: いずれかの指数の直近60営業日、または FTD 後のチェックで不正なバーがあれば true になります。トップレベルと `market_state` の両方に入ります。
+- `data_quality`: 指数ごとの60営業日ウィンドウの検査結果です。`window_sessions`、`bad_bars`、`bad_dates`、`latest_bad` を含みます。S&P 500 にはパワートレンド入力の `power_trend_bad_bars` も入りますが、数えるのはパワートレンドを計算する50本以上のときだけです。分析できなかった指数には `error` が付きます。
+
+欠損のある指数は `NO_SIGNAL` となり、価格は null です。その指数では FTD 判定を行いません。このとき全体の `combined_state` は `data_gap: true` 付きの `NO_SIGNAL` として出力されます。これは上昇トレンドではなく「状態を判定できない」という意味です。FTD 指数は null となり、FTD 後のチェックも行いません。もう一方の指数の状態を繰り上げて使うことはしません。欠損が、欠損側の指数の FTD やその無効化を隠している可能性があるためです。各指数の分析結果は JSON に残り、Markdown の見出しは「State unavailable (data gap)」と表示されます。いずれかの指数、または FTD 後のチェックに欠損があると、品質スコアは **Unavailable** になります。`total_score` は常に整数の 0 で、シグナルは `Unavailable: data gap`、エクスポージャーは `0-25%` です。Markdown には「Unavailable (理由)」と、行動指針「Data gap: confirmation unavailable — do not increase exposure on this signal」が表示されます。欠損がパワートレンドの入力だけにある場合は、パワートレンドのみが Unavailable となり、スコアは変わりません。出来高 0 は欠損として扱います。^GSPC や QQQ では出来高 0 はデータ提供元の欠損であるためです。以前のバージョンでは 0 を実際の値として扱っていたため、これは挙動の変更です。
+
 ### Phase 3: 状態別ガイダンス
 
 **FTD確認済み（スコア60+）の場合:**
@@ -151,3 +158,4 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 - `skills/ftd-detector/scripts/post_ftd_monitor.py` -- FTD後の健全性評価、品質スコア算出
 - `skills/ftd-detector/scripts/report_generator.py` -- Markdown/JSONレポート生成
 - `skills/ftd-detector/scripts/fmp_client.py` -- FMP APIクライアント（レート制限、キャッシュ付き）
+- `skills/ftd-detector/scripts/_price_bars.py` -- 価格バーの読み取りヘルパー。`scripts/price_bars/` から生成されるため直接編集しない
