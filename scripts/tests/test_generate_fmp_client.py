@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.provider_contracts import _APIKEY_RE
 
 GENERATED_SKILLS = {
+    "technical-analyst",
     "pair-trade-screener",
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
@@ -51,6 +52,7 @@ STOCKBEE_SKILLS = {
     "stockbee-setup-fluency-trainer",
 }
 NO_COMPAT_SKILLS = {
+    "technical-analyst",
     "pair-trade-screener",
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
@@ -68,6 +70,7 @@ NO_COMPAT_SKILLS = {
     *STOCKBEE_SKILLS,
 }
 NO_BUDGET_FAMILY_B = {
+    "technical-analyst",
     "pair-trade-screener",
     "value-dividend-screener",
     "dividend-growth-pullback-screener",
