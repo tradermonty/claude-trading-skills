@@ -217,8 +217,8 @@ def _build_public_csv_fetch() -> ProviderFetch:
         try:
             rows, parse_anomalies = parse_csv_rows(text)
         except csv.Error:
-            # NUL byte or a field over the csv size limit: report this contract
-            # as drift instead of aborting the whole canary.
+            # Invalid quoting, NUL or an oversized field: discard all rows,
+            # including a valid prefix, without aborting the other contracts.
             return FetchResult(200, None, [Anomaly("parse_error", FATAL)])
         return FetchResult(200, rows, parse_anomalies)
 

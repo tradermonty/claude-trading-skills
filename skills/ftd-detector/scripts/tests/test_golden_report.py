@@ -51,7 +51,9 @@ def run_golden(monkeypatch, tmp_path):
     client = FixtureClient(data)
     monkeypatch.setattr(ftd_detector, "FMPClient", lambda api_key: client)
     monkeypatch.setattr(ftd_detector, "datetime", _FixedDatetime)
-    monkeypatch.setattr("sys.argv", ["ftd_detector.py", "--output-dir", str(tmp_path)])
+    monkeypatch.setattr(
+        "sys.argv", ["ftd_detector.py", "--output-dir", str(tmp_path), "--nasdaq-symbol", "QQQ"]
+    )
     ftd_detector.main()
     stem = "ftd_detector_2026-11-13_093000"
     report = json.loads((tmp_path / f"{stem}.json").read_text(encoding="utf-8"))

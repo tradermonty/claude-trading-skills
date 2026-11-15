@@ -267,6 +267,15 @@ class TestHistoricalPrices:
 # RSI
 # --------------------------------------------------------------------------
 class TestRSI:
+    @pytest.mark.parametrize("bad", [None, True, "100", 0, -1, float("nan"), float("inf")])
+    def test_invalid_close_is_unavailable(self, bad):
+        prices = list(range(1, 31))
+        prices[15] = bad
+        assert RSICalculator.calculate_rsi(prices) is None
+
+    def test_nonfinite_derived_result_is_unavailable(self):
+        assert RSICalculator.calculate_rsi([1e308, 1.0] * 15) is None
+
     def test_insufficient_data(self):
         assert RSICalculator.calculate_rsi([1.0] * 14) is None
 
@@ -702,6 +711,105 @@ def _good_candidate(symbol="GOOD", price=20.0, **extra):
 
 
 class TestScreeningPipeline:
+    @pytest.mark.parametrize("index", [0, 14, 29])
+    @pytest.mark.parametrize(
+        "bad", ["missing", None, True, "100", 0, -1, float("nan"), float("inf"), -float("inf")]
+    )
+    def test_invalid_history_is_skipped_without_shortening(
+        self, fake_fmp, monkeypatch, capsys, index, bad
+    ):
+        bars = _falling_prices()
+        bars[index] = {} if bad == "missing" else {"close": bad}
+        fake_fmp.cfg = {
+            "candidates": [_good_candidate(sector="Utilities")],
+            "income": {"GOOD": _income()},
+            "dividends": {"GOOD": _dividend_history()},
+            "prices": {"GOOD": bars},
+        }
+        calculator = MagicMock(side_effect=AssertionError("invalid history reached RSI"))
+        monkeypatch.setattr(RSICalculator, "calculate_rsi", calculator)
+        assert mod.screen_value_dividend_stocks("fixture-only") == []
+        calculator.assert_not_called()
+        assert "RSI unavailable: missing or invalid close data" in capsys.readouterr().err
+        assert len(bars) == 30
+
+    @pytest.mark.parametrize("bad_row", [None, "not-a-bar", []])
+    def test_non_mapping_bar_is_unavailable(self, fake_fmp, capsys, bad_row):
+        bars = _falling_prices()
+        bars[5] = bad_row
+        fake_fmp.cfg = {
+            "candidates": [_good_candidate(sector="Utilities")],
+            "income": {"GOOD": _income()},
+            "dividends": {"GOOD": _dividend_history()},
+            "prices": {"GOOD": bars},
+        }
+        assert mod.screen_value_dividend_stocks("fixture-only") == []
+        assert "RSI unavailable" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("bad", ["missing", float("nan")])
+    def test_generated_transport_preserves_gap_and_next_candidate_continues(
+        self, fake_fmp, monkeypatch, capsys, bad
+    ):
+        broken = [{"close": 30 - i} for i in range(30)]
+        broken[0] = {} if bad == "missing" else {"close": bad}
+        valid = _falling_prices()
+        real = FMPClient("fixture-only")
+        session = MagicMock()
+
+        def get(url, params, timeout):
+            assert url.endswith("/stable/historical-price-eod/full")
+            assert timeout == 30
+            return _resp(200, broken if params["symbol"] == "BAD" else valid)
+
+        session.get.side_effect = get
+        real.session = session
+        monkeypatch.setattr(
+            fake_fmp,
+            "get_historical_prices",
+            lambda self, symbol, days=30: real.get_historical_prices(symbol, days),
+        )
+        calculator = MagicMock(wraps=RSICalculator.calculate_rsi)
+        monkeypatch.setattr(RSICalculator, "calculate_rsi", calculator)
+        fake_fmp.cfg = {
+            "candidates": [_good_candidate(s, sector="Utilities") for s in ("BAD", "GOOD")],
+            "income": {s: _income() for s in ("BAD", "GOOD")},
+            "dividends": {s: _dividend_history() for s in ("BAD", "GOOD")},
+        }
+        result = mod.screen_value_dividend_stocks("fixture-only")
+        assert [r["symbol"] for r in result] == ["GOOD"]
+        assert result[0]["rsi"] == 0.0
+        assert session.get.call_count == 2
+        calculator.assert_called_once_with([bar["close"] for bar in reversed(valid)], period=14)
+        assert "RSI unavailable" in capsys.readouterr().err
+        json.dumps(result, allow_nan=False)
+
+    def test_clean_history_reaches_rsi_in_full_chronological_order(self, fake_fmp, monkeypatch):
+        bars = [{"close": 30 - i} for i in range(30)]
+        fake_fmp.cfg = {
+            "candidates": [_good_candidate(sector="Utilities")],
+            "income": {"GOOD": _income()},
+            "dividends": {"GOOD": _dividend_history()},
+            "prices": {"GOOD": bars},
+        }
+        calculator = MagicMock(wraps=RSICalculator.calculate_rsi)
+        monkeypatch.setattr(RSICalculator, "calculate_rsi", calculator)
+        result = mod.screen_value_dividend_stocks("fixture-only")
+        assert result[0]["rsi"] == 100.0
+        calculator.assert_called_once_with(list(range(1, 31)), period=14)
+
+    @pytest.mark.parametrize("count", [19, 20])
+    def test_existing_rsi_observation_threshold_is_preserved(self, fake_fmp, count):
+        fake_fmp.cfg = {
+            "candidates": [_good_candidate(sector="Utilities")],
+            "income": {"GOOD": _income()},
+            "dividends": {"GOOD": _dividend_history()},
+            "prices": {"GOOD": _falling_prices(count)},
+        }
+        result = mod.screen_value_dividend_stocks("fixture-only")
+        assert bool(result) == (count == 20)
+        if result:
+            assert result[0]["rsi"] == 0.0
+
     def test_fmp_only_happy_path_builds_full_result(self, fake_fmp, capsys):
         fake_fmp.cfg = {
             "candidates": [_good_candidate(pe=12.0, priceToBook=1.4)],

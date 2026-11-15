@@ -26,6 +26,10 @@ QQQ/SPY のIBD式 Distribution Day を検出し、25セッションでの失効�
 
 ---
 
+## Instrument identity (#765)
+
+QQQ is a Nasdaq-100 ETF proxy, not the Nasdaq Composite (`^IXIC`). SPY is an ETF proxy, not `^GSPC`. DD counts use the named symbol's own price and volume; ETF counts are not official index counts. Select explicit symbols with `--symbols`; missing data must not trigger substitution or a mixed series. The risk classes and TQQQ policy are this tool's separate heuristics, not a calibrated FTD success probability (calibration remains #676).
+
 ## 1. 概要
 
 IBD Distribution Day Monitor は、William O'Neil の CAN SLIM フレームワークの中で最も実践的なシグナル—機関投資家が静かに売り抜けている日の検出—を、再現可能な日次ワークフローとして自動化します。Distribution Day のクラスターは過去の主要な調整局面のほとんどに先行しており、本スキルはこのルールを厳密な手順に落とし込みます。

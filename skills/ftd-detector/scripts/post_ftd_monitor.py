@@ -4,7 +4,7 @@ FTD Detector - Post-FTD Health Monitor
 
 Monitors the health of a confirmed Follow-Through Day by tracking:
 1. Distribution days after FTD (early distribution = high failure risk)
-2. FTD invalidation (close below FTD day's low)
+2. Rally failure (intraday breach of Day 1 low), separate from FTD-low warning
 3. Power Trend confirmation (21EMA > 50SMA, slope positive)
 4. Quality score calculation (0-100)
 
@@ -14,7 +14,8 @@ with ``data_gap: True`` and a ``reason``. The quality score then stays an int:
 ``0`` with signal ``"Unavailable: data gap"``, never ``None``.
 """
 
-from _price_bars import find_bar_gaps, read_price
+from _price_bars import find_bar_gaps
+from ftd_lifecycle import assess_lifecycle, select_ftd_source
 
 UNAVAILABLE_SIGNAL = "Unavailable: data gap"
 
@@ -103,48 +104,9 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
     }
 
 
-def check_ftd_invalidation(history: list[dict], ftd_idx: int) -> dict:
-    """
-    Check if FTD has been invalidated by a close below FTD day's low.
-
-    Args:
-        history: Daily OHLCV in chronological order
-        ftd_idx: Index of the FTD day in history
-
-    Returns:
-        Dict with invalidated flag and details. ``invalidated: None`` with
-        ``data_gap: True`` and a ``reason`` when any close from the FTD bar to
-        the latest bar is missing or invalid (the FTD can be neither confirmed
-        nor invalidated).
-    """
-    n = len(history)
-    gaps = _gaps(history[ftd_idx:], ("close",))
-    if gaps["bad_bars"]:
-        return {
-            "invalidated": None,
-            "ftd_low": None,
-            "data_gap": True,
-            "reason": _gap_reason(gaps, "since the FTD"),
-        }
-    # FTD low, falling back to the FTD close (conservative)
-    ftd_low = read_price(history[ftd_idx], "low") or history[ftd_idx]["close"]
-
-    for i in range(ftd_idx + 1, n):
-        curr_close = history[i]["close"]
-        if curr_close < ftd_low:
-            return {
-                "invalidated": True,
-                "invalidation_date": history[i].get("date", "N/A"),
-                "invalidation_close": curr_close,
-                "ftd_low": ftd_low,
-                "days_after_ftd": i - ftd_idx,
-            }
-
-    return {
-        "invalidated": False,
-        "ftd_low": ftd_low,
-        "days_since_ftd": n - 1 - ftd_idx,
-    }
+def check_ftd_invalidation(history: list[dict], ftd_idx: int, rally_low=None) -> dict:
+    """Assess failure against Day 1, with FTD candle-low warning kept separate."""
+    return assess_lifecycle(history, ftd_idx, rally_low)
 
 
 def detect_power_trend(history: list[dict]) -> dict:
@@ -253,7 +215,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
         Dict with total_score, breakdown, signal, and guidance. ``total_score``
         is always an int. On a data gap in ANY index analysis, the post-FTD
         distribution check or the invalidation check, it is ``0`` with signal
-        ``"Unavailable: data gap"``, exposure ``"0-25%"`` and ``data_gap: True``.
+        ``"Unavailable: data gap"``, exposure ``"Not assessed"`` and ``data_gap: True``.
         Any index gap gates the score because a gapped index loses its FTD,
         which would otherwise promote the other index to FTD source (and could
         turn an invalidated S&P FTD into a "Strong FTD" from NASDAQ). Only the
@@ -270,7 +232,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     # Fail closed on any gapped index, before an FTD source is chosen
     gapped_indices = [
         f"{label}: {idx_data.get('error', 'Data gap')}"
-        for label, idx_data in (("S&P 500", sp500), ("NASDAQ", nasdaq))
+        for label, idx_data in (("S&P 500", sp500), (nasdaq.get("index", "NASDAQ"), nasdaq))
         if idx_data.get("data_gap") is True
     ]
     if gapped_indices:
@@ -279,12 +241,11 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     # Use whichever index confirmed FTD
     ftd_data = None
     ftd_source = None
-    for label, idx_data in [("S&P 500", sp500), ("NASDAQ", nasdaq)]:
-        ftd = idx_data.get("ftd", {})
-        if ftd and ftd.get("ftd_detected"):
-            ftd_data = ftd
-            ftd_source = label
-            break
+    selected = select_ftd_source(market_state)
+    if selected:
+        idx_data = market_state[selected]
+        ftd_data = idx_data["ftd"]
+        ftd_source = idx_data.get("index", "S&P 500" if selected == "sp500" else "NASDAQ")
 
     if ftd_data is None:
         return {
@@ -292,13 +253,15 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
             "breakdown": {},
             "signal": "No FTD",
             "guidance": "No Follow-Through Day detected. Stay defensive.",
-            "exposure_range": "0-25%",
+            "exposure_range": "Not assessed",
         }
 
     # Fail closed: never score an FTD whose own data or post-FTD checks are gapped
     post_ftd = market_state.get("post_ftd_distribution", {})
     inv = market_state.get("ftd_invalidation", {})
     reasons = []
+    if not inv or (type(inv.get("invalidated")) is not bool and not inv.get("data_gap")):
+        reasons.append("Data gap: FTD lifecycle evidence missing")
     for part in (ftd_data, post_ftd, inv):
         if part.get("data_gap"):
             reasons.append(part.get("reason") or part.get("error") or "Data gap")
@@ -352,7 +315,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
     # 4. Dual index confirmation
     if dual:
         dual_bonus = 15
-        breakdown["dual_confirm"] = "Both S&P 500 + NASDAQ confirmed: +15"
+        breakdown["dual_confirm"] = f"Both S&P 500 + {nasdaq.get('index', 'NASDAQ')} confirmed: +15"
     else:
         dual_bonus = 0
         breakdown["dual_confirm"] = f"Single index ({ftd_source}): +0"
@@ -403,27 +366,43 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
             "breakdown": breakdown,
             "signal": "Failed/Invalidated",
             "guidance": "FTD invalidated. Reduce exposure, wait for new rally attempt.",
-            "exposure_range": "0-25%",
+            "exposure_range": "Not assessed",
             "ftd_source": ftd_source,
         }
+
+    # A warning weakens the event, but does not erase or fail the rally.
+    if inv.get("warning"):
+        raw_score = score
+        score = min(score, 59)
+        breakdown["warning"] = (
+            f"FTD-day low breached: cap 59 (raw {raw_score}); heuristic, not failure"
+        )
 
     # Determine signal and guidance
     if score >= 80:
         signal = "Strong FTD"
-        guidance = "Aggressively increase exposure to 75-100%."
-        exposure = "75-100%"
+        guidance = (
+            "Strong technical FTD; breadth, leadership and portfolio risk still require assessment."
+        )
+        exposure = "Not assessed"
     elif score >= 60:
         signal = "Moderate FTD"
-        guidance = "Gradually increase exposure to 50-75%."
-        exposure = "50-75%"
+        guidance = (
+            "Moderate technical FTD; assess breadth, leadership and portfolio risk separately."
+        )
+        exposure = "Not assessed"
     elif score >= 40:
         signal = "Weak FTD"
-        guidance = "Cautious increase to 25-50%, use tight stops."
-        exposure = "25-50%"
+        guidance = "Weak technical FTD; assess breadth, leadership and portfolio risk separately."
+        exposure = "Not assessed"
     else:
-        signal = "Failed/Weak"
-        guidance = "Stay defensive, wait for new signal."
-        exposure = "0-25%"
+        signal = "Very weak FTD"
+        guidance = "Weak technical quality; use the explicit rally reference to assess failure."
+        exposure = "Not assessed"
+
+    if inv.get("warning"):
+        signal = "FTD under pressure"
+        guidance = "FTD-day low breached; rally failure requires a Day 1 low breach. Assess risk separately."
 
     return {
         "total_score": score,
@@ -444,7 +423,7 @@ def _unavailable(reason: str, ftd_source) -> dict:
         "guidance": (
             f"{reason}. FTD confirmation unavailable; do not increase exposure on this signal."
         ),
-        "exposure_range": "0-25%",
+        "exposure_range": "Not assessed",
         "data_gap": True,
         "reason": reason,
     }
@@ -486,6 +465,9 @@ def assess_post_ftd_health(
         ``data_quality`` per index. A power-trend-only gap leaves ``data_gap``
         False and shows up as ``power_trend: None`` with a reason.
     """
+    # Recompute primary-event health; never reuse a past evaluation's fields.
+    market_state.pop("post_ftd_distribution", None)
+    market_state.pop("ftd_invalidation", None)
     data_gap = bool(market_state.get("data_gap"))
     index_gap = any((market_state.get(key) or {}).get("data_gap") for key in ("sp500", "nasdaq"))
 
@@ -500,7 +482,10 @@ def assess_post_ftd_health(
             ("nasdaq", market_state.get("nasdaq", {}), nasdaq_history),
         ]
     )
+    selected = select_ftd_source(market_state)
     for _label, idx_data, hist in candidates:
+        if _label != selected:
+            continue
         ftd = idx_data.get("ftd", {})
         if ftd and ftd.get("ftd_detected") and hist:
             # Find FTD index in history
@@ -517,7 +502,10 @@ def assess_post_ftd_health(
                 market_state["post_ftd_distribution"] = dist
 
                 # Invalidation check
-                inv = check_ftd_invalidation(hist, ftd_idx)
+                inv = check_ftd_invalidation(
+                    hist, ftd_idx, (idx_data.get("rally_attempt") or {}).get("day1_low")
+                )
+                inv["rally_day1_date"] = (idx_data.get("rally_attempt") or {}).get("day1_date")
                 market_state["ftd_invalidation"] = inv
 
                 if dist.get("data_gap") or inv.get("data_gap"):
@@ -553,6 +541,15 @@ def assess_post_ftd_health(
 
     # Calculate quality score
     market_state["quality_score"] = calculate_ftd_quality_score(market_state)
+    market_state["quality_score"]["position_sizing"] = {
+        "status": "not_assessed",
+        "missing_context": ["market_breadth", "leadership", "portfolio_risk_limits"],
+    }
+    if market_state["quality_score"].get("data_gap"):
+        market_state["data_gap"] = True
+        market_state["combined_state"] = "NO_SIGNAL"
+        market_state["dual_confirmation"] = False
+        market_state["ftd_index"] = None
 
     return market_state
 
