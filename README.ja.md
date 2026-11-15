@@ -1,5 +1,7 @@
 # Claude Trading Skills
 
+**データ管理:** [プライバシー方針](docs/ja/privacy.md) · [セキュリティ方針](SECURITY.md)
+
 Claude Trading Skills は、作者自身が AI を使って自分のトレードプロセスを改善したいと考えたことから始まりました。
 
 Claude Trading Skills は、時間制約のある個人投資家が、Claude を使って投資・トレード判断を仕組み化するための Claude Skills 集です。

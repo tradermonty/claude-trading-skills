@@ -1,5 +1,7 @@
 # Claude Trading Skills
 
+**Data handling:** [Privacy policy](docs/en/privacy.md) · [Security policy](SECURITY.md)
+
 Claude Trading Skills started as a personal project to use AI to improve my own trading process.
 
 Claude Trading Skills is a Claude Skills-based trading workflow toolkit for time-constrained individual investors.

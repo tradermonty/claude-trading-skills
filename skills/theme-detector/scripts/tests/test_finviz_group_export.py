@@ -63,7 +63,9 @@ def http(monkeypatch):
 )
 def test_elite_success_without_public_library(group, fetch, monkeypatch, http, public):
     monkeypatch.setattr(client, "HAS_FINVIZFINANCE", False)
-    rows = fetch(api_key=KEY)
+    provenance = {}
+    rows = fetch(api_key=KEY, provenance=provenance)
+    assert provenance == {"source": "elite", "fallback_reason": None}
     assert rows[0]["name"] == "Fictional Industry"
     assert rows[0]["perf_1w"] == 0.05
     assert rows[0]["perf_1m"] == 0.0012
@@ -87,17 +89,36 @@ def test_environment_key_and_explicit_public_override(monkeypatch, http, public)
     monkeypatch.setenv("FINVIZ_API_KEY", KEY)
     assert client.get_industry_performance()[0]["name"] == "Fictional Industry"
     http.reset_mock()
-    assert client.get_industry_performance(api_key="")[0]["name"] == "Public Industry"
+    provenance = {"source": "elite", "fallback_reason": "request_failed"}
+    assert (
+        client.get_industry_performance(api_key="", provenance=provenance)[0]["name"]
+        == "Public Industry"
+    )
+    assert provenance == {"source": "public", "fallback_reason": None}
     http.assert_not_called()
     public.screener_view.assert_called_once_with(group="Industry")
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="public fallback requires Python3.10+")
 @pytest.mark.parametrize(
-    "failure", ["http", "timeout", "html", "empty", "headers", "all-null", "nan", "inf", "invalid"]
+    "failure,reason",
+    [
+        ("http", "http_status"),
+        ("timeout", "request_failed"),
+        ("html", "missing_columns"),
+        ("empty", "missing_columns"),
+        ("headers", "missing_columns"),
+        ("all-null", "no_usable_rows"),
+        ("nan", "nonfinite_performance"),
+        ("inf", "nonfinite_performance"),
+        ("invalid", "invalid_performance"),
+        ("duplicate", "duplicate_columns"),
+        ("short-row", "malformed_row"),
+        ("broken-quote", "malformed_csv"),
+    ],
 )
 def test_failed_elite_falls_back_without_key_or_payload_leak(
-    failure, monkeypatch, http, public, capsys
+    failure, reason, monkeypatch, http, public, capsys
 ):
     marker = "UNTRUSTED-BODY-" + KEY
     if failure == "timeout":
@@ -113,21 +134,29 @@ def test_failed_elite_falls_back_without_key_or_payload_leak(
             "nan": csv_body(["nan"] * 6),
             "inf": csv_body(["inf"] * 6),
             "invalid": csv_body([marker] * 6),
+            "duplicate": ",".join([*HEADERS, "Name"]) + "\n" + marker,
+            "short-row": ",".join(HEADERS) + "\n" + marker + ",1\n",
+            "broken-quote": ",".join(HEADERS) + '\n"' + marker,
         }[failure]
         http.return_value = Mock(status_code=200, text=body)
-    rows = client.get_industry_performance(api_key=KEY)
+    provenance = {}
+    rows = client.get_industry_performance(api_key=KEY, provenance=provenance)
+    assert provenance == {"source": "public", "fallback_reason": reason}
     assert rows[0]["name"] == "Public Industry"
     public.screener_view.assert_called_once()
     output = capsys.readouterr()
     assert KEY not in output.out + output.err
     assert marker not in output.out + output.err
     assert "public" in output.err.lower()
+    assert reason in output.err
 
 
 def test_both_sources_fail_with_actionable_safe_guidance(http, public, capsys):
     http.side_effect = requests.Timeout(KEY)
     public.screener_view.side_effect = RuntimeError(KEY)
-    assert client.get_industry_performance(api_key=KEY) == []
+    provenance = {"source": "elite", "fallback_reason": None}
+    assert client.get_industry_performance(api_key=KEY, provenance=provenance) == []
+    assert provenance == {"source": "unavailable", "fallback_reason": "request_failed"}
     output = capsys.readouterr()
     assert KEY not in output.out + output.err
     assert "1.5.0" in output.err
