@@ -221,6 +221,29 @@ def _valid_nonneg_int(value: Any) -> int | None:
     return None
 
 
+def _validate_equity_expected_price_match(
+    field_name: str, expected: Any, report_value: Any
+) -> None:
+    """Verify an explicitly requested equity price before touching state.
+
+    Unlike futures, equity preserves finite zero/negative prices (#257).
+    Use coercion only to validate: comparing the original operands retains
+    integer precision above 2**53. None means no verification was requested.
+    """
+    if expected is None:
+        return
+    if _valid_finite_number(expected) is None:
+        raise ValueError(
+            f"expected_{field_name} must be a finite number (non-bool); got {expected!r}"
+        )
+    if _valid_finite_number(report_value) is None:
+        raise ValueError(f"report {field_name} is invalid or missing: {report_value!r}")
+    if abs(report_value - expected) > 0.01:
+        raise ValueError(
+            f"{field_name.title()} price mismatch: thesis expects {expected}, report has {report_value}"
+        )
+
+
 def _validate_expected_price_match(
     field_name: str, expected: Any, report_value: Any, tolerance: float = 0.01
 ) -> None:
