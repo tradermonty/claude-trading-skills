@@ -70,6 +70,8 @@ manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/
 
 **決済済み取引を振り返る:** [Weekly Performance Digest](docs/ja/skills/weekly-performance-digest.md)は実現損益と改善点を整理します。
 
+**自分で試す:** [オフライン・クイックスタート](docs/ja/offline-quickstart.md)で、プレビューから架空レポート、Navigatorへ進めます。APIキーは不要です。
+
 ### 実際に必要な費用
 
 Claude WebのSkillsは現在Free、Pro、Max、Team、Enterpriseで利用できます。
