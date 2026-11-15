@@ -72,6 +72,8 @@ Select a preview to open the full-size SVG; on a phone, zoom after opening.
 
 **Learn from closed trades:** [Weekly Performance Digest](docs/en/skills/weekly-performance-digest.md) summarizes realized outcomes and process lessons.
 
+**Try it yourself:** [Offline Quick Start](docs/en/offline-quickstart.md) takes you from these previews to a fictional report and then the Navigator, without provider keys.
+
 ### What This Actually Costs
 
 Claude Web Skills are currently available on Free, Pro, Max, Team, and
