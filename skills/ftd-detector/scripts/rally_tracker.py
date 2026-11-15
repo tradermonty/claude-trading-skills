@@ -497,7 +497,7 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     result["rally_attempt"] = rally
 
     if rally.get("data_gap"):
-        result.update(data_gap=True, error=rally.get("reason"))
+        result.update(state=MarketState.NO_SIGNAL.value, data_gap=True, error=rally.get("reason"))
         return result
 
     historical_ftd = detect_ftd(analysis_window, rally)
@@ -506,7 +506,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         lifecycle = assess_lifecycle(analysis_window, historical_ftd["_ftd_idx"], rally["day1_low"])
         result["ftd_lifecycle"] = lifecycle
         if lifecycle.get("data_gap"):
-            result.update(data_gap=True, error=lifecycle["reason"])
+            result.update(
+                state=MarketState.NO_SIGNAL.value, data_gap=True, error=lifecycle["reason"]
+            )
         else:
             result["state"] = (
                 MarketState.FTD_INVALIDATED
@@ -543,7 +545,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     for older_sl in swing_lows[1:]:
         older_rally = track_rally_attempt(analysis_window, older_sl["swing_low_idx"])
         if older_rally.get("data_gap"):
-            result.update(data_gap=True, error=older_rally["reason"])
+            result.update(
+                state=MarketState.NO_SIGNAL.value, data_gap=True, error=older_rally["reason"]
+            )
             return result
         if older_rally["day1_idx"] is None:
             continue
@@ -559,7 +563,9 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
             continue
         lifecycle = assess_lifecycle(analysis_window, ftd_idx, older_rally["day1_low"])
         if lifecycle.get("data_gap"):
-            result.update(data_gap=True, error=lifecycle["reason"])
+            result.update(
+                state=MarketState.NO_SIGNAL.value, data_gap=True, error=lifecycle["reason"]
+            )
             return result
         invalidated = lifecycle["invalidated"]
         if not invalidated:

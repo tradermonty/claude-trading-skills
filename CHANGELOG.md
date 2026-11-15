@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Align packaged FTD reference instructions with all-session intraday Day 1 failure, distinct FTD-candle pressure, and unassessed portfolio sizing; remove residual unsupported rate/reliability claims and normalize per-index missing-lifecycle state to NO_SIGNAL (#765, #766).
+
 - FTD review follow-up: propagate older-rally low gaps, cap pressure quality at 59 for numeric consumers, select a valid FTD consistently across mixed index health, and propagate explicit instrument names. Restore unaffected methodology teaching material and preserve custom DD display names alongside canonical identity (#765, #766).
 
 - FTD/DD: separate FTD-candle-low pressure from failure at the explicitly recorded rally Day 1 intraday low; retain event evidence and report missing lows as unavailable. Default FTD Nasdaq data to ^IXIC, label explicit QQQ ETF proxies, and stop deriving portfolio percentages from FTD quality. DD reports identify their ETF/index evidence basis (#765).

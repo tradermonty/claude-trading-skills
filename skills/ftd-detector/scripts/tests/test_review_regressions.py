@@ -35,6 +35,7 @@ def test_older_day1_gap_is_not_silently_skipped(monkeypatch):
     del bars[day1]["low"]
     result = tracker.analyze_single_index(bars, "Test")
     assert result.get("data_gap") is True
+    assert result["state"] == "NO_SIGNAL"
     assert "Day 1 low" in result["error"]
 
 
