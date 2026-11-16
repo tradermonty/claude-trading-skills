@@ -13,6 +13,12 @@ Key rules (improvement-plan v2.1 R-3 + 4th-review):
   EPS is distorted -> force the adjusted path or HOLD-REVIEW
   (FITB/Comerica Q1-2026 GAAP EPS $0.15 is the golden case).
 - Emits machine-checkable pre_order_blocker codes for WS-6 (4th-review #6).
+- Routing consults FMP `industry` before `sector` (issue #771): insurers
+  hide under "Financial Services" and REITs under "Real Estate", so
+  sector-only dispatch assessed them on bank / consumer rules. An
+  explicit kind override wins over both. An unrecognized sector with no
+  usable industry HOLD-REVIEWs instead of silently taking another
+  sector's path. REITs are judged on AFFO payout, not GAAP/FCF.
 """
 
 from __future__ import annotations
@@ -29,6 +35,8 @@ from thresholds import (
     FCF_PAYOUT_MAX,
     GAAP_ADJ_DIVERGENCE,
     INSURER_OP_EPS_PAYOUT_MAX,
+    REIT_AFFO_PAYOUT_HIGH_RISK,
+    REIT_AFFO_PAYOUT_MAX,
     UTILITY_FFO_DEBT_MIN,
 )
 
@@ -37,6 +45,7 @@ _CONSUMER_SECTORS = {
     "consumer defensive",
     "consumer staples",
     "consumer cyclical",
+    "consumer discretionary",
     "industrials",
     "industrial",
     "communication",
@@ -54,6 +63,8 @@ _INSURER_SECTORS = {"insurance", "insurer", "insurers"}
 
 
 def _sector_kind(sector: str | None) -> str:
+    """Sector-only dispatch. Unrecognized sectors are "unknown", never
+    silently another sector's kind (issue #771, criterion 3)."""
     s = (sector or "").strip().lower()
     if s in _BANK_SECTORS:
         return "bank"
@@ -61,7 +72,57 @@ def _sector_kind(sector: str | None) -> str:
         return "utility"
     if s in _INSURER_SECTORS:
         return "insurer"
-    return "consumer"
+    if s in _CONSUMER_SECTORS:
+        return "consumer"
+    return "unknown"
+
+
+# FMP `industry` is finer than `sector`: an insurer hides under
+# "Financial Services" and a REIT under "Real Estate". Substring match on
+# the lowercased industry; anything unrecognized falls through to sector.
+_INDUSTRY_KIND_PATTERNS = (
+    ("insurance", "insurer"),
+    ("reit", "reit"),
+    ("bank", "bank"),
+    ("utility", "utility"),
+    ("utilities", "utility"),
+)
+
+
+def _industry_kind(industry: str | None) -> str | None:
+    text = (industry or "").strip().lower()
+    if not text:
+        return None
+    for needle, kind in _INDUSTRY_KIND_PATTERNS:
+        if needle in text:
+            return kind
+    return None
+
+
+_KNOWN_KINDS = {"bank", "utility", "insurer", "reit", "consumer"}
+
+
+def _resolve_sector_kind(
+    sector: str | None,
+    industry: str | None,
+    override: str | None,
+) -> tuple[str, str]:
+    """Return (kind, source) with source in override | industry | sector |
+    unknown. Precedence: explicit override, then industry, then sector.
+    An unrecognized override is "unknown" so the caller HOLD-REVIEWs
+    instead of routing on a typo."""
+    if override is not None:
+        o = override.strip().lower()
+        if o in _KNOWN_KINDS:
+            return o, "override"
+        return "unknown", "override"
+    kind = _industry_kind(industry)
+    if kind is not None:
+        return kind, "industry"
+    kind = _sector_kind(sector)
+    if kind != "unknown":
+        return kind, "sector"
+    return "unknown", "unknown"
 
 
 def _finite_number(value) -> bool:
@@ -78,9 +139,11 @@ def _ratio(numerator: float | None, denominator: float | None) -> float | None:
 class SafetyAssessment:
     sector_kind: str
     safety_verdict: str  # PASS | CAUTION | FAIL | HOLD-REVIEW
+    sector_kind_source: str = "sector"  # override | industry | sector | unknown
     gaap_eps_payout: float | None = None
     adjusted_eps_payout: float | None = None
     fcf_payout: float | None = None
+    affo_payout: float | None = None  # REIT anchor (None for other kinds)
     adjusted_eps_source: str = "UNAVAILABLE"  # FMP | MANUAL | UNAVAILABLE
     gaap_adj_divergence: float | None = None
     one_off_flag: bool = False
@@ -100,14 +163,21 @@ def assess_payout_safety(
     bank_metrics: dict | None = None,
     utility_metrics: dict | None = None,
     insurer_metrics: dict | None = None,
+    industry: str | None = None,
+    sector_kind_override: str | None = None,
+    reit_metrics: dict | None = None,
 ) -> SafetyAssessment:
-    kind = _sector_kind(sector)
+    kind, kind_source = _resolve_sector_kind(sector, industry, sector_kind_override)
     reasons: list[str] = []
     blockers: list[str] = []
+    if kind == "unknown":
+        blockers.append("sector_kind_unknown")
 
     gaap_payout = _ratio(annual_dividend, gaap_eps)
     adj_payout = _ratio(annual_dividend, adjusted_eps)
     fcf_payout = _ratio(annual_dividend, fcf_per_share)
+    affo_per_share = (reit_metrics or {}).get("affo_per_share")
+    affo_payout = _ratio(annual_dividend, affo_per_share)
 
     # Reject invalid income anchors before division/divergence can hide losses.
     # FCF is deliberately not an anchor for banks, insurers or utilities.
@@ -116,6 +186,9 @@ def assess_payout_safety(
         anchors.update(adjusted_eps=adjusted_eps, fcf_per_share=fcf_per_share)
     elif kind == "insurer" and adjusted_eps is not None:
         anchors["adjusted_eps"] = adjusted_eps
+    elif kind == "reit" and affo_per_share is not None:
+        # AFFO is the REIT anchor; a non-positive AFFO cannot price coverage.
+        anchors["affo_per_share"] = affo_per_share
     for name, value in anchors.items():
         if value is not None and (not _finite_number(value) or value <= 0):
             blockers.append(name + "_non_positive_or_unavailable")
@@ -125,9 +198,11 @@ def assess_payout_safety(
         return SafetyAssessment(
             sector_kind=kind,
             safety_verdict="HOLD-REVIEW",
+            sector_kind_source=kind_source,
             gaap_eps_payout=_round(gaap_payout),
             adjusted_eps_payout=_round(adj_payout),
             fcf_payout=_round(fcf_payout),
+            affo_payout=_round(affo_payout),
             adjusted_eps_source=adjusted_eps_source,
             reasons=list(blockers),
             blockers=sorted(blockers),
@@ -151,9 +226,11 @@ def assess_payout_safety(
             return SafetyAssessment(
                 sector_kind=kind,
                 safety_verdict="HOLD-REVIEW",
+                sector_kind_source=kind_source,
                 gaap_eps_payout=_round(gaap_payout),
                 adjusted_eps_payout=None,
                 fcf_payout=_round(fcf_payout),
+                affo_payout=_round(affo_payout),
                 adjusted_eps_source=adjusted_eps_source,
                 gaap_adj_divergence=_round(divergence, 4),
                 one_off_flag=True,
@@ -174,6 +251,11 @@ def assess_payout_safety(
         verdict = _assess_utility(utility_metrics or {}, gaap_payout, reasons, blockers)
     elif kind == "insurer":
         verdict = _assess_insurer(insurer_metrics or {}, gaap_payout, adj_payout, reasons, blockers)
+    elif kind == "reit":
+        verdict = _assess_reit(reit_metrics or {}, affo_payout, reasons, blockers)
+    elif kind == "unknown":
+        reasons.append("sector_kind_unknown_cannot_route")
+        verdict = "HOLD-REVIEW"
     else:
         if adj_missing:
             blockers.append("adjusted_eps_unavailable")
@@ -185,15 +267,35 @@ def assess_payout_safety(
     return SafetyAssessment(
         sector_kind=kind,
         safety_verdict=verdict,
+        sector_kind_source=kind_source,
         gaap_eps_payout=_round(gaap_payout),
         adjusted_eps_payout=_round(adj_payout),
         fcf_payout=_round(fcf_payout),
+        affo_payout=_round(affo_payout),
         adjusted_eps_source=adjusted_eps_source,
         gaap_adj_divergence=_round(divergence, 4),
         one_off_flag=one_off,
         reasons=reasons,
         blockers=sorted(set(blockers)),
     )
+
+
+def _assess_reit(m: dict, affo_payout, reasons, blockers) -> str:
+    # GAAP EPS is depreciation-distorted and FCF is meaningless for REITs;
+    # AFFO payout is the anchor (default-thresholds.md: prefer AFFO).
+    # `m` carries reit_metrics for future debt/coverage checks; today the
+    # precomputed AFFO payout is the whole assessment.
+    if affo_payout is None:
+        blockers.append("reit_affo_per_share_unavailable")
+        reasons.append("reit_affo_per_share_unavailable")
+        return "CAUTION"
+    if affo_payout > REIT_AFFO_PAYOUT_HIGH_RISK:
+        reasons.append("reit_affo_payout_above_100pct")
+        return "FAIL"
+    if affo_payout > REIT_AFFO_PAYOUT_MAX:
+        reasons.append("reit_affo_payout_caution_band")
+        return "CAUTION"
+    return "PASS"
 
 
 def _round(value: float | None, ndigits: int = 4) -> float | None:

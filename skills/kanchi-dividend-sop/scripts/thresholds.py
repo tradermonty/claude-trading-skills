@@ -77,6 +77,11 @@ BANK_CET1_MIN = 0.07
 BANK_DEPOSIT_BETA_HIGH = 0.50  # deposit cost passes through fast -> margin risk
 UTILITY_FFO_DEBT_MIN = 0.13  # below this, regulated leverage is stretched
 INSURER_OP_EPS_PAYOUT_MAX = 0.85  # operating-EPS payout hard ceiling
+# REIT AFFO payout ceilings (issue #771; AFFO is the REIT anchor per
+# references/default-thresholds.md — "Prefer AFFO if available"). Mirrors
+# the consumer EPS-payout bands: 0.85 caution, above 1.00 unsustainable.
+REIT_AFFO_PAYOUT_MAX = 0.85
+REIT_AFFO_PAYOUT_HIGH_RISK = 1.00
 # GAAP vs Adjusted EPS divergence above which a Step-4 one-off flag fires.
 # Marked calibratable (MN-4): initial value, revisit with a payout-gap
 # distribution study across Dividend Aristocrats.

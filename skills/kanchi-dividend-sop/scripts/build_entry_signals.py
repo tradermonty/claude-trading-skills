@@ -180,7 +180,9 @@ class FMPClient(SharedFMPClient):
             return [row for row in data if isinstance(row, dict)]
         return []
 
-    def get_financials(self, ticker: str, sector: str | None = None) -> dict[str, Any]:
+    def get_financials(
+        self, ticker: str, sector: str | None = None, industry: str | None = None
+    ) -> dict[str, Any]:
         """WS-2 (5th-review F1): minimal financials for the payout triad.
 
         Adjusted EPS is NOT in FMP -> source UNAVAILABLE by design (the
@@ -211,6 +213,7 @@ class FMPClient(SharedFMPClient):
                 fcf_ps = fcf / shares
         return {
             "sector": sector,
+            "industry": industry,
             "gaap_eps": gaap_eps,
             "adjusted_eps": None,
             "adjusted_eps_source": "UNAVAILABLE",
@@ -419,8 +422,13 @@ def build_entry_row(
     # flows from the event scan (High3) so FITB/Comerica GAAP distortion is
     # caught from the real path, not only when financials carries the flag.
     if financials is not None:
+        # FMP industry is finer than sector (issue #771): insurers hide
+        # under "Financial Services", REITs under "Real Estate". Industry
+        # comes from the profile first, then the financials dict.
         safety = assess_payout_safety(
             sector=financials.get("sector") or (profile or {}).get("sector"),
+            industry=financials.get("industry") or (profile or {}).get("industry"),
+            sector_kind_override=financials.get("sector_kind_override"),
             annual_dividend=annual_dividend,
             gaap_eps=financials.get("gaap_eps"),
             adjusted_eps=financials.get("adjusted_eps"),
@@ -433,13 +441,16 @@ def build_entry_row(
             bank_metrics=financials.get("bank_metrics"),
             utility_metrics=financials.get("utility_metrics"),
             insurer_metrics=financials.get("insurer_metrics"),
+            reit_metrics=financials.get("reit_metrics"),
         )
         row["payout_safety"] = {
             "sector_kind": safety.sector_kind,
+            "sector_kind_source": safety.sector_kind_source,
             "safety_verdict": safety.safety_verdict,
             "gaap_eps_payout": safety.gaap_eps_payout,
             "adjusted_eps_payout": safety.adjusted_eps_payout,
             "fcf_payout": safety.fcf_payout,
+            "affo_payout": safety.affo_payout,
             "adjusted_eps_source": safety.adjusted_eps_source,
             "gaap_adj_divergence": safety.gaap_adj_divergence,
             "one_off_flag": safety.one_off_flag,
@@ -691,7 +702,8 @@ def main() -> int:
         dividend_history = client.get_stock_dividend(ticker)
         event_scan = scanner.scan(ticker, args.as_of) if scanner else None
         sector = (profiles.get(ticker) or {}).get("sector")
-        financials = client.get_financials(ticker, sector=sector)
+        industry = (profiles.get(ticker) or {}).get("industry")
+        financials = client.get_financials(ticker, sector=sector, industry=industry)
         row = build_entry_row(
             ticker=ticker,
             alpha_pp=args.alpha_pp,
