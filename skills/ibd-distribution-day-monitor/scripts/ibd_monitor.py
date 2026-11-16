@@ -63,12 +63,45 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+class ConfigError(ValueError):
+    """A configuration-shape diagnostic that never embeds file contents."""
+
+
 def load_config(path: str | None) -> dict:
     config_path = Path(path) if path else DEFAULT_CONFIG_PATH
     if not config_path.exists():
         raise FileNotFoundError(f"config not found: {config_path}")
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        try:
+            config = yaml.safe_load(f)
+        except UnicodeError:
+            raise
+        except (ValueError, TypeError, KeyError, AttributeError, OverflowError, RecursionError):
+            # SafeLoader's scalar constructors can raise plain Python errors
+            # (e.g. !!int/!!bool/!!timestamp). Their text may expose a key.
+            raise ConfigError("invalid YAML value or excessive nesting") from None
+    if config is None:
+        return {}  # Preserve empty/comment-only/null YAML as default configuration.
+    if not isinstance(config, dict):
+        raise ConfigError("top-level YAML must be a mapping (key/value pairs)")
+    for field in ("data", "strategy_context"):
+        value = config.get(field)
+        if value is None:
+            if field in config:
+                config[field] = {}
+        elif not isinstance(value, dict):
+            raise ConfigError(f"{field} must be a mapping or null")
+    indexes = config.get("indexes")
+    if indexes is not None:
+        if not isinstance(indexes, list):
+            raise ConfigError("indexes must be a list or null")
+        for index, entry in enumerate(indexes):
+            if not isinstance(entry, dict):
+                raise ConfigError(f"indexes[{index}] must be a mapping")
+            symbol = entry.get("symbol")
+            if not isinstance(symbol, str) or not symbol.strip():
+                raise ConfigError(f"indexes[{index}].symbol must be a non-empty string")
+    return config
 
 
 def resolve_api_key(cli_key: str | None, config: dict) -> str:
@@ -316,7 +349,27 @@ def _index_result_to_dict(r: IndexResult) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    config = load_config(args.config)
+    config_path = Path(args.config) if args.config else DEFAULT_CONFIG_PATH
+    try:
+        config = load_config(args.config)
+    except OSError as exc:
+        print(
+            f"ERROR: cannot read configuration {config_path} ({type(exc).__name__}).",
+            file=sys.stderr,
+        )
+        return 1
+    except UnicodeError:
+        print(f"ERROR: configuration {config_path} must be UTF-8 YAML.", file=sys.stderr)
+        return 1
+    except yaml.YAMLError as exc:
+        # Parser exception text includes source snippets, potentially API keys.
+        mark = getattr(exc, "problem_mark", None)
+        location = f" (line {mark.line + 1}, column {mark.column + 1})" if mark else ""
+        print(f"ERROR: configuration {config_path} has invalid YAML{location}.", file=sys.stderr)
+        return 1
+    except ConfigError as exc:
+        print(f"ERROR: invalid configuration {config_path}: {exc}.", file=sys.stderr)
+        return 1
 
     # CLI overrides
     if args.symbols:
