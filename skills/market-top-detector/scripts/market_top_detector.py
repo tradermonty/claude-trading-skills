@@ -579,7 +579,7 @@ def main(argv: Optional[list[str]] = None):
     }
 
     data_availability = {
-        "distribution_days": True,  # Always available (requires S&P data to run)
+        "distribution_days": comp1.get("data_available", True),
         "leading_stocks": comp2.get("data_available", True),
         "defensive_rotation": comp3.get("data_available", True),
         "breadth_divergence": comp4.get("data_available", True),
@@ -589,7 +589,9 @@ def main(argv: Optional[list[str]] = None):
 
     composite = calculate_composite_score(component_scores, data_availability)
 
-    print(f"  Heuristic Risk Score: {composite['composite_score']}/100")
+    print(
+        f"  Heuristic Risk Score: {composite['composite_score'] if composite['composite_score'] is not None else 'N/A'}/100"
+    )
     print("  Risk score, not an estimated event probability; budgets are policy heuristics.")
     print(f"  Risk Zone: {composite['zone']}")
     print(f"  Risk Budget: {composite['risk_budget']}")
@@ -602,7 +604,11 @@ def main(argv: Optional[list[str]] = None):
     previous_report = _load_previous_report(args.output_dir)
     delta_info = _compute_deltas(component_scores, previous_report)
     # Update composite delta now that we have the composite score
-    if previous_report is not None:
+    if (
+        previous_report is not None
+        and composite["composite_score"] is not None
+        and delta_info.get("previous_composite") is not None
+    ):
         prev_composite = delta_info.get("previous_composite", 0)
         comp_delta = composite["composite_score"] - prev_composite
         delta_info["composite_delta"] = round(comp_delta, 1)
@@ -617,7 +623,8 @@ def main(argv: Optional[list[str]] = None):
             f"({delta_info['composite_delta']:+.1f})"
         )
     else:
-        print("  (First run - no comparison available)")
+        delta_info["composite_direction"] = "first_run"
+        print("  (No score comparison available)")
     print()
 
     # ========================================================================
@@ -709,7 +716,9 @@ def main(argv: Optional[list[str]] = None):
     print("=" * 70)
     print("Market Top Detection Complete")
     print("=" * 70)
-    print(f"  Heuristic Risk Score: {composite['composite_score']}/100")
+    print(
+        f"  Heuristic Risk Score: {composite['composite_score'] if composite['composite_score'] is not None else 'N/A'}/100"
+    )
     print("  Risk score, not an estimated event probability; budgets are policy heuristics.")
     print(f"  Risk Zone: {composite['zone']}")
     print(f"  Risk Budget: {composite['risk_budget']}")

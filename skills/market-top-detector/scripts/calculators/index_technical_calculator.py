@@ -20,6 +20,10 @@ Final: average of both indices, scaled to 0-100
 
 from typing import Optional
 
+from _price_bars import read_price
+from price_bar_utils import gaps, unavailable
+from price_bar_utils import price as bar_price
+
 from calculators.math_utils import calc_ema
 
 
@@ -43,6 +47,14 @@ def calculate_index_technical(
     """
     sp500_result = _evaluate_index("S&P 500", sp500_history, sp500_quote)
     nasdaq_result = _evaluate_index("NASDAQ", nasdaq_history, nasdaq_quote)
+
+    bad = {
+        name: result["data_gaps"]
+        for name, result in (("S&P 500", sp500_result), ("NASDAQ", nasdaq_result))
+        if result.get("data_gaps")
+    }
+    if bad:
+        return unavailable(calculate_index_technical([], []), bad)
 
     # Average only indices with available data
     scores = []
@@ -90,10 +102,27 @@ def _evaluate_index(name: str, history: list[dict], quote: Optional[dict] = None
     if not history or len(history) < 21:
         return {"raw_score": 0, "flags": ["Insufficient data"], "mas": {}, "data_available": False}
 
-    closes = [d.get("close", d.get("adjClose", 0)) for d in history]
-    highs = [d.get("high", d.get("close", 0)) for d in history]
-    [d.get("low", d.get("close", 0)) for d in history]
-    volumes = [d.get("volume", 0) for d in history]
+    bad = {
+        label: report
+        for label, report in (
+            ("close", gaps(history, ("close",), {"close": "adjClose"})),
+            ("high", gaps(history[:20], ("high",), {"high": "close"})),
+            ("gap", gaps(history[:6], ("volume",))),
+            ("open", gaps(history[:5], ("open",))),
+        )
+        if report
+    }
+    if bad:
+        return {
+            "raw_score": 0,
+            "flags": ["UNAVAILABLE: Invalid price bars"],
+            "mas": {},
+            "data_available": False,
+            "data_gaps": bad,
+        }
+
+    closes = [bar_price(d, "close", "adjClose") for d in history]
+    highs = [bar_price(d, "high", "close") for d in history]
 
     # Current price (from quote or most recent close)
     if quote:
@@ -145,7 +174,7 @@ def _evaluate_index(name: str, history: list[dict], quote: Optional[dict] = None
         flags.append(f"Below 200 SMA ({pct_below:+.1f}%)")
 
     # Check 5: Failed rally pattern
-    if _detect_failed_rally(closes, volumes):
+    if _detect_failed_rally(closes, []):
         score += 10
         flags.append("Failed rally pattern detected")
 
@@ -214,14 +243,19 @@ def _detect_gap_down(history: list[dict], lookback: int = 5) -> bool:
     if len(history) < lookback + 1:
         return False
 
+    if gaps(history[: lookback + 1], ("close", "volume"), {"close": "adjClose"}) or gaps(
+        history[:lookback], ("open",)
+    ):
+        return False
+
     for i in range(lookback):
         today = history[i]
         yesterday = history[i + 1]
 
-        today_open = today.get("open", 0)
-        yesterday_close = yesterday.get("close", yesterday.get("adjClose", 0))
-        today_volume = today.get("volume", 0)
-        yesterday_volume = yesterday.get("volume", 0)
+        today_open = read_price(today, "open")
+        yesterday_close = bar_price(yesterday, "close", "adjClose")
+        today_volume = read_price(today, "volume", allow_zero=True)
+        yesterday_volume = read_price(yesterday, "volume", allow_zero=True)
 
         if yesterday_close == 0 or yesterday_volume == 0:
             continue

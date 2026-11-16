@@ -192,3 +192,14 @@ python3 skills/market-top-detector/scripts/market_top_detector.py \
 - `skills/market-top-detector/scripts/scenario_engine.py`
 - `skills/market-top-detector/scripts/scorer.py`
 - `skills/market-top-detector/scripts/utils.py`
+
+## 価格データの欠損
+
+計算対象期間に欠損・非有限値・不正な価格があれば、そのコンポーネントは
+`data_gaps` の日付付き診断とともに利用不能になります。出来高0は有効ですが、
+価格0は無効です。既存のキー不在時のfallbackは維持し、不正な値を別のフィールドで
+救済しません。履歴を詰めたりゼロ補完したりせず、MarkdownではN/Aと表示し、
+合成スコアへの寄与を除外します。すべて利用不能ならJSONのスコアはnull、
+ゾーンはUnavailable、リスク予算はNot assessedです。Exposure Coachは欠損入力と
+扱い、戦略統合スキルは配分レポートを生成する前に停止します。正常データの
+採点式・予算の校正方針は変更していません。

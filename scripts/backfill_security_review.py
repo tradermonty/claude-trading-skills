@@ -40,6 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import yaml  # noqa: E402
+from security_network_evidence import script_evidence  # noqa: E402
 
 INDEX_PATH = ROOT / "skills-index.yaml"
 
@@ -359,7 +360,17 @@ def mechanical_checks(skill_id: str, root: Path = ROOT) -> dict:
     leak_signal = _key_leak_findings(scripts)
     timeout_present = any(_TIMEOUT_RE.search(_script_text(s)) for s in scripts)
     manifest = (root / "skills" / skill_id / "requirements.txt").is_file()
+    network = [
+        script_evidence(script, script.relative_to(root / "skills" / skill_id).as_posix())
+        for script in scripts
+    ]
+    network_findings = [finding for evidence in network for finding in evidence["findings"]]
+    calls = [call for evidence in network for call in evidence["calls"]]
+    applicability = "unproven" if network_findings else "network" if calls else "not_applicable"
     findings: list[str] = []
+    if scripts and not manifest:
+        findings.append("executable Python skill is missing requirements.txt")
+    findings.extend(network_findings)
     findings.extend(hardcoded)
     findings.extend(shell)
     findings.extend(exc_leak)
@@ -370,6 +381,9 @@ def mechanical_checks(skill_id: str, root: Path = ROOT) -> dict:
         "exception_key_leak_findings": exc_leak,
         "key_leak_signal": leak_signal,
         "timeout_present": timeout_present,
+        "network_applicability": applicability,
+        "network_calls": calls,
+        "network_timeout_findings": network_findings,
         "requirements_manifest_present": manifest,
         "findings": findings,
         "clean": not bool(findings),
@@ -399,6 +413,17 @@ def main(argv: list[str] | None = None) -> int:
     target = recon["target_skills"]
     only = set(args.skill or [])
     confirmed = set(args.reviewer_confirmed)
+
+    eligible = set(target)
+    for option, supplied in (("--skill", only), ("--reviewer-confirmed", confirmed)):
+        invalid = sorted(supplied - eligible)
+        if invalid:
+            print(
+                f"Error: {option} IDs are unknown or ineligible: {', '.join(invalid)}. "
+                f"Use eligible target IDs: {', '.join(target)}",
+                file=sys.stderr,
+            )
+            return 2
 
     results: list[dict] = []
     for skill_id in target:
@@ -432,7 +457,9 @@ def main(argv: list[str] | None = None) -> int:
             "proposals are advisory and fail-closed: `passed` requires mechanical-clean AND an "
             "explicit --reviewer-confirmed entry. key_leak_signal is advisory only; "
             "exception_key_leak_findings (key in request + unredacted exception print/log) "
-            "counts against clean."
+            "counts against clean. Missing executable-skill manifests and missing/unproven "
+            "per-call timeout prerequisites also prevent passed proposals. Static evidence is "
+            "advisory and never replaces the five-dimension per-skill human review."
         ),
         "reconciliation": recon,
         "results": results,
