@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -70,14 +71,8 @@ TIER_TABLE_ROW = re.compile(
 )
 
 # (path, substring, reason). Only lines containing the substring are tolerated.
-ALLOWLIST = (
-    (
-        "skills/us-undervalued-growth-screener/references/full-universe-snapshot.md",
-        "daily plan limit",
-        "Shard schedule is sized to a 750-call daily limit; changing it is a design"
-        " decision tracked in follow-up issue #750, not a pricing-copy fix.",
-    ),
-)
+# Empty since #750 re-derived the snapshot shard schedule without a daily limit.
+ALLOWLIST: tuple[tuple[str, str, str], ...] = ()
 
 
 def _price_attributed_to_fmp(line: str) -> bool:
@@ -270,11 +265,19 @@ def test_note_section_range_ends_at_same_level_heading():
     assert lines[end] == "## Next section"
 
 
-def test_allowlist_tolerates_only_the_listed_substring():
-    path = ALLOWLIST[0][0]
+def test_allowlist_tolerates_only_the_listed_substring(monkeypatch):
+    path = "skills/x/references/y.md"
+    monkeypatch.setattr(sys.modules[__name__], "ALLOWLIST", ((path, "daily plan limit", "reason"),))
     assert find_violations(path, "the 750-call daily plan limit") == []
     assert find_violations(path, "FMP Starter ($29/month)") != []
-    assert "#750" in ALLOWLIST[0][2]
+    assert find_violations("skills/x/references/z.md", "the 750-call daily plan limit") != []
+
+
+def test_snapshot_shard_schedule_states_no_daily_plan_limit():
+    path = "skills/us-undervalued-growth-screener/references/full-universe-snapshot.md"
+    text = (REPO_ROOT / path).read_text(encoding="utf-8")
+    assert "daily plan limit" not in text
+    assert find_violations(path, text) == []
 
 
 # --------------------------------------------------------------------------
