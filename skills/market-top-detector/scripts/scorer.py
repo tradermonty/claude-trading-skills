@@ -23,9 +23,6 @@ Risk Zone Mapping:
 
 from typing import Optional
 
-from _price_bars import read_price
-from price_bar_utils import gaps
-
 COMPONENT_WEIGHTS = {
     "distribution_days": 0.25,
     "leading_stocks": 0.20,
@@ -207,7 +204,7 @@ def calculate_composite_score(
     return {
         "score_kind": "heuristic_risk_score",
         "score_version": "market-top-risk-v1",
-        "data_available": available_weight > 0,
+        **({"data_available": False} if available_weight == 0 else {}),
         "calibrated_probability": False,
         "interpretation": "Risk score, not an estimated event probability. Risk budgets are policy heuristics.",
         "composite_score": composite,
@@ -324,6 +321,11 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
     Returns:
         Dict with ftd_detected, rally_day_count, details
     """
+    # Native replay loads this module by path to use only composite scoring.
+    # Keep price-history dependencies local to the FTD analysis surface.
+    from _price_bars import read_price
+    from price_bar_utils import gaps
+
     if composite_score is None:
         return {
             "ftd_detected": False,
