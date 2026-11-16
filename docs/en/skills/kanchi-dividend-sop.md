@@ -202,3 +202,18 @@ Always produce three artifacts:
 
 - `skills/kanchi-dividend-sop/scripts/build_entry_signals.py`
 - `skills/kanchi-dividend-sop/scripts/build_sop_plan.py`
+
+## Sourced financial metrics
+
+Pass `--financials-json financials.json` to re-run with per-ticker adjusted EPS,
+FFO/debt, bank, insurer or REIT metrics. Each value needs a unit, source,
+`as_of` date and document reference. Accepted values are recorded as MANUAL;
+source documents are user assertions and are not fetched or verified. Invalid
+inputs keep HOLD-REVIEW with explicit reasons; existing FAIL stays FAIL.
+See the [complete schema, fictional example and metric table](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/kanchi-dividend-sop/references/sourced-financials.md).
+
+Use `order_ready` in JSON/CSV/Markdown as the aggregate screening readiness flag.
+It requires TRIGGERED timing, CLEAN-PASS or CONDITIONAL-PASS, no final T1 block,
+and no pre-order blockers. PASS-CAUTION is false. `event_t1_blocked` is event-only;
+legacy `t1_blocked` is the final T1 restriction and may be false with open
+blockers. Screening readiness does not authorize a trade.

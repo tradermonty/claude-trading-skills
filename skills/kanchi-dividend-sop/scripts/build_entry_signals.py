@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import os
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from dividend_basis import analyze_dividends, step1_decision
 from event_scanner import ScanResult, apply_event_cap
 from fmp_client import FMPClient as SharedFMPClient
 from payout_safety import assess_payout_safety
+from sourced_financials import FinancialsInputError, load_financials, merge_financials
 from thresholds import SCHEMA_VERSION, VERDICTS
 from verdict import build_run_context, synthesize_verdict
 
@@ -443,6 +445,7 @@ def build_entry_row(
     }
     if cap["verdict_cap"]:
         row["verdict_cap"] = cap["verdict_cap"]
+    row["event_t1_blocked"] = cap["t1_blocked"]
     row["t1_blocked"] = cap["t1_blocked"]
     # Event-scan T1/order-gate blockers are kept on the row for the order
     # gate, but excluded from the verdict-affecting set (their verdict
@@ -478,6 +481,12 @@ def build_entry_row(
             insurer_metrics=financials.get("insurer_metrics"),
             reit_metrics=financials.get("reit_metrics"),
         )
+        manual_errors = financials.get("manual_financials_errors", [])
+        if manual_errors:
+            safety.blockers.extend(manual_errors)
+            safety.reasons.extend(manual_errors)
+            if safety.safety_verdict != "FAIL":
+                safety.safety_verdict = "HOLD-REVIEW"
         row["payout_safety"] = {
             "sector_kind": safety.sector_kind,
             "sector_kind_source": safety.sector_kind_source,
@@ -512,6 +521,7 @@ def build_entry_row(
     row["verdict"] = final.verdict
     row["t1_blocked"] = final.t1_blocked or bool(target_withheld_reason)
     row["verdict_reasons"] = final.reasons
+    row["order_ready"] = order_ready(row, order_blockers)
     row["provenance"] = {
         "price_source": "fmp_quote" if quote else None,
         "price_date": price_date,
@@ -525,10 +535,22 @@ def build_entry_row(
         # synthesize() intentionally consumes only the verdict-affecting
         # subset, but the audit trail must not under-report the T1 gate.
         "unresolved_blockers": order_blockers,
+        "manual_financials": (financials or {}).get("manual_financials_provenance", {}),
+        "manual_financials_errors": (financials or {}).get("manual_financials_errors", []),
         "evidence_refs": [],  # populated by Claude per SKILL.md source hierarchy
     }
 
     return row
+
+
+def order_ready(row: dict[str, Any], blockers: list[str]) -> bool:
+    """Conservative screening gate; never a broker authorization."""
+    return bool(
+        row.get("signal") == "TRIGGERED"
+        and row.get("verdict") in {"CLEAN-PASS", "CONDITIONAL-PASS"}
+        and row.get("t1_blocked") is False
+        and not blockers
+    )
 
 
 def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> str:
@@ -562,13 +584,14 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
         "",
         "## Signals",
         "",
-        "> Verdict/T1-Blocked are the actionable columns. `signal` is only "
+        "> Order Ready is the aggregate readiness gate; false whenever any blocker remains. "
+        "Verdict/T1-Blocked explain the result. `signal` is only "
         "Step-5 timing — never act on it alone (a TRIGGERED row can be "
         "HOLD-REVIEW / T1-blocked).",
         "",
-        "| Ticker | Verdict | T1 Blocked | Signal | Price | Price Date | Reg Yield% | "
+        "| Ticker | Verdict | Order Ready | T1 Blocked | Signal | Price | Price Date | Reg Yield% | "
         "TTM Yield% | Step1 | Safety | Event Scan | Pre-order Blockers |",
-        "|---|---|---|---:|---|---:|---:|---|---|---|---|---|",
+        "|---|---|---|---|---:|---|---:|---:|---|---|---|---|---|",
     ]
 
     for row in rows:
@@ -577,10 +600,11 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
         ev = row.get("event_scan", {})
         blockers = ";".join(row.get("pre_order_blockers", [])) or "-"
         lines.append(
-            "| {ticker} | {verdict} | {t1} | {signal} | {price} | {pdate} | {ry} | "
+            "| {ticker} | {verdict} | {ready} | {t1} | {signal} | {price} | {pdate} | {ry} | "
             "{ty} | {s1} | {safety} | {ev} | {blk} |".format(
                 ticker=row.get("ticker", ""),
                 verdict=row.get("verdict", "-"),
+                ready="YES" if row.get("order_ready") else "no",
                 t1="YES" if row.get("t1_blocked") else "no",
                 signal=row.get("signal", ""),
                 price=row.get("price", ""),
@@ -624,6 +648,8 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
     fieldnames = [
         "ticker",
         "verdict",
+        "order_ready",
+        "event_t1_blocked",
         "t1_blocked",
         "signal",
         "step1_verdict",
@@ -717,6 +743,11 @@ def parse_args() -> argparse.Namespace:
         "unknown ticker inside the events JSON -> NO_EVENT_FOUND. Both are "
         "pessimistic for TRIGGERED names (cap to HOLD-REVIEW + T1 blocked).",
     )
+    parser.add_argument(
+        "--financials-json",
+        default=None,
+        help="Sourced manual EPS/sector metrics JSON; see references/sourced-financials.md.",
+    )
     parser.add_argument("--profile", default=None, help="income-now | balanced | growth-first")
     parser.add_argument("--safety-bias", default=None, help="tight | medium")
     parser.add_argument("--universe-source", default=None, help="Provenance: universe origin.")
@@ -728,6 +759,14 @@ def main() -> int:
     tickers = load_tickers(Path(args.input) if args.input else None, args.tickers)
     if not tickers:
         raise SystemExit("No tickers provided. Use --tickers or --input.")
+
+    supplied = {}
+    if args.financials_json:
+        try:
+            supplied = load_financials(Path(args.financials_json), args.as_of)
+        except FinancialsInputError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     api_key = os.getenv("FMP_API_KEY")
     if not api_key:
@@ -751,7 +790,9 @@ def main() -> int:
         event_scan = scanner.scan(ticker, args.as_of) if scanner else None
         sector = (profiles.get(ticker) or {}).get("sector")
         industry = (profiles.get(ticker) or {}).get("industry")
-        financials = client.get_financials(ticker, sector=sector, industry=industry)
+        financials = merge_financials(
+            client.get_financials(ticker, sector=sector, industry=industry), supplied.get(ticker)
+        )
         row = build_entry_row(
             ticker=ticker,
             alpha_pp=args.alpha_pp,
