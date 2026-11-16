@@ -145,6 +145,8 @@ python3 skills/canslim-screener/scripts/screen_canslim.py --api-key YOUR_KEY
 プラン限定エンドポイント（2026-11 時点）:
 stock/company screener と economic calendar のエンドポイントは Basic キーで HTTP 402 を返しました。
 
+配当スクリーナーが詳細分析で使う銘柄別エンドポイント（ratios、income-statement、stock dividends、historical prices）も、#777 の検証で合成再現により HTTP 402 を返すことが報告されました。実際の Basic キーでは未確認です。これらのいずれかがプラン限定の場合、スクリーナーは候補 0 件ではなくプラン限定として報告します。
+
 institutional-ownership（13F）データも同じキーでは利用できませんでした。データ自体が提供されない扱いで、HTTP エラーではありません。これらのエンドポイントに依存するスキルは、それらを含むプランが必要です。`site.financialmodelingprep.com/pricing-plans` を確認してください。
 
 ### FINVIZ Elite

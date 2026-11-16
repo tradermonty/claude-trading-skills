@@ -643,6 +643,16 @@ class FakeFMP:
         if self.trip_on == name:
             self.rate_limit_reached = True
 
+    def _note_fetch(self, symbol, value):
+        """Mirror the real client's _last_error after a per-symbol fetch.
+
+        The real client clears _last_error at the start of every _get and sets
+        it on failure, so a fetch that returns data leaves it clear and a
+        fetch that returns nothing leaves the configured failure reason.
+        """
+        error = self.cfg.get("last_error_by_symbol", {}).get(symbol, self.cfg.get("last_error"))
+        self._last_error = error if (not value and error) else None
+
     def screen_stocks(self, **kwargs):
         self.screen_args = kwargs
         return [dict(c) for c in self.cfg["candidates"]]
@@ -667,11 +677,13 @@ class FakeFMP:
 
     def get_income_statement(self, symbol, limit=5):
         self._maybe_trip("income")
-        return self.cfg["income"].get(symbol, [])
+        value = self.cfg["income"].get(symbol, [])
+        self._note_fetch(symbol, value)
+        return value
 
     def get_balance_sheet(self, symbol, limit=5):
         self._maybe_trip("balance")
-        return [
+        value = [
             {
                 "totalDebt": 50,
                 "totalStockholdersEquity": 100,
@@ -679,10 +691,12 @@ class FakeFMP:
                 "totalCurrentLiabilities": 100,
             }
         ]
+        self._note_fetch(symbol, value)
+        return value
 
     def get_cash_flow(self, symbol, limit=5):
         self._maybe_trip("cash")
-        return [
+        value = [
             {
                 "dividendsPaid": -1e9,
                 "operatingCashFlow": 9e9,
@@ -690,18 +704,26 @@ class FakeFMP:
                 "netIncome": 1e10,
             }
         ]
+        self._note_fetch(symbol, value)
+        return value
 
     def get_key_metrics(self, symbol, limit=5):
         self._maybe_trip("metrics")
-        return [{"roe": 0.15}]
+        value = [{"roe": 0.15}]
+        self._note_fetch(symbol, value)
+        return value
 
     def get_dividend_history(self, symbol):
         self._maybe_trip("dividend")
-        return self.cfg["dividends"].get(symbol, {})
+        value = self.cfg["dividends"].get(symbol, {})
+        self._note_fetch(symbol, value)
+        return value
 
     def get_historical_prices(self, symbol, days=30):
         self._maybe_trip("prices")
-        return self.cfg["prices"].get(symbol, [])
+        value = self.cfg["prices"].get(symbol, [])
+        self._note_fetch(symbol, value)
+        return value
 
 
 @pytest.fixture
@@ -809,6 +831,152 @@ class TestPlanGating:
 
         monkeypatch.setattr(mod, "FMPClient", lambda key: NoErrorAttr())
         assert mod.screen_value_dividend_stocks("key", finviz_symbols={"AAA"}) == []
+
+    # -- Issue #777: plan gating in the per-symbol analysis stage --------
+
+    def _analysis_cfg(self, **overrides):
+        cfg = {
+            "quotes": {"GOOD": [{"symbol": "GOOD", "price": 20.0}]},
+            "ratios": {"GOOD": [{"priceToEarningsRatio": 10.0, "priceToBookRatio": 1.0}]},
+            "profiles": {"GOOD": {"sector": "Utilities", "industry": "Power"}},
+            "income": {"GOOD": _income()},
+            "dividends": {"GOOD": _dividend_history()},
+            "prices": {"GOOD": _falling_prices()},
+        }
+        cfg.update(overrides)
+        return cfg
+
+    def test_analysis_stage_plan_restriction_raises_when_all_gated(self, fake_fmp):
+        # FINVIZ path: quote/profile/ratios return 200, but the per-symbol
+        # analysis calls (income-statement, dividends, prices) return 402.
+        fake_fmp.cfg = self._analysis_cfg(
+            quotes={"AAA": [{"symbol": "AAA", "price": 20.0}]},
+            ratios={"AAA": [{"priceToEarningsRatio": 10.0, "priceToBookRatio": 1.0}]},
+            profiles={"AAA": {"sector": "Utilities", "industry": "Power"}},
+            income={},
+            dividends={},
+            prices={},
+            last_error_by_symbol={
+                "AAA": "HTTP 402 - Premium Query Parameter ... not available "
+                "under your current subscription"
+            },
+        )
+        with pytest.raises(mod.FMPPlanRestrictedError, match="detailed analysis"):
+            mod.screen_value_dividend_stocks("key", finviz_symbols=["AAA"])
+
+    def test_analysis_stage_partial_gating_returns_survivors_and_warns(self, fake_fmp, capsys):
+        fake_fmp.cfg = self._analysis_cfg(
+            quotes={
+                "GOOD": [{"symbol": "GOOD", "price": 20.0}],
+                "BAD": [{"symbol": "BAD", "price": 20.0}],
+            },
+            ratios={
+                "GOOD": [{"priceToEarningsRatio": 10.0, "priceToBookRatio": 1.0}],
+                "BAD": [{"priceToEarningsRatio": 10.0, "priceToBookRatio": 1.0}],
+            },
+            profiles={
+                "GOOD": {"sector": "Utilities", "industry": "Power"},
+                "BAD": {"sector": "Utilities", "industry": "Power"},
+            },
+            last_error_by_symbol={
+                "BAD": "HTTP 402 - Premium Query Parameter ... not available "
+                "under your current subscription"
+            },
+        )
+        stats = {}
+        results = mod.screen_value_dividend_stocks(
+            "key", finviz_symbols=["GOOD", "BAD"], stats=stats
+        )
+        assert [r["symbol"] for r in results] == ["GOOD"]
+        assert stats["plan_gated_skipped"] == 1
+        err = capsys.readouterr().err
+        assert "1 candidate" in err
+        assert "plan" in err.lower()
+
+    def test_analysis_stage_genuine_empty_keeps_current_behavior(self, fake_fmp):
+        # All 200s, no data anywhere in the analysis stage: a normal empty
+        # result, not a plan-gating error.
+        fake_fmp.cfg = self._analysis_cfg(
+            quotes={"AAA": [{"symbol": "AAA", "price": 20.0}]},
+            ratios={"AAA": [{"priceToEarningsRatio": 10.0, "priceToBookRatio": 1.0}]},
+            profiles={"AAA": {"sector": "Utilities", "industry": "Power"}},
+            income={},
+            dividends={},
+            prices={},
+        )
+        stats = {}
+        assert mod.screen_value_dividend_stocks("key", finviz_symbols=["AAA"], stats=stats) == []
+        assert stats["plan_gated_skipped"] == 0
+
+    def test_gate2_ratios_plan_restriction_raises_when_all_gated(self):
+        # FMP-only path: the screener returns 200, but every gate-2 ratios
+        # call returns 402, so the run must not end as "0 candidates".
+        rows = [
+            {
+                "symbol": "AAA",
+                "price": 100.0,
+                "lastAnnualDividend": 4.0,
+                "marketCap": 5e9,
+            },
+            {
+                "symbol": "BBB",
+                "price": 100.0,
+                "lastAnnualDividend": 4.0,
+                "marketCap": 4e9,
+            },
+        ]
+        client = self._client(
+            _resp(200, rows),
+            _resp(
+                402,
+                text="Premium Query Parameter ... not available under your current subscription",
+            ),
+            _resp(
+                402,
+                text="Premium Query Parameter ... not available under your current subscription",
+            ),
+        )
+        with pytest.raises(mod.FMPPlanRestrictedError, match="ratios"):
+            client.screen_stocks(3.0, 20, 2)
+
+    def test_gate2_ratios_partial_gating_returns_survivor(self):
+        rows = [
+            {
+                "symbol": "AAA",
+                "price": 100.0,
+                "lastAnnualDividend": 4.0,
+                "marketCap": 5e9,
+            },
+            {
+                "symbol": "BBB",
+                "price": 100.0,
+                "lastAnnualDividend": 4.0,
+                "marketCap": 4e9,
+            },
+        ]
+        client = self._client(
+            _resp(200, rows),
+            _resp(
+                402,
+                text="Premium Query Parameter ... not available under your current subscription",
+            ),
+            _resp(200, [{"priceToEarningsRatio": 10.0, "priceToBookRatio": 1.5}]),
+        )
+        assert [r["symbol"] for r in client.screen_stocks(3.0, 20, 2)] == ["BBB"]
+        assert client.plan_restricted_ratios_skipped == 1
+
+    def test_gate2_ratios_non_plan_failure_does_not_raise(self):
+        rows = [
+            {
+                "symbol": "AAA",
+                "price": 100.0,
+                "lastAnnualDividend": 4.0,
+                "marketCap": 5e9,
+            }
+        ]
+        client = self._client(_resp(200, rows), _resp(403, text="Invalid API key"))
+        assert client.screen_stocks(3.0, 20, 2) == []
+        assert client.plan_restricted_ratios_skipped == 0
 
 
 class TestScreeningPipeline:
@@ -1210,11 +1378,25 @@ class TestMain:
         assert "FMP plan does not include the stock screener endpoint" in capsys.readouterr().err
         assert not out.exists()
 
+    def test_main_includes_plan_gated_skipped_in_metadata(self, monkeypatch, tmp_path):
+        out = tmp_path / "res.json"
+
+        def fake_screen(key, top_n, finviz_symbols, max_candidates, stats=None):
+            if stats is not None:
+                stats["plan_gated_skipped"] = 2
+            return [{"symbol": "AAA", "composite_score": 55.0}]
+
+        monkeypatch.setenv("FMP_API_KEY", "env-fmp")
+        monkeypatch.setattr(mod, "screen_value_dividend_stocks", fake_screen)
+        self._run(monkeypatch, ["--output", str(out)])
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["metadata"]["plan_gated_skipped"] == 2
+
     def test_fmp_only_writes_json_report(self, monkeypatch, tmp_path):
         out = tmp_path / "nested" / "res.json"
         captured = {}
 
-        def fake_screen(key, top_n, finviz_symbols, max_candidates):
+        def fake_screen(key, top_n, finviz_symbols, max_candidates, stats=None):
             captured.update(
                 key=key, top_n=top_n, finviz=finviz_symbols, max_candidates=max_candidates
             )
@@ -1237,7 +1419,7 @@ class TestMain:
         def fake_finviz_init(self, api_key):
             seen["finviz_key"] = api_key
 
-        def fake_screen(key, top_n, finviz_symbols, max_candidates):
+        def fake_screen(key, top_n, finviz_symbols, max_candidates, stats=None):
             seen["fmp_key"] = key
             seen["symbols"] = finviz_symbols
             return [{"symbol": "ZZZ", "composite_score": 1.0}]

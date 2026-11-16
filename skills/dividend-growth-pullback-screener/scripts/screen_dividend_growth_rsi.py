@@ -733,6 +733,7 @@ def screen_dividend_growth_pullbacks(
     rsi_max: float = 40.0,
     max_candidates: int = None,
     finviz_symbols: Optional[set[str]] = None,
+    stats: Optional[dict] = None,
 ) -> list[dict]:
     """
     Main screening function.
@@ -744,6 +745,9 @@ def screen_dividend_growth_pullbacks(
         rsi_max: Maximum RSI value (default 40)
         max_candidates: Maximum number of candidates to analyze (None = all)
         finviz_symbols: Optional set of symbols from FINVIZ pre-screening
+        stats: Optional dict filled with run statistics; currently
+            plan_gated_skipped, the number of candidates skipped because a
+            per-symbol analysis call was plan-restricted (issue #777).
 
     Returns:
         List of qualified stocks with full analysis
@@ -821,6 +825,16 @@ def screen_dividend_growth_pullbacks(
 
     results = []
 
+    # Symbols whose analysis was blocked by a plan-restricted endpoint
+    # (issue #777). Checked immediately after each fetch: _last_error only
+    # describes the most recent call, so a later successful fetch would hide
+    # an earlier plan restriction.
+    plan_gated_symbols: set[str] = set()
+
+    def _note_plan_restriction(symbol: str) -> None:
+        if _is_plan_restriction(getattr(client, "_last_error", None)):
+            plan_gated_symbols.add(symbol)
+
     for i, stock in enumerate(candidates, 1):
         symbol = stock.get("symbol", "")
         company_name = stock.get("companyName", "")
@@ -844,6 +858,7 @@ def screen_dividend_growth_pullbacks(
 
         # Fetch dividend history
         dividend_history = client.get_dividend_history(symbol)
+        _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
@@ -878,6 +893,7 @@ def screen_dividend_growth_pullbacks(
 
         # Fetch historical prices for RSI
         historical_prices = client.get_historical_prices(symbol, days=30)
+        _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
@@ -901,18 +917,22 @@ def screen_dividend_growth_pullbacks(
 
         # Fetch additional fundamental data
         income_stmts = client.get_income_statement(symbol, limit=5)
+        _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
         balance_sheet = client.get_balance_sheet(symbol, limit=5)
+        _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
         cash_flow = client.get_cash_flow(symbol, limit=5)
+        _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
         key_metrics = client.get_key_metrics(symbol, limit=1)
+        _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
@@ -1003,6 +1023,32 @@ def screen_dividend_growth_pullbacks(
 
         results.append(result)
         print(f"  ✅ QUALIFIED - Score: {result['composite_score']}", file=sys.stderr)
+
+    # Plan gating in the analysis stage (issue #777): when every candidate
+    # was blocked, the run is plan-gated, not a "no matches" result; when only
+    # some were blocked, report how many were skipped. A symbol counts as
+    # skipped only when it produced no result, so a symbol that qualified
+    # despite one gated call is not counted.
+    plan_gated_skipped = len(plan_gated_symbols - {r["symbol"] for r in results})
+    if stats is not None:
+        stats["plan_gated_skipped"] = plan_gated_skipped
+    if not results and plan_gated_skipped:
+        raise FMPPlanRestrictedError(
+            "FMP plan does not include the per-symbol analysis endpoints "
+            "required for detailed analysis (dividends, historical prices, "
+            "income-statement, balance-sheet-statement, cash-flow-statement, "
+            "key-metrics) (HTTP 402/403); "
+            f"{plan_gated_skipped} of {len(candidates)} candidate(s) could not "
+            "be analyzed. Switch to an FMP plan that includes them. See "
+            "docs/en/getting-started.md#fmp-plans."
+        )
+    if plan_gated_skipped:
+        print(
+            f"⚠️  {plan_gated_skipped} candidate(s) skipped: FMP plan does not "
+            "include an endpoint required for detailed analysis. Results may "
+            "be incomplete.",
+            file=sys.stderr,
+        )
 
     # Sort by composite score
     results.sort(key=lambda x: x["composite_score"], reverse=True)
@@ -1334,6 +1380,7 @@ Environment Variables:
         print(f"\n{'=' * 80}\n", file=sys.stderr)
 
     # Run screening
+    stats: dict = {}
     try:
         results = screen_dividend_growth_pullbacks(
             api_key=fmp_api_key,
@@ -1342,6 +1389,7 @@ Environment Variables:
             rsi_max=args.rsi_max,
             max_candidates=args.max_candidates,
             finviz_symbols=finviz_symbols,
+            stats=stats,
         )
     except FMPPlanRestrictedError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -1375,6 +1423,8 @@ Environment Variables:
         },
         "stocks": results,
     }
+    if stats.get("plan_gated_skipped"):
+        json_output["metadata"]["plan_gated_skipped"] = stats["plan_gated_skipped"]
 
     json_path = os.path.join(logs_dir, f"dividend_growth_pullback_results_{today}.json")
     with open(json_path, "w", encoding="utf-8") as f:

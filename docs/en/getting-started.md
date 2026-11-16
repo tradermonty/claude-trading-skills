@@ -145,6 +145,8 @@ The free plan is enough for small universes that use endpoints included in Basic
 Plan-gated endpoints (as of 2026-11):
 The stock/company screener and economic calendar endpoints returned HTTP 402 on a Basic key.
 
+The per-symbol analysis endpoints the dividend screeners use after screening (ratios, income-statement, stock dividends, historical prices) were also reported returning HTTP 402 in a synthetic review for issue #777; that has not been verified on a live Basic key. When any of them is plan-gated, the screeners report the run as plan-gated instead of returning zero candidates.
+
 Institutional-ownership (13F) data was also unavailable on the same key; it was an unavailable dataset, not an HTTP refusal. Skills that rely on these endpoints need a plan that includes them; check `site.financialmodelingprep.com/pricing-plans`.
 
 ### FINVIZ Elite
