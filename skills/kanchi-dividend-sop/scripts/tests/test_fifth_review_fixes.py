@@ -45,7 +45,7 @@ def test_f4_cli_path_cfr_confirmed_not_recheck():
         ticker="CFR",
         alpha_pp=0.5,
         quote={"price": 134.70},
-        profile={"sector": "Financial Services"},
+        profile={"sector": "Financial Services", "industry": "Banks - Regional"},
         key_metrics=[{"dividendYield": 0.031}],
         dividend_history=hist,
         floor_pct=3.0,
@@ -74,6 +74,7 @@ def test_f3_as_of_makes_suspension_reachable():
 def test_f2_bank_adjusted_unavailable_not_hold_review():
     a = assess_payout_safety(
         sector="financial services",
+        industry="Banks - Regional",
         annual_dividend=1.88,
         gaap_eps=6.17,
         adjusted_eps=None,

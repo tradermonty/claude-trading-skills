@@ -55,6 +55,7 @@ def test_completed_merger_without_adjusted_holds_review():
 def test_bank_npl_nco_deterioration_caution():
     a = assess_payout_safety(
         sector="financial services",
+        industry="Banks - Regional",
         annual_dividend=1.88,
         gaap_eps=6.17,
         adjusted_eps=6.17,

@@ -58,11 +58,10 @@ def test_bank_industry_routes_to_bank():
     assert a.safety_verdict == "PASS"
 
 
-def test_sector_only_fallback_unchanged():
-    # No industry on the profile: previous sector-only behaviour is kept
-    # (OZK golden: Financial Services -> bank).
+def test_unambiguous_bank_sector_fallback():
+    # An explicit bank sector needs no finer industry; broad financial sectors do.
     a = assess_payout_safety(
-        sector="Financial Services",
+        sector="Banks",
         annual_dividend=1.88,
         gaap_eps=6.17,
         adjusted_eps=6.17,
@@ -149,7 +148,7 @@ def test_non_reit_real_estate_stays_consumer():
         fcf_per_share=2.5,
     )
     assert a.sector_kind == "consumer"
-    assert a.sector_kind_source == "sector"
+    assert a.sector_kind_source == "industry"
     assert a.safety_verdict == "PASS"
 
 
@@ -260,3 +259,27 @@ def test_entry_row_records_industry_routing():
     assert row["payout_safety"]["sector_kind"] == "insurer"
     assert row["payout_safety"]["sector_kind_source"] == "industry"
     assert "bank_capital_unavailable" not in row["pre_order_blockers"]
+
+
+def test_broad_financial_and_real_estate_sectors_cannot_select_unproven_modules():
+    for sector, industry in (
+        ("Financial Services", "Asset Management"),
+        ("Financial Services", "Financial - Credit Services"),
+        ("Financial Services", None),
+        ("Financials", None),
+        ("Real Estate", None),
+        ("Real Estate", "Unrecognized property business"),
+    ):
+        a = assess_payout_safety(
+            sector=sector,
+            industry=industry,
+            annual_dividend=1.0,
+            gaap_eps=4.0,
+            adjusted_eps=4.0,
+            adjusted_eps_source="MANUAL",
+            fcf_per_share=5.0,
+            bank_metrics={"cet1": 0.12, "cre_concentration": "low"},
+        )
+        assert a.sector_kind == "unknown", (sector, industry, a)
+        assert a.safety_verdict == "HOLD-REVIEW"
+        assert "sector_kind_unknown" in a.blockers

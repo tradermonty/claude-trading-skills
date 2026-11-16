@@ -57,6 +57,7 @@ def test_original_negative_case():
 def test_unhealthy_bank_never_clean(cet1, cre):
     a = assess_payout_safety(
         sector="Financial Services",
+        industry="Banks - Regional",
         annual_dividend=1.0,
         gaap_eps=4.0,
         bank_metrics={"cet1": cet1, "cre_concentration": cre},
@@ -70,6 +71,7 @@ def test_healthy_controls():
     assert final(consumer()) == "CLEAN-PASS"
     a = assess_payout_safety(
         sector="Financial Services",
+        industry="Banks - Regional",
         annual_dividend=1.0,
         gaap_eps=4.0,
         bank_metrics={"cet1": 0.12, "cre_concentration": "low"},

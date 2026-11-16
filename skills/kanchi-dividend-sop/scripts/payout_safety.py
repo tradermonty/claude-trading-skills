@@ -18,7 +18,8 @@ Key rules (improvement-plan v2.1 R-3 + 4th-review):
   sector-only dispatch assessed them on bank / consumer rules. An
   explicit kind override wins over both. An unrecognized sector with no
   usable industry HOLD-REVIEWs instead of silently taking another
-  sector's path. REITs are judged on AFFO payout, not GAAP/FCF.
+  sector's path. Broad Financial Services/Financials and bare Real Estate
+  sectors are ambiguous without a recognized industry or explicit override. REITs are judged on AFFO payout, not GAAP/FCF.
 """
 
 from __future__ import annotations
@@ -55,9 +56,8 @@ _CONSUMER_SECTORS = {
     "energy",
     "materials",
     "basic materials",
-    "real estate",  # treated as consumer-style triad unless flagged a REIT upstream
 }
-_BANK_SECTORS = {"bank", "banks", "financial", "financials", "financial services"}
+_BANK_SECTORS = {"bank", "banks"}
 _UTILITY_SECTORS = {"utility", "utilities"}
 _INSURER_SECTORS = {"insurance", "insurer", "insurers"}
 
@@ -96,6 +96,8 @@ def _industry_kind(industry: str | None) -> str | None:
     for needle, kind in _INDUSTRY_KIND_PATTERNS:
         if needle in text:
             return kind
+    if text in {"real estate - development", "real estate - services", "real estate - diversified"}:
+        return "consumer"
     return None
 
 
