@@ -243,7 +243,7 @@ def test_exception_leak_counts_against_clean(collector, tmp_path: Path):
     assert checks["clean"] is False
 
 
-def test_remediated_skills_are_clean_when_explicitly_confirmed(tmp_path: Path):
+def test_credential_remediation_does_not_clear_independent_prerequisites(tmp_path: Path):
     remediated = [
         "downtrend-duration-analyzer",
         "value-dividend-screener",
@@ -257,7 +257,9 @@ def test_remediated_skills_are_clean_when_explicitly_confirmed(tmp_path: Path):
     assert {r["skill_id"] for r in report["results"]} == set(remediated)
     for item in report["results"]:
         assert item["mechanical"]["exception_key_leak_findings"] == [], item["skill_id"]
-        assert item["proposed_value"] == "passed", item["skill_id"]
+        # Credential remediation is independent of newly enforced timeout evidence.
+        expected = "gap" if item["mechanical"]["network_timeout_findings"] else "passed"
+        assert item["proposed_value"] == expected, item["skill_id"]
 
 
 def test_report_records_process_not_a_person(tmp_path: Path):
