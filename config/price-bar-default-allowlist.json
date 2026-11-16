@@ -219,13 +219,6 @@
       "reason": "pending #655 migration: technical-analyst"
     },
     {
-      "path": "skills/value-dividend-screener/scripts/screen_dividend_stocks.py",
-      "scope": "screen_value_dividend_stocks",
-      "field": "close",
-      "count": 1,
-      "reason": "pending #655 migration: value-dividend-screener"
-    },
-    {
       "path": "skills/vcp-screener/scripts/calculators/relative_strength_calculator.py",
       "scope": "calculate_relative_strength",
       "field": "adjClose",

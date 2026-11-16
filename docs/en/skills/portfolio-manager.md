@@ -190,6 +190,15 @@ Analyze current allocation across multiple dimensions:
 - US vs International vs Emerging Markets
 - Domestic concentration risk assessment
 
+A complete saved Alpaca positions list can be converted with
+`skills/portfolio-manager/scripts/normalize_alpaca_positions.py`. Supply
+`--positions-json`, a verified `--account-scope` alias, timezone-aware `--as-of`
+and `--confirm-complete`; `--output` creates a new file in an existing private
+folder. This local conversion needs no prices, skips no unsupported positions,
+and preserves exact quantities. Completeness, account attribution and freshness
+remain operator assertions. Full memory export and workflow enforcement remain
+manual; see the reconciliation guide below for the input and privacy contract.
+
 ## Read-only reconciliation before weekly review
 
 For `core-portfolio-weekly`, prepare complete, same-account broker and ACTIVE /

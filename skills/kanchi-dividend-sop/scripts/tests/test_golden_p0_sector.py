@@ -60,7 +60,9 @@ def test_ws7b_bank_credit_deterioration_pass_caution():
         event_scan=_CLEAN,
     )
     assert row["payout_safety"]["sector_kind"] == "bank"
-    assert row["verdict"] == "PASS-CAUTION"
+    assert row["payout_safety"]["safety_verdict"] == "CAUTION"
+    assert row["verdict"] == "HOLD-REVIEW"
+    assert "regular_only_average_unavailable" in row["verdict_reasons"]
     assert "bank_npl_nco_deteriorating" in row["pre_order_blockers"]
 
 
@@ -86,7 +88,9 @@ def test_ws7b_utility_negative_fcf_not_fail():
         event_scan=_CLEAN,
     )
     assert row["payout_safety"]["sector_kind"] == "utility"
-    assert row["verdict"] in ("CLEAN-PASS", "PASS-CAUTION")  # NOT FAIL
+    assert row["payout_safety"]["safety_verdict"] == "PASS"  # negative FCF exemption
+    assert row["verdict"] == "HOLD-REVIEW"
+    assert "regular_only_average_unavailable" in row["verdict_reasons"]
 
 
 # ORI-style insurer: regular yield clears the 3% floor; specials excluded.

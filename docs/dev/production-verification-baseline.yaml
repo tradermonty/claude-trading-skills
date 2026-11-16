@@ -516,19 +516,21 @@ skills:
       evidence:
       - assessed_commit: 08709e99e4a2a89cc5216b5d77eb3dd10d2f5363  # pragma: allowlist secret
       - assessed_date: '2026-11-08'
+      - revalidated: '2026-11-13; FINVIZ source-provenance change; recorded workflow checks and 114 fixture-contract tests passed; native live providers remain unverified.'
       - command: python3 scripts/validate_skills_index.py --strict-metadata --strict-workflows; exit 0
       - workflows: workflows/multi-asset-opportunity-daily.yaml; workflows/stockbee-20pct-study-daily.yaml; workflows/stockbee-ep-daily.yaml; workflows/swing-opportunity-daily.yaml
       - spec: examples/workflows/multi-asset-opportunity-daily/replay.yaml
       - schema: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
-      - tests: scripts/tests/test_workflow_replay_multi_asset.py; scripts/tests/test_workflow_replay.py; scripts/tests/test_workflow_replay_trade_memory.py; scripts/tests/test_workflow_replay_swing.py; 113 passed together
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py; scripts/tests/test_workflow_replay.py; scripts/tests/test_workflow_replay_trade_memory.py; scripts/tests/test_workflow_replay_swing.py; 114 passed together
     end_to_end_replay:
       value: passed
       rationale: Multi-asset step 2 and the swing theme step replay manual_contract fixtures with schema and handoff validation. Native theme screening, ETF scanning, FINVIZ/uptrend clients, and theme scoring are not executed. This evidence establishes fixture-contract replay only; optional skill references in other workflows do not establish native execution.
       evidence:
       - assessed_commit: 08709e99e4a2a89cc5216b5d77eb3dd10d2f5363  # pragma: allowlist secret
       - assessed_date: '2026-11-08'
-      - command: python3 scripts/workflow_replay.py check; exit 0; aggregate workflow coverage 13/13 (not per-skill native coverage)
-      - tests: scripts/tests/test_workflow_replay_multi_asset.py; test_workflow_replay.py; test_workflow_replay_trade_memory.py; test_workflow_replay_swing.py; 113 passed together (fixture-contract evidence only)
+      - revalidated: '2026-11-13; FINVIZ source-provenance change; recorded workflow checks and 114 fixture-contract tests passed; native live providers remain unverified.'
+      - command: python3 scripts/workflow_replay.py check; exit 0; aggregate workflow coverage 14/14 (not per-skill native coverage)
+      - tests: scripts/tests/test_workflow_replay_multi_asset.py; test_workflow_replay.py; test_workflow_replay_trade_memory.py; test_workflow_replay_swing.py; 114 passed together (fixture-contract evidence only)
       - execution: scripts/workflow_replay.py _multi_theme and _swing_theme; manual_contract; examples/workflows/swing-opportunity-daily/replay.yaml
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
 - id: trade-hypothesis-ideator

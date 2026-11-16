@@ -3,9 +3,9 @@ rule_version: ibd_dd_v1.0
 
 indexes:
   - symbol: QQQ
-    benchmark_name: Nasdaq Proxy
+    benchmark_name: QQQ (Nasdaq-100 ETF proxy; not Nasdaq Composite)
   - symbol: SPY
-    benchmark_name: S&P500 Proxy
+    benchmark_name: SPY (S&P 500 ETF proxy)
 
 lookback_days: 80
 

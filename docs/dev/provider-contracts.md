@@ -65,7 +65,19 @@ unchanged and default to `format: "json"`.
 
 `parse_csv_rows(text)` returns `(rows, parse_anomalies)` using the stdlib `csv` module:
 
-- A UTF-8 BOM is stripped and the first line is the header.
+- A UTF-8 BOM is stripped and the first CSV record is the header. Header names
+  retain their exact spelling and case; they are not stripped or case-folded.
+  An empty/whitespace-only name reports fatal `blank_header`; an exact duplicate
+  name reports fatal `duplicate_header`. Invalid headers return no rows rather
+  than allowing `DictReader` to silently overwrite columns. These fixed codes
+  never include provider header/cell contents. An otherwise valid header with no
+  rows still follows the existing `empty_response` rule.
+- CSV parsing uses the standard library's strict quoting checks. Unclosed quoted
+  fields and other syntax errors recognized by that parser raise `csv.Error`.
+  NUL input is explicitly rejected on all supported Python versions, including
+  in headers, so it cannot collide with the internal extra-cell marker. The
+  fetch wrapper reports fatal `parse_error` and discards the entire response,
+  including any valid rows before the error. It continues the remaining probes.
 - An empty cell becomes `None`.
 - `true` / `false` in any case becomes `bool`.
 - An integer literal becomes `int`; a decimal or exponent literal becomes `float`.
@@ -108,7 +120,9 @@ One GET per contract with no credentials, `allow_redirects=False`, a 30 s timeou
 | `transport_error` | the request failed. The redacted message goes to stderr only. It replaces `http_status:-1` for CSV. |
 | `body_too_large:<max_bytes>` | the body exceeded the cap. |
 | `decode_error` | the body is not valid UTF-8. |
-| `parse_error` | the stdlib `csv` parser rejected the body (a NUL byte, or a field over the size limit). Only that contract fails; the other contracts are still reported. |
+| `parse_error` | invalid quoting, a NUL byte, or a field over the CSV size limit. All partial rows are discarded. Only that contract fails; the other contracts are still reported. |
+| `blank_header` | a header name is empty or whitespace-only. No rows are accepted. |
+| `duplicate_header` | an exact header name appears more than once. No rows are accepted. |
 | `extra_cells` | a row had more cells than the header. |
 
 ### Deduplicated anomalies and `count`

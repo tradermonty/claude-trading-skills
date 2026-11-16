@@ -298,7 +298,7 @@ def build_entry_row(
         notes.append("profile_missing")
     if annual_dividend is None:
         notes.append("annual_dividend_missing")
-    if avg_yield_5y_pct is None:
+    if provider_avg_yield is None:
         notes.append("avg_5y_yield_missing")
     elif len(yields_5y) < 5:
         notes.append(f"avg_5y_yield_points={len(yields_5y)}")
