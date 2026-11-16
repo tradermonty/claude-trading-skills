@@ -37,6 +37,7 @@ for _p in (
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from broker_short_inventory_adapter import MissingDependencyError  # noqa: E402
 from intraday_size_resolver import resolve_size_recipe  # noqa: E402
 from intraday_state_machine import step_one_plan  # noqa: E402
 from intraday_state_store import load_state, save_state  # noqa: E402
@@ -242,7 +243,14 @@ def main(argv: list[str] | None = None) -> int:
     as_of = args.as_of or session_date_for(ts_now_et)
     market_status = _market_status(ts_now_et)
 
-    adapter, data_source = _resolve_adapter(args)
+    try:
+        adapter, data_source = _resolve_adapter(args)
+    except MissingDependencyError as exc:
+        print(
+            f"ERROR: {exc}. Alternatively use --bars-source fixture for offline replay.",
+            file=sys.stderr,
+        )
+        return 2
 
     # Group plans by ticker so we fetch each ticker's bars exactly once.
     plans_by_ticker: dict[str, list[dict]] = defaultdict(list)
@@ -291,4 +299,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from _market_calendar import CalendarDependencyMissingError
+
+    try:
+        raise SystemExit(main())
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None

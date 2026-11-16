@@ -17,12 +17,12 @@ import argparse
 import os
 import sys
 
-print(
-    "ERROR: This script is not yet functional. See below for alternative resources.",
-    file=sys.stderr,
+NOT_IMPLEMENTED_MESSAGE = (
+    "ERROR: This script is not yet functional. See below for alternative resources."
 )
 
-print("""
+# Guidance is emitted on stderr (this script exits 1; stdout stays empty).
+NOT_IMPLEMENTED_GUIDANCE = """
 ================================================================================
 TRACK INSTITUTION PORTFOLIO - NOT YET IMPLEMENTED
 ================================================================================
@@ -67,7 +67,7 @@ Example for Berkshire's top holdings:
     python3 analyze_single_stock.py BAC   # Bank of America
 
 ================================================================================
-""")
+"""
 
 
 def main():
@@ -88,16 +88,22 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Institution: {args.name}")
-    print(f"CIK: {args.cik}")
-    print()
-    print("For detailed portfolio tracking, please use:")
-    print(f"1. WhaleWisdom: https://whalewisdom.com/filer/{args.name.lower().replace(' ', '-')}")
+    err = sys.stderr
+    print(NOT_IMPLEMENTED_MESSAGE, file=err)
+    print(NOT_IMPLEMENTED_GUIDANCE, file=err)
+    print(f"Institution: {args.name}", file=err)
+    print(f"CIK: {args.cik}", file=err)
+    print(file=err)
+    print("For detailed portfolio tracking, please use:", file=err)
+    slug = args.name.lower().replace(" ", "-")
+    print(f"1. WhaleWisdom: https://whalewisdom.com/filer/{slug}", file=err)
     print(
-        f"2. SEC EDGAR: https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={args.cik}&type=13F"
+        "2. SEC EDGAR: https://www.sec.gov/cgi-bin/browse-edgar"
+        f"?action=getcompany&CIK={args.cik}&type=13F",
+        file=err,
     )
-    print("3. DataRoma: https://www.dataroma.com (if superinvestor)")
-    print()
+    print("3. DataRoma: https://www.dataroma.com (if superinvestor)", file=err)
+    print(file=err)
 
     return 1
 

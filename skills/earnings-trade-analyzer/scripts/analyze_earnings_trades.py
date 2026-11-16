@@ -36,7 +36,11 @@ from zoneinfo import ZoneInfo
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
-from _market_calendar import CalendarUnavailableError, count_sessions
+from _market_calendar import (
+    CalendarDependencyMissingError,
+    CalendarUnavailableError,
+    count_sessions,
+)
 from calculators.gap_size_calculator import calculate_gap
 from calculators.ma50_calculator import calculate_ma50_position
 from calculators.ma200_calculator import calculate_ma200_position
@@ -158,6 +162,8 @@ def classify_empty_calendar(earnings, start_date: date, end_date: date) -> str:
             include_start=True,
             include_end=True,
         )
+    except CalendarDependencyMissingError:
+        raise  # missing dependency is exit 2 with a hint; handled in main()
     except CalendarUnavailableError:
         return "market_calendar_unavailable"
     if sessions == 0:
@@ -443,7 +449,11 @@ def main():
 
     if not isinstance(earnings, list) or not earnings:
         api_stats = client.get_api_stats()
-        reason = classify_empty_calendar(earnings, from_day, to_day)
+        try:
+            reason = classify_empty_calendar(earnings, from_day, to_day)
+        except CalendarDependencyMissingError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(2)
         exit_code, message = _ZERO_RESULT_MESSAGES.get(
             reason, (1, f"No candidates found (reason: {reason}).")
         )

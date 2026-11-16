@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "root_project": ">=3.11,<3.14",
+  "root_project": ">=3.11.5,<3.14",
   "standalone_skills_minimum": "3.9",
   "allowed_self_hosted_runner_categories": [],
   "standalone_workflow_jobs": [

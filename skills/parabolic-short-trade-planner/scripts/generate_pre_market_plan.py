@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -42,6 +43,7 @@ for _p in (
 from broker_short_inventory_adapter import (  # noqa: E402
     BrokerNotConfiguredError,
     ManualBrokerAdapter,
+    MissingDependencyError,
 )
 from first_red_plan_builder import build_first_red_plan  # noqa: E402
 from manual_reasons import (  # noqa: E402
@@ -96,6 +98,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def _resolve_broker(args: argparse.Namespace):
     if args.broker == "none":
+        return ManualBrokerAdapter()
+    # Check credentials before importing the adapter: without credentials the run
+    # falls back to the manual checklist anyway, so ``requests`` is not needed.
+    if not (
+        (args.alpaca_api_key or os.getenv("ALPACA_API_KEY"))
+        and (args.alpaca_secret or os.getenv("ALPACA_SECRET_KEY"))
+    ):
+        logger.warning(
+            "Alpaca not configured (ALPACA_API_KEY and ALPACA_SECRET_KEY must be set); "
+            "falling back to manual"
+        )
         return ManualBrokerAdapter()
     try:
         from alpaca_inventory_adapter import AlpacaInventoryAdapter
@@ -310,7 +323,14 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--as-of/Phase 1 as_of must be zero-padded YYYY-MM-DD")
     candidates = phase1.get("candidates", [])
 
-    broker = _resolve_broker(args)
+    try:
+        broker = _resolve_broker(args)
+    except MissingDependencyError as exc:
+        print(
+            f"ERROR: {exc}. Alternatively pass --broker none for the manual checklist.",
+            file=sys.stderr,
+        )
+        return 2
     data_source = "FMP+Alpaca" if isinstance(broker, ManualBrokerAdapter) is False else "FMP+manual"
 
     plans = []
@@ -345,4 +365,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from _market_calendar import CalendarDependencyMissingError
+
+    try:
+        raise SystemExit(main())
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None

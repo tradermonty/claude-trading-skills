@@ -1,5 +1,7 @@
 # Claude Trading Skills
 
+**Data handling:** [Privacy policy](docs/en/privacy.md) · [Security policy](SECURITY.md)
+
 Claude Trading Skills started as a personal project to use AI to improve my own trading process.
 
 Claude Trading Skills is a Claude Skills-based trading workflow toolkit for time-constrained individual investors.
@@ -69,6 +71,8 @@ Select a preview to open the full-size SVG; on a phone, zoom after opening.
 [![Illustrative Weekly Performance Digest for four fictional closed trades with a 50% win rate and 75 dollars realized profit](docs/assets/previews/weekly-digest.svg)](docs/assets/previews/weekly-digest.svg)
 
 **Learn from closed trades:** [Weekly Performance Digest](docs/en/skills/weekly-performance-digest.md) summarizes realized outcomes and process lessons.
+
+**Try it yourself:** [Offline Quick Start](docs/en/offline-quickstart.md) takes you from these previews to a fictional report and then the Navigator, without provider keys.
 
 ### What This Actually Costs
 
@@ -227,7 +231,7 @@ The detailed catalog below is **auto-generated** from `skills-index.yaml` by `sc
 | **Position Sizer** (`position-sizer`) | Calculate risk-based position sizes for long stock trades. | `local_calculation` — | workflow_step | production |
 | **Pre-Trade Discipline Gate** (`pre-trade-discipline-gate`) | Offline manual-execution checklist gate that blocks planless, oversized, revenge-risk, market-regime-blocked, or circuit-breaker-blocked entries and journals the result. | `local_calculation` — | workflow_step | production |
 | **Technical Analyst** (`technical-analyst`) | This skill should be used when analyzing weekly price charts for stocks, stock indices, cryptocurrencies, or forex pairs. | `chart_image` **required**, `fmp` optional | workflow_step | production |
-| **US Stock Analysis** (`us-stock-analysis`) | Comprehensive US stock analysis including fundamental analysis (financial metrics, business quality, valuation), technical analysis (indicators, chart patterns, support/resistance), stock comparisons, and investment report generation. | `user_input` **required** | standalone | production |
+| **US Stock Analysis** (`us-stock-analysis`) | Comprehensive US stock analysis including fundamental analysis (financial metrics, business quality, valuation), technical analysis (indicators, chart patterns, support/resistance), stock comparisons, and investment report generation. | `user_input` **required**, `websearch` **required** | standalone | production |
 
 ### Trade Memory
 

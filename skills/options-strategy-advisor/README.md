@@ -19,7 +19,7 @@ Options Strategy Advisor helps traders understand and analyze options strategies
 
 **No expensive data subscriptions needed:**
 - Real-time options data: $99-$500/month (Polygon.io, Intrinio)
-- FMP API Free tier: $0/month (250 requests/day)
+- FMP API free tier (250 requests/day)
 
 **Educational focus:**
 - Learn how strategies work

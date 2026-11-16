@@ -38,7 +38,7 @@ SELF_HOSTED_PLATFORM_LABELS = {"linux", "windows", "macos"}
 RECOGNIZED_SELF_HOSTED_CATEGORIES = {
     f"self-hosted-{platform}" for platform in SELF_HOSTED_PLATFORM_LABELS
 } | {"self-hosted-unknown", "self-hosted-ambiguous"}
-DEFAULT_REQUIRES_PYTHON = ">=3.11,<3.14"
+DEFAULT_REQUIRES_PYTHON = ">=3.11.5,<3.14"
 COMPAT_JOBS = ("compat-smoke", "compat-nightly")
 DOC = "docs/dev/compatibility-matrix.md"
 PYPROJECT = "pyproject.toml"

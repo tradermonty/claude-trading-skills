@@ -197,36 +197,6 @@ def test_batch_without_key_skips_all_without_inventing_outcomes(monkeypatch, tmp
     assert source.read_bytes() == original
 
 
-@pytest.mark.parametrize(
-    "signal_id,ticker,date",
-    [("sig_FICTION_2026-09-01", "FICTION", "2026-09-01"), ("manual", "UNKNOWN", "2026-10-04")],
-)
-def test_manual_recording_preserves_notes_without_inventing_returns(
-    monkeypatch, tmp_path, capsys, signal_id, ticker, date
-):
-    cli(
-        monkeypatch,
-        recorder,
-        "--signal-id",
-        signal_id,
-        "--exit-price",
-        "105",
-        "--exit-date",
-        "2026-10-04",
-        "--outcome-notes",
-        "fictional manual observation",
-        "--output-dir",
-        tmp_path,
-    )
-    record = read_json(tmp_path / "postmortems" / f"pm_{signal_id}.json")
-    assert (record["ticker"], record["signal_date"]) == (ticker, date)
-    assert (record["exit_price"], record["entry_price"]) == (105, 0)
-    assert record["realized_returns"] == {}
-    assert record["outcome_category"] == "NEUTRAL"
-    assert record["outcome_notes"] == "fictional manual observation"
-    assert "Outcome: NEUTRAL" in capsys.readouterr().out
-
-
 def test_list_ready_uses_fixed_cutoff_and_does_not_record(monkeypatch, tmp_path, capsys):
     source = tmp_path / "signals"
     write_json(

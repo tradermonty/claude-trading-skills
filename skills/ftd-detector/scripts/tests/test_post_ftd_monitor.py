@@ -104,8 +104,8 @@ class TestCountPostFTDDistribution:
 
 
 class TestCheckFTDInvalidation:
-    def test_invalidated_close_below_ftd_low(self):
-        """Close below FTD day's low -> invalidated=True."""
+    def test_invalidated_breach_of_supplied_rally_reference(self):
+        """Intraday breach of an explicit rally reference -> invalidated=True."""
         bars, ftd_idx = _build_post_ftd_bars(
             ftd_close=100,
             ftd_low=99.0,
@@ -114,7 +114,7 @@ class TestCheckFTDInvalidation:
                 (98.5, 1_000_000),  # Day 2: below FTD low 99.0
             ],
         )
-        result = check_ftd_invalidation(bars, ftd_idx)
+        result = check_ftd_invalidation(bars, ftd_idx, rally_low=bars[ftd_idx]["low"])
         assert result["invalidated"] is True
         assert result["days_after_ftd"] == 2
 
@@ -129,7 +129,7 @@ class TestCheckFTDInvalidation:
                 (101.0, 1_000_000),
             ],
         )
-        result = check_ftd_invalidation(bars, ftd_idx)
+        result = check_ftd_invalidation(bars, ftd_idx, rally_low=bars[ftd_idx]["low"])
         assert result["invalidated"] is False
         assert result["days_since_ftd"] == 3
 
@@ -156,6 +156,7 @@ class TestQualityScoreDataMissing:
             "dual_confirmation": False,
             "post_ftd_distribution": {},  # Empty — no data yet
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         breakdown = result["breakdown"]
 
@@ -182,6 +183,7 @@ class TestQualityScoreDataMissing:
                 "earliest_distribution_day": None,
             },
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         breakdown = result["breakdown"]
         assert "+10" in breakdown["post_ftd"]
@@ -218,6 +220,7 @@ class TestQualityScoreFull:
                 "earliest_distribution_day": None,
             },
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         # 60 (base) + 15 (gain) + 10 (volume) + 15 (dual) + 10 (clean) = 110 -> clamped to 100
         assert result["total_score"] == 100
@@ -241,6 +244,7 @@ class TestQualityScoreFull:
                 "earliest_distribution_day": 2,
             },
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         # 50 (base day 10) + 5 (gain 1.25%) + 0 (vol below) + 0 (single) - 30 (dist day 2) = 25
         assert result["total_score"] == 25
@@ -252,6 +256,7 @@ class TestQualityScoreFull:
             "nasdaq": {"ftd": {}},
             "dual_confirmation": False,
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         assert result["total_score"] == 0
         assert result["signal"] == "No FTD"
@@ -353,6 +358,7 @@ class TestQualityScoreMultipleDistribution:
                 "earliest_distribution_day": 4,
             },
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         # 60 (base) + 10 (gain) + 10 (vol) + 0 (single) - 5 (dist day 4) - 20 (multi) = 55
         assert result["total_score"] == 55
@@ -377,6 +383,7 @@ class TestQualityScoreMultipleDistribution:
                 "earliest_distribution_day": 4,
             },
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         # 60 + 10 + 10 + 0 - 5 = 75
         assert result["total_score"] == 75
@@ -411,10 +418,11 @@ class TestQualityScoreInvalidation:
                 "ftd_low": 99.0,
             },
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         assert result["total_score"] == 0
         assert result["signal"] == "Failed/Invalidated"
-        assert result["exposure_range"] == "0-25%"
+        assert result["exposure_range"] == "Not assessed"
         assert "invalidation" in result["breakdown"]
 
     def test_non_invalidated_ftd_keeps_normal_score(self):
@@ -437,6 +445,7 @@ class TestQualityScoreInvalidation:
             },
             "ftd_invalidation": {"invalidated": False, "ftd_low": 99.0, "days_since_ftd": 3},
         }
+        market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
         result = calculate_ftd_quality_score(market_state)
         assert result["total_score"] > 0
         assert "invalidation" not in result.get("breakdown", {})

@@ -22,6 +22,7 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
+from _price_bars import read_price
 from fmp_client import FMPClient
 from post_ftd_monitor import assess_post_ftd_health
 from rally_tracker import get_market_state
@@ -39,6 +40,12 @@ def parse_arguments():
         "--output-dir",
         default=".",
         help="Output directory for reports (default: current directory)",
+    )
+    parser.add_argument(
+        "--nasdaq-symbol",
+        choices=("^IXIC", "QQQ"),
+        default="^IXIC",
+        help="Nasdaq Composite (default), or explicit Nasdaq-100 ETF proxy",
     )
     return parser.parse_args()
 
@@ -78,9 +85,13 @@ def main():
         print("ERROR: Cannot proceed without S&P 500 data", file=sys.stderr)
         sys.exit(1)
 
-    # NASDAQ/QQQ history (60 trading days)
-    print("  Fetching NASDAQ (QQQ) history...", end=" ", flush=True)
-    qqq_history_data = client.get_historical_prices("QQQ", days=80)
+    nasdaq_symbol = args.nasdaq_symbol
+    nasdaq_label = (
+        "Nasdaq Composite (^IXIC)" if nasdaq_symbol == "^IXIC" else "QQQ (Nasdaq-100 ETF proxy)"
+    )
+    # Price and volume always come from the same selected instrument.
+    print(f"  Fetching {nasdaq_label} history...", end=" ", flush=True)
+    qqq_history_data = client.get_historical_prices(nasdaq_symbol, days=80)
     qqq_history = qqq_history_data.get("historical", []) if qqq_history_data else []
     if qqq_history:
         print(f"OK ({len(qqq_history)} days)")
@@ -97,8 +108,8 @@ def main():
         print("WARN - Using historical close as current price")
 
     # QQQ quote
-    print("  Fetching QQQ quote...", end=" ", flush=True)
-    qqq_quote_list = client.get_quote("QQQ")
+    print(f"  Fetching {nasdaq_label} quote...", end=" ", flush=True)
+    qqq_quote_list = client.get_quote(nasdaq_symbol)
     qqq_quote = qqq_quote_list[0] if qqq_quote_list else None
     if qqq_quote:
         print(f"OK (${qqq_quote.get('price', 0):.2f})")
@@ -113,11 +124,12 @@ def main():
     print("Step 2: Analyzing Market State")
     print("-" * 70)
 
-    market_state = get_market_state(sp500_history, qqq_history)
+    market_state = get_market_state(sp500_history, qqq_history, nasdaq_label=nasdaq_label)
 
+    market_state["nasdaq"]["index"] = nasdaq_label
     sp500_state = market_state["sp500"]["state"]
     nasdaq_state = market_state["nasdaq"]["state"]
-    combined = market_state["combined_state"]
+    combined = _combined_label(market_state)
 
     print(f"  S&P 500 State: {sp500_state}")
     print(f"  NASDAQ State:  {nasdaq_state}")
@@ -158,7 +170,9 @@ def main():
 
     # Power trend
     pt = market_state.get("power_trend", {})
-    if pt:
+    if pt and "power_trend" in pt and pt["power_trend"] is None:
+        print(f"  Power Trend: Unavailable ({pt.get('reason', 'data gap')})")
+    elif pt:
         print(
             f"  Power Trend: {'YES' if pt.get('power_trend') else 'No'} "
             f"({pt.get('conditions_met', 0)}/3 conditions)"
@@ -166,11 +180,18 @@ def main():
 
     # Post-FTD distribution
     dist = market_state.get("post_ftd_distribution", {})
-    if dist:
+    if dist and dist.get("data_gap"):
+        print(f"  Post-FTD Distribution Days: Unavailable ({dist.get('reason', 'data gap')})")
+    elif dist:
         print(
             f"  Post-FTD Distribution Days: {dist.get('distribution_count', 0)} "
             f"(monitored {dist.get('days_monitored', 0)} days)"
         )
+
+    if market_state.get("data_gap"):
+        for label, key in (("S&P 500", "sp500"), ("NASDAQ", "nasdaq")):
+            if market_state[key].get("data_gap"):
+                print(f"  {label}: {market_state[key].get('error')}")
 
     # Invalidation
     inv = market_state.get("ftd_invalidation", {})
@@ -190,22 +211,35 @@ def main():
 
     analysis = {
         "metadata": {
+            "schema_version": 2,
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "api_calls": client.get_api_stats(),
+            "instruments": {
+                "sp500": {"symbol": "^GSPC", "kind": "index"},
+                "nasdaq": {
+                    "symbol": nasdaq_symbol,
+                    "label": nasdaq_label,
+                    "kind": "index" if nasdaq_symbol == "^IXIC" else "etf_proxy",
+                },
+            },
             "index_prices": {
                 "sp500": sp500_quote.get("price", 0)
                 if sp500_quote
-                else (sp500_history[0].get("close", 0) if sp500_history else None),
-                "qqq": qqq_quote.get("price", 0)
+                else (read_price(sp500_history[0], "close") if sp500_history else None),
+                "nasdaq": qqq_quote.get("price", 0)
                 if qqq_quote
-                else (qqq_history[0].get("close", 0) if qqq_history else None),
+                else (read_price(qqq_history[0], "close") if qqq_history else None),
             },
         },
         "market_state": {
             "combined_state": market_state["combined_state"],
             "dual_confirmation": market_state["dual_confirmation"],
             "ftd_index": market_state.get("ftd_index"),
+            # Downstream consumers (stanley-druckenmiller) read market_state only
+            "data_gap": bool(market_state.get("data_gap")),
         },
+        "data_gap": bool(market_state.get("data_gap")),
+        "data_quality": market_state.get("data_quality", {}),
         "sp500": _serialize_index(market_state["sp500"]),
         "nasdaq": _serialize_index(market_state["nasdaq"]),
         "quality_score": quality,
@@ -225,7 +259,7 @@ def main():
     print("=" * 70)
     print("FTD Detection Complete")
     print("=" * 70)
-    print(f"  Combined State: {market_state['combined_state']}")
+    print(f"  Combined State: {_combined_label(market_state)}")
     print(f"  Quality Score: {quality.get('total_score', 0)}/100 ({quality.get('signal', 'N/A')})")
     print(f"  JSON Report: {json_file}")
     print(f"  Markdown Report: {md_file}")
@@ -238,14 +272,29 @@ def main():
     print()
 
 
+def _combined_label(market_state: dict) -> str:
+    """Console label; a gapped run's NO_SIGNAL means "unavailable", not "uptrend"."""
+    if market_state.get("data_gap"):
+        return f"{market_state['combined_state']} (data gap — state unavailable)"
+    return market_state["combined_state"]
+
+
 def _serialize_index(idx_data: dict) -> dict:
     """Serialize index analysis for JSON output, removing large rally_days lists."""
     result = {
+        "index": idx_data.get("index"),
         "state": idx_data.get("state"),
+        "ftd_lifecycle": idx_data.get("ftd_lifecycle"),
         "current_price": idx_data.get("current_price"),
         "lookback_high": idx_data.get("lookback_high"),
         "correction_depth_pct": idx_data.get("correction_depth_pct"),
+        "data_quality": idx_data.get("data_quality", {}),
     }
+    # Only present when the analysis failed (e.g. "Insufficient data" or a data gap)
+    if idx_data.get("error"):
+        result["error"] = idx_data["error"]
+    if idx_data.get("data_gap"):
+        result["data_gap"] = True
 
     swing = idx_data.get("swing_low")
     if swing:
@@ -262,6 +311,9 @@ def _serialize_index(idx_data: dict) -> dict:
     if rally:
         result["rally_attempt"] = {
             "day1_date": rally.get("day1_date"),
+            "day1_low": rally.get("day1_low"),
+            "reset_count": rally.get("reset_count", 0),
+            "prior_ftd_events": rally.get("prior_ftd_events", []),
             "current_day_count": rally.get("current_day_count"),
             "invalidated": rally.get("invalidated"),
             "invalidation_reason": rally.get("invalidation_reason"),

@@ -94,6 +94,10 @@ class AutoDetectError(Exception):
     """Raised when auto-detection cannot proceed."""
 
 
+class MissingDependencyError(AutoDetectError):
+    """A required runtime dependency (pandas/numpy) is missing; the CLI exits 2."""
+
+
 def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     """Clamp value into the provided inclusive range."""
     if value < low:
@@ -602,9 +606,9 @@ def _require_pandas() -> tuple[Any, Any]:
         import numpy as np
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - depends on runtime environment
-        raise AutoDetectError(
-            "pandas and numpy are required for auto detection. "
-            "Run with an environment that has them installed."
+        raise MissingDependencyError(
+            "pandas/numpy libraries not found. Install this skill's dependencies: "
+            f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
         ) from exc
     return pd, np
 
@@ -1837,6 +1841,9 @@ def main() -> int:
             research_tickets=research_ticket_seeds,
             skipped_modules=skipped_modules,
         )
+    except MissingDependencyError as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
     except AutoDetectError as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 1

@@ -12,7 +12,8 @@ Perform comprehensive analysis of US stocks covering fundamental analysis (finan
 ## Prerequisites
 
 - **API keys:** None required.
-- **Data:** The skill works from data the user provides, and uses web search tools to fetch current market data when they are available.
+- **Tools:** Web search tools must be available; the skill fetches current market data with them.
+- **Data:** The user provides the ticker or question, and may add their own data such as fundamentals or chart images.
 - **Python:** No executable scripts, so no `requirements.txt`.
 
 ## Data Sources

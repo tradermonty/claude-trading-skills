@@ -15,7 +15,7 @@ as equivalent to supported.
 `pyproject.toml` declares:
 
 ```toml
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11.5,<3.14"
 ```
 
 Python **3.11** is the root-project floor and **3.13** is the ceiling. The upper bound is intentional: it makes
@@ -52,7 +52,7 @@ Python version independently of the base runner image, so the 3.11 leg is availa
 
 ## Best-effort (NOT CI-enforced)
 
-Any combination whose Python version satisfies `>=3.11,<3.14` on
+Any combination whose Python version satisfies `>=3.11.5,<3.14` on
 `ubuntu-latest` / `windows-latest` / `macos-latest`, **except** the CI-enforced rows above.
 
 Defined as the set-complement of the supported rows, so the two tiers never overlap. Nothing in
@@ -80,7 +80,7 @@ The compatibility-defining jobs are declared here and must match the actual work
 
 ```yaml
 compat_matrix:
-  python: ">=3.11,<3.14"
+  python: ">=3.11.5,<3.14"
   supported_os: [ubuntu-latest, windows-latest, macos-latest]
   jobs:
     compat-smoke:

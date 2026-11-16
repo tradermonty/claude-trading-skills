@@ -562,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
     # Lazy imports: these modules depend on pandas/numpy/yfinance/finvizfinance
     # and are only needed at runtime, not when importing helpers for testing.
     from calculators.theme_classifier import deduplicate_themes, enrich_vertical_themes
-    from config_loader import load_themes_config
+    from config_loader import MissingDependencyError, load_themes_config
     from etf_scanner import ETFScanner
     from finviz_performance_client import cap_outlier_performances, get_industry_performance
     from uptrend_client import fetch_sector_uptrend_data, is_data_stale
@@ -574,7 +574,11 @@ def main(argv: list[str] | None = None) -> int:
     # -----------------------------------------------------------------------
     # Step 0: Load theme configuration (YAML or inline fallback)
     # -----------------------------------------------------------------------
-    themes_config, etf_catalog = load_themes_config(args.themes_config)
+    try:
+        themes_config, etf_catalog = load_themes_config(args.themes_config)
+    except MissingDependencyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     start_time = time.time()
 
     # Determine data mode
@@ -582,11 +586,9 @@ def main(argv: list[str] | None = None) -> int:
     if finviz_mode is None:
         finviz_mode = "elite" if args.finviz_api_key else "public"
     fmp_available = args.fmp_api_key is not None
-    data_mode = determine_data_mode(fmp_available, finviz_mode == "elite")
 
     print("Theme Detector starting...", file=sys.stderr)
-    print(f"  Data mode: {data_mode}", file=sys.stderr)
-    print(f"  FINVIZ mode: {finviz_mode}", file=sys.stderr)
+    print(f"  Requested FINVIZ mode: {finviz_mode}", file=sys.stderr)
     print(f"  FMP API: {'available' if fmp_available else 'not available'}", file=sys.stderr)
     print(f"  Max themes: {args.max_themes}", file=sys.stderr)
     print(f"  Max stocks/theme: {args.max_stocks_per_theme}", file=sys.stderr)
@@ -594,8 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     metadata = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "run_date": run_date,
-        "data_mode": data_mode,
-        "finviz_mode": finviz_mode,
+        "finviz_mode_requested": finviz_mode,
         "fmp_available": fmp_available,
         "max_themes": args.max_themes,
         "max_stocks_per_theme": args.max_stocks_per_theme,
@@ -608,8 +609,10 @@ def main(argv: list[str] | None = None) -> int:
     # Step 1: Fetch FINVIZ industry performance
     # -----------------------------------------------------------------------
     print("Fetching FINVIZ industry performance...", file=sys.stderr)
+    industry_provenance = {}
     raw_industries = get_industry_performance(
-        api_key=args.finviz_api_key if finviz_mode == "elite" else ""
+        api_key=args.finviz_api_key if finviz_mode == "elite" else "",
+        provenance=industry_provenance,
     )
     if not raw_industries:
         print(
@@ -619,6 +622,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(1)
 
     metadata["data_sources"]["finviz_industries"] = len(raw_industries)
+    metadata["data_sources"]["finviz_industry_performance"] = industry_provenance
+    metadata["finviz_mode"] = industry_provenance["source"]
+    data_mode = determine_data_mode(fmp_available, industry_provenance["source"] == "elite")
+    metadata["data_mode"] = data_mode
+    print(f"  Data mode: {data_mode}", file=sys.stderr)
     print(f"  Got {len(raw_industries)} industries", file=sys.stderr)
 
     # Convert decimal to percentage, filter outliers, and add sector info
@@ -1121,4 +1129,10 @@ def _average_industry_perfs(industries: list[dict]) -> dict:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from _market_calendar import CalendarDependencyMissingError
+
+    try:
+        raise SystemExit(main())
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None

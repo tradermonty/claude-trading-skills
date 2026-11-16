@@ -10,18 +10,13 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-# For FMP API calls
-try:
-    import requests
-
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
+from postmortem_fmp_client import fetch_price_rows, price_data_session
 
 
 def get_fmp_api_key() -> Optional[str]:
@@ -64,49 +59,26 @@ def observed_prices(rows, start_date: str, end_date: str) -> dict:
 
 
 def fetch_price_data(ticker: str, start_date: str, end_date: str, api_key: str) -> dict:
-    """
-    Fetch historical price data from FMP API (stable with v3 fallback).
-
-    Returns dict mapping date string to close price.
-    """
-    if not HAS_REQUESTS:
-        return {}
-
-    endpoints = [
-        ("https://financialmodelingprep.com/stable/historical-price-eod/full", True),
-        ("https://financialmodelingprep.com/api/v3/historical-price-full", False),
-    ]
-    for base_url, is_stable in endpoints:
-        try:
-            if is_stable:
-                url = base_url
-                params = {"symbol": ticker, "from": start_date, "to": end_date, "apikey": api_key}
-            else:
-                url = f"{base_url}/{ticker}"
-                params = {"from": start_date, "to": end_date, "apikey": api_key}
-            resp = requests.get(url, params=params, timeout=30)
-            if resp.status_code != 200:
-                continue
-            data = resp.json()
-            historical = data if isinstance(data, list) else None
-            if isinstance(data, dict) and "historical" in data:
-                historical = data["historical"]
-            elif isinstance(data, dict) and "historicalStockList" in data:
-                for entry in data["historicalStockList"]:
-                    if entry.get("symbol", "").replace("-", ".") == ticker.replace("-", "."):
-                        historical = entry.get("historical", [])
-                        break
-            if historical is not None:
-                prices = observed_prices(historical, start_date, end_date)
-                if prices:
-                    return prices
-        except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
-            continue
-
-    print(
-        f"Warning: Failed to fetch price data for {ticker}: all endpoints failed", file=sys.stderr
-    )
-    return {}
+    """Fetch exact-range observed prices through the shared generated transport."""
+    data = fetch_price_rows(ticker, start_date, end_date, api_key)
+    historical = data if isinstance(data, list) else None
+    if isinstance(data, dict):
+        if "historical" in data:
+            historical = data["historical"]
+        elif isinstance(data.get("historicalStockList"), list):
+            matches = [
+                entry
+                for entry in data["historicalStockList"]
+                if isinstance(entry, dict)
+                and isinstance(entry.get("symbol"), str)
+                and entry["symbol"].replace("-", ".") == ticker.replace("-", ".")
+            ]
+            if len(matches) == 1:
+                historical = matches[0].get("historical")
+    prices = observed_prices(historical, start_date, end_date)
+    if not prices:
+        print("Warning: Historical price evidence unavailable", file=sys.stderr)
+    return prices
 
 
 def calculate_return(entry_price: float, exit_price: float) -> float:
@@ -161,6 +133,8 @@ def create_postmortem_record(
     exit_date: str,
     regime_at_exit: str = "UNKNOWN",
     outcome_notes: str = "",
+    *,
+    classification_return: Optional[float] = None,
 ) -> dict:
     """
     Create a postmortem record for a signal.
@@ -173,8 +147,11 @@ def create_postmortem_record(
     entry_price = signal.get("entry_price", 0.0)
     regime_at_signal = signal.get("regime", "UNKNOWN")
 
-    # Use 5-day return for primary classification
-    primary_return = realized_returns.get("5d", 0.0)
+    # Batch classification retains its 5d basis. Manual exits explicitly pass
+    # their actual price return without claiming a benchmark observation.
+    primary_return = (
+        realized_returns.get("5d", 0.0) if classification_return is None else classification_return
+    )
 
     outcome_category = classify_outcome(
         predicted_direction, primary_return, regime_at_signal, regime_at_exit
@@ -209,6 +186,61 @@ def create_postmortem_record(
         "outcome_notes": outcome_notes,
         "recorded_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
     }
+
+
+def canonical_date(value) -> datetime:
+    """Parse an exact YYYY-MM-DD date, without compact/partial-date coercion."""
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise ValueError("Dates must use YYYY-MM-DD")
+    try:
+        return datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("Dates must be valid YYYY-MM-DD calendar dates") from exc
+
+
+def manual_postmortem(signals_file, signal_id, exit_price, exit_date, outcome_notes="") -> dict:
+    """Build an actual-exit record from one unique saved signal, without I/O writes."""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,199}", signal_id):
+        raise ValueError("signal-id must be a safe filename component (letters, numbers, _, ., -)")
+    try:
+        data = json.loads(Path(signals_file).read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeError) as exc:
+        raise ValueError("Unable to read --signals-file as valid JSON") from exc
+    signals = (
+        data if isinstance(data, list) else data.get("signals") if isinstance(data, dict) else None
+    )
+    if not isinstance(signals, list) or any(not isinstance(item, dict) for item in signals):
+        raise ValueError("--signals-file must contain a list or a signals list")
+    matches = [item for item in signals if item.get("signal_id") == signal_id]
+    if len(matches) != 1:
+        raise ValueError("--signal-id must match exactly one saved signal in --signals-file")
+    signal = matches[0]
+    for name in ("ticker", "source_skill"):
+        if not isinstance(signal.get(name), str) or not signal[name].strip():
+            raise ValueError("Saved signal requires ticker and source_skill")
+    if signal.get("predicted_direction") not in ("LONG", "SHORT"):
+        raise ValueError("Saved signal predicted_direction must be LONG or SHORT")
+    if "regime" in signal and not isinstance(signal["regime"], str):
+        raise ValueError("Saved signal regime must be text")
+    entry_price = signal.get("entry_price")
+    if not positive_finite_price(entry_price) or not positive_finite_price(exit_price):
+        raise ValueError("Saved entry_price and --exit-price must be finite positive numbers")
+    start, end = canonical_date(signal.get("signal_date")), canonical_date(exit_date)
+    if end < start:
+        raise ValueError("--exit-date must not precede the signal date")
+    actual_return = calculate_return(entry_price, exit_price)
+    if not math.isfinite(actual_return):
+        raise ValueError("Actual exit return must be finite")
+    record = create_postmortem_record(
+        signal,
+        {"actual": actual_return},
+        exit_price,
+        exit_date,
+        outcome_notes=outcome_notes,
+        classification_return=actual_return,
+    )
+    record["return_basis"] = "actual_exit"
+    return record
 
 
 def process_signal(
@@ -394,26 +426,39 @@ def main():
             )
             sys.exit(1)
 
-        # Create minimal signal record
-        signal = {
-            "signal_id": args.signal_id,
-            "ticker": args.signal_id.split("_")[1] if "_" in args.signal_id else "UNKNOWN",
-            "signal_date": args.signal_id.split("_")[2]
-            if args.signal_id.count("_") >= 2
-            else datetime.now().strftime("%Y-%m-%d"),
-            "predicted_direction": "LONG",
-            "source_skill": "manual",
-            "entry_price": 0.0,
-        }
-
-        postmortem = create_postmortem_record(
-            signal, {}, args.exit_price, args.exit_date, outcome_notes=args.outcome_notes
-        )
+        if not args.signals_file:
+            print("Error: --signals-file required with --signal-id", file=sys.stderr)
+            sys.exit(1)
+        try:
+            postmortem = manual_postmortem(
+                args.signals_file,
+                args.signal_id,
+                args.exit_price,
+                args.exit_date,
+                outcome_notes=args.outcome_notes,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
 
         # Save postmortem
         output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
+        source_file = Path(args.signals_file)
+        try:
+            same_source = source_file.resolve() == output_file.resolve() or (
+                output_file.exists() and source_file.samefile(output_file)
+            )
+        except (OSError, RuntimeError):
+            print("Error: Unable to verify distinct source and output files", file=sys.stderr)
+            sys.exit(1)
+        if same_source:
+            print(
+                "Error: Source and output must be different files, including aliases",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(postmortem, f, indent=2)
+            json.dump(postmortem, f, indent=2, allow_nan=False)
 
         print(f"Saved postmortem: {output_file}")
         print(f"Outcome: {postmortem['outcome_category']}")
@@ -446,15 +491,16 @@ def main():
 
     # Process signals
     results = []
-    for signal in signals:
-        postmortem = process_signal(signal, holding_periods, api_key)
-        if postmortem:
-            results.append(postmortem)
+    with price_data_session(api_key):
+        for signal in signals:
+            postmortem = process_signal(signal, holding_periods, api_key)
+            if postmortem:
+                results.append(postmortem)
 
-            # Save individual postmortem
-            output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(postmortem, f, indent=2)
+                # Save individual postmortem
+                output_file = postmortems_dir / f"{postmortem['postmortem_id']}.json"
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(postmortem, f, indent=2)
 
     # Save batch summary
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")

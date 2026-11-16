@@ -1,5 +1,7 @@
 """Importable test helpers for FTD Detector tests"""
 
+from datetime import date, timedelta
+
 
 def make_bar(close, volume=1_000_000, date="2026-01-15", open_=None, high=None, low=None):
     """Create a single OHLCV bar dict."""
@@ -105,3 +107,37 @@ def make_rally_history(
         day += 1
 
     return bars, swing_low_idx, day1_idx, ftd_day_idx
+
+
+def assign_session_dates(bars, start=None):
+    """Give chronological bars consecutive weekday ISO dates (mutates and returns)."""
+    session = start or date(2026, 3, 2)
+    for bar in bars:
+        bar["date"] = session.isoformat()
+        session += timedelta(days=1)
+        while session.weekday() >= 5:
+            session += timedelta(days=1)
+    return bars
+
+
+def make_long_ftd_history(lead_in=56, post_days=0, peak=100.0, confirmed=True, ftd_gain_pct=2.1):
+    """Chronological dated history: flat lead-in, correction, 8-day rally, optional FTD.
+
+    The lead-in pushes the total past 60 bars, so the oldest bars sit outside the
+    state machine's 60-session window but inside the power-trend input.
+    Returns (bars, ftd_idx).
+    """
+    bars, _, _, ftd_idx = make_rally_history(
+        peak=peak,
+        rally_days=8,
+        ftd_day=5 if confirmed else None,
+        ftd_gain_pct=ftd_gain_pct,
+    )
+    bars = [make_bar(peak * 0.98) for _ in range(lead_in)] + bars
+    if ftd_idx is not None:
+        ftd_idx += lead_in
+    last = bars[-1]["close"]
+    for _ in range(post_days):
+        last *= 1.001
+        bars.append(make_bar(last, low=last * 0.997))
+    return assign_session_dates(bars), ftd_idx

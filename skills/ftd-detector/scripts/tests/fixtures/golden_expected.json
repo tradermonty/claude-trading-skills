@@ -1,0 +1,210 @@
+{
+  "metadata": {
+    "schema_version": 2,
+    "generated_at": "2026-11-13 09:30:00",
+    "api_calls": {
+      "api_calls_made": 4,
+      "cache_entries": 0
+    },
+    "instruments": {
+      "sp500": {
+        "symbol": "^GSPC",
+        "kind": "index"
+      },
+      "nasdaq": {
+        "symbol": "QQQ",
+        "label": "QQQ (Nasdaq-100 ETF proxy)",
+        "kind": "etf_proxy"
+      }
+    },
+    "index_prices": {
+      "sp500": 101.25,
+      "nasdaq": 405.5
+    }
+  },
+  "market_state": {
+    "combined_state": "FTD_CONFIRMED",
+    "dual_confirmation": true,
+    "ftd_index": "Both",
+    "data_gap": false
+  },
+  "data_gap": false,
+  "data_quality": {
+    "sp500": {
+      "window_sessions": 60,
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "power_trend_bad_bars": 0
+    },
+    "nasdaq": {
+      "window_sessions": 60,
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ]
+    }
+  },
+  "sp500": {
+    "index": "S&P 500",
+    "state": "FTD_CONFIRMED",
+    "ftd_lifecycle": {
+      "ftd_date": "2026-06-16",
+      "invalidated": false,
+      "warning": false,
+      "rally_low": 94.9991,
+      "ftd_low": 97.8697,
+      "days_since_ftd": 6,
+      "failure_basis": "intraday low below rally Day 1 low",
+      "warning_basis": "close below FTD-day low"
+    },
+    "current_price": 99.3478,
+    "lookback_high": 100.0,
+    "correction_depth_pct": -0.65,
+    "data_quality": {
+      "window_sessions": 60,
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ]
+    },
+    "swing_low": {
+      "date": "2026-06-09",
+      "price": 95.0,
+      "decline_pct": -5.0,
+      "down_days": 5,
+      "recent_high_date": "2026-06-02",
+      "recent_high_price": 100.0
+    },
+    "rally_attempt": {
+      "day1_date": "2026-06-10",
+      "day1_low": 94.9991,
+      "reset_count": 0,
+      "prior_ftd_events": [],
+      "current_day_count": 11,
+      "invalidated": false,
+      "invalidation_reason": null
+    },
+    "ftd": {
+      "ftd_detected": true,
+      "ftd_date": "2026-06-16",
+      "ftd_day_number": 5,
+      "ftd_low": 97.8697,
+      "gain_pct": 2.1,
+      "gain_tier": "strong",
+      "volume_above_avg": true
+    }
+  },
+  "nasdaq": {
+    "index": "QQQ (Nasdaq-100 ETF proxy)",
+    "state": "FTD_CONFIRMED",
+    "ftd_lifecycle": {
+      "ftd_date": "2026-06-16",
+      "invalidated": false,
+      "warning": false,
+      "rally_low": 379.9966,
+      "ftd_low": 391.4788,
+      "days_since_ftd": 6,
+      "failure_basis": "intraday low below rally Day 1 low",
+      "warning_basis": "close below FTD-day low"
+    },
+    "current_price": 397.3911,
+    "lookback_high": 400.0,
+    "correction_depth_pct": -0.65,
+    "data_quality": {
+      "window_sessions": 60,
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ]
+    },
+    "swing_low": {
+      "date": "2026-06-09",
+      "price": 380.0,
+      "decline_pct": -5.0,
+      "down_days": 5,
+      "recent_high_date": "2026-06-02",
+      "recent_high_price": 400.0
+    },
+    "rally_attempt": {
+      "day1_date": "2026-06-10",
+      "day1_low": 379.9966,
+      "reset_count": 0,
+      "prior_ftd_events": [],
+      "current_day_count": 11,
+      "invalidated": false,
+      "invalidation_reason": null
+    },
+    "ftd": {
+      "ftd_detected": true,
+      "ftd_date": "2026-06-16",
+      "ftd_day_number": 5,
+      "ftd_low": 391.4788,
+      "gain_pct": 2.1,
+      "gain_tier": "strong",
+      "volume_above_avg": true
+    }
+  },
+  "quality_score": {
+    "total_score": 100,
+    "breakdown": {
+      "base": "Day 5 FTD: +60 (prime window)",
+      "gain": "+2.10% gain: +15 (strong)",
+      "volume": "Above 50-day avg volume: +10",
+      "dual_confirm": "Both S&P 500 + QQQ (Nasdaq-100 ETF proxy) confirmed: +15",
+      "post_ftd": "No post-FTD distribution (5 days clean): +10"
+    },
+    "signal": "Strong FTD",
+    "guidance": "Strong technical FTD; breadth, leadership and portfolio risk still require assessment.",
+    "exposure_range": "Not assessed",
+    "ftd_source": "S&P 500",
+    "position_sizing": {
+      "status": "not_assessed",
+      "missing_context": [
+        "market_breadth",
+        "leadership",
+        "portfolio_risk_limits"
+      ]
+    }
+  },
+  "post_ftd_distribution": {
+    "distribution_count": 0,
+    "days_monitored": 5,
+    "earliest_distribution_day": null,
+    "details": []
+  },
+  "ftd_invalidation": {
+    "ftd_date": "2026-06-16",
+    "invalidated": false,
+    "warning": false,
+    "rally_low": 94.9991,
+    "ftd_low": 97.8697,
+    "days_since_ftd": 6,
+    "failure_basis": "intraday low below rally Day 1 low",
+    "warning_basis": "close below FTD-day low",
+    "rally_day1_date": "2026-06-10"
+  },
+  "power_trend": {
+    "power_trend": true,
+    "conditions_met": 3,
+    "ema_21": 98.11,
+    "sma_50": 98.06,
+    "current_price": 99.35,
+    "ema_above_sma": true,
+    "sma_50_rising": true,
+    "price_above_21ema": true
+  }
+}

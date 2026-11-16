@@ -35,6 +35,7 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from pathlib import Path
 
 from numeric_utils import MAX_ABS_FUNDING_RATE
 
@@ -42,6 +43,21 @@ try:
     import requests
 except ImportError:  # pragma: no cover - exercised only without requests
     requests = None
+
+
+class MissingDependencyError(RuntimeError):
+    """A runtime dependency required for live fetches is not installed."""
+
+
+def require_requests() -> None:
+    """Raise MissingDependencyError (with a requirements.txt hint) if requests is absent."""
+    if requests is None:
+        raise MissingDependencyError(
+            "requests library not found. Install this skill's dependencies: "
+            f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'} "
+            "(or use --input-json for offline mode)"
+        )
+
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 BINANCE_FAPI_BASE = "https://fapi.binance.com"
@@ -108,8 +124,7 @@ class DataClient:
 
     def _get(self, url: str, params: dict = None):
         """GET with 429-aware exponential backoff (respects Retry-After)."""
-        if requests is None:
-            raise RuntimeError("The 'requests' library is required for live fetches")
+        require_requests()
         resp = None
         for attempt in range(MAX_RETRIES):
             resp = requests.get(url, params=params or {}, timeout=30)
@@ -232,6 +247,8 @@ class DataClient:
                 perp = f"{sym}USDT"
                 if perp in by_symbol:
                     funding[perp] = float(by_symbol[perp]["lastFundingRate"])
+        except MissingDependencyError:
+            raise  # a missing dependency is fatal (exit 2), not a best-effort skip
         except Exception as exc:  # funding is best-effort
             self._log(f"  WARN: funding fetch failed ({exc}); component will be skipped")
         self._store(cache_key, funding)
@@ -252,6 +269,8 @@ class DataClient:
                 closes = self.fetch_history(coin["id"])
                 _validate_price_series(coin["symbol"], closes)
                 series[coin["symbol"]] = closes
+            except MissingDependencyError:
+                raise
             except Exception as exc:
                 self._log(f"  WARN: {coin['symbol']} history failed ({exc}); skipping coin")
 
@@ -260,6 +279,8 @@ class DataClient:
             self.fetch_dominance()
             dominance_series = self.load_dominance_series()
             _validate_dominance_series(dominance_series)
+        except MissingDependencyError:
+            raise
         except Exception as exc:
             self._log(f"  WARN: dominance fetch failed ({exc}); component will be skipped")
             dominance_series = []

@@ -147,6 +147,31 @@ def test_import_error_string_or_systemexit_exit_flagged(tmp_path, body):
     assert _rules(_scan(tmp_path, source)) == [cec.RULE_IMPORT]
 
 
+def test_import_error_return_one_in_main_flagged(tmp_path):
+    source = (
+        "def main():\n    try:\n        import x\n    except ImportError:\n        return 1\n"
+        "    return 0\n"
+    )
+    findings = _scan(tmp_path, source)
+    assert _rules(findings) == [cec.RULE_IMPORT]
+    assert findings[0].scope == "main"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        # return 2 is the required code
+        "def main():\n    try:\n        import x\n    except ImportError:\n        return 2\n",
+        # return 1 outside a function named main is not flagged
+        "def helper():\n    try:\n        import x\n    except ImportError:\n        return 1\n",
+        # return 1 from a non-ImportError handler is not flagged
+        "def main():\n    try:\n        import x\n    except ValueError:\n        return 1\n",
+    ],
+)
+def test_return_one_not_flagged_otherwise(tmp_path, source):
+    assert _scan(tmp_path, source) == []
+
+
 @pytest.mark.parametrize(
     "body",
     [
