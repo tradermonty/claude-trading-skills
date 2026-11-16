@@ -32,6 +32,10 @@ import screen_vcp  # noqa: E402  — bound at module load so tests can monkeypat
 
 # `historical_scanner.screen_vcp.analyze_stock` deterministically.
 from calculators.forward_outcome import calculate_forward_outcome  # noqa: E402
+from calculators.vcp_pattern_calculator import (  # noqa: E402
+    VCPPriceDataError,
+    find_vcp_price_gaps,
+)
 
 _TICKER_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,11}$")
 
@@ -139,6 +143,11 @@ def scan_history(
     detections: list[dict] = []
 
     for offset in offsets:
+        # Validate before quote synthesis: missing lows/closes can otherwise fail
+        # there before the pattern calculator can expose unavailability.
+        data_gaps = find_vcp_price_gaps(historical[offset:], lookback_days)
+        if data_gaps["bad_bars"]:
+            raise VCPPriceDataError(data_gaps)
         quote = build_quote_from_history(historical, offset)
         if quote.get("price", 0) <= 0:
             continue

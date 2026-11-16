@@ -19,6 +19,23 @@ VCP Characteristics:
 from typing import Optional
 
 
+class VCPPriceDataError(ValueError):
+    """A historical scan cannot distinguish no pattern from unavailable OHLC."""
+
+    def __init__(self, data_gaps):
+        super().__init__("VCP price data unavailable: missing or invalid consumed OHLC")
+        self.data_gaps = data_gaps
+
+
+def find_vcp_price_gaps(historical_prices: list[dict], lookback_days: int = 120) -> dict:
+    """Check actual H/L/C on the exact newest-first pattern window, without dropping rows."""
+    from _price_bars import find_bar_gaps
+
+    return find_bar_gaps(
+        historical_prices[:lookback_days], ["high", "low", "close"], order="newest_first"
+    )
+
+
 def calculate_vcp_pattern(
     historical_prices: list[dict],
     lookback_days: int = 120,
@@ -73,10 +90,21 @@ def calculate_vcp_pattern(
         empty_result["error"] = "Insufficient data in lookback window"
         return empty_result
 
+    data_gaps = find_vcp_price_gaps(historical_prices, lookback_days)
+    if data_gaps["bad_bars"]:
+        empty_result.update(
+            data_available=False,
+            data_gaps=data_gaps,
+            error="VCP price data unavailable: missing or invalid consumed OHLC",
+        )
+        return empty_result
+
+    from _price_bars import read_price
+
     # Extract price arrays
-    highs = [d.get("high", d.get("close", 0)) for d in prices]
-    lows = [d.get("low", d.get("close", 0)) for d in prices]
-    closes = [d.get("close", 0) for d in prices]
+    highs = [read_price(d, "high") for d in prices]
+    lows = [read_price(d, "low") for d in prices]
+    closes = [read_price(d, "close") for d in prices]
     dates = [d.get("date", f"day-{i}") for i, d in enumerate(prices)]
 
     # Step A: Find swing points using ZigZag (primary) with fixed-window fallback

@@ -37,7 +37,7 @@ from calculators.relative_strength_calculator import (
     rank_relative_strength_universe,
 )
 from calculators.trend_template_calculator import calculate_trend_template
-from calculators.vcp_pattern_calculator import calculate_vcp_pattern
+from calculators.vcp_pattern_calculator import VCPPriceDataError, calculate_vcp_pattern
 from calculators.volume_pattern_calculator import calculate_volume_pattern
 from coverage_client import CoverageFMPClient as FMPClient
 from coverage_client import failure_reason, history_problem, quote_problem
@@ -349,6 +349,22 @@ def analyze_stock(
         if sp500_history:
             sp500_history = sp500_history[as_of_offset:]
 
+    # Validate pattern observations before RS/TT can consume invalid closes.
+    vcp_result = calculate_vcp_pattern(
+        historical,
+        lookback_days=lookback_days,
+        atr_multiplier=atr_multiplier,
+        min_contraction_days=min_contraction_days,
+        min_contractions=min_contractions,
+        t1_depth_min=t1_depth_min,
+        contraction_ratio=contraction_ratio,
+        wide_and_loose_threshold=wide_and_loose_threshold,
+    )
+
+    if vcp_result.get("data_available") is False:
+        print(f"{symbol}: {vcp_result['error']}", file=sys.stderr)
+        return None
+
     price = quote.get("price", 0)
     market_cap = quote.get("marketCap", 0)
 
@@ -363,18 +379,6 @@ def analyze_stock(
         rs_rank=rs_rank,
         ext_threshold=ext_threshold,
         max_sma200_extension=max_sma200_extension,
-    )
-
-    # 3. VCP Pattern Detection
-    vcp_result = calculate_vcp_pattern(
-        historical,
-        lookback_days=lookback_days,
-        atr_multiplier=atr_multiplier,
-        min_contraction_days=min_contraction_days,
-        min_contractions=min_contractions,
-        t1_depth_min=t1_depth_min,
-        contraction_ratio=contraction_ratio,
-        wide_and_loose_threshold=wide_and_loose_threshold,
     )
 
     # 4. Volume Pattern
@@ -618,15 +622,19 @@ def run_historical(args, client) -> None:
         "max_sma200_extension": args.max_sma200_extension,
         "wide_and_loose_threshold": args.wide_and_loose_threshold,
     }
-    detections = scan_history(
-        ticker,
-        historical,
-        sp500_history,
-        stride_days=args.stride_days,
-        outcome_days=args.outcome_days,
-        lookback_days=args.lookback_days,
-        analyzer_kwargs=analyzer_kwargs,
-    )
+    try:
+        detections = scan_history(
+            ticker,
+            historical,
+            sp500_history,
+            stride_days=args.stride_days,
+            outcome_days=args.outcome_days,
+            lookback_days=args.lookback_days,
+            analyzer_kwargs=analyzer_kwargs,
+        )
+    except VCPPriceDataError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
     print(f"  Found {len(detections)} unique VCP detections")
     print()
 
