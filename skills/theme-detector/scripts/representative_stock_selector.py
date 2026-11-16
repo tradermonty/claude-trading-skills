@@ -399,7 +399,8 @@ class RepresentativeStockSelector:
             return stocks
 
         except Exception:
-            logger.exception("FINVIZ Elite fetch failed for %s", industry)
+            # Do not log traceback/exception text: provider URLs may contain credentials.
+            logger.warning("FINVIZ Elite fetch failed for %s", industry)
             self._record_failure("elite")
             return []
 
@@ -452,7 +453,8 @@ class RepresentativeStockSelector:
             return stocks
 
         except Exception:
-            logger.exception("FINVIZ public fetch failed for %s", industry)
+            # Do not log traceback/exception text: provider URLs may contain credentials.
+            logger.warning("FINVIZ public fetch failed for %s", industry)
             self._record_failure("public")
             return []
 
@@ -510,7 +512,8 @@ class RepresentativeStockSelector:
             return stocks
 
         except Exception:
-            logger.exception("FMP ETF holdings fetch failed for %s", etf_symbol)
+            # Do not log traceback/exception text: provider URLs may contain credentials.
+            logger.warning("FMP ETF holdings fetch failed for %s", etf_symbol)
             self._record_failure("fmp")
             return []
 

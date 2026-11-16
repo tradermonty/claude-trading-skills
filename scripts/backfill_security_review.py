@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import shlex
@@ -198,6 +199,97 @@ def _key_in_request_url(text: str) -> bool:
     return False
 
 
+def _fixed_diagnostic_bindings(text: str) -> set[str]:
+    """Exclude only local, literal-only diagnostics from this advisory heuristic.
+
+    A plain ValueError/RuntimeError subclass with no executable class body and
+    exclusively literal string constructors cannot inherit a requests URL. Do
+    not exempt arbitrary custom exceptions, dynamic messages, or a binding also
+    used by another handler. Parse failures remain fail-closed in the scanner.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return set()
+    nodes = list(ast.walk(tree))
+    parents = {child: parent for parent in nodes for child in ast.iter_child_nodes(parent)}
+
+    def bound_names(node):
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            return {node.name}
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            return {node.id}
+        if isinstance(node, ast.arg):
+            return {node.arg}
+        if isinstance(node, ast.alias):
+            return {node.asname or node.name.split(".")[0]}
+        if isinstance(node, ast.ExceptHandler) and node.name:
+            return {node.name}
+        return set()
+
+    safe_types = set()
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or node.decorator_list or node.keywords:
+            continue
+        if len(node.bases) != 1 or not isinstance(node.bases[0], ast.Name):
+            continue
+        if node.bases[0].id not in {"ValueError", "RuntimeError"}:
+            continue
+        if not all(
+            isinstance(item, ast.Pass)
+            or (
+                isinstance(item, ast.Expr)
+                and isinstance(item.value, ast.Constant)
+                and isinstance(item.value.value, str)
+            )
+            for item in node.body
+        ):
+            continue
+        # A local class or its builtin base must not be shadowed or rebound.
+        if any(node.bases[0].id in bound_names(item) for item in nodes):
+            continue
+        if any(item is not node and node.name in bound_names(item) for item in nodes):
+            continue
+        # Every reference must be a direct construction or an except type;
+        # an alias/factory/export could later construct a dynamic message.
+        references = [item for item in nodes if isinstance(item, ast.Name) and item.id == node.name]
+        if any(
+            not (
+                (isinstance(parents.get(item), ast.Call) and parents[item].func is item)
+                or (isinstance(parents.get(item), ast.ExceptHandler) and parents[item].type is item)
+            )
+            for item in references
+        ):
+            continue
+        calls = [
+            item
+            for item in ast.walk(tree)
+            if isinstance(item, ast.Call)
+            and isinstance(item.func, ast.Name)
+            and item.func.id == node.name
+        ]
+        if calls and all(
+            len(call.args) == 1
+            and not call.keywords
+            and isinstance(call.args[0], ast.Constant)
+            and isinstance(call.args[0].value, str)
+            for call in calls
+        ):
+            safe_types.add(node.name)
+    handlers = [
+        node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler) and node.name
+    ]
+    return {
+        name
+        for name in {handler.name for handler in handlers}
+        if all(
+            isinstance(handler.type, ast.Name) and handler.type.id in safe_types
+            for handler in handlers
+            if handler.name == name
+        )
+    }
+
+
 def _exception_key_leak_findings(scripts: list[Path]) -> list[str]:
     """Flag scripts that put a key into a request AND print/log the exception object.
 
@@ -214,7 +306,7 @@ def _exception_key_leak_findings(scripts: list[Path]) -> list[str]:
         if _REDACT_RE.search(text) or not _key_in_request_url(text):
             continue
         reason = None
-        for name in sorted(set(_EXC_BIND.findall(text))):
+        for name in sorted(set(_EXC_BIND.findall(text)) - _fixed_diagnostic_bindings(text)):
             ref = re.compile(
                 r"\{\s*" + re.escape(name) + r"\b[^}]*\}"
                 r"|\b(?:str|repr)\(\s*" + re.escape(name) + r"\s*\)"

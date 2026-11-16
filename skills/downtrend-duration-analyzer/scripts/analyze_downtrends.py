@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+# Request exception messages can embed credential-bearing URLs. Log only their class.
+
 # Market cap tier thresholds (in billions USD)
 MARKET_CAP_TIERS = {
     "Mega": 200_000_000_000,  # >= $200B
@@ -95,7 +97,7 @@ def fetch_stock_list(api_key: str, sector: str | None = None) -> list[dict]:
         try:
             response = requests.get(url, params=params, timeout=30)
         except requests.RequestException as e:
-            print(f"Error fetching stock list ({url}): {e}", file=sys.stderr)
+            print(f"Error fetching stock list ({url}): {type(e).__name__}", file=sys.stderr)
             continue
         if response.status_code != 200:
             continue
