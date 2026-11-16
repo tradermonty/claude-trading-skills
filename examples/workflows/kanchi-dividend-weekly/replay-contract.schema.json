@@ -55,6 +55,7 @@
             "STEP1-PASS",
             "STEP1-RECHECK",
             "ASSUMPTION-REQUIRED",
+            "CURRENCY-REVIEW",
             "HOLD-REVIEW",
             "FAIL"
           ]

@@ -44,6 +44,11 @@ def synthesize_verdict(
     if safety_verdict == "FAIL":
         return FinalVerdict("FAIL", True, ["payout_safety_fail"])
 
+    # Currency uncertainty is distinct from an income-cash-cow freeze. Keep
+    # both new Step-1 callers and older blocker-only callers non-actionable.
+    if step1_verdict == "CURRENCY-REVIEW" or "dividend_cut_currency_basis_unconfirmed" in blockers:
+        return FinalVerdict("HOLD-REVIEW", True, ["dividend_cut_currency_basis_unconfirmed"])
+
     # Step-1 is the core yield-floor gate. If it was not run (no
     # --yield-floor) or returned an unknown value, a PASS tier cannot be
     # asserted (6th-review High1): fail-safe to STEP1-RECHECK.

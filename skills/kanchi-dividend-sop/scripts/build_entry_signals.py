@@ -241,6 +241,8 @@ def build_entry_row(
             dividend_history,
             price,
             issuer_language=(profile or {}).get("issuer_language"),
+            issuer_currency=(profile or {}).get("currency"),
+            is_adr=(profile or {}).get("isAdr") is True,
             floor_pct=floor_pct,
             as_of_date=as_of,
         )
@@ -342,6 +344,9 @@ def build_entry_row(
             "special_dividend_flag": basis.special_dividend_flag,
             "variable_policy_flag": basis.variable_policy_flag,
             "cut_flag": basis.cut_flag,
+            "cut_confirmation_required": basis.cut_confirmation_required,
+            "cut_amount_basis": basis.cut_amount_basis,
+            "original_dividend_currency": basis.original_dividend_currency,
             "freeze_flag": basis.freeze_flag,
             "suspension_flag": basis.suspension_flag,
             "last_increase_date": basis.last_increase_date,
@@ -368,6 +373,8 @@ def build_entry_row(
             notes.append("floor_borderline")
 
     pre_order_blockers: list[str] = []
+    if basis is not None and basis.cut_confirmation_required:
+        pre_order_blockers.append("dividend_cut_currency_basis_unconfirmed")
     if target_withheld_reason:
         pre_order_blockers.append(target_withheld_reason)
     if basis is not None:
@@ -570,6 +577,9 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
         "annual_dividend_per_share",
         "regular_forward_yield_pct",
         "ttm_yield_pct",
+        "cut_confirmation_required",
+        "cut_amount_basis",
+        "original_dividend_currency",
         "current_yield_pct",
         "avg_5y_yield_pct",
         "alpha_pp",
@@ -598,6 +608,9 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
             output["pre_order_blockers"] = ";".join(row.get("pre_order_blockers", []))
             output["regular_forward_yield_pct"] = db.get("regular_forward_yield_pct")
             output["ttm_yield_pct"] = db.get("ttm_yield_pct")
+            output["cut_confirmation_required"] = db.get("cut_confirmation_required", False)
+            output["cut_amount_basis"] = db.get("cut_amount_basis", "unconfirmed")
+            output["original_dividend_currency"] = db.get("original_dividend_currency")
             output["payout_safety_verdict"] = ps.get("safety_verdict")
             output["event_scan_result"] = ev.get("result", "NOT_SCANNED")
             writer.writerow(output)

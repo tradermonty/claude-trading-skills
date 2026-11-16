@@ -315,3 +315,23 @@ def test_review_queue_normalizes_only_generated_at_metadata(monkeypatch, tmp_pat
         f"- Generated at: `{spec['fixed_timestamp']}`",
         1,
     )
+
+
+def test_currency_review_evidence_is_valid_and_excluded(tmp_path: Path) -> None:
+    evidence = json.loads((INPUTS / "underwriting-evidence.json").read_text(encoding="utf-8"))
+    for candidate in evidence["candidates"]:
+        if candidate["ticker"] == "EXMPLD":
+            candidate["step1_verdict"] = "CURRENCY-REVIEW"
+            candidate["pre_order_blockers"] = []  # library cap needs no CLI blocker
+    override = tmp_path / "overrides" / "underwriting-evidence.json"
+    override.parent.mkdir()
+    override.write_text(json.dumps(evidence), encoding="utf-8")
+    output = tmp_path / "out"
+    execute_replay(
+        ROOT, SPEC, "required-only", output, input_overrides={"underwriting_evidence": override}
+    )
+    payload = json.loads((output / "03_kanchi_candidates.json").read_text(encoding="utf-8"))
+    excluded = next(row for row in payload["excluded"] if row["ticker"] == "EXMPLD")
+    assert excluded["verdict"] == "HOLD-REVIEW"
+    assert excluded["reasons"] == ["dividend_cut_currency_basis_unconfirmed"]
+    assert "EXMPLD" not in {row["ticker"] for row in payload["candidates"]}
