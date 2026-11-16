@@ -53,6 +53,7 @@ US Stock Analysis provides a complete analytical framework for evaluating indivi
 ## 2. Prerequisites
 
 - **API Key:** None required
+- **WebSearch (required):** WebSearch must be available in Claude Code or the web app
 - **Data source:** Claude uses WebSearch and WebFetch to gather real-time stock data from Yahoo Finance, MarketWatch, Seeking Alpha, SEC filings, and other public sources
 - **No Python dependencies** -- this is a purely conversational skill with no CLI script
 

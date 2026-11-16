@@ -45,6 +45,8 @@ Claude Trading Skillsのインストール方法、APIキーの設定、最初�
 
 **決済済み取引を振り返る:** [Weekly Performance Digest]({{ '/ja/skills/weekly-performance-digest/' | relative_url }})が成果と改善点を整理します。
 
+**最初のレポートを作る:** プレビューの次は[オフライン・クイックスタート]({{ '/ja/offline-quickstart/' | relative_url }})へ進みます。APIキーなしで架空データを試し、Navigatorで次の経路を選べます。
+
 ---
 
 ## 必要なもの
@@ -116,12 +118,6 @@ cd claude-trading-skills
 
 多くのスクリーニングスキルで使用するファンダメンタルデータAPIです。
 
-| プラン | 料金 | API コール上限 | 対象 |
-|--------|------|---------------|------|
-| Free | 無料 | 250回/日 | 少数銘柄のスクリーニングに十分 |
-| Starter | $29.99/月 | 750回/日 | CANSLIM 40銘柄フルスクリーニング |
-| Professional | $79.99/月 | 2,000回/日 | 大規模スクリーニング、複数スキル併用 |
-
 **登録:** [https://site.financialmodelingprep.com/developer/docs](https://site.financialmodelingprep.com/developer/docs)
 
 ```bash
@@ -131,6 +127,25 @@ export FMP_API_KEY=your_key_here
 # または、スクリプト実行時に引数で指定
 python3 skills/canslim-screener/scripts/screen_canslim.py --api-key YOUR_KEY
 ```
+
+#### FMP プラン（2026-11 時点）
+{: #fmp-plans }
+
+以下の料金と上限は、2026-11-14 に FMP の料金ページの Personal Use タブで確認した値です。ブラウザで `site.financialmodelingprep.com/pricing-plans` を開いてください。個人利用プランのみが対象です。FMP はプランを変更し、キャンペーンも行うため、最新の料金と商用プランは料金ページで確認してください。このリポジトリで FMP の料金を掲載するのはここだけで、他のページはここへリンクします。
+
+| プラン | 月払い | 年払い | レート上限 | 備考 |
+|--------|--------|--------|------------|------|
+| Basic（無料） | 無料 | -- | 250 回/日 | 日次データ、プロフィールと参照データ |
+| Starter | $29/月 | $19.00/月 | 300 回/分 | 最大 5 年分の履歴、米国市場 |
+| Premium | $69/月 | $49.00/月 | 750 回/分 | 最大 30 年分の履歴 |
+| Ultimate | $139/月 | $99.00/月 | 3,000 回/分 | 全期間の履歴、グローバル市場 |
+
+無料プランは、Basic に含まれるエンドポイントを使う少数銘柄のスクリーニングには十分です。株価スクリーナーは Basic に含まれません（下記参照）。有料プランの上限は分あたりで示されています。料金ページにはほかの制限も載っているので、大きな実行の前に確認してください。
+
+プラン限定エンドポイント（2026-11 時点）:
+stock/company screener と economic calendar のエンドポイントは Basic キーで HTTP 402 を返しました。
+
+institutional-ownership（13F）データも同じキーでは利用できませんでした。データ自体が提供されない扱いで、HTTP エラーではありません。これらのエンドポイントに依存するスキルは、それらを含むプランが必要です。`site.financialmodelingprep.com/pricing-plans` を確認してください。
 
 ### FINVIZ Elite
 
@@ -245,4 +260,4 @@ ERROR: 429 Too Many Requests - Rate limit exceeded
 1. スクリプトは自動で60秒後にリトライします
 2. 無料ティア（250回/日）の上限を超えた場合は、翌日（UTC午前0時）にリセットされます
 3. `--max-candidates` パラメータで分析対象を減らすことで使用量を削減できます
-4. 頻繁に使う場合は FMP Starter ($29.99/月) へのアップグレードを検討してください
+4. 頻繁に使う場合は、FMP の有料プランを検討してください。最新の料金と上限は [FMP プラン](#fmp-plans) を参照してください

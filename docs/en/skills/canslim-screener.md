@@ -58,7 +58,7 @@ The CANSLIM Screener applies William O'Neil's growth stock selection system -- d
 {: .api_required }
 
 **API Requirements:**
-- **FMP API key** -- Free tier: 250 calls/day. Starter tier ($29.99/mo): 750 calls/day for full 40-stock screening.
+- **FMP API key** -- Free tier: 250 calls/day. Full 40-stock screening needs a paid plan; see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans) for current prices and limits.
 - Sign up: [https://site.financialmodelingprep.com/developer/docs](https://site.financialmodelingprep.com/developer/docs)
 
 **Python Dependencies:**
@@ -75,7 +75,7 @@ pip install requests beautifulsoup4 lxml
 - 40 stocks x 7 FMP calls/stock = 280 FMP calls
 - Market data (S&P 500 quote, VIX, 52-week history): 3 calls
 - Total: ~283 FMP calls per run (exceeds 250 free tier)
-- **Recommendation:** Use `--max-candidates 35` for free tier (248 calls), or upgrade to Starter
+- **Recommendation:** Use `--max-candidates 35` for free tier (248 calls), or use a paid FMP plan
 
 ---
 
@@ -265,7 +265,7 @@ The screener generates two files:
 The script automatically retries after 60 seconds. If the error persists:
 - Reduce the universe: `--max-candidates 30`
 - Check daily usage: free tier resets at midnight UTC
-- Upgrade to FMP Starter ($29.99/mo) for 750 calls/day
+- For higher limits, see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)
 
 ### Missing Python libraries
 

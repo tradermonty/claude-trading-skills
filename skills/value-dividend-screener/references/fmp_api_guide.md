@@ -18,13 +18,11 @@ Financial Modeling Prep provides comprehensive financial data APIs for stocks, f
 - **250 requests per day**
 - **Rate limit**: ~5 requests per second
 - **No credit card required**
-- Sufficient for daily/weekly screening runs
+- Sufficient for daily/weekly two-stage runs; the stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11)
 
-### Paid Tiers (Optional)
+### Paid Plans (Optional)
 
-- **Starter ($14/month)**: 500 requests/day
-- **Professional ($29/month)**: 1,000 requests/day
-- **Enterprise ($99/month)**: 10,000 requests/day
+Prices and limits change; see `site.financialmodelingprep.com/pricing-plans` in a browser for current plans.
 
 ## Setting API Key
 
@@ -62,24 +60,23 @@ python3 scripts/screen_dividend_stocks.py --fmp-api-key your_api_key_here
 
 ### 1. Stock Screener
 
-**Endpoint:** `/v3/stock-screener`
+**Endpoint:** `/stable/company-screener`
 
-**Purpose:** Initial filtering by dividend yield, P/E, P/B, market cap
+**Purpose:** Market-cap and exchange universe; the dividend-yield, P/E and P/B
+gates are applied client-side because `/stable/company-screener` has no such
+parameters (and returns no yield/P/E/P/B fields).
 
 **Parameters:**
-- `dividendYieldMoreThan`: Minimum dividend yield (e.g., 3.5)
-- `priceEarningRatioLowerThan`: Maximum P/E ratio (e.g., 20)
-- `priceToBookRatioLowerThan`: Maximum P/B ratio (e.g., 2)
 - `marketCapMoreThan`: Minimum market cap (e.g., 2000000000 = $2B)
 - `exchange`: Exchanges to include (e.g., "NASDAQ,NYSE")
 - `limit`: Max results (default: 1000)
 
+The free plan does not include this endpoint (2026-11); see
+`docs/en/getting-started.md#fmp-plans`.
+
 **Example Request:**
 ```
-https://financialmodelingprep.com/api/v3/stock-screener?
-  dividendYieldMoreThan=3.5&
-  priceEarningRatioLowerThan=20&
-  priceToBookRatioLowerThan=2&
+https://financialmodelingprep.com/stable/company-screener?
   marketCapMoreThan=2000000000&
   exchange=NASDAQ,NYSE&
   limit=1000&
@@ -225,7 +222,7 @@ The screening script includes rate limiting:
 
 ### Managing Request Budget
 
-For free tier (250 requests/day):
+For a plan that includes the stock screener (the free plan does not, 2026-11; see `docs/en/getting-started.md#fmp-plans`):
 
 **Requests per stock analyzed:**
 - Stock Screener: 1 request (returns 100-1000 stocks)
@@ -240,9 +237,9 @@ For free tier (250 requests/day):
 **Budget allocation:**
 - Initial screener: 1 request
 - Detailed analysis: 5 × N stocks = 5N requests
-- **Maximum stocks per run**: (250 - 1) / 5 = ~49 stocks
+- **Maximum stocks per run on a 250-request daily budget**: (250 - 1) / 5 = ~49 stocks
 
-**Script default**: Analyzes first 100 candidates but typically finds ~20-30 that pass all criteria
+**Script default**: Analyzes up to 300 candidates but typically finds ~20-30 that pass all criteria
 
 ### Best Practices
 

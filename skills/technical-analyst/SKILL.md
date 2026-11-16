@@ -448,3 +448,28 @@ signal checks + continuation veto + swing-level detection, and writes
 **Usage**: Run when no chart image is supplied, or when an auditable,
 deterministic result is wanted. See the Contrarian Confirmation Mode
 section above for invocation examples.
+
+
+### Generated FMP transport for weekly confirmation
+
+The data-driven CLI uses the bundled generated `scripts/fmp_client.py` with the
+stable full-OHLC endpoint and explicit `from`/`to` dates. Futures-to-ETF source
+order and the `--as-of` cutoff remain unchanged; no local legacy endpoint is used.
+The chart-image workflow still needs no API key. The data CLI requires an FMP key
+(`--api-key` takes precedence over `FMP_API_KEY`); whitespace-only explicit keys
+are rejected as missing. Manual/help paths do not import the optional transport.
+
+Transport follows the common client policy: one retry on 429 with a 60-second
+wait, then a client-wide daily-limit flag prevents further HTTP calls (including
+ETF fallbacks). Malformed JSON retries once. Other HTTP/connection failures are
+redacted and returned immediately, allowing the next configured source. This
+replaces the previous five-attempt exponential retry loop for 5xx/network errors.
+`--sleep-seconds` controls ordinary request pacing; response counts follow the
+common client's accounting. Empty lists still advance the source chain; malformed
+200 response shapes are explicit errors. No price is invented or defaulted here.
+
+### scripts/fmp_client.py
+
+Generated common FMP transport for the optional data CLI. Edit the canonical
+FMP client generator sources in the repository and regenerate; do not hand-edit
+the bundled file. It is included in the standalone skill package.

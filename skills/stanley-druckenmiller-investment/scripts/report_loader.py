@@ -189,19 +189,34 @@ def _extract_macro_regime(data: dict) -> dict:
     }
 
 
+def _ftd_has_data_gap(data: dict) -> bool:
+    """ftd-detector marks missing/invalid price bars (issue #655) in three places."""
+    market_state = data.get("market_state", {}) or {}
+    quality = data.get("quality_score", {}) or {}
+    signal = quality.get("signal")
+    return (
+        data.get("data_gap") is True
+        or market_state.get("data_gap") is True
+        or (isinstance(signal, str) and signal.startswith("Unavailable"))
+    )
+
+
 def _extract_ftd(data: dict) -> dict:
     market_state = data.get("market_state", {})
     quality = data.get("quality_score", {})
     post_ftd = data.get("post_ftd_distribution", {})
+    data_gap = _ftd_has_data_gap(data)
     return {
         "source": "ftd_detector",
-        "state": market_state.get("combined_state", "NO_SIGNAL"),
+        # A data gap is never a confirmation, whatever combined_state says
+        "state": "DATA_GAP" if data_gap else market_state.get("combined_state", "NO_SIGNAL"),
         "dual_confirmation": market_state.get("dual_confirmation", False),
         "ftd_index": market_state.get("ftd_index"),
-        "quality_score": quality.get("total_score", 0),
+        "quality_score": 0 if data_gap else quality.get("total_score", 0),
         "signal": quality.get("signal", "No FTD"),
         "exposure_range": quality.get("exposure_range", "0-25%"),
         "post_ftd_distribution_count": post_ftd.get("distribution_count", 0),
+        "data_gap": data_gap,
     }
 
 

@@ -258,6 +258,87 @@ class TestFmpGetAndWrappers:
         assert client.get_quote_with_profile("A") is None
 
 
+class TestPlanGating:
+    def _client(self, mod, responses):
+        client = mod.FMPClient("test-key-123")
+        client.session = FakeSession(responses)
+        return client
+
+    def test_plan_restriction_raises(self, mod):
+        client = self._client(
+            mod,
+            [FakeResponse(402, content=b"not available under your current subscription")],
+        )
+        with pytest.raises(mod.FMPPlanRestrictedError, match="stock screener"):
+            client.screen_stocks()
+
+    def test_invalid_key_403_is_not_plan_restriction(self, mod):
+        client = self._client(mod, [FakeResponse(403, content=b"Invalid API KEY")])
+        assert client.screen_stocks() == []
+
+    def test_empty_200_is_not_plan_restriction(self, mod):
+        client = self._client(mod, [FakeResponse(200, [])])
+        assert client.screen_stocks() == []
+
+    def test_200_rows_are_returned(self, mod):
+        client = self._client(mod, [FakeResponse(200, [{"symbol": "AAA"}])])
+        assert client.screen_stocks() == [{"symbol": "AAA"}]
+
+    def test_finviz_all_quotes_plan_restricted_raises(self, mod, fake_fmp):
+        fake_fmp.registry = {
+            "quotes": {},
+            "last_error": "HTTP 402 - not available under your current subscription",
+        }
+        with pytest.raises(mod.FMPPlanRestrictedError, match="quote endpoint"):
+            mod.screen_dividend_growth_pullbacks("key", finviz_symbols={"AAA"})
+
+    def test_finviz_rate_limit_is_not_plan_restriction(self, mod, fake_fmp):
+        fake_fmp.registry = {
+            "quotes": {},
+            "last_error": "HTTP 429 (daily rate limit)",
+        }
+        assert mod.screen_dividend_growth_pullbacks("key", finviz_symbols={"AAA"}) == []
+
+    def test_legacy_endpoint_403_raises(self, mod):
+        client = self._client(
+            mod,
+            [FakeResponse(403, content=b"Legacy Endpoint: only legacy users have access")],
+        )
+        with pytest.raises(mod.FMPPlanRestrictedError, match="stock screener"):
+            client.screen_stocks()
+
+    def test_finviz_mixed_failures_still_raise_when_any_is_plan_restricted(self, mod, fake_fmp):
+        fake_fmp.registry = {
+            "quotes": {},
+            "last_error_by_symbol": {
+                "AAA": "HTTP 402 - not available under your current subscription",
+                "BBB": "HTTP 500 - server error",
+            },
+        }
+        with pytest.raises(mod.FMPPlanRestrictedError, match="quote endpoint"):
+            mod.screen_dividend_growth_pullbacks("key", finviz_symbols=["AAA", "BBB"])
+
+    def test_finviz_partial_success_does_not_raise(self, mod, fake_fmp):
+        fake_fmp.registry = {
+            "quotes": {"GOOD": {"symbol": "GOOD", "price": 20.0}},
+            "last_error_by_symbol": {
+                "BAD": "HTTP 402 - not available under your current subscription"
+            },
+        }
+        results = mod.screen_dividend_growth_pullbacks("key", finviz_symbols=["GOOD", "BAD"])
+        assert isinstance(results, list)
+
+    def test_finviz_double_without_last_error_is_safe(self, mod, monkeypatch):
+        class NoErrorAttr:
+            rate_limit_reached = False
+
+            def get_quote_with_profile(self, symbol):
+                return None
+
+        monkeypatch.setattr(mod, "FMPClient", lambda key: NoErrorAttr())
+        assert mod.screen_dividend_growth_pullbacks("key", finviz_symbols={"AAA"}) == []
+
+
 class TestHistoricalPrices:
     def _bars(self, n):
         return [{"close": 100.0 - i} for i in range(n)]
@@ -626,6 +707,7 @@ class FakeFMP:
     def __init__(self, api_key):
         self.api_key = api_key
         self.rate_limit_reached = False
+        self._last_error = None
         self.data = {}
         self.screen_result = []
         self.quote_calls = []
@@ -639,7 +721,12 @@ class FakeFMP:
 
     def get_quote_with_profile(self, symbol):
         self.quote_calls.append(symbol)
-        return FakeFMP.registry.get("quotes", {}).get(symbol)
+        data = FakeFMP.registry.get("quotes", {}).get(symbol)
+        if data is None:
+            self._last_error = FakeFMP.registry.get("last_error_by_symbol", {}).get(
+                symbol, FakeFMP.registry.get("last_error")
+            )
+        return data
 
     def _per(self, key, symbol, default):
         return FakeFMP.registry.get(key, {}).get(symbol, default)
@@ -1040,6 +1127,20 @@ class TestMain:
             _run_main(mod, monkeypatch, [])
         assert exc.value.code == 1
         assert "FMP API key required" in capsys.readouterr().err
+        assert not (cli_env / "logs").exists()
+
+    def test_plan_restriction_exits_1_before_output(self, mod, cli_env, monkeypatch, capsys):
+        def raise_plan(**kwargs):
+            raise mod.FMPPlanRestrictedError(
+                "FMP plan does not include the stock screener endpoint required"
+            )
+
+        monkeypatch.setattr(mod, "screen_dividend_growth_pullbacks", raise_plan)
+        monkeypatch.setenv("FMP_API_KEY", "fmp")
+        with pytest.raises(SystemExit) as exc:
+            _run_main(mod, monkeypatch, [])
+        assert exc.value.code == 1
+        assert "FMP plan does not include the stock screener endpoint" in capsys.readouterr().err
         assert not (cli_env / "logs").exists()
 
     def test_finviz_flag_without_key_exits_1(self, mod, cli_env, monkeypatch, capsys):

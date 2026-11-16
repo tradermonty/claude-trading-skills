@@ -173,7 +173,7 @@ def _exec_parts(namespace: dict[str, Any]) -> None:
 _exec_parts(globals())
 
 if TYPE_CHECKING:  # Names main() uses from the fragments; never runs.
-    from thesis_store_parts.lifecycle import mark_reviewed, transition
+    from thesis_store_parts.lifecycle import mark_reviewed, record_lessons, transition
     from thesis_store_parts.persistence import _coerce_dt, rebuild_index
     from thesis_store_parts.positions_equity import (
         attach_position,
@@ -200,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     def _strict_finite_float(value: str) -> float:
-        """Argparse type= for --actual-price/--price (P1-3, user
+        """Argparse type= for --actual-price/--price and equity expected prices (P1-3, user
         independent review, money-critical): a finite float. Plain
         `type=float` accepts "inf"/"-inf"/"nan" as valid Python float
         literals — a NaN/Infinity price would otherwise persist into
@@ -264,10 +264,8 @@ def main(argv: list[str] | None = None) -> int:
         --price flags — see its docstring). An expected futures price is
         never legitimately 0 or negative, so this rejects those too,
         matching _validate_expected_price_match()'s own finite-AND-positive
-        requirement on the Python side. Does NOT touch attach-position's
-        (equity) --expected-entry/--expected-stop, which keep the original
-        plain type=float behavior — cross-attach and price-fail-open fixes
-        in this PR are scoped to futures only."""
+        requirement on the Python side. Equity --expected-entry/--expected-stop
+        use _strict_finite_float to preserve finite zero/negative prices."""
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:
@@ -341,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("rebuild-index", help="Rebuild _index.json from YAML files")
 
     # doctor
-    sub.add_parser("doctor", help="Validate file/index consistency")
+    sub.add_parser("doctor", help="Validate file/index consistency (exit 1 when ok is false)")
 
     # mark-reviewed
     mr_p = sub.add_parser("mark-reviewed", help="Record a review")
@@ -349,6 +347,20 @@ def main(argv: list[str] | None = None) -> int:
     mr_p.add_argument("--review-date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     mr_p.add_argument("--outcome", default="OK", choices=["OK", "WARN", "REVIEW"])
     mr_p.add_argument("--notes", default=None)
+
+    # record-lessons (CLOSED / INVALIDATED → outcome.lessons_learned)
+    rl_p = sub.add_parser(
+        "record-lessons", help="Record lessons learned on a CLOSED/INVALIDATED thesis"
+    )
+    rl_p.add_argument("thesis_id", help="Thesis ID")
+    rl_src = rl_p.add_mutually_exclusive_group(required=True)
+    rl_src.add_argument("--text", help="Lesson text (use --text=... if it starts with '-')")
+    rl_src.add_argument("--file", help="Read lesson text from a UTF-8 file")
+    rl_mode = rl_p.add_mutually_exclusive_group()
+    rl_mode.add_argument(
+        "--append", action="store_true", help="Add to an existing lesson (newline-joined)"
+    )
+    rl_mode.add_argument("--replace", action="store_true", help="Overwrite an existing lesson")
 
     # transition (IDEA → ENTRY_READY); --event-date backdates the history stamp
     tr_p = sub.add_parser("transition", help="Transition thesis status (e.g. ENTRY_READY)")
@@ -362,6 +374,11 @@ def main(argv: list[str] | None = None) -> int:
     op_p.add_argument("thesis_id", help="Thesis ID")
     op_p.add_argument(
         "--actual-price", type=_strict_finite_float, required=True, help="Entry price"
+    )
+    op_p.add_argument(
+        "--allow-gap-fill",
+        action="store_true",
+        help="Record an acknowledged equity long fill below its planned stop without rewriting the plan (not for futures)",
     )
     op_p.add_argument("--actual-date", required=True, help="Entry date (YYYY-MM-DD or ISO)")
     op_p.add_argument(
@@ -398,8 +415,18 @@ def main(argv: list[str] | None = None) -> int:
     ap_p = sub.add_parser("attach-position", help="Attach a position-sizer report")
     ap_p.add_argument("thesis_id", help="Thesis ID")
     ap_p.add_argument("--report", required=True, help="Path to position-sizer JSON report")
-    ap_p.add_argument("--expected-entry", type=float, default=None, help="Expected entry price")
-    ap_p.add_argument("--expected-stop", type=float, default=None, help="Expected stop price")
+    ap_p.add_argument(
+        "--expected-entry",
+        type=_strict_finite_float,
+        default=None,
+        help="Expected finite entry price",
+    )
+    ap_p.add_argument(
+        "--expected-stop",
+        type=_strict_finite_float,
+        default=None,
+        help="Expected finite stop price",
+    )
 
     # attach-futures-position (futures-position-sizer SIZED report)
     afp_p = sub.add_parser(
@@ -493,8 +520,12 @@ def main(argv: list[str] | None = None) -> int:
         idx = rebuild_index(state_dir)
         print(f"Rebuilt index: {len(idx['theses'])} theses")
     elif args.command == "doctor":
+        if not state_dir.is_dir():
+            raise FileNotFoundError(f"state directory not found or not a directory: {state_dir}")
         result = validate_state(state_dir)
         print(json.dumps(result, indent=2))
+        if not result["ok"]:
+            return 1
     elif args.command == "mark-reviewed":
         t = mark_reviewed(
             state_dir,
@@ -507,6 +538,19 @@ def main(argv: list[str] | None = None) -> int:
             f"Reviewed {args.thesis_id}: {args.outcome}, next review: "
             f"{t['monitoring']['next_review_date']}"
         )
+    elif args.command == "record-lessons":
+        if args.file is not None:
+            try:
+                lesson_text = Path(args.file).read_text(encoding="utf-8-sig")
+            except (OSError, UnicodeDecodeError) as e:
+                raise ValueError(f"cannot read --file {args.file}: {e}") from e
+        else:
+            lesson_text = args.text
+        lesson_mode = "append" if args.append else "replace" if args.replace else "error"
+        t, action = record_lessons(state_dir, args.thesis_id, lesson_text, mode=lesson_mode)
+        stored = t["outcome"]["lessons_learned"]
+        print(f"{args.thesis_id} lessons recorded ({len(stored)} chars, action={action})")
+        print(f"Re-run 'review postmortem {args.thesis_id}' to refresh the journal report.")
     elif args.command == "transition":
         t = transition(
             state_dir,
@@ -537,6 +581,7 @@ def main(argv: list[str] | None = None) -> int:
             direction=args.direction,
             contract_symbol=args.contract_symbol,
             contract_currency=args.contract_currency,
+            allow_gap_fill=args.allow_gap_fill,
         )
         pos = t.get("position") or {}
         if pos.get("quantity_unit") == "contracts":
@@ -545,7 +590,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"x {pos.get('quantity')} contracts"
             )
         else:
-            print(f"{args.thesis_id} → {t['status']} @ {args.actual_price} x {args.shares}")
+            print(f"{args.thesis_id} → {t['status']} @ {args.actual_price} x {pos.get('shares')}")
     elif args.command == "attach-position":
         t = attach_position(
             state_dir,

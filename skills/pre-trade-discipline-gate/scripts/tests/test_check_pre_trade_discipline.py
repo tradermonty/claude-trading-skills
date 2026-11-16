@@ -63,6 +63,8 @@ def write_thesis(
     outcome_pnl: float | None = None,
     exit_date: str | None = None,
     monitoring: dict | None = None,
+    thesis_statement: str | None = None,
+    lessons_learned: str | None = None,
 ) -> Path:
     thesis = {
         "thesis_id": thesis_id,
@@ -72,7 +74,7 @@ def write_thesis(
         "thesis_type": "growth_momentum",
         "status": status,
         "status_history": history or [],
-        "thesis_statement": f"{ticker} test thesis",
+        "thesis_statement": thesis_statement or f"{ticker} test thesis",
         "origin": {"skill": "pre-trade-test", "output_file": "fixture.json"},
         "linked_reports": [],
         "monitoring": monitoring
@@ -87,11 +89,16 @@ def write_thesis(
         "exit": {},
         "outcome": {"pnl_dollars": outcome_pnl, "pnl_pct": None},
     }
+    if lessons_learned is not None:
+        thesis["lessons_learned"] = lessons_learned
     if exit_date:
         thesis["exit"] = {"actual_date": exit_date, "actual_price": 95.0, "exit_reason": "manual"}
     state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / f"{thesis_id}.yaml"
-    path.write_text(yaml.safe_dump(thesis, sort_keys=False), encoding="utf-8")
+    # Match the producer (trader-memory-core writes UTF-8 with allow_unicode=True):
+    # the raw file must hold non-ASCII bytes, or a locale-encoding read bug
+    # would stay invisible in this fixture.
+    path.write_text(yaml.safe_dump(thesis, sort_keys=False, allow_unicode=True), encoding="utf-8")
     return path
 
 
@@ -511,6 +518,33 @@ def test_terminal_outcome_fallback_blocks_revenge_trade(tmp_path: Path):
 
     assert result["overall_decision"] == "NO_GO"
     assert any("outcome.pnl_dollars" in r for r in result["candidate_results"][0]["reasons"])
+
+
+def test_non_ascii_thesis_loss_blocks_revenge_trade(tmp_path: Path):
+    """Non-ASCII thesis YAML must load and count (issue #737).
+
+    Same locale-encoding bug as the circuit breaker: on Windows the thesis
+    reader decoded UTF-8 files with the locale code page (cp1252), where
+    bytes such as 0x81/0x8D/0x90 are undefined, so a Japanese thesis raised
+    UnicodeDecodeError and was silently skipped, hiding a recent loss from
+    the revenge-trade check. Run the suite under a non-UTF-8 locale (or on
+    Windows) to see it fail without the fix.
+    """
+    state_dir = tmp_path / "theses"
+    write_thesis(
+        state_dir,
+        outcome_pnl=-125,
+        exit_date="2026-07-03",
+        history=[{"status": "CLOSED", "at": "2026-07-03T00:00:00+00:00", "reason": "legacy"}],
+        thesis_statement="日本株の決算が好調で、増益見通し",
+        lessons_learned="損切りを徹底し、ポジションを縮小する",
+    )
+
+    result = evaluate(tmp_path, [base_candidate()], state_dir=state_dir)
+
+    assert result["overall_decision"] == "NO_GO"
+    assert any("outcome.pnl_dollars" in r for r in result["candidate_results"][0]["reasons"])
+    assert not any("Skipped" in warning for warning in result["warnings"])
 
 
 def test_bare_terminal_exit_date_counts_on_named_et_date_at_night(tmp_path: Path):

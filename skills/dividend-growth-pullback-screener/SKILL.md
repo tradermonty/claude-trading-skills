@@ -28,7 +28,7 @@ Use this skill when:
 
 ## Prerequisites
 
-- **FMP API key** (required): Set `FMP_API_KEY` environment variable or pass `--fmp-api-key`. Free tier (250 calls/day) is sufficient for FMP-only mode (≤40 stocks). [Sign up](https://site.financialmodelingprep.com/developer/docs).
+- **FMP API key** (required): Set `FMP_API_KEY` environment variable or pass `--fmp-api-key`. The free plan has a daily request budget; the stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11). Use `--use-finviz` or an FMP plan that includes it (see `docs/en/getting-started.md#fmp-plans`). [Sign up](https://site.financialmodelingprep.com/developer/docs).
 - **FINVIZ Elite API key** (optional, recommended): Set `FINVIZ_API_KEY` environment variable or pass `--finviz-api-key`. Reduces execution time from 10–15 min to 2–3 min. [Sign up](https://elite.finviz.com/).
 - Python 3.9+ with the `requests` library installed.
 
@@ -49,7 +49,7 @@ export FINVIZ_API_KEY=your_finviz_key_here
 **Why Two-Stage?**
 - **FINVIZ**: Fast pre-screening with RSI filter (1 API call → ~10-50 candidates)
 - **FMP**: Detailed fundamental analysis only on pre-screened candidates
-- **Result**: Analyze more stocks with fewer FMP API calls (stays within free tier limits)
+- **Result**: Analyze more stocks with fewer FMP API calls (reduces FMP API usage)
 
 #### FMP-Only Approach (Original Method)
 
@@ -59,7 +59,7 @@ If you don't have FINVIZ Elite access:
 export FMP_API_KEY=your_key_here
 ```
 
-**Limitation**: FMP free tier (250 requests/day) limits analysis to ~40 stocks. Use `--max-candidates 40` to stay within limits.
+**Limitation**: FMP-only mode needs the stock-screener endpoint, which is not on the free plan (2026-11). Use `--use-finviz` or a plan that includes it. On a plan that includes the screener, `--max-candidates 40` keeps the request count low.
 
 ### Step 2: Execute Screening
 
@@ -256,9 +256,9 @@ Stocks ranked by composite score. Top scorers combine exceptional dividend growt
 ### API Rate Limit Reached
 
 **FMP Free Tier Limits:**
-- 250 requests/day
+- 250 requests/day (rate limit; the stock-screener endpoint itself is not included — see `docs/en/getting-started.md#fmp-plans`)
 - Each stock analyzed requires 6 API calls (quote, dividend, prices, income, balance, cashflow, metrics)
-- Maximum ~40 stocks per day in FMP-only mode
+- Maximum ~40 stocks per day in FMP-only mode on a plan that includes the screener
 
 **Solutions:**
 
@@ -279,10 +279,9 @@ python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_
 - FMP resets at UTC midnight
 
 **4. Upgrade to FMP Paid Plan**
-- Starter ($14/month): 500 requests/day
-- Professional ($29/month): 1,000 requests/day
+- See `site.financialmodelingprep.com/pricing-plans` in a browser for current plans and limits
 
-**Note:** FINVIZ Elite subscription ($40/month) + FMP free tier is more cost-effective than FMP paid plans for this use case.
+**Note:** The FINVIZ RSI pre-filter typically narrows the universe to 10-30 symbols, which keeps the request count low. The stock-screener endpoint used by FMP-only mode is plan-gated (see above).
 
 ### RSI Calculation Errors
 

@@ -45,11 +45,11 @@ Primary: **EPS payout + capital + credit trend** (FCF ignored).
 
 | Indicator | Caution / blocker condition |
 |---|---|
-| CET1 ratio | missing ⇒ `bank_capital_unavailable`; low vs peers ⇒ CAUTION |
+| CET1 ratio (fraction, e.g. 0.12 = 12%) | missing/non-finite/bool/outside [0,1] ⇒ `bank_capital_unavailable`; below `BANK_CET1_MIN` ⇒ `bank_capital_weak` (CAUTION) |
 | NPL trend | deteriorating ⇒ `bank_npl_nco_deteriorating` (CAUTION) |
 | NCO trend | deteriorating ⇒ same blocker |
 | Criticized / classified loans | rising ⇒ CAUTION |
-| CRE / construction concentration | high or unavailable ⇒ `bank_cre_concentration_unavailable` (CAUTION) |
+| CRE / construction concentration | high ⇒ `bank_cre_concentration_high`; missing/unknown ⇒ `bank_cre_concentration_unavailable` (CAUTION). Recognized labels: low, moderate/medium, high |
 | Deposit cost / beta | rising sharply ⇒ CAUTION |
 | Uninsured deposit % / AOCI hit | elevated ⇒ CAUTION |
 
@@ -90,3 +90,20 @@ must use the regular forward yield, ≈3.2%).
 Golden case: **ORI** — regular yield clears the 3% (balanced) floor →
 Step-1 PASS → insurer-module HOLD-REVIEW (lumpy specials), NOT "trap /
 below floor".
+
+### Safety input guards (Issue #768)
+
+Non-positive or invalid supplied EPS anchors cannot be interpreted as low payout:
+the assessment returns HOLD-REVIEW with explicit blocker/reason codes, and the
+corresponding payout ratio is unavailable. Consumer FCF uses the same guard;
+FCF remains outside the bank/utility/insurer safety anchor, preserving regulated
+utilities' structural-capex exception. Missing adjusted EPS retains its existing
+`adjusted_eps_unavailable` gate. No missing value is silently converted to zero.
+
+`BANK_CET1_MIN = 0.07` is a configurable **screening floor**, not a declaration of
+regulatory compliance or peer-relative adequacy. It uses fraction units. The
+[Federal Reserve capital framework](https://www.federalreserve.gov/supervisionreg/large-bank-capital-requirements.htm)
+describes a 4.5% minimum plus buffers of at least 2.5%, and institution-specific
+requirements may be higher. Passing this generic floor does not replace review
+of the issuer's applicable requirements and capital trend. High CRE concentration
+always adds a caution/blocker even with adequate CET1.

@@ -372,7 +372,7 @@ class TestFTDContextPreservation:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-        ftd_low = bars[ftd_day_idx]["low"]
+        ftd_low = min(b["low"] for b in bars)
 
         # Rally further after FTD to create room for 3%+ pullback above FTD low
         last_close = bars[-1]["close"]
@@ -406,7 +406,7 @@ class TestFTDContextPreservation:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-        ftd_low = bars[ftd_day_idx]["low"]
+        ftd_low = min(b["low"] for b in bars)
 
         # Close below FTD day low -> invalidation
         bars.append(make_bar(ftd_low - 1.0, date="invalidation-day"))
@@ -430,7 +430,7 @@ class TestFTDContextPreservation:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-        ftd_low = bars[ftd_day_idx]["low"]
+        ftd_low = min(b["low"] for b in bars)
 
         # Invalidate the FTD
         bars.append(make_bar(ftd_low - 2.0, date="invalidation-day"))
@@ -505,7 +505,7 @@ class TestGetMarketStateFTDInvalidated:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-        ftd_low = bars_sp[ftd_idx]["low"]
+        ftd_low = min(b["low"] for b in bars_sp)
         bars_sp.append(make_bar(ftd_low - 1.0, date="inv-day"))
 
         # NASDAQ: just in correction (no FTD)

@@ -37,6 +37,13 @@ connectivity, pre-commit hook installation and skillset readiness are not tested
 Only simple named dependency requirements are inspected; unsupported requirement
 syntax is reported as unknown without echoing its contents.
 
-This implements the offline diagnostic portion of Issue #301. That issue stays
-open for provider connectivity, per-skillset readiness, the 15-minute Quick Start,
-fictional-data demo, one-command installation and three-question triage.
+The Python range check supports the canonical patch-level minimum (for example,
+`>=3.11.5,<3.14`), as well as two-component bounds, and displays the evaluated
+patch version. A malformed or reversed policy remains `unknown`; no raw policy
+contents are echoed in that diagnostic.
+
+This implements the offline diagnostic portion of Issue #301. Continue with the
+[EN offline quickstart](../en/offline-quickstart.md)
+([日本語](../ja/offline-quickstart.md)) for the tested fictional demo and
+three-question routing guide. Provider connectivity, per-skillset readiness and
+one-command skillset installation remain outside this offline path.
