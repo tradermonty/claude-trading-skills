@@ -612,11 +612,11 @@ def _validate_operational_role_workflows(
     return findings
 
 
-def _validate_workflow_japanese(
+def _validate_workflow_localization(
     wf: dict[str, Any],
     rel_loc: str,
 ) -> list[Finding]:
-    """Enforce complete human-facing Japanese workflow prose (WF014)."""
+    """Enforce Japanese localization and string-only manual review prose (WF014)."""
     findings: list[Finding] = []
 
     def require_text(item: dict[str, Any], field: str, path: str) -> None:
@@ -703,6 +703,16 @@ def _validate_workflow_japanese(
             )
         )
         manual_review = []
+    for index, item in enumerate(manual_review):
+        if not isinstance(item, str) or not item.strip():
+            findings.append(
+                Finding(
+                    "WF014",
+                    "error",
+                    rel_loc,
+                    f"manual_review[{index}] must be a non-empty string",
+                )
+            )
     manual_review_ja = wf.get("manual_review_ja")
     if not isinstance(manual_review_ja, list):
         findings.append(
@@ -756,7 +766,7 @@ def _validate_workflow_internal(
     if not isinstance(wf, dict):
         return [Finding("WF-PARSE", "error", rel_loc, "top-level must be a mapping")]
 
-    findings.extend(_validate_workflow_japanese(wf, rel_loc))
+    findings.extend(_validate_workflow_localization(wf, rel_loc))
 
     wf_id = str(wf.get("id") or "")
     if wf_id != workflow_path.stem:

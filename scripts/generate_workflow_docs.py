@@ -484,10 +484,15 @@ def render_workflow_section(wf: dict, labels: dict[str, str], lang: str) -> str:
         for index, step in enumerate(steps):
             buf.write(_render_step(step, labels, lang, wf_id, index))
 
+    source_review = wf.get("manual_review")
+    if not isinstance(source_review, list):
+        raise ValueError(f"{workflow_location}.manual_review must be a list")
+    for index, item in enumerate(source_review):
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(
+                f"{workflow_location}.manual_review[{index}] must be a non-empty string"
+            )
     if lang == "ja":
-        source_review = wf.get("manual_review")
-        if not isinstance(source_review, list):
-            raise ValueError(f"{workflow_location}.manual_review must be a list")
         manual_review = wf.get("manual_review_ja")
         if not isinstance(manual_review, list):
             raise ValueError(f"{workflow_location}.manual_review_ja must be a list")
@@ -503,7 +508,7 @@ def render_workflow_section(wf: dict, labels: dict[str, str], lang: str) -> str:
                     f"{workflow_location}.manual_review_ja[{index}] must be a non-empty string"
                 )
     else:
-        manual_review = wf.get("manual_review")
+        manual_review = source_review
     buf.write(_render_manual_review(manual_review, labels))
     buf.write(_render_final_outputs(final_outputs, labels, lang, wf_id))
 
