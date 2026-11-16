@@ -116,9 +116,13 @@ The 5% threshold is a configurable screening policy, not proof of an issuer's
 board-declared cut or its original-currency cause; a larger FX change can still
 require source review. This input has no original-currency declaration evidence.
 
-`DIVIDEND_EQUALITY_EPS` still governs increase/freeze comparisons. Issue #770
-separately owns the finer monthly-raise tolerance, TTM evaluation-date window and
-price-date provenance; those changes are not folded into #768.
+Increase/freeze comparisons use a relative tolerance (#770):
+`max(DIVIDEND_EQUALITY_MIN_EPS, DIVIDEND_EQUALITY_REL_TOL * prior amount)`,
+so a small monthly raise is detected while sub-cent noise stays "equal".
+The TTM window ends at the run's evaluation date, not at the latest payment,
+and each row records its price date (`price_date`, from the FMP quote
+`timestamp`) with a `price_date_mismatch` flag when it differs from the run's
+`as_of`.
 
 A supplied non-positive GAAP EPS deliberately HOLDs even when adjusted EPS is
 positive: this conservative gate runs before one-off/divergence classification.
@@ -162,10 +166,10 @@ native series. An FX-only USD decline can clear the cut flag but cannot hide a
 native freeze. USD yield/entry valuation remains unchanged.
 
 CSV/JSON expose `cut_confirmation_required`, `cut_amount_basis` and
-`original_dividend_currency`. Schema 4 includes the integrated schema-3 entry
-basis change. The provider does not acquire original amounts: identified foreign
-or ADR declines require manual confirmation. No native values are guessed.
-Issue #770's monthly-raise tolerance and TTM changes remain separate.
+`original_dividend_currency`. Schema 5 includes the integrated schema-3 entry
+basis change plus the #770 tolerance, TTM-window and price-date changes. The
+provider does not acquire original amounts: identified foreign or ADR declines
+require manual confirmation. No native values are guessed.
 
 Withheld entry targets are non-actionable: a Step-1-passing row is capped at
 HOLD-REVIEW with the withholding reason, regardless of event-scan result.

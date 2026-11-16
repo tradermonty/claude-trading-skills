@@ -120,3 +120,36 @@ per-override `assessed_commit` values instead).
    open.
 3. `unit_tests` re-backfill of the skills left `not_verified` in step 1 (#588,
    47 skills) — follow-up.
+
+## Collector prerequisite follow-up (#783)
+
+The collector is advisory. A mechanically clean result plus explicit confirmation
+only proposes `passed`; it does not perform the five-dimension human security
+review, certify historical verification metadata, or modify the index/baseline.
+
+Executable Python skills must have `requirements.txt`. Prompt-only skills need
+no manifest. The timeout prerequisite is evaluated per recognized network call,
+not by the presence of a `timeout=` string anywhere in the skill. The report
+includes `network_applicability`, `network_calls` (path, line, call and bounded
+argument evidence), and `network_timeout_findings`. Missing, None, boolean,
+nonpositive, infinite and dynamic/unproven timeout arguments prevent a clean
+proposal even with `--reviewer-confirmed`. Each connect/read tuple component must
+be a finite positive literal. `timeout_present` remains a legacy diagnostic,
+not evidence that every request is bounded.
+
+Direct requests/httpx/aiohttp/urllib calls, imported aliases, and constructor-bound
+sessions (including `self.session = requests.Session()`) are inspected. Dynamic
+dispatch, escaped clients/callables (including return values and collections),
+ambiguous imports, rebinding, delegated SDK operations, parse/read errors and otherwise
+unresolved network imports produce explicit gaps for human review. `urllib.parse`
+URL manipulation alone is local and needs no timeout. This deliberately limited
+static analysis may request review of valid wrapper/default timeout paths; it
+is not whole-program data-flow analysis or proof of an overall wall-clock bound.
+It does not validate the contents of dependency manifests; use the dependency
+checker separately. Existing verification metadata is not rewritten by this scan.
+
+Both `--skill` and `--reviewer-confirmed` must name eligible reconciled production
+API consumers. Unknown/ineligible IDs (including mixed valid/invalid selections)
+return exit 2 with eligible IDs on stderr before any output directory/report is
+created or overwritten. An eligible confirmation outside the selected subset
+has no effect on unselected skills.

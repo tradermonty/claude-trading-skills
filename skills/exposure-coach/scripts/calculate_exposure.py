@@ -216,6 +216,12 @@ def extract_top_risk_score(data: Optional[dict]) -> Optional[int]:
     """Extract top risk score (inverted - high risk = low score)."""
     if not evaluation_input_usable(data):
         return None
+    declared = data.get("composite")
+    if isinstance(declared, dict) and (
+        declared.get("data_available") is False
+        or ("composite_score" in declared and declared["composite_score"] is None)
+    ):
+        return None
     if "top_risk_score" in data:
         return int(data["top_risk_score"])
     # market-top-detector nests its 0-100 score under "composite", where HIGH =

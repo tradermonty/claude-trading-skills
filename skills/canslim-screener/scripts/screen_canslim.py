@@ -148,6 +148,7 @@ def analyze_stock(
     rs_benchmark_historical: Optional[dict] = None,
     rs_benchmark: str = "^GSPC",
     disable_rs: bool = False,
+    rs_price_diagnostics: Optional[list] = None,
 ) -> Optional[dict]:
     """
     Analyze a single stock using CANSLIM Phase 3 components (7 components: C, A, N, S, L, I, M)
@@ -162,6 +163,8 @@ def analyze_stock(
                                  absolute performance with a 20% penalty in that case.
         rs_benchmark: Benchmark symbol surfaced into the L component output (e.g. "^GSPC", "SPY").
         disable_rs: When True, skip the per-stock 365-day fetch and emit a neutral L=50 result.
+        rs_price_diagnostics: Optional collector for candidates excluded due to invalid
+                              consumed RS closes. Excluded stocks are never ranked.
 
     Returns:
         Dict with analysis results, or None if analysis failed
@@ -283,6 +286,15 @@ def analyze_stock(
                     "rs_rank_percentile": None,
                 }
             )
+
+        if l_result.get("data_gaps"):
+            reason = l_result["error"]
+            print(f"  {symbol}: excluded from ranking: {reason}", file=sys.stderr)
+            if rs_price_diagnostics is not None:
+                rs_price_diagnostics.append(
+                    {"symbol": symbol, "reason": reason, "data_gaps": l_result["data_gaps"]}
+                )
+            return None
 
         # I Component: Institutional Sponsorship (with Finviz fallback)
         institutional_holders = client.get_institutional_holders(symbol)
@@ -461,6 +473,7 @@ def main():
     print("-" * 60)
 
     results = []
+    rs_price_diagnostics = []
     for symbol in universe:
         analysis = analyze_stock(
             symbol,
@@ -469,6 +482,7 @@ def main():
             rs_benchmark_historical=rs_benchmark_historical,
             rs_benchmark=args.rs_benchmark,
             disable_rs=args.disable_rs,
+            rs_price_diagnostics=rs_price_diagnostics,
         )
         if analysis:
             results.append(analysis)
@@ -476,6 +490,10 @@ def main():
     print()
     print(f"✓ Successfully analyzed {len(results)} stocks")
     print()
+
+    if not results and rs_price_diagnostics:
+        print("No rankable results: RS price data gaps prevented evaluation.", file=sys.stderr)
+        sys.exit(1)
 
     # Step 3: Rank by composite score
     print("Step 3: Ranking Results")
@@ -518,6 +536,9 @@ def main():
             "error": market_data.get("error"),
         },
     }
+
+    if rs_price_diagnostics:
+        metadata["rs_price_gap_exclusions"] = rs_price_diagnostics
 
     # Limit to top N for report
     top_results = results[: args.top]

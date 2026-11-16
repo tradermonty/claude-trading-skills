@@ -198,6 +198,16 @@ def population_hash(ids: list[str]) -> str:
     return _sha(sorted(ids))
 
 
+def _remove_owned_file(path: Path, identity: tuple[int, int]) -> None:
+    """Remove our file unless it disappeared or was replaced before this check."""
+    try:
+        current = path.lstat()
+        if (current.st_dev, current.st_ino) == identity:
+            path.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def _write_once(path: Path | str, payload: Any) -> None:
     """Atomically create ``path``; never overwrite an existing file."""
     path = Path(path)
@@ -228,17 +238,35 @@ def _write_once(path: Path | str, payload: Any) -> None:
         except OSError:
             # Filesystems without hard links: exclusive create is still never-overwrite.
             try:
-                with open(path, "x", encoding="utf-8") as handle:
+                handle = open(path, "x", encoding="utf-8")
+            except FileExistsError as exc:
+                raise ReplayError(f"{path.name} already exists; records are immutable") from exc
+            identity = None
+            try:
+                with handle:
+                    info = os.fstat(handle.fileno())
+                    identity = (info.st_dev, info.st_ino)
                     handle.write(text)
                     handle.flush()
                     os.fsync(handle.fileno())
-            except FileExistsError as exc:
-                raise ReplayError(f"{path.name} already exists; records are immutable") from exc
+            except (OSError, ValueError) as exc:
+                if identity is not None:
+                    try:
+                        _remove_owned_file(path, identity)
+                    except OSError as cleanup_exc:
+                        raise ReplayError(
+                            f"{exc}; record cleanup failed for {path}: {cleanup_exc}"
+                        ) from exc
+                raise
     finally:
         try:
             tmp.unlink()
         except FileNotFoundError:
             pass
+        except OSError as exc:
+            # Removing a staging file must not turn a published record into a
+            # reported failure (or mask the original publication error).
+            print(f"WARNING: cannot remove temporary record file {tmp}: {exc}", file=sys.stderr)
 
 
 def _read_json(path: Path, label: str) -> Any:
@@ -926,19 +954,44 @@ def command_replay(args: argparse.Namespace) -> int:
         md_text = render_blind_markdown(view)
         json_text.encode("utf-8")
         md_text.encode("utf-8")
-        out_dir.mkdir(parents=True, exist_ok=True)
-        json_path.write_text(json_text, encoding="utf-8")
-        md_path.write_text(md_text, encoding="utf-8")
-    except (OSError, ValueError) as exc:
-        raise ReplayError(f"cannot write the blind view under {out_dir}: {exc}") from exc
-    # The session record is written last, so a failed output never leaves a pending session.
+    except ValueError as exc:
+        raise ReplayError(f"cannot render the blind view: {exc}") from exc
+
+    # Exclusive creation prevents cooperating replays from overwriting each
+    # other. Record ownership before writing, including for partial writes.
+    owned: list[tuple[Path, tuple[int, int]]] = []
     try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for path, text in ((json_path, json_text), (md_path, md_text)):
+            try:
+                handle = path.open("x", encoding="utf-8")
+            except FileExistsError as exc:
+                raise ReplayError(
+                    f"{path.name} already exists; blind artifacts are never overwritten. "
+                    "Choose another --output-dir."
+                ) from exc
+            with handle:
+                identity = os.fstat(handle.fileno())
+                owned.append((path, (identity.st_dev, identity.st_ino)))
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+        # Publish last: a failed output must not create a pending session.
         _write_once(_session_path(store, sid), sess_rec)
-    except OSError:
-        # No blind view may exist without a session record: it would bypass seen/abandon accounting.
-        for leftover in (json_path, md_path):
-            leftover.unlink(missing_ok=True)
-        raise
+    except (OSError, ValueError, ReplayError) as exc:
+        cleanup_errors = []
+        for path, identity in owned:
+            try:
+                _remove_owned_file(path, identity)
+            except OSError as cleanup_exc:
+                cleanup_errors.append(f"{path}: {cleanup_exc}")
+        if cleanup_errors:
+            raise ReplayError(
+                f"{exc}; blind artifact cleanup failed: {'; '.join(cleanup_errors)}"
+            ) from exc
+        if isinstance(exc, ReplayError):
+            raise
+        raise ReplayError(f"cannot publish the blind replay under {out_dir}: {exc}") from exc
     print(f"session_id: {sid}")
     print(f"cases: {len(view_cases)}")
     print(f"blind_view_json: {json_path}")
