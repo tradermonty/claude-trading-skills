@@ -3,7 +3,7 @@
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -88,6 +88,38 @@ def test_skill_switch_restores_original_class_identity(tmp_path, monkeypatch):
     assert sys.modules["shared"].Client is original_class
     isolation._activate_skill(skills[1], str(skills[1] / "scripts/tests"))
     assert sys.modules["shared"] is modules[1]
+
+
+def test_skill_gets_own_client_after_root_test_loads_another(tmp_path, monkeypatch):
+    """#731: a test outside every skill leaves another skill's fmp_client in sys.modules."""
+    import importlib
+
+    spec = importlib.util.spec_from_file_location("root_reentry", ROOT / "conftest.py")
+    isolation = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(isolation)
+    monkeypatch.setattr(isolation, "_SKILLS_MARKER", str(tmp_path) + "/")
+    monkeypatch.setattr(isolation, "_CONFLICTING_BASENAMES", {"fmp_client", "screener"})
+    own, other = tmp_path / "own", tmp_path / "other"
+    for skill in (own, other):
+        (skill / "scripts").mkdir(parents=True)
+        (skill / "SKILL.md").touch()
+        (skill / "scripts/fmp_client.py").write_text(f"OWNER = {skill.name!r}\n")
+    (own / "scripts/screener.py").write_text("import fmp_client\n")
+    own_test = SimpleNamespace(path=own / "scripts/tests/test_screener.py")
+    root_test = SimpleNamespace(path=tmp_path / "scripts/tests/test_root.py")
+    monkeypatch.setattr(sys, "path", sys.path[:])
+    for name in ("fmp_client", "screener"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+    try:
+        isolation.pytest_collectstart(own_test)
+        isolation.pytest_runtest_setup(root_test)
+        sys.path.insert(0, str(other / "scripts"))
+        assert importlib.import_module("fmp_client").OWNER == "other"
+        isolation.pytest_runtest_setup(own_test)
+        assert importlib.import_module("screener").fmp_client.OWNER == "own"
+    finally:
+        for name in ("fmp_client", "screener"):
+            sys.modules.pop(name, None)
 
 
 def test_namespace_package_isolated_from_foreign_regular_package(tmp_path, monkeypatch):

@@ -39,9 +39,9 @@ class FixtureClient:
 def run_main(monkeypatch, tmp_path, sp_chrono, nq_chrono, quotes=None):
     histories = {
         "^GSPC": {"historical": list(reversed(sp_chrono))},
-        "QQQ": {"historical": list(reversed(nq_chrono))},
+        "^IXIC": {"historical": list(reversed(nq_chrono))},
     }
-    client = FixtureClient(histories, quotes or {"^GSPC": None, "QQQ": None})
+    client = FixtureClient(histories, quotes or {"^GSPC": None, "^IXIC": None})
     monkeypatch.setattr(ftd_detector, "FMPClient", lambda api_key: client)
     monkeypatch.setattr("sys.argv", ["ftd_detector.py", "--output-dir", str(tmp_path)])
     ftd_detector.main()

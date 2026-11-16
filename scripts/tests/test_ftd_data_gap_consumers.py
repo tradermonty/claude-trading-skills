@@ -35,7 +35,7 @@ def _load(monkeypatch, skill: str, module: str, local_deps: tuple[str, ...] = ()
 
 @pytest.fixture
 def ftd_monitor(monkeypatch):
-    return _load(monkeypatch, "ftd-detector", "post_ftd_monitor", ("_price_bars",))
+    return _load(monkeypatch, "ftd-detector", "post_ftd_monitor", ("_price_bars", "ftd_lifecycle"))
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def test_druckenmiller_and_exposure_coach_read_gap_as_no_confirmation(
     assert signal["state"] == "DATA_GAP"
     assert signal["quality_score"] == 0
     assert signal["post_ftd_distribution_count"] == 0
-    assert signal["exposure_range"] == "0-25%"
+    assert signal["exposure_range"] == "Not assessed"
     bottom = scorer.calculate_bottom_confirmation({"ftd_detector": signal})
     # DATA_GAP scores as low as RALLY_FAILED, below FTD_INVALIDATED (15)
     assert bottom == 10
@@ -120,3 +120,29 @@ def test_insufficient_qqq_run_stays_no_ftd(ftd_monitor, consumers):
     assert exposure.extract_ftd_score(data) == 0
     signal = loader._extract_ftd(data)
     assert scorer.calculate_bottom_confirmation({"ftd_detector": signal}) == 60
+
+
+def test_pressure_numeric_cap_reaches_both_consumers(ftd_monitor, consumers):
+    loader, scorer, exposure = consumers
+    state = {
+        "sp500": {
+            "state": "FTD_CONFIRMED",
+            "ftd": {
+                "ftd_detected": True,
+                "ftd_day_number": 5,
+                "gain_pct": 2.1,
+                "volume_above_avg": True,
+            },
+        },
+        "nasdaq": {},
+        "dual_confirmation": False,
+        "post_ftd_distribution": {"distribution_count": 0, "days_monitored": 3},
+        "ftd_invalidation": {"invalidated": False, "warning": False},
+    }
+    clean = ftd_monitor.calculate_ftd_quality_score(state)
+    state["ftd_invalidation"]["warning"] = True
+    pressured = ftd_monitor.calculate_ftd_quality_score(state)
+    payload = {"market_state": {"combined_state": "FTD_CONFIRMED"}, "quality_score": pressured}
+    assert clean["total_score"] > pressured["total_score"]
+    assert exposure.extract_ftd_score(payload) == pressured["total_score"] <= 59
+    assert loader._extract_ftd(payload)["quality_score"] == pressured["total_score"]

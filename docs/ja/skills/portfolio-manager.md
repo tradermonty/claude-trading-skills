@@ -190,6 +190,15 @@ WebSearchまたは利用可能なマーケットデータAPIで取得：
 
 ---
 
+保存済みAlpacaポジションの完全なJSONリストは、
+`skills/portfolio-manager/scripts/normalize_alpaca_positions.py`で照合用に変換できます。
+`--positions-json`、確認済みの口座別名`--account-scope`、タイムゾーン付き取得時刻
+`--as-of`、`--confirm-complete`を明示し、`--output`で既存の非公開フォルダー内の
+新規ファイルを指定します。価格を必要とせず、未対応資産を除外せず、数量の精度を
+維持するローカル処理です。網羅性・口座帰属・鮮度は利用者の確認事項であり、
+メモリの完全な出力とワークフローの強制は引き続き手動です。契約と個人情報の
+扱いは下記の照合ガイドを確認してください。
+
 ## 週次レビュー前の読み取り専用照合
 
 `core-portfolio-weekly`では、同一口座の完全なブローカー保有情報と
