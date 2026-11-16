@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Pre-Trade Discipline Gate can review a two-week experiment for one approved rule. Count applicable decisions, including compliant passes, and group exceptions by session. The summary omits the adherence rate until the window ends and enough decisions have been assessed (Refs #712).
+
 - Add the versioned `evaluation_coverage` contract and its first cross-sectional VCP producer: distinguish complete negative screens from unavailable/partial evaluation, count missing/provider/plan/history/candidate-limit failures, and show coverage beside results. Exposure Coach excludes explicitly incomplete coverage as missing; replay validates declared coverage without changing legacy outputs. VCP history counts only distinct, newest-first, ISO-dated sessions with finite positive prices; duplicate, undated or out-of-order history is reported as not evaluated (duplicate_sessions, missing_data, invalid_data, unordered_history). Other producers remain follow-up scope (#711).
 
 - FTD follow-up: restart rally tracking after an intraday reference breach without requiring a new closing pivot, preserve active unconfirmed rallies over historical failed events, and display both indices' Day 1 failure levels separately from swing/FTD warning levels (#765, #766).
