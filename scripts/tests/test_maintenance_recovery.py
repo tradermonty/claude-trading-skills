@@ -277,14 +277,35 @@ def test_installer_bootstraps_only_explicit_load(tmp_path, monkeypatch):
     installer = load_script("install_launchd")
     root, output, home = installer_fixture(tmp_path)
     monkeypatch.setattr(installer.sys, "platform", "darwin")
-    call = Mock()
+    call = Mock(return_value=Mock(returncode=1))
     monkeypatch.setattr(installer.subprocess, "run", call)
     paths = installer.install(root, output, home, load=True)
-    assert len(call.call_args_list) == 4
-    for entry, path in zip(call.call_args_list, paths):
+    assert len(call.call_args_list) == 8
+    for entry, path in zip(call.call_args_list[1::2], paths):
         assert entry.args[0] == ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(path)]
         assert entry.kwargs["check"] is True
         assert entry.kwargs["timeout"] == 15
+
+
+@pytest.mark.parametrize("all_loaded", [False, True])
+def test_installer_load_skips_loaded_agents(tmp_path, monkeypatch, all_loaded):
+    installer = load_script("install_launchd")
+    root, output, home = installer_fixture(tmp_path)
+    monkeypatch.setattr(installer.sys, "platform", "darwin")
+    results = [Mock(returncode=0)] * 3
+    results += [Mock(returncode=0)] if all_loaded else [Mock(returncode=1), Mock(returncode=0)]
+    run = Mock(side_effect=results)
+    monkeypatch.setattr(installer.subprocess, "run", run)
+
+    installer.install(root, output, home, load=True)
+
+    domain = f"gui/{os.getuid()}"
+    expected = [["launchctl", "print", f"{domain}/{label}"] for label in installer.LABELS]
+    if not all_loaded:
+        expected.append(
+            ["launchctl", "bootstrap", domain, str(output / f"{installer.LABELS[-1]}.plist")]
+        )
+    assert [entry.args[0] for entry in run.call_args_list] == expected
 
 
 def test_installer_load_failure_is_actionable(tmp_path, monkeypatch):
@@ -294,7 +315,12 @@ def test_installer_load_failure_is_actionable(tmp_path, monkeypatch):
     monkeypatch.setattr(
         installer.subprocess,
         "run",
-        Mock(side_effect=subprocess.CalledProcessError(5, ["launchctl"])),
+        Mock(
+            side_effect=[
+                Mock(returncode=1),
+                subprocess.CalledProcessError(5, ["launchctl"]),
+            ]
+        ),
     )
     with pytest.raises(ValueError, match="bootout"):
         installer.install(root, output, home, load=True)

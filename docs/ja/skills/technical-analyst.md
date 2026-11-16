@@ -262,3 +262,20 @@ python3 skills/technical-analyst/scripts/check_weekly_price_action.py \
 **スクリプト：**
 
 - `skills/technical-analyst/scripts/check_weekly_price_action.py`
+
+
+### 週足確認CLIの生成FMPクライアント
+
+データ取得CLIは、同梱の生成された `scripts/fmp_client.py` を使い、stableのfull OHLCを
+明示したfrom/to期間で取得します。先物からETFへの代替順序と `--as-of` の情報期限は不変で、
+ローカル独自のlegacyエンドポイントは使いません。画像分析はAPIキー不要です。
+データCLIはFMPキーが必要で、`--api-key` が `FMP_API_KEY` より優先されます。
+空白だけの明示キーは未指定として拒否します。手動・help経路では任意のtransportを読み込みません。
+
+通信規約は共通クライアントに従います。429は60秒待って1回再試行し、再度429なら
+クライアント全体の日次制限フラグにより、ETFへの代替も含め以後のHTTP通信を止めます。
+不正JSONは1回再試行します。その他のHTTP・接続エラーはキーを除去して直ちに返し、
+次の価格ソースへ進みます。従来の5xx・通信エラーに対する最大5回の指数バックオフとは異なります。
+通常の通信間隔は `--sleep-seconds`、応答のカウントは共通クライアントの規約に従います。
+空配列なら次のソースへ進み、200でも不正な応答形式なら明示したエラーになります。
+価格の捏造・ゼロ補完は追加しません。生成元の変更後は再生成し、同梱ファイルを手編集しないでください。
