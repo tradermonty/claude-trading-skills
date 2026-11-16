@@ -122,7 +122,7 @@ def test_golden_cfr_d5_recheck_not_fail():
     row = _verdict(
         ticker="CFR",
         quote={"price": 134.70},
-        profile={"sector": "Financial Services"},
+        profile={"sector": "Financial Services", "industry": "Banks - Regional"},
         dividend_history=hist,
         floor_pct=3.0,
     )

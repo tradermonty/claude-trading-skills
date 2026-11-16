@@ -148,7 +148,7 @@ def test_build_entry_row_ws5_verdict_and_provenance() -> None:
         ticker="CFR",
         alpha_pp=0.5,
         quote={"price": 134.70},
-        profile={"lastDiv": 4.12, "sector": "Financial Services"},
+        profile={"lastDiv": 4.12, "sector": "Financial Services", "industry": "Banks - Regional"},
         key_metrics=[{"dividendYield": 0.031}],
         dividend_history=hist,
         floor_pct=3.0,
