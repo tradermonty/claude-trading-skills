@@ -35,6 +35,24 @@ class BrokerNotConfiguredError(RuntimeError):
     """Raised when a broker adapter is invoked without required credentials."""
 
 
+class MissingDependencyError(RuntimeError):
+    """Raised when a runtime dependency (e.g. ``requests``) is not installed.
+
+    CLIs convert this to exit status 2 with the requirements.txt hint.
+    """
+
+
+def missing_requests_message(module_name: str) -> str:
+    """Hint text for a missing ``requests`` package, naming this skill's requirements.txt."""
+    from pathlib import Path
+
+    return (
+        f"requests library not found (required by {module_name}). "
+        "Install this skill's dependencies: "
+        f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
+    )
+
+
 class BrokerShortInventoryAdapter(ABC):
     """Interface every broker adapter must implement."""
 

@@ -14,6 +14,8 @@ permalink: /en/skills/vcp-screener/
 Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP). Identifies Stage 2 uptrend stocks forming tight bases with contracting volatility near breakout pivot points.
 {: .fs-6 .fw-300 }
 
+<span class="badge badge-api">FMP Required</span>
+
 [Download Skill Package (.skill)](https://github.com/tradermonty/claude-trading-skills/raw/main/skill-packages/vcp-screener.skill){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View Source on GitHub](https://github.com/tradermonty/claude-trading-skills/tree/main/skills/vcp-screener){: .btn .fs-5 .mb-4 .mb-md-0 }
 
@@ -216,7 +218,7 @@ Read `evaluation_coverage` first: reports show evaluated / total and a verdict o
 `complete`, `partial` or `not_evaluable`. With incomplete coverage, zero candidates
 means **undetermined**, not no opportunities. Valid filter rejections count as
 evaluated; missing data, provider/plan failures and candidate-cap exclusions do
-not. Full candidate evaluation needs 253 usable stock and benchmark history rows.
+not. Full candidate evaluation needs 253 usable stock and benchmark sessions: each row needs a valid ISO date and finite positive prices, dates must be distinct and newest-first (duplicate, undated or out-of-order history is not evaluated).
 Displayed top-N and mode filters do not change these counts. This applies to
 cross-sectional screening, not the historical single-ticker mode.
 

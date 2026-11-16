@@ -353,3 +353,38 @@ class TestGeneratePlans:
         meta = plans["input_metadata"]
         assert meta["candidates_in_file"] == 1
         assert meta["input_scope"] == "top_n_only"
+
+
+class TestMissingCalendarDependencyExit:
+    """The ``__main__`` entry point maps a missing calendar dependency to exit 2 (#497)."""
+
+    def test_cli_without_calendar_dependency_exits_2(self, tmp_path, monkeypatch, capsys):
+        import runpy
+        import sys
+        from pathlib import Path
+
+        script = Path(__file__).resolve().parents[1] / "plan_breakout_trades.py"
+        vcp = tmp_path / "vcp.json"
+        vcp.write_text(json.dumps(_make_input_data([_make_vcp_result()])), encoding="utf-8")
+        monkeypatch.setitem(sys.modules, "pandas_market_calendars", None)  # import raises
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                str(script),
+                "--input",
+                str(vcp),
+                "--account-size",
+                "100000",
+                "--as-of",
+                "2026-11-06",
+                "--output-dir",
+                str(tmp_path / "out"),
+            ],
+        )
+        with pytest.raises(SystemExit) as exc:
+            runpy.run_path(str(script), run_name="__main__")
+        assert exc.value.code == 2
+        err = capsys.readouterr().err
+        assert "ERROR: pandas-market-calendars library not found" in err
+        assert "requirements.txt" in err

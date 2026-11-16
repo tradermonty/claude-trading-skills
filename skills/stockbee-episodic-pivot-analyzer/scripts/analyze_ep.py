@@ -36,6 +36,17 @@ except ImportError:  # pragma: no cover - only hit in stripped Python envs
     requests = None
 
 
+class MissingDependencyError(RuntimeError):
+    """A runtime dependency required by the selected CLI path is not installed."""
+
+
+def _missing_requests_message() -> str:
+    return (
+        "requests library not found. Install this skill's dependencies: "
+        f"pip install -r {Path(__file__).resolve().parents[1] / 'requirements.txt'}"
+    )
+
+
 CATALYST_ALIASES = {
     "earnings": "earnings",
     "earnings_beat": "earnings",
@@ -182,7 +193,7 @@ class FMPClient:
 
     def __init__(self, api_key: str | None, max_api_calls: int = 200):
         if requests is None:
-            raise RuntimeError("requests is required for FMP mode")
+            raise MissingDependencyError(_missing_requests_message())
         self.api_key = api_key or os.getenv("FMP_API_KEY")
         if not self.api_key:
             raise ValueError("FMP API key required for FMP enrichment")
@@ -1178,6 +1189,13 @@ def main() -> None:
     if args.api_key or os.getenv("FMP_API_KEY"):
         try:
             fmp = FMPClient(args.api_key, max_api_calls=args.max_api_calls)
+        except MissingDependencyError as exc:
+            # FMP enrichment is optional. An explicit --api-key is a request for it,
+            # so fail with exit 2; an ambient FMP_API_KEY only degrades with a warning.
+            if args.api_key:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                sys.exit(2)
+            print(f"WARNING: FMP enrichment disabled: {exc}", file=sys.stderr)
         except Exception as exc:  # pragma: no cover - defensive for CLI users
             print(f"WARNING: FMP enrichment disabled: {exc}", file=sys.stderr)
 

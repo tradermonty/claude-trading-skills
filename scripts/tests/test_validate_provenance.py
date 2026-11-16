@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -168,6 +170,84 @@ def test_main_stdin_unparseable(
     monkeypatch.setattr("yaml.safe_load", lambda text: (_ for _ in ()).throw(ValueError("bad")))
     assert vp.main(["--stdin"]) == 2
     assert "error:" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "source, suffix",
+    [
+        ("file", ".json"),
+        ("file", ".yaml"),
+        ("file", ".yml"),
+        ("stdin", ".json"),
+        ("stdin", ".yaml"),
+    ],
+)
+@pytest.mark.parametrize(
+    "payload, exit_code, diagnostic",
+    [
+        pytest.param(VALID, 0, "OK data_provenance block valid", id="standalone-block"),
+        pytest.param(
+            {"schema_version": "report-v2", "data_provenance": VALID},
+            0,
+            "OK data_provenance block valid",
+            id="whole-report",
+        ),
+        pytest.param(
+            {**VALID, "data_provenance": {**VALID, "provider": ""}},
+            1,
+            "provider must be a non-empty string",
+            id="invalid-nested-block",
+        ),
+        pytest.param(
+            {**VALID, "data_provenance": None},
+            1,
+            "data_provenance must be a mapping",
+            id="null-nested-block",
+        ),
+        pytest.param(
+            {**VALID, "data_provenance": {}},
+            1,
+            "missing required field: provider",
+            id="empty-nested-block",
+        ),
+        pytest.param(
+            {"skill": "fictional-fixture"},
+            1,
+            "missing required field: provider",
+            id="report-without-block",
+        ),
+        pytest.param([VALID], 1, "data_provenance must be a mapping", id="non-mapping-document"),
+    ],
+)
+def test_cli_document_input(
+    tmp_path: Path,
+    source: str,
+    suffix: str,
+    payload: object,
+    exit_code: int,
+    diagnostic: str,
+) -> None:
+    """Validate reports and bare blocks through the actual file/stdin CLI."""
+    text = json.dumps(payload) if suffix == ".json" else yaml.safe_dump(payload)
+    command = [sys.executable, str(Path(vp.__file__))]
+    if source == "file":
+        path = tmp_path / f"input{suffix}"
+        path.write_text(text, encoding="utf-8")
+        command.extend(["--file", str(path)])
+    else:
+        command.append("--stdin")
+
+    result = subprocess.run(
+        command,
+        input=text if source == "stdin" else None,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == exit_code, result.stdout + result.stderr
+    assert diagnostic in result.stdout
+    assert result.stderr == ""
 
 
 def test_contract_doc_lists_required_fields_and_version() -> None:

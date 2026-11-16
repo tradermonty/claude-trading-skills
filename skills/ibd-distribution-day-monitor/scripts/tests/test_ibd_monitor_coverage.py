@@ -480,7 +480,7 @@ def test_main_symbols_filter_selects_configured_index(monkeypatch, tmp_path):
     payload, _ = read_report(out)
     results = payload["market_distribution_state"]["index_results"]
     assert [r["symbol"] for r in results] == ["SPY"]
-    assert results[0]["benchmark_name"] == "S&P500 Proxy"
+    assert results[0]["benchmark_name"] == "SPY (S&P 500 ETF proxy)"
     assert payload["market_distribution_state"]["primary_signal_symbol"] == "SPY"
 
 

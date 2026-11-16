@@ -125,7 +125,7 @@ def test_fmp_client_requires_api_key(monkeypatch):
 
 def test_fmp_client_requires_requests(monkeypatch):
     monkeypatch.setattr(analyze_ep, "requests", None)
-    with pytest.raises(RuntimeError, match="requests is required for FMP mode"):
+    with pytest.raises(RuntimeError, match="requests library not found"):
         FMPClient(api_key="k")
 
 
@@ -936,3 +936,46 @@ def test_main_warns_and_continues_when_fmp_init_fails(monkeypatch, tmp_path, cap
     assert "FMP enrichment disabled" in captured.err
     payload = json.loads(next((tmp_path / "o").glob("*.json")).read_text())
     assert payload["metadata"]["api_stats"] is None
+
+
+def _fmp_main_argv(tmp_path, extra):
+    events = _write(
+        tmp_path / "e.json",
+        {"events": [{"symbol": "ABC", "event_date": "2026-04-25", "headline": "ABC raises"}]},
+    )
+    prices = _write(tmp_path / "p.json", {"prices": {"ABC": make_bars()}})
+    return [
+        "analyze_ep.py",
+        "--events-json",
+        events,
+        "--prices-json",
+        prices,
+        "--output-dir",
+        str(tmp_path / "out"),
+        *extra,
+    ]
+
+
+def test_main_explicit_api_key_without_requests_exits_2(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("FMP_API_KEY", raising=False)
+    monkeypatch.setattr(analyze_ep, "requests", None)
+    monkeypatch.setattr(sys, "argv", _fmp_main_argv(tmp_path, ["--api-key", "k"]))
+    with pytest.raises(SystemExit) as exc:
+        analyze_ep.main()
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "requirements.txt" in captured.err
+    assert captured.out == ""
+
+
+def test_main_ambient_api_key_without_requests_degrades_with_stderr_hint(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setenv("FMP_API_KEY", "env-key")  # pragma: allowlist secret
+    monkeypatch.setattr(analyze_ep, "requests", None)
+    monkeypatch.setattr(sys, "argv", _fmp_main_argv(tmp_path, []))
+    analyze_ep.main()
+    captured = capsys.readouterr()
+    assert "WARNING: FMP enrichment disabled" in captured.err
+    assert "requirements.txt" in captured.err
+    assert "FMP enrichment disabled" not in captured.out

@@ -1170,7 +1170,7 @@ def main() -> None:
         price_data, api_stats = collect_price_data(args)
     except (ValueError, FileNotFoundError, calendar.CalendarUnavailableError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2 if isinstance(exc, calendar.CalendarDependencyMissingError) else 1)
 
     if not price_data:
         print("No price data found. Exiting.")
@@ -1183,7 +1183,7 @@ def main() -> None:
             results.append(analyze_symbol(symbol, bars, args))
     except (ValueError, calendar.CalendarUnavailableError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2 if isinstance(exc, calendar.CalendarDependencyMissingError) else 1)
 
     results = sort_results(results)
     input_mode = (

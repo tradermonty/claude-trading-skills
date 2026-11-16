@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import date
 
 from fmp_client import FMPClient
 
@@ -77,17 +78,46 @@ def quote_problem(quote):
     return None
 
 
+def _session_date(value):
+    """Parse a strict ISO YYYY-MM-DD session date; None when not canonical."""
+    if not isinstance(value, str) or len(value) != 10:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 def history_problem(rows, *, benchmark=False):
-    """Require full configured lookbacks and finite observations before screening."""
+    """Require 253 distinct, newest-first dated sessions with finite observations.
+
+    Failures return fixed codes only: missing_data, invalid_data, insufficient_history,
+    duplicate_sessions, unordered_history. Row contents are never echoed.
+    """
     if not rows:
         return "missing_data"
     if not isinstance(rows, list):
         return "invalid_data"
     if len(rows) < MIN_SCREEN_HISTORY:
         return "insufficient_history"
+    previous = None
     for row in rows:
         if not isinstance(row, dict):
             return "invalid_data"
+        session = row.get("date")
+        if session is None:
+            return "missing_data"
+        session = _session_date(session)
+        if session is None:
+            return "invalid_data"
+        # Calculators index bar[0] as the newest bar, so require strictly newest-first
+        # dates: an equal date is not a new session, a later one is out of order.
+        if previous is not None:
+            if session == previous:
+                return "duplicate_sessions"
+            if session > previous:
+                return "unordered_history"
+        previous = session
         prices = [row.get("close", row.get("adjClose"))]
         if not benchmark:
             prices += [row.get("high"), row.get("low")]

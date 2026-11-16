@@ -2,6 +2,7 @@
 
 import json
 import sys
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -15,7 +16,13 @@ def quote(price=50):
 
 def history():
     return [
-        {"close": 100 - i * 0.1, "high": 102 - i * 0.1, "low": 98 - i * 0.1, "volume": 500000}
+        {
+            "date": (date(2026, 11, 13) - timedelta(days=i)).isoformat(),
+            "close": 100 - i * 0.1,
+            "high": 102 - i * 0.1,
+            "low": 98 - i * 0.1,
+            "volume": 500000,
+        }
         for i in range(260)
     ]
 

@@ -278,11 +278,16 @@ jobs:
       - name: Shared market calendar drift check
         run: python3 scripts/generate_market_calendar.py --check
 
+      # Vendored price-bar helper (issue #655): every consumer's
+      # _price_bars.py + contract test must match scripts/price_bars/.
+      - name: Shared price-bar helper drift check
+        run: python3 scripts/generate_price_bars.py --check
+
       - name: Packaged skill drift check
         run: python3 scripts/check_package_drift_for_changed_skills.py
 
       - name: FMP skill package drift check
-        run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector --skill us-undervalued-growth-screener --skill earnings-calendar --skill economic-calendar-fetcher --skill institutional-flow-tracker --skill cot-contrarian-detector --skill value-dividend-screener --skill dividend-growth-pullback-screener --skill kanchi-dividend-sop --skill stockbee-20pct-study --skill stockbee-episodic-pivot-analyzer --skill stockbee-exhaustion-hammer-screener --skill stockbee-momentum-burst-screener --skill stockbee-setup-fluency-trainer --skill pair-trade-screener
+        run: python3 scripts/package_skills.py --check --skill pead-screener --skill earnings-trade-analyzer --skill ibd-distribution-day-monitor --skill vcp-screener --skill parabolic-short-trade-planner --skill ftd-detector --skill canslim-screener --skill macro-regime-detector --skill market-top-detector --skill us-undervalued-growth-screener --skill earnings-calendar --skill economic-calendar-fetcher --skill institutional-flow-tracker --skill cot-contrarian-detector --skill value-dividend-screener --skill dividend-growth-pullback-screener --skill kanchi-dividend-sop --skill stockbee-20pct-study --skill stockbee-episodic-pivot-analyzer --skill stockbee-exhaustion-hammer-screener --skill stockbee-momentum-burst-screener --skill stockbee-setup-fluency-trainer --skill pair-trade-screener --skill technical-analyst
 
       # 5b. Dependency declaration check (offline, issue #330): every
       # executable skill must ship requirements.txt covering its imports.
@@ -293,6 +298,11 @@ jobs:
       # diagnostics, exit 2 for missing dependencies, bounded network timeouts.
       - name: CLI error convention check
         run: python3 scripts/check_cli_error_conventions.py
+
+      # 5b''. Price-bar zero-default lint (offline, issue #655): no new
+      # get("<ohlcv>", 0) reads; the allowlist only ratchets down.
+      - name: Price-bar zero-default check
+        run: python3 scripts/check_price_bar_defaults.py
 
       # 5c. Packaged dependency smoke (offline, issue #330): the committed
       # .skill carries byte-identical requirements.txt and compilable scripts.

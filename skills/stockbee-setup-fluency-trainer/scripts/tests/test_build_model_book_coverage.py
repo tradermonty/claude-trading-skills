@@ -78,7 +78,7 @@ def make_client(monkeypatch, responses, **kwargs):
 
 def test_client_requires_requests(monkeypatch):
     monkeypatch.setattr(bmb, "requests", None)
-    with pytest.raises(RuntimeError, match="requests is not installed"):
+    with pytest.raises(RuntimeError, match="requests library not found"):
         bmb.FMPClient(api_key="k")
 
 

@@ -17,11 +17,13 @@ Key rules (improvement-plan v2.1 R-3 + 4th-review):
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from thresholds import (
     ADJ_EPS_PAYOUT_CAUTION,
     ADJ_EPS_PAYOUT_MAX,
+    BANK_CET1_MIN,
     BANK_DEPOSIT_BETA_HIGH,
     FCF_PAYOUT_HIGH_RISK,
     FCF_PAYOUT_MAX,
@@ -62,8 +64,12 @@ def _sector_kind(sector: str | None) -> str:
     return "consumer"
 
 
+def _finite_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
 def _ratio(numerator: float | None, denominator: float | None) -> float | None:
-    if numerator is None or denominator is None or denominator == 0:
+    if not _finite_number(numerator) or not _finite_number(denominator) or denominator <= 0:
         return None
     return numerator / denominator
 
@@ -103,10 +109,34 @@ def assess_payout_safety(
     adj_payout = _ratio(annual_dividend, adjusted_eps)
     fcf_payout = _ratio(annual_dividend, fcf_per_share)
 
+    # Reject invalid income anchors before division/divergence can hide losses.
+    # FCF is deliberately not an anchor for banks, insurers or utilities.
+    anchors = {"gaap_eps": gaap_eps}
+    if kind == "consumer":
+        anchors.update(adjusted_eps=adjusted_eps, fcf_per_share=fcf_per_share)
+    elif kind == "insurer" and adjusted_eps is not None:
+        anchors["adjusted_eps"] = adjusted_eps
+    for name, value in anchors.items():
+        if value is not None and (not _finite_number(value) or value <= 0):
+            blockers.append(name + "_non_positive_or_unavailable")
+    if not _finite_number(annual_dividend) or annual_dividend < 0:
+        blockers.append("annual_dividend_invalid")
+    if blockers:
+        return SafetyAssessment(
+            sector_kind=kind,
+            safety_verdict="HOLD-REVIEW",
+            gaap_eps_payout=_round(gaap_payout),
+            adjusted_eps_payout=_round(adj_payout),
+            fcf_payout=_round(fcf_payout),
+            adjusted_eps_source=adjusted_eps_source,
+            reasons=list(blockers),
+            blockers=sorted(blockers),
+        )
+
     # --- GAAP vs Adjusted divergence -> one-off flag (D2) ---
     one_off = False
     divergence = None
-    if gaap_eps is not None and adjusted_eps not in (None, 0):
+    if _finite_number(gaap_eps) and _finite_number(adjusted_eps) and adjusted_eps > 0:
         divergence = abs(gaap_eps - adjusted_eps) / abs(adjusted_eps)
         if divergence > GAAP_ADJ_DIVERGENCE:
             one_off = True
@@ -197,11 +227,22 @@ def _assess_bank(m: dict, eps_payout, reasons, blockers) -> str:
     cet1 = m.get("cet1")
     cre_concentration = m.get("cre_concentration")
     verdict = "PASS"
-    if cet1 is None:
+    if not _finite_number(cet1) or not 0 <= cet1 <= 1:
         blockers.append("bank_capital_unavailable")
+        reasons.append("bank_cet1_invalid_or_unavailable_fraction_required")
         verdict = "CAUTION"
-    if cre_concentration is None:
+    elif cet1 < BANK_CET1_MIN:
+        blockers.append("bank_capital_weak")
+        reasons.append("bank_cet1_below_screening_floor")
+        verdict = "CAUTION"
+    cre = str(cre_concentration).strip().lower()
+    if cre not in ("low", "moderate", "medium", "high"):
         blockers.append("bank_cre_concentration_unavailable")
+        reasons.append("bank_cre_concentration_invalid_or_unavailable")
+        verdict = "CAUTION"
+    elif cre == "high":
+        blockers.append("bank_cre_concentration_high")
+        reasons.append("bank_cre_concentration_high")
         verdict = "CAUTION"
     if npl_trend == "deteriorating" or nco_trend == "deteriorating":
         reasons.append("bank_npl_nco_deteriorating")

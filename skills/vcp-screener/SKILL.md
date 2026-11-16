@@ -167,7 +167,7 @@ Reports show evaluated / total and `complete`, `partial` or `not_evaluable`.
 Incomplete coverage means a zero-candidate result is **undetermined**, not an
 absence of opportunities. Valid filter rejections count as evaluated; missing
 quotes, insufficient history, provider failures and candidate-cap exclusions do
-not. Candidate analysis requires 253 usable stock and benchmark history rows.
+not. Candidate analysis requires 253 usable stock and benchmark sessions: each row needs a valid ISO date and finite positive prices, dates must be distinct and newest-first (duplicate, undated or out-of-order history is not evaluated).
 Do not treat successful report generation as complete evaluation.
 
 - `vcp_screener_YYYY-MM-DD_HHMMSS.json` - Structured results

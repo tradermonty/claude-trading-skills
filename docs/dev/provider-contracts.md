@@ -65,7 +65,19 @@ unchanged and default to `format: "json"`.
 
 `parse_csv_rows(text)` returns `(rows, parse_anomalies)` using the stdlib `csv` module:
 
-- A UTF-8 BOM is stripped and the first line is the header.
+- A UTF-8 BOM is stripped and the first CSV record is the header. Header names
+  retain their exact spelling and case; they are not stripped or case-folded.
+  An empty/whitespace-only name reports fatal `blank_header`; an exact duplicate
+  name reports fatal `duplicate_header`. Invalid headers return no rows rather
+  than allowing `DictReader` to silently overwrite columns. These fixed codes
+  never include provider header/cell contents. An otherwise valid header with no
+  rows still follows the existing `empty_response` rule.
+- CSV parsing uses the standard library's strict quoting checks. Unclosed quoted
+  fields and other syntax errors recognized by that parser raise `csv.Error`.
+  NUL input is explicitly rejected on all supported Python versions, including
+  in headers, so it cannot collide with the internal extra-cell marker. The
+  fetch wrapper reports fatal `parse_error` and discards the entire response,
+  including any valid rows before the error. It continues the remaining probes.
 - An empty cell becomes `None`.
 - `true` / `false` in any case becomes `bool`.
 - An integer literal becomes `int`; a decimal or exponent literal becomes `float`.
@@ -108,7 +120,9 @@ One GET per contract with no credentials, `allow_redirects=False`, a 30 s timeou
 | `transport_error` | the request failed. The redacted message goes to stderr only. It replaces `http_status:-1` for CSV. |
 | `body_too_large:<max_bytes>` | the body exceeded the cap. |
 | `decode_error` | the body is not valid UTF-8. |
-| `parse_error` | the stdlib `csv` parser rejected the body (a NUL byte, or a field over the size limit). Only that contract fails; the other contracts are still reported. |
+| `parse_error` | invalid quoting, a NUL byte, or a field over the CSV size limit. All partial rows are discarded. Only that contract fails; the other contracts are still reported. |
+| `blank_header` | a header name is empty or whitespace-only. No rows are accepted. |
+| `duplicate_header` | an exact header name appears more than once. No rows are accepted. |
 | `extra_cells` | a row had more cells than the header. |
 
 ### Deduplicated anomalies and `count`
@@ -278,7 +292,7 @@ the rest in `explain_empty_selection` in fixed order, first match wins):
 | `no_earnings_rows` | the calendar returned `[]` for an inclusive date window containing zero XNYS sessions, or a non-empty response had no row carrying a `symbol` | 0 |
 | `calendar_fetch_failed` | the calendar fetch returned no usable body (`None` on transport/HTTP/rate-limit failure, or a non-list body) | 1 |
 | `earnings_calendar_empty_with_market_sessions` | the calendar returned a clean `[]`, but the identical inclusive date window sent to FMP contains at least one XNYS session; possible silent provider drop | 1 |
-| `market_calendar_unavailable` | the shared XNYS calendar could not classify a clean `[]`; dependency/query failure is not treated as a quiet window | 1 |
+| `market_calendar_unavailable` | the shared XNYS calendar could not classify a clean `[]`; query failure is not treated as a quiet window (a missing `pandas-market-calendars` package is not a zero-result reason: it exits 2 with a requirements.txt hint) | 1 |
 | `profiles_budget_exhausted` | profile fetching raised `ApiCallBudgetExceeded` (including after partial retrieval), or profiles came back empty and the budget is exhausted (`api_stats["budget_remaining"] == 0` or `rate_limit_reached`) | 1 |
 | `no_profiles_returned` | ≥1 earnings symbol, but `get_company_profiles` returned nothing | 1 |
 | `profiles_missing_required_field:marketCap` | ≥1 profile came back, but none has a usable numeric `marketCap` (non-bool `int`/`float`, finite) | 1 |
@@ -390,7 +404,7 @@ calendar. For a clean HTTP 200 `[]`, it counts sessions over the exact same
 inclusive `from` / `to` dates sent to FMP. Zero sessions remains the benign
 `no_earnings_rows` result. One or more sessions is a fail-closed
 `earnings_calendar_empty_with_market_sessions` anomaly, while a calendar
-dependency or query failure is `market_calendar_unavailable`. This avoids the
+query failure is `market_calendar_unavailable` (a missing dependency exits 2 with a hint). This avoids the
 exchange-holiday false positives of a weekday approximation and keeps the
 standalone `.skill` install complete through the generated runtime and pinned
 requirement. Non-empty lists whose rows carry no symbol retain the pre-#356
@@ -800,3 +814,69 @@ unchanged. No workflow was dispatched or repository secret configured here.
 
 Issue #332 remains open for other uncovered endpoints/providers, broader
 consumer reason codes and remaining operational acceptance.
+
+
+## Persistent fatal-drift tracking (#659)
+
+`quote.v1` accepts finite `int` or `float` volume. FMP returned float volume in
+weekly canaries; the declared clients preserve numeric values. VCP's liquidity
+filter compares numeric volume with a threshold, and CANSLIM's new-high calculator
+uses a volume ratio. Exhaustion-hammer normalizes via `int(float(volume))`, and
+UGS normalizes the numeric value before filtering. These consumers accept float
+volume. Contract tests
+exercise float propagation through the shared quote clients. Booleans, strings,
+null, NaN and infinity remain fatal. The recorded fixture and `recorded_on` date
+are historical evidence and are unchanged; this is not a new live capture.
+
+After operational health succeeds, `notify_provider_drift.py --apply` records
+fatal anomalies from the canonical FMP report. Drift remains report-only at the
+probe step. Healthy/deprecation-only reports make no GitHub calls and do not close
+existing tickets. Notification or invalid-report failures fail the job visibly;
+the existing health gate fails when no contract returns usable response evidence.
+Mixed reports may contain HTTP or transport failures alongside actual drift. The
+notifier validates every entry (including status -1), but publishes anomalies only
+from HTTP 200 contracts; non-200 error-body shape errors are infrastructure
+evidence, not contract drift. Real canonical rename codes (`legacy->canonical`)
+are accepted without allowing arbitrary Markdown or workflow-command content.
+
+One tracking issue per `(contract, anomaly code)` is found by exact SHA256 managed
+markers, using paginated all-state issue listing (PRs excluded). Only issues
+authored by `github-actions[bot]` with user type `Bot` are trusted; copied markers
+in other users' issues cannot suppress or redirect notifications. New issues are
+assigned to the repository's User owner, so creating a report also notifies a
+maintainer. Organization-owned repositories require an explicit notification
+policy before this script can create tickets; it fails visibly rather than
+silently leaving an unassigned ticket. Repeated new runs add one observation
+comment and update the managed region. Maintainer notes outside that region,
+labels and assignees are preserved. A new fatal run reopens a closed issue;
+retrying the same or an older run preserves manual closure and newer evidence. Healthy runs never auto-close.
+
+Comments precede body updates. If a comment fails, retry can post it; if the body
+update fails after a successful comment, retry finds the bot-authored observation marker and
+updates without another comment. A failed create with an unknown response can be
+retried: the issue listing finds its managed marker. Duplicate tracking markers
+or damaged managed regions require manual reconciliation and fail visibly.
+Workflow concurrency serializes scheduled and manual runs without cancellation;
+do not run multiple manual `--apply` processes concurrently. GitHub may coalesce
+queued workflow runs; this is persistent triage, not a lossless event ledger.
+
+The workflow retains top-level `contents: read`; only the trusted canary job gets
+`issues: write`. Checkout sets `persist-credentials: false`; the workflow token
+is passed as `GH_TOKEN` only to the notification step. Fork guards and explicit
+disable behavior are unchanged. The script pins `gh api` to `github.com`, uses
+JSON stdin with no shell, and never prints raw API errors, rows or credentials.
+Only validated identifiers, counts and a repository-bound run link are published.
+
+Local validation is read-only by default, requires no token and calls no API:
+
+```bash
+python3 scripts/notify_provider_drift.py --report reports/fmp-canary-report.json
+```
+
+Applying is supported only in Actions with `--apply`, the `github-actions[bot]`
+workflow token as `GH_TOKEN`, and `GITHUB_REPOSITORY`/`GITHUB_RUN_ID` (or explicit
+`--repository`/`--run-url`). Run URLs must identify an Actions run in the target
+repository. For a manual probe, use `workflow_dispatch`; keep direct local runs
+read-only. User PATs create user-authored issues that the bot-only trust matcher
+intentionally ignores, so they are unsupported for apply and can cause duplicates. Tests use fake API/gh responses only; local green tests
+do not establish that a future scheduled notification reached a maintainer.

@@ -411,6 +411,15 @@ performance prefers the configured FINVIZ Elite key and falls back to the public
 scraper after a failed, empty or malformed CSV. `--finviz-mode public` disables
 Elite requests even if `FINVIZ_API_KEY` is present.
 
+Reports record the actual industry source in `metadata.finviz_mode` and
+`metadata.data_sources.finviz_industry_performance.source`; the requested mode
+is retained as `metadata.finviz_mode_requested`. `data_mode` reflects that
+industry source and FMP key availability, not confirmed FMP fetch success.
+An Elite failure adds a safe `fallback_reason` and a public-fallback quality
+flag to JSON and Markdown. Dynamic stock selection retains its independent
+source policy and per-stock provenance. `finviz_industries` remains a row count;
+it does not certify completeness, and valid partial exports remain accepted.
+
 The client normalizes CSV percentage points to decimal ratios, including 0.12%
 and negative/zero values; the pipeline converts those ratios once. If both
 sources fail, the CLI exits 1 with upgrade/key/access guidance and writes no

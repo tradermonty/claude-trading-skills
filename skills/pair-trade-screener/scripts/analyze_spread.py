@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 from pair_fmp_client import FMPClient
 from scipy import stats
-from statsmodels_support import require_statsmodels
+from statsmodels_support import MissingDependencyError, require_statsmodels
 
 # =============================================================================
 # FMP API Functions
@@ -476,6 +476,9 @@ def cli():
     """Run the command-line interface without exposing a traceback to users."""
     try:
         main()
+    except MissingDependencyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     except (RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

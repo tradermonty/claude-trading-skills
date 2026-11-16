@@ -36,10 +36,11 @@ try:
     from finviz_stock_client import FinvizStockClient
 
     FINVIZ_AVAILABLE = True
-except ImportError:
+except ImportError as _finviz_exc:
     FINVIZ_AVAILABLE = False
+    # Optional fallback: degrade, but name the requirements file on stderr.
     print(
-        "INFO: finviz library not available. Install with 'pip install finviz' for improved institutional data.",
+        f"INFO: Finviz institutional-data fallback disabled ({_finviz_exc}).",
         file=sys.stderr,
     )
 

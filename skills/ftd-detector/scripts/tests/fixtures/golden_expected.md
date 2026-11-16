@@ -1,0 +1,145 @@
+# FTD Detector Report
+
+**Generated:** 2026-11-13 09:30:00
+**S&P 500:** $101.25
+**QQQ (Nasdaq-100 ETF proxy):** $405.50
+
+---
+
+## Market Timing Status
+
+| Metric | Value |
+|--------|-------|
+| **Current State** | 🟢 **FTD Confirmed** |
+| **Quality Score** | **100/100** |
+| **Signal** | Strong FTD |
+| **Exposure Guidance** | Not assessed |
+| **Dual Confirmation** | YES (S&P 500 + QQQ (Nasdaq-100 ETF proxy)) |
+
+> **Guidance:** Strong technical FTD; breadth, leadership and portfolio risk still require assessment.
+
+**Rally failure reference (S&P 500):** Day 1 low $95.00; intraday breach required.
+
+**Position sizing:** Not assessed. Breadth, leadership and portfolio risk are outside this technical score.
+
+---
+
+## Index Status
+
+| Index | State | Current | High | Correction | Swing Low |
+|-------|-------|---------|------|------------|-----------|
+| S&P 500 | FTD_CONFIRMED | $99.35 | $100.00 | -0.7% | 2026-06-09 ($95.00) |
+| QQQ (Nasdaq-100 ETF proxy) | FTD_CONFIRMED | $397.39 | $400.00 | -0.7% | 2026-06-09 ($380.00) |
+
+---
+
+## Rally Attempt Details
+
+### S&P 500
+
+- **Swing Low:** 2026-06-09 ($95.00, -5.0% decline)
+- **Rally Day 1:** 2026-06-10
+- **Current Day Count:** 11
+
+### QQQ (Nasdaq-100 ETF proxy)
+
+- **Swing Low:** 2026-06-09 ($380.00, -5.0% decline)
+- **Rally Day 1:** 2026-06-10
+- **Current Day Count:** 11
+
+---
+
+## FTD Signal
+
+### S&P 500 FTD
+
+| Metric | Value |
+|--------|-------|
+| **FTD Date** | 2026-06-16 |
+| **Day Number** | Day 5 |
+| **Price Gain** | +2.10% (strong) |
+| **Volume** | Above 50-day avg |
+
+### QQQ (Nasdaq-100 ETF proxy) FTD
+
+| Metric | Value |
+|--------|-------|
+| **FTD Date** | 2026-06-16 |
+| **Day Number** | Day 5 |
+| **Price Gain** | +2.10% (strong) |
+| **Volume** | Above 50-day avg |
+
+---
+
+## Quality Score Breakdown
+
+**Total: 100/100**
+
+| Factor | Detail |
+|--------|--------|
+| Base | Day 5 FTD: +60 (prime window) |
+| Gain | +2.10% gain: +15 (strong) |
+| Volume | Above 50-day avg volume: +10 |
+| Dual Confirm | Both S&P 500 + QQQ (Nasdaq-100 ETF proxy) confirmed: +15 |
+| Post Ftd | No post-FTD distribution (5 days clean): +10 |
+
+---
+
+## Post-FTD Health
+
+- **Distribution Days Since FTD:** 0 (in 5 days monitored)
+- **FTD Valid:** 6 days since FTD (FTD low: $97.87)
+- **Power Trend:** YES (3/3 conditions)
+  - 21 EMA: $98.11 (> 50 SMA: $98.06)
+  - 50 SMA Rising: Yes
+  - Price above 21 EMA: Yes
+
+---
+
+## Action Guidance
+
+**Position Sizing:** Not assessed
+
+- FTD event remains confirmed; review warning evidence separately
+- Monitor Day 1 low for rally failure and FTD-day low for pressure
+- Evaluate breadth, leadership and portfolio constraints before any allocation decision
+
+---
+
+## Key Watch Levels
+
+**S&P 500:**
+- Rally Day 1: 2026-06-10
+- Day 1 Low (rally failure level; intraday breach): $95.00
+- Swing Low: $95.00 (2026-06-09)
+- FTD Day: 2026-06-16
+- FTD Day Low (warning level): $97.87
+- Lookback High: $100.00
+
+**QQQ (Nasdaq-100 ETF proxy):**
+- Rally Day 1: 2026-06-10
+- Day 1 Low (rally failure level; intraday breach): $380.00
+- Swing Low: $380.00 (2026-06-09)
+- FTD Day: 2026-06-16
+- FTD Day Low (warning level): $391.48
+- Lookback High: $400.00
+
+---
+
+## Methodology
+
+This analysis uses William O'Neil's Follow-Through Day (FTD) methodology to confirm market bottoms:
+
+1. **Swing Low Detection:** 3%+ decline from recent high with 3+ down days
+2. **Rally Attempt:** Day 1 (up close or upper-half close); all subsequent sessions must hold its intraday low
+3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day
+4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, volume, dual-index, post-FTD health)
+5. **Post-FTD Monitoring:** Distribution day tracking, invalidation check, Power Trend confirmation
+
+Dual-instrument tracking (S&P 500 + QQQ (Nasdaq-100 ETF proxy)) provides additional evidence than single-index analysis.
+
+For detailed methodology, see `references/ftd_methodology.md`.
+
+---
+
+**Disclaimer:** This analysis is for educational and informational purposes only. Not investment advice. FTD quality is a technical heuristic, not a success probability or portfolio allocation. Assess breadth, leadership and portfolio constraints separately. Consult a financial advisor before making investment decisions.
