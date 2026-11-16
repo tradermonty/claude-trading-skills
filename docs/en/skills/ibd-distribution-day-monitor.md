@@ -26,6 +26,10 @@ Detect IBD-style Distribution Days for QQQ/SPY, track 25-session expiration and 
 
 ---
 
+## Instrument identity (#765)
+
+QQQ is a Nasdaq-100 ETF proxy, not the Nasdaq Composite (`^IXIC`). SPY is an ETF proxy, not `^GSPC`. DD counts use the named symbol's own price and volume; ETF counts are not official index counts. Select explicit symbols with `--symbols`; missing data must not trigger substitution or a mixed series. The risk classes and TQQQ policy are this tool's separate heuristics, not a calibrated FTD success probability (calibration remains #676).
+
 ## 1. Overview
 
 IBD Distribution Day Monitor automates the single most actionable signal in William O'Neil's CAN SLIM framework: counting the days when institutions are quietly unloading positions. A cluster of Distribution Days has historically preceded most major market corrections, and this skill turns the rule into a reproducible daily workflow.

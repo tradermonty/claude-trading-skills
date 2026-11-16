@@ -44,11 +44,12 @@ Output:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
 import sys
-import time
+import time as time  # Retain the public sleep-mocking surface used by callers/tests.
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -69,8 +70,6 @@ from weekly_price_action import (
 
 SKILL_NAME = "technical-analyst"
 SCHEMA_VERSION = "1.0"
-
-STABLE_EOD_URL = "https://financialmodelingprep.com/stable/historical-price-eod/full"
 
 MAX_DETECTOR_AGE_DAYS_DEFAULT = 10
 
@@ -155,56 +154,19 @@ def _redact(text: str | None, secret: str | None = None) -> str | None:
 def get_api_key(cli_key: str | None) -> str | None:
     """Resolve the FMP API key: --api-key argument takes priority over env."""
     if cli_key:
-        return cli_key
-    api_key = os.environ.get("FMP_API_KEY")
+        return cli_key.strip() or None
+    api_key = (os.environ.get("FMP_API_KEY") or "").strip()
     if not api_key:
         print("Warning: FMP_API_KEY environment variable not set", file=sys.stderr)
     return api_key
 
 
-def _request_with_backoff(
-    session: requests.Session,
-    url: str,
-    params: dict[str, Any],
-    max_retries: int = 4,
-    base_delay: float = 1.0,
-) -> tuple[Any, str | None]:
-    """GET JSON with exponential backoff retry on 429 / 5xx. Non-retryable
-    4xx (401/402/403/404/...) fail immediately -- a 402 is expected/routine
-    here (advances the fallback chain), not something to retry."""
-    secret = params.get("apikey") if isinstance(params, dict) else None
-    delay = base_delay
-    error = "unknown error"
-    for attempt in range(max_retries + 1):
-        try:
-            response = session.get(url, params=params, timeout=30)
-        except requests.exceptions.RequestException as exc:
-            error = _redact(f"request exception: {exc}", secret=secret)
-        else:
-            if response.status_code == 200:
-                try:
-                    return response.json(), None
-                except ValueError as exc:
-                    error = _redact(f"invalid JSON response: {exc}", secret=secret)
-            elif response.status_code == 429 or response.status_code >= 500:
-                error = f"HTTP {response.status_code}"
-            else:
-                return None, _redact(
-                    f"HTTP {response.status_code}: {response.text[:200]}", secret=secret
-                )
-
-        if attempt < max_retries:
-            print(
-                f"WARN: {error}; retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})",
-                file=sys.stderr,
-            )
-            time.sleep(delay)
-            delay *= 2
-    return None, error
-
-
 class PriceClient:
-    """Thin client for FMP's stable full-OHLC EOD price endpoint with rate limiting."""
+    """Stable full-OHLC adapter over the generated common FMP transport.
+
+    Import lazily so manual/keyless and --help paths keep working before the
+    optional requests dependency is installed. Native weekly math is unchanged.
+    """
 
     def __init__(self, api_key: str, sleep_seconds: float = 0.25):
         if requests is None:
@@ -214,28 +176,57 @@ class PriceClient:
                 file=sys.stderr,
             )
             sys.exit(2)
-        self.api_key = api_key
+        # Never reuse a foreign skill's cached `fmp_client`. A fresh sibling
+        # namespace also works in an unpacked standalone skill without mutating
+        # sys.path or replacing any caller-owned sys.modules entries.
+        path = Path(__file__).with_name("fmp_client.py")
+        spec = importlib.util.spec_from_file_location("_technical_analyst_fmp_client", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self._transport = module.FMPClient(api_key=api_key)
+        self.api_key = self._transport.api_key
         self.sleep_seconds = sleep_seconds
-        self.session = requests.Session()
-        self.last_call_time = 0.0
-        self.api_calls_made = 0
+
+    @property
+    def session(self):
+        return self._transport.session
+
+    @session.setter
+    def session(self, value):
+        self._transport.session = value
+
+    @property
+    def sleep_seconds(self):
+        return self._transport.RATE_LIMIT_DELAY
+
+    @sleep_seconds.setter
+    def sleep_seconds(self, value):
+        self._transport.RATE_LIMIT_DELAY = value
+
+    @property
+    def api_calls_made(self):
+        return self._transport.api_calls_made
+
+    @api_calls_made.setter
+    def api_calls_made(self, value):
+        self._transport.api_calls_made = value
+
+    @property
+    def last_call_time(self):
+        return self._transport.last_call_time
+
+    @last_call_time.setter
+    def last_call_time(self, value):
+        self._transport.last_call_time = value
 
     def get_eod_rows(
         self, symbol: str, from_date: str, to_date: str
     ) -> tuple[list[dict[str, Any]] | None, str | None]:
-        """Fetch daily OHLCV rows for one symbol. Returns (rows, None) on
-        success -- rows may be an EMPTY list (a distinct, documented failure
-        mode) -- or (None, error) on an HTTP/transport failure."""
-        elapsed = time.time() - self.last_call_time
-        if elapsed < self.sleep_seconds:
-            time.sleep(self.sleep_seconds - elapsed)
-        params = {"symbol": symbol, "from": from_date, "to": to_date, "apikey": self.api_key}
-        data, error = _request_with_backoff(self.session, STABLE_EOD_URL, params)
-        self.last_call_time = time.time()
-        self.api_calls_made += 1
-        if error:
-            return None, error
-        return data if isinstance(data, list) else [], None
+        rows = self._transport.get_technical_eod_rows(symbol, from_date, to_date)
+        if rows is None:
+            error = self._transport._last_error or "EOD request failed"
+            return None, _redact(error, secret=self.api_key)
+        return rows, None
 
 
 def fetch_price_series(

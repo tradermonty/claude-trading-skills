@@ -24,11 +24,11 @@ def python_check(root, version):
     try:
         policy = json.loads((root / "config/python-support.json").read_text(encoding="utf-8"))
         requirement = policy["root_project"]
-        match = re.fullmatch(r">=(\d+)\.(\d+),<(\d+)\.(\d+)", requirement)
+        match = re.fullmatch(r">=(\d+)\.(\d+)(?:\.(\d+))?,<(\d+)\.(\d+)(?:\.(\d+))?", requirement)
         if not match:
             raise ValueError
-        major_min, minor_min, major_max, minor_max = map(int, match.groups())
-        lower, upper = (major_min, minor_min), (major_max, minor_max)
+        parts = tuple(int(component or 0) for component in match.groups())
+        lower, upper = parts[:3], parts[3:]
         if lower >= upper:
             raise ValueError
     except (OSError, ValueError, TypeError, KeyError):
@@ -38,11 +38,13 @@ def python_check(root, version):
             "Python support policy could not be read.",
             "Restore config/python-support.json from this checkout's Git revision.",
         )
-    supported = lower <= tuple(version[:2]) < upper
+    current = tuple(version[:3])
+    current += (0,) * (3 - len(current))
+    supported = lower <= current < upper
     return check(
         "python",
         "ok" if supported else "warning",
-        f"Python {version[0]}.{version[1]}; repository requires {requirement}.",
+        f"Python {'.'.join(map(str, current))}; repository requires {requirement}.",
         "" if supported else f"Re-run with Python {requirement}; standalone skill support differs.",
     )
 

@@ -97,7 +97,7 @@ export FINVIZ_API_KEY=your_finviz_key_here
 **なぜ2段階なのか？**
 - **FINVIZ**: RSIフィルター付きの高速プレスクリーニング（1回のAPIコール→候補約10〜50銘柄）
 - **FMP**: プレスクリーニング済み候補のみの詳細ファンダメンタル分析
-- **結果**: より少ないFMP APIコールでより多くの銘柄を分析（無料枠内に収まる）
+- **結果**: より少ないFMP APIコールでより多くの銘柄を分析（FMP APIコールを削減。FMPのみのモードが使う stock-screener は無料プランに含まれません — [FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）
 
 #### FMPのみのアプローチ（従来の方法）
 
@@ -107,7 +107,7 @@ FINVIZ Eliteのアクセスがない場合：
 export FMP_API_KEY=your_key_here
 ```
 
-**制限**: FMP無料枠（250リクエスト/日）では分析が約40銘柄に限定されます。`--max-candidates 40` を使用してリミット内に収めてください。
+**制限**: FMPのみのモードは stock-screener エンドポイントが必要ですが、これは無料プランに含まれません（2026-11）。`--use-finviz` か、screener を含むプランを使用してください（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）。screener を含むプランでは `--max-candidates 40` でリクエスト数を抑えられます。
 
 ### ステップ2: スクリーニングの実行
 

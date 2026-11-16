@@ -96,6 +96,8 @@ python3 skills/signal-postmortem/scripts/postmortem_recorder.py \
   --output-dir reports/
 ```
 
+Automatic lookup uses FMP’s stable historical endpoint for the exact requested date range. Access failures are unavailable evidence; no legacy endpoint is tried. Manual recording remains offline, and `requests` is required only for automatic lookup.
+
 Batch recording requires observed finite positive entry and 5-day exit prices.
 The exit uses the first usable price from day 5 through day 9 (calendar days),
 with the observed date recorded. Without a key or usable prices, signals are

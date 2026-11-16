@@ -1,5 +1,7 @@
 # Claude Trading Skills
 
+**データ管理:** [プライバシー方針](docs/ja/privacy.md) · [セキュリティ方針](SECURITY.md)
+
 Claude Trading Skills は、作者自身が AI を使って自分のトレードプロセスを改善したいと考えたことから始まりました。
 
 Claude Trading Skills は、時間制約のある個人投資家が、Claude を使って投資・トレード判断を仕組み化するための Claude Skills 集です。
@@ -69,6 +71,8 @@ manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/
 [![架空の決済済み4取引を使い、勝率50%と実現損益プラス75ドルを示す週次振り返りの出力例](docs/assets/previews/weekly-digest.svg)](docs/assets/previews/weekly-digest.svg)
 
 **決済済み取引を振り返る:** [Weekly Performance Digest](docs/ja/skills/weekly-performance-digest.md)は実現損益と改善点を整理します。
+
+**自分で試す:** [オフライン・クイックスタート](docs/ja/offline-quickstart.md)で、プレビューから架空レポート、Navigatorへ進めます。APIキーは不要です。
 
 ### 実際に必要な費用
 

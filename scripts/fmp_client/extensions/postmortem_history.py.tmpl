@@ -1,0 +1,12 @@
+    def fetch_postmortem_history(self, symbol: str, start_date: str, end_date: str):
+        """Return exact-range raw evidence; caller validates every row before use.
+
+        Never normalize, truncate or deduplicate observations here. The outcome
+        recorder must see malformed and duplicate rows to reject ambiguous data.
+        No v3 fallback: a provider failure is unavailable evidence, not a return.
+        """
+        return self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/historical-price-eod/full",
+            params={"symbol": symbol, "from": start_date, "to": end_date},
+            quiet=True,
+        )
