@@ -138,3 +138,9 @@ Lifecycle commands are `activate`, `list`, `supersede`, `retire`, `extend`, and 
 `supersede` replaces the rule immediately. Its `--effective-date` must be today or earlier in America/New_York; a future date is refused without changing the ledger. Re-run on or after the intended effective date. Backdating does not reconstruct past state or rewrite earlier reports.
 
 The ledger is a single-user local file; concurrent writers are not supported. State is computed from the current stored status, so a past `--as-of` does not reconstruct an earlier ledger. If the ledger cannot be read, actionable candidates become `REVIEW_REQUIRED` and the report and journal are still written. Without `--approved-rules-ledger` the output is unchanged.
+
+## 7. Two-week rule experiment
+
+For one approved rule, use `review_rule_experiment.py start` to define a condition and plan for 14 calendar days. Record the confirmed `enter`, `wait`, or `pass` decision in a private JSON log along with the assessment and a local evidence reference. Review the log with `review_rule_experiment.py review`. A pass that follows the rule counts in the same denominator as any other applicable decision. A pre-trade acknowledgement can support a record, with the actual decision supplied separately.
+
+The report shows the sample size and groups exceptions by session. The rate appears after the window ends when at least 10 applicable occasions were assessed and none remain unassessed. If the approved ledger entry changes, start a new plan. Bring the summary to the monthly review as self-reported evidence and use the existing approval process to change the rule. See the [commands and fictional observation](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/pre-trade-discipline-gate/references/rule_experiment.md).

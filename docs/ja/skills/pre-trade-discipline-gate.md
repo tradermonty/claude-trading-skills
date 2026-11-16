@@ -138,3 +138,9 @@ python3 skills/pre-trade-discipline-gate/scripts/check_pre_trade_discipline.py \
 `supersede` はルールを即時に置き換えます。`--effective-date` は America/New_York の当日以前に限り、将来日付は台帳を変更せず拒否します。予定した適用日以降に再実行してください。過去日付を指定しても、過去の状態の再現や既存レポートの書き換えは行いません。
 
 台帳は単一ユーザー向けのローカルファイルで、同時書き込みには対応しません。状態は現在の保存済みstatusから計算するため、過去の `--as-of` を指定しても以前の台帳は再現されません。台帳を読めない場合、注文対象の候補は `REVIEW_REQUIRED` になり、reportとjournalは書き出されます。`--approved-rules-ledger` を指定しない場合、出力は従来と変わりません。
+
+## 7. 運用ルールの2週間実験
+
+承認済みルールを1つ選び、`review_rule_experiment.py start` で適用条件と14暦日の実験期間を決めます。実際の判断（`enter`、`wait`、`pass`）、評価、参照先のローカルIDを非公開のJSONログに記録し、`review_rule_experiment.py review` で集計します。ルールに従った見送りも、適用機会の母数に含めます。取引前チェックは根拠として参照し、実際にどう判断したかは別に記録します。
+
+レポートでは記録数と適用機会数を示し、時間帯別に例外を集計します。遵守率は期間終了後に、評価済みの適用機会が10件以上あり、未評価が0件の場合に表示します。台帳の該当ルールが変更されたら、新しい実験を開始します。月次レビューに自己申告の記録として集計結果を持ち込み、ルールの変更は既存の承認手順で行います。[コマンドと架空の記録例](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/pre-trade-discipline-gate/references/rule_experiment.md)を参照してください。

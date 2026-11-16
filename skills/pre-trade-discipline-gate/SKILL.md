@@ -141,6 +141,10 @@ Pass `--approved-rules-ledger PATH` to the gate. For each actionable candidate, 
 - If the ledger cannot be read, actionable candidates become `REVIEW_REQUIRED` and the report and journal are still written.
 - The result gains an `approved_rules` block and each candidate an `approved_rule_checks` list. Without the flag, output is unchanged.
 
+### Two-week rule experiment
+
+Use `scripts/review_rule_experiment.py` to review one approved rule over 14 New York calendar days. Read `references/rule_experiment.md` for the CLI and observation format. Ask the user to define when the rule applies before recording observations. Use their confirmed enter, wait, or pass decision and assessment for each occasion. Treat a gate acknowledgement as a reference to the pre-trade check and ask for the actual decision separately. Retain unassessed occasions in the log. Bring the summary to the monthly review as self-reported evidence, with any rule change going through the existing approval process.
+
 ## Rules
 
 The gate blocks an actionable candidate when:
