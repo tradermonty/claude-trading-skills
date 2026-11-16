@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Add the versioned `evaluation_coverage` contract and its first cross-sectional VCP producer: distinguish complete negative screens from unavailable/partial evaluation, count missing/provider/plan/history/candidate-limit failures, and show coverage beside results. Exposure Coach excludes explicitly incomplete coverage as missing; replay validates declared coverage without changing legacy outputs. VCP history counts only distinct, newest-first, ISO-dated sessions with finite positive prices; duplicate, undated or out-of-order history is reported as not evaluated (duplicate_sessions, missing_data, invalid_data, unordered_history). Other producers remain follow-up scope (#711).
+
 - FTD follow-up: restart rally tracking after an intraday reference breach without requiring a new closing pivot, preserve active unconfirmed rallies over historical failed events, and display both indices' Day 1 failure levels separately from swing/FTD warning levels (#765, #766).
 
 - Align packaged FTD reference instructions with all-session intraday Day 1 failure, distinct FTD-candle pressure, and unassessed portfolio sizing; remove residual unsupported rate/reliability claims and normalize per-index missing-lifecycle state to NO_SIGNAL (#765, #766).

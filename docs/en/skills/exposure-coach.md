@@ -106,6 +106,11 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 
 The script accepts partial inputs; missing files reduce confidence but do not block execution.
 
+If an input declares `evaluation_coverage`, only valid schema 1.0 with
+`verdict: complete` is used. Partial, unavailable or malformed coverage is warned
+on stderr and excluded as missing; its score and raw context cannot increase
+confidence or supply a bias. Legacy inputs without coverage remain supported.
+
 Canonical macro-regime reports must include nested `regime.confidence` and `composite.data_quality` with valid integer component counts. Missing or malformed availability metadata, `very_low` confidence, and zero usable components are treated as missing critical input. They do not contribute a regime score or bias, and the normal missing-input haircut and confidence cap apply. Never override this degradation by manually copying the report's regime label into the exposure decision.
 
 Canonical theme reports use only `themes.all` with valid bullish/bearish heat

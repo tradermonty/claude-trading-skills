@@ -87,6 +87,11 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 
 ## 5. 確認する出力
 
+入力に `evaluation_coverage` がある場合、schema 1.0の整合する件数と
+`verdict: complete` が必要です。部分評価・評価不能・不正な件数はstderrへ警告し、
+欠損入力として除外します。そのスコアや元の文脈を信頼度・方向性へ戻さないでください。
+このブロックがない従来の入力も引き続き利用できます。
+
 | 出力 | 意味 |
 |---|---|
 | exposure ceiling | 株式に割り当てる上限の目安 |
