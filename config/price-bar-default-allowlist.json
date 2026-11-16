@@ -2,20 +2,6 @@
   "_comment": "Ratchet allowlist for scripts/check_price_bar_defaults.py (issue #655). Each entry is keyed by path + scope (enclosing qualname or <module>) + field; count must equal the findings for that key. Migrate sites, then lower or remove the entry. Never add new entries.",
   "entries": [
     {
-      "path": "skills/canslim-screener/scripts/calculators/leadership_calculator.py",
-      "scope": "calculate_leadership",
-      "field": "close",
-      "count": 4,
-      "reason": "pending #655 migration: canslim-screener"
-    },
-    {
-      "path": "skills/canslim-screener/scripts/calculators/leadership_calculator.py",
-      "scope": "slice_period_return",
-      "field": "close",
-      "count": 2,
-      "reason": "pending #655 migration: canslim-screener"
-    },
-    {
       "path": "skills/edge-candidate-agent/scripts/auto_detect_candidates.py",
       "scope": "build_ticket_payload",
       "field": "close",

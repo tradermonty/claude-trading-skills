@@ -3,4 +3,5 @@
 # skills/<id>/scripts/tests/test_price_bars_contract.py for every id below.
 # Add a skill here when its migration lands.
 - ftd-detector
+- canslim-screener
 - value-dividend-screener

@@ -64,6 +64,16 @@ def generate_markdown_report(results: list[dict], metadata: dict, output_file: s
             + (" (DISABLED via --disable-rs)" if rs_disabled else "")
         )
 
+    exclusions = metadata.get("rs_price_gap_exclusions") or []
+    if exclusions:
+        lines.append("")
+        lines.append(
+            f"> Data quality warning: incomplete screening. {len(exclusions)} candidate(s) "
+            "excluded from ranking because of missing or invalid RS close endpoints: "
+            + ", ".join(item["symbol"] for item in exclusions)
+            + ". See JSON metadata for dated gap diagnostics."
+        )
+
     if rs_disabled:
         lines.append("")
         lines.append(
