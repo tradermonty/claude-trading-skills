@@ -179,10 +179,39 @@ Only a run screened from this same-read bundle with
 
 ## Operating on the FMP Starter plan
 
-~2,371 symbols ≈ 1 estimate call each. With a 350-call per-run budget and the
-750-call daily plan limit, 8 shards (~300 symbols each) collect in 2 shards/day
-over 4 days. After the initial build, only incremental refresh is needed
-(new snapshot per refresh cycle; post-earnings and revised names first).
+~2,371 symbols ≈ 1 estimate call each. The paid FMP plans state their call
+limits per minute, not per day (see the dated note,
+`docs/en/getting-started.md#fmp-plans`). The client starts calls at least
+`FMPClient.RATE_LIMIT_DELAY` (0.30 s) apart, so it sends at most 200 a minute,
+which is under the Starter limit in that note; a 429 is retried once after 60 s.
+The limit that sizes the shards is the per-run call budget.
+
+- **Per-run budget.** A `collect-estimates` run stops at `max_api_calls`
+  (default 350, `--max-api-calls`). A symbol costs one call, or two when the
+  stable endpoint fails and the v3 fallback is tried. The run that freezes the
+  universe also pays for the listing enumeration: one company-screener query
+  per exchange, two more each time a market-cap band saturates, and the same
+  v3 fallback per query.
+- **Shard count.** Choose it so the largest shard fits the budget with room
+  for the enumeration and some fallbacks. Shards are `sha256(symbol) %
+  shard_count`, so they are uneven: 8 shards average ~296 symbols, but in
+  1,000 simulated 2,371-symbol universes the largest of the 8 held 321
+  symbols at the median, 345 at the 99th percentile and 356 at most. 7 shards
+  would put the median largest shard at 363, over the budget; 9 kept every
+  simulated shard at 326 or fewer, for one more run. With 8, the largest
+  shard can occasionally run out of budget; it exits 3 and continues with
+  `--resume`.
+- **Schedule.** Run the 8 shards back to back in one session. Pacing alone
+  is ~90 s per shard (~12 minutes for the universe), plus request latency.
+  A one-session build also keeps the snapshot fresh. Screening measures
+  staleness from the aggregated `oldest_retrieved_at` against
+  `full_snapshot_max_staleness_days` (default 7), so a build spread over four
+  days has used three of those days by the time the last shard lands.
+
+The free Basic plan cannot build a snapshot, because the listing enumeration
+needs the company screener, which that note lists as plan-gated. After the
+initial build, only incremental refresh is needed (new snapshot per refresh
+cycle; post-earnings and revised names first).
 
 ## Shared coverage semantics
 
