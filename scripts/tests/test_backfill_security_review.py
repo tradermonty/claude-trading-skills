@@ -331,3 +331,23 @@ def test_diagnostic_alias_or_rebinding_is_not_exempt(collector, tmp_path, rebind
         + "\ntry:\n    requests.get(url)\nexcept Diagnostic as exc:\n    print(str(exc))\n",
     )
     assert collector._exception_key_leak_findings([script])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "exc = requests.ConnectionError(response.text)",
+        "exc.args = (response.text,)",
+        "other = exc\n    other.args = (response.text,)",
+        "exc.__dict__.update(secret=response.text)",
+    ],
+)
+def test_mutated_diagnostic_binding_is_not_exempt(collector, tmp_path, change):
+    script = _write(
+        tmp_path,
+        "changed.py",
+        'params = {"auth": key}\nclass Diagnostic(ValueError):\n    pass\ntry:\n    raise Diagnostic("fixed")\nexcept Diagnostic as exc:\n    '
+        + change
+        + "\n    print(str(exc))\n",
+    )
+    assert collector._exception_key_leak_findings([script])

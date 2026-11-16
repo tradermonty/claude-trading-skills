@@ -279,6 +279,31 @@ def _fixed_diagnostic_bindings(text: str) -> set[str]:
     handlers = [
         node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler) and node.name
     ]
+
+    def only_stringified(name):
+        if any(
+            not isinstance(item, ast.ExceptHandler) and name in bound_names(item) for item in nodes
+        ):
+            return False
+        # For an exempted variable allow only formatting/str/repr reads. Any
+        # alias, mutation, attribute access or opaque call is unproven.
+        for item in nodes:
+            if not isinstance(item, ast.Name) or item.id != name:
+                continue
+            parent = parents.get(item)
+            if isinstance(parent, ast.FormattedValue) and parent.value is item:
+                continue
+            if (
+                isinstance(parent, ast.Call)
+                and isinstance(parent.func, ast.Name)
+                and parent.func.id in {"str", "repr"}
+                and parent.args == [item]
+                and not parent.keywords
+            ):
+                continue
+            return False
+        return True
+
     return {
         name
         for name in {handler.name for handler in handlers}
@@ -287,6 +312,7 @@ def _fixed_diagnostic_bindings(text: str) -> set[str]:
             for handler in handlers
             if handler.name == name
         )
+        and only_stringified(name)
     }
 
 
