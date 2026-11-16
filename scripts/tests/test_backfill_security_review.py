@@ -243,8 +243,8 @@ def test_exception_leak_counts_against_clean(collector, tmp_path: Path):
     assert checks["clean"] is False
 
 
-def test_known_leaky_skills_are_not_proposed_passed(tmp_path: Path):
-    leaky = [
+def test_remediated_skills_are_clean_when_explicitly_confirmed(tmp_path: Path):
+    remediated = [
         "downtrend-duration-analyzer",
         "value-dividend-screener",
         "dividend-growth-pullback-screener",
@@ -252,14 +252,102 @@ def test_known_leaky_skills_are_not_proposed_passed(tmp_path: Path):
         "canslim-screener",
         "theme-detector",
     ]
-    argv = [a for s in leaky for a in ("--skill", s, "--reviewer-confirmed", s)]
+    argv = [a for s in remediated for a in ("--skill", s, "--reviewer-confirmed", s)]
     report = run(load_module(), argv, tmp_path / "leaky")
-    assert {r["skill_id"] for r in report["results"]} == set(leaky)
+    assert {r["skill_id"] for r in report["results"]} == set(remediated)
     for item in report["results"]:
-        assert item["proposed_value"] == "gap", item["skill_id"]
+        assert item["mechanical"]["exception_key_leak_findings"] == [], item["skill_id"]
+        assert item["proposed_value"] == "passed", item["skill_id"]
 
 
 def test_report_records_process_not_a_person(tmp_path: Path):
     report = run(load_module(), ["--skill", "vcp-screener"], tmp_path / "proc")
     assert "automated scan" in report["process"]
     assert "review_by" not in report
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'class Diagnostic(ValueError):\n    """Fixed parser reason."""\n\nraise Diagnostic("missing_columns")',
+        'class Diagnostic(RuntimeError):\n    pass\n\nraise Diagnostic("Fixed plan guidance. " "Use another plan.")',
+    ],
+)
+def test_fixed_local_diagnostic_is_not_request_exception(collector, tmp_path, body):
+    script = _write(
+        tmp_path,
+        "safe.py",
+        'params = {"auth": key}\n'
+        + body
+        + "\ntry:\n    work()\nexcept Diagnostic as exc:\n    print(str(exc))\n",
+    )
+    assert collector._exception_key_leak_findings([script]) == []
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "class Diagnostic(ValueError):\n    pass\n\nraise Diagnostic(response.text)",
+        'class Diagnostic(requests.RequestException):\n    pass\n\nraise Diagnostic("fixed")',
+        'class Diagnostic(ValueError):\n    def __str__(self):\n        return key\n\nraise Diagnostic("fixed")',
+    ],
+)
+def test_unproven_custom_exception_stays_flagged(collector, tmp_path, definition):
+    script = _write(
+        tmp_path,
+        "unsafe.py",
+        'params = {"auth": key}\n'
+        + definition
+        + "\ntry:\n    work()\nexcept Diagnostic as exc:\n    print(str(exc))\n",
+    )
+    assert collector._exception_key_leak_findings([script])
+
+
+def test_same_binding_for_request_exception_stays_flagged(collector, tmp_path):
+    script = _write(
+        tmp_path,
+        "mixed.py",
+        'params = {"auth": key}\nclass Diagnostic(ValueError):\n    pass\nraise Diagnostic("fixed")\ntry:\n    work()\nexcept Diagnostic as exc:\n    print(str(exc))\ntry:\n    requests.get(url)\nexcept requests.RequestException as exc:\n    print(str(exc))\n',
+    )
+    assert collector._exception_key_leak_findings([script])
+
+
+@pytest.mark.parametrize(
+    "rebind",
+    [
+        "factory = Diagnostic\nraise factory(response.text)",
+        "Diagnostic = requests.RequestException",
+        "class Diagnostic(requests.RequestException):\n    pass",
+        "ValueError = requests.RequestException",
+        "def work(Diagnostic):\n    pass",
+    ],
+)
+def test_diagnostic_alias_or_rebinding_is_not_exempt(collector, tmp_path, rebind):
+    script = _write(
+        tmp_path,
+        "rebound.py",
+        'params = {"auth": key}\nclass Diagnostic(ValueError):\n    pass\nDiagnostic("fixed")\n'
+        + rebind
+        + "\ntry:\n    requests.get(url)\nexcept Diagnostic as exc:\n    print(str(exc))\n",
+    )
+    assert collector._exception_key_leak_findings([script])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "exc = requests.ConnectionError(response.text)",
+        "exc.args = (response.text,)",
+        "other = exc\n    other.args = (response.text,)",
+        "exc.__dict__.update(secret=response.text)",
+    ],
+)
+def test_mutated_diagnostic_binding_is_not_exempt(collector, tmp_path, change):
+    script = _write(
+        tmp_path,
+        "changed.py",
+        'params = {"auth": key}\nclass Diagnostic(ValueError):\n    pass\ntry:\n    raise Diagnostic("fixed")\nexcept Diagnostic as exc:\n    '
+        + change
+        + "\n    print(str(exc))\n",
+    )
+    assert collector._exception_key_leak_findings([script])

@@ -24,7 +24,7 @@ logical checks, the script makes 6 HTTP calls per run (3 FMP +
 3 Alpaca). The cost remains trivial under both API rate limits.
 
 Returns 0 on all four required gates passing. Logs status code +
-first 200 chars of the error body on failures.
+exception class on failures; raw provider error bodies and malformed payloads are never printed.
 """
 
 from __future__ import annotations
@@ -36,6 +36,8 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import requests
+
+# Request exception messages can embed credential-bearing URLs. Log only their class.
 
 # Ensure the skill's adapters/ is importable for the Alpaca 404 check.
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -52,11 +54,6 @@ ALPACA_PAPER = "https://paper-api.alpaca.markets"
 ALPACA_LIVE = "https://api.alpaca.markets"
 
 REQUIRED_HISTORICAL_KEYS = {"date", "open", "high", "low", "close", "volume"}
-
-
-def _truncate(body: str, n: int = 200) -> str:
-    body = body.strip()
-    return body if len(body) <= n else body[:n] + "..."
 
 
 def _print_pass(name: str, detail: str) -> None:
@@ -88,17 +85,17 @@ def check_fmp_historical(api_key: str) -> bool:
     try:
         r = requests.get(FMP_STABLE_HIST, params=params, timeout=15)
     except requests.RequestException as e:
-        _print_fail(name, f"network error: {e}")
+        _print_fail(name, f"network error: {type(e).__name__}")
         return False
 
     if r.status_code != 200:
-        _print_fail(name, f"HTTP {r.status_code} — {_truncate(r.text)}")
+        _print_fail(name, f"HTTP {r.status_code}")
         return False
 
     try:
         data = r.json()
     except ValueError:
-        _print_fail(name, f"non-JSON body: {_truncate(r.text)}")
+        _print_fail(name, "non-JSON response body omitted")
         return False
 
     if not isinstance(data, list) or not data:
@@ -135,22 +132,22 @@ def check_fmp_profile(api_key: str) -> bool:
         try:
             r = requests.get(url, params=params, timeout=15)
         except requests.RequestException as e:
-            last_detail = f"network error: {e}"
+            last_detail = f"network error: {type(e).__name__}"
             continue
         if r.status_code != 200:
-            last_detail = f"HTTP {r.status_code} — {_truncate(r.text)}"
+            last_detail = f"HTTP {r.status_code}"
             continue
         try:
             data = r.json()
         except ValueError:
-            last_detail = f"non-JSON body: {_truncate(r.text)}"
+            last_detail = "non-JSON response body omitted"
             continue
         if isinstance(data, list) and data:
             cap = data[0].get("mktCap", data[0].get("marketCap"))
             if cap is not None:
                 _print_pass(name, f"marketCap={cap}")
                 return True
-        last_detail = f"expected list with market cap on first item, got {data!r:.200}"
+        last_detail = f"expected list with market cap on first item, got {type(data).__name__}"
 
     _print_fail(name, last_detail)
     return False
@@ -172,18 +169,17 @@ def check_fmp_sp500(api_key: str) -> bool:
         try:
             r = requests.get(url, params=params, timeout=15)
         except requests.RequestException as e:
-            last_detail = f"network error (optional gate): {e}"
+            last_detail = f"network error (optional gate): {type(e).__name__}"
             continue
         if r.status_code != 200:
             last_detail = (
-                f"HTTP {r.status_code} — likely entitlement (skip on Free); "
-                f"body: {_truncate(r.text)}"
+                f"HTTP {r.status_code} — likely entitlement (skip on Free); response body omitted"
             )
             continue
         try:
             data = r.json()
         except ValueError:
-            last_detail = f"non-JSON body: {_truncate(r.text)}"
+            last_detail = "non-JSON response body omitted"
             continue
         if isinstance(data, list) and data:
             _print_pass(name, f"{len(data)} constituents")
@@ -203,17 +199,17 @@ def check_alpaca_assets_aapl(api_key: str, secret: str, paper: bool) -> bool:
     try:
         r = requests.get(url, headers=headers, timeout=15)
     except requests.RequestException as e:
-        _print_fail(name, f"network error: {e}")
+        _print_fail(name, f"network error: {type(e).__name__}")
         return False
 
     if r.status_code != 200:
-        _print_fail(name, f"HTTP {r.status_code} — {_truncate(r.text)}")
+        _print_fail(name, f"HTTP {r.status_code}")
         return False
 
     try:
         data = r.json()
     except ValueError:
-        _print_fail(name, f"non-JSON body: {_truncate(r.text)}")
+        _print_fail(name, "non-JSON response body omitted")
         return False
 
     missing = {"shortable", "easy_to_borrow"} - set(data.keys())
@@ -241,13 +237,13 @@ def check_alpaca_404_graceful(api_key: str, secret: str, paper: bool) -> bool:
     try:
         r = requests.get(url, headers=headers, timeout=15)
     except requests.RequestException as e:
-        _print_fail(name, f"network error on raw 404 probe: {e}")
+        _print_fail(name, f"network error on raw 404 probe: {type(e).__name__}")
         return False
 
     if r.status_code != 404:
         _print_fail(
             name,
-            f"expected HTTP 404 from raw probe, got {r.status_code} — {_truncate(r.text)}",
+            f"expected HTTP 404 from raw probe, got {r.status_code}",
         )
         return False
 
@@ -258,11 +254,11 @@ def check_alpaca_404_graceful(api_key: str, secret: str, paper: bool) -> bool:
         adapter = AlpacaInventoryAdapter(api_key=api_key, secret_key=secret, paper=paper)
         status = adapter.get_inventory_status("XXXXXFAKE")
     except Exception as e:  # noqa: BLE001 — we explicitly want any raise to fail this gate
-        _print_fail(name, f"AlpacaInventoryAdapter raised on 404: {type(e).__name__}: {e}")
+        _print_fail(name, f"AlpacaInventoryAdapter raised on 404: {type(e).__name__}")
         return False
 
     if status.get("error") != "asset_not_found":
-        _print_fail(name, f"expected error=asset_not_found, got {status!r:.200}")
+        _print_fail(name, "expected error=asset_not_found; adapter returned unexpected status")
         return False
     if status.get("can_open_new_short") is not False:
         _print_fail(

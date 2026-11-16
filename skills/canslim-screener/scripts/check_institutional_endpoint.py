@@ -10,6 +10,8 @@ from datetime import date
 
 import requests
 
+# Request exception messages can embed credential-bearing URLs. Log only their class.
+
 
 def _latest_completed_quarter(as_of=None):
     """(year, quarter) of the most recent completed calendar quarter."""
@@ -79,7 +81,7 @@ def check_institutional_endpoint():
         return False
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ ERROR: Request failed - {e}", file=sys.stderr)
+        print(f"❌ ERROR: Request failed - {type(e).__name__}", file=sys.stderr)
         return False
 
 

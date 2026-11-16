@@ -110,7 +110,8 @@ class FINVIZClient:
                 return set()
 
         except requests.exceptions.RequestException as e:
-            print(f"ERROR: FINVIZ request exception: {e}", file=sys.stderr)
+            # Exception text can include a credential-bearing request URL.
+            print(f"ERROR: FINVIZ request exception: {type(e).__name__}", file=sys.stderr)
             return set()
 
 

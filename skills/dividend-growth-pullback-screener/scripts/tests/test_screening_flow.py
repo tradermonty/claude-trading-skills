@@ -94,7 +94,9 @@ class TestFinvizClient:
         client = mod.FINVIZClient("k")
         client.session = FakeSession([mod.requests.exceptions.ConnectionError("boom")])
         assert client.screen_stocks() == set()
-        assert "boom" in capsys.readouterr().err
+        output = capsys.readouterr().err
+        assert "ConnectionError" in output
+        assert "boom" not in output
 
 
 # ---------------------------------------------------------------------------

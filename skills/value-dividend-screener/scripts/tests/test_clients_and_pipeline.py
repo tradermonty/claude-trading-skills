@@ -61,7 +61,9 @@ class TestFINVIZClient:
     def test_request_exception_returns_empty(self, capsys):
         client, _ = self._client(exc=requests.exceptions.ConnectionError("boom"))
         assert client.screen_stocks() == set()
-        assert "boom" in capsys.readouterr().err
+        output = capsys.readouterr().err
+        assert "ConnectionError" in output
+        assert "boom" not in output
 
 
 # --------------------------------------------------------------------------

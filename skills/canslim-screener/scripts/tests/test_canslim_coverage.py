@@ -731,7 +731,9 @@ class TestCheckInstitutionalEndpoint:
 
         monkeypatch.setattr(cie.requests, "get", boom)
         assert cie.check_institutional_endpoint() is False
-        assert "Request failed - timed out" in capsys.readouterr().err
+        output = capsys.readouterr().err
+        assert "Request failed - Timeout" in output
+        assert "timed out" not in output
 
     @pytest.mark.parametrize("key,code", [(None, 1), (TEST_KEY, 0)])
     def test_script_entrypoint_exit_codes(self, monkeypatch, capsys, key, code):

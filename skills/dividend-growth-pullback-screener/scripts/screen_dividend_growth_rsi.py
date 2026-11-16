@@ -34,6 +34,8 @@ from typing import Optional
 
 import requests
 
+# Request exception messages can embed credential-bearing URLs. Log only their class.
+
 
 class FINVIZClient:
     """Client for FINVIZ Elite API"""
@@ -105,7 +107,7 @@ class FINVIZClient:
                 return set()
 
         except requests.exceptions.RequestException as e:
-            print(f"ERROR: FINVIZ request exception: {e}", file=sys.stderr)
+            print(f"ERROR: FINVIZ request exception: {type(e).__name__}", file=sys.stderr)
             return set()
 
 
