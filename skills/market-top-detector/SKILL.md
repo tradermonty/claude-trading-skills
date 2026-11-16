@@ -212,3 +212,17 @@ quote endpoints are not point-in-time sources.
 - **Distribution day questions:** Load `distribution_day_guide.md`
 - **Historical context:** Load `historical_tops.md`
 - **Regular execution:** References not needed - script handles scoring
+
+## Price-bar availability
+
+Missing, non-finite or invalid OHLCV values are never replaced with zero. Price
+inputs must be positive finite numbers; actual volume zero is valid. Existing
+close-to-adjClose and high-to-close fallbacks apply only when the primary key is
+absent, never when its value is invalid. A gap in a used window makes that
+component unavailable with `data_gaps` diagnostics; bars are not compressed.
+Either index's gap invalidates the maximum DD comparison. Unavailable components
+have zero composite contribution and render as N/A. When no components remain,
+`composite_score` is null, the zone is Unavailable and budget is Not assessed.
+Exposure Coach treats that report as missing critical input; the strategy
+synthesizer refuses to generate an allocation from it. Normal-data formulas,
+weights and partial-fetch policies are unchanged.

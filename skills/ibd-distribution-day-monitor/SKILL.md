@@ -32,6 +32,7 @@ Do NOT use this skill to:
 ## Inputs
 - Symbols (default: QQQ, SPY) and lookback (default 80 trading sessions).
 - Optional `--as-of YYYY-MM-DD` for backtesting against a historical session.
+- Optional `--config` for a readable UTF-8 YAML mapping. Empty/null documents use defaults. Configuration read/parse errors and invalid top-level, `data`, `strategy_context` or `indexes` shapes return exit 1 on stderr before provider access; correct the file/path and retry. YAML error diagnostics do not echo file contents.
 - Strategy context: instrument (TQQQ or QQQ), current exposure %, base trailing stop %.
 - FMP API key via `--api-key`, `config.data.api_key`, or `FMP_API_KEY` env var (in that priority order).
 

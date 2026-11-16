@@ -517,7 +517,8 @@ class TestLeadershipCalculator:
     def test_invalid_start_price(self):
         prices = _series(0, 10, 60)
         result = calculate_leadership(prices)
-        assert result["error"] == "Invalid start price (zero or negative)"
+        assert result["data_available"] is False
+        assert result["rs_rating"] == "Unavailable"
         assert result["score"] == 0
 
     def test_price_calculation_error(self):
@@ -525,7 +526,8 @@ class TestLeadershipCalculator:
         prices[0]["close"] = None
         result = calculate_leadership(prices)
         assert result["score"] == 0
-        assert result["error"].startswith("Price calculation error")
+        assert result["error"] == "Invalid or missing RS price endpoint"
+        assert result["data_gaps"]["stock"]["bad_bars"] == 2
 
     def test_legacy_precomputed_benchmark_path(self):
         prices = _series(100, 160, 60)  # +60%
@@ -578,18 +580,20 @@ class TestLeadershipCalculator:
         assert result["quality_warning"] is None
         assert "+20.0% vs benchmark" in result["interpretation"]
 
-    def test_benchmark_start_price_zero_leaves_legacy_benchmark_none(self):
+    def test_benchmark_start_price_zero_is_unavailable(self):
         prices = _series(100, 130, 55)
         bench = _series(0, 10, 55)
         result = calculate_leadership(prices, sp500_historical=bench)
         assert result["sp500_52w_performance"] is None
-        assert result["score"] == 76
+        assert result["score"] == 0
+        assert result["data_available"] is False
 
     def test_benchmark_with_missing_close_flags_warning(self):
         prices = _series(100, 130, 55)
         bench = [{"date": f"d{i:03d}", "close": None} for i in range(55)]
         result = calculate_leadership(prices, sp500_historical=bench)
-        assert result["quality_warning"] == "Benchmark performance calculation failed"
+        assert result["data_available"] is False
+        assert result["data_gaps"]["benchmark"]["bad_bars"] == 2
 
     def test_full_multi_period_relative_path(self):
         prices = _series(100, 200, 260, dates_desc=True)

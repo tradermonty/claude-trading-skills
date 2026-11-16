@@ -22,7 +22,8 @@ from datetime import date, datetime, timedelta
 from thresholds import (
     DIVIDEND_CUT_LOOKBACK_DAYS,
     DIVIDEND_CUT_REL_TOL,
-    DIVIDEND_EQUALITY_EPS,
+    DIVIDEND_EQUALITY_MIN_EPS,
+    DIVIDEND_EQUALITY_REL_TOL,
     FLOOR_FRESHNESS_BAND_PP,
     FREEZE_GRACE_DAYS,
     MIN_REGULAR_PAYS,
@@ -123,6 +124,23 @@ def _is_explicit_special(label: object) -> bool:
         return False
     low = label.lower()
     return any(k in low for k in _SPECIAL_KEYWORDS)
+
+
+def _rate_increased(new: float, old: float) -> bool:
+    """True when `new` exceeds `old` by more than the raise tolerance (#770).
+
+    The tolerance is max(absolute floor, relative tol * prior amount), so a
+    small monthly raise is detected while sub-cent noise stays "equal".
+    """
+    return new > old + max(DIVIDEND_EQUALITY_MIN_EPS, DIVIDEND_EQUALITY_REL_TOL * abs(old))
+
+
+def _rates_equal(a: float, b: float) -> bool:
+    """True when two per-payment rates are equal within the tolerance (#770)."""
+    return abs(a - b) <= max(
+        DIVIDEND_EQUALITY_MIN_EPS,
+        DIVIDEND_EQUALITY_REL_TOL * max(abs(a), abs(b)),
+    )
 
 
 def _sum_window(pays: list[tuple[date, float]], end: date, start_days: int, end_days: int) -> float:
@@ -292,7 +310,11 @@ def analyze_dividends(
     latest_date, latest_amt = regular[-1]
     latest_annualized = latest_amt * ppy if ppy else None
 
-    asof = all_dates[-1]
+    # #770 finding 2: the TTM window ends at the evaluation date, not at the
+    # latest payment. Without an evaluation date the window still ends at the
+    # latest payment (previous behavior).
+    ref_date = _parse_date(str(as_of_date)) if as_of_date else None
+    asof = ref_date if ref_date is not None else all_dates[-1]
     asof_reg = regular[-1][0]
     regular_ttm = _sum_window(regular, asof, 366, 0)
     incl_special_ttm = _sum_window(all_pays, asof, 366, 0)
@@ -338,12 +360,11 @@ def analyze_dividends(
     # --- last increase date (ascending scan over regular amounts) ---
     last_increase: date | None = None
     for i in range(1, len(policy_regular)):
-        if policy_regular[i][1] > policy_regular[i - 1][1] + DIVIDEND_EQUALITY_EPS:
+        if _rate_increased(policy_regular[i][1], policy_regular[i - 1][1]):
             last_increase = policy_regular[i][0]
 
     # --- freeze / cut via year-over-year per-pay RATE (frequency-independent,
     #     robust to rolling-window pay-count drift; v2.1 R-2) ---
-    eps = DIVIDEND_EQUALITY_EPS
     # Keep a material reduction visible through subsequent flat payments.
     # Semiannual interim/final payments can differ seasonally: compare their
     # rolling annual sums instead of comparing the larger final with interim.
@@ -373,7 +394,7 @@ def analyze_dividends(
     if prior_rate is not None:
         if cur_rate < prior_rate * (1 - DIVIDEND_CUT_REL_TOL):
             cut_flag = True
-        elif abs(cur_rate - prior_rate) <= eps:
+        elif _rates_equal(cur_rate, prior_rate):
             cadence_days = {"monthly": 30, "quarterly": 91, "semiannual": 182}.get(cadence, 365)
             days_since_increase = (asof_reg - last_increase).days if last_increase else 10_000
             time_confirms = days_since_increase > cadence_days + FREEZE_GRACE_DAYS
@@ -403,7 +424,6 @@ def analyze_dividends(
         cadence, 365
     )
     suspension_flag = False
-    ref_date = _parse_date(str(as_of_date)) if as_of_date else None
     if ref_date is not None:
         days_since_last_pay = (ref_date - asof_reg).days
         if days_since_last_pay > cadence_days + FREEZE_GRACE_DAYS:

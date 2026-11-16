@@ -72,7 +72,7 @@ def slice_period_return(prices: list[dict], days: int) -> Optional[float]:
     is agnostic to whether FMP returned newest-first or oldest-first.
 
     Returns None when there are fewer than ``days`` bars available, or when the
-    starting close is not strictly positive.
+    starting or ending close is missing, non-finite, boolean, or non-positive.
     """
     if not prices or days <= 0:
         return None
@@ -82,18 +82,40 @@ def slice_period_return(prices: list[dict], days: int) -> Optional[float]:
         return None
 
     window = sorted_prices[-days:]
-    try:
-        start_price = window[0].get("close", 0)
-        end_price = window[-1].get("close", 0)
-    except (AttributeError, KeyError, TypeError):
-        return None
+    from _price_bars import read_price
 
-    if not isinstance(start_price, (int, float)) or not isinstance(end_price, (int, float)):
-        return None
-    if start_price <= 0:
+    start_price = read_price(window[0], "close")
+    end_price = read_price(window[-1], "close")
+    if start_price is None or end_price is None:
         return None
 
     return ((end_price - start_price) / start_price) * 100
+
+
+def _endpoint_gaps(prices, periods=(), *, include_full=False):
+    """Validate exactly the closes consumed by full-window/period returns."""
+    from _price_bars import find_bar_gaps
+
+    ordered = _sort_prices_ascending(prices)
+    indices = set()
+    if ordered and include_full:
+        indices.update((0, len(ordered) - 1))
+    for days in periods:
+        if days > 0 and len(ordered) >= days:
+            indices.update((len(ordered) - days, len(ordered) - 1))
+    return find_bar_gaps(
+        [ordered[index] for index in sorted(indices)], ["close"], order="chronological"
+    )
+
+
+def _unavailable_price_result(data_gaps, rs_benchmark):
+    result = _empty_result(
+        error="Invalid or missing RS price endpoint",
+        interpretation="RS unavailable: consumed close data is missing or invalid",
+        rs_benchmark=rs_benchmark,
+    )
+    result.update(data_available=False, rs_rating="Unavailable", data_gaps=data_gaps)
+    return result
 
 
 def compute_multi_period_rs(
@@ -153,7 +175,14 @@ def compute_multi_period_rs(
     rel_available = [label for label in available if relative_returns.get(label) is not None]
     weighted_relative = _weighted_average(relative_returns, weights, rel_available)
 
+    data_gaps = {}
+    for role, prices in (("stock", stock_prices), ("benchmark", benchmark_prices or [])):
+        gaps = _endpoint_gaps(prices, periods_days.values())
+        if gaps["bad_bars"]:
+            data_gaps[role] = gaps
+
     return {
+        **({"data_gaps": data_gaps} if data_gaps else {}),
         "rs_3m_return": _round_or_none(stock_returns.get("3m")),
         "rs_6m_return": _round_or_none(stock_returns.get("6m")),
         "rs_12m_return": _round_or_none(stock_returns.get("12m")),
@@ -253,12 +282,29 @@ def calculate_leadership(
             rs_benchmark=rs_benchmark,
         )
 
+    # Legacy precomputed returns consume only the stock full-window endpoints.
+    periods = DEFAULT_PERIODS_DAYS.values() if sp500_performance is None else ()
+    data_gaps = {}
+    stock_gaps = _endpoint_gaps(historical_prices, periods, include_full=True)
+    if stock_gaps["bad_bars"]:
+        data_gaps["stock"] = stock_gaps
+    if sp500_performance is None and sp500_historical:
+        benchmark_gaps = _endpoint_gaps(
+            sp500_historical, periods, include_full=len(sp500_historical) >= 50
+        )
+        if benchmark_gaps["bad_bars"]:
+            data_gaps["benchmark"] = benchmark_gaps
+    if data_gaps:
+        return _unavailable_price_result(data_gaps, rs_benchmark)
+
+    from _price_bars import read_price
+
     # Compute legacy 365-day full-window stock performance for backward compatibility.
     # This preserves the existing semantics of stock_52w_performance.
     try:
         sorted_stock = _sort_prices_ascending(historical_prices)
-        start_price = sorted_stock[0].get("close", 0)
-        end_price = sorted_stock[-1].get("close", 0)
+        start_price = read_price(sorted_stock[0], "close")
+        end_price = read_price(sorted_stock[-1], "close")
         if start_price <= 0:
             return _empty_result(
                 error="Invalid start price (zero or negative)",
@@ -294,8 +340,8 @@ def calculate_leadership(
     if sp500_historical and len(sp500_historical) >= 50:
         try:
             sorted_bench = _sort_prices_ascending(sp500_historical)
-            bench_start = sorted_bench[0].get("close", 0)
-            bench_end = sorted_bench[-1].get("close", 0)
+            bench_start = read_price(sorted_bench[0], "close")
+            bench_end = read_price(sorted_bench[-1], "close")
             if bench_start > 0:
                 legacy_benchmark_performance = ((bench_end - bench_start) / bench_start) * 100
                 legacy_relative_performance = (

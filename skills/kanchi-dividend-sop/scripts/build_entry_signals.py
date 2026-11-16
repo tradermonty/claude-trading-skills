@@ -84,6 +84,33 @@ def to_float(value: Any) -> float | None:
         return None
 
 
+def _quote_price_date(quote: dict[str, Any] | None) -> str | None:
+    """ISO price date from an FMP quote row (#770).
+
+    FMP /stable/quote carries `timestamp` (Unix epoch seconds). A
+    millisecond epoch is divided down; a `date` string is accepted as a
+    fallback. Returns None when neither is usable, so a missing date is
+    explicit instead of silently defaulting to the run date.
+    """
+    if not isinstance(quote, dict):
+        return None
+    ts = to_float(quote.get("timestamp"))
+    if ts is not None:
+        if ts > 1e12:  # millisecond epoch
+            ts /= 1000
+        try:
+            return datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat()
+        except (ValueError, OverflowError, OSError):
+            return None
+    raw = quote.get("date")
+    if isinstance(raw, str) and raw.strip():
+        try:
+            return datetime.strptime(raw.strip(), "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            return None
+    return None
+
+
 def normalize_metrics_yields(metrics: list[dict[str, Any]], max_points: int = 5) -> list[float]:
     yields_pct: list[float] = []
     for item in metrics:
@@ -234,6 +261,10 @@ def build_entry_row(
     as_of: str | None = None,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
+    # #770 finding 3: record the date the price is as of, and flag it when it
+    # differs from the run's as_of (a stale quote silently skews yields).
+    price_date = _quote_price_date(quote)
+    price_date_mismatch = bool(price_date and as_of and price_date != as_of)
 
     # WS-1: prefer the regular run-rate from declared-dividend history over
     # profile.lastDiv (which is a trailing/TTM figure that lagged the latest
@@ -310,6 +341,8 @@ def build_entry_row(
 
     if target_withheld_reason:
         notes.append(target_withheld_reason)
+    if price_date_mismatch:
+        notes.append("price_date_mismatch")
 
     row: dict[str, Any] = {
         "ticker": ticker,
@@ -320,6 +353,8 @@ def build_entry_row(
         "provider_avg_5y_yield_pct": provider_avg_yield,
         "signal": signal,
         "price": round(price, 2) if price is not None else None,
+        "price_date": price_date,
+        "price_date_mismatch": price_date_mismatch,
         "annual_dividend_per_share": round(annual_dividend, 4)
         if annual_dividend is not None
         else None,
@@ -479,6 +514,7 @@ def build_entry_row(
     row["verdict_reasons"] = final.reasons
     row["provenance"] = {
         "price_source": "fmp_quote" if quote else None,
+        "price_date": price_date,
         "dividend_source": "fmp_stock_dividend" if dividend_history else "fmp_profile_lastDiv",
         "dividend_dates_used": (basis.dividend_dates_used if basis else []),
         "payout_source": (financials or {}).get("adjusted_eps_source", "UNAVAILABLE"),
@@ -530,9 +566,9 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
         "Step-5 timing — never act on it alone (a TRIGGERED row can be "
         "HOLD-REVIEW / T1-blocked).",
         "",
-        "| Ticker | Verdict | T1 Blocked | Signal | Price | Reg Yield% | "
+        "| Ticker | Verdict | T1 Blocked | Signal | Price | Price Date | Reg Yield% | "
         "TTM Yield% | Step1 | Safety | Event Scan | Pre-order Blockers |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|",
+        "|---|---|---|---:|---|---:|---:|---|---|---|---|---|",
     ]
 
     for row in rows:
@@ -541,13 +577,14 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
         ev = row.get("event_scan", {})
         blockers = ";".join(row.get("pre_order_blockers", [])) or "-"
         lines.append(
-            "| {ticker} | {verdict} | {t1} | {signal} | {price} | {ry} | "
+            "| {ticker} | {verdict} | {t1} | {signal} | {price} | {pdate} | {ry} | "
             "{ty} | {s1} | {safety} | {ev} | {blk} |".format(
                 ticker=row.get("ticker", ""),
                 verdict=row.get("verdict", "-"),
                 t1="YES" if row.get("t1_blocked") else "no",
                 signal=row.get("signal", ""),
                 price=row.get("price", ""),
+                pdate=row.get("price_date") or "-",
                 ry=db.get("regular_forward_yield_pct", ""),
                 ty=db.get("ttm_yield_pct", ""),
                 s1=row.get("step1_verdict", "-"),
@@ -568,6 +605,15 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
                     f"`{row['historical_yield_basis']}`.",
                 ]
             )
+    for row in rows:
+        if row.get("price_date_mismatch"):
+            lines.extend(
+                [
+                    "",
+                    f"- {row['ticker']}: price as of `{row.get('price_date')}` "
+                    f"differs from run as_of `{as_of}`.",
+                ]
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -585,6 +631,8 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
         "event_scan_result",
         "pre_order_blockers",
         "price",
+        "price_date",
+        "price_date_mismatch",
         "annual_dividend_per_share",
         "regular_forward_yield_pct",
         "ttm_yield_pct",

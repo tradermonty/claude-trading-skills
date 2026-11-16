@@ -194,3 +194,15 @@ Present the generated Markdown report to the user, highlighting:
 - `skills/market-top-detector/scripts/scenario_engine.py`
 - `skills/market-top-detector/scripts/scorer.py`
 - `skills/market-top-detector/scripts/utils.py`
+
+## Missing price bars
+
+A missing or invalid field in a used price window makes the component unavailable
+with dated `data_gaps` diagnostics. Zero volume is valid; zero prices are not.
+Existing missing-key fallbacks remain, but invalid primary values cannot be
+rescued by another field. No bars are dropped or replaced with zero. Markdown
+shows N/A and unavailable components contribute no weight. If every component
+is unavailable, the JSON score is null, zone is Unavailable, and risk budget is
+Not assessed. Exposure Coach treats this as missing input; the strategy
+synthesizer stops before producing allocations. This is missing-data handling,
+not a change to the valid-data risk scoring formula or policy calibration.

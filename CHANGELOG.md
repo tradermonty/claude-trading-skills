@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- kanchi-dividend-sop: detect small monthly dividend raises with a relative raise/freeze tolerance instead of the flat $0.005 per-payment epsilon, end the TTM window at the run's evaluation date instead of the latest payment, and record each row's price date (from the FMP quote timestamp) with a mismatch flag when it differs from the run date. Output schema version 5 (#770).
+
 - Pre-Trade Discipline Gate can review a two-week experiment for one approved rule. Count applicable decisions, including compliant passes, and group exceptions by session. The summary omits the adherence rate until the window ends and enough decisions have been assessed (Refs #712).
 
 - kanchi-dividend-sop: route payout-safety assessment by FMP industry as well as sector, so insurers (e.g. ORI, sector "Financial Services", industry "Insurance - Property & Casualty") take the insurer path instead of the bank path and REITs (e.g. O) take a new AFFO-based REIT path instead of the consumer triad. The routing decision and its source (industry, sector, or explicit override) are recorded on the assessment and the entry row, and an unrecognized sector with no usable industry yields HOLD-REVIEW instead of silently applying another sector's rules (#771).

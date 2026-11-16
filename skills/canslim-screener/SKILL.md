@@ -96,6 +96,21 @@ pip install requests beautifulsoup4 lxml
 
 ---
 
+### RS price data quality
+
+The L calculator requires positive, finite, non-boolean closes at the exact
+full-window and available 3m/6m/12m return endpoints. Missing or invalid consumed
+stock or supplied benchmark closes produce `data_available: false`, an
+`Unavailable` RS rating, and dated `data_gaps`. The zero score is an internal
+placeholder, not measured weak performance. These candidates are excluded from
+ranking; JSON metadata and Markdown warn when screening is incomplete. If no
+rankable candidates remain and any candidate was excluded for RS price gaps,
+the CLI exits with code 1 before writing reports. Unused interior closes do not
+change returns, and bars are not dropped or compressed. Absent or insufficient
+benchmark history retains the existing absolute-performance fallback and 20%
+penalty. `--disable-rs` retains its explicit neutral L=50 behavior.
+
+
 ## Workflow
 
 ### Step 1: Verify API Access and Requirements

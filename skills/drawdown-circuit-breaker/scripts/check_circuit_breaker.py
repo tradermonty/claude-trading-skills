@@ -208,7 +208,7 @@ def parse_as_of(value: str | None) -> datetime:
 def _load_config_file(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {}
-    with path.open() as f:
+    with path.open(encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, dict):
         raise ValueError("--config must be a JSON object")

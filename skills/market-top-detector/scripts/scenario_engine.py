@@ -28,6 +28,8 @@ def generate_scenarios(
     Returns:
         List of 4 scenario dicts with name, changes, new_score, new_zone
     """
+    if calculate_composite_score(component_scores, data_availability)["composite_score"] is None:
+        return []
     scenarios = []
 
     # Scenario 1: Breadth Deterioration

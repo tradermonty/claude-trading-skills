@@ -558,3 +558,70 @@ def test_main_fails_when_workflows_dir_missing(tmp_path: Path) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+@pytest.mark.parametrize("lang", ["en", "ja"])
+@pytest.mark.parametrize(
+    "invalid_item", [{"Review budget": "before running"}, 7, True, None, [], "", "   "]
+)
+def test_render_rejects_invalid_english_review_items(
+    workflows_dir: Path, lang: str, invalid_item
+) -> None:
+    make_workflow(workflows_dir, manual_review=[invalid_item])
+    with pytest.raises(ValueError, match=r"manual_review\[0\] must be a non-empty string"):
+        render_page(load_workflows(workflows_dir), lang)
+
+
+@pytest.mark.parametrize("lang", ["en", "ja"])
+@pytest.mark.parametrize("invalid_list", [None, "Review this", {"Review": "this"}])
+def test_render_rejects_invalid_english_review_collection(
+    workflows_dir: Path, lang: str, invalid_list
+) -> None:
+    make_workflow(workflows_dir, manual_review=invalid_list)
+    with pytest.raises(ValueError, match=r"\.manual_review must be a list"):
+        render_page(load_workflows(workflows_dir), lang)
+
+
+@pytest.mark.parametrize("lang", ["en", "ja"])
+def test_render_rejects_missing_english_review(workflows_dir: Path, lang: str) -> None:
+    wf = make_workflow(workflows_dir)
+    del wf["manual_review"]
+    _write_workflow(workflows_dir, wf)
+    with pytest.raises(ValueError, match=r"\.manual_review must be a list"):
+        render_page(load_workflows(workflows_dir), lang)
+
+
+@pytest.mark.parametrize(
+    "lang,expected", [("en", "Review budget: before running"), ("ja", "実行前に予算を確認する。")]
+)
+def test_quoted_colon_renders_text_but_unquoted_mapping_is_rejected(
+    workflows_dir: Path, lang: str, expected: str
+) -> None:
+    make_workflow(
+        workflows_dir,
+        manual_review=["Review budget: before running"],
+        manual_review_ja=["実行前に予算を確認する。"],
+    )
+    assert f"- {expected}\n" in render_page(load_workflows(workflows_dir), lang)
+    path = workflows_dir / "sample-workflow.yaml"
+    text = path.read_text(encoding="utf-8")
+    assert "'Review budget: before running'" in text
+    path.write_text(
+        text.replace("'Review budget: before running'", "Review budget: before running"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match=r"manual_review\[0\]"):
+        render_page(load_workflows(workflows_dir), lang)
+
+
+def test_earnings_weekly_review_is_text_and_renders_both_languages() -> None:
+    root = Path(__file__).resolve().parents[2]
+    wf = yaml.safe_load((root / "workflows/earnings-weekly.yaml").read_text(encoding="utf-8"))
+    item = wf["manual_review"][3]
+    assert isinstance(item, str)
+    assert "consider --min-market-cap: the analyzer's default budget is 200 calls" in item
+    for lang, review in [("en", item), ("ja", wf["manual_review_ja"][3])]:
+        page = render_page([wf], lang)
+        assert f"- {review}\n" in page
+        committed = (root / f"docs/{lang}/workflows.md").read_text(encoding="utf-8")
+        assert f"- {review}\n" in committed

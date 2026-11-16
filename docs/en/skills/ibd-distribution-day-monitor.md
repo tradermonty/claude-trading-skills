@@ -283,6 +283,16 @@ The skill writes two files plus a console summary:
 
 ## 9. Troubleshooting
 
+### Configuration file errors
+
+`--config` must point to readable UTF-8 YAML with a top-level mapping. Empty,
+comment-only or `null` documents use defaults. `data` and `strategy_context`
+must be mappings or `null`; null sections use defaults. `indexes` must be a list
+of mappings with non-empty string `symbol` values, or `null` for defaults.
+Unreadable files, YAML syntax errors and these shape errors return exit 1 with
+an `ERROR:` on stderr, before any provider access or report output. YAML syntax
+diagnostics show the location when available, without echoing source lines or keys.
+
 ### `FMP API key required` error
 
 **Cause:** None of `--api-key`, `config.data.api_key`, or `FMP_API_KEY` env var is set.

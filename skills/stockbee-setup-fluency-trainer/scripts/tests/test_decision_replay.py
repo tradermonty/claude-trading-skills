@@ -4,8 +4,10 @@ All data is fictional. Time is injected by monkeypatching ``decision_replay._now
 timezone-aware datetimes and ``decision_replay._local_tz``; nothing touches the network.
 """
 
+import contextlib
 import copy
 import inspect
+import io
 import json
 import os
 import re
@@ -1761,3 +1763,236 @@ def test_unexpected_os_error_is_reported_without_traceback(monkeypatch, capsys):
     assert dr.main(["reconcile-ledger", "--store-dir", "x"]) == 1
     err = capsys.readouterr().err
     assert err.startswith("ERROR:") and "Traceback" not in err
+
+
+# ---------------------------------------------------------------------------
+# Issue #786: failed session publication owns only its own blind artifacts.
+# ---------------------------------------------------------------------------
+
+
+def _planned_blind_paths(env, seed=4, sample_size=10):
+    population = dr.load_population(env.store, False, None)
+    digest = dr.population_hash([case["case_id"] for case in population])
+    sid = "replay-" + dr.hashlib.sha256(f"{seed}:{digest}:{sample_size}".encode()).hexdigest()[:12]
+    return [
+        env.out / f"stockbee_setup_fluency_replay_blind_{sid}{suffix}"
+        for suffix in (".json", ".md")
+    ]
+
+
+def test_replayerror_session_failure_removes_owned_blind_files(env, monkeypatch):
+    assert env.capture()[0] == 0
+
+    def fail(path, payload):
+        raise dr.ReplayError("injected session publication failure")
+
+    monkeypatch.setattr(dr, "_write_once", fail)
+    result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert "injected session publication failure" in result[2]
+    assert _blind_files(env) == []
+    assert not list((env.store / "sessions").glob("*.json"))
+
+
+def test_real_session_collision_preserves_competing_replay(env, monkeypatch):
+    assert env.capture()[0] == 0
+    real = dr._write_once
+    other_out = env.tmp / "other-reports"
+    winner = {}
+
+    def competing_write(path, payload):
+        # The rival passes the initial existence check and publishes through the
+        # real writer. The losing call then exercises its real FileExistsError.
+        with monkeypatch.context() as mp, contextlib.redirect_stdout(io.StringIO()):
+            mp.setattr(dr, "_write_once", real)
+            assert (
+                dr.main(
+                    [
+                        "replay",
+                        "--sample-size",
+                        "10",
+                        "--seed",
+                        "4",
+                        "--store-dir",
+                        str(env.store),
+                        "--output-dir",
+                        str(other_out),
+                    ]
+                )
+                == 0
+            )
+        winner["session"] = Path(path).read_bytes()
+        winner["artifacts"] = {p.name: p.read_bytes() for p in other_out.iterdir()}
+        return real(path, payload)
+
+    monkeypatch.setattr(dr, "_write_once", competing_write)
+    result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert "already exists; records are immutable" in result[2]
+    assert _blind_files(env) == []
+    session = next((env.store / "sessions").glob("*.json"))
+    assert session.read_bytes() == winner["session"]
+    assert {p.name: p.read_bytes() for p in other_out.iterdir()} == winner["artifacts"]
+    assert len(winner["artifacts"]) == 2
+
+
+@pytest.mark.parametrize("existing_index", [0, 1])
+def test_existing_blind_artifact_is_not_overwritten_or_deleted(env, existing_index):
+    assert env.capture()[0] == 0
+    paths = _planned_blind_paths(env)
+    env.out.mkdir()
+    existing = paths[existing_index]
+    existing.write_bytes(b"existing artifact owned by another attempt")
+    result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert existing.read_bytes() == b"existing artifact owned by another attempt"
+    assert not paths[1 - existing_index].exists()
+    assert not list((env.store / "sessions").glob("*.json"))
+
+
+def test_partial_markdown_failure_removes_both_owned_artifacts(env, monkeypatch):
+    assert env.capture()[0] == 0
+    real_open = Path.open
+
+    def broken_open(path, mode="r", *args, **kwargs):
+        handle = real_open(path, mode, *args, **kwargs)
+        if path.suffix == ".md" and mode in ("x", "w"):
+            write = handle.write
+
+            def partial(text):
+                write(text[:10])
+                raise OSError("injected partial Markdown failure")
+
+            handle.write = partial
+        return handle
+
+    monkeypatch.setattr(Path, "open", broken_open)
+    result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert "injected partial Markdown failure" in result[2]
+    assert _blind_files(env) == []
+    assert not list((env.store / "sessions").glob("*.json"))
+
+
+def test_cleanup_preserves_replaced_artifact(env, monkeypatch):
+    assert env.capture()[0] == 0
+    json_path, md_path = _planned_blind_paths(env)
+
+    def replace_then_fail(path, payload):
+        replacement = json_path.with_suffix(".replacement")
+        replacement.write_bytes(b"concurrently replaced artifact")
+        os.replace(replacement, json_path)
+        raise dr.ReplayError("injected session failure after replacement")
+
+    monkeypatch.setattr(dr, "_write_once", replace_then_fail)
+    result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert json_path.read_bytes() == b"concurrently replaced artifact"
+    assert not md_path.exists()
+
+
+def test_cleanup_attempts_both_files_and_reports_unremovable_artifact(env, monkeypatch):
+    assert env.capture()[0] == 0
+    json_path, md_path = _planned_blind_paths(env)
+    real_unlink = Path.unlink
+    attempted = []
+
+    def blocked_json_unlink(path, *args, **kwargs):
+        attempted.append(path)
+        if path == json_path:
+            raise PermissionError("injected cleanup permission failure")
+        return real_unlink(path, *args, **kwargs)
+
+    def fail(path, payload):
+        raise dr.ReplayError("injected session publication failure")
+
+    monkeypatch.setattr(Path, "unlink", blocked_json_unlink)
+    monkeypatch.setattr(dr, "_write_once", fail)
+    result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert json_path in attempted and md_path in attempted
+    assert json_path.exists() and not md_path.exists()
+    assert "injected session publication failure" in result[2]
+    assert "cleanup" in result[2].lower() and json_path.name in result[2]
+
+
+def test_published_session_survives_temporary_cleanup_error(env, monkeypatch):
+    assert env.capture()[0] == 0
+    real_unlink = Path.unlink
+
+    def fail_tmp_only(path, *args, **kwargs):
+        if path.suffix == ".tmp":
+            raise PermissionError("injected temporary cleanup failure")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_tmp_only)
+    result = env.replay(seed=4)
+    assert result[0] == 0, result
+    assert "WARNING:" in result[2] and "temporary" in result[2]
+    assert len(_blind_files(env)) == 2
+    session = next((env.store / "sessions").glob("*.json"))
+    assert _load(session)["session_id"] == result[3]
+    assert env.replay(seed=5)[0] == 1  # the published session still gates new replays
+
+
+@pytest.mark.parametrize("failure_stage", ["write", "flush", "fsync", "close"])
+def test_failed_exclusive_session_fallback_is_rolled_back_and_retryable(
+    env, monkeypatch, failure_stage
+):
+    import builtins
+
+    assert env.capture()[0] == 0
+    real_open, real_fsync = builtins.open, os.fsync
+    fallback_active = False
+
+    class BrokenSession:
+        def __init__(self, handle):
+            self.handle = handle
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self.handle.close()
+            if failure_stage == "close" and exc is None:
+                raise OSError("injected session close failure")
+
+        def write(self, text):
+            self.handle.write(text[:10] if failure_stage == "write" else text)
+            if failure_stage == "write":
+                raise OSError("injected session write failure")
+
+        def flush(self):
+            self.handle.flush()
+            if failure_stage == "flush":
+                raise OSError("injected session flush failure")
+
+        def fileno(self):
+            return self.handle.fileno()
+
+    def fallback_open(path, mode="r", *args, **kwargs):
+        nonlocal fallback_active
+        handle = real_open(path, mode, *args, **kwargs)
+        if "sessions" in Path(path).parts and mode == "x":
+            fallback_active = True
+            return BrokenSession(handle)
+        return handle
+
+    def unavailable_link(*args, **kwargs):
+        raise OSError("hard links unsupported")
+
+    def failing_fsync(fd):
+        if fallback_active and failure_stage == "fsync":
+            raise OSError("injected session fsync failure")
+        return real_fsync(fd)
+
+    with monkeypatch.context() as mp:
+        mp.setattr(builtins, "open", fallback_open)
+        mp.setattr(os, "link", unavailable_link)
+        mp.setattr(os, "fsync", failing_fsync)
+        result = env.replay(seed=4)
+    assert_clean_failure(result[:3])
+    assert f"injected session {failure_stage} failure" in result[2]
+    assert _blind_files(env) == []
+    assert not list((env.store / "sessions").glob("*.json"))
+    assert env.replay(seed=4)[0] == 0  # no failed publication burns the sample
