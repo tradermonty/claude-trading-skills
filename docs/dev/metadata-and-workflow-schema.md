@@ -299,7 +299,7 @@ These are validated under `--strict-workflows`:
 | Every non-optional `step.skill` appears in `required_skills` | `WF010` |
 | Workflow file referenced by an index entry's `workflows:` exists | `WF001` |
 | Required artifact produced before the final step is not consumed by any later step | `WF013` |
-| Human-facing Japanese workflow prose is missing, empty, wrongly typed, or list-misaligned | `WF014` |
+| Human-facing Japanese workflow prose is missing, empty, wrongly typed, or list-misaligned; English `manual_review` items are not non-empty strings | `WF014` |
 
 ### 2.3 `consumes:` semantics — "use if available", not "required input"
 
@@ -503,7 +503,7 @@ python3 scripts/validate_skills_index.py --strict-metadata
 | `WF011` | `required_skills` / `optional_skills` entry not in `skills-index.yaml` |
 | `WF012` | `artifacts[].produced_by_step` does not match the corresponding step's `produces` (either direction) |
 | `WF013` | Required artifact produced before the final step is not consumed by any later step |
-| `WF014` | Required Japanese workflow prose is missing, empty, wrongly typed, or `manual_review_ja` is not aligned |
+| `WF014` | Required Japanese workflow prose is missing, empty, wrongly typed, `manual_review_ja` is not aligned, or English `manual_review` items are not non-empty strings |
 | `WF015` | `operational_role.type` is not `workflow_step` exactly when workflow forward references exist |
 | `WF016` | Index `workflows` is not a unique, non-empty `list[str]`, or its back-references do not exactly match manifest forward references |
 

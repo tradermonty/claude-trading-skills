@@ -1657,3 +1657,58 @@ def test_missing_index_file(tmp_path: Path) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+@pytest.mark.parametrize(
+    "invalid_item", [{"Review budget": "before running"}, 7, True, None, [], "", "   "]
+)
+def test_wf014_rejects_invalid_english_manual_review_items(tmp_path: Path, invalid_item) -> None:
+    _setup_minimal_workflow_repo(tmp_path, manual_review=[invalid_item])
+    findings = validate(tmp_path, strict_workflows=True)
+    assert any(
+        f.code == "WF014" and "manual_review[0] must be a non-empty string" in f.message
+        for f in findings
+    ), findings
+
+
+@pytest.mark.parametrize("invalid_list", [None, "Review this", {"Review": "this"}])
+def test_wf014_rejects_invalid_english_manual_review_collection(
+    tmp_path: Path, invalid_list
+) -> None:
+    _setup_minimal_workflow_repo(tmp_path, manual_review=invalid_list, manual_review_ja=[])
+    findings = validate(tmp_path, strict_workflows=True)
+    assert any(f.code == "WF014" and "manual_review must be a list" in f.message for f in findings)
+
+
+def test_wf014_rejects_missing_english_manual_review(tmp_path: Path) -> None:
+    import yaml
+
+    _setup_minimal_workflow_repo(tmp_path)
+    path = tmp_path / "workflows/sample.yaml"
+    wf = yaml.safe_load(path.read_text(encoding="utf-8"))
+    del wf["manual_review"]
+    write_workflow(tmp_path, "sample", wf, localize=False)
+    assert any(
+        f.code == "WF014" and "manual_review must be a list" in f.message
+        for f in validate(tmp_path, strict_workflows=True)
+    )
+
+
+def test_wf014_accepts_quoted_colon_and_rejects_yaml_mapping(tmp_path: Path) -> None:
+    import yaml
+
+    _setup_minimal_workflow_repo(tmp_path, manual_review=["Review budget: before running"])
+    assert "WF014" not in codes(validate(tmp_path, strict_workflows=True))
+    path = tmp_path / "workflows/sample.yaml"
+    text = path.read_text(encoding="utf-8")
+    # safe_dump quotes this item. Remove just those quotes to reproduce #782.
+    assert "'Review budget: before running'" in text
+    path.write_text(
+        text.replace("'Review budget: before running'", "Review budget: before running"),
+        encoding="utf-8",
+    )
+    assert isinstance(yaml.safe_load(path.read_text(encoding="utf-8"))["manual_review"][0], dict)
+    assert any(
+        f.code == "WF014" and "manual_review[0]" in f.message
+        for f in validate(tmp_path, strict_workflows=True)
+    )
