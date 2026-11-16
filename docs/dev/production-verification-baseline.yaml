@@ -265,10 +265,14 @@ skills:
   overrides:
     security_review:
       value: not_verified
-      rationale: "Not verified: FMP apikey in request params, then prints the requests exception ({e}) to stderr in skills/canslim-screener/scripts (check_institutional_endpoint.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
+      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
       evidence:
-      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
+      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
+      - reviewed_files: skills/canslim-screener/scripts/check_institutional_endpoint.py
+      - regression: skills/canslim-screener/scripts/tests/test_credential_diagnostics.py
+      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
+      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
 - id: contrarian-setup-gate
   profile: executable_workflow_trading
 - id: cot-contrarian-detector
@@ -287,19 +291,27 @@ skills:
   overrides:
     security_review:
       value: not_verified
-      rationale: "Not verified: FINVIZ auth key in request params, then prints the requests exception ({e}) to stderr in skills/dividend-growth-pullback-screener/scripts (screen_dividend_growth_rsi.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
+      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
       evidence:
-      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
+      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
+      - reviewed_files: skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py
+      - regression: skills/dividend-growth-pullback-screener/scripts/tests/test_credential_diagnostics.py
+      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
+      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
 - id: downtrend-duration-analyzer
   profile: executable_standalone_trading
   overrides:
     security_review:
       value: not_verified
-      rationale: "Not verified: FMP apikey in request params, then prints the requests exception ({e}) to stderr in skills/downtrend-duration-analyzer/scripts (analyze_downtrends.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
+      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
       evidence:
-      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
+      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
+      - reviewed_files: skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py
+      - regression: skills/downtrend-duration-analyzer/scripts/tests/test_credential_diagnostics.py
+      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
+      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
 - id: drawdown-circuit-breaker
   profile: executable_workflow_trading
 - id: dual-axis-skill-reviewer
@@ -551,10 +563,14 @@ skills:
   overrides:
     security_review:
       value: not_verified
-      rationale: "Not verified: FMP apikey in request params, then prints the requests exception ({e}) to stdout in skills/parabolic-short-trade-planner/scripts (check_live_apis.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
+      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
       evidence:
-      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
+      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
+      - reviewed_files: skills/parabolic-short-trade-planner/scripts/check_live_apis.py
+      - regression: skills/parabolic-short-trade-planner/scripts/tests/test_credential_diagnostics.py
+      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
+      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
 - id: pead-screener
   profile: executable_workflow_trading
   overrides:
@@ -697,10 +713,14 @@ skills:
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
     security_review:
       value: not_verified
-      rationale: "Not verified: FINVIZ auth key embedded in the request URL, then logs the exception (logger.exception) or prints it in skills/theme-detector/scripts (representative_stock_selector.py and finviz_performance_client.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
+      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
       evidence:
-      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
+      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
+      - reviewed_files: skills/theme-detector/scripts/representative_stock_selector.py; finviz_performance_client.py
+      - regression: skills/theme-detector/scripts/tests/test_credential_diagnostics.py
+      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
+      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
 - id: trade-hypothesis-ideator
   profile: executable_workflow_trading
   overrides:
@@ -779,10 +799,14 @@ skills:
   overrides:
     security_review:
       value: not_verified
-      rationale: "Not verified: FINVIZ auth key in request params, then prints the requests exception ({e}) to stderr in skills/value-dividend-screener/scripts (screen_dividend_stocks.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
+      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
       evidence:
-      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
+      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
+      - reviewed_files: skills/value-dividend-screener/scripts/screen_dividend_stocks.py
+      - regression: skills/value-dividend-screener/scripts/tests/test_credential_diagnostics.py
+      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
+      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
 - id: vcp-screener
   profile: executable_workflow_trading
   overrides:
