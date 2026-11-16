@@ -20,8 +20,7 @@ def _monthly_series(amounts, start=date(2025, 1, 15), step_days=30):
 
 def _quarterly_series(amounts, dates):
     return [
-        {"date": d.isoformat(), "dividend": amt, "label": "cash"}
-        for d, amt in zip(dates, amounts)
+        {"date": d.isoformat(), "dividend": amt, "label": "cash"} for d, amt in zip(dates, amounts)
     ]
 
 
