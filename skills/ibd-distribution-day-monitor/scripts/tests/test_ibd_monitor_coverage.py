@@ -6,6 +6,9 @@ All HTTP is faked; no network, no dependence on the wall-clock date.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -559,11 +562,38 @@ def test_main_short_history_flags_insufficient_lookback_and_ma(monkeypatch, tmp_
     assert flags == sorted(flags)
 
 
-def test_main_missing_api_key_raises(monkeypatch, tmp_path):
+def test_main_missing_api_key_returns_error(monkeypatch, tmp_path, capsys):
     monkeypatch.delenv("FMP_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="FMP API key required"):
-        ibd_monitor.main(["--output-dir", str(tmp_path / "o")])
+    monkeypatch.setattr(
+        ibd_monitor, "build_fmp_client", lambda **kwargs: pytest.fail("client must not be built")
+    )
+    assert ibd_monitor.main(["--output-dir", str(tmp_path / "o")]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "ERROR: FMP API key required. Pass --api-key or set FMP_API_KEY env var.\n"
+    )
     assert not (tmp_path / "o").exists()
+
+
+def test_cli_missing_api_key_exits_without_traceback(tmp_path):
+    env = os.environ.copy()
+    env.pop("FMP_API_KEY", None)
+    out = tmp_path / "out"
+    result = subprocess.run(
+        [sys.executable, ibd_monitor.__file__, "--symbols", "QQQ,SPY", "--output-dir", str(out)],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 1, result
+    assert result.stdout == "", result
+    assert result.stderr == (
+        "ERROR: FMP API key required. Pass --api-key or set FMP_API_KEY env var.\n"
+    ), result
+    assert not out.exists()
 
 
 def test_main_cli_api_key_is_passed_to_client_builder(monkeypatch, tmp_path):
