@@ -49,6 +49,13 @@ repos:
   # Project-specific pre-commit checks
   - repo: local
     hooks:
+      - id: private-data-paths
+        name: Reject canonical private paths in the active Git index
+        entry: python3 scripts/check_private_data_paths.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: no-absolute-paths
         name: Detect absolute paths with usernames
         entry: python3 scripts/hooks/check_no_absolute_paths.py

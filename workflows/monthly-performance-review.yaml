@@ -176,10 +176,12 @@ manual_review:
   - Trade-side rule changes apply to the trader's behavior next month.
   - Skill-side improvements are repo-improvement candidates and may or may not be acted on.
   - Be willing to delete or downgrade rules that aren't working — not just add new ones.
+  - The step-6 artifact does not activate rules; activation is the explicit `manage_approved_rules.py activate` follow-up in pre-trade-discipline-gate.
 manual_review_ja:
   - プロセス改善（ルール変更）と、偶然による結果を区別する。
   - 取引側のルール変更は、翌月のトレーダーの行動に適用する。
   - スキル側の改善はリポジトリ改善候補であり、必ず実施するとは限らない。
   - 新しいルールを追加するだけでなく、機能していないルールの削除や格下げも検討する。
+  - ステップ6の成果物はルールを有効化しない。有効化は pre-trade-discipline-gate の `manage_approved_rules.py activate` で明示的に行う。
 
 journal_destination: trader-memory-core

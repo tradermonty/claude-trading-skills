@@ -4,6 +4,34 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FTD follow-up: restart rally tracking after an intraday reference breach without requiring a new closing pivot, preserve active unconfirmed rallies over historical failed events, and display both indices' Day 1 failure levels separately from swing/FTD warning levels (#765, #766).
+
+- Align packaged FTD reference instructions with all-session intraday Day 1 failure, distinct FTD-candle pressure, and unassessed portfolio sizing; remove residual unsupported rate/reliability claims and normalize per-index missing-lifecycle state to NO_SIGNAL (#765, #766).
+
+- FTD review follow-up: propagate older-rally low gaps, cap pressure quality at 59 for numeric consumers, select a valid FTD consistently across mixed index health, and propagate explicit instrument names. Restore unaffected methodology teaching material and preserve custom DD display names alongside canonical identity (#765, #766).
+
+- FTD/DD: separate FTD-candle-low pressure from failure at the explicitly recorded rally Day 1 intraday low; retain event evidence and report missing lows as unavailable. Default FTD Nasdaq data to ^IXIC, label explicit QQQ ETF proxies, and stop deriving portfolio percentages from FTD quality. DD reports identify their ETF/index evidence basis (#765).
+
+- value-dividend-screener and dividend-growth-pullback-screener now report an FMP plan that refuses the stock-screener endpoint as a plan restriction (exit 1) instead of a market-looking zero-candidate result; the FINVIZ enrichment path reports quote access refusal separately. The FMP plans note records the observed Basic-key endpoint gating, and both skills' docs point there (#707).
+
+- pre-trade-discipline-gate: refuse future-effective immediate supersession without changing the ledger, preserving the current rule until the trader replaces it on or after the intended date (Refs #514).
+- pre-trade-discipline-gate: add a local approved-rule ledger (`scripts/approved_rules.py`, `scripts/manage_approved_rules.py` with `activate`, `list`, `supersede`, `retire`, `extend`, `restore`) and an optional `--approved-rules-ledger` flag. `activate` reads both committed monthly rule-change shapes (replay and sample), applies only accepted or modified rules, and keeps an append-only history with source review, artifact hash, effective/review/expiry dates and supersession. The gate lists effective and review-due rules and requires a per-candidate `approved_rule_checks` acknowledgement, recorded but not verified; a missing acknowledgement, an exception, or an unreadable ledger yields `REVIEW_REQUIRED`. Output is byte-identical without the flag. The Markdown Reasons column now escapes `|` and newlines. Feeding adherence back into the monthly review and wiring the flag into workflow manifests remain open (Refs #514).
+- trader-memory-core: reject non-finite or boolean equity expected prices and missing or invalid report prices before attaching a position; preserve finite zero/negative prices and integer comparison precision. Equity CLI expected-price flags now reject non-finite values (#759).
+
+- theme-detector: report the actual FINVIZ industry source after Elite-to-public fallback, retain the requested mode separately, and expose safe fallback reasons in metadata and report quality flags (#685).
+
+- Public CSV provider contracts now reject blank/duplicate headers, NUL input and invalid quoted fields instead of silently collapsing columns or accepting incomplete CSV. Canary reports retain fixed fatal reasons and continue other endpoint probes (#332).
+
+- Value Dividend Screener skips RSI evaluation when any historical close is missing, non-finite, non-numeric or non-positive, using the shared price-bar validator rather than zero defaults. Clean histories retain their chronology and existing ranking; valid candidates continue after a data-gap candidate (#655).
+
+- Portfolio Manager can normalize a saved Alpaca equity positions list into the broker reconciliation snapshot without prices or live access. Explicit account/time/completeness assertions, exact signed-quantity validation and no-clobber output preserve the read-only manual gate (#493).
+
+- Document EN/JA operational privacy, session-mining and retention boundaries; guard canonical private paths in the Git index and test the documented fictional thesis backup/restore drill (#300).
+
+- Add EN/JA offline first-session instructions using existing fictional market-regime fixtures, with executable command, human-gate, local-handoff and Navigator integration checks; fix doctor to honor the canonical Python patch-level minimum (#301).
+
+- signal-postmortem now uses the generated FMP transport for exact-range historical prices, retaining strict raw-evidence validation and keyless manual recording. Batch signals share rate-limit state and close their session; legacy v3 fallback is removed (scoped #495).
+
 - Migrate technical-analyst weekly confirmation to generated stable FMP transport, retaining source order and historical cutoffs while adopting common retry/redaction behavior; cover fake transport and standalone package paths (#495).
 
 - FMP canary: accept finite int/float quote volume and persist fatal contract drift in assigned tracking issues, with idempotent recurrence notifications and visible notification failures (#659).
