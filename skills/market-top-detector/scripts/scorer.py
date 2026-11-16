@@ -23,6 +23,9 @@ Risk Zone Mapping:
 
 from typing import Optional
 
+from _price_bars import read_price
+from price_bar_utils import gaps
+
 COMPONENT_WEIGHTS = {
     "distribution_days": 0.25,
     "leading_stocks": 0.20,
@@ -143,6 +146,16 @@ def calculate_composite_score(
     # Get zone interpretation
     zone_info = _interpret_zone(composite)
 
+    if available_weight == 0:
+        composite = None
+        zone_info = {
+            "zone": "Unavailable",
+            "color": "gray",
+            "risk_budget": "Not assessed",
+            "guidance": "No components have usable data; risk is not assessed.",
+            "actions": ["Restore missing inputs before assessing market risk."],
+        }
+
     # Calculate data quality
     available_count = sum(
         1
@@ -194,6 +207,7 @@ def calculate_composite_score(
     return {
         "score_kind": "heuristic_risk_score",
         "score_version": "market-top-risk-v1",
+        "data_available": available_weight > 0,
         "calibrated_probability": False,
         "interpretation": "Risk score, not an estimated event probability. Risk budgets are policy heuristics.",
         "composite_score": composite,
@@ -310,6 +324,13 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
     Returns:
         Dict with ftd_detected, rally_day_count, details
     """
+    if composite_score is None:
+        return {
+            "ftd_detected": False,
+            "applicable": True,
+            "data_available": False,
+            "reason": "UNAVAILABLE: Composite risk score not assessed",
+        }
     if composite_score < 40:
         return {
             "ftd_detected": False,
@@ -333,6 +354,21 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
     history = history[n - lookback :]
     n = len(history)
 
+    bad = gaps(
+        history,
+        ("close", "volume", "high", "low"),
+        {"high": "close", "low": "close"},
+        order="chronological",
+    )
+    if bad:
+        return {
+            "ftd_detected": False,
+            "applicable": True,
+            "data_available": False,
+            "data_gaps": bad,
+            "reason": "UNAVAILABLE: Invalid or missing price bars",
+        }
+
     # Step 1: Find swing low within the lookback window
     # Swing low = lowest close after a decline of 3%+ from a recent high
     swing_low_idx = None
@@ -340,7 +376,7 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
 
     # Scan for the most recent swing low
     for i in range(n - 1, 2, -1):  # from recent to old
-        low_close = history[i].get("close", 0)
+        low_close = read_price(history[i], "close")
         if low_close <= 0:
             continue
 
@@ -348,7 +384,7 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
         search_start = max(0, i - 20)
         recent_high = 0
         for j in range(search_start, i):
-            c = history[j].get("close", 0)
+            c = read_price(history[j], "close")
             if c > recent_high:
                 recent_high = c
 
@@ -362,17 +398,17 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
             # Verify at least 3 down days in the decline
             down_days = 0
             for j in range(search_start + 1, i + 1):
-                prev_c = history[j - 1].get("close", 0)
-                curr_c = history[j].get("close", 0)
+                prev_c = read_price(history[j - 1], "close")
+                curr_c = read_price(history[j], "close")
                 if prev_c > 0 and curr_c < prev_c:
                     down_days += 1
 
             if down_days >= 3:
                 # Check this is actually a local low
                 is_local_low = True
-                if i > 0 and history[i - 1].get("close", 0) < low_close:
+                if i > 0 and read_price(history[i - 1], "close") < low_close:
                     is_local_low = False
-                if i + 1 < n and history[i + 1].get("close", 0) < low_close:
+                if i + 1 < n and read_price(history[i + 1], "close") < low_close:
                     is_local_low = False
 
                 if is_local_low:
@@ -400,8 +436,8 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
     reset_count = 0
 
     for i in range(swing_low_idx + 1, n):
-        curr_close = history[i].get("close", 0)
-        prev_close = history[i - 1].get("close", 0) if i > 0 else 0
+        curr_close = read_price(history[i], "close")
+        prev_close = read_price(history[i - 1], "close") if i > 0 else 0
 
         # Check for rally reset: price closes below swing low
         if curr_close < swing_low_price:
@@ -434,8 +470,8 @@ def detect_follow_through_day(index_history: list[dict], composite_score: float)
         # Check FTD on days 4-7
         if 4 <= rally_day_count <= 7 and prev_close > 0:
             gain_pct = (curr_close - prev_close) / prev_close * 100
-            curr_volume = history[i].get("volume", 0)
-            prev_volume = history[i - 1].get("volume", 0)
+            curr_volume = read_price(history[i], "volume", allow_zero=True)
+            prev_volume = read_price(history[i - 1], "volume", allow_zero=True)
 
             if gain_pct >= 1.5 and prev_volume > 0 and curr_volume > prev_volume:
                 ftd_detected = True

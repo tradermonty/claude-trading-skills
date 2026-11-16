@@ -23,6 +23,9 @@ Multi-period confirmation:
 
 from typing import Optional
 
+from price_bar_utils import gaps, unavailable
+from price_bar_utils import price as bar_price
+
 DEFENSIVE_ETFS = ["XLU", "XLP", "XLV", "VNQ"]
 OFFENSIVE_ETFS = ["XLK", "XLC", "XLY", "QQQ"]
 
@@ -32,9 +35,9 @@ MULTI_PERIOD_WEIGHTS = {10: 0.2, 20: 0.5, 40: 0.3}
 def _calc_return(symbol_hist: list[dict], days: int) -> Optional[float]:
     if not symbol_hist or len(symbol_hist) < days + 1:
         return None
-    recent = symbol_hist[0].get("close", symbol_hist[0].get("adjClose", 0))
-    past = symbol_hist[days].get("close", symbol_hist[days].get("adjClose", 0))
-    if past == 0:
+    recent = bar_price(symbol_hist[0], "close", "adjClose")
+    past = bar_price(symbol_hist[days], "close", "adjClose")
+    if recent is None or past is None:
         return None
     return (recent - past) / past * 100
 
@@ -85,6 +88,20 @@ def calculate_defensive_rotation(historical: dict[str, list[dict]], lookback: in
     Returns:
         Dict with score (0-100), relative_performance, multi_period details
     """
+    bad = {}
+    for symbol in DEFENSIVE_ETFS + OFFENSIVE_ETFS:
+        hist = historical.get(symbol, [])
+        if not hist:
+            continue
+        periods = [period for period in {lookback, *MULTI_PERIOD_WEIGHTS} if len(hist) > period]
+        points = sorted({0, *periods}) if periods else []
+        rows = [hist[i] for i in points]
+        report = gaps(rows, ("close",), {"close": "adjClose"})
+        if report:
+            bad[symbol] = report
+    if bad:
+        return unavailable(calculate_defensive_rotation({}, lookback), bad)
+
     # Track fetch success
     all_etfs = DEFENSIVE_ETFS + OFFENSIVE_ETFS
     total_attempted = len(all_etfs)
