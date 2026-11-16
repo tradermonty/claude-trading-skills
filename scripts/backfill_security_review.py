@@ -7,7 +7,8 @@ For the ``security_review`` axis of ``skills-index.yaml``, this collector:
    ``scripts/**/*.py`` (excluding ``tests``) rule as issue #588, and reconciles
    that set against the SSoT ``integrations[]`` declarations;
 2. runs deterministic mechanical checks per skill (hard-coded credential
-   literal, shell invocation, network timeout, dependency manifest) and records
+   literal, shell invocation, key-in-request combined with an unredacted
+   exception print/log, network timeout, dependency manifest) and records
    findings;
 3. applies a fail-closed confirmation gate: ``--reviewer-confirmed <id>`` starts
    empty, and only clean, explicitly confirmed skills are proposed ``passed``;
@@ -20,7 +21,7 @@ Usage::
     python3 scripts/backfill_security_review.py                      # enumerate + checks
     python3 scripts/backfill_security_review.py --skill position-sizer
     python3 scripts/backfill_security_review.py --reviewer-confirmed vcp-screener
-    python3 scripts/backfill_security_review.py --review-by "Takuei Saotome (2026-11-15, 13079ab4)"
+    python3 scripts/backfill_security_review.py --assessed-commit <40-hex>
     python3 scripts/backfill_security_review.py --output-dir reports/
 """
 
@@ -61,6 +62,18 @@ _PLACEHOLDER = re.compile(r"your[-_]?key|YOUR[-_]?KEY|xxx|example|replace|\$|\.\
 _SHELL_RE = re.compile(r"shell\s*=\s*True|os\.system\s*\(|popen\s*\([^)]*shell", re.IGNORECASE)
 _TIMEOUT_RE = re.compile(r"timeout\s*=")
 _KEY_VAR = re.compile(r"FMP_API_KEY|FINVIZ_API_KEY|ALPACA_API_KEY|ALPACA_SECRET_KEY")
+# A request that carries the credential value: dict key such as "apikey": ...,
+# or a query-string fragment such as apikey={...} / auth=%s inside a URL string.
+_KEY_IN_REQUEST = re.compile(
+    r"""["'](?:apikey|api_key|auth|access_token|token)["']\s*:"""
+    r"""|\b(?:apikey|api_key|auth|access_token|token)=(?:\{|%s|["'+])""",
+    re.IGNORECASE,
+)
+# `except ... as NAME` binds the exception variable that may carry the request URL.
+_EXC_BIND = re.compile(r"except\b[^\n:]*\bas\s+(\w+)\s*:")
+# A call or definition of a redaction helper; a docstring that merely says "redacted" is not one.
+_REDACT_RE = re.compile(r"\w*redact\w*\s*\(", re.IGNORECASE)
+_LOG_EXC_RE = re.compile(r"\blogger\.exception\(|\blogging\.exception\(|traceback\.print_exc")
 _WRITE_RE = re.compile(r"\b(print|logging\.|log\.|\.write\(|stderr|raise )", re.IGNORECASE)
 
 
@@ -174,20 +187,69 @@ def _key_leak_findings(scripts: list[Path]) -> list[str]:
     return finds
 
 
+def _key_in_request_url(text: str) -> bool:
+    """True when a key value can reach the URL/query string (not a header-only use)."""
+    for match in _KEY_IN_REQUEST.finditer(text):
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        line_end = text.find("\n", match.start())
+        line = text[line_start : line_end if line_end != -1 else len(text)]
+        if "header" not in line.lower():
+            return True
+    return False
+
+
+def _exception_key_leak_findings(scripts: list[Path]) -> list[str]:
+    """Flag scripts that put a key into a request AND print/log the exception object.
+
+    ``requests`` exceptions embed the full request URL, query string included, in
+    ``str(e)``. A script that sends the key as a query parameter (or in an f-string
+    URL) and then prints ``{e}`` / ``str(e)`` / ``logger.exception(...)`` can
+    therefore write the credential value to stderr or logs. Scripts that reference
+    a redaction helper (``_redact`` / ``_redact_key``) are treated as handled; this
+    is a file-level heuristic, not a data-flow proof.
+    """
+    finds: list[str] = []
+    for script in scripts:
+        text = _script_text(script)
+        if _REDACT_RE.search(text) or not _key_in_request_url(text):
+            continue
+        reason = None
+        for name in sorted(set(_EXC_BIND.findall(text))):
+            ref = re.compile(
+                r"\{\s*" + re.escape(name) + r"\b[^}]*\}"
+                r"|\b(?:str|repr)\(\s*" + re.escape(name) + r"\s*\)"
+                r"|%s.*,\s*" + re.escape(name) + r"\s*\)"
+            )
+            if ref.search(text):
+                reason = f"prints exception '{name}'"
+                break
+        if reason is None and _LOG_EXC_RE.search(text):
+            reason = "logs a traceback"
+        if reason:
+            finds.append(
+                f"{script.name} sends a key in a request and {reason} without redaction "
+                "(exception text can contain the request URL with the key)"
+            )
+    return finds
+
+
 def mechanical_checks(skill_id: str, root: Path = ROOT) -> dict:
     scripts = executable_scripts(root / "skills" / skill_id)
     hardcoded = _hardcoded_findings(scripts)
     shell = _shell_findings(scripts)
+    exc_leak = _exception_key_leak_findings(scripts)
     leak_signal = _key_leak_findings(scripts)
     timeout_present = any(_TIMEOUT_RE.search(_script_text(s)) for s in scripts)
     manifest = (root / "skills" / skill_id / "requirements.txt").is_file()
     findings: list[str] = []
     findings.extend(hardcoded)
     findings.extend(shell)
+    findings.extend(exc_leak)
     return {
         "skills": [str(p) for p in scripts],
         "hardcoded_findings": hardcoded,
         "shell_findings": shell,
+        "exception_key_leak_findings": exc_leak,
         "key_leak_signal": leak_signal,
         "timeout_present": timeout_present,
         "requirements_manifest_present": manifest,
@@ -207,9 +269,9 @@ def main(argv: list[str] | None = None) -> int:
         help="explicitly reviewed skill ids eligible for `passed` (repeatable)",
     )
     parser.add_argument(
-        "--review-by",
+        "--assessed-commit",
         default="",
-        help="reviewer name, assessment commit and date, e.g. 'name (YYYY-MM-DD, <40-hex>)'",
+        help="40-hex commit the scan was run against (recorded in the report)",
     )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "reports")
     args = parser.parse_args(argv)
@@ -243,13 +305,16 @@ def main(argv: list[str] | None = None) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "assessment_date": date.today().isoformat(),
-        "review_by": args.review_by,
+        "process": "automated scan via scripts/backfill_security_review.py",
+        "assessed_commit": args.assessed_commit,
         "command": "python3 scripts/backfill_security_review.py "
         + " ".join(shlex.quote(a) for a in argv),
         "issue": "https://github.com/tradermonty/claude-trading-skills/issues/496",
         "note": (
             "proposals are advisory and fail-closed: `passed` requires mechanical-clean AND an "
-            "explicit --reviewer-confirmed entry. key_leak_signal is advisory only."
+            "explicit --reviewer-confirmed entry. key_leak_signal is advisory only; "
+            "exception_key_leak_findings (key in request + unredacted exception print/log) "
+            "counts against clean."
         ),
         "reconciliation": recon,
         "results": results,

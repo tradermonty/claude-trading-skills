@@ -264,11 +264,11 @@ skills:
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/canslim-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      value: not_verified
+      rationale: "Not verified: FMP apikey in request params, then prints the requests exception ({e}) to stderr in skills/canslim-screener/scripts (check_institutional_endpoint.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: contrarian-setup-gate
   profile: executable_workflow_trading
 - id: cot-contrarian-detector
@@ -276,30 +276,30 @@ skills:
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/cot-contrarian-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/cot-contrarian-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: data-quality-checker
   profile: meta_standalone
 - id: dividend-growth-pullback-screener
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/dividend-growth-pullback-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      value: not_verified
+      rationale: "Not verified: FINVIZ auth key in request params, then prints the requests exception ({e}) to stderr in skills/dividend-growth-pullback-screener/scripts (screen_dividend_growth_rsi.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: downtrend-duration-analyzer
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/downtrend-duration-analyzer/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      value: not_verified
+      rationale: "Not verified: FMP apikey in request params, then prints the requests exception ({e}) to stderr in skills/downtrend-duration-analyzer/scripts (analyze_downtrends.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: drawdown-circuit-breaker
   profile: executable_workflow_trading
 - id: dual-axis-skill-reviewer
@@ -309,10 +309,10 @@ skills:
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/earnings-calendar/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/earnings-calendar/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: earnings-trade-analyzer
   profile: executable_workflow_trading
   overrides:
@@ -327,19 +327,19 @@ skills:
       - assessed_date: '2026-10-25'
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/earnings-trade-analyzer/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/earnings-trade-analyzer/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: economic-calendar-fetcher
   profile: meta_data_standalone
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/economic-calendar-fetcher/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/economic-calendar-fetcher/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: edge-candidate-agent
   profile: executable_workflow_trading
   overrides:
@@ -354,10 +354,10 @@ skills:
       - assessed_date: '2026-10-25'
     security_review:
       value: passed
-      rationale: "Skill-local review: performs no HTTP data fetch (URL builder or local-file reader); credential detection is environment-only; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/edge-candidate-agent/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: performs no HTTP data fetch (URL builder or local-file reader); credential detection is environment-only; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/edge-candidate-agent/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: edge-concept-synthesizer
   profile: executable_standalone_trading
 - id: edge-hint-extractor
@@ -377,19 +377,19 @@ skills:
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: performs no HTTP data fetch (URL builder or local-file reader); credential detection is environment-only; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/finviz-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: performs no HTTP data fetch (URL builder or local-file reader); credential detection is environment-only; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/finviz-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: ftd-detector
   profile: executable_standalone_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/ftd-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/ftd-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: futures-position-sizer
   profile: executable_workflow_trading
   overrides:
@@ -407,37 +407,37 @@ skills:
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/ibd-distribution-day-monitor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/ibd-distribution-day-monitor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: institutional-flow-tracker
   profile: executable_standalone_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/institutional-flow-tracker/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/institutional-flow-tracker/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: kanchi-dividend-review-monitor
   profile: executable_workflow_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: performs no HTTP data fetch (URL builder or local-file reader); credential detection is environment-only; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/kanchi-dividend-review-monitor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: performs no HTTP data fetch (URL builder or local-file reader); credential detection is environment-only; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/kanchi-dividend-review-monitor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: kanchi-dividend-sop
   profile: executable_workflow_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/kanchi-dividend-sop/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/kanchi-dividend-sop/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: kanchi-dividend-us-tax-accounting
   profile: executable_workflow_trading
 - id: macro-regime-detector
@@ -471,10 +471,10 @@ skills:
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/macro-regime-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/macro-regime-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: market-breadth-analyzer
   profile: executable_workflow_trading
   overrides:
@@ -506,10 +506,10 @@ skills:
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/market-top-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/market-top-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: news-reaction-failure-analyzer
   profile: executable_workflow_trading
   overrides:
@@ -524,37 +524,37 @@ skills:
       - assessed_date: '2026-11-08'
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/news-reaction-failure-analyzer/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/news-reaction-failure-analyzer/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: options-strategy-advisor
   profile: executable_standalone_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: consumes the API key through a caller-provided argument rather than an environment read, on direct HTTP calls made with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/options-strategy-advisor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: consumes the API key through a caller-provided argument rather than an environment read, on direct HTTP calls made with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/options-strategy-advisor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: pair-trade-screener
   profile: executable_standalone_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/pair-trade-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/pair-trade-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: parabolic-short-trade-planner
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/parabolic-short-trade-planner/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      value: not_verified
+      rationale: "Not verified: FMP apikey in request params, then prints the requests exception ({e}) to stdout in skills/parabolic-short-trade-planner/scripts (check_live_apis.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: pead-screener
   profile: executable_workflow_trading
   overrides:
@@ -569,19 +569,19 @@ skills:
       - assessed_date: '2026-10-25'
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/pead-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/pead-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: portfolio-manager
   profile: executable_workflow_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/portfolio-manager/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/portfolio-manager/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: position-sizer
   profile: executable_workflow_trading
   overrides:
@@ -637,10 +637,10 @@ skills:
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/signal-postmortem/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/signal-postmortem/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: skill-designer
   profile: meta_standalone
 - id: skill-idea-miner
@@ -665,10 +665,10 @@ skills:
       - assessed_date: '2026-11-08'
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/technical-analyst/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/technical-analyst/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: theme-detector
   profile: executable_workflow_trading
   overrides:
@@ -696,11 +696,11 @@ skills:
       - execution: scripts/workflow_replay.py _multi_theme and _swing_theme; manual_contract; examples/workflows/swing-opportunity-daily/replay.yaml
       - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
     security_review:
-      value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/theme-detector/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      value: not_verified
+      rationale: "Not verified: FINVIZ auth key embedded in the request URL, then logs the exception (logger.exception) or prints it in skills/theme-detector/scripts (representative_stock_selector.py and finviz_performance_client.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: trade-hypothesis-ideator
   profile: executable_workflow_trading
   overrides:
@@ -762,10 +762,10 @@ skills:
       - assessed_date: '2026-11-13'
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/trader-memory-core/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/trader-memory-core/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: trading-skills-navigator
   profile: meta_standalone
 - id: uptrend-analyzer
@@ -778,19 +778,19 @@ skills:
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/value-dividend-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      value: not_verified
+      rationale: "Not verified: FINVIZ auth key in request params, then prints the requests exception ({e}) to stderr in skills/value-dividend-screener/scripts (screen_dividend_stocks.py). requests exception text includes the full request URL with the query string, so the key value can reach stderr or logs. Needs redaction (for example the _redact pattern used in technical-analyst) before this axis can pass; the skill code is intentionally unchanged in this change."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - gap: key-bearing request plus unredacted exception print/log, flagged by scripts/backfill_security_review.py (exception_key_leak_findings)
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: vcp-screener
   profile: executable_workflow_trading
   overrides:
     security_review:
       value: passed
-      rationale: "Skill-local review: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no credential-value logging (mechanical scan of skills/vcp-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; reviewer Takuei Saotome, 2026-11-15."
+      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/vcp-screener/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
       evidence:
-      - reviewed: 2026-11-15 by Takuei Saotome; mechanical scan + reconciliation via scripts/backfill_security_review.py (report reports/security_review_evidence.json)
-      - assessed_commit: 13079ab4456fada368f0f579643d2ef104efb8f0  # pragma: allowlist secret
+      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
+      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
 - id: weekly-performance-digest
   profile: executable_standalone_trading

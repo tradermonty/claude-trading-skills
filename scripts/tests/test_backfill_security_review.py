@@ -166,3 +166,100 @@ def test_main_writes_structured_report(tmp_path: Path):
         assert item["proposed_value"] in {"passed", "gap"}
         if item["proposed_value"] == "gap":
             assert item["gap_reasons"]
+
+
+def _write(tmp_path: Path, name: str, body: str) -> Path:
+    path = tmp_path / name
+    path.write_text(body)
+    return path
+
+
+def test_flags_key_in_params_with_printed_exception(collector, tmp_path: Path):
+    script = _write(
+        tmp_path,
+        "leaky.py",
+        'params = {"apikey": key}\n'
+        "try:\n    requests.get(url, params=params)\n"
+        "except requests.RequestException as e:\n"
+        '    print(f"failed: {e}")\n',
+    )
+    finds = collector._exception_key_leak_findings([script])
+    assert len(finds) == 1 and "leaky.py" in finds[0]
+
+
+def test_flags_fstring_url_key_with_logger_exception(collector, tmp_path: Path):
+    script = _write(
+        tmp_path,
+        "logs.py",
+        'url = f"https://x/?auth={key}"\n'
+        "try:\n    requests.get(url)\nexcept Exception:\n"
+        '    logger.exception("fetch failed")\n',
+    )
+    assert len(collector._exception_key_leak_findings([script])) == 1
+
+
+def test_redaction_helper_clears_the_finding(collector, tmp_path: Path):
+    script = _write(
+        tmp_path,
+        "safe.py",
+        'params = {"apikey": key}\n'
+        "try:\n    requests.get(url, params=params)\n"
+        "except requests.RequestException as e:\n"
+        "    print(_redact(str(e)))\n",
+    )
+    assert collector._exception_key_leak_findings([script]) == []
+
+
+def test_fixed_error_text_and_header_keys_are_not_flagged(collector, tmp_path: Path):
+    fixed = _write(
+        tmp_path,
+        "fixed.py",
+        'params = {"apikey": key}\n'
+        "try:\n    requests.get(url, params=params)\n"
+        "except requests.RequestException as e:\n"
+        '    print("network error")\n',
+    )
+    header = _write(
+        tmp_path,
+        "header.py",
+        'req = Request(url, headers={"apikey": key})\n'
+        "try:\n    open(req)\nexcept OSError as e:\n"
+        '    print(f"failed: {e}")\n',
+    )
+    assert collector._exception_key_leak_findings([fixed, header]) == []
+
+
+def test_exception_leak_counts_against_clean(collector, tmp_path: Path):
+    skill = tmp_path / "skills" / "demo" / "scripts"
+    skill.mkdir(parents=True)
+    (skill / "leaky.py").write_text(
+        'params = {"apikey": key}\n'
+        "try:\n    requests.get(url, params=params, timeout=5)\n"
+        "except requests.RequestException as e:\n"
+        '    print(f"failed: {e}")\n'
+    )
+    checks = collector.mechanical_checks("demo", root=tmp_path)
+    assert checks["exception_key_leak_findings"]
+    assert checks["clean"] is False
+
+
+def test_known_leaky_skills_are_not_proposed_passed(tmp_path: Path):
+    leaky = [
+        "downtrend-duration-analyzer",
+        "value-dividend-screener",
+        "dividend-growth-pullback-screener",
+        "parabolic-short-trade-planner",
+        "canslim-screener",
+        "theme-detector",
+    ]
+    argv = [a for s in leaky for a in ("--skill", s, "--reviewer-confirmed", s)]
+    report = run(load_module(), argv, tmp_path / "leaky")
+    assert {r["skill_id"] for r in report["results"]} == set(leaky)
+    for item in report["results"]:
+        assert item["proposed_value"] == "gap", item["skill_id"]
+
+
+def test_report_records_process_not_a_person(tmp_path: Path):
+    report = run(load_module(), ["--skill", "vcp-screener"], tmp_path / "proc")
+    assert "automated scan" in report["process"]
+    assert "review_by" not in report

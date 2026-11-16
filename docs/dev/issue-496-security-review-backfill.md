@@ -1,12 +1,14 @@
 # Issue #496 step 2 — `security_review` verification backfill (assessed 2026-11-15)
 
-Assessed commit: `13079ab4456fada368f0f579643d2ef104efb8f0` (origin/main, the base
-of the PR branch that records this backfill). The evidence is pinned per skill in
+Assessed commit: `7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4` (origin/main after the
+review-driven rebase; the first pass was run at `13079ab4`). The evidence is pinned per skill in
 the verification baseline overrides in
 `docs/dev/production-verification-baseline.yaml`: the mechanical scan and
 reconciliation are reproduced by `scripts/backfill_security_review.py`, and each
-skill-override `evidence` carries the assessment date, reviewer, and the assessed
-commit.
+skill-override `evidence` carries the assessment date, the process used, and the
+assessed commit. The evidence is an automated heuristic scan; no named human
+reviewer is recorded, and a reviewer should be added only after that person has
+reviewed the skill.
 
 ## Scope
 
@@ -32,7 +34,9 @@ for follow-ups and are called out below.
   "Alpaca order templates" on `breakout-trade-planner`) is deliberately **not**
   treated as a key declaration.
 - Check: per-skill mechanical checks — hard-coded credential literal, shell
-  invocation, explicit network timeout, dependency manifest — plus the
+  invocation, a key-bearing request combined with an unredacted exception
+  print/log (`requests` exception text embeds the full URL including the
+  query string), explicit network timeout, dependency manifest — plus the
   repo-wide `scripts/check_skill_deps.py check` (exit 0).
 - Fail-closed gate: `--reviewer-confirmed <id>` starts empty; a skill is only
   proposed `passed` when it is mechanically clean **and** explicitly
@@ -77,15 +81,33 @@ Reconciliation against `integrations[]`:
 
 ## Outcome
 
-All 28 target skills are recorded `security_review: passed` (index value +
-same-assessed-commit baseline override with per-skill rationale and evidence).
-No skill was left `not_verified` in this slice. The rationales state the
-credential/redaction/timeout facts that were verified; the 17 skills that read
-the key through the shared vendored FMP client share one rationale template by
-mechanism, while skills with a different mechanism (direct HTTP, caller-provided
-key, no HTTP data fetch) carry their own wording. The global
-`audit.baseline_commit` is intentionally left untouched (the #588 precedent
-pins per-axis evidence at per-override `assessed_commit` values instead).
+22 of the 28 target skills are recorded `security_review: passed` (index value +
+baseline override with per-skill rationale and evidence). Six skills are recorded
+`not_verified` because they send a key in the request and print or log the
+`requests` exception, whose text contains the request URL with the key:
+
+| Skill | Leak path |
+|---|---|
+| downtrend-duration-analyzer | `analyze_downtrends.py`: `apikey` in params, `{e}` to stderr |
+| value-dividend-screener | `screen_dividend_stocks.py`: FINVIZ `auth` in params, `{e}` to stderr |
+| dividend-growth-pullback-screener | `screen_dividend_growth_rsi.py`: FINVIZ `auth` in params, `{e}` to stderr |
+| parabolic-short-trade-planner | `check_live_apis.py`: `apikey` in params, `{e}` to stdout |
+| canslim-screener | `check_institutional_endpoint.py`: `apikey` in params, `{e}` to stderr |
+| theme-detector | `representative_stock_selector.py` (`auth=` in URL, `logger.exception`) and `finviz_performance_client.py` |
+
+These skills need redaction (the `_redact` pattern in technical-analyst) in a
+follow-up before the axis can pass; their code is unchanged here. The collector
+now flags this pattern (`exception_key_leak_findings`) and counts it against
+`clean`. The scan is a file-level heuristic, not a data-flow proof, and it does
+not check logging of the key value in general.
+
+Policy for the three skills with no key read in their scripts
+(`edge-candidate-agent`, `kanchi-dividend-review-monitor`) or a caller-provided
+key only (`options-strategy-advisor`): they are recorded `passed` because their
+`integrations[]` declare a key source and the scripts make no key-bearing
+requests; the rationale says so explicitly. The global `audit.baseline_commit`
+is intentionally left untouched (the #588 precedent pins per-axis evidence at
+per-override `assessed_commit` values instead).
 
 ## Not covered by this PR (tracked under #496)
 
