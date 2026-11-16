@@ -193,6 +193,7 @@ def test_optional_postmortem_cli_without_key_is_offline(tmp_path, monkeypatch):
         )
     )
     script = ROOT / "skills/signal-postmortem/scripts/postmortem_recorder.py"
+    monkeypatch.syspath_prepend(str(script.parent))
     monkeypatch.setattr(
         sys,
         "argv",
