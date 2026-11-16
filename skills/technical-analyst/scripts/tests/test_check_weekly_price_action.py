@@ -902,4 +902,6 @@ def test_client_exits_2_with_requirements_hint_when_requests_missing(monkeypatch
     assert captured.out == ""
     assert "requests library not found" in captured.err
     assert "pip install -r" in captured.err
-    assert "requirements.txt" in captured.err
+    requirements = Path(mod.__file__).resolve().parents[1] / "requirements.txt"
+    assert requirements.is_file()
+    assert str(requirements) in captured.err

@@ -374,3 +374,19 @@ SKILLS["signal-postmortem"] = SkillConfig(
     class_constants=(),
     extensions=("postmortem_history",),
 )
+
+# ---- Issue #495 Batch D: technical-analyst weekly confirmation ----
+SKILLS["technical-analyst"] = SkillConfig(
+    skill="technical-analyst",
+    title="FMP API Client for Technical Analyst",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=365,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Stable-only explicit-range OHLC transport for weekly confirmation",),
+    class_constants=(),
+    extensions=("technical_eod",),
+)
