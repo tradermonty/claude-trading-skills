@@ -58,6 +58,15 @@ def synthesize_verdict(
     if step1_verdict in ("STEP1-RECHECK", "ASSUMPTION-REQUIRED"):
         return FinalVerdict("STEP1-RECHECK", True, ["step1_recheck"])
 
+    # An unavailable entry basis must never become an actionable thesis,
+    # even when the event scan is clean. Keep the actual blocker in the
+    # verdict rather than attributing a safe freeze to unconfirmed safety.
+    entry_basis_blockers = sorted(
+        set(blockers) & {"regular_only_average_unavailable", "regular_dividend_unavailable"}
+    )
+    if entry_basis_blockers:
+        return FinalVerdict("HOLD-REVIEW", True, entry_basis_blockers)
+
     # Event / safety HOLD-REVIEW caps.
     if event_verdict_cap == "HOLD-REVIEW":
         reasons.append("event_cap_hold_review")

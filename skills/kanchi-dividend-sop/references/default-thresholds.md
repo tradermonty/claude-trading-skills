@@ -71,6 +71,34 @@ Use these as practical defaults:
 
 Override only when user explicitly chooses a different policy.
 
+## Step 5 dividend-basis compatibility (schema version 3, Issue #769)
+
+When declared-dividend history supplies a regular-only current numerator, the
+provider's historical ratios are not a verified regular-only five-year average.
+The current transport has no matching regular-only annual yield/price history,
+so Step 5 withholds its average, target yield, buy price and drop-needed fields:
+`signal=ASSUMPTION-REQUIRED`, `target_withheld_reason=regular_only_average_unavailable`,
+and T1 orders are blocked. No guessed price or reverse-engineered substitute is
+emitted. This applies even when the available history shows no special payment;
+that absence does not establish the provider's five-year basis. A nonempty but
+unusable history produces `regular_dividend_unavailable` rather than silently
+falling back to a profile-based target.
+
+JSON/CSV record `annual_dividend_basis`, `historical_yield_basis`, `yield_basis`
+and `target_withheld_reason`. `provider_avg_5y_yield_pct` and
+`provider_yield_observation_count` retain raw provider diagnostics; they are not
+an actionable regular-only target basis. `yield_observation_count` counts usable
+observations (zero for a withheld target). Markdown lists the withholding reason.
+The legacy no-history library path retains its provider-total calculation with
+both sides explicitly marked `provider_total_unverified`; it does not claim a
+regular-only target. Live history-enabled CLI rows use the guarded path.
+
+A future regular-only historical series must use the same special classification
+as dividend_basis and demonstrably matching yearly dividend/price periods before
+it can enable target calculation. This fix does not add that data acquisition or
+assert the evaluator's ORI figures are live market data. Freeze/strong-safety
+conditional eligibility alone does not establish an entry level: unresolved
+basis evidence keeps such a row HOLD-REVIEW with T1 blocked.
 ## Issue #768 safety guards
 
 - `BANK_CET1_MIN`: 0.07 (fraction units); below the screening floor is CAUTION, invalid/missing values also block CLEAN-PASS. This is not an issuer-specific regulatory requirement; see sector-step2-modules.md.
@@ -99,3 +127,12 @@ using the otherwise-positive adjusted anchor. This differs from the previous
 one-off interpretation and is not a claim that adjusted earnings are negative.
 CET1 values use fraction units (0.125 = 12.5%); 12.5 itself is invalid/CAUTION,
 not silently rescaled. Issue #772's future input path must normalize source units.
+
+Withheld entry targets are non-actionable: a Step-1-passing row is capped at
+HOLD-REVIEW with the withholding reason, regardless of event-scan result.
+Hard FAIL and Step-1 data rechecks keep their stricter dispositions. The
+trader-memory-core adapter therefore rejects these rows instead of registering
+an entry with a null target. A clean payout-safety freeze reports the missing
+entry basis rather than claiming safety was unconfirmed. Provider observations
+remain diagnostic and are not reported missing merely because the usable
+regular-only average is withheld.
