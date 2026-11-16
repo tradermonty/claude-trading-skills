@@ -28,9 +28,9 @@ def test_large_fx_decline_with_unchanged_issuer_dividend_is_not_cut():
 
 
 def test_unknown_currency_decline_is_review_not_hard_fail_or_clean_pass():
-    b = analyze_dividends(history(), 20.0)
-    assert not b.cut_flag
-    assert step1_decision(b, 1.0) == ("HOLD-REVIEW", "dividend_cut_currency_basis_unconfirmed")
+    b = analyze_dividends(history(), 20.0, is_adr=True)
+    assert b.cut_flag
+    assert step1_decision(b, 1.0) == ("CURRENCY-REVIEW", "dividend_cut_currency_basis_unconfirmed")
 
 
 def test_confirmed_original_currency_cut_remains_fail_after_flat_payment():
@@ -50,8 +50,8 @@ def test_missing_source_or_mixed_currency_cannot_confirm_cut():
     for h in (history([100] * 9, source=""), history([100] * 9)):
         h[-1]["original_currency"] = "EUR"
         b = analyze_dividends(h, 20.0)
-        assert not b.cut_flag
-        assert step1_decision(b, 1.0)[0] == "HOLD-REVIEW"
+        assert b.cut_flag
+        assert step1_decision(b, 1.0)[0] == "CURRENCY-REVIEW"
 
 
 def test_row_records_currency_blocker():
@@ -59,7 +59,7 @@ def test_row_records_currency_blocker():
         "FX",
         0.5,
         {"price": 20.0},
-        {"lastDiv": 1.6},
+        {"lastDiv": 1.6, "isAdr": True},
         [{"dividendYield": 0.04}] * 5,
         dividend_history=history(),
         floor_pct=1.0,
@@ -74,7 +74,7 @@ def test_large_fx_variation_does_not_become_variable_policy_fail():
     for native in (None, [100] * 9):
         h = history(native)
         h[-2]["dividend"] = h[-1]["dividend"] = 0.10
-        b = analyze_dividends(h, 20.0)
+        b = analyze_dividends(h, 20.0, is_adr=True)
         assert step1_decision(b, 0.1)[0] != "FAIL"
         if native:
             assert not b.variable_policy_flag
@@ -85,8 +85,8 @@ def test_invalid_original_amounts_fail_closed_to_review():
         h = history([100] * 9)
         h[-1]["original_dividend"] = value
         b = analyze_dividends(h, 20.0)
-        assert not b.cut_flag
-        assert step1_decision(b, 1.0)[0] == "HOLD-REVIEW"
+        assert b.cut_flag
+        assert step1_decision(b, 1.0)[0] == "CURRENCY-REVIEW"
 
 
 def test_explicit_variable_policy_is_not_downgraded_by_currency_uncertainty():
@@ -103,7 +103,7 @@ def test_csv_exports_cut_evidence_basis(tmp_path):
         "FX",
         0.5,
         {"price": 20.0},
-        {"lastDiv": 1.6},
+        {"lastDiv": 1.6, "isAdr": True},
         [{"dividendYield": 0.04}] * 5,
         dividend_history=history([100] * 9),
         floor_pct=1.0,

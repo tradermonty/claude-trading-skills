@@ -200,6 +200,14 @@ curated events JSON and pass it via `build_entry_signals.py --events-json`.
 
 Set entry triggers mechanically:
 - Yield trigger: current yield above 5y average yield + alpha (default `+0.5pp`).
+- **Current CLI limitation (Issue #769)**: the provider's five-year average
+  includes an unverified regular/special mix. The CLI currently emits no buy
+  targets, including for issuers with no detected specials, until a matching
+  regular-only historical average is available. It emits
+  `ASSUMPTION-REQUIRED`, the withholding reason, and a non-actionable
+  `HOLD-REVIEW` cap with T1 blocked (stricter FAIL/recheck decisions remain).
+  Do not infer a replacement entry price from the provider diagnostic average
+  or register these rows as actionable theses.
 - Valuation trigger: target multiple reached (`P/E`, `P/FFO`, or `P/FCF`).
 
 Execution pattern:

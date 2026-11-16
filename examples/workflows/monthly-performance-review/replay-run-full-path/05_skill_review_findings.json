@@ -33,7 +33,7 @@
       "skill_name": "vcp-screener",
       "skill_type": "execution_or_hybrid",
       "test_command": "pytest skills/vcp-screener/scripts/tests -q",
-      "test_output": "........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 82%]\n..............................................                           [100%]\n262 passed in <elapsed>s",
+      "test_output": "........................................................................ [ 23%]\n........................................................................ [ 46%]\n........................................................................ [ 69%]\n........................................................................ [ 93%]\n.....................                                                    [100%]\n309 passed in <elapsed>s",
       "test_status": "passed"
     },
     "declared_verification": {
@@ -44,7 +44,7 @@
         "end_to_end_replay": "not_verified",
         "financial_logic_review": "not_verified",
         "instruction_contract": "not_verified",
-        "security_review": "not_verified",
+        "security_review": "passed",
         "unit_tests": "not_verified",
         "workflow_contract": "not_verified"
       },
@@ -57,7 +57,6 @@
         "end_to_end_replay",
         "financial_logic_review",
         "instruction_contract",
-        "security_review",
         "unit_tests",
         "workflow_contract"
       ],

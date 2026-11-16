@@ -80,13 +80,7 @@ def test_healthy_controls():
 def test_recent_cut_above_prior_year_blocks_step1():
     amounts = [0.25] * 4 + [0.40] * 3 + [0.35]
     history = [
-        {
-            "date": (date(2023, 1, 1) + timedelta(days=91 * i)).isoformat(),
-            "dividend": v,
-            "original_dividend": v,
-            "original_currency": "USD",
-            "original_dividend_source": "synthetic issuer declaration",
-        }
+        {"date": (date(2023, 1, 1) + timedelta(days=91 * i)).isoformat(), "dividend": v}
         for i, v in enumerate(amounts)
     ]
     b = analyze_dividends(history, price=20, floor_pct=1.0)
@@ -126,13 +120,7 @@ def test_cet1_floor_boundary():
 
 def dividend_fixture(amounts, days=91):
     return [
-        {
-            "date": (date(2023, 1, 1) + timedelta(days=days * i)).isoformat(),
-            "dividend": value,
-            "original_dividend": value,
-            "original_currency": "USD",
-            "original_dividend_source": "synthetic issuer declaration",
-        }
+        {"date": (date(2023, 1, 1) + timedelta(days=days * i)).isoformat(), "dividend": value}
         for i, value in enumerate(amounts)
     ]
 

@@ -6,6 +6,11 @@
 
 ## Purpose
 
+Evaluation completeness has a separate versioned
+[`evaluation_coverage` contract](evaluation-coverage-contract.md). Provenance
+describes source semantics; coverage distinguishes a measured negative result
+from an inability to evaluate the declared universe.
+
 Eighteen skills require the FMP API, and endpoint-drift checks already exist for
 API *clients*. But there is no shared standard for the **meaning and
 time-consistency of the data the consumers actually read**. This contract is the
@@ -33,11 +38,11 @@ data_provenance:
   endpoint: historical-price-eod
 
   # When the fetch actually occurred (ISO-8601 UTC timestamp).
-  retrieved_at: 2026-08-01T14:30:00Z
+  retrieved_at: "2026-08-01T14:30:00Z"
 
   # The date the data points describe (the "as of" business date). A date
   # (YYYY-MM-DD) or a timestamp.
-  as_of: 2026-07-31
+  as_of: "2026-07-31"
 
   # IANA timezone the data is reported in.
   timezone: America/New_York
@@ -85,7 +90,14 @@ data_provenance:
 ## Validation
 
 Use the shared validator in skill tests and in workflow E2E replay handoffs.
-The replay declaration below supports incremental producer adoption:
+The replay declaration below supports incremental producer adoption.
+
+The CLI accepts a standalone provenance block or a whole report. If the
+top-level object contains `data_provenance`, that value is validated, including
+when it is null, empty or otherwise invalid; other report fields are ignored.
+Otherwise, the document itself is validated as a block. Reports without a block
+still fail when the required provenance fields are missing. Only the top-level
+key is recognized; nested objects are not searched recursively.
 
 ```bash
 # On a JSON report
@@ -94,7 +106,7 @@ python3 scripts/validate_provenance.py --file reports/some_report.json
 # On a YAML report
 python3 scripts/validate_provenance.py --file reports/some_report.yaml
 
-# From stdin
+# From stdin (JSON or YAML, standalone block or report)
 cat report.json | python3 scripts/validate_provenance.py --stdin
 ```
 
@@ -102,7 +114,7 @@ cat report.json | python3 scripts/validate_provenance.py --stdin
 - Exit code `1` — invalid block (each error printed to stdout).
 - Exit code `2` — I/O or parse error.
 
-Python API:
+Python API (pass the block directly):
 
 ```python
 import sys

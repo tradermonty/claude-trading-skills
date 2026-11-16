@@ -14,7 +14,11 @@ from typing import Optional
 
 
 def generate_json_report(
-    results: list[dict], metadata: dict, output_file: str, all_results: Optional[list[dict]] = None
+    results: list[dict],
+    metadata: dict,
+    output_file: str,
+    all_results: Optional[list[dict]] = None,
+    evaluation_coverage: Optional[dict] = None,
 ):
     """Generate JSON report with screening results.
 
@@ -37,6 +41,8 @@ def generate_json_report(
         "summary": _generate_summary(summary_source),
         "sector_distribution": sector_counts,
     }
+    if evaluation_coverage is not None:
+        report["evaluation_coverage"] = evaluation_coverage
 
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
@@ -45,7 +51,11 @@ def generate_json_report(
 
 
 def generate_markdown_report(
-    results: list[dict], metadata: dict, output_file: str, all_results: Optional[list[dict]] = None
+    results: list[dict],
+    metadata: dict,
+    output_file: str,
+    all_results: Optional[list[dict]] = None,
+    evaluation_coverage: Optional[dict] = None,
 ):
     """Generate Markdown report with VCP screening results.
 
@@ -76,6 +86,23 @@ def generate_markdown_report(
     lines.append(f"| Trend Template passed | {funnel.get('trend_template_passed', 'N/A')} |")
     lines.append(f"| VCP candidates | {funnel.get('vcp_candidates', len(results))} |")
     lines.append("")
+    incomplete = evaluation_coverage is not None and evaluation_coverage["verdict"] != "complete"
+    if evaluation_coverage is not None:
+        lines.append(
+            f"**Evaluation coverage:** {evaluation_coverage['evaluated']}/"
+            f"{evaluation_coverage['universe_size']} evaluated ({evaluation_coverage['verdict']})."
+        )
+        if evaluation_coverage["not_evaluated_reasons"]:
+            reasons = ", ".join(
+                f"{key}: {count}"
+                for key, count in evaluation_coverage["not_evaluated_reasons"].items()
+            )
+            lines.append(f"Not evaluated: {reasons}. Missing members may change the conclusion.")
+        if incomplete:
+            lines.append(
+                "Result undetermined for the full universe; shown candidates cover only evaluated members."
+            )
+        lines.append("")
 
     # Show "top X of Y" when not all results are displayed
     total_candidates = len(all_results) if all_results is not None else len(results)
@@ -127,7 +154,11 @@ def generate_markdown_report(
         for i, stock in enumerate(section_a, 1):
             lines.extend(_format_stock_entry(i, stock))
     else:
-        lines.append("No actionable pre-breakout candidates found.")
+        lines.append(
+            "Result undetermined: incomplete evaluation coverage."
+            if incomplete
+            else "No actionable pre-breakout candidates found."
+        )
         lines.append("")
 
     # Section B: Extended / Quality VCP
@@ -138,7 +169,11 @@ def generate_markdown_report(
         for i, stock in enumerate(section_b, 1):
             lines.extend(_format_stock_entry(i, stock))
     else:
-        lines.append("No extended VCP candidates.")
+        lines.append(
+            "Result undetermined: incomplete evaluation coverage."
+            if incomplete
+            else "No extended VCP candidates."
+        )
         lines.append("")
 
     # Summary statistics

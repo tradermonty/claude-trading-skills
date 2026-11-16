@@ -29,6 +29,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from _price_bars import read_price
+
 try:
     import requests
 except ImportError:
@@ -108,11 +110,37 @@ class FINVIZClient:
                 return set()
 
         except requests.exceptions.RequestException as e:
-            print(f"ERROR: FINVIZ request exception: {e}", file=sys.stderr)
+            # Exception text can include a credential-bearing request URL.
+            print(f"ERROR: FINVIZ request exception: {type(e).__name__}", file=sys.stderr)
             return set()
 
 
 from fmp_client import FMPClient as SharedFMPClient
+
+_PLAN_RESTRICTION_MARKERS = (
+    "http 402",
+    "subscription",
+    "legacy endpoint",
+    "restricted endpoint",
+    "premium query",
+    "not available under your current",
+)
+
+
+class FMPPlanRestrictedError(RuntimeError):
+    """The FMP plan does not serve an endpoint this screen requires."""
+
+
+def _is_plan_restriction(error: Optional[str]) -> bool:
+    """Return True when an FMP failure looks like plan/endpoint gating.
+
+    The shared client records the redacted status/body in ``_last_error``.
+    The shared client does not expose a plan flag, and 403 is also used for
+    invalid keys or WAF blocks, so only the observed legacy/subscription/
+    premium/restricted phrasings are treated as plan gating.
+    """
+    text = (error or "").lower()
+    return any(marker in text for marker in _PLAN_RESTRICTION_MARKERS)
 
 
 class FMPClient(SharedFMPClient):
@@ -159,6 +187,14 @@ class FMPClient(SharedFMPClient):
             )
             or []
         )
+
+        if not universe and _is_plan_restriction(self._last_error):
+            raise FMPPlanRestrictedError(
+                "FMP plan does not include the stock screener endpoint required "
+                "for FMP-only screening (HTTP 402/403). Use --use-finviz, or "
+                "switch to an FMP plan that includes the screener. See "
+                "docs/en/getting-started.md#fmp-plans."
+            )
 
         # Gate 1: dividend yield, estimated from screener fields (no extra calls).
         yield_candidates = []
@@ -250,6 +286,8 @@ class RSICalculator:
         """
         if len(prices) < period + 1:
             return None
+        if any(read_price({"close": price}, "close") is None for price in prices):
+            return None
 
         # Calculate price changes
         changes = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
@@ -274,6 +312,8 @@ class RSICalculator:
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
 
+        if not math.isfinite(rsi):
+            return None
         return round(rsi, 1)
 
 
@@ -936,6 +976,7 @@ def screen_value_dividend_stocks(
         # Convert FINVIZ symbols to candidate format for FMP analysis
         # Fetch quote + profile to get sector information
         candidates = []
+        plan_restricted = False
         print("Fetching quote and profile data from FMP for FINVIZ symbols...", file=sys.stderr)
         for symbol in finviz_symbols:
             quote = client._get(f"quote/{symbol}")
@@ -958,12 +999,24 @@ def screen_value_dividend_stocks(
                     stock_data["priceToBook"] = ratios[0].get("priceToBookRatio")
                 candidates.append(stock_data)
 
+            if _is_plan_restriction(getattr(client, "_last_error", None)):
+                plan_restricted = True
+
             if client.rate_limit_reached:
                 print(
                     f"⚠️  FMP rate limit reached while fetching quotes. Using {len(candidates)} symbols.",
                     file=sys.stderr,
                 )
                 break
+
+        if not candidates and plan_restricted:
+            raise FMPPlanRestrictedError(
+                "FMP plan does not include the quote endpoint required to enrich "
+                "FINVIZ candidates (HTTP 402/403); the ratios/profile lookups that "
+                "depend on it are unavailable too. --use-finviz is already active; "
+                "switch to an FMP plan that includes quote access. See "
+                "docs/en/getting-started.md#fmp-plans."
+            )
 
         print(
             f"Retrieved quote and profile data for {len(candidates)} symbols from FMP",
@@ -1034,11 +1087,16 @@ def screen_value_dividend_stocks(
         rsi = None
         if historical_prices and len(historical_prices) >= 20:
             # Prices come newest first, reverse for RSI calculation
-            prices = [p.get("close", 0) for p in reversed(historical_prices)]
+            prices = [read_price(p, "close") for p in reversed(historical_prices)]
+            if any(price is None for price in prices):
+                print("  ⚠️  RSI unavailable: missing or invalid close data", file=sys.stderr)
+                continue
             rsi = rsi_calc.calculate_rsi(prices, period=14)
 
         if rsi is None:
-            print("  ⚠️  RSI calculation failed (insufficient price data)", file=sys.stderr)
+            print(
+                "  ⚠️  RSI calculation failed (insufficient or invalid price data)", file=sys.stderr
+            )
             continue
 
         # Store RSI for later filtering
@@ -1323,12 +1381,16 @@ Environment Variables:
         print(f"{'=' * 60}\n", file=sys.stderr)
 
     # Run detailed screening
-    results = screen_value_dividend_stocks(
-        fmp_api_key,
-        top_n=args.top,
-        finviz_symbols=finviz_symbols,
-        max_candidates=args.max_candidates,
-    )
+    try:
+        results = screen_value_dividend_stocks(
+            fmp_api_key,
+            top_n=args.top,
+            finviz_symbols=finviz_symbols,
+            max_candidates=args.max_candidates,
+        )
+    except FMPPlanRestrictedError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if not results:
         print("\nNo stocks found matching all criteria.", file=sys.stderr)

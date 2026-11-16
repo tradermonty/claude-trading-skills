@@ -68,6 +68,15 @@ class CandidateResult:
     reasons: list[str] = field(default_factory=list)
     checklist_answers: dict[str, Any] = field(default_factory=dict)
     link_status: str = "not_requested"
+    approved_rule_checks: list[dict[str, Any]] | None = None
+
+
+def _candidate_to_dict(candidate: CandidateResult) -> dict[str, Any]:
+    """Serialize a candidate; omit approved_rule_checks when the ledger flag is absent."""
+    data = asdict(candidate)
+    if data["approved_rule_checks"] is None:
+        del data["approved_rule_checks"]
+    return data
 
 
 def _parse_datetime(
@@ -484,6 +493,123 @@ def link_reports(
     return warnings
 
 
+def _approved_rules_module():
+    """Import the sibling ledger library (works when loaded by file path too)."""
+    script_dir = str(Path(__file__).resolve().parent)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    import approved_rules
+
+    return approved_rules
+
+
+RULE_CHECK_STATUSES = {"followed", "not_applicable", "exception"}
+
+
+def _parse_rule_checks(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
+    """Validate a candidate's approved_rule_checks; nothing malformed is trusted."""
+    if raw is None:
+        return [], []
+    if not isinstance(raw, list):
+        return [], ["approved_rule_checks must be a list"]
+    checks: list[dict[str, str]] = []
+    seen: set[str] = set()
+    problems: list[str] = []
+    for idx, entry in enumerate(raw, start=1):
+        if not isinstance(entry, dict):
+            problems.append(f"approved_rule_checks entry #{idx} must be an object")
+            continue
+        rule_id = entry.get("rule_id")
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            problems.append(f"approved_rule_checks entry #{idx} is missing rule_id")
+            continue
+        if rule_id in seen:
+            problems.append(f"approved_rule_checks lists rule_id {rule_id} more than once")
+            continue
+        seen.add(rule_id)
+        status = entry.get("status")
+        note = entry.get("note")
+        checks.append(
+            {
+                "rule_id": rule_id,
+                "status": status if isinstance(status, str) else str(status),
+                "note": "" if note is None else str(note).strip(),
+            }
+        )
+    if problems:
+        return [], problems
+    return checks, []
+
+
+def _rule_reason(rule: dict[str, Any], check: dict[str, str] | None) -> str | None:
+    """Return the REVIEW_REQUIRED reason for one applied rule, or None when acknowledged."""
+    rule_id = rule["rule_id"]
+    if check is None or check["status"] not in RULE_CHECK_STATUSES:
+        return f"approved rule {rule_id} not acknowledged: {rule['text']}"
+    if check["status"] == "exception":
+        if check["note"]:
+            return f"approved rule {rule_id} exception: {check['note']}"
+        return f"approved rule {rule_id} not acknowledged: {rule['text']}"
+    return None
+
+
+def _apply_approved_rules(
+    candidates: list[dict[str, Any]],
+    results: list[CandidateResult],
+    ledger_path: Path,
+    as_of: datetime,
+    warnings: list[str],
+) -> dict[str, Any]:
+    """Record per-candidate acknowledgements and raise decisions; return the result block."""
+    applied: list[dict[str, Any]] = []
+    unavailable_error: str | None = None
+    try:
+        ar = _approved_rules_module()
+        ledger = ar.load_ledger(ledger_path)
+        view = ar.build_view(ledger, as_of.astimezone(ET).date())
+        applied = view["applied"]
+        warnings.extend(view["warnings"])
+        block: dict[str, Any] = {
+            "status": "loaded",
+            "as_of_date": view["as_of_date"],
+            "applied": applied,
+            "not_applied": view["not_applied"],
+        }
+    except Exception as exc:  # noqa: BLE001 - converted into REVIEW_REQUIRED.
+        unavailable_error = str(exc)
+        block = {"status": "unavailable", "error": unavailable_error}
+
+    applied_ids = {rule["rule_id"] for rule in applied}
+    for candidate, result in zip(candidates, results):
+        checks, problems = _parse_rule_checks(candidate.get("approved_rule_checks"))
+        result.approved_rule_checks = checks
+        if result.actionable:
+            if unavailable_error is not None:
+                _raise_candidate_decision(
+                    result,
+                    "REVIEW_REQUIRED",
+                    f"approved-rule ledger {ledger_path} could not be read: {unavailable_error}",
+                )
+            elif problems:
+                for problem in problems:
+                    _raise_candidate_decision(result, "REVIEW_REQUIRED", problem)
+            else:
+                by_id = {check["rule_id"]: check for check in checks}
+                for rule in applied:
+                    reason = _rule_reason(rule, by_id.get(rule["rule_id"]))
+                    if reason is not None:
+                        _raise_candidate_decision(result, "REVIEW_REQUIRED", reason)
+        elif problems:
+            warnings.extend(f"{result.symbol}: {problem}" for problem in problems)
+        for check in checks:
+            if check["rule_id"] not in applied_ids:
+                warnings.append(
+                    f"{result.symbol}: approved_rule_checks entry {check['rule_id']} "
+                    "does not match an applied rule"
+                )
+    return block
+
+
 def evaluate_pre_trade_gate(
     candidates: list[dict[str, Any]],
     *,
@@ -494,6 +620,7 @@ def evaluate_pre_trade_gate(
     circuit_breaker_decision: Path | None,
     output_dir: Path,
     json_only: bool,
+    approved_rules_ledger: Path | None = None,
 ) -> dict[str, Any]:
     candidate_results = [_candidate_base_result(candidate) for candidate in candidates]
     for candidate, result in zip(candidates, candidate_results):
@@ -527,12 +654,18 @@ def evaluate_pre_trade_gate(
                 if decision != "OK":
                     _raise_candidate_decision(candidate, decision, reason)
 
+    approved_rules_block = None
+    if approved_rules_ledger is not None:
+        approved_rules_block = _apply_approved_rules(
+            candidates, candidate_results, approved_rules_ledger, as_of, warnings
+        )
+
     result = {
         "schema_version": "1.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "as_of": as_of.isoformat(),
         "overall_decision": aggregate_decision(candidate_results),
-        "candidate_results": [asdict(candidate) for candidate in candidate_results],
+        "candidate_results": [_candidate_to_dict(candidate) for candidate in candidate_results],
         "metrics": {
             "candidates_total": len(candidate_results),
             "actionable_candidates": len(actionable_candidates),
@@ -552,6 +685,9 @@ def evaluate_pre_trade_gate(
         "warnings": warnings,
         "rationale": "",
     }
+    if approved_rules_block is not None:
+        result["inputs"]["approved_rules_ledger"] = str(approved_rules_ledger)
+        result["approved_rules"] = approved_rules_block
     json_path, md_path = _planned_artifact_paths(result, output_dir, json_only)
     result["artifact_paths"] = {
         "json": str(json_path),
@@ -569,7 +705,7 @@ def finalize_links(
     candidates = [CandidateResult(**candidate) for candidate in result["candidate_results"]]
     report_path = Path(result["artifact_paths"]["json"])
     warnings = link_reports(candidates, state_dir=state_dir, report_path=report_path, as_of=as_of)
-    result["candidate_results"] = [asdict(candidate) for candidate in candidates]
+    result["candidate_results"] = [_candidate_to_dict(candidate) for candidate in candidates]
     result["overall_decision"] = aggregate_decision(candidates)
     result["warnings"].extend(warnings)
     result["rationale"] = build_rationale(result)
@@ -584,6 +720,62 @@ def build_rationale(result: dict[str, Any]) -> str:
     if decision == "REVIEW_REQUIRED":
         return "At least one actionable candidate needs human review before any manual order is placed."
     return "At least one actionable candidate violated a discipline rule; do not place the manual order."
+
+
+def _md_cell(value: Any) -> str:
+    """Escape text for a Markdown table cell."""
+    text = str(value).replace("|", "\\|")
+    return text.replace("\r\n", "<br>").replace("\n", "<br>").replace("\r", "<br>")
+
+
+def _approved_rules_markdown(result: dict[str, Any]) -> list[str]:
+    block = result["approved_rules"]
+    lines = ["## Approved operating rules", ""]
+    lines.append(f"**Ledger:** {_md_cell(result['inputs']['approved_rules_ledger'])}")
+    if block["status"] != "loaded":
+        lines.extend([f"**Status:** unavailable - {_md_cell(block['error'])}", ""])
+    else:
+        lines.extend([f"**Status:** loaded (as of {block['as_of_date']})", ""])
+        if block["applied"]:
+            lines.extend(
+                [
+                    "| Rule ID | State | Rule | Review after | Expires on |",
+                    "|---------|-------|------|--------------|------------|",
+                ]
+            )
+            for rule in block["applied"]:
+                lines.append(
+                    f"| {_md_cell(rule['rule_id'])} | {rule['state']} | {_md_cell(rule['text'])} "
+                    f"| {rule['review_after']} | {rule['expires_on'] or '-'} |"
+                )
+        else:
+            lines.append("No approved rules apply.")
+        lines.append("")
+        if block["not_applied"]:
+            lines.append("Not applied:")
+            lines.extend(f"- {_md_cell(r['rule_id'])}: {r['state']}" for r in block["not_applied"])
+            lines.append("")
+    rows = [
+        (candidate["symbol"], check)
+        for candidate in result["candidate_results"]
+        for check in candidate.get("approved_rule_checks") or []
+    ]
+    if rows:
+        lines.extend(
+            [
+                "### Acknowledgements",
+                "",
+                "| Symbol | Rule ID | Status | Note |",
+                "|--------|---------|--------|------|",
+            ]
+        )
+        for symbol, check in rows:
+            lines.append(
+                f"| {_md_cell(symbol)} | {_md_cell(check['rule_id'])} "
+                f"| {_md_cell(check['status'])} | {_md_cell(check['note'])} |"
+            )
+        lines.append("")
+    return lines
 
 
 def generate_markdown_report(result: dict[str, Any]) -> str:
@@ -602,7 +794,11 @@ def generate_markdown_report(result: dict[str, Any]) -> str:
         "|--------|--------|------------|----------|---------|------|",
     ]
     for candidate in result["candidate_results"]:
-        reasons = "<br>".join(candidate["reasons"]) if candidate["reasons"] else "None"
+        reasons = (
+            "<br>".join(_md_cell(reason) for reason in candidate["reasons"])
+            if candidate["reasons"]
+            else "None"
+        )
         lines.append(
             "| {symbol} | {intent} | {actionable} | {decision} | {reasons} | {link} |".format(
                 symbol=candidate["symbol"],
@@ -614,6 +810,9 @@ def generate_markdown_report(result: dict[str, Any]) -> str:
             )
         )
     lines.append("")
+
+    if "approved_rules" in result:
+        lines.extend(_approved_rules_markdown(result))
 
     if result["warnings"]:
         lines.extend(["## Warnings", ""])
@@ -667,6 +866,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json-only", action="store_true")
     parser.add_argument(
+        "--approved-rules-ledger",
+        type=Path,
+        help="Approved-rule ledger (manage_approved_rules.py); applied rules need acknowledgement",
+    )
+    parser.add_argument(
         "--fail-on-non-go",
         action="store_true",
         help="Return exit 2 when the decision is not GO.",
@@ -692,6 +896,7 @@ def main(argv: list[str] | None = None) -> int:
             circuit_breaker_decision=args.circuit_breaker_decision,
             output_dir=args.output_dir,
             json_only=args.json_only,
+            approved_rules_ledger=args.approved_rules_ledger,
         )
         result["rationale"] = build_rationale(result)
         json_path, md_path = write_reports(result, args.output_dir, args.json_only)
@@ -709,6 +914,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Journal: {journal_path}")
     print(f"\nDecision: {result['overall_decision']}")
     print(result["rationale"])
+    if "approved_rules" in result:
+        block = result["approved_rules"]
+        if block["status"] == "loaded":
+            print(
+                f"Approved rules: {len(block['applied'])} applied, "
+                f"{len(block['not_applied'])} not applied (as of {block['as_of_date']})"
+            )
+        else:
+            print(f"Approved rules: ledger unavailable ({block['error']})")
+        for warning in result["warnings"]:
+            if "approved rule " in warning or "approved_rule_checks" in warning:
+                print(f"Warning: {warning}")
     if args.fail_on_non_go and result["overall_decision"] != "GO":
         return 2
     return 0

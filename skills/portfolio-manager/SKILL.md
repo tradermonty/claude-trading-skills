@@ -100,7 +100,11 @@ For `core-portfolio-weekly`, follow
 [`references/position-reconciliation.md`](references/position-reconciliation.md)
 to compare complete broker and ACTIVE / PARTIALLY_CLOSED memory snapshots using
 `scripts/reconcile_positions.py`. Generate the JSON and Markdown reconciliation
-reports. Stop allocation and rebalance review if `can_continue` is false or if
+reports. A saved complete Alpaca positions list can be converted with
+`scripts/normalize_alpaca_positions.py`, explicitly supplying the verified account
+alias, aware capture time and `--confirm-complete`. This offline conversion needs
+no prices and does not verify those assertions; full memory export/account
+attribution is still manual. Stop allocation and rebalance review if `can_continue` is false or if
 snapshot completeness, account attribution or freshness cannot be established.
 Keep discrepancies for manual resolution; never place orders or modify theses
 through reconciliation. This is an offline, manually prepared gate; existing

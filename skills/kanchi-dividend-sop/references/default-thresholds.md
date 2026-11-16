@@ -71,6 +71,34 @@ Use these as practical defaults:
 
 Override only when user explicitly chooses a different policy.
 
+## Step 5 dividend-basis compatibility (schema version 3, Issue #769)
+
+When declared-dividend history supplies a regular-only current numerator, the
+provider's historical ratios are not a verified regular-only five-year average.
+The current transport has no matching regular-only annual yield/price history,
+so Step 5 withholds its average, target yield, buy price and drop-needed fields:
+`signal=ASSUMPTION-REQUIRED`, `target_withheld_reason=regular_only_average_unavailable`,
+and T1 orders are blocked. No guessed price or reverse-engineered substitute is
+emitted. This applies even when the available history shows no special payment;
+that absence does not establish the provider's five-year basis. A nonempty but
+unusable history produces `regular_dividend_unavailable` rather than silently
+falling back to a profile-based target.
+
+JSON/CSV record `annual_dividend_basis`, `historical_yield_basis`, `yield_basis`
+and `target_withheld_reason`. `provider_avg_5y_yield_pct` and
+`provider_yield_observation_count` retain raw provider diagnostics; they are not
+an actionable regular-only target basis. `yield_observation_count` counts usable
+observations (zero for a withheld target). Markdown lists the withholding reason.
+The legacy no-history library path retains its provider-total calculation with
+both sides explicitly marked `provider_total_unverified`; it does not claim a
+regular-only target. Live history-enabled CLI rows use the guarded path.
+
+A future regular-only historical series must use the same special classification
+as dividend_basis and demonstrably matching yearly dividend/price periods before
+it can enable target calculation. This fix does not add that data acquisition or
+assert the evaluator's ORI figures are live market data. Freeze/strong-safety
+conditional eligibility alone does not establish an entry level: unresolved
+basis evidence keeps such a row HOLD-REVIEW with T1 blocked.
 ## Issue #768 safety guards
 
 - `BANK_CET1_MIN`: 0.07 (fraction units); below the screening floor is CAUTION, invalid/missing values also block CLEAN-PASS. This is not an issuer-specific regulatory requirement; see sector-step2-modules.md.
@@ -118,19 +146,32 @@ cut hidden by FX remains a cut; an unchanged native rate with falling USD cash
 does not become a cut or a variable-payment policy. Other independent yield,
 suspension, or policy failures still apply.
 
-Without complete, consistent evidence, an observed material USD decrease sets
-`dividend_cut_currency_basis_unconfirmed`: Step 1 returns HOLD-REVIEW, the order
-blocker is exported, and CLEAN-PASS is unavailable. It does not assert
-`cut_flag=True` or hard-fail merely because of that converted-rate decline.
-Existing synthetic cut fixtures explicitly include issuer-currency evidence;
-their FAIL assertions remain active rather than being weakened.
+Ordinary USD histories without original-currency metadata keep the USD cut
+classification (`cut_amount_basis=usd_history`): a material cut sets `cut_flag`
+and FAIL. A validated non-USD profile currency, boolean `isAdr=true`, or partial
+original-currency metadata requires confirmation when a cut is observed without
+complete evidence. Profile currency is only a review hint, never native proof.
+The observed `cut_flag=True` is retained for the downstream T6 review monitor.
+`cut_confirmation_required=True` yields Step 1 `CURRENCY-REVIEW`, mapped directly
+to final HOLD-REVIEW with `t1_blocked=True`, even without CLI-added blockers.
+Legacy callers carrying the currency blocker receive the same final cap. This
+review is distinct from a freeze's income-cash-cow CONDITIONAL-PASS path.
 
-`dividend_basis.cut_confirmation_required` explicitly marks the review gate.
-`dividend_basis.cut_amount_basis` is `original_currency` or `unconfirmed`, and
-`original_dividend_currency` records the evidence unit; CSV exposes both fields.
-Schema 4 reserves the updated provenance/decision contract while the independent
-#769 / PR #775 schema-3 target-basis change is pending. When integrating both,
-retain schema 4 and regenerate the shared distributable from combined source.
-The standard provider path does not yet acquire these original-currency fields;
-it therefore routes ambiguous declines to manual review. This does not fetch or
-guess native amounts and does not implement #770's increase/TTM changes.
+With complete original evidence, freeze and last-increase date also use the
+native series. An FX-only USD decline can clear the cut flag but cannot hide a
+native freeze. USD yield/entry valuation remains unchanged.
+
+CSV/JSON expose `cut_confirmation_required`, `cut_amount_basis` and
+`original_dividend_currency`. Schema 4 includes the integrated schema-3 entry
+basis change. The provider does not acquire original amounts: identified foreign
+or ADR declines require manual confirmation. No native values are guessed.
+Issue #770's monthly-raise tolerance and TTM changes remain separate.
+
+Withheld entry targets are non-actionable: a Step-1-passing row is capped at
+HOLD-REVIEW with the withholding reason, regardless of event-scan result.
+Hard FAIL and Step-1 data rechecks keep their stricter dispositions. The
+trader-memory-core adapter therefore rejects these rows instead of registering
+an entry with a null target. A clean payout-safety freeze reports the missing
+entry basis rather than claiming safety was unconfirmed. Provider observations
+remain diagnostic and are not reported missing merely because the usable
+regular-only average is withheld.

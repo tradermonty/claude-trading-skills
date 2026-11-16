@@ -1,0 +1,17 @@
+    def get_technical_eod_rows(self, symbol: str, from_date: str, to_date: str):
+        """Raw full-OHLC rows for an explicit historical range, never legacy fallback.
+
+        Empty lists remain empty successes; the caller owns weekly sanitization,
+        as-of clipping, and futures-to-ETF source selection. No current-date
+        window, sorting, truncation or cache changes the requested evidence.
+        """
+        data = self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/historical-price-eod/full",
+            {"symbol": symbol, "from": from_date, "to": to_date},
+        )
+        if data is None and self._last_error:
+            return None
+        if not isinstance(data, list) or any(not isinstance(row, dict) for row in data):
+            self._last_error = "expected a flat list of EOD row objects"
+            return None
+        return data

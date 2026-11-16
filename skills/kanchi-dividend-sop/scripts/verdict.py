@@ -44,6 +44,11 @@ def synthesize_verdict(
     if safety_verdict == "FAIL":
         return FinalVerdict("FAIL", True, ["payout_safety_fail"])
 
+    # Currency uncertainty is distinct from an income-cash-cow freeze. Keep
+    # both new Step-1 callers and older blocker-only callers non-actionable.
+    if step1_verdict == "CURRENCY-REVIEW" or "dividend_cut_currency_basis_unconfirmed" in blockers:
+        return FinalVerdict("HOLD-REVIEW", True, ["dividend_cut_currency_basis_unconfirmed"])
+
     # Step-1 is the core yield-floor gate. If it was not run (no
     # --yield-floor) or returned an unknown value, a PASS tier cannot be
     # asserted (6th-review High1): fail-safe to STEP1-RECHECK.
@@ -57,6 +62,15 @@ def synthesize_verdict(
     # Step-1 data-freshness recheck dominates (cannot assert PASS yet).
     if step1_verdict in ("STEP1-RECHECK", "ASSUMPTION-REQUIRED"):
         return FinalVerdict("STEP1-RECHECK", True, ["step1_recheck"])
+
+    # An unavailable entry basis must never become an actionable thesis,
+    # even when the event scan is clean. Keep the actual blocker in the
+    # verdict rather than attributing a safe freeze to unconfirmed safety.
+    entry_basis_blockers = sorted(
+        set(blockers) & {"regular_only_average_unavailable", "regular_dividend_unavailable"}
+    )
+    if entry_basis_blockers:
+        return FinalVerdict("HOLD-REVIEW", True, entry_basis_blockers)
 
     # Event / safety HOLD-REVIEW caps.
     if event_verdict_cap == "HOLD-REVIEW":

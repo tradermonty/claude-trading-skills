@@ -197,6 +197,8 @@ def analyze_dividends(
     *,
     issuer_language: str | None = None,
     floor_pct: float | None = None,
+    issuer_currency: str | None = None,
+    is_adr: bool = False,
     as_of_date: str | None = None,
 ) -> DividendBasis:
     """Analyze a stock_dividend `historical` list into a DividendBasis.
@@ -295,8 +297,30 @@ def analyze_dividends(
     regular_ttm = _sum_window(regular, asof, 366, 0)
     incl_special_ttm = _sum_window(all_pays, asof, 366, 0)
 
+    # Classify policy in issuer currency when fully sourced; USD remains the
+    # valuation basis above and below. Profile currency is only a review hint.
+    original, original_currency = _original_regular_series(history, regular)
+    policy_regular = original if original is not None else regular
+    currency_hint = issuer_currency.strip().upper() if isinstance(issuer_currency, str) else ""
+    foreign_hint = (
+        len(currency_hint) == 3
+        and currency_hint.isascii()
+        and currency_hint.isalpha()
+        and currency_hint != "USD"
+    )
+    partial_evidence = any(
+        any(
+            key in item
+            for key in ("original_dividend", "original_currency", "original_dividend_source")
+        )
+        for item in history or []
+    )
+    needs_currency_confirmation = original is None and (
+        foreign_hint or is_adr is True or partial_evidence
+    )
+
     # --- Step 5: variable-policy on the *residual* (post-special) stream ---
-    window = [a for _, a in regular[-max(ppy or 4, 8) :]]
+    window = [a for _, a in policy_regular[-max(ppy or 4, 8) :]]
     variable_flag = False
     if len(window) >= MIN_REGULAR_PAYS:
         mean = statistics.fmean(window)
@@ -313,9 +337,9 @@ def analyze_dividends(
 
     # --- last increase date (ascending scan over regular amounts) ---
     last_increase: date | None = None
-    for i in range(1, len(regular)):
-        if regular[i][1] > regular[i - 1][1] + DIVIDEND_EQUALITY_EPS:
-            last_increase = regular[i][0]
+    for i in range(1, len(policy_regular)):
+        if policy_regular[i][1] > policy_regular[i - 1][1] + DIVIDEND_EQUALITY_EPS:
+            last_increase = policy_regular[i][0]
 
     # --- freeze / cut via year-over-year per-pay RATE (frequency-independent,
     #     robust to rolling-window pay-count drift; v2.1 R-2) ---
@@ -323,26 +347,26 @@ def analyze_dividends(
     # Keep a material reduction visible through subsequent flat payments.
     # Semiannual interim/final payments can differ seasonally: compare their
     # rolling annual sums instead of comparing the larger final with interim.
-    cutoff = regular[-1][0] - timedelta(days=DIVIDEND_CUT_LOOKBACK_DAYS)
+    cutoff = policy_regular[-1][0] - timedelta(days=DIVIDEND_CUT_LOOKBACK_DAYS)
     if cadence == "semiannual":
         recent_rates = [
-            regular[i - 1][1] + regular[i][1]
-            for i in range(1, len(regular))
-            if regular[i][0] >= cutoff
+            policy_regular[i - 1][1] + policy_regular[i][1]
+            for i in range(1, len(policy_regular))
+            if policy_regular[i][0] >= cutoff
         ]
-        current_rate = regular[-2][1] + regular[-1][1]
+        current_rate = policy_regular[-2][1] + policy_regular[-1][1]
     else:
-        recent_rates = [amount for day, amount in regular if day >= cutoff]
-        current_rate = regular[-1][1]
+        recent_rates = [amount for day, amount in policy_regular if day >= cutoff]
+        current_rate = policy_regular[-1][1]
     peak_rate = max(recent_rates)
     cut_flag = current_rate < peak_rate * (1 - DIVIDEND_CUT_REL_TOL)
     if cut_flag:
         reasons.append("sequential_regular_rate_cut")
         reasons.append("material_cut_below_trailing_year_peak")
     freeze_flag = False
-    cur_rate = regular[-1][1]
-    prior_idx = len(regular) - 1 - ppy if ppy else -1
-    prior_rate = regular[prior_idx][1] if prior_idx >= 0 else None
+    cur_rate = policy_regular[-1][1]
+    prior_idx = len(policy_regular) - 1 - ppy if ppy else -1
+    prior_rate = policy_regular[prior_idx][1] if prior_idx >= 0 else None
     lang_maintains = bool(
         issuer_language and any(k in issuer_language.lower() for k in _MAINTAIN_KEYWORDS)
     )
@@ -362,31 +386,16 @@ def analyze_dividends(
         if lang_maintains:
             freeze_flag = True
 
-    original, original_currency = _original_regular_series(history, regular)
-    observed_cut = cut_flag
-    cut_amount_basis = "unconfirmed"
+    cut_amount_basis = "original_currency" if original is not None else "usd_history"
+    cut_confirmation_required = cut_flag and needs_currency_confirmation
+    if cut_confirmation_required:
+        cut_amount_basis = "unconfirmed"
+        reasons.append("dividend_cut_currency_basis_unconfirmed")
     if original is not None:
-        cut_flag = _material_rate_cut(original, cadence, ppy)
-        cut_amount_basis = "original_currency"
-        # Currency conversion must not manufacture a variable-payment policy.
-        native_window = [amount for _, amount in original[-max(ppy or 4, 8) :]]
-        native_cov = statistics.pstdev(native_window) / statistics.fmean(native_window)
-        variable_flag = native_cov > VARIABLE_POLICY_COV
-        if issuer_language and any(k in issuer_language.lower() for k in _STRONG_VARIABLE_KEYWORDS):
-            variable_flag = True
         if cut_flag:
             reasons.append("original_currency_dividend_cut")
-        elif observed_cut:
+        elif _material_rate_cut(regular, cadence, ppy):
             reasons.append("fx_like_decline_original_dividend_not_cut")
-    elif observed_cut:
-        cut_flag = False
-        reasons.append("dividend_cut_currency_basis_unconfirmed")
-    if not cut_flag:
-        reasons = [
-            r
-            for r in reasons
-            if r not in ("sequential_regular_rate_cut", "material_cut_below_trailing_year_peak")
-        ]
 
     # --- suspension: an expected regular declaration is overdue (4th-review
     #     point 4). Distinct from cut (rate down) and freeze (rate held). ---
@@ -430,7 +439,7 @@ def analyze_dividends(
         special_dividend_flag=special_flag,
         variable_policy_flag=variable_flag,
         cut_flag=cut_flag,
-        cut_confirmation_required=observed_cut and original is None,
+        cut_confirmation_required=cut_confirmation_required,
         cut_amount_basis=cut_amount_basis,
         original_dividend_currency=original_currency,
         freeze_flag=freeze_flag,
@@ -452,8 +461,10 @@ def step1_decision(
 ) -> tuple[str, str]:
     """Map a DividendBasis to a Step-1 verdict per the v2 decision matrix.
 
-    Returns (verdict, reason). Verdicts: FAIL / STEP1-RECHECK / HOLD-REVIEW /
-    STEP1-PASS (caller refines STEP1-PASS into the full tier via WS-2/WS-5).
+    Returns (verdict, reason). CURRENCY-REVIEW maps to a final HOLD-REVIEW.
+    Other verdicts: FAIL / STEP1-RECHECK / HOLD-REVIEW /
+    STEP1-PASS / CURRENCY-REVIEW. CURRENCY-REVIEW maps to a non-actionable
+    final HOLD-REVIEW, while HOLD-REVIEW here denotes a dividend freeze.
     """
     if basis.status == "NO-DIVIDEND":
         return "FAIL", "no_dividend"
@@ -464,7 +475,7 @@ def step1_decision(
     if basis.variable_policy_flag and "explicit_issuer_variable_dividend_policy" in basis.reasons:
         return "FAIL", "variable_dividend_policy"
     if basis.cut_confirmation_required:
-        return "HOLD-REVIEW", "dividend_cut_currency_basis_unconfirmed"
+        return "CURRENCY-REVIEW", "dividend_cut_currency_basis_unconfirmed"
     if basis.variable_policy_flag:
         return "FAIL", "variable_dividend_policy"
     if basis.cut_flag:

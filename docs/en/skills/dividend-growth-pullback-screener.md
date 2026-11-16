@@ -97,7 +97,7 @@ export FINVIZ_API_KEY=your_finviz_key_here
 **Why Two-Stage?**
 - **FINVIZ**: Fast pre-screening with RSI filter (1 API call → ~10-50 candidates)
 - **FMP**: Detailed fundamental analysis only on pre-screened candidates
-- **Result**: Analyze more stocks with fewer FMP API calls (stays within free tier limits)
+- **Result**: Analyze more stocks with fewer FMP API calls (reduces FMP API usage; the stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11) — see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans))
 
 #### FMP-Only Approach (Original Method)
 
@@ -107,7 +107,7 @@ If you don't have FINVIZ Elite access:
 export FMP_API_KEY=your_key_here
 ```
 
-**Limitation**: FMP free tier (250 requests/day) limits analysis to ~40 stocks. Use `--max-candidates 40` to stay within limits.
+**Limitation**: FMP-only mode needs the stock-screener endpoint, which is not on the free plan (2026-11). Use `--use-finviz` or a plan that includes it (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)). On a plan that includes the screener, `--max-candidates 40` keeps the request count low.
 
 ### Step 2: Execute Screening
 

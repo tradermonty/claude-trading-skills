@@ -191,6 +191,7 @@ def _validate_market_report(
         label=f"{kind} market artifact",
         required={"schema_version", "metadata", "composite", "components", "provenance"}
         | ({"data_provenance"} if kind in {"breadth", "uptrend"} else set()),
+        optional={"evaluation_coverage"},
     )
     expected = _market_analysis(scorer, kind, fixture, fixed_timestamp)
     _assert_finite_json(payload, f"{kind} market artifact")

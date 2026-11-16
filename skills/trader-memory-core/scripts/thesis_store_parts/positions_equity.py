@@ -326,8 +326,10 @@ def close(
         thesis_id: Thesis to close.
         exit_reason: One of stop_hit, target_hit, time_stop, invalidated, manual.
         actual_price: Exit price.
-        actual_date: Exit date (ISO format).
-        event_date: Optional ISO timestamp for status_history.at (for backfilling).
+        actual_date: Exit date (ISO format; a bare YYYY-MM-DD is
+            normalized to midnight UTC).
+        event_date: Optional ISO timestamp for status_history.at (for
+            backfilling; a bare YYYY-MM-DD is normalized to midnight UTC).
 
     Returns:
         Updated thesis dict.
@@ -335,6 +337,12 @@ def close(
     Raises:
         ValueError: If thesis is not ACTIVE/PARTIALLY_CLOSED or entry missing.
     """
+    # Issue #760: normalize date-only dates to midnight UTC, as
+    # transition()/trim() and the CLI already do. Coerced up front so the
+    # futures dispatch below receives normalized values too.
+    actual_date = _coerce_dt(actual_date)
+    event_date = _coerce_dt(event_date)
+
     thesis = _load_thesis(state_dir, thesis_id)
 
     # Dispatch at function entry (D2/D4 non-negotiable, see _is_futures
@@ -598,11 +606,13 @@ def open_position(
         state_dir: Path to state/theses/.
         thesis_id: Thesis to activate.
         actual_price: Entry price.
-        actual_date: Entry date (ISO format).
+        actual_date: Entry date (ISO format; a bare YYYY-MM-DD is
+            normalized to midnight UTC).
         reason: Transition reason.
         shares: Share count (equity). Required unless an attached position
             already records `shares`.
-        event_date: Optional ISO timestamp for status_history.at (for backfilling).
+        event_date: Optional ISO timestamp for status_history.at (for
+            backfilling; a bare YYYY-MM-DD is normalized to midnight UTC).
         contracts: Optional contract count to record (futures; P2-1). If a
             futures position was already attached via
             attach_futures_position(), leave this None — the attached
@@ -635,6 +645,12 @@ def open_position(
         ValueError: If thesis is not ENTRY_READY, or an equity open has no
             share count (neither `shares` nor an attached position's shares).
     """
+    # Issue #760: normalize date-only dates to midnight UTC, as
+    # transition()/trim() and the CLI already do. Coerced up front so the
+    # futures dispatch below receives normalized values too.
+    actual_date = _coerce_dt(actual_date)
+    event_date = _coerce_dt(event_date)
+
     if not isinstance(allow_gap_fill, bool):
         raise ValueError("allow_gap_fill must be a bool")
 
