@@ -338,6 +338,68 @@ class TestPlanGating:
                 return None
 
         monkeypatch.setattr(mod, "FMPClient", lambda key: NoErrorAttr())
+
+    # -- Issue #777: plan gating in the per-symbol analysis stage --------
+
+    def test_analysis_stage_plan_restriction_raises_when_all_gated(self, mod, fake_fmp):
+        # FINVIZ path: quote/profile return 200, but the per-symbol analysis
+        # calls (dividends, prices, statements) return 402.
+        fake_fmp.registry = {
+            "quotes": {"AAA": {"symbol": "AAA", "price": 20.0}},
+            "div": {"AAA": None},
+            "prices": {"AAA": None},
+            "income": {"AAA": []},
+            "balance": {"AAA": []},
+            "cf": {"AAA": []},
+            "metrics": {"AAA": []},
+            "last_error_by_symbol": {
+                "AAA": "HTTP 402 - Premium Query Parameter ... not available "
+                "under your current subscription"
+            },
+        }
+        with pytest.raises(mod.FMPPlanRestrictedError, match="detailed analysis"):
+            mod.screen_dividend_growth_pullbacks("key", finviz_symbols={"AAA"})
+
+    def test_analysis_stage_partial_gating_returns_survivors_and_warns(self, mod, fake_fmp, capsys):
+        fake_fmp.registry = {
+            "quotes": {
+                "GOOD": {"symbol": "GOOD", "price": 20.0},
+                "BAD": {"symbol": "BAD", "price": 20.0},
+            },
+            "div": {"BAD": None},
+            "prices": {"BAD": None},
+            "income": {"BAD": []},
+            "balance": {"BAD": []},
+            "cf": {"BAD": []},
+            "metrics": {"BAD": []},
+            "last_error_by_symbol": {
+                "BAD": "HTTP 402 - Premium Query Parameter ... not available "
+                "under your current subscription"
+            },
+        }
+        stats = {}
+        results = mod.screen_dividend_growth_pullbacks(
+            "key", finviz_symbols=["GOOD", "BAD"], stats=stats
+        )
+        assert [r["symbol"] for r in results] == ["GOOD"]
+        assert stats["plan_gated_skipped"] == 1
+        err = capsys.readouterr().err
+        assert "1 candidate" in err
+        assert "plan" in err.lower()
+
+    def test_analysis_stage_genuine_empty_keeps_current_behavior(self, mod, fake_fmp):
+        # All 200s, no dividend data anywhere: a normal empty result, not a
+        # plan-gating error.
+        fake_fmp.registry = {
+            "quotes": {"AAA": {"symbol": "AAA", "price": 20.0}},
+            "div": {"AAA": None},
+            "prices": {"AAA": None},
+        }
+        stats = {}
+        assert (
+            mod.screen_dividend_growth_pullbacks("key", finviz_symbols={"AAA"}, stats=stats) == []
+        )
+        assert stats["plan_gated_skipped"] == 0
         assert mod.screen_dividend_growth_pullbacks("key", finviz_symbols={"AAA"}) == []
 
 
@@ -731,7 +793,14 @@ class FakeFMP:
         return data
 
     def _per(self, key, symbol, default):
-        return FakeFMP.registry.get(key, {}).get(symbol, default)
+        value = FakeFMP.registry.get(key, {}).get(symbol, default)
+        # Mirror the real client's _last_error: cleared at the start of every
+        # fetch, set when the fetch returns nothing and a failure is configured.
+        error = FakeFMP.registry.get("last_error_by_symbol", {}).get(
+            symbol, FakeFMP.registry.get("last_error")
+        )
+        self._last_error = error if (not value and error) else None
+        return value
 
     def get_dividend_history(self, symbol):
         return self._per("div", symbol, GOOD_DIVIDENDS)
@@ -1134,7 +1203,8 @@ class TestMain:
     def test_plan_restriction_exits_1_before_output(self, mod, cli_env, monkeypatch, capsys):
         def raise_plan(**kwargs):
             raise mod.FMPPlanRestrictedError(
-                "FMP plan does not include the stock screener endpoint required"
+                "FMP plan does not include the stock screener endpoint required: "
+                "synthetic-private-diagnostic-marker"
             )
 
         monkeypatch.setattr(mod, "screen_dividend_growth_pullbacks", raise_plan)
@@ -1142,8 +1212,25 @@ class TestMain:
         with pytest.raises(SystemExit) as exc:
             _run_main(mod, monkeypatch, [])
         assert exc.value.code == 1
-        assert "FMP plan does not include the stock screener endpoint" in capsys.readouterr().err
+        diagnostic = capsys.readouterr().err
+        assert "FMP plan does not include the stock screener endpoint" in diagnostic
+        assert "synthetic-private-diagnostic-marker" not in diagnostic
         assert not (cli_env / "logs").exists()
+
+    def test_main_includes_plan_gated_skipped_in_metadata(self, mod, cli_env, monkeypatch):
+        def fake_screen(**kwargs):
+            stats = kwargs.get("stats")
+            if stats is not None:
+                stats["plan_gated_skipped"] = 2
+            return [_result()]
+
+        monkeypatch.setattr(mod, "screen_dividend_growth_pullbacks", fake_screen)
+        monkeypatch.setenv("FMP_API_KEY", "fmp")
+        _run_main(mod, monkeypatch, [])
+        logs = cli_env / "logs"
+        (json_path,) = logs.glob("dividend_growth_pullback_results_*.json")
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        assert payload["metadata"]["plan_gated_skipped"] == 2
 
     def test_finviz_flag_without_key_exits_1(self, mod, cli_env, monkeypatch, capsys):
         monkeypatch.setenv("FMP_API_KEY", "fmp")
@@ -1197,6 +1284,7 @@ class TestMain:
             "rsi_max": 35.0,
             "max_candidates": 7,
             "finviz_symbols": None,
+            "stats": {},
         }
         logs = cli_env / "logs"
         (json_path,) = logs.glob("dividend_growth_pullback_results_*.json")

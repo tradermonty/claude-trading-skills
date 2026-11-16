@@ -35,7 +35,7 @@ This screener supports two screening modes:
 - **250 requests per day**
 - **Rate limit**: ~5 requests per second
 - **No credit card required**
-- Sufficient for daily/weekly two-stage runs; the stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11)
+- The 250 calls/day budget covers a small two-stage universe, but the budget is not the binding constraint: the endpoints must be included in the plan. The stock-screener endpoint used by FMP-only mode is not on the free plan (2026-11), and the per-symbol analysis endpoints (ratios, income-statement, dividends, historical prices) were reported returning HTTP 402 in a synthetic review for issue #777 (not verified on a live Basic key). When any of them is plan-gated, the screeners report the run as plan-gated instead of returning zero candidates. See `docs/en/getting-started.md#fmp-plans`.
 
 ### Paid Plans (Optional)
 
