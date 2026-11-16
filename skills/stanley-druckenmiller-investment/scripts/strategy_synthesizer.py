@@ -93,7 +93,11 @@ def main():
 
     signals = {}
     for skill_name, report_data in reports.items():
-        sig = extract_signal(skill_name, report_data)
+        try:
+            sig = extract_signal(skill_name, report_data)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            sys.exit(1)
         signals[skill_name] = sig
 
         # Print key metric per skill

@@ -163,6 +163,12 @@ def _extract_uptrend(data: dict) -> dict:
 
 def _extract_market_top(data: dict) -> dict:
     composite = data.get("composite", {})
+    if composite.get("data_available") is False or (
+        "composite_score" in composite and composite["composite_score"] is None
+    ):
+        raise ValueError(
+            "Required market_top assessment is unavailable; restore inputs before strategy synthesis"
+        )
     return {
         "source": "market_top",
         "composite_score": composite.get("composite_score", 0),

@@ -18,6 +18,10 @@ Scoring:
   0 days -> 0
 """
 
+from _price_bars import read_price
+from price_bar_utils import gaps, unavailable
+from price_bar_utils import price as bar_price
+
 
 def calculate_distribution_days(sp500_history: list[dict], nasdaq_history: list[dict]) -> dict:
     """
@@ -32,6 +36,27 @@ def calculate_distribution_days(sp500_history: list[dict], nasdaq_history: list[
     """
     sp500_result = _count_distribution_days(sp500_history, "S&P 500")
     nasdaq_result = _count_distribution_days(nasdaq_history, "NASDAQ")
+
+    bad = {
+        name: result["data_gaps"]
+        for name, result in (("S&P 500", sp500_result), ("NASDAQ", nasdaq_result))
+        if result.get("data_gaps")
+    }
+    if bad:
+        result = calculate_distribution_days([], [])
+        for key, values in (("sp500", sp500_result), ("nasdaq", nasdaq_result)):
+            valid = not bool(values.get("data_gaps"))
+            result[key] = {
+                "distribution_days": values["distribution_days"] if valid else None,
+                "stalling_days": values["stalling_days"] if valid else None,
+                "effective_count": values["distribution_days"] + 0.5 * values["stalling_days"]
+                if valid
+                else None,
+                "details": values["details"],
+                "data_available": valid,
+            }
+        result.update(effective_count=None, raw_score=None, primary_index=None)
+        return unavailable(result, bad)
 
     # Use the higher (worse) effective count
     sp500_effective = sp500_result["distribution_days"] + 0.5 * sp500_result["stalling_days"]
@@ -96,6 +121,16 @@ def _count_distribution_days(history: list[dict], index_name: str) -> dict:
     if not history or len(history) < 2:
         return {"distribution_days": 0, "stalling_days": 0, "details": []}
 
+    bad = gaps(history[:26], ("close", "volume"), {"close": "adjClose"})
+    if bad:
+        return {
+            "distribution_days": 0,
+            "stalling_days": 0,
+            "details": [],
+            "data_available": False,
+            "data_gaps": bad,
+        }
+
     # We need at least 26 days to check 25 days of change
     # history[0] = most recent, history[1] = day before, etc.
     window = min(25, len(history) - 1)  # 25 trading day window
@@ -108,10 +143,10 @@ def _count_distribution_days(history: list[dict], index_name: str) -> dict:
         today = history[i]
         yesterday = history[i + 1]
 
-        today_close = today.get("close", today.get("adjClose", 0))
-        yesterday_close = yesterday.get("close", yesterday.get("adjClose", 0))
-        today_volume = today.get("volume", 0)
-        yesterday_volume = yesterday.get("volume", 0)
+        today_close = bar_price(today, "close", "adjClose")
+        yesterday_close = bar_price(yesterday, "close", "adjClose")
+        today_volume = read_price(today, "volume", allow_zero=True)
+        yesterday_volume = read_price(yesterday, "volume", allow_zero=True)
 
         if yesterday_close == 0 or yesterday_volume == 0:
             continue

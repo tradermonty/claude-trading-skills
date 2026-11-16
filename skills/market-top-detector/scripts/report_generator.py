@@ -42,6 +42,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
     delta = analysis.get("delta", {})
 
     score = composite.get("composite_score", 0)
+    if score is None:
+        score = "N/A"
     zone = composite.get("zone", "Unknown")
     risk_budget = composite.get("risk_budget", "N/A")
 
@@ -119,6 +121,12 @@ def generate_markdown_report(analysis: dict, output_file: str):
         comp = composite.get("component_scores", {}).get(key, {})
         detail = components.get(key, {})
         signal = detail.get("signal", "N/A")
+        if detail.get("data_available") is False or (composite.get("data_available") is False):
+            extra_column = " N/A |" if has_delta else ""
+            lines.append(
+                f"| {i} | **{comp.get('label', key)}** | N/A | N/A |{extra_column} 0.0 | UNAVAILABLE: {signal} |"
+            )
+            continue
         score_val = comp.get("score", 0)
         weight_pct = f"{comp.get('weight', 0) * 100:.0f}%"
         contribution = comp.get("weighted_contribution", 0)
@@ -165,7 +173,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     dist = components.get("distribution_days", {})
     lines.append("### 1. Distribution Day Count")
     lines.append("")
-    if dist:
+    if dist and dist.get("data_available") is False:
+        lines.append("N/A — UNAVAILABLE: Invalid or missing input data.")
+        for source, detail in dist.get("data_gaps", {}).items():
+            lines.append(f"- {source}: {detail}")
+    elif dist:
         sp = dist.get("sp500", {})
         nq = dist.get("nasdaq", {})
         lines.append(
@@ -196,7 +208,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lead = components.get("leading_stocks", {})
     lines.append("### 2. Leading Stock Health")
     lines.append("")
-    if lead:
+    if lead and lead.get("data_available") is False:
+        lines.append("N/A — UNAVAILABLE: Invalid or missing input data.")
+        for source, detail in lead.get("data_gaps", {}).items():
+            lines.append(f"- {source}: {detail}")
+    elif lead:
         lines.append(f"- **ETFs Evaluated:** {lead.get('etfs_evaluated', 0)}")
         lines.append(
             f"- **ETFs Deteriorating:** {lead.get('etfs_deteriorating', 0)} "
@@ -231,7 +247,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     defr = components.get("defensive_rotation", {})
     lines.append("### 3. Defensive Sector Rotation")
     lines.append("")
-    if defr:
+    if defr and defr.get("data_available") is False:
+        lines.append("N/A — UNAVAILABLE: Invalid or missing input data.")
+        for source, detail in defr.get("data_gaps", {}).items():
+            lines.append(f"- {source}: {detail}")
+    elif defr:
         lines.append(
             f"- **Relative Performance (Def - Off):** "
             f"{defr.get('relative_performance', 0):+.2f}% "
@@ -283,7 +303,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
     tech = components.get("index_technical", {})
     lines.append("### 5. Index Technical Condition")
     lines.append("")
-    if tech:
+    if tech and tech.get("data_available") is False:
+        lines.append("N/A — UNAVAILABLE: Invalid or missing input data.")
+        for source, detail in tech.get("data_gaps", {}).items():
+            lines.append(f"- {source}: {detail}")
+    elif tech:
         for idx_name in ["sp500", "nasdaq"]:
             idx = tech.get(idx_name, {})
             if idx:
@@ -334,7 +358,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("")
         lines.append("## Follow-Through Day Monitor")
         lines.append("")
-        if ftd.get("ftd_detected"):
+        if ftd.get("data_available") is False:
+            lines.append("N/A — UNAVAILABLE: FTD cannot be assessed.")
+        elif ftd.get("ftd_detected"):
             lines.append(f"**FTD DETECTED** on {ftd.get('ftd_day', 'N/A')}")
         else:
             lines.append(f"- Rally Day Count: {ftd.get('rally_day_count', 0)}")

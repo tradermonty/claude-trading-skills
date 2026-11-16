@@ -19,6 +19,9 @@ If 60%+ ETFs are deteriorating, apply 1.3x amplification.
 
 from typing import Optional
 
+from price_bar_utils import gaps, unavailable
+from price_bar_utils import price as bar_price
+
 # Default Leading/Growth ETF basket
 DEFAULT_LEADING_ETFS = ["ARKK", "WCLD", "IGV", "XBI", "SOXX", "SMH", "KWEB", "TAN"]
 LEADING_ETFS = DEFAULT_LEADING_ETFS  # backward compat
@@ -106,6 +109,25 @@ def calculate_leading_stock_health(
     else:
         basket_mode = "static"
         eval_list = list(DEFAULT_LEADING_ETFS)
+    bad = {}
+    for symbol in eval_list:
+        hist = historical.get(symbol, [])
+        if not quotes.get(symbol) or len(hist) < 20:
+            continue
+        count = 200 if len(hist) >= 200 else 50 if len(hist) >= 50 else 20
+        found = {
+            label: report
+            for label, report in (
+                ("close", gaps(hist[:count], ("close",), {"close": "adjClose"})),
+                ("high", gaps(hist[:20], ("high",), {"high": "close"})),
+            )
+            if report
+        }
+        if found:
+            bad[symbol] = found
+    if bad:
+        return unavailable(calculate_leading_stock_health({}, {}, eval_list), bad)
+
     total_attempted = len(eval_list)
     fetch_successes = 0
     partial_data_count = 0
@@ -219,7 +241,7 @@ def _evaluate_etf(symbol: str, quote: dict, history: list[dict]) -> dict:
 
     # 2. Position vs moving averages (0-40 points)
     if history and len(history) >= 50:
-        closes = [d.get("close", d.get("adjClose", 0)) for d in history]
+        closes = [bar_price(d, "close", "adjClose") for d in history]
 
         # 50DMA
         sma50 = sum(closes[:50]) / 50
@@ -240,7 +262,7 @@ def _evaluate_etf(symbol: str, quote: dict, history: list[dict]) -> dict:
                 flags.append("Likely below 200DMA (estimated)")
 
     elif history and len(history) >= 20:
-        closes = [d.get("close", d.get("adjClose", 0)) for d in history]
+        closes = [bar_price(d, "close", "adjClose") for d in history]
         sma20 = sum(closes[:20]) / 20
         if price < sma20:
             score += 15
@@ -273,7 +295,10 @@ def _detect_lower_highs(history: list[dict], lookback: int = 20) -> bool:
     if len(history) < lookback:
         return False
 
-    highs = [d.get("high", d.get("close", 0)) for d in history[:lookback]]
+    highs = [bar_price(d, "high", "close") for d in history[:lookback]]
+
+    if any(value is None for value in highs):
+        return False
 
     # Find local maxima (swing highs)
     swing_highs = []
