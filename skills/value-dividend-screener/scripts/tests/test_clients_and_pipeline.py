@@ -1368,14 +1368,17 @@ class TestMain:
 
         def raise_plan(*args, **kwargs):
             raise mod.FMPPlanRestrictedError(
-                "FMP plan does not include the stock screener endpoint required"
+                "FMP plan does not include the stock screener endpoint required: "
+                "synthetic-private-diagnostic-marker"
             )
 
         monkeypatch.setattr(mod, "screen_value_dividend_stocks", raise_plan)
         with pytest.raises(SystemExit) as exc:
             self._run(monkeypatch, ["--output", str(out)])
         assert exc.value.code == 1
-        assert "FMP plan does not include the stock screener endpoint" in capsys.readouterr().err
+        diagnostic = capsys.readouterr().err
+        assert "FMP plan does not include the stock screener endpoint" in diagnostic
+        assert "synthetic-private-diagnostic-marker" not in diagnostic
         assert not out.exists()
 
     def test_main_includes_plan_gated_skipped_in_metadata(self, monkeypatch, tmp_path):

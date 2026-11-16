@@ -1452,8 +1452,17 @@ Environment Variables:
             max_candidates=args.max_candidates,
             stats=stats,
         )
-    except FMPPlanRestrictedError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+    except FMPPlanRestrictedError:
+        # Keep the CLI boundary independent of exception/request text. The
+        # library exception retains detailed endpoint/count diagnostics.
+        print(
+            "ERROR: FMP plan does not include the stock screener endpoint or a "
+            "required per-symbol analysis endpoint (quotes, ratios, dividends, "
+            "historical prices or financials; HTTP 402/403). Use an FMP plan "
+            "that includes the required endpoints. See "
+            "docs/en/getting-started.md#fmp-plans.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if not results:
