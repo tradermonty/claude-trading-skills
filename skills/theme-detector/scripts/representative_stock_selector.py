@@ -12,6 +12,7 @@ Selects representative stocks for market themes using a fallback chain:
 import csv
 import io
 import logging
+import math
 import time
 from typing import Optional
 
@@ -120,6 +121,37 @@ def _parse_market_cap(value) -> int:
         return int(float(s) * multiplier)
     except (ValueError, TypeError):
         return 0
+
+
+def _parse_elite_market_cap(value) -> int:
+    """Parse a FINVIZ Elite CSV Market Cap value to dollars.
+
+    The Elite export writes Market Cap as a plain number in millions of
+    dollars ("765.59" -> 765_590_000), unlike the public screener, which
+    returns suffixed strings. Suffixed values are still accepted and parsed
+    as-is, so a format change on FINVIZ's side cannot inflate them 1e6x.
+
+    "765.59"    -> 765_590_000
+    "1,234.5"   -> 1_234_500_000
+    "50.5B"     -> 50_500_000_000
+    "-" / None  -> 0 (unknown, same as the public parser)
+    """
+    if value is None:
+        return 0
+    s = str(value).strip().replace(",", "").upper()
+    if not s or s == "-":
+        return 0
+    if s[-1] in {"T", "B", "M"}:
+        return max(_parse_market_cap(s), 0)
+    try:
+        dollars = float(s) * 1_000_000
+    except ValueError:
+        return 0
+    # Checked after scaling: a huge finite input overflows to inf here, and
+    # int(inf) would raise and discard the whole industry fetch.
+    if not math.isfinite(dollars) or dollars < 0:
+        return 0
+    return int(round(dollars))
 
 
 def _parse_change(value) -> Optional[float]:
@@ -403,7 +435,7 @@ class RepresentativeStockSelector:
                     {
                         "symbol": ticker,
                         "source": "finviz_elite",
-                        "market_cap": _parse_market_cap(row.get("Market Cap")),
+                        "market_cap": _parse_elite_market_cap(row.get("Market Cap")),
                         "change": _parse_change(row.get("Change")),
                         "volume": _parse_volume(row.get("Volume")),
                         "matched_industries": [industry],
