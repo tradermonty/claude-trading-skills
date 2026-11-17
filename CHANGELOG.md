@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- weekly-performance-digest: exit 1 with an error when `--from-date` is later than `--to-date` (or an unparsable date is given) instead of reporting 0 trades and exiting 0 (Refs #667).
 - theme-detector: dynamic stock selection now reads the FINVIZ Elite CSV Market Cap as millions of dollars. Elite rows previously reported `market_cap` 1,000,000x too small (`765.59` became 765 instead of 765,590,000), and comma-grouped values such as `3,012,345.67` were read as 0. Reported values are corrected, and so is the cap rank of rows that used to parse as 0. Volume ranking is unchanged in this release: the Elite request still pins `c=1,6,66` from #799 and does not ask for the Volume column; adding it changes rankings and is a separate follow-up (Refs #800).
 - theme-detector: an Elite industry CSV that parses cleanly but has fewer than 100 rows is now treated as truncated. The run falls back to public data and records `fallback_reason: too_few_rows`, instead of ranking themes on a partial industry list labelled as Elite. If public data is also unavailable, the run exits with an error that names the Elite failure reason. `get_sector_performance` applies an 11-row floor the same way (#685).
 - kanchi-dividend-sop: accept sourced manual financial metrics and expose aggregate order readiness across JSON, CSV and Markdown (#772).

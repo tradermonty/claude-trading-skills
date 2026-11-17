@@ -579,9 +579,23 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     to_date = args.to_date or _today_str()
-    from_date = args.from_date or (
-        _parse_dt(f"{to_date}T00:00:00+00:00") - timedelta(days=7)
-    ).strftime("%Y-%m-%d")
+    try:
+        to_start = _parse_dt(f"{to_date}T00:00:00+00:00")
+        from_date = args.from_date or (to_start - timedelta(days=7)).strftime("%Y-%m-%d")
+        from_start = _parse_dt(f"{from_date}T00:00:00+00:00")
+    except ValueError:
+        print(
+            f"error: invalid date (expected YYYY-MM-DD): --from-date {args.from_date!r}, "
+            f"--to-date {args.to_date!r}",
+            file=sys.stderr,
+        )
+        return 1
+    if from_start > to_start:
+        print(
+            f"error: --from-date {from_date} is later than --to-date {to_date}",
+            file=sys.stderr,
+        )
+        return 1
 
     state_dir = Path(args.state_dir)
     if not state_dir.is_dir():

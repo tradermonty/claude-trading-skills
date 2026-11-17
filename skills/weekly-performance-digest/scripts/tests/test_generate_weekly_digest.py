@@ -423,6 +423,82 @@ class TestMain:
         rc = gwd.main(["--state-dir", str(tmp_path / "nope")])
         assert rc == 1
 
+    def test_inverted_date_range_exits_nonzero(self, tmp_path, capsys):
+        state = tmp_path / "theses"
+        state.mkdir()
+        out = tmp_path / "reports"
+        rc = gwd.main(
+            [
+                "--state-dir",
+                str(state),
+                "--from-date",
+                "2026-11-10",
+                "--to-date",
+                "2026-11-01",
+                "--output-dir",
+                str(out),
+            ]
+        )
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "--from-date 2026-11-10 is later than --to-date 2026-11-01" in err
+        assert not out.exists()
+
+    def test_from_date_after_default_to_date_exits_nonzero(self, tmp_path, monkeypatch):
+        state = tmp_path / "theses"
+        state.mkdir()
+        monkeypatch.setattr(gwd, "_today_str", lambda: "2026-11-01")
+        rc = gwd.main(
+            [
+                "--state-dir",
+                str(state),
+                "--from-date",
+                "2026-11-02",
+                "--output-dir",
+                str(tmp_path / "reports"),
+            ]
+        )
+        assert rc == 1
+
+    @pytest.mark.parametrize(
+        "date_args",
+        [
+            ["--from-date", "2026-13-01", "--to-date", "2026-11-01"],
+            ["--to-date", "not-a-date"],
+        ],
+    )
+    def test_invalid_date_exits_nonzero(self, tmp_path, capsys, date_args):
+        state = tmp_path / "theses"
+        state.mkdir()
+        out = tmp_path / "reports"
+        rc = gwd.main(["--state-dir", str(state), "--output-dir", str(out), *date_args])
+        assert rc == 1
+        assert "error: invalid date" in capsys.readouterr().err
+        assert not out.exists()
+
+    def test_same_day_range_is_accepted(self, tmp_path, winner):
+        state = tmp_path / "theses"
+        state.mkdir()
+        _write_theses(state, [winner])
+        exit_date = winner["exit"]["actual_date"][:10]
+        rc = gwd.main(
+            [
+                "--state-dir",
+                str(state),
+                "--from-date",
+                exit_date,
+                "--to-date",
+                exit_date,
+                "--output-dir",
+                str(tmp_path / "reports"),
+            ]
+        )
+        assert rc == 0
+        digest = json.loads(
+            (tmp_path / "reports" / f"weekly_digest_{exit_date}.json").read_text(encoding="utf-8")
+        )
+        assert digest["summary"]["total_trades"] == 1
+
     def test_end_to_end(self, tmp_path, winner):
         state = tmp_path / "theses"
         state.mkdir()
