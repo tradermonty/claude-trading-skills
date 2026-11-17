@@ -16,7 +16,6 @@ import representative_stock_selector as rss
 from representative_stock_selector import (
     RepresentativeStockSelector,
     _parse_change,
-    _parse_market_cap,
     _parse_volume,
 )
 
@@ -36,9 +35,11 @@ CSV_PINNED = "Ticker,Market Cap,Change\nAAA,765.59,2.50%\nBBB,12000.00,-1.25%\n"
 CSV_PINNED_WITH_NO = "No.,Ticker,Market Cap,Change\n1,AAA,765.59,2.50%\n2,BBB,12000.00,-1.25%\n"
 CSV_REORDERED = "Change,Ticker,Market Cap\n2.50%,AAA,765.59\n-1.25%,BBB,12000.00\n"
 
+# Elite writes Market Cap in millions of dollars (#800), so pin dollar literals
+# rather than a parser call that would follow any parser regression.
 EXPECTED = [
-    ("AAA", _parse_market_cap("765.59"), _parse_change("2.50%")),
-    ("BBB", _parse_market_cap("12000.00"), _parse_change("-1.25%")),
+    ("AAA", 765_590_000, _parse_change("2.50%")),
+    ("BBB", 12_000_000_000, _parse_change("-1.25%")),
 ]
 
 

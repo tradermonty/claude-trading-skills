@@ -8,6 +8,7 @@ from representative_stock_selector import (
     _MAX_CONSECUTIVE_FAILURES,
     RepresentativeStockSelector,
     _parse_change,
+    _parse_elite_market_cap,
     _parse_market_cap,
     _parse_volume,
 )
@@ -38,6 +39,40 @@ class TestParseMarketCap:
 
     def test_float_passthrough(self):
         assert _parse_market_cap(1.5e9) == 1_500_000_000
+
+
+class TestParseEliteMarketCap:
+    """#800: the Elite CSV writes Market Cap in millions without a suffix."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("765.59", 765_590_000),
+            ("1,234.5", 1_234_500_000),
+            ("3012345.67", 3_012_345_670_000),
+            ("0.5", 500_000),
+        ],
+    )
+    def test_plain_numbers_are_millions(self, raw, expected):
+        assert _parse_elite_market_cap(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [("2.8T", 2_800_000_000_000), ("150B", 150_000_000_000), ("500M", 500_000_000)],
+    )
+    def test_suffixed_values_are_not_rescaled(self, raw, expected):
+        assert _parse_elite_market_cap(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [(" 765.59 ", 765_590_000), ("765.59m", 765_590_000), ("1.5b", 1_500_000_000)],
+    )
+    def test_whitespace_and_lowercase_suffix(self, raw, expected):
+        assert _parse_elite_market_cap(raw) == expected
+
+    @pytest.mark.parametrize("raw", [None, "", "-", "n/a", "nan", "inf", "-5", "-5B", "1e308"])
+    def test_unknown_or_invalid_is_zero(self, raw):
+        assert _parse_elite_market_cap(raw) == 0
 
 
 class TestParseChange:
@@ -999,6 +1034,52 @@ class TestFetchFinvizElite:
         assert len(result) == 2
         assert result[0]["symbol"] == "NEM"
         assert result[0]["source"] == "finviz_elite"
+
+    def _fetch(self, csv_content):
+        sel = RepresentativeStockSelector(finviz_elite_key="test_key", finviz_mode="elite")
+        mock_response = MagicMock(status_code=200, text=csv_content)
+        with (
+            patch("representative_stock_selector.requests.get", return_value=mock_response),
+            patch.object(sel, "_rate_limit"),
+        ):
+            return sel, sel._fetch_finviz_elite("Gold", limit=10, is_bearish=False)
+
+    def test_market_cap_in_millions_is_scaled_to_dollars(self):
+        """#800: Elite writes Market Cap in millions ("765.59"), not dollars."""
+        _, result = self._fetch(
+            "No.,Ticker,Company,Market Cap,Change\n"
+            "1,AAA,Alpha,765.59,1.00%\n"
+            '2,BBB,Beta,"3,012,345.67",2.00%\n'
+            "3,CCC,Gamma,-,3.00%\n"
+        )
+        assert [s["market_cap"] for s in result] == [765_590_000, 3_012_345_670_000, 0]
+
+    def test_volume_column_contributes_to_composite_score(self):
+        """#800: with a Volume column, volume changes the composite ranking.
+
+        LOWVOL leads on market cap, HIGHVOL on change. Without volume the
+        0.4 cap weight decides (LOWVOL first); with volume HIGHVOL overtakes.
+        """
+        header = "No.,Ticker,Company,Market Cap,Change"
+
+        def ranked(with_volume):
+            rows = [
+                ("LOWVOL", "2000", "4.00%", '"100,000"'),
+                ("HIGHVOL", "1000", "5.00%", '"9,000,000"'),
+            ]
+            lines = [header + (",Volume" if with_volume else "")]
+            for i, (sym, cap, chg, vol) in enumerate(rows, 1):
+                lines.append(f"{i},{sym},{sym},{cap},{chg}" + (f",{vol}" if with_volume else ""))
+            sel, stocks = self._fetch("\n".join(lines) + "\n")
+            return [s["symbol"] for s in sel._compute_composite_score(stocks, False)], stocks
+
+        order, stocks = ranked(with_volume=True)
+        assert [s["volume"] for s in stocks] == [9_000_000, 100_000]
+        assert order == ["HIGHVOL", "LOWVOL"]
+
+        order, stocks = ranked(with_volume=False)
+        assert all(s["volume"] is None for s in stocks)
+        assert order == ["LOWVOL", "HIGHVOL"]
 
     @pytest.mark.parametrize(
         "min_cap,expected_code",
