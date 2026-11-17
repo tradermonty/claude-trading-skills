@@ -615,8 +615,10 @@ def main(argv: list[str] | None = None) -> int:
         provenance=industry_provenance,
     )
     if not raw_industries:
+        elite_reason = industry_provenance.get("fallback_reason")
+        elite_note = f" FINVIZ Elite export failed ({elite_reason})." if elite_reason else ""
         print(
-            "ERROR: No industry data from FINVIZ. Use Python 3.10+ with finvizfinance>=1.5.0 or configure FINVIZ_API_KEY for Elite; check provider access. Exiting.",
+            f"ERROR: No industry data from FINVIZ.{elite_note} Use Python 3.10+ with finvizfinance>=1.5.0 or configure FINVIZ_API_KEY for Elite; check provider access. Exiting.",
             file=sys.stderr,
         )
         sys.exit(1)

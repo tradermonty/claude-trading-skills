@@ -186,6 +186,10 @@ def cap_outlier_performances(industries: list[dict], z_threshold: float = 3.0) -
 
 
 GROUP_EXPORT_URL = "https://elite.finviz.com/grp_export"
+# A truncated Elite CSV parses cleanly but silently drops groups. FINVIZ lists
+# 11 sectors and roughly 145 industries; anything below these floors is treated
+# as a failed Elite fetch so the public fallback (and its provenance) applies.
+ELITE_MIN_ROWS = {"sector": 11, "industry": 100}
 ELITE_COLUMNS = {
     "Performance (Week)": "perf_1w",
     "Performance (Month)": "perf_1m",
@@ -251,10 +255,10 @@ def _get_performance(
             )
             if response.status_code == 200:
                 rows = _elite_csv_rows(response.text)
-                if rows:
+                if len(rows) >= ELITE_MIN_ROWS.get(group.lower(), 1):
                     provenance["source"] = "elite"
                     return rows
-                provenance["fallback_reason"] = "no_usable_rows"
+                provenance["fallback_reason"] = "too_few_rows" if rows else "no_usable_rows"
             else:
                 provenance["fallback_reason"] = "http_status"
         except requests.RequestException:

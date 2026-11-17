@@ -151,6 +151,61 @@ def test_failed_elite_falls_back_without_key_or_payload_leak(
     assert reason in output.err
 
 
+def _multi_row_body(count):
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    writer.writerow(HEADERS)
+    for i in range(count):
+        writer.writerow([f"Fictional Industry {i}", "5%", "1%", "2%", "3%", "4%", "6%"])
+    return stream.getvalue()
+
+
+@pytest.mark.parametrize(
+    "group,fetch,floor",
+    [
+        ("industry", client.get_industry_performance, 100),
+        ("sector", client.get_sector_performance, 11),
+    ],
+)
+def test_truncated_elite_csv_falls_back_to_public(
+    group, fetch, floor, monkeypatch, http, public, capsys
+):
+    """#685: a cleanly parsed but truncated Elite CSV is not accepted as Elite data."""
+    monkeypatch.setattr(client, "ELITE_MIN_ROWS", {"sector": 11, "industry": 100})
+    http.return_value = Mock(status_code=200, text=_multi_row_body(floor - 1))
+    provenance = {}
+    rows = fetch(api_key=KEY, provenance=provenance)
+    assert provenance == {"source": "public", "fallback_reason": "too_few_rows"}
+    assert rows[0]["name"] == "Public Industry"
+    err = capsys.readouterr().err
+    assert "too_few_rows" in err
+    assert KEY not in err
+
+    http.return_value = Mock(status_code=200, text=_multi_row_body(floor))
+    provenance = {}
+    rows = fetch(api_key=KEY, provenance=provenance)
+    assert provenance == {"source": "elite", "fallback_reason": None}
+    assert len(rows) == floor
+
+
+def test_production_row_floors_are_not_relaxed():
+    """Guard the shipped floors; the autouse conftest fixture only relaxes them in tests."""
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(client))
+    shipped = [
+        ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and any(
+            getattr(t, "id", None) == "ELITE_MIN_ROWS"
+            for t in (node.targets if isinstance(node, ast.Assign) else [node.target])
+        )
+    ]
+    assert shipped == [{"sector": 11, "industry": 100}], "ELITE_MIN_ROWS literal not found"
+
+
 def test_both_sources_fail_with_actionable_safe_guidance(http, public, capsys):
     http.side_effect = requests.Timeout(KEY)
     public.screener_view.side_effect = RuntimeError(KEY)
@@ -210,6 +265,12 @@ def test_main_routes_resolved_key_and_public_override(
     assert KEY not in output.out + output.err
     assert "CLI-KEY" not in output.out + output.err
     assert "No industry data" in output.err
+    # The exit message names the Elite failure only when Elite was attempted.
+    exit_line = next(line for line in output.err.splitlines() if "No industry data" in line)
+    if expected_key is None:
+        assert "Elite export failed" not in exit_line
+    else:
+        assert "FINVIZ Elite export failed (http_status)" in exit_line
     assert "1.5.0" in output.err
     assert list(tmp_path.iterdir()) == []
 
