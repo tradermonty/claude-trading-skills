@@ -418,7 +418,9 @@ industry source and FMP key availability, not confirmed FMP fetch success.
 An Elite failure adds a safe `fallback_reason` and a public-fallback quality
 flag to JSON and Markdown. Dynamic stock selection retains its independent
 source policy and per-stock provenance. `finviz_industries` remains a row count;
-it does not certify completeness, and valid partial exports remain accepted.
+it does not certify completeness. An Elite CSV with fewer than 11 sector rows
+or 100 industry rows is treated as truncated (`fallback_reason: too_few_rows`)
+and falls back to public data; exports at or above those floors are accepted.
 
 The client normalizes CSV percentage points to decimal ratios, including 0.12%
 and negative/zero values; the pipeline converts those ratios once. If both
