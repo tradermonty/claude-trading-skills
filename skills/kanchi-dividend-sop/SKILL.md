@@ -311,3 +311,15 @@ used, remains a separate client.
 The Python client retains `sleep_seconds`, `timeout` and `api_calls`. Sleep now
 sets the minimum interval between requests; accounting includes retried HTTP
 responses. Quote/profile retrieval remains one symbol per request.
+
+### Sourced metrics and aggregate order readiness
+
+Use `--financials-json` to supply sourced adjusted EPS and sector metrics before
+re-running the CLI. Follow [the input contract](references/sourced-financials.md)
+for required per-metric source, date, document reference and units. Record values
+as MANUAL user assertions; verify the referenced documents separately. Invalid
+records retain explicit blockers and HOLD-REVIEW (existing FAIL stays FAIL).
+Read `order_ready` as the aggregate screening gate in JSON, CSV and Markdown:
+TRIGGERED, CLEAN/CONDITIONAL-PASS, final T1 unblocked, and zero blockers are all
+required. `event_t1_blocked` is event-only; legacy `t1_blocked` is the final T1
+restriction and can be false with open blockers. Neither alone permits an order.

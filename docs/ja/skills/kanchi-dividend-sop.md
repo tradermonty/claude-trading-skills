@@ -194,3 +194,17 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
 
 - `skills/kanchi-dividend-sop/scripts/build_entry_signals.py`
 - `skills/kanchi-dividend-sop/scripts/build_sop_plan.py`
+
+## 出典付き財務指標
+
+`--financials-json financials.json` で、銘柄ごとの調整後EPS、FFO/負債、銀行・保険・REIT指標を補って再実行できます。
+各値には単位・出典・基準日 `as_of`・文書参照が必要です。受理した値は MANUAL として記録します。
+出典はユーザーの申告で、文書の実在・内容・公開日・鮮度は自動検証しません。
+不正値は理由付き HOLD-REVIEW となり、既存の FAIL は維持します。
+[完全な入力仕様・架空例・指標一覧](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/kanchi-dividend-sop/references/sourced-financials.md)を参照してください。
+EPS/AFFO は配当と同じ米ドル基準の年額/株、比率は 0.12 = 12% の小数です。通貨変換には対応しません。
+
+JSON・CSV・Markdown の `order_ready` が総合的なスクリーニング準備状態です。
+TRIGGERED、CLEAN-PASS または CONDITIONAL-PASS、最終T1制限なし、注文前ブロッカーなしのすべてが必要で、PASS-CAUTION は false です。
+`event_t1_blocked` はイベント由来のみ、従来の `t1_blocked` は判定統合後のT1制限です。
+後者が false でも未解決ブロッカーは残り得ます。準備完了は取引の承認ではなく、人による確認と注文ゲートが必要です。

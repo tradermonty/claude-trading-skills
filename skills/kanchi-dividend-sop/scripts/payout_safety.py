@@ -134,7 +134,8 @@ def _finite_number(value) -> bool:
 def _ratio(numerator: float | None, denominator: float | None) -> float | None:
     if not _finite_number(numerator) or not _finite_number(denominator) or denominator <= 0:
         return None
-    return numerator / denominator
+    ratio = numerator / denominator
+    return ratio if math.isfinite(ratio) else None
 
 
 @dataclass
@@ -194,6 +195,21 @@ def assess_payout_safety(
     for name, value in anchors.items():
         if value is not None and (not _finite_number(value) or value <= 0):
             blockers.append(name + "_non_positive_or_unavailable")
+    for name, value in anchors.items():
+        if (
+            _finite_number(value)
+            and value > 0
+            and _finite_number(annual_dividend)
+            and _ratio(annual_dividend, value) is None
+        ):
+            blockers.append(name + "_payout_non_finite")
+    if (
+        _finite_number(gaap_eps)
+        and _finite_number(adjusted_eps)
+        and adjusted_eps > 0
+        and not math.isfinite((abs(gaap_eps - adjusted_eps) / adjusted_eps) * 100)
+    ):
+        blockers.append("gaap_adjusted_divergence_non_finite")
     if not _finite_number(annual_dividend) or annual_dividend < 0:
         blockers.append("annual_dividend_invalid")
     if blockers:
