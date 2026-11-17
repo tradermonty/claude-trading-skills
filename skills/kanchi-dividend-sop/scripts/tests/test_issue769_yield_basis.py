@@ -92,11 +92,12 @@ def test_explicit_empty_or_unusable_history_does_not_fall_back_to_profile():
 
 
 def growing_row(scan_result="NO_EVENT_FOUND", freeze=False):
+    start = date(2022, 1, 1)
     history = [
         {
-            "date": (date(2022, 1, 1) + timedelta(days=91 * i)).isoformat(),
+            "date": (start + timedelta(days=91 * i)).isoformat(),
             "dividend": 0.4 if freeze else 0.3 + 0.01 * i,
-            "declarationDate": "2025-12-01",
+            "declarationDate": (start + timedelta(days=91 * i - 18)).isoformat(),
         }
         for i in range(16)
     ]

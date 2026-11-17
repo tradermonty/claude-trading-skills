@@ -1,5 +1,8 @@
 """Tests for build_entry_signals.py."""
 
+from datetime import date, timedelta
+
+import pytest
 from build_entry_signals import (
     build_entry_row,
     load_tickers,
@@ -132,9 +135,47 @@ def test_build_entry_row_applies_ws3_event_cap() -> None:
     assert row["event_scan"]["pending_mna"] is True
 
 
-def test_build_entry_row_ws5_verdict_and_provenance() -> None:
-    from datetime import date, timedelta
+@pytest.mark.parametrize(
+    ("as_of", "declaration_date", "forward_yield", "verdict"),
+    [
+        ("2025-12-01", "2025-12-10", 2.88, "FAIL"),
+        ("2025-12-10", "2025-12-10", 3.08, "STEP1-PASS"),
+        ("2025-12-01", None, 2.88, "FAIL"),
+        ("2025-12-01", "invalid", 2.88, "FAIL"),
+    ],
+)
+def test_build_entry_row_respects_dividend_declaration_cutoff(
+    as_of, declaration_date, forward_yield, verdict
+) -> None:
+    history = []
+    for i, amount in enumerate([0.60] * 4 + [0.65] * 4 + [0.72] * 4):
+        ex_date = date(2023, 1, 1) + timedelta(days=91 * i)
+        history.append(
+            {
+                "date": ex_date.isoformat(),
+                "declarationDate": (ex_date - timedelta(days=18)).isoformat(),
+                "dividend": amount,
+            }
+        )
+    history.append({"date": "2025-12-28", "declarationDate": declaration_date, "dividend": 0.77})
 
+    row = build_entry_row(
+        ticker="DEMO",
+        alpha_pp=0.5,
+        quote={"price": 100.0},
+        profile=None,
+        key_metrics=[],
+        dividend_history=history,
+        floor_pct=3.0,
+        as_of=as_of,
+    )
+
+    assert row["step1_verdict"] == verdict
+    assert row["dividend_basis"]["regular_forward_yield_pct"] == forward_yield
+    assert row["dividend_basis"]["ttm_dividend_incl_special"] == 2.88
+
+
+def test_build_entry_row_ws5_verdict_and_provenance() -> None:
     # CFR D5: latest declared raise -> near-floor -> STEP1-RECHECK verdict.
     hist = [
         {
