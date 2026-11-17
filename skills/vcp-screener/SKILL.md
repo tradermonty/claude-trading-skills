@@ -160,6 +160,23 @@ For each top candidate, present:
 2. **Trend Template** - 7-point Stage 2 filter with 260-day histories ~100 API calls
 3. **VCP Detection** - Pattern analysis, scoring, report generation (no additional API calls)
 
+### Pattern price data quality
+
+VCP detection requires actual positive, finite, non-boolean high, low and close
+observations on every bar of its selected lookback window. Missing highs/lows
+are not synthesized from closes, and missing bars are not dropped or compressed.
+Invalid observations return `data_available: false`, dated `data_gaps`, and an
+error; the internal zero score is an unavailable placeholder, not a measured
+absence of a pattern. Such analyses do not enter composite ranking. The current
+screening pipeline records failed evaluation through its coverage reporting.
+
+Historical scans validate each as-of pattern window before quote synthesis.
+If any consumed window is invalid, the Python API raises `VCPPriceDataError`
+(a `ValueError` with dated `data_gaps`); the CLI exits 1 before writing reports,
+rather than presenting incomplete analysis as zero detections. More recent bars
+than the as-of date remain excluded. This validation concerns pattern H/L/C;
+other calculators can consume older bars and have separate input requirements.
+
 ## Output
 
 Read the top-level `evaluation_coverage` block before interpreting candidates.
