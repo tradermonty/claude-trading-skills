@@ -7,6 +7,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 - kanchi-dividend-sop: accept sourced manual financial metrics and expose aggregate order readiness across JSON, CSV and Markdown (#772).
 
 - kanchi-dividend-sop: apply the evaluation-date cutoff to dividend declarations before calculating the Step 1 forward yield. Future ex-dates are eligible once declared. Rows without a usable declaration date become eligible on their ex-date (#804).
+- Document Kanchi entry CLI options consistently in EN/JA guides (#665), and add fictional offline CLI/output smoke contracts for the personal review and US tax skills (#507).
+
 - kanchi-dividend-sop: detect small monthly dividend raises with a relative raise/freeze tolerance instead of the flat $0.005 per-payment epsilon, end the TTM window at the run's evaluation date instead of the latest payment, and record each row's price date (from the FMP quote timestamp) with a mismatch flag when it differs from the run date. Output schema version 5 (#770).
 - us-undervalued-growth-screener: the full-universe snapshot guide no longer sizes the shard schedule around a 750-call daily limit. Paid FMP plans state per-minute limits, the client paces below them, and the per-run call budget alone sets the shard count, so the 8 shards can run back to back in one session instead of two a day over four days. The pricing guard's allowlist entry for this paragraph is removed (#750).
 

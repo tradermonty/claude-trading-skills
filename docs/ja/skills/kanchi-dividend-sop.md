@@ -81,6 +81,34 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
 
 ---
 
+### エントリーCLIのオプションと入力の境界
+
+以下は `skills/kanchi-dividend-sop/scripts/build_entry_signals.py` のオプションです。
+現在のプロバイダーデータを取得するため、評価日の指定だけで、すべての入力が過去時点の
+スナップショットになるわけではありません。
+
+| オプション | 意味 |
+| --- | --- |
+| `--tickers` | カンマ区切りの銘柄。空でない指定は `--input` より優先されます。 |
+| `--input` | candidates/stocks/tickersを持つJSON。銘柄のみを読み、入力の価格や財務値でプロバイダー取得値を置き換えません。 |
+| `--alpha-pp` | 利回りへの加算幅。単位はパーセントポイント、既定値は `0.5`。 |
+| `--yield-floor` | Step 1の利回り下限をパーセントで明示（例 `3.0`）。既定は未指定で、指定時にStep 1とData Freshnessの評価を有効にします。 |
+| `--financials-json` | 単位・出所・評価日・文書参照を伴う銘柄別財務値。採用値はMANUALとして記録し、文書の取得・真偽確認は行いません。 |
+| `--events-json` | 手動整理した企業イベント根拠。オプション未指定はSKIPPED、銘柄がなければNO_EVENT_FOUNDで、調査済み・問題なしの証明にはなりません。 |
+| `--as-of` | 評価日 `YYYY-MM-DD`。既定値はローカルの当日です。 |
+| `--profile` | income-now/balanced/growth-firstなどのプロファイルを実行記録に残します。`--yield-floor` や他の閾値は自動設定しません。 |
+| `--safety-bias` | tight/mediumのラベルを実行記録に残します。指定だけでは配当安全性のルールは変わりません。 |
+| `--universe-source` | 候補集合の出所を記録するラベル。候補の選択・取得を実行するオプションではありません。 |
+| `--output-dir` | 出力先。既定値は `reports`。 |
+| `--filename-prefix` | 出力名の接頭辞。既定値は `kanchi_entry_signals`。 |
+| `--sleep-seconds` | プロバイダー呼出しの待ち時間。既定値は `0.15` 秒。 |
+
+閾値を明示し、記録された根拠を確認してください。イベント根拠は手動整理した入力であり、
+このCLIが自動でWebSearchするわけではありません。買い目標を保留する既存の制約は維持され、
+フラグやラベルを加えても、検証できない目標価格でのエントリーが可能にはなりません。
+財務値の補充は `--financials-json` の出典付き財務入力の契約を使い、`--input` に埋め込まないでください。
+
+
 ## 4. クイックスタート
 
 ### 1) スクリーニング前にマンデートを定義
