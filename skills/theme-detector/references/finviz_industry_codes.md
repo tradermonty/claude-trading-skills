@@ -4,7 +4,7 @@ This reference maps all FINVIZ industry names to their corresponding filter code
 
 **URL Pattern (Elite CSV Export):**
 ```
-https://elite.finviz.com/export.ashx?v=151&f=ind_{code},cap_smallover&auth={API_KEY}
+https://elite.finviz.com/export/screener?type=stocks&v=151&f=ind_{code},cap_smallover&c=1,6,66&ft=4&auth={API_KEY}
 ```
 
 **URL Pattern (Public Screener):**

@@ -40,7 +40,8 @@ import requests
 class FINVIZClient:
     """Client for FINVIZ Elite API"""
 
-    BASE_URL = "https://elite.finviz.com/export.ashx"
+    # FINVIZ moved the screener export here and requires type= from 2026-12-07 (#799).
+    BASE_URL = "https://elite.finviz.com/export/screener"
 
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -67,6 +68,7 @@ class FINVIZClient:
         filters = "cap_midover,fa_div_0.5to3,fa_divgrowth_3yo10,fa_eps3years_o5,fa_sales3years_o5,geo_usa,ta_rsi_os40"
 
         params = {
+            "type": "stocks",  # Required by /export/screener (#799)
             "v": "151",  # View type
             "f": filters,  # Filter conditions
             "ft": "4",  # File type: CSV export
@@ -83,7 +85,7 @@ class FINVIZClient:
 
             if response.status_code == 200:
                 # Parse CSV response
-                csv_content = response.content.decode("utf-8")
+                csv_content = response.content.decode("utf-8-sig")
                 reader = csv.DictReader(io.StringIO(csv_content))
 
                 symbols = set()
