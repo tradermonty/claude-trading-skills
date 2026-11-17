@@ -81,6 +81,35 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
 
 ---
 
+### Entry CLI options and input boundaries
+
+These options belong to `skills/kanchi-dividend-sop/scripts/build_entry_signals.py`.
+The entry CLI fetches current provider data; an evaluation date alone does not
+turn those downloads into a complete point-in-time data snapshot.
+
+| Option | Meaning |
+| --- | --- |
+| `--tickers` | Comma-separated symbols; a nonempty list takes precedence over `--input`. |
+| `--input` | JSON containing candidates/stocks/tickers. Only ticker identities are consumed; supplied screening prices or financial values do not replace provider data. |
+| `--alpha-pp` | Yield increment in percentage points; default `0.5`. |
+| `--yield-floor` | Explicit Step 1 yield floor in percent (for example `3.0`). Default is unset; enables the Step 1/Data Freshness assessment when supplied. |
+| `--financials-json` | Per-ticker sourced financial overrides, with units, source, as-of date and document reference; accepted values are recorded as MANUAL. Documents are not fetched or verified. |
+| `--events-json` | Curated corporate-event evidence for the event scan. Missing file option yields SKIPPED; an absent ticker yields NO_EVENT_FOUND. These do not establish a completed clean event review. |
+| `--as-of` | Evaluation date `YYYY-MM-DD`; defaults to the local current date. |
+| `--profile` | Profile label such as income-now/balanced/growth-first, recorded in run context. Does not automatically set `--yield-floor` or other thresholds. |
+| `--safety-bias` | tight/medium label recorded in run context; does not itself change payout-safety rules. |
+| `--universe-source` | Universe-origin provenance label recorded in run context; does not select or fetch a universe. |
+| `--output-dir` | Output directory; default `reports`. |
+| `--filename-prefix` | Output filename prefix; default `kanchi_entry_signals`. |
+| `--sleep-seconds` | Provider-call pacing; default `0.15` seconds. |
+
+Choose thresholds explicitly and review the recorded evidence. Event evidence is
+curated input, not an automatic WebSearch performed by this CLI. The existing
+withheld-target restriction still applies: adding flags or labels does not make
+an unverifiable buy target actionable. Use the sourced-financial input contract with `--financials-json` for financial
+overrides rather than placing them in `--input`.
+
+
 ## 4. Quick Start
 
 ### 1) Define mandate before screening
@@ -202,3 +231,18 @@ Always produce three artifacts:
 
 - `skills/kanchi-dividend-sop/scripts/build_entry_signals.py`
 - `skills/kanchi-dividend-sop/scripts/build_sop_plan.py`
+
+## Sourced financial metrics
+
+Pass `--financials-json financials.json` to re-run with per-ticker adjusted EPS,
+FFO/debt, bank, insurer or REIT metrics. Each value needs a unit, source,
+`as_of` date and document reference. Accepted values are recorded as MANUAL;
+source documents are user assertions and are not fetched or verified. Invalid
+inputs keep HOLD-REVIEW with explicit reasons; existing FAIL stays FAIL.
+See the [complete schema, fictional example and metric table](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/kanchi-dividend-sop/references/sourced-financials.md).
+
+Use `order_ready` in JSON/CSV/Markdown as the aggregate screening readiness flag.
+It requires TRIGGERED timing, CLEAN-PASS or CONDITIONAL-PASS, no final T1 block,
+and no pre-order blockers. PASS-CAUTION is false. `event_t1_blocked` is event-only;
+legacy `t1_blocked` is the final T1 restriction and may be false with open
+blockers. Screening readiness does not authorize a trade.
