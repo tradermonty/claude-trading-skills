@@ -128,13 +128,6 @@
       "reason": "pending #655 migration: vcp-screener"
     },
     {
-      "path": "skills/vcp-screener/scripts/calculators/vcp_pattern_calculator.py",
-      "scope": "calculate_vcp_pattern",
-      "field": "close",
-      "count": 3,
-      "reason": "pending #655 migration: vcp-screener"
-    },
-    {
       "path": "skills/vcp-screener/scripts/calculators/volume_pattern_calculator.py",
       "scope": "calculate_volume_pattern",
       "field": "adjClose",
