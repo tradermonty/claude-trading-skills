@@ -40,6 +40,10 @@ CAP_FILTER_MAP = {
     "mid": "+Mid (over $2bln)",
 }
 
+FINVIZ_ELITE_EXPORT_URL = "https://elite.finviz.com/export/screener"
+# FINVIZ column ids: 1 Ticker, 6 Market Cap, 66 Change.
+FINVIZ_ELITE_EXPORT_COLUMNS = "1,6,66"
+
 # FINVIZ Elite URL filter codes
 CAP_ELITE_MAP = {
     "micro": "cap_microover",
@@ -360,13 +364,19 @@ class RepresentativeStockSelector:
         cap_code = CAP_ELITE_MAP.get(self._min_cap, "cap_smallover")
         perf_code = "ta_perf2_4wdown" if is_bearish else "ta_perf2_4wup"
         filter_str = f"ind_{ind_code},{cap_code},sh_avgvol_o100,sh_price_o10,{perf_code}"
-        url = (
-            f"https://elite.finviz.com/export.ashx"
-            f"?v=151&f={filter_str}&ft=4&auth={self._finviz_elite_key}"
-        )
+        # From 2026-12-07 FINVIZ requires type= on /export/screener and stops
+        # applying saved custom columns, so pin Ticker, Market Cap, Change (#799).
+        params = {
+            "type": "stocks",
+            "v": "151",
+            "f": filter_str,
+            "c": FINVIZ_ELITE_EXPORT_COLUMNS,
+            "ft": "4",
+            "auth": self._finviz_elite_key,
+        }
 
         try:
-            resp = requests.get(url, timeout=15)
+            resp = requests.get(FINVIZ_ELITE_EXPORT_URL, params=params, timeout=15)
             if resp.status_code in (401, 403):
                 logger.warning("FINVIZ Elite auth failed (%s)", resp.status_code)
                 self._record_failure("elite")
@@ -375,7 +385,7 @@ class RepresentativeStockSelector:
                 self._record_failure("elite")
                 return []
 
-            reader = csv.DictReader(io.StringIO(resp.text))
+            reader = csv.DictReader(io.StringIO(resp.text.lstrip("\ufeff")))
             stocks: list[dict] = []
             for row in reader:
                 ticker = row.get("Ticker", "").strip()

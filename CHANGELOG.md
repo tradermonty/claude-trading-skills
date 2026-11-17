@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FINVIZ Elite export: value-dividend-screener, dividend-growth-pullback-screener and theme-detector call `/export/screener` with `type=stocks` instead of the legacy `export.ashx`, ahead of FINVIZ's 2026-12-07 change. Filters are unchanged. theme-detector pins its columns with `c=1,6,66` (Ticker, Market Cap, Change) because saved custom columns stop applying, and all three tolerate a UTF-8 BOM in the CSV (#799).
+
 - kanchi-dividend-sop: detect small monthly dividend raises with a relative raise/freeze tolerance instead of the flat $0.005 per-payment epsilon, end the TTM window at the run's evaluation date instead of the latest payment, and record each row's price date (from the FMP quote timestamp) with a mismatch flag when it differs from the run date. Output schema version 5 (#770).
 - us-undervalued-growth-screener: the full-universe snapshot guide no longer sizes the shard schedule around a 750-call daily limit. Paid FMP plans state per-minute limits, the client paces below them, and the per-run call budget alone sets the shard count, so the 8 shards can run back to back in one session instead of two a day over four days. The pricing guard's allowlist entry for this paragraph is removed (#750).
 
