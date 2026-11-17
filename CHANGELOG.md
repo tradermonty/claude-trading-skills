@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- weekly-performance-digest: exit 1 with an error when `--from-date` is later than `--to-date` (or an unparsable date is given) instead of reporting 0 trades and exiting 0 (Refs #667).
+
 - kanchi-dividend-sop: accept sourced manual financial metrics and expose aggregate order readiness across JSON, CSV and Markdown (#772).
 
 - kanchi-dividend-sop: apply the evaluation-date cutoff to dividend declarations before calculating the Step 1 forward yield. Future ex-dates are eligible once declared. Rows without a usable declaration date become eligible on their ex-date (#804).
