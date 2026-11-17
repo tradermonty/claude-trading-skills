@@ -249,7 +249,7 @@ class TestThemeDetectorE2E:
         assert ai["theme_origin"] == "seed"
         assert ai["name_confidence"] == "high"
 
-    @pytest.mark.parametrize("mode", ["public", "elite", "elite_fallback"])
+    @pytest.mark.parametrize("mode", ["public", "elite", "elite_fallback", "elite_truncated"])
     @pytest.mark.parametrize("fmp_available", [False, True])
     def test_cli_scan_hits_history_no_update(
         self, monkeypatch, tmp_path, capsys, mode, fmp_available
@@ -270,18 +270,18 @@ class TestThemeDetectorE2E:
             _make_raw_industry("Software - Infrastructure", "Technology", 0.035, 0.09, 0.18),
             _make_raw_industry("Banks - Diversified", "Financial", 0.01, 0.02, 0.03),
         ]
+        body = io.StringIO()
+        writer = csv.writer(body)
+        columns = finviz_performance_client.ELITE_COLUMNS
+        writer.writerow(["Name", *columns])
+        for industry in raw:
+            writer.writerow(
+                [
+                    industry["name"],
+                    *[str(industry.get(key, 0) * 100) + "%" for key in columns.values()],
+                ]
+            )
         if mode == "elite":
-            body = io.StringIO()
-            writer = csv.writer(body)
-            columns = finviz_performance_client.ELITE_COLUMNS
-            writer.writerow(["Name", *columns])
-            for industry in raw:
-                writer.writerow(
-                    [
-                        industry["name"],
-                        *[str(industry.get(key, 0) * 100) + "%" for key in columns.values()],
-                    ]
-                )
             group_http = Mock(return_value=Mock(status_code=200, text=body.getvalue()))
             monkeypatch.setattr(finviz_performance_client.requests, "get", group_http)
         else:
@@ -304,6 +304,14 @@ class TestThemeDetectorE2E:
             monkeypatch.setattr(finviz_performance_client, "HAS_FINVIZFINANCE", True)
             monkeypatch.setattr(finviz_performance_client, "fvperf", public_client, raising=False)
             group_http = Mock(return_value=Mock(status_code=403, text="fictional-elite-key"))
+            if mode == "elite_truncated":
+                # #685: a clean 4-row Elite CSV under the shipped floor is not Elite data.
+                group_http.return_value = Mock(status_code=200, text=body.getvalue())
+                monkeypatch.setattr(
+                    finviz_performance_client,
+                    "ELITE_MIN_ROWS",
+                    {"sector": 11, "industry": 100},
+                )
             monkeypatch.setattr(finviz_performance_client.requests, "get", group_http)
         monkeypatch.setattr(
             finviz_performance_client, "cap_outlier_performances", lambda rows: rows
@@ -395,7 +403,7 @@ class TestThemeDetectorE2E:
             [
                 "theme_detector.py",
                 "--finviz-mode",
-                "elite" if mode == "elite_fallback" else mode,
+                "public" if mode == "public" else "elite",
                 "--finviz-api-key",
                 "fictional-elite-key",
                 "--output-dir",
@@ -428,7 +436,10 @@ class TestThemeDetectorE2E:
         )
         assert report["metadata"]["data_sources"]["finviz_industry_performance"] == {
             "source": actual_source,
-            "fallback_reason": "http_status" if mode == "elite_fallback" else None,
+            "fallback_reason": {
+                "elite_fallback": "http_status",
+                "elite_truncated": "too_few_rows",
+            }.get(mode),
         }
         assert report["metadata"]["data_mode"] == determine_data_mode(
             fmp_available, actual_source == "elite"
@@ -446,6 +457,8 @@ class TestThemeDetectorE2E:
         assert "## 3. Leadership Evidence" in markdown
         if mode == "elite_fallback":
             assert "FINVIZ industry performance used public fallback (http_status)" in markdown
+        if mode == "elite_truncated":
+            assert "FINVIZ industry performance used public fallback (too_few_rows)" in markdown
         assert json.loads(history_file.read_text()) == history_payload
 
     def test_historical_live_as_of_fails_before_provider_access(self, capsys):

@@ -525,7 +525,8 @@ python3 skills/theme-detector/scripts/theme_detector.py [OPTIONS]
 `data_mode`は業種ソースとFMPキーの有無を反映し、FMP取得の成功を保証しません。
 Eliteから公開データに切り替わった場合は、安全な`fallback_reason`と品質警告を
 JSON・Markdownに出力します。動的な代表銘柄選択は独立した取得方針と銘柄別ソースを維持します。
-`finviz_industries`は取得行数のままで、完全性を保証しません。有効な部分CSVは引き続き受理します。
+`finviz_industries`は取得行数のままで、完全性を保証しません。Elite CSVのセクターが11行未満、
+業種が100行未満の場合は途中で切れたものとみなし（`fallback_reason: too_few_rows`）、公開データに切り替えます。
 
 `skills/theme-detector/requirements.txt`を使って対応依存と固定カレンダーを
 インストールしてください。公開FINVIZはPython 3.10以上とfinvizfinance>=1.5.0が必要です。

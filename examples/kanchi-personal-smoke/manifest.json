@@ -1,0 +1,8 @@
+{
+ "schema_version":1,
+ "as_of":"2026-01-15",
+ "cases":[
+  {"skill":"kanchi-dividend-review-monitor","script":"skills/kanchi-dividend-review-monitor/scripts/build_review_queue.py","input":"review-input.json","outputs":{"json":"review_queue_20260115.json","md":"review_queue_20260115.md"},"expected":{"DEMO-CUT":"REVIEW"},"required_trigger":"T1"},
+  {"skill":"kanchi-dividend-us-tax-accounting","script":"skills/kanchi-dividend-us-tax-accounting/scripts/build_tax_planning_sheet.py","input":"tax-input.json","args":["--as-of","2026-01-15"],"outputs":{"csv":"tax_planning_sheet_2026-01-15.csv","md":"tax_planning_sheet_2026-01-15.md"},"expected":{"DEMO-60":"ordinary_likely","DEMO-61":"qualified_likely","DEMO-P90":"ordinary_likely","DEMO-P91":"qualified_likely","DEMO-REIT":"ordinary_likely","DEMO-BDC":"ordinary_likely","DEMO-UNKNOWN":"assumption_required"}}
+ ]
+}

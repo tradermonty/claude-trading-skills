@@ -1025,11 +1025,11 @@ class TestFetchFinvizElite:
             patch.object(sel, "_rate_limit"),
         ):
             sel._fetch_finviz_elite("Gold", limit=10, is_bearish=False)
-            url = mock_get.call_args[0][0]
-            assert expected_code in url
+            filters = mock_get.call_args[1]["params"]["f"]
+            assert expected_code in filters.split(",")
 
     def test_bearish_filter_uses_4wdown(self):
-        """is_bearish=True => ta_perf2_4wdown in URL."""
+        """is_bearish=True => ta_perf2_4wdown in the f= filter."""
         sel = RepresentativeStockSelector(
             finviz_elite_key="test_key",
             finviz_mode="elite",
@@ -1044,8 +1044,8 @@ class TestFetchFinvizElite:
             patch.object(sel, "_rate_limit"),
         ):
             sel._fetch_finviz_elite("Gold", limit=10, is_bearish=True)
-            url = mock_get.call_args[0][0]
-            assert "ta_perf2_4wdown" in url
+            filters = mock_get.call_args[1]["params"]["f"]
+            assert "ta_perf2_4wdown" in filters.split(",")
 
     def test_auth_failure_returns_empty(self):
         """401/403 => empty list."""

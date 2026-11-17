@@ -6,10 +6,14 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 - weekly-performance-digest: exit 1 with an error when `--from-date` is later than `--to-date` (or an unparsable date is given) instead of reporting 0 trades and exiting 0 (Refs #667).
 
+- theme-detector: an Elite industry CSV that parses cleanly but has fewer than 100 rows is now treated as truncated. The run falls back to public data and records `fallback_reason: too_few_rows`, instead of ranking themes on a partial industry list labelled as Elite. If public data is also unavailable, the run exits with an error that names the Elite failure reason. `get_sector_performance` applies an 11-row floor the same way (#685).
 - kanchi-dividend-sop: accept sourced manual financial metrics and expose aggregate order readiness across JSON, CSV and Markdown (#772).
 
 - kanchi-dividend-sop: apply the evaluation-date cutoff to dividend declarations before calculating the Step 1 forward yield. Future ex-dates are eligible once declared. Rows without a usable declaration date become eligible on their ex-date (#804).
+- Document Kanchi entry CLI options consistently in EN/JA guides (#665), and add fictional offline CLI/output smoke contracts for the personal review and US tax skills (#507).
+
 - kanchi-dividend-sop: detect small monthly dividend raises with a relative raise/freeze tolerance instead of the flat $0.005 per-payment epsilon, end the TTM window at the run's evaluation date instead of the latest payment, and record each row's price date (from the FMP quote timestamp) with a mismatch flag when it differs from the run date. Output schema version 5 (#770).
+- FINVIZ Elite export: value-dividend-screener, dividend-growth-pullback-screener and theme-detector call `/export/screener` with `type=stocks` instead of the legacy `export.ashx`, ahead of FINVIZ's 2026-12-07 change. Filters are unchanged. theme-detector pins its columns with `c=1,6,66` (Ticker, Market Cap, Change) because saved custom columns stop applying, all three tolerate a UTF-8 BOM in the CSV, and theme-detector warns when Market Cap or Change is missing instead of ranking without them (#799).
 - us-undervalued-growth-screener: the full-universe snapshot guide no longer sizes the shard schedule around a 750-call daily limit. Paid FMP plans state per-minute limits, the client paces below them, and the per-run call budget alone sets the shard count, so the 8 shards can run back to back in one session instead of two a day over four days. The pricing guard's allowlist entry for this paragraph is removed (#750).
 
 - Pre-Trade Discipline Gate can review a two-week experiment for one approved rule. Count applicable decisions, including compliant passes, and group exceptions by session. The summary omits the adherence rate until the window ends and enough decisions have been assessed (Refs #712).
