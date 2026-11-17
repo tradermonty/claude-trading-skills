@@ -221,12 +221,23 @@ def analyze_dividends(
 ) -> DividendBasis:
     """Analyze a stock_dividend `historical` list into a DividendBasis.
 
-    `history` items: {"date": "YYYY-MM-DD", "dividend": float, "label": str?}.
+    `history` items have a date, dividend amount, and optional label and declaration date.
+    With an evaluation date, each row becomes eligible on its declaration
+    date, or on its ex-date if the declaration date is unavailable.
     """
+    ref_date = _parse_date(str(as_of_date)) if as_of_date else None
     rows: list[tuple[date, float, object]] = []
     declared: dict[date, bool] = {}
+    eligible_history = []
     for item in history or []:
         d = _parse_date(str(item.get("date", "")))
+        decl = str(item.get("declarationDate") or "").strip()
+        if ref_date is not None:
+            known_date = (_parse_date(decl) if decl else None) or d
+            if known_date is not None and known_date > ref_date:
+                continue
+        eligible_history.append(item)
+
         amt = item.get("dividend")
         try:
             amt = float(amt)
@@ -238,8 +249,7 @@ def analyze_dividends(
         # A non-empty declarationDate means the board formally declared
         # this dividend -> authoritative confirmation for the Data
         # Freshness Gate (5th-review #4 confirmed-source path).
-        decl = item.get("declarationDate")
-        declared[d] = bool(decl and str(decl).strip())
+        declared[d] = bool(decl)
 
     if not rows:
         return DividendBasis(status="NO-DIVIDEND", reasons=["no_dividend_history"])
@@ -313,7 +323,6 @@ def analyze_dividends(
     # #770 finding 2: the TTM window ends at the evaluation date, not at the
     # latest payment. Without an evaluation date the window still ends at the
     # latest payment (previous behavior).
-    ref_date = _parse_date(str(as_of_date)) if as_of_date else None
     asof = ref_date if ref_date is not None else all_dates[-1]
     asof_reg = regular[-1][0]
     regular_ttm = _sum_window(regular, asof, 366, 0)
@@ -321,7 +330,7 @@ def analyze_dividends(
 
     # Classify policy in issuer currency when fully sourced; USD remains the
     # valuation basis above and below. Profile currency is only a review hint.
-    original, original_currency = _original_regular_series(history, regular)
+    original, original_currency = _original_regular_series(eligible_history, regular)
     policy_regular = original if original is not None else regular
     currency_hint = issuer_currency.strip().upper() if isinstance(issuer_currency, str) else ""
     foreign_hint = (
@@ -335,7 +344,7 @@ def analyze_dividends(
             key in item
             for key in ("original_dividend", "original_currency", "original_dividend_source")
         )
-        for item in history or []
+        for item in eligible_history
     )
     needs_currency_confirmation = original is None and (
         foreign_hint or is_adr is True or partial_evidence
