@@ -115,3 +115,17 @@ def test_api_key_never_logged_on_http_error(status, caplog):
         rows, _ = _fetch("", status=status)
     assert rows == []
     assert SECRET not in caplog.text
+
+
+def test_missing_ranked_column_is_warned_not_silent(caplog):
+    with caplog.at_level(logging.WARNING, logger=rss.logger.name):
+        rows, _ = _fetch("No.,Ticker\n1,AAA\n")
+    assert [r["symbol"] for r in rows] == ["AAA"]
+    assert "Market Cap" in caplog.text and "Change" in caplog.text
+    assert SECRET not in caplog.text
+
+
+def test_complete_columns_emit_no_missing_column_warning(caplog):
+    with caplog.at_level(logging.WARNING, logger=rss.logger.name):
+        _fetch(CSV_PINNED)
+    assert "missing column" not in caplog.text

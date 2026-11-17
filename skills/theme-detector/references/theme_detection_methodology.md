@@ -292,8 +292,8 @@ direction = majority_vote([ind.rank_direction for ind in theme.industries])
 ### Primary: FINVIZ
 
 **Elite Mode (recommended):**
-- CSV export endpoint: `https://elite.finviz.com/export.ashx?v=151&f=ind_{code},cap_smallover,...&auth=KEY`
-- Provides: ticker, company, sector, industry, market cap, P/E, change%, volume, avg volume, 52wk high/low, RSI, SMA20/50/200
+- CSV export endpoint: `https://elite.finviz.com/export/screener?type=stocks&v=151&f=ind_{code},cap_smallover,...&c=1,6,66&ft=4&auth=KEY` (`type=` is required from 2026-12-07; `c=1,6,66` pins Ticker, Market Cap, Change)
+- Provides (pinned columns): ticker, market cap, change%. Volume is not requested yet (see issue #800)
 - Rate limit: 0.5s between requests
 - Coverage: Full stock universe per industry
 

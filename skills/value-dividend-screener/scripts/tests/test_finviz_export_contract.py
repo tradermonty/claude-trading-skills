@@ -9,6 +9,7 @@ that the CSV parser is independent of column order and a UTF-8 BOM.
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 from screen_dividend_stocks import FINVIZClient
 
 EXPECTED_FILTERS = (
@@ -76,6 +77,18 @@ def test_ticker_set_is_independent_of_column_layout(body):
 @pytest.mark.parametrize("status", [200, 403, 500])
 def test_api_key_never_printed(status, capsys):
     _client(_resp(status, CSV_NEW_SCREENER if status == 200 else "")).screen_stocks()
+    captured = capsys.readouterr()
+    assert SECRET not in captured.out
+    assert SECRET not in captured.err
+
+
+def test_api_key_never_printed_on_request_exception(capsys):
+    client = FINVIZClient(SECRET)
+    client.session = MagicMock()
+    client.session.get.side_effect = requests.exceptions.ConnectionError(
+        f"failed: https://elite.finviz.com/export/screener?auth={SECRET}"
+    )
+    assert client.screen_stocks() == set()
     captured = capsys.readouterr()
     assert SECRET not in captured.out
     assert SECRET not in captured.err

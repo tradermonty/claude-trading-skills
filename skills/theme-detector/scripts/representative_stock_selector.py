@@ -386,6 +386,14 @@ class RepresentativeStockSelector:
                 return []
 
             reader = csv.DictReader(io.StringIO(resp.text.lstrip("\ufeff")))
+            missing = [c for c in ("Market Cap", "Change") if c not in (reader.fieldnames or [])]
+            if missing:
+                # Ranking would silently lose these factors; make the gap visible.
+                logger.warning(
+                    "FINVIZ Elite export for %s is missing column(s): %s",
+                    industry,
+                    ", ".join(missing),
+                )
             stocks: list[dict] = []
             for row in reader:
                 ticker = row.get("Ticker", "").strip()
