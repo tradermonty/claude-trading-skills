@@ -466,8 +466,13 @@ stock requests. The existing `finviz_industries` row count is unchanged.
 
 Fallback reasons identify HTTP/request failures or a failed CSV validation
 check without including keys, URLs, response bodies or raw exception text.
-Row counts describe received data, not completeness: a syntactically valid
-partial export is still accepted; no minimum-universe threshold is enforced.
+An Elite CSV that parses but has fewer than 11 sector rows or 100 industry
+rows is treated as truncated (`fallback_reason: too_few_rows`) and the public
+source is used instead. Theme runs fetch industries only, so the 100-row floor
+is the one that applies to them. Above the floor, row counts describe received
+data, not completeness. The public fallback has no floor. If public data is
+also unavailable (Python < 3.10 or finvizfinance missing), the run exits with
+an error naming the Elite failure reason instead of reporting on partial data.
 
 CSV percentage points, including values below 1%, are normalized to decimal
 ratios at the client boundary and converted to percentage points once by the

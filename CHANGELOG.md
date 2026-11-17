@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- theme-detector: an Elite industry CSV that parses cleanly but has fewer than 100 rows is now treated as truncated. The run falls back to public data and records `fallback_reason: too_few_rows`, instead of ranking themes on a partial industry list labelled as Elite. If public data is also unavailable, the run exits with an error that names the Elite failure reason. `get_sector_performance` applies an 11-row floor the same way (#685).
 - kanchi-dividend-sop: accept sourced manual financial metrics and expose aggregate order readiness across JSON, CSV and Markdown (#772).
 
 - kanchi-dividend-sop: apply the evaluation-date cutoff to dividend declarations before calculating the Step 1 forward yield. Future ex-dates are eligible once declared. Rows without a usable declaration date become eligible on their ex-date (#804).
