@@ -30,7 +30,7 @@ COMPLIANT_DOC = """\
 ```yaml
 compat_matrix:
   python: ">=3.11,<3.14"
-  supported_os: [ubuntu-latest, windows-latest, macos-latest]
+  supported_os: [ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest]
   jobs:
     compat-smoke:
       os: [ubuntu-latest, windows-latest, macos-latest]
@@ -205,6 +205,31 @@ def test_check_fails_on_os_out_of_supported_set(project: Path, capsys: pytest.Ca
     assert "outside supported set" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    "workflow,job,python_version",
+    [("ci.yml", "market-calendar-compat", "3.9"), ("docs-site.yml", "build", "3.11")],
+)
+@pytest.mark.parametrize("runner,expected", [("ubuntu-24.04", 0), ("ubuntu-18.04", 1)])
+def test_pinned_toolchain_runner_policy(
+    project, capsys, workflow, job, python_version, runner, expected
+):
+    _compliant_tree(project)
+    path = project / ".github" / "workflows" / workflow
+    existing = path.read_text() if path.exists() else "jobs:\n"
+    path.write_text(
+        existing
+        + f"  {job}:\n"
+        + f"    runs-on: {runner}\n"
+        + "    steps:\n"
+        + "      - uses: actions/setup-python@v5\n"
+        + "        with:\n"
+        + f'          python-version: "{python_version}"\n'
+    )
+    assert ccm.check(quiet=True) == expected
+    if expected:
+        assert "outside supported set" in capsys.readouterr().out
+
+
 def test_check_fails_on_doc_drift(project: Path, capsys: pytest.CaptureFixture):
     _compliant_tree(project)
     declared = COMPLIANT_DOC.replace('python: ["3.13"]', 'python: ["3.11"]')
@@ -262,7 +287,7 @@ def test_check_fails_on_doc_supported_os_mismatch(project: Path, capsys: pytest.
     # The doc's top-level `supported_os:` must match the policy set.
     _compliant_tree(project)
     doc = COMPLIANT_DOC.replace(
-        "supported_os: [ubuntu-latest, windows-latest, macos-latest]",
+        "supported_os: [ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest]",
         "supported_os: [ubuntu-latest, windows-latest]",
     )
     _write(project, "docs/dev/compatibility-matrix.md", doc)
@@ -345,7 +370,7 @@ def test_check_fails_on_missing_doc_supported_os(project: Path, capsys: pytest.C
     # A doc that omits the top-level `supported_os:` declaration must fail closed.
     _compliant_tree(project)
     doc = COMPLIANT_DOC.replace(
-        "  supported_os: [ubuntu-latest, windows-latest, macos-latest]\n", ""
+        "  supported_os: [ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest]\n", ""
     )
     _write(project, "docs/dev/compatibility-matrix.md", doc)
     assert ccm.check(quiet=True) == 1

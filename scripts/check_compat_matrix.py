@@ -8,8 +8,9 @@ declarations for the compatibility-defining jobs, then validates a repository
 policy over every job in those workflows.
 
 Policy enforced (static only):
-  * Every job in ``ci.yml`` and ``compat-nightly.yml`` runs on an OS in
-    ``{ubuntu-latest, windows-latest, macos-latest}``.
+  * Every workflow job runs on an OS in
+    ``{ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest}`` or an
+    explicitly allowed self-hosted category.
   * Root-project jobs use the range declared in ``pyproject.toml``; explicitly
     listed standalone jobs may use the separate packaged-skill floor.
   * The ``compat-smoke`` / ``compat-nightly`` job axis sets match the matrix
@@ -33,7 +34,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 WORKFLOW_FILES = ("ci.yml", "compat-nightly.yml")
-SUPPORTED_OS = {"ubuntu-latest", "windows-latest", "macos-latest"}
+SUPPORTED_OS = {"ubuntu-latest", "ubuntu-24.04", "windows-latest", "macos-latest"}
 SELF_HOSTED_PLATFORM_LABELS = {"linux", "windows", "macos"}
 RECOGNIZED_SELF_HOSTED_CATEGORIES = {
     f"self-hosted-{platform}" for platform in SELF_HOSTED_PLATFORM_LABELS
