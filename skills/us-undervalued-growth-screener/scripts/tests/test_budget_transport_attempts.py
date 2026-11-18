@@ -155,5 +155,24 @@ def test_success_path_for_three_symbols_counts_three(tmp_path):
     assert client.api_calls_made == 3
 
 
+def test_rate_limited_estimate_symbol_costs_four_attempts(tmp_path):
+    """Issue #802: each 429 retry is a counted attempt. A symbol whose stable
+    and v3 estimate requests both answer 429 twice costs four budget units,
+    the figure stated in references/full-universe-snapshot.md.
+    """
+    client = _client(tmp_path, max_api_calls=350)
+    transport = mock.Mock(return_value=mock.Mock(status_code=429, json=lambda: []))
+
+    with (
+        mock.patch.object(client.session, "get", transport),
+        mock.patch.object(CLIENT.time, "sleep"),
+    ):
+        fetched = client.get_analyst_estimates_detailed("AAA", period="annual", limit=6)
+
+    assert fetched["status"] == "failed"
+    assert transport.call_count == 4
+    assert client.api_calls_made == 4
+
+
 def remaining(client):
     return client.max_api_calls - client.api_calls_made

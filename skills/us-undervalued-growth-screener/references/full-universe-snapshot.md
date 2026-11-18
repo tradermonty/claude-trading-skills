@@ -188,12 +188,15 @@ The limit that sizes the shards is the per-run call budget.
 
 - **Per-run budget.** A `collect-estimates` run stops at `max_api_calls`
   (default 350, `--max-api-calls`). A symbol costs one call, or two when the
-  stable endpoint fails and the v3 fallback is tried. The run that freezes the
+  stable endpoint fails and the v3 fallback is tried. Every attempt counts
+  against `max_api_calls`, including the one retry after a 429, so a
+  rate-limited symbol can cost up to four calls (stable and v3, each retried
+  once). The run that freezes the
   universe also pays for the listing enumeration: one company-screener query
   per exchange, two more each time a market-cap band saturates, and the same
   v3 fallback per query.
 - **Shard count.** Choose it so the largest shard fits the budget with room
-  for the enumeration and some fallbacks. Shards are `sha256(symbol) %
+  for the enumeration, some fallbacks and retries. Shards are `sha256(symbol) %
   shard_count`, so they are uneven: 8 shards average ~296 symbols, but in
   1,000 simulated 2,371-symbol universes the largest of the 8 held 321
   symbols at the median, 345 at the 99th percentile and 356 at most. 7 shards
