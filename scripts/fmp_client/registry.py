@@ -390,3 +390,19 @@ SKILLS["technical-analyst"] = SkillConfig(
     class_constants=(),
     extensions=("technical_eod",),
 )
+
+# ---- Issue #495 Batch D: downtrend exact-range screener/history adapters ----
+SKILLS["downtrend-duration-analyzer"] = SkillConfig(
+    skill="downtrend-duration-analyzer",
+    title="FMP API Client for Downtrend Duration Analyzer",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=365,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Stable-only screener and explicit-range OHLCV transport",),
+    class_constants=(),
+    extensions=("downtrend",),
+)

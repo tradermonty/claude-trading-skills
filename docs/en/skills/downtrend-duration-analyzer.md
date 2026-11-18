@@ -53,6 +53,15 @@ Analyze historical price data to identify downtrend periods (peak-to-trough) and
 
 ## 4. Quick Start
 
+The generated FMP client calls `/stable/company-screener` and
+`/stable/historical-price-eod/full` only. A legacy-only plan can no longer use
+the removed v3 fallback. The stock filters and explicit historical date range
+are unchanged; stable flat OHLCV rows are sorted oldest first without a row
+limit. Empty history stays empty, and malformed history is reported and skipped
+without filling missing prices. One HTTP session is reused for the run and
+closed on exit. Shared transport adds 0.3-second pacing, one 60-second retry on
+HTTP 429, and one retry on malformed JSON; credentials are redacted in errors.
+
 ```bash
 python3 skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py \
   --sector "Technology" \
