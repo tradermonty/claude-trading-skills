@@ -102,7 +102,7 @@ The fractional command returns 1.5384 shares, keeping planned risk at or below t
 ## 4. How It Works
 
 1. **Gather parameters** -- The script collects account size, entry price, stop price (or ATR), and risk percentage. For Kelly Criterion, it collects win rate and average win/loss statistics.
-2. **Calculate risk per share** -- For Fixed Fractional: `entry - stop`. For ATR-Based: `ATR * multiplier`. For Kelly: derived from the half-Kelly budget and entry/stop distance.
+2. **Calculate risk per share** -- For Fixed Fractional, use `entry - stop`. For ATR-Based, round `entry - ATR * multiplier` to cents and subtract that stop from entry. The rounded stop must be positive and below entry. Kelly derives shares from the half-Kelly budget and the entry/stop distance when a stop is supplied.
 3. **Compute base share count** -- `dollar_risk / risk_per_share`, always floored. Whole-share mode floors to an integer; fractional mode floors to the requested decimal precision. Rounding up would exceed the risk budget.
 4. **Apply portfolio constraints** -- If `--max-position-pct` or `--max-sector-pct` is specified, the share count is capped by the tightest constraint. The binding constraint is identified in the output.
 5. **Generate reports** -- JSON and Markdown files are saved to the output directory with full calculation details, constraint analysis, and the final recommendation.
@@ -301,7 +301,7 @@ After execution, the script produces a JSON and Markdown report containing:
 
 ### Key JSON Fields
 
-In risk-percentage mode (without Kelly inputs), supplying both `--stop` and `--atr` uses ATR for share sizing and `final_risk_*` reporting, ignores the explicit stop for those calculations, and reports the ATR-derived stop in `parameters.stop_price`. Only `final_risk_dollars` and `final_risk_pct` round decimal values half-up to two places (ties report the larger risk); other rounded outputs keep their existing rounding rules.
+In risk-percentage mode (without Kelly inputs), the ATR-derived stop in `parameters.stop_price` takes precedence when both `--stop` and `--atr` are supplied. The distance from entry to that cent-rounded stop drives both share sizing and `final_risk_*`. Only `final_risk_dollars` and `final_risk_pct` round decimal values half-up to two places (ties report the larger risk).
 
 | Field | Description |
 |-------|-------------|

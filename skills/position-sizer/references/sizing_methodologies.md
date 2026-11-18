@@ -101,11 +101,13 @@ Use the Average True Range (ATR) to set stop distance, automatically adjusting p
 
 ```
 stop_distance  = atr * atr_multiplier
-stop_price     = entry_price - stop_distance
-risk_per_share = stop_distance
+stop_price     = round(entry_price - stop_distance, 2)
+risk_per_share = entry_price - stop_price
 dollar_risk    = account_size * risk_pct / 100
 shares         = int(dollar_risk / risk_per_share)
 ```
+
+The reported stop must be positive and below entry. Share sizing and final risk both use its distance from entry.
 
 ### ATR Multiplier Guidance
 

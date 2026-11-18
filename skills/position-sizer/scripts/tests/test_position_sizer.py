@@ -383,6 +383,36 @@ class TestFractionalShares:
 
 class TestRiskReporting:
     @pytest.mark.parametrize(
+        ("entry", "atr", "fractional", "stop_price", "risk_per_share", "shares", "risk"),
+        [
+            (5.0, 0.024, False, 4.96, 0.04, 625, 25.00),
+            (5.0, 0.024, True, 4.96, 0.04, 625.0, 25.00),
+            (5.0, 0.022, False, 4.97, 0.03, 833, 24.99),
+            (5.0, 0.022, True, 4.97, 0.03, 833.3333, 25.00),
+            (5.004, 0.0025, False, 5.0, 0.004, 6250, 25.00),
+        ],
+    )
+    def test_atr_sizing_uses_reported_stop(
+        self, entry, atr, fractional, stop_price, risk_per_share, shares, risk
+    ):
+        result = calculate_position(
+            SizingParameters(
+                account_size=10_000,
+                entry_price=entry,
+                risk_pct=0.25,
+                atr=atr,
+                atr_multiplier=1.5,
+                fractional_shares=fractional,
+            )
+        )
+
+        assert result["parameters"]["stop_price"] == stop_price
+        assert result["calculations"]["atr_based"]["risk_per_share"] == risk_per_share
+        assert result["final_recommended_shares"] == shares
+        assert result["final_risk_dollars"] == risk
+        assert result["final_risk_pct"] == 0.25
+
+    @pytest.mark.parametrize(
         ("max_position_pct", "shares", "risk"),
         [(None, 50, 100.0), (10.0, 10, 20.0)],
     )
@@ -424,45 +454,32 @@ class TestRiskReporting:
             assert result["final_risk_dollars"] == 1_850.0
             assert result["final_risk_pct"] == 18.5
 
-    def test_final_risk_decimal_half_up_atr(self):
-        """Fractional ATR: reported risk uses exact Decimal math, half-up.
-
-        atr=1.15, mult=1.5 -> 1.725 exact; float noise gives 1.7249999...
-        1 share (dollar risk 2.00 / 1.725 -> floor 1).
-        Current float code reports 1.72; Decimal half-up reports 1.73.
-        """
+    @pytest.mark.parametrize(
+        ("atr", "budget_pct", "stop_price", "shares", "reported_risk", "reported_pct"),
+        [
+            (1.73, 0.00865, 98.27, 0.5, 0.87, 0.01),
+            (1.54, 0.05005, 98.46, 3.25, 5.01, 0.05),
+        ],
+    )
+    def test_final_risk_decimal_half_up_atr(
+        self, atr, budget_pct, stop_price, shares, reported_risk, reported_pct
+    ):
+        """Fractional shares at a cent-precision stop produce a half-cent tie."""
         params = SizingParameters(
             account_size=10_000,
             entry_price=100.0,
             stop_price=90.0,
-            risk_pct=0.02,
-            atr=1.15,
-            atr_multiplier=1.5,
+            risk_pct=budget_pct,
+            atr=atr,
+            atr_multiplier=1.0,
+            fractional_shares=True,
         )
         result = calculate_position(params)
 
-        assert result["final_recommended_shares"] == 1
-        assert result["final_risk_dollars"] == 1.73
-        assert result["final_risk_pct"] == 0.02
-
-    def test_final_risk_decimal_half_up_atr_second(self):
-        """Fractional ATR again: 1.03 * 1.5 = 1.545 exact; 3 shares -> 4.635.
-
-        Current float code reports 4.63; Decimal half-up reports 4.64.
-        """
-        params = SizingParameters(
-            account_size=10_000,
-            entry_price=100.0,
-            stop_price=90.0,
-            risk_pct=0.05,
-            atr=1.03,
-            atr_multiplier=1.5,
-        )
-        result = calculate_position(params)
-
-        assert result["final_recommended_shares"] == 3
-        assert result["final_risk_dollars"] == 4.64
-        assert result["final_risk_pct"] == 0.05
+        assert result["parameters"]["stop_price"] == stop_price
+        assert result["final_recommended_shares"] == shares
+        assert result["final_risk_dollars"] == reported_risk
+        assert result["final_risk_pct"] == reported_pct
 
     def test_kelly_risk_stop_branch_uses_same_rule(self):
         """Lock: Kelly shares mode with entry+stop reports entry-stop risk."""
@@ -642,6 +659,22 @@ class TestValidation:
         result = self._run_cli(self._RISK_PCT_BASE, tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Final: " in result.stdout
+
+    @pytest.mark.parametrize("atr", ["0.001", "2.5", "2.6"])
+    def test_cli_rejects_invalid_rounded_atr_stop(self, atr, tmp_path):
+        result = self._run_cli(
+            {
+                "--account-size": "10000",
+                "--entry": "5",
+                "--risk-pct": "0.25",
+                "--atr": atr,
+            },
+            tmp_path,
+        )
+
+        assert result.returncode == 1
+        assert "ATR-derived stop price must be positive and below entry price" in result.stderr
+        assert not (tmp_path / "reports").exists()
 
     def test_stop_above_entry_error(self):
         """stop > entry -> ValueError."""

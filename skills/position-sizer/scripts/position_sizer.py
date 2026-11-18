@@ -126,21 +126,20 @@ def calculate_fixed_fractional(params: SizingParameters) -> dict:
 
 
 def calculate_atr_based(params: SizingParameters) -> dict:
-    """ATR-based position sizing.
-
-    Uses Average True Range to determine stop distance:
-    stop_distance = atr * atr_multiplier
-    stop_price = entry_price - stop_distance
-    """
+    """Use ATR to derive the stop, then size against the stop rounded to cents."""
+    entry_price = to_decimal(params.entry_price)
     stop_distance = to_decimal(params.atr) * to_decimal(params.atr_multiplier)
-    stop_price = round(float(to_decimal(params.entry_price) - stop_distance), 2)
-    risk_per_share = stop_distance
+    stop_price = round(float(entry_price - stop_distance), 2)
+    if not 0 < stop_price < params.entry_price:
+        raise ValueError("ATR-derived stop price must be positive and below entry price")
+
+    risk_per_share = entry_price - to_decimal(stop_price)
     dollar_risk = to_decimal(params.account_size) * to_decimal(params.risk_pct) / Decimal(100)
     shares = floor_share_quantity(dollar_risk / risk_per_share, params)
     return {
         "method": "atr_based",
         "shares": shares,
-        "risk_per_share": round(float(risk_per_share), 2),
+        "risk_per_share": float(risk_per_share),
         "dollar_risk": round(float(dollar_risk), 2),
         "stop_price": stop_price,
         "atr": params.atr,
@@ -317,18 +316,10 @@ def calculate_position(params: SizingParameters) -> dict:
     result["final_recommended_shares"] = final_shares
     result["final_position_value"] = round(final_shares * params.entry_price, 2)
 
-    # Report risk using the same method that determined the share count.
-    # Exact Decimal math; the monetized outputs round half-up so a tie never
-    # understates risk (the float->Decimal switch also removes binary noise
-    # from near-tie products such as 1.15 * 1.5). Deliberately applies to the
-    # final_risk_* outputs only; other rounded outputs keep half-even round().
-    risk_per_share: Decimal | None = None
-    if calculations["atr_based"] is not None:
-        risk_per_share = to_decimal(params.atr) * to_decimal(params.atr_multiplier)
-    elif params.stop_price is not None:
-        risk_per_share = to_decimal(params.entry_price) - to_decimal(params.stop_price)
-
-    if risk_per_share is not None:
+    # Use the same stop as sizing and round the final totals half-up.
+    stop_price = result["parameters"].get("stop_price")
+    if stop_price is not None:
+        risk_per_share = to_decimal(params.entry_price) - to_decimal(stop_price)
         risk_total = to_decimal(final_shares) * risk_per_share
         result["final_risk_dollars"] = float(risk_total.quantize(CENT, rounding=ROUND_HALF_UP))
         result["final_risk_pct"] = float(
