@@ -122,12 +122,28 @@ def test_no_available_components_never_claims_green_or_budget(tmp_path):
     assert json.loads(js.read_text())["composite"]["composite_score"] is None
 
 
+@pytest.mark.parametrize("instant", ["2026-01-14T03:00:00+00:00", "2026-07-15T03:00:00+00:00"])
 def test_fake_provider_cli_propagates_gaps_and_handles_unassessed_previous_report(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, instant
 ):
-    from datetime import date, timedelta
+    from datetime import datetime, timedelta
 
     import market_top_detector as app
+
+    frozen_now = datetime.fromisoformat(instant)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr(app, "datetime", FrozenDateTime)
+    # The host is already on the next UTC day in both standard and daylight time.
+    # Match the CLI's New York cutoff so the deliberately broken latest bar survives.
+    fixture_day = frozen_now.astimezone(app.ZoneInfo("America/New_York")).date()
+    assert fixture_day < frozen_now.date()
 
     class FakeClient:
         healthy = False
@@ -140,7 +156,7 @@ def test_fake_provider_cli_propagates_gaps_and_handles_unassessed_previous_repor
         def history(self, days):
             rows = make_history([120 - i * 0.1 for i in range(min(days, 210))])
             for i, row in enumerate(rows):
-                row["date"] = (date.today() - timedelta(days=i)).isoformat()
+                row["date"] = (fixture_day - timedelta(days=i)).isoformat()
             if not self.healthy:
                 rows[0]["close"] = None
             return rows
@@ -168,6 +184,7 @@ def test_fake_provider_cli_propagates_gaps_and_handles_unassessed_previous_repor
         assert app.main(argv) == 0
         captured = capsys.readouterr()
         report = json.loads(max(tmp_path.glob("market_top_*.json")).read_text())
+        assert report["metadata"]["as_of_date"] == fixture_day.isoformat()
         assert report["components"]["distribution_days"].get("data_available", True) is healthy
         if not healthy:
             assert report["composite"]["composite_score"] is None
