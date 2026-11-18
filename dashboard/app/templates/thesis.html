@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t.ticker }} · Trading Desk{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('theses_page') }}">← All theses</a></p>
+<section class="panel">
+  <h2>{{ t.ticker }} <span class="chip">{{ t.status | replace('_', ' ') | title }}</span></h2>
+  <p>{{ t.thesis_statement }}</p>
+  {% set en = t.entry or {} %}{% set ex = t.exit or {} %}{% set pos = t.position or {} %}{% set out = t.outcome or {} %}
+  <div class="stats">
+    <div><span class="label">Entry</span><span class="value">{{ en.actual_price or en.target_price or '—' }}</span></div>
+    <div><span class="label">Stop</span><span class="value">{{ ex.stop_loss or '—' }}</span></div>
+    <div><span class="label">Target</span><span class="value">{{ ex.take_profit or '—' }}</span></div>
+    <div><span class="label">Shares</span><span class="value">{{ pos.shares_remaining or pos.shares or '—' }}</span></div>
+    <div><span class="label">Risk</span><span class="value">{{ pos.risk_dollars | money if pos.risk_dollars is number else '—' }}</span></div>
+    {% if out.pnl_dollars is number %}<div><span class="label">P&amp;L</span><span class="value {{ 'good' if out.pnl_dollars >= 0 else 'bad' }}">{{ out.pnl_dollars | money }}</span></div>{% endif %}
+  </div>
+  {% if t.kill_criteria %}<h3>Kill criteria</h3><ul>{% for k in t.kill_criteria %}<li>{{ k }}</li>{% endfor %}</ul>{% endif %}
+  {% if t.status_history %}<h3>History</h3><ul class="small">{% for h in t.status_history %}<li>{{ h.at or h.date or '' }} {{ h.status or h.to or '' }} {{ h.reason or '' }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% if journal %}<section class="panel prose"><h2>Journal</h2>{{ journal }}</section>{% endif %}
+<details class="panel"><summary>Raw thesis file</summary><pre>{{ raw }}</pre></details>
+{% endblock %}

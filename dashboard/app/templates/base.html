@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Trading Desk{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% if account_mode == 'Live' %}<div class="banner banner-live">LIVE ACCOUNT · real money · read-only view</div>
+{% elif account_mode == 'Paper' %}<div class="banner banner-paper">PAPER ACCOUNT · simulated money</div>{% endif %}
+<header class="top">
+  <div class="brand">Trading Desk</div>
+  <nav>
+    <a href="{{ url_for('overview') }}" {% if request.endpoint == 'overview' %}class="on"{% endif %}>Overview</a>
+    <a href="{{ url_for('theses_page') }}" {% if request.endpoint in ('theses_page', 'thesis_detail') %}class="on"{% endif %}>Theses</a>
+    <a href="{{ url_for('reports_page') }}" {% if request.endpoint in ('reports_page', 'report_view') %}class="on"{% endif %}>Reports</a>
+  </nav>
+  <div class="meta">
+    {% if account_mode %}<span class="badge {{ 'warn' if account_mode == 'Live' else 'info' }}">{{ account_mode }}</span>{% endif %}
+    <span class="muted">{{ now_local.strftime('%a %b %-d, %-I:%M %p %Z') }}</span>
+  </div>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="muted">Read-only. This dashboard can't place, change or cancel orders. Not financial advice.</footer>
+</body>
+</html>

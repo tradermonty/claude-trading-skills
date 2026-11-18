@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} · Trading Desk{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('reports_page') }}">← All reports</a></p>
+<section class="panel prose"><h2 class="small muted">{{ name }}</h2>{{ body }}</section>
+{% endblock %}

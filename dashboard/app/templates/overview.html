@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% from "_macros.html" import freshness, report_link, empty %}
+{% block content %}
+
+<section class="tiles">
+  <article class="tile">
+    <h2>Exposure ceiling {{ freshness(exposure) }}</h2>
+    {% if exposure %}
+      {% set e = exposure.data %}
+      <div class="big">{{ e.exposure_ceiling_pct }}%</div>
+      <div class="chips">
+        {% if e.recommendation %}<span class="chip">{{ e.recommendation | replace('_', ' ') }}</span>{% endif %}
+        {% if e.bias %}<span class="chip">Bias: {{ e.bias | lower }}</span>{% endif %}
+        {% if e.confidence %}<span class="chip">Confidence: {{ e.confidence | lower }}</span>{% endif %}
+      </div>
+      {{ report_link(exposure) }}
+    {% else %}{{ empty('Run exposure-coach.') }}{% endif %}
+  </article>
+
+  <article class="tile">
+    <h2>Market breadth {{ freshness(breadth) }}</h2>
+    {% if breadth %}
+      {% set c = breadth.data.composite or {} %}
+      <div class="big">{{ c.composite_score | round(1) if c.composite_score is number else '—' }}</div>
+      <div class="chips">
+        {% if c.zone %}<span class="chip">{{ c.zone }}</span>{% endif %}
+        {% if c.exposure_guidance %}<span class="chip">Guide: {{ c.exposure_guidance }}</span>{% endif %}
+      </div>
+      {{ report_link(breadth) }}
+    {% else %}{{ empty('Run market-breadth-analyzer.') }}{% endif %}
+  </article>
+
+  <article class="tile">
+    <h2>Uptrend ratio {{ freshness(uptrend) }}</h2>
+    {% if uptrend %}
+      {% set c = uptrend.data.composite or {} %}
+      <div class="big">{{ c.composite_score | round(1) if c.composite_score is number else '—' }}</div>
+      <div class="chips">{% if c.zone %}<span class="chip">{{ c.zone }}</span>{% endif %}</div>
+      {{ report_link(uptrend) }}
+    {% else %}{{ empty('Run uptrend-analyzer.') }}{% endif %}
+  </article>
+
+  <article class="tile">
+    <h2>Circuit breaker {{ freshness(circuit) }}</h2>
+    {% if circuit %}
+      {% set r = circuit.data.recommendation or '—' %}
+      <div class="big {{ 'good' if r == 'ALLOW' else 'bad' }}">{{ r | replace('_', ' ') }}</div>
+      {% if circuit.data.warnings %}<p class="small muted">{{ circuit.data.warnings | length }} warning(s)</p>{% endif %}
+      {{ report_link(circuit) }}
+    {% else %}{{ empty('Runs once the local risk check bot is set up.') }}{% endif %}
+  </article>
+</section>
+
+{% if exposure and exposure.data.rationale %}
+<section class="panel"><h2>Why this posture</h2><p>{{ exposure.data.rationale }}</p></section>
+{% endif %}
+
+<section class="grid2">
+  <article class="panel">
+    <h2>Exposure ceiling history</h2>
+    {{ charts.exposure }}
+  </article>
+  <article class="panel">
+    <h2>Breadth and uptrend scores</h2>
+    <h3 class="small muted">Breadth</h3>{{ charts.breadth }}
+    <h3 class="small muted">Uptrend</h3>{{ charts.uptrend }}
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Broker account {% if broker %}<span class="badge {{ 'info' if broker.paper else 'warn' }}">{{ 'Paper' if broker.paper else 'Live' }}</span>{% endif %}</h2>
+  {% if broker is none %}
+    <p class="muted">Alpaca is not set up. Add your paper keys to <code>.env</code> to see your account here.</p>
+  {% elif broker.error %}
+    <p class="bad">Couldn't reach Alpaca: {{ broker.error }}</p>
+  {% else %}
+    {% set a = broker.account %}
+    {% set day = (a.equity | float) - (a.last_equity | float) %}
+    <div class="stats">
+      <div><span class="label">Equity</span><span class="value">{{ a.equity | money }}</span></div>
+      <div><span class="label">Today</span><span class="value {{ 'good' if day >= 0 else 'bad' }}">{{ day | money }}</span></div>
+      <div><span class="label">Cash</span><span class="value">{{ a.cash | money }}</span></div>
+      <div><span class="label">Buying power</span><span class="value">{{ a.buying_power | money }}</span></div>
+    </div>
+    {% if broker.positions %}
+    <div class="scroll"><table>
+      <thead><tr><th>Symbol</th><th class="num">Qty</th><th class="num">Avg entry</th><th class="num">Last</th><th class="num">Value</th><th class="num">Unrealized</th></tr></thead>
+      <tbody>
+      {% for p in broker.positions %}
+        {% set pl = p.unrealized_pl | float %}
+        <tr><td>{{ p.symbol }}</td><td class="num">{{ p.qty }}</td><td class="num">{{ p.avg_entry_price | money }}</td>
+        <td class="num">{{ p.current_price | money }}</td><td class="num">{{ p.market_value | money }}</td>
+        <td class="num {{ 'good' if pl >= 0 else 'bad' }}">{{ pl | money }} ({{ ((p.unrealized_plpc | float) * 100) | pct }})</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<p class="muted">No open positions.</p>{% endif %}
+  {% endif %}
+</section>
+
+<section class="grid2">
+  <article class="panel">
+    <h2>Theses</h2>
+    <div class="stats">
+      {% for status, n in summary.by_status.items() %}
+        <div><span class="label">{{ status | replace('_', ' ') | title }}</span><span class="value">{{ n }}</span></div>
+      {% else %}<p class="muted">No theses yet.</p>{% endfor %}
+    </div>
+    <p class="small">Open risk: <strong>{{ summary.open_risk_dollars | money }}</strong> · Closed P&amp;L: <strong class="{{ 'good' if summary.closed_pnl_dollars >= 0 else 'bad' }}">{{ summary.closed_pnl_dollars | money }}</strong></p>
+    {% if summary.review_due %}
+      <h3 class="small">Review due</h3>
+      <ul>{% for t in summary.review_due %}<li><a href="{{ url_for('thesis_detail', thesis_id=t.thesis_id) }}">{{ t.ticker }}</a> <span class="muted small">{{ t.monitoring.next_review_date }}</span></li>{% endfor %}</ul>
+    {% endif %}
+    {% if thesis_errors %}<p class="small bad">{{ thesis_errors | length }} thesis file(s) couldn't be read.</p>{% endif %}
+  </article>
+
+  <article class="panel">
+    <h2>Open theses</h2>
+    {% if open_theses %}
+    <div class="scroll"><table>
+      <thead><tr><th>Ticker</th><th>Status</th><th class="num">Entry</th><th class="num">Stop</th><th class="num">Target</th></tr></thead>
+      <tbody>
+      {% for t in open_theses %}
+        <tr><td><a href="{{ url_for('thesis_detail', thesis_id=t.thesis_id) }}">{{ t.ticker }}</a></td>
+        <td>{{ t.status | replace('_', ' ') | title }}</td>
+        <td class="num">{{ (t.entry or {}).actual_price or (t.entry or {}).target_price or '—' }}</td>
+        <td class="num">{{ (t.exit or {}).stop_loss or '—' }}</td>
+        <td class="num">{{ (t.exit or {}).take_profit or '—' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<p class="muted">Nothing open.</p>{% endif %}
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Latest VCP screen {{ freshness(vcp) }}</h2>
+  {% if vcp_rows %}
+  <div class="scroll"><table>
+    <thead><tr><th>Symbol</th><th>Rating</th><th class="num">Score</th><th class="num">Price</th><th class="num">From pivot</th><th>State</th></tr></thead>
+    <tbody>
+    {% for r in vcp_rows %}
+      <tr><td>{{ r.symbol }}</td><td>{{ r.rating or '—' }}</td><td class="num">{{ r.composite_score | round(1) if r.composite_score is number else '—' }}</td>
+      <td class="num">{{ r.price | money }}</td><td class="num">{{ r.distance_from_pivot_pct | pct }}</td>
+      <td>{{ r.execution_state or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {{ report_link(vcp) }}
+  {% elif vcp %}<p class="muted">The last screen found no candidates.</p>
+  {% else %}{{ empty('Run vcp-screener (needs your FMP key).') }}{% endif %}
+</section>
+{% endblock %}

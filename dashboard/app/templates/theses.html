@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Theses · Trading Desk{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Theses</h2>
+  <form method="get" class="filter">
+    <a href="{{ url_for('theses_page') }}" class="chip {{ 'on' if not status }}">All</a>
+    {% for s in statuses %}<a href="{{ url_for('theses_page', status=s) }}" class="chip {{ 'on' if s == status }}">{{ s | replace('_', ' ') | title }}</a>{% endfor %}
+  </form>
+  {% if theses %}
+  <div class="scroll"><table>
+    <thead><tr><th>Ticker</th><th>Status</th><th>Type</th><th>Thesis</th><th class="num">P&amp;L</th><th>Updated</th></tr></thead>
+    <tbody>
+    {% for t in theses %}
+      {% set pnl = (t.outcome or {}).pnl_dollars %}
+      <tr><td><a href="{{ url_for('thesis_detail', thesis_id=t.thesis_id) }}">{{ t.ticker }}</a></td>
+      <td>{{ t.status | replace('_', ' ') | title }}</td>
+      <td class="small">{{ t.thesis_type | replace('_', ' ') }}</td>
+      <td class="small clip">{{ t.thesis_statement }}</td>
+      <td class="num {{ 'good' if pnl is number and pnl >= 0 else 'bad' if pnl is number }}">{{ pnl | money if pnl is number else '—' }}</td>
+      <td class="small muted">{{ (t.updated_at | string)[:10] }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">No theses{% if status %} with status {{ status }}{% endif %}.</p>{% endif %}
+  {% if errors %}<p class="small bad">Couldn't read: {{ errors | join(', ') }}</p>{% endif %}
+</section>
+{% endblock %}

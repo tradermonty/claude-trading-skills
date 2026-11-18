@@ -1,0 +1,15 @@
+{% macro freshness(card) -%}
+  {% if card and card.stamp %}
+    <span class="when {{ 'stale' if card.stale }}" title="Report file time">
+      {{ card.stamp.strftime('%b %-d') }}{% if card.stale %} · stale{% endif %}
+    </span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro report_link(card) -%}
+  {% if card %}<a class="small" href="{{ url_for('report_view', relname=card.md_name or card.name) }}">Full report</a>{% endif %}
+{%- endmacro %}
+
+{% macro empty(what) -%}
+  <p class="muted">No report yet. {{ what }}</p>
+{%- endmacro %}
