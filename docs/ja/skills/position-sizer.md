@@ -111,9 +111,11 @@ python3 skills/position-sizer/scripts/position_sizer.py \
 | 手法 | 計算式 | 最適な用途 |
 |------|--------|-----------|
 | **Fixed Fractional** | 株数 = floor(口座 x リスク% / (エントリー - ストップ)) | チャートで明確なストップがある裁量トレード |
-| **ATRベース** | 株数 = floor(口座 x リスク% / (ATR x 乗数)) | ボラティリティの異なる銘柄の比較 |
+| **ATRベース** | 株数 = floor(口座 x リスク% / (エントリー - 丸め後のストップ)) | ボラティリティの異なる銘柄の比較 |
 | **Kelly Criterion** | Half Kelly% = (勝率 - (1-勝率)/R) / 2 | 100+トレードの統計がある戦略の資金配分 |
 | **小数株出力** | `--fractional --share-precision N` | 小口口座、高株価銘柄、ブローカー対応済みの小数株取引 |
+
+ATRベースでは、エントリー価格から ATR × 乗数を引いて求めたストップをセント単位に丸めます。丸め後のストップは正で、エントリー価格を下回る必要があります。
 
 **ATR乗数の目安:** 1.0x（デイトレード）、2.0x（スイングのデフォルト）、3.0x（トレンドフォロー）
 
@@ -296,7 +298,7 @@ python3 skills/position-sizer/scripts/position_sizer.py \
 
 ### JSON出力の主要フィールド
 
-リスク割合モード（Kelly入力なし）で`--stop`と`--atr`を両方指定した場合、株数と`final_risk_*`の計算にはATR法を使い、明示したストップはこれらの計算では使わず、`parameters.stop_price`にはATRから算出したストップを表示します。`final_risk_dollars`と`final_risk_pct`に限り、十進数で小数第2位までhalf-up（中間値はリスクが大きい方）の丸めを行い、その他の出力は従来の丸め規則を維持します。
+リスク割合モード（Kelly入力なし）で`--stop`と`--atr`を両方指定した場合は、`parameters.stop_price`に表示されるATR由来のストップが優先されます。株数と`final_risk_*`は、エントリー価格とセント単位に丸めたストップとの差を使って計算します。`final_risk_dollars`と`final_risk_pct`に限り、十進数で小数第2位までhalf-up（中間値はリスクが大きい方）の丸めを行います。
 
 | フィールド | 説明 |
 |-----------|------|

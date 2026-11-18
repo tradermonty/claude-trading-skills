@@ -137,7 +137,7 @@ Present the final recommendation including:
 
 ## Output Format
 
-In risk-percentage mode (no Kelly inputs), when both `--stop` and `--atr` are supplied, the shares and `final_risk_*` figures follow the ATR-based method (the method that sized the trade); the explicit `--stop` is ignored for risk reporting and the ATR-derived stop appears in `parameters.stop_price`. In Kelly shares mode the stop (or entry price) drives shares and risk instead, and ATR inputs are ignored (Kelly budget mode takes no prices and reports no risk figures). Risk dollars and percentage round half-up (ties report the larger risk).
+In ATR mode, the script rounds the derived stop to cents and uses the distance from entry to that reported stop for share sizing and `final_risk_*`. The rounded stop must be positive and below entry. In risk-percentage mode (no Kelly inputs), when both `--stop` and `--atr` are supplied, the ATR-derived stop appears in `parameters.stop_price` and takes precedence over `--stop`. In Kelly shares mode the stop (or entry price) drives shares and risk instead, and ATR inputs are ignored (Kelly budget mode takes no prices and reports no risk figures). Risk dollars and percentage round half-up (ties report the larger risk).
 
 ### JSON Report
 
