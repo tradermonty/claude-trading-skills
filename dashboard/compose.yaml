@@ -1,0 +1,33 @@
+# Trading dashboard. Run from this folder:  docker compose up -d --build
+# The repo's reports/ and state/ folders are mounted read-only into the web app.
+
+services:
+  dashboard:
+    build: .
+    image: trading-dashboard:local
+    container_name: trading-dashboard
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REPORTS_DIR: /data/reports
+      STATE_DIR: /data/state
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../reports:/data/reports:ro
+      - ../state:/data/state:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # One-shot job that writes fresh market reports. Started by cron:
+  #   docker compose run --rm refresh
+  refresh:
+    image: trading-dashboard:local
+    profiles: ["refresh"]
+    env_file: .env
+    working_dir: /repo
+    entrypoint: ["sh", "/app/refresh_market.sh"]
+    volumes:
+      - ../skills:/repo/skills:ro
+      - ../reports:/repo/reports
