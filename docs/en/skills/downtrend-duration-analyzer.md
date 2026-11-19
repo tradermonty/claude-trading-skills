@@ -62,12 +62,16 @@ without filling missing prices. One HTTP session is reused for the run and
 closed on exit. Shared transport adds 0.3-second pacing, one 60-second retry on
 HTTP 429, and one retry on malformed JSON; credentials are redacted in errors.
 
-The report's `coverage` block counts the symbols requested, analyzed, failed (by
-reason) and not requested; `complete` is false when any symbol was not analyzed.
-A second HTTP 429 (daily limit) or an HTTP 401/402/403 on history stops the run
-at that symbol: exit 1 with no report if nothing was analyzed yet, otherwise a
-partial report and exit 3. Other failures (5xx, transport, malformed rows) are
-counted and the run continues; an empty history is data, not a failure.
+Reports carry the shared top-level `evaluation_coverage` block (#711). A symbol
+is evaluated when its history has enough bars for the peak/trough windows. Empty
+or short histories are `insufficient_history`, and failures are `rate_limited`,
+`plan_gated`, `provider_error` or `invalid_data`. A second HTTP 429 (daily
+limit) or an HTTP 401/402/403 on history stops the run at that symbol, and the
+symbols after it are `not_requested`. If nothing was evaluated by then, the run
+exits 1 without a report. Otherwise the report is written with verdict
+`partial`. Other failures are counted and the run goes on. Read the verdict
+before the statistics: exit 0 means the report was written, not that every
+symbol was evaluated.
 
 ```bash
 python3 skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py \

@@ -14,7 +14,6 @@ import math
 import os
 import re
 import sys
-from collections import Counter
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -23,6 +22,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from downtrend_fmp_client import FMPClient, client_scope
+from evaluation_coverage import build_evaluation_coverage
 
 # Market cap tier thresholds (in billions USD)
 MARKET_CAP_TIERS = {
@@ -48,10 +48,9 @@ DEFAULT_SECTORS = [
 ]
 
 # History failures after which no later request in the run can succeed: the
-# daily 429 cap (#821) and auth/plan rejections (#822). Exit codes for a run
-# cut short by one of them: 1 if nothing was analyzed, 3 for a partial report.
+# daily 429 cap (#821) and auth/plan rejections (#822).
 _STOPPING_FAILURE = re.compile(r"HTTP (?:429|40[123])\b|daily rate limit")
-EXIT_PARTIAL = 3
+INSUFFICIENT_HISTORY = "insufficient_history"
 
 
 def get_api_key(api_key_arg: str | None) -> str:
@@ -167,8 +166,21 @@ def fetch_historical_prices(
 
 
 def _reason_label(reason: str) -> str:
-    """Group key for a failure: "HTTP 503 - <body>" -> "HTTP 503"."""
+    """Short form for messages: "HTTP 503 - <body>" -> "HTTP 503"."""
     return reason.split(" - ", 1)[0].split(": ", 1)[0]
+
+
+def _coverage_reason(reason: str) -> str:
+    """evaluation_coverage reason code; never a response body or credential."""
+    if reason == INSUFFICIENT_HISTORY:
+        return reason
+    if reason.startswith("HTTP 429") or reason.startswith("daily rate limit"):
+        return "rate_limited"
+    if reason.startswith("HTTP 402"):
+        return "plan_gated"
+    if reason.startswith(("HTTP ", "request exception")):
+        return "provider_error"
+    return "invalid_data"
 
 
 def detect_peaks_troughs(
@@ -278,12 +290,28 @@ def analyze_symbol(
     client: FMPClient | None = None,
     on_error: Callable[[str], None] | None = None,
 ) -> list[dict]:
-    """Analyze downtrends for a single symbol."""
+    """Analyze downtrends for a single symbol.
+
+    With ``on_error``, a symbol that cannot be evaluated reports why: the fetch
+    failure, or ``insufficient_history`` when there are too few bars for the
+    peak/trough windows (an empty history included).
+    """
+    fetch_failures: list[str] = []
     prices = fetch_historical_prices(
-        api_key, symbol, from_date, to_date, client=client, on_error=on_error
+        api_key,
+        symbol,
+        from_date,
+        to_date,
+        client=client,
+        on_error=None if on_error is None else fetch_failures.append,
     )
+    if fetch_failures:
+        on_error(fetch_failures[0])
+        return []
 
     if prices.empty or len(prices) < peak_window * 2 + 1:
+        if on_error is not None:
+            on_error(INSUFFICIENT_HISTORY)
         return []
 
     peaks, troughs = detect_peaks_troughs(prices, peak_window, trough_window)
@@ -366,20 +394,22 @@ def generate_markdown_report(analysis_result: dict[str, Any], output_path: Path)
     if params.get("sector_filter"):
         lines.append(f"**Sector**: {params['sector_filter']}")
 
-    coverage = analysis_result.get("coverage")
-    if coverage:
-        line = (
-            f"**Coverage**: {coverage['symbols_analyzed']} of "
-            f"{coverage['symbols_requested']} symbols analyzed"
+    coverage = analysis_result.get("evaluation_coverage")
+    if coverage is not None:
+        lines.append("")
+        lines.append(
+            f"**Evaluation coverage**: {coverage['evaluated']}/{coverage['universe_size']} "
+            f"evaluated ({coverage['verdict']})"
         )
-        if not coverage["complete"]:
-            reasons = ", ".join(f"{k}: {v}" for k, v in coverage["failures_by_reason"].items())
-            line += (
-                f" (PARTIAL: {coverage['symbols_failed']} failed"
-                + (f" [{reasons}]" if reasons else "")
-                + f", {coverage['symbols_skipped']} not requested)"
+        if coverage["not_evaluated_reasons"]:
+            reasons = ", ".join(
+                f"{key}: {count}" for key, count in coverage["not_evaluated_reasons"].items()
             )
-        lines.append(line)
+            lines.append(f"Not evaluated: {reasons}. Missing members may change the statistics.")
+        if coverage["verdict"] != "complete":
+            lines.append(
+                "Result undetermined for the full universe; statistics cover only evaluated symbols."
+            )
 
     lines.extend(
         [
@@ -516,9 +546,8 @@ def main() -> None:
 
         # Analyze each stock
         all_downtrends: list[dict] = []
-        analyzed = 0
-        failed: list[dict[str, str]] = []
-        stopped_reason = None
+        outcomes: dict[str, str | None] = {}
+        stopped = False
         for i, stock in enumerate(stocks):
             symbol = stock.get("symbol", "")
             sector = stock.get("sector", "Unknown")
@@ -542,43 +571,37 @@ def main() -> None:
                 on_error=errors.append,
             )
             all_downtrends.extend(downtrends)
-            if not errors:
-                analyzed += 1
+            reason = errors[0] if errors else None
+            outcomes[symbol] = None if reason is None else _coverage_reason(reason)
+            if reason is None or reason == INSUFFICIENT_HISTORY:
                 continue
-            label = _reason_label(errors[0])
-            failed.append({"symbol": symbol, "reason": label})
-            if _STOPPING_FAILURE.match(errors[0]):
-                stopped_reason = label
-                hint = "" if "429" in label else " (check the API key and the plan)"
+            if _STOPPING_FAILURE.match(reason):
+                stopped = True
+                label = _reason_label(reason)
+                hint = (
+                    ""
+                    if outcomes[symbol] == "rate_limited"
+                    else " (check the API key and the plan)"
+                )
                 print(
                     f"Error: stopping at {symbol} ({i + 1} of {len(stocks)}): {label}{hint}; "
                     f"{len(stocks) - i - 1} later symbol(s) not requested",
                     file=sys.stderr,
                 )
+                for later in stocks[i + 1 :]:
+                    outcomes.setdefault(later.get("symbol", ""), "not_requested")
                 break
-            print(f"Error fetching prices for {symbol}: {errors[0]}", file=sys.stderr)
+            print(f"Error fetching prices for {symbol}: {reason}", file=sys.stderr)
 
-    skipped = len(stocks) - analyzed - len(failed)
-    coverage = {
-        "complete": not failed and not skipped,
-        "symbols_requested": len(stocks),
-        "symbols_analyzed": analyzed,
-        "symbols_failed": len(failed),
-        "symbols_skipped": skipped,
-        "stopped_reason": stopped_reason,
-        "failures_by_reason": dict(Counter(f["reason"] for f in failed)),
-        "failed_symbols": failed,
-    }
-    if stopped_reason and not analyzed:
+    coverage = build_evaluation_coverage(outcomes)
+    if stopped and coverage["evaluated"] == 0:
         sys.exit(1)
 
-    print(f"Found {len(all_downtrends)} downtrend periods")
-    if not coverage["complete"]:
-        print(
-            f"Coverage: {analyzed} of {len(stocks)} symbols analyzed, "
-            f"{len(failed)} failed, {skipped} not requested",
-            file=sys.stderr,
-        )
+    print(
+        f"Found {len(all_downtrends)} downtrend periods "
+        f"(evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} "
+        f"evaluated, {coverage['verdict']})"
+    )
 
     # Compute statistics
     summary = compute_statistics(all_downtrends)
@@ -597,7 +620,7 @@ def main() -> None:
             "min_depth_pct": args.min_depth,
         },
         "summary": summary,
-        "coverage": coverage,
+        "evaluation_coverage": coverage,
         "by_sector": by_sector,
         "by_market_cap": by_market_cap,
         "downtrends": all_downtrends,
@@ -619,9 +642,6 @@ def main() -> None:
     md_path = output_dir / f"downtrend_analysis_{timestamp}.md"
     generate_markdown_report(result, md_path)
     print(f"Markdown report saved to: {md_path}")
-
-    if stopped_reason:
-        sys.exit(EXIT_PARTIAL)
 
 
 if __name__ == "__main__":

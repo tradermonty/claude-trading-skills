@@ -317,7 +317,10 @@ def run_main(monkeypatch, tmp_path, *responses):
     monkeypatch.setattr(module.requests, "Session", lambda: session)
     monkeypatch.setattr(module.time, "sleep", lambda _: None)
     monkeypatch.setattr(
-        sys, "argv", ["analyze_downtrends.py", "--api-key", SECRET, "--output-dir", str(tmp_path)]
+        sys,
+        "argv",
+        ["analyze_downtrends.py", "--api-key", SECRET, "--output-dir", str(tmp_path)]
+        + ["--peak-window", "2", "--trough-window", "2"],
     )
     code = 0
     try:
@@ -333,33 +336,47 @@ def universe(*symbols):
     return Response([{"symbol": s} for s in symbols])
 
 
+def recent():
+    """Ten bars inside main()'s date range: enough for 2-bar peak/trough windows."""
+    today = date.today()
+    return Response([bar((today - timedelta(days=d)).isoformat()) for d in range(1, 11)])
+
+
+def contract():
+    return importlib.import_module("evaluation_coverage")
+
+
 def test_rate_limit_stops_requests_and_marks_report_partial(monkeypatch, tmp_path, capsys):
-    """#821: a 429 cap after k symbols ends the run with a partial, checkable report."""
+    """#821: a 429 cap after k symbols ends the run with a checkable partial report."""
     code, session, report = run_main(
         monkeypatch,
         tmp_path,
         universe("AAA", "BBB", "CCC", "DDD"),
-        Response([bar()]),
-        Response([bar()]),
+        recent(),
+        recent(),
         Response(status=429),
         Response(status=429),
     )
-    assert code == adt.EXIT_PARTIAL
+    assert code == 0
     assert [c[1].get("symbol") for c in session.calls[1:]] == ["AAA", "BBB", "CCC", "CCC"]
-    assert report["coverage"] == {
-        "complete": False,
-        "symbols_requested": 4,
-        "symbols_analyzed": 2,
-        "symbols_failed": 1,
-        "symbols_skipped": 1,
-        "stopped_reason": "HTTP 429 (daily rate limit)",
-        "failures_by_reason": {"HTTP 429 (daily rate limit)": 1},
-        "failed_symbols": [{"symbol": "CCC", "reason": "HTTP 429 (daily rate limit)"}],
+    block = report["evaluation_coverage"]
+    assert block == {
+        "schema_version": "1.0",
+        "universe_size": 4,
+        "evaluated": 2,
+        "not_evaluated": 2,
+        "not_evaluated_reasons": {"not_requested": 1, "rate_limited": 1},
+        "verdict": "partial",
     }
+    assert contract().validate_evaluation_coverage(block) == []
     (md,) = tmp_path.glob("*.md")
-    assert "**Coverage**: 2 of 4 symbols analyzed (PARTIAL: 1 failed" in md.read_text()
+    text = md.read_text()
+    assert "**Evaluation coverage**: 2/4 evaluated (partial)" in text
+    assert "Not evaluated: not_requested: 1, rate_limited: 1." in text
+    assert "Result undetermined for the full universe" in text
     captured = capsys.readouterr()
-    assert "stopping at CCC (3 of 4): HTTP 429 (daily rate limit)" in captured.err
+    assert "stopping at CCC (3 of 4): HTTP 429 (daily rate limit); 1 later" in captured.err
+    assert "(evaluation coverage: 2/4 evaluated, partial)" in captured.out
     assert "unusable historical response" not in captured.err
     assert SECRET not in captured.out + captured.err
 
@@ -386,8 +403,8 @@ def test_auth_or_plan_error_on_history_fails_fast(monkeypatch, tmp_path, capsys,
         assert secret not in captured.out + captured.err
 
 
-def test_empty_histories_never_stop_the_run(monkeypatch, tmp_path):
-    """#815 behaviour kept: empty [] histories are data, the next symbol is requested."""
+def test_empty_histories_never_stop_the_run(monkeypatch, tmp_path, capsys):
+    """#815 kept: empty [] histories do not stop the run; they are not evaluations either."""
     code, session, report = run_main(
         monkeypatch,
         tmp_path,
@@ -395,36 +412,37 @@ def test_empty_histories_never_stop_the_run(monkeypatch, tmp_path):
         Response([]),
         Response([]),
         Response([]),
-        Response([bar()]),
+        recent(),
     )
     assert code == 0
     assert len(session.calls) == 5
-    assert report["coverage"]["complete"] is True
-    assert report["coverage"]["symbols_analyzed"] == 4
+    block = report["evaluation_coverage"]
+    assert (block["evaluated"], block["verdict"]) == (1, "partial")
+    assert block["not_evaluated_reasons"] == {"insufficient_history": 3}
+    assert "Error" not in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
-    ("failure", "label"),
+    ("failure", "code", "message"),
     [
-        (Response(status=503, text="busy"), "HTTP 503"),
-        (requests.ConnectionError("reset"), "request exception"),
-        (Response({}), "expected a flat list of row objects"),
+        (Response(status=503, text="busy"), "provider_error", "HTTP 503 - busy"),
+        (requests.ConnectionError("reset"), "provider_error", "request exception: reset"),
+        (Response({}), "invalid_data", "expected a flat list of row objects"),
+        (Response([bar(close=None)]), "invalid_data", "unusable historical response"),
     ],
 )
 def test_other_history_failures_are_counted_and_the_run_continues(
-    monkeypatch, tmp_path, capsys, failure, label
+    monkeypatch, tmp_path, capsys, failure, code, message
 ):
-    code, session, report = run_main(
-        monkeypatch, tmp_path, universe("AAA", "BBB"), failure, Response([bar()])
+    exit_code, session, report = run_main(
+        monkeypatch, tmp_path, universe("AAA", "BBB"), failure, recent()
     )
-    assert code == 0
+    assert exit_code == 0
     assert len(session.calls) == 3
-    coverage = report["coverage"]
-    assert coverage["complete"] is False
-    assert (coverage["symbols_analyzed"], coverage["symbols_failed"]) == (1, 1)
-    assert coverage["symbols_skipped"] == 0 and coverage["stopped_reason"] is None
-    assert coverage["failures_by_reason"] == {label: 1}
-    assert f"Error fetching prices for AAA: {label}" in capsys.readouterr().err
+    block = report["evaluation_coverage"]
+    assert (block["evaluated"], block["verdict"]) == (1, "partial")
+    assert block["not_evaluated_reasons"] == {code: 1}
+    assert f"Error fetching prices for AAA: {message}" in capsys.readouterr().err
 
 
 def test_helper_error_names_the_rate_limit(client, capsys):
@@ -432,3 +450,17 @@ def test_helper_error_names_the_rate_limit(client, capsys):
     client.session = Session(Response(status=429), Response(status=429))
     assert history(client).empty
     assert "Error fetching prices for AAA: HTTP 429 (daily rate limit)" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(("status", "code"), [(402, "plan_gated"), (403, "provider_error")])
+def test_plan_error_after_evaluated_symbols_keeps_a_partial_report(
+    monkeypatch, tmp_path, status, code
+):
+    exit_code, session, report = run_main(
+        monkeypatch, tmp_path, universe("AAA", "BBB", "CCC"), recent(), Response(status=status)
+    )
+    assert exit_code == 0
+    assert len(session.calls) == 3
+    block = report["evaluation_coverage"]
+    assert (block["evaluated"], block["verdict"]) == (1, "partial")
+    assert block["not_evaluated_reasons"] == {code: 1, "not_requested": 1}
