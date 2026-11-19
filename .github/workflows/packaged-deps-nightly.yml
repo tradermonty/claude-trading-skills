@@ -27,7 +27,8 @@ permissions:
 jobs:
   smoke:
     name: Clean-room import smoke (fail-closed)
-    runs-on: ubuntu-latest
+    # Python 3.9 binaries are unavailable on Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
