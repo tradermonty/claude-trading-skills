@@ -48,6 +48,8 @@ canslim_screener_*.md
 # Per-symbol runtime state (e.g. parabolic-short SSR carryover files).
 # Kept out of commits so production state never leaks into the repo.
 state/
+# Trade journal database and screenshots (dashboard). Money data: never commit.
+trade-journal/
 
 # Local work-in-progress staging (patch bundles, nested skill drafts, ad-hoc
 # fetch scripts). Never place these under skills/ — an untracked path there

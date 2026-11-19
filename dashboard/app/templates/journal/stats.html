@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "journal/_macros.html" import pnl_cell, summary_stats %}
+{% block title %}Journal stats · Trading Desk{% endblock %}
+{% macro breakdown(title, rows, hint='') -%}
+<section class="panel">
+  <h2>{{ title }}</h2>
+  {% if rows %}
+  <div class="scroll"><table>
+    <thead><tr><th></th><th class="num">Trades</th><th class="num">Win rate</th><th class="num">Avg win</th><th class="num">Avg loss</th><th class="num">Expectancy</th><th class="num">Net P&amp;L</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td>{{ r.name }}</td><td class="num">{{ r.count }}</td>
+      <td class="num">{{ r.win_rate | pct if r.win_rate is not none else '—' }}</td>
+      <td class="num">{{ r.avg_win | money }}</td><td class="num">{{ r.avg_loss | money }}</td>
+      <td class="num">{{ r.expectancy | money }}</td>{{ pnl_cell(r.net) }}</tr>{% endfor %}</tbody>
+  </table></div>
+  {% if hint %}<p class="small muted">{{ hint }}</p>{% endif %}
+  {% else %}<p class="muted">No closed trades yet.</p>{% endif %}
+</section>
+{%- endmacro %}
+{% block content %}
+<section class="panel">
+  <div class="toolbar"><h2>Journal stats (closed trades)</h2><a class="btn" href="{{ url_for('journal.index') }}">All trades</a></div>
+  {{ summary_stats(summary) }}
+  <p class="small muted">
+    <b>Win rate</b>: share of trades that made money. <b>Profit factor</b>: dollars won ÷ dollars lost (above 1 = profitable).
+    <b>Expectancy</b>: average P&amp;L per trade, the number that tells you if a setup is worth repeating.
+    {% if avg_r is not none %}<b>Average R</b>: {{ avg_r | rmult }} over {{ r_count }} trades with a planned stop.{% endif %}
+  </p>
+  {{ curve }}
+</section>
+<div class="stack">
+  {{ breakdown('By setup', by_setup, 'Which setups actually pay. A setup needs about 20 trades before its numbers mean much.') }}
+  {{ breakdown('By mistake', by_mistake, 'What each mistake costs you. A trade with two mistakes counts in both rows.') }}
+  {{ breakdown('By weekday closed', by_weekday) }}
+  {{ breakdown('By asset type', by_asset) }}
+</div>
+{% endblock %}

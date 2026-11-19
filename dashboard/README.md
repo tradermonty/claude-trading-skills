@@ -1,7 +1,7 @@
 # Trading Desk dashboard
 
-A small, read-only web dashboard for the reports and journal that the skills in this
-repo produce. It runs in one Docker container on your home network.
+A small web dashboard for the reports and theses that the skills in this repo produce,
+plus a trade journal. It runs in one Docker container on your home network.
 
 What it shows:
 
@@ -12,14 +12,16 @@ What it shows:
 | Broker account and positions | Alpaca API, read-only (GET account and positions only) |
 | Theses, review-due list, journal | `state/**/th_*.yaml` and `state/**/pm_*.md` (trader-memory-core) |
 | Latest VCP screen | `reports/vcp_screener_*.json` |
+| Trade journal (the only page that saves) | `trade-journal/journal.db` + `trade-journal/screenshots/`, filled by hand or from a Robinhood CSV |
 | Reports page | Every report above, rendered from its `.md` or `.json` |
 
 What it can't do: place, change or cancel orders. The Alpaca client in
 `app/alpaca.py` only sends `GET /v2/account` and `GET /v2/positions`. The `reports/`
-and `state/` folders are mounted read-only into the web container.
+and `state/` folders are mounted read-only into the web container. `trade-journal/` is
+the only folder it can write to.
 
 Your balances, P&L and journal stay on the machine that runs the dashboard.
-`reports/`, `state/` and `dashboard/.env` are all git-ignored, so they never reach GitHub.
+`reports/`, `state/`, `trade-journal/` and `dashboard/.env` are all git-ignored, so they never reach GitHub.
 
 ---
 
@@ -73,8 +75,8 @@ docker compose version                   # should print a version
 ```bash
 git clone https://github.com/Maso1634/claude-trading-skills.git /opt/claude-trading-skills
 cd /opt/claude-trading-skills
-mkdir -p reports state/theses state/journal
-chown -R 1000:1000 reports state        # the containers run as user 1000
+mkdir -p reports state/theses state/journal trade-journal
+chown -R 1000:1000 reports state trade-journal   # the containers run as user 1000
 ```
 
 To bring your existing theses over from the laptop, run this **on the laptop**
@@ -163,6 +165,50 @@ cd dashboard && docker compose up -d --build
 
 ---
 
+## Trade journal
+
+Open **Journal** in the top menu. It's for your own trades (Robinhood today), separate
+from the Alpaca account the Overview shows.
+
+- **New trade**: symbol, buy or sell, quantity, price, fee, time (Eastern), setup, planned
+  stop and target, why you took it. Add the exit later as another fill on the trade's page.
+- **Import Robinhood CSV**: in Robinhood, Account → Reports and statements → Reports,
+  generate an account activity report and upload the CSV. Stocks, ETFs and options come
+  in; dividends, deposits and transfers are skipped. Re-importing the same file is safe.
+  Fills are grouped into trades for you: a trade opens when a position goes from flat to
+  open, and ends when it's flat again.
+- **Trade page**: fills, P&L after fees, R multiple, grade, mistakes, lesson, screenshots,
+  an optional link to a trader-memory-core thesis, and Merge (to join the legs of an
+  option spread, which import as separate trades).
+- **Stats**: net P&L, win rate, average win and loss, profit factor, expectancy, an equity
+  curve, and breakdowns by setup, mistake, weekday and asset type.
+- **Export CSV**: every fill with its trade's setup and grade.
+
+How the data is kept: three ideas, three tables. An *instrument* is what you traded (a
+stock, one option contract, a coin). A *trade* is why (setup, plan, review). A *fill* is
+what happened at the broker. P&L is always worked out from the fills, first in first out,
+using exact decimals, so options (multiplier 100, multi-leg) and crypto (fractional coins,
+fees paid in coin) fit without changes.
+
+The journal has no login. It relies on being reachable only from your LAN or WireGuard,
+and it refuses form posts that come from any other site. Don't publish it to the internet.
+
+**Upgrading an existing CT** (it was set up before the journal existed):
+
+```bash
+cd /opt/claude-trading-skills && git pull
+mkdir -p trade-journal && chown 1000:1000 trade-journal
+cd dashboard && docker compose up -d --build
+```
+
+If the Journal page says "Journal not set up", the `trade-journal` folder is missing or
+isn't owned by user 1000. Run the `mkdir` and `chown` lines above and restart.
+
+**Backups**: everything is in `/opt/claude-trading-skills/trade-journal`, which the nightly
+backup of the CT covers. For an extra copy, use **Export CSV** now and then.
+
+---
+
 ## Switching from paper to your real (live) account
 
 The dashboard stays read-only either way. Live only changes which account it shows.
@@ -189,7 +235,9 @@ cd dashboard
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 python scripts/make_sample_data.py
-REPORTS_DIR=sample-data/reports STATE_DIR=sample-data/state flask --app 'app:create_app()' run
+mkdir -p sample-data/journal
+REPORTS_DIR=sample-data/reports STATE_DIR=sample-data/state JOURNAL_DIR=sample-data/journal \
+  flask --app 'app:create_app()' run
 ```
 
 Open http://127.0.0.1:5000. Every number in `sample-data/` is invented.

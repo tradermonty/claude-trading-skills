@@ -13,6 +13,7 @@
   <div class="brand">Trading Desk</div>
   <nav>
     <a href="{{ url_for('overview') }}" {% if request.endpoint == 'overview' %}class="on"{% endif %}>Overview</a>
+    <a href="{{ url_for('journal.index') }}" {% if request.blueprint == 'journal' %}class="on"{% endif %}>Journal</a>
     <a href="{{ url_for('theses_page') }}" {% if request.endpoint in ('theses_page', 'thesis_detail') %}class="on"{% endif %}>Theses</a>
     <a href="{{ url_for('reports_page') }}" {% if request.endpoint in ('reports_page', 'report_view') %}class="on"{% endif %}>Reports</a>
   </nav>
@@ -22,8 +23,10 @@
   </div>
 </header>
 <main>
+{% set notice = error or request.args.get('msg') %}
+{% if notice %}<div class="notice {{ 'bad' if error or request.args.get('kind') == 'bad' else 'good' }}" role="status">{{ notice }}</div>{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer class="muted">Read-only. This dashboard can't place, change or cancel orders. Not financial advice.</footer>
+<footer class="muted">This dashboard can't place, change or cancel orders. Only the journal saves data, and it stays on this machine. Not financial advice.</footer>
 </body>
 </html>
