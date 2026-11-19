@@ -1,0 +1,29 @@
+    def _downtrend_rows(self, endpoint: str, params: dict):
+        """Raw stable row objects; empty arrays are data, not endpoint failures."""
+        data = self._rate_limited_get(
+            f"https://financialmodelingprep.com/stable/{endpoint}", params
+        )
+        if not isinstance(data, list) or any(not isinstance(row, dict) for row in data):
+            if self._last_error is None:
+                self._last_error = "expected a flat list of row objects"
+            return None
+        return data
+
+    def fetch_downtrend_screener(self, sector: Optional[str] = None):
+        """Actively traded screener universe; preserve the adapter's 500-row cap."""
+        params = {"isActivelyTrading": "true", "limit": 500}
+        if sector:
+            params["sector"] = sector
+        return self._downtrend_rows("company-screener", params)
+
+    def fetch_downtrend_history(self, symbol: str, from_date: str, to_date: str):
+        """Exact inclusive date query; no current-date window or row truncation.
+
+        No legacy fallback or endpoint breaker: several valid empty symbol
+        histories must never prevent the next symbol from being queried.
+        The consumer validates and sorts OHLCV without substituting prices.
+        """
+        return self._downtrend_rows(
+            "historical-price-eod/full",
+            {"symbol": symbol, "from": from_date, "to": to_date},
+        )

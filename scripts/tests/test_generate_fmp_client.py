@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.provider_contracts import _APIKEY_RE
 
 GENERATED_SKILLS = {
+    "downtrend-duration-analyzer",
     "signal-postmortem",
     "technical-analyst",
     "pair-trade-screener",
@@ -53,6 +54,7 @@ STOCKBEE_SKILLS = {
     "stockbee-setup-fluency-trainer",
 }
 NO_COMPAT_SKILLS = {
+    "downtrend-duration-analyzer",
     "signal-postmortem",
     "technical-analyst",
     "pair-trade-screener",
@@ -72,6 +74,7 @@ NO_COMPAT_SKILLS = {
     *STOCKBEE_SKILLS,
 }
 NO_BUDGET_FAMILY_B = {
+    "downtrend-duration-analyzer",
     "signal-postmortem",
     "technical-analyst",
     "pair-trade-screener",

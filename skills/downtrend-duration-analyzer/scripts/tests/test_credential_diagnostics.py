@@ -19,7 +19,13 @@ def test_request_failure_does_not_expose_key(monkeypatch, capsys, error_type):
             f"request failed: https://example.test/?auth={MARKER}&apikey={quote(MARKER, safe='')}"
         )
 
-    monkeypatch.setattr(target.requests, "get", fail)
+    import importlib
+    from unittest.mock import MagicMock
+
+    generated = importlib.import_module(target.FMPClient.__module__)
+    session = MagicMock()
+    session.get.side_effect = fail
+    monkeypatch.setattr(generated.requests, "Session", lambda: session)
     assert target.fetch_stock_list(MARKER) == []
     captured = capsys.readouterr()
     output = captured.out + captured.err
