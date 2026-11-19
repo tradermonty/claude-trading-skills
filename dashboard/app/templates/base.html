@@ -4,14 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Trading Desk{% endblock %}</title>
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 {% if account_mode == 'Live' %}<div class="banner banner-live">LIVE ACCOUNT · real money · read-only view</div>
 {% elif account_mode == 'Paper' %}<div class="banner banner-paper">PAPER ACCOUNT · simulated money</div>{% endif %}
 <header class="top">
-  <div class="brand">Trading Desk</div>
-  <nav>
+  <a class="brand" href="{{ url_for('overview') }}">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/></svg>
+    Trading Desk
+  </a>
+  <nav aria-label="Main">
     <a href="{{ url_for('overview') }}" {% if request.endpoint == 'overview' %}class="on"{% endif %}>Overview</a>
     <a href="{{ url_for('journal.index') }}" {% if request.blueprint == 'journal' %}class="on"{% endif %}>Journal</a>
     <a href="{{ url_for('theses_page') }}" {% if request.endpoint in ('theses_page', 'thesis_detail') %}class="on"{% endif %}>Theses</a>
