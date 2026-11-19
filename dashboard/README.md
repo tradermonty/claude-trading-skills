@@ -132,18 +132,22 @@ That uses FMP API calls, so watch the free tier's 250 a day.
 
 ### 7. Give it a name in Caddy
 
-On CT 102 add a block to `/etc/caddy/Caddyfile` next to the others, above the catch-all `abort`:
-
-```caddyfile
-@trading host trading.lab.silkytech.org
-handle @trading {
-	reverse_proxy 192.168.40.26:8080
-}
-```
+On CT 102, open `/etc/caddy/Caddyfile` and copy the existing Jarvis block (the one that
+points at `192.168.40.25:8080`). Paste the copy just above the catch-all `abort`, then change
+`jarvis` to `trading` and `192.168.40.25:8080` to `192.168.40.26:8080`. Jarvis is a plain web
+app on port 8080 like this one, so its block is the right template. The Proxmox blocks carry
+extra TLS settings you don't want.
 
 ```bash
-caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-trading
+nano /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile --envfile /etc/caddy/caddy.env
+systemctl reload caddy
 ```
+
+`--envfile` matters: the Cloudflare token lives in `caddy.env`, which only the Caddy service
+loads. Without it, a manual validate fails with `API token '' appears invalid`, even when the
+Caddyfile is fine. A `not formatted` warning is harmless; `caddy fmt --overwrite /etc/caddy/Caddyfile` tidies it.
 
 Watch for the colon before the port. `192.168.40.26.8080` passes `caddy validate` but gives a 502.
 
@@ -203,4 +207,6 @@ python -m pytest
 - **A tile says "stale":** that report is more than 30 hours old. Check `/var/log/trading-refresh.log` and run `docker compose run --rm refresh` by hand.
 - **"Couldn't reach Alpaca":** check the keys and `ALPACA_ENV` in `.env`. Paper keys need `paper`, live keys need `live`.
 - **Refresh fails with "Permission denied" on reports/:** run `chown -R 1000:1000 /opt/claude-trading-skills/reports`.
+- **`https://trading.lab.silkytech.org` hangs:** the Caddy upstream must be plain `192.168.40.26:8080`, not `https://...` with `tls_insecure_skip_verify` (that's the Proxmox pattern). Test on CT 102 with `curl -sk --resolve trading.lab.silkytech.org:443:127.0.0.1 https://trading.lab.silkytech.org/healthz`.
+- **The name doesn't load but `http://192.168.40.26:8080` does:** the Unbound override must point at Caddy (`192.168.40.22`), not at CT 106. Check with `resolvectl query trading.lab.silkytech.org` on the laptop, then `resolvectl flush-caches`.
 - **Theses missing:** the dashboard reads every `th_*.yaml` under `state/`. Files that fail to parse are listed on the Theses page.
