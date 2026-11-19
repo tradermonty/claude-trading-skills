@@ -8,3 +8,5 @@ tzdata==2025.2
 jsonschema==4.26.0
 # Used by the market skills that refresh_market.sh runs inside the same image
 requests==2.32.5
+# drawdown-circuit-breaker: market holidays and early closes
+pandas-market-calendars==5.2.2

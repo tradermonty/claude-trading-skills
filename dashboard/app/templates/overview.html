@@ -43,11 +43,23 @@
   <article class="tile">
     <h2>Circuit breaker {{ freshness(circuit) }}</h2>
     {% if circuit %}
-      {% set r = circuit.data.recommendation or '—' %}
-      <div class="big {{ 'good' if r == 'ALLOW' else 'bad' }}">{{ r | replace('_', ' ') }}</div>
-      {% if circuit.data.warnings %}<p class="small muted">{{ circuit.data.warnings | length }} warning(s)</p>{% endif %}
+      {% set c = circuit.data %}
+      {% set r = c.recommendation or '—' %}
+      <div class="big {{ 'good' if r in ('TRADING_ALLOWED', 'ALLOW') else 'warn' if r == 'COOLDOWN' else 'bad' }}">{{ r | replace('_', ' ') | title }}</div>
+      {% set m = c.metrics or {} %}
+      <div class="chips">
+        {% if m.realized_pnl_today is number %}<span class="chip">Today {{ m.realized_pnl_today | money }}</span>{% endif %}
+        {% if m.realized_pnl_wtd is number %}<span class="chip">Week {{ m.realized_pnl_wtd | money }}</span>{% endif %}
+        {% if m.realized_pnl_mtd is number %}<span class="chip">Month {{ m.realized_pnl_mtd | money }}</span>{% endif %}
+        {% if m.consecutive_losses is number %}<span class="chip">Losing streak {{ m.consecutive_losses }}</span>{% endif %}
+      </div>
+      {% for rule in c.triggered_rules or [] %}
+        <p class="small bad">{{ rule.rule | replace('_', ' ') }}{% if rule.active_until %} · until {{ (rule.active_until | string)[:16] | replace('T', ' ') }}{% endif %}</p>
+      {% endfor %}
+      {% if c.data_quality and c.data_quality != 'OK' %}<p class="small muted">Data: {{ c.data_quality | replace('_', ' ') | lower }}</p>{% endif %}
+      {% if c.warnings %}<p class="small warn">{{ c.warnings | length }} warning(s)</p>{% endif %}
       {{ report_link(circuit) }}
-    {% else %}{{ empty('Runs once the local risk check bot is set up.') }}{% endif %}
+    {% else %}{{ empty('Set CB_ACCOUNT_SIZE in .env and run the refresh job.') }}{% endif %}
   </article>
 </section>
 

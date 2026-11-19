@@ -72,7 +72,24 @@ def reports_dir(tmp_path: Path) -> Path:
     )
     write_json(
         d / "circuit_breaker_decision_2026-11-18_213000.json",
-        {"as_of_date": "2026-11-18", "recommendation": "ALLOW", "warnings": []},
+        {
+            "as_of_date": "2026-11-18",
+            "recommendation": "COOLDOWN",
+            "triggered_rules": [
+                {
+                    "rule": "losing_streak_cooldown",
+                    "active_until": "2026-11-19T15:30:00-05:00",
+                }
+            ],
+            "metrics": {
+                "realized_pnl_today": -12.5,
+                "realized_pnl_wtd": -40.0,
+                "realized_pnl_mtd": 15.0,
+                "consecutive_losses": 2,
+            },
+            "data_quality": "OK",
+            "warnings": [],
+        },
     )
     (d / "broken_2026-11-18.json").write_text("{not json")
     return d
