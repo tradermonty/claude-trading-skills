@@ -3,7 +3,7 @@
 From 2026-12-07 FINVIZ serves the screener CSV export from
 ``/export/screener`` with a required ``type=``, and saved custom columns
 from the old screener stop applying. The selector reads Market Cap and
-Change, so it pins ``c=1,6,66`` (Ticker, Market Cap, Change) instead of
+Change and Volume, so it pins ``c=1,6,66,67`` instead of
 relying on saved settings. These tests pin the request and check that the
 parsed rows do not depend on column order, extra columns or a UTF-8 BOM.
 """
@@ -32,6 +32,9 @@ CSV_LEGACY_18 = (
     '2,BBB,B Co,Semiconductors,12000.00,1%,2%,3%,4%,5%,6%,7%,8%,9%,"Nov 2",0.9,-1.25%,0.0%\n'
 )
 CSV_PINNED = "Ticker,Market Cap,Change\nAAA,765.59,2.50%\nBBB,12000.00,-1.25%\n"
+CSV_PINNED_WITH_VOLUME = (
+    "Ticker,Market Cap,Change,Volume\nAAA,765.59,2.50%,1234567\nBBB,12000.00,-1.25%,2000000\n"
+)
 CSV_PINNED_WITH_NO = "No.,Ticker,Market Cap,Change\n1,AAA,765.59,2.50%\n2,BBB,12000.00,-1.25%\n"
 CSV_REORDERED = "Change,Ticker,Market Cap\n2.50%,AAA,765.59\n-1.25%,BBB,12000.00\n"
 
@@ -68,7 +71,7 @@ def _fetch(text, status=200, is_bearish=False, **kwargs):
     [(False, "ta_perf2_4wup"), (True, "ta_perf2_4wdown")],
 )
 def test_request_targets_new_endpoint_with_type_and_pinned_columns(is_bearish, perf):
-    _, get = _fetch(CSV_PINNED, is_bearish=is_bearish)
+    _, get = _fetch(CSV_PINNED_WITH_VOLUME, is_bearish=is_bearish)
     args, kwargs = get.call_args
     assert args[0] == "https://elite.finviz.com/export/screener"
     assert "?" not in args[0], "query must go through params=, not the URL string"
@@ -77,7 +80,7 @@ def test_request_targets_new_endpoint_with_type_and_pinned_columns(is_bearish, p
         "type": "stocks",
         "v": "151",
         "f": f"ind_semiconductors,cap_smallover,sh_avgvol_o100,sh_price_o10,{perf}",
-        "c": "1,6,66",
+        "c": "1,6,66,67",
         "ft": "4",
         "auth": SECRET,
     }
@@ -122,11 +125,11 @@ def test_missing_ranked_column_is_warned_not_silent(caplog):
     with caplog.at_level(logging.WARNING, logger=rss.logger.name):
         rows, _ = _fetch("No.,Ticker\n1,AAA\n")
     assert [r["symbol"] for r in rows] == ["AAA"]
-    assert "Market Cap" in caplog.text and "Change" in caplog.text
+    assert all(column in caplog.text for column in ("Market Cap", "Change", "Volume"))
     assert SECRET not in caplog.text
 
 
 def test_complete_columns_emit_no_missing_column_warning(caplog):
     with caplog.at_level(logging.WARNING, logger=rss.logger.name):
-        _fetch(CSV_PINNED)
+        _fetch(CSV_PINNED_WITH_VOLUME)
     assert "missing column" not in caplog.text

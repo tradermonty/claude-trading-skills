@@ -431,3 +431,23 @@ composite-score crash; unscored holdings use zero.
 
 Regression tests use synthetic CSV/ETF fixtures and mocked transport, not live
 FINVIZ acceptance or trading validation.
+
+
+## FINVIZ Elite representative-stock ranking
+
+Dynamic representative-stock selection now requests Volume explicitly with
+`c=1,6,66,67` (Ticker, Market Cap, Change, Volume). Filters are unchanged. The
+existing cap/change/volume rank weights are 40%/30%/30%, so adding Volume can
+change which stocks lead a theme's representative list. This does not change
+Theme Heat or stock-leadership weights. Elite Market Cap remains converted
+from millions to dollars; public parsing is unchanged.
+
+For example, a fictional $2B stock at +4% with 100,000 shares ranks first without
+Volume (0.7857), ahead of a $1B stock at +5% with 9,000,000 shares (0.7143).
+With Volume requested, their scores are 0.7000 and 0.8000, reversing the order.
+This is a synthetic regression example, not live performance evidence.
+
+Missing Volume columns or unusable row values produce warnings. Unknown row
+values remain `volume: null` in stock details and use the existing per-row
+weight re-normalization; a genuine zero stays available. The fallback chain is
+unchanged.

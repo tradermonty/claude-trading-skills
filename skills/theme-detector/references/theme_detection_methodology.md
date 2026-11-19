@@ -292,8 +292,8 @@ direction = majority_vote([ind.rank_direction for ind in theme.industries])
 ### Primary: FINVIZ
 
 **Elite Mode (recommended):**
-- CSV export endpoint: `https://elite.finviz.com/export/screener?type=stocks&v=151&f=ind_{code},cap_smallover,...&c=1,6,66&ft=4&auth=KEY` (`type=` is required from 2026-12-07; `c=1,6,66` pins Ticker, Market Cap, Change)
-- Provides (pinned columns): ticker, market cap, change%. Volume is not requested yet (see issue #800)
+- CSV export endpoint: `https://elite.finviz.com/export/screener?type=stocks&v=151&f=ind_{code},cap_smallover,...&c=1,6,66,67&ft=4&auth=KEY` (`type=` is required from 2026-12-07; `c=1,6,66,67` pins Ticker, Market Cap, Change, Volume)
+- Provides (pinned columns): ticker, market cap, change%, volume. Elite Market Cap is converted from millions to dollars; Volume is a share count.
 - Rate limit: 0.5s between requests
 - Coverage: Full stock universe per industry
 
@@ -302,6 +302,34 @@ direction = majority_vote([ind.rank_direction for ind in theme.industries])
 - Provides: Same fields but limited to page 1 (~20 stocks per industry)
 - Rate limit: 2.0s between requests (aggressive scraping may trigger blocks)
 - Coverage: Top 20 stocks per industry by market cap
+
+### Elite representative-stock ranking (#800)
+
+With dynamic stock selection enabled and the representative-stock source set to
+Elite, `c=1,6,66,67` makes Volume available to the existing composite ranking:
+40% market-cap rank, 30% directional change rank and 30% volume rank. These are
+representative-stock weights, separate from Theme Heat and stock-leadership
+scoring. Universe filters are unchanged; the added ranking component can change
+which representatives reach the per-theme limit.
+
+Synthetic before/after example (two stocks in one industry; normalized rank scores):
+
+| Stock | Market Cap ($) | Change | Volume (shares) | Before: no Volume | After: with Volume |
+|---|---:|---:|---:|---:|---:|
+| LOWVOL | 2,000,000,000 | +4% | 100,000 | 0.7857 (first) | 0.7000 (second) |
+| HIGHVOL | 1,000,000,000 | +5% | 9,000,000 | 0.7143 (second) | 0.8000 (first) |
+
+Before the fix, the missing Volume factor re-normalized cap/change weights to
+4/7 and 3/7. The existing bearish change-rank rule uses absolute change; the
+same example at -4%/-5% produces the same before/after scores. This is an
+offline regression example, not a live observation or a trading recommendation.
+
+A missing Volume column is logged. An empty, malformed, negative or overflowing
+Elite Volume value becomes `None`; a count-only warning identifies affected rows
+and the existing per-row weight re-normalization. Valid zero volume remains
+available. Returned details retain `volume: null` when unknown, so consumers can
+inspect the available input alongside `composite_score`. The public/FMP parsers,
+scoring formula and fallback chain are unchanged.
 
 ### Secondary: FMP API (optional)
 
