@@ -207,4 +207,6 @@ python -m pytest
 - **A tile says "stale":** that report is more than 30 hours old. Check `/var/log/trading-refresh.log` and run `docker compose run --rm refresh` by hand.
 - **"Couldn't reach Alpaca":** check the keys and `ALPACA_ENV` in `.env`. Paper keys need `paper`, live keys need `live`.
 - **Refresh fails with "Permission denied" on reports/:** run `chown -R 1000:1000 /opt/claude-trading-skills/reports`.
+- **`https://trading.lab.silkytech.org` hangs:** the Caddy upstream must be plain `192.168.40.26:8080`, not `https://...` with `tls_insecure_skip_verify` (that's the Proxmox pattern). Test on CT 102 with `curl -sk --resolve trading.lab.silkytech.org:443:127.0.0.1 https://trading.lab.silkytech.org/healthz`.
+- **The name doesn't load but `http://192.168.40.26:8080` does:** the Unbound override must point at Caddy (`192.168.40.22`), not at CT 106. Check with `resolvectl query trading.lab.silkytech.org` on the laptop, then `resolvectl flush-caches`.
 - **Theses missing:** the dashboard reads every `th_*.yaml` under `state/`. Files that fail to parse are listed on the Theses page.
