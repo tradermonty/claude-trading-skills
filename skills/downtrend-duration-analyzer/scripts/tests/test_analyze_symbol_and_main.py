@@ -242,7 +242,10 @@ class TestMain:
         assert data["by_sector"]["Energy"]["count"] == 2
         assert data["by_market_cap"]["Mega"]["count"] == 1
         assert {d["symbol"] for d in data["downtrends"]} == {"AAA", "BBB", "CCC"}
+        assert data["coverage"]["complete"] is True
+        assert data["coverage"]["symbols_analyzed"] == 3
         assert "| Total Downtrends | 3 |" in mds[0].read_text()
+        assert "**Coverage**: 3 of 3 symbols analyzed\n" in mds[0].read_text()
         stdout = capsys.readouterr().out
         assert "Analyzing 3 stocks..." in stdout
         assert "Found 3 downtrend periods" in stdout

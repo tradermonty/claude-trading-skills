@@ -32,6 +32,13 @@ without filling missing prices. One HTTP session is reused for the run and
 closed on exit. Shared transport adds 0.3-second pacing, one 60-second retry on
 HTTP 429, and one retry on malformed JSON; credentials are redacted in errors.
 
+The report's `coverage` block counts the symbols requested, analyzed, failed (by
+reason) and not requested; `complete` is false when any symbol was not analyzed.
+A second HTTP 429 (daily limit) or an HTTP 401/402/403 on history stops the run
+at that symbol: exit 1 with no report if nothing was analyzed yet, otherwise a
+partial report and exit 3. Other failures (5xx, transport, malformed rows) are
+counted and the run continues; an empty history is data, not a failure.
+
 ## Workflow
 
 ### Step 1: Fetch Historical Price Data
@@ -95,6 +102,16 @@ Load the generated markdown report to interpret the findings:
     "p25_duration_days": 10,
     "p75_duration_days": 32,
     "p90_duration_days": 55
+  },
+  "coverage": {
+    "complete": true,
+    "symbols_requested": 100,
+    "symbols_analyzed": 100,
+    "symbols_failed": 0,
+    "symbols_skipped": 0,
+    "stopped_reason": null,
+    "failures_by_reason": {},
+    "failed_symbols": []
   },
   "by_sector": {
     "Technology": {

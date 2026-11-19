@@ -12,7 +12,10 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
+from collections import Counter
+from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +46,12 @@ DEFAULT_SECTORS = [
     "Real Estate",
     "Communication Services",
 ]
+
+# History failures after which no later request in the run can succeed: the
+# daily 429 cap (#821) and auth/plan rejections (#822). Exit codes for a run
+# cut short by one of them: 1 if nothing was analyzed, 3 for a partial report.
+_STOPPING_FAILURE = re.compile(r"HTTP (?:429|40[123])\b|daily rate limit")
+EXIT_PARTIAL = 3
 
 
 def get_api_key(api_key_arg: str | None) -> str:
@@ -95,11 +104,22 @@ def _valid_number(value: Any) -> bool:
 
 
 def fetch_historical_prices(
-    api_key: str, symbol: str, from_date: str, to_date: str, *, client: FMPClient | None = None
+    api_key: str,
+    symbol: str,
+    from_date: str,
+    to_date: str,
+    *,
+    client: FMPClient | None = None,
+    on_error: Callable[[str], None] | None = None,
 ) -> pd.DataFrame:
-    """Read the exact stable OHLCV range; malformed data is never synthesized."""
+    """Read the exact stable OHLCV range; malformed data is never synthesized.
+
+    A failure returns an empty frame. Its reason is printed, or passed to
+    ``on_error`` instead when the caller wants to report it itself.
+    """
     with client_scope(api_key, client) as transport:
         rows = transport.fetch_downtrend_history(symbol, from_date, to_date)
+        transport_error = getattr(transport, "_last_error", None) if rows is None else None
     if rows == []:
         return pd.DataFrame()
     try:
@@ -138,8 +158,17 @@ def fetch_historical_prices(
             ["date", "open", "high", "low", "close", "volume"]
         ]
     except (ValueError, TypeError, OverflowError):
-        print(f"Error fetching prices for {symbol}: unusable historical response", file=sys.stderr)
+        reason = transport_error or "unusable historical response"
+        if on_error is None:
+            print(f"Error fetching prices for {symbol}: {reason}", file=sys.stderr)
+        else:
+            on_error(reason)
         return pd.DataFrame()
+
+
+def _reason_label(reason: str) -> str:
+    """Group key for a failure: "HTTP 503 - <body>" -> "HTTP 503"."""
+    return reason.split(" - ", 1)[0].split(": ", 1)[0]
 
 
 def detect_peaks_troughs(
@@ -247,9 +276,12 @@ def analyze_symbol(
     min_depth_pct: float,
     *,
     client: FMPClient | None = None,
+    on_error: Callable[[str], None] | None = None,
 ) -> list[dict]:
     """Analyze downtrends for a single symbol."""
-    prices = fetch_historical_prices(api_key, symbol, from_date, to_date, client=client)
+    prices = fetch_historical_prices(
+        api_key, symbol, from_date, to_date, client=client, on_error=on_error
+    )
 
     if prices.empty or len(prices) < peak_window * 2 + 1:
         return []
@@ -333,6 +365,21 @@ def generate_markdown_report(analysis_result: dict[str, Any], output_path: Path)
 
     if params.get("sector_filter"):
         lines.append(f"**Sector**: {params['sector_filter']}")
+
+    coverage = analysis_result.get("coverage")
+    if coverage:
+        line = (
+            f"**Coverage**: {coverage['symbols_analyzed']} of "
+            f"{coverage['symbols_requested']} symbols analyzed"
+        )
+        if not coverage["complete"]:
+            reasons = ", ".join(f"{k}: {v}" for k, v in coverage["failures_by_reason"].items())
+            line += (
+                f" (PARTIAL: {coverage['symbols_failed']} failed"
+                + (f" [{reasons}]" if reasons else "")
+                + f", {coverage['symbols_skipped']} not requested)"
+            )
+        lines.append(line)
 
     lines.extend(
         [
@@ -469,6 +516,9 @@ def main() -> None:
 
         # Analyze each stock
         all_downtrends: list[dict] = []
+        analyzed = 0
+        failed: list[dict[str, str]] = []
+        stopped_reason = None
         for i, stock in enumerate(stocks):
             symbol = stock.get("symbol", "")
             sector = stock.get("sector", "Unknown")
@@ -477,6 +527,7 @@ def main() -> None:
             if i % 10 == 0:
                 print(f"  Progress: {i}/{len(stocks)} stocks processed")
 
+            errors: list[str] = []
             downtrends = analyze_symbol(
                 api_key,
                 symbol,
@@ -488,10 +539,46 @@ def main() -> None:
                 args.trough_window,
                 args.min_depth,
                 client=client,
+                on_error=errors.append,
             )
             all_downtrends.extend(downtrends)
+            if not errors:
+                analyzed += 1
+                continue
+            label = _reason_label(errors[0])
+            failed.append({"symbol": symbol, "reason": label})
+            if _STOPPING_FAILURE.match(errors[0]):
+                stopped_reason = label
+                hint = "" if "429" in label else " (check the API key and the plan)"
+                print(
+                    f"Error: stopping at {symbol} ({i + 1} of {len(stocks)}): {label}{hint}; "
+                    f"{len(stocks) - i - 1} later symbol(s) not requested",
+                    file=sys.stderr,
+                )
+                break
+            print(f"Error fetching prices for {symbol}: {errors[0]}", file=sys.stderr)
+
+    skipped = len(stocks) - analyzed - len(failed)
+    coverage = {
+        "complete": not failed and not skipped,
+        "symbols_requested": len(stocks),
+        "symbols_analyzed": analyzed,
+        "symbols_failed": len(failed),
+        "symbols_skipped": skipped,
+        "stopped_reason": stopped_reason,
+        "failures_by_reason": dict(Counter(f["reason"] for f in failed)),
+        "failed_symbols": failed,
+    }
+    if stopped_reason and not analyzed:
+        sys.exit(1)
 
     print(f"Found {len(all_downtrends)} downtrend periods")
+    if not coverage["complete"]:
+        print(
+            f"Coverage: {analyzed} of {len(stocks)} symbols analyzed, "
+            f"{len(failed)} failed, {skipped} not requested",
+            file=sys.stderr,
+        )
 
     # Compute statistics
     summary = compute_statistics(all_downtrends)
@@ -510,6 +597,7 @@ def main() -> None:
             "min_depth_pct": args.min_depth,
         },
         "summary": summary,
+        "coverage": coverage,
         "by_sector": by_sector,
         "by_market_cap": by_market_cap,
         "downtrends": all_downtrends,
@@ -531,6 +619,9 @@ def main() -> None:
     md_path = output_dir / f"downtrend_analysis_{timestamp}.md"
     generate_markdown_report(result, md_path)
     print(f"Markdown report saved to: {md_path}")
+
+    if stopped_reason:
+        sys.exit(EXIT_PARTIAL)
 
 
 if __name__ == "__main__":

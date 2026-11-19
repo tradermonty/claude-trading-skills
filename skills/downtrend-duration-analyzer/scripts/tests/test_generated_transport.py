@@ -1,6 +1,7 @@
 """#495: exercise domain adapters through generated fake HTTP sessions, offline."""
 
 import importlib
+import json
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -307,3 +308,127 @@ assert sys.modules["fmp_client"] is foreign
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
+
+
+def run_main(monkeypatch, tmp_path, *responses):
+    """Run main() on a fake session; return (exit code, session, report JSON or None)."""
+    module = importlib.import_module(adt.FMPClient.__module__)
+    session = Session(*responses)
+    monkeypatch.setattr(module.requests, "Session", lambda: session)
+    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        sys, "argv", ["analyze_downtrends.py", "--api-key", SECRET, "--output-dir", str(tmp_path)]
+    )
+    code = 0
+    try:
+        adt.main()
+    except SystemExit as exc:
+        code = exc.code
+    reports = list(tmp_path.glob("*.json"))
+    report = json.loads(reports[0].read_text()) if reports else None
+    return code, session, report
+
+
+def universe(*symbols):
+    return Response([{"symbol": s} for s in symbols])
+
+
+def test_rate_limit_stops_requests_and_marks_report_partial(monkeypatch, tmp_path, capsys):
+    """#821: a 429 cap after k symbols ends the run with a partial, checkable report."""
+    code, session, report = run_main(
+        monkeypatch,
+        tmp_path,
+        universe("AAA", "BBB", "CCC", "DDD"),
+        Response([bar()]),
+        Response([bar()]),
+        Response(status=429),
+        Response(status=429),
+    )
+    assert code == adt.EXIT_PARTIAL
+    assert [c[1].get("symbol") for c in session.calls[1:]] == ["AAA", "BBB", "CCC", "CCC"]
+    assert report["coverage"] == {
+        "complete": False,
+        "symbols_requested": 4,
+        "symbols_analyzed": 2,
+        "symbols_failed": 1,
+        "symbols_skipped": 1,
+        "stopped_reason": "HTTP 429 (daily rate limit)",
+        "failures_by_reason": {"HTTP 429 (daily rate limit)": 1},
+        "failed_symbols": [{"symbol": "CCC", "reason": "HTTP 429 (daily rate limit)"}],
+    }
+    (md,) = tmp_path.glob("*.md")
+    assert "**Coverage**: 2 of 4 symbols analyzed (PARTIAL: 1 failed" in md.read_text()
+    captured = capsys.readouterr()
+    assert "stopping at CCC (3 of 4): HTTP 429 (daily rate limit)" in captured.err
+    assert "unusable historical response" not in captured.err
+    assert SECRET not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("status", [401, 402, 403])
+def test_auth_or_plan_error_on_history_fails_fast(monkeypatch, tmp_path, capsys, status):
+    """#822: a key/plan rejection on history ends the run after one request."""
+    code, session, report = run_main(
+        monkeypatch,
+        tmp_path,
+        universe("AAA", "BBB"),
+        Response(status=status, text=f"denied for {SECRET}"),
+    )
+    assert code == 1
+    assert len(session.calls) == 2 and session.closed
+    assert report is None and not list(tmp_path.glob("*.md"))
+    captured = capsys.readouterr()
+    errors = [line for line in captured.err.splitlines() if line.strip()]
+    # The generated transport's own line, then one stop line; no per-symbol duplicate.
+    assert len(errors) == 2, errors
+    assert errors[0].startswith(f"ERROR: API request failed: HTTP {status}")
+    assert errors[1].startswith(f"Error: stopping at AAA (1 of 2): HTTP {status}")
+    for secret in [SECRET, quote(SECRET, safe=""), quote_plus(SECRET, safe="")]:
+        assert secret not in captured.out + captured.err
+
+
+def test_empty_histories_never_stop_the_run(monkeypatch, tmp_path):
+    """#815 behaviour kept: empty [] histories are data, the next symbol is requested."""
+    code, session, report = run_main(
+        monkeypatch,
+        tmp_path,
+        universe("AAA", "BBB", "CCC", "DDD"),
+        Response([]),
+        Response([]),
+        Response([]),
+        Response([bar()]),
+    )
+    assert code == 0
+    assert len(session.calls) == 5
+    assert report["coverage"]["complete"] is True
+    assert report["coverage"]["symbols_analyzed"] == 4
+
+
+@pytest.mark.parametrize(
+    ("failure", "label"),
+    [
+        (Response(status=503, text="busy"), "HTTP 503"),
+        (requests.ConnectionError("reset"), "request exception"),
+        (Response({}), "expected a flat list of row objects"),
+    ],
+)
+def test_other_history_failures_are_counted_and_the_run_continues(
+    monkeypatch, tmp_path, capsys, failure, label
+):
+    code, session, report = run_main(
+        monkeypatch, tmp_path, universe("AAA", "BBB"), failure, Response([bar()])
+    )
+    assert code == 0
+    assert len(session.calls) == 3
+    coverage = report["coverage"]
+    assert coverage["complete"] is False
+    assert (coverage["symbols_analyzed"], coverage["symbols_failed"]) == (1, 1)
+    assert coverage["symbols_skipped"] == 0 and coverage["stopped_reason"] is None
+    assert coverage["failures_by_reason"] == {label: 1}
+    assert f"Error fetching prices for AAA: {label}" in capsys.readouterr().err
+
+
+def test_helper_error_names_the_rate_limit(client, capsys):
+    """#821: the per-symbol message gives the real reason."""
+    client.session = Session(Response(status=429), Response(status=429))
+    assert history(client).empty
+    assert "Error fetching prices for AAA: HTTP 429 (daily rate limit)" in capsys.readouterr().err
