@@ -27,6 +27,6 @@
 {% if notice %}<div class="notice {{ 'bad' if error or request.args.get('kind') == 'bad' else 'good' }}" role="status">{{ notice }}</div>{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer class="muted">This dashboard can't place, change or cancel orders. Only the journal saves data, and it stays on this machine. Not financial advice.</footer>
+<footer class="muted">This dashboard can't place, change or cancel orders. Only the journal and New thesis save data, and it stays on this machine. Not financial advice.</footer>
 </body>
 </html>

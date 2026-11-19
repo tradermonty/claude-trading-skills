@@ -1,7 +1,9 @@
 """Trading dashboard: a Flask app over claude-trading-skills output.
 
-Everything is read-only except the trade journal (/journal), which saves to its own
-SQLite file in JOURNAL_DIR. Nothing here can place, change or cancel orders.
+Everything is read-only except two pages: the trade journal (/journal), which saves
+to its own SQLite file in JOURNAL_DIR, and New thesis (/theses/new), which adds an
+IDEA thesis to THESES_DIR through trader-memory-core. Nothing here can place,
+change or cancel orders.
 """
 
 from __future__ import annotations
@@ -36,6 +38,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         "TIMEZONE": os.environ.get("TZ_DISPLAY", "America/New_York"),
         "ALPACA": "env",
         "JOURNAL_DIR": os.environ.get("JOURNAL_DIR") or None,
+        "SKILLS_DIR": os.environ.get("SKILLS_DIR") or None,
+        "THESES_DIR": os.environ.get("THESES_DIR") or None,
         "MAX_CONTENT_LENGTH": 16 * 1024 * 1024,  # biggest upload: a CSV or a screenshot
     }
     cfg.update(config or {})
@@ -47,8 +51,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     tz = ZoneInfo(cfg["TIMEZONE"])
 
     from .journal.views import bp as journal_bp
+    from .thesis_form import bp as thesis_form_bp
 
     app.register_blueprint(journal_bp)
+    app.register_blueprint(thesis_form_bp)
 
     def now_local() -> datetime:
         return datetime.now(tz)

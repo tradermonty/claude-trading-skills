@@ -10,15 +10,15 @@ What it shows:
 | Exposure ceiling, breadth, uptrend tiles and history charts | `reports/exposure_posture_*.json`, `market_breadth_*.json`, `uptrend_analysis_*.json` |
 | Circuit breaker | `reports/circuit_breaker_decision_*.json` (drawdown-circuit-breaker) |
 | Broker account and positions | Alpaca API, read-only (GET account and positions only) |
-| Theses, review-due list, journal | `state/**/th_*.yaml` and `state/**/pm_*.md` (trader-memory-core) |
+| Theses, review-due list, journal | `state/**/th_*.yaml` and `state/**/pm_*.md` (trader-memory-core). **New thesis** adds one through trader-memory-core |
 | Latest VCP screen | `reports/vcp_screener_*.json` |
 | Trade journal (the only page that saves) | `trade-journal/journal.db` + `trade-journal/screenshots/`, filled by hand or from a Robinhood CSV |
 | Reports page | Every report above, rendered from its `.md` or `.json` |
 
 What it can't do: place, change or cancel orders. The Alpaca client in
 `app/alpaca.py` only sends `GET /v2/account` and `GET /v2/positions`. The `reports/`
-and `state/` folders are mounted read-only into the web container. `trade-journal/` is
-the only folder it can write to.
+and `state/` folders are mounted read-only into the web container, except `state/theses/`,
+which the New thesis page writes to. `trade-journal/` is the only other folder it can write to.
 
 Your balances, P&L and journal stay on the machine that runs the dashboard.
 `reports/`, `state/`, `trade-journal/` and `dashboard/.env` are all git-ignored, so they never reach GitHub.
@@ -206,6 +206,27 @@ isn't owned by user 1000. Run the `mkdir` and `chown` lines above and restart.
 
 **Backups**: everything is in `/opt/claude-trading-skills/trade-journal`, which the nightly
 backup of the CT covers. For an extra copy, use **Export CSV** now and then.
+
+---
+
+## Adding theses
+
+**Theses → New thesis** creates a trader-memory-core thesis from a form: ticker, type,
+setup, catalyst, planned entry, stop, target, date and the thesis itself. The dashboard
+calls trader-memory-core's own `manual` ingest and `register()`, the same code as
+`trader_memory_cli.py ingest --source manual`, so the file, ID and index are identical
+to a CLI-made thesis and the skills (circuit breaker, reviews) see it right away.
+
+- New theses start as **IDEA**. Moving one to ENTRY_READY or ACTIVE is still done with the
+  CLI (`transition`, `open-position`).
+- Long stock theses only, and the stop must be below the planned entry. trader-memory-core
+  refuses anything else, and the form shows its error.
+- It needs the repo's `skills/` folder mounted read-only (`SKILLS_DIR`) and `state/theses`
+  mounted writable (`THESES_DIR`). `compose.yaml` does both.
+
+**Upgrading an existing CT**: `git pull`, check that `state/theses` is owned by user 1000
+(`ls -ln /opt/claude-trading-skills/state`; if not, `chown -R 1000:1000 state`), then
+`docker compose up -d --build`. The rebuild installs `jsonschema`, which trader-memory-core needs.
 
 ---
 

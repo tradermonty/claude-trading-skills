@@ -4,5 +4,7 @@ gunicorn==23.0.0
 markdown==3.10
 pyyaml==6.0.3
 tzdata==2025.2
+# Used by trader-memory-core when the New thesis page creates a thesis
+jsonschema==4.26.0
 # Used by the market skills that refresh_market.sh runs inside the same image
 requests==2.32.5
