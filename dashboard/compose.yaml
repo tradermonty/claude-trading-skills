@@ -38,3 +38,4 @@ services:
     volumes:
       - ../skills:/repo/skills:ro
       - ../reports:/repo/reports
+      - ../state/theses:/repo/state/theses:ro

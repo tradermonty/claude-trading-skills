@@ -20,6 +20,13 @@ def test_overview_renders(client):
     assert "not set up" in body.lower()  # Alpaca not configured
 
 
+def test_circuit_breaker_tile(client):
+    body = client.get("/").get_data(as_text=True)
+    assert "Cooldown" in body
+    assert "losing streak cooldown" in body and "2026-11-19 15:30" in body
+    assert "Week -$40.00" in body and "Losing streak 2" in body
+
+
 def test_theses_page_and_filter(client):
     body = client.get("/theses").get_data(as_text=True)
     assert "AAA" in body and "CCC" in body

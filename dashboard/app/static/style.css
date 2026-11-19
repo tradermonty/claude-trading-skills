@@ -109,3 +109,4 @@ legend { font-size: 13px; color: var(--muted); padding: 0 4px; }
 .status { font-size: 12px; font-weight: 600; border-radius: 6px; padding: 1px 8px; background: var(--chip); }
 .status.open { background: var(--paper-bg); color: var(--paper-text); }
 .stack { display: grid; gap: 16px; }
+.warn { color: var(--warn); }

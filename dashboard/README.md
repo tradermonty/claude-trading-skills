@@ -8,7 +8,7 @@ What it shows:
 | Section | Where the data comes from |
 |---|---|
 | Exposure ceiling, breadth, uptrend tiles and history charts | `reports/exposure_posture_*.json`, `market_breadth_*.json`, `uptrend_analysis_*.json` |
-| Circuit breaker | `reports/circuit_breaker_decision_*.json` (drawdown-circuit-breaker) |
+| Circuit breaker | `reports/circuit_breaker_decision_*.json` (drawdown-circuit-breaker, run by the refresh job when `CB_ACCOUNT_SIZE` is set) |
 | Broker account and positions | Alpaca API, read-only (GET account and positions only) |
 | Theses, review-due list, journal | `state/**/th_*.yaml` and `state/**/pm_*.md` (trader-memory-core). **New thesis** adds one through trader-memory-core |
 | Latest VCP screen | `reports/vcp_screener_*.json` |
@@ -206,6 +206,32 @@ isn't owned by user 1000. Run the `mkdir` and `chown` lines above and restart.
 
 **Backups**: everything is in `/opt/claude-trading-skills/trade-journal`, which the nightly
 backup of the CT covers. For an extra copy, use **Export CSV** now and then.
+
+---
+
+## Circuit breaker
+
+The drawdown-circuit-breaker skill decides whether you should take **new** trade risk today,
+based on realized losses in your trader-memory-core theses. It answers TRADING ALLOWED,
+COOLDOWN (after a losing streak) or HALTED (a daily, weekly or monthly loss limit was hit).
+It's advice only: it never touches orders.
+
+1. In `.env`, set `CB_ACCOUNT_SIZE` to your trading account size in dollars. The default
+   limits are 2% a day, a 24-hour cooldown after 2 losses in a row, 5% a week and 8% a month.
+   Override any of them with the `CB_*` lines in `.env.example`.
+2. Rebuild once so the image gets `pandas-market-calendars` (market holidays):
+   `docker compose up -d --build`.
+3. Test: `docker compose run --rm refresh circuit`. The Overview tile then shows the
+   decision, realized P&L for today, the week and the month, and the losing streak.
+4. The 4:20 PM refresh already includes it. Add a morning run so the tile is fresh before
+   the open (`crontab -e`):
+   ```cron
+   0 9 * * 1-5 cd /opt/claude-trading-skills/dashboard && docker compose run --rm refresh circuit >> /var/log/trading-refresh.log 2>&1
+   ```
+
+It only knows about trades recorded as theses with an outcome (closed through
+trader-memory-core). With no closed theses it reports TRADING ALLOWED with data quality
+"empty state". The refresh job mounts `state/theses` read-only, so it can't change them.
 
 ---
 
