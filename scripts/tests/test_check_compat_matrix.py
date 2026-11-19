@@ -173,7 +173,7 @@ def test_standalone_job_may_use_python39_but_root_job_may_not(
         ".github/workflows/packaged-deps-nightly.yml",
         """jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -186,7 +186,7 @@ def test_standalone_job_may_use_python39_but_root_job_may_not(
         ".github/workflows/root-extra.yml",
         """jobs:
   root-extra:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -569,3 +569,27 @@ def test_check_rejects_preflight_in_other_workflow(project: Path):
     _compliant_tree(project)
     _write(project, ".github/workflows/other.yml", BASH_ONLY_PREFLIGHT)
     assert ccm.check(quiet=True) == 1
+
+
+@pytest.mark.parametrize(
+    "workflow,job",
+    [("ci.yml", "market-calendar-compat"), ("packaged-deps-nightly.yml", "smoke")],
+)
+@pytest.mark.parametrize("runner,expected", [("ubuntu-24.04", 0), ("ubuntu-latest", 1)])
+def test_python39_jobs_must_not_use_latest_ubuntu(project, capsys, workflow, job, runner, expected):
+    # setup-python ships no Python 3.9 build for Ubuntu 26.04 (ubuntu-latest).
+    _compliant_tree(project)
+    path = project / ".github" / "workflows" / workflow
+    existing = path.read_text() if path.exists() else "jobs:\n"
+    path.write_text(
+        existing
+        + f"  {job}:\n"
+        + f"    runs-on: {runner}\n"
+        + "    steps:\n"
+        + "      - uses: actions/setup-python@v5\n"
+        + "        with:\n"
+        + '          python-version: "3.9"\n'
+    )
+    assert ccm.check(quiet=True) == expected
+    if expected:
+        assert "has no Python 3.9 build" in capsys.readouterr().out

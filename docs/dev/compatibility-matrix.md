@@ -41,6 +41,7 @@ Actively tested in CI:
 |----|--------|-------|
 | Linux (`ubuntu-latest`) | 3.11 | `test` / `coverage` / `workflow-replay` jobs, plus `lint` / `metadata` / `security` / `supply-chain` |
 | Linux (`ubuntu-24.04`) | 3.9 | standalone `market-calendar-compat` clean room |
+| Linux (`ubuntu-24.04`) | 3.9 | `packaged-deps-nightly` clean-room import smoke (daily) |
 | Linux (`ubuntu-24.04`) | 3.11 | docs site build (locked Ruby 3.3.9) |
 | Linux (`ubuntu-latest`) | 3.13 | `compat-smoke` (PR) |
 | Windows (`windows-latest`) | 3.13 | `compat-smoke` (PR) |
@@ -51,7 +52,7 @@ Actively tested in CI:
 The macOS runner uses the `macos-latest` label. `actions/setup-python` provisions the requested
 Python version independently of the base runner image, so the 3.11 leg is available on that label.
 
-The Python 3.9 clean room and the locked Ruby 3.3.9 docs build use `ubuntu-24.04`
+The Python 3.9 clean rooms and the locked Ruby 3.3.9 docs build use `ubuntu-24.04`
 because their prebuilt runtimes are unavailable on Ubuntu 26.04. Other jobs retain
 their existing runners, including the latest-image compatibility matrix.
 
@@ -70,6 +71,8 @@ statically by `scripts/check_compat_matrix.py`):
 
 1. Its OS is in `{ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest}`.
 2. Root-project jobs use Python in `[3.11, 3.14)`. Explicit standalone clean-room jobs may use the separately declared 3.9 floor.
+3. A job on `ubuntu-latest` (Ubuntu 26.04) uses Python 3.10 or newer, because `actions/setup-python`
+   ships no older build for that image. Pin such jobs to `ubuntu-24.04`.
 
 The drift guard globs the whole workflow directory rather than a hard-coded allowlist, so a
 brand-new workflow that runs a job on an unsupported OS / out-of-range Python is caught and not

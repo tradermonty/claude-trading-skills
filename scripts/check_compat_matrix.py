@@ -35,6 +35,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 WORKFLOW_FILES = ("ci.yml", "compat-nightly.yml")
 SUPPORTED_OS = {"ubuntu-latest", "ubuntu-24.04", "windows-latest", "macos-latest"}
+# ubuntu-latest is Ubuntu 26.04; setup-python ships no Python < 3.10 for it.
+LATEST_UBUNTU_LABELS = {"ubuntu-latest"}
+LATEST_UBUNTU_MIN_PYTHON = "3.10"
 SELF_HOSTED_PLATFORM_LABELS = {"linux", "windows", "macos"}
 RECOGNIZED_SELF_HOSTED_CATEGORIES = {
     f"self-hosted-{platform}" for platform in SELF_HOSTED_PLATFORM_LABELS
@@ -326,6 +329,13 @@ def _check_os_and_python_policy(
                 if qualified_job not in NO_SETUP_PYTHON_JOBS:
                     errors.append(f"{qualified_job}: could not resolve a Python version")
                 continue
+            if combo.os in LATEST_UBUNTU_LABELS and not _in_range(
+                combo.python, LATEST_UBUNTU_MIN_PYTHON, "999"
+            ):
+                errors.append(
+                    f"{qualified_job}: {combo.os} has no Python {combo.python} build; "
+                    "pin this job to ubuntu-24.04"
+                )
             job_lower = standalone_floor if qualified_job in standalone_jobs else lower
             if not _in_range(combo.python, job_lower, upper):
                 errors.append(
