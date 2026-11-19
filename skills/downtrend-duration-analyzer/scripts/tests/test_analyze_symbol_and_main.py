@@ -218,7 +218,7 @@ class TestMain:
                 return instant.astimezone(tz)
 
         monkeypatch.setattr(adt, "datetime", FakeDatetime)
-        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: STOCKS)
+        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None, **kwargs: STOCKS)
         monkeypatch.setattr(adt, "fetch_historical_prices", lambda *a, **k: make_prices(CLOSES))
         self._run(monkeypatch, tmp_path)
         (path,) = list((tmp_path / "out").glob("downtrend_analysis_*.json"))
@@ -227,7 +227,7 @@ class TestMain:
         assert "**Date**: 2026-01-02" in md.read_text()
 
     def test_end_to_end_writes_json_and_markdown(self, monkeypatch, tmp_path, capsys):
-        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: STOCKS)
+        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None, **kwargs: STOCKS)
         monkeypatch.setattr(adt, "fetch_historical_prices", lambda *a, **k: make_prices(CLOSES))
         self._run(monkeypatch, tmp_path)
         out = tmp_path / "out"
@@ -248,7 +248,7 @@ class TestMain:
         assert "Found 3 downtrend periods" in stdout
 
     def test_max_stocks_limits_universe(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: STOCKS)
+        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None, **kwargs: STOCKS)
         monkeypatch.setattr(adt, "fetch_historical_prices", lambda *a, **k: make_prices(CLOSES))
         self._run(monkeypatch, tmp_path, ["--max-stocks", "1"])
         data = json.loads(next((tmp_path / "out").glob("*.json")).read_text())
@@ -257,7 +257,7 @@ class TestMain:
     def test_sector_passed_to_fetch(self, monkeypatch, tmp_path):
         seen = {}
 
-        def fake_list(key, sector=None):
+        def fake_list(key, sector=None, **kwargs):
             seen["sector"] = sector
             return STOCKS[:1]
 
@@ -269,14 +269,14 @@ class TestMain:
         assert "**Sector**: Energy" in md
 
     def test_empty_stock_list_exits_1(self, monkeypatch, tmp_path, capsys):
-        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: [])
+        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None, **kwargs: [])
         with pytest.raises(SystemExit) as exc:
             self._run(monkeypatch, tmp_path)
         assert exc.value.code == 1
         assert "No stocks found" in capsys.readouterr().err
 
     def test_no_downtrends_still_writes_zero_summary(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None: STOCKS)
+        monkeypatch.setattr(adt, "fetch_stock_list", lambda key, sector=None, **kwargs: STOCKS)
         monkeypatch.setattr(adt, "fetch_historical_prices", lambda *a, **k: pd.DataFrame())
         self._run(monkeypatch, tmp_path)
         data = json.loads(next((tmp_path / "out").glob("*.json")).read_text())

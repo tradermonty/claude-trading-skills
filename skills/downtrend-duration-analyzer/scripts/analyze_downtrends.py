@@ -10,17 +10,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-import requests
-
-# Request exception messages can embed credential-bearing URLs. Log only their class.
+from downtrend_fmp_client import FMPClient, client_scope
 
 # Market cap tier thresholds (in billions USD)
 MARKET_CAP_TIERS = {
@@ -48,16 +47,14 @@ DEFAULT_SECTORS = [
 
 def get_api_key(api_key_arg: str | None) -> str:
     """Get FMP API key from argument or environment variable."""
-    if api_key_arg:
-        return api_key_arg
-    api_key = os.environ.get("FMP_API_KEY")
-    if not api_key:
+    api_key = api_key_arg if api_key_arg is not None else os.environ.get("FMP_API_KEY")
+    if not api_key or not api_key.strip():
         print(
             "Error: FMP API key required. Set FMP_API_KEY environment variable or use --api-key",
             file=sys.stderr,
         )
         sys.exit(1)
-    return api_key
+    return api_key.strip()
 
 
 def get_market_cap_tier(market_cap: float | None) -> str:
@@ -74,91 +71,75 @@ def get_market_cap_tier(market_cap: float | None) -> str:
         return "Small"
 
 
-def fetch_stock_list(api_key: str, sector: str | None = None) -> list[dict]:
-    """Fetch list of stocks, optionally filtered by sector.
-
-    Uses the /stable/company-screener endpoint (the v3 /stock-screener it
-    replaced 403s for keys issued after 2025-08-31), with a v3 fallback for
-    legacy keys. Both take the same params and return the same fields
-    (symbol, sector, marketCap, ...).
-    """
-    params: dict[str, Any] = {
-        "apikey": api_key,
-        "isActivelyTrading": "true",
-        "limit": 500,
-    }
-    if sector:
-        params["sector"] = sector
-    endpoints = [
-        "https://financialmodelingprep.com/stable/company-screener",
-        "https://financialmodelingprep.com/api/v3/stock-screener",
-    ]
-    for url in endpoints:
-        try:
-            response = requests.get(url, params=params, timeout=30)
-        except requests.RequestException as e:
-            print(f"Error fetching stock list ({url}): {type(e).__name__}", file=sys.stderr)
-            continue
-        if response.status_code != 200:
-            continue
-        try:
-            return response.json()
-        except ValueError:
-            continue
-    print("Error fetching stock list: all screener endpoints failed", file=sys.stderr)
-    return []
+def fetch_stock_list(
+    api_key: str, sector: str | None = None, *, client: FMPClient | None = None
+) -> list[dict]:
+    """Fetch the unchanged stock universe through the generated stable transport."""
+    with client_scope(api_key, client) as transport:
+        rows = transport.fetch_downtrend_screener(sector)
+    if rows is None or any(
+        not isinstance(row.get("symbol"), str) or not row["symbol"].strip() for row in rows
+    ):
+        print("Error fetching stock list: unusable screener response", file=sys.stderr)
+        return []
+    return rows
 
 
-# --- FMP endpoint fallback: stable (new users) -> v3 (legacy users) ---
-_FMP_HIST_ENDPOINTS = [
-    ("https://financialmodelingprep.com/stable/historical-price-eod/full", True),
-    ("https://financialmodelingprep.com/api/v3/historical-price-full", False),
-]
-_endpoint_failures: dict[str, int] = {}
-_BREAKER_THRESHOLD = 3
+def _valid_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def fetch_historical_prices(
-    api_key: str, symbol: str, from_date: str, to_date: str
+    api_key: str, symbol: str, from_date: str, to_date: str, *, client: FMPClient | None = None
 ) -> pd.DataFrame:
-    """Fetch historical daily prices for a symbol."""
-    for base_url, is_stable in _FMP_HIST_ENDPOINTS:
-        if _endpoint_failures.get(base_url, 0) >= _BREAKER_THRESHOLD:
-            continue
-        if is_stable:
-            url = base_url
-            params = {"symbol": symbol, "from": from_date, "to": to_date, "apikey": api_key}
-        else:
-            url = f"{base_url}/{symbol}"
-            params = {"from": from_date, "to": to_date, "apikey": api_key}
-        try:
-            response = requests.get(url, params=params, timeout=30)
-            if response.status_code != 200:
-                _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-                continue
-            data = response.json()
-            historical = None
-            if isinstance(data, dict) and "historical" in data:
-                historical = data["historical"]
-            elif isinstance(data, dict) and "historicalStockList" in data:
-                for entry in data["historicalStockList"]:
-                    if entry.get("symbol", "").replace("-", ".") == symbol.replace("-", "."):
-                        historical = entry.get("historical", [])
-                        break
-            if historical is not None:
-                _endpoint_failures[base_url] = 0
-                df = pd.DataFrame(historical)
-                if df.empty:
-                    return df
-                df["date"] = pd.to_datetime(df["date"])
-                df = df.sort_values("date").reset_index(drop=True)
-                return df[["date", "open", "high", "low", "close", "volume"]]
-            _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-        except requests.RequestException:
-            _endpoint_failures[base_url] = _endpoint_failures.get(base_url, 0) + 1
-            continue
-    print(f"Error fetching prices for {symbol}: all endpoints failed", file=sys.stderr)
-    return pd.DataFrame()
+    """Read the exact stable OHLCV range; malformed data is never synthesized."""
+    with client_scope(api_key, client) as transport:
+        rows = transport.fetch_downtrend_history(symbol, from_date, to_date)
+    if rows == []:
+        return pd.DataFrame()
+    try:
+        if rows is None:
+            raise ValueError("unusable history")
+        start, end = date.fromisoformat(from_date), date.fromisoformat(to_date)
+        if start > end:
+            raise ValueError("invalid range")
+        valid = []
+        for row in rows:
+            day = row.get("date")
+            if not isinstance(day, str) or date.fromisoformat(day).isoformat() != day:
+                raise ValueError("invalid date")
+            row_symbol = row.get("symbol", symbol)
+            if not isinstance(row_symbol, str) or row_symbol.replace("-", ".") != symbol.replace(
+                "-", "."
+            ):
+                raise ValueError("wrong symbol")
+            if not all(
+                _valid_number(row.get(field))
+                for field in ("open", "high", "low", "close", "volume")
+            ):
+                raise ValueError("invalid OHLCV")
+            if (
+                any(row[field] <= 0 for field in ("open", "high", "low", "close"))
+                or row["volume"] < 0
+            ):
+                raise ValueError("invalid OHLCV")
+            if from_date <= day <= to_date:
+                valid.append(row)
+        if not valid:
+            return pd.DataFrame()
+        df = pd.DataFrame(valid)
+        df["date"] = pd.to_datetime(df["date"])
+        return df.sort_values("date").reset_index(drop=True)[
+            ["date", "open", "high", "low", "close", "volume"]
+        ]
+    except (ValueError, TypeError, OverflowError):
+        print(f"Error fetching prices for {symbol}: unusable historical response", file=sys.stderr)
+        return pd.DataFrame()
 
 
 def detect_peaks_troughs(
@@ -264,9 +245,11 @@ def analyze_symbol(
     peak_window: int,
     trough_window: int,
     min_depth_pct: float,
+    *,
+    client: FMPClient | None = None,
 ) -> list[dict]:
     """Analyze downtrends for a single symbol."""
-    prices = fetch_historical_prices(api_key, symbol, from_date, to_date)
+    prices = fetch_historical_prices(api_key, symbol, from_date, to_date, client=client)
 
     if prices.empty or len(prices) < peak_window * 2 + 1:
         return []
@@ -474,37 +457,39 @@ def main() -> None:
 
     print(f"Analyzing downtrends from {from_date} to {to_date}")
 
-    # Get stock list
-    stocks = fetch_stock_list(api_key, args.sector)
-    if not stocks:
-        print("No stocks found matching criteria", file=sys.stderr)
-        sys.exit(1)
+    with client_scope(api_key) as client:
+        # Get stock list
+        stocks = fetch_stock_list(api_key, args.sector, client=client)
+        if not stocks:
+            print("No stocks found matching criteria", file=sys.stderr)
+            sys.exit(1)
 
-    stocks = stocks[: args.max_stocks]
-    print(f"Analyzing {len(stocks)} stocks...")
+        stocks = stocks[: args.max_stocks]
+        print(f"Analyzing {len(stocks)} stocks...")
 
-    # Analyze each stock
-    all_downtrends: list[dict] = []
-    for i, stock in enumerate(stocks):
-        symbol = stock.get("symbol", "")
-        sector = stock.get("sector", "Unknown")
-        market_cap = stock.get("marketCap")
+        # Analyze each stock
+        all_downtrends: list[dict] = []
+        for i, stock in enumerate(stocks):
+            symbol = stock.get("symbol", "")
+            sector = stock.get("sector", "Unknown")
+            market_cap = stock.get("marketCap")
 
-        if i % 10 == 0:
-            print(f"  Progress: {i}/{len(stocks)} stocks processed")
+            if i % 10 == 0:
+                print(f"  Progress: {i}/{len(stocks)} stocks processed")
 
-        downtrends = analyze_symbol(
-            api_key,
-            symbol,
-            sector,
-            market_cap,
-            from_date,
-            to_date,
-            args.peak_window,
-            args.trough_window,
-            args.min_depth,
-        )
-        all_downtrends.extend(downtrends)
+            downtrends = analyze_symbol(
+                api_key,
+                symbol,
+                sector,
+                market_cap,
+                from_date,
+                to_date,
+                args.peak_window,
+                args.trough_window,
+                args.min_depth,
+                client=client,
+            )
+            all_downtrends.extend(downtrends)
 
     print(f"Found {len(all_downtrends)} downtrend periods")
 
