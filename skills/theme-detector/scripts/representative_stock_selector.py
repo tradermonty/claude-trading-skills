@@ -14,6 +14,7 @@ import io
 import logging
 import math
 import time
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 try:
@@ -42,8 +43,8 @@ CAP_FILTER_MAP = {
 }
 
 FINVIZ_ELITE_EXPORT_URL = "https://elite.finviz.com/export/screener"
-# FINVIZ column ids: 1 Ticker, 6 Market Cap, 66 Change.
-FINVIZ_ELITE_EXPORT_COLUMNS = "1,6,66"
+# FINVIZ column ids: 1 Ticker, 6 Market Cap, 66 Change, 67 Volume.
+FINVIZ_ELITE_EXPORT_COLUMNS = "1,6,66,67"
 
 # FINVIZ Elite URL filter codes
 CAP_ELITE_MAP = {
@@ -218,6 +219,26 @@ def _parse_volume(value) -> Optional[int]:
     try:
         return int(float(s))
     except (ValueError, TypeError):
+        return None
+
+
+def _parse_elite_volume(value) -> Optional[int]:
+    """Reject negative/nonfinite CSV values before the generic integer conversion."""
+    if value is None:
+        return None
+    raw = str(value).strip().replace(",", "")
+    number_text = raw[:-1] if raw.upper().endswith("M") else raw
+    try:
+        number = Decimal(number_text)
+    except InvalidOperation:
+        return None
+    # Decimal retains negative fractions even when float conversion underflows,
+    # while genuine zero (including -0.0) remains a usable volume observation.
+    if not number.is_finite() or number < 0:
+        return None
+    try:
+        return _parse_volume(value)
+    except OverflowError:
         return None
 
 
@@ -397,7 +418,7 @@ class RepresentativeStockSelector:
         perf_code = "ta_perf2_4wdown" if is_bearish else "ta_perf2_4wup"
         filter_str = f"ind_{ind_code},{cap_code},sh_avgvol_o100,sh_price_o10,{perf_code}"
         # From 2026-12-07 FINVIZ requires type= on /export/screener and stops
-        # applying saved custom columns, so pin Ticker, Market Cap, Change (#799).
+        # applying saved custom columns; pin all ranking inputs, including Volume (#800).
         params = {
             "type": "stocks",
             "v": "151",
@@ -418,7 +439,9 @@ class RepresentativeStockSelector:
                 return []
 
             reader = csv.DictReader(io.StringIO(resp.text.lstrip("\ufeff")))
-            missing = [c for c in ("Market Cap", "Change") if c not in (reader.fieldnames or [])]
+            missing = [
+                c for c in ("Market Cap", "Change", "Volume") if c not in (reader.fieldnames or [])
+            ]
             if missing:
                 # Ranking would silently lose these factors; make the gap visible.
                 logger.warning(
@@ -427,17 +450,21 @@ class RepresentativeStockSelector:
                     ", ".join(missing),
                 )
             stocks: list[dict] = []
+            unavailable_volumes = 0
             for row in reader:
                 ticker = row.get("Ticker", "").strip()
                 if not ticker:
                     continue
+                volume = _parse_elite_volume(row.get("Volume"))
+                if volume is None:
+                    unavailable_volumes += 1
                 stocks.append(
                     {
                         "symbol": ticker,
                         "source": "finviz_elite",
                         "market_cap": _parse_elite_market_cap(row.get("Market Cap")),
                         "change": _parse_change(row.get("Change")),
-                        "volume": _parse_volume(row.get("Volume")),
+                        "volume": volume,
                         "matched_industries": [industry],
                         "reasons": [f"Elite screener: {industry}"],
                     }
@@ -445,6 +472,13 @@ class RepresentativeStockSelector:
                 if len(stocks) >= limit:
                     break
 
+            if unavailable_volumes and "Volume" not in missing:
+                logger.warning(
+                    "FINVIZ Elite export for %s has unavailable Volume for %d row(s); "
+                    "ranking weights are re-normalized for those rows",
+                    industry,
+                    unavailable_volumes,
+                )
             self._record_success("elite")
             return stocks
 

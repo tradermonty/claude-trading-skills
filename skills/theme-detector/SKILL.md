@@ -31,6 +31,15 @@ This skill detects and ranks trending market themes by analyzing cross-sector mo
 
 ---
 
+For dynamic representative-stock selection from FINVIZ Elite, request
+Ticker, Market Cap, Change and Volume (`c=1,6,66,67`). Elite Market Cap is in
+millions and is reported in dollars. Volume now contributes to the existing
+40% cap / 30% directional-change / 30% volume rank score, so representative
+order can change. Missing or unusable Volume is warned about and its weight is
+re-normalized over the remaining factors. These weights are separate from
+Theme Heat and stock-leadership scoring. See the methodology reference for a
+synthetic before/after example.
+
 ## When to Use This Skill
 
 **Explicit Triggers:**
