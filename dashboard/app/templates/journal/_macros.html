@@ -1,0 +1,58 @@
+{% macro pnl_cell(value) -%}
+  <td class="num {{ 'good' if value > 0 else 'bad' if value < 0 }}">{{ value | money }}</td>
+{%- endmacro %}
+
+{% macro stat(label, value) -%}
+  <div><span class="label">{{ label }}</span><span class="value">{{ value }}</span></div>
+{%- endmacro %}
+
+{% macro summary_stats(s) -%}
+  <div class="stats">
+    {{ stat('Net P&L', s.net | money) }}
+    {{ stat('Closed trades', s.count) }}
+    {{ stat('Win rate', s.win_rate | pct if s.win_rate is not none else '—') }}
+    {{ stat('Avg win', s.avg_win | money) }}
+    {{ stat('Avg loss', s.avg_loss | money) }}
+    {{ stat('Profit factor', '%.2f' | format(s.profit_factor) if s.profit_factor is not none else '—') }}
+    {{ stat('Expectancy', s.expectancy | money) }}
+  </div>
+{%- endmacro %}
+
+{# Instrument + first fill fields, shared by "New trade" and "Add fill". #}
+{% macro instrument_fields(form, prefix='') -%}
+  <label>Type
+    <select name="asset_class" data-asset>
+      {% for v, l in [('stock', 'Stock / ETF'), ('option', 'Option'), ('crypto', 'Crypto')] %}
+      <option value="{{ v }}" {{ 'selected' if form.asset_class == v }}>{{ l }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Symbol <input name="symbol" value="{{ form.symbol or '' }}" placeholder="AAPL, or BTC for crypto" autocapitalize="characters"></label>
+  <label class="option-only">Expiry <input type="date" name="expiry" value="{{ form.expiry or '' }}"></label>
+  <label class="option-only">Strike <input name="strike" inputmode="decimal" value="{{ form.strike or '' }}"></label>
+  <label class="option-only">Call or put
+    <select name="right"><option value="call" {{ 'selected' if form.right == 'call' }}>Call</option><option value="put" {{ 'selected' if form.right == 'put' }}>Put</option></select>
+  </label>
+  <label class="option-only">Multiplier <input name="multiplier" inputmode="decimal" value="{{ form.multiplier or '100' }}"></label>
+{%- endmacro %}
+
+{% macro fill_fields(form, now_value='') -%}
+  <label>Side
+    <select name="side"><option value="buy" {{ 'selected' if form.side == 'buy' }}>Buy</option><option value="sell" {{ 'selected' if form.side == 'sell' }}>Sell</option></select>
+  </label>
+  <label>Quantity <input name="quantity" inputmode="decimal" value="{{ form.quantity or '' }}" placeholder="shares, contracts or coins"></label>
+  <label>Price <input name="price" inputmode="decimal" value="{{ form.price or '' }}" placeholder="per share / contract / coin"></label>
+  <label>Fee <input name="fee" inputmode="decimal" value="{{ form.fee or '' }}" placeholder="0"></label>
+  <label>Fee paid in <input name="fee_currency" value="{{ form.fee_currency or 'USD' }}"></label>
+  <label>When (Eastern) <input type="datetime-local" name="executed_at" value="{{ form.executed_at or now_value }}"></label>
+{%- endmacro %}
+
+{% macro option_toggle() -%}
+<script>
+// Show option fields only when "Option" is picked. Without JavaScript they all show.
+document.querySelectorAll('[data-asset]').forEach(function (sel) {
+  var form = sel.closest('form');
+  function sync() { form.querySelectorAll('.option-only').forEach(function (el) { el.hidden = sel.value !== 'option'; }); }
+  sel.addEventListener('change', sync); sync();
+});
+</script>
+{%- endmacro %}

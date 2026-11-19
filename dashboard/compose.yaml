@@ -1,5 +1,6 @@
 # Trading dashboard. Run from this folder:  docker compose up -d --build
 # The repo's reports/ and state/ folders are mounted read-only into the web app.
+# trade-journal/ is the one writable folder: the journal's SQLite file and screenshots.
 
 services:
   dashboard:
@@ -11,11 +12,13 @@ services:
     environment:
       REPORTS_DIR: /data/reports
       STATE_DIR: /data/state
+      JOURNAL_DIR: /data/journal
     ports:
       - "8080:8080"
     volumes:
       - ../reports:/data/reports:ro
       - ../state:/data/state:ro
+      - ../trade-journal:/data/journal
     read_only: true
     tmpfs:
       - /tmp

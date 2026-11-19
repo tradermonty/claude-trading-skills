@@ -76,3 +76,36 @@ td.clip { white-space: normal; max-width: 420px; }
 .good { color: var(--good); }
 .bad { color: var(--bad); }
 details summary { cursor: pointer; font-weight: 600; }
+
+/* ---- trade journal ---- */
+.notice { border-radius: 8px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border); background: var(--panel); }
+.notice.good { border-color: var(--good); }
+.notice.bad { border-color: var(--bad); color: var(--bad); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.toolbar h2 { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-block; border: 1px solid var(--border); background: var(--chip); color: var(--text);
+  border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.btn:hover { text-decoration: none; border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger { color: var(--bad); }
+.btn.small { padding: 2px 8px; font-size: 12px; }
+form.inline { display: inline; }
+.form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+.form .wide { grid-column: 1 / -1; }
+.form label, .field { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+input, select, textarea { font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; }
+textarea { min-height: 72px; resize: vertical; }
+fieldset { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin: 0; }
+legend { font-size: 13px; color: var(--muted); padding: 0 4px; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.checks label { display: flex; gap: 6px; align-items: center; color: var(--text); font-size: 14px; }
+.checks input { width: auto; }
+.option-only[hidden] { display: none; }
+.shots { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.shots figure { margin: 0; display: grid; gap: 4px; }
+.shots img { width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+.status { font-size: 12px; font-weight: 600; border-radius: 6px; padding: 1px 8px; background: var(--chip); }
+.status.open { background: var(--paper-bg); color: var(--paper-text); }
+.stack { display: grid; gap: 16px; }

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "journal/_macros.html" import pnl_cell, summary_stats %}
+{% block title %}Journal · Trading Desk{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="toolbar">
+    <h2>Trade journal</h2>
+    <div class="actions">
+      <a class="btn primary" href="{{ url_for('journal.new_trade') }}">New trade</a>
+      <a class="btn" href="{{ url_for('journal.import_csv') }}">Import Robinhood CSV</a>
+      <a class="btn" href="{{ url_for('journal.stats') }}">Stats</a>
+      <a class="btn" href="{{ url_for('journal.export_csv') }}">Export CSV</a>
+    </div>
+  </div>
+  {{ summary_stats(summary) }}
+  <p class="small muted">{{ open_count }} open · {{ summary.count }} closed. P&amp;L is after fees and only counts closed trades.</p>
+</section>
+
+<section class="panel">
+  <form method="get" class="form">
+    <label>Status <select name="status">
+      <option value="">All</option>
+      <option value="open" {{ 'selected' if f.status == 'open' }}>Open</option>
+      <option value="closed" {{ 'selected' if f.status == 'closed' }}>Closed</option></select></label>
+    <label>Result <select name="result">
+      <option value="">All</option>
+      <option value="win" {{ 'selected' if f.result == 'win' }}>Wins</option>
+      <option value="loss" {{ 'selected' if f.result == 'loss' }}>Losses</option></select></label>
+    <label>Setup <select name="setup"><option value="">All</option>
+      {% for s in setups %}<option {{ 'selected' if f.setup == s }}>{{ s }}</option>{% endfor %}</select></label>
+    <label>Symbol <input name="symbol" value="{{ f.symbol }}"></label>
+    <div class="actions"><button class="btn" type="submit">Filter</button><a class="btn" href="{{ url_for('journal.index') }}">Clear</a></div>
+  </form>
+</section>
+
+<section class="panel">
+  {% if trades %}
+  <div class="scroll"><table>
+    <thead><tr><th>#</th><th>Symbol</th><th>Side</th><th>Status</th><th>Setup</th><th>Opened</th><th>Closed</th><th class="num">Net P&amp;L</th><th class="num">R</th><th>Grade</th><th>Mistakes</th></tr></thead>
+    <tbody>
+    {% for t in trades %}
+      <tr>
+        <td><a href="{{ url_for('journal.detail', trade_id=t.id) }}">{{ t.id }}</a></td>
+        <td><a href="{{ url_for('journal.detail', trade_id=t.id) }}">{{ t.symbol }}</a>{% if 'option' in t.asset_classes %} <span class="chip">option</span>{% endif %}{% if 'crypto' in t.asset_classes %} <span class="chip">crypto</span>{% endif %}</td>
+        <td>{{ t.direction }}</td>
+        <td><span class="status {{ t.status }}">{{ t.status }}</span></td>
+        <td class="small">{{ t.setup or '' }}</td>
+        <td class="small">{{ t.opened_at | when }}</td>
+        <td class="small">{{ t.closed_at | when if t.closed_at else '' }}</td>
+        {% if t.status == 'closed' %}{{ pnl_cell(t.net) }}{% else %}<td class="num muted">open</td>{% endif %}
+        <td class="num small">{{ t.r | rmult }}</td>
+        <td>{{ t.grade or '' }}</td>
+        <td class="small clip">{{ t.mistakes | join(', ') }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% elif total %}<p class="muted">No trades match those filters.</p>
+  {% else %}
+  <p>No trades yet. Two ways to start:</p>
+  <ul>
+    <li><a href="{{ url_for('journal.import_csv') }}">Import your Robinhood activity CSV</a>. Trades are grouped for you.</li>
+    <li><a href="{{ url_for('journal.new_trade') }}">Log a trade by hand</a>.</li>
+  </ul>
+  {% endif %}
+</section>
+{% endblock %}

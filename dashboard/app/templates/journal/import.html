@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Import · Trading Desk{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Import Robinhood activity CSV</h2>
+  <form method="post" enctype="multipart/form-data" class="form">
+    <label class="wide">CSV file <input type="file" name="csv" accept=".csv,text/csv"></label>
+    <div class="actions wide"><button class="btn primary" type="submit">Import</button></div>
+  </form>
+  <h3>Getting the file</h3>
+  <ol class="small">
+    <li>In the Robinhood app or website, open <b>Account</b> → <b>Reports and statements</b> → <b>Reports</b>.</li>
+    <li>Generate an account activity report for the dates you want, then download the CSV.</li>
+    <li>Upload it here. Importing the same file twice is safe: rows already in the journal are skipped.</li>
+  </ol>
+  <p class="small muted">Stocks, ETFs and options are imported. Dividends, deposits, interest and transfers are skipped.
+  Robinhood's file only has dates, not times, so imported fills show a date only.
+  Each option contract becomes its own trade; use <b>Merge</b> on a trade's page to join the legs of a spread.
+  Don't also type in a trade by hand that you're going to import, or it will be counted twice.</p>
+</section>
+
+{% if outcome %}
+<section class="panel">
+  <h2>Import result</h2>
+  <div class="stats">
+    <div><span class="label">Fills added</span><span class="value">{{ outcome.added }}</span></div>
+    <div><span class="label">New trades</span><span class="value">{{ outcome.new_trades }}</span></div>
+    <div><span class="label">Already imported</span><span class="value">{{ outcome.duplicates }}</span></div>
+  </div>
+  {% if outcome.skipped %}<p class="small">Skipped (not trades): {% for code, n in outcome.skipped | dictsort %}{{ code }} × {{ n }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+  {% for line in outcome.errors + outcome.notes %}<p class="small bad">{{ line }}</p>{% endfor %}
+  <p><a class="btn primary" href="{{ url_for('journal.index') }}">Go to the journal</a></p>
+</section>
+{% endif %}
+{% endblock %}

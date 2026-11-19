@@ -1,4 +1,8 @@
-"""Trading dashboard: a read-only Flask app over claude-trading-skills output."""
+"""Trading dashboard: a Flask app over claude-trading-skills output.
+
+Everything is read-only except the trade journal (/journal), which saves to its own
+SQLite file in JOURNAL_DIR. Nothing here can place, change or cancel orders.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +35,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         "STATE_DIR": Path(os.environ.get("STATE_DIR", "/data/state")),
         "TIMEZONE": os.environ.get("TZ_DISPLAY", "America/New_York"),
         "ALPACA": "env",
+        "JOURNAL_DIR": os.environ.get("JOURNAL_DIR") or None,
+        "MAX_CONTENT_LENGTH": 16 * 1024 * 1024,  # biggest upload: a CSV or a screenshot
     }
     cfg.update(config or {})
     if cfg["ALPACA"] == "env":
@@ -39,6 +45,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     cfg["STATE_DIR"] = Path(cfg["STATE_DIR"])
     app.config.update(cfg)
     tz = ZoneInfo(cfg["TIMEZONE"])
+
+    from .journal.views import bp as journal_bp
+
+    app.register_blueprint(journal_bp)
 
     def now_local() -> datetime:
         return datetime.now(tz)
@@ -161,6 +171,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             reports_dir=app.config["REPORTS_DIR"].is_dir(),
             state_dir=app.config["STATE_DIR"].is_dir(),
             alpaca=app.config["ALPACA"] is not None,
+            journal=bool(app.config["JOURNAL_DIR"]),
         )
 
     @app.errorhandler(404)

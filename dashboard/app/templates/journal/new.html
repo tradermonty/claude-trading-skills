@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "journal/_macros.html" import instrument_fields, fill_fields, option_toggle %}
+{% block title %}New trade · Trading Desk{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>New trade</h2>
+  <form method="post" class="form">
+    {{ instrument_fields(form) }}
+    {{ fill_fields(form) }}
+    <label>Setup <input name="setup" list="setups" value="{{ form.setup or '' }}" placeholder="breakout, pullback, earnings…"></label>
+    <datalist id="setups">{% for s in setups %}<option value="{{ s }}">{% endfor %}</datalist>
+    <label>Planned stop <input name="planned_stop" inputmode="decimal" value="{{ form.planned_stop or '' }}"></label>
+    <label>Planned target <input name="planned_target" inputmode="decimal" value="{{ form.planned_target or '' }}"></label>
+    <label>Account <input name="account" value="{{ form.account or 'Robinhood' }}" placeholder="a nickname, never the account number"></label>
+    <label class="wide">Why I took it <textarea name="reason">{{ form.reason or '' }}</textarea></label>
+    <label class="wide">Notes <textarea name="notes">{{ form.notes or '' }}</textarea></label>
+    <div class="actions wide"><button class="btn primary" type="submit">Save trade</button><a class="btn" href="{{ url_for('journal.index') }}">Cancel</a></div>
+  </form>
+  <p class="small muted">Leave "When" empty to use right now. Add the exit later as a second fill on the trade's page. Screenshots go on the trade's page too.</p>
+</section>
+{{ option_toggle() }}
+{% endblock %}

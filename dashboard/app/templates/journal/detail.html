@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "journal/_macros.html" import pnl_cell, instrument_fields, fill_fields, option_toggle %}
+{% block title %}{{ t.symbol }} #{{ t.id }} · Journal{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="toolbar">
+    <h2>{{ t.symbol }} · trade #{{ t.id }} <span class="status {{ t.status }}">{{ t.status }}</span> <span class="chip">{{ t.direction }}</span></h2>
+    <a class="btn" href="{{ url_for('journal.index') }}">All trades</a>
+  </div>
+  <div class="stats">
+    <div><span class="label">{{ 'Net P&L' if t.status == 'closed' else 'Realized so far' }}</span>
+      <span class="value {{ 'good' if t.net > 0 else 'bad' if t.net < 0 }}">{{ t.net | money }}</span></div>
+    <div><span class="label">Fees</span><span class="value">{{ t.fees | money }}</span></div>
+    <div><span class="label">R multiple</span><span class="value">{{ t.r | rmult }}</span></div>
+    <div><span class="label">Opened</span><span class="value small">{{ t.opened_at | when }}</span></div>
+    <div><span class="label">Closed</span><span class="value small">{{ t.closed_at | when if t.closed_at else '—' }}</span></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Fills</h2>
+  {% if t.fills %}
+  <div class="scroll"><table>
+    <thead><tr><th>When</th><th>Instrument</th><th>Side</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Fee</th><th>Source</th><th></th></tr></thead>
+    <tbody>
+    {% for f in t.fills %}
+      <tr>
+        <td class="small">{{ f.executed_at | when }}</td>
+        <td>{{ f.symbol }}{% if f.note %} <span class="chip">{{ f.note }}</span>{% endif %}</td>
+        <td>{{ f.side }}</td>
+        <td class="num">{{ f.quantity | qty }}</td>
+        <td class="num">{{ f.price | qty }}</td>
+        <td class="num">{{ f.fee | qty }}{% if f.fee_currency != 'USD' %} {{ f.fee_currency }}{% endif %}</td>
+        <td class="small muted">{{ f.source }}</td>
+        <td><form method="post" class="inline" action="{{ url_for('journal.delete_fill', trade_id=t.id, fill_id=f.id) }}"><button class="btn small danger" type="submit" title="Remove this fill">Remove</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if open_legs %}<p class="small">Still open: {% for sym, q in open_legs %}{{ sym }} {{ q | qty }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+  {% else %}<p class="muted">No fills.</p>{% endif %}
+
+  <details>
+    <summary>Add a fill (an exit, a scale-in, or another leg)</summary>
+    <form method="post" action="{{ url_for('journal.add_fill', trade_id=t.id) }}" class="form">
+      <label>Instrument <select name="instrument_id">
+        {% for f in instruments %}<option value="{{ f.instrument_id }}">{{ f.symbol }}</option>{% endfor %}
+        <option value="new">New instrument (another leg)…</option></select></label>
+      {{ fill_fields({}, now_local_input) }}
+      <fieldset class="wide"><legend>Only for a new instrument</legend><div class="form">{{ instrument_fields({}) }}</div></fieldset>
+      <div class="actions wide"><button class="btn primary" type="submit">Add fill</button></div>
+    </form>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>Plan and review</h2>
+  <form method="post" action="{{ url_for('journal.edit', trade_id=t.id) }}" class="form">
+    <label>Setup <input name="setup" list="setups" value="{{ t.setup or '' }}"></label>
+    <datalist id="setups">{% for s in setups %}<option value="{{ s }}">{% endfor %}</datalist>
+    <label>Planned stop <input name="planned_stop" inputmode="decimal" value="{{ t.planned_stop or '' }}"></label>
+    <label>Planned target <input name="planned_target" inputmode="decimal" value="{{ t.planned_target or '' }}"></label>
+    <label>Grade <select name="grade"><option value="">—</option>{% for gr in 'ABCDF' %}<option {{ 'selected' if t.grade == gr }}>{{ gr }}</option>{% endfor %}</select></label>
+    <label>Account <input name="account" value="{{ t.account or '' }}"></label>
+    <label>Thesis ID <input name="thesis_id" value="{{ t.thesis_id or '' }}" placeholder="th_… (optional)"></label>
+    <label class="wide">Why I took it <textarea name="reason">{{ t.reason or '' }}</textarea></label>
+    <fieldset class="wide"><legend>Mistakes</legend>
+      <div class="checks">{% for m in mistakes %}<label><input type="checkbox" name="mistakes" value="{{ m }}" {{ 'checked' if m in t.mistakes }}> {{ m }}</label>{% endfor %}</div>
+      <label class="field">Add a new mistake <input name="new_mistake" placeholder="e.g. Ignored the plan"></label>
+    </fieldset>
+    <label class="wide">What I learned <textarea name="lesson">{{ t.lesson or '' }}</textarea></label>
+    <label class="wide">Notes <textarea name="notes">{{ t.notes or '' }}</textarea></label>
+    <div class="actions wide"><button class="btn primary" type="submit">Save</button>
+      {% if t.thesis_id %}<a class="btn" href="{{ url_for('thesis_detail', thesis_id=t.thesis_id) }}">Open thesis</a>{% endif %}</div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Screenshots</h2>
+  {% if attachments %}
+  <div class="shots">
+    {% for a in attachments %}
+    <figure>
+      <a href="{{ url_for('journal.screenshot', attachment_id=a.id) }}" target="_blank" rel="noopener"><img src="{{ url_for('journal.screenshot', attachment_id=a.id) }}" alt="{{ a.original_name or 'Chart screenshot' }}" loading="lazy"></a>
+      <figcaption class="small muted">{{ a.original_name }}
+        <form method="post" class="inline" action="{{ url_for('journal.delete_attachment', trade_id=t.id, attachment_id=a.id) }}"><button class="btn small danger" type="submit">Remove</button></form></figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('journal.upload', trade_id=t.id) }}" class="form">
+    <label class="wide">Add chart images (PNG, JPG, GIF or WebP) <input type="file" name="screenshot" accept="image/*" multiple></label>
+    <div class="actions wide"><button class="btn" type="submit">Upload</button></div>
+  </form>
+</section>
+
+<section class="panel">
+  <details>
+    <summary>Merge or delete</summary>
+    <form method="post" action="{{ url_for('journal.merge', trade_id=t.id) }}" class="form">
+      <label class="wide">Merge another trade into this one (for example, the other leg of an option spread)
+        <select name="other_id"><option value="">Pick a trade…</option>
+          {% for o in others %}<option value="{{ o.id }}">#{{ o.id }} {{ o.symbol }}</option>{% endfor %}</select></label>
+      <div class="actions wide"><button class="btn" type="submit">Merge into #{{ t.id }}</button></div>
+    </form>
+    <form method="post" action="{{ url_for('journal.delete_trade', trade_id=t.id) }}" class="form">
+      <label class="checks wide"><label><input type="checkbox" name="confirm" value="yes"> Yes, delete this trade, its fills and screenshots</label></label>
+      <div class="actions wide"><button class="btn danger" type="submit">Delete trade</button></div>
+    </form>
+  </details>
+</section>
+{{ option_toggle() }}
+{% endblock %}
