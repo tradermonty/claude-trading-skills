@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}New thesis · Trading Desk{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="toolbar"><h2>New thesis</h2><a class="btn" href="{{ url_for('theses_page') }}">All theses</a></div>
+  <form method="post" class="form">
+    <label>Ticker <input name="ticker" value="{{ form.ticker or '' }}" autocapitalize="characters" required></label>
+    <label>Type
+      <select name="thesis_type">
+        {% for v, l in thesis_types %}<option value="{{ v }}" {{ 'selected' if form.thesis_type == v }}>{{ l }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Setup <input name="setup_type" value="{{ form.setup_type or '' }}" placeholder="e.g. VCP, flat base, pullback to 21 EMA"></label>
+    <label>Catalyst <input name="catalyst" value="{{ form.catalyst or '' }}" placeholder="earnings, product launch… (optional)"></label>
+    <label>Planned entry <input name="entry_price" inputmode="decimal" value="{{ form.entry_price or '' }}"></label>
+    <label>Stop <input name="stop_loss" inputmode="decimal" value="{{ form.stop_loss or '' }}"></label>
+    <label>Target <input name="take_profit" inputmode="decimal" value="{{ form.take_profit or '' }}"></label>
+    <label>Date <input type="date" name="entry_date" value="{{ form.entry_date or '' }}"></label>
+    <label class="wide">Thesis: why this trade should work, and what would prove it wrong
+      <textarea name="thesis_statement" required>{{ form.thesis_statement or '' }}</textarea></label>
+    <label class="wide">Notes <textarea name="notes">{{ form.notes or '' }}</textarea></label>
+    <div class="actions wide"><button class="btn primary" type="submit">Add thesis</button></div>
+  </form>
+  <p class="small muted">The thesis is saved by trader-memory-core, the same as the CLI's manual ingest, and starts as <b>IDEA</b>.
+  Long stock positions only: the stop has to be below the entry. To move it to ENTRY_READY or ACTIVE, use the
+  trader-memory-core CLI (<code>transition</code>, <code>open-position</code>) for now.</p>
+</section>
+{% endblock %}

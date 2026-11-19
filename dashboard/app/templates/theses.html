@@ -2,7 +2,7 @@
 {% block title %}Theses · Trading Desk{% endblock %}
 {% block content %}
 <section class="panel">
-  <h2>Theses</h2>
+  <div class="toolbar"><h2>Theses</h2><a class="btn primary" href="{{ url_for('thesis_form.new_thesis') }}">New thesis</a></div>
   <form method="get" class="filter">
     <a href="{{ url_for('theses_page') }}" class="chip {{ 'on' if not status }}">All</a>
     {% for s in statuses %}<a href="{{ url_for('theses_page', status=s) }}" class="chip {{ 'on' if s == status }}">{{ s | replace('_', ' ') | title }}</a>{% endfor %}

@@ -16,7 +16,6 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from flask import (
@@ -33,6 +32,7 @@ from flask import (
 )
 
 from ..charts import line_chart
+from ..security import same_origin
 from . import db, pnl, robinhood
 
 bp = Blueprint("journal", __name__, url_prefix="/journal")
@@ -84,21 +84,9 @@ def guard():
             text="The journal needs a writable JOURNAL_DIR folder. See the dashboard README, "
             "section 'Trade journal'.",
         ), 503
-    if request.method == "POST" and not _same_origin():
+    if request.method == "POST" and not same_origin():
         abort(403)
     return None
-
-
-def _same_origin() -> bool:
-    """Block forms posted from other sites (CSRF, cross-site request forgery).
-
-    Browsers send an Origin header on every form POST. It has to match the host
-    this page was served from. Caddy passes the Host header through unchanged.
-    """
-    source = request.headers.get("Origin") or request.headers.get("Referer")
-    if not source:
-        return False
-    return urlsplit(source).netloc == request.host
 
 
 def tz() -> ZoneInfo:
