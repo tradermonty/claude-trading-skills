@@ -23,7 +23,7 @@ Your balances, P&L and journal stay on the machine that runs the dashboard.
 
 ---
 
-## Set up on the homelab (CT 106 on juno)
+## Set up on the homelab (CT 104 on juno)
 
 These steps follow the same pattern as the Jarvis containers. Run them in order.
 Anything in `<angle brackets>` is a value you fill in.
@@ -31,7 +31,7 @@ Anything in `<angle brackets>` is a value you fill in.
 | Setting | Value |
 |---|---|
 | Node | juno |
-| CT ID | 106 (check it's free) |
+| CT ID | 104 (check it's free) |
 | Hostname | `trading` |
 | Template | Debian 13 standard, unprivileged, `nesting=1` (for Docker) |
 | CPU / RAM / swap / disk | 1 core / 1024 MB / 512 MB / 8 GB on `local-zfs` |
@@ -41,15 +41,15 @@ Anything in `<angle brackets>` is a value you fill in.
 ### 1. Create the container (shell on juno)
 
 ```bash
-pct list                     # 106 must not be listed
+pct list                     # 104 must not be listed
 pveam list local | grep debian-13
-pct create 106 local:vztmpl/<debian-13 template file> \
+pct create 104 local:vztmpl/<debian-13 template file> \
   --hostname trading --ostype debian --unprivileged 1 --features nesting=1 \
   --cores 1 --memory 1024 --swap 512 --rootfs local-zfs:8 \
   --net0 name=eth0,bridge=vmbr0,ip=192.168.40.26/24,gw=192.168.40.1 \
   --nameserver 192.168.40.1 --onboot 1
-pct start 106
-pct enter 106
+pct start 104
+pct enter 104
 ```
 
 ### 2. Inside the container: basics, time zone and Docker
@@ -208,5 +208,5 @@ python -m pytest
 - **"Couldn't reach Alpaca":** check the keys and `ALPACA_ENV` in `.env`. Paper keys need `paper`, live keys need `live`.
 - **Refresh fails with "Permission denied" on reports/:** run `chown -R 1000:1000 /opt/claude-trading-skills/reports`.
 - **`https://trading.lab.silkytech.org` hangs:** the Caddy upstream must be plain `192.168.40.26:8080`, not `https://...` with `tls_insecure_skip_verify` (that's the Proxmox pattern). Test on CT 102 with `curl -sk --resolve trading.lab.silkytech.org:443:127.0.0.1 https://trading.lab.silkytech.org/healthz`.
-- **The name doesn't load but `http://192.168.40.26:8080` does:** the Unbound override must point at Caddy (`192.168.40.22`), not at CT 106. Check with `resolvectl query trading.lab.silkytech.org` on the laptop, then `resolvectl flush-caches`.
+- **The name doesn't load but `http://192.168.40.26:8080` does:** the Unbound override must point at Caddy (`192.168.40.22`), not at CT 104. Check with `resolvectl query trading.lab.silkytech.org` on the laptop, then `resolvectl flush-caches`.
 - **Theses missing:** the dashboard reads every `th_*.yaml` under `state/`. Files that fail to parse are listed on the Theses page.
