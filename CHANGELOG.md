@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- trader-memory-core: migrate optional daily-price evidence to the generated FMP transport with stable-only exact-range requests, shared redaction/retry behavior and explicit standalone requests dependency. Reject ambiguous price evidence; keep CLI/manual postmortems offline with null MAE/MFE unless a Python caller supplies the adapter. Prefer provider adjClose when supplied without claiming raw close is adjusted (Refs #495).
+
 - position-sizer: size ATR positions and report risk using the displayed cent-rounded stop. Reject derived stops at or below zero or at or above the entry price (#813).
 - us-undervalued-growth-screener: the full-universe snapshot guide now says that every attempt, including the one retry after a 429, counts against `max_api_calls`, so a rate-limited symbol can cost up to four calls (stable and v3, each retried once). A transport test pins that figure to the client (#802).
 - weekly-performance-digest: exit 1 with an error when `--from-date` is later than `--to-date` (or an unparsable date is given) instead of reporting 0 trades and exiting 0 (Refs #667).

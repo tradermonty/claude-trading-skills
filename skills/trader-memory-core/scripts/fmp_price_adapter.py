@@ -1,104 +1,109 @@
-"""Thin FMP price adapter for MAE/MFE calculation.
+"""Daily price evidence via this skill's generated FMP transport.
 
-Single-purpose: fetch daily close prices.  Does not reuse existing
-fmp_client modules (which vary in return shape across skills).
+The network client is loaded lazily; manual/keyless thesis operations stay offline.
 """
 
 from __future__ import annotations
 
-import json
-import logging
+import importlib.util
+import math
 import os
+import re
+import sys
 import urllib.error
-import urllib.request
+from datetime import date
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
 
-_FMP_HIST_ENDPOINTS = [
-    ("https://financialmodelingprep.com/stable/historical-price-eod/full", True),
-    ("https://financialmodelingprep.com/api/v3/historical-price-full", False),
-]
+def _client_class():
+    """Load our adjacent generated client, never another skill's fmp_client."""
+    name = "_trader_memory_core_generated_fmp"
+    path = Path(__file__).resolve().with_name("fmp_client.py")
+    module = sys.modules.get(name)
+    if module is None or Path(module.__file__).resolve() != path:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+    return module.FMPClient
+
+
+def _date(value):
+    try:
+        parsed = date.fromisoformat(value)
+        if parsed.isoformat() == value:
+            return parsed
+    except (TypeError, ValueError):
+        pass
+    raise ValueError("Invalid FMP price date") from None
 
 
 class FMPPriceAdapter:
-    """Fetch daily adjusted close prices from FMP API."""
+    """Fetch daily closes (adjClose when supplied, otherwise provider close)."""
 
     def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.environ.get("FMP_API_KEY")
+        self.api_key = (api_key or os.environ.get("FMP_API_KEY") or "").strip()
         if not self.api_key:
             raise ValueError("FMP API key required. Set FMP_API_KEY env var or pass api_key.")
 
     def get_daily_closes(self, ticker: str, from_date: str, to_date: str) -> list[dict]:
-        """Return daily close prices, oldest first.
+        """Return validated in-range daily closes, oldest first.
 
-        Args:
-            ticker: Stock symbol (e.g., "AAPL").
-            from_date: Start date "YYYY-MM-DD".
-            to_date: End date "YYYY-MM-DD".
-
-        Returns:
-            List of {"date": "YYYY-MM-DD", "close": float}, oldest first.
-
-        Raises:
-            urllib.error.URLError: On network/API errors (only if all endpoints fail).
-            ValueError: On invalid response.
+        Use stable full history with the exact inclusive requested range. Empty
+        history returns []; transport failures raise a fixed-message URLError;
+        malformed evidence raises ValueError. No legacy endpoint fallback.
         """
-        last_error = None
-        for base_url, is_stable in _FMP_HIST_ENDPOINTS:
-            if is_stable:
-                url = f"{base_url}?symbol={ticker}&from={from_date}&to={to_date}"
-            else:
-                url = f"{base_url}/{ticker}?from={from_date}&to={to_date}"
-            req = urllib.request.Request(url, headers={"apikey": self.api_key})
+        start, end = _date(from_date), _date(to_date)
+        if start > end:
+            raise ValueError("Invalid FMP price date range")
+        if not isinstance(ticker, str) or not re.fullmatch(
+            r"[A-Za-z0-9^][A-Za-z0-9.^=/:-]*", ticker
+        ):
+            raise ValueError("Invalid FMP price symbol")
+        client = _client_class()(api_key=self.api_key)
+        try:
+            data = client.fetch_memory_history(ticker, from_date, to_date)
+        finally:
+            client.session.close()
+        if data is None and client._last_error is not None:
+            # The transport retains its shared redacted diagnostics. Do not
+            # propagate its response/exception text into the calling review log.
+            raise urllib.error.URLError("FMP price request failed") from None
+        if not isinstance(data, list):
+            raise ValueError("Invalid FMP price data")
 
-            try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    data = json.loads(resp.read().decode())
-            except urllib.error.HTTPError as e:
-                last_error = e
-                logger.debug("FMP endpoint %s failed for %s: %s", base_url, ticker, e)
-                continue
-
-            historical = self._extract_historical(data, ticker)
-            if not historical:
-                continue
-
-            # FMP returns newest first; reverse to oldest first.
-            # Stable EOD endpoint no longer exposes `adjClose`; fall back to `close`.
-            # Patched 2026-05-22 (stable shape).
-            result = [
-                {"date": item["date"], "close": item.get("adjClose") or item["close"]}
-                for item in reversed(historical)
-                if "date" in item and ("adjClose" in item or "close" in item)
-            ]
-            return result
-
-        if last_error:
-            logger.error("FMP API error for %s: %s", ticker, last_error)
-            raise last_error
-
-        logger.warning("No price data returned for %s (%s to %s)", ticker, from_date, to_date)
-        return []
-
-    @staticmethod
-    def _extract_historical(data, ticker: str) -> list[dict]:
-        """Extract historical array from FMP response (stable list / v3 dict)."""
-        # New stable EOD endpoint returns a flat list of dicts directly.
-        # Patched 2026-05-22 (stable shape).
-        if isinstance(data, list):
-            norm = ticker.replace("-", ".")
-            return [
-                row
-                for row in data
-                if isinstance(row, dict) and row.get("symbol", ticker).replace("-", ".") == norm
-            ]
-        if not isinstance(data, dict):
-            return []
-        if "historical" in data:
-            return data["historical"]
-        if "historicalStockList" in data:
-            norm = ticker.replace("-", ".")
-            for entry in data["historicalStockList"]:
-                if entry.get("symbol", "").replace("-", ".") == norm:
-                    return entry.get("historical", [])
-        return []
+        result = []
+        seen = set()
+        symbol = ticker.upper().replace("-", ".")
+        try:
+            for item in data:
+                if not isinstance(item, dict):
+                    raise ValueError
+                observed_symbol = item.get("symbol", ticker)
+                if (
+                    not isinstance(observed_symbol, str)
+                    or observed_symbol.upper().replace("-", ".") != symbol
+                ):
+                    raise ValueError
+                day = _date(item.get("date"))
+                if not start <= day <= end:
+                    continue
+                close = item["adjClose"] if "adjClose" in item else item["close"]
+                if (
+                    isinstance(close, bool)
+                    or not isinstance(close, (int, float))
+                    or not math.isfinite(close)
+                    or close <= 0
+                ):
+                    raise ValueError
+                if day in seen:
+                    raise ValueError
+                seen.add(day)
+                result.append({"date": day.isoformat(), "close": float(close)})
+        except (KeyError, TypeError, ValueError, OverflowError):
+            raise ValueError("Invalid FMP price data") from None
+        return sorted(result, key=lambda item: item["date"])
