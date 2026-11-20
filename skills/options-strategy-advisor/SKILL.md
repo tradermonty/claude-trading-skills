@@ -175,6 +175,28 @@ Read `references/black_scholes_methodology.md` (section "Step 4 detail: Calculat
 
 **Objective:** Calculate profit/loss at various stock prices at expiration.
 
+**Implementation:** Use `scripts/strategy_simulator.py`. It has a builder for every supported
+strategy (`bull_call_spread`, `iron_condor`, `covered_call`, `calendar_spread`, ...) that prices
+legs with `OptionPricer`, or build legs by hand with `OptionLeg` when the user supplies fill
+prices. `Strategy.metrics()` returns max profit/loss (unlimited where applicable) and exact
+breakevens; `probability_of_profit()` gives a lognormal estimate; `position_greeks()` aggregates
+Greeks; `value_at()` values the position before expiration (IV crush, calendar and diagonal
+spreads); `generate_pnl_diagram()` draws the Step 6 diagram.
+
+```python
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path("scripts").resolve()))
+from strategy_simulator import bull_call_spread, generate_pnl_diagram
+
+# Fictional inputs; T is years, r/sigma are annual decimals.
+spread = bull_call_spread(S=180.0, K_long=180.0, K_short=185.0, T=30 / 365,
+                          r=0.05, sigma=0.25, contracts=10)
+print(spread.summary(S=180.0, r=0.05, sigma=0.25))
+print(generate_pnl_diagram(spread, current_price=180.0))
+```
+
 **Method:**
 
 Generate stock price range (e.g., ±30% from current price):
@@ -317,6 +339,7 @@ Read `references/common_use_cases.md` when planning the workflow for a typical r
 
 **Scripts:**
 - `scripts/black_scholes.py` - Pricing engine and Greeks
+- `scripts/strategy_simulator.py` - Strategy builders, P/L metrics, breakevens, probability of profit, position Greeks, pre-expiration valuation and ASCII P/L diagram
 
 **External Resources:**
 - Options Playbook: https://www.optionsplaybook.com/
