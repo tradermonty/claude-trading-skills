@@ -75,7 +75,7 @@ IDEA / ENTRY_READY / ACTIVE / PARTIALLY_CLOSED → INVALIDATED
 - **FMP API key:** Optional -- only needed for MAE/MFE calculation in postmortem reports. Core features (register, transition, close, review) work completely offline
 - **State directory:** `state/theses/` is created automatically on first use
 
-> FMP API is only used for fetching daily price history to compute Maximum Adverse Excursion (MAE) and Maximum Favorable Excursion (MFE) during postmortem. If no API key is set, postmortem reports are still generated with all other fields.
+> FMP API is only used for fetching daily price history to compute Maximum Adverse Excursion (MAE) and Maximum Favorable Excursion (MFE) during postmortem. The CLI does not fetch prices automatically. Python callers must explicitly supply a price adapter for MAE/MFE; without one, reports retain all other fields.
 {: .tip }
 
 ---
@@ -325,7 +325,11 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
   --state-dir state/theses/ postmortem th_aapl_div_20260314_a3f1
 ```
 
-The postmortem includes P&L, holding days, and (with FMP API key) MAE/MFE metrics. Output is saved to `state/journal/pm_{thesis_id}.md`.
+The postmortem includes P&L and holding days. Output is saved to `state/journal/pm_{thesis_id}.md`.
+
+The CLI postmortem command stays offline and leaves MAE/MFE null. For optional price-backed metrics, Python callers explicitly pass `FMPPriceAdapter()` as `price_adapter` to `thesis_review.generate_postmortem(...)` (or `compute_mae_mfe`). The adapter reads `FMP_API_KEY`, or accepts an explicit `api_key`, and uses this skill's generated client for the exact inclusive date range on FMP's stable full-history endpoint; there is no v3 fallback. Install `requirements.txt` first, including `requests`. Shared transport rules apply: 30-second request timeout, 0.3-second minimum interval within a client, one 60-second retry on HTTP 429, and redacted failure diagnostics. Each adapter call closes its owned session.
+
+Prices are sorted oldest first and clipped to the requested dates. The adapter prefers a supplied `adjClose`, otherwise uses `close`; it does not assert that a provider `close` is adjusted. Invalid dates, duplicate in-range dates, mismatched symbols, and nonnumeric/nonfinite/nonpositive prices are rejected. Empty history or failed/invalid evidence leaves MAE/MFE null in the review; it is not a zero-excursion result.
 
 Record the lessons learned on a CLOSED or INVALIDATED thesis, then re-run the postmortem to refresh the journal report:
 
