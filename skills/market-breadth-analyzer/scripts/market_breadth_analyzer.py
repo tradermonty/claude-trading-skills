@@ -68,8 +68,8 @@ def parse_arguments():
     )
     parser.add_argument(
         "--output-dir",
-        default=".",
-        help="Output directory for reports (default: current directory)",
+        default="reports",
+        help="Output directory for reports (default: reports/)",
     )
 
     parser.add_argument("--run-id", default=None, help="Shared workflow run identifier")
@@ -202,6 +202,7 @@ def main():
     # Step 3.5: Score History & Trend
     # ========================================================================
     data_date = detail_rows[-1]["Date"]
+    os.makedirs(args.output_dir, exist_ok=True)
     history_file = os.path.join(args.output_dir, "market_breadth_history.json")
     updated_history = append_history(
         history_file,

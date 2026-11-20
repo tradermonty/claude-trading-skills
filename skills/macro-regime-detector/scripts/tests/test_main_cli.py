@@ -8,10 +8,13 @@ import macro_regime_detector
 import pytest
 
 
-def test_output_dir_created_when_missing(tmp_path, monkeypatch):
-    """--output-dir に存在しないパスを渡しても FileNotFoundError が出ないこと"""
-    new_dir = tmp_path / "nonexistent"
+@pytest.mark.parametrize("use_default", [False, True])
+def test_output_dir_created_when_missing(tmp_path, monkeypatch, use_default):
+    """Both default and explicit missing output directories are created."""
+    new_dir = tmp_path / ("reports" if use_default else "nonexistent")
     assert not new_dir.exists()
+    if use_default:
+        monkeypatch.chdir(tmp_path)
 
     _fake_comp = {
         "score": 10,
@@ -27,7 +30,8 @@ def test_output_dir_created_when_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["macro_regime_detector.py", "--api-key", "FAKE_KEY", "--output-dir", str(new_dir)],
+        ["macro_regime_detector.py", "--api-key", "FAKE_KEY"]
+        + ([] if use_default else ["--output-dir", str(new_dir)]),
     )
 
     mock_client = MagicMock()

@@ -376,7 +376,7 @@ python3 skills/market-breadth-analyzer/scripts/market_breadth_analyzer.py [OPTIO
 |-----------|------|-----------|
 | `--detail-url` | 詳細CSVのURL | TraderMontyのGitHub Pages URL |
 | `--summary-url` | サマリーCSVのURL | TraderMontyのGitHub Pages URL |
-| `--output-dir` | レポート出力先ディレクトリ | カレントディレクトリ |
+| `--output-dir` | レポート出力先ディレクトリ | `reports/` |
 
 ### 主要な閾値
 
