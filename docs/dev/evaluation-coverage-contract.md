@@ -2,7 +2,8 @@
 
 Schema version **1.0**, alongside [data provenance](data-provenance-contract.md).
 Source: issue #711. Shared implementation: `scripts/evaluation_coverage.py`;
-identical standalone copies ship in VCP Screener and Exposure Coach.
+identical standalone copies ship in VCP Screener, Exposure Coach and
+Downtrend Duration Analyzer.
 
 ```json
 {
@@ -54,6 +55,18 @@ JSON carries the block at the top level. Markdown and stdout display evaluated /
 total beside the result; incomplete zero-candidate reports say **undetermined**.
 Candidate lists in partial reports describe only evaluated members. Exit zero
 means reports were generated, not that evaluation was complete.
+
+## Second producer: downtrend duration analysis
+
+The universe is the screener rows kept after `--max-stocks`. A symbol is
+evaluated when its history has at least `2 × peak window + 1` usable bars. An
+empty or shorter history is `insufficient_history`: no bars is no evidence, not
+a negative result. Failures are `rate_limited` (HTTP 429 after its one retry),
+`plan_gated` (HTTP 402), `provider_error` (other HTTP statuses and transport
+errors) and `invalid_data` (malformed rows). A 429, 401, 402 or 403 stops the
+run at that symbol; the rest are `not_requested`. With nothing evaluated by
+then, the run exits 1 and writes no report (#821, #822). Duration statistics
+describe only evaluated symbols.
 
 ## Consumers and replay
 

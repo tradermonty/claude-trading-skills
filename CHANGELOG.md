@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- downtrend-duration-analyzer: produce the shared `evaluation_coverage` block (#711) and stop at the symbol that hits the daily HTTP 429 limit or an HTTP 401/402/403 on history, instead of logging one error per remaining symbol and exiting 0. A run stopped before any symbol was evaluated exits 1 without a report; otherwise the report is written with verdict `partial` and the rest counted as `not_requested`. Empty or short histories no longer count as evaluated (`insufficient_history`), other failures are counted by reason and the run continues, and per-symbol errors name the real reason (for example `HTTP 429 (daily rate limit)`) instead of "unusable historical response" (#821, #822).
 - position-sizer: size ATR positions and report risk using the displayed cent-rounded stop. Reject derived stops at or below zero or at or above the entry price (#813).
 - us-undervalued-growth-screener: the full-universe snapshot guide now says that every attempt, including the one retry after a 429, counts against `max_api_calls`, so a rate-limited symbol can cost up to four calls (stable and v3, each retried once). A transport test pins that figure to the client (#802).
 - weekly-performance-digest: exit 1 with an error when `--from-date` is later than `--to-date` (or an unparsable date is given) instead of reporting 0 trades and exiting 0 (Refs #667).
