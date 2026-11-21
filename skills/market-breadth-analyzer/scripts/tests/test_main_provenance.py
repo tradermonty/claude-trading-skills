@@ -9,8 +9,10 @@ import market_breadth_analyzer as analyzer
 import pytest
 
 
-def run_main(output, rows, run_id=None, detail_url=None):
-    argv = ["market_breadth_analyzer.py", "--output-dir", str(output)]
+def run_main(output, rows, run_id=None, detail_url=None, default_output=False):
+    argv = ["market_breadth_analyzer.py"]
+    if not default_output:
+        argv += ["--output-dir", str(output)]
     if detail_url is not None:
         argv += ["--detail-url", detail_url]
     if run_id is not None:
@@ -30,6 +32,26 @@ def run_main(output, rows, run_id=None, detail_url=None):
     assert head.call_args.kwargs == {"timeout": 10, "allow_redirects": True}
     report = next(p for p in output.glob("market_breadth_*.json") if "history" not in p.name)
     return json.loads(report.read_text())["data_provenance"]
+
+
+def test_default_output_writes_reports_and_history(tmp_path, monkeypatch, make_rows):
+    monkeypatch.chdir(tmp_path)
+    output = tmp_path / "reports"
+
+    run_main(output, make_rows(25), default_output=True)
+
+    assert (output / "market_breadth_history.json").exists()
+    assert list(output.glob("market_breadth_*.md"))
+    assert not list(tmp_path.glob("market_breadth_*.json"))
+
+
+def test_new_explicit_output_directory_keeps_history_with_reports(tmp_path, make_rows):
+    output = tmp_path / "nested" / "reports"
+
+    run_main(output, make_rows(25))
+
+    assert (output / "market_breadth_history.json").exists()
+    assert list(output.glob("market_breadth_*.md"))
 
 
 def test_main_records_primary_date_and_run(tmp_path, make_rows):

@@ -63,12 +63,19 @@ ftd-detector reports Follow-Through Day quality as `quality_score.total_score`
 (0-100). The score is used directly, with no inversion: higher means stronger
 technical confirmation of a rally attempt.
 
+The following are the base bands before lifecycle overrides:
+
 | `quality_score.total_score` | ftd-detector `signal` |
 |-----------------------------|-----------------------|
 | 80-100 | Strong FTD |
 | 60-79 | Moderate FTD |
 | 40-59 | Weak FTD |
 | < 40 | Very weak FTD |
+
+When `ftd_invalidation.warning` is true, the detector caps quality at 59 and
+replaces the base-band signal with `FTD under pressure`. This FTD-day-low
+warning weakens confirmation without invalidating the rally. Read the emitted
+signal and lifecycle metadata rather than reconstructing the signal from a band.
 
 A score of 0 does not say what happened. Read `quality_score.signal`, the
 market state and `quality_score.data_gap` to tell the cases apart:

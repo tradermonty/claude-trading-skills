@@ -106,3 +106,37 @@ def test_documented_zero_signals_are_what_ftd_detector_emits() -> None:
     producer = FTD_PRODUCER.read_text(encoding="utf-8")
     for signal in zero_cases:
         assert f'"{signal}"' in producer, signal
+
+
+@pytest.mark.parametrize(
+    "name,text", [t for t in TEXTS if t[0].endswith(FRAMEWORK)], ids=["source", "package"]
+)
+def test_framework_explains_lifecycle_warning_override(monkeypatch, name, text):
+    monkeypatch.syspath_prepend(str(FTD_PRODUCER.parent))
+    spec = importlib.util.spec_from_file_location("issue832_post_ftd_monitor", FTD_PRODUCER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    state = {
+        "sp500": {
+            "ftd": {
+                "ftd_detected": True,
+                "ftd_day_number": 4,
+                "gain_pct": 2.0,
+                "volume_above_avg": True,
+            }
+        },
+        "nasdaq": {},
+        "dual_confirmation": False,
+        "post_ftd_distribution": {"days_monitored": 5, "distribution_count": 0},
+        "ftd_invalidation": {"invalidated": False, "warning": False},
+    }
+    healthy = module.calculate_ftd_quality_score(state)
+    assert healthy["total_score"] == 95 and healthy["signal"] == "Strong FTD"
+    state["ftd_invalidation"]["warning"] = True
+    warning = module.calculate_ftd_quality_score(state)
+    assert warning["total_score"] == 59 and warning["signal"] == "FTD under pressure"
+    section = _ftd_section(text)
+    assert "base bands" in section
+    assert "ftd_invalidation.warning" in section
+    assert "FTD under pressure" in section
+    assert re.search(r"cap[^\n]*59", section)
