@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- ftd-detector, macro-regime-detector, and market-breadth-analyzer: save reports under `reports/` by default and create the output directory before writing (Refs #667).
+
 - Provider CSV canary: report an uncoercible integer cell as fatal `parse_error` instead of aborting the entire run. Discard partial rows, continue later probes and write the complete report without exposing cell contents or weakening Python's integer conversion limit (Refs #332).
 
 - trader-memory-core: migrate optional daily-price evidence to the generated FMP transport with stable-only exact-range requests, shared redaction/retry behavior and explicit standalone requests dependency. Reject ambiguous price evidence; keep CLI/manual postmortems offline with null MAE/MFE unless a Python caller supplies the adapter. Prefer provider adjClose when supplied without claiming raw close is adjusted (Refs #495).

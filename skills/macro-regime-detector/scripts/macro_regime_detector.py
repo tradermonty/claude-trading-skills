@@ -103,8 +103,8 @@ def parse_arguments():
     )
     parser.add_argument(
         "--output-dir",
-        default=".",
-        help="Output directory for reports (default: current directory)",
+        default="reports",
+        help="Output directory for reports (default: reports/)",
     )
     parser.add_argument(
         "--days",

@@ -106,7 +106,7 @@ python3 skills/macro-regime-detector/scripts/macro_regime_detector.py
 
 ## 8. 出力
 
-`--output-dir`（デフォルト: カレントディレクトリ）に2ファイルを保存:
+`--output-dir`（デフォルト: `reports/`）に2ファイルを保存:
 
 - `macro_regime_YYYY-MM-DD_HHMMSS.json` — プログラム処理向け構造化データ
 - `macro_regime_YYYY-MM-DD_HHMMSS.md` — 可読レポート（以下を含む）:
@@ -136,7 +136,7 @@ python3 macro_regime_detector.py [options]
 
 オプション:
   --api-key KEY       FMP APIキー（デフォルト: $FMP_API_KEY）
-  --output-dir DIR    出力ディレクトリ（デフォルト: カレントディレクトリ）
+  --output-dir DIR    出力ディレクトリ（デフォルト: reports/）
   --days N            取得する履歴日数（デフォルト: 600）
 ```
 

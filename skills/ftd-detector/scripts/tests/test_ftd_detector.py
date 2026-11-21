@@ -68,6 +68,22 @@ def read_reports(tmp_path):
     return json.loads(json_paths[0].read_text()), md_paths[0].read_text()
 
 
+def test_default_output_writes_reports_directory(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    history = market_history()
+    client = FixtureClient(
+        {"^GSPC": {"historical": history}, "^IXIC": {"historical": history}},
+        {"^GSPC": [{"price": 101.25}], "^IXIC": [{"price": 101.25}]},
+    )
+    monkeypatch.setattr(ftd_detector, "FMPClient", lambda api_key: client)
+    monkeypatch.setattr("sys.argv", ["ftd_detector.py", "--api-key", "fixture-only"])
+
+    ftd_detector.main()
+
+    read_reports(tmp_path / "reports")
+    assert not list(tmp_path.glob("ftd_detector_*.json"))
+
+
 @pytest.mark.parametrize(
     "scenario,expected_state,expected_score",
     [

@@ -248,7 +248,7 @@ After execution, the script produces two files and prints a summary to the conso
 |----------|----------|---------|-------------|
 | `--detail-url` | No | TraderMonty GitHub Pages URL | URL for the detail CSV (market_breadth_data.csv) |
 | `--summary-url` | No | TraderMonty GitHub Pages URL | URL for the summary CSV (market_breadth_summary.csv) |
-| `--output-dir` | No | `.` (current directory) | Output directory for JSON and Markdown reports |
+| `--output-dir` | No | `reports/` | Output directory for JSON and Markdown reports |
 
 ### 6-Component Scoring Summary
 
