@@ -406,3 +406,19 @@ SKILLS["downtrend-duration-analyzer"] = SkillConfig(
     class_constants=(),
     extensions=("downtrend",),
 )
+
+# ---- Issue #495 Batch D: trader-memory-core daily close evidence ----
+SKILLS["trader-memory-core"] = SkillConfig(
+    skill="trader-memory-core",
+    title="FMP API Client for Trader Memory Core",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=365,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Exact-range raw price evidence for optional MAE/MFE",),
+    class_constants=(),
+    extensions=("memory_history",),
+)

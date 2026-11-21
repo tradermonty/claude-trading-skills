@@ -242,7 +242,16 @@ class TestMain:
         assert data["by_sector"]["Energy"]["count"] == 2
         assert data["by_market_cap"]["Mega"]["count"] == 1
         assert {d["symbol"] for d in data["downtrends"]} == {"AAA", "BBB", "CCC"}
+        assert data["evaluation_coverage"] == {
+            "schema_version": "1.0",
+            "universe_size": 3,
+            "evaluated": 3,
+            "not_evaluated": 0,
+            "not_evaluated_reasons": {},
+            "verdict": "complete",
+        }
         assert "| Total Downtrends | 3 |" in mds[0].read_text()
+        assert "**Evaluation coverage**: 3/3 evaluated (complete)\n" in mds[0].read_text()
         stdout = capsys.readouterr().out
         assert "Analyzing 3 stocks..." in stdout
         assert "Found 3 downtrend periods" in stdout
@@ -282,6 +291,9 @@ class TestMain:
         data = json.loads(next((tmp_path / "out").glob("*.json")).read_text())
         assert data["summary"]["total_downtrends"] == 0
         assert data["downtrends"] == []
+        # Empty histories are not evidence of "no downtrends" (#711 contract).
+        assert data["evaluation_coverage"]["verdict"] == "not_evaluable"
+        assert data["evaluation_coverage"]["not_evaluated_reasons"] == {"insufficient_history": 3}
 
     def test_missing_api_key_exits(self, monkeypatch, capsys):
         monkeypatch.delenv("FMP_API_KEY", raising=False)
