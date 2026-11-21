@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import statistics
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -26,11 +27,13 @@ from typing import Any
 
 from dividend_basis import _is_explicit_special, analyze_dividends
 from thresholds import (
+    MIN_REGULAR_PAYS,
     REGULAR_YIELD_FETCH_BUFFER_DAYS,
     REGULAR_YIELD_GAP_TOLERANCE,
     REGULAR_YIELD_MIN_COVERAGE,
     REGULAR_YIELD_OBSERVATIONS,
     REGULAR_YIELD_YEARS,
+    SPECIAL_OUTLIER_MULTIPLE,
 )
 
 METHOD = "month_end_60_regular_only_v1"
@@ -187,9 +190,117 @@ def _month_end_prices(
     return best, earliest
 
 
-def _invalid_kind(basis, rows: list[dict[str, Any]], t: date) -> str | None:
+def _month_last_day(year: int, month: int) -> date:
+    return date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
+
+
+def classify_rows(
+    dividends: list[dict[str, Any]], as_of: str | None
+) -> tuple[list[dict[str, Any]], Any, bool]:
+    """Prepare rows and label specials ONCE on the full history as of the run date.
+
+    Hindsight about what a payment was is allowed (a later reversion proves an
+    earlier spike was a special); only "was it declared by t" stays point-in-time
+    inside the per-observation analysis. Returns (rows, full_basis, all_adjusted).
+    """
+    rows, all_adjusted = _prepare_dividend_rows(dividends)
+    full = analyze_dividends(rows, None, as_of_date=as_of)
+    specials = list(getattr(full, "special_rows", []) or [])
+    if specials:
+        labelled = []
+        for row in rows:
+            day = _parse_iso(row.get("date"))
+            amount = _positive_float(row.get("dividend"))
+            if (
+                day is not None
+                and amount is not None
+                and not _is_explicit_special(row.get("label"))
+                and any(
+                    d == day.isoformat() and math.isclose(a, amount, rel_tol=1e-9)
+                    for d, a in specials
+                )
+            ):
+                row = dict(row, label="special")
+            labelled.append(row)
+        rows = labelled
+    return rows, full, all_adjusted
+
+
+def _frequency_word(row: dict[str, Any]) -> str | None:
+    freq = row.get("frequency")
+    if isinstance(freq, str) and freq.strip():
+        return freq.strip().lower()
+    return None
+
+
+def _latest_regular_row(rows: list[dict[str, Any]], as_of: date | None):
+    """(date, amount, rows-on-that-date) of the latest eligible non-special payment."""
+    best = None
+    for row in rows:
+        day = _parse_iso(row.get("date"))
+        amount = _positive_float(row.get("dividend"))
+        if day is None or amount is None or _is_explicit_special(row.get("label")):
+            continue
+        decl = _parse_iso(row.get("declarationDate"))
+        known = decl or day
+        if as_of is not None and known > as_of:
+            continue
+        if best is None or day > best[0]:
+            best = (day, amount)
+    if best is None:
+        return None
+    on_day = [
+        r
+        for r in rows
+        if _parse_iso(r.get("date")) == best[0] and not _is_explicit_special(r.get("label"))
+    ]
+    return best[0], best[1], on_day
+
+
+def latest_dividend_unconfirmed_date(
+    dividends: list[dict[str, Any]], as_of: str | None
+) -> date | None:
+    """Date of the latest regular payment when it cannot be trusted as the run rate.
+
+    Unconfirmed when its FMP ``frequency`` is a non-cadence word other than
+    Special (e.g. "Irregular"), or when it exceeds SPECIAL_OUTLIER_MULTIPLE x the
+    median of the prior regular pays with no later payment to confirm it.
+    """
+    rows, full, _ = classify_rows(dividends, as_of)
+    as_of_date = _parse_iso(as_of) if as_of else None
+    latest = _latest_regular_row(rows, as_of_date)
+    if latest is None:
+        return None
+    day, amount, on_day = latest
+    words = [_frequency_word(r) for r in on_day]
+    if any(w and w != "special" and w not in _FREQUENCY_WORDS for w in words):
+        return day
+    ppy = getattr(full, "pays_per_year", None)
+    trailing = max(ppy or 4, 8)
+    prior = []
+    for row in rows:
+        d = _parse_iso(row.get("date"))
+        a = _positive_float(row.get("dividend"))
+        if d is None or a is None or d >= day or _is_explicit_special(row.get("label")):
+            continue
+        prior.append((d, a))
+    prior.sort()
+    window = [a for _, a in prior[-trailing:]]
+    if len(window) >= MIN_REGULAR_PAYS:
+        if amount > SPECIAL_OUTLIER_MULTIPLE * statistics.median(window):
+            return day
+    return None
+
+
+def latest_dividend_unconfirmed(dividends: list[dict[str, Any]], as_of: str | None) -> bool:
+    return latest_dividend_unconfirmed_date(dividends, as_of) is not None
+
+
+def _invalid_kind(basis, rows: list[dict[str, Any]]) -> str | None:
     if basis.status != "OK":
         return "basis_not_ok"
+    if basis.suspension_flag:
+        return "suspension_at_observation"
     if basis.cadence == "irregular":
         return "cadence_irregular"
     if basis.variable_policy_flag:
@@ -208,14 +319,18 @@ def _invalid_kind(basis, rows: list[dict[str, Any]], t: date) -> str | None:
     if not (low * nominal <= gap <= high * nominal):
         return "gap_outside_cadence"
     # FMP frequency of the latest regular row must agree with the inferred cadence.
-    words = []
+    cadence_words = []
     for row in rows:
         if _parse_iso(row.get("date")) != last or _is_explicit_special(row.get("label")):
             continue
-        freq = row.get("frequency")
-        if isinstance(freq, str) and freq.strip().lower() in _FREQUENCY_WORDS:
-            words.append(_FREQUENCY_WORDS[freq.strip().lower()])
-    if words and basis.cadence not in words:
+        word = _frequency_word(row)
+        if word is None or word == "special":
+            continue
+        if word in _FREQUENCY_WORDS:
+            cadence_words.append(_FREQUENCY_WORDS[word])
+        else:
+            return "irregular_frequency_row"
+    if cadence_words and basis.cadence not in cadence_words:
         return "frequency_mismatch"
     return None
 
@@ -230,8 +345,9 @@ def reconstruct_regular_yield(
 ) -> RegularYieldHistory:
     """Rebuild the regular-only 5-year average yield, or WITHHOLD with reasons.
 
-    ``splits=None`` means no split is known; pass the provider's split rows
-    when available so an in-window split is checked against ``adjDividend``.
+    ``splits=None`` means the split history is unknown (fetch failed): every
+    dividend row then needs a positive ``adjDividend``. Pass ``[]`` when the
+    provider confirmed there are no splits.
     """
     as_of_date = _parse_iso(as_of)
     if as_of_date is None:
@@ -239,7 +355,8 @@ def reconstruct_regular_yield(
 
     months = _month_list(as_of_date)
     prices_by_month, earliest_price = _month_end_prices(prices)
-    rows, _ = _prepare_dividend_rows(dividends)
+    rows, _full, _ = classify_rows(dividends, as_of)
+    unconfirmed_day = latest_dividend_unconfirmed_date(dividends, as_of)
 
     result = RegularYieldHistory(status="WITHHELD", source=source)
     reasons: list[str] = []
@@ -267,15 +384,24 @@ def reconstruct_regular_yield(
 
     valid: list[dict[str, Any]] = []
     for key in months:
-        if key not in prices_by_month:
+        entry = prices_by_month.get(key)
+        month_end = _month_last_day(*key)
+        # N2: the observation price must come from the last 7 calendar days.
+        if entry is None or (month_end - entry[0]).days > 6:
             note("invalid_observation:missing_price_month")
             continue
-        day, close = prices_by_month[key]
+        day, close = entry
         basis = analyze_dividends(rows, close, as_of_date=day.isoformat())
-        kind = _invalid_kind(basis, rows, day)
+        kind = _invalid_kind(basis, rows)
+        if kind is None and unconfirmed_day is not None:
+            used = basis.dividend_dates_used
+            if used and _parse_iso(used[-1]) == unconfirmed_day:
+                kind = "latest_dividend_unconfirmed"
         if kind:
             note(f"invalid_observation:{kind}")
             continue
+        if basis.cut_flag:
+            note("cut_in_window")  # point-in-time declared rate is kept after a cut
         annualized = float(basis.latest_declared_annualized)
         valid.append(
             {
@@ -290,26 +416,30 @@ def reconstruct_regular_yield(
     result.observation_count = len(valid)
     result.coverage_ratio = round(len(valid) / REGULAR_YIELD_OBSERVATIONS, 4)
     window_end_key = months[-1]
-    result.window_start = date(first_key[0], first_key[1], 1).isoformat()
-    last_day = date(
-        window_end_key[0] + (window_end_key[1] == 12), window_end_key[1] % 12 + 1, 1
-    ) - timedelta(days=1)
+    result.window_start = window_floor.isoformat()
+    last_day = _month_last_day(*window_end_key)
     result.window_end = last_day.isoformat()
+
+    # N3: the last window month must have a usable price.
+    last_entry = prices_by_month.get(window_end_key)
+    if last_entry is None or (last_day - last_entry[0]).days > 6:
+        note("price_history_ends_before_window_end")
 
     if result.coverage_ratio < REGULAR_YIELD_MIN_COVERAGE:
         note("coverage_below_threshold")
 
     # Split basis: dividend amounts must be split-adjusted like the closes.
-    in_window_split = False
+    split_known = splits is not None
+    split_in_scope = False
     for split in splits or []:
         day = _parse_iso(split.get("date")) if isinstance(split, dict) else None
-        if day is not None and window_floor <= day <= last_day:
-            in_window_split = True
-    if in_window_split:
+        if day is not None and day >= window_floor:  # includes after window end / as_of
+            split_in_scope = True
+    if not split_known or split_in_scope:
         floor = window_floor - timedelta(days=400)
         for row in rows:
             day = _parse_iso(row.get("date"))
-            if day is None or not (floor <= day <= last_day):
+            if day is None or day < floor:
                 continue
             if _positive_float(row.get("adjDividend")) is None:
                 note("split_basis_unverified")
@@ -318,6 +448,7 @@ def reconstruct_regular_yield(
     result.reasons = reasons
     withhold = {
         "price_history_shorter_than_5y",
+        "price_history_ends_before_window_end",
         "dividend_history_shorter_than_5y",
         "coverage_below_threshold",
         "split_basis_unverified",
@@ -339,10 +470,21 @@ def _nonempty_str(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise YieldHistoryInputError("Invalid --yield-history-json: duplicate JSON key.")
+        result[key] = value
+    return result
+
+
 def load_yield_history(path: Path) -> dict[str, dict[str, Any]]:
     """Validate the verified-input file. Never echoes raw field values."""
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object)
+    except YieldHistoryInputError:
+        raise
     except (OSError, UnicodeError, ValueError, RecursionError) as exc:
         raise YieldHistoryInputError(
             "Invalid --yield-history-json: file is unreadable or not valid JSON."
@@ -362,9 +504,11 @@ def load_yield_history(path: Path) -> dict[str, dict[str, Any]]:
         for key in ("dividends", "prices"):
             if not isinstance(entry.get(key), list):
                 raise _fail(f"{ticker}.{key}", "expected a list")
-        splits = entry.get("splits", [])
+        if entry.get("price_basis") != "split_adjusted":
+            raise _fail(f"{ticker}.price_basis", "must be 'split_adjusted'")
+        splits = entry.get("splits")
         if not isinstance(splits, list):
-            raise _fail(f"{ticker}.splits", "expected a list")
+            raise _fail(f"{ticker}.splits", "required list (an empty list is allowed)")
 
         prices = []
         for i, item in enumerate(entry["prices"]):
@@ -382,7 +526,7 @@ def load_yield_history(path: Path) -> dict[str, dict[str, Any]]:
         for i, item in enumerate(splits):
             if not isinstance(item, dict) or _parse_iso(item.get("date")) is None:
                 raise _fail(f"{ticker}.splits[{i}].date", "expected YYYY-MM-DD")
-            clean_splits.append(dict(item))
+            clean_splits.append(dict(item, date=item["date"].strip()[:10]))
 
         dividends = []
         for i, item in enumerate(entry["dividends"]):
@@ -393,16 +537,36 @@ def load_yield_history(path: Path) -> dict[str, dict[str, Any]]:
                 raise _fail(f"{where}.date", "expected YYYY-MM-DD")
             if _positive_float(item.get("dividend")) is None:
                 raise _fail(f"{where}.dividend", "must be a positive finite number")
-            row = dict(item)
+            row = dict(item, date=item["date"].strip()[:10])
             kind = row.get("kind")
+            freq = row.get("frequency")
+            says_special = _is_explicit_special(row.get("label")) or (
+                isinstance(freq, str) and freq.strip().lower() == "special"
+            )
+            if says_special and kind is None:
+                raise _fail(f"{where}.kind", "a Special row needs an explicit kind and kind_source")
             if kind is not None or "kind_source" in row:
-                if kind not in ("special", "exclude"):
-                    raise _fail(f"{where}.kind", "must be 'special' or 'exclude'")
+                if kind not in ("special", "exclude", "combined"):
+                    raise _fail(f"{where}.kind", "must be 'special', 'exclude' or 'combined'")
                 if not _nonempty_str(row.get("kind_source")):
                     raise _fail(f"{where}.kind_source", "kind requires a non-empty kind_source")
                 if kind == "exclude":
                     continue
-                row["label"] = "special"
+                if kind == "combined":
+                    regular = _positive_float(row.get("regular_amount"))
+                    total = float(row["dividend"])
+                    if regular is None or regular >= total:
+                        raise _fail(
+                            f"{where}.regular_amount",
+                            "must be a positive number smaller than dividend",
+                        )
+                    ratio = regular / total
+                    row["dividend"] = regular
+                    adj = _positive_float(row.get("adjDividend"))
+                    if adj is not None:
+                        row["adjDividend"] = adj * ratio
+                else:
+                    row["label"] = "special"
             dividends.append(row)
 
         result[ticker] = {

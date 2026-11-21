@@ -94,7 +94,7 @@ turn those downloads into a complete point-in-time data snapshot.
 | `--alpha-pp` | Yield increment in percentage points; default `0.5`. |
 | `--yield-floor` | Explicit Step 1 yield floor in percent (for example `3.0`). Default is unset; enables the Step 1/Data Freshness assessment when supplied. |
 | `--financials-json` | Per-ticker sourced financial overrides, with units, source, as-of date and document reference; accepted values are recorded as MANUAL. Documents are not fetched or verified. |
-| `--yield-history-json` | Verified per-ticker dividend rows, daily closes and splits with a non-empty `source`; replaces the fetched rows for that ticker when rebuilding the regular-only 5-year average yield. A dividend row may carry `kind` (`special` or `exclude`) with a non-empty `kind_source`. Invalid input exits with code 2. A bare average number is never accepted. |
+| `--yield-history-json` | Verified per-ticker dividend rows, daily closes and splits with a non-empty `source`; replaces the fetched rows for that ticker when rebuilding the regular-only 5-year average yield. Each ticker needs `price_basis: split_adjusted` and a `splits` list. A dividend row may carry `kind` (`special`, `exclude` or `combined` with `regular_amount`) with a non-empty `kind_source`; a Special row without `kind` is rejected. Supplied rows replace the fetched dividend history for that ticker, including the current numerator. Invalid input exits with code 2. A bare average number is never accepted. |
 | `--events-json` | Curated corporate-event evidence for the event scan. Missing file option yields SKIPPED; an absent ticker yields NO_EVENT_FOUND. These do not establish a completed clean event review. |
 | `--as-of` | Evaluation date `YYYY-MM-DD`; defaults to the local current date. |
 | `--profile` | Profile label such as income-now/balanced/growth-first, recorded in run context. Does not automatically set `--yield-floor` or other thresholds. |
@@ -124,7 +124,7 @@ dropped. The average is withheld when price or dividend history is shorter than
 the window and a dividend row has no `adjDividend`. Withheld rows keep the existing
 `regular_only_average_unavailable` behavior and list the reasons in `notes` with a
 `yield_history:` prefix. FMP rows with `frequency: Special` are treated as special
-dividends. JSON rows carry a `yield_history` summary; the CSV adds
+dividends. Specials are classified once on the full history as of the run date, and the average is also withheld when the split history is unknown or a split is dated on or after the window start while a dividend row lacks `adjDividend`. Months with a stale pre-suspension amount are dropped. After a dividend cut the point-in-time declared rate is kept and `cut_in_window` is recorded without withholding the average. If the current latest regular payment is `Irregular` or an unconfirmed outlier above 1.5x the trailing median, the target is withheld with `latest_dividend_unconfirmed`. JSON rows carry a `yield_history` summary; the CSV adds
 `yield_history_status`, `yield_window_start`, `yield_window_end`,
 `yield_coverage_ratio` and `yield_method`. The other order gates are unchanged:
 `order_ready` still needs a `CLEAN_CONFIRMED` event scan (`--events-json`) and

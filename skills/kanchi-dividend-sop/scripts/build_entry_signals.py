@@ -21,6 +21,7 @@ from regular_yield_history import (
     YieldHistoryInputError,
     apply_frequency_special_label,
     fetch_window_start,
+    latest_dividend_unconfirmed,
     load_yield_history,
     reconstruct_regular_yield,
 )
@@ -349,15 +350,25 @@ def build_entry_row(
             and yield_history.status == "OK"
             and yield_history.avg_yield_pct is not None
             and numerator_basis == "regular_only"
+            and not latest_dividend_unconfirmed(dividend_history or [], as_of)
         ):
             reconstructed = True
             avg_yield_5y_pct = yield_history.avg_yield_pct
         else:
-            target_withheld_reason = (
-                "regular_only_average_unavailable"
-                if numerator_basis == "regular_only"
-                else "regular_dividend_unavailable"
-            )
+            if (
+                yield_history is not None
+                and yield_history.status == "OK"
+                and numerator_basis == "regular_only"
+            ):
+                # The history is fine but the CURRENT numerator is an Irregular or
+                # not-yet-confirmed outlier payment: it cannot anchor a target.
+                target_withheld_reason = "latest_dividend_unconfirmed"
+            else:
+                target_withheld_reason = (
+                    "regular_only_average_unavailable"
+                    if numerator_basis == "regular_only"
+                    else "regular_dividend_unavailable"
+                )
             avg_yield_5y_pct = None
 
     target_yield_pct = (
@@ -883,6 +894,11 @@ def main() -> int:
         except YieldHistoryInputError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        for extra in sorted(set(supplied_history) - set(tickers)):
+            print(
+                f"Warning: --yield-history-json has data for {extra}, which is not in this run.",
+                file=sys.stderr,
+            )
     try:
         price_start = fetch_window_start(args.as_of)
     except ValueError:

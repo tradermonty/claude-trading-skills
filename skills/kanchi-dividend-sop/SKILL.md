@@ -100,9 +100,22 @@ cadence, variable policy, a gap between the last two regular pays outside
 0.5-1.5x the cadence, or an FMP `frequency` that disagrees with the inferred
 cadence (frequency switches, prorated stubs). The average is **withheld** when
 price or dividend history is shorter than 5 years, when fewer than 90% of the 60
-months validate, or when a split falls inside the window and any dividend row has
-no `adjDividend`. FMP rows with `frequency: Special` are labelled `special`;
-`Irregular` is not. A withheld average keeps the existing
+months validate, when the last window month has no price, or when the split history
+is unknown (fetch failed) or any split is dated on or after the window start
+(including after the window end) and any dividend row lacks a positive
+`adjDividend`. Specials are classified once on the full history as of the run
+date (an unlabelled 1.5-3x spike that later reverts is excluded everywhere);
+only "was it declared by that month" stays point-in-time. An observation price
+must fall in the last 7 calendar days of its month. A month is also dropped when
+the dividend stream looks suspended at that date (stale pre-suspension amount) or
+when its latest payment has a non-cadence FMP `frequency` such as `Irregular`.
+**Cut rule:** after a dividend cut the point-in-time declared rate is kept for
+later months and the reason `cut_in_window` is recorded; it does not withhold the
+average by itself. FMP rows with `frequency: Special` are labelled `special`;
+`Irregular` is not special. If the CURRENT latest regular payment is `Irregular`,
+or exceeds 1.5x the trailing regular median with no later payment to confirm it,
+the target is withheld with `latest_dividend_unconfirmed` (also a
+`pre_order_blockers` entry) until the next payment. A withheld average keeps the existing
 `regular_only_average_unavailable` / `regular_dividend_unavailable` behavior and
 lists the reasons in `notes` as `yield_history:<reason>`. Each row carries a
 `yield_history` summary (status, window, coverage, method, source); the CSV adds
@@ -110,11 +123,14 @@ lists the reasons in `notes` as `yield_history:<reason>`. Each row carries a
 `yield_coverage_ratio` and `yield_method`.
 
 When FMP rows are wrong or incomplete, supply verified rows with
-`--yield-history-json`. Supplied data for a ticker replaces the fetched rows for
-that ticker. A bare average number is never accepted:
+`--yield-history-json`. Supplied data for a ticker replaces the fetched dividend,
+price and split rows for that ticker, including the dividend history that feeds
+the current numerator. Each ticker needs `price_basis` set to `split_adjusted` and
+a `splits` list (empty is allowed). A bare average number is never accepted:
 
 ```json
 {"NNN": {"source": "Issuer dividend history + exchange closes, retrieved 2026-11-20",
+  "price_basis": "split_adjusted",
   "dividends": [{"date": "2026-09-15", "dividend": 0.60},
     {"date": "2025-09-15", "dividend": 0.95, "kind": "special",
      "kind_source": "Issuer press release 2025-08-30"}],
@@ -122,12 +138,17 @@ that ticker. A bare average number is never accepted:
   "splits": []}}
 ```
 
-A dividend row may carry `kind` of `special` (excluded from the regular stream) or
-`exclude` (dropped, for stubs), and `kind` requires a non-empty `kind_source`.
-Invalid input (bad JSON, empty `source`, non-positive or non-finite `close`,
-unparsable dates, `kind` without `kind_source`) exits with code 2 before any
-provider call. Supplied dividend rows should carry `adjDividend` when a split
-falls inside the window.
+A dividend row may carry `kind` of `special` (excluded from the regular stream),
+`exclude` (dropped, for stubs) or `combined` (a regular plus special payment in
+one row: set `regular_amount`, a positive number below `dividend`, which becomes
+the row's amount, with `adjDividend` scaled by the same ratio). `kind` requires a
+non-empty `kind_source`, and a row labelled or marked Special without a `kind` is
+rejected. Invalid input (bad or duplicate-key JSON, empty `source`, missing
+`price_basis` or `splits`, non-positive or non-finite `close`, unparsable dates,
+`kind` without `kind_source`) exits with code 2 before any provider call; dividend
+dates are normalized to YYYY-MM-DD. Tickers in the file that are not in the run
+print a warning on stderr. Supplied dividend rows should carry `adjDividend` when
+a split falls on or after the window start.
 
 ## Workflow
 

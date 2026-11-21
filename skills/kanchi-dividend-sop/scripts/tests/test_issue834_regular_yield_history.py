@@ -63,12 +63,12 @@ def quarterly_dividends(extra=None, adj=False):
     return rows
 
 
-def expected_average(dividends=None):
+def expected_average(dividends=None, skip=(), as_of_cap=None):
     """Independent hand calculation: last weekday of each month, last pay known by then."""
     pays = [
         (date.fromisoformat(r["date"]), r["dividend"])
         for r in (dividends or quarterly_dividends())
-        if r.get("frequency") != "Special"
+        if r.get("frequency") != "Special" and r.get("label") != "special"
     ]
     values = []
     year, month = 2021, 11
@@ -78,7 +78,8 @@ def expected_average(dividends=None):
         while last.weekday() >= 5:
             last -= timedelta(days=1)
         latest = max((d, a) for d, a in pays if d <= last)[1]
-        values.append(latest * 4 / close_for(year, month) * 100)
+        if (year, month) not in skip:
+            values.append(latest * 4 / close_for(year, month) * 100)
         year, month = nxt.year, nxt.month
     return sum(values) / len(values)
 
@@ -248,28 +249,77 @@ def spike_rows():
     return rows
 
 
-def test_spike_needs_the_kind_special_override(tmp_path):
-    baseline = reconstruct()
-    # Not an outlier (about 1.2x), labelled Quarterly -> pollutes the average.
-    assert reconstruct(dividends=spike_rows()).avg_yield_pct != baseline.avg_yield_pct
+def write_history(tmp_path, ticker, dividends, **entry):
+    body = {
+        "source": "manual",
+        "price_basis": "split_adjusted",
+        "dividends": dividends,
+        "prices": daily_prices(),
+        "splits": [],
+    }
+    body.update(entry)
+    path = tmp_path / "history.json"
+    path.write_text(json.dumps({ticker: body}))
+    return load_yield_history(path)[ticker]
+
+
+def test_spike_needs_the_kind_override_exact_values(tmp_path):
+    baseline = round(expected_average(), 2)
+    assert reconstruct().avg_yield_pct == pytest.approx(baseline, abs=0.005)
+    # Not an outlier (about 1.2x) and labelled Quarterly: the 0.66 pay is the
+    # numerator for Dec 2023 - Feb 2024 until the next raise.
+    polluted = reconstruct(dividends=spike_rows())
+    pays = [dict(r) for r in spike_rows()]
+    assert polluted.avg_yield_pct == pytest.approx(round(expected_average(pays), 2), abs=0.005)
+    assert polluted.avg_yield_pct != reconstruct().avg_yield_pct
 
     rows = spike_rows()
     for row in rows:
         if row["date"] == "2023-12-15":
-            row["kind"] = "special"
-            row["kind_source"] = "Issuer press release 2023-11-20"
-    path = tmp_path / "history.json"
-    path.write_text(
-        json.dumps({"SLDE": {"source": "manual", "dividends": rows, "prices": daily_prices()}})
-    )
-    loaded = load_yield_history(path)["SLDE"]
-    labelled = [r for r in loaded["dividends"] if r["date"] == "2023-12-15"]
-    assert labelled[0]["label"] == "special"
+            row.update(kind="special", kind_source="Issuer press release 2023-11-20")
+    loaded = write_history(tmp_path, "SLDE", rows)
+    assert [r for r in loaded["dividends"] if r["date"] == "2023-12-15"][0]["label"] == "special"
     result = reconstruct(dividends=loaded["dividends"], prices=loaded["prices"])
-    # Excluding the whole row leaves the 2023-12 regular pay missing, so the
-    # average is computed from the previous regular amount, not the spike.
-    assert result.status == "OK"
-    assert result.avg_yield_pct != reconstruct(dividends=spike_rows()).avg_yield_pct
+    # The whole 2023-12 row is excluded, leaving a hole in the schedule: Jan-Feb 2024
+    # look suspended (>136 days since Sep) and Mar-May follow a 182-day gap, so
+    # exactly those five observations are invalid.
+    skip = {(2024, m) for m in range(1, 6)}
+    expected = expected_average(loaded["dividends"], skip=skip)
+    assert result.status == "OK" and result.observation_count == 55
+    assert result.avg_yield_pct == pytest.approx(round(expected, 2), abs=0.005)
+
+
+def test_kind_combined_uses_the_regular_amount(tmp_path):
+    rows = spike_rows()
+    for row in rows:
+        if row["date"] == "2023-12-15":
+            row.update(
+                kind="combined", regular_amount=0.56, kind_source="Issuer release 2023-11-20"
+            )
+    loaded = write_history(tmp_path, "SLDE", rows)
+    fixed = [r for r in loaded["dividends"] if r["date"] == "2023-12-15"][0]
+    assert fixed["dividend"] == 0.56 and "label" not in fixed
+    result = reconstruct(dividends=loaded["dividends"], prices=loaded["prices"])
+    assert result.observation_count == 60
+    assert result.avg_yield_pct == pytest.approx(round(expected_average(), 2), abs=0.005)
+    assert result.avg_yield_pct == reconstruct().avg_yield_pct
+
+
+def test_kind_combined_scales_adj_dividend(tmp_path):
+    rows = [dict(r, adjDividend=r["dividend"]) for r in quarterly_dividends()]
+    for row in rows:
+        if row["date"] == "2023-12-15":
+            row.update(
+                dividend=1.12,
+                adjDividend=1.12,
+                kind="combined",
+                regular_amount=0.56,
+                kind_source="Issuer release",
+            )
+    loaded = write_history(tmp_path, "SLDE", rows)
+    fixed = [r for r in loaded["dividends"] if r["date"] == "2023-12-15"][0]
+    assert fixed["dividend"] == 0.56
+    assert fixed["adjDividend"] == pytest.approx(0.56)
 
 
 def test_kind_exclude_drops_the_row(tmp_path):
@@ -277,7 +327,17 @@ def test_kind_exclude_drops_the_row(tmp_path):
     rows[-1].update(kind="exclude", kind_source="Prorated stub per 8-K")
     path = tmp_path / "history.json"
     path.write_text(
-        json.dumps({"AES": {"source": "manual", "dividends": rows, "prices": daily_prices()}})
+        json.dumps(
+            {
+                "AES": {
+                    "source": "manual",
+                    "price_basis": "split_adjusted",
+                    "dividends": rows,
+                    "prices": daily_prices(),
+                    "splits": [],
+                }
+            }
+        )
     )
     loaded = load_yield_history(path)["AES"]
     assert all(r["date"] != "2023-06-25" for r in loaded["dividends"])
@@ -394,6 +454,8 @@ def test_split_outside_window_does_not_matter():
 def good_entry(**updates):
     entry = {
         "source": "Verified data pack",
+        "price_basis": "split_adjusted",
+        "splits": [],
         "dividends": [{"date": "2025-03-15", "dividend": 0.5}],
         "prices": [{"date": "2025-03-14", "close": 40.0}],
     }
@@ -553,6 +615,7 @@ def test_main_supplied_history_replaces_fetched_rows(monkeypatch, tmp_path):
                 "nnn": {
                     "source": "Verified data pack 2026-11",
                     "dividends": quarterly_dividends(),
+                    "price_basis": "split_adjusted",
                     "prices": daily_prices(),
                     "splits": [],
                 }
@@ -642,3 +705,179 @@ def test_module_constants_come_from_thresholds():
     assert ryh.REGULAR_YIELD_OBSERVATIONS == 60
     assert ryh.REGULAR_YIELD_YEARS == 5
     assert ryh.REGULAR_YIELD_GAP_TOLERANCE == (0.5, 1.5)
+
+
+# --- review fixes: B1 / S1 / S2 / S3 / S4 / S5 and loader nits --------------------
+
+
+def flat_rows(amount=0.5):
+    rows = []
+    for year in range(2019, 2027):
+        for month in (3, 6, 9, 12):
+            day = date(year, month, 15)
+            if day <= date(2026, 9, 15):
+                rows.append({"date": day.isoformat(), "dividend": amount, "frequency": "Quarterly"})
+    return rows
+
+
+def test_irregular_latest_row_cannot_unlock_a_target():
+    rows = flat_rows()
+    rows[-1].update(dividend=0.7, frequency="Irregular")
+    history = reconstruct(dividends=rows)
+    row = entry_row(30.0, history=history, dividends=rows)
+    assert row["target_withheld_reason"] == "latest_dividend_unconfirmed"
+    assert "latest_dividend_unconfirmed" in row["pre_order_blockers"]
+    assert row["buy_target_price"] is None
+    assert row["order_ready"] is False
+    # The last window observations used the Irregular row as numerator: invalid.
+    assert "invalid_observation:irregular_frequency_row" in history.reasons
+    assert "2026-09-30" not in {o["date"] for o in history.observations}
+
+
+def test_pending_outlier_latest_row_cannot_unlock_a_target():
+    rows = flat_rows()
+    rows[-1]["dividend"] = 0.8  # 1.6x the trailing median, nothing after it to confirm
+    history = reconstruct(dividends=rows)
+    assert "invalid_observation:latest_dividend_unconfirmed" in history.reasons
+    row = entry_row(30.0, history=history, dividends=rows)
+    assert row["target_withheld_reason"] == "latest_dividend_unconfirmed"
+    assert row["order_ready"] is False
+    assert row["signal"] == "ASSUMPTION-REQUIRED"
+
+
+def test_ordinary_raise_is_not_flagged_as_pending():
+    rows = flat_rows()
+    for row in rows:
+        if row["date"] >= "2026-06-15":
+            row["dividend"] = 0.52  # a normal 4% raise
+    assert not ryh.latest_dividend_unconfirmed(rows, AS_OF)
+    assert not ryh.latest_dividend_unconfirmed(flat_rows(), AS_OF)
+
+
+def test_mid_window_unlabelled_special_is_classified_on_the_full_history():
+    rows = flat_rows()
+    for row in rows:
+        if row["date"] == "2024-06-15":
+            row["dividend"] = 1.0  # 2x, labelled Quarterly; reverts afterwards
+    result = reconstruct(dividends=rows)
+    assert result.status == "OK"
+    assert max(o["regular_annualized"] for o in result.observations) == pytest.approx(2.0)
+    assert result.avg_yield_pct == reconstruct(dividends=flat_rows()).avg_yield_pct
+
+
+def test_dividend_basis_exposes_special_rows_additively():
+    from dividend_basis import analyze_dividends
+
+    rows = flat_rows()
+    rows[-3]["dividend"] = 1.0
+    basis = analyze_dividends(rows, 40.0, as_of_date=AS_OF)
+    assert basis.special_rows == [(rows[-3]["date"], 1.0)]
+    assert basis.latest_declared_annualized == 2.0
+
+
+def test_splits_unknown_requires_adj_dividend_on_every_row():
+    result = reconstruct(splits=None)
+    assert result.status == "WITHHELD" and "split_basis_unverified" in result.reasons
+    adjusted = reconstruct(dividends=quarterly_dividends(adj=True), splits=None)
+    assert adjusted.status == "OK"
+
+
+def test_split_after_the_window_still_requires_adj_dividend():
+    after_window = [{"date": "2026-11-05", "numerator": 2, "denominator": 1}]
+    assert "split_basis_unverified" in reconstruct(splits=after_window).reasons
+    after_as_of = [{"date": "2027-01-05"}]
+    assert "split_basis_unverified" in reconstruct(splits=after_as_of).reasons
+    ok = reconstruct(dividends=quarterly_dividends(adj=True), splits=after_window)
+    assert ok.status == "OK"
+
+
+def test_suspension_inside_the_window_invalidates_stale_observations():
+    rows = [r for r in flat_rows() if not ("2023-03-01" <= r["date"] <= "2024-03-31")]
+    result = reconstruct(dividends=rows)
+    dates = {o["date"] for o in result.observations}
+    assert "invalid_observation:suspension_at_observation" in result.reasons
+    assert not any("2023-08-01" <= d <= "2024-03-10" for d in dates)
+    assert result.status == "WITHHELD" and "coverage_below_threshold" in result.reasons
+
+
+def test_cut_inside_the_window_is_recorded_but_keeps_declared_rate():
+    rows = flat_rows()
+    for row in rows:
+        if row["date"] >= "2024-06-15":
+            row["dividend"] = 0.4
+    result = reconstruct(dividends=rows)
+    assert "cut_in_window" in result.reasons
+    assert result.status == "OK"
+    after = [o for o in result.observations if o["date"] > "2024-07-01"]
+    assert after and all(o["regular_annualized"] == pytest.approx(1.6) for o in after)
+
+
+def test_observation_price_must_be_in_the_last_week_of_the_month():
+    prices = [p for p in daily_prices() if not ("2023-05-20" <= p["date"] <= "2023-05-31")]
+    result = reconstruct(prices=prices)
+    assert "2023-05-19" not in {o["date"] for o in result.observations}
+    assert result.observation_count == 59
+
+
+def test_prices_ending_before_the_window_end_are_withheld():
+    prices = [p for p in daily_prices() if p["date"] < "2026-10-01"]
+    result = reconstruct(prices=prices)
+    assert result.status == "WITHHELD"
+    assert "price_history_ends_before_window_end" in result.reasons
+
+
+def raw_history(tmp_path, text):
+    path = tmp_path / "raw.json"
+    path.write_text(text)
+    return path
+
+
+def test_loader_requires_price_basis_and_splits(tmp_path):
+    for field_name in ("price_basis", "splits"):
+        payload = good_entry()
+        del payload["NNN"][field_name]
+        path = raw_history(tmp_path, json.dumps(payload))
+        with pytest.raises(YieldHistoryInputError, match=field_name):
+            load_yield_history(path)
+    payload = good_entry(price_basis="adjusted")
+    with pytest.raises(YieldHistoryInputError, match="price_basis"):
+        load_yield_history(raw_history(tmp_path, json.dumps(payload)))
+
+
+def test_loader_rejects_special_row_without_kind(tmp_path):
+    for extra in ({"frequency": "Special"}, {"label": "Special cash"}):
+        row = {"date": "2025-03-15", "dividend": 0.5, **extra}
+        payload = good_entry(dividends=[row])
+        with pytest.raises(YieldHistoryInputError, match="kind"):
+            load_yield_history(raw_history(tmp_path, json.dumps(payload)))
+
+
+def test_loader_rejects_bad_combined_amounts(tmp_path):
+    for regular in (None, 0, 0.5, 0.9):
+        row = {
+            "date": "2025-03-15",
+            "dividend": 0.5,
+            "kind": "combined",
+            "kind_source": "release",
+            "regular_amount": regular,
+        }
+        with pytest.raises(YieldHistoryInputError, match="regular_amount"):
+            load_yield_history(raw_history(tmp_path, json.dumps(good_entry(dividends=[row]))))
+
+
+def test_loader_normalizes_dates_and_rejects_duplicate_keys(tmp_path):
+    row = {"date": "2025-03-15T00:00:00", "dividend": 0.5}
+    loaded = load_yield_history(raw_history(tmp_path, json.dumps(good_entry(dividends=[row]))))
+    assert loaded["NNN"]["dividends"][0]["date"] == "2025-03-15"
+    dup = '{"NNN": {"source": "a", "source": "b"}}'
+    with pytest.raises(YieldHistoryInputError, match="duplicate"):
+        load_yield_history(raw_history(tmp_path, dup))
+
+
+def test_cli_warns_for_tickers_not_in_the_run(monkeypatch, tmp_path, capsys):
+    path = tmp_path / "history.json"
+    payload = good_entry()
+    payload["ZZZ"] = payload["NNN"]
+    path.write_text(json.dumps(payload))
+    run_main(monkeypatch, tmp_path, "--yield-history-json", str(path))
+    assert "ZZZ" in capsys.readouterr().err
