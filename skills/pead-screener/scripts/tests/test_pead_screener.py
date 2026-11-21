@@ -24,6 +24,7 @@ from calculators.weekly_candle_calculator import (
     daily_to_weekly,
 )
 from fmp_client import ApiCallBudgetExceeded, FMPClient
+from price_bar_utils import PriceBarGap
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import COMPONENT_WEIGHTS, calculate_composite_score
 from screen_pead import (
@@ -48,7 +49,7 @@ def test_breakout_boundary_scores_and_volume_fail_closed_paths():
     assert calculate_breakout(confirmed, red, 102)["score"] == 85.0
     assert calculate_breakout([{"volume": 200}], red, 101)["score"] == 70.0
     assert calculate_breakout([{"volume": 200}], red, 100.5)["score"] == 55.0
-    no_prior_volume = [{"volume": 200}, {"volume": 0}, {}]
+    no_prior_volume = [{"volume": 200}, {"volume": 0}, {"volume": 0}]
     assert calculate_breakout(no_prior_volume, red, 103)["volume_confirmation"] is False
 
 
@@ -57,9 +58,8 @@ def test_liquidity_boundary_scores_and_dollar_volume_fallback():
     assert calculate_liquidity([{"volume": 1_000_000, "close": 60}], 60)["score"] == 85.0
     assert calculate_liquidity([{"volume": 1_000_000, "close": 30}], 30)["score"] == 70.0
 
-    fallback = calculate_liquidity([{"volume": 1_000_000, "close": 0}], 30)
-    assert fallback["adv20_dollar"] == 30_000_000
-    assert fallback["score"] == 70.0
+    with pytest.raises(PriceBarGap):
+        calculate_liquidity([{"volume": 1_000_000, "close": 0}], 30)
 
     two_of_three = calculate_liquidity([{"volume": 500_000, "close": 100}], 100)
     assert two_of_three["score"] == 40.0
