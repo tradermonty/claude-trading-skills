@@ -12,7 +12,9 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
+from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +22,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from downtrend_fmp_client import FMPClient, client_scope
+from evaluation_coverage import build_evaluation_coverage
 
 # Market cap tier thresholds (in billions USD)
 MARKET_CAP_TIERS = {
@@ -43,6 +46,11 @@ DEFAULT_SECTORS = [
     "Real Estate",
     "Communication Services",
 ]
+
+# History failures after which no later request in the run can succeed: the
+# daily 429 cap (#821) and auth/plan rejections (#822).
+_STOPPING_FAILURE = re.compile(r"HTTP (?:429|40[123])\b|daily rate limit")
+INSUFFICIENT_HISTORY = "insufficient_history"
 
 
 def get_api_key(api_key_arg: str | None) -> str:
@@ -95,11 +103,22 @@ def _valid_number(value: Any) -> bool:
 
 
 def fetch_historical_prices(
-    api_key: str, symbol: str, from_date: str, to_date: str, *, client: FMPClient | None = None
+    api_key: str,
+    symbol: str,
+    from_date: str,
+    to_date: str,
+    *,
+    client: FMPClient | None = None,
+    on_error: Callable[[str], None] | None = None,
 ) -> pd.DataFrame:
-    """Read the exact stable OHLCV range; malformed data is never synthesized."""
+    """Read the exact stable OHLCV range; malformed data is never synthesized.
+
+    A failure returns an empty frame. Its reason is printed, or passed to
+    ``on_error`` instead when the caller wants to report it itself.
+    """
     with client_scope(api_key, client) as transport:
         rows = transport.fetch_downtrend_history(symbol, from_date, to_date)
+        transport_error = getattr(transport, "_last_error", None) if rows is None else None
     if rows == []:
         return pd.DataFrame()
     try:
@@ -138,8 +157,30 @@ def fetch_historical_prices(
             ["date", "open", "high", "low", "close", "volume"]
         ]
     except (ValueError, TypeError, OverflowError):
-        print(f"Error fetching prices for {symbol}: unusable historical response", file=sys.stderr)
+        reason = transport_error or "unusable historical response"
+        if on_error is None:
+            print(f"Error fetching prices for {symbol}: {reason}", file=sys.stderr)
+        else:
+            on_error(reason)
         return pd.DataFrame()
+
+
+def _reason_label(reason: str) -> str:
+    """Short form for messages: "HTTP 503 - <body>" -> "HTTP 503"."""
+    return reason.split(" - ", 1)[0].split(": ", 1)[0]
+
+
+def _coverage_reason(reason: str) -> str:
+    """evaluation_coverage reason code; never a response body or credential."""
+    if reason == INSUFFICIENT_HISTORY:
+        return reason
+    if reason.startswith("HTTP 429") or reason.startswith("daily rate limit"):
+        return "rate_limited"
+    if reason.startswith("HTTP 402"):
+        return "plan_gated"
+    if reason.startswith(("HTTP ", "request exception")):
+        return "provider_error"
+    return "invalid_data"
 
 
 def detect_peaks_troughs(
@@ -247,11 +288,30 @@ def analyze_symbol(
     min_depth_pct: float,
     *,
     client: FMPClient | None = None,
+    on_error: Callable[[str], None] | None = None,
 ) -> list[dict]:
-    """Analyze downtrends for a single symbol."""
-    prices = fetch_historical_prices(api_key, symbol, from_date, to_date, client=client)
+    """Analyze downtrends for a single symbol.
+
+    With ``on_error``, a symbol that cannot be evaluated reports why: the fetch
+    failure, or ``insufficient_history`` when there are too few bars for the
+    peak/trough windows (an empty history included).
+    """
+    fetch_failures: list[str] = []
+    prices = fetch_historical_prices(
+        api_key,
+        symbol,
+        from_date,
+        to_date,
+        client=client,
+        on_error=None if on_error is None else fetch_failures.append,
+    )
+    if fetch_failures:
+        on_error(fetch_failures[0])
+        return []
 
     if prices.empty or len(prices) < peak_window * 2 + 1:
+        if on_error is not None:
+            on_error(INSUFFICIENT_HISTORY)
         return []
 
     peaks, troughs = detect_peaks_troughs(prices, peak_window, trough_window)
@@ -333,6 +393,23 @@ def generate_markdown_report(analysis_result: dict[str, Any], output_path: Path)
 
     if params.get("sector_filter"):
         lines.append(f"**Sector**: {params['sector_filter']}")
+
+    coverage = analysis_result.get("evaluation_coverage")
+    if coverage is not None:
+        lines.append("")
+        lines.append(
+            f"**Evaluation coverage**: {coverage['evaluated']}/{coverage['universe_size']} "
+            f"evaluated ({coverage['verdict']})"
+        )
+        if coverage["not_evaluated_reasons"]:
+            reasons = ", ".join(
+                f"{key}: {count}" for key, count in coverage["not_evaluated_reasons"].items()
+            )
+            lines.append(f"Not evaluated: {reasons}. Missing members may change the statistics.")
+        if coverage["verdict"] != "complete":
+            lines.append(
+                "Result undetermined for the full universe; statistics cover only evaluated symbols."
+            )
 
     lines.extend(
         [
@@ -469,6 +546,8 @@ def main() -> None:
 
         # Analyze each stock
         all_downtrends: list[dict] = []
+        outcomes: dict[str, str | None] = {}
+        stopped = False
         for i, stock in enumerate(stocks):
             symbol = stock.get("symbol", "")
             sector = stock.get("sector", "Unknown")
@@ -477,6 +556,7 @@ def main() -> None:
             if i % 10 == 0:
                 print(f"  Progress: {i}/{len(stocks)} stocks processed")
 
+            errors: list[str] = []
             downtrends = analyze_symbol(
                 api_key,
                 symbol,
@@ -488,10 +568,40 @@ def main() -> None:
                 args.trough_window,
                 args.min_depth,
                 client=client,
+                on_error=errors.append,
             )
             all_downtrends.extend(downtrends)
+            reason = errors[0] if errors else None
+            outcomes[symbol] = None if reason is None else _coverage_reason(reason)
+            if reason is None or reason == INSUFFICIENT_HISTORY:
+                continue
+            if _STOPPING_FAILURE.match(reason):
+                stopped = True
+                label = _reason_label(reason)
+                hint = (
+                    ""
+                    if outcomes[symbol] == "rate_limited"
+                    else " (check the API key and the plan)"
+                )
+                print(
+                    f"Error: stopping at {symbol} ({i + 1} of {len(stocks)}): {label}{hint}; "
+                    f"{len(stocks) - i - 1} later symbol(s) not requested",
+                    file=sys.stderr,
+                )
+                for later in stocks[i + 1 :]:
+                    outcomes.setdefault(later.get("symbol", ""), "not_requested")
+                break
+            print(f"Error fetching prices for {symbol}: {reason}", file=sys.stderr)
 
-    print(f"Found {len(all_downtrends)} downtrend periods")
+    coverage = build_evaluation_coverage(outcomes)
+    if stopped and coverage["evaluated"] == 0:
+        sys.exit(1)
+
+    print(
+        f"Found {len(all_downtrends)} downtrend periods "
+        f"(evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} "
+        f"evaluated, {coverage['verdict']})"
+    )
 
     # Compute statistics
     summary = compute_statistics(all_downtrends)
@@ -510,6 +620,7 @@ def main() -> None:
             "min_depth_pct": args.min_depth,
         },
         "summary": summary,
+        "evaluation_coverage": coverage,
         "by_sector": by_sector,
         "by_market_cap": by_market_cap,
         "downtrends": all_downtrends,
