@@ -153,10 +153,21 @@ as legacy dispersion. Supported legacy `sector_score` or
 
 Inspect `sector_integration` for the mapping version, per-sector values and
 `source_freshness`. Stale/unknown freshness and producer warnings are preserved
-in JSON, Markdown and stderr. They do not exclude otherwise usable sector data.
-Even `is_fresh: true` is only a producer statement; `freshness_verified` remains
-false, and current age is not rechecked. The strict provenance gate remains
-limited to breadth and uptrend. Sector and Uptrend share upstream data, so an
+in JSON, Markdown and stderr. Without `--as-of`, they do not exclude otherwise
+usable sector data.
+Even `is_fresh: true` is only a producer statement. Without `--as-of`,
+`freshness_verified` remains false and current age is not rechecked.
+With `--as-of`, the sector source date (`meta.freshness.date`) is also
+age-gated: it is compared with the evaluation date in America/New_York, and a
+source date after that date or older than `--max-age-days` excludes sector as
+unusable. In `--require-provenance` mode, unknown freshness and undated legacy
+sector input are excluded too. An excluded sector never stops the run; it is
+reported in `inputs_unparseable`, `input_warnings`, Markdown and stderr. A
+passing check sets `freshness_verified: true` and records `freshness_check`.
+Outside strict mode, an `--as-of` that is not timezone-aware or a negative
+`--max-age-days` does not stop the run: the sector age gate is skipped with a
+sector warning.
+Sector and Uptrend share upstream data, so an
 additional accepted input is not an independent confirmation.
 
 Check `inputs_provided`, `inputs_missing`, `inputs_unparseable` and `input_warnings`.

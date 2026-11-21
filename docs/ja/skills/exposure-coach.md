@@ -135,8 +135,10 @@ heat 80ならbullishは90、bearishは10、同じ強さの対立テーマは50�
 
 `sector_integration` に変換version・各セクターの計算・`source_freshness` が記録されます。
 鮮度不明・上流が古いと申告したデータ・上流の警告は、JSON・Markdown・stderrへ保持し、他の要件を満たす入力は受理します。
-`is_fresh: true` も生成側の申告であり、利用時点の経過日数を再検証したものではありません。
-`freshness_verified` はfalseのままで、厳格な出所検証の対象もbreadth/uptrendだけです。
+`is_fresh: true` も生成側の申告であり、`--as-of` を指定しない場合は利用時点の経過日数を再検証せず、`freshness_verified` はfalseのままです。
+`--as-of` を指定すると、セクターの元データの日付 `meta.freshness.date` を、America/New_York での評価日と比べます。評価日より後の日付、または `--max-age-days` より古い日付なら、セクター入力を使えない入力として除外します。
+`--require-provenance` では、鮮度が不明なレポートと、日付のない旧形式の入力も除外します。除外しても実行は止まらず、`inputs_unparseable`・`input_warnings`・Markdown・stderrに理由が出ます。検証に通ると `freshness_verified` がtrueになり、`freshness_check` に結果が記録されます。
+厳格モード以外では、タイムゾーンのない `--as-of` や負の `--max-age-days` を渡しても実行は止まらず、セクターの年齢チェックだけを警告付きで省略します。
 Sector AnalystとUptrend Analyzerは上流データを共有するため、入力が増えても独立した証拠が増えたとは限りません。
 confidenceは受理した入力の充足度であり、独立性・鮮度・検証済み品質・予測精度の保証ではありません。
 
