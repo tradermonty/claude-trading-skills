@@ -7,6 +7,9 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 
 - pead-screener: exclude candidates with missing or invalid consumed OHLCV bars with dated reasons in JSON and Markdown, rather than fabricating earnings gaps, weekly patterns, liquidity or trade levels from zero defaults (#655).
+- Exposure FTD review follow-up: distinguish base quality bands from the lifecycle warning override (score capped at 59, `FTD under pressure`) and verify source and packaged instructions against a real producer fixture (PR #835).
+
+- exposure-coach: the English guide and the packaged references describe FTD as Follow-Through Day quality, used directly (higher = stronger rally confirmation), instead of failure-to-deliver anomalies with an inverted score. The unimplemented -15% ceiling cut for a critical FTD is removed, `anomaly_level` is documented as legacy input, and both references list which signals produce a quality score of 0. ftd-detector's score table says the same about 0. Packages rebuilt (#832).
 - ftd-detector, macro-regime-detector, and market-breadth-analyzer: save reports under `reports/` by default and create the output directory before writing (Refs #667).
 
 - Provider CSV canary: report an uncoercible integer cell as fatal `parse_error` instead of aborting the entire run. Discard partial rows, continue later probes and write the complete report without exposing cell contents or weakening Python's integer conversion limit (Refs #332).

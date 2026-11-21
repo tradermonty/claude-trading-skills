@@ -57,16 +57,48 @@ Higher distribution day counts and top probability → lower score:
 | 5-6 | 40-60% | 30-49 |
 | 7+ | > 60% | 0-29 |
 
-### FTD Score (Inverted)
+### FTD Score (Follow-Through Day)
 
-High failure-to-deliver anomalies indicate stress:
+ftd-detector reports Follow-Through Day quality as `quality_score.total_score`
+(0-100). The score is used directly, with no inversion: higher means stronger
+technical confirmation of a rally attempt.
 
-| FTD Anomaly Level | Score |
-|-------------------|-------|
-| None / Low | 80-100 |
-| Moderate | 50-79 |
-| Elevated | 30-49 |
-| Critical | 0-29 |
+The following are the base bands before lifecycle overrides:
+
+| `quality_score.total_score` | ftd-detector `signal` |
+|-----------------------------|-----------------------|
+| 80-100 | Strong FTD |
+| 60-79 | Moderate FTD |
+| 40-59 | Weak FTD |
+| < 40 | Very weak FTD |
+
+When `ftd_invalidation.warning` is true, the detector caps quality at 59 and
+replaces the base-band signal with `FTD under pressure`. This FTD-day-low
+warning weakens confirmation without invalidating the rally. Read the emitted
+signal and lifecycle metadata rather than reconstructing the signal from a band.
+
+A score of 0 does not say what happened. Read `quality_score.signal`, the
+market state and `quality_score.data_gap` to tell the cases apart:
+
+- `No FTD`: no qualifying Follow-Through Day in the current window.
+- `Failed/Invalidated`: the FTD was invalidated (for example
+  `market_state.combined_state: FTD_INVALIDATED`).
+- `Unavailable: data gap`, with `data_gap: true`: the price inputs had a gap,
+  so the quality could not be measured.
+- `Very weak FTD`: an FTD was detected, but its penalties took the score down
+  to the 0 floor.
+- `FTD under pressure`: a warning is active and health penalties took the
+  score to 0; the warning signal still overrides the base band.
+
+Exposure Coach scores every 0 the same way, as no confirmation. The quality
+score is neither a success probability nor an allocation percentage. FTD is
+one component of the composite, with a 5% base weight that is renormalized
+over the usable inputs like every other weight. It has no separate exposure
+ceiling adjustment.
+
+Legacy input: a top-level `anomaly_level` field (`none` 90, `low` 80,
+`moderate` 55, `elevated` 35, `critical` 15) is still accepted for backward
+compatibility. The current ftd-detector does not emit it.
 
 ### Theme Score
 
@@ -126,7 +158,7 @@ The composite score uses these weights:
 | Institutional | 10% | Smart money signal |
 | Sector | 5% | Rotation context |
 | Theme | 5% | Thematic momentum |
-| FTD | 5% | Stress indicator |
+| FTD | 5% | Rally confirmation (Follow-Through Day quality) |
 
 ### Missing Input Handling
 

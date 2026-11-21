@@ -97,6 +97,8 @@ class DividendBasis:
     regular_forward_yield_pct: float | None = None
     ttm_yield_pct: float | None = None
     floor_borderline: bool = False
+    # Additive (#834): (ex-date, amount) of rows excluded as specials, explicit or outlier.
+    special_rows: list[tuple[str, float]] = field(default_factory=list)
 
 
 def _infer_cadence(sorted_dates: list[date]) -> tuple[str, int | None]:
@@ -304,6 +306,7 @@ def analyze_dividends(
     regular = [(r[0], r[1]) for i, r in enumerate(rows) if i not in special_idx]
     all_pays = [(r[0], r[1]) for r in rows]
 
+    special_rows = [(rows[i][0].isoformat(), rows[i][1]) for i in sorted(special_idx)]
     reasons: list[str] = []
     if special_flag:
         reasons.append(f"special_dividends_excluded={len(special_idx)}")
@@ -315,6 +318,7 @@ def analyze_dividends(
             cadence=cadence,
             pays_per_year=ppy,
             special_dividend_flag=special_flag,
+            special_rows=special_rows,
         )
 
     latest_date, latest_amt = regular[-1]
@@ -479,6 +483,7 @@ def analyze_dividends(
         regular_forward_yield_pct=fwd_yield,
         ttm_yield_pct=ttm_yield,
         floor_borderline=floor_borderline,
+        special_rows=special_rows,
     )
 
 
