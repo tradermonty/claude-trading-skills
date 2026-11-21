@@ -89,7 +89,7 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 
 入力に `evaluation_coverage` がある場合、schema 1.0の整合する件数と
 `verdict: complete` が必要です。部分評価・評価不能・不正な件数はstderrへ警告し、
-欠損入力として除外します。そのスコアや元の文脈を信頼度・方向性へ戻さないでください。
+採点対象から除外します。そのスコアや元の文脈を信頼度・方向性へ戻さないでください。
 このブロックがない従来の入力も引き続き利用できます。
 
 | 出力 | 意味 |
@@ -102,7 +102,7 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 
 `inputs_provided`・`inputs_missing`・`inputs_unparseable`・`input_warnings`を確認します。
 診断フィールドは内容がある場合のみ出力し、通常の既存JSON形式を維持します。
-テーマ入力の未指定はmissing、指定済みでも読めない・不正な場合はunparseableとして除外し、stderrへ警告します。
+テーマ・セクター入力の未指定はmissing、指定済みでも読めない・不正な場合はunparseableとして除外し、stderrへ警告します。
 上流の品質警告はJSON・Markdown・stderrに保持します。
 
 正規theme-detectorレポートは`themes.all`を一度だけ使用します。方向はbullish/bearish、heatは有限な数値0〜100（真偽値は不可）、
@@ -110,6 +110,35 @@ python3 skills/exposure-coach/scripts/calculate_exposure.py \
 変換規則は`round(50 + mean(signed_heat)/2)`で、bullishは正、bearishは負です（最近接整数、ちょうど中間なら偶数へ）。
 heat 80ならbullishは90、bearishは10、同じ強さの対立テーマは50です。消費側の未較正の補助規則であり、鮮度や予測の正しさを保証しません。
 旧theme_scoreと既知のtheme_strengthも引き続き利用できます。
+
+### Sector Analyst の正規JSON
+
+`python3 skills/sector-analyst/scripts/analyze_sector_rotation.py --json --save`
+で生成し、表示された `sector_rotation_*.json` の正確なパスをそのまま `--sector` に渡します。
+
+`ranking` には既知の11セクターが重複・欠落なく必要です。各行の `ratio` は有限な数値0〜1、
+`slope` は有限な数値−1〜1で、真偽値は認めません。trendは正のslopeならUp、それ以外はDownと整合し、
+`trends` の上向き・下向き件数とセクター一覧も各行に一致する必要があります。
+`meta` はオブジェクト必須です。鮮度情報の省略・nullは警告付きで受理しますが、不正な形式は拒否します。
+必要データが部分的・不正・矛盾する場合は全体を除外し、旧形式のスコアを追加しても検証を迂回できません。
+
+変換規則 `sector_uptrend_health_v1` は、Uptrend Analyzerの絶対比率の区分
+（境界0.097・0.25・0.37・0.50）を各セクターに適用し、slopeが正なら+5、負なら−5、ゼロなら0を加算します。
+各値を0〜100に収め、**個別には丸めず**11セクターを等しく平均し、最後に一度だけ最近接整数へ丸めます
+（ちょうど中間なら偶数へ）。相対的なローテーション指標 `groups.score` の転用や、比率のばらつきが小さいことへの加点は行いません。
+未較正の補助規則であり、銘柄数で重み付けした市場全体の比率や予測精度を表すものではありません。
+厳密な計算式は[Sector Scoreの説明](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/exposure-coach/references/exposure_framework.md#sector-score)を参照してください。
+
+正規セクター入力は合成スコアだけに使い、bias・participationは他の受理済み入力から判定します。
+正規JSONの比率spreadを従来のdispersionに読み替えることはしません。
+対応する旧 `sector_score` または `dispersion`/`leadership` 入力は、従来の採点と検証済み文脈による判定を維持します。
+
+`sector_integration` に変換version・各セクターの計算・`source_freshness` が記録されます。
+鮮度不明・上流が古いと申告したデータ・上流の警告は、JSON・Markdown・stderrへ保持し、他の要件を満たす入力は受理します。
+`is_fresh: true` も生成側の申告であり、利用時点の経過日数を再検証したものではありません。
+`freshness_verified` はfalseのままで、厳格な出所検証の対象もbreadth/uptrendだけです。
+Sector AnalystとUptrend Analyzerは上流データを共有するため、入力が増えても独立した証拠が増えたとは限りません。
+confidenceは受理した入力の充足度であり、独立性・鮮度・検証済み品質・予測精度の保証ではありません。
 
 ---
 

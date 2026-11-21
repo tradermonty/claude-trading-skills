@@ -1,0 +1,203 @@
+{
+  "meta": {
+    "generated_at": "2026-11-21T09:47:20",
+    "date": "2026-11-21",
+    "freshness": {
+      "date": "2026-11-20",
+      "is_fresh": true,
+      "warning": null
+    }
+  },
+  "groups": {
+    "cyclical_avg": 0.0681,
+    "cyclical_avg_pct": 6.8,
+    "defensive_avg": 0.0839,
+    "defensive_avg_pct": 8.4,
+    "commodity_avg": 0.0,
+    "commodity_avg_pct": 0.0,
+    "difference": -0.0158,
+    "difference_pct": -1.6,
+    "score": 53,
+    "regime": "balanced",
+    "late_cycle_flag": false,
+    "commodity_penalty": 0,
+    "divergence_flag": false,
+    "divergence_penalty": 0
+  },
+  "cycle_phase": {
+    "phase": "recession",
+    "confidence": "low",
+    "scores": {
+      "early": 52.9,
+      "mid": 45.0,
+      "late": 38.3,
+      "recession": 58.8
+    },
+    "evidence": [
+      "Leaders in top ranks: Consumer Defensive, Healthcare",
+      "Laggards in bottom ranks: Industrials, Financial"
+    ]
+  },
+  "ranking": [
+    {
+      "rank": 1,
+      "sector": "Healthcare",
+      "ratio": 0.15284974093264247,
+      "ratio_pct": 15.3,
+      "trend": "Down",
+      "slope": -0.02107866227037214,
+      "status": "Normal"
+    },
+    {
+      "rank": 2,
+      "sector": "Consumer Defensive",
+      "ratio": 0.12931034482758622,
+      "ratio_pct": 12.9,
+      "trend": "Down",
+      "slope": -0.014187609585038008,
+      "status": "Normal"
+    },
+    {
+      "rank": 3,
+      "sector": "Communication Services",
+      "ratio": 0.09900990099009901,
+      "ratio_pct": 9.9,
+      "trend": "Down",
+      "slope": -0.016831683168316847,
+      "status": "Normal"
+    },
+    {
+      "rank": 4,
+      "sector": "Technology",
+      "ratio": 0.07065217391304347,
+      "ratio_pct": 7.1,
+      "trend": "Down",
+      "slope": -0.01186061381074166,
+      "status": "Oversold"
+    },
+    {
+      "rank": 5,
+      "sector": "Consumer Cyclical",
+      "ratio": 0.06884057971014493,
+      "ratio_pct": 6.9,
+      "trend": "Down",
+      "slope": -0.012197214113791127,
+      "status": "Oversold"
+    },
+    {
+      "rank": 6,
+      "sector": "Financial",
+      "ratio": 0.05244755244755245,
+      "ratio_pct": 5.2,
+      "trend": "Down",
+      "slope": -0.013802863802863774,
+      "status": "Oversold"
+    },
+    {
+      "rank": 7,
+      "sector": "Industrials",
+      "ratio": 0.04945054945054945,
+      "ratio_pct": 4.9,
+      "trend": "Down",
+      "slope": -0.008618774842179072,
+      "status": "Oversold"
+    },
+    {
+      "rank": 8,
+      "sector": "Real Estate",
+      "ratio": 0.03968253968253968,
+      "ratio_pct": 4.0,
+      "trend": "Down",
+      "slope": -0.01543473110637289,
+      "status": "Oversold"
+    },
+    {
+      "rank": 9,
+      "sector": "Utilities",
+      "ratio": 0.0136986301369863,
+      "ratio_pct": 1.4,
+      "trend": "Down",
+      "slope": -0.002684191040355423,
+      "status": "Oversold"
+    },
+    {
+      "rank": 10,
+      "sector": "Basic Materials",
+      "ratio": 0.0,
+      "ratio_pct": 0.0,
+      "trend": "Down",
+      "slope": -0.010563380281690127,
+      "status": "Oversold"
+    },
+    {
+      "rank": 11,
+      "sector": "Energy",
+      "ratio": 0.0,
+      "ratio_pct": 0.0,
+      "trend": "Down",
+      "slope": -0.0013157894736842077,
+      "status": "Oversold"
+    }
+  ],
+  "overbought": [],
+  "oversold": [
+    {
+      "sector": "Technology",
+      "ratio": 0.07065217391304347,
+      "ratio_pct": 7.1
+    },
+    {
+      "sector": "Consumer Cyclical",
+      "ratio": 0.06884057971014493,
+      "ratio_pct": 6.9
+    },
+    {
+      "sector": "Financial",
+      "ratio": 0.05244755244755245,
+      "ratio_pct": 5.2
+    },
+    {
+      "sector": "Industrials",
+      "ratio": 0.04945054945054945,
+      "ratio_pct": 4.9
+    },
+    {
+      "sector": "Real Estate",
+      "ratio": 0.03968253968253968,
+      "ratio_pct": 4.0
+    },
+    {
+      "sector": "Utilities",
+      "ratio": 0.0136986301369863,
+      "ratio_pct": 1.4
+    },
+    {
+      "sector": "Basic Materials",
+      "ratio": 0.0,
+      "ratio_pct": 0.0
+    },
+    {
+      "sector": "Energy",
+      "ratio": 0.0,
+      "ratio_pct": 0.0
+    }
+  ],
+  "trends": {
+    "uptrend_count": 0,
+    "downtrend_count": 11,
+    "uptrend_sectors": [],
+    "downtrend_sectors": [
+      "Healthcare",
+      "Consumer Defensive",
+      "Communication Services",
+      "Technology",
+      "Consumer Cyclical",
+      "Financial",
+      "Industrials",
+      "Real Estate",
+      "Utilities",
+      "Basic Materials",
+      "Energy"
+    ]
+  }
+}
