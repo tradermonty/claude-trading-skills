@@ -112,10 +112,18 @@ when its latest payment has a non-cadence FMP `frequency` such as `Irregular`.
 **Cut rule:** after a dividend cut the point-in-time declared rate is kept for
 later months and the reason `cut_in_window` is recorded; it does not withhold the
 average by itself. FMP rows with `frequency: Special` are labelled `special`;
-`Irregular` is not special. If the CURRENT latest regular payment is `Irregular`,
-or exceeds 1.5x the trailing regular median with no later payment to confirm it,
-the target is withheld with `latest_dividend_unconfirmed` (also a
-`pre_order_blockers` entry) until the next payment. A withheld average keeps the existing
+`Irregular` is not special. **Raise confirmation:** a regular payment L is
+unconfirmed when L is more than 25% above M (`REGULAR_YIELD_RAISE_CONFIRM_PCT`)
+and fewer than 2 consecutive regular payments equal L. M is the median of the
+regular payments before that run, over the trailing window of max(pays per year, 8)
+payments. A genuine raise is therefore unconfirmed at its first payment and
+confirmed at the second; a raise of 25% or less is never withheld. An
+observation whose latest used payment is unconfirmed is invalid. If the CURRENT
+latest regular payment is `Irregular` or unconfirmed, the target is withheld with
+`latest_dividend_unconfirmed` (also a `pre_order_blockers` entry). Known
+limitation: a combined regular-plus-special row less than 25% above the regular
+level inside the history cannot be detected from data alone; correct it with
+`kind: combined`. A withheld average keeps the existing
 `regular_only_average_unavailable` / `regular_dividend_unavailable` behavior and
 lists the reasons in `notes` as `yield_history:<reason>`. Each row carries a
 `yield_history` summary (status, window, coverage, method, source); the CSV adds

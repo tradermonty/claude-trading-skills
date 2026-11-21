@@ -25,15 +25,15 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from dividend_basis import _is_explicit_special, analyze_dividends
+from dividend_basis import _is_explicit_special, _rates_equal, analyze_dividends
 from thresholds import (
     MIN_REGULAR_PAYS,
     REGULAR_YIELD_FETCH_BUFFER_DAYS,
     REGULAR_YIELD_GAP_TOLERANCE,
     REGULAR_YIELD_MIN_COVERAGE,
     REGULAR_YIELD_OBSERVATIONS,
+    REGULAR_YIELD_RAISE_CONFIRM_PCT,
     REGULAR_YIELD_YEARS,
-    SPECIAL_OUTLIER_MULTIPLE,
 )
 
 METHOD = "month_end_60_regular_only_v1"
@@ -257,39 +257,67 @@ def _latest_regular_row(rows: list[dict[str, Any]], as_of: date | None):
     return best[0], best[1], on_day
 
 
+def _amount_unconfirmed_days(rows: list[dict[str, Any]], as_of: date | None, ppy) -> set[date]:
+    """Regular pay dates whose amount jump is not confirmed by a repeat.
+
+    For each pay, L is its amount and the run is the consecutive regular pays
+    equal to L (``_rates_equal``) around it in the history known as of the run
+    date. M is the median of the regular pays before the run over the same
+    trailing window dividend_basis uses. L > (1 + RAISE_CONFIRM_PCT) x M with a
+    run shorter than 2 means the pay is unconfirmed (a combined regular+special
+    row, or the first pay of a raise).
+    """
+    series: list[tuple[date, float]] = []
+    for row in rows:
+        day = _parse_iso(row.get("date"))
+        amount = _positive_float(row.get("dividend"))
+        if day is None or amount is None or _is_explicit_special(row.get("label")):
+            continue
+        known = _parse_iso(row.get("declarationDate")) or day
+        if as_of is not None and known > as_of:
+            continue
+        series.append((day, amount))
+    series.sort()
+    trailing = max(ppy or 4, 8)
+    bad: set[date] = set()
+    for i, (day, amount) in enumerate(series):
+        lo = i
+        while lo > 0 and _rates_equal(series[lo - 1][1], amount):
+            lo -= 1
+        hi = i
+        while hi + 1 < len(series) and _rates_equal(series[hi + 1][1], amount):
+            hi += 1
+        if hi - lo + 1 >= 2:
+            continue
+        before = [a for _, a in series[max(0, lo - trailing) : lo]]
+        if len(before) < MIN_REGULAR_PAYS:
+            continue
+        if amount > (1 + REGULAR_YIELD_RAISE_CONFIRM_PCT) * statistics.median(before):
+            bad.add(day)
+    return bad
+
+
 def latest_dividend_unconfirmed_date(
     dividends: list[dict[str, Any]], as_of: str | None
 ) -> date | None:
     """Date of the latest regular payment when it cannot be trusted as the run rate.
 
     Unconfirmed when its FMP ``frequency`` is a non-cadence word other than
-    Special (e.g. "Irregular"), or when it exceeds SPECIAL_OUTLIER_MULTIPLE x the
-    median of the prior regular pays with no later payment to confirm it.
+    Special (e.g. "Irregular"), or when its amount is more than
+    ``1 + REGULAR_YIELD_RAISE_CONFIRM_PCT`` x the prior regular median and has
+    not been repeated by a second payment.
     """
     rows, full, _ = classify_rows(dividends, as_of)
     as_of_date = _parse_iso(as_of) if as_of else None
     latest = _latest_regular_row(rows, as_of_date)
     if latest is None:
         return None
-    day, amount, on_day = latest
+    day, _amount, on_day = latest
     words = [_frequency_word(r) for r in on_day]
     if any(w and w != "special" and w not in _FREQUENCY_WORDS for w in words):
         return day
     ppy = getattr(full, "pays_per_year", None)
-    trailing = max(ppy or 4, 8)
-    prior = []
-    for row in rows:
-        d = _parse_iso(row.get("date"))
-        a = _positive_float(row.get("dividend"))
-        if d is None or a is None or d >= day or _is_explicit_special(row.get("label")):
-            continue
-        prior.append((d, a))
-    prior.sort()
-    window = [a for _, a in prior[-trailing:]]
-    if len(window) >= MIN_REGULAR_PAYS:
-        if amount > SPECIAL_OUTLIER_MULTIPLE * statistics.median(window):
-            return day
-    return None
+    return day if day in _amount_unconfirmed_days(rows, as_of_date, ppy) else None
 
 
 def latest_dividend_unconfirmed(dividends: list[dict[str, Any]], as_of: str | None) -> bool:
@@ -356,7 +384,12 @@ def reconstruct_regular_yield(
     months = _month_list(as_of_date)
     prices_by_month, earliest_price = _month_end_prices(prices)
     rows, _full, _ = classify_rows(dividends, as_of)
-    unconfirmed_day = latest_dividend_unconfirmed_date(dividends, as_of)
+    unconfirmed_days = _amount_unconfirmed_days(
+        rows, as_of_date, getattr(_full, "pays_per_year", None)
+    )
+    latest_bad = latest_dividend_unconfirmed_date(dividends, as_of)
+    if latest_bad is not None:
+        unconfirmed_days.add(latest_bad)
 
     result = RegularYieldHistory(status="WITHHELD", source=source)
     reasons: list[str] = []
@@ -393,9 +426,9 @@ def reconstruct_regular_yield(
         day, close = entry
         basis = analyze_dividends(rows, close, as_of_date=day.isoformat())
         kind = _invalid_kind(basis, rows)
-        if kind is None and unconfirmed_day is not None:
+        if kind is None:
             used = basis.dividend_dates_used
-            if used and _parse_iso(used[-1]) == unconfirmed_day:
+            if used and _parse_iso(used[-1]) in unconfirmed_days:
                 kind = "latest_dividend_unconfirmed"
         if kind:
             note(f"invalid_observation:{kind}")
@@ -562,6 +595,10 @@ def load_yield_history(path: Path) -> dict[str, dict[str, Any]]:
                         )
                     ratio = regular / total
                     row["dividend"] = regular
+                    # The regular part must not be dropped as special afterwards.
+                    if _is_explicit_special(row.get("label")):
+                        row.pop("label", None)
+                    row["frequency"] = None
                     adj = _positive_float(row.get("adjDividend"))
                     if adj is not None:
                         row["adjDividend"] = adj * ratio

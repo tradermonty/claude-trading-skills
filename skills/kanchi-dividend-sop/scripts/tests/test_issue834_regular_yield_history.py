@@ -881,3 +881,83 @@ def test_cli_warns_for_tickers_not_in_the_run(monkeypatch, tmp_path, capsys):
     path.write_text(json.dumps(payload))
     run_main(monkeypatch, tmp_path, "--yield-history-json", str(path))
     assert "ZZZ" in capsys.readouterr().err
+
+
+# --- raise confirmation by repeat (re-review) -------------------------------------
+
+
+def monthly_rows(amount=0.10):
+    rows = []
+    year, month = 2019, 1
+    while date(year, month, 25) <= date(2026, 10, 25):
+        rows.append(
+            {"date": date(year, month, 25).isoformat(), "dividend": amount, "frequency": "Monthly"}
+        )
+        year, month = year + (month == 12), month % 12 + 1
+    return rows
+
+
+def test_combined_row_at_1_4x_labelled_quarterly_is_withheld_end_to_end():
+    rows = flat_rows()
+    rows[-1]["dividend"] = 0.7  # regular + special, labelled Quarterly, 1.4x
+    history = reconstruct(dividends=rows)
+    assert "invalid_observation:latest_dividend_unconfirmed" in history.reasons
+    row = entry_row(30.0, history=history, dividends=rows)
+    assert row["target_withheld_reason"] == "latest_dividend_unconfirmed"
+    assert row["buy_target_price"] is None
+    assert row["order_ready"] is False
+
+
+def test_quarterly_raise_is_confirmed_at_the_second_raised_pay():
+    rows = flat_rows()
+    for row in rows:
+        if row["date"] >= "2026-06-15":
+            row["dividend"] = 0.8
+    first = [r for r in rows if r["date"] <= "2026-06-15"]
+    assert ryh.latest_dividend_unconfirmed(first, AS_OF) is True
+    assert ryh.latest_dividend_unconfirmed(rows, AS_OF) is False
+    # In the reconstruction both raised pays are confirmed by the repeat.
+    result = reconstruct(dividends=rows)
+    assert "invalid_observation:latest_dividend_unconfirmed" not in result.reasons
+    assert entry_row(30.0, history=result, dividends=rows)["target_withheld_reason"] is None
+
+
+def test_monthly_raise_is_confirmed_at_the_second_raised_month():
+    rows = monthly_rows()
+    for row in rows:
+        if row["date"] >= "2026-09-25":
+            row["dividend"] = 0.16
+    first = [r for r in rows if r["date"] <= "2026-09-25"]
+    assert ryh.latest_dividend_unconfirmed(first, AS_OF) is True
+    assert ryh.latest_dividend_unconfirmed(rows, AS_OF) is False
+
+
+def test_ten_percent_raise_is_never_withheld():
+    for build, boundary in ((flat_rows, "2026-09-15"), (monthly_rows, "2026-10-25")):
+        rows = build()
+        base = rows[0]["dividend"]
+        for row in rows:
+            if row["date"] >= boundary:
+                row["dividend"] = round(base * 1.10, 4)
+        assert ryh.latest_dividend_unconfirmed(rows, AS_OF) is False
+
+
+def test_combined_on_a_special_row_keeps_the_regular_part(tmp_path):
+    rows = quarterly_dividends()
+    for row in rows:
+        if row["date"] == "2023-12-15":
+            row.update(
+                dividend=1.5,
+                frequency="Special",
+                kind="combined",
+                regular_amount=0.56,
+                kind_source="Issuer release 2023-11-20",
+            )
+    loaded = write_history(tmp_path, "SLDE", rows)
+    fixed = [r for r in loaded["dividends"] if r["date"] == "2023-12-15"][0]
+    assert fixed["dividend"] == 0.56 and fixed["frequency"] is None
+    assert "label" not in fixed
+    result = reconstruct(dividends=loaded["dividends"], prices=loaded["prices"])
+    assert result.observation_count == 60
+    january = [o for o in result.observations if o["date"].startswith("2024-01")][0]
+    assert january["regular_annualized"] == pytest.approx(2.24)

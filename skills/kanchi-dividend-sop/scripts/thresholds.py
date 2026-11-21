@@ -119,6 +119,9 @@ REGULAR_YIELD_MIN_COVERAGE = 0.9
 REGULAR_YIELD_GAP_TOLERANCE = (0.5, 1.5)
 # Extra days fetched before the 5-year start so the first month has a price row.
 REGULAR_YIELD_FETCH_BUFFER_DAYS = 45
+# A regular pay more than this fraction above the prior regular median is
+# unconfirmed until a second pay repeats the amount (raise confirmation).
+REGULAR_YIELD_RAISE_CONFIRM_PCT = 0.25
 
 # --- Verdict tier (WS-5, v2.1) ---
 VERDICTS = (
