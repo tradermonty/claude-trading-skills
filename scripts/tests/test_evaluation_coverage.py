@@ -54,7 +54,7 @@ def test_invalid_accounting_is_rejected(changes):
 
 def test_standalone_copies_match_shared_contract():
     source = (ROOT / "scripts/evaluation_coverage.py").read_bytes()
-    for skill in ("vcp-screener", "exposure-coach"):
+    for skill in ("vcp-screener", "exposure-coach", "downtrend-duration-analyzer"):
         assert (ROOT / "skills" / skill / "scripts/evaluation_coverage.py").read_bytes() == source
 
 
