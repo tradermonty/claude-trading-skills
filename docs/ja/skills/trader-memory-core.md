@@ -75,7 +75,7 @@ IDEA / ENTRY_READY / ACTIVE / PARTIALLY_CLOSED → INVALIDATED
 - **FMP API キー:** オプション — ポストモーテムの MAE/MFE 算出にのみ使用。コア機能（登録、遷移、決済、レビュー）は完全オフラインで動作
 - **ステートディレクトリ:** `state/theses/` は初回使用時に自動作成
 
-> FMP APIはポストモーテム時の日次価格データ取得（MAE/MFE算出）にのみ使用されます。APIキーがなくてもポストモーテムは他のすべてのフィールドで生成されます。
+> FMP APIはポストモーテム時の日次価格データ取得（MAE/MFE算出）にのみ使用されます。CLIは価格を自動取得しません。Pythonから価格アダプターを明示的に渡さない場合も、ポストモーテムは他のすべてのフィールドで生成されます。
 {: .tip }
 
 ---
@@ -307,7 +307,11 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
   --state-dir state/theses/ postmortem th_aapl_div_20260314_a3f1
 ```
 
-P&L、保有日数、（FMP APIキーがあれば）MAE/MFEを含むレポートが `state/journal/pm_{thesis_id}.md` に保存されます。
+P&Lと保有日数を含むレポートが `state/journal/pm_{thesis_id}.md` に保存されます。CLIは価格を自動取得せず、MAE/MFEはnullのままです。価格を用いる場合はPython APIで `FMPPriceAdapter()` を `thesis_review.generate_postmortem(...)` または `compute_mae_mfe` の `price_adapter` に明示的に渡します。
+
+アダプターは `FMP_API_KEY` または明示的な `api_key` を読み、生成FMPクライアントで指定期間（両端を含む）のstable full-historyを取得します。v3へのフォールバックは行いません。`requests` を含む `requirements.txt` の依存関係をインストールしてください。共通transportは30秒のタイムアウト、同一クライアント内で最低0.3秒の間隔、HTTP 429時に60秒待機して1回だけ再試行する規約と、認証情報を秘匿化した診断を使用します。各アダプター呼び出しが所有するセッションは終了時に閉じます。
+
+価格は指定期間内に絞り、日付の昇順で返します。`adjClose` があれば優先し、なければ `close` を使いますが、`close` の調整済み性は保証しません。不正な日付、期間内の日付重複、銘柄不一致、数値でない価格・非有限値・ゼロ以下の価格は拒否します。空の履歴や取得失敗・不正な証拠の場合、レビューのMAE/MFEはゼロではなくnullになります。
 
 CLOSEDまたはINVALIDATEDのthesisに学びを記録し、ポストモーテムを再生成してジャーナルを更新します:
 
