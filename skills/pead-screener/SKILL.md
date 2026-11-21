@@ -17,6 +17,22 @@ Screen post-earnings gap-up stocks for PEAD (Post-Earnings Announcement Drift) p
 
 ## Prerequisites
 
+### Missing price bars
+
+Treat a `PriceBarGap` as an unavailable candidate, not a weak setup. Validate
+the consumed earnings-gap endpoints, weekly OHLCV bars and latest 20 liquidity
+bars without dropping sessions or substituting zero. Missing, non-finite,
+boolean and non-positive prices are invalid; zero volume remains valid.
+Exclude affected symbols before ranking or generating entry/stop levels, and
+read the dated reasons in JSON `metadata.price_bar_gap_exclusions` and Markdown.
+Ignore invalid pre-earnings OHLC when the earnings week is present. Validate
+pre-earnings volume only when consumed by the red-candle surrounding-week average,
+the breakout's prior-four-week baseline, or the latest 20 daily liquidity bars.
+Continue screening healthy symbols. Healthy-data scores and report bytes are
+unchanged; absent history retains the existing insufficient-data behavior.
+
+### API setup
+
 - FMP API key (set `FMP_API_KEY` environment variable or pass `--api-key`)
   ```bash
   export FMP_API_KEY=your_api_key_here
