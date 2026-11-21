@@ -75,6 +75,17 @@ def generate_markdown_report(
     lines.append("---")
     lines.append("")
 
+    exclusions = metadata.get("price_bar_gap_exclusions", [])
+    if exclusions:
+        lines.append(
+            f"> Data quality warning: incomplete screening. {len(exclusions)} candidate(s) "
+            "excluded for missing or invalid consumed price-bar data."
+        )
+        lines.append("")
+        for exclusion in exclusions:
+            lines.append(f"- **{exclusion['symbol']}:** {exclusion['reason']}")
+        lines.append("")
+
     # Screening funnel
     funnel = metadata.get("funnel", {})
     lines.append("## Screening Funnel")
