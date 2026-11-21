@@ -230,7 +230,7 @@ repos:
         language: system
         # Fire on the canonical source, the generator, and every vendored copy
         # (catches a manual edit to a generated fmp_client.py / _fmp_compat.py).
-        files: '^(scripts/fmp_client/.*|scripts/generate_fmp_client\.py|skills/(pead-screener|earnings-trade-analyzer|ibd-distribution-day-monitor|vcp-screener|parabolic-short-trade-planner|ftd-detector|canslim-screener|macro-regime-detector|market-top-detector|us-undervalued-growth-screener|earnings-calendar|economic-calendar-fetcher|institutional-flow-tracker|cot-contrarian-detector|value-dividend-screener|dividend-growth-pullback-screener|kanchi-dividend-sop|stockbee-20pct-study|stockbee-episodic-pivot-analyzer|stockbee-exhaustion-hammer-screener|stockbee-momentum-burst-screener|stockbee-setup-fluency-trainer|pair-trade-screener|technical-analyst)/scripts/(fmp_client|_fmp_compat)\.py)$'
+        files: '^(scripts/fmp_client/.*|scripts/generate_fmp_client\.py|skills/(pead-screener|earnings-trade-analyzer|ibd-distribution-day-monitor|vcp-screener|parabolic-short-trade-planner|ftd-detector|canslim-screener|macro-regime-detector|market-top-detector|us-undervalued-growth-screener|earnings-calendar|economic-calendar-fetcher|institutional-flow-tracker|cot-contrarian-detector|value-dividend-screener|dividend-growth-pullback-screener|kanchi-dividend-sop|stockbee-20pct-study|stockbee-episodic-pivot-analyzer|stockbee-exhaustion-hammer-screener|stockbee-momentum-burst-screener|stockbee-setup-fluency-trainer|pair-trade-screener|technical-analyst|trader-memory-core)/scripts/(fmp_client|_fmp_compat)\.py)$'
         pass_filenames: false
 
       - id: market-calendar-drift

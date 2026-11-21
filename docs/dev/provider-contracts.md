@@ -81,6 +81,11 @@ unchanged and default to `format: "json"`.
 - An empty cell becomes `None`.
 - `true` / `false` in any case becomes `bool`.
 - An integer literal becomes `int`; a decimal or exponent literal becomes `float`.
+  If integer conversion is rejected (for example, by Python's integer digit
+  safety limit), parsing raises a fixed-message `csv.Error`. The fetch wrapper
+  reports fatal `parse_error`, discards the whole response including valid prefix
+  rows, and continues the remaining probes. No cell contents or underlying
+  conversion exception are emitted, and the interpreter's limit is unchanged.
 - Everything else stays `str`, including dates, `nan` and `inf`. A numeric column holding
   `nan` therefore reports `wrong_type:<col>:str`. This is intentional, because the breadth
   consumer rejects non-finite numbers, and the live files contain none.

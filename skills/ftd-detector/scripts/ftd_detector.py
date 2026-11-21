@@ -38,8 +38,8 @@ def parse_arguments():
     )
     parser.add_argument(
         "--output-dir",
-        default=".",
-        help="Output directory for reports (default: current directory)",
+        default="reports",
+        help="Output directory for reports (default: reports/)",
     )
     parser.add_argument(
         "--nasdaq-symbol",
@@ -249,6 +249,7 @@ def main():
     }
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    os.makedirs(args.output_dir, exist_ok=True)
     json_file = os.path.join(args.output_dir, f"ftd_detector_{timestamp}.json")
     md_file = os.path.join(args.output_dir, f"ftd_detector_{timestamp}.md")
 
