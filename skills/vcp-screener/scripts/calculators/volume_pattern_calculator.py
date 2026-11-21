@@ -29,6 +29,9 @@ The breakout quality is tracked separately via breakout_volume_score.
 
 from typing import Optional
 
+from _price_bars import find_bar_gaps, read_price
+from price_bar_utils import find_close_gaps, read_close, unavailable_component
+
 
 def calculate_volume_pattern(
     historical_prices: list[dict],
@@ -61,8 +64,21 @@ def calculate_volume_pattern(
             "error": "Insufficient data (need 20+ days)",
         }
 
-    volumes = [d.get("volume", 0) for d in historical_prices]
-    closes = [d.get("close", d.get("adjClose", 0)) for d in historical_prices]
+    n = len(historical_prices)
+    volume_indices = set(range(min(50, n)))
+    for contraction in contractions or []:
+        start, end = sorted((n - 1 - contraction["low_idx"], n - 1 - contraction["high_idx"]))
+        volume_indices.update(range(max(0, start), min(n, end + 1)))
+    gaps = find_bar_gaps(
+        [historical_prices[i] for i in sorted(volume_indices)],
+        ["volume"],
+        zero_ok=["volume"],
+        order="newest_first",
+    )
+    if gaps["bad_bars"]:
+        return unavailable_component(gaps, dry_up_ratio=None, breakout_volume_detected=False)
+    volumes = [read_price(d, "volume", allow_zero=True) for d in historical_prices]
+    closes = [read_close(d) for d in historical_prices]
 
     # 50-day average volume (or available)
     vol_period = min(50, len(volumes))
@@ -74,6 +90,14 @@ def calculate_volume_pattern(
             "dry_up_ratio": None,
             "error": "No volume data available",
         }
+
+    close_indices = {0} if pivot_price else set()
+    for i in range(min(20, n - 1)):
+        if volumes[i] > avg_volume_50d:
+            close_indices.update((i, i + 1))
+    gaps = find_close_gaps(historical_prices, close_indices)
+    if gaps["bad_bars"]:
+        return unavailable_component(gaps, dry_up_ratio=None, breakout_volume_detected=False)
 
     # Zone-based analysis when contractions are provided
     zone_analysis = None

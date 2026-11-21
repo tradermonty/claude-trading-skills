@@ -23,6 +23,8 @@ Scoring:
 - 0:   < -20% (laggard)
 """
 
+from price_bar_utils import find_close_gaps, read_close, unavailable_component
+
 # Minervini weighting periods (trading days) and weights
 RS_PERIODS = [
     (63, 0.40),  # 3 months - 40%
@@ -62,8 +64,21 @@ def calculate_relative_strength(
             "error": "Insufficient S&P 500 price data (need 63+ days)",
         }
 
-    stock_closes = [d.get("close", d.get("adjClose", 0)) for d in stock_prices]
-    sp500_closes = [d.get("close", d.get("adjClose", 0)) for d in sp500_prices]
+    available = min(len(stock_prices), len(sp500_prices)) - 1
+    endpoints = {0}
+    for period_days, _weight in RS_PERIODS:
+        if available >= period_days:
+            endpoints.add(period_days)
+        elif available >= period_days // 2:
+            endpoints.add(available)
+    for source, bars in [("stock", stock_prices), ("benchmark", sp500_prices)]:
+        gaps = find_close_gaps(bars, endpoints)
+        if gaps["bad_bars"]:
+            gaps["source"] = source
+            return unavailable_component(gaps, rs_rank_estimate=0, weighted_rs=None)
+
+    stock_closes = [read_close(d) for d in stock_prices]
+    sp500_closes = [read_close(d) for d in sp500_prices]
 
     weighted_rs = 0.0
     total_weight = 0.0
@@ -133,8 +148,6 @@ def calculate_relative_strength(
 
 def _period_return(closes: list[float], period: int) -> float:
     """Calculate return over period. Closes are most-recent-first."""
-    if len(closes) <= period or closes[period] <= 0:
-        return 0.0
     return ((closes[0] - closes[period]) / closes[period]) * 100
 
 

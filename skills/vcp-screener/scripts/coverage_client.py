@@ -88,11 +88,12 @@ def _session_date(value):
         return None
 
 
-def history_problem(rows, *, benchmark=False):
+def history_problem(rows, *, benchmark=False, check_values=True):
     """Require 253 distinct, newest-first dated sessions with finite observations.
 
     Failures return fixed codes only: missing_data, invalid_data, insufficient_history,
     duplicate_sessions, unordered_history. Row contents are never echoed.
+    Screening defers values to each calculator's consumed window with check_values=False.
     """
     if not rows:
         return "missing_data"
@@ -118,6 +119,8 @@ def history_problem(rows, *, benchmark=False):
             if session > previous:
                 return "unordered_history"
         previous = session
+        if not check_values:
+            continue
         prices = [row.get("close", row.get("adjClose"))]
         if not benchmark:
             prices += [row.get("high"), row.get("low")]
