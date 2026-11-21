@@ -236,6 +236,12 @@ def test_cli_end_to_end_offline(tmp_path, monkeypatch):
         def get_stock_dividend(self, ticker):
             return history()
 
+        def get_price_history(self, *a, **kw):
+            return []  # #834: main() now requests prices; none -> average withheld.
+
+        def get_splits(self, *a, **kw):
+            return []
+
         def get_financials(self, *a, **kw):
             return base()
 
