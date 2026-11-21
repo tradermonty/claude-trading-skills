@@ -127,16 +127,19 @@ Generate `sector_rotation_*.json` with
 and pass the printed JSON path unchanged to `--sector`.
 
 Canonical input requires all 11 known sectors exactly once in `ranking`.
-Each row must have finite non-boolean `ratio` in [0,1] and `slope` in [-1,1],
-with Up for positive slope and Down otherwise. Both `trends` counts and sector
+Each row must have a finite non-boolean `ratio` in [0,1], a `slope` that is null
+or in [-1,1], and a string trend label. A null slope, or a label that disagrees
+with the slope sign, is accepted with a warning and no trend adjustment. Both
+`trends` counts and sector
 lists must agree with the rows. `meta` must be an object; missing/null freshness
 is allowed with a warning, while malformed freshness metadata is rejected.
 Missing, invalid or inconsistent required data excludes the whole input;
 inserting a legacy score cannot bypass validation.
 
 The consumer-owned `sector_uptrend_health_v1` heuristic uses Uptrend Analyzer's
-absolute ratio bands (boundaries 0.097, 0.25, 0.37 and 0.50). It adds +5/-5/0
-for positive/negative/zero slope, clamps each unrounded sector value to [0,100],
+absolute ratio bands (boundaries 0.097, 0.25, 0.37 and 0.50). It adds +5 for Up
+with positive slope, -5 for Down with negative slope and 0 otherwise, clamps each
+unrounded sector value to [0,100],
 averages all 11 equally, and rounds only the final mean (nearest integer, ties
 to even). It neither copies the relative rotation `groups.score` nor rewards
 low ratio dispersion. This is an uncalibrated equal-sector measure; see the

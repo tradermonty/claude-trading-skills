@@ -129,6 +129,7 @@ def _canonical_sector(data: dict) -> SectorInput:
     if not isinstance(ranking, list) or len(ranking) != len(SECTORS):
         return reject("canonical ranking must contain all 11 sectors exactly once")
     rows = {}
+    row_warnings: list[str] = []
     for row in ranking:
         if not isinstance(row, dict):
             return reject("canonical ranking entries must be objects")
@@ -138,15 +139,28 @@ def _canonical_sector(data: dict) -> SectorInput:
         ratio, slope = row.get("ratio"), row.get("slope")
         if not _finite_number(ratio, 0, 1):
             return reject(f"{name}: ratio must be a finite number from 0 to 1")
-        if not _finite_number(slope, -1, 1):
-            return reject(f"{name}: slope must be a finite number from -1 to 1")
+        # The producer emits slope=None for a blank CSV cell, and the provider
+        # contract allows a null Slope per row. Mirror Uptrend Analyzer: a null
+        # slope, or a label that disagrees with the slope sign, gets no trend
+        # adjustment instead of rejecting the whole report.
+        if slope is not None and not _finite_number(slope, -1, 1):
+            return reject(f"{name}: slope must be null or a finite number from -1 to 1")
         trend = row.get("trend")
-        if not isinstance(trend, str) or trend.lower().strip() not in {"up", "down"}:
-            return reject(f"{name}: trend must be Up or Down")
+        if not isinstance(trend, str):
+            return reject(f"{name}: trend must be a string")
         trend = trend.lower().strip()
-        if (trend == "up") != (slope > 0):
-            return reject(f"{name}: trend contradicts slope (zero slope is Down)")
-        adjustment = 5 if slope > 0 else (-5 if slope < 0 else 0)
+        if trend == "up" and slope is not None and slope > 0:
+            adjustment = 5
+        elif trend == "down" and slope is not None and slope < 0:
+            adjustment = -5
+        else:
+            adjustment = 0
+            if slope is None:
+                row_warnings.append(f"{name}: slope unavailable; no trend adjustment applied.")
+            elif trend not in {"up", "down"} or (trend == "up") != (slope > 0):
+                row_warnings.append(
+                    f"{name}: trend label does not match slope; no trend adjustment applied."
+                )
         health = min(100, max(0, _ratio_to_score(ratio) + adjustment))
         rows[name] = {
             "sector": name,
@@ -161,6 +175,7 @@ def _canonical_sector(data: dict) -> SectorInput:
     freshness, warnings, error = _read_freshness(data.get("meta"))
     if error:
         return reject(error)
+    warnings = warnings + row_warnings
 
     ordered = [rows[name] for name in SECTORS]
     score = round(math.fsum(row["health_score"] for row in ordered) / len(SECTORS))
@@ -168,7 +183,9 @@ def _canonical_sector(data: dict) -> SectorInput:
         "mapping_version": MAPPING_VERSION,
         "score": score,
         "sector_count": len(SECTORS),
-        "positive_slope_count": sum(row["slope"] > 0 for row in ordered),
+        "positive_slope_count": sum(
+            row["slope"] is not None and row["slope"] > 0 for row in ordered
+        ),
         "mean_ratio": math.fsum(row["ratio"] for row in ordered) / len(SECTORS),
         "source_freshness": freshness,
         "freshness_verified": False,

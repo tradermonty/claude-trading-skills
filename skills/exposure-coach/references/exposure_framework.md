@@ -135,8 +135,10 @@ Require `ranking` to contain each of these sectors exactly once: Technology,
 Consumer Cyclical, Communication Services, Financial, Industrials, Utilities,
 Consumer Defensive, Healthcare, Real Estate, Energy, and Basic Materials.
 Names and Up/Down labels are case-insensitive and trimmed. Each row requires
-a finite non-boolean `ratio` in [0,1], a finite non-boolean `slope` in [-1,1],
-and a trend consistent with slope: Up for positive slope, Down otherwise.
+a finite non-boolean `ratio` in [0,1], a `slope` that is null or a finite
+non-boolean number in [-1,1], and a string trend label. A null slope (the
+producer emits it for a blank CSV cell) or a label that disagrees with the
+slope sign is accepted with a warning and gets no trend adjustment.
 Both `trends.uptrend_count`/`downtrend_count` must be integers, and both sector
 lists must match the ranking rows without duplicates. Reject the whole report
 on missing, partial, contradictory or invalid required data. A canonical-shaped
@@ -152,7 +154,8 @@ For each ratio `r`, reuse Uptrend Analyzer's absolute ratio bands:
 | `0.37 <= r < 0.50` | `70 + 19 * (r - 0.37) / (0.50 - 0.37)` |
 | `0.50 <= r <= 1` | `min(100, 90 + 10 * (r - 0.50) / 0.10)` |
 
-Add +5 for positive slope, -5 for negative slope, or 0 for zero slope; clamp
+Add +5 for an Up label with positive slope, -5 for a Down label with negative
+slope, and 0 otherwise (as Uptrend Analyzer does); clamp
 each adjusted value to [0,100]. Average the 11 **unrounded** adjusted values
 equally, then round once to the nearest integer, ties to even. There is no
 low-spread bonus: uniformly weak sectors must not gain health points merely

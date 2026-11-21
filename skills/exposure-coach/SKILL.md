@@ -83,14 +83,16 @@ theme_strength labels remain supported; see references/exposure_framework.md.
 
 **Sector input contract:** Pass the unchanged JSON from
 `analyze_sector_rotation.py --json --save` to `--sector`. Require all 11 known
-sectors exactly once in `ranking`, finite non-boolean `ratio` in [0,1] and `slope`
-in [-1,1], and Up/Down trends consistent with slope (zero is Down). Require
+sectors exactly once in `ranking`, finite non-boolean `ratio` in [0,1], a `slope`
+that is null or in [-1,1], and a string trend label; a null slope or a label that
+disagrees with the slope gets no adjustment and a warning. Require
 `trends` counts and sector lists to match those rows, plus valid `meta` freshness
 metadata or unknown freshness. Reject the whole input on invalid required data;
 do not repair it by inserting legacy fields.
 
 Use the consumer-owned `sector_uptrend_health_v1` mapping: apply Uptrend Analyzer's
-absolute ratio bands, add +5/-5/0 for positive/negative/zero slope, clamp each
+absolute ratio bands, add +5 for Up with positive slope, -5 for Down with
+negative slope and 0 otherwise, clamp each
 unrounded value to [0,100], then average all 11 sectors equally and round once
 (nearest integer, ties to even). This uncalibrated heuristic uses neither
 `groups.score` nor a low-dispersion bonus. See the Sector Score section of

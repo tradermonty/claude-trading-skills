@@ -167,7 +167,7 @@ def test_incomplete_or_unknown_sector_universe_is_rejected(native_report, defect
 
 
 @pytest.mark.parametrize(
-    "value", [None, True, "-0.01", -1.01, 1.01, float("nan"), float("inf"), -float("inf")]
+    "value", [True, "-0.01", -1.01, 1.01, float("nan"), float("inf"), -float("inf")]
 )
 def test_invalid_canonical_slope_invalidates_whole_report(native_report, value):
     native_report["ranking"][0]["slope"] = value
@@ -175,12 +175,112 @@ def test_invalid_canonical_slope_invalidates_whole_report(native_report, value):
     assert extract_sector_score(native_report) is None
 
 
-@pytest.mark.parametrize(
-    "slope,trend", [(0.01, "Down"), (-0.01, "Up"), (0, "Up"), (-0.01, "Flat"), (-0.01, [])]
-)
-def test_row_trend_must_agree_with_slope(native_report, slope, trend):
+def _sector_input(report):
+    from sector_contract import parse_sector_input
+
+    return parse_sector_input(report)
+
+
+def _row_health(result, sector):
+    return next(r for r in result.details["sector_health"] if r["sector"] == sector)
+
+
+def _relabel(report, index, trend):
+    """Keep the trends lists consistent with an edited label, as the producer would."""
+    name = report["ranking"][index]["sector"]
+    for direction in ("up", "down"):
+        key = f"{direction}trend_sectors"
+        names = [n for n in report["trends"][key] if n != name]
+        if trend.lower().strip() == direction:
+            names.append(name)
+        report["trends"][key] = names
+        report["trends"][f"{direction}trend_count"] = len(names)
+    return name
+
+
+def test_null_slope_is_accepted_without_trend_adjustment(native_report):
+    """The producer emits slope=None for a blank CSV cell (the provider contract allows it)."""
+    from sector_contract import _ratio_to_score
+
+    row = native_report["ranking"][0]
+    row["slope"] = None
+    result = _sector_input(native_report)
+    assert result.error is None and result.score is not None
+    expected = min(100, max(0, _ratio_to_score(row["ratio"])))
+    assert _row_health(result, row["sector"])["health_score"] == pytest.approx(expected)
+    assert any("slope unavailable" in w for w in result.warnings)
+
+
+@pytest.mark.parametrize("slope,trend", [(0.01, "Down"), (-0.01, "Up"), (0, "Up"), (-0.01, "Flat")])
+def test_trend_label_disagreeing_with_slope_gets_no_adjustment(native_report, slope, trend):
+    """Mirror Uptrend Analyzer: +5 only for Up with slope>0, -5 only for Down with slope<0."""
+    from sector_contract import _ratio_to_score
+
     native_report["ranking"][0].update({"slope": slope, "trend": trend})
+    name = _relabel(native_report, 0, trend)
+    result = _sector_input(native_report)
+    assert result.error is None
+    ratio = native_report["ranking"][0]["ratio"]
+    assert _row_health(result, name)["health_score"] == pytest.approx(
+        min(100, max(0, _ratio_to_score(ratio)))
+    )
+    assert any("does not match slope" in w for w in result.warnings)
+
+
+@pytest.mark.parametrize("slope,trend,adjustment", [(0.02, "Up", 5), (-0.02, "Down", -5)])
+def test_agreeing_label_and_slope_keep_adjustment(native_report, slope, trend, adjustment):
+    from sector_contract import _ratio_to_score
+
+    native_report["ranking"][0].update({"slope": slope, "trend": trend})
+    name = _relabel(native_report, 0, trend)
+    result = _sector_input(native_report)
+    ratio = native_report["ranking"][0]["ratio"]
+    assert _row_health(result, name)["health_score"] == pytest.approx(
+        min(100, max(0, _ratio_to_score(ratio) + adjustment))
+    )
+
+
+def test_non_string_trend_still_rejects(native_report):
+    native_report["ranking"][0].update({"slope": -0.01, "trend": []})
     assert extract_sector_score(native_report) is None
+
+
+def test_producer_pipeline_with_blank_slope_flows_into_score(monkeypatch, native_report):
+    """Build the report through the producer's own row parsing, including a blank Slope."""
+    module_name = "native_sector_pipeline_producer"
+    spec = importlib.util.spec_from_file_location(
+        module_name, ROOT / "skills/sector-analyst/scripts/analyze_sector_rotation.py"
+    )
+    producer = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, producer)
+    spec.loader.exec_module(producer)
+    raw_rows = [
+        {
+            "Sector": row["sector"],
+            "Ratio": str(row["ratio"]),
+            "10MA": "",
+            "Slope": "" if i == 0 else str(row["slope"]),
+            "Trend": row["trend"],
+            "Status": row.get("status") or "",
+        }
+        for i, row in enumerate(native_report["ranking"])
+    ]
+    sectors = producer.parse_sector_rows(raw_rows)
+    assert sectors[0].slope is None
+    produced = json.loads(
+        producer.format_json(
+            producer.rank_sectors(sectors),
+            native_report["groups"],
+            native_report["overbought"],
+            native_report["oversold"],
+            producer.analyze_trends(sectors),
+            native_report["cycle_phase"],
+            native_report["meta"]["freshness"],
+        )
+    )
+    result = _sector_input(produced)
+    assert result.error is None and result.score is not None
+    assert any("slope unavailable" in w for w in result.warnings)
 
 
 def test_zero_slope_with_down_trend_is_valid(native_report):
