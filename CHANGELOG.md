@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- Provider CSV canary: report an uncoercible integer cell as fatal `parse_error` instead of aborting the entire run. Discard partial rows, continue later probes and write the complete report without exposing cell contents or weakening Python's integer conversion limit (Refs #332).
+
 - trader-memory-core: migrate optional daily-price evidence to the generated FMP transport with stable-only exact-range requests, shared redaction/retry behavior and explicit standalone requests dependency. Reject ambiguous price evidence; keep CLI/manual postmortems offline with null MAE/MFE unless a Python caller supplies the adapter. Prefer provider adjClose when supplied without claiming raw close is adjusted (Refs #495).
 
 - downtrend-duration-analyzer: produce the shared `evaluation_coverage` block (#711) and stop at the symbol that hits the daily HTTP 429 limit or an HTTP 401/402/403 on history, instead of logging one error per remaining symbol and exiting 0. A run stopped before any symbol was evaluated exits 1 without a report; otherwise the report is written with verdict `partial` and the rest counted as `not_requested`. Empty or short histories no longer count as evaluated (`insufficient_history`), other failures are counted by reason and the run continues, and per-symbol errors name the real reason (for example `HTTP 429 (daily rate limit)`) instead of "unusable historical response" (#821, #822).
