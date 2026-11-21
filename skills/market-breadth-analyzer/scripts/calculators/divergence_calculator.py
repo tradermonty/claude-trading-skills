@@ -26,22 +26,30 @@ Scoring per window (100 = healthy):
 """
 
 
-def calculate_divergence(rows: list[dict]) -> dict:
+def calculate_divergence(rows: list[dict], instrument: dict | None = None) -> dict:
     """
     Calculate S&P 500 vs breadth divergence score using dual windows.
 
     Args:
         rows: All detail rows sorted by date ascending.
+        instrument: Optional instrument metadata dict with keys:
+            - symbol: e.g., "SPY"
+            - instrument_type: e.g., "ETF"
+            - proxy_for: e.g., "S&P 500 / ^GSPC"
+            - adjustment: e.g., "unknown" or "total-return" or "price-return"
 
     Returns:
-        Dict with score, signal, windows, and component details.
+        Dict with score, signal, windows, component details, and instrument metadata.
     """
     if not rows or len(rows) < 20:
-        return {
+        result = {
             "score": 50,
             "signal": "NO DATA: Insufficient data for divergence analysis",
             "data_available": False,
         }
+        if instrument:
+            result["instrument"] = instrument
+        return result
 
     latest = rows[-1]
 
@@ -57,12 +65,25 @@ def calculate_divergence(rows: list[dict]) -> dict:
     early_warning = w20["score"] <= 25 and w60["score"] >= 50
 
     # Signal uses the composite
-    signal = _generate_signal(w60["sp_pct"], w60["breadth_chg"], w60["div_type"], score)
+    signal = _generate_signal(w60["sp_pct"], w60["breadth_chg"], w60["div_type"], score, instrument)
 
-    return {
+    # Build instrument metadata for default source (SPY proxy for S&P 500)
+    # For custom sources, use provided instrument or mark as unknown
+    if instrument is None:
+        # Check if this is the default TraderMonty source by looking at the data
+        # The default source uses SPY as proxy for S&P 500
+        instrument = {
+            "symbol": "SPY",
+            "instrument_type": "ETF",
+            "proxy_for": "S&P 500 / ^GSPC",
+            "adjustment": "unknown",
+        }
+
+    result = {
         "score": score,
         "signal": signal,
         "data_available": True,
+        "instrument": instrument,
         # Top-level backward compatibility (from 60d window)
         "sp500_pct_change": round(w60["sp_pct"], 2),
         "breadth_change": round(w60["breadth_chg"], 4),
@@ -73,11 +94,16 @@ def calculate_divergence(rows: list[dict]) -> dict:
         "lookback_days": w60["lookback_days"],
         "divergence_type": w60["div_type"],
         "date": latest["Date"],
+        # New generic benchmark fields (preferred going forward)
+        "benchmark_pct_change": round(w60["sp_pct"], 2),
+        "benchmark_latest": latest["S&P500_Price"],
+        "benchmark_past": w60["sp_past"],
         # New window details
         "window_60d": {
             "score": w60["score"],
             "divergence_type": w60["div_type"],
             "sp500_pct_change": round(w60["sp_pct"], 2),
+            "benchmark_pct_change": round(w60["sp_pct"], 2),
             "breadth_change": round(w60["breadth_chg"], 4),
             "lookback_days": w60["lookback_days"],
         },
@@ -85,11 +111,13 @@ def calculate_divergence(rows: list[dict]) -> dict:
             "score": w20["score"],
             "divergence_type": w20["div_type"],
             "sp500_pct_change": round(w20["sp_pct"], 2),
+            "benchmark_pct_change": round(w20["sp_pct"], 2),
             "breadth_change": round(w20["breadth_chg"], 4),
             "lookback_days": w20["lookback_days"],
         },
         "early_warning": early_warning,
     }
+    return result
 
 
 def _compute_window(rows: list[dict], lookback: int) -> dict:
@@ -161,6 +189,14 @@ def _score_divergence(sp_pct: float, breadth_chg: float) -> tuple[int, str]:
     return 50, "Mixed signals"
 
 
-def _generate_signal(sp_pct: float, breadth_chg: float, div_type: str, score: int) -> str:
+def _generate_signal(sp_pct: float, breadth_chg: float, div_type: str, score: int, instrument: dict | None = None) -> str:
     """Generate human-readable signal."""
-    return f"{div_type}: S&P {sp_pct:+.1f}%, Breadth 8MA {breadth_chg:+.3f} over 60d"
+    benchmark_label = "S&P 500"
+    if instrument and instrument.get("symbol"):
+        symbol = instrument["symbol"]
+        proxy_for = instrument.get("proxy_for")
+        if proxy_for:
+            benchmark_label = f"{symbol} ({proxy_for} proxy)"
+        else:
+            benchmark_label = symbol
+    return f"{div_type}: {benchmark_label} {sp_pct:+.1f}%, Breadth 8MA {breadth_chg:+.3f} over 60d"

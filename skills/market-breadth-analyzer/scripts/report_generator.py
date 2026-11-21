@@ -225,8 +225,27 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("### 6. S&P 500 vs Breadth Divergence")
     lines.append("")
     if c6:
-        lines.append(f"- **S&P 500 60d Change:** {c6.get('sp500_pct_change', 0):+.2f}%")
-        lines.append(f"- **Breadth 8MA 60d Change:** {c6.get('breadth_change', 0):+.4f}")
+        # Show instrument metadata
+        instrument = c6.get("instrument")
+        if instrument:
+            symbol = instrument.get("symbol", "unknown")
+            instrument_type = instrument.get("instrument_type", "unknown")
+            proxy_for = instrument.get("proxy_for", "unknown")
+            adjustment = instrument.get("adjustment", "unknown")
+            lines.append(f"- **Benchmark Instrument:** {symbol} ({instrument_type})")
+            if proxy_for and proxy_for != "unknown":
+                lines.append(f"- **Proxy For:** {proxy_for}")
+            if adjustment and adjustment != "unknown":
+                lines.append(f"- **Adjustment:** {adjustment}")
+            lines.append("")
+        
+        # Use generic benchmark fields if available, fall back to sp500_* for compatibility
+        benchmark_pct = c6.get("benchmark_pct_change", c6.get("sp500_pct_change", 0))
+        benchmark_latest = c6.get("benchmark_latest", c6.get("sp500_latest", "N/A"))
+        breadth_chg = c6.get("breadth_change", 0)
+        lines.append(f"- **Benchmark 60d Change:** {benchmark_pct:+.2f}%")
+        lines.append(f"- **Benchmark Latest:** {benchmark_latest}")
+        lines.append(f"- **Breadth 8MA 60d Change:** {breadth_chg:+.4f}")
         lines.append(f"- **Divergence Type:** {c6.get('divergence_type', 'N/A')}")
 
         # Dual-window details (new)
@@ -328,11 +347,18 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("3. **Cycle Position (20%):** Position relative to recent peaks/troughs")
     lines.append("4. **Bearish Signal (15%):** Backtested bearish signal flag from dataset")
     lines.append("5. **Historical Percentile (10%):** Current level vs full history distribution")
-    lines.append("6. **Divergence (10%):** S&P 500 price vs breadth directional agreement")
+    lines.append("6. **Divergence (10%):** Benchmark price vs breadth directional agreement")
     lines.append("")
     lines.append(
         "Composite score: 0-100 (100 = maximum health). "
         "No API key required - uses freely available CSV data."
+    )
+    lines.append("")
+    lines.append(
+        "**Note on Benchmark:** The default data source uses SPY ETF as a proxy for the S&P 500 index. "
+        "Output fields use generic \"benchmark\" naming with explicit instrument metadata "
+        "(symbol, type, proxy target) for clarity. Legacy \"sp500_*\" fields are retained "
+        "for backward compatibility."
     )
     lines.append("")
     lines.append("For detailed methodology, see `references/breadth_analysis_methodology.md`.")

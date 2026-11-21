@@ -154,7 +154,22 @@ def main():
 
     # Component 6: S&P 500 vs Breadth Divergence (10%)
     print("  [6/6] S&P 500 vs Breadth Divergence...", end=" ", flush=True)
-    comp6 = calculate_divergence(detail_rows)
+    # Determine instrument metadata based on data source
+    if args.detail_url == DEFAULT_DETAIL_URL:
+        instrument = {
+            "symbol": "SPY",
+            "instrument_type": "ETF",
+            "proxy_for": "S&P 500 / ^GSPC",
+            "adjustment": "unknown",
+        }
+    else:
+        instrument = {
+            "symbol": "custom",
+            "instrument_type": "unknown",
+            "proxy_for": "unknown",
+            "adjustment": "unknown",
+        }
+    comp6 = calculate_divergence(detail_rows, instrument)
     print(f"Score: {comp6['score']} ({comp6['signal']})")
 
     print()
