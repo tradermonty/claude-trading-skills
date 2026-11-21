@@ -248,3 +248,9 @@ def test_value_dividend_has_no_allowlist_entries():
     entries, errors = lint.load_allowlist(lint.DEFAULT_ALLOWLIST)
     assert errors == []
     assert not [e for e in entries if e["path"].startswith("skills/value-dividend-screener/")]
+
+
+def test_pead_has_no_allowlist_entries():
+    entries, errors = lint.load_allowlist(lint.DEFAULT_ALLOWLIST)
+    assert errors == []
+    assert not [e for e in entries if e["path"].startswith("skills/pead-screener/")]

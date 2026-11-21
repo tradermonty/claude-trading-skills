@@ -5,6 +5,9 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 ## [Unreleased]
 
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
+- PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
+
+- pead-screener: exclude candidates with missing or invalid consumed OHLCV bars with dated reasons in JSON and Markdown, rather than fabricating earnings gaps, weekly patterns, liquidity or trade levels from zero defaults (#655).
 - Exposure FTD review follow-up: distinguish base quality bands from the lifecycle warning override (score capped at 59, `FTD under pressure`) and verify source and packaged instructions against a real producer fixture (PR #835).
 
 - exposure-coach: the English guide and the packaged references describe FTD as Follow-Through Day quality, used directly (higher = stronger rally confirmation), instead of failure-to-deliver anomalies with an inverted score. The unimplemented -15% ceiling cut for a critical FTD is removed, `anomaly_level` is documented as legacy input, and both references list which signals produce a quality score of 0. ftd-detector's score table says the same about 0. Packages rebuilt (#832).

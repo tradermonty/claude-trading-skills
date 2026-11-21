@@ -11,6 +11,18 @@ permalink: /en/skills/pead-screener/
 # PEAD Screener
 {: .no_toc }
 
+## Missing price bars
+
+Candidates with missing or invalid consumed OHLCV fields are unavailable and
+excluded before ranking. JSON `metadata.price_bar_gap_exclusions` and Markdown record
+the symbol and affected bar dates. The check covers earnings-gap endpoints,
+weekly aggregation (including red-candle highs/lows used for trade levels), and
+the latest 20 liquidity bars. No sessions are dropped or replaced with zero;
+zero volume remains valid. Healthy candidates and their report format are unchanged.
+When the earnings week is present, pre-earnings OHLC is not used. Pre-earnings
+volume is validated only if consumed by red-candle surrounding-week averages,
+the breakout's prior-four-week baseline, or the latest 20 daily liquidity bars.
+
 Screen post-earnings gap-up stocks for PEAD (Post-Earnings Announcement Drift) patterns. Analyzes weekly candle formation to detect red candle pullbacks and breakout signals. Supports two input modes - FMP earnings calendar (Mode A) or earnings-trade-analyzer JSON output (Mode B). Use when user asks about PEAD screening, post-earnings drift, earnings gap follow-through, red candle breakout patterns, or weekly earnings momentum setups.
 {: .fs-6 .fw-300 }
 

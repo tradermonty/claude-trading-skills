@@ -16,6 +16,16 @@ Key Features:
 from datetime import date, datetime, timedelta
 from typing import Optional
 
+from _price_bars import read_price
+from price_bar_utils import require_bars
+
+
+def _aggregate_field(days, field, aggregate):
+    values = [read_price(day, field, allow_zero=field == "volume") for day in days]
+    if any(value is None for value in values):
+        return None
+    return aggregate(values)
+
 
 def daily_to_weekly(daily_prices: list[dict], earnings_date: str = None) -> list[dict]:
     """
@@ -100,12 +110,20 @@ def daily_to_weekly(daily_prices: list[dict], earnings_date: str = None) -> list
         # Calculate Monday date for this ISO week
         monday = _iso_week_to_monday(iso_year, iso_week)
 
+        pre_earnings = (
+            earnings_dt is not None
+            and earnings_week_key in week_groups
+            and week_key < earnings_week_key
+        )
+        if not pre_earnings:
+            require_bars(days, ["open", "high", "low", "close", "volume"])
+
         # OHLCV aggregation
-        week_open = days[0]["open"]
-        week_high = max(d["high"] for d in days)
-        week_low = min(d["low"] for d in days)
-        week_close = days[-1]["close"]
-        week_volume = sum(d.get("volume", 0) for d in days)
+        week_open = read_price(days[0], "open")
+        week_high = _aggregate_field(days, "high", max)
+        week_low = _aggregate_field(days, "low", min)
+        week_close = read_price(days[-1], "close")
+        week_volume = _aggregate_field(days, "volume", sum)
 
         # Partial week detection
         partial = False
@@ -123,16 +141,28 @@ def daily_to_weekly(daily_prices: list[dict], earnings_date: str = None) -> list
                 "week_start": monday.strftime("%Y-%m-%d"),
                 "year": iso_year,
                 "week": iso_week,
-                "open": round(week_open, 2),
-                "high": round(week_high, 2),
-                "low": round(week_low, 2),
-                "close": round(week_close, 2),
+                "open": round(week_open, 2) if week_open is not None else None,
+                "high": round(week_high, 2) if week_high is not None else None,
+                "low": round(week_low, 2) if week_low is not None else None,
+                "close": round(week_close, 2) if week_close is not None else None,
                 "volume": week_volume,
-                "is_green": week_close >= week_open,
+                "is_green": (
+                    week_close >= week_open
+                    if week_close is not None and week_open is not None
+                    else None
+                ),
                 "partial_week": partial,
                 "trading_days": len(days),
             }
         )
+        if not pre_earnings:
+            # Rounded aggregates are consumed downstream too. Reject a value
+            # rounded to zero here, inside the caller's per-symbol gap boundary.
+            require_bars(
+                [weekly_candles[-1]],
+                ["open", "high", "low", "close", "volume"],
+                date_key="week_start",
+            )
 
     # Return most-recent-first
     weekly_candles.reverse()
@@ -180,6 +210,7 @@ def find_red_candle(weekly_candles: list[dict], earnings_week_idx: int = None) -
             surrounding_volumes = []
             for j in range(max(0, i - 2), min(len(weekly_candles), i + 3)):
                 if j != i:
+                    require_bars([weekly_candles[j]], ["volume"], date_key="week_start")
                     surrounding_volumes.append(weekly_candles[j]["volume"])
             if surrounding_volumes:
                 avg_vol = sum(surrounding_volumes) / len(surrounding_volumes)

@@ -37,69 +37,6 @@
       "reason": "pending #655 migration: macro-regime-detector"
     },
     {
-      "path": "skills/pead-screener/scripts/calculators/breakout_calculator.py",
-      "scope": "_check_volume_confirmation",
-      "field": "volume",
-      "count": 2,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/calculators/liquidity_calculator.py",
-      "scope": "calculate_liquidity",
-      "field": "close",
-      "count": 1,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/calculators/liquidity_calculator.py",
-      "scope": "calculate_liquidity",
-      "field": "volume",
-      "count": 2,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/calculators/weekly_candle_calculator.py",
-      "scope": "daily_to_weekly",
-      "field": "volume",
-      "count": 1,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/report_generator.py",
-      "scope": "_format_stock_entry",
-      "field": "high",
-      "count": 1,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/report_generator.py",
-      "scope": "_format_stock_entry",
-      "field": "low",
-      "count": 1,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/screen_pead.py",
-      "scope": "calculate_price_gap",
-      "field": "close",
-      "count": 2,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/screen_pead.py",
-      "scope": "calculate_price_gap",
-      "field": "open",
-      "count": 2,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
-      "path": "skills/pead-screener/scripts/screen_pead.py",
-      "scope": "main",
-      "field": "close",
-      "count": 1,
-      "reason": "pending #655 migration: pead-screener"
-    },
-    {
       "path": "skills/technical-analyst/scripts/weekly_price_action.py",
       "scope": "build_sorted_daily_series",
       "field": "volume",

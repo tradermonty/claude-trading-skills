@@ -28,6 +28,7 @@ import math
 import os
 import sys
 from datetime import datetime, timedelta
+from numbers import Real
 from typing import Optional
 
 # Add parent directory to path for imports
@@ -38,6 +39,7 @@ from calculators.liquidity_calculator import calculate_liquidity
 from calculators.risk_reward_calculator import calculate_risk_reward
 from calculators.weekly_candle_calculator import analyze_weekly_pattern, daily_to_weekly
 from fmp_client import ApiCallBudgetExceeded, FMPClient
+from price_bar_utils import PriceBarGap, require_price
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
 
@@ -75,15 +77,15 @@ def calculate_price_gap(daily_prices: list[dict], earnings_date: str, timing: st
         prev_idx = earnings_idx + 1  # most-recent-first
         if prev_idx >= len(daily_prices):
             return 0.0
-        base_price = daily_prices[prev_idx].get("close", 0)
-        gap_price = daily_prices[earnings_idx].get("open", 0)
+        base_price = require_price(daily_prices[prev_idx], "close")
+        gap_price = require_price(daily_prices[earnings_idx], "open")
     else:
         # AMC or unknown: gap = open[next_day] / close[earnings_date] - 1
         next_idx = earnings_idx - 1  # most-recent-first
         if next_idx < 0:
             return 0.0
-        base_price = daily_prices[earnings_idx].get("close", 0)
-        gap_price = daily_prices[next_idx].get("open", 0)
+        base_price = require_price(daily_prices[earnings_idx], "close")
+        gap_price = require_price(daily_prices[next_idx], "open")
 
     if not base_price:
         return 0.0
@@ -312,6 +314,16 @@ def analyze_stock(
     if not daily_prices or len(daily_prices) < 5:
         return None
 
+    if (
+        isinstance(current_price, bool)
+        or not isinstance(current_price, Real)
+        or not math.isfinite(current_price)
+        or current_price <= 0
+    ):
+        raise PriceBarGap(
+            f"Unavailable: missing or invalid current price; bar date: {daily_prices[0].get('date')}"
+        )
+
     # 1. Convert to weekly candles
     weekly_candles = daily_to_weekly(daily_prices, earnings_date=earnings_date)
     if not weekly_candles:
@@ -478,6 +490,7 @@ def main():
     print("-" * 70)
 
     results = []
+    excluded = []
     for i, candidate in enumerate(candidates):
         symbol = candidate["symbol"]
         if (i + 1) % 10 == 0 or i == len(candidates) - 1:
@@ -496,33 +509,36 @@ def main():
         if not daily_prices:
             continue
 
-        current_price = daily_prices[0].get("close", 0)
-        if current_price <= 0:
-            continue
+        try:
+            current_price = require_price(daily_prices[0], "close")
 
-        # Calculate actual price gap if not already provided (Mode A)
-        gap_pct = candidate.get("gap_pct")
-        if gap_pct is None:
-            gap_pct = calculate_price_gap(
-                daily_prices,
-                candidate["earnings_date"],
-                candidate.get("earnings_timing", ""),
+            # Calculate actual price gap if not already provided (Mode A)
+            gap_pct = candidate.get("gap_pct")
+            if gap_pct is None:
+                gap_pct = calculate_price_gap(
+                    daily_prices,
+                    candidate["earnings_date"],
+                    candidate.get("earnings_timing", ""),
+                )
+
+            # Apply min-gap filter (using actual price gap, not EPS estimate)
+            if mode == "A" and abs(gap_pct) < args.min_gap:
+                continue
+
+            analysis = analyze_stock(
+                symbol=symbol,
+                daily_prices=daily_prices,
+                earnings_date=candidate["earnings_date"],
+                earnings_timing=candidate.get("earnings_timing", ""),
+                gap_pct=gap_pct,
+                current_price=current_price,
+                watch_weeks=args.watch_weeks,
             )
-
-        # Apply min-gap filter (using actual price gap, not EPS estimate)
-        if mode == "A" and abs(gap_pct) < args.min_gap:
+        except PriceBarGap as exc:
+            reason = {"symbol": symbol, "reason": str(exc)}
+            excluded.append(reason)
+            logger.warning("%s excluded: %s", symbol, exc)
             continue
-
-        # Run analysis
-        analysis = analyze_stock(
-            symbol=symbol,
-            daily_prices=daily_prices,
-            earnings_date=candidate["earnings_date"],
-            earnings_timing=candidate.get("earnings_timing", ""),
-            gap_pct=gap_pct,
-            current_price=current_price,
-            watch_weeks=args.watch_weeks,
-        )
 
         if analysis:
             print(
@@ -563,6 +579,9 @@ def main():
         "timing_source": timing_source,
     }
 
+    if excluded:
+        metadata["price_bar_gap_exclusions"] = excluded
+
     # Sort by stage priority then composite score before top-N cutoff
     stage_priority = {"BREAKOUT": 0, "SIGNAL_READY": 1, "MONITORING": 2, "EXPIRED": 3}
     results.sort(
@@ -580,6 +599,8 @@ def main():
     print("=" * 70)
     print("PEAD Screening Complete")
     print("=" * 70)
+    if excluded:
+        print(f"Price-bar gap exclusions: {len(excluded)}")
 
     # Stage counts
     stage_counts = {}

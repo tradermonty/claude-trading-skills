@@ -13,6 +13,8 @@ Scoring (25% weight in composite):
 - No breakout:                     0
 """
 
+from price_bar_utils import require_bars
+
 
 def calculate_breakout(
     weekly_candles: list[dict],
@@ -91,10 +93,12 @@ def _check_volume_confirmation(weekly_candles: list[dict], current_candle: dict)
     if len(weekly_candles) < 2:
         return False
 
+    require_bars(weekly_candles[:5], ["volume"], date_key="week_start")
+
     # Calculate average volume of prior 4 weeks (indices 1-4)
     prior_volumes = []
     for i in range(1, min(5, len(weekly_candles))):
-        vol = weekly_candles[i].get("volume", 0)
+        vol = weekly_candles[i]["volume"]
         if vol > 0:
             prior_volumes.append(vol)
 
@@ -102,4 +106,4 @@ def _check_volume_confirmation(weekly_candles: list[dict], current_candle: dict)
         return False
 
     avg_volume = sum(prior_volumes) / len(prior_volumes)
-    return current_candle.get("volume", 0) > avg_volume
+    return current_candle["volume"] > avg_volume
