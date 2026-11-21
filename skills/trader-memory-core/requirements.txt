@@ -2,3 +2,4 @@
 # Verified by scripts/check_skill_deps.py.
 jsonschema>=4.25.1
 PyYAML>=6.0
+requests>=2.31.0
