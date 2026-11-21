@@ -126,7 +126,11 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 | 60-79 | Moderate FTD | Not assessed |
 | 40-59 | Weak FTD | Not assessed |
 | <40 | Very weak FTD (unless explicitly invalidated) | Not assessed |
-| 0 | Unavailable: data gap | Not assessed |
+| 0 | No FTD, Failed/Invalidated, Unavailable: data gap, or a Very weak FTD at the floor | Not assessed |
+
+A score of 0 alone does not mean a data gap. Read `signal`, the market state and
+the quality score's `data_gap` (set only with `Unavailable: data gap`) before
+interpreting it.
 
 ---
 

@@ -109,9 +109,8 @@ Even within a regime, the exposure ceiling adjusts based on:
    - Strong buying: +5% to ceiling
    - Strong selling: -10% to ceiling
 
-4. **FTD Anomalies**
-   - Critical FTD level: -15% to ceiling
-   - Forces extra caution on new entries
+FTD (Follow-Through Day quality) has no ceiling adjustment of its own. It
+enters only through its 5% weight in the composite score.
 
 ## Bias-to-Sector Mapping
 
@@ -164,7 +163,7 @@ The regime provides the framework; other signals fine-tune:
 1. **Theme Detector** -- Identifies which themes to favor within bias
 2. **Sector Analyst** -- Confirms sector leadership alignment
 3. **Institutional Flow** -- Validates smart money direction
-4. **FTD Detector** -- Flags systemic stress
+4. **FTD Detector** -- Confirms a rally attempt (Follow-Through Day quality)
 
 When signals conflict:
 - Default to more conservative posture

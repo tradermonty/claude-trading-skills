@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- exposure-coach: the English guide and the packaged references describe FTD as Follow-Through Day quality, used directly (higher = stronger rally confirmation), instead of failure-to-deliver anomalies with an inverted score. The unimplemented -15% ceiling cut for a critical FTD is removed, `anomaly_level` is documented as legacy input, and both references list which signals produce a quality score of 0. ftd-detector's score table says the same about 0. Packages rebuilt (#832).
 - Provider CSV canary: report an uncoercible integer cell as fatal `parse_error` instead of aborting the entire run. Discard partial rows, continue later probes and write the complete report without exposing cell contents or weakening Python's integer conversion limit (Refs #332).
 
 - trader-memory-core: migrate optional daily-price evidence to the generated FMP transport with stable-only exact-range requests, shared redaction/retry behavior and explicit standalone requests dependency. Reject ambiguous price evidence; keep CLI/manual postmortems offline with null MAE/MFE unless a Python caller supplies the adapter. Prefer provider adjClose when supplied without claiming raw close is adjusted (Refs #495).
