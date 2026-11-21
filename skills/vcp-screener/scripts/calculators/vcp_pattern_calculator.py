@@ -20,10 +20,11 @@ from typing import Optional
 
 
 class VCPPriceDataError(ValueError):
-    """A historical scan cannot distinguish no pattern from unavailable OHLC."""
+    """A scan cannot distinguish no pattern from unavailable consumed observations."""
 
     def __init__(self, data_gaps):
-        super().__init__("VCP price data unavailable: missing or invalid consumed OHLC")
+        dates = ", ".join(data_gaps["bad_dates"])
+        super().__init__(f"VCP price data unavailable: missing or invalid consumed OHLCV ({dates})")
         self.data_gaps = data_gaps
 
 

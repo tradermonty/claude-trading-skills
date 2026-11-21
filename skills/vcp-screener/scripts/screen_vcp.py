@@ -29,6 +29,7 @@ from typing import Optional
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
+from _price_bars import find_bar_gaps, read_price
 from calculators.execution_state import compute_execution_state
 from calculators.pattern_classifier import classify_pattern
 from calculators.pivot_proximity_calculator import calculate_pivot_proximity
@@ -37,7 +38,11 @@ from calculators.relative_strength_calculator import (
     rank_relative_strength_universe,
 )
 from calculators.trend_template_calculator import calculate_trend_template
-from calculators.vcp_pattern_calculator import VCPPriceDataError, calculate_vcp_pattern
+from calculators.vcp_pattern_calculator import (
+    VCPPriceDataError,
+    calculate_vcp_pattern,
+    find_vcp_price_gaps,
+)
 from calculators.volume_pattern_calculator import calculate_volume_pattern
 from coverage_client import CoverageFMPClient as FMPClient
 from coverage_client import failure_reason, history_problem, quote_problem
@@ -278,7 +283,7 @@ def pre_filter_stock(quote: dict) -> tuple:
     # FMP's /stable quote dropped the v3-only `avgVolume` field, so fall back to
     # the session `volume` as a liquidity floor; without this the < 200k check
     # rejects 100% of the universe. (v3 `avgVolume` still wins when present.)
-    avg_volume = quote.get("avgVolume") or quote.get("volume", 0)
+    avg_volume = _quote_volume(quote)
 
     if price <= 10:
         return False, 0
@@ -326,6 +331,7 @@ def analyze_stock(
     max_sma200_extension: float = 50.0,
     wide_and_loose_threshold: float = 15.0,
     as_of_offset: int = 0,
+    price_bar_gap_exclusions: Optional[list] = None,
 ) -> Optional[dict]:
     """
     Full VCP analysis for a single stock (Phase 3).
@@ -362,7 +368,7 @@ def analyze_stock(
     )
 
     if vcp_result.get("data_available") is False:
-        print(f"{symbol}: {vcp_result['error']}", file=sys.stderr)
+        _record_price_gap(symbol, vcp_result, price_bar_gap_exclusions)
         return None
 
     price = quote.get("price", 0)
@@ -370,6 +376,9 @@ def analyze_stock(
 
     # 1. Relative Strength (needed for Trend Template criterion 7)
     rs_result = calculate_relative_strength(historical, sp500_history)
+    if rs_result.get("data_available") is False:
+        _record_price_gap(symbol, rs_result, price_bar_gap_exclusions)
+        return None
     rs_rank = rs_result.get("rs_rank_estimate", 0)
 
     # 2. Trend Template
@@ -380,6 +389,9 @@ def analyze_stock(
         ext_threshold=ext_threshold,
         max_sma200_extension=max_sma200_extension,
     )
+    if tt_result.get("data_available") is False:
+        _record_price_gap(symbol, tt_result, price_bar_gap_exclusions)
+        return None
 
     # 4. Volume Pattern
     # Slice to the same lookback window the VCP calculator used. Contraction
@@ -394,6 +406,9 @@ def analyze_stock(
         contractions=vcp_result.get("contractions"),
         breakout_volume_ratio=breakout_volume_ratio,
     )
+    if vol_result.get("data_available") is False:
+        _record_price_gap(symbol, vol_result, price_bar_gap_exclusions)
+        return None
 
     # 5. Pivot Proximity
     last_low = None
@@ -488,6 +503,30 @@ def analyze_stock(
     }
 
 
+def _quote_volume(quote):
+    volume_field = "avgVolume" if quote.get("avgVolume") else "volume"
+    label = f"quote ({quote['date']})" if quote.get("date") else "quote (date unavailable)"
+    gaps = find_bar_gaps(
+        [{**quote, "label": label}],
+        [volume_field],
+        zero_ok=[volume_field],
+        order="newest_first",
+        date_key="label",
+    )
+    if gaps["bad_bars"]:
+        gaps["source"] = "quote"
+        raise VCPPriceDataError(gaps)
+    return read_price(quote, volume_field, allow_zero=True)
+
+
+def _record_price_gap(symbol, component, exclusions):
+    gaps = component.get("data_gaps")
+    reason = str(VCPPriceDataError(gaps)) if gaps else component["error"]
+    print(f"{symbol}: {reason}", file=sys.stderr)
+    if exclusions is not None:
+        exclusions.append({"symbol": symbol, "reason": reason, "data_gaps": gaps})
+
+
 def is_stale_price(
     historical: list[dict],
     lookback: int = 10,
@@ -507,13 +546,15 @@ def is_stale_price(
         return False
 
     recent = historical[:lookback]
+    gaps = find_bar_gaps(recent, ["high", "low", "close"], order="newest_first")
+    if gaps["bad_bars"]:
+        raise VCPPriceDataError(gaps)
     ranges = []
     for bar in recent:
-        high = bar.get("high", 0)
-        low = bar.get("low", 0)
-        close = bar.get("close", 0)
-        if close > 0:
-            ranges.append((high - low) / close * 100)
+        high = read_price(bar, "high")
+        low = read_price(bar, "low")
+        close = read_price(bar, "close")
+        ranges.append((high - low) / close * 100)
 
     if not ranges:
         return False
@@ -632,7 +673,7 @@ def run_historical(args, client) -> None:
             lookback_days=args.lookback_days,
             analyzer_kwargs=analyzer_kwargs,
         )
-    except VCPPriceDataError as exc:
+    except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
     print(f"  Found {len(detections)} unique VCP detections")
@@ -727,6 +768,7 @@ def main():
     symbols = list(dict.fromkeys(sym.strip().upper() for sym in symbols))
     universe_desc = f"{'Custom' if args.universe else 'S&P 500'} ({len(symbols)} stocks)"
     outcomes = {sym: "missing_data" for sym in symbols}
+    price_bar_gap_exclusions = []
 
     # Build sector/name lookup
     sector_map = {}
@@ -746,8 +788,14 @@ def main():
     pre_filtered = []
     for sym in symbols:
         quote = all_quotes.get(sym)
-        if not quote:
+        if not isinstance(quote, dict) or not quote:
             outcomes[sym] = failure_reason(client, "quote", sym)
+            continue
+        try:
+            _quote_volume(quote)
+        except VCPPriceDataError as exc:
+            _record_price_gap(sym, {"data_gaps": exc.data_gaps}, price_bar_gap_exclusions)
+            outcomes[sym] = "price_bar_gap"
             continue
         problem = quote_problem(quote)
         if problem:
@@ -778,7 +826,7 @@ def main():
     print("  Fetching SPY 260-day history...", end=" ", flush=True)
     spy_data = client.get_historical_prices("SPY", days=260) if candidates else None
     sp500_history = spy_data.get("historical", []) if spy_data else []
-    benchmark_problem = history_problem(sp500_history, benchmark=True)
+    benchmark_problem = history_problem(sp500_history, benchmark=True, check_values=False)
     if not benchmark_problem:
         print(f"OK ({len(sp500_history)} days)")
     else:
@@ -794,7 +842,7 @@ def main():
             print(f"    Progress: {i + 1}/{len(candidate_symbols)}", flush=True)
         data = client.get_historical_prices(sym, days=260)
         hist = data.get("historical", []) if isinstance(data, dict) else []
-        problem = history_problem(hist)
+        problem = history_problem(hist, check_values=False)
         if problem:
             outcomes[sym] = failure_reason(client, "historical", sym, problem)
         elif benchmark_problem:
@@ -811,13 +859,34 @@ def main():
         if not hist or len(hist) < 50:
             continue
 
+        pattern_gaps = find_vcp_price_gaps(hist, args.lookback_days)
+        volume_gaps = find_bar_gaps(
+            hist[: min(50, args.lookback_days)],
+            ["volume"],
+            zero_ok=["volume"],
+            order="newest_first",
+        )
+        gaps = pattern_gaps if pattern_gaps["bad_bars"] else volume_gaps
+        if gaps["bad_bars"]:
+            _record_price_gap(sym, {"data_gaps": gaps}, price_bar_gap_exclusions)
+            outcomes[sym] = "price_bar_gap"
+            continue
+
         # Quick RS calculation for criterion 7
         rs_result = calculate_relative_strength(hist, sp500_history)
+        if rs_result.get("data_available") is False:
+            _record_price_gap(sym, rs_result, price_bar_gap_exclusions)
+            outcomes[sym] = "price_bar_gap"
+            continue
         rs_rank = rs_result.get("rs_rank_estimate", 0)
 
         tt_result = calculate_trend_template(
             hist, quote, rs_rank=rs_rank, ext_threshold=args.ext_threshold
         )
+        if tt_result.get("data_available") is False:
+            _record_price_gap(sym, tt_result, price_bar_gap_exclusions)
+            outcomes[sym] = "price_bar_gap"
+            continue
         if rs_result.get("error") or tt_result.get("error"):
             outcomes[sym] = "analysis_failed"
             continue
@@ -847,7 +916,13 @@ def main():
             sector = quote.get("sector", "Unknown")
 
         # Skip stale/acquired stocks
-        if is_stale_price(hist, threshold=args.min_atr_pct):
+        try:
+            stale = is_stale_price(hist, threshold=args.min_atr_pct)
+        except VCPPriceDataError as exc:
+            _record_price_gap(sym, {"data_gaps": exc.data_gaps}, price_bar_gap_exclusions)
+            outcomes[sym] = "price_bar_gap"
+            continue
+        if stale:
             print(f"  Skipping {sym} (stale price - likely acquired/pinned)")
             continue
 
@@ -869,6 +944,7 @@ def main():
             breakout_volume_ratio=args.breakout_volume_ratio,
             max_sma200_extension=args.max_sma200_extension,
             wide_and_loose_threshold=args.wide_and_loose_threshold,
+            price_bar_gap_exclusions=price_bar_gap_exclusions,
         )
 
         if analysis:
@@ -876,7 +952,11 @@ def main():
             print(f"Score: {score:.1f} ({analysis['rating']})")
             results.append(analysis)
         else:
-            outcomes[sym] = "analysis_failed"
+            outcomes[sym] = (
+                "price_bar_gap"
+                if price_bar_gap_exclusions and price_bar_gap_exclusions[-1]["symbol"] == sym
+                else "analysis_failed"
+            )
             print("FAILED")
 
     print()
@@ -985,6 +1065,8 @@ def main():
     }
 
     top_results = results[: args.top]
+    if price_bar_gap_exclusions:
+        metadata["price_bar_gap_exclusions"] = price_bar_gap_exclusions
     coverage = build_evaluation_coverage(outcomes)
 
     generate_json_report(
@@ -1000,6 +1082,8 @@ def main():
     print()
     print("=" * 70)
     print("VCP Screening Complete")
+    if price_bar_gap_exclusions:
+        print(f"Excluded (price-bar gaps): {len(price_bar_gap_exclusions)}")
     print("=" * 70)
     print(
         f"Evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} evaluated ({coverage['verdict']})"

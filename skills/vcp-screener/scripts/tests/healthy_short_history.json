@@ -1,0 +1,469 @@
+{
+  "analyses": [
+    {
+      "symbol": "SHORT",
+      "company_name": "",
+      "sector": "Unknown",
+      "price": 126,
+      "market_cap": 0,
+      "composite_score": 13.7,
+      "quality_rating": "No VCP",
+      "rating": "No VCP",
+      "rating_description": "Does not qualify as a VCP setup",
+      "guidance": "Not actionable as VCP",
+      "valid_vcp": false,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "No pivot available"
+      ],
+      "pattern_type": "VCP-adjacent",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": null,
+      "distance_from_pivot_pct": null,
+      "weakest_component": "Contraction Quality",
+      "weakest_score": 0,
+      "strongest_component": "Volume Pattern",
+      "strongest_score": 40,
+      "trend_template": {
+        "score": 22.9,
+        "raw_score": 42.9,
+        "passed": false,
+        "extended_penalty": -20,
+        "sma200_penalty": 0,
+        "sma50_distance_pct": 26.0,
+        "sma200_distance_pct": null,
+        "criteria_passed": 3,
+        "criteria_total": 7,
+        "criteria": {
+          "c1_price_above_sma150_200": {
+            "passed": false,
+            "detail": "Insufficient data for SMA150"
+          },
+          "c2_sma150_above_sma200": {
+            "passed": false,
+            "detail": "Insufficient data"
+          },
+          "c3_sma200_trending_up": {
+            "passed": false,
+            "detail": "Insufficient data"
+          },
+          "c4_price_above_sma50": {
+            "passed": true,
+            "detail": "Price $126.00 vs SMA50 $100.00"
+          },
+          "c5_25pct_above_52w_low": {
+            "passed": true,
+            "detail": "80.0% above 52w low $70.00 (need >= 25%)"
+          },
+          "c6_within_25pct_52w_high": {
+            "passed": true,
+            "detail": "10.0% below 52w high $140.00 (need <= 25%)"
+          },
+          "c7_rs_rank_above_70": {
+            "passed": false,
+            "detail": "RS Rank: 0 (need > 70)"
+          }
+        },
+        "sma50": 100.0,
+        "sma150": null,
+        "sma200": null,
+        "error": null
+      },
+      "vcp_pattern": {
+        "score": 0,
+        "valid_vcp": false,
+        "contractions": [],
+        "num_contractions": 0,
+        "pivot_price": null,
+        "atr_compression_ratio": null,
+        "wide_and_loose": false,
+        "right_side_range_ratio": null,
+        "error": "Insufficient swing points detected"
+      },
+      "volume_pattern": {
+        "score": 40,
+        "dry_up_ratio": 1.0,
+        "avg_volume_50d": 1000000,
+        "avg_volume_recent_10d": 1000000,
+        "breakout_volume_detected": false,
+        "breakout_volume_score": 0,
+        "up_volume_days_20d": 0,
+        "down_volume_days_20d": 0,
+        "net_accumulation": 0,
+        "error": null
+      },
+      "pivot_proximity": {
+        "score": 0,
+        "distance_from_pivot_pct": null,
+        "stop_loss_price": null,
+        "risk_pct": null,
+        "trade_status": "NO PIVOT",
+        "error": "No valid pivot price"
+      },
+      "relative_strength": {
+        "score": 0,
+        "rs_rank_estimate": 0,
+        "weighted_rs": null,
+        "error": "Insufficient stock price data (need 63+ days)"
+      }
+    },
+    {
+      "symbol": "SHORT",
+      "company_name": "",
+      "sector": "Unknown",
+      "price": 126,
+      "market_cap": 0,
+      "composite_score": 8.0,
+      "quality_rating": "No VCP",
+      "rating": "No VCP",
+      "rating_description": "Does not qualify as a VCP setup",
+      "guidance": "Not actionable as VCP",
+      "valid_vcp": false,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "No pivot available"
+      ],
+      "pattern_type": "VCP-adjacent",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": null,
+      "distance_from_pivot_pct": null,
+      "weakest_component": "Trend Template (Stage 2)",
+      "weakest_score": 0,
+      "strongest_component": "Volume Pattern",
+      "strongest_score": 40,
+      "trend_template": {
+        "score": 0,
+        "passed": false,
+        "criteria": {},
+        "error": "Insufficient historical data (need 50+ days)"
+      },
+      "vcp_pattern": {
+        "score": 0,
+        "valid_vcp": false,
+        "contractions": [],
+        "num_contractions": 0,
+        "pivot_price": null,
+        "atr_compression_ratio": null,
+        "wide_and_loose": false,
+        "right_side_range_ratio": null,
+        "error": "Insufficient swing points detected"
+      },
+      "volume_pattern": {
+        "score": 40,
+        "dry_up_ratio": 1.0,
+        "avg_volume_50d": 1000000,
+        "avg_volume_recent_10d": 1000000,
+        "breakout_volume_detected": false,
+        "breakout_volume_score": 0,
+        "up_volume_days_20d": 0,
+        "down_volume_days_20d": 0,
+        "net_accumulation": 0,
+        "error": null
+      },
+      "pivot_proximity": {
+        "score": 0,
+        "distance_from_pivot_pct": null,
+        "stop_loss_price": null,
+        "risk_pct": null,
+        "trade_status": "NO PIVOT",
+        "error": "No valid pivot price"
+      },
+      "relative_strength": {
+        "score": 0,
+        "rs_rank_estimate": 0,
+        "weighted_rs": null,
+        "error": "Insufficient stock price data (need 63+ days)"
+      }
+    },
+    {
+      "symbol": "SHORT",
+      "company_name": "",
+      "sector": "Unknown",
+      "price": 126,
+      "market_cap": 0,
+      "composite_score": 0.0,
+      "quality_rating": "No VCP",
+      "rating": "No VCP",
+      "rating_description": "Does not qualify as a VCP setup",
+      "guidance": "Not actionable as VCP",
+      "valid_vcp": false,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "No pivot available"
+      ],
+      "pattern_type": "VCP-adjacent",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": null,
+      "distance_from_pivot_pct": null,
+      "weakest_component": "Trend Template (Stage 2)",
+      "weakest_score": 0,
+      "strongest_component": "Trend Template (Stage 2)",
+      "strongest_score": 0,
+      "trend_template": {
+        "score": 0,
+        "passed": false,
+        "criteria": {},
+        "error": "Insufficient historical data (need 50+ days)"
+      },
+      "vcp_pattern": {
+        "score": 0,
+        "valid_vcp": false,
+        "contractions": [],
+        "num_contractions": 0,
+        "pivot_price": null,
+        "atr_compression_ratio": null,
+        "wide_and_loose": false,
+        "right_side_range_ratio": null,
+        "error": "Insufficient data (need 30+ days)"
+      },
+      "volume_pattern": {
+        "score": 0,
+        "dry_up_ratio": null,
+        "error": "Insufficient data (need 20+ days)"
+      },
+      "pivot_proximity": {
+        "score": 0,
+        "distance_from_pivot_pct": null,
+        "stop_loss_price": null,
+        "risk_pct": null,
+        "trade_status": "NO PIVOT",
+        "error": "No valid pivot price"
+      },
+      "relative_strength": {
+        "score": 0,
+        "rs_rank_estimate": 0,
+        "weighted_rs": null,
+        "error": "Insufficient stock price data (need 63+ days)"
+      }
+    },
+    {
+      "symbol": "SHORT",
+      "company_name": "",
+      "sector": "Unknown",
+      "price": 126,
+      "market_cap": 0,
+      "composite_score": 17.3,
+      "quality_rating": "No VCP",
+      "rating": "No VCP",
+      "rating_description": "Does not qualify as a VCP setup",
+      "guidance": "Not actionable as VCP",
+      "valid_vcp": false,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "No pivot available"
+      ],
+      "pattern_type": "VCP-adjacent",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 26.0,
+      "distance_from_pivot_pct": null,
+      "weakest_component": "Contraction Quality",
+      "weakest_score": 0,
+      "strongest_component": "Volume Pattern",
+      "strongest_score": 40,
+      "trend_template": {
+        "score": 37.2,
+        "raw_score": 57.2,
+        "passed": false,
+        "extended_penalty": -20,
+        "sma200_penalty": 0,
+        "sma50_distance_pct": 26.0,
+        "sma200_distance_pct": 26.0,
+        "criteria_passed": 4,
+        "criteria_total": 7,
+        "criteria": {
+          "c1_price_above_sma150_200": {
+            "passed": true,
+            "detail": "Price $126.00 vs SMA150 $100.00 / SMA200 $100.00"
+          },
+          "c2_sma150_above_sma200": {
+            "passed": false,
+            "detail": "SMA150 $100.00 vs SMA200 $100.00"
+          },
+          "c3_sma200_trending_up": {
+            "passed": false,
+            "detail": "SMA200 today $100.00 vs 22d ago $100.00"
+          },
+          "c4_price_above_sma50": {
+            "passed": true,
+            "detail": "Price $126.00 vs SMA50 $100.00"
+          },
+          "c5_25pct_above_52w_low": {
+            "passed": true,
+            "detail": "80.0% above 52w low $70.00 (need >= 25%)"
+          },
+          "c6_within_25pct_52w_high": {
+            "passed": true,
+            "detail": "10.0% below 52w high $140.00 (need <= 25%)"
+          },
+          "c7_rs_rank_above_70": {
+            "passed": false,
+            "detail": "RS Rank: 0 (need > 70)"
+          }
+        },
+        "sma50": 100.0,
+        "sma150": 100.0,
+        "sma200": 100.0,
+        "error": null
+      },
+      "vcp_pattern": {
+        "score": 0,
+        "valid_vcp": false,
+        "contractions": [],
+        "num_contractions": 0,
+        "pivot_price": null,
+        "atr_compression_ratio": null,
+        "wide_and_loose": false,
+        "right_side_range_ratio": null,
+        "error": "Insufficient swing points detected"
+      },
+      "volume_pattern": {
+        "score": 40,
+        "dry_up_ratio": 1.0,
+        "avg_volume_50d": 1000000,
+        "avg_volume_recent_10d": 1000000,
+        "breakout_volume_detected": false,
+        "breakout_volume_score": 0,
+        "up_volume_days_20d": 0,
+        "down_volume_days_20d": 0,
+        "net_accumulation": 0,
+        "error": null
+      },
+      "pivot_proximity": {
+        "score": 0,
+        "distance_from_pivot_pct": null,
+        "stop_loss_price": null,
+        "risk_pct": null,
+        "trade_status": "NO PIVOT",
+        "error": "No valid pivot price"
+      },
+      "relative_strength": {
+        "score": 0,
+        "rs_rank_estimate": 0,
+        "weighted_rs": null,
+        "error": "Insufficient S&P 500 price data (need 63+ days)"
+      }
+    },
+    {
+      "symbol": "SHORT",
+      "company_name": "",
+      "sector": "Unknown",
+      "price": 126,
+      "market_cap": 0,
+      "composite_score": 17.3,
+      "quality_rating": "No VCP",
+      "rating": "No VCP",
+      "rating_description": "Does not qualify as a VCP setup",
+      "guidance": "Not actionable as VCP",
+      "valid_vcp": false,
+      "execution_state": "Pre-breakout",
+      "execution_state_reasons": [
+        "No pivot available"
+      ],
+      "pattern_type": "VCP-adjacent",
+      "wide_and_loose": false,
+      "state_cap_applied": false,
+      "cap_reason": null,
+      "sma200_distance_pct": 26.0,
+      "distance_from_pivot_pct": null,
+      "weakest_component": "Contraction Quality",
+      "weakest_score": 0,
+      "strongest_component": "Volume Pattern",
+      "strongest_score": 40,
+      "trend_template": {
+        "score": 37.2,
+        "raw_score": 57.2,
+        "passed": false,
+        "extended_penalty": -20,
+        "sma200_penalty": 0,
+        "sma50_distance_pct": 26.0,
+        "sma200_distance_pct": 26.0,
+        "criteria_passed": 4,
+        "criteria_total": 7,
+        "criteria": {
+          "c1_price_above_sma150_200": {
+            "passed": true,
+            "detail": "Price $126.00 vs SMA150 $100.00 / SMA200 $100.00"
+          },
+          "c2_sma150_above_sma200": {
+            "passed": false,
+            "detail": "SMA150 $100.00 vs SMA200 $100.00"
+          },
+          "c3_sma200_trending_up": {
+            "passed": false,
+            "detail": "SMA200 today $100.00 vs 22d ago $100.00"
+          },
+          "c4_price_above_sma50": {
+            "passed": true,
+            "detail": "Price $126.00 vs SMA50 $100.00"
+          },
+          "c5_25pct_above_52w_low": {
+            "passed": true,
+            "detail": "80.0% above 52w low $70.00 (need >= 25%)"
+          },
+          "c6_within_25pct_52w_high": {
+            "passed": true,
+            "detail": "10.0% below 52w high $140.00 (need <= 25%)"
+          },
+          "c7_rs_rank_above_70": {
+            "passed": false,
+            "detail": "RS Rank: 0 (need > 70)"
+          }
+        },
+        "sma50": 100.0,
+        "sma150": 100.0,
+        "sma200": 100.0,
+        "error": null
+      },
+      "vcp_pattern": {
+        "score": 0,
+        "valid_vcp": false,
+        "contractions": [],
+        "num_contractions": 0,
+        "pivot_price": null,
+        "atr_compression_ratio": null,
+        "wide_and_loose": false,
+        "right_side_range_ratio": null,
+        "error": "Insufficient swing points detected"
+      },
+      "volume_pattern": {
+        "score": 40,
+        "dry_up_ratio": 1.0,
+        "avg_volume_50d": 1000000,
+        "avg_volume_recent_10d": 1000000,
+        "breakout_volume_detected": false,
+        "breakout_volume_score": 0,
+        "up_volume_days_20d": 0,
+        "down_volume_days_20d": 0,
+        "net_accumulation": 0,
+        "error": null
+      },
+      "pivot_proximity": {
+        "score": 0,
+        "distance_from_pivot_pct": null,
+        "stop_loss_price": null,
+        "risk_pct": null,
+        "trade_status": "NO PIVOT",
+        "error": "No valid pivot price"
+      },
+      "relative_strength": {
+        "score": 0,
+        "rs_rank_estimate": 0,
+        "weighted_rs": null,
+        "error": "Insufficient S&P 500 price data (need 63+ days)"
+      }
+    }
+  ],
+  "scans": [
+    [],
+    [],
+    []
+  ]
+}

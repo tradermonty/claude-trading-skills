@@ -20,6 +20,8 @@ Pass threshold: >= 85 (must meet at least 6 of 7 criteria)
 
 from typing import Optional
 
+from price_bar_utils import find_close_gaps, read_close, unavailable_component
+
 
 def calculate_trend_template(
     historical_prices: list[dict],
@@ -47,7 +49,12 @@ def calculate_trend_template(
             "error": "Insufficient historical data (need 50+ days)",
         }
 
-    closes = [d.get("close", d.get("adjClose", 0)) for d in historical_prices]
+    n = len(historical_prices)
+    consumed = range(222 if n >= 222 else 200 if n >= 200 else 150 if n >= 150 else 50)
+    gaps = find_close_gaps(historical_prices, consumed)
+    if gaps["bad_bars"]:
+        return unavailable_component(gaps, criteria={}, criteria_passed=0, passed=False)
+    closes = [read_close(d) for d in historical_prices]
     price = quote_data.get("price", closes[0] if closes else 0)
     year_high = quote_data.get("yearHigh", 0)
     year_low = quote_data.get("yearLow", 0)

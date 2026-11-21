@@ -29,6 +29,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import screen_vcp  # noqa: E402  — bound at module load so tests can monkeypatch
+from _price_bars import find_bar_gaps, read_price  # noqa: E402
 
 # `historical_scanner.screen_vcp.analyze_stock` deterministically.
 from calculators.forward_outcome import calculate_forward_outcome  # noqa: E402
@@ -68,23 +69,28 @@ def build_quote_from_history(
         ``avgVolume``, ``marketCap`` (defaulted to 0 — historical share count
         is not retrievable from OHLCV).
     """
-    if not historical or as_of_offset < 0 or as_of_offset >= len(historical):
-        return {"price": 0, "yearHigh": 0, "yearLow": 0, "avgVolume": 0, "marketCap": 0}
-
+    if not 0 <= as_of_offset < len(historical) or year_window_bars <= 0:
+        raise ValueError("Historical quote requires a valid offset and nonempty year window")
     as_of_bar = historical[as_of_offset]
     window = historical[as_of_offset : as_of_offset + year_window_bars]
-    if not window:
-        return {"price": 0, "yearHigh": 0, "yearLow": 0, "avgVolume": 0, "marketCap": 0}
-
-    year_high = max(d.get("high", 0) for d in window)
-    year_low = min(d.get("low", 0) for d in window if d.get("low", 0) > 0)
     vol_window = historical[as_of_offset : as_of_offset + 50]
-    avg_volume = (
-        int(sum(d.get("volume", 0) for d in vol_window) / len(vol_window)) if vol_window else 0
+    for bars, fields in [
+        (window, ["high", "low"]),
+        (vol_window, ["volume"]),
+        ([as_of_bar], ["close"]),
+    ]:
+        gaps = find_bar_gaps(bars, fields, zero_ok=["volume"], order="newest_first")
+        if gaps["bad_bars"]:
+            raise VCPPriceDataError(gaps)
+
+    year_high = max(read_price(d, "high") for d in window)
+    year_low = min(read_price(d, "low") for d in window)
+    avg_volume = int(
+        sum(read_price(d, "volume", allow_zero=True) for d in vol_window) / len(vol_window)
     )
 
     return {
-        "price": as_of_bar.get("close", 0),
+        "price": read_price(as_of_bar, "close"),
         "yearHigh": year_high,
         "yearLow": year_low,
         "avgVolume": avg_volume,
@@ -149,9 +155,7 @@ def scan_history(
         if data_gaps["bad_bars"]:
             raise VCPPriceDataError(data_gaps)
         quote = build_quote_from_history(historical, offset)
-        if quote.get("price", 0) <= 0:
-            continue
-
+        exclusions = []
         # Looked up via the screen_vcp module attribute so tests can monkeypatch
         # historical_scanner.screen_vcp.analyze_stock to inject fake results.
         result = screen_vcp.analyze_stock(
@@ -163,8 +167,13 @@ def scan_history(
             company_name=company_name,
             lookback_days=lookback_days,
             as_of_offset=offset,
+            price_bar_gap_exclusions=exclusions,
             **analyzer_kwargs,
         )
+        if exclusions:
+            if exclusions[0]["data_gaps"]:
+                raise VCPPriceDataError(exclusions[0]["data_gaps"])
+            raise ValueError(exclusions[0]["reason"])
         if result is None or not result.get("valid_vcp"):
             continue
 

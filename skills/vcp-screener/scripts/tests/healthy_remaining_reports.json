@@ -1,0 +1,143 @@
+{
+  "candidate": {
+    "symbol": "HEALTHY",
+    "company_name": "Healthy Corp",
+    "sector": "Technology",
+    "price": 126,
+    "market_cap": 0,
+    "composite_score": 40.0,
+    "quality_rating": "No VCP",
+    "rating": "No VCP",
+    "rating_description": "Does not qualify as a VCP setup",
+    "guidance": "Not actionable as VCP",
+    "valid_vcp": false,
+    "execution_state": "Pre-breakout",
+    "execution_state_reasons": [
+      "No pivot available"
+    ],
+    "pattern_type": "VCP-adjacent",
+    "wide_and_loose": false,
+    "state_cap_applied": false,
+    "cap_reason": null,
+    "sma200_distance_pct": 8.6,
+    "distance_from_pivot_pct": null,
+    "weakest_component": "Contraction Quality",
+    "weakest_score": 0,
+    "strongest_component": "Trend Template (Stage 2)",
+    "strongest_score": 85.8,
+    "trend_template": {
+      "score": 85.8,
+      "raw_score": 85.8,
+      "passed": true,
+      "extended_penalty": 0,
+      "sma200_penalty": 0,
+      "sma50_distance_pct": 1.98,
+      "sma200_distance_pct": 8.57,
+      "criteria_passed": 6,
+      "criteria_total": 7,
+      "criteria": {
+        "c1_price_above_sma150_200": {
+          "passed": true,
+          "detail": "Price $126.00 vs SMA150 $118.55 / SMA200 $116.05"
+        },
+        "c2_sma150_above_sma200": {
+          "passed": true,
+          "detail": "SMA150 $118.55 vs SMA200 $116.05"
+        },
+        "c3_sma200_trending_up": {
+          "passed": true,
+          "detail": "SMA200 today $116.05 vs 22d ago $113.85"
+        },
+        "c4_price_above_sma50": {
+          "passed": true,
+          "detail": "Price $126.00 vs SMA50 $123.55"
+        },
+        "c5_25pct_above_52w_low": {
+          "passed": true,
+          "detail": "80.0% above 52w low $70.00 (need >= 25%)"
+        },
+        "c6_within_25pct_52w_high": {
+          "passed": true,
+          "detail": "10.0% below 52w high $140.00 (need <= 25%)"
+        },
+        "c7_rs_rank_above_70": {
+          "passed": false,
+          "detail": "RS Rank: 70 (need > 70)"
+        }
+      },
+      "sma50": 123.55,
+      "sma150": 118.55,
+      "sma200": 116.05,
+      "error": null
+    },
+    "vcp_pattern": {
+      "score": 0,
+      "valid_vcp": false,
+      "contractions": [],
+      "num_contractions": 0,
+      "pivot_price": null,
+      "atr_compression_ratio": null,
+      "wide_and_loose": false,
+      "right_side_range_ratio": null,
+      "error": "Insufficient swing points detected"
+    },
+    "volume_pattern": {
+      "score": 40,
+      "dry_up_ratio": 1.0,
+      "avg_volume_50d": 1000000,
+      "avg_volume_recent_10d": 1000000,
+      "breakout_volume_detected": false,
+      "breakout_volume_score": 0,
+      "up_volume_days_20d": 0,
+      "down_volume_days_20d": 0,
+      "net_accumulation": 0,
+      "error": null
+    },
+    "pivot_proximity": {
+      "score": 0,
+      "distance_from_pivot_pct": null,
+      "stop_loss_price": null,
+      "risk_pct": null,
+      "trade_status": "NO PIVOT",
+      "error": "No valid pivot price"
+    },
+    "relative_strength": {
+      "score": 70,
+      "rs_rank_estimate": 70,
+      "weighted_rs": 6.19,
+      "period_details": [
+        {
+          "period_days": 63,
+          "weight": 0.4,
+          "stock_return_pct": 5.26,
+          "sp500_return_pct": 2.87,
+          "relative_pct": 2.4
+        },
+        {
+          "period_days": 126,
+          "weight": 0.2,
+          "stock_return_pct": 11.11,
+          "sp500_return_pct": 5.9,
+          "relative_pct": 5.21
+        },
+        {
+          "period_days": 189,
+          "weight": 0.2,
+          "stock_return_pct": 17.65,
+          "sp500_return_pct": 9.13,
+          "relative_pct": 8.52
+        },
+        {
+          "period_days": 252,
+          "weight": 0.2,
+          "stock_return_pct": 25.0,
+          "sp500_return_pct": 12.55,
+          "relative_pct": 12.45
+        }
+      ],
+      "error": null
+    }
+  },
+  "json": "{\n  \"schema_version\": \"1.0\",\n  \"metadata\": {\n    \"generated_at\": \"2026-11-13 12:00:00\",\n    \"universe_description\": \"golden\",\n    \"funnel\": {\n      \"universe\": 1\n    }\n  },\n  \"results\": [\n    {\n      \"symbol\": \"HEALTHY\",\n      \"company_name\": \"Healthy Corp\",\n      \"sector\": \"Technology\",\n      \"price\": 126,\n      \"market_cap\": 0,\n      \"composite_score\": 40.0,\n      \"quality_rating\": \"No VCP\",\n      \"rating\": \"No VCP\",\n      \"rating_description\": \"Does not qualify as a VCP setup\",\n      \"guidance\": \"Not actionable as VCP\",\n      \"valid_vcp\": false,\n      \"execution_state\": \"Pre-breakout\",\n      \"execution_state_reasons\": [\n        \"No pivot available\"\n      ],\n      \"pattern_type\": \"VCP-adjacent\",\n      \"wide_and_loose\": false,\n      \"state_cap_applied\": false,\n      \"cap_reason\": null,\n      \"sma200_distance_pct\": 8.6,\n      \"distance_from_pivot_pct\": null,\n      \"weakest_component\": \"Contraction Quality\",\n      \"weakest_score\": 0,\n      \"strongest_component\": \"Trend Template (Stage 2)\",\n      \"strongest_score\": 85.8,\n      \"trend_template\": {\n        \"score\": 85.8,\n        \"raw_score\": 85.8,\n        \"passed\": true,\n        \"extended_penalty\": 0,\n        \"sma200_penalty\": 0,\n        \"sma50_distance_pct\": 1.98,\n        \"sma200_distance_pct\": 8.57,\n        \"criteria_passed\": 6,\n        \"criteria_total\": 7,\n        \"criteria\": {\n          \"c1_price_above_sma150_200\": {\n            \"passed\": true,\n            \"detail\": \"Price $126.00 vs SMA150 $118.55 / SMA200 $116.05\"\n          },\n          \"c2_sma150_above_sma200\": {\n            \"passed\": true,\n            \"detail\": \"SMA150 $118.55 vs SMA200 $116.05\"\n          },\n          \"c3_sma200_trending_up\": {\n            \"passed\": true,\n            \"detail\": \"SMA200 today $116.05 vs 22d ago $113.85\"\n          },\n          \"c4_price_above_sma50\": {\n            \"passed\": true,\n            \"detail\": \"Price $126.00 vs SMA50 $123.55\"\n          },\n          \"c5_25pct_above_52w_low\": {\n            \"passed\": true,\n            \"detail\": \"80.0% above 52w low $70.00 (need >= 25%)\"\n          },\n          \"c6_within_25pct_52w_high\": {\n            \"passed\": true,\n            \"detail\": \"10.0% below 52w high $140.00 (need <= 25%)\"\n          },\n          \"c7_rs_rank_above_70\": {\n            \"passed\": false,\n            \"detail\": \"RS Rank: 70 (need > 70)\"\n          }\n        },\n        \"sma50\": 123.55,\n        \"sma150\": 118.55,\n        \"sma200\": 116.05,\n        \"error\": null\n      },\n      \"vcp_pattern\": {\n        \"score\": 0,\n        \"valid_vcp\": false,\n        \"contractions\": [],\n        \"num_contractions\": 0,\n        \"pivot_price\": null,\n        \"atr_compression_ratio\": null,\n        \"wide_and_loose\": false,\n        \"right_side_range_ratio\": null,\n        \"error\": \"Insufficient swing points detected\"\n      },\n      \"volume_pattern\": {\n        \"score\": 40,\n        \"dry_up_ratio\": 1.0,\n        \"avg_volume_50d\": 1000000,\n        \"avg_volume_recent_10d\": 1000000,\n        \"breakout_volume_detected\": false,\n        \"breakout_volume_score\": 0,\n        \"up_volume_days_20d\": 0,\n        \"down_volume_days_20d\": 0,\n        \"net_accumulation\": 0,\n        \"error\": null\n      },\n      \"pivot_proximity\": {\n        \"score\": 0,\n        \"distance_from_pivot_pct\": null,\n        \"stop_loss_price\": null,\n        \"risk_pct\": null,\n        \"trade_status\": \"NO PIVOT\",\n        \"error\": \"No valid pivot price\"\n      },\n      \"relative_strength\": {\n        \"score\": 70,\n        \"rs_rank_estimate\": 70,\n        \"weighted_rs\": 6.19,\n        \"period_details\": [\n          {\n            \"period_days\": 63,\n            \"weight\": 0.4,\n            \"stock_return_pct\": 5.26,\n            \"sp500_return_pct\": 2.87,\n            \"relative_pct\": 2.4\n          },\n          {\n            \"period_days\": 126,\n            \"weight\": 0.2,\n            \"stock_return_pct\": 11.11,\n            \"sp500_return_pct\": 5.9,\n            \"relative_pct\": 5.21\n          },\n          {\n            \"period_days\": 189,\n            \"weight\": 0.2,\n            \"stock_return_pct\": 17.65,\n            \"sp500_return_pct\": 9.13,\n            \"relative_pct\": 8.52\n          },\n          {\n            \"period_days\": 252,\n            \"weight\": 0.2,\n            \"stock_return_pct\": 25.0,\n            \"sp500_return_pct\": 12.55,\n            \"relative_pct\": 12.45\n          }\n        ],\n        \"error\": null\n      }\n    }\n  ],\n  \"summary\": {\n    \"total\": 1,\n    \"textbook\": 0,\n    \"strong\": 0,\n    \"good\": 0,\n    \"developing\": 0,\n    \"weak\": 1\n  },\n  \"sector_distribution\": {\n    \"Technology\": 1\n  }\n}",
+  "markdown": "# VCP Screener Report - Minervini Volatility Contraction Pattern\n**Generated:** 2026-11-13 12:00:00\n**Universe:** golden\n\n---\n\n## Screening Funnel\n\n| Stage | Count |\n|-------|-------|\n| Universe | 1 |\n| Pre-filter passed | N/A |\n| Trend Template passed | N/A |\n| VCP candidates | 1 |\n\n---\n\n## Quick Scan\n\n| # | Symbol | Quality | State | Type | Price | Pivot Dist |\n|---|--------|---------|-------|------|-------|------------|\n| 1 | HEALTHY | 40 (No VCP) | Pre-breakout | VCP-adjacent | $126.00 | \u2014 |\n\n\u2605 = State Cap applied (rating downgraded from raw score)\n\n---\n\n## Section A: Pre-Breakout Watchlist (0 stocks)\n\nNo actionable pre-breakout candidates found.\n\n## Section B: Extended / Quality VCP (1 stock)\n\n### 1. HEALTHY - Healthy Corp\n**Quality:** 40/100 (No VCP) | **State:** Pre-breakout | **Type:** VCP-adjacent\n**Price:** $126.00 | **Market Cap:** N/A | **Sector:** Technology\n\n| Component | Score | Details |\n|-----------|-------|---------|\n| Trend Template | 86/100 | 6/7 criteria |\n| Contraction Quality | 0/100 | 0 contractions:  |\n| Volume Pattern | 40/100 | Dry-up: 1.00 |\n| Pivot Proximity | 0/100 | N/A (NO PIVOT) |\n| Relative Strength | 70/100 | RS Rank ~70, Weighted RS: +6.2% |\n\n**Trade Setup:**\n- Pivot: N/A\n- Stop-loss: N/A\n- Risk: N/A\n- Guidance: Not actionable as VCP\n\n---\n\n---\n\n## Summary Statistics\n- **Total VCP Candidates:** 1\n- **Textbook VCP:** 0\n- **Strong VCP:** 0\n- **Good VCP:** 0\n- **Developing VCP:** 0\n- **Weak / No VCP:** 1\n\n*Counts are based on final rating (after state caps).*\n\n### Sector Distribution\n\n| Sector | Count |\n|--------|-------|\n| Technology | 1 |\n\n---\n\n## Methodology\n\nThis screener implements Mark Minervini's Volatility Contraction Pattern (VCP):\n\n1. **Trend Template** (25%) - 7-point Stage 2 uptrend filter\n2. **Contraction Quality** (25%) - VCP pattern with successive tighter corrections\n3. **Volume Pattern** (20%) - Volume dry-up near pivot point\n4. **Pivot Proximity** (15%) - Distance from breakout level\n5. **Relative Strength** (15%) - Minervini-weighted RS vs S&P 500\n\nFor detailed methodology, see the VCP methodology reference in the vcp-screener skill directory.\n\n---\n\n**Disclaimer:** This screener is for educational and informational purposes only. Not investment advice. Always conduct your own research and consult a financial advisor before making investment decisions. Past patterns do not guarantee future results.\n"
+}
