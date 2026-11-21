@@ -143,7 +143,7 @@ generated: true
 
 | 入力 | 測定コミット | 測定 / 実行更新日時 | 出典 |
 |---|---|---|---|
-| catalog | a627d17dd1d8fde1c8fa73b3cc69ffe83b33cb71 | 2026-11-17T15:35:54Z | skills-index.yaml; config/ci-test-policy.yaml; examples/workflows/replay-coverage.yaml |
+| catalog | not-yet-measured | not-yet-measured | not-yet-measured |
 | per\_skill\_coverage\_pct | a627d17dd1d8fde1c8fa73b3cc69ffe83b33cb71 | 2026-11-17T14:45:44Z | https://github.com/tradermonty/claude-trading-skills/actions/runs/44104530531/artifacts/14338356752 |
 | beta\_since | not-yet-measured | not-yet-measured | not-yet-measured |
 | dual\_axis\_score\_distribution | not-yet-measured | not-yet-measured | not-yet-measured |

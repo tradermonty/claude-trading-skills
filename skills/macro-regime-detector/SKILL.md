@@ -90,7 +90,7 @@ python3 macro_regime_detector.py [options]
 
 Options:
   --api-key KEY       FMP API key (default: $FMP_API_KEY)
-  --output-dir DIR    Output directory (default: current directory)
+  --output-dir DIR    Output directory (default: reports/)
   --days N            Days of history to fetch (default: 600)
 ```
 

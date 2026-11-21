@@ -1,0 +1,11 @@
+    def fetch_memory_history(self, symbol: str, from_date: str, to_date: str):
+        """Raw stable-only price evidence; the adapter validates the whole range.
+
+        No fallback, truncation, normalization or endpoint breaker. Valid empty
+        history stays empty; malformed rows remain visible to the adapter.
+        """
+        return self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/historical-price-eod/full",
+            {"symbol": symbol, "from": from_date, "to": to_date},
+            quiet=True,
+        )

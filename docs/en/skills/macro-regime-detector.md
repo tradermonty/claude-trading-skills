@@ -106,7 +106,7 @@ python3 skills/macro-regime-detector/scripts/macro_regime_detector.py
 
 ## 8. Output
 
-Two files are saved to `--output-dir` (default: current directory):
+Two files are saved to `--output-dir` (default: `reports/`):
 
 - `macro_regime_YYYY-MM-DD_HHMMSS.json` — Structured data for programmatic use
 - `macro_regime_YYYY-MM-DD_HHMMSS.md` — Human-readable report with:
@@ -136,7 +136,7 @@ python3 macro_regime_detector.py [options]
 
 Options:
   --api-key KEY       FMP API key (default: $FMP_API_KEY)
-  --output-dir DIR    Output directory (default: current directory)
+  --output-dir DIR    Output directory (default: reports/)
   --days N            Days of history to fetch (default: 600)
 ```
 

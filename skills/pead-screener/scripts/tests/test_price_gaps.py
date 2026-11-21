@@ -209,3 +209,62 @@ def test_multiple_exclusions_render_as_separate_list_items(tmp_path):
     assert "2 candidate(s)" in markdown
     assert "\n\n- **BAD:** Unavailable: close on 2026-02-13\n- **WORSE:** " in markdown
     assert "\n\n## Summary" in markdown
+
+
+@pytest.mark.parametrize("mode", ["A", "B"])
+def test_rounded_weekly_low_excluded_before_both_reports(mode, tmp_path, monkeypatch):
+    """A valid sub-cent daily low must not abort reporting for healthy symbols."""
+    good = history()
+    for bar in good:
+        if bar["date"] >= "2026-02-09":
+            bar["open"] = 110
+    penny = deepcopy(good)
+    for bar in penny:
+        bar["low"] = 0.001
+    client = MagicMock()
+    client.get_historical_prices.side_effect = lambda symbol, **kwargs: {
+        "historical": deepcopy(penny if symbol == "PENNY" else good)
+    }
+    client.get_earnings_calendar.return_value = [
+        {"symbol": symbol, "date": "2026-02-02", "time": "bmo"} for symbol in ("PENNY", "GOOD")
+    ]
+    client.get_company_profiles.return_value = {
+        symbol: {"marketCap": 2_000_000_000} for symbol in ("PENNY", "GOOD")
+    }
+    client.get_api_stats.return_value = {
+        "budget_remaining": 100,
+        "api_calls_made": 2,
+        "rate_limit_reached": False,
+    }
+    monkeypatch.setattr(screen_pead, "FMPClient", lambda **kwargs: client)
+    output = tmp_path / "reports"
+    argv = ["screen_pead.py", "--output-dir", str(output), "--min-gap", "0"]
+    if mode == "B":
+        source = tmp_path / "candidates.json"
+        source.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "results": [
+                        {
+                            "symbol": symbol,
+                            "earnings_date": "2026-02-02",
+                            "earnings_timing": "bmo",
+                            "gap_pct": 5,
+                            "grade": "A",
+                        }
+                        for symbol in ("PENNY", "GOOD")
+                    ],
+                }
+            )
+        )
+        argv += ["--candidates-json", str(source)]
+    monkeypatch.setattr(sys, "argv", argv)
+    screen_pead.main()
+    report = json.loads(next(output.glob("*.json")).read_text())
+    assert [row["symbol"] for row in report["results"]] == ["GOOD"]
+    exclusions = report["metadata"]["price_bar_gap_exclusions"]
+    assert len(exclusions) == 1 and exclusions[0]["symbol"] == "PENNY"
+    assert "2026-02-" in exclusions[0]["reason"]
+    markdown = next(output.glob("*.md")).read_text()
+    assert "GOOD" in markdown and "**PENNY:**" in markdown

@@ -367,7 +367,11 @@ python3 skills/trader-memory-core/scripts/trader_memory_cli.py review \
   --state-dir state/theses/ postmortem th_aapl_div_20260314_a3f1
 ```
 
-Generate a structured postmortem in `state/journal/`. If FMP API key is available, includes MAE/MFE (Maximum Adverse/Favorable Excursion) metrics.
+Generate a structured postmortem in `state/journal/`. MAE/MFE means Maximum Adverse/Favorable Excursion.
+
+The CLI postmortem command stays offline and leaves MAE/MFE null. For optional price-backed metrics, Python callers explicitly pass `FMPPriceAdapter()` as `price_adapter` to `thesis_review.generate_postmortem(...)` (or `compute_mae_mfe`). The adapter reads `FMP_API_KEY`, or accepts an explicit `api_key`, and uses this skill's generated client for the exact inclusive date range on FMP's stable full-history endpoint; there is no v3 fallback. Install `requirements.txt` first, including `requests`. Shared transport rules apply: 30-second request timeout, 0.3-second minimum interval within a client, one 60-second retry on HTTP 429, and redacted failure diagnostics. Each adapter call closes its owned session.
+
+Prices are sorted oldest first and clipped to the requested dates. The adapter prefers a supplied `adjClose`, otherwise uses `close`; it does not assert that a provider `close` is adjusted. Invalid dates, duplicate in-range dates, mismatched symbols, and nonnumeric/nonfinite/nonpositive prices are rejected. Empty history or failed/invalid evidence leaves MAE/MFE null in the review; it is not a zero-excursion result.
 
 Record the lessons learned on a CLOSED or INVALIDATED thesis with `record-lessons`. This produces the `lessons_log_entry` of the `trade-memory-loop` lessons step; the text lands in `outcome.lessons_learned`.
 

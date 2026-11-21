@@ -155,6 +155,14 @@ def daily_to_weekly(daily_prices: list[dict], earnings_date: str = None) -> list
                 "trading_days": len(days),
             }
         )
+        if not pre_earnings:
+            # Rounded aggregates are consumed downstream too. Reject a value
+            # rounded to zero here, inside the caller's per-symbol gap boundary.
+            require_bars(
+                [weekly_candles[-1]],
+                ["open", "high", "low", "close", "volume"],
+                date_key="week_start",
+            )
 
     # Return most-recent-first
     weekly_candles.reverse()
