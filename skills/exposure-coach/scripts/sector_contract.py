@@ -169,6 +169,10 @@ def _canonical_sector(data: dict) -> SectorInput:
             "trend": trend,
             "health_score": health,
         }
+    # Provider contract (uptrend-sector-summary.v1): Slope may be null per row
+    # but not for every row.
+    if all(row["slope"] is None for row in rows.values()):
+        return reject("canonical ranking has no slope values (all null)")
     error = _validate_trends(data.get("trends"), rows)
     if error:
         return reject(error)

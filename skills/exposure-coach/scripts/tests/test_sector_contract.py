@@ -240,6 +240,22 @@ def test_agreeing_label_and_slope_keep_adjustment(native_report, slope, trend, a
     )
 
 
+def test_all_null_slopes_reject_like_the_provider_contract(native_report):
+    for row in native_report["ranking"]:
+        row["slope"] = None
+    assert extract_sector_score(native_report) is None
+
+
+def test_row_warning_reaches_json_markdown_and_stderr(tmp_path, native_report):
+    native_report["ranking"][0]["slope"] = None
+    completed, payload, markdown = run_cli(tmp_path, native_report)
+    assert "sector" in payload["inputs_provided"]
+    assert "slope unavailable" in json.dumps(payload)
+    assert "slope unavailable" in markdown
+    assert "slope unavailable" in completed.stderr
+    assert "Upstream sector warnings remain." in json.dumps(payload)
+
+
 def test_non_string_trend_still_rejects(native_report):
     native_report["ranking"][0].update({"slope": -0.01, "trend": []})
     assert extract_sector_score(native_report) is None

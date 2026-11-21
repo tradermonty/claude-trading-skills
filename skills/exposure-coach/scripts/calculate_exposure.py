@@ -825,7 +825,7 @@ def main():
             " Confidence measures input completeness, not verified quality or independent confirmation."
         )
     if sector_input.warnings:
-        rationale += " Upstream sector freshness warnings remain."
+        rationale += " Upstream sector warnings remain."
 
     # Build result
     now = datetime.now(timezone.utc)
