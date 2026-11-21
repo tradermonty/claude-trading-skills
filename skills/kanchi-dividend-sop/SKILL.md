@@ -88,6 +88,76 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
   --output-dir reports/
 ```
 
+The Step 5 buy target uses a **regular-only 5-year average yield rebuilt from
+dividend rows and daily closes** (issue #834), never the provider annual
+`dividendYield` ratios, which bundle specials. Per ticker the script fetches
+`/stable/historical-price-eod/full` and `/stable/splits`, then averages
+`latest_declared_annualized / close` at the last trading day of each of the 60
+months ending with the last completed month (method
+`month_end_60_regular_only_v1`; split-adjusted `close`, never adjusted-close
+fields). A month is dropped when the regular dividend cannot be proven: irregular
+cadence, variable policy, a gap between the last two regular pays outside
+0.5-1.5x the cadence, or an FMP `frequency` that disagrees with the inferred
+cadence (frequency switches, prorated stubs). The average is **withheld** when
+price or dividend history is shorter than 5 years, when fewer than 90% of the 60
+months validate, when the last window month has no price, or when the split history
+is unknown (fetch failed) or any split is dated on or after the window start
+(including after the window end) and any dividend row lacks a positive
+`adjDividend`. Specials are classified once on the full history as of the run
+date (an unlabelled 1.5-3x spike that later reverts is excluded everywhere);
+only "was it declared by that month" stays point-in-time. An observation price
+must fall in the last 7 calendar days of its month. A month is also dropped when
+the dividend stream looks suspended at that date (stale pre-suspension amount) or
+when its latest payment has a non-cadence FMP `frequency` such as `Irregular`.
+**Cut rule:** after a dividend cut the point-in-time declared rate is kept for
+later months and the reason `cut_in_window` is recorded; it does not withhold the
+average by itself. FMP rows with `frequency: Special` are labelled `special`;
+`Irregular` is not special. **Raise confirmation:** a regular payment L is
+unconfirmed when L is more than 25% above M (`REGULAR_YIELD_RAISE_CONFIRM_PCT`)
+and fewer than 2 consecutive regular payments equal L. M is the median of the
+regular payments before that run, over the trailing window of max(pays per year, 8)
+payments. A genuine raise is therefore unconfirmed at its first payment and
+confirmed at the second; a raise of 25% or less is never withheld. An
+observation whose latest used payment is unconfirmed is invalid. If the CURRENT
+latest regular payment is `Irregular` or unconfirmed, the target is withheld with
+`latest_dividend_unconfirmed` (also a `pre_order_blockers` entry). Known
+limitation: a combined regular-plus-special row less than 25% above the regular
+level inside the history cannot be detected from data alone; correct it with
+`kind: combined`. A withheld average keeps the existing
+`regular_only_average_unavailable` / `regular_dividend_unavailable` behavior and
+lists the reasons in `notes` as `yield_history:<reason>`. Each row carries a
+`yield_history` summary (status, window, coverage, method, source); the CSV adds
+`yield_history_status`, `yield_window_start`, `yield_window_end`,
+`yield_coverage_ratio` and `yield_method`.
+
+When FMP rows are wrong or incomplete, supply verified rows with
+`--yield-history-json`. Supplied data for a ticker replaces the fetched dividend,
+price and split rows for that ticker, including the dividend history that feeds
+the current numerator. Each ticker needs `price_basis` set to `split_adjusted` and
+a `splits` list (empty is allowed). A bare average number is never accepted:
+
+```json
+{"NNN": {"source": "Issuer dividend history + exchange closes, retrieved 2026-11-20",
+  "price_basis": "split_adjusted",
+  "dividends": [{"date": "2026-09-15", "dividend": 0.60},
+    {"date": "2025-09-15", "dividend": 0.95, "kind": "special",
+     "kind_source": "Issuer press release 2025-08-30"}],
+  "prices": [{"date": "2026-10-30", "close": 41.2}],
+  "splits": []}}
+```
+
+A dividend row may carry `kind` of `special` (excluded from the regular stream),
+`exclude` (dropped, for stubs) or `combined` (a regular plus special payment in
+one row: set `regular_amount`, a positive number below `dividend`, which becomes
+the row's amount, with `adjDividend` scaled by the same ratio). `kind` requires a
+non-empty `kind_source`, and a row labelled or marked Special without a `kind` is
+rejected. Invalid input (bad or duplicate-key JSON, empty `source`, missing
+`price_basis` or `splits`, non-positive or non-finite `close`, unparsable dates,
+`kind` without `kind_source`) exits with code 2 before any provider call; dividend
+dates are normalized to YYYY-MM-DD. Tickers in the file that are not in the run
+print a warning on stderr. Supplied dividend rows should carry `adjDividend` when
+a split falls on or after the window start.
+
 ## Workflow
 
 ### 1) Define mandate before screening
@@ -287,8 +357,10 @@ Run this skill first, then hand off outputs:
 - `scripts/verdict.py`: WS-5 actionable-tier synthesis + run_context +
   evidence_ref helpers.
 - `scripts/build_entry_signals.py`: orchestrator (Step 5 targets + WS-1/2/3/5
-  integration). Flags: `--yield-floor`, `--events-json`, `--profile`,
-  `--safety-bias`, `--universe-source`.
+  integration). Flags: `--yield-floor`, `--events-json`, `--financials-json`,
+  `--yield-history-json`, `--profile`, `--safety-bias`, `--universe-source`.
+- `scripts/regular_yield_history.py`: pure regular-only 5-year average yield
+  reconstruction + `--yield-history-json` loader (#834).
 - `scripts/build_sop_plan.py`: deterministic SOP plan scaffold generator.
 - `scripts/tests/test_golden_p0.py`: **P0 merge gate** — end-to-end frozen
   verdicts for CALM/ORI/CMCSA/MKC/CFR/cut (run via `scripts/run_all_tests.sh`).

@@ -106,6 +106,23 @@ MAX_SECTOR_PCT = 25.0
 # macro beta (NEW-4, e.g. many small banks).
 SECTOR_CLUSTER_WARN_COUNT = 4
 
+# --- Issue #834: regular-only 5-year average yield reconstruction ---
+# Month-end observations over this many years (60 months), built from FMP
+# dividend rows + daily closes. Provider annual ratios are never used.
+REGULAR_YIELD_YEARS = 5
+REGULAR_YIELD_OBSERVATIONS = 60
+# Minimum share of the 60 observations that must validate; below this the
+# average is withheld (coverage_below_threshold).
+REGULAR_YIELD_MIN_COVERAGE = 0.9
+# Gap between the last two regular pays must lie within these multiples of the
+# cadence's nominal days (catches frequency switches and stub/prorated pays).
+REGULAR_YIELD_GAP_TOLERANCE = (0.5, 1.5)
+# Extra days fetched before the 5-year start so the first month has a price row.
+REGULAR_YIELD_FETCH_BUFFER_DAYS = 45
+# A regular pay more than this fraction above the prior regular median is
+# unconfirmed until a second pay repeats the amount (raise confirmation).
+REGULAR_YIELD_RAISE_CONFIRM_PCT = 0.25
+
 # --- Verdict tier (WS-5, v2.1) ---
 VERDICTS = (
     "CLEAN-PASS",
