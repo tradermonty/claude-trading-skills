@@ -87,6 +87,8 @@ market state and `quality_score.data_gap` to tell the cases apart:
   so the quality could not be measured.
 - `Very weak FTD`: an FTD was detected, but its penalties took the score down
   to the 0 floor.
+- `FTD under pressure`: a warning is active and health penalties took the
+  score to 0; the warning signal still overrides the base band.
 
 Exposure Coach scores every 0 the same way, as no confirmation. The quality
 score is neither a success probability nor an allocation percentage. FTD is

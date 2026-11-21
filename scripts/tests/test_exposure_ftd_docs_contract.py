@@ -102,7 +102,7 @@ def test_framework_numbers_match_the_calculator(monkeypatch, name: str, text: st
 def test_documented_zero_signals_are_what_ftd_detector_emits() -> None:
     section = _ftd_section((SKILL / FRAMEWORK).read_text(encoding="utf-8"))
     zero_cases = re.findall(r"^- `([^`]+)`", section, re.MULTILINE)
-    assert len(zero_cases) == 4, zero_cases
+    assert len(zero_cases) == 5, zero_cases
     producer = FTD_PRODUCER.read_text(encoding="utf-8")
     for signal in zero_cases:
         assert f'"{signal}"' in producer, signal
@@ -135,6 +135,10 @@ def test_framework_explains_lifecycle_warning_override(monkeypatch, name, text):
     state["ftd_invalidation"]["warning"] = True
     warning = module.calculate_ftd_quality_score(state)
     assert warning["total_score"] == 59 and warning["signal"] == "FTD under pressure"
+    state["sp500"]["ftd"].update(ftd_day_number=12, gain_pct=1.0, volume_above_avg=False)
+    state["post_ftd_distribution"].update(distribution_count=3, earliest_distribution_day=1)
+    floor = module.calculate_ftd_quality_score(state)
+    assert floor["total_score"] == 0 and floor["signal"] == "FTD under pressure"
     section = _ftd_section(text)
     assert "base bands" in section
     assert "ftd_invalidation.warning" in section
