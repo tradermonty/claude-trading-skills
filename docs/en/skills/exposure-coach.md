@@ -82,7 +82,7 @@ Collect the most recent JSON outputs from integrated skills. Each file provides 
 | uptrend-analyzer | `uptrend_*.json` | Uptrend participation percentage |
 | macro-regime-detector | `regime_*.json` | Current regime (Concentration, Broadening, etc.) |
 | market-top-detector | `top_risk_*.json` | Distribution day count, top probability score |
-| ftd-detector | `ftd_*.json` | Failure-to-deliver anomalies |
+| ftd-detector | `ftd_*.json` | Follow-Through Day quality (market bottom confirmation) |
 | theme-detector | `theme_*.json` | Active investment themes and rotation |
 | sector-analyst | `sector_*.json` | Sector performance rankings |
 | institutional-flow-tracker | `institutional_*.json` | Net institutional buying/selling |
