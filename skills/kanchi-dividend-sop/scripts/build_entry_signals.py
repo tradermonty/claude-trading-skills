@@ -16,6 +16,14 @@ from dividend_basis import analyze_dividends, step1_decision
 from event_scanner import ScanResult, apply_event_cap
 from fmp_client import FMPClient as SharedFMPClient
 from payout_safety import assess_payout_safety
+from regular_yield_history import (
+    RegularYieldHistory,
+    YieldHistoryInputError,
+    apply_frequency_special_label,
+    fetch_window_start,
+    load_yield_history,
+    reconstruct_regular_yield,
+)
 from sourced_financials import FinancialsInputError, load_financials, merge_financials
 from thresholds import SCHEMA_VERSION, VERDICTS
 from verdict import build_run_context, synthesize_verdict
@@ -206,8 +214,35 @@ class FMPClient(SharedFMPClient):
         """
         data = self._get("dividends", {"symbol": ticker})
         if isinstance(data, list):
+            # /stable rows carry `frequency` (e.g. "Special") but no `label`;
+            # map Special to the label dividend_basis reads (#834). "Irregular"
+            # is not special. Rows are never de-duplicated by date: a regular
+            # and a special payment can share an ex-date.
+            return [apply_frequency_special_label(row) for row in data if isinstance(row, dict)]
+        return []
+
+    def get_price_history(self, ticker: str, start: str, end: str) -> list[dict[str, Any]]:
+        """Daily EOD rows (split-adjusted close) from `start` to `end`; [] on failure."""
+        try:
+            data = self._request(
+                f"{self.STABLE_URL}/historical-price-eod/full",
+                {"symbol": ticker, "from": start, "to": end},
+            )
+        except Exception:  # transport already redacts; never surface raw errors
+            return []
+        if isinstance(data, list):
             return [row for row in data if isinstance(row, dict)]
         return []
+
+    def get_splits(self, ticker: str) -> list[dict[str, Any]] | None:
+        """Split history rows; None when the request failed (unknown, not 'no splits')."""
+        try:
+            data = self._request(f"{self.STABLE_URL}/splits", {"symbol": ticker})
+        except Exception:
+            return None
+        if isinstance(data, list):
+            return [row for row in data if isinstance(row, dict)]
+        return None
 
     def get_financials(
         self, ticker: str, sector: str | None = None, industry: str | None = None
@@ -261,6 +296,7 @@ def build_entry_row(
     financials: dict[str, Any] | None = None,
     event_scan: ScanResult | None = None,
     as_of: str | None = None,
+    yield_history: RegularYieldHistory | None = None,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
     # #770 finding 3: record the date the price is as of, and flag it when it
@@ -302,13 +338,27 @@ def build_entry_row(
         else "provider_total_unverified"
     )
     target_withheld_reason = None
+    reconstructed = False
     if basis is not None:
-        target_withheld_reason = (
-            "regular_only_average_unavailable"
-            if numerator_basis == "regular_only"
-            else "regular_dividend_unavailable"
-        )
-        avg_yield_5y_pct = None
+        # #834: a validated regular-only reconstruction (monthly closes + dividend
+        # rows, specials removed) is the only thing that may replace the withheld
+        # average. It never applies when the numerator itself is not regular-only,
+        # and provider ratios stay reported as provider_avg_5y_yield_pct only.
+        if (
+            yield_history is not None
+            and yield_history.status == "OK"
+            and yield_history.avg_yield_pct is not None
+            and numerator_basis == "regular_only"
+        ):
+            reconstructed = True
+            avg_yield_5y_pct = yield_history.avg_yield_pct
+        else:
+            target_withheld_reason = (
+                "regular_only_average_unavailable"
+                if numerator_basis == "regular_only"
+                else "regular_dividend_unavailable"
+            )
+            avg_yield_5y_pct = None
 
     target_yield_pct = (
         round(avg_yield_5y_pct + alpha_pp, 2) if avg_yield_5y_pct is not None else None
@@ -343,14 +393,23 @@ def build_entry_row(
 
     if target_withheld_reason:
         notes.append(target_withheld_reason)
+        if yield_history is not None:
+            for reason in yield_history.reasons:
+                notes.append(f"yield_history:{reason}")
     if price_date_mismatch:
         notes.append("price_date_mismatch")
 
     row: dict[str, Any] = {
         "ticker": ticker,
         "annual_dividend_basis": numerator_basis,
-        "historical_yield_basis": "provider_total_unverified",
-        "yield_basis": "unavailable" if target_withheld_reason else "provider_total_unverified",
+        "historical_yield_basis": (
+            "regular_only_reconstructed" if reconstructed else "provider_total_unverified"
+        ),
+        "yield_basis": (
+            "regular_only_reconstructed"
+            if reconstructed
+            else ("unavailable" if target_withheld_reason else "provider_total_unverified")
+        ),
         "target_withheld_reason": target_withheld_reason,
         "provider_avg_5y_yield_pct": provider_avg_yield,
         "signal": signal,
@@ -366,10 +425,18 @@ def build_entry_row(
         "target_yield_pct": target_yield_pct,
         "buy_target_price": buy_target_price,
         "drop_needed_pct": drop_needed_pct,
-        "yield_observation_count": 0 if target_withheld_reason else len(yields_5y),
+        "yield_observation_count": (
+            yield_history.observation_count
+            if reconstructed and yield_history is not None
+            else (0 if target_withheld_reason else len(yields_5y))
+        ),
         "provider_yield_observation_count": len(yields_5y),
         "notes": notes,
     }
+
+    if yield_history is not None:
+        # Audit observations stay out of the row (and the CSV); the summary is enough.
+        row["yield_history"] = yield_history.summary()
 
     # WS-1: attach the dividend-basis breakdown + Step-1 decision.
     if basis is not None:
@@ -630,6 +697,28 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
                 ]
             )
     for row in rows:
+        yh = row.get("yield_history")
+        if yh and row.get("yield_basis") == "regular_only_reconstructed":
+            lines.extend(
+                [
+                    "",
+                    f"- {row['ticker']}: 5y average yield `{row.get('avg_5y_yield_pct')}%` "
+                    f"(`{row['yield_basis']}`, `{yh.get('method')}`), window "
+                    f"`{yh.get('window_start')}` to `{yh.get('window_end')}`, "
+                    f"{yh.get('observation_count')}/{yh.get('expected_observations')} "
+                    f"month-end observations, coverage `{yh.get('coverage_ratio')}`.",
+                ]
+            )
+        elif yh and row.get("target_withheld_reason"):
+            lines.extend(
+                [
+                    "",
+                    f"- {row['ticker']}: yield history `{yh.get('status')}` "
+                    f"({yh.get('observation_count')}/{yh.get('expected_observations')} "
+                    f"observations): {', '.join(yh.get('reasons') or []) or '-'}.",
+                ]
+            )
+    for row in rows:
         if row.get("price_date_mismatch"):
             lines.extend(
                 [
@@ -678,6 +767,11 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
         "target_withheld_reason",
         "provider_avg_5y_yield_pct",
         "provider_yield_observation_count",
+        "yield_history_status",
+        "yield_window_start",
+        "yield_window_end",
+        "yield_coverage_ratio",
+        "yield_method",
         "notes",
     ]
 
@@ -698,6 +792,12 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
             output["original_dividend_currency"] = db.get("original_dividend_currency")
             output["payout_safety_verdict"] = ps.get("safety_verdict")
             output["event_scan_result"] = ev.get("result", "NOT_SCANNED")
+            yh = row.get("yield_history") or {}
+            output["yield_history_status"] = yh.get("status")
+            output["yield_window_start"] = yh.get("window_start")
+            output["yield_window_end"] = yh.get("window_end")
+            output["yield_coverage_ratio"] = yh.get("coverage_ratio")
+            output["yield_method"] = yh.get("method")
             writer.writerow(output)
 
 
@@ -748,6 +848,14 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Sourced manual EPS/sector metrics JSON; see references/sourced-financials.md.",
     )
+    parser.add_argument(
+        "--yield-history-json",
+        default=None,
+        help="Verified per-ticker dividend rows + daily closes (+ splits) with a "
+        "non-empty source, replacing the fetched rows for that ticker when "
+        "rebuilding the regular-only 5-year average yield (#834). "
+        "See SKILL.md.",
+    )
     parser.add_argument("--profile", default=None, help="income-now | balanced | growth-first")
     parser.add_argument("--safety-bias", default=None, help="tight | medium")
     parser.add_argument("--universe-source", default=None, help="Provenance: universe origin.")
@@ -768,6 +876,19 @@ def main() -> int:
             print(str(exc), file=sys.stderr)
             return 2
 
+    supplied_history: dict[str, dict[str, Any]] = {}
+    if args.yield_history_json:
+        try:
+            supplied_history = load_yield_history(Path(args.yield_history_json))
+        except YieldHistoryInputError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    try:
+        price_start = fetch_window_start(args.as_of)
+    except ValueError:
+        print("Invalid --as-of date; expected YYYY-MM-DD.", file=sys.stderr)
+        return 2
+
     api_key = os.getenv("FMP_API_KEY")
     if not api_key:
         raise SystemExit("FMP_API_KEY is not set.")
@@ -786,7 +907,24 @@ def main() -> int:
     rows: list[dict[str, Any]] = []
     for ticker in tickers:
         metrics = client.get_ratios(ticker, limit=10)
-        dividend_history = client.get_stock_dividend(ticker)
+        history_input = supplied_history.get(ticker)
+        if history_input is not None:
+            dividend_history = history_input["dividends"]
+            price_rows = history_input["prices"]
+            split_rows = history_input["splits"]
+            history_source = history_input["source"]
+        else:
+            dividend_history = client.get_stock_dividend(ticker)
+            price_rows = client.get_price_history(ticker, price_start, args.as_of)
+            split_rows = client.get_splits(ticker)
+            history_source = "fmp_stable_dividends_and_eod_prices"
+        yield_history = reconstruct_regular_yield(
+            dividend_history,
+            price_rows,
+            as_of=args.as_of,
+            splits=split_rows,
+            source=history_source,
+        )
         event_scan = scanner.scan(ticker, args.as_of) if scanner else None
         sector = (profiles.get(ticker) or {}).get("sector")
         industry = (profiles.get(ticker) or {}).get("industry")
@@ -804,6 +942,7 @@ def main() -> int:
             financials=financials,
             event_scan=event_scan,
             as_of=args.as_of,
+            yield_history=yield_history,
         )
         rows.append(row)
 

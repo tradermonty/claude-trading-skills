@@ -94,6 +94,7 @@ turn those downloads into a complete point-in-time data snapshot.
 | `--alpha-pp` | Yield increment in percentage points; default `0.5`. |
 | `--yield-floor` | Explicit Step 1 yield floor in percent (for example `3.0`). Default is unset; enables the Step 1/Data Freshness assessment when supplied. |
 | `--financials-json` | Per-ticker sourced financial overrides, with units, source, as-of date and document reference; accepted values are recorded as MANUAL. Documents are not fetched or verified. |
+| `--yield-history-json` | Verified per-ticker dividend rows, daily closes and splits with a non-empty `source`; replaces the fetched rows for that ticker when rebuilding the regular-only 5-year average yield. A dividend row may carry `kind` (`special` or `exclude`) with a non-empty `kind_source`. Invalid input exits with code 2. A bare average number is never accepted. |
 | `--events-json` | Curated corporate-event evidence for the event scan. Missing file option yields SKIPPED; an absent ticker yields NO_EVENT_FOUND. These do not establish a completed clean event review. |
 | `--as-of` | Evaluation date `YYYY-MM-DD`; defaults to the local current date. |
 | `--profile` | Profile label such as income-now/balanced/growth-first, recorded in run context. Does not automatically set `--yield-floor` or other thresholds. |
@@ -108,6 +109,26 @@ curated input, not an automatic WebSearch performed by this CLI. The existing
 withheld-target restriction still applies: adding flags or labels does not make
 an unverifiable buy target actionable. Use the sourced-financial input contract with `--financials-json` for financial
 overrides rather than placing them in `--input`.
+
+### Regular-only 5-year average yield (issue #834)
+
+The buy target no longer relies on provider annual yield ratios, which include
+special dividends. For each ticker the CLI fetches daily closes and splits and
+rebuilds the average from dividend rows: `latest_declared_annualized` divided by
+the split-adjusted `close` at the last trading day of each of the 60 months ending
+with the last completed month (`month_end_60_regular_only_v1`). Months with an
+irregular cadence, a variable policy, an abnormal gap between the last two regular
+payments (frequency switches, prorated stubs) or a conflicting FMP `frequency` are
+dropped. The average is withheld when price or dividend history is shorter than
+5 years, when fewer than 90% of the months validate, or when a split falls inside
+the window and a dividend row has no `adjDividend`. Withheld rows keep the existing
+`regular_only_average_unavailable` behavior and list the reasons in `notes` with a
+`yield_history:` prefix. FMP rows with `frequency: Special` are treated as special
+dividends. JSON rows carry a `yield_history` summary; the CSV adds
+`yield_history_status`, `yield_window_start`, `yield_window_end`,
+`yield_coverage_ratio` and `yield_method`. The other order gates are unchanged:
+`order_ready` still needs a `CLEAN_CONFIRMED` event scan (`--events-json`) and
+sourced adjusted EPS or the sector metric (`--financials-json`).
 
 
 ## 4. Quick Start

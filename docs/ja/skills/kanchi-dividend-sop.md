@@ -94,6 +94,7 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
 | `--alpha-pp` | 利回りへの加算幅。単位はパーセントポイント、既定値は `0.5`。 |
 | `--yield-floor` | Step 1の利回り下限をパーセントで明示（例 `3.0`）。既定は未指定で、指定時にStep 1とData Freshnessの評価を有効にします。 |
 | `--financials-json` | 単位・出所・評価日・文書参照を伴う銘柄別財務値。採用値はMANUALとして記録し、文書の取得・真偽確認は行いません。 |
+| `--yield-history-json` | 出所（`source`）付きで検証済みの銘柄別配当行・日次終値・株式分割。該当銘柄では取得データの代わりに使い、通常配当のみの5年平均利回りを再構築します。配当行には `kind`（`special` または `exclude`）と空でない `kind_source` を付けられます。不正な入力は終了コード2で終了し、平均値の数字だけの入力は受け付けません。 |
 | `--events-json` | 手動整理した企業イベント根拠。オプション未指定はSKIPPED、銘柄がなければNO_EVENT_FOUNDで、調査済み・問題なしの証明にはなりません。 |
 | `--as-of` | 評価日 `YYYY-MM-DD`。既定値はローカルの当日です。 |
 | `--profile` | income-now/balanced/growth-firstなどのプロファイルを実行記録に残します。`--yield-floor` や他の閾値は自動設定しません。 |
@@ -107,6 +108,12 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
 このCLIが自動でWebSearchするわけではありません。買い目標を保留する既存の制約は維持され、
 フラグやラベルを加えても、検証できない目標価格でのエントリーが可能にはなりません。
 財務値の補充は `--financials-json` の出典付き財務入力の契約を使い、`--input` に埋め込まないでください。
+
+### 通常配当のみの5年平均利回り（issue #834）
+
+買い目標は、特別配当を含むプロバイダーの年次利回りではなく、配当行と日次終値から再構築した平均で決まります。銘柄ごとに日次終値と株式分割を取得し、直近の完了月までの60か月について、各月の最終取引日の分割調整済み終値で`latest_declared_annualized` を割って平均します（方式 `month_end_60_regular_only_v1`）。配当周期が不規則、変動配当方針、直近2回の通常配当の間隔が異常（頻度の切替や日割りのスタブ配当）、FMPの `frequency` が推定周期と食い違う月は除外します。
+
+価格または配当の履歴が5年に満たない場合、有効な月が90%未満の場合、窓内に株式分割がありながら `adjDividend` のない配当行がある場合は、平均を保留します。保留時は従来の `regular_only_average_unavailable` の動作を維持し、理由を `yield_history:` の接頭辞付きで `notes` に記録します。FMPで `frequency: Special` の行は特別配当として扱います。JSONの各行に `yield_history` の要約が付き、CSVには `yield_history_status`、`yield_window_start`、`yield_window_end`、`yield_coverage_ratio`、`yield_method` の列が加わります。ほかの発注ゲートは変わらず、`order_ready` には `--events-json` の `CLEAN_CONFIRMED` と、`--financials-json` の出典付き調整後EPSまたはセクター指標が引き続き必要です。
 
 
 ## 4. クイックスタート

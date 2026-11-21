@@ -88,6 +88,47 @@ python3 skills/kanchi-dividend-sop/scripts/build_entry_signals.py \
   --output-dir reports/
 ```
 
+The Step 5 buy target uses a **regular-only 5-year average yield rebuilt from
+dividend rows and daily closes** (issue #834), never the provider annual
+`dividendYield` ratios, which bundle specials. Per ticker the script fetches
+`/stable/historical-price-eod/full` and `/stable/splits`, then averages
+`latest_declared_annualized / close` at the last trading day of each of the 60
+months ending with the last completed month (method
+`month_end_60_regular_only_v1`; split-adjusted `close`, never adjusted-close
+fields). A month is dropped when the regular dividend cannot be proven: irregular
+cadence, variable policy, a gap between the last two regular pays outside
+0.5-1.5x the cadence, or an FMP `frequency` that disagrees with the inferred
+cadence (frequency switches, prorated stubs). The average is **withheld** when
+price or dividend history is shorter than 5 years, when fewer than 90% of the 60
+months validate, or when a split falls inside the window and any dividend row has
+no `adjDividend`. FMP rows with `frequency: Special` are labelled `special`;
+`Irregular` is not. A withheld average keeps the existing
+`regular_only_average_unavailable` / `regular_dividend_unavailable` behavior and
+lists the reasons in `notes` as `yield_history:<reason>`. Each row carries a
+`yield_history` summary (status, window, coverage, method, source); the CSV adds
+`yield_history_status`, `yield_window_start`, `yield_window_end`,
+`yield_coverage_ratio` and `yield_method`.
+
+When FMP rows are wrong or incomplete, supply verified rows with
+`--yield-history-json`. Supplied data for a ticker replaces the fetched rows for
+that ticker. A bare average number is never accepted:
+
+```json
+{"NNN": {"source": "Issuer dividend history + exchange closes, retrieved 2026-11-20",
+  "dividends": [{"date": "2026-09-15", "dividend": 0.60},
+    {"date": "2025-09-15", "dividend": 0.95, "kind": "special",
+     "kind_source": "Issuer press release 2025-08-30"}],
+  "prices": [{"date": "2026-10-30", "close": 41.2}],
+  "splits": []}}
+```
+
+A dividend row may carry `kind` of `special` (excluded from the regular stream) or
+`exclude` (dropped, for stubs), and `kind` requires a non-empty `kind_source`.
+Invalid input (bad JSON, empty `source`, non-positive or non-finite `close`,
+unparsable dates, `kind` without `kind_source`) exits with code 2 before any
+provider call. Supplied dividend rows should carry `adjDividend` when a split
+falls inside the window.
+
 ## Workflow
 
 ### 1) Define mandate before screening
@@ -287,8 +328,10 @@ Run this skill first, then hand off outputs:
 - `scripts/verdict.py`: WS-5 actionable-tier synthesis + run_context +
   evidence_ref helpers.
 - `scripts/build_entry_signals.py`: orchestrator (Step 5 targets + WS-1/2/3/5
-  integration). Flags: `--yield-floor`, `--events-json`, `--profile`,
-  `--safety-bias`, `--universe-source`.
+  integration). Flags: `--yield-floor`, `--events-json`, `--financials-json`,
+  `--yield-history-json`, `--profile`, `--safety-bias`, `--universe-source`.
+- `scripts/regular_yield_history.py`: pure regular-only 5-year average yield
+  reconstruction + `--yield-history-json` loader (#834).
 - `scripts/build_sop_plan.py`: deterministic SOP plan scaffold generator.
 - `scripts/tests/test_golden_p0.py`: **P0 merge gate** — end-to-end frozen
   verdicts for CALM/ORI/CMCSA/MKC/CFR/cut (run via `scripts/run_all_tests.sh`).
