@@ -12,6 +12,8 @@ Outputs:
 
 import json
 
+from price_bar_utils import require_price
+
 # Stage display order (highest priority first)
 STAGE_ORDER = ["BREAKOUT", "SIGNAL_READY", "MONITORING", "EXPIRED"]
 
@@ -78,6 +80,17 @@ def generate_markdown_report(
     lines.append("")
     lines.append("---")
     lines.append("")
+
+    exclusions = metadata.get("price_bar_gap_exclusions") or []
+    if exclusions:
+        lines.append(
+            f"> Data quality warning: incomplete screening. {len(exclusions)} candidate(s) "
+            "excluded from ranking because of missing or invalid price bars."
+        )
+        lines.append("")
+        for excluded in exclusions:
+            lines.append(f"- **{excluded['symbol']}:** {excluded['reason']}")
+        lines.append("")
 
     # Summary
     summary = _generate_summary(results)
@@ -213,8 +226,8 @@ def _format_stock_entry(rank: int, stock: dict) -> list[str]:
     # Red candle info
     red_candle = stock.get("red_candle")
     if red_candle:
-        rc_high = red_candle.get("high", 0)
-        rc_low = red_candle.get("low", 0)
+        rc_high = require_price(red_candle, "high", date_key="week_start")
+        rc_low = require_price(red_candle, "low", date_key="week_start")
         rc_week = red_candle.get("week_start", "N/A")
         lines.append(
             f"**Red Candle:** Week of {rc_week} | High: ${rc_high:.2f} | Low: ${rc_low:.2f}"

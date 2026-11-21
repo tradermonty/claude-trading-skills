@@ -17,6 +17,8 @@ Scoring (25% weight in composite):
 - 1 or 0 pass:                  15
 """
 
+from price_bar_utils import require_bars
+
 
 def calculate_liquidity(daily_prices: list[dict], current_price: float) -> dict:
     """
@@ -49,7 +51,8 @@ def calculate_liquidity(daily_prices: list[dict], current_price: float) -> dict:
 
     # Calculate 20-day average volume
     recent_20 = daily_prices[:20]
-    volumes = [d.get("volume", 0) for d in recent_20]
+    require_bars(recent_20, ["close", "volume"])
+    volumes = [d["volume"] for d in recent_20]
     if not volumes:
         return result
 
@@ -59,8 +62,8 @@ def calculate_liquidity(daily_prices: list[dict], current_price: float) -> dict:
     # Calculate ADV20 (average dollar volume)
     dollar_volumes = []
     for d in recent_20:
-        vol = d.get("volume", 0)
-        close = d.get("close", 0)
+        vol = d["volume"]
+        close = d["close"]
         if vol > 0 and close > 0:
             dollar_volumes.append(vol * close)
 
