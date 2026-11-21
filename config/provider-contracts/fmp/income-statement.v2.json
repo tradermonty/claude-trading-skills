@@ -7,7 +7,7 @@
     "symbol": "JNJ",
     "limit": "5"
   },
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-10-03",
   "recording": "Authenticated live /stable/income-statement probe (query symbol=JNJ, limit=5), sanitized to the fields the severed consumers read. 2026-10-03.",
   "owners": [
@@ -34,22 +34,19 @@
         "int",
         "float"
       ],
-      "nullable": false
-    },
+      "nullable": false, "finite": true},
     "netIncome": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": true
-    },
+      "nullable": true, "finite": true},
     "eps": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": true
-    }
+      "nullable": true, "finite": true}
   },
   "optional_fields": [
     "epsDiluted",

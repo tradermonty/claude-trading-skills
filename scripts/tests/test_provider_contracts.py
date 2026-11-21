@@ -1137,7 +1137,11 @@ def test_economic_calendar_contract_matches_standalone_required_fields():
     for field in consumer.REQUIRED_TEXT_FIELDS:
         assert contract.required_fields[field] == {"types": ["str"], "nullable": False}
     for field in consumer.NULLABLE_NUMBER_FIELDS:
-        assert contract.required_fields[field] == {"types": ["int", "float"], "nullable": True}
+        assert contract.required_fields[field] == {
+            "types": ["int", "float"],
+            "nullable": True,
+            "finite": True,
+        }
 
 
 def test_economic_calendar_recording_reaches_consumer(monkeypatch):

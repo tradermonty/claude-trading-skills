@@ -198,8 +198,9 @@ def test_finite_rule_requires_numeric_type_declarations(types):
     assert any(item.code == "invalid_contract_rule:price:finite" for item in result.fatal_anomalies)
 
 
-def test_finite_policy_is_opt_in_for_existing_contracts():
+def test_finite_policy_remains_opt_in_for_custom_contracts():
     contract = copy.deepcopy(load_contracts(ROOT)["quote"])
+    contract.required_fields["price"].pop("finite", None)
     rows = copy.deepcopy(contract.fixture)
     rows[0]["price"] = float("inf")
     assert validate_rows(contract, rows).ok
