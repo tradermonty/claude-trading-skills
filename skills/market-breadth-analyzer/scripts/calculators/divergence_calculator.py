@@ -64,9 +64,6 @@ def calculate_divergence(rows: list[dict], instrument: dict | None = None) -> di
     # Early Warning: short-term bearish divergence while long-term healthy
     early_warning = w20["score"] <= 25 and w60["score"] >= 50
 
-    # Signal uses the composite
-    signal = _generate_signal(w60["sp_pct"], w60["breadth_chg"], w60["div_type"], score, instrument)
-
     # Build instrument metadata for default source (SPY proxy for S&P 500)
     # For custom sources, use provided instrument or mark as unknown
     if instrument is None:
@@ -78,6 +75,9 @@ def calculate_divergence(rows: list[dict], instrument: dict | None = None) -> di
             "proxy_for": "S&P 500 / ^GSPC",
             "adjustment": "unknown",
         }
+
+    # Signal uses the composite
+    signal = _generate_signal(w60["sp_pct"], w60["breadth_chg"], w60["div_type"], score, instrument)
 
     result = {
         "score": score,
