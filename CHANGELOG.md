@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- pre-trade-discipline-gate: add `review_rule_adherence.py`, a local monthly report that counts the gate acknowledgements of each approved rule from the gate journal, with rerun dedupe, ledger state at review, reconsider reasons, and counts only (no exception notes, symbols, or thesis IDs). The monthly review declares it as a manual input of step 6, and the swing, earnings, and Stockbee EP gate workflows declare the optional approved-rule ledger. Reports are written as `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>.json` and `.md`. The step-6 replay does not consume the report (Refs #514).
+
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 
