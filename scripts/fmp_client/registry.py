@@ -441,3 +441,38 @@ SKILLS["news-reaction-failure-analyzer"] = SkillConfig(
     extensions=("news_light_history",),
     redaction_template="static_redaction.py.tmpl",
 )
+
+# ---- Issue #495 Batch D: options pricing market-data helpers ----
+SKILLS["options-strategy-advisor"] = SkillConfig(
+    skill="options-strategy-advisor",
+    title="FMP API Client for Options Strategy Advisor",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=90,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Stable quote/profile and raw EOD evidence for pricing helpers",),
+    class_constants=(),
+    extensions=("options_market",),
+)
+
+
+# Final original #495 target: theme detector's quote, history and holdings.
+SKILLS["theme-detector"] = SkillConfig(
+    skill="theme-detector",
+    title="FMP API Client for Theme Detector",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=260,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    configurable_timeout=True,
+    feature_lines=("- Stable quote/full-EOD/holdings for the theme detector",),
+    class_constants=(),
+    extensions=("theme_market",),
+    redaction_template="static_redaction.py.tmpl",
+)

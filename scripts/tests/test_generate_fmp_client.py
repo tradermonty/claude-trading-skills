@@ -17,6 +17,8 @@ from scripts.provider_contracts import _APIKEY_RE
 
 GENERATED_SKILLS = {
     "news-reaction-failure-analyzer",
+    "options-strategy-advisor",
+    "theme-detector",
     "trader-memory-core",
     "downtrend-duration-analyzer",
     "signal-postmortem",
@@ -57,6 +59,8 @@ STOCKBEE_SKILLS = {
 }
 NO_COMPAT_SKILLS = {
     "news-reaction-failure-analyzer",
+    "options-strategy-advisor",
+    "theme-detector",
     "trader-memory-core",
     "downtrend-duration-analyzer",
     "signal-postmortem",
@@ -79,6 +83,8 @@ NO_COMPAT_SKILLS = {
 }
 NO_BUDGET_FAMILY_B = {
     "news-reaction-failure-analyzer",
+    "options-strategy-advisor",
+    "theme-detector",
     "trader-memory-core",
     "downtrend-duration-analyzer",
     "signal-postmortem",
@@ -317,7 +323,7 @@ def test_redaction_has_one_selected_template_definition(gen):
     for name, cfg in _skills(gen).items():
         expected = (
             "static_redaction.py.tmpl"
-            if name == "news-reaction-failure-analyzer"
+            if name in {"news-reaction-failure-analyzer", "theme-detector"}
             else "redaction.py.tmpl"
         )
         assert cfg.redaction_template == expected
@@ -330,6 +336,7 @@ def test_redaction_has_one_selected_template_definition(gen):
 
 def test_batch_b_timeout_option_is_scoped_to_new_targets(gen):
     new_targets = {
+        "theme-detector",
         "value-dividend-screener",
         "dividend-growth-pullback-screener",
         "kanchi-dividend-sop",
@@ -339,7 +346,11 @@ def test_batch_b_timeout_option_is_scoped_to_new_targets(gen):
         output = gen.render_fmp_client(cfg)
         if skill in new_targets:
             assert "timeout=self.timeout" in output
-            assert 'self.session.headers.update({"apikey": self.api_key})' in output
+            if cfg.query_auth:
+                assert 'params = {**params, "apikey": self.api_key}' in output
+                assert 'self.session.headers.update({"apikey": self.api_key})' not in output
+            else:
+                assert 'self.session.headers.update({"apikey": self.api_key})' in output
         elif cfg.family != "special":
             assert "timeout=self.timeout" not in output
             assert "timeout=30" in output

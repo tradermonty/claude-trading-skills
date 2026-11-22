@@ -539,11 +539,10 @@ skills:
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Automated scan: consumes the API key through a caller-provided argument rather than an environment read, on direct HTTP calls made with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/options-strategy-advisor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
+      value: not_verified
+      rationale: "The #495 generated-client migration supersedes the prior direct-HTTP heuristic scan. Synthetic transport tests do not constitute a new security certification."
       evidence:
-      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - note: "Previous scan predates this migration; independent security assessment pending."
 - id: pair-trade-screener
   profile: executable_standalone_trading
   overrides:
@@ -684,38 +683,20 @@ skills:
   profile: executable_workflow_trading
   overrides:
     workflow_contract:
-      value: passed
-      rationale: Step 2 handoff is schema-validated in the multi-asset replay; the theme screen contract is also exercised by the swing replay; provider sweep is manual-fixture based (declared limitation).
+      value: not_verified
+      rationale: "The #495 final transport migration supersedes earlier assessed source evidence; synthetic regression success does not establish renewed native/workflow/security certification."
       evidence:
-      - assessed_commit: 08709e99e4a2a89cc5216b5d77eb3dd10d2f5363  # pragma: allowlist secret
-      - assessed_date: '2026-11-08'
-      - revalidated: '2026-11-13; FINVIZ source-provenance change; recorded workflow checks and 114 fixture-contract tests passed; native live providers remain unverified.'
-      - command: python3 scripts/validate_skills_index.py --strict-metadata --strict-workflows; exit 0
-      - workflows: workflows/multi-asset-opportunity-daily.yaml; workflows/stockbee-20pct-study-daily.yaml; workflows/stockbee-ep-daily.yaml; workflows/swing-opportunity-daily.yaml
-      - spec: examples/workflows/multi-asset-opportunity-daily/replay.yaml
-      - schema: examples/workflows/multi-asset-opportunity-daily/replay-contract.schema.json
-      - tests: scripts/tests/test_workflow_replay_multi_asset.py; scripts/tests/test_workflow_replay.py; scripts/tests/test_workflow_replay_trade_memory.py; scripts/tests/test_workflow_replay_swing.py; 114 passed together
+      - note: "Prior evidence predates generated quote/history/holdings transport. Comprehensive reassessment remains pending."
     end_to_end_replay:
-      value: passed
-      rationale: Multi-asset step 2 and the swing theme step replay manual_contract fixtures with schema and handoff validation. Native theme screening, ETF scanning, FINVIZ/uptrend clients, and theme scoring are not executed. This evidence establishes fixture-contract replay only; optional skill references in other workflows do not establish native execution.
+      value: not_verified
+      rationale: "The #495 final transport migration supersedes earlier assessed source evidence; synthetic regression success does not establish renewed native/workflow/security certification."
       evidence:
-      - assessed_commit: 08709e99e4a2a89cc5216b5d77eb3dd10d2f5363  # pragma: allowlist secret
-      - assessed_date: '2026-11-08'
-      - revalidated: '2026-11-13; FINVIZ source-provenance change; recorded workflow checks and 114 fixture-contract tests passed; native live providers remain unverified.'
-      - command: python3 scripts/workflow_replay.py check; exit 0; aggregate workflow coverage 14/14 (not per-skill native coverage)
-      - tests: scripts/tests/test_workflow_replay_multi_asset.py; test_workflow_replay.py; test_workflow_replay_trade_memory.py; test_workflow_replay_swing.py; 114 passed together (fixture-contract evidence only)
-      - execution: scripts/workflow_replay.py _multi_theme and _swing_theme; manual_contract; examples/workflows/swing-opportunity-daily/replay.yaml
-      - spec + schema: examples/workflows/multi-asset-opportunity-daily/replay.yaml with replay-contract.schema.json and both golden trees
+      - note: "Prior evidence predates generated quote/history/holdings transport. Comprehensive reassessment remains pending."
     security_review:
       value: not_verified
-      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
+      rationale: "The #495 final transport migration supersedes earlier assessed source evidence; synthetic regression success does not establish renewed native/workflow/security certification."
       evidence:
-      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
-      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
-      - reviewed_files: skills/theme-detector/scripts/representative_stock_selector.py; finviz_performance_client.py
-      - regression: skills/theme-detector/scripts/tests/test_credential_diagnostics.py
-      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
-      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
+      - note: "Prior evidence predates generated quote/history/holdings transport. Comprehensive reassessment remains pending."
 - id: trade-hypothesis-ideator
   profile: executable_workflow_trading
   overrides:

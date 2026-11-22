@@ -82,7 +82,6 @@ def test_reconciliation_records_both_drift_directions(collector):
     assert set(recon["declared_but_no_script_ref"]) == {
         "edge-candidate-agent",
         "kanchi-dividend-review-monitor",
-        "options-strategy-advisor",
     }
     # The only script-ref-but-undeclared skills are scanner-only meta skills,
     # which are excluded from the reviewed set by the same allowlist.

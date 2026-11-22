@@ -451,3 +451,9 @@ Missing Volume columns or unusable row values produce warnings. Unknown row
 values remain `volume: null` in stock details and use the existing per-row
 weight re-normalization; a genuine zero stays available. The fallback chain is
 unchanged.
+
+## Generated FMP transport
+
+Quotes, full EOD history and ETF holdings now use the adjacent generated FMP client and stable endpoints with query authentication, a 15-second timeout and static-detail diagnostics. Legacy endpoint fallback and the scanner's endpoint-wide empty-result breaker are removed; a missing symbol cannot disable later symbols. Existing symbol aliases/cache, one-symbol requests, historical as-of filtering, yfinance fallback and selection/ranking policies remain in place.
+
+Each logical operation owns/closes a session. App-level pacing is retained across operations; generated pacing applies to bounded shared retries (one 429 retry and one malformed-JSON retry). Other HTTP/transport failures use the existing provider fallback. Backend fmp_calls/fmp_failures count logical stable operations, not underlying retry attempts. FMP is optional, and missing keys do not load the HTTP client or inherit ambient credentials through the adapter. FINVIZ behavior is unchanged. Offline tests do not establish live endpoint entitlement, adjustment accuracy or strategy performance.
