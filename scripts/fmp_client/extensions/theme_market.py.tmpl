@@ -1,0 +1,12 @@
+    def fetch_theme_data(self, kind: str, symbol: str, params=None):
+        """Stable-only raw evidence; theme consumers retain shape/as-of policies."""
+        paths = {
+            "quote": "quote",
+            "historical": "historical-price-eod/full",
+            "holdings": "etf/holdings",
+        }
+        return self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/" + paths[kind],
+            {**(params or {}), "symbol": symbol},
+            quiet=True,
+        )

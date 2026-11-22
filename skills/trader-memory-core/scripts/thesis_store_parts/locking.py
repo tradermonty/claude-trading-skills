@@ -73,14 +73,17 @@ def _release_state_file_lock(stream):
 
 
 @contextmanager
-def _state_lock(state_dir: Path, timeout: float | None = None):
-    """Serialize cooperating local writers, including nested calls and aliases."""
+def _state_lock(state_dir: Path, timeout: float | None = None, *, read_only: bool = False):
+    """Coordinate writers; allow non-mutating inspection of read-only snapshots."""
     _reset_inherited_locks()
     timeout = _STATE_LOCK_TIMEOUT if timeout is None else timeout
     if not isinstance(timeout, (int, float)) or not 0 <= timeout <= 3600:
         raise ValueError("Invalid state lock timeout")
     deadline = time.monotonic() + timeout
     path = Path(state_dir).resolve()
+    if read_only and (not path.is_dir() or not os.access(path, os.W_OK)):
+        yield path
+        return
     with _STATE_GUARD:
         mutex = _STATE_THREADS.setdefault(path, threading.RLock())
     if not mutex.acquire(timeout=max(0, deadline - time.monotonic())):
@@ -99,7 +102,8 @@ def _state_lock(state_dir: Path, timeout: float | None = None):
                 depths[path] -= 1
             return
         try:
-            path.mkdir(parents=True, exist_ok=True)
+            if not read_only:
+                path.mkdir(parents=True, exist_ok=True)
             stream = (path / ".lock").open("a+b")
             _OPEN_LOCK_FILES.add(stream)
             stream.seek(0, os.SEEK_END)
@@ -112,7 +116,13 @@ def _state_lock(state_dir: Path, timeout: float | None = None):
                     raise ValueError("State lock busy; wait for the other writer and retry")
                 time.sleep(min(0.01, remaining))
             locked = True
-        except OSError:
+        except OSError as exc:
+            # An access check can race with chmod or a read-only mount.
+            # Only inspection may proceed without the coordination file. Busy
+            # locks and unrelated I/O failures must still surface as errors.
+            if read_only and exc.errno in {errno.EACCES, errno.EPERM, errno.EROFS}:
+                yield path
+                return
             raise ValueError(
                 "Cannot acquire state lock; check directory access and retry"
             ) from None
@@ -132,7 +142,7 @@ def _state_lock(state_dir: Path, timeout: float | None = None):
             mutex.release()
 
 
-def _serialize_state_operation(fn, *, preflight=True):
+def _serialize_state_operation(fn, *, preflight=True, read_only=False):
     signature = inspect.signature(fn)
 
     @wraps(fn)
@@ -150,7 +160,7 @@ def _serialize_state_operation(fn, *, preflight=True):
                     bound.arguments["expected_entry"],
                     bound.arguments["expected_stop"],
                 )
-        with _state_lock(state_dir) as path:
+        with _state_lock(state_dir, read_only=read_only) as path:
             if preflight:
                 _load_index(path)
             return fn(path, *args, **kwargs)

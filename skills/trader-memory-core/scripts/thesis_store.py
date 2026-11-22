@@ -211,7 +211,7 @@ for _writer in _STATE_WRITERS:
     globals()[_writer] = _serialize_state_operation(
         globals()[_writer], preflight=_writer != "rebuild_index"
     )
-validate_state = _serialize_state_operation(validate_state, preflight=False)
+validate_state = _serialize_state_operation(validate_state, preflight=False, read_only=True)
 
 
 # -- CLI entry point ----------------------------------------------------------

@@ -131,3 +131,11 @@ python3 skills/news-reaction-failure-analyzer/scripts/analyze_news_reaction.py \
 
 - `skills/news-reaction-failure-analyzer/scripts/analyze_news_reaction.py`
 - `skills/news-reaction-failure-analyzer/scripts/reaction_math.py`
+
+## 生成クライアントによる価格取得
+
+PriceClientは同梱の生成FMPクライアントでstable light EODを取得します。symbol/from/toの期間、priceの厳格検証、価格ソースとproxyの順序、as-ofの情報カットオフを保持します。旧APIへのフォールバックはありません。APIキーは--api-keyがFMP_API_KEYより優先されます。利用可否は契約プランに依存し、今回のテストで実APIを検証したものではありません。
+
+共通transportが待機（既定0.25秒、--sleep-secondsで指定）、429の制限付き再試行、不正JSONの1回再試行を行います。従来の最大5回の指数バックオフは廃止し、その他のHTTP・通信エラーでは次の価格ソースに進みます。429を使い切ると生成クライアントの日次制限状態を保持します。api_calls_madeは再試行を含むHTTP応答受信数になり、価格ソースを試した回数とは異なります。この版の共通coreでは通信例外をカウントしません。
+
+診断には固定分類のみを残し、レスポンス本文・例外詳細は公開しません。price_attemptsは空データ・不正スキーマ・未来のみ・HTTP失敗を区別します。価格選択、イベント時点検証、反応計算式は保持します。CLIはレポート出力前にセッションを閉じます。Pythonからはwith PriceClient(...) as client:を使うかclose()を呼んでください。注入した交換セッションの所有権もクライアントに移ります。

@@ -45,12 +45,12 @@ Output:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import math
 import os
 import re
 import sys
-import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -80,8 +80,6 @@ from reaction_math import (
 
 SKILL_NAME = "news-reaction-failure-analyzer"
 SCHEMA_VERSION = "1.0"
-
-STABLE_EOD_URL = "https://financialmodelingprep.com/stable/historical-price-eod/light"
 
 WINDOW_DAYS_DEFAULT = 10
 MAX_DETECTOR_AGE_DAYS_DEFAULT = 10
@@ -180,47 +178,6 @@ def get_api_key(cli_key: str | None) -> str | None:
     return api_key
 
 
-def _request_with_backoff(
-    session: requests.Session,
-    url: str,
-    params: dict[str, Any],
-    max_retries: int = 4,
-    base_delay: float = 1.0,
-) -> tuple[Any, str | None]:
-    """GET JSON with exponential backoff retry on 429 / 5xx. Non-retryable
-    4xx (401/402/403/404/...) fail immediately -- a 402 is expected/routine
-    here (advances the fallback chain), not something to retry."""
-    secret = params.get("apikey") if isinstance(params, dict) else None
-    delay = base_delay
-    error = "unknown error"
-    for attempt in range(max_retries + 1):
-        try:
-            response = session.get(url, params=params, timeout=30)
-        except requests.exceptions.RequestException as exc:
-            error = _redact(f"request exception: {exc}", secret=secret)
-        else:
-            if response.status_code == 200:
-                try:
-                    return response.json(), None
-                except ValueError as exc:
-                    error = _redact(f"invalid JSON response: {exc}", secret=secret)
-            elif response.status_code == 429 or response.status_code >= 500:
-                error = f"HTTP {response.status_code}"
-            else:
-                return None, _redact(
-                    f"HTTP {response.status_code}: {response.text[:200]}", secret=secret
-                )
-
-        if attempt < max_retries:
-            print(
-                f"WARN: {error}; retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})",
-                file=sys.stderr,
-            )
-            time.sleep(delay)
-            delay *= 2
-    return None, error
-
-
 _SCHEMA_DRIFT_REASONS = frozenset(
     {
         "not_a_list",
@@ -310,8 +267,29 @@ def _status_code_for_error(error: str) -> str:
     return "error"
 
 
+def _client_class():
+    """Load the adjacent generated client without global fmp_client collisions."""
+    name = "_news_reaction_generated_fmp"
+    path = Path(__file__).resolve().with_name("fmp_client.py")
+    module = sys.modules.get(name)
+    if module is None or getattr(module, "__file__", None) != str(path):
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+    return module.FMPClient
+
+
 class PriceClient:
-    """Thin client for FMP's stable EOD price endpoint with rate limiting."""
+    """Generated stable transport plus the analyzer's existing light-row boundary.
+
+    Use as a context manager or close explicitly. Injected replacement sessions
+    belong to this client; the previous owned session is closed on replacement.
+    """
 
     def __init__(self, api_key: str, sleep_seconds: float = 0.25):
         if requests is None:
@@ -321,11 +299,59 @@ class PriceClient:
                 file=sys.stderr,
             )
             sys.exit(2)
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ValueError("An explicit FMP API key is required")
         self.api_key = api_key
+        self._closed = False
+        self._transport = _client_class()(api_key=api_key)
         self.sleep_seconds = sleep_seconds
-        self.session = requests.Session()
-        self.last_call_time = 0.0
-        self.api_calls_made = 0
+
+    @property
+    def session(self):
+        return self._transport.session
+
+    @session.setter
+    def session(self, value):
+        if self._closed:
+            raise RuntimeError("PriceClient is closed")
+        if value is self._transport.session:
+            return
+        close = getattr(self._transport.session, "close", None)
+        if close is not None:
+            close()
+        self._transport.session = value
+
+    @property
+    def sleep_seconds(self):
+        return self._transport.RATE_LIMIT_DELAY
+
+    @sleep_seconds.setter
+    def sleep_seconds(self, value):
+        self._transport.RATE_LIMIT_DELAY = value
+
+    @property
+    def api_calls_made(self):
+        """Generated transport's response-attempt counter, including retries."""
+        return self._transport.api_calls_made
+
+    @property
+    def last_call_time(self):
+        return self._transport.last_call_time
+
+    def close(self):
+        if not self._closed:
+            self._closed = True
+            close = getattr(self.session, "close", None)
+            if close is not None:
+                close()
+
+    def __enter__(self):
+        if self._closed:
+            raise RuntimeError("PriceClient is closed")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def get_eod_rows(
         self, symbol: str, from_date: str, to_date: str, as_of: str | None = None
@@ -340,13 +366,12 @@ class PriceClient:
         malformed, dropped from the result. Valid rows after the cutoff are
         still returned so the caller can tell "all rows are future" from an
         empty response. Without `as_of` every row is validated (strict)."""
-        elapsed = time.time() - self.last_call_time
-        if elapsed < self.sleep_seconds:
-            time.sleep(self.sleep_seconds - elapsed)
-        params = {"symbol": symbol, "from": from_date, "to": to_date, "apikey": self.api_key}
-        data, error = _request_with_backoff(self.session, STABLE_EOD_URL, params)
-        self.last_call_time = time.time()
-        self.api_calls_made += 1
+        if self._closed:
+            raise RuntimeError("PriceClient is closed")
+        data = self._transport.fetch_news_eod(symbol, from_date, to_date)
+        error = self._transport._last_error
+        if error == "daily rate limit already reached":
+            error = "HTTP 429 (daily rate limit)"
         if error:
             return None, error
         schema_error = _validate_light_rows(data, as_of)
@@ -1131,10 +1156,13 @@ def main() -> None:
             sys.exit(0)
 
     client = PriceClient(api_key=api_key, sleep_seconds=args.sleep_seconds)
-    as_of_date = datetime.strptime(args.as_of, "%Y-%m-%d").date()
-    from_date = (as_of_date - timedelta(days=PRICE_FETCH_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-    to_date = (as_of_date + timedelta(days=PRICE_FETCH_LOOKAHEAD_DAYS)).strftime("%Y-%m-%d")
-    price_result = fetch_price_series(client, chain, from_date, to_date, as_of=args.as_of)
+    try:
+        as_of_date = datetime.strptime(args.as_of, "%Y-%m-%d").date()
+        from_date = (as_of_date - timedelta(days=PRICE_FETCH_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+        to_date = (as_of_date + timedelta(days=PRICE_FETCH_LOOKAHEAD_DAYS)).strftime("%Y-%m-%d")
+        price_result = fetch_price_series(client, chain, from_date, to_date, as_of=args.as_of)
+    finally:
+        client.close()
 
     run_context = build_run_context(
         price_result["price_symbol"],

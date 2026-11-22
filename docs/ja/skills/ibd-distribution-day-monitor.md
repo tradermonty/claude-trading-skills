@@ -378,3 +378,9 @@ TQQQ のポジションサイズを再計算して。
 |------|-------------|
 | `ibd_distribution_day_monitor_YYYY-MM-DD_HHMMSS.json` | 完全な構造化レポート（UTF-8、`ensure_ascii=False`、機微情報リダクション済み） |
 | `ibd_distribution_day_monitor_YYYY-MM-DD_HHMMSS.md` | active DD テーブル付きの人可読サマリ |
+
+## Close-price quality and incomplete evidence
+
+Accept finite positive numeric closes (including numeric strings). Treat missing/null, boolean, nonnumeric, non-finite, zero and negative closes as unavailable. Retain their dated session slots: never join sessions across a price gap for DD detection, age counting or moving averages. Audit skipped calculations by date. EMA requires valid closes throughout its input history; SMA requires a valid latest-period window. Unavailable or overflowed MA comparisons and the combined filter are null, not bearish signals.
+
+Historical `--as-of` reports audit only the effective history; future close defects do not affect historical exposure decisions. Overflowed price returns or DD invalidation thresholds are null with audit evidence; an unavailable threshold cannot invalidate a DD. Counts/risk from incomplete prices are observations, not evidence of safety. If either effective index has invalid closes or non-finite derived price arithmetic, block exposure increases (`AVOID_NEW_ADDS`, target capped at current exposure); preserve policy reductions and trailing stops. See `invalid_close_data`, `non_finite_price_arithmetic`, `non_finite_moving_average` and `incomplete_price_evidence_no_adds` in the audit. Repair/re-fetch the affected dates before using the report to increase exposure. This close-price guard does not validate every volume/high field or certify market-data completeness.

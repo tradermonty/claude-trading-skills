@@ -659,9 +659,9 @@ def test_main_empty_config_falls_back_to_default_indexes_and_policy(monkeypatch,
 def test_normalize_history_shapes():
     rows = [{"date": "2026-04-30"}]
     assert data_loader.normalize_history(None) == []
-    assert data_loader.normalize_history({"historical": rows}) == rows
+    assert data_loader.normalize_history({"historical": rows}) == [dict(rows[0], close=None)]
     assert data_loader.normalize_history({"historical": None}) == []
-    assert data_loader.normalize_history(rows) == rows
+    assert data_loader.normalize_history(rows) == [dict(rows[0], close=None)]
     assert data_loader.normalize_history("garbage") == []
 
 

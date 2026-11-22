@@ -10,6 +10,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -1149,14 +1150,13 @@ class TestPriceClientRedaction:
                 )
 
         client.session = _RaisingSession()
-        import analyze_news_reaction as mod
 
-        original_sleep = mod.time.sleep
-        mod.time.sleep = lambda _s: None
+        original_sleep = time.sleep
+        time.sleep = lambda _s: None
         try:
             rows, error = client.get_eod_rows("ESUSD", "2026-06-01", "2026-06-29")
         finally:
-            mod.time.sleep = original_sleep
+            time.sleep = original_sleep
         assert rows is None
         assert self.SECRET not in error
         assert "***REDACTED***" in error

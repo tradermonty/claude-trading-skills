@@ -39,3 +39,12 @@ Plan and code each receive at most three independent rounds. Resolve every actio
 - A test-only Event/forced-termination interaction was corrected; child termination no longer leaves an IPC condition for the parent to acquire. All child waits/joins are bounded.
 - Workflow/verification suites: 102 passed; all current offline workflow golden variants match.
 - New lock code includes fork-inheritance reset and mocked Windows byte-range tests; no native Windows result is claimed locally.
+
+
+## PR #858 review follow-up: read-only doctor
+
+- Give only validate_state/doctor a read-only lock policy. Existing writable directories still coordinate with writers, but diagnostics never mkdir; missing direct-inspection paths and read-only snapshots do not create metadata. CLI missing-path rejection is preserved.
+- Fall back to an unlocked diagnostic read only for permission/read-only filesystem errors during coordination setup. Do not suppress writer contention, unrelated I/O errors or disappearance after the access check. Write operations retain their original locking/creation behavior.
+- TDD: 7 failures and 3 passes on the uncorrected PR. Thirteen new cases cover missing directories, healthy/inconsistent chmod-555 snapshots, EACCES/EPERM/EROFS, disappearance races, normal writable locking, contention, unrelated EIO and writers refusing permission-denied locks. No real state or accounts are touched.
+
+- Follow-up validation: targeted doctor/index/CLI tests 96 passed; full memory/backup/verification suite 855 passed before adding three write-denial controls. The three controls confirm read-only fallback is never used by mutations. No source state outside synthetic tests is touched.
