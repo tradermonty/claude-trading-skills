@@ -67,6 +67,13 @@ def _is_provider_error_payload(payload: Any) -> bool:
     return bool(keys & _PROVIDER_ERROR_KEYS)
 
 
+def _valid_records_payload(payload: Any) -> bool:
+    """Validate list-valued endpoints before storing or reusing their payloads."""
+    return isinstance(payload, list) and all(
+        isinstance(row, dict) and not _is_provider_error_payload(row) for row in payload
+    )
+
+
 def _finite_number(value: Any) -> bool:
     if isinstance(value, bool) or value is None:
         return False
@@ -347,6 +354,9 @@ class FMPClient:
         if status_code is not None:
             item["status_code"] = status_code
         self.failures.append(item)
+        # Missing or invalid data can be specific to one symbol, not the endpoint.
+        if reason in {"cached_payload_invalid", "schema_validation_failed", "empty_response"}:
+            return
         count = self._endpoint_failures.get(endpoint, 0) + 1
         self._endpoint_failures[endpoint] = count
         if count >= self.ENDPOINT_FAILURE_THRESHOLD:
@@ -531,6 +541,7 @@ class FMPClient:
             v3_params=params,
             ttl_seconds=self.cache_policy.universe_ttl_seconds,
             allow_empty=True,
+            validate=_valid_records_payload,
         )
         return [dict(row) for row in data] if isinstance(data, list) else []
 
@@ -642,6 +653,7 @@ class FMPClient:
             v3_params={"period": period, "limit": int(limit)},
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
+            validate=_valid_records_payload,
         )
         return [dict(row) for row in data] if isinstance(data, list) else []
 
@@ -757,6 +769,7 @@ class FMPClient:
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
             quiet=True,
+            validate=_valid_records_payload,
         )
         if self.respect_capability_cache and len(self.failures) > failure_count_before:
             last_failure = self.failures[-1]
