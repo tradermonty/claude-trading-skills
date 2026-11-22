@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     _require_long_equity_direction = thesis_store._require_long_equity_direction
     _save_index = thesis_store._save_index
     _save_thesis = thesis_store._save_thesis
+    _ticker_id_slug = thesis_store._ticker_id_slug
     _today_str = thesis_store._today_str
     _update_index_entry = thesis_store._update_index_entry
     _valid_finite_number = thesis_store._valid_finite_number
@@ -51,6 +52,8 @@ def _build_thesis_for_registration(thesis_data: dict) -> dict:
     for field in required:
         if not thesis_data.get(field):
             raise ValueError(f"Missing required field: {field}")
+
+    _ticker_id_slug(thesis_data["ticker"])
 
     if thesis_data["thesis_type"] not in _VALID_THESIS_TYPES:
         raise ValueError(
