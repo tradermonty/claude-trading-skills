@@ -26,10 +26,12 @@ import math
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from statistics import median
 from typing import Optional
 
 from _price_bars import read_price
+from dividend_history import annual_totals, regular_dividends
 
 try:
     import requests
@@ -448,60 +450,70 @@ class StockAnalyzer:
         years_back: int = 3,
         as_of=None,
     ) -> tuple[Optional[float], bool, Optional[float]]:
-        """Dividend growth (CAGR + consistency) on a trailing-twelve-month basis.
+        """Regular payment-year CAGR, consistency and latest annual cash sum.
 
-        Summing calendar years distorts the result mid-year (the current year is
-        incomplete) and lags a recent raise until year-end. Per standard
-        practice (e.g. Stockopedia / Simply Wall St measure DPS growth on a TTM
-        basis), dividends are summed over rolling 12-month windows: the current
-        TTM vs the TTM ending ``years_back`` years earlier. Future-dated
-        declarations (announced but not yet paid) are ignored. Returns
-        ``(cagr_pct, consistent, latest_ttm_dividend)``.
+        Annual buckets contain N regular payments at a supported stable cadence;
+        fixed 365-day cuts must not produce four-versus-five payment comparisons.
         """
-        if not dividend_history or "historical" not in dividend_history:
-            return None, False, None
-
         from datetime import date as _date
 
         today = as_of or _date.today()
-
-        # Parse (date, amount); drop undated, non-positive, and future-dated.
-        parsed = []
-        for div in dividend_history["historical"]:
-            ds = div.get("date")
-            amt = div.get("dividend") or 0
-            if not ds or amt <= 0:
+        if isinstance(years_back, bool) or not isinstance(years_back, int) or years_back < 1:
+            return None, False, None
+        rows = regular_dividends(dividend_history, today)
+        if not rows or len(rows) < 2 or len({r[0] for r in rows}) != len(rows):
+            return None, False, None
+        gaps = [(rows[i][0] - rows[i - 1][0]).days for i in range(1, len(rows))]
+        typical = median(gaps[-27:])
+        candidates = [
+            ppy for ppy in (12, 4, 2, 1) if abs(typical - 365.25 / ppy) <= 0.2 * (365.25 / ppy)
+        ]
+        if len(candidates) != 1:
+            return None, False, None
+        ppy = candidates[0]
+        needed = ppy * (years_back + 1)
+        if len(rows) < needed:
+            return None, False, None
+        selected = rows[-needed:]
+        names = {"monthly": 12, "quarterly": 4, "semiannual": 2, "annually": 1, "annual": 1}
+        for _, _, frequency in selected:
+            if frequency is None or frequency == "":
                 continue
-            try:
-                d = _date.fromisoformat(str(ds)[:10])
-            except ValueError:
-                continue
-            if d <= today:
-                parsed.append((d, amt))
-        if not parsed:
+            if isinstance(frequency, str):
+                key = frequency.lower().replace("-", "").replace("_", "").replace(" ", "")
+                declared = names.get(key)
+                if key in {"12", "4", "2", "1"}:
+                    declared = int(key)
+            else:
+                declared = frequency if not isinstance(frequency, bool) else None
+            if declared != ppy:
+                return None, False, None
+        interval = 365.25 / ppy
+        selected_gaps = [
+            (selected[i][0] - selected[i - 1][0]).days for i in range(1, len(selected))
+        ]
+        if any(not 0.5 * interval <= gap <= 1.5 * interval for gap in selected_gaps):
             return None, False, None
-
-        # Need ~years_back+1 years of history for the oldest TTM window.
-        oldest = min(d for d, _ in parsed)
-        if (today - oldest).days < 365 * years_back:
+        if any(
+            abs((selected[i + ppy][0] - selected[i][0]).days - 365.25) > 31
+            for i in range(len(selected) - ppy)
+        ):
             return None, False, None
-
-        def ttm(end):
-            """Sum of dividends in the 365 days ending at ``end``."""
-            start = end - timedelta(days=365)
-            return sum(a for d, a in parsed if start < d <= end)
-
-        # Rolling-12m windows from years_back ago (oldest) to today (newest).
-        windows = [ttm(today - timedelta(days=365 * k)) for k in range(years_back, -1, -1)]
-        if windows[0] <= 0 or windows[-1] <= 0:
+        if (today - selected[-1][0]).days > interval + min(31, interval / 2):
             return None, False, None
-
-        cagr = StockAnalyzer.calculate_cagr(windows[0], windows[-1], years_back)
-        # Consistency: each year's TTM >= 95% of the prior year's (no cuts).
+        try:
+            windows = [
+                math.fsum(r[1] for r in selected[i : i + ppy]) for i in range(0, needed, ppy)
+            ]
+            if any(not math.isfinite(v) or v <= 0 for v in windows):
+                return None, False, None
+            cagr = StockAnalyzer.calculate_cagr(windows[0], windows[-1], years_back)
+        except (OverflowError, ValueError):
+            return None, False, None
+        if cagr is None or not math.isfinite(cagr):
+            return None, False, None
         consistent = all(windows[i] >= windows[i - 1] * 0.95 for i in range(1, len(windows)))
-        latest_annual_dividend = windows[-1]
-
-        return cagr, consistent, latest_annual_dividend
+        return cagr, consistent, windows[-1]
 
     @staticmethod
     def analyze_revenue_growth(income_statements: list[dict]) -> tuple[bool, Optional[float]]:
@@ -739,26 +751,15 @@ class StockAnalyzer:
             "annual_dividends": {},
         }
 
-        if not dividend_history or "historical" not in dividend_history:
-            return result
-
-        dividends = dividend_history["historical"]
-        if len(dividends) < 4:
-            return result
-
         from datetime import date as _date
 
-        current_year = (as_of or _date.today()).year
-
-        # Calculate annual dividends over COMPLETE calendar years only. The
-        # current year is still in progress (and /stable also lists future-dated
-        # declarations), so including it understates the latest year and
-        # manufactures volatility / fake "cut" signals.
-        annual_dividends = {}
-        for div in dividends:
-            year = div.get("date", "")[:4]
-            if year and year.isdigit() and int(year) < current_year:
-                annual_dividends[year] = annual_dividends.get(year, 0) + (div.get("dividend") or 0)
+        rows = regular_dividends(dividend_history, as_of or _date.today(), completed_only=True)
+        if not rows:
+            return result
+        totals = annual_totals(rows)
+        if totals is None:
+            return result
+        annual_dividends = {str(year): amount for year, amount in totals.items()}
 
         if len(annual_dividends) < 3:
             return result
@@ -771,7 +772,7 @@ class StockAnalyzer:
 
         # Calculate volatility (coefficient of variation)
         if len(div_values) >= 2:
-            avg_div = sum(div_values) / len(div_values)
+            avg_div = sum(v / len(div_values) for v in div_values)
             if avg_div > 0:
                 max_div = max(div_values)
                 min_div = min(div_values)
@@ -789,7 +790,10 @@ class StockAnalyzer:
         years_of_growth = 0
         for i in range(1, len(div_values_oldest_first)):
             # Allow small decrease (5%) as "no cut"
-            if div_values_oldest_first[i] >= div_values_oldest_first[i - 1] * 0.95:
+            if (
+                int(years_oldest_first[i]) == int(years_oldest_first[i - 1]) + 1
+                and div_values_oldest_first[i] >= div_values_oldest_first[i - 1] * 0.95
+            ):
                 years_of_growth += 1
             else:
                 years_of_growth = 0  # Reset on dividend cut
@@ -1238,6 +1242,7 @@ def screen_value_dividend_stocks(
             "price": stock.get("price", 0),
             "dividend_yield": round(actual_dividend_yield, 2),
             "annual_dividend": round(annual_dividend, 2),
+            "annual_dividend_basis": "regular_payment_year",
             "pe_ratio": stock.get("pe", 0),
             "pb_ratio": stock.get("priceToBook", 0),
             "rsi": rsi,
@@ -1494,12 +1499,18 @@ Environment Variables:
                 "quality_score": "max 25 points",
             },
             "total_results": len(results),
+            "annual_dividend_basis": "regular_payment_year",
         },
         "stocks": results,
     }
     if stats.get("plan_gated_skipped"):
         output_data["metadata"]["plan_gated_skipped"] = stats["plan_gated_skipped"]
 
+    print(
+        "Dividend basis: latest N regular payments at a validated annual cadence; "
+        "explicit specials and future ex-dates excluded (not a fixed-day TTM or forward dividend).",
+        file=sys.stderr,
+    )
     # Write to file
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:

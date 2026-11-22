@@ -1170,8 +1170,9 @@ class TestScreeningPipeline:
     def test_volatile_dividend_rejected(self, fake_fmp, capsys):
         today = date.today()
         hist = _dividend_history()["historical"]
-        # Add a special distribution in a complete prior year -> >100% volatility.
-        hist.append({"date": date(today.year - 2, 1, 5).isoformat(), "dividend": 40.0})
+        # An unlabelled volatile regular payment at the existing cadence still
+        # reaches the separate stability gate (explicit specials are excluded).
+        next(r for r in hist if r["date"].startswith(str(today.year - 2)))["dividend"] = 40.0
         fake_fmp.cfg = {
             "candidates": [_good_candidate(sector="Utilities")],
             "income": {"GOOD": _income()},

@@ -356,3 +356,11 @@ stable request does not fall back to retired v3 URLs. The shared client masks ra
 and URL-encoded key echoes, retries malformed JSON once, and retries a 429 once
 with a 60-second wait before stopping on a repeated rate limit. FINVIZ, where
 used, remains a separate client.
+
+## Regular dividend eligibility and annual basis
+
+Exclude explicitly special, supplemental, one-time and extra payments identified by label/frequency; do not infer specials from a large ordinary raise. Ignore future ex-dates before consuming amounts. Missing, boolean, nonnumeric, non-finite or non-positive eligible regular amounts make the analysis unavailable rather than silently becoming zero. Provider completeness, split/FX adjustment and unlabelled special detection are not certified here.
+
+Use the latest four consecutive available completed calendar years for the three-year CAGR and annual yield numerator. Exclude every year at or after the evaluation year, including future declarations; do not compress missing years into a three-year interval or a continuous growth streak. Current-year partial cash is not an annual total. An optional Python `as_of` date makes historical tests deterministic; the CLI keeps its current-date behavior. The latest available year is not proof of freshness or complete provider history.
+
+Read `annual_dividend_basis` in result rows and JSON metadata (`regular_completed_calendar_year`). The Markdown report explains the completed-calendar-year basis.

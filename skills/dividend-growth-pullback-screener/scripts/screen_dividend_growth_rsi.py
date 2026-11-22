@@ -33,6 +33,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 import requests
+from dividend_history import annual_totals, regular_dividends
 
 # Request exception messages can embed credential-bearing URLs. Log only their class.
 
@@ -297,62 +298,37 @@ class StockAnalyzer:
     @staticmethod
     def analyze_dividend_growth(
         dividend_history: list[dict],
+        as_of=None,
     ) -> tuple[Optional[float], bool, Optional[float], int]:
-        """
-        Analyze dividend growth rate (3-year CAGR and consistency) and return latest annual dividend.
-
-        Returns:
-            Tuple of (CAGR%, consistent_growth, latest_annual_dividend, years_of_growth)
-        """
-        if not dividend_history or "historical" not in dividend_history:
+        """Regular cash in four consecutive available completed calendar years."""
+        rows = regular_dividends(dividend_history, as_of or date.today(), completed_only=True)
+        if not rows:
             return None, False, None, 0
-
-        dividends = dividend_history["historical"]
-        if len(dividends) < 4:
+        annual = annual_totals(rows)
+        if annual is None or len(annual) < 4:
             return None, False, None, 0
-
-        # Sort by date and aggregate by year
-        dividends = sorted(dividends, key=lambda x: x["date"])
-        annual_dividends = {}
-        for div in dividends:
-            year = div["date"][:4]
-            annual_dividends[year] = annual_dividends.get(year, 0) + div.get("dividend", 0)
-
-        # Exclude current year because partial-year dividends distort CAGR calculations.
-        current_year = str(date.today().year)
-        annual_dividends.pop(current_year, None)
-
-        if len(annual_dividends) < 4:
-            return None, False, None, 0
-
-        # Get all available years sorted (oldest first)
-        all_years = sorted(annual_dividends.keys())
-        all_div_values = [annual_dividends[y] for y in all_years]
-
-        # Get last 4 years for CAGR calculation
+        all_years = sorted(annual)
         years = all_years[-4:]
-        div_values = [annual_dividends[y] for y in years]
-
-        # Calculate 3-year CAGR
-        cagr = StockAnalyzer.calculate_cagr(div_values[0], div_values[-1], 3)
-
-        # Check consistency (no significant cuts)
-        consistent = all(
-            div_values[i] >= div_values[i - 1] * 0.95 for i in range(1, len(div_values))
-        )
-
-        # Count consecutive years of growth (from most recent going back)
-        years_of_growth = 0
-        for i in range(len(all_div_values) - 1, 0, -1):
-            if all_div_values[i] >= all_div_values[i - 1] * 0.95:  # Allow 5% tolerance
-                years_of_growth += 1
+        if years != list(range(years[0], years[0] + 4)):
+            return None, False, None, 0
+        values = [annual[year] for year in years]
+        try:
+            cagr = StockAnalyzer.calculate_cagr(values[0], values[-1], 3)
+        except (OverflowError, ValueError):
+            return None, False, None, 0
+        if cagr is None or not math.isfinite(cagr):
+            return None, False, None, 0
+        consistent = all(values[i] >= values[i - 1] * 0.95 for i in range(1, 4))
+        streak = 0
+        for i in range(len(all_years) - 1, 0, -1):
+            if (
+                all_years[i] == all_years[i - 1] + 1
+                and annual[all_years[i]] >= annual[all_years[i - 1]] * 0.95
+            ):
+                streak += 1
             else:
                 break
-
-        # Latest annual dividend
-        latest_annual_dividend = div_values[-1]
-
-        return cagr, consistent, latest_annual_dividend, years_of_growth
+        return cagr, consistent, values[-1], streak
 
     @staticmethod
     def _finite_amount(value: object) -> Optional[float]:
@@ -992,6 +968,7 @@ def screen_dividend_growth_pullbacks(
             "price": current_price,
             "dividend_yield": round(actual_dividend_yield, 2),
             "annual_dividend": round(annual_dividend, 2),
+            "annual_dividend_basis": "regular_completed_calendar_year",
             "dividend_cagr_3y": div_cagr,
             "dividend_consistent": div_consistent,
             "rsi": rsi,
@@ -1070,6 +1047,9 @@ def generate_markdown_report(results: list[dict], criteria: dict, output_path: s
 
 **Generated:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")} UTC
 **Data Source:** Financial Modeling Prep API
+**Dividend basis:** Regular cash from the latest available completed calendar year;
+current/future years and explicit special payouts are excluded. This does not
+certify provider completeness, freshness or split/FX adjustment.
 
 ## Executive Summary
 
@@ -1431,6 +1411,7 @@ Environment Variables:
             "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             "criteria": criteria,
             "total_results": len(results),
+            "annual_dividend_basis": "regular_completed_calendar_year",
         },
         "stocks": results,
     }
