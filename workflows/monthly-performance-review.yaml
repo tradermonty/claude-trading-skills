@@ -34,6 +34,22 @@ optional_skills:
   - backtest-expert
   - dual-axis-skill-reviewer
 
+manual_inputs:
+  - id: prior_rule_adherence
+    required: false
+    used_by_steps:
+      - 6
+    schema_ref: skills/pre-trade-discipline-gate/references/rule_adherence.md
+    description: >-
+      Optional local report from review_rule_adherence.py for the month that
+      just ended, counting gate acknowledgements of each approved rule. The
+      human reads it at step 6; trader-memory-core does not consume it and the
+      replay does not validate it.
+    description_ja: >-
+      終了した月について review_rule_adherence.py が出力する任意のローカル報告で、
+      承認済みルールごとのゲート確認記録を集計したもの。人がステップ6で読む。
+      trader-memory-core は読み込まず、replay も検証しない。
+
 artifacts:
   - id: monthly_aggregate
     produced_by_step: 1
@@ -177,11 +193,13 @@ manual_review:
   - Skill-side improvements are repo-improvement candidates and may or may not be acted on.
   - Be willing to delete or downgrade rules that aren't working — not just add new ones.
   - The step-6 artifact does not activate rules; activation is the explicit `manage_approved_rules.py activate` follow-up in pre-trade-discipline-gate.
+  - Before step 6, run `review_rule_adherence.py --month <month>` (pre-trade-discipline-gate) for the month that just ended, the month the approved rules were in force. For each rule with reconsider reasons, decide keep, extend, retire, or supersede, record it in the step-6 decision log, and apply it only with `manage_approved_rules.py`. The counts are self-reported gate acknowledgements, and a withheld rate is not by itself a reason to change a rule.
 manual_review_ja:
   - プロセス改善（ルール変更）と、偶然による結果を区別する。
   - 取引側のルール変更は、翌月のトレーダーの行動に適用する。
   - スキル側の改善はリポジトリ改善候補であり、必ず実施するとは限らない。
   - 新しいルールを追加するだけでなく、機能していないルールの削除や格下げも検討する。
   - ステップ6の成果物はルールを有効化しない。有効化は pre-trade-discipline-gate の `manage_approved_rules.py activate` で明示的に行う。
+  - ステップ6の前に、終了した月、つまり承認済みルールが適用されていた月について `review_rule_adherence.py --month <月>`（pre-trade-discipline-gate）を実行する。見直し理由が付いたルールごとに、維持、延長、廃止、置き換えのいずれかを決め、ステップ6の判断記録に残し、`manage_approved_rules.py` でのみ反映する。集計値は自己申告のゲート確認記録であり、遵守率が出ていないことだけを理由にルールを変更しない。
 
 journal_destination: trader-memory-core
