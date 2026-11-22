@@ -8,6 +8,7 @@ import argparse
 import json
 import math
 import sys
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -96,7 +97,7 @@ def run_main(tmp_path, monkeypatch, by_symbol, symbol="NQ", fmt="both"):
         sleep_seconds=0.0,
     )
     monkeypatch.setattr(analyzer, "parse_arguments", lambda: args)
-    monkeypatch.setattr(analyzer.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(time, "sleep", lambda _s: None)
     stub = Stub(by_symbol)
     monkeypatch.setattr(
         requests.Session, "get", lambda session, url, params=None, timeout=None: stub(url, params)
@@ -278,7 +279,7 @@ def test_transport_and_json_errors_are_static_codes(tmp_path, monkeypatch, proxy
         sleep_seconds=0.0,
     )
     monkeypatch.setattr(analyzer, "parse_arguments", lambda: args)
-    monkeypatch.setattr(analyzer.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(time, "sleep", lambda _s: None)
     monkeypatch.setattr(requests.Session, "get", get)
     run_to_completion()
     report_text = next(out_dir.glob("nrf_NQ_*.json")).read_text(encoding="utf-8")

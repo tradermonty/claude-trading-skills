@@ -1202,7 +1202,9 @@ def test_overlapping_etfs_merge_through_actual_fallback(monkeypatch):
     response = Mock(status_code=200)
     response.json.return_value = [{"asset": "FICT", "marketValue": 100}]
     get = Mock(return_value=response)
-    monkeypatch.setattr(selector_module.requests, "get", get)
+    monkeypatch.setattr(
+        selector_module.requests.Session, "get", lambda self, *a, **kw: get(*a, **kw)
+    )
     selector = RepresentativeStockSelector(fmp_api_key="fictional-key", rate_limit_sec=0)
     theme = {"direction": "bullish", "matching_industries": [], "proxy_etfs": ["FUND1", "FUND2"]}
     first = selector.select_stocks(theme, max_stocks=10)

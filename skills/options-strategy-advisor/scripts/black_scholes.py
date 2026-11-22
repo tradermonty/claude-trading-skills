@@ -29,10 +29,13 @@ Author: Claude Trading Skills
 Version: 1.0
 """
 
+import importlib.util
+import math
 import sys
+from datetime import date, datetime
+from pathlib import Path
 
 import numpy as np
-import requests
 from scipy.stats import norm
 
 
@@ -320,128 +323,153 @@ def calculate_historical_volatility(prices, window=30):
     return volatility
 
 
-def fetch_historical_prices_for_hv(symbol, api_key, days=90):
-    """
-    Fetch historical prices from FMP API for HV calculation
-
-    Parameters:
-    -----------
-    symbol : str
-        Stock ticker
-    api_key : str
-        FMP API key
-    days : int
-        Number of days to fetch
-
-    Returns:
-    --------
-    list
-        List of adjusted close prices
-    """
-    # Try stable endpoint first, fall back to v3
-    endpoints = [
-        ("https://financialmodelingprep.com/stable/historical-price-eod/full", True),
-        ("https://financialmodelingprep.com/api/v3/historical-price-full", False),
-    ]
-    for base_url, is_stable in endpoints:
+def _client_class():
+    """Load this skill's generated client even when another fmp_client is cached."""
+    name = "_options_strategy_advisor_generated_fmp"
+    path = Path(__file__).resolve().with_name("fmp_client.py")
+    module = sys.modules.get(name)
+    if module is None or getattr(module, "__file__", None) != str(path):
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
         try:
-            if is_stable:
-                url = base_url
-                resp = requests.get(
-                    url, headers={"apikey": api_key}, params={"symbol": symbol}, timeout=30
-                )
-            else:
-                url = f"{base_url}/{symbol}"
-                resp = requests.get(url, headers={"apikey": api_key}, timeout=30)
-            if resp.status_code != 200:
-                continue
-            data = resp.json()
-            historical = None
-            if isinstance(data, dict) and "historical" in data:
-                historical = data["historical"]
-            elif isinstance(data, dict) and "historicalStockList" in data:
-                for entry in data["historicalStockList"]:
-                    if entry.get("symbol", "").replace("-", ".") == symbol.replace("-", "."):
-                        historical = entry.get("historical", [])
-                        break
-            if historical:
-                historical = historical[:days]
-                historical = historical[::-1]  # Reverse to chronological order
-                # stable shape compat: EOD endpoint exposes `close`, not `adjClose`
-                return [item.get("adjClose") or item["close"] for item in historical]
-        except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
-            continue
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+    return module.FMPClient
 
-    print(f"Error fetching prices for {symbol}: all endpoints failed", file=sys.stderr)
+
+def _symbol(value):
+    return value.strip().upper().replace("-", ".") if isinstance(value, str) else ""
+
+
+def _number(value, *, zero=False):
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        result = float(value)
+    except (ValueError, OverflowError):
+        return None
+    return result if math.isfinite(result) and (result >= 0 if zero else result > 0) else None
+
+
+def _fetch_options_data(kind, symbol, api_key):
+    """One owned client per public helper call; never echo untrusted exceptions."""
+    if not _symbol(symbol) or not isinstance(api_key, str) or not api_key.strip():
+        return None
+    client = None
+    data = None
+    try:
+        client = _client_class()(api_key=api_key)
+        data = getattr(client, "fetch_options_" + kind)(symbol.strip().upper())
+    except Exception:
+        data = None
+    finally:
+        if client is not None:
+            try:
+                client.session.close()
+            except Exception:
+                data = None
+    return data
+
+
+def _history_rows(data, symbol):
+    if isinstance(data, list):
+        return data
+    if not isinstance(data, dict):
+        return None
+    if data.get("symbol") is not None and _symbol(data["symbol"]) != _symbol(symbol):
+        return None
+    if "historicalStockList" in data:
+        if "historical" in data or not isinstance(data["historicalStockList"], list):
+            return None
+        entries = data["historicalStockList"]
+        if any(not isinstance(entry, dict) for entry in entries):
+            return None
+        matches = [entry for entry in entries if _symbol(entry.get("symbol")) == _symbol(symbol)]
+        return _history_rows(matches[0], symbol) if len(matches) == 1 else None
+    rows = data.get("historical")
+    return rows if isinstance(rows, list) else None
+
+
+def fetch_historical_prices_for_hv(symbol, api_key, days=90, *, as_of=None):
+    """Return newest requested sessions oldest first, or None when unusable.
+
+    Use adjClose only when consistently supplied for selected rows. Otherwise
+    use provider close without certifying its adjustment basis. No mixed basis,
+    duplicate consumed dates, future sessions or fabricated prices are accepted.
+    """
+    if isinstance(days, bool) or not isinstance(days, int) or days <= 0:
+        raise ValueError("days must be a positive integer")
+    today = date.today() if as_of is None else as_of
+    if not isinstance(today, date) or isinstance(today, datetime):
+        raise ValueError("as_of must be a date")
+    rows = _history_rows(_fetch_options_data("history", symbol, api_key), symbol)
+    parsed = []
+    valid = bool(rows)
+    for row in rows or []:
+        if not isinstance(row, dict):
+            valid = False
+            break
+        if row.get("symbol") is not None and _symbol(row["symbol"]) != _symbol(symbol):
+            valid = False
+            break
+        value = row.get("date")
+        try:
+            day = date.fromisoformat(value)
+        except (TypeError, ValueError):
+            valid = False
+            break
+        if not isinstance(value, str) or day.isoformat() != value:
+            valid = False
+            break
+        if day <= today:
+            parsed.append((day, row))
+    selected = sorted(parsed, key=lambda item: item[0], reverse=True)[:days]
+    if valid and selected and len({day for day, _ in selected}) == len(selected):
+        adjusted = any(row.get("adjClose") is not None for _, row in selected)
+        field = "adjClose" if adjusted else "close"
+        prices = [_number(row.get(field)) for _, row in reversed(selected)]
+        if all(price is not None for price in prices):
+            return prices
+    print("Error fetching price history: usable FMP evidence unavailable", file=sys.stderr)
     return None
 
 
-# =============================================================================
-# FMP API Integration
-# =============================================================================
+def _single_record(data, symbol):
+    if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
+        return None
+    return data[0] if _symbol(data[0].get("symbol")) == _symbol(symbol) else None
 
 
 def get_current_stock_price(symbol, api_key):
-    """Fetch current stock price from FMP API (stable, with v3 fallback)."""
-    # stable: /quote?symbol=SYM ; v3 fallback (legacy keys): /quote/SYM
-    endpoints = [
-        ("https://financialmodelingprep.com/stable/quote", True),
-        ("https://financialmodelingprep.com/api/v3/quote", False),
-    ]
-    for base_url, is_stable in endpoints:
-        try:
-            if is_stable:
-                response = requests.get(
-                    base_url, headers={"apikey": api_key}, params={"symbol": symbol}, timeout=30
-                )
-            else:
-                response = requests.get(
-                    f"{base_url}/{symbol}", headers={"apikey": api_key}, timeout=30
-                )
-            if response.status_code != 200:
-                continue
-            data = response.json()
-            if data and len(data) > 0 and data[0].get("price") is not None:
-                return data[0]["price"]
-        except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
-            continue
-
-    print(f"Error fetching current price for {symbol}: all endpoints failed", file=sys.stderr)
-    return None
+    """Return finite positive stable quote evidence, or None (no legacy HTTP)."""
+    record = _single_record(_fetch_options_data("quote", symbol, api_key), symbol)
+    price = _number(record.get("price")) if record is not None else None
+    if price is None:
+        print("Error fetching current price: usable FMP evidence unavailable", file=sys.stderr)
+    return price
 
 
 def get_dividend_yield(symbol, api_key):
-    """Fetch dividend yield from FMP API (stable, with v3 fallback)."""
-    # stable: /profile?symbol=SYM ; v3 fallback (legacy keys): /profile/SYM
-    endpoints = [
-        ("https://financialmodelingprep.com/stable/profile", True),
-        ("https://financialmodelingprep.com/api/v3/profile", False),
-    ]
-    for base_url, is_stable in endpoints:
-        try:
-            if is_stable:
-                response = requests.get(
-                    base_url, headers={"apikey": api_key}, params={"symbol": symbol}, timeout=30
-                )
-            else:
-                response = requests.get(
-                    f"{base_url}/{symbol}", headers={"apikey": api_key}, timeout=30
-                )
-            if response.status_code != 200:
-                continue
-            data = response.json()
-            if data and len(data) > 0:
-                # /stable/profile renamed lastDiv -> lastDividend; accept either.
-                last_div = data[0].get("lastDividend")
-                if last_div is None:
-                    last_div = data[0].get("lastDiv", 0)
-                last_div = last_div or 0
-                price = data[0].get("price", 1) or 1
-                return (last_div / price) if price > 0 else 0
-        except Exception:  # nosec B112 - intentional fallback to next FMP endpoint
-            continue
-
-    return 0
+    """Return trailing profile yield; unavailable evidence retains a warned zero fallback."""
+    record = _single_record(_fetch_options_data("profile", symbol, api_key), symbol)
+    if record is not None:
+        value = record.get("lastDividend")
+        if value is None:
+            value = record.get("lastDiv")
+        dividend = _number(value, zero=True)
+        price = _number(record.get("price"))
+        if dividend is not None and price is not None:
+            result = dividend / price
+            if math.isfinite(result):
+                return result
+    print(
+        "Dividend yield unavailable: unverified legacy zero fallback; supply q explicitly",
+        file=sys.stderr,
+    )
+    return 0.0
 
 
 # =============================================================================

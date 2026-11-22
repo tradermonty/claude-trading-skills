@@ -113,3 +113,9 @@ FMP API key required. Free tier (250 calls/day) is sufficient for daily QQQ + SP
 - `ftd-detector`: Bottom confirmation via Follow-Through Days (counterpart of this top-side signal).
 - `market-top-detector`: Composite 0-100 top probability score using O'Neil distribution + other components.
 - `position-sizer`: Convert risk-management recommendations into share counts.
+
+## Close-price quality and incomplete evidence
+
+Accept finite positive numeric closes (including numeric strings). Treat missing/null, boolean, nonnumeric, non-finite, zero and negative closes as unavailable. Retain their dated session slots: never join sessions across a price gap for DD detection, age counting or moving averages. Audit skipped calculations by date. EMA requires valid closes throughout its input history; SMA requires a valid latest-period window. Unavailable or overflowed MA comparisons and the combined filter are null, not bearish signals.
+
+Historical `--as-of` reports audit only the effective history; future close defects do not affect historical exposure decisions. Overflowed price returns or DD invalidation thresholds are null with audit evidence; an unavailable threshold cannot invalidate a DD. Counts/risk from incomplete prices are observations, not evidence of safety. If either effective index has invalid closes or non-finite derived price arithmetic, block exposure increases (`AVOID_NEW_ADDS`, target capped at current exposure); preserve policy reductions and trailing stops. See `invalid_close_data`, `non_finite_price_arithmetic`, `non_finite_moving_average` and `incomplete_price_evidence_no_adds` in the audit. Repair/re-fetch the affected dates before using the report to increase exposure. This close-price guard does not validate every volume/high field or certify market-data completeness.

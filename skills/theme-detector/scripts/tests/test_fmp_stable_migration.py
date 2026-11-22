@@ -72,27 +72,22 @@ class TestEtfHoldings:
     def test_stable_etf_holdings_first(self):
         sel = rss.RepresentativeStockSelector(fmp_api_key="k")
         sel._rate_limit = lambda: None
-        with patch.object(rss, "requests") as mock_requests:
-            mock_requests.get.return_value = self._resp(
+        with patch("requests.Session") as factory:
+            factory.return_value.get.return_value = self._resp(
                 200, [{"asset": "NVDA", "marketValue": 1_000_000_000}]
             )
             holds = sel._fetch_etf_holdings("SPY", limit=5)
         assert holds[0]["symbol"] == "NVDA"
-        assert mock_requests.get.call_args[0][0].endswith("/stable/etf/holdings")
-        assert mock_requests.get.call_args[1]["params"] == {"symbol": "SPY"}
+        call = factory.return_value.get.call_args
+        assert call.args[0].endswith("/stable/etf/holdings")
+        assert call.kwargs["params"] == {"symbol": "SPY", "apikey": "k"}
+        factory.return_value.close.assert_called_once()
 
-    def test_falls_back_to_v3_etf_holder(self):
+    def test_denied_holdings_has_no_legacy_fallback(self):
         sel = rss.RepresentativeStockSelector(fmp_api_key="k")
         sel._rate_limit = lambda: None
-
-        def fake_get(url, params=None, headers=None, timeout=None):
-            if "/stable/etf/holdings" in url:
-                return self._resp(403, {})
-            return self._resp(200, [{"asset": "AAPL", "marketValue": 5}])
-
-        with patch.object(rss, "requests") as mock_requests:
-            mock_requests.get.side_effect = fake_get
-            holds = sel._fetch_etf_holdings("XLK", limit=5)
-        assert holds[0]["symbol"] == "AAPL"
-        urls = [c[0][0] for c in mock_requests.get.call_args_list]
-        assert any(u.endswith("/api/v3/etf-holder/XLK") for u in urls)
+        with patch("requests.Session") as factory:
+            factory.return_value.get.return_value = self._resp(403, {})
+            assert sel._fetch_etf_holdings("XLK", limit=5) == []
+        assert factory.return_value.get.call_count == 1
+        assert factory.return_value.get.call_args.args[0].endswith("/stable/etf/holdings")
