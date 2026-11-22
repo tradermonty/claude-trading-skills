@@ -131,6 +131,9 @@ Provide instructions from `references/fmp_api_guide.md` if needed.
 
 Run the screening script with appropriate parameters:
 
+By default, results are saved to `reports/dividend_screener_results.json` under
+the current working directory. Use `--output` to choose a different path.
+
 #### **Two-Stage Screening (RECOMMENDED)**
 
 Uses FINVIZ for pre-screening, then FMP for detailed analysis:

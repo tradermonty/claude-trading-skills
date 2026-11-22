@@ -132,6 +132,8 @@ export FMP_API_KEY=your_key_here
 
 適切なパラメータでスクリーニングスクリプトを実行：
 
+結果はデフォルトで現在の作業ディレクトリの `reports/dividend_screener_results.json` に保存されます。別の保存先は `--output` で指定できます。
+
 #### **2段階スクリーニング（推奨）**
 
 FINVIZでプレスクリーニング、FMPで詳細分析：
