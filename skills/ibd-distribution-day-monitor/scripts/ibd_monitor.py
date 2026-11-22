@@ -17,6 +17,7 @@ API key resolution order: --api-key > config.data.api_key > $FMP_API_KEY.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 from dataclasses import asdict
@@ -30,7 +31,13 @@ import yaml  # type: ignore
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from data_loader import build_fmp_client, fetch_ohlcv  # noqa: E402
+from data_loader import (
+    build_fmp_client,
+    coerce_close,
+    fetch_ohlcv,
+    normalize_history,
+    validate_history_quality,
+)  # noqa: E402
 from distribution_day_tracker import (  # noqa: E402
     count_active_in_window,
     detect_distribution_days,
@@ -165,19 +172,24 @@ def _compute_ma_filters(effective_history: list[dict], ma_cfg: dict) -> tuple[di
             "market_below_21ema_or_50ma": None,
         }, audit_flags
 
-    closes = [row["close"] for row in effective_history]
+    closes = [coerce_close(row.get("close")) for row in effective_history]
     today_close = closes[0]
 
     ema_period = (ma_cfg.get("ema_periods") or [21])[0]
     sma_period = (ma_cfg.get("sma_periods") or [50])[0]
 
     def _ma_or_none(fn, period):
-        if len(closes) < period:
+        consumed = closes if fn is calc_ema else closes[:period]
+        if period < 1 or len(closes) < period or any(v is None for v in consumed):
             return None
         try:
-            return fn(closes, period)
-        except ValueError:
+            value = fn(closes, period)
+        except (ValueError, OverflowError):
+            value = None
+        if value is None or not math.isfinite(value):
+            audit_flags.append("non_finite_moving_average")
             return None
+        return value
 
     ema_val = _ma_or_none(calc_ema, ema_period)
     sma_val = _ma_or_none(calc_sma, sma_period)
@@ -213,6 +225,8 @@ def _today_dict(effective_history: list[dict], records: list[DDRecord]) -> dict:
     volume_change_pct = None
     if yesterday and today.get("close") and yesterday.get("close"):
         pct_change = today["close"] / yesterday["close"] - 1
+        if not math.isfinite(pct_change):
+            pct_change = None
     if yesterday and today.get("volume") and yesterday.get("volume"):
         volume_change_pct = today["volume"] / yesterday["volume"] - 1
     return {
@@ -258,9 +272,24 @@ def analyze_index(
     required_min = _required_min_sessions(config, rule)
     effective_history, hist_audit = prepare_effective_history(history, as_of, required_min)
     audit_flags = list(hist_audit.get("audit_flags", []))
+    quality_flags, quality_skipped = validate_history_quality(effective_history)
+    audit_flags.extend(quality_flags)
+    effective_history = normalize_history(effective_history)
+    if any(item["reason"] in {"missing_close", "invalid_close"} for item in quality_skipped):
+        audit_flags.append("invalid_close_data")
 
     raw_records, skipped = detect_distribution_days(effective_history, rule)
     records = enrich_records(raw_records, effective_history, rule)
+    skipped = quality_skipped + skipped
+    for i, row in enumerate(effective_history[:-1]):
+        close, previous = row["close"], effective_history[i + 1]["close"]
+        if close is not None and previous is not None and not math.isfinite(close / previous - 1):
+            skipped.append({"date": row.get("date"), "reason": "non_finite_price_change"})
+            audit_flags.append("non_finite_price_arithmetic")
+    for record in records:
+        if record.invalidation_price is None:
+            skipped.append({"date": record.date, "reason": "non_finite_invalidation_price"})
+            audit_flags.append("non_finite_price_arithmetic")
 
     active = [r for r in records if r.status == "active"]
     removed = [r for r in records if r.status != "active"]
@@ -272,6 +301,10 @@ def analyze_index(
     ma_cfg = config.get("moving_average_filters") or {}
     trend_filters, ma_flags = _compute_ma_filters(effective_history, ma_cfg)
     audit_flags.extend(ma_flags)
+    if "non_finite_moving_average" in ma_flags:
+        skipped.append(
+            {"date": effective_history[0].get("date"), "reason": "non_finite_moving_average"}
+        )
 
     market_below = trend_filters.get("market_below_21ema_or_50ma")
     risk = classify_risk(d5, d15, d25, market_below, thresholds)
@@ -430,15 +463,15 @@ def main(argv: list[str] | None = None) -> int:
     skipped_sessions_all: list[dict] = []
     index_results: list[IndexResult] = []
     as_of_resolved: str | None = args.as_of
+    incomplete_price_evidence = False
 
     for entry in indexes_cfg:
         symbol = entry["symbol"]
         benchmark = entry.get("benchmark_name") or f"{symbol} Proxy"
         history, fetch_audit = fetch_ohlcv(client, symbol, days=lookback + 5)
-        aggregate_audit_flags.extend(fetch_audit.get("audit_flags", []))
-        skipped_sessions_all.extend(fetch_audit.get("skipped_sessions", []))
-
+        # Effective-history quality is audited by analyze_index after as-of slicing.
         if not history:
+            aggregate_audit_flags.extend(fetch_audit.get("audit_flags", []))
             continue
         symbols_loaded.append(symbol)
 
@@ -451,7 +484,24 @@ def main(argv: list[str] | None = None) -> int:
             thresholds=thresholds,
             as_of=args.as_of,
         )
+        # Normalization replaces invalid prices with None. Restore the original
+        # safe reason only for dates already present in the effective analysis.
+        invalid_close_dates = {
+            item["date"]
+            for item in fetch_audit.get("skipped_sessions", [])
+            if item["reason"] == "invalid_close"
+        }
+        for item in result.skipped_sessions:
+            if item["reason"] == "missing_close" and item["date"] in invalid_close_dates:
+                item["reason"] = "invalid_close"
         aggregate_audit_flags.extend(idx_flags)
+        incomplete_price_evidence |= bool(
+            {
+                "invalid_close_data",
+                "non_finite_price_arithmetic",
+                "non_finite_moving_average",
+            }.intersection(idx_flags)
+        )
         skipped_sessions_all.extend(result.skipped_sessions)
         # Preserve as_of from the first successful index.
         if as_of_resolved is None and result.today.get("date"):
@@ -474,6 +524,17 @@ def main(argv: list[str] | None = None) -> int:
         current_exposure_pct=current_exposure,
         base_trailing_stop_pct=base_trail,
     )
+
+    if incomplete_price_evidence:
+        aggregate_audit_flags.append("incomplete_price_evidence_no_adds")
+        portfolio_action_obj.rationale += (
+            " Price evidence is incomplete; observed DD counts and risk may understate risk."
+            " Do not increase exposure until valid close evidence is available."
+        )
+        if portfolio_action_obj.exposure_delta_pct > 0:
+            portfolio_action_obj.target_exposure_pct = current_exposure
+            portfolio_action_obj.exposure_delta_pct = 0
+            portfolio_action_obj.recommended_action = "AVOID_NEW_ADDS"
 
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     aggregate_audit = {

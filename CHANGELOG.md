@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- ibd-distribution-day-monitor: normalize finite positive close prices, retain dated gaps without joining sessions, report unavailable MA filters as null, audit arithmetic overflow, and block exposure increases on incomplete effective price evidence (#845).
+
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 

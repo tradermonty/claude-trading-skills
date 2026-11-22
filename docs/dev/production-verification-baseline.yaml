@@ -418,11 +418,11 @@ skills:
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/ibd-distribution-day-monitor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
+      value: not_verified
+      rationale: "Issue #845 changes close normalization and report decision paths. Previous heuristic scan predates these changes; a complete skill-specific security review has not been re-established. Offline regression and repository checks do not certify this axis."
       evidence:
-      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - note: "Issue #845 changes close normalization and report paths; prior 2026-11-15 heuristic scan is stale."
+
 - id: institutional-flow-tracker
   profile: executable_standalone_trading
   overrides:
