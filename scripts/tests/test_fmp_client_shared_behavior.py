@@ -63,6 +63,77 @@ def test_budget_exceeded_raises(rel_path, monkeypatch):
 
 
 @pytest.mark.parametrize("rel_path", FAMILY_B)
+def test_transport_timeouts_consume_budget(rel_path, monkeypatch):
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key", max_api_calls=2)  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    attempts = []
+
+    def timeout(*args, **kwargs):
+        attempts.append(args[0])
+        raise mod.requests.ReadTimeout("test timeout")
+
+    monkeypatch.setattr(client.session, "get", timeout)
+    assert client._rate_limited_get("https://example.test/x") is None
+    assert client._rate_limited_get("https://example.test/x") is None
+    with pytest.raises(mod.ApiCallBudgetExceeded):
+        client._rate_limited_get("https://example.test/x")
+    assert len(attempts) == client.api_calls_made == 2
+
+
+@pytest.mark.parametrize("rel_path", FAMILY_B)
+def test_rate_retry_budget_resets_after_non_429(rel_path, monkeypatch):
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key", max_api_calls=5)  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    monkeypatch.setattr(mod.time, "sleep", lambda _: None)
+    responses = iter([429, 500, 429, 200])
+
+    class Response:
+        text = ""
+
+        def __init__(self, status):
+            self.status_code = status
+
+        def json(self):
+            return [{"ok": 1}]
+
+    monkeypatch.setattr(client.session, "get", lambda *args, **kwargs: Response(next(responses)))
+    assert client._rate_limited_get("https://example.test/x") is None
+    assert client._rate_limited_get("https://example.test/x") == [{"ok": 1}]
+    assert not client.rate_limit_reached
+    assert client.api_calls_made == 4
+
+
+@pytest.mark.parametrize("rel_path", FAMILY_B)
+def test_empty_symbol_history_does_not_disable_healthy_symbol(rel_path, monkeypatch):
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key", max_api_calls=10)  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+
+    class Response:
+        status_code = 200
+        text = ""
+
+        def __init__(self, symbol):
+            self.symbol = symbol
+
+        def json(self):
+            return [{"symbol": "GOOD", "date": "2026-11-01", "close": 10}] if self.symbol else []
+
+    monkeypatch.setattr(
+        client.session,
+        "get",
+        lambda url, **kwargs: Response(kwargs.get("params", {}).get("symbol") == "GOOD"),
+    )
+    for symbol in ("BAD1", "BAD2", "BAD3"):
+        assert client.get_historical_prices(symbol) is None
+    result = client.get_historical_prices("GOOD")
+    rows = result["historical"] if isinstance(result, dict) else result
+    assert rows[0]["close"] == 10
+
+
+@pytest.mark.parametrize("rel_path", FAMILY_B)
 def test_api_stats_budget_shape(rel_path, monkeypatch):
     monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
     mod = _load(rel_path)
