@@ -58,6 +58,30 @@ def _load_calendar():
 calendar = _load_calendar()
 
 
+def _load_coverage():
+    """Load the vendored evaluation_coverage contract by path, like the calendar."""
+    name = "_stockbee_momentum_burst_screener_evaluation_coverage"
+    module = sys.modules.get(name)
+    if module is None:
+        path = Path(__file__).resolve().parent / "evaluation_coverage.py"
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+    return module
+
+
+coverage_contract = _load_coverage()
+
+# Hard rejects that mean the screen had no evidence for the session, not a
+# negative decision (docs/dev/evaluation-coverage-contract.md).
+NO_EVIDENCE_REJECTS = ("stale_price_data", "insufficient_history")
+
+
 @dataclass
 class Bar:
     """Normalized daily OHLCV bar."""
@@ -153,6 +177,7 @@ class FMPClient:
         self._budget_error = shared.ApiCallBudgetExceeded
         self._client = shared.FMPClient(api_key=self.api_key, max_api_calls=max_api_calls)
         self.cache: dict[str, Any] = {}
+        self.last_fetch_error: str | None = None
 
     def _call(self, fn, *args, **kwargs):
         try:
@@ -210,6 +235,9 @@ class FMPClient:
             return self.cache[cache_key]
 
         rows = self._call(self._client.fetch_eod_rows, symbol, days, pad_days=10)
+        # None = transport/HTTP failure (the reason is the client's last error);
+        # [] = the provider answered without rows.
+        self.last_fetch_error = self._client._last_error if rows is None else None
         # Keep every supplied row for date validation; apply the requested
         # history length only after the completed-session cutoff in analysis.
         bars = normalize_fmp_historical_response(rows, symbol, None)
@@ -974,15 +1002,39 @@ def build_symbol_list(args: argparse.Namespace) -> list[str]:
     return sorted(symbols)[: args.max_symbols]
 
 
+def fetch_failure_reason(last_error: str | None) -> str:
+    """evaluation_coverage reason code for an empty fetch; never a response body."""
+    if not last_error:
+        return "missing_data"
+    if last_error.startswith(("HTTP 429", "daily rate limit")):
+        return "rate_limited"
+    if last_error.startswith("HTTP 402"):
+        return "plan_gated"
+    if last_error.startswith(("HTTP ", "request exception")):
+        return "provider_error"
+    return "invalid_data"
+
+
 def collect_price_data(
     args: argparse.Namespace,
+    outcomes: dict[str, str | None] | None = None,
 ) -> tuple[dict[str, list[Bar]], dict[str, Any] | None]:
-    """Collect price data from offline JSON or FMP."""
+    """Collect price data from offline JSON or FMP.
+
+    ``outcomes`` receives one entry per requested symbol: None when bars were
+    collected, otherwise an evaluation_coverage reason.
+    """
+    if outcomes is None:
+        outcomes = {}
     if args.prices_json:
         offline = read_prices_json(args.prices_json)
         explicit_symbols = set(build_symbol_list(args))
         if explicit_symbols:
             offline = {s: bars for s, bars in offline.items() if s in explicit_symbols}
+            for symbol in sorted(explicit_symbols):
+                outcomes[symbol] = None if symbol in offline else "missing_data"
+        else:
+            outcomes.update(dict.fromkeys(offline))
         return offline, None
 
     client = FMPClient(api_key=args.api_key, max_api_calls=args.max_api_calls)
@@ -1011,10 +1063,16 @@ def collect_price_data(
             raw = client.get_historical_prices(symbol, days=args.history_days)
         except ApiCallBudgetExceeded:
             print(f"WARNING: API budget exhausted at {symbol}. Processing collected data.")
+            outcomes.update((s, "not_requested") for s in symbols[idx - 1 :] if s not in outcomes)
             break
         bars = normalize_bars(raw)
         if bars:
             price_data[symbol] = bars
+            outcomes[symbol] = None
+        else:
+            outcomes[symbol] = (
+                "invalid_data" if raw else fetch_failure_reason(client.last_fetch_error)
+            )
 
     return price_data, client.get_api_stats()
 
@@ -1049,7 +1107,10 @@ def report_warnings(metadata: dict[str, Any]) -> list[str]:
 
 
 def generate_json_report(
-    results: list[dict[str, Any]], metadata: dict[str, Any], output_path: str
+    results: list[dict[str, Any]],
+    metadata: dict[str, Any],
+    output_path: str,
+    evaluation_coverage: dict[str, Any] | None = None,
 ) -> None:
     payload = {
         "schema_version": "1.0",
@@ -1058,7 +1119,31 @@ def generate_json_report(
         "metadata": metadata,
         "candidates": results,
     }
+    if evaluation_coverage is not None:
+        payload["evaluation_coverage"] = evaluation_coverage
     Path(output_path).write_text(json.dumps(payload, indent=2, sort_keys=False), encoding="utf-8")
+
+
+def coverage_incomplete(coverage: dict[str, Any] | None) -> bool:
+    return coverage is not None and coverage["verdict"] != "complete"
+
+
+def coverage_summary_lines(coverage: dict[str, Any] | None) -> list[str]:
+    """Evaluated / total beside the headline counts, with reasons when incomplete."""
+    if coverage is None:
+        return []
+    lines = [
+        f"- Evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} "
+        f"evaluated ({coverage['verdict']})"
+    ]
+    if coverage["not_evaluated_reasons"]:
+        reasons = ", ".join(f"{k}: {v}" for k, v in coverage["not_evaluated_reasons"].items())
+        lines.append(f"- Not evaluated: {reasons}. Missing symbols may change the conclusion.")
+    if coverage_incomplete(coverage):
+        lines.append(
+            "- Result undetermined for the full universe; candidates cover only evaluated symbols."
+        )
+    return lines
 
 
 def format_candidate_md(row: dict[str, Any]) -> str:
@@ -1102,6 +1187,7 @@ def generate_markdown_report(
     output_path: str,
     top: int,
     include_rejected: bool,
+    evaluation_coverage: dict[str, Any] | None = None,
 ) -> None:
     counts: dict[str, int] = {}
     for row in results:
@@ -1120,6 +1206,7 @@ def generate_markdown_report(
         "## Summary",
         "",
         f"- Symbols processed: {metadata['symbols_processed']}",
+        *coverage_summary_lines(evaluation_coverage),
         f"- Non-rejected candidates: {len(actionable)}",
         f"- Rejected candidates: {len(rejected)}",
         f"- Expected completed NYSE session: {metadata.get('expected_session', 'unavailable')}",
@@ -1147,6 +1234,9 @@ def generate_markdown_report(
     if actionable:
         for row in actionable:
             lines.append(format_candidate_md(row))
+    elif coverage_incomplete(evaluation_coverage):
+        lines.append("Result undetermined: incomplete evaluation coverage.")
+        lines.append("")
     else:
         lines.append("No non-rejected candidates found.")
         lines.append("")
@@ -1167,14 +1257,14 @@ def main() -> None:
 
     try:
         args._expected_session = resolve_expected_session(args.as_of)
-        price_data, api_stats = collect_price_data(args)
+        outcomes: dict[str, str | None] = {}
+        price_data, api_stats = collect_price_data(args, outcomes)
     except (ValueError, FileNotFoundError, calendar.CalendarUnavailableError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(2 if isinstance(exc, calendar.CalendarDependencyMissingError) else 1)
 
     if not price_data:
-        print("No price data found. Exiting.")
-        sys.exit(0)
+        print("No price data found; the report records why no symbol was evaluated.")
 
     print(f"  Symbols with price data: {len(price_data)}")
     results = []
@@ -1184,6 +1274,12 @@ def main() -> None:
     except (ValueError, calendar.CalendarUnavailableError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(2 if isinstance(exc, calendar.CalendarDependencyMissingError) else 1)
+
+    for row in results:
+        missing = [r for r in row["reject_reasons"] if r in NO_EVIDENCE_REJECTS]
+        if missing:
+            outcomes[row["symbol"]] = missing[0]
+    coverage = coverage_contract.build_evaluation_coverage(outcomes)
 
     results = sort_results(results)
     input_mode = (
@@ -1215,16 +1311,27 @@ def main() -> None:
     json_path = os.path.join(args.output_dir, f"stockbee_momentum_burst_{timestamp}.json")
     md_path = os.path.join(args.output_dir, f"stockbee_momentum_burst_{timestamp}.md")
 
-    generate_json_report(results, metadata, json_path)
+    generate_json_report(results, metadata, json_path, evaluation_coverage=coverage)
     generate_markdown_report(
-        results, metadata, md_path, top=args.top, include_rejected=args.include_rejected
+        results,
+        metadata,
+        md_path,
+        top=args.top,
+        include_rejected=args.include_rejected,
+        evaluation_coverage=coverage,
     )
 
     print()
     print("Screening complete")
+    print(
+        f"  Evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} "
+        f"evaluated ({coverage['verdict']})"
+    )
     print(f"  JSON Report:     {json_path}")
     print(f"  Markdown Report: {md_path}")
     top = [r for r in results if r.get("state") != "REJECTED"][:5]
+    if not top and coverage_incomplete(coverage):
+        print("  Result undetermined: incomplete evaluation coverage.")
     if top:
         print()
         print("Top candidates:")

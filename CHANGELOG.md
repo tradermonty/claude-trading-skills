@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- stockbee-momentum-burst-screener: report `evaluation_coverage` (#711). A run where every fetch failed wrote no report and exited 0 with "No price data found"; a rate-limited run reported only the symbols it reached. JSON now carries the block, Markdown and stdout print evaluated / total, and an incomplete zero-candidate run is undetermined.
+
 - Complete the original 20-skill FMP migration inventory: integrate options/news changes, migrate theme quote/history/holdings to generated stable transport with owned sessions, remove symbol-wide endpoint disabling, and enforce a reasoned exact legacy-reference manifest in local/CI checks. Refresh all registered FMP package gates and theme evidence/docs/archive (#495).
 
 - options-strategy-advisor: replace hand-written FMP HTTP with generated stable transport, support flat EOD history, validate chronological finite price evidence and warn on unverified legacy dividend-zero fallback. Preserve offline pricing and formulas; reset stale security evidence and rebuild the standalone package (Refs #495).

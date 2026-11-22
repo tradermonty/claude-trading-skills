@@ -193,5 +193,6 @@ Use the output conservatively:
 **Scripts:**
 
 - `skills/stockbee-momentum-burst-screener/scripts/_market_calendar.py`
+- `skills/stockbee-momentum-burst-screener/scripts/evaluation_coverage.py`
 - `skills/stockbee-momentum-burst-screener/scripts/fmp_client.py`
 - `skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py`
