@@ -524,7 +524,7 @@
       ],
       "status": "beta",
       "summary": "Monitor Stocks-With-Josh leaderboard traders and emit only newly posted entries and closes since the prior run. Supports multiple trader targets, per-target state, session-cookie authentication, and a machine-readable event contract for downstream Robinhood or broker execution skills.",
-      "timeframe": "intraday"
+      "timeframe": "daily"
     },
     {
       "category": "core-portfolio",
