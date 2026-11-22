@@ -290,9 +290,14 @@ https://financialmodelingprep.com/api/v3/income-statement/AAPL?
 - `totalCurrentLiabilities`: Current liabilities
 
 **Usage in Script:**
-- Debt-to-Equity: totalDebt / totalStockholdersEquity (must be < 2.0)
-- Current Ratio: totalCurrentAssets / totalCurrentLiabilities (must be > 1.0)
-- Financial health check (both ratios must pass)
+- Debt-to-Equity: totalDebt / totalStockholdersEquity (must be < 2.0).
+  Zero or negative equity, missing/non-numeric/non-finite equity, or
+  missing/non-numeric/non-finite/negative debt, fails.
+- Current Ratio: totalCurrentAssets / totalCurrentLiabilities (must be > 1.0).
+  Checked only when totalCurrentLiabilities is reported and positive; then
+  missing current assets fail. A missing liability figure is not penalized.
+- Financial health check: D/E must pass; the current ratio must pass when it
+  applies
 
 ### 6. Cash Flow Statement
 
@@ -526,7 +531,9 @@ For each candidate (up to max-candidates limit):
 
 5. Balance Sheet (1 request)
    ↓ Check financial health
-   ↓ If unhealthy ratios → Skip
+   ↓ If unhealthy → Skip with a reason (non_positive_equity,
+     leverage_unavailable, high_debt_to_equity, low_current_ratio,
+     current_ratio_unavailable, balance_sheet_unavailable)
 
 6. Cash Flow (1 request)
    ↓ Calculate FCF payout ratio

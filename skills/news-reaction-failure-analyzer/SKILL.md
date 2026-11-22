@@ -68,6 +68,15 @@ symbols' row/map dates do not replace the selected market's vintage. Existing
 first-10-character date parsing remains compatible; this is not a stricter
 full-timestamp or provenance-schema validator.
 
+### Generated price transport
+
+`PriceClient` uses the adjacent generated FMP client for stable light EOD requests, preserving exact symbol/from/to ranges, the strict `price` boundary, source/proxy order and the information cutoff. There is no legacy endpoint fallback. CLI `--api-key` still takes priority over `FMP_API_KEY`. Endpoint entitlement depends on the provider plan; no new live endpoint verification is claimed.
+
+The shared transport now owns pacing (default 0.25 seconds; `--sleep-seconds` overrides it), the bounded 429 retry and one malformed-JSON retry. The former five-attempt exponential loop is removed: other HTTP or transport failures advance the source chain without local retries. Exhausted 429 retains the generated daily-limit stop state. `api_calls_made` now exposes the shared counter of received HTTP responses, including retry responses; transport exceptions are not counted by this version of the shared core. It is not a count of source probes.
+
+Diagnostics retain only fixed error markers/classifications, never provider body or exception details. Empty successful data, invalid schema, post-cutoff-only rows and HTTP failures remain distinct in `price_attempts`. The price field, proxy choice, event vintage rules and reaction formulas are unchanged. The CLI closes its owned session before reporting; Python callers should use `with PriceClient(...) as client:` or call `close()`. Injected replacement sessions become owned by that client.
+
+
 ## Workflow
 
 ### Phase 1: Obtain symbol + direction
