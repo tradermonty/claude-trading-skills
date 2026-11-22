@@ -965,7 +965,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: passed
+    security_review: not_verified
   operational_role:
     type: workflow_step
   summary: Convert Kanchi-style dividend investing into a repeatable US-stock operating procedure.

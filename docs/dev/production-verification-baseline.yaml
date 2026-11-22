@@ -445,11 +445,11 @@ skills:
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Automated scan: reads the API key from the environment through the generated FMP client, which masks credential values and sets an explicit network timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/kanchi-dividend-sop/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
+      value: not_verified
+      rationale: "Issue #843 changes dividend response validation and financial report paths. The prior heuristic scan predates these changes; a complete skill-specific security review has not been re-established. Offline regressions and repository checks do not certify this axis."
       evidence:
-      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - note: "Issue #843 changes build_entry_signals.py, dividend_basis.py and regular_yield_history.py; prior 2026-11-15 scan is stale."
+
 - id: kanchi-dividend-us-tax-accounting
   profile: executable_workflow_trading
 - id: macro-regime-detector
