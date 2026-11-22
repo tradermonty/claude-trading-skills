@@ -3,6 +3,7 @@
 import copy
 import importlib.util
 import json
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -31,7 +32,7 @@ def nrf(monkeypatch):
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(time, "sleep", lambda _: None)
     return module
 
 
@@ -63,7 +64,9 @@ def test_recorded_contract_and_consumer_agree(contract, nrf):
     assert result["series"] == sorted((row["date"], row["price"]) for row in contract.fixture)
     assert result["proxy_used"] is True
     client.session.get.assert_called_once()
-    assert client.session.get.call_args.args == (nrf.STABLE_EOD_URL,)
+    assert client.session.get.call_args.args == (
+        "https://financialmodelingprep.com" + contract.endpoint_path,
+    )
     assert client.session.get.call_args.kwargs["params"]["from"] == contract.query["from"]
     assert client.session.get.call_args.kwargs["timeout"] == 30
 
@@ -198,8 +201,9 @@ def test_finite_rule_requires_numeric_type_declarations(types):
     assert any(item.code == "invalid_contract_rule:price:finite" for item in result.fatal_anomalies)
 
 
-def test_finite_policy_is_opt_in_for_existing_contracts():
+def test_finite_policy_remains_opt_in_for_custom_contracts():
     contract = copy.deepcopy(load_contracts(ROOT)["quote"])
+    contract.required_fields["price"].pop("finite", None)
     rows = copy.deepcopy(contract.fixture)
     rows[0]["price"] = float("inf")
     assert validate_rows(contract, rows).ok

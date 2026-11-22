@@ -1,0 +1,23 @@
+    def fetch_options_history(self, symbol: str):
+        """Raw stable full EOD evidence; caller owns dates, basis and selection."""
+        return self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/historical-price-eod/full",
+            {"symbol": symbol},
+            quiet=True,
+        )
+
+    def fetch_options_quote(self, symbol: str):
+        """Single-symbol stable quote, without legacy endpoint fallback."""
+        return self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/quote",
+            {"symbol": symbol},
+            quiet=True,
+        )
+
+    def fetch_options_profile(self, symbol: str):
+        """Raw profile for validated dividend-yield evidence."""
+        return self._rate_limited_get(
+            "https://financialmodelingprep.com/stable/profile",
+            {"symbol": symbol},
+            quiet=True,
+        )

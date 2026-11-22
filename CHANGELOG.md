@@ -5,6 +5,12 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 ## [Unreleased]
 
 - ibd-distribution-day-monitor: normalize finite positive close prices, retain dated gaps without joining sessions, report unavailable MA filters as null, audit arithmetic overflow, and block exposure increases on incomplete effective price evidence (#845).
+- FMP provider contracts: require finite numeric values across all required numeric fields, rejecting HTTP-200 overflow/NaN/infinity evidence rather than reporting compatibility success. Version the nine tightened contracts as v2; preserve recorded fixtures, nullability, valid zero/negative values and generic opt-in behavior (Refs #332).
+- Complete the original 20-skill FMP migration inventory: integrate options/news changes, migrate theme quote/history/holdings to generated stable transport with owned sessions, remove symbol-wide endpoint disabling, and enforce a reasoned exact legacy-reference manifest in local/CI checks. Refresh all registered FMP package gates and theme evidence/docs/archive (#495).
+
+- options-strategy-advisor: replace hand-written FMP HTTP with generated stable transport, support flat EOD history, validate chronological finite price evidence and warn on unverified legacy dividend-zero fallback. Preserve offline pricing and formulas; reset stale security evidence and rebuild the standalone package (Refs #495).
+
+- news-reaction-failure-analyzer: migrate stable light-EOD fetching to a generated target with static diagnostics and owned-session cleanup. Preserve source/proxy selection, strict price/cutoff/vintage rules and reaction math; adopt shared bounded retries and response-attempt counting, refresh gates/docs/package and reset stale verification evidence (Refs #495).
 
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
