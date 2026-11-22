@@ -198,6 +198,10 @@ def score_with_llm(candidates: list[dict], dry_run: bool = False) -> list[dict]:
             [
                 "claude",
                 "-p",
+                # ponytail: pin sonnet — session default (Fable) costs ~$0.64/call
+                # in fixed overhead and blows the budget before answering
+                "--model",
+                "sonnet",
                 "--output-format",
                 "json",
                 "--max-turns",

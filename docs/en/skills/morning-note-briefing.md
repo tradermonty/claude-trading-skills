@@ -3,7 +3,7 @@ layout: default
 title: "Morning Note Briefing"
 grand_parent: English
 parent: Skill Guides
-nav_order: 45
+nav_order: 46
 lang_peer: /ja/skills/morning-note-briefing/
 permalink: /en/skills/morning-note-briefing/
 generated: true

@@ -160,8 +160,10 @@ def test_is_safe_dirty_tree_reports_only(loop_module):
 
 
 def test_is_safe_dirty_tree_blocks_source_files(loop_module):
-    """Tracked changes to source files are blocked."""
-    assert loop_module._is_safe_dirty_tree(" M scripts/run_skill_improvement_loop.py\n") is False
+    """Tracked changes to source files are blocked, except the loop script itself
+    (whitelisted so a local uncommitted fix can't deadlock its own gate)."""
+    assert loop_module._is_safe_dirty_tree(" M scripts/generate_skill_docs.py\n") is False
+    assert loop_module._is_safe_dirty_tree(" M scripts/run_skill_improvement_loop.py\n") is True
 
 
 def test_is_safe_dirty_tree_blocks_untracked(loop_module):
@@ -387,8 +389,8 @@ def test_extract_json_from_claude_empty_input(loop_module):
 # ── LLM review fallback tests ──
 
 
-def test_run_llm_review_falls_back_to_plain_json(loop_module, tmp_path, monkeypatch):
-    """When --json-schema fails, run_llm_review falls back to plain-json mode."""
+def test_run_llm_review_falls_back_to_json_schema(loop_module, tmp_path, monkeypatch):
+    """When plain-json (primary) fails, run_llm_review falls back to --json-schema."""
     prompt_file = tmp_path / "prompt.txt"
     prompt_file.write_text("Review this skill", encoding="utf-8")
 
@@ -398,14 +400,14 @@ def test_run_llm_review_falls_back_to_plain_json(loop_module, tmp_path, monkeypa
         from subprocess import CompletedProcess
 
         call_count[0] += 1
-        # First strategy (json-schema): all attempts fail
+        # Fallback strategy (json-schema): succeeds
         if "--json-schema" in cmd:
-            return CompletedProcess(cmd, 1, "", "schema error")
-        # Second strategy (plain-json): succeeds
-        response = json.dumps(
-            {"result": json.dumps({"score": 78, "summary": "decent", "findings": []})}
-        )
-        return CompletedProcess(cmd, 0, response, "")
+            response = json.dumps(
+                {"result": json.dumps({"score": 78, "summary": "decent", "findings": []})}
+            )
+            return CompletedProcess(cmd, 0, response, "")
+        # Primary strategy (plain-json): all attempts fail
+        return CompletedProcess(cmd, 1, "", "api error")
 
     monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
     monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
@@ -413,7 +415,7 @@ def test_run_llm_review_falls_back_to_plain_json(loop_module, tmp_path, monkeypa
     result = loop_module.run_llm_review(tmp_path, "test-skill", str(prompt_file))
     assert result is not None
     assert result["score"] == 78
-    # json-schema attempts (CLAUDE_RETRIES + 1) + plain-json attempt(s)
+    # plain-json attempts (CLAUDE_RETRIES + 1) + json-schema attempt(s)
     assert call_count[0] >= loop_module.CLAUDE_RETRIES + 2
 
 

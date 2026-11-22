@@ -629,6 +629,27 @@ skills:
   - intrinsic_value_report
   - sensitivity_grid
   workflows: []
+- id: josh-trade-monitor
+  display_name: Josh Trade Monitor
+  category: trade-planning
+  status: beta
+  summary: Monitor Stocks-With-Josh leaderboard traders and emit only newly posted entries and closes
+    since the prior run. Supports multiple trader targets, per-target state, session-cookie authentication,
+    and a machine-readable event contract for downstream Robinhood or broker execution skills.
+  timeframe: intraday
+  difficulty: intermediate
+  integrations:
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Standard-library polling and deterministic state/delta processing; live endpoint requires a user-provided session cookie
+  inputs:
+  - leaderboard_trader_targets
+  - prior_monitor_state
+  outputs:
+  - trade_events
+  - monitor_report
+  workflows: []
 - id: kanchi-dividend-review-monitor
   display_name: Kanchi Dividend Review Monitor
   category: core-portfolio
@@ -1043,11 +1064,10 @@ skills:
   display_name: Robinhood Trade Executor
   category: trade-planning
   status: beta
-  summary: Place automated fixed-notional market buys on Robinhood for newly-identified long-stock
-    signals from the social-signal-daily pipeline. Reads social-signal-ingestor's signals/index.json,
-    keeps long stock only (skips options, shorts, watch, and not-yet-triggered setups), buys one
-    caller-specified position per ticker not already held via the Robinhood MCP connector, and
-    writes an order-confirmations report. Real-money, fully automated, no human gate.
+  summary: Execute upstream Robinhood trade recommendations for equity and single-leg option opens
+    and closes. Canonical, Josh monitor, and social-signal inputs are planned deterministically with
+    idempotency-ledger deduplication, then placed through the Robinhood MCP connector. Real-money,
+    fully automated, no human confirmation gate.
   timeframe: event-driven
   difficulty: advanced
   integrations:
@@ -1055,9 +1075,8 @@ skills:
     type: broker
     requirement: required
     note: Robinhood MCP connector (Robinhood Agentic Trading, agent.robinhood.com) place_equity_order
-      for fixed-notional long-stock buys; trusts the upstream selection with no portfolio/tradability
-      pre-checks. Buy-candidate selection is interpreted inline from the social-signal-ingestor index
-      (no local script).
+      and place_option_order for upstream open/close intents. Local planning and ledger deduplication
+      are handled by plan_executions.py; the skill performs no broker-side portfolio/tradability pre-checks.
   inputs:
   - social_signal_index
   outputs:

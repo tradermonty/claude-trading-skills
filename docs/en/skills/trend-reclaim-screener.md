@@ -3,7 +3,7 @@ layout: default
 title: "Trend Reclaim Screener"
 grand_parent: English
 parent: Skill Guides
-nav_order: 75
+nav_order: 76
 lang_peer: /ja/skills/trend-reclaim-screener/
 permalink: /en/skills/trend-reclaim-screener/
 generated: true

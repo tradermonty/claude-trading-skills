@@ -248,6 +248,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Index Futures Weekly Income** | ❌ Not used | ❌ Not used | ❌ Not used | ES=F/NQ=F daily OHLCV and ^VIX/^VXN via yfinance (keyless); offline JSON fixture supported for signal generation |
 | **Institutional Flow Tracker** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Intrinsic Value (DCF)** | ✅ Required | ❌ Not used | ❌ Not used | US fundamentals + live 10Y UST risk-free rate via FMP (primary data path) |
+| **Josh Trade Monitor** | ❌ Not used | ❌ Not used | ❌ Not used | Standard-library polling and deterministic state/delta processing; live endpoint requires a user-provided session cookie |
 | **Kanchi Dividend Review Monitor** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Dividend / price monitoring via FMP |
 | **Kanchi Dividend SOP** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | US dividend stock data via FMP |
 | **Kanchi Dividend US Tax Accounting** | ❌ Not used | ❌ Not used | ❌ Not used | US tax workflow guidance; pure calculation |
@@ -266,7 +267,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | ✅ Required | Alpaca brokerage MCP/API |
 | **Position Sizer** | 🟡 Optional | ❌ Not used | ❌ Not used | Alternative daily-history source for the liquidity_check.py pre-trade check (FMP_API_KEY) |
 | **Retail Sentiment Ingestor** | ❌ Not used | ❌ Not used | ❌ Not used | Keyless StockTwits cashtag streams (user-applied Bullish/Bearish labels); Keyless Reddit (r/wallstreetbets, r/stocks, r/investing) posts; Optional X sweep via X_API_KEY / --x-api-key (paid full-archive tier for event-window search); Deterministic scoring + vault write run locally (no LLM extraction step) |
-| **Robinhood Trade Executor** | ❌ Not used | ❌ Not used | ❌ Not used | Robinhood MCP connector (Robinhood Agentic Trading, agent.robinhood.com) place_equity_order for fixed-notional long-stock buys; trusts the upstream selection with no portfolio/tradability pre-checks. Buy-candidate selection is interpreted inline from the social-signal-ingestor index (no local script). |
+| **Robinhood Trade Executor** | ❌ Not used | ❌ Not used | ❌ Not used | Robinhood MCP connector (Robinhood Agentic Trading, agent.robinhood.com) place_equity_order and place_option_order for upstream open/close intents. Local planning and ledger deduplication are handled by plan_executions.py; the skill performs no broker-side portfolio/tradability pre-checks. |
 | **Scenario Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Headline / news search via WebSearch; Optional forward base rates via the free keyless Polymarket Gamma API (scripts/polymarket_odds.py) |
 | **Sector Analyst** | ❌ Not used | ❌ Not used | ❌ Not used | Chart screenshot input |
 | **Short-Squeeze Radar** | ❌ Not used | ❌ Not used | ❌ Not used | Free FINRA Reg SHO daily short-sale volume files (no auth); Optional bi-monthly short-interest CSV/JSON (FINRA/NASDAQ/broker) for days-to-cover ranking; Ranking / inflection detection / classification run locally (stdlib only) |

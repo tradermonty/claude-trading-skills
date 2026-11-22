@@ -3,7 +3,7 @@ layout: default
 title: "Swing Setup Screener"
 grand_parent: English
 parent: Skill Guides
-nav_order: 68
+nav_order: 69
 lang_peer: /ja/skills/swing-setup-screener/
 permalink: /en/skills/swing-setup-screener/
 generated: true

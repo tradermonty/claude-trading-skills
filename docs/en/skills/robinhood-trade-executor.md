@@ -3,7 +3,7 @@ layout: default
 title: "Robinhood Trade Executor"
 grand_parent: English
 parent: Skill Guides
-nav_order: 52
+nav_order: 53
 lang_peer: /ja/skills/robinhood-trade-executor/
 permalink: /en/skills/robinhood-trade-executor/
 generated: true
@@ -12,7 +12,7 @@ generated: true
 # Robinhood Trade Executor
 {: .no_toc }
 
-Auto-buy newly surfaced long-stock signals on Robinhood. Reads social-signal-ingestor's signals/index_last.json (the latest run's new records), keeps long stock only, and places one fixed-notional market buy per ticker via the Robinhood MCP connector's place_equity_order. Use as the buy/execution step of the social-signal-daily pipeline, or when the user asks to auto-buy / execute the fresh social-signal (YouTube) stock picks on Robinhood. Do NOT use for options, shorts, sells, or rebalancing — it only opens new long-stock positions.
+Downstream Robinhood execution skill. Consumes trade recommendations from upstream skills (josh-trade-monitor events, social-signal-ingestor signals, or any skill emitting the canonical order-intent) and places real orders via the Robinhood MCP connector — fixed-notional buys to open and sells to close, for both long stock (place_equity_order) and single-leg options (place_option_order). A single feed may mix equity and options. Use as the execution step of any pipeline that surfaces Robinhood-tradable entries/exits. Do NOT use for shorts, multi-leg option spreads, or crypto.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">No API</span>
@@ -31,115 +31,131 @@ Auto-buy newly surfaced long-stock signals on Robinhood. Reads social-signal-ing
 
 ## 1. Overview
 
-Place real-money market buys on Robinhood for the **long-stock** tickers surfaced by
-`social-signal-ingestor`'s weekly signal vault. Each selected ticker gets one fixed-notional
-buy. The per-ticker dollar amount — the **buy amount** — is specified by the caller; do not
-assume one. This skill drives the **Robinhood MCP connector** (Robinhood Agentic Trading,
-`agent.robinhood.com`) `place_equity_order` tool directly — no Python order script, no
-portfolio / tradability / buying-power pre-checks. It **trusts the upstream selection**: if a
-signal is a long stock, it buys.
+The **downstream execution step** for Robinhood. Upstream skills surface *what* to trade; this
+skill places the orders. It reads one or more recommendation files, adapts each to a canonical
+**order intent**, and executes via the Robinhood MCP connector:
 
-⚠️ **This places real orders with real money and is fully automated — there is no human
-confirmation gate.** It is the only skill in the repo that auto-executes. Robinhood's own
-disclosure applies: you are responsible for every trade the agent places. Run it only when the
-connected Robinhood Agentic account is funded and intended for this purpose.
+- **open** intents → BUY (fixed dollar notional). Equity → `place_equity_order`; single-leg
+  option → `place_option_order` (contracts sized to the notional).
+- **close** intents → SELL / sell-to-close exactly what the matching open filled.
+
+A single feed may mix equity and options; several feeds can be merged in one run. The per-open
+dollar amount — the **buy amount** — is supplied by the caller; never assume one.
+
+⚠️ **This places real orders with real money and has NO human confirmation gate — buys *and*
+sells, equity *and* options, fully automated.** You are responsible for every order. Run it only
+against a funded Robinhood Agentic account intended for this purpose. The blast radius is wider
+than a buy-only equity bot: the safety rails below are what keep it in its lane.
 
 ---
 
 ## 2. When to Use
 
-- As the **buy step of `social-signal-daily`**, after `social-signal-ingestor` has produced
-  `signals/index_last.json`. It no longer depends on `ticker-enricher` or `write-supabase` — it
-  reads the ingestor's latest-run index directly.
-- When the user asks to "buy the new social-signal stocks", "auto-buy fresh YouTube picks",
-  or similar.
+- As the execution step after any upstream that emits Robinhood-tradable recommendations:
+  `josh-trade-monitor` (`<state>_events.json`), `social-signal-ingestor`
+  (`signals/index_last.json`), or any skill that writes the canonical `{"intents": [...]}`.
+- When the user asks to "execute / place / mirror" those recommendations on Robinhood.
 
-Do **not** use for options, short ideas, sells, or rebalancing — this skill only opens new
-long-stock positions.
+Do **not** use for shorts, multi-leg option spreads, or crypto — those are skipped with a reason.
 
 ---
 
 ## 3. Prerequisites
 
-The **Robinhood MCP connector** (Robinhood Agentic Trading) must be available to the session.
-Tool used:
+- **Robinhood MCP connector** (Robinhood Agentic Trading, `agent.robinhood.com`) available to the
+  session. Tools:
 
-| Tool | Use |
-|------|-----|
-| `place_equity_order` | Place the market buy |
+  | Tool | Use |
+  |------|-----|
+  | `place_equity_order` | Market BUY/SELL for equity (long-stock) intents |
+  | `place_option_order` | Buy-to-open / sell-to-close for single-leg option intents |
+  | quote tools | Optional: live ask for precise sizing |
 
-(If `place_equity_order` requires a share **quantity** rather than a dollar amount,
-`get_equity_quotes` provides the real-time ask for fractional sizing.)
-
-If the tool is not available, stop and tell the user the Robinhood connector must be
-connected — do not attempt any other broker.
+  **If the connector is not available, stop and tell the user — do not use any other broker.**
+- `scripts/plan_executions.py` (stdlib only) for the deterministic selection + idempotency ledger.
 
 ---
 
 ## 4. Quick Start
 
-### Step 1: Select buy candidates (long stock only, deduped)
-
-Read `social-signal-ingestor`'s `signals/index_last.json` (default
-`data/social/vault/current/signals/index_last.json`, or the path given) — this holds only the
-records added on the latest ingestor run, so the executor buys just the fresh picks and never
-re-buys the week's earlier signals. (`index.json` is the full cumulative week; do not read it
-here.) From its `signals` array,
-keep a ticker as a buy candidate **only when all** of these hold:
+```bash
+python3 skills/robinhood-trade-executor/scripts/plan_executions.py plan \
+  --input state/josh-trade-monitor/trader_29_this_week_events.json \
+  --input data/social/vault/current/signals/index_last.json \
+  --ledger state/robinhood-trade-executor/ledger.json \
+  --buy-amount <DOLLARS>       # caller-supplied; e.g. 300
+  # --as-of YYYY-MM-DD         # optional; defaults to today (option expiration check)
+  # --source josh|social|canonical   # optional; only if auto-detect is wrong
+```
 
 ---
 
 ## 5. Workflow
 
-### Step 1: Select buy candidates (long stock only, deduped)
+### Step 1: Plan the executions (deterministic, no broker)
 
-Read `social-signal-ingestor`'s `signals/index_last.json` (default
-`data/social/vault/current/signals/index_last.json`, or the path given) — this holds only the
-records added on the latest ingestor run, so the executor buys just the fresh picks and never
-re-buys the week's earlier signals. (`index.json` is the full cumulative week; do not read it
-here.) From its `signals` array,
-keep a ticker as a buy candidate **only when all** of these hold:
+Point the planner at one or more upstream files (`--input` repeatable; source auto-detected):
 
-- `instrument` is `null` or `"stock"` — skip `"option"`.
-- `direction == "long"` — skip `"short"` and `"watch"`.
-- no `watch` trigger object is present — skip conditional / not-yet-triggered longs (don't
-  front-run a breakout).
-- `ticker` is a non-empty symbol.
-
-Dedupe: a ticker surfaced by multiple channels or notes collapses to one buy. **This selection
-is the step that spends money — apply it exactly and buy nothing outside it.**
-
-### Step 2: Execute the buys
-
-For each ticker from Step 1, call `place_equity_order` — a **market BUY of the buy amount**
-(dollar-based fractional order). Place **only one** buy per ticker; never retry a rejected order
-automatically.
-
-- If the tool requires a share **quantity** instead of a dollar amount, submit a fractional
-  quantity of `buy_amount / ask` (from `get_equity_quotes`), rounded down to the supported
-  precision so the order never exceeds the buy amount.
-
-### Step 3: Write the order-confirmations report
-
-Save `reports/robinhood_orders_<YYYY-MM-DD>.json` (the `order_confirmations` artifact). A list
-(possibly empty on a no-signal day); `dollar_amount` records the buy amount used, e.g.:
-
-```json
-{
-  "ticker": "AUPH",
-  "dollar_amount": "<buy amount used>",
-  "quantity": 2.978,
-  "order_id": "<robinhood-order-id>",
-  "status": "filled | pending | rejected",
-  "submitted_at": "2026-06-29T13:31:00Z"
-}
+```bash
+python3 skills/robinhood-trade-executor/scripts/plan_executions.py plan \
+  --input state/josh-trade-monitor/trader_29_this_week_events.json \
+  --input data/social/vault/current/signals/index_last.json \
+  --ledger state/robinhood-trade-executor/ledger.json \
+  --buy-amount <DOLLARS>       # caller-supplied; e.g. 300
+  # --as-of YYYY-MM-DD         # optional; defaults to today (option expiration check)
+  # --source josh|social|canonical   # optional; only if auto-detect is wrong
 ```
 
-Then print a one-line-per-ticker summary. Report fills and rejections honestly — if an order was
-rejected, say so plainly.
+It emits `{orders, skipped}`. Each order has a `kind`:
+- `equity_buy` — long-stock open → market BUY of `dollar_amount`.
+- `option_buy` — option open → BUY `contracts` (`floor(buy_amount / (premium × 100))`) of
+  `option_type` / `strike` / `expiration`.
+- `equity_sell` / `option_sell` — a close → sell exactly the `quantity` / `contracts` recorded
+  for that intent's matching open.
+
+`skipped` lists everything not traded, each with a `reason`: already-executed intents, expired or
+unaffordable options, incomplete option specs, closes with no tracked open, non-long equity, and
+deferred cases (shorts, multi-leg spreads, options with no premium to size). **Report skipped
+items; never trade them.**
+
+The planner spends no money and touches no broker. **Execute exactly its `orders` — nothing more.**
+
+### Step 2: Place the orders (Robinhood MCP), mapped by `kind`
+
+- `equity_buy` → `place_equity_order` market BUY, `dollar_amount` of `ticker`.
+- `equity_sell` → `place_equity_order` market SELL, `quantity` of `ticker`.
+- `option_buy` → `place_option_order` buy-to-open, `contracts` of `ticker` `strike` `option_type`
+  expiring `expiration`.
+- `option_sell` → `place_option_order` sell-to-close, same contract spec, `contracts`.
+
+One order per intent. **Never auto-retry a rejected order** — surface it.
+
+### Step 3: Record each result to the ledger (idempotency)
+
+Immediately after each order returns, append it — copy the fields straight from the order:
+
+```bash
+python3 skills/robinhood-trade-executor/scripts/plan_executions.py record \
+  --ledger state/robinhood-trade-executor/ledger.json \
+  --intent-id josh:29:631:open --match-key josh:29:631 \
+  --action open --instrument option --ticker AMD \
+  --status filled --order-id <rh-id> --quantity 1 \
+  --option-type call --strike 180 --expiration 2026-07-17
+```
+
+Record the filled `--quantity` (shares for equity, **contracts** for options) and, for options,
+`--option-type/--strike/--expiration` so the matching close sells the exact contract.
+
+### Step 4: Write the confirmations report
+
+Save `reports/robinhood_orders_<YYYY-MM-DD>.json` — orders placed (with `kind`, spec, `order_id`,
+`status`, timestamp) plus the `skipped` list. Print a one-line-per-order summary; report
+rejections plainly.
 
 ---
 
 ## 6. Resources
 
-This skill uses built-in Claude capabilities without external scripts or references.
+**Scripts:**
+
+- `skills/robinhood-trade-executor/scripts/plan_executions.py`

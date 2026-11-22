@@ -3,7 +3,7 @@ layout: default
 title: "Social Signal Ingestor"
 grand_parent: English
 parent: Skill Guides
-nav_order: 60
+nav_order: 61
 lang_peer: /ja/skills/social-signal-ingestor/
 permalink: /en/skills/social-signal-ingestor/
 generated: true

@@ -33,8 +33,8 @@ HISTORY_LIMIT = 60
 LOG_RETENTION_DAYS = 30
 CLAUDE_TIMEOUT = 300
 CLAUDE_RETRIES = 2
-CLAUDE_BUDGET_REVIEW = 0.50
-CLAUDE_BUDGET_IMPROVE = 2.00
+CLAUDE_BUDGET_REVIEW = 2.00
+CLAUDE_BUDGET_IMPROVE = 3.00
 IMPROVEMENT_TIMEOUT = 600
 
 
@@ -68,7 +68,15 @@ def release_lock(project_root: Path) -> None:
 # ── Git safety ──
 
 
-_SAFE_DIRTY_PREFIXES = ("reports/", "logs/", "state/")
+# ponytail: this script and its test are whitelisted so a local uncommitted fix to
+# the loop doesn't deadlock its own dirty-tree gate; commits stay scoped to skills/<name>/.
+_SAFE_DIRTY_PREFIXES = (
+    "reports/",
+    "logs/",
+    "state/",
+    "scripts/run_skill_improvement_loop.py",
+    "scripts/tests/test_skill_improvement_loop.py",
+)
 
 
 def _is_safe_dirty_tree(porcelain_output: str) -> bool:
@@ -293,15 +301,16 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
         }
     )
 
-    # Try with --json-schema first, then fall back to plain --output-format json
+    # plain-json first: --json-schema drives extra tool-use turns that routinely
+    # blow --max-turns (observed error_max_turns at ~$0.85/attempt); keep it as fallback.
     strategies = [
-        {
-            "label": "json-schema",
-            "extra_args": ["--json-schema", review_schema],
-        },
         {
             "label": "plain-json",
             "extra_args": [],
+        },
+        {
+            "label": "json-schema",
+            "extra_args": ["--json-schema", review_schema],
         },
     ]
 
@@ -315,7 +324,9 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                     "json",
                     *strategy["extra_args"],
                     "--max-turns",
-                    "1",
+                    # --json-schema structured output is a tool call = 2nd turn;
+                    # 1 turn always dies with error_max_turns.
+                    "8",
                     f"--max-budget-usd={CLAUDE_BUDGET_REVIEW}",
                 ]
                 # For plain-json mode, append schema instructions to the prompt
@@ -337,11 +348,13 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                     timeout=CLAUDE_TIMEOUT,
                 )
                 if result.returncode != 0:
+                    # CLI errors (max_turns, max_budget_usd, ...) land in the stdout
+                    # JSON envelope with stderr empty — log both or we debug blind.
                     logger.warning(
                         "claude -p [%s] attempt %d failed: %s",
                         strategy["label"],
                         attempt + 1,
-                        result.stderr.strip()[:200],
+                        (result.stderr.strip() or result.stdout.strip())[:300],
                     )
                     continue
 
@@ -773,9 +786,18 @@ def apply_improvement(
                 check=False,
             )
 
+        # Re-package so the changed-package-drift pre-commit hook passes
+        # (any skill edit makes skill-packages/<name>.skill stale).
+        subprocess.run(
+            [sys.executable, "scripts/package_skills.py", "--skill", skill_name],
+            cwd=project_root,
+            capture_output=True,
+            check=False,
+        )
+
         # Stage files for commit
         subprocess.run(
-            ["git", "add", f"skills/{skill_name}/"],
+            ["git", "add", f"skills/{skill_name}/", f"skill-packages/{skill_name}.skill"],
             cwd=project_root,
             check=True,
             capture_output=True,
@@ -795,7 +817,12 @@ def apply_improvement(
                 if pc_result.returncode != 0:
                     logger.info("pre-commit auto-fixed files; re-staging.")
                     subprocess.run(
-                        ["git", "add", f"skills/{skill_name}/"],
+                        [
+                            "git",
+                            "add",
+                            f"skills/{skill_name}/",
+                            f"skill-packages/{skill_name}.skill",
+                        ],
                         cwd=project_root,
                         check=True,
                         capture_output=True,
@@ -838,7 +865,7 @@ def apply_improvement(
                 _rollback(project_root, skill_name, branch_name)
                 return None
             logger.error(
-                "git commit failed: %s", commit_output[:500] if commit_output else "(empty)"
+                "git commit failed: %s", commit_output[:2000] if commit_output else "(empty)"
             )
             _rollback(project_root, skill_name, branch_name)
             return None
@@ -913,13 +940,20 @@ def apply_improvement(
 def _rollback(project_root: Path, skill_name: str, branch_name: str) -> None:
     """Roll back changes and return to main."""
     subprocess.run(
-        ["git", "reset", "HEAD", "--", f"skills/{skill_name}/"],
+        [
+            "git",
+            "reset",
+            "HEAD",
+            "--",
+            f"skills/{skill_name}/",
+            f"skill-packages/{skill_name}.skill",
+        ],
         cwd=project_root,
         capture_output=True,
         check=False,
     )
     subprocess.run(
-        ["git", "checkout", "--", f"skills/{skill_name}/"],
+        ["git", "checkout", "--", f"skills/{skill_name}/", f"skill-packages/{skill_name}.skill"],
         cwd=project_root,
         capture_output=True,
         check=False,

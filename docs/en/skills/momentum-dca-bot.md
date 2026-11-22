@@ -3,7 +3,7 @@ layout: default
 title: "Momentum Dca Bot"
 grand_parent: English
 parent: Skill Guides
-nav_order: 44
+nav_order: 45
 lang_peer: /ja/skills/momentum-dca-bot/
 permalink: /en/skills/momentum-dca-bot/
 generated: true

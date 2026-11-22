@@ -3,7 +3,7 @@ layout: default
 title: "Live Analytics Dashboard"
 grand_parent: English
 parent: Skill Guides
-nav_order: 40
+nav_order: 41
 lang_peer: /ja/skills/live-analytics-dashboard/
 permalink: /en/skills/live-analytics-dashboard/
 generated: true

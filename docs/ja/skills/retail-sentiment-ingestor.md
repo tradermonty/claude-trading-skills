@@ -3,7 +3,7 @@ layout: default
 title: "Retail Sentiment Ingestor"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 51
+nav_order: 52
 lang_peer: /en/skills/retail-sentiment-ingestor/
 permalink: /ja/skills/retail-sentiment-ingestor/
 generated: true

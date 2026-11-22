@@ -299,5 +299,6 @@ A comprehensive catalog of all 61 Claude Trading Skills organized by category. B
 | Momentum Dca Bot | -- | -- | -- |
 | Trend Reclaim Screener | -- | -- | -- |
 | Swing Setup Screener | -- | -- | -- |
+| Josh Trade Monitor | -- | -- | -- |
 
 "--" means not required. "Optional" means functionality is enhanced but the skill works without it.

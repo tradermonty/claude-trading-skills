@@ -486,6 +486,10 @@ def abstract_with_llm(
             [
                 "claude",
                 "-p",
+                # ponytail: pin sonnet — session default (Fable) costs ~$0.64/call
+                # in fixed overhead and blows the budget before answering
+                "--model",
+                "sonnet",
                 "--output-format",
                 "json",
                 "--max-turns",

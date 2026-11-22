@@ -3,7 +3,7 @@ layout: default
 title: "Short Squeeze Radar"
 grand_parent: English
 parent: Skill Guides
-nav_order: 55
+nav_order: 56
 lang_peer: /ja/skills/short-squeeze-radar/
 permalink: /en/skills/short-squeeze-radar/
 generated: true

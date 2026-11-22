@@ -3,7 +3,7 @@ layout: default
 title: "Swing Setup Screener"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 68
+nav_order: 69
 lang_peer: /en/skills/swing-setup-screener/
 permalink: /ja/skills/swing-setup-screener/
 generated: true

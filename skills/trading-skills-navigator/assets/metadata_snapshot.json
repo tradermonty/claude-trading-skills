@@ -511,6 +511,22 @@
       "timeframe": "research"
     },
     {
+      "category": "trade-planning",
+      "difficulty": "intermediate",
+      "display_name": "Josh Trade Monitor",
+      "id": "josh-trade-monitor",
+      "integrations": [
+        {
+          "id": "local_calculation",
+          "requirement": "not_required",
+          "type": "calculation"
+        }
+      ],
+      "status": "beta",
+      "summary": "Monitor Stocks-With-Josh leaderboard traders and emit only newly posted entries and closes since the prior run. Supports multiple trader targets, per-target state, session-cookie authentication, and a machine-readable event contract for downstream Robinhood or broker execution skills.",
+      "timeframe": "intraday"
+    },
+    {
       "category": "core-portfolio",
       "difficulty": "beginner",
       "display_name": "Kanchi Dividend Review Monitor",
@@ -866,7 +882,7 @@
         }
       ],
       "status": "beta",
-      "summary": "Place automated fixed-notional market buys on Robinhood for newly-identified long-stock signals from the social-signal-daily pipeline. Reads social-signal-ingestor's signals/index.json, keeps long stock only (skips options, shorts, watch, and not-yet-triggered setups), buys one caller-specified position per ticker not already held via the Robinhood MCP connector, and writes an order-confirmations report. Real-money, fully automated, no human gate.",
+      "summary": "Execute upstream Robinhood trade recommendations for equity and single-leg option opens and closes. Canonical, Josh monitor, and social-signal inputs are planned deterministically with idempotency-ledger deduplication, then placed through the Robinhood MCP connector. Real-money, fully automated, no human confirmation gate.",
       "timeframe": "event-driven"
     },
     {

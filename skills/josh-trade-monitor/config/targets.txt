@@ -1,0 +1,9 @@
+# josh-trade-monitor targets — one per line. Add more traders here; no code changes needed.
+# Each line is: <id>  |  <id>:<period>  |  a full leaderboard URL (web or /api/...).
+#   period defaults to --period (this_week) when omitted.
+#   blank lines and lines starting with # are ignored.
+# This file is read automatically when you run the monitor with no --target / --targets-file.
+
+
+https://leaderboard.stockswithjosh.com/leaderboard/traders/13?period=this_week
+https://leaderboard.stockswithjosh.com/leaderboard/traders/29?period=this_week

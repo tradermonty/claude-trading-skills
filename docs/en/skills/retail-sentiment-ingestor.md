@@ -3,7 +3,7 @@ layout: default
 title: "Retail Sentiment Ingestor"
 grand_parent: English
 parent: Skill Guides
-nav_order: 51
+nav_order: 52
 lang_peer: /ja/skills/retail-sentiment-ingestor/
 permalink: /en/skills/retail-sentiment-ingestor/
 generated: true

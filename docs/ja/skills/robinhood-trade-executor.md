@@ -3,7 +3,7 @@ layout: default
 title: "Robinhood Trade Executor"
 grand_parent: 日本語
 parent: スキルガイド
-nav_order: 52
+nav_order: 53
 lang_peer: /en/skills/robinhood-trade-executor/
 permalink: /ja/skills/robinhood-trade-executor/
 generated: true
@@ -12,7 +12,7 @@ generated: true
 # Robinhood Trade Executor
 {: .no_toc }
 
-Auto-buy newly surfaced long-stock signals on Robinhood. Reads social-signal-ingestor's signals/index_last.json (the latest run's new records), keeps long stock only, and places one fixed-notional market buy per ticker via the Robinhood MCP connector's place_equity_order. Use as the buy/execution step of the social-signal-daily pipeline, or when the user asks to auto-buy / execute the fresh social-signal (YouTube) stock picks on Robinhood. Do NOT use for options, shorts, sells, or rebalancing — it only opens new long-stock positions.
+Downstream Robinhood execution skill. Consumes trade recommendations from upstream skills (josh-trade-monitor events, social-signal-ingestor signals, or any skill emitting the canonical order-intent) and places real orders via the Robinhood MCP connector — fixed-notional buys to open and sells to close, for both long stock (place_equity_order) and single-leg options (place_option_order). A single feed may mix equity and options. Use as the execution step of any pipeline that surfaces Robinhood-tradable entries/exits. Do NOT use for shorts, multi-leg option spreads, or crypto.
 {: .fs-6 .fw-300 }
 
 <span class="badge badge-free">API不要</span>
