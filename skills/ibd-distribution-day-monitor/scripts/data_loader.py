@@ -6,23 +6,32 @@ issues as audit_flags / skipped_sessions for the report layer.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
-def normalize_history(payload: Any) -> list[dict]:
-    """Coerce FMP payload variants into a flat most-recent-first list[dict].
+def coerce_close(value: Any) -> float | None:
+    """Return a finite positive close, excluding booleans and unsupported types."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        number = float(value)
+    except (ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) and number > 0 else None
 
-    - dict with "historical" key (v3 shape): return payload["historical"]
-    - list (stable EOD flat list, after normalizer): return as-is
-    - None or unrecognized shape: return []
-    """
-    if payload is None:
-        return []
+
+def _history_rows(payload: Any) -> list[dict]:
     if isinstance(payload, dict):
         return list(payload.get("historical") or [])
     if isinstance(payload, list):
         return list(payload)
     return []
+
+
+def normalize_history(payload: Any) -> list[dict]:
+    """Copy rows, normalize closes, and preserve dated session slots across gaps."""
+    return [dict(row, close=coerce_close(row.get("close"))) for row in _history_rows(payload)]
 
 
 def validate_history_quality(history: list[dict]) -> tuple[list[str], list[dict]]:
@@ -41,7 +50,7 @@ def validate_history_quality(history: list[dict]) -> tuple[list[str], list[dict]
 
         if close is None:
             skipped.append({"date": date, "reason": "missing_close"})
-        elif close <= 0:
+        elif coerce_close(close) is None:
             skipped.append({"date": date, "reason": "invalid_close"})
 
         if volume is None:
@@ -79,13 +88,14 @@ def fetch_ohlcv(
     }
 
     payload = client.get_historical_prices(symbol, days=days)
-    history = normalize_history(payload)
+    raw_history = _history_rows(payload)
+    history = normalize_history(raw_history)
 
     if not history:
         audit["audit_flags"].append("no_data_returned")
         return [], audit
 
-    flags, skipped = validate_history_quality(history)
+    flags, skipped = validate_history_quality(raw_history)
     audit["sessions_loaded"] = len(history)
     audit["audit_flags"].extend(flags)
     audit["skipped_sessions"] = skipped

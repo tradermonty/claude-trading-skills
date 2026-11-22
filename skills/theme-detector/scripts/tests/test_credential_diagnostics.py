@@ -23,6 +23,7 @@ def test_selector_failure_does_not_expose_key(monkeypatch, capsys, caplog, error
         finviz_elite_key=MARKER, fmp_api_key=MARKER, rate_limit_sec=0
     )
     if source == "fmp":
+        monkeypatch.setattr(requests.Session, "get", Mock(side_effect=error))
         result = selector._fetch_etf_holdings("XLK", 4)
     else:
         result = getattr(selector, f"_fetch_finviz_{source}")("Biotechnology", 4, False)

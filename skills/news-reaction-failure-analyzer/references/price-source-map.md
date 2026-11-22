@@ -135,3 +135,7 @@ treated as equivalent to a direct `CLUSD` read.
   2026-07-12). FMP's per-symbol tier gating can change; if a market that
   previously worked starts returning `no_price_source`, re-probe before
   assuming it's a bug in this skill.
+
+## Transport migration (#495)
+
+Source-chain and vintage observations above are historical evidence, not a new live entitlement check. PriceClient now delegates exact-range stable light-EOD HTTP to its generated client. Shared bounded 429/JSON retry replaces local exponential backoff; other failures advance the existing source chain. Response-free status diagnostics and as-of filtering remain in force. See SKILL.md's Generated price transport subsection for ownership and counter semantics.
