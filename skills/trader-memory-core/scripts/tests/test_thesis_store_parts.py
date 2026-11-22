@@ -9,6 +9,7 @@ cannot be deleted from thesis_store.py without a test failing.
 
 import ast
 import importlib
+import inspect
 import types
 from pathlib import Path
 
@@ -64,7 +65,9 @@ def test_fragment_declarations_match_runtime_namespace():
         blocks = _type_checking_blocks(tree)
         assert len(blocks) == 1, f"{path.name}: expected one TYPE_CHECKING block"
         functions = [
-            namespace[node.name] for node in tree.body if isinstance(node, ast.FunctionDef)
+            inspect.unwrap(namespace[node.name])
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
         ]
         assert functions, f"{path.name}: defines no functions"
         for fn in functions:

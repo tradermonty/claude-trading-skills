@@ -54,25 +54,8 @@ _EQUITY_OPEN_QUANTITY_REQUIRED = (
 )
 
 
-def attach_position(
-    state_dir: Path,
-    thesis_id: str,
-    position_report_path: str,
-    expected_entry: float | None = None,
-    expected_stop: float | None = None,
-) -> dict:
-    """Attach position-sizer output to an existing thesis.
-
-    Validates:
-      1. Report mode must be "shares" (budget mode has no shares/value/risk).
-      2. If expected_entry is provided, both prices must be finite numbers
-         (non-bool) and match within 0.01; zero/negative prices are allowed.
-      3. The same check applies to expected_stop and report's stop_price.
-
-    Raises:
-        ValueError: If validation fails.
-        FileNotFoundError: If report or thesis doesn't exist.
-    """
+def _read_equity_position_report(position_report_path, expected_entry=None, expected_stop=None):
+    """Validate source-only inputs without creating or reading thesis state."""
     report_path = Path(position_report_path)
     if not report_path.exists():
         raise FileNotFoundError(f"Position report not found: {position_report_path}")
@@ -101,6 +84,30 @@ def attach_position(
     _validate_equity_expected_price_match("entry", expected_entry, params.get("entry_price"))
     _validate_equity_expected_price_match("stop", expected_stop, params.get("stop_price"))
     _validate_equity_initial_stop(params.get("entry_price"), params.get("stop_price"))
+
+    return report
+
+
+def attach_position(
+    state_dir: Path,
+    thesis_id: str,
+    position_report_path: str,
+    expected_entry: float | None = None,
+    expected_stop: float | None = None,
+) -> dict:
+    """Attach position-sizer output to an existing thesis.
+
+    Validates:
+      1. Report mode must be "shares" (budget mode has no shares/value/risk).
+      2. If expected_entry is provided, both prices must be finite numbers
+         (non-bool) and match within 0.01; zero/negative prices are allowed.
+      3. The same check applies to expected_stop and report's stop_price.
+
+    Raises:
+        ValueError: If validation fails.
+        FileNotFoundError: If report or thesis doesn't exist.
+    """
+    report = _read_equity_position_report(position_report_path, expected_entry, expected_stop)
 
     thesis = _load_thesis(state_dir, thesis_id)
 
