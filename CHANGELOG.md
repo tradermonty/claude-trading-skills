@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- dividend-growth-pullback-screener: a dividend grower with zero or negative shareholders' equity no longer aborts the whole run with a TypeError. Such stocks used to pass the health gate with an unknown D/E; leverage now fails closed (non-positive equity, or missing/non-numeric debt or equity, is rejected), so these names are excluded. Malformed statement payloads (for example a 200 error body) and non-finite or string balance-sheet and key-metric values no longer crash the run or reach the JSON as `Infinity` or strings. A missing `totalDebt` is now treated as unknown leverage rather than zero debt. Missing, non-numeric or non-finite P/E and P/B are stored as `null` and no longer earn valuation points (previously a missing value was stored as 0 and scored as cheap). Health rejections are logged with a reason and counted in `metadata.health_excluded` (Refs #842).
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 
