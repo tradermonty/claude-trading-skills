@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- ibd-distribution-day-monitor: normalize finite positive close prices, retain dated gaps without joining sessions, report unavailable MA filters as null, audit arithmetic overflow, and block exposure increases on incomplete effective price evidence (#845).
 - FMP provider contracts: require finite numeric values across all required numeric fields, rejecting HTTP-200 overflow/NaN/infinity evidence rather than reporting compatibility success. Version the nine tightened contracts as v2; preserve recorded fixtures, nullability, valid zero/negative values and generic opt-in behavior (Refs #332).
 - Complete the original 20-skill FMP migration inventory: integrate options/news changes, migrate theme quote/history/holdings to generated stable transport with owned sessions, remove symbol-wide endpoint disabling, and enforce a reasoned exact legacy-reference manifest in local/CI checks. Refresh all registered FMP package gates and theme evidence/docs/archive (#495).
 
