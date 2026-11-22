@@ -697,3 +697,32 @@ def test_manual_backdated_lifecycle_monotonic_e2e(tmp_path: Path):
     assert t["position"]["shares"] == 7.86
     ats = [h["at"] for h in t["status_history"]]
     assert ats == ["2026-05-02T00:00:00+00:00"] * 3
+
+
+@pytest.mark.parametrize("ticker", ["BRK.B", "BF-B", "005930.KS"])
+def test_ingest_accepts_dotted_and_hyphenated_tickers(tmp_path: Path, ticker: str):
+    """Issue #848: ingesting dotted/hyphenated tickers succeeds and preserves ticker."""
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(
+        tmp_path,
+        {"candidates": [{"ticker": ticker, "verdict": "CLEAN-PASS"}]},
+    )
+
+    ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
+    assert len(ids) == 1
+    thesis = thesis_store.get(state_dir, ids[0])
+    assert thesis["ticker"] == ticker
+    assert thesis_store.validate_thesis(thesis) is None
+
+
+def test_ingest_rejects_invalid_ticker_without_writing_state(tmp_path: Path):
+    """Invalid tickers with no alphanumeric characters are rejected at ingest."""
+    state_dir = tmp_path / "theses"
+    input_file = _write_json(
+        tmp_path,
+        {"candidates": [{"ticker": "---", "verdict": "CLEAN-PASS"}]},
+    )
+
+    ids = thesis_ingest.ingest("kanchi-dividend-sop", input_file, str(state_dir))
+    assert ids == []
+    assert list(state_dir.glob("th_*.yaml")) == []
