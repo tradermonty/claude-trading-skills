@@ -118,6 +118,20 @@ def test_register_and_get_match(tmp_path: Path):
     assert thesis["updated_at"] is not None
 
 
+@pytest.mark.parametrize("ticker", ["BRK.B", "BF-B", "005930.KS"])
+def test_register_preserves_punctuated_ticker(tmp_path: Path, ticker: str):
+    tid, thesis = _register_and_get(tmp_path, ticker=ticker)
+    assert thesis["ticker"] == ticker
+    assert thesis_store.get(tmp_path, tid)["ticker"] == ticker
+    assert thesis_store.register(tmp_path, _make_thesis_data(ticker=ticker)) == tid
+
+
+def test_register_rejects_ticker_without_ascii_letters_or_digits(tmp_path: Path):
+    with pytest.raises(ValueError, match="ticker must contain"):
+        thesis_store.register(tmp_path, _make_thesis_data(ticker=".-"))
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_thesis_id_contains_hash4(tmp_path: Path):
     """thesis_id should contain a 4-char hex hash suffix."""
     tid, _ = _register_and_get(tmp_path)

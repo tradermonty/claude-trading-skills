@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import hashlib
     import json
     import os
+    import re
     import tempfile
     import uuid
     from datetime import datetime, timezone
@@ -61,9 +62,12 @@ def _generate_thesis_id(ticker: str, thesis_type: str, date_str: str) -> str:
         raise ValueError(
             f"Unknown thesis_type: {thesis_type}. Must be one of {sorted(_VALID_THESIS_TYPES)}"
         )
+    id_ticker = re.sub(r"[^a-z0-9]", "", ticker.lower())
+    if not id_ticker:
+        raise ValueError("ticker must contain at least one ASCII letter or digit")
     salt = uuid.uuid4().hex[:8]
     hash4 = hashlib.sha256(f"{ticker}_{thesis_type}_{date_str}_{salt}".encode()).hexdigest()[:4]
-    return f"th_{ticker.lower()}_{abbr}_{date_str}_{hash4}"
+    return f"th_{id_ticker}_{abbr}_{date_str}_{hash4}"
 
 
 def _compute_origin_fingerprint(thesis_data: dict) -> str:
