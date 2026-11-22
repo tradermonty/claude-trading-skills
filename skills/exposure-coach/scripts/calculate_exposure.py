@@ -147,15 +147,26 @@ def extract_breadth_score(data: Optional[dict]) -> Optional[int]:
 
 
 def _uptrend_pct_to_score(pct: float) -> int:
-    """Convert an uptrend participation percentage to a 0-100 score."""
+    """Convert an uptrend participation percentage to a 0-100 score.
+
+    Applies the documented bands (references/exposure_framework.md, "Uptrend
+    Score"): >50% -> 75-100, 35-50% -> 50-74, 20-35% -> 30-49, <20% -> 0-29.
+    Each band is interpolated so its endpoints stay inside its own score range;
+    saturating the upper bands at 100 pushed 20-35% readings past the
+    uptrend >= 50 broad-participation gate.
+    """
     if pct > 50:
-        return min(100, int(50 + pct))
+        # 50% -> 75, 75%+ -> 100
+        return min(100, int(75 + (pct - 50) / 25 * 25))
     elif pct >= 35:
-        return int(35 + pct)
+        # 35% -> 50, 50% -> 74
+        return int(50 + (pct - 35) / 15 * 24)
     elif pct >= 20:
-        return int(20 + pct)
+        # 20% -> 31, 35% -> 49
+        return int(31 + (pct - 20) / 15 * 18)
     else:
-        return int(pct)
+        # 0% -> 0, 20% -> 29
+        return int(pct / 20 * 29)
 
 
 def extract_uptrend_score(data: Optional[dict]) -> Optional[int]:

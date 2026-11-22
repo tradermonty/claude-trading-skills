@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- exposure-coach: the uptrend participation percentage now maps through the documented score bands (`>50%` 75-100, `35-50%` 50-74, `20-35%` 30-49, `<20%` 0-29) instead of a saturating `50 + pct` curve. A 30-35% participation reading previously scored 50-70 and reported BROAD participation while the framework's own 50-point gate treats that range as below healthy; it now scores 43-49 and reports MODERATE. Package rebuilt.
+
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 
