@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- options-strategy-advisor: replace hand-written FMP HTTP with generated stable transport, support flat EOD history, validate chronological finite price evidence and warn on unverified legacy dividend-zero fallback. Preserve offline pricing and formulas; reset stale security evidence and rebuild the standalone package (Refs #495).
+
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 

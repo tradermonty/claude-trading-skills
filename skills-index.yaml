@@ -1283,7 +1283,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: passed
+    security_review: not_verified
   operational_role:
     type: standalone
     rationale: "Provides self-contained options education, pricing, and scenario analysis."

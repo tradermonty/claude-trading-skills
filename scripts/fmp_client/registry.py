@@ -422,3 +422,19 @@ SKILLS["trader-memory-core"] = SkillConfig(
     class_constants=(),
     extensions=("memory_history",),
 )
+
+# ---- Issue #495 Batch D: options pricing market-data helpers ----
+SKILLS["options-strategy-advisor"] = SkillConfig(
+    skill="options-strategy-advisor",
+    title="FMP API Client for Options Strategy Advisor",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=90,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Stable quote/profile and raw EOD evidence for pricing helpers",),
+    class_constants=(),
+    extensions=("options_market",),
+)

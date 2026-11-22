@@ -544,11 +544,10 @@ skills:
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: passed
-      rationale: "Automated scan: consumes the API key through a caller-provided argument rather than an environment read, on direct HTTP calls made with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/options-strategy-advisor/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
+      value: not_verified
+      rationale: "The #495 generated-client migration supersedes the prior direct-HTTP heuristic scan. Synthetic transport tests do not constitute a new security certification."
       evidence:
-      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - note: "Previous scan predates this migration; independent security assessment pending."
 - id: pair-trade-screener
   profile: executable_standalone_trading
   overrides:

@@ -137,14 +137,12 @@ IV: 25% (or use HV if not provided)
 
 **方法:**
 ```python
-# 90日分の価格データを取得
-prices = get_historical_prices("AAPL", days=90)
+from black_scholes import fetch_historical_prices_for_hv, calculate_historical_volatility
 
-# 日次リターンを計算
-returns = np.log(prices / prices.shift(1))
-
-# 年率換算ボラティリティ
-HV = returns.std() * np.sqrt(252)  # 252取引日
+prices = fetch_historical_prices_for_hv("AAPL", api_key, days=91)
+if prices is None or len(prices) < 91:
+    raise ValueError("Historical evidence unavailable; supply verified IV instead")
+HV = calculate_historical_volatility(prices, window=90)
 ```
 
 **出力:**
@@ -462,3 +460,11 @@ days_to_earnings = (earnings_date - today).days
 **スクリプト:**
 
 - `skills/options-strategy-advisor/scripts/black_scholes.py`
+
+### 任意のFMPデータ取得ヘルパー
+
+Pythonヘルパーは同梱の生成クライアントでstableのquote/profile/full-EODを取得します。明示的なAPIキーが必要で、利用できるエンドポイントは契約プランに依存します。旧APIへのフォールバックはありません。手動入力のモデルとデモはオフラインで動作します。
+
+履歴は未来の日付を除外し、最新の指定セッション数を古い順で返します。選択行すべてにadjCloseがある場合のみそれを使い、全行で調整価格がない場合のみproviderのcloseを使います。closeが調整済みである保証はありません。調整価格の混在や不正な値、取得失敗はNoneとなります。
+
+配当取得失敗時は互換性のため0.0を返しますが、「unverified zero fallback」の警告が出ます。無配が確認できたことにはならないため、確認済みの利回りをOptionPricer(q=...)に指定してください。明示的なゼロ配当ではこの警告は出ません。オフラインテストでは実APIアクセスや実市場での精度を検証していません。

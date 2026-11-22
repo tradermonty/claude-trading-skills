@@ -145,14 +145,12 @@ IV: 25% (or use HV if not provided)
 
 **Method:**
 ```python
-# Fetch 90 days of price data
-prices = get_historical_prices("AAPL", days=90)
+from black_scholes import fetch_historical_prices_for_hv, calculate_historical_volatility
 
-# Calculate daily returns
-returns = np.log(prices / prices.shift(1))
-
-# Annualized volatility
-HV = returns.std() * np.sqrt(252)  # 252 trading days
+prices = fetch_historical_prices_for_hv("AAPL", api_key, days=91)
+if prices is None or len(prices) < 91:
+    raise ValueError("Historical evidence unavailable; supply verified IV instead")
+HV = calculate_historical_volatility(prices, window=90)
 ```
 
 **Output:**
@@ -281,7 +279,7 @@ Read `references/pricing_and_volatility_guidance.md` when explaining pricing lim
 - **Educational focus**: Strategies explained clearly
 - **Theoretical pricing**: Black-Scholes approximation
 - **User IV input**: Optional, defaults to HV
-- **No real-time data required**: FMP Free tier sufficient
+- **No real-time data required**: optional FMP endpoints require plan access
 - **Dependencies**: Python 3.9+, numpy, scipy, requests
 
 ## Common Use Cases
@@ -328,4 +326,12 @@ Read `references/common_use_cases.md` when planning the workflow for a typical r
 **Version**: 1.0
 **Last Updated**: 2025-11-08
 **Dependencies**: Python 3.9+, numpy, scipy, requests
-**API**: FMP API (Free tier sufficient)
+**API**: FMP API (optional; endpoint access depends on plan)
+
+### Optional FMP evidence helpers
+
+The Python helpers use the adjacent generated client and stable quote/profile/full-EOD endpoints, with shared retry, timeout and redaction behavior and no legacy HTTP fallback. Pass an explicit API key; endpoint access depends on your FMP plan. The manual model and the fixed-input `black_scholes.py` demonstration remain offline.
+
+History accepts flat EOD rows or matching historical envelopes, excludes future dates and returns the newest requested sessions oldest first. It uses `adjClose` only for a consistently adjusted selection; otherwise provider `close` is used only when adjusted evidence is absent throughout. Provider close is not certified as adjusted. Invalid or mixed evidence returns `None`, as does an unavailable quote. Do not calculate a model from missing evidence.
+
+`get_dividend_yield` retains the legacy `0.0` failure return and emits an **unverified zero fallback** warning. That fallback does not establish no dividend: supply a verified dividend yield as `OptionPricer(q=...)`. An explicit provider dividend of zero returns zero without the warning. No live endpoint access or option-market accuracy has been verified by offline tests.

@@ -75,7 +75,8 @@ FMP_PACKAGE_DRIFT_COMMAND = (
     "--skill stockbee-episodic-pivot-analyzer "
     "--skill stockbee-exhaustion-hammer-screener "
     "--skill stockbee-momentum-burst-screener "
-    "--skill stockbee-setup-fluency-trainer --skill pair-trade-screener --skill technical-analyst"
+    "--skill stockbee-setup-fluency-trainer --skill pair-trade-screener --skill technical-analyst "
+    "--skill options-strategy-advisor"
 )
 
 

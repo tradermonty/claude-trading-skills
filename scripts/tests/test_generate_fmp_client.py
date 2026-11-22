@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.provider_contracts import _APIKEY_RE
 
 GENERATED_SKILLS = {
+    "options-strategy-advisor",
     "trader-memory-core",
     "downtrend-duration-analyzer",
     "signal-postmortem",
@@ -55,6 +56,7 @@ STOCKBEE_SKILLS = {
     "stockbee-setup-fluency-trainer",
 }
 NO_COMPAT_SKILLS = {
+    "options-strategy-advisor",
     "trader-memory-core",
     "downtrend-duration-analyzer",
     "signal-postmortem",
@@ -76,6 +78,7 @@ NO_COMPAT_SKILLS = {
     *STOCKBEE_SKILLS,
 }
 NO_BUDGET_FAMILY_B = {
+    "options-strategy-advisor",
     "trader-memory-core",
     "downtrend-duration-analyzer",
     "signal-postmortem",
