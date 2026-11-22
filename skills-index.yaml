@@ -1240,13 +1240,13 @@ skills:
   status: production
   verification:
     instruction_contract: not_verified
-    unit_tests: passed
+    unit_tests: not_verified
     workflow_contract: not_verified
     end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: passed
+    security_review: not_verified
   operational_role:
     type: workflow_step
   summary: Judges whether a market failed to react to news favorable to a crowded speculative
@@ -1283,7 +1283,7 @@ skills:
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified
-    security_review: passed
+    security_review: not_verified
   operational_role:
     type: standalone
     rationale: "Provides self-contained options education, pricing, and scenario analysis."
@@ -2010,8 +2010,8 @@ skills:
   verification:
     instruction_contract: not_verified
     unit_tests: not_verified
-    workflow_contract: passed
-    end_to_end_replay: passed
+    workflow_contract: not_verified
+    end_to_end_replay: not_verified
     data_provenance: not_verified
     financial_logic_review: not_verified
     empirical_validation: not_verified

@@ -681,7 +681,7 @@ class TestE2EFMPPath:
 
         scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
 
-        with patch("etf_scanner._requests_lib") as mock_req:
+        with patch("requests.Session") as mock_req:
             quote_resp = MagicMock()
             quote_resp.status_code = 200
             quote_resp.json.return_value = [
@@ -697,7 +697,7 @@ class TestE2EFMPPath:
                     },
                 ]
             }
-            mock_req.get.side_effect = [quote_resp, hist_resp]
+            mock_req.return_value.get.side_effect = [quote_resp, hist_resp]
             scanner.batch_stock_metrics(["NVDA"])
 
         stats = scanner.backend_stats()

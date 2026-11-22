@@ -75,7 +75,15 @@ FMP_PACKAGE_DRIFT_COMMAND = (
     "--skill stockbee-episodic-pivot-analyzer "
     "--skill stockbee-exhaustion-hammer-screener "
     "--skill stockbee-momentum-burst-screener "
-    "--skill stockbee-setup-fluency-trainer --skill pair-trade-screener --skill technical-analyst"
+    "--skill stockbee-setup-fluency-trainer "
+    "--skill pair-trade-screener "
+    "--skill signal-postmortem "
+    "--skill technical-analyst "
+    "--skill downtrend-duration-analyzer "
+    "--skill trader-memory-core "
+    "--skill news-reaction-failure-analyzer "
+    "--skill options-strategy-advisor "
+    "--skill theme-detector"
 )
 
 
@@ -375,10 +383,12 @@ def test_fmp_package_drift_pre_commit_hook_matches_constant() -> None:
     package_files = package_hook.get("files")
     assert isinstance(package_files, str)
     for skill in skills:
-        assert skill in package_files, skill
+        assert re.search(package_files, f"skills/{skill}/SKILL.md"), skill
+        assert re.search(package_files, f"skill-packages/{skill}.skill"), skill
 
     client_hook = next(h for h in hooks if h.get("id") == "fmp-client-drift")
     client_files = client_hook.get("files")
     assert isinstance(client_files, str)
     for skill in skills:
-        assert skill in client_files, skill
+        assert re.search(client_files, f"skills/{skill}/scripts/fmp_client.py"), skill
+        assert re.search(client_files, f"skills/{skill}/scripts/_fmp_compat.py"), skill
