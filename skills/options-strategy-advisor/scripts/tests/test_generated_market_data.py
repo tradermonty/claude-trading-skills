@@ -2,7 +2,7 @@
 
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -209,6 +209,56 @@ def test_missing_key_never_uses_ambient_credentials(scripted, monkeypatch):
     monkeypatch.setenv("FMP_API_KEY", "another-fictional-value")
     assert bs.get_current_stock_price("AAPL", "") is None
     assert not calls
+
+
+@pytest.mark.parametrize("failure", ["request", "close"])
+def test_session_failures_discard_quote_and_redact_diagnostics(
+    scripted, monkeypatch, capsys, failure
+):
+    calls, _ = scripted(Response([{"symbol": "AAPL", "price": 150}]))
+    closed = []
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("provider echoed " + KEY + " " + quote(KEY, safe=""))
+
+    def close(session):
+        closed.append(session)
+        if failure == "close":
+            fail()
+
+    monkeypatch.setattr(requests.Session, "close", close)
+    if failure == "request":
+        monkeypatch.setattr(requests.Session, "get", fail)
+    assert bs.get_current_stock_price("AAPL", KEY) is None
+    assert len(closed) == 1
+    assert len(calls) == (1 if failure == "close" else 0)
+    output = capsys.readouterr()
+    assert "unavailable" in output.err
+    assert KEY not in output.out + output.err
+    assert quote(KEY, safe="") not in output.out + output.err
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"historicalStockList": {}},
+        {"historicalStockList": [None]},
+        {"historicalStockList": [], "historical": history()},
+        {"symbol": "AAPL", "historical": [None]},
+    ],
+)
+def test_malformed_history_envelopes_are_unavailable_and_close_session(scripted, payload):
+    calls, closed = scripted(Response(payload))
+    assert bs.fetch_historical_prices_for_hv("AAPL", KEY, as_of=AS_OF) is None
+    assert len(calls) == len(closed) == 1
+
+
+@pytest.mark.parametrize("as_of", ["2026-11-20", 42, datetime(2026, 11, 20)])
+def test_invalid_as_of_rejected_before_http(scripted, as_of):
+    calls, closed = scripted()
+    with pytest.raises(ValueError, match="as_of must be a date"):
+        bs.fetch_historical_prices_for_hv("AAPL", KEY, as_of=as_of)
+    assert not calls and not closed
 
 
 def test_manual_demo_and_formulas_never_need_http():
