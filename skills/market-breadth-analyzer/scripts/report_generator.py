@@ -238,7 +238,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
             if adjustment and adjustment != "unknown":
                 lines.append(f"- **Adjustment:** {adjustment}")
             lines.append("")
-        
+
         # Use generic benchmark fields if available, fall back to sp500_* for compatibility
         benchmark_pct = c6.get("benchmark_pct_change", c6.get("sp500_pct_change", 0))
         benchmark_latest = c6.get("benchmark_latest", c6.get("sp500_latest", "N/A"))
@@ -356,8 +356,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("")
     lines.append(
         "**Note on Benchmark:** The default data source uses SPY ETF as a proxy for the S&P 500 index. "
-        "Output fields use generic \"benchmark\" naming with explicit instrument metadata "
-        "(symbol, type, proxy target) for clarity. Legacy \"sp500_*\" fields are retained "
+        'Output fields use generic "benchmark" naming with explicit instrument metadata '
+        '(symbol, type, proxy target) for clarity. Legacy "sp500_*" fields are retained '
         "for backward compatibility."
     )
     lines.append("")

@@ -147,16 +147,16 @@ class TestNearFlat:
 
 
 class TestInstrumentMetadata:
-    """Instrument metadata should be present and correct for default source."""
+    """Instrument metadata is explicit, and unknown by default in the library."""
 
-    def test_default_instrument_metadata_present(self, make_row):
+    def test_default_instrument_metadata_unknown(self, make_row):
         rows = _make_divergence_rows(make_row, 80)
         result = calculate_divergence(rows)
         assert "instrument" in result
         inst = result["instrument"]
-        assert inst["symbol"] == "SPY"
-        assert inst["instrument_type"] == "ETF"
-        assert inst["proxy_for"] == "S&P 500 / ^GSPC"
+        assert inst["symbol"] == "unknown"
+        assert inst["instrument_type"] == "unknown"
+        assert inst["proxy_for"] == "unknown"
         assert inst["adjustment"] == "unknown"
 
     def test_custom_instrument_metadata_respected(self, make_row):
@@ -170,14 +170,31 @@ class TestInstrumentMetadata:
         result = calculate_divergence(rows, custom)
         assert result["instrument"] == custom
 
-    def test_signal_uses_instrument_label(self, make_row):
+    def test_default_signal_does_not_claim_spy(self, make_row):
         rows = _make_divergence_rows(make_row, 80)
         result = calculate_divergence(rows)
+        assert "unknown" in result["signal"]
+        assert "SPY" not in result["signal"]
+
+    def test_cli_spy_metadata_yields_spy_label(self, make_row):
+        rows = _make_divergence_rows(make_row, 80)
+        spy = {
+            "symbol": "SPY",
+            "instrument_type": "ETF",
+            "proxy_for": "S&P 500 / ^GSPC",
+            "adjustment": "unknown",
+        }
+        result = calculate_divergence(rows, spy)
         assert "SPY (S&P 500 / ^GSPC proxy)" in result["signal"]
 
     def test_custom_signal_uses_custom_label(self, make_row):
         rows = _make_divergence_rows(make_row, 80)
-        custom = {"symbol": "CUSTOM", "instrument_type": "index", "proxy_for": "Custom Index", "adjustment": "total-return"}
+        custom = {
+            "symbol": "CUSTOM",
+            "instrument_type": "index",
+            "proxy_for": "Custom Index",
+            "adjustment": "total-return",
+        }
         result = calculate_divergence(rows, custom)
         assert "CUSTOM (Custom Index proxy)" in result["signal"]
 
@@ -192,7 +209,12 @@ class TestInstrumentMetadata:
 
     def test_no_data_includes_instrument(self, make_row):
         rows = _make_divergence_rows(make_row, 15)
-        custom = {"symbol": "TEST", "instrument_type": "index", "proxy_for": "Test Index", "adjustment": "unknown"}
+        custom = {
+            "symbol": "TEST",
+            "instrument_type": "index",
+            "proxy_for": "Test Index",
+            "adjustment": "unknown",
+        }
         result = calculate_divergence(rows, custom)
         assert result["data_available"] is False
         assert result["instrument"] == custom

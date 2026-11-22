@@ -64,15 +64,14 @@ def calculate_divergence(rows: list[dict], instrument: dict | None = None) -> di
     # Early Warning: short-term bearish divergence while long-term healthy
     early_warning = w20["score"] <= 25 and w60["score"] >= 50
 
-    # Build instrument metadata for default source (SPY proxy for S&P 500)
-    # For custom sources, use provided instrument or mark as unknown
+    # Callers that know the source pass explicit metadata. The library default
+    # stays unknown so non-SPY data is never silently labelled as SPY; the CLI
+    # supplies the SPY proxy metadata for its default source explicitly.
     if instrument is None:
-        # Check if this is the default TraderMonty source by looking at the data
-        # The default source uses SPY as proxy for S&P 500
         instrument = {
-            "symbol": "SPY",
-            "instrument_type": "ETF",
-            "proxy_for": "S&P 500 / ^GSPC",
+            "symbol": "unknown",
+            "instrument_type": "unknown",
+            "proxy_for": "unknown",
             "adjustment": "unknown",
         }
 
@@ -189,13 +188,15 @@ def _score_divergence(sp_pct: float, breadth_chg: float) -> tuple[int, str]:
     return 50, "Mixed signals"
 
 
-def _generate_signal(sp_pct: float, breadth_chg: float, div_type: str, score: int, instrument: dict | None = None) -> str:
+def _generate_signal(
+    sp_pct: float, breadth_chg: float, div_type: str, score: int, instrument: dict | None = None
+) -> str:
     """Generate human-readable signal."""
-    benchmark_label = "S&P 500"
-    if instrument and instrument.get("symbol"):
+    benchmark_label = "unknown"
+    if instrument and instrument.get("symbol") and instrument["symbol"] != "unknown":
         symbol = instrument["symbol"]
         proxy_for = instrument.get("proxy_for")
-        if proxy_for:
+        if proxy_for and proxy_for != "unknown":
             benchmark_label = f"{symbol} ({proxy_for} proxy)"
         else:
             benchmark_label = symbol
