@@ -120,6 +120,74 @@ Markdown レポートでは、次のグループを確認します。
 
 ---
 
+## 8. 他のスキルとの組み合わせ
+
+### ブレイクアウト売買の流れ
+
+1. **VCP Screener** で候補を抽出します。
+2. **Breakout Trade Planner** で entry、stop、position size を計画します。
+3. **Technical Analyst** でチャートを確認します。
+4. 必要に応じて **Trader Memory Core** に投資仮説を記録し、**Portfolio Manager** で保有状況を確認します。
+
+5分足の実行監視を行うツールが利用できる場合も、計画内容と注文を人が確認してから進めてください。
+
+### 決算後モメンタムの例
+
+決算後の候補を調べる場合は、**Earnings Trade Analyzer** や **PEAD Screener** で候補を絞り、必要に応じて VCP Screener でパターンを確認した後、このスキルで価格とリスクを計画できます。各ツールの出力が同じ銘柄・評価日を対象にしていることを確認してください。
+
+---
+
+## 9. トラブルシューティング
+
+### 「Input JSON missing schema_version」
+
+古い VCP レポートには `schema_version` がないことがあります。VCP Screener を再実行して新しい JSON を作成してください。
+
+```bash
+python3 skills/vcp-screener/scripts/screen_vcp.py --output-dir reports/
+```
+
+### すべての候補が却下された
+
+JSON の `rejected` 配列で候補ごとの理由を確認します。よくある理由は、worst-case リスクが 8% を超える、スコアが 70 未満、VCP パターンが無効、または価格が pivot から離れすぎていることです。
+
+### actionable 候補がない
+
+このスキルの判定は意図的に厳格です。条件を満たす候補がない場合は、無理に注文計画を作らず、レポートの却下・保留理由を確認してください。
+
+---
+
+## 10. リファレンス
+
+### 主な CLI オプション
+
+| オプション | 既定値 | 説明 |
+|---|---:|---|
+| `--input` | 必須 | VCP Screener の JSON |
+| `--account-size` | 必須 | 口座資産額 |
+| `--risk-pct` | 0.5 | 1トレードあたりの基準リスク率 (%) |
+| `--max-position-pct` | 10.0 | 1ポジションの最大比率 (%) |
+| `--max-sector-pct` | 30.0 | セクターの最大比率 (%) |
+| `--max-portfolio-heat-pct` | 6.0 | portfolio heat の上限 (%) |
+| `--target-r-multiple` | 2.0 | 利益目標の R 倍率 |
+| `--stop-buffer-pct` | 1.0 | contraction low より下に置く余裕 (%) |
+| `--max-chase-pct` | 2.0 | pivot から許容する最大乖離 (%) |
+| `--current-exposure-json` | なし | 既存エクスポージャーの JSON |
+| `--output-dir` | `reports/` | レポートの出力先 |
+
+### 出力ファイル
+
+`breakout_trade_plan_*.json` は機械処理向けの計画と注文テンプレートを含み、`breakout_trade_plan_*.md` は確認用の人間向けレポートです。どちらも注文を実行するものではありません。
+
+### 主な判定コード
+
+| コード | 意味 |
+|---|---|
+| `ACTIONABLE_PREBREAKOUT` | ブレイクアウト前で、すべての判定条件を満たす |
+| `REVALIDATION_BREAKOUT` | ブレイクアウト状態のため、価格の再確認が必要 |
+
+---
+
 ## 7. 注意点
 
 - pivot から大きく上に離れた候補を無理に追いかけないでください。
