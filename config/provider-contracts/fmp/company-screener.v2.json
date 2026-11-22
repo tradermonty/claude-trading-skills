@@ -8,7 +8,7 @@
     "exchange": "NASDAQ,NYSE",
     "limit": "5"
   },
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-09-26",
   "recording": "live /stable/company-screener response; full-sector field set kept verbatim, apikey query param never recorded",
   "owners": [
@@ -41,15 +41,13 @@
         "int",
         "float"
       ],
-      "nullable": false
-    },
+      "nullable": false, "finite": true},
     "price": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": false
-    },
+      "nullable": false, "finite": true},
     "sector": {
       "types": [
         "str"
@@ -85,8 +83,7 @@
         "int",
         "float"
       ],
-      "nullable": false
-    }
+      "nullable": false, "finite": true}
   },
   "optional_fields": [
     "industry",

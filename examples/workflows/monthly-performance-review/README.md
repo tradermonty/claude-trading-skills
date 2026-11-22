@@ -44,6 +44,9 @@ append-only history. Pass `--effective-date` and `--confirm-activation`; the rep
 also needs `--review-after`, the sample shape needs `--source-review-id`, and
 `--include-trade-rule-changes` opts in to the postmortem-driven `trade_rule_changes`
 (the only path when the coach step was skipped). `check_pre_trade_discipline.py
---approved-rules-ledger` then requires an acknowledgement for each applied rule. Feeding
-adherence back into next month's review as a replayed step remains open under #514.
+--approved-rules-ledger` then requires an acknowledgement for each applied rule. Adherence feedback is a manual input of step 6, not a replayed step: after a month ends,
+`skills/pre-trade-discipline-gate/scripts/review_rule_adherence.py --month <month>` counts the
+gate acknowledgements of each approved rule from the gate journal into a local report, and the
+human reads it at step 6. The replay does not consume or validate that report, and it never
+changes the ledger.
 Neither a successful replay nor its final approval places trades or writes broker state.

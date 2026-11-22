@@ -7,7 +7,7 @@
     "from": "2026-10-01",
     "to": "2026-10-07"
   },
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-10-17",
   "recording": "Live HTTP 200 /stable/economic-calendar response recorded 2026-10-17; three unmodified public macro-event rows selected from 568 rows. Request credentials are not recorded.",
   "owners": [
@@ -50,36 +50,31 @@
         "int",
         "float"
       ],
-      "nullable": true
-    },
+      "nullable": true, "finite": true},
     "estimate": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": true
-    },
+      "nullable": true, "finite": true},
     "actual": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": true
-    },
+      "nullable": true, "finite": true},
     "change": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": true
-    },
+      "nullable": true, "finite": true},
     "changePercentage": {
       "types": [
         "int",
         "float"
       ],
-      "nullable": true
-    }
+      "nullable": true, "finite": true}
   },
   "optional_fields": [
     "unit"

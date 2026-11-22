@@ -13,6 +13,8 @@ DD at history[k] has age_sessions = k. expired = age > expiration_sessions.
 
 from __future__ import annotations
 
+import math
+
 from models import DDRecord, DistributionDayRule
 
 EPSILON = 1e-12
@@ -74,7 +76,8 @@ def enrich_records(
         r.high_since = max(valid_highs) if valid_highs else r.close
 
         # --- Invalidation: scan history[0 : k] within expiration window ---
-        r.invalidation_price = r.close * (1 + rule.invalidation_gain_pct)
+        threshold = r.close * (1 + rule.invalidation_gain_pct)
+        r.invalidation_price = threshold if math.isfinite(threshold) else None
         ev = _find_invalidation_event(effective_history, k, r.close, rule)
         r.invalidation_date = ev["date"] if ev else None
         r.invalidation_trigger_price = ev["trigger_price"] if ev else None
@@ -114,7 +117,7 @@ def _has_valid_detection_pair(today: dict, yesterday: dict) -> bool:
             v = row.get(key)
             if v is None or v <= 0:
                 return False
-    return True
+    return math.isfinite(today["close"] / yesterday["close"] - 1)
 
 
 def _find_invalidation_event(
@@ -140,6 +143,8 @@ def _find_invalidation_event(
         raise ValueError(f"Unsupported invalidation_price_source: {source}")
 
     threshold = dd_close * (1 + rule.invalidation_gain_pct)
+    if not math.isfinite(threshold):
+        return None
     min_event_index = max(dd_index - rule.expiration_sessions, 0)
 
     # Most-recent-first: index dd_index-1 is newest post-DD, min_event_index is oldest in scan.

@@ -329,7 +329,7 @@ def analyze_dividends(
                 dividend_amount_basis=amount_basis,
             )
         rows.append((d, amt, item.get("label")))
-        declared[d] = bool(item.get("declarationDate"))
+        declared[d] = bool(str(item.get("declarationDate") or "").strip())
 
     rows.sort(key=lambda r: r[0])
     all_dates = [r[0] for r in rows]

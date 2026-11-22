@@ -37,3 +37,12 @@ Plan and code each have at most three independent review rounds. Resolve every a
 - Final skill suite: 393 passed (340 existing + 53 new regression cases).
 - Verification-baseline parity: 12 passed. Security axis reset to not_verified; no unsupported axis upgrades.
 - No live provider/account writes or production acceptance claimed.
+
+
+## PR #853 review follow-up: blank declaration dates
+
+- A whitespace-only declarationDate was mistakenly truthy after the two-pass eligible-history refactor. Normalize the declarationDate on the current eligible row before recording confirmation; do not reuse the first loop's last decl value.
+- Added 12 regressions for empty/space/tab/newline/full-width/nonbreaking-space values, chronological/reversed provider order, and a valid padded latest declaration alongside an older blank row. Before the fix: 8 failed, 4 passed; blank dates could incorrectly turn a near-floor RECHECK into PASS.
+- Preserve the near-floor gate: a blank latest declaration remains unconfirmed and STEP1-RECHECK; a real latest declaration remains confirmed and STEP1-PASS regardless of input order. Merge current main without discarding either changelog entry, rebuild the archive and run normal hooks.
+
+- Follow-up validation: all 405 Kanchi tests pass, including the 12 new declaration/order regressions; verification-baseline parity 12 passed; archive rebuilt and matches source. Pricing/basis logic is otherwise unchanged.
