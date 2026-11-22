@@ -526,20 +526,15 @@ skills:
   profile: executable_workflow_trading
   overrides:
     unit_tests:
-      value: passed
-      rationale: "Produced JSON report asserted to match the declared schema (test_json_report_matches_schema) with markdown section checks; graceful parse_error reports on invalid JSON; fail-closed data_date chain; unusable-record boundary cases. Revalidated 202 skill-local tests, including selected report/row/map stale and future refusal, legacy absence versus explicit invalidity, oldest audit age, input non-mutation and CLI refusal before provider calls (#649)."
+      value: not_verified
+      rationale: "The #495 generated-transport migration changes retry/session/counter semantics; the prior assessed revision is stale. Current synthetic regressions are not a renewed eight-axis certification."
       evidence:
-      - command: python3 scripts/ci_test_matrix.py install news-reaction-failure-analyzer && python3 scripts/ci_test_matrix.py run news-reaction-failure-analyzer
-      - tests: skills/news-reaction-failure-analyzer/scripts/tests/test_analyze_news_reaction.py + test_reaction_math.py + test_cot_market_vintage.py
-      - provenance: skills/<id>/scripts/tests (skill-local) validate this skill's own output schema and fail-closed behavior; repo-level tests are NOT cited as schema evidence
-      - assessed_commit: 10e38e140f181613c824e186c24a5e307cef7414  # pragma: allowlist secret
-      - assessed_date: '2026-11-08'
+      - note: "Previous unit evidence predates this migration; reassessment pending."
     security_review:
-      value: passed
-      rationale: "Automated scan: reads the API key from the environment and makes HTTP calls with an explicit timeout; no hard-coded credential, no shell invocation, and no key-bearing request that prints or logs an unredacted exception (heuristic scan of skills/news-reaction-failure-analyzer/scripts clean); a requirements.txt manifest passes `scripts/check_skill_deps.py check`; automated scan via scripts/backfill_security_review.py, 2026-11-15; no named reviewer."
+      value: not_verified
+      rationale: "Generated transport and a static-detail diagnostic policy supersede the earlier direct-HTTP heuristic scan; independent security assessment is pending."
       evidence:
-      - scan: automated scan via scripts/backfill_security_review.py (2026-11-15); reconciliation against integrations[]; no named reviewer
-      - assessed_commit: 7b236db9fb3eceaa8a24ec1d419724c9c8a2eeb4  # pragma: allowlist secret
+      - note: "No live credential or renewed security certification is claimed."
 - id: options-strategy-advisor
   profile: executable_standalone_trading
   overrides:

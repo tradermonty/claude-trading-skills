@@ -45,6 +45,7 @@ class SkillConfig:
     configurable_timeout: bool = False  # new targets may retain a per-instance timeout
     pair_history_validation: bool = False  # target-scoped guard before shared normalization
     query_auth: bool = False  # send FMP API key as ?apikey= instead of a header
+    redaction_template: str = "redaction.py.tmpl"  # optional target-only diagnostic policy
 
 
 _FAMILY_A_FEATURES = (
@@ -421,4 +422,22 @@ SKILLS["trader-memory-core"] = SkillConfig(
     feature_lines=("- Exact-range raw price evidence for optional MAE/MFE",),
     class_constants=(),
     extensions=("memory_history",),
+)
+
+
+# Issue #495 Batch D: retain raw light-EOD evidence and static diagnostics.
+SKILLS["news-reaction-failure-analyzer"] = SkillConfig(
+    skill="news-reaction-failure-analyzer",
+    title="FMP API Client for News Reaction Failure Analyzer",
+    family="B",
+    has_quote=False,
+    budget=False,
+    hist_days=140,
+    hist_return_list=True,
+    has_compat=False,
+    query_auth=True,
+    feature_lines=("- Exact-range stable light-EOD evidence with static diagnostics",),
+    class_constants=(),
+    extensions=("news_light_history",),
+    redaction_template="static_redaction.py.tmpl",
 )
