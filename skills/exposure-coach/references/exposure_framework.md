@@ -176,9 +176,19 @@ object requires a YYYY-MM-DD `date`, boolean `is_fresh`, and string/null
 `warning`; malformed metadata rejects the input. Producer-reported stale data
 and nonempty warnings remain visible in JSON, Markdown and stderr without
 excluding an otherwise usable report. Even `is_fresh: true` is only the
-producer's statement: the consumer does not recheck current age or bind that
-date to every ranking row. The strict provenance gate still covers only
-breadth and uptrend inputs. Sector and Uptrend share upstream data; Confidence
+producer's statement. Without `--as-of`, the consumer does not recheck current
+age. It never binds that date to every ranking row.
+With `--as-of`, the sector source date (`meta.freshness.date`) is also
+age-gated: it is compared with the evaluation date in America/New_York, and a
+source date after that date or older than `--max-age-days` excludes sector as
+unusable. In `--require-provenance` mode, unknown freshness and undated legacy
+sector input are excluded too. An excluded sector never stops the run; it is
+reported in `inputs_unparseable`, `input_warnings`, Markdown and stderr. A
+passing check sets `freshness_verified: true` and records `freshness_check`.
+Outside strict mode, an `--as-of` that is not timezone-aware or a negative
+`--max-age-days` does not stop the run: the sector age gate is skipped with a
+sector warning.
+Sector and Uptrend share upstream data; Confidence
 counts accepted inputs, not independent evidence or verified freshness.
 
 #### Supported legacy sector inputs

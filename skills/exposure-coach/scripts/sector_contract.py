@@ -7,8 +7,9 @@ all 11 sectors. Do not substitute the producer's relative rotation score.
 
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from evaluation_coverage import evaluation_input_usable
 
@@ -28,6 +29,8 @@ SECTORS = (
 )
 _SECTOR_NAMES = {name.casefold(): name for name in SECTORS}
 _CANONICAL_KEYS = {"ranking", "groups", "trends", "cycle_phase"}
+# The producer's freshness date is the latest US market date in its source.
+SOURCE_TIMEZONE = "America/New_York"
 
 
 @dataclass(frozen=True)
@@ -245,3 +248,48 @@ def parse_sector_input(data: object) -> SectorInput:
             error="evaluation_coverage is incomplete or invalid", canonical=canonical
         )
     return _canonical_sector(data) if canonical else _legacy_sector(data)
+
+
+@dataclass(frozen=True)
+class AgeCheck:
+    """Result of comparing the sector source date with the evaluation date."""
+
+    error: Optional[str] = None
+    evaluation_date: Optional[str] = None
+    age_days: Optional[int] = None
+
+
+def check_sector_age(
+    freshness: Optional[dict], *, evaluation, max_age_days: int, require_known: bool
+) -> AgeCheck:
+    """Age-gate the producer's source date against the evaluation clock (#840).
+
+    The producer computes ``is_fresh`` when it writes the report, so that flag
+    says nothing about a later evaluation. Compare the source date with the
+    evaluation date in New York instead. ``evaluation`` is a timezone-aware
+    datetime or ISO string. A missing source date passes only when
+    ``require_known`` is false.
+    """
+    if isinstance(evaluation, str):
+        evaluation = datetime.fromisoformat(evaluation.replace("Z", "+00:00"))
+    evaluation_date = evaluation.astimezone(ZoneInfo(SOURCE_TIMEZONE)).date()
+    label = evaluation_date.isoformat()
+    if freshness is None:
+        if require_known:
+            return AgeCheck(
+                error="sector source date is unknown; strict mode requires a dated report",
+                evaluation_date=label,
+            )
+        return AgeCheck(evaluation_date=label)
+    source = date.fromisoformat(freshness["date"])
+    age = (evaluation_date - source).days
+    if age < 0:
+        error = f"sector source date {source} is after the evaluation date {label}"
+    elif age > max_age_days:
+        error = (
+            f"sector source data is stale: source date {source} is {age} days before "
+            f"the evaluation date {label} (limit {max_age_days})"
+        )
+    else:
+        error = None
+    return AgeCheck(error=error, evaluation_date=label, age_days=age)

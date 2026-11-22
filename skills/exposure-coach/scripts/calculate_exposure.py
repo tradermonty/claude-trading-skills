@@ -10,6 +10,7 @@ import argparse
 import json
 import math
 import sys
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -17,7 +18,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evaluation_coverage import evaluation_input_usable
 from provenance_contract import validate_market_inputs
-from sector_contract import parse_sector_input
+from sector_contract import SOURCE_TIMEZONE, SectorInput, check_sector_age, parse_sector_input
 
 # Component weights for composite score
 WEIGHTS = {
@@ -648,6 +649,23 @@ def generate_markdown_report(result: dict) -> str:
         freshness = sector["source_freshness"]
         source_date = freshness["date"] if freshness else "Unknown"
         source_status = str(freshness["is_fresh"]) if freshness else "Unknown"
+        check = sector.get("freshness_check")
+        if check and check.get("age_days") is None:
+            freshness_line = (
+                f"- Source date unknown; the age gate for {check['evaluation_date']} "
+                "could not be applied (non-strict run)."
+            )
+        elif check:
+            freshness_line = (
+                f"- Source date revalidated against {check['evaluation_date']} "
+                f"({check['timezone']}): age {check['age_days']} day(s), "
+                f"limit {check['max_age_days']}."
+            )
+        else:
+            freshness_line = (
+                "- Freshness is not revalidated by Exposure Coach; pass --as-of to "
+                "age-gate the sector source date."
+            )
         lines.extend(
             [
                 "### Sector Integration",
@@ -655,7 +673,7 @@ def generate_markdown_report(result: dict) -> str:
                 f"- Sector score: {sector['score']}; equal weight across {sector['sector_count']} sectors.",
                 f"- Mean uptrend ratio: {sector['mean_ratio']:.1%}; positive slopes: {sector['positive_slope_count']}/{sector['sector_count']}.",
                 f"- Source date: {source_date}; producer-reported fresh at generation: {source_status}.",
-                "- Freshness is not revalidated by Exposure Coach; the breadth/uptrend provenance gate does not cover sector.",
+                freshness_line,
                 f"- Scope: {sector['scope']}.",
                 "- Sector and Uptrend share upstream data. Confidence measures input completeness, not independent evidence or prediction accuracy.",
                 "",
@@ -665,6 +683,49 @@ def generate_markdown_report(result: dict) -> str:
         lines.extend([f"### Input Warnings: {name}", *[f"- {warning}" for warning in warnings], ""])
 
     return "\n".join(lines)
+
+
+def _parse_evaluation(value: str) -> Optional[datetime]:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.utcoffset() is not None else None
+
+
+def _age_gate_sector(
+    sector_input: SectorInput, *, evaluation_at: datetime, max_age_days: int, strict: bool
+) -> SectorInput:
+    """Revalidate sector freshness against the evaluation clock (#840).
+
+    Sector is optional, so a stale or undated report is excluded as unusable
+    instead of aborting the run.
+    """
+    if sector_input.score is None:
+        return sector_input
+    if not sector_input.canonical:
+        if strict:
+            return SectorInput(
+                error="legacy sector input has no source date; strict mode requires a dated "
+                "canonical sector-analyst report"
+            )
+        return sector_input
+    freshness = sector_input.details["source_freshness"]
+    check = check_sector_age(
+        freshness, evaluation=evaluation_at, max_age_days=max_age_days, require_known=strict
+    )
+    if check.error:
+        return SectorInput(error=check.error, canonical=True)
+    details = dict(sector_input.details)
+    # Unknown freshness passes only in non-strict mode and stays unverified.
+    details["freshness_verified"] = freshness is not None
+    details["freshness_check"] = {
+        "evaluation_date": check.evaluation_date,
+        "timezone": SOURCE_TIMEZONE,
+        "max_age_days": max_age_days,
+        "age_days": check.age_days,
+    }
+    return replace(sector_input, details=details)
 
 
 def main():
@@ -696,6 +757,25 @@ def main():
     args = parser.parse_args()
     if args.require_provenance and (not args.run_id or not args.as_of):
         parser.error("strict mode requires --run-id and --as-of")
+    # Before #840, non-strict runs ignored --as-of/--max-age-days entirely, so a
+    # malformed value only aborts in strict mode. Otherwise the sector age gate
+    # is skipped with a warning.
+    evaluation_at = None
+    age_gate_skipped = None
+    if args.as_of is not None:
+        evaluation_at = _parse_evaluation(args.as_of)
+        if evaluation_at is None:
+            age_gate_skipped = "--as-of is not a timezone-aware ISO timestamp"
+        elif args.max_age_days < 0:
+            age_gate_skipped = "--max-age-days is negative"
+        if age_gate_skipped:
+            if args.require_provenance:
+                parser.error(
+                    "--as-of must be a timezone-aware ISO timestamp"
+                    if evaluation_at is None
+                    else "--max-age-days must be a nonnegative integer"
+                )
+            evaluation_at = None
 
     # Load all inputs
     breadth_data = load_json_file(args.breadth)
@@ -729,6 +809,13 @@ def main():
 
     # Sector has its own diagnostics and only validated legacy posture context.
     sector_input = parse_sector_input(sector_data)
+    if evaluation_at is not None:
+        sector_input = _age_gate_sector(
+            sector_input,
+            evaluation_at=evaluation_at,
+            max_age_days=args.max_age_days,
+            strict=args.require_provenance,
+        )
     if not evaluation_input_usable(institutional_data):
         institutional_data = None
 
@@ -785,10 +872,14 @@ def main():
             f"Warning: unparsable sector input; {reason}. Sector excluded.",
             file=sys.stderr,
         )
-    elif sector_input.warnings:
-        input_warnings["sector"] = list(sector_input.warnings)
-        for warning in sector_input.warnings:
-            print(f"Warning: sector: {warning}", file=sys.stderr)
+    else:
+        sector_warnings = list(sector_input.warnings)
+        if args.sector is not None and age_gate_skipped:
+            sector_warnings.append(f"Sector age gate skipped: {age_gate_skipped}.")
+        if sector_warnings:
+            input_warnings["sector"] = sector_warnings
+            for warning in sector_warnings:
+                print(f"Warning: sector: {warning}", file=sys.stderr)
 
     # Determine outputs
     exposure_ceiling = determine_exposure_ceiling(composite)

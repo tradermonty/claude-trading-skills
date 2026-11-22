@@ -103,9 +103,19 @@ participation use other accepted inputs. Supported legacy `sector_score` and
 
 Inspect `sector_integration` for the mapping version, per-sector calculation,
 and `source_freshness`. A producer's `is_fresh: true` is a recorded claim, not a
-current freshness check; `freshness_verified` remains false. Stale or unknown
-freshness produces warnings without excluding otherwise usable sector data.
-Sector input remains outside the strict breadth/uptrend provenance gate.
+current freshness check. Without `--as-of`, `freshness_verified` remains false
+and stale or unknown freshness produces warnings without excluding otherwise
+usable sector data.
+With `--as-of`, the sector source date (`meta.freshness.date`) is also
+age-gated: it is compared with the evaluation date in America/New_York, and a
+source date after that date or older than `--max-age-days` excludes sector as
+unusable. In `--require-provenance` mode, unknown freshness and undated legacy
+sector input are excluded too. An excluded sector never stops the run; it is
+reported in `inputs_unparseable`, `input_warnings`, Markdown and stderr. A
+passing check sets `freshness_verified: true` and records `freshness_check`.
+Outside strict mode, an `--as-of` that is not timezone-aware or a negative
+`--max-age-days` does not stop the run: the sector age gate is skipped with a
+sector warning.
 
 **Verification pitfall:** Inspect `inputs_provided`, `inputs_missing`,
 `inputs_unparseable` and `input_warnings` (diagnostic fields appear only when
