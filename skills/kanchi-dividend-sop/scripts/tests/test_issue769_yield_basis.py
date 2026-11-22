@@ -54,14 +54,14 @@ def test_no_detected_special_is_not_proof_of_matching_five_year_basis():
     assert row_with_history(special=False)["buy_target_price"] is None
 
 
-def test_legacy_provider_total_path_records_unverified_basis():
+def test_legacy_profile_only_path_withholds_unavailable_dividends():
     row = build_entry_row(
         "LEGACY", 0.5, {"price": 100.0}, {"lastDiv": 4.0}, [{"dividendYield": 0.04}] * 5
     )
-    assert row["buy_target_price"] == 88.89
-    assert row["annual_dividend_basis"] == "provider_total_unverified"
+    assert row["buy_target_price"] is None
+    assert row["annual_dividend_basis"] == "unavailable"
     assert row["historical_yield_basis"] == "provider_total_unverified"
-    assert row["yield_basis"] == "provider_total_unverified"
+    assert row["yield_basis"] == "unavailable"
 
 
 def test_csv_and_markdown_explain_withheld_target(tmp_path):
