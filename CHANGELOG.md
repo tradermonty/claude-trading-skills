@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FMP provider contracts: require finite numeric values across all required numeric fields, rejecting HTTP-200 overflow/NaN/infinity evidence rather than reporting compatibility success. Version the nine tightened contracts as v2; preserve recorded fixtures, nullability, valid zero/negative values and generic opt-in behavior (Refs #332).
 - Complete the original 20-skill FMP migration inventory: integrate options/news changes, migrate theme quote/history/holdings to generated stable transport with owned sessions, remove symbol-wide endpoint disabling, and enforce a reasoned exact legacy-reference manifest in local/CI checks. Refresh all registered FMP package gates and theme evidence/docs/archive (#495).
 
 - options-strategy-advisor: replace hand-written FMP HTTP with generated stable transport, support flat EOD history, validate chronological finite price evidence and warn on unverified legacy dividend-zero fallback. Preserve offline pricing and formulas; reset stale security evidence and rebuild the standalone package (Refs #495).
