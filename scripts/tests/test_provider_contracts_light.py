@@ -3,6 +3,7 @@
 import copy
 import importlib.util
 import json
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -31,7 +32,7 @@ def nrf(monkeypatch):
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(time, "sleep", lambda _: None)
     return module
 
 
@@ -63,7 +64,9 @@ def test_recorded_contract_and_consumer_agree(contract, nrf):
     assert result["series"] == sorted((row["date"], row["price"]) for row in contract.fixture)
     assert result["proxy_used"] is True
     client.session.get.assert_called_once()
-    assert client.session.get.call_args.args == (nrf.STABLE_EOD_URL,)
+    assert client.session.get.call_args.args == (
+        "https://financialmodelingprep.com" + contract.endpoint_path,
+    )
     assert client.session.get.call_args.kwargs["params"]["from"] == contract.query["from"]
     assert client.session.get.call_args.kwargs["timeout"] == 30
 

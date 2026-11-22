@@ -10,6 +10,7 @@ import argparse
 import json
 import math
 import sys
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -17,6 +18,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evaluation_coverage import evaluation_input_usable
 from provenance_contract import validate_market_inputs
+from sector_contract import SOURCE_TIMEZONE, SectorInput, check_sector_age, parse_sector_input
 
 # Component weights for composite score
 WEIGHTS = {
@@ -93,15 +95,26 @@ def _regime_input_is_usable(data: Optional[dict]) -> bool:
     return True
 
 
-def load_json_file(path: Optional[Path]) -> Optional[dict]:
-    """Load a JSON file if it exists and is valid."""
-    if path is None or not path.exists():
+def load_json_file(
+    path: Optional[Path], *, load_errors: Optional[list[str]] = None
+) -> Optional[dict]:
+    """Load JSON, optionally retaining read/parse failures for report diagnostics."""
+    if path is None:
         return None
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, UnicodeError, json.JSONDecodeError) as e:
-        print(f"Warning: Could not load {path}: {e}", file=sys.stderr)
+        if load_errors is not None:
+            if isinstance(e, json.JSONDecodeError):
+                reason = f"JSON parse failed: {e.msg} (line {e.lineno}, column {e.colno})"
+            elif isinstance(e, UnicodeError):
+                reason = "Text decoding failed: expected UTF-8 JSON"
+            else:
+                reason = f"File read failed ({type(e).__name__}): {e.strerror}"
+            load_errors.append(reason)
+        elif not isinstance(e, FileNotFoundError):
+            print(f"Warning: Could not load {path}: {e}", file=sys.stderr)
         return None
 
 
@@ -322,23 +335,8 @@ def extract_theme_score(data: Optional[dict]) -> Optional[int]:
 
 
 def extract_sector_score(data: Optional[dict]) -> Optional[int]:
-    """Extract sector condition score."""
-    if not evaluation_input_usable(data):
-        return None
-    if "sector_score" in data:
-        return int(data["sector_score"])
-    if "dispersion" in data and "leadership" in data:
-        disp = data["dispersion"]
-        lead = data["leadership"].lower()
-        if disp < 0.1 and lead in ["technology", "consumer discretionary"]:
-            return 85
-        elif disp < 0.2:
-            return 65
-        elif lead in ["utilities", "staples", "healthcare"]:
-            return 35
-        else:
-            return 50
-    return None
+    """Read canonical sector health v1 or a validated legacy sector score."""
+    return parse_sector_input(data).score
 
 
 def extract_institutional_score(data: Optional[dict]) -> Optional[int]:
@@ -646,10 +644,88 @@ def generate_markdown_report(result: dict) -> str:
 
     if result.get("inputs_unparseable"):
         lines.extend(["### Unparsable Inputs", ", ".join(result["inputs_unparseable"]), ""])
+    sector = result.get("sector_integration")
+    if sector:
+        freshness = sector["source_freshness"]
+        source_date = freshness["date"] if freshness else "Unknown"
+        source_status = str(freshness["is_fresh"]) if freshness else "Unknown"
+        check = sector.get("freshness_check")
+        if check and check.get("age_days") is None:
+            freshness_line = (
+                f"- Source date unknown; the age gate for {check['evaluation_date']} "
+                "could not be applied (non-strict run)."
+            )
+        elif check:
+            freshness_line = (
+                f"- Source date revalidated against {check['evaluation_date']} "
+                f"({check['timezone']}): age {check['age_days']} day(s), "
+                f"limit {check['max_age_days']}."
+            )
+        else:
+            freshness_line = (
+                "- Freshness is not revalidated by Exposure Coach; pass --as-of to "
+                "age-gate the sector source date."
+            )
+        lines.extend(
+            [
+                "### Sector Integration",
+                f"- Mapping: `{sector['mapping_version']}` (uncalibrated heuristic).",
+                f"- Sector score: {sector['score']}; equal weight across {sector['sector_count']} sectors.",
+                f"- Mean uptrend ratio: {sector['mean_ratio']:.1%}; positive slopes: {sector['positive_slope_count']}/{sector['sector_count']}.",
+                f"- Source date: {source_date}; producer-reported fresh at generation: {source_status}.",
+                freshness_line,
+                f"- Scope: {sector['scope']}.",
+                "- Sector and Uptrend share upstream data. Confidence measures input completeness, not independent evidence or prediction accuracy.",
+                "",
+            ]
+        )
     for name, warnings in result.get("input_warnings", {}).items():
         lines.extend([f"### Input Warnings: {name}", *[f"- {warning}" for warning in warnings], ""])
 
     return "\n".join(lines)
+
+
+def _parse_evaluation(value: str) -> Optional[datetime]:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.utcoffset() is not None else None
+
+
+def _age_gate_sector(
+    sector_input: SectorInput, *, evaluation_at: datetime, max_age_days: int, strict: bool
+) -> SectorInput:
+    """Revalidate sector freshness against the evaluation clock (#840).
+
+    Sector is optional, so a stale or undated report is excluded as unusable
+    instead of aborting the run.
+    """
+    if sector_input.score is None:
+        return sector_input
+    if not sector_input.canonical:
+        if strict:
+            return SectorInput(
+                error="legacy sector input has no source date; strict mode requires a dated "
+                "canonical sector-analyst report"
+            )
+        return sector_input
+    freshness = sector_input.details["source_freshness"]
+    check = check_sector_age(
+        freshness, evaluation=evaluation_at, max_age_days=max_age_days, require_known=strict
+    )
+    if check.error:
+        return SectorInput(error=check.error, canonical=True)
+    details = dict(sector_input.details)
+    # Unknown freshness passes only in non-strict mode and stays unverified.
+    details["freshness_verified"] = freshness is not None
+    details["freshness_check"] = {
+        "evaluation_date": check.evaluation_date,
+        "timezone": SOURCE_TIMEZONE,
+        "max_age_days": max_age_days,
+        "age_days": check.age_days,
+    }
+    return replace(sector_input, details=details)
 
 
 def main():
@@ -681,6 +757,25 @@ def main():
     args = parser.parse_args()
     if args.require_provenance and (not args.run_id or not args.as_of):
         parser.error("strict mode requires --run-id and --as-of")
+    # Before #840, non-strict runs ignored --as-of/--max-age-days entirely, so a
+    # malformed value only aborts in strict mode. Otherwise the sector age gate
+    # is skipped with a warning.
+    evaluation_at = None
+    age_gate_skipped = None
+    if args.as_of is not None:
+        evaluation_at = _parse_evaluation(args.as_of)
+        if evaluation_at is None:
+            age_gate_skipped = "--as-of is not a timezone-aware ISO timestamp"
+        elif args.max_age_days < 0:
+            age_gate_skipped = "--max-age-days is negative"
+        if age_gate_skipped:
+            if args.require_provenance:
+                parser.error(
+                    "--as-of must be a timezone-aware ISO timestamp"
+                    if evaluation_at is None
+                    else "--max-age-days must be a nonnegative integer"
+                )
+            evaluation_at = None
 
     # Load all inputs
     breadth_data = load_json_file(args.breadth)
@@ -689,7 +784,8 @@ def main():
     top_risk_data = load_json_file(args.top_risk)
     ftd_data = load_json_file(args.ftd)
     theme_data = load_json_file(args.theme)
-    sector_data = load_json_file(args.sector)
+    sector_load_errors: list[str] = []
+    sector_data = load_json_file(args.sector, load_errors=sector_load_errors)
     institutional_data = load_json_file(args.institutional)
 
     for name, data in (
@@ -699,7 +795,6 @@ def main():
         ("top_risk", top_risk_data),
         ("ftd", ftd_data),
         ("theme", theme_data),
-        ("sector", sector_data),
         ("institutional", institutional_data),
     ):
         if (
@@ -712,9 +807,15 @@ def main():
                 file=sys.stderr,
             )
 
-    # These two raw inputs also influence bias/participation independently of scores.
-    if not evaluation_input_usable(sector_data):
-        sector_data = None
+    # Sector has its own diagnostics and only validated legacy posture context.
+    sector_input = parse_sector_input(sector_data)
+    if evaluation_at is not None:
+        sector_input = _age_gate_sector(
+            sector_input,
+            evaluation_at=evaluation_at,
+            max_age_days=args.max_age_days,
+            strict=args.require_provenance,
+        )
     if not evaluation_input_usable(institutional_data):
         institutional_data = None
 
@@ -739,15 +840,15 @@ def main():
         "top_risk": extract_top_risk_score(top_risk_data),
         "ftd": extract_ftd_score(ftd_data),
         "theme": extract_theme_score(theme_data),
-        "sector": extract_sector_score(sector_data),
+        "sector": sector_input.score,
         "institutional": extract_institutional_score(institutional_data),
     }
 
     # Calculate composite
     composite, provided, missing = calculate_composite_score(scores)
 
-    # Keep missing/unusable scoring semantics internally; only the diagnostics
-    # distinguish an omitted theme from a supplied but unusable file.
+    # Keep missing/unusable scoring semantics internally; diagnostics distinguish
+    # an omitted theme/sector from a supplied but unusable file.
     unparsable = ["theme"] if args.theme is not None and scores["theme"] is None else []
     input_warnings = {}
     if unparsable:
@@ -763,32 +864,59 @@ def main():
             for flag in flags:
                 print(f"Warning: theme: {flag}", file=sys.stderr)
 
+    if args.sector is not None and sector_input.score is None:
+        unparsable.append("sector")
+        reason = sector_load_errors[0] if sector_load_errors else sector_input.error
+        input_warnings["sector"] = [f"Sector excluded: {reason}."]
+        print(
+            f"Warning: unparsable sector input; {reason}. Sector excluded.",
+            file=sys.stderr,
+        )
+    else:
+        sector_warnings = list(sector_input.warnings)
+        if args.sector is not None and age_gate_skipped:
+            sector_warnings.append(f"Sector age gate skipped: {age_gate_skipped}.")
+        if sector_warnings:
+            input_warnings["sector"] = sector_warnings
+            for warning in sector_warnings:
+                print(f"Warning: sector: {warning}", file=sys.stderr)
+
     # Determine outputs
     exposure_ceiling = determine_exposure_ceiling(composite)
     missing_critical = len(set(missing) & CRITICAL_INPUTS)
     recommendation = determine_recommendation(composite, scores["top_risk"], missing_critical)
 
     regime_name = extract_regime_name(regime_data)
-    bias = determine_bias(regime_name, scores["theme"], sector_data, institutional_data)
-    participation = determine_participation(scores["uptrend"], scores["breadth"], sector_data)
+    bias = determine_bias(regime_name, scores["theme"], sector_input.context, institutional_data)
+    participation = determine_participation(
+        scores["uptrend"], scores["breadth"], sector_input.context
+    )
     confidence = determine_confidence(provided, missing)
 
     rationale = generate_rationale(
         composite, recommendation, participation, bias, scores, missing, exposure_ceiling
     )
 
-    if unparsable:
-        rationale += " Supplied theme input is unparsable and excluded."
+    for name in unparsable:
+        rationale += f" Supplied {name} input is unparsable and excluded."
     if (
         isinstance(theme_data, dict)
         and theme_data.get("report_type") == "theme_detector"
         and scores["theme"] is not None
     ):
         rationale += " Theme score uses an uncalibrated directional-heat heuristic."
-    if input_warnings:
+    if "theme" in input_warnings:
         rationale += (
             " Upstream theme quality warnings remain; confidence measures input completeness only."
         )
+    if sector_input.details:
+        rationale += (
+            " Sector score uses an uncalibrated equal-sector uptrend-health heuristic;"
+            " it shares upstream data with Uptrend and does not independently set bias or participation."
+            " Confidence measures input completeness, not verified quality or independent confirmation."
+        )
+    if sector_input.warnings:
+        rationale += " Upstream sector warnings remain."
 
     # Build result
     now = datetime.now(timezone.utc)
@@ -812,6 +940,8 @@ def main():
         result["inputs_unparseable"] = unparsable
     if input_warnings:
         result["input_warnings"] = input_warnings
+    if sector_input.details:
+        result["sector_integration"] = sector_input.details
 
     if lineage is not None:
         result["input_lineage"] = lineage

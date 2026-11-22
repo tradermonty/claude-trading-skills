@@ -123,14 +123,92 @@ scores: strong=85, stable=65, rotating=40, collapsing=20):
 
 ### Sector Score
 
-Based on sector performance dispersion and leadership quality:
+#### Canonical Sector Analyst reports
 
-| Sector Condition | Score |
-|------------------|-------|
-| Broad strength, low dispersion | 80-100 |
-| Mixed with clear leaders | 50-79 |
-| High dispersion, defensive leading | 30-49 |
-| Broad weakness | 0-29 |
+Consume `analyze_sector_rotation.py --json --save` output without adding flat
+legacy fields. The consumer owns mapping version `sector_uptrend_health_v1`.
+It is an uncalibrated equal-sector health heuristic, not a forecast or a
+stock-weighted market ratio. `groups.score` measures relative cyclical versus
+defensive rotation and is not substituted for absolute sector health.
+
+Require `ranking` to contain each of these sectors exactly once: Technology,
+Consumer Cyclical, Communication Services, Financial, Industrials, Utilities,
+Consumer Defensive, Healthcare, Real Estate, Energy, and Basic Materials.
+Names and Up/Down labels are case-insensitive and trimmed. Each row requires
+a finite non-boolean `ratio` in [0,1], a `slope` that is null or a finite
+non-boolean number in [-1,1], and a string trend label. A null slope (the
+producer emits it for a blank CSV cell) or a label that disagrees with the
+slope sign is accepted with a warning and gets no trend adjustment.
+A report whose slopes are all null is rejected, as the provider contract requires.
+Both `trends.uptrend_count`/`downtrend_count` must be integers, and both sector
+lists must match the ranking rows without duplicates. Reject the whole report
+on missing, partial, contradictory or invalid required data. A canonical-shaped
+payload cannot bypass validation by adding `sector_score` or legacy context.
+
+For each ratio `r`, reuse Uptrend Analyzer's absolute ratio bands:
+
+| Ratio range | Unrounded base score |
+|---|---|
+| `0 <= r < 0.097` | `9 * r / 0.097` |
+| `0.097 <= r < 0.25` | `10 + 29 * (r - 0.097) / (0.25 - 0.097)` |
+| `0.25 <= r < 0.37` | `40 + 29 * (r - 0.25) / (0.37 - 0.25)` |
+| `0.37 <= r < 0.50` | `70 + 19 * (r - 0.37) / (0.50 - 0.37)` |
+| `0.50 <= r <= 1` | `min(100, 90 + 10 * (r - 0.50) / 0.10)` |
+
+Add +5 for an Up label with positive slope, -5 for a Down label with negative
+slope, and 0 otherwise (as Uptrend Analyzer does); clamp
+each adjusted value to [0,100]. Average the 11 **unrounded** adjusted values
+equally, then round once to the nearest integer, ties to even. There is no
+low-spread bonus: uniformly weak sectors must not gain health points merely
+because their ratios are similar.
+
+This mapping supplies only the sector component of the composite (base weight
+5%). Canonical ranking, rotation and ratio spread do not supply `leadership` or
+`dispersion` to the separate bias/participation rules; those outputs use other
+accepted inputs. Rejected sector data contributes neither score nor context.
+
+`sector_integration` records `mapping_version`, `score`, `sector_count`,
+`positive_slope_count`, `mean_ratio`, per-sector `sector_health`, and the scope.
+Its `source_freshness` preserves the producer's metadata and
+`freshness_verified` is false. `meta` must be an object; absent/null
+`meta.freshness` is accepted with an unknown-freshness warning. A freshness
+object requires a YYYY-MM-DD `date`, boolean `is_fresh`, and string/null
+`warning`; malformed metadata rejects the input. Producer-reported stale data
+and nonempty warnings remain visible in JSON, Markdown and stderr without
+excluding an otherwise usable report. Even `is_fresh: true` is only the
+producer's statement. Without `--as-of`, the consumer does not recheck current
+age. It never binds that date to every ranking row.
+With `--as-of`, the sector source date (`meta.freshness.date`) is also
+age-gated: it is compared with the evaluation date in America/New_York, and a
+source date after that date or older than `--max-age-days` excludes sector as
+unusable. In `--require-provenance` mode, unknown freshness and undated legacy
+sector input are excluded too. An excluded sector never stops the run; it is
+reported in `inputs_unparseable`, `input_warnings`, Markdown and stderr. A
+passing check sets `freshness_verified: true` and records `freshness_check`.
+Outside strict mode, an `--as-of` that is not timezone-aware or a negative
+`--max-age-days` does not stop the run: the sector age gate is skipped with a
+sector warning.
+Sector and Uptrend share upstream data; Confidence
+counts accepted inputs, not independent evidence or verified freshness.
+
+#### Supported legacy sector inputs
+
+An explicit finite non-boolean `sector_score` in [0,100] retains integer
+conversion. Otherwise use the existing `dispersion`/`leadership` mapping in
+the following order:
+
+| Legacy condition | Score |
+|---|---:|
+| Dispersion < 0.1 and Technology or Consumer Discretionary leads | 85 |
+| Otherwise, dispersion < 0.2 | 65 |
+| Otherwise, Utilities, Staples or Healthcare leads | 35 |
+| Otherwise | 50 |
+
+Require finite non-boolean dispersion in [0,1] and nonempty string leadership
+when those fields are supplied, including alongside an explicit score. Valid
+legacy context retains its existing bias/participation behavior. Omitted sector
+input stays in `inputs_missing`; a supplied unreadable or unusable sector file
+appears in `inputs_unparseable`, with the reason in `input_warnings` and stderr.
 
 ### Institutional Score
 

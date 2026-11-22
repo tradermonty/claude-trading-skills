@@ -181,60 +181,44 @@ class TestFMPEndpointFallback:
     def _make_scanner(self):
         return ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_stable_success_uses_stable_url_format(self, mock_requests):
         """Stable endpoint uses ?symbol= query param format."""
         scanner = self._make_scanner()
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [{"symbol": "AAPL", "pe": 30}]
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._fmp_request("quote", "AAPL,MSFT")
         assert result is not None
 
         # Verify stable URL was called (base URL without symbols in path)
-        called_url = mock_requests.get.call_args[0][0]
+        called_url = mock_requests.return_value.get.call_args[0][0]
         assert "stable/quote" in called_url
         assert "AAPL,MSFT" not in called_url  # symbols in params, not path
-        called_params = mock_requests.get.call_args[1]["params"]
+        called_params = mock_requests.return_value.get.call_args[1]["params"]
         assert called_params["symbol"] == "AAPL,MSFT"
 
-    @patch("etf_scanner._requests_lib")
-    def test_stable_fails_falls_back_to_v3_path_format(self, mock_requests):
-        """When stable fails, v3 endpoint uses /SYMBOLS path format."""
+    @patch("requests.Session")
+    def test_stable_failure_has_no_legacy_http(self, mock_requests):
         scanner = self._make_scanner()
+        mock_requests.return_value.get.return_value = MagicMock(status_code=500, text="denied")
+        assert scanner._fmp_request("quote", "AAPL") is None
+        assert mock_requests.return_value.get.call_count == 1
+        assert "/stable/quote" in mock_requests.return_value.get.call_args.args[0]
 
-        # First call (stable) fails
-        fail_resp = MagicMock()
-        fail_resp.status_code = 500
-        # Second call (v3) succeeds
-        ok_resp = MagicMock()
-        ok_resp.status_code = 200
-        ok_resp.json.return_value = [{"symbol": "AAPL"}]
-        mock_requests.get.side_effect = [fail_resp, ok_resp]
-
-        result = scanner._fmp_request("quote", "AAPL,MSFT")
-        assert result is not None
-
-        # Verify v3 call uses path-based symbols
-        v3_call = mock_requests.get.call_args_list[1]
-        called_url = v3_call[0][0]
-        assert "/api/v3/quote/AAPL,MSFT" in called_url
-        # Symbols should NOT be in params for v3
-        assert "symbol" not in v3_call[1]["params"]
-
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_both_fail_returns_none(self, mock_requests):
         """When both stable and v3 fail, returns None."""
         scanner = self._make_scanner()
         fail_resp = MagicMock()
         fail_resp.status_code = 500
-        mock_requests.get.return_value = fail_resp
+        mock_requests.return_value.get.return_value = fail_resp
 
         result = scanner._fmp_request("quote", "AAPL")
         assert result is None
-        assert scanner.backend_stats()["fmp_failures"] == 2
+        assert scanner.backend_stats()["fmp_failures"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +230,7 @@ class TestFMPQuoteFetch:
     def _make_scanner(self):
         return ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_batch_returns_mapped_dict(self, mock_requests):
         """Quote fetch returns {symbol: quote_dict} mapping."""
         scanner = self._make_scanner()
@@ -256,14 +240,14 @@ class TestFMPQuoteFetch:
             {"symbol": "AAPL", "pe": 30, "price": 150},
             {"symbol": "MSFT", "pe": 35, "price": 400},
         ]
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._fetch_fmp_quotes(["AAPL", "MSFT"])
         assert "AAPL" in result
         assert "MSFT" in result
         assert result["AAPL"]["pe"] == 30
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_splits_large_batch_by_quote_batch_size(self, mock_requests):
         """Symbols exceeding FMP_QUOTE_BATCH_SIZE are split into batches."""
         scanner = self._make_scanner()
@@ -274,13 +258,13 @@ class TestFMPQuoteFetch:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [{"symbol": "X"}]
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         scanner._fetch_fmp_quotes(symbols)
         # 5 symbols / batch_size 3 = 2 batches, stable succeeds = 2 API calls
-        assert mock_requests.get.call_count == 2
+        assert mock_requests.return_value.get.call_count == 2
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_cache_uses_normalized_key(self, mock_requests):
         """BRK-B is cached as BRK.B (normalized)."""
         scanner = self._make_scanner()
@@ -289,7 +273,7 @@ class TestFMPQuoteFetch:
         mock_resp.json.return_value = [
             {"symbol": "BRK.B", "pe": 10, "price": 400},
         ]
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._fetch_fmp_quotes(["BRK-B"])
         # Cached under normalized key
@@ -297,7 +281,7 @@ class TestFMPQuoteFetch:
         # But result maps back to original symbol
         assert "BRK-B" in result
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_cache_hit_prevents_duplicate_call(self, mock_requests):
         """Second call for same symbol uses cache, no API call."""
         scanner = self._make_scanner()
@@ -306,27 +290,27 @@ class TestFMPQuoteFetch:
         mock_resp.json.return_value = [
             {"symbol": "AAPL", "pe": 30},
         ]
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         scanner._fetch_fmp_quotes(["AAPL"])
-        call_count_1 = mock_requests.get.call_count
+        call_count_1 = mock_requests.return_value.get.call_count
 
         scanner._fetch_fmp_quotes(["AAPL"])
-        call_count_2 = mock_requests.get.call_count
+        call_count_2 = mock_requests.return_value.get.call_count
 
         # No additional API call for cached symbol
         assert call_count_2 == call_count_1
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_api_error_returns_empty(self, mock_requests):
         """API error returns empty dict."""
         scanner = self._make_scanner()
-        mock_requests.get.side_effect = requests.ConnectionError("Connection error")
+        mock_requests.return_value.get.side_effect = requests.ConnectionError("Connection error")
 
         result = scanner._fetch_fmp_quotes(["AAPL"])
         assert result == {}
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_original_symbol_retry_normalizes_cache_key(self, mock_requests):
         """When retry returns BRK-B, it is cached under normalized BRK.B."""
         scanner = self._make_scanner()
@@ -338,7 +322,7 @@ class TestFMPQuoteFetch:
         retry_resp = MagicMock()
         retry_resp.status_code = 200
         retry_resp.json.return_value = [{"symbol": "BRK-B", "pe": 10}]
-        mock_requests.get.side_effect = [fail_resp, fail_resp, retry_resp]
+        mock_requests.return_value.get.side_effect = [fail_resp, retry_resp]
 
         result = scanner._fetch_fmp_quotes(["BRK-B"])
         # Cache key is normalized to BRK.B despite API returning BRK-B
@@ -379,7 +363,7 @@ class TestFMPHistoricalFetch:
 
         assert result == {"AAPL": [{"date": "2026-02-13", "close": 150}]}
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_multi_symbol_parses_historicalStockList(self, mock_requests):
         """Multi-symbol response uses historicalStockList format."""
         scanner = self._make_scanner()
@@ -402,14 +386,14 @@ class TestFMPHistoricalFetch:
                 },
             ]
         }
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._fetch_fmp_historical(["AAPL", "MSFT"], timeseries=20)
         assert "AAPL" in result
         assert "MSFT" in result
         assert len(result["AAPL"]) == 2
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_single_symbol_parses_historical(self, mock_requests):
         """Single-symbol response uses {symbol, historical} format."""
         scanner = self._make_scanner()
@@ -421,12 +405,12 @@ class TestFMPHistoricalFetch:
                 {"date": "2026-02-14", "close": 150},
             ],
         }
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._fetch_fmp_historical(["AAPL"], timeseries=20)
         assert "AAPL" in result
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_batches_in_groups_of_5(self, mock_requests):
         """Historical fetch batches symbols in groups of FMP_HIST_BATCH_SIZE."""
         scanner = self._make_scanner()
@@ -436,15 +420,15 @@ class TestFMPHistoricalFetch:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"historicalStockList": []}
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         scanner._fetch_fmp_historical(["A", "B", "C", "D", "E"], timeseries=20)
         # 5 symbols / batch_size 2 = 3 batch calls
         # No per-symbol retry since all symbols missing -> 5 more calls
         # But with empty data, all symbols are missing -> retry each
-        assert mock_requests.get.call_count == 3 + 5
+        assert mock_requests.return_value.get.call_count == 3 + 5
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_batch_incomplete_retries_missing_per_symbol(self, mock_requests):
         """Missing symbols from batch get retried individually."""
         scanner = self._make_scanner()
@@ -464,22 +448,22 @@ class TestFMPHistoricalFetch:
             "symbol": "MSFT",
             "historical": [{"close": 400}],
         }
-        mock_requests.get.side_effect = [batch_resp, retry_resp]
+        mock_requests.return_value.get.side_effect = [batch_resp, retry_resp]
 
         result = scanner._fetch_fmp_historical(["AAPL", "MSFT"], timeseries=20)
         assert "AAPL" in result
         assert "MSFT" in result
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_api_error_returns_empty(self, mock_requests):
         """Total failure returns empty dict."""
         scanner = self._make_scanner()
-        mock_requests.get.side_effect = requests.Timeout("Timeout")
+        mock_requests.return_value.get.side_effect = requests.Timeout("Timeout")
 
         result = scanner._fetch_fmp_historical(["AAPL"], timeseries=20)
         assert result == {}
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_original_symbol_retry_normalizes_result_key(self, mock_requests):
         """When retry returns BRK-B, result key is normalized to BRK.B."""
         scanner = self._make_scanner()
@@ -495,12 +479,10 @@ class TestFMPHistoricalFetch:
             "symbol": "BRK-B",
             "historical": [{"close": 400}],
         }
-        mock_requests.get.side_effect = [
-            fail_resp,
-            fail_resp,  # batch stable+v3
-            fail_resp,
-            fail_resp,  # per-symbol BRK.B stable+v3
-            retry_resp,  # per-symbol BRK-B stable succeeds
+        mock_requests.return_value.get.side_effect = [
+            fail_resp,  # normalized batch
+            fail_resp,  # normalized per-symbol retry
+            retry_resp,  # original symbol succeeds
         ]
 
         result = scanner._fetch_fmp_historical(["BRK-B"], timeseries=20)
@@ -518,7 +500,7 @@ class TestBatchStockMetricsFMP:
     def _make_scanner(self):
         return ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_pe_from_quote(self, mock_requests):
         """PE ratio is extracted from FMP quote data."""
         scanner = self._make_scanner()
@@ -537,13 +519,13 @@ class TestBatchStockMetricsFMP:
                 {"symbol": "AAPL", "historical": [{"close": 150 - i * 0.5} for i in range(20)]},
             ]
         }
-        mock_requests.get.side_effect = [quote_resp, hist_resp]
+        mock_requests.return_value.get.side_effect = [quote_resp, hist_resp]
 
         results = scanner._batch_stock_metrics_fmp(["AAPL"])
         assert len(results) == 1
         assert results[0]["pe_ratio"] == 30.5
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_52w_distances_from_quote(self, mock_requests):
         """52-week distances come from yearHigh/yearLow in quote."""
         scanner = self._make_scanner()
@@ -556,13 +538,13 @@ class TestBatchStockMetricsFMP:
         hist_resp = MagicMock()
         hist_resp.status_code = 200
         hist_resp.json.return_value = {"historicalStockList": []}
-        mock_requests.get.side_effect = [quote_resp] + [hist_resp] * 20
+        mock_requests.return_value.get.side_effect = [quote_resp] + [hist_resp] * 20
 
         results = scanner._batch_stock_metrics_fmp(["AAPL"])
         assert results[0]["dist_from_52w_high"] == round((200 - 150) / 200, 4)
         assert results[0]["dist_from_52w_low"] == round((150 - 100) / 150, 4)
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_rsi_from_historical_close(self, mock_requests):
         """RSI is calculated from historical close prices."""
         scanner = self._make_scanner()
@@ -581,14 +563,14 @@ class TestBatchStockMetricsFMP:
                 {"symbol": "AAPL", "historical": [{"close": float(150 - i)} for i in range(20)]},
             ]
         }
-        mock_requests.get.side_effect = [quote_resp, hist_resp]
+        mock_requests.return_value.get.side_effect = [quote_resp, hist_resp]
 
         results = scanner._batch_stock_metrics_fmp(["AAPL"])
         # After reversal: monotonic increase -> RSI = 100
         assert results[0]["rsi_14"] is not None
         assert results[0]["rsi_14"] == 100.0
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_missing_fields_return_none(self, mock_requests):
         """Missing quote fields produce None for those metrics."""
         scanner = self._make_scanner()
@@ -601,7 +583,7 @@ class TestBatchStockMetricsFMP:
         hist_resp = MagicMock()
         hist_resp.status_code = 200
         hist_resp.json.return_value = {"historicalStockList": []}
-        mock_requests.get.side_effect = [quote_resp] + [hist_resp] * 20
+        mock_requests.return_value.get.side_effect = [quote_resp] + [hist_resp] * 20
 
         results = scanner._batch_stock_metrics_fmp(["AAPL"])
         assert results[0]["pe_ratio"] is None
@@ -624,7 +606,7 @@ class TestETFVolumeRatioFMP:
     def _make_scanner(self):
         return ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_20d_60d_from_historical(self, mock_requests):
         """Volume ratio is calculated from 20d/60d averages."""
         scanner = self._make_scanner()
@@ -644,7 +626,7 @@ class TestETFVolumeRatioFMP:
                 {"symbol": "XLK", "historical": hist_data},
             ]
         }
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._batch_etf_volume_ratios_fmp(["XLK"])
         assert "XLK" in result
@@ -652,7 +634,7 @@ class TestETFVolumeRatioFMP:
         assert result["XLK"]["vol_60d"] is not None
         assert result["XLK"]["vol_ratio"] is not None
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_insufficient_data_returns_none(self, mock_requests):
         """Fewer than 20 data points returns None values."""
         scanner = self._make_scanner()
@@ -669,7 +651,7 @@ class TestETFVolumeRatioFMP:
                 },
             ]
         }
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner._batch_etf_volume_ratios_fmp(["XLK"])
         assert result["XLK"]["vol_20d"] is None
@@ -681,7 +663,7 @@ class TestETFVolumeRatioFMP:
 class TestBatchETFVolumeRatios:
     """Tests for the public batch_etf_volume_ratios method."""
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_batch_returns_all_etfs(self, mock_requests):
         """Batch fetches volume ratios for multiple ETFs."""
         scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
@@ -695,7 +677,7 @@ class TestBatchETFVolumeRatios:
                 {"symbol": "SMH", "historical": hist_data},
             ]
         }
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         result = scanner.batch_etf_volume_ratios(["XLK", "SMH"])
         assert "XLK" in result
@@ -708,7 +690,7 @@ class TestBatchETFVolumeRatios:
 class TestSymbolLevelFallback:
     """Tests for symbol-level FMP -> yfinance fallback."""
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     @patch("etf_scanner.yf")
     def test_partial_fmp_success_fills_missing_from_yfinance(self, mock_yf, mock_requests):
         """Partial FMP success -> missing symbols fall back to yfinance."""
@@ -743,7 +725,7 @@ class TestSymbolLevelFallback:
                 resp.status_code = 500
             return resp
 
-        mock_requests.get.side_effect = fake_get
+        mock_requests.return_value.get.side_effect = fake_get
 
         # yfinance fallback: download for MSFT
         mock_df = pd.DataFrame(
@@ -770,7 +752,7 @@ class TestSymbolLevelFallback:
         # Stats show fallback occurred
         assert scanner.backend_stats()["yf_fallbacks"] >= 1
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_all_fmp_success_no_yfinance_calls(self, mock_requests):
         """When FMP succeeds for all symbols, yfinance is not called."""
         scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
@@ -787,7 +769,7 @@ class TestSymbolLevelFallback:
                 {"symbol": "AAPL", "historical": [{"close": float(150 - i)} for i in range(20)]},
             ]
         }
-        mock_requests.get.side_effect = [quote_resp, hist_resp]
+        mock_requests.return_value.get.side_effect = [quote_resp, hist_resp]
 
         with patch("etf_scanner.yf") as mock_yf:
             scanner.batch_stock_metrics(["AAPL"])
@@ -833,7 +815,7 @@ class TestBackendStats:
         assert stats["yf_calls"] == 0
         assert stats["yf_fallbacks"] == 0
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     def test_stats_after_fmp_success(self, mock_requests):
         """FMP calls are counted after successful requests."""
         scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
@@ -843,14 +825,14 @@ class TestBackendStats:
         mock_resp.json.return_value = [
             {"symbol": "AAPL", "pe": 30, "price": 150, "yearHigh": 180, "yearLow": 120},
         ]
-        mock_requests.get.return_value = mock_resp
+        mock_requests.return_value.get.return_value = mock_resp
 
         scanner._fmp_request("quote", "AAPL")
         stats = scanner.backend_stats()
         assert stats["fmp_calls"] == 1
         assert stats["fmp_failures"] == 0
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     @patch("etf_scanner.yf")
     def test_stats_after_yfinance_fallback(self, mock_yf, mock_requests):
         """yf_calls and yf_fallbacks are counted after fallback."""
@@ -859,7 +841,7 @@ class TestBackendStats:
         # FMP fails for everything
         fail_resp = MagicMock()
         fail_resp.status_code = 500
-        mock_requests.get.return_value = fail_resp
+        mock_requests.return_value.get.return_value = fail_resp
 
         # yfinance works
         mock_df = pd.DataFrame(
@@ -881,7 +863,7 @@ class TestBackendStats:
         assert stats["yf_fallbacks"] == 1  # FMP attempted but failed entirely
         assert stats["fmp_failures"] > 0
 
-    @patch("etf_scanner._requests_lib")
+    @patch("requests.Session")
     @patch("etf_scanner.yf")
     def test_yf_calls_and_yf_fallbacks_increment(self, mock_yf, mock_requests):
         """yf_fallbacks increments when partial FMP data triggers fallback."""
@@ -900,7 +882,7 @@ class TestBackendStats:
                 {"symbol": "AAPL", "historical": [{"close": float(150 - i)} for i in range(20)]},
             ]
         }
-        mock_requests.get.side_effect = [
+        mock_requests.return_value.get.side_effect = [
             quote_resp,
             hist_resp,
             # Per-symbol retry for MSFT fails
@@ -929,14 +911,13 @@ class TestBackendStats:
 
 @pytest.mark.parametrize("failure", [requests.Timeout("secret-url"), ValueError("secret-json")])
 def test_fmp_expected_failure_warns_and_retains_fallback(monkeypatch, capsys, failure):
-    import etf_scanner
 
     scanner = ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)
     response = MagicMock(status_code=200)
     response.json.return_value = [{"symbol": "AAPL"}]
     get = MagicMock(side_effect=[failure, response])
-    monkeypatch.setattr(etf_scanner._requests_lib, "get", get)
-    assert scanner._fmp_request("quote", "AAPL") == [{"symbol": "AAPL"}]
+    monkeypatch.setattr(requests.Session, "get", lambda self, *a, **kw: get(*a, **kw))
+    assert scanner._fmp_request("quote", "AAPL") is None
     assert scanner.backend_stats()["fmp_failures"] == 1
     err = capsys.readouterr().err
     assert "degraded" in err.lower()
@@ -944,9 +925,8 @@ def test_fmp_expected_failure_warns_and_retains_fallback(monkeypatch, capsys, fa
 
 
 def test_fmp_programming_error_propagates(monkeypatch):
-    import etf_scanner
 
-    monkeypatch.setattr(etf_scanner._requests_lib, "get", MagicMock(side_effect=AssertionError))
+    monkeypatch.setattr(requests.Session, "get", MagicMock(side_effect=AssertionError))
     with pytest.raises(AssertionError):
         ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)._fmp_request("quote", "AAPL")
 
@@ -1048,7 +1028,7 @@ def test_optional_yfinance_imports_preserve_fmp(monkeypatch, missing):
     assert module.HAS_YFINANCE is (missing != "yfinance")
     response = MagicMock(status_code=200)
     response.json.return_value = [{"symbol": "FAKE"}]
-    monkeypatch.setattr(module._requests_lib, "get", MagicMock(return_value=response))
+    monkeypatch.setattr(requests.Session, "get", MagicMock(return_value=response))
     assert module.ETFScanner(fmp_api_key="test_key", rate_limit_sec=0)._fmp_request(
         "quote", "FAKE"
     ) == [{"symbol": "FAKE"}]
