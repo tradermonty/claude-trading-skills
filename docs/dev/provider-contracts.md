@@ -750,18 +750,20 @@ python3 scripts/check_provider_contracts.py check
 
 # Live probe. --provider fmp (default) needs FMP_API_KEY and makes one GET per
 # contract (query-param auth). --provider trader-monty probes the keyless public
-# CSVs. --provider all runs both. Scores each response, writes a JSON report
+# CSVs. --provider coingecko probes the keyless JSON universe endpoint.
+# --provider all runs all three providers. Scores each response, writes a JSON report
 # (default reports/<provider>_canary_<date>.json) with a top-level "provider"
 # key, and exits 1 if any contract is not ok.
-python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,all}] [--max-calls N] [--report PATH]
+python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,coingecko,all}] [--max-calls N] [--report PATH]
 
 # Render a canary report as markdown (stdout, or appended to --summary-file such as
 # $GITHUB_STEP_SUMMARY). --github also prints ::error / ::warning annotations to
 # stdout. Stdlib only. Exits 0 for missing/malformed reports (report problems never gate);
 # argument or write errors exit non-zero.
-python3 scripts/check_provider_contracts.py summarize --report PATH [--provider {fmp,trader-monty,all}] [--summary-file PATH] [--github]
-# A report's own "provider" key picks the titles (absent or fmp: FMP titles, otherwise
-# "Public CSV ..."). --provider only chooses the title when the report is missing.
+python3 scripts/check_provider_contracts.py summarize --report PATH [--provider {fmp,trader-monty,coingecko,all}] [--summary-file PATH] [--github]
+# A report's own "provider" key picks the titles: absent or fmp uses FMP titles,
+# trader-monty uses Public CSV titles, coingecko or all uses Provider titles.
+# --provider only chooses the title when the report is missing.
 ```
 
 ## S&P 500 constituent recording and consumer boundary
@@ -951,5 +953,8 @@ budget, removes stale reports, publishes a JSON artifact and summary, and has a
 five-minute job limit. Only the probe step is allowed to fail for schema drift;
 the existing operational-health gate remains mandatory and fails on missing,
 skipped or unusable response evidence. Nonempty HTTP-200 schema drift remains
-report-only, with annotations. This slice adds no persistent notification issue,
-workflow dispatch, live consumer full-run acceptance or security certification.
+report-only, with annotations. The workflow supports manual probes through
+`workflow_dispatch` as well as the weekly schedule. The local validation above
+did not dispatch an Actions run; scheduled/manual Actions acceptance and live
+consumer full-run acceptance remain separate. This slice adds no persistent
+notification issue or security certification.

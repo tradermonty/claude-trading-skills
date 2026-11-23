@@ -2,8 +2,8 @@
 
 Schema version **1.0**, alongside [data provenance](data-provenance-contract.md).
 Source: issue #711. Shared implementation: `scripts/evaluation_coverage.py`;
-identical standalone copies ship in VCP Screener, Exposure Coach and
-Downtrend Duration Analyzer.
+identical standalone copies ship in VCP Screener, Exposure Coach,
+Downtrend Duration Analyzer and Stockbee Momentum Burst Screener.
 
 ```json
 {
@@ -67,6 +67,23 @@ errors) and `invalid_data` (malformed rows). A 429, 401, 402 or 403 stops the
 run at that symbol; the rest are `not_requested`. With nothing evaluated by
 then, the run exits 1 and writes no report (#821, #822). Duration statistics
 describe only evaluated symbols.
+
+## Third producer: momentum burst screening
+
+The universe is the unique requested symbols: the FMP universe rows, the
+explicit symbols, or the offline JSON symbols (explicit symbols missing from
+that file are `missing_data`). A symbol is evaluated when its bars reach a
+screening decision; a filter rejection counts. `stale_price_data`,
+`insufficient_history`, `invalid_price_date` (an unparsable bar date) and
+`no_completed_price_data` (no bar on or before the expected session) are not
+negative decisions, so they are not evaluated.
+An empty fetch is `rate_limited` (HTTP 429 or the client's daily-limit stop),
+`plan_gated` (HTTP 402), `provider_error` (other HTTP statuses and transport
+errors), `missing_data` (the provider answered without rows) or `invalid_data`
+(rows with no usable bar). Symbols after an exhausted `--max-api-calls` budget
+are `not_requested`. The fetch policy is unchanged. A run with nothing
+evaluated still writes both reports with `not_evaluable` coverage instead of
+exiting without one.
 
 ## Consumers and replay
 
