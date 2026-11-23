@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- us-undervalued-growth-screener: reject invalid list responses before caching and keep symbol-specific data failures from disabling an entire endpoint (#846).
+- us-undervalued-growth-screener: validate the ratios/key-metrics TTM, profile, peers, quotes and historical-price payloads so HTTP-200 error bodies such as `{"message": ...}` are no longer cached, and disable an endpoint after 20 consecutive schema failures with no success (#846).
 - value-dividend-screener: write default results under the caller's `reports/` directory and accept a bare filename for `--output` (#850).
 - trader-memory-core: preserve legacy equity shorts in doctor/rebuild, reject corrupt indexes before thesis writes, and serialize cooperating local writers including fingerprint deduplication and explicit rebuild; let doctor inspect read-only snapshots without creating state directories (#847).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).
