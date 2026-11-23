@@ -700,11 +700,13 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
                 continue
             if parent.attr == "close" and isinstance(outer, ast.Call) and outer.func is parent:
                 continue
+        # The owner file is not exempt: a helper such as ``def leak(o):
+        # return o.http`` hands the raw client out through another receiver.
         owners = context.client_attributes.get(attr, frozenset())
-        if owners - {relative}:
+        if owners:
             findings.append(
                 f"{relative}:{node.lineno}: client attribute {ast.unparse(node)} of "
-                f"{', '.join(sorted(owners - {relative}))} is reached outside its owner"
+                f"{', '.join(sorted(owners))} is reached outside a known client receiver"
             )
     # A network module or imported callable passed around or returned as a
     # value (``return requests``) can be called later without a timeout.
@@ -782,6 +784,13 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
         except SyntaxError:
             continue
         own.update(n.attr for n in ast.walk(expr) if isinstance(n, ast.Attribute))
+        # Containers and plain names holding a client (``REG['k'] = self.http``,
+        # module-level ``SESSION = ...``) are reachable as ``module.REG``.
+        root = expr
+        while isinstance(root, (ast.Subscript, ast.Attribute)):
+            root = root.value
+        if isinstance(root, ast.Name) and root.id not in ("self", "cls"):
+            own.add(root.id)
         if isinstance(expr, ast.Name) and expr.id in class_body_names:
             own.add(expr.id)
     own_attributes = sorted(own)

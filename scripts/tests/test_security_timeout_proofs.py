@@ -568,3 +568,50 @@ def test_literal_getattr_for_a_close_check_is_allowed(collector, tmp_path):
     result = checks(collector, tmp_path, {"fmp_client.py": LITERAL_HTTP_CLIENT, "x.py": consumer})
 
     assert result["network_timeout_findings"] == []
+
+
+# ---------- adversarial review round 3 ----------
+
+
+@pytest.mark.parametrize(
+    "helper, consumer",
+    [
+        (
+            "\n\nclass B:\n    def leak(self, o):\n        return o.http\n",
+            "fmp_client.B().leak(fmp_client.FMPClient()).get('http://x')\n",
+        ),
+        (
+            "\n\ndef leak(o):\n    return o.http\n",
+            "fmp_client.leak(fmp_client.FMPClient()).get('http://x')\n",
+        ),
+        (
+            "\n\ndef leak():\n    return FMPClient().http\n",
+            "fmp_client.leak().get('http://x')\n",
+        ),
+        (
+            "\n\ndef leak(o):\n    yield o.http\n",
+            "next(fmp_client.leak(fmp_client.FMPClient())).get('http://x')\n",
+        ),
+    ],
+)
+def test_owner_file_helper_handing_out_the_client_is_a_gap(collector, tmp_path, helper, consumer):
+    files = {
+        "fmp_client.py": LITERAL_HTTP_CLIENT + helper,
+        "x.py": "import fmp_client\n" + consumer,
+    }
+
+    result = checks(collector, tmp_path, files)
+
+    assert any(f.startswith("scripts/fmp_client.py") for f in result["network_timeout_findings"])
+
+
+def test_client_stashed_in_a_module_registry_is_a_gap(collector, tmp_path):
+    provider = "REG = {}\n" + LITERAL_HTTP_CLIENT.replace(
+        "        self.http = requests.Session()\n",
+        "        self.http = requests.Session()\n        REG['k'] = self.http\n",
+    )
+    consumer = "import fmp_client\nfmp_client.FMPClient()\nfmp_client.REG['k'].get('http://x')\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": provider, "x.py": consumer})
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
