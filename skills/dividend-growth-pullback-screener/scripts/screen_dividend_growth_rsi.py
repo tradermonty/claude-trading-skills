@@ -33,6 +33,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 import requests
+from dividend_history import annual_totals, regular_dividends
 
 # Request exception messages can embed credential-bearing URLs. Log only their class.
 
@@ -234,6 +235,38 @@ def _finite_number(value) -> bool:
         return False
 
 
+def _dict_rows(payload) -> list[dict]:
+    """Keep only dict rows of a list payload; any other shape becomes [].
+
+    A 200 response can carry an error dict or malformed rows; statement
+    consumers index ``[0]`` and call ``.get``, so they must only see dicts.
+    """
+    if not isinstance(payload, list):
+        return []
+    return [row for row in payload if isinstance(row, dict)]
+
+
+def _finite_or_none(value) -> Optional[float]:
+    """Return a finite int/float unchanged, or None for bool/str/None/NaN/inf."""
+    return value if _finite_number(value) else None
+
+
+def _finite_percent(value) -> float:
+    """FMP decimal (0.25) to a finite percent (25.0); 0 when unusable."""
+    decimal = _finite_or_none(value)
+    percent = _finite_or_none(decimal * 100) if decimal is not None else None
+    return percent if percent is not None else 0
+
+
+def _finite_ratio(numerator: float, denominator: float) -> Optional[float]:
+    """Divide and round to 2 dp; None when the result is not finite."""
+    try:
+        ratio = numerator / denominator
+    except (OverflowError, ZeroDivisionError):
+        return None
+    return round(ratio, 2) if math.isfinite(ratio) else None
+
+
 class RSICalculator:
     """Calculate Relative Strength Index (RSI) from price data."""
 
@@ -297,62 +330,37 @@ class StockAnalyzer:
     @staticmethod
     def analyze_dividend_growth(
         dividend_history: list[dict],
+        as_of=None,
     ) -> tuple[Optional[float], bool, Optional[float], int]:
-        """
-        Analyze dividend growth rate (3-year CAGR and consistency) and return latest annual dividend.
-
-        Returns:
-            Tuple of (CAGR%, consistent_growth, latest_annual_dividend, years_of_growth)
-        """
-        if not dividend_history or "historical" not in dividend_history:
+        """Regular cash in four consecutive available completed calendar years."""
+        rows = regular_dividends(dividend_history, as_of or date.today(), completed_only=True)
+        if not rows:
             return None, False, None, 0
-
-        dividends = dividend_history["historical"]
-        if len(dividends) < 4:
+        annual = annual_totals(rows)
+        if annual is None or len(annual) < 4:
             return None, False, None, 0
-
-        # Sort by date and aggregate by year
-        dividends = sorted(dividends, key=lambda x: x["date"])
-        annual_dividends = {}
-        for div in dividends:
-            year = div["date"][:4]
-            annual_dividends[year] = annual_dividends.get(year, 0) + div.get("dividend", 0)
-
-        # Exclude current year because partial-year dividends distort CAGR calculations.
-        current_year = str(date.today().year)
-        annual_dividends.pop(current_year, None)
-
-        if len(annual_dividends) < 4:
-            return None, False, None, 0
-
-        # Get all available years sorted (oldest first)
-        all_years = sorted(annual_dividends.keys())
-        all_div_values = [annual_dividends[y] for y in all_years]
-
-        # Get last 4 years for CAGR calculation
+        all_years = sorted(annual)
         years = all_years[-4:]
-        div_values = [annual_dividends[y] for y in years]
-
-        # Calculate 3-year CAGR
-        cagr = StockAnalyzer.calculate_cagr(div_values[0], div_values[-1], 3)
-
-        # Check consistency (no significant cuts)
-        consistent = all(
-            div_values[i] >= div_values[i - 1] * 0.95 for i in range(1, len(div_values))
-        )
-
-        # Count consecutive years of growth (from most recent going back)
-        years_of_growth = 0
-        for i in range(len(all_div_values) - 1, 0, -1):
-            if all_div_values[i] >= all_div_values[i - 1] * 0.95:  # Allow 5% tolerance
-                years_of_growth += 1
+        if years != list(range(years[0], years[0] + 4)):
+            return None, False, None, 0
+        values = [annual[year] for year in years]
+        try:
+            cagr = StockAnalyzer.calculate_cagr(values[0], values[-1], 3)
+        except (OverflowError, ValueError):
+            return None, False, None, 0
+        if cagr is None or not math.isfinite(cagr):
+            return None, False, None, 0
+        consistent = all(values[i] >= values[i - 1] * 0.95 for i in range(1, 4))
+        streak = 0
+        for i in range(len(all_years) - 1, 0, -1):
+            if (
+                all_years[i] == all_years[i - 1] + 1
+                and annual[all_years[i]] >= annual[all_years[i - 1]] * 0.95
+            ):
+                streak += 1
             else:
                 break
-
-        # Latest annual dividend
-        latest_annual_dividend = div_values[-1]
-
-        return cagr, consistent, latest_annual_dividend, years_of_growth
+        return cagr, consistent, values[-1], streak
 
     @staticmethod
     def _finite_amount(value: object) -> Optional[float]:
@@ -598,30 +606,59 @@ class StockAnalyzer:
 
     @staticmethod
     def analyze_financial_health(balance_sheet: list[dict]) -> dict:
-        """Analyze financial health metrics."""
-        if not balance_sheet:
-            return {}
+        """Analyze financial health metrics.
 
+        Returns ``debt_to_equity``, ``current_ratio``, ``financially_healthy``
+        and ``health_issues`` (empty when healthy). Leverage fails closed:
+        D/E must be computable and below 2.0. Non-positive equity is
+        ``non_positive_equity``; missing, non-numeric or negative debt, or
+        missing/non-numeric equity, is ``leverage_unavailable``. The current
+        ratio is checked only when current liabilities are reported and
+        positive; then unusable current assets are ``current_ratio_unavailable``.
+        """
+        unavailable = {
+            "debt_to_equity": None,
+            "current_ratio": None,
+            "financially_healthy": False,
+            "health_issues": ["balance_sheet_unavailable"],
+        }
+        if not isinstance(balance_sheet, list) or not balance_sheet:
+            return unavailable
         latest = balance_sheet[0]
+        if not isinstance(latest, dict):
+            return unavailable
 
-        total_debt = latest.get("totalDebt", 0)
-        total_equity = latest.get("totalStockholdersEquity", 0)
-        current_assets = latest.get("totalCurrentAssets", 0)
-        current_liabilities = latest.get("totalCurrentLiabilities", 0)
+        issues: list[str] = []
 
-        debt_to_equity = round(total_debt / total_equity, 2) if total_equity > 0 else None
-        current_ratio = (
-            round(current_assets / current_liabilities, 2) if current_liabilities > 0 else None
-        )
+        total_debt = _finite_or_none(latest.get("totalDebt"))
+        total_equity = _finite_or_none(latest.get("totalStockholdersEquity"))
+        debt_to_equity: Optional[float] = None
+        if total_equity is not None and total_equity <= 0:
+            issues.append("non_positive_equity")
+        else:
+            if total_equity is not None and total_debt is not None and total_debt >= 0:
+                debt_to_equity = _finite_ratio(total_debt, total_equity)
+            if debt_to_equity is None:
+                issues.append("leverage_unavailable")
+            elif debt_to_equity >= 2.0:
+                issues.append("high_debt_to_equity")
 
-        financially_healthy = (debt_to_equity is None or debt_to_equity < 2.0) and (
-            current_ratio is None or current_ratio > 1.0
-        )
+        current_assets = _finite_or_none(latest.get("totalCurrentAssets"))
+        current_liabilities = _finite_or_none(latest.get("totalCurrentLiabilities"))
+        current_ratio: Optional[float] = None
+        if current_liabilities is not None and current_liabilities > 0:
+            if current_assets is not None:
+                current_ratio = _finite_ratio(current_assets, current_liabilities)
+            if current_ratio is None:
+                issues.append("current_ratio_unavailable")
+            elif current_ratio <= 1.0:
+                issues.append("low_current_ratio")
 
         return {
             "debt_to_equity": debt_to_equity,
             "current_ratio": current_ratio,
-            "financially_healthy": financially_healthy,
+            "financially_healthy": not issues,
+            "health_issues": issues,
         }
 
     @staticmethod
@@ -669,9 +706,14 @@ class StockAnalyzer:
             score += 5
 
         # Financial Quality Score (30 points max)
-        roe = stock_data.get("roe", 0)
-        profit_margin = stock_data.get("profit_margin", 0)
-        debt_to_equity = stock_data.get("debt_to_equity", 999)
+        # Values that are None or not finite score like a missing key: lowest
+        # tier for roe/margin, no points for D/E, P/E and P/B.
+        roe = _finite_or_none(stock_data.get("roe"))
+        roe = 0.0 if roe is None else roe
+        profit_margin = _finite_or_none(stock_data.get("profit_margin"))
+        profit_margin = 0.0 if profit_margin is None else profit_margin
+        debt_to_equity = _finite_or_none(stock_data.get("debt_to_equity"))
+        debt_to_equity = 999.0 if debt_to_equity is None else debt_to_equity
 
         if roe >= 20:
             score += 12
@@ -712,8 +754,10 @@ class StockAnalyzer:
             score += 5
 
         # Valuation Score (10 points max) - Context only, not exclusionary
-        pe_ratio = stock_data.get("pe_ratio", 999)
-        pb_ratio = stock_data.get("pb_ratio", 999)
+        pe_ratio = _finite_or_none(stock_data.get("pe_ratio"))
+        pe_ratio = 999.0 if pe_ratio is None else pe_ratio
+        pb_ratio = _finite_or_none(stock_data.get("pb_ratio"))
+        pb_ratio = 999.0 if pb_ratio is None else pb_ratio
 
         if pe_ratio < 15:
             score += 5
@@ -747,9 +791,13 @@ def screen_dividend_growth_pullbacks(
         rsi_max: Maximum RSI value (default 40)
         max_candidates: Maximum number of candidates to analyze (None = all)
         finviz_symbols: Optional set of symbols from FINVIZ pre-screening
-        stats: Optional dict filled with run statistics; currently
-            plan_gated_skipped, the number of candidates skipped because a
-            per-symbol analysis call was plan-restricted (issue #777).
+        stats: Optional dict filled with run statistics: plan_gated_skipped,
+            the number of candidates skipped because a per-symbol analysis call
+            was plan-restricted (issue #777), and health_excluded, a
+            {reason: count} map of candidates rejected by the financial-health
+            gate (issue #842; only set when non-empty). A symbol whose balance
+            sheet was itself plan-restricted is counted only as plan-gated; one
+            gated on another call but unhealthy is counted in both.
 
     Returns:
         List of qualified stocks with full analysis
@@ -832,10 +880,13 @@ def screen_dividend_growth_pullbacks(
     # describes the most recent call, so a later successful fetch would hide
     # an earlier plan restriction.
     plan_gated_symbols: set[str] = set()
+    health_excluded: dict[str, int] = {}
 
-    def _note_plan_restriction(symbol: str) -> None:
-        if _is_plan_restriction(getattr(client, "_last_error", None)):
+    def _note_plan_restriction(symbol: str) -> bool:
+        gated = _is_plan_restriction(getattr(client, "_last_error", None))
+        if gated:
             plan_gated_symbols.add(symbol)
+        return gated
 
     for i, stock in enumerate(candidates, 1):
         symbol = stock.get("symbol", "")
@@ -918,22 +969,22 @@ def screen_dividend_growth_pullbacks(
         print(f"  ✓ RSI: {rsi} (oversold)", file=sys.stderr)
 
         # Fetch additional fundamental data
-        income_stmts = client.get_income_statement(symbol, limit=5)
+        income_stmts = _dict_rows(client.get_income_statement(symbol, limit=5))
         _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
-        balance_sheet = client.get_balance_sheet(symbol, limit=5)
+        balance_sheet = _dict_rows(client.get_balance_sheet(symbol, limit=5))
+        balance_sheet_gated = _note_plan_restriction(symbol)
+        if client.rate_limit_reached:
+            break
+
+        cash_flow = _dict_rows(client.get_cash_flow(symbol, limit=5))
         _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
 
-        cash_flow = client.get_cash_flow(symbol, limit=5)
-        _note_plan_restriction(symbol)
-        if client.rate_limit_reached:
-            break
-
-        key_metrics = client.get_key_metrics(symbol, limit=1)
+        key_metrics = _dict_rows(client.get_key_metrics(symbol, limit=1))
         _note_plan_restriction(symbol)
         if client.rate_limit_reached:
             break
@@ -957,7 +1008,11 @@ def screen_dividend_growth_pullbacks(
         health_metrics = analyzer.analyze_financial_health(balance_sheet if balance_sheet else [])
 
         if not health_metrics.get("financially_healthy", False):
-            print("  ⚠️  Financial health concerns", file=sys.stderr)
+            reasons = list(health_metrics.get("health_issues") or []) or ["unspecified"]
+            print(f"  ⚠️  Financial health concerns: {', '.join(reasons)}", file=sys.stderr)
+            if not balance_sheet_gated:
+                for reason in reasons:
+                    health_excluded[reason] = health_excluded.get(reason, 0) + 1
             continue
 
         # Extract additional metrics
@@ -992,11 +1047,13 @@ def screen_dividend_growth_pullbacks(
             "price": current_price,
             "dividend_yield": round(actual_dividend_yield, 2),
             "annual_dividend": round(annual_dividend, 2),
+            "annual_dividend_basis": "regular_completed_calendar_year",
             "dividend_cagr_3y": div_cagr,
             "dividend_consistent": div_consistent,
             "rsi": rsi,
-            "pe_ratio": latest_metrics.get("peRatio", 0),
-            "pb_ratio": latest_metrics.get("pbRatio", 0),
+            # None (JSON null) when missing or unusable; scores no valuation points.
+            "pe_ratio": _finite_or_none(latest_metrics.get("peRatio")),
+            "pb_ratio": _finite_or_none(latest_metrics.get("pbRatio")),
             "revenue_cagr_3y": revenue_cagr,
             "eps_cagr_3y": eps_cagr,
             "payout_ratio": round(payout_ratio, 1) if payout_ratio is not None else None,
@@ -1016,8 +1073,8 @@ def screen_dividend_growth_pullbacks(
             # roe and netProfitMargin from FMP are decimals (e.g., 0.25 = 25%),
             # like payoutRatio above; convert to whole-number percents so they
             # match the composite-score thresholds and the report's "%" display.
-            "roe": (latest_metrics.get("roe") or 0) * 100,
-            "profit_margin": (latest_metrics.get("netProfitMargin") or 0) * 100,
+            "roe": _finite_percent(latest_metrics.get("roe")),
+            "profit_margin": _finite_percent(latest_metrics.get("netProfitMargin")),
         }
 
         # Calculate composite score
@@ -1034,6 +1091,8 @@ def screen_dividend_growth_pullbacks(
     plan_gated_skipped = len(plan_gated_symbols - {r["symbol"] for r in results})
     if stats is not None:
         stats["plan_gated_skipped"] = plan_gated_skipped
+        if health_excluded:
+            stats["health_excluded"] = dict(health_excluded)
     if not results and plan_gated_skipped:
         raise FMPPlanRestrictedError(
             "FMP plan does not include the per-symbol analysis endpoints "
@@ -1070,6 +1129,9 @@ def generate_markdown_report(results: list[dict], criteria: dict, output_path: s
 
 **Generated:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")} UTC
 **Data Source:** Financial Modeling Prep API
+**Dividend basis:** Regular cash from the latest available completed calendar year;
+current/future years and explicit special payouts are excluded. This does not
+certify provider completeness, freshness or split/FX adjustment.
 
 ## Executive Summary
 
@@ -1431,11 +1493,14 @@ Environment Variables:
             "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             "criteria": criteria,
             "total_results": len(results),
+            "annual_dividend_basis": "regular_completed_calendar_year",
         },
         "stocks": results,
     }
     if stats.get("plan_gated_skipped"):
         json_output["metadata"]["plan_gated_skipped"] = stats["plan_gated_skipped"]
+    if stats.get("health_excluded"):
+        json_output["metadata"]["health_excluded"] = stats["health_excluded"]
 
     json_path = os.path.join(logs_dir, f"dividend_growth_pullback_results_{today}.json")
     with open(json_path, "w", encoding="utf-8") as f:

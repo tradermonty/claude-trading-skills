@@ -193,3 +193,11 @@ For each qualified stock, the report includes:
 **Scripts:**
 
 - `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py`
+
+## Regular dividend eligibility and annual basis
+
+Exclude explicitly special, supplemental, one-time and extra payments identified by label/frequency; do not infer specials from a large ordinary raise. Ignore future ex-dates before consuming amounts. Missing, boolean, nonnumeric, non-finite or non-positive eligible regular amounts make the analysis unavailable rather than silently becoming zero. Provider completeness, split/FX adjustment and unlabelled special detection are not certified here.
+
+Use the latest four consecutive available completed calendar years for the three-year CAGR and annual yield numerator. Exclude every year at or after the evaluation year, including future declarations; do not compress missing years into a three-year interval or a continuous growth streak. Current-year partial cash is not an annual total. An optional Python `as_of` date makes historical tests deterministic; the CLI keeps its current-date behavior. The latest available year is not proof of freshness or complete provider history.
+
+Read `annual_dividend_basis` in result rows and JSON metadata (`regular_completed_calendar_year`). The Markdown report explains the completed-calendar-year basis.

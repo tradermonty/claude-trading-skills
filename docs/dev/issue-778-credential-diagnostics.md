@@ -62,3 +62,102 @@ not established by these tests. A complete per-skill checklist review remains
 necessary before changing these metadata values. Keep #778 open until that
 acceptance is separately recorded; this change must not claim full security
 certification or live validation.
+
+## Five-dimension checklist review (2026-11-22)
+
+Reviewed by Claude (Opus 5.5 orchestrating six Sonnet reviewers, one per
+skill), against `docs/dev/security-review-checklist.md`, on assessed commit
+`bb4a8ff60c2054cc8b41807ae648041ff0922938`. Every non-test file under each
+skill's `scripts/` was read. `check_skill_deps.py check`, the collector with
+`--reviewer-confirmed` for all six skills, and each skill's test suite were run.
+Raw exception output was re-checked by hand across five of the skills.
+
+| Skill | Credential | Data exposure | Path | I/O and network | Dependency |
+|---|---|---|---|---|---|
+| downtrend-duration-analyzer | pass | pass | pass | pass | pass |
+| value-dividend-screener | pass | pass | pass | pass | pass |
+| dividend-growth-pullback-screener | pass | pass | pass | pass | pass |
+| canslim-screener | pass | pass | pass | pass | pass |
+| parabolic-short-trade-planner | pass | pass | pass | fixed in this change | pass |
+| theme-detector | pass | pass | pass | gap | pass |
+
+**Fixed in this change.** In parabolic-short-trade-planner, live Phase 1
+treated provider failures as valid empty results. Three cases were affected:
+
+- A failed or empty S&P 500 universe.
+- A failed earnings calendar, a non-list HTTP-200 body such as an FMP error
+  dict, or a list containing a row without a symbol or a parsable date. Each
+  of these silently disabled the earnings-blackout exclusion. A dropped row
+  left that symbol without a known earnings date.
+- Per-symbol price failures, including an empty `historical` list, no usable
+  bar on or before the run date, and a `--max-api-calls` budget spent before
+  the first price fetch.
+
+Each case wrote a normal exit-0 report. Now each case raises an error and
+writes no report. Partial price failures are listed in an additive
+`data_quality` block. A symbol with an empty history counts as a failure,
+not as evaluated. Regressions are in
+`scripts/tests/test_live_fail_closed.py`. The first revision of this change
+made seven of its ten original cases pass. A follow-up review found two
+further gaps: an empty history and a malformed earnings row. Run against the
+first revision, seven of the ten cases added for those gaps fail.
+
+**Mechanical timeout proof.** The checklist also requires a passed candidate to
+be clean on the mechanical checks. The collector
+(`scripts/security_network_evidence.py`) originally accepted only a literal
+timeout at each call site. As a result, it flagged two patterns:
+
+- `timeout=self.timeout` in the generated FMP clients
+- every call into a vendored client
+
+The maintainer chose to extend the collector rather than duplicate constants.
+`skill_evidence()` now evaluates a skill's scripts together and adds two
+proofs. When either proof cannot be traced, the call stays a gap.
+
+- **Constant attribute.** `timeout=self.<attr>` counts as bounded only when
+  every one of these holds:
+  - `<attr>` is assigned exactly once in the whole skill, including package
+    `__init__.py` files.
+  - That assignment is a top-level `__init__` statement with a finite
+    positive literal.
+  - The class has no base, metaclass, decorator, lookup hook or `__slots__`.
+- **Local delegation.** A call into a sibling module counts as delegated only
+  when every one of these holds:
+  - The call targets a class or function the module defines itself, not a
+    re-exported import.
+  - The module stem is unambiguous.
+  - The module has no dynamic code loading.
+  - The module is itself fully proven.
+  - No file reaches a client attribute (`.session`, `.http`, a registry
+    container) except through a known client receiver, `.close()` or
+    `headers`.
+- **Poisoning.** Either of the following poisons the whole skill, and then
+  neither proof applies:
+  - any dynamic attribute access, meaning a non-literal `getattr`, `vars`,
+    `__dict__`, `operator.attrgetter` or `builtins`
+  - any class anywhere in the skill with lookup hooks or a metaclass
+
+An adversarial reviewer ran three rounds against the proofs and found 16
+false proofs. Each one is a regression in
+`scripts/tests/test_security_timeout_proofs.py`. Across the 28 target skills,
+the remaining verdicts were spot-checked; their delegated calls are
+`FMPClient(...)` constructor calls. The parabolic Alpaca adapter timeouts are
+now call-site literals.
+
+**Outcome.** canslim-screener, value-dividend-screener,
+dividend-growth-pullback-screener and parabolic-short-trade-planner are clean
+and recorded `passed`. Two skills stay `not_verified`:
+
+- downtrend-duration-analyzer, because `downtrend_fmp_client.py` loads the
+  client through `importlib` and so cannot be traced.
+- theme-detector, for the reasons below.
+
+theme-detector also has a real network gap. Its `yf.download`,
+`yf.Ticker().info` and `finvizfinance` calls pass no explicit timeout and rely
+on third-party library defaults, which could not be verified because those
+optional packages were absent locally. Two minor items were noted in
+theme-detector's `representative_stock_selector.py`:
+
+- An HTTP-200 Elite export without a `Ticker` column is recorded as success.
+  The run still falls back to the public source.
+- The Elite request does not set `allow_redirects=False`.

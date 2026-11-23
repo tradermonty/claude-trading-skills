@@ -167,8 +167,28 @@ The script saves two files to its configured output location. In current package
 **Financial Health:**
 - Positive revenue growth over 3 years
 - Positive EPS growth over 3 years
-- Debt-to-Equity < 2.0 (manageable leverage)
-- Current Ratio > 1.0 (liquidity)
+- Debt-to-Equity < 2.0 (manageable leverage). Leverage must be confirmed:
+  zero or negative shareholders' equity fails, and so does missing,
+  non-numeric, non-finite or negative debt, or missing, non-numeric or
+  non-finite equity.
+- Current Ratio > 1.0 (liquidity), checked when current liabilities are
+  reported and positive. With current liabilities reported, missing current
+  assets fail. A missing current-liability figure (common for banks and
+  insurers) is not penalized. This differs from value-dividend-screener,
+  which requires both ratios.
+- Rejections are logged with a reason (`non_positive_equity`,
+  `leverage_unavailable`, `high_debt_to_equity`, `low_current_ratio`,
+  `current_ratio_unavailable`, `balance_sheet_unavailable`). The JSON
+  `metadata.health_excluded` counts them by reason; it is omitted when no
+  candidate was rejected. A symbol can fail both ratios and is then counted
+  under each reason, so the counts can add up to more than the number of
+  excluded symbols. A symbol whose balance-sheet request was blocked by the
+  FMP plan is counted in `plan_gated_skipped` instead; an unhealthy symbol
+  whose other request was plan-blocked can appear in both. Plan blocking is
+  detected from HTTP 402/403 responses; an error body returned with HTTP 200
+  is counted as `balance_sheet_unavailable`.
+- Missing, non-numeric or non-finite P/E and P/B are stored as `null` and
+  earn no valuation points.
 
 ### Phase 2: Technical Screening (RSI Calculation)
 
@@ -356,3 +376,11 @@ stable request does not fall back to retired v3 URLs. The shared client masks ra
 and URL-encoded key echoes, retries malformed JSON once, and retries a 429 once
 with a 60-second wait before stopping on a repeated rate limit. FINVIZ, where
 used, remains a separate client.
+
+## Regular dividend eligibility and annual basis
+
+Exclude explicitly special, supplemental, one-time and extra payments identified by label/frequency; do not infer specials from a large ordinary raise. Ignore future ex-dates before consuming amounts. Missing, boolean, nonnumeric, non-finite or non-positive eligible regular amounts make the analysis unavailable rather than silently becoming zero. Provider completeness, split/FX adjustment and unlabelled special detection are not certified here.
+
+Use the latest four consecutive available completed calendar years for the three-year CAGR and annual yield numerator. Exclude every year at or after the evaluation year, including future declarations; do not compress missing years into a three-year interval or a continuous growth streak. Current-year partial cash is not an annual total. An optional Python `as_of` date makes historical tests deterministic; the CLI keeps its current-date behavior. The latest available year is not proof of freshness or complete provider history.
+
+Read `annual_dividend_basis` in result rows and JSON metadata (`regular_completed_calendar_year`). The Markdown report explains the completed-calendar-year basis.

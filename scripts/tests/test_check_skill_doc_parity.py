@@ -181,7 +181,6 @@ def test_expired_allowlist_invalid_date(monkeypatch):
 
 
 def test_main_check_fails_on_expired_allowlist(monkeypatch, tmp_path, capsys):
-
     monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("s", "2020-01-01")])
     en_dir = tmp_path / "en"
     ja_dir = tmp_path / "ja"

@@ -180,6 +180,16 @@ phase = `intraday_monitor`).
 The contract is pinned by `tests/test_schema_contract.py` plus
 `tests/test_monitor_intraday_smoke.py` for Phase 3.
 
+Live Phase 1 fails closed and writes no report when the universe is empty,
+the earnings calendar fetch fails, returns a non-list body, or contains a row
+without a symbol or a parsable date, every symbol lacks usable price bars on
+or before the run date, or the `--max-api-calls` budget is spent before any
+price fetch. A live report
+carries an additive `data_quality` block (`universe_size`,
+`symbols_attempted`, `symbols_evaluated`, `price_fetch_failures`). Read a
+zero-candidate report together with that block before treating it as "no
+setups".
+
 ## Resources
 
 - `references/parabolic_short_methodology.md` — Qullamaggie's 3-trigger

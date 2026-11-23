@@ -67,6 +67,52 @@ def _is_provider_error_payload(payload: Any) -> bool:
     return bool(keys & _PROVIDER_ERROR_KEYS)
 
 
+def _valid_records_payload(payload: Any) -> bool:
+    """Validate list-valued endpoints before storing or reusing their payloads."""
+    return isinstance(payload, list) and all(not _is_error_row(row) for row in payload)
+
+
+def _is_error_row(row: Any) -> bool:
+    """True for a non-record row: a provider error object or a bare message body.
+
+    FMP also answers plan/endpoint problems with HTTP 200 bodies such as
+    {"message": "Exclusive Endpoint"} that carry no record fields at all.
+    """
+    if not isinstance(row, dict):
+        return True
+    if _is_provider_error_payload(row):
+        return True
+    return {str(key).strip().lower() for key in row} == {"message"}
+
+
+def _valid_record_or_records_payload(payload: Any) -> bool:
+    """A single record object or a list of record objects (never an error body)."""
+    if isinstance(payload, dict):
+        return not _is_error_row(payload)
+    return isinstance(payload, list) and all(not _is_error_row(row) for row in payload)
+
+
+def _valid_historical_payload(payload: Any) -> bool:
+    """Flat EOD rows, or the legacy {"historical": [...]} / historicalStockList shape."""
+    if isinstance(payload, dict):
+        if _is_error_row(payload):
+            return False
+        for key in ("historical", "historicalStockList"):
+            if key in payload:
+                return _valid_records_payload(payload[key])
+        return False
+    return _valid_records_payload(payload)
+
+
+def _valid_peers_payload(payload: Any) -> bool:
+    """Peers as a record object, a list of records, or a bare list of ticker strings."""
+    if isinstance(payload, dict):
+        return not _is_error_row(payload)
+    if not isinstance(payload, list):
+        return False
+    return all(isinstance(row, str) or not _is_error_row(row) for row in payload)
+
+
 def _finite_number(value: Any) -> bool:
     if isinstance(value, bool) or value is None:
         return False
@@ -234,6 +280,10 @@ class FMPClient:
     V3_URL = "https://financialmodelingprep.com/api/v3"
     RATE_LIMIT_DELAY = 0.30
     ENDPOINT_FAILURE_THRESHOLD = 3
+    # Consecutive schema failures on one endpoint with no success in between.
+    # Schema failures are excluded from the 3-strike breaker (they can be
+    # symbol-specific), so this bounds a server-wide malformed-200 outage.
+    SCHEMA_FAILURE_STREAK_THRESHOLD = 20
     CAPABILITY_CACHE_TTL_DAYS = 30
     CAPABILITY_DISABLING_STATUS_CODES = (402, 403)
 
@@ -299,6 +349,7 @@ class FMPClient:
         self.failures: list[dict[str, Any]] = []
         self._endpoint_failures: dict[str, int] = {}
         self._disabled_endpoints: set[str] = set()
+        self._schema_failure_streaks: dict[str, int] = {}
         self.respect_capability_cache = bool(respect_capability_cache)
         self.capability_cache_hits = 0
 
@@ -347,6 +398,16 @@ class FMPClient:
         if status_code is not None:
             item["status_code"] = status_code
         self.failures.append(item)
+        # Missing or invalid data can be specific to one symbol, not the endpoint,
+        # so it never counts toward the 3-strike breaker. Schema failures alone
+        # feed a separate, much higher no-success streak bound.
+        if reason == "schema_validation_failed":
+            streak = self._schema_failure_streaks.get(endpoint, 0) + 1
+            self._schema_failure_streaks[endpoint] = streak
+            if streak >= self.SCHEMA_FAILURE_STREAK_THRESHOLD:
+                self._disabled_endpoints.add(endpoint)
+        if reason in {"cached_payload_invalid", "schema_validation_failed", "empty_response"}:
+            return
         count = self._endpoint_failures.get(endpoint, 0) + 1
         self._endpoint_failures[endpoint] = count
         if count >= self.ENDPOINT_FAILURE_THRESHOLD:
@@ -465,6 +526,7 @@ class FMPClient:
                 self._record_failure(url, "empty_response", response.status_code)
                 return None
             self._endpoint_failures[url] = 0
+            self._schema_failure_streaks[url] = 0
             self.cache.put(cache_key, payload)
             self._write_raw(url=url, params=request_params, payload=payload)
             self._last_response_meta = {"source": "http", "retrieved_at": time.time()}
@@ -531,6 +593,7 @@ class FMPClient:
             v3_params=params,
             ttl_seconds=self.cache_policy.universe_ttl_seconds,
             allow_empty=True,
+            validate=_valid_records_payload,
         )
         return [dict(row) for row in data] if isinstance(data, list) else []
 
@@ -546,6 +609,7 @@ class FMPClient:
                 v3_endpoint=f"quote/{joined}",
                 v3_params={},
                 ttl_seconds=self.cache_policy.quote_ttl_seconds,
+                validate=_valid_record_or_records_payload,
             )
             if isinstance(data, Mapping):
                 data = [data]
@@ -569,6 +633,7 @@ class FMPClient:
             v3_params={"from": from_date, "to": to_date},
             ttl_seconds=self.cache_policy.historical_ttl_seconds,
             allow_empty=True,
+            validate=_valid_historical_payload,
         )
         if isinstance(data, Mapping):
             data = data.get("historical") or data.get("historicalStockList") or []
@@ -642,6 +707,7 @@ class FMPClient:
             v3_params={"period": period, "limit": int(limit)},
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
+            validate=_valid_records_payload,
         )
         return [dict(row) for row in data] if isinstance(data, list) else []
 
@@ -653,6 +719,7 @@ class FMPClient:
             v3_params={},
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
+            validate=_valid_record_or_records_payload,
         )
         if isinstance(data, Mapping):
             data = [data]
@@ -666,6 +733,7 @@ class FMPClient:
             v3_params={},
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
+            validate=_valid_record_or_records_payload,
         )
         if isinstance(data, Mapping):
             data = [data]
@@ -679,6 +747,7 @@ class FMPClient:
             v3_params={},
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
+            validate=_valid_record_or_records_payload,
         )
         if isinstance(data, Mapping):
             return dict(data)
@@ -694,6 +763,7 @@ class FMPClient:
             v3_params={"symbol": symbol},
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
+            validate=_valid_peers_payload,
         )
         if isinstance(data, Mapping):
             peers = data.get("peersList") or data.get("peers") or []
@@ -757,6 +827,7 @@ class FMPClient:
             ttl_seconds=self.cache_policy.statements_ttl_seconds,
             allow_empty=True,
             quiet=True,
+            validate=_valid_records_payload,
         )
         if self.respect_capability_cache and len(self.failures) > failure_count_before:
             last_failure = self.failures[-1]

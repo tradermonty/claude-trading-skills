@@ -99,6 +99,7 @@ class DividendBasis:
     floor_borderline: bool = False
     # Additive (#834): (ex-date, amount) of rows excluded as specials, explicit or outlier.
     special_rows: list[tuple[str, float]] = field(default_factory=list)
+    dividend_amount_basis: str = "unavailable"
 
 
 def _infer_cadence(sorted_dates: list[date]) -> tuple[str, int | None]:
@@ -211,8 +212,18 @@ def _material_rate_cut(series, cadence, ppy):
     return recent_cut or yearly_cut
 
 
+def _positive_amount(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        return None
+    try:
+        amount = float(value)
+    except (ValueError, OverflowError):
+        return None
+    return amount if math.isfinite(amount) and amount > 0 else None
+
+
 def analyze_dividends(
-    history: list[dict],
+    history: list[dict] | None,
     price: float | None,
     *,
     issuer_language: str | None = None,
@@ -220,6 +231,8 @@ def analyze_dividends(
     issuer_currency: str | None = None,
     is_adr: bool = False,
     as_of_date: str | None = None,
+    split_history: list[dict] | None = None,
+    require_split_evidence: bool = False,
 ) -> DividendBasis:
     """Analyze a stock_dividend `historical` list into a DividendBasis.
 
@@ -227,34 +240,96 @@ def analyze_dividends(
     With an evaluation date, each row becomes eligible on its declaration
     date, or on its ex-date if the declaration date is unavailable.
     """
+    if history is None:
+        return DividendBasis(status="ASSUMPTION-REQUIRED", reasons=["dividend_history_unavailable"])
+    if not history:
+        return DividendBasis(
+            status="NO-DIVIDEND",
+            reasons=["no_dividend_history"],
+            dividend_amount_basis="confirmed_empty",
+        )
+    if any(not isinstance(item, dict) for item in history):
+        return DividendBasis(status="ASSUMPTION-REQUIRED", reasons=["dividend_history_malformed"])
+
     ref_date = _parse_date(str(as_of_date)) if as_of_date else None
     rows: list[tuple[date, float, object]] = []
     declared: dict[date, bool] = {}
     eligible_history = []
-    for item in history or []:
+    for item in history:
         d = _parse_date(str(item.get("date", "")))
         decl = str(item.get("declarationDate") or "").strip()
-        if ref_date is not None:
-            known_date = (_parse_date(decl) if decl else None) or d
-            if known_date is not None and known_date > ref_date:
-                continue
-        eligible_history.append(item)
-
-        amt = item.get("dividend")
-        try:
-            amt = float(amt)
-        except (TypeError, ValueError):
-            amt = None
-        if d is None or amt is None or amt <= 0:
+        known_date = (_parse_date(decl) if decl else None) or d
+        if ref_date is not None and known_date is not None and known_date > ref_date:
             continue
-        rows.append((d, amt, item.get("label")))
-        # A non-empty declarationDate means the board formally declared
-        # this dividend -> authoritative confirmation for the Data
-        # Freshness Gate (5th-review #4 confirmed-source path).
-        declared[d] = bool(decl)
+        if d is None:
+            return DividendBasis(status="ASSUMPTION-REQUIRED", reasons=["dividend_date_unusable"])
+        eligible_history.append(item)
+    if not eligible_history:
+        return DividendBasis(status="ASSUMPTION-REQUIRED", reasons=["no_eligible_dividend_history"])
 
-    if not rows:
-        return DividendBasis(status="NO-DIVIDEND", reasons=["no_dividend_history"])
+    adjusted = any("adjDividend" in item for item in eligible_history)
+    amount_basis = "split_adjusted" if adjusted else "raw_unverified"
+    dates = [_parse_date(str(item["date"])) for item in eligible_history]
+    split_history_valid = isinstance(split_history, list) and all(
+        isinstance(item, dict) and _parse_date(str(item.get("date", ""))) is not None
+        for item in split_history
+    )
+    if split_history is not None and not split_history_valid:
+        return DividendBasis(
+            status="ASSUMPTION-REQUIRED",
+            reasons=["split_history_malformed"],
+            dividend_amount_basis=amount_basis,
+        )
+    split_in_scope = any(
+        (day := _parse_date(str(item.get("date", "")))) is not None
+        and min(dates) <= day <= (ref_date or max(dates))
+        for item in (split_history or [])
+        if isinstance(item, dict)
+    )
+    if not adjusted and (split_in_scope or (require_split_evidence and split_history is None)):
+        return DividendBasis(
+            status="ASSUMPTION-REQUIRED",
+            reasons=["dividend_split_basis_unverified"],
+            dividend_amount_basis=amount_basis,
+        )
+    if not adjusted and split_history == []:
+        amount_basis = "raw_no_splits_confirmed"
+
+    for item in eligible_history:
+        d = _parse_date(str(item["date"]))
+        amt = _positive_amount(item.get("adjDividend" if adjusted else "dividend"))
+        if amt is None:
+            return DividendBasis(
+                status="ASSUMPTION-REQUIRED",
+                reasons=[
+                    "adjusted_dividend_unavailable" if adjusted else "dividend_amount_unusable"
+                ],
+                dividend_amount_basis=amount_basis,
+            )
+        # Issuer-currency cash amounts have no declared split basis. Do not
+        # scale them or turn a mechanical per-share change into a confirmed cut.
+        original_evidence = any(
+            key in item
+            for key in ("original_dividend", "original_currency", "original_dividend_source")
+        )
+        raw = _positive_amount(item.get("dividend"))
+        if (
+            original_evidence
+            and adjusted
+            and (
+                split_in_scope
+                or raw is None
+                or not math.isclose(raw, amt, rel_tol=1e-9)
+                or item.get("_dividend_adjustment_applied") is True
+            )
+        ):
+            return DividendBasis(
+                status="ASSUMPTION-REQUIRED",
+                reasons=["original_currency_split_basis_unverified"],
+                dividend_amount_basis=amount_basis,
+            )
+        rows.append((d, amt, item.get("label")))
+        declared[d] = bool(str(item.get("declarationDate") or "").strip())
 
     rows.sort(key=lambda r: r[0])
     all_dates = [r[0] for r in rows]
@@ -315,6 +390,7 @@ def analyze_dividends(
         return DividendBasis(
             status="ASSUMPTION-REQUIRED",
             reasons=reasons + [f"insufficient_regular_pays={len(regular)}"],
+            dividend_amount_basis=amount_basis,
             cadence=cadence,
             pays_per_year=ppy,
             special_dividend_flag=special_flag,
@@ -462,6 +538,7 @@ def analyze_dividends(
 
     return DividendBasis(
         status="OK",
+        dividend_amount_basis=amount_basis,
         reasons=reasons,
         cadence=cadence,
         pays_per_year=ppy,

@@ -45,7 +45,6 @@ class AlpacaInventoryAdapter(BrokerShortInventoryAdapter):
         api_key: str | None = None,
         secret_key: str | None = None,
         paper: bool = True,
-        timeout: float = 10.0,
     ) -> None:
         self.api_key = api_key or os.getenv("ALPACA_API_KEY")
         self.secret_key = secret_key or os.getenv("ALPACA_SECRET_KEY")
@@ -55,7 +54,6 @@ class AlpacaInventoryAdapter(BrokerShortInventoryAdapter):
             )
         self.paper = paper
         self.base_url = PAPER_BASE_URL if paper else LIVE_BASE_URL
-        self.timeout = timeout
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -65,7 +63,7 @@ class AlpacaInventoryAdapter(BrokerShortInventoryAdapter):
 
     def get_inventory_status(self, symbol: str) -> dict:
         url = f"{self.base_url}/v2/assets/{symbol}"
-        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        response = requests.get(url, headers=self._headers(), timeout=10.0)
 
         # Paper accounts have a smaller asset universe than live; missing
         # tickers must degrade to a blocking-but-non-fatal status so a

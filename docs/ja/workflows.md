@@ -115,6 +115,12 @@ permalink: /ja/workflows/
 
 - `market-regime-daily` が期待する成果物 `exposure_decision` — 新規の決算モメンタムのリスクを取るには、非制限的なエクスポージャー判断が必要である。 cash-priority または restrictive の日はこのワークフローを見送る。
 
+**手動入力契約:**
+
+| 入力 | 必須 | 使用ステップ | スキーマ参照 | 説明 |
+|---|---|---|---|---|
+| `approved_rules_ledger` | なし | 7 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | --approved-rules-ledger でゲートに渡す任意のローカル承認済みルール台帳。指定すると、注文対象の候補ごとに適用中のルールの確認記録が必要になり、ゲートの journal が月次の遵守レビューの入力になる。指定しない場合、ゲートの出力は変わらない。 |
+
 **成果物一覧:**
 
 | 成果物 | 生成ステップ | 必須 | 下流ヒント |
@@ -329,6 +335,12 @@ permalink: /ja/workflows/
 
 **任意スキル:** `trade-performance-coach`, `backtest-expert`, `dual-axis-skill-reviewer`
 
+**手動入力契約:**
+
+| 入力 | 必須 | 使用ステップ | スキーマ参照 | 説明 |
+|---|---|---|---|---|
+| `prior_rule_adherence` | なし | 6 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | 終了した月について review_rule_adherence.py が出力する任意のローカル報告で、承認済みルールごとのゲート確認記録を集計したもの。人がステップ6で読む。 trader-memory-core は読み込まず、replay も検証しない。 |
+
 **成果物一覧:**
 
 | 成果物 | 生成ステップ | 必須 | 下流ヒント |
@@ -385,6 +397,7 @@ permalink: /ja/workflows/
 - スキル側の改善はリポジトリ改善候補であり、必ず実施するとは限らない。
 - 新しいルールを追加するだけでなく、機能していないルールの削除や格下げも検討する。
 - ステップ6の成果物はルールを有効化しない。有効化は pre-trade-discipline-gate の `manage_approved_rules.py activate` で明示的に行う。
+- ステップ6の前に、終了した月、つまり承認済みルールが適用されていた月について `review_rule_adherence.py --month <月>`（pre-trade-discipline-gate）を実行する。見直し理由が付いたルールごとに、維持、延長、廃止、置き換えのいずれかを決め、ステップ6の判断記録に残し、`manage_approved_rules.py` でのみ反映する。集計値は自己申告のゲート確認記録であり、遵守率が出ていないことだけを理由にルールを変更しない。
 
 **最終出力:**
 
@@ -664,6 +677,12 @@ permalink: /ja/workflows/
 
 - `market-regime-daily` が期待する成果物 `exposure_decision` — 新規EP取引でも市場レジームのエクスポージャーゲートに従う必要がある。
 
+**手動入力契約:**
+
+| 入力 | 必須 | 使用ステップ | スキーマ参照 | 説明 |
+|---|---|---|---|---|
+| `approved_rules_ledger` | なし | 9 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | --approved-rules-ledger でゲートに渡す任意のローカル承認済みルール台帳。指定すると、注文対象の候補ごとに適用中のルールの確認記録が必要になり、ゲートの journal が月次の遵守レビューの入力になる。指定しない場合、ゲートの出力は変わらない。 |
+
 **成果物一覧:**
 
 | 成果物 | 生成ステップ | 必須 | 下流ヒント |
@@ -871,6 +890,12 @@ permalink: /ja/workflows/
 **前提ワークフロー（参考情報）:**
 
 - `market-regime-daily` が期待する成果物 `exposure_decision` — 新規スイング取引のリスクを取るには、非制限的なエクスポージャー判断が必要である。 cash-priority または restrictive の日はこのワークフローを見送る。
+
+**手動入力契約:**
+
+| 入力 | 必須 | 使用ステップ | スキーマ参照 | 説明 |
+|---|---|---|---|---|
+| `approved_rules_ledger` | なし | 11 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | --approved-rules-ledger でゲートに渡す任意のローカル承認済みルール台帳。指定すると、注文対象の候補ごとに適用中のルールの確認記録が必要になり、ゲートの journal が月次の遵守レビューの入力になる。指定しない場合、ゲートの出力は変わらない。 |
 
 **成果物一覧:**
 
