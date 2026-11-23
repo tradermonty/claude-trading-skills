@@ -75,7 +75,7 @@ def test_expected_contracts_are_present():
         "uptrend-ratio-timeseries",
         "uptrend-sector-summary",
     }
-    assert set(CONTRACTS) == set(FMP_CONTRACTS) | set(TRADER_MONTY_CONTRACTS)
+    assert set(CONTRACTS) == set(FMP_CONTRACTS) | set(TRADER_MONTY_CONTRACTS) | {"coins-markets"}
 
 
 @pytest.mark.parametrize("name", sorted(CONTRACTS))
@@ -1627,6 +1627,11 @@ def test_canary_default_fmp_run_report_has_provider(tmp_path, monkeypatch):
 
 
 def test_canary_provider_all_runs_both(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        check_provider_contracts,
+        "_build_coingecko_fetch",
+        lambda: lambda c: check_provider_contracts.FetchResult(200, c.fixture),
+    )
     monkeypatch.setenv("FMP_API_KEY", "FAKEKEY123")
     monkeypatch.setattr(
         check_provider_contracts, "_build_requests_fetch", lambda api_key: _stub_fetch_ok

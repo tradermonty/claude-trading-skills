@@ -33,6 +33,7 @@ import json
 import math
 import os
 import time
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -99,6 +100,8 @@ class DataClient:
     """Fetch + cache market data for the crypto regime analysis."""
 
     def __init__(self, cache_dir: str, top_n: int = 20, quiet: bool = False):
+        if isinstance(top_n, bool) or not isinstance(top_n, int) or top_n <= 0:
+            raise ValueError("top_n must be a positive integer")
         self.cache_dir = cache_dir
         self.top_n = top_n
         self.quiet = quiet
@@ -152,9 +155,15 @@ class DataClient:
         """Top-N non-stable, non-wrapped coins by market cap."""
         cache_key = f"universe_top{self.top_n}"
         excluded = STABLECOIN_IDS | WRAPPED_OR_STAKED_IDS | NON_CRYPTO_BETA_IDS
-        cached = self._cached(cache_key)
-        if cached and not any(coin["id"] in excluded for coin in cached):
-            return cached
+        cache_exists = os.path.exists(self._cache_path(cache_key))
+        try:
+            cached = self._cached(cache_key)
+        except (ValueError, UnicodeError):
+            raise ValueError("COINGECKO_UNIVERSE_INVALID_CACHE") from None
+        if cached is not None or cache_exists:
+            self._validate_universe_rows(cached)
+            if not any(coin["id"] in excluded for coin in cached):
+                return cached
         raw = self._get(
             f"{COINGECKO_BASE}/coins/markets",
             {
@@ -168,11 +177,33 @@ class DataClient:
                 "sparkline": "false",
             },
         )
+        self._validate_universe_rows(raw)
         universe = [
             {"id": c["id"], "symbol": c["symbol"].upper()} for c in raw if c["id"] not in excluded
         ][: self.top_n]
+        if not universe:
+            raise ValueError("COINGECKO_UNIVERSE_EMPTY_AFTER_EXCLUSIONS")
         self._store(cache_key, universe)
         return universe
+
+    @staticmethod
+    def _validate_universe_rows(rows) -> None:
+        """Reject provider/cache drift before using IDs as URL/cache path parts."""
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("COINGECKO_UNIVERSE_EMPTY_OR_MALFORMED")
+        for row in rows:
+            if not isinstance(row, dict) or any(
+                not isinstance(row.get(field), str) or not row[field].strip()
+                for field in ("id", "symbol")
+            ):
+                raise ValueError("COINGECKO_UNIVERSE_INVALID_IDENTIFIER")
+            coin_id = row["id"]
+            if (
+                coin_id in {".", ".."}
+                or any(c in coin_id for c in "/\\?#%")
+                or any(unicodedata.category(c).startswith("C") for c in coin_id)
+            ):
+                raise ValueError("COINGECKO_UNIVERSE_UNSAFE_ID")
 
     def fetch_history(self, coin_id: str) -> list:
         """Daily closes (oldest -> newest) for one coin."""

@@ -264,8 +264,10 @@ def test_default_session_is_frozen_before_collection(tmp_path, monkeypatch):
         def now(cls, tz=None):
             return cls.current.astimezone(tz) if tz else cls.current.replace(tzinfo=None)
 
-    def collect(_args):
+    def collect(_args, outcomes=None):
         Clock.current = datetime(2026, 11, 9, 22, tzinfo=timezone.utc)
+        if outcomes is not None:
+            outcomes["TEST"] = None
         return {"TEST": screen.normalize_bars(rows())}, None
 
     monkeypatch.setattr(screen, "datetime", Clock)

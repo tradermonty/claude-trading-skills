@@ -722,7 +722,7 @@ the nine `company-screener` consumers.
 
 ## Out of scope (this slice)
 
-- Providers still without contracts: yfinance, CoinGecko, Binance, Alpaca and FXMacroData.
+- Providers still without contracts: yfinance, Binance, Alpaca and FXMacroData. CoinGecko coverage is limited to coins/markets; global and market_chart remain uncovered.
 - Parser hardening for the four trader-monty contract owners that are not hardened yet.
   Their behavior is unchanged and each is a follow-up:
   - market-top-detector: `breadth_csv_client.py`, the read of `market_breadth_data.csv`.
@@ -750,18 +750,20 @@ python3 scripts/check_provider_contracts.py check
 
 # Live probe. --provider fmp (default) needs FMP_API_KEY and makes one GET per
 # contract (query-param auth). --provider trader-monty probes the keyless public
-# CSVs. --provider all runs both. Scores each response, writes a JSON report
+# CSVs. --provider coingecko probes the keyless JSON universe endpoint.
+# --provider all runs all three providers. Scores each response, writes a JSON report
 # (default reports/<provider>_canary_<date>.json) with a top-level "provider"
 # key, and exits 1 if any contract is not ok.
-python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,all}] [--max-calls N] [--report PATH]
+python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,coingecko,all}] [--max-calls N] [--report PATH]
 
 # Render a canary report as markdown (stdout, or appended to --summary-file such as
 # $GITHUB_STEP_SUMMARY). --github also prints ::error / ::warning annotations to
 # stdout. Stdlib only. Exits 0 for missing/malformed reports (report problems never gate);
 # argument or write errors exit non-zero.
-python3 scripts/check_provider_contracts.py summarize --report PATH [--provider {fmp,trader-monty,all}] [--summary-file PATH] [--github]
-# A report's own "provider" key picks the titles (absent or fmp: FMP titles, otherwise
-# "Public CSV ..."). --provider only chooses the title when the report is missing.
+python3 scripts/check_provider_contracts.py summarize --report PATH [--provider {fmp,trader-monty,coingecko,all}] [--summary-file PATH] [--github]
+# A report's own "provider" key picks the titles: absent or fmp uses FMP titles,
+# trader-monty uses Public CSV titles, coingecko or all uses Provider titles.
+# --provider only chooses the title when the report is missing.
 ```
 
 ## S&P 500 constituent recording and consumer boundary
@@ -910,3 +912,49 @@ repository. For a manual probe, use `workflow_dispatch`; keep direct local runs
 read-only. User PATs create user-authored issues that the bot-only trust matcher
 intentionally ignores, so they are unsupported for apply and can cause duplicates. Tests use fake API/gh responses only; local green tests
 do not establish that a future scheduled notification reached a maintainer.
+
+
+## CoinGecko universe contract (Issue #332)
+
+`config/provider-contracts/coingecko/coins-markets.v1.json` records a keyless
+HTTP-200 `/api/v3/coins/markets` capture of three public rows, projected to the
+`id` and `symbol` fields consumed by `crypto-regime-analyzer`. The UTC capture
+date is in `recorded_on`. It does not certify the full universe, price history,
+BTC dominance, funding, or future API availability. Other CoinGecko endpoints
+and the other providers in #332 remain outstanding.
+
+The required string policy `non_blank: true` rejects empty/whitespace-only values
+with fatal `blank_required_field:<field>`. It is opt-in, accepts only boolean
+policy values and string-only field types, and leaves existing contracts unchanged.
+Missing/null/renamed/retyped fields and an empty response remain fatal. The
+production universe consumer independently validates the same consumed fields,
+rejects unsafe coin IDs before URL/cache use, validates same-day cached rows,
+and rejects an empty post-exclusion universe. Invalid inputs never create an
+empty-universe cache or a normal regime report. Valid newly-excluded caches
+still refresh; a failed refresh preserves their previous bytes. `top_n` must
+be a positive integer.
+
+The provider CLI now accepts `--provider coingecko` for canary, summary and
+health. Its reviewed path and small fixed string query are allowlisted in
+`provider_contracts.py`. The keyless fetch makes exactly one request, with a
+30-second timeout, a 2 MiB decompressed-body cap, disabled redirects, response
+cleanup, no retries and fixed error codes without raw provider/error contents.
+It sends no FMP credential and leaves default FMP and public-CSV behavior intact;
+`--provider all` dispatches each provider separately and still requires FMP's key.
+Offline `check` validates all recorded contracts without requests installed.
+
+```bash
+python3 scripts/check_provider_contracts.py check
+python3 scripts/check_provider_contracts.py canary --provider coingecko --max-calls 1 --report reports/coingecko-canary-report.json
+```
+
+The weekly read-only `coingecko-contract-canary.yml` workflow uses this one-call
+budget, removes stale reports, publishes a JSON artifact and summary, and has a
+five-minute job limit. Only the probe step is allowed to fail for schema drift;
+the existing operational-health gate remains mandatory and fails on missing,
+skipped or unusable response evidence. Nonempty HTTP-200 schema drift remains
+report-only, with annotations. The workflow supports manual probes through
+`workflow_dispatch` as well as the weekly schedule. The local validation above
+did not dispatch an Actions run; scheduled/manual Actions acceptance and live
+consumer full-run acceptance remain separate. This slice adds no persistent
+notification issue or security certification.
