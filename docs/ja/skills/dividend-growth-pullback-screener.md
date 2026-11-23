@@ -193,3 +193,11 @@ python3 skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_
 **スクリプト:**
 
 - `skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py`
+
+## 通常配当の集計対象と年額の基準
+
+label/frequency に特別配当・補足配当・一時配当・追加配当と明記された支払いを除外します。通常の増配を金額の大きさだけで特別配当と推定しません。将来の権利落ち日は金額を読む前に除外し、対象となる通常配当の欠損・非数値・非有限・非正値は「計算不能」とします。データの網羅性、分割・為替調整、ラベルのない特別配当は保証しません。
+
+直近の利用可能な連続4完了暦年で3年成長率と年額を計算します。評価年以降は翌年の宣言も含めて除外し、当年の一部を年額として扱いません。欠落年を飛ばして3年間や連続成長年数を作りません。Python関数は任意の `as_of` 日付を指定でき、CLIは従来どおり当日を使います。最新の利用可能年がデータの鮮度や全履歴の網羅性を証明するものではありません。
+
+行データとJSON metadataの `annual_dividend_basis` は `regular_completed_calendar_year` です。Markdownにも完了暦年を使うことを表示します。

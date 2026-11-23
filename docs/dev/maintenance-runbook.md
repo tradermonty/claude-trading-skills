@@ -440,9 +440,29 @@ success.
 
 State records UTC `last_success_at` (an ISO timestamp for improvement, a mapping
 with independent `daily` and `weekly` timestamps for generation). A completed
-daily check with no eligible ideas or an already open PR is healthy. Dry runs,
-lock skips, and failures do not refresh it. A failed improvement attempt returns
-nonzero even when scoring and the summary succeeded. Success is recorded after
+daily check with no eligible ideas or an already open PR is healthy. An
+improvement run is also healthy when the LLM review completed, was merged into
+the report, and returned no improvement items. When the score is below the
+threshold, the LLM review is unavailable (no review prompt, no `claude` result, CLI error, budget
+stop, or a failed merge re-score), and there is nothing else to improve, the run
+counts as failed. A skill at or above the threshold, or one improved from
+auto-review items alone, still records success without the LLM review. Other
+non-healthy outcomes also count as failed: a rolled-back improvement whose score
+did not rise, a failed `claude` improvement, or a missing `gh`. With round-robin
+selection and a 48-hour threshold, one such day does not alert on its own. Dry runs, lock
+skips, and failures do not refresh it. A failed improvement attempt returns
+nonzero even when scoring and the summary succeeded.
+
+The LLM review call is capped by `SKILL_LOOP_REVIEW_BUDGET_USD` (default `1.00`
+US dollars per call; values outside 0.01 to 5 or not numeric fall back to the
+default with a warning). launchd does not pass your shell environment, so set it
+in the installed `com.trade-analysis.skill-improvement` plist under
+`EnvironmentVariables` and reload that agent; `install_launchd.py` preserves a
+customized plist instead of overwriting it.
+When the CLI reports `error_max_budget_usd`, the loop stops the review at once
+instead of retrying, and the log names this variable. A review of a typical
+skill costs about $0.6, which is why the earlier $0.50 cap stopped every
+review (#652). Success is recorded after
 normal cleanup; it does not prove that a PR was merged or deployed.
 
 The fourth template schedules `run_skill_heartbeat.sh` independently at 08:00
