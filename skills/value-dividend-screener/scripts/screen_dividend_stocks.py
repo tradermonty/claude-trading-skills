@@ -445,15 +445,58 @@ class StockAnalyzer:
         return dips <= 1
 
     @staticmethod
+    def _cadence_window(rows, years_back: int, today):
+        """Select the (years_back + 1) payment-year window from regular rows.
+
+        Cadence is inferred from ex-date intervals only. FMP's per-row
+        ``frequency`` labels are inconsistent (a normal quarterly payment can
+        be tagged ``Irregular`` or ``Monthly``), so they never veto a cadence
+        the intervals support. Returns ``(selected, ppy)`` or ``None``.
+        """
+        if not rows or len(rows) < 2 or len({r[0] for r in rows}) != len(rows):
+            return None
+        gaps = [(rows[i][0] - rows[i - 1][0]).days for i in range(1, len(rows))]
+        typical = median(gaps[-27:])
+        candidates = [
+            ppy for ppy in (12, 4, 2, 1) if abs(typical - 365.25 / ppy) <= 0.2 * (365.25 / ppy)
+        ]
+        if len(candidates) != 1:
+            return None
+        ppy = candidates[0]
+        needed = ppy * (years_back + 1)
+        if len(rows) < needed:
+            return None
+        selected = rows[-needed:]
+        interval = 365.25 / ppy
+        selected_gaps = [
+            (selected[i][0] - selected[i - 1][0]).days for i in range(1, len(selected))
+        ]
+        if any(not 0.5 * interval <= gap <= 1.5 * interval for gap in selected_gaps):
+            return None
+        if any(
+            abs((selected[i + ppy][0] - selected[i][0]).days - 365.25) > 31
+            for i in range(len(selected) - ppy)
+        ):
+            return None
+        if (today - selected[-1][0]).days > interval + min(31, interval / 2):
+            return None
+        return selected, ppy
+
+    @staticmethod
     def analyze_dividend_growth(
         dividend_history: list[dict],
         years_back: int = 3,
         as_of=None,
+        diagnostics: Optional[dict] = None,
     ) -> tuple[Optional[float], bool, Optional[float]]:
         """Regular payment-year CAGR, consistency and latest annual cash sum.
 
-        Annual buckets contain N regular payments at a supported stable cadence;
-        fixed 365-day cuts must not produce four-versus-five payment comparisons.
+        Annual buckets contain N regular payments at a cadence inferred from
+        ex-date intervals; fixed 365-day cuts must not produce four-versus-five
+        payment comparisons. If that check fails and the recent rows contain
+        ``Irregular``-labelled payments, retry once without them (treating them
+        as supplementals); ``diagnostics["supplementals_excluded"]`` records how
+        many rows were dropped when the retry is used. Otherwise fail closed.
         """
         from datetime import date as _date
 
@@ -461,46 +504,25 @@ class StockAnalyzer:
         if isinstance(years_back, bool) or not isinstance(years_back, int) or years_back < 1:
             return None, False, None
         rows = regular_dividends(dividend_history, today)
-        if not rows or len(rows) < 2 or len({r[0] for r in rows}) != len(rows):
+        if not rows:
             return None, False, None
-        gaps = [(rows[i][0] - rows[i - 1][0]).days for i in range(1, len(rows))]
-        typical = median(gaps[-27:])
-        candidates = [
-            ppy for ppy in (12, 4, 2, 1) if abs(typical - 365.25 / ppy) <= 0.2 * (365.25 / ppy)
-        ]
-        if len(candidates) != 1:
+        found = StockAnalyzer._cadence_window(rows, years_back, today)
+        if found is None:
+            irregular = {
+                r[0] for r in rows if isinstance(r[2], str) and r[2].strip().lower() == "irregular"
+            }
+            if any(r[0] in irregular for r in rows[-48:]):
+                found = StockAnalyzer._cadence_window(
+                    [r for r in rows if r[0] not in irregular],
+                    years_back,
+                    today,
+                )
+                if found is not None and diagnostics is not None:
+                    diagnostics["supplementals_excluded"] = len(irregular)
+        if found is None:
             return None, False, None
-        ppy = candidates[0]
-        needed = ppy * (years_back + 1)
-        if len(rows) < needed:
-            return None, False, None
-        selected = rows[-needed:]
-        names = {"monthly": 12, "quarterly": 4, "semiannual": 2, "annually": 1, "annual": 1}
-        for _, _, frequency in selected:
-            if frequency is None or frequency == "":
-                continue
-            if isinstance(frequency, str):
-                key = frequency.lower().replace("-", "").replace("_", "").replace(" ", "")
-                declared = names.get(key)
-                if key in {"12", "4", "2", "1"}:
-                    declared = int(key)
-            else:
-                declared = frequency if not isinstance(frequency, bool) else None
-            if declared != ppy:
-                return None, False, None
-        interval = 365.25 / ppy
-        selected_gaps = [
-            (selected[i][0] - selected[i - 1][0]).days for i in range(1, len(selected))
-        ]
-        if any(not 0.5 * interval <= gap <= 1.5 * interval for gap in selected_gaps):
-            return None, False, None
-        if any(
-            abs((selected[i + ppy][0] - selected[i][0]).days - 365.25) > 31
-            for i in range(len(selected) - ppy)
-        ):
-            return None, False, None
-        if (today - selected[-1][0]).days > interval + min(31, interval / 2):
-            return None, False, None
+        selected, ppy = found
+        needed = len(selected)
         try:
             windows = [
                 math.fsum(r[1] for r in selected[i : i + ppy]) for i in range(0, needed, ppy)
@@ -1160,8 +1182,9 @@ def screen_value_dividend_stocks(
             continue
 
         # Analyze dividend growth and get latest annual dividend
+        div_diagnostics: dict = {}
         div_cagr, div_consistent, annual_dividend = analyzer.analyze_dividend_growth(
-            dividend_history
+            dividend_history, diagnostics=div_diagnostics
         )
         if not div_cagr or div_cagr < 4.0:
             print("  ⚠️  Dividend CAGR < 4% (or no data)", file=sys.stderr)
@@ -1247,6 +1270,11 @@ def screen_value_dividend_stocks(
             "pb_ratio": stock.get("priceToBook", 0),
             "rsi": rsi,
             "dividend_cagr_3y": round(div_cagr, 2),
+            **(
+                {"dividend_supplementals_excluded": div_diagnostics["supplementals_excluded"]}
+                if div_diagnostics.get("supplementals_excluded")
+                else {}
+            ),
             "dividend_consistent": div_consistent,
             "dividend_stable": dividend_stability["is_stable"],
             "dividend_growing": dividend_stability["is_growing"],
