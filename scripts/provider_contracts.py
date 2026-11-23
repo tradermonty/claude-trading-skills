@@ -55,6 +55,14 @@ DEPRECATION = "deprecation"
 CSV_ALLOWED_HOSTS = frozenset({"tradermonty.github.io", "raw.githubusercontent.com"})
 DEFAULT_CSV_MAX_BYTES = 2 * 1024 * 1024
 CONTRACT_FORMATS = ("json", "csv")
+COINGECKO_PATH = "/api/v3/coins/markets"
+COINGECKO_QUERY = {
+    "vs_currency": "usd",
+    "order": "market_cap_desc",
+    "per_page": "3",
+    "page": "1",
+    "sparkline": "false",
+}
 
 _APIKEY_RE = re.compile(r"([?&](?:apikey|api_key)=)[^&\s]+", re.IGNORECASE)
 
@@ -320,6 +328,12 @@ def validate_contract_file(contract: Contract, skills_index_ids: Any) -> list[st
             errors.append(f"{label}: owner '{owner}' is not a skill in skills-index.yaml")
 
     errors.extend(_validate_format_keys(contract, label))
+    if contract.provider == "coingecko" and (
+        contract.format != "json"
+        or contract.endpoint_path != COINGECKO_PATH
+        or contract.query != COINGECKO_QUERY
+    ):
+        errors.append(f"{label}: unsupported CoinGecko probe configuration")
 
     if not contract.fixture:
         errors.append(f"{label}: fixture must have at least one row")
@@ -387,10 +401,13 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
             )
         ):
             anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:finite", FATAL))
+        non_blank = spec.get("non_blank", False)
+        if not isinstance(non_blank, bool) or (non_blank and types != ["str"]):
+            anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:non_blank", FATAL))
         iso_date = spec.get("iso_date", False)
         if not isinstance(iso_date, bool) or (iso_date and types != ["str"]):
             anomalies.append(Anomaly(f"invalid_contract_rule:{field_name}:iso_date", FATAL))
-    if any(a.code.endswith((":finite", ":iso_date")) for a in anomalies):
+    if any(a.code.endswith((":finite", ":iso_date", ":non_blank")) for a in anomalies):
         # Invalid policies cannot safely validate a response body, regardless of shape.
         return RowValidation(anomalies)
     min_rows = int((contract.non_empty or {}).get("min_rows", 0) or 0)
@@ -456,6 +473,8 @@ def validate_rows(contract: Contract, rows: Any) -> RowValidation:
                     finite_value = False
                 if not finite_value:
                     anomalies.append(Anomaly(f"non_finite_required_field:{field_name}", FATAL))
+            elif spec.get("non_blank", False) is True and not value.strip():
+                anomalies.append(Anomaly(f"blank_required_field:{field_name}", FATAL))
             elif spec.get("iso_date", False) is True and not _is_canonical_iso_date(value):
                 anomalies.append(Anomaly(f"invalid_date_format:{field_name}", FATAL))
 
