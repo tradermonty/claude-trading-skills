@@ -1188,11 +1188,11 @@ def run(project_root: Path, dry_run: bool = False) -> int:
 
         # LLM review (optional)
         llm_prompt_file = report.get("llm_prompt_file")
-        llm_review_ok = True
+        # True only once a review is merged into the report used below. A missing
+        # prompt file means no review ran, so a no-item skip must not look healthy.
+        llm_review_ok = False
         if llm_prompt_file and not dry_run:
             llm_result = run_llm_review(project_root, skill_name, llm_prompt_file)
-            # Healthy only if the review reached the report used below.
-            llm_review_ok = False
             if llm_result:
                 # Write LLM review JSON and re-run with --llm-review-json
                 llm_json_path = project_root / "reports" / f"llm_review_{skill_name}.json"

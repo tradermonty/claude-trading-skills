@@ -443,7 +443,7 @@ with independent `daily` and `weekly` timestamps for generation). A completed
 daily check with no eligible ideas or an already open PR is healthy. An
 improvement run is also healthy when the LLM review completed, was merged into
 the report, and returned no improvement items. When the score is below the
-threshold, the LLM review is unavailable (no `claude` result, CLI error, budget
+threshold, the LLM review is unavailable (no review prompt, no `claude` result, CLI error, budget
 stop, or a failed merge re-score), and there is nothing else to improve, the run
 counts as failed. A skill at or above the threshold, or one improved from
 auto-review items alone, still records success without the LLM review. Other

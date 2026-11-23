@@ -1484,3 +1484,13 @@ def test_review_failure_message_names_the_no_item_case_only(
     caplog.set_level("ERROR")
     assert loop_module.run(tmp_path) == 1
     assert "LLM review unavailable" not in caplog.text
+
+
+def test_missing_review_prompt_is_not_a_healthy_skip(loop_module, tmp_path, monkeypatch):
+    """Without llm_prompt_file the review never ran; a no-item skip must not look healthy."""
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome="no_improvement_items")
+    monkeypatch.setattr(
+        loop_module, "run_auto_score", lambda *a, **kw: {"auto_review": {"score": 88}}
+    )
+    assert loop_module.run(tmp_path) == 1
+    assert "last_success_at" not in loop_module.load_state(tmp_path)
