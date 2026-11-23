@@ -34,7 +34,11 @@ HISTORY_LIMIT = 60
 LOG_RETENTION_DAYS = 30
 CLAUDE_TIMEOUT = 300
 CLAUDE_RETRIES = 2
-CLAUDE_BUDGET_REVIEW = 0.50
+# A real review prompt costs about $0.6 (issue #652); $0.50 stopped every review.
+CLAUDE_BUDGET_REVIEW = 1.00
+REVIEW_BUDGET_ENV = "SKILL_LOOP_REVIEW_BUDGET_USD"
+REVIEW_BUDGET_MIN = 0.01
+REVIEW_BUDGET_MAX = 5.0  # an unattended daily job; up to 6 calls
 CLAUDE_BUDGET_IMPROVE = 2.00
 IMPROVEMENT_TIMEOUT = 600
 
@@ -253,6 +257,40 @@ def run_auto_score(
     return json.loads(report_files[0].read_text(encoding="utf-8"))
 
 
+def review_budget_usd() -> float:
+    """Review budget from SKILL_LOOP_REVIEW_BUDGET_USD, else the default."""
+    raw = os.environ.get(REVIEW_BUDGET_ENV)
+    if raw is None:
+        return CLAUDE_BUDGET_REVIEW
+    try:
+        value = float(raw)
+    except ValueError:
+        value = float("nan")
+    # Bounds match the two-decimal CLI flag: below $0.01 renders as 0.00.
+    if not (REVIEW_BUDGET_MIN <= round(value, 2) <= REVIEW_BUDGET_MAX):
+        logger.warning(
+            "Ignoring invalid %s=%r; using $%.2f.", REVIEW_BUDGET_ENV, raw, CLAUDE_BUDGET_REVIEW
+        )
+        return CLAUDE_BUDGET_REVIEW
+    return value
+
+
+def _cli_error(output: str) -> tuple[str, object, str] | None:
+    """Return (subtype, cost, detail) when stdout is a claude CLI error envelope."""
+    try:
+        envelope = json.loads(output)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if isinstance(envelope, dict) and envelope.get("is_error"):
+        detail = envelope.get("errors") or envelope.get("result") or ""
+        return (
+            str(envelope.get("subtype") or "unknown_error"),
+            envelope.get("total_cost_usd"),
+            str(detail)[:200],
+        )
+    return None
+
+
 def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dict | None:
     """Invoke claude CLI for LLM review. Returns parsed JSON or None."""
     if not shutil.which("claude"):
@@ -267,6 +305,7 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
         return None
 
     prompt_text = prompt_path.read_text(encoding="utf-8")
+    budget = review_budget_usd()
 
     # JSON Schema to force structured output from Claude CLI
     review_schema = json.dumps(
@@ -317,7 +356,7 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                     *strategy["extra_args"],
                     "--max-turns",
                     "1",
-                    f"--max-budget-usd={CLAUDE_BUDGET_REVIEW}",
+                    f"--max-budget-usd={budget:.2f}",
                 ]
                 # For plain-json mode, append schema instructions to the prompt
                 effective_prompt = prompt_text
@@ -337,6 +376,26 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                     check=False,
                     timeout=CLAUDE_TIMEOUT,
                 )
+                cli_error = _cli_error(result.stdout)
+                if cli_error and cli_error[0] == "error_max_budget_usd":
+                    # Deterministic for the same prompt: retrying only spends more.
+                    logger.warning(
+                        "LLM review stopped at the $%.2f budget (cost %s). "
+                        "Raise %s to allow the review.",
+                        budget,
+                        cli_error[1],
+                        REVIEW_BUDGET_ENV,
+                    )
+                    return None
+                if cli_error:
+                    logger.warning(
+                        "claude -p [%s] attempt %d returned %s: %s",
+                        strategy["label"],
+                        attempt + 1,
+                        cli_error[0],
+                        cli_error[2],
+                    )
+                    continue
                 if result.returncode != 0:
                     logger.warning(
                         "claude -p [%s] attempt %d failed: %s",
@@ -369,6 +428,16 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
     return None
 
 
+def _is_numeric_score(value) -> bool:
+    # Same acceptance as load_llm_review in the dual-axis reviewer (int or float).
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and value == value
+        and value not in (float("inf"), float("-inf"))
+    )
+
+
 def _extract_json_from_claude(output: str, required_keys: list[str]) -> dict | None:
     """Extract JSON from claude CLI --output-format json envelope.
 
@@ -380,6 +449,13 @@ def _extract_json_from_claude(output: str, required_keys: list[str]) -> dict | N
         wrapper = json.loads(output)
         text = ""
         if isinstance(wrapper, dict):
+            structured = wrapper.get("structured_output")
+            if (
+                isinstance(structured, dict)
+                and any(k in structured for k in required_keys)
+                and ("score" not in required_keys or _is_numeric_score(structured.get("score")))
+            ):
+                return structured
             text = wrapper.get("result", "") or ""
             if not text:
                 content = wrapper.get("content", [])
@@ -401,7 +477,11 @@ def _extract_json_from_claude(output: str, required_keys: list[str]) -> dict | N
             break
         try:
             obj, end_idx = decoder.raw_decode(text, pos)
-            if isinstance(obj, dict) and any(k in obj for k in required_keys):
+            if (
+                isinstance(obj, dict)
+                and any(k in obj for k in required_keys)
+                and ("score" not in obj or _is_numeric_score(obj["score"]))
+            ):
                 return obj
             idx = pos + 1
         except json.JSONDecodeError:
@@ -623,11 +703,12 @@ def apply_improvement(
     skill_name: str,
     report: dict,
     dry_run: bool = False,
-) -> dict | Literal["pr_already_open"] | None:
+) -> dict | Literal["pr_already_open", "no_improvement_items"] | None:
     """Create a branch, use claude to improve the skill, and open a PR.
 
-    Returns the report on success, "pr_already_open" for a healthy skip,
-    or None on failure/dry-run.
+    Returns the report on success, "pr_already_open" when a PR is already open,
+    "no_improvement_items" when the review gave nothing to act on, or None on
+    failure/dry-run.
     """
     if dry_run:
         logger.info(
@@ -681,7 +762,7 @@ def apply_improvement(
                 pre_score,
             )
             _rollback(project_root, skill_name, branch_name)
-            return None
+            return "no_improvement_items"
 
         # Snapshot pre-existing faithfulness issues so the gate below only blocks
         # NEW unfaithful claims introduced by this improvement, not pre-existing
@@ -1107,8 +1188,11 @@ def run(project_root: Path, dry_run: bool = False) -> int:
 
         # LLM review (optional)
         llm_prompt_file = report.get("llm_prompt_file")
+        llm_review_ok = True
         if llm_prompt_file and not dry_run:
             llm_result = run_llm_review(project_root, skill_name, llm_prompt_file)
+            # Healthy only if the review reached the report used below.
+            llm_review_ok = False
             if llm_result:
                 # Write LLM review JSON and re-run with --llm-review-json
                 llm_json_path = project_root / "reports" / f"llm_review_{skill_name}.json"
@@ -1122,6 +1206,9 @@ def run(project_root: Path, dry_run: bool = False) -> int:
                 )
                 if merged_report:
                     report = merged_report
+                    llm_review_ok = True
+                else:
+                    logger.error("Re-scoring with the LLM review failed for %s.", skill_name)
 
         final_score = report.get("auto_review", {}).get("score", auto_score)
         logger.info("Auto-based score for %s: %d/100", skill_name, final_score)
@@ -1141,7 +1228,17 @@ def run(project_root: Path, dry_run: bool = False) -> int:
                 report = improvement_result
                 final_score = report.get("auto_review", {}).get("score", final_score)
                 improved = True
-            elif not dry_run and improvement_result != "pr_already_open":
+            elif dry_run or improvement_result == "pr_already_open":
+                pass
+            elif improvement_result == "no_improvement_items" and llm_review_ok:
+                logger.info("Review found nothing to improve; healthy skip.")
+            else:
+                if not llm_review_ok and improvement_result == "no_improvement_items":
+                    logger.error(
+                        "LLM review unavailable for %s; nothing to improve without it, "
+                        "so the run counts as failed.",
+                        skill_name,
+                    )
                 improvement_failed = True
         else:
             logger.info(
