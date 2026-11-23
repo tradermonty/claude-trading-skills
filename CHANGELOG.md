@@ -5,6 +5,10 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 ## [Unreleased]
 
 - parabolic-short-trade-planner: live Phase 1 now fails closed instead of writing a normal exit-0 report when the S&P 500 universe is empty or fails, when the earnings calendar fails (which silently disabled the earnings-blackout exclusion), or when every price fetch fails. A live report records partial price failures in an additive `data_quality` block. Record the five-dimension security checklist review of the six #778 skills; their `security_review` values stay `not_verified` because the mechanical timeout proof is not yet clean (Refs #778).
+- FMP shared clients: count timed-out dispatches against request budgets, isolate each call's 429 retry counter, and avoid disabling historical endpoints for empty symbol responses (#844). An endpoint that always returns an empty body no longer trips the circuit breaker, so it is retried on every call instead of being disabled for the run.
+- us-undervalued-growth-screener: reject invalid list responses before caching and keep symbol-specific data failures from disabling an entire endpoint (#846).
+- us-undervalued-growth-screener: validate the ratios/key-metrics TTM, profile, peers, quotes and historical-price payloads so HTTP-200 error bodies such as `{"message": ...}` are no longer cached, and disable an endpoint after 20 consecutive schema failures with no success (#846).
+- value-dividend-screener: write default results under the caller's `reports/` directory and accept a bare filename for `--output` (#850).
 - trader-memory-core: preserve legacy equity shorts in doctor/rebuild, reject corrupt indexes before thesis writes, and serialize cooperating local writers including fingerprint deduplication and explicit rebuild; let doctor inspect read-only snapshots without creating state directories (#847).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).
 
