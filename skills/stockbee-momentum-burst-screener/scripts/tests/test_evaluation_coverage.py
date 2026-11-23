@@ -196,3 +196,70 @@ def test_complete_run_keeps_the_plain_zero_message(monkeypatch, tmp_path):
     assert "- Evaluation coverage: 10/10 evaluated (complete)" in markdown
     assert "No non-rejected candidates found." in markdown
     assert "Result undetermined" not in markdown
+
+
+def _future_rows(n=90):
+    """Bars that all fall after the 2026-03-30 as-of session."""
+    rows = _rows(n)
+    for row in rows:
+        row["date"] = (date.fromisoformat(row["date"]) + timedelta(days=200)).isoformat()
+    return rows
+
+
+def _bad_date_rows():
+    rows = _rows()
+    rows[0]["date"] = "not-a-date"
+    return rows
+
+
+NO_SESSION_CASES = [
+    (_future_rows, "no_completed_price_data"),
+    (_bad_date_rows, "invalid_price_date"),
+]
+
+
+@pytest.mark.parametrize("bad_rows,reason", NO_SESSION_CASES)
+def test_bars_without_a_usable_session_are_not_a_negative_decision(
+    monkeypatch, tmp_path, bad_rows, reason
+):
+    def answer(n, symbol):
+        return _Response(bad_rows() if symbol == "S00" else _rows())
+
+    report, _, _ = _main(monkeypatch, tmp_path, answer, SYMBOLS)
+    coverage = report["evaluation_coverage"]
+    assert coverage["not_evaluated_reasons"] == {reason: 1}
+    assert (coverage["evaluated"], coverage["verdict"]) == (9, "partial")
+
+
+@pytest.mark.parametrize("bad_rows,reason", NO_SESSION_CASES)
+def test_offline_bars_without_a_usable_session_are_not_evaluable(
+    monkeypatch, tmp_path, bad_rows, reason
+):
+    prices = tmp_path / "prices.json"
+    prices.write_text(json.dumps({"AAA": bad_rows()}))
+    out = tmp_path / "out"
+    argv = ["prog", "--prices-json", str(prices), "--as-of", "2026-03-30", "--output-dir", str(out)]
+    monkeypatch.setattr(sys, "argv", argv)
+    smb.main()
+    (report,) = out.glob("stockbee_momentum_burst_*.json")
+    (markdown,) = out.glob("stockbee_momentum_burst_*.md")
+    coverage = json.loads(report.read_text())["evaluation_coverage"]
+    assert coverage["not_evaluated_reasons"] == {reason: 1}
+    assert (coverage["evaluated"], coverage["verdict"]) == (0, "not_evaluable")
+    assert "No non-rejected candidates found." not in markdown.read_text()
+
+
+def test_cached_history_resets_the_last_fetch_error(monkeypatch):
+    shared = smb._load_shared_fmp()
+
+    def answer(n, symbol):
+        return _Response([]) if symbol == "AAA" else _Response(status=500)
+
+    monkeypatch.setattr(shared.requests, "Session", lambda: _Session(answer))
+    monkeypatch.setattr(shared.time, "sleep", lambda _: None)
+    client = smb.FMPClient(api_key="k", max_api_calls=100)
+    client.get_historical_prices("AAA")
+    client.get_historical_prices("BBB")
+    assert client.last_fetch_error is not None
+    assert client.get_historical_prices("AAA") == []
+    assert client.last_fetch_error is None

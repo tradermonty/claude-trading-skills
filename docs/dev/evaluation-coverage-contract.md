@@ -73,8 +73,10 @@ describe only evaluated symbols.
 The universe is the unique requested symbols: the FMP universe rows, the
 explicit symbols, or the offline JSON symbols (explicit symbols missing from
 that file are `missing_data`). A symbol is evaluated when its bars reach a
-screening decision; a filter rejection counts. `stale_price_data` and
-`insufficient_history` are not negative decisions, so they are not evaluated.
+screening decision; a filter rejection counts. `stale_price_data`,
+`insufficient_history`, `invalid_price_date` (an unparsable bar date) and
+`no_completed_price_data` (no bar on or before the expected session) are not
+negative decisions, so they are not evaluated.
 An empty fetch is `rate_limited` (HTTP 429 or the client's daily-limit stop),
 `plan_gated` (HTTP 402), `provider_error` (other HTTP statuses and transport
 errors), `missing_data` (the provider answered without rows) or `invalid_data`

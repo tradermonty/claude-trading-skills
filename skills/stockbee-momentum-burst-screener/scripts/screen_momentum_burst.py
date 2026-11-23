@@ -79,7 +79,12 @@ coverage_contract = _load_coverage()
 
 # Hard rejects that mean the screen had no evidence for the session, not a
 # negative decision (docs/dev/evaluation-coverage-contract.md).
-NO_EVIDENCE_REJECTS = ("stale_price_data", "insufficient_history")
+NO_EVIDENCE_REJECTS = (
+    "stale_price_data",
+    "insufficient_history",
+    "invalid_price_date",
+    "no_completed_price_data",
+)
 
 
 @dataclass
@@ -232,6 +237,8 @@ class FMPClient:
         symbol = normalize_symbol(symbol)
         cache_key = f"history_{symbol}_{days}"
         if cache_key in self.cache:
+            # Only provider answers are cached, so a cache hit has no fetch error.
+            self.last_fetch_error = None
             return self.cache[cache_key]
 
         rows = self._call(self._client.fetch_eod_rows, symbol, days, pad_days=10)
