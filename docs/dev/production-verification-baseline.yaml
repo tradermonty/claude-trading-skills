@@ -264,15 +264,15 @@ skills:
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: not_verified
-      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
+      value: passed
+      rationale: "Five-dimension checklist review passed and the collector reports no mechanical findings: keys from env/CLI only; request errors emit exception classes or redacted text; no shell; every FMP request bounded (timeout=30 literal) and reached only through FMPClient constructor delegation proven by the collector; requirements.txt passes check_skill_deps."
       evidence:
-      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
-      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
-      - reviewed_files: skills/canslim-screener/scripts/check_institutional_endpoint.py
-      - regression: skills/canslim-screener/scripts/tests/test_credential_diagnostics.py
-      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
-      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
+      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
+      - assessed_date: '2026-11-22'
+      - reviewed_files: check_institutional_endpoint.py, screen_canslim.py, fmp_client.py, finviz_stock_client.py, calculators/
+      - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed canslim-screener
+      - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: contrarian-setup-gate
   profile: executable_workflow_trading
 - id: cot-contrarian-detector
@@ -290,28 +290,28 @@ skills:
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: not_verified
-      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
+      value: passed
+      rationale: "Five-dimension checklist review passed and the collector reports no mechanical findings: keys from env/CLI only; FINVIZ errors print the exception class or status only and FMP diagnostics are redacted; no shell; FMP timeout is the single __init__ literal self.timeout = 30; requirements.txt passes check_skill_deps."
       evidence:
-      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
-      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
-      - reviewed_files: skills/dividend-growth-pullback-screener/scripts/screen_dividend_growth_rsi.py
-      - regression: skills/dividend-growth-pullback-screener/scripts/tests/test_credential_diagnostics.py
-      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
-      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
+      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
+      - assessed_date: '2026-11-22'
+      - reviewed_files: screen_dividend_growth_rsi.py, fmp_client.py
+      - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed dividend-growth-pullback-screener
+      - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: downtrend-duration-analyzer
   profile: executable_standalone_trading
   overrides:
     security_review:
       value: not_verified
-      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
+      rationale: "The manual five-dimension checklist review passed, but the mechanical timeout proof is not clean: downtrend_fmp_client.py loads fmp_client.py through importlib, so the collector cannot prove the delegated FMP timeout. Stays not_verified until the client is imported statically."
       evidence:
-      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
-      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
-      - reviewed_files: skills/downtrend-duration-analyzer/scripts/analyze_downtrends.py
-      - regression: skills/downtrend-duration-analyzer/scripts/tests/test_credential_diagnostics.py
-      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
-      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
+      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
+      - assessed_date: '2026-11-22'
+      - reviewed_files: analyze_downtrends.py, downtrend_fmp_client.py, fmp_client.py, generate_histogram_html.py
+      - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed downtrend-duration-analyzer
+      - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: drawdown-circuit-breaker
   profile: executable_workflow_trading
 - id: dual-axis-skill-reviewer
@@ -556,15 +556,15 @@ skills:
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: not_verified
-      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
+      value: passed
+      rationale: "Five-dimension checklist review passed and the collector reports no mechanical findings: keys from env/CLI only, Alpaca keys in headers; diagnostics carry classes/status only; no shell; all FMP/Alpaca requests use literal timeouts (Alpaca adapters pinned to 10 s / 15 s); live Phase 1 fails closed on failed or malformed universe, earnings calendar and price data (test_live_fail_closed.py); requirements.txt passes check_skill_deps."
       evidence:
-      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
-      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
-      - reviewed_files: skills/parabolic-short-trade-planner/scripts/check_live_apis.py
-      - regression: skills/parabolic-short-trade-planner/scripts/tests/test_credential_diagnostics.py
-      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
-      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
+      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
+      - assessed_date: '2026-11-22'
+      - reviewed_files: screen_parabolic.py, fmp_client.py, check_live_apis.py, generate_pre_market_plan.py, monitor_intraday_trigger.py, adapters/
+      - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed parabolic-short-trade-planner
+      - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: pead-screener
   profile: executable_workflow_trading
   overrides:
@@ -694,9 +694,14 @@ skills:
       - note: "Prior evidence predates generated quote/history/holdings transport. Comprehensive reassessment remains pending."
     security_review:
       value: not_verified
-      rationale: "The #495 final transport migration supersedes earlier assessed source evidence; synthetic regression success does not establish renewed native/workflow/security certification."
+      rationale: "Credential, data-exposure, path and dependency checks passed, but the network dimension has a real gap: yfinance and finvizfinance calls pass no explicit timeout, fmp_adapter.py overrides client.timeout, and the selector rebinds requests. Stays not_verified until those calls are bounded."
       evidence:
-      - note: "Prior evidence predates generated quote/history/holdings transport. Comprehensive reassessment remains pending."
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
+      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
+      - assessed_date: '2026-11-22'
+      - reviewed_files: all non-test scripts under skills/theme-detector/scripts/
+      - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed theme-detector
+      - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: trade-hypothesis-ideator
   profile: executable_workflow_trading
   overrides:
@@ -777,15 +782,15 @@ skills:
   profile: executable_workflow_trading
   overrides:
     security_review:
-      value: not_verified
-      rationale: "Issue #778 credential-diagnostic leak remediated: request errors emit only exception classes or fixed messages, without URLs, raw exception text or tracebacks. Offline marker-key regressions pass and the collector reports no exception-key-leak findings. This targeted remediation does not establish all five security-review dimensions; comprehensive skill-local checklist review remains pending."
+      value: passed
+      rationale: "Five-dimension checklist review passed and the collector reports no mechanical findings: FMP key sent in a header and all diagnostics redacted; FINVIZ auth errors print the exception class or status only; no shell; FMP timeout is the single __init__ literal self.timeout = 30 and FINVIZ timeout=30; malformed and non-2xx payloads fail closed; requirements.txt passes check_skill_deps."
       evidence:
-      - reviewer: Codex; targeted remediation and independent subagent code review, 2026-11-15; not a full five-dimension certification
-      - assessed_commit: e02496fb5e845419eb7e73d18288ab44fd79cc3b  # pragma: allowlist secret
-      - reviewed_files: skills/value-dividend-screener/scripts/screen_dividend_stocks.py
-      - regression: skills/value-dividend-screener/scripts/tests/test_credential_diagnostics.py
-      - collector: scripts/backfill_security_review.py; no mechanical findings for this skill
-      - scope_and_remaining_gap: docs/dev/issue-778-credential-diagnostics.md
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
+      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
+      - assessed_date: '2026-11-22'
+      - reviewed_files: screen_dividend_stocks.py, fmp_client.py, _price_bars.py
+      - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed value-dividend-screener
+      - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: vcp-screener
   profile: executable_workflow_trading
   overrides:

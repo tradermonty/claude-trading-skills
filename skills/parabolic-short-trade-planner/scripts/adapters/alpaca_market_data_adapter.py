@@ -46,7 +46,6 @@ class AlpacaMarketDataAdapter(MarketDataAdapter):
         secret_key: str | None = None,
         paper: bool = True,
         feed: str = "iex",
-        timeout: float = 15.0,
     ) -> None:
         self.api_key = api_key or os.getenv("ALPACA_API_KEY")
         self.secret_key = secret_key or os.getenv("ALPACA_SECRET_KEY")
@@ -58,7 +57,6 @@ class AlpacaMarketDataAdapter(MarketDataAdapter):
         # endpoint is the same for both account classes.
         self.paper = paper
         self.feed = feed
-        self.timeout = timeout
         self.base_url = DATA_BASE_URL
 
     def _headers(self) -> dict[str, str]:
@@ -107,9 +105,7 @@ class AlpacaMarketDataAdapter(MarketDataAdapter):
             if page_token is not None:
                 params["page_token"] = page_token
 
-            response = requests.get(
-                url, headers=self._headers(), params=params, timeout=self.timeout
-            )
+            response = requests.get(url, headers=self._headers(), params=params, timeout=15.0)
 
             if response.status_code == 404:
                 logger.info(
