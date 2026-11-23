@@ -1,0 +1,86 @@
+{
+  "original_skills": [
+    "cot-contrarian-detector",
+    "dividend-growth-pullback-screener",
+    "downtrend-duration-analyzer",
+    "earnings-calendar",
+    "economic-calendar-fetcher",
+    "institutional-flow-tracker",
+    "kanchi-dividend-sop",
+    "news-reaction-failure-analyzer",
+    "options-strategy-advisor",
+    "pair-trade-screener",
+    "signal-postmortem",
+    "stockbee-20pct-study",
+    "stockbee-episodic-pivot-analyzer",
+    "stockbee-exhaustion-hammer-screener",
+    "stockbee-momentum-burst-screener",
+    "stockbee-setup-fluency-trainer",
+    "technical-analyst",
+    "theme-detector",
+    "trader-memory-core",
+    "value-dividend-screener"
+  ],
+  "exceptions": [
+    {
+      "path": "skills/canslim-screener/scripts/calculators/institutional_calculator.py",
+      "line": "# ownership endpoints return 402 \"Restricted\" and the legacy /api/v3",
+      "reason": "Historical schema/endpoint explanation only; no legacy request or fallback is executed by this reference."
+    },
+    {
+      "path": "skills/crypto-regime-analyzer/scripts/data_client.py",
+      "line": "COINGECKO_BASE = \"https://api.coingecko.com/api/v3\"",
+      "reason": "CoinGecko API version 3, a different provider; not an FMP legacy endpoint."
+    },
+    {
+      "path": "skills/institutional-flow-tracker/scripts/data_quality.py",
+      "line": "for the retired /api/v3 institutional-holder feed, which returned asymmetric",
+      "reason": "Historical schema/endpoint explanation only; no legacy request or fallback is executed by this reference."
+    },
+    {
+      "path": "skills/parabolic-short-trade-planner/scripts/check_live_apis.py",
+      "line": "FMP_V3 = \"https://financialmodelingprep.com/api/v3\"",
+      "reason": "Diagnostic-only compatibility probe outside the original 20 migration targets. It deliberately tests provider endpoint/shape access independently of the generated runtime client; no analysis caller uses this raw probe."
+    },
+    {
+      "path": "skills/pead-screener/scripts/screen_pead.py",
+      "line": "``/stable/profile`` returns ``marketCap``; the legacy ``/api/v3/profile``",
+      "reason": "Historical schema/endpoint explanation only; no legacy request or fallback is executed by this reference."
+    },
+    {
+      "path": "scripts/check_fmp_migration.py",
+      "line": "LEGACY_FRAGMENT = \"api/v3\"",
+      "reason": "The acceptance gate search literal itself; no network endpoint or request."
+    },
+    {
+      "path": "scripts/weekly_core_collect.py",
+      "line": "FMP_V3_BASE_URL = \"https://financialmodelingprep.com/api/v3\"",
+      "reason": "Separate weekly portfolio orchestration utility outside the original 20 installed skills. Preserve its explicitly tested legacy-account compatibility fallback; installed skill HTTP is generated. See scripts/tests/test_weekly_core_collect.py."
+    },
+    {
+      "path": "examples/weekly-trade-strategy/.claude/skills/earnings-calendar/scripts/fetch_earnings_fmp.py",
+      "line": "BASE_URL = \"https://financialmodelingprep.com/api/v3\"",
+      "reason": "Frozen weekly-trade-strategy demonstration snapshot (including the hidden Claude copy), not an installed canonical skill. Kept as historical example code; use the generated canonical earnings/economic calendar skills for current provider access."
+    },
+    {
+      "path": "examples/weekly-trade-strategy/.claude/skills/economic-calendar-fetcher/scripts/get_economic_calendar.py",
+      "line": "base_url = \"https://financialmodelingprep.com/api/v3/economic_calendar\"",
+      "reason": "Frozen weekly-trade-strategy demonstration snapshot (including the hidden Claude copy), not an installed canonical skill. Kept as historical example code; use the generated canonical earnings/economic calendar skills for current provider access."
+    },
+    {
+      "path": "examples/weekly-trade-strategy/skills/earnings-calendar/scripts/fetch_earnings_fmp.py",
+      "line": "BASE_URL = \"https://financialmodelingprep.com/api/v3\"",
+      "reason": "Frozen weekly-trade-strategy demonstration snapshot (including the hidden Claude copy), not an installed canonical skill. Kept as historical example code; use the generated canonical earnings/economic calendar skills for current provider access."
+    },
+    {
+      "path": "examples/weekly-trade-strategy/skills/economic-calendar-fetcher/scripts/get_economic_calendar.py",
+      "line": "base_url = \"https://financialmodelingprep.com/api/v3/economic_calendar\"",
+      "reason": "Frozen weekly-trade-strategy demonstration snapshot (including the hidden Claude copy), not an installed canonical skill. Kept as historical example code; use the generated canonical earnings/economic calendar skills for current provider access."
+    },
+    {
+      "path": "scripts/provider_contracts.py",
+      "line": "COINGECKO_PATH = \"/api/v3/coins/markets\"",
+      "reason": "CoinGecko API version 3 for the keyless universe contract, a different provider; not an FMP legacy endpoint. Refs #332."
+    }
+  ]
+}

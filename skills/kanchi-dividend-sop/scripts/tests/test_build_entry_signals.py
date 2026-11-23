@@ -44,7 +44,7 @@ def test_normalize_metrics_yields_limits_to_five_points() -> None:
     assert normalize_metrics_yields(metrics) == [2.0, 3.0, 4.0, 5.0, 6.0]
 
 
-def test_build_entry_row_wait_signal() -> None:
+def test_missing_history_with_high_price_withholds_timing() -> None:
     row = build_entry_row(
         ticker="AAPL",
         alpha_pp=0.5,
@@ -58,13 +58,14 @@ def test_build_entry_row_wait_signal() -> None:
             {"dividendYield": 0.018},
         ],
     )
-    assert row["signal"] == "WAIT"
-    assert row["target_yield_pct"] == 2.5
-    assert row["buy_target_price"] == 160.0
-    assert row["drop_needed_pct"] == 20.0
+    # Profile TTM + provider ratios cannot substitute for unknown dividends.
+    assert row["signal"] == "ASSUMPTION-REQUIRED"
+    assert row["target_yield_pct"] is None
+    assert row["buy_target_price"] is None
+    assert row["drop_needed_pct"] is None
 
 
-def test_build_entry_row_triggered_signal() -> None:
+def test_missing_history_with_low_price_withholds_timing() -> None:
     row = build_entry_row(
         ticker="KO",
         alpha_pp=0.5,
@@ -78,9 +79,9 @@ def test_build_entry_row_triggered_signal() -> None:
             {"dividendYield": 0.034},
         ],
     )
-    assert row["signal"] == "TRIGGERED"
-    assert row["buy_target_price"] == 64.86
-    assert row["drop_needed_pct"] == 0.0
+    assert row["signal"] == "ASSUMPTION-REQUIRED"
+    assert row["buy_target_price"] is None
+    assert row["drop_needed_pct"] is None
 
 
 def test_build_entry_row_assumption_required_when_missing_data() -> None:
@@ -103,6 +104,10 @@ def test_build_entry_row_attaches_ws2_payout_safety_and_blockers() -> None:
         alpha_pp=0.5,
         quote={"price": 46.35},
         profile={"lastDiv": 1.92, "sector": "Consumer Staples"},
+        dividend_history=[
+            {"date": (date(2024, 1, 1) + timedelta(days=91 * i)).isoformat(), "dividend": 0.48}
+            for i in range(8)
+        ],
         key_metrics=[{"dividendYield": 0.04}],
         financials={
             "sector": "Consumer Staples",

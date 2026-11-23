@@ -1170,8 +1170,9 @@ class TestScreeningPipeline:
     def test_volatile_dividend_rejected(self, fake_fmp, capsys):
         today = date.today()
         hist = _dividend_history()["historical"]
-        # Add a special distribution in a complete prior year -> >100% volatility.
-        hist.append({"date": date(today.year - 2, 1, 5).isoformat(), "dividend": 40.0})
+        # An unlabelled volatile regular payment at the existing cadence still
+        # reaches the separate stability gate (explicit specials are excluded).
+        next(r for r in hist if r["date"].startswith(str(today.year - 2)))["dividend"] = 40.0
         fake_fmp.cfg = {
             "candidates": [_good_candidate(sector="Utilities")],
             "income": {"GOOD": _income()},
@@ -1328,6 +1329,17 @@ class TestMain:
     def _run(self, monkeypatch, argv):
         monkeypatch.setattr("sys.argv", ["screen_dividend_stocks.py", *argv])
         return mod.main()
+
+    @pytest.mark.parametrize("output", [None, "results.json", "nested/results.json"])
+    def test_output_paths_are_written_from_current_directory(self, monkeypatch, tmp_path, output):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("FMP_API_KEY", "fake")
+        monkeypatch.setattr(
+            mod, "screen_value_dividend_stocks", lambda *args, **kwargs: [{"symbol": "AAA"}]
+        )
+        self._run(monkeypatch, [] if output is None else ["--output", output])
+        expected = tmp_path / (output or "reports/dividend_screener_results.json")
+        assert json.loads(expected.read_text(encoding="utf-8"))["stocks"] == [{"symbol": "AAA"}]
 
     def test_missing_fmp_key_exits_1(self, monkeypatch, capsys):
         monkeypatch.delenv("FMP_API_KEY", raising=False)

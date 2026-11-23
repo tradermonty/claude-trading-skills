@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import hashlib
     import json
     import os
+    import re
     import tempfile
     import uuid
     from datetime import datetime, timezone
@@ -54,8 +55,23 @@ def _coerce_dt(value: str | None) -> str | None:
     return f"{value}T00:00:00+00:00"
 
 
+def _ticker_id_slug(ticker: str) -> str:
+    """Validate a ticker string and return its lowercase ASCII-alphanumeric ID slug."""
+    if not isinstance(ticker, str):
+        raise ValueError(f"Invalid ticker: {ticker!r}. Must be a non-empty ASCII string")
+    if not ticker.isascii() or any(ch.isspace() for ch in ticker):
+        raise ValueError(f"Invalid ticker: {ticker!r}. Must be ASCII without whitespace")
+    slug = re.sub(r"[^a-z0-9]", "", ticker.lower())
+    if not slug:
+        raise ValueError(
+            f"Invalid ticker: {ticker!r}. Must contain at least one ASCII alphanumeric character"
+        )
+    return slug
+
+
 def _generate_thesis_id(ticker: str, thesis_type: str, date_str: str) -> str:
     """Generate a thesis ID with a 4-char hash suffix for uniqueness."""
+    ticker_id = _ticker_id_slug(ticker)
     abbr = _TYPE_ABBR.get(thesis_type)
     if abbr is None:
         raise ValueError(
@@ -63,7 +79,7 @@ def _generate_thesis_id(ticker: str, thesis_type: str, date_str: str) -> str:
         )
     salt = uuid.uuid4().hex[:8]
     hash4 = hashlib.sha256(f"{ticker}_{thesis_type}_{date_str}_{salt}".encode()).hexdigest()[:4]
-    return f"th_{ticker.lower()}_{abbr}_{date_str}_{hash4}"
+    return f"th_{ticker_id}_{abbr}_{date_str}_{hash4}"
 
 
 def _compute_origin_fingerprint(thesis_data: dict) -> str:
@@ -141,8 +157,20 @@ def _load_index(state_dir: Path) -> dict:
     """Load _index.json or return empty index."""
     idx_path = state_dir / INDEX_FILE
     if idx_path.exists():
-        with open(idx_path, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(idx_path, encoding="utf-8") as f:
+                index = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise ValueError("Invalid thesis index; run rebuild-index before retrying") from None
+        if (
+            not isinstance(index, dict)
+            or type(index.get("version")) is not int
+            or index["version"] != 1
+            or not isinstance(index.get("theses"), dict)
+            or any(not isinstance(entry, dict) for entry in index["theses"].values())
+        ):
+            raise ValueError("Invalid thesis index structure; run rebuild-index before retrying")
+        return index
     return {"version": 1, "theses": {}}
 
 
@@ -271,7 +299,7 @@ def rebuild_index(state_dir: Path) -> dict:
         try:
             thesis = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
             if thesis and "thesis_id" in thesis:
-                _validate_thesis(thesis)
+                _validate_thesis(thesis, allow_legacy_short=True)
                 _update_index_entry(index, thesis)
         except Exception as e:
             logger.warning("Skipping invalid file %s: %s", yaml_path.name, e)

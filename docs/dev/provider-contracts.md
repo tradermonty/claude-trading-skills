@@ -25,17 +25,17 @@ static rule for legacy field names is not viable. Contracts are per endpoint.
 ```
 config/provider-contracts/
   fmp/
-    company-screener.v1.json
+    company-screener.v2.json
     sp500-constituent.v1.json
-    profile.v1.json
-    quote.v1.json
-    historical-price-eod-full.v1.json
-    historical-price-eod-dividend-adjusted.v1.json
+    profile.v2.json
+    quote.v2.json
+    historical-price-eod-full.v2.json
+    historical-price-eod-dividend-adjusted.v2.json
     historical-price-eod-light.v1.json
-    earnings-calendar.v1.json
-    income-statement.v1.json
-    ratios.v1.json
-    economic-calendar.v1.json
+    earnings-calendar.v2.json
+    income-statement.v2.json
+    ratios.v2.json
+    economic-calendar.v2.json
   trader-monty/
     market-breadth-data.v1.json
     market-breadth-summary.v1.json
@@ -47,6 +47,30 @@ Location follows `config/ci-test-policy.yaml`'s convention: data lives under
 `config/`, the code that reads it lives under `scripts/` — see
 `scripts/provider_contracts.py` (loader/validator, stdlib-only at import time) and
 `scripts/check_provider_contracts.py` (the `check` / `canary` CLI).
+
+## FMP required numeric finiteness (Issue #332)
+
+All 39 numeric-only required fields across the ten numeric-bearing FMP contracts
+explicitly declare `finite: true`. This rejects NaN, positive/negative infinity,
+and integers outside finite float range with fatal
+`non_finite_required_field:<field>`, even when HTTP status is 200. A valid JSON
+number such as `1e400` can decode to infinity, so successful JSON decoding alone
+is insufficient. The canary still completes its remaining probes and records the
+fatal field reason without copying raw response values into the report.
+
+The nine contracts whose policy tightened are now `.v2.json` with
+`contract_version: 2`; the already-protected light EOD and nonnumeric SP500
+contracts remain v1. `schema_version` stays 1. There is one active file per
+endpoint; prior versions remain in Git history. Endpoint identifiers, queries,
+ownership, recorded fixtures and their capture dates are unchanged. Historical
+implementation plans may mention the original v1 filenames; operational readers
+should use `load_contracts()[endpoint]` rather than pinning a filename.
+
+The generic validator remains opt-in for other/custom contracts. This policy
+adds no positivity, financial-range or coercion rule: declared nullable values,
+valid zero/negative finite numbers, existing type checks and all-null policies
+keep their existing behavior. It is offline contract enforcement, not new live
+provider verification or a guarantee that a value is suitable for a signal.
 
 ## Public CSV contracts (trader-monty)
 
@@ -147,14 +171,14 @@ Summary table cells render `code ×count` when the count is above 1.
   "endpoint": "profile",
   "path": "/stable/profile",
   "query": {"symbol": "AAPL"},
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-09-05",
   "recording": "live /stable response; description/website/image/... removed",
   "owners": ["earnings-trade-analyzer", "pead-screener", "..."],
   "tier_notes": "served on free tier; comma-batched symbol returns []",
   "required_fields": {
     "symbol": {"types": ["str"], "nullable": false},
-    "marketCap": {"types": ["int", "float"], "nullable": true, "reject_all_null": true},
+    "marketCap": {"types": ["int", "float"], "nullable": true, "reject_all_null": true, "finite": true},
     "exchange": {"types": ["str"], "nullable": false}
   },
   "optional_fields": ["beta", "lastDividend", "..."],
@@ -186,7 +210,8 @@ Field semantics:
   requires numeric-only `types` (`int`/`float`) and rejects NaN, infinity and
   integers outside finite float range. `iso_date: true` requires `types` to be
   exactly `["str"]` and rejects any value that is not a canonical `YYYY-MM-DD`
-  calendar date. Only the light EOD contract opts in. A malformed policy value
+  calendar date. All numeric-only required FMP fields opt in to `finite`; only
+  the light EOD date opts in to `iso_date`. A malformed policy value
   fails the offline fixture check and canary validation, including on empty
   responses.
 - **`optional_fields`** — every other field observed live but not read by any
@@ -244,7 +269,7 @@ deprecation-only result is still `ok`).
 
 ## Economic calendar contract (#332)
 
-`economic-calendar.v1.json` records three unmodified public macro-event rows
+`economic-calendar.v2.json` records three unmodified public macro-event rows
 from a 2026-10-17 HTTP 200 response (568 rows) for 2026-10-01 through 2026-10-07.
 The probe uses the singular `/stable/economic-calendar` endpoint and that known
 populated historical window. It joins the existing scheduled canary automatically,
@@ -434,7 +459,7 @@ With that parameter, `/stable/earnings-calendar` returns `time` as `"bmo"`,
 explicit `null` from the provider rather than an always-missing key.
 [Issue #352](https://github.com/tradermonty/claude-trading-skills/issues/352) is
 resolved: the client template requests `includeReportTimes=true`,
-`earnings-calendar.v1.json` requires `time` (nullable) with an empty
+`earnings-calendar.v2.json` requires `time` (nullable) with an empty
 `known_gaps`, and `earnings-trade-analyzer` / `pead-screener` report a
 `timing_unknown_count` alongside their results so the residual `null` rate is
 visible rather than silently assumed away.
@@ -478,7 +503,7 @@ On refresh, re-judge two required fields before lowering their guard rule:
 `sector` (nullable:false rests on the US-listed universe; FMP may legitimately
 null it for odd listings) and `lastAnnualDividend` (non-payers are observed to
 emit `0`, not `null` — a first-ever `null` should flip it to nullable:true with
-a re-recorded fixture). See `company-screener.v1.json`'s `tier_notes` for the
+a re-recorded fixture). See `company-screener.v2.json`'s `tier_notes` for the
 same triggers.
 
 Sanitization checklist before pasting the result into a `fixture` array:
@@ -636,15 +661,15 @@ endpoints, and are excluded.
 
 | `/stable/...` path | Recorded contract | Owners (grep-discovered) | Deferred to |
 |---|---|---|---|
-| `profile` | ✅ `profile.v1.json` | see ownership table above | — |
-| `quote` | ✅ `quote.v1.json` | see ownership table above | — |
-| `historical-price-eod/full` | ✅ `historical-price-eod-full.v1.json` | see ownership table above | — |
-| `historical-price-eod/dividend-adjusted` | ✅ `historical-price-eod-dividend-adjusted.v1.json` | pair-trade-screener (SPY fixture window 2026-10-26..2026-10-30; plan-tier availability unverified) | — |
-| `earnings-calendar` (v3 alias: `earning_calendar`) | ✅ `earnings-calendar.v1.json` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor call `get_earnings_calendar`; vcp-screener/parabolic-short-trade-planner vendor the same v3→stable compat rename but do not call it | — |
-| `company-screener` | ✅ `company-screener.v1.json` | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener — the stockbee three are generated-client consumers (`fetch_screener_rows`, stable-only, no v3 fallback) | consumer reason codes → slice 2b |
+| `profile` | ✅ `profile.v2.json` | see ownership table above | — |
+| `quote` | ✅ `quote.v2.json` | see ownership table above | — |
+| `historical-price-eod/full` | ✅ `historical-price-eod-full.v2.json` | see ownership table above | — |
+| `historical-price-eod/dividend-adjusted` | ✅ `historical-price-eod-dividend-adjusted.v2.json` | pair-trade-screener (SPY fixture window 2026-10-26..2026-10-30; plan-tier availability unverified) | — |
+| `earnings-calendar` (v3 alias: `earning_calendar`) | ✅ `earnings-calendar.v2.json` | pead-screener, earnings-trade-analyzer, ibd-distribution-day-monitor call `get_earnings_calendar`; vcp-screener/parabolic-short-trade-planner vendor the same v3→stable compat rename but do not call it | — |
+| `company-screener` | ✅ `company-screener.v2.json` | dividend-growth-pullback-screener, downtrend-duration-analyzer, institutional-flow-tracker, pair-trade-screener, stockbee-20pct-study, stockbee-exhaustion-hammer-screener, stockbee-momentum-burst-screener, us-undervalued-growth-screener, value-dividend-screener — the stockbee three are generated-client consumers (`fetch_screener_rows`, stable-only, no v3 fallback) | consumer reason codes → slice 2b |
 | `sp500-constituent` (v3 alias: `sp500_constituent`) | ✅ `sp500-constituent.v1.json` | vcp-screener, parabolic-short-trade-planner call `get_sp500_constituents`; pead-screener/earnings-trade-analyzer/ibd-distribution-day-monitor vendor the compat rename but do not call it | covered |
-| `income-statement` | ✅ `income-statement.v1.json` | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener — ad-hoc consumers (their own inline FMP fetch layer) | — |
-| `ratios` | ✅ `ratios.v1.json` | value-dividend-screener — ad-hoc consumer | — |
+| `income-statement` | ✅ `income-statement.v2.json` | canslim-screener, dividend-growth-pullback-screener, value-dividend-screener — ad-hoc consumers (their own inline FMP fetch layer) | — |
+| `ratios` | ✅ `ratios.v2.json` | value-dividend-screener — ad-hoc consumer | — |
 | `profile-bulk` | ❌ | parabolic-short-trade-planner | slice 2 |
 | `aftermarket-quote` | ❌ | parabolic-short-trade-planner | slice 2 |
 | `institutional-ownership/symbol-positions-summary` | ❌ | canslim-screener | slice 2 |
@@ -697,7 +722,7 @@ the nine `company-screener` consumers.
 
 ## Out of scope (this slice)
 
-- Providers still without contracts: yfinance, CoinGecko, Binance, Alpaca and FXMacroData.
+- Providers still without contracts: yfinance, Binance, Alpaca and FXMacroData. CoinGecko coverage is limited to coins/markets; global and market_chart remain uncovered.
 - Parser hardening for the four trader-monty contract owners that are not hardened yet.
   Their behavior is unchanged and each is a follow-up:
   - market-top-detector: `breadth_csv_client.py`, the read of `market_breadth_data.csv`.
@@ -725,18 +750,20 @@ python3 scripts/check_provider_contracts.py check
 
 # Live probe. --provider fmp (default) needs FMP_API_KEY and makes one GET per
 # contract (query-param auth). --provider trader-monty probes the keyless public
-# CSVs. --provider all runs both. Scores each response, writes a JSON report
+# CSVs. --provider coingecko probes the keyless JSON universe endpoint.
+# --provider all runs all three providers. Scores each response, writes a JSON report
 # (default reports/<provider>_canary_<date>.json) with a top-level "provider"
 # key, and exits 1 if any contract is not ok.
-python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,all}] [--max-calls N] [--report PATH]
+python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,coingecko,all}] [--max-calls N] [--report PATH]
 
 # Render a canary report as markdown (stdout, or appended to --summary-file such as
 # $GITHUB_STEP_SUMMARY). --github also prints ::error / ::warning annotations to
 # stdout. Stdlib only. Exits 0 for missing/malformed reports (report problems never gate);
 # argument or write errors exit non-zero.
-python3 scripts/check_provider_contracts.py summarize --report PATH [--provider {fmp,trader-monty,all}] [--summary-file PATH] [--github]
-# A report's own "provider" key picks the titles (absent or fmp: FMP titles, otherwise
-# "Public CSV ..."). --provider only chooses the title when the report is missing.
+python3 scripts/check_provider_contracts.py summarize --report PATH [--provider {fmp,trader-monty,coingecko,all}] [--summary-file PATH] [--github]
+# A report's own "provider" key picks the titles: absent or fmp uses FMP titles,
+# trader-monty uses Public CSV titles, coingecko or all uses Provider titles.
+# --provider only chooses the title when the report is missing.
 ```
 
 ## S&P 500 constituent recording and consumer boundary
@@ -823,7 +850,7 @@ consumer reason codes and remaining operational acceptance.
 
 ## Persistent fatal-drift tracking (#659)
 
-`quote.v1` accepts finite `int` or `float` volume. FMP returned float volume in
+`quote.v2` accepts finite `int` or `float` volume. FMP returned float volume in
 weekly canaries; the declared clients preserve numeric values. VCP's liquidity
 filter compares numeric volume with a threshold, and CANSLIM's new-high calculator
 uses a volume ratio. Exhaustion-hammer normalizes via `int(float(volume))`, and
@@ -885,3 +912,49 @@ repository. For a manual probe, use `workflow_dispatch`; keep direct local runs
 read-only. User PATs create user-authored issues that the bot-only trust matcher
 intentionally ignores, so they are unsupported for apply and can cause duplicates. Tests use fake API/gh responses only; local green tests
 do not establish that a future scheduled notification reached a maintainer.
+
+
+## CoinGecko universe contract (Issue #332)
+
+`config/provider-contracts/coingecko/coins-markets.v1.json` records a keyless
+HTTP-200 `/api/v3/coins/markets` capture of three public rows, projected to the
+`id` and `symbol` fields consumed by `crypto-regime-analyzer`. The UTC capture
+date is in `recorded_on`. It does not certify the full universe, price history,
+BTC dominance, funding, or future API availability. Other CoinGecko endpoints
+and the other providers in #332 remain outstanding.
+
+The required string policy `non_blank: true` rejects empty/whitespace-only values
+with fatal `blank_required_field:<field>`. It is opt-in, accepts only boolean
+policy values and string-only field types, and leaves existing contracts unchanged.
+Missing/null/renamed/retyped fields and an empty response remain fatal. The
+production universe consumer independently validates the same consumed fields,
+rejects unsafe coin IDs before URL/cache use, validates same-day cached rows,
+and rejects an empty post-exclusion universe. Invalid inputs never create an
+empty-universe cache or a normal regime report. Valid newly-excluded caches
+still refresh; a failed refresh preserves their previous bytes. `top_n` must
+be a positive integer.
+
+The provider CLI now accepts `--provider coingecko` for canary, summary and
+health. Its reviewed path and small fixed string query are allowlisted in
+`provider_contracts.py`. The keyless fetch makes exactly one request, with a
+30-second timeout, a 2 MiB decompressed-body cap, disabled redirects, response
+cleanup, no retries and fixed error codes without raw provider/error contents.
+It sends no FMP credential and leaves default FMP and public-CSV behavior intact;
+`--provider all` dispatches each provider separately and still requires FMP's key.
+Offline `check` validates all recorded contracts without requests installed.
+
+```bash
+python3 scripts/check_provider_contracts.py check
+python3 scripts/check_provider_contracts.py canary --provider coingecko --max-calls 1 --report reports/coingecko-canary-report.json
+```
+
+The weekly read-only `coingecko-contract-canary.yml` workflow uses this one-call
+budget, removes stale reports, publishes a JSON artifact and summary, and has a
+five-minute job limit. Only the probe step is allowed to fail for schema drift;
+the existing operational-health gate remains mandatory and fails on missing,
+skipped or unusable response evidence. Nonempty HTTP-200 schema drift remains
+report-only, with annotations. The workflow supports manual probes through
+`workflow_dispatch` as well as the weekly schedule. The local validation above
+did not dispatch an Actions run; scheduled/manual Actions acceptance and live
+consumer full-run acceptance remain separate. This slice adds no persistent
+notification issue or security certification.

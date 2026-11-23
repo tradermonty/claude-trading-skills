@@ -132,6 +132,8 @@ export FMP_API_KEY=your_key_here
 
 適切なパラメータでスクリーニングスクリプトを実行：
 
+結果はデフォルトで現在の作業ディレクトリの `reports/dividend_screener_results.json` に保存されます。別の保存先は `--output` で指定できます。
+
 #### **2段階スクリーニング（推奨）**
 
 FINVIZでプレスクリーニング、FMPで詳細分析：
@@ -213,7 +215,7 @@ python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --fmp-a
 ```python
 import json
 
-with open('dividend_screener_results.json', 'r') as f:
+with open('reports/dividend_screener_results.json', 'r') as f:
     data = json.load(f)
 
 metadata = data['metadata']
@@ -264,3 +266,11 @@ stocks = data['stocks']
 **スクリプト：**
 
 - `skills/value-dividend-screener/scripts/screen_dividend_stocks.py`
+
+## 通常配当の集計対象と年額の基準
+
+label/frequency に特別配当・補足配当・一時配当・追加配当と明記された支払いを除外します。通常の増配を金額の大きさだけで特別配当と推定しません。将来の権利落ち日は金額を読む前に除外し、対象となる通常配当の欠損・非数値・非有限・非正値は「計算不能」とします。データの網羅性、分割・為替調整、ラベルのない特別配当は保証しません。
+
+成長率と利回りの分子には、一定の支払頻度で直近N回の通常配当を合計した年相当額を使います（月次12回・四半期4回・半期2回・年次1回）。必要な回数が揃い、周期は権利落ち日の間隔だけから推定し、中央値の間隔が対応周期の±20%に入ること、個々の間隔が周期の0.5〜1.5倍、N回離れた支払いが365.25日±31日であることを確認します。半期配当に限り、この年間隔を外れても、対象期間が必要な連続暦年をちょうど覆い、提供された履歴の各対象年に通常配当が2回ずつあり、対象行すべての頻度情報が半期配当を示す場合は例外として扱います。個々の間隔と最終支払いの鮮度条件は維持し、頻度情報の欠落・不一致がある場合は例外を適用しません。行ごとの frequency ラベルは一貫しないため、間隔が裏づける周期を否定しません。未対応の周期、重複日、支払欠落、古い最終支払日は計算不能です。この確認に失敗し、直近の行に Irregular ラベルの支払いがある場合は、それらを補足配当として除いて1回だけ再判定し、dividend_supplementals_excluded に件数を記録します。再判定でも失敗すれば計算不能のままです。最終支払いの許容経過は1周期＋min(31日, 半周期)です。通常の最新増配を反映しながら365日境界の件数ずれを避けます。安定性スコアは完了した暦年の通常配当を使い、年の欠落で連続年数を区切ります。
+
+行データとJSON metadataの `annual_dividend_basis` は `regular_payment_year` です。CLIにも基準を表示します。固定日数のTTMや予想配当ではありません。

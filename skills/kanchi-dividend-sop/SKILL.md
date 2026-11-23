@@ -395,3 +395,11 @@ Read `order_ready` as the aggregate screening gate in JSON, CSV and Markdown:
 TRIGGERED, CLEAN/CONDITIONAL-PASS, final T1 unblocked, and zero blockers are all
 required. `event_t1_blocked` is event-only; legacy `t1_blocked` is the final T1
 restriction and can be false with open blockers. Neither alone permits an order.
+
+## Dividend availability and split amount basis
+
+Distinguish a failed or malformed dividend request (`None`) from a confirmed empty list (`[]`). Unknown, unusable or entirely future-only evidence requires `STEP1-RECHECK`; only confirmed empty history establishes `FAIL no_dividend`. Never substitute profile TTM `lastDiv` for missing regular dividends: withhold yields/entry targets and keep order readiness false. Unrelated established safety failures retain their priority.
+
+Use finite positive `adjDividend` consistently when any eligible row supplies that field. Do not mix adjusted and raw rows or fall back from missing/invalid adjusted amounts. Record `dividend_amount_basis` and the history status in JSON/CSV/Markdown. Raw-only CLI inputs require confirmed split history: unknown splits or a relevant split without adjusted dividends require review. Original-currency amounts whose split basis cannot be established also require review; never infer or apply a split ratio from a dividend-rate change. Future-only rows are excluded before basis selection.
+
+Direct library callers retain raw-only compatibility unless `require_split_evidence=True`; the result marks that basis `raw_unverified`. The CLI always requires split evidence. A confirmed empty split list yields `raw_no_splits_confirmed`. Adjusted provider rows yield `split_adjusted`, which describes the supplied amount convention and does not certify live FMP adjustment semantics or point-in-time historical availability. Re-fetch failed data or supply sourced consistent history before retrying; do not act on incomplete reports.

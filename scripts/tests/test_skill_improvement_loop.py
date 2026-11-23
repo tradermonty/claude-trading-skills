@@ -521,7 +521,7 @@ def test_apply_improvement_skips_empty_improvement_items(loop_module, tmp_path: 
     }
     result = loop_module.apply_improvement(tmp_path, "test-skill", report, dry_run=False)
 
-    assert result is None, "Should return None when improvement_items is empty"
+    assert result == "no_improvement_items", "Empty improvement_items is a distinct skip"
     assert rollback_called, "Should call _rollback when skipping"
 
 
@@ -1231,3 +1231,266 @@ def test_existing_improvement_pr_is_healthy(loop_module, tmp_path, monkeypatch):
     state = loop_module.load_state(tmp_path)
     assert "last_success_at" in state
     assert state["history"][-1]["improved"] is False
+
+
+# ── Issue #652: LLM review envelope, budget and healthy no-item skips ──
+
+
+def _envelope(**fields):
+    base = {"type": "result", "subtype": "success", "is_error": False, "result": ""}
+    base.update(fields)
+    return json.dumps(base)
+
+
+def _prompt(tmp_path):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("Review this skill", encoding="utf-8")
+    return str(prompt_file)
+
+
+def test_llm_review_reads_structured_output(loop_module, tmp_path, monkeypatch):
+    review = {"score": 81, "summary": "ok", "findings": []}
+
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        decoy = json.dumps({"score": 1, "summary": "decoy", "findings": []})
+        return CompletedProcess(cmd, 0, _envelope(structured_output=review, result=decoy), "")
+
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    assert loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path)) == review
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_llm_review_stops_after_budget_exhaustion(
+    loop_module, tmp_path, monkeypatch, caplog, returncode
+):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        calls.append(cmd)
+        body = _envelope(
+            subtype="error_max_budget_usd",
+            is_error=True,
+            errors=["Reached maximum budget ($1)"],
+            total_cost_usd=1.2,
+        )
+        return CompletedProcess(cmd, returncode, body, "")
+
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    caplog.set_level("WARNING")
+    assert loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path)) is None
+    assert len(calls) == 1, "a budget stop is deterministic; retrying only spends more"
+    assert "SKILL_LOOP_REVIEW_BUDGET_USD" in caplog.text
+
+
+def test_llm_review_logs_cli_error_subtype(loop_module, tmp_path, monkeypatch, caplog):
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        return CompletedProcess(
+            cmd, 0, _envelope(subtype="error_during_execution", is_error=True), ""
+        )
+
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    caplog.set_level("WARNING")
+    assert loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path)) is None
+    assert "error_during_execution" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "env_value,expected",
+    [
+        (None, "1.00"),
+        ("2.5", "2.50"),
+        (" 2 ", "2.00"),
+        ("bad", "1.00"),
+        ("-1", "1.00"),
+        ("nan", "1.00"),
+        ("inf", "1.00"),
+        ("0", "1.00"),
+        ("", "1.00"),
+        ("1e-9", "1.00"),
+        ("0.004", "1.00"),
+        ("1e308", "1.00"),
+        ("5", "5.00"),
+        ("5.01", "1.00"),
+    ],
+)
+def test_review_budget_comes_from_environment(
+    loop_module, tmp_path, monkeypatch, env_value, expected
+):
+    seen = []
+
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        seen.append(cmd)
+        return CompletedProcess(
+            cmd, 0, _envelope(structured_output={"score": 70, "summary": "", "findings": []}), ""
+        )
+
+    if env_value is None:
+        monkeypatch.delenv("SKILL_LOOP_REVIEW_BUDGET_USD", raising=False)
+    else:
+        monkeypatch.setenv("SKILL_LOOP_REVIEW_BUDGET_USD", env_value)
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path))
+    assert f"--max-budget-usd={expected}" in seen[0]
+
+
+def _stub_run(loop_module, monkeypatch, *, llm_result, outcome):
+    for name in ("git_safe_check", "acquire_lock"):
+        monkeypatch.setattr(loop_module, name, lambda *a: True)
+    for name in ("release_lock", "write_daily_summary", "cleanup_merged_branches", "rotate_logs"):
+        monkeypatch.setattr(loop_module, name, lambda *a: None)
+    monkeypatch.setattr(loop_module, "discover_skills", lambda *a: ["test"])
+    monkeypatch.setattr(
+        loop_module,
+        "run_auto_score",
+        lambda *a, **kw: {"auto_review": {"score": 70}, "llm_prompt_file": "p.md"},
+    )
+    monkeypatch.setattr(loop_module, "run_llm_review", lambda *a, **kw: llm_result)
+    monkeypatch.setattr(loop_module, "apply_improvement", lambda *a, **kw: outcome)
+
+
+def test_reviewed_skill_without_improvement_items_is_healthy(loop_module, tmp_path, monkeypatch):
+    (tmp_path / "reports").mkdir()
+    _stub_run(
+        loop_module,
+        monkeypatch,
+        llm_result={"score": 70, "summary": "", "findings": []},
+        outcome="no_improvement_items",
+    )
+    assert loop_module.run(tmp_path) == 0
+    assert "last_success_at" in loop_module.load_state(tmp_path)
+
+
+def test_no_items_after_failed_llm_review_is_still_a_failure(loop_module, tmp_path, monkeypatch):
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome="no_improvement_items")
+    assert loop_module.run(tmp_path) == 1
+    assert "last_success_at" not in loop_module.load_state(tmp_path)
+
+
+def test_apply_improvement_reports_no_items_as_a_distinct_skip(loop_module, tmp_path, monkeypatch):
+    monkeypatch.setattr(loop_module.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(loop_module, "check_existing_pr", lambda *a, **kw: False)
+    monkeypatch.setattr(
+        loop_module.subprocess,
+        "run",
+        lambda cmd, **kw: __import__("subprocess").CompletedProcess(cmd, 0, "", ""),
+    )
+    monkeypatch.setattr(loop_module, "_rollback", lambda *a, **kw: None)
+    report = {
+        "auto_review": {"score": 88},
+        "final_review": {"score": 88, "improvement_items": [], "findings": []},
+    }
+    assert (
+        loop_module.apply_improvement(tmp_path, "s", report, dry_run=False)
+        == "no_improvement_items"
+    )
+
+
+def test_structured_output_without_an_integer_score_is_ignored(loop_module):
+    raw = json.dumps({"is_error": False, "structured_output": {"score": "high"}, "result": ""})
+    assert loop_module._extract_json_from_claude(raw, ["score"]) is None
+
+
+def test_cli_error_log_includes_the_error_detail(loop_module, tmp_path, monkeypatch, caplog):
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        body = _envelope(subtype="success", is_error=True, result="Credit balance is too low")
+        return CompletedProcess(cmd, 0, body, "")
+
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    caplog.set_level("WARNING")
+    assert loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path)) is None
+    assert "Credit balance is too low" in caplog.text
+
+
+def test_dropped_review_merge_does_not_count_as_a_healthy_skip(loop_module, tmp_path, monkeypatch):
+    (tmp_path / "reports").mkdir()
+    _stub_run(
+        loop_module,
+        monkeypatch,
+        llm_result={"score": 70, "summary": "", "findings": []},
+        outcome="no_improvement_items",
+    )
+    calls = []
+
+    def score(*a, **kw):
+        calls.append(kw)
+        if kw.get("llm_review_json"):
+            return None  # the merge re-score failed; review output is lost
+        return {"auto_review": {"score": 70}, "llm_prompt_file": "p.md"}
+
+    monkeypatch.setattr(loop_module, "run_auto_score", score)
+    assert loop_module.run(tmp_path) == 1
+    assert "last_success_at" not in loop_module.load_state(tmp_path)
+
+
+def test_review_failure_message_only_when_the_review_failed(
+    loop_module, tmp_path, monkeypatch, caplog
+):
+    (tmp_path / "reports").mkdir()
+    _stub_run(
+        loop_module,
+        monkeypatch,
+        llm_result={"score": 70, "summary": "", "findings": []},
+        outcome=None,
+    )
+    caplog.set_level("ERROR")
+    assert loop_module.run(tmp_path) == 1
+    assert "LLM review unavailable" not in caplog.text
+
+
+@pytest.mark.parametrize("score", [85, 85.0, 85.5])
+def test_numeric_scores_are_accepted_like_the_reviewer(loop_module, score):
+    raw = json.dumps({"is_error": False, "structured_output": {"score": score}, "result": ""})
+    assert loop_module._extract_json_from_claude(raw, ["score"]) == {"score": score}
+
+
+@pytest.mark.parametrize("score", ["85", True, None])
+def test_non_numeric_scores_are_rejected_in_text(loop_module, score):
+    text = "Review: " + json.dumps({"score": score, "summary": "", "findings": []})
+    assert loop_module._extract_json_from_claude(text, ["score"]) is None
+
+
+def test_failed_review_with_auto_score_at_threshold_stays_healthy(
+    loop_module, tmp_path, monkeypatch
+):
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome=None)
+    monkeypatch.setattr(
+        loop_module,
+        "run_auto_score",
+        lambda *a, **kw: {"auto_review": {"score": 95}, "llm_prompt_file": "p.md"},
+    )
+    assert loop_module.run(tmp_path) == 0
+    assert "last_success_at" in loop_module.load_state(tmp_path)
+
+
+def test_review_failure_message_names_the_no_item_case_only(
+    loop_module, tmp_path, monkeypatch, caplog
+):
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome=None)
+    caplog.set_level("ERROR")
+    assert loop_module.run(tmp_path) == 1
+    assert "LLM review unavailable" not in caplog.text
+
+
+def test_missing_review_prompt_is_not_a_healthy_skip(loop_module, tmp_path, monkeypatch):
+    """Without llm_prompt_file the review never ran; a no-item skip must not look healthy."""
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome="no_improvement_items")
+    monkeypatch.setattr(
+        loop_module, "run_auto_score", lambda *a, **kw: {"auto_review": {"score": 88}}
+    )
+    assert loop_module.run(tmp_path) == 1
+    assert "last_success_at" not in loop_module.load_state(tmp_path)

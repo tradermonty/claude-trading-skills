@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_pair_adapters_keep_their_own_generated_client(script, recorded):
     scenario = r"""
 import importlib.util
-import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -30,7 +29,8 @@ client_module = sys.modules[module.FMPClient.__module__]
 assert Path(client_module.__file__).resolve() == directory / "fmp_client.py"
 assert sys.modules["fmp_client"] is foreign
 if sys.argv[3] == "contract":
-    payload = json.loads((directory.parents[2] / "config/provider-contracts/fmp/historical-price-eod-full.v1.json").read_text())["fixture"]
+    from scripts.provider_contracts import load_contracts
+    payload = load_contracts(directory.parents[2])["historical-price-eod-full"].fixture
     symbol = "AAPL"
 else:
     payload = [{"symbol":"AAA", "date":"2001-01-02", "close":100.0}]

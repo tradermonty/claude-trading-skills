@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "provider": "coingecko",
+  "endpoint": "coins-markets",
+  "path": "/api/v3/coins/markets",
+  "query": {
+    "vs_currency": "usd",
+    "order": "market_cap_desc",
+    "per_page": "3",
+    "page": "1",
+    "sparkline": "false"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-11-23",
+  "recording": "Live keyless HTTP 200 response; three public rows projected to the consumed id/symbol fields. Captured for #332; not a replay or synthetic fixture.",
+  "owners": [
+    "crypto-regime-analyzer"
+  ],
+  "tier_notes": "Public keyless endpoint, one request observed. This is not a promise of future access or rate-limit entitlement. HTTP errors and empty responses are acquisition failures, not a valid empty universe. The canary samples three rows, not the full consumer universe.",
+  "required_fields": {
+    "id": {
+      "types": [
+        "str"
+      ],
+      "nullable": false,
+      "non_blank": true
+    },
+    "symbol": {
+      "types": [
+        "str"
+      ],
+      "nullable": false,
+      "non_blank": true
+    }
+  },
+  "optional_fields": [],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "The top-market-cap listing must not be empty."
+  },
+  "fixture": [
+    {
+      "id": "bitcoin",
+      "symbol": "btc"
+    },
+    {
+      "id": "ethereum",
+      "symbol": "eth"
+    },
+    {
+      "id": "tether",
+      "symbol": "usdt"
+    }
+  ]
+}
