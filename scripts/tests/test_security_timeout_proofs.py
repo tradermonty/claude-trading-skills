@@ -453,3 +453,118 @@ def test_bases_metaclasses_and_decorators_defeat_the_attribute_proof(collector, 
     result = checks(collector, tmp_path, {"client.py": body})
 
     assert result["network_timeout_findings"]
+
+
+# ---------- adversarial review round 2 ----------
+
+LITERAL_HTTP_CLIENT = HTTP_CLIENT.replace("timeout=self.timeout", "timeout=30").replace(
+    "        self.timeout = 30\n", ""
+)
+BOUNDED = "import requests\nrequests.get('http://ok', timeout=5)\n"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        BOUNDED + "(requests or None).get('http://x')\n",
+        BOUNDED + "r = requests or None\nr.get('http://x')\n",
+        BOUNDED + "r = requests if flag else None\n",
+        BOUNDED + "def f(a: (r := requests) = 1):\n    pass\n",
+        BOUNDED + "ok = requests == other\n",
+    ],
+)
+def test_network_name_passed_on_through_an_expression_is_a_gap(collector, tmp_path, body):
+    result = checks(collector, tmp_path, {"x.py": body})
+
+    assert any("escapes as a value" in f for f in result["network_timeout_findings"])
+
+
+@pytest.mark.parametrize(
+    "consumer",
+    [
+        "getattr(c, 'ht' + 'tp').get('http://x')\n",
+        "getattr(c, 'http').get('http://x')\n",
+        "c.__dict__['http'].get('http://x')\n",
+        "vars(c)['http'].get('http://x')\n",
+        "import operator\noperator.attrgetter('http')(c).get('http://x')\n",
+        "from operator import attrgetter\nattrgetter('http')(c).get('http://x')\n",
+        "c.http.adapters['https://'].send(None)\n",
+        "a = c.http.adapters\na['https://'].send(None)\n",
+        "c.http.mount('https://', adapter)\n",
+        "name = 'http'\nc.__getattribute__(name).get('http://x')\n",
+    ],
+)
+def test_dynamic_or_adapter_reach_into_a_delegated_client_is_a_gap(collector, tmp_path, consumer):
+    prefix = "import fmp_client\nc = fmp_client.FMPClient()\nc.fetch('u')\n"
+    files = {"fmp_client.py": LITERAL_HTTP_CLIENT, "x.py": prefix + consumer}
+
+    result = checks(collector, tmp_path, files)
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
+
+
+@pytest.mark.parametrize(
+    "provider_init, consumer_reach",
+    [
+        ("        self.a = Holder()\n        self.a.b = requests.Session()\n", "c.a.b.get('u')"),
+        (
+            "        self.pool = {}\n        self.pool['h'] = requests.Session()\n",
+            "c.pool['h'].get('u')",
+        ),
+    ],
+)
+def test_nested_and_subscript_clients_are_registered(
+    collector, tmp_path, provider_init, consumer_reach
+):
+    provider = (
+        "import requests\n\n\nclass FMPClient:\n    def __init__(self):\n"
+        + provider_init
+        + "\n    def fetch(self, url):\n        return requests.get(url, timeout=30)\n"
+    )
+    consumer = (
+        "import fmp_client\nc = fmp_client.FMPClient()\nc.fetch('u')\n" + consumer_reach + "\n"
+    )
+
+    result = checks(collector, tmp_path, {"fmp_client.py": provider, "x.py": consumer})
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
+
+
+def test_class_body_client_is_checked_in_provider_and_consumer(collector, tmp_path):
+    provider = (
+        "import requests\n\n\nclass FMPClient:\n    http = requests.Session()\n\n"
+        "    def fetch(self, url):\n        return self.http.get(url)\n"
+    )
+    consumer = "import fmp_client\nc = fmp_client.FMPClient()\nc.http.get('u')\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": provider, "x.py": consumer})
+
+    findings = result["network_timeout_findings"]
+    assert any(f.startswith("scripts/fmp_client.py") for f in findings)
+    assert any(f.startswith("scripts/x.py") for f in findings)
+
+
+@pytest.mark.parametrize(
+    "subclass",
+    [
+        "class Sub(Client):\n    def __getattribute__(self, k):\n        return None\n",
+        "class Sub(Client, metaclass=Meta):\n    pass\n",
+    ],
+)
+def test_hooked_subclass_of_a_proven_class_poisons_the_proof(collector, tmp_path, subclass):
+    consumer = "from client import Client\n\n\n" + subclass + "\nSub().fetch('http://x')\n"
+
+    result = checks(collector, tmp_path, {"client.py": CLIENT, "x.py": consumer})
+
+    assert any(f.startswith("scripts/client.py") for f in result["network_timeout_findings"])
+
+
+def test_literal_getattr_for_a_close_check_is_allowed(collector, tmp_path):
+    consumer = (
+        "import fmp_client\nc = fmp_client.FMPClient()\nc.fetch('u')\n"
+        "close = getattr(c, 'fetch', None)\nc.http.headers['x'] = '1'\nc.http.close()\n"
+    )
+
+    result = checks(collector, tmp_path, {"fmp_client.py": LITERAL_HTTP_CLIENT, "x.py": consumer})
+
+    assert result["network_timeout_findings"] == []

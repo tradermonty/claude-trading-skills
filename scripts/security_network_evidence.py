@@ -81,7 +81,15 @@ def _bounded(value: ast.expr | None) -> bool:
     return False
 
 
-DYNAMIC_ATTRIBUTES = {"__dict__", "__setattr__", "__delattr__"}
+DYNAMIC_ATTRIBUTES = {
+    "__dict__",
+    "__setattr__",
+    "__delattr__",
+    "__getattribute__",
+    "__getattr__",
+    "attrgetter",
+    "methodcaller",
+}
 DYNAMIC_CALLS = {"__import__", "exec", "eval", "compile", "vars"}
 # Rebinding these on a class or instance changes attribute lookup itself.
 HOOK_ATTRIBUTES = {
@@ -144,12 +152,44 @@ def attribute_writes(tree: ast.AST) -> tuple[Counter, bool]:
             )
             if not literal_call:
                 poisoned = True  # aliased, passed, vars(), __builtins__ ...
+        if isinstance(node, ast.Name) and node.id == "getattr":
+            # Dynamic attribute reads can reach a client under any name.
+            parent = parents.get(node)
+            if not (
+                isinstance(parent, ast.Call)
+                and parent.func is node
+                and len(parent.args) >= 2
+                and isinstance(parent.args[1], ast.Constant)
+                and isinstance(parent.args[1].value, str)
+            ):
+                poisoned = True
+        if isinstance(node, ast.Name) and node.id in ("attrgetter", "methodcaller"):
+            poisoned = True
         if isinstance(node, ast.Import) and any(
-            item.name.split(".")[0] == "builtins" for item in node.names
+            item.name.split(".")[0] in ("builtins", "operator") for item in node.names
         ):
             poisoned = True
-        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "builtins":
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] in (
+            "builtins",
+            "operator",
+        ):
             poisoned = True
+        if isinstance(node, ast.ClassDef):
+            # Any lookup hook or metaclass in the skill (including a subclass
+            # of a proven class) can change what an attribute read returns.
+            hooked = {
+                stmt.name
+                for stmt in node.body
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))
+            } | {
+                target.id
+                for stmt in node.body
+                if isinstance(stmt, (ast.Assign, ast.AnnAssign))
+                for target in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target])
+                if isinstance(target, ast.Name)
+            }
+            if node.keywords or hooked & CLASS_HOOKS:
+                poisoned = True
         targets: list[ast.expr] = []
         if isinstance(node, ast.Assign):
             targets = list(node.targets)
@@ -332,6 +372,11 @@ def skill_evidence(
     proven: frozenset[str] = frozenset()
     results = run(proven, {})
     attributes = client_attributes(results)
+    if poisoned:
+        # Dynamic attribute access, lookup hooks or unreadable sources make the
+        # owner-attribute rule unsound, so no delegation is proven either.
+        results = run(proven, attributes)
+        return [results[relative] for _, relative in scripts]
     for _ in range(len(trees) + 2):
         results = run(proven, attributes)
         grown = frozenset(
@@ -426,6 +471,18 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
         for target, values in assignments.items()
         if any(isinstance(v, ast.Call) and canonical(v.func) in FACTORIES for v in values)
     }
+    # A class-body client (``http = requests.Session()``) is used as
+    # ``self.http`` / ``Cls.http``; track those receivers too.
+    for cls in ast.walk(tree):
+        if not isinstance(cls, ast.ClassDef):
+            continue
+        for stmt in cls.body:
+            if isinstance(stmt, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id in clients for t in stmt.targets
+            ):
+                for t in stmt.targets:
+                    if isinstance(t, ast.Name):
+                        clients.update({f"self.{t.id}", f"cls.{t.id}", f"{cls.name}.{t.id}"})
     # Resolve direct receiver aliases transitively; escaping a bound method is
     # still a gap because we do not prove indirect callable dispatch.
     changed = True
@@ -618,17 +675,32 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
     # Another file's client attribute (``self.http = requests.Session()``)
     # reached from here bypasses that file's bounded call sites. Local,
     # request-free uses such as ``client.session.close()`` are allowed.
+    # ``adapters``/``mount`` lead to request-sending objects, so they are not exempt.
+    request_free = {"headers", "cookies", "params", "auth", "proxies"}
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Attribute) or ast.unparse(node) in clients:
+        if isinstance(node, ast.Attribute):
+            attr = node.attr
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "getattr"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and isinstance(node.args[1].value, str)
+        ):
+            attr = node.args[1].value  # getattr(c, "http") is a read of .http
+        else:
+            continue
+        if ast.unparse(node) in clients:
             continue
         parent = parents.get(node)
-        if (
-            isinstance(parent, ast.Attribute)
-            and parent.value is node
-            and parent.attr in local_attributes
-        ):
-            continue
-        owners = context.client_attributes.get(node.attr, frozenset())
+        if isinstance(parent, ast.Attribute) and parent.value is node:
+            outer = parents.get(parent)
+            if parent.attr in request_free:
+                continue
+            if parent.attr == "close" and isinstance(outer, ast.Call) and outer.func is parent:
+                continue
+        owners = context.client_attributes.get(attr, frozenset())
         if owners - {relative}:
             findings.append(
                 f"{relative}:{node.lineno}: client attribute {ast.unparse(node)} of "
@@ -642,7 +714,33 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
     ] + [
         n.returns for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
     ]
-    in_annotation = {id(sub) for ann in annotations if ann is not None for sub in ast.walk(ann)}
+    in_annotation = {
+        id(sub)
+        for ann in annotations
+        if ann is not None and not any(isinstance(n, ast.NamedExpr) for n in ast.walk(ann))
+        for sub in ast.walk(ann)
+    }
+
+    def availability_check(node: ast.expr, parent) -> bool:
+        """``requests is None``, ``not requests`` or ``if requests:`` only."""
+        if isinstance(parent, ast.Compare):
+            return all(isinstance(op, (ast.Is, ast.IsNot)) for op in parent.ops) and all(
+                isinstance(c, ast.Constant) and c.value is None
+                for c in [parent.left, *parent.comparators]
+                if c is not node
+            )
+        if isinstance(parent, ast.UnaryOp):
+            return isinstance(parent.op, ast.Not)
+        if isinstance(parent, (ast.If, ast.While, ast.IfExp, ast.Assert)):
+            return parent.test is node
+        if isinstance(parent, ast.BoolOp):
+            # Only as a pure condition; ``requests or x`` as a value passes it on.
+            outer = parents.get(parent)
+            return isinstance(outer, (ast.If, ast.While, ast.Assert, ast.UnaryOp)) or (
+                isinstance(outer, ast.IfExp) and outer.test is parent
+            )
+        return False
+
     for node in ast.walk(tree):
         if id(node) in in_annotation:
             continue
@@ -657,19 +755,36 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
             continue
         if isinstance(parent, ast.Call) and parent.func is node:
             continue  # direct calls are checked above
-        if isinstance(parent, (ast.Compare, ast.UnaryOp, ast.BoolOp)) or (
-            isinstance(parent, (ast.If, ast.While, ast.IfExp)) and parent.test is node
-        ):
-            continue  # availability checks such as ``if requests is None``
+        if availability_check(node, parent):
+            continue
         if any(part in canonical(node) for part in ("Exception", "Error")):
             continue  # exception classes in except/isinstance are not requests
         findings.append(f"{relative}:{node.lineno}: network name {node.id} escapes as a value")
     if network_imports and not calls:
         findings.append(f"{relative}: network import/delegation has no proven request timeout")
     applicability = "network" if calls else ("unproven" if findings else "not_applicable")
-    own_attributes = sorted(
-        {target.split(".", 1)[1] for target in clients if target.count(".") == 1}
-    )
+    # Register every attribute name on a client's path (``self.a.b``,
+    # ``self.pool['h']``) and class-body client names, so consumers cannot
+    # reach any of them.
+    class_body_names = {
+        target.id
+        for cls in ast.walk(tree)
+        if isinstance(cls, ast.ClassDef)
+        for stmt in cls.body
+        if isinstance(stmt, (ast.Assign, ast.AnnAssign))
+        for target in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target])
+        if isinstance(target, ast.Name)
+    }
+    own: set[str] = set()
+    for target in clients:
+        try:
+            expr = ast.parse(target, mode="eval").body
+        except SyntaxError:
+            continue
+        own.update(n.attr for n in ast.walk(expr) if isinstance(n, ast.Attribute))
+        if isinstance(expr, ast.Name) and expr.id in class_body_names:
+            own.add(expr.id)
+    own_attributes = sorted(own)
     return {
         "calls": calls,
         "applicability": applicability,
