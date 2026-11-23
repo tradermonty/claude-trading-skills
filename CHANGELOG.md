@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- skill improvement loop: read the CLI `structured_output`, stop the LLM review at once on a budget stop instead of retrying six times, raise the review cap to $1.00 (`SKILL_LOOP_REVIEW_BUDGET_USD`), and record a healthy run when the review completed and was merged but returned no improvement items. Below the threshold, a run with no LLM review and nothing to improve still counts as a failure (#652).
 - value-dividend-screener: allow corroborated semiannual ex-date shifts beyond the matched-year +/-31-day band only with exactly two regular payments in each required consecutive calendar year; retain individual-gap, freshness and ambiguous-history guards (#849).
 
 - Dividend screeners: exclude explicit special payouts and future dates from regular growth/yield evidence; value uses complete supported payment-year buckets instead of drifting 365-day cuts, growth keeps consecutive completed calendar years, and reports label the annual basis (#849).
