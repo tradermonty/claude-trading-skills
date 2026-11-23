@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- parabolic-short-trade-planner: live Phase 1 now fails closed instead of writing a normal exit-0 report when the S&P 500 universe is empty or fails, when the earnings calendar fails (which silently disabled the earnings-blackout exclusion), or when every price fetch fails. A live report records partial price failures in an additive `data_quality` block. Record the five-dimension security checklist review of the six #778 skills; their `security_review` values stay `not_verified` because the mechanical timeout proof is not yet clean (Refs #778).
 - trader-memory-core: preserve legacy equity shorts in doctor/rebuild, reject corrupt indexes before thesis writes, and serialize cooperating local writers including fingerprint deduplication and explicit rebuild; let doctor inspect read-only snapshots without creating state directories (#847).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).
 

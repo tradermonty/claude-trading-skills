@@ -467,12 +467,20 @@ def run_dry_run(
     return out
 
 
-def run_live(args: argparse.Namespace, run_date: str) -> list[dict]:
+def run_live(
+    args: argparse.Namespace, run_date: str, data_quality: dict | None = None
+) -> list[dict]:
     """Pull universe + per-symbol data from FMP and run the pipeline.
 
     ``run_date`` (YYYY-MM-DD, normally ``args.as_of`` or today) centers
     the bulk earnings-calendar fetch window. Per-symbol
     ``market_data_as_of`` is then derived from each symbol's latest bar.
+
+    Provider failures fail closed: an empty or failed universe fetch, a
+    failed earnings calendar (which would silently disable the
+    earnings-blackout exclusion) or a run in which every price fetch failed
+    raises ``SystemExit`` before any report is written. Partial per-symbol
+    price failures are recorded in ``data_quality`` when a dict is passed.
     """
     from fmp_client import FMPClient  # local import: only needed in live mode
 
@@ -482,6 +490,11 @@ def run_live(args: argparse.Namespace, run_date: str) -> list[dict]:
     client = FMPClient(api_key=api_key)
 
     symbols = _resolve_universe(args, client)
+    if not symbols:
+        raise SystemExit(
+            "ERROR: universe fetch returned no symbols (provider failure or empty "
+            "universe); refusing to write an empty screen"
+        )
     logger.info("Universe size: %d", len(symbols))
 
     # One bulk earnings-calendar fetch covers the catalyst window backward
@@ -494,16 +507,27 @@ def run_live(args: argparse.Namespace, run_date: str) -> list[dict]:
     center = date.fromisoformat(run_date)
     from_date = (center - timedelta(days=catalyst_window + 7)).isoformat()
     to_date = (center + timedelta(days=exclude_window + 7)).isoformat()
-    raw_events = client.get_earnings_calendar(from_date, to_date) or []
+    raw_events = client.get_earnings_calendar(from_date, to_date)
+    # None is a failed request; a non-list 200 body (e.g. an FMP error dict)
+    # is equally unusable. Only a list, possibly empty, is a calendar.
+    if not isinstance(raw_events, list):
+        raise SystemExit(
+            "ERROR: earnings calendar fetch failed; the earnings-blackout "
+            "exclusion cannot be applied, so no report was written"
+        )
     earnings_by_symbol = _index_earnings_events(raw_events)
 
     out: list[dict] = []
+    attempted = 0
+    price_fetch_failures: list[str] = []
     for sym in symbols:
         if client.api_calls_made >= args.max_api_calls:
             logger.warning("Hit max-api-calls budget at %d", client.api_calls_made)
             break
+        attempted += 1
         bars_payload = client.get_historical_prices(sym, days=args.lookback_days)
         if not bars_payload or "historical" not in bars_payload:
+            price_fetch_failures.append(sym)
             continue
         profile = client.get_company_profile(sym) or {}
         bars_recent_first = _bars_on_or_before(bars_payload["historical"], center)
@@ -534,6 +558,32 @@ def run_live(args: argparse.Namespace, run_date: str) -> list[dict]:
         )
         if c is not None:
             out.append(c)
+
+    if attempted == 0:
+        raise SystemExit(
+            "ERROR: --max-api-calls budget was exhausted before any price fetch; "
+            "refusing to write an empty screen"
+        )
+    if len(price_fetch_failures) == attempted:
+        raise SystemExit(
+            f"ERROR: price history fetch failed for all {attempted} attempted "
+            "symbols; refusing to write an empty screen"
+        )
+    if price_fetch_failures:
+        logger.warning(
+            "Price history unavailable for %d of %d attempted symbols",
+            len(price_fetch_failures),
+            attempted,
+        )
+    if data_quality is not None:
+        data_quality.update(
+            {
+                "universe_size": len(symbols),
+                "symbols_attempted": attempted,
+                "symbols_evaluated": attempted - len(price_fetch_failures),
+                "price_fetch_failures": price_fetch_failures,
+            }
+        )
     return out
 
 
@@ -589,6 +639,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    data_quality: dict | None = None
     if args.dry_run:
         if not args.fixture:
             raise SystemExit("--dry-run requires --fixture <path>")
@@ -598,7 +649,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"Invalid dry-run data: {exc}") from exc
         data_source = "fixture"
     else:
-        candidates = run_live(args, run_date=as_of)
+        data_quality = {}
+        candidates = run_live(args, run_date=as_of, data_quality=data_quality)
         data_source = "FMP"
 
     # Apply --watch-min-grade and --top after scoring/grading.
@@ -614,6 +666,10 @@ def main(argv: list[str] | None = None) -> int:
         run_date=as_of,
         data_source=data_source,
     )
+    if data_quality is not None:
+        # Additive, live-only key: lets readers tell "no setups" from a
+        # degraded run in which some symbols could not be fetched.
+        report["data_quality"] = data_quality
     json_path, md_path = write_outputs(report, args.output_dir, args.output_prefix, as_of)
     print(f"Wrote {json_path}")
     print(f"Wrote {md_path}")

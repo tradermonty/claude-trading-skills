@@ -62,3 +62,64 @@ not established by these tests. A complete per-skill checklist review remains
 necessary before changing these metadata values. Keep #778 open until that
 acceptance is separately recorded; this change must not claim full security
 certification or live validation.
+
+## Five-dimension checklist review (2026-11-22)
+
+Reviewed by Claude (Opus 5.5 orchestrating six Sonnet reviewers, one per
+skill), against `docs/dev/security-review-checklist.md`, on assessed commit
+`bb4a8ff60c2054cc8b41807ae648041ff0922938`. Every non-test file under each
+skill's `scripts/` was read. `check_skill_deps.py check`, the collector with
+`--reviewer-confirmed` for all six skills, and each skill's test suite were run.
+Raw exception output was re-checked by hand across five of the skills.
+
+| Skill | Credential | Data exposure | Path | I/O and network | Dependency |
+|---|---|---|---|---|---|
+| downtrend-duration-analyzer | pass | pass | pass | pass | pass |
+| value-dividend-screener | pass | pass | pass | pass | pass |
+| dividend-growth-pullback-screener | pass | pass | pass | pass | pass |
+| canslim-screener | pass | pass | pass | pass | pass |
+| parabolic-short-trade-planner | pass | pass | pass | fixed in this change | pass |
+| theme-detector | pass | pass | pass | gap | pass |
+
+**Fixed in this change.** In parabolic-short-trade-planner, live Phase 1
+treated provider failures as valid empty results. Three cases were affected:
+
+- A failed or empty S&P 500 universe.
+- A failed earnings calendar, or a non-list HTTP-200 body such as an FMP error
+  dict. This silently disabled the earnings-blackout exclusion.
+- Per-symbol price failures, including a `--max-api-calls` budget spent before
+  the first price fetch.
+
+Each case wrote a normal exit-0 report. Now each case raises an error and
+writes no report. Partial price failures are listed in an additive
+`data_quality` block. Regressions are in
+`scripts/tests/test_live_fail_closed.py`. Run against the previous source, seven
+of its ten cases fail.
+
+**Why the six values stay `not_verified`.** The checklist requires a passed
+candidate to be clean on the mechanical checks as well. The collector
+(`scripts/security_network_evidence.py`) proposes `gap` for all six skills,
+because it accepts only a finite literal timeout at each call site:
+
+- `timeout=self.timeout` in the generated FMP clients is flagged. These are
+  value-dividend, dividend-growth-pullback and theme-detector, where
+  `self.timeout = 30` is a constant set in `__init__`.
+- Delegation to a vendored client is flagged in canslim, downtrend and
+  parabolic, even though that client's own calls are bounded.
+- The parabolic Alpaca adapters take a `timeout` constructor parameter, which
+  defaults to 15.0 or 10.0. No caller overrides it.
+
+The reviewers judged all of these bounded in practice. Clearing them still
+needs either a collector extension (constant-attribute and local-delegation
+proofs) or call-site changes in the generated client template, so they are
+not certified here.
+
+theme-detector also has a real network gap. Its `yf.download`,
+`yf.Ticker().info` and `finvizfinance` calls pass no explicit timeout and rely
+on third-party library defaults, which could not be verified because those
+optional packages were absent locally. Two minor items were noted in
+theme-detector's `representative_stock_selector.py`:
+
+- An HTTP-200 Elite export without a `Ticker` column is recorded as success.
+  The run still falls back to the public source.
+- The Elite request does not set `allow_redirects=False`.
