@@ -4,7 +4,7 @@ Educational options trading tool providing theoretical pricing, strategy analysi
 
 ## Overview
 
-Options Strategy Advisor helps traders understand and analyze options strategies without requiring expensive real-time options data. It uses theoretical pricing models (Black-Scholes) combined with free stock market data (FMP API) to simulate strategies and calculate Greeks.
+Options Strategy Advisor helps traders understand and analyze options strategies without requiring expensive real-time options data. It uses theoretical pricing models (Black-Scholes) combined with optional stock market data (FMP API) to simulate strategies and calculate Greeks.
 
 **Key Features:**
 - ✅ Black-Scholes pricing engine
@@ -19,7 +19,7 @@ Options Strategy Advisor helps traders understand and analyze options strategies
 
 **No expensive data subscriptions needed:**
 - Real-time options data: $99-$500/month (Polygon.io, Intrinio)
-- FMP API free tier (250 requests/day)
+- Optional FMP stock endpoints (plan-dependent access)
 
 **Educational focus:**
 - Learn how strategies work
@@ -66,7 +66,7 @@ Options Strategy Advisor helps traders understand and analyze options strategies
 
 ### Prerequisites
 - Python 3.8+
-- FMP API key (free tier sufficient)
+- FMP API key (optional; endpoint access depends on plan)
 
 ### Install Dependencies
 ```bash
@@ -390,7 +390,7 @@ print(f"Need {abs(breakeven_up - stock_price)/stock_price*100:.1f}% move to prof
 
 ## API Usage & Costs
 
-**Free Tier Sufficient:**
+**Optional FMP requests (plan-dependent access):**
 - Stock prices: 1 request per symbol
 - Historical prices (HV): 1 request per symbol
 - Dividend data: 1 request per symbol
@@ -403,8 +403,7 @@ Covered Call on AAPL:
 - Dividend yield: 1 request
 Total: 3 requests
 
-Daily budget: 250 requests / day
-→ Can analyze ~80 strategies per day
+Retries can add requests; limits depend on your plan.
 ```
 
 ## Troubleshooting
@@ -465,5 +464,13 @@ Educational use. Trade at your own risk. Options involve significant risk and ar
 **Version:** 1.0
 **Last Updated:** 2025-11-08
 **Dependencies:** Python 3.8+, numpy, scipy, requests
-**API:** FMP API (Free tier sufficient)
+**API:** FMP API (optional; endpoint access depends on plan)
 **Model:** Black-Scholes (European options pricing)
+
+### Optional FMP evidence helpers
+
+The Python helpers use the adjacent generated client and stable quote/profile/full-EOD endpoints, with shared retry, timeout and redaction behavior and no legacy HTTP fallback. Pass an explicit API key; endpoint access depends on your FMP plan. The manual model and the fixed-input `black_scholes.py` demonstration remain offline.
+
+History accepts flat EOD rows or matching historical envelopes, excludes future dates and returns the newest requested sessions oldest first. It uses `adjClose` only for a consistently adjusted selection; otherwise provider `close` is used only when adjusted evidence is absent throughout. Provider close is not certified as adjusted. Invalid or mixed evidence returns `None`, as does an unavailable quote. Do not calculate a model from missing evidence.
+
+`get_dividend_yield` retains the legacy `0.0` failure return and emits an **unverified zero fallback** warning. That fallback does not establish no dividend: supply a verified dividend yield as `OptionPricer(q=...)`. An explicit provider dividend of zero returns zero without the warning. No live endpoint access or option-market accuracy has been verified by offline tests.

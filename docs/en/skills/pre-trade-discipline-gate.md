@@ -144,3 +144,16 @@ The ledger is a single-user local file; concurrent writers are not supported. St
 For one approved rule, use `review_rule_experiment.py start` to define a condition and plan for 14 calendar days. Record the confirmed `enter`, `wait`, or `pass` decision in a private JSON log along with the assessment and a local evidence reference. Review the log with `review_rule_experiment.py review`. A pass that follows the rule counts in the same denominator as any other applicable decision. A pre-trade acknowledgement can support a record, with the actual decision supplied separately.
 
 The report shows the sample size and groups exceptions by session. The rate appears after the window ends when at least 10 applicable occasions were assessed and none remain unassessed. If the approved ledger entry changes, start a new plan. Bring the summary to the monthly review as self-reported evidence and use the existing approval process to change the rule. See the [commands and fictional observation](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/pre-trade-discipline-gate/references/rule_experiment.md).
+
+## 8. Monthly rule adherence review
+
+After a month ends, `review_rule_adherence.py` counts the gate acknowledgements of each approved rule in the journal and writes a local report for the monthly review. Review the month in which the rules were in force.
+
+```bash
+python3 skills/pre-trade-discipline-gate/scripts/review_rule_adherence.py \
+  --journal-dir state/journal/pre-trade-discipline \
+  --ledger state/rules/approved_rules.json --month 2026-06 \
+  --as-of 2026-07-05 --output-dir reports/pre-trade-discipline
+```
+
+For each rule the report shows followed, exception, not-applicable, and unacknowledged counts, the ledger state at the review date, and reasons to reconsider the rule, such as a passed review date or no applicable occasions. The followed rate appears only after the month ends, when at least 10 acknowledged occasions exist and none is unacknowledged. A rerun of the gate for the same candidate and day replaces the earlier row. The counts are self-reported gate answers, not proof of behavior. The report never changes the ledger; apply any decision with `manage_approved_rules.py`. The JSON and Markdown files are named `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>`, so a mid-month check does not overwrite the month-end report. Warnings report a month with no gate runs (`no_gate_runs_in_window`), no rule in force (`no_rules_in_window`), or rows from another ledger path (`different_ledger_path`). See the [command, inputs, and output fields](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/pre-trade-discipline-gate/references/rule_adherence.md).

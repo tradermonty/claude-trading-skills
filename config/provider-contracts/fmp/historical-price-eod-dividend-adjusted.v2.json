@@ -4,7 +4,7 @@
   "endpoint": "historical-price-eod-dividend-adjusted",
   "path": "/stable/historical-price-eod/dividend-adjusted",
   "query": {"symbol": "SPY", "from": "2026-10-26", "to": "2026-10-30"},
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-11-07",
   "recording": "live /stable response; flat list, descending date, no fields removed",
   "owners": [
@@ -14,11 +14,11 @@
   "required_fields": {
     "symbol": {"types": ["str"], "nullable": false},
     "date": {"types": ["str"], "nullable": false},
-    "adjOpen": {"types": ["int", "float"], "nullable": false},
-    "adjHigh": {"types": ["int", "float"], "nullable": false},
-    "adjLow": {"types": ["int", "float"], "nullable": false},
-    "adjClose": {"types": ["int", "float"], "nullable": false},
-    "volume": {"types": ["int"], "nullable": false}
+    "adjOpen": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "adjHigh": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "adjLow": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "adjClose": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "volume": {"types": ["int"], "nullable": false, "finite": true}
   },
   "optional_fields": [],
   "legacy_aliases": {},

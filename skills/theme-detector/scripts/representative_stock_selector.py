@@ -27,6 +27,8 @@ try:
 except ImportError:
     Overview = None  # type: ignore[assignment,misc]
 
+from fmp_adapter import fetch_fmp
+
 logger = logging.getLogger(__name__)
 
 _MAX_CONSECUTIVE_FAILURES = 3
@@ -550,27 +552,21 @@ class RepresentativeStockSelector:
         self._rate_limit()
         self._source_states["fmp"].total_queries += 1
 
-        # stable: /etf/holdings?symbol= ; v3 fallback (legacy keys): /etf-holder/{symbol}.
-        # Both return a list of holdings with `asset` (ticker) and `marketValue`.
-        endpoints = [
-            ("https://financialmodelingprep.com/stable/etf/holdings", {"symbol": etf_symbol}),
-            (f"https://financialmodelingprep.com/api/v3/etf-holder/{etf_symbol}", None),
-        ]
-
         try:
-            data = None
-            for url, params in endpoints:
-                resp = requests.get(
-                    url, params=params, headers={"apikey": self._fmp_api_key}, timeout=15
+            try:
+                data = fetch_fmp(
+                    "holdings",
+                    etf_symbol,
+                    self._fmp_api_key,
+                    rate_limit_sec=self._rate_limit_sec,
                 )
-                if resp.status_code != 200:
-                    continue
-                payload = resp.json()
-                if isinstance(payload, list) and payload:
-                    data = payload
-                    break
+            finally:
+                self._last_request_time = time.time()
+            if not isinstance(data, list):
+                data = None
 
             if not data:
+                logger.warning("FMP ETF holdings fetch failed for %s", etf_symbol)
                 self._record_failure("fmp")
                 return []
 
