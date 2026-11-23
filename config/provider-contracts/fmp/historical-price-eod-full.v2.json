@@ -4,7 +4,7 @@
   "endpoint": "historical-price-eod-full",
   "path": "/stable/historical-price-eod/full",
   "query": {"symbol": "AAPL", "from": "2026-08-31", "to": "2026-09-04"},
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-09-05",
   "recording": "live /stable response; flat list, descending date, no fields removed",
   "owners": [
@@ -29,11 +29,11 @@
   "required_fields": {
     "symbol": {"types": ["str"], "nullable": false},
     "date": {"types": ["str"], "nullable": false},
-    "open": {"types": ["int", "float"], "nullable": false},
-    "high": {"types": ["int", "float"], "nullable": false},
-    "low": {"types": ["int", "float"], "nullable": false},
-    "close": {"types": ["int", "float"], "nullable": false},
-    "volume": {"types": ["int"], "nullable": false}
+    "open": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "high": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "low": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "close": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "volume": {"types": ["int"], "nullable": false, "finite": true}
   },
   "optional_fields": ["change", "changePercent", "vwap"],
   "legacy_aliases": {},

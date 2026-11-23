@@ -2,6 +2,7 @@
 
 from datetime import date, timedelta
 
+import pytest
 from build_entry_signals import build_entry_row
 from dividend_basis import analyze_dividends, step1_decision
 from payout_safety import assess_payout_safety
@@ -37,6 +38,33 @@ def test_f4_unconfirmed_stays_recheck():
     assert b.latest_declared_confirmed is False
     v, _ = step1_decision(b, 3.0, source_confirmed=b.latest_declared_confirmed)
     assert v == "STEP1-RECHECK"
+
+
+@pytest.mark.parametrize("declaration", ["", " ", "\t\r\n", "\u3000", "\u00a0"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_blank_latest_declaration_does_not_confirm_borderline_yield(declaration, reverse):
+    hist = _q(date(2023, 5, 30), 13, [1.00] * 12 + [1.03], decl=True)
+    hist[-1]["declarationDate"] = declaration
+    if reverse:
+        hist.reverse()
+    basis = analyze_dividends(hist, price=134.70, floor_pct=3.0)
+    assert basis.latest_declared_confirmed is False
+    verdict, reason = step1_decision(basis, 3.0, source_confirmed=basis.latest_declared_confirmed)
+    assert verdict == "STEP1-RECHECK"
+    assert reason == "floor_borderline_confirm_latest_declared"
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_valid_latest_declaration_is_independent_of_other_rows(reverse):
+    hist = _q(date(2023, 5, 30), 13, [1.00] * 12 + [1.03], decl=True)
+    hist[0]["declarationDate"] = " \t"
+    hist[-1]["declarationDate"] = " \t" + hist[-1]["declarationDate"] + "\n"
+    if reverse:
+        hist.reverse()
+    basis = analyze_dividends(hist, price=134.70, floor_pct=3.0)
+    assert basis.latest_declared_confirmed is True
+    verdict, _ = step1_decision(basis, 3.0, source_confirmed=basis.latest_declared_confirmed)
+    assert verdict == "STEP1-PASS"
 
 
 def test_f4_cli_path_cfr_confirmed_not_recheck():
