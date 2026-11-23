@@ -4,6 +4,10 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- value-dividend-screener: allow corroborated semiannual ex-date shifts beyond the matched-year +/-31-day band only with exactly two regular payments in each required consecutive calendar year; retain individual-gap, freshness and ambiguous-history guards (#849).
+
+- Dividend screeners: exclude explicit special payouts and future dates from regular growth/yield evidence; value uses complete supported payment-year buckets instead of drifting 365-day cuts, growth keeps consecutive completed calendar years, and reports label the annual basis (#849).
+- value-dividend-screener: infer payment cadence from ex-date intervals instead of per-row FMP `frequency` labels, so mislabelled rows (for example a normal quarterly payment tagged `Irregular`) no longer exclude legitimate payers such as BTI, HSBC and TGT. If the interval check fails and the recent rows contain `Irregular` payments, retry once without them as supplementals and report `dividend_supplementals_excluded`; otherwise stay fail-closed (#849).
 - FMP shared clients: count timed-out dispatches against request budgets, isolate each call's 429 retry counter, and avoid disabling historical endpoints for empty symbol responses (#844). An endpoint that always returns an empty body no longer trips the circuit breaker, so it is retried on every call instead of being disabled for the run.
 - us-undervalued-growth-screener: reject invalid list responses before caching and keep symbol-specific data failures from disabling an entire endpoint (#846).
 - us-undervalued-growth-screener: validate the ratios/key-metrics TTM, profile, peers, quotes and historical-price payloads so HTTP-200 error bodies such as `{"message": ...}` are no longer cached, and disable an endpoint after 20 consecutive schema failures with no success (#846).
