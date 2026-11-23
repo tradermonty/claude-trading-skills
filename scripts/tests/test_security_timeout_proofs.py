@@ -256,3 +256,200 @@ def test_consumer_mutating_the_delegated_timeout_breaks_both_proofs(collector, t
     findings = result["network_timeout_findings"]
     assert any(f.startswith("scripts/fmp_client.py") for f in findings)
     assert any(f.startswith("scripts/screen.py") for f in findings)
+
+
+# ---------- adversarial review regressions ----------
+
+HTTP_CLIENT = """\
+import requests
+
+
+class FMPClient:
+    def __init__(self):
+        self.timeout = 30
+        self.http = requests.Session()
+
+    def fetch(self, url):
+        return self.http.get(url, timeout=self.timeout)
+"""
+
+
+def test_http_client_delegation_baseline_is_proven(collector, tmp_path):
+    consumer = "from fmp_client import FMPClient\nc = FMPClient()\nc.fetch('u')\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": HTTP_CLIENT, "x.py": consumer})
+
+    assert result["network_timeout_findings"] == []
+
+
+@pytest.mark.parametrize(
+    "prefix, consumer",
+    [
+        ("from requests import get\n", "from fmp_client import get\nget('http://x')\n"),
+        ("from requests import get\n", "import fmp_client\nfmp_client.get('http://x')\n"),
+        (
+            "from urllib.request import urlopen\n",
+            "from fmp_client import urlopen\nurlopen('http://x')\n",
+        ),
+        ("from requests import Session\n", "import fmp_client\nfmp_client.Session().get('u')\n"),
+        (
+            "from requests import Session\n",
+            "import fmp_client\ns = fmp_client.Session()\ns.get('u')\n",
+        ),
+    ],
+)
+def test_re_exported_network_symbol_is_not_delegation(collector, tmp_path, prefix, consumer):
+    files = {"fmp_client.py": prefix + HTTP_CLIENT, "x.py": consumer}
+
+    result = checks(collector, tmp_path, files)
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
+
+
+@pytest.mark.parametrize(
+    "consumer",
+    [
+        "import fmp_client\nc = fmp_client.FMPClient()\nc.http.get('u')\n",
+        "from fmp_client import FMPClient\nFMPClient().http.get('u')\n",
+        # a parameter of unknown type reaching the provider's client attribute
+        "def run(client):\n    return client.http.get('u')\n",
+    ],
+)
+def test_reaching_a_delegated_client_attribute_is_a_gap(collector, tmp_path, consumer):
+    files = {"fmp_client.py": HTTP_CLIENT, "x.py": consumer}
+
+    result = checks(collector, tmp_path, files)
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
+
+
+def test_provider_returning_a_network_module_is_not_proven(collector, tmp_path):
+    provider = HTTP_CLIENT + "\n\ndef lib():\n    return requests\n"
+    consumer = "import fmp_client\nfmp_client.lib().get('u')\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": provider, "x.py": consumer})
+
+    findings = result["network_timeout_findings"]
+    assert any(f.startswith("scripts/fmp_client.py") for f in findings)
+    assert any(f.startswith("scripts/x.py") for f in findings)
+
+
+def test_optional_import_availability_check_is_not_an_escape(collector, tmp_path):
+    body = "try:\n    import requests\nexcept ImportError:\n    requests = None\n" + (
+        "\n\ndef fetch(url):\n    if requests is None or not requests:\n        return None\n"
+        "    return requests.get(url, timeout=5)\n"
+    )
+
+    result = checks(collector, tmp_path, {"client.py": body})
+
+    assert not any("escapes as a value" in f for f in result["network_timeout_findings"])
+
+
+def test_type_annotations_are_not_escapes(collector, tmp_path):
+    consumer = (
+        "from fmp_client import FMPClient\n\n\n"
+        "def run(client: FMPClient | None = None) -> FMPClient:\n"
+        "    held: FMPClient = client or FMPClient()\n"
+        "    held.fetch('u')\n"
+        "    return held\n"
+    )
+
+    result = checks(collector, tmp_path, {"fmp_client.py": HTTP_CLIENT, "x.py": consumer})
+
+    assert result["network_timeout_findings"] == []
+
+
+SUBCLASS = "from fmp_client import FMPClient\n\n\nclass My(FMPClient):\n"
+
+
+def test_subclass_using_only_bounded_base_methods_is_proven(collector, tmp_path):
+    consumer = SUBCLASS + "    def go(self, url):\n        return self.fetch(url)\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": HTTP_CLIENT, "x.py": consumer})
+
+    assert result["network_timeout_findings"] == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # reaching the base's raw client without a timeout
+        "    def go(self, url):\n        return self.http.get(url)\n",
+        # attribute-lookup hooks
+        "    def __getattr__(self, k):\n        return None\n",
+        "    __slots__ = ()\n",
+    ],
+)
+def test_subclass_reaching_or_hooking_the_base_is_a_gap(collector, tmp_path, body):
+    result = checks(collector, tmp_path, {"fmp_client.py": HTTP_CLIENT, "x.py": SUBCLASS + body})
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
+
+
+def test_subclass_metaclass_is_a_gap(collector, tmp_path):
+    consumer = "from fmp_client import FMPClient\n\n\nclass My(FMPClient, metaclass=M):\n    pass\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": HTTP_CLIENT, "x.py": consumer})
+
+    assert any(f.startswith("scripts/x.py") for f in result["network_timeout_findings"])
+
+
+def test_closing_a_delegated_session_is_not_a_request(collector, tmp_path):
+    consumer = "from fmp_client import FMPClient\nc = FMPClient()\nc.fetch('u')\nc.http.close()\n"
+
+    result = checks(collector, tmp_path, {"fmp_client.py": HTTP_CLIENT, "x.py": consumer})
+
+    assert result["network_timeout_findings"] == []
+
+
+@pytest.mark.parametrize(
+    "consumer",
+    [
+        "def f(c):\n    s = setattr\n    s(c, 'timeout', None)\n",
+        "import builtins\n\n\ndef f(c):\n    builtins.setattr(c, 'timeout', None)\n",
+        "def f(c):\n    getattr(__builtins__, 'setattr')(c, 'timeout', None)\n",
+        "import functools\nf = functools.partial(setattr, None)\n",
+    ],
+)
+def test_indirect_setattr_poisons_the_attribute_proof(collector, tmp_path, consumer):
+    result = checks(collector, tmp_path, {"client.py": CLIENT, "x.py": consumer})
+
+    assert any(f.startswith("scripts/client.py") for f in result["network_timeout_findings"])
+
+
+def test_package_init_writes_are_in_scope(collector, tmp_path):
+    files = {
+        "client.py": CLIENT,
+        "pkg/__init__.py": "import client\nclient.Client.timeout = None\n",
+    }
+
+    result = checks(collector, tmp_path, files)
+
+    assert any(f.startswith("scripts/client.py") for f in result["network_timeout_findings"])
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "\n    def __getattribute__(self, k):\n        return object.__getattribute__(self, k)\n",
+        "\n    def __getattr__(self, k):\n        return None\n",
+        "\n    def __setattr__(self, k, v):\n        pass\n",
+        "\n    __slots__ = ('session',)\n",
+    ],
+)
+def test_attribute_hooks_defeat_the_attribute_proof(collector, tmp_path, extra):
+    result = checks(collector, tmp_path, {"client.py": CLIENT + extra})
+
+    assert result["network_timeout_findings"]
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["class Client(Base):", "class Client(metaclass=Meta):", "@decorate\nclass Client:"],
+)
+def test_bases_metaclasses_and_decorators_defeat_the_attribute_proof(collector, tmp_path, header):
+    body = CLIENT.replace("class Client:", header)
+
+    result = checks(collector, tmp_path, {"client.py": body})
+
+    assert result["network_timeout_findings"]

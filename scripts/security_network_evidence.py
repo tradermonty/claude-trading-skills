@@ -83,6 +83,20 @@ def _bounded(value: ast.expr | None) -> bool:
 
 DYNAMIC_ATTRIBUTES = {"__dict__", "__setattr__", "__delattr__"}
 DYNAMIC_CALLS = {"__import__", "exec", "eval", "compile", "vars"}
+# Rebinding these on a class or instance changes attribute lookup itself.
+HOOK_ATTRIBUTES = {
+    "__class__",
+    "__init__",
+    "__getattribute__",
+    "__getattr__",
+    "__setattr__",
+    "__delattr__",
+}
+# Defining any of these in a class body defeats the constant-attribute proof.
+CLASS_HOOKS = {"__getattribute__", "__getattr__", "__setattr__", "__delattr__", "__slots__"}
+# Names whose mere reference (other than a literal-name direct call) can write
+# an attribute the scan cannot name.
+WRITER_NAMES = {"setattr", "delattr", "vars", "__builtins__"}
 
 
 @dataclass
@@ -92,6 +106,10 @@ class SkillContext:
     attribute_stores: Counter = field(default_factory=Counter)
     poisoned: bool = True  # unknown writes: no attribute proof
     proven_modules: frozenset[str] = frozenset()
+    # proven module -> top-level classes/functions it defines itself
+    provider_symbols: dict[str, frozenset[str]] = field(default_factory=dict)
+    # client attribute name (``self.<name> = requests.Session()``) -> provider files
+    client_attributes: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
 def _store_names(target: ast.expr) -> list[str]:
@@ -112,7 +130,26 @@ def attribute_writes(tree: ast.AST) -> tuple[Counter, bool]:
     """
     counts: Counter = Counter()
     poisoned = False
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
     for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in WRITER_NAMES:
+            parent = parents.get(node)
+            literal_call = (
+                isinstance(parent, ast.Call)
+                and parent.func is node
+                and node.id in ("setattr", "delattr")
+                and len(parent.args) >= 2
+                and isinstance(parent.args[1], ast.Constant)
+                and isinstance(parent.args[1].value, str)
+            )
+            if not literal_call:
+                poisoned = True  # aliased, passed, vars(), __builtins__ ...
+        if isinstance(node, ast.Import) and any(
+            item.name.split(".")[0] == "builtins" for item in node.names
+        ):
+            poisoned = True
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "builtins":
+            poisoned = True
         targets: list[ast.expr] = []
         if isinstance(node, ast.Assign):
             targets = list(node.targets)
@@ -125,7 +162,10 @@ def attribute_writes(tree: ast.AST) -> tuple[Counter, bool]:
         elif isinstance(node, ast.withitem) and node.optional_vars is not None:
             targets = [node.optional_vars]
         for target in targets:
-            counts.update(_store_names(target))
+            names = _store_names(target)
+            counts.update(names)
+            if HOOK_ATTRIBUTES.intersection(names):
+                poisoned = True  # e.g. Client.__init__ = ..., obj.__class__ = ...
         if isinstance(node, ast.ClassDef):
             # Class-body names (attributes, methods, properties) shadow or
             # override instance attributes of the same name.
@@ -182,6 +222,21 @@ def _constant_self_attributes(tree: ast.AST, context: SkillContext) -> dict[int,
     for cls in ast.walk(tree):
         if not isinstance(cls, ast.ClassDef):
             continue
+        if cls.bases or cls.keywords or cls.decorator_list:
+            continue  # inherited, metaclass or decorator lookup is not traced
+        body_names = {
+            stmt.name
+            for stmt in cls.body
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        } | {
+            target.id
+            for stmt in cls.body
+            if isinstance(stmt, (ast.Assign, ast.AnnAssign))
+            for target in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target])
+            if isinstance(target, ast.Name)
+        }
+        if body_names & CLASS_HOOKS:
+            continue
         init = next(
             (
                 stmt
@@ -209,21 +264,30 @@ def _constant_self_attributes(tree: ast.AST, context: SkillContext) -> dict[int,
     return proven
 
 
-def skill_evidence(scripts: list[tuple[Path, str]]) -> list[dict]:
+def _parse(path: Path) -> ast.AST | None:
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError):
+        return None
+
+
+def skill_evidence(
+    scripts: list[tuple[Path, str]], context_sources: list[Path] | None = None
+) -> list[dict]:
     """Evaluate a skill's scripts together so the two skill-level proofs apply.
 
     ``scripts`` holds ``(path, relative)`` pairs; ``relative`` is the path
     under the skill root (for example ``scripts/fmp_client.py``).
+    ``context_sources`` are further files that can mutate the scripts at run
+    time (for example package ``__init__.py`` files). They are not reported on,
+    but their attribute writes count, and an unreadable one blocks the
+    attribute proof.
     """
-    trees: dict[str, ast.AST | None] = {}
-    for path, relative in scripts:
-        try:
-            trees[relative] = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, SyntaxError):
-            trees[relative] = None
+    trees: dict[str, ast.AST | None] = {relative: _parse(path) for path, relative in scripts}
+    extra = [_parse(path) for path in context_sources or []]
     stores: Counter = Counter()
-    poisoned = any(tree is None for tree in trees.values())
-    for tree in trees.values():
+    poisoned = any(tree is None for tree in [*trees.values(), *extra])
+    for tree in [*trees.values(), *extra]:
         if tree is not None:
             counts, dynamic = attribute_writes(tree)
             stores.update(counts)
@@ -241,17 +305,43 @@ def skill_evidence(scripts: list[tuple[Path, str]]) -> list[dict]:
         for relative, tree in trees.items()
         if tree is not None and stems[Path(relative).stem] == 1 and not has_dynamic_code(tree)
     }
+    # Only a module's own top-level classes and functions can be delegated to;
+    # an imported name it merely re-exports (``from requests import get``) is not.
+    symbols = {
+        module: frozenset(
+            stmt.name
+            for stmt in trees[relative].body
+            if isinstance(stmt, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+        )
+        for module, relative in candidates.items()
+    }
+
+    def run(proven: frozenset[str], attributes: dict[str, frozenset[str]]) -> dict[str, dict]:
+        context = SkillContext(stores, poisoned, proven, symbols, attributes)
+        return {relative: script_evidence(path, relative, context) for path, relative in scripts}
+
+    def client_attributes(results: dict[str, dict]) -> dict[str, frozenset[str]]:
+        # Every file's own client attributes: reaching one from another file
+        # (``client.http.get``) bypasses the owner's bounded call sites.
+        owners: dict[str, set[str]] = {}
+        for relative, evidence in results.items():
+            for name in evidence.get("client_attributes", []):
+                owners.setdefault(name, set()).add(relative)
+        return {name: frozenset(files) for name, files in owners.items()}
+
     proven: frozenset[str] = frozenset()
-    results: dict[str, dict] = {}
-    for _ in range(len(trees) + 1):  # monotone: proven only grows
-        context = SkillContext(stores, poisoned, proven)
-        results = {relative: script_evidence(path, relative, context) for path, relative in scripts}
+    results = run(proven, {})
+    attributes = client_attributes(results)
+    for _ in range(len(trees) + 2):
+        results = run(proven, attributes)
         grown = frozenset(
             module for module, relative in candidates.items() if not results[relative]["findings"]
         )
         if grown == proven:
-            break
+            return [results[relative] for _, relative in scripts]
         proven = grown
+    # No fixed point: fall back to the plain per-file verdicts.
+    results = run(frozenset(), attributes)
     return [results[relative] for _, relative in scripts]
 
 
@@ -275,7 +365,7 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
             if name == module:
                 return module
             rest = name[len(module) + 1 :] if name.startswith(module + ".") else ""
-            if rest and "." not in rest:
+            if rest and "." not in rest and rest in context.provider_symbols.get(module, ()):
                 return module
         return None
 
@@ -501,7 +591,88 @@ def script_evidence(path: Path, relative: str, context: SkillContext | None = No
         findings.append(
             f"{relative}:{node.lineno}: constructed network client escapes through unproven use"
         )
+    # A subclass of a delegated class is itself scanned here, and any reach
+    # into the base's client attributes is caught below; only attribute-lookup
+    # hooks or a metaclass in the subclass escape that, so those are gaps.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        if not any(_network(canonical(b)) and delegated(canonical(b)) for b in node.bases):
+            continue
+        body_names = {
+            stmt.name
+            for stmt in node.body
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        } | {
+            target.id
+            for stmt in node.body
+            if isinstance(stmt, (ast.Assign, ast.AnnAssign))
+            for target in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target])
+            if isinstance(target, ast.Name)
+        }
+        if node.keywords or body_names & CLASS_HOOKS:
+            findings.append(
+                f"{relative}:{node.lineno}: subclass {node.name} of a delegated client "
+                "overrides attribute lookup"
+            )
+    # Another file's client attribute (``self.http = requests.Session()``)
+    # reached from here bypasses that file's bounded call sites. Local,
+    # request-free uses such as ``client.session.close()`` are allowed.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Attribute) or ast.unparse(node) in clients:
+            continue
+        parent = parents.get(node)
+        if (
+            isinstance(parent, ast.Attribute)
+            and parent.value is node
+            and parent.attr in local_attributes
+        ):
+            continue
+        owners = context.client_attributes.get(node.attr, frozenset())
+        if owners - {relative}:
+            findings.append(
+                f"{relative}:{node.lineno}: client attribute {ast.unparse(node)} of "
+                f"{', '.join(sorted(owners - {relative}))} is reached outside its owner"
+            )
+    # A network module or imported callable passed around or returned as a
+    # value (``return requests``) can be called later without a timeout.
+    # Type annotations are never evaluated as calls, so they are exempt.
+    annotations = [
+        n.annotation for n in ast.walk(tree) if isinstance(n, (ast.arg, ast.AnnAssign))
+    ] + [
+        n.returns for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    in_annotation = {id(sub) for ann in annotations if ann is not None for sub in ast.walk(ann)}
+    for node in ast.walk(tree):
+        if id(node) in in_annotation:
+            continue
+        if not (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id in network_imports
+        ):
+            continue
+        parent = parents.get(node)
+        if isinstance(parent, ast.Attribute) and parent.value is node:
+            continue
+        if isinstance(parent, ast.Call) and parent.func is node:
+            continue  # direct calls are checked above
+        if isinstance(parent, (ast.Compare, ast.UnaryOp, ast.BoolOp)) or (
+            isinstance(parent, (ast.If, ast.While, ast.IfExp)) and parent.test is node
+        ):
+            continue  # availability checks such as ``if requests is None``
+        if any(part in canonical(node) for part in ("Exception", "Error")):
+            continue  # exception classes in except/isinstance are not requests
+        findings.append(f"{relative}:{node.lineno}: network name {node.id} escapes as a value")
     if network_imports and not calls:
         findings.append(f"{relative}: network import/delegation has no proven request timeout")
     applicability = "network" if calls else ("unproven" if findings else "not_applicable")
-    return {"calls": calls, "applicability": applicability, "findings": sorted(set(findings))}
+    own_attributes = sorted(
+        {target.split(".", 1)[1] for target in clients if target.count(".") == 1}
+    )
+    return {
+        "calls": calls,
+        "applicability": applicability,
+        "findings": sorted(set(findings)),
+        "client_attributes": own_attributes,
+    }
