@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- FMP shared clients: count timed-out dispatches against request budgets, isolate each call's 429 retry counter, and avoid disabling historical endpoints for empty symbol responses (#844). An endpoint that always returns an empty body no longer trips the circuit breaker, so it is retried on every call instead of being disabled for the run.
 - us-undervalued-growth-screener: reject invalid list responses before caching and keep symbol-specific data failures from disabling an entire endpoint (#846).
 - us-undervalued-growth-screener: validate the ratios/key-metrics TTM, profile, peers, quotes and historical-price payloads so HTTP-200 error bodies such as `{"message": ...}` are no longer cached, and disable an endpoint after 20 consecutive schema failures with no success (#846).
 - value-dividend-screener: write default results under the caller's `reports/` directory and accept a bare filename for `--output` (#850).
