@@ -2437,3 +2437,66 @@ def test_equity_lifecycle_accepts_finite_nonpositive_prices(
     )
     assert closed["status"] == "CLOSED"
     assert closed["exit"]["actual_price"] == exit_price
+
+
+@pytest.mark.parametrize(
+    ("raw_ticker", "expected_id_part", "expected_ticker"),
+    [
+        ("BRK.B", "brkb", "BRK.B"),
+        ("brk.b", "brkb", "BRK.B"),
+        ("BF-B", "bfb", "BF-B"),
+        ("005930.KS", "005930ks", "005930.KS"),
+    ],
+)
+def test_register_non_alphanumeric_tickers_strip_id_and_preserve_ticker(
+    tmp_path: Path, raw_ticker: str, expected_id_part: str, expected_ticker: str
+):
+    """Issue #848: non-alphanumeric ticker chars are stripped from thesis_id only."""
+    tid, thesis = _register_and_get(
+        tmp_path,
+        ticker=raw_ticker,
+        _source_date="2026-05-01",
+    )
+
+    assert tid.startswith(f"th_{expected_id_part}_div_20260501_")
+    assert thesis["ticker"] == expected_ticker
+    assert thesis_store.validate_thesis(thesis) is None
+    matches = thesis_store.query(tmp_path, ticker=expected_ticker)
+    assert [m["thesis_id"] for m in matches] == [tid]
+    assert matches[0]["ticker"] == expected_ticker
+    assert thesis_store.validate_state(tmp_path)["ok"] is True
+
+
+def test_register_dotted_and_plain_tickers_do_not_dedup_collide(tmp_path: Path):
+    """BRK.B and BRKB share an ID prefix slug but remain distinct theses."""
+    tid_dot = thesis_store.register(
+        tmp_path,
+        _make_thesis_data(
+            ticker="BRK.B", thesis_statement="Same thesis", _source_date="2026-05-01"
+        ),
+    )
+    tid_plain = thesis_store.register(
+        tmp_path,
+        _make_thesis_data(ticker="BRKB", thesis_statement="Same thesis", _source_date="2026-05-01"),
+    )
+
+    assert tid_dot != tid_plain
+    assert thesis_store.get(tmp_path, tid_dot)["ticker"] == "BRK.B"
+    assert thesis_store.get(tmp_path, tid_plain)["ticker"] == "BRKB"
+
+
+@pytest.mark.parametrize(
+    "bad_ticker",
+    ["", "   ", "...", "---", "!@#", "AAPL MSFT", "AAPL\n", "東京", 123],
+)
+def test_register_rejects_invalid_tickers(tmp_path: Path, bad_ticker):
+    """Invalid tickers (empty, whitespace, non-ASCII, or no alphanumerics) fail closed."""
+    with pytest.raises(ValueError):
+        thesis_store.register(tmp_path, _make_thesis_data(ticker=bad_ticker))
+
+    assert list(tmp_path.glob("th_*.yaml")) == []
+
+
+def test_generate_thesis_id_rejects_non_alphanumeric_only_ticker():
+    with pytest.raises(ValueError, match="Invalid ticker"):
+        thesis_store._generate_thesis_id("---", "dividend_income", "20260501")

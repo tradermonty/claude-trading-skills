@@ -51,6 +51,23 @@ prerequisite_workflows:
     rationale_ja: >-
       新規EP取引でも市場レジームのエクスポージャーゲートに従う必要がある。
 
+manual_inputs:
+  - id: approved_rules_ledger
+    required: false
+    used_by_steps:
+      - 9
+    schema_ref: skills/pre-trade-discipline-gate/references/rule_adherence.md
+    description: >-
+      Optional local approved-rule ledger passed to the gate with
+      --approved-rules-ledger. When supplied, each actionable candidate needs one
+      acknowledgement per applied rule, and the gate journal rows feed the monthly
+      adherence review. Without it the gate output is unchanged.
+    description_ja: >-
+      --approved-rules-ledger でゲートに渡す任意のローカル承認済みルール台帳。
+      指定すると、注文対象の候補ごとに適用中のルールの確認記録が必要になり、
+      ゲートの journal が月次の遵守レビューの入力になる。指定しない場合、
+      ゲートの出力は変わらない。
+
 artifacts:
   - id: circuit_breaker_decision
     produced_by_step: 1

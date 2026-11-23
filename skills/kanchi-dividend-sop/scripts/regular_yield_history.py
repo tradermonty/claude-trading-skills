@@ -149,6 +149,9 @@ def _prepare_dividend_rows(dividends: list[dict[str, Any]]) -> tuple[list[dict[s
         row = apply_frequency_special_label(item)
         adj = _positive_float(row.get("adjDividend"))
         if adj is not None:
+            raw = _positive_float(row.get("dividend"))
+            if raw is None or not math.isclose(raw, adj, rel_tol=1e-9):
+                row["_dividend_adjustment_applied"] = True
             row["dividend"] = adj
         else:
             all_adjusted = False

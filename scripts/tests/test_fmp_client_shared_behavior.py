@@ -23,6 +23,15 @@ FAMILY_B = [
     "skills/ibd-distribution-day-monitor/scripts/fmp_client.py",
 ]
 
+# Every client rendered from core_template.py.tmpl (family A, family B and the
+# #864 migrations), discovered from the generated banner so new clients are
+# covered automatically. Specials (hand-written templates) are excluded.
+TEMPLATE_CLIENTS = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for p in REPO_ROOT.glob("skills/*/scripts/fmp_client.py")
+    if "core_template.py.tmpl" in p.read_text(encoding="utf-8")[:400]
+)
+
 FAMILY_A = [
     "skills/vcp-screener/scripts/fmp_client.py",
     "skills/parabolic-short-trade-planner/scripts/fmp_client.py",
@@ -81,10 +90,21 @@ def test_transport_timeouts_consume_budget(rel_path, monkeypatch):
     assert len(attempts) == client.api_calls_made == 2
 
 
-@pytest.mark.parametrize("rel_path", FAMILY_B)
+def test_template_client_discovery_covers_known_families():
+    discovered = set(TEMPLATE_CLIENTS)
+    assert set(FAMILY_A) <= discovered
+    assert set(FAMILY_B) <= discovered
+    assert not discovered & set(SPECIALS)
+    for skill in ("news-reaction-failure-analyzer", "options-strategy-advisor", "theme-detector"):
+        assert f"skills/{skill}/scripts/fmp_client.py" in discovered
+
+
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
 def test_rate_retry_budget_resets_after_non_429(rel_path, monkeypatch):
     mod = _load(rel_path)
-    client = mod.FMPClient(api_key="test_key", max_api_calls=5)  # pragma: allowlist secret
+    # Only budget-family clients accept max_api_calls; the rest take just the key.
+    kwargs = {"max_api_calls": 5} if hasattr(mod, "ApiCallBudgetExceeded") else {}
+    client = mod.FMPClient(api_key="test_key", **kwargs)  # pragma: allowlist secret
     client.RATE_LIMIT_DELAY = 0
     monkeypatch.setattr(mod.time, "sleep", lambda _: None)
     responses = iter([429, 500, 429, 200])
@@ -105,10 +125,10 @@ def test_rate_retry_budget_resets_after_non_429(rel_path, monkeypatch):
     assert client.api_calls_made == 4
 
 
-@pytest.mark.parametrize("rel_path", FAMILY_B)
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
 def test_empty_symbol_history_does_not_disable_healthy_symbol(rel_path, monkeypatch):
     mod = _load(rel_path)
-    client = mod.FMPClient(api_key="test_key", max_api_calls=10)  # pragma: allowlist secret
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
     client.RATE_LIMIT_DELAY = 0
 
     class Response:
@@ -131,6 +151,35 @@ def test_empty_symbol_history_does_not_disable_healthy_symbol(rel_path, monkeypa
     result = client.get_historical_prices("GOOD")
     rows = result["historical"] if isinstance(result, dict) else result
     assert rows[0]["close"] == 10
+
+
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_always_empty_endpoint_never_trips_breaker(rel_path, monkeypatch):
+    """Empty bodies are not failures: the breaker stays closed and the endpoint is retried."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    calls = []
+
+    class Response:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return []
+
+    def get(url, **kwargs):
+        calls.append(url)
+        return Response()
+
+    monkeypatch.setattr(client.session, "get", get)
+    attempts = client._ENDPOINT_FAILURE_THRESHOLD + 2
+    for _ in range(attempts):
+        assert client.get_historical_prices("EMPTY") is None
+    assert not client._disabled_endpoints
+    assert all(count == 0 for count in client._endpoint_failures.values())
+    # Every attempt still reached the network (no short-circuit after N empties).
+    assert len(calls) >= attempts
 
 
 @pytest.mark.parametrize("rel_path", FAMILY_B)

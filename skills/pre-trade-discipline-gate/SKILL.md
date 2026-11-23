@@ -145,6 +145,21 @@ Pass `--approved-rules-ledger PATH` to the gate. For each actionable candidate, 
 
 Use `scripts/review_rule_experiment.py` to review one approved rule over 14 New York calendar days. Read `references/rule_experiment.md` for the CLI and observation format. Ask the user to define when the rule applies before recording observations. Use their confirmed enter, wait, or pass decision and assessment for each occasion. Treat a gate acknowledgement as a reference to the pre-trade check and ask for the actual decision separately. Retain unassessed occasions in the log. Bring the summary to the monthly review as self-reported evidence, with any rule change going through the existing approval process.
 
+### Monthly rule adherence review
+
+After a month ends, use `scripts/review_rule_adherence.py` to count the gate acknowledgements of each approved rule in the journal. Read `references/rule_adherence.md` for the inputs, the rerun rules, and the output fields. Review the month in which the rules were in force.
+
+```bash
+python3 skills/pre-trade-discipline-gate/scripts/review_rule_adherence.py \
+  --journal-dir state/journal/pre-trade-discipline \
+  --ledger state/rules/approved_rules.json --month 2026-06 \
+  --as-of 2026-07-05 --output-dir reports/pre-trade-discipline
+```
+
+- The report shows per-rule counts, the ledger state at the review date, and reasons to reconsider each rule. The rate appears only after the month ends, with at least 10 acknowledged occasions and none unacknowledged.
+- Treat the counts as self-reported gate answers, not proof of behavior. Bring the report to the monthly review, record the decision there, and apply it only with `manage_approved_rules.py`. The report never changes the ledger.
+- The files are named `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>.json` and `.md`. Warnings name gaps: `no_gate_runs_in_window`, `no_rules_in_window` and `different_ledger_path`.
+
 ## Rules
 
 The gate blocks an actionable candidate when:
@@ -177,6 +192,8 @@ If a candidate includes `thesis_id` and `--state-dir` is provided, the JSON repo
 - `scripts/check_pre_trade_discipline.py` - Main CLI and rule engine
 - `scripts/manage_approved_rules.py` - Approved-rule ledger CLI (activate, list, supersede, retire, extend, restore)
 - `scripts/approved_rules.py` - Ledger library (standard library only)
+- `scripts/review_rule_adherence.py` - Monthly adherence report from gate acknowledgements (standard library only)
+- `references/rule_adherence.md` - Adherence report inputs, rules, and output fields
 - `references/discipline_gate_framework.md` - Rule definitions and integration notes
 - `skills/trader-memory-core/schemas/thesis.schema.json` - Thesis state schema
 

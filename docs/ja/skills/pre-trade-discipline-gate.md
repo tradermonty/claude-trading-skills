@@ -144,3 +144,16 @@ python3 skills/pre-trade-discipline-gate/scripts/check_pre_trade_discipline.py \
 承認済みルールを1つ選び、`review_rule_experiment.py start` で適用条件と14暦日の実験期間を決めます。実際の判断（`enter`、`wait`、`pass`）、評価、参照先のローカルIDを非公開のJSONログに記録し、`review_rule_experiment.py review` で集計します。ルールに従った見送りも、適用機会の母数に含めます。取引前チェックは根拠として参照し、実際にどう判断したかは別に記録します。
 
 レポートでは記録数と適用機会数を示し、時間帯別に例外を集計します。遵守率は期間終了後に、評価済みの適用機会が10件以上あり、未評価が0件の場合に表示します。台帳の該当ルールが変更されたら、新しい実験を開始します。月次レビューに自己申告の記録として集計結果を持ち込み、ルールの変更は既存の承認手順で行います。[コマンドと架空の記録例](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/pre-trade-discipline-gate/references/rule_experiment.md)を参照してください。
+
+## 8. 月次の運用ルール遵守レビュー
+
+月が終わったら `review_rule_adherence.py` が、journal に残ったゲートの確認記録を承認済みルールごとに集計し、月次レビュー用のローカルレポートを書き出します。対象は、そのルールが適用されていた月です。
+
+```bash
+python3 skills/pre-trade-discipline-gate/scripts/review_rule_adherence.py \
+  --journal-dir state/journal/pre-trade-discipline \
+  --ledger state/rules/approved_rules.json --month 2026-06 \
+  --as-of 2026-07-05 --output-dir reports/pre-trade-discipline
+```
+
+ルールごとに、従った、例外、該当なし、未確認の件数、レビュー日時点の台帳の状態、見直しの理由を示します。見直しの理由には、`review_after` の見直し期日を過ぎていることや、該当する機会がなかったことがあります。遵守率は月の終了後に、確認済みの機会が10件以上あり、未確認が0件の場合だけ表示します。同じ候補を同じ日にゲートで再実行した場合は、後の行が前の行に置き換わります。集計は自己申告のゲート回答であり、行動の証明ではありません。レポートは台帳を変更しないので、判断の反映は `manage_approved_rules.py` で行います。JSON と Markdown のファイル名は `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>` なので、月の途中で確認しても月末のレポートは上書きされません。ゲートの実行がない月には `no_gate_runs_in_window`、有効なルールがない月には `no_rules_in_window`、別の台帳パスの行があるときは `different_ledger_path` の警告が出ます。[コマンド、入力、出力項目](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/pre-trade-discipline-gate/references/rule_adherence.md)を参照してください。

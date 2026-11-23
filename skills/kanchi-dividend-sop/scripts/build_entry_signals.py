@@ -12,7 +12,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from dividend_basis import analyze_dividends, step1_decision
+from dividend_basis import _parse_date, _positive_amount, analyze_dividends, step1_decision
 from event_scanner import ScanResult, apply_event_cap
 from fmp_client import FMPClient as SharedFMPClient
 from payout_safety import assess_payout_safety
@@ -206,21 +206,32 @@ class FMPClient(SharedFMPClient):
             return [row for row in data if isinstance(row, dict)]
         return []
 
-    def get_stock_dividend(self, ticker: str) -> list[dict[str, Any]]:
+    def get_stock_dividend(self, ticker: str) -> list[dict[str, Any]] | None:
         """WS-1: full declared-dividend history (regular + special).
 
         /stable dividends returns a flat list (the legacy
         historical-price-full/stock_dividend {symbol, historical:[]} wrapper is
-        gone). Records still carry date / dividend / declarationDate.
+        gone). Return None for failure/malformed evidence; only a confirmed
+        empty response is []. Keep raw and adjusted amounts for the basis engine.
         """
         data = self._get("dividends", {"symbol": ticker})
         if isinstance(data, list):
+            if any(
+                not isinstance(row, dict)
+                or _parse_date(str(row.get("date", ""))) is None
+                or (
+                    _positive_amount(row.get("dividend")) is None
+                    and _positive_amount(row.get("adjDividend")) is None
+                )
+                for row in data
+            ):
+                return None
             # /stable rows carry `frequency` (e.g. "Special") but no `label`;
             # map Special to the label dividend_basis reads (#834). "Irregular"
             # is not special. Rows are never de-duplicated by date: a regular
             # and a special payment can share an ex-date.
-            return [apply_frequency_special_label(row) for row in data if isinstance(row, dict)]
-        return []
+            return [apply_frequency_special_label(row) for row in data]
+        return None
 
     def get_price_history(self, ticker: str, start: str, end: str) -> list[dict[str, Any]]:
         """Daily EOD rows (split-adjusted close) from `start` to `end`; [] on failure."""
@@ -241,8 +252,11 @@ class FMPClient(SharedFMPClient):
             data = self._request(f"{self.STABLE_URL}/splits", {"symbol": ticker})
         except Exception:
             return None
-        if isinstance(data, list):
-            return [row for row in data if isinstance(row, dict)]
+        if isinstance(data, list) and all(
+            isinstance(row, dict) and _parse_date(str(row.get("date", ""))) is not None
+            for row in data
+        ):
+            return [dict(row) for row in data]
         return None
 
     def get_financials(
@@ -298,6 +312,8 @@ def build_entry_row(
     event_scan: ScanResult | None = None,
     as_of: str | None = None,
     yield_history: RegularYieldHistory | None = None,
+    split_history: list[dict[str, Any]] | None = None,
+    require_split_evidence: bool = False,
 ) -> dict[str, Any]:
     price = to_float((quote or {}).get("price"))
     # #770 finding 3: record the date the price is as of, and flag it when it
@@ -308,23 +324,20 @@ def build_entry_row(
     # WS-1: prefer the regular run-rate from declared-dividend history over
     # profile.lastDiv (which is a trailing/TTM figure that lagged the latest
     # declared raise -> defect D5 -- and silently bundled specials -> D4).
-    basis = None
-    if dividend_history is not None:
-        basis = analyze_dividends(
-            dividend_history,
-            price,
-            issuer_language=(profile or {}).get("issuer_language"),
-            issuer_currency=(profile or {}).get("currency"),
-            is_adr=(profile or {}).get("isAdr") is True,
-            floor_pct=floor_pct,
-            as_of_date=as_of,
-        )
+    basis = analyze_dividends(
+        dividend_history,
+        price,
+        issuer_language=(profile or {}).get("issuer_language"),
+        issuer_currency=(profile or {}).get("currency"),
+        is_adr=(profile or {}).get("isAdr") is True,
+        floor_pct=floor_pct,
+        as_of_date=as_of,
+        split_history=split_history,
+        require_split_evidence=require_split_evidence,
+    )
 
-    annual_dividend = to_float((profile or {}).get("lastDiv"))
-    if annual_dividend is None and key_metrics:
-        annual_dividend = to_float(key_metrics[0].get("dividendPerShare"))
-    if basis is not None and basis.latest_declared_annualized is not None:
-        annual_dividend = basis.latest_declared_annualized
+    # An unavailable regular basis cannot be replaced by a profile TTM number.
+    annual_dividend = basis.latest_declared_annualized
 
     yields_5y = normalize_metrics_yields(key_metrics, max_points=5)
     avg_yield_5y_pct_raw = average(yields_5y)
@@ -336,7 +349,7 @@ def build_entry_row(
     numerator_basis = (
         "regular_only"
         if (basis is not None and basis.latest_declared_annualized is not None)
-        else "provider_total_unverified"
+        else "unavailable"
     )
     target_withheld_reason = None
     reconstructed = False
@@ -453,6 +466,7 @@ def build_entry_row(
     if basis is not None:
         row["dividend_basis"] = {
             "status": basis.status,
+            "dividend_amount_basis": basis.dividend_amount_basis,
             "cadence": basis.cadence,
             "latest_declared_annualized": basis.latest_declared_annualized,
             "regular_annual_dividend": basis.regular_annual_dividend,
@@ -603,7 +617,7 @@ def build_entry_row(
     row["provenance"] = {
         "price_source": "fmp_quote" if quote else None,
         "price_date": price_date,
-        "dividend_source": "fmp_stock_dividend" if dividend_history else "fmp_profile_lastDiv",
+        "dividend_source": "fmp_stock_dividend" if dividend_history is not None else "unavailable",
         "dividend_dates_used": (basis.dividend_dates_used if basis else []),
         "payout_source": (financials or {}).get("adjusted_eps_source", "UNAVAILABLE"),
         "event_scan_result": (event_scan.result if event_scan else "NOT_SCANNED"),
@@ -730,6 +744,16 @@ def render_markdown(rows: list[dict[str, Any]], as_of: str, alpha_pp: float) -> 
                 ]
             )
     for row in rows:
+        db = row.get("dividend_basis") or {}
+        lines.extend(
+            [
+                "",
+                f"- {row['ticker']}: dividend history `{db.get('status')}`, "
+                f"amount basis `{db.get('dividend_amount_basis')}`; "
+                f"{', '.join(db.get('reasons') or []) or '-'}.",
+            ]
+        )
+    for row in rows:
         if row.get("price_date_mismatch"):
             lines.extend(
                 [
@@ -763,6 +787,8 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
         "regular_forward_yield_pct",
         "ttm_yield_pct",
         "cut_confirmation_required",
+        "dividend_amount_basis",
+        "dividend_history_status",
         "cut_amount_basis",
         "original_dividend_currency",
         "current_yield_pct",
@@ -798,6 +824,8 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path) -> None:
             output["pre_order_blockers"] = ";".join(row.get("pre_order_blockers", []))
             output["regular_forward_yield_pct"] = db.get("regular_forward_yield_pct")
             output["ttm_yield_pct"] = db.get("ttm_yield_pct")
+            output["dividend_amount_basis"] = db.get("dividend_amount_basis", "unavailable")
+            output["dividend_history_status"] = db.get("status", "ASSUMPTION-REQUIRED")
             output["cut_confirmation_required"] = db.get("cut_confirmation_required", False)
             output["cut_amount_basis"] = db.get("cut_amount_basis", "unconfirmed")
             output["original_dividend_currency"] = db.get("original_dividend_currency")
@@ -959,6 +987,8 @@ def main() -> int:
             event_scan=event_scan,
             as_of=args.as_of,
             yield_history=yield_history,
+            split_history=split_rows,
+            require_split_evidence=True,
         )
         rows.append(row)
 
