@@ -132,6 +132,8 @@ export FMP_API_KEY=your_key_here
 
 適切なパラメータでスクリーニングスクリプトを実行：
 
+結果はデフォルトで現在の作業ディレクトリの `reports/dividend_screener_results.json` に保存されます。別の保存先は `--output` で指定できます。
+
 #### **2段階スクリーニング（推奨）**
 
 FINVIZでプレスクリーニング、FMPで詳細分析：
@@ -213,7 +215,7 @@ python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --fmp-a
 ```python
 import json
 
-with open('dividend_screener_results.json', 'r') as f:
+with open('reports/dividend_screener_results.json', 'r') as f:
     data = json.load(f)
 
 metadata = data['metadata']
