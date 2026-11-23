@@ -102,23 +102,55 @@ made seven of its ten original cases pass. A follow-up review found two
 further gaps: an empty history and a malformed earnings row. Run against the
 first revision, seven of the ten cases added for those gaps fail.
 
-**Why the six values stay `not_verified`.** The checklist requires a passed
-candidate to be clean on the mechanical checks as well. The collector
-(`scripts/security_network_evidence.py`) proposes `gap` for all six skills,
-because it accepts only a finite literal timeout at each call site:
+**Mechanical timeout proof.** The checklist also requires a passed candidate to
+be clean on the mechanical checks. The collector
+(`scripts/security_network_evidence.py`) originally accepted only a literal
+timeout at each call site. As a result, it flagged two patterns:
 
-- `timeout=self.timeout` in the generated FMP clients is flagged. These are
-  value-dividend, dividend-growth-pullback and theme-detector, where
-  `self.timeout = 30` is a constant set in `__init__`.
-- Delegation to a vendored client is flagged in canslim, downtrend and
-  parabolic, even though that client's own calls are bounded.
-- The parabolic Alpaca adapters take a `timeout` constructor parameter, which
-  defaults to 15.0 or 10.0. No caller overrides it.
+- `timeout=self.timeout` in the generated FMP clients
+- every call into a vendored client
 
-The reviewers judged all of these bounded in practice. Clearing them still
-needs either a collector extension (constant-attribute and local-delegation
-proofs) or call-site changes in the generated client template, so they are
-not certified here.
+The maintainer chose to extend the collector rather than duplicate constants.
+`skill_evidence()` now evaluates a skill's scripts together and adds two
+proofs. When either proof cannot be traced, the call stays a gap.
+
+- **Constant attribute.** `timeout=self.<attr>` counts as bounded only when
+  every one of these holds:
+  - `<attr>` is assigned exactly once in the whole skill, including package
+    `__init__.py` files.
+  - That assignment is a top-level `__init__` statement with a finite
+    positive literal.
+  - The class has no base, metaclass, decorator, lookup hook or `__slots__`.
+- **Local delegation.** A call into a sibling module counts as delegated only
+  when every one of these holds:
+  - The call targets a class or function the module defines itself, not a
+    re-exported import.
+  - The module stem is unambiguous.
+  - The module has no dynamic code loading.
+  - The module is itself fully proven.
+  - No file reaches a client attribute (`.session`, `.http`, a registry
+    container) except through a known client receiver, `.close()` or
+    `headers`.
+- **Poisoning.** Either of the following poisons the whole skill, and then
+  neither proof applies:
+  - any dynamic attribute access, meaning a non-literal `getattr`, `vars`,
+    `__dict__`, `operator.attrgetter` or `builtins`
+  - any class anywhere in the skill with lookup hooks or a metaclass
+
+An adversarial reviewer ran three rounds against the proofs and found 16
+false proofs. Each one is a regression in
+`scripts/tests/test_security_timeout_proofs.py`. Across the 28 target skills,
+the remaining verdicts were spot-checked; their delegated calls are
+`FMPClient(...)` constructor calls. The parabolic Alpaca adapter timeouts are
+now call-site literals.
+
+**Outcome.** canslim-screener, value-dividend-screener,
+dividend-growth-pullback-screener and parabolic-short-trade-planner are clean
+and recorded `passed`. Two skills stay `not_verified`:
+
+- downtrend-duration-analyzer, because `downtrend_fmp_client.py` loads the
+  client through `importlib` and so cannot be traced.
+- theme-detector, for the reasons below.
 
 theme-detector also has a real network gap. Its `yf.download`,
 `yf.Ticker().info` and `finvizfinance` calls pass no explicit timeout and rely
