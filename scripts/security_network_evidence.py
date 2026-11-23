@@ -3,12 +3,23 @@
 Only direct imported call aliases and constructor-bound clients are resolved.
 Dynamic dispatch, rebinding and delegated SDK operations require human review.
 A bounded argument is evidence for that call, not a whole-program safety proof.
+
+Two skill-level proofs (issue #778) are applied by :func:`skill_evidence`:
+
+* ``timeout=self.<attr>`` is bounded when ``<attr>`` is assigned exactly once
+  in the whole skill, as a top-level ``__init__`` statement of the enclosing
+  class with a finite positive literal, and no dynamic attribute write exists.
+* A call into a sibling script module counts as delegated, not unproven, when
+  that module is unambiguous, has no dynamic code loading, and is itself fully
+  proven. Reaching through the module (``mod.requests.get``) is not delegation.
 """
 
 from __future__ import annotations
 
 import ast
 import math
+from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
 
 HTTP_METHODS = {
@@ -70,7 +81,182 @@ def _bounded(value: ast.expr | None) -> bool:
     return False
 
 
-def script_evidence(path: Path, relative: str) -> dict:
+DYNAMIC_ATTRIBUTES = {"__dict__", "__setattr__", "__delattr__"}
+DYNAMIC_CALLS = {"__import__", "exec", "eval", "compile", "vars"}
+
+
+@dataclass
+class SkillContext:
+    """Whole-skill facts that a single-file scan cannot see."""
+
+    attribute_stores: Counter = field(default_factory=Counter)
+    poisoned: bool = True  # unknown writes: no attribute proof
+    proven_modules: frozenset[str] = frozenset()
+
+
+def _store_names(target: ast.expr) -> list[str]:
+    if isinstance(target, ast.Attribute):
+        return [target.attr]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for item in target.elts for name in _store_names(item)]
+    if isinstance(target, ast.Starred):
+        return _store_names(target.value)
+    return []
+
+
+def attribute_writes(tree: ast.AST) -> tuple[Counter, bool]:
+    """Count every way a file can (re)bind an attribute name.
+
+    Returns ``(counts, poisoned)``. ``poisoned`` means a write whose attribute
+    name cannot be determined statically, which defeats every attribute proof.
+    """
+    counts: Counter = Counter()
+    poisoned = False
+    for node in ast.walk(tree):
+        targets: list[ast.expr] = []
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            targets = [node.target]
+        elif isinstance(node, ast.Delete):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+            targets = [node.target]
+        elif isinstance(node, ast.withitem) and node.optional_vars is not None:
+            targets = [node.optional_vars]
+        for target in targets:
+            counts.update(_store_names(target))
+        if isinstance(node, ast.ClassDef):
+            # Class-body names (attributes, methods, properties) shadow or
+            # override instance attributes of the same name.
+            for stmt in node.body:
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    counts[stmt.name] += 1
+                elif isinstance(stmt, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                    for target in stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]:
+                        if isinstance(target, ast.Name):
+                            counts[target.id] += 1
+        if isinstance(node, ast.Attribute) and node.attr in DYNAMIC_ATTRIBUTES:
+            poisoned = True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if node.func.id in ("setattr", "delattr"):
+                if (
+                    len(node.args) >= 2
+                    and isinstance(node.args[1], ast.Constant)
+                    and isinstance(node.args[1].value, str)
+                ):
+                    counts[node.args[1].value] += 1
+                else:
+                    poisoned = True
+            elif node.func.id == "vars":
+                poisoned = True
+    return counts, poisoned
+
+
+def has_dynamic_code(tree: ast.AST) -> bool:
+    """True when a module can load or run code the scan cannot follow."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import) and any(
+            item.name.split(".")[0] in ("importlib", "runpy") for item in node.names
+        ):
+            return True
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] in (
+            "importlib",
+            "runpy",
+        ):
+            return True
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in DYNAMIC_CALLS
+        ):
+            return True
+    return False
+
+
+def _constant_self_attributes(tree: ast.AST, context: SkillContext) -> dict[int, set[str]]:
+    """Map ``id(ClassDef)`` to attributes proven to hold one bounded literal."""
+    proven: dict[int, set[str]] = {}
+    if context.poisoned:
+        return proven
+    for cls in ast.walk(tree):
+        if not isinstance(cls, ast.ClassDef):
+            continue
+        init = next(
+            (
+                stmt
+                for stmt in cls.body
+                if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__"
+            ),
+            None,
+        )
+        if init is None or init.decorator_list or not init.args.args:
+            continue
+        me = init.args.args[0].arg
+        names: set[str] = set()
+        for stmt in init.body:  # top-level statements only: never conditional
+            if (
+                isinstance(stmt, ast.Assign)
+                and len(stmt.targets) == 1
+                and isinstance(stmt.targets[0], ast.Attribute)
+                and isinstance(stmt.targets[0].value, ast.Name)
+                and stmt.targets[0].value.id == me
+                and _bounded(stmt.value)
+                and context.attribute_stores[stmt.targets[0].attr] == 1
+            ):
+                names.add(stmt.targets[0].attr)
+        proven[id(cls)] = names
+    return proven
+
+
+def skill_evidence(scripts: list[tuple[Path, str]]) -> list[dict]:
+    """Evaluate a skill's scripts together so the two skill-level proofs apply.
+
+    ``scripts`` holds ``(path, relative)`` pairs; ``relative`` is the path
+    under the skill root (for example ``scripts/fmp_client.py``).
+    """
+    trees: dict[str, ast.AST | None] = {}
+    for path, relative in scripts:
+        try:
+            trees[relative] = ast.parse(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, SyntaxError):
+            trees[relative] = None
+    stores: Counter = Counter()
+    poisoned = any(tree is None for tree in trees.values())
+    for tree in trees.values():
+        if tree is not None:
+            counts, dynamic = attribute_writes(tree)
+            stores.update(counts)
+            poisoned = poisoned or dynamic
+
+    def module_name(relative: str) -> str:
+        parts = Path(relative).with_suffix("").parts
+        return ".".join(parts[1:] if parts and parts[0] == "scripts" else parts)
+
+    # sys.path tweaks can make ``sub/x.py`` importable as ``x``, so a stem shared
+    # by two scripts is ambiguous even when the dotted names differ.
+    stems = Counter(Path(relative).stem for relative in trees)
+    candidates = {
+        module_name(relative): relative
+        for relative, tree in trees.items()
+        if tree is not None and stems[Path(relative).stem] == 1 and not has_dynamic_code(tree)
+    }
+    proven: frozenset[str] = frozenset()
+    results: dict[str, dict] = {}
+    for _ in range(len(trees) + 1):  # monotone: proven only grows
+        context = SkillContext(stores, poisoned, proven)
+        results = {relative: script_evidence(path, relative, context) for path, relative in scripts}
+        grown = frozenset(
+            module for module, relative in candidates.items() if not results[relative]["findings"]
+        )
+        if grown == proven:
+            break
+        proven = grown
+    return [results[relative] for _, relative in scripts]
+
+
+def script_evidence(path: Path, relative: str, context: SkillContext | None = None) -> dict:
+    context = context or SkillContext()
     findings: list[str] = []
     calls: list[dict] = []
     try:
@@ -82,6 +268,19 @@ def script_evidence(path: Path, relative: str) -> dict:
             "findings": [f"{relative}: source cannot be inspected ({type(exc).__name__})"],
         }
     bindings: dict[str, set[str]] = {}
+
+    def delegated(name: str) -> str | None:
+        """Module a name delegates to: exactly ``<proven module>.<symbol>``."""
+        for module in context.proven_modules:
+            if name == module:
+                return module
+            rest = name[len(module) + 1 :] if name.startswith(module + ".") else ""
+            if rest and "." not in rest:
+                return module
+        return None
+
+    def is_net(name: str) -> bool:
+        return _network(name) and delegated(name) is None
 
     def bind(local, imported):
         bindings.setdefault(local, set()).add(imported)
@@ -100,7 +299,7 @@ def script_evidence(path: Path, relative: str) -> dict:
         elif isinstance(node, ast.ImportFrom) and node.module:
             for item in node.names:
                 bind(item.asname or item.name, f"{node.module}.{item.name}")
-    network_imports = {key for key, names in bindings.items() if any(_network(n) for n in names)}
+    network_imports = {key for key, names in bindings.items() if any(is_net(n) for n in names)}
     for local in network_imports:
         if len(bindings[local]) != 1:
             findings.append(f"{relative}: ambiguous/rebound network import alias {local}")
@@ -160,6 +359,31 @@ def script_evidence(path: Path, relative: str) -> dict:
         if target in network_imports:
             findings.append(f"{relative}: network import {target} is rebound")
 
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    constant_attributes = _constant_self_attributes(tree, context)
+
+    def attribute_bounded(timeout) -> bool:
+        """``timeout=self.<attr>`` inside a plain method of a proven class."""
+        if not (isinstance(timeout, ast.Attribute) and isinstance(timeout.value, ast.Name)):
+            return False
+        func = parents.get(timeout)
+        while func is not None and not isinstance(
+            func, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+        ):
+            func = parents.get(func)
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return False
+        cls = parents.get(func)
+        if not isinstance(cls, ast.ClassDef) or func.decorator_list or not func.args.args:
+            return False
+        me = func.args.args[0].arg
+        if timeout.value.id != me or any(
+            isinstance(n, ast.Name) and n.id == me and isinstance(n.ctx, (ast.Store, ast.Del))
+            for n in ast.walk(func)
+        ):
+            return False
+        return timeout.attr in constant_attributes.get(id(cls), set())
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -167,7 +391,7 @@ def script_evidence(path: Path, relative: str) -> dict:
         raw = ast.unparse(node.func)
         receiver = ast.unparse(node.func.value) if isinstance(node.func, ast.Attribute) else ""
         method = node.func.attr if isinstance(node.func, ast.Attribute) else name.rsplit(".", 1)[-1]
-        direct = _network(name) and (method in HTTP_METHODS or method == "urlopen")
+        direct = is_net(name) and (method in HTTP_METHODS or method == "urlopen")
         chained_factory = (
             isinstance(node.func, ast.Attribute)
             and isinstance(node.func.value, ast.Call)
@@ -176,7 +400,7 @@ def script_evidence(path: Path, relative: str) -> dict:
         bound_client = (receiver in clients or chained_factory) and method in HTTP_METHODS
         if direct or bound_client:
             timeout = next((kw.value for kw in node.keywords if kw.arg == "timeout"), None)
-            bounded = _bounded(timeout)
+            bounded = _bounded(timeout) or attribute_bounded(timeout)
             calls.append({"path": relative, "line": node.lineno, "call": raw, "bounded": bounded})
             if not bounded:
                 findings.append(
@@ -184,7 +408,19 @@ def script_evidence(path: Path, relative: str) -> dict:
                 )
         elif name in FACTORIES or name == "urllib.request.Request":
             continue
-        elif _network(name):
+        elif _network(name) and delegated(name):
+            # A call into a fully proven sibling module: its own requests are
+            # the evidence, so record the delegation instead of a gap.
+            calls.append(
+                {
+                    "path": relative,
+                    "line": node.lineno,
+                    "call": raw,
+                    "bounded": True,
+                    "delegated_to": delegated(name),
+                }
+            )
+        elif is_net(name):
             # Exception constructors and local URL parsing are not requests.
             if not any(part in name for part in ("Exception", "Error")):
                 findings.append(f"{relative}:{node.lineno} {raw}: network operation is unproven")
@@ -199,7 +435,6 @@ def script_evidence(path: Path, relative: str) -> dict:
             findings.append(f"{relative}:{node.lineno}: dynamic network dispatch is unproven")
     # Audit uses of known clients, not just discovered requests. Otherwise a
     # bounded request could mask a second request through an escaped receiver.
-    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
     local_attributes = {
         "headers",
         "cookies",

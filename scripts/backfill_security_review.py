@@ -40,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import yaml  # noqa: E402
-from security_network_evidence import script_evidence  # noqa: E402
+from security_network_evidence import skill_evidence  # noqa: E402
 
 INDEX_PATH = ROOT / "skills-index.yaml"
 
@@ -360,10 +360,9 @@ def mechanical_checks(skill_id: str, root: Path = ROOT) -> dict:
     leak_signal = _key_leak_findings(scripts)
     timeout_present = any(_TIMEOUT_RE.search(_script_text(s)) for s in scripts)
     manifest = (root / "skills" / skill_id / "requirements.txt").is_file()
-    network = [
-        script_evidence(script, script.relative_to(root / "skills" / skill_id).as_posix())
-        for script in scripts
-    ]
+    network = skill_evidence(
+        [(script, script.relative_to(root / "skills" / skill_id).as_posix()) for script in scripts]
+    )
     network_findings = [finding for evidence in network for finding in evidence["findings"]]
     calls = [call for evidence in network for call in evidence["calls"]]
     applicability = "unproven" if network_findings else "network" if calls else "not_applicable"
