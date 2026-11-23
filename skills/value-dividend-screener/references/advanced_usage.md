@@ -49,7 +49,7 @@ Convert JSON results to CSV for Excel analysis:
 import json
 import csv
 
-with open('dividend_screener_results.json', 'r') as f:
+with open('reports/dividend_screener_results.json', 'r') as f:
     data = json.load(f)
 
 stocks = data['stocks']

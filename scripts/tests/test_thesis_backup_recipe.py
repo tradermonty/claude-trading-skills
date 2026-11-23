@@ -157,4 +157,25 @@ def test_existing_empty_state_can_be_recovered(recipe):
     run("backup", recipe)
     shutil.rmtree(recipe["SOURCE"])
     run("restore", recipe)
-    assert recipe["digests"](recipe["RESTORED"]) == {}
+    # Doctor initializes coordination before the manifest; no business files
+    # are fabricated for the empty store, and every copied byte is verified.
+    assert set(recipe["digests"](recipe["RESTORED"])) == {".lock"}
+    assert recipe["digests"](recipe["RESTORED"]) == json.loads(recipe["MANIFEST"].read_text())
+    assert not list(recipe["RESTORED"].glob("th_*.yaml"))
+    assert not (recipe["RESTORED"] / "_index.json").exists()
+
+
+def test_source_boundary_is_checked_before_doctor_initializes_metadata(recipe, tmp_path):
+    recipe["SOURCE"].rename("real-source")
+    try:
+        recipe["SOURCE"].symlink_to(tmp_path / "real-source", target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlink creation unavailable")
+
+    def must_not_run(root):
+        raise AssertionError("doctor must not access an untrusted source")
+
+    recipe["doctor"] = must_not_run
+    with pytest.raises(ValueError, match="Symlink"):
+        run("backup", recipe)
+    assert not recipe["MANIFEST"].exists()

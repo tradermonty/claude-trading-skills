@@ -1430,12 +1430,8 @@ Environment Variables:
         help="Use FINVIZ Elite API for pre-screening (recommended to reduce FMP API calls)",
     )
 
-    # Determine default output directory (project root logs/ folder)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Navigate from .claude/skills/value-dividend-screener/scripts to project root
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))))
-    logs_dir = os.path.join(project_root, "logs")
-    default_output = os.path.join(logs_dir, "dividend_screener_results.json")
+    # Reports belong to the caller's workspace, including when installed as a skill.
+    default_output = os.path.join("reports", "dividend_screener_results.json")
 
     parser.add_argument(
         "--output",
@@ -1558,7 +1554,7 @@ Environment Variables:
         file=sys.stderr,
     )
     # Write to file
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
 

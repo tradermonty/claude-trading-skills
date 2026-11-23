@@ -190,8 +190,10 @@ class FMPClient:
         quiet: bool = False,
         *,
         _json_retry: bool = True,
+        _rate_retry: int = 0,
     ) -> Optional[dict]:
         self._last_error = None
+        self.retry_count = _rate_retry
         if self.rate_limit_reached:
             self._last_error = "daily rate limit already reached"
             return None
@@ -207,11 +209,10 @@ class FMPClient:
         if elapsed < self.RATE_LIMIT_DELAY:
             time.sleep(self.RATE_LIMIT_DELAY - elapsed)
 
+        self.last_call_time = time.time()
+        self.api_calls_made += 1
         try:
             response = self.session.get(url, params=params, timeout=30)
-            self.last_call_time = time.time()
-            self.api_calls_made += 1
-
             if response.status_code == 200:
                 self.retry_count = 0
                 try:
@@ -236,7 +237,13 @@ class FMPClient:
                 if self.retry_count <= self.max_retries:
                     print("WARNING: Rate limit exceeded. Waiting 60 seconds...", file=sys.stderr)
                     time.sleep(60)
-                    return self._rate_limited_get(url, params, quiet=quiet, _json_retry=_json_retry)
+                    return self._rate_limited_get(
+                        url,
+                        params,
+                        quiet=quiet,
+                        _json_retry=_json_retry,
+                        _rate_retry=self.retry_count,
+                    )
                 else:
                     self._last_error = "HTTP 429 (daily rate limit)"
                     print("ERROR: Daily API rate limit reached.", file=sys.stderr)
@@ -281,7 +288,10 @@ class FMPClient:
             is_last = i == len(endpoints) - 1
             data = self._rate_limited_get(url, final_params, quiet=not is_last)
             if not data:  # falsy (None, [], {}) — try next endpoint
-                self._record_endpoint_failure(base_url)
+                if data is None:
+                    self._record_endpoint_failure(base_url)
+                else:
+                    self._endpoint_failures[base_url] = 0
                 self._warn_fallback(base_url, is_last, self._last_error)
                 continue
 

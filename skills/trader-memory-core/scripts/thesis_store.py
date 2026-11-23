@@ -1,7 +1,8 @@
 """Trader Memory Core — thesis CRUD and index management.
 
-Provides atomic read/write operations for thesis YAML files and the
-_index.json summary.  All writes use tempfile + os.replace for safety.
+Provides per-file atomic writes for thesis YAML and _index.json. Public
+writers hold one state-directory advisory lock; this is not a multi-file
+crash-atomic transaction.
 """
 
 from __future__ import annotations
@@ -150,6 +151,7 @@ def _check_date(value):
 # linters and readers can see where main()'s names are defined; it never runs.
 
 _PART_FILES = (
+    "locking.py",
     "validation.py",
     "persistence.py",
     "lifecycle.py",
@@ -174,6 +176,7 @@ _exec_parts(globals())
 
 if TYPE_CHECKING:  # Names main() uses from the fragments; never runs.
     from thesis_store_parts.lifecycle import mark_reviewed, record_lessons, transition
+    from thesis_store_parts.locking import _serialize_state_operation
     from thesis_store_parts.persistence import _coerce_dt, rebuild_index
     from thesis_store_parts.positions_equity import (
         attach_position,
@@ -185,6 +188,30 @@ if TYPE_CHECKING:  # Names main() uses from the fragments; never runs.
     from thesis_store_parts.positions_futures import attach_futures_position
     from thesis_store_parts.queries import get, list_review_due, query, validate_state
     from thesis_store_parts.validation import _MAX_CONTRACTS, _MAX_SHARES
+
+
+# Every public write path holds one directory lock from preflight through save.
+# Public equity dispatchers cover their private futures implementations as well.
+_STATE_WRITERS = (
+    "register",
+    "update",
+    "record_lessons",
+    "transition",
+    "link_report",
+    "mark_reviewed",
+    "attach_position",
+    "attach_futures_position",
+    "open_position",
+    "close",
+    "trim",
+    "terminate",
+    "rebuild_index",
+)
+for _writer in _STATE_WRITERS:
+    globals()[_writer] = _serialize_state_operation(
+        globals()[_writer], preflight=_writer != "rebuild_index"
+    )
+validate_state = _serialize_state_operation(validate_state, preflight=False, read_only=True)
 
 
 # -- CLI entry point ----------------------------------------------------------

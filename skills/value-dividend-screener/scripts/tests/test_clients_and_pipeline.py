@@ -1330,6 +1330,17 @@ class TestMain:
         monkeypatch.setattr("sys.argv", ["screen_dividend_stocks.py", *argv])
         return mod.main()
 
+    @pytest.mark.parametrize("output", [None, "results.json", "nested/results.json"])
+    def test_output_paths_are_written_from_current_directory(self, monkeypatch, tmp_path, output):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("FMP_API_KEY", "fake")
+        monkeypatch.setattr(
+            mod, "screen_value_dividend_stocks", lambda *args, **kwargs: [{"symbol": "AAA"}]
+        )
+        self._run(monkeypatch, [] if output is None else ["--output", output])
+        expected = tmp_path / (output or "reports/dividend_screener_results.json")
+        assert json.loads(expected.read_text(encoding="utf-8"))["stocks"] == [{"symbol": "AAA"}]
+
     def test_missing_fmp_key_exits_1(self, monkeypatch, capsys):
         monkeypatch.delenv("FMP_API_KEY", raising=False)
         with pytest.raises(SystemExit) as exc:

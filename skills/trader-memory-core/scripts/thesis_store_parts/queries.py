@@ -135,7 +135,7 @@ def validate_state(state_dir: Path) -> dict:
             continue
 
         try:
-            _validate_thesis(thesis)
+            _validate_thesis(thesis, allow_legacy_short=True)
         except (ValueError, Exception) as e:
             schema_errors.append({"thesis_id": tid, "error": str(e)})
             continue
