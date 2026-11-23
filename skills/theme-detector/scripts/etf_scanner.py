@@ -15,6 +15,8 @@ from datetime import date, timedelta
 from json import JSONDecodeError
 from typing import Any, Optional
 
+from fmp_adapter import fetch_fmp
+
 try:
     import numpy as np
     import pandas as pd
@@ -54,7 +56,7 @@ try:
     import requests as _requests_lib
     from requests.exceptions import RequestException
 
-    HAS_REQUESTS = True
+    HAS_REQUESTS = _requests_lib is not None
 except ImportError:
     HAS_REQUESTS = False
 
@@ -64,17 +66,6 @@ _REQUEST_ERRORS: tuple = (RequestException,) if HAS_REQUESTS else ()
 # ---------------------------------------------------------------------------
 # FMP endpoint definitions (R2-1: callable URL builders for stable/v3)
 # ---------------------------------------------------------------------------
-
-
-def _stable_quote_url(base: str, symbols_str: str, params: dict) -> tuple[str, dict]:
-    """stable/quote?symbol=A,B"""
-    params["symbol"] = symbols_str
-    return base, params
-
-
-def _v3_quote_url(base: str, symbols_str: str, params: dict) -> tuple[str, dict]:
-    """api/v3/quote/A,B"""
-    return f"{base}/{symbols_str}", params
 
 
 def _stable_hist_url(base: str, symbols_str: str, params: dict) -> tuple[str, dict]:
@@ -89,12 +80,6 @@ def _stable_hist_url(base: str, symbols_str: str, params: dict) -> tuple[str, di
         params["from"] = (today - timedelta(days=int(days) * 2 + 10)).isoformat()
         params["to"] = today.isoformat()
     return base, params
-
-
-def _v3_hist_url(base: str, symbols_str: str, params: dict) -> tuple[str, dict]:
-    """api/v3/historical-price-full/A,B?..."""
-    params.pop("_as_of", None)
-    return f"{base}/{symbols_str}", params
 
 
 def _normalize_eod_flat_list(data: Any, symbols_str: str) -> Any:
@@ -116,18 +101,6 @@ def _normalize_eod_flat_list(data: Any, symbols_str: str) -> Any:
     if not rows:
         return None
     return {"symbol": symbols_str, "historical": rows}
-
-
-_FMP_ENDPOINTS = {
-    "quote": [
-        ("https://financialmodelingprep.com/stable/quote", _stable_quote_url),
-        ("https://financialmodelingprep.com/api/v3/quote", _v3_quote_url),
-    ],
-    "historical": [
-        ("https://financialmodelingprep.com/stable/historical-price-eod/full", _stable_hist_url),
-        ("https://financialmodelingprep.com/api/v3/historical-price-full", _v3_hist_url),
-    ],
-}
 
 
 def _history_row_on_or_before(row: Any, as_of_date: date) -> bool:
@@ -179,8 +152,6 @@ class ETFScanner:
     FMP_HIST_BATCH_SIZE = 1
     FMP_QUOTE_BATCH_SIZE = 1
 
-    _ENDPOINT_FAILURE_THRESHOLD = 3  # disable endpoint after N consecutive failures
-
     def __init__(
         self,
         fmp_api_key: Optional[str] = None,
@@ -198,9 +169,6 @@ class ETFScanner:
             "etf": {"fmp_calls": 0, "fmp_failures": 0, "yf_calls": 0, "yf_fallbacks": 0},
         }
         self._current_stats_context: str = "stock"
-        # Circuit breaker: track consecutive failures per endpoint URL prefix
-        self._endpoint_failures: dict[str, int] = {}
-        self._disabled_endpoints: set[str] = set()
 
     def backend_stats(self) -> dict[str, Any]:
         """Return backend usage statistics with both flat and nested formats.
@@ -238,58 +206,32 @@ class ETFScanner:
     def _fmp_request(
         self, endpoint_key: str, symbols_str: str, extra_params: Optional[dict] = None
     ) -> Optional[Any]:
-        """Try each endpoint (stable -> v3) with circuit breaker.
-
-        Endpoints that fail consecutively are disabled to avoid wasting
-        API calls and triggering rate limits from the provider.
-
-        Args:
-            endpoint_key: "quote" or "historical"
-            symbols_str: comma-separated symbols (already normalized)
-            extra_params: e.g. {"timeseries": 20}
-
-        Returns:
-            Parsed JSON or None on all failures.
-        """
+        """Delegate one stable logical operation; never disable later symbols."""
         if not HAS_REQUESTS or not self._fmp_api_key:
             return None
-
-        params = {}
-        if extra_params:
-            params.update(extra_params)
-
+        params = dict(extra_params or {})
+        if endpoint_key == "historical":
+            _, params = _stable_hist_url("", symbols_str, params)
         ctx = self._current_stats_context
-        for base_url, url_builder in _FMP_ENDPOINTS[endpoint_key]:
-            # Circuit breaker: skip endpoints with too many consecutive failures
-            if base_url in self._disabled_endpoints:
-                continue
-
-            url, final_params = url_builder(base_url, symbols_str, dict(params))
-            self._fmp_rate_limit()
-            self._stats[ctx]["fmp_calls"] += 1
-            try:
-                resp = _requests_lib.get(
-                    url, params=final_params, headers={"apikey": self._fmp_api_key}, timeout=15
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if endpoint_key == "historical":
-                        # /stable returns a flat OHLCV list; reshape to the v3
-                        # {"symbol", "historical"} dict the parser expects.
-                        data = _normalize_eod_flat_list(data, symbols_str)
-                    if data:
-                        # Reset failure count on success
-                        self._endpoint_failures[base_url] = 0
-                        return data
-            except (*_REQUEST_ERRORS, ValueError):
-                print("WARN: Degraded FMP request; trying available fallback", file=sys.stderr)
-
-            self._stats[ctx]["fmp_failures"] += 1
-            failures = self._endpoint_failures.get(base_url, 0) + 1
-            self._endpoint_failures[base_url] = failures
-            if failures >= self._ENDPOINT_FAILURE_THRESHOLD:
-                self._disabled_endpoints.add(base_url)
-
+        self._fmp_rate_limit()
+        self._stats[ctx]["fmp_calls"] += 1
+        try:
+            data = fetch_fmp(
+                endpoint_key,
+                symbols_str,
+                self._fmp_api_key,
+                params,
+                rate_limit_sec=self._rate_limit_sec,
+            )
+        finally:
+            # An owned operation may finish well after its first attempt.
+            self._last_request_time = time.time()
+        if endpoint_key == "historical":
+            data = _normalize_eod_flat_list(data, symbols_str)
+        if data:
+            return data
+        self._stats[ctx]["fmp_failures"] += 1
+        print("WARN: Degraded FMP request; trying available fallback", file=sys.stderr)
         return None
 
     # -------------------------------------------------------------------

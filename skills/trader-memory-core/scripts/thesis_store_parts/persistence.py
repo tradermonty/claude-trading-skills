@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import hashlib
     import json
     import os
+    import re
     import tempfile
     import uuid
     from datetime import datetime, timezone
@@ -54,8 +55,23 @@ def _coerce_dt(value: str | None) -> str | None:
     return f"{value}T00:00:00+00:00"
 
 
+def _ticker_id_slug(ticker: str) -> str:
+    """Validate a ticker string and return its lowercase ASCII-alphanumeric ID slug."""
+    if not isinstance(ticker, str):
+        raise ValueError(f"Invalid ticker: {ticker!r}. Must be a non-empty ASCII string")
+    if not ticker.isascii() or any(ch.isspace() for ch in ticker):
+        raise ValueError(f"Invalid ticker: {ticker!r}. Must be ASCII without whitespace")
+    slug = re.sub(r"[^a-z0-9]", "", ticker.lower())
+    if not slug:
+        raise ValueError(
+            f"Invalid ticker: {ticker!r}. Must contain at least one ASCII alphanumeric character"
+        )
+    return slug
+
+
 def _generate_thesis_id(ticker: str, thesis_type: str, date_str: str) -> str:
     """Generate a thesis ID with a 4-char hash suffix for uniqueness."""
+    ticker_id = _ticker_id_slug(ticker)
     abbr = _TYPE_ABBR.get(thesis_type)
     if abbr is None:
         raise ValueError(
@@ -63,7 +79,7 @@ def _generate_thesis_id(ticker: str, thesis_type: str, date_str: str) -> str:
         )
     salt = uuid.uuid4().hex[:8]
     hash4 = hashlib.sha256(f"{ticker}_{thesis_type}_{date_str}_{salt}".encode()).hexdigest()[:4]
-    return f"th_{ticker.lower()}_{abbr}_{date_str}_{hash4}"
+    return f"th_{ticker_id}_{abbr}_{date_str}_{hash4}"
 
 
 def _compute_origin_fingerprint(thesis_data: dict) -> str:

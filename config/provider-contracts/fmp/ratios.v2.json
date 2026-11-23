@@ -7,7 +7,7 @@
     "symbol": "JNJ",
     "limit": "3"
   },
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-10-03",
   "recording": "Authenticated live /stable/ratios probe (query symbol=JNJ, limit=3), sanitized to the fields value-dividend-screener reads. 2026-10-03.",
   "owners": [
@@ -33,16 +33,14 @@
         "float"
       ],
       "nullable": true,
-      "reject_all_null": true
-    },
+      "reject_all_null": true, "finite": true},
     "priceToBookRatio": {
       "types": [
         "int",
         "float"
       ],
       "nullable": true,
-      "reject_all_null": true
-    }
+      "reject_all_null": true, "finite": true}
   },
   "optional_fields": [
     "dividendPayoutRatio",

@@ -215,7 +215,7 @@ Read the generated JSON file:
 ```python
 import json
 
-with open('dividend_screener_results.json', 'r') as f:
+with open('reports/dividend_screener_results.json', 'r') as f:
     data = json.load(f)
 
 metadata = data['metadata']

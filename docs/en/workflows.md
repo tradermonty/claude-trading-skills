@@ -115,6 +115,12 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - `market-regime-daily` expects `exposure_decision` — New earnings-momentum risk requires a non-restrictive exposure decision. Skip this workflow on cash-priority or restrictive days.
 
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `approved_rules_ledger` | no | 7 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | Optional local approved-rule ledger passed to the gate with --approved-rules-ledger. When supplied, each actionable candidate needs one acknowledgement per applied rule, and the gate journal rows feed the monthly adherence review. Without it the gate output is unchanged. |
+
 **Artifacts:**
 
 | Artifact | Produced by step | Required | Downstream hints |
@@ -329,6 +335,12 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Optional skills:** `trade-performance-coach`, `backtest-expert`, `dual-axis-skill-reviewer`
 
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `prior_rule_adherence` | no | 6 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | Optional local report from review_rule_adherence.py for the month that just ended, counting gate acknowledgements of each approved rule. The human reads it at step 6; trader-memory-core does not consume it and the replay does not validate it. |
+
 **Artifacts:**
 
 | Artifact | Produced by step | Required | Downstream hints |
@@ -385,6 +397,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 - Skill-side improvements are repo-improvement candidates and may or may not be acted on.
 - Be willing to delete or downgrade rules that aren't working — not just add new ones.
 - The step-6 artifact does not activate rules; activation is the explicit `manage_approved_rules.py activate` follow-up in pre-trade-discipline-gate.
+- Before step 6, run `review_rule_adherence.py --month <month>` (pre-trade-discipline-gate) for the month that just ended, the month the approved rules were in force. For each rule with reconsider reasons, decide keep, extend, retire, or supersede, record it in the step-6 decision log, and apply it only with `manage_approved_rules.py`. The counts are self-reported gate acknowledgements, and a withheld rate is not by itself a reason to change a rule.
 
 **Final outputs:**
 
@@ -664,6 +677,12 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - `market-regime-daily` expects `exposure_decision` — New EP trades should still respect the market-regime exposure gate.
 
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `approved_rules_ledger` | no | 9 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | Optional local approved-rule ledger passed to the gate with --approved-rules-ledger. When supplied, each actionable candidate needs one acknowledgement per applied rule, and the gate journal rows feed the monthly adherence review. Without it the gate output is unchanged. |
+
 **Artifacts:**
 
 | Artifact | Produced by step | Required | Downstream hints |
@@ -871,6 +890,12 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 **Prerequisite workflows (informational):**
 
 - `market-regime-daily` expects `exposure_decision` — New swing trade risk requires a non-restrictive exposure decision. Skip this workflow on cash-priority or restrictive days.
+
+**Manual input contracts:**
+
+| Input | Required | Used by steps | Schema reference | Description |
+|---|---|---|---|---|
+| `approved_rules_ledger` | no | 11 | `skills/pre-trade-discipline-gate/references/rule_adherence.md` | Optional local approved-rule ledger passed to the gate with --approved-rules-ledger. When supplied, each actionable candidate needs one acknowledgement per applied rule, and the gate journal rows feed the monthly adherence review. Without it the gate output is unchanged. |
 
 **Artifacts:**
 

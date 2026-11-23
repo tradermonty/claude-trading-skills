@@ -4,7 +4,7 @@
   "endpoint": "quote",
   "path": "/stable/quote",
   "query": {"symbol": "AAPL"},
-  "contract_version": 1,
+  "contract_version": 2,
   "recorded_on": "2026-09-05",
   "recording": "live /stable response; no fields removed",
   "owners": [
@@ -19,15 +19,15 @@
   "tier_notes": "single symbol per call; comma-batched multi-symbol quote returns []",
   "required_fields": {
     "symbol": {"types": ["str"], "nullable": false},
-    "price": {"types": ["int", "float"], "nullable": false},
-    "marketCap": {"types": ["int", "float"], "nullable": true},
+    "price": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "marketCap": {"types": ["int", "float"], "nullable": true, "finite": true},
     "volume": {"types": ["int", "float"], "nullable": false, "finite": true},
-    "previousClose": {"types": ["int", "float"], "nullable": false},
-    "open": {"types": ["int", "float"], "nullable": false},
-    "dayHigh": {"types": ["int", "float"], "nullable": false},
-    "dayLow": {"types": ["int", "float"], "nullable": false},
-    "priceAvg50": {"types": ["int", "float"], "nullable": false},
-    "priceAvg200": {"types": ["int", "float"], "nullable": false}
+    "previousClose": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "open": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "dayHigh": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "dayLow": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "priceAvg50": {"types": ["int", "float"], "nullable": false, "finite": true},
+    "priceAvg200": {"types": ["int", "float"], "nullable": false, "finite": true}
   },
   "optional_fields": [
     "name",

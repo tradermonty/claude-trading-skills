@@ -215,7 +215,7 @@ python3 skills/value-dividend-screener/scripts/screen_dividend_stocks.py --fmp-a
 ```python
 import json
 
-with open('dividend_screener_results.json', 'r') as f:
+with open('reports/dividend_screener_results.json', 'r') as f:
     data = json.load(f)
 
 metadata = data['metadata']

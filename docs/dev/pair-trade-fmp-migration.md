@@ -24,7 +24,7 @@ adjClose 44.87 on the dividend-adjusted endpoint). Pair statistics need
 adjusted prices, so history is fetched in this order:
 
 1. `/stable/historical-price-eod/dividend-adjusted` (recorded contract
-   `historical-price-eod-dividend-adjusted.v1.json`). Uses `adjClose`.
+   `historical-price-eod-dividend-adjusted.v2.json`). Uses `adjClose`.
    Recorded `price_basis` is `dividend_adjusted`.
 2. If that endpoint is unavailable or returns nothing valid, the canonical
    stable `full`, then v3, fallback. `adjClose` is used when supplied
