@@ -5,6 +5,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 ## [Unreleased]
 
 - us-undervalued-growth-screener: reject invalid list responses before caching and keep symbol-specific data failures from disabling an entire endpoint (#846).
+- us-undervalued-growth-screener: validate the ratios/key-metrics TTM, profile, peers, quotes and historical-price payloads so HTTP-200 error bodies such as `{"message": ...}` are no longer cached, and disable an endpoint after 20 consecutive schema failures with no success (#846).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).
 
 - pre-trade-discipline-gate: add `review_rule_adherence.py`, a local monthly report that counts the gate acknowledgements of each approved rule from the gate journal, with rerun dedupe, ledger state at review, reconsider reasons, and counts only (no exception notes, symbols, or thesis IDs). The monthly review declares it as a manual input of step 6, and the swing, earnings, and Stockbee EP gate workflows declare the optional approved-rule ledger. Reports are written as `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>.json` and `.md`. The step-6 replay does not consume the report (Refs #514).
