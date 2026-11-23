@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- value-dividend-screener: allow corroborated semiannual ex-date shifts beyond the matched-year +/-31-day band only with exactly two regular payments in each required consecutive calendar year; retain individual-gap, freshness and ambiguous-history guards (#849).
+
 - Dividend screeners: exclude explicit special payouts and future dates from regular growth/yield evidence; value uses complete supported payment-year buckets instead of drifting 365-day cuts, growth keeps consecutive completed calendar years, and reports label the annual basis (#849).
 - value-dividend-screener: infer payment cadence from ex-date intervals instead of per-row FMP `frequency` labels, so mislabelled rows (for example a normal quarterly payment tagged `Irregular`) no longer exclude legitimate payers such as BTI, HSBC and TGT. If the interval check fails and the recent rows contain `Irregular` payments, retry once without them as supplementals and report `dividend_supplementals_excluded`; otherwise stay fail-closed (#849).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).

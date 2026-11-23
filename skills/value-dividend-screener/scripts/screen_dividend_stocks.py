@@ -477,7 +477,25 @@ class StockAnalyzer:
             abs((selected[i + ppy][0] - selected[i][0]).days - 365.25) > 31
             for i in range(len(selected) - ppy)
         ):
-            return None
+            # A semiannual payer can move its ex-dates while still paying twice
+            # in each calendar year (for example DEO's 2025/2026 date shift).
+            # Admit only full consecutive calendar buckets, corroborated by
+            # semiannual metadata; keep all interval and freshness guards.
+            if ppy != 2:
+                return None
+            first_year, last_year = selected[0][0].year, selected[-1][0].year
+            if last_year - first_year != years_back:
+                return None
+            for year in range(first_year, last_year + 1):
+                if sum(r[0].year == year for r in rows) != ppy:
+                    return None
+            for _, _, frequency in selected:
+                if isinstance(frequency, str):
+                    frequency = frequency.lower().replace("-", "").replace("_", "").replace(" ", "")
+                    if frequency not in {"semiannual", "2"}:
+                        return None
+                elif isinstance(frequency, bool) or frequency != 2:
+                    return None
         if (today - selected[-1][0]).days > interval + min(31, interval / 2):
             return None
         return selected, ppy
