@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- trader-memory-core: preserve legacy equity shorts in doctor/rebuild, reject corrupt indexes before thesis writes, and serialize cooperating local writers including fingerprint deduplication and explicit rebuild; let doctor inspect read-only snapshots without creating state directories (#847).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).
 
 - pre-trade-discipline-gate: add `review_rule_adherence.py`, a local monthly report that counts the gate acknowledgements of each approved rule from the gate journal, with rerun dedupe, ledger state at review, reconsider reasons, and counts only (no exception notes, symbols, or thesis IDs). The monthly review declares it as a manual input of step 6, and the swing, earnings, and Stockbee EP gate workflows declare the optional approved-rule ledger. Reports are written as `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>.json` and `.md`. The step-6 replay does not consume the report (Refs #514).

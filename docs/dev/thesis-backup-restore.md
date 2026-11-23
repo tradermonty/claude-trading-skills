@@ -100,13 +100,19 @@ running either phase. POSIX mode checks cover the private parent, not the securi
 of your account, disk, or remote backup service. Paths here must remain relative
 to a trusted repository root; do not change them to symlinks.
 
+Initialize doctor/lock coordination before taking the source manifest. An empty
+business-state directory can therefore contain only `.lock`; include that file
+in the copied byte manifest. A copied lock file carries no live OS lock. Never
+remove or replace the source lock file while a writer is using it.
+
 <!-- recipe: backup -->
 ```python
 private_parent()
 fresh(BACKUP)
 fresh(MANIFEST)
-before = digests(SOURCE)
+digests(SOURCE)  # Validate trusted source boundaries before doctor initializes metadata.
 doctor(SOURCE)
+before = digests(SOURCE)
 shutil.copytree(SOURCE, BACKUP)
 if before != digests(SOURCE) or before != digests(BACKUP):
     raise ValueError("Source changed or backup differs; no success manifest")
@@ -130,7 +136,8 @@ doctor(RESTORED)
 ```
 
 Success means the copied file set and bytes match the saved manifest and the
-store's read-only `doctor` accepts the copy. It does not prove trading correctness
+store's `doctor` accepts the copy. Doctor may initialize the persistent `.lock`
+coordination file but never repairs thesis/index business data implicitly. It does not prove trading correctness
 or back up credentials and broker state. Inspect the copy locally, retain the
 original snapshot, and only then decide whether to point a future command's
 `--state-dir` at the recovered directory. The recipe never promotes or overwrites
