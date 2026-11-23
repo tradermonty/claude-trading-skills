@@ -6,6 +6,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 - us-undervalued-growth-screener: reject invalid list responses before caching and keep symbol-specific data failures from disabling an entire endpoint (#846).
 - us-undervalued-growth-screener: validate the ratios/key-metrics TTM, profile, peers, quotes and historical-price payloads so HTTP-200 error bodies such as `{"message": ...}` are no longer cached, and disable an endpoint after 20 consecutive schema failures with no success (#846).
+- value-dividend-screener: write default results under the caller's `reports/` directory and accept a bare filename for `--output` (#850).
+- trader-memory-core: preserve legacy equity shorts in doctor/rebuild, reject corrupt indexes before thesis writes, and serialize cooperating local writers including fingerprint deduplication and explicit rebuild; let doctor inspect read-only snapshots without creating state directories (#847).
 - kanchi-dividend-sop: distinguish unavailable dividends from confirmed absence, withhold profile-only entry targets, and compare split-adjusted dividends consistently with explicit amount-basis audit and split-evidence rechecks; keep whitespace-only declaration dates unconfirmed (#843).
 
 - pre-trade-discipline-gate: add `review_rule_adherence.py`, a local monthly report that counts the gate acknowledgements of each approved rule from the gate journal, with rerun dedupe, ledger state at review, reconsider reasons, and counts only (no exception notes, symbols, or thesis IDs). The monthly review declares it as a manual input of step 6, and the swing, earnings, and Stockbee EP gate workflows declare the optional approved-rule ledger. Reports are written as `rule_adherence_<YYYY-MM>_as-of_<YYYY-MM-DD>.json` and `.md`. The step-6 replay does not consume the report (Refs #514).
@@ -19,6 +21,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 - news-reaction-failure-analyzer: migrate stable light-EOD fetching to a generated target with static diagnostics and owned-session cleanup. Preserve source/proxy selection, strict price/cutoff/vintage rules and reaction math; adopt shared bounded retries and response-attempt counting, refresh gates/docs/package and reset stale verification evidence (Refs #495).
 
+- market-breadth-analyzer: attribute the divergence benchmark to an explicit instrument instead of an unqualified "S&P 500" label. The default CSV source passes SPY ETF metadata with its S&P 500 proxy target, while other sources and direct library callers are labelled `unknown` rather than mislabelled as SPY. Generic `benchmark_*` output fields are added alongside the retained `sp500_*` fields for backward compatibility, and the packaged `.skill` is rebuilt (#833).
 - vcp-screener: complete the remaining price-bar readers after #798. Missing or non-finite consumed RS, Trend Template, volume, stale-price and synthetic-quote observations are unavailable, not zero; exclude affected candidates with dated report diagnostics and fail historical scans explicitly. Preserve healthy output and ignore unused older values (Refs #655).
 - PEAD review follow-up: exclude a symbol whose weekly price rounds to zero before ranking/report publication; preserve healthy candidates and complete both reports with a dated exclusion (PR #828).
 
