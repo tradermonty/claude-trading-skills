@@ -1,0 +1,76 @@
+name: CoinGecko contract canary
+
+on:
+  schedule:
+    - cron: "45 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coingecko-contract-canary-${{ github.repository }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  canary:
+    name: CoinGecko universe probe (drift report-only; operational health required)
+    if: github.repository == 'tradermonty/claude-trading-skills'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: "0.12.10"
+      - name: Sync locked project environment
+        run: |
+          uv sync --locked --no-install-project --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Probe one public endpoint without credentials or retries
+        id: probe
+        continue-on-error: true
+        run: |
+          rm -f reports/coingecko-canary-report.json
+          if python3 scripts/check_provider_contracts.py canary \
+            --provider coingecko --max-calls 1 \
+            --report reports/coingecko-canary-report.json; then
+            code=0
+          else
+            code=$?
+          fi
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+      - name: Summarize response contract evidence
+        if: always()
+        run: |
+          python3 scripts/check_provider_contracts.py summarize \
+            --provider coingecko --report reports/coingecko-canary-report.json \
+            --summary-file "$GITHUB_STEP_SUMMARY" --github
+      - name: Require completed probe and usable response
+        if: always()
+        env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+          PROBE_EXIT_CODE: ${{ steps.probe.outputs.exit_code }}
+        run: |
+          python3 scripts/check_provider_contracts.py health \
+            --provider coingecko --report reports/coingecko-canary-report.json \
+            --probe-outcome "${PROBE_OUTCOME:-skipped}" \
+            --probe-exit-code "${PROBE_EXIT_CODE:-2}"
+      - name: Retain machine-readable evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coingecko-canary-report
+          path: reports/coingecko-canary-report.json
+          if-no-files-found: error
+          retention-days: 30
