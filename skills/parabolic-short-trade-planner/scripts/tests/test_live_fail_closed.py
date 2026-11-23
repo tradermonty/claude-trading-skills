@@ -117,6 +117,76 @@ def test_non_list_earnings_payload_exits_nonzero_without_report(fake_client, tmp
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        {"symbol": "XYZ", "date": "not-a-date"},
+        {"symbol": "XYZ"},
+        {"date": "2026-05-01"},
+        "XYZ",
+    ],
+)
+def test_unparsable_earnings_row_exits_nonzero_without_report(
+    fake_client, tmp_path, capsys, bad_row
+):
+    # Dropping the row would leave XYZ with no known earnings date and let it
+    # through the blackout exclusion as a normal candidate.
+    fake_client.earnings = [{"symbol": "AAA", "date": "2026-05-01"}, bad_row]
+
+    with pytest.raises(SystemExit) as exc:
+        _run(tmp_path, capsys)
+
+    assert exc.value.code not in (0, None)
+    assert "unparsable" in str(exc.value.code)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_well_formed_earnings_rows_are_accepted(fake_client, tmp_path, capsys):
+    fake_client.earnings = [
+        {"symbol": "AAA", "date": "2026-05-01"},
+        {"ticker": "BBB", "fiscalDateEnding": "2026-05-02"},
+    ]
+
+    rc, _ = _run(tmp_path, capsys)
+
+    assert rc == 0
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"symbol": "XYZ", "historical": []},
+        {"symbol": "XYZ", "historical": None},
+        {"symbol": "XYZ"},
+        [],
+    ],
+)
+def test_empty_price_history_counts_as_fetch_failure(fake_client, tmp_path, capsys, payload):
+    fake_client.prices = {"XYZ": payload, "BAD": payload}
+
+    with pytest.raises(SystemExit) as exc:
+        _run(tmp_path, capsys)
+
+    assert exc.value.code not in (0, None)
+    assert "price" in str(exc.value.code).lower()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_empty_history_is_listed_as_partial_failure(fake_client, tmp_path, capsys):
+    fake_client.prices = {
+        "XYZ": {"symbol": "XYZ", "historical": _fixture_bars()},
+        "BAD": {"symbol": "BAD", "historical": []},
+    }
+
+    rc, _ = _run(tmp_path, capsys)
+
+    assert rc == 0
+    [json_path] = sorted(tmp_path.glob("*.json"))
+    quality = json.loads(json_path.read_text())["data_quality"]
+    assert quality["symbols_evaluated"] == 1
+    assert quality["price_fetch_failures"] == ["BAD"]
+
+
 def test_real_client_passes_error_dict_through(monkeypatch):
     # Pins the real FMPClient contract the isinstance check relies on.
     client = fmp_client.FMPClient(api_key=MARKER)

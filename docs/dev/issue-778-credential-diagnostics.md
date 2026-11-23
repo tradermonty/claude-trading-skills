@@ -85,16 +85,22 @@ Raw exception output was re-checked by hand across five of the skills.
 treated provider failures as valid empty results. Three cases were affected:
 
 - A failed or empty S&P 500 universe.
-- A failed earnings calendar, or a non-list HTTP-200 body such as an FMP error
-  dict. This silently disabled the earnings-blackout exclusion.
-- Per-symbol price failures, including a `--max-api-calls` budget spent before
+- A failed earnings calendar, a non-list HTTP-200 body such as an FMP error
+  dict, or a list containing a row without a symbol or a parsable date. Each
+  of these silently disabled the earnings-blackout exclusion. A dropped row
+  left that symbol without a known earnings date.
+- Per-symbol price failures, including an empty `historical` list, no usable
+  bar on or before the run date, and a `--max-api-calls` budget spent before
   the first price fetch.
 
 Each case wrote a normal exit-0 report. Now each case raises an error and
 writes no report. Partial price failures are listed in an additive
-`data_quality` block. Regressions are in
-`scripts/tests/test_live_fail_closed.py`. Run against the previous source, seven
-of its ten cases fail.
+`data_quality` block. A symbol with an empty history counts as a failure,
+not as evaluated. Regressions are in
+`scripts/tests/test_live_fail_closed.py`. The first revision of this change
+made seven of its ten original cases pass. A follow-up review found two
+further gaps: an empty history and a malformed earnings row. Run against the
+first revision, seven of the ten cases added for those gaps fail.
 
 **Why the six values stay `not_verified`.** The checklist requires a passed
 candidate to be clean on the mechanical checks as well. The collector

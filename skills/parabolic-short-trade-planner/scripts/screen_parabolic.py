@@ -182,6 +182,29 @@ def _index_earnings_events(events: list[dict]) -> dict[str, list[dict]]:
     return by_symbol
 
 
+def _count_malformed_earnings_rows(events: list) -> int:
+    """Count calendar rows ``_index_earnings_events`` would silently drop.
+
+    A row is usable only when it is a dict with a symbol (``symbol`` or
+    ``ticker``) and an ISO date (``date`` or ``fiscalDateEnding``).
+    """
+    malformed = 0
+    for ev in events:
+        if not isinstance(ev, dict):
+            malformed += 1
+            continue
+        sym_raw = ev.get("symbol") or ev.get("ticker")
+        date_raw = ev.get("date") or ev.get("fiscalDateEnding")
+        if not sym_raw or not date_raw:
+            malformed += 1
+            continue
+        try:
+            datetime.fromisoformat(str(date_raw)[:10])
+        except (TypeError, ValueError):
+            malformed += 1
+    return malformed
+
+
 def _compute_earnings_metadata(
     events_for_symbol: list[dict],
     market_data_as_of: date,
@@ -515,6 +538,14 @@ def run_live(
             "ERROR: earnings calendar fetch failed; the earnings-blackout "
             "exclusion cannot be applied, so no report was written"
         )
+    malformed = _count_malformed_earnings_rows(raw_events)
+    if malformed:
+        # A dropped row would leave that symbol with no known earnings date and
+        # silently bypass the blackout exclusion.
+        raise SystemExit(
+            f"ERROR: earnings calendar has {malformed} unparsable row(s); the "
+            "earnings-blackout exclusion cannot be applied, so no report was written"
+        )
     earnings_by_symbol = _index_earnings_events(raw_events)
 
     out: list[dict] = []
@@ -526,14 +557,16 @@ def run_live(
             break
         attempted += 1
         bars_payload = client.get_historical_prices(sym, days=args.lookback_days)
-        if not bars_payload or "historical" not in bars_payload:
+        historical = bars_payload.get("historical") if isinstance(bars_payload, dict) else None
+        # An empty or unusable history is a fetch failure, not an evaluated symbol.
+        bars_recent_first = (
+            _bars_on_or_before(historical, center) if isinstance(historical, list) else []
+        )
+        if not bars_recent_first:
+            logger.warning("No usable %s bars on or before --as-of %s", sym, run_date)
             price_fetch_failures.append(sym)
             continue
         profile = client.get_company_profile(sym) or {}
-        bars_recent_first = _bars_on_or_before(bars_payload["historical"], center)
-        if not bars_recent_first:
-            logger.warning("No %s bars on or before --as-of %s", sym, run_date)
-            continue
         market_data_as_of = _resolve_market_data_as_of(bars_recent_first)
         earnings_meta: dict | None = None
         if market_data_as_of:
