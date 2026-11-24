@@ -2,7 +2,8 @@
 # Independent watchdog for the improvement and generation success heartbeats.
 # Install all maintenance agents: python3 scripts/install_launchd.py
 # Add --load to activate schedules.
-# Defaults to local macOS notifications; SKILL_LOOP_NOTIFY=off disables delivery.
+# Defaults to local macOS notifications; SKILL_LOOP_NOTIFY=off or
+# install_launchd.py --notify off disables delivery.
 # Does not source .envrc, modify state, run scoring, or invoke the monitored jobs.
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${HOME}/.local/bin:/usr/local/bin:$PATH"
