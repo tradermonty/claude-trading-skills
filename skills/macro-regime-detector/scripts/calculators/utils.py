@@ -82,7 +82,14 @@ def compute_sma(values: list[float], period: int) -> Optional[float]:
     return sum(values[:period]) / period
 
 
-def detect_crossover(values: list[float], short_period: int = 6, long_period: int = 12) -> dict:
+def detect_crossover(
+    values: list[float],
+    short_period: int = 6,
+    long_period: int = 12,
+    *,
+    use_absolute_gap: bool = False,
+    converging_threshold: float = 1.0,
+) -> dict:
     """
     Detect SMA crossover between short and long periods.
 
@@ -90,11 +97,17 @@ def detect_crossover(values: list[float], short_period: int = 6, long_period: in
         values: Series of values (most recent first)
         short_period: Short-term SMA period (default 6)
         long_period: Long-term SMA period (default 12)
+        use_absolute_gap: When True, measure gap as signed ``short - long``
+            instead of percentage of ``abs(long)`` (appropriate for signed
+            spreads that can cross zero).
+        converging_threshold: Absolute gap threshold below which MAs with no
+            crossover are classified as ``"converging"``.
 
     Returns:
         Dict with 'type' ('golden_cross', 'death_cross', 'converging', 'none'),
         'bars_ago' (how many months ago the crossover occurred),
-        'gap_pct' (current gap between short and long SMA as %)
+        'gap_pct' (current gap between short and long SMA as %, or percentage
+        points when ``use_absolute_gap=True``)
     """
     if len(values) < long_period + 3:
         return {"type": "none", "bars_ago": None, "gap_pct": None}
@@ -114,10 +127,12 @@ def detect_crossover(values: list[float], short_period: int = 6, long_period: in
 
     # Current gap
     current_short, current_long = sma_pairs[0]
-    if current_long != 0:
-        gap_pct = (current_short - current_long) / current_long * 100
+    if use_absolute_gap:
+        gap_pct = current_short - current_long
+    elif current_long != 0:
+        gap_pct = (current_short - current_long) / abs(current_long) * 100
     else:
-        gap_pct = 0
+        gap_pct = 0.0
 
     # Look for crossover
     for i in range(1, len(sma_pairs)):
@@ -140,7 +155,7 @@ def detect_crossover(values: list[float], short_period: int = 6, long_period: in
             }
 
     # No crossover found, check if converging
-    if abs(gap_pct) < 1.0:
+    if abs(gap_pct) < converging_threshold:
         return {
             "type": "converging",
             "bars_ago": None,
@@ -152,6 +167,26 @@ def detect_crossover(values: list[float], short_period: int = 6, long_period: in
         "bars_ago": None,
         "gap_pct": round(gap_pct, 3),
     }
+
+
+def compute_change(values: list[float], period: int) -> Optional[float]:
+    """
+    Compute signed absolute change over `period` data points.
+
+    Appropriate for signed series (such as yield spreads) that can be negative
+    or cross zero, where relative percentage ROC flips sign or divides by zero.
+
+    Args:
+        values: Series (most recent first)
+        period: Number of periods back to compare
+
+    Returns:
+        Signed difference ``values[0] - values[period]``, or None if insufficient data
+    """
+    if len(values) <= period:
+        return None
+    diff = values[0] - values[period]
+    return 0.0 if abs(diff) <= 1e-9 else diff
 
 
 def compute_roc(values: list[float], period: int) -> Optional[float]:
@@ -292,6 +327,12 @@ def score_transition_signal(
     roc_long: Optional[float],
     sma_short: Optional[float],
     sma_long: Optional[float],
+    *,
+    use_absolute_gap: bool = False,
+    converging_threshold: float = 1.0,
+    momentum_cap: float = 5.0,
+    accel_threshold: float = 3.0,
+    gap_widening_threshold: float = 0.5,
 ) -> int:
     """
     Score transition signal strength (0-100) from crossover, momentum, and MA data.
@@ -320,7 +361,7 @@ def score_transition_signal(
             score += 20  # Older crossover
     elif cross_type == "converging":
         # MAs getting close, crossover possible
-        closeness = max(0, 1.0 - abs(gap_pct)) * 25
+        closeness = max(0.0, 1.0 - abs(gap_pct) / converging_threshold) * 25
         score += int(closeness)
     # "none" = stable, no points
 
@@ -329,13 +370,13 @@ def score_transition_signal(
         # Reversal: short-term momentum opposite to long-term trend
         if roc_long < 0 and roc_short > 0:
             # Declining long-term but short-term bouncing = early reversal
-            strength = min(abs(roc_short), 5.0) / 5.0 * 30
+            strength = min(abs(roc_short), momentum_cap) / momentum_cap * 30
             score += int(strength)
         elif roc_long > 0 and roc_short < 0:
             # Rising long-term but short-term declining = early reversal
-            strength = min(abs(roc_short), 5.0) / 5.0 * 30
+            strength = min(abs(roc_short), momentum_cap) / momentum_cap * 30
             score += int(strength)
-        elif abs(roc_short) > 3.0:
+        elif abs(roc_short) > accel_threshold:
             # Strong short-term momentum in same direction = acceleration
             score += 10
 
@@ -353,9 +394,14 @@ def score_transition_signal(
         signals_aligned += 1
 
     # Signal 3: SMA gap widening (momentum)
-    if sma_short is not None and sma_long is not None and sma_long != 0:
-        current_gap = abs(sma_short - sma_long) / sma_long * 100
-        if current_gap > 0.5:
+    if sma_short is not None and sma_long is not None:
+        if use_absolute_gap:
+            current_gap = abs(sma_short - sma_long)
+        elif sma_long != 0:
+            current_gap = abs(sma_short - sma_long) / abs(sma_long) * 100
+        else:
+            current_gap = 0.0
+        if current_gap > gap_widening_threshold:
             signals_aligned += 1
 
     score += signals_aligned * 10

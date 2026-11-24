@@ -1,6 +1,7 @@
 """Tests for Yield Curve Calculator"""
 
 from calculators.yield_curve_calculator import calculate_yield_curve
+from scorer import classify_regime
 from test_helpers import make_monthly_history, make_treasury_rates
 
 
@@ -144,3 +145,113 @@ class TestSteepeningType:
         tlt = make_monthly_history([90 - i * 0.2 for i in range(24)], start_year=2024)
         result = calculate_yield_curve(treasury_rates=None, shy_history=shy, tlt_history=tlt)
         assert result["steepening_type"] is None
+
+
+class TestSignedSpreadTransitions:
+    """Regression tests for Issue #880: negative and zero historical spreads."""
+
+    def test_uninversion_bull_steepener_from_negative_spread(self):
+        """Spread rising from -0.30% (3m ago) to +0.20% is steepening/normalizing."""
+        y10 = [4.20] * 24
+        y2 = [5.00] * 16 + [4.90, 4.80, 4.70, 4.60, 4.50, 4.30, 4.15, 4.00]
+        rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+        result = calculate_yield_curve(treasury_rates=rates)
+
+        assert result["data_available"] is True
+        assert result["current_spread"] == 0.2
+        assert result["direction"] == "steepening"
+        assert result["curve_state"] == "normalizing"
+        assert result["steepening_type"] == "bull_steepener"
+        assert result["roc_unit"] == "pp"
+        assert result["roc_3m"] == 0.5
+        assert result["roc_12m"] == 1.0
+        assert result["crossover"]["type"] == "golden_cross"
+        assert result["crossover"]["gap_pct"] > 0
+        # Golden cross (+20) + acceleration (+10) + 3 aligned Layer-3 confirmations (+30) = 60
+        assert result["score"] == 60
+
+        def _comp(direction, score=60):
+            return {
+                "score": score,
+                "signal": "",
+                "data_available": True,
+                "direction": direction,
+                "crossover": {"type": "none", "bars_ago": None},
+            }
+
+        regime = classify_regime(
+            {
+                "concentration": _comp("broadening"),
+                "yield_curve": result,
+                "credit_conditions": _comp("unknown", 50),
+                "size_factor": _comp("unknown", 50),
+                "equity_bond": _comp("neutral", 50),
+                "sector_rotation": _comp("risk_off"),
+            }
+        )
+        assert regime["current_regime"] == "broadening"
+        assert regime["regime_scores"]["broadening"] == 3
+        assert regime["regime_scores"]["contraction"] == 2
+
+    def test_deepening_inversion_is_flattening(self):
+        """Spread falling from -0.10% to -0.70% is flattening, not steepening."""
+        y10 = [4.00] * 24
+        y2 = [4.10] * 20 + [4.10, 4.30, 4.50, 4.70]
+        rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+        result = calculate_yield_curve(treasury_rates=rates)
+
+        assert result["direction"] == "flattening"
+        assert result["curve_state"] == "deeply_inverted"
+        assert result["steepening_type"] is None
+        assert result["roc_3m"] == -0.6
+        assert result["roc_12m"] == -0.6
+        assert result["crossover"]["type"] == "death_cross"
+        assert result["crossover"]["gap_pct"] < 0
+        assert result["score"] == 80
+
+    def test_steepening_from_zero_spread(self):
+        """Spread rising from 0.00% to +0.60% is steepening, not stable."""
+        y10 = [4.00] * 21 + [4.20, 4.40, 4.60]
+        y2 = [4.00] * 24
+        rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+        result = calculate_yield_curve(treasury_rates=rates)
+
+        assert result["direction"] == "steepening"
+        assert result["curve_state"] == "normal"
+        assert result["steepening_type"] == "bear_steepener"
+        assert result["roc_3m"] == 0.6
+        assert result["roc_12m"] == 0.6
+        assert result["score"] == 80
+
+    def test_steepening_while_still_inverted(self):
+        """Spread rising from -0.70% to -0.30% is bull steepening while inverted."""
+        y10 = [4.00] * 24
+        y2 = [5.00] * 20 + [4.70, 4.55, 4.40, 4.30]
+        rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+        result = calculate_yield_curve(treasury_rates=rates)
+
+        assert result["direction"] == "steepening"
+        assert result["curve_state"] == "inverted"
+        assert result["steepening_type"] == "bull_steepener"
+        assert result["roc_3m"] == 0.4
+
+    def test_parallel_yield_shift_constant_spread_is_stable(self):
+        """Parallel shift (4.50/4.20 -> 4.40/4.10) must not treat float dust as movement."""
+        y10 = [4.50] * 21 + [4.45, 4.42, 4.40]
+        y2 = [4.20] * 21 + [4.15, 4.12, 4.10]
+        rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+        result = calculate_yield_curve(treasury_rates=rates)
+
+        assert result["direction"] == "stable"
+        assert result["steepening_type"] is None
+        assert result["roc_3m"] == 0.0
+
+    def test_steepening_type_when_2y_starts_at_zero(self):
+        """Zero 2Y starting yield still classifies bull steepener without div-by-zero."""
+        y10 = [0.50] * 24
+        y2 = [0.00] * 21 + [-0.10, -0.20, -0.30]
+        rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+        result = calculate_yield_curve(treasury_rates=rates)
+
+        assert result["direction"] == "steepening"
+        assert result["steepening_type"] == "bull_steepener"
