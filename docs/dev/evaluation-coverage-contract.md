@@ -3,7 +3,8 @@
 Schema version **1.0**, alongside [data provenance](data-provenance-contract.md).
 Source: issue #711. Shared implementation: `scripts/evaluation_coverage.py`;
 identical standalone copies ship in VCP Screener, Exposure Coach,
-Downtrend Duration Analyzer and Stockbee Momentum Burst Screener.
+Downtrend Duration Analyzer, Stockbee Momentum Burst Screener and Stockbee
+Exhaustion Hammer Screener.
 
 ```json
 {
@@ -84,6 +85,17 @@ errors), `missing_data` (the provider answered without rows) or `invalid_data`
 are `not_requested`. The fetch policy is unchanged. A run with nothing
 evaluated still writes both reports with `not_evaluable` coverage instead of
 exiting without one.
+
+## Fourth producer: exhaustion hammer screening
+
+The universe and fetch reasons follow the momentum burst producer. Offline,
+the universe is every symbol in the JSON file, including those with no usable
+bar (`missing_data` for no rows, `invalid_data` otherwise), and
+`--max-symbols` caps that list. `insufficient_history` is the screen's only
+hard reject that is not a negative decision. This screen has no session
+freshness gate, so there is no stale or no-completed-bar reason. A budget stop
+during the optional near-close quote fetch makes that symbol and the rest
+`not_requested`. A failed quote alone keeps the history bars, as before.
 
 ## Consumers and replay
 
