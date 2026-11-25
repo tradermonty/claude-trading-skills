@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- macro-regime-detector: a missing, null, non-finite or non-positive `adjClose` is treated as absent instead of winning over a usable `close`, and a month with no usable value is skipped rather than stored as a null/NaN close. Regime ratios, moving averages, ROC and crossover inputs no longer receive poisoned month-end points (Refs #655).
+
 - stockbee-momentum-burst-screener: report `evaluation_coverage` (#711). A run where every fetch failed wrote no report and exited 0 with "No price data found"; a rate-limited run reported only the symbols it reached. JSON now carries the block, Markdown and stdout print evaluated / total, and an incomplete zero-candidate run is undetermined.
 
 - parabolic-short-trade-planner: live Phase 1 now fails closed instead of writing a normal exit-0 report when the S&P 500 universe is empty or fails, when the earnings calendar fails, returns a non-list body or contains an unparsable row (each of which silently disabled the earnings-blackout exclusion), when every symbol lacks usable price bars, or when the API budget runs out before any price fetch. A live report records partial price failures in an additive `data_quality` block. The Alpaca adapter timeouts are now fixed call-site literals (Refs #778).
