@@ -323,7 +323,9 @@ class FMPClient:
                 issue = self._pair_history_issue(data, symbols_str)
                 if issue:
                     self._last_error = issue
-                    self._record_endpoint_failure(base_url)
+                    # A shaped 200 response is a response-contract problem for
+                    # this symbol, not a provider outage: do not count it.
+                    self._last_failure_kind = "response_contract"
                     self._warn_fallback(base_url, is_last, issue)
                     if is_last:
                         print(f"ERROR: Invalid historical response ({issue})", file=sys.stderr)
@@ -337,7 +339,7 @@ class FMPClient:
                 limit = params.get("timeseries") if isinstance(params, dict) else None
                 data = _normalize_eod_flat_list(data, symbols_str, limit=limit)
                 if not data:
-                    self._record_endpoint_failure(base_url)
+                    self._last_failure_kind = "response_contract"
                     self._warn_fallback(
                         base_url,
                         is_last,
@@ -381,7 +383,9 @@ class FMPClient:
             if valid:
                 self._endpoint_failures[base_url] = 0
                 return data
-            self._record_endpoint_failure(base_url)
+            # Wrong shape or wrong symbol on a 200 is a per-call response
+            # contract failure, not a provider outage: do not count it.
+            self._last_failure_kind = "response_contract"
             self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
         return None
 
@@ -477,6 +481,7 @@ class FMPClient:
         """Dividend-adjusted history, or None so the caller can fall back."""
         url = self._PAIR_ADJUSTED_URL
         if url in self._disabled_endpoints:
+            self._note_skipped_symbol(url, symbol)
             return None
         raw = self._rate_limited_get(url, {"symbol": symbol}, quiet=True)
         if self.rate_limit_reached:
@@ -484,7 +489,11 @@ class FMPClient:
         rows, reason = self._pair_adjusted_rows(raw, symbol)
         if rows is None:
             reason = self._last_error or reason
-            self._record_endpoint_failure(url)
+            if self._failure_kind_counts_toward_breaker():
+                self._record_endpoint_failure(url)
+            elif raw is not None:
+                # Shaped and empty 200 bodies are per-symbol contract problems.
+                self._last_failure_kind = "response_contract"
             print(
                 f"WARN: {url} unusable for {symbol} ({reason}); falling back to the legacy endpoint",
                 file=sys.stderr,

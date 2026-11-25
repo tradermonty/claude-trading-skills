@@ -43,6 +43,7 @@
         """Dividend-adjusted history, or None so the caller can fall back."""
         url = self._PAIR_ADJUSTED_URL
         if url in self._disabled_endpoints:
+            self._note_skipped_symbol(url, symbol)
             return None
         raw = self._rate_limited_get(url, {"symbol": symbol}, quiet=True)
         if self.rate_limit_reached:
@@ -50,7 +51,11 @@
         rows, reason = self._pair_adjusted_rows(raw, symbol)
         if rows is None:
             reason = self._last_error or reason
-            self._record_endpoint_failure(url)
+            if self._failure_kind_counts_toward_breaker():
+                self._record_endpoint_failure(url)
+            elif raw is not None:
+                # Shaped and empty 200 bodies are per-symbol contract problems.
+                self._last_failure_kind = "response_contract"
             print(
                 f"WARN: {url} unusable for {symbol} ({reason}); falling back to the legacy endpoint",
                 file=sys.stderr,

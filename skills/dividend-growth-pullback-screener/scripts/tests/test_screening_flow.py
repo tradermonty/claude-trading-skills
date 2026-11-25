@@ -581,12 +581,17 @@ class TestHistoricalPrices:
         assert client.get_historical_prices("AAPL") is None
         assert client.session.calls == []
 
-    def test_unrecognised_dict_counts_as_failure(self, mod):
+    def test_unrecognised_dict_does_not_count_as_failure(self, mod):
         client = mod.FMPClient("k")
         client.session = FakeSession([FakeResponse(200, {"unexpected": 1})] * 2)
         assert client.get_historical_prices("AAPL") is None
+        # A shaped 200 that no consumer can use is a response-contract problem,
+        # not a provider outage: it must not move the circuit breaker (#844).
         assert (
-            client._endpoint_failures[f"{mod.FMPClient.STABLE_URL}/historical-price-eod/full"] == 1
+            client._endpoint_failures.get(
+                f"{mod.FMPClient.STABLE_URL}/historical-price-eod/full", 0
+            )
+            == 0
         )
 
 

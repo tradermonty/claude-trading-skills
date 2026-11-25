@@ -1178,9 +1178,14 @@ def test_request_with_fallback_symbol_mismatch_in_v3_dict(capsys):
 def test_request_with_fallback_non_dict_after_normalizer_is_rejected():
     client = make_client(FakeResponse(200, "weird"), FakeResponse(200, "weird"))
     assert client._request_with_fallback("historical", "QQQ") is None
-    assert client._endpoint_failures[STABLE_URL] == 1
+    # A shaped 200 for the wrong type is a per-symbol contract failure, not a
+    # provider outage: it must not move the circuit breaker (#844).
+    assert client._endpoint_failures.get(STABLE_URL, 0) == 0
     assert (
-        client._endpoint_failures[V3_URL.replace("historical-price", "historical-price-full")] == 1
+        client._endpoint_failures.get(
+            V3_URL.replace("historical-price", "historical-price-full"), 0
+        )
+        == 0
     )
 
 

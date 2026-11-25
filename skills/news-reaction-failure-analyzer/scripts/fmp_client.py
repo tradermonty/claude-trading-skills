@@ -319,7 +319,7 @@ class FMPClient:
                 limit = params.get("timeseries") if isinstance(params, dict) else None
                 data = _normalize_eod_flat_list(data, symbols_str, limit=limit)
                 if not data:
-                    self._record_endpoint_failure(base_url)
+                    self._last_failure_kind = "response_contract"
                     self._warn_fallback(
                         base_url,
                         is_last,
@@ -363,7 +363,9 @@ class FMPClient:
             if valid:
                 self._endpoint_failures[base_url] = 0
                 return data
-            self._record_endpoint_failure(base_url)
+            # Wrong shape or wrong symbol on a 200 is a per-call response
+            # contract failure, not a provider outage: do not count it.
+            self._last_failure_kind = "response_contract"
             self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
         return None
 

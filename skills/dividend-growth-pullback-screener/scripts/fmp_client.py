@@ -330,7 +330,7 @@ class FMPClient:
                 limit = params.get("timeseries") if isinstance(params, dict) else None
                 data = _normalize_eod_flat_list(data, symbols_str, limit=limit)
                 if not data:
-                    self._record_endpoint_failure(base_url)
+                    self._last_failure_kind = "response_contract"
                     self._warn_fallback(
                         base_url,
                         is_last,
@@ -374,7 +374,9 @@ class FMPClient:
             if valid:
                 self._endpoint_failures[base_url] = 0
                 return data
-            self._record_endpoint_failure(base_url)
+            # Wrong shape or wrong symbol on a 200 is a per-call response
+            # contract failure, not a provider outage: do not count it.
+            self._last_failure_kind = "response_contract"
             self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
         return None
 
@@ -491,6 +493,7 @@ class FMPClient:
         """Most-recent-first history for the dividend adapters; no retired v3 retry."""
         url = f"{self.STABLE_URL}/historical-price-eod/full"
         if url in self._disabled_endpoints:
+            self._note_skipped_symbol(url, symbol)
             return None
         today = _et_today()
         data = self._request(
@@ -504,7 +507,11 @@ class FMPClient:
         if isinstance(data, list) and data:
             self._endpoint_failures[url] = 0
             return data[:days]
-        self._record_endpoint_failure(url)
+        if self._failure_kind_counts_toward_breaker():
+            self._record_endpoint_failure(url)
+        elif data is not None:
+            # Empty or malformed 200 bodies are per-symbol response problems.
+            self._last_failure_kind = "response_contract"
         return None
 
     def get_historical_prices(self, symbol: str, days: int = 30) -> Optional[list[dict]]:
