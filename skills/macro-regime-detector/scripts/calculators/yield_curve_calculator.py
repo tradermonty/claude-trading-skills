@@ -39,6 +39,9 @@ SPREAD_CONVERGING_PP = 0.10
 SPREAD_MOMENTUM_CAP_PP = 0.50
 SPREAD_ACCEL_THRESHOLD_PP = 0.30
 SPREAD_GAP_WIDENING_PP = 0.05
+# Rates arrive with at most three decimals; rounding the difference removes
+# binary noise so identical spreads compare equal at any yield level.
+SPREAD_DECIMALS = 6
 
 
 def calculate_yield_curve(
@@ -92,7 +95,7 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
         if ym not in spread_monthly:
             spread_monthly[ym] = {
                 "date": date_str,
-                "spread": y10 - y2,
+                "spread": round(y10 - y2, SPREAD_DECIMALS),
                 "year10": y10,
                 "year2": y2,
             }

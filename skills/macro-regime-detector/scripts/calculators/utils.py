@@ -128,7 +128,7 @@ def detect_crossover(
     # Current gap
     current_short, current_long = sma_pairs[0]
     if use_absolute_gap:
-        gap_pct = current_short - current_long
+        gap_pct = _signed_gap(current_short, current_long)
     elif current_long != 0:
         gap_pct = (current_short - current_long) / abs(current_long) * 100
     else:
@@ -138,6 +138,10 @@ def detect_crossover(
     for i in range(1, len(sma_pairs)):
         prev_short, prev_long = sma_pairs[i]
         curr_short, curr_long = sma_pairs[i - 1]
+        if use_absolute_gap:
+            # Compare dust-free signed gaps so equal SMAs never "cross" on noise.
+            prev_short, prev_long = _signed_gap(prev_short, prev_long), 0.0
+            curr_short, curr_long = _signed_gap(curr_short, curr_long), 0.0
 
         # Golden cross: short crosses above long
         if prev_short <= prev_long and curr_short > curr_long:
@@ -185,8 +189,13 @@ def compute_change(values: list[float], period: int) -> Optional[float]:
     """
     if len(values) <= period:
         return None
-    diff = values[0] - values[period]
-    return 0.0 if abs(diff) <= 1e-9 else diff
+    return _signed_gap(values[0], values[period])
+
+
+def _signed_gap(a: float, b: float) -> float:
+    """``a - b`` rounded to 9 decimals, so float dust is exactly 0.0."""
+    diff = round(a - b, 9)
+    return 0.0 if diff == 0 else diff
 
 
 def compute_roc(values: list[float], period: int) -> Optional[float]:
@@ -396,7 +405,7 @@ def score_transition_signal(
     # Signal 3: SMA gap widening (momentum)
     if sma_short is not None and sma_long is not None:
         if use_absolute_gap:
-            current_gap = abs(sma_short - sma_long)
+            current_gap = abs(_signed_gap(sma_short, sma_long))
         elif sma_long != 0:
             current_gap = abs(sma_short - sma_long) / abs(sma_long) * 100
         else:

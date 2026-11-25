@@ -245,6 +245,26 @@ class TestSignedSpreadTransitions:
         assert result["direction"] == "stable"
         assert result["steepening_type"] is None
         assert result["roc_3m"] == 0.0
+        # Float dust must not fabricate an SMA crossover on an unchanged spread.
+        assert result["crossover"]["type"] != "golden_cross"
+        assert result["crossover"]["type"] != "death_cross"
+        assert result["score"] == 25
+
+    def test_same_spreads_score_the_same_whatever_the_yield_level(self):
+        """Identical spread histories must not straddle pp thresholds on float noise."""
+        spreads = [1.00] * 21 + [1.10, 1.20, 1.30]
+        results = []
+        for y2_level in (1.00, 1.01, 3.37):
+            y2 = [y2_level] * 24
+            y10 = [round(y2_level + s, 3) for s in spreads]
+            rates = _make_treasury_rates_raw(y10, y2, start_year=2023)
+            results.append(calculate_yield_curve(treasury_rates=rates))
+
+        keys = ("score", "direction", "roc_3m", "roc_12m")
+        assert results[0]["roc_3m"] == 0.3
+        assert results[0]["score"] == 60
+        assert all({k: r[k] for k in keys} == {k: results[0][k] for k in keys} for r in results)
+        assert results[0]["crossover"] == results[1]["crossover"] == results[2]["crossover"]
 
     def test_steepening_type_when_2y_starts_at_zero(self):
         """Zero 2Y starting yield still classifies bull steepener without div-by-zero."""
@@ -255,3 +275,17 @@ class TestSignedSpreadTransitions:
 
         assert result["direction"] == "steepening"
         assert result["steepening_type"] == "bull_steepener"
+
+    def test_positive_curve_score_grows_with_the_size_of_the_move(self):
+        """pp calibration: a 5 bp drift must not score like a 50 bp steepening."""
+
+        def score(spreads):
+            y10 = [round(3.0 + s, 3) for s in spreads]
+            rates = _make_treasury_rates_raw(y10, [3.0] * 24, start_year=2023)
+            return calculate_yield_curve(treasury_rates=rates)
+
+        drift = score([1.00] * 21 + [1.02, 1.03, 1.05])
+        large = score([0.50] * 21 + [0.70, 0.85, 1.00])
+        assert drift["direction"] == large["direction"] == "steepening"
+        assert drift["score"] < large["score"]
+        assert large["score"] == 80
