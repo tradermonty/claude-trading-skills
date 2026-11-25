@@ -1136,7 +1136,9 @@ def test_request_with_fallback_falls_back_to_v3_with_warning(monkeypatch, capsys
     err = capsys.readouterr().err
     assert "WARN: " + STABLE_URL in err
     assert "HTTP 403" in err
-    assert client._endpoint_failures[STABLE_URL] == 1
+    # A 4xx is a per-call client/auth failure, not a provider outage: the
+    # fallback still happens, but it must not count toward the breaker (#844).
+    assert client._endpoint_failures.get(STABLE_URL, 0) == 0
 
 
 def test_request_with_fallback_all_endpoints_fail_returns_none(monkeypatch):

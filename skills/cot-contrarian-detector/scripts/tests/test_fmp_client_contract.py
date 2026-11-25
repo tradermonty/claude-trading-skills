@@ -108,7 +108,9 @@ def test_historical_fallback_normalizes_and_caches(monkeypatch):
     assert c.session.calls[0][1] == {"symbol": "ABC", "from": "2026-01-06", "to": "2026-01-10"}
     assert c.session.calls[1][0].endswith("/api/v3/historical-price-full/ABC")
     assert c.session.calls[1][1] == {"timeseries": 2}
-    assert c._endpoint_failures[c.session.calls[0][0]] == 1
+    # A 403 is a per-call client/auth failure, not a provider outage: it must
+    # not count toward the endpoint circuit breaker (#844).
+    assert c._endpoint_failures.get(c.session.calls[0][0], 0) == 0
 
 
 def test_historical_rejects_wrong_symbol_and_disables_failed_endpoint(monkeypatch):
@@ -117,7 +119,9 @@ def test_historical_rejects_wrong_symbol_and_disables_failed_endpoint(monkeypatc
         "_et_today",
         lambda: __import__("datetime").date(2026, 1, 10),
     )
-    outcomes = [Response(200, [{"symbol": "WRONG", "date": "2026-01-09"}]), Response(404)] * 3
+    # The fallback endpoint returns a provider failure (500) so the breaker
+    # still disables it; a 4xx would not count after #844.
+    outcomes = [Response(200, [{"symbol": "WRONG", "date": "2026-01-09"}]), Response(500)] * 3
     c = client(*outcomes)
     for _ in range(3):
         assert c.get_historical_prices("ABC", days=2) is None
