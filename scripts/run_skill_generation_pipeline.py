@@ -19,9 +19,41 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# Import contract: `from scripts import claude_cli` resolves the same module
+# when run as a script and when loaded by pytest. Insertion is idempotent.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import yaml
 
+from scripts import claude_cli  # noqa: E402
+
 logger = logging.getLogger("skill_generation")
+
+# The claude executable to run. main() replaces the bare name with the newest
+# CLI on PATH, because PATH order can put an old copy first (issue #652).
+CLAUDE_BIN = "claude"
+_CLAUDE_CHOICE: claude_cli.ClaudeChoice | None = None
+
+
+def configure_claude_cli() -> bool:
+    """Pick the claude CLI for this run; False when an explicit pin is unusable."""
+    global CLAUDE_BIN, _CLAUDE_CHOICE
+    try:
+        choice = claude_cli.resolve_claude_bin()
+    except claude_cli.ClaudeBinError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return False
+    _CLAUDE_CHOICE = choice
+    CLAUDE_BIN = choice.path if choice else "claude"
+    return True
+
+
+def log_claude_choice() -> None:
+    if _CLAUDE_CHOICE is not None:
+        logger.info(claude_cli.describe(_CLAUDE_CHOICE))
+
 
 # Script paths (relative to project root)
 MINE_SCRIPT = "skills/skill-idea-miner/scripts/mine_session_logs.py"
@@ -845,7 +877,7 @@ def design_skill(project_root: Path, idea: dict, skill_name: str, dry_run: bool 
         logger.info("[dry-run] Would design skill '%s'.", skill_name)
         return True
 
-    if not shutil.which("claude"):
+    if not shutil.which(CLAUDE_BIN):
         logger.error("claude CLI not found; cannot design skill.")
         return False
 
@@ -892,7 +924,7 @@ def design_skill(project_root: Path, idea: dict, skill_name: str, dry_run: bool 
         env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
         result = subprocess.run(
             [
-                "claude",
+                CLAUDE_BIN,
                 "-p",
                 "--allowedTools",
                 "Read,Edit,Write,Glob,Grep",
@@ -933,7 +965,7 @@ def improve_skill(project_root: Path, skill_name: str, findings: list[str]) -> b
 
     Returns True on success, False on failure.
     """
-    if not shutil.which("claude"):
+    if not shutil.which(CLAUDE_BIN):
         logger.error("claude CLI not found; cannot improve skill.")
         return False
 
@@ -948,7 +980,7 @@ def improve_skill(project_root: Path, skill_name: str, findings: list[str]) -> b
         env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
         result = subprocess.run(
             [
-                "claude",
+                CLAUDE_BIN,
                 "-p",
                 "--allowedTools",
                 "Read,Edit,Write,Glob,Grep",
@@ -1452,6 +1484,7 @@ def run_daily(project_root: Path, dry_run: bool = False) -> int:
             logging.FileHandler(log_dir / "skill_generation.log"),
         ],
     )
+    log_claude_choice()
 
     if not acquire_lock(project_root):
         return 0
@@ -1684,6 +1717,7 @@ def run_weekly(project_root: Path, dry_run: bool = False) -> int:
             logging.FileHandler(log_dir / "skill_generation.log"),
         ],
     )
+    log_claude_choice()
 
     if not acquire_lock(project_root):
         return 0
@@ -1762,6 +1796,8 @@ def parse_args():
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
+    if not configure_claude_cli():
+        return 1
 
     if args.mode == "weekly":
         return run_weekly(project_root, dry_run=args.dry_run)

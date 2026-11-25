@@ -21,7 +21,39 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
+# Import contract: `from scripts import claude_cli` resolves the same module
+# when run as a script and when loaded by pytest. Insertion is idempotent.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scripts import claude_cli  # noqa: E402
+
 logger = logging.getLogger("skill_improvement")
+
+# The claude executable to run. main() replaces the bare name with the newest
+# CLI on PATH, because PATH order can put an old copy first (issue #652).
+CLAUDE_BIN = "claude"
+_CLAUDE_CHOICE: claude_cli.ClaudeChoice | None = None
+
+
+def configure_claude_cli() -> bool:
+    """Pick the claude CLI for this run; False when an explicit pin is unusable."""
+    global CLAUDE_BIN, _CLAUDE_CHOICE
+    try:
+        choice = claude_cli.resolve_claude_bin()
+    except claude_cli.ClaudeBinError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return False
+    _CLAUDE_CHOICE = choice
+    CLAUDE_BIN = choice.path if choice else "claude"
+    return True
+
+
+def log_claude_choice() -> None:
+    if _CLAUDE_CHOICE is not None:
+        logger.info(claude_cli.describe(_CLAUDE_CHOICE))
+
 
 REVIEWER_SCRIPT = "skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py"
 SELF_SKILL_NAME = "dual-axis-skill-reviewer"
@@ -293,7 +325,7 @@ def _cli_error(output: str) -> tuple[str, object, str] | None:
 
 def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dict | None:
     """Invoke claude CLI for LLM review. Returns parsed JSON or None."""
-    if not shutil.which("claude"):
+    if not shutil.which(CLAUDE_BIN):
         logger.warning("claude CLI not found; skipping LLM review.")
         return None
 
@@ -349,7 +381,7 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
         for attempt in range(CLAUDE_RETRIES + 1):
             try:
                 cmd = [
-                    "claude",
+                    CLAUDE_BIN,
                     "-p",
                     "--output-format",
                     "json",
@@ -718,7 +750,7 @@ def apply_improvement(
         )
         return None
 
-    if not shutil.which("claude"):
+    if not shutil.which(CLAUDE_BIN):
         logger.warning("claude CLI not found; skipping improvement.")
         return None
     if not shutil.which("gh"):
@@ -786,7 +818,7 @@ def apply_improvement(
 
         result = subprocess.run(
             [
-                "claude",
+                CLAUDE_BIN,
                 "-p",
                 "--allowedTools",
                 "Read,Edit,Write,Glob,Grep",
@@ -1155,6 +1187,8 @@ def run(project_root: Path, dry_run: bool = False) -> int:
         ],
     )
 
+    log_claude_choice()
+
     if not acquire_lock(project_root):
         return 0
 
@@ -1278,6 +1312,8 @@ def run(project_root: Path, dry_run: bool = False) -> int:
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
+    if not configure_claude_cli():
+        return 1
     return run(project_root, dry_run=args.dry_run)
 
 

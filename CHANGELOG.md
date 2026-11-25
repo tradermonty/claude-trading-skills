@@ -4,6 +4,7 @@ All notable changes to this repository are recorded here in [Keep a Changelog](h
 
 ## [Unreleased]
 
+- skill improvement loop and generation pipeline: run the newest `claude` CLI on `PATH` instead of the first one, log the choice, and allow a `SKILL_LOOP_CLAUDE_BIN` pin. The launchd wrappers resolved an old Homebrew CLI that answered the review in prose, so the loop never recorded a successful run after #869 (#652).
 - macro-regime-detector: compute Treasury 10Y-2Y yield-curve momentum and SMA crossover gap using signed spread changes in percentage points (`roc_unit: "pp"`) instead of dividing by a signed spread or 12M SMA, so inverted (`< 0`) and flat (`0.00%`) historical spreads no longer invert `direction` (`steepening`/`flattening`), break `curve_state: "normalizing"`, misclassify `steepening_type`, drop negative-SMA gap confirmation, or flip `classify_regime()` between `broadening` and `contraction`. Spreads and changes are rounded so float noise cannot cross a pp threshold or fabricate a crossover on an unchanged spread. Small moves on a positive curve now score lower than before, because the percentage scale saturated even for a 5 bp drift. Rebuilt `skill-packages/macro-regime-detector.skill` (#880).
 
 - stockbee-momentum-burst-screener: report `evaluation_coverage` (#711). A run where every fetch failed wrote no report and exited 0 with "No price data found"; a rate-limited run reported only the symbols it reached. JSON now carries the block, Markdown and stdout print evaluated / total, and an incomplete zero-candidate run is undetermined.

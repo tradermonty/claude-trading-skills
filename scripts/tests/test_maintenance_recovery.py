@@ -75,6 +75,7 @@ def test_real_wrapper_symlinks_reach_scoring_twice(tmp_path, monkeypatch, hook_e
     scripts.mkdir()
     shutil.copy(ROOT / "scripts/run_skill_improvement.sh", scripts)
     shutil.copy(ROOT / "scripts/run_skill_improvement_loop.py", scripts / "safety.py")
+    shutil.copy(ROOT / "scripts/claude_cli.py", scripts)  # imported by the loop
     (scripts / "run_skill_improvement_loop.py").write_text("""
 import argparse
 from pathlib import Path
