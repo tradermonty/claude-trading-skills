@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   canary:
-    name: CoinGecko universe probe (drift report-only; operational health required)
+    name: CoinGecko response probes (drift report-only; operational health required)
     if: github.repository == 'tradermonty/claude-trading-skills'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -36,13 +36,13 @@ jobs:
         run: |
           uv sync --locked --no-install-project --extra dev
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      - name: Probe one public endpoint without credentials or retries
+      - name: Probe three public endpoints without credentials or retries
         id: probe
         continue-on-error: true
         run: |
           rm -f reports/coingecko-canary-report.json
           if python3 scripts/check_provider_contracts.py canary \
-            --provider coingecko --max-calls 1 \
+            --provider coingecko --max-calls 3 \
             --report reports/coingecko-canary-report.json; then
             code=0
           else

@@ -38,6 +38,13 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 
+from coingecko_payloads import (
+    PayloadError,
+    cached_closes,
+    dominance_value,
+    global_rows,
+    market_chart_rows,
+)
 from numeric_utils import MAX_ABS_FUNDING_RATE
 
 try:
@@ -205,27 +212,39 @@ class DataClient:
             ):
                 raise ValueError("COINGECKO_UNIVERSE_UNSAFE_ID")
 
+    def _series_cache(self, name: str, validator):
+        """Distinguish a missing file from invalid cached null/empty evidence."""
+        present = os.path.exists(self._cache_path(name))
+        try:
+            cached = self._cached(name)
+        except (ValueError, UnicodeError):
+            raise PayloadError("COINGECKO_SERIES_INVALID_CACHE") from None
+        if cached is not None or present:
+            return True, validator(cached)
+        return False, None
+
     def fetch_history(self, coin_id: str) -> list:
-        """Daily closes (oldest -> newest) for one coin."""
-        cached = self._cached(f"hist_{coin_id}")
-        if cached:
+        """Daily closes in provider order; reject drift before cache writes."""
+        self._validate_universe_rows([{"id": coin_id, "symbol": "history"}])
+        found, cached = self._series_cache(f"hist_{coin_id}", cached_closes)
+        if found:
             return cached
         raw = self._get(
             f"{COINGECKO_BASE}/coins/{coin_id}/market_chart",
             {"vs_currency": "usd", "days": HISTORY_DAYS},
         )
-        closes = [p[1] for p in raw.get("prices", [])]
+        closes = [row["price"] for row in market_chart_rows(raw)]
         self._store(f"hist_{coin_id}", closes)
         time.sleep(REQUEST_DELAY_S)
         return closes
 
     def fetch_dominance(self) -> float:
-        """Current BTC dominance % and append to local history file."""
-        cached = self._cached("dominance_now")
-        if cached is not None:
+        """Validate current dominance before caching or appending local history."""
+        found, cached = self._series_cache("dominance_now", dominance_value)
+        if found:
             return cached
         raw = self._get(f"{COINGECKO_BASE}/global")
-        dom = raw["data"]["market_cap_percentage"]["btc"]
+        dom = global_rows(raw)[0]["btc_dominance"]
         self._store("dominance_now", dom)
         self._append_dominance_history(dom)
         return dom

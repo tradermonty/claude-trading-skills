@@ -75,7 +75,11 @@ def test_expected_contracts_are_present():
         "uptrend-ratio-timeseries",
         "uptrend-sector-summary",
     }
-    assert set(CONTRACTS) == set(FMP_CONTRACTS) | set(TRADER_MONTY_CONTRACTS) | {"coins-markets"}
+    assert set(CONTRACTS) == set(FMP_CONTRACTS) | set(TRADER_MONTY_CONTRACTS) | {
+        "coins-markets",
+        "global",
+        "market-chart",
+    }
 
 
 @pytest.mark.parametrize("name", sorted(CONTRACTS))

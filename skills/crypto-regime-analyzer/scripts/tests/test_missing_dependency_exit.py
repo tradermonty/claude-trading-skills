@@ -45,7 +45,7 @@ def test_warm_cache_runs_without_requests(monkeypatch, capsys, tmp_path):
                 {"id": "ethereum", "symbol": "eth"},
             ]
         if "market_chart" in url:
-            return {"prices": [[i, c] for i, c in enumerate(closes)]}
+            return {"prices": [[1700000000000 + i * 86400000, c] for i, c in enumerate(closes)]}
         if url.endswith("/global"):
             return {"data": {"market_cap_percentage": {"btc": 52.0}}}
         if url.endswith("/fapi/v1/premiumIndex"):

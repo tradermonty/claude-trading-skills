@@ -120,6 +120,7 @@ def test_unreviewed_path_or_query_cannot_send_request(monkeypatch):
 
 
 def test_keyless_cli_uses_one_call_and_refuses_insufficient_budget(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "load_contracts", lambda root: {CONTRACT.endpoint: CONTRACT})
     calls = []
     response = Response(json.dumps(CONTRACT.fixture).encode())
     monkeypatch.delenv("FMP_API_KEY", raising=False)
@@ -150,7 +151,7 @@ def test_workflow_keeps_health_mandatory_and_credentials_absent():
     job = workflow["jobs"]["canary"]
     assert job["timeout-minutes"] == 5 and not job.get("continue-on-error")
     probe = next(s for s in job["steps"] if s.get("id") == "probe")
-    assert probe["continue-on-error"] and "--max-calls 1" in probe["run"]
+    assert probe["continue-on-error"] and "--max-calls 3" in probe["run"]
     assert "rm -f reports/coingecko-canary-report.json" in probe["run"]
     health = next(s for s in job["steps"] if " health " in s.get("run", ""))
     assert health["if"] == "always()" and not health.get("continue-on-error")
