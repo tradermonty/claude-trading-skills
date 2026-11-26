@@ -41,6 +41,9 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
     """
     Count distribution days (down days on higher volume) after FTD.
 
+    Volume is compared with the reference session: the previous session, or the
+    most recent full-length session on an early-close session and the session
+    after it (issue #892).
     Distribution within first 1-2 days = very bearish (FTD likely fails)
     Distribution on day 3 = moderately bearish
     Distribution on day 4-5 = mild negative

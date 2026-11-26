@@ -25,7 +25,9 @@ Rules (O'Neil / IBD):
   (frozen on Day 1, Day 1 bar included). A segment starts at the correction
   entry and restarts at a rally failure and an FTD invalidation. Equality holds.
 - FTD: Day 4-10, gain >= 1.25% vs the previous close, volume above the
-  previous session. With no FTD by Day 10 the attempt expires on the bar that
+  reference session (normally the previous session; on an early-close session
+  and the session after it, the most recent full-length session via the
+  vendored XNYS calendar). With no FTD by Day 10 the attempt expires on the bar that
   would be Day 11 (RALLY_FAILED, "No follow-through day by Day 10") and a new
   segment starts at that bar, inclusive. The expiry bar is never Day 1. While
   not armed a bar can only arm the count (a down close arms it); the next
