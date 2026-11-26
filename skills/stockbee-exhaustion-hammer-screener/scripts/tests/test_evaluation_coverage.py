@@ -327,6 +327,109 @@ def test_read_prices_json_skips_list_items_that_name_no_symbol(tmp_path):
     assert unusable == {}
 
 
+def _inf_volume_rows():
+    rows = _rows(3)
+    rows[1] = {**rows[1], "volume": "Infinity"}
+    return rows
+
+
+def _write(tmp_path, payload):
+    path = tmp_path / "prices.json"
+    path.write_text(json.dumps(payload))
+    return path
+
+
+@pytest.mark.parametrize("bad_first", [True, False])
+def test_read_prices_json_bad_rows_do_not_hide_a_usable_duplicate(tmp_path, bad_first):
+    entries = [
+        {"symbol": "AAA", "historical": _inf_volume_rows()},
+        {"symbol": "AAA", "historical": _rows(90)},
+    ]
+    path = _write(tmp_path, entries if bad_first else entries[::-1])
+    unusable: dict[str, str] = {}
+    result = ehs.read_prices_json(str(path), unusable)
+    assert list(result) == ["AAA"]
+    assert len(result["AAA"]) == 90
+    assert unusable == {}
+
+
+def test_read_prices_json_lone_entry_with_failing_rows_is_invalid_data(tmp_path):
+    path = _write(
+        tmp_path,
+        [{"symbol": "AAA", "historical": _inf_volume_rows()}, {"symbol": "BBB", "bars": _rows(3)}],
+    )
+    unusable: dict[str, str] = {}
+    assert list(ehs.read_prices_json(str(path), unusable)) == ["BBB"]
+    assert unusable == {"AAA": "invalid_data"}
+
+
+def test_read_prices_json_map_entry_with_failing_rows_is_invalid_data(tmp_path):
+    path = _write(
+        tmp_path, {"AAA": {"historical": _inf_volume_rows()}, "BBB": {"historical": _rows(3)}}
+    )
+    unusable: dict[str, str] = {}
+    assert list(ehs.read_prices_json(str(path), unusable)) == ["BBB"]
+    assert unusable == {"AAA": "invalid_data"}
+
+
+def test_read_prices_json_first_populated_field_wins_over_later_ones(tmp_path):
+    path = _write(
+        tmp_path,
+        [
+            {
+                "symbol": "AAA",
+                "historical": _rows(5, close=100.0),
+                "bars": _rows(7, close=200.0),
+                "prices": _rows(9, close=300.0),
+            }
+        ],
+    )
+    result = ehs.read_prices_json(str(path), {})
+    assert len(result["AAA"]) == 5
+    assert result["AAA"][0].close == 100.0
+
+
+def test_read_prices_json_later_populated_duplicate_replaces_earlier(tmp_path):
+    path = _write(
+        tmp_path,
+        [
+            {"symbol": "AAA", "historical": _rows(5, close=100.0)},
+            {"symbol": "aaa", "historical": _rows(7, close=200.0)},
+        ],
+    )
+    unusable: dict[str, str] = {}
+    result = ehs.read_prices_json(str(path), unusable)
+    assert len(result["AAA"]) == 7
+    assert result["AAA"][0].close == 200.0
+    assert unusable == {}
+
+
+def test_cli_completes_when_an_earlier_duplicate_has_failing_rows(monkeypatch, tmp_path):
+    path = _write(
+        tmp_path,
+        [
+            {"symbol": "AAA", "historical": _inf_volume_rows()},
+            {"symbol": "AAA", "historical": _rows(90)},
+        ],
+    )
+    coverage = _cli_coverage(monkeypatch, tmp_path, path)
+    assert coverage["universe_size"] == 1
+    assert coverage["not_evaluated_reasons"] == {}
+    assert coverage["evaluated"] == 1
+
+
+def test_cli_reports_a_lone_failing_entry_as_invalid_data(monkeypatch, tmp_path):
+    path = _write(tmp_path, [{"symbol": "AAA", "historical": _inf_volume_rows()}])
+    coverage = _cli_coverage(monkeypatch, tmp_path, path)
+    assert coverage["not_evaluated_reasons"] == {"invalid_data": 1}
+    assert coverage["verdict"] == "not_evaluable"
+
+
+def _cli_coverage(monkeypatch, tmp_path, path):
+    report, _ = _run(monkeypatch, tmp_path / "out", ["--prices-json", str(path)])
+    return report["evaluation_coverage"]
+
+
 def test_cached_history_resets_the_last_fetch_error(monkeypatch):
     shared = ehs._load_shared_fmp()
 

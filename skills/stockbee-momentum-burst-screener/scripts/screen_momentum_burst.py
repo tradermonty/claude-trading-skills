@@ -543,7 +543,13 @@ def read_prices_json(path: str, unusable: dict[str, str] | None = None) -> dict[
         if not symbol:
             continue
         rows, reason = offline_rows(value, fields)
-        bars = normalize_bars(rows) if rows else []
+        try:
+            bars = normalize_bars(rows) if rows else []
+        except (ValueError, TypeError, OverflowError):
+            # A row that cannot be converted (e.g. volume "Infinity") makes this
+            # entry unusable; it must not abort the file or hide other entries.
+            bars = []
+            reason = "invalid_data"
         if bars:
             normalized[symbol] = bars
             reasons.pop(symbol, None)
