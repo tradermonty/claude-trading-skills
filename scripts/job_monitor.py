@@ -13,8 +13,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run_skill_improvement_loop import min_interval_hours  # noqa: E402
+
+HEARTBEAT_GRACE_HOURS = 24
+
+
+def improvement_max_hours():
+    """Paid-run interval plus a day of grace, from the same variable as the loop."""
+    return min_interval_hours() + HEARTBEAT_GRACE_HOURS
+
+
 JOBS = {
-    "improvement": ("logs/.skill_improvement_state.json", None, 48),
+    "improvement": ("logs/.skill_improvement_state.json", None, improvement_max_hours),
     "generation-daily": ("logs/.skill_generation_state.json", "daily", 48),
     "generation-weekly": ("logs/.skill_generation_state.json", "weekly", 24 * 14),
 }
@@ -77,6 +88,8 @@ def heartbeat_checks(root, now=None):
     now = now or datetime.now(timezone.utc)
     results = []
     for job, (filename, mode, max_hours) in JOBS.items():
+        if callable(max_hours):
+            max_hours = max_hours()
         status = "missing or invalid success timestamp"
         try:
             state = json.loads((root / filename).read_text(encoding="utf-8"))
