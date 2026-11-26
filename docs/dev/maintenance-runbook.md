@@ -462,7 +462,14 @@ customized plist instead of overwriting it.
 When the CLI reports `error_max_budget_usd`, the loop stops the review at once
 instead of retrying, and the log names this variable. A review of a typical
 skill costs about $0.6, which is why the earlier $0.50 cap stopped every
-review (#652). Success is recorded after
+review (#652).
+The review call may only use the read-only tools Read, Grep and Glob, and is
+capped at `SKILL_LOOP_REVIEW_MAX_TURNS` turns (default `12`; integers from 1 to
+40, anything else falls back to the default with a warning). The review prompt
+lists files to inspect, so the model reads them before answering; the former
+single turn stopped every review at its first read (#652). On
+`error_max_turns` the loop stops at once, without retrying, and the log names
+this variable. Set it in the plist the same way as the budget variable. Success is recorded after
 normal cleanup; it does not prove that a PR was merged or deployed.
 
 The fourth template schedules `run_skill_heartbeat.sh` independently at 08:00

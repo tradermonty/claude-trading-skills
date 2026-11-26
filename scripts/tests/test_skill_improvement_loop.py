@@ -1345,6 +1345,85 @@ def test_review_budget_comes_from_environment(
     assert f"--max-budget-usd={expected}" in seen[0]
 
 
+def _ok_run(seen):
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        seen.append(cmd)
+        return CompletedProcess(
+            cmd, 0, _envelope(structured_output={"score": 70, "summary": "", "findings": []}), ""
+        )
+
+    return fake_run
+
+
+def test_llm_review_command_is_read_only_with_enough_turns(loop_module, tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.delenv("SKILL_LOOP_REVIEW_MAX_TURNS", raising=False)
+    monkeypatch.setattr(loop_module.subprocess, "run", _ok_run(seen))
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path))
+    cmd = seen[0]
+    assert cmd[cmd.index("--tools") + 1] == "Read,Grep,Glob"
+    assert cmd[cmd.index("--allowedTools") + 1] == "Read,Grep,Glob"
+    assert cmd[cmd.index("--max-turns") + 1] == "12"
+
+
+@pytest.mark.parametrize(
+    "env_value,expected",
+    [
+        (None, "12"),
+        ("20", "20"),
+        (" 5 ", "5"),
+        ("1", "1"),
+        ("40", "40"),
+        ("0", "12"),
+        ("41", "12"),
+        ("-3", "12"),
+        ("2.5", "12"),
+        ("bad", "12"),
+        ("", "12"),
+        ("nan", "12"),
+    ],
+)
+def test_review_max_turns_comes_from_environment(
+    loop_module, tmp_path, monkeypatch, env_value, expected
+):
+    seen = []
+    if env_value is None:
+        monkeypatch.delenv("SKILL_LOOP_REVIEW_MAX_TURNS", raising=False)
+    else:
+        monkeypatch.setenv("SKILL_LOOP_REVIEW_MAX_TURNS", env_value)
+    monkeypatch.setattr(loop_module.subprocess, "run", _ok_run(seen))
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path))
+    assert seen[0][seen[0].index("--max-turns") + 1] == expected
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_llm_review_stops_after_max_turns(loop_module, tmp_path, monkeypatch, caplog, returncode):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        from subprocess import CompletedProcess
+
+        calls.append(cmd)
+        body = _envelope(
+            subtype="error_max_turns",
+            is_error=True,
+            errors=["Reached maximum number of turns (1)"],
+            total_cost_usd=0.55,
+        )
+        return CompletedProcess(cmd, returncode, body, "")
+
+    monkeypatch.setattr(loop_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(loop_module.shutil, "which", lambda x: "/usr/bin/claude")
+    caplog.set_level("WARNING")
+    assert loop_module.run_llm_review(tmp_path, "s", _prompt(tmp_path)) is None
+    assert len(calls) == 1, "a turn-limit stop is deterministic; retrying only spends more"
+    assert "SKILL_LOOP_REVIEW_MAX_TURNS" in caplog.text
+
+
 def _stub_run(loop_module, monkeypatch, *, llm_result, outcome):
     for name in ("git_safe_check", "acquire_lock"):
         monkeypatch.setattr(loop_module, name, lambda *a: True)

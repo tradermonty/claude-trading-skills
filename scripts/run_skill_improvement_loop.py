@@ -39,6 +39,13 @@ CLAUDE_BUDGET_REVIEW = 1.00
 REVIEW_BUDGET_ENV = "SKILL_LOOP_REVIEW_BUDGET_USD"
 REVIEW_BUDGET_MIN = 0.01
 REVIEW_BUDGET_MAX = 5.0  # an unattended daily job; up to 6 calls
+# The review prompt lists files to inspect, so the model must read them first;
+# --max-turns 1 stopped every review at its first Read call (issue #652).
+CLAUDE_REVIEW_MAX_TURNS = 12
+REVIEW_MAX_TURNS_ENV = "SKILL_LOOP_REVIEW_MAX_TURNS"
+REVIEW_MAX_TURNS_MIN = 1
+REVIEW_MAX_TURNS_MAX = 40
+REVIEW_TOOLS = "Read,Grep,Glob"  # read-only: no Bash, Edit or Write
 CLAUDE_BUDGET_IMPROVE = 2.00
 IMPROVEMENT_TIMEOUT = 600
 
@@ -275,6 +282,26 @@ def review_budget_usd() -> float:
     return value
 
 
+def review_max_turns() -> int:
+    """Review turn limit from SKILL_LOOP_REVIEW_MAX_TURNS, else the default."""
+    raw = os.environ.get(REVIEW_MAX_TURNS_ENV)
+    if raw is None:
+        return CLAUDE_REVIEW_MAX_TURNS
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if not (REVIEW_MAX_TURNS_MIN <= value <= REVIEW_MAX_TURNS_MAX):
+        logger.warning(
+            "Ignoring invalid %s=%r; using %d.",
+            REVIEW_MAX_TURNS_ENV,
+            raw,
+            CLAUDE_REVIEW_MAX_TURNS,
+        )
+        return CLAUDE_REVIEW_MAX_TURNS
+    return value
+
+
 def _cli_error(output: str) -> tuple[str, object, str] | None:
     """Return (subtype, cost, detail) when stdout is a claude CLI error envelope."""
     try:
@@ -306,6 +333,7 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
 
     prompt_text = prompt_path.read_text(encoding="utf-8")
     budget = review_budget_usd()
+    max_turns = review_max_turns()
 
     # JSON Schema to force structured output from Claude CLI
     review_schema = json.dumps(
@@ -354,8 +382,12 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                     "--output-format",
                     "json",
                     *strategy["extra_args"],
+                    "--tools",
+                    REVIEW_TOOLS,
+                    "--allowedTools",
+                    REVIEW_TOOLS,
                     "--max-turns",
-                    "1",
+                    str(max_turns),
                     f"--max-budget-usd={budget:.2f}",
                 ]
                 # For plain-json mode, append schema instructions to the prompt
@@ -385,6 +417,16 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                         budget,
                         cli_error[1],
                         REVIEW_BUDGET_ENV,
+                    )
+                    return None
+                if cli_error and cli_error[0] == "error_max_turns":
+                    # Deterministic for the same prompt: retrying only spends more.
+                    logger.warning(
+                        "LLM review stopped at the %d-turn limit (cost %s). "
+                        "Raise %s to allow the review.",
+                        max_turns,
+                        cli_error[1],
+                        REVIEW_MAX_TURNS_ENV,
                     )
                     return None
                 if cli_error:
