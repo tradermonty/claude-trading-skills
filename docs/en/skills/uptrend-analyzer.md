@@ -30,7 +30,11 @@ Analyzes market breadth using Monty's Uptrend Ratio Dashboard data to diagnose t
 
 ## 1. Overview
 
-# Uptrend Analyzer Skill
+Fetches the CSV data behind Monty's Uptrend Ratio Dashboard and diagnoses market breadth and the market environment. It computes five component scores and a 0-100 composite score, and gives exposure guidance (Full/Normal/Reduced/Defensive/Preservation).
+
+### Use case: Uptrend Ratio Dashboard
+
+[Uptrend Ratio Dashboard](https://uptrend-dashboard.streamlit.app) is the live dashboard behind the data this skill analyzes: the uptrend ratio for the whole market and for each of the 11 sectors. Open it to see the latest readings and compare them with the skill's report.
 
 ---
 
