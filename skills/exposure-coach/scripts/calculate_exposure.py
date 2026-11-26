@@ -527,7 +527,13 @@ def apply_market_status_overlay(
     if not evaluation_input_usable(ftd_data):
         return ceiling, recommendation, None
     state = ftd_data.get("market_state")
-    if not isinstance(state, dict) or state.get("data_gap"):
+    # Any explicit unavailability marker wins over a leftover status value.
+    if (
+        not isinstance(state, dict)
+        or state.get("data_gap")
+        or ftd_data.get("data_gap")
+        or state.get("combined_state") == "NO_SIGNAL"
+    ):
         return ceiling, recommendation, None
     status = state.get("market_status")
     if status not in MARKET_STATUSES:
@@ -1055,6 +1061,9 @@ def main():
 
     if status_overlay is not None:
         rationale += f" Market status: {status_overlay['reason']}"
+        if status_overlay.get("pressure_reasons"):
+            reasons = ", ".join(status_overlay["pressure_reasons"])
+            rationale += f" Pressure reasons: {reasons}."
     for name in unparsable:
         rationale += f" Supplied {name} input is unparsable and excluded."
     if (

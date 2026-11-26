@@ -443,3 +443,44 @@ def test_old_format_and_missing_ftd_outputs_are_identical_to_pre_overlay_code(tm
     assert result == GOLDEN[case]["json"]
     assert md_lines[2:] == GOLDEN[case]["markdown_after_header"]
     assert "market_status_overlay" not in result
+
+
+@pytest.mark.parametrize("marker", ["top_level_data_gap", "no_signal_state"])
+def test_an_explicit_unavailability_marker_wins_over_a_leftover_status(marker):
+    data = ftd("confirmed_uptrend", "FTD_CONFIRMED", days=6)
+    if marker == "top_level_data_gap":
+        data["data_gap"] = True
+    else:
+        data["market_state"]["combined_state"] = "NO_SIGNAL"
+    assert apply_market_status_overlay(data, 95, "NEW_ENTRY_ALLOWED") == (
+        95,
+        "NEW_ENTRY_ALLOWED",
+        None,
+    )
+
+
+def test_the_rationale_lists_the_pressure_reasons(tmp_path):
+    ftd_path = tmp_path / "ftd.json"
+    payload = ftd(
+        "uptrend_under_pressure", "FTD_CONFIRMED", days=20, reasons=("ftd_low_close_breach",)
+    )
+    ftd_path.write_text(json.dumps(payload), encoding="utf-8")
+    out = tmp_path / "out"
+    args = [
+        sys.executable,
+        str(SCRIPT),
+        "--breadth",
+        str(LEGACY / "breadth.json"),
+        "--top-risk",
+        str(LEGACY / "top_risk.json"),
+        "--regime",
+        str(LEGACY / "regime.json"),
+        "--ftd",
+        str(ftd_path),
+        "--output-dir",
+        str(out),
+    ]
+    subprocess.run(args, check=True, capture_output=True, text=True)
+    result = json.loads(next(out.glob("*.json")).read_text(encoding="utf-8"))
+    assert result["market_status_overlay"]["pressure_reasons"] == ["ftd_low_close_breach"]
+    assert "Pressure reasons: ftd_low_close_breach." in result["rationale"]
