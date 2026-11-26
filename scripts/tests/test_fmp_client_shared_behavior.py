@@ -260,6 +260,42 @@ def test_api_stats_budget_shape(rel_path, monkeypatch):
     assert stats["budget_remaining"] == 200
 
 
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_rate_limit_end_is_not_reported_as_breaker_skip(rel_path, monkeypatch, capsys):
+    """A request that ended on the rate limit is not a breaker skip (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    client.max_retries = 0
+
+    class Response:
+        text = ""
+
+        def __init__(self, status_code, symbol=None):
+            self.status_code = status_code
+            self.symbol = symbol
+
+        def json(self):
+            return {"symbol": self.symbol, "historical": [{"date": "2026-01-09", "close": 10}]}
+
+    def get(url, **kwargs):
+        if "/stable/" in url:
+            return Response(503)
+        if "RATED" in url:
+            return Response(429)
+        return Response(200, url.rstrip("/").rsplit("/", 1)[-1])
+
+    monkeypatch.setattr(client.session, "get", get)
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices(f"S{i}") is not None
+    assert client._disabled_endpoints
+    capsys.readouterr()
+    assert client.get_historical_prices("RATED") is None
+    assert client.rate_limit_reached
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+    assert "skipping" not in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("rel_path", FAMILY_B)
 def test_no_quote_surface(rel_path):
     mod = _load(rel_path)

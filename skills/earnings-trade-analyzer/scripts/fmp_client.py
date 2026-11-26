@@ -405,7 +405,8 @@ class FMPClient:
             # contract failure, not a provider outage: do not count it.
             self._last_failure_kind = "response_contract"
             self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
-        if passed_over:
+        # A request that ended on the rate limit was not refused by the breaker.
+        if passed_over and not self.rate_limit_reached:
             for skipped_url in passed_over:
                 self._note_skipped_symbol(skipped_url, symbols_str)
         return None
