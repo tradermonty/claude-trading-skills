@@ -146,3 +146,15 @@ def test_pressure_numeric_cap_reaches_both_consumers(ftd_monitor, consumers):
     assert clean["total_score"] > pressured["total_score"]
     assert exposure.extract_ftd_score(payload) == pressured["total_score"] <= 59
     assert loader._extract_ftd(payload)["quality_score"] == pressured["total_score"]
+
+
+def test_uptrend_resumed_reaches_the_consumers_without_an_ftd(consumers):
+    loader, scorer, exposure = consumers
+    payload = {
+        "market_state": {"combined_state": "UPTREND_RESUMED", "market_status": "confirmed_uptrend"},
+        "quality_score": {"total_score": 0, "signal": "No FTD"},
+    }
+    signal = loader._extract_ftd(payload)
+    assert signal["state"] == "UPTREND_RESUMED"
+    assert scorer.calculate_bottom_confirmation({"ftd_detector": signal}) == 80
+    assert exposure.extract_ftd_score(payload) == 0

@@ -8,7 +8,9 @@ def make_bar(close, volume=1_000_000, date="2026-01-15", open_=None, high=None, 
     if open_ is None:
         open_ = close
     if high is None:
-        high = close * 1.005
+        # Default close sits in the lower half of the range (0.4545), so a plain
+        # synthetic bar is never an upper-half Day 1 by accident.
+        high = close * 1.006
     if low is None:
         low = close * 0.995
     return {
