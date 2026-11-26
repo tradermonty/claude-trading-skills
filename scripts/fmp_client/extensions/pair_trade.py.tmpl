@@ -19,11 +19,15 @@
     ) -> Optional[dict]:
         self._pair_window = lookback_days if lookback_days and lookback_days > 0 else None
         try:
+            adjusted_passed_over = self._PAIR_ADJUSTED_URL in self._disabled_endpoints
             data = self._fetch_pair_adjusted(symbol)
             if data is None and not self.rate_limit_reached:
                 data = self._request_with_fallback("historical", symbol)
                 if data:
                     data["price_basis"] = self._pair_price_basis(data["historical"])
+                elif adjusted_passed_over and not self.rate_limit_reached:
+                    # The whole chain failed and the breaker passed over its first link.
+                    self._note_skipped_symbol(self._PAIR_ADJUSTED_URL, symbol)
         finally:
             self._pair_window = None
         if data and data.get("price_basis") == "close":
