@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "provider": "coingecko",
+  "endpoint": "market-chart",
+  "path": "/api/v3/coins/bitcoin/market_chart",
+  "query": {
+    "vs_currency": "usd",
+    "days": "365"
+  },
+  "contract_version": 1,
+  "recorded_on": "2026-11-26",
+  "recording": "Live keyless HTTP 200 bitcoin market_chart response for days=365 (366 pairs). Last seven original price pairs retained unchanged, including the final live observation; fixture is a sample, not complete lookback evidence.",
+  "owners": [
+    "crypto-regime-analyzer"
+  ],
+  "tier_notes": "Keyless HTTP 200 observed locally at recording time, not a future entitlement or scheduled-run guarantee. Fixed USD/BTC canary sampling does not certify all coins, full lookback completeness, freshness or point-in-time availability.",
+  "required_fields": {
+    "timestamp_ms": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false,
+      "finite": true
+    },
+    "price": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false,
+      "finite": true
+    }
+  },
+  "optional_fields": [],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "Current BTC dominance / historical price evidence must be nonempty."
+  },
+  "fixture": [
+    {
+      "timestamp_ms": 1795219200000,
+      "price": 58817.925597578746
+    },
+    {
+      "timestamp_ms": 1795305600000,
+      "price": 60121.30168956966
+    },
+    {
+      "timestamp_ms": 1795392000000,
+      "price": 61172.01580644091
+    },
+    {
+      "timestamp_ms": 1795478400000,
+      "price": 61227.54737867492
+    },
+    {
+      "timestamp_ms": 1795564800000,
+      "price": 59758.920537549915
+    },
+    {
+      "timestamp_ms": 1795651200000,
+      "price": 60374.147782582884
+    },
+    {
+      "timestamp_ms": 1795674840000,
+      "price": 60588.06907916871
+    }
+  ],
+  "response_fixture": {
+    "prices": [
+      [
+        1795219200000,
+        58817.925597578746
+      ],
+      [
+        1795305600000,
+        60121.30168956966
+      ],
+      [
+        1795392000000,
+        61172.01580644091
+      ],
+      [
+        1795478400000,
+        61227.54737867492
+      ],
+      [
+        1795564800000,
+        59758.920537549915
+      ],
+      [
+        1795651200000,
+        60374.147782582884
+      ],
+      [
+        1795674840000,
+        60588.06907916871
+      ]
+    ]
+  }
+}
