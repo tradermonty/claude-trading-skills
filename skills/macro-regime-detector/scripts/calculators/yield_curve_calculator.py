@@ -25,6 +25,7 @@ from typing import Optional
 
 from .utils import (
     calculate_ratio,
+    compute_change,
     compute_percentile,
     compute_roc,
     compute_sma,
@@ -32,6 +33,15 @@ from .utils import (
     downsample_to_monthly,
     score_transition_signal,
 )
+
+# Signed-spread scoring thresholds in percentage points (1.00 = 100 bps)
+SPREAD_CONVERGING_PP = 0.10
+SPREAD_MOMENTUM_CAP_PP = 0.50
+SPREAD_ACCEL_THRESHOLD_PP = 0.30
+SPREAD_GAP_WIDENING_PP = 0.05
+# Rates arrive with at most three decimals; rounding the difference removes
+# binary noise so identical spreads compare equal at any yield level.
+SPREAD_DECIMALS = 6
 
 
 def calculate_yield_curve(
@@ -85,7 +95,7 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
         if ym not in spread_monthly:
             spread_monthly[ym] = {
                 "date": date_str,
-                "spread": y10 - y2,
+                "spread": round(y10 - y2, SPREAD_DECIMALS),
                 "year10": y10,
                 "year2": y2,
             }
@@ -106,18 +116,28 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
     sma_6m = compute_sma(spread_values, 6)
     sma_12m = compute_sma(spread_values, 12)
 
-    # Crossover detection
-    crossover = detect_crossover(spread_values, short_period=6, long_period=12)
+    # Crossover detection (use signed spread gap in percentage points so negative
+    # or zero 12M SMAs never invert sign or divide by zero)
+    crossover = detect_crossover(
+        spread_values,
+        short_period=6,
+        long_period=12,
+        use_absolute_gap=True,
+        converging_threshold=SPREAD_CONVERGING_PP,
+    )
 
-    # Individual yield ROCs for steepening type classification
+    # Individual yield momentum for steepening type classification
     y10_values = [s["year10"] for s in spread_series]
     y2_values = [s["year2"] for s in spread_series]
     roc_3m_10y = compute_roc(y10_values, 3)
     roc_3m_2y = compute_roc(y2_values, 3)
+    change_3m_10y = compute_change(y10_values, 3)
+    change_3m_2y = compute_change(y2_values, 3)
 
-    # Momentum
-    roc_3m = compute_roc(spread_values, 3)
-    roc_12m = compute_roc(spread_values, 12)
+    # Signed spread momentum in percentage points (relative ROC flips sign when
+    # the historical spread is negative and returns None at 0.00%)
+    spread_change_3m = compute_change(spread_values, 3)
+    spread_change_12m = compute_change(spread_values, 12)
 
     # Percentile
     percentile = compute_percentile(spread_values, current_spread)
@@ -125,29 +145,34 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
     # Score
     score = score_transition_signal(
         crossover=crossover,
-        roc_short=roc_3m,
-        roc_long=roc_12m,
+        roc_short=spread_change_3m,
+        roc_long=spread_change_12m,
         sma_short=sma_6m,
         sma_long=sma_12m,
+        use_absolute_gap=True,
+        converging_threshold=SPREAD_CONVERGING_PP,
+        momentum_cap=SPREAD_MOMENTUM_CAP_PP,
+        accel_threshold=SPREAD_ACCEL_THRESHOLD_PP,
+        gap_widening_threshold=SPREAD_GAP_WIDENING_PP,
     )
 
     # Curve state
-    curve_state = _classify_curve_state(current_spread, sma_6m, roc_3m)
+    curve_state = _classify_curve_state(current_spread, sma_6m, spread_change_3m)
 
     # Direction of transition
-    if roc_3m is not None and roc_3m > 0:
+    if spread_change_3m is not None and spread_change_3m > 0:
         direction = "steepening"
-    elif roc_3m is not None and roc_3m < 0:
+    elif spread_change_3m is not None and spread_change_3m < 0:
         direction = "flattening"
     else:
         direction = "stable"
 
-    # Steepening type classification
+    # Steepening type classification (signed yield change avoids zero/negative yield pitfalls)
     steepening_type = None
     if direction == "steepening":
-        if roc_3m_2y is not None and roc_3m_2y < 0:
+        if change_3m_2y is not None and change_3m_2y < 0:
             steepening_type = "bull_steepener"
-        elif roc_3m_10y is not None and roc_3m_10y > 0:
+        elif change_3m_10y is not None and change_3m_10y > 0:
             steepening_type = "bear_steepener"
         else:
             steepening_type = "mixed_steepener"
@@ -168,8 +193,9 @@ def _analyze_treasury_spread(treasury_rates: list[dict]) -> Optional[dict]:
         "current_date": current_date,
         "sma_6m": round(sma_6m, 3) if sma_6m is not None else None,
         "sma_12m": round(sma_12m, 3) if sma_12m is not None else None,
-        "roc_3m": round(roc_3m, 2) if roc_3m is not None else None,
-        "roc_12m": round(roc_12m, 2) if roc_12m is not None else None,
+        "roc_3m": round(spread_change_3m, 3) if spread_change_3m is not None else None,
+        "roc_12m": round(spread_change_12m, 3) if spread_change_12m is not None else None,
+        "roc_unit": "pp",
         "roc_3m_10y": round(roc_3m_10y, 2) if roc_3m_10y is not None else None,
         "roc_3m_2y": round(roc_3m_2y, 2) if roc_3m_2y is not None else None,
         "percentile": round(percentile, 1) if percentile is not None else None,
