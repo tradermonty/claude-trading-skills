@@ -393,6 +393,11 @@ Core + Satellite の主導線は上記の「おすすめの始め方」にまと
 - 環境変数を設定: `export FMP_API_KEY=your_key_here`
 - または、プロンプト時にコマンドライン引数でキーを提供
 
+**Web検索（任意のバックエンド）:**
+- `websearch` を必要とするスキル（`market-news-analyst` や `market-environment-analysis` など）は、デフォルトで組み込みの WebSearch / WebFetch ツールを使います。そのまま使い続けても動作は変わりません
+- 代わりに、任意のWeb検索用MCPサーバーやCLIをClaudeの環境に追加することもできます。一例が [Firecrawl](https://www.firecrawl.dev/)（[インストール手順](https://docs.firecrawl.dev/mcp-server)）で、金融系のデータソースは [Firecrawl Alexandria](https://alexandria.firecrawl.dev/categories/finance) に掲載されています
+- スキルが自動でバックエンドを切り替えることはないため、追加したツールを使うようClaudeに指示してください
+
 ## 参考リンク
 - Claude Skillsローンチ概要: https://www.anthropic.com/news/skills
 - Claude Code Skillsガイド: https://docs.claude.com/en/docs/claude-code/skills
