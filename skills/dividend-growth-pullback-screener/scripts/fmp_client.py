@@ -496,7 +496,10 @@ class FMPClient:
         """Most-recent-first history for the dividend adapters; no retired v3 retry."""
         url = f"{self.STABLE_URL}/historical-price-eod/full"
         if url in self._disabled_endpoints:
-            self._note_skipped_symbol(url, symbol)
+            # No fallback exists here, so the breaker alone refused the symbol; a
+            # request that ended on the rate limit was not refused by the breaker.
+            if not self.rate_limit_reached:
+                self._note_skipped_symbol(url, symbol)
             return None
         today = _et_today()
         data = self._request(

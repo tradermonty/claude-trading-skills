@@ -296,6 +296,45 @@ def test_rate_limit_end_is_not_reported_as_breaker_skip(rel_path, monkeypatch, c
     assert "skipping" not in capsys.readouterr().err
 
 
+DIVIDEND_CLIENTS = [
+    "skills/dividend-growth-pullback-screener/scripts/fmp_client.py",
+    "skills/value-dividend-screener/scripts/fmp_client.py",
+    "skills/kanchi-dividend-sop/scripts/fmp_client.py",
+]
+
+
+@pytest.mark.parametrize("rel_path", DIVIDEND_CLIENTS)
+def test_dividend_rate_limit_end_is_not_reported_as_breaker_skip(rel_path, monkeypatch, capsys):
+    """A dividend history request after the rate limit is not a breaker skip (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    client.max_retries = 0
+
+    class Response:
+        text = ""
+
+        def __init__(self, status_code):
+            self.status_code = status_code
+
+        def json(self):
+            raise ValueError("no json")
+
+    def get(url, **kwargs):
+        return Response(503 if "historical-price-eod" in url else 429)
+
+    monkeypatch.setattr(client.session, "get", get)
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_dividend_prices(f"S{i}") is None
+    assert client._disabled_endpoints
+    assert client._get("profile/ANY") is None
+    assert client.rate_limit_reached
+    capsys.readouterr()
+    assert client.get_dividend_prices("LATE") is None
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+    assert "skipping" not in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("rel_path", FAMILY_B)
 def test_no_quote_surface(rel_path):
     mod = _load(rel_path)

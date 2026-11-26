@@ -166,9 +166,11 @@ def test_success_resets_failure_count(client, monkeypatch):
 
     monkeypatch.setattr(client.session, "get", get)
     client.get_historical_prices("A0")
-    assert any(client._endpoint_failures.values())
+    failing = [url for url, count in client._endpoint_failures.items() if count == 1]
+    assert failing and all("/stable/" in url for url in failing)
     state["stable"] = 200
     assert client.get_historical_prices("A1") is not None
+    assert all(client._endpoint_failures[url] == 0 for url in failing)
     assert not client._disabled_endpoints
 
 
