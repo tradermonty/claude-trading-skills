@@ -58,7 +58,7 @@ An FTD is formally invalidated when:
 - A close below the **FTD candle low**, while holding the rally low, is pressure and caps published quality at 59. It also moves `market_status` to `uptrend_under_pressure` (`cycle.pressure_reasons` includes `ftd_low_close_breach`); the state stays FTD_CONFIRMED. The status returns to `confirmed_uptrend` once active distribution days are <= 4 and the close is above the 50-session SMA, without a new FTD.
 - An intraday breach of the **FTD candle low** followed by a close above that candle low is not the close-breach warning; inspect the rally low separately.
 - An intraday breach of the **rally low** is failure even when the close recovers.
-- Distribution (5+ active distribution days) or a close below the 50-session average (once the index has closed above it since the FTD) moves a confirmed uptrend to `uptrend_under_pressure`; see the market status rules in `ftd_methodology.md`.
+- Distribution (5+ active distribution days) or a close below the 50-session average (once the index has closed above it since the FTD) moves a confirmed uptrend to `uptrend_under_pressure`. 6+ distribution days with a close below the 50-session average end it (market in correction); see the market status rules in `ftd_methodology.md`.
 - Approaching either level is technical context, not an instruction to change portfolio exposure.
 
 ---

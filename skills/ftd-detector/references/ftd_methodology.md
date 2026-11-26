@@ -246,18 +246,22 @@ FTD window and day count are details inside `market_in_correction`.
   `cycle.pressure_reasons` lists the active causes: `distribution`, `below_50sma`,
   `ftd_low_close_breach`, or `awaiting_recovery` when the causes have cleared but the return
   test is not yet met.
-- Either uptrend tier to correction, any of: (a) active distribution days >= 6 and close below
-  the 21-session EMA of closes (the new correction is measured from the post-FTD peak,
-  `previous_ftd.end_reason` = `distribution`); (b) an intraday low below the rally low
+- Either uptrend tier to correction, any of: (a) 6+ active distribution days and a close below
+  the 50-day line (the 50-session SMA of closes; the new correction is measured from the post-FTD
+  peak, `previous_ftd.end_reason` = `distribution`). This trigger does not depend on
+  `regained_50sma_since_ftd`: it ends the uptrend even if the SMA was never regained. Secondary sources describe IBD's trigger variously (one cites the 21-day EMA); this model uses the 50-day line so that shallow pullbacks inside a rising market are not declared corrections, and the threshold is unverified.
+  The earlier 21-session EMA trigger fired on shallow pullbacks (about half of the entries in a
+  2000-2026 replay were less than 5% below the 60-day high) and left long stretches of a rising
+  market in correction, because only an FTD ends a correction; (b) an intraday low below the rally low
   (FTD_INVALIDATED, as before); (c) a drawdown >= 10% from the post-FTD peak close
   (`end_reason` = `deep_drawdown`). (b) wins when several apply on one bar.
 - Distribution day: close down >= 0.2% on volume above the previous session, counted after the
   FTD; it expires after 25 sessions or once a later high is >= 5% above its close (same
   defaults as ibd-distribution-day-monitor).
-- An average that cannot be computed (fewer than 50 or 21 closes since the replay start) makes
-  its condition false; `cycle.indicators.sma50_available` / `ema21_available` say so. The EMA is
-  seeded with the SMA of the first 21 replay closes. A close that
-  is exactly on the average counts as neither above nor below.
+- An SMA that cannot be computed (fewer than 50 closes since the replay start) makes its
+  condition false, in the pressure rule and in the distribution trigger;
+  `cycle.indicators.sma50_available` says so. A close that is exactly on the average counts as
+  neither above nor below.
 - The status is evaluated on the FTD bar too. An FTD that closes below its 50-session SMA
   stays `confirmed_uptrend` until the index has closed above the SMA once; only distribution or
   the FTD-day-low breach can put it under pressure before that.
@@ -275,7 +279,7 @@ official rule text was not verified):
 - https://inkl.com/news/how-to-spot-a-stock-market-bottom-this-signal-marks-all-major-lows
 - https://origin.williamoneil.com/tag/distribution-days/page/2
 
-The numeric thresholds (5 and 6 distribution days, 50-session SMA, 21-session EMA, 10%
+The numeric thresholds (5 and 6 distribution days, the 50-session SMA, the 10%
 drawdown) are unverified, uncalibrated model choices.
 
 ## Why a forward replay

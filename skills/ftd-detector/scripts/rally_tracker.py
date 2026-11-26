@@ -29,10 +29,11 @@ Rules (O'Neil / IBD):
   its reference low (rally failure) or by an FTD; a failed attempt may be
   restarted in the same correction.
 - A confirmed uptrend goes under pressure at 5+ active distribution days, a
-  close below the 50-session SMA or the first close below the FTD-day low. It
-  ends with a new correction measured from the post-FTD peak on 6+ active
-  distribution days with a close below the 21-session EMA, or on a 10% drawdown
-  from that peak, or with FTD_INVALIDATED if the rally low breaks.
+  close below the 50-session SMA (once regained since the FTD) or the first
+  close below the FTD-day low. It ends with a new correction measured from the
+  post-FTD peak on 6+ active distribution days with a close below the 50-session
+  SMA (whether or not the SMA was regained), or on a 10% drawdown from that
+  peak, or with FTD_INVALIDATED if the rally low breaks.
 
 Data gaps (issue #655): a missing or non-finite close/volume/low is never read
 as 0 and bars are never dropped (the replay compares positionally adjacent
@@ -78,9 +79,8 @@ DD_MIN_DECLINE_PCT = 0.2
 DD_EXPIRY_SESSIONS = 25
 DD_RALLY_EXPIRY_PCT = 5.0
 DD_PRESSURE_COUNT = 5  # active distribution days that put the uptrend under pressure
-DD_CORRECTION_COUNT = 6  # active distribution days that, with a close < EMA, end it
-PRESSURE_SMA = 50  # session count of the simple moving average of closes
-CORRECTION_EMA = 21  # session count of the exponential moving average of closes
+DD_CORRECTION_COUNT = 6  # active distribution days that, with a close < SMA, end it
+PRESSURE_SMA = 50  # session count of the SMA of closes (pressure and the DD trigger)
 DEEP_CORRECTION_PCT = 10.0  # drawdown from the post-FTD peak close that ends it
 
 # Display window for lookback_high / correction_depth_pct, and the minimum
@@ -201,29 +201,10 @@ class _Replay:
         self.pressure_reasons = []
         self.ftd_low_breached = False
         self.regained_sma = False  # closed above the 50-session SMA since the FTD bar
-        self.ema = self._ema_series()
 
     # -- helpers ---------------------------------------------------------
     def _date(self, idx):
         return self.h[idx].get("date", "N/A")
-
-    def _ema_series(self):
-        """EMA of closes seeded with the SMA of the first CORRECTION_EMA replay closes.
-
-        Each value uses closes up to its own bar only (point in time); ``None``
-        until CORRECTION_EMA bars exist since the replay start.
-        """
-        out = [None] * len(self.h)
-        first = self.start + CORRECTION_EMA - 1
-        if first >= len(self.h):
-            return out
-        k = 2 / (CORRECTION_EMA + 1)
-        value = sum(self.h[i]["close"] for i in range(self.start, first + 1)) / CORRECTION_EMA
-        out[first] = value
-        for i in range(first + 1, len(self.h)):
-            value = self.h[i]["close"] * k + value * (1 - k)
-            out[i] = value
-        return out
 
     def sma(self, t):
         """SMA of the last PRESSURE_SMA closes ending at t, or None if too few bars."""
@@ -458,8 +439,8 @@ class _Replay:
                 }
             )
         active = len(self.active_dds())
-        ema = self.ema[t]
-        if active >= DD_CORRECTION_COUNT and ema is not None and close < ema:
+        sma = self.sma(t)  # an SMA that cannot be computed makes the condition false
+        if active >= DD_CORRECTION_COUNT and sma is not None and close < sma:
             self._end_uptrend(t, "distribution")
         elif close <= self.peak_close * (1 - DEEP_CORRECTION_PCT / 100):
             self._end_uptrend(t, "deep_drawdown")
@@ -632,8 +613,6 @@ class _Replay:
             "indicators": {
                 "sma50": _round4(self.sma(len(self.h) - 1)),
                 "sma50_available": self.sma(len(self.h) - 1) is not None,
-                "ema21": _round4(self.ema[-1]),
-                "ema21_available": self.ema[-1] is not None,
             },
             "replay_start_date": self._date(self.start),
             "replay_sessions": replay_sessions,

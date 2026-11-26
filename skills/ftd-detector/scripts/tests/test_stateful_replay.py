@@ -288,22 +288,37 @@ def test_3pct_pullback_without_distribution_stays_confirmed():
     check(base + peak + pullback, state="FTD_CONFIRMED", market_status="confirmed_uptrend")
 
 
-def test_six_distribution_days_with_the_close_above_the_ema21_stay_under_pressure():
+def ema_of(bars, period=21):
+    """Test-local EMA of closes seeded with the SMA of the first `period` closes."""
+    closes = [bar["close"] for bar in bars]
+    value = sum(closes[:period]) / period
+    k = 2 / (period + 1)
+    for close in closes[period:]:
+        value = close * k + value * (1 - k)
+    return value
+
+
+def test_six_distribution_days_below_the_ema21_but_above_the_sma50_stay_under_pressure():
+    """The shallow-pullback case the 21-EMA trigger used to turn into a correction."""
     base = long_advance_history(60, step=0.005)
-    bars = base + distribution_bars(base[-1]["close"], 6, step=0.0025)
+    bars = base + distribution_bars(base[-1]["close"], 6, step=0.01)
     result = run(bars)
+    sma = result["cycle"]["indicators"]["sma50"]
     assert len(result["cycle"]["active_distribution_days"]) == 6
-    assert result["cycle"]["indicators"]["ema21_available"] is True
-    assert bars[-1]["close"] > result["cycle"]["indicators"]["ema21"]
+    assert bars[-1]["close"] < ema_of(bars)  # would have ended the uptrend before
+    assert bars[-1]["close"] > sma
     assert result["state"] == "FTD_CONFIRMED"
     assert result["market_status"] == "uptrend_under_pressure"
+    assert result["cycle"]["pressure_reasons"] == ["distribution"]
 
 
-def test_six_distribution_days_with_the_close_below_the_ema21_is_a_correction():
-    base = long_advance_history(60, step=0.005)
-    bars = base + distribution_bars(base[-1]["close"], 9, step=0.009)
-    before = run(bars[: len(base) + 5])
-    assert before["market_status"] == "uptrend_under_pressure"  # 5 DDs: pressure only
+def slow_distribution_history(n_dd):
+    base = long_advance_history(80, step=0.002)
+    return base + distribution_bars(base[-1]["close"], n_dd, step=0.013)
+
+
+def test_six_distribution_days_below_the_sma50_is_a_correction():
+    bars = slow_distribution_history(6)
     result = run(bars)
     assert result["state"] == "CORRECTION"
     assert result["market_status"] == "market_in_correction"
@@ -311,8 +326,42 @@ def test_six_distribution_days_with_the_close_below_the_ema21_is_a_correction():
     assert result["cycle"]["previous_ftd"]["end_reason"] == "distribution"
     assert result["cycle"]["previous_ftd"]["ftd"]["ftd_day_number"] == 4
     assert result["cycle"]["phase"] == "correction"
+    assert result["cycle"]["last_transition"]["from"] == "confirmed"
     # measured from the post-FTD peak, not from the pre-FTD correction
-    assert result["swing_low"]["recent_high_price"] == pytest.approx(base[-1]["close"])
+    peak = long_advance_history(80, step=0.002)[-1]["close"]
+    assert result["swing_low"]["recent_high_price"] == pytest.approx(peak)
+    assert bars[-1]["close"] > peak * 0.9  # the 10% drawdown trigger did not fire
+
+
+def test_five_distribution_days_below_the_sma50_are_not_a_correction():
+    bars = slow_distribution_history(5)
+    result = run(bars)
+    assert len(result["cycle"]["active_distribution_days"]) == 5
+    assert bars[-1]["close"] < result["cycle"]["indicators"]["sma50"]
+    assert result["state"] == "FTD_CONFIRMED"
+    assert result["market_status"] == "uptrend_under_pressure"
+
+
+def test_the_distribution_trigger_does_not_need_the_sma50_to_have_been_regained():
+    bars = below_sma_ftd_history()
+    # the first bar follows the 1.5M FTD volume, so it is not a DD: 7 bars give 6 DDs
+    bars += distribution_bars(bars[-1]["close"], 7, step=0.005)
+    result = run(bars)
+    assert result["cycle"]["regained_50sma_since_ftd"] is None  # no longer confirmed
+    assert result["state"] == "CORRECTION"
+    assert result["cycle"]["previous_ftd"]["end_reason"] == "distribution"
+    before = run(bars[:-1])  # 5 DDs: pressure, and never above the SMA since the FTD
+    assert before["cycle"]["regained_50sma_since_ftd"] is False
+    assert before["market_status"] == "uptrend_under_pressure"
+
+
+def test_an_uncomputable_sma50_never_ends_the_uptrend():
+    base = ftd_history()  # fewer than 50 bars: no SMA
+    bars = base + distribution_bars(base[-1]["close"], 8, step=0.004)
+    result = run(bars)
+    assert result["cycle"]["indicators"]["sma50_available"] is False
+    assert result["state"] == "FTD_CONFIRMED"
+    assert result["market_status"] == "uptrend_under_pressure"
 
 
 def test_sma50_break_without_distribution_is_pressure_not_correction():

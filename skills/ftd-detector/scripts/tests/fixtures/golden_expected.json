@@ -116,9 +116,7 @@
       "previous_ftd": null,
       "indicators": {
         "sma50": 98.0606,
-        "sma50_available": true,
-        "ema21": 98.1085,
-        "ema21_available": true
+        "sma50_available": true
       },
       "replay_start_date": "2026-03-02",
       "replay_sessions": 83,
@@ -198,9 +196,7 @@
       "previous_ftd": null,
       "indicators": {
         "sma50": 392.2425,
-        "sma50_available": true,
-        "ema21": 392.4338,
-        "ema21_available": true
+        "sma50_available": true
       },
       "replay_start_date": "2026-03-02",
       "replay_sessions": 83,

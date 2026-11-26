@@ -19,8 +19,10 @@ the rally, before and after an FTD. A segment restarts at a failure or an invali
 confirmed until a defined event ends it. `market_status` maps the result onto IBD's
 three tiers (`confirmed_uptrend`, `uptrend_under_pressure`, `market_in_correction`, or
 null when undetermined); only an FTD leaves a correction. A close below the 50-session SMA
-puts a confirmed uptrend under pressure only after the index has closed above it once since the FTD. The distribution, 50-session
-SMA, 21-session EMA and 10% drawdown thresholds are unverified model choices. See
+puts a confirmed uptrend under pressure only after the index has closed above it once since the FTD. The uptrend ends on 6+ distribution days with a close below the 50-day line, or on a 10%
+drawdown from the post-FTD peak. Secondary sources describe IBD's trigger variously (one cites the
+21-day EMA); the 50-day line avoids declaring corrections on shallow pullbacks, and the
+thresholds (5 and 6 distribution days, 50-session SMA, 10% drawdown) are unverified model choices. See
 `references/ftd_methodology.md`.
 A close below the FTD candle low warns rather than fails the rally. Pressure caps
 the published numerical quality score at 59, a conservative heuristic rather than
