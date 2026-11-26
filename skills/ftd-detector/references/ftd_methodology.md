@@ -131,7 +131,8 @@ A Follow-Through Day must satisfy ALL of these conditions:
 
 **After Day 10:**
 - The attempt expires on the bar that would be Day 11 (RALLY_FAILED); a qualifying gain on that
-  bar is not an FTD. The reference low is kept and a new count can start (see above).
+  bar is not an FTD. The expiry bar starts a new segment: the next attempt's reference low is
+  re-frozen from that bar through its own Day 1, and a new count can start after a down close (see above).
 - IBD is reported to note that most FTDs come on days 4-7 and some come later (secondary report, IBD's official rule text not verified).
 - A rally without an FTD by Day 10 is a warning sign. No reliability estimate is supplied
 
