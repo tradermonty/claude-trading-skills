@@ -55,6 +55,14 @@ def log_claude_choice() -> None:
         logger.info(claude_cli.describe(_CLAUDE_CHOICE))
 
 
+def mining_env() -> dict[str, str]:
+    """Carry the selected CLI into the standalone weekly Python children."""
+    env = os.environ.copy()
+    if os.path.isabs(CLAUDE_BIN):
+        env[claude_cli.CLAUDE_BIN_ENV] = CLAUDE_BIN
+    return env
+
+
 # Script paths (relative to project root)
 MINE_SCRIPT = "skills/skill-idea-miner/scripts/mine_session_logs.py"
 SCORE_SCRIPT = "skills/skill-idea-miner/scripts/score_ideas.py"
@@ -179,6 +187,7 @@ def run_mine(project_root: Path, dry_run: bool = False) -> Path | None:
         result = subprocess.run(
             cmd,
             cwd=project_root,
+            env=mining_env(),
             capture_output=True,
             text=True,
             check=False,
@@ -244,6 +253,7 @@ def run_score(
         result = subprocess.run(
             cmd,
             cwd=project_root,
+            env=mining_env(),
             capture_output=True,
             text=True,
             check=False,

@@ -13,11 +13,25 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run_skill_improvement_loop import min_interval_hours  # noqa: E402
+
+HEARTBEAT_GRACE_HOURS = 24
+
+
+def improvement_max_hours():
+    """Paid-run interval plus a day of grace, from the same variable as the loop."""
+    return min_interval_hours() + HEARTBEAT_GRACE_HOURS
+
+
 JOBS = {
-    "improvement": ("logs/.skill_improvement_state.json", None, 48),
+    "improvement": ("logs/.skill_improvement_state.json", None, improvement_max_hours),
     "generation-daily": ("logs/.skill_generation_state.json", "daily", 48),
     "generation-weekly": ("logs/.skill_generation_state.json", "weekly", 24 * 14),
 }
+# Written by install_launchd.py --notify off; kept outside the plists so it survives updates.
+NOTIFY_OFF_MARKER = "logs/.skill_loop_notify_off"
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -25,13 +39,15 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def notify_failure(job, exit_code):
+def notify_failure(job, exit_code, root=DEFAULT_ROOT):
     """Best effort; never send command output, paths, or exception details."""
-    _notify(f"Skill automation {job} failed (exit {exit_code}). Check local logs.")
+    _notify(f"Skill automation {job} failed (exit {exit_code}). Check local logs.", root=root)
 
 
-def _notify(message, default_mode=""):
+def _notify(message, default_mode="", root=DEFAULT_ROOT):
     mode = os.environ.get("SKILL_LOOP_NOTIFY", default_mode)
+    if (Path(root) / NOTIFY_OFF_MARKER).exists():
+        mode = "off"
     if not mode or mode == "off":
         return
     try:
@@ -77,6 +93,8 @@ def heartbeat_checks(root, now=None):
     now = now or datetime.now(timezone.utc)
     results = []
     for job, (filename, mode, max_hours) in JOBS.items():
+        if callable(max_hours):
+            max_hours = max_hours()
         status = "missing or invalid success timestamp"
         try:
             state = json.loads((root / filename).read_text(encoding="utf-8"))
@@ -108,10 +126,10 @@ def main():
     action.add_argument("--notify-heartbeat", action="store_true")
     action.add_argument("--notify-failure", choices=[*JOBS, "generation"])
     parser.add_argument("--exit-code", type=int, default=1)
-    parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--project-root", type=Path, default=DEFAULT_ROOT)
     args = parser.parse_args()
     if args.notify_failure:
-        notify_failure(args.notify_failure, args.exit_code)
+        notify_failure(args.notify_failure, args.exit_code, args.project_root)
         return 0
     results = heartbeat_checks(args.project_root)
     for job, status in results:
@@ -120,6 +138,7 @@ def main():
             _notify(
                 f"Skill automation {job} has no fresh success heartbeat. Check local logs.",
                 default_mode="macos",
+                root=args.project_root,
             )
     return int(any(status != "ok" for _, status in results))
 

@@ -18,6 +18,8 @@ LABELS = (
     "com.trade-analysis.skill-generation-weekly",
     "com.trade-analysis.skill-heartbeat",
 )
+# Read by job_monitor.py; kept outside the plists so the opt-out survives template updates.
+NOTIFY_OFF_MARKER = "logs/.skill_loop_notify_off"
 
 
 def _expand(value, replacements):
@@ -37,7 +39,7 @@ def _expand(value, replacements):
     return value
 
 
-def install(root, output, home, *, load=False):
+def install(root, output, home, *, load=False, notify=None):
     """Preflight every template/destination; preserve existing local customizations."""
     if load and sys.platform != "darwin":
         raise ValueError("--load requires macOS and a logged-in GUI session")
@@ -83,6 +85,10 @@ def install(root, output, home, *, load=False):
     # No directories/files or jobs are changed until all conflicts are checked.
     output.mkdir(parents=True, exist_ok=True)
     (root / "logs").mkdir(parents=True, exist_ok=True)
+    if notify == "off":
+        (root / NOTIFY_OFF_MARKER).touch()
+    elif notify == "default":
+        (root / NOTIFY_OFF_MARKER).unlink(missing_ok=True)
     for target, data in rendered:
         if not target.exists():
             with target.open("xb") as stream:
@@ -121,9 +127,17 @@ def main():
     parser.add_argument(
         "--load", action="store_true", help="Bootstrap the four schedules in your GUI domain"
     )
+    parser.add_argument(
+        "--notify",
+        choices=("off", "default"),
+        help="off: silence all maintenance notifications until changed; "
+        "default: restore the plist/wrapper settings (omit to keep the current choice)",
+    )
     args = parser.parse_args()
     try:
-        paths = install(args.project_root, args.output_dir, Path.home(), load=args.load)
+        paths = install(
+            args.project_root, args.output_dir, Path.home(), load=args.load, notify=args.notify
+        )
     except (OSError, ValueError) as exc:
         print(f"Installation failed: {exc}", file=sys.stderr)
         return 1

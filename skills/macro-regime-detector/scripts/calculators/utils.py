@@ -6,12 +6,26 @@ Provides monthly downsampling, ratio calculation, moving averages,
 crossover detection, momentum computation, and transition scoring.
 """
 
+import math
 from typing import Optional
+
+
+def _usable_price(value) -> Optional[float]:
+    """Return a finite, positive price, or None when the value is unusable."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    return float(value)
 
 
 def downsample_to_monthly(daily_history: list[dict]) -> list[dict]:
     """
     Downsample daily OHLCV to monthly (last business day of each month).
+
+    A missing, null, non-finite or non-positive ``adjClose`` is treated as
+    absent and falls back to ``close``; a bar with neither usable value is
+    skipped, so the most recent usable bar represents that month.
 
     Args:
         daily_history: Daily bars, most recent first.
@@ -26,8 +40,10 @@ def downsample_to_monthly(daily_history: list[dict]) -> list[dict]:
     monthly = {}
     for bar in daily_history:
         date_str = bar.get("date", "")
-        close = bar.get("adjClose", bar.get("close", 0))
-        if not date_str or close == 0:
+        close = _usable_price(bar.get("adjClose"))
+        if close is None:
+            close = _usable_price(bar.get("close"))
+        if not date_str or close is None:
             continue
 
         # Extract year-month key

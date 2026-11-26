@@ -85,7 +85,7 @@ def write_heartbeats(root, now):
 
 def test_heartbeat_modes_and_read_only(tmp_path):
     now = datetime.now(timezone.utc)
-    write_heartbeats(tmp_path, now - timedelta(days=3))
+    write_heartbeats(tmp_path, now - timedelta(days=5))
     before = {p: p.read_bytes() for p in (tmp_path / "logs").iterdir()}
     results = dict(monitor.heartbeat_checks(tmp_path, now))
     assert results["generation-weekly"] == "ok"
@@ -174,3 +174,30 @@ direnv() { return 0; }
         1 if wrapper == "improvement" and failure == "setup" else 8 if failure == "setup" else 7
     )
     assert f"--notify-failure {job} --exit-code {result.returncode}" in marker.read_text()
+
+
+def _improvement_status(tmp_path, age_hours):
+    now = datetime.now(timezone.utc)
+    write_heartbeats(tmp_path, now - timedelta(hours=age_hours))
+    return dict(monitor.heartbeat_checks(tmp_path, now))["improvement"]
+
+
+def test_improvement_threshold_follows_72h_cadence(tmp_path, monkeypatch):
+    monkeypatch.delenv("SKILL_LOOP_MIN_INTERVAL_HOURS", raising=False)
+    assert _improvement_status(tmp_path, 95) == "ok"
+    assert _improvement_status(tmp_path, 97).startswith("stale")
+
+
+def test_improvement_threshold_tracks_interval_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("SKILL_LOOP_MIN_INTERVAL_HOURS", "24")
+    assert _improvement_status(tmp_path, 47) == "ok"
+    assert _improvement_status(tmp_path, 49).startswith("stale")
+    monkeypatch.setenv("SKILL_LOOP_MIN_INTERVAL_HOURS", "bad")
+    assert _improvement_status(tmp_path, 95) == "ok"
+
+
+def test_generation_thresholds_unchanged(tmp_path, monkeypatch):
+    monkeypatch.setenv("SKILL_LOOP_MIN_INTERVAL_HOURS", "720")
+    now = datetime.now(timezone.utc)
+    write_heartbeats(tmp_path, now - timedelta(hours=49))
+    assert dict(monitor.heartbeat_checks(tmp_path, now))["generation-daily"].startswith("stale")
