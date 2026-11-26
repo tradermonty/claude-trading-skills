@@ -441,6 +441,132 @@ def determine_recommendation(
     return "NEW_ENTRY_ALLOWED"
 
 
+# --- Market status cap overlay (ftd-detector IBD-style status) ---------------------
+#
+# UNCALIBRATED model choices. The caps below are IBD-inspired heuristics, not fitted
+# or backtested values. IBD's own guidance is known here only from secondary reports
+# (inkl.com summaries of IBD commentary); no IBD primary source was used. The overlay
+# bounds how much exposure the environment supports for adding individual-stock
+# positions. It is not an index trading signal.
+STATUS_CAP_CORRECTION = 20  # market_in_correction, any legacy correction state
+FTD_AGE_CAPS = ((5, 40), (15, 60))  # (sessions since FTD below this bound, cap %)
+FTD_MATURE_CAP = 80  # FTD at least as old as the last bound above
+FTD_UNKNOWN_AGE_CAP = 60  # confirmed uptrend on an FTD of unknown age
+UPTREND_RESUMED_CAP = 80  # new-high resume with no FTD ramp
+PRESSURE_BAND_PCT = 20  # uptrend_under_pressure sits one band below confirmed
+PRESSURE_CAP_FLOOR = 20
+
+MARKET_STATUSES = ("confirmed_uptrend", "uptrend_under_pressure", "market_in_correction")
+MARKET_STATUS_INDEXES = ("sp500", "nasdaq")
+
+
+def _valid_session_count(value: object) -> Optional[int]:
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return None
+
+
+def _ftd_age_cap(days_since_ftd: Optional[int]) -> int:
+    """Confirmed-uptrend cap for an FTD ramp, by sessions since the FTD."""
+    if days_since_ftd is None:
+        return FTD_UNKNOWN_AGE_CAP
+    for bound, cap in FTD_AGE_CAPS:
+        if days_since_ftd < bound:
+            return cap
+    return FTD_MATURE_CAP
+
+
+def _status_cap(
+    status: str, legacy_state: Optional[str], days_since_ftd: Optional[int]
+) -> tuple[int, str]:
+    """Return (cap %, reason) for a validated status."""
+    if status == "market_in_correction":
+        return STATUS_CAP_CORRECTION, (
+            f"Market in correction ({legacy_state or 'state unknown'}): "
+            f"exposure capped at {STATUS_CAP_CORRECTION}%; no new entries."
+        )
+    if legacy_state == "UPTREND_RESUMED":
+        confirmed_cap = UPTREND_RESUMED_CAP
+        basis = "uptrend resumed on a new high without a follow-through day (not an FTD)"
+    else:
+        confirmed_cap = _ftd_age_cap(days_since_ftd)
+        age = "unknown age" if days_since_ftd is None else f"{days_since_ftd} sessions since FTD"
+        basis = f"confirmed uptrend on a follow-through day ({age})"
+    if status == "confirmed_uptrend":
+        return confirmed_cap, f"Confirmed uptrend, {basis}: exposure capped at {confirmed_cap}%."
+    cap = max(PRESSURE_CAP_FLOOR, confirmed_cap - PRESSURE_BAND_PCT)
+    return cap, (
+        f"Uptrend under pressure, {basis}: be selective; "
+        f"cap lowered one band to {cap}% (confirmed case: {confirmed_cap}%)."
+    )
+
+
+def _collect_pressure_reasons(ftd_data: dict) -> list[str]:
+    reasons: list[str] = []
+    for key in MARKET_STATUS_INDEXES:
+        index = ftd_data.get(key)
+        if not isinstance(index, dict) or index.get("market_status") != "uptrend_under_pressure":
+            continue
+        cycle = index.get("cycle")
+        found = cycle.get("pressure_reasons") if isinstance(cycle, dict) else None
+        if isinstance(found, list):
+            reasons.extend(r for r in found if isinstance(r, str) and r not in reasons)
+    return reasons
+
+
+def apply_market_status_overlay(
+    ftd_data: Optional[dict], ceiling: int, recommendation: str
+) -> tuple[int, str, Optional[dict]]:
+    """Apply the ftd-detector market status as a cap on the composite result.
+
+    Returns (ceiling, recommendation, block). The block is None, and the inputs are
+    returned unchanged, when there is no usable combined ``market_status`` (old
+    ftd-detector output, NO_SIGNAL, data gap, or no --ftd input). The composite score
+    is never touched; the final ceiling is min(composite ceiling, cap).
+    """
+    if not evaluation_input_usable(ftd_data):
+        return ceiling, recommendation, None
+    state = ftd_data.get("market_state")
+    if not isinstance(state, dict) or state.get("data_gap"):
+        return ceiling, recommendation, None
+    status = state.get("market_status")
+    if status not in MARKET_STATUSES:
+        return ceiling, recommendation, None
+    legacy_state = state.get("combined_state")
+    if not isinstance(legacy_state, str):
+        legacy_state = None
+    invalidation = ftd_data.get("ftd_invalidation")
+    days = _valid_session_count(
+        invalidation.get("days_since_ftd") if isinstance(invalidation, dict) else None
+    )
+    if status == "market_in_correction" or legacy_state == "UPTREND_RESUMED":
+        days = None  # an FTD age is meaningless on these paths
+
+    cap, reason = _status_cap(status, legacy_state, days)
+    final_ceiling = min(ceiling, cap)
+    final_recommendation = recommendation
+    if status == "market_in_correction" and recommendation == "NEW_ENTRY_ALLOWED":
+        final_recommendation = "REDUCE_ONLY"
+
+    per_index = {}
+    for key in MARKET_STATUS_INDEXES:
+        index = ftd_data.get(key)
+        value = index.get("market_status") if isinstance(index, dict) else None
+        per_index[key] = value if value in MARKET_STATUSES else None
+
+    block = {
+        "status": status,
+        "legacy_state": legacy_state,
+        "cap_pct": cap,
+        "applied": final_ceiling < ceiling or final_recommendation != recommendation,
+        "reason": reason,
+        "days_since_ftd": days,
+        "per_index": per_index,
+        "pressure_reasons": _collect_pressure_reasons(ftd_data),
+    }
+    return final_ceiling, final_recommendation, block
+
+
 def determine_bias(
     regime_name: str,
     theme_score: Optional[int],
@@ -632,6 +758,33 @@ def generate_markdown_report(result: dict) -> str:
             "",
         ]
     )
+
+    overlay = result.get("market_status_overlay")
+    if overlay:
+        per_index = ", ".join(
+            f"{name}: {value or 'n/a'}" for name, value in overlay["per_index"].items()
+        )
+        age = overlay["days_since_ftd"]
+        binding = "applied" if overlay["applied"] else "not binding"
+        lines.extend(
+            [
+                "### Market Status Overlay",
+                f"- Status: {overlay['status']} (legacy state: {overlay['legacy_state']}).",
+                f"- Cap: {overlay['cap_pct']}% ({binding}).",
+                f"- {overlay['reason']}",
+                f"- Sessions since FTD: {age if age is not None else 'n/a'}.",
+                f"- Per index: {per_index}.",
+            ]
+        )
+        if overlay["pressure_reasons"]:
+            lines.append(f"- Pressure reasons: {', '.join(overlay['pressure_reasons'])}.")
+        lines.extend(
+            [
+                "- Uncalibrated, IBD-inspired cap on exposure for individual-stock positions;"
+                " not an index trading signal.",
+                "",
+            ]
+        )
 
     if result["inputs_missing"]:
         lines.extend(
@@ -885,6 +1038,9 @@ def main():
     exposure_ceiling = determine_exposure_ceiling(composite)
     missing_critical = len(set(missing) & CRITICAL_INPUTS)
     recommendation = determine_recommendation(composite, scores["top_risk"], missing_critical)
+    exposure_ceiling, recommendation, status_overlay = apply_market_status_overlay(
+        ftd_data, exposure_ceiling, recommendation
+    )
 
     regime_name = extract_regime_name(regime_data)
     bias = determine_bias(regime_name, scores["theme"], sector_input.context, institutional_data)
@@ -897,6 +1053,8 @@ def main():
         composite, recommendation, participation, bias, scores, missing, exposure_ceiling
     )
 
+    if status_overlay is not None:
+        rationale += f" Market status: {status_overlay['reason']}"
     for name in unparsable:
         rationale += f" Supplied {name} input is unparsable and excluded."
     if (
@@ -942,6 +1100,8 @@ def main():
         result["input_warnings"] = input_warnings
     if sector_input.details:
         result["sector_integration"] = sector_input.details
+    if status_overlay is not None:
+        result["market_status_overlay"] = status_overlay
 
     if lineage is not None:
         result["input_lineage"] = lineage
