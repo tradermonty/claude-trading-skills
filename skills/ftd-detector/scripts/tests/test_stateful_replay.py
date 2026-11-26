@@ -341,9 +341,17 @@ def test_pressure_returns_to_confirmed_when_distribution_ages_off_and_the_sma50_
     base = long_advance_history(60, step=0.002)
     pressure = distribution_bars(base[-1]["close"], 5, step=0.004)
     assert run(base + pressure)["market_status"] == "uptrend_under_pressure"
-    recovery = advance(pressure[-1]["close"], 40, step=0.003)
-    result = run(base + pressure + recovery)
-    assert result["cycle"]["active_distribution_days"] == []
+    # Slow recovery: no later high gets 5% above a DD close, so DDs leave by aging only.
+    recovery = advance(pressure[-1]["close"], 40, step=0.0005)
+    bars = base + pressure + recovery
+    first_dd = len(base)  # index of the first distribution day
+    still = run(bars[: first_dd + 26])  # last session is 25 sessions after the first DD
+    assert still["market_status"] == "uptrend_under_pressure"
+    assert len(still["cycle"]["active_distribution_days"]) == 5
+    after = run(bars[: first_dd + 27])  # the 26th session: the first DD has expired
+    assert len(after["cycle"]["active_distribution_days"]) == 4
+    assert after["market_status"] == "confirmed_uptrend"
+    result = run(bars)
     assert result["market_status"] == "confirmed_uptrend"
     assert result["cycle"]["previous_ftd"] is None  # no new FTD was needed
     assert result["ftd"]["_ftd_idx"] == len(ftd_history()) - 1
@@ -652,3 +660,64 @@ def test_pressure_reasons_name_the_active_cause():
     base = long_advance_history(60, step=0.005)
     bars = base + distribution_bars(base[-1]["close"], 5, step=0.0025)
     assert run(bars)["cycle"]["pressure_reasons"] == ["distribution"]
+
+
+# --- review findings ----------------------------------------------------------------------------
+
+
+def test_lower_close_holding_the_reference_lowers_the_closing_low_without_a_reset():
+    bars = prefix() + [B(100.5), B(98.5, low=98.1)]
+    result = run(bars)
+    assert result["state"] == "RALLY_ATTEMPT"
+    assert result["rally_attempt"]["current_day_count"] == 2
+    assert result["swing_low"]["swing_low_price"] == 98.5
+    assert result["rally_attempt"]["reference_low"] == 98.0
+    failed = run(bars + [B(98.8, low=97.5)])  # a later failure closing higher cannot raise it
+    assert failed["state"] == "RALLY_FAILED"
+    assert failed["swing_low"]["swing_low_price"] == 98.5
+
+
+def test_down_close_on_the_exhaustion_bar_rearms_so_the_next_up_close_is_day1():
+    bars = prefix() + attempt_bars(10)  # Day 1-10, no qualifying FTD
+    assert run(bars)["state"] == "FTD_WINDOW"
+    exhausted = bars + [B(bars[-1]["close"] * 0.999)]  # Day 11: down close
+    result = run(exhausted)
+    assert result["state"] == "RALLY_FAILED"  # the exhaustion bar is never Day 1
+    assert result["rally_attempt"]["current_day_count"] == 11
+    restarted = run(exhausted + [B(exhausted[-1]["close"] * 1.003)])  # Day 12: up close
+    dated = assign_session_dates(copy.deepcopy(exhausted + [B(1.0)]))
+    assert restarted["state"] == "RALLY_ATTEMPT"
+    assert restarted["rally_attempt"]["current_day_count"] == 1
+    assert restarted["rally_attempt"]["day1_date"] == dated[-1]["date"]
+    assert restarted["rally_attempt"]["reset_count"] == 1
+
+
+def test_ftd_gain_is_compared_unrounded():
+    base = prefix() + attempt_bars(3)
+    close = base[-1]["close"]
+    almost = run(base + [B(close * 1.01246, vol=1_500_000)])  # +1.246% rounds to 1.25
+    assert almost["state"] == "FTD_WINDOW"
+    assert almost["ftd"]["ftd_detected"] is False
+    enough = run(base + [B(close * 1.0126, vol=1_500_000)])
+    assert enough["state"] == "FTD_CONFIRMED"
+    assert enough["ftd"]["gain_tier"] == "minimum"
+
+
+def test_short_history_with_a_bad_bar_is_a_data_gap_not_insufficient_data():
+    from rally_tracker import get_market_state
+
+    short = assign_session_dates([B(100.0) for _ in range(9)])
+    short[4]["close"] = None
+    single = analyze_single_index(short, "X")
+    assert single["data_gap"] is True
+    assert single["market_status"] is None
+    assert single["error"].startswith("Data gap:")
+    clean = analyze_single_index(assign_session_dates([B(100.0) for _ in range(9)]), "X")
+    assert clean["error"] == "Insufficient data"
+    assert "data_gap" not in clean
+    nasdaq = assign_session_dates(ftd_history())
+    state = get_market_state(list(reversed(short)), list(reversed(nasdaq)))
+    assert state["nasdaq"]["state"] == "FTD_CONFIRMED"
+    assert state["data_gap"] is True
+    assert state["combined_state"] == "NO_SIGNAL"
+    assert state["market_status"] is None

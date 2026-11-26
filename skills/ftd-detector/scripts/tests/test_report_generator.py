@@ -68,7 +68,7 @@ def test_no_signal_renders_uptrend_status_and_normal_market_guidance(tmp_path):
             "quality_score": {"total_score": 100},
         },
     )
-    assert "| **Current State** | ⚪ **No Signal (Uptrend)** |" in markdown
+    assert "| **Current State** | ⚪ **No Signal (status unavailable)** |" in markdown
     assert "No active confirmed FTD is established" in markdown
     assert "Aggressively increase equity exposure" not in markdown
     assert "Gradually increase exposure with each successful breakout" not in markdown

@@ -72,7 +72,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("| Metric | Value |")
     lines.append("|--------|-------|")
     if state_gap:
-        # Never the green/normal "No Signal (Uptrend)" label for a gapped run
+        # Never the green/normal "No Signal" label for a gapped run
         lines.append(f"| **Current State** | ⚠️ **{DATA_GAP_STATE_LABEL}** |")
     else:
         state_emoji = _state_emoji(combined_state)
@@ -456,7 +456,7 @@ def _state_emoji(state: str) -> str:
 
 def _state_label(state: str) -> str:
     mapping = {
-        "NO_SIGNAL": "No Signal (Uptrend)",
+        "NO_SIGNAL": "No Signal (status unavailable)",
         "CORRECTION": "Correction",
         "RALLY_ATTEMPT": "Rally Attempt (Day 1-3)",
         "FTD_WINDOW": "FTD Window (Day 4-10)",

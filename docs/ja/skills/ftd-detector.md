@@ -110,7 +110,7 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 ```
 
 スクリプトの処理内容:
-1. FMP APIからS&P 500（^GSPC）とNasdaq総合指数（^IXIC、QQQは明示指定時のみ）の過去60営業日分のデータを取得
+1. FMP APIからS&P 500（^GSPC）とNasdaq総合指数（^IXIC、QQQは明示指定時のみ）の過去500営業日分のデータを取得し、履歴全体を古い順にリプレイ
 2. 両指数の現在クォートを取得
 3. デュアルインデックスのステートマシンを実行（調整 → ラリー → FTD検出）
 4. FTD後の健全性評価（ディストリビューションデー、無効化チェック、パワートレンド）
@@ -132,8 +132,8 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 
 **データ欠損の扱い。** 終値や出来高が欠けている、または NaN などの非有限値である場合、その値を 0 として読むことはありません。バーを間引くこともしません。間引くと FTD を誤って作り出すおそれがあるためです。毎回の出力に次の項目が入ります。
 
-- `data_gap`（真偽値）: いずれかの指数の直近60営業日、または FTD 後のチェックで不正なバーがあれば true になります。トップレベルと `market_state` の両方に入ります。
-- `data_quality`: 指数ごとの60営業日ウィンドウの検査結果です。`window_sessions`、`bad_bars`、`bad_dates`、`latest_bad` を含みます。S&P 500 にはパワートレンド入力の `power_trend_bad_bars` も入りますが、数えるのはパワートレンドを計算する50本以上のときだけです。分析できなかった指数には `error` が付きます。
+- `data_gap`（真偽値）: いずれかの指数のリプレイが、再開できない不正なバー（終値・出来高・安値の欠損）に当たった場合、または FTD 後のチェックで不正なバーがあれば true になります。不正なバーがあるとその後ろから再開し、クリーンな60営業日が必要です。トップレベルと `market_state` の両方に入ります。
+- `data_quality`: 指数ごとの直近60営業日の終値・出来高の検査結果です。`window_sessions`、`bad_bars`、`bad_dates`、`latest_bad` を含みます。S&P 500 にはパワートレンド入力の `power_trend_bad_bars` も入りますが、数えるのはパワートレンドを計算する50本以上のときだけです。分析できなかった指数には `error` が付きます。
 
 必要な終値・出来高に欠損がある指数は `NO_SIGNAL` となり、価格は null です。その指数では FTD 判定を行いません。Day 1やFTD後の安値の根拠だけが欠ける場合も、指数別stateは `data_gap: true` 付きの `NO_SIGNAL` です。ただし、既知の価格や確認済みの過去イベント情報は透明性のため残る場合があり、有効性を判定できるという意味ではありません。このとき全体の `combined_state` は `data_gap: true` 付きの `NO_SIGNAL` として出力されます。これは上昇トレンドではなく「状態を判定できない」という意味です。FTD 指数は null となり、FTD 後のチェックも行いません。もう一方の指数の状態を繰り上げて使うことはしません。欠損が、欠損側の指数の FTD やその無効化を隠している可能性があるためです。各指数の分析結果は JSON に残り、Markdown の見出しは「State unavailable (data gap)」と表示されます。いずれかの指数、または FTD 後のチェックに欠損があると、品質スコアは **Unavailable** になります。`total_score` は常に整数の 0 で、シグナルは `Unavailable: data gap`、エクスポージャーは `Not assessed` です。Markdown には「Unavailable (理由)」と、行動指針「Data gap: confirmation unavailable — do not increase exposure on this signal」が表示されます。欠損がパワートレンドの入力だけにある場合は、パワートレンドのみが Unavailable となり、スコアは変わりません。出来高 0 は欠損として扱います。^GSPC や QQQ では出来高 0 はデータ提供元の欠損であるためです。以前のバージョンでは 0 を実際の値として扱っていたため、これは挙動の変更です。
 

@@ -24,9 +24,11 @@ Rules (O'Neil / IBD):
 - FTD: Day 4-10, gain >= 1.25% vs the previous close, volume above the
   previous session. A failed or exhausted (no FTD by Day 10) attempt may be
   restarted in the same correction.
-- A confirmed uptrend ends with a new correction measured from the post-FTD
-  peak that is confirmed by distribution (5+ active distribution days) or by a
-  10% drawdown, or earlier with FTD_INVALIDATED if the correction low breaks.
+- A confirmed uptrend goes under pressure at 5+ active distribution days, a
+  close below the 50-session SMA or the first close below the FTD-day low. It
+  ends with a new correction measured from the post-FTD peak on 6+ active
+  distribution days with a close below the 21-session EMA, or on a 10% drawdown
+  from that peak, or with FTD_INVALIDATED if the correction low breaks.
 
 Data gaps (issue #655): a missing or non-finite close/volume/low is never read
 as 0 and bars are never dropped (the replay compares positionally adjacent
@@ -327,7 +329,10 @@ class _Replay:
             )
             self._fail(t, MarketState.RALLY_FAILED, "rally failed: correction low undercut")
             return
-        change_pct = round((close - prev["close"]) / prev["close"] * 100, 2)
+        if close < self.low_close:  # a lower close that holds the reference moves the closing low
+            self.low_close, self.low_idx = close, t
+        gain = (close - prev["close"]) / prev["close"] * 100
+        change_pct = round(gain, 2)
         self.attempt["rally_days"].append(
             {
                 "day": self.day,
@@ -345,10 +350,10 @@ class _Replay:
         )
         if (
             FTD_DAY_START <= self.day <= FTD_DAY_END
-            and change_pct >= FTD_GAIN_MINIMUM
+            and gain >= FTD_GAIN_MINIMUM
             and bar["volume"] > prev["volume"] > 0
         ):
-            self._confirm(t, change_pct)
+            self._confirm(t, gain)
         elif self.day > FTD_DAY_END:
             self.attempt.update(
                 invalidated=True,
@@ -357,7 +362,8 @@ class _Replay:
             self.failures += 1
             self._transition(t, "correction", "rally exhausted without an FTD")
             self.label = MarketState.RALLY_FAILED.value
-            self.armed = False
+            # The exhaustion bar is never Day 1; a down close re-arms the search.
+            self.armed = close < prev["close"]
 
     def _fail(self, t, label, reason):
         """Re-enter the correction phase after an undercut; the bar is never Day 1."""
@@ -370,14 +376,15 @@ class _Replay:
         self._transition(t, "correction", reason)
         self.label = label.value
 
-    def _confirm(self, t, change_pct):
+    def _confirm(self, t, gain):
         bar = self.h[t]
+        change_pct = round(gain, 2)
         lookback = [read_price(b, "volume") for b in self.h[max(self.start, t - 50) : t]]
         lookback = [v for v in lookback if v is not None]
         pit_avg = sum(lookback) / len(lookback) if lookback else 0
-        if change_pct >= FTD_GAIN_STRONG:
+        if gain >= FTD_GAIN_STRONG:
             tier = "strong"
-        elif change_pct >= FTD_GAIN_RECOMMENDED:
+        elif gain >= FTD_GAIN_RECOMMENDED:
             tier = "recommended"
         else:
             tier = "minimum"
@@ -650,11 +657,16 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     window_gaps = bar_gaps(analysis_window)
     result["data_quality"] = window_quality(window_gaps)
 
+    gaps = find_bar_gaps(history, REPLAY_FIELDS, order="chronological")
     if len(history) < 10:
-        result["error"] = "Insufficient data"
+        if gaps["bad_bars"]:  # too short to restart past a bad bar: unavailable, not "no data"
+            report = window_gaps if window_gaps["bad_bars"] else bar_gaps(analysis_window, ("low",))
+            result["error"] = gap_reason(report, f"in the last {lookback} sessions")
+            result["data_gap"] = True
+        else:
+            result["error"] = "Insufficient data"
         return result
 
-    gaps = find_bar_gaps(history, REPLAY_FIELDS, order="chronological")
     start = gaps["bad_indices"][-1] + 1 if gaps["bad_bars"] else 0
     replay_sessions = len(history) - start
     if gaps["bad_bars"] and replay_sessions < MIN_REPLAY_SESSIONS:

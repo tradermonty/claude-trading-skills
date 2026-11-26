@@ -89,7 +89,7 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 ```
 
 The script will:
-1. Fetch S&P 500 (^GSPC) and Nasdaq Composite (^IXIC) historical data (60+ trading days) from FMP API
+1. Fetch S&P 500 (^GSPC) and Nasdaq Composite (^IXIC) historical data (500 trading sessions; the whole history is replayed) from FMP API
 2. Fetch current quotes for both indices
 3. Run dual-index state machine (correction → rally → FTD detection)
 4. Assess post-FTD health (distribution days, invalidation, power trend)
