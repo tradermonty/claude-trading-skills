@@ -182,6 +182,61 @@ def test_always_empty_endpoint_never_trips_breaker(rel_path, monkeypatch):
     assert len(calls) >= attempts
 
 
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_fallback_served_symbol_is_not_reported_as_skipped(rel_path, monkeypatch, capsys):
+    """A symbol a later endpoint served must not appear in skipped_symbols (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+
+    class Response:
+        text = ""
+
+        def __init__(self, status_code):
+            self.status_code = status_code
+
+        def json(self):
+            return {"symbol": "ABC", "historical": [{"date": "2026-01-09", "close": 10}]}
+
+    def get(url, **kwargs):
+        return Response(503 if "/stable/" in url else 200)
+
+    monkeypatch.setattr(client.session, "get", get)
+    # Enough stable 503s to trip the breaker; every call is still served by v3.
+    for _ in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices("ABC") is not None
+    assert len(client._disabled_endpoints) == 1
+    assert client.get_historical_prices("DEF") is not None
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+    assert "skipping" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_skip_report_names_only_symbols_no_endpoint_served(rel_path, monkeypatch, capsys):
+    """A symbol is reported skipped only when no endpoint returned data (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+
+    class Response:
+        status_code = 503
+        text = ""
+
+        def json(self):
+            raise ValueError("no json")
+
+    monkeypatch.setattr(client.session, "get", lambda url, **kwargs: Response())
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices(f"BAD{i}") is None
+    assert client._disabled_endpoints
+    # Failed symbols (called, not skipped) stay out of the report; the symbol
+    # whose endpoints were both passed over is reported.
+    assert client.get_historical_prices("SKIPME") is None
+    entries = client.get_endpoint_report()["skipped_symbols"]
+    assert entries and all("SKIPME" in entry for entry in entries)
+    assert "SKIPME" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("rel_path", FAMILY_B)
 def test_api_stats_budget_shape(rel_path, monkeypatch):
     monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret

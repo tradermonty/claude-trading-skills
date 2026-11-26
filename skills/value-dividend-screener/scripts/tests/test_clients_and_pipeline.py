@@ -233,7 +233,8 @@ class TestHistoricalPrices:
         assert client.get_historical_prices("AAPL", days=30) == []
         # An empty per-symbol response is a response-contract outcome, not a
         # provider outage: it must not move the circuit breaker (#844).
-        assert client._endpoint_failures.get(f"{FMPClient.STABLE_URL}/historical-price-eod/full", 0) == 0
+        key = f"{FMPClient.STABLE_URL}/historical-price-eod/full"
+        assert client._endpoint_failures.get(key, 0) == 0
         assert session.get.call_count == 1
 
     def test_retired_wrapper_shape_is_not_a_valid_stable_history(self):
@@ -248,7 +249,8 @@ class TestHistoricalPrices:
         assert client.get_historical_prices("AAPL") == []
         # A shaped 200 that no consumer can use is a response-contract problem,
         # not a provider outage: it must not move the circuit breaker (#844).
-        assert client._endpoint_failures.get(f"{FMPClient.STABLE_URL}/historical-price-eod/full", 0) == 0
+        key = f"{FMPClient.STABLE_URL}/historical-price-eod/full"
+        assert client._endpoint_failures.get(key, 0) == 0
         assert session.get.call_count == 1
 
     def test_exception_is_recorded_and_returns_empty(self):

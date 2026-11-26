@@ -176,7 +176,7 @@ class FMPClient:
         # Class of the most recent failure, so the endpoint breaker can
         # count provider outages only, not per-symbol client errors.
         self._last_failure_kind: Optional[str] = None
-        # Symbols skipped because every endpoint was disabled by failures.
+        # Symbols skipped because no remaining endpoint could serve them.
         self._skipped_symbols: list[str] = []
 
     def _redact_secret(self, text) -> str:
@@ -262,9 +262,7 @@ class FMPClient:
             else:
                 body = self._redact_secret(response.text)[:200]
                 msg = self._redact_secret(f"HTTP {response.status_code} - {body}")
-                self._last_failure_kind = (
-                    "http_5xx" if response.status_code >= 500 else "http_4xx"
-                )
+                self._last_failure_kind = "http_5xx" if response.status_code >= 500 else "http_4xx"
                 self._last_error = msg
                 if not quiet:
                     print(
@@ -293,10 +291,12 @@ class FMPClient:
         endpoints = _FMP_ENDPOINTS[endpoint_key]
         is_single = "," not in symbols_str
 
+        passed_over: list[str] = []
         for i, (base_url, url_builder) in enumerate(endpoints):
-            # Circuit breaker: skip endpoints with too many consecutive failures
+            # Circuit breaker: skip endpoints with too many consecutive failures.
+            # Do not report the symbol yet: a later endpoint may still serve it.
             if base_url in self._disabled_endpoints:
-                self._note_skipped_symbol(base_url, symbols_str)
+                passed_over.append(base_url)
                 continue
 
             url, final_params = url_builder(base_url, symbols_str, dict(params))
@@ -368,6 +368,9 @@ class FMPClient:
             # contract failure, not a provider outage: do not count it.
             self._last_failure_kind = "response_contract"
             self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
+        if passed_over:
+            for skipped_url in passed_over:
+                self._note_skipped_symbol(skipped_url, symbols_str)
         return None
 
     def _warn_fallback(self, base_url: str, is_last: bool, reason: Optional[str]) -> None:
@@ -403,8 +406,7 @@ class FMPClient:
         if entry not in self._skipped_symbols:
             self._skipped_symbols.append(entry)
             print(
-                f"WARN: {base_url} disabled after repeated failures; "
-                f"skipping {symbols_str}",
+                f"WARN: {base_url} disabled after repeated failures; skipping {symbols_str}",
                 file=sys.stderr,
             )
 
