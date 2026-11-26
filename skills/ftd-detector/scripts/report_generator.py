@@ -11,6 +11,13 @@ import math
 # Headline for a run whose combined state is unavailable (issue #655)
 DATA_GAP_STATE_LABEL = "State unavailable (data gap)"
 
+# IBD three-tier market status (None when it cannot be determined)
+MARKET_STATUS_LABELS = {
+    "confirmed_uptrend": "Confirmed Uptrend",
+    "uptrend_under_pressure": "Uptrend Under Pressure",
+    "market_in_correction": "Market in Correction",
+}
+
 
 def generate_json_report(analysis: dict, output_file: str):
     """Save full analysis as JSON."""
@@ -65,11 +72,13 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("| Metric | Value |")
     lines.append("|--------|-------|")
     if state_gap:
-        # Never the green/normal "No Signal (Uptrend)" label for a gapped run
+        # Never the green/normal "No Signal" label for a gapped run
         lines.append(f"| **Current State** | ⚠️ **{DATA_GAP_STATE_LABEL}** |")
     else:
         state_emoji = _state_emoji(combined_state)
         lines.append(f"| **Current State** | {state_emoji} **{_state_label(combined_state)}** |")
+    status_label = MARKET_STATUS_LABELS.get(ms.get("market_status"), "Not determined")
+    lines.append(f"| **Market Status** | {status_label} |")
     lines.append(f"| **Quality Score** | **{total_score}/100** |")
     lines.append(f"| **Signal** | {signal} |")
     lines.append(f"| **Exposure Guidance** | {quality.get('exposure_range', 'N/A')} |")
@@ -92,7 +101,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("")
     if inv.get("rally_low") is not None:
         lines.append(
-            f"**Rally failure reference ({quality.get('ftd_source', 'source unavailable')}):** Day 1 low {_money(inv.get('rally_low'))}; intraday breach required."
+            f"**Rally failure reference ({quality.get('ftd_source', 'source unavailable')}):** rally low {_money(inv.get('rally_low'))}; intraday breach required."
         )
         lines.append("")
     lines.append(
@@ -233,7 +242,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
                     f"- **FTD INVALIDATED** on {inv.get('invalidation_date')} "
                     f"(Day {inv.get('days_after_ftd')}, intraday low "
                     f"{_money(inv.get('invalidation_low'))} "
-                    f"below Day 1 low {_money(inv.get('rally_low'))})"
+                    f"below rally low {_money(inv.get('rally_low'))})"
                 )
             elif "invalidated" in inv and inv["invalidated"] is None:
                 lines.append(f"- **FTD Valid:** Unavailable ({inv.get('reason', 'data gap')})")
@@ -282,7 +291,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("- Re-run once the data provider has backfilled the missing bars")
     elif combined_state == "FTD_CONFIRMED":
         lines.append("- FTD event remains confirmed; review warning evidence separately")
-        lines.append("- Monitor Day 1 low for rally failure and FTD-day low for pressure")
+        lines.append("- Monitor the rally low for rally failure and FTD-day low for pressure")
+        lines.append(
+            "- Evaluate breadth, leadership and portfolio constraints before any allocation decision"
+        )
+    elif combined_state == "UPTREND_RESUMED":
+        lines.append(
+            "- Uptrend resumed on a new high without an FTD; there is no FTD event or FTD-day low"
+        )
+        lines.append("- Monitor distribution days, the 50-day line and the failure reference low")
         lines.append(
             "- Evaluate breadth, leadership and portfolio constraints before any allocation decision"
         )
@@ -295,9 +312,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
             "- Correction detected; identify a new Day 1 reference before evaluating a rally"
         )
     elif combined_state == "RALLY_FAILED":
-        lines.append(
-            "- Rally reference failed or the model qualification window expired; reassess a fresh attempt"
-        )
+        ended = {
+            _attempt_end_reason(data.get("rally_attempt"))
+            for data in (sp500, nasdaq)
+            if data.get("state") == "RALLY_FAILED"
+        } or {"undercut"}
+        if "undercut" in ended:
+            lines.append("- Rally low was undercut; reassess a fresh attempt")
+        if "expired" in ended:
+            lines.append("- No follow-through day by Day 10; a new count starts after a down close")
     else:
         lines.append("- No active confirmed FTD is established by this model")
 
@@ -318,13 +341,24 @@ def generate_markdown_report(analysis: dict, output_file: str):
             continue
 
         lines.append(f"**{label}:**")
+        ref_low = rally.get("reference_low")
+        if ref_low is None:
+            ref_low = rally.get("day1_low")
         if rally.get("day1_date"):
             lines.append(f"- Rally Day 1: {rally['day1_date']}")
-            lines.append(
-                f"- Day 1 Low (rally failure level; intraday breach): {_money(rally.get('day1_low'))}"
-            )
+        if ref_low is not None:
+            # A resume without a Day 1 still has a failure reference (the segment low).
+            lines.append(f"- Rally failure level (rally low; intraday breach): {_money(ref_low)}")
+        if rally.get("day1_date"):
+            lines.append(f"- Day 1 Low (informational): {_money(rally.get('day1_low'))}")
         if swing:
             lines.append(f"- Swing Low: ${swing.get('price', 0):.2f} ({swing.get('date', 'N/A')})")
+        cycle = data.get("cycle") or {}
+        if cycle.get("uptrend_status") == "under_pressure":
+            lines.append(
+                f"- Uptrend under pressure: {len(cycle.get('active_distribution_days') or [])} "
+                "active distribution days"
+            )
         if ftd_data and ftd_data.get("ftd_detected"):
             lines.append(f"- FTD Day: {ftd_data.get('ftd_date', 'N/A')}")
             if ftd_data.get("ftd_low"):
@@ -345,7 +379,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("")
     lines.append("1. **Swing Low Detection:** 3%+ decline from recent high with 3+ down days")
     lines.append(
-        "2. **Rally Attempt:** Day 1 (up close or upper-half close); all subsequent sessions must hold its intraday low"
+        "2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the rally low"
     )
     lines.append("3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day")
     lines.append(
@@ -380,6 +414,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
         f.write("\n".join(lines))
 
     print(f"  Markdown report saved to: {output_file}")
+
+
+def _attempt_end_reason(rally: dict | None) -> str:
+    """ "expired" or "undercut" for an ended rally attempt (undercut when unknown)."""
+    rally = rally or {}
+    if rally.get("end_reason") in ("expired", "undercut"):
+        return rally["end_reason"]
+    reason = rally.get("invalidation_reason") or ""
+    return "expired" if reason.startswith("No follow-through day") else "undercut"
 
 
 def _money(value) -> str:
@@ -429,6 +472,7 @@ def _state_emoji(state: str) -> str:
         "RALLY_ATTEMPT": "🟡",
         "FTD_WINDOW": "🟡",
         "FTD_CONFIRMED": "🟢",
+        "UPTREND_RESUMED": "🟢",
         "RALLY_FAILED": "🔴",
         "FTD_INVALIDATED": "🔴",
     }
@@ -437,11 +481,12 @@ def _state_emoji(state: str) -> str:
 
 def _state_label(state: str) -> str:
     mapping = {
-        "NO_SIGNAL": "No Signal (Uptrend)",
+        "NO_SIGNAL": "No Signal (status unavailable)",
         "CORRECTION": "Correction",
         "RALLY_ATTEMPT": "Rally Attempt (Day 1-3)",
         "FTD_WINDOW": "FTD Window (Day 4-10)",
         "FTD_CONFIRMED": "FTD Confirmed",
+        "UPTREND_RESUMED": "Uptrend Resumed (new high, no FTD)",
         "RALLY_FAILED": "Rally Failed",
         "FTD_INVALIDATED": "FTD Invalidated",
     }

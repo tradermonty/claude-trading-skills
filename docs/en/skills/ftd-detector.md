@@ -12,8 +12,18 @@ permalink: /en/skills/ftd-detector/
 
 ## Lifecycle and quality contract (#765 review)
 
-The explicit failure anchor is the rally Day 1 intraday low. This may be stricter
-than the generic IBD downtrend-low description; the two are not claimed identical.
+The rally failure anchor is the rally low, the low of the pullback the attempt started
+from (the lowest low of that pullback through Day 1, inclusive, frozen on Day 1): an intraday low strictly below it fails
+the rally, before and after an FTD. A segment restarts at a failure or an invalidation bar, so the reference is not the lowest low of the whole correction. An FTD is valid on Day 4-10 only: with no FTD by Day 10 the attempt expires on Day 11 (RALLY_FAILED) and a new segment starts at that bar. A down close arms a fresh count (an arming bar is never Day 1), and the new attempt's reference is the lowest low from the expiry bar through its Day 1. The Day 1 low is informational. The model replays the whole history
+(500 sessions fetched) oldest to newest with carried state, so a confirmed FTD stays
+confirmed until a defined event ends it. `market_status` maps the result onto IBD's
+three tiers (`confirmed_uptrend`, `uptrend_under_pressure`, `market_in_correction`, or
+null when undetermined); an FTD or a new high leaves a correction. A new high without an FTD gives state `UPTREND_RESUMED` (`cycle.resumed_without_ftd`), as IBD resumes an uptrend when an index closes at a new high; the new-high reference is the tuning knob `FTD_RESUME_NEW_HIGH` (`pre_correction_high` default, `52w`, `replay_high`, `off`; uncalibrated). A close below the 50-session SMA
+puts a confirmed uptrend under pressure only after the index has closed above it once since the FTD. The uptrend ends on 6+ distribution days with a close below the 50-day line (tuning knobs `FTD_CORRECTION_DD_COUNT`, integer 6-10, default 6, and `FTD_CORRECTION_MIN_DRAWDOWN_PCT`, 0-9.99, default 0 = none, make it stricter), or on a 10%
+drawdown from the post-FTD peak. Secondary sources describe IBD's trigger variously (one cites the
+21-day EMA); the 50-day line avoids declaring corrections on shallow pullbacks, and the
+thresholds (5 and 6 distribution days, 50-session SMA, 10% drawdown) are unverified model choices. See
+`references/ftd_methodology.md`.
 A close below the FTD candle low warns rather than fails the rally. Pressure caps
 the published numerical quality score at 59, a conservative heuristic rather than
 an empirically calibrated threshold. Below 40 is Very weak FTD, not automatic failure.
@@ -82,7 +92,7 @@ python3 skills/ftd-detector/scripts/ftd_detector.py --api-key $FMP_API_KEY
 ```
 
 The script will:
-1. Fetch S&P 500 (^GSPC) and Nasdaq Composite (^IXIC) historical data (60+ trading days) from FMP API
+1. Fetch S&P 500 (^GSPC) and Nasdaq Composite (^IXIC) historical data (500 trading sessions; the whole history is replayed) from FMP API
 2. Fetch current quotes for both indices
 3. Run dual-index state machine (correction → rally → FTD detection)
 4. Assess post-FTD health (distribution days, invalidation, power trend)
@@ -97,12 +107,13 @@ Present the generated Markdown report to the user, highlighting:
 - Current market state (correction, rally attempt, FTD confirmed, etc.)
 - Quality score and signal strength
 - Exposure not assessed; breadth, leadership and portfolio context are separate
-- Key watch levels (swing low, FTD day low)
+- Key watch levels (rally low, FTD day low)
+- Market status (IBD three tiers)
 - Post-FTD health (distribution days, power trend)
 
 **Data gaps.** A missing or non-finite close/volume is never read as 0, and bars are never dropped (dropping one can fabricate an FTD). Every run writes:
 
-- `data_gap` (bool, top level and in `market_state`): true when an index's 60-session window or a post-FTD check hit a bad bar.
+- `data_gap` (bool, top level and in `market_state`): true when an index replay hit a bad bar it could not restart past (a bad close, volume or low restarts the replay after it, which needs 60 clean sessions) or a post-FTD check hit a bad bar.
 - `data_quality`: per index, the window check (`window_sessions`, `bad_bars`, `bad_dates`, `latest_bad`), plus `sp500.power_trend_bad_bars` for the power-trend input (counted only when the power trend runs, 50+ bars). Each index block also has `error` when its analysis failed ("Insufficient data" or "Data gap: ...").
 
 An index with missing required close/volume is reported as `NO_SIGNAL` with null prices, and no FTD logic runs for it. A lifecycle-low gap also makes the per-index state unavailable (`NO_SIGNAL`, `data_gap: true`), but known prices and already-established event evidence may remain visible for transparency. The run's `combined_state` is then reported as `NO_SIGNAL` with `data_gap: true`, meaning state unavailable rather than uptrend, with no FTD index and no post-FTD checks. The other index is never promoted, because the gap could hide the gapped index's own, possibly invalidated, FTD. Each index's own analysis stays in the JSON, and the Markdown headline reads "State unavailable (data gap)". If any index or a post-FTD check is gapped, the quality score is **Unavailable**: `total_score` 0 (always an int), signal `Unavailable: data gap`, exposure `Not assessed`. The Markdown shows "Unavailable (reason)" and an Action Guidance line "Data gap: confirmation unavailable — do not increase exposure on this signal". A power-trend-only gap shows the power trend as Unavailable without changing the score. A zero volume counts as missing data (for the selected index/ETF instruments it is a provider gap), unlike earlier versions.
