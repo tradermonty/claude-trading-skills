@@ -7,8 +7,8 @@ description: Detects Follow-Through Day (FTD) signals for market bottom confirma
 
 ## FTD lifecycle and evidence contract (#765)
 
-- Keep the FTD event separate from its current health. A close below the FTD-day low is a warning, not automatic rally failure. A later intraday low strictly below the recorded Day 1 low fails that rally; equality holds. This model explicitly uses Day 1, not an interchangeable FTD-candle or closing swing low.
-- Missing/non-finite/nonpositive Day 1 or post-FTD low evidence means unavailable. Never substitute a close for a missing low.
+- Keep the FTD event separate from its current health. A close below the FTD-day low is a warning, not automatic rally failure. A later intraday low strictly below the correction low (the lowest intraday low since the correction peak) fails that rally, before and after an FTD; equality holds. Day 1 low is informational only, not an interchangeable failure level.
+- Missing/non-finite/nonpositive low evidence on any replayed bar means unavailable. Never substitute a close for a missing low.
 - Default Nasdaq evidence is `^IXIC` (Composite). Use `--nasdaq-symbol QQQ` only for a labeled Nasdaq-100 ETF proxy. Never substitute its volume or price into an index series or claim its DD count is the Composite count. No automatic fallback.
 - `quality_score` is an uncalibrated technical heuristic, not success probability. `exposure_range` is `Not assessed` in every state. Do not derive portfolio percentages from the score; assess breadth, leadership, portfolio limits and operator decisions separately.
 - The Day 4–10 qualifying window is this model's bounded choice; it is not a claim that every later follow-through is invalid under all O'Neil interpretations.
@@ -102,21 +102,39 @@ Based on the market state, provide additional guidance:
 
 ## State Machine
 
+The model replays the whole supplied history (500 sessions are fetched) oldest to
+newest and carries state, so a confirmed FTD stays confirmed until a defined event ends
+it and the result does not depend on a window length.
+
 ```
 NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
                 ↑              ↓               ↓              ↓
                 └── RALLY_FAILED ←─────────────┘     FTD_INVALIDATED
 ```
 
+`market_status` maps the states onto IBD's three tiers (additive field on every
+`analyze_single_index` result, per index in the JSON, and combined in `market_state`):
+
+| market_status | Legacy states |
+|---------------|---------------|
+| `confirmed_uptrend` | FTD_CONFIRMED |
+| `uptrend_under_pressure` | FTD_CONFIRMED (`cycle.uptrend_status` = `under_pressure`) |
+| `market_in_correction` | CORRECTION, RALLY_ATTEMPT, FTD_WINDOW, RALLY_FAILED, FTD_INVALIDATED |
+| `null` | NO_SIGNAL: warm-up before the first qualifying correction, data gap, insufficient data |
+
+Only an FTD leaves a correction; a rise above the old peak does not. IBD sets one status
+from either major index, so the combined status follows the better confirmed index.
+A close below the FTD-day low also puts the uptrend under pressure (warning only, never a failure); `cycle.pressure_reasons` records the cause. See `references/ftd_methodology.md` for the transition rules (uncalibrated model choices).
+
 | State | Definition |
 |-------|-----------|
-| NO_SIGNAL | Uptrend, no qualifying correction |
-| CORRECTION | 3%+ decline with 3+ down days |
-| RALLY_ATTEMPT | Day 1-3 of rally from swing low |
+| NO_SIGNAL | Warm-up (no qualifying correction since the replay start), data gap or insufficient data |
+| CORRECTION | 3%+ decline with 3+ down closes, or a confirmed uptrend ended by distribution or a 10% drawdown |
+| RALLY_ATTEMPT | Day 1-3 of rally from the correction low |
 | FTD_WINDOW | Day 4-10, waiting for qualifying FTD |
-| FTD_CONFIRMED | Valid FTD signal detected |
-| RALLY_FAILED | Rally breached the Day 1 low (or exhausted this model's FTD window) |
-| FTD_INVALIDATED | Intraday low below the recorded rally Day 1 low |
+| FTD_CONFIRMED | Valid FTD; stays until the correction low is undercut or the uptrend ends (see `market_status`) |
+| RALLY_FAILED | Rally undercut the correction low (or exhausted this model's FTD window) |
+| FTD_INVALIDATED | Intraday low below the correction low the FTD rallied from |
 
 ## Quality Score (0-100)
 
@@ -149,12 +167,12 @@ interpreting it.
 
 A missing or non-finite close/volume (or a non-positive close) is never read as 0, and bars are never dropped. Bar fields are read through the vendored `scripts/_price_bars.py` helper.
 
-- **JSON `data_gap`** (bool, every run, at the top level and in `market_state`): true when an index's 60-session window or a post-FTD check hit a bad bar.
+- **JSON `data_gap`** (bool, every run, at the top level and in `market_state`): true when an index replay hit a bad bar it could not restart past (a bad close, volume or low restarts the replay after it, which needs 60 clean sessions) or a post-FTD check hit a bad bar.
 - **JSON `data_quality`** (every run): per index, the window check (`window_sessions`, `bad_bars`, `bad_dates`, `latest_bad`) plus `sp500.power_trend_bad_bars` for the power-trend input (counted only when the power trend runs, 50+ bars). Each index block also carries its own `data_quality`, and `error` when the analysis failed ("Insufficient data" or "Data gap: ...").
 - **Close/volume-gapped index:** `NO_SIGNAL` with `current_price` / `lookback_high` / `correction_depth_pct` set to `null`; no rally or FTD logic runs for it. With any gapped index the run's `combined_state` is reported as `NO_SIGNAL` with `data_gap: true`, meaning *state unavailable* (not an uptrend), with `ftd_index: null` and no post-FTD checks. The other index is never promoted, because the gap could be hiding the gapped index's own (possibly invalidated) FTD. Each index's own analysis stays in the JSON. The Markdown headline reads "State unavailable (data gap)".
 - **Unavailable score:** if any index is gapped, or the post-FTD distribution or invalidation check has a gap, `quality_score` is `total_score: 0` (always an int, never `null`), `signal: "Unavailable: data gap"`, `exposure_range: "Not assessed"`, `data_gap: true`. Treat this as "no usable confirmation": do not increase exposure on it. A gapped distribution check keeps `distribution_count: 0` (int) with `data_gap: true`; a gapped invalidation check reports `invalidated: null`. A post-FTD gap also reports the combined state as `NO_SIGNAL` with `data_gap: true` (state unavailable), since the FTD can be neither confirmed nor invalidated.
 - **Power trend:** a bad close anywhere in its input gives `power_trend: null` with a `reason`; this alone does not set `data_gap` or change the score.
-- **Volume 0 is a data gap.** For ^GSPC and the selected Nasdaq instrument a zero session volume is provider missing data, so a missing, invalid or zero volume inside the 60-session window (or the post-FTD checks) marks a data gap. This is a behavior change from earlier versions, which read volume 0 as real.
+- **Volume 0 is a data gap.** For ^GSPC and the selected Nasdaq instrument a zero session volume is provider missing data, so a missing, invalid or zero volume within the replayed history (or the post-FTD checks) marks a data gap. This is a behavior change from earlier versions, which read volume 0 as real.
 
 ## Reference Documents
 

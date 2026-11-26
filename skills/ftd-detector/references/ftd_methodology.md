@@ -4,9 +4,11 @@
 
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
-4–10 window is this model's bounded choice. Day 1 low is an explicit failure
-anchor, potentially stricter than the generic IBD downtrend-low description;
-these are not claimed identical. Missing reference/low data is unavailable.
+4–10 window is this model's bounded choice. Rally failure uses the correction
+(downtrend) low, the lowest intraday low since the correction peak, for the rally
+attempt and after an FTD alike. Day 1 low is informational. The model replays
+the whole history oldest to newest with carried state (see "Why a forward
+replay"). Missing low data is unavailable.
 FTD-day-low close breach is pressure, not failure. Its published score is capped
 at 59 so numerical consumers see the weakening; this cap is not calibrated.
 Portfolio allocation is not assessed. Historical examples below are retained
@@ -30,12 +32,15 @@ A correction must meet these criteria before FTD analysis begins:
 - **Index scope:** S&P 500 and/or NASDAQ Composite (either suffices)
 
 ### Swing Low Definition
-The swing low is a qualifying closing-price minimum used to search for Day 1. It is not this model's intraday rally-failure reference:
+The swing low is the correction's lowest *closing* price since its peak. The intraday
+low since the peak is the separate rally-failure reference.
 
-- Must be preceded by 3%+ decline from a recent high (within 40 trading days)
-- Must have at least 3 down days between the high and the low
-- Must be a local minimum (adjacent days have higher closes)
-- Multiple swing lows can occur; use the most recent qualifying one
+- The correction is measured from the highest close; it qualifies once a close is 3%+ below it
+  with at least 3 down closes since that high. There is no 40-bar search limit.
+- It is a replay state, not a pattern re-selected on every run: a later, higher closing low
+  inside the same correction never replaces it, and only a new lower close moves it.
+- The latest bar is never a "confirmed" low: no right-hand bar is needed, and a down close
+  that holds the reference does not reset an attempt.
 
 **Important:** The swing low is determined by *closing price*, not intraday low.
 
@@ -52,19 +57,27 @@ Day 1 marks the beginning of a rally attempt. It occurs on the **first qualifyin
 - Formula: (Close - Low) / (High - Low) >= 0.50
 - This captures days where the market recovers significantly from intraday lows even if it doesn't close above the prior day's close
 
+### Day 1 on a new closing low
+A session that sets a new closing low may be Day 1 if it closes in the top 50% of a valid
+high-low range (the correction low then includes that session's intraday low). A new closing
+low in the lower half is not Day 1. A failure session is never Day 1: the earliest new Day 1
+is the next session.
+
 ### Integrity Check: Every Session After Day 1
 
-- Every subsequent session's **intraday low** must hold the recorded Day 1 low, including sessions after FTD confirmation.
-- A strict intraday breach fails the rally even if the close recovers above that reference. Equality holds.
-- This rule is not limited to Day 2–3. Missing low/reference evidence makes the state unavailable.
-- The FTD candle low is a different reference: a close below it warns but does not itself fail the rally.
+- Every subsequent session's **intraday low** must hold the **correction low** (lowest intraday
+  low since the correction peak), including sessions after FTD confirmation.
+- A strict intraday breach fails the rally even if the close recovers. Equality holds.
+- Trading below the Day 1 low alone does not fail the rally.
+- Missing low evidence on any replayed bar makes the state unavailable.
+- The FTD candle low is a different reference: a close below it warns but does not itself fail
+  the rally and is never a correction trigger.
 
 ### Rally Invalidation (Reset)
-A later intraday low strictly below the recorded Day 1 low fails this implementation's rally. The failed event remains in the evidence.
-
-Separately, a close below the FTD candle low warns, but does not itself fail or reset the rally.
-
-When a rally resets, the new lower price may become the new swing low, and the cycle begins again.
+An intraday low strictly below the correction low fails the attempt (RALLY_FAILED, or
+FTD_INVALIDATED after an FTD). The failed event stays in the evidence. The failure session lowers the
+reference; the next session can start a new Day 1. An attempt that reaches Day 11 without an FTD
+is exhausted (RALLY_FAILED) and a down close is needed before a new Day 1 can start.
 
 ---
 
@@ -192,6 +205,74 @@ reference breach returns failed quality; missing evidence returns unavailable.
 - **Quality:** Very high (prime window, strong gain, Fed pivot as catalyst)
 
 ---
+
+## Market status (IBD three tiers)
+
+`market_status` is one of `confirmed_uptrend`, `uptrend_under_pressure`,
+`market_in_correction`, or `null` when it cannot be determined (data gap, insufficient
+data, warm-up before the first qualifying correction since the replay start). The legacy
+`state` values are unchanged: both uptrend tiers are `FTD_CONFIRMED`; the rally attempt,
+FTD window and day count are details inside `market_in_correction`.
+
+**Rules (all indicators use bars up to the current bar only):**
+
+- Correction to confirmed uptrend only on an FTD. A rise above the old peak, with or without
+  a rally attempt that fails, stays `market_in_correction`; new attempts keep forming after a
+  down close re-arms the search.
+- Confirmed uptrend to under pressure: active distribution days >= 5, or close below the
+  50-session SMA of closes, or the first close below the FTD-day low. The FTD-day-low close
+  breach stays a warning (#765): it is not a failure or a correction trigger, the lifecycle
+  `warning` field is unchanged and the published quality score stays capped at 59.
+- Under pressure back to confirmed: active distribution days <= 4 and close above the
+  50-session SMA. No new FTD is required. The FTD-day-low breach alone does not keep the
+  status under pressure once those two hold (it is a one-shot cause, like the warning).
+  `cycle.pressure_reasons` lists the active causes: `distribution`, `below_50sma`,
+  `ftd_low_close_breach`, or `awaiting_recovery` when the causes have cleared but the return
+  test is not yet met.
+- Either uptrend tier to correction, any of: (a) active distribution days >= 6 and close below
+  the 21-session EMA of closes (the new correction is measured from the post-FTD peak,
+  `previous_ftd.end_reason` = `distribution`); (b) an intraday low below the correction low
+  (FTD_INVALIDATED, as before); (c) a drawdown >= 10% from the post-FTD peak close
+  (`end_reason` = `deep_drawdown`). (b) wins when several apply on one bar.
+- Distribution day: close down >= 0.2% on volume above the previous session, counted after the
+  FTD; it expires after 25 sessions or once a later high is >= 5% above its close (same
+  defaults as ibd-distribution-day-monitor).
+- An average that cannot be computed (fewer than 50 or 21 closes since the replay start) makes
+  its condition false; `cycle.indicators.sma50_available` / `ema21_available` say so. The EMA is
+  seeded with the SMA of the first 21 replay closes. A close that
+  is exactly on the average counts as neither above nor below.
+- The status is evaluated on the FTD bar too, so an FTD that closes below its 50-session SMA
+  reads `uptrend_under_pressure` immediately.
+- IBD sets one status from either major index: if the combined state is `FTD_CONFIRMED`, the
+  better confirmed index wins; any data gap gives `null`; otherwise `market_in_correction`
+  if either index is in correction.
+
+**Why:** IBD moves a correction to a confirmed uptrend only on a follow-through day, and
+moves a confirmed uptrend to under pressure and then to correction as distribution
+accumulates and key averages are lost. Under pressure returns to confirmed when distribution
+ages off and the indexes regain the 50-day line, with no new FTD. Secondary sources (IBD's
+official rule text was not verified):
+
+- https://inkl.com/news/why-we-wait-for-a-follow-through-day-before-declaring-an-uptrend
+- https://inkl.com/news/how-to-spot-a-stock-market-bottom-this-signal-marks-all-major-lows
+- https://origin.williamoneil.com/tag/distribution-days/page/2
+
+The numeric thresholds (5 and 6 distribution days, 50-session SMA, 21-session EMA, 10%
+drawdown) are unverified, uncalibrated model choices.
+
+## Why a forward replay
+
+The state machine replays the whole supplied history oldest to newest and changes state only on
+defined events. A longer stateless window (for example 250 sessions) was considered and
+rejected: it only delays the problems. It keeps a bounded high search and re-selects swing
+lows on every run, so the chosen low and the state still change as the window slides; a
+confirmed FTD would still vanish when it leaves the window; and a long decline would still not be
+recognized as one correction. The replay fixes all three, and the point-in-time
+test checks that analyzing a prefix of the history gives the same result the full replay had at
+that bar (no look-ahead).
+
+When a bar has a missing close, volume or low, only the clean suffix after the last bad bar
+is replayed, and only if it holds at least 60 sessions; otherwise the result is a data gap.
 
 ## Common Mistakes
 

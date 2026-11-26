@@ -23,15 +23,7 @@ from post_ftd_monitor import (
     count_post_ftd_distribution,
     detect_power_trend,
 )
-from rally_tracker import (
-    _is_swing_low,
-    analyze_single_index,
-    calculate_avg_volume,
-    detect_ftd,
-    find_swing_low,
-    get_market_state,
-    track_rally_attempt,
-)
+from rally_tracker import analyze_single_index, get_market_state
 
 
 def _missing(bar, field):
@@ -221,63 +213,50 @@ def test_bad_bar_older_than_window_only_affects_power_trend(breaker):
     assert gapped["data_quality"]["sp500"]["power_trend_bad_bars"] == 1
 
 
-# --- 4. track_rally_attempt -----------------------------------------------------
+# --- 4. rally-day gaps ---------------------------------------------------------
 
 
 @BREAKERS
 @pytest.mark.parametrize("field", ["close", "volume"])
-def test_track_rally_attempt_degrades_on_gap(breaker, field):
+def test_rally_gap_degrades_to_unavailable(breaker, field):
     bars, sl_idx, day1_idx, _ = make_rally_history(rally_days=6)
-    clean = track_rally_attempt(bars, sl_idx)
-    assert clean["day1_idx"] == day1_idx and len(clean["rally_days"]) == 6
+    clean = analyze_single_index(bars, "X")
+    assert clean["rally_attempt"]["day1_idx"] == day1_idx
+    assert len(clean["rally_attempt"]["rally_days"]) == 6
 
-    result = track_rally_attempt(broken(bars, sl_idx + 3, field, breaker), sl_idx)
-    assert result["day1_idx"] is None
-    assert result["day1_date"] is None and result["day1_low"] is None
-    assert result["rally_days"] == []
-    assert result["current_day_count"] == 0
-    assert result["invalidated"] is False
-    assert result["invalidation_reason"] is None
+    result = analyze_single_index(broken(bars, sl_idx + 3, field, breaker), "X")
+    assert result["state"] == "NO_SIGNAL"
+    assert result["market_status"] is None
     assert result["data_gap"] is True
-    assert result["reason"].startswith("Data gap:")
-
-    # detect_ftd never runs comparisons on a degraded rally
-    ftd = detect_ftd(bars, result)
-    assert ftd["ftd_detected"] is False
+    assert result["error"].startswith("Data gap:")
+    assert result["rally_attempt"] is None and result["ftd"] is None
 
 
 @BREAKERS
 @pytest.mark.parametrize("where", ["window", "lookback"])
-def test_detect_ftd_degrades_when_its_bars_are_gapped(breaker, where):
-    bars, sl_idx, _, ftd_idx = make_rally_history(rally_days=6, ftd_day=4)
-    rally = track_rally_attempt(bars, sl_idx)
-    assert detect_ftd(bars, rally)["ftd_detected"] is True
+def test_ftd_bars_gapped_degrade_to_unavailable(breaker, where):
+    bars, _, _, ftd_idx = make_rally_history(rally_days=6, ftd_day=4)
+    assert analyze_single_index(bars, "X")["ftd"]["ftd_detected"] is True
     bad_idx = ftd_idx - 1 if where == "window" else 2
-    result = detect_ftd(broken(bars, bad_idx, "volume", breaker), rally)
-    assert result["ftd_detected"] is False
+    result = analyze_single_index(broken(bars, bad_idx, "volume", breaker), "X")
+    assert result["state"] == "NO_SIGNAL"
     assert result["data_gap"] is True
-    assert result["reason"].startswith("Data gap:")
+    assert result["ftd"] is None
 
 
-# --- 5. _is_swing_low -----------------------------------------------------------
+# --- 5. bad neighbours of the correction low ---------------------------------------
 
 
 @BREAKERS
 @pytest.mark.parametrize("offset", [-1, 1, -4])
-def test_is_swing_low_with_bad_neighbour_returns_none(breaker, offset):
+def test_bad_neighbour_of_the_correction_low_is_a_data_gap(breaker, offset):
     bars, _ = make_correction_history()
     bars.append(make_bar(bars[-1]["close"] * 1.01))
     i = len(bars) - 2
-    assert _is_swing_low(bars, i) is not None
-    assert _is_swing_low(broken(bars, i + offset, "close", breaker), i) is None
-
-
-def test_is_swing_low_ignores_bars_outside_its_read_range():
-    bars, _ = make_correction_history()
-    bars.append(make_bar(bars[-1]["close"] * 1.01))
-    bars.append({"date": "later"})  # i + 2: never read
-    i = len(bars) - 3
-    assert _is_swing_low(bars, i) is not None
+    assert analyze_single_index(bars, "X")["state"] == "RALLY_ATTEMPT"
+    result = analyze_single_index(broken(bars, i + offset, "close", breaker), "X")
+    assert result["state"] == "NO_SIGNAL"
+    assert result["data_gap"] is True
 
 
 # --- 6. check_ftd_invalidation ---------------------------------------------------
@@ -354,7 +333,7 @@ def test_distribution_ignores_bars_beyond_five_days():
 
 
 def day1_range_history():
-    """scratchpad/probe_hl655.py: a flat close at 30% of its range is not a Day 1."""
+    """A flat close at 30% of its range is not a Day 1."""
     bars, day = make_correction_history()
     sl_idx = len(bars) - 1
     sl = bars[-1]["close"]
@@ -364,22 +343,34 @@ def day1_range_history():
     return bars, sl_idx
 
 
+def test_flat_close_at_30_percent_of_range_is_not_day1():
+    bars, _ = day1_range_history()
+    assert analyze_single_index(bars, "X")["rally_attempt"]["day1_idx"] is None
+
+
 @BREAKERS
-@pytest.mark.parametrize("field", ["high", "low"])
-def test_invalid_high_or_low_skips_the_range_rule(breaker, field):
-    bars, sl_idx = day1_range_history()
-    assert track_rally_attempt(bars, sl_idx)["day1_idx"] is None
-    result = track_rally_attempt(broken(bars, -1, field, breaker), sl_idx)
-    assert result["day1_idx"] is None
+def test_invalid_high_skips_the_range_rule(breaker):
+    bars, _ = day1_range_history()
+    result = analyze_single_index(broken(bars, -1, "high", breaker), "X")
+    assert result["rally_attempt"]["day1_idx"] is None
     assert "data_gap" not in result
+
+
+@BREAKERS
+def test_invalid_low_is_a_data_gap(breaker):
+    """The replay reads every bar's low (rally failure), so a bad low is a gap."""
+    bars, _ = day1_range_history()
+    result = analyze_single_index(broken(bars, -1, "low", breaker), "X")
+    assert result["data_gap"] is True
+    assert result["state"] == "NO_SIGNAL"
 
 
 @BREAKERS
 def test_up_close_still_qualifies_day1_without_high(breaker):
     bars, sl_idx = day1_range_history()
     bars[-1]["close"] = bars[sl_idx]["close"] * 1.002
-    result = track_rally_attempt(broken(bars, -1, "high", breaker), sl_idx)
-    assert result["day1_idx"] == len(bars) - 1
+    result = analyze_single_index(broken(bars, -1, "high", breaker), "X")
+    assert result["rally_attempt"]["day1_idx"] == len(bars) - 1
 
 
 # --- 9. combined state and quality score ------------------------------------------
@@ -599,31 +590,17 @@ def test_quality_gate_on_selected_index_and_missing_invalidation():
     assert "invalidation status unknown" in quality["reason"]
 
 
-# --- 10b. Day-1 low fallback -------------------------------------------------------
+# --- 10b. missing low on the rally bars ---------------------------------------------
 
 
 @BREAKERS
 def test_missing_day1_low_is_unavailable(breaker):
     bars, _ = make_correction_history()
-    sl = len(bars) - 1
-    price = bars[sl]["close"]
+    price = bars[-1]["close"]
     day1 = make_bar(price * 1.01, low=price * 1.005)
     breaker(day1, "low")
     bars.append(day1)
-    bars.append(make_bar(price * 1.002))  # below Day-1 close, above swing low
-    result = track_rally_attempt(bars, sl)
+    bars.append(make_bar(price * 1.002))
+    result = analyze_single_index(bars, "X")
     assert result["data_gap"] is True
-    assert result["day1_low"] is None
-
-
-# --- functions without production callers ------------------------------------------
-
-
-@BREAKERS
-def test_avg_volume_and_find_swing_low_skip_bad_values(breaker):
-    bars = [make_bar(100, volume=1000), make_bar(100, volume=3000)]
-    assert calculate_avg_volume(broken(bars, 0, "volume", breaker)) == 3000
-    history, _ = make_correction_history()
-    history.append(make_bar(history[-1]["close"] * 1.01))
-    assert find_swing_low(history) is not None
-    assert find_swing_low(broken(history, len(history) - 2, "close", breaker)) is None
+    assert result["state"] == "NO_SIGNAL"

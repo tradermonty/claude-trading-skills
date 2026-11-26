@@ -4,9 +4,10 @@ from _price_bars import find_bar_gaps, read_price
 
 
 def assess_lifecycle(history, ftd_idx, rally_low=None):
-    """Use the explicit Day 1 low; never infer a rally anchor from the FTD.
+    """Use the explicit correction low; never infer a rally anchor from the FTD.
 
-    Intraday lows below the rally reference fail the rally. A close below
+    ``rally_low`` is the lowest intraday low since the correction peak. Intraday
+    lows strictly below it fail the rally (equality holds). A close below
     the FTD candle low is a warning only. Missing evidence is unavailable.
     """
     window = history[ftd_idx:]
@@ -19,7 +20,7 @@ def assess_lifecycle(history, ftd_idx, rally_low=None):
             "rally_low": reference,
             "ftd_low": None,
             "data_gap": True,
-            "reason": "Data gap: FTD lifecycle unavailable: valid Day 1 low and post-FTD close/low required",
+            "reason": "Data gap: FTD lifecycle unavailable: valid rally reference low and post-FTD close/low required",
         }
     ftd_low = window[0]["low"]
     result = {
@@ -29,7 +30,7 @@ def assess_lifecycle(history, ftd_idx, rally_low=None):
         "rally_low": reference,
         "ftd_low": ftd_low,
         "days_since_ftd": len(window) - 1,
-        "failure_basis": "intraday low below rally Day 1 low",
+        "failure_basis": "intraday low below the correction low",
         "warning_basis": "close below FTD-day low",
     }
     for offset, bar in enumerate(window[1:], 1):

@@ -178,7 +178,7 @@ def test_health_details_and_watch_levels_preserve_risk_evidence(tmp_path, invali
     if invalidated:
         assert "**INVALIDATED:** Closed below swing low" in markdown
         assert (
-            "**FTD INVALIDATED** on 2026-04-01 (Day 2, intraday low $96.00 below Day 1 low $97.50)"
+            "**FTD INVALIDATED** on 2026-04-01 (Day 2, intraday low $96.00 below correction low $97.50)"
             in markdown
         )
         assert "**Power Trend:** No (0/3 conditions)" in markdown

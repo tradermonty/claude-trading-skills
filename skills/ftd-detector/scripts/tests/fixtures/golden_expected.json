@@ -24,6 +24,7 @@
   },
   "market_state": {
     "combined_state": "FTD_CONFIRMED",
+    "market_status": "confirmed_uptrend",
     "dual_confirmation": true,
     "ftd_index": "Both",
     "data_gap": false
@@ -55,14 +56,15 @@
   "sp500": {
     "index": "S&P 500",
     "state": "FTD_CONFIRMED",
+    "market_status": "confirmed_uptrend",
     "ftd_lifecycle": {
       "ftd_date": "2026-06-16",
       "invalidated": false,
       "warning": false,
-      "rally_low": 94.9991,
+      "rally_low": 94.525,
       "ftd_low": 97.8697,
       "days_since_ftd": 6,
-      "failure_basis": "intraday low below rally Day 1 low",
+      "failure_basis": "intraday low below the correction low",
       "warning_basis": "close below FTD-day low"
     },
     "current_price": 99.3478,
@@ -89,11 +91,37 @@
     "rally_attempt": {
       "day1_date": "2026-06-10",
       "day1_low": 94.9991,
+      "reference_low": 94.525,
+      "reference_low_date": "2026-06-09",
       "reset_count": 0,
       "prior_ftd_events": [],
-      "current_day_count": 11,
+      "current_day_count": 5,
       "invalidated": false,
       "invalidation_reason": null
+    },
+    "cycle": {
+      "phase": "confirmed",
+      "uptrend_status": "confirmed",
+      "pressure_reasons": [],
+      "active_distribution_days": [],
+      "post_ftd_peak_close": 99.3478,
+      "post_ftd_peak_date": "2026-06-24",
+      "last_transition": {
+        "date": "2026-06-16",
+        "from": "rally",
+        "to": "confirmed",
+        "reason": "FTD on Day 5"
+      },
+      "previous_ftd": null,
+      "indicators": {
+        "sma50": 98.0606,
+        "sma50_available": true,
+        "ema21": 98.1085,
+        "ema21_available": true
+      },
+      "replay_start_date": "2026-03-02",
+      "replay_sessions": 83,
+      "restarted_after_gap": false
     },
     "ftd": {
       "ftd_detected": true,
@@ -108,14 +136,15 @@
   "nasdaq": {
     "index": "QQQ (Nasdaq-100 ETF proxy)",
     "state": "FTD_CONFIRMED",
+    "market_status": "confirmed_uptrend",
     "ftd_lifecycle": {
       "ftd_date": "2026-06-16",
       "invalidated": false,
       "warning": false,
-      "rally_low": 379.9966,
+      "rally_low": 378.1,
       "ftd_low": 391.4788,
       "days_since_ftd": 6,
-      "failure_basis": "intraday low below rally Day 1 low",
+      "failure_basis": "intraday low below the correction low",
       "warning_basis": "close below FTD-day low"
     },
     "current_price": 397.3911,
@@ -142,11 +171,37 @@
     "rally_attempt": {
       "day1_date": "2026-06-10",
       "day1_low": 379.9966,
+      "reference_low": 378.1,
+      "reference_low_date": "2026-06-09",
       "reset_count": 0,
       "prior_ftd_events": [],
-      "current_day_count": 11,
+      "current_day_count": 5,
       "invalidated": false,
       "invalidation_reason": null
+    },
+    "cycle": {
+      "phase": "confirmed",
+      "uptrend_status": "confirmed",
+      "pressure_reasons": [],
+      "active_distribution_days": [],
+      "post_ftd_peak_close": 397.3911,
+      "post_ftd_peak_date": "2026-06-24",
+      "last_transition": {
+        "date": "2026-06-16",
+        "from": "rally",
+        "to": "confirmed",
+        "reason": "FTD on Day 5"
+      },
+      "previous_ftd": null,
+      "indicators": {
+        "sma50": 392.2425,
+        "sma50_available": true,
+        "ema21": 392.4338,
+        "ema21_available": true
+      },
+      "replay_start_date": "2026-03-02",
+      "replay_sessions": 83,
+      "restarted_after_gap": false
     },
     "ftd": {
       "ftd_detected": true,
@@ -190,10 +245,10 @@
     "ftd_date": "2026-06-16",
     "invalidated": false,
     "warning": false,
-    "rally_low": 94.9991,
+    "rally_low": 94.525,
     "ftd_low": 97.8697,
     "days_since_ftd": 6,
-    "failure_basis": "intraday low below rally Day 1 low",
+    "failure_basis": "intraday low below the correction low",
     "warning_basis": "close below FTD-day low",
     "rally_day1_date": "2026-06-10"
   },

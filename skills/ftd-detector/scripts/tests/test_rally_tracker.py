@@ -1,46 +1,38 @@
-"""Tests for rally_tracker.py — swing low, rally attempt, FTD detection."""
+"""Tests for rally_tracker.py through its public entry points (replay state machine)."""
 
 from helpers import make_bar, make_correction_history, make_rally_history
 from rally_tracker import (
-    MIN_CORRECTION_PCT,
     MarketState,
     analyze_single_index,
-    detect_ftd,
-    find_swing_low,
     get_market_state,
-    track_rally_attempt,
 )
 
-# ─── Test 1: Swing low detection ─────────────────────────────────────────────
+# ─── Correction qualification ────────────────────────────────────────────────
 
 
-class TestFindSwingLow:
-    def test_detects_qualifying_swing_low(self):
-        """5% decline + 5 down days -> swing low detected."""
+class TestCorrectionQualification:
+    def test_qualifying_correction_is_found(self):
+        """5% decline + 5 down days -> a correction with a swing low."""
         bars, _ = make_correction_history(peak=100, decline_pct=5.0, down_days=5)
-        result = find_swing_low(bars)
-        assert result is not None
-        assert result["decline_pct"] <= -MIN_CORRECTION_PCT
-        assert result["down_days"] >= 3
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.CORRECTION.value
+        assert result["swing_low"]["decline_pct"] <= -3.0
+        assert result["swing_low"]["down_days"] >= 3
 
-    def test_no_swing_low_shallow_decline(self):
-        """2% decline -> no qualifying swing low."""
+    def test_no_correction_shallow_decline(self):
+        """2% decline -> no qualifying correction."""
         bars, _ = make_correction_history(peak=100, decline_pct=2.0, down_days=4)
-        result = find_swing_low(bars)
-        assert result is None
+        assert analyze_single_index(bars, "Test")["state"] == MarketState.NO_SIGNAL.value
 
-    def test_no_swing_low_insufficient_down_days(self):
-        """5% decline but only 2 down days -> no qualifying swing low."""
+    def test_no_correction_insufficient_down_days(self):
+        """5% decline but only 2 down days -> no qualifying correction."""
         bars, _ = make_correction_history(peak=100, decline_pct=5.0, down_days=2)
-        result = find_swing_low(bars)
-        assert result is None
+        assert analyze_single_index(bars, "Test")["state"] == MarketState.NO_SIGNAL.value
 
     def test_swing_low_returns_correct_fields(self):
-        """Verify all expected fields are present in result."""
         bars, _ = make_correction_history(peak=100, decline_pct=6.0, down_days=5)
-        result = find_swing_low(bars)
-        assert result is not None
-        expected_keys = [
+        result = analyze_single_index(bars, "Test")
+        for key in [
             "swing_low_idx",
             "swing_low_price",
             "swing_low_date",
@@ -50,99 +42,71 @@ class TestFindSwingLow:
             "recent_high_date",
             "decline_pct",
             "down_days",
-        ]
-        for key in expected_keys:
-            assert key in result, f"Missing key: {key}"
+        ]:
+            assert key in result["swing_low"], f"Missing key: {key}"
 
 
-# ─── Test 2-5: Rally tracking ────────────────────────────────────────────────
+# ─── Rally tracking ──────────────────────────────────────────────────────────
 
 
-class TestTrackRallyAttempt:
+class TestRallyAttempt:
     def test_day1_detected_on_up_close(self):
-        """First up close after swing low sets day1_idx."""
-        bars, swing_low_idx, day1_idx, _ = make_rally_history(
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=3,
-        )
-        result = track_rally_attempt(bars, swing_low_idx)
-        assert result["day1_idx"] is not None
-        assert result["day1_date"] is not None
-        assert result["current_day_count"] >= 1
+        bars, _, _, _ = make_rally_history(decline_pct=5.0, down_days=5, rally_days=3)
+        result = analyze_single_index(bars, "Test")
+        assert result["rally_attempt"]["day1_idx"] is not None
+        assert result["rally_attempt"]["day1_date"] is not None
+        assert result["rally_attempt"]["current_day_count"] >= 1
 
-    def test_rally_invalidated_close_below_swing_low(self):
-        """Close below swing low invalidates the rally."""
+    def test_close_below_the_correction_closing_low_is_not_a_failure(self):
+        """A lower close that holds the intraday correction low only moves the closing low."""
         bars, _ = make_correction_history(peak=100, decline_pct=5.0, down_days=5)
-        swing_low_idx = len(bars) - 1
-        swing_low_close = bars[swing_low_idx]["close"]
+        low_bar = bars[-1]
+        bars.append(make_bar(low_bar["close"] * 0.999, low=low_bar["low"] * 1.002))
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.CORRECTION.value
+        assert result["rally_attempt"]["invalidated"] is False
 
-        # Add a day that closes below swing low
-        bars.append(
-            make_bar(
-                swing_low_close * 0.99,
-                date=f"day-{len(bars):03d}",
-            )
-        )
-        result = track_rally_attempt(bars, swing_low_idx)
-        assert result["invalidated"] is True
-        assert "below swing low" in result["invalidation_reason"]
-
-    def test_day1_low_breach_invalidates(self):
-        """Day 2 close below Day 1 low (but above swing low) invalidates the rally."""
+    def test_correction_low_undercut_invalidates_the_rally(self):
         bars, _ = make_correction_history(peak=100, decline_pct=5.0, down_days=5)
-        swing_low_idx = len(bars) - 1
-        swing_low_close = bars[swing_low_idx]["close"]
-
-        # Day 1: strong up close with a high intraday low (well above swing low)
-        day1_close = swing_low_close * 1.03  # 3% up from swing low
-        day1_low = swing_low_close * 1.015  # Day 1 low well above swing low
+        correction_low = bars[-1]["low"]
+        price = bars[-1]["close"]
         bars.append(
-            make_bar(
-                day1_close,
-                date=f"day-{len(bars):03d}",
-                low=day1_low,
-            )
-        )
+            make_bar(price * 1.03, low=price * 1.015)
+        )  # Day 1, low above the correction low
+        bars.append(make_bar(price * 1.02, low=correction_low - 0.5))  # undercut
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.RALLY_FAILED.value
+        assert result["rally_attempt"]["invalidated"] is True
+        assert "below correction low" in result["rally_attempt"]["invalidation_reason"]
 
-        # Day 2: close below Day 1 low but still above swing low
-        day2_close = swing_low_close * 1.005  # Above swing low
-        assert day2_close < day1_low, "Day 2 close must be below Day 1 low"
-        assert day2_close > swing_low_close, "Day 2 close must be above swing low"
-        bars.append(
-            make_bar(
-                day2_close,
-                date=f"day-{len(bars):03d}",
-            )
-        )
-
-        result = track_rally_attempt(bars, swing_low_idx)
-        assert result["invalidated"] is True
-        assert "Day 1 low" in result["invalidation_reason"]
-
-    def test_no_day1_if_no_up_close(self):
-        """If all post-swing-low days are down, day1_idx is None."""
+    def test_day1_low_breach_alone_does_not_invalidate(self):
+        """Day 2 trading below the Day 1 low (above the correction low) keeps the attempt."""
         bars, _ = make_correction_history(peak=100, decline_pct=5.0, down_days=5)
-        swing_low_idx = len(bars) - 1
+        price = bars[-1]["close"]
+        bars.append(make_bar(price * 1.03, low=price * 1.015))
+        bars.append(make_bar(price * 1.005))  # low below the Day 1 low, above the correction low
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.RALLY_ATTEMPT.value
+        assert result["rally_attempt"]["current_day_count"] == 2
+
+    def test_no_day1_without_up_close(self):
+        """All post-low sessions making new closing lows never start a Day 1."""
+        bars, _ = make_correction_history(peak=100, decline_pct=5.0, down_days=5)
         last_close = bars[-1]["close"]
-
-        # Add 3 down days
         for _i in range(3):
             last_close *= 0.998
-            bars.append(make_bar(last_close, date=f"day-{len(bars):03d}"))
-
-        result = track_rally_attempt(bars, swing_low_idx)
-        # Either day1 is None or it got invalidated because it went below swing low
-        assert result["day1_idx"] is None or result["invalidated"]
-
-
-# ─── Test 6-8: FTD detection ─────────────────────────────────────────────────
+            bars.append(make_bar(last_close))
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.CORRECTION.value
+        assert result["rally_attempt"]["day1_idx"] is None
 
 
-class TestDetectFTD:
+# ─── FTD detection ───────────────────────────────────────────────────────────
+
+
+class TestFTD:
     def test_ftd_detected_day4_qualifying(self):
-        """Day 4: 1.5% gain + higher volume -> ftd_detected=True."""
-        bars, swing_low_idx, _, _ = make_rally_history(
+        bars, _, _, _ = make_rally_history(
             decline_pct=5.0,
             down_days=5,
             rally_days=6,
@@ -150,42 +114,40 @@ class TestDetectFTD:
             ftd_gain_pct=1.5,
             ftd_volume_mult=1.5,
         )
-        rally = track_rally_attempt(bars, swing_low_idx)
-        assert not rally["invalidated"]
-        ftd = detect_ftd(bars, rally)
-        assert ftd["ftd_detected"] is True
-        assert ftd["ftd_day_number"] == 4
-        assert ftd["gain_pct"] >= 1.25
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.FTD_CONFIRMED.value
+        assert result["ftd"]["ftd_detected"] is True
+        assert result["ftd"]["ftd_day_number"] == 4
+        assert result["ftd"]["gain_pct"] >= 1.25
 
     def test_ftd_not_detected_low_volume(self):
-        """Gain OK but volume lower than previous day -> no FTD."""
-        bars, swing_low_idx, _, _ = make_rally_history(
+        """Gain OK but volume lower than the previous day -> no FTD."""
+        bars, _, _, _ = make_rally_history(
             decline_pct=5.0,
             down_days=5,
             rally_days=6,
             ftd_day=4,
             ftd_gain_pct=1.5,
-            ftd_volume_mult=0.8,  # Volume LOWER than previous
+            ftd_volume_mult=0.8,
         )
-        rally = track_rally_attempt(bars, swing_low_idx)
-        ftd = detect_ftd(bars, rally)
-        assert ftd["ftd_detected"] is False
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] != MarketState.FTD_CONFIRMED.value
+        assert result["ftd"]["ftd_detected"] is False
 
     def test_ftd_window_expired(self):
-        """Rally goes past day 10 without qualifying FTD -> RALLY_FAILED."""
-        bars, swing_low_idx, _, _ = make_rally_history(
+        """A rally past Day 10 without a qualifying FTD -> RALLY_FAILED."""
+        bars, _, _, _ = make_rally_history(
             decline_pct=5.0,
             down_days=5,
             rally_days=12,
-            rally_gain_per_day=0.2,  # Small gains, no FTD
+            rally_gain_per_day=0.2,
         )
         result = analyze_single_index(bars, "Test")
-        # Should be RALLY_FAILED or FTD_WINDOW, not FTD_CONFIRMED
-        assert result["state"] != MarketState.FTD_CONFIRMED.value
+        assert result["state"] == MarketState.RALLY_FAILED.value
+        assert result["market_status"] == "market_in_correction"
 
     def test_ftd_gain_tier_strong(self):
-        """2.0%+ gain -> strong tier."""
-        bars, swing_low_idx, _, _ = make_rally_history(
+        bars, _, _, _ = make_rally_history(
             decline_pct=5.0,
             down_days=5,
             rally_days=6,
@@ -193,25 +155,45 @@ class TestDetectFTD:
             ftd_gain_pct=2.5,
             ftd_volume_mult=1.5,
         )
-        rally = track_rally_attempt(bars, swing_low_idx)
-        ftd = detect_ftd(bars, rally)
-        if ftd["ftd_detected"]:
-            assert ftd["gain_tier"] == "strong"
+        result = analyze_single_index(bars, "Test")
+        assert result["ftd"]["gain_tier"] == "strong"
+
+    def test_ftd_result_includes_ftd_low(self):
+        bars, _, _, _ = make_rally_history(
+            decline_pct=5.0,
+            down_days=5,
+            rally_days=6,
+            ftd_day=4,
+            ftd_gain_pct=1.5,
+            ftd_volume_mult=1.5,
+        )
+        ftd = analyze_single_index(bars, "Test")["ftd"]
+        assert "ftd_low" in ftd
+        assert ftd["ftd_low"] > 0
+
+    def test_ftd_volume_uses_point_in_time_average(self):
+        """FTD volume comparison must use only pre-FTD data, not post-FTD bars."""
+        bars, _, _, _ = make_rally_history(
+            peak=100,
+            decline_pct=5.0,
+            down_days=5,
+            rally_days=6,
+            ftd_day=4,
+            ftd_gain_pct=1.5,
+            ftd_volume_mult=1.3,
+            base_volume=1_000_000,
+        )
+        for i in range(10):
+            bars.append(make_bar(bars[-1]["close"] * 1.001, volume=3_000_000, date=f"post-{i}"))
+        result = analyze_single_index(bars, "Test")
+        assert result["state"] == MarketState.FTD_CONFIRMED.value
+        # True at FTD time; post-FTD 3M volume would flip it with look-ahead
+        assert result["ftd"]["volume_above_avg"] is True
 
 
-# ─── Test 9: Fix 1 verification — price recovery near highs ──────────────────
-
-
-class TestPriceRecoveryFix:
+class TestPriceRecovery:
     def test_ftd_tracked_despite_recovery_near_highs(self):
-        """
-        Fix 1 verification: After correction, if price rallies back near
-        the lookback high (within 3%), FTD tracking must NOT be killed.
-
-        Old behavior: correction_depth > -3% -> NO_SIGNAL (wrong).
-        New behavior: swing_low found -> continue tracking.
-        """
-        bars, swing_low_idx, _, _ = make_rally_history(
+        bars, _, _, _ = make_rally_history(
             peak=100,
             decline_pct=5.0,
             down_days=5,
@@ -221,38 +203,21 @@ class TestPriceRecoveryFix:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-
-        # The rally should have brought price back near the peak
-        current_price = bars[-1]["close"]
-        peak = 100.0
-        recovery_pct = (current_price - peak) / peak * 100
-
         result = analyze_single_index(bars, "Test Recovery")
+        assert result["state"] != MarketState.NO_SIGNAL.value
 
-        # Must NOT be NO_SIGNAL — should track the FTD
-        assert result["state"] != MarketState.NO_SIGNAL.value, (
-            f"Price recovered to {recovery_pct:+.1f}% from peak but state is "
-            f"NO_SIGNAL. Fix 1 regression: early return on shallow correction_depth."
-        )
-
-    def test_no_signal_when_no_swing_low(self):
-        """No qualifying swing low -> NO_SIGNAL (correct behavior)."""
-        # Flat market with 1% variation — no swing low
-        bars = []
-        for i in range(30):
-            price = 100 + (i % 3) * 0.3  # Tiny oscillation
-            bars.append(make_bar(price, date=f"day-{i:03d}"))
-
+    def test_no_signal_when_no_correction(self):
+        bars = [make_bar(100 + (i % 3) * 0.3, date=f"day-{i:03d}") for i in range(30)]
         result = analyze_single_index(bars, "Flat Market")
         assert result["state"] == MarketState.NO_SIGNAL.value
+        assert result["market_status"] is None
 
 
-# ─── Test 10: Dual-index merge ───────────────────────────────────────────────
+# ─── Dual-index merge ────────────────────────────────────────────────────────
 
 
 class TestDualIndexMerge:
     def test_dual_confirmation_both_ftd(self):
-        """Both S&P 500 and NASDAQ have FTD -> dual_confirmation=True."""
         bars_sp, _, _, _ = make_rally_history(
             peak=100,
             decline_pct=5.0,
@@ -271,17 +236,12 @@ class TestDualIndexMerge:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-
-        # get_market_state expects API format (most recent first)
-        sp_reversed = list(reversed(bars_sp))
-        nq_reversed = list(reversed(bars_nq))
-
-        result = get_market_state(sp_reversed, nq_reversed)
+        result = get_market_state(list(reversed(bars_sp)), list(reversed(bars_nq)))
         assert result["combined_state"] == MarketState.FTD_CONFIRMED.value
+        assert result["market_status"] == "confirmed_uptrend"
         assert result["dual_confirmation"] is True
 
     def test_single_ftd_no_dual(self):
-        """Only S&P 500 has FTD -> dual_confirmation=False."""
         bars_sp, _, _, _ = make_rally_history(
             peak=100,
             decline_pct=5.0,
@@ -291,79 +251,18 @@ class TestDualIndexMerge:
             ftd_gain_pct=1.6,
             ftd_volume_mult=1.5,
         )
-        # NASDAQ: flat market, no swing low
         bars_nq = [make_bar(200 + i * 0.1, date=f"day-{i:03d}") for i in range(30)]
-
-        sp_reversed = list(reversed(bars_sp))
-        nq_reversed = list(reversed(bars_nq))
-
-        result = get_market_state(sp_reversed, nq_reversed)
+        result = get_market_state(list(reversed(bars_sp)), list(reversed(bars_nq)))
         assert result["combined_state"] == MarketState.FTD_CONFIRMED.value
         assert result["dual_confirmation"] is False
 
 
-# ─── Test Issue 3: Look-ahead bias in average volume ─────────────────────────
+# ─── FTD lifecycle through the replay ────────────────────────────────────────
 
 
-class TestDetectFTDVolumeBias:
-    def test_ftd_volume_uses_point_in_time_average(self):
-        """FTD volume comparison must use only pre-FTD data, not post-FTD bars."""
-        bars, swing_low_idx, _, _ = make_rally_history(
-            peak=100,
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=6,
-            ftd_day=4,
-            ftd_gain_pct=1.5,
-            ftd_volume_mult=1.3,  # Slightly above normal avg
-            base_volume=1_000_000,
-        )
-        # Append high-volume post-FTD bars that inflate average
-        for i in range(10):
-            bars.append(make_bar(bars[-1]["close"] * 1.001, volume=3_000_000, date=f"post-{i}"))
-
-        rally = track_rally_attempt(bars, swing_low_idx)
-        ftd = detect_ftd(bars, rally)
-        assert ftd["ftd_detected"] is True
-        # Must be True: at FTD time, volume was above the then-current 50-day avg
-        # Would be False with look-ahead bias (post-FTD 3M volume inflates avg)
-        assert ftd["volume_above_avg"] is True
-
-
-# ─── Test Issue 6: FTD day low missing from report ────────────────────────────
-
-
-class TestDetectFTDLow:
-    def test_ftd_result_includes_ftd_low(self):
-        """FTD result must include ftd_low."""
-        bars, swing_low_idx, _, _ = make_rally_history(
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=6,
-            ftd_day=4,
-            ftd_gain_pct=1.5,
-            ftd_volume_mult=1.5,
-        )
-        rally = track_rally_attempt(bars, swing_low_idx)
-        ftd = detect_ftd(bars, rally)
-        assert ftd["ftd_detected"] is True
-        assert "ftd_low" in ftd
-        assert ftd["ftd_low"] > 0
-
-
-# ─── Test Issue 1: FTD context preserved through post-FTD pullback ───────────
-
-
-class TestFTDContextPreservation:
-    def test_ftd_survives_post_ftd_pullback(self):
-        """FTD after 3%+ pullback (above FTD low) must stay FTD_CONFIRMED.
-
-        Scenario: correction → FTD → strong rally → 4% pullback (new swing low)
-        The pullback stays above FTD day low so FTD should remain valid.
-        Without Issue 1 fix, find_swing_low() finds the pullback as the most
-        recent swing low, no FTD from it, and returns CORRECTION.
-        """
-        bars, swing_low_idx, _, ftd_day_idx = make_rally_history(
+class TestFTDLifecycle:
+    def _ftd_bars(self):
+        return make_rally_history(
             peak=100,
             decline_pct=5.0,
             down_days=5,
@@ -372,156 +271,62 @@ class TestFTDContextPreservation:
             ftd_gain_pct=1.8,
             ftd_volume_mult=1.5,
         )
-        ftd_low = min(b["low"] for b in bars)
 
-        # Rally further after FTD to create room for 3%+ pullback above FTD low
+    def test_ftd_survives_post_ftd_pullback(self):
+        """A 4.5% pullback that holds the correction low leaves the FTD confirmed."""
+        bars, _, _, _ = self._ftd_bars()
         last_close = bars[-1]["close"]
         for i in range(10):
             last_close *= 1.008
             bars.append(make_bar(last_close, date=f"post-ftd-rally-{i}"))
-
-        # Pull back ~4.5% from highs (5 down days) — creates new qualifying swing low
         high_price = last_close
         for i in range(5):
-            pb_price = high_price * (1 - 0.009 * (i + 1))
-            assert pb_price > ftd_low, (
-                f"Pullback {pb_price:.2f} must stay above FTD low {ftd_low:.2f}"
-            )
-            bars.append(make_bar(pb_price, date=f"pullback-{i}"))
-
+            bars.append(make_bar(high_price * (1 - 0.009 * (i + 1)), date=f"pullback-{i}"))
         result = analyze_single_index(bars, "Pullback Test")
-        assert result["state"] == MarketState.FTD_CONFIRMED.value, (
-            f"Expected FTD_CONFIRMED but got {result['state']}. "
-            "Issue 1: FTD context lost after post-FTD pullback."
-        )
+        assert result["state"] == MarketState.FTD_CONFIRMED.value
 
-    def test_invalidated_ftd_returns_ftd_invalidated(self):
-        """Close below FTD day low must return FTD_INVALIDATED with FTD data."""
-        bars, _, _, ftd_day_idx = make_rally_history(
-            peak=100,
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=7,
-            ftd_day=5,
-            ftd_gain_pct=1.8,
-            ftd_volume_mult=1.5,
-        )
-        ftd_low = min(b["low"] for b in bars)
-
-        # Close below FTD day low -> invalidation
-        bars.append(make_bar(ftd_low - 1.0, date="invalidation-day"))
-
+    def test_undercut_returns_ftd_invalidated_with_ftd_data(self):
+        bars, _, _, _ = self._ftd_bars()
+        correction_low = min(b["low"] for b in bars)
+        bars.append(make_bar(correction_low - 1.0, date="invalidation-day"))
         result = analyze_single_index(bars, "Invalidation Test")
-        assert result["state"] == MarketState.FTD_INVALIDATED.value, (
-            f"Expected FTD_INVALIDATED but got {result['state']}"
-        )
-        # FTD data must be preserved for downstream
-        assert result["ftd"] is not None
+        assert result["state"] == MarketState.FTD_INVALIDATED.value
+        assert result["market_status"] == "market_in_correction"
         assert result["ftd"]["ftd_detected"] is True
 
     def test_new_rally_attempt_overrides_old_invalidated_ftd(self):
-        """New RALLY_ATTEMPT from newer swing low overrides old invalidated FTD."""
-        bars, _, _, ftd_day_idx = make_rally_history(
-            peak=100,
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=7,
-            ftd_day=5,
-            ftd_gain_pct=1.8,
-            ftd_volume_mult=1.5,
-        )
-        ftd_low = min(b["low"] for b in bars)
-
-        # Invalidate the FTD
-        bars.append(make_bar(ftd_low - 2.0, date="invalidation-day"))
-
-        # Create a new correction and rally attempt from a new swing low
+        bars, _, _, _ = self._ftd_bars()
+        correction_low = min(b["low"] for b in bars)
+        bars.append(make_bar(correction_low - 2.0, date="invalidation-day"))
         last_close = bars[-1]["close"]
-        # Go lower to create new swing low
         for i in range(4):
             bars.append(make_bar(last_close * (1 - 0.01 * (i + 1)), date=f"new-decline-{i}"))
-        new_low_price = bars[-1]["close"]
-        # Rally from new low
+        new_low = bars[-1]["close"]
         for i in range(3):
-            bars.append(make_bar(new_low_price * (1 + 0.005 * (i + 1)), date=f"new-rally-{i}"))
-
+            bars.append(make_bar(new_low * (1 + 0.005 * (i + 1)), date=f"new-rally-{i}"))
         result = analyze_single_index(bars, "New Rally Test")
-        # Should show RALLY_ATTEMPT from the newer swing low, NOT FTD_INVALIDATED
         assert result["state"] in (
             MarketState.RALLY_ATTEMPT.value,
             MarketState.CORRECTION.value,
             MarketState.FTD_WINDOW.value,
-        ), f"Expected active state from new swing low but got {result['state']}"
-
-    def test_no_fallback_to_older_ftd_past_invalidated(self):
-        """Must NOT resurrect an older valid FTD after a newer invalidated FTD."""
-        # Build first correction + FTD (older)
-        bars, sl_idx1, _, ftd_idx1 = make_rally_history(
-            peak=100,
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=7,
-            ftd_day=5,
-            ftd_gain_pct=1.8,
-            ftd_volume_mult=1.5,
         )
-        # Continue rising
+
+    def test_invalidated_ftd_is_not_resurrected_by_an_older_one(self):
+        bars, _, _, _ = self._ftd_bars()
         for i in range(5):
             bars.append(make_bar(bars[-1]["close"] * 1.005, date=f"rise-{i}"))
-
-        # Second correction + FTD (newer) that gets invalidated
-        peak2 = bars[-1]["close"]
-        for i in range(5):
-            bars.append(make_bar(peak2 * (1 - 0.01 * (i + 1)), date=f"corr2-{i}"))
-        low2 = bars[-1]["close"]
-        for i in range(6):
-            gain = 0.003 * (i + 1)
-            vol = 1_000_000
-            if i == 3:  # Day 4 = FTD
-                gain = 0.018
-                vol = 1_500_000
-            bars.append(make_bar(low2 * (1 + gain), volume=vol, date=f"rally2-{i}"))
-        ftd2_low = bars[-3]["low"]  # Approximate FTD day low
-        # Invalidate the newer FTD
-        bars.append(make_bar(ftd2_low - 2.0, date="inv2-day"))
-
+        # an undercut of the original correction low fails the FTD for good
+        bars.append(make_bar(min(b["low"] for b in bars) - 2.0, date="inv-day"))
         result = analyze_single_index(bars, "No Fallback Test")
-        # Must NOT be FTD_CONFIRMED from the older FTD
-        assert result["state"] != MarketState.FTD_CONFIRMED.value, (
-            "Must not resurrect older FTD past an invalidated newer FTD"
-        )
+        assert result["state"] != MarketState.FTD_CONFIRMED.value
 
-
-class TestGetMarketStateFTDInvalidated:
     def test_ftd_invalidated_priority_above_correction(self):
-        """FTD_INVALIDATED should take priority over CORRECTION."""
-        # Build SP500 with FTD that gets invalidated
-        bars_sp, _, _, ftd_idx = make_rally_history(
-            peak=100,
-            decline_pct=5.0,
-            down_days=5,
-            rally_days=7,
-            ftd_day=5,
-            ftd_gain_pct=1.8,
-            ftd_volume_mult=1.5,
-        )
-        ftd_low = min(b["low"] for b in bars_sp)
-        bars_sp.append(make_bar(ftd_low - 1.0, date="inv-day"))
-
-        # NASDAQ: just in correction (no FTD)
-        bars_nq, _, _, _ = make_rally_history(
-            peak=200,
-            decline_pct=4.0,
-            down_days=4,
-            rally_days=2,  # Not enough for FTD
-        )
-
-        sp_rev = list(reversed(bars_sp))
-        nq_rev = list(reversed(bars_nq))
-        result = get_market_state(sp_rev, nq_rev)
-
-        # FTD_INVALIDATED should win over CORRECTION/RALLY_ATTEMPT
+        bars_sp, _, _, _ = self._ftd_bars()
+        bars_sp.append(make_bar(min(b["low"] for b in bars_sp) - 1.0, date="inv-day"))
+        bars_nq, _, _, _ = make_rally_history(peak=200, decline_pct=4.0, down_days=4, rally_days=2)
+        result = get_market_state(list(reversed(bars_sp)), list(reversed(bars_nq)))
         assert result["combined_state"] in (
             MarketState.FTD_INVALIDATED.value,
-            MarketState.RALLY_ATTEMPT.value,  # Also acceptable if NASDAQ has rally
+            MarketState.RALLY_ATTEMPT.value,
         )
+        assert result["market_status"] == "market_in_correction"

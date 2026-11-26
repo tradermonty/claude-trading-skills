@@ -46,8 +46,8 @@ def test_no_candle_fallback_for_missing_evidence(field):
 
 
 def test_full_state_machine_warns_without_erasing_event_or_sizing_portfolio():
-    history, _, day1, ftd = make_rally_history(rally_days=8, ftd_day=5, ftd_gain_pct=2.1)
-    anchor = history[day1]["low"]
+    history, sl_idx, _, ftd = make_rally_history(rally_days=8, ftd_day=5, ftd_gain_pct=2.1)
+    anchor = history[sl_idx]["low"]  # the correction low is the rally failure level
     warning_close = (anchor + history[ftd]["low"]) / 2
     history.append(make_bar(warning_close, low=(anchor + warning_close) / 2))
     state = analyze_single_index(history, "Fictional")

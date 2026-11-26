@@ -1,30 +1,43 @@
 #!/usr/bin/env python3
 """
-FTD Detector - Rally Tracker (State Machine)
+FTD Detector - Rally Tracker (stateful forward replay)
 
-Implements a state machine for tracking market correction → rally attempt → FTD sequence.
-Supports dual-index tracking (S&P 500 + NASDAQ Composite or explicit ETF proxy).
+Replays the supplied history oldest to newest, one session at a time, carrying
+state. State changes only on defined events, so a bar's meaning never depends
+on how many sessions happen to be in a window, and a confirmed FTD stays
+confirmed until a defined event ends it.
 
-States:
-  NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
-                   ↑              ↓               ↓              ↓
-                   └── RALLY_FAILED ←─────────────┘     FTD_INVALIDATED
+Phases (reported through the unchanged ``MarketState`` values):
+  uptrend_or_none -> NO_SIGNAL      no qualifying correction known
+  correction      -> CORRECTION, or RALLY_FAILED / FTD_INVALIDATED when the
+                     correction was (re-)entered by that event; the label lasts
+                     until the next Day 1 or a recovery above the correction peak
+  rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4-10)
+  confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``)
 
-O'Neil's FTD Rules:
-- Swing low: 3%+ decline from recent high with 3+ down days
-- Day 1: first up close (or close in top 50% of range) after swing low
-- Day 2 onward: intraday low must not breach the recorded Day 1 low
-- Day 4-10: FTD requires >=1.25% gain on volume > previous day
+Rules (O'Neil / IBD):
+- Correction: close >= 3% below the highest close with 3+ down closes since it.
+- Day 1: first up close (or a close in the top 50% of a valid high-low range,
+  including on a session that sets a new closing low) while armed.
+- Rally failure: an intraday low strictly below the lowest low since the
+  correction peak (the correction low). Equality holds.
+- FTD: Day 4-10, gain >= 1.25% vs the previous close, volume above the
+  previous session. A failed or exhausted (no FTD by Day 10) attempt may be
+  restarted in the same correction.
+- A confirmed uptrend ends with a new correction measured from the post-FTD
+  peak that is confirmed by distribution (5+ active distribution days) or by a
+  10% drawdown, or earlier with FTD_INVALIDATED if the correction low breaks.
 
-Data gaps (issue #655): a missing or non-finite close/volume is never read as 0
-and bars are never dropped (the state machine compares positionally adjacent
-sessions, so dropping a bar can fabricate an FTD). Each function validates the
-exact slice it reads and returns its conservative degraded shape with
-``data_gap: True`` and a ``reason`` instead of comparing missing operands.
+Data gaps (issue #655): a missing or non-finite close/volume/low is never read
+as 0 and bars are never dropped (the replay compares positionally adjacent
+sessions, so dropping a bar can fabricate an FTD). When bad bars exist, only
+the clean suffix after the last bad bar is replayed, and only if it holds at
+least MIN_REPLAY_SESSIONS bars; otherwise the result is NO_SIGNAL with
+``data_gap: True`` and an ``error`` naming the gap.
 """
 
+import copy
 from enum import Enum
-from typing import Optional
 
 from _price_bars import find_bar_gaps, read_price
 from ftd_lifecycle import assess_lifecycle
@@ -52,9 +65,25 @@ FTD_GAIN_MINIMUM = 1.25
 FTD_GAIN_RECOMMENDED = 1.5
 FTD_GAIN_STRONG = 2.0
 
-# Rally-tracker windows look back 60 sessions
+# Confirmed uptrend -> under pressure -> correction. The distribution-day
+# definition matches ibd-distribution-day-monitor. The counts, averages and the
+# drawdown below are uncalibrated model choices, not verified IBD rules.
+DD_MIN_DECLINE_PCT = 0.2
+DD_EXPIRY_SESSIONS = 25
+DD_RALLY_EXPIRY_PCT = 5.0
+DD_PRESSURE_COUNT = 5  # active distribution days that put the uptrend under pressure
+DD_CORRECTION_COUNT = 6  # active distribution days that, with a close < EMA, end it
+PRESSURE_SMA = 50  # session count of the simple moving average of closes
+CORRECTION_EMA = 21  # session count of the exponential moving average of closes
+DEEP_CORRECTION_PCT = 10.0  # drawdown from the post-FTD peak close that ends it
+
+# Display window for lookback_high / correction_depth_pct, and the minimum
+# clean replay length once a data gap forces a restart.
 ANALYSIS_LOOKBACK = 60
+MIN_REPLAY_SESSIONS = 60
 CLOSE_VOLUME = ("close", "volume")
+REPLAY_FIELDS = ("close", "volume", "low")
+REFERENCE_BASIS = "intraday low below the correction low"
 
 
 def bar_gaps(bars: list[dict], required: tuple = CLOSE_VOLUME) -> dict:
@@ -75,253 +104,28 @@ def gap_reason(gaps: dict, where: str) -> str:
     )
 
 
-def _low_or_close(bar: dict) -> float:
-    """Intraday low, falling back to the (already validated) close."""
-    return read_price(bar, "low") or bar["close"]
-
-
-def _is_swing_low(history: list[dict], i: int) -> Optional[dict]:
-    """Check if index i in history qualifies as a swing low.
-
-    Returns dict with swing low details, or None. A bar with a missing or
-    invalid close in the range this check reads means "not a swing low".
-    """
-    n = len(history)
-    search_start = max(0, i - 40)
-    if bar_gaps(history[search_start : i + 2], ("close",))["bad_bars"]:
-        return None
-    low_close = history[i]["close"]
-
-    # Look back up to 40 days for a recent high
-    recent_high = 0
-    recent_high_idx = search_start
-    for j in range(search_start, i):
-        c = history[j]["close"]
-        if c > recent_high:
-            recent_high = c
-            recent_high_idx = j
-
-    if recent_high <= 0:
-        return None
-
-    decline_pct = (low_close - recent_high) / recent_high * 100
-
-    if decline_pct > -MIN_CORRECTION_PCT:
-        return None
-
-    # Count down days from high to this point
-    down_days = 0
-    for j in range(recent_high_idx + 1, i + 1):
-        if history[j]["close"] < history[j - 1]["close"]:
-            down_days += 1
-
-    if down_days < MIN_DOWN_DAYS:
-        return None
-
-    # Verify it's a local minimum (not lower closes immediately adjacent)
-    if i > 0 and history[i - 1]["close"] < low_close:
-        return None
-    if i + 1 < n and history[i + 1]["close"] < low_close:
-        return None
-
+def window_quality(gaps: dict) -> dict:
+    """Compact data-quality summary of a find_bar_gaps report for the JSON output."""
     return {
-        "swing_low_idx": i,
-        "swing_low_price": low_close,
-        "swing_low_date": history[i].get("date", "N/A"),
-        "swing_low_low": read_price(history[i], "low") or low_close,
-        "recent_high_price": recent_high,
-        "recent_high_idx": recent_high_idx,
-        "recent_high_date": history[recent_high_idx].get("date", "N/A"),
-        "decline_pct": round(decline_pct, 2),
-        "down_days": down_days,
+        "window_sessions": gaps["checked_bars"],
+        "bad_bars": gaps["bad_bars"],
+        "bad_dates": gaps["bad_dates"],
+        "latest_bad": gaps["latest_bad"],
+        "required": gaps["required"],
     }
 
 
-def find_swing_low(history: list[dict]) -> Optional[dict]:
-    """Find the most recent qualifying swing low in chronological history."""
-    if not history or len(history) < 5:
-        return None
-    for i in range(len(history) - 1, 3, -1):
-        result = _is_swing_low(history, i)
-        if result:
-            return result
-    return None
+def _upper_half(bar: dict) -> bool:
+    """Close in the top 50% of a valid high-low range (needs a real high and low)."""
+    high = read_price(bar, "high")
+    low = read_price(bar, "low")
+    if high is None or low is None or high - low <= 0:
+        return False
+    return (bar["close"] - low) / (high - low) >= 0.5
 
 
-def _find_all_swing_lows(history: list[dict], max_count: int = 6) -> list[dict]:
-    """Find all qualifying swing lows, most recent first (up to max_count)."""
-    if not history or len(history) < 5:
-        return []
-    results = []
-    for i in range(len(history) - 1, 3, -1):
-        sl = _is_swing_low(history, i)
-        if sl:
-            results.append(sl)
-            if len(results) >= max_count:
-                break
-    return results
-
-
-def track_rally_attempt(history: list[dict], swing_low_idx: int, *, restarted=False) -> dict:
-    """
-    Track rally attempt starting after swing low.
-
-    Day 1: First up close OR close in top 50% of day's range after swing low.
-    Every subsequent session must not undercut the Day 1 intraday low.
-    Invalidation: an intraday breach of the explicit Day 1 low fails the attempt.
-
-    Args:
-        history: Daily OHLCV in chronological order
-        swing_low_idx: Index of the swing low in history
-
-    Returns:
-        Dict with day1_idx, current_day, rally_days list, invalidated flag, etc.
-        On a missing or invalid close/volume between the swing low and the
-        latest bar, the "no rally" shape with ``data_gap: True`` and a
-        ``reason``; no rally day is ever counted across a gap.
-    """
-    n = len(history)
-
-    result = {
-        "day1_idx": None,
-        "day1_date": None,
-        "day1_low": None,
-        "current_day_count": 0,
-        "rally_days": [],
-        "invalidated": False,
-        "invalidation_reason": None,
-        "reset_count": 0,
-    }
-
-    gaps = bar_gaps(history[swing_low_idx:])
-    if gaps["bad_bars"]:
-        result["data_gap"] = True
-        result["reason"] = gap_reason(gaps, "since the swing low")
-        return result
-
-    if swing_low_idx >= n - 1:
-        return result
-
-    swing_low_price = history[swing_low_idx]["close"]
-
-    # Find Day 1
-    day1_idx = None
-    for i in range(swing_low_idx + 1, n):
-        curr_close = history[i]["close"]
-        prev_close = history[i - 1]["close"]
-
-        # Check invalidation first: close below swing low
-        if curr_close < swing_low_price and not restarted:
-            result["invalidated"] = True
-            result["restart_idx"] = i
-            result["invalidation_reason"] = (
-                f"Close ${curr_close:.2f} below swing low ${swing_low_price:.2f} "
-                f"on {history[i].get('date', 'N/A')}"
-            )
-            return result
-
-        # Day 1: up close OR close in top 50% of range
-        if curr_close > prev_close:
-            day1_idx = i
-            break
-        # The range rule needs a real high and low; without either, only an
-        # up close can qualify Day 1 (a missing high must not fake the top 50%).
-        curr_high = read_price(history[i], "high")
-        curr_low = read_price(history[i], "low")
-        if curr_high is None or curr_low is None:
-            continue
-        day_range = curr_high - curr_low
-        if day_range > 0:
-            close_position = (curr_close - curr_low) / day_range
-            if close_position >= 0.5:
-                day1_idx = i
-                break
-
-    if day1_idx is None:
-        return result
-
-    day1_low = read_price(history[day1_idx], "low")
-    if day1_low is None:
-        result.update(data_gap=True, reason="Data gap: Day 1 low unavailable")
-        return result
-    result["day1_idx"] = day1_idx
-    result["day1_date"] = history[day1_idx].get("date", "N/A")
-    result["day1_low"] = day1_low
-
-    # Track days from Day 1 onward
-    day_count = 1
-    rally_days = [
-        {
-            "day": 1,
-            "idx": day1_idx,
-            "date": history[day1_idx].get("date", "N/A"),
-            "close": history[day1_idx]["close"],
-            "volume": history[day1_idx]["volume"],
-        }
-    ]
-
-    for i in range(day1_idx + 1, n):
-        curr_close = history[i]["close"]
-        prev_close = history[i - 1]["close"]
-        curr_volume = history[i]["volume"]
-        prev_volume = history[i - 1]["volume"]
-
-        current_low = read_price(history[i], "low")
-        if current_low is None:
-            result.update(data_gap=True, reason="Data gap: Rally intraday low unavailable")
-            return result
-        day_count += 1
-        if current_low < day1_low:
-            result["invalidated"] = True
-            result["restart_idx"] = i
-            result["invalidation_reason"] = (
-                f"Intraday low ${current_low:.2f} below Day 1 low ${day1_low:.2f} "
-                f"on {history[i].get('date', 'N/A')}"
-            )
-            break
-
-        change_pct = (curr_close - prev_close) / prev_close * 100
-
-        rally_days.append(
-            {
-                "day": day_count,
-                "idx": i,
-                "date": history[i].get("date", "N/A"),
-                "close": curr_close,
-                "volume": curr_volume,
-                "change_pct": round(change_pct, 2),
-                "volume_vs_prev": (
-                    round((curr_volume / prev_volume - 1) * 100, 1) if prev_volume > 0 else 0
-                ),
-            }
-        )
-
-    result["current_day_count"] = day_count
-    result["rally_days"] = rally_days
-    return result
-
-
-def detect_ftd(history: list[dict], rally_data: dict) -> dict:
-    """
-    Detect Follow-Through Day within the FTD window (Day 4-10).
-
-    FTD Criteria:
-    - Day 4-10 of rally attempt
-    - Price gain >= 1.25% (minimum), 1.5% (recommended), 2.0% (strong)
-    - Volume > previous day (mandatory)
-    - Volume > point-in-time 50-day average (bonus, no look-ahead)
-
-    Args:
-        history: Daily OHLCV in chronological order
-        rally_data: Output from track_rally_attempt()
-
-    Returns:
-        Dict with ftd_detected, ftd_day_number, gain_pct, volume details, etc.
-        ``ftd_detected: False`` with ``data_gap: True`` and a ``reason`` when a
-        bar it would read (a candidate day, the day before it, or the volume
-        lookback) has a missing or invalid value.
-    """
-    result = {
+def _empty_ftd() -> dict:
+    return {
         "ftd_detected": False,
         "ftd_day_number": None,
         "ftd_date": None,
@@ -335,139 +139,485 @@ def detect_ftd(history: list[dict], rally_data: dict) -> dict:
         "_ftd_idx": None,
     }
 
-    if rally_data.get("data_gap"):
-        result["data_gap"] = True
-        result["reason"] = rally_data.get("reason", "Data gap in rally attempt")
-        return result
 
-    rally_days = rally_data.get("rally_days", [])
-    candidates = [
-        d for d in rally_days if FTD_DAY_START <= d["day"] <= FTD_DAY_END and d["idx"] > 0
-    ]
-    if candidates:
-        first_idx = min(d["idx"] for d in candidates)
-        last_idx = max(d["idx"] for d in candidates)
-        for gaps, where in (
-            (bar_gaps(history[first_idx - 1 : last_idx + 1]), "in the FTD window"),
-            (
-                bar_gaps(history[max(0, first_idx - 50) : last_idx], ("volume",)),
-                "in the 50-day volume lookback",
-            ),
-        ):
-            if gaps["bad_bars"]:
-                result["data_gap"] = True
-                result["reason"] = gap_reason(gaps, where)
-                return result
+def _round4(value):
+    return None if value is None else round(value, 4)
 
-    for day_info in candidates:
-        day_num = day_info["day"]
-        change_pct = day_info["change_pct"]
-        if change_pct < FTD_GAIN_MINIMUM:
-            continue
 
-        # Volume must be higher than previous day
-        idx = day_info["idx"]
-        curr_volume = day_info["volume"]
-        prev_volume = history[idx - 1]["volume"]
+def _public(ftd: dict) -> dict:
+    return {key: value for key, value in ftd.items() if not key.startswith("_")}
 
-        if prev_volume <= 0 or curr_volume <= prev_volume:
-            continue
 
-        # FTD detected
-        if change_pct >= FTD_GAIN_STRONG:
-            gain_tier = "strong"
-        elif change_pct >= FTD_GAIN_RECOMMENDED:
-            gain_tier = "recommended"
-        else:
-            gain_tier = "minimum"
+class _Replay:
+    """Forward replay of one chronological, gap-free bar sequence."""
 
-        # Point-in-time 50-day average volume (no look-ahead)
-        lookback_bars = history[max(0, idx - 50) : idx]
-        volumes = [d["volume"] for d in lookback_bars if d["volume"] > 0]
-        pit_avg = sum(volumes) / len(volumes) if volumes else 0
-        volume_above_avg = curr_volume > pit_avg if pit_avg > 0 else None
+    def __init__(self, history: list[dict], start: int):
+        self.h = history
+        self.start = start
+        self.phase = "uptrend_or_none"
+        self.label = None  # CORRECTION / RALLY_FAILED / FTD_INVALIDATED in correction
+        self.peak_close = history[start]["close"]
+        self.peak_idx = start
+        self.down_count = 0
+        self.low_close = None
+        self.low_idx = None
+        self.ref_low = None
+        self.ref_low_idx = None
+        self.armed = False
+        self.attempt = None
+        self.failures = 0
+        self.prior_events = []
+        self.day = 0
+        self.ftd = None
+        self.ftd_idx = None
+        self.ftd_ref_low = None
+        self.ftd_ref_low_idx = None
+        self.ftd_low_close = None
+        self.ftd_low_idx = None
+        self.pre_ftd_peak = None
+        self.pre_ftd_peak_idx = None
+        self.dds = []
+        self.previous_ftd = None
+        self.last_transition = None
+        self.status = None
+        self.pressure_reasons = []
+        self.ftd_low_breached = False
+        self.ema = self._ema_series()
 
-        result.update(
+    # -- helpers ---------------------------------------------------------
+    def _date(self, idx):
+        return self.h[idx].get("date", "N/A")
+
+    def _ema_series(self):
+        """EMA of closes seeded with the SMA of the first CORRECTION_EMA replay closes.
+
+        Each value uses closes up to its own bar only (point in time); ``None``
+        until CORRECTION_EMA bars exist since the replay start.
+        """
+        out = [None] * len(self.h)
+        first = self.start + CORRECTION_EMA - 1
+        if first >= len(self.h):
+            return out
+        k = 2 / (CORRECTION_EMA + 1)
+        value = sum(self.h[i]["close"] for i in range(self.start, first + 1)) / CORRECTION_EMA
+        out[first] = value
+        for i in range(first + 1, len(self.h)):
+            value = self.h[i]["close"] * k + value * (1 - k)
+            out[i] = value
+        return out
+
+    def sma(self, t):
+        """SMA of the last PRESSURE_SMA closes ending at t, or None if too few bars."""
+        if t - self.start + 1 < PRESSURE_SMA:
+            return None
+        return sum(self.h[i]["close"] for i in range(t - PRESSURE_SMA + 1, t + 1)) / PRESSURE_SMA
+
+    def _transition(self, t, new_phase, reason):
+        self.last_transition = {
+            "date": self._date(t),
+            "from": self.phase,
+            "to": new_phase,
+            "reason": reason,
+        }
+        self.phase = new_phase
+
+    def run(self, on_bar=None):
+        """Replay every bar; ``on_bar(replay, idx)`` sees the state after each one."""
+        if on_bar:
+            on_bar(self, self.start)
+        for t in range(self.start + 1, len(self.h)):
+            getattr(self, f"_step_{self.phase.split('_')[0]}")(t)
+            if on_bar:
+                on_bar(self, t)
+        return self
+
+    # -- uptrend_or_none ---------------------------------------------------
+    def _step_uptrend(self, t):
+        close = self.h[t]["close"]
+        if close > self.peak_close:
+            self.peak_close, self.peak_idx, self.down_count = close, t, 0
+        elif close < self.h[t - 1]["close"]:
+            self.down_count += 1
+        if self._qualifies(close):
+            self._enter_correction(t, "correction qualified")
+
+    def _qualifies(self, close):
+        return (
+            close <= self.peak_close * (1 - MIN_CORRECTION_PCT / 100)
+            and self.down_count >= MIN_DOWN_DAYS
+        )
+
+    def _enter_correction(self, t, reason):
+        self.low_close = self.ref_low = None
+        for k in range(self.peak_idx, t + 1):
+            bar = self.h[k]
+            if self.low_close is None or bar["close"] < self.low_close:
+                self.low_close, self.low_idx = bar["close"], k
+            if self.ref_low is None or bar["low"] < self.ref_low:
+                self.ref_low, self.ref_low_idx = bar["low"], k
+        self._transition(t, "correction", reason)
+        self.label = MarketState.CORRECTION.value
+        self.armed = True
+        self.attempt = None
+        self.failures = 0
+        self.prior_events = []
+        self.ftd = None
+        self.status = None
+        # A session that sets the closing low may itself be Day 1 (upper-half close).
+        if self.low_idx == t and _upper_half(self.h[t]):
+            self._start_day1(t)
+
+    # -- correction ----------------------------------------------------------
+    def _step_correction(self, t):
+        bar = self.h[t]
+        close = bar["close"]
+        if bar["low"] < self.ref_low:
+            self.ref_low, self.ref_low_idx = bar["low"], t
+        # Only an FTD leaves a correction: a rise above the old peak does not.
+        if close < self.low_close:
+            self.low_close, self.low_idx, self.armed = close, t, True
+            if _upper_half(bar):
+                self._start_day1(t)
+            return
+        if not self.armed:
+            if close < self.h[t - 1]["close"]:
+                self.armed = True
+            return
+        if close > self.h[t - 1]["close"] or _upper_half(bar):
+            self._start_day1(t)
+
+    def _start_day1(self, t):
+        bar = self.h[t]
+        self._transition(t, "rally", "Day 1")
+        self.ftd = None
+        self.day = 1
+        self.attempt = {
+            "day1_idx": t,
+            "day1_date": self._date(t),
+            "day1_low": bar["low"],
+            "current_day_count": 1,
+            "rally_days": [
+                {
+                    "day": 1,
+                    "idx": t,
+                    "date": self._date(t),
+                    "close": bar["close"],
+                    "volume": bar["volume"],
+                }
+            ],
+            "invalidated": False,
+            "invalidation_reason": None,
+            "reset_count": self.failures,
+            "prior_ftd_events": list(self.prior_events),
+        }
+
+    # -- rally -----------------------------------------------------------------
+    def _step_rally(self, t):
+        bar, prev = self.h[t], self.h[t - 1]
+        close = bar["close"]
+        self.day += 1
+        self.attempt["current_day_count"] = self.day
+        if bar["low"] < self.ref_low:
+            self.attempt.update(
+                invalidated=True,
+                invalidation_reason=(
+                    f"Intraday low ${bar['low']:.2f} below correction low "
+                    f"${self.ref_low:.2f} on {self._date(t)}"
+                ),
+            )
+            self._fail(t, MarketState.RALLY_FAILED, "rally failed: correction low undercut")
+            return
+        change_pct = round((close - prev["close"]) / prev["close"] * 100, 2)
+        self.attempt["rally_days"].append(
             {
-                "ftd_detected": True,
-                "ftd_day_number": day_num,
-                "ftd_date": day_info.get("date", "N/A"),
-                "ftd_price": day_info["close"],
-                "ftd_low": read_price(history[idx], "low") or day_info["close"],
-                "gain_pct": change_pct,
-                "volume": curr_volume,
-                "prev_day_volume": prev_volume,
-                "volume_above_avg": volume_above_avg,
-                "gain_tier": gain_tier,
-                "_ftd_idx": idx,
+                "day": self.day,
+                "idx": t,
+                "date": self._date(t),
+                "close": close,
+                "volume": bar["volume"],
+                "change_pct": change_pct,
+                "volume_vs_prev": (
+                    round((bar["volume"] / prev["volume"] - 1) * 100, 1)
+                    if prev["volume"] > 0
+                    else 0
+                ),
             }
         )
-        break  # Take the first qualifying FTD
+        if (
+            FTD_DAY_START <= self.day <= FTD_DAY_END
+            and change_pct >= FTD_GAIN_MINIMUM
+            and bar["volume"] > prev["volume"] > 0
+        ):
+            self._confirm(t, change_pct)
+        elif self.day > FTD_DAY_END:
+            self.attempt.update(
+                invalidated=True,
+                invalidation_reason=f"No follow-through day by Day {FTD_DAY_END}",
+            )
+            self.failures += 1
+            self._transition(t, "correction", "rally exhausted without an FTD")
+            self.label = MarketState.RALLY_FAILED.value
+            self.armed = False
 
-    return result
+    def _fail(self, t, label, reason):
+        """Re-enter the correction phase after an undercut; the bar is never Day 1."""
+        bar = self.h[t]
+        self.failures += 1
+        self.ref_low, self.ref_low_idx = bar["low"], t
+        if bar["close"] < self.low_close:
+            self.low_close, self.low_idx = bar["close"], t
+        self.armed = True
+        self._transition(t, "correction", reason)
+        self.label = label.value
 
+    def _confirm(self, t, change_pct):
+        bar = self.h[t]
+        lookback = [read_price(b, "volume") for b in self.h[max(self.start, t - 50) : t]]
+        lookback = [v for v in lookback if v is not None]
+        pit_avg = sum(lookback) / len(lookback) if lookback else 0
+        if change_pct >= FTD_GAIN_STRONG:
+            tier = "strong"
+        elif change_pct >= FTD_GAIN_RECOMMENDED:
+            tier = "recommended"
+        else:
+            tier = "minimum"
+        self.ftd = {
+            "ftd_detected": True,
+            "ftd_day_number": self.day,
+            "ftd_date": self._date(t),
+            "ftd_price": bar["close"],
+            "ftd_low": bar["low"],
+            "gain_pct": change_pct,
+            "volume": bar["volume"],
+            "prev_day_volume": self.h[t - 1]["volume"],
+            "volume_above_avg": bar["volume"] > pit_avg if pit_avg > 0 else None,
+            "gain_tier": tier,
+            "_ftd_idx": t,
+        }
+        self.ftd_idx = t
+        self.ftd_ref_low, self.ftd_ref_low_idx = self.ref_low, self.ref_low_idx
+        self.ftd_low_close, self.ftd_low_idx = self.low_close, self.low_idx
+        self.pre_ftd_peak, self.pre_ftd_peak_idx = self.peak_close, self.peak_idx
+        self.peak_close, self.peak_idx = bar["close"], t
+        self.dds = []
+        self.status = "confirmed"
+        self.pressure_reasons = []
+        self.ftd_low_breached = False
+        self._transition(t, "confirmed", f"FTD on Day {self.day}")
+        self._update_status(t)
 
-def calculate_avg_volume(history: list[dict], period: int = 50) -> float:
-    """Calculate average volume over the specified period (most recent data)."""
-    if not history:
-        return 0
-    volumes = [read_price(d, "volume") for d in history[-period:]]
-    volumes = [v for v in volumes if v is not None]  # missing, invalid and 0 are skipped
-    return sum(volumes) / len(volumes) if volumes else 0
-
-
-def window_quality(gaps: dict) -> dict:
-    """Compact data-quality summary of a find_bar_gaps report for the JSON output."""
-    return {
-        "window_sessions": gaps["checked_bars"],
-        "bad_bars": gaps["bad_bars"],
-        "bad_dates": gaps["bad_dates"],
-        "latest_bad": gaps["latest_bad"],
-        "required": gaps["required"],
-    }
-
-
-def track_current_rally(history: list[dict], swing_low_idx: int) -> dict:
-    """Restart after a failed session, without requiring a new closing-price pivot.
-
-    A failure session cannot also count as the new Day 1. Search begins on the
-    following session, using normal up-close/upper-half criteria. Retain failed
-    FTD evidence separately and never count qualifying days across the break.
-    """
-    attempt = track_rally_attempt(history, swing_low_idx)
-    previous = []
-    origin = swing_low_idx
-    resets = 0
-    while attempt.get("invalidated") and not attempt.get("data_gap"):
-        boundary = attempt.get("restart_idx")
-        if boundary is None or boundary <= origin or boundary >= len(history) - 1:
-            break
-        event = detect_ftd(history, attempt)
-        candidate = track_rally_attempt(history, boundary, restarted=True)
-        if candidate.get("day1_idx") is None and not candidate.get("data_gap"):
-            break
-        if event.get("ftd_detected"):
-            previous.append(
+    # -- confirmed -------------------------------------------------------------
+    def _step_confirmed(self, t):
+        bar, prev = self.h[t], self.h[t - 1]
+        close = bar["close"]
+        if bar["low"] < self.ref_low:  # (b) wins when several triggers apply
+            if close > self.peak_close:
+                self.peak_close, self.peak_idx = close, t
+            self._invalidate_ftd(t)
+            return
+        if close > self.peak_close:
+            self.peak_close, self.peak_idx = close, t
+        high = read_price(bar, "high") or close
+        for dd in self.dds:
+            if dd["active"] and (
+                t - dd["idx"] > DD_EXPIRY_SESSIONS
+                or high >= dd["close"] * (1 + DD_RALLY_EXPIRY_PCT / 100)
+            ):
+                dd["active"] = False
+        if (
+            close <= prev["close"] * (1 - DD_MIN_DECLINE_PCT / 100)
+            and bar["volume"] > prev["volume"]
+        ):
+            self.dds.append(
                 {
-                    "ftd": {key: value for key, value in event.items() if not key.startswith("_")},
-                    "status": "FTD_INVALIDATED",
-                    "day1_date": attempt["day1_date"],
-                    "day1_low": attempt["day1_low"],
-                    "failure_date": history[boundary].get("date"),
-                    "reason": attempt.get("invalidation_reason"),
+                    "idx": t,
+                    "date": self._date(t),
+                    "close": close,
+                    "change_pct": round((close / prev["close"] - 1) * 100, 2),
+                    "active": True,
                 }
             )
-        attempt = candidate
-        origin = boundary
-        resets += 1
-    attempt["reset_count"] = resets
-    attempt["prior_ftd_events"] = previous
-    return attempt
+        active = len(self.active_dds())
+        ema = self.ema[t]
+        if active >= DD_CORRECTION_COUNT and ema is not None and close < ema:
+            self._end_uptrend(t, "distribution")
+        elif close <= self.peak_close * (1 - DEEP_CORRECTION_PCT / 100):
+            self._end_uptrend(t, "deep_drawdown")
+        else:
+            self._update_status(t)
+
+    def _update_status(self, t):
+        """confirmed <-> under_pressure.
+
+        Pressure causes: 5+ active distribution days, a close below the 50-session
+        SMA, and the first close below the FTD-day low (a warning only, #765). The
+        return needs <= 4 active distribution days and a close above the SMA; the
+        FTD-day-low breach alone does not keep the status under pressure.
+        """
+        close = self.h[t]["close"]
+        active = len(self.active_dds())
+        sma = self.sma(t)
+        causes = []
+        if active >= DD_PRESSURE_COUNT:
+            causes.append("distribution")
+        if sma is not None and close < sma:
+            causes.append("below_50sma")
+        if not self.ftd_low_breached and close < self.ftd["ftd_low"]:
+            self.ftd_low_breached = True  # one-shot, like the lifecycle warning
+            causes.append("ftd_low_close_breach")
+        if self.status == "confirmed":
+            if causes:
+                self.status = "under_pressure"
+                self.pressure_reasons = causes
+        elif active < DD_PRESSURE_COUNT and sma is not None and close > sma:
+            self.status = "confirmed"
+            self.pressure_reasons = []
+        else:
+            kept = [r for r in self.pressure_reasons if r == "ftd_low_close_breach"]
+            self.pressure_reasons = causes + [r for r in kept if r not in causes]
+            if not self.pressure_reasons:
+                self.pressure_reasons = ["awaiting_recovery"]  # causes cleared, return test not met
+
+    def _end_uptrend(self, t, reason):
+        self.previous_ftd = {
+            "ftd": _public(self.ftd),
+            "end_reason": reason,
+            "end_date": self._date(t),
+        }
+        self._enter_correction(t, f"confirmed uptrend ended: {reason}")
+        self.dds = []
+
+    def active_dds(self):
+        return [dd for dd in self.dds if dd["active"]]
+
+    def _invalidate_ftd(self, t):
+        bar = self.h[t]
+        self.prior_events.append(
+            {
+                "ftd": _public(self.ftd),
+                "status": "FTD_INVALIDATED",
+                "day1_date": self.attempt["day1_date"],
+                "day1_low": self.attempt["day1_low"],
+                "failure_date": self._date(t),
+                "reason": REFERENCE_BASIS,
+            }
+        )
+        self.attempt.update(
+            invalidated=True,
+            invalidation_reason=(
+                f"Intraday low ${bar['low']:.2f} below correction low "
+                f"${self.ref_low:.2f} on {self._date(t)}"
+            ),
+        )
+        if self.pre_ftd_peak >= self.peak_close:
+            self.peak_close, self.peak_idx = self.pre_ftd_peak, self.pre_ftd_peak_idx
+        self._fail(t, MarketState.FTD_INVALIDATED, "FTD invalidated: correction low undercut")
+        self.status = None
+        self.dds = []
+
+    # -- output ----------------------------------------------------------------
+    def state(self) -> MarketState:
+        if self.phase == "uptrend_or_none":
+            return MarketState.NO_SIGNAL
+        if self.phase == "confirmed":
+            return MarketState.FTD_CONFIRMED
+        if self.phase == "rally":
+            if self.attempt["current_day_count"] < FTD_DAY_START:
+                return MarketState.RALLY_ATTEMPT
+            return MarketState.FTD_WINDOW
+        return MarketState(self.label)
+
+    def market_status(self):
+        """IBD tier: confirmed_uptrend, uptrend_under_pressure, market_in_correction, None."""
+        if self.phase == "confirmed":
+            return "confirmed_uptrend" if self.status == "confirmed" else "uptrend_under_pressure"
+        if self.phase == "uptrend_or_none":
+            return None  # warm-up: no qualifying correction since the replay start
+        return "market_in_correction"
+
+    def swing_low(self):
+        if self.phase == "uptrend_or_none":
+            return None
+        h = self.h
+        if self.ftd is not None:  # confirmed or FTD_INVALIDATED: the low the FTD rallied from
+            high_close, high_idx = self.pre_ftd_peak, self.pre_ftd_peak_idx
+            low_close, low_idx = self.ftd_low_close, self.ftd_low_idx
+        else:
+            high_close, high_idx = self.peak_close, self.peak_idx
+            low_close, low_idx = self.low_close, self.low_idx
+        down_days = sum(
+            1 for k in range(high_idx + 1, low_idx + 1) if h[k]["close"] < h[k - 1]["close"]
+        )
+        return {
+            "swing_low_idx": low_idx,
+            "swing_low_price": low_close,
+            "swing_low_date": self._date(low_idx),
+            "swing_low_low": h[low_idx]["low"],
+            "recent_high_price": high_close,
+            "recent_high_idx": high_idx,
+            "recent_high_date": self._date(high_idx),
+            "decline_pct": round((low_close - high_close) / high_close * 100, 2),
+            "down_days": down_days,
+        }
+
+    def rally_attempt(self, state: MarketState):
+        attempt = copy.deepcopy(
+            self.attempt
+            or {
+                "day1_idx": None,
+                "day1_date": None,
+                "day1_low": None,
+                "current_day_count": 0,
+                "rally_days": [],
+                "invalidated": False,
+                "invalidation_reason": None,
+                "reset_count": self.failures,
+                "prior_ftd_events": list(self.prior_events),
+            }
+        )
+        if self.phase == "correction":
+            attempt["reset_count"] = self.failures
+            attempt["prior_ftd_events"] = list(self.prior_events)
+        if state in (MarketState.FTD_CONFIRMED, MarketState.FTD_INVALIDATED):
+            ref, ref_idx = self.ftd_ref_low, self.ftd_ref_low_idx
+        else:
+            ref, ref_idx = self.ref_low, self.ref_low_idx
+        attempt["reference_low"] = ref
+        attempt["reference_low_date"] = self._date(ref_idx) if ref_idx is not None else None
+        attempt["reference_basis"] = REFERENCE_BASIS
+        return attempt
+
+    def cycle(self, replay_sessions, restarted):
+        confirmed = self.phase == "confirmed"
+        return {
+            "phase": self.phase,
+            "uptrend_status": self.status if confirmed else None,
+            "pressure_reasons": list(self.pressure_reasons) if confirmed else [],
+            "active_distribution_days": [
+                {"date": d["date"], "close": d["close"], "change_pct": d["change_pct"]}
+                for d in self.active_dds()
+            ]
+            if confirmed
+            else [],
+            "post_ftd_peak_close": self.peak_close if confirmed else None,
+            "post_ftd_peak_date": self._date(self.peak_idx) if confirmed else None,
+            "last_transition": self.last_transition,
+            "previous_ftd": copy.deepcopy(self.previous_ftd),
+            "indicators": {
+                "sma50": _round4(self.sma(len(self.h) - 1)),
+                "sma50_available": self.sma(len(self.h) - 1) is not None,
+                "ema21": _round4(self.ema[-1]),
+                "ema21_available": self.ema[-1] is not None,
+            },
+            "replay_start_date": self._date(self.start),
+            "replay_sessions": replay_sessions,
+            "restarted_after_gap": restarted,
+        }
 
 
 def analyze_single_index(history: list[dict], index_name: str) -> dict:
     """
-    Run full FTD analysis for a single index.
+    Run full FTD analysis for a single index by replaying its whole history.
 
     Args:
         history: Daily OHLCV in chronological order (oldest first)
@@ -475,9 +625,11 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
 
     Returns:
         Complete analysis dict for this index. ``data_quality`` summarizes the
-        close/volume check of the 60-session window. If any bar in that window
-        has a missing or invalid close or volume, the result is the early-exit
-        shape (``NO_SIGNAL``, prices ``None``) with ``data_gap: True`` and an
+        close/volume check of the last 60 sessions. If a bar has a missing or
+        invalid close, volume or low, only the clean suffix after the last bad
+        bar is replayed (``cycle.restarted_after_gap``). When that suffix has
+        fewer than MIN_REPLAY_SESSIONS bars the result is the early-exit shape
+        (``NO_SIGNAL``, prices ``None``) with ``data_gap: True`` and an
         ``error`` naming the gap; no rally or FTD logic runs.
     """
     result = {
@@ -489,168 +641,71 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
         "current_price": None,
         "lookback_high": None,
         "correction_depth_pct": None,
+        "market_status": None,
     }
 
-    # Use last 60 trading days for analysis (the only bars the state machine reads)
-    lookback = min(ANALYSIS_LOOKBACK, len(history or []))
+    history = history or []
+    lookback = min(ANALYSIS_LOOKBACK, len(history))
     analysis_window = history[-lookback:] if lookback else []
-    gaps = bar_gaps(analysis_window)
-    result["data_quality"] = window_quality(gaps)
+    window_gaps = bar_gaps(analysis_window)
+    result["data_quality"] = window_quality(window_gaps)
 
-    if not history or len(history) < 10:
+    if len(history) < 10:
         result["error"] = "Insufficient data"
         return result
 
-    if gaps["bad_bars"]:
-        result["error"] = gap_reason(gaps, f"in the last {lookback} sessions")
+    gaps = find_bar_gaps(history, REPLAY_FIELDS, order="chronological")
+    start = gaps["bad_indices"][-1] + 1 if gaps["bad_bars"] else 0
+    replay_sessions = len(history) - start
+    if gaps["bad_bars"] and replay_sessions < MIN_REPLAY_SESSIONS:
+        report = window_gaps if window_gaps["bad_bars"] else bar_gaps(analysis_window, ("low",))
+        result["error"] = gap_reason(report, f"in the last {lookback} sessions")
         result["data_gap"] = True
         return result
 
     result["current_price"] = analysis_window[-1]["close"]
-
-    # Find the highest close in the window
-    max_close = 0
-    for d in analysis_window:
-        c = d["close"]
-        if c > max_close:
-            max_close = c
+    max_close = max(d["close"] for d in analysis_window)
     result["lookback_high"] = max_close
-
     if max_close > 0 and result["current_price"] > 0:
         result["correction_depth_pct"] = round(
             (result["current_price"] - max_close) / max_close * 100, 2
         )
 
-    # Do NOT early-return based on current correction depth.
-    # A valid FTD may be in progress even if price has recovered near highs.
-
-    swing_lows = _find_all_swing_lows(analysis_window)
-    if not swing_lows:
+    replay = _Replay(history, start).run()
+    state = replay.state()
+    result["state"] = state.value
+    result["market_status"] = replay.market_status()
+    result["swing_low"] = replay.swing_low()
+    result["cycle"] = replay.cycle(replay_sessions, bool(gaps["bad_bars"]))
+    if replay.phase == "uptrend_or_none":
         return result
+    result["rally_attempt"] = replay.rally_attempt(state)
 
-    # ── Step 1: Process most recent swing low to determine current_state ──
-    most_recent_sl = swing_lows[0]
-    result["swing_low"] = most_recent_sl
-    result["state"] = MarketState.CORRECTION.value
-
-    rally = track_current_rally(analysis_window, most_recent_sl["swing_low_idx"])
-    result["rally_attempt"] = rally
-
-    if rally.get("data_gap"):
-        result.update(state=MarketState.NO_SIGNAL.value, data_gap=True, error=rally.get("reason"))
-        return result
-
-    historical_ftd = detect_ftd(analysis_window, rally)
-    if historical_ftd["ftd_detected"]:
-        result["ftd"] = historical_ftd
-        lifecycle = assess_lifecycle(analysis_window, historical_ftd["_ftd_idx"], rally["day1_low"])
+    if state == MarketState.FTD_WINDOW:
+        result["ftd"] = _empty_ftd()
+    elif state in (MarketState.FTD_CONFIRMED, MarketState.FTD_INVALIDATED):
+        result["ftd"] = dict(replay.ftd)
+        lifecycle = assess_lifecycle(history, replay.ftd_idx, replay.ftd_ref_low)
         result["ftd_lifecycle"] = lifecycle
         if lifecycle.get("data_gap"):
             result.update(
                 state=MarketState.NO_SIGNAL.value, data_gap=True, error=lifecycle["reason"]
             )
-        else:
-            result["state"] = (
-                MarketState.FTD_INVALIDATED
-                if lifecycle["invalidated"]
-                else MarketState.FTD_CONFIRMED
-            ).value
-        return result
-
-    if rally["invalidated"]:
-        result["state"] = MarketState.RALLY_FAILED.value
-    elif rally["day1_idx"] is None:
-        pass  # CORRECTION
-    else:
-        day_count = rally["current_day_count"]
-        if day_count < FTD_DAY_START:
-            result["state"] = MarketState.RALLY_ATTEMPT.value
-        else:
-            result["state"] = MarketState.FTD_WINDOW.value
-            result["ftd"] = historical_ftd
-            if day_count > FTD_DAY_END:
-                result["state"] = MarketState.RALLY_FAILED.value
-
-    # If Step 1 found FTD context (confirmed or invalidated), return immediately
-    if result["state"] in (
-        MarketState.FTD_CONFIRMED.value,
-        MarketState.FTD_INVALIDATED.value,
-    ):
-        return result
-
-    # ── Step 2: Search older swing lows for a valid FTD ──
-    # Handles post-FTD pullback: new swing low exists but rally Day 1 low not breached
-    current_state = result["state"]
-
-    for older_sl in swing_lows[1:]:
-        older_rally = track_rally_attempt(analysis_window, older_sl["swing_low_idx"])
-        if older_rally.get("data_gap"):
-            result.update(
-                state=MarketState.NO_SIGNAL.value, data_gap=True, error=older_rally["reason"]
-            )
-            return result
-        if older_rally["day1_idx"] is None:
-            continue
-        if older_rally["current_day_count"] < FTD_DAY_START:
-            continue
-        older_ftd = detect_ftd(analysis_window, older_rally)
-        if not older_ftd["ftd_detected"]:
-            continue
-
-        # FTD found — inline invalidation check
-        ftd_idx = older_ftd.get("_ftd_idx")
-        if ftd_idx is None:
-            continue
-        lifecycle = assess_lifecycle(analysis_window, ftd_idx, older_rally["day1_low"])
-        if lifecycle.get("data_gap"):
-            result.update(
-                state=MarketState.NO_SIGNAL.value, data_gap=True, error=lifecycle["reason"]
-            )
-            return result
-        invalidated = lifecycle["invalidated"]
-        if not invalidated:
-            result["ftd_lifecycle"] = lifecycle
-            # Valid FTD still active through post-FTD pullback
-            result["swing_low"] = older_sl
-            result["rally_attempt"] = older_rally
-            result["ftd"] = older_ftd
-            result["state"] = MarketState.FTD_CONFIRMED.value
-            return result
-        else:
-            # Invalidated FTD — STOP (no fallback to even older FTDs)
-            # If newer swing low has active rally, keep that state
-            active_states = (
-                MarketState.RALLY_ATTEMPT.value,
-                MarketState.FTD_WINDOW.value,
-            )
-            if current_state in active_states:
-                previous = result["rally_attempt"].setdefault("prior_ftd_events", [])
-                if not any(
-                    item["ftd"].get("ftd_date") == older_ftd.get("ftd_date") for item in previous
-                ):
-                    previous.append(
-                        {
-                            "ftd": {
-                                key: value
-                                for key, value in older_ftd.items()
-                                if not key.startswith("_")
-                            },
-                            "status": "FTD_INVALIDATED",
-                            "day1_date": older_rally["day1_date"],
-                            "day1_low": older_rally["day1_low"],
-                            "failure_date": lifecycle.get("invalidation_date"),
-                            "reason": lifecycle.get("failure_basis"),
-                        }
-                    )
-            if current_state not in active_states:
-                result["ftd_lifecycle"] = lifecycle
-                result["swing_low"] = older_sl
-                result["rally_attempt"] = older_rally
-                result["ftd"] = older_ftd
-                result["state"] = MarketState.FTD_INVALIDATED.value
-            return result
-
     return result
+
+
+def _combined_market_status(combined_state, data_gap, *analyses):
+    """IBD sets one status from either major index: the better confirmed status wins."""
+    if data_gap:
+        return None
+    statuses = [a.get("market_status") for a in analyses]
+    if combined_state == MarketState.FTD_CONFIRMED.value:
+        if "confirmed_uptrend" in statuses:
+            return "confirmed_uptrend"
+        return "uptrend_under_pressure"
+    if "market_in_correction" in statuses:
+        return "market_in_correction"
+    return None
 
 
 def get_market_state(
@@ -723,7 +778,7 @@ def get_market_state(
                 ftd_index = label
                 break
 
-    # True when either index's 60-session window has a missing/invalid bar
+    # True when either index replay hit a missing/invalid bar it could not restart past
     data_gap = bool(sp500_analysis.get("data_gap") or nasdaq_analysis.get("data_gap"))
     if data_gap:
         # A gapped index drops its own FTD context, so promoting the other
@@ -737,6 +792,9 @@ def get_market_state(
 
     return {
         "combined_state": combined_state,
+        "market_status": _combined_market_status(
+            combined_state, data_gap, sp500_analysis, nasdaq_analysis
+        ),
         "dual_confirmation": dual_confirmation,
         "ftd_index": ftd_index,
         "sp500": sp500_analysis,
