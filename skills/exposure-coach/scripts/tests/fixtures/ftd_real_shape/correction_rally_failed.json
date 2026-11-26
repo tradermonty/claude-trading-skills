@@ -1,0 +1,170 @@
+{
+  "data_gap": false,
+  "ftd_invalidation": {},
+  "market_state": {
+    "combined_state": "RALLY_FAILED",
+    "data_gap": false,
+    "dual_confirmation": false,
+    "ftd_index": null,
+    "market_status": "market_in_correction"
+  },
+  "metadata": {
+    "schema_version": 2
+  },
+  "nasdaq": {
+    "correction_depth_pct": -3.57,
+    "current_price": 102.21309875423337,
+    "cycle": {
+      "active_distribution_days": [],
+      "indicators": {
+        "sma50": null,
+        "sma50_available": false
+      },
+      "last_transition": {
+        "date": "2026-04-03",
+        "from": "rally",
+        "reason": "rally attempt expired without an FTD",
+        "to": "correction"
+      },
+      "parameters": {
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0,
+        "resume_new_high": "pre_correction_high"
+      },
+      "phase": "correction",
+      "post_ftd_peak_close": null,
+      "post_ftd_peak_date": null,
+      "pressure_reasons": [],
+      "previous_ftd": null,
+      "regained_50sma_since_ftd": null,
+      "replay_sessions": 25,
+      "replay_start_date": "2026-03-02",
+      "restarted_after_gap": false,
+      "resumed_without_ftd": false,
+      "uptrend_status": null
+    },
+    "data_quality": {
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "window_sessions": 25
+    },
+    "ftd_lifecycle": null,
+    "index": "NASDAQ",
+    "lookback_high": 106.0,
+    "market_status": "market_in_correction",
+    "rally_attempt": {
+      "current_day_count": 11,
+      "day1_date": "2026-03-20",
+      "day1_low": 98.8991099,
+      "end_reason": "expired",
+      "invalidated": true,
+      "invalidation_reason": "No follow-through day by Day 10",
+      "prior_ftd_events": [],
+      "reference_low": 98.0,
+      "reference_low_date": "2026-03-19",
+      "reset_count": 1
+    },
+    "state": "RALLY_FAILED",
+    "swing_low": {
+      "date": "2026-04-03",
+      "decline_pct": -3.57,
+      "down_days": 5,
+      "price": 102.21309875423337,
+      "recent_high_date": "2026-03-12",
+      "recent_high_price": 106.0
+    }
+  },
+  "post_ftd_distribution": {},
+  "power_trend": {
+    "power_trend": false,
+    "reason": "Insufficient S&P 500 data"
+  },
+  "quality_score": {
+    "breakdown": {},
+    "exposure_range": "Not assessed",
+    "guidance": "No Follow-Through Day detected. Stay defensive.",
+    "position_sizing": {
+      "missing_context": [
+        "market_breadth",
+        "leadership",
+        "portfolio_risk_limits"
+      ],
+      "status": "not_assessed"
+    },
+    "signal": "No FTD",
+    "total_score": 0
+  },
+  "sp500": {
+    "correction_depth_pct": -3.57,
+    "current_price": 102.21309875423337,
+    "cycle": {
+      "active_distribution_days": [],
+      "indicators": {
+        "sma50": null,
+        "sma50_available": false
+      },
+      "last_transition": {
+        "date": "2026-04-03",
+        "from": "rally",
+        "reason": "rally attempt expired without an FTD",
+        "to": "correction"
+      },
+      "parameters": {
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0,
+        "resume_new_high": "pre_correction_high"
+      },
+      "phase": "correction",
+      "post_ftd_peak_close": null,
+      "post_ftd_peak_date": null,
+      "pressure_reasons": [],
+      "previous_ftd": null,
+      "regained_50sma_since_ftd": null,
+      "replay_sessions": 25,
+      "replay_start_date": "2026-03-02",
+      "restarted_after_gap": false,
+      "resumed_without_ftd": false,
+      "uptrend_status": null
+    },
+    "data_quality": {
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "window_sessions": 25
+    },
+    "ftd_lifecycle": null,
+    "index": "S&P 500",
+    "lookback_high": 106.0,
+    "market_status": "market_in_correction",
+    "rally_attempt": {
+      "current_day_count": 11,
+      "day1_date": "2026-03-20",
+      "day1_low": 98.8991099,
+      "end_reason": "expired",
+      "invalidated": true,
+      "invalidation_reason": "No follow-through day by Day 10",
+      "prior_ftd_events": [],
+      "reference_low": 98.0,
+      "reference_low_date": "2026-03-19",
+      "reset_count": 1
+    },
+    "state": "RALLY_FAILED",
+    "swing_low": {
+      "date": "2026-04-03",
+      "decline_pct": -3.57,
+      "down_days": 5,
+      "price": 102.21309875423337,
+      "recent_high_date": "2026-03-12",
+      "recent_high_price": 106.0
+    }
+  }
+}

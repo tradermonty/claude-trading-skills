@@ -1,0 +1,228 @@
+{
+  "data_gap": false,
+  "ftd_invalidation": {
+    "days_since_ftd": 0,
+    "failure_basis": "intraday low below the rally low",
+    "ftd_date": "2026-03-25",
+    "ftd_low": 102.10869021590997,
+    "invalidated": false,
+    "rally_day1_date": "2026-03-20",
+    "rally_low": 98.0,
+    "warning": false,
+    "warning_basis": "close below FTD-day low"
+  },
+  "market_state": {
+    "combined_state": "FTD_CONFIRMED",
+    "data_gap": false,
+    "dual_confirmation": true,
+    "ftd_index": "Both",
+    "market_status": "confirmed_uptrend"
+  },
+  "metadata": {
+    "schema_version": 2
+  },
+  "nasdaq": {
+    "correction_depth_pct": -3.38,
+    "current_price": 102.41593802999998,
+    "cycle": {
+      "active_distribution_days": [],
+      "indicators": {
+        "sma50": null,
+        "sma50_available": false
+      },
+      "last_transition": {
+        "date": "2026-03-25",
+        "from": "rally",
+        "reason": "FTD on Day 4",
+        "to": "confirmed"
+      },
+      "parameters": {
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0,
+        "resume_new_high": "pre_correction_high"
+      },
+      "phase": "confirmed",
+      "post_ftd_peak_close": 102.41593802999998,
+      "post_ftd_peak_date": "2026-03-25",
+      "pressure_reasons": [],
+      "previous_ftd": null,
+      "regained_50sma_since_ftd": false,
+      "replay_sessions": 18,
+      "replay_start_date": "2026-03-02",
+      "restarted_after_gap": false,
+      "resumed_without_ftd": false,
+      "uptrend_status": "confirmed"
+    },
+    "data_quality": {
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "window_sessions": 18
+    },
+    "ftd": {
+      "ftd_date": "2026-03-25",
+      "ftd_day_number": 4,
+      "ftd_detected": true,
+      "ftd_low": 102.10869021590997,
+      "gain_pct": 1.5,
+      "gain_tier": "recommended",
+      "volume_above_avg": true
+    },
+    "ftd_lifecycle": {
+      "days_since_ftd": 0,
+      "failure_basis": "intraday low below the rally low",
+      "ftd_date": "2026-03-25",
+      "ftd_low": 102.10869021590997,
+      "invalidated": false,
+      "rally_low": 98.0,
+      "warning": false,
+      "warning_basis": "close below FTD-day low"
+    },
+    "index": "NASDAQ",
+    "lookback_high": 106.0,
+    "market_status": "confirmed_uptrend",
+    "rally_attempt": {
+      "current_day_count": 4,
+      "day1_date": "2026-03-20",
+      "day1_low": 100.1985,
+      "end_reason": null,
+      "invalidated": false,
+      "invalidation_reason": null,
+      "prior_ftd_events": [],
+      "reference_low": 98.0,
+      "reference_low_date": "2026-03-19",
+      "reset_count": 0
+    },
+    "state": "FTD_CONFIRMED",
+    "swing_low": {
+      "date": "2026-03-19",
+      "decline_pct": -6.7,
+      "down_days": 5,
+      "price": 98.9,
+      "recent_high_date": "2026-03-12",
+      "recent_high_price": 106.0
+    }
+  },
+  "post_ftd_distribution": {
+    "days_monitored": 0,
+    "details": [],
+    "distribution_count": 0,
+    "earliest_distribution_day": null
+  },
+  "power_trend": {
+    "power_trend": false,
+    "reason": "Insufficient S&P 500 data"
+  },
+  "quality_score": {
+    "breakdown": {
+      "base": "Day 4 FTD: +60 (prime window)",
+      "dual_confirm": "Both S&P 500 + NASDAQ confirmed: +15",
+      "gain": "+1.50% gain: +10 (recommended)",
+      "post_ftd": "Post-FTD data not yet available: +0",
+      "volume": "Above 50-day avg volume: +10"
+    },
+    "exposure_range": "Not assessed",
+    "ftd_source": "S&P 500",
+    "guidance": "Strong technical FTD; breadth, leadership and portfolio risk still require assessment.",
+    "position_sizing": {
+      "missing_context": [
+        "market_breadth",
+        "leadership",
+        "portfolio_risk_limits"
+      ],
+      "status": "not_assessed"
+    },
+    "signal": "Strong FTD",
+    "total_score": 95
+  },
+  "sp500": {
+    "correction_depth_pct": -3.38,
+    "current_price": 102.41593802999998,
+    "cycle": {
+      "active_distribution_days": [],
+      "indicators": {
+        "sma50": null,
+        "sma50_available": false
+      },
+      "last_transition": {
+        "date": "2026-03-25",
+        "from": "rally",
+        "reason": "FTD on Day 4",
+        "to": "confirmed"
+      },
+      "parameters": {
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0,
+        "resume_new_high": "pre_correction_high"
+      },
+      "phase": "confirmed",
+      "post_ftd_peak_close": 102.41593802999998,
+      "post_ftd_peak_date": "2026-03-25",
+      "pressure_reasons": [],
+      "previous_ftd": null,
+      "regained_50sma_since_ftd": false,
+      "replay_sessions": 18,
+      "replay_start_date": "2026-03-02",
+      "restarted_after_gap": false,
+      "resumed_without_ftd": false,
+      "uptrend_status": "confirmed"
+    },
+    "data_quality": {
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "window_sessions": 18
+    },
+    "ftd": {
+      "ftd_date": "2026-03-25",
+      "ftd_day_number": 4,
+      "ftd_detected": true,
+      "ftd_low": 102.10869021590997,
+      "gain_pct": 1.5,
+      "gain_tier": "recommended",
+      "volume_above_avg": true
+    },
+    "ftd_lifecycle": {
+      "days_since_ftd": 0,
+      "failure_basis": "intraday low below the rally low",
+      "ftd_date": "2026-03-25",
+      "ftd_low": 102.10869021590997,
+      "invalidated": false,
+      "rally_low": 98.0,
+      "warning": false,
+      "warning_basis": "close below FTD-day low"
+    },
+    "index": "S&P 500",
+    "lookback_high": 106.0,
+    "market_status": "confirmed_uptrend",
+    "rally_attempt": {
+      "current_day_count": 4,
+      "day1_date": "2026-03-20",
+      "day1_low": 100.1985,
+      "end_reason": null,
+      "invalidated": false,
+      "invalidation_reason": null,
+      "prior_ftd_events": [],
+      "reference_low": 98.0,
+      "reference_low_date": "2026-03-19",
+      "reset_count": 0
+    },
+    "state": "FTD_CONFIRMED",
+    "swing_low": {
+      "date": "2026-03-19",
+      "decline_pct": -6.7,
+      "down_days": 5,
+      "price": 98.9,
+      "recent_high_date": "2026-03-12",
+      "recent_high_price": 106.0
+    }
+  }
+}

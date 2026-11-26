@@ -1,0 +1,176 @@
+{
+  "data_gap": false,
+  "ftd_invalidation": {},
+  "market_state": {
+    "combined_state": "UPTREND_RESUMED",
+    "data_gap": false,
+    "dual_confirmation": false,
+    "ftd_index": null,
+    "market_status": "confirmed_uptrend"
+  },
+  "metadata": {
+    "schema_version": 2
+  },
+  "nasdaq": {
+    "correction_depth_pct": 0.0,
+    "current_price": 106.04519551169965,
+    "cycle": {
+      "active_distribution_days": [],
+      "indicators": {
+        "sma50": 104.2127,
+        "sma50_available": true
+      },
+      "last_transition": {
+        "date": "2026-06-17",
+        "from": "rally",
+        "reason": "uptrend resumed on a new high without an FTD",
+        "to": "confirmed"
+      },
+      "parameters": {
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0,
+        "resume_new_high": "pre_correction_high"
+      },
+      "phase": "confirmed",
+      "post_ftd_peak_close": 106.04519551169965,
+      "post_ftd_peak_date": "2026-06-17",
+      "pressure_reasons": [],
+      "previous_ftd": null,
+      "regained_50sma_since_ftd": true,
+      "replay_sessions": 78,
+      "replay_start_date": "2026-03-02",
+      "restarted_after_gap": false,
+      "resumed_without_ftd": true,
+      "uptrend_status": "confirmed"
+    },
+    "data_quality": {
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "window_sessions": 60
+    },
+    "ftd_lifecycle": null,
+    "index": "NASDAQ",
+    "lookback_high": 106.04519551169965,
+    "market_status": "confirmed_uptrend",
+    "rally_attempt": {
+      "current_day_count": 10,
+      "day1_date": "2026-06-04",
+      "day1_low": 99.29352309999999,
+      "end_reason": null,
+      "invalidated": false,
+      "invalidation_reason": null,
+      "prior_ftd_events": [],
+      "reference_low": 98.0,
+      "reference_low_date": "2026-06-03",
+      "reset_count": 0
+    },
+    "state": "UPTREND_RESUMED",
+    "swing_low": {
+      "date": "2026-06-03",
+      "decline_pct": -6.7,
+      "down_days": 5,
+      "price": 98.9,
+      "recent_high_date": "2026-05-27",
+      "recent_high_price": 106.0
+    }
+  },
+  "post_ftd_distribution": {},
+  "power_trend": {
+    "conditions_met": 1,
+    "current_price": 106.05,
+    "ema_21": 103.42,
+    "ema_above_sma": false,
+    "power_trend": false,
+    "price_above_21ema": true,
+    "sma_50": 104.21,
+    "sma_50_rising": false
+  },
+  "quality_score": {
+    "breakdown": {},
+    "exposure_range": "Not assessed",
+    "guidance": "Uptrend resumed on a new high without a follow-through day; no FTD quality score applies.",
+    "position_sizing": {
+      "missing_context": [
+        "market_breadth",
+        "leadership",
+        "portfolio_risk_limits"
+      ],
+      "status": "not_assessed"
+    },
+    "signal": "No FTD",
+    "total_score": 0
+  },
+  "sp500": {
+    "correction_depth_pct": 0.0,
+    "current_price": 106.04519551169965,
+    "cycle": {
+      "active_distribution_days": [],
+      "indicators": {
+        "sma50": 104.2127,
+        "sma50_available": true
+      },
+      "last_transition": {
+        "date": "2026-06-17",
+        "from": "rally",
+        "reason": "uptrend resumed on a new high without an FTD",
+        "to": "confirmed"
+      },
+      "parameters": {
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0,
+        "resume_new_high": "pre_correction_high"
+      },
+      "phase": "confirmed",
+      "post_ftd_peak_close": 106.04519551169965,
+      "post_ftd_peak_date": "2026-06-17",
+      "pressure_reasons": [],
+      "previous_ftd": null,
+      "regained_50sma_since_ftd": true,
+      "replay_sessions": 78,
+      "replay_start_date": "2026-03-02",
+      "restarted_after_gap": false,
+      "resumed_without_ftd": true,
+      "uptrend_status": "confirmed"
+    },
+    "data_quality": {
+      "bad_bars": 0,
+      "bad_dates": [],
+      "latest_bad": null,
+      "required": [
+        "close",
+        "volume"
+      ],
+      "window_sessions": 60
+    },
+    "ftd_lifecycle": null,
+    "index": "S&P 500",
+    "lookback_high": 106.04519551169965,
+    "market_status": "confirmed_uptrend",
+    "rally_attempt": {
+      "current_day_count": 10,
+      "day1_date": "2026-06-04",
+      "day1_low": 99.29352309999999,
+      "end_reason": null,
+      "invalidated": false,
+      "invalidation_reason": null,
+      "prior_ftd_events": [],
+      "reference_low": 98.0,
+      "reference_low_date": "2026-06-03",
+      "reset_count": 0
+    },
+    "state": "UPTREND_RESUMED",
+    "swing_low": {
+      "date": "2026-06-03",
+      "decline_pct": -6.7,
+      "down_days": 5,
+      "price": 98.9,
+      "recent_high_date": "2026-05-27",
+      "recent_high_price": 106.0
+    }
+  }
+}
