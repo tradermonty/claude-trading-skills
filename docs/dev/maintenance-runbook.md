@@ -455,6 +455,23 @@ passed. Dry runs, lock
 skips, and failures do not refresh it. A failed improvement attempt returns
 nonzero even when scoring and the summary succeeded.
 
+Both the improvement loop and the generation pipeline run the newest `claude` on
+`PATH`, not the first one. The wrappers put `/opt/homebrew/bin` ahead of the
+native installer's `~/.local/bin`, so an old Homebrew copy used to win. It answered
+the review prompt in prose, so no review ever parsed (#652). Each run logs the
+chosen path. When several copies exist, it probes each with `--version` and logs
+the versions, including the copies it skipped; a single copy or a pin is not
+probed and logs `version unknown`. Relative or empty `PATH` entries are resolved
+to absolute paths first. To pin an executable, set `SKILL_LOOP_CLAUDE_BIN` to an
+absolute path in the plist's `EnvironmentVariables`. If the pin is not an
+absolute path to an executable file, the Python job exits 1 before scoring or
+generation starts; the wrapper has already synchronized the automation checkout
+by then. Code that imports these scripts and calls `run()` directly, bypassing
+`main()`, still runs the bare `claude` name.
+The weekly pipeline passes its selected executable to both mining and scoring
+children via `SKILL_LOOP_CLAUDE_BIN`; their availability checks and LLM calls
+use that exact executable, including pins whose filename is not `claude`.
+
 The LLM review call is capped by `SKILL_LOOP_REVIEW_BUDGET_USD` (default `5.00`
 US dollars per call; values outside 0.01 to 10 or not numeric fall back to the
 default with a warning). launchd does not pass your shell environment, so set it

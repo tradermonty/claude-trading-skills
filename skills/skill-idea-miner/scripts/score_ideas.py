@@ -157,7 +157,8 @@ def score_with_llm(candidates: list[dict], dry_run: bool = False) -> list[dict]:
             }
         return candidates
 
-    if not shutil.which("claude"):
+    claude_bin = os.environ.get("SKILL_LOOP_CLAUDE_BIN", "").strip() or "claude"
+    if not shutil.which(claude_bin):
         logger.warning("claude CLI not found; setting zero scores.")
         for c in scorable:
             c["scores"] = {
@@ -196,7 +197,7 @@ def score_with_llm(candidates: list[dict], dry_run: bool = False) -> list[dict]:
     try:
         result = subprocess.run(  # nosec B607 – claude CLI is an expected dependency
             [
-                "claude",
+                claude_bin,
                 "-p",
                 "--output-format",
                 "json",
