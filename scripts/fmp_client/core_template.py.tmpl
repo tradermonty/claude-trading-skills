@@ -205,7 +205,7 @@ class FMPClient:
         self.session.headers.update({"apikey": self.api_key})
 # @@ENDIF
 # @@IF configurable_timeout
-        self.timeout = 30
+        self.timeout = @@TIMEOUT_SECONDS@@
 # @@ENDIF
         self.cache = {}
         self.last_call_time = 0

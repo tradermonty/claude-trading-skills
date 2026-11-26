@@ -17,10 +17,7 @@ import time
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
-try:
-    import requests
-except ImportError:
-    requests = None  # type: ignore[assignment]
+import requests
 
 try:
     from finvizfinance.screener.overview import Overview
@@ -409,9 +406,6 @@ class RepresentativeStockSelector:
 
     def _fetch_finviz_elite(self, industry: str, limit: int, is_bearish: bool) -> list[dict]:
         """Fetch stocks via FINVIZ Elite CSV export."""
-        if requests is None:
-            return []
-
         self._rate_limit()
         self._source_states["elite"].total_queries += 1
 
@@ -546,7 +540,7 @@ class RepresentativeStockSelector:
 
     def _fetch_etf_holdings(self, etf_symbol: str, limit: int) -> list[dict]:
         """Fetch top ETF holdings via FMP API."""
-        if requests is None or not self._fmp_api_key:
+        if not self._fmp_api_key:
             return []
 
         self._rate_limit()
