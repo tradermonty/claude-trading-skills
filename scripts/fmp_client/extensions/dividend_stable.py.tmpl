@@ -64,6 +64,10 @@
         """Most-recent-first history for the dividend adapters; no retired v3 retry."""
         url = f"{self.STABLE_URL}/historical-price-eod/full"
         if url in self._disabled_endpoints:
+            # No fallback exists here, so the breaker alone refused the symbol; a
+            # request that ended on the rate limit was not refused by the breaker.
+            if not self.rate_limit_reached:
+                self._note_skipped_symbol(url, symbol)
             return None
         today = _et_today()
         data = self._request(
@@ -77,5 +81,9 @@
         if isinstance(data, list) and data:
             self._endpoint_failures[url] = 0
             return data[:days]
-        self._record_endpoint_failure(url)
+        if self._failure_kind_counts_toward_breaker():
+            self._record_endpoint_failure(url)
+        elif data is not None:
+            # Empty or malformed 200 bodies are per-symbol response problems.
+            self._last_failure_kind = "response_contract"
         return None

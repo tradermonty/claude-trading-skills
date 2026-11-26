@@ -182,6 +182,67 @@ def test_always_empty_endpoint_never_trips_breaker(rel_path, monkeypatch):
     assert len(calls) >= attempts
 
 
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_fallback_served_symbol_is_not_reported_as_skipped(rel_path, monkeypatch, capsys):
+    """A symbol a later endpoint served must not appear in skipped_symbols (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+
+    class Response:
+        text = ""
+
+        def __init__(self, status_code, symbol=None):
+            self.status_code = status_code
+            self.symbol = symbol
+
+        def json(self):
+            return {"symbol": self.symbol, "historical": [{"date": "2026-01-09", "close": 10}]}
+
+    def get(url, **kwargs):
+        if "/stable/" in url:
+            return Response(503)
+        # Echo the symbol from the v3 path: a single-symbol 200 that names a
+        # different ticker is a response-contract failure, not a served symbol.
+        return Response(200, url.rstrip("/").rsplit("/", 1)[-1])
+
+    monkeypatch.setattr(client.session, "get", get)
+    # Distinct symbols skip the positive cache so every call reaches both
+    # endpoints; the stable 503s trip the breaker and v3 serves each symbol.
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices(f"S{i}") is not None
+    assert len(client._disabled_endpoints) == 1
+    assert client.get_historical_prices("DEF") is not None
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+    assert "skipping" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_skip_report_names_only_symbols_no_endpoint_served(rel_path, monkeypatch, capsys):
+    """A symbol is reported skipped only when no endpoint returned data (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+
+    class Response:
+        status_code = 503
+        text = ""
+
+        def json(self):
+            raise ValueError("no json")
+
+    monkeypatch.setattr(client.session, "get", lambda url, **kwargs: Response())
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices(f"BAD{i}") is None
+    assert client._disabled_endpoints
+    # Failed symbols (called, not skipped) stay out of the report; the symbol
+    # whose endpoints were both passed over is reported.
+    assert client.get_historical_prices("SKIPME") is None
+    entries = client.get_endpoint_report()["skipped_symbols"]
+    assert entries and all("SKIPME" in entry for entry in entries)
+    assert "SKIPME" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("rel_path", FAMILY_B)
 def test_api_stats_budget_shape(rel_path, monkeypatch):
     monkeypatch.setenv("FMP_API_KEY", "test_key")  # pragma: allowlist secret
@@ -197,6 +258,81 @@ def test_api_stats_budget_shape(rel_path, monkeypatch):
     }
     assert stats["max_api_calls"] == 200
     assert stats["budget_remaining"] == 200
+
+
+@pytest.mark.parametrize("rel_path", TEMPLATE_CLIENTS)
+def test_rate_limit_end_is_not_reported_as_breaker_skip(rel_path, monkeypatch, capsys):
+    """A request that ended on the rate limit is not a breaker skip (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    client.max_retries = 0
+
+    class Response:
+        text = ""
+
+        def __init__(self, status_code, symbol=None):
+            self.status_code = status_code
+            self.symbol = symbol
+
+        def json(self):
+            return {"symbol": self.symbol, "historical": [{"date": "2026-01-09", "close": 10}]}
+
+    def get(url, **kwargs):
+        if "/stable/" in url:
+            return Response(503)
+        if "RATED" in url:
+            return Response(429)
+        return Response(200, url.rstrip("/").rsplit("/", 1)[-1])
+
+    monkeypatch.setattr(client.session, "get", get)
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices(f"S{i}") is not None
+    assert client._disabled_endpoints
+    capsys.readouterr()
+    assert client.get_historical_prices("RATED") is None
+    assert client.rate_limit_reached
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+    assert "skipping" not in capsys.readouterr().err
+
+
+DIVIDEND_CLIENTS = [
+    "skills/dividend-growth-pullback-screener/scripts/fmp_client.py",
+    "skills/value-dividend-screener/scripts/fmp_client.py",
+    "skills/kanchi-dividend-sop/scripts/fmp_client.py",
+]
+
+
+@pytest.mark.parametrize("rel_path", DIVIDEND_CLIENTS)
+def test_dividend_rate_limit_end_is_not_reported_as_breaker_skip(rel_path, monkeypatch, capsys):
+    """A dividend history request after the rate limit is not a breaker skip (#844)."""
+    mod = _load(rel_path)
+    client = mod.FMPClient(api_key="test_key")  # pragma: allowlist secret
+    client.RATE_LIMIT_DELAY = 0
+    client.max_retries = 0
+
+    class Response:
+        text = ""
+
+        def __init__(self, status_code):
+            self.status_code = status_code
+
+        def json(self):
+            raise ValueError("no json")
+
+    def get(url, **kwargs):
+        return Response(503 if "historical-price-eod" in url else 429)
+
+    monkeypatch.setattr(client.session, "get", get)
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_dividend_prices(f"S{i}") is None
+    assert client._disabled_endpoints
+    assert client._get("profile/ANY") is None
+    assert client.rate_limit_reached
+    capsys.readouterr()
+    assert client.get_dividend_prices("LATE") is None
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+    assert "skipping" not in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("rel_path", FAMILY_B)

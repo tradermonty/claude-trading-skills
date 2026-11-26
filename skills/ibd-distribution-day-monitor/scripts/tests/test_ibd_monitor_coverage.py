@@ -1136,7 +1136,9 @@ def test_request_with_fallback_falls_back_to_v3_with_warning(monkeypatch, capsys
     err = capsys.readouterr().err
     assert "WARN: " + STABLE_URL in err
     assert "HTTP 403" in err
-    assert client._endpoint_failures[STABLE_URL] == 1
+    # A 4xx is a per-call client/auth failure, not a provider outage: the
+    # fallback still happens, but it must not count toward the breaker (#844).
+    assert client._endpoint_failures.get(STABLE_URL, 0) == 0
 
 
 def test_request_with_fallback_all_endpoints_fail_returns_none(monkeypatch):
@@ -1176,9 +1178,14 @@ def test_request_with_fallback_symbol_mismatch_in_v3_dict(capsys):
 def test_request_with_fallback_non_dict_after_normalizer_is_rejected():
     client = make_client(FakeResponse(200, "weird"), FakeResponse(200, "weird"))
     assert client._request_with_fallback("historical", "QQQ") is None
-    assert client._endpoint_failures[STABLE_URL] == 1
+    # A shaped 200 for the wrong type is a per-symbol contract failure, not a
+    # provider outage: it must not move the circuit breaker (#844).
+    assert client._endpoint_failures.get(STABLE_URL, 0) == 0
     assert (
-        client._endpoint_failures[V3_URL.replace("historical-price", "historical-price-full")] == 1
+        client._endpoint_failures.get(
+            V3_URL.replace("historical-price", "historical-price-full"), 0
+        )
+        == 0
     )
 
 
