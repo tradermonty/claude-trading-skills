@@ -15,13 +15,17 @@ VOL = 1_000_000
 
 
 def B(close, low=None, high=None, vol=VOL):
-    return {
+    bar = {
         "open": close,
         "high": close * 1.004 if high is None else high,
         "low": close * 0.997 if low is None else low,
         "close": close,
         "volume": vol,
     }
+    # Every synthetic candle must be possible: low <= open/close <= high.
+    assert bar["low"] <= min(bar["open"], bar["close"]), bar
+    assert max(bar["open"], bar["close"]) <= bar["high"], bar
+    return bar
 
 
 def prefix(low_bar=None):
@@ -830,7 +834,9 @@ def test_2019_shape_fails_the_attempt_on_the_recent_low_and_confirms_the_restart
     assert attempt["rally_attempt"]["reference_low"] == p1_low
     assert attempt["rally_attempt"]["reference_low"] > deep_low + 1
     # day 10: a pullback undercuts P1, so A fails on the recent low
-    failure = B(a_days[-1]["close"] * 0.97, low=p1_low - 0.5, high=a_days[-1]["close"])
+    # a down close that holds above its own low, with an intraday low 0.5 under P1's low
+    failure = B(p1_low + 0.1, low=p1_low - 0.5, high=a_days[-1]["close"])
+    assert failure["close"] < a_days[-1]["close"]
     failed = run(bars_a + [failure])
     assert failed["state"] == "RALLY_FAILED"
     assert failed["rally_attempt"]["current_day_count"] == 10
@@ -852,3 +858,162 @@ def test_2019_shape_fails_the_attempt_on_the_recent_low_and_confirms_the_restart
     assert confirmed["rally_attempt"]["reference_low"] == failure["low"]
     assert confirmed["rally_attempt"]["reference_low"] != deep_low
     assert confirmed["rally_attempt"]["reference_low"] != p1_low
+
+
+# --- maintainer review of PR #893 ----------------------------------------------------------------
+
+
+def gap_history():
+    lead = [B(105.0 + 0.05 * (k % 2)) for k in range(53)]
+    bars = lead + prefix() + attempt_bars(3)
+    bars.append(B(bars[-1]["close"] * 1.015, vol=1_500_000))  # FTD at idx 70
+    assert len(bars) == 71
+    bars += advance(bars[-1]["close"], 200, step=0.0005)
+    assert len(bars) == 271
+    return bars
+
+
+def test_gap_restart_that_ends_in_warm_up_is_a_data_gap_not_no_signal():
+    from rally_tracker import get_market_state
+
+    bars = gap_history()
+    healed = run(bars)
+    assert healed["state"] == "FTD_CONFIRMED"
+    gapped_bars = copy.deepcopy(bars)
+    gapped_bars[150]["volume"] = 0  # older than 60 sessions: the replay restarts after it
+    gapped = run(gapped_bars)
+    assert gapped["cycle"]["restarted_after_gap"] is True
+    assert gapped["state"] == "NO_SIGNAL"
+    assert gapped["market_status"] is None
+    assert gapped["data_gap"] is True
+    assert gapped["error"].startswith("Data gap: replay restarted after a bad bar on")
+    # a clean confirmed other index must not turn the combined result into a confirmation
+    nasdaq = assign_session_dates(ftd_history())
+    sp500 = assign_session_dates(gapped_bars)
+    state = get_market_state(list(reversed(sp500)), list(reversed(nasdaq)))
+    assert state["nasdaq"]["state"] == "FTD_CONFIRMED"
+    assert state["combined_state"] == "NO_SIGNAL"
+    assert state["data_gap"] is True
+    assert state["market_status"] is None
+
+
+def test_the_bar_that_ends_an_uptrend_is_never_day1():
+    base = ftd_history()
+    up = advance(base[-1]["close"], 60, step=0.005)
+    peak = up[-1]["close"]
+    down = [B(peak * (1 - 0.012 * k), vol=900_000 - 5_000 * k) for k in range(1, 9)]
+    close = peak * 0.895  # -10.5%: a new closing low with an upper-half close
+    last = B(close, low=close - 1.0, high=close + 0.2, vol=850_000)
+    assert (last["close"] - last["low"]) / (last["high"] - last["low"]) >= 0.5
+    result = run(base + up + down + [last])
+    assert result["state"] == "CORRECTION"
+    assert result["rally_attempt"]["day1_idx"] is None
+    assert result["cycle"]["last_transition"]["from"] == "confirmed"
+    assert result["cycle"]["last_transition"]["to"] == "correction"
+    assert result["cycle"]["previous_ftd"]["end_reason"] == "deep_drawdown"
+    # the next up close is the earliest Day 1
+    nxt = run(base + up + down + [last, B(close * 1.004)])
+    assert nxt["state"] == "RALLY_ATTEMPT"
+    assert nxt["rally_attempt"]["current_day_count"] == 1
+
+
+def test_drawdown_of_exactly_10_percent_ends_the_uptrend():
+    base = ftd_history()
+    up = advance(base[-1]["close"], 60, step=0.005)
+    peak = up[-1]["close"]
+    exact = run(base + up + [B(peak * (1 - 10.0 / 100), vol=900_000)])
+    assert exact["state"] == "CORRECTION"
+    assert exact["cycle"]["previous_ftd"]["end_reason"] == "deep_drawdown"
+    inside = run(base + up + [B(peak * (1 - 9.99 / 100), vol=900_000)])
+    assert inside["state"] == "FTD_CONFIRMED"
+
+
+def test_equal_volume_is_not_a_distribution_day():
+    base = ftd_history()
+    peak = advance(base[-1]["close"], 20, step=0.004)
+    close = peak[-1]["close"]
+    equal = []
+    for _ in range(5):  # down >= 0.2% each, but volume only equal to the previous session
+        close *= 0.995
+        equal.append(B(close, vol=VOL))
+    result = run(base + peak + equal)
+    assert result["cycle"]["active_distribution_days"] == []
+    assert result["market_status"] == "confirmed_uptrend"
+    higher = [dict(bar, volume=VOL + 1 + i) for i, bar in enumerate(equal)]
+    counted = run(base + peak + higher)
+    assert len(counted["cycle"]["active_distribution_days"]) == 5
+
+
+def test_pressure_does_not_return_while_the_close_is_below_the_sma50():
+    base = long_advance_history(80, step=0.002)
+    pullback = [
+        B(base[-1]["close"] * (1 - 0.008 * k), vol=900_000 - 10_000 * k) for k in range(1, 9)
+    ]
+    bars = base + pullback
+    entered, below_checked = False, 0
+    for k in range(len(base), len(bars) + 1):
+        result = run(bars[:k])
+        sma = result["cycle"]["indicators"]["sma50"]
+        if result["market_status"] == "uptrend_under_pressure":
+            entered = True
+        if entered and sma is not None and bars[k - 1]["close"] < sma:
+            below_checked += 1
+            assert result["market_status"] == "uptrend_under_pressure", k
+            assert result["cycle"]["active_distribution_days"] == []  # at most 4 DDs
+    assert entered and below_checked >= 2
+
+
+# --- the 50-SMA is a pressure cause only after the index has been above it since the FTD ------------
+
+
+def below_sma_ftd_history(extra=()):
+    """An FTD (idx 70) that closes below a computable 50-session SMA."""
+    lead = [B(105.0 + 0.05 * (k % 2)) for k in range(53)]
+    bars = lead + prefix() + attempt_bars(3)
+    bars.append(B(bars[-1]["close"] * 1.015, vol=1_500_000))
+    assert len(bars) == 71
+    return bars + list(extra)
+
+
+def test_ftd_below_the_sma50_is_confirmed_on_the_ftd_day_and_stays_so_without_distribution():
+    bars = below_sma_ftd_history()
+    on_ftd_day = run(bars)
+    assert on_ftd_day["cycle"]["indicators"]["sma50_available"] is True
+    assert on_ftd_day["cycle"]["indicators"]["sma50"] > bars[-1]["close"]
+    assert on_ftd_day["state"] == "FTD_CONFIRMED"
+    assert on_ftd_day["market_status"] == "confirmed_uptrend"
+    assert on_ftd_day["cycle"]["regained_50sma_since_ftd"] is False
+    close = bars[-1]["close"]
+    flat = [B(close) for _ in range(6)]  # still below the SMA, no distribution
+    later = run(bars + flat)
+    assert later["cycle"]["indicators"]["sma50"] > close
+    assert later["market_status"] == "confirmed_uptrend"
+    assert later["cycle"]["pressure_reasons"] == []
+    assert later["cycle"]["regained_50sma_since_ftd"] is False
+
+
+def test_below_the_sma50_is_pressure_after_a_close_above_it_since_the_ftd():
+    bars = below_sma_ftd_history()
+    close = bars[-1]["close"]
+    rise = advance(close, 12, step=0.005)  # climbs above the SMA
+    regained = run(bars + rise)
+    assert regained["cycle"]["regained_50sma_since_ftd"] is True
+    assert regained["market_status"] == "confirmed_uptrend"
+    top = rise[-1]["close"]
+    dip = [B(top * (1 - 0.01 * k), vol=900_000 - 10_000 * k) for k in range(1, 6)]
+    result = run(bars + rise + dip)
+    sma = result["cycle"]["indicators"]["sma50"]
+    assert dip[-1]["close"] < sma
+    assert dip[-1]["close"] > bars[-1]["low"]  # the FTD-day low still holds
+    assert result["cycle"]["active_distribution_days"] == []
+    assert result["state"] == "FTD_CONFIRMED"
+    assert result["market_status"] == "uptrend_under_pressure"
+    assert result["cycle"]["pressure_reasons"] == ["below_50sma"]
+
+
+def test_sma50_that_cannot_be_computed_is_never_a_cause():
+    result = run(ftd_history())
+    assert result["cycle"]["indicators"]["sma50_available"] is False
+    assert result["cycle"]["regained_50sma_since_ftd"] is False
+    assert result["market_status"] == "confirmed_uptrend"
+    assert result["cycle"]["pressure_reasons"] == []

@@ -4,7 +4,7 @@
 
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
-4–10 window is this model's bounded choice. Rally failure uses the rally low,
+4–10 window is this model's normal window; a later FTD is allowed, flagged late and scored lower. Rally failure uses the rally low,
 the low of the pullback the rally attempt started from (the lowest low of that pullback through Day 1, inclusive),
 for the attempt and after an FTD alike; it is not the lowest low of the whole
 correction. Day 1 low is informational. The model replays
@@ -232,9 +232,12 @@ FTD window and day count are details inside `market_in_correction`.
 
 - Correction to confirmed uptrend only on an FTD. A rise above the old peak, with or without
   a rally attempt that fails, stays `market_in_correction`; new attempts keep forming after a
-  down close re-arms the search.
-- Confirmed uptrend to under pressure: active distribution days >= 5, or close below the
-  50-session SMA of closes, or the first close below the FTD-day low. The FTD-day-low close
+  rally failure.
+- Confirmed uptrend to under pressure: active distribution days >= 5, or a close below the
+  50-session SMA of closes once the index has closed above that SMA at least once since the FTD
+  bar (the FTD bar included; `cycle.regained_50sma_since_ftd`), or the first close below the
+  FTD-day low. Until that first close above the SMA, being below it is not a cause, because an
+  FTD normally comes from below the 50-day line. The FTD-day-low close
   breach stays a warning (#765): it is not a failure or a correction trigger, the lifecycle
   `warning` field is unchanged and the published quality score stays capped at 59.
 - Under pressure back to confirmed: active distribution days <= 4 and close above the
@@ -255,8 +258,9 @@ FTD window and day count are details inside `market_in_correction`.
   its condition false; `cycle.indicators.sma50_available` / `ema21_available` say so. The EMA is
   seeded with the SMA of the first 21 replay closes. A close that
   is exactly on the average counts as neither above nor below.
-- The status is evaluated on the FTD bar too, so an FTD that closes below its 50-session SMA
-  reads `uptrend_under_pressure` immediately.
+- The status is evaluated on the FTD bar too. An FTD that closes below its 50-session SMA
+  stays `confirmed_uptrend` until the index has closed above the SMA once; only distribution or
+  the FTD-day-low breach can put it under pressure before that.
 - IBD sets one status from either major index: if the combined state is `FTD_CONFIRMED`, the
   better confirmed index wins; any data gap gives `null`; otherwise `market_in_correction`
   if either index is in correction.

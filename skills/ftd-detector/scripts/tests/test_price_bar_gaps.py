@@ -604,3 +604,18 @@ def test_missing_day1_low_is_unavailable(breaker):
     result = analyze_single_index(bars, "X")
     assert result["data_gap"] is True
     assert result["state"] == "NO_SIGNAL"
+
+
+def test_bad_bar_outside_the_power_trend_lookback_does_not_make_it_unavailable():
+    """The power trend reads only the last 80 sessions, as before the 500-session fetch."""
+    bars, _ = make_long_ftd_history(lead_in=300)
+    assert len(bars) > 300
+    clean = assess(copy.deepcopy(bars), [])
+    gapped = assess(broken(bars, 10, "close", _nan), [])
+    assert clean["power_trend"]["power_trend"] is not None
+    assert gapped["power_trend"] == clean["power_trend"]
+    assert gapped["data_gap"] is False
+    assert gapped["data_quality"]["sp500"]["power_trend_bad_bars"] == 0
+    # a bad bar inside the last 80 sessions still makes it unavailable
+    inside = assess(broken(bars, len(bars) - 70, "close", _nan), [])
+    assert inside["power_trend"]["power_trend"] is None

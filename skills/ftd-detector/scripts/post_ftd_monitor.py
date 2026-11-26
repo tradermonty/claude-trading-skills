@@ -19,6 +19,10 @@ from ftd_lifecycle import assess_lifecycle, select_ftd_source
 
 UNAVAILABLE_SIGNAL = "Unavailable: data gap"
 
+# The power trend reads only the most recent sessions (the fetch used to be 80), so
+# a bad bar months back cannot make it unavailable now that 500 sessions are fetched.
+POWER_TREND_LOOKBACK = 80
+
 
 def _gaps(bars: list[dict], required: tuple) -> dict:
     # Index volume 0 is provider missing data, so it is a gap (no zero_ok).
@@ -447,10 +451,9 @@ def _post_ftd_data_quality(market_state: dict, sp500_history: list[dict]) -> dic
         quality[key] = dict(market_state.get(key, {}).get("data_quality") or {})
     # Counted only when the power trend actually runs (50+ bars); below that the
     # power trend reports "Insufficient data", not a data gap.
+    window = sp500_history[-POWER_TREND_LOOKBACK:] if sp500_history else []
     quality["sp500"]["power_trend_bad_bars"] = (
-        _gaps(sp500_history, ("close",))["bad_bars"]
-        if sp500_history and len(sp500_history) >= 50
-        else 0
+        _gaps(window, ("close",))["bad_bars"] if len(window) >= 50 else 0
     )
     return quality
 
@@ -542,7 +545,7 @@ def assess_post_ftd_health(
 
     # Power trend check (use S&P 500 as primary)
     if sp500_history and len(sp500_history) >= 50:
-        market_state["power_trend"] = detect_power_trend(sp500_history)
+        market_state["power_trend"] = detect_power_trend(sp500_history[-POWER_TREND_LOOKBACK:])
     else:
         market_state["power_trend"] = {
             "power_trend": False,

@@ -307,9 +307,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
             "- Correction detected; identify a new Day 1 reference before evaluating a rally"
         )
     elif combined_state == "RALLY_FAILED":
-        lines.append(
-            "- Rally reference failed or the model qualification window expired; reassess a fresh attempt"
-        )
+        lines.append("- Rally low was undercut; reassess a fresh attempt")
     else:
         lines.append("- No active confirmed FTD is established by this model")
 
@@ -367,7 +365,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(
         "2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the rally low"
     )
-    lines.append("3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day")
+    lines.append(
+        "3. **FTD (Day 4+; Day 4-10 normal, later flagged late):** 1.25%+ gain on volume higher than previous day"
+    )
     lines.append(
         "4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, "
         "volume, dual-index, post-FTD health)"
@@ -460,7 +460,7 @@ def _state_label(state: str) -> str:
         "NO_SIGNAL": "No Signal (status unavailable)",
         "CORRECTION": "Correction",
         "RALLY_ATTEMPT": "Rally Attempt (Day 1-3)",
-        "FTD_WINDOW": "FTD Window (Day 4-10)",
+        "FTD_WINDOW": "FTD Window (Day 4+; Day 4-10 normal)",
         "FTD_CONFIRMED": "FTD Confirmed",
         "RALLY_FAILED": "Rally Failed",
         "FTD_INVALIDATED": "FTD Invalidated",

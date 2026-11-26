@@ -76,6 +76,20 @@ def calculate_distribution_risk(signals: dict) -> float:
     return round(max(0, min(100 - top_score, 100)), 1)
 
 
+FTD_FRESH_SESSIONS = 60
+
+
+def _ftd_is_fresh(ftd: dict) -> bool:
+    """FTD_CONFIRMED lasts as long as its uptrend does, so the extras meant for a new
+    bottom signal need an FTD at most FTD_FRESH_SESSIONS old (the span FTD_CONFIRMED
+    used to cover) and an uptrend that is not under pressure. An unknown age or
+    market status (older reports) does not count against it."""
+    age = ftd.get("days_since_ftd")
+    if ftd.get("market_status") == "uptrend_under_pressure":
+        return False
+    return age is None or age <= FTD_FRESH_SESSIONS
+
+
 def calculate_bottom_confirmation(signals: dict) -> float:
     """FTD state-based scoring for bottom confirmation / re-entry signal."""
     ftd = signals.get("ftd_detector", {})
@@ -99,12 +113,13 @@ def calculate_bottom_confirmation(signals: dict) -> float:
 
     base = state_scores.get(state, 40)
 
-    # Quality bonus for confirmed FTD
+    # Quality bonus for a fresh confirmed FTD; an old one keeps only the base score
     if state == "FTD_CONFIRMED":
-        quality_bonus = (quality - 50) * 0.2  # -10 to +10
-        base += quality_bonus
-        if dual:
-            base += 5
+        if _ftd_is_fresh(ftd):
+            quality_bonus = (quality - 50) * 0.2  # -10 to +10
+            base += quality_bonus
+            if dual:
+                base += 5
         # Post-FTD distribution penalty
         base -= dist_count * 5
 
@@ -482,7 +497,7 @@ def classify_pattern(signals: dict, component_scores: dict, conviction_score: fl
 
     # Pattern 3: Extreme Sentiment Contrarian (FTD-driven)
     p3 = 0
-    if ftd_state == "FTD_CONFIRMED":
+    if ftd_state == "FTD_CONFIRMED" and _ftd_is_fresh(ftd):
         p3 += 40
         if ftd_quality >= 70:
             p3 += 15

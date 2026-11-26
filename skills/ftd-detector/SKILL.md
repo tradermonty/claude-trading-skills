@@ -124,7 +124,7 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 
 Only an FTD leaves a correction; a rise above the old peak does not. IBD sets one status
 from either major index, so the combined status follows the better confirmed index.
-A close below the FTD-day low also puts the uptrend under pressure (warning only, never a failure); `cycle.pressure_reasons` records the cause. See `references/ftd_methodology.md` for the transition rules (uncalibrated model choices).
+A close below the 50-session SMA puts it under pressure only after the index has closed above that SMA once since the FTD (`cycle.regained_50sma_since_ftd`), as an FTD normally comes from below it. A close below the FTD-day low also puts the uptrend under pressure (warning only, never a failure); `cycle.pressure_reasons` records the cause. See `references/ftd_methodology.md` for the transition rules (uncalibrated model choices).
 
 | State | Definition |
 |-------|-----------|

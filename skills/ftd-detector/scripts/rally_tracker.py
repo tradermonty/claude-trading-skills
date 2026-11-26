@@ -12,7 +12,7 @@ Phases (reported through the unchanged ``MarketState`` values):
   correction      -> CORRECTION, or RALLY_FAILED / FTD_INVALIDATED when the
                      correction was (re-)entered by that event; the label lasts
                      until the next Day 1 (only an FTD leaves the correction)
-  rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4-10)
+  rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4 onward)
   confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``)
 
 Rules (O'Neil / IBD):
@@ -200,6 +200,7 @@ class _Replay:
         self.status = None
         self.pressure_reasons = []
         self.ftd_low_breached = False
+        self.regained_sma = False  # closed above the 50-session SMA since the FTD bar
         self.ema = self._ema_series()
 
     # -- helpers ---------------------------------------------------------
@@ -265,7 +266,7 @@ class _Replay:
             and self.down_count >= MIN_DOWN_DAYS
         )
 
-    def _enter_correction(self, t, reason):
+    def _enter_correction(self, t, reason, allow_day1=True):
         self.low_close = self.seg_low = None
         self.ref_low = self.ref_low_idx = None
         for k in range(self.peak_idx, t + 1):
@@ -281,8 +282,9 @@ class _Replay:
         self.prior_events = []
         self.ftd = None
         self.status = None
-        # A session that sets the closing low may itself be Day 1 (upper-half close).
-        if self.low_idx == t and _upper_half(self.h[t]):
+        # A session that sets the closing low may itself be Day 1 (upper-half close),
+        # except the bar that ends a confirmed uptrend: like a failure bar, never Day 1.
+        if allow_day1 and self.low_idx == t and _upper_half(self.h[t]):
             self._start_day1(t)
 
     # -- correction ----------------------------------------------------------
@@ -420,6 +422,7 @@ class _Replay:
         self.status = "confirmed"
         self.pressure_reasons = []
         self.ftd_low_breached = False
+        self.regained_sma = False  # closed above the 50-session SMA since the FTD bar
         self._transition(t, "confirmed", f"FTD on Day {self.day}")
         self._update_status(t)
 
@@ -467,17 +470,20 @@ class _Replay:
         """confirmed <-> under_pressure.
 
         Pressure causes: 5+ active distribution days, a close below the 50-session
-        SMA, and the first close below the FTD-day low (a warning only, #765). The
-        return needs <= 4 active distribution days and a close above the SMA; the
+        SMA (only once the index has closed above it since the FTD bar, that bar
+        included), and the first close below the FTD-day low (a warning only, #765).
+        The return needs <= 4 active distribution days and a close above the SMA; the
         FTD-day-low breach alone does not keep the status under pressure.
         """
         close = self.h[t]["close"]
         active = len(self.active_dds())
         sma = self.sma(t)
+        if sma is not None and close > sma:
+            self.regained_sma = True
         causes = []
         if active >= DD_PRESSURE_COUNT:
             causes.append("distribution")
-        if sma is not None and close < sma:
+        if self.regained_sma and sma is not None and close < sma:
             causes.append("below_50sma")
         if not self.ftd_low_breached and close < self.ftd["ftd_low"]:
             self.ftd_low_breached = True  # one-shot, like the lifecycle warning
@@ -501,7 +507,7 @@ class _Replay:
             "end_reason": reason,
             "end_date": self._date(t),
         }
-        self._enter_correction(t, f"confirmed uptrend ended: {reason}")
+        self._enter_correction(t, f"confirmed uptrend ended: {reason}", allow_day1=False)
         self.dds = []
 
     def active_dds(self):
@@ -612,6 +618,7 @@ class _Replay:
             "phase": self.phase,
             "uptrend_status": self.status if confirmed else None,
             "pressure_reasons": list(self.pressure_reasons) if confirmed else [],
+            "regained_50sma_since_ftd": self.regained_sma if confirmed else None,
             "active_distribution_days": [
                 {"date": d["date"], "close": d["close"], "change_pct": d["change_pct"]}
                 for d in self.active_dds()
@@ -702,6 +709,15 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
     result["swing_low"] = replay.swing_low()
     result["cycle"] = replay.cycle(replay_sessions, bool(gaps["bad_bars"]))
     if replay.phase == "uptrend_or_none":
+        if gaps["bad_bars"]:
+            # The restarted replay has not seen a qualifying correction yet, so it cannot
+            # say whether an earlier FTD or correction still stands: unavailable, not a state.
+            bad_date = history[gaps["bad_indices"][-1]].get("date", "N/A")
+            result["data_gap"] = True
+            result["error"] = (
+                f"Data gap: replay restarted after a bad bar on {bad_date} and has not "
+                "yet seen a qualifying correction"
+            )
         return result
     result["rally_attempt"] = replay.rally_attempt(state)
 
