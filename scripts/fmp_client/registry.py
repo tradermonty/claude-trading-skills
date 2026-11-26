@@ -43,6 +43,7 @@ class SkillConfig:
     batch_days: int = 260  # get_batch_historical default `days` (family A only)
     standalone_template: str | None = None  # full-file template for PR2 special clients
     configurable_timeout: bool = False  # new targets may retain a per-instance timeout
+    timeout_seconds: int = 30  # literal bound to ``self.timeout`` when configurable_timeout
     pair_history_validation: bool = False  # target-scoped guard before shared normalization
     query_auth: bool = False  # send FMP API key as ?apikey= instead of a header
     redaction_template: str = "redaction.py.tmpl"  # optional target-only diagnostic policy
@@ -471,6 +472,7 @@ SKILLS["theme-detector"] = SkillConfig(
     has_compat=False,
     query_auth=True,
     configurable_timeout=True,
+    timeout_seconds=15,
     feature_lines=("- Stable quote/full-EOD/holdings for the theme detector",),
     class_constants=(),
     extensions=("theme_market",),

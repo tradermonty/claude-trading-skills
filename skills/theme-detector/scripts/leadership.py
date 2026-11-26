@@ -378,8 +378,18 @@ def _merge_hit_metrics(hits: list[ScanHit]) -> dict:
         "market_cap": None,
     }
     for hit in hits:
+        # Literal attribute names keep attribute access statically traceable.
+        observed = {
+            "relative_volume": getattr(hit, "relative_volume", None),
+            "return_5d": getattr(hit, "return_5d", None),
+            "atr_expansion": getattr(hit, "atr_expansion", None),
+            "close_location": getattr(hit, "close_location", None),
+            "rs_rating": getattr(hit, "rs_rating", None),
+            "dollar_volume": getattr(hit, "dollar_volume", None),
+            "market_cap": getattr(hit, "market_cap", None),
+        }
         for key in metrics:
-            value = getattr(hit, key, None)
+            value = observed[key]
             if value is None:
                 continue
             current = metrics[key]

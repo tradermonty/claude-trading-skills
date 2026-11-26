@@ -146,11 +146,8 @@ now call-site literals.
 
 **Outcome.** canslim-screener, value-dividend-screener,
 dividend-growth-pullback-screener and parabolic-short-trade-planner are clean
-and recorded `passed`. Two skills stay `not_verified`:
-
-- downtrend-duration-analyzer, because `downtrend_fmp_client.py` loads the
-  client through `importlib` and so cannot be traced.
-- theme-detector, for the reasons below.
+and recorded `passed`. Two skills stayed `not_verified`; the follow-up
+section at the end records how they were resolved.
 
 theme-detector also has a real network gap. Its `yf.download`,
 `yf.Ticker().info` and `finvizfinance` calls pass no explicit timeout and rely
@@ -161,3 +158,41 @@ theme-detector's `representative_stock_selector.py`:
 - An HTTP-200 Elite export without a `Ticker` column is recorded as success.
   The run still falls back to the public source.
 - The Elite request does not set `allow_redirects=False`.
+
+## Follow-up (2026-11-25)
+
+**downtrend-duration-analyzer is now `passed`.** `downtrend_fmp_client.py` used
+`importlib` because several skills ship a different `fmp_client.py` under the
+same bare module name. It now runs a static `from fmp_client import FMPClient`
+with `sys.path` and `sys.modules` scoped to the bundle, then registers the
+module under its unique name, so another skill's `fmp_client` stays untouched
+and `FMPClient.__module__` is unchanged. The collector traces the delegated FMP
+timeout and reports no findings. The same wrapper was run from the extracted
+`.skill` package. The files were not otherwise changed since the 2026-11-22
+checklist review.
+
+**theme-detector stays `not_verified`.** Fixed in this follow-up:
+
+- The generator gained `timeout_seconds` (default 30, theme-detector 15), so
+  `fmp_adapter.py` no longer overrides `client.timeout` and the generated
+  `self.timeout = 15` is the single literal the collector proves. The effective
+  value is unchanged at 15 s.
+- `representative_stock_selector.py` imports `requests` unconditionally, as
+  `requirements.txt` already requires it, so the import is no longer rebound.
+- `leadership.py` uses literal `getattr` names. A non-literal `getattr` poisons
+  the collector's attribute proof for the whole skill.
+- `yf.download` passes `timeout=10`, the yfinance default made explicit.
+  `Ticker.info` has no timeout parameter in any yfinance version, so the P/E
+  lookup runs under a 30 s caller deadline and a hung lookup degrades to the
+  existing warning.
+- finvizfinance needed no change. Every released version, including the 1.5.0
+  floor in `requirements.txt`, bounds its requests at 10 s (a hard-coded value
+  before 1.2.0, `util.set_timeout` default afterwards). This was read from the
+  published wheels, not run.
+
+The remaining gap is mechanical. The collector cannot prove an SDK call, so it
+still reports `etf_scanner.py` `yf.download` and `yf.Ticker`, and
+`Ticker.info` has no caller-settable timeout to prove. Proving the `yf.download`
+literal would need a collector rule for the yfinance SDK. `Ticker.info` would
+need a different data source or an upstream timeout parameter. The collector
+was deliberately not extended with an unproven SDK rule.

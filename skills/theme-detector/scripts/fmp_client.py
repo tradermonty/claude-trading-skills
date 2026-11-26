@@ -159,7 +159,7 @@ class FMPClient:
                 "or pass api_key parameter."
             )
         self.session = requests.Session()
-        self.timeout = 30
+        self.timeout = 15
         self.cache = {}
         self.last_call_time = 0
         self.rate_limit_reached = False
