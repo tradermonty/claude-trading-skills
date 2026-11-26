@@ -129,6 +129,7 @@ def render_fmp_client(cfg) -> str:
     text = text.replace("@@TITLE@@", cfg.title)
     text = text.replace("@@FEATURES@@", "\n".join(cfg.feature_lines))
     text = text.replace("@@HIST_DAYS@@", str(cfg.hist_days))
+    text = text.replace("@@TIMEOUT_SECONDS@@", str(cfg.timeout_seconds))
 
     const_block = "".join(f"    {name} = {literal}\n" for name, literal in cfg.class_constants)
     text = text.replace("@@CLASS_CONSTANTS@@\n", const_block + "\n")

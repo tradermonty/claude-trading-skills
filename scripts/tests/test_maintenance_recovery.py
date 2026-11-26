@@ -162,7 +162,7 @@ def heartbeat_state(root, stamp):
     )
 
 
-@pytest.mark.parametrize("hours,expected", [(0, 0), (49, 1), (400, 1)])
+@pytest.mark.parametrize("hours,expected", [(0, 0), (97, 1), (400, 1)])
 def test_notifying_heartbeat_default_and_status(tmp_path, monkeypatch, hours, expected):
     monitor = load_script("job_monitor")
     monkeypatch.delenv("SKILL_LOOP_NOTIFY", raising=False)
@@ -174,7 +174,7 @@ def test_notifying_heartbeat_default_and_status(tmp_path, monkeypatch, hours, ex
     )
     before = {p: p.read_bytes() for p in (tmp_path / "logs").iterdir()}
     assert monitor.main() == expected
-    assert call.call_count == (0 if hours == 0 else 2 if hours == 49 else 3)
+    assert call.call_count == (0 if hours == 0 else 2 if hours == 97 else 3)
     for entry in call.call_args_list:
         assert entry.args[0][0] == "osascript"
         assert "fresh success heartbeat" in entry.args[0][-1]
@@ -258,10 +258,53 @@ def test_installer_preflights_conflicts_before_writes(tmp_path):
     conflict = output / "com.trade-analysis.skill-improvement.plist"
     conflict.write_text("local customized settings")
     with pytest.raises(ValueError, match="existing"):
-        installer.install(root, output, home)
+        installer.install(root, output, home, notify="off")
     assert list(output.iterdir()) == [conflict]
     assert conflict.read_text() == "local customized settings"
     assert not (root / "logs").exists()
+
+
+def test_installer_notify_off_survives_template_update(tmp_path):
+    installer = load_script("install_launchd")
+    monitor = load_script("job_monitor")
+    root, output, home = installer_fixture(tmp_path)
+    marker = root / installer.NOTIFY_OFF_MARKER
+    assert installer.NOTIFY_OFF_MARKER == monitor.NOTIFY_OFF_MARKER
+    paths = installer.install(root, output, home, notify="off")
+    assert marker.exists()
+    # The plists stay exact template renderings, so the opt-out never makes them customized.
+    assert not any(b"SKILL_LOOP_NOTIFY" in p.read_bytes() for p in paths)
+    heartbeat = output / "com.trade-analysis.skill-heartbeat.plist"
+    template = root / "launchd" / heartbeat.name
+    updated = plistlib.loads(template.read_bytes())
+    updated["StartCalendarInterval"]["Hour"] = 9
+    template.write_bytes(plistlib.dumps(updated))
+    with pytest.raises(ValueError, match="customized"):
+        installer.install(root, output, home)
+    # Documented update: move the stale plist aside and rerun without repeating --notify.
+    heartbeat.unlink()
+    installer.install(root, output, home)
+    assert plistlib.loads(heartbeat.read_bytes())["StartCalendarInterval"]["Hour"] == 9
+    assert marker.exists()
+    installer.install(root, output, home, notify="default")
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("marker", [False, True])
+def test_notify_off_marker_silences_all_notifications(tmp_path, monkeypatch, marker):
+    monitor = load_script("job_monitor")
+    monkeypatch.setenv("SKILL_LOOP_NOTIFY", "macos")
+    (tmp_path / "logs").mkdir()
+    if marker:
+        (tmp_path / monitor.NOTIFY_OFF_MARKER).touch()
+    call = Mock()
+    monkeypatch.setattr(monitor.subprocess, "run", call)
+    monkeypatch.setattr(
+        sys, "argv", ["monitor", "--notify-heartbeat", "--project-root", str(tmp_path)]
+    )
+    assert monitor.main() == 1
+    monitor.notify_failure("improvement", 1, tmp_path)
+    assert call.call_count == (0 if marker else 4)
 
 
 def test_installer_preflights_invalid_template(tmp_path):

@@ -104,9 +104,10 @@ launchctl start com.trade-analysis.skill-improvement
 
 独立した08:00のハートビート監視も含みます。日次処理の最終成功から48時間超
 （週次生成は14日超）、成功時刻の欠落・不正・未来日時をmacOS通知で知らせます。
-明示的な無効化は、ローカルに導入した監視plistの環境変数へ`SKILL_LOOP_NOTIFY=off`
-を設定します。監視は`.envrc`を読みません。既存環境では`--load`の前に対象保守jobを
-unloadしてください。独自設定のplistは上書きせず拒否するため、必要な設定を保持して
+明示的な無効化は、インストーラーを一度`--notify off`付きで実行します。設定はplistではなく
+`logs/`に保存されるため、テンプレート更新後も保持されます（`--notify default`で解除）。
+監視は`.envrc`を読みません。`--load`は読み込み済みのサービスを飛ばすため、unloadは
+変更した定義を再読み込みする場合だけ必要です。独自設定のplistは上書きせず拒否するため、必要な設定を保持して
 別の場所へ退避してから再導入します。詳細は[導入・更新手順](maintenance-runbook.md#5-scheduled-self-maintenance-jobs)
 を参照してください。checkoutだけではjobは導入されず、実機の定期実行成功も未検証です。
 
