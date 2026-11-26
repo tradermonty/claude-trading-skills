@@ -97,7 +97,8 @@
       "prior_ftd_events": [],
       "current_day_count": 5,
       "invalidated": false,
-      "invalidation_reason": null
+      "invalidation_reason": null,
+      "end_reason": null
     },
     "cycle": {
       "phase": "confirmed",
@@ -176,7 +177,8 @@
       "prior_ftd_events": [],
       "current_day_count": 5,
       "invalidated": false,
-      "invalidation_reason": null
+      "invalidation_reason": null,
+      "end_reason": null
     },
     "cycle": {
       "phase": "confirmed",

@@ -25,12 +25,12 @@ Rules (O'Neil / IBD):
   entry and restarts at a rally failure and an FTD invalidation. Equality holds.
 - FTD: Day 4-10, gain >= 1.25% vs the previous close, volume above the
   previous session. With no FTD by Day 10 the attempt expires on the bar that
-  would be Day 11 (RALLY_FAILED, "No follow-through day by Day 10"): the
-  segment does not restart and the reference low does not move, so the next
-  attempt keeps it. The expiry bar is never Day 1; a down close (that bar or a
-  later one) arms a new count whose Day 1 is the next up or upper-half close.
-  An undercut of the reference low is the rally failure that restarts the
-  segment.
+  would be Day 11 (RALLY_FAILED, "No follow-through day by Day 10") and a new
+  segment starts at that bar, inclusive. The expiry bar is never Day 1. While
+  not armed a bar can only arm the count (a down close arms it); the next
+  up or upper-half close is then Day 1, and its reference low is the lowest
+  intraday low from the expiry bar through that Day 1. An undercut of the
+  reference low is the rally failure that restarts the segment likewise.
 - A confirmed uptrend goes under pressure at 5+ active distribution days, a
   close below the 50-session SMA (once regained since the FTD) or the first
   close below the FTD-day low. It ends with a new correction measured from the
@@ -204,7 +204,6 @@ class _Replay:
         self.ftd_low_breached = False
         self.regained_sma = False  # closed above the 50-session SMA since the FTD bar
         self.armed = True  # may a Day 1 start? False after an expiry until a down close
-        self.carry_ref = None  # (low, idx): an expired attempt's reference, kept for the next
 
     # -- helpers ---------------------------------------------------------
     def _date(self, idx):
@@ -268,7 +267,6 @@ class _Replay:
         self.ftd = None
         self.status = None
         self.armed = True
-        self.carry_ref = None
         # A session that sets the closing low may itself be Day 1 (upper-half close),
         # except the bar that ends a confirmed uptrend: like a failure bar, never Day 1.
         if allow_day1 and self.low_idx == t and _upper_half(self.h[t]):
@@ -280,21 +278,19 @@ class _Replay:
         close = bar["close"]
         if bar["low"] < self.seg_low:
             self.seg_low, self.seg_low_idx = bar["low"], t
-        if self.carry_ref is not None and bar["low"] < self.carry_ref[0]:
-            # an expired attempt's reference is undercut while no attempt is active:
-            # a new segment starts here, and this bar is never Day 1
-            self._restart_segment(t)
-            self.armed = True
-            return
         # Only an FTD leaves a correction: a rise above the old peak does not.
+        if not self.armed:
+            # After an expiry a bar can only arm the count, never start Day 1: the
+            # earliest Day 1 is the bar after the arming (down-close) bar.
+            if close < self.low_close:
+                self.low_close, self.low_idx = close, t
+            if close < self.h[t - 1]["close"]:
+                self.armed = True
+            return
         if close < self.low_close:
-            self.low_close, self.low_idx, self.armed = close, t, True
+            self.low_close, self.low_idx = close, t
             if _upper_half(bar):
                 self._start_day1(t)
-            return
-        if not self.armed:
-            if close < self.h[t - 1]["close"]:
-                self.armed = True  # the arming bar itself is never Day 1
             return
         if close > self.h[t - 1]["close"] or _upper_half(bar):
             self._start_day1(t)
@@ -306,11 +302,7 @@ class _Replay:
         self.day = 1
         # Freeze the attempt's reference: the low of the pullback it started from,
         # including the Day 1 bar. It never changes while the attempt is active.
-        # After an expiry the next attempt keeps the expired attempt's reference.
-        if self.carry_ref is not None:
-            self.ref_low, self.ref_low_idx = self.carry_ref
-        else:
-            self.ref_low, self.ref_low_idx = self.seg_low, self.seg_low_idx
+        self.ref_low, self.ref_low_idx = self.seg_low, self.seg_low_idx
         self.armed = True
         self.attempt = {
             "day1_idx": t,
@@ -328,6 +320,7 @@ class _Replay:
             ],
             "invalidated": False,
             "invalidation_reason": None,
+            "end_reason": None,  # "undercut" or "expired" once the attempt has ended
             "reset_count": self.failures,
             "prior_ftd_events": list(self.prior_events),
         }
@@ -341,6 +334,7 @@ class _Replay:
         if bar["low"] < self.ref_low:
             self.attempt.update(
                 invalidated=True,
+                end_reason="undercut",
                 invalidation_reason=(
                     f"Intraday low ${bar['low']:.2f} below rally low "
                     f"${self.ref_low:.2f} on {self._date(t)}"
@@ -374,13 +368,14 @@ class _Replay:
         ):
             self._confirm(t, gain)
         elif self.day > FTD_DAY_END:
-            # Expiry: no segment restart and no move of the reference low.
+            # Expiry: a new segment starts at this bar (inclusive).
             self.attempt.update(
                 invalidated=True,
+                end_reason="expired",
                 invalidation_reason=f"No follow-through day by Day {FTD_DAY_END}",
             )
             self.failures += 1
-            self.carry_ref = (self.ref_low, self.ref_low_idx)
+            self._restart_segment(t)
             self._transition(t, "correction", "rally attempt expired without an FTD")
             self.label = MarketState.RALLY_FAILED.value
             # The expiry bar is never Day 1; a down close arms the new count.
@@ -398,7 +393,6 @@ class _Replay:
         bar = self.h[t]
         self.seg_low, self.seg_low_idx = bar["low"], t
         self.low_close, self.low_idx = bar["close"], t
-        self.carry_ref = None
 
     def _confirm(self, t, gain):
         bar = self.h[t]
@@ -539,6 +533,7 @@ class _Replay:
         )
         self.attempt.update(
             invalidated=True,
+            end_reason="undercut",
             invalidation_reason=(
                 f"Intraday low ${bar['low']:.2f} below rally low "
                 f"${self.ref_low:.2f} on {self._date(t)}"
@@ -606,6 +601,7 @@ class _Replay:
                 "rally_days": [],
                 "invalidated": False,
                 "invalidation_reason": None,
+                "end_reason": None,
                 "reset_count": self.failures,
                 "prior_ftd_events": list(self.prior_events),
             }

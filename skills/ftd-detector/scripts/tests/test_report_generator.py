@@ -198,3 +198,26 @@ def test_report_write_failure_is_not_announced_as_success(tmp_path, capsys, writ
         writer({}, str(tmp_path))
     assert "report saved" not in capsys.readouterr().out
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "end_reason,expected",
+    [
+        ("undercut", "Rally low was undercut; reassess a fresh attempt"),
+        ("expired", "No follow-through day by Day 10; a new count starts after a down close"),
+        (None, "Rally low was undercut; reassess a fresh attempt"),
+    ],
+)
+def test_rally_failed_guidance_names_how_the_attempt_ended(tmp_path, end_reason, expected):
+    analysis = {
+        "market_state": {"combined_state": "RALLY_FAILED"},
+        "sp500": {"state": "RALLY_FAILED", "rally_attempt": {"end_reason": end_reason}},
+        "nasdaq": {"state": "NO_SIGNAL"},
+        "quality_score": {"total_score": 0, "exposure_range": "Not assessed"},
+    }
+    markdown = render(tmp_path, analysis)
+    assert f"- {expected}" in markdown
+    other = (
+        "No follow-through day by Day 10" if "undercut" in expected else "Rally low was undercut"
+    )
+    assert other not in markdown

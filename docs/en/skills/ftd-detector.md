@@ -14,7 +14,7 @@ permalink: /en/skills/ftd-detector/
 
 The rally failure anchor is the rally low, the low of the pullback the attempt started
 from (the lowest low of that pullback through Day 1, inclusive, frozen on Day 1): an intraday low strictly below it fails
-the rally, before and after an FTD. A segment restarts at a failure or an invalidation bar, so the reference is not the lowest low of the whole correction. An FTD is valid on Day 4-10 only: with no FTD by Day 10 the attempt expires on Day 11 (RALLY_FAILED) without moving the reference, and a down close then a new Day 1 start a fresh count that keeps the same reference. The Day 1 low is informational. The model replays the whole history
+the rally, before and after an FTD. A segment restarts at a failure or an invalidation bar, so the reference is not the lowest low of the whole correction. An FTD is valid on Day 4-10 only: with no FTD by Day 10 the attempt expires on Day 11 (RALLY_FAILED) and a new segment starts at that bar. A down close arms a fresh count (an arming bar is never Day 1), and the new attempt's reference is the lowest low from the expiry bar through its Day 1. The Day 1 low is informational. The model replays the whole history
 (500 sessions fetched) oldest to newest with carried state, so a confirmed FTD stays
 confirmed until a defined event ends it. `market_status` maps the result onto IBD's
 three tiers (`confirmed_uptrend`, `uptrend_under_pressure`, `market_in_correction`, or

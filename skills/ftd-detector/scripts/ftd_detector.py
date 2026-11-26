@@ -327,6 +327,7 @@ def _serialize_index(idx_data: dict) -> dict:
             "current_day_count": rally.get("current_day_count"),
             "invalidated": rally.get("invalidated"),
             "invalidation_reason": rally.get("invalidation_reason"),
+            "end_reason": rally.get("end_reason"),
         }
 
     cycle = idx_data.get("cycle")

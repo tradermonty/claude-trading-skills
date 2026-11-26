@@ -4,7 +4,7 @@
 
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
-4–10 window is this model's FTD window (an attempt expires on Day 11 but keeps its reference). Rally failure uses the rally low,
+4–10 window is this model's FTD window (an attempt expires on Day 11 and a new count starts). Rally failure uses the rally low,
 the low of the pullback the rally attempt started from (the lowest low of that pullback through Day 1, inclusive),
 for the attempt and after an FTD alike; it is not the lowest low of the whole
 correction. Day 1 low is informational. The model replays
@@ -86,13 +86,14 @@ is the next session.
 An intraday low strictly below the rally low fails the attempt (RALLY_FAILED, or
 FTD_INVALIDATED after an FTD). The failed event stays in the evidence. The failure bar starts a new
 segment (its own low belongs to it) and is never Day 1; the next session can start a new Day 1.
-**Expiry and re-count.** An FTD is valid on Day 4-10 only. With no FTD by Day 10 the attempt expires on the bar that would be Day 11 (RALLY_FAILED, "No follow-through day by Day 10"; market status stays market in correction). An expiry does not restart the segment and does not move the reference low, so the next attempt keeps the same frozen reference low and its date. The expiry bar is never Day 1; a down close (that bar or a later one) arms a new count whose Day 1 is the next up or upper-half close, and Day 4-10 from there is the new window. `reset_count` counts expiries as well as failures.
+**Expiry and re-count.** An FTD is valid on Day 4-10 only. With no FTD by Day 10 the attempt expires on the bar that would be Day 11 (RALLY_FAILED, "No follow-through day by Day 10"; market status stays market in correction) and a new segment starts at that bar, inclusive. The expiry bar is never Day 1. While the count is not armed a bar can only arm it (a down close arms it; the expiry bar itself can do so); the next up or upper-half close is then Day 1, never the arming bar. The new attempt's reference low is the lowest intraday low from the expiry bar through that Day 1, and Day 4-10 from there is the new window. `reset_count` counts expiries as well as failures; `rally_attempt.end_reason` is `expired` or `undercut`.
 
-**Why the reference is kept across an expiry.** An earlier version restarted the segment at the
-expiry bar, which moved the next attempt's reference to the shallow pullback low just before it.
-Small dips then failed attempt after attempt (about 15 attempts in a 2013 Nasdaq replay while the
-index rose), so a rising market stayed in correction. Keeping the reference of the expired attempt
-means only a real undercut of that low fails the next attempt.
+**Why the reference restarts at an expiry.** A version that kept the expired attempt's reference
+for the next count lost the October 2019 Nasdaq FTD: the expired 9/19 attempt kept a June
+reference, so the 10/2-10/3 pullback low never started a new count and the 10/11 follow-through
+day fell on day 3 instead of day 7. That carried reference had been added only to stop repeated
+small-dip failures in a 2013 Nasdaq replay, but the 50-day-line distribution trigger (see Market
+status) already fixed that case, so the carry was removed.
 
 ---
 

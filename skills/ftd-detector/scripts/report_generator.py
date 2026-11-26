@@ -304,7 +304,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
             "- Correction detected; identify a new Day 1 reference before evaluating a rally"
         )
     elif combined_state == "RALLY_FAILED":
-        lines.append("- Rally low was undercut; reassess a fresh attempt")
+        ended = {
+            _attempt_end_reason(data.get("rally_attempt"))
+            for data in (sp500, nasdaq)
+            if data.get("state") == "RALLY_FAILED"
+        } or {"undercut"}
+        if "undercut" in ended:
+            lines.append("- Rally low was undercut; reassess a fresh attempt")
+        if "expired" in ended:
+            lines.append("- No follow-through day by Day 10; a new count starts after a down close")
     else:
         lines.append("- No active confirmed FTD is established by this model")
 
@@ -395,6 +403,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
         f.write("\n".join(lines))
 
     print(f"  Markdown report saved to: {output_file}")
+
+
+def _attempt_end_reason(rally: dict | None) -> str:
+    """ "expired" or "undercut" for an ended rally attempt (undercut when unknown)."""
+    rally = rally or {}
+    if rally.get("end_reason") in ("expired", "undercut"):
+        return rally["end_reason"]
+    reason = rally.get("invalidation_reason") or ""
+    return "expired" if reason.startswith("No follow-through day") else "undercut"
 
 
 def _money(value) -> str:

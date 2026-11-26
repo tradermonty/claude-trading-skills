@@ -785,7 +785,7 @@ def test_acceptance_shape_with_an_earlier_failed_attempt():
     assert result["swing_low"]["swing_low_date"] == dated[-4]["date"]
 
 
-# --- the Day 4-10 window: an attempt expires on Day 11 but keeps its reference ------------------------
+# --- the Day 4-10 window: an attempt expires on Day 11 and a new segment starts ------------------------
 
 
 def expired_history(n_days=10):
@@ -842,40 +842,46 @@ def test_a_down_close_on_the_expiry_bar_arms_so_the_next_up_close_is_day1():
     assert restarted["rally_attempt"]["reset_count"] == 1  # the expiry counts
 
 
-def test_expiry_keeps_the_reference_and_only_an_undercut_of_it_fails_the_next_attempt():
+def test_expiry_restarts_the_segment_so_the_next_reference_is_the_low_since_expiry():
     bars = expired_history()
-    down11 = B(bars[-1]["close"] * 0.999)
-    day1 = B(down11["close"] * 1.003, low=down11["close"] * 1.0)  # shallow pre-expiry-style low
-    attempt = run(bars + [down11, day1])
-    dated = assign_session_dates(copy.deepcopy(prefix()))
+    down11 = B(bars[-1]["close"] * 0.999)  # the expiry bar starts the new segment (inclusive)
+    pullback = B(down11["close"] * 0.99)
+    day1 = B(pullback["close"] * 1.004)
+    attempt = run(bars + [down11, pullback, day1])
+    dated = assign_session_dates(copy.deepcopy(bars + [down11, pullback]))
     assert attempt["state"] == "RALLY_ATTEMPT"
-    assert attempt["rally_attempt"]["reference_low"] == 98.0
-    assert attempt["rally_attempt"]["reference_low_date"] == dated[-1]["date"]  # L's date
-    # a dip below the shallow pullback low but above the reference does not fail it
-    dip = B(day1["close"] * 1.001, low=99.0)
-    still = run(bars + [down11, day1, dip])
-    assert still["state"] == "RALLY_ATTEMPT"
-    assert still["rally_attempt"]["current_day_count"] == 2
-    assert still["rally_attempt"]["reference_low"] == 98.0
-    # a dip below the reference fails it and restarts the segment
-    broken = B(day1["close"], low=97.9)
-    failed = run(bars + [down11, day1, dip, broken])
-    assert failed["state"] == "RALLY_FAILED"
-    assert "below rally low" in failed["rally_attempt"]["invalidation_reason"]
-    restarted = run(bars + [down11, day1, dip, broken, B(day1["close"] * 1.002)])
-    assert restarted["state"] == "RALLY_ATTEMPT"
-    assert (
-        restarted["rally_attempt"]["reference_low"] == 97.9
-    )  # the segment restarted at the failure
+    assert attempt["rally_attempt"]["current_day_count"] == 1
+    assert attempt["rally_attempt"]["reset_count"] == 1
+    # the lowest low from the expiry bar through Day 1, not the expired attempt's 98.0
+    assert attempt["rally_attempt"]["reference_low"] == pullback["low"]
+    assert attempt["rally_attempt"]["reference_low"] > 98.0
+    assert attempt["rally_attempt"]["reference_low_date"] == dated[-1]["date"]
+    # a dip below that new reference fails the new attempt; one above it does not
+    dip = B(day1["close"] * 1.001, low=pullback["low"] + 0.05)
+    assert run(bars + [down11, pullback, day1, dip])["state"] == "RALLY_ATTEMPT"
+    broken = B(day1["close"], low=pullback["low"] - 0.05)
+    assert run(bars + [down11, pullback, day1, broken])["state"] == "RALLY_FAILED"
 
 
-def test_an_undercut_after_the_expiry_before_a_new_day1_restarts_the_segment():
+def test_a_down_bar_that_sets_a_new_closing_low_after_an_up_close_expiry_only_arms():
     bars = expired_history()
-    down11 = B(bars[-1]["close"] * 0.999)
-    undercut = B(down11["close"] * 1.001, low=97.5)  # no attempt is active: the segment restarts
-    after = run(bars + [down11, undercut, B(down11["close"] * 1.004)])
-    assert after["state"] == "RALLY_ATTEMPT"
-    assert after["rally_attempt"]["reference_low"] == 97.5
+    up11 = B(bars[-1]["close"] * 1.003)  # up-close expiry: not armed
+    close = up11["close"] * 0.99
+    arming = B(close, low=close - 0.5, high=close + 0.1)  # new closing low, upper-half close
+    assert (arming["close"] - arming["low"]) / (arming["high"] - arming["low"]) >= 0.5
+    result = run(bars + [up11, arming])
+    assert result["state"] == "RALLY_FAILED"  # it only arms the count
+    assert result["rally_attempt"]["day1_idx"] == bars.index(bars[-1]) - 9  # the expired Day 1
+    nxt = run(bars + [up11, arming, B(close * 1.001)])  # the next bar is the earliest Day 1
+    assert nxt["state"] == "RALLY_ATTEMPT"
+    assert nxt["rally_attempt"]["current_day_count"] == 1
+    # the original repro: 98.8, 99.0 and a +1.5% day on higher volume are days 1-3, not an FTD
+    seq = [B(close * 1.001), B(close * 1.003)]
+    seq.append(B(seq[-1]["close"] * 1.015, vol=1_500_000))
+    early = run(bars + [up11, arming] + seq)
+    assert early["state"] == "RALLY_ATTEMPT"
+    assert early["rally_attempt"]["current_day_count"] == 3
+    assert early["ftd"] is None or early["ftd"]["ftd_detected"] is False
 
 
 def test_a_qualifying_gain_on_day_5_of_the_new_count_confirms():
@@ -889,8 +895,18 @@ def test_a_qualifying_gain_on_day_5_of_the_new_count_confirms():
     assert result["state"] == "FTD_CONFIRMED"
     assert result["ftd"]["ftd_day_number"] == 5
     assert result["ftd"]["ftd_detected"] is True
-    assert result["rally_attempt"]["reference_low"] == 98.0
+    assert result["rally_attempt"]["reference_low"] == down11["low"]  # low since the expiry bar
     assert "late" not in result["ftd"]
+
+
+def test_end_reason_tells_an_undercut_from_an_expiry():
+    bars = expired_history()
+    expired = run(bars + [B(bars[-1]["close"] * 0.999)])
+    assert expired["rally_attempt"]["end_reason"] == "expired"
+    assert run(bars)["rally_attempt"]["end_reason"] is None
+    undercut = run(prefix() + [B(100.5), B(100.9, low=97.9)])
+    assert undercut["state"] == "RALLY_FAILED"
+    assert undercut["rally_attempt"]["end_reason"] == "undercut"
 
 
 def old_deep_low_series():
@@ -1118,3 +1134,38 @@ def test_sma50_that_cannot_be_computed_is_never_a_cause():
     assert result["cycle"]["regained_50sma_since_ftd"] is False
     assert result["market_status"] == "confirmed_uptrend"
     assert result["cycle"]["pressure_reasons"] == []
+
+
+def test_2019_shape_expiry_then_a_new_pullback_restarts_the_count_and_confirms_on_day_7():
+    """Attempt A runs to expiry without undercutting its reference; the pullback after the
+    expiry starts a new count whose reference is the pullback low; B confirms on day 7."""
+    bars = old_deep_low_series()
+    p1_low = bars[-1]["low"]
+    day1 = bars[-1]["close"] * 1.004
+    a_days = [B(day1 * 1.002**k) for k in range(10)]  # Day 1-10, no FTD
+    assert run(bars + a_days)["state"] == "FTD_WINDOW"
+    expiry = B(a_days[-1]["close"] * 1.002)  # Day 11, an up close: expired, not armed
+    expired = run(bars + a_days + [expiry])
+    assert expired["state"] == "RALLY_FAILED"
+    assert expired["rally_attempt"]["end_reason"] == "expired"
+    assert expired["rally_attempt"]["reference_low"] == p1_low  # A's own reference is not undercut
+    close = expiry["close"]
+    pullback = []
+    for _k in range(3):  # a new pullback; the first down close arms the count
+        close *= 0.99
+        pullback.append(B(close))
+    pullback[-1] = B(close, low=close - 0.5, high=close + 1.0)
+    p2_low = pullback[-1]["low"]
+    assert p2_low != p1_low  # the new reference is the post-expiry pullback low, not A's
+    day1_b = B(close * 1.004, low=close, high=close * 1.005)  # Day 1 of B: up, upper half
+    b_days = [day1_b] + [B(day1_b["close"] * 1.002**k) for k in range(1, 6)]
+    base = bars + a_days + [expiry] + pullback
+    started = run(base + b_days[:1])
+    assert started["state"] == "RALLY_ATTEMPT"
+    assert started["rally_attempt"]["current_day_count"] == 1
+    assert started["rally_attempt"]["reference_low"] == p2_low
+    day7 = B(b_days[-1]["close"] * 1.0134, vol=1_500_000)
+    confirmed = run(base + b_days + [day7])
+    assert confirmed["state"] == "FTD_CONFIRMED"
+    assert confirmed["ftd"]["ftd_day_number"] == 7
+    assert confirmed["rally_attempt"]["reference_low"] == p2_low

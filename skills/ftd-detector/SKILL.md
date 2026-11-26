@@ -11,7 +11,7 @@ description: Detects Follow-Through Day (FTD) signals for market bottom confirma
 - Missing/non-finite/nonpositive low evidence on any replayed bar means unavailable. Never substitute a close for a missing low.
 - Default Nasdaq evidence is `^IXIC` (Composite). Use `--nasdaq-symbol QQQ` only for a labeled Nasdaq-100 ETF proxy. Never substitute its volume or price into an index series or claim its DD count is the Composite count. No automatic fallback.
 - `quality_score` is an uncalibrated technical heuristic, not success probability. `exposure_range` is `Not assessed` in every state. Do not derive portfolio percentages from the score; assess breadth, leadership, portfolio limits and operator decisions separately.
-- Day 4–10 is this model's FTD window. An attempt that reaches Day 11 without an FTD expires (RALLY_FAILED) but keeps its reference low for the next count; only an undercut of the reference low restarts the segment. The expiry bar is never Day 1, and a down close arms the new count. IBD is reported to note that most FTDs come on days 4-7 and some come later (secondary report, IBD's official rule text not verified), so a later FTD is not modelled.
+- Day 4–10 is this model's FTD window. An attempt that reaches Day 11 without an FTD expires (RALLY_FAILED) and a new segment starts at that bar, so the next count's reference low is the lowest low from the expiry bar through its Day 1. The expiry bar is never Day 1, and a down close arms the new count (while not armed a bar can only arm it). IBD is reported to note that most FTDs come on days 4-7 and some come later (secondary report, IBD's official rule text not verified), so a later FTD is not modelled.
 
 
 ## Purpose
@@ -133,7 +133,7 @@ A close below the 50-session SMA puts it under pressure only after the index has
 | RALLY_ATTEMPT | Day 1-3 of rally from the recent pullback low |
 | FTD_WINDOW | Day 4-10, waiting for a qualifying FTD |
 | FTD_CONFIRMED | Valid FTD; stays until the rally low is undercut or the uptrend ends (see `market_status`) |
-| RALLY_FAILED | Rally undercut the rally low, or no FTD by Day 10 (the reference low is kept for the next count) |
+| RALLY_FAILED | Rally undercut the rally low, or no FTD by Day 10 (`rally_attempt.end_reason`: `undercut` or `expired`) |
 | FTD_INVALIDATED | Intraday low below the rally low of the attempt that produced the FTD |
 
 ## Quality Score (0-100)
