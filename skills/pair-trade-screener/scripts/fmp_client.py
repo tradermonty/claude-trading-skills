@@ -483,7 +483,7 @@ class FMPClient:
         """Dividend-adjusted history, or None so the caller can fall back."""
         url = self._PAIR_ADJUSTED_URL
         if url in self._disabled_endpoints:
-            self._note_skipped_symbol(url, symbol)
+            # Do not report a skip: the caller falls back to the raw endpoint.
             return None
         raw = self._rate_limited_get(url, {"symbol": symbol}, quiet=True)
         if self.rate_limit_reached:
