@@ -72,8 +72,12 @@ describe only evaluated symbols.
 ## Third producer: momentum burst screening
 
 The universe is the unique requested symbols: the FMP universe rows, the
-explicit symbols, or the offline JSON symbols (explicit symbols missing from
-that file are `missing_data`). A symbol is evaluated when its bars reach a
+explicit symbols, or every symbol the offline JSON names, in each supported
+shape. Offline, rows that are absent, null or an empty list are
+`missing_data`, rows that are not a list or hold no usable bar are
+`invalid_data`, and explicit symbols missing from the file are
+`missing_data`. List items that are not an object or carry no `symbol` or
+`ticker` name no symbol and are skipped. A symbol is evaluated when its bars reach a
 screening decision; a filter rejection counts. `stale_price_data`,
 `insufficient_history`, `invalid_price_date` (an unparsable bar date) and
 `no_completed_price_data` (no bar on or before the expected session) are not
@@ -88,10 +92,8 @@ exiting without one.
 
 ## Fourth producer: exhaustion hammer screening
 
-The universe and fetch reasons follow the momentum burst producer. Offline,
-the universe is every symbol in the JSON file, including those with no usable
-bar (`missing_data` for no rows, `invalid_data` otherwise), and
-`--max-symbols` caps that list. `insufficient_history` is the screen's only
+The universe and fetch reasons follow the momentum burst producer, offline
+input included, and offline `--max-symbols` caps the file's symbols. `insufficient_history` is the screen's only
 hard reject that is not a negative decision. This screen has no session
 freshness gate, so there is no stale or no-completed-bar reason. A budget stop
 during the optional near-close quote fetch makes that symbol and the rest
