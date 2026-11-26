@@ -457,14 +457,45 @@ def read_universe_file(path: str) -> list[str]:
     return sorted({s for s in symbols if s})
 
 
+MAP_ROW_FIELDS = ("historical", "bars")
+LIST_ROW_FIELDS = ("historical", "bars", "prices")
+
+
+def offline_rows(value: Any, fields: tuple[str, ...]) -> tuple[list[Any], str | None]:
+    """Pick the OHLCV rows of one offline entry.
+
+    ``value`` is a symbol's rows, or a dict holding them under one of ``fields``;
+    the first non-empty list wins. Without rows, the reason is ``missing_data``
+    when they are absent, null or an empty list, and ``invalid_data`` when a
+    field holds something other than a list.
+    """
+    if isinstance(value, list):
+        return value, None if value else "missing_data"
+    if value is None:
+        return [], "missing_data"
+    if not isinstance(value, dict):
+        return [], "invalid_data"
+    reason = "missing_data"
+    for field in fields:
+        rows = value.get(field)
+        if isinstance(rows, list):
+            if rows:
+                return rows, None
+        elif rows is not None:
+            reason = "invalid_data"
+    return [], reason
+
+
 def read_prices_json(path: str, unusable: dict[str, str] | None = None) -> dict[str, list[Bar]]:
     """Read offline OHLCV JSON in one of several common shapes.
 
-    ``unusable`` receives the symbols left out for lack of usable bars, with an
-    evaluation_coverage reason: ``missing_data`` (no rows) or ``invalid_data``.
+    Every symbol the file names is kept: in the result when it has usable bars,
+    otherwise in ``unusable`` with an evaluation_coverage reason,
+    ``missing_data`` (no rows) or ``invalid_data``. List items that are not a
+    dict or carry no ``symbol``/``ticker`` name no symbol and are skipped.
     """
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    by_symbol: dict[str, list[dict[str, Any]]] = {}
+    entries: list[tuple[str, Any, tuple[str, ...]]] = []
 
     if isinstance(data, dict) and "symbols" in data and isinstance(data["symbols"], dict):
         data = data["symbols"]
@@ -473,28 +504,28 @@ def read_prices_json(path: str, unusable: dict[str, str] | None = None) -> dict[
 
     if isinstance(data, dict):
         for symbol, value in data.items():
-            if isinstance(value, dict) and isinstance(value.get("historical"), list):
-                by_symbol[normalize_symbol(symbol)] = value["historical"]
-            elif isinstance(value, dict) and isinstance(value.get("bars"), list):
-                by_symbol[normalize_symbol(symbol)] = value["bars"]
-            elif isinstance(value, list):
-                by_symbol[normalize_symbol(symbol)] = value
+            entries.append((normalize_symbol(symbol), value, MAP_ROW_FIELDS))
     elif isinstance(data, list):
         for item in data:
-            if not isinstance(item, dict):
-                continue
-            symbol = normalize_symbol(item.get("symbol") or item.get("ticker"))
-            historical = item.get("historical") or item.get("bars") or item.get("prices")
-            if symbol and isinstance(historical, list):
-                by_symbol[symbol] = historical
+            if isinstance(item, dict):
+                symbol = normalize_symbol(item.get("symbol") or item.get("ticker"))
+                entries.append((symbol, item, LIST_ROW_FIELDS))
 
     normalized: dict[str, list[Bar]] = {}
-    for symbol, rows in by_symbol.items():
-        bars = normalize_bars(rows)
-        if symbol and bars:
+    reasons: dict[str, str] = {}
+    for symbol, value, fields in entries:
+        if not symbol:
+            continue
+        rows, reason = offline_rows(value, fields)
+        bars = normalize_bars(rows) if rows else []
+        if bars:
             normalized[symbol] = bars
-        elif symbol and unusable is not None:
-            unusable[symbol] = "invalid_data" if rows else "missing_data"
+            reasons.pop(symbol, None)
+        elif symbol not in normalized:
+            # A repeated symbol without usable rows does not hide earlier bars.
+            reasons[symbol] = reason or "invalid_data"
+    if unusable is not None:
+        unusable.update(reasons)
     return normalized
 
 

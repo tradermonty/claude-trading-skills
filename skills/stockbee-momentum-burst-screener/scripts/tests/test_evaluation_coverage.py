@@ -249,6 +249,110 @@ def test_offline_bars_without_a_usable_session_are_not_evaluable(
     assert "No non-rejected candidates found." not in markdown.read_text()
 
 
+BAD_ROW = {"date": "2026-03-30", "open": 0, "high": 0, "low": 0, "close": 0}
+
+
+def _offline(monkeypatch, tmp_path, payload, *extra):
+    prices = tmp_path / "prices.json"
+    prices.write_text(json.dumps(payload))
+    out = tmp_path / "out"
+    argv = ["prog", "--prices-json", str(prices), "--as-of", "2026-03-30", "--output-dir", str(out)]
+    monkeypatch.setattr(sys, "argv", [*argv, *extra])
+    smb.main()
+    (report,) = out.glob("stockbee_momentum_burst_*.json")
+    (markdown,) = out.glob("stockbee_momentum_burst_*.md")
+    return json.loads(report.read_text())["evaluation_coverage"], markdown.read_text()
+
+
+@pytest.mark.parametrize("field", ["historical", "bars", "prices"])
+def test_offline_list_entry_with_empty_rows_stays_in_the_universe(monkeypatch, tmp_path, field):
+    payload = [{"symbol": "AAA", "historical": _rows()}, {"symbol": "DDD", field: []}]
+    coverage, markdown = _offline(monkeypatch, tmp_path, payload)
+    assert coverage["universe_size"] == 2
+    assert coverage["not_evaluated_reasons"] == {"missing_data": 1}
+    assert (coverage["evaluated"], coverage["verdict"]) == (1, "partial")
+    assert "No non-rejected candidates found." not in markdown
+
+
+def test_offline_universe_keeps_symbols_without_usable_bars(monkeypatch, tmp_path):
+    payload = {
+        "AAA": _rows(),
+        "BBB": {"historical": None},
+        "CCC": None,
+        "DDD": [],
+        "EEE": [BAD_ROW],
+    }
+    coverage, _ = _offline(monkeypatch, tmp_path, payload)
+    assert coverage["universe_size"] == 5
+    assert coverage["not_evaluated_reasons"] == {"invalid_data": 1, "missing_data": 3}
+    assert (coverage["evaluated"], coverage["verdict"]) == (1, "partial")
+
+
+def test_offline_explicit_symbol_keeps_the_file_reason(monkeypatch, tmp_path):
+    payload = {"AAA": _rows(), "EEE": [BAD_ROW]}
+    coverage, _ = _offline(monkeypatch, tmp_path, payload, "--symbols", "AAA", "EEE", "ZZZ")
+    assert coverage["universe_size"] == 3
+    assert coverage["not_evaluated_reasons"] == {"invalid_data": 1, "missing_data": 1}
+
+
+@pytest.mark.parametrize(
+    ("payload", "reason"),
+    [
+        ([{"symbol": "DDD", "historical": None}], "missing_data"),
+        ([{"symbol": "DDD"}], "missing_data"),
+        ([{"ticker": "DDD", "bars": None, "prices": []}], "missing_data"),
+        ([{"symbol": "DDD", "historical": "x"}], "invalid_data"),
+        ([{"symbol": "DDD", "bars": {"date": "2026-03-30"}}], "invalid_data"),
+        ([{"symbol": "DDD", "prices": [BAD_ROW]}], "invalid_data"),
+        ({"DDD": None}, "missing_data"),
+        ({"DDD": {"historical": None}}, "missing_data"),
+        ({"DDD": {}}, "missing_data"),
+        ({"DDD": "bad"}, "invalid_data"),
+        ({"DDD": {"historical": 5}}, "invalid_data"),
+        ({"symbols": {"DDD": {"historical": "x"}}}, "invalid_data"),
+    ],
+)
+def test_read_prices_json_names_every_symbol_without_bars(tmp_path, payload, reason):
+    path = tmp_path / "prices.json"
+    path.write_text(json.dumps(payload))
+    unusable: dict[str, str] = {}
+    assert smb.read_prices_json(str(path), unusable) == {}
+    assert unusable == {"DDD": reason}
+
+
+def test_read_prices_json_takes_the_first_non_empty_field(tmp_path):
+    path = tmp_path / "prices.json"
+    path.write_text(
+        json.dumps(
+            [
+                {"symbol": "AAA", "historical": [], "bars": _rows(3)},
+                {"symbol": "BBB", "historical": "x", "prices": _rows(3)},
+            ]
+        )
+    )
+    unusable: dict[str, str] = {}
+    assert sorted(smb.read_prices_json(str(path), unusable)) == ["AAA", "BBB"]
+    assert unusable == {}
+
+
+@pytest.mark.parametrize("bars_first", [True, False])
+def test_read_prices_json_repeated_symbol_keeps_its_bars(tmp_path, bars_first):
+    entries = [{"symbol": "AAA", "historical": _rows(3)}, {"symbol": "aaa", "historical": []}]
+    path = tmp_path / "prices.json"
+    path.write_text(json.dumps(entries if bars_first else entries[::-1]))
+    unusable: dict[str, str] = {}
+    assert list(smb.read_prices_json(str(path), unusable)) == ["AAA"]
+    assert unusable == {}
+
+
+def test_read_prices_json_skips_list_items_that_name_no_symbol(tmp_path):
+    path = tmp_path / "prices.json"
+    path.write_text(json.dumps([{"historical": _rows(3)}, {"symbol": "", "bars": []}, "junk", 7]))
+    unusable: dict[str, str] = {}
+    assert smb.read_prices_json(str(path), unusable) == {}
+    assert unusable == {}
+
+
 def test_cached_history_resets_the_last_fetch_error(monkeypatch):
     shared = smb._load_shared_fmp()
 
