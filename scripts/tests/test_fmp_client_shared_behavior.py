@@ -192,19 +192,25 @@ def test_fallback_served_symbol_is_not_reported_as_skipped(rel_path, monkeypatch
     class Response:
         text = ""
 
-        def __init__(self, status_code):
+        def __init__(self, status_code, symbol=None):
             self.status_code = status_code
+            self.symbol = symbol
 
         def json(self):
-            return {"symbol": "ABC", "historical": [{"date": "2026-01-09", "close": 10}]}
+            return {"symbol": self.symbol, "historical": [{"date": "2026-01-09", "close": 10}]}
 
     def get(url, **kwargs):
-        return Response(503 if "/stable/" in url else 200)
+        if "/stable/" in url:
+            return Response(503)
+        # Echo the symbol from the v3 path: a single-symbol 200 that names a
+        # different ticker is a response-contract failure, not a served symbol.
+        return Response(200, url.rstrip("/").rsplit("/", 1)[-1])
 
     monkeypatch.setattr(client.session, "get", get)
-    # Enough stable 503s to trip the breaker; every call is still served by v3.
-    for _ in range(client._ENDPOINT_FAILURE_THRESHOLD):
-        assert client.get_historical_prices("ABC") is not None
+    # Distinct symbols skip the positive cache so every call reaches both
+    # endpoints; the stable 503s trip the breaker and v3 serves each symbol.
+    for i in range(client._ENDPOINT_FAILURE_THRESHOLD):
+        assert client.get_historical_prices(f"S{i}") is not None
     assert len(client._disabled_endpoints) == 1
     assert client.get_historical_prices("DEF") is not None
     assert client.get_endpoint_report()["skipped_symbols"] == []
