@@ -142,6 +142,25 @@ heat 80ならbullishは90、bearishは10、同じ強さの対立テーマは50�
 Sector AnalystとUptrend Analyzerは上流データを共有するため、入力が増えても独立した証拠が増えたとは限りません。
 confidenceは受理した入力の充足度であり、独立性・鮮度・検証済み品質・予測精度の保証ではありません。
 
+### 市場ステータスによる上限オーバーレイ
+
+ftd-detectorのJSONに統合された`market_state.market_status`がある場合、重み付き平均には加えず、結果の上限として適用します。
+複合スコアは変わらず、`exposure_ceiling_pct`は`min(複合スコアの上限, cap)`です。
+
+- `market_in_correction`（CORRECTION、RALLY_ATTEMPT、FTD_WINDOW、RALLY_FAILED、FTD_INVALIDATED）: 上限20%。NEW_ENTRY_ALLOWEDはREDUCE_ONLYに下がり、CASH_PRIORITYはそのままです。
+- `confirmed_uptrend`でFTD_CONFIRMED: `ftd_invalidation.days_since_ftd`で決まります。5セッション未満は40%、5〜14は60%、15以上は80%、経過日数が不明なら60%です。推奨は変わりません。
+- `confirmed_uptrend`でUPTREND_RESUMED: 上限80%。FTDではなく、新高値による再開として表示します。
+- `uptrend_under_pressure`: 確認済みの上限より1段階（20ポイント）低く、下限は20%です。rationaleに「be selective」と`cycle.pressure_reasons`を載せます。
+- ステータスがnullまたは無い場合（旧ftd-detector出力、NO_SIGNAL、データ欠損）や`--ftd`が無い場合: オーバーレイも新しいキーもありません。
+
+結果の`market_status_overlay`ブロックを確認します。項目は`status`、`legacy_state`、`cap_pct`、`applied`、`reason`、`days_since_ftd`、`per_index`、`pressure_reasons`です。Markdownレポートにも表示します。
+
+これらのcapは、IBDに着想を得た未較正のモデル上の選択です。IBD自身の指針は二次報道からの引用にとどまります。
+[リスク管理ルール](https://inkl.com/news/trump-tariff-sell-off-how-ibd-s-risk-management-rules-avoided-big-losses)、
+[FTD後の投資](https://www.inkl.com/news/how-to-invest-after-a-follow-through-day-3-breakout-stocks-to-watch)を参照してください。
+メンテナーの検証では、これらのシグナルでエクスポージャーを変えても、同じ平均エクスポージャーを保つ場合と比べて、指数レベルのリターン（S&P 500、Nasdaq、RSP、SPY、QQQ）はほとんど変わりませんでした。
+この上限は、個別株を買い増せる環境かどうかを判断するためのもので、指数売買のシグナルではありません。
+
 ---
 
 ## 6. 運用ルール

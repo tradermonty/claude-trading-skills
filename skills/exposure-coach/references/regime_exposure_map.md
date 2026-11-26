@@ -110,7 +110,10 @@ Even within a regime, the exposure ceiling adjusts based on:
    - Strong selling: -10% to ceiling
 
 FTD (Follow-Through Day quality) has no ceiling adjustment of its own. It
-enters only through its 5% weight in the composite score.
+enters only through its 5% weight in the composite score. The separate
+ftd-detector market status (confirmed uptrend, under pressure, correction) is a
+cap overlay applied after the ceiling mapping; see the Market Status Cap Overlay
+section of `exposure_framework.md`. The caps are uncalibrated model choices.
 
 ## Bias-to-Sector Mapping
 

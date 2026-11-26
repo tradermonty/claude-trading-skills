@@ -178,6 +178,36 @@ Markdown and stderr. Confidence measures input completeness, not freshness,
 verified data quality, independent evidence or forecast accuracy; do not manually
 restore rejected data.
 
+**Market status cap overlay:** When the ftd-detector JSON carries a combined
+`market_state.market_status`, it caps the result instead of joining the weighted
+average. The composite score stays untouched and
+`exposure_ceiling_pct = min(composite ceiling, cap)`.
+
+- `market_in_correction` (CORRECTION, RALLY_ATTEMPT, FTD_WINDOW, RALLY_FAILED,
+  FTD_INVALIDATED): cap 20%; NEW_ENTRY_ALLOWED becomes REDUCE_ONLY, and
+  CASH_PRIORITY stays CASH_PRIORITY.
+- `confirmed_uptrend` with FTD_CONFIRMED: cap by `ftd_invalidation.days_since_ftd`,
+  40% under 5 sessions, 60% for 5-14, 80% for 15 or more, 60% when the age is
+  unknown. The recommendation is unchanged.
+- `confirmed_uptrend` with UPTREND_RESUMED: cap 80%, labelled a new-high resume,
+  not an FTD.
+- `uptrend_under_pressure`: one band (20 points) below the confirmed cap, minimum
+  20%; the rationale says to be selective and lists `cycle.pressure_reasons`.
+- Null or absent status (old ftd-detector output, NO_SIGNAL, data gap) or no
+  `--ftd`: no overlay and no new keys.
+
+Inspect the `market_status_overlay` block (`status`, `legacy_state`, `cap_pct`,
+`applied`, `reason`, `days_since_ftd`, `per_index`, `pressure_reasons`), also shown
+in the Markdown report. The caps are uncalibrated, IBD-inspired model choices.
+IBD's own guidance is cited only from secondary reports
+([risk management rules](https://inkl.com/news/trump-tariff-sell-off-how-ibd-s-risk-management-rules-avoided-big-losses),
+[after a follow-through day](https://www.inkl.com/news/how-to-invest-after-a-follow-through-day-3-breakout-stocks-to-watch)).
+A maintainer test found that varying exposure by these signals barely changed
+index-level returns (S&P 500, Nasdaq, RSP, SPY, QQQ) versus holding the same
+average exposure. The ceiling judges whether the environment supports adding
+individual-stock positions; it is not an index trading signal. See
+`references/exposure_framework.md`.
+
 ### Step 3: Interpret the Market Posture Summary
 
 Review the generated posture report containing:

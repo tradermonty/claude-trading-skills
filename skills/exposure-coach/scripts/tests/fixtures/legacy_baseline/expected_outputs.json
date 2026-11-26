@@ -1,0 +1,153 @@
+{
+  "ftd_legacy": {
+    "json": {
+      "schema_version": "1.0",
+      "exposure_ceiling_pct": 81,
+      "bias": "NEUTRAL",
+      "participation": "MODERATE",
+      "recommendation": "NEW_ENTRY_ALLOWED",
+      "confidence": "MEDIUM",
+      "composite_score": 73.5,
+      "component_scores": {
+        "breadth_score": 78,
+        "top_risk_score": 88,
+        "ftd_score": 82
+      },
+      "inputs_provided": [
+        "top_risk",
+        "breadth",
+        "ftd"
+      ],
+      "inputs_missing": [
+        "regime",
+        "uptrend",
+        "institutional",
+        "sector",
+        "theme"
+      ],
+      "rationale": "Low distribution day count supports risk-on posture. Missing critical inputs (regime) reduce confidence. New positions allowed within the 81% ceiling."
+    },
+    "markdown_after_header": [
+      "",
+      "## Exposure Ceiling: 81%",
+      "",
+      "| Dimension | Score | Status |",
+      "|-----------|-------|--------|",
+      "| Breadth | 78 | Strong |",
+      "| Top Risk | 88 | Strong |",
+      "| Ftd | 82 | Strong |",
+      "",
+      "## Recommendation: NEW_ENTRY_ALLOWED",
+      "",
+      "**Bias:** NEUTRAL",
+      "**Participation:** MODERATE",
+      "",
+      "### Rationale",
+      "Low distribution day count supports risk-on posture. Missing critical inputs (regime) reduce confidence. New positions allowed within the 81% ceiling.",
+      "",
+      "### Missing Inputs",
+      "regime, uptrend, institutional, sector, theme",
+      ""
+    ]
+  },
+  "ftd_null_status": {
+    "json": {
+      "schema_version": "1.0",
+      "exposure_ceiling_pct": 74,
+      "bias": "NEUTRAL",
+      "participation": "MODERATE",
+      "recommendation": "NEW_ENTRY_ALLOWED",
+      "confidence": "MEDIUM",
+      "composite_score": 68.3,
+      "component_scores": {
+        "breadth_score": 78,
+        "top_risk_score": 88,
+        "ftd_score": 40
+      },
+      "inputs_provided": [
+        "top_risk",
+        "breadth",
+        "ftd"
+      ],
+      "inputs_missing": [
+        "regime",
+        "uptrend",
+        "institutional",
+        "sector",
+        "theme"
+      ],
+      "rationale": "Low distribution day count supports risk-on posture. Missing critical inputs (regime) reduce confidence. New positions allowed within the 74% ceiling."
+    },
+    "markdown_after_header": [
+      "",
+      "## Exposure Ceiling: 74%",
+      "",
+      "| Dimension | Score | Status |",
+      "|-----------|-------|--------|",
+      "| Breadth | 78 | Strong |",
+      "| Top Risk | 88 | Strong |",
+      "| Ftd | 40 | Cautious |",
+      "",
+      "## Recommendation: NEW_ENTRY_ALLOWED",
+      "",
+      "**Bias:** NEUTRAL",
+      "**Participation:** MODERATE",
+      "",
+      "### Rationale",
+      "Low distribution day count supports risk-on posture. Missing critical inputs (regime) reduce confidence. New positions allowed within the 74% ceiling.",
+      "",
+      "### Missing Inputs",
+      "regime, uptrend, institutional, sector, theme",
+      ""
+    ]
+  },
+  "no_ftd": {
+    "json": {
+      "schema_version": "1.0",
+      "exposure_ceiling_pct": 81,
+      "bias": "NEUTRAL",
+      "participation": "MODERATE",
+      "recommendation": "NEW_ENTRY_ALLOWED",
+      "confidence": "MEDIUM",
+      "composite_score": 73.7,
+      "component_scores": {
+        "breadth_score": 78,
+        "top_risk_score": 88
+      },
+      "inputs_provided": [
+        "top_risk",
+        "breadth"
+      ],
+      "inputs_missing": [
+        "regime",
+        "uptrend",
+        "institutional",
+        "sector",
+        "theme",
+        "ftd"
+      ],
+      "rationale": "Low distribution day count supports risk-on posture. Missing critical inputs (regime) reduce confidence. New positions allowed within the 81% ceiling."
+    },
+    "markdown_after_header": [
+      "",
+      "## Exposure Ceiling: 81%",
+      "",
+      "| Dimension | Score | Status |",
+      "|-----------|-------|--------|",
+      "| Breadth | 78 | Strong |",
+      "| Top Risk | 88 | Strong |",
+      "",
+      "## Recommendation: NEW_ENTRY_ALLOWED",
+      "",
+      "**Bias:** NEUTRAL",
+      "**Participation:** MODERATE",
+      "",
+      "### Rationale",
+      "Low distribution day count supports risk-on posture. Missing critical inputs (regime) reduce confidence. New positions allowed within the 81% ceiling.",
+      "",
+      "### Missing Inputs",
+      "regime, uptrend, institutional, sector, theme, ftd",
+      ""
+    ]
+  }
+}

@@ -256,6 +256,50 @@ When inputs are missing:
 | 20-34 | 10-29% |
 | 0-19 | 0-9% |
 
+## Market Status Cap Overlay
+
+ftd-detector also emits an IBD-style market status: `market_state.market_status`
+(combined) and `market_status` per index, one of `confirmed_uptrend`,
+`uptrend_under_pressure`, `market_in_correction` or null. Exposure Coach applies it
+as a cap on the result, not as a weighted component: a 5%-weight average would
+dilute a gate that is meant to bind. The composite score, `component_scores` and the
+ceiling mapping above are unchanged, so old outputs stay comparable. The final
+`exposure_ceiling_pct` is `min(composite ceiling, cap)`.
+
+| Combined status | Legacy `combined_state` | Cap | Recommendation |
+|-----------------|-------------------------|-----|----------------|
+| `market_in_correction` | CORRECTION, RALLY_ATTEMPT, FTD_WINDOW, RALLY_FAILED, FTD_INVALIDATED | 20% | NEW_ENTRY_ALLOWED becomes REDUCE_ONLY; REDUCE_ONLY and CASH_PRIORITY unchanged |
+| `confirmed_uptrend` | FTD_CONFIRMED, fewer than 5 sessions since the FTD | 40% | unchanged |
+| `confirmed_uptrend` | FTD_CONFIRMED, 5-14 sessions | 60% | unchanged |
+| `confirmed_uptrend` | FTD_CONFIRMED, 15 or more sessions | 80% | unchanged |
+| `confirmed_uptrend` | FTD_CONFIRMED, age unknown | 60% | unchanged |
+| `confirmed_uptrend` | UPTREND_RESUMED (new high, no FTD ramp) | 80% | unchanged |
+| `uptrend_under_pressure` | either confirmed case above | one band (20 points) below the confirmed cap, minimum 20% | unchanged |
+| null or absent | NO_SIGNAL, old ftd-detector output, data gap, no `--ftd` | no overlay | unchanged |
+
+Sessions since the FTD come from `ftd_invalidation.days_since_ftd`. An
+`UPTREND_RESUMED` market is labelled as a new-high resume, not as an FTD. Under
+pressure, the rationale says to be selective and lists `cycle.pressure_reasons` of
+the pressured indexes. With no usable status the output has no overlay and no new
+keys, byte-for-byte the previous output.
+
+The result carries a `market_status_overlay` block: `status`, `legacy_state`,
+`cap_pct`, `applied` (true when the cap lowered the ceiling or the
+recommendation), `reason`, `days_since_ftd`, `per_index` and `pressure_reasons`.
+It is also shown in the Markdown report and the rationale.
+
+**Limits.** The caps are uncalibrated, IBD-inspired model choices defined in
+one block of constants in `calculate_exposure.py`. IBD's own guidance is cited only
+from secondary reports: 0-20% in a correction or after a failed FTD, 20-40% right
+after an FTD with steps up as the uptrend confirms, and an FTD is permission to
+start buying, not to go all in
+([inkl: IBD risk management rules](https://inkl.com/news/trump-tariff-sell-off-how-ibd-s-risk-management-rules-avoided-big-losses),
+[inkl: investing after a follow-through day](https://www.inkl.com/news/how-to-invest-after-a-follow-through-day-3-breakout-stocks-to-watch)).
+A maintainer test found that varying exposure by these signals barely changed
+index-level returns (S&P 500, Nasdaq, RSP, SPY, QQQ) versus holding the same
+average exposure. The ceiling is meant to judge whether the environment supports
+adding individual-stock positions. It is not an index trading signal.
+
 ## Recommendation Logic
 
 ### NEW_ENTRY_ALLOWED
