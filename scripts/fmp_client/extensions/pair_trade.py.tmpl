@@ -19,11 +19,15 @@
     ) -> Optional[dict]:
         self._pair_window = lookback_days if lookback_days and lookback_days > 0 else None
         try:
+            adjusted_passed_over = self._PAIR_ADJUSTED_URL in self._disabled_endpoints
             data = self._fetch_pair_adjusted(symbol)
             if data is None and not self.rate_limit_reached:
                 data = self._request_with_fallback("historical", symbol)
                 if data:
                     data["price_basis"] = self._pair_price_basis(data["historical"])
+                elif adjusted_passed_over and not self.rate_limit_reached:
+                    # The whole chain failed and the breaker passed over its first link.
+                    self._note_skipped_symbol(self._PAIR_ADJUSTED_URL, symbol)
         finally:
             self._pair_window = None
         if data and data.get("price_basis") == "close":
@@ -43,6 +47,7 @@
         """Dividend-adjusted history, or None so the caller can fall back."""
         url = self._PAIR_ADJUSTED_URL
         if url in self._disabled_endpoints:
+            # Do not report a skip: the caller falls back to the raw endpoint.
             return None
         raw = self._rate_limited_get(url, {"symbol": symbol}, quiet=True)
         if self.rate_limit_reached:
@@ -50,7 +55,11 @@
         rows, reason = self._pair_adjusted_rows(raw, symbol)
         if rows is None:
             reason = self._last_error or reason
-            self._record_endpoint_failure(url)
+            if self._failure_kind_counts_toward_breaker():
+                self._record_endpoint_failure(url)
+            elif raw is not None:
+                # Shaped and empty 200 bodies are per-symbol contract problems.
+                self._last_failure_kind = "response_contract"
             print(
                 f"WARN: {url} unusable for {symbol} ({reason}); falling back to the legacy endpoint",
                 file=sys.stderr,

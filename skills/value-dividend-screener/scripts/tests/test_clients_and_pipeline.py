@@ -228,10 +228,13 @@ class TestHistoricalPrices:
         params = session.get.call_args[1]["params"]
         assert params["symbol"] == "AAPL" and "from" in params and "to" in params
 
-    def test_empty_stable_history_does_not_try_v3(self):
+    def test_empty_stable_history_does_not_try_v3_or_count_failure(self):
         client, session = self._client(_resp(200, []))
         assert client.get_historical_prices("AAPL", days=30) == []
-        assert client._endpoint_failures[f"{FMPClient.STABLE_URL}/historical-price-eod/full"] == 1
+        # An empty per-symbol response is a response-contract outcome, not a
+        # provider outage: it must not move the circuit breaker (#844).
+        key = f"{FMPClient.STABLE_URL}/historical-price-eod/full"
+        assert client._endpoint_failures.get(key, 0) == 0
         assert session.get.call_count == 1
 
     def test_retired_wrapper_shape_is_not_a_valid_stable_history(self):
@@ -241,10 +244,13 @@ class TestHistoricalPrices:
         assert client.get_historical_prices("BRK-B", days=2) == []
         assert session.get.call_count == 1
 
-    def test_unrecognised_payload_returns_empty_and_counts_failures(self):
+    def test_unrecognised_payload_returns_empty_and_does_not_count_failures(self):
         client, session = self._client(_resp(200, {"weird": 1}))
         assert client.get_historical_prices("AAPL") == []
-        assert client._endpoint_failures[f"{FMPClient.STABLE_URL}/historical-price-eod/full"] == 1
+        # A shaped 200 that no consumer can use is a response-contract problem,
+        # not a provider outage: it must not move the circuit breaker (#844).
+        key = f"{FMPClient.STABLE_URL}/historical-price-eod/full"
+        assert client._endpoint_failures.get(key, 0) == 0
         assert session.get.call_count == 1
 
     def test_exception_is_recorded_and_returns_empty(self):

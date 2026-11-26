@@ -134,6 +134,33 @@ def test_unavailable_adjusted_endpoint_falls_back_to_close_and_warns(
     assert err.count("AAA: using raw close prices that are NOT dividend-adjusted") == 1
 
 
+def test_disabled_adjusted_endpoint_fallback_is_not_reported_as_skipped(transport):
+    """The raw fallback serves the symbol, so it is not a breaker skip (#844)."""
+    responses, calls = transport
+    responses.append(Response(rows()))
+    client = find_pairs.FMPClient(api_key=TOKEN)
+    client._disabled_endpoints.add(client._PAIR_ADJUSTED_URL)
+    result = find_pairs.fetch_historical_prices("AAA", TOKEN, lookback_days=2, client=client)
+    assert result is not None and result.attrs["price_basis"] == "close"
+    assert [c[0].rsplit("/", 1)[1] for c in calls] == ["full"]
+    assert client.get_endpoint_report()["skipped_symbols"] == []
+
+
+def test_disabled_adjusted_endpoint_with_failing_fallbacks_is_reported_as_skipped(
+    transport, capsys
+):
+    """Every fallback fails after the breaker passed over the adjusted endpoint (#844)."""
+    responses, calls = transport
+    responses.append(Response(status=404))
+    client = find_pairs.FMPClient(api_key=TOKEN)
+    client._disabled_endpoints.add(client._PAIR_ADJUSTED_URL)
+    result = find_pairs.fetch_historical_prices("AAA", TOKEN, lookback_days=2, client=client)
+    assert result is None
+    assert all(not c[0].endswith("/dividend-adjusted") for c in calls)
+    assert client.get_endpoint_report()["skipped_symbols"] == [f"{client._PAIR_ADJUSTED_URL}:AAA"]
+    assert "disabled after repeated failures; skipping AAA" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("module", MODULES)
 def test_fallback_uses_adjclose_when_supplied_without_warning(module, transport, capsys):
     responses, _ = transport
