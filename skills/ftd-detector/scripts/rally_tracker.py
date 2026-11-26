@@ -12,7 +12,7 @@ Phases (reported through the unchanged ``MarketState`` values):
   correction      -> CORRECTION, or RALLY_FAILED / FTD_INVALIDATED when the
                      correction was (re-)entered by that event; the label lasts
                      until the next Day 1 (only an FTD leaves the correction)
-  rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4 onward)
+  rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4-10)
   confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``)
 
 Rules (O'Neil / IBD):
@@ -23,11 +23,14 @@ Rules (O'Neil / IBD):
   the lowest intraday low of the pullback segment the attempt started from
   (frozen on Day 1, Day 1 bar included). A segment starts at the correction
   entry and restarts at a rally failure and an FTD invalidation. Equality holds.
-- FTD: Day 4 or later, gain >= 1.25% vs the previous close, volume above the
-  previous session. Day 4-10 is the normal window; there is no upper limit,
-  and a later FTD is flagged ``late``. An attempt ends only by an undercut of
-  its reference low (rally failure) or by an FTD; a failed attempt may be
-  restarted in the same correction.
+- FTD: Day 4-10, gain >= 1.25% vs the previous close, volume above the
+  previous session. With no FTD by Day 10 the attempt expires on the bar that
+  would be Day 11 (RALLY_FAILED, "No follow-through day by Day 10"): the
+  segment does not restart and the reference low does not move, so the next
+  attempt keeps it. The expiry bar is never Day 1; a down close (that bar or a
+  later one) arms a new count whose Day 1 is the next up or upper-half close.
+  An undercut of the reference low is the rally failure that restarts the
+  segment.
 - A confirmed uptrend goes under pressure at 5+ active distribution days, a
   close below the 50-session SMA (once regained since the FTD) or the first
   close below the FTD-day low. It ends with a new correction measured from the
@@ -144,7 +147,6 @@ def _empty_ftd() -> dict:
     return {
         "ftd_detected": False,
         "ftd_day_number": None,
-        "late": False,
         "ftd_date": None,
         "ftd_price": None,
         "ftd_low": None,
@@ -201,6 +203,8 @@ class _Replay:
         self.pressure_reasons = []
         self.ftd_low_breached = False
         self.regained_sma = False  # closed above the 50-session SMA since the FTD bar
+        self.armed = True  # may a Day 1 start? False after an expiry until a down close
+        self.carry_ref = None  # (low, idx): an expired attempt's reference, kept for the next
 
     # -- helpers ---------------------------------------------------------
     def _date(self, idx):
@@ -263,6 +267,8 @@ class _Replay:
         self.prior_events = []
         self.ftd = None
         self.status = None
+        self.armed = True
+        self.carry_ref = None
         # A session that sets the closing low may itself be Day 1 (upper-half close),
         # except the bar that ends a confirmed uptrend: like a failure bar, never Day 1.
         if allow_day1 and self.low_idx == t and _upper_half(self.h[t]):
@@ -274,11 +280,21 @@ class _Replay:
         close = bar["close"]
         if bar["low"] < self.seg_low:
             self.seg_low, self.seg_low_idx = bar["low"], t
+        if self.carry_ref is not None and bar["low"] < self.carry_ref[0]:
+            # an expired attempt's reference is undercut while no attempt is active:
+            # a new segment starts here, and this bar is never Day 1
+            self._restart_segment(t)
+            self.armed = True
+            return
         # Only an FTD leaves a correction: a rise above the old peak does not.
         if close < self.low_close:
-            self.low_close, self.low_idx = close, t
+            self.low_close, self.low_idx, self.armed = close, t, True
             if _upper_half(bar):
                 self._start_day1(t)
+            return
+        if not self.armed:
+            if close < self.h[t - 1]["close"]:
+                self.armed = True  # the arming bar itself is never Day 1
             return
         if close > self.h[t - 1]["close"] or _upper_half(bar):
             self._start_day1(t)
@@ -290,7 +306,12 @@ class _Replay:
         self.day = 1
         # Freeze the attempt's reference: the low of the pullback it started from,
         # including the Day 1 bar. It never changes while the attempt is active.
-        self.ref_low, self.ref_low_idx = self.seg_low, self.seg_low_idx
+        # After an expiry the next attempt keeps the expired attempt's reference.
+        if self.carry_ref is not None:
+            self.ref_low, self.ref_low_idx = self.carry_ref
+        else:
+            self.ref_low, self.ref_low_idx = self.seg_low, self.seg_low_idx
+        self.armed = True
         self.attempt = {
             "day1_idx": t,
             "day1_date": self._date(t),
@@ -346,14 +367,24 @@ class _Replay:
                 ),
             }
         )
-        # No upper day limit: the attempt lasts until the rally low is undercut or an
-        # FTD confirms. Day 4-10 is the normal window; a later FTD is flagged late.
         if (
-            self.day >= FTD_DAY_START
+            FTD_DAY_START <= self.day <= FTD_DAY_END
             and _at_least(gain, FTD_GAIN_MINIMUM)
             and bar["volume"] > prev["volume"] > 0
         ):
             self._confirm(t, gain)
+        elif self.day > FTD_DAY_END:
+            # Expiry: no segment restart and no move of the reference low.
+            self.attempt.update(
+                invalidated=True,
+                invalidation_reason=f"No follow-through day by Day {FTD_DAY_END}",
+            )
+            self.failures += 1
+            self.carry_ref = (self.ref_low, self.ref_low_idx)
+            self._transition(t, "correction", "rally attempt expired without an FTD")
+            self.label = MarketState.RALLY_FAILED.value
+            # The expiry bar is never Day 1; a down close arms the new count.
+            self.armed = close < prev["close"]
 
     def _fail(self, t, label, reason):
         """Re-enter the correction phase after an undercut; the bar is never Day 1."""
@@ -367,6 +398,7 @@ class _Replay:
         bar = self.h[t]
         self.seg_low, self.seg_low_idx = bar["low"], t
         self.low_close, self.low_idx = bar["close"], t
+        self.carry_ref = None
 
     def _confirm(self, t, gain):
         bar = self.h[t]
@@ -383,7 +415,6 @@ class _Replay:
         self.ftd = {
             "ftd_detected": True,
             "ftd_day_number": self.day,
-            "late": self.day > FTD_DAY_END,
             "ftd_date": self._date(t),
             "ftd_price": bar["close"],
             "ftd_low": bar["low"],

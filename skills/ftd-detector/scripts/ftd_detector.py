@@ -339,7 +339,6 @@ def _serialize_index(idx_data: dict) -> dict:
             "ftd_detected": ftd.get("ftd_detected"),
             "ftd_date": ftd.get("ftd_date"),
             "ftd_day_number": ftd.get("ftd_day_number"),
-            "late": ftd.get("late"),
             "ftd_low": ftd.get("ftd_low"),
             "gain_pct": ftd.get("gain_pct"),
             "gain_tier": ftd.get("gain_tier"),

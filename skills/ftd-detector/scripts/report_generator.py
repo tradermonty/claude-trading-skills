@@ -184,10 +184,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
             lines.append("| Metric | Value |")
             lines.append("|--------|-------|")
             lines.append(f"| **FTD Date** | {ftd_data.get('ftd_date', 'N/A')} |")
-            late_note = " (late FTD, after Day 10)" if ftd_data.get("late") else ""
-            lines.append(
-                f"| **Day Number** | Day {ftd_data.get('ftd_day_number', 'N/A')}{late_note} |"
-            )
+            lines.append(f"| **Day Number** | Day {ftd_data.get('ftd_day_number', 'N/A')} |")
             lines.append(
                 f"| **Price Gain** | +{ftd_data.get('gain_pct', 0):.2f}% "
                 f"({ftd_data.get('gain_tier', 'N/A')}) |"
@@ -365,9 +362,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(
         "2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the rally low"
     )
-    lines.append(
-        "3. **FTD (Day 4+; Day 4-10 normal, later flagged late):** 1.25%+ gain on volume higher than previous day"
-    )
+    lines.append("3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day")
     lines.append(
         "4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, "
         "volume, dual-index, post-FTD health)"
@@ -460,7 +455,7 @@ def _state_label(state: str) -> str:
         "NO_SIGNAL": "No Signal (status unavailable)",
         "CORRECTION": "Correction",
         "RALLY_ATTEMPT": "Rally Attempt (Day 1-3)",
-        "FTD_WINDOW": "FTD Window (Day 4+; Day 4-10 normal)",
+        "FTD_WINDOW": "FTD Window (Day 4-10)",
         "FTD_CONFIRMED": "FTD Confirmed",
         "RALLY_FAILED": "Rally Failed",
         "FTD_INVALIDATED": "FTD Invalidated",

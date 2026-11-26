@@ -483,19 +483,24 @@ def test_post_ftd_undercut_of_the_correction_low_invalidates_and_lifecycle_agree
 def test_rise_above_the_old_peak_without_ftd_stays_in_correction_until_an_ftd():
     gentle = [B(98.9 * 1.012**k) for k in range(1, 13)]  # +1.2% a day: never an FTD
     bars = prefix() + gentle
-    assert run(bars[:-2])["state"] == "FTD_WINDOW"  # Day 11, already above the peak
+    assert run(bars[:-2])["state"] == "FTD_WINDOW"  # Day 10, already above the peak
+    assert run(bars[:-1])["state"] == "RALLY_FAILED"  # Day 11: the window ended
     steady = bars + [B(bars[-1]["close"] * 1.004**k) for k in range(1, 9)]
     assert steady[-1]["close"] > 106.0 * 1.1
     for k in range(len(prefix()) + 1, len(steady) + 1):
         result = run(steady[:k])
         assert result["market_status"] == "market_in_correction", k
-        assert result["state"] in ("RALLY_ATTEMPT", "FTD_WINDOW"), k
-    # a late FTD in the same attempt confirms the uptrend
-    late = B(steady[-1]["close"] * 1.015, vol=1_500_000)
-    result = run(steady + [late])
+        assert result["state"] != "NO_SIGNAL", k
+    assert run(steady)["state"] == "RALLY_FAILED"
+    # a down close arms a new count; an FTD on day 4 of it confirms the uptrend
+    close = steady[-1]["close"]
+    retry = [B(close * 0.999), B(close * 1.002), B(close * 1.004), B(close * 1.006)]
+    retry.append(B(retry[-1]["close"] * 1.015, vol=1_500_000))
+    assert run(steady + retry[:2])["state"] == "RALLY_ATTEMPT"
+    result = run(steady + retry)
     assert result["state"] == "FTD_CONFIRMED"
-    assert result["market_status"] in ("confirmed_uptrend", "uptrend_under_pressure")
-    assert result["ftd"]["late"] is True
+    assert result["market_status"] == "confirmed_uptrend"
+    assert result["ftd"]["ftd_day_number"] == 4
 
 
 # --- 11. data gaps --------------------------------------------------------------------------------
@@ -780,64 +785,112 @@ def test_acceptance_shape_with_an_earlier_failed_attempt():
     assert result["swing_low"]["swing_low_date"] == dated[-4]["date"]
 
 
-# --- no day-10 exhaustion: an attempt lasts until failure or an FTD --------------------------------
+# --- the Day 4-10 window: an attempt expires on Day 11 but keeps its reference ------------------------
 
 
-def test_twelve_non_qualifying_days_stay_in_the_ftd_window():
-    bars = prefix() + attempt_bars(12)
-    result = run(bars)
-    assert result["state"] == "FTD_WINDOW"
-    assert result["market_status"] == "market_in_correction"
-    assert result["rally_attempt"]["current_day_count"] == 12
-    assert result["rally_attempt"]["invalidated"] is False
-    assert result["ftd"]["ftd_detected"] is False
+def expired_history(n_days=10):
+    """L's low (98.0) is the reference; Day 1-10 without an FTD; then the Day-11 bar."""
+    return prefix() + attempt_bars(n_days)
 
 
-def late_ftd_history(day):
-    bars = prefix() + attempt_bars(day - 1)
-    bars.append(B(bars[-1]["close"] * 1.015, vol=1_500_000))
-    return bars
+def test_ten_non_qualifying_days_stay_in_the_window_and_day_11_expires_the_attempt():
+    bars = expired_history()
+    window = run(bars)
+    assert window["state"] == "FTD_WINDOW"
+    assert window["rally_attempt"]["current_day_count"] == 10
+    down = B(bars[-1]["close"] * 0.999)  # Day 11
+    expired = run(bars + [down])
+    assert expired["state"] == "RALLY_FAILED"
+    assert expired["market_status"] == "market_in_correction"
+    assert expired["rally_attempt"]["current_day_count"] == 11
+    assert expired["rally_attempt"]["invalidation_reason"] == "No follow-through day by Day 10"
+    assert expired["rally_attempt"]["reference_low"] == 98.0  # not moved
+    assert expired["ftd"] is None or expired["ftd"]["ftd_detected"] is False
 
 
-def test_late_ftd_is_confirmed_flagged_late_and_scored_with_the_lowest_base():
-    from post_ftd_monitor import assess_post_ftd_health
-    from rally_tracker import get_market_state
-
-    normal = run(late_ftd_history(7))
-    assert normal["ftd"]["ftd_day_number"] == 7
-    assert normal["ftd"]["late"] is False
-    for day in (14, 25):
-        bars = late_ftd_history(day)
-        result = run(bars)
-        assert result["state"] == "FTD_CONFIRMED"
-        assert result["ftd"]["ftd_day_number"] == day
-        assert result["ftd"]["late"] is True
-        dated = assign_session_dates(copy.deepcopy(bars))
-        assessed = assess_post_ftd_health(get_market_state(list(reversed(dated)), []), dated, [])
-        assert (
-            assessed["quality_score"]["breakdown"]["base"] == f"Day {day} FTD: +40 (out of window)"
-        )
-    base_late_window = run(late_ftd_history(9))["ftd"]["late"]
-    assert base_late_window is False  # Day 8-10 is the late *window*, not a late FTD
+def test_a_day_11_gain_on_higher_volume_is_not_an_ftd():
+    bars = expired_history()
+    gain = B(bars[-1]["close"] * 1.014, vol=1_500_000)
+    result = run(bars + [gain])
+    assert result["state"] == "RALLY_FAILED"
+    assert "ftd" not in result or result["ftd"] is None or not result["ftd"]["ftd_detected"]
+    assert "late" not in (result["ftd"] or {})
 
 
-def test_2013_style_grind_with_many_dips_confirms_on_a_late_ftd():
-    bars = prefix() + [B(100.5)]  # Day 1
-    price = 100.5
-    for k in range(16):  # days 2-17: +1.2% days that are not enough, small dips above the low
-        price *= 1.012 if k % 2 == 0 else 0.995
-        bars.append(B(price))
-    before = run(bars)
-    assert before["state"] == "FTD_WINDOW"
-    assert before["rally_attempt"]["current_day_count"] == 17
-    assert before["rally_attempt"]["reference_low"] == 98.0
-    assert before["market_status"] == "market_in_correction"
-    bars.append(B(price * 1.014, vol=1_500_000))  # day 18: +1.4% on higher volume
-    result = run(bars)
+def test_the_expiry_bar_is_never_day1_and_a_down_close_arms_the_new_count():
+    bars = expired_history()
+    up11 = B(bars[-1]["close"] * 1.003)  # an up close on Day 11 is not Day 1
+    assert run(bars + [up11])["state"] == "RALLY_FAILED"
+    up12 = B(up11["close"] * 1.003)  # still disarmed: no down close yet
+    assert run(bars + [up11, up12])["state"] == "RALLY_FAILED"
+    down12 = B(up11["close"] * 0.999)  # a down close arms the count ...
+    assert run(bars + [up11, down12])["state"] == "RALLY_FAILED"
+    restarted = run(bars + [up11, down12, B(down12["close"] * 1.003)])  # ... the next up close
+    assert restarted["state"] == "RALLY_ATTEMPT"
+    assert restarted["rally_attempt"]["current_day_count"] == 1
+
+
+def test_a_down_close_on_the_expiry_bar_arms_so_the_next_up_close_is_day1():
+    bars = expired_history()
+    down11 = B(bars[-1]["close"] * 0.999)
+    assert run(bars + [down11])["state"] == "RALLY_FAILED"
+    restarted = run(bars + [down11, B(down11["close"] * 1.003)])
+    dated = assign_session_dates(copy.deepcopy(bars + [down11, B(1.0)]))
+    assert restarted["state"] == "RALLY_ATTEMPT"
+    assert restarted["rally_attempt"]["current_day_count"] == 1
+    assert restarted["rally_attempt"]["day1_date"] == dated[-1]["date"]
+    assert restarted["rally_attempt"]["reset_count"] == 1  # the expiry counts
+
+
+def test_expiry_keeps_the_reference_and_only_an_undercut_of_it_fails_the_next_attempt():
+    bars = expired_history()
+    down11 = B(bars[-1]["close"] * 0.999)
+    day1 = B(down11["close"] * 1.003, low=down11["close"] * 1.0)  # shallow pre-expiry-style low
+    attempt = run(bars + [down11, day1])
+    dated = assign_session_dates(copy.deepcopy(prefix()))
+    assert attempt["state"] == "RALLY_ATTEMPT"
+    assert attempt["rally_attempt"]["reference_low"] == 98.0
+    assert attempt["rally_attempt"]["reference_low_date"] == dated[-1]["date"]  # L's date
+    # a dip below the shallow pullback low but above the reference does not fail it
+    dip = B(day1["close"] * 1.001, low=99.0)
+    still = run(bars + [down11, day1, dip])
+    assert still["state"] == "RALLY_ATTEMPT"
+    assert still["rally_attempt"]["current_day_count"] == 2
+    assert still["rally_attempt"]["reference_low"] == 98.0
+    # a dip below the reference fails it and restarts the segment
+    broken = B(day1["close"], low=97.9)
+    failed = run(bars + [down11, day1, dip, broken])
+    assert failed["state"] == "RALLY_FAILED"
+    assert "below rally low" in failed["rally_attempt"]["invalidation_reason"]
+    restarted = run(bars + [down11, day1, dip, broken, B(day1["close"] * 1.002)])
+    assert restarted["state"] == "RALLY_ATTEMPT"
+    assert (
+        restarted["rally_attempt"]["reference_low"] == 97.9
+    )  # the segment restarted at the failure
+
+
+def test_an_undercut_after_the_expiry_before_a_new_day1_restarts_the_segment():
+    bars = expired_history()
+    down11 = B(bars[-1]["close"] * 0.999)
+    undercut = B(down11["close"] * 1.001, low=97.5)  # no attempt is active: the segment restarts
+    after = run(bars + [down11, undercut, B(down11["close"] * 1.004)])
+    assert after["state"] == "RALLY_ATTEMPT"
+    assert after["rally_attempt"]["reference_low"] == 97.5
+
+
+def test_a_qualifying_gain_on_day_5_of_the_new_count_confirms():
+    bars = expired_history()
+    down11 = B(bars[-1]["close"] * 0.999)
+    count = [B(down11["close"] * 1.003)]  # new Day 1
+    for _ in range(3):  # days 2-4
+        count.append(B(count[-1]["close"] * 1.002))
+    count.append(B(count[-1]["close"] * 1.015, vol=1_500_000))  # day 5
+    result = run(bars + [down11] + count)
     assert result["state"] == "FTD_CONFIRMED"
-    assert result["ftd"]["ftd_day_number"] == 18
-    assert result["ftd"]["late"] is True
-    assert result["market_status"] in ("confirmed_uptrend", "uptrend_under_pressure")
+    assert result["ftd"]["ftd_day_number"] == 5
+    assert result["ftd"]["ftd_detected"] is True
+    assert result["rally_attempt"]["reference_low"] == 98.0
+    assert "late" not in result["ftd"]
 
 
 def old_deep_low_series():
@@ -903,7 +956,6 @@ def test_2019_shape_fails_the_attempt_on_the_recent_low_and_confirms_the_restart
     confirmed = run(bars_a + [failure] + b_bars + [day6])
     assert confirmed["state"] == "FTD_CONFIRMED"
     assert confirmed["ftd"]["ftd_day_number"] == 6
-    assert confirmed["ftd"]["late"] is False
     assert confirmed["rally_attempt"]["reference_low"] == failure["low"]
     assert confirmed["rally_attempt"]["reference_low"] != deep_low
     assert confirmed["rally_attempt"]["reference_low"] != p1_low

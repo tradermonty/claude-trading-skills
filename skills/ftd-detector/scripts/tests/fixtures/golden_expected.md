@@ -135,7 +135,7 @@ This analysis uses William O'Neil's Follow-Through Day (FTD) methodology to conf
 
 1. **Swing Low Detection:** 3%+ decline from recent high with 3+ down days
 2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the rally low
-3. **FTD (Day 4+; Day 4-10 normal, later flagged late):** 1.25%+ gain on volume higher than previous day
+3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day
 4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, volume, dual-index, post-FTD health)
 5. **Post-FTD Monitoring:** Distribution day tracking, invalidation check, Power Trend confirmation
 
