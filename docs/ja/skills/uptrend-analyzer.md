@@ -32,6 +32,10 @@ Montyのアップトレンド比率ダッシュボードのデータを使用し
 
 MontyのアップトレンドダッシュボードのCSVデータを取得し、マーケットブレッドスと市場環境を診断するスキルです。5つのコンポーネントスコアと複合スコア（0-100）を計算し、エクスポージャーガイダンス（Full/Normal/Reduced/Defensive/Preservation）を提供します。
 
+### 活用事例: Uptrend Ratio Dashboard
+
+[Uptrend Ratio Dashboard](https://uptrend-dashboard.streamlit.app) は、このスキルが分析するデータの元になっているダッシュボードです。市場全体と11セクターそれぞれのアップトレンド比率を公開しています。最新の数値を確かめて、スキルのレポートと見比べるのに使えます。
+
 ---
 
 ## 2. 使用タイミング
