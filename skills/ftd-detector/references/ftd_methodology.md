@@ -5,7 +5,7 @@
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
 4–10 window is this model's bounded choice. Rally failure uses the rally low,
-the low of the pullback the rally attempt started from (the recent low before Day 1),
+the low of the pullback the rally attempt started from (the lowest low of that pullback through Day 1, inclusive),
 for the attempt and after an FTD alike; it is not the lowest low of the whole
 correction. Day 1 low is informational. The model replays
 the whole history oldest to newest with carried state (see "Why a forward

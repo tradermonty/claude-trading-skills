@@ -6,7 +6,8 @@ from _price_bars import find_bar_gaps, read_price
 def assess_lifecycle(history, ftd_idx, rally_low=None):
     """Use the explicit rally low; never infer a rally anchor from the FTD.
 
-    ``rally_low`` is the lowest intraday low since the correction peak. Intraday
+    ``rally_low`` is the attempt's frozen reference: the lowest intraday low of
+    the pullback segment the attempt started from, through Day 1. Intraday
     lows strictly below it fail the rally (equality holds). A close below
     the FTD candle low is a warning only. Missing evidence is unavailable.
     """

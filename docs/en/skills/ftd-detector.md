@@ -13,7 +13,7 @@ permalink: /en/skills/ftd-detector/
 ## Lifecycle and quality contract (#765 review)
 
 The rally failure anchor is the rally low, the low of the pullback the attempt started
-from (the recent low before Day 1, frozen on Day 1): an intraday low strictly below it fails
+from (the lowest low of that pullback through Day 1, inclusive, frozen on Day 1): an intraday low strictly below it fails
 the rally, before and after an FTD. A segment restarts at a failure, an invalidation or an
 exhaustion bar, so the reference is not the lowest low of the whole correction. The Day 1 low is informational. The model replays the whole history
 (500 sessions fetched) oldest to newest with carried state, so a confirmed FTD stays

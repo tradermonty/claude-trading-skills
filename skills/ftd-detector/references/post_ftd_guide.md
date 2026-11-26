@@ -6,7 +6,7 @@ Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
 4–10 window is this model's bounded choice. The rally-failure reference is the
 rally low, the low of the pullback the rally attempt started from (the recent
-low before Day 1, frozen on Day 1); Day 1 low is informational. Missing reference/low data is unavailable.
+low of that pullback through Day 1 inclusive, frozen on Day 1); Day 1 low is informational. Missing reference/low data is unavailable.
 FTD-day-low close breach is pressure, not failure. Its published score is capped
 at 59 so numerical consumers see the weakening; this cap is not calibrated.
 Portfolio allocation is not assessed. Historical examples below are retained
