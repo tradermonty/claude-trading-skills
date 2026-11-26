@@ -70,7 +70,8 @@
       "ftd_low": 102.10869021590997,
       "gain_pct": 1.5,
       "gain_tier": "recommended",
-      "volume_above_avg": true
+      "volume_above_avg": true,
+      "volume_reference": null
     },
     "ftd_lifecycle": {
       "days_since_ftd": 6,
@@ -188,7 +189,8 @@
       "ftd_low": 102.10869021590997,
       "gain_pct": 1.5,
       "gain_tier": "recommended",
-      "volume_above_avg": true
+      "volume_above_avg": true,
+      "volume_reference": null
     },
     "ftd_lifecycle": {
       "days_since_ftd": 6,
