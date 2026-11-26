@@ -184,7 +184,10 @@ def generate_markdown_report(analysis: dict, output_file: str):
             lines.append("| Metric | Value |")
             lines.append("|--------|-------|")
             lines.append(f"| **FTD Date** | {ftd_data.get('ftd_date', 'N/A')} |")
-            lines.append(f"| **Day Number** | Day {ftd_data.get('ftd_day_number', 'N/A')} |")
+            late_note = " (late FTD, after Day 10)" if ftd_data.get("late") else ""
+            lines.append(
+                f"| **Day Number** | Day {ftd_data.get('ftd_day_number', 'N/A')}{late_note} |"
+            )
             lines.append(
                 f"| **Price Gain** | +{ftd_data.get('gain_pct', 0):.2f}% "
                 f"({ftd_data.get('gain_tier', 'N/A')}) |"

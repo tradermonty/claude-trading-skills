@@ -11,7 +11,7 @@ description: Detects Follow-Through Day (FTD) signals for market bottom confirma
 - Missing/non-finite/nonpositive low evidence on any replayed bar means unavailable. Never substitute a close for a missing low.
 - Default Nasdaq evidence is `^IXIC` (Composite). Use `--nasdaq-symbol QQQ` only for a labeled Nasdaq-100 ETF proxy. Never substitute its volume or price into an index series or claim its DD count is the Composite count. No automatic fallback.
 - `quality_score` is an uncalibrated technical heuristic, not success probability. `exposure_range` is `Not assessed` in every state. Do not derive portfolio percentages from the score; assess breadth, leadership, portfolio limits and operator decisions separately.
-- The Day 4–10 qualifying window is this model's bounded choice; it is not a claim that every later follow-through is invalid under all O'Neil interpretations.
+- Day 4–10 is this model's normal FTD window. The model no longer ends an attempt at Day 10: an FTD on Day 11 or later is allowed, flagged `ftd.late` and scored with the lowest base (40). IBD is reported to note that most FTDs come on days 4-7 and some come later (secondary report, IBD's official rule text not verified).
 
 
 ## Purpose
@@ -131,9 +131,9 @@ A close below the FTD-day low also puts the uptrend under pressure (warning only
 | NO_SIGNAL | Warm-up (no qualifying correction since the replay start), data gap or insufficient data |
 | CORRECTION | 3%+ decline with 3+ down closes, or a confirmed uptrend ended by distribution or a 10% drawdown |
 | RALLY_ATTEMPT | Day 1-3 of rally from the recent pullback low |
-| FTD_WINDOW | Day 4-10, waiting for qualifying FTD |
+| FTD_WINDOW | Day 4 onward (no upper limit), waiting for a qualifying FTD; an FTD after Day 10 is flagged late |
 | FTD_CONFIRMED | Valid FTD; stays until the rally low is undercut or the uptrend ends (see `market_status`) |
-| RALLY_FAILED | Rally undercut the rally low (or exhausted this model's FTD window) |
+| RALLY_FAILED | Rally undercut the rally low |
 | FTD_INVALIDATED | Intraday low below the rally low of the attempt that produced the FTD |
 
 ## Quality Score (0-100)

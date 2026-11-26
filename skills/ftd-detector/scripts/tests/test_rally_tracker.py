@@ -134,8 +134,8 @@ class TestFTD:
         assert result["state"] != MarketState.FTD_CONFIRMED.value
         assert result["ftd"]["ftd_detected"] is False
 
-    def test_ftd_window_expired(self):
-        """A rally past Day 10 without a qualifying FTD -> RALLY_FAILED."""
+    def test_rally_past_day_10_stays_in_the_ftd_window(self):
+        """No day-10 exhaustion: the attempt lasts until an undercut or an FTD."""
         bars, _, _, _ = make_rally_history(
             decline_pct=5.0,
             down_days=5,
@@ -143,7 +143,8 @@ class TestFTD:
             rally_gain_per_day=0.2,
         )
         result = analyze_single_index(bars, "Test")
-        assert result["state"] == MarketState.RALLY_FAILED.value
+        assert result["state"] == MarketState.FTD_WINDOW.value
+        assert result["rally_attempt"]["current_day_count"] == 12
         assert result["market_status"] == "market_in_correction"
 
     def test_ftd_gain_tier_strong(self):

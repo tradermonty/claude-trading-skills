@@ -37,8 +37,7 @@ The swing low is the lowest *closing* price of the current pullback segment. The
 intraday low of that segment is the separate rally-failure reference.
 
 **Segments.** A segment starts at the correction entry (measured from the peak) and
-restarts, inclusive of that bar, at a rally failure bar, an FTD invalidation bar and an
-exhaustion bar (the bar that would be Day 11). The segment's lowest intraday low becomes the
+restarts, inclusive of that bar, at a rally failure bar and an FTD invalidation bar. The segment's lowest intraday low becomes the
 next attempt's reference on its Day 1; the segment's lowest close is the reported swing low.
 
 - The correction is measured from the highest close; it qualifies once a close is 3%+ below it
@@ -76,7 +75,7 @@ is the next session.
   attempt is active), including sessions after FTD confirmation. A down close that holds it keeps
   counting, and a higher low never replaces it. In a clean decline into a single low (as in
   November 2026) the rally low and the whole-correction low coincide; they differ once an earlier
-  attempt failed or was exhausted at a higher level, as in October 2019.
+  attempt failed at a higher level, as in October 2019.
 - A strict intraday breach fails the rally even if the close recovers. Equality holds.
 - Trading below the Day 1 low alone does not fail the rally.
 - Missing low evidence on any replayed bar makes the state unavailable.
@@ -87,17 +86,19 @@ is the next session.
 An intraday low strictly below the rally low fails the attempt (RALLY_FAILED, or
 FTD_INVALIDATED after an FTD). The failed event stays in the evidence. The failure bar starts a new
 segment (its own low belongs to it) and is never Day 1; the next session can start a new Day 1.
-An attempt that reaches Day 11 without an FTD is exhausted (RALLY_FAILED): that bar starts a new
-segment, is never Day 1, and a down close (on that bar or later) re-arms the search.
+There is no day limit and no exhaustion: an attempt lasts until its rally low is undercut or an
+FTD confirms, so a long grind with small dips above the rally low stays in `FTD_WINDOW` (this
+replaced a Day-10 exhaustion that restarted the segment at a very shallow low).
 
 ---
 
-## Step 3: FTD Window (Day 4-10)
+## Step 3: FTD Window (Day 4 onward; Day 4-10 is the normal window)
 
 ### FTD Qualification Criteria
 A Follow-Through Day must satisfy ALL of these conditions:
 
-1. **Day 4-10** of the rally attempt (Day 4-7 is the prime window; Day 8-10 still valid)
+1. **Day 4 or later** of the rally attempt (Day 4-7 is the prime window; Day 8-10 is the late
+   window; after Day 10 the FTD is flagged `late`)
 2. **Price gain >= 1.25%** (minimum threshold)
    - 1.25-1.49%: Minimum qualifying gain
    - 1.50-1.99%: Higher model gain tier (not a measured reliability estimate)
@@ -124,10 +125,12 @@ A Follow-Through Day must satisfy ALL of these conditions:
 - Base quality score: 50 points
 - This weighting does not establish buyer intent
 
-**After Day 10:**
-- Outside this implementation's bounded qualification window; not a universal IBD upper limit
-- Rally without FTD by Day 10 is a warning sign
-- A later rally may still develop; no reliability estimate is supplied
+**After Day 10 (late FTD):**
+- Still qualifies, with no upper day limit, but `ftd.late` is `true` and the base score is the
+  lowest (40, "out of window"). The state stays `FTD_WINDOW` from Day 4 until an FTD comes.
+- IBD is reported to note that most FTDs come on days 4-7 and some come later (secondary report, IBD's official rule text not verified).
+- A rally without an FTD by Day 10 is a warning sign, not a failure; only an undercut of the
+  rally low fails the attempt. No reliability estimate is supplied
 
 ---
 
