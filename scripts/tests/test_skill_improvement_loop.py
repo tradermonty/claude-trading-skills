@@ -1306,20 +1306,20 @@ def test_llm_review_logs_cli_error_subtype(loop_module, tmp_path, monkeypatch, c
 @pytest.mark.parametrize(
     "env_value,expected",
     [
-        (None, "1.00"),
+        (None, "5.00"),
         ("2.5", "2.50"),
         (" 2 ", "2.00"),
-        ("bad", "1.00"),
-        ("-1", "1.00"),
-        ("nan", "1.00"),
-        ("inf", "1.00"),
-        ("0", "1.00"),
-        ("", "1.00"),
-        ("1e-9", "1.00"),
-        ("0.004", "1.00"),
-        ("1e308", "1.00"),
-        ("5", "5.00"),
-        ("5.01", "1.00"),
+        ("bad", "5.00"),
+        ("-1", "5.00"),
+        ("nan", "5.00"),
+        ("inf", "5.00"),
+        ("0", "5.00"),
+        ("", "5.00"),
+        ("1e-9", "5.00"),
+        ("0.004", "5.00"),
+        ("1e308", "5.00"),
+        ("10", "10.00"),
+        ("10.01", "5.00"),
     ],
 )
 def test_review_budget_comes_from_environment(
@@ -1573,3 +1573,128 @@ def test_missing_review_prompt_is_not_a_healthy_skip(loop_module, tmp_path, monk
     )
     assert loop_module.run(tmp_path) == 1
     assert "last_success_at" not in loop_module.load_state(tmp_path)
+
+
+# ── Issue #652: $5 review budget and 72h paid-run cadence ──
+
+
+def test_default_review_budget_is_five_dollars(loop_module, monkeypatch):
+    monkeypatch.delenv("SKILL_LOOP_REVIEW_BUDGET_USD", raising=False)
+    assert loop_module.review_budget_usd() == 5.0
+    monkeypatch.setenv("SKILL_LOOP_REVIEW_BUDGET_USD", "10")
+    assert loop_module.review_budget_usd() == 10.0
+    monkeypatch.setenv("SKILL_LOOP_REVIEW_BUDGET_USD", "10.01")
+    assert loop_module.review_budget_usd() == 5.0
+
+
+@pytest.mark.parametrize(
+    "env_value,expected",
+    [
+        (None, 72),
+        ("1", 1),
+        ("24", 24),
+        (" 48 ", 48),
+        ("720", 720),
+        ("0", 72),
+        ("721", 72),
+        ("-5", 72),
+        ("1.5", 72),
+        ("bad", 72),
+        ("", 72),
+    ],
+)
+def test_min_interval_hours_from_environment(loop_module, monkeypatch, env_value, expected):
+    if env_value is None:
+        monkeypatch.delenv("SKILL_LOOP_MIN_INTERVAL_HOURS", raising=False)
+    else:
+        monkeypatch.setenv("SKILL_LOOP_MIN_INTERVAL_HOURS", env_value)
+    assert loop_module.min_interval_hours() == expected
+
+
+def _write_state(loop_module, root, **fields):
+    state = {"last_skill_index": -1, "history": []}
+    state.update(fields)
+    loop_module.save_state(root, state)
+
+
+def _forbid_work(loop_module, monkeypatch):
+    def boom(*a, **kw):
+        raise AssertionError("a skipped run must not score or call claude")
+
+    for name in ("run_auto_score", "run_llm_review", "apply_improvement", "discover_skills"):
+        monkeypatch.setattr(loop_module, name, boom)
+
+
+def test_recent_attempt_skips_run_without_success_stamp(loop_module, tmp_path, monkeypatch, caplog):
+    from datetime import datetime, timedelta, timezone
+
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome=None)
+    _forbid_work(loop_module, monkeypatch)
+    monkeypatch.delenv("SKILL_LOOP_MIN_INTERVAL_HOURS", raising=False)
+    attempt = (datetime.now(timezone.utc) - timedelta(hours=10)).isoformat()
+    _write_state(loop_module, tmp_path, last_attempt_at=attempt)
+    caplog.set_level("INFO")
+    assert loop_module.run(tmp_path) == 0
+    state = loop_module.load_state(tmp_path)
+    assert "last_success_at" not in state
+    assert state["last_attempt_at"] == attempt
+    assert "skipping" in caplog.text and "next due" in caplog.text
+
+
+def test_old_attempt_runs(loop_module, tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    (tmp_path / "reports").mkdir()
+    _stub_run(
+        loop_module,
+        monkeypatch,
+        llm_result={"score": 70, "summary": "", "findings": []},
+        outcome="no_improvement_items",
+    )
+    monkeypatch.delenv("SKILL_LOOP_MIN_INTERVAL_HOURS", raising=False)
+    old = (datetime.now(timezone.utc) - timedelta(hours=73)).isoformat()
+    _write_state(loop_module, tmp_path, last_attempt_at=old)
+    assert loop_module.run(tmp_path) == 0
+    state = loop_module.load_state(tmp_path)
+    assert state["last_attempt_at"] > old
+    assert "last_success_at" in state
+
+
+@pytest.mark.parametrize("bad", ["garbage", None, 5, "2026-01-01T00:00:00"])
+def test_unreadable_attempt_stamp_does_not_block_run(loop_module, tmp_path, monkeypatch, bad):
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome="no_improvement_items")
+    _write_state(loop_module, tmp_path, last_attempt_at=bad)
+    assert loop_module.run(tmp_path) == 1  # ran (review failed), was not skipped
+
+
+def test_attempt_is_recorded_before_review_even_when_it_fails(loop_module, tmp_path, monkeypatch):
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome="no_improvement_items")
+    seen = {}
+
+    def review(root, *a, **kw):
+        seen["state"] = loop_module.load_state(root)
+        return None
+
+    monkeypatch.setattr(loop_module, "run_llm_review", review)
+    assert loop_module.run(tmp_path) == 1
+    assert "last_attempt_at" in seen["state"], "must be persisted before the paid call"
+    assert "last_success_at" not in loop_module.load_state(tmp_path)
+
+
+def test_force_and_dry_run_bypass_interval(loop_module, tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    _stub_run(loop_module, monkeypatch, llm_result=None, outcome="no_improvement_items")
+    fresh = datetime.now(timezone.utc).isoformat()
+    _write_state(loop_module, tmp_path, last_attempt_at=fresh)
+    assert loop_module.run(tmp_path, force=True) == 1
+    _write_state(loop_module, tmp_path, last_attempt_at=fresh)
+    assert loop_module.run(tmp_path, dry_run=True) == 0
+    assert loop_module.load_state(tmp_path)["last_attempt_at"] == fresh
+
+
+def test_cli_exposes_force_flag(loop_module, monkeypatch):
+    monkeypatch.setattr(loop_module.sys, "argv", ["x", "--force"])
+    assert loop_module.parse_args().force is True
+    monkeypatch.setattr(loop_module.sys, "argv", ["x"])
+    assert loop_module.parse_args().force is False
