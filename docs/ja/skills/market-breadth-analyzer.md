@@ -52,6 +52,10 @@ Market Breadth Analyzerは、TraderMontyの公開CSVデータを使って市場�
 | 出力 | 定量スコア（0-100） | 定性的チャート分析 |
 | 再現性 | 完全に再現可能 | アナリスト依存 |
 
+### 活用事例: Market Breadth Analysis ダッシュボード
+
+[Market Breadth Analysis](https://tradermonty.github.io/market-breadth-analysis/) は、このスキルが採点するブレッドスのデータ（`market_breadth_data.csv` と `market_breadth_summary.csv`）を公開しているインタラクティブダッシュボードです。最新のチャートを確かめて、スキルのレポートと見比べるのに使えます。
+
 ---
 
 ## 2. 前提条件
