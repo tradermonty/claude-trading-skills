@@ -19,8 +19,11 @@ Rules (O'Neil / IBD):
 - Correction: close >= 3% below the highest close with 3+ down closes since it.
 - Day 1: first up close (or a close in the top 50% of a valid high-low range,
   including on a session that sets a new closing low) while armed.
-- Rally failure: an intraday low strictly below the lowest low since the
-  correction peak (the correction low). Equality holds.
+- Rally failure: an intraday low strictly below the attempt's reference low,
+  the lowest intraday low of the pullback segment the attempt started from
+  (frozen on Day 1, Day 1 bar included). A segment starts at the correction
+  entry and restarts at a rally failure, an FTD invalidation and an exhaustion
+  bar. Equality holds.
 - FTD: Day 4-10, gain >= 1.25% vs the previous close, volume above the
   previous session. A failed or exhausted (no FTD by Day 10) attempt may be
   restarted in the same correction.
@@ -28,7 +31,7 @@ Rules (O'Neil / IBD):
   close below the 50-session SMA or the first close below the FTD-day low. It
   ends with a new correction measured from the post-FTD peak on 6+ active
   distribution days with a close below the 21-session EMA, or on a 10% drawdown
-  from that peak, or with FTD_INVALIDATED if the correction low breaks.
+  from that peak, or with FTD_INVALIDATED if the rally low breaks.
 
 Data gaps (issue #655): a missing or non-finite close/volume/low is never read
 as 0 and bars are never dropped (the replay compares positionally adjacent
@@ -85,7 +88,7 @@ ANALYSIS_LOOKBACK = 60
 MIN_REPLAY_SESSIONS = 60
 CLOSE_VOLUME = ("close", "volume")
 REPLAY_FIELDS = ("close", "volume", "low")
-REFERENCE_BASIS = "intraday low below the correction low"
+REFERENCE_BASIS = "intraday low below the rally low"
 
 
 def bar_gaps(bars: list[dict], required: tuple = CLOSE_VOLUME) -> dict:
@@ -173,7 +176,9 @@ class _Replay:
         self.down_count = 0
         self.low_close = None
         self.low_idx = None
-        self.ref_low = None
+        self.seg_low = None  # lowest intraday low since the segment start
+        self.seg_low_idx = None
+        self.ref_low = None  # the attempt's rally-failure reference, frozen on Day 1
         self.ref_low_idx = None
         self.armed = False
         self.attempt = None
@@ -260,13 +265,14 @@ class _Replay:
         )
 
     def _enter_correction(self, t, reason):
-        self.low_close = self.ref_low = None
+        self.low_close = self.seg_low = None
+        self.ref_low = self.ref_low_idx = None
         for k in range(self.peak_idx, t + 1):
             bar = self.h[k]
             if self.low_close is None or bar["close"] < self.low_close:
                 self.low_close, self.low_idx = bar["close"], k
-            if self.ref_low is None or bar["low"] < self.ref_low:
-                self.ref_low, self.ref_low_idx = bar["low"], k
+            if self.seg_low is None or bar["low"] < self.seg_low:
+                self.seg_low, self.seg_low_idx = bar["low"], k
         self._transition(t, "correction", reason)
         self.label = MarketState.CORRECTION.value
         self.armed = True
@@ -283,8 +289,8 @@ class _Replay:
     def _step_correction(self, t):
         bar = self.h[t]
         close = bar["close"]
-        if bar["low"] < self.ref_low:
-            self.ref_low, self.ref_low_idx = bar["low"], t
+        if bar["low"] < self.seg_low:
+            self.seg_low, self.seg_low_idx = bar["low"], t
         # Only an FTD leaves a correction: a rise above the old peak does not.
         if close < self.low_close:
             self.low_close, self.low_idx, self.armed = close, t, True
@@ -303,6 +309,9 @@ class _Replay:
         self._transition(t, "rally", "Day 1")
         self.ftd = None
         self.day = 1
+        # Freeze the attempt's reference: the low of the pullback it started from,
+        # including the Day 1 bar. It never changes while the attempt is active.
+        self.ref_low, self.ref_low_idx = self.seg_low, self.seg_low_idx
         self.attempt = {
             "day1_idx": t,
             "day1_date": self._date(t),
@@ -333,11 +342,11 @@ class _Replay:
             self.attempt.update(
                 invalidated=True,
                 invalidation_reason=(
-                    f"Intraday low ${bar['low']:.2f} below correction low "
+                    f"Intraday low ${bar['low']:.2f} below rally low "
                     f"${self.ref_low:.2f} on {self._date(t)}"
                 ),
             )
-            self._fail(t, MarketState.RALLY_FAILED, "rally failed: correction low undercut")
+            self._fail(t, MarketState.RALLY_FAILED, "rally failed: rally low undercut")
             return
         if close < self.low_close:  # a lower close that holds the reference moves the closing low
             self.low_close, self.low_idx = close, t
@@ -370,6 +379,7 @@ class _Replay:
                 invalidation_reason=f"No follow-through day by Day {FTD_DAY_END}",
             )
             self.failures += 1
+            self._restart_segment(t)
             self._transition(t, "correction", "rally exhausted without an FTD")
             self.label = MarketState.RALLY_FAILED.value
             # The exhaustion bar is never Day 1; a down close re-arms the search.
@@ -377,14 +387,17 @@ class _Replay:
 
     def _fail(self, t, label, reason):
         """Re-enter the correction phase after an undercut; the bar is never Day 1."""
-        bar = self.h[t]
         self.failures += 1
-        self.ref_low, self.ref_low_idx = bar["low"], t
-        if bar["close"] < self.low_close:
-            self.low_close, self.low_idx = bar["close"], t
+        self._restart_segment(t)
         self.armed = True
         self._transition(t, "correction", reason)
         self.label = label.value
+
+    def _restart_segment(self, t):
+        """A new pullback segment starts at bar t (inclusive): failure, exhaustion, invalidation."""
+        bar = self.h[t]
+        self.seg_low, self.seg_low_idx = bar["low"], t
+        self.low_close, self.low_idx = bar["close"], t
 
     def _confirm(self, t, gain):
         bar = self.h[t]
@@ -522,13 +535,13 @@ class _Replay:
         self.attempt.update(
             invalidated=True,
             invalidation_reason=(
-                f"Intraday low ${bar['low']:.2f} below correction low "
+                f"Intraday low ${bar['low']:.2f} below rally low "
                 f"${self.ref_low:.2f} on {self._date(t)}"
             ),
         )
         if self.pre_ftd_peak >= self.peak_close:
             self.peak_close, self.peak_idx = self.pre_ftd_peak, self.pre_ftd_peak_idx
-        self._fail(t, MarketState.FTD_INVALIDATED, "FTD invalidated: correction low undercut")
+        self._fail(t, MarketState.FTD_INVALIDATED, "FTD invalidated: rally low undercut")
         self.status = None
         self.dds = []
 
@@ -597,8 +610,10 @@ class _Replay:
             attempt["prior_ftd_events"] = list(self.prior_events)
         if state in (MarketState.FTD_CONFIRMED, MarketState.FTD_INVALIDATED):
             ref, ref_idx = self.ftd_ref_low, self.ftd_ref_low_idx
-        else:
+        elif self.ref_low is not None:
             ref, ref_idx = self.ref_low, self.ref_low_idx
+        else:  # correction without an attempt: the low of the current pullback so far
+            ref, ref_idx = self.seg_low, self.seg_low_idx
         attempt["reference_low"] = ref
         attempt["reference_low_date"] = self._date(ref_idx) if ref_idx is not None else None
         attempt["reference_basis"] = REFERENCE_BASIS

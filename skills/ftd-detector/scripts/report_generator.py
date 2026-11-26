@@ -101,7 +101,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("")
     if inv.get("rally_low") is not None:
         lines.append(
-            f"**Rally failure reference ({quality.get('ftd_source', 'source unavailable')}):** correction low {_money(inv.get('rally_low'))}; intraday breach required."
+            f"**Rally failure reference ({quality.get('ftd_source', 'source unavailable')}):** rally low {_money(inv.get('rally_low'))}; intraday breach required."
         )
         lines.append("")
     lines.append(
@@ -242,7 +242,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
                     f"- **FTD INVALIDATED** on {inv.get('invalidation_date')} "
                     f"(Day {inv.get('days_after_ftd')}, intraday low "
                     f"{_money(inv.get('invalidation_low'))} "
-                    f"below correction low {_money(inv.get('rally_low'))})"
+                    f"below rally low {_money(inv.get('rally_low'))})"
                 )
             elif "invalidated" in inv and inv["invalidated"] is None:
                 lines.append(f"- **FTD Valid:** Unavailable ({inv.get('reason', 'data gap')})")
@@ -291,7 +291,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append("- Re-run once the data provider has backfilled the missing bars")
     elif combined_state == "FTD_CONFIRMED":
         lines.append("- FTD event remains confirmed; review warning evidence separately")
-        lines.append("- Monitor the correction low for rally failure and FTD-day low for pressure")
+        lines.append("- Monitor the rally low for rally failure and FTD-day low for pressure")
         lines.append(
             "- Evaluate breadth, leadership and portfolio constraints before any allocation decision"
         )
@@ -332,9 +332,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
             ref_low = rally.get("reference_low")
             if ref_low is None:
                 ref_low = rally.get("day1_low")
-            lines.append(
-                f"- Rally failure level (correction low; intraday breach): {_money(ref_low)}"
-            )
+            lines.append(f"- Rally failure level (rally low; intraday breach): {_money(ref_low)}")
             lines.append(f"- Day 1 Low (informational): {_money(rally.get('day1_low'))}")
         if swing:
             lines.append(f"- Swing Low: ${swing.get('price', 0):.2f} ({swing.get('date', 'N/A')})")
@@ -364,7 +362,7 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append("")
     lines.append("1. **Swing Low Detection:** 3%+ decline from recent high with 3+ down days")
     lines.append(
-        "2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the correction low"
+        "2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the rally low"
     )
     lines.append("3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day")
     lines.append(

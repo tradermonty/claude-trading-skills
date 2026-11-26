@@ -5,8 +5,8 @@
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
 4–10 window is this model's bounded choice. The rally-failure reference is the
-correction (downtrend) low, the lowest intraday low since the correction peak;
-Day 1 low is informational. Missing reference/low data is unavailable.
+rally low, the low of the pullback the rally attempt started from (the recent
+low before Day 1, frozen on Day 1); Day 1 low is informational. Missing reference/low data is unavailable.
 FTD-day-low close breach is pressure, not failure. Its published score is capped
 at 59 so numerical consumers see the weakening; this cap is not calibrated.
 Portfolio allocation is not assessed. Historical examples below are retained
@@ -45,7 +45,7 @@ These are model weights, not measured failure probabilities.
 
 ### Invalidation Criteria
 An FTD is formally invalidated when:
-- **A later intraday low strictly undercuts the correction low the FTD rallied from**
+- **A later intraday low strictly undercuts the rally low of the attempt that produced the FTD**
 - This is a hard stop - the FTD signal is no longer valid
 
 ### What to Do After Invalidation
@@ -55,9 +55,9 @@ An FTD is formally invalidated when:
 4. A previous failure does not determine the outcome of the next attempt
 
 ### Soft Warnings (Not Yet Invalidated)
-- A close below the **FTD candle low**, while holding the correction low, is pressure and caps published quality at 59. It also moves `market_status` to `uptrend_under_pressure` (`cycle.pressure_reasons` includes `ftd_low_close_breach`); the state stays FTD_CONFIRMED. The status returns to `confirmed_uptrend` once active distribution days are <= 4 and the close is above the 50-session SMA, without a new FTD.
-- An intraday breach of the **FTD candle low** followed by a close above that candle low is not the close-breach warning; inspect the correction low separately.
-- An intraday breach of the **correction low** is failure even when the close recovers.
+- A close below the **FTD candle low**, while holding the rally low, is pressure and caps published quality at 59. It also moves `market_status` to `uptrend_under_pressure` (`cycle.pressure_reasons` includes `ftd_low_close_breach`); the state stays FTD_CONFIRMED. The status returns to `confirmed_uptrend` once active distribution days are <= 4 and the close is above the 50-session SMA, without a new FTD.
+- An intraday breach of the **FTD candle low** followed by a close above that candle low is not the close-breach warning; inspect the rally low separately.
+- An intraday breach of the **rally low** is failure even when the close recovers.
 - Distribution (5+ active distribution days) or a close below the 50-session average moves a confirmed uptrend to `uptrend_under_pressure`; see the market status rules in `ftd_methodology.md`.
 - Approaching either level is technical context, not an instruction to change portfolio exposure.
 

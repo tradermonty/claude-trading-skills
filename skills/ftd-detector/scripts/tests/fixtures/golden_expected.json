@@ -64,7 +64,7 @@
       "rally_low": 94.525,
       "ftd_low": 97.8697,
       "days_since_ftd": 6,
-      "failure_basis": "intraday low below the correction low",
+      "failure_basis": "intraday low below the rally low",
       "warning_basis": "close below FTD-day low"
     },
     "current_price": 99.3478,
@@ -144,7 +144,7 @@
       "rally_low": 378.1,
       "ftd_low": 391.4788,
       "days_since_ftd": 6,
-      "failure_basis": "intraday low below the correction low",
+      "failure_basis": "intraday low below the rally low",
       "warning_basis": "close below FTD-day low"
     },
     "current_price": 397.3911,
@@ -248,7 +248,7 @@
     "rally_low": 94.525,
     "ftd_low": 97.8697,
     "days_since_ftd": 6,
-    "failure_basis": "intraday low below the correction low",
+    "failure_basis": "intraday low below the rally low",
     "warning_basis": "close below FTD-day low",
     "rally_day1_date": "2026-06-10"
   },

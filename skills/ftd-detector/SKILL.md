@@ -7,7 +7,7 @@ description: Detects Follow-Through Day (FTD) signals for market bottom confirma
 
 ## FTD lifecycle and evidence contract (#765)
 
-- Keep the FTD event separate from its current health. A close below the FTD-day low is a warning, not automatic rally failure. A later intraday low strictly below the correction low (the lowest intraday low since the correction peak) fails that rally, before and after an FTD; equality holds. Day 1 low is informational only, not an interchangeable failure level.
+- Keep the FTD event separate from its current health. A close below the FTD-day low is a warning, not automatic rally failure. A later intraday low strictly below the rally low (the low of the pullback the rally attempt started from, frozen on Day 1; not the lowest low of the whole correction) fails that rally, before and after an FTD; equality holds. Day 1 low is informational only, not an interchangeable failure level.
 - Missing/non-finite/nonpositive low evidence on any replayed bar means unavailable. Never substitute a close for a missing low.
 - Default Nasdaq evidence is `^IXIC` (Composite). Use `--nasdaq-symbol QQQ` only for a labeled Nasdaq-100 ETF proxy. Never substitute its volume or price into an index series or claim its DD count is the Composite count. No automatic fallback.
 - `quality_score` is an uncalibrated technical heuristic, not success probability. `exposure_range` is `Not assessed` in every state. Do not derive portfolio percentages from the score; assess breadth, leadership, portfolio limits and operator decisions separately.
@@ -130,11 +130,11 @@ A close below the FTD-day low also puts the uptrend under pressure (warning only
 |-------|-----------|
 | NO_SIGNAL | Warm-up (no qualifying correction since the replay start), data gap or insufficient data |
 | CORRECTION | 3%+ decline with 3+ down closes, or a confirmed uptrend ended by distribution or a 10% drawdown |
-| RALLY_ATTEMPT | Day 1-3 of rally from the correction low |
+| RALLY_ATTEMPT | Day 1-3 of rally from the recent pullback low |
 | FTD_WINDOW | Day 4-10, waiting for qualifying FTD |
-| FTD_CONFIRMED | Valid FTD; stays until the correction low is undercut or the uptrend ends (see `market_status`) |
-| RALLY_FAILED | Rally undercut the correction low (or exhausted this model's FTD window) |
-| FTD_INVALIDATED | Intraday low below the correction low the FTD rallied from |
+| FTD_CONFIRMED | Valid FTD; stays until the rally low is undercut or the uptrend ends (see `market_status`) |
+| RALLY_FAILED | Rally undercut the rally low (or exhausted this model's FTD window) |
+| FTD_INVALIDATED | Intraday low below the rally low of the attempt that produced the FTD |
 
 ## Quality Score (0-100)
 

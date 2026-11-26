@@ -153,30 +153,29 @@ def test_failure_bar_is_never_day1_but_the_next_up_close_is():
     result = run(bars + [failure])
     assert result["state"] == "RALLY_FAILED"
     assert result["rally_attempt"]["invalidated"] is True
-    assert result["rally_attempt"]["reference_low"] == 97.5
+    assert result["rally_attempt"]["reference_low"] == 98.0  # the failed attempt's own reference
     restarted = run(bars + [failure, B(103.5)])
     assert restarted["state"] == "RALLY_ATTEMPT"
     assert restarted["rally_attempt"]["current_day_count"] == 1
+    assert restarted["rally_attempt"]["reference_low"] == 97.5  # low since the failure bar
     assert restarted["rally_attempt"]["reset_count"] == 1
 
 
 # --- 3. no re-anchoring on a higher low ----------------------------------------------
 
 
-def test_higher_closing_low_after_failure_does_not_replace_the_correction_low():
-    bars = prefix() + [B(100.5), B(100.8, low=97.9)]  # Day 2 undercuts 98.0
-    bars += [B(100.2), B(99.9)]  # higher lows than 98.9, still inside the correction
+def test_failure_starts_a_new_segment_and_a_higher_close_never_replaces_its_low():
+    bars = prefix() + [B(100.5), B(100.8, low=97.9)]  # Day 2 undercuts 98.0: a new segment
+    bars += [B(100.2), B(99.9)]  # new closing lows of the new segment
     result = run(bars)
     assert result["state"] == "RALLY_FAILED"
-    assert result["swing_low"]["swing_low_price"] == 98.9
-    assert (
-        result["swing_low"]["swing_low_date"]
-        == assign_session_dates(copy.deepcopy(prefix()))[-1]["date"]
-    )
-    restarted = run(bars + [B(100.4)])
+    assert result["swing_low"]["swing_low_price"] == 99.9
+    restarted = run(bars + [B(100.4), B(100.6), B(100.0)])  # higher closes, then a dip
     assert restarted["state"] == "RALLY_ATTEMPT"
-    assert restarted["swing_low"]["swing_low_price"] == 98.9
-    assert restarted["rally_attempt"]["reference_low"] == 97.9
+    assert restarted["swing_low"]["swing_low_price"] == 99.9
+    assert (
+        restarted["rally_attempt"]["reference_low"] == 97.9
+    )  # the lowest low since the failure bar
 
 
 def test_higher_close_after_exhaustion_needs_a_down_close_to_rearm():
@@ -188,7 +187,12 @@ def test_higher_close_after_exhaustion_needs_a_down_close_to_rearm():
     assert up["state"] == "RALLY_FAILED"  # still disarmed: an up close is not Day 1
     down_then_up = run(bars + [B(bars[-1]["close"] * 0.999), B(bars[-1]["close"] * 1.001)])
     assert down_then_up["state"] == "RALLY_ATTEMPT"
-    assert down_then_up["swing_low"]["swing_low_price"] == 98.9
+    # the exhaustion bar starts a new segment: its low is the next attempt's reference
+    down = bars[-1]["close"] * 0.999
+    assert down_then_up["swing_low"]["swing_low_price"] == pytest.approx(down)
+    assert down_then_up["rally_attempt"]["reference_low"] == pytest.approx(
+        min(bars[-1]["low"], down * 0.997)
+    )
 
 
 # --- 4. undercut is strict ------------------------------------------------------------
@@ -672,9 +676,10 @@ def test_lower_close_holding_the_reference_lowers_the_closing_low_without_a_rese
     assert result["rally_attempt"]["current_day_count"] == 2
     assert result["swing_low"]["swing_low_price"] == 98.5
     assert result["rally_attempt"]["reference_low"] == 98.0
-    failed = run(bars + [B(98.8, low=97.5)])  # a later failure closing higher cannot raise it
+    failed = run(bars + [B(98.8, low=97.5)])  # the failure bar starts a new segment (inclusive)
     assert failed["state"] == "RALLY_FAILED"
-    assert failed["swing_low"]["swing_low_price"] == 98.5
+    assert failed["swing_low"]["swing_low_price"] == 98.8
+    assert failed["rally_attempt"]["reference_low"] == 98.0  # the failed attempt's own reference
 
 
 def test_down_close_on_the_exhaustion_bar_rearms_so_the_next_up_close_is_day1():
@@ -735,3 +740,111 @@ def test_exact_minimum_gain_confirms_despite_float_noise():
     result = run(base + [B(105.30, vol=1_500_000)])
     assert result["state"] == "FTD_CONFIRMED"
     assert result["ftd"]["gain_tier"] == "minimum"
+
+
+# --- the failure reference is the low of the pullback the attempt started from ----------------------
+
+
+def test_acceptance_shape_with_an_earlier_failed_attempt():
+    """The correction low L follows a failed attempt; Day 1 is next; the reference is L's low."""
+    bars = prefix() + [B(100.5)]  # attempt 1 (Day 1) ...
+    bars.append(B(100.0, low=97.5))  # ... fails: new segment starts at this bar
+    bars += [B(99.0), B(97.5)]
+    bars.append(B(96.0, low=95.5, high=97.0))  # L: the correction low, lower-half close
+    bars.append(B(97.2, low=96.0, high=97.5))  # Day 1
+    bars.append(B(97.4, low=95.8, high=97.6))  # Day 2: below the Day 1 low, above L's low
+    bars.append(B(96.9, low=95.6, high=97.5))  # Day 3: down close that holds
+    result = run(bars)
+    dated = assign_session_dates(copy.deepcopy(bars))
+    assert result["state"] == "RALLY_ATTEMPT"
+    assert result["rally_attempt"]["current_day_count"] == 3
+    assert result["rally_attempt"]["day1_date"] == dated[-3]["date"]
+    assert result["rally_attempt"]["reference_low"] == 95.5
+    assert result["rally_attempt"]["reference_low_date"] == dated[-4]["date"]
+    assert result["swing_low"]["swing_low_date"] == dated[-4]["date"]
+
+
+def old_deep_low_series():
+    """Synthetic 2019 shape: a deep low months earlier, then a rising, never-confirmed market."""
+    bars = [B(130.0 + 0.1 * (k % 2)) for k in range(40)]
+    price = 130.0
+    for _ in range(10):  # deep decline: close 80, low 79
+        price -= 5.0
+        bars.append(B(price))
+    bars[-1] = B(80.0, low=79.0, high=80.5)
+    close = 80.0
+    for _ in range(11):  # attempt 0: Day 1-11, +0.8% a day, never an FTD, exhausted on Day 11
+        close *= 1.008
+        bars.append(B(close))
+    for _ in range(15):  # steady rise afterwards (disarmed: no new Day 1 on up closes)
+        close *= 1.005
+        bars.append(B(close))
+    return bars
+
+
+def pullback_p1(bars):
+    """A pullback whose low (P1) undercuts the exhaustion bar's low, far above the deep low."""
+    out = list(bars)
+    close = bars[-1]["close"]
+    for _ in range(3):
+        close *= 0.97
+        out.append(B(close))
+    out[-1] = B(out[-1]["close"], low=out[-1]["close"] - 0.5, high=out[-1]["close"] + 1.0)
+    return out
+
+
+def test_2019_shape_fails_the_attempt_on_the_recent_low_and_confirms_the_restart():
+    bars = pullback_p1(old_deep_low_series())
+    deep_low = 79.0
+    p1_low = bars[-1]["low"]
+    assert run(bars)["state"] == "RALLY_FAILED"
+    # attempt A: Day 1 and then gentle days, no FTD; its reference is P1, not the deep low
+    day1 = bars[-1]["close"] * 1.004
+    a_days = [B(day1 * 1.002**k) for k in range(9)]
+    bars_a = bars + a_days
+    attempt = run(bars_a)
+    assert attempt["state"] == "FTD_WINDOW"
+    assert attempt["rally_attempt"]["current_day_count"] == 9
+    assert attempt["rally_attempt"]["reference_low"] == p1_low
+    assert attempt["rally_attempt"]["reference_low"] > deep_low + 1
+    # day 10: a pullback undercuts P1, so A fails here, not by exhaustion on day 11
+    failure = B(a_days[-1]["close"] * 0.97, low=p1_low - 0.5, high=a_days[-1]["close"])
+    failed = run(bars_a + [failure])
+    assert failed["state"] == "RALLY_FAILED"
+    assert failed["rally_attempt"]["current_day_count"] == 10
+    assert "below rally low" in failed["rally_attempt"]["invalidation_reason"]
+    # the next bar closes in the upper half: Day 1 of attempt B
+    day1_b = B(failure["close"] * 1.002, low=failure["low"] + 0.05, high=failure["close"] * 1.0025)
+    assert _upper_half_probe(day1_b)
+    b_bars = [day1_b] + [B(day1_b["close"] * 1.002**k) for k in range(1, 5)]
+    started = run(bars_a + [failure] + b_bars[:1])
+    assert started["state"] == "RALLY_ATTEMPT"
+    assert started["rally_attempt"]["current_day_count"] == 1
+    assert started["rally_attempt"]["reference_low"] == failure["low"]
+    # +1.34% on higher volume on day 6 of B: FTD
+    day6 = B(b_bars[-1]["close"] * 1.0134, vol=1_500_000)
+    confirmed = run(bars_a + [failure] + b_bars + [day6])
+    assert confirmed["state"] == "FTD_CONFIRMED"
+    # the FTD closes below its 50-session SMA, so the uptrend starts under pressure
+    assert confirmed["market_status"] == "uptrend_under_pressure"
+    assert confirmed["ftd"]["ftd_day_number"] == 6
+    assert confirmed["rally_attempt"]["reference_low"] == failure["low"]
+    assert confirmed["rally_attempt"]["reference_low"] != deep_low
+    assert confirmed["rally_attempt"]["reference_low"] != p1_low
+
+
+def _upper_half_probe(bar):
+    return (bar["close"] - bar["low"]) / (bar["high"] - bar["low"]) >= 0.5
+
+
+def test_exhaustion_starts_a_segment_whose_low_is_the_next_attempts_reference():
+    bars = prefix() + attempt_bars(10)
+    exhaustion = B(bars[-1]["close"] * 0.999)  # Day 11, a down close: exhausted and re-armed
+    pullback = B(exhaustion["close"] * 0.985)
+    day1 = B(pullback["close"] * 1.004)
+    result = run(bars + [exhaustion, pullback, day1])
+    assert result["state"] == "RALLY_ATTEMPT"
+    assert result["rally_attempt"]["current_day_count"] == 1
+    assert result["rally_attempt"]["reference_low"] == pullback["low"]
+    assert result["rally_attempt"]["reference_low"] > 98.0  # not the original correction low
+    assert result["rally_attempt"]["reset_count"] == 1

@@ -4,7 +4,7 @@ FTD Detector - Post-FTD Health Monitor
 
 Monitors the health of a confirmed Follow-Through Day by tracking:
 1. Distribution days after FTD (early distribution = high failure risk)
-2. Rally failure (intraday breach of the correction low), separate from FTD-low warning
+2. Rally failure (intraday breach of the rally low), separate from FTD-low warning
 3. Power Trend confirmation (21EMA > 50SMA, slope positive)
 4. Quality score calculation (0-100)
 
@@ -105,7 +105,7 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
 
 
 def check_ftd_invalidation(history: list[dict], ftd_idx: int, rally_low=None) -> dict:
-    """Assess failure against the correction low, with FTD candle-low warning kept separate."""
+    """Assess failure against the rally low, with FTD candle-low warning kept separate."""
     return assess_lifecycle(history, ftd_idx, rally_low)
 
 
@@ -410,7 +410,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
 
     if inv.get("warning"):
         signal = "FTD under pressure"
-        guidance = "FTD-day low breached; rally failure requires a correction low breach. Assess risk separately."
+        guidance = "FTD-day low breached; rally failure requires a rally low breach. Assess risk separately."
 
     return {
         "total_score": score,
@@ -511,7 +511,7 @@ def assess_post_ftd_health(
 
                 # Invalidation check
                 attempt = idx_data.get("rally_attempt") or {}
-                # The correction low is the failure reference; day1_low only
+                # The rally low is the failure reference; day1_low only
                 # serves hand-built states that predate "reference_low".
                 reference = attempt.get("reference_low", attempt.get("day1_low"))
                 inv = check_ftd_invalidation(hist, ftd_idx, reference)

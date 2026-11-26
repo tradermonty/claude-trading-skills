@@ -77,7 +77,7 @@ class TestRallyAttempt:
         result = analyze_single_index(bars, "Test")
         assert result["state"] == MarketState.RALLY_FAILED.value
         assert result["rally_attempt"]["invalidated"] is True
-        assert "below correction low" in result["rally_attempt"]["invalidation_reason"]
+        assert "below rally low" in result["rally_attempt"]["invalidation_reason"]
 
     def test_day1_low_breach_alone_does_not_invalidate(self):
         """Day 2 trading below the Day 1 low (above the correction low) keeps the attempt."""

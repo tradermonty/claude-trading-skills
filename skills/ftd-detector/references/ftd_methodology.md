@@ -4,9 +4,10 @@
 
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
-4–10 window is this model's bounded choice. Rally failure uses the correction
-(downtrend) low, the lowest intraday low since the correction peak, for the rally
-attempt and after an FTD alike. Day 1 low is informational. The model replays
+4–10 window is this model's bounded choice. Rally failure uses the rally low,
+the low of the pullback the rally attempt started from (the recent low before Day 1),
+for the attempt and after an FTD alike; it is not the lowest low of the whole
+correction. Day 1 low is informational. The model replays
 the whole history oldest to newest with carried state (see "Why a forward
 replay"). Missing low data is unavailable.
 FTD-day-low close breach is pressure, not failure. Its published score is capped
@@ -32,13 +33,18 @@ A correction must meet these criteria before FTD analysis begins:
 - **Index scope:** S&P 500 and/or NASDAQ Composite (either suffices)
 
 ### Swing Low Definition
-The swing low is the correction's lowest *closing* price since its peak. The intraday
-low since the peak is the separate rally-failure reference.
+The swing low is the lowest *closing* price of the current pullback segment. The
+intraday low of that segment is the separate rally-failure reference.
+
+**Segments.** A segment starts at the correction entry (measured from the peak) and
+restarts, inclusive of that bar, at a rally failure bar, an FTD invalidation bar and an
+exhaustion bar (the bar that would be Day 11). The segment's lowest intraday low becomes the
+next attempt's reference on its Day 1; the segment's lowest close is the reported swing low.
 
 - The correction is measured from the highest close; it qualifies once a close is 3%+ below it
   with at least 3 down closes since that high. There is no 40-bar search limit.
 - It is a replay state, not a pattern re-selected on every run: a later, higher closing low
-  inside the same correction never replaces it, and only a new lower close moves it.
+  inside the same segment never replaces it, and only a new lower close moves it.
 - The latest bar is never a "confirmed" low: no right-hand bar is needed, and a down close
   that holds the reference does not reset an attempt.
 
@@ -59,14 +65,18 @@ Day 1 marks the beginning of a rally attempt. It occurs on the **first qualifyin
 
 ### Day 1 on a new closing low
 A session that sets a new closing low may be Day 1 if it closes in the top 50% of a valid
-high-low range (the correction low then includes that session's intraday low). A new closing
-low in the lower half is not Day 1. A failure session is never Day 1: the earliest new Day 1
+high-low range (the segment low then includes that session's intraday low). "New closing
+low" means below the segment's lowest close. A new closing low in the lower half is not Day 1. A failure session is never Day 1: the earliest new Day 1
 is the next session.
 
 ### Integrity Check: Every Session After Day 1
 
-- Every subsequent session's **intraday low** must hold the **correction low** (lowest intraday
-  low since the correction peak), including sessions after FTD confirmation.
+- Every subsequent session's **intraday low** must hold the attempt's **rally low** (the lowest
+  intraday low of the segment it started from, frozen on Day 1 and never changed while the
+  attempt is active), including sessions after FTD confirmation. A down close that holds it keeps
+  counting, and a higher low never replaces it. In a clean decline into a single low (as in
+  November 2026) the rally low and the whole-correction low coincide; they differ once an earlier
+  attempt failed or was exhausted at a higher level, as in October 2019.
 - A strict intraday breach fails the rally even if the close recovers. Equality holds.
 - Trading below the Day 1 low alone does not fail the rally.
 - Missing low evidence on any replayed bar makes the state unavailable.
@@ -74,10 +84,11 @@ is the next session.
   the rally and is never a correction trigger.
 
 ### Rally Invalidation (Reset)
-An intraday low strictly below the correction low fails the attempt (RALLY_FAILED, or
-FTD_INVALIDATED after an FTD). The failed event stays in the evidence. The failure session lowers the
-reference; the next session can start a new Day 1. An attempt that reaches Day 11 without an FTD
-is exhausted (RALLY_FAILED) and a down close is needed before a new Day 1 can start.
+An intraday low strictly below the rally low fails the attempt (RALLY_FAILED, or
+FTD_INVALIDATED after an FTD). The failed event stays in the evidence. The failure bar starts a new
+segment (its own low belongs to it) and is never Day 1; the next session can start a new Day 1.
+An attempt that reaches Day 11 without an FTD is exhausted (RALLY_FAILED): that bar starts a new
+segment, is never Day 1, and a down close (on that bar or later) re-arms the search.
 
 ---
 
@@ -231,7 +242,7 @@ FTD window and day count are details inside `market_in_correction`.
   test is not yet met.
 - Either uptrend tier to correction, any of: (a) active distribution days >= 6 and close below
   the 21-session EMA of closes (the new correction is measured from the post-FTD peak,
-  `previous_ftd.end_reason` = `distribution`); (b) an intraday low below the correction low
+  `previous_ftd.end_reason` = `distribution`); (b) an intraday low below the rally low
   (FTD_INVALIDATED, as before); (c) a drawdown >= 10% from the post-FTD peak close
   (`end_reason` = `deep_drawdown`). (b) wins when several apply on one bar.
 - Distribution day: close down >= 0.2% on volume above the previous session, counted after the

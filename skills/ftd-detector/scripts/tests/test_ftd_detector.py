@@ -304,7 +304,7 @@ def test_dual_report_exposes_both_day1_failure_levels(monkeypatch, tmp_path):
         rally = report[key]["rally_attempt"]
         assert f"Rally Day 1: {rally['day1_date']}" in section
         assert (
-            "Rally failure level (correction low; intraday breach): "
+            "Rally failure level (rally low; intraday breach): "
             f"${rally['reference_low']:.2f}" in section
         )
         assert f"Day 1 Low (informational): ${rally['day1_low']:.2f}" in section
