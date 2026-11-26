@@ -107,7 +107,9 @@
       "regained_50sma_since_ftd": true,
       "resumed_without_ftd": false,
       "parameters": {
-        "resume_new_high": "pre_correction_high"
+        "resume_new_high": "pre_correction_high",
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0
       },
       "active_distribution_days": [],
       "post_ftd_peak_close": 99.3478,
@@ -191,7 +193,9 @@
       "regained_50sma_since_ftd": true,
       "resumed_without_ftd": false,
       "parameters": {
-        "resume_new_high": "pre_correction_high"
+        "resume_new_high": "pre_correction_high",
+        "correction_dd_count": 6,
+        "correction_min_drawdown_pct": 0.0
       },
       "active_distribution_days": [],
       "post_ftd_peak_close": 397.3911,

@@ -49,7 +49,7 @@ def test_default_mode_resumes_the_uptrend_on_a_close_above_the_pre_correction_hi
     assert result["market_status"] == "confirmed_uptrend"
     assert result["cycle"]["resumed_without_ftd"] is True
     assert result["cycle"]["phase"] == "confirmed"
-    assert result["cycle"]["parameters"] == {"resume_new_high": "pre_correction_high"}
+    assert result["cycle"]["parameters"]["resume_new_high"] == "pre_correction_high"
     assert result["ftd"] is None
     assert "ftd_lifecycle" not in result
     # the failure reference is the active attempt's reference
@@ -104,7 +104,7 @@ def test_replay_high_needs_the_highest_close_in_the_fetched_history(monkeypatch)
     replay_high = run(full)
     assert replay_high["state"] != "UPTREND_RESUMED"
     assert replay_high["market_status"] == "market_in_correction"
-    assert replay_high["cycle"]["parameters"] == {"resume_new_high": "replay_high"}
+    assert replay_high["cycle"]["parameters"]["resume_new_high"] == "replay_high"
     assert max(b["close"] for b in full) < 131  # the 130 lead-in close was never reached
 
 
@@ -124,22 +124,22 @@ def test_52w_needs_252_sessions_since_the_replay_start(monkeypatch):
     long_bars = lead_bars(260) + prefix()[8:] + rise_bars(14)
     long_result = run(long_bars)
     assert long_result["state"] == "UPTREND_RESUMED"
-    assert long_result["cycle"]["parameters"] == {"resume_new_high": "52w"}
+    assert long_result["cycle"]["parameters"]["resume_new_high"] == "52w"
 
 
 def test_every_mode_is_reported_in_cycle_parameters(monkeypatch):
     for mode in ("pre_correction_high", "52w", "replay_high", "off"):
         monkeypatch.setenv(ENV, mode)
-        assert run(prefix())["cycle"]["parameters"] == {"resume_new_high": mode}
+        assert run(prefix())["cycle"]["parameters"]["resume_new_high"] == mode
 
 
 def test_an_invalid_value_warns_on_stderr_and_uses_the_default(monkeypatch, capsys):
     monkeypatch.setenv(ENV, "sometimes")
-    assert resolve_parameters() == {"resume_new_high": "pre_correction_high"}
+    assert resolve_parameters()["resume_new_high"] == "pre_correction_high"
     err = capsys.readouterr().err
     assert ENV in err and "sometimes" in err
     result = run(prefix())
-    assert result["cycle"]["parameters"] == {"resume_new_high": "pre_correction_high"}
+    assert result["cycle"]["parameters"]["resume_new_high"] == "pre_correction_high"
 
 
 def test_parameters_are_read_when_analyzing_not_at_import(monkeypatch):

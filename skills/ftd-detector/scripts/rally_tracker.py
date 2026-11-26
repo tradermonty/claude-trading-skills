@@ -102,6 +102,10 @@ RESUME_MODES = ("pre_correction_high", "52w", "replay_high", "off")
 DEFAULT_RESUME_MODE = "pre_correction_high"
 RESUME_52W_SESSIONS = 252
 ENV_RESUME_NEW_HIGH = "FTD_RESUME_NEW_HIGH"
+ENV_CORRECTION_DD_COUNT = "FTD_CORRECTION_DD_COUNT"  # integer 6..10
+ENV_CORRECTION_MIN_DRAWDOWN = "FTD_CORRECTION_MIN_DRAWDOWN_PCT"  # float 0..9.99, 0 = none
+DD_COUNT_RANGE = (DD_CORRECTION_COUNT, 10)
+MIN_DRAWDOWN_RANGE = (0.0, 9.99)
 
 
 def _warn(message: str) -> None:
@@ -111,7 +115,11 @@ def _warn(message: str) -> None:
 def resolve_parameters(environ=None) -> dict:
     """Effective tuning parameters; an invalid value warns on stderr and uses the default."""
     environ = os.environ if environ is None else environ
-    params = {"resume_new_high": DEFAULT_RESUME_MODE}
+    params = {
+        "resume_new_high": DEFAULT_RESUME_MODE,
+        "correction_dd_count": DD_CORRECTION_COUNT,
+        "correction_min_drawdown_pct": 0.0,
+    }
     raw = environ.get(ENV_RESUME_NEW_HIGH)
     if raw is not None and raw != "":
         if raw in RESUME_MODES:
@@ -120,6 +128,32 @@ def resolve_parameters(environ=None) -> dict:
             _warn(
                 f"invalid {ENV_RESUME_NEW_HIGH}={raw!r} (use one of {', '.join(RESUME_MODES)}); "
                 f"using {DEFAULT_RESUME_MODE}"
+            )
+    raw = environ.get(ENV_CORRECTION_DD_COUNT)
+    if raw is not None and raw != "":
+        try:
+            count = int(raw.strip())
+        except ValueError:
+            count = None
+        if count is not None and DD_COUNT_RANGE[0] <= count <= DD_COUNT_RANGE[1]:
+            params["correction_dd_count"] = count
+        else:
+            _warn(
+                f"invalid {ENV_CORRECTION_DD_COUNT}={raw!r} (use an integer "
+                f"{DD_COUNT_RANGE[0]}..{DD_COUNT_RANGE[1]}); using {DD_CORRECTION_COUNT}"
+            )
+    raw = environ.get(ENV_CORRECTION_MIN_DRAWDOWN)
+    if raw is not None and raw != "":
+        try:
+            pct = float(raw)
+        except ValueError:
+            pct = None
+        if pct is not None and MIN_DRAWDOWN_RANGE[0] <= pct <= MIN_DRAWDOWN_RANGE[1]:
+            params["correction_min_drawdown_pct"] = pct
+        else:
+            _warn(
+                f"invalid {ENV_CORRECTION_MIN_DRAWDOWN}={raw!r} (use a number "
+                f"{MIN_DRAWDOWN_RANGE[0]}..{MIN_DRAWDOWN_RANGE[1]}); using 0"
             )
     return params
 
@@ -549,7 +583,14 @@ class _Replay:
             )
         active = len(self.active_dds())
         sma = self.sma(t)  # an SMA that cannot be computed makes the condition false
-        if active >= DD_CORRECTION_COUNT and sma is not None and close < sma:
+        min_drawdown = self.params["correction_min_drawdown_pct"]
+        deep_enough = min_drawdown <= 0 or close <= self.peak_close * (1 - min_drawdown / 100)
+        if (
+            active >= self.params["correction_dd_count"]
+            and sma is not None
+            and close < sma
+            and deep_enough
+        ):
             self._end_uptrend(t, "distribution")
         elif close <= self.peak_close * (1 - DEEP_CORRECTION_PCT / 100):
             self._end_uptrend(t, "deep_drawdown")
