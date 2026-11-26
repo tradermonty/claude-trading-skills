@@ -1,24 +1,29 @@
-"""Own-file generated client loading and explicit HTTP session ownership."""
+"""Own-file generated client import and explicit HTTP session ownership.
 
-import importlib.util
+Several skills ship a different ``fmp_client.py`` under the same bare module
+name, so the sibling is imported statically while ``sys.path`` and
+``sys.modules`` are scoped to this bundle, then registered under a unique name.
+Any other skill's ``fmp_client`` module is left untouched.
+"""
+
 import sys
 from contextlib import contextmanager
 from pathlib import Path
 
 _MODULE = "_downtrend_duration_analyzer_generated_fmp"
-_path = Path(__file__).resolve().with_name("fmp_client.py")
-_shared = sys.modules.get(_MODULE)
-if _shared is None or Path(_shared.__file__).resolve() != _path:
-    _spec = importlib.util.spec_from_file_location(_MODULE, _path)
-    _shared = importlib.util.module_from_spec(_spec)
-    sys.modules[_MODULE] = _shared
-    try:
-        _spec.loader.exec_module(_shared)
-    except BaseException:
-        sys.modules.pop(_MODULE, None)
-        raise
-
-FMPClient = _shared.FMPClient
+_DIR = str(Path(__file__).resolve().parent)
+_foreign = sys.modules.pop("fmp_client", None)
+sys.path.insert(0, _DIR)
+try:
+    from fmp_client import FMPClient
+finally:
+    sys.path.remove(_DIR)
+    _loaded = sys.modules.pop("fmp_client", None)
+    if _foreign is not None:
+        sys.modules["fmp_client"] = _foreign
+_loaded.__name__ = _MODULE
+FMPClient.__module__ = _MODULE
+sys.modules[_MODULE] = _loaded
 
 
 @contextmanager

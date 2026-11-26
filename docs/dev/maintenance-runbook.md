@@ -500,8 +500,13 @@ jobs do not notify. Missing, invalid and future timestamps also notify. Delivery
 failure remains best effort and never turns stale health into a successful exit.
 The ordinary `--check-heartbeat` command above stays silent and read-only.
 
-For an explicit opt-out, set `SKILL_LOOP_NOTIFY=off` in the installed heartbeat
-plist's `EnvironmentVariables`, then unload/reload that exact watchdog service.
+For an explicit opt-out, run `python3 scripts/install_launchd.py --notify off`.
+It creates `logs/.skill_loop_notify_off`, which turns off watchdog and failure
+notifications from the next run, overriding any `SKILL_LOOP_NOTIFY` value; no reload
+is needed. The plists stay exact template renderings, so later updates (including
+the move-aside step above) keep the opt-out without repeating it. `--notify default`
+removes the file. An older hand-edited `SKILL_LOOP_NOTIFY=off` plist is refused as
+customized: move it aside once and rerun with `--notify off`.
 `macos` and `webhook` remain supported. The watchdog does not source `.envrc`, so
 webhook settings must reach its process through its private local LaunchAgent
 environment. It does not modify success state or start the monitored jobs.

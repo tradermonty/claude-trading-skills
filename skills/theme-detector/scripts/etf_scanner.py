@@ -11,6 +11,8 @@ FMP API key is optional; without it, yfinance is used exclusively.
 
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import date, timedelta
 from json import JSONDecodeError
 from typing import Any, Optional
@@ -37,6 +39,12 @@ try:
 except ImportError:
     HAS_YFINANCE = False
 
+# Per-request bound for yf.download (the yfinance default, made explicit).
+_YF_TIMEOUT_SEC = 10
+# yfinance's Ticker.info takes no timeout argument, so the caller enforces a
+# deadline instead of relying on the library's internal default.
+_INFO_DEADLINE_SEC = 30
+
 # yfinance uses curl_cffi, whose transport errors are unrelated to requests.
 _YF_ERRORS: tuple = ()
 try:
@@ -61,6 +69,15 @@ except ImportError:
     HAS_REQUESTS = False
 
 _REQUEST_ERRORS: tuple = (RequestException,) if HAS_REQUESTS else ()
+
+
+def _info_with_deadline(symbol: str) -> dict:
+    """Return ``yf.Ticker(symbol).info`` or raise FutureTimeoutError after the deadline."""
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        return executor.submit(lambda: yf.Ticker(symbol).info).result(timeout=_INFO_DEADLINE_SEC)
+    finally:
+        executor.shutdown(wait=False)
 
 
 # ---------------------------------------------------------------------------
@@ -460,6 +477,7 @@ class ETFScanner:
                 "group_by": "ticker",
                 "threads": True,
                 "progress": False,
+                "timeout": _YF_TIMEOUT_SEC,
             }
             if self._as_of_date is None:
                 kwargs["period"] = "1y"
@@ -707,9 +725,8 @@ class ETFScanner:
     def _get_pe_ratio(self, symbol: str) -> Optional[float]:
         """Get trailing P/E ratio for a symbol via yfinance info."""
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-        except (*_YF_ERRORS, *_REQUEST_ERRORS, JSONDecodeError):
+            info = _info_with_deadline(symbol)
+        except (*_YF_ERRORS, *_REQUEST_ERRORS, JSONDecodeError, FutureTimeoutError):
             print("WARN: Degraded P/E lookup; provider unavailable", file=sys.stderr)
             return None
         pe = info.get("trailingPE")
@@ -728,7 +745,7 @@ class ETFScanner:
 
         try:
             if self._as_of_date is None:
-                data = yf.download(symbol, period=period, progress=False)
+                data = yf.download(symbol, period=period, progress=False, timeout=_YF_TIMEOUT_SEC)
             else:
                 lookback_days = 190 if period == "6mo" else 370
                 data = yf.download(
@@ -736,6 +753,7 @@ class ETFScanner:
                     start=(self._as_of_date - timedelta(days=lookback_days)).isoformat(),
                     end=(self._as_of_date + timedelta(days=1)).isoformat(),
                     progress=False,
+                    timeout=_YF_TIMEOUT_SEC,
                 )
             if self._as_of_date is not None:
                 data = _frame_on_or_before(data, self._as_of_date)

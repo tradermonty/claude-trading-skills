@@ -303,13 +303,13 @@ skills:
   profile: executable_standalone_trading
   overrides:
     security_review:
-      value: not_verified
-      rationale: "The manual five-dimension checklist review passed, but the mechanical timeout proof is not clean: downtrend_fmp_client.py loads fmp_client.py through importlib, so the collector cannot prove the delegated FMP timeout. Stays not_verified until the client is imported statically."
+      value: passed
+      rationale: "Five-dimension checklist review passed and the collector reports no mechanical findings: key from env/CLI only; request errors emit exception classes or redacted text; no shell; every FMP request is bounded by the generated client single __init__ literal self.timeout = 30 and reached through a static import of the bundled fmp_client that the collector traces; requirements.txt passes check_skill_deps. The importlib loader that blocked the proof is replaced by a static import scoped to the bundle."
       evidence:
-      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
-      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
-      - assessed_date: '2026-11-22'
-      - reviewed_files: analyze_downtrends.py, downtrend_fmp_client.py, fmp_client.py, generate_histogram_html.py
+      - reviewer: Claude (Opus 5.5), the 2026-11-22 five-dimension checklist review by six Sonnet reviewers (downtrend files unchanged since), then on 2026-11-25 a re-run of the collector, check_skill_deps and the skill tests plus an independent fresh-context code review of the static-import change
+      - assessed_commit: bccc15a62ccb39e0e4e285c30284c9e333cfe841  # pragma: allowlist secret
+      - assessed_date: '2026-11-25'
+      - reviewed_files: analyze_downtrends.py, downtrend_fmp_client.py, fmp_client.py, generate_histogram_html.py, evaluation_coverage.py
       - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed downtrend-duration-analyzer
       - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md
 - id: drawdown-circuit-breaker
@@ -694,11 +694,11 @@ skills:
       - note: "Prior evidence predates generated quote/history/holdings transport. Comprehensive reassessment remains pending."
     security_review:
       value: not_verified
-      rationale: "Credential, data-exposure, path and dependency checks passed, but the network dimension has a real gap: yfinance and finvizfinance calls pass no explicit timeout, fmp_adapter.py overrides client.timeout, and the selector rebinds requests. Stays not_verified until those calls are bounded."
+      rationale: "Credential, data-exposure, path and dependency checks passed. The FMP client timeout is now the generated single literal (15 s), the selector no longer rebinds requests, yf.download carries an explicit timeout and Ticker.info runs under a caller deadline, and finvizfinance bounds its own requests at 10 s in every released version. One mechanical gap remains: the collector cannot prove yfinance SDK calls (etf_scanner.py yf.download and yf.Ticker), and Ticker.info has no caller-settable timeout. Stays not_verified until the collector can prove an SDK timeout or the Ticker.info call is replaced."
       evidence:
-      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938, a bug-hunter review of the parabolic fix, an independent maintainer review of PR #870, and three adversarial rounds on the collector proofs, 2026-11-22
-      - assessed_commit: 76348dd6795cbf801e844baa9f2a05fa3c1ada98  # pragma: allowlist secret
-      - assessed_date: '2026-11-22'
+      - reviewer: Claude (Opus 5.5) with six Sonnet checklist reviewers on bb4a8ff60c2054cc8b41807ae648041ff0922938 (2026-11-22), then a 2026-11-25 follow-up that bounded the network calls and re-ran the collector
+      - assessed_commit: bccc15a62ccb39e0e4e285c30284c9e333cfe841  # pragma: allowlist secret
+      - assessed_date: '2026-11-25'
       - reviewed_files: all non-test scripts under skills/theme-detector/scripts/
       - collector: python3 scripts/backfill_security_review.py --reviewer-confirmed theme-detector
       - checklist: docs/dev/security-review-checklist.md; scope and gaps in docs/dev/issue-778-credential-diagnostics.md

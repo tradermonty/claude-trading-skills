@@ -107,10 +107,12 @@ launchctl start com.trade-analysis.skill-improvement
 
 This installs the independent 08:00 heartbeat watchdog as well. It defaults to
 macOS notifications when daily success is over 48 hours old (weekly generation:
-14 days), missing, invalid or future-dated. Set `SKILL_LOOP_NOTIFY=off` in the
-private installed watchdog plist to opt out. The watchdog does not source `.envrc`.
-For existing installations, unload the exact maintenance services before `--load`;
-customized plists are preserved and require a manual backup/move before replacement.
+14 days), missing, invalid or future-dated. To opt out, run the installer once with
+`--notify off`; the setting lives in `logs/`, not in the plists, so template updates
+keep it (`--notify default` undoes it). The watchdog does not source `.envrc`.
+`--load` skips services that are already loaded; unload a service only to reload
+a changed definition. Customized plists are preserved and require a manual
+backup/move before replacement.
 See the [installation and update procedure](maintenance-runbook.md#5-scheduled-self-maintenance-jobs).
 Checking out this code does not install jobs or demonstrate a healthy scheduled run.
 
