@@ -44,6 +44,10 @@ class DDRecord:
     volume: int
     prev_volume: int
     volume_change_pct: float
+    # "previous_full_session" when an early-close session or the session after
+    # it used the last full-length session as the volume reference (#892).
+    volume_reference: str | None = None
+    volume_reference_date: str | None = None
     # Filled by enrich_records:
     high_since: float | None = None
     invalidation_price: float | None = None

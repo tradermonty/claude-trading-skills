@@ -52,6 +52,7 @@ import os
 import sys
 from enum import Enum
 
+from _market_calendar import previous_full_session_index
 from _price_bars import find_bar_gaps, read_price
 from ftd_lifecycle import assess_lifecycle
 
@@ -220,6 +221,7 @@ def _empty_ftd() -> dict:
         "volume": None,
         "prev_day_volume": None,
         "volume_above_avg": None,
+        "volume_reference": None,
         "gain_tier": None,
         "_ftd_idx": None,
     }
@@ -280,6 +282,17 @@ class _Replay:
     # -- helpers ---------------------------------------------------------
     def _date(self, idx):
         return self.h[idx].get("date", "N/A")
+
+    def _volume_reference(self, t):
+        """Reference session for the previous-session volume comparison.
+
+        On an early-close session and the session after it the reference is the
+        most recent full-length session (issue #892); everywhere else it is the
+        immediately previous session.
+        """
+        return previous_full_session_index(
+            "XNYS", [bar.get("date") for bar in self.h], t, order="chronological"
+        )
 
     def sma(self, t):
         """SMA of the last PRESSURE_SMA closes ending at t, or None if too few bars."""
@@ -472,27 +485,36 @@ class _Replay:
             self.low_close, self.low_idx = close, t
         gain = (close - prev["close"]) / prev["close"] * 100
         change_pct = round(gain, 2)
-        self.attempt["rally_days"].append(
-            {
-                "day": self.day,
-                "idx": t,
-                "date": self._date(t),
-                "close": close,
-                "volume": bar["volume"],
-                "change_pct": change_pct,
-                "volume_vs_prev": (
-                    round((bar["volume"] / prev["volume"] - 1) * 100, 1)
-                    if prev["volume"] > 0
-                    else 0
-                ),
-            }
+        reference_idx, reference_basis = self._volume_reference(t)
+        reference_volume = (
+            read_price(self.h[reference_idx], "volume") if reference_idx is not None else None
         )
+        rally_day = {
+            "day": self.day,
+            "idx": t,
+            "date": self._date(t),
+            "close": close,
+            "volume": bar["volume"],
+            "change_pct": change_pct,
+            "volume_vs_prev": (
+                round((bar["volume"] / reference_volume - 1) * 100, 1)
+                if reference_volume is not None and reference_volume > 0
+                else 0
+            ),
+        }
+        if reference_basis == "previous_full_session" and reference_idx is not None:
+            rally_day["volume_reference"] = {
+                "basis": reference_basis,
+                "date": self._date(reference_idx),
+            }
+        self.attempt["rally_days"].append(rally_day)
         if (
             FTD_DAY_START <= self.day <= FTD_DAY_END
             and _at_least(gain, FTD_GAIN_MINIMUM)
-            and bar["volume"] > prev["volume"] > 0
+            and reference_volume is not None
+            and bar["volume"] > reference_volume > 0
         ):
-            self._confirm(t, gain)
+            self._confirm(t, gain, reference_idx, reference_basis)
             return
         if self.day > FTD_DAY_END:
             # Expiry: a new segment starts at this bar (inclusive).
@@ -522,7 +544,7 @@ class _Replay:
         self.seg_low, self.seg_low_idx = bar["low"], t
         self.low_close, self.low_idx = bar["close"], t
 
-    def _confirm(self, t, gain):
+    def _confirm(self, t, gain, reference_idx=None, reference_basis="previous_session"):
         bar = self.h[t]
         change_pct = round(gain, 2)
         lookback = [read_price(b, "volume") for b in self.h[max(self.start, t - 50) : t]]
@@ -542,8 +564,17 @@ class _Replay:
             "ftd_low": bar["low"],
             "gain_pct": change_pct,
             "volume": bar["volume"],
-            "prev_day_volume": self.h[t - 1]["volume"],
+            "prev_day_volume": (
+                read_price(self.h[reference_idx], "volume")
+                if reference_idx is not None
+                else self.h[t - 1]["volume"]
+            ),
             "volume_above_avg": bar["volume"] > pit_avg if pit_avg > 0 else None,
+            "volume_reference": (
+                {"basis": reference_basis, "date": self._date(reference_idx)}
+                if reference_basis == "previous_full_session" and reference_idx is not None
+                else None
+            ),
             "gain_tier": tier,
             "_ftd_idx": t,
         }
@@ -579,19 +610,28 @@ class _Replay:
                 or high >= dd["close"] * (1 + DD_RALLY_EXPIRY_PCT / 100)
             ):
                 dd["active"] = False
+        dd_reference_idx, dd_reference_basis = self._volume_reference(t)
+        dd_reference_volume = (
+            read_price(self.h[dd_reference_idx], "volume") if dd_reference_idx is not None else None
+        )
         if (
             close <= prev["close"] * (1 - DD_MIN_DECLINE_PCT / 100)
-            and bar["volume"] > prev["volume"]
+            and dd_reference_volume is not None
+            and bar["volume"] > dd_reference_volume
         ):
-            self.dds.append(
-                {
-                    "idx": t,
-                    "date": self._date(t),
-                    "close": close,
-                    "change_pct": round((close / prev["close"] - 1) * 100, 2),
-                    "active": True,
+            distribution_day = {
+                "idx": t,
+                "date": self._date(t),
+                "close": close,
+                "change_pct": round((close / prev["close"] - 1) * 100, 2),
+                "active": True,
+            }
+            if dd_reference_basis == "previous_full_session" and dd_reference_idx is not None:
+                distribution_day["volume_reference"] = {
+                    "basis": dd_reference_basis,
+                    "date": self._date(dd_reference_idx),
                 }
-            )
+            self.dds.append(distribution_day)
         active = len(self.active_dds())
         sma = self.sma(t)  # an SMA that cannot be computed makes the condition false
         min_drawdown = self.params["correction_min_drawdown_pct"]

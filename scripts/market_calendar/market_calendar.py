@@ -8,8 +8,10 @@ runtime dependency declaration.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
@@ -315,3 +317,87 @@ def count_sessions(
         return 0
     _, _, schedule = _schedule(venue, first, last)
     return int(len(schedule.index))
+
+
+_REGULAR_CLOSE = {"XNYS": time(16, 0), "XNAS": time(16, 0)}
+
+
+def parse_session_date(value: Any) -> Optional[date]:
+    """Parse an ISO date or datetime from a price bar; ``None`` when unresolvable."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            try:
+                return date.fromisoformat(text[:10])
+            except ValueError:
+                return None
+    return None
+
+
+@lru_cache(maxsize=512)
+def is_early_close(venue: str, session_date: date) -> bool:
+    """Return whether the venue closes before its regular US cash close.
+
+    A weekend or holiday is not a session, so it is not an early close.
+    """
+    normalized, _, timezone_name = _venue_contract(venue)
+    if normalized not in _REGULAR_CLOSE:
+        raise ValueError(
+            "Early-close classification is only defined for US cash venues "
+            f"({', '.join(_REGULAR_CLOSE)})"
+        )
+    session = session_for_date(normalized, session_date)
+    if session is None:
+        return False
+    local_close = session.market_close.astimezone(ZoneInfo(timezone_name))
+    return (local_close.hour, local_close.minute) < (
+        _REGULAR_CLOSE[normalized].hour,
+        _REGULAR_CLOSE[normalized].minute,
+    )
+
+
+def previous_full_session_index(
+    venue: str,
+    session_values: Sequence[Any],
+    index: int,
+    *,
+    order: str = "most_recent_first",
+) -> tuple[Optional[int], str]:
+    """Reference bar for the previous-session volume comparison.
+
+    ``order`` is ``"most_recent_first"`` (the session at ``index`` is newer than
+    ``index + 1``) or ``"chronological"`` (older bars come first).
+
+    Returns ``(index, basis)`` where ``basis`` is ``"previous_session"`` for a
+    normal comparison, ``"previous_full_session"`` when the session or the one
+    before it closed early, and ``"unavailable"`` when no earlier full session
+    exists in the supplied history. Bars whose date cannot be parsed keep the
+    plain previous-session comparison.
+    """
+    if isinstance(index, bool) or not isinstance(index, int):
+        raise TypeError("index must be an integer")
+    if not 0 <= index < len(session_values):
+        raise ValueError("index is outside the supplied session history")
+    if order not in ("most_recent_first", "chronological"):
+        raise ValueError("order must be 'most_recent_first' or 'chronological'")
+    step = 1 if order == "most_recent_first" else -1
+    previous_index = index + step
+    if not 0 <= previous_index < len(session_values):
+        return None, "unavailable"
+    today = parse_session_date(session_values[index])
+    previous = parse_session_date(session_values[previous_index])
+    today_early = bool(today and is_early_close(venue, today))
+    previous_early = bool(previous and is_early_close(venue, previous))
+    if not (today_early or previous_early):
+        return previous_index, "previous_session"
+    candidate = previous_index
+    while 0 <= candidate < len(session_values):
+        value = parse_session_date(session_values[candidate])
+        if value is None or not is_early_close(venue, value):
+            return candidate, "previous_full_session"
+        candidate += step
+    return None, "unavailable"

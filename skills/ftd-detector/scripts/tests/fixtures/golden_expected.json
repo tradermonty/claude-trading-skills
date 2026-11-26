@@ -136,6 +136,7 @@
       "ftd_low": 97.8697,
       "gain_pct": 2.1,
       "gain_tier": "strong",
+      "volume_reference": null,
       "volume_above_avg": true
     }
   },
@@ -222,6 +223,7 @@
       "ftd_low": 391.4788,
       "gain_pct": 2.1,
       "gain_tier": "strong",
+      "volume_reference": null,
       "volume_above_avg": true
     }
   },

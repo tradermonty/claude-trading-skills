@@ -1,6 +1,8 @@
 breakout-trade-planner
 drawdown-circuit-breaker
 earnings-trade-analyzer
+ftd-detector
+ibd-distribution-day-monitor
 market-environment-analysis
 market-top-detector
 parabolic-short-trade-planner

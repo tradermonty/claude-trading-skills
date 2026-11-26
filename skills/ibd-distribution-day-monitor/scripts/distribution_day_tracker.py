@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 
+from _market_calendar import previous_full_session_index
 from models import DDRecord, DistributionDayRule
 
 EPSILON = 1e-12
@@ -30,6 +31,7 @@ def detect_distribution_days(
     """
     records: list[DDRecord] = []
     skipped: list[dict] = []
+    session_dates = [row.get("date") for row in effective_history]
 
     for i in range(len(effective_history) - 1):
         today = effective_history[i]
@@ -38,10 +40,21 @@ def detect_distribution_days(
             skipped.append({"date": today.get("date"), "reason": "missing_or_invalid_close_volume"})
             continue
 
+        reference_idx, reference_basis = previous_full_session_index(
+            "XNYS", session_dates, i, order="most_recent_first"
+        )
+        if reference_idx is None:
+            skipped.append({"date": today.get("date"), "reason": "volume_reference_unavailable"})
+            continue
+        reference = effective_history[reference_idx]
+        if not _has_valid_volume(reference):
+            skipped.append({"date": today.get("date"), "reason": "missing_or_invalid_close_volume"})
+            continue
+
         pct_change = today["close"] / yesterday["close"] - 1
-        volume_up = today["volume"] > yesterday["volume"]
+        volume_up = today["volume"] > reference["volume"]
         if pct_change <= rule.min_decline_pct + EPSILON and volume_up:
-            volume_change_pct = today["volume"] / yesterday["volume"] - 1
+            volume_change_pct = today["volume"] / reference["volume"] - 1
             records.append(
                 DDRecord(
                     date=today["date"],
@@ -50,8 +63,16 @@ def detect_distribution_days(
                     close=today["close"],
                     pct_change=pct_change,
                     volume=today["volume"],
-                    prev_volume=yesterday["volume"],
+                    prev_volume=reference["volume"],
                     volume_change_pct=volume_change_pct,
+                    volume_reference=(
+                        reference_basis if reference_basis == "previous_full_session" else None
+                    ),
+                    volume_reference_date=(
+                        reference.get("date")
+                        if reference_basis == "previous_full_session"
+                        else None
+                    ),
                 )
             )
     return records, skipped
@@ -118,6 +139,15 @@ def _has_valid_detection_pair(today: dict, yesterday: dict) -> bool:
             if v is None or v <= 0:
                 return False
     return math.isfinite(today["close"] / yesterday["close"] - 1)
+
+
+def _has_valid_volume(row: dict) -> bool:
+    """A volume reference must be a positive finite number."""
+    value = row.get("volume")
+    try:
+        return value is not None and math.isfinite(value) and value > 0
+    except TypeError:
+        return False
 
 
 def _find_invalidation_event(

@@ -107,7 +107,15 @@ A Follow-Through Day must satisfy ALL of these conditions:
    - 1.25-1.49%: Minimum qualifying gain
    - 1.50-1.99%: Higher model gain tier (not a measured reliability estimate)
    - 2.00%+: Strong signal
-3. **Volume > previous day's volume** (mandatory)
+3. **Volume > the reference session's volume** (mandatory)
+   - Normally the reference is the previous session.
+   - On an early-close (half-day) session and the session after it, the
+     reference is the most recent full-length session, so the structurally low
+     half-day volume does not make the next session look stronger than it was.
+   - The JSON records the substitution on the affected day as
+     `volume_reference: {"basis": "previous_full_session", "date": "<reference date>"}`.
+     Other sessions keep the plain previous-session comparison.
+   - The reference is resolved with the vendored `scripts/_market_calendar.py` XNYS calendar.
    - This confirms institutional participation
    - Volume does not need to exceed the 50-day average, though it's a positive if it does
 
