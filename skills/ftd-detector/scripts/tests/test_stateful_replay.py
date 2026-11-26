@@ -721,3 +721,17 @@ def test_short_history_with_a_bad_bar_is_a_data_gap_not_insufficient_data():
     assert state["data_gap"] is True
     assert state["combined_state"] == "NO_SIGNAL"
     assert state["market_status"] is None
+
+
+def test_exact_minimum_gain_confirms_despite_float_noise():
+    base = prefix() + attempt_bars(3)
+    factor = 104.0 / base[-1]["close"]
+    for bar in base:
+        for key in ("open", "high", "low", "close"):
+            if bar.get(key) is not None:
+                bar[key] *= factor
+    base[-1]["close"] = 104.0
+    # 104.00 -> 105.30 is exactly +1.25% but computes as 1.2499999999999973.
+    result = run(base + [B(105.30, vol=1_500_000)])
+    assert result["state"] == "FTD_CONFIRMED"
+    assert result["ftd"]["gain_tier"] == "minimum"

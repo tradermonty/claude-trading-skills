@@ -285,13 +285,21 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
 
     # 2. Price gain bonus
     gain = ftd_data.get("gain_pct", 0)
-    if gain >= FTD_GAIN_STRONG:
+    # The tier is set from the unrounded gain; the rounded gain_pct can cross a
+    # threshold (1.496% prints as 1.50%). Decide the bonus from the tier when
+    # present and keep the rounded gain for display only.
+    level = {
+        "strong": FTD_GAIN_STRONG,
+        "recommended": FTD_GAIN_RECOMMENDED,
+        "minimum": FTD_GAIN_MINIMUM,
+    }.get(ftd_data.get("gain_tier"), gain)
+    if level >= FTD_GAIN_STRONG:
         gain_bonus = 15
         breakdown["gain"] = f"{gain:+.2f}% gain: +15 (strong)"
-    elif gain >= FTD_GAIN_RECOMMENDED:
+    elif level >= FTD_GAIN_RECOMMENDED:
         gain_bonus = 10
         breakdown["gain"] = f"{gain:+.2f}% gain: +10 (recommended)"
-    elif gain >= FTD_GAIN_MINIMUM:
+    elif level >= FTD_GAIN_MINIMUM:
         gain_bonus = 5
         breakdown["gain"] = f"{gain:+.2f}% gain: +5 (minimum)"
     else:

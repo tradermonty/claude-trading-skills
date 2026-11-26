@@ -11,7 +11,7 @@ Phases (reported through the unchanged ``MarketState`` values):
   uptrend_or_none -> NO_SIGNAL      no qualifying correction known
   correction      -> CORRECTION, or RALLY_FAILED / FTD_INVALIDATED when the
                      correction was (re-)entered by that event; the label lasts
-                     until the next Day 1 or a recovery above the correction peak
+                     until the next Day 1 (only an FTD leaves the correction)
   rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4-10)
   confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``)
 
@@ -115,6 +115,16 @@ def window_quality(gaps: dict) -> dict:
         "latest_bad": gaps["latest_bad"],
         "required": gaps["required"],
     }
+
+
+# Float tolerance for inclusive percentage thresholds: 104.00 -> 105.30 is
+# exactly +1.25% but computes as 1.2499999999999973.
+_PCT_EPS = 1e-9
+
+
+def _at_least(value: float, threshold: float) -> bool:
+    """Inclusive threshold test that ignores float representation noise."""
+    return value >= threshold - _PCT_EPS
 
 
 def _upper_half(bar: dict) -> bool:
@@ -350,7 +360,7 @@ class _Replay:
         )
         if (
             FTD_DAY_START <= self.day <= FTD_DAY_END
-            and gain >= FTD_GAIN_MINIMUM
+            and _at_least(gain, FTD_GAIN_MINIMUM)
             and bar["volume"] > prev["volume"] > 0
         ):
             self._confirm(t, gain)
@@ -382,9 +392,9 @@ class _Replay:
         lookback = [read_price(b, "volume") for b in self.h[max(self.start, t - 50) : t]]
         lookback = [v for v in lookback if v is not None]
         pit_avg = sum(lookback) / len(lookback) if lookback else 0
-        if gain >= FTD_GAIN_STRONG:
+        if _at_least(gain, FTD_GAIN_STRONG):
             tier = "strong"
-        elif gain >= FTD_GAIN_RECOMMENDED:
+        elif _at_least(gain, FTD_GAIN_RECOMMENDED):
             tier = "recommended"
         else:
             tier = "minimum"
