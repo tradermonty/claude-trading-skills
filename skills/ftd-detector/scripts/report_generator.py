@@ -5,6 +5,8 @@ FTD Detector - Report Generator
 Generates JSON and Markdown reports for FTD detection analysis.
 """
 
+from __future__ import annotations
+
 import json
 import math
 

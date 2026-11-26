@@ -52,11 +52,13 @@ def B(close, low=None, high=None, vol=VOL):
     return bar
 
 
-def rally_setup(ftd_date, ftd_volume=1_500_000, early_close_volume=500_000):
+def rally_setup(ftd_date, ftd_volume=1_500_000, early_close_volume=500_000, normal=False):
     """A correction, Day 1-3, then an FTD on ``ftd_date`` (Day 4).
 
     The full session before the half day carries 1.2M volume and the half day
     ``early_close_volume``, so the two references disagree for the next session.
+    ``normal`` builds the same shape one session earlier, ending on a regular
+    Wednesday, so the previous-session reference applies.
     """
     bars = [B(105.0) for _ in range(8)] + [B(106.0)]
     bars += [B(104.0), B(102.5), B(101.0), B(99.5)]
@@ -64,12 +66,16 @@ def rally_setup(ftd_date, ftd_volume=1_500_000, early_close_volume=500_000):
     bars += [B(100.5), B(100.7), B(100.9)]  # Day 1-3, gains below 1.25%
     bars.append(B(bars[-1]["close"] * 1.015, vol=ftd_volume))
     assert len(bars) <= len(SESSIONS)
-    dates = SESSIONS[-len(bars) :]
+    dates = SESSIONS[:-2] if normal else SESSIONS[-len(bars) :]
     for bar, session_date in zip(bars, dates):
         bar["date"] = session_date
-    # Reference volumes: the last full session and the half day.
-    next(bar for bar in bars if bar["date"] == FULL_WEDNESDAY)["volume"] = 1_200_000
-    next(bar for bar in bars if bar["date"] == EARLY_FRIDAY)["volume"] = early_close_volume
+    if normal:
+        # The session before the FTD carries 1.2M; the FTD is a regular session.
+        bars[-2]["volume"] = 1_200_000
+    else:
+        # Reference volumes: the last full session and the half day.
+        next(bar for bar in bars if bar["date"] == FULL_WEDNESDAY)["volume"] = 1_200_000
+        next(bar for bar in bars if bar["date"] == EARLY_FRIDAY)["volume"] = early_close_volume
     assert bars[-1]["date"] == ftd_date
     return bars
 
@@ -113,7 +119,7 @@ class TestFollowThroughDay:
         }
 
     def test_normal_sessions_still_compare_with_the_previous_session(self):
-        result = ftd_of(rally_setup(FULL_WEDNESDAY, ftd_volume=1_300_000))
+        result = ftd_of(rally_setup(FULL_WEDNESDAY, ftd_volume=1_300_000, normal=True))
         assert result["ftd_detected"] is True
         assert result["prev_day_volume"] == 1_200_000
         assert result["volume_reference"] is None
@@ -125,7 +131,13 @@ class TestPostFtdDistribution:
             {"date": "2026-11-20", "close": 100.0, "volume": 1_000_000, "high": 100.4, "low": 98.8},
             {"date": "2026-11-23", "close": 99.5, "volume": 600_000, "high": 100.0, "low": 98.5},
             {"date": "2026-11-24", "close": 99.0, "volume": 600_000, "high": 99.5, "low": 98.0},
-            {"date": FULL_WEDNESDAY, "close": 100.0, "volume": 1_200_000, "high": 100.6, "low": 99.0},
+            {
+                "date": FULL_WEDNESDAY,
+                "close": 100.0,
+                "volume": 1_200_000,
+                "high": 100.6,
+                "low": 99.0,
+            },
             {
                 "date": EARLY_FRIDAY,
                 "close": 99.4,
@@ -133,7 +145,13 @@ class TestPostFtdDistribution:
                 "high": 99.9,
                 "low": 98.9,
             },
-            {"date": NEXT_MONDAY, "close": 98.9, "volume": after_early_volume, "high": 99.0, "low": 98.0},
+            {
+                "date": NEXT_MONDAY,
+                "close": 98.9,
+                "volume": after_early_volume,
+                "high": 99.0,
+                "low": 98.0,
+            },
         ]
 
     def test_session_after_an_early_close_does_not_inherit_a_distribution_day(self):
