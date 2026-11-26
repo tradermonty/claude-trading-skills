@@ -295,6 +295,14 @@ def generate_markdown_report(analysis: dict, output_file: str):
         lines.append(
             "- Evaluate breadth, leadership and portfolio constraints before any allocation decision"
         )
+    elif combined_state == "UPTREND_RESUMED":
+        lines.append(
+            "- Uptrend resumed on a new high without an FTD; there is no FTD event or FTD-day low"
+        )
+        lines.append("- Monitor distribution days, the 50-day line and the failure reference low")
+        lines.append(
+            "- Evaluate breadth, leadership and portfolio constraints before any allocation decision"
+        )
     elif combined_state == "FTD_INVALIDATED":
         lines.append("- Recorded rally reference breached; historical FTD event is retained")
     elif combined_state in ("RALLY_ATTEMPT", "FTD_WINDOW"):
@@ -461,6 +469,7 @@ def _state_emoji(state: str) -> str:
         "RALLY_ATTEMPT": "🟡",
         "FTD_WINDOW": "🟡",
         "FTD_CONFIRMED": "🟢",
+        "UPTREND_RESUMED": "🟢",
         "RALLY_FAILED": "🔴",
         "FTD_INVALIDATED": "🔴",
     }
@@ -474,6 +483,7 @@ def _state_label(state: str) -> str:
         "RALLY_ATTEMPT": "Rally Attempt (Day 1-3)",
         "FTD_WINDOW": "FTD Window (Day 4-10)",
         "FTD_CONFIRMED": "FTD Confirmed",
+        "UPTREND_RESUMED": "Uptrend Resumed (new high, no FTD)",
         "RALLY_FAILED": "Rally Failed",
         "FTD_INVALIDATED": "FTD Invalidated",
     }

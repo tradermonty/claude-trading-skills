@@ -117,12 +117,12 @@ NO_SIGNAL → CORRECTION → RALLY_ATTEMPT → FTD_WINDOW → FTD_CONFIRMED
 
 | market_status | Legacy states |
 |---------------|---------------|
-| `confirmed_uptrend` | FTD_CONFIRMED |
-| `uptrend_under_pressure` | FTD_CONFIRMED (`cycle.uptrend_status` = `under_pressure`) |
+| `confirmed_uptrend` | FTD_CONFIRMED or UPTREND_RESUMED |
+| `uptrend_under_pressure` | FTD_CONFIRMED or UPTREND_RESUMED (`cycle.uptrend_status` = `under_pressure`) |
 | `market_in_correction` | CORRECTION, RALLY_ATTEMPT, FTD_WINDOW, RALLY_FAILED, FTD_INVALIDATED |
 | `null` | NO_SIGNAL: warm-up before the first qualifying correction, data gap, insufficient data |
 
-Only an FTD leaves a correction; a rise above the old peak does not. IBD sets one status
+An FTD leaves a correction, and so does a new high: IBD resumes an uptrend without an FTD when an index closes at a new high. That state is `UPTREND_RESUMED` (`cycle.resumed_without_ftd` true, `ftd` null, no FTD event and no FTD-day low); every confirmed-phase rule applies to it, and its failure reference is the active attempt's reference low, or the lowest low of the active correction segment when no attempt is active. Tuning knob `FTD_RESUME_NEW_HIGH`, read from the environment when an index is analyzed (so a replay script can set it per run): `pre_correction_high` (default: a close above the peak the correction was measured from), `52w` (above the highest close of the previous 252 sessions; off until 252 sessions exist since the replay start), `replay_high` (above the highest close in the fetched history, which is not a true all-time high) or `off`. An invalid value warns on stderr and uses the default. The default is uncalibrated; the effective value is recorded in `cycle.parameters`. IBD sets one status
 from either major index, so the combined status follows the better confirmed index.
 A close below the 50-session SMA puts it under pressure only after the index has closed above that SMA once since the FTD (`cycle.regained_50sma_since_ftd`), as an FTD normally comes from below it. The uptrend ends (market in correction) on 6+ active distribution days with a close below the 50-day line, even if the SMA was never regained, or on a 10% drawdown from the post-FTD peak. Secondary sources describe IBD's trigger variously (one cites the 21-day EMA); the 50-day line avoids declaring corrections on shallow pullbacks, and the threshold is unverified. A close below the FTD-day low also puts the uptrend under pressure (warning only, never a failure); `cycle.pressure_reasons` records the cause. See `references/ftd_methodology.md` for the transition rules (uncalibrated model choices).
 
@@ -133,6 +133,7 @@ A close below the 50-session SMA puts it under pressure only after the index has
 | RALLY_ATTEMPT | Day 1-3 of rally from the recent pullback low |
 | FTD_WINDOW | Day 4-10, waiting for a qualifying FTD |
 | FTD_CONFIRMED | Valid FTD; stays until the rally low is undercut or the uptrend ends (see `market_status`) |
+| UPTREND_RESUMED | A new high ended the correction without an FTD; a confirmed uptrend with no FTD event (`cycle.resumed_without_ftd`) |
 | RALLY_FAILED | Rally undercut the rally low, or no FTD by Day 10 (`rally_attempt.end_reason`: `undercut` or `expired`) |
 | FTD_INVALIDATED | Intraday low below the rally low of the attempt that produced the FTD |
 

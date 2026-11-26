@@ -100,3 +100,36 @@ def test_report_loader_reads_the_market_status():
     assert extract_signal("ftd_detector", data)["market_status"] == "uptrend_under_pressure"
     del data["market_state"]["market_status"]
     assert extract_signal("ftd_detector", data)["market_status"] is None
+
+
+# --- UPTREND_RESUMED: a confirmed uptrend without an FTD -------------------------------------------
+
+
+def test_uptrend_resumed_scores_like_a_confirmed_uptrend_without_the_fresh_ftd_extras():
+    resumed = {
+        "ftd_detector": {
+            "state": "UPTREND_RESUMED",
+            "quality_score": 100,
+            "dual_confirmation": True,
+            "post_ftd_distribution_count": 0,
+            "days_since_ftd": None,
+            "market_status": "confirmed_uptrend",
+        }
+    }
+    assert calculate_bottom_confirmation(resumed) == 80  # the base state score only
+    assert contrarian_score(resumed) == 45  # no FTD: the contrarian FTD points do not apply
+
+
+def test_report_loader_reads_a_resumed_uptrend_report():
+    data = {
+        "market_state": {
+            "combined_state": "UPTREND_RESUMED",
+            "market_status": "confirmed_uptrend",
+            "dual_confirmation": False,
+        },
+        "quality_score": {"total_score": 0, "signal": "No FTD"},
+    }
+    signal = extract_signal("ftd_detector", data)
+    assert signal["state"] == "UPTREND_RESUMED"
+    assert signal["market_status"] == "confirmed_uptrend"
+    assert calculate_bottom_confirmation({"ftd_detector": signal}) == 80

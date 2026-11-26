@@ -13,7 +13,8 @@ Phases (reported through the unchanged ``MarketState`` values):
                      correction was (re-)entered by that event; the label lasts
                      until the next Day 1 (only an FTD leaves the correction)
   rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4-10)
-  confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``)
+  confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``), or
+                     UPTREND_RESUMED when a new high ended the correction without an FTD
 
 Rules (O'Neil / IBD):
 - Correction: close >= 3% below the highest close with 3+ down closes since it.
@@ -47,6 +48,8 @@ least MIN_REPLAY_SESSIONS bars; otherwise the result is NO_SIGNAL with
 """
 
 import copy
+import os
+import sys
 from enum import Enum
 
 from _price_bars import find_bar_gaps, read_price
@@ -59,6 +62,7 @@ class MarketState(Enum):
     RALLY_ATTEMPT = "RALLY_ATTEMPT"
     FTD_WINDOW = "FTD_WINDOW"
     FTD_CONFIRMED = "FTD_CONFIRMED"
+    UPTREND_RESUMED = "UPTREND_RESUMED"  # confirmed uptrend without an FTD (new high)
     RALLY_FAILED = "RALLY_FAILED"
     FTD_INVALIDATED = "FTD_INVALIDATED"
 
@@ -92,6 +96,34 @@ ANALYSIS_LOOKBACK = 60
 MIN_REPLAY_SESSIONS = 60
 CLOSE_VOLUME = ("close", "volume")
 REPLAY_FIELDS = ("close", "volume", "low")
+# Tuning knobs, read from the environment at analysis time (not at import) so a
+# replay script can set os.environ per run. Defaults are uncalibrated model choices.
+RESUME_MODES = ("pre_correction_high", "52w", "replay_high", "off")
+DEFAULT_RESUME_MODE = "pre_correction_high"
+RESUME_52W_SESSIONS = 252
+ENV_RESUME_NEW_HIGH = "FTD_RESUME_NEW_HIGH"
+
+
+def _warn(message: str) -> None:
+    print(f"ftd-detector: {message}", file=sys.stderr)
+
+
+def resolve_parameters(environ=None) -> dict:
+    """Effective tuning parameters; an invalid value warns on stderr and uses the default."""
+    environ = os.environ if environ is None else environ
+    params = {"resume_new_high": DEFAULT_RESUME_MODE}
+    raw = environ.get(ENV_RESUME_NEW_HIGH)
+    if raw is not None and raw != "":
+        if raw in RESUME_MODES:
+            params["resume_new_high"] = raw
+        else:
+            _warn(
+                f"invalid {ENV_RESUME_NEW_HIGH}={raw!r} (use one of {', '.join(RESUME_MODES)}); "
+                f"using {DEFAULT_RESUME_MODE}"
+            )
+    return params
+
+
 REFERENCE_BASIS = "intraday low below the rally low"
 
 
@@ -170,9 +202,12 @@ def _public(ftd: dict) -> dict:
 class _Replay:
     """Forward replay of one chronological, gap-free bar sequence."""
 
-    def __init__(self, history: list[dict], start: int):
+    def __init__(self, history: list[dict], start: int, params=None):
         self.h = history
         self.start = start
+        self.params = params if params is not None else resolve_parameters()
+        self.replay_max = history[start]["close"]  # highest close seen before the current bar
+        self.resumed = False  # confirmed without an FTD (a new high ended the correction)
         self.phase = "uptrend_or_none"
         self.label = None  # CORRECTION / RALLY_FAILED / FTD_INVALIDATED in correction
         self.peak_close = history[start]["close"]
@@ -230,6 +265,7 @@ class _Replay:
             on_bar(self, self.start)
         for t in range(self.start + 1, len(self.h)):
             getattr(self, f"_step_{self.phase.split('_')[0]}")(t)
+            self.replay_max = max(self.replay_max, self.h[t]["close"])
             if on_bar:
                 on_bar(self, t)
         return self
@@ -266,6 +302,7 @@ class _Replay:
         self.prior_events = []
         self.ftd = None
         self.status = None
+        self.resumed = False
         self.armed = True
         # A session that sets the closing low may itself be Day 1 (upper-half close),
         # except the bar that ends a confirmed uptrend: like a failure bar, never Day 1.
@@ -276,6 +313,8 @@ class _Replay:
     def _step_correction(self, t):
         bar = self.h[t]
         close = bar["close"]
+        if self._maybe_resume(t):
+            return
         if bar["low"] < self.seg_low:
             self.seg_low, self.seg_low_idx = bar["low"], t
         # Only an FTD leaves a correction: a rise above the old peak does not.
@@ -294,6 +333,48 @@ class _Replay:
             return
         if close > self.h[t - 1]["close"] or _upper_half(bar):
             self._start_day1(t)
+
+    def _new_high_reference(self, t):
+        """The close a new high must exceed, per FTD_RESUME_NEW_HIGH; None when the rule is off."""
+        mode = self.params["resume_new_high"]
+        if mode == "pre_correction_high":
+            return self.peak_close  # the uptrend high the correction was measured from
+        if mode == "52w":
+            if t - self.start < RESUME_52W_SESSIONS:
+                return None  # needs 252 prior sessions since the replay start
+            return max(self.h[i]["close"] for i in range(t - RESUME_52W_SESSIONS, t))
+        if mode == "replay_high":
+            return self.replay_max  # highest close in the fetched history, not an all-time high
+        return None
+
+    def _maybe_resume(self, t):
+        """IBD resumes an uptrend without an FTD when an index closes at a new high."""
+        reference = self._new_high_reference(t)
+        if reference is None or self.h[t]["close"] <= reference:
+            return False
+        self._resume(t)
+        return True
+
+    def _resume(self, t):
+        bar = self.h[t]
+        # Failure reference: the active attempt's frozen reference, else the lowest low
+        # of the active correction segment. There is no FTD-day low.
+        if self.phase != "rally" or self.ref_low is None:
+            self.ref_low, self.ref_low_idx = self.seg_low, self.seg_low_idx
+        self.ftd = None
+        self.ftd_idx = None
+        self.ftd_ref_low, self.ftd_ref_low_idx = self.ref_low, self.ref_low_idx
+        self.ftd_low_close, self.ftd_low_idx = self.low_close, self.low_idx
+        self.pre_ftd_peak, self.pre_ftd_peak_idx = self.peak_close, self.peak_idx
+        self.peak_close, self.peak_idx = bar["close"], t
+        self.dds = []
+        self.status = "confirmed"
+        self.pressure_reasons = []
+        self.ftd_low_breached = True  # no FTD-day low: that pressure cause never applies
+        self.regained_sma = False
+        self.resumed = True
+        self._transition(t, "confirmed", "uptrend resumed on a new high without an FTD")
+        self._update_status(t)
 
     def _start_day1(self, t):
         bar = self.h[t]
@@ -329,6 +410,8 @@ class _Replay:
     def _step_rally(self, t):
         bar, prev = self.h[t], self.h[t - 1]
         close = bar["close"]
+        if self._maybe_resume(t):
+            return
         self.day += 1
         self.attempt["current_day_count"] = self.day
         if bar["low"] < self.ref_low:
@@ -429,6 +512,7 @@ class _Replay:
         self.pressure_reasons = []
         self.ftd_low_breached = False
         self.regained_sma = False  # closed above the 50-session SMA since the FTD bar
+        self.resumed = False
         self._transition(t, "confirmed", f"FTD on Day {self.day}")
         self._update_status(t)
 
@@ -509,10 +593,12 @@ class _Replay:
 
     def _end_uptrend(self, t, reason):
         self.previous_ftd = {
-            "ftd": _public(self.ftd),
+            "ftd": _public(self.ftd) if self.ftd is not None else None,
             "end_reason": reason,
             "end_date": self._date(t),
         }
+        if self.resumed:
+            self.previous_ftd["resumed_without_ftd"] = True
         self._enter_correction(t, f"confirmed uptrend ended: {reason}", allow_day1=False)
         self.dds = []
 
@@ -521,6 +607,21 @@ class _Replay:
 
     def _invalidate_ftd(self, t):
         bar = self.h[t]
+        if self.ftd is None:  # an uptrend resumed without an FTD fails like a correction
+            self.previous_ftd = {
+                "ftd": None,
+                "end_reason": "undercut",
+                "end_date": self._date(t),
+                "resumed_without_ftd": True,
+            }
+            if self.pre_ftd_peak >= self.peak_close:
+                self.peak_close, self.peak_idx = self.pre_ftd_peak, self.pre_ftd_peak_idx
+            self.attempt = None
+            self._fail(t, MarketState.CORRECTION, "resumed uptrend failed: rally low undercut")
+            self.resumed = False
+            self.status = None
+            self.dds = []
+            return
         self.prior_events.append(
             {
                 "ftd": _public(self.ftd),
@@ -550,7 +651,7 @@ class _Replay:
         if self.phase == "uptrend_or_none":
             return MarketState.NO_SIGNAL
         if self.phase == "confirmed":
-            return MarketState.FTD_CONFIRMED
+            return MarketState.UPTREND_RESUMED if self.resumed else MarketState.FTD_CONFIRMED
         if self.phase == "rally":
             if self.attempt["current_day_count"] < FTD_DAY_START:
                 return MarketState.RALLY_ATTEMPT
@@ -569,7 +670,7 @@ class _Replay:
         if self.phase == "uptrend_or_none":
             return None
         h = self.h
-        if self.ftd is not None:  # confirmed or FTD_INVALIDATED: the low the FTD rallied from
+        if self.ftd is not None or self.resumed:  # the low the FTD (or the new high) rallied from
             high_close, high_idx = self.pre_ftd_peak, self.pre_ftd_peak_idx
             low_close, low_idx = self.ftd_low_close, self.ftd_low_idx
         else:
@@ -609,7 +710,11 @@ class _Replay:
         if self.phase == "correction":
             attempt["reset_count"] = self.failures
             attempt["prior_ftd_events"] = list(self.prior_events)
-        if state in (MarketState.FTD_CONFIRMED, MarketState.FTD_INVALIDATED):
+        if state in (
+            MarketState.FTD_CONFIRMED,
+            MarketState.FTD_INVALIDATED,
+            MarketState.UPTREND_RESUMED,
+        ):
             ref, ref_idx = self.ftd_ref_low, self.ftd_ref_low_idx
         elif self.ref_low is not None:
             ref, ref_idx = self.ref_low, self.ref_low_idx
@@ -627,6 +732,8 @@ class _Replay:
             "uptrend_status": self.status if confirmed else None,
             "pressure_reasons": list(self.pressure_reasons) if confirmed else [],
             "regained_50sma_since_ftd": self.regained_sma if confirmed else None,
+            "resumed_without_ftd": bool(self.resumed and confirmed),
+            "parameters": dict(self.params),
             "active_distribution_days": [
                 {"date": d["date"], "close": d["close"], "change_pct": d["change_pct"]}
                 for d in self.active_dds()
@@ -708,7 +815,7 @@ def analyze_single_index(history: list[dict], index_name: str) -> dict:
             (result["current_price"] - max_close) / max_close * 100, 2
         )
 
-    replay = _Replay(history, start).run()
+    replay = _Replay(history, start, resolve_parameters()).run()
     state = replay.state()
     result["state"] = state.value
     result["market_status"] = replay.market_status()
@@ -745,7 +852,7 @@ def _combined_market_status(combined_state, data_gap, *analyses):
     if data_gap:
         return None
     statuses = [a.get("market_status") for a in analyses]
-    if combined_state == MarketState.FTD_CONFIRMED.value:
+    if combined_state in (MarketState.FTD_CONFIRMED.value, MarketState.UPTREND_RESUMED.value):
         if "confirmed_uptrend" in statuses:
             return "confirmed_uptrend"
         return "uptrend_under_pressure"
@@ -763,6 +870,7 @@ def get_market_state(
     Priority logic:
     - If either index has FTD_CONFIRMED → overall FTD (single sufficient)
     - If both have FTD_CONFIRMED → strong FTD (dual confirmation)
+    - Else if either index has UPTREND_RESUMED (a new high, no FTD) → UPTREND_RESUMED
     - Otherwise, use the more advanced state
 
     Args:
@@ -791,6 +899,10 @@ def get_market_state(
         dual_confirmation = True
     elif sp500_ftd or nasdaq_ftd:
         combined_state = MarketState.FTD_CONFIRMED.value
+        dual_confirmation = False
+    elif MarketState.UPTREND_RESUMED in (sp500_state, nasdaq_state):
+        # A confirmed uptrend without an FTD: no FTD event, no dual confirmation, no ftd_index
+        combined_state = MarketState.UPTREND_RESUMED.value
         dual_confirmation = False
     else:
         # Use the more advanced (hopeful) state

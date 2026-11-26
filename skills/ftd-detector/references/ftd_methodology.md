@@ -228,15 +228,32 @@ reference breach returns failed quality; missing evidence returns unavailable.
 
 `market_status` is one of `confirmed_uptrend`, `uptrend_under_pressure`,
 `market_in_correction`, or `null` when it cannot be determined (data gap, insufficient
-data, warm-up before the first qualifying correction since the replay start). The legacy
-`state` values are unchanged: both uptrend tiers are `FTD_CONFIRMED`; the rally attempt,
+data, warm-up before the first qualifying correction since the replay start). Both uptrend tiers
+are `FTD_CONFIRMED` (after an FTD) or `UPTREND_RESUMED` (after a new high, no FTD); the rally attempt,
 FTD window and day count are details inside `market_in_correction`.
 
 **Rules (all indicators use bars up to the current bar only):**
 
-- Correction to confirmed uptrend only on an FTD. A rise above the old peak, with or without
-  a rally attempt that fails, stays `market_in_correction`; new attempts keep forming after a
-  rally failure.
+- Correction to confirmed uptrend on an FTD, or on a new high without an FTD (below). A rise
+  that does not make a new high, with or without a rally attempt that fails, stays
+  `market_in_correction`; new attempts keep forming after a rally failure.
+- **Resume on a new high.** IBD resumes an uptrend without an FTD when an index closes at a new
+  high (headlines such as "Uptrend Resumes As Nasdaq Logs New High"; an IBD explainer says uptrends
+  can resume without follow-through days, typically triggered as an index takes a new high; secondary
+  sources, official rule text not verified). While the market is in any correction label, including
+  during a rally attempt or the FTD window, a close above the reference moves the index to
+  `confirmed_uptrend` with state `UPTREND_RESUMED`, `cycle.resumed_without_ftd` true and no FTD.
+  The reference is set by the environment variable `FTD_RESUME_NEW_HIGH` (read when an index is
+  analyzed; an invalid value warns on stderr and falls back to the default; the effective value is in
+  `cycle.parameters`): `pre_correction_high` (default) is the peak close the current correction was
+  measured from, `52w` is the highest close of the previous 252 sessions (off for a bar until 252
+  sessions exist since the replay start), `replay_high` is the highest close in the fetched history
+  (not a true all-time high) and `off` disables the rule. The default is an uncalibrated model
+  choice. Every confirmed-phase rule then applies: distribution and 50-SMA pressure (the SMA needs
+  a regain first), 6+ DDs below the 50-day line, the 10% drawdown from the peak since the resume.
+  There is no FTD-day low, so that pressure cause does not apply. The failure reference is the
+  active attempt's frozen reference low, or the lowest low of the active correction segment when
+  no attempt is active (the only reference there is); an undercut ends it as a correction.
 - Confirmed uptrend to under pressure: active distribution days >= 5, or a close below the
   50-session SMA of closes once the index has closed above that SMA at least once since the FTD
   bar (the FTD bar included; `cycle.regained_50sma_since_ftd`), or the first close below the
@@ -256,7 +273,7 @@ FTD window and day count are details inside `market_in_correction`.
   `regained_50sma_since_ftd`: it ends the uptrend even if the SMA was never regained. Secondary sources describe IBD's trigger variously (one cites the 21-day EMA); this model uses the 50-day line so that shallow pullbacks inside a rising market are not declared corrections, and the threshold is unverified.
   The earlier 21-session EMA trigger fired on shallow pullbacks (about half of the entries in a
   2000-2026 replay were less than 5% below the 60-day high) and left long stretches of a rising
-  market in correction, because only an FTD ends a correction; (b) an intraday low below the rally low
+  market in correction, because only an FTD (or a new high) ends a correction; (b) an intraday low below the rally low
   (FTD_INVALIDATED, as before); (c) a drawdown >= 10% from the post-FTD peak close
   (`end_reason` = `deep_drawdown`). (b) wins when several apply on one bar.
 - Distribution day: close down >= 0.2% on volume above the previous session, counted after the

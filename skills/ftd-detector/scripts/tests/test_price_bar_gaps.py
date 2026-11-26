@@ -71,7 +71,8 @@ def gap_probe_history():
 
 
 @BREAKERS
-def test_mid_rally_gap_is_a_data_gap_not_an_ftd(breaker):
+def test_mid_rally_gap_is_a_data_gap_not_an_ftd(breaker, monkeypatch):
+    monkeypatch.setenv("FTD_RESUME_NEW_HIGH", "off")  # the probe rally passes the old high
     bars, day4 = gap_probe_history()
     assert analyze_single_index(bars, "X")["state"] == "FTD_WINDOW"
 

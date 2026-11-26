@@ -480,7 +480,10 @@ def test_post_ftd_undercut_of_the_correction_low_invalidates_and_lifecycle_agree
 # --- 12. a rise above the old peak does not end a correction; only an FTD does -----------------
 
 
-def test_rise_above_the_old_peak_without_ftd_stays_in_correction_until_an_ftd():
+def test_with_the_resume_rule_off_a_rise_above_the_old_peak_stays_in_correction_until_an_ftd(
+    monkeypatch,
+):
+    monkeypatch.setenv("FTD_RESUME_NEW_HIGH", "off")
     gentle = [B(98.9 * 1.012**k) for k in range(1, 13)]  # +1.2% a day: never an FTD
     bars = prefix() + gentle
     assert run(bars[:-2])["state"] == "FTD_WINDOW"  # Day 10, already above the peak
@@ -609,7 +612,8 @@ def index_history(day4_gain):
     return bars + advance(bars[-1]["close"], 40, step=0.0015), ftd_idx
 
 
-def test_one_confirmed_index_sets_the_market_status_for_both():
+def test_one_confirmed_index_sets_the_market_status_for_both(monkeypatch):
+    monkeypatch.setenv("FTD_RESUME_NEW_HIGH", "off")  # the S&P-like series climbs past its high
     from rally_tracker import get_market_state
 
     nasdaq, ftd_idx = index_history(0.015)  # qualifying FTD on Day 4

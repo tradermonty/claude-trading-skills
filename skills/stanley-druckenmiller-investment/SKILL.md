@@ -115,6 +115,8 @@ Load appropriate reference documents to provide philosophical context:
 | 6 | Setup Availability | **10%** | VCP + CANSLIM | Quality stock setups |
 | 7 | Signal Convergence | **12%** | All 5 required | Cross-skill agreement |
 
+**Uptrend resumed:** ftd-detector state `UPTREND_RESUMED` (a new high ended the correction without an FTD) scores the same base 80 in Bottom Confirmation as `FTD_CONFIRMED`, with none of the FTD-specific extras (quality and dual bonus, the contrarian FTD points).
+
 **FTD age:** ftd-detector keeps `FTD_CONFIRMED` for as long as the uptrend lasts. The quality and dual-confirmation bonus in Bottom Confirmation and the FTD part of the Extreme Sentiment Contrarian pattern apply only while the FTD is at most 60 sessions old (`days_since_ftd`, read from `ftd_invalidation`) and the uptrend is not `uptrend_under_pressure` (`market_status`); an unknown age or status does not count against it. An older FTD keeps the base score of 80.
 
 **FTD data gaps:** when the ftd-detector report carries `data_gap: true` (top level or `market_state`) or a quality signal starting with `Unavailable`, the FTD state is read as `DATA_GAP` with quality 0. Bottom Confirmation scores it 10, the same as `RALLY_FAILED`; it never counts as a confirmed FTD, and in Signal Convergence it contributes quality 0, the same as a healed failed or no-FTD run.

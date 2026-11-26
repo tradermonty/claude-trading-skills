@@ -100,6 +100,9 @@ def calculate_bottom_confirmation(signals: dict) -> float:
 
     state_scores = {
         "FTD_CONFIRMED": 80,
+        # A confirmed uptrend without an FTD (a new high ended the correction): the same
+        # base score, but none of the FTD-specific extras (they need state FTD_CONFIRMED).
+        "UPTREND_RESUMED": 80,
         "FTD_WINDOW": 60,
         "RALLY_ATTEMPT": 55,
         "NO_SIGNAL": 40,

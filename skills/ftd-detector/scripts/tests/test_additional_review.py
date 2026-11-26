@@ -36,7 +36,8 @@ def test_intraday_failure_and_recovered_close_allow_a_new_day4_ftd():
     assert result["rally_attempt"]["reset_count"] == 1
 
 
-def test_repeated_restarts_retain_failed_ftd_evidence_without_reusing_its_days():
+def test_repeated_restarts_retain_failed_ftd_evidence_without_reusing_its_days(monkeypatch):
+    monkeypatch.setenv("FTD_RESUME_NEW_HIGH", "off")  # the rallies climb past the old high
     bars, boundary = restart_history()
     previous_ftd_idx = len(bars) - 1
     bars.append(make_bar(bars[-1]["close"] * 1.003, low=bars[boundary]["low"] - 0.1))
