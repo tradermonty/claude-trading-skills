@@ -85,6 +85,14 @@ python3 skills/crypto-regime-analyzer/scripts/crypto_regime_analyzer.py \
 
 Options: `--top-n <int>` universe size (default 20), `--cache-dir <path>` fetch cache location (default `.crypto_regime_cache`), `--quiet`.
 
+
+CoinGecko universe data is checked before use or caching: missing, empty or malformed
+`id`/`symbol` fields, unsafe coin IDs, and an empty universe after exclusions cause
+an explicit `COINGECKO_UNIVERSE_*` error. Invalid same-day caches also fail explicitly;
+remove or repair the affected cache only after investigating its cause. `--top-n`
+must be a positive integer. This checks the universe response, not the separate
+history, dominance or funding endpoints.
+
 ### Phase 2: Interpret the Output
 
 The script writes `crypto_regime.json` (machine-readable, for chaining into other skills) and `crypto_regime.md` (one-page report), and prints a one-line summary:

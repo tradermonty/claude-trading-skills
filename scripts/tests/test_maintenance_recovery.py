@@ -162,7 +162,7 @@ def heartbeat_state(root, stamp):
     )
 
 
-@pytest.mark.parametrize("hours,expected", [(0, 0), (49, 1), (400, 1)])
+@pytest.mark.parametrize("hours,expected", [(0, 0), (97, 1), (400, 1)])
 def test_notifying_heartbeat_default_and_status(tmp_path, monkeypatch, hours, expected):
     monitor = load_script("job_monitor")
     monkeypatch.delenv("SKILL_LOOP_NOTIFY", raising=False)
@@ -174,7 +174,7 @@ def test_notifying_heartbeat_default_and_status(tmp_path, monkeypatch, hours, ex
     )
     before = {p: p.read_bytes() for p in (tmp_path / "logs").iterdir()}
     assert monitor.main() == expected
-    assert call.call_count == (0 if hours == 0 else 2 if hours == 49 else 3)
+    assert call.call_count == (0 if hours == 0 else 2 if hours == 97 else 3)
     for entry in call.call_args_list:
         assert entry.args[0][0] == "osascript"
         assert "fresh success heartbeat" in entry.args[0][-1]

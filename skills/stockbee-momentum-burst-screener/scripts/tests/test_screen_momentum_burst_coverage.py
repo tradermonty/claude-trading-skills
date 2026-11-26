@@ -1038,6 +1038,8 @@ def test_collect_price_data_missing_key_raises(monkeypatch):
 
 
 class _FakeClient:
+    last_fetch_error = None
+
     def __init__(self, histories, universe=None, budget_after=None):
         self.histories = histories
         self.universe = universe or []
@@ -1173,14 +1175,17 @@ def test_main_all_rejected_prints_no_top_section(monkeypatch, tmp_path, capsys):
     assert "Top candidates:" not in stdout
 
 
-def test_main_no_price_data_exits_zero(monkeypatch, tmp_path, capsys):
+def test_main_no_price_data_reports_not_evaluable(monkeypatch, tmp_path, capsys):
     prices = tmp_path / "p.json"
     prices.write_text(json.dumps({}), encoding="utf-8")
-    with pytest.raises(SystemExit) as exc:
-        _run_main(monkeypatch, ["--prices-json", str(prices), "--output-dir", str(tmp_path)])
-    assert exc.value.code == 0
-    assert "No price data found" in capsys.readouterr().out
-    assert list(tmp_path.glob("stockbee_momentum_burst_*")) == []
+    _run_main(monkeypatch, ["--prices-json", str(prices), "--output-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert "No price data found" in out
+    assert "Result undetermined" in out
+    (report,) = tmp_path.glob("stockbee_momentum_burst_*.json")
+    coverage = json.loads(report.read_text())["evaluation_coverage"]
+    assert coverage["universe_size"] == 0
+    assert coverage["verdict"] == "not_evaluable"
 
 
 def test_main_missing_prices_file_exits_one(monkeypatch, tmp_path):

@@ -40,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import yaml  # noqa: E402
-from security_network_evidence import script_evidence  # noqa: E402
+from security_network_evidence import skill_evidence  # noqa: E402
 
 INDEX_PATH = ROOT / "skills-index.yaml"
 
@@ -360,10 +360,22 @@ def mechanical_checks(skill_id: str, root: Path = ROOT) -> dict:
     leak_signal = _key_leak_findings(scripts)
     timeout_present = any(_TIMEOUT_RE.search(_script_text(s)) for s in scripts)
     manifest = (root / "skills" / skill_id / "requirements.txt").is_file()
-    network = [
-        script_evidence(script, script.relative_to(root / "skills" / skill_id).as_posix())
-        for script in scripts
-    ]
+    scripts_dir = root / "skills" / skill_id / "scripts"
+    # Package __init__.py files run at import time and can rebind attributes, so
+    # they feed the skill-wide proofs even though they are not reported on.
+    package_inits = (
+        [
+            p
+            for p in sorted(scripts_dir.rglob("__init__.py"))
+            if "tests" not in p.relative_to(scripts_dir).parts
+        ]
+        if scripts_dir.is_dir()
+        else []
+    )
+    network = skill_evidence(
+        [(script, script.relative_to(root / "skills" / skill_id).as_posix()) for script in scripts],
+        context_sources=package_inits,
+    )
     network_findings = [finding for evidence in network for finding in evidence["findings"]]
     calls = [call for evidence in network for call in evidence["calls"]]
     applicability = "unproven" if network_findings else "network" if calls else "not_applicable"

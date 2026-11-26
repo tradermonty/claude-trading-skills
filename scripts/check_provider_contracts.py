@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for provider response contracts: FMP JSON and public CSVs (Issue #332).
+"""CLI for provider response contracts: FMP/CoinGecko JSON and public CSVs (Issue #332).
 
 Subcommands:
 
@@ -25,7 +25,7 @@ least one nonempty HTTP 200 response. Contract drift remains report-only.
 
 Usage:
     python3 scripts/check_provider_contracts.py check
-    python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,all}]
+    python3 scripts/check_provider_contracts.py canary [--provider {fmp,trader-monty,coingecko,all}]
         [--max-calls N] [--report PATH]
     python3 scripts/check_provider_contracts.py summarize --report PATH
         [--summary-file PATH] [--github]
@@ -59,6 +59,8 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.provider_contracts import (  # noqa: E402
+    COINGECKO_PATH,
+    COINGECKO_QUERY,
     DEPRECATION,
     FATAL,
     Anomaly,
@@ -225,6 +227,47 @@ def _build_public_csv_fetch() -> ProviderFetch:
     return fetch
 
 
+def _build_coingecko_fetch() -> ProviderFetch:
+    """One bounded keyless GET to the reviewed CoinGecko endpoint; no retries."""
+    import requests
+
+    def fetch(contract: Contract) -> FetchResult:
+        if (
+            contract.format != "json"
+            or contract.endpoint_path != COINGECKO_PATH
+            or contract.query != COINGECKO_QUERY
+        ):
+            return FetchResult(-1, None, [Anomaly("unsupported_probe_configuration", FATAL)])
+        response = None
+        limit = 2 * 1024 * 1024
+        try:
+            response = requests.get(
+                "https://api.coingecko.com" + COINGECKO_PATH,
+                params=dict(COINGECKO_QUERY),
+                timeout=30,
+                allow_redirects=False,
+                stream=True,
+            )
+            if response.status_code != 200:
+                return FetchResult(response.status_code, None)
+            buffer = bytearray()
+            for chunk in response.iter_content(chunk_size=64 * 1024):
+                buffer.extend(chunk)
+                if len(buffer) > limit:
+                    return FetchResult(200, None, [Anomaly("body_too_large", FATAL)])
+        except requests.exceptions.RequestException:
+            return FetchResult(-1, None, [Anomaly("transport_error", FATAL)])
+        finally:
+            if response is not None:
+                response.close()
+        try:
+            return FetchResult(200, json.loads(bytes(buffer).decode("utf-8")))
+        except (ValueError, UnicodeError):
+            return FetchResult(200, None, [Anomaly("parse_error", FATAL)])
+
+    return fetch
+
+
 def _resolve_fetchers(
     contracts: dict[str, Contract], fetch: FetchFn | dict[str, ProviderFetch]
 ) -> dict[str, ProviderFetch]:
@@ -294,7 +337,7 @@ def _default_report_path(provider: str = _FMP_PROVIDER) -> Path:
     return _REPO_ROOT / "reports" / f"{provider}_canary_{date.today().isoformat()}.json"
 
 
-_PROVIDER_CHOICES = ("fmp", "trader-monty", "all")
+_PROVIDER_CHOICES = ("fmp", "trader-monty", "coingecko", "all")
 
 
 def _select_contracts(contracts: dict[str, Contract], provider: str) -> dict[str, Contract]:
@@ -343,12 +386,14 @@ def cmd_canary(args: argparse.Namespace) -> int:
             print("ERROR: FMP_API_KEY environment variable is not set", file=sys.stderr)
             return 1
         fetchers[_FMP_PROVIDER] = _legacy_fmp_adapter(_build_requests_fetch(api_key))
-    public_fetch = None
-    for contract in contracts.values():
-        if contract.provider != _FMP_PROVIDER:
-            if public_fetch is None:
-                public_fetch = _build_public_csv_fetch()
-            fetchers[contract.provider] = public_fetch
+    for provider_name in {c.provider for c in contracts.values()} - {_FMP_PROVIDER}:
+        if provider_name == "coingecko":
+            fetchers[provider_name] = _build_coingecko_fetch()
+        elif provider_name == "trader-monty":
+            fetchers[provider_name] = _build_public_csv_fetch()
+        else:
+            print("ERROR: unsupported provider selected", file=sys.stderr)
+            return 1
 
     results = run_canary(contracts, fetchers)
     all_ok = all(entry["ok"] for entry in results.values())
@@ -418,7 +463,7 @@ def _titles(report: dict[str, Any] | None, provider: str | None) -> dict[str, st
     chosen = reported if isinstance(reported, str) and reported else provider
     if chosen in (None, "", _FMP_PROVIDER):
         return _FMP_TITLES
-    if chosen == "all":
+    if chosen in {"all", "coingecko"}:
         return _NEUTRAL_TITLES
     return _PUBLIC_TITLES
 

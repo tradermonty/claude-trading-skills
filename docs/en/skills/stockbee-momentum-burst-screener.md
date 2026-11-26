@@ -134,6 +134,13 @@ excluded; weekends, holidays, DST and early closes follow the shared calendar.
   equities and discards rows explicitly marked inactive; absent flags never
   substitute for the bar freshness gate.
 
+Both reports carry an `evaluation_coverage` block (`docs/dev/evaluation-coverage-contract.md`).
+Read a zero-candidate result together with its `verdict`: only `complete` means
+every requested symbol reached a screening decision. Stale, short, undated or
+not-yet-completed price data and fetch failures are listed under
+`not_evaluated_reasons`, not counted as rejections. A run where nothing could be
+evaluated still writes both reports, with verdict `not_evaluable` and exit 0.
+
 JSON candidates include `latest_bar_date` (null if unplaceable/no eligible bar),
 `expected_session`, `bar_age_sessions` (null when unknown) and
 `max_bar_age_sessions`. Report metadata includes the expected session, allowed age,
@@ -193,5 +200,6 @@ Use the output conservatively:
 **Scripts:**
 
 - `skills/stockbee-momentum-burst-screener/scripts/_market_calendar.py`
+- `skills/stockbee-momentum-burst-screener/scripts/evaluation_coverage.py`
 - `skills/stockbee-momentum-burst-screener/scripts/fmp_client.py`
 - `skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py`
