@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "provider": "coingecko",
+  "endpoint": "global",
+  "path": "/api/v3/global",
+  "query": {},
+  "contract_version": 1,
+  "recorded_on": "2026-11-26",
+  "recording": "Live keyless HTTP 200 global response; public consumed data.market_cap_percentage.btc retained unchanged and normalized to btc_dominance. Other response fields omitted.",
+  "owners": [
+    "crypto-regime-analyzer"
+  ],
+  "tier_notes": "Keyless HTTP 200 observed locally at recording time, not a future entitlement or scheduled-run guarantee. Fixed USD/BTC canary sampling does not certify all coins, full lookback completeness, freshness or point-in-time availability.",
+  "required_fields": {
+    "btc_dominance": {
+      "types": [
+        "int",
+        "float"
+      ],
+      "nullable": false,
+      "finite": true
+    }
+  },
+  "optional_fields": [],
+  "legacy_aliases": {},
+  "known_gaps": [],
+  "non_empty": {
+    "min_rows": 1,
+    "reason": "Current BTC dominance / historical price evidence must be nonempty."
+  },
+  "fixture": [
+    {
+      "btc_dominance": 57.88538426535806
+    }
+  ],
+  "response_fixture": {
+    "data": {
+      "market_cap_percentage": {
+        "btc": 57.88538426535806
+      }
+    }
+  }
+}

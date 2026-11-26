@@ -722,7 +722,7 @@ the nine `company-screener` consumers.
 
 ## Out of scope (this slice)
 
-- Providers still without contracts: yfinance, Binance, Alpaca and FXMacroData. CoinGecko coverage is limited to coins/markets; global and market_chart remain uncovered.
+- Providers still without contracts: yfinance, Binance, Alpaca and FXMacroData. CoinGecko coverage includes the three endpoints consumed by crypto-regime-analyzer: coins/markets, global and bitcoin market_chart. Other providers and cross-asset/operational acceptance remain separate.
 - Parser hardening for the four trader-monty contract owners that are not hardened yet.
   Their behavior is unchanged and each is a follow-up:
   - market-top-detector: `breadth_csv_client.py`, the read of `market_breadth_data.csv`.
@@ -920,8 +920,9 @@ do not establish that a future scheduled notification reached a maintainer.
 HTTP-200 `/api/v3/coins/markets` capture of three public rows, projected to the
 `id` and `symbol` fields consumed by `crypto-regime-analyzer`. The UTC capture
 date is in `recorded_on`. It does not certify the full universe, price history,
-BTC dominance, funding, or future API availability. Other CoinGecko endpoints
-and the other providers in #332 remain outstanding.
+BTC dominance, funding, or future API availability. The following section extends
+the recorded endpoint checks to global and market_chart; other providers in #332
+remain outstanding.
 
 The required string policy `non_blank: true` rejects empty/whitespace-only values
 with fatal `blank_required_field:<field>`. It is opt-in, accepts only boolean
@@ -936,7 +937,7 @@ be a positive integer.
 
 The provider CLI now accepts `--provider coingecko` for canary, summary and
 health. Its reviewed path and small fixed string query are allowlisted in
-`provider_contracts.py`. The keyless fetch makes exactly one request, with a
+`provider_contracts.py`. The keyless fetch makes exactly one request per contract, with a
 30-second timeout, a 2 MiB decompressed-body cap, disabled redirects, response
 cleanup, no retries and fixed error codes without raw provider/error contents.
 It sends no FMP credential and leaves default FMP and public-CSV behavior intact;
@@ -945,10 +946,10 @@ Offline `check` validates all recorded contracts without requests installed.
 
 ```bash
 python3 scripts/check_provider_contracts.py check
-python3 scripts/check_provider_contracts.py canary --provider coingecko --max-calls 1 --report reports/coingecko-canary-report.json
+python3 scripts/check_provider_contracts.py canary --provider coingecko --max-calls 3 --report reports/coingecko-canary-report.json
 ```
 
-The weekly read-only `coingecko-contract-canary.yml` workflow uses this one-call
+The weekly read-only `coingecko-contract-canary.yml` workflow uses this three-call
 budget, removes stale reports, publishes a JSON artifact and summary, and has a
 five-minute job limit. Only the probe step is allowed to fail for schema drift;
 the existing operational-health gate remains mandatory and fails on missing,
@@ -958,3 +959,58 @@ report-only, with annotations. The workflow supports manual probes through
 did not dispatch an Actions run; scheduled/manual Actions acceptance and live
 consumer full-run acceptance remain separate. This slice adds no persistent
 notification issue or security certification.
+
+
+## CoinGecko global and price-series contracts (Issue #332)
+
+The `global.v1.json` and `market-chart.v1.json` records extend the existing
+universe contract. Their UTC capture dates and public projected raw responses
+are recorded in `response_fixture`; `fixture` holds the exact normalized rows.
+The chart fixture retains the final seven unchanged pairs from an observed
+366-pair BTC/USD response for `days=365`, including the final live observation.
+A seven-pair fixture is not a complete lookback. The official shape references
+are [global](https://docs.coingecko.com/reference/crypto-global) and
+[market_chart](https://docs.coingecko.com/reference/coins-id-market-chart).
+Those pages' Pro examples do not establish keyless entitlement: the actual
+keyless HTTP-200 captures are separate evidence and not a future access promise.
+
+`coingecko_payloads.py` is the single stdlib implementation used by the packaged
+production consumer and the repository contract probe. The root bridge lazily
+loads only that fixed repository-owned file under a unique module name. It does
+not load code selected by a contract, response, credential or optional SDK.
+Offline `check` normalizes each raw fixture, compares its exact projected rows
+with `fixture`, and validates their declared fields.
+
+Global normalization requires `data.market_cap_percentage.btc` to be a finite,
+non-bool number in `(0, 100]`; the normalized field is `btc_dominance`.
+Chart normalization requires a nonempty `prices` array of exact two-element
+pairs, finite positive non-bool timestamps and prices, and strictly increasing
+timestamps. Each timestamp is checked before ordering, even in a singleton.
+Duplicate/reversed rows are rejected, not sorted/dropped; the consumer returns
+prices in original order. There is no resampling, calendar-gap, freshness,
+full-lookback, price-accuracy or point-in-time certification.
+
+Invalid live data is rejected before either endpoint's cache write; an invalid
+global value cannot append to dominance history. Existing close-only and scalar
+caches remain compatible, but null/empty/malformed/nonnumeric/nonfinite cached
+values fail explicitly and remain untouched. Close-only caches have no timestamp
+evidence and cannot retrospectively prove chronology. A missing cache fetches
+normally. Existing optional-component behavior remains: unavailable dominance
+is explicitly `data_available: false`, while missing valid BTC history prevents
+a normal CLI report. Scoring/weighting formulas are unchanged.
+
+The scheduled/manual CoinGecko workflow now probes all three fixed allowlisted
+paths with a three-request budget (no retries). Each request retains its
+30-second timeout, disabled redirects, 2 MiB decompressed cap, cleanup and fixed
+safe diagnostics. A budget below three refuses before network calls.
+`FetchResult.observed_rows`, when supplied, is validated as a nonnegative integer
+excluding booleans and is response evidence, not a count of successfully
+normalized market observations. Nonempty HTTP-200 malformed global/chart bodies
+retain their observed count and a fatal normalization code, so schema drift can
+remain report-only. Empty price arrays, null/empty bodies, parse/transport errors
+and non-200 responses are unusable acquisition evidence. Every CoinGecko endpoint
+must provide nonempty HTTP-200 evidence for `health --provider coingecko` to pass;
+a responding endpoint cannot hide another endpoint's outage. The generic
+FMP/CSV/`all` health policy is unchanged. Hosted/scheduled acceptance, other
+providers and other #332 work remain open; no notification Issue or workflow
+was dispatched by these local tests.

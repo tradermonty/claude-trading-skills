@@ -628,14 +628,17 @@ def evaluate_circuit_breaker(
         )
 
     if consecutive_losses >= config.losing_streak_n and last_loss_exit_at is not None:
-        active_until = last_loss_exit_at + timedelta(hours=config.cooldown_hours)
-        if as_of_et < active_until:
+        # The cooldown measures elapsed hours across changes in the ET offset.
+        cooldown_end_utc = last_loss_exit_at.astimezone(timezone.utc) + timedelta(
+            hours=config.cooldown_hours
+        )
+        if as_of_et.astimezone(timezone.utc) < cooldown_end_utc:
             triggered_rules.append(
                 {
                     "rule": "losing_streak_cooldown",
                     "threshold": config.losing_streak_n,
                     "observed": consecutive_losses,
-                    "active_until": active_until.isoformat(),
+                    "active_until": cooldown_end_utc.astimezone(ET).isoformat(),
                     "severity": "COOLDOWN",
                     "detail": (
                         f"{consecutive_losses} consecutive losing closes; last loss exit "

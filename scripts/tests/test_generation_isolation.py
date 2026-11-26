@@ -93,7 +93,7 @@ def repos(tmp_path, monkeypatch):
     (primary / "scripts").mkdir()
     (primary / "scripts/run_skill_generation_pipeline.py").write_text(STUB)
     (primary / "README").write_text("original")
-    (primary / ".gitignore").write_text("logs/\nreports/\nstate/\n.envrc\n")
+    (primary / ".gitignore").write_text("logs/\nreports/\nstate/\n.envrc\n__pycache__/\n")
     git(primary, "add", ".")
     git(primary, "commit", "-m", "fictional fixture")
     git(primary, "push", "origin", "main")
@@ -229,6 +229,8 @@ def test_real_daily_dry_run_uses_fictional_shared_backlog(repos):
     seed = remote.parent / "seed"
     git(seed.parent, "clone", str(remote), str(seed))
     shutil.copy(ROOT / "scripts/run_skill_generation_pipeline.py", seed / "scripts")
+    shutil.copy(ROOT / "scripts/claude_cli.py", seed / "scripts")  # imported by the pipeline
+    git(seed, "add", "scripts/claude_cli.py")
     git(
         seed,
         "-c",

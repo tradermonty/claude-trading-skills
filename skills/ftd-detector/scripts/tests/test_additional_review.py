@@ -15,8 +15,9 @@ def append_rally(bars):
 
 
 def restart_history():
-    bars, _, day1, _ = make_rally_history(rally_days=3)
-    bars.append(make_bar(bars[-1]["close"] * 1.003, low=bars[day1]["low"] - 0.2))
+    bars, sl_idx, _, _ = make_rally_history(rally_days=3)
+    # Rally failure is an undercut of the correction low (not the Day 1 low).
+    bars.append(make_bar(bars[-1]["close"] * 1.003, low=bars[sl_idx]["low"] - 0.2))
     boundary = len(bars) - 1
     append_rally(bars)
     return bars, boundary
@@ -35,10 +36,11 @@ def test_intraday_failure_and_recovered_close_allow_a_new_day4_ftd():
     assert result["rally_attempt"]["reset_count"] == 1
 
 
-def test_repeated_restarts_retain_failed_ftd_evidence_without_reusing_its_days():
+def test_repeated_restarts_retain_failed_ftd_evidence_without_reusing_its_days(monkeypatch):
+    monkeypatch.setenv("FTD_RESUME_NEW_HIGH", "off")  # the rallies climb past the old high
     bars, boundary = restart_history()
     previous_ftd_idx = len(bars) - 1
-    bars.append(make_bar(bars[-1]["close"] * 1.003, low=bars[boundary + 1]["low"] - 0.1))
+    bars.append(make_bar(bars[-1]["close"] * 1.003, low=bars[boundary]["low"] - 0.1))
     append_rally(bars)
     assign_session_dates(bars)
     result = analyze_single_index(bars, "Test")

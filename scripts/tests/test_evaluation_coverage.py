@@ -59,6 +59,7 @@ def test_standalone_copies_match_shared_contract():
         "exposure-coach",
         "downtrend-duration-analyzer",
         "stockbee-momentum-burst-screener",
+        "stockbee-exhaustion-hammer-screener",
     ):
         assert (ROOT / "skills" / skill / "scripts/evaluation_coverage.py").read_bytes() == source
 

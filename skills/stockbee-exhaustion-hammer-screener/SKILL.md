@@ -114,6 +114,13 @@ Use the output conservatively:
 - `stockbee_exhaustion_hammer_YYYY-MM-DD_HHMMSS.json` - Structured candidate list, metadata, thresholds, score components, and rejects
 - `stockbee_exhaustion_hammer_YYYY-MM-DD_HHMMSS.md` - Human-readable report grouped by rating/state
 
+Both reports carry an `evaluation_coverage` block (`docs/dev/evaluation-coverage-contract.md`).
+Read a zero-candidate result together with its `verdict`: only `complete` means
+every requested symbol reached a screening decision. Short price histories and
+fetch failures are listed under `not_evaluated_reasons`, not counted as
+rejections. A run where nothing could be evaluated still writes both reports,
+with verdict `not_evaluable` and exit 0.
+
 ## Resources
 
 - `references/exhaustion_hammer_methodology.md` - Stockbee-style method summary and implementation boundaries

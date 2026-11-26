@@ -30,13 +30,6 @@
       "reason": "not a price bar (pending rewrite)"
     },
     {
-      "path": "skills/macro-regime-detector/scripts/calculators/utils.py",
-      "scope": "downsample_to_monthly",
-      "field": "close",
-      "count": 1,
-      "reason": "pending #655 migration: macro-regime-detector"
-    },
-    {
       "path": "skills/technical-analyst/scripts/weekly_price_action.py",
       "scope": "build_sorted_daily_series",
       "field": "volume",

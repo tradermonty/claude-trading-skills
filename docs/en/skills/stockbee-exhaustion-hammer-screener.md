@@ -119,6 +119,13 @@ Each candidate includes:
 
 Actionable candidates still require manual chart validation, earnings/news risk checks, and position sizing.
 
+Both reports carry an `evaluation_coverage` block (`docs/dev/evaluation-coverage-contract.md`).
+Read a zero-candidate result together with its `verdict`: only `complete` means
+every requested symbol reached a screening decision. Short price histories and
+fetch failures are listed under `not_evaluated_reasons`, not counted as
+rejections. A run where nothing could be evaluated still writes both reports,
+with verdict `not_evaluable` and exit 0.
+
 ---
 
 ## 6. Resources
@@ -129,6 +136,7 @@ References:
 - `skills/stockbee-exhaustion-hammer-screener/references/scoring_system.md`
 - `skills/stockbee-exhaustion-hammer-screener/references/near_close_operations.md`
 
-Script:
+Scripts:
 
+- `skills/stockbee-exhaustion-hammer-screener/scripts/evaluation_coverage.py`
 - `skills/stockbee-exhaustion-hammer-screener/scripts/screen_exhaustion_hammer.py`

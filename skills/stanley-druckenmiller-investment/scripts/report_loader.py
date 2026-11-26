@@ -222,6 +222,10 @@ def _extract_ftd(data: dict) -> dict:
         "signal": quality.get("signal", "No FTD"),
         "exposure_range": quality.get("exposure_range", "0-25%"),
         "post_ftd_distribution_count": post_ftd.get("distribution_count", 0),
+        # Sessions since the FTD the quality score rests on; None when unknown or no FTD
+        "days_since_ftd": (data.get("ftd_invalidation") or {}).get("days_since_ftd"),
+        # IBD tier from ftd-detector; None when unknown (older reports or no determination)
+        "market_status": market_state.get("market_status"),
         "data_gap": data_gap,
     }
 
