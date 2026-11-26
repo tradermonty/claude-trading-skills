@@ -938,16 +938,17 @@ def test_main_no_symbols_without_key_exits_1(monkeypatch, capsys):
     assert "FMP API key required" in capsys.readouterr().err
 
 
-def test_main_empty_price_data_exits_0(tmp_path, monkeypatch, capsys):
+def test_main_empty_price_data_writes_not_evaluable_report(tmp_path, monkeypatch, capsys):
     path = tmp_path / "empty.json"
     path.write_text(json.dumps({}))
     monkeypatch.setattr(
         sys, "argv", ["x", "--prices-json", str(path), "--output-dir", str(tmp_path)]
     )
-    with pytest.raises(SystemExit) as exc:
-        mod.main()
-    assert exc.value.code == 0
+    mod.main()
     assert "No price data found" in capsys.readouterr().out
+    (report,) = tmp_path.glob("stockbee_exhaustion_hammer_*.json")
+    coverage = json.loads(report.read_text())["evaluation_coverage"]
+    assert (coverage["universe_size"], coverage["verdict"]) == (0, "not_evaluable")
 
 
 def test_main_fmp_symbols_mode_records_api_stats(tmp_path, monkeypatch):
