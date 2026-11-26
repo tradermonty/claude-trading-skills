@@ -341,12 +341,15 @@ def generate_markdown_report(analysis: dict, output_file: str):
             continue
 
         lines.append(f"**{label}:**")
+        ref_low = rally.get("reference_low")
+        if ref_low is None:
+            ref_low = rally.get("day1_low")
         if rally.get("day1_date"):
             lines.append(f"- Rally Day 1: {rally['day1_date']}")
-            ref_low = rally.get("reference_low")
-            if ref_low is None:
-                ref_low = rally.get("day1_low")
+        if ref_low is not None:
+            # A resume without a Day 1 still has a failure reference (the segment low).
             lines.append(f"- Rally failure level (rally low; intraday breach): {_money(ref_low)}")
+        if rally.get("day1_date"):
             lines.append(f"- Day 1 Low (informational): {_money(rally.get('day1_low'))}")
         if swing:
             lines.append(f"- Swing Low: ${swing.get('price', 0):.2f} ({swing.get('date', 'N/A')})")

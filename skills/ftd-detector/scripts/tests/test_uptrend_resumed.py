@@ -356,6 +356,31 @@ def test_a_resume_from_a_plain_correction_keeps_todays_low_in_the_reference():
     assert run(bars + [bar, B(107.2, low=96.9)])["state"] == "CORRECTION"
 
 
+def test_the_report_shows_the_failure_level_for_a_resume_without_a_day1(tmp_path):
+    from post_ftd_monitor import assess_post_ftd_health
+    from report_generator import generate_markdown_report
+
+    bars = dated(prefix() + [B(107.0, low=97.0, high=107.5)])
+    market = assess_post_ftd_health(get_market_state(list(reversed(bars)), []), bars, [])
+    assert market["sp500"]["state"] == "UPTREND_RESUMED"
+    assert market["sp500"]["rally_attempt"]["day1_date"] is None
+    analysis = {
+        "metadata": {},
+        "market_state": {
+            "combined_state": market["combined_state"],
+            "market_status": market["market_status"],
+        },
+        "sp500": market["sp500"],
+        "nasdaq": market["nasdaq"],
+        "quality_score": market["quality_score"],
+    }
+    path = tmp_path / "report.md"
+    generate_markdown_report(analysis, str(path))
+    text = path.read_text(encoding="utf-8")
+    assert "Rally failure level (rally low; intraday breach): $97.00" in text
+    assert "Rally Day 1" not in text
+
+
 def test_replay_high_is_the_highest_valid_close_across_a_volume_gap(monkeypatch):
     before = [B(130.0 + 0.1 * (k % 2)) for k in range(70)]
     gap = B(130.0, vol=0)  # a volume-only gap: the replay restarts after it
