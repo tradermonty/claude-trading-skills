@@ -4,9 +4,11 @@ from _price_bars import find_bar_gaps, read_price
 
 
 def assess_lifecycle(history, ftd_idx, rally_low=None):
-    """Use the explicit Day 1 low; never infer a rally anchor from the FTD.
+    """Use the explicit rally low; never infer a rally anchor from the FTD.
 
-    Intraday lows below the rally reference fail the rally. A close below
+    ``rally_low`` is the attempt's frozen reference: the lowest intraday low of
+    the pullback segment the attempt started from, through Day 1. Intraday
+    lows strictly below it fail the rally (equality holds). A close below
     the FTD candle low is a warning only. Missing evidence is unavailable.
     """
     window = history[ftd_idx:]
@@ -19,7 +21,7 @@ def assess_lifecycle(history, ftd_idx, rally_low=None):
             "rally_low": reference,
             "ftd_low": None,
             "data_gap": True,
-            "reason": "Data gap: FTD lifecycle unavailable: valid Day 1 low and post-FTD close/low required",
+            "reason": "Data gap: FTD lifecycle unavailable: valid rally reference low and post-FTD close/low required",
         }
     ftd_low = window[0]["low"]
     result = {
@@ -29,7 +31,7 @@ def assess_lifecycle(history, ftd_idx, rally_low=None):
         "rally_low": reference,
         "ftd_low": ftd_low,
         "days_since_ftd": len(window) - 1,
-        "failure_basis": "intraday low below rally Day 1 low",
+        "failure_basis": "intraday low below the rally low",
         "warning_basis": "close below FTD-day low",
     }
     for offset, bar in enumerate(window[1:], 1):
@@ -49,9 +51,11 @@ def assess_lifecycle(history, ftd_idx, rally_low=None):
 
 def select_ftd_source(market_state):
     """Prefer a still-valid event; use a failed event only if neither is valid."""
-    # A failed event must not displace an active, unconfirmed rally elsewhere.
+    # A failed event must not displace an active rally, a confirmed FTD or a resumed
+    # uptrend elsewhere.
     active = any(
-        (market_state.get(key) or {}).get("state") in ("FTD_WINDOW", "RALLY_ATTEMPT")
+        (market_state.get(key) or {}).get("state")
+        in ("FTD_WINDOW", "RALLY_ATTEMPT", "FTD_CONFIRMED", "UPTREND_RESUMED")
         for key in ("sp500", "nasdaq")
     )
     detected = [

@@ -68,7 +68,7 @@ def test_no_signal_renders_uptrend_status_and_normal_market_guidance(tmp_path):
             "quality_score": {"total_score": 100},
         },
     )
-    assert "| **Current State** | ⚪ **No Signal (Uptrend)** |" in markdown
+    assert "| **Current State** | ⚪ **No Signal (status unavailable)** |" in markdown
     assert "No active confirmed FTD is established" in markdown
     assert "Aggressively increase equity exposure" not in markdown
     assert "Gradually increase exposure with each successful breakout" not in markdown
@@ -178,7 +178,7 @@ def test_health_details_and_watch_levels_preserve_risk_evidence(tmp_path, invali
     if invalidated:
         assert "**INVALIDATED:** Closed below swing low" in markdown
         assert (
-            "**FTD INVALIDATED** on 2026-04-01 (Day 2, intraday low $96.00 below Day 1 low $97.50)"
+            "**FTD INVALIDATED** on 2026-04-01 (Day 2, intraday low $96.00 below rally low $97.50)"
             in markdown
         )
         assert "**Power Trend:** No (0/3 conditions)" in markdown
@@ -198,3 +198,26 @@ def test_report_write_failure_is_not_announced_as_success(tmp_path, capsys, writ
         writer({}, str(tmp_path))
     assert "report saved" not in capsys.readouterr().out
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "end_reason,expected",
+    [
+        ("undercut", "Rally low was undercut; reassess a fresh attempt"),
+        ("expired", "No follow-through day by Day 10; a new count starts after a down close"),
+        (None, "Rally low was undercut; reassess a fresh attempt"),
+    ],
+)
+def test_rally_failed_guidance_names_how_the_attempt_ended(tmp_path, end_reason, expected):
+    analysis = {
+        "market_state": {"combined_state": "RALLY_FAILED"},
+        "sp500": {"state": "RALLY_FAILED", "rally_attempt": {"end_reason": end_reason}},
+        "nasdaq": {"state": "NO_SIGNAL"},
+        "quality_score": {"total_score": 0, "exposure_range": "Not assessed"},
+    }
+    markdown = render(tmp_path, analysis)
+    assert f"- {expected}" in markdown
+    other = (
+        "No follow-through day by Day 10" if "undercut" in expected else "Rally low was undercut"
+    )
+    assert other not in markdown
