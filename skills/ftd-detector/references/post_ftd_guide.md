@@ -51,7 +51,7 @@ An FTD is formally invalidated when:
 ### What to Do After Invalidation
 1. Reassess risk against portfolio limits; the tool does not prescribe a percentage
 2. Keep any portfolio decision separate from this technical event classification
-3. Wait for a fresh rally attempt and a new FTD; only an FTD ends a correction
+3. Wait for a fresh rally attempt and a new FTD; an FTD ends a correction, and so does a new high (state `UPTREND_RESUMED`, unless `FTD_RESUME_NEW_HIGH=off`)
 4. A previous failure does not determine the outcome of the next attempt
 
 ### Soft Warnings (Not Yet Invalidated)

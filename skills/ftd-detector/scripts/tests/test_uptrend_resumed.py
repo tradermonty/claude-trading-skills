@@ -275,3 +275,180 @@ def test_the_report_names_a_resumed_uptrend_and_says_there_was_no_ftd(tmp_path):
     assert "Uptrend Resumed" in text
     assert "without an FTD" in text
     assert "FTD Confirmed" not in text
+
+
+# --- review findings: priorities, bar updates, replay_high gaps, tolerances ---------------------------
+
+
+def assess(sp500_chrono, nasdaq_chrono):
+    from post_ftd_monitor import assess_post_ftd_health
+
+    market = get_market_state(list(reversed(sp500_chrono)), list(reversed(nasdaq_chrono)))
+    return assess_post_ftd_health(market, sp500_chrono, nasdaq_chrono)
+
+
+@pytest.mark.parametrize("resumed_first", [True, False], ids=["sp500_resumed", "nasdaq_resumed"])
+def test_a_failed_ftd_on_the_other_index_does_not_override_a_resumed_uptrend(resumed_first):
+    from test_stateful_replay import ftd_history
+
+    resumed = dated(prefix() + rise_bars(14))
+    failed = dated(ftd_history() + [B(100.0, low=97.9)])
+    assert run(failed)["state"] == "FTD_INVALIDATED"
+    sp, nq = (resumed, failed) if resumed_first else (failed, resumed)
+    result = assess(sp, nq)
+    assert result["combined_state"] == "UPTREND_RESUMED"
+    assert result["market_status"] == "confirmed_uptrend"
+    assert result["quality_score"]["signal"] == "No FTD"
+
+
+def test_the_undercut_is_recorded_before_a_same_bar_resume():
+    rise = rise_bars(9)  # Day 9, just under the 106 peak
+    bar = B(107.0, low=97.0, high=107.5)  # Day 10: undercuts 98.0 and closes at a new high
+    result = run(prefix() + rise + [bar])
+    assert result["state"] == "UPTREND_RESUMED"
+    attempt = result["rally_attempt"]
+    assert attempt["end_reason"] == "undercut"
+    assert attempt["reset_count"] == 1
+    assert attempt["reference_low"] == 97.0  # the new segment low includes today's low
+    assert run(prefix() + rise + [bar, B(107.2, low=97.5)])["state"] == "UPTREND_RESUMED"
+    assert run(prefix() + rise + [bar, B(107.2, low=96.9)])["state"] == "CORRECTION"
+
+
+def test_an_ftd_on_the_day_of_a_new_high_beats_the_resume():
+    bars = prefix() + [
+        B(102.0, low=100.0, high=102.5),  # Day 1
+        B(104.0, low=103.0, high=104.2),
+        B(105.0, low=104.0, high=105.2),
+    ]
+    day4 = B(105.0 * 1.015, vol=1_500_000)  # +1.5% on higher volume, above the 106 peak
+    assert day4["close"] > 106.0
+    result = run(bars + [day4])
+    assert result["state"] == "FTD_CONFIRMED"
+    assert result["ftd"]["ftd_detected"] is True
+    assert result["ftd"]["ftd_day_number"] == 4
+    assert result["cycle"]["resumed_without_ftd"] is False
+    below = B(day4["low"] - 0.2)  # a later close below the FTD-day low
+    pressured = run(bars + [day4, below])
+    assert pressured["market_status"] == "uptrend_under_pressure"
+    assert "ftd_low_close_breach" in pressured["cycle"]["pressure_reasons"]
+
+
+def test_a_day_11_new_high_records_the_expiry_and_then_resumes():
+    gentle = rise_bars(10, step=1.0065)  # Day 10 stays under the 106 peak
+    assert gentle[-1]["close"] < 106.0
+    day11 = B(107.0, vol=1_500_000)  # +1.4% on higher volume: not an FTD on Day 11
+    result = run(prefix() + gentle + [day11])
+    assert result["state"] == "UPTREND_RESUMED"
+    attempt = result["rally_attempt"]
+    assert attempt["end_reason"] == "expired"
+    assert attempt["reset_count"] == 1
+    assert attempt["reference_low"] == day11["low"]  # the expiry bar starts the new segment
+    assert result["ftd"] is None
+
+
+def test_a_resume_from_a_plain_correction_keeps_todays_low_in_the_reference():
+    bars = prefix()  # a correction with no attempt: segment low 98.0
+    bar = B(107.0, low=97.0, high=107.5)
+    result = run(bars + [bar])
+    assert result["state"] == "UPTREND_RESUMED"
+    assert result["rally_attempt"]["reference_low"] == 97.0
+    assert run(bars + [bar, B(107.2, low=97.5)])["state"] == "UPTREND_RESUMED"
+    assert run(bars + [bar, B(107.2, low=96.9)])["state"] == "CORRECTION"
+
+
+def test_replay_high_is_the_highest_valid_close_across_a_volume_gap(monkeypatch):
+    before = [B(130.0 + 0.1 * (k % 2)) for k in range(70)]
+    gap = B(130.0, vol=0)  # a volume-only gap: the replay restarts after it
+    after = lead_bars(62) + prefix()[8:] + rise_bars(13)  # recovers to ~108, never to 130
+    bars = before + [gap] + after
+    assert max(b["close"] for b in after) < 110
+    monkeypatch.setenv(ENV, "replay_high")
+    result = run(bars)
+    assert result["cycle"]["restarted_after_gap"] is True
+    assert result["state"] != "UPTREND_RESUMED"
+    monkeypatch.setenv(ENV, "pre_correction_high")
+    assert run(bars)["state"] == "UPTREND_RESUMED"
+    # a missing close is skipped, not read as the replay's maximum or as zero
+    broken = [dict(b) for b in bars]
+    del broken[10]["close"]
+    monkeypatch.setenv(ENV, "replay_high")
+    assert run(broken)["state"] != "UPTREND_RESUMED"
+
+
+def test_52w_availability_boundary(monkeypatch):
+    monkeypatch.setenv(ENV, "52w")
+    tail = prefix()[8:]
+    rise = rise_bars(14)
+    fh = first_new_high(rise)
+
+    def series(prior_sessions):
+        lead = prior_sessions - len(tail) - fh
+        bars = lead_bars(lead) + tail + rise[: fh + 1]
+        assert len(bars) - 1 == prior_sessions  # the new-high bar has this many prior sessions
+        return bars
+
+    assert run(series(251))["state"] != "UPTREND_RESUMED"  # 251 prior sessions: rule off
+    assert run(series(252))["state"] == "UPTREND_RESUMED"  # exactly 252: on
+
+
+# --- tolerance on the drawdown comparisons --------------------------------------------------------
+
+
+def exact_drawdown_history(closes):
+    from test_stateful_replay import long_advance_history
+
+    base = long_advance_history(120, step=0.0006)
+    scale = 110.0 / base[-1]["close"]
+    scaled = []
+    for bar in base:
+        scaled.append(
+            {k: (v * scale if k in ("open", "high", "low", "close") else v) for k, v in bar.items()}
+        )
+    scaled[-1]["close"] = scaled[-1]["open"] = 110.0
+    tail = [B(c, vol=1_100_000 + 100_000 * i) for i, c in enumerate(closes)]
+    return scaled + tail
+
+
+def test_an_exact_min_drawdown_counts_despite_float_noise(monkeypatch):
+    monkeypatch.setenv("FTD_CORRECTION_MIN_DRAWDOWN_PCT", "3.5")
+    bars = exact_drawdown_history([109.5, 109.0, 108.5, 108.0, 107.2, 106.15])
+    assert 110.0 * (1 - 3.5 / 100) < 106.15  # the plain float cutoff is 106.14999999999999
+    result = run(bars)
+    assert result["cycle"]["indicators"]["sma50"] > 106.15
+    assert result["state"] == "CORRECTION"
+    assert result["cycle"]["previous_ftd"]["end_reason"] == "distribution"
+
+
+def test_an_exact_10_percent_drawdown_counts_despite_float_noise():
+    bars = exact_drawdown_history([99.0])
+    result = run(bars)
+    assert result["state"] == "CORRECTION"
+    assert result["cycle"]["previous_ftd"]["end_reason"] == "deep_drawdown"
+
+
+# --- guidance for a resumed uptrend ------------------------------------------------------------------
+
+
+def test_the_guidance_for_a_resumed_uptrend_does_not_say_stay_defensive(tmp_path):
+    from report_generator import generate_markdown_report
+
+    bars = dated(prefix() + rise_bars(14))
+    market = assess(bars, [])
+    quality = market["quality_score"]
+    assert quality["total_score"] == 0
+    assert quality["signal"] == "No FTD"
+    assert "Uptrend resumed on a new high" in quality["guidance"]
+    assert "no FTD quality score applies" in quality["guidance"]
+    assert "Stay defensive" not in quality["guidance"]
+    analysis = {
+        "metadata": {},
+        "market_state": {"combined_state": market["combined_state"]},
+        "sp500": market["sp500"],
+        "nasdaq": market["nasdaq"],
+        "quality_score": quality,
+    }
+    path = tmp_path / "report.md"
+    generate_markdown_report(analysis, str(path))
+    text = path.read_text(encoding="utf-8")
+    assert "Uptrend resumed on a new high" in text
+    assert "Stay defensive" not in text

@@ -11,7 +11,7 @@ Phases (reported through the unchanged ``MarketState`` values):
   uptrend_or_none -> NO_SIGNAL      no qualifying correction known
   correction      -> CORRECTION, or RALLY_FAILED / FTD_INVALIDATED when the
                      correction was (re-)entered by that event; the label lasts
-                     until the next Day 1 (only an FTD leaves the correction)
+                     until the next Day 1 (an FTD or, unless FTD_RESUME_NEW_HIGH=off, a new high leaves it)
   rally           -> RALLY_ATTEMPT (day 1-3) or FTD_WINDOW (day 4-10)
   confirmed       -> FTD_CONFIRMED (additive ``cycle.uptrend_status``), or
                      UPTREND_RESUMED when a new high ended the correction without an FTD
@@ -240,7 +240,10 @@ class _Replay:
         self.h = history
         self.start = start
         self.params = params if params is not None else resolve_parameters()
-        self.replay_max = history[start]["close"]  # highest close seen before the current bar
+        # Highest valid close in the fetched history before the current bar. Earlier bars
+        # count even when a gap restarted the replay; a missing or invalid close is skipped.
+        closes = [read_price(bar, "close") for bar in history[: start + 1]]
+        self.replay_max = max(c for c in closes if c is not None)
         self.resumed = False  # confirmed without an FTD (a new high ended the correction)
         self.phase = "uptrend_or_none"
         self.label = None  # CORRECTION / RALLY_FAILED / FTD_INVALIDATED in correction
@@ -347,21 +350,23 @@ class _Replay:
     def _step_correction(self, t):
         bar = self.h[t]
         close = bar["close"]
-        if self._maybe_resume(t):
-            return
+        # Today's bar updates the segment low and the closing low first, so a resume on
+        # this bar keeps today's low in its failure reference.
         if bar["low"] < self.seg_low:
             self.seg_low, self.seg_low_idx = bar["low"], t
-        # Only an FTD leaves a correction: a rise above the old peak does not.
+        new_closing_low = close < self.low_close
+        if new_closing_low:
+            self.low_close, self.low_idx = close, t
+        if self._maybe_resume(t):
+            return
+        # An FTD or a new high leaves a correction: a rise that is neither stays in it.
         if not self.armed:
             # After an expiry a bar can only arm the count, never start Day 1: the
             # earliest Day 1 is the bar after the arming (down-close) bar.
-            if close < self.low_close:
-                self.low_close, self.low_idx = close, t
             if close < self.h[t - 1]["close"]:
                 self.armed = True
             return
-        if close < self.low_close:
-            self.low_close, self.low_idx = close, t
+        if new_closing_low:
             if _upper_half(bar):
                 self._start_day1(t)
             return
@@ -378,7 +383,9 @@ class _Replay:
                 return None  # needs 252 prior sessions since the replay start
             return max(self.h[i]["close"] for i in range(t - RESUME_52W_SESSIONS, t))
         if mode == "replay_high":
-            return self.replay_max  # highest close in the fetched history, not an all-time high
+            return (
+                self.replay_max
+            )  # highest valid close in the fetched history, not an all-time high
         return None
 
     def _maybe_resume(self, t):
@@ -444,8 +451,9 @@ class _Replay:
     def _step_rally(self, t):
         bar, prev = self.h[t], self.h[t - 1]
         close = bar["close"]
-        if self._maybe_resume(t):
-            return
+        # Same-bar priority: undercut, then a qualifying FTD, then the Day-11 expiry, and
+        # only then (still in correction, including right after a failure or an expiry)
+        # a close above the resume reference.
         self.day += 1
         self.attempt["current_day_count"] = self.day
         if bar["low"] < self.ref_low:
@@ -458,6 +466,7 @@ class _Replay:
                 ),
             )
             self._fail(t, MarketState.RALLY_FAILED, "rally failed: rally low undercut")
+            self._maybe_resume(t)
             return
         if close < self.low_close:  # a lower close that holds the reference moves the closing low
             self.low_close, self.low_idx = close, t
@@ -484,7 +493,8 @@ class _Replay:
             and bar["volume"] > prev["volume"] > 0
         ):
             self._confirm(t, gain)
-        elif self.day > FTD_DAY_END:
+            return
+        if self.day > FTD_DAY_END:
             # Expiry: a new segment starts at this bar (inclusive).
             self.attempt.update(
                 invalidated=True,
@@ -497,6 +507,7 @@ class _Replay:
             self.label = MarketState.RALLY_FAILED.value
             # The expiry bar is never Day 1; a down close arms the new count.
             self.armed = close < prev["close"]
+        self._maybe_resume(t)
 
     def _fail(self, t, label, reason):
         """Re-enter the correction phase after an undercut; the bar is never Day 1."""
@@ -584,7 +595,8 @@ class _Replay:
         active = len(self.active_dds())
         sma = self.sma(t)  # an SMA that cannot be computed makes the condition false
         min_drawdown = self.params["correction_min_drawdown_pct"]
-        deep_enough = min_drawdown <= 0 or close <= self.peak_close * (1 - min_drawdown / 100)
+        drawdown_pct = (1 - close / self.peak_close) * 100
+        deep_enough = min_drawdown <= 0 or _at_least(drawdown_pct, min_drawdown)
         if (
             active >= self.params["correction_dd_count"]
             and sma is not None
@@ -592,7 +604,7 @@ class _Replay:
             and deep_enough
         ):
             self._end_uptrend(t, "distribution")
-        elif close <= self.peak_close * (1 - DEEP_CORRECTION_PCT / 100):
+        elif _at_least(drawdown_pct, DEEP_CORRECTION_PCT):
             self._end_uptrend(t, "deep_drawdown")
         else:
             self._update_status(t)
@@ -748,7 +760,7 @@ class _Replay:
                 "prior_ftd_events": list(self.prior_events),
             }
         )
-        if self.phase == "correction":
+        if self.phase == "correction" or self.resumed:
             attempt["reset_count"] = self.failures
             attempt["prior_ftd_events"] = list(self.prior_events)
         if state in (

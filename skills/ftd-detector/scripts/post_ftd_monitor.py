@@ -256,7 +256,12 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
             "total_score": 0,
             "breakdown": {},
             "signal": "No FTD",
-            "guidance": "No Follow-Through Day detected. Stay defensive.",
+            "guidance": (
+                "Uptrend resumed on a new high without a follow-through day; "
+                "no FTD quality score applies."
+                if market_state.get("combined_state") == "UPTREND_RESUMED"
+                else "No Follow-Through Day detected. Stay defensive."
+            ),
             "exposure_range": "Not assessed",
         }
 
@@ -529,7 +534,11 @@ def assess_post_ftd_health(
                     market_state["combined_state"] = "NO_SIGNAL"
                     market_state["dual_confirmation"] = False
                     market_state["ftd_index"] = None
-                elif inv.get("invalidated"):
+                elif (
+                    inv.get("invalidated")
+                    and market_state.get("combined_state") != "UPTREND_RESUMED"
+                ):
+                    # a failed event never replaces a resumed uptrend on the other index
                     market_state["combined_state"] = "FTD_INVALIDATED"
 
                 break  # Use first confirmed FTD index only (matches quality score logic)

@@ -51,9 +51,11 @@ def assess_lifecycle(history, ftd_idx, rally_low=None):
 
 def select_ftd_source(market_state):
     """Prefer a still-valid event; use a failed event only if neither is valid."""
-    # A failed event must not displace an active, unconfirmed rally elsewhere.
+    # A failed event must not displace an active rally, a confirmed FTD or a resumed
+    # uptrend elsewhere.
     active = any(
-        (market_state.get(key) or {}).get("state") in ("FTD_WINDOW", "RALLY_ATTEMPT")
+        (market_state.get(key) or {}).get("state")
+        in ("FTD_WINDOW", "RALLY_ATTEMPT", "FTD_CONFIRMED", "UPTREND_RESUMED")
         for key in ("sp500", "nasdaq")
     )
     detected = [

@@ -247,7 +247,7 @@ FTD window and day count are details inside `market_in_correction`.
   analyzed; an invalid value warns on stderr and falls back to the default; the effective value is in
   `cycle.parameters`): `pre_correction_high` (default) is the peak close the current correction was
   measured from, `52w` is the highest close of the previous 252 sessions (off for a bar until 252
-  sessions exist since the replay start), `replay_high` is the highest close in the fetched history
+  sessions exist since the replay start), `replay_high` is the highest valid close in the fetched history
   (not a true all-time high) and `off` disables the rule. The default is an uncalibrated model
   choice. Every confirmed-phase rule then applies: distribution and 50-SMA pressure (the SMA needs
   a regain first), 6+ DDs below the 50-day line, the 10% drawdown from the peak since the resume.
@@ -273,7 +273,7 @@ FTD window and day count are details inside `market_in_correction`.
   `regained_50sma_since_ftd`: it ends the uptrend even if the SMA was never regained. Two tuning knobs, read from the environment when an index is analyzed, make the distribution correction trigger stricter (an invalid value warns on stderr and uses the default; the effective values are in `cycle.parameters`; the defaults reproduce the behavior above and are uncalibrated): `FTD_CORRECTION_DD_COUNT`, an integer from 6 to 10 (default 6), is the number of active distribution days the trigger needs; `FTD_CORRECTION_MIN_DRAWDOWN_PCT`, a number from 0 to 9.99 (default 0, meaning none), additionally requires the close to be at least that many percent below the post-confirmation peak close. The undercut (invalidation), the 10% deep-drawdown trigger and the 5-DD pressure count are unchanged. Secondary sources describe IBD's trigger variously (one cites the 21-day EMA); this model uses the 50-day line so that shallow pullbacks inside a rising market are not declared corrections, and the threshold is unverified.
   The earlier 21-session EMA trigger fired on shallow pullbacks (about half of the entries in a
   2000-2026 replay were less than 5% below the 60-day high) and left long stretches of a rising
-  market in correction, because only an FTD (or a new high) ends a correction; (b) an intraday low below the rally low
+  market in correction, because an FTD (or, unless `FTD_RESUME_NEW_HIGH=off`, a new high) is needed to end a correction; (b) an intraday low below the rally low
   (FTD_INVALIDATED, as before); (c) a drawdown >= 10% from the post-FTD peak close
   (`end_reason` = `deep_drawdown`). (b) wins when several apply on one bar.
 - Distribution day: close down >= 0.2% on volume above the previous session, counted after the
@@ -286,11 +286,21 @@ FTD window and day count are details inside `market_in_correction`.
 - The status is evaluated on the FTD bar too. An FTD that closes below its 50-session SMA
   stays `confirmed_uptrend` until the index has closed above the SMA once; only distribution or
   the FTD-day-low breach can put it under pressure before that.
-- IBD sets one status from either major index: if the combined state is `FTD_CONFIRMED`, the
-  better confirmed index wins; any data gap gives `null`; otherwise `market_in_correction`
+- IBD sets one status from either major index: if the combined state is `FTD_CONFIRMED` or
+  `UPTREND_RESUMED` (an FTD index beats a resumed one; a failed event on the other index never
+  replaces either), the better confirmed index wins; any data gap gives `null`; otherwise `market_in_correction`
   if either index is in correction.
 
-**Why:** IBD moves a correction to a confirmed uptrend only on a follow-through day, and
+**Same-bar priority** inside an active attempt: an undercut of the reference low first (the
+segment restarts at that bar, inclusive), then a qualifying FTD on Day 4-10 (it beats a resume on
+the same bar, so the FTD-day low and its warning exist), then the Day-11 expiry (the segment
+restarts), and only then, while still in correction, a close above the resume reference (after a
+failure or an expiry the failure reference of the resumed uptrend is the new segment's low,
+which includes today's low). On a plain correction bar, today's low and closing low are updated
+before the resume check.
+
+**Why:** IBD moves a correction to a confirmed uptrend on a follow-through day or, per its own
+headlines, on a new high, and
 moves a confirmed uptrend to under pressure and then to correction as distribution
 accumulates and key averages are lost. Under pressure returns to confirmed when distribution
 ages off and the indexes regain the 50-day line, with no new FTD. Secondary sources (IBD's
