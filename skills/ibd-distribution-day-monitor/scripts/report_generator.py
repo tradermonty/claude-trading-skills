@@ -148,8 +148,7 @@ def render_markdown(payload: dict) -> str:
     unavailable = audit.get("symbols_unavailable") or []
     if unavailable:
         reasons = "; ".join(
-            f"{item.get('symbol')} ({item.get('reason', 'unavailable')})"
-            for item in unavailable
+            f"{item.get('symbol')} ({item.get('reason', 'unavailable')})" for item in unavailable
         )
         lines.append(f"- **Unavailable Symbols:** {reasons} (the results below exclude them)")
     for item in audit.get("instrument_identity", []):
