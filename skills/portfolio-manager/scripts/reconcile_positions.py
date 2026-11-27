@@ -221,7 +221,6 @@ def _read_snapshot(path: Path, source: str) -> object:
     raise SnapshotError(f"{source}: {cause}") from None
 
 
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--broker", required=True, type=Path, help="Normalized broker JSON")
