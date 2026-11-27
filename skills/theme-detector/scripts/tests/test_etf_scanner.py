@@ -154,8 +154,8 @@ class TestCalculateRSI:
 
     def test_non_numeric_close_returns_none(self):
         """A non-numeric close cannot be read as a price, so it fails closed."""
-        prices = pd.Series([float(i) for i in range(1, 20)])
-        prices.iloc[5] = "not-a-price"
+        prices = pd.Series([float(i) for i in range(1, 20)], dtype=object)
+        prices.iloc[5] = object()
         assert ETFScanner._calculate_rsi(prices, period=14) is None
 
 
