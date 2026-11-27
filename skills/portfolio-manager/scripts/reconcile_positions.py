@@ -177,10 +177,27 @@ def _unique_object(pairs: list) -> dict:
     return result
 
 
+_MAX_JSON_DEPTH = 900
+
+
+def _is_deeper_than(value: object, limit: int = _MAX_JSON_DEPTH) -> bool:
+    """Report a parsed payload nested past the limit without recursing."""
+    stack = [(value, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > limit:
+            return True
+        if isinstance(node, dict):
+            stack.extend((child, depth + 1) for child in node.values())
+        elif isinstance(node, list):
+            stack.extend((child, depth + 1) for child in node)
+    return False
+
+
 def _read_snapshot(path: Path, source: str) -> object:
     """Classify read failures without exposing paths, keys or payload contents."""
     try:
-        return json.loads(
+        snapshot = json.loads(
             path.read_text(encoding="utf-8"),
             parse_float=Decimal,
             object_pairs_hook=_unique_object,
@@ -197,7 +214,12 @@ def _read_snapshot(path: Path, source: str) -> object:
         cause = "JSON too deeply nested"
     except (ValueError, InvalidOperation):
         cause = "invalid JSON"
+    else:
+        if _is_deeper_than(snapshot):
+            raise SnapshotError(f"{source}: JSON too deeply nested")
+        return snapshot
     raise SnapshotError(f"{source}: {cause}") from None
+
 
 
 def main(argv: list[str] | None = None) -> int:
