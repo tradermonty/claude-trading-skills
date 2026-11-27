@@ -134,6 +134,11 @@ class TestCalculateRSI:
             prices.iloc[position] = float("nan")
             assert ETFScanner._calculate_rsi(prices, period=14) is None
 
+    def test_all_nan_series_returns_none(self):
+        """A wholly unusable series must not fall through to a 100.0 RSI."""
+        prices = pd.Series([float("nan")] * 20)
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
 
 # ---------------------------------------------------------------------------
 # TestCalculate52wDistances
