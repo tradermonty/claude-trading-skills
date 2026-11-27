@@ -139,6 +139,12 @@ class TestCalculateRSI:
         prices = pd.Series([float("nan")] * 20)
         assert ETFScanner._calculate_rsi(prices, period=14) is None
 
+    def test_nan_close_in_flat_series_returns_none(self):
+        """A missing bar in a flat series is unusable, not a 100.0 overbought read."""
+        prices = pd.Series([50.0] * 20)
+        prices.iloc[5] = float("nan")
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
 
 # ---------------------------------------------------------------------------
 # TestCalculate52wDistances
