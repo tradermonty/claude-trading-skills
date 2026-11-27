@@ -1,5 +1,6 @@
 """Tests for data_loader (FMP wrapper + audit flags)."""
 
+import pytest
 from unittest.mock import MagicMock
 
 from data_loader import normalize_history, validate_history_quality
@@ -100,6 +101,28 @@ class TestFetchOHLCVMocked:
 
         mock_client = MagicMock()
         mock_client.get_historical_prices.return_value = None
+        history, audit = fetch_ohlcv(mock_client, "QQQ", days=80)
+        assert history == []
+        assert "no_data_returned" in audit["audit_flags"]
+
+    def test_fetch_raises_plan_restriction_when_the_client_reports_402(self):
+        from data_loader import FMPPlanRestrictedError, fetch_ohlcv
+
+        mock_client = MagicMock()
+        mock_client.get_historical_prices.return_value = None
+        mock_client._last_error = (
+            "HTTP 402 - Premium Query Parameter value set for 'symbol' is not "
+            "available under your current subscription"
+        )
+        with pytest.raises(FMPPlanRestrictedError, match="price history for QQQ"):
+            fetch_ohlcv(mock_client, "QQQ", days=80)
+
+    def test_fetch_keeps_no_data_audit_for_a_plain_empty_payload(self):
+        from data_loader import fetch_ohlcv
+
+        mock_client = MagicMock()
+        mock_client.get_historical_prices.return_value = None
+        mock_client._last_error = "HTTP 401 - invalid API key"
         history, audit = fetch_ohlcv(mock_client, "QQQ", days=80)
         assert history == []
         assert "no_data_returned" in audit["audit_flags"]

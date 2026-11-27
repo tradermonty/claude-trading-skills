@@ -93,6 +93,7 @@ JSON is UTF-8 with `ensure_ascii=False` (Japanese explanations preserved). Sensi
 - Do not override the IBD rule definitions unless `config/default.yaml` is changed deliberately.
 - Always explain which dates contributed to the active count.
 - Treat missing or unreliable volume data as a warning (audit_flag), not as a Distribution Day.
+- If the FMP plan refuses a symbol's price history (HTTP 402 premium/restricted endpoint, or 403 legacy after the fallback), keep the run for the other indexes but report the symbol in `audit.symbols_unavailable` (`reason: plan_gated`) and in the Markdown audit block. A plan restriction is not a market result.
 - Do not place trades. The portfolio action is a risk-management suggestion, not an execution instruction.
 
 ## CLI
