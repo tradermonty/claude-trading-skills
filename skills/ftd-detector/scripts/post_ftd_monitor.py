@@ -98,8 +98,7 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
                 "details": [],
                 "data_gap": True,
                 "reason": (
-                    "Data gap: no full session reference for "
-                    f"{history[i].get('date', 'N/A')}"
+                    f"Data gap: no full session reference for {history[i].get('date', 'N/A')}"
                 ),
             }
         prev_volume = read_price(history[reference_idx], "volume")
