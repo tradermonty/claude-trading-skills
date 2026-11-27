@@ -180,6 +180,15 @@ After execution, the script produces two files and prints a summary to the conso
 5. **Score History & Trend** -- Previous scores and the trend direction (Improving / Stable / Deteriorating).
 6. **Recommended Actions** -- Concrete steps based on the current zone (e.g., "Full position sizing; growth/momentum favored" in Strong zone).
 7. **Key Levels to Watch** -- Important thresholds such as 8MA crossing 200MA or approaching historical peak/trough averages.
+8. **Evaluation Coverage** -- Evaluated / total data rows in the fetched detail CSV and a `complete` / `partial` / `not_evaluable` verdict. A `partial` verdict means some declared rows were skipped; missing rows may change the conclusion.
+
+### Evaluation coverage
+
+JSON carries a top-level schema 1.0 `evaluation_coverage` block (#711). Its
+universe is every data row in the detail CSV: a parsed row is evaluated, and a
+row skipped for a missing, malformed or non-finite value is `invalid_data`. A
+`partial` verdict is a real gap in the declared row universe, not a market
+signal; component scores and weights are unchanged.
 
 ### Health Zone Quick Reference
 

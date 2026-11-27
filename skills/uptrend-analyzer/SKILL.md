@@ -165,3 +165,14 @@ Missing or malformed primary dates stop report generation.
 Pass the exact JSON paths printed by these invocations to Exposure Coach's
 `--require-provenance --run-id … --as-of …` mode. Run IDs are caller-provided
 consistency markers, not authenticity or point-in-time proof.
+
+## Evaluation coverage
+
+JSON carries a top-level schema 1.0 `evaluation_coverage` block (#711) over the
+twelve declared dashboard worksheets: `all` plus the eleven sector worksheets.
+A worksheet counts as evaluated when its latest ratio is finite; the sector
+summary CSV is the same fallback the calculators use. An absent worksheet is
+`missing_data`, and a row without a usable ratio is `invalid_data`. Markdown
+prints evaluated / total beside the composite. A `partial` verdict means
+components fed by missing worksheets used documented neutral defaults; scores
+and weights are unchanged.

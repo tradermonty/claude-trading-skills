@@ -78,9 +78,20 @@ def _report_drift(filename: str, missing: list[str]) -> None:
     )
 
 
-def fetch_detail_csv(url: str = DEFAULT_DETAIL_URL) -> list[dict]:
+def fetch_detail_csv(
+    url: str = DEFAULT_DETAIL_URL,
+    outcomes: Optional[dict[int, Optional[str]]] = None,
+) -> list[dict]:
     """
     Fetch and parse the detail CSV (market_breadth_data.csv).
+
+    Every data row in the CSV body is a declared universe member (#711). A row
+    that parses is recorded as evaluated (``None``); a row skipped for a
+    malformed value is recorded as ``invalid_data``. When ``outcomes`` is
+    supplied it is filled with one entry per declared row (line number ->
+    reason), so the caller can build the ``evaluation_coverage`` block. Nothing
+    is recorded when the body or header cannot be parsed at all; the run then
+    cannot produce a report.
 
     Returns list of dicts sorted by date ascending (oldest first).
     """
@@ -109,8 +120,12 @@ def fetch_detail_csv(url: str = DEFAULT_DETAIL_URL) -> list[dict]:
         try:
             row = _parse_detail_row(raw_row)
             rows.append(row)
+            if outcomes is not None:
+                outcomes[line_num] = None
         except (ValueError, KeyError) as e:
             print(f"\n  WARN: Skipping line {line_num}: {e}", file=sys.stderr)
+            if outcomes is not None:
+                outcomes[line_num] = "invalid_data"
 
     if not rows:
         print("OK (0 rows)")

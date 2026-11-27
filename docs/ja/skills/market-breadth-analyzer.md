@@ -245,7 +245,16 @@ S&Pは高値更新しているのにブレッドスが悪化していないか�
 | `zone` | ヘルスゾーン（Strong/Healthy/Neutral/Weakening/Critical） |
 | `component_scores` | 各コンポーネントの個別スコアと重み |
 | `data_quality` | データ品質ラベル（Complete/Partial/Limited） |
+| `evaluation_coverage` | 詳細CSVの評価済み行数 / 宣言行数と `complete` / `partial` / `not_evaluable` 判定 |
 | `trend` | 直近スコアの方向（Improving/Deteriorating/Stable） |
+
+### 評価カバレッジ
+
+JSONには schema 1.0 の `evaluation_coverage` ブロック（#711）が含まれます。対象は
+詳細CSVの全データ行で、解析できた行は評価済み、値の欠落・不正・非有限でスキップ
+された行は `invalid_data` です。`partial` は宣言された行の一部が評価されていない
+ことを示す実ギャップであり、市場シグナルではありません。コンポーネントの
+スコアと重みは変更されません。
 
 ### データ品質ラベル
 

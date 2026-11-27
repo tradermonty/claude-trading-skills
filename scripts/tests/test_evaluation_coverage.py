@@ -60,6 +60,8 @@ def test_standalone_copies_match_shared_contract():
         "downtrend-duration-analyzer",
         "stockbee-momentum-burst-screener",
         "stockbee-exhaustion-hammer-screener",
+        "market-breadth-analyzer",
+        "uptrend-analyzer",
     ):
         assert (ROOT / "skills" / skill / "scripts/evaluation_coverage.py").read_bytes() == source
 
