@@ -145,6 +145,13 @@ class TestCalculateRSI:
         prices.iloc[5] = float("nan")
         assert ETFScanner._calculate_rsi(prices, period=14) is None
 
+    def test_infinite_close_returns_none(self):
+        """A non-finite close is unusable, matching the other RSI copies' guard."""
+        for bad in (float("inf"), float("-inf")):
+            prices = pd.Series([float(i) for i in range(1, 20)])
+            prices.iloc[5] = bad
+            assert ETFScanner._calculate_rsi(prices, period=14) is None
+
 
 # ---------------------------------------------------------------------------
 # TestCalculate52wDistances
