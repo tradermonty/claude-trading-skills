@@ -1,8 +1,8 @@
 """Tests for data_loader (FMP wrapper + audit flags)."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from data_loader import normalize_history, validate_history_quality
 
 
