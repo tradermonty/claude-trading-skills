@@ -127,6 +127,37 @@ class TestExtractUptrendScore:
         score = extract_uptrend_score(data)
         assert score < 30
 
+    @pytest.mark.parametrize(
+        ("pct", "low", "high"),
+        [
+            (0, 0, 29),
+            (10, 0, 29),
+            (19, 0, 29),
+            (20, 30, 49),
+            (25, 30, 49),
+            (30, 30, 49),
+            (34, 30, 49),
+            (35, 50, 74),
+            (40, 50, 74),
+            (45, 50, 74),
+            (50, 50, 74),
+            (51, 75, 100),
+            (60, 75, 100),
+            (100, 75, 100),
+        ],
+    )
+    def test_uptrend_pct_matches_documented_score_bands(self, pct, low, high):
+        """20-35% participation must score 30-49, not reach the 50 BROAD gate."""
+        score = extract_uptrend_score({"uptrend_pct": pct})
+        assert low <= score <= high, f"{pct}% mapped to {score}, expected {low}-{high}"
+
+    def test_uptrend_pct_below_healthy_band_is_not_broad_participation(self):
+        # exposure_framework.md: 20-35% is the 30-49 band, so it stays under the
+        # uptrend >= 50 broad-participation gate even when breadth is broad.
+        for pct in (30, 34):
+            score = extract_uptrend_score({"uptrend_pct": pct})
+            assert determine_participation(score, 60, None) == "MODERATE"
+
     def test_nested_composite_score(self):
         # uptrend-analyzer stores its score under "composite"
         data = {"composite": {"composite_score": 72}}
